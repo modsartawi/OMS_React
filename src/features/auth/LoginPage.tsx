@@ -21,7 +21,13 @@ function resolveReturnUrl(raw: string | null): string {
 type Step = 'password' | 'change' | 'totp'
 
 const inputClass =
-  'w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  'w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
+const submitClass =
+  'w-full rounded-full bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50'
+
+const backClass =
+  'mt-2 w-full rounded-full px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted'
 
 export default function LoginPage() {
   const { t } = useTranslation('auth')
@@ -168,8 +174,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <div className="w-full max-w-sm rounded-lg border border-border bg-card p-6 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm">
+        {/* Brand moment: the wordmark, small and bold, with the accent full stop. */}
+        <p className="mb-5 text-sm font-semibold tracking-tight">
+          {t('common:brand')}
+          <span className="text-sidebar-active">.</span>
+        </p>
         {sessionExpired && step === 'password' && (
           <div className="mb-3 rounded-md border border-border bg-muted px-3 py-2 text-sm">
             {t('sessionExpired')}
@@ -186,8 +197,7 @@ export default function LoginPage() {
 
         {step === 'password' && (
           <form onSubmit={onPasswordSubmit}>
-            <h1 className="text-xl font-semibold">{t('title')}</h1>
-            <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
+            <h1 className="mb-4 text-base font-semibold tracking-tight">{t('title')}</h1>
 
             <label className="mb-1 block text-sm font-medium" htmlFor="userId">
               {t('userId')}
@@ -214,7 +224,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={busy || userId.trim() === '' || password === ''}
-              className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              className={submitClass}
             >
               {busy ? t('signingIn') : t('signIn')}
             </button>
@@ -223,7 +233,7 @@ export default function LoginPage() {
 
         {step === 'change' && (
           <form onSubmit={onChangeSubmit}>
-            <h1 className="text-xl font-semibold">{t('changeTitle')}</h1>
+            <h1 className="text-base font-semibold tracking-tight">{t('changeTitle')}</h1>
             <p className="mb-4 text-sm text-muted-foreground">{t('changeSubtitle')}</p>
 
             <label className="mb-1 block text-sm font-medium" htmlFor="newPassword">
@@ -252,14 +262,14 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={busy || newPassword === '' || confirmPassword === ''}
-              className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              className={submitClass}
             >
               {busy ? t('settingPassword') : t('setPassword')}
             </button>
             <button
               type="button"
               onClick={goBackToPassword}
-              className="mt-2 w-full rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className={backClass}
             >
               {t('back')}
             </button>
@@ -268,7 +278,7 @@ export default function LoginPage() {
 
         {step === 'totp' && (
           <form onSubmit={onTotpSubmit}>
-            <h1 className="text-xl font-semibold">{t('totpTitle')}</h1>
+            <h1 className="text-base font-semibold tracking-tight">{t('totpTitle')}</h1>
             <p className="mb-4 text-sm text-muted-foreground">{t('totpSubtitle')}</p>
 
             <label className="mb-1 block text-sm font-medium" htmlFor="totpCode">
@@ -286,14 +296,14 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={busy || totpCode.trim() === ''}
-              className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              className={submitClass}
             >
               {busy ? t('verifying') : t('verify')}
             </button>
             <button
               type="button"
               onClick={goBackToPassword}
-              className="mt-2 w-full rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className={backClass}
             >
               {t('back')}
             </button>

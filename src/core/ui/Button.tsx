@@ -9,11 +9,11 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'outlined' | 'text'
 
 const BASE =
-  'inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ' +
+  'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium ' +
   'transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: 'bg-primary text-primary-foreground hover:bg-primary/90 disabled:hover:bg-primary',
+  primary: 'bg-primary text-primary-foreground hover:bg-primary/85 disabled:hover:bg-primary',
   secondary: 'border border-border bg-card hover:bg-accent disabled:hover:bg-card',
   danger: 'bg-red-700 text-white hover:bg-red-800 disabled:hover:bg-red-700',
   outlined: 'border border-border bg-transparent hover:bg-accent disabled:hover:bg-transparent',

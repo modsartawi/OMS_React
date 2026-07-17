@@ -72,7 +72,7 @@ export default function Modal({
       onClick={(e) => {
         if (e.target === ref.current) onClose()
       }}
-      className="m-auto max-h-[90vh] w-[92vw] rounded-md border border-border bg-card p-0 text-foreground shadow-lg backdrop:bg-black/50"
+      className="m-auto max-h-[90vh] w-[92vw] rounded-lg border border-border bg-card p-0 text-foreground shadow-lg backdrop:bg-black/50"
       style={{ maxWidth: width }}
     >
       <div className="flex max-h-[90vh] flex-col">

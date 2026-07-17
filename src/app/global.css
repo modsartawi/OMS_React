@@ -2,55 +2,92 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* shadcn-style semantic tokens (neutral base). The shadcn CLI will extend this
-   block when components are added; keep :root/.dark as the single token home. */
+/* ---------------------------------------------------------------------------
+   Self-hosted fonts (issue 465). Latin loads always; the Arabic faces are
+   declared but cost 0 bytes until Arabic glyphs render (unicode-range gating),
+   so the RTL retrofit needs no font work.
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Inter';
+  src: url('../assets/fonts/inter-latin-var.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Readex Pro';
+  src: url('../assets/fonts/readexpro-arabic-var.woff2') format('woff2');
+  font-weight: 160 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+08A0-08FF, U+FB50-FDFF,
+    U+FE70-FEFF;
+}
+@theme {
+  /* Arabic companion sits after the Latin face: per-glyph fallback + the
+     unicode-range gates above route scripts automatically. Headings are the
+     same sans, small and bold — the owner ruled out a serif display face
+     (464): one family everywhere, weight does the hierarchy. */
+  --font-sans: 'Inter', 'Readex Pro', system-ui, sans-serif;
+}
+
+/* ---------------------------------------------------------------------------
+   Design tokens (issue 464 — claude.ai-derived warm neutrals).
+   Light: white content over an ivory sidebar; primary actions are warm black.
+   Dark: layered warm near-blacks (never blue-gray); primary inverts to white.
+   The single chromatic accent (terracotta) is spent ONLY on focus rings,
+   selection and the rare active indicator — everything else stays neutral.
+   --------------------------------------------------------------------------- */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.991 0.003 92);
+  --foreground: oklch(0.229 0.006 84);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --card-foreground: oklch(0.229 0.006 84);
+  --primary: oklch(0.229 0.006 84);
+  --primary-foreground: oklch(0.985 0.002 92);
+  --secondary: oklch(0.962 0.005 92);
+  --secondary-foreground: oklch(0.229 0.006 84);
+  --muted: oklch(0.962 0.005 92);
+  --muted-foreground: oklch(0.538 0.009 84);
+  --accent: oklch(0.941 0.006 92);
+  --accent-foreground: oklch(0.229 0.006 84);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-accent: oklch(0.94 0 0);
-  --sidebar-active: oklch(0.546 0.245 262.881);
-  --radius: 0.5rem;
+  --destructive-foreground: oklch(0.985 0.002 92);
+  --border: oklch(0.915 0.006 92);
+  --input: oklch(0.898 0.006 92);
+  --ring: oklch(0.663 0.129 44);
+  --sidebar: oklch(0.97 0.005 92);
+  --sidebar-foreground: oklch(0.229 0.006 84);
+  --sidebar-accent: oklch(0.927 0.006 92);
+  --sidebar-active: oklch(0.663 0.129 44);
+  --radius: 0.625rem;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: oklch(0.224 0.004 84);
+  --foreground: oklch(0.953 0.004 92);
+  --card: oklch(0.265 0.004 84);
+  --card-foreground: oklch(0.953 0.004 92);
+  --primary: oklch(0.953 0.004 92);
+  --primary-foreground: oklch(0.224 0.004 84);
+  --secondary: oklch(0.307 0.004 84);
+  --secondary-foreground: oklch(0.953 0.004 92);
+  --muted: oklch(0.307 0.004 84);
+  --muted-foreground: oklch(0.718 0.005 84);
+  --accent: oklch(0.307 0.004 84);
+  --accent-foreground: oklch(0.953 0.004 92);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 18%);
-  --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-active: oklch(0.623 0.214 259.815);
+  --destructive-foreground: oklch(0.953 0.004 92);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.714 0.113 44);
+  --sidebar: oklch(0.191 0.004 84);
+  --sidebar-foreground: oklch(0.953 0.004 92);
+  --sidebar-accent: oklch(0.284 0.004 84);
+  --sidebar-active: oklch(0.714 0.113 44);
 }
 
 @theme inline {
@@ -82,6 +119,24 @@
 
 body {
   @apply bg-background text-foreground antialiased;
+}
+
+/* One focus language everywhere: the terracotta ring. Controls that draw their
+   own focus (e.g. inputs with focus:ring) opt out via focus:outline-none. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Inter's figures are proportional by default; data surfaces need tabular
+   alignment (465). Scoped to the grid and opt-in [data-numeric] — body copy
+   keeps the nicer proportional figures. */
+.ag-cell,
+.ag-header-cell,
+[data-numeric] {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Mobile sidebar overlay: block body scroll while open */

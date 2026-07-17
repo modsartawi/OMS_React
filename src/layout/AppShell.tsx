@@ -40,10 +40,8 @@ function MenuLeaf({ item, onNavigate }: { item: ShellMenuItem; onNavigate: () =>
       to={item.routerLink!}
       onClick={onNavigate}
       className={
-        'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm border-s-[3px] ' +
-        (active
-          ? 'border-sidebar-active bg-sidebar-accent font-medium'
-          : 'border-transparent hover:bg-sidebar-accent')
+        'flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm ' +
+        (active ? 'bg-sidebar-accent font-medium' : 'hover:bg-sidebar-accent/60')
       }
     >
       {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden />}
@@ -67,7 +65,7 @@ function MenuGroup({ item, onNavigate }: { item: ShellMenuItem; onNavigate: () =
         type="button"
         onClick={() => setManual(!expanded)}
         aria-expanded={expanded}
-        className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-sidebar-accent"
+        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-sidebar-accent/60"
       >
         {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden />}
         <span className="flex-1 text-start">{t(item.labelKey)}</span>
@@ -201,7 +199,7 @@ export default function AppShell() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 flex h-12 items-center gap-3 border-b border-border bg-card px-3">
+      <header className="sticky top-0 z-40 flex h-12 items-center gap-3 border-b border-border/60 bg-background px-3">
         <button
           type="button"
           onClick={() => (isMobile ? setMobileOpen(!mobileOpen) : setCollapsed(!collapsed))}
@@ -212,7 +210,7 @@ export default function AppShell() {
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
-        <NavLink to="/" className="text-sm font-semibold">
+        <NavLink to="/" className="text-sm font-semibold tracking-tight">
           {t('brand')}
         </NavLink>
         <div className="flex-1" />
@@ -242,7 +240,7 @@ export default function AppShell() {
           tabIndex={-1}
           inert={!sidebarVisible ? true : undefined}
           className={
-            'w-60 shrink-0 border-e border-border bg-sidebar text-sidebar-foreground transition-transform ' +
+            'w-60 shrink-0 border-e border-border/60 bg-sidebar text-sidebar-foreground transition-transform ' +
             (isMobile
               ? 'fixed inset-y-0 start-0 z-50 pt-12 ' + (mobileOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full')
               : collapsed

@@ -17,7 +17,7 @@ interface ColumnToggle {
 }
 
 const BTN =
-  'inline-flex h-7 items-center gap-1.5 rounded-md border border-border px-2 text-xs ' +
+  'inline-flex h-7 items-center gap-1.5 rounded-full border border-border px-2.5 text-xs ' +
   'hover:bg-accent disabled:opacity-50 disabled:hover:bg-transparent'
 
 /**

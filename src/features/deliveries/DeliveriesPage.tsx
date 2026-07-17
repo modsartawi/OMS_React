@@ -121,7 +121,7 @@ export default function DeliveriesPage() {
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-lg font-semibold">{t('title')}</h1>
+        <h1 className="text-base font-semibold tracking-tight">{t('title')}</h1>
         {showResults && (
           <GridToolbar gridApi={gridApi} selectedRow={selectedRow} hasRows={hitCount > 0} />
         )}

@@ -35,7 +35,12 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
 }
 
-const BASE = '/api/'
+// API base is environment-driven (428/435). Dev talks to the `/api` Vite proxy
+// (stripped to root before SIS.Api); prod is same-origin under IIS with SIS.Api's
+// endpoints at the root, so the base is `/`. `VITE_API_BASE` overrides both if ops
+// ever needs a non-default base. Trailing slash matters: request() strips the
+// leading slash off each path, so BASE must end in '/'.
+const BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.PROD ? '/' : '/api/')
 
 // Coalesce concurrent 401s into one toast + one redirect (Angular parity §1.4).
 let redirectInFlight = false

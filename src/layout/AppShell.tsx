@@ -7,6 +7,7 @@ import { useTheme } from './theme'
 import { useSession } from '@/core/session'
 import { authApi } from '@/features/auth/api'
 import StoreSwitcher from '@/features/auth/StoreSwitcher'
+import { buildTag } from '@/core/build-info'
 
 const MOBILE_QUERY = '(max-width: 991px)'
 
@@ -261,6 +262,12 @@ export default function AppShell() {
           <Outlet />
         </main>
       </div>
+
+      {/* Build stamp (issue 435): which build is live, at a glance. Machine-readable
+          counterpart is /version.json. */}
+      <footer className="border-t border-border px-3 py-1 text-end text-[11px] text-muted-foreground">
+        {t('brand')} · {buildTag}
+      </footer>
     </div>
   )
 }

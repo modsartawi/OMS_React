@@ -62,7 +62,7 @@ export default function SetPasswordModal({ employeeId, open, onClose, onDone }: 
       }
     >
       <p className="mb-3 text-sm">{t('password.body')}</p>
-      <div className="select-all rounded-md border border-dashed border-border bg-muted/60 px-3 py-2 text-center font-mono text-base font-bold tracking-wider">
+      <div className="select-all rounded-lg border border-dashed border-border bg-muted/60 px-3 py-2 text-center font-mono text-base font-bold tracking-wider">
         {password || t('password.generating')}
       </div>
     </Modal>

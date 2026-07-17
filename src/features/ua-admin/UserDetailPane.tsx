@@ -11,7 +11,7 @@ import StatusPill from './StatusPill'
 import SetPasswordModal from './SetPasswordModal'
 
 const FIELD =
-  'h-8 flex-1 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring'
+  'h-8 flex-1 rounded-lg border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 type Tab = 'sessions' | 'audit'
 
@@ -140,7 +140,7 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-base font-semibold text-balance">
+        <div className="text-base font-semibold tracking-tight text-balance">
           {name} <span className="font-normal text-muted-foreground">({employeeId})</span>
         </div>
         <StatusPill status={derived} />
@@ -217,7 +217,7 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
             sessions.data.map((s) => (
               <div
                 key={s.sessionId}
-                className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5"
+                className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/40 px-2.5 py-1.5"
               >
                 <span className="min-w-0 truncate">
                   <b>{t(`channel.${s.channel}`, { defaultValue: s.channel })}</b> · {t('sessions.started')}{' '}
@@ -226,7 +226,7 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
                   <span className="tabular-nums text-muted-foreground">{s.ipAddress}</span>
                 </span>
                 <button
-                  className="shrink-0 text-xs font-medium text-red-700 underline hover:text-red-800 dark:text-red-400"
+                  className="shrink-0 rounded-full text-xs font-medium text-red-700 hover:underline dark:text-red-400"
                   onClick={() => revoke(s.sessionId)}
                   disabled={acting}
                 >
@@ -247,7 +247,7 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
           ) : (
             <>
               {audit.data.entries.map((a) => (
-                <div key={a.actionId} className="rounded-md border border-border bg-muted/40 px-2.5 py-1.5">
+                <div key={a.actionId} className="rounded-lg border border-border/60 bg-muted/40 px-2.5 py-1.5">
                   <span className="tabular-nums text-muted-foreground">{formatStamp(a.actionTime)}</span> ·{' '}
                   <b>{t(`audit.actions.${a.action}`, { defaultValue: a.action })}</b>
                   {a.actor ? (

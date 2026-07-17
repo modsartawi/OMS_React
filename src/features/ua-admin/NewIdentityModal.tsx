@@ -12,7 +12,7 @@ interface Props {
 }
 
 const FIELD =
-  'h-8 w-full rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring'
+  'h-8 w-full rounded-lg border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 const LABEL = 'mb-1 block text-xs font-semibold text-muted-foreground'
 
 /**

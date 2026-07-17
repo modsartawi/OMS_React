@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { UaReportCountsResult } from '@/core/models/ua-user'
 import { deriveStatus, formatStamp } from './helpers'
 import { uaAdminApi } from './api'
@@ -17,8 +18,8 @@ const CARDS: { card: string; count: (c: UaReportCountsResult) => number; tone: s
   { card: 'all', count: (c) => c.allPeople, tone: '' },
   { card: 'notSeeded', count: (c) => c.notSeeded, tone: 'text-red-600 dark:text-red-400' },
   { card: 'phoneGap', count: (c) => c.phoneGap, tone: 'text-amber-600 dark:text-amber-400' },
-  { card: 'awaitingActivation', count: (c) => c.awaitingActivation, tone: 'text-sky-600 dark:text-sky-400' },
-  { card: 'mustChange', count: (c) => c.mustChangePassword, tone: 'text-sky-600 dark:text-sky-400' },
+  { card: 'awaitingActivation', count: (c) => c.awaitingActivation, tone: 'text-sidebar-active' },
+  { card: 'mustChange', count: (c) => c.mustChangePassword, tone: 'text-sidebar-active' },
   { card: 'disabled', count: (c) => c.disabled, tone: '' },
 ]
 
@@ -79,8 +80,8 @@ export default function UaAdminUsersPage() {
   }
   if (access.data?.canOpen !== true) {
     return (
-      <div className="mx-auto mt-16 max-w-md rounded-md border border-border bg-card p-6 text-center" role="alert">
-        <div className="text-base font-semibold">{t('access.deniedTitle')}</div>
+      <div className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center" role="alert">
+        <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>
         <p className="mt-2 text-sm text-muted-foreground">{t('access.deniedHint')}</p>
       </div>
     )
@@ -99,9 +100,9 @@ export default function UaAdminUsersPage() {
     <section className="flex flex-col gap-3">
       {/* toolbar: search is the primary affordance */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-1 overflow-hidden rounded-md border border-input bg-background">
+        <div className="flex flex-1 overflow-hidden rounded-full border border-input bg-background">
           <input
-            className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm outline-none"
+            className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm outline-none"
             placeholder={
               countsData
                 ? t('search.placeholder', { count: countsData.allPeople.toLocaleString() })
@@ -115,14 +116,14 @@ export default function UaAdminUsersPage() {
             autoFocus
           />
           <button
-            className="bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+            className="bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85"
             onClick={runSearch}
           >
             {t('search.button')}
           </button>
         </div>
         <button
-          className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          className="inline-flex h-9 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85"
           onClick={() => setNewOpen(true)}
         >
           {t('newIdentity')}
@@ -137,8 +138,8 @@ export default function UaAdminUsersPage() {
             key={c.card}
             onClick={() => openCard(c.card)}
             className={
-              'flex flex-col items-start rounded-md border bg-card px-3 py-2 text-left transition-colors hover:bg-accent ' +
-              (activeCard === c.card ? 'border-primary bg-accent' : 'border-border')
+              'flex flex-col items-start rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:bg-accent ' +
+              (activeCard === c.card ? 'border-primary bg-accent' : 'border-border/60')
             }
           >
             <span className={`text-xl font-bold tabular-nums ${c.tone}`}>
@@ -151,10 +152,10 @@ export default function UaAdminUsersPage() {
 
       {/* split: grid left, detail right */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[7fr_5fr]">
-        <div className="flex min-h-[22rem] flex-col overflow-hidden rounded-md border border-border bg-card">
-          <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/60 px-3 py-1.5 text-xs text-muted-foreground">
-            <span className="font-semibold">{gridTitle}</span>
-            <span className="tabular-nums">
+        <div className="flex min-h-[22rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card">
+          <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 text-xs">
+            <span className="font-semibold tracking-tight">{gridTitle}</span>
+            <span className="tabular-nums text-muted-foreground">
               {list.data
                 ? list.data.isCapped
                   ? t('grid.capped', {
@@ -177,9 +178,7 @@ export default function UaAdminUsersPage() {
               {t('grid.loading')}
             </div>
           ) : list.isError ? (
-            <div className="flex-1 p-6 text-sm text-destructive" role="alert">
-              {apiErrorMessage(list.error, t('toast.failed'))}
-            </div>
+            <ErrorBanner message={apiErrorMessage(list.error, t('toast.failed'))} className="m-3 p-4" />
           ) : list.data.rows.length === 0 ? (
             <div className="flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground">
               {t('grid.noResults')}
@@ -188,7 +187,7 @@ export default function UaAdminUsersPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] border-collapse text-sm">
                 <thead>
-                  <tr className="text-left text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                  <tr className="text-left text-xs font-medium text-muted-foreground">
                     <th className="border-b border-border px-3 py-1.5">{t('grid.employee')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.name')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.mobile')}</th>
@@ -224,7 +223,7 @@ export default function UaAdminUsersPage() {
           )}
         </div>
 
-        <div className="min-h-[22rem] rounded-md border border-border bg-card p-3">
+        <div className="min-h-[22rem] rounded-lg border border-border/60 bg-card p-3">
           {selectedId === null ? (
             <div className="flex h-full flex-col items-center justify-center gap-1 p-10 text-center">
               <b className="text-sm">{t('detail.selectTitle')}</b>

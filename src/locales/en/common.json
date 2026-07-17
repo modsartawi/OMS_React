@@ -1,0 +1,46 @@
+{
+  "brand": "OMS Portal",
+  "user": "User",
+  "yes": "Yes",
+  "no": "No",
+  "actions": {
+    "logout": "Logout",
+    "retry": "Retry"
+  },
+  "confirm": {
+    "yes": "Yes",
+    "no": "No"
+  },
+  "topbar": {
+    "toggleMenu": "Toggle menu",
+    "darkMode": "Toggle dark mode",
+    "account": "Account menu"
+  },
+  "account": {
+    "actingStore": "Acting store"
+  },
+  "storeSwitcher": {
+    "ariaLabel": "Acting store",
+    "changed": {
+      "title": "Store changed",
+      "detail": "Now acting as store {{storeCode}}."
+    },
+    "failed": {
+      "title": "Could not switch store",
+      "detail": "The store was not changed."
+    }
+  },
+  "errors": {
+    "sessionEnded": "Your session has ended — please log in.",
+    "network": "Cannot reach the OMS API. Check your connection and try again.",
+    "rejected": "The request was rejected by the server.",
+    "server": "The OMS API encountered an unexpected error. Please try again.",
+    "unexpected": "Unexpected API error (HTTP {{status}}).",
+    "notSuccessful": "The request was not successful."
+  },
+  "bootstrap": {
+    "loading": "Checking your session…",
+    "failedTitle": "Cannot reach the OMS API",
+    "failedHint": "The session check failed. Verify SIS.Api is running, then retry."
+  }
+}

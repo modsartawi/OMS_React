@@ -1,0 +1,134 @@
+import { toast } from 'sonner'
+import i18n from '@/core/i18n'
+import { navigateTo, currentPath } from '@/core/nav'
+import { useSession } from '@/core/session'
+
+// Universal SIS.Api envelope (PRD §2.2)
+export interface GeneralErrorResponse {
+  errorCode: string
+  internalErrorCode: string
+  errorMessage: string
+}
+interface HttpGeneralResponse<T> {
+  statusCode: number
+  success: boolean
+  message: string
+  errors: GeneralErrorResponse[]
+  data: T
+}
+
+export type ApiErrorKind = 'auth' | 'business' | 'server' | 'network' | 'unknown'
+
+export class ApiError extends Error {
+  constructor(
+    public kind: ApiErrorKind,
+    message: string,
+    public statusCode: number,
+    public details: GeneralErrorResponse[] = [],
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+export function apiErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof ApiError ? err.message : fallback
+}
+
+const BASE = '/api/'
+
+// Coalesce concurrent 401s into one toast + one redirect (Angular parity §1.4).
+let redirectInFlight = false
+
+function handle401(requestPath: string): ApiError {
+  const message = i18n.t('common:errors.sessionEnded')
+  // The anonymous auth endpoints must never trigger the expired-session redirect:
+  // a rejected password/TOTP is a login failure, not an ended session. The Ua
+  // two-step family (UaLogin/UaVerifyTotp/UaChangePassword) joins the legacy
+  // Auth/Login here; the /login pathname guard also covers the in-page flow.
+  const skip =
+    requestPath.endsWith('Auth/Login') ||
+    requestPath.includes('Auth/Ua') ||
+    window.location.pathname === '/login'
+  if (!skip && !redirectInFlight) {
+    redirectInFlight = true
+    useSession.getState().clear()
+    toast.dismiss()
+    toast.warning(message)
+    const returnUrl = encodeURIComponent(currentPath())
+    navigateTo(`/login?returnUrl=${returnUrl}&reason=expired`)
+    // Release after navigation settles so a later, separate expiry redirects again.
+    setTimeout(() => {
+      redirectInFlight = false
+    }, 1000)
+  }
+  return new ApiError('auth', message, 401)
+}
+
+async function request<T>(path: string, init: RequestInit): Promise<T> {
+  const cleanPath = path.replace(/^\//, '')
+  let res: Response
+  try {
+    res = await fetch(BASE + cleanPath, {
+      ...init,
+      credentials: 'same-origin',
+      headers: {
+        'X-Web-Client': '1',
+        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...init.headers,
+      },
+    })
+  } catch {
+    throw new ApiError('network', i18n.t('common:errors.network'), 0)
+  }
+
+  if (res.status === 401) throw handle401(cleanPath)
+
+  let body: HttpGeneralResponse<T> | null = null
+  try {
+    body = (await res.json()) as HttpGeneralResponse<T>
+  } catch {
+    /* non-JSON body — fall through to status mapping */
+  }
+
+  if (res.status === 400)
+    throw new ApiError(
+      'business',
+      body?.message || i18n.t('common:errors.rejected'),
+      400,
+      body?.errors ?? [],
+    )
+  if (res.status >= 500) throw new ApiError('server', i18n.t('common:errors.server'), res.status)
+  if (!res.ok || body === null)
+    throw new ApiError('unknown', i18n.t('common:errors.unexpected', { status: res.status }), res.status)
+
+  if (!body.success)
+    throw new ApiError(
+      'business',
+      body.message || i18n.t('common:errors.notSuccessful'),
+      body.statusCode,
+      body.errors ?? [],
+    )
+  return body.data
+}
+
+/** Query params: null/undefined/'' entries are dropped entirely (PRD §5.2). */
+function buildQuery(params?: Record<string, unknown>): string {
+  if (!params) return ''
+  const qs = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value === null || value === undefined || value === '') continue
+    qs.set(key, String(value))
+  }
+  const s = qs.toString()
+  return s ? `?${s}` : ''
+}
+
+export const api = {
+  get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
+    return request<T>(path + buildQuery(params), { method: 'GET' })
+  },
+  post<T>(path: string, body: unknown): Promise<T> {
+    return request<T>(path, { method: 'POST', body: JSON.stringify(body) })
+  },
+}

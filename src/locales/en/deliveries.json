@@ -1,0 +1,142 @@
+{
+  "title": "Delivery Documents",
+  "hitCount": "Hit Count: {{count}}",
+  "emptyPrompt": "Set your filters above and select Load to search delivery documents.",
+  "menu": {
+    "oms": "OMS",
+    "deliveries": "Delivery Documents"
+  },
+  "actions": {
+    "load": "Load",
+    "loading": "Loading…"
+  },
+  "filters": {
+    "ariaLabel": "Delivery documents search filters",
+    "any": "Any",
+    "fromDate": "From Date",
+    "toDate": "To Date",
+    "documentType": "Document Type",
+    "documentSource": "Document Source",
+    "deliveryDocumentType": "Delivery Document Type",
+    "documentNo": "Document No",
+    "limit": "Limit",
+    "deliveryNo": "Delivery No",
+    "storeCode": "Store Code",
+    "customerPhone": "Customer Phone",
+    "orderNo": "Order No",
+    "deliveryType": "Delivery Type",
+    "documentReason": "Reason",
+    "dawaaNow": "Dawaa Now"
+  },
+  "lookups": {
+    "documentTypes": "document types",
+    "documentSources": "document sources",
+    "deliveryDocumentTypes": "delivery document types"
+  },
+  "lookupUnavailable": {
+    "title": "Lookup unavailable",
+    "detail": "Could not load {{name}}. You can still search by the text fields."
+  },
+  "search": {
+    "searching": "Searching…",
+    "unexpected": "Unexpected error running the search.",
+    "failed": {
+      "title": "Search failed"
+    }
+  },
+  "toolbar": {
+    "ariaLabel": "Results grid actions",
+    "openOrder": "Open Order",
+    "openDelivery": "Open Delivery",
+    "export": "Export",
+    "columns": "Columns"
+  },
+  "columnsChooser": {
+    "title": "Show columns",
+    "showAll": "Show all",
+    "reset": "Reset",
+    "pin": "Pin {{column}}",
+    "unpin": "Unpin {{column}}"
+  },
+  "views": {
+    "ariaLabel": "Saved grid views",
+    "placeholder": "Saved views…",
+    "save": "Save view",
+    "update": "Update",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "dialogTitle": "Save grid view",
+    "dialogHint": "Captures the current column order, width, visibility, pinning, sort and filters.",
+    "nameLabel": "View name",
+    "namePlaceholder": "e.g. Failed jobs triage",
+    "saved": {
+      "title": "View saved",
+      "detail": "\"{{name}}\" was saved."
+    },
+    "updated": {
+      "title": "View updated",
+      "detail": "\"{{name}}\" was updated."
+    },
+    "deleted": {
+      "title": "View deleted",
+      "detail": "\"{{name}}\" was deleted."
+    }
+  },
+  "export": {
+    "done": {
+      "title": "Export complete",
+      "detail": "Exported {{count}} row(s) to Excel."
+    },
+    "empty": {
+      "title": "Nothing to export",
+      "detail": "No rows match the current filters."
+    },
+    "failed": {
+      "title": "Export failed",
+      "detail": "Could not generate the Excel file."
+    }
+  },
+  "columns": {
+    "deliveryNo": "Delivery No",
+    "documentNo": "Document No",
+    "orderNo": "Order No",
+    "failedJobs": "Failed Jobs",
+    "documentType": "Doc. Type",
+    "deliveryType": "Delivery Type",
+    "deliveryDocumentType": "Delivery Doc. Type",
+    "dawaaNow": "Dawaa Now",
+    "documentSource": "Doc. Source",
+    "reason": "Reason",
+    "entryTime": "Entry Time",
+    "documentDate": "Document Date",
+    "mobile": "Mobile",
+    "customerName": "Customer Name",
+    "storeCode": "Store Code",
+    "isActiveInStore": "Is Active In Store",
+    "slot": "Slot",
+    "slotDay": "Slot Day",
+    "netTotal": "Net Total",
+    "paidAmount": "Paid Amount",
+    "deliveryFees": "Delivery Fees",
+    "amountDue": "Amount Due",
+    "note": "Note",
+    "cityName": "City Name",
+    "street": "Street",
+    "readyStatus": "Ready Status",
+    "clearStatus": "Clear Status",
+    "deliveryStatus": "Delivery Status",
+    "closeStatus": "Close Status",
+    "rescheduled": "Rescheduled",
+    "deliverySlotFrom": "Delivery Slot From",
+    "deliverySlotTo": "Delivery Slot To",
+    "outForDeliveryTime": "Out For Delivery Time",
+    "actualDeliveryTime": "Actual Delivery Time",
+    "expressCourierId": "Express Courier Id",
+    "courierCode": "Courier Code",
+    "courierDriverId": "Courier Driver Id",
+    "courierDriverName": "Courier Driver Name",
+    "courierDriverPhone": "Courier Driver Phone",
+    "customerOtp": "Customer Otp",
+    "lastAction": "Last Action"
+  }
+}

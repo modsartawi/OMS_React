@@ -1,0 +1,53 @@
+import { createBrowserRouter, Navigate } from 'react-router'
+import { setNavigator } from '@/core/nav'
+import ProtectedLayout from '@/features/auth/ProtectedLayout'
+
+// Library/data mode (baseline §1): plain route arrays; each future module
+// contributes its own subtree here. Lazy chunks: login + each screen.
+export const router = createBrowserRouter([
+  {
+    path: '/login',
+    lazy: async () => ({ Component: (await import('@/features/auth/LoginPage')).default }),
+  },
+  {
+    path: '/',
+    Component: ProtectedLayout,
+    children: [
+      { index: true, element: <Navigate to="/oms/deliveries" replace /> },
+      {
+        path: 'oms/deliveries',
+        lazy: async () => ({ Component: (await import('@/features/deliveries/DeliveriesPage')).default }),
+      },
+      // Screen 2 — two routes, one component. `openedAs` is fixed by the ROUTE
+      // and picks the load/refresh endpoint; it is NOT interchangeable with the
+      // payload's `documentCategory`, which picks the mutation endpoint (D-17 /
+      // D-19). A delivery-return loads via Delivery/{no} but mutates via
+      // UpdateDocument, so deriving either from the other 404s or mis-posts.
+      {
+        path: 'oms/document/:documentNo',
+        lazy: async () => {
+          const { default: Page } = await import('@/features/document/DocumentDetailsPage')
+          return { Component: () => <Page openedAs="document" /> }
+        },
+      },
+      {
+        path: 'oms/delivery/:deliveryNo',
+        lazy: async () => {
+          const { default: Page } = await import('@/features/document/DocumentDetailsPage')
+          return { Component: () => <Page openedAs="delivery" /> }
+        },
+      },
+      {
+        path: 'admin/ua-users',
+        lazy: async () => ({
+          Component: (await import('@/features/ua-admin/UaAdminUsersPage')).default,
+        }),
+      },
+      { path: '*', element: <Navigate to="/oms/deliveries" replace /> },
+    ],
+  },
+])
+
+setNavigator((to) => {
+  void router.navigate(to)
+})

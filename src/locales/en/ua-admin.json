@@ -1,0 +1,163 @@
+{
+  "menu": {
+    "admin": "Administration",
+    "users": "Ua Users"
+  },
+  "title": "Ua Users",
+  "crumb": "BackOffice ▸ Administration ▸ Ua Users",
+  "search": {
+    "placeholder": "Search {{count}} people — employee id, mobile, or part of the name…",
+    "placeholderNoCount": "Search people — employee id, mobile, or part of the name…",
+    "button": "Search",
+    "minChars": "Type at least 2 characters.",
+    "hint": "Nothing loads until you search or open a report card — results are a server query, capped at 50 rows."
+  },
+  "newIdentity": "+ New identity",
+  "cards": {
+    "all": "People",
+    "notSeeded": "Not seeded",
+    "phoneGap": "Phone gap — blocked",
+    "awaitingActivation": "Awaiting activation",
+    "mustChange": "Must change pwd",
+    "disabled": "Disabled"
+  },
+  "grid": {
+    "employee": "Employee",
+    "name": "Name",
+    "mobile": "Mobile",
+    "status": "Status",
+    "totp": "TOTP",
+    "lastLogin": "Last login",
+    "noQuery": "No query yet",
+    "searchTitle": "Search: \"{{term}}\"",
+    "worklistTitle": "Worklist: {{label}}",
+    "capped": "first {{shown}} of {{total}} — refine to narrow",
+    "matchCount": "{{count}} match",
+    "matchCount_other": "{{count}} matches",
+    "loading": "Searching…",
+    "emptyTitle": "Search first",
+    "emptyHint": "Type an employee id, a mobile number, or part of a name — or click a report card above to pull a worklist (first 50, refine to narrow).",
+    "noResults": "No people match this query.",
+    "never": "never"
+  },
+  "detail": {
+    "selectTitle": "Select a person",
+    "selectHint": "Their identity, actions, sessions and audit history appear here.",
+    "loading": "Loading…",
+    "notFound": "No such employee.",
+    "mobile": "Mobile",
+    "credential": "Credential",
+    "totp": "TOTP",
+    "createdUpdated": "Created / Updated",
+    "disabled": "Disabled",
+    "lastLogin": "Last login",
+    "save": "Save",
+    "totpEnrolled": "Enrolled (DMSCO:{{id}})",
+    "totpNotEnrolled": "Not enrolled",
+    "liveSessions": "Live sessions",
+    "disabledBy": "{{at}} by {{by}}",
+    "none": "—",
+    "supportNote": "Lost authenticator? Clear TOTP + set a temporary password — the user re-enrolls from their own login screen (SMS code, then the DMSCO setup key). Keys are never shown here."
+  },
+  "credential": {
+    "none": "No password (self-activation pending)",
+    "mustChange": "Temporary — must change at next login",
+    "active": "Active"
+  },
+  "status": {
+    "notSeeded": "Not seeded",
+    "disabled": "Disabled",
+    "awaitingActivation": "Awaiting activation",
+    "blockedNoPhone": "Blocked — no phone",
+    "mustChange": "Must change password",
+    "active": "Active"
+  },
+  "actions": {
+    "disable": "Disable",
+    "reenable": "Re-enable",
+    "setPassword": "Set temp password",
+    "clearTotp": "Clear TOTP"
+  },
+  "tabs": {
+    "sessions": "Sessions",
+    "audit": "Audit",
+    "ariaLabel": "User detail tabs"
+  },
+  "sessions": {
+    "none": "No live sessions.",
+    "loading": "Loading sessions…",
+    "started": "started",
+    "lastSeen": "last seen",
+    "revoke": "Revoke"
+  },
+  "audit": {
+    "none": "No audit history.",
+    "loading": "Loading history…",
+    "by": "by",
+    "legend": "Times shown as stored — audit rows mix local and legacy-UTC and are not converted.",
+    "session": "session {{id}}",
+    "actions": {
+      "ADMIN_EMPLOYEE_UPSERT": "Identity edited",
+      "ADMIN_EMPLOYEE_DEACTIVATE": "Disabled",
+      "ADMIN_EMPLOYEE_REACTIVATE": "Re-enabled",
+      "ADMIN_PASSWORD_RESET": "Temporary password set",
+      "ADMIN_TOTP_CLEAR": "TOTP cleared",
+      "ADMIN_SESSION_REVOKE": "Session revoked",
+      "IDENTITY_CREATED": "Identity created",
+      "TOTP_ENROLL": "Authenticator enrolled",
+      "TOTP_REENROLL_OVERWRITE": "Authenticator re-enrolled"
+    }
+  },
+  "channel": {
+    "web": "web",
+    "mobile": "mobile",
+    "pos": "pos",
+    "backoffice": "backoffice"
+  },
+  "confirm": {
+    "disableTitle": "Disable user?",
+    "disableBody": "{{name}} is refused at every login (POS, BackOffice, mobile) and all live sessions are revoked. DisabledAt / DisabledBy are stamped.",
+    "reenableTitle": "Re-enable user?",
+    "reenableBody": "{{name}} can log in again; DisabledAt / DisabledBy are cleared.",
+    "clearTotpTitle": "Clear TOTP enrollment?",
+    "clearTotpBody": "{{name}} loses their authenticator entry and must re-enroll via SMS verification.",
+    "revokeTitle": "Revoke this session?",
+    "revokeBody": "The device is signed out immediately; the person stays enabled."
+  },
+  "password": {
+    "title": "Set temporary password",
+    "body": "All live sessions are revoked and the user must change this at first login. Read it to the user now — it is never shown again.",
+    "generating": "Generating…",
+    "confirm": "Set password",
+    "regenerate": "Regenerate"
+  },
+  "new": {
+    "title": "New Ua identity",
+    "body": "Creates the identity row only — no password. The person self-activates by SMS on their own phone.",
+    "employeeId": "Employee id",
+    "displayName": "Display name",
+    "phone": "Mobile",
+    "active": "Active",
+    "create": "Create"
+  },
+  "toast": {
+    "saved": "Saved",
+    "savedDetail": "{{name}} updated.",
+    "disabled": "User disabled",
+    "reenabled": "User re-enabled",
+    "passwordSet": "Temporary password set",
+    "totpCleared": "TOTP cleared",
+    "sessionRevoked": "Session revoked",
+    "created": "Identity created",
+    "createdDetail": "{{id}} can now self-activate by SMS.",
+    "failed": "Action failed"
+  },
+  "access": {
+    "deniedTitle": "You don't have access to Ua Users",
+    "deniedHint": "This screen needs the Ua Users permission. Ask an administrator to grant it.",
+    "checking": "Checking access…"
+  },
+  "common": {
+    "cancel": "Cancel"
+  }
+}

@@ -1,0 +1,192 @@
+{
+  "title": "Document Details",
+  "back": "Back to Delivery Documents",
+  "dawaaNow": "Dawaa Now",
+  "load": {
+    "loading": "Loading document…",
+    "failed": "Could not load the document.",
+    "failedTitle": "Could not load the document"
+  },
+  "refresh": {
+    "button": "Refresh",
+    "failed": "Refresh failed",
+    "failedDetail": "Could not refresh the document."
+  },
+  "groups": {
+    "document": "Document",
+    "status": "Status",
+    "customer": "Customer",
+    "shippingAddress": "Shipping Address",
+    "noAddress": "No shipping address on this document."
+  },
+  "fields": {
+    "documentNo": "Document No",
+    "refDocumentNo": "Ref Document No",
+    "orderNo": "Order No.",
+    "date": "Date",
+    "pharmacy": "Pharmacy",
+    "slotDay": "Slot Day",
+    "slotTime": "Slot Time",
+    "netTotal": "Net Total",
+    "deliveryFees": "Delivery Fees",
+    "paidAmount": "Paid Amount",
+    "amountDue": "Amount Due",
+    "deliveryDocType": "Delivery Doc Type",
+    "dawaaNow": "Dawaa Now",
+    "lastNote": "Last Note",
+    "approvalNumber": "Approval Number",
+    "prescription": "Prescription",
+    "viewPrescription": "View prescription",
+    "overallStatus": "Overall Status",
+    "lastAction": "Last Action",
+    "readyStatus": "Ready Status",
+    "closeStatus": "Close Status",
+    "clearStatus": "Clear Status",
+    "paymentStatus": "Payment Status",
+    "deliveryStatus": "Delivery Status",
+    "availabilityStatus": "Availability Status",
+    "acceptanceStatus": "Acceptance Status",
+    "approvalStatus": "Approval Status",
+    "consignmentStatus": "Consignment Status",
+    "controlStatus": "Control Status",
+    "notificationStatus": "Notification Status",
+    "loyaltyId": "Loyalty Id",
+    "loyaltyMobile": "Loyalty Mobile",
+    "loyaltyName": "Loyalty Name",
+    "cityCode": "City Code",
+    "cityName": "City Name",
+    "districtCode": "District Code",
+    "districtName": "District Name",
+    "street1": "Street 1",
+    "street2": "Street 2",
+    "gpsLat": "GPS Lat",
+    "gpsLon": "GPS Lon",
+    "map": "Map",
+    "openInMaps": "Open in Google Maps"
+  },
+  "command": {
+    "title": "Actions",
+    "note": "Note",
+    "notePlaceholder": "Type a note for this document…"
+  },
+  "actions": {
+    "add-note": "Add Note",
+    "change-store": "Change Store",
+    "reschedule": "Reschedule",
+    "request-close": "Request Close",
+    "cancel-close-request": "Cancel Close Request",
+    "close": "Close Order",
+    "force-close": "Force Close",
+    "return-document": "Return Document"
+  },
+  "confirm": {
+    "message": "Are you sure you want to proceed?"
+  },
+  "toast": {
+    "done": "{{label}} done",
+    "doneDetail": "{{label}} was applied to this document.",
+    "failed": "{{label}} failed",
+    "failedDetail": "Could not {{label}}."
+  },
+  "returnDocument": {
+    "unavailable": "The Document Return module is not yet available in this app."
+  },
+  "tabs": {
+    "ariaLabel": "Document sections",
+    "items": "Items",
+    "conditions": "Header Conditions",
+    "log": "Log",
+    "status": "Status",
+    "jobs": "Jobs"
+  },
+  "grid": {
+    "loading": "Loading…"
+  },
+  "items": {
+    "empty": "This document has no line items."
+  },
+  "conditions": {
+    "empty": "This document has no header-level conditions."
+  },
+  "log": {
+    "empty": "No log entries for this document.",
+    "failed": "Could not load the document log."
+  },
+  "jobs": {
+    "empty": "No background jobs for this document.",
+    "failed": "Could not load the background jobs."
+  },
+  "columns": {
+    "itemNumber": "Item Number",
+    "description": "Description",
+    "unitPrice": "Unit Price",
+    "quantity": "Quantity",
+    "discount": "Discount",
+    "grossAmount": "Gross Amount",
+    "vatAmount": "VAT Amount",
+    "netAmount": "Net Amount",
+    "needTransaction": "Need Transaction",
+    "deleted": "Deleted",
+    "referenceErx": "Reference Erx",
+    "category": "Category",
+    "condType": "Cond Type",
+    "condAmount": "Cond Amount",
+    "condDate": "Cond Date",
+    "referenceNumber": "Reference Number",
+    "paymentType": "Payment Type",
+    "logNo": "Log No",
+    "actionType": "Action Type",
+    "entryTime": "Entry Time",
+    "actionData": "Action Data",
+    "actionOldData": "Action Old Data",
+    "staffId": "Staff Id",
+    "entryUser": "Entry User",
+    "note": "Note",
+    "outboxId": "Outbox Id",
+    "userId": "User Id",
+    "status": "Status",
+    "lastAttempt": "Last Attempt",
+    "nextAttempt": "Next Attempt",
+    "attempts": "Attempts",
+    "errorMessage": "Error Message"
+  },
+  "dialog": {
+    "cancel": "Cancel"
+  },
+  "reschedule": {
+    "loading": "Loading available slots…",
+    "failed": "Could not load the available slots.",
+    "noSlots": "No delivery slots are available for this store.",
+    "noWindows": "No available windows for this day",
+    "day": "Day",
+    "time": "Time",
+    "reason": "Reason",
+    "doneDetail": "The document has been rescheduled successfully!"
+  },
+  "changeStore": {
+    "titlePick": "Change Store — pick a store",
+    "titleDelivery": "Change Store — pick a district",
+    "hintPick": "Pick the store that will fulfil this pick-in-store document.",
+    "hintDelivery": "Search a district or city — the fulfilling store is derived from it.",
+    "failed": "Could not load the store list.",
+    "storeCode": "Store Code",
+    "city": "City",
+    "region": "Region",
+    "storeAddress": "Store Address",
+    "deliveryStore": "Delivery Store",
+    "districtEn": "District (EN)",
+    "districtAr": "District (AR)",
+    "cityEn": "City (EN)",
+    "cityAr": "City (AR)",
+    "tempStore": "Temp Store",
+    "insuranceStore": "Insurance Store",
+    "unresolved": "This district has no store mapped — pick another.",
+    "newStore": "New store:",
+    "selectRow": "Select a row to continue."
+  },
+  "requestClose": {
+    "hint": "Pick a cancellation reason — it is recorded as the document note.",
+    "label": "Cancellation reason",
+    "placeholder": "Select a reason"
+  }
+}

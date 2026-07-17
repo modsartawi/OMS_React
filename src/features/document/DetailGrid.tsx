@@ -1,0 +1,81 @@
+import { AgGridReact } from 'ag-grid-react'
+import { useTranslation } from 'react-i18next'
+import { AlertTriangle, Inbox, Loader2 } from 'lucide-react'
+import type { ColDef, RowClassParams, RowStyle } from 'ag-grid-community'
+// Side-effect import: registers AG Grid Community modules within this chunk.
+import '@/core/ag-grid-setup'
+import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
+import { DETAIL_DEFAULT_COL_DEF } from './columns'
+
+/**
+ * A read-only grid for the Screen 2 detail tabs (Items, Header Conditions, Log,
+ * Jobs).
+ *
+ * Wraps the dense grid with explicit loading / error / empty states so every
+ * tab renders consistently — whether its rows arrive on the loaded document
+ * (Items, Conditions) or from a deferred fetch (Log, Jobs).
+ */
+export default function DetailGrid<T>({
+  columnDefs,
+  rowData,
+  loading = false,
+  error = null,
+  emptyMessage,
+  getRowStyle,
+}: {
+  columnDefs: ColDef<T>[]
+  /** `null` before a deferred fetch resolves. */
+  rowData: T[] | null
+  loading?: boolean
+  error?: string | null
+  emptyMessage: string
+  getRowStyle?: (params: RowClassParams<T>) => RowStyle | undefined
+}) {
+  const { t } = useTranslation('document')
+  const STATE =
+    'flex h-[26rem] items-center justify-center gap-2 rounded-md border border-dashed ' +
+    'border-border text-[0.8125rem] text-muted-foreground'
+
+  if (loading)
+    return (
+      <div className={STATE} role="status">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        {t('grid.loading')}
+      </div>
+    )
+
+  if (error)
+    return (
+      <div
+        className="flex h-[26rem] items-center justify-center gap-2 rounded-md border border-red-700 bg-red-50 text-[0.8125rem] text-red-900 dark:bg-red-950/40 dark:text-red-200"
+        role="alert"
+      >
+        <AlertTriangle className="h-4 w-4" aria-hidden />
+        <span>{error}</span>
+      </div>
+    )
+
+  if ((rowData?.length ?? 0) === 0)
+    return (
+      <div className={STATE}>
+        <Inbox className="h-4 w-4" aria-hidden />
+        <span>{emptyMessage}</span>
+      </div>
+    )
+
+  return (
+    <div className="h-[26rem] w-full">
+      <AgGridReact<T>
+        theme={omsGridTheme}
+        rowData={rowData ?? []}
+        columnDefs={columnDefs}
+        defaultColDef={DETAIL_DEFAULT_COL_DEF}
+        getRowStyle={getRowStyle}
+        rowHeight={OMS_GRID_ROW_HEIGHT}
+        headerHeight={OMS_GRID_HEADER_HEIGHT}
+        tooltipShowDelay={500}
+        animateRows={false}
+      />
+    </div>
+  )
+}

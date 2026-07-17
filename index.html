@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OMS Portal</title>
+    <script>
+      // Apply theme before first paint — stored choice, else OS preference.
+      try {
+        var stored = localStorage.getItem('oms.darkMode')
+        var dark = stored !== null ? stored === 'true' : window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (dark) document.documentElement.classList.add('dark')
+        // AG Grid reads its theme variant from this attribute on any grid ancestor —
+        // set pre-paint too, so the grid never flashes light before going dark.
+        document.documentElement.dataset.agThemeMode = dark ? 'dark' : 'light'
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/app/main.tsx"></script>
+  </body>
+</html>

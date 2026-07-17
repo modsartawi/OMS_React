@@ -1,0 +1,114 @@
+{
+  "menu": {
+    "authz": "Authorization Admin"
+  },
+  "eyebrow": "DMSCO · OMS Web · New authorization engine",
+  "title": "Authorization Admin",
+  "workspace": {
+    "users": "Users",
+    "roles": "Roles",
+    "ariaLabel": "Authorization admin workspace",
+    "rolesPlaceholder": "The Roles workspace — role catalog, grants, membership — lands in a later slice."
+  },
+  "search": {
+    "placeholder": "Search a person — employee id, mobile, or part of the name…",
+    "button": "Search",
+    "minChars": "Type at least 2 characters.",
+    "hint": "Search-first — the estate (~6,000 people) never loads. Results are a server query, capped at 50 rows."
+  },
+  "cards": {
+    "all": "All matches",
+    "admins": "Hold an admin role",
+    "noroles": "No roles yet",
+    "composite": "Have a composite"
+  },
+  "grid": {
+    "employee": "Employee",
+    "name": "Name",
+    "mobile": "Mobile",
+    "roles": "Roles",
+    "noQuery": "No query yet",
+    "searchTitle": "Search: \"{{term}}\"",
+    "worklistTitle": "Worklist: {{label}}",
+    "capped": "first {{shown}} of {{total}} — refine to narrow",
+    "matchCount": "{{count}} match",
+    "matchCount_other": "{{count}} matches",
+    "loading": "Searching…",
+    "classifying": "Classifying results…",
+    "emptyTitle": "Search first",
+    "emptyHint": "Type an employee id, a mobile number, or part of a name — the person grid stays empty until you search (first 50, refine to narrow).",
+    "noResults": "No people match this query.",
+    "none": "—",
+    "noRoles": "no roles",
+    "roleCount": "{{count}} role",
+    "roleCount_other": "{{count}} roles"
+  },
+  "detail": {
+    "selectTitle": "Select a person",
+    "selectHint": "Their roles, effective authorizations, and audit history appear here."
+  },
+  "tabs": {
+    "roles": "Roles",
+    "effective": "Effective authorizations",
+    "audit": "Audit",
+    "ariaLabel": "User authorization detail tabs"
+  },
+  "kind": {
+    "single": "single",
+    "composite": "composite",
+    "system": "system"
+  },
+  "roles": {
+    "none": "No roles assigned yet.",
+    "loading": "Loading roles…",
+    "assign": "＋ Assign role",
+    "remove": "Remove role",
+    "outOfScope": "out of scope",
+    "outOfScopeHint": "This role is outside your delegated scope — you can see it but not revoke it.",
+    "removeTitle": "Remove role?",
+    "removeBody": "Revoke {{role}} from {{name}}? Access is removed immediately and the change is audited.",
+    "removed": "Role removed",
+    "removedDetail": "{{role}} revoked.",
+    "autoCreate": "If this person has no authorization record yet, their first role assignment creates it automatically (UserId = employee id, display name from the identity spine) — unguarded, but audited."
+  },
+  "assign": {
+    "title": "Assign a role",
+    "body": "Pick a role to grant. Only roles you're entitled to assign are shown; the server re-checks on assign.",
+    "assign": "Assign",
+    "assigning": "Assigning…",
+    "empty": "No assignable roles left — this person already holds every role in your scope.",
+    "done": "Role assigned",
+    "doneDetail": "{{role}} assigned."
+  },
+  "effective": {
+    "intro": "The union of every grant this person resolves to — composites expanded to members, wildcards and $VAR field values shown. The \"why can/can't they do X?\" answer for a support call.",
+    "loading": "Resolving authorizations…",
+    "none": "No effective grants.",
+    "wildcard": "wildcard",
+    "via": "via {{path}}"
+  },
+  "audit": {
+    "loading": "Loading history…",
+    "none": "No authorization changes recorded for this person.",
+    "by": "by",
+    "legend": "Times shown as stored — audit rows are not converted between time zones.",
+    "actions": {
+      "ASGR": "Role assigned",
+      "REVR": "Role revoked",
+      "CUSR": "Authorization record created",
+      "MROL": "Role edited",
+      "DROL": "Role deleted"
+    }
+  },
+  "access": {
+    "checking": "Checking access…",
+    "deniedTitle": "You don't have access to Authorization Admin",
+    "deniedHint": "This screen needs the Authorization Admin permission. Ask an administrator to grant it."
+  },
+  "toast": {
+    "failed": "Action failed"
+  },
+  "common": {
+    "cancel": "Cancel"
+  }
+}

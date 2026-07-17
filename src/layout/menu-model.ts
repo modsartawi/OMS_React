@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
-import { Box, FileText, ShieldCheck, UserCog } from 'lucide-react'
+import { Box, FileText, KeyRound, ShieldCheck, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/ua-admin/api'
+import { authzAdminApi } from '@/features/authz-admin/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -71,12 +72,26 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'ua-admin:menu.users',
         icon: UserCog,
         routerLink: '/admin/ua-users',
-        activePrefix: '/admin',
+        // Own route as the active prefix so the sibling Authorization Admin leaf
+        // (also under /admin) doesn't co-highlight.
+        activePrefix: '/admin/ua-users',
         // Same key + call as UaAdminUsersPage's own guard → one shared probe.
         access: accessProbe({
           key: ['ua-admin', 'access'],
           run: () => uaAdminApi.access(),
           visible: (r) => r.canOpen === true,
+        }),
+      },
+      {
+        labelKey: 'authz-admin:menu.authz',
+        icon: KeyRound,
+        routerLink: '/admin/authz',
+        activePrefix: '/admin/authz',
+        // Same key + call as AuthzAdminPage's own guard → one shared probe.
+        access: accessProbe({
+          key: ['authz-admin', 'access'],
+          run: () => authzAdminApi.access(),
+          visible: (r) => r.screenAllowed === true,
         }),
       },
     ],

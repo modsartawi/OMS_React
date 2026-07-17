@@ -35,6 +35,12 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
 }
 
+/** The server's machine-readable code for a business failure (e.g. LAST_ADMIN,
+ *  SYSTEM_ROLE, IN_USE, DUPLICATE_NAME), or null when the error carries none. */
+export function apiErrorCode(err: unknown): string | null {
+  return err instanceof ApiError ? (err.details[0]?.errorCode ?? null) : null
+}
+
 // API base is environment-driven (428/435). Dev talks to the `/api` Vite proxy
 // (stripped to root before SIS.Api); prod is same-origin under IIS with SIS.Api's
 // endpoints at the root, so the base is `/`. `VITE_API_BASE` overrides both if ops
@@ -104,7 +110,23 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
       body?.errors ?? [],
     )
   if (res.status >= 500) throw new ApiError('server', i18n.t('common:errors.server'), res.status)
-  if (!res.ok || body === null)
+
+  // A non-2xx that still carries the SIS.Api envelope with success=false is a mapped
+  // business outcome — the AuthzAdminWeb family answers guard denials (403), unknown
+  // targets (404) and rule violations (409) with a machine code + message INSIDE the
+  // envelope. Surface that message + code so guardrail refusals (LAST_ADMIN,
+  // SYSTEM_ROLE, IN_USE, …) explain themselves, rather than a generic "unexpected".
+  if (!res.ok) {
+    if (body && body.success === false)
+      throw new ApiError(
+        'business',
+        body.message || i18n.t('common:errors.notSuccessful'),
+        body.statusCode || res.status,
+        body.errors ?? [],
+      )
+    throw new ApiError('unknown', i18n.t('common:errors.unexpected', { status: res.status }), res.status)
+  }
+  if (body === null)
     throw new ApiError('unknown', i18n.t('common:errors.unexpected', { status: res.status }), res.status)
 
   if (!body.success)

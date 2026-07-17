@@ -7,6 +7,7 @@ import type { ColDef, RowSelectionOptions, SelectionChangedEvent, ValueGetterPar
 import '@/core/ag-grid-setup'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
 import i18n from '@/core/i18n'
 import { lookupQueries } from '@/core/services/lookups'
@@ -147,15 +148,12 @@ export default function ChangeStoreDialog({
         </p>
 
         {loading ? (
-          <div className="flex h-96 items-center justify-center gap-2 rounded-md border border-dashed border-border text-[0.8125rem] text-muted-foreground" role="status">
+          <div className="flex h-96 items-center justify-center gap-2 rounded-lg border border-dashed border-border text-[0.8125rem] text-muted-foreground" role="status">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             {t('grid.loading')}
           </div>
         ) : error ? (
-          <div className="flex h-96 items-center justify-center gap-2 rounded-md border border-red-700 bg-red-50 text-[0.8125rem] text-red-900 dark:bg-red-950/40 dark:text-red-200" role="alert">
-            <AlertTriangle className="h-4 w-4" aria-hidden />
-            <span>{apiErrorMessage(error, t('changeStore.failed'))}</span>
-          </div>
+          <ErrorBanner center message={apiErrorMessage(error, t('changeStore.failed'))} className="h-96" />
         ) : (
           <div className="h-96 w-full">
             {pickInStore ? (

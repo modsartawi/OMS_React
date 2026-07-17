@@ -17,8 +17,8 @@ export default function FieldGroup({
   className?: string
 }) {
   return (
-    <section className={`h-full rounded-md border border-border bg-card ${className}`}>
-      <h2 className="rounded-t-md border-b border-border bg-muted/60 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+    <section className={`h-full rounded-lg border border-border/60 bg-card ${className}`}>
+      <h2 className="border-b border-border/60 px-2.5 py-1.5 text-xs font-semibold tracking-tight">
         {title}
       </h2>
       <dl className="grid px-2.5 py-1.5">

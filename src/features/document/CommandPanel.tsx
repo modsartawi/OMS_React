@@ -62,8 +62,8 @@ export default function CommandPanel({
   }
 
   return (
-    <section className="rounded-md border border-border bg-card">
-      <h2 className="rounded-t-md border-b border-border bg-muted/60 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+    <section className="rounded-lg border border-border/60 bg-card">
+      <h2 className="border-b border-border/60 px-2.5 py-1.5 text-xs font-semibold tracking-tight">
         {t('command.title')}
       </h2>
       <div className="flex flex-wrap items-end gap-2.5 px-2.5 py-2">
@@ -77,7 +77,7 @@ export default function CommandPanel({
             value={note}
             onChange={(e) => onNoteChange(e.target.value)}
             placeholder={t('command.notePlaceholder')}
-            className="w-full resize-y rounded-md border border-input bg-background px-2 py-1 text-[0.8125rem]"
+            className="w-full resize-y rounded-lg border border-input bg-background px-2 py-1 text-[0.8125rem]"
           />
         </div>
         <div className="flex flex-wrap gap-1.5">

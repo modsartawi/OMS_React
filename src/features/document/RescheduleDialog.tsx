@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, CalendarClock, Inbox, Loader2 } from 'lucide-react'
+import { CalendarClock, Inbox, Loader2 } from 'lucide-react'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
 import { lookupQueries } from '@/core/services/lookups'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
@@ -82,7 +83,7 @@ export default function RescheduleDialog({
     onClose()
   }
 
-  const SELECT = 'h-8 w-full rounded-md border border-input bg-background px-2 text-[0.8125rem]'
+  const SELECT = 'h-8 w-full rounded-lg border border-input bg-background px-2 text-[0.8125rem]'
   const LABEL = 'text-xs font-semibold text-muted-foreground'
 
   return (
@@ -110,17 +111,14 @@ export default function RescheduleDialog({
     >
       <div className="flex flex-col gap-2.5">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-border p-6 text-[0.8125rem] text-muted-foreground" role="status">
+          <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border p-6 text-[0.8125rem] text-muted-foreground" role="status">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             {t('reschedule.loading')}
           </div>
         ) : error ? (
-          <div className="flex items-center justify-center gap-2 rounded-md border border-red-700 bg-red-50 p-6 text-[0.8125rem] text-red-900 dark:bg-red-950/40 dark:text-red-200" role="alert">
-            <AlertTriangle className="h-4 w-4" aria-hidden />
-            <span>{apiErrorMessage(error, t('reschedule.failed'))}</span>
-          </div>
+          <ErrorBanner center message={apiErrorMessage(error, t('reschedule.failed'))} className="p-6" />
         ) : days.length === 0 ? (
-          <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-border p-6 text-[0.8125rem] text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 rounded-lg border border-dashed border-border p-6 text-[0.8125rem] text-muted-foreground">
             <Inbox className="h-4 w-4" aria-hidden />
             <span>{t('reschedule.noSlots')}</span>
           </div>

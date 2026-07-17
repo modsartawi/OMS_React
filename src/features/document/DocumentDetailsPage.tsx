@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { confirmAction } from '@/core/services/confirm'
@@ -305,24 +306,18 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         )}
       </div>
 
-      <h1 className="text-lg font-semibold">
+      <h1 className="text-base font-semibold tracking-tight">
         {t('title')}
         {document && <span className="text-muted-foreground"> · {document.documentNo}</span>}
       </h1>
 
       {documentLoading ? (
-        <div className="flex items-center gap-2 rounded-md border border-dashed border-border p-6 text-sm text-muted-foreground" role="status">
+        <div className="flex items-center gap-2 rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground" role="status">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           {t('load.loading')}
         </div>
       ) : documentError ? (
-        <div className="flex items-start gap-2 rounded-md border border-red-700 bg-red-50 p-4 text-sm text-red-900 dark:bg-red-950/40 dark:text-red-200" role="alert">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <div>
-            <p className="font-semibold">{t('load.failedTitle')}</p>
-            <p>{documentError}</p>
-          </div>
-        </div>
+        <ErrorBanner title={t('load.failedTitle')} message={documentError} className="p-4" />
       ) : (
         document && (
           <>

@@ -64,7 +64,7 @@ export default function RequestCloseDialog({
             id="request-close-reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="h-8 w-full rounded-md border border-input bg-background px-2 text-[0.8125rem]"
+            className="h-8 w-full rounded-lg border border-input bg-background px-2 text-[0.8125rem]"
           >
             <option value="">{t('requestClose.placeholder')}</option>
             {CANCEL_REASONS.map((r) => (

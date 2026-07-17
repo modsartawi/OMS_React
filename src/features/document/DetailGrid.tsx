@@ -1,9 +1,10 @@
 import { AgGridReact } from 'ag-grid-react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Inbox, Loader2 } from 'lucide-react'
+import { Inbox, Loader2 } from 'lucide-react'
 import type { ColDef, RowClassParams, RowStyle } from 'ag-grid-community'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { DETAIL_DEFAULT_COL_DEF } from './columns'
 
@@ -33,7 +34,7 @@ export default function DetailGrid<T>({
 }) {
   const { t } = useTranslation('document')
   const STATE =
-    'flex h-[26rem] items-center justify-center gap-2 rounded-md border border-dashed ' +
+    'flex h-[26rem] items-center justify-center gap-2 rounded-lg border border-dashed ' +
     'border-border text-[0.8125rem] text-muted-foreground'
 
   if (loading)
@@ -44,16 +45,7 @@ export default function DetailGrid<T>({
       </div>
     )
 
-  if (error)
-    return (
-      <div
-        className="flex h-[26rem] items-center justify-center gap-2 rounded-md border border-red-700 bg-red-50 text-[0.8125rem] text-red-900 dark:bg-red-950/40 dark:text-red-200"
-        role="alert"
-      >
-        <AlertTriangle className="h-4 w-4" aria-hidden />
-        <span>{error}</span>
-      </div>
-    )
+  if (error) return <ErrorBanner center message={error} className="h-[26rem]" />
 
   if ((rowData?.length ?? 0) === 0)
     return (

@@ -19,8 +19,8 @@ export default function ShippingAddress({
   if (rows.length > 0) return <FieldGroup title={t('groups.shippingAddress')} fields={rows} />
 
   return (
-    <section className="rounded-md border border-border bg-card">
-      <h2 className="rounded-t-md border-b border-border bg-muted/60 px-2.5 py-1.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+    <section className="rounded-lg border border-border/60 bg-card">
+      <h2 className="border-b border-border/60 px-2.5 py-1.5 text-xs font-semibold tracking-tight">
         {t('groups.shippingAddress')}
       </h2>
       <p className="px-2.5 py-2 text-[0.8125rem] text-muted-foreground">{t('groups.noAddress')}</p>

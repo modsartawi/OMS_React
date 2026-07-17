@@ -17,10 +17,11 @@ const encode = (segment: string) => encodeURIComponent(segment)
 const PAGE = { skip: 0, take: 50 }
 
 export const uaAdminApi = {
-  // Screen-open grant probe. Drives the in-page route-guard (the "no access"
-  // card) for UX; the server enforces the grant on every UaAdminWeb/* call
-  // regardless. Permission-aware menu hiding is a program-wide concern (not
-  // built here) — see map 413 fog.
+  // Screen-open grant probe. Drives BOTH the in-page route-guard (the "no
+  // access" card) AND the shell's permission-aware nav hiding (issue 429) —
+  // the shell's probe shares this exact ['ua-admin','access'] cache entry, so
+  // it's one call, not two. The server enforces the grant on every UaAdminWeb/*
+  // call regardless; the menu hide is show/hide hygiene only.
   access(): Promise<UaAccessResult> {
     return api.get<UaAccessResult>(`${BASE}/Access`)
   },

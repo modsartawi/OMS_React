@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, LogOut, Menu, Moon, Sun } from 'lucide-react'
 import { MENU, isActive, type ShellMenuItem } from './menu-model'
+import { useVisibleMenu } from './useVisibleMenu'
 import { useTheme } from './theme'
 import { useSession } from '@/core/session'
 import { authApi } from '@/features/auth/api'
@@ -174,6 +175,8 @@ export default function AppShell() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const sidebarRef = useRef<HTMLElement>(null)
+  // Permission-aware nav: gated items the user can't open are hidden (issue 429).
+  const menu = useVisibleMenu(MENU)
 
   // Mobile overlay: Esc closes, body scroll locks, focus moves in, auto-close on nav/resize.
   useEffect(() => {
@@ -248,7 +251,7 @@ export default function AppShell() {
           }
         >
           <nav className="flex flex-col gap-1 p-2">
-            {MENU.map((item) =>
+            {menu.map((item) =>
               item.items ? (
                 <MenuGroup key={item.labelKey} item={item} onNavigate={() => setMobileOpen(false)} />
               ) : (

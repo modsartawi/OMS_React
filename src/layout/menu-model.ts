@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import { Box, FileText, ShieldCheck, UserCog } from 'lucide-react'
+import { uaAdminApi } from '@/features/ua-admin/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -10,6 +11,43 @@ export interface ShellMenuItem {
   /** Keeps the leaf highlighted + group expanded while a drill-down under this prefix is open. */
   activePrefix?: string
   items?: ShellMenuItem[]
+  /**
+   * Optional permission-aware show/hide gate (issue 429, web-platform foundation).
+   * ABSENT = always visible (e.g. deliveries). Present = the shell hides this
+   * item until the probe confirms access. This is show/hide hygiene only — the
+   * server grant stays authoritative (a deep-link still hits the screen's own
+   * in-page denied backstop). Build a probe with `accessProbe(...)`.
+   */
+  access?: AccessProbe
+}
+
+/**
+ * A per-item access probe: the module's OWN screen-access call, keyed so the
+ * shell's probe and the screen's own route-guard share one react-query cache
+ * entry (one network call, not two). The shell reads `visible(data)` only once
+ * the probe has resolved successfully; pending OR error => hidden (fail-closed,
+ * and no flash-then-hide). Adding a gated module = append an item with a probe;
+ * no layout code changes.
+ */
+export interface AccessProbe {
+  /** react-query key — MUST equal the screen guard's key so the call dedupes. */
+  key: readonly unknown[]
+  /** the module's screen-access call, verbatim; its raw result is cached & shared. */
+  run: () => Promise<unknown>
+  /** derive show/hide from the raw result; fail-closed edges handled by the shell. */
+  visible: (data: unknown) => boolean
+}
+
+/**
+ * Typed builder for {@link AccessProbe} — keeps `run` and `visible` in sync on
+ * the module's own result type without leaking a generic onto `ShellMenuItem`.
+ */
+export function accessProbe<T>(p: {
+  key: readonly unknown[]
+  run: () => Promise<T>
+  visible: (data: T) => boolean
+}): AccessProbe {
+  return p as AccessProbe
 }
 
 export const MENU: ShellMenuItem[] = [
@@ -34,6 +72,12 @@ export const MENU: ShellMenuItem[] = [
         icon: UserCog,
         routerLink: '/admin/ua-users',
         activePrefix: '/admin',
+        // Same key + call as UaAdminUsersPage's own guard → one shared probe.
+        access: accessProbe({
+          key: ['ua-admin', 'access'],
+          run: () => uaAdminApi.access(),
+          visible: (r) => r.canOpen === true,
+        }),
       },
     ],
   },

@@ -1,0 +1,66 @@
+{
+  "menu": {
+    "bonusBuyDownload": "Bonus Buy Download"
+  },
+  "title": "Bonus Buy Download",
+  "subtitle": "Download or delete a list of Bonus Buys (one number per line). Each number is processed on its own — one bad number never stops the rest.",
+  "access": {
+    "checking": "Checking access…",
+    "deniedTitle": "No access",
+    "deniedHint": "You don't have permission to open Bonus Buy Download. Ask an administrator for the Bonus Buy Download grant."
+  },
+  "numbers": {
+    "label": "BBY numbers (one per line)",
+    "placeholder": "100234\n100235\n100236",
+    "hint": "Duplicate numbers are removed automatically.",
+    "counted": "{{count}} number",
+    "counted_other": "{{count}} numbers"
+  },
+  "attributes": {
+    "legend": "Attributes (overrides)",
+    "clearsWarning": "A blank field CLEARS that value on every downloaded BBY (except the two times).",
+    "includes": "Includes",
+    "excludes": "Excludes",
+    "originFilter": "Origin Filter",
+    "stackingExcludes": "Stacking Excludes",
+    "loyGroups": "Loyalty Groups",
+    "loyTiers": "Loyalty Tiers",
+    "isStackable": "Is Stackable",
+    "maxValue": "Max Value",
+    "score": "Score",
+    "validFromTime": "Valid From",
+    "validToTime": "Valid To",
+    "timeHint": "Blank = keep the value from HANA."
+  },
+  "actions": {
+    "download": "Download",
+    "delete": "Delete"
+  },
+  "progress": {
+    "counter": "{{done}} / {{total}}"
+  },
+  "tally": {
+    "succeeded": "{{count}} succeeded",
+    "deleted": "{{count}} deleted",
+    "notFoundInHana": "{{count}} not found in HANA",
+    "notFound": "{{count}} not found",
+    "failed": "{{count}} failed",
+    "overwritten": "{{count}} overwritten"
+  },
+  "status": {
+    "succeeded": "succeeded",
+    "succeededOverwritten": "succeeded (overwritten)",
+    "notFoundInHana": "not found in HANA",
+    "deleted": "deleted",
+    "notFound": "not found",
+    "failed": "failed"
+  },
+  "confirm": {
+    "deleteTitle": "Delete Bonus Buys?",
+    "deleteBody": "Delete {{count}} BBY: {{numbers}}?",
+    "deleteBody_other": "Delete {{count}} BBYs: {{numbers}}?"
+  },
+  "banner": {
+    "middlewareDown": "HANA middleware unreachable — the run was halted. No further numbers were processed. Check the connection and try again."
+  }
+}

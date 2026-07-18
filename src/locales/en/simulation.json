@@ -1,0 +1,67 @@
+{
+  "menu": {
+    "pricing": "Pricing & Promotions",
+    "simulation": "POS Simulation"
+  },
+  "title": "POS Simulation",
+  "access": {
+    "checking": "Checking access…",
+    "deniedTitle": "No access",
+    "deniedHint": "You don't have permission to open POS Simulation. Ask an administrator for the POS Simulation grant."
+  },
+  "header": {
+    "title": "Header",
+    "plant": "Plant",
+    "pricingDate": "Pricing date",
+    "salesOrg": "Sales org",
+    "distChannel": "Distribution channel",
+    "procedureKey": "Procedure key",
+    "procedureKeyHint": "'W' = Wasfaty",
+    "loyId": "Loyalty ID",
+    "loyGroup": "Loyalty group",
+    "loyTier": "Loyalty tier",
+    "promotion": "Promotion",
+    "pricingElements": "Pricing Elements"
+  },
+  "items": {
+    "title": "Items",
+    "material": "Material",
+    "quantity": "Qty",
+    "uom": "UoM",
+    "addRow": "Add item",
+    "removeRow": "Remove item"
+  },
+  "actions": {
+    "process": "Process",
+    "processing": "Processing…",
+    "clear": "Clear"
+  },
+  "summary": {
+    "netTotal": "Net Total",
+    "elapsed": "{{ms}} ms",
+    "noResult": "Process a basket to see results."
+  },
+  "banner": {
+    "failed": "Simulation failed",
+    "counts": "{{errors}} error(s), {{warnings}} warning(s) — check the flagged lines."
+  },
+  "results": {
+    "title": "Results",
+    "status": "Status",
+    "item": "Item",
+    "material": "Material",
+    "description": "Description",
+    "qty": "Qty",
+    "subtotal": "Subtotal",
+    "promo": "Promo",
+    "gross": "Gross",
+    "tax": "Tax",
+    "net": "Net",
+    "empty": "No priced lines yet."
+  },
+  "status": {
+    "ok": "OK",
+    "warning": "Warning",
+    "error": "Error"
+  }
+}

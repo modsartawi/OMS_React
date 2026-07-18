@@ -1,8 +1,10 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, FileText, KeyRound, ShieldCheck, UserCog } from 'lucide-react'
+import { Activity, Box, Calculator, Download, FileText, KeyRound, ShieldCheck, Tags, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
+import { simulationApi } from '@/features/pricing/simulation/api'
+import { bonusBuyDownloadApi } from '@/features/pricing/bonus-buy-download/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -106,6 +108,38 @@ export const MENU: ShellMenuItem[] = [
           key: ['active-sessions', 'access'],
           run: () => sessionMonitorApi.access(),
           visible: (r) => r.canOpen === true,
+        }),
+      },
+    ],
+  },
+  {
+    labelKey: 'simulation:menu.pricing',
+    icon: Tags,
+    items: [
+      {
+        labelKey: 'simulation:menu.simulation',
+        icon: Calculator,
+        routerLink: '/pricing/simulation',
+        activePrefix: '/pricing/simulation',
+        // Same key + call as SimulationPage's own guard → one shared probe.
+        // Gated by its OWN grant (POS_SIMULATION_ADMIN), spec 503 / BackOffice 509.
+        access: accessProbe({
+          key: ['simulation', 'access'],
+          run: () => simulationApi.access(),
+          visible: (r) => r.canOpen === true,
+        }),
+      },
+      {
+        labelKey: 'bonus-buy-download:menu.bonusBuyDownload',
+        icon: Download,
+        routerLink: '/pricing/bonus-buy-download',
+        activePrefix: '/pricing/bonus-buy-download',
+        // Same key + call as BonusBuyDownloadPage's own guard → one shared probe.
+        // Gated by its OWN screen grant (BackOfficeScreen[BbyDownload,03]), BackOffice 515.
+        access: accessProbe({
+          key: ['bonus-buy-download', 'access'],
+          run: () => bonusBuyDownloadApi.access(),
+          visible: (r) => r.screenAllowed === true,
         }),
       },
     ],

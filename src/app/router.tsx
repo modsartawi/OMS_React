@@ -55,6 +55,18 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/active-sessions/ActiveSessionsPage')).default,
         }),
       },
+      {
+        path: 'pricing/simulation',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/simulation/SimulationPage')).default,
+        }),
+      },
+      {
+        path: 'pricing/bonus-buy-download',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/bonus-buy-download/BonusBuyDownloadPage')).default,
+        }),
+      },
       { path: '*', element: <Navigate to="/oms/deliveries" replace /> },
     ],
   },

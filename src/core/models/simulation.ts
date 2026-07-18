@@ -74,6 +74,26 @@ export interface SimulationResultHeader {
  *  result (a bad line never blanks the run) — drives the red/amber/green dot. */
 export type PricingStatus = 'E' | 'W' | '' | (string & {})
 
+/** One RAW condition row on a priced line (contract 486). The client aggregates
+ *  these into cards (ticket 014, `aggregateConditions`) — the endpoint stays a
+ *  pass-through and never groups. `conditionOrigin` drives the badge/category
+ *  (P|B → promotion, M → manual, H → header); `isStatistics` rows hide behind a
+ *  toggle. Bonus-buy fields feed the bonus-buy tabs (ticket 015). */
+export interface SimulationResultCondition {
+  stepNumber: number
+  conditionCounter: number
+  conditionType: string
+  description: string
+  conditionRate: number
+  conditionRateUnit: string
+  conditionValue: number
+  conditionBaseValue: number
+  isStatistics: boolean
+  conditionOrigin: string
+  isBonusBuy: boolean
+  bbyNumber: string | null
+}
+
 export interface SimulationResultItem {
   itemNumber: number
   materialNumber: string
@@ -89,6 +109,9 @@ export interface SimulationResultItem {
   promotionDiscount: number
   pricingStatus: PricingStatus
   pricingStatusMessages: string[]
+  /** Raw pricing-procedure rows, aggregated into cards client-side (ticket 014).
+   *  Present when the request set `includeConditions:true` (the screen always does). */
+  conditions: SimulationResultCondition[]
 }
 
 export interface SimulationResult {

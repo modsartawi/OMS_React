@@ -14,7 +14,9 @@ import type { SimulateRequest, SimulationResult } from '@/core/models/simulation
 import { simulationApi } from './api'
 import SimHeaderForm, { EMPTY_HEADER, type SimHeaderState } from './SimHeaderForm'
 import SimItemsEntry, { emptyItemRow, type SimItemRow } from './SimItemsEntry'
+import SimItemDetail from './SimItemDetail'
 import { buildSimulationColumns, SIM_RESULT_DEFAULT_COL_DEF } from './columns'
+import type { RowClickedEvent } from 'ag-grid-community'
 
 // Ticket 013 — the POS Simulation tracer. Self-guards on Pricing/Access (issue-429
 // pattern, shared ['simulation','access'] key with the menu probe), then: a 4-column
@@ -31,6 +33,9 @@ export default function SimulationPage() {
   const [promotion, setPromotion] = useState(true)
   const [pricingElements, setPricingElements] = useState(false)
   const [items, setItems] = useState<SimItemRow[]>(() => [emptyItemRow()])
+  // Which result line's pricing detail is shown (ticket 014). Selecting a line in
+  // the results grid drives the detail below; a fresh Process selects the first line.
+  const [selectedItemNumber, setSelectedItemNumber] = useState<number | null>(null)
 
   const columns = useMemo(() => buildSimulationColumns(t), [t])
 
@@ -40,6 +45,7 @@ export default function SimulationPage() {
       const result = await simulationApi.simulate(request)
       return { result, elapsedMs: Math.round(performance.now() - start) }
     },
+    onSuccess: ({ result }) => setSelectedItemNumber(result.items[0]?.itemNumber ?? null),
   })
 
   const validItems = items.filter((r) => r.materialNumber.trim() !== '')
@@ -77,6 +83,7 @@ export default function SimulationPage() {
     setPromotion(true)
     setPricingElements(false)
     setItems([emptyItemRow()])
+    setSelectedItemNumber(null)
     process.reset()
   }
 
@@ -103,6 +110,9 @@ export default function SimulationPage() {
   const errorCount = result ? result.items.filter((i) => i.pricingStatus === 'E').length : 0
   const warnCount = result ? result.items.filter((i) => i.pricingStatus === 'W').length : 0
   const showStatusBanner = errorCount + warnCount > 0
+
+  const selectedItem =
+    result?.items.find((i) => i.itemNumber === selectedItemNumber) ?? result?.items[0] ?? null
 
   return (
     <section className="flex flex-col gap-3">
@@ -196,10 +206,24 @@ export default function SimulationPage() {
               rowHeight={OMS_GRID_ROW_HEIGHT}
               headerHeight={OMS_GRID_HEADER_HEIGHT}
               animateRows={false}
+              rowSelection={{ mode: 'singleRow', checkboxes: false, enableClickSelection: true }}
+              onRowClicked={(e: RowClickedEvent<SimulationResult['items'][number]>) =>
+                setSelectedItemNumber(e.data?.itemNumber ?? null)
+              }
+              // Highlight the selected line — including the first line auto-selected on
+              // Process — by syncing AG Grid's native selection to our source of truth.
+              onRowDataUpdated={(e) =>
+                e.api.forEachNode((node) => node.setSelected(node.data?.itemNumber === selectedItem?.itemNumber))
+              }
             />
           </div>
         )}
       </div>
+
+      {/* Per-line pricing detail + aggregated condition cards (ticket 014). */}
+      {selectedItem ? (
+        <SimItemDetail key={selectedItem.itemNumber} item={selectedItem} currency={result?.header.currency ?? ''} />
+      ) : null}
     </section>
   )
 }

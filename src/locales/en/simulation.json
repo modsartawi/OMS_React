@@ -59,6 +59,35 @@
     "net": "Net",
     "empty": "No priced lines yet."
   },
+  "detail": {
+    "title": "Pricing details for item {{item}}: {{material}}",
+    "tiles": {
+      "base": "Base price",
+      "discounts": "Total discounts",
+      "tax": "Tax",
+      "net": "Net total"
+    },
+    "rulesTitle": "Applied pricing rules",
+    "noRules": "No pricing rules applied to this line.",
+    "showStatistical": "Show statistical conditions ({{count}} hidden)",
+    "hideStatistical": "Hide statistical conditions ({{count}} hidden)",
+    "countPill": "×{{count}}",
+    "records": "{{count}} records",
+    "rateBase": "Rate: {{rate}} {{unit}}  |  Base: {{base}}",
+    "subRate": "Rate: {{rate}} {{unit}}",
+    "messagesTitle": "Pricing messages",
+    "badge": {
+      "promotion": "PROMOTION",
+      "manual": "MANUAL",
+      "header": "HEADER"
+    },
+    "category": {
+      "promotion": "Promotion",
+      "manual": "Manual Discount",
+      "header": "Header Discount",
+      "pricing": "Pricing"
+    }
+  },
   "status": {
     "ok": "OK",
     "warning": "Warning",

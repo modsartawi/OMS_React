@@ -38,6 +38,25 @@ export interface UaChangePasswordResult {
   errorCode: string | null
   message: string | null
 }
+/**
+ * Reset/re-enroll request step (POST Auth/UaRequestPasswordReset |
+ * Auth/UaRequestTotpReenroll) — always HTTP 200. Success carries the `resetId`
+ * the next two steps quote and says NOTHING about whether an SMS actually went
+ * out: an id comes back for an unknown / phone-less employee too (anti-enum
+ * decoy), so the caller must never read success as "the SMS was sent".
+ */
+export interface UaResetRequestResult {
+  success: boolean
+  errorCode: string | null
+  message: string | null
+  resetId: string | null
+}
+/** Shared OTP verify + set-password steps — carry only success + code + message. */
+export interface UaResetStepResult {
+  success: boolean
+  errorCode: string | null
+  message: string | null
+}
 export interface WebMeResult {
   authenticated: boolean
   userId: string | null
@@ -74,6 +93,22 @@ export const authApi = {
       oldPassword,
       newPassword,
     })
+  },
+  // --- self-service password set/reset (issue 476) --------------------------
+  // Anonymous, cookie-family, self-authorizing via the SMS code. All three wrap
+  // UaPasswordResetService unchanged and set no cookie.
+
+  /** Reset step 1 — employee id → reset id (+ SMS). Always HTTP 200; never an oracle. */
+  uaRequestPasswordReset(userId: string): Promise<UaResetRequestResult> {
+    return api.post<UaResetRequestResult>('Auth/UaRequestPasswordReset', { userId })
+  },
+  /** Shared verify — reset id + SMS code. Serves both reset and re-enroll (477). */
+  uaVerifyResetOtp(resetId: string, otpCode: string): Promise<UaResetStepResult> {
+    return api.post<UaResetStepResult>('Auth/UaVerifyResetOtp', { resetId, otpCode })
+  },
+  /** Reset step 3 — verified reset id + chosen password → credential set, id spent. */
+  uaSetPassword(resetId: string, newPassword: string): Promise<UaResetStepResult> {
+    return api.post<UaResetStepResult>('Auth/UaSetPassword', { resetId, newPassword })
   },
   logout(): Promise<unknown> {
     return api.post('Auth/Logout', {})

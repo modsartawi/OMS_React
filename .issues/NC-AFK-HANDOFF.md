@@ -9,19 +9,26 @@ human decision._
 Wayfinder map [023](023-web-notification-center.md) is **done** — every decision locked, spec 031
 `ready`. This is the build phase.
 
-## Precondition — clean tree
+## Precondition — clean tree ✅ RESOLVED
 
-⚠️ Do not start until the working tree is clean. At handoff time it held **unrelated uncommitted
-WIP** (pricing-simulation / coupons / login / home) on shared files NC must edit (`router.tsx`,
-`i18n.ts`). Commit/stash that WIP first, or build in an isolated worktree off `main`. See
-[NC-MORNING-REPORT.md](NC-MORNING-REPORT.md) 🛑.
+The tree is now **clean**, committed at **`23e3400`** on `feature/active-sessions-pos-chip`
+(two commits: `4038cd5` tracker docs incl. all NC tickets/spec; `23e3400` the in-flight
+rebrand + pricing WIP snapshot). The earlier blocker (uncommitted WIP on `router.tsx`/`i18n.ts`)
+is gone. Build can start.
 
 ## Branch
 
-All build work lands on a feature branch off `main` (not the current
-`feature/active-sessions-pos-chip`): **`feature/notification-center`**. One commit per ticket,
-message = the ticket's test-name title. Do not push or open a PR without the human (per repo
-conventions).
+The NC tickets + spec live on `feature/active-sessions-pos-chip` (commit `23e3400`), **not on
+`main`** — so branch the build off **that HEAD**, not main, or the tickets won't be present:
+
+```
+git switch feature/active-sessions-pos-chip   # (or checkout 23e3400)
+git switch -c feature/notification-center
+```
+
+One commit per ticket, message = the ticket's test-name title. Do not push or open a PR without the
+human (per repo conventions). Note: this branches atop the rebrand + pricing WIP; rebase/retarget the
+base at PR time once that WIP merges.
 
 ## Build order (two independent chains — the frontier is anything unblocked)
 

@@ -7,31 +7,18 @@ _Last updated: overnight build session (post `/to-tickets`)._
 
 ---
 
-## 🛑 Why no production code was written overnight (read first)
+## ✅ Tree committed clean — build can start
 
-The working tree is **dirty with unrelated uncommitted WIP** — `src/app/router.tsx`,
-`src/core/i18n.ts`, and ~12 pricing / auth / home files are modified-but-uncommitted, plus untracked
-source (`src/app/HomePage.tsx`, `src/core/ui/BrandMark.tsx`, `src/features/pricing/simulation/SimManualConditions.tsx`,
-`src/assets/Al-Dawaa-Pharmacies-01.svg`, `src/locales/en/home.json`). This predates my session; I did
-not create it and must not commit or disturb it.
+The working tree is **now clean**, committed on your instruction at **`23e3400`**
+(`feature/active-sessions-pos-chip`), in two commits:
+- `4038cd5` — **tracker docs**: the whole NC map (023 → spec 031 → tickets 032-038) + handoff/report,
+  plus the cache-reset planning docs. Docs only.
+- `23e3400` — **wip snapshot**: the in-flight al-dawaa rebrand + pricing-simulation/coupons work that
+  was sitting uncommitted (typecheck clean at commit time; not authored this session).
 
-The NC build **must edit two of those same dirty files** — `router.tsx` (new Admin route) and
-`i18n.ts` (new `notifications` + `broadcast` namespaces). Building on the dirty tree would either
-(a) entangle someone's uncommitted pricing/login/home work into NC commits, or (b) leave a tree that
-can't be cleanly separated. There's also no running SIS.Api on :5111 to runtime-verify against. So I
-stopped rather than gamble with uncommitted work while you were asleep — everything below is staged
-to run the moment the tree is clean.
-
-**To unblock the build (one of):**
-1. **Commit or stash the in-flight WIP** (the pricing-simulation / coupons / login / home effort), so
-   `git status` is clean on a known-good commit — then the handoff plan runs directly on
-   `feature/notification-center` off `main`.
-2. Or tell me it's fine to build NC **in an isolated worktree off `main`** (leaves your dirty tree
-   untouched; NC lands as its own branch, integrated later via a normal merge of `router.tsx` /
-   `i18n.ts`). I can do this next session on your OK.
-
-Once the tree is clean, the full plan in [NC-AFK-HANDOFF.md](NC-AFK-HANDOFF.md) executes 032→038 with
-`npm run typecheck` between tickets.
+The earlier dirty-tree blocker is resolved. **The NC build branches off this HEAD** (not `main` — the
+tickets live on this branch); see [NC-AFK-HANDOFF.md](NC-AFK-HANDOFF.md) → Branch. The remaining
+blockers below are about the backend/runner, not the tree.
 
 ## ⚠️ Decisions / blockers waiting on you
 
@@ -82,8 +69,8 @@ none coded yet.
 | 037 fleet confirm | ticket ready, **not coded** | |
 | 038 access gate | ticket ready, **not coded** | also backend-blocked (item 1) |
 
-Branch `feature/notification-center` **not yet created** (would inherit the dirty tree — deferred
-until the tree is clean or you approve the worktree route).
+Branch `feature/notification-center` **not yet created** — create it off `23e3400` at the start of
+the build session (see handoff → Branch).
 
 ---
 

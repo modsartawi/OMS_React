@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, Calculator, Download, FileText, KeyRound, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
+import { Activity, Box, Calculator, Download, FileText, KeyRound, LifeBuoy, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -155,6 +155,21 @@ export const MENU: ShellMenuItem[] = [
           key: ['coupons', 'access'],
           run: () => couponsApi.access(),
           visible: (r) => r.canAdmin === true,
+        }),
+      },
+      {
+        labelKey: 'coupons:menu.couponSupport',
+        icon: LifeBuoy,
+        routerLink: '/pricing/coupon-support',
+        activePrefix: '/pricing/coupon-support',
+        // Shares the ONE ['coupons','access'] probe with the Admin leaf + both pages
+        // (issue 429). Support screen shows on CanSupport, which the server sets =
+        // support OR admin — so a support-only agent sees this leaf but NOT the
+        // admin Coupons leaf above (ticket 523).
+        access: accessProbe({
+          key: ['coupons', 'access'],
+          run: () => couponsApi.access(),
+          visible: (r) => r.canSupport === true,
         }),
       },
     ],

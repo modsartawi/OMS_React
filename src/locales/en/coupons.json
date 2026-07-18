@@ -1,6 +1,7 @@
 {
   "menu": {
-    "coupons": "Coupons"
+    "coupons": "Coupons",
+    "couponSupport": "Coupon Support"
   },
   "eyebrow": "Pricing & Promotions",
   "title": "Coupons Admin",
@@ -8,6 +9,10 @@
     "checking": "Checking access…",
     "deniedTitle": "No access",
     "deniedHint": "You don't have permission to open Coupons Admin. Ask an administrator for the Coupons Admin grant."
+  },
+  "support": {
+    "title": "Coupon Support",
+    "deniedHint": "You don't have permission to open Coupon Support. Ask an administrator for the Coupon Support grant."
   },
   "tabs": {
     "ariaLabel": "Coupons workspace",

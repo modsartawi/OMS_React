@@ -73,6 +73,12 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/pricing/coupons/CouponsAdminPage')).default,
         }),
       },
+      {
+        path: 'pricing/coupon-support',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/coupons/CouponSupportPage')).default,
+        }),
+      },
       { path: '*', element: <Navigate to="/oms/deliveries" replace /> },
     ],
   },

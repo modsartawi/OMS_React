@@ -1,7 +1,8 @@
 import type { LucideIcon } from 'lucide-react'
-import { Box, FileText, KeyRound, ShieldCheck, UserCog } from 'lucide-react'
+import { Activity, Box, FileText, KeyRound, ShieldCheck, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
+import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -92,6 +93,19 @@ export const MENU: ShellMenuItem[] = [
           key: ['authz-admin', 'access'],
           run: () => authzAdminApi.access(),
           visible: (r) => r.screenAllowed === true,
+        }),
+      },
+      {
+        labelKey: 'active-sessions:menu.sessions',
+        icon: Activity,
+        routerLink: '/admin/sessions',
+        activePrefix: '/admin/sessions',
+        // Same key + call as ActiveSessionsPage's own guard → one shared probe.
+        // Gated by its OWN grant, separate from Ua Users (spec 006).
+        access: accessProbe({
+          key: ['active-sessions', 'access'],
+          run: () => sessionMonitorApi.access(),
+          visible: (r) => r.canOpen === true,
         }),
       },
     ],

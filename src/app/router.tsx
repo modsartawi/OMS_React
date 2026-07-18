@@ -49,6 +49,12 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/authz-admin/AuthzAdminPage')).default,
         }),
       },
+      {
+        path: 'admin/sessions',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/active-sessions/ActiveSessionsPage')).default,
+        }),
+      },
       { path: '*', element: <Navigate to="/oms/deliveries" replace /> },
     ],
   },

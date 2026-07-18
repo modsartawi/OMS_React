@@ -1,0 +1,19 @@
+{
+  "menu": {
+    "sessions": "Active Sessions"
+  },
+  "title": "Active Sessions",
+  "search": {
+    "placeholder": "Search live sessions — employee id, name, store code, or IP…",
+    "button": "Search"
+  },
+  "grid": {
+    "emptyTitle": "Search first",
+    "emptyHint": "Type an employee id, a name, a store code, or an IP address to list matching live sessions across the estate (first 50, refine to narrow)."
+  },
+  "access": {
+    "deniedTitle": "You don't have access to Active Sessions",
+    "deniedHint": "This screen needs the Active Sessions permission. Ask an administrator to grant it.",
+    "checking": "Checking access…"
+  }
+}

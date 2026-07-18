@@ -1,6 +1,6 @@
 ---
 type: wayfinder-map
-status: open
+status: done
 ---
 
 # 001 — Active Sessions admin screen
@@ -48,25 +48,22 @@ bulk multi-select).
 - [Active-sessions endpoint gap & contract](002-active-sessions-endpoint-gap-and-contract.md) — the domain service already has estate-wide `GetActiveSessions` + `RevokeSessionsForUser`; the gap is web routes. New `UaAdminWeb/Sessions` (search+50-cap), `Sessions/Counts`, `Sessions/RevokeAllForUser`; reuse `Sessions/Revoke`. Server-side search+cap (not client-side). Grant fork → 003.
 - [Access grant for the screen](003-active-sessions-access-grant.md) — its **own** new grant (`BackOfficeScreen[UaSessions,03]`), not a reuse of `UaUsers`; own endpoint filter + `UaAdminWeb/Sessions/Access` probe. Seed + day-one bind deferred to the spec.
 - [Design mock confirmed](004-active-sessions-design-mock.md) — v2 (Web/Mobile/BackOffice/Idle chips) is the build target; live-monitoring table, search+50-cap, per-row Revoke + revoke-all-for-user bar, confirm modals, all states, light+dark. Mock: https://claude.ai/code/artifact/e2e07599-d259-4e37-b20a-4633852c6fdc
+- [Spec-polish locked](005-active-sessions-screen-spec.md) — 30s auto-poll + manual Refresh, optimistic revoke; **per-channel-relative idle** (web>45m, mobile>8h, POS/BackOffice n/a → chip label "Idle", server-counted); revoke-all audits **one `ADMIN_SESSION_REVOKE` per session**. All decisions locked → hand off to `/to-spec` then `/to-tickets`.
 
 ## Not yet specified
 
-<!-- graduates to tickets as the frontier advances -->
+<!-- All planning-level fog is cleared — the map is done. What remains is build-ticket
+     detail for /to-tickets, or explicitly-optional future scope — none of it a decision
+     the map still owes. -->
 
-- **Live-refresh behaviour** — a monitor implies freshness: manual Refresh only, or a
-  polling/auto-refresh cadence (and does revoke optimistically drop the row or refetch)?
-  Spec polish once the mock shape is confirmed.
-- **Idle-stale threshold** — the "Idle > Nm" worklist chip needs a concrete N (and whether
-  it is a server count like Ua Admin's cards, or derived client-side from `lastSeenTime`).
-  Tied to 002's contract + 004's mock.
-- **revoke-all-for-user audit shape** — one aggregate audit row vs one `ADMIN_SESSION_REVOKE`
-  per killed session. Folds into 002 / spec polish.
-- **New-grant seed + day-one bind** (from 003) — the migration that creates the
+- **New-grant seed + day-one bind** (build detail, from 003) — the migration that creates the
   `BackOfficeScreen[UaSessions,03]` grant row, and the initial `/authz-admin` assignment so
-  administrators aren't locked out on first deploy. Spec (005) closes it.
-- **POS channel chip** — the mock exposes Web / Mobile / BackOffice chips; POS sessions exist
-  (issue 370) and currently fold into "All". Add a POS chip if the owner wants to isolate them.
-- Empty / error / denied copy, exact i18n key strings, theme tokens — spec polish, none blocking.
+  administrators aren't locked out on first deploy. A `/to-tickets` build slice, not a map decision.
+- **POS channel chip** (optional future) — the confirmed mock exposes Web / Mobile / BackOffice
+  chips; POS sessions exist (issue 370) and fold into "All". Add a POS chip only if the owner
+  later wants to isolate them.
+- **Idle chip copy** (build detail) — the mock still reads "Idle > 30m"; per 005 the label
+  becomes just "Idle" with a per-channel tooltip. A copy fix at build time.
 
 ## Out of scope
 

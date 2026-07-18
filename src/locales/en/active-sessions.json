@@ -8,6 +8,14 @@
     "button": "Search",
     "hint": "Nothing loads until you search — results are a live server query, capped at 50 rows."
   },
+  "chips": {
+    "all": "All live",
+    "web": "Web",
+    "mobile": "Mobile",
+    "backoffice": "BackOffice",
+    "idle": "Idle",
+    "idleTooltip": "Sessions with no recent heartbeat, judged per channel: web quiet over 45m, mobile over 8h. POS and BackOffice never count as idle."
+  },
   "grid": {
     "user": "User",
     "store": "Store",
@@ -18,6 +26,9 @@
     "client": "Client",
     "noQuery": "No query yet",
     "searchTitle": "Search: \"{{term}}\"",
+    "allTitle": "All live sessions",
+    "channelTitle": "{{channel}} sessions",
+    "idleTitle": "Idle sessions",
     "capped": "first {{shown}} of {{total}} — refine to narrow",
     "matchCount": "{{count}} live session",
     "matchCount_other": "{{count}} live sessions",

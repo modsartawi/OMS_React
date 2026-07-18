@@ -9,16 +9,27 @@
 const PAGE = { skip: 0, take: 50 }
 
 /**
- * Shape the GET Sessions params from the search term. A blank/whitespace term is
- * dropped so a term-less query lists all live sessions (server still caps at 50);
- * paging is fixed. `core/api.buildQuery` drops blanks at the wire too, but shaping
- * here is the pure, assertable seam (and it trims, which buildQuery does not).
- * Ticket 009 extends this with the channel + idleOnly chip params.
+ * The active filter chip above the grid (ticket 009). `all` is the whole live
+ * estate; `web`/`mobile`/`backoffice` narrow to one channel; `idle` surfaces
+ * sessions with no recent heartbeat (per-channel rule, spec 006). The chip
+ * composes with the search term — e.g. Web + "john".
  */
-export function buildSessionsQuery(term: string): Record<string, string | number> {
-  const params: Record<string, string | number> = { ...PAGE }
+export type SessionChip = 'all' | 'web' | 'mobile' | 'backoffice' | 'idle'
+
+/**
+ * Shape the GET Sessions params from the search term and the active chip. A
+ * blank/whitespace term is dropped so a term-less query lists all live sessions
+ * (server still caps at 50). The chip maps to the endpoint's `channel` param
+ * (`web`/`mobile`/`backoffice`) or `idleOnly` (the Idle chip); `all` adds neither.
+ * Paging is fixed. `core/api.buildQuery` drops blanks at the wire too, but shaping
+ * here is the pure, assertable seam (and it trims, which buildQuery does not).
+ */
+export function buildSessionsQuery(term: string, chip: SessionChip = 'all'): Record<string, unknown> {
+  const params: Record<string, unknown> = { ...PAGE }
   const trimmed = term.trim()
   if (trimmed) params.term = trimmed
+  if (chip === 'idle') params.idleOnly = true
+  else if (chip !== 'all') params.channel = chip
   return params
 }
 

@@ -4,6 +4,7 @@
 //
 // Ticket 007 landed the access spine (the grant probe). Ticket 008 adds the
 // search-first, 50-capped live-session list (ActiveSessionRow + its wrapper).
+// Ticket 009 adds the server-computed chip counts (SessionCountsResult).
 
 /** GET UaAdminWeb/Sessions/Access — the screen-open grant probe (show/hide only). */
 export interface SessionAccessResult {
@@ -38,4 +39,19 @@ export interface ActiveSessionSearchResult {
   totalMatches: number
   rowCap: number
   isCapped: boolean // more rows exist beyond this page
+}
+
+/**
+ * GET UaAdminWeb/Sessions/Counts — the filter-chip counts, server-computed like
+ * `ReportCounts`. These are true estate-wide totals, independent of the 50-row
+ * page, so a chip reports the real total even when the grid shows only a sample.
+ * `idle` is **per-channel-relative** (web no heartbeat > 45m, mobile > 8h;
+ * POS/BackOffice never idle), not a single blunt scalar (spec 006 idle rule).
+ */
+export interface SessionCountsResult {
+  all: number
+  web: number
+  mobile: number
+  backoffice: number
+  idle: number
 }

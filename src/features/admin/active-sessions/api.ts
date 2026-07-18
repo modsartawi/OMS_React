@@ -1,6 +1,10 @@
 import { api } from '@/core/api'
-import type { ActiveSessionSearchResult, SessionAccessResult } from '@/core/models/session-monitor'
-import { buildSessionsQuery } from './helpers'
+import type {
+  ActiveSessionSearchResult,
+  SessionAccessResult,
+  SessionCountsResult,
+} from '@/core/models/session-monitor'
+import { buildSessionsQuery, type SessionChip } from './helpers'
 
 const BASE = 'UaAdminWeb'
 
@@ -17,9 +21,18 @@ export const sessionMonitorApi = {
 
   // Estate-wide live-session search. `term` matches userId / display name / store
   // code / IP; the server searches + caps at 50 and reports the true total, so a
-  // broad query stays fast. Rows come back most-recently-seen first (the grid does
-  // not re-sort). Query shaping lives in the pure `buildSessionsQuery` seam.
-  search(term: string): Promise<ActiveSessionSearchResult> {
-    return api.get<ActiveSessionSearchResult>(`${BASE}/Sessions`, buildSessionsQuery(term))
+  // broad query stays fast. The active `chip` narrows to one channel or to idle
+  // sessions and composes with the term. Rows come back most-recently-seen first
+  // (the grid does not re-sort). Query shaping lives in the pure
+  // `buildSessionsQuery` seam.
+  search(term: string, chip: SessionChip = 'all'): Promise<ActiveSessionSearchResult> {
+    return api.get<ActiveSessionSearchResult>(`${BASE}/Sessions`, buildSessionsQuery(term, chip))
+  },
+
+  // The filter-chip counts — true estate-wide totals per channel plus idle,
+  // independent of the 50-row page, server-computed like ua-admin's ReportCounts.
+  // Drives the counts shown on the All / Web / Mobile / BackOffice chips.
+  counts(): Promise<SessionCountsResult> {
+    return api.get<SessionCountsResult>(`${BASE}/Sessions/Counts`)
   },
 }

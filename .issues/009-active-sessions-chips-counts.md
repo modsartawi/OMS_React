@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 006
 blocked-by: 008
 ---
@@ -21,14 +21,19 @@ api (counts + `channel`/`idleOnly` param) · component (chip row, active state, 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `chipsRenderServerCounts` — each chip shows its count from the counts call · component
+- [x] `chipsRenderServerCounts` — each channel chip shows its count from `api.counts()` (the four
+  `CHANNEL_CHIPS`, `toLocaleString`, `—` until loaded); Idle shows no number per spec · component
   (stub `api.counts`) / drive
-- [ ] `clickingChannelChipFiltersAndMarksActive` — clicking Web re-queries with `channel=web` and
-  marks the chip · component / drive
-- [ ] `idleChipShowsPerChannelTooltip` — the Idle chip carries the per-channel explanation copy ·
+- [x] `clickingChannelChipFiltersAndMarksActive` — `selectChip` re-queries and `buildSessionsQuery`
+  maps Web→`channel=web`, Idle→`idleOnly=true`, All→neither; `aria-pressed` marks the active chip ·
   component / drive
+- [x] `idleChipShowsPerChannelTooltip` — the Idle chip carries `chips.idleTooltip` (web >45m, mobile
+  >8h; POS/BackOffice never idle) · component / drive
 
-Runner not installed — verify via typecheck + drive. Prior art: `ua-admin` report-count cards.
+Runner not installed — verified via `npm run typecheck` (green), `npm run build` (green), and a pure-seam
+harness proving the `buildSessionsQuery` chip→param mapping (all/web/mobile/backoffice/idle + term
+compose). Live app-drive deferred: `Sessions/Counts` is a BackOffice sibling endpoint not present in
+this repo (same as 008). Prior art: `ua-admin` report-count cards.
 
 ## Boundaries
 

@@ -7,7 +7,8 @@ import { formatDateTime } from '@/core/util/date-format'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { ActiveSessionRow } from '@/core/models/session-monitor'
 import { sessionMonitorApi } from './api'
-import { isDormant, relativeTime } from './helpers'
+import { isDormant, relativeTime, type SessionChip } from './helpers'
+import type { SessionCountsResult } from '@/core/models/session-monitor'
 
 // Subtle per-channel badge tints (light + dark). Unknown channels fall back to
 // the neutral muted chip — the label always comes from `channel.<key>` (i18n).
@@ -18,33 +19,61 @@ const CHANNEL_TONE: Record<string, string> = {
   pos: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
 }
 
-// Ticket 008 — the search box goes live: a term runs a server query for matching
-// LIVE sessions (search-first, server-capped at 50) and the monitoring table
-// renders each ActiveSessionRow across every column. States: empty (no query),
-// loading, no-matches, and the "first 50 of N — refine to narrow" cap note. Chips
-// + counts (009), revoke (010/011), and auto-refresh (012) land in later tickets.
+// The channel chips, in screen order. `count` picks the field off the counts DTO.
+// Idle is rendered separately (no count number, a per-channel tooltip). Chip label
+// text comes from `chips.<chip>` (i18n). Ticket 009.
+const CHANNEL_CHIPS: { chip: SessionChip; count: (c: SessionCountsResult) => number }[] = [
+  { chip: 'all', count: (c) => c.all },
+  { chip: 'web', count: (c) => c.web },
+  { chip: 'mobile', count: (c) => c.mobile },
+  { chip: 'backoffice', count: (c) => c.backoffice },
+]
+
+type Query = { chip: SessionChip; term: string }
+
+// Ticket 009 — filter chips above the grid: All / Web / Mobile / BackOffice /
+// Idle, each channel chip showing a server-computed count (true estate-wide
+// total, independent of the 50-row page). Clicking a chip sets the active filter
+// (a `channel`, or `idleOnly` for Idle) and re-queries; the active chip is marked.
+// A chip composes with the search term. Revoke (010/011) and auto-refresh (012)
+// land in later tickets. Ticket 008 landed the search box + monitoring table.
 export default function ActiveSessionsPage() {
   const { t } = useTranslation('active-sessions')
 
   const [term, setTerm] = useState('')
-  const [query, setQuery] = useState<{ term: string } | null>(null)
+  const [query, setQuery] = useState<Query | null>(null)
 
   const access = useQuery({
     queryKey: ['active-sessions', 'access'],
     queryFn: () => sessionMonitorApi.access(),
   })
 
+  const counts = useQuery({
+    queryKey: ['active-sessions', 'counts'],
+    queryFn: () => sessionMonitorApi.counts(),
+    enabled: access.data?.canOpen === true,
+  })
+
   const list = useQuery({
     queryKey: ['active-sessions', 'list', query],
-    queryFn: () => sessionMonitorApi.search(query!.term),
+    queryFn: () => sessionMonitorApi.search(query!.term, query!.chip),
     enabled: query !== null && access.data?.canOpen === true,
   })
 
   function runSearch() {
-    // Term-driven only — the "All live" (term-less) view is the chip in ticket 009.
+    // A term composes with the active chip (default All); the term-less "All live"
+    // view is reached by clicking a chip instead.
     const trimmed = term.trim()
     if (!trimmed) return
-    setQuery({ term: trimmed })
+    setQuery({ chip: query?.chip ?? 'all', term: trimmed })
+  }
+
+  function selectChip(chip: SessionChip) {
+    // Keep the committed term so Web/Idle narrows the current search, and sync the
+    // box to it so an un-searched edit never lingers out of step with the grid.
+    const committed = query?.term ?? ''
+    setTerm(committed)
+    setQuery({ chip, term: committed })
   }
 
   // ----- access states ------------------------------------------------------
@@ -65,7 +94,18 @@ export default function ActiveSessionsPage() {
     )
   }
 
-  const gridTitle = query === null ? t('grid.noQuery') : t('grid.searchTitle', { term: query.term })
+  const countsData = counts.data
+  const activeChip = query?.chip ?? null
+  const gridTitle =
+    query === null
+      ? t('grid.noQuery')
+      : query.term
+        ? t('grid.searchTitle', { term: query.term })
+        : query.chip === 'all'
+          ? t('grid.allTitle')
+          : query.chip === 'idle'
+            ? t('grid.idleTitle')
+            : t('grid.channelTitle', { channel: t(`channel.${query.chip}`) })
 
   return (
     <section className="flex flex-col gap-3">
@@ -94,6 +134,41 @@ export default function ActiveSessionsPage() {
         </button>
       </div>
       <p className="text-xs text-muted-foreground">{t('search.hint')}</p>
+
+      {/* filter chips — server-counted channel filters + the Idle chip */}
+      <div className="flex flex-wrap gap-2">
+        {CHANNEL_CHIPS.map((c) => (
+          <button
+            key={c.chip}
+            onClick={() => selectChip(c.chip)}
+            aria-pressed={activeChip === c.chip}
+            className={
+              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ' +
+              (activeChip === c.chip
+                ? 'border-primary bg-accent font-medium'
+                : 'border-border/60 hover:bg-muted/50')
+            }
+          >
+            <span>{t(`chips.${c.chip}`)}</span>
+            <span className="tabular-nums text-xs text-muted-foreground">
+              {countsData ? c.count(countsData).toLocaleString() : '—'}
+            </span>
+          </button>
+        ))}
+        <button
+          onClick={() => selectChip('idle')}
+          aria-pressed={activeChip === 'idle'}
+          title={t('chips.idleTooltip')}
+          className={
+            'inline-flex items-center rounded-full border px-3 py-1 text-sm transition-colors ' +
+            (activeChip === 'idle'
+              ? 'border-primary bg-accent font-medium'
+              : 'border-border/60 hover:bg-muted/50')
+          }
+        >
+          {t('chips.idle')}
+        </button>
+      </div>
 
       {/* live-monitoring table */}
       <div className="flex min-h-[22rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card">

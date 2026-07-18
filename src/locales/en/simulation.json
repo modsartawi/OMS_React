@@ -59,9 +59,96 @@
     "net": "Net",
     "empty": "No priced lines yet."
   },
+  "detail": {
+    "title": "Pricing details for item {{item}}: {{material}}",
+    "tiles": {
+      "base": "Base price",
+      "discounts": "Total discounts",
+      "tax": "Tax",
+      "net": "Net total"
+    },
+    "rulesTitle": "Applied pricing rules",
+    "noRules": "No pricing rules applied to this line.",
+    "showStatistical": "Show statistical conditions ({{count}} hidden)",
+    "hideStatistical": "Hide statistical conditions ({{count}} hidden)",
+    "countPill": "×{{count}}",
+    "records": "{{count}} records",
+    "rateBase": "Rate: {{rate}} {{unit}}  |  Base: {{base}}",
+    "subRate": "Rate: {{rate}} {{unit}}",
+    "messagesTitle": "Pricing messages",
+    "badge": {
+      "promotion": "PROMOTION",
+      "manual": "MANUAL",
+      "header": "HEADER"
+    },
+    "category": {
+      "promotion": "Promotion",
+      "manual": "Manual Discount",
+      "header": "Header Discount",
+      "pricing": "Pricing"
+    }
+  },
   "status": {
     "ok": "OK",
     "warning": "Warning",
     "error": "Error"
+  },
+  "bonus": {
+    "tabsAriaLabel": "Bonus buys and pricing elements",
+    "yes": "Yes",
+    "no": "No",
+    "tabs": {
+      "applied": "Applied Bonus Buys",
+      "potential": "Potential Bonus Buys",
+      "elements": "Pricing Elements"
+    },
+    "applied": {
+      "bby": "Bby no.",
+      "promo": "Promo no.",
+      "offer": "Offer",
+      "description": "Description",
+      "discountType": "Discount type",
+      "totalDiscount": "Total discount",
+      "remainingUsage": "Remaining usage",
+      "empty": "No bonus buys applied to this basket."
+    },
+    "potential": {
+      "bby": "Bby no.",
+      "promo": "Promo no.",
+      "description": "Description",
+      "status": "Status",
+      "validTo": "Valid to",
+      "minValue": "Min value",
+      "skipReason": "Skip reason",
+      "empty": "No potential bonus buys for this basket."
+    },
+    "prereq": {
+      "title": "Prerequisites",
+      "titleFor": "Prerequisites for {{bby}}",
+      "prereq": "Prereq",
+      "matGrouping": "Material grouping",
+      "material": "Material",
+      "requiredQty": "Required qty",
+      "foundQty": "Found qty",
+      "minValue": "Min value",
+      "foundValue": "Found value",
+      "met": "Met?",
+      "empty": "Select a potential bonus buy to see its prerequisites.",
+      "none": "This bonus buy has no prerequisites."
+    },
+    "elements": {
+      "step": "Step",
+      "counter": "Counter",
+      "type": "Type",
+      "description": "Description",
+      "base": "Base",
+      "rate": "Rate",
+      "unit": "Unit",
+      "value": "Value",
+      "statistical": "Statistical",
+      "subtotal": "Subtotal",
+      "bonusBuy": "Bonus buy",
+      "empty": "This line has no pricing elements."
+    }
   }
 }

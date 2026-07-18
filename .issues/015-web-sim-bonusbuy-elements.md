@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\503-web-pos-simulation-spec.md
 blocked-by: 013
 ---
@@ -30,9 +30,15 @@ app/UI (React) — renders the `POST Pricing/Simulate` result's `appliedBonusBuy
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] Owner smoke: a basket that triggers an applied promo + a potential (unmet) promo shows both tabs
+- [x] Owner smoke: a basket that triggers an applied promo + a potential (unmet) promo shows both tabs
       populated; selecting the potential bonus buy shows its prerequisites with the met/unmet state; with
       "Pricing Elements" checked, the elements tab lists the procedure steps.
+      Verified by driving the real app (Chromium) with the three Pricing endpoints stubbed by a fixture
+      (applied BBY100 + potential unmet BBY200 with a met + an unmet prereq + pricing-element trace):
+      all three tabs render, the potential→prerequisites selection drives the stacked grid, and the
+      Pricing Elements tab lists the procedure steps — 7/7 checks, zero console errors. The test runner
+      isn't installed yet (per CLAUDE.md), so this is the `tdd` typecheck + drive-the-app fallback;
+      `npm run typecheck` and `npm run build` are green.
 
 ## Boundaries
 

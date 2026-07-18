@@ -74,6 +74,26 @@ export interface SimulationResultHeader {
  *  result (a bad line never blanks the run) — drives the red/amber/green dot. */
 export type PricingStatus = 'E' | 'W' | '' | (string & {})
 
+/** One RAW condition row on a priced line (contract 486). The client aggregates
+ *  these into cards (ticket 014, `aggregateConditions`) — the endpoint stays a
+ *  pass-through and never groups. `conditionOrigin` drives the badge/category
+ *  (P|B → promotion, M → manual, H → header); `isStatistics` rows hide behind a
+ *  toggle. Bonus-buy fields feed the bonus-buy tabs (ticket 015). */
+export interface SimulationResultCondition {
+  stepNumber: number
+  conditionCounter: number
+  conditionType: string
+  description: string
+  conditionRate: number
+  conditionRateUnit: string
+  conditionValue: number
+  conditionBaseValue: number
+  isStatistics: boolean
+  conditionOrigin: string
+  isBonusBuy: boolean
+  bbyNumber: string | null
+}
+
 export interface SimulationResultItem {
   itemNumber: number
   materialNumber: string
@@ -89,9 +109,98 @@ export interface SimulationResultItem {
   promotionDiscount: number
   pricingStatus: PricingStatus
   pricingStatusMessages: string[]
+  /** Raw pricing-procedure rows, aggregated into cards client-side (ticket 014).
+   *  Present when the request set `includeConditions:true` (the screen always does). */
+  conditions: SimulationResultCondition[]
+  /** Raw pricing-procedure trace rows for this line — the Pricing Elements tab
+   *  (ticket 015) renders the SELECTED line's, mirroring the WPF. Populated only
+   *  when the request set `includePricingElements`. */
+  pricingElements?: PricingElement[]
 }
 
 export interface SimulationResult {
   header: SimulationResultHeader
   items: SimulationResultItem[]
+  /** Promotions that fired — the Applied Bonus Buys grid (ticket 015). Server
+   *  groups the bonus-buy conditions by bbyNumber; empty when none applied. */
+  appliedBonusBuys: AppliedBonusBuy[]
+  /** Promotions that could apply but did not — the Potential Bonus Buys grid
+   *  (ticket 015); selecting a row drives its `prerequisites`. */
+  potentialBonusBuys: PotentialBonusBuy[]
+}
+
+// ---- bonus buys + pricing elements (ticket 015) -----------------------------
+
+/** One promotion that FIRED — a row in the Applied Bonus Buys grid. Built server-
+ *  side by grouping the priced bonus-buy conditions by `bbyNumber`. */
+export interface AppliedBonusBuy {
+  bbyNumber: string
+  promoNumber: string
+  offerId: string
+  description: string
+  discountType: string
+  totalDiscountValue: number
+  affectedItemNumbers: number[]
+  remainingUsage: number
+}
+
+/** One prerequisite line of a potential bonus buy: required vs found qty, min vs
+ *  found value, and whether it is met. Drives the stacked Prerequisites grid. */
+export interface PrereqStatus {
+  prereqNumber: string
+  materialNumber: string | null
+  matGrouping: string
+  requiredQty: number
+  foundQty: number
+  minValue: number
+  foundValue: number
+  isMet: boolean
+}
+
+/** The discount a potential bonus buy would grant were its prerequisites met. */
+export interface PotentialDiscount {
+  discountType: string
+  value: number
+  conditionType: string
+}
+
+/** One promotion that COULD apply but did not — a row in the Potential Bonus Buys
+ *  grid. Selecting it drives the Prerequisites grid below. `skipReason` is set when
+ *  accumulation blocked it (e.g. exhausted usage). */
+export interface PotentialBonusBuy {
+  bbyNumber: string
+  promoNumber: string
+  offerId: string
+  description: string
+  bbyStatus: string
+  validFrom: string
+  validTo: string
+  minValue: number
+  maxValue: number
+  remainingUsage: number
+  skipReason: string | null
+  prerequisites: PrereqStatus[]
+  discount: PotentialDiscount | null
+}
+
+/** One raw pricing-procedure trace row (a condition when `isSubtotal` is false, a
+ *  running subtotal otherwise). Rendered verbatim in the Pricing Elements tab. */
+export interface PricingElement {
+  stepNumber: number
+  conditionCounter: number
+  conditionType: string
+  description: string
+  conditionRate: number
+  conditionRateUnit: string
+  conditionValue: number
+  conditionBaseValue: number
+  isStatistics: boolean
+  conditionCategory: string
+  conditionOrigin: string
+  inactiveReason: string
+  pricingUnit: number
+  pricingQuantityUnit: string
+  isBonusBuy: boolean
+  bbyNumber: string | null
+  isSubtotal: boolean
 }

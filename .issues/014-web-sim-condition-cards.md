@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\503-web-pos-simulation-spec.md
 blocked-by: 013
 ---
@@ -39,11 +39,21 @@ app/UI (React) — pure client logic over the `POST Pricing/Simulate` result.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] Owner smoke (no client test tier): with a basket whose line has repeated + statistical conditions
-      (from BackOffice 509's test data, e.g. a promo firing twice + a statistical carrier), the detail
-      shows aggregated cards with correct counts/badges, expand reveals sub-records, and the toggle
-      reveals/hides the statistical group with the right hidden-count. `aggregateConditions` is the
-      obvious first unit if a client test tier is later stood up.
+- [x] Client verified (no client test tier — spec 503): `typecheck` clean for the ticket-014 files and
+      import boundaries clean. `aggregateConditions` — the obvious first unit — was exercised through a
+      Node type-strip harness on the ticket's scenario (a promo firing twice + a manual discount + a base
+      row + a statistical carrier): 4 groups, promo `count:2` with both bbyNumbers and summed value/base,
+      correct badges/categories (promotion/manual/pricing), and the statistical group numbered last with
+      `hidden:1`. A Chromium drive against a mocked SIS.Api envelope (dev backend not available here, per
+      013) exercised the real screen end-to-end — selecting a priced line shows the four detail tiles, the
+      non-statistical cards render with the ×2 count pill + PROMOTION/MANUAL badges, expanding the promo
+      card reveals the rate/base line + both sub-records, and the "Show/Hide statistical conditions
+      (1 hidden)" toggle reveals/hides the MWST group (18/18 checks). Selecting a second line switches the
+      detail and resets the toggle.
+- [ ] Owner smoke (live sign-off, still pending — backend not available here): against dev SIS.Api with
+      a basket whose priced line carries repeated + statistical conditions (BackOffice 509 test data),
+      confirm the aggregated cards, expand sub-records, and statistical hidden-count against real engine
+      output. Spec 503's owner-smoke seam (the dev-environment gap 419/476 note).
 
 ## Boundaries
 

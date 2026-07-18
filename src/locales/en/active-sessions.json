@@ -5,11 +5,44 @@
   "title": "Active Sessions",
   "search": {
     "placeholder": "Search live sessions — employee id, name, store code, or IP…",
-    "button": "Search"
+    "button": "Search",
+    "hint": "Nothing loads until you search — results are a live server query, capped at 50 rows."
   },
   "grid": {
+    "user": "User",
+    "store": "Store",
+    "channel": "Channel",
+    "started": "Started",
+    "lastSeen": "Last seen",
+    "ip": "IP",
+    "client": "Client",
+    "noQuery": "No query yet",
+    "searchTitle": "Search: \"{{term}}\"",
+    "capped": "first {{shown}} of {{total}} — refine to narrow",
+    "matchCount": "{{count}} live session",
+    "matchCount_other": "{{count}} live sessions",
+    "loading": "Searching live sessions…",
+    "noResults": "No live sessions match this query.",
     "emptyTitle": "Search first",
-    "emptyHint": "Type an employee id, a name, a store code, or an IP address to list matching live sessions across the estate (first 50, refine to narrow)."
+    "emptyHint": "Type an employee id, a name, a store code, or an IP address to list matching live sessions across the estate (first 50, refine to narrow).",
+    "failed": "Could not load live sessions",
+    "none": "—"
+  },
+  "relative": {
+    "justNow": "just now",
+    "minutes": "{{count}}m ago",
+    "hours": "{{count}}h ago",
+    "days": "{{count}}d ago"
+  },
+  "dormant": {
+    "label": "dormant",
+    "tooltip": "No heartbeat within this channel's idle window (web 45m, mobile 8h)."
+  },
+  "channel": {
+    "web": "Web",
+    "mobile": "Mobile",
+    "backoffice": "BackOffice",
+    "pos": "POS"
   },
   "access": {
     "deniedTitle": "You don't have access to Active Sessions",

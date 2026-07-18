@@ -2,10 +2,40 @@
 // casing is the camelCase ASP.NET Core emits. The estate-wide session monitor is
 // gated by its OWN grant (BackOfficeScreen[UaSessions,03]), separate from Ua Users.
 //
-// Ticket 007 is the access spine — only the grant probe lives here. The
-// ActiveSessionRow list shape lands with ticket 008 (searchingLiveSessions…).
+// Ticket 007 landed the access spine (the grant probe). Ticket 008 adds the
+// search-first, 50-capped live-session list (ActiveSessionRow + its wrapper).
 
 /** GET UaAdminWeb/Sessions/Access — the screen-open grant probe (show/hide only). */
 export interface SessionAccessResult {
   canOpen: boolean
+}
+
+/**
+ * One live-session grid row (ActiveSessionRow) = the existing `ActiveSessionModel`
+ * fields PLUS `displayName` (joined from UaEmployee, as SearchEmployees does). A
+ * row is the whole record — the table is flat, no detail pane (spec 006).
+ */
+export interface ActiveSessionRow {
+  sessionId: string
+  userId: string
+  displayName: string
+  currentStoreCode: string
+  channel: string // web | mobile | backoffice | pos
+  createdTime: string
+  lastSeenTime: string // the session heartbeat (server TouchSession bumps it)
+  ipAddress: string
+  userAgent: string
+}
+
+/**
+ * GET UaAdminWeb/Sessions — the search-first, server-capped list wrapper
+ * (mirrors `UaEmployeeSearchResult`). The browser never receives the estate:
+ * the server searches + caps at `rowCap` (50) and reports the true `totalMatches`
+ * so the grid can show the "first 50 of N — refine to narrow" note.
+ */
+export interface ActiveSessionSearchResult {
+  rows: ActiveSessionRow[]
+  totalMatches: number
+  rowCap: number
+  isCapped: boolean // more rows exist beyond this page
 }

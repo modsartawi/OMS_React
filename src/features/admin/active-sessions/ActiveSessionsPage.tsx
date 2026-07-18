@@ -1,21 +1,51 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Search } from 'lucide-react'
+import { apiErrorMessage } from '@/core/api'
+import { formatDateTime } from '@/core/util/date-format'
+import ErrorBanner from '@/core/ui/ErrorBanner'
+import type { ActiveSessionRow } from '@/core/models/session-monitor'
 import { sessionMonitorApi } from './api'
+import { isDormant, relativeTime } from './helpers'
 
-// Ticket 007 — the access SPINE, before any data. The screen probes its own
-// grant (BackOfficeScreen[UaSessions,03]) via ['active-sessions','access'], the
-// same key the shell's nav probe uses, so it's one network call. Three states:
-// checking → spinner; no grant → denied card; grant → the empty screen shell
-// (title + inert search box + empty-grid placeholder). The search box and grid
-// are wired in ticket 008; here they only prove the shell renders end-to-end.
+// Subtle per-channel badge tints (light + dark). Unknown channels fall back to
+// the neutral muted chip — the label always comes from `channel.<key>` (i18n).
+const CHANNEL_TONE: Record<string, string> = {
+  web: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+  mobile: 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
+  backoffice: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  pos: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+}
+
+// Ticket 008 — the search box goes live: a term runs a server query for matching
+// LIVE sessions (search-first, server-capped at 50) and the monitoring table
+// renders each ActiveSessionRow across every column. States: empty (no query),
+// loading, no-matches, and the "first 50 of N — refine to narrow" cap note. Chips
+// + counts (009), revoke (010/011), and auto-refresh (012) land in later tickets.
 export default function ActiveSessionsPage() {
   const { t } = useTranslation('active-sessions')
+
+  const [term, setTerm] = useState('')
+  const [query, setQuery] = useState<{ term: string } | null>(null)
 
   const access = useQuery({
     queryKey: ['active-sessions', 'access'],
     queryFn: () => sessionMonitorApi.access(),
   })
+
+  const list = useQuery({
+    queryKey: ['active-sessions', 'list', query],
+    queryFn: () => sessionMonitorApi.search(query!.term),
+    enabled: query !== null && access.data?.canOpen === true,
+  })
+
+  function runSearch() {
+    // Term-driven only — the "All live" (term-less) view is the chip in ticket 009.
+    const trimmed = term.trim()
+    if (!trimmed) return
+    setQuery({ term: trimmed })
+  }
 
   // ----- access states ------------------------------------------------------
   if (access.isPending) {
@@ -35,12 +65,13 @@ export default function ActiveSessionsPage() {
     )
   }
 
-  // ----- empty screen shell (inert until ticket 008) ------------------------
+  const gridTitle = query === null ? t('grid.noQuery') : t('grid.searchTitle', { term: query.term })
+
   return (
     <section className="flex flex-col gap-3">
       <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
 
-      {/* search box — inert for now (wired in 008), disabled so it can't mislead */}
+      {/* search box — the primary affordance */}
       <div className="flex overflow-hidden rounded-full border border-input bg-background">
         <span className="flex items-center ps-4 text-muted-foreground">
           <Search className="h-4 w-4" />
@@ -48,20 +79,131 @@ export default function ActiveSessionsPage() {
         <input
           className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm outline-none"
           placeholder={t('search.placeholder')}
-          disabled
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') runSearch()
+          }}
+          autoFocus
         />
-        <button className="bg-primary px-4 text-sm font-medium text-primary-foreground opacity-60" disabled>
+        <button
+          className="bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85"
+          onClick={runSearch}
+        >
           {t('search.button')}
         </button>
       </div>
+      <p className="text-xs text-muted-foreground">{t('search.hint')}</p>
 
-      {/* empty-grid placeholder */}
+      {/* live-monitoring table */}
       <div className="flex min-h-[22rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card">
-        <div className="flex flex-1 flex-col items-center justify-center gap-1 p-10 text-center">
-          <b className="text-sm">{t('grid.emptyTitle')}</b>
-          <span className="max-w-sm text-sm text-muted-foreground">{t('grid.emptyHint')}</span>
+        <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 text-xs">
+          <span className="font-semibold tracking-tight">{gridTitle}</span>
+          <span className="tabular-nums text-muted-foreground">
+            {list.data
+              ? list.data.isCapped
+                ? t('grid.capped', {
+                    shown: list.data.rows.length,
+                    total: list.data.totalMatches.toLocaleString(),
+                  })
+                : t('grid.matchCount', { count: list.data.rows.length })
+              : ''}
+          </span>
         </div>
+
+        {query === null ? (
+          <div className="flex flex-1 flex-col items-center justify-center gap-1 p-10 text-center">
+            <b className="text-sm">{t('grid.emptyTitle')}</b>
+            <span className="max-w-sm text-sm text-muted-foreground">{t('grid.emptyHint')}</span>
+          </div>
+        ) : list.isPending ? (
+          <div className="flex flex-1 items-center justify-center gap-2 p-10 text-sm text-muted-foreground" role="status">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {t('grid.loading')}
+          </div>
+        ) : list.isError ? (
+          <ErrorBanner message={apiErrorMessage(list.error, t('grid.failed'))} className="m-3 p-4" />
+        ) : list.data.rows.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center p-10 text-sm text-muted-foreground">
+            {t('grid.noResults')}
+          </div>
+        ) : (
+          <SessionsTable rows={list.data.rows} />
+        )}
       </div>
     </section>
+  )
+}
+
+// Split out so `now` is stamped once per render of the loaded table (not per
+// access/loading re-render) and the row helpers stay close to their columns.
+function SessionsTable({ rows }: { rows: ActiveSessionRow[] }) {
+  const { t } = useTranslation('active-sessions')
+  const now = new Date()
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[880px] border-collapse text-sm">
+        <thead>
+          <tr className="text-start text-xs font-medium text-muted-foreground">
+            <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.user')}</th>
+            <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.store')}</th>
+            <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.channel')}</th>
+            <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.started')}</th>
+            <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.lastSeen')}</th>
+            <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.ip')}</th>
+            <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.client')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const dormant = isDormant(r.channel, r.lastSeenTime, now)
+            const rel = relativeTime(r.lastSeenTime, now)
+            return (
+              <tr key={r.sessionId} className="hover:bg-muted/50">
+                <td className="border-b border-border px-3 py-1.5">
+                  <div className="font-medium">{r.displayName || r.userId}</div>
+                  <div className="tabular-nums text-xs text-muted-foreground">{r.userId}</div>
+                </td>
+                <td className="border-b border-border px-3 py-1.5 tabular-nums">{r.currentStoreCode || t('grid.none')}</td>
+                <td className="border-b border-border px-3 py-1.5">
+                  <span
+                    className={
+                      'inline-flex rounded-full px-2 py-0.5 text-xs font-medium ' +
+                      (CHANNEL_TONE[r.channel] ?? 'border border-border bg-muted text-muted-foreground')
+                    }
+                  >
+                    {t(`channel.${r.channel}`, { defaultValue: r.channel })}
+                  </span>
+                </td>
+                <td className="border-b border-border px-3 py-1.5 tabular-nums text-muted-foreground">
+                  {formatDateTime(r.createdTime) || t('grid.none')}
+                </td>
+                <td className="border-b border-border px-3 py-1.5">
+                  <div
+                    className={
+                      'flex items-center gap-1.5 ' +
+                      (dormant ? 'text-amber-700 dark:text-amber-300' : '')
+                    }
+                    title={dormant ? t('dormant.tooltip') : undefined}
+                  >
+                    {dormant && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />}
+                    <span>{t(`relative.${rel.key}`, { count: rel.count })}</span>
+                    {dormant && <span className="text-xs font-medium uppercase">{t('dormant.label')}</span>}
+                  </div>
+                  <div className="tabular-nums text-xs text-muted-foreground">
+                    {formatDateTime(r.lastSeenTime) || t('grid.none')}
+                  </div>
+                </td>
+                <td className="border-b border-border px-3 py-1.5 tabular-nums">{r.ipAddress || t('grid.none')}</td>
+                <td className="max-w-[16rem] truncate border-b border-border px-3 py-1.5 text-muted-foreground" title={r.userAgent}>
+                  {r.userAgent || t('grid.none')}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
   )
 }

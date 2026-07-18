@@ -16,7 +16,7 @@ One line per issue under its effort heading. Numbers start fresh at `001`.
 - [005](005-active-sessions-screen-spec.md) — Lock the Active Sessions screen spec · **done** · blocked by: 003, 004
 - [006](006-active-sessions-screen-spec.md) — Active Sessions admin screen (spec) · **ready** · spec — consumable by /to-tickets
 - [007](007-active-sessions-screen-access-spine.md) — activeSessionsScreenGatesOnItsOwnGrant · **done** · blocked by: — · dep: BackOffice Sessions/Access + grant seed
-- [008](008-active-sessions-search-list.md) — searchingLiveSessionsListsMatchingRowsCappedAt50 · **open** · blocked by: 007 · dep: BackOffice GET Sessions
+- [008](008-active-sessions-search-list.md) — searchingLiveSessionsListsMatchingRowsCappedAt50 · **done** · blocked by: 007 · dep: BackOffice GET Sessions
 - [009](009-active-sessions-chips-counts.md) — channelAndIdleChipsFilterWithServerCounts · **open** · blocked by: 008 · dep: BackOffice Sessions/Counts
 - [010](010-active-sessions-revoke-one.md) — revokingASessionSignsTheDeviceOut · **open** · blocked by: 008 · reuses Sessions/Revoke
 - [011](011-active-sessions-revoke-all-for-user.md) — revokeAllForUserSignsAPersonOutEverywhere · **open** · blocked by: 008, 010 · dep: BackOffice Sessions/RevokeAllForUser

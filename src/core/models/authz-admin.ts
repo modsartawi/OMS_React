@@ -33,6 +33,45 @@ export interface RoleCatalogEntry {
 }
 
 /**
+ * One grant, rendered verbatim (GrantCatalogEntry) — object + field values with `*`
+ * wildcards and `$VARIABLE` values preserved. Backs both the bindable-grant catalog
+ * picker and a role's currently-bound grants (RoleDetail.boundGrants). Read-only: the
+ * module binds/unbinds existing grants, never creates or edits them.
+ */
+export interface GrantCatalogEntry {
+  authorizationId: string
+  objectName: string
+  /** field name → its verbatim values (may contain `*` and `$VAR`). */
+  fieldValues: Record<string, string[]>
+}
+
+/**
+ * Detail for one role (RoleDetail) — the catalog row plus composite membership and the
+ * grants bound directly to it. `memberSingleRoleNames` is populated for a composite
+ * (empty for a single); `boundGrants` is populated for a single (empty for a composite,
+ * whose authority comes from its member singles). `directHolderCount` + the two lists
+ * feed the delete-in-use guard's counts client-side.
+ */
+export interface RoleDetail {
+  roleName: string
+  description: string
+  isComposite: boolean
+  directHolderCount: number
+  isProtected: boolean
+  /** member single-role names for a composite; empty for a single. */
+  memberSingleRoleNames: string[]
+  /** grants bound directly to this role; empty for a composite. */
+  boundGrants: GrantCatalogEntry[]
+}
+
+/** A person who holds a role directly (RoleHolder) — for the role's "Held by" tab. */
+export interface RoleHolder {
+  userId: string
+  displayName: string
+  isActive: boolean
+}
+
+/**
  * One row of the effective-authorizations inspector (EffectiveAuthorization): a single
  * grant the person effectively holds, its verbatim field values (`*` wildcards and
  * `$VARIABLE` values preserved) and the provenance of HOW they hold it.

@@ -4,7 +4,10 @@ import type {
   AuthzAccessResult,
   AuthzAuditRow,
   EffectiveAuthorization,
+  GrantCatalogEntry,
   RoleCatalogEntry,
+  RoleDetail,
+  RoleHolder,
 } from '@/core/models/authz-admin'
 
 const BASE = 'AuthzAdminWeb'
@@ -54,6 +57,35 @@ export const authzAdminApi = {
     return api.get<AuthzAuditRow[]>(`${BASE}/Audit`, { target: userId, ...PAGE })
   },
 
+  // ── Roles workspace (ticket 462) ─────────────────────────────────────────
+
+  // One role's detail: description, kind, direct-holder count, protected flag,
+  // composite members (composite), and grants bound directly (single). 404 for an
+  // unknown role. The Grants/Members tabs, Held-by count, and the delete-in-use
+  // counts all read off this.
+  roleDetail(roleName: string): Promise<RoleDetail> {
+    return api.get<RoleDetail>(`${BASE}/Roles/${encode(roleName)}`)
+  },
+
+  // The people who hold a role DIRECTLY (composite membership not expanded) — the
+  // "Held by" tab. 404 for an unknown role.
+  roleHolders(roleName: string): Promise<RoleHolder[]> {
+    return api.get<RoleHolder[]>(`${BASE}/Roles/${encode(roleName)}/Holders`)
+  },
+
+  // The whole bindable grant catalog (read-only) — the bind-grant picker. Grants
+  // are code+SQL-seeded; the module binds existing ones, never creates them.
+  bindableGrants(): Promise<GrantCatalogEntry[]> {
+    return api.get<GrantCatalogEntry[]>(`${BASE}/Grants`)
+  },
+
+  // Per-role audit trail — a BARE ARRAY, newest-first, filtered via `role` (which
+  // expands server-side to TargetId=role OR Details LIKE 'role: {name}%', catching
+  // the assign/revoke rows that store the user as target). Times as-stored.
+  roleAudit(roleName: string): Promise<AuthzAuditRow[]> {
+    return api.get<AuthzAuditRow[]>(`${BASE}/Audit`, { role: roleName, ...PAGE })
+  },
+
   // Mutations — actor is the cookie UserId server-side; the body carries no actor.
   // Each returns { success: true } (no domain body); callers re-read after.
   assignRole(userId: string, roleName: string): Promise<unknown> {
@@ -61,5 +93,33 @@ export const authzAdminApi = {
   },
   revokeRole(userId: string, roleName: string): Promise<unknown> {
     return api.post(`${BASE}/Users/RevokeRole`, { userId, roleName })
+  },
+  createSingleRole(roleName: string, description: string): Promise<unknown> {
+    return api.post(`${BASE}/Roles/CreateSingle`, { roleName, description })
+  },
+  createCompositeRole(
+    roleName: string,
+    description: string,
+    memberSingleRoleNames: string[],
+  ): Promise<unknown> {
+    return api.post(`${BASE}/Roles/CreateComposite`, { roleName, description, memberSingleRoleNames })
+  },
+  editRoleDescription(roleName: string, description: string): Promise<unknown> {
+    return api.post(`${BASE}/Roles/EditDescription`, { roleName, description })
+  },
+  bindGrant(roleName: string, authorizationId: string): Promise<unknown> {
+    return api.post(`${BASE}/Roles/BindGrant`, { roleName, authorizationId })
+  },
+  unbindGrant(roleName: string, authorizationId: string): Promise<unknown> {
+    return api.post(`${BASE}/Roles/UnbindGrant`, { roleName, authorizationId })
+  },
+  addCompositeMember(compositeRoleName: string, singleRoleName: string): Promise<unknown> {
+    return api.post(`${BASE}/Roles/AddMember`, { compositeRoleName, singleRoleName })
+  },
+  removeCompositeMember(compositeRoleName: string, singleRoleName: string): Promise<unknown> {
+    return api.post(`${BASE}/Roles/RemoveMember`, { compositeRoleName, singleRoleName })
+  },
+  deleteRole(roleName: string): Promise<unknown> {
+    return api.post(`${BASE}/Roles/Delete`, { roleName })
   },
 }

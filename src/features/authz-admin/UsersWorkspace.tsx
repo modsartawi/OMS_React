@@ -20,14 +20,18 @@ const CARD_KEYS: CardKey[] = ['all', 'admins', 'noroles', 'composite']
 interface Props {
   access: AuthzAccessResult
   catalog: RoleCatalogEntry[]
+  /** Seed term when arriving via a "jump to person" from the Roles workspace's
+   *  Held-by tab — runs the search immediately so the person is already loaded. */
+  initialTerm?: string | null
 }
 
-export default function UsersWorkspace({ access, catalog }: Props) {
+export default function UsersWorkspace({ access, catalog, initialTerm }: Props) {
   const { t } = useTranslation('authz-admin')
 
-  const [term, setTerm] = useState('')
+  const seed = initialTerm?.trim() || ''
+  const [term, setTerm] = useState(seed)
   const [showMinCharsHint, setShowMinCharsHint] = useState(false)
-  const [submitted, setSubmitted] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState<string | null>(seed.length >= 2 ? seed : null)
   const [card, setCard] = useState<CardKey>('all')
   const [selected, setSelected] = useState<UaEmployeeGridRow | null>(null)
 

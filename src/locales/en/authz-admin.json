@@ -7,8 +7,7 @@
   "workspace": {
     "users": "Users",
     "roles": "Roles",
-    "ariaLabel": "Authorization admin workspace",
-    "rolesPlaceholder": "The Roles workspace — role catalog, grants, membership — lands in a later slice."
+    "ariaLabel": "Authorization admin workspace"
   },
   "search": {
     "placeholder": "Search a person — employee id, mobile, or part of the name…",
@@ -105,10 +104,144 @@
     "deniedTitle": "You don't have access to Authorization Admin",
     "deniedHint": "This screen needs the Authorization Admin permission. Ask an administrator to grant it."
   },
+  "rolesWs": {
+    "searchPlaceholder": "Filter roles — name or description…",
+    "newRole": "New role",
+    "hint": "The role catalog loads whole (it's small) and filters as you type. Grants are bind-only — the grant catalog itself stays code+SQL-seeded.",
+    "cards": {
+      "all": "All roles",
+      "single": "Single roles",
+      "composite": "Composite roles",
+      "system": "System-protected"
+    },
+    "catalogTitle": "Role catalog",
+    "worklistTitle": "Worklist: {{label}}",
+    "roleCount": "{{count}} role",
+    "roleCount_other": "{{count}} roles",
+    "noDescription": "—",
+    "holderCountTitle": "People holding this role directly",
+    "catalogEmpty": "No roles exist yet.",
+    "noResults": "No roles match this filter.",
+    "selectTitle": "Select a role",
+    "selectHint": "Its grants (or members), who holds it, and its audit history appear here."
+  },
+  "roleDetail": {
+    "loading": "Loading role…",
+    "holdersPill": "{{count}} holder",
+    "holdersPill_other": "{{count}} holders",
+    "edit": "Edit",
+    "delete": "Delete",
+    "systemBanner": "Protected system role — its name and grants are locked and it can't be deleted (409 SYSTEM_ROLE). You can still edit its description and assign or revoke it to users.",
+    "readOnlyBanner": "Read-only — you can view this role but not manage it (you lack the role-maintenance grant).",
+    "tabsAria": "Role detail tabs",
+    "tabs": {
+      "grants": "Grants",
+      "members": "Members",
+      "heldby": "Held by",
+      "audit": "Audit"
+    },
+    "membersIntro": "A composite is a bundle of single roles. Only single roles can be members — composites can't nest.",
+    "membersEmpty": "Empty composite — allowed, but grants nothing until members are added.",
+    "removeMember": "Remove member",
+    "addMember": "＋ Add member role",
+    "grantsEmpty": "No grants bound.",
+    "unbind": "unbind",
+    "locked": "locked",
+    "unbindLockedHint": "Seeded grants on a protected system role can't be unbound from here.",
+    "bindGrant": "＋ Bind grant from catalog",
+    "directlyHeldBy": "Directly held by",
+    "holdersLoading": "Loading holders…",
+    "noHolders": "No users hold this role directly.",
+    "jumpToUser": "Open this person in the Users workspace",
+    "revoke": "Revoke this role",
+    "revokeTitle": "Revoke role?",
+    "revokeBody": "Revoke {{role}} from {{name}}? Access is removed immediately and the change is audited.",
+    "revoked": "Role revoked",
+    "revokedDetail": "{{role}} revoked.",
+    "inactive": "inactive",
+    "memberOfComposites": "Member of composites",
+    "stillChecking": "Still checking what references this role — try again in a moment.",
+    "auditLoading": "Loading history…",
+    "auditNone": "No changes recorded for this role.",
+    "unbindTitle": "Unbind grant?",
+    "unbindBody": "Unbind {{grant}} from {{role}}? The role loses this authority immediately and the change is audited.",
+    "unbound": "Grant unbound",
+    "removeMemberTitle": "Remove member?",
+    "removeMemberBody": "Remove {{member}} from the composite {{role}}? Holders of {{role}} lose the member's grants.",
+    "memberRemoved": "Member removed",
+    "systemRoleTitle": "Protected system role",
+    "systemDeleteBody": "{{role}} is a seeded system role and can't be deleted (409 SYSTEM_ROLE). You can still assign or revoke it to users.",
+    "deleteTitle": "Delete role?",
+    "deleteBody": "Nothing references {{role}}, so it's safe to delete. This is audited and can't be undone.",
+    "deleted": "Role deleted",
+    "deletedDetail": "{{role}} deleted."
+  },
+  "newRole": {
+    "title": "Create a role",
+    "kind": "Kind",
+    "kindSingle": "Single role — a bundle of grants",
+    "kindComposite": "Composite role — a bundle of single roles",
+    "name": "Role name",
+    "namePlaceholder": "e.g. WAREHOUSE_LEAD",
+    "nameLock": "The name is permanent — it can't be changed later (rename = create new → migrate holders → delete old).",
+    "duplicate": "A role with this name already exists.",
+    "tooLong": "Role names must be 50 characters or fewer.",
+    "description": "Description",
+    "descriptionPlaceholder": "What this role is for",
+    "compositeHint": "The composite is created empty. Add its single-role members from the role's detail pane once it exists.",
+    "create": "Create role",
+    "creating": "Creating…",
+    "created": "Role created",
+    "createdDetail": "{{role}} created."
+  },
+  "editRole": {
+    "title": "Edit {{role}}",
+    "nameLock": "Immutable — names never change. To rename: create a new role, migrate holders, delete this one.",
+    "protectedNote": "This is a protected system role — you can edit its description, but its name and seeded grants stay locked.",
+    "save": "Save description",
+    "saving": "Saving…",
+    "saved": "Description saved"
+  },
+  "bindGrant": {
+    "title": "Bind grant to {{role}}",
+    "intro": "Bind from the existing catalog only — grants aren't created here (they're code+SQL-seeded; a grant only means something if code checks it).",
+    "searchPlaceholder": "Filter grants — object, field, or id…",
+    "loading": "Loading grant catalog…",
+    "empty": "No grants left to bind — every catalog grant is already bound to this role.",
+    "bind": "Bind",
+    "wildcardBody": "{{grant}} is a wildcard — anyone holding {{role}} gets it in full. The server binds it as-is; this confirmation is the guardrail.",
+    "back": "Back",
+    "bindWildcard": "Bind wildcard",
+    "binding": "Binding…",
+    "bound": "Grant bound",
+    "boundDetail": "{{grant}} bound."
+  },
+  "addMember": {
+    "title": "Add member to {{role}}",
+    "intro": "Only single roles can be members — composites can't nest.",
+    "empty": "No single roles left to add — every single role is already a member.",
+    "add": "Add",
+    "adding": "Adding…",
+    "added": "Member added",
+    "addedDetail": "{{member}} added."
+  },
+  "deleteBlocked": {
+    "title": "Role is still in use",
+    "body": "{{role}} can't be deleted while anything references it. Remove every holder, bound grant, and composite membership first — each act is audited — then delete.",
+    "users": "user holds it",
+    "users_other": "users hold it",
+    "grants": "grant bound",
+    "grants_other": "grants bound",
+    "composites": "composite includes it",
+    "composites_other": "composites include it",
+    "hint": "Blocked with 409 until empty. Tap a count to jump to its list."
+  },
   "toast": {
     "failed": "Action failed"
   },
   "common": {
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "done": "Done",
+    "ok": "OK"
   }
 }

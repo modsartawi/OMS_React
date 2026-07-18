@@ -40,6 +40,10 @@ export function indexRoles(catalog: RoleCatalogEntry[] | undefined): Map<string,
   return map
 }
 
+/** The object+field-values shape shared by every grant projection (effective-authz
+ *  rows AND bindable/bound catalog entries) — what {@link grantText} needs to render. */
+export type GrantShape = { objectName: string; fieldValues: Record<string, string[]> }
+
 /**
  * Render one grant's object + field values verbatim, exactly as the mock does:
  *   `*` / `*`                        → the everything grant
@@ -48,7 +52,7 @@ export function indexRoles(catalog: RoleCatalogEntry[] | undefined): Map<string,
  * `*` and `$VAR` values are preserved literally (never resolved). Returns the string
  * plus a `wildcard` flag (any value is `*`, or the object itself is `*`).
  */
-export function grantText(g: Pick<EffectiveAuthorization, 'objectName' | 'fieldValues'>): {
+export function grantText(g: GrantShape): {
   text: string
   wildcard: boolean
 } {

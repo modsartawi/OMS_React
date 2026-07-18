@@ -6,12 +6,25 @@ import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { authzAdminApi } from './api'
 import UsersWorkspace from './UsersWorkspace'
+import RolesWorkspace from './RolesWorkspace'
 
 type Workspace = 'users' | 'roles'
 
 export default function AuthzAdminPage() {
   const { t } = useTranslation('authz-admin')
   const [ws, setWs] = useState<Workspace>('users')
+  // Set only when the Roles workspace's "Held by" jumps to a person; seeds the
+  // Users workspace search on arrival. Cleared on any manual tab switch.
+  const [jumpTerm, setJumpTerm] = useState<string | null>(null)
+
+  function switchWs(id: Workspace) {
+    setJumpTerm(null)
+    setWs(id)
+  }
+  function jumpToUser(userId: string) {
+    setJumpTerm(userId)
+    setWs('users')
+  }
 
   // Shared cache key with the shell's nav probe (429) → one call, not two.
   const access = useQuery({ queryKey: ['authz-admin', 'access'], queryFn: () => authzAdminApi.access() })
@@ -58,7 +71,7 @@ export default function AuthzAdminPage() {
             key={id}
             role="tab"
             aria-selected={ws === id}
-            onClick={() => setWs(id)}
+            onClick={() => switchWs(id)}
             className={
               'rounded-md px-4 py-1.5 text-sm font-semibold ' +
               (ws === id ? 'bg-card text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground')
@@ -72,11 +85,9 @@ export default function AuthzAdminPage() {
       {catalog.isError ? (
         <ErrorBanner message={apiErrorMessage(catalog.error, t('toast.failed'))} className="p-4" />
       ) : ws === 'users' ? (
-        <UsersWorkspace access={access.data} catalog={catalog.data ?? []} />
+        <UsersWorkspace access={access.data} catalog={catalog.data ?? []} initialTerm={jumpTerm} />
       ) : (
-        <div className="rounded-lg border border-dashed border-border/60 bg-card p-10 text-center text-sm text-muted-foreground">
-          {t('workspace.rolesPlaceholder')}
-        </div>
+        <RolesWorkspace access={access.data} catalog={catalog.data ?? []} onJumpToUser={jumpToUser} />
       )}
     </section>
   )

@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Search } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { formatDateTime } from '@/core/util/date-format'
+import { confirmAction } from '@/core/services/confirm'
+import { notify } from '@/core/services/notify'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { ActiveSessionRow } from '@/core/models/session-monitor'
 import { sessionMonitorApi } from './api'
 import { isDormant, relativeTime, type SessionChip } from './helpers'
-import type { SessionCountsResult } from '@/core/models/session-monitor'
+import type { ActiveSessionSearchResult, SessionCountsResult } from '@/core/models/session-monitor'
 
 // Subtle per-channel badge tints (light + dark). Unknown channels fall back to
 // the neutral muted chip — the label always comes from `channel.<key>` (i18n).
@@ -39,6 +41,7 @@ type Query = { chip: SessionChip; term: string }
 // land in later tickets. Ticket 008 landed the search box + monitoring table.
 export default function ActiveSessionsPage() {
   const { t } = useTranslation('active-sessions')
+  const qc = useQueryClient()
 
   const [term, setTerm] = useState('')
   const [query, setQuery] = useState<Query | null>(null)
@@ -54,8 +57,9 @@ export default function ActiveSessionsPage() {
     enabled: access.data?.canOpen === true,
   })
 
+  const listKey = ['active-sessions', 'list', query] as const
   const list = useQuery({
-    queryKey: ['active-sessions', 'list', query],
+    queryKey: listKey,
     queryFn: () => sessionMonitorApi.search(query!.term, query!.chip),
     enabled: query !== null && access.data?.canOpen === true,
   })
@@ -74,6 +78,43 @@ export default function ActiveSessionsPage() {
     const committed = query?.term ?? ''
     setTerm(committed)
     setQuery({ chip, term: committed })
+  }
+
+  // Revoke one session: confirm (naming the person + channel), drop the row
+  // optimistically so the sign-out feels instant, then call the door. On success
+  // toast + refresh the chip counts (the estate total just dropped by one). On
+  // failure restore the row and surface the envelope message via apiErrorMessage
+  // (notify.apiError). A dead session answers business-success, so it never lands
+  // here — the row simply leaves. This is a session action; the person stays
+  // enabled. Ticket 010.
+  async function revoke(row: ActiveSessionRow) {
+    const name = row.displayName || row.userId
+    const channel = t(`channel.${row.channel}`, { defaultValue: row.channel })
+    const ok = await confirmAction(
+      t('confirm.revokeBody', { name, channel }),
+      t('confirm.revokeTitle'),
+    )
+    if (!ok) return
+
+    const previous = qc.getQueryData<ActiveSessionSearchResult>(listKey)
+    qc.setQueryData<ActiveSessionSearchResult>(listKey, (old) =>
+      old
+        ? {
+            ...old,
+            rows: old.rows.filter((r) => r.sessionId !== row.sessionId),
+            totalMatches: Math.max(0, old.totalMatches - 1),
+          }
+        : old,
+    )
+
+    try {
+      await sessionMonitorApi.revoke(row.sessionId)
+      notify.success(t('toast.revoked'), t('toast.revokedDetail', { name, channel }))
+      void qc.invalidateQueries({ queryKey: ['active-sessions', 'counts'] })
+    } catch (err) {
+      qc.setQueryData(listKey, previous)
+      notify.apiError(t('toast.revokeFailed'), err)
+    }
   }
 
   // ----- access states ------------------------------------------------------
@@ -203,7 +244,7 @@ export default function ActiveSessionsPage() {
             {t('grid.noResults')}
           </div>
         ) : (
-          <SessionsTable rows={list.data.rows} />
+          <SessionsTable rows={list.data.rows} onRevoke={revoke} />
         )}
       </div>
     </section>
@@ -212,13 +253,19 @@ export default function ActiveSessionsPage() {
 
 // Split out so `now` is stamped once per render of the loaded table (not per
 // access/loading re-render) and the row helpers stay close to their columns.
-function SessionsTable({ rows }: { rows: ActiveSessionRow[] }) {
+function SessionsTable({
+  rows,
+  onRevoke,
+}: {
+  rows: ActiveSessionRow[]
+  onRevoke: (row: ActiveSessionRow) => void
+}) {
   const { t } = useTranslation('active-sessions')
   const now = new Date()
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[880px] border-collapse text-sm">
+      <table className="w-full min-w-[960px] border-collapse text-sm">
         <thead>
           <tr className="text-start text-xs font-medium text-muted-foreground">
             <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.user')}</th>
@@ -228,6 +275,7 @@ function SessionsTable({ rows }: { rows: ActiveSessionRow[] }) {
             <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.lastSeen')}</th>
             <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.ip')}</th>
             <th className="border-b border-border px-3 py-1.5 text-start">{t('grid.client')}</th>
+            <th className="border-b border-border px-3 py-1.5 text-end">{t('grid.actions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -273,6 +321,14 @@ function SessionsTable({ rows }: { rows: ActiveSessionRow[] }) {
                 <td className="border-b border-border px-3 py-1.5 tabular-nums">{r.ipAddress || t('grid.none')}</td>
                 <td className="max-w-[16rem] truncate border-b border-border px-3 py-1.5 text-muted-foreground" title={r.userAgent}>
                   {r.userAgent || t('grid.none')}
+                </td>
+                <td className="border-b border-border px-3 py-1.5 text-end">
+                  <button
+                    className="shrink-0 rounded-full text-xs font-medium text-red-700 hover:underline dark:text-red-400"
+                    onClick={() => onRevoke(r)}
+                  >
+                    {t('grid.revoke')}
+                  </button>
                 </td>
               </tr>
             )

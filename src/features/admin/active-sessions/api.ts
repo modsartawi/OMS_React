@@ -35,4 +35,13 @@ export const sessionMonitorApi = {
   counts(): Promise<SessionCountsResult> {
     return api.get<SessionCountsResult>(`${BASE}/Sessions/Counts`)
   },
+
+  // Sign one device out — the SAME existing door ua-admin's per-user revoke uses
+  // (no new server route, ticket 010). Actor is the cookie UserId server-side; the
+  // body carries only the sessionId. This is a SESSION action, not an account one:
+  // the person stays enabled and can sign in again. Revoking an already-dead
+  // session is a server-side no-op that still answers success (not an error).
+  revoke(sessionId: string): Promise<unknown> {
+    return api.post(`${BASE}/Sessions/Revoke`, { sessionId })
+  },
 }

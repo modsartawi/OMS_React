@@ -24,6 +24,8 @@
     "lastSeen": "Last seen",
     "ip": "IP",
     "client": "Client",
+    "actions": "Actions",
+    "revoke": "Revoke",
     "noQuery": "No query yet",
     "searchTitle": "Search: \"{{term}}\"",
     "allTitle": "All live sessions",
@@ -59,5 +61,14 @@
     "deniedTitle": "You don't have access to Active Sessions",
     "deniedHint": "This screen needs the Active Sessions permission. Ask an administrator to grant it.",
     "checking": "Checking access…"
+  },
+  "confirm": {
+    "revokeTitle": "Sign this device out?",
+    "revokeBody": "This signs {{name}} out of their {{channel}} session. They stay enabled and can sign in again."
+  },
+  "toast": {
+    "revoked": "Session revoked",
+    "revokedDetail": "Signed {{name}} out of their {{channel}} session.",
+    "revokeFailed": "Could not revoke session"
   }
 }

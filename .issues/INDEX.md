@@ -18,6 +18,6 @@ One line per issue under its effort heading. Numbers start fresh at `001`.
 - [007](007-active-sessions-screen-access-spine.md) — activeSessionsScreenGatesOnItsOwnGrant · **done** · blocked by: — · dep: BackOffice Sessions/Access + grant seed
 - [008](008-active-sessions-search-list.md) — searchingLiveSessionsListsMatchingRowsCappedAt50 · **done** · blocked by: 007 · dep: BackOffice GET Sessions
 - [009](009-active-sessions-chips-counts.md) — channelAndIdleChipsFilterWithServerCounts · **done** · blocked by: 008 · dep: BackOffice Sessions/Counts
-- [010](010-active-sessions-revoke-one.md) — revokingASessionSignsTheDeviceOut · **open** · blocked by: 008 · reuses Sessions/Revoke
+- [010](010-active-sessions-revoke-one.md) — revokingASessionSignsTheDeviceOut · **done** · blocked by: 008 · reuses Sessions/Revoke
 - [011](011-active-sessions-revoke-all-for-user.md) — revokeAllForUserSignsAPersonOutEverywhere · **open** · blocked by: 008, 010 · dep: BackOffice Sessions/RevokeAllForUser
 - [012](012-active-sessions-freshness.md) — theMonitorAutoRefreshesAndShowsFreshness · **open** · blocked by: 008

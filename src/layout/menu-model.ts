@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import { Box, FileText, KeyRound, ShieldCheck, UserCog } from 'lucide-react'
-import { uaAdminApi } from '@/features/ua-admin/api'
-import { authzAdminApi } from '@/features/authz-admin/api'
+import { uaAdminApi } from '@/features/admin/ua-admin/api'
+import { authzAdminApi } from '@/features/admin/authz-admin/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).

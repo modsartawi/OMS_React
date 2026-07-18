@@ -16,7 +16,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/oms/deliveries" replace /> },
       {
         path: 'oms/deliveries',
-        lazy: async () => ({ Component: (await import('@/features/deliveries/DeliveriesPage')).default }),
+        lazy: async () => ({ Component: (await import('@/features/oms/deliveries/DeliveriesPage')).default }),
       },
       // Screen 2 — two routes, one component. `openedAs` is fixed by the ROUTE
       // and picks the load/refresh endpoint; it is NOT interchangeable with the
@@ -26,27 +26,27 @@ export const router = createBrowserRouter([
       {
         path: 'oms/document/:documentNo',
         lazy: async () => {
-          const { default: Page } = await import('@/features/document/DocumentDetailsPage')
+          const { default: Page } = await import('@/features/oms/document/DocumentDetailsPage')
           return { Component: () => <Page openedAs="document" /> }
         },
       },
       {
         path: 'oms/delivery/:deliveryNo',
         lazy: async () => {
-          const { default: Page } = await import('@/features/document/DocumentDetailsPage')
+          const { default: Page } = await import('@/features/oms/document/DocumentDetailsPage')
           return { Component: () => <Page openedAs="delivery" /> }
         },
       },
       {
         path: 'admin/ua-users',
         lazy: async () => ({
-          Component: (await import('@/features/ua-admin/UaAdminUsersPage')).default,
+          Component: (await import('@/features/admin/ua-admin/UaAdminUsersPage')).default,
         }),
       },
       {
         path: 'admin/authz',
         lazy: async () => ({
-          Component: (await import('@/features/authz-admin/AuthzAdminPage')).default,
+          Component: (await import('@/features/admin/authz-admin/AuthzAdminPage')).default,
         }),
       },
       { path: '*', element: <Navigate to="/oms/deliveries" replace /> },

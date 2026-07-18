@@ -55,3 +55,15 @@ export interface SessionCountsResult {
   backoffice: number
   idle: number
 }
+
+/**
+ * POST UaAdminWeb/Sessions/RevokeAllForUser — the "sign this person out of every
+ * device, every channel" hammer (ticket 011). A thin door over the domain's
+ * `RevokeSessionsForUser`; the server audits ONE `ADMIN_SESSION_REVOKE` row per
+ * killed session (not an aggregate) and reports how many it ended in
+ * `revokedCount`. A user with no live sessions answers success with count 0.
+ */
+export interface RevokeAllForUserResult {
+  success: boolean
+  revokedCount: number
+}

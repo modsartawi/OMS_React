@@ -62,13 +62,25 @@
     "deniedHint": "This screen needs the Active Sessions permission. Ask an administrator to grant it.",
     "checking": "Checking access…"
   },
+  "revokeAll": {
+    "summary": "{{name}} — {{count}} live session across all channels",
+    "summary_other": "{{name}} — {{count}} live sessions across all channels",
+    "button": "Revoke all for this user"
+  },
   "confirm": {
     "revokeTitle": "Sign this device out?",
-    "revokeBody": "This signs {{name}} out of their {{channel}} session. They stay enabled and can sign in again."
+    "revokeBody": "This signs {{name}} out of their {{channel}} session. They stay enabled and can sign in again.",
+    "revokeAllTitle": "Sign this user out everywhere?",
+    "revokeAllBody": "This signs {{name}} out of {{count}} device across every channel. They stay enabled and can sign in again.",
+    "revokeAllBody_other": "This signs {{name}} out of {{count}} devices across every channel. They stay enabled and can sign in again."
   },
   "toast": {
     "revoked": "Session revoked",
     "revokedDetail": "Signed {{name}} out of their {{channel}} session.",
-    "revokeFailed": "Could not revoke session"
+    "revokeFailed": "Could not revoke session",
+    "revokedAll": "User signed out everywhere",
+    "revokedAllDetail": "Signed {{name}} out of {{count}} device.",
+    "revokedAllDetail_other": "Signed {{name}} out of {{count}} devices.",
+    "revokeAllFailed": "Could not revoke sessions"
   }
 }

@@ -1,8 +1,11 @@
 // Pure, framework-free helpers for the Active Sessions screen: the GET Sessions
-// query-shaping, the per-channel dormancy rule, and last-seen relative-time
-// formatting. i18n text lives in the active-sessions namespace; these return
-// keys/params so the component owns the wording (zero-literal rule). All are the
-// highest, cheapest test seam (spec 006 Testing Decisions).
+// query-shaping, the per-channel dormancy rule, last-seen relative-time
+// formatting, and the single-distinct-user derivation that gates the revoke-all
+// bar. i18n text lives in the active-sessions namespace; these return keys/params
+// so the component owns the wording (zero-literal rule). All are the highest,
+// cheapest test seam (spec 006 Testing Decisions).
+
+import type { ActiveSessionRow } from '@/core/models/session-monitor'
 
 /** Reads are capped at 50 server-side; the screen shows the first page and the
  *  "refine to narrow" cap note rather than offset-paging. */
@@ -78,4 +81,29 @@ export function relativeTime(iso: string, now: Date): RelativeTime {
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return { key: 'hours', count: hours }
   return { key: 'days', count: Math.floor(hours / 24) }
+}
+
+/** The one person a result set resolves to, plus how many of their devices it
+ *  holds — what the revoke-all context bar names (ticket 011). */
+export interface SingleUser {
+  userId: string
+  displayName: string
+  count: number
+}
+
+/**
+ * Derive the single distinct user a result set resolves to, or `null` when it is
+ * empty or holds more than one `userId`. This gates the "Revoke all for this user"
+ * context bar: it appears only when every visible row belongs to one person, so a
+ * mixed result never offers the estate-wide hammer. `count` is the number of that
+ * person's rows in the current view (the blast radius the confirm states). Pure
+ * over the rows — the highest, cheapest seam (spec 006 Testing Decisions).
+ */
+export function singleDistinctUser(rows: ActiveSessionRow[]): SingleUser | null {
+  if (rows.length === 0) return null
+  const first = rows[0]
+  for (const r of rows) {
+    if (r.userId !== first.userId) return null
+  }
+  return { userId: first.userId, displayName: first.displayName, count: rows.length }
 }

@@ -1,6 +1,7 @@
 import { api } from '@/core/api'
 import type {
   ActiveSessionSearchResult,
+  RevokeAllForUserResult,
   SessionAccessResult,
   SessionCountsResult,
 } from '@/core/models/session-monitor'
@@ -43,5 +44,16 @@ export const sessionMonitorApi = {
   // session is a server-side no-op that still answers success (not an error).
   revoke(sessionId: string): Promise<unknown> {
     return api.post(`${BASE}/Sessions/Revoke`, { sessionId })
+  },
+
+  // Sign one person out of EVERY device and channel at once — the lost-phone /
+  // leaver hammer (ticket 011). A NEW thin door over the domain's
+  // `RevokeSessionsForUser`; the body carries only the userId, actor is the cookie
+  // UserId server-side. Each killed device is audited individually (one
+  // `ADMIN_SESSION_REVOKE` per session), and the server reports how many it ended
+  // in `revokedCount`. Like the single revoke this is a SESSION action: the person
+  // stays enabled and can sign in again.
+  revokeAllForUser(userId: string): Promise<RevokeAllForUserResult> {
+    return api.post<RevokeAllForUserResult>(`${BASE}/Sessions/RevokeAllForUser`, { userId })
   },
 }

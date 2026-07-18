@@ -9,7 +9,7 @@ import { notify } from '@/core/services/notify'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { ActiveSessionRow } from '@/core/models/session-monitor'
 import { sessionMonitorApi } from './api'
-import { isDormant, relativeTime, type SessionChip } from './helpers'
+import { isDormant, relativeTime, singleDistinctUser, type SessionChip, type SingleUser } from './helpers'
 import type { ActiveSessionSearchResult, SessionCountsResult } from '@/core/models/session-monitor'
 
 // Subtle per-channel badge tints (light + dark). Unknown channels fall back to
@@ -117,6 +117,48 @@ export default function ActiveSessionsPage() {
     }
   }
 
+  // Revoke every device for the one person the result set resolves to — the
+  // lost-phone / leaver hammer (ticket 011). Only reachable from the context bar,
+  // which shows only for a single-distinct-user set. Confirm states the blast
+  // radius (device count), then drop that user's rows optimistically so the
+  // sign-out feels instant, and call the new door. On success toast with the
+  // server-reported `revokedCount` (the true number killed, which can exceed the
+  // capped view) and refresh the chip counts. On failure restore the rows and
+  // surface the envelope message. The person stays enabled — this is a session
+  // action, not an account one.
+  async function revokeAll(user: SingleUser) {
+    const name = user.displayName || user.userId
+    const ok = await confirmAction(
+      t('confirm.revokeAllBody', { name, count: user.count }),
+      t('confirm.revokeAllTitle'),
+    )
+    if (!ok) return
+
+    const previous = qc.getQueryData<ActiveSessionSearchResult>(listKey)
+    qc.setQueryData<ActiveSessionSearchResult>(listKey, (old) => {
+      if (!old) return old
+      const remaining = old.rows.filter((r) => r.userId !== user.userId)
+      const removed = old.rows.length - remaining.length
+      return {
+        ...old,
+        rows: remaining,
+        totalMatches: Math.max(0, old.totalMatches - removed),
+      }
+    })
+
+    try {
+      const res = await sessionMonitorApi.revokeAllForUser(user.userId)
+      notify.success(
+        t('toast.revokedAll'),
+        t('toast.revokedAllDetail', { name, count: res.revokedCount }),
+      )
+      void qc.invalidateQueries({ queryKey: ['active-sessions', 'counts'] })
+    } catch (err) {
+      qc.setQueryData(listKey, previous)
+      notify.apiError(t('toast.revokeAllFailed'), err)
+    }
+  }
+
   // ----- access states ------------------------------------------------------
   if (access.isPending) {
     return (
@@ -137,6 +179,16 @@ export default function ActiveSessionsPage() {
 
   const countsData = counts.data
   const activeChip = query?.chip ?? null
+  // The revoke-all bar shows only when the loaded result is the COMPLETE,
+  // all-channels set for one person (ticket 011): a mixed set never offers the
+  // estate-wide hammer, and neither does a channel/idle-narrowed or 50-capped set
+  // — those would state a per-channel or first-page count that understates the
+  // true blast radius the confirm promises (spec 006 story 26). Clear the chip
+  // back to All to get the hammer on a channel-filtered search.
+  const soleUser =
+    list.data && query?.chip === 'all' && !list.data.isCapped
+      ? singleDistinctUser(list.data.rows)
+      : null
   const gridTitle =
     query === null
       ? t('grid.noQuery')
@@ -210,6 +262,24 @@ export default function ActiveSessionsPage() {
           {t('chips.idle')}
         </button>
       </div>
+
+      {/* revoke-all context bar — only for a single-distinct-user result */}
+      {soleUser && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-accent/40 px-4 py-2">
+          <span className="text-sm">
+            {t('revokeAll.summary', {
+              name: soleUser.displayName || soleUser.userId,
+              count: soleUser.count,
+            })}
+          </span>
+          <button
+            className="shrink-0 rounded-full border border-red-600/40 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-600/10 dark:text-red-400"
+            onClick={() => revokeAll(soleUser)}
+          >
+            {t('revokeAll.button')}
+          </button>
+        </div>
+      )}
 
       {/* live-monitoring table */}
       <div className="flex min-h-[22rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card">

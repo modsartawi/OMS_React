@@ -27,7 +27,7 @@ One line per issue under its effort heading. Numbers start fresh at `001`.
 Client port of the WPF POS Simulation pricing harness. Server slice is BackOffice 509 (`Pricing/Simulate`
 + `Pricing/Access` + `POS_SIMULATION_ADMIN` grant) — **done**. Moved here from BackOffice `.issues/510–513`.
 
-- [013](013-web-sim-screen-tracer.md) — POS Simulation screen: enter a basket, Process, see priced results · **open** · blocked by: — · dep: BackOffice 509 Pricing/Simulate + Access (done)
+- [013](013-web-sim-screen-tracer.md) — POS Simulation screen: enter a basket, Process, see priced results · **done** · blocked by: — · dep: BackOffice 509 Pricing/Simulate + Access (done)
 - [014](014-web-sim-condition-cards.md) — Pricing detail with expandable condition cards + statistical toggle · **open** · blocked by: 013
 - [015](015-web-sim-bonusbuy-elements.md) — Bonus-buy tabs + pricing elements · **open** · blocked by: 013
 - [016](016-web-sim-editable-grids.md) — Editable items + manual-conditions grids · **open** · blocked by: 013

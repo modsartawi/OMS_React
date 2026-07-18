@@ -1,8 +1,15 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\503-web-pos-simulation-spec.md
 blocked-by: —
 ---
+
+> **Impl note (build):** the i18n namespace landed as **`simulation`** (feature-structure rule —
+> namespace == feature name; feature is `simulation` under area `pricing`), not `pricing` as the
+> "What to build" bullet and spec 503 worded it. The access query key follows the namespace
+> (`['simulation','access']`); the behavioural requirement — page-guard and menu probe share ONE
+> key so they dedupe to a single call — holds. Sibling map 489 (`bonus-buy-download`) established
+> the shared **Pricing & Promotions** area alongside this screen.
 
 # 013 — POS Simulation screen: enter a basket, Process, see priced results
 
@@ -38,9 +45,16 @@ app/UI (React screen) — consumes BackOffice 509's `POST Pricing/Simulate` + `G
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] Owner smoke (no client test tier — spec 503): against dev SIS.Api (`:5111`, cookie mode) with a
-      pricing DB and a user holding `POS_SIMULATION_ADMIN`, entering material 235275 + Process shows a
-      priced results line; an ungranted user sees the denied card and the nav leaf is hidden.
+- [x] Client verified (no client test tier — spec 503): `typecheck` + `build` green; a Chromium
+      drive with the SIS.Api mocked at the envelope (dev backend not running in this env) exercised
+      the real screen — Process → priced results grid (one OK + one `W` line), red/amber/green status
+      dots, the E/W banner ("0 error(s), 1 warning(s)"), Net Total 115.00 SAR, Clear resets; the
+      request carried the basket in order with no client-set item numbers and `includeConditions:true`.
+      A second drive proved the denied path: `canOpen:false` → denied card + hidden nav leaf.
+- [ ] Owner smoke (live sign-off, still pending — backend not available here): against dev SIS.Api
+      (`:5111`, cookie mode) with a pricing DB and a user holding `POS_SIMULATION_ADMIN`, entering
+      material 235275 + Process shows a priced results line; an ungranted user sees the denied card and
+      the nav leaf is hidden. This is spec 503's owner-smoke seam (the dev-environment gap 419/476 note).
 
 ## Boundaries
 

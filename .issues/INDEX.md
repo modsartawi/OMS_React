@@ -31,3 +31,46 @@ Client port of the WPF POS Simulation pricing harness. Server slice is BackOffic
 - [014](014-web-sim-condition-cards.md) — Pricing detail with expandable condition cards + statistical toggle · **done** · blocked by: 013
 - [015](015-web-sim-bonusbuy-elements.md) — Bonus-buy tabs + pricing elements · **done** · blocked by: 013
 - [016](016-web-sim-editable-grids.md) — Editable items + manual-conditions grids · **open** · blocked by: 013
+
+## POS Simulation stale-BBY cache reset (map 017)
+
+Prevent false pricing feedback from SIS.Api's server-side `"Pricing"` FusionCache serving a stale
+BBY after re-download. Destination is a decision/spec (server + client). WPF cleared it in-process;
+React needs a new `Pricing/*` endpoint.
+
+- [017](017-sim-stale-bby-cache-reset.md) — POS Simulation stale-BBY cache reset · **done** · wayfinder map — spec ready for /to-tickets
+- [018](018-cache-bust-endpoint-feasibility.md) — SIS.Api cache-bust feasibility: endpoint + FusionCache API + download path · **done** · blocked by: —
+- [019](019-cache-bust-scope.md) — Whole-cache clear vs targeted BBY eviction · **done** · blocked by: 018
+- [020](020-cache-bust-trigger-surface.md) — Where the cache-bust is triggered · **done** · blocked by: 018
+- [021](021-cache-bust-blast-radius-auth.md) — Shared-cache blast radius & who may clear it · **done** · blocked by: 019
+- [022](022-cache-reset-spec-lock.md) — Lock the stale-BBY cache-reset spec · **done** · blocked by: 019, 020, 021 · [spec](022-cache-reset.SPEC.md)
+
+## Web Back-Office Notification Center (map 023)
+
+Bell + badge + list + deep-link + banner + claim (receive) and a channel-targeted broadcast/compose
+screen (send), over `SIS.Api Notifications/*` polling. Backend NC (issues 164–172) already ships the
+contract; the web BO caller (no `registerid`) is already a `User+All` audience. Destination = ready spec.
+
+- [023](023-web-notification-center.md) — Web Back-Office Notification Center · **done** · wayfinder map — destination reached (spec 031 ready)
+- [024](024-nc-backend-contract-for-web.md) — Notification Center backend contract for the web client · **done** · blocked by: — · [research](024-nc-backend-contract-for-web.RESEARCH.md)
+- [025](025-web-identity-session-fit.md) — Web app identity & session fit for the NC · **done** · blocked by: — · [research](025-web-identity-session-fit.RESEARCH.md)
+- [026](026-receive-side-parity-scope.md) — Receive-side parity scope for the back-office · **done** · blocked by: 024, 025
+- [027](027-broadcast-channel-model.md) — Broadcast channel/audience model · **done** · blocked by: 024
+- [028](028-access-gating-and-grants.md) — Access gating & grants (bell + compose screen) · **done** · blocked by: 024
+- [029](029-nc-bell-panel-compose-ux.md) — Bell / panel / compose UX prototype · **done** · blocked by: 026, 027 · [prototype](029-nc-bell-panel-compose-ux.PROTOTYPE.html)
+- [030](030-nc-spec-shape-and-lock.md) — Lock the NC spec shape & hand off to /to-spec · **done** · blocked by: 026, 027, 028, 029
+- [031](031-web-notification-center-spec.md) — Web Back-Office Notification Center (spec) · **ready** · spec — consumable by /to-tickets
+
+## Web Notification Center — build (spec 031)
+
+Tracer tickets sliced from spec 031. Two independent chains: **Receive** (032→033→{034,035}, layout/
+chrome) and **Send** (036→{037,038}, features/admin). AFK plan: [NC-AFK-HANDOFF.md](NC-AFK-HANDOFF.md);
+overnight blockers: [NC-MORNING-REPORT.md](NC-MORNING-REPORT.md).
+
+- [032](032-nc-bell-poll-badge.md) — theBellPollsAndShowsAnUnreadBadge · **open** · blocked by: — · dep: GET Notifications/Poll (+ api.get header passthrough)
+- [033](033-nc-panel-list.md) — theBellOpensAPanelListingAnnouncementsNewestFirst · **open** · blocked by: 032
+- [034](034-nc-read-state.md) — readingAnItemDropsTheUnreadCount · **open** · blocked by: 033 · dep: POST Notifications/{id}/Read
+- [035](035-nc-arrivals-sonner.md) — aFreshArrivalRaisesAToastAndBumpsTheBadge · **open** · blocked by: 033
+- [036](036-nc-compose-send-store.md) — composingABroadcastSendsItToAStore · **open** · blocked by: — · dep: POST Notifications
+- [037](037-nc-fleet-confirm.md) — sendingToTheWholeFleetAsksForConfirmation · **open** · blocked by: 036
+- [038](038-nc-compose-access-gate.md) — theComposeScreenIsHiddenWithoutTheBroadcastGrant · **open** · blocked by: 036 · dep: **GET Notifications/Access (backend — does not exist yet)**

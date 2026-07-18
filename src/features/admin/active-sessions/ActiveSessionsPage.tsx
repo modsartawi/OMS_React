@@ -29,6 +29,7 @@ const CHANNEL_CHIPS: { chip: SessionChip; count: (c: SessionCountsResult) => num
   { chip: 'web', count: (c) => c.web },
   { chip: 'mobile', count: (c) => c.mobile },
   { chip: 'backoffice', count: (c) => c.backoffice },
+  { chip: 'pos', count: (c) => c.pos },
 ]
 
 type Query = { chip: SessionChip; term: string }

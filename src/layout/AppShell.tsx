@@ -7,8 +7,8 @@ import { useVisibleMenu } from './useVisibleMenu'
 import { useTheme } from './theme'
 import { useSession } from '@/core/session'
 import { authApi } from '@/features/auth/api'
-import StoreSwitcher from '@/features/auth/StoreSwitcher'
 import { buildTag } from '@/core/build-info'
+import BrandMark from '@/core/ui/BrandMark'
 
 const MOBILE_QUERY = '(max-width: 991px)'
 
@@ -144,11 +144,6 @@ function AccountPopup() {
               <div className="truncate text-xs text-muted-foreground">{session.userId}</div>
             </div>
           </div>
-          {/* Operating the switcher must not dismiss the popup (DS-5). */}
-          <div className="border-b border-border px-2 py-2 text-xs text-muted-foreground">
-            {t('account.actingStore')}
-            <StoreSwitcher />
-          </div>
           <button
             type="button"
             onClick={logout}
@@ -210,8 +205,9 @@ export default function AppShell() {
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
-        <NavLink to="/" className="text-sm font-semibold tracking-tight">
-          {t('brand')}
+        <NavLink to="/" className="flex items-center gap-2" aria-label={t('brand')}>
+          <BrandMark size={26} />
+          <span className="text-sm font-semibold tracking-tight">{t('brandName')}</span>
         </NavLink>
         <div className="flex-1" />
         <button

@@ -53,6 +53,7 @@ export interface SessionCountsResult {
   web: number
   mobile: number
   backoffice: number
+  pos: number
   idle: number
 }
 

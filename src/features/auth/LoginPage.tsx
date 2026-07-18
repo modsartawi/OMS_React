@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import QRCode from 'react-qr-code'
 import { ApiError, apiErrorMessage } from '@/core/api'
 import { useSession } from '@/core/session'
 import { authApi } from './api'
@@ -15,8 +16,10 @@ const CHALLENGE_INVALID = 'UAAUTH-90070'
 // Step-1 steers: the login itself walks the user into the right self-service
 // journey rather than showing a dead-end error (owner: offered, not hidden).
 // NoCredential — active employee, no password yet (the 368/376 cutover seed):
-// straight into set-password. (NotEnrolled → activation is added by issue 477.)
+// straight into set-password. NotEnrolled — valid password but no authenticator
+// (day one): straight into QR activation.
 const NO_CREDENTIAL = 'UAAUTH-90090'
+const NOT_ENROLLED = 'UAAUTH-90060'
 
 // A reset session that is gone (expired, spent, or attempt-capped): the otp /
 // set-password steps drop back to the password step with the server's message.
@@ -28,11 +31,25 @@ function resolveReturnUrl(raw: string | null): string {
   return DEFAULT_LANDING
 }
 
-type Step = 'password' | 'change' | 'totp' | 'otp' | 'setPassword'
+/**
+ * The Base32 secret out of the otpauth URI, for the manual-entry fallback —
+ * mirrors the server's UaOtpAuthUri.SecretOf: find `secret=`, cut at `&`,
+ * degrade to the whole string on a malformed URI. Always shown, so a QR render
+ * failure still enrolls (graceful degrade, like POS).
+ */
+function secretFromOtpauth(uri: string): string {
+  const marker = 'secret='
+  const start = uri.indexOf(marker)
+  if (start === -1) return uri
+  const rest = uri.slice(start + marker.length)
+  const amp = rest.indexOf('&')
+  return amp === -1 ? rest : rest.slice(0, amp)
+}
+
+type Step = 'password' | 'change' | 'totp' | 'otp' | 'setPassword' | 'activateQr'
 
 // Which journey the shared `otp` step is serving — mirrors the server verify,
-// which is shared too (the purpose is stamped at the request step). `activate`
-// is wired by issue 477; `reset` is this slice.
+// which is shared too (the purpose is stamped at the request step).
 type Flow = 'reset' | 'activate'
 
 const inputClass =
@@ -65,6 +82,8 @@ export default function LoginPage() {
   const [resetId, setResetId] = useState('')
   const [flow, setFlow] = useState<Flow>('reset')
   const [otpCode, setOtpCode] = useState('')
+  // The otpauth URI the activation step renders as a QR (issue 477).
+  const [qrCodeUri, setQrCodeUri] = useState('')
 
   const [busy, setBusy] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -105,6 +124,7 @@ export default function LoginPage() {
     setConfirmPassword('')
     setResetId('')
     setOtpCode('')
+    setQrCodeUri('')
     setErrorMessage(message)
   }
 
@@ -129,6 +149,12 @@ export default function LoginPage() {
       // not shown "wrong password". The SMS is sent by the request step.
       if (result.errorCode === NO_CREDENTIAL) {
         await startPasswordReset()
+        return
+      }
+      // Steer: a valid password but no authenticator (day one) is walked straight
+      // into QR activation rather than a dead-end error.
+      if (result.errorCode === NOT_ENROLLED) {
+        await startTotpReenroll()
         return
       }
       resetToPassword(result.message)
@@ -174,6 +200,49 @@ export default function LoginPage() {
     setConfirmPassword('')
     setErrorMessage(null)
     setStep('otp')
+  }
+
+  /**
+   * Launch the TOTP activation / re-enroll journey: request an OTP to the
+   * registered phone and land on the shared `otp` step with the activate flag.
+   * Used by both the "Lost your authenticator?" link and the NotEnrolled
+   * auto-steer. Anti-enum like the reset request — always reaches `otp`.
+   */
+  async function startTotpReenroll() {
+    const id = userId.trim()
+    if (id === '') {
+      setErrorMessage(t('enterUserIdFirst'))
+      return
+    }
+    const result = await authApi.uaRequestTotpReenroll(id)
+    if (!result.success) {
+      // Only validation / throttle fail here — stay put with the message.
+      setErrorMessage(result.message)
+      return
+    }
+    setFlow('activate')
+    setResetId(result.resetId ?? '')
+    setOtpCode('')
+    setQrCodeUri('')
+    setErrorMessage(null)
+    setStep('otp')
+  }
+
+  /** Re-enroll terminal — swap the secret and land on the QR step. */
+  async function runReenroll() {
+    const result = await authApi.uaReenrollTotp(resetId)
+    if (!result.success) {
+      // An expired / spent proof cannot be retried — start over.
+      if (result.errorCode === RESET_SESSION_INVALID) {
+        resetToPassword(result.message)
+        return
+      }
+      setErrorMessage(result.message)
+      return
+    }
+    setResetId('') // spent
+    setQrCodeUri(result.qrCodeUri ?? '')
+    setStep('activateQr')
   }
 
   async function onPasswordSubmit(e: React.FormEvent) {
@@ -268,10 +337,47 @@ export default function LoginPage() {
         setErrorMessage(result.message)
         return
       }
-      // Verified. The reset journey chooses a new password next.
-      // (The activation journey's branch is added by issue 477.)
+      // Verified — branch by journey: activation swaps the secret and shows the
+      // QR; reset chooses a new password.
       setOtpCode('')
-      setStep('setPassword')
+      if (flow === 'activate') {
+        await runReenroll()
+      } else {
+        setStep('setPassword')
+      }
+    } catch (err) {
+      reportUnexpected(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
+   * "I've added it" — the operator scanned the QR (or keyed the secret) into a
+   * fresh authenticator. NotEnrolled short-circuited before a challenge was
+   * issued, so re-run the login with the retained password to get a fresh one
+   * and land on the normal TOTP code step — no retype.
+   */
+  async function onActivateAdded() {
+    if (busy) return
+    setBusy(true)
+    setErrorMessage(null)
+    try {
+      setQrCodeUri('')
+      await runLogin(password)
+    } catch (err) {
+      reportUnexpected(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onLostAuthenticator() {
+    if (busy) return
+    setBusy(true)
+    setErrorMessage(null)
+    try {
+      await startTotpReenroll()
     } catch (err) {
       reportUnexpected(err)
     } finally {
@@ -450,6 +556,14 @@ export default function LoginPage() {
             <button type="button" onClick={goBackToPassword} className={backClass}>
               {t('back')}
             </button>
+            <button
+              type="button"
+              onClick={onLostAuthenticator}
+              disabled={busy}
+              className={linkClass}
+            >
+              {t('lostAuthenticator')}
+            </button>
           </form>
         )}
 
@@ -519,6 +633,38 @@ export default function LoginPage() {
               {t('back')}
             </button>
           </form>
+        )}
+
+        {step === 'activateQr' && (
+          <div>
+            <h1 className="text-base font-semibold tracking-tight">{t('activateTitle')}</h1>
+            <p className="mb-4 text-sm text-muted-foreground">{t('activateScanHint')}</p>
+
+            {/* Inline SVG QR — no external image service, no canvas, CSP-safe. */}
+            <div className="mb-4 flex justify-center">
+              <div className="rounded-lg bg-white p-3">
+                <QRCode value={qrCodeUri} level="Q" size={184} />
+              </div>
+            </div>
+
+            {/* Base32 fallback — always shown, so a render failure still enrolls. */}
+            <p className="mb-1 text-sm font-medium">{t('activateCantScan')}</p>
+            <p className="mb-4 break-all rounded-lg border border-input bg-muted px-3 py-2 font-mono text-sm">
+              {secretFromOtpauth(qrCodeUri)}
+            </p>
+
+            <button
+              type="button"
+              onClick={onActivateAdded}
+              disabled={busy}
+              className={submitClass}
+            >
+              {busy ? t('signingIn') : t('activateAdded')}
+            </button>
+            <button type="button" onClick={goBackToPassword} disabled={busy} className={backClass}>
+              {t('back')}
+            </button>
+          </div>
         )}
       </div>
     </div>

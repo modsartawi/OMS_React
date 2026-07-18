@@ -57,6 +57,17 @@ export interface UaResetStepResult {
   errorCode: string | null
   message: string | null
 }
+/**
+ * Re-enroll terminal step (POST Auth/UaReenrollTotp, issue 477) — on success the
+ * `qrCodeUri` is the full otpauth URI (`otpauth://totp/DMSCO:{id}?secret=…`) the
+ * browser renders locally as a QR; no secret is assembled in JS.
+ */
+export interface UaReenrollResult {
+  success: boolean
+  errorCode: string | null
+  message: string | null
+  qrCodeUri: string | null
+}
 export interface WebMeResult {
   authenticated: boolean
   userId: string | null
@@ -109,6 +120,19 @@ export const authApi = {
   /** Reset step 3 — verified reset id + chosen password → credential set, id spent. */
   uaSetPassword(resetId: string, newPassword: string): Promise<UaResetStepResult> {
     return api.post<UaResetStepResult>('Auth/UaSetPassword', { resetId, newPassword })
+  },
+
+  // --- self-service TOTP activation / re-enroll (issue 477) -----------------
+  // The verify step reuses uaVerifyResetOtp above (shared server verify). These
+  // two wrap UaTotpEnrollmentService / UaPasswordResetService unchanged.
+
+  /** Re-enroll step 1 — employee id → reset id (+ SMS). Always HTTP 200; never an oracle. */
+  uaRequestTotpReenroll(userId: string): Promise<UaResetRequestResult> {
+    return api.post<UaResetRequestResult>('Auth/UaRequestTotpReenroll', { userId })
+  },
+  /** Re-enroll step 3 — verified reset id → the otpauth URI to render as a QR. */
+  uaReenrollTotp(resetId: string): Promise<UaReenrollResult> {
+    return api.post<UaReenrollResult>('Auth/UaReenrollTotp', { resetId })
   },
   logout(): Promise<unknown> {
     return api.post('Auth/Logout', {})

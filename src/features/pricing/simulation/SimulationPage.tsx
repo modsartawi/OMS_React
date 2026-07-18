@@ -12,8 +12,9 @@ import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/cor
 import { formatMoney } from '@/core/util/number-format'
 import type { SimulateRequest, SimulationResult } from '@/core/models/simulation'
 import { simulationApi } from './api'
-import SimHeaderForm, { EMPTY_HEADER, type SimHeaderState } from './SimHeaderForm'
+import SimHeaderForm, { defaultHeader, type SimHeaderState } from './SimHeaderForm'
 import SimItemsEntry, { emptyItemRow, type SimItemRow } from './SimItemsEntry'
+import SimManualConditions, { type SimManualConditionRow } from './SimManualConditions'
 import SimItemDetail from './SimItemDetail'
 import SimBonusBuyPanel from './SimBonusBuyPanel'
 import { buildSimulationColumns, SIM_RESULT_DEFAULT_COL_DEF } from './columns'
@@ -30,10 +31,11 @@ export default function SimulationPage() {
 
   const access = useQuery({ queryKey: ['simulation', 'access'], queryFn: () => simulationApi.access() })
 
-  const [header, setHeader] = useState<SimHeaderState>(EMPTY_HEADER)
+  const [header, setHeader] = useState<SimHeaderState>(defaultHeader)
   const [promotion, setPromotion] = useState(true)
   const [pricingElements, setPricingElements] = useState(false)
   const [items, setItems] = useState<SimItemRow[]>(() => [emptyItemRow()])
+  const [manualConditions, setManualConditions] = useState<SimManualConditionRow[]>([])
   // Which result line's pricing detail is shown (ticket 014). Selecting a line in
   // the results grid drives the detail below; a fresh Process selects the first line.
   const [selectedItemNumber, setSelectedItemNumber] = useState<number | null>(null)
@@ -62,7 +64,6 @@ export default function SimulationPage() {
         // A blank date lets the engine use "now"; a set date goes as midnight ISO.
         pricingDate: header.pricingDate ? `${header.pricingDate}T00:00:00` : '',
         documentPricingProcedureKey: header.documentPricingProcedureKey.trim(),
-        loyId: header.loyId.trim() || null,
         loyGroups: header.loyGroups.trim() || null,
         loyTier: header.loyTier.trim() || null,
         isPromotionApplicable: promotion,
@@ -71,19 +72,31 @@ export default function SimulationPage() {
         materialNumber: r.materialNumber.trim(),
         quantity: Number(r.quantity) || 0,
         qtyUnit: r.qtyUnit.trim(),
-        itemConditionControl: null,
+        itemConditionControl: r.itemConditionControl.trim() || null,
       })),
       includeConditions: true,
       includePricingElements: pricingElements,
+    }
+    // Only rows carrying a condition type ride the request; item number defaults to
+    // 0 (a header condition) when blank or non-numeric.
+    const validManual = manualConditions.filter((c) => c.conditionType.trim() !== '')
+    if (validManual.length > 0) {
+      request.manualConditions = validManual.map((c) => ({
+        itemNumber: Number(c.itemNumber) || 0,
+        conditionType: c.conditionType.trim(),
+        rate: Number(c.rate) || 0,
+        rateUnit: c.rateUnit.trim(),
+      }))
     }
     process.mutate(request)
   }
 
   function clearAll() {
-    setHeader(EMPTY_HEADER)
+    setHeader(defaultHeader())
     setPromotion(true)
     setPricingElements(false)
     setItems([emptyItemRow()])
+    setManualConditions([])
     setSelectedItemNumber(null)
     process.reset()
   }
@@ -121,57 +134,87 @@ export default function SimulationPage() {
         <h1 className="text-base font-semibold tracking-tight">{t('title')}</h1>
       </div>
 
-      <SimHeaderForm
-        value={header}
-        onChange={(patch) => setHeader((h) => ({ ...h, ...patch }))}
-        promotion={promotion}
-        pricingElements={pricingElements}
-        onPromotionChange={setPromotion}
-        onPricingElementsChange={setPricingElements}
-        disabled={process.isPending}
-      />
-
-      <SimItemsEntry rows={items} onChange={setItems} disabled={process.isPending} />
-
-      {/* Action bar: Process / Clear + the Net Total summary. */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-card px-3 py-2">
-        <button
-          type="button"
-          onClick={runProcess}
-          disabled={!canProcess}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50"
-        >
-          {process.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          ) : (
-            <Play className="h-4 w-4" aria-hidden />
-          )}
-          {process.isPending ? t('actions.processing') : t('actions.process')}
-        </button>
-        <button
-          type="button"
-          onClick={clearAll}
+      {/* ===== TOP BAR: header input form | Net-Total summary | actions (spec 503). ===== */}
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,3fr)_auto_auto]">
+        <SimHeaderForm
+          value={header}
+          onChange={(patch) => setHeader((h) => ({ ...h, ...patch }))}
+          promotion={promotion}
+          pricingElements={pricingElements}
+          onPromotionChange={setPromotion}
+          onPricingElementsChange={setPricingElements}
           disabled={process.isPending}
-          className="inline-flex h-9 items-center rounded-full border border-input px-4 text-sm font-medium hover:bg-accent disabled:opacity-50"
-        >
-          {t('actions.clear')}
-        </button>
+        />
 
-        <div className="flex-1" />
-
-        {result ? (
-          <div className="flex items-baseline gap-3">
-            <span className="text-xs text-muted-foreground">{t('summary.netTotal')}</span>
-            <span className="text-lg font-semibold tabular-nums">
-              {formatMoney(result.header.netTotal)} {result.header.currency}
-            </span>
-            {data ? (
-              <span className="text-xs text-muted-foreground">{t('summary.elapsed', { ms: data.elapsedMs })}</span>
-            ) : null}
+        {/* Net-Total summary — the run's headline figure + calc time. */}
+        <div className="flex min-w-52 flex-col justify-center rounded-lg border border-border/60 bg-card p-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {t('summary.title')}
           </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">{t('summary.noResult')}</span>
-        )}
+          <div className="mt-1 text-xs text-muted-foreground">{t('summary.netTotal')}</div>
+          {result ? (
+            <>
+              <div className="mt-0.5">
+                <span className="text-3xl font-bold tabular-nums tracking-tight">
+                  {formatMoney(result.header.netTotal)}
+                </span>
+                <span className="ms-1.5 text-sm text-muted-foreground">{result.header.currency}</span>
+              </div>
+              {/* Discount (red) + tax (blue) breakdown beneath the headline net total. */}
+              <div className="mt-1.5 flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
+                <span className="text-sm font-semibold tabular-nums text-red-600 dark:text-red-400">
+                  <span className="me-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {t('summary.totalDiscount')}
+                  </span>
+                  {formatMoney(result.header.totalDiscount)}
+                </span>
+                <span className="text-sm font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+                  <span className="me-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {t('summary.tax')}
+                  </span>
+                  {formatMoney(result.header.taxValue)}
+                </span>
+              </div>
+              {data ? (
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  {t('summary.calc', { ms: data.elapsedMs })}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="mt-0.5 text-3xl font-bold tabular-nums tracking-tight text-muted-foreground/40">
+              {t('summary.placeholder')}
+            </div>
+          )}
+        </div>
+
+        {/* Actions — Process + Clear (the desktop "Clear Cache" is dropped, spec 503). */}
+        <div className="flex min-w-36 flex-col justify-center gap-2 rounded-lg border border-border/60 bg-card p-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {t('actions.title')}
+          </div>
+          <button
+            type="button"
+            onClick={runProcess}
+            disabled={!canProcess}
+            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50"
+          >
+            {process.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <Play className="h-4 w-4" aria-hidden />
+            )}
+            {process.isPending ? t('actions.processing') : t('actions.process')}
+          </button>
+          <button
+            type="button"
+            onClick={clearAll}
+            disabled={process.isPending}
+            className="inline-flex h-9 w-full items-center justify-center rounded-full border border-input px-4 text-sm font-medium hover:bg-accent disabled:opacity-50"
+          >
+            {t('actions.clear')}
+          </button>
+        </div>
       </div>
 
       {/* A pricing rejection (400 [PRICING_ERROR] message) — the whole run failed. */}
@@ -179,55 +222,78 @@ export default function SimulationPage() {
         <ErrorBanner title={t('banner.failed')} message={apiErrorMessage(process.error, t('banner.failed'))} className="p-4" />
       ) : null}
 
-      {/* Per-item E/W summary — one bad line among good ones (still HTTP 200). */}
-      {showStatusBanner ? (
-        <div
-          role="alert"
-          className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
-        >
-          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-          {t('banner.counts', { errors: errorCount, warnings: warnCount })}
-        </div>
-      ) : null}
-
-      {/* Results grid. */}
-      <div className="rounded-lg border border-border/60 bg-card p-3">
-        <h2 className="mb-2 text-sm font-semibold tracking-tight">{t('results.title')}</h2>
-        {result === null ? (
-          <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-            {t('results.empty')}
-          </div>
-        ) : (
-          <div className="h-[24rem] min-h-64">
-            <AgGridReact<SimulationResult['items'][number]>
-              theme={omsGridTheme}
-              rowData={result.items}
-              columnDefs={columns}
-              defaultColDef={SIM_RESULT_DEFAULT_COL_DEF}
-              rowHeight={OMS_GRID_ROW_HEIGHT}
-              headerHeight={OMS_GRID_HEADER_HEIGHT}
-              animateRows={false}
-              rowSelection={{ mode: 'singleRow', checkboxes: false, enableClickSelection: true }}
-              onRowClicked={(e: RowClickedEvent<SimulationResult['items'][number]>) =>
-                setSelectedItemNumber(e.data?.itemNumber ?? null)
-              }
-              // Highlight the selected line — including the first line auto-selected on
-              // Process — by syncing AG Grid's native selection to our source of truth.
-              onRowDataUpdated={(e) =>
-                e.api.forEachNode((node) => node.setSelected(node.data?.itemNumber === selectedItem?.itemNumber))
-              }
+      {/* ===== MAIN: 7/5 split — left = inputs + results; right = detail + bonus buys. ===== */}
+      <div className="grid gap-3 xl:grid-cols-[7fr_5fr]">
+        {/* LEFT column. */}
+        <div className="flex min-w-0 flex-col gap-3">
+          {/* Editable items grid + manual-conditions grid, side by side. */}
+          <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
+            <SimItemsEntry rows={items} onChange={setItems} disabled={process.isPending} />
+            <SimManualConditions
+              rows={manualConditions}
+              onChange={setManualConditions}
+              disabled={process.isPending}
             />
           </div>
-        )}
+
+          {/* Per-item E/W summary — one bad line among good ones (still HTTP 200). */}
+          {showStatusBanner ? (
+            <div
+              role="alert"
+              className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
+            >
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
+              {t('banner.counts', { errors: errorCount, warnings: warnCount })}
+            </div>
+          ) : null}
+
+          {/* Results grid. */}
+          <div className="rounded-lg border border-border/60 bg-card p-3">
+            <h2 className="mb-2 text-sm font-semibold tracking-tight">{t('results.title')}</h2>
+            {result === null ? (
+              <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+                {t('results.empty')}
+              </div>
+            ) : (
+              <div className="h-[24rem] min-h-64">
+                <AgGridReact<SimulationResult['items'][number]>
+                  theme={omsGridTheme}
+                  rowData={result.items}
+                  columnDefs={columns}
+                  defaultColDef={SIM_RESULT_DEFAULT_COL_DEF}
+                  rowHeight={OMS_GRID_ROW_HEIGHT}
+                  headerHeight={OMS_GRID_HEADER_HEIGHT}
+                  animateRows={false}
+                  rowSelection={{ mode: 'singleRow', checkboxes: false, enableClickSelection: true }}
+                  onRowClicked={(e: RowClickedEvent<SimulationResult['items'][number]>) =>
+                    setSelectedItemNumber(e.data?.itemNumber ?? null)
+                  }
+                  // Highlight the selected line — including the first line auto-selected on
+                  // Process — by syncing AG Grid's native selection to our source of truth.
+                  onRowDataUpdated={(e) =>
+                    e.api.forEachNode((node) => node.setSelected(node.data?.itemNumber === selectedItem?.itemNumber))
+                  }
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT column — pricing detail + bonus-buy tabs. */}
+        <div className="flex min-w-0 flex-col gap-3">
+          {selectedItem ? (
+            /* Per-line pricing detail + aggregated condition cards (ticket 014). */
+            <SimItemDetail key={selectedItem.itemNumber} item={selectedItem} currency={result?.header.currency ?? ''} />
+          ) : (
+            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border/60 bg-card text-sm text-muted-foreground">
+              {t('summary.noResult')}
+            </div>
+          )}
+
+          {/* Bonus-buy tabs + pricing-elements trace (ticket 015). */}
+          {result ? <SimBonusBuyPanel result={result} selectedItem={selectedItem} /> : null}
+        </div>
       </div>
-
-      {/* Per-line pricing detail + aggregated condition cards (ticket 014). */}
-      {selectedItem ? (
-        <SimItemDetail key={selectedItem.itemNumber} item={selectedItem} currency={result?.header.currency ?? ''} />
-      ) : null}
-
-      {/* Bonus-buy tabs + pricing-elements trace (ticket 015). */}
-      {result ? <SimBonusBuyPanel result={result} selectedItem={selectedItem} /> : null}
     </section>
   )
 }

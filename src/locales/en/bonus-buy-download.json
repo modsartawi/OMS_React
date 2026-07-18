@@ -25,6 +25,11 @@
     "stackingExcludes": "Stacking Excludes",
     "loyGroups": "Loyalty Groups",
     "loyTiers": "Loyalty Tiers",
+    "loyTierOptions": {
+      "S": "Silver (S)",
+      "G": "Gold (G)",
+      "P": "Platinum (P)"
+    },
     "isStackable": "Is Stackable",
     "maxValue": "Max Value",
     "score": "Score",

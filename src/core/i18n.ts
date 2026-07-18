@@ -1,6 +1,7 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import common from '@/locales/en/common.json'
+import home from '@/locales/en/home.json'
 import auth from '@/locales/en/auth.json'
 import deliveries from '@/locales/en/deliveries.json'
 import document from '@/locales/en/document.json'
@@ -17,10 +18,11 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'coupons'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'coupons'],
   resources: {
     en: {
       common,
+      home,
       auth,
       deliveries,
       document,

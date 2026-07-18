@@ -22,7 +22,6 @@ export interface SimulateHeaderInput {
   distributionChannel: string
   pricingDate: string
   documentPricingProcedureKey: string
-  loyId: string | null
   loyGroups: string | null
   loyTier: string | null
   isPromotionApplicable: boolean

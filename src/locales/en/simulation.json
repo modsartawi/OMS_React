@@ -17,9 +17,14 @@
     "distChannel": "Distribution channel",
     "procedureKey": "Procedure key",
     "procedureKeyHint": "'W' = Wasfaty",
-    "loyId": "Loyalty ID",
     "loyGroup": "Loyalty group",
     "loyTier": "Loyalty tier",
+    "loyTierNone": "(none)",
+    "loyTierOptions": {
+      "S": "Silver (S)",
+      "G": "Gold (G)",
+      "P": "Platinum (P)"
+    },
     "promotion": "Promotion",
     "pricingElements": "Pricing Elements"
   },
@@ -28,18 +33,36 @@
     "material": "Material",
     "quantity": "Qty",
     "uom": "UoM",
+    "control": "Control",
     "addRow": "Add item",
     "removeRow": "Remove item"
   },
+  "manual": {
+    "title": "Manual Conditions",
+    "item": "Item",
+    "type": "Type",
+    "rate": "Rate",
+    "unit": "Unit",
+    "addRow": "Add condition",
+    "removeRow": "Remove condition",
+    "empty": "No manual conditions.",
+    "itemHint": "Item number = (line position) × 10, or 0 for a header condition."
+  },
   "actions": {
+    "title": "Actions",
     "process": "Process",
     "processing": "Processing…",
     "clear": "Clear"
   },
   "summary": {
-    "netTotal": "Net Total",
+    "title": "Summary",
+    "netTotal": "Total Net Total",
+    "totalDiscount": "Total discount",
+    "tax": "Tax",
     "elapsed": "{{ms}} ms",
-    "noResult": "Process a basket to see results."
+    "calc": "Calc: {{ms}} ms",
+    "noResult": "Process a basket to see results.",
+    "placeholder": "—"
   },
   "banner": {
     "failed": "Simulation failed",

@@ -13,7 +13,7 @@ export const router = createBrowserRouter([
     path: '/',
     Component: ProtectedLayout,
     children: [
-      { index: true, element: <Navigate to="/oms/deliveries" replace /> },
+      { index: true, lazy: async () => ({ Component: (await import('@/app/HomePage')).default }) },
       {
         path: 'oms/deliveries',
         lazy: async () => ({ Component: (await import('@/features/oms/deliveries/DeliveriesPage')).default }),
@@ -79,7 +79,7 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/pricing/coupons/CouponSupportPage')).default,
         }),
       },
-      { path: '*', element: <Navigate to="/oms/deliveries" replace /> },
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
 ])

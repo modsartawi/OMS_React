@@ -1,0 +1,174 @@
+{
+  "menu": {
+    "coupons": "Coupons"
+  },
+  "eyebrow": "Pricing & Promotions",
+  "title": "Coupons Admin",
+  "access": {
+    "checking": "Checking access…",
+    "deniedTitle": "No access",
+    "deniedHint": "You don't have permission to open Coupons Admin. Ask an administrator for the Coupons Admin grant."
+  },
+  "tabs": {
+    "ariaLabel": "Coupons workspace",
+    "templates": "Templates",
+    "inquiry": "Inquiry",
+    "import": "Import"
+  },
+  "inquiry": {
+    "searchLabel": "Coupon code",
+    "searchPlaceholder": "Enter a coupon code",
+    "search": "Search",
+    "enterCodeHint": "Enter a coupon code to look it up.",
+    "notFound": "No coupon '{{code}}' was found.",
+    "loadFailed": "Could not load that coupon.",
+    "loading": "Loading coupon…",
+    "actionFailed": "The action could not be completed",
+    "deactivated": "Coupon deactivated.",
+    "reactivated": "Coupon reactivated.",
+    "refunded": "Redemption refunded.",
+    "reset": "Coupon reset — all redemptions cleared.",
+    "instance": {
+      "title": "Instance",
+      "active": "Active",
+      "disabled": "Disabled",
+      "code": "Code",
+      "template": "Template",
+      "redeemCount": "Redemptions",
+      "customer": "Customer",
+      "created": "Created",
+      "updated": "Updated"
+    },
+    "template": {
+      "title": "Template",
+      "limits": "Max per code / total"
+    },
+    "actions": {
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "refund": "Refund selected",
+      "reset": "Reset",
+      "refundHint": "Select a redemption row to refund it."
+    },
+    "ledger": {
+      "title": "Redemptions",
+      "empty": "This coupon has no redemptions yet.",
+      "notRefundable": "Only a successful, not-yet-reversed redemption can be refunded.",
+      "col": {
+        "time": "Time",
+        "store": "Store",
+        "type": "Type",
+        "reference": "Reference",
+        "ok": "OK"
+      }
+    },
+    "status": {
+      "Redeem": "Redeem",
+      "Refund": "Refund",
+      "Reactivate": "Reactivate"
+    },
+    "modal": {
+      "cancel": "Cancel",
+      "reason": "Reason (optional)",
+      "reasonRequired": "Reason (required)"
+    },
+    "deactivateModal": {
+      "title": "Deactivate coupon",
+      "body": "Disable coupon {{code}}? It can no longer be redeemed until reactivated."
+    },
+    "reactivateModal": {
+      "title": "Reactivate coupon",
+      "body": "Re-enable coupon {{code}} so it can be redeemed again?"
+    },
+    "refundModal": {
+      "title": "Refund redemption",
+      "body": "Reverse this single redemption? The coupon's redeem count goes back by one."
+    },
+    "resetModal": {
+      "title": "Reset coupon",
+      "body": "This erases ALL {{count}} redemptions of this coupon and cannot be undone. Retype the code and give a reason to confirm.",
+      "retype": "Retype the code ({{code}}) to confirm"
+    }
+  },
+  "templates": {
+    "loadLabel": "Load a template by ID",
+    "loadPlaceholder": "Template ID",
+    "load": "Load",
+    "loadFailed": "Could not load the template",
+    "new": "New",
+    "notFound": "No template '{{id}}' exists.",
+    "editingBadge": "Editing {{id}}",
+    "creatingBadge": "New template",
+    "idRequired": "A Template ID is required.",
+    "created": "Template '{{id}}' created.",
+    "updated": "Template '{{id}}' saved.",
+    "saveFailed": "Could not save the template",
+    "create": "Create",
+    "save": "Save",
+    "createHint": "Template ID, redemption limits and code prefix are fixed once created.",
+    "saveHint": "Redemption limits and code prefix cannot be changed after create.",
+    "redeemedSoFar": "Redeemed so far: {{count}}",
+    "fields": {
+      "templateId": "Template ID",
+      "materialNumber": "Material number",
+      "description": "Description",
+      "maxPerCode": "Max redemptions per code",
+      "maxTotal": "Max redemptions total",
+      "codePrefix": "Code prefix",
+      "originFilter": "Origin filter",
+      "validFrom": "Valid from",
+      "validTo": "Valid to",
+      "isDisabled": "Disabled"
+    }
+  },
+  "import": {
+    "templateId": "Template ID",
+    "templatePlaceholder": "Template to import into",
+    "customerId": "Customer ID (optional)",
+    "customerPlaceholder": "Leave blank for none",
+    "chooseFile": "Choose file…",
+    "enterTemplateHint": "Enter a Template ID to import codes and see its jobs.",
+    "parseHint": "One code per line (.txt) or the first column (.csv). Blanks and duplicates are dropped; up to {{max}} distinct codes.",
+    "submitted": "Import queued — {{count}} codes.",
+    "submitFailed": "Could not queue the import",
+    "retried": "Job re-queued.",
+    "retryFailed": "Could not retry the job",
+    "errors": {
+      "empty": "That file contained no codes.",
+      "readFailed": "Could not read that file.",
+      "lineTooLong": "Line {{line}} is longer than {{max}} characters — fix it and try again.",
+      "overCap": "That file has more than {{max}} distinct codes. Split it into smaller files and import each."
+    },
+    "preview": {
+      "title": "Confirm import",
+      "codesFound": "codes found",
+      "duplicatesSkipped": "duplicates skipped",
+      "into": "Into template {{id}}",
+      "customer": "customer {{id}}",
+      "cancel": "Cancel",
+      "commit": "Import"
+    },
+    "status": {
+      "Pending": "Pending",
+      "Processing": "Processing",
+      "Completed": "Completed",
+      "Failed": "Failed"
+    },
+    "jobs": {
+      "title": "Import jobs",
+      "loading": "Loading jobs…",
+      "loadFailed": "Could not load the jobs for this template.",
+      "empty": "No import jobs yet for this template.",
+      "retry": "Retry",
+      "col": {
+        "job": "Job",
+        "status": "Status",
+        "total": "Total",
+        "added": "Added",
+        "skipped": "Skipped",
+        "when": "When",
+        "retry": "Retry"
+      }
+    }
+  }
+}

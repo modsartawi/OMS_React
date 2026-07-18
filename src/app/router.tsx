@@ -67,6 +67,12 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/pricing/bonus-buy-download/BonusBuyDownloadPage')).default,
         }),
       },
+      {
+        path: 'pricing/coupons',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/coupons/CouponsAdminPage')).default,
+        }),
+      },
       { path: '*', element: <Navigate to="/oms/deliveries" replace /> },
     ],
   },

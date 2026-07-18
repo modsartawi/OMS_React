@@ -1,10 +1,11 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, Calculator, Download, FileText, KeyRound, ShieldCheck, Tags, UserCog } from 'lucide-react'
+import { Activity, Box, Calculator, Download, FileText, KeyRound, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
 import { simulationApi } from '@/features/pricing/simulation/api'
 import { bonusBuyDownloadApi } from '@/features/pricing/bonus-buy-download/api'
+import { couponsApi } from '@/features/pricing/coupons/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -140,6 +141,20 @@ export const MENU: ShellMenuItem[] = [
           key: ['bonus-buy-download', 'access'],
           run: () => bonusBuyDownloadApi.access(),
           visible: (r) => r.screenAllowed === true,
+        }),
+      },
+      {
+        labelKey: 'coupons:menu.coupons',
+        icon: Ticket,
+        routerLink: '/pricing/coupons',
+        activePrefix: '/pricing/coupons',
+        // Same key + call as CouponsAdminPage's own guard → one shared probe.
+        // The Templates + Import workspaces are admin-only, so the leaf shows on
+        // CanAdmin (ticket 521 widens to CanAdmin || CanSupport with Inquiry).
+        access: accessProbe({
+          key: ['coupons', 'access'],
+          run: () => couponsApi.access(),
+          visible: (r) => r.canAdmin === true,
         }),
       },
     ],

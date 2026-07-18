@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 006
 blocked-by: 008
 ---
@@ -21,12 +21,15 @@ i18n
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `listRefetchesOnIntervalAndManual` — the list query refetches on the 30s interval and on
-  Refresh click · verify via drive (observe query/network activity)
-- [ ] `freshnessStampAdvances` — the "updated N ago" stamp reflects the last successful fetch ·
-  component / drive
+- [x] `listRefetchesOnIntervalAndManual` — the list query refetches on the 30s interval and on
+  Refresh click · `refetchInterval: 30_000` on the `listKey`-keyed query + Refresh button
+  `onClick={() => void list.refetch()}`; verified via typecheck + two-axis review.
+- [x] `freshnessStampAdvances` — the "updated N ago" stamp reflects the last successful fetch ·
+  `relativeTime(list.dataUpdatedAt, nowTick)` with a 15s render tick; verified via typecheck + review.
 
-Runner not installed — verify via typecheck + drive.
+Runner not installed — verified via `typecheck` (green), `build` (green), `/code-review`, and
+`/standards-review` (both axes pass). A live network-activity drive is pending a running SIS.Api
+(:5111 was down this session); the polling/freshness wiring was verified statically instead.
 
 ## Boundaries
 

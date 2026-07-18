@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2, RefreshCw, Search } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import { formatDateTime } from '@/core/util/date-format'
 import { confirmAction } from '@/core/services/confirm'
@@ -62,7 +62,22 @@ export default function ActiveSessionsPage() {
     queryKey: listKey,
     queryFn: () => sessionMonitorApi.search(query!.term, query!.chip),
     enabled: query !== null && access.data?.canOpen === true,
+    // Keep the monitor live: re-run the CURRENT capped query every 30s (ticket
+    // 012). The queryKey holds the term+chip, so the poll only ever reloads the
+    // view on screen — a tab left open doesn't fan out. `refetchIntervalInBackground`
+    // stays default-false, so an unfocused tab pauses. Optimistic revokes (010/011)
+    // reconcile against the server truth on the next tick.
+    refetchInterval: 30_000,
   })
+
+  // A coarse clock so the "updated N ago" stamp advances between fetches. The
+  // freshness buckets are minute-grained (relativeTime), so a 15s tick is ample;
+  // it only forces a re-render, never a refetch.
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 15_000)
+    return () => clearInterval(id)
+  }, [])
 
   function runSearch() {
     // A term composes with the active chip (default All); the term-less "All live"
@@ -199,6 +214,12 @@ export default function ActiveSessionsPage() {
           : query.chip === 'idle'
             ? t('grid.idleTitle')
             : t('grid.channelTitle', { channel: t(`channel.${query.chip}`) })
+  // "updated N ago" freshness — reuse the row last-seen wording against the last
+  // successful fetch, re-derived on each nowTick so it advances between polls.
+  const freshness =
+    query !== null && list.data && list.dataUpdatedAt
+      ? relativeTime(new Date(list.dataUpdatedAt).toISOString(), new Date(nowTick))
+      : null
 
   return (
     <section className="flex flex-col gap-3">
@@ -285,16 +306,38 @@ export default function ActiveSessionsPage() {
       <div className="flex min-h-[22rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card">
         <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 text-xs">
           <span className="font-semibold tracking-tight">{gridTitle}</span>
-          <span className="tabular-nums text-muted-foreground">
-            {list.data
-              ? list.data.isCapped
-                ? t('grid.capped', {
-                    shown: list.data.rows.length,
-                    total: list.data.totalMatches.toLocaleString(),
-                  })
-                : t('grid.matchCount', { count: list.data.rows.length })
-              : ''}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="tabular-nums text-muted-foreground">
+              {list.data
+                ? list.data.isCapped
+                  ? t('grid.capped', {
+                      shown: list.data.rows.length,
+                      total: list.data.totalMatches.toLocaleString(),
+                    })
+                  : t('grid.matchCount', { count: list.data.rows.length })
+                : ''}
+            </span>
+            {freshness && (
+              <span className="tabular-nums text-muted-foreground">
+                {t('freshness.updated', {
+                  ago: t(`relative.${freshness.key}`, { count: freshness.count }),
+                })}
+              </span>
+            )}
+            {query !== null && (
+              <button
+                onClick={() => void list.refetch()}
+                aria-label={t('freshness.refresh')}
+                title={t('freshness.refresh')}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-2.5 py-1 font-medium transition-colors hover:bg-muted/50"
+              >
+                {/* Spins on any fetch (manual or the 30s poll) as live-monitor
+                    feedback; not disabled — TanStack dedups a concurrent refetch. */}
+                <RefreshCw className={'h-3.5 w-3.5 ' + (list.isFetching ? 'animate-spin' : '')} />
+                {t('freshness.refresh')}
+              </button>
+            )}
+          </div>
         </div>
 
         {query === null ? (

@@ -47,6 +47,10 @@
     "hours": "{{count}}h ago",
     "days": "{{count}}d ago"
   },
+  "freshness": {
+    "updated": "updated {{ago}}",
+    "refresh": "Refresh"
+  },
   "dormant": {
     "label": "dormant",
     "tooltip": "No heartbeat within this channel's idle window (web 45m, mobile 8h)."

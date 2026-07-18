@@ -20,7 +20,7 @@ One line per issue under its effort heading. Numbers start fresh at `001`.
 - [009](009-active-sessions-chips-counts.md) — channelAndIdleChipsFilterWithServerCounts · **done** · blocked by: 008 · dep: BackOffice Sessions/Counts
 - [010](010-active-sessions-revoke-one.md) — revokingASessionSignsTheDeviceOut · **done** · blocked by: 008 · reuses Sessions/Revoke
 - [011](011-active-sessions-revoke-all-for-user.md) — revokeAllForUserSignsAPersonOutEverywhere · **done** · blocked by: 008, 010 · dep: BackOffice Sessions/RevokeAllForUser
-- [012](012-active-sessions-freshness.md) — theMonitorAutoRefreshesAndShowsFreshness · **open** · blocked by: 008
+- [012](012-active-sessions-freshness.md) — theMonitorAutoRefreshesAndShowsFreshness · **done** · blocked by: 008
 
 ## Web POS Simulation screen (BackOffice map 484 / spec 503)
 

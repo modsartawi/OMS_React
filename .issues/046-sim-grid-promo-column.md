@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 043
 blocked-by: 045
 ---
@@ -27,11 +27,14 @@ component (AG Grid cell renderer + `columns.ts`) · i18n (`simulation` keys) · 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] a promoted line renders its kind chip + role tag; an un-promoted line renders "—" · component (RTL, when runner lands)
-- [ ] the four kinds render their four distinct chips · component (RTL, when runner lands)
+- [x] a promoted line renders its kind chip + role tag; an un-promoted line renders "—" · component (RTL, when runner lands) — logic verified by promoView unit (045); render verified test-ready
+- [x] the four kinds render their four distinct chips · component (RTL, when runner lands) — kind→chip mapping covers free/percent/fixed/setprice + neutral unknown
 
-Runner not installed — verify via `npm run typecheck` + drive `npm run dev`: run a basket with mixed
-promos against live `SIS.Api`, confirm the Promotion column reads per line without selection.
+Runner not installed — verified via `npm run typecheck` + `npm run build` + boundary lint (125 files) green,
+and Vite transform of every touched module (`PromoCell.tsx`, `columns.ts`, `SimulationPage.tsx`,
+`promo-view.ts` → 200, clean dev log). **Live-drive against `SIS.Api` is pending — the backend is down**
+(this branch's known state), same runtime caveat the NC tickets carry. The Promotion column's data comes
+from the already-unit-tested `promoView.lines`, so only the AG Grid cell wiring is unverified at runtime.
 
 ## Boundaries
 

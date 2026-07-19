@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import type { SimulationResultItem } from '@/core/models/simulation'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import StatusDot from './StatusDot'
+import PromoCell from './PromoCell'
 
 type Col = ColDef<SimulationResultItem>
 
@@ -14,9 +15,11 @@ export const SIM_RESULT_DEFAULT_COL_DEF: Col = {
 
 /**
  * Per-line results columns, in WPF order: status dot, item, material (+ description),
- * qty, subtotal, promo, gross, tax, net. Headers come from `t` (zero-literal); the
- * money columns are right-aligned 2-decimal. Field→column mapping (488): subtotal =
- * netValue, promo = promotionDiscount, gross = grossValue, tax = taxValue, net = netTotal.
+ * qty, Promotion (kind chip + role — ticket 046), subtotal, promo, gross, tax, net.
+ * Headers come from `t` (zero-literal); the money columns are right-aligned 2-decimal.
+ * Field→column mapping (488): subtotal = netValue, promo = promotionDiscount,
+ * gross = grossValue, tax = taxValue, net = netTotal. The Promotion column reads its
+ * per-line refs from grid `context.promoByItem` (promoView, ticket 045), not row data.
  */
 export function buildSimulationColumns(t: TFunction): Col[] {
   const money = (key: string, field: keyof SimulationResultItem, width: number): Col => ({
@@ -44,6 +47,14 @@ export function buildSimulationColumns(t: TFunction): Col[] {
       width: 100,
       valueGetter: (p: ValueGetterParams<SimulationResultItem>) =>
         p.data ? `${formatNumber(p.data.quantity)} ${p.data.unitOfMeasure ?? ''}`.trim() : '',
+    },
+    {
+      headerName: t('results.promotion'),
+      colId: 'promotion',
+      width: 210,
+      sortable: false,
+      autoHeight: true,
+      cellRenderer: PromoCell,
     },
     money('subtotal', 'netValue', 110),
     money('promo', 'promotionDiscount', 110),

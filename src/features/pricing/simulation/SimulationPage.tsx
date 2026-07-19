@@ -18,6 +18,8 @@ import SimManualConditions, { type SimManualConditionRow } from './SimManualCond
 import SimItemDetail from './SimItemDetail'
 import SimBonusBuyPanel from './SimBonusBuyPanel'
 import { buildSimulationColumns, SIM_RESULT_DEFAULT_COL_DEF } from './columns'
+import { promoView } from './promo-view'
+import type { PromoCellContext } from './PromoCell'
 import type { RowClickedEvent } from 'ag-grid-community'
 
 // Ticket 013 — the POS Simulation tracer. Self-guards on Pricing/Access (issue-429
@@ -50,6 +52,14 @@ export default function SimulationPage() {
     },
     onSuccess: ({ result }) => setSelectedItemNumber(result.items[0]?.itemNumber ?? null),
   })
+
+  // Per-line promotion refs for the results grid's Promotion column (ticket 046),
+  // derived from the run via promoView (ticket 045) and handed to the cell renderer
+  // through grid `context` — the row data stays the raw SimulationResultItem.
+  const promoContext = useMemo<PromoCellContext>(() => {
+    const res = process.data?.result ?? null
+    return { promoByItem: new Map(promoView(res).lines.map((l) => [l.itemNumber, l.promos])) }
+  }, [process.data])
 
   const validItems = items.filter((r) => r.materialNumber.trim() !== '')
   const canProcess = validItems.length > 0 && !process.isPending
@@ -260,6 +270,7 @@ export default function SimulationPage() {
                   theme={omsGridTheme}
                   rowData={result.items}
                   columnDefs={columns}
+                  context={promoContext}
                   defaultColDef={SIM_RESULT_DEFAULT_COL_DEF}
                   rowHeight={OMS_GRID_ROW_HEIGHT}
                   headerHeight={OMS_GRID_HEADER_HEIGHT}

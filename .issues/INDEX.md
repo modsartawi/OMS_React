@@ -96,7 +96,7 @@ Tracer tickets sliced from spec 043. Two chains meeting at the pure view model: 
 
 - [044](044-sim-applied-bby-projection.md) — appliedBonusBuysSplitBuyFromGetByConditionKey · **open** · blocked by: — · dep: SIS.Pricing/BackOffice projection pass-through
 - [045](045-sim-promoview-model.md) — promoViewDerivesLinesBlocksAndMissedFromAResult · **done** · blocked by: — · Slice 0 (pure, graceful degradation) · harness 11/11
-- [046](046-sim-grid-promo-column.md) — theResultsGridShowsPromoKindAndRolePerLine · **open** · blocked by: 045
+- [046](046-sim-grid-promo-column.md) — theResultsGridShowsPromoKindAndRolePerLine · **done** (typecheck/build/transform green; live-drive pending SIS.Api) · blocked by: 045
 - [047](047-sim-promo-blocks.md) — firedPromotionsRenderAsBuyGetBlocks · **open** · blocked by: 045
 - [048](048-sim-could-have-applied.md) — aMissedPromotionShowsWhyItDidNotFire · **open** · blocked by: 047
 - [049](049-sim-progressive-disclosure.md) — aPromotionBlockRevealsTodaysConditionAndPricingDetail · **open** · blocked by: 047

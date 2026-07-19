@@ -75,6 +75,23 @@
     "material": "Material",
     "description": "Description",
     "qty": "Qty",
+    "promotion": "Promotion",
+    "promoNone": {
+      "mark": "—",
+      "label": "No promotion on this line"
+    },
+    "promoKind": {
+      "free": "Free goods",
+      "percent": "% off",
+      "fixed": "Amount off",
+      "setprice": "Set price",
+      "unknown": "Promotion"
+    },
+    "promoRole": {
+      "buy": "buy",
+      "get": "get",
+      "buy+get": "buy + get"
+    },
     "subtotal": "Subtotal",
     "promo": "Promo",
     "gross": "Gross",

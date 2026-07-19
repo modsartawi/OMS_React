@@ -14,6 +14,9 @@ interface NcState {
   watermark: number
   /** A 404 poll ⇒ NotificationCenter:Enabled is off ⇒ hide the bell entirely. */
   disabled: boolean
+  /** Whether the dropdown panel is open. Lifted here so a toast's "View" action
+   *  (035) can open it without reaching into the bell's local state. */
+  panelOpen: boolean
   /** Merge a poll delta: upsert each item, adopt the returned watermark. */
   merge: (result: NotificationPollResult) => void
   /** Latch the feature-off state (a 404 poll). */
@@ -26,12 +29,15 @@ interface NcState {
    * A failed Read reverts by calling this with the prior value.
    */
   setRead: (id: string, value: boolean) => void
+  /** Open/close the dropdown panel. */
+  setPanelOpen: (open: boolean) => void
 }
 
 export const useNcStore = create<NcState>((set) => ({
   items: {},
   watermark: 0,
   disabled: false,
+  panelOpen: false,
   merge: (result) =>
     set((prev) => {
       const items = { ...prev.items }
@@ -45,6 +51,7 @@ export const useNcStore = create<NcState>((set) => ({
       if (!item || item.isRead === value) return prev
       return { items: { ...prev.items, [id]: { ...item, isRead: value } } }
     }),
+  setPanelOpen: (open) => set({ panelOpen: open }),
 }))
 
 /** The accumulated items as a plain array (unordered — callers sort/filter). */

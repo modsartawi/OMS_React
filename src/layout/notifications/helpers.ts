@@ -42,6 +42,32 @@ export function visibleItems(items: NotificationItem[], now: number): Notificati
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
 }
 
+// A genuinely-new arrival toasts only within this window of its createdAt, so a
+// cold-start backlog (reload ⇒ watermark=0 ⇒ full active set) doesn't re-pop.
+const FRESHNESS_MS = 15 * 60_000
+
+/**
+ * The items that should raise an arrival toast this poll: ids NOT already seen,
+ * still Active + non-expired, and within the 15-minute `createdAt` freshness
+ * window. Arrival-vs-change is a client-side distinction (024 §Watermark) — the
+ * server never labels them — so the caller tracks `prevSeen` (ids already
+ * processed) and feeds it here. Pure over its inputs; `now` is epoch ms.
+ */
+export function arrivalsToToast(
+  prevSeen: Set<string>,
+  items: NotificationItem[],
+  now: number,
+): NotificationItem[] {
+  return items.filter(
+    (i) =>
+      !prevSeen.has(i.notificationId) &&
+      i.status === 'Active' &&
+      !i.isRead &&
+      notExpired(i.expiresAt, now) &&
+      now - Date.parse(i.createdAt) <= FRESHNESS_MS,
+  )
+}
+
 /** A relative-time result: an i18n key under `relative.*` + its `count` param. */
 export interface RelativeTime {
   key: 'justNow' | 'minutes' | 'hours' | 'days'

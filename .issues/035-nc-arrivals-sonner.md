@@ -1,10 +1,15 @@
 ---
-status: open
+status: code-complete
 spec: 031
 blocked-by: 033
 ---
 
 # 035 — aFreshArrivalRaisesAToastAndBumpsTheBadge
+
+> **Build note (runtime-blocked):** code-complete, `npm run typecheck` green. Runtime app-drive
+> deferred (SIS.Api :5111 down). Pure `arrivalsToToast` (15-min freshness gate) isolated for the
+> runner; toast wiring in `useNotificationArrivals`; panel-open lifted to the store so a Banner's
+> View opens the panel. Badge pop added for lock-step fidelity.
 
 ## What to build
 

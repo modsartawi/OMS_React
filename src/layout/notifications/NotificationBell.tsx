@@ -4,6 +4,7 @@ import { Bell } from 'lucide-react'
 import { useNcStore, ncItems } from './store'
 import { unreadCount, visibleItems } from './helpers'
 import { useNotificationPoll } from './useNotificationPoll'
+import { useNotificationArrivals } from './useNotificationArrivals'
 import NotificationPanel from './NotificationPanel'
 
 // The Notification Center bell (Receive chrome, spec 031). Rides the AppShell top
@@ -16,10 +17,12 @@ import NotificationPanel from './NotificationPanel'
 export default function NotificationBell() {
   const { t } = useTranslation('notifications')
   useNotificationPoll()
+  useNotificationArrivals()
 
   const disabled = useNcStore((s) => s.disabled)
   const items = useNcStore(ncItems)
-  const [open, setOpen] = useState(false)
+  const open = useNcStore((s) => s.panelOpen)
+  const setOpen = useNcStore((s) => s.setPanelOpen)
   const ref = useRef<HTMLDivElement>(null)
 
   // A coarse clock so an item expiring between polls drops out of the count/list
@@ -29,6 +32,22 @@ export default function NotificationBell() {
     const id = setInterval(() => setNow(Date.now()), 30_000)
     return () => clearInterval(id)
   }, [])
+
+  const count = unreadCount(items, now)
+
+  // Pop the badge when the count rises — the visual half of the arrival signal,
+  // in lock-step with the toast (both fire off the same poll update).
+  const [pop, setPop] = useState(false)
+  const prevCount = useRef(count)
+  useEffect(() => {
+    if (count > prevCount.current) {
+      setPop(true)
+      const id = setTimeout(() => setPop(false), 200)
+      prevCount.current = count
+      return () => clearTimeout(id)
+    }
+    prevCount.current = count
+  }, [count])
 
   // Outside-click + Escape close (parity with the account popup).
   useEffect(() => {
@@ -50,14 +69,13 @@ export default function NotificationBell() {
   // Feature off server-side (404 poll) — show nothing, not a dead control.
   if (disabled) return null
 
-  const count = unreadCount(items, now)
   const visible = visibleItems(items, now)
 
   return (
     <div className="relative" ref={ref}>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(!open)}
         aria-label={t('bell.ariaLabel')}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -66,7 +84,10 @@ export default function NotificationBell() {
         <Bell className="h-5 w-5" aria-hidden />
         {count > 0 && (
           <span
-            className="absolute -top-0.5 -end-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-ring px-1 text-[10px] font-bold text-white ring-2 ring-background tabular-nums"
+            className={
+              'absolute -top-0.5 -end-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-ring px-1 text-[10px] font-bold text-white ring-2 ring-background tabular-nums transition-transform duration-200 ' +
+              (pop ? 'scale-125' : 'scale-100')
+            }
             aria-hidden
           >
             {count}

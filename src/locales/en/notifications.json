@@ -11,6 +11,10 @@
     "broadcast": "Broadcast",
     "job": "Job"
   },
+  "toast": {
+    "view": "View",
+    "dismiss": "Dismiss"
+  },
   "relative": {
     "justNow": "just now",
     "minutes": "{{count}}m ago",

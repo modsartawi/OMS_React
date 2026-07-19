@@ -3,10 +3,12 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, DatabaseZap, Loader2, Play } from 'lucide-react'
 import { AgGridReact } from 'ag-grid-react'
+import { toast } from 'sonner'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
+import { confirmAction } from '@/core/services/confirm'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { formatMoney } from '@/core/util/number-format'
@@ -51,6 +53,26 @@ export default function SimulationPage() {
     queryFn: () => simulationApi.cacheAccess(),
   })
   const canClearCache = cacheAccess.data?.canClear === true
+
+  // Whole-cache clear (ticket 052). On success a confirmation toast; on the server's
+  // rate-limit (a success:false BUSINESS envelope, thrown as ApiError) surface its
+  // message via apiErrorMessage — NO retry, no "unexpected" wording (api-envelope rule).
+  const clearCache = useMutation({
+    mutationFn: () => simulationApi.clearCache(),
+    onSuccess: () => toast.success(t('clearCache.success')),
+    onError: (err) => {
+      const title = t('clearCache.denied')
+      toast.error(title, { description: apiErrorMessage(err, title) })
+    },
+  })
+
+  // Confirm before firing — the clear evicts every user's warm pricing on the instance,
+  // so it must never be a stray click (spec 022).
+  async function runClearCache() {
+    if (clearCache.isPending) return
+    const ok = await confirmAction(t('clearCache.confirmBody'), t('clearCache.confirmTitle'))
+    if (ok) clearCache.mutate()
+  }
 
   const [header, setHeader] = useState<SimHeaderState>(defaultHeader)
   const [promotion, setPromotion] = useState(true)
@@ -276,14 +298,20 @@ export default function SimulationPage() {
           >
             {t('actions.clear')}
           </button>
-          {/* Cache-admins only. Wired but inert this slice — confirm + clear + toasts
-              are ticket 052; the onClick lands there. */}
+          {/* Cache-admins only (gate: ticket 051). Confirm → clear the whole pricing
+              cache → toast (ticket 052). Disabled while the clear is in flight. */}
           {canClearCache ? (
             <button
               type="button"
+              onClick={() => void runClearCache()}
+              disabled={clearCache.isPending}
               className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-input px-4 text-sm font-medium hover:bg-accent disabled:opacity-50"
             >
-              <DatabaseZap className="h-4 w-4" aria-hidden />
+              {clearCache.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <DatabaseZap className="h-4 w-4" aria-hidden />
+              )}
               {t('clearCache.button')}
             </button>
           ) : null}

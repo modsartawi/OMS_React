@@ -52,7 +52,7 @@ the `PricingCache` cache-admin grant, `GET Pricing/CacheAccess`, BBY auto-evict)
 work, tracked in `C:\Work\DMSCO\BackOffice\.issues\` — the tickets below consume those endpoints.
 
 - [051](051-sim-clearcache-button-gated.md) — theSimulatorShowsAClearCacheButtonOnlyToCacheAdmins · **done** (typecheck/build green; drove gating 3/3 via mocked envelope — live-drive pending SIS.Api) · blocked by: — · dep: BackOffice GET Pricing/CacheAccess + PricingCache grant
-- [052](052-sim-clearcache-confirm-clear-toast.md) — clickingClearCacheConfirmsClearsAndToasts · **open** · blocked by: 051 · dep: BackOffice POST Pricing/ClearCache
+- [052](052-sim-clearcache-confirm-clear-toast.md) — clickingClearCacheConfirmsClearsAndToasts · **done** (typecheck/build green; drove confirm/clear/toast + rate-limit 5/5 via mocked envelope — live-drive pending SIS.Api) · blocked by: 051 · dep: BackOffice POST Pricing/ClearCache
 
 ## Web Back-Office Notification Center (map 023)
 

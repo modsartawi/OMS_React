@@ -3,6 +3,7 @@ import type {
   SimulateRequest,
   SimulationAccessResult,
   SimulationCacheAccessResult,
+  SimulationClearCacheResult,
   SimulationResult,
 } from '@/core/models/simulation'
 
@@ -38,5 +39,13 @@ export const simulationApi = {
   // screen-open probe. Cookie-only; the server enforces the grant on the clear call.
   cacheAccess(): Promise<SimulationCacheAccessResult> {
     return api.get<SimulationCacheAccessResult>(`${BASE}/CacheAccess`)
+  },
+
+  // Clear the whole server-side "Pricing" cache (spec 022, slice 3b — ticket 052).
+  // No body. The server's rate-limit rejects a too-soon repeat as a business
+  // envelope (success:false) — request() throws it as an ApiError kind:'business'
+  // that the call site surfaces via apiErrorMessage and never retries.
+  clearCache(): Promise<SimulationClearCacheResult> {
+    return api.post<SimulationClearCacheResult>(`${BASE}/ClearCache`, {})
   },
 }

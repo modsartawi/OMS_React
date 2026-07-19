@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 022
 blocked-by: 051
 ---
@@ -34,10 +34,11 @@ in `SimulationPage`) · i18n (4 new keys) · test (drive: confirm→clear→toas
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `typecheck` + `build` green.
-- [ ] Drive (Chromium, SIS.Api mocked at the envelope): clicking Clear-cache opens the confirm
-      dialog; confirming POSTs `Pricing/ClearCache` and shows the success toast; a mocked business
-      envelope (rate-limit) surfaces its `message` with no retry. Verify via typecheck + drive.
+- [x] `typecheck` + `build` green.
+- [x] Drive (Chromium, SIS.Api mocked at the envelope): clicking Clear-cache opens the confirm
+      dialog; cancelling fires no clear; confirming POSTs `Pricing/ClearCache` exactly once and shows
+      the success toast; a mocked business envelope (429 `success:false`, rate-limit) surfaces its
+      `message` with no retry. 5/5 checks passed via typecheck + drive (no client test tier — spec 503).
 
 ## Boundaries
 

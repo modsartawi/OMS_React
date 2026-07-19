@@ -55,7 +55,11 @@
     "clear": "Clear"
   },
   "clearCache": {
-    "button": "Clear cache"
+    "button": "Clear cache",
+    "confirmTitle": "Clear the whole pricing cache?",
+    "confirmBody": "This clears the entire server-side pricing cache for every user on this server, not just your session. Prices will be re-read fresh on the next simulation. Continue?",
+    "success": "Pricing cache cleared.",
+    "denied": "Couldn't clear the cache"
   },
   "summary": {
     "title": "Summary",

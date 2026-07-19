@@ -20,6 +20,14 @@ export interface SimulationCacheAccessResult {
   canClear: boolean
 }
 
+/** POST Pricing/ClearCache — the whole-pricing-cache clear (spec 022, ticket 052). Evicts
+ *  the entire server-side "Pricing" FusionCache on the serving instance. The server's
+ *  rate-limit rejects a too-soon repeat as a `success:false` business envelope (surfaced
+ *  client-side, never retried). */
+export interface SimulationClearCacheResult {
+  cleared: boolean
+}
+
 // ---- request (SimulateRequest, bound verbatim by the endpoint) --------------
 
 /** Header inputs feeding the engine's procedure determination. Empty loyalty

@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Send } from 'lucide-react'
+import { AlertTriangle, Send } from 'lucide-react'
 import { notify } from '@/core/services/notify'
+import { confirmAction } from '@/core/services/confirm'
 import { lookupQueries } from '@/core/services/lookups'
 import { broadcastApi } from './api'
 import {
@@ -55,8 +56,18 @@ export default function BroadcastComposePage() {
     setForm((f) => ({ ...f, [key]: value }))
   }
 
-  function onSend() {
+  // A whole-fleet send raises the blast radius, so it earns a confirm dialog
+  // (037). A single-store send goes straight through — a low-blast-radius message
+  // isn't nagged. Cancel returns to the form unchanged.
+  async function onSend() {
     if (!validation.valid || send.isPending) return
+    if (form.channel === 'all') {
+      const ok = await confirmAction(
+        t('confirm.fleetBody', { title: form.title.trim() }),
+        t('confirm.fleetTitle'),
+      )
+      if (!ok) return
+    }
     send.mutate()
   }
 
@@ -155,6 +166,14 @@ export default function BroadcastComposePage() {
             className="w-fit rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
+
+        {/* Whole-fleet blast-radius warning (037) — shown while composing an All send. */}
+        {form.channel === 'all' && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs text-muted-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+            <span>{t('warn.fleet')}</span>
+          </div>
+        )}
 
         {/* Send */}
         <div className="flex items-center gap-3">

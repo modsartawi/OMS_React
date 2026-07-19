@@ -31,6 +31,13 @@
     "expiryFuture": "The expiry date must be in the future.",
     "ready": "Ready to send."
   },
+  "warn": {
+    "fleet": "This reaches every open store and back-office user. You'll be asked to confirm before it sends."
+  },
+  "confirm": {
+    "fleetTitle": "Send to the whole fleet?",
+    "fleetBody": "\"{{title}}\" will reach every open store and back-office user immediately. This can't be recalled."
+  },
   "target": {
     "fleet": "the whole fleet"
   },

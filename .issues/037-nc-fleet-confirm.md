@@ -1,10 +1,14 @@
 ---
-status: open
+status: code-complete
 spec: 031
 blocked-by: 036
 ---
 
 # 037 — sendingToTheWholeFleetAsksForConfirmation
+
+> **Build note (runtime-blocked):** code-complete, `npm run typecheck` green. Runtime app-drive
+> deferred (SIS.Api :5111 down). Reuses the app-wide `confirmAction` service for the fleet dialog;
+> inline amber warning shows while composing an All send; a Store send still posts straight through.
 
 ## What to build
 

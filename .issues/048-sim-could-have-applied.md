@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 043
 blocked-by: 047
 ---
@@ -26,12 +26,18 @@ component ("Could have applied" section) · i18n (`simulation` keys) · test (ap
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] a potential-but-unfired promotion appears in "Could have applied" with its found-vs-required meter · component (RTL, when runner lands)
-- [ ] the would-save figure and reason render on expand · component (RTL, when runner lands)
-- [ ] a run where every promotion fired shows no "Could have applied" section · component (RTL, when runner lands)
+- [x] a potential-but-unfired promotion appears in "Could have applied" with its found-vs-required meter · component (RTL, when runner lands)
+- [x] the would-save figure and reason render on expand · component (RTL, when runner lands)
+- [x] a run where every promotion fired shows no "Could have applied" section · component (RTL, when runner lands)
 
-Runner not installed — verify via `npm run typecheck` + drive `npm run dev`: run a basket that
-under-shoots a promotion's minimum against live `SIS.Api`, confirm it appears with the meter + reason.
+Runner not installed — verified via `npm run typecheck` + `npm run build` (both green) + a Playwright
+drive of the real `SimMissedPromotions` against fabricated `promoView().missed` shapes (a scratch Vite
+entry, since the live SIS.Api's 044 projection is unlanded), mirroring ticket 047. 13 assertions
+passed: section title + near-miss count, collapsed-by-default, the would-save figure, the value-based
+found-vs-required meter (progressbar + `50.00 of 100.00` + reason "basket has 50.00 of the 100.00
+minimum"), the qty-based variant ("1 of 3" / material subject), the skip-reason path (no meter), and
+the section absent entirely when nothing was missed. Harness kept in the session scratchpad, not
+committed.
 
 ## Boundaries
 
@@ -46,3 +52,20 @@ save, and are absent when nothing was missed, verified in the running app; typec
 ## Blocked by
 
 [047](047-sim-promo-blocks.md) — the section lives beneath the fired-promotion blocks.
+
+## Comments
+
+- **Potential Bonus Buys tab folded in.** `SimBonusBuyPanel` was the tabbed potential+prerequisites+
+  elements panel; its Potential Bonus Buys + Prerequisites grids (and their `buildPotentialBonusColumns`
+  /`buildPrereqColumns` builders + `bonus.potential.*`/`bonus.prereq.*` i18n keys) are removed, folded
+  into the new "Could have applied" section. The panel is now the Pricing Elements trace alone (the
+  spec's "Advanced layer"; ticket 049 moves it into the block disclosure).
+- **Would-save reads on the collapsed row, not gated behind expand.** The Proof says "the would-save
+  figure and reason render on expand"; it renders in the always-visible collapsed header so a user
+  scans near-misses by potential savings without opening each — and it is still visible on expand (the
+  header stays). The meter + reason are what expand reveals. A deliberate UX improvement over the literal
+  wording; standards + spec review both flagged it as better, not a defect.
+- **Meter dimension.** When a prerequisite carries a minimum *value* it shows the value meter (money),
+  else the *quantity* meter; a prereq with neither (a pure accumulation block) shows no bar and reads
+  the server `skipReason`. Spec 043 allows either dimension. The divide-by-zero on a zero target is
+  guarded (`hasTarget`).

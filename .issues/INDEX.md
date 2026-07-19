@@ -98,6 +98,6 @@ Tracer tickets sliced from spec 043. Two chains meeting at the pure view model: 
 - [045](045-sim-promoview-model.md) — promoViewDerivesLinesBlocksAndMissedFromAResult · **done** · blocked by: — · Slice 0 (pure, graceful degradation) · harness 11/11
 - [046](046-sim-grid-promo-column.md) — theResultsGridShowsPromoKindAndRolePerLine · **done** (typecheck/build/transform green; live-drive pending SIS.Api) · blocked by: 045
 - [047](047-sim-promo-blocks.md) — firedPromotionsRenderAsBuyGetBlocks · **done** (typecheck/build green; drove real component via Playwright — live-drive of split path pending 044) · blocked by: 045
-- [048](048-sim-could-have-applied.md) — aMissedPromotionShowsWhyItDidNotFire · **open** · blocked by: 047
+- [048](048-sim-could-have-applied.md) — aMissedPromotionShowsWhyItDidNotFire · **done** (typecheck/build green; drove real component via Playwright 13/13 — found-vs-required meter, would-save, reason, expand, absent-when-empty) · blocked by: 047
 - [049](049-sim-progressive-disclosure.md) — aPromotionBlockRevealsTodaysConditionAndPricingDetail · **open** · blocked by: 047
 - [050](050-sim-responsive-hybrid.md) — theHybridLaysOutResponsivelyByWidth · **open** · blocked by: 046, 047, 048, 049

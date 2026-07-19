@@ -122,6 +122,8 @@
     "offerLabel": "offer {{offer}}",
     "usage_one": "{{count}} use left",
     "usage_other": "{{count}} uses left",
+    "appliedTimes_one": "applied {{count}}×",
+    "appliedTimes_other": "applied {{count}}×",
     "title": {
       "free": "Buy {{buy}}, Get {{get}} Free",
       "percent": "Buy {{buy}}, Get {{get}} at a discount",

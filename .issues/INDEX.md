@@ -103,7 +103,7 @@ Tracer tickets sliced from spec 043. Two chains meeting at the pure view model: 
 (044, own repo) + **frontend surface** (045 pure `promoView` → 046 grid column / 047 blocks →
 {048 missed, 049 disclosure} → 050 responsive). Slice 0 = 045 (pure, in-memory, degradation path first).
 
-- [044](044-sim-applied-bby-projection.md) — appliedBonusBuysSplitBuyFromGetByConditionKey · **open** · blocked by: — · dep: SIS.Pricing/BackOffice projection pass-through
+- [044](044-sim-applied-bby-projection.md) — appliedBonusBuysSplitBuyFromGetByConditionKey · **in-progress** (condition-projection half — IsPrerequisite/IsCondition/ConditionKey/BbyItemIndex — landed in BackOffice `SIS.Pricing.Services`, builds & sim tests pass; unblocks the client "applied N×" count after SIS.Api restart. Structural `Applications[]`/`DiscountKind` split still blocked on the SIS.Pricing.Core package repo) · blocked by: — · dep: SIS.Pricing/BackOffice projection pass-through
 - [045](045-sim-promoview-model.md) — promoViewDerivesLinesBlocksAndMissedFromAResult · **done** · blocked by: — · Slice 0 (pure, graceful degradation) · harness 11/11
 - [046](046-sim-grid-promo-column.md) — theResultsGridShowsPromoKindAndRolePerLine · **done** (typecheck/build/transform green; live-drive pending SIS.Api) · blocked by: 045
 - [047](047-sim-promo-blocks.md) — firedPromotionsRenderAsBuyGetBlocks · **done** (typecheck/build green; drove real component via Playwright — live-drive of split path pending 044) · blocked by: 045

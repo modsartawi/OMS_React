@@ -20,7 +20,8 @@ import SimManualConditions, { type SimManualConditionRow } from './SimManualCond
 import SimItemDetail from './SimItemDetail'
 import SimBonusBuyPanel from './SimBonusBuyPanel'
 import SimPromoBlocks from './SimPromoBlocks'
-import SimMissedPromotions from './SimMissedPromotions'
+// SimMissedPromotions temporarily hidden — Potential Bonus Buys held back for now.
+// import SimMissedPromotions from './SimMissedPromotions'
 import { buildSimulationColumns, SIM_RESULT_DEFAULT_COL_DEF } from './columns'
 import { promoView } from './promo-view'
 import type { PromoCellContext, PromoHot } from './PromoCell'
@@ -416,8 +417,9 @@ export default function SimulationPage() {
           ) : null}
 
           {/* "Could have applied" — the near-misses beneath the fired blocks (ticket
-              048); absent when nothing was missed. */}
-          {result ? <SimMissedPromotions missed={view.missed} currency={result.header.currency} /> : null}
+              048); absent when nothing was missed. Temporarily hidden — the Potential
+              Bonus Buys surface is held back for now (re-enable to restore). */}
+          {/* {result ? <SimMissedPromotions missed={view.missed} currency={result.header.currency} /> : null} */}
 
           {selectedItem ? (
             /* Per-line pricing detail + aggregated condition cards (ticket 014). */

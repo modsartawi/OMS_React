@@ -241,12 +241,16 @@ function GetLine({ line, reward, t }: { line: PromoGetLine; reward: boolean; t: 
   )
 }
 
-/** BBY key · promo no · offer · remaining usage — the old Applied-tab identity, kept. */
+/** BBY key · promo no · offer · applied ×N · remaining usage — the old Applied-tab
+ *  identity, kept. `applied ×N` = how many times this same promo fired into this one
+ *  card (its distinct condition keys, counted in `promoView`). Shown only when it fired
+ *  more than once. */
 function IdentityLine({ block, t }: { block: PromoBlock; t: TFunction }) {
   const parts = [
     block.bbyNumber || null,
     block.promoNumber ? t('promo.promoNoLabel', { promo: block.promoNumber }) : null,
     block.offerId ? t('promo.offerLabel', { offer: block.offerId }) : null,
+    block.appliedCount > 1 ? t('promo.appliedTimes', { count: block.appliedCount }) : null,
     t('promo.usage', { count: block.remainingUsage }),
   ].filter((p): p is string => Boolean(p))
 

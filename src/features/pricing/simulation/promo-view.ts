@@ -71,6 +71,12 @@ export interface PromoBlock {
   kind: PromoKind | null
   remainingUsage: number
   totalSaved: number
+  /** How many times this same promo fired into the one card — the count of distinct
+   *  `conditionKey`s the engine stamped for it (each key = one application). Counted
+   *  from the raw line conditions so it holds even on the degradation path, where the
+   *  `applications` split is absent. `1` (or `0` when no key is present) means a single
+   *  firing; the render shows the badge only when it is > 1. */
+  appliedCount: number
   /** True when this block lacks the buy/get split (pre-projection response). */
   degraded: boolean
   applications: AppliedBonusBuyApplicationView[]
@@ -199,6 +205,22 @@ export function promoView(result: SimulationResult | null | undefined): PromoVie
   const potential = result?.potentialBonusBuys ?? []
   const itemByNumber = new Map<number, SimulationResultItem>(items.map((i) => [i.itemNumber, i]))
 
+  // How many times each promo fired into its single card = its distinct `conditionKey`s,
+  // the engine's per-application join (a "2 PC for 29.95" bought ×4 is ONE key per pair of
+  // pieces → 2 firings, even though it stamps 4 discount rows). Only `conditionKey` groups
+  // the rows of one firing, so it is the ONLY honest signal — a raw row count would count
+  // pieces, not applications. Absent until the applied-BBY projection (ticket 044) ships;
+  // when it is, `appliedCount` populates and the badge appears with no further change.
+  const keysByBby = new Map<string, Set<string>>()
+  for (const item of items) {
+    for (const cond of item.conditions ?? []) {
+      if (!cond.isBonusBuy || !cond.bbyNumber || !cond.conditionKey) continue
+      const set = keysByBby.get(cond.bbyNumber) ?? new Set<string>()
+      set.add(cond.conditionKey)
+      keysByBby.set(cond.bbyNumber, set)
+    }
+  }
+
   // Per-line promotion refs, accumulated as we walk each block, then emitted in
   // result-item order (a plain line keeps an empty `promos`).
   const refsByItem = new Map<number, PromoLineRef[]>()
@@ -212,6 +234,9 @@ export function promoView(result: SimulationResult | null | undefined): PromoVie
   const blocks: PromoBlock[] = applied.map((bby) => {
     const kind = appliedKind(bby)
     const hasSplit = Array.isArray(bby.applications) && bby.applications.length > 0
+    // Distinct condition keys, else the applications split (also per-firing) — 0 when
+    // neither is present (pre-044 payload), which hides the "applied N×" badge.
+    const appliedCount = keysByBby.get(bby.bbyNumber)?.size || (bby.applications?.length ?? 0)
 
     if (hasSplit) {
       const applications: AppliedBonusBuyApplicationView[] = bby.applications!.map((app) => {
@@ -247,6 +272,7 @@ export function promoView(result: SimulationResult | null | undefined): PromoVie
         kind,
         remainingUsage: bby.remainingUsage,
         totalSaved: bby.totalDiscountValue,
+        appliedCount,
         degraded: false,
         applications,
         buyItems,
@@ -273,6 +299,7 @@ export function promoView(result: SimulationResult | null | undefined): PromoVie
       kind,
       remainingUsage: bby.remainingUsage,
       totalSaved: bby.totalDiscountValue,
+      appliedCount,
       degraded: true,
       applications: [],
       buyItems: [],

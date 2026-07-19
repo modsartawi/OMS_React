@@ -82,6 +82,22 @@ visible without clicking each line, buy→get shown as relationships (1+1 free, 
 full detail preserved for advanced users via progressive disclosure. Destination = **approved
 sketches** (spec + build are a later effort). Buy→get data is present-but-unused; no backend work.
 
-- [039](039-sim-promo-visibility-rework.md) — Simulation applied-promotion visibility rework · **open** · wayfinder map
+- [039](039-sim-promo-visibility-rework.md) — Simulation applied-promotion visibility rework · **done** · wayfinder map — destination reached (B+C hybrid approved)
 - [040](040-sim-promo-shape-taxonomy.md) — Promo-shape taxonomy & response-field mapping · **done** · blocked by: — · [taxonomy](040-sim-promo-shape-taxonomy.TAXONOMY.md)
-- [041](041-sim-results-promo-sketch.md) — Sketch the reworked results-and-promo surface · **claimed** · blocked by: 040 (done)
+- [041](041-sim-results-promo-sketch.md) — Sketch the reworked results-and-promo surface · **done** · blocked by: 040 · [prototype](041-sim-results-promo-sketch.PROTOTYPE.html) · chose B+C hybrid
+- [042](042-sim-promo-hybrid-lock.md) — Consolidate the B+C hybrid & lock the direction · **done** · blocked by: 041 · [sketch](042-sim-promo-hybrid-lock.PROTOTYPE.html) · APPROVED
+- [043](043-sim-promo-visibility-spec.md) — Simulation applied-promotion visibility rework (spec) · **ready** · spec — consumable by /to-tickets
+
+## Simulation promo-visibility — build (spec 043)
+
+Tracer tickets sliced from spec 043. Two chains meeting at the pure view model: **backend projection**
+(044, own repo) + **frontend surface** (045 pure `promoView` → 046 grid column / 047 blocks →
+{048 missed, 049 disclosure} → 050 responsive). Slice 0 = 045 (pure, in-memory, degradation path first).
+
+- [044](044-sim-applied-bby-projection.md) — appliedBonusBuysSplitBuyFromGetByConditionKey · **open** · blocked by: — · dep: SIS.Pricing/BackOffice projection pass-through
+- [045](045-sim-promoview-model.md) — promoViewDerivesLinesBlocksAndMissedFromAResult · **done** · blocked by: — · Slice 0 (pure, graceful degradation) · harness 11/11
+- [046](046-sim-grid-promo-column.md) — theResultsGridShowsPromoKindAndRolePerLine · **open** · blocked by: 045
+- [047](047-sim-promo-blocks.md) — firedPromotionsRenderAsBuyGetBlocks · **open** · blocked by: 045
+- [048](048-sim-could-have-applied.md) — aMissedPromotionShowsWhyItDidNotFire · **open** · blocked by: 047
+- [049](049-sim-progressive-disclosure.md) — aPromotionBlockRevealsTodaysConditionAndPricingDetail · **open** · blocked by: 047
+- [050](050-sim-responsive-hybrid.md) — theHybridLaysOutResponsivelyByWidth · **open** · blocked by: 046, 047, 048, 049

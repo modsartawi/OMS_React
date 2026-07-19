@@ -91,6 +91,15 @@ export interface SimulationResultCondition {
   conditionOrigin: string
   isBonusBuy: boolean
   bbyNumber: string | null
+  /** The buy↔get role/link the engine stamps on `PcCondition` and the applied-BBY
+   *  projection (ticket 044) surfaces. Optional so a pre-projection response still
+   *  types; `promoView` (045) reads them when present and degrades when absent.
+   *  `isPrerequisite` = a buy line, `isCondition` = a get/reward line (a buy-line
+   *  set-price is both); `conditionKey` is the per-fired-application join. */
+  isPrerequisite?: boolean
+  isCondition?: boolean
+  conditionKey?: string | null
+  bbyItemIndex?: number | null
 }
 
 export interface SimulationResultItem {
@@ -137,10 +146,32 @@ export interface AppliedBonusBuy {
   promoNumber: string
   offerId: string
   description: string
+  /** The raw SAP condition code (ZBxx / VKA0). The projection (ticket 044) also
+   *  carries the normalised `discountKind` below; `promoView` prefers that and
+   *  falls back to mapping this when only the raw code is present. */
   discountType: string
   totalDiscountValue: number
   affectedItemNumbers: number[]
   remainingUsage: number
+  /** Each fired application split into its buy vs get basket lines, keyed by
+   *  `conditionKey` — surfaced by the applied-BBY projection (ticket 044). Absent
+   *  on a pre-projection response, where `promoView` degrades to the flat
+   *  `affectedItemNumbers` (one undivided block, no buy→get split). */
+  applications?: AppliedBonusBuyApplication[]
+  /** The normalised discount kind (Free Goods `N` / Discount Percent `%` / Fixed
+   *  `R` / Set Price `P`) — the taxonomy's four kinds, uniform with the potential
+   *  side. Surfaced by the projection (044); when absent `promoView` maps the raw
+   *  `discountType` SAP code. */
+  discountKind?: 'N' | '%' | 'R' | 'P'
+}
+
+/** One fired application of a bonus buy: the buy (prerequisite) lines and the get
+ *  (reward) lines that share one `conditionKey`. A buy-line set-price lists the same
+ *  item number in both. */
+export interface AppliedBonusBuyApplication {
+  conditionKey: string
+  buyItemNumbers: number[]
+  getItemNumbers: number[]
 }
 
 /** One prerequisite line of a potential bonus buy: required vs found qty, min vs

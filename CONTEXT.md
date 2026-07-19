@@ -34,3 +34,23 @@ A business rule the server enforces by answering with the envelope `success:fals
 code (`LAST_ADMIN`, `SYSTEM_ROLE`, `IN_USE`, `DUPLICATE_NAME`). The UI explains it from that code —
 it is a designed outcome, not an error.
 _Avoid_: validation error, failure.
+
+**Bonus buy (BBY)**:
+A promotion evaluated by the pricing engine, identified by a `bbyNumber` (with a `promoNumber` /
+`offerId`). One shape: a **prerequisite** ("buy X") linked to a **reward** ("get Y"). It is
+*applied* when it fired on a basket, or *potential* when it could apply but did not (the "why not"
+is its unmet prerequisites). Seen on the POS Simulation screen.
+_Avoid_: offer, deal, discount (a bonus buy *carries* a discount; it is not one).
+
+**Prerequisite / Reward** (of a bonus buy):
+The **buy** side and the **get** side. Either can be a single material or a **material grouping**
+(a category), and the reward product may differ from the prerequisite product. On the engine's
+condition rows the roles are `isPrerequisite` / `isCondition`, joined across lines of one fired
+application by a shared `conditionKey`.
+_Avoid_: trigger/benefit (acceptable in prose, but the domain terms are prerequisite/reward).
+
+**Discount type** (of a bonus-buy reward):
+Which of four kinds the reward grants: **Free Goods** (`N`, buy-x-get-y-free), **Discount Percent**
+(`%`), **Fixed Discount** (`R`, amount off), **Set Price** (`P`, fixed/bundle price). The SAP
+condition-type codes (`ZB01/02/03/12/13`, `VKA0`) are the engine's expression of the same four.
+_Avoid_: promo type (the *promotion* is the bonus buy; the discount type is the reward's kind).

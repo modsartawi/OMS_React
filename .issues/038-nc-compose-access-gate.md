@@ -1,10 +1,16 @@
 ---
-status: open
+status: code-complete
 spec: 031
 blocked-by: 036
 ---
 
 # 038 — theComposeScreenIsHiddenWithoutTheBroadcastGrant
+
+> **Build note (client-complete; backend dep open):** client half code-complete, `npm run typecheck`
+> + `npm run build` green. The graceful-degradation path is what's exercised: `GET Notifications/Access`
+> does NOT exist in SIS.Api, so the probe maps a 404 to `allowed=true, probed=false` → nav shown, page
+> shown, server-authoritative `NC_FORBIDDEN` is the backstop. A real granted/denied path can't be
+> verified until the backend endpoint ships (HITL decision — see Open questions + morning report #1).
 
 ## What to build
 

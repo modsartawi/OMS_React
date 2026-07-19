@@ -73,7 +73,7 @@ overnight blockers: [NC-MORNING-REPORT.md](NC-MORNING-REPORT.md).
 - [035](035-nc-arrivals-sonner.md) — aFreshArrivalRaisesAToastAndBumpsTheBadge · **code-complete** (typecheck green; runtime-blocked) · blocked by: 033
 - [036](036-nc-compose-send-store.md) — composingABroadcastSendsItToAStore · **code-complete** (typecheck green; runtime-blocked) · blocked by: — · dep: POST Notifications
 - [037](037-nc-fleet-confirm.md) — sendingToTheWholeFleetAsksForConfirmation · **code-complete** (typecheck green; runtime-blocked) · blocked by: 036
-- [038](038-nc-compose-access-gate.md) — theComposeScreenIsHiddenWithoutTheBroadcastGrant · **open** · blocked by: 036 · dep: **GET Notifications/Access (backend — does not exist yet)**
+- [038](038-nc-compose-access-gate.md) — theComposeScreenIsHiddenWithoutTheBroadcastGrant · **code-complete** (client half; graceful-degradation path only; typecheck+build green) · blocked by: 036 · dep: **GET Notifications/Access (backend — does not exist yet)**
 
 ## Simulation applied-promotion visibility rework (map 039)
 

@@ -3,6 +3,13 @@
     "sendBroadcast": "Send Broadcast"
   },
   "title": "Send Broadcast",
+  "access": {
+    "checking": "Checking access…"
+  },
+  "denied": {
+    "title": "You don't have access to Send Broadcast",
+    "hint": "Broadcasting to stores or the whole fleet needs the NotificationBroadcast grant. Ask an administrator to add it to your role."
+  },
   "field": {
     "title": "Title",
     "message": "Message",

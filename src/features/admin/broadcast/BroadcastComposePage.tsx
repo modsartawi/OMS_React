@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Send } from 'lucide-react'
+import { AlertTriangle, Loader2, Lock, Send } from 'lucide-react'
 import { notify } from '@/core/services/notify'
 import { confirmAction } from '@/core/services/confirm'
 import { lookupQueries } from '@/core/services/lookups'
@@ -17,14 +16,50 @@ import {
   type BroadcastChannel,
 } from './helpers'
 
-// Send Broadcast compose screen (spec 031, features/admin). Title + message with
-// live counters, a Whole-fleet / One-store segmented channel, the existing
-// open-stores picker for a store target, and an optional expiry. Send is disabled
-// until valid (with an inline validity hint). A single-store send posts straight
-// through; the all-fleet confirm dialog is ticket 037; the access gate is 038
-// (the nav is visible to everyone until then — the server Create stays
-// authoritative and refuses a lost grant with NC_FORBIDDEN).
+// Send Broadcast screen (spec 031, features/admin). Soft-gates on the
+// NotificationBroadcast grant (038): the page runs the same access probe as the
+// shell's permission-aware nav (shared cache key). Denied ⇒ a soft gate naming
+// the grant; granted (or an absent/unknown probe) ⇒ the compose card. The server
+// Create stays authoritative — a lost grant still refuses on send (NC_FORBIDDEN).
 export default function BroadcastComposePage() {
+  const { t } = useTranslation('broadcast')
+  const access = useQuery({
+    queryKey: ['broadcast', 'access'],
+    queryFn: () => broadcastApi.access(),
+  })
+
+  if (access.isPending) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        {t('access.checking')}
+      </div>
+    )
+  }
+
+  // A definitive denial (endpoint answered, grant absent) shows the gate. An
+  // absent/unknown probe (probed=false) or a transient error degrades to showing
+  // the screen — the server refuses on send if the grant is truly missing.
+  const denied = access.data ? access.data.probed && !access.data.allowed : false
+  if (denied) {
+    return (
+      <div className="mx-auto mt-16 max-w-lg rounded-lg border border-border/60 bg-card p-8 text-center" role="alert">
+        <Lock className="mx-auto mb-3 h-10 w-10 text-muted-foreground/60" aria-hidden />
+        <h2 className="text-base font-semibold tracking-tight">{t('denied.title')}</h2>
+        <p className="mt-2 text-sm text-muted-foreground">{t('denied.hint')}</p>
+      </div>
+    )
+  }
+
+  return <ComposeCard />
+}
+
+// The compose form itself. Title + message with live counters, a Whole-fleet /
+// One-store segmented channel, the existing open-stores picker for a store
+// target, and an optional expiry. Send is disabled until valid (with an inline
+// validity hint). A single-store send posts straight through; an all-fleet send
+// confirms first (037).
+function ComposeCard() {
   const { t } = useTranslation('broadcast')
   const [form, setForm] = useState<ComposeForm>(EMPTY_FORM)
 

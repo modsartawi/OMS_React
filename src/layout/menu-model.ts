@@ -3,6 +3,7 @@ import { Activity, Box, Calculator, Download, FileText, KeyRound, LifeBuoy, Send
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
+import { broadcastApi } from '@/features/admin/broadcast/api'
 import { simulationApi } from '@/features/pricing/simulation/api'
 import { bonusBuyDownloadApi } from '@/features/pricing/bonus-buy-download/api'
 import { couponsApi } from '@/features/pricing/coupons/api'
@@ -112,13 +113,20 @@ export const MENU: ShellMenuItem[] = [
         }),
       },
       {
-        // Send Broadcast (spec 031). Visible to everyone until ticket 038 adds the
-        // NotificationBroadcast access probe; the server Create stays the
-        // authority (a lost grant refuses on send with NC_FORBIDDEN).
+        // Send Broadcast (spec 031). Soft-gated on the NotificationBroadcast grant
+        // (038) via the SAME ['broadcast','access'] probe the page's own guard uses
+        // → one shared call. ⚠️ GET Notifications/Access doesn't exist server-side
+        // yet: the probe maps a 404 to allowed=true (unknown → shown) so the nav
+        // degrades gracefully; the server Create stays authoritative (NC_FORBIDDEN).
         labelKey: 'broadcast:menu.sendBroadcast',
         icon: Send,
         routerLink: '/admin/broadcast',
         activePrefix: '/admin/broadcast',
+        access: accessProbe({
+          key: ['broadcast', 'access'],
+          run: () => broadcastApi.access(),
+          visible: (r) => r.allowed === true,
+        }),
       },
     ],
   },

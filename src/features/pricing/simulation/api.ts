@@ -2,6 +2,7 @@ import { api } from '@/core/api'
 import type {
   SimulateRequest,
   SimulationAccessResult,
+  SimulationCacheAccessResult,
   SimulationResult,
 } from '@/core/models/simulation'
 
@@ -28,5 +29,14 @@ export const simulationApi = {
   // call site as an inline banner; a per-item E/W rides the 200 result data.
   simulate(request: SimulateRequest): Promise<SimulationResult> {
     return api.post<SimulationResult>(`${BASE}/Simulate`, request)
+  },
+
+  // Pricing-cache-admin grant probe (spec 022, slice 3a — ticket 051). A DISTINCT
+  // privilege from Access above: gates the header's "Clear cache" button, which
+  // clears the whole server-side "Pricing" cache (POST Pricing/ClearCache, ticket
+  // 052). Its OWN query key (['simulation','cacheAccess']) — not shared with the
+  // screen-open probe. Cookie-only; the server enforces the grant on the clear call.
+  cacheAccess(): Promise<SimulationCacheAccessResult> {
+    return api.get<SimulationCacheAccessResult>(`${BASE}/CacheAccess`)
   },
 }

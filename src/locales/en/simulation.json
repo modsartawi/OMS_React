@@ -54,6 +54,9 @@
     "processing": "Processing…",
     "clear": "Clear"
   },
+  "clearCache": {
+    "button": "Clear cache"
+  },
   "summary": {
     "title": "Summary",
     "netTotal": "Total Net Total",

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Loader2, Play } from 'lucide-react'
+import { AlertTriangle, DatabaseZap, Loader2, Play } from 'lucide-react'
 import { AgGridReact } from 'ag-grid-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
@@ -41,6 +41,16 @@ export default function SimulationPage() {
   const { t } = useTranslation('simulation')
 
   const access = useQuery({ queryKey: ['simulation', 'access'], queryFn: () => simulationApi.access() })
+
+  // Pricing-cache-admin probe (ticket 051, spec 022). Its OWN key — a DISTINCT grant
+  // from screen-open — gating the "Clear cache" button below. Show/hide hygiene only:
+  // the server enforces the grant on the clear call (ticket 052). Errors/absence leave
+  // canClear falsy → no button, the safe default for a not-yet-deployed endpoint.
+  const cacheAccess = useQuery({
+    queryKey: ['simulation', 'cacheAccess'],
+    queryFn: () => simulationApi.cacheAccess(),
+  })
+  const canClearCache = cacheAccess.data?.canClear === true
 
   const [header, setHeader] = useState<SimHeaderState>(defaultHeader)
   const [promotion, setPromotion] = useState(true)
@@ -238,7 +248,9 @@ export default function SimulationPage() {
           )}
         </div>
 
-        {/* Actions — Process + Clear (the desktop "Clear Cache" is dropped, spec 503). */}
+        {/* Actions — Process + Clear, plus a Clear-cache button gated on the pricing-
+            cache-admin grant (ticket 051, spec 022 — reinstating the WPF "Clear Cache"
+            that spec 503 had dropped). The clear behaviour lands in ticket 052. */}
         <div className="flex min-w-36 flex-col justify-center gap-2 rounded-lg border border-border/60 bg-card p-3">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {t('actions.title')}
@@ -264,6 +276,17 @@ export default function SimulationPage() {
           >
             {t('actions.clear')}
           </button>
+          {/* Cache-admins only. Wired but inert this slice — confirm + clear + toasts
+              are ticket 052; the onClick lands there. */}
+          {canClearCache ? (
+            <button
+              type="button"
+              className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-input px-4 text-sm font-medium hover:bg-accent disabled:opacity-50"
+            >
+              <DatabaseZap className="h-4 w-4" aria-hidden />
+              {t('clearCache.button')}
+            </button>
+          ) : null}
         </div>
       </div>
 

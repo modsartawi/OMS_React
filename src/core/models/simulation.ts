@@ -12,6 +12,14 @@ export interface SimulationAccessResult {
   canOpen: boolean
 }
 
+/** GET Pricing/CacheAccess — the pricing-cache-admin grant probe (spec 022). A DISTINCT
+ *  privilege from opening the screen: clearing the shared cache evicts every user's warm
+ *  pricing, so it rides its own grant. Cookie-only, not grant-gated — show/hide the
+ *  Clear-cache button only; the server enforces the grant on the clear call itself. */
+export interface SimulationCacheAccessResult {
+  canClear: boolean
+}
+
 // ---- request (SimulateRequest, bound verbatim by the endpoint) --------------
 
 /** Header inputs feeding the engine's procedure determination. Empty loyalty

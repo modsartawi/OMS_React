@@ -45,6 +45,15 @@ React needs a new `Pricing/*` endpoint.
 - [021](021-cache-bust-blast-radius-auth.md) — Shared-cache blast radius & who may clear it · **done** · blocked by: 019
 - [022](022-cache-reset-spec-lock.md) — Lock the stale-BBY cache-reset spec · **done** · blocked by: 019, 020, 021 · [spec](022-cache-reset.SPEC.md)
 
+## Cache reset — client build (spec 022)
+
+Client slice 3 of spec 022 (the simulator Clear-cache button). Server slices 1–2 (`Pricing/ClearCache`,
+the `PricingCache` cache-admin grant, `GET Pricing/CacheAccess`, BBY auto-evict) are **BackOffice**
+work, tracked in `C:\Work\DMSCO\BackOffice\.issues\` — the tickets below consume those endpoints.
+
+- [051](051-sim-clearcache-button-gated.md) — theSimulatorShowsAClearCacheButtonOnlyToCacheAdmins · **done** (typecheck/build green; drove gating 3/3 via mocked envelope — live-drive pending SIS.Api) · blocked by: — · dep: BackOffice GET Pricing/CacheAccess + PricingCache grant
+- [052](052-sim-clearcache-confirm-clear-toast.md) — clickingClearCacheConfirmsClearsAndToasts · **open** · blocked by: 051 · dep: BackOffice POST Pricing/ClearCache
+
 ## Web Back-Office Notification Center (map 023)
 
 Bell + badge + list + deep-link + banner + claim (receive) and a channel-targeted broadcast/compose

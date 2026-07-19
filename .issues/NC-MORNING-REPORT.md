@@ -3,11 +3,34 @@
 _Things that need **you** (HITL), and what got done overnight. Read this first. Plan:
 [NC-AFK-HANDOFF.md](NC-AFK-HANDOFF.md)._
 
-_Last updated: overnight build session (post `/to-tickets`)._
+_Last updated: build session — all 7 tickets (032–038) coded._
 
 ---
 
-## ✅ Tree committed clean — build can start
+## ✅ Build done — all 7 tickets code-complete (typecheck + build green)
+
+The full Receive + Send build is on branch **`feature/notification-center`** (off `fb5f99f`), one
+commit per ticket (`5f5e509`..`db2ced4`), message = each ticket's test-name title. `npm run typecheck`
+and `npm run build` are green at HEAD.
+
+**⚠️ Not runtime-proven.** SIS.Api :5111 was **down** this session, so no ticket was app-driven — each
+is marked **code-complete**, not `done` (per the "don't mark done on typecheck alone" rule). Pure
+functions (`unreadCount`, `visibleItems`, `arrivalsToToast`, `validateCompose`) are isolated and
+export-only so tests + a real app-drive drop on cleanly. **To close to `done`:** bring up a
+NC-enabled SIS.Api on :5111 and drive each ticket's Proof app-drive action.
+
+What was built:
+- **Receive** (`src/layout/notifications/`): bell + 30s poll + client-derived badge (404 hides it);
+  dropdown panel (newest-first, type tags, read/unread, empty state); read-on-click + mark-all
+  (optimistic); sonner arrivals (Toast auto-dismiss / Banner persistent + View) behind a 15-min
+  freshness gate, badge pop in lock-step.
+- **Send** (`src/features/admin/broadcast/`): compose screen (counters, segmented channel, open-stores
+  picker, expiry, validity-gated Send); all-fleet confirm dialog + inline warning; access soft-gate on
+  the graceful-degradation path.
+
+---
+
+## ✅ Tree committed clean — build can start (historical)
 
 The working tree is **now clean**, committed on your instruction at **`23e3400`**
 (`feature/active-sessions-pos-chip`), in two commits:
@@ -53,24 +76,23 @@ v1. Flag if you'd seam it differently.
 
 ---
 
-## ✅ What got done overnight
+## ✅ What got done
 
-**Planning + slicing, complete** — the whole map-to-tickets chain landed. **Implementation
-intentionally not started** (see 🛑 above — dirty tree). All 7 build tickets are written and ready;
-none coded yet.
+**Planning + slicing** (earlier session) and **the full build** (this session) are complete.
 
-| Ticket | Status | Note |
-|--------|--------|------|
-| 032 bell+poll+badge | ticket ready, **not coded** | tracer; blocked on clean tree |
-| 033 panel+list | ticket ready, **not coded** | |
-| 034 read state | ticket ready, **not coded** | |
-| 035 arrivals | ticket ready, **not coded** | |
-| 036 compose+store send | ticket ready, **not coded** | tracer |
-| 037 fleet confirm | ticket ready, **not coded** | |
-| 038 access gate | ticket ready, **not coded** | also backend-blocked (item 1) |
+| Ticket | Status | Commit | Note |
+|--------|--------|--------|------|
+| 032 bell+poll+badge | **code-complete** | `5f5e509` | tracer; + api.get header prefactor |
+| 033 panel+list | **code-complete** | `e75dd3d` | |
+| 034 read state | **code-complete** | `0c3072d` | optimistic overlay + mark-all loop |
+| 035 arrivals | **code-complete** | `11f97f4` | 15-min freshness gate; Toast/Banner |
+| 036 compose+store send | **code-complete** | `bc4c28e` | tracer; new features/admin/broadcast |
+| 037 fleet confirm | **code-complete** | `061ebab` | reuses confirmAction service |
+| 038 access gate | **code-complete** (client) | `db2ced4` | graceful-degradation path only (item 1) |
 
-Branch `feature/notification-center` **not yet created** — create it off `23e3400` at the start of
-the build session (see handoff → Branch).
+All typecheck + build green. None runtime-proven (SIS.Api :5111 down, item 3). Branch
+`feature/notification-center` created off `fb5f99f`. **Not pushed / no PR** (per repo conventions —
+awaiting your go). Rebase/retarget onto the rebrand+pricing WIP at PR time.
 
 ---
 

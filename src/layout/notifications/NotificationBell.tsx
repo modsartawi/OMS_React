@@ -1,24 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bell } from 'lucide-react'
 import { useNcStore, ncItems } from './store'
-import { unreadCount } from './helpers'
+import { unreadCount, visibleItems } from './helpers'
 import { useNotificationPoll } from './useNotificationPoll'
+import NotificationPanel from './NotificationPanel'
 
 // The Notification Center bell (Receive chrome, spec 031). Rides the AppShell top
 // bar in the status cluster, left of the theme + account controls. Drives the
 // portal-wide poll and shows a terracotta unread badge whose count is
 // client-derived (Active ∧ not-expired ∧ !read). Zero unread ⇒ no badge; a 404
-// poll (feature off server-side) ⇒ the whole bell renders nothing. Ticket 032:
-// bell + poll + badge. The dropdown panel lands in 033.
+// poll (feature off server-side) ⇒ the whole bell renders nothing. Clicking the
+// bell opens a dropdown panel (033) anchored to it; outside-click / Escape close
+// it. Opening does NOT mark anything read.
 export default function NotificationBell() {
   const { t } = useTranslation('notifications')
   useNotificationPoll()
 
   const disabled = useNcStore((s) => s.disabled)
   const items = useNcStore(ncItems)
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
 
-  // A coarse clock so an item expiring between polls drops out of the count
+  // A coarse clock so an item expiring between polls drops out of the count/list
   // without waiting for the next 30s fetch (expiry is a client-side filter).
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -26,16 +30,37 @@ export default function NotificationBell() {
     return () => clearInterval(id)
   }, [])
 
+  // Outside-click + Escape close (parity with the account popup).
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
   // Feature off server-side (404 poll) — show nothing, not a dead control.
   if (disabled) return null
 
   const count = unreadCount(items, now)
+  const visible = visibleItems(items, now)
 
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button
         type="button"
+        onClick={() => setOpen((o) => !o)}
         aria-label={t('bell.ariaLabel')}
+        aria-haspopup="dialog"
+        aria-expanded={open}
         className="relative rounded-md p-1.5 hover:bg-accent"
       >
         <Bell className="h-5 w-5" aria-hidden />
@@ -48,6 +73,7 @@ export default function NotificationBell() {
           </span>
         )}
       </button>
+      {open && <NotificationPanel items={visible} now={now} />}
     </div>
   )
 }

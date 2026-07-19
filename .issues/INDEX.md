@@ -68,9 +68,20 @@ chrome) and **Send** (036→{037,038}, features/admin). AFK plan: [NC-AFK-HANDOF
 overnight blockers: [NC-MORNING-REPORT.md](NC-MORNING-REPORT.md).
 
 - [032](032-nc-bell-poll-badge.md) — theBellPollsAndShowsAnUnreadBadge · **code-complete** (typecheck green; runtime-blocked, SIS.Api down) · blocked by: — · dep: GET Notifications/Poll (+ api.get header passthrough)
-- [033](033-nc-panel-list.md) — theBellOpensAPanelListingAnnouncementsNewestFirst · **open** · blocked by: 032
+- [033](033-nc-panel-list.md) — theBellOpensAPanelListingAnnouncementsNewestFirst · **code-complete** (typecheck green; runtime-blocked) · blocked by: 032
 - [034](034-nc-read-state.md) — readingAnItemDropsTheUnreadCount · **open** · blocked by: 033 · dep: POST Notifications/{id}/Read
 - [035](035-nc-arrivals-sonner.md) — aFreshArrivalRaisesAToastAndBumpsTheBadge · **open** · blocked by: 033
 - [036](036-nc-compose-send-store.md) — composingABroadcastSendsItToAStore · **open** · blocked by: — · dep: POST Notifications
 - [037](037-nc-fleet-confirm.md) — sendingToTheWholeFleetAsksForConfirmation · **open** · blocked by: 036
 - [038](038-nc-compose-access-gate.md) — theComposeScreenIsHiddenWithoutTheBroadcastGrant · **open** · blocked by: 036 · dep: **GET Notifications/Access (backend — does not exist yet)**
+
+## Simulation applied-promotion visibility rework (map 039)
+
+Rework how the POS Simulation screen shows per-line results + the promotions that fired: promo
+visible without clicking each line, buy→get shown as relationships (1+1 free, 50%-off-2nd), today's
+full detail preserved for advanced users via progressive disclosure. Destination = **approved
+sketches** (spec + build are a later effort). Buy→get data is present-but-unused; no backend work.
+
+- [039](039-sim-promo-visibility-rework.md) — Simulation applied-promotion visibility rework · **open** · wayfinder map
+- [040](040-sim-promo-shape-taxonomy.md) — Promo-shape taxonomy & response-field mapping · **open** · blocked by: —
+- [041](041-sim-results-promo-sketch.md) — Sketch the reworked results-and-promo surface · **open** · blocked by: 040

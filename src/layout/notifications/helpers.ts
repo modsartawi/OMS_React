@@ -30,3 +30,37 @@ function isUnreadActive(item: NotificationItem, now: number): boolean {
 export function unreadCount(items: NotificationItem[], now: number): number {
   return items.filter((i) => isUnreadActive(i, now)).length
 }
+
+/**
+ * The panel list: non-expired items, newest-first by `createdAt` (024 §ordering —
+ * no SLA/soonest-deadline sort in v1). Expired items are excluded the same way
+ * the badge excludes them. Pure over the accumulated set (input not mutated).
+ */
+export function visibleItems(items: NotificationItem[], now: number): NotificationItem[] {
+  return items
+    .filter((i) => notExpired(i.expiresAt, now))
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+}
+
+/** A relative-time result: an i18n key under `relative.*` + its `count` param. */
+export interface RelativeTime {
+  key: 'justNow' | 'minutes' | 'hours' | 'days'
+  count: number
+}
+
+/**
+ * Bucket an elapsed duration into a relative-time key + count ("{{count}}m ago",
+ * …). Returns a key/param pair, not a string, so the wording stays in the
+ * translation layer (zero-literal). `now` is injected to keep it pure; a blank or
+ * future stamp reads as "just now". Mirrors the Active Sessions relative-time rule.
+ */
+export function relativeTime(iso: string, now: number): RelativeTime {
+  const then = Date.parse(iso)
+  if (Number.isNaN(then)) return { key: 'justNow', count: 0 }
+  const minutes = Math.floor(Math.max(0, now - then) / 60_000)
+  if (minutes < 1) return { key: 'justNow', count: 0 }
+  if (minutes < 60) return { key: 'minutes', count: minutes }
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return { key: 'hours', count: hours }
+  return { key: 'days', count: Math.floor(hours / 24) }
+}

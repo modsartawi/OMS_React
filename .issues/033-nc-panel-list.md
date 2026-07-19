@@ -1,10 +1,13 @@
 ---
-status: open
+status: code-complete
 spec: 031
 blocked-by: 032
 ---
 
 # 033 — theBellOpensAPanelListingAnnouncementsNewestFirst
+
+> **Build note (runtime-blocked):** code-complete, `npm run typecheck` green. Runtime app-drive
+> deferred (SIS.Api :5111 down). Pure `visibleItems` + `relativeTime` isolated for the runner.
 
 ## What to build
 

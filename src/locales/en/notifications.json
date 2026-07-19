@@ -1,5 +1,19 @@
 {
   "bell": {
     "ariaLabel": "Notifications"
+  },
+  "panel": {
+    "title": "Notifications",
+    "empty": "You're all caught up."
+  },
+  "type": {
+    "broadcast": "Broadcast",
+    "job": "Job"
+  },
+  "relative": {
+    "justNow": "just now",
+    "minutes": "{{count}}m ago",
+    "hours": "{{count}}h ago",
+    "days": "{{count}}d ago"
   }
 }

@@ -6,11 +6,13 @@ blocked-by: 036
 
 # 038 — theComposeScreenIsHiddenWithoutTheBroadcastGrant
 
-> **Build note (client-complete; backend dep open):** client half code-complete, `npm run typecheck`
-> + `npm run build` green. The graceful-degradation path is what's exercised: `GET Notifications/Access`
-> does NOT exist in SIS.Api, so the probe maps a 404 to `allowed=true, probed=false` → nav shown, page
-> shown, server-authoritative `NC_FORBIDDEN` is the backstop. A real granted/denied path can't be
-> verified until the backend endpoint ships (HITL decision — see Open questions + morning report #1).
+> **Build note (client-complete; backend endpoint now built):** client half code-complete, `npm run
+> typecheck` + `npm run build` green. **Backend `GET Notifications/Access` has since been added**
+> (BackOffice `pricing2` commit `dc73ba1f`, `NotificationEndpoints.Access` → `{ canBroadcast }`,
+> reusing `INcBroadcastPermissionService.IsAllowedAsync`; SIS.Api builds clean), so the real
+> granted/denied path is now wired end-to-end — pending a deploy + runtime drive to verify. The
+> client's 404→`allowed/probed=false` graceful fallback remains as a safety net if the endpoint is
+> absent in an older environment.
 
 ## What to build
 

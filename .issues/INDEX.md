@@ -73,7 +73,7 @@ overnight blockers: [NC-MORNING-REPORT.md](NC-MORNING-REPORT.md).
 - [035](035-nc-arrivals-sonner.md) — aFreshArrivalRaisesAToastAndBumpsTheBadge · **code-complete** (typecheck green; runtime-blocked) · blocked by: 033
 - [036](036-nc-compose-send-store.md) — composingABroadcastSendsItToAStore · **code-complete** (typecheck green; runtime-blocked) · blocked by: — · dep: POST Notifications
 - [037](037-nc-fleet-confirm.md) — sendingToTheWholeFleetAsksForConfirmation · **code-complete** (typecheck green; runtime-blocked) · blocked by: 036
-- [038](038-nc-compose-access-gate.md) — theComposeScreenIsHiddenWithoutTheBroadcastGrant · **code-complete** (client half; graceful-degradation path only; typecheck+build green) · blocked by: 036 · dep: **GET Notifications/Access (backend — does not exist yet)**
+- [038](038-nc-compose-access-gate.md) — theComposeScreenIsHiddenWithoutTheBroadcastGrant · **code-complete** (client + backend built; runtime-blocked) · blocked by: 036 · dep: GET Notifications/Access (backend ADDED — BackOffice pricing2 dc73ba1f)
 
 ## Simulation applied-promotion visibility rework (map 039)
 
@@ -83,5 +83,5 @@ full detail preserved for advanced users via progressive disclosure. Destination
 sketches** (spec + build are a later effort). Buy→get data is present-but-unused; no backend work.
 
 - [039](039-sim-promo-visibility-rework.md) — Simulation applied-promotion visibility rework · **open** · wayfinder map
-- [040](040-sim-promo-shape-taxonomy.md) — Promo-shape taxonomy & response-field mapping · **claimed** · blocked by: —
-- [041](041-sim-results-promo-sketch.md) — Sketch the reworked results-and-promo surface · **open** · blocked by: 040
+- [040](040-sim-promo-shape-taxonomy.md) — Promo-shape taxonomy & response-field mapping · **done** · blocked by: — · [taxonomy](040-sim-promo-shape-taxonomy.TAXONOMY.md)
+- [041](041-sim-results-promo-sketch.md) — Sketch the reworked results-and-promo surface · **claimed** · blocked by: 040 (done)

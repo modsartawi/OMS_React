@@ -45,16 +45,17 @@ blockers below are about the backend/runner, not the tree.
 
 ## ⚠️ Decisions / blockers waiting on you
 
-### 1. Backend endpoint `GET Notifications/Access` does not exist (blocks 038's verification)
-The compose access soft-gate (ticket [038](038-nc-compose-access-gate.md)) needs a new SIS.Api
-endpoint reporting the `NotificationBroadcast[01]` grant, mirroring the existing `Sessions/Access` /
-`Pricing/Access` probes. It lives in the **other repo** (`C:\Work\DMSCO\BackOffice`) — I did not
-build cross-repo backend contracts unilaterally.
-- **Your call:** (a) I build the endpoint in the backend repo next session, or (b) 038 stays on the
-  graceful-degradation path (server-authoritative `NC_FORBIDDEN` only, nav shown to all) until you
-  schedule the backend work.
-- The **client half** of 038 is built to tolerate the endpoint's absence (probe 404 ⇒ show screen,
-  let the server decide), so nothing else is blocked.
+### 1. ✅ RESOLVED — `GET Notifications/Access` now exists
+The compose access soft-gate (ticket [038](038-nc-compose-access-gate.md)) needed a SIS.Api endpoint
+reporting the `NotificationBroadcast[01]` grant, mirroring `Sessions/Access` / `Pricing/Access`.
+**Built** in the backend repo (`C:\Work\DMSCO\BackOffice`, branch `pricing2`, commit `dc73ba1f`):
+`NotificationEndpoints.Access` → `{ canBroadcast }`, cookie/api-key-gated (not grant-gated), reusing
+the same `INcBroadcastPermissionService.IsAllowedAsync` the `Create` door enforces. SIS.Api builds
+clean (0 errors). The grant seed (`002_seed_broadcast_permission.sql`) already existed.
+- **Still pending:** a **deploy + runtime drive** to verify the real granted/denied path (SIS.Api was
+  down this session). The client's 404-graceful fallback remains as a safety net for older environments.
+- **Note:** committed onto `pricing2` (its unrelated WIP untouched) — move/cherry-pick if you want it
+  on its own branch at PR time.
 
 ### 2. Test runner not installed — verify by typecheck + drive?
 vitest/RTL aren't installed (CLAUDE.md: deferred to the hardening ticket). I did **not** bootstrap

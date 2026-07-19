@@ -9,6 +9,7 @@ import { useSession } from '@/core/session'
 import { authApi } from '@/features/auth/api'
 import { buildTag } from '@/core/build-info'
 import BrandMark from '@/core/ui/BrandMark'
+import NotificationBell from './notifications/NotificationBell'
 
 const MOBILE_QUERY = '(max-width: 991px)'
 
@@ -210,6 +211,9 @@ export default function AppShell() {
           <span className="text-sm font-semibold tracking-tight">{t('brandName')}</span>
         </NavLink>
         <div className="flex-1" />
+        {/* Notification Center bell — status cluster, left of the theme/account
+            controls (spec 031). Hides itself when the feature is off (404 poll). */}
+        <NotificationBell />
         <button
           type="button"
           onClick={theme.toggle}

@@ -152,8 +152,12 @@ function buildQuery(params?: Record<string, unknown>): string {
 }
 
 export const api = {
-  get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
-    return request<T>(path + buildQuery(params), { method: 'GET' })
+  // `headers` is an optional per-request passthrough (merged last, so a caller
+  // header wins over the defaults). The Notification Center poll uses it to send
+  // `x-presence: skip` — a cooperative throttle the server reads to skip its
+  // presence heartbeat write. Kept optional so every existing caller is untouched.
+  get<T>(path: string, params?: Record<string, unknown>, headers?: Record<string, string>): Promise<T> {
+    return request<T>(path + buildQuery(params), { method: 'GET', headers })
   },
   post<T>(path: string, body: unknown): Promise<T> {
     return request<T>(path, { method: 'POST', body: JSON.stringify(body) })

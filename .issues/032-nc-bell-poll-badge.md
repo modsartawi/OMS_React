@@ -1,10 +1,15 @@
 ---
-status: open
+status: code-complete
 spec: 031
 blocked-by: —
 ---
 
 # 032 — theBellPollsAndShowsAnUnreadBadge
+
+> **Build note (runtime-blocked):** code-complete, `npm run typecheck` green. Runtime app-drive
+> NOT performed — SIS.Api :5111 was down this session, so the live poll couldn't be exercised
+> (morning-report blocker #3). Pure `unreadCount` isolated for the runner. Re-drive against a
+> NC-enabled SIS.Api to close to `done`.
 
 ## What to build
 

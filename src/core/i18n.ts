@@ -11,6 +11,7 @@ import activeSessions from '@/locales/en/active-sessions.json'
 import simulation from '@/locales/en/simulation.json'
 import bonusBuyDownload from '@/locales/en/bonus-buy-download.json'
 import coupons from '@/locales/en/coupons.json'
+import notifications from '@/locales/en/notifications.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -18,7 +19,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'coupons'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'coupons', 'notifications'],
   resources: {
     en: {
       common,
@@ -32,6 +33,7 @@ i18n.use(initReactI18next).init({
       simulation,
       'bonus-buy-download': bonusBuyDownload,
       coupons,
+      notifications,
     },
   },
   interpolation: { escapeValue: false },

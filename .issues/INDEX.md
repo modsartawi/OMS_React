@@ -67,7 +67,7 @@ Tracer tickets sliced from spec 031. Two independent chains: **Receive** (032→
 chrome) and **Send** (036→{037,038}, features/admin). AFK plan: [NC-AFK-HANDOFF.md](NC-AFK-HANDOFF.md);
 overnight blockers: [NC-MORNING-REPORT.md](NC-MORNING-REPORT.md).
 
-- [032](032-nc-bell-poll-badge.md) — theBellPollsAndShowsAnUnreadBadge · **open** · blocked by: — · dep: GET Notifications/Poll (+ api.get header passthrough)
+- [032](032-nc-bell-poll-badge.md) — theBellPollsAndShowsAnUnreadBadge · **code-complete** (typecheck green; runtime-blocked, SIS.Api down) · blocked by: — · dep: GET Notifications/Poll (+ api.get header passthrough)
 - [033](033-nc-panel-list.md) — theBellOpensAPanelListingAnnouncementsNewestFirst · **open** · blocked by: 032
 - [034](034-nc-read-state.md) — readingAnItemDropsTheUnreadCount · **open** · blocked by: 033 · dep: POST Notifications/{id}/Read
 - [035](035-nc-arrivals-sonner.md) — aFreshArrivalRaisesAToastAndBumpsTheBadge · **open** · blocked by: 033

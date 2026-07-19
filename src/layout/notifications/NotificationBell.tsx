@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bell } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
 import { useNcStore, ncItems } from './store'
 import { unreadCount, visibleItems } from './helpers'
 import { useNotificationPoll } from './useNotificationPoll'
@@ -20,7 +21,9 @@ export default function NotificationBell() {
   useNotificationArrivals()
 
   const disabled = useNcStore((s) => s.disabled)
-  const items = useNcStore(ncItems)
+  // useShallow keeps the derived array reference-stable — `ncItems` builds a new array
+  // each call, which would otherwise loop useSyncExternalStore ("max update depth").
+  const items = useNcStore(useShallow(ncItems))
   const open = useNcStore((s) => s.panelOpen)
   const setOpen = useNcStore((s) => s.setPanelOpen)
   const ref = useRef<HTMLDivElement>(null)

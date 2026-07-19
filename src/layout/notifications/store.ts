@@ -54,7 +54,10 @@ export const useNcStore = create<NcState>((set) => ({
   setPanelOpen: (open) => set({ panelOpen: open }),
 }))
 
-/** The accumulated items as a plain array (unordered — callers sort/filter). */
+/** The accumulated items as a plain array (unordered — callers sort/filter). Builds a
+ *  NEW array each call, so a hook consumer MUST wrap it in `useShallow`
+ *  (`useNcStore(useShallow(ncItems))`) — a raw `useNcStore(ncItems)` returns a fresh
+ *  reference every render and loops `useSyncExternalStore` ("maximum update depth"). */
 export function ncItems(state: NcState): NotificationItem[] {
   return Object.values(state.items)
 }

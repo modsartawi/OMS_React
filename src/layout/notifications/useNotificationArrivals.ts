@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { useShallow } from 'zustand/react/shallow'
 import { useNcStore, ncItems } from './store'
 import { arrivalsToToast } from './helpers'
 
@@ -17,7 +18,9 @@ const AUTO_DISMISS_MS = 8_000
 
 export function useNotificationArrivals(): void {
   const { t } = useTranslation('notifications')
-  const items = useNcStore(ncItems)
+  // `ncItems` derives a fresh array each call — wrap in useShallow so the snapshot is
+  // reference-stable until the items actually change (else useSyncExternalStore loops).
+  const items = useNcStore(useShallow(ncItems))
   const setPanelOpen = useNcStore((s) => s.setPanelOpen)
   // Ids already considered for a toast — persists across renders so nothing
   // re-toasts on a later poll (or a change to an item already seen).

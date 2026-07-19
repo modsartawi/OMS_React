@@ -56,6 +56,12 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        path: 'admin/broadcast',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/broadcast/BroadcastComposePage')).default,
+        }),
+      },
+      {
         path: 'pricing/simulation',
         lazy: async () => ({
           Component: (await import('@/features/pricing/simulation/SimulationPage')).default,

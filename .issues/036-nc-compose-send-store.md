@@ -1,10 +1,15 @@
 ---
-status: open
+status: code-complete
 spec: 031
 blocked-by: —
 ---
 
 # 036 — composingABroadcastSendsItToAStore
+
+> **Build note (runtime-blocked):** code-complete, `npm run typecheck` green. Runtime app-drive
+> deferred (SIS.Api :5111 down — POST Notifications not exercised). Pure `validateCompose` +
+> `toCreateRequest` isolated for the runner. New `features/admin/broadcast/` feature registered
+> (route + Admin menu item + `broadcast` i18n namespace). Store picker reuses `lookupQueries.storeDetails`.
 
 ## What to build
 

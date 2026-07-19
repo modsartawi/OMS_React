@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, Calculator, Download, FileText, KeyRound, LifeBuoy, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
+import { Activity, Box, Calculator, Download, FileText, KeyRound, LifeBuoy, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -110,6 +110,15 @@ export const MENU: ShellMenuItem[] = [
           run: () => sessionMonitorApi.access(),
           visible: (r) => r.canOpen === true,
         }),
+      },
+      {
+        // Send Broadcast (spec 031). Visible to everyone until ticket 038 adds the
+        // NotificationBroadcast access probe; the server Create stays the
+        // authority (a lost grant refuses on send with NC_FORBIDDEN).
+        labelKey: 'broadcast:menu.sendBroadcast',
+        icon: Send,
+        routerLink: '/admin/broadcast',
+        activePrefix: '/admin/broadcast',
       },
     ],
   },

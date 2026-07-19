@@ -45,3 +45,27 @@ export interface NotificationPollResult {
   items: NotificationItem[]
   watermark: number
 }
+
+/** Broadcast target: the whole fleet (All, empty key) or one store (Store + code). */
+export type NcAudienceKind = 'All' | 'Store'
+
+/**
+ * POST Notifications body for a back-office broadcast (024 §Create). v1 only ever
+ * sends `TypeCode='BROADCAST'` with an All or Store audience. `expiresAt` is
+ * omitted when blank (server applies its 30-day default); when sent it must be in
+ * the future or the server refuses with `NC_BAD_EXPIRY`. `createdBy` is ignored
+ * from the caller — the server stamps it from the session staffid.
+ */
+export interface CreateNotificationRequest {
+  typeCode: 'BROADCAST'
+  audienceKind: NcAudienceKind
+  audienceKey: string // '' for All, the storecode for Store
+  title: string
+  body: string
+  expiresAt?: string
+}
+
+/** POST Notifications result. */
+export interface CreateNotificationResult {
+  notificationId: string
+}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, Play } from 'lucide-react'
@@ -17,10 +17,18 @@ import SimItemsEntry, { emptyItemRow, type SimItemRow } from './SimItemsEntry'
 import SimManualConditions, { type SimManualConditionRow } from './SimManualConditions'
 import SimItemDetail from './SimItemDetail'
 import SimBonusBuyPanel from './SimBonusBuyPanel'
+import SimPromoBlocks from './SimPromoBlocks'
 import { buildSimulationColumns, SIM_RESULT_DEFAULT_COL_DEF } from './columns'
 import { promoView } from './promo-view'
-import type { PromoCellContext } from './PromoCell'
-import type { RowClickedEvent } from 'ag-grid-community'
+import type { PromoCellContext, PromoHot } from './PromoCell'
+import type {
+  CellMouseOverEvent,
+  GridApi,
+  GridReadyEvent,
+  RowClassParams,
+  RowClassRules,
+  RowClickedEvent,
+} from 'ag-grid-community'
 
 // Ticket 013 — the POS Simulation tracer. Self-guards on Pricing/Access (issue-429
 // pattern, shared ['simulation','access'] key with the menu probe), then: a 4-column
@@ -53,13 +61,44 @@ export default function SimulationPage() {
     onSuccess: ({ result }) => setSelectedItemNumber(result.items[0]?.itemNumber ?? null),
   })
 
-  // Per-line promotion refs for the results grid's Promotion column (ticket 046),
-  // derived from the run via promoView (ticket 045) and handed to the cell renderer
-  // through grid `context` — the row data stays the raw SimulationResultItem.
-  const promoContext = useMemo<PromoCellContext>(() => {
-    const res = process.data?.result ?? null
-    return { promoByItem: new Map(promoView(res).lines.map((l) => [l.itemNumber, l.promos])) }
-  }, [process.data])
+  // The reworked promotions view model (promoView, ticket 045): per-line refs for the
+  // grid's Promotion column (046) and the fired promotions as buy→get blocks (047).
+  const view = useMemo(() => promoView(process.data?.result ?? null), [process.data])
+  const promoByItem = useMemo(
+    () => new Map(view.lines.map((l) => [l.itemNumber, l.promos])),
+    [view],
+  )
+
+  // Bidirectional grid↔block cross-highlight (ticket 047): the promotion hot under the
+  // pointer/focus, wherever it entered. Handed to the grid via `context` (the cell reads
+  // row data, the row-class rule reads context.hot); redraw the rows when it changes so
+  // the rule re-runs. Keyed on `conditionKey` — the per-application buy↔get join — so a
+  // grid-line hover lights only its application's partner lines. On the degradation path
+  // (or a whole-block hover) `conditionKey` is null and the whole bby lights instead; the
+  // precision therefore sharpens automatically once the projection (044) lands, no code
+  // change (per the ticket).
+  const [hot, setHot] = useState<PromoHot | null>(null)
+  const hotKey = hot ? `${hot.bby}|${hot.conditionKey ?? ''}` : null
+  const gridApiRef = useRef<GridApi<SimulationResult['items'][number]> | null>(null)
+  useEffect(() => {
+    gridApiRef.current?.redrawRows()
+  }, [hotKey])
+
+  const gridContext = useMemo<PromoCellContext>(() => ({ promoByItem, hot }), [promoByItem, hot])
+
+  const rowClassRules = useMemo<RowClassRules<SimulationResult['items'][number]>>(
+    () => ({
+      'sim-row-hot': (p: RowClassParams<SimulationResult['items'][number]>) => {
+        const ctx = p.context as PromoCellContext | undefined
+        const h = ctx?.hot
+        if (!ctx || !h || !p.data) return false
+        return (ctx.promoByItem.get(p.data.itemNumber) ?? []).some(
+          (r) => r.bbyNumber === h.bby && (h.conditionKey == null || r.conditionKey === h.conditionKey),
+        )
+      },
+    }),
+    [],
+  )
 
   const validItems = items.filter((r) => r.materialNumber.trim() !== '')
   const canProcess = validItems.length > 0 && !process.isPending
@@ -265,20 +304,39 @@ export default function SimulationPage() {
                 {t('results.empty')}
               </div>
             ) : (
-              <div className="h-[24rem] min-h-64">
+              // onMouseLeave clears the cross-highlight once — per-cell mouse-out would
+              // flicker as the pointer crosses cells within a row.
+              <div className="h-[24rem] min-h-64" onMouseLeave={() => setHot(null)}>
                 <AgGridReact<SimulationResult['items'][number]>
                   theme={omsGridTheme}
                   rowData={result.items}
                   columnDefs={columns}
-                  context={promoContext}
+                  context={gridContext}
+                  rowClassRules={rowClassRules}
                   defaultColDef={SIM_RESULT_DEFAULT_COL_DEF}
                   rowHeight={OMS_GRID_ROW_HEIGHT}
                   headerHeight={OMS_GRID_HEADER_HEIGHT}
                   animateRows={false}
                   rowSelection={{ mode: 'singleRow', checkboxes: false, enableClickSelection: true }}
+                  onGridReady={(e: GridReadyEvent<SimulationResult['items'][number]>) => {
+                    gridApiRef.current = e.api
+                  }}
                   onRowClicked={(e: RowClickedEvent<SimulationResult['items'][number]>) =>
                     setSelectedItemNumber(e.data?.itemNumber ?? null)
                   }
+                  // Hovering a line lights its promotion block (ticket 047) — raise the
+                  // first promotion touching the row (with its conditionKey for per-
+                  // application precision); null on a plain, un-promoted line. Bail if
+                  // unchanged so crossing cells within a row doesn't churn a redraw.
+                  onCellMouseOver={(e: CellMouseOverEvent<SimulationResult['items'][number]>) => {
+                    const ref = e.data ? (promoByItem.get(e.data.itemNumber) ?? [])[0] : undefined
+                    const next: PromoHot | null = ref
+                      ? { bby: ref.bbyNumber, conditionKey: ref.conditionKey }
+                      : null
+                    setHot((prev) =>
+                      prev?.bby === next?.bby && prev?.conditionKey === next?.conditionKey ? prev : next,
+                    )
+                  }}
                   // Highlight the selected line — including the first line auto-selected on
                   // Process — by syncing AG Grid's native selection to our source of truth.
                   onRowDataUpdated={(e) =>
@@ -290,8 +348,21 @@ export default function SimulationPage() {
           </div>
         </div>
 
-        {/* RIGHT column — pricing detail + bonus-buy tabs. */}
+        {/* RIGHT column — fired-promotion blocks + pricing detail + bonus-buy tabs. */}
         <div className="flex min-w-0 flex-col gap-3">
+          {/* Fired promotions as plain-language buy→get blocks (ticket 047), linked to
+              the results grid by the shared hot-promotion state. */}
+          {result ? (
+            <SimPromoBlocks
+              blocks={view.blocks}
+              currency={result.header.currency}
+              // A block spans a whole bby (potentially several applications), so it lights
+              // on bby alone; hovering one raises the whole bby (conditionKey null).
+              hotBby={hot?.bby ?? null}
+              onHotChange={(bby) => setHot(bby ? { bby, conditionKey: null } : null)}
+            />
+          ) : null}
+
           {selectedItem ? (
             /* Per-line pricing detail + aggregated condition cards (ticket 014). */
             <SimItemDetail key={selectedItem.itemNumber} item={selectedItem} currency={result?.header.currency ?? ''} />

@@ -1,11 +1,6 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
-import type {
-  AppliedBonusBuy,
-  PotentialBonusBuy,
-  PrereqStatus,
-  PricingElement,
-} from '@/core/models/simulation'
+import type { PotentialBonusBuy, PrereqStatus, PricingElement } from '@/core/models/simulation'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import BoolCell from './BoolCell'
 
@@ -33,20 +28,6 @@ const num =
     type: 'numericColumn',
     valueFormatter: (p: ValueFormatterParams) => formatNumber(p.value as number),
   })
-
-/** Applied Bonus Buys: bby / promo / offer / description / discount type / total
- *  discount / remaining usage — the promotions that fired (WPF result-parity). */
-export function buildAppliedBonusColumns(t: TFunction): ColDef<AppliedBonusBuy>[] {
-  return [
-    { headerName: t('bonus.applied.bby'), field: 'bbyNumber', width: 120 },
-    { headerName: t('bonus.applied.promo'), field: 'promoNumber', width: 120 },
-    { headerName: t('bonus.applied.offer'), field: 'offerId', width: 110 },
-    { headerName: t('bonus.applied.description'), field: 'description', flex: 1, minWidth: 180 },
-    { headerName: t('bonus.applied.discountType'), field: 'discountType', width: 120 },
-    money<AppliedBonusBuy>(t, 'bonus.applied.totalDiscount', 'totalDiscountValue', 130),
-    num<AppliedBonusBuy>(t, 'bonus.applied.remainingUsage', 'remainingUsage', 130),
-  ]
-}
 
 /** Potential Bonus Buys: bby / promo / description / status / valid-to / min value
  *  / skip reason — promotions that could apply. Row selection drives Prerequisites. */

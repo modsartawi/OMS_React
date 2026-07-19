@@ -10,30 +10,30 @@ import type {
 } from '@/core/models/simulation'
 import {
   BONUS_DEFAULT_COL_DEF,
-  buildAppliedBonusColumns,
   buildPotentialBonusColumns,
   buildPrereqColumns,
   buildPricingElementColumns,
 } from './bonus-columns'
 
 // Lower tabbed panel completing result-parity with the WPF (ticket 015):
-//  • Applied Bonus Buys — read-only grid of the promotions that fired (result-level).
 //  • Potential Bonus Buys — grid of promotions that could apply; selecting a row drives
 //    a second stacked Prerequisites grid below it. TWO ag-grid Community grids driven by
 //    row selection, NOT Enterprise master-detail — mirrors the desktop.
 //  • Pricing Elements — the SELECTED line's raw pricing-procedure trace; the tab appears
 //    only when the request set `includePricingElements` (so the trace data is present).
+//
+// The result-level Applied Bonus Buys tab was folded into the plain-language buy→get
+// blocks (`SimPromoBlocks`, ticket 047) and no longer lives here.
 interface Props {
   result: SimulationResult
   selectedItem: SimulationResultItem | null
 }
 
-type Tab = 'applied' | 'potential' | 'elements'
+type Tab = 'potential' | 'elements'
 
 export default function SimBonusBuyPanel({ result, selectedItem }: Props) {
   const { t } = useTranslation('simulation')
 
-  const appliedCols = useMemo(() => buildAppliedBonusColumns(t), [t])
   const potentialCols = useMemo(() => buildPotentialBonusColumns(t), [t])
   const prereqCols = useMemo(() => buildPrereqColumns(t), [t])
   const elementCols = useMemo(() => buildPricingElementColumns(t), [t])
@@ -43,9 +43,9 @@ export default function SimBonusBuyPanel({ result, selectedItem }: Props) {
   const elements = selectedItem?.pricingElements ?? []
   const hasElements = result.items.some((i) => (i.pricingElements?.length ?? 0) > 0)
 
-  const tabs: Tab[] = hasElements ? ['applied', 'potential', 'elements'] : ['applied', 'potential']
-  const [tab, setTab] = useState<Tab>('applied')
-  const activeTab = tabs.includes(tab) ? tab : 'applied'
+  const tabs: Tab[] = hasElements ? ['potential', 'elements'] : ['potential']
+  const [tab, setTab] = useState<Tab>('potential')
+  const activeTab = tabs.includes(tab) ? tab : 'potential'
 
   // Two-grid selection: which potential bonus buy's prerequisites the lower grid shows.
   const [selectedBby, setSelectedBby] = useState<string | null>(null)
@@ -80,14 +80,6 @@ export default function SimBonusBuyPanel({ result, selectedItem }: Props) {
           </button>
         ))}
       </div>
-
-      {activeTab === 'applied' ? (
-        result.appliedBonusBuys.length === 0 ? (
-          <EmptyPane message={t('bonus.applied.empty')} />
-        ) : (
-          <BonusGrid heightClass="h-64" rowData={result.appliedBonusBuys} columnDefs={appliedCols} />
-        )
-      ) : null}
 
       {activeTab === 'potential' ? (
         result.potentialBonusBuys.length === 0 ? (

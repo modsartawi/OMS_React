@@ -99,6 +99,36 @@
     "net": "Net",
     "empty": "No priced lines yet."
   },
+  "promo": {
+    "paneTitle": "Promotions",
+    "firedCount": "{{count}} fired",
+    "empty": "No promotions fired on this basket.",
+    "savedLabel": "Saved",
+    "buyLabel": "Buy",
+    "getLabel": "Get",
+    "itemsLabel": "Items",
+    "noItems": "No basket lines resolved.",
+    "reward": "reward",
+    "free": "FREE",
+    "qty": "{{qty}}×",
+    "promoNoLabel": "promo {{promo}}",
+    "offerLabel": "offer {{offer}}",
+    "usage_one": "{{count}} use left",
+    "usage_other": "{{count}} uses left",
+    "title": {
+      "free": "Buy {{buy}}, Get {{get}} Free",
+      "percent": "Buy {{buy}}, Get {{get}} at a discount",
+      "fixed": "Buy {{buy}}, Get {{get}} with amount off",
+      "setprice": "Buy {{buy}}, Get {{get}} at a set price",
+      "fallback": "Promotion"
+    },
+    "kindTag": {
+      "free": "Free",
+      "percent": "% off",
+      "fixed": "Amount off",
+      "setprice": "Set price"
+    }
+  },
   "detail": {
     "title": "Pricing details for item {{item}}: {{material}}",
     "tiles": {
@@ -138,19 +168,8 @@
     "yes": "Yes",
     "no": "No",
     "tabs": {
-      "applied": "Applied Bonus Buys",
       "potential": "Potential Bonus Buys",
       "elements": "Pricing Elements"
-    },
-    "applied": {
-      "bby": "Bby no.",
-      "promo": "Promo no.",
-      "offer": "Offer",
-      "description": "Description",
-      "discountType": "Discount type",
-      "totalDiscount": "Total discount",
-      "remainingUsage": "Remaining usage",
-      "empty": "No bonus buys applied to this basket."
     },
     "potential": {
       "bby": "Bby no.",

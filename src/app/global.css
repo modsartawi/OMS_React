@@ -143,3 +143,16 @@ body {
 body.blocked-scroll {
   overflow: hidden;
 }
+
+/* POS Simulation grid↔block cross-highlight (ticket 047): a results row whose
+   promotion is hot (hovered/focused in the promo blocks, or vice-versa) glows in the
+   terracotta selection accent. Targets AG Grid's own row DOM — exempt from the
+   logical-utility rule. box-shadow has no logical form, so the inset accent bar is
+   left-offset here and mirrored to the right under [dir="rtl"]. */
+.ag-row.sim-row-hot {
+  background-color: color-mix(in srgb, var(--ring) 15%, transparent) !important;
+  box-shadow: inset 3px 0 0 var(--ring);
+}
+[dir='rtl'] .ag-row.sim-row-hot {
+  box-shadow: inset -3px 0 0 var(--ring);
+}

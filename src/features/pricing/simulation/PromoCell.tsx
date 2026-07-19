@@ -1,7 +1,8 @@
 import type { ICellRendererParams } from 'ag-grid-community'
 import { useTranslation } from 'react-i18next'
 import type { SimulationResultItem } from '@/core/models/simulation'
-import type { PromoKind, PromoLineRef } from './promo-view'
+import type { PromoLineRef } from './promo-view'
+import { KIND_CLASS } from './promo-kind'
 
 // Results-grid cell renderer for the Promotion column (ticket 046): the promotion(s)
 // touching a line, read at a glance without selecting it. Each ref shows a colour-coded
@@ -13,16 +14,19 @@ import type { PromoKind, PromoLineRef } from './promo-view'
 //
 // The per-line promo refs come from `promoView(result).lines` (ticket 045), passed into
 // the grid via `context` — the row data stays the raw SimulationResultItem.
-export interface PromoCellContext {
-  promoByItem: Map<number, PromoLineRef[]>
+/** The promotion currently hot (hovered/focused anywhere in the surface) — drives the
+ *  grid↔block cross-highlight (ticket 047). `conditionKey` narrows the highlight to one
+ *  buy↔get application when the projection (044) supplies it; `null` (the degradation
+ *  path, or a whole-block hover) lights every line of the `bby`. */
+export interface PromoHot {
+  bby: string
+  conditionKey: string | null
 }
 
-/** kind → chip classes. Neutral bucket for an unclassifiable kind (kept honest). */
-const KIND_CLASS: Record<PromoKind, string> = {
-  free: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-  percent: 'bg-primary/15 text-primary',
-  fixed: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
-  setprice: 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
+export interface PromoCellContext {
+  promoByItem: Map<number, PromoLineRef[]>
+  /** The hot promotion, or absent/null before any hover. */
+  hot?: PromoHot | null
 }
 
 export default function PromoCell(params: ICellRendererParams<SimulationResultItem>) {

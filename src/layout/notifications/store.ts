@@ -18,6 +18,14 @@ interface NcState {
   merge: (result: NotificationPollResult) => void
   /** Latch the feature-off state (a 404 poll). */
   setDisabled: () => void
+  /**
+   * Optimistically flip an item's read state (034). The badge/list re-derive
+   * immediately; the authoritative `isRead` rehydrates on the next cold-start
+   * poll (a Read receipt doesn't bump the notification rowversion, so a delta
+   * poll never re-delivers the item — the optimistic flip stands until reload).
+   * A failed Read reverts by calling this with the prior value.
+   */
+  setRead: (id: string, value: boolean) => void
 }
 
 export const useNcStore = create<NcState>((set) => ({
@@ -31,6 +39,12 @@ export const useNcStore = create<NcState>((set) => ({
       return { items, watermark: result.watermark }
     }),
   setDisabled: () => set({ disabled: true }),
+  setRead: (id, value) =>
+    set((prev) => {
+      const item = prev.items[id]
+      if (!item || item.isRead === value) return prev
+      return { items: { ...prev.items, [id]: { ...item, isRead: value } } }
+    }),
 }))
 
 /** The accumulated items as a plain array (unordered — callers sort/filter). */

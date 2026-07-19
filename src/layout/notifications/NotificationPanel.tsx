@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { NotificationItem } from '@/core/models/notifications'
 import { relativeTime } from './helpers'
+import { markNotificationRead, markAllNotificationsRead } from './actions'
 
 // The Notification Center dropdown panel (spec 031, ticket 033) — anchored under
 // the bell, ~380px, listing the polled announcements newest-first. Rows show a
@@ -18,9 +19,11 @@ function NotificationRow({ item, now }: { item: NotificationItem; now: number })
   const tag = typeTagKey(item.typeCode)
   const read = item.isRead
   return (
-    <div
+    <button
+      type="button"
+      onClick={() => void markNotificationRead(item.notificationId)}
       className={
-        'grid grid-cols-[8px_1fr_auto] gap-2.5 border-b border-border/50 px-3.5 py-3 last:border-b-0'
+        'grid w-full grid-cols-[8px_1fr_auto] gap-2.5 border-b border-border/50 px-3.5 py-3 text-start last:border-b-0 hover:bg-accent/50'
       }
     >
       <span
@@ -50,7 +53,7 @@ function NotificationRow({ item, now }: { item: NotificationItem; now: number })
       <span className="whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
         {t(`relative.${rel.key}`, { count: rel.count })}
       </span>
-    </div>
+    </button>
   )
 }
 
@@ -62,6 +65,8 @@ export default function NotificationPanel({
   now: number
 }) {
   const { t } = useTranslation('notifications')
+  // Non-expired items already; unread = Active ∧ !read. Mark-all targets these.
+  const unreadIds = items.filter((i) => i.status === 'Active' && !i.isRead).map((i) => i.notificationId)
   return (
     <div
       role="dialog"
@@ -70,6 +75,14 @@ export default function NotificationPanel({
     >
       <div className="flex items-center justify-between border-b border-border px-3.5 py-3">
         <h3 className="text-sm font-semibold">{t('panel.title')}</h3>
+        <button
+          type="button"
+          onClick={() => void markAllNotificationsRead(unreadIds)}
+          disabled={unreadIds.length === 0}
+          className="rounded-md px-1.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+        >
+          {t('panel.markAll')}
+        </button>
       </div>
       {items.length === 0 ? (
         <div className="px-4 py-10 text-center text-[13px] text-muted-foreground">

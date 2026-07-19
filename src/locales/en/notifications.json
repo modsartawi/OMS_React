@@ -4,7 +4,8 @@
   },
   "panel": {
     "title": "Notifications",
-    "empty": "You're all caught up."
+    "empty": "You're all caught up.",
+    "markAll": "Mark all as read"
   },
   "type": {
     "broadcast": "Broadcast",

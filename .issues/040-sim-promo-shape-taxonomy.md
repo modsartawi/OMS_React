@@ -2,7 +2,7 @@
 type: wayfinder-ticket
 wayfinder: grilling
 map: 039
-status: open
+status: claimed
 blocked-by:
 ---
 

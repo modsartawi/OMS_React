@@ -69,7 +69,7 @@ overnight blockers: [NC-MORNING-REPORT.md](NC-MORNING-REPORT.md).
 
 - [032](032-nc-bell-poll-badge.md) — theBellPollsAndShowsAnUnreadBadge · **code-complete** (typecheck green; runtime-blocked, SIS.Api down) · blocked by: — · dep: GET Notifications/Poll (+ api.get header passthrough)
 - [033](033-nc-panel-list.md) — theBellOpensAPanelListingAnnouncementsNewestFirst · **code-complete** (typecheck green; runtime-blocked) · blocked by: 032
-- [034](034-nc-read-state.md) — readingAnItemDropsTheUnreadCount · **open** · blocked by: 033 · dep: POST Notifications/{id}/Read
+- [034](034-nc-read-state.md) — readingAnItemDropsTheUnreadCount · **code-complete** (typecheck green; runtime-blocked) · blocked by: 033 · dep: POST Notifications/{id}/Read
 - [035](035-nc-arrivals-sonner.md) — aFreshArrivalRaisesAToastAndBumpsTheBadge · **open** · blocked by: 033
 - [036](036-nc-compose-send-store.md) — composingABroadcastSendsItToAStore · **open** · blocked by: — · dep: POST Notifications
 - [037](037-nc-fleet-confirm.md) — sendingToTheWholeFleetAsksForConfirmation · **open** · blocked by: 036
@@ -83,5 +83,5 @@ full detail preserved for advanced users via progressive disclosure. Destination
 sketches** (spec + build are a later effort). Buy→get data is present-but-unused; no backend work.
 
 - [039](039-sim-promo-visibility-rework.md) — Simulation applied-promotion visibility rework · **open** · wayfinder map
-- [040](040-sim-promo-shape-taxonomy.md) — Promo-shape taxonomy & response-field mapping · **open** · blocked by: —
+- [040](040-sim-promo-shape-taxonomy.md) — Promo-shape taxonomy & response-field mapping · **claimed** · blocked by: —
 - [041](041-sim-results-promo-sketch.md) — Sketch the reworked results-and-promo surface · **open** · blocked by: 040

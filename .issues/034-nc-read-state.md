@@ -1,10 +1,14 @@
 ---
-status: open
+status: code-complete
 spec: 031
 blocked-by: 033
 ---
 
 # 034 — readingAnItemDropsTheUnreadCount
+
+> **Build note (runtime-blocked):** code-complete, `npm run typecheck` green. Runtime app-drive
+> deferred (SIS.Api :5111 down). Optimistic overlay lives in the store (`setRead`), read actions
+> in `actions.ts`; reload-rehydration relies on the server receipt (untested this session).
 
 ## What to build
 

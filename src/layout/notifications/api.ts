@@ -22,4 +22,12 @@ export const notificationsApi = {
       { 'x-presence': 'skip' },
     )
   },
+
+  // Mark one notification read for this device (per-id — there is no bulk
+  // endpoint, 024 §gap 4). Both v1 types (BROADCAST, JOB_DONE) are Device-scope,
+  // so the server writes a receipt and `isRead` rehydrates on the next cold-start
+  // poll. For a BO caller the device IS the user, so the receipt is per-user.
+  markRead(id: string): Promise<{ ok: boolean }> {
+    return api.post<{ ok: boolean }>(`Notifications/${id}/Read`, {})
+  },
 }

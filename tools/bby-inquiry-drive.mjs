@@ -63,6 +63,43 @@ const ROW = (over) => ({
   ...over,
 })
 
+// ticket 066 — Bby/Detail payloads (BbyDetailDto contract 058). A rows-mode BBY with
+// a grouping Buy row (members chip) + two Get conditions, and a Document total-discount.
+const DETAIL_ROWS = {
+  header: {
+    bbyNumber: '100234', description: 'Buy 2 Panadol, get 1 free', bbyProfile: 'HEALTH_PROMO',
+    validFrom: '20260101', validTo: '20261231', validFromTime: '000000', validToTime: '235959',
+    promoNumber: 'PR-24817', offerId: 'OFR-6621', linkCategoryBuy: 'A', linkCategoryGet: 'O',
+    bbyStatus: 'A', condTargetType: 'M', minValue: 0, maxValue: 0, limitNumber: 1, score: 100,
+    isStackable: false, allowNestedStacking: false, loyGroups: 'NAHDI_PLUS', loyTiers: 'GOLD',
+    includes: '', excludes: 'TOBACCO',
+  },
+  org: { salesOrganization: '1000', distributionChannel: '10', plant: '1201', currency: 'SAR' },
+  buy: [
+    { lineItemPos: '10', prereqType: 'MGP', isGrouping: true, identifier: 'GRP-PANADOL-24',
+      materialNumber: null, description: null, qty: 2, uom: 'EA', minValue: 0, memberCount: 14 },
+  ],
+  get: [
+    { condNumber: '01', isGrouping: false, identifier: '5900001234', materialNumber: '5900001234',
+      description: 'Panadol Extra 24s', discountType: '%', conditionType: 'ZB03', condValue: 0,
+      condValueP: 100, scaleType: 'A', qty: 1, uom: 'EA', pricingUnit: 1, pricingUnitUom: 'EA', memberCount: 0 },
+    { condNumber: '02', isGrouping: false, identifier: '5900004417', materialNumber: '5900004417',
+      description: 'Panadol Cold 24s', discountType: 'R', conditionType: 'ZB02', condValue: 8.5,
+      condValueP: 0, scaleType: 'A', qty: 1, uom: 'EA', pricingUnit: 1, pricingUnitUom: 'EA', memberCount: 0 },
+  ],
+  totalDiscount: null,
+}
+const DETAIL_DOC = {
+  header: {
+    ...DETAIL_ROWS.header, bbyNumber: '100235', description: 'Al-Rajhi card — 5% off basket',
+    condTargetType: 'R', minValue: 100, bbyStatus: 'A',
+  },
+  org: { ...DETAIL_ROWS.org },
+  buy: [],
+  get: [],
+  totalDiscount: { discountType: '%', conditionType: 'ZB03', condValue: 0, condValueP: 5, requirement: 100 },
+}
+
 // scenario state, mutated between reloads
 let scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: '10% off shampoo', isActive: false, bbyStatus: 'I' })] }
 // last Bby/List query string seen (assert Search sends the built params), and the
@@ -99,6 +136,21 @@ async function run() {
           }),
         )
       return route.fulfill(envelope({ rows: scenario.rows, capReached: scenario.capReached === true }))
+    }
+    if (path === 'Bby/Detail') {
+      // ticket 066 — the modal payload. `detailMode` selects the branch under test.
+      const mode = scenario.detailMode || 'rows'
+      if (mode === 'notfound')
+        return route.fulfill(
+          envelope(null, {
+            ok: false,
+            status: 404,
+            success: false,
+            message: 'This Bonus Buy has no detail record.',
+            errors: [{ errorCode: 'BBY_NOT_FOUND', message: 'This Bonus Buy has no detail record.' }],
+          }),
+        )
+      return route.fulfill(envelope(mode === 'document' ? DETAIL_DOC : DETAIL_ROWS))
     }
     // Any other probe/endpoint → benign empty success so no leaf crashes.
     return route.fulfill(envelope({}))
@@ -159,7 +211,10 @@ async function run() {
   const detailsBtns = await page.getByRole('button', { name: /Details/i }).count()
   check('Details action renders per row', detailsBtns === 2, `${detailsBtns} buttons`)
   await page.getByRole('button', { name: /Details/i }).first().click()
-  check('Details button is clickable (no crash)', true)
+  check('Details button opens the modal', (await page.locator('dialog[open]').count()) >= 1)
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  check('modal closes on Escape', (await page.locator('dialog[open]').count()) === 0)
 
   // Chips/labels seen during the sweep: And/Or link, Product target.
   check('link code A renders as And', seen.has('And'), '')
@@ -253,6 +308,49 @@ async function run() {
   check('CSV header includes BBY # + Valid from + Status', /BBY #/.test(headerLine) && /Valid from/.test(headerLine) && /Status/.test(headerLine), headerLine.slice(0, 80))
   // Raw values, not display chips: yyyyMMdd date + single-letter status code, NOT "2026-01-01"/"Activated".
   check('CSV cells are RAW (20260101 date, "A" status), not formatted', /20260101/.test(csv) && /(^|,)"?A"?(,|$)/m.test(csv) && !/Activated/.test(csv) && !/2026-01-01/.test(csv), '')
+
+  // ---- ticket 066: the Details modal (rows branch, document branch, not-found) ----
+  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: 'Al-Rajhi card — 5% off basket', condTargetType: 'R', isActive: true }), ROW({ bbyNumber: '100999', description: 'Orphaned number', isActive: false, bbyStatus: 'I' })], detailMode: 'rows' }
+  await page.goto(URL)
+  await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
+
+  // Rows branch: open row 0 → header recap + Buy/Get tables + members chip.
+  await page.getByRole('button', { name: /Details/i }).first().click()
+  await page.locator('dialog[open]').getByText(/Buy side/i).waitFor({ timeout: 5000 }).catch(() => {})
+  const mBody = await page.locator('dialog[open]').innerText().catch(() => '')
+  check('modal shows the BBY number recap', mBody.includes('100234'), mBody.slice(0, 60))
+  check('modal shows the Organisation panel', /Sales org/i.test(mBody))
+  check('modal shows the Buy side table', /Buy side/i.test(mBody))
+  check('modal shows the Get side table', /Get side/i.test(mBody))
+  check('Get row formats amount discount with currency (SAR)', /SAR/.test(mBody))
+  check('grouping Buy row shows the "N members" chip', /14 members/i.test(mBody), mBody.match(/\d+ members/)?.[0] || '')
+  check('Get side table shows a condition value (100)', /100/.test(mBody))
+  // Close via backdrop-less path (Escape) → grid intact behind.
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  check('modal closed, grid still intact (rows preserved)', (await page.locator('dialog[open]').count()) === 0 && (await page.locator('.ag-row').count()) === 3)
+
+  // Document branch: total-discount card instead of a Get table.
+  scenario.detailMode = 'document'
+  await page.getByRole('button', { name: /Details/i }).nth(1).click()
+  await page.locator('dialog[open]').getByText(/total discount/i).waitFor({ timeout: 5000 }).catch(() => {})
+  const docBody = await page.locator('dialog[open]').innerText().catch(() => '')
+  check('Document mode shows the total-discount card', /total discount/i.test(docBody), docBody.slice(0, 80))
+  check('total-discount card shows the basket requirement', /Basket requirement/i.test(docBody))
+  check('total-discount card shows the 5% figure', /5/.test(docBody) && /%/.test(docBody))
+  check('Document mode Buy side shows the empty note', /qualification is basket value/i.test(docBody))
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+
+  // Not-found branch: BBY_NOT_FOUND (404 business) → not-found card, not "unexpected".
+  // Use a fresh, uncached number (row 2 = 100999) so react-query actually refetches.
+  scenario.detailMode = 'notfound'
+  await page.getByRole('button', { name: /Details/i }).nth(2).click()
+  await page.waitForSelector('dialog[open] [role="alert"]', { timeout: 5000 }).catch(() => {})
+  const nfBody = await page.locator('dialog[open]').innerText().catch(() => '')
+  check('not-found → the "Bonus Buy not found" card', /not found/i.test(nfBody) && !/unexpected/i.test(nfBody), nfBody.slice(0, 80))
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
 
   // The fail-open scenario (3a) intentionally 404s Bby/Access, which the browser logs
   // as a resource-load 404 — expected, not an app fault. Filter it out.

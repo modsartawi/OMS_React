@@ -1,5 +1,9 @@
 import { api, ApiError } from '@/core/api'
-import type { BbyInquiryAccessResult, BbyListResult } from '@/core/models/bonus-buy-inquiry'
+import type {
+  BbyDetailDto,
+  BbyInquiryAccessResult,
+  BbyListResult,
+} from '@/core/models/bonus-buy-inquiry'
 
 // Every server call goes through @/core/api (see .claude/rules/api-envelope.md): it
 // unwraps the SIS.Api envelope, returns `.data`, and maps failures to ApiError. The
@@ -37,5 +41,15 @@ export const bonusBuyInquiryApi = {
   // { rows (≤1000, CreatedAt desc), capReached }.
   list(params: Record<string, unknown>): Promise<BbyListResult> {
     return api.get<BbyListResult>(`${BASE}/List`, params)
+  },
+
+  // The Details modal payload (066). Self-contained BbyDetailDto (header + org +
+  // buy[]/get[] or totalDiscount). ⚠️ GET Bby/Detail does NOT exist in SIS.Api yet
+  // (code-complete / runtime-blocked, contract 058). A missing detail record is a
+  // BUSINESS outcome — HTTP 404 carrying `BBY_NOT_FOUND` in the envelope — which
+  // request() maps to a business ApiError; the modal surfaces its message via
+  // apiErrorMessage/apiErrorCode, never a generic "unexpected".
+  detail(bbyNumber: string): Promise<BbyDetailDto> {
+    return api.get<BbyDetailDto>(`${BASE}/Detail`, { bbyNumber })
   },
 }

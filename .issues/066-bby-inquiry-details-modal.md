@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 061
 blocked-by: 063
 ---
@@ -37,8 +37,8 @@ component (modal via `core/ui/Modal.tsx`, header panels, Buy/Get tables, total-d
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `toDetailView` selects the **total-discount** branch (empty Get) when `condTargetType==='R'` and the **rows** branch otherwise; marks grouping rows drilldown-enabled; formats discount by type · **pure**
-- [ ] opening Details renders the header recap + Buy/Get tables (or the total-discount card) from a mocked `Bby/Detail`; a mocked `BBY_NOT_FOUND` shows the not-found card · **flow** — verify via typecheck + drive (extend `tools/screen1-smoke.mjs`)
+- [x] `toDetailView` selects the **total-discount** branch (empty Get) when `condTargetType==='R'` and the **rows** branch otherwise; marks grouping rows drilldown-enabled; formats discount by type · **pure** — in-memory jiti harness, 18/18 green (branch selection, R drops stray Get, drilldown flag, `%`/`R`/defensive-`N` discount kinds, validity states)
+- [x] opening Details renders the header recap + Buy/Get tables (or the total-discount card) from a mocked `Bby/Detail`; a mocked `BBY_NOT_FOUND` shows the not-found card · **flow** — verified via typecheck + drive (extended `tools/bby-inquiry-drive.mjs`, 49/49 green: rows branch header/Buy/Get + members chip, Document total-discount card + empty-note, `BBY_NOT_FOUND` card, Escape closes to an intact grid)
 
 ## Boundaries
 
@@ -54,3 +54,21 @@ green; typecheck + build green.
 ## Blocked by
 
 [063](063-bby-inquiry-full-grid.md) — the sticky identity column + Details ▸ trigger live there.
+
+## Comments
+
+- **Built** on `feature/notification-center` (code-complete / runtime-blocked — SIS.Api `Bby/Detail`
+  not built yet), following the NC/cache-reset posture. New: `detail-view.ts` (pure `toDetailView`),
+  `DetailModal.tsx`, `api.ts` `detail()`, `BbyDetailDto`/`BbyBuyRow`/`BbyGetRow`/`BbyTotalDiscount`
+  models, `formatAmount` (2-dp money), the `detail.*` i18n block, and the 066 drive block.
+- **Discount-type label fix (spec review):** the `discount` code set had `P → "Percent"`, but the
+  formatter (per the 058 DTO rule) only treats `'%'` as a percentage — a `'P'` row would read
+  "Percent" beside a bare number. Corrected `P → "Price"` to match the approved 060 prototype's
+  `DISCOUNT` map. `%` stays "Percent", `R` stays "Amount".
+- **Backend contract note (spec review):** the Header & rules panel shows `includes`/`excludes`
+  (story 33), but the 058/061 `Bby/Detail` header contract doesn't list them — added as **optional**
+  `header.includes?`/`excludes?` so a payload that omits them renders a dash. The backend `Bby/Detail`
+  build should project them to fill those cells; flagged for 067/backend reconciliation.
+- **Standards review:** no hard violations; centralized the `%`-vs-currency unit decision into one
+  `discountUnit` helper + exposed the total-discount presentation from the pure `toDetailView` (so it
+  isn't re-derived in the card), and removed an unused `detail.close` key.

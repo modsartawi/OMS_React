@@ -37,3 +37,12 @@ export function formatIsoDate(raw: string | null | undefined): string {
 export function formatNumber(raw: number | null | undefined): string {
   return raw == null ? '' : String(raw)
 }
+
+/** A money/quantity value with exactly two fraction digits (the Details modal's
+ *  discount + min/max figures, matching the SAP mirror). `null`/`undefined` → ''.
+ *  Locale-neutral (grouping via the default locale) so the harness stays stable. */
+export function formatAmount(raw: number | null | undefined): string {
+  return raw == null
+    ? ''
+    : raw.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}

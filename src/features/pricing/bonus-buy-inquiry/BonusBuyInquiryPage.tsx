@@ -15,6 +15,7 @@ import { bonusBuyInquiryApi } from './api'
 import { buildListParams, type BbyListCriteria } from './list-params'
 import { buildDefaultColDef, buildInquiryColumns } from './columns'
 import SearchToolbar from './SearchToolbar'
+import DetailModal from './DetailModal'
 import { exportBbyToCsv } from './export'
 
 // The BBY Inquiry screen (spec 061). Self-guards on Bby/Access (issue-429 pattern,
@@ -82,10 +83,13 @@ export default function BonusBuyInquiryPage() {
   const [showFilters, setShowFilters] = useState(false)
   const defaultColDef = useMemo(() => buildDefaultColDef(showFilters), [showFilters])
 
-  // Details ▸ opens the SAP-style modal — wired in slice 066.
-  const onDetails = useCallback((_row: BbyInquiryRow) => {
-    // Placeholder until 066: the modal opens off this callback.
-  }, [])
+  // Details ▸ opens the SAP-style modal (066). The selected BBY number drives a
+  // Bby/Detail query inside DetailModal; `null` keeps it closed. Closing (✕ / Escape /
+  // backdrop) clears the selection, landing back on the grid with its state intact —
+  // the Page never unmounts the grid, so scroll/sort/filters survive (story 47).
+  const [detailNumber, setDetailNumber] = useState<string | null>(null)
+  const onDetails = useCallback((row: BbyInquiryRow) => setDetailNumber(row.bbyNumber), [])
+  const onCloseDetail = useCallback(() => setDetailNumber(null), [])
 
   const columns = useMemo(() => buildInquiryColumns(t, onDetails), [t, onDetails])
 
@@ -204,6 +208,8 @@ export default function BonusBuyInquiryPage() {
           />
         </div>
       ) : null}
+
+      <DetailModal bbyNumber={detailNumber} onClose={onCloseDetail} />
     </section>
   )
 }

@@ -88,7 +88,7 @@
     "G": "Grouping"
   },
   "discount": {
-    "P": "Percent",
+    "P": "Price",
     "R": "Amount",
     "%": "Percent"
   },
@@ -115,5 +115,87 @@
   "errors": {
     "loadFailed": "Couldn't load Bonus Buys. Please try again.",
     "dateTitle": "Check the dates"
+  },
+  "detail": {
+    "eyebrow": "Bonus Buy · Display",
+    "dash": "—",
+    "validity": {
+      "live": "Active now",
+      "ended": "Window ended",
+      "notStarted": "Not yet started"
+    },
+    "org": {
+      "title": "Organisation",
+      "sub": "Where this Bonus Buy applies",
+      "salesOrg": "Sales org",
+      "distChannel": "Dist. channel",
+      "plant": "Plant",
+      "currency": "Currency"
+    },
+    "rules": {
+      "title": "Header & rules",
+      "sub": "Validity & rule settings",
+      "promotion": "Promotion",
+      "offer": "Offer",
+      "profile": "Profile",
+      "status": "Status",
+      "validityWindow": "Validity window",
+      "condTarget": "Condition target",
+      "limit": "Limit",
+      "unlimited": "Unlimited",
+      "link": "Link — Buy / Get",
+      "minMax": "Min / Max value",
+      "stackability": "Stackability",
+      "stackable": "Stackable",
+      "notStackable": "Not stackable",
+      "nestedAllowed": "nested allowed",
+      "score": "Score",
+      "loyGroups": "Loyalty groups",
+      "loyTiers": "Loyalty tiers",
+      "includes": "Includes",
+      "excludes": "Excludes"
+    },
+    "buy": {
+      "title": "Buy side",
+      "sub": "Prerequisites · link {{link}}",
+      "pos": "Pos",
+      "material": "Material / grouping",
+      "kind": "Kind",
+      "qty": "Qty",
+      "minValue": "Min value",
+      "emptyNote": "No line prerequisites — qualification is basket value (see Header · Min value)."
+    },
+    "then": "then",
+    "get": {
+      "title": "Get side",
+      "sub": "Conditions · link {{link}}",
+      "cond": "Cond",
+      "material": "Material / grouping",
+      "discount": "Discount",
+      "scalePricing": "Scale / pricing",
+      "condType": "Cond. type",
+      "perUnit": "per {{qty}} {{uom}}",
+      "emptyNote": "No Get conditions."
+    },
+    "kind": {
+      "grouping": "Material grouping",
+      "material": "Material"
+    },
+    "members": "{{count}} members",
+    "totalDiscount": {
+      "title": "Get side — total discount",
+      "sub": "Document mode (condTargetType R)",
+      "appliedTo": "Applied to the whole document",
+      "discountType": "Discount type",
+      "condType": "Condition type",
+      "requirement": "Basket requirement",
+      "requirementValue": "≥ {{value}} {{currency}}"
+    },
+    "loading": "Loading Bonus Buy…",
+    "notFound": {
+      "title": "Bonus Buy not found",
+      "hint": "This number is listed but has no detail record."
+    },
+    "loadFailed": "Couldn't load this Bonus Buy. Please try again."
   }
 }

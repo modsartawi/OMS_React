@@ -55,6 +55,92 @@ export interface BbyListResult {
 }
 
 /**
+ * GET Bby/Detail?bbyNumber={n} — the per-row Details modal payload (contract 058,
+ * spec 061; ticket 066). Self-contained: `org` is projected server-side off
+ * `BbyCond000`; `buy[]`/`get[]` carry the material `description` enriched inline;
+ * `totalDiscount` is non-null ONLY when `condTargetType === 'R'` (Document mode),
+ * where `get[]` is empty. Every scalar is RAW (dates `yyyyMMdd`, times `HHMMSS`,
+ * single-letter codes); the client formats + labels at the render tier.
+ */
+export interface BbyDetailDto {
+  header: {
+    bbyNumber: string
+    description: string
+    bbyProfile: string
+    validFrom: string // yyyyMMdd
+    validTo: string // yyyyMMdd
+    validFromTime: string // HHMMSS
+    validToTime: string // HHMMSS
+    promoNumber: string
+    offerId: string
+    linkCategoryBuy: string // A=And / O=Or
+    linkCategoryGet: string // A=And / O=Or
+    bbyStatus: string // A/I/D/X
+    condTargetType: string // R=Document -> total-discount layout
+    minValue: number // doubles as the Document total-discount basket requirement
+    maxValue: number
+    limitNumber: number
+    score: number
+    isStackable: boolean
+    allowNestedStacking: boolean
+    loyGroups: string
+    loyTiers: string
+    /** Not on the flat header; some detail payloads carry them, some don't. */
+    includes?: string
+    excludes?: string
+  }
+  org: { salesOrganization: string; distributionChannel: string; plant: string; currency: string }
+  buy: BbyBuyRow[]
+  get: BbyGetRow[] // [] when condTargetType === 'R'
+  totalDiscount: BbyTotalDiscount | null // non-null only when condTargetType === 'R'
+}
+
+/** One Buy-side prerequisite line. `isGrouping && memberCount > 0` → a material
+ *  grouping whose members open the drilldown (slice 067). */
+export interface BbyBuyRow {
+  lineItemPos: string
+  prereqType: string // MGP=grouping / MAT=material
+  isGrouping: boolean
+  identifier: string
+  materialNumber: string | null
+  description: string | null
+  qty: number
+  uom: string
+  minValue: number
+  memberCount: number
+}
+
+/** One Get-side condition line. Show `condValueP` (with `%`) when
+ *  `discountType === '%'`, else `condValue` (with the org currency). */
+export interface BbyGetRow {
+  condNumber: string
+  isGrouping: boolean
+  identifier: string
+  materialNumber: string | null
+  description: string | null
+  discountType: string // P|R|%
+  conditionType: string // ZB01/02/12/03/13
+  condValue: number
+  condValueP: number
+  scaleType: string // A=From / B=UpTo / C=Equal
+  qty: number
+  uom: string
+  pricingUnit: number
+  pricingUnitUom: string
+  memberCount: number
+}
+
+/** The single Document-mode total-discount figure (`condTargetType === 'R'`).
+ *  `requirement` mirrors `header.minValue` — the basket value that qualifies. */
+export interface BbyTotalDiscount {
+  discountType: string
+  conditionType: string
+  condValue: number
+  condValueP: number
+  requirement: number
+}
+
+/**
  * GET Bby/Access — the screen-open grant probe (nav show/hide + in-page guard).
  * `screenAllowed` is the server's answer; `probed` records whether the endpoint
  * actually answered. While the endpoint is absent (404 / network) the client FAILS

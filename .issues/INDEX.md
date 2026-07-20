@@ -139,5 +139,5 @@ endpoints (`Bby/Access`, `Bby/List`, `Bby/Detail`, `Bby/GroupingMembers`) are bu
 - [063](063-bby-inquiry-full-grid.md) — theGridShowsAllTwentyEightHeaderFieldsGroupedWithChipsStickyIdentityAndDetailsAction · **done** (pure harness 23/23; drove full grid 23/23 via mocked `Bby/*` — live-drive pending SIS.Api) · blocked by: 062
 - [064](064-bby-inquiry-search-toolbar.md) — searchingByNumberOrDateClearsActiveOnlyAndFiltersByValidityOverlap · **done** (typecheck/build green; pure harness 8/8; drove search toolbar — chip, cap banner, date-error title, Reset — 35/35 via mocked `Bby/*`; live-drive pending SIS.Api) · blocked by: 062
 - [065](065-bby-inquiry-csv-export.md) — exportingTheGridWritesAllTwentyEightRawFieldsToCsv · **done** (typecheck/build green; drove Export CSV — 28-col header + raw code/date cells — via mocked `Bby/List`; live-drive pending SIS.Api) · blocked by: 063
-- [066](066-bby-inquiry-details-modal.md) — openingDetailsShowsTheHeaderRecapBuyGetOrTotalDiscount · **open** · blocked by: 063 · dep: SIS.Api Bby/Detail
+- [066](066-bby-inquiry-details-modal.md) — openingDetailsShowsTheHeaderRecapBuyGetOrTotalDiscount · **done** · blocked by: 063 · dep: SIS.Api Bby/Detail
 - [067](067-bby-inquiry-grouping-drilldown.md) — groupingRowsOpenAPagedMembersDrilldown · **open** · blocked by: 066 · dep: SIS.Api Bby/GroupingMembers

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 061
 blocked-by: 066
 ---
@@ -27,7 +27,7 @@ table, pager) · i18n (drilldown title, column headers, pager) · test (app-driv
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] a Buy-side grouping chip opens the drilldown and pages through mocked `Bby/GroupingMembers` (range/total correct); a Get-side grouping opens with `side=get` keyed by `condNumber` · **flow** — verify via typecheck + drive (mocked members envelope)
+- [x] a Buy-side grouping chip opens the drilldown and pages through mocked `Bby/GroupingMembers` (range/total correct); a Get-side grouping opens with `side=get` keyed by `condNumber` · **flow** — verify via typecheck + drive (mocked members envelope) — `tools/bby-inquiry-drive.mjs` extended (57/57 pass): Buy chip opens the nested modal (`side=buy&groupingKey=GRP-PANADOL-24&page=1`), footer `1–20 of 42`, Next → `page=2` / `21–40 of 42`; closing returns to the Detail modal; Get chip opens `side=get&groupingKey=03`. typecheck + build green.
 
 ## Boundaries
 

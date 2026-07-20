@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -7,6 +7,7 @@ import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import type { BbyDetailDto } from '@/core/models/bonus-buy-inquiry'
 import { bonusBuyInquiryApi } from './api'
+import GroupingMembersModal, { type GroupingTarget } from './GroupingMembersModal'
 import { codeLabelKey, type CodeSet } from './codeLabels'
 import { formatAmount, formatBbyDate, formatBbyTime } from './formatters'
 import {
@@ -75,6 +76,15 @@ export default function DetailModal({ bbyNumber, onClose }: DetailModalProps) {
   const { t } = useTranslation('bonus-buy-inquiry')
   const open = bbyNumber !== null
 
+  // Which grouping (if any) has its paged members drilldown open (slice 067). Lives
+  // here — alongside the detail query — so the chip click and the nested modal share
+  // one source of truth. Reset whenever the target BBY changes (close, or a switch to
+  // another row) so a stale grouping from the prior BBY can never reopen.
+  const [drilldown, setDrilldown] = useState<GroupingTarget | null>(null)
+  useEffect(() => {
+    setDrilldown(null)
+  }, [bbyNumber])
+
   const detail = useQuery({
     queryKey: ['bonus-buy-inquiry', 'detail', bbyNumber],
     queryFn: () => bonusBuyInquiryApi.detail(bbyNumber as string),
@@ -84,25 +94,42 @@ export default function DetailModal({ bbyNumber, onClose }: DetailModalProps) {
   const view: DetailView | null = detail.data ? toDetailView(detail.data, todayYmd()) : null
 
   return (
-    <Modal open={open} onClose={onClose} title={t('detail.eyebrow')} width="60rem">
-      {detail.isPending ? (
-        <DetailSkeleton label={t('detail.loading')} />
-      ) : detail.isError ? (
-        <DetailError
-          notFound={apiErrorCode(detail.error) === 'BBY_NOT_FOUND'}
-          message={apiErrorMessage(detail.error, t('detail.loadFailed'))}
-          notFoundTitle={t('detail.notFound.title')}
-          notFoundHint={t('detail.notFound.hint')}
+    <>
+      <Modal open={open} onClose={onClose} title={t('detail.eyebrow')} width="60rem">
+        {detail.isPending ? (
+          <DetailSkeleton label={t('detail.loading')} />
+        ) : detail.isError ? (
+          <DetailError
+            notFound={apiErrorCode(detail.error) === 'BBY_NOT_FOUND'}
+            message={apiErrorMessage(detail.error, t('detail.loadFailed'))}
+            notFoundTitle={t('detail.notFound.title')}
+            notFoundHint={t('detail.notFound.hint')}
+          />
+        ) : view ? (
+          <DetailBody t={t} view={view} onDrilldown={setDrilldown} />
+        ) : null}
+      </Modal>
+      {bbyNumber && (
+        <GroupingMembersModal
+          bbyNumber={bbyNumber}
+          target={drilldown}
+          onClose={() => setDrilldown(null)}
         />
-      ) : view ? (
-        <DetailBody t={t} view={view} />
-      ) : null}
-    </Modal>
+      )}
+    </>
   )
 }
 
 /** The resolved body: title recap + the four content sections. */
-function DetailBody({ t, view }: { t: TFunction; view: DetailView }) {
+function DetailBody({
+  t,
+  view,
+  onDrilldown,
+}: {
+  t: TFunction
+  view: DetailView
+  onDrilldown: (target: GroupingTarget) => void
+}) {
   const { header, org } = view
   const currency = org.currency
   return (
@@ -180,7 +207,7 @@ function DetailBody({ t, view }: { t: TFunction; view: DetailView }) {
       </Section>
 
       {/* Buy side */}
-      <BuySection t={t} view={view} />
+      <BuySection t={t} view={view} onDrilldown={onDrilldown} />
 
       {/* "then" link strip */}
       <div className="flex items-center justify-center gap-3">
@@ -195,7 +222,7 @@ function DetailBody({ t, view }: { t: TFunction; view: DetailView }) {
       {view.mode === 'totalDiscount' ? (
         <TotalDiscountCard t={t} view={view} />
       ) : (
-        <GetSection t={t} view={view} />
+        <GetSection t={t} view={view} onDrilldown={onDrilldown} />
       )}
     </div>
   )
@@ -228,7 +255,15 @@ function TitleRecap({ t, view }: { t: TFunction; view: DetailView }) {
   )
 }
 
-function BuySection({ t, view }: { t: TFunction; view: DetailView }) {
+function BuySection({
+  t,
+  view,
+  onDrilldown,
+}: {
+  t: TFunction
+  view: DetailView
+  onDrilldown: (target: GroupingTarget) => void
+}) {
   const rows = view.buy
   return (
     <Section
@@ -249,7 +284,7 @@ function BuySection({ t, view }: { t: TFunction; view: DetailView }) {
             <span className="text-end">{t('detail.buy.minValue')}</span>
           </div>
           {rows.map((r, i) => (
-            <BuyRow key={`${r.lineItemPos}-${i}`} t={t} row={r} />
+            <BuyRow key={`${r.lineItemPos}-${i}`} t={t} row={r} onDrilldown={onDrilldown} />
           ))}
         </div>
       )}
@@ -257,7 +292,15 @@ function BuySection({ t, view }: { t: TFunction; view: DetailView }) {
   )
 }
 
-function BuyRow({ t, row }: { t: TFunction; row: DetailBuyRow }) {
+function BuyRow({
+  t,
+  row,
+  onDrilldown,
+}: {
+  t: TFunction
+  row: DetailBuyRow
+  onDrilldown: (target: GroupingTarget) => void
+}) {
   return (
     <div className="grid grid-cols-[3rem_1fr_8rem_6rem_6rem] items-center gap-2.5 border-b border-border px-3.5 py-2 text-[0.8125rem] last:border-b-0">
       <span className="font-mono tabular-nums">{row.lineItemPos}</span>
@@ -268,6 +311,17 @@ function BuyRow({ t, row }: { t: TFunction; row: DetailBuyRow }) {
         isGrouping={row.isGrouping}
         drilldownEnabled={row.drilldownEnabled}
         memberCount={row.memberCount}
+        onDrilldown={
+          row.drilldownEnabled
+            ? () =>
+                onDrilldown({
+                  side: 'buy',
+                  groupingKey: row.identifier,
+                  label: row.identifier,
+                  memberCount: row.memberCount,
+                })
+            : undefined
+        }
       />
       <span className="text-xs font-medium text-muted-foreground">
         {row.isGrouping ? t('detail.kind.grouping') : t('detail.kind.material')}
@@ -282,7 +336,15 @@ function BuyRow({ t, row }: { t: TFunction; row: DetailBuyRow }) {
   )
 }
 
-function GetSection({ t, view }: { t: TFunction; view: DetailView }) {
+function GetSection({
+  t,
+  view,
+  onDrilldown,
+}: {
+  t: TFunction
+  view: DetailView
+  onDrilldown: (target: GroupingTarget) => void
+}) {
   const rows = view.get
   return (
     <Section
@@ -303,7 +365,13 @@ function GetSection({ t, view }: { t: TFunction; view: DetailView }) {
             <span>{t('detail.get.condType')}</span>
           </div>
           {rows.map((r, i) => (
-            <GetRow key={`${r.condNumber}-${i}`} t={t} row={r} currency={view.org.currency} />
+            <GetRow
+              key={`${r.condNumber}-${i}`}
+              t={t}
+              row={r}
+              currency={view.org.currency}
+              onDrilldown={onDrilldown}
+            />
           ))}
         </div>
       )}
@@ -311,7 +379,17 @@ function GetSection({ t, view }: { t: TFunction; view: DetailView }) {
   )
 }
 
-function GetRow({ t, row, currency }: { t: TFunction; row: DetailGetRow; currency: string }) {
+function GetRow({
+  t,
+  row,
+  currency,
+  onDrilldown,
+}: {
+  t: TFunction
+  row: DetailGetRow
+  currency: string
+  onDrilldown: (target: GroupingTarget) => void
+}) {
   const unit = discountUnit(row.discountKind, currency)
   return (
     <div className="grid grid-cols-[4rem_1fr_8rem_9rem_7rem] items-center gap-2.5 border-b border-border px-3.5 py-2 text-[0.8125rem] last:border-b-0">
@@ -323,6 +401,17 @@ function GetRow({ t, row, currency }: { t: TFunction; row: DetailGetRow; currenc
         isGrouping={row.isGrouping}
         drilldownEnabled={row.drilldownEnabled}
         memberCount={row.memberCount}
+        onDrilldown={
+          row.drilldownEnabled
+            ? () =>
+                onDrilldown({
+                  side: 'get',
+                  groupingKey: row.condNumber,
+                  label: row.identifier,
+                  memberCount: row.memberCount,
+                })
+            : undefined
+        }
       />
       <span className="flex flex-col">
         <span className="font-mono font-semibold tabular-nums">
@@ -390,8 +479,9 @@ function TdRow({ lab, val }: { lab: string; val: string }) {
 }
 
 /** Material/grouping identity cell — a plain material shows number + description; a
- *  grouping shows the key + an inline "N members" chip (inert in 066; the paged
- *  drilldown is slice 067). */
+ *  grouping shows the key + an inline "N members" chip that, when `onDrilldown` is
+ *  supplied (a drilldown-enabled grouping), is a button opening the paged members
+ *  drilldown (slice 067). */
 function IdentityCell({
   t,
   identifier,
@@ -399,6 +489,7 @@ function IdentityCell({
   isGrouping,
   drilldownEnabled,
   memberCount,
+  onDrilldown,
 }: {
   t: TFunction
   identifier: string
@@ -406,15 +497,21 @@ function IdentityCell({
   isGrouping: boolean
   drilldownEnabled: boolean
   memberCount: number
+  onDrilldown?: () => void
 }) {
   return (
     <span className="min-w-0">
       <span className="block truncate font-mono font-semibold tabular-nums">{identifier}</span>
       {drilldownEnabled ? (
-        <span className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[0.6875rem] font-semibold text-primary">
+        <button
+          type="button"
+          onClick={onDrilldown}
+          className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[0.6875rem] font-semibold text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          aria-label={t('detail.membersOpen', { count: memberCount })}
+        >
           <Boxes className="h-3 w-3" aria-hidden />
           {t('detail.members', { count: memberCount })}
-        </span>
+        </button>
       ) : (
         !isGrouping &&
         description && (

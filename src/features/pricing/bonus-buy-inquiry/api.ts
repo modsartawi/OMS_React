@@ -1,8 +1,10 @@
 import { api, ApiError } from '@/core/api'
 import type {
   BbyDetailDto,
+  BbyGroupMembersDto,
   BbyInquiryAccessResult,
   BbyListResult,
+  BbySide,
 } from '@/core/models/bonus-buy-inquiry'
 
 // Every server call goes through @/core/api (see .claude/rules/api-envelope.md): it
@@ -51,5 +53,21 @@ export const bonusBuyInquiryApi = {
   // apiErrorMessage/apiErrorCode, never a generic "unexpected".
   detail(bbyNumber: string): Promise<BbyDetailDto> {
     return api.get<BbyDetailDto>(`${BASE}/Detail`, { bbyNumber })
+  },
+
+  // The grouping members drilldown (067). One page of the members standing behind a
+  // Buy/Get grouping's "N members" chip — Buy keyed by `matGrouping`, Get by
+  // `condNumber` (the `side` param selects), so a ~1,000-SKU grouping never bloats the
+  // Detail payload. ⚠️ GET Bby/GroupingMembers does NOT exist in SIS.Api yet
+  // (code-complete / runtime-blocked, contract 058 §3); the drilldown drives against a
+  // mocked envelope. buildQuery keeps every param (all are present), so no pre-filter.
+  groupingMembers(args: {
+    bbyNumber: string
+    side: BbySide
+    groupingKey: string
+    page: number
+    pageSize: number
+  }): Promise<BbyGroupMembersDto> {
+    return api.get<BbyGroupMembersDto>(`${BASE}/GroupingMembers`, args)
   },
 }

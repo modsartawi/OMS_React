@@ -15,7 +15,7 @@ import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
-const BASE = 'http://localhost:5199'
+const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 const URL = BASE + '/pricing/bonus-buy-inquiry'
 
 const results = []
@@ -76,8 +76,9 @@ const DETAIL_ROWS = {
   },
   org: { salesOrganization: '1000', distributionChannel: '10', plant: '1201', currency: 'SAR' },
   buy: [
+    // A grouping standing for 42 SKUs → the paged members drilldown (067), 3 pages of 20.
     { lineItemPos: '10', prereqType: 'MGP', isGrouping: true, identifier: 'GRP-PANADOL-24',
-      materialNumber: null, description: null, qty: 2, uom: 'EA', minValue: 0, memberCount: 14 },
+      materialNumber: null, description: null, qty: 2, uom: 'EA', minValue: 0, memberCount: 42 },
   ],
   get: [
     { condNumber: '01', isGrouping: false, identifier: '5900001234', materialNumber: '5900001234',
@@ -86,9 +87,32 @@ const DETAIL_ROWS = {
     { condNumber: '02', isGrouping: false, identifier: '5900004417', materialNumber: '5900004417',
       description: 'Panadol Cold 24s', discountType: 'R', conditionType: 'ZB02', condValue: 8.5,
       condValueP: 0, scaleType: 'A', qty: 1, uom: 'EA', pricingUnit: 1, pricingUnitUom: 'EA', memberCount: 0 },
+    // A Get-side grouping keyed by condNumber (067) — drilldown opens with side=get.
+    { condNumber: '03', isGrouping: true, identifier: 'GRP-VITAMINS-8', materialNumber: null,
+      description: null, discountType: '%', conditionType: 'ZB03', condValue: 0, condValueP: 20,
+      scaleType: 'A', qty: 1, uom: 'EA', pricingUnit: 1, pricingUnitUom: 'EA', memberCount: 8 },
   ],
   totalDiscount: null,
 }
+
+// ticket 067 — Bby/GroupingMembers pages (BbyGroupMembersDto). One deterministic
+// page slice per (side, groupingKey, page); `total` drives the pager range/footer.
+const MEMBERS_TOTAL = { buy: 42, get: 8 }
+const memberPage = (side, groupingKey, page, pageSize) => {
+  const total = MEMBERS_TOTAL[side] ?? 0
+  const start = (page - 1) * pageSize
+  const members = []
+  for (let i = start; i < Math.min(start + pageSize, total); i++) {
+    members.push({
+      materialNumber: `${side === 'buy' ? '5900' : '4400'}${String(i + 1).padStart(4, '0')}`,
+      description: `${side} member ${i + 1}`,
+      qty: 1,
+      uom: 'EA',
+    })
+  }
+  return { side, groupingKey, total, page, pageSize, members }
+}
+let lastMembersQuery = ''
 const DETAIL_DOC = {
   header: {
     ...DETAIL_ROWS.header, bbyNumber: '100235', description: 'Al-Rajhi card — 5% off basket',
@@ -151,6 +175,15 @@ async function run() {
           }),
         )
       return route.fulfill(envelope(mode === 'document' ? DETAIL_DOC : DETAIL_ROWS))
+    }
+    if (path === 'Bby/GroupingMembers') {
+      lastMembersQuery = url.includes('?') ? url.split('?')[1] : ''
+      const q = new URLSearchParams(lastMembersQuery)
+      return route.fulfill(
+        envelope(
+          memberPage(q.get('side'), q.get('groupingKey'), Number(q.get('page')), Number(q.get('pageSize'))),
+        ),
+      )
     }
     // Any other probe/endpoint → benign empty success so no leaf crashes.
     return route.fulfill(envelope({}))
@@ -323,7 +356,7 @@ async function run() {
   check('modal shows the Buy side table', /Buy side/i.test(mBody))
   check('modal shows the Get side table', /Get side/i.test(mBody))
   check('Get row formats amount discount with currency (SAR)', /SAR/.test(mBody))
-  check('grouping Buy row shows the "N members" chip', /14 members/i.test(mBody), mBody.match(/\d+ members/)?.[0] || '')
+  check('grouping Buy row shows the "N members" chip', /42 members/i.test(mBody), mBody.match(/\d+ members/)?.[0] || '')
   check('Get side table shows a condition value (100)', /100/.test(mBody))
   // Close via backdrop-less path (Escape) → grid intact behind.
   await page.keyboard.press('Escape')
@@ -349,6 +382,53 @@ async function run() {
   await page.waitForSelector('dialog[open] [role="alert"]', { timeout: 5000 }).catch(() => {})
   const nfBody = await page.locator('dialog[open]').innerText().catch(() => '')
   check('not-found → the "Bonus Buy not found" card', /not found/i.test(nfBody) && !/unexpected/i.test(nfBody), nfBody.slice(0, 80))
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+
+  // ---- ticket 067: the paged grouping-members drilldown (Buy side + Get side) ----
+  scenario.detailMode = 'rows'
+  await page.getByRole('button', { name: /Details/i }).first().click()
+  await page.locator('dialog[open]').getByText(/Buy side/i).waitFor({ timeout: 5000 }).catch(() => {})
+
+  const nested = () => page.locator('dialog[open]').filter({ hasText: 'Grouping members' })
+
+  // Buy-side grouping chip → nested drilldown opens, page 1 keyed by side=buy + matGrouping.
+  await page.getByRole('button', { name: /Show the 42 members/i }).click()
+  await nested().getByText(/Showing 1–20 of 42/).waitFor({ timeout: 5000 }).catch(() => {})
+  check('Buy grouping chip opens the members drilldown (nested modal)', (await nested().count()) === 1)
+  check(
+    'drilldown page 1 footer shows the range + total (1–20 of 42)',
+    /Showing 1–20 of 42/.test(await nested().innerText().catch(() => '')),
+    (await nested().innerText().catch(() => '')).match(/Showing[^\n]*/)?.[0] || '',
+  )
+  check(
+    'GroupingMembers queried with side=buy + groupingKey=matGrouping + page=1',
+    /side=buy/.test(lastMembersQuery) && /groupingKey=GRP-PANADOL-24/.test(lastMembersQuery) && /page=1/.test(lastMembersQuery),
+    lastMembersQuery,
+  )
+
+  // Next → page 2 (21–40 of 42), query page advances.
+  await nested().getByRole('button', { name: /^Next$/i }).click()
+  await nested().getByText(/Showing 21–40 of 42/).waitFor({ timeout: 5000 }).catch(() => {})
+  check('Next pages forward (21–40 of 42)', /Showing 21–40 of 42/.test(await nested().innerText().catch(() => '')))
+  check('Next sends page=2', /page=2/.test(lastMembersQuery), lastMembersQuery)
+
+  // Close the nested modal (Escape closes the topmost dialog) → Detail modal survives.
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(200)
+  check('closing the drilldown returns to the Detail modal (still open)', (await nested().count()) === 0 && (await page.locator('dialog[open]').count()) === 1)
+
+  // Get-side grouping chip → drilldown opens keyed by side=get + condNumber.
+  await page.getByRole('button', { name: /Show the 8 members/i }).click()
+  await nested().getByText(/Showing 1–8 of 8/).waitFor({ timeout: 5000 }).catch(() => {})
+  check('Get grouping chip opens the drilldown keyed by side=get + condNumber', (await nested().count()) === 1)
+  check(
+    'Get-side GroupingMembers queried with side=get + groupingKey=condNumber (03)',
+    /side=get/.test(lastMembersQuery) && /groupingKey=03/.test(lastMembersQuery),
+    lastMembersQuery,
+  )
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
   await page.keyboard.press('Escape')
   await page.waitForTimeout(150)
 

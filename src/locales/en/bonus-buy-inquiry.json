@@ -182,6 +182,7 @@
       "material": "Material"
     },
     "members": "{{count}} members",
+    "membersOpen": "Show the {{count}} members of this grouping",
     "totalDiscount": {
       "title": "Get side — total discount",
       "sub": "Document mode (condTargetType R)",
@@ -197,5 +198,23 @@
       "hint": "This number is listed but has no detail record."
     },
     "loadFailed": "Couldn't load this Bonus Buy. Please try again."
+  },
+  "members": {
+    "title": "Grouping members",
+    "side": {
+      "buy": "Buy side",
+      "get": "Get side"
+    },
+    "material": "Material",
+    "description": "Description",
+    "qty": "Qty",
+    "range": "Showing {{first}}–{{last}} of {{total}}",
+    "pageOf": "Page {{page}} of {{pageCount}}",
+    "prev": "Previous",
+    "next": "Next",
+    "loading": "Loading members…",
+    "loadingShort": "Loading…",
+    "empty": "This grouping has no members.",
+    "loadFailed": "Couldn't load these members. Please try again."
   }
 }

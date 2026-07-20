@@ -140,6 +140,37 @@ export interface BbyTotalDiscount {
   requirement: number
 }
 
+/** Which side of a Bonus Buy a grouping sits on — selects the keying the server
+ *  resolves members against (Buy → `matGrouping`, Get → `condNumber`, contract 058
+ *  §3 / ticket 067). Rides through as the `side` query param verbatim. */
+export type BbySide = 'buy' | 'get'
+
+/** One member SKU of a material grouping (Buy or Get). `description` is enriched
+ *  server-side per page (not carried on the grouping row itself) — only the opened
+ *  grouping's current page is ever fetched, so a ~1,000-SKU grouping stays cheap. */
+export interface BbyGroupMember {
+  materialNumber: string
+  description: string
+  qty: number
+  uom: string
+}
+
+/**
+ * GET Bby/GroupingMembers?bbyNumber=&side=&groupingKey=&page=&pageSize= — the paged
+ * members drilldown behind a grouping's "N members" chip (spec 061, ticket 067).
+ * `side` echoes the requested side; `groupingKey` echoes the Buy `matGrouping` or the
+ * Get `condNumber`. `total` is the full member count (drives the pager range/footer);
+ * `members` is only the requested page. DESIGNED contract, built later on SIS.Api.
+ */
+export interface BbyGroupMembersDto {
+  side: BbySide
+  groupingKey: string
+  total: number
+  page: number
+  pageSize: number
+  members: BbyGroupMember[]
+}
+
 /**
  * GET Bby/Access — the screen-open grant probe (nav show/hide + in-page guard).
  * `screenAllowed` is the server's answer; `probed` records whether the endpoint

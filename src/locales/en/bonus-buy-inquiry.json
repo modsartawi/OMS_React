@@ -9,17 +9,82 @@
     "deniedTitle": "No access",
     "deniedHint": "You don't have permission to open BBY Inquiry. Ask an administrator for the BBY Inquiry grant."
   },
+  "toolbar": {
+    "filterRow": "Filter row"
+  },
+  "actions": {
+    "details": "Details"
+  },
+  "groups": {
+    "identity": "Identity & offer",
+    "validity": "Validity",
+    "buyGet": "Buy/Get rules",
+    "stacking": "Stacking",
+    "loyalty": "Loyalty",
+    "audit": "Audit"
+  },
   "columns": {
-    "bbyNumber": "BBY #",
+    "identity": "BBY #",
+    "bbyStatus": "Status",
     "description": "Description",
-    "status": "Status",
-    "validFrom": "Valid from"
+    "bbyProfile": "Profile",
+    "promoNumber": "Promotion",
+    "offerId": "Offer",
+    "validFrom": "Valid from",
+    "validTo": "Valid to",
+    "validFromTime": "From time",
+    "validToTime": "To time",
+    "condTargetType": "Target",
+    "linkCategoryBuy": "Link (buy)",
+    "linkCategoryGet": "Link (get)",
+    "limitNumber": "Limit",
+    "minValue": "Min value",
+    "maxValue": "Max value",
+    "includes": "Includes",
+    "excludes": "Excludes",
+    "isStackable": "Stackable",
+    "allowNestedStacking": "Nested stacking",
+    "stackingExcludes": "Stacking excludes",
+    "score": "Score",
+    "originFilter": "Origin filter",
+    "priceListType": "Price list",
+    "loyGroups": "Loyalty groups",
+    "loyTiers": "Loyalty tiers",
+    "createdAt": "Created",
+    "createdBy": "Created by"
   },
   "status": {
     "A": "Activated",
     "I": "Inactive",
     "D": "Draft",
     "X": "Deleted"
+  },
+  "link": {
+    "A": "And",
+    "O": "Or"
+  },
+  "condTarget": {
+    "R": "Document",
+    "P": "Product",
+    "M": "Material group",
+    "G": "Grouping"
+  },
+  "discount": {
+    "P": "Percent",
+    "R": "Amount",
+    "%": "Percent"
+  },
+  "condType": {
+    "ZB01": "ZB01",
+    "ZB02": "ZB02",
+    "ZB03": "ZB03",
+    "ZB12": "ZB12",
+    "ZB13": "ZB13"
+  },
+  "scale": {
+    "A": "From",
+    "B": "Up to",
+    "C": "Equal"
   },
   "activeMarker": {
     "label": "Valid today"

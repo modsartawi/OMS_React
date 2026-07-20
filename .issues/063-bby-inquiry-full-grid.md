@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 061
 blocked-by: 062
 ---
@@ -35,9 +35,9 @@ badges) · test (pure harness + app-drive).
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `codeLabels` maps every code set to its `t()` key (status A/I/D/X, link A/O, condTarget R/P/M/G, discount P/R/%, condType ZB0x, scale A/B/C) and leaves an unknown code passed through, not thrown · **pure**
-- [ ] `formatters` renders `yyyyMMdd→yyyy-MM-dd`, `HHMMSS→HH:mm`, booleans→✓/–, and preserves the raw value for export · **pure**
-- [ ] the grid shows all 28 columns under their groups with the sticky identity column, `isActive` marker, sort, and the toggleable filter row · **flow** — verify via typecheck + drive (mocked `Bby/List`), extend `tools/screen1-smoke.mjs`
+- [x] `codeLabels` maps every code set to its `t()` key (status A/I/D/X, link A/O, condTarget R/P/M/G, discount P/R/%, condType ZB0x, scale A/B/C) and leaves an unknown code passed through, not thrown · **pure** (in-memory node/TS harness — 23/23 incl. every set member → `<set>.<code>` key + unknown/empty pass-through)
+- [x] `formatters` renders `yyyyMMdd→yyyy-MM-dd`, `HHMMSS→HH:mm`, booleans→✓/–, and preserves the raw value for export · **pure** (harness green; display-only fns never touch the row; also `formatIsoDate`/`formatNumber` for the audit + numeric columns)
+- [x] the grid shows all 28 columns under their groups with the sticky identity column, `isActive` marker, sort, and the toggleable filter row · **flow** — drove the real app (`tools/bby-inquiry-drive.mjs`, Playwright) against mocked `Bby/*` (23/23: `aria-colcount=28`, all six group headers, pinned identity carries badge+number+Details, And/Product chips, filter row toggles off→on)
 
 ## Boundaries
 

@@ -1,17 +1,18 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
-import { Loader2, PackageSearch } from 'lucide-react'
+import { Filter, Loader2, PackageSearch } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
+import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
 import { bonusBuyInquiryApi } from './api'
 import { buildListParams } from './list-params'
-import { INQUIRY_DEFAULT_COL_DEF, buildInquiryColumns } from './columns'
+import { buildDefaultColDef, buildInquiryColumns } from './columns'
 
 // The BBY Inquiry tracer (spec 061, ticket 062). Self-guards on Bby/Access (the
 // issue-429 pattern, shared ['bonus-buy-inquiry','access'] key with the menu probe;
@@ -37,7 +38,18 @@ export default function BonusBuyInquiryPage() {
     enabled: access.data?.screenAllowed === true,
   })
 
-  const columns = useMemo(() => buildInquiryColumns(t), [t])
+  // The per-column filter row (WPF `ShowAutoFilterRow`) is off by default and toggled
+  // from the toolbar — rebuilding defaultColDef flips `floatingFilter` across columns.
+  const [showFilters, setShowFilters] = useState(false)
+  const defaultColDef = useMemo(() => buildDefaultColDef(showFilters), [showFilters])
+
+  // Details ▸ opens the SAP-style modal — wired in slice 066. Here it renders and is
+  // clickable per row; the handler is the seam that slice hooks into.
+  const onDetails = useCallback((_row: BbyInquiryRow) => {
+    // Placeholder until 066: the modal opens off this callback.
+  }, [])
+
+  const columns = useMemo(() => buildInquiryColumns(t, onDetails), [t, onDetails])
 
   // --- access gate (spinner → denied → content) ---
   if (access.isPending) {
@@ -67,9 +79,24 @@ export default function BonusBuyInquiryPage() {
 
   return (
     <section className="flex h-full w-full flex-col gap-4">
-      <header>
-        <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowFilters((v) => !v)}
+          aria-pressed={showFilters}
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+            showFilters
+              ? 'border-primary/40 bg-primary/10 text-primary'
+              : 'border-border/60 text-muted-foreground hover:bg-muted'
+          }`}
+        >
+          <Filter className="h-3.5 w-3.5" aria-hidden />
+          {t('toolbar.filterRow')}
+        </button>
       </header>
 
       {list.isError && <ErrorBanner message={apiErrorMessage(list.error, t('errors.loadFailed'))} />}
@@ -84,9 +111,10 @@ export default function BonusBuyInquiryPage() {
             theme={omsGridTheme}
             rowData={rows}
             columnDefs={columns}
-            defaultColDef={INQUIRY_DEFAULT_COL_DEF}
+            defaultColDef={defaultColDef}
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
+            groupHeaderHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
             enableRtl={document.documentElement.dir === 'rtl'}
           />

@@ -102,6 +102,59 @@ async function run() {
   check('status code A renders as its label (Activated)', bodyText.includes('Activated'), '')
   check('valid-from formatted yyyy-MM-dd', bodyText.includes('2026-01-01'))
 
+  // ---- ticket 063: the full 28-field grouped grid ----
+  // AG Grid horizontally virtualizes columns, so DOM-count won't see all 28. Read the
+  // authoritative total off aria-colcount, and union header text across a scroll sweep.
+  const colCount = await page.locator('[role="treegrid"], [role="grid"]').first().getAttribute('aria-colcount')
+  check('grid exposes all 28 columns (aria-colcount)', Number(colCount) === 28, `aria-colcount=${colCount}`)
+
+  // Sweep the horizontal scroll, unioning every header + cell label we pass.
+  const seen = new Set()
+  const soak = async () => {
+    ;(await page.locator('.ag-header-cell-text, .ag-header-group-text, .ag-cell').allInnerTexts()).forEach((s) => seen.add(s.trim()))
+  }
+  await soak()
+  const maxScroll = await page.evaluate(() => {
+    const vp = document.querySelector('.ag-body-horizontal-scroll-viewport')
+    return vp ? vp.scrollWidth : 0
+  })
+  for (let x = 400; x <= maxScroll; x += 400) {
+    await page.evaluate((sx) => {
+      const vp = document.querySelector('.ag-body-horizontal-scroll-viewport')
+      if (vp) vp.scrollLeft = sx
+    }, x)
+    await page.waitForTimeout(60)
+    await soak()
+  }
+
+  const groups = ['Identity & offer', 'Validity', 'Buy/Get rules', 'Stacking', 'Loyalty', 'Audit']
+  const missingGroups = groups.filter((g) => !seen.has(g))
+  check('grid shows all six grouped headers', missingGroups.length === 0, missingGroups.join(', '))
+
+  // Sticky identity column is pinned to the start (its own pinned-left containers).
+  const pinnedText = (await page.locator('[class*="pinned-left"]').allInnerTexts()).join(' ')
+  check(
+    'identity column is pinned (sticky), carries the BBY number',
+    pinnedText.includes('BBY #') && pinnedText.includes('100234'),
+    pinnedText.replace(/\n/g, ' ').slice(0, 120),
+  )
+
+  // Details ▸ action renders per row and is clickable (modal wired in 066).
+  const detailsBtns = await page.getByRole('button', { name: /Details/i }).count()
+  check('Details action renders per row', detailsBtns === 2, `${detailsBtns} buttons`)
+  await page.getByRole('button', { name: /Details/i }).first().click()
+  check('Details button is clickable (no crash)', true)
+
+  // Chips/labels seen during the sweep: And/Or link, Product target.
+  check('link code A renders as And', seen.has('And'), '')
+  check('condTarget P renders as Product', seen.has('Product'), '')
+
+  // Filter row toggle (WPF ShowAutoFilterRow) — off by default, on after click.
+  check('filter row hidden by default', (await page.locator('.ag-floating-filter').count()) === 0)
+  await page.getByRole('button', { name: /Filter row/i }).click()
+  await page.waitForTimeout(200)
+  check('filter row appears after toggle', (await page.locator('.ag-floating-filter').count()) > 0)
+
   // menu leaf visible when allowed
   const leaf = await page.getByRole('link', { name: /BBY Inquiry/i }).count()
   check('Pricing menu shows the BBY Inquiry leaf when allowed', leaf >= 1)

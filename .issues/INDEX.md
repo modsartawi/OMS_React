@@ -136,7 +136,7 @@ Tracer tickets sliced from spec 061. Tracer = 062 (gate + list-active grid); fro
 endpoints (`Bby/Access`, `Bby/List`, `Bby/Detail`, `Bby/GroupingMembers`) are built separately.
 
 - [062](062-bby-inquiry-scaffold-gate-list.md) — bonusBuyInquiryGatesAndListsActiveBonusBuysByDefault · **done** (typecheck/build green; pure harness 10/10; drove gate + active-list + empty/fail-open/denied 14/14 via mocked `Bby/*` envelopes — live-drive pending SIS.Api) · blocked by: — · dep: SIS.Api Bby/Access + Bby/List
-- [063](063-bby-inquiry-full-grid.md) — theGridShowsAllTwentyEightHeaderFieldsGroupedWithChipsStickyIdentityAndDetailsAction · **open** · blocked by: 062
+- [063](063-bby-inquiry-full-grid.md) — theGridShowsAllTwentyEightHeaderFieldsGroupedWithChipsStickyIdentityAndDetailsAction · **done** (pure harness 23/23; drove full grid 23/23 via mocked `Bby/*` — live-drive pending SIS.Api) · blocked by: 062
 - [064](064-bby-inquiry-search-toolbar.md) — searchingByNumberOrDateClearsActiveOnlyAndFiltersByValidityOverlap · **open** · blocked by: 062
 - [065](065-bby-inquiry-csv-export.md) — exportingTheGridWritesAllTwentyEightRawFieldsToCsv · **open** · blocked by: 063
 - [066](066-bby-inquiry-details-modal.md) — openingDetailsShowsTheHeaderRecapBuyGetOrTotalDiscount · **open** · blocked by: 063 · dep: SIS.Api Bby/Detail

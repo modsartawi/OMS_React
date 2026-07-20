@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 061
 blocked-by: 062
 ---
@@ -42,9 +42,9 @@ app-drive).
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `buildListParams` forces `activeOnly:false` when a number **or** either date is present, keeps `true` only for empty criteria, and passes half-open ranges through · **pure**
-- [ ] searching shows the filtered chip and cap banner (mocked `capReached:true`); Reset returns to the active default · **flow** — verify via typecheck + drive
-- [ ] a mocked `400 INVALID_DATE_RANGE` envelope surfaces the server message + code, not "unexpected" · **flow** — verify via typecheck + drive
+- [x] `buildListParams` forces `activeOnly:false` when a number **or** either date is present, keeps `true` only for empty criteria, and passes half-open ranges through · **pure** (in-memory node/TS harness — 8/8: empty⇒{activeOnly:true}, number/validFrom/validTo each force false, both-dates + number AND together passthrough, whitespace trims to default)
+- [x] searching shows the filtered chip and cap banner (mocked `capReached:true`); Reset returns to the active default · **flow** — drove real app (`tools/bby-inquiry-drive.mjs`, mocked `Bby/*`) 35/35: Search sends `activeOnly=false&bbyNumber=…`, Filtered chip + amber cap banner appear, Reset restores `activeOnly=true` (chip + banner gone)
+- [x] a mocked `400 INVALID_DATE_RANGE` envelope surfaces the server message + code, not "unexpected" · **flow** — drove it: ErrorBanner shows the server message ("End date is before start date.") under a code-driven "Check the dates" title (`apiErrorCode` branch), never "unexpected"
 
 ## Boundaries
 

@@ -65,6 +65,9 @@ const ROW = (over) => ({
 
 // scenario state, mutated between reloads
 let scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', description: '10% off shampoo', isActive: false, bbyStatus: 'I' })] }
+// last Bby/List query string seen (assert Search sends the built params), and the
+// list response controls for the 064 flow (cap banner + a business date error).
+let lastListQuery = ''
 
 async function run() {
   const browser = await chromium.launch()
@@ -83,7 +86,20 @@ async function run() {
         return route.fulfill(envelope(null, { ok: false, status: 404, success: false, message: 'not found' }))
       return route.fulfill(envelope(scenario.accessBody))
     }
-    if (path === 'Bby/List') return route.fulfill(envelope({ rows: scenario.rows, capReached: false }))
+    if (path === 'Bby/List') {
+      lastListQuery = url.includes('?') ? url.split('?')[1] : ''
+      if (scenario.listError)
+        return route.fulfill(
+          envelope(null, {
+            ok: false,
+            status: 400,
+            success: false,
+            message: 'End date is before start date.',
+            errors: [{ errorCode: 'INVALID_DATE_RANGE', message: 'End date is before start date.' }],
+          }),
+        )
+      return route.fulfill(envelope({ rows: scenario.rows, capReached: scenario.capReached === true }))
+    }
     // Any other probe/endpoint → benign empty success so no leaf crashes.
     return route.fulfill(envelope({}))
   })
@@ -185,9 +201,64 @@ async function run() {
   const leafDenied = await page.getByRole('link', { name: /BBY Inquiry/i }).count()
   check('screenAllowed:false → menu leaf hidden', leafDenied === 0, `${leafDenied} leaves`)
 
+  // ---- ticket 064: search toolbar (filtered chip + cap banner + date error) ----
+  scenario = { accessBody: { screenAllowed: true }, access404: false, rows: [ROW({}), ROW({ bbyNumber: '100235', isActive: false, bbyStatus: 'I' })], capReached: false, listError: false }
+  await page.goto(URL)
+  await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
+  check('search toolbar renders (BBY number field)', (await page.getByLabel(/BBY number/i).count()) >= 1)
+
+  // Search by number → Bby/List queried with activeOnly cleared + the number, filtered chip shows.
+  scenario.capReached = true
+  await page.getByLabel(/BBY number/i).fill('100234')
+  await page.getByRole('button', { name: /^Search$/i }).click()
+  await page.waitForTimeout(400)
+  check('Search sends activeOnly=false + bbyNumber (number clears Active only)', /activeOnly=false/.test(lastListQuery) && /bbyNumber=100234/.test(lastListQuery), lastListQuery)
+  const chipCount = await page.getByText(/^Filtered$/).count()
+  check('filtered chip shows after a search', chipCount >= 1)
+  check('cap-reached amber banner shows when capReached', (await page.getByText(/first 1,000/i).count()) >= 1)
+
+  // Reset → back to the active-only default: chip gone, query reverts to activeOnly=true only.
+  scenario.capReached = false
+  await page.getByRole('button', { name: /^Reset$/i }).click()
+  await page.waitForTimeout(400)
+  check('Reset restores active-only default (activeOnly=true, no bbyNumber)', /activeOnly=true/.test(lastListQuery) && !/bbyNumber=/.test(lastListQuery), lastListQuery)
+  check('filtered chip gone after Reset', (await page.getByText(/^Filtered$/).count()) === 0)
+  check('cap banner gone after Reset', (await page.getByText(/first 1,000/i).count()) === 0)
+
+  // Reversed dates → business error 400 INVALID_DATE_RANGE → server message surfaced (not "unexpected").
+  scenario.capReached = false
+  scenario.listError = true
+  await page.getByLabel(/Active during — from/i).fill('2026-12-31')
+  await page.getByLabel(/Active during — to/i).fill('2026-01-01')
+  await page.getByRole('button', { name: /^Search$/i }).click()
+  await page.waitForTimeout(400)
+  const errText = await page.locator('[role="alert"]').innerText().catch(() => '')
+  check('date error surfaces the server message (not "unexpected")', /before start date/i.test(errText) && !/unexpected/i.test(errText), errText.slice(0, 80))
+  check('date error carries the code-driven "Check the dates" title (apiErrorCode branch)', /Check the dates/i.test(errText), errText.slice(0, 80))
+  scenario.listError = false
+
+  // ---- ticket 065: Export CSV writes all 28 raw fields of the current set ----
+  await page.getByRole('button', { name: /^Reset$/i }).click()
+  await page.waitForTimeout(400)
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: /Export CSV/i }).click(),
+  ])
+  const fs = require('fs')
+  const csvPath = await download.path()
+  const csv = fs.readFileSync(csvPath, 'utf8')
+  const headerLine = csv.split(/\r?\n/)[0].replace(/^﻿/, '')
+  const headerCols = headerLine.split(',').length
+  check('CSV header carries all 28 columns', headerCols === 28, `${headerCols} cols`)
+  check('CSV header includes BBY # + Valid from + Status', /BBY #/.test(headerLine) && /Valid from/.test(headerLine) && /Status/.test(headerLine), headerLine.slice(0, 80))
+  // Raw values, not display chips: yyyyMMdd date + single-letter status code, NOT "2026-01-01"/"Activated".
+  check('CSV cells are RAW (20260101 date, "A" status), not formatted', /20260101/.test(csv) && /(^|,)"?A"?(,|$)/m.test(csv) && !/Activated/.test(csv) && !/2026-01-01/.test(csv), '')
+
   // The fail-open scenario (3a) intentionally 404s Bby/Access, which the browser logs
   // as a resource-load 404 — expected, not an app fault. Filter it out.
-  const realErrors = errors.filter((e) => !/status of 404/.test(e))
+  // The date-error scenario (064) intentionally returns 400 INVALID_DATE_RANGE — a
+  // business outcome surfaced in-page, logged by the browser as a resource 400. Expected.
+  const realErrors = errors.filter((e) => !/status of 404/.test(e) && !/status of 400/.test(e))
   check('no uncaught page errors', realErrors.length === 0, realErrors.slice(0, 3).join(' | '))
 
   await browser.close()

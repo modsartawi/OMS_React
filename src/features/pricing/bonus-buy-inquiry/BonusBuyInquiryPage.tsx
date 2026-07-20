@@ -1,26 +1,47 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
-import { Filter, Loader2, PackageSearch } from 'lucide-react'
+import type { GridApi, GridReadyEvent } from 'ag-grid-community'
+import { Download, Filter, Loader2, PackageSearch, TriangleAlert } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
-import { apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
 import { bonusBuyInquiryApi } from './api'
-import { buildListParams } from './list-params'
+import { buildListParams, type BbyListCriteria } from './list-params'
 import { buildDefaultColDef, buildInquiryColumns } from './columns'
+import SearchToolbar from './SearchToolbar'
+import { exportBbyToCsv } from './export'
 
-// The BBY Inquiry tracer (spec 061, ticket 062). Self-guards on Bby/Access (the
-// issue-429 pattern, shared ['bonus-buy-inquiry','access'] key with the menu probe;
-// FAIL-OPEN while the endpoint 404s — a read-only inquiry), then opens on the
-// currently-active BBYs: GET Bby/List with buildListParams({}) ⇒ { activeOnly: true },
-// rendered newest-first into a minimal four-column grid with a loading shimmer and a
-// no-results empty state. Full grid (063), search toolbar (064), export (065) and the
-// Details modal (066) build out from this frontier.
+// The BBY Inquiry screen (spec 061). Self-guards on Bby/Access (issue-429 pattern,
+// shared ['bonus-buy-inquiry','access'] key with the menu probe; FAIL-OPEN while the
+// endpoint 404s — a read-only inquiry), then opens on the currently-active BBYs.
+//
+// Search (064) reaches beyond that default: the toolbar produces criteria, the pure
+// `buildListParams` maps them to the Bby/List query (any number-or-date search clears
+// Active-only), and re-querying shows the "filtered" chip. Reset restores the default.
+// The cap-reached amber banner warns when the 1,000-row cap truncated the result, and
+// date errors surface the server's message+code via `apiErrorMessage` (never "unexpected").
+// Export CSV (065) writes the current filtered/sorted set — all 28 raw fields.
+const EMPTY_CRITERIA: BbyListCriteria = {
+  bbyNumber: '',
+  validFrom: '',
+  validTo: '',
+  activeOnly: true,
+}
+
+// The active-only default query — the builder owns its exact shape, so "filtered" is
+// simply "the applied query is not this" (rather than re-hardcoding `{activeOnly:true}`).
+const DEFAULT_PARAMS = buildListParams({})
+
+// The two malformed/reversed-date business codes Bby/List returns (contract 057); their
+// server message is passed through, and the code drives a distinct "check the dates" title.
+const DATE_ERROR_CODES = new Set(['INVALID_DATE_FORMAT', 'INVALID_DATE_RANGE'])
+
 export default function BonusBuyInquiryPage() {
   const { t } = useTranslation('bonus-buy-inquiry')
 
@@ -29,27 +50,53 @@ export default function BonusBuyInquiryPage() {
     queryFn: () => bonusBuyInquiryApi.access(),
   })
 
-  // Default view: currently-active BBYs, no criteria. The pure builder owns the
-  // params shape; the server orders CreatedAt DESC so rows arrive newest-first.
-  const params = useMemo(() => buildListParams({}), [])
+  // `criteria` is the live toolbar draft; `appliedParams` is the query that has actually
+  // been issued (only Search/Reset promote the draft). Splitting them means typing in the
+  // toolbar doesn't refetch on every keystroke — the operator commits with Search.
+  const [criteria, setCriteria] = useState<BbyListCriteria>(EMPTY_CRITERIA)
+  const [appliedParams, setAppliedParams] = useState<Record<string, unknown>>(() =>
+    buildListParams({}),
+  )
+
   const list = useQuery({
-    queryKey: ['bonus-buy-inquiry', 'list', params],
-    queryFn: () => bonusBuyInquiryApi.list(params),
+    queryKey: ['bonus-buy-inquiry', 'list', appliedParams],
+    queryFn: () => bonusBuyInquiryApi.list(appliedParams),
     enabled: access.data?.screenAllowed === true,
   })
+
+  const onChange = useCallback(
+    (patch: Partial<BbyListCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
+    [],
+  )
+  const onSearch = useCallback(() => setAppliedParams(buildListParams(criteria)), [criteria])
+  const onReset = useCallback(() => {
+    setCriteria(EMPTY_CRITERIA)
+    setAppliedParams(buildListParams({}))
+  }, [])
+
+  // "Filtered" = the applied query is anything other than the active-only default.
+  const isFiltered = JSON.stringify(appliedParams) !== JSON.stringify(DEFAULT_PARAMS)
 
   // The per-column filter row (WPF `ShowAutoFilterRow`) is off by default and toggled
   // from the toolbar — rebuilding defaultColDef flips `floatingFilter` across columns.
   const [showFilters, setShowFilters] = useState(false)
   const defaultColDef = useMemo(() => buildDefaultColDef(showFilters), [showFilters])
 
-  // Details ▸ opens the SAP-style modal — wired in slice 066. Here it renders and is
-  // clickable per row; the handler is the seam that slice hooks into.
+  // Details ▸ opens the SAP-style modal — wired in slice 066.
   const onDetails = useCallback((_row: BbyInquiryRow) => {
     // Placeholder until 066: the modal opens off this callback.
   }, [])
 
   const columns = useMemo(() => buildInquiryColumns(t, onDetails), [t, onDetails])
+
+  // Grid API captured on ready — the Export CSV button (065) walks it after filter+sort.
+  const gridApiRef = useRef<GridApi<BbyInquiryRow> | null>(null)
+  const onGridReady = useCallback((e: GridReadyEvent<BbyInquiryRow>) => {
+    gridApiRef.current = e.api
+  }, [])
+  const onExport = useCallback(() => {
+    if (gridApiRef.current) exportBbyToCsv(gridApiRef.current, t('export.filename'))
+  }, [t])
 
   // --- access gate (spinner → denied → content) ---
   if (access.isPending) {
@@ -76,6 +123,7 @@ export default function BonusBuyInquiryPage() {
   }
 
   const rows = list.data?.rows ?? []
+  const capReached = list.data?.capReached === true
 
   return (
     <section className="flex h-full w-full flex-col gap-4">
@@ -84,22 +132,57 @@ export default function BonusBuyInquiryPage() {
           <h1 className="text-lg font-semibold tracking-tight">{t('title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowFilters((v) => !v)}
-          aria-pressed={showFilters}
-          className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-            showFilters
-              ? 'border-primary/40 bg-primary/10 text-primary'
-              : 'border-border/60 text-muted-foreground hover:bg-muted'
-          }`}
-        >
-          <Filter className="h-3.5 w-3.5" aria-hidden />
-          {t('toolbar.filterRow')}
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onExport}
+            disabled={rows.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border/60 px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden />
+            {t('export.button')}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            aria-pressed={showFilters}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+              showFilters
+                ? 'border-primary/40 bg-primary/10 text-primary'
+                : 'border-border/60 text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            <Filter className="h-3.5 w-3.5" aria-hidden />
+            {t('toolbar.filterRow')}
+          </button>
+        </div>
       </header>
 
-      {list.isError && <ErrorBanner message={apiErrorMessage(list.error, t('errors.loadFailed'))} />}
+      <SearchToolbar
+        criteria={criteria}
+        onChange={onChange}
+        onSearch={onSearch}
+        onReset={onReset}
+        isFiltered={isFiltered}
+      />
+
+      {capReached && (
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[0.8125rem] text-amber-800 dark:text-amber-200"
+        >
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span>{t('capReached')}</span>
+        </div>
+      )}
+
+      {list.isError && (
+        <ErrorBanner
+          title={DATE_ERROR_CODES.has(apiErrorCode(list.error) ?? '') ? t('errors.dateTitle') : undefined}
+          message={apiErrorMessage(list.error, t('errors.loadFailed'))}
+          className="p-3"
+        />
+      )}
 
       {list.isPending ? (
         <ListShimmer label={t('loading')} />
@@ -117,6 +200,7 @@ export default function BonusBuyInquiryPage() {
             groupHeaderHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
             enableRtl={document.documentElement.dir === 'rtl'}
+            onGridReady={onGridReady}
           />
         </div>
       ) : null}

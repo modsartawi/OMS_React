@@ -12,6 +12,24 @@
   "toolbar": {
     "filterRow": "Filter row"
   },
+  "search": {
+    "bbyNumber": "BBY number",
+    "bbyNumberPlaceholder": "e.g. 100234",
+    "activeFrom": "Active during — from",
+    "activeTo": "Active during — to",
+    "activeOnly": "Active only",
+    "activeOnlyHint": "status A & valid today",
+    "activeOnlyOverridden": "A number or date search reaches inactive and deleted BBYs, so Active only is cleared.",
+    "search": "Search",
+    "reset": "Reset",
+    "filtered": "Filtered",
+    "clearFilter": "Clear filter"
+  },
+  "capReached": "Showing the first 1,000, newest first — narrow your search to see more.",
+  "export": {
+    "button": "Export CSV",
+    "filename": "bonus-buy-inquiry"
+  },
   "actions": {
     "details": "Details"
   },
@@ -95,6 +113,7 @@
     "hint": "There are no currently-active Bonus Buys to show."
   },
   "errors": {
-    "loadFailed": "Couldn't load Bonus Buys. Please try again."
+    "loadFailed": "Couldn't load Bonus Buys. Please try again.",
+    "dateTitle": "Check the dates"
   }
 }

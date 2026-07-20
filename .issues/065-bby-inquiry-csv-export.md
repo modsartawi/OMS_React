@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 061
 blocked-by: 063
 ---
@@ -26,7 +26,7 @@ test (app-drive).
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] clicking Export writes a CSV of the current filtered set with all 28 raw fields (codes/dates unformatted) · **flow** — verify via typecheck + drive (mocked `Bby/List`); assert the CSV header + a raw-coded cell
+- [x] clicking Export writes a CSV of the current filtered set with all 28 raw fields (codes/dates unformatted) · **flow** — drove real app (`tools/bby-inquiry-drive.mjs`, mocked `Bby/List`) 35/35: download fires, one header row of 28 leaf columns (`skipColumnGroupHeaders`), cells RAW via `processCellCallback` (`20260101` date + `"A"` status, NOT `2026-01-01`/`Activated`)
 
 ## Boundaries
 

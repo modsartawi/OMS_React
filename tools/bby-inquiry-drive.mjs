@@ -352,7 +352,13 @@ async function run() {
   await page.locator('dialog[open]').getByText(/Buy side/i).waitFor({ timeout: 5000 }).catch(() => {})
   const mBody = await page.locator('dialog[open]').innerText().catch(() => '')
   check('modal shows the BBY number recap', mBody.includes('100234'), mBody.slice(0, 60))
-  check('modal shows the Organisation panel', /Sales org/i.test(mBody))
+  // Organisation + Header & rules are collapsible, collapsed by DEFAULT (header shown,
+  // body hidden until expanded). The Buy/Get sections below stay open.
+  check('Organisation + Header & rules headers render (collapsible)', /Organisation/i.test(mBody) && /Header & rules/i.test(mBody))
+  check('collapsed by default → Organisation body (Sales org) hidden', !/Sales org/i.test(mBody))
+  await page.getByRole('button', { name: /Organisation/i }).click()
+  await page.waitForTimeout(150)
+  check('clicking the Organisation header expands its body (Sales org shown)', /Sales org/i.test(await page.locator('dialog[open]').innerText().catch(() => '')))
   check('modal shows the Buy side table', /Buy side/i.test(mBody))
   check('modal shows the Get side table', /Get side/i.test(mBody))
   check('Get row formats amount discount with currency (SAR)', /SAR/.test(mBody))

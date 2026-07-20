@@ -119,6 +119,8 @@
   "detail": {
     "eyebrow": "Bonus Buy · Display",
     "dash": "—",
+    "expand": "Expand section",
+    "collapse": "Collapse section",
     "validity": {
       "live": "Active now",
       "ended": "Window ended",

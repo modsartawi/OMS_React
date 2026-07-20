@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import { Boxes, Gift, Info, ShoppingCart, TriangleAlert } from 'lucide-react'
+import { Boxes, ChevronDown, Gift, Info, ShoppingCart, TriangleAlert } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import type { BbyDetailDto } from '@/core/models/bonus-buy-inquiry'
@@ -136,11 +136,13 @@ function DetailBody({
     <div className="flex flex-col gap-5">
       <TitleRecap t={t} view={view} />
 
-      {/* Organisation panel */}
+      {/* Organisation panel — collapsible, collapsed by default */}
       <Section
         icon={<Boxes className="h-3.5 w-3.5" aria-hidden />}
         title={t('detail.org.title')}
         sub={t('detail.org.sub')}
+        collapsible
+        defaultCollapsed
       >
         <DefGrid>
           <Def k={t('detail.org.salesOrg')} v={org.salesOrganization} mono />
@@ -150,11 +152,13 @@ function DetailBody({
         </DefGrid>
       </Section>
 
-      {/* Header & rules panel */}
+      {/* Header & rules panel — collapsible, collapsed by default */}
       <Section
         icon={<Info className="h-3.5 w-3.5" aria-hidden />}
         title={t('detail.rules.title')}
         sub={t('detail.rules.sub')}
+        collapsible
+        defaultCollapsed
       >
         <DefGrid>
           <Def k={t('detail.rules.promotion')} v={header.promoNumber} mono />
@@ -536,31 +540,62 @@ function Section({
   title,
   sub,
   tone = 'neutral',
+  collapsible = false,
+  defaultCollapsed = false,
   children,
 }: {
   icon: ReactNode
   title: string
   sub: string
   tone?: 'neutral' | 'buy' | 'get'
+  /** When set, the header toggles the body open/closed. */
+  collapsible?: boolean
+  /** Initial state for a collapsible section (ignored when not collapsible). */
+  defaultCollapsed?: boolean
   children: ReactNode
 }) {
+  const { t } = useTranslation('bonus-buy-inquiry')
+  const [collapsed, setCollapsed] = useState(collapsible && defaultCollapsed)
   const iconTone =
     tone === 'buy'
       ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
       : tone === 'get'
         ? 'bg-primary/10 text-primary'
         : 'bg-muted text-muted-foreground'
+
+  const heading = (
+    <>
+      <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md ${iconTone}`}>
+        {icon}
+      </span>
+      <h3 className="text-[0.8125rem] font-semibold tracking-tight">{title}</h3>
+      <span className="text-xs text-muted-foreground">{sub}</span>
+      <span className="h-px flex-1 bg-border" />
+      {collapsible && (
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${collapsed ? '-rotate-90' : ''}`}
+          aria-hidden
+        />
+      )}
+    </>
+  )
+
   return (
     <section>
-      <div className="mb-2.5 flex items-center gap-2.5">
-        <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md ${iconTone}`}>
-          {icon}
-        </span>
-        <h3 className="text-[0.8125rem] font-semibold tracking-tight">{title}</h3>
-        <span className="text-xs text-muted-foreground">{sub}</span>
-        <span className="h-px flex-1 bg-border" />
-      </div>
-      {children}
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          className="mb-2.5 flex w-full items-center gap-2.5 rounded-md text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          title={collapsed ? t('detail.expand') : t('detail.collapse')}
+        >
+          {heading}
+        </button>
+      ) : (
+        <div className="mb-2.5 flex items-center gap-2.5">{heading}</div>
+      )}
+      {!collapsed && children}
     </section>
   )
 }

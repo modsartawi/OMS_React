@@ -1,0 +1,35 @@
+{
+  "menu": {
+    "bbyInquiry": "BBY Inquiry"
+  },
+  "title": "Bonus Buy Inquiry",
+  "subtitle": "Look up Bonus Buy promotions. Opens on the ones active right now; search the full set by number or validity date.",
+  "access": {
+    "checking": "Checking access…",
+    "deniedTitle": "No access",
+    "deniedHint": "You don't have permission to open BBY Inquiry. Ask an administrator for the BBY Inquiry grant."
+  },
+  "columns": {
+    "bbyNumber": "BBY #",
+    "description": "Description",
+    "status": "Status",
+    "validFrom": "Valid from"
+  },
+  "status": {
+    "A": "Activated",
+    "I": "Inactive",
+    "D": "Draft",
+    "X": "Deleted"
+  },
+  "activeMarker": {
+    "label": "Valid today"
+  },
+  "loading": "Loading Bonus Buys…",
+  "empty": {
+    "title": "No Bonus Buys",
+    "hint": "There are no currently-active Bonus Buys to show."
+  },
+  "errors": {
+    "loadFailed": "Couldn't load Bonus Buys. Please try again."
+  }
+}

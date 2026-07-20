@@ -10,6 +10,7 @@ import authzAdmin from '@/locales/en/authz-admin.json'
 import activeSessions from '@/locales/en/active-sessions.json'
 import simulation from '@/locales/en/simulation.json'
 import bonusBuyDownload from '@/locales/en/bonus-buy-download.json'
+import bonusBuyInquiry from '@/locales/en/bonus-buy-inquiry.json'
 import coupons from '@/locales/en/coupons.json'
 import notifications from '@/locales/en/notifications.json'
 import broadcast from '@/locales/en/broadcast.json'
@@ -20,7 +21,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'coupons', 'notifications', 'broadcast'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast'],
   resources: {
     en: {
       common,
@@ -33,6 +34,7 @@ i18n.use(initReactI18next).init({
       'active-sessions': activeSessions,
       simulation,
       'bonus-buy-download': bonusBuyDownload,
+      'bonus-buy-inquiry': bonusBuyInquiry,
       coupons,
       notifications,
       broadcast,

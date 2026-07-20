@@ -110,3 +110,34 @@ Tracer tickets sliced from spec 043. Two chains meeting at the pure view model: 
 - [048](048-sim-could-have-applied.md) — aMissedPromotionShowsWhyItDidNotFire · **done** (typecheck/build green; drove real component via Playwright 13/13 — found-vs-required meter, would-save, reason, expand, absent-when-empty) · blocked by: 047
 - [049](049-sim-progressive-disclosure.md) — aPromotionBlockRevealsTodaysConditionAndPricingDetail · **open** · blocked by: 047
 - [050](050-sim-responsive-hybrid.md) — theHybridLaysOutResponsivelyByWidth · **open** · blocked by: 046, 047, 048, 049
+
+## BBY Inquiry screen (map 053)
+
+React rebuild of the WPF `Sartawi.Retail.Pricing.BbyInquiry` screen: read-only Bonus Buy inquiry —
+summary grid defaulting to currently-active BBYs, searchable by number or validity-overlap date
+range, with a per-row Details modal mirroring SAP "Display Bonus Buy". Destination = **ready spec**
+(+ two prototypes). Two backend contracts (list-search + detail-by-number) designed here, built on
+SIS.Api separately.
+
+- [053](053-bby-inquiry-map.md) — BBY Inquiry screen · **done** · wayfinder map — destination reached (both prototypes approved; ready for /to-spec)
+- [054](054-bby-domain-glossary.md) — Bonus Buy domain model & glossary · **done** · blocked by: —
+- [055](055-bbymodel-detail-shape-research.md) — Research: full BbyModel detail shape for the Details modal · **done** · blocked by: —
+- [056](056-bby-feature-placement-access.md) — Feature placement, nav & access gate · **done** · blocked by: —
+- [057](057-bby-list-search-endpoint-contract.md) — List/search endpoint contract · **done** · blocked by: 054
+- [058](058-bby-detail-endpoint-contract.md) — Detail-by-number endpoint contract · **done** · blocked by: 055
+- [059](059-bby-list-search-ux-prototype.md) — List + search UX prototype · **done** · blocked by: 054, 057 · [prototype](assets/059-bby-list-search-prototype.html)
+- [060](060-bby-detail-modal-prototype.md) — Details modal prototype (SAP "Display Bonus Buy" mirror) · **done** · blocked by: 055, 058 · [prototype](060-bby-detail-modal-prototype.PROTOTYPE.html)
+- [061](061-bby-inquiry-spec.md) — Bonus Buy (BBY) Inquiry screen (spec) · **ready** · spec — consumable by /to-tickets
+
+## BBY Inquiry — build (spec 061)
+
+Tracer tickets sliced from spec 061. Tracer = 062 (gate + list-active grid); frontier after it is
+{063, 064} (parallel). Every slice ships **code-complete / runtime-blocked** until the SIS.Api `Bby/*`
+endpoints (`Bby/Access`, `Bby/List`, `Bby/Detail`, `Bby/GroupingMembers`) are built separately.
+
+- [062](062-bby-inquiry-scaffold-gate-list.md) — bonusBuyInquiryGatesAndListsActiveBonusBuysByDefault · **done** (typecheck/build green; pure harness 10/10; drove gate + active-list + empty/fail-open/denied 14/14 via mocked `Bby/*` envelopes — live-drive pending SIS.Api) · blocked by: — · dep: SIS.Api Bby/Access + Bby/List
+- [063](063-bby-inquiry-full-grid.md) — theGridShowsAllTwentyEightHeaderFieldsGroupedWithChipsStickyIdentityAndDetailsAction · **open** · blocked by: 062
+- [064](064-bby-inquiry-search-toolbar.md) — searchingByNumberOrDateClearsActiveOnlyAndFiltersByValidityOverlap · **open** · blocked by: 062
+- [065](065-bby-inquiry-csv-export.md) — exportingTheGridWritesAllTwentyEightRawFieldsToCsv · **open** · blocked by: 063
+- [066](066-bby-inquiry-details-modal.md) — openingDetailsShowsTheHeaderRecapBuyGetOrTotalDiscount · **open** · blocked by: 063 · dep: SIS.Api Bby/Detail
+- [067](067-bby-inquiry-grouping-drilldown.md) — groupingRowsOpenAPagedMembersDrilldown · **open** · blocked by: 066 · dep: SIS.Api Bby/GroupingMembers

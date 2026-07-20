@@ -1,0 +1,417 @@
+<title>BBY Inquiry — list + search prototype (ticket 059)</title>
+<style>
+  :root {
+    --background: oklch(0.991 0.003 92);
+    --foreground: oklch(0.229 0.006 84);
+    --card: oklch(1 0 0);
+    --muted: oklch(0.962 0.005 92);
+    --muted-foreground: oklch(0.538 0.009 84);
+    --accent: oklch(0.941 0.006 92);
+    --border: oklch(0.915 0.006 92);
+    --input: oklch(0.898 0.006 92);
+    --primary: oklch(0.229 0.006 84);
+    --primary-foreground: oklch(0.985 0.002 92);
+    --ring: oklch(0.663 0.129 44);
+    --terracotta: oklch(0.663 0.129 44);
+    --terracotta-soft: oklch(0.663 0.129 44 / 0.12);
+    --ok: oklch(0.63 0.14 155);
+    --ok-soft: oklch(0.63 0.14 155 / 0.14);
+    --inactive: oklch(0.55 0.01 84);
+    --inactive-soft: oklch(0.55 0.01 84 / 0.12);
+    --draft: oklch(0.68 0.12 75);
+    --draft-soft: oklch(0.68 0.12 75 / 0.15);
+    --deleted: oklch(0.577 0.19 27);
+    --deleted-soft: oklch(0.577 0.19 27 / 0.13);
+    --shadow: 0 1px 2px oklch(0.229 0.006 84 / 0.05), 0 1px 3px oklch(0.229 0.006 84 / 0.06);
+    --group-bg: oklch(0.968 0.004 92);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: oklch(0.224 0.004 84); --foreground: oklch(0.953 0.004 92);
+      --card: oklch(0.265 0.004 84); --muted: oklch(0.307 0.004 84); --muted-foreground: oklch(0.718 0.005 84);
+      --accent: oklch(0.307 0.004 84); --border: oklch(1 0 0 / 0.1); --input: oklch(1 0 0 / 0.12);
+      --primary: oklch(0.953 0.004 92); --primary-foreground: oklch(0.224 0.004 84);
+      --shadow: none; --group-bg: oklch(0.29 0.004 84);
+    }
+  }
+  :root[data-theme="light"] {
+    --background: oklch(0.991 0.003 92); --foreground: oklch(0.229 0.006 84); --card: oklch(1 0 0);
+    --muted: oklch(0.962 0.005 92); --muted-foreground: oklch(0.538 0.009 84); --accent: oklch(0.941 0.006 92);
+    --border: oklch(0.915 0.006 92); --input: oklch(0.898 0.006 92); --primary: oklch(0.229 0.006 84);
+    --primary-foreground: oklch(0.985 0.002 92); --shadow: 0 1px 2px oklch(0.229 0.006 84 / 0.05), 0 1px 3px oklch(0.229 0.006 84 / 0.06); --group-bg: oklch(0.968 0.004 92);
+  }
+  :root[data-theme="dark"] {
+    --background: oklch(0.224 0.004 84); --foreground: oklch(0.953 0.004 92); --card: oklch(0.265 0.004 84);
+    --muted: oklch(0.307 0.004 84); --muted-foreground: oklch(0.718 0.005 84); --accent: oklch(0.307 0.004 84);
+    --border: oklch(1 0 0 / 0.1); --input: oklch(1 0 0 / 0.12); --primary: oklch(0.953 0.004 92);
+    --primary-foreground: oklch(0.224 0.004 84); --shadow: none; --group-bg: oklch(0.29 0.004 84);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--background); color: var(--foreground); -webkit-font-smoothing: antialiased; font-size: 14px; line-height: 1.5; }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 24px 24px 64px; }
+
+  .proto-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; margin-bottom: 20px; border: 1px dashed var(--border); border-radius: 12px; background: var(--card); font-size: 12px; }
+  .proto-bar strong { font-weight: 600; margin-inline-end: 6px; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
+  .proto-btn { appearance: none; border: 1px solid var(--border); background: var(--background); color: var(--foreground); border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit; transition: all .12s; }
+  .proto-btn:hover { border-color: var(--terracotta); }
+  .proto-btn[aria-pressed="true"] { background: var(--terracotta); border-color: var(--terracotta); color: white; }
+
+  header.page { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  header.page h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; margin: 0; }
+  header.page p { margin: 4px 0 0; color: var(--muted-foreground); font-size: 13px; max-width: 66ch; }
+
+  .toolbar { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted-foreground); }
+  .field input { font-family: inherit; font-size: 14px; color: var(--foreground); background: var(--background); border: 1px solid var(--input); border-radius: 9px; padding: 8px 11px; outline: none; transition: border-color .12s, box-shadow .12s; }
+  .field input:focus { border-color: var(--terracotta); box-shadow: 0 0 0 3px var(--terracotta-soft); }
+  .field.num input { width: 180px; font-variant-numeric: tabular-nums; }
+  .field.date input { width: 150px; font-variant-numeric: tabular-nums; }
+  .dash { align-self: center; padding-bottom: 9px; color: var(--muted-foreground); }
+  .toggle { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; padding-bottom: 2px; user-select: none; }
+  .toggle .track { width: 38px; height: 22px; border-radius: 999px; background: var(--input); position: relative; transition: background .15s; flex: none; }
+  .toggle .thumb { position: absolute; top: 2px; inset-inline-start: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: inset-inline-start .15s; }
+  .toggle input { position: absolute; opacity: 0; }
+  .toggle input:checked + .track { background: var(--terracotta); }
+  .toggle input:checked + .track .thumb { inset-inline-start: 18px; }
+  .toggle .lbl { font-size: 13px; font-weight: 500; }
+  .toggle .hint { display:block; font-size: 11px; color: var(--muted-foreground); font-weight: 400; }
+  .toggle input:focus-visible + .track { box-shadow: 0 0 0 3px var(--terracotta-soft); }
+  .actions { display: flex; gap: 8px; margin-inline-start: auto; padding-bottom: 1px; }
+  .btn { appearance: none; font-family: inherit; font-size: 13px; font-weight: 550; border-radius: 999px; padding: 9px 18px; cursor: pointer; transition: all .12s; border: 1px solid transparent; }
+  .btn.primary { background: var(--primary); color: var(--primary-foreground); }
+  .btn.primary:hover { opacity: .9; }
+  .btn.ghost { background: transparent; color: var(--foreground); border-color: var(--border); }
+  .btn.ghost:hover { border-color: var(--terracotta); color: var(--terracotta); }
+  .btn:focus-visible { box-shadow: 0 0 0 3px var(--terracotta-soft); outline: none; }
+
+  .resultline { display: flex; align-items: center; gap: 10px; margin: 4px 2px 10px; font-size: 13px; color: var(--muted-foreground); flex-wrap: wrap; }
+  .resultline .count { color: var(--foreground); font-weight: 600; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; background: var(--terracotta-soft); color: var(--terracotta); border-radius: 999px; padding: 3px 10px; }
+  .chip button { appearance: none; border: none; background: none; color: inherit; cursor: pointer; font-size: 13px; line-height: 1; padding: 0; opacity: .7; }
+  .chip button:hover { opacity: 1; }
+  .righttools { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
+  .icon-toggle, .export-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 550; color: var(--foreground); background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-family: inherit; transition: all .12s; }
+  .icon-toggle:hover, .export-link:hover { border-color: var(--terracotta); color: var(--terracotta); }
+  .icon-toggle[aria-pressed="true"] { background: var(--terracotta-soft); border-color: var(--terracotta); color: var(--terracotta); }
+  .export-link .tag { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--ok); border: 1px solid var(--ok); border-radius: 4px; padding: 0 4px; }
+
+  .banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 12px; border: 1px solid var(--draft); background: var(--draft-soft); border-radius: 10px; font-size: 13px; }
+  .banner svg { flex: none; }
+
+  .grid-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+  .scroll { overflow-x: auto; overflow-y: visible; }
+  table { border-collapse: separate; border-spacing: 0; white-space: nowrap; }
+  thead th { text-align: start; font-weight: 600; color: var(--muted-foreground); background: var(--card); border-bottom: 1px solid var(--border); }
+  /* group header row */
+  thead tr.groups th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground); background: var(--group-bg); padding: 7px 14px; border-inline-end: 1px solid var(--border); text-align: center; }
+  thead tr.cols th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; padding: 10px 14px; cursor: pointer; user-select: none; position: sticky; top: 0; z-index: 1; }
+  thead tr.cols th.no-sort { cursor: default; }
+  thead tr.cols th .sort { opacity: .35; margin-inline-start: 4px; }
+  thead tr.cols th[data-active] .sort { opacity: 1; color: var(--terracotta); }
+  thead tr.filters th { padding: 6px 8px; background: var(--card); border-bottom: 1px solid var(--border); }
+  thead tr.filters input { width: 100%; min-width: 74px; font-family: inherit; font-size: 12px; color: var(--foreground); background: var(--background); border: 1px solid var(--input); border-radius: 7px; padding: 5px 8px; outline: none; }
+  thead tr.filters input:focus { border-color: var(--terracotta); box-shadow: 0 0 0 2px var(--terracotta-soft); }
+  thead tr.filters.hidden { display: none; }
+
+  tbody td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 13px; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--accent); }
+  td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
+  td.mono { font-variant-numeric: tabular-nums; }
+
+  /* sticky identity column (status + number) */
+  th.sticky, td.sticky { position: sticky; inset-inline-start: 0; z-index: 2; background: var(--card); border-inline-end: 1px solid var(--border); }
+  thead tr.cols th.sticky { z-index: 3; }
+  tbody tr:hover td.sticky { background: var(--accent); }
+  th.sticky, td.sticky { min-width: 280px; }
+  .idcell { display: flex; align-items: center; gap: 10px; }
+  .idcell .num { font-variant-numeric: tabular-nums; font-weight: 650; letter-spacing: -0.01em; }
+  .detail-btn { appearance: none; font-family: inherit; font-size: 11px; font-weight: 600; color: var(--terracotta); background: transparent; border: 1px solid var(--border); border-radius: 999px; padding: 3px 9px; cursor: pointer; margin-inline-start: auto; white-space: nowrap; transition: all .12s; }
+  .detail-btn:hover { background: var(--terracotta-soft); border-color: var(--terracotta); }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .badge.A { background: var(--ok-soft); color: var(--ok); } .badge.A .dot { background: var(--ok); }
+  .badge.I { background: var(--inactive-soft); color: var(--inactive); } .badge.I .dot { background: var(--inactive); }
+  .badge.D { background: var(--draft-soft); color: var(--draft); } .badge.D .dot { background: var(--draft); }
+  .badge.X { background: var(--deleted-soft); color: var(--deleted); } .badge.X .dot { background: var(--deleted); }
+  .livedot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 0 var(--ok-soft); animation: pulse 2s infinite; flex: none; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 var(--ok-soft); } 70% { box-shadow: 0 0 0 5px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+  @media (prefers-reduced-motion: reduce) { .livedot { animation: none; } }
+  .bool { font-weight: 600; }
+  .bool.y { color: var(--ok); } .bool.n { color: var(--muted-foreground); }
+  .code { display: inline-block; font-size: 11px; font-weight: 600; background: var(--muted); border-radius: 5px; padding: 1px 6px; }
+  .listcell { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+  .muted { color: var(--muted-foreground); }
+  .time { color: var(--muted-foreground); font-size: 12px; }
+
+  .state { padding: 56px 24px; text-align: center; color: var(--muted-foreground); }
+  .state svg { color: var(--border); margin-bottom: 12px; }
+  .state h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; color: var(--foreground); }
+  .state p { margin: 0; font-size: 13px; }
+  .sk { height: 44px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 16px; padding: 0 14px; }
+  .sk span { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--muted) 25%, var(--accent) 50%, var(--muted) 75%); background-size: 200% 100%; animation: shimmer 1.3s infinite; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .sk span { animation: none; } }
+
+  .hidden { display: none !important; }
+  footer.note { margin-top: 20px; font-size: 12px; color: var(--muted-foreground); line-height: 1.7; }
+  footer.note code { background: var(--muted); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+  .legend { display:flex; flex-wrap:wrap; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--muted-foreground); }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+</style>
+
+<div class="wrap">
+  <div class="proto-bar">
+    <strong>Prototype states</strong>
+    <button class="proto-btn" data-state="default" aria-pressed="true">Default (active only)</button>
+    <button class="proto-btn" data-state="searched">After a search</button>
+    <button class="proto-btn" data-state="cap">Cap reached (1000)</button>
+    <button class="proto-btn" data-state="empty">No results</button>
+    <button class="proto-btn" data-state="loading">Loading</button>
+    <button class="proto-btn" id="themeBtn" style="margin-inline-start:auto">◐ Theme</button>
+  </div>
+
+  <header class="page">
+    <div>
+      <h1>Bonus Buy Inquiry</h1>
+      <p>Browse every field of each Bonus Buy header. Opens on the ones active today; search by number or a validity date-range to reach any BBY — including inactive, draft and deleted. Per-column filters narrow the list; Export downloads the full set; Details opens the SAP-style Buy→Get breakdown on demand.</p>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="fields">
+      <div class="field num">
+        <label for="bbyNo">BBY number</label>
+        <input id="bbyNo" type="text" inputmode="numeric" placeholder="e.g. 100004521" autocomplete="off">
+      </div>
+      <div class="field date">
+        <label for="vfrom">Active during — from</label>
+        <input id="vfrom" type="date">
+      </div>
+      <span class="dash">→</span>
+      <div class="field date">
+        <label for="vto">to</label>
+        <input id="vto" type="date">
+      </div>
+      <label class="toggle">
+        <input id="activeOnly" type="checkbox" checked>
+        <span class="track"><span class="thumb"></span></span>
+        <span class="lbl">Active only<span class="hint">status A &amp; valid today</span></span>
+      </label>
+      <div class="actions">
+        <button class="btn ghost" id="resetBtn">Reset</button>
+        <button class="btn primary" id="searchBtn">Search</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="resultline" id="resultline">
+    <span class="count" id="count">6</span>
+    <span id="countlabel">active Bonus Buys</span>
+    <span class="chip hidden" id="filterchip">filtered <button title="clear">✕</button></span>
+    <div class="righttools">
+      <button class="icon-toggle" id="colfilterBtn" aria-pressed="false">⧩ Column filters</button>
+      <button class="export-link" id="exportBtn">⭳ Export all fields <span class="tag">v1</span></button>
+    </div>
+  </div>
+
+  <div class="banner hidden" id="capBanner">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+    <span>Showing the first <strong>1,000</strong> matches (newest first). Narrow with a number, date-range, or column filter to see the rest.</span>
+  </div>
+
+  <div class="grid-wrap">
+    <div class="scroll">
+      <table id="grid">
+        <thead>
+          <tr class="groups">
+            <th class="sticky">Identity</th>
+            <th colspan="4">Identity &amp; offer</th>
+            <th colspan="4">Validity window</th>
+            <th colspan="11">Buy / Get rules</th>
+            <th colspan="3">Stacking</th>
+            <th colspan="2">Loyalty</th>
+            <th colspan="2">Audit</th>
+          </tr>
+          <tr class="cols" id="colrow"><!-- filled by JS --></tr>
+          <tr class="filters hidden" id="filterrow"><!-- filled by JS --></tr>
+        </thead>
+        <tbody id="rows"><!-- filled by JS --></tbody>
+      </table>
+    </div>
+
+    <div class="state hidden" id="emptyState">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <h3>No Bonus Buys match your search</h3>
+      <p>No BBY overlaps that date range or number. Try widening the dates, or clear the filter to see all active promotions.</p>
+    </div>
+
+    <div class="hidden" id="loadingState">
+      <div class="sk"><span style="width:120px"></span><span style="width:240px"></span><span style="width:120px"></span><span style="width:90px"></span><span style="width:160px"></span></div>
+      <div class="sk"><span style="width:120px"></span><span style="width:200px"></span><span style="width:120px"></span><span style="width:90px"></span><span style="width:160px"></span></div>
+      <div class="sk"><span style="width:120px"></span><span style="width:280px"></span><span style="width:120px"></span><span style="width:90px"></span><span style="width:160px"></span></div>
+      <div class="sk"><span style="width:120px"></span><span style="width:180px"></span><span style="width:120px"></span><span style="width:90px"></span><span style="width:160px"></span></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="badge A"><span class="dot"></span>Active</span> status A</span>
+    <span><span class="badge I"><span class="dot"></span>Inactive</span></span>
+    <span><span class="badge D"><span class="dot"></span>Draft</span></span>
+    <span><span class="badge X"><span class="dot"></span>Deleted</span></span>
+    <span><span class="livedot"></span> = valid today (server <code style="background:var(--muted);padding:0 4px;border-radius:3px">isActive</code>)</span>
+  </div>
+
+  <footer class="note">
+    <strong>Prototype notes.</strong> Full <strong>28-field header</strong> in one horizontally-scrolling grid (the WPF completeness, restyled) — grouped headers, a sticky Status+Number identity column, sortable columns, and a toggleable <strong>per-column filter row</strong> (the WPF auto-filter, on demand). Codes render as compact chips (<code>R</code>=Document, <code>A</code>/<code>O</code>=And/Or); booleans as ✓/–; dates <code>yyyyMMdd→yyyy-MM-dd</code>, times <code>HHMMSS→HH:mm</code>. Export emits every field. A <strong>Details ▸</strong> button sits in the sticky identity column — on demand it opens the SAP-style "Display Bonus Buy" modal (ticket 060: header + Buy→Get condition rows + grouping members), which the flat header grid does not show.
+  </footer>
+</div>
+
+<script>
+  // rows shaped like the 057 BbyInquiryRow DTO — raw codes/strings, all 28 fields + isActive
+  const ALL = [
+    { bbyNumber:"100004521", description:"Al-Rajhi Card — 5% off basket", bbyProfile:"DOC_DISCOUNT", validFrom:"20260101", validTo:"20261231", validFromTime:"000000", validToTime:"235959", promoNumber:"PR-5501", linkCategoryBuy:"O", linkCategoryGet:"A", bbyStatus:"A", offerId:"OF-5501", limitNumber:1, minValue:0, maxValue:0, condTargetType:"R", includes:"", excludes:"CAT_TOBACCO", score:100, originFilter:"POS", priceListType:"01", isStackable:false, allowNestedStacking:false, stackingExcludes:"", loyGroups:"RAJHI", loyTiers:"", createdAt:"2025-12-18T09:12:00", createdBy:"h.otaibi", isActive:true },
+    { bbyNumber:"100004498", description:"Buy 2 Panadol Extra, get 1 free", bbyProfile:"BUY_GET", validFrom:"20260701", validTo:"20260831", validFromTime:"000000", validToTime:"235959", promoNumber:"PR-5490", linkCategoryBuy:"A", linkCategoryGet:"A", bbyStatus:"A", offerId:"OF-5490", limitNumber:5, minValue:2, maxValue:0, condTargetType:"M", includes:"MAT_889201", excludes:"", score:50, originFilter:"POS,APP", priceListType:"01", isStackable:true, allowNestedStacking:false, stackingExcludes:"OF-5501", loyGroups:"", loyTiers:"", createdAt:"2026-06-25T14:40:00", createdBy:"s.qahtani", isActive:true },
+    { bbyNumber:"100004510", description:"Vitamin C range — 15% off", bbyProfile:"GRP_DISCOUNT", validFrom:"20260715", validTo:"20260930", validFromTime:"080000", validToTime:"220000", promoNumber:"PR-5502", linkCategoryBuy:"O", linkCategoryGet:"A", bbyStatus:"A", offerId:"OF-5502", limitNumber:0, minValue:1, maxValue:10, condTargetType:"G", includes:"GRP_VITC", excludes:"MAT_771020", score:60, originFilter:"POS", priceListType:"01", isStackable:true, allowNestedStacking:true, stackingExcludes:"", loyGroups:"", loyTiers:"", createdAt:"2026-07-01T08:05:00", createdBy:"m.zahrani", isActive:true },
+    { bbyNumber:"100004533", description:"Baby care bundle — SAR 25 off over 150", bbyProfile:"THRESHOLD", validFrom:"20260601", validTo:"20261130", validFromTime:"000000", validToTime:"235959", promoNumber:"PR-5480", linkCategoryBuy:"A", linkCategoryGet:"A", bbyStatus:"A", offerId:"OF-5480", limitNumber:3, minValue:150, maxValue:0, condTargetType:"P", includes:"GRP_BABY", excludes:"", score:70, originFilter:"POS,APP", priceListType:"02", isStackable:false, allowNestedStacking:false, stackingExcludes:"", loyGroups:"NAHDI+", loyTiers:"SILVER,GOLD", createdAt:"2026-05-28T11:20:00", createdBy:"h.otaibi", isActive:true },
+    { bbyNumber:"100004541", description:"Suncare — buy 3 pay for 2", bbyProfile:"BUY_GET", validFrom:"20260620", validTo:"20260720", validFromTime:"000000", validToTime:"235959", promoNumber:"PR-5495", linkCategoryBuy:"A", linkCategoryGet:"A", bbyStatus:"A", offerId:"OF-5495", limitNumber:2, minValue:3, maxValue:0, condTargetType:"M", includes:"GRP_SUN", excludes:"", score:55, originFilter:"POS", priceListType:"01", isStackable:false, allowNestedStacking:false, stackingExcludes:"", loyGroups:"", loyTiers:"", createdAt:"2026-06-15T16:02:00", createdBy:"s.qahtani", isActive:true },
+    { bbyNumber:"100004555", description:"Loyalty Gold — extra 10% skincare", bbyProfile:"GRP_DISCOUNT", validFrom:"20260710", validTo:"20260810", validFromTime:"000000", validToTime:"235959", promoNumber:"PR-5510", linkCategoryBuy:"O", linkCategoryGet:"A", bbyStatus:"A", offerId:"OF-5510", limitNumber:0, minValue:0, maxValue:0, condTargetType:"G", includes:"GRP_SKIN", excludes:"", score:80, originFilter:"APP", priceListType:"01", isStackable:true, allowNestedStacking:false, stackingExcludes:"", loyGroups:"", loyTiers:"GOLD", createdAt:"2026-07-08T10:15:00", createdBy:"m.zahrani", isActive:true },
+    { bbyNumber:"100004402", description:"Ramadan 2026 — dates & nuts 20% off", bbyProfile:"GRP_DISCOUNT", validFrom:"20260210", validTo:"20260410", validFromTime:"000000", validToTime:"235959", promoNumber:"PR-5401", linkCategoryBuy:"O", linkCategoryGet:"A", bbyStatus:"I", offerId:"OF-5401", limitNumber:0, minValue:0, maxValue:0, condTargetType:"G", includes:"GRP_RAMADAN", excludes:"", score:40, originFilter:"POS", priceListType:"01", isStackable:false, allowNestedStacking:false, stackingExcludes:"", loyGroups:"", loyTiers:"", createdAt:"2026-01-30T09:00:00", createdBy:"h.otaibi", isActive:false },
+    { bbyNumber:"100004612", description:"Back-to-school — stationery bundle", bbyProfile:"BUY_GET", validFrom:"20260815", validTo:"20260915", validFromTime:"000000", validToTime:"235959", promoNumber:"PR-5520", linkCategoryBuy:"A", linkCategoryGet:"A", bbyStatus:"D", offerId:"OF-5520", limitNumber:4, minValue:2, maxValue:0, condTargetType:"M", includes:"GRP_STATIONERY", excludes:"", score:30, originFilter:"POS,APP", priceListType:"01", isStackable:false, allowNestedStacking:false, stackingExcludes:"", loyGroups:"", loyTiers:"", createdAt:"2026-07-12T13:30:00", createdBy:"s.qahtani", isActive:false },
+    { bbyNumber:"100004370", description:"National Day 2025 — 23% off", bbyProfile:"DOC_DISCOUNT", validFrom:"20250920", validTo:"20250925", validFromTime:"000000", validToTime:"235959", promoNumber:"PR-5370", linkCategoryBuy:"O", linkCategoryGet:"A", bbyStatus:"X", offerId:"OF-5370", limitNumber:1, minValue:0, maxValue:0, condTargetType:"R", includes:"", excludes:"", score:23, originFilter:"POS", priceListType:"01", isStackable:false, allowNestedStacking:false, stackingExcludes:"", loyGroups:"", loyTiers:"", createdAt:"2025-09-01T08:00:00", createdBy:"m.zahrani", isActive:false },
+  ];
+
+  const STATUS = { A:"Active", I:"Inactive", D:"Draft", X:"Deleted" };
+  const CTT = { R:"Document", M:"Material", G:"Grouping", P:"All prereq" };
+  const AO = { A:"And", O:"Or" };
+  const fmtDate = s => s ? `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}` : "";
+  const fmtTime = s => (!s || s==="000000") ? "00:00" : s==="235959" ? "23:59" : `${s.slice(0,2)}:${s.slice(2,4)}`;
+
+  // column spec: key, label, sortable, cell renderer, plain-text (for filtering/sort)
+  const COLS = [
+    { key:"description", label:"Description", cls:"", cell:r=>esc(r.description), text:r=>r.description },
+    { key:"bbyProfile", label:"Profile", cls:"", cell:r=>`<span class="code">${esc(r.bbyProfile)}</span>`, text:r=>r.bbyProfile },
+    { key:"promoNumber", label:"Promo #", cls:"mono", cell:r=>r.promoNumber, text:r=>r.promoNumber },
+    { key:"offerId", label:"Offer ID", cls:"mono", cell:r=>r.offerId, text:r=>r.offerId },
+    { key:"validFrom", label:"Valid from", cls:"mono", cell:r=>fmtDate(r.validFrom), text:r=>fmtDate(r.validFrom) },
+    { key:"validTo", label:"Valid to", cls:"mono", cell:r=>fmtDate(r.validTo), text:r=>fmtDate(r.validTo) },
+    { key:"validFromTime", label:"From time", cls:"mono time", cell:r=>fmtTime(r.validFromTime), text:r=>fmtTime(r.validFromTime) },
+    { key:"validToTime", label:"To time", cls:"mono time", cell:r=>fmtTime(r.validToTime), text:r=>fmtTime(r.validToTime) },
+    { key:"linkCategoryBuy", label:"Link buy", cls:"", cell:r=>`<span class="code">${AO[r.linkCategoryBuy]||r.linkCategoryBuy}</span>`, text:r=>AO[r.linkCategoryBuy] },
+    { key:"linkCategoryGet", label:"Link get", cls:"", cell:r=>`<span class="code">${AO[r.linkCategoryGet]||r.linkCategoryGet}</span>`, text:r=>AO[r.linkCategoryGet] },
+    { key:"condTargetType", label:"Target", cls:"", cell:r=>`<span class="code">${CTT[r.condTargetType]||r.condTargetType}</span>`, text:r=>CTT[r.condTargetType] },
+    { key:"includes", label:"Includes", cls:"listcell", cell:r=>r.includes?esc(r.includes):dash(), text:r=>r.includes },
+    { key:"excludes", label:"Excludes", cls:"listcell", cell:r=>r.excludes?esc(r.excludes):dash(), text:r=>r.excludes },
+    { key:"minValue", label:"Min", cls:"num", cell:r=>r.minValue||dash(), text:r=>String(r.minValue), num:true },
+    { key:"maxValue", label:"Max", cls:"num", cell:r=>r.maxValue||dash(), text:r=>String(r.maxValue), num:true },
+    { key:"limitNumber", label:"Limit", cls:"num", cell:r=>r.limitNumber||dash(), text:r=>String(r.limitNumber), num:true },
+    { key:"score", label:"Score", cls:"num", cell:r=>r.score, text:r=>String(r.score), num:true },
+    { key:"priceListType", label:"Price list", cls:"mono", cell:r=>r.priceListType, text:r=>r.priceListType },
+    { key:"originFilter", label:"Origin", cls:"", cell:r=>esc(r.originFilter), text:r=>r.originFilter },
+    { key:"isStackable", label:"Stackable", cls:"", cell:r=>boolCell(r.isStackable), text:r=>r.isStackable?"yes":"no" },
+    { key:"allowNestedStacking", label:"Nested", cls:"", cell:r=>boolCell(r.allowNestedStacking), text:r=>r.allowNestedStacking?"yes":"no" },
+    { key:"stackingExcludes", label:"Stack excl.", cls:"listcell", cell:r=>r.stackingExcludes?esc(r.stackingExcludes):dash(), text:r=>r.stackingExcludes },
+    { key:"loyGroups", label:"Loy. groups", cls:"", cell:r=>r.loyGroups?esc(r.loyGroups):dash(), text:r=>r.loyGroups },
+    { key:"loyTiers", label:"Loy. tiers", cls:"", cell:r=>r.loyTiers?esc(r.loyTiers):dash(), text:r=>r.loyTiers },
+    { key:"createdAt", label:"Created", cls:"mono", cell:r=>r.createdAt.slice(0,10), text:r=>r.createdAt.slice(0,10) },
+    { key:"createdBy", label:"By", cls:"", cell:r=>esc(r.createdBy), text:r=>r.createdBy },
+  ];
+
+  function esc(s){ return (s==null?"":String(s)).replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+  function dash(){ return `<span class="muted">–</span>`; }
+  function boolCell(v){ return v ? `<span class="bool y">✓</span>` : `<span class="bool n">–</span>`; }
+  function idCell(r){
+    const live = r.isActive ? `<span class="livedot" title="valid today"></span>` : "";
+    return `<div class="idcell">${live}<span class="badge ${r.bbyStatus}"><span class="dot"></span>${STATUS[r.bbyStatus]}</span><span class="num">${r.bbyNumber}</span><button class="detail-btn" data-detail="${r.bbyNumber}">Details ▸</button></div>`;
+  }
+
+  const $ = id => document.getElementById(id);
+  let sortKey = null, sortDir = 1, colFilters = {};
+
+  function buildHead(){
+    $("colrow").innerHTML = `<th class="sticky no-sort">Status · BBY №</th>` +
+      COLS.map(c => `<th class="${c.num?'num':''}" data-key="${c.key}">${c.label}<span class="sort">↕</span></th>`).join("");
+    $("filterrow").innerHTML = `<th class="sticky"></th>` +
+      COLS.map(c => `<th><input data-fkey="${c.key}" placeholder="filter" aria-label="Filter ${c.label}"></th>`).join("");
+    $("colrow").querySelectorAll("th[data-key]").forEach(th => th.addEventListener("click", () => {
+      const k = th.dataset.key;
+      if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = 1; }
+      $("colrow").querySelectorAll("th").forEach(x => x.removeAttribute("data-active"));
+      th.setAttribute("data-active", "");
+      th.querySelector(".sort").textContent = sortDir === 1 ? "↑" : "↓";
+      draw();
+    }));
+    $("filterrow").querySelectorAll("input").forEach(inp => inp.addEventListener("input", () => {
+      colFilters[inp.dataset.fkey] = inp.value.trim().toLowerCase(); draw();
+    }));
+  }
+
+  let BASE = [];
+  function draw(){
+    let rows = BASE.slice();
+    for (const c of COLS) {
+      const f = colFilters[c.key];
+      if (f) rows = rows.filter(r => String(c.text(r)??"").toLowerCase().includes(f));
+    }
+    if (sortKey) {
+      const col = COLS.find(c => c.key === sortKey);
+      rows.sort((a,b) => {
+        if (col.num) return (Number(a[sortKey])-Number(b[sortKey]))*sortDir;
+        return String(col.text(a)??"").localeCompare(String(col.text(b)??""))*sortDir;
+      });
+    }
+    $("rows").innerHTML = rows.map(r =>
+      `<tr><td class="sticky">${idCell(r)}</td>` + COLS.map(c => `<td class="${c.cls}">${c.cell(r)}</td>`).join("") + `</tr>`
+    ).join("");
+    $("rows").querySelectorAll(".detail-btn").forEach(btn => btn.addEventListener("click", e => {
+      e.stopPropagation();
+      alert("Details (ticket 060): opens the SAP-style 'Display Bonus Buy' modal for BBY " + btn.dataset.detail + " — header + Buy→Get condition rows + material-grouping members. On demand only; not shown inline.");
+    }));
+  }
+
+  function setState(state){
+    document.querySelectorAll(".proto-btn[data-state]").forEach(b => b.setAttribute("aria-pressed", b.dataset.state === state));
+    const grid=$("grid"), empty=$("emptyState"), loading=$("loadingState"), cap=$("capBanner"), chip=$("filterchip");
+    grid.classList.remove("hidden"); empty.classList.add("hidden"); loading.classList.add("hidden"); cap.classList.add("hidden"); chip.classList.add("hidden");
+    $("resultline").style.display = "flex";
+    colFilters = {}; $("filterrow").querySelectorAll("input").forEach(i=>i.value="");
+
+    if (state === "default") {
+      BASE = ALL.filter(r => r.isActive); $("count").textContent = BASE.length; $("countlabel").textContent = "active Bonus Buys";
+      $("activeOnly").checked = true; $("bbyNo").value=""; $("vfrom").value=""; $("vto").value=""; draw();
+    } else if (state === "searched") {
+      BASE = ALL; $("count").textContent = ALL.length; $("countlabel").textContent = "Bonus Buys match — all statuses";
+      chip.classList.remove("hidden"); $("activeOnly").checked=false; $("vfrom").value="2026-02-01"; $("vto").value="2026-09-30"; draw();
+    } else if (state === "cap") {
+      BASE = ALL; $("count").textContent = "1,000"; $("countlabel").textContent = "Bonus Buys (capped)";
+      cap.classList.remove("hidden"); $("activeOnly").checked=false; draw();
+    } else if (state === "empty") {
+      grid.classList.add("hidden"); empty.classList.remove("hidden");
+      $("count").textContent="0"; $("countlabel").textContent="Bonus Buys match"; chip.classList.remove("hidden"); $("bbyNo").value="999999999";
+    } else if (state === "loading") {
+      grid.classList.add("hidden"); loading.classList.remove("hidden"); $("resultline").style.display="none";
+    }
+  }
+
+  document.querySelectorAll(".proto-btn[data-state]").forEach(b => b.addEventListener("click", () => setState(b.dataset.state)));
+  $("searchBtn").addEventListener("click", () => setState("searched"));
+  $("resetBtn").addEventListener("click", () => setState("default"));
+  $("filterchip").querySelector("button").addEventListener("click", () => setState("default"));
+  $("colfilterBtn").addEventListener("click", () => {
+    const row = $("filterrow"), on = row.classList.toggle("hidden") === false;
+    $("colfilterBtn").setAttribute("aria-pressed", String(on));
+  });
+  $("exportBtn").addEventListener("click", e => { e.preventDefault(); alert("Export (v1): downloads all 28 header fields for the current result set. Format (xlsx vs csv) and client-vs-server generation still to be decided — see ticket 059."); });
+  $("themeBtn").addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme");
+    const next = cur === "dark" ? "light" : cur === "light" ? "dark" : (matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark");
+    document.documentElement.setAttribute("data-theme", next);
+  });
+
+  buildHead();
+  setState("default");
+</script>

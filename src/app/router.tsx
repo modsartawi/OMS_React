@@ -74,6 +74,12 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        path: 'pricing/bonus-buy-inquiry',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/bonus-buy-inquiry/BonusBuyInquiryPage')).default,
+        }),
+      },
+      {
         path: 'pricing/coupons',
         lazy: async () => ({
           Component: (await import('@/features/pricing/coupons/CouponsAdminPage')).default,

@@ -13,7 +13,7 @@ export const router = createBrowserRouter([
     path: '/',
     Component: ProtectedLayout,
     children: [
-      { index: true, element: <Navigate to="/oms/deliveries" replace /> },
+      { index: true, lazy: async () => ({ Component: (await import('@/app/HomePage')).default }) },
       {
         path: 'oms/deliveries',
         lazy: async () => ({ Component: (await import('@/features/oms/deliveries/DeliveriesPage')).default }),
@@ -56,6 +56,12 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        path: 'admin/broadcast',
+        lazy: async () => ({
+          Component: (await import('@/features/admin/broadcast/BroadcastComposePage')).default,
+        }),
+      },
+      {
         path: 'pricing/simulation',
         lazy: async () => ({
           Component: (await import('@/features/pricing/simulation/SimulationPage')).default,
@@ -65,6 +71,12 @@ export const router = createBrowserRouter([
         path: 'pricing/bonus-buy-download',
         lazy: async () => ({
           Component: (await import('@/features/pricing/bonus-buy-download/BonusBuyDownloadPage')).default,
+        }),
+      },
+      {
+        path: 'pricing/bonus-buy-inquiry',
+        lazy: async () => ({
+          Component: (await import('@/features/pricing/bonus-buy-inquiry/BonusBuyInquiryPage')).default,
         }),
       },
       {
@@ -79,7 +91,7 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/pricing/coupons/CouponSupportPage')).default,
         }),
       },
-      { path: '*', element: <Navigate to="/oms/deliveries" replace /> },
+      { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
 ])

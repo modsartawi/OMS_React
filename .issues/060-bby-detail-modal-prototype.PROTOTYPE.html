@@ -1,0 +1,716 @@
+<!-- =========================================================================
+     BBY Inquiry — DETAILS MODAL prototype (wayfinder ticket 060 / map 053).
+     A concrete mirror of SAP "Display Bonus Buy" to react to, sourced from the
+     detail contract (ticket 058) + field inventory (055) + glossary (054).
+
+     THROWAWAY. Standalone HTML — open in a browser. No build, no server; the
+     sample BBYs are hard-coded to the BbyDetailDto shape. Palette/type mirror
+     the app tokens; final screen is React + t() + AG-Grid, not this markup.
+
+     Bottom bar switches SCENARIO: a standard item/grouping BBY, the Document
+     total-discount branch (condTargetType 'R'), the not-found business error,
+     and the loading skeleton. It also flips theme. The Buy-side "N members"
+     chips open the lazy grouping-members drilldown (Endpoint B).
+     ========================================================================= -->
+<style>
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --surface-2: #f5f4ef; --surface-3: #efeee8;
+    --fg: #26241f; --fg-muted: #6b6860; --fg-faint: #928f86;
+    --border: #e8e6df; --border-strong: #dcdad2;
+    --accent: #c96442; --accent-ink: #a24a2d; --accent-soft: #f4e4dd;
+    --good: #3f7d5b; --good-soft: #e6f0ea;
+    --warn: #9a6f1c; --warn-soft: #f4ead0;
+    --info: #3a6a8d; --info-soft: #e2ecf3;
+    --danger: #a6402f; --danger-soft: #f4e0dc;
+    --shadow: 0 1px 2px rgba(38,36,31,.05), 0 4px 16px rgba(38,36,31,.06);
+    --shadow-lg: 0 12px 40px rgba(38,36,31,.20), 0 2px 8px rgba(38,36,31,.10);
+    --radius: 0.625rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #201f1b; --surface: #262521; --surface-2: #2c2b26; --surface-3: #34322c;
+      --fg: #eeede7; --fg-muted: #a8a598; --fg-faint: #817e78;
+      --border: #393731; --border-strong: #47443d;
+      --accent: #e08d70; --accent-ink: #eda487; --accent-soft: #3a2a24;
+      --good: #7cba95; --good-soft: #253128;
+      --warn: #d6b671; --warn-soft: #332b1d;
+      --info: #8fb6d4; --info-soft: #223039;
+      --danger: #e0917f; --danger-soft: #3a2622;
+      --shadow: 0 1px 2px rgba(0,0,0,.25), 0 4px 16px rgba(0,0,0,.30);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,.50), 0 2px 8px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfaf7; --surface: #ffffff; --surface-2: #f5f4ef; --surface-3: #efeee8;
+    --fg: #26241f; --fg-muted: #6b6860; --fg-faint: #928f86;
+    --border: #e8e6df; --border-strong: #dcdad2;
+    --accent: #c96442; --accent-ink: #a24a2d; --accent-soft: #f4e4dd;
+    --good: #3f7d5b; --good-soft: #e6f0ea; --warn: #9a6f1c; --warn-soft: #f4ead0;
+    --info: #3a6a8d; --info-soft: #e2ecf3; --danger: #a6402f; --danger-soft: #f4e0dc;
+    --shadow: 0 1px 2px rgba(38,36,31,.05), 0 4px 16px rgba(38,36,31,.06);
+    --shadow-lg: 0 12px 40px rgba(38,36,31,.20), 0 2px 8px rgba(38,36,31,.10);
+  }
+  :root[data-theme="dark"] {
+    --bg: #201f1b; --surface: #262521; --surface-2: #2c2b26; --surface-3: #34322c;
+    --fg: #eeede7; --fg-muted: #a8a598; --fg-faint: #817e78;
+    --border: #393731; --border-strong: #47443d;
+    --accent: #e08d70; --accent-ink: #eda487; --accent-soft: #3a2a24;
+    --good: #7cba95; --good-soft: #253128; --warn: #d6b671; --warn-soft: #332b1d;
+    --info: #8fb6d4; --info-soft: #223039; --danger: #e0917f; --danger-soft: #3a2622;
+    --shadow: 0 1px 2px rgba(0,0,0,.25), 0 4px 16px rgba(0,0,0,.30);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,.50), 0 2px 8px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  h1,h2,h3 { text-wrap: balance; margin: 0; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  [hidden] { display: none !important; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 20px 132px; }
+
+  .intro { margin-bottom: 16px; }
+  .intro .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+  .intro h1 { font-size: 22px; font-weight: 680; letter-spacing: -.01em; }
+  .intro p { margin: 8px 0 0; color: var(--fg-muted); max-width: 74ch; font-size: 13.5px; }
+
+  /* ---- the grid behind (context: modal opens from a row Details button) ---- */
+  .backdrop-grid { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; opacity: .55; filter: saturate(.6); pointer-events: none; user-select: none; }
+  .bg-head, .bg-row { display: grid; grid-template-columns: 118px 1fr 92px 96px 120px; gap: 12px; padding: 9px 16px; align-items: center; }
+  .bg-head { background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+  .bg-row { border-bottom: 1px solid var(--border); font-size: 13px; }
+  .bg-row .btn-ghost { font-size: 12px; color: var(--accent-ink); border: 1px solid var(--border-strong); border-radius: 999px; padding: 3px 10px; background: var(--surface); justify-self: start; }
+
+  /* ------------------------------ modal shell ------------------------------ */
+  .scrim { position: fixed; inset: 0; background: rgba(28,26,22,.42); backdrop-filter: blur(2px); display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; overflow-y: auto; z-index: 40; }
+  @media (prefers-color-scheme: dark) { .scrim { background: rgba(0,0,0,.55); } }
+  .modal { width: 100%; max-width: 980px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: var(--shadow-lg); overflow: hidden; margin: auto 0; }
+
+  /* modal title bar */
+  .m-titlebar { display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+  .m-titlebar .tt { min-width: 0; }
+  .m-titlebar .eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--accent); }
+  .m-titlebar h2 { font-size: 18px; font-weight: 700; letter-spacing: -.01em; margin-top: 2px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .m-titlebar .desc { color: var(--fg-muted); font-size: 13px; margin-top: 3px; }
+  .m-titlebar .spacer { flex: 1; }
+  .m-close { flex: none; width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--fg-muted); font-size: 18px; line-height: 1; display: grid; place-items: center; }
+  .m-close:hover { background: var(--surface-3); color: var(--fg); }
+
+  /* status badges */
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 640; letter-spacing: .02em; padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
+  .badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .badge.st-A { background: var(--good-soft); color: var(--good); }        .badge.st-A .dot { background: var(--good); }
+  .badge.st-I { background: var(--surface-3); color: var(--fg-muted); }    .badge.st-I .dot { background: var(--fg-faint); }
+  .badge.st-D { background: var(--warn-soft); color: var(--warn); }        .badge.st-D .dot { background: var(--warn); }
+  .badge.st-X { background: var(--danger-soft); color: var(--danger); }    .badge.st-X .dot { background: var(--danger); }
+  .badge.live { background: var(--good-soft); color: var(--good); }        .badge.live .dot { background: var(--good); }
+  .badge.past { background: var(--surface-3); color: var(--fg-muted); }    .badge.past .dot { background: var(--fg-faint); }
+
+  .m-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; max-height: calc(100vh - 220px); overflow-y: auto; }
+
+  /* section heading */
+  .sec-h { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
+  .sec-h .ico { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font-size: 13px; font-weight: 700; flex: none; }
+  .sec-h .ico.buy { background: var(--info-soft); color: var(--info); }
+  .sec-h .ico.get { background: var(--accent-soft); color: var(--accent-ink); }
+  .sec-h .ico.hdr { background: var(--surface-3); color: var(--fg-muted); }
+  .sec-h h3 { font-size: 13px; font-weight: 680; letter-spacing: .02em; }
+  .sec-h .sub { font-size: 12px; color: var(--fg-faint); }
+  .sec-h .rule { flex: 1; height: 1px; background: var(--border); }
+
+  /* header / org definition grid */
+  .defgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .defgrid .cell { background: var(--surface); padding: 9px 12px; min-width: 0; }
+  .defgrid .cell.span2 { grid-column: span 2; }
+  .defgrid .k { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+  .defgrid .v { font-size: 13.5px; font-weight: 560; margin-top: 3px; overflow-wrap: anywhere; }
+  .defgrid .v.muted { color: var(--fg-faint); font-weight: 500; }
+  .defgrid .v .u { color: var(--fg-faint); font-weight: 500; font-size: 12px; margin-inline-start: 3px; }
+  .chip-inline { display: inline-flex; align-items: center; font-size: 11px; font-weight: 620; padding: 1px 7px; border-radius: 6px; background: var(--surface-3); color: var(--fg-muted); }
+
+  /* Buy / Get relationship strip */
+  .linkstrip { display: flex; align-items: center; justify-content: center; gap: 10px; margin: -6px 0; }
+  .linkstrip .lk { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); background: var(--accent-soft); border-radius: 999px; padding: 3px 12px; }
+  .linkstrip .line { flex: 1; height: 1px; background: var(--border); max-width: 120px; }
+
+  /* line-item tables (Buy + Get) */
+  .tbl { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .tbl .thead, .tbl .trow { display: grid; gap: 10px; padding: 8px 14px; align-items: center; }
+  .tbl .thead { background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+  .tbl .trow { border-bottom: 1px solid var(--border); font-size: 13px; }
+  .tbl .trow:last-child { border-bottom: 0; }
+  .tbl .trow:hover { background: var(--surface-2); }
+  .cols-buy .thead, .cols-buy .trow { grid-template-columns: 46px 1fr 118px 96px 92px; }
+  .cols-get .thead, .cols-get .trow { grid-template-columns: 62px 1fr 128px 132px 108px; }
+  .ta-end { text-align: end; justify-items: end; }
+  .cell-id { min-width: 0; }
+  .cell-id .idnum { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cell-id .iddesc { color: var(--fg-muted); font-size: 12px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kindtag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: var(--fg-muted); }
+  .kindtag .g { color: var(--info); }
+  .members-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--info); background: var(--info-soft); border: 1px solid transparent; border-radius: 999px; padding: 2px 9px; margin-top: 4px; }
+  .members-chip:hover { border-color: var(--info); }
+  .members-chip .ch { font-size: 13px; line-height: 1; }
+  .disc { display: inline-flex; flex-direction: column; gap: 1px; }
+  .disc .val { font-weight: 680; font-variant-numeric: tabular-nums; }
+  .disc .typ { font-size: 11px; color: var(--fg-faint); }
+  .ctype { font-size: 11px; font-weight: 600; color: var(--fg-muted); font-variant-numeric: tabular-nums; background: var(--surface-3); border-radius: 6px; padding: 2px 7px; justify-self: start; }
+  .scale { font-size: 11.5px; color: var(--fg-muted); }
+
+  /* Document total-discount card */
+  .td-card { border: 1px solid var(--accent-soft); background: linear-gradient(180deg, var(--accent-soft), var(--surface)); border-radius: var(--radius); padding: 18px 20px; display: flex; align-items: center; gap: 22px; }
+  .td-card .big { font-size: 40px; font-weight: 760; letter-spacing: -.03em; color: var(--accent-ink); font-variant-numeric: tabular-nums; line-height: 1; }
+  .td-card .big .cur { font-size: 20px; font-weight: 620; margin-inline-start: 4px; }
+  .td-card .meta { display: flex; flex-direction: column; gap: 6px; }
+  .td-card .meta .k { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+  .td-card .meta .row { display: flex; gap: 8px; align-items: baseline; }
+  .td-card .meta .row .lab { font-size: 12px; color: var(--fg-muted); min-width: 118px; }
+  .td-card .meta .row .val { font-size: 13.5px; font-weight: 600; }
+
+  .empty-note { font-size: 12.5px; color: var(--fg-faint); font-style: italic; padding: 10px 4px; }
+
+  /* ---- grouping-members drilldown (nested popup / Endpoint B) ---- */
+  .dd-scrim { position: fixed; inset: 0; background: rgba(28,26,22,.30); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 60; }
+  .dd { width: 100%; max-width: 560px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-lg); overflow: hidden; }
+  .dd-head { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+  .dd-head .tt { font-size: 13.5px; font-weight: 660; }
+  .dd-head .tt .sub { color: var(--fg-faint); font-weight: 500; margin-inline-start: 6px; font-size: 12px; }
+  .dd-head .spacer { flex: 1; }
+  .dd-list { max-height: 340px; overflow-y: auto; }
+  .dd-mrow { display: grid; grid-template-columns: 118px 1fr 78px; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--border); font-size: 12.5px; align-items: center; }
+  .dd-mrow:last-child { border-bottom: 0; }
+  .dd-mrow .iddesc { color: var(--fg-muted); }
+  .dd-foot { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--border); background: var(--surface-2); font-size: 12px; color: var(--fg-muted); }
+  .dd-foot .spacer { flex: 1; }
+  .pager-btn { border: 1px solid var(--border-strong); background: var(--surface); border-radius: 7px; padding: 4px 10px; font-size: 12px; }
+  .pager-btn:disabled { opacity: .4; cursor: default; }
+
+  /* ---- loading skeleton + error states ---- */
+  .skel { border-radius: 6px; background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+  @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+  .err-state { text-align: center; padding: 40px 24px; }
+  .err-state .ic { width: 46px; height: 46px; border-radius: 50%; background: var(--danger-soft); color: var(--danger); display: grid; place-items: center; margin: 0 auto 14px; font-size: 22px; }
+  .err-state h3 { font-size: 15px; font-weight: 660; }
+  .err-state p { color: var(--fg-muted); font-size: 13px; margin: 6px 0 0; }
+  .err-state code { background: var(--surface-3); border-radius: 5px; padding: 1px 6px; font-size: 12px; }
+
+  /* ------------------------------ bottom bar ------------------------------ */
+  .bar { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 80;
+    display: flex; align-items: center; gap: 6px; padding: 7px 8px; background: var(--surface);
+    border: 1px solid var(--border-strong); border-radius: 999px; box-shadow: var(--shadow-lg); flex-wrap: wrap; justify-content: center; max-width: 94vw; }
+  .bar .grp { display: flex; align-items: center; gap: 3px; }
+  .bar .lbl { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); padding: 0 6px 0 8px; }
+  .bar .sep { width: 1px; height: 22px; background: var(--border); margin: 0 3px; }
+  .bar button.seg { font-size: 12.5px; font-weight: 560; color: var(--fg-muted); background: transparent; border: 0; border-radius: 999px; padding: 6px 12px; }
+  .bar button.seg[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  @media (prefers-color-scheme: dark) { .bar button.seg[aria-pressed="true"] { color: #201f1b; } }
+  :root[data-theme="dark"] .bar button.seg[aria-pressed="true"] { color: #201f1b; }
+  .bar button.seg:not([aria-pressed="true"]):hover { background: var(--surface-2); color: var(--fg); }
+
+  @media (max-width: 720px) {
+    .defgrid { grid-template-columns: repeat(2, 1fr); }
+    .defgrid .cell.span2 { grid-column: span 2; }
+    .cols-buy .thead, .cols-get .thead { display: none; }
+    .cols-buy .trow, .cols-get .trow { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+
+<div class="wrap">
+  <div class="intro">
+    <div class="eyebrow">Wayfinder 060 · Map 053 — BBY Inquiry</div>
+    <h1>Details modal — SAP “Display Bonus Buy” mirror</h1>
+    <p>
+      The per-row Details modal, opened from a summary-grid row (ticket 059). Header/Org block →
+      <b>Buy side</b> (prerequisites) → <b>Get side</b> (conditions), or the <b>Document total-discount</b>
+      card when <span class="chip-inline">condTargetType = R</span>. Grouping rows open a lazy, paged
+      members drilldown (Endpoint B). Shapes follow the detail contract (ticket&nbsp;058); labels follow
+      the glossary (ticket&nbsp;054). Live-basket status is out of scope. Use the bottom bar to switch scenario.
+    </p>
+  </div>
+
+  <!-- the grid the modal opens over (context only, dimmed) -->
+  <div class="backdrop-grid" aria-hidden="true">
+    <div class="bg-head"><span>BBY number</span><span>Description</span><span>Status</span><span>Valid from</span><span></span></div>
+    <div class="bg-row"><span class="num">300000482</span><span>Buy 2 Panadol, get 1 free</span><span>—</span><span class="num">2026-07-01</span><span class="btn-ghost">Details</span></div>
+    <div class="bg-row"><span class="num">300000517</span><span>Al-Rajhi card — 5% off basket</span><span>—</span><span class="num">2026-06-15</span><span class="btn-ghost">Details</span></div>
+    <div class="bg-row"><span class="num">300000203</span><span>Vitamin C range — 50% off 2nd</span><span>—</span><span class="num">2026-05-20</span><span class="btn-ghost">Details</span></div>
+  </div>
+</div>
+
+<!-- ============================ THE MODAL ============================ -->
+<div class="scrim" id="scrim">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <div class="m-titlebar">
+      <div class="tt">
+        <div class="eyebrow">Bonus Buy · Display</div>
+        <h2 id="m-title"><span id="t-number" class="num">300000482</span><span id="t-status"></span></h2>
+        <div class="desc" id="t-desc">Buy 2 Panadol Extra 24s, get 1 free</div>
+      </div>
+      <div class="spacer"></div>
+      <button class="m-close" id="btn-close" title="Close" aria-label="Close">✕</button>
+    </div>
+
+    <div class="m-body" id="m-body"><!-- filled by render() --></div>
+  </div>
+</div>
+
+<!-- ============================ BOTTOM BAR ============================ -->
+<div class="bar">
+  <span class="lbl">Scenario</span>
+  <div class="grp" id="grp-scenario">
+    <button class="seg" data-scn="grouping" aria-pressed="true">Grouping BBY</button>
+    <button class="seg" data-scn="material">Material BBY</button>
+    <button class="seg" data-scn="document">Total-discount</button>
+    <button class="seg" data-scn="notfound">Not found</button>
+    <button class="seg" data-scn="loading">Loading</button>
+  </div>
+  <div class="sep"></div>
+  <span class="lbl">Header layout</span>
+  <div class="grp" id="grp-header">
+    <button class="seg" data-hmode="split" aria-pressed="true">Split panels</button>
+    <button class="seg" data-hmode="merged">Merged grid</button>
+  </div>
+  <div class="sep"></div>
+  <span class="lbl">Theme</span>
+  <div class="grp" id="grp-theme">
+    <button class="seg" data-theme="light" aria-pressed="true">Light</button>
+    <button class="seg" data-theme="dark">Dark</button>
+  </div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ *
+ * Sample BbyDetailDto payloads (contract from ticket 058). Raw codes  *
+ * carried on the wire; this prototype maps them the way the client    *
+ * t() layer will. description is server-enriched inline.              *
+ * ------------------------------------------------------------------ */
+
+const STATUS = { A: 'Activated', I: 'Inactive', D: 'Draft', X: 'Deleted' };
+const LINKCAT = { A: 'AND', O: 'OR' };
+const CONDTARGET = { R: 'Document (total discount)', P: 'All prerequisites', M: 'Material', G: 'Material grouping' };
+const DISCOUNT = { P: 'Price', R: 'Fixed discount', '%': 'Percentage', N: 'Free goods' };
+const CONDTYPE = { ZB01: 'Price', ZB02: 'Fixed disc.', ZB12: 'Fixed disc. (stack)', ZB03: 'Percentage', ZB13: 'Percentage (stack)' };
+const SCALE = { A: 'From', B: 'Up to', C: 'Equal' };
+const PREREQ = { MGP: 'Material grouping', MAT: 'Material' };
+
+// --- shared header for the two item-based examples ---
+const baseHeader = {
+  bbyNumber: '300000482', description: 'Buy 2 Panadol Extra 24s, get 1 free',
+  bbyProfile: 'HEALTH_PROMO', validFrom: '20260701', validTo: '20260930',
+  validFromTime: '000000', validToTime: '235959',
+  promoNumber: 'PR-24817', offerId: 'OFR-6621',
+  linkCategoryBuy: 'A', linkCategoryGet: 'O', bbyStatus: 'A',
+  condTargetType: 'M', minValue: 0, maxValue: 0, limitNumber: 1, score: 100,
+  isStackable: false, allowNestedStacking: false,
+  loyGroups: 'NAHDI_PLUS', loyTiers: 'SILVER, GOLD',
+  includes: '', excludes: 'TOBACCO',
+};
+const baseOrg = { salesOrganization: '1000', distributionChannel: '10', plant: '1201', currency: 'SAR' };
+
+const DATA = {
+  // 1) Grouping BBY — Buy side is a material grouping (opens members drilldown)
+  grouping: {
+    header: { ...baseHeader },
+    org: { ...baseOrg },
+    buy: [
+      { lineItemPos: '10', prereqType: 'MGP', isGrouping: true, identifier: 'GRP-PANADOL-24',
+        materialNumber: null, description: null, qty: 2, uom: 'EA', minValue: 0, memberCount: 14 },
+    ],
+    get: [
+      { condNumber: '01', isGrouping: true, identifier: 'GRP-PANADOL-24', materialNumber: null,
+        description: null, discountType: '%', conditionType: 'ZB03', condValue: 0, condValueP: 100,
+        scaleType: 'A', qty: 1, uom: 'EA', pricingUnit: 1, pricingUnitUom: 'EA', memberCount: 14 },
+    ],
+    totalDiscount: null,
+  },
+
+  // 2) Material BBY — plain material rows, a real discount value, stackable, min/max set
+  material: {
+    header: {
+      ...baseHeader, bbyNumber: '300000203', description: 'Vitamin C 1000mg — 50% off the 2nd unit',
+      bbyProfile: 'SEASONAL', validFrom: '20260520', validTo: '20260620', bbyStatus: 'I',
+      condTargetType: 'M', promoNumber: 'PR-24102', offerId: 'OFR-5510',
+      linkCategoryBuy: 'A', linkCategoryGet: 'A', minValue: 20, maxValue: 500, limitNumber: 3,
+      isStackable: true, allowNestedStacking: true, loyGroups: '', loyTiers: '', excludes: '',
+    },
+    org: { ...baseOrg, currency: 'SAR' },
+    buy: [
+      { lineItemPos: '10', prereqType: 'MAT', isGrouping: false, identifier: '5900001234',
+        materialNumber: '5900001234', description: 'Vitamin C 1000mg Effervescent 20s', qty: 1, uom: 'EA', minValue: 0, memberCount: 0 },
+    ],
+    get: [
+      { condNumber: '01', isGrouping: false, identifier: '5900001234', materialNumber: '5900001234',
+        description: 'Vitamin C 1000mg Effervescent 20s', discountType: '%', conditionType: 'ZB13',
+        condValue: 0, condValueP: 50, scaleType: 'A', qty: 1, uom: 'EA', pricingUnit: 1, pricingUnitUom: 'EA', memberCount: 0 },
+      { condNumber: '02', isGrouping: false, identifier: '5900004417', materialNumber: '5900004417',
+        description: 'Vitamin C 500mg Chewable 30s', discountType: 'R', conditionType: 'ZB02',
+        condValue: 8.5, condValueP: 0, scaleType: 'A', qty: 1, uom: 'EA', pricingUnit: 1, pricingUnitUom: 'EA', memberCount: 0 },
+    ],
+    totalDiscount: null,
+  },
+
+  // 3) Document total-discount — condTargetType 'R', Get grid collapses to one card
+  document: {
+    header: {
+      ...baseHeader, bbyNumber: '300000517', description: 'Al-Rajhi card — 5% off the whole basket',
+      bbyProfile: 'BANK_PARTNER', validFrom: '20260615', validTo: '20261231', bbyStatus: 'A',
+      condTargetType: 'R', promoNumber: 'PR-24990', offerId: 'OFR-7003',
+      linkCategoryBuy: 'A', linkCategoryGet: 'A', minValue: 100, maxValue: 0, limitNumber: 0, score: 50,
+      isStackable: false, allowNestedStacking: false, loyGroups: 'RAJHI', loyTiers: '', excludes: 'GIFT_CARD',
+    },
+    org: { ...baseOrg, currency: 'SAR' },
+    buy: [],  // Document mode: qualification is basket-value (header minValue), no line prereqs
+    get: [],
+    totalDiscount: { discountType: '%', conditionType: 'ZB03', condValue: 0, condValueP: 5, requirement: 100 },
+  },
+};
+
+// grouping-members sample (Endpoint B, paged) — Buy-side GRP-PANADOL-24
+const MEMBERS = {
+  groupingKey: 'GRP-PANADOL-24', side: 'buy', total: 14, pageSize: 8,
+  all: [
+    ['5900010021', 'Panadol Extra 24s',            2, 'EA'],
+    ['5900010022', 'Panadol Extra Advance 24s',    2, 'EA'],
+    ['5900010023', 'Panadol Cold & Flu 24s',       2, 'EA'],
+    ['5900010024', 'Panadol Night 24s',            2, 'EA'],
+    ['5900010025', 'Panadol Sinus 24s',            2, 'EA'],
+    ['5900010026', 'Panadol Migraine 24s',         2, 'EA'],
+    ['5900010027', 'Panadol Joint 24s',            2, 'EA'],
+    ['5900010028', 'Panadol Menstrual 24s',        2, 'EA'],
+    ['5900010029', 'Panadol Rapid 24s',            2, 'EA'],
+    ['5900010030', 'Panadol Optizorb 24s',         2, 'EA'],
+    ['5900010031', 'Panadol Extra Red 24s',        2, 'EA'],
+    ['5900010032', 'Panadol PM 24s',               2, 'EA'],
+    ['5900010033', 'Panadol Baby Drops 24s',       2, 'EA'],
+    ['5900010034', 'Panadol Suspension 24s',       2, 'EA'],
+  ],
+};
+
+/* ------------------------------- helpers ------------------------------- */
+function fmtDate(yyyymmdd) {
+  if (!yyyymmdd || yyyymmdd.length !== 8) return '—';
+  return `${yyyymmdd.slice(0,4)}-${yyyymmdd.slice(4,6)}-${yyyymmdd.slice(6,8)}`;
+}
+function fmtTime(hhmmss) {
+  if (!hhmmss || hhmmss.length !== 6) return '';
+  return `${hhmmss.slice(0,2)}:${hhmmss.slice(2,4)}`;
+}
+function n2(v) { return Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function esc(s) { return String(s ?? '').replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+function orDash(s) { return (s === null || s === undefined || s === '') ? '<span class="v muted">—</span>' : esc(s); }
+
+// "Active/current" per glossary (054): status A AND validFrom ≤ today ≤ validTo (ordinal string compare)
+function todayYmd() { const d = new Date(); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`; }
+function validityBadge(h) {
+  const t = todayYmd();
+  if (h.validTo && h.validTo < t) return '<span class="badge past"><span class="dot"></span>Window ended</span>';
+  if (h.validFrom && h.validFrom > t) return '<span class="badge past"><span class="dot"></span>Not yet started</span>';
+  if (h.bbyStatus === 'A') return '<span class="badge live"><span class="dot"></span>Active now</span>';
+  return '';
+}
+
+/* value display: percentage → condValueP with %, else condValue */
+function discValue(row) {
+  if (row.discountType === '%') return `${n2(row.condValueP)}<span class="typ">%</span>`;
+  if (row.discountType === 'R') return `${n2(row.condValue)}<span class="typ"> SAR</span>`;
+  return `${n2(row.condValue)}`;
+}
+
+/* ------------------------------- render -------------------------------- */
+const body = document.getElementById('m-body');
+let current = 'grouping';
+let headerMode = 'split';   // 'split' | 'merged'
+
+// ---- SPLIT variant: a distinct Organization panel + a Rules panel (higher SAP fidelity) ----
+function headerBlockSplit(h, org) {
+  const validity = `${fmtDate(h.validFrom)} ${fmtTime(h.validFromTime)} → ${fmtDate(h.validTo)} ${fmtTime(h.validToTime)}`;
+  const minmax = (h.minValue || h.maxValue)
+    ? `${h.minValue ? n2(h.minValue) : '—'} / ${h.maxValue ? n2(h.maxValue) : '—'}<span class="u">${org.currency}</span>`
+    : '<span class="v muted">—</span>';
+  const stack = h.isStackable ? `Stackable${h.allowNestedStacking ? ' · nested allowed' : ''}` : 'Not stackable';
+  return `
+  <section>
+    <div class="sec-h">
+      <span class="ico hdr">◱</span><h3>Organisation</h3>
+      <span class="sub">Where this Bonus Buy applies</span><span class="rule"></span>
+    </div>
+    <div class="defgrid">
+      <div class="cell"><div class="k">Sales org</div><div class="v num">${orDash(org.salesOrganization)}</div></div>
+      <div class="cell"><div class="k">Dist. channel</div><div class="v num">${orDash(org.distributionChannel)}</div></div>
+      <div class="cell"><div class="k">Plant</div><div class="v num">${orDash(org.plant)}</div></div>
+      <div class="cell"><div class="k">Currency</div><div class="v">${orDash(org.currency)}</div></div>
+    </div>
+  </section>
+  <section>
+    <div class="sec-h">
+      <span class="ico hdr">i</span><h3>Header &amp; rules</h3>
+      <span class="sub">Validity &amp; rule settings</span><span class="rule"></span>
+    </div>
+    <div class="defgrid">
+      <div class="cell"><div class="k">Promotion</div><div class="v num">${orDash(h.promoNumber)}</div></div>
+      <div class="cell"><div class="k">Offer</div><div class="v num">${orDash(h.offerId)}</div></div>
+      <div class="cell"><div class="k">Profile</div><div class="v">${orDash(h.bbyProfile)}</div></div>
+      <div class="cell"><div class="k">Status</div><div class="v"><span class="badge st-${h.bbyStatus}"><span class="dot"></span>${STATUS[h.bbyStatus] || h.bbyStatus}</span></div></div>
+
+      <div class="cell span2"><div class="k">Validity window</div><div class="v num">${validity}</div></div>
+      <div class="cell"><div class="k">Condition target</div><div class="v">${CONDTARGET[h.condTargetType] || h.condTargetType}</div></div>
+      <div class="cell"><div class="k">Limit</div><div class="v num">${h.limitNumber ? h.limitNumber : '<span class="v muted">Unlimited</span>'}</div></div>
+
+      <div class="cell"><div class="k">Link — Buy / Get</div><div class="v"><span class="chip-inline">${LINKCAT[h.linkCategoryBuy]}</span> / <span class="chip-inline">${LINKCAT[h.linkCategoryGet]}</span></div></div>
+      <div class="cell"><div class="k">Min / Max value</div><div class="v num">${minmax}</div></div>
+      <div class="cell"><div class="k">Stackability</div><div class="v">${stack}</div></div>
+      <div class="cell"><div class="k">Score</div><div class="v num">${h.score ?? '—'}</div></div>
+
+      <div class="cell"><div class="k">Loyalty groups</div><div class="v">${orDash(h.loyGroups)}</div></div>
+      <div class="cell"><div class="k">Loyalty tiers</div><div class="v">${orDash(h.loyTiers)}</div></div>
+      <div class="cell"><div class="k">Includes</div><div class="v">${orDash(h.includes)}</div></div>
+      <div class="cell"><div class="k">Excludes</div><div class="v">${orDash(h.excludes)}</div></div>
+    </div>
+  </section>`;
+}
+
+function headerBlock(h, org) {
+  const validity = `${fmtDate(h.validFrom)} ${fmtTime(h.validFromTime)} → ${fmtDate(h.validTo)} ${fmtTime(h.validToTime)}`;
+  const minmax = (h.minValue || h.maxValue)
+    ? `${h.minValue ? n2(h.minValue) : '—'} / ${h.maxValue ? n2(h.maxValue) : '—'}<span class="u">${org.currency}</span>`
+    : '<span class="v muted">—</span>';
+  const stack = h.isStackable
+    ? `Stackable${h.allowNestedStacking ? ' · nested allowed' : ''}`
+    : 'Not stackable';
+  return `
+  <section>
+    <div class="sec-h">
+      <span class="ico hdr">i</span><h3>Header</h3>
+      <span class="sub">Organisation, validity &amp; rule settings</span><span class="rule"></span>
+    </div>
+    <div class="defgrid">
+      <div class="cell"><div class="k">Promotion</div><div class="v num">${orDash(h.promoNumber)}</div></div>
+      <div class="cell"><div class="k">Offer</div><div class="v num">${orDash(h.offerId)}</div></div>
+      <div class="cell"><div class="k">Profile</div><div class="v">${orDash(h.bbyProfile)}</div></div>
+      <div class="cell"><div class="k">Status</div><div class="v"><span class="badge st-${h.bbyStatus}"><span class="dot"></span>${STATUS[h.bbyStatus] || h.bbyStatus}</span></div></div>
+
+      <div class="cell span2"><div class="k">Validity window</div><div class="v num">${validity}</div></div>
+      <div class="cell"><div class="k">Condition target</div><div class="v">${CONDTARGET[h.condTargetType] || h.condTargetType}</div></div>
+      <div class="cell"><div class="k">Currency</div><div class="v">${orDash(org.currency)}</div></div>
+
+      <div class="cell"><div class="k">Sales org</div><div class="v num">${orDash(org.salesOrganization)}</div></div>
+      <div class="cell"><div class="k">Dist. channel</div><div class="v num">${orDash(org.distributionChannel)}</div></div>
+      <div class="cell"><div class="k">Plant</div><div class="v num">${orDash(org.plant)}</div></div>
+      <div class="cell"><div class="k">Limit</div><div class="v num">${h.limitNumber ? h.limitNumber : '<span class="v muted">Unlimited</span>'}</div></div>
+
+      <div class="cell"><div class="k">Link — Buy / Get</div><div class="v"><span class="chip-inline">${LINKCAT[h.linkCategoryBuy]}</span> / <span class="chip-inline">${LINKCAT[h.linkCategoryGet]}</span></div></div>
+      <div class="cell"><div class="k">Min / Max value</div><div class="v num">${minmax}</div></div>
+      <div class="cell"><div class="k">Stackability</div><div class="v">${stack}</div></div>
+      <div class="cell"><div class="k">Score</div><div class="v num">${h.score ?? '—'}</div></div>
+
+      <div class="cell"><div class="k">Loyalty groups</div><div class="v">${orDash(h.loyGroups)}</div></div>
+      <div class="cell"><div class="k">Loyalty tiers</div><div class="v">${orDash(h.loyTiers)}</div></div>
+      <div class="cell"><div class="k">Includes</div><div class="v">${orDash(h.includes)}</div></div>
+      <div class="cell"><div class="k">Excludes</div><div class="v">${orDash(h.excludes)}</div></div>
+    </div>
+  </section>`;
+}
+
+function buyRow(r) {
+  const kind = `<span class="kindtag">${r.isGrouping ? '<span class="g">◇</span> ' + PREREQ.MGP : '▪ ' + PREREQ.MAT}</span>`;
+  const idCell = r.isGrouping
+    ? `<div class="cell-id"><div class="idnum">${esc(r.identifier)}</div>
+         <button class="members-chip" data-members="${esc(r.identifier)}"><span class="ch">⤢</span>${r.memberCount} members</button></div>`
+    : `<div class="cell-id"><div class="idnum num">${esc(r.identifier)}</div><div class="iddesc">${esc(r.description || '')}</div></div>`;
+  return `<div class="trow">
+    <span class="num">${esc(r.lineItemPos)}</span>
+    ${idCell}
+    <span>${kind}</span>
+    <span class="num ta-end" style="justify-self:end">${n2(r.qty)} <span class="scale">${esc(r.uom)}</span></span>
+    <span class="num ta-end" style="justify-self:end">${r.minValue ? n2(r.minValue) : '—'}</span>
+  </div>`;
+}
+
+function getRow(r) {
+  const idCell = r.isGrouping
+    ? `<div class="cell-id"><div class="idnum">${esc(r.identifier)}</div>
+         <button class="members-chip" data-members="${esc(r.identifier)}" data-side="get"><span class="ch">⤢</span>${r.memberCount} members</button></div>`
+    : `<div class="cell-id"><div class="idnum num">${esc(r.identifier)}</div><div class="iddesc">${esc(r.description || '')}</div></div>`;
+  return `<div class="trow">
+    <span class="num">${esc(r.condNumber)}</span>
+    ${idCell}
+    <span class="disc"><span class="val">${discValue(r)}</span><span class="typ">${DISCOUNT[r.discountType] || r.discountType}</span></span>
+    <span><span class="scale">${SCALE[r.scaleType]} ${n2(r.qty)} ${esc(r.uom)}</span><br><span class="scale">per ${n2(r.pricingUnit)} ${esc(r.pricingUnitUom)}</span></span>
+    <span class="ctype" title="Condition type">${esc(r.conditionType)} · ${CONDTYPE[r.conditionType] || ''}</span>
+  </div>`;
+}
+
+function buySection(dto) {
+  const h = dto.header;
+  const rows = dto.buy.length
+    ? dto.buy.map(buyRow).join('')
+    : `<div class="empty-note">No line prerequisites — qualification is basket value (see Header · Min value).</div>`;
+  const head = dto.buy.length ? `<div class="thead"><span>Pos</span><span>Material / grouping</span><span>Kind</span><span class="ta-end">Qty</span><span class="ta-end">Min value</span></div>` : '';
+  return `
+  <section>
+    <div class="sec-h">
+      <span class="ico buy">B</span><h3>Buy side</h3>
+      <span class="sub">Prerequisites · link <b>${LINKCAT[h.linkCategoryBuy]}</b></span><span class="rule"></span>
+    </div>
+    <div class="tbl cols-buy">${head}${rows}</div>
+  </section>`;
+}
+
+function getSection(dto) {
+  const h = dto.header;
+
+  if (dto.header.condTargetType === 'R' && dto.totalDiscount) {
+    const td = dto.totalDiscount;
+    const value = td.discountType === '%' ? `${n2(td.condValueP)}<span class="cur">%</span>` : `${n2(td.condValue)}<span class="cur"> ${dto.org.currency}</span>`;
+    return `
+    <section>
+      <div class="sec-h">
+        <span class="ico get">G</span><h3>Get side — total discount</h3>
+        <span class="sub">Document mode (condTargetType R)</span><span class="rule"></span>
+      </div>
+      <div class="td-card">
+        <div class="big">${value}</div>
+        <div class="meta">
+          <div class="k">Applied to the whole document</div>
+          <div class="row"><span class="lab">Discount type</span><span class="val">${DISCOUNT[td.discountType]}</span></div>
+          <div class="row"><span class="lab">Condition type</span><span class="val num">${td.conditionType} · ${CONDTYPE[td.conditionType] || ''}</span></div>
+          <div class="row"><span class="lab">Basket requirement</span><span class="val num">≥ ${n2(td.requirement)} ${dto.org.currency}</span></div>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  const rows = dto.get.length
+    ? dto.get.map(getRow).join('')
+    : `<div class="empty-note">No Get conditions.</div>`;
+  return `
+  <section>
+    <div class="sec-h">
+      <span class="ico get">G</span><h3>Get side</h3>
+      <span class="sub">Conditions · link <b>${LINKCAT[h.linkCategoryGet]}</b></span><span class="rule"></span>
+    </div>
+    <div class="tbl cols-get">
+      <div class="thead"><span>Cond</span><span>Material / grouping</span><span>Discount</span><span>Scale / pricing</span><span>Cond. type</span></div>
+      ${rows}
+    </div>
+  </section>`;
+}
+
+function render(scenario) {
+  current = scenario;
+
+  // titlebar
+  const title = document.getElementById('t-number');
+  const statusSlot = document.getElementById('t-status');
+  const descSlot = document.getElementById('t-desc');
+
+  if (scenario === 'loading') {
+    title.textContent = '···'; statusSlot.innerHTML = ''; descSlot.textContent = 'Loading Bonus Buy…';
+    body.innerHTML = `
+      <div class="skel" style="height:190px"></div>
+      <div class="skel" style="height:120px"></div>
+      <div class="skel" style="height:150px"></div>`;
+    return;
+  }
+
+  if (scenario === 'notfound') {
+    title.textContent = '300000999'; statusSlot.innerHTML = ''; descSlot.textContent = '';
+    body.innerHTML = `
+      <div class="err-state">
+        <div class="ic">⚠</div>
+        <h3>Bonus Buy not found</h3>
+        <p>Number <code class="num">300000999</code> is listed but has no detail record.<br>
+           Server returned <code>BBY_NOT_FOUND</code> (business outcome, HTTP&nbsp;404).</p>
+      </div>`;
+    return;
+  }
+
+  const dto = DATA[scenario];
+  const h = dto.header;
+  title.textContent = h.bbyNumber;
+  statusSlot.innerHTML = `<span class="badge st-${h.bbyStatus}"><span class="dot"></span>${STATUS[h.bbyStatus]}</span>${validityBadge(h)}`;
+  descSlot.textContent = h.description;
+
+  const linkStrip = `<div class="linkstrip"><span class="line"></span><span class="lk">then</span><span class="line"></span></div>`;
+
+  const hdr = headerMode === 'split' ? headerBlockSplit(h, dto.org) : headerBlock(h, dto.org);
+  body.innerHTML = hdr + buySection(dto) + linkStrip + getSection(dto);
+
+  // wire member drilldowns
+  body.querySelectorAll('[data-members]').forEach(btn => {
+    btn.addEventListener('click', () => openMembers(btn.dataset.members, btn.dataset.side || 'buy'));
+  });
+}
+
+/* ---------------------- grouping-members drilldown ---------------------- */
+let ddPage = 0;
+function openMembers(groupingKey, side) {
+  ddPage = 0;
+  const el = document.createElement('div');
+  el.className = 'dd-scrim';
+  el.id = 'dd-scrim';
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+  document.body.appendChild(el);
+  renderMembers(groupingKey, side);
+}
+function renderMembers(groupingKey, side) {
+  const el = document.getElementById('dd-scrim');
+  if (!el) return;
+  const { total, pageSize, all } = MEMBERS;
+  const pages = Math.ceil(total / pageSize);
+  const start = ddPage * pageSize;
+  const slice = all.slice(start, start + pageSize);
+  const rows = slice.map(([mat, desc, qty, uom]) =>
+    `<div class="dd-mrow"><span class="num">${mat}</span><span class="iddesc">${esc(desc)}</span><span class="num" style="text-align:end">${n2(qty)} ${uom}</span></div>`
+  ).join('');
+  el.innerHTML = `
+    <div class="dd" role="dialog" aria-modal="true">
+      <div class="dd-head">
+        <div class="tt">${esc(groupingKey)}<span class="sub">${side === 'get' ? 'Get' : 'Buy'} grouping · ${total} members</span></div>
+        <div class="spacer"></div>
+        <button class="m-close" onclick="document.getElementById('dd-scrim').remove()" aria-label="Close">✕</button>
+      </div>
+      <div class="dd-list">${rows}</div>
+      <div class="dd-foot">
+        <span>Showing ${start + 1}–${Math.min(start + pageSize, total)} of ${total} · enriched per page (Endpoint&nbsp;B)</span>
+        <span class="spacer"></span>
+        <button class="pager-btn" id="dd-prev" ${ddPage === 0 ? 'disabled' : ''}>‹ Prev</button>
+        <button class="pager-btn" id="dd-next" ${ddPage >= pages - 1 ? 'disabled' : ''}>Next ›</button>
+      </div>
+    </div>`;
+  el.querySelector('.dd').addEventListener('click', e => e.stopPropagation());
+  const prev = document.getElementById('dd-prev'), next = document.getElementById('dd-next');
+  if (prev) prev.onclick = () => { if (ddPage > 0) { ddPage--; renderMembers(groupingKey, side); } };
+  if (next) next.onclick = () => { if (ddPage < pages - 1) { ddPage++; renderMembers(groupingKey, side); } };
+}
+
+/* ------------------------------- controls ------------------------------- */
+document.getElementById('grp-scenario').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#grp-scenario .seg').forEach(x => x.setAttribute('aria-pressed', x === b));
+  render(b.dataset.scn);
+});
+document.getElementById('grp-header').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#grp-header .seg').forEach(x => x.setAttribute('aria-pressed', x === b));
+  headerMode = b.dataset.hmode;
+  render(current);
+});
+document.getElementById('grp-theme').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#grp-theme .seg').forEach(x => x.setAttribute('aria-pressed', x === b));
+  document.documentElement.setAttribute('data-theme', b.dataset.theme);
+});
+document.getElementById('btn-close').addEventListener('click', () => {
+  // prototype: closing just flashes the backdrop — modal re-opens on scenario switch
+  document.getElementById('scrim').style.transition = 'opacity .15s';
+  document.getElementById('scrim').style.opacity = '0';
+  setTimeout(() => { document.getElementById('scrim').style.opacity = '1'; }, 450);
+});
+
+render('grouping');
+</script>

@@ -1,15 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import { Plus, Trash2 } from 'lucide-react'
 
-// Ticket 013's BASIC items entry — enough to add rows (material, qty, UoM) and
-// Process. Full inline-editable ag-grid parity (condition control, richer editing)
-// is ticket 016, which replaces this table. Client sends items in order; the server
+// The items entry grid (ticket 013 → 016): add rows (material, qty, UoM, condition
+// control) and Process. `itemConditionControl` is an optional per-line override the
+// engine honours; blank → sent as null. Client sends items in order; the server
 // assigns the item numbers.
 export interface SimItemRow {
   id: string
   materialNumber: string
   quantity: string
   qtyUnit: string
+  itemConditionControl: string
 }
 
 // Monotonic row id — a plain counter, not crypto.randomUUID() (which is undefined
@@ -19,7 +20,7 @@ let rowSeq = 0
 
 export function emptyItemRow(): SimItemRow {
   rowSeq += 1
-  return { id: `row-${rowSeq}`, materialNumber: '', quantity: '1', qtyUnit: 'EA' }
+  return { id: `row-${rowSeq}`, materialNumber: '', quantity: '1', qtyUnit: 'EA', itemConditionControl: '' }
 }
 
 interface Props {
@@ -39,6 +40,11 @@ export default function SimItemsEntry({ rows, onChange, disabled }: Props) {
 
   const cellInput =
     'w-full rounded-md border border-input bg-background px-2 py-1 text-sm outline-none focus:border-primary disabled:opacity-60'
+  // Numeric cells: drop the native spinner arrows — in this narrow grid they overlap
+  // the first digit and add nothing (values are typed, not stepped).
+  const numInput =
+    cellInput +
+    ' [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
 
   return (
     <div className="rounded-lg border border-border/60 bg-card p-3">
@@ -59,8 +65,9 @@ export default function SimItemsEntry({ rows, onChange, disabled }: Props) {
         <thead>
           <tr className="text-start text-xs font-medium text-muted-foreground">
             <th className="border-b border-border px-2 py-1 text-start">{t('items.material')}</th>
-            <th className="w-24 border-b border-border px-2 py-1 text-start">{t('items.quantity')}</th>
-            <th className="w-24 border-b border-border px-2 py-1 text-start">{t('items.uom')}</th>
+            <th className="w-16 border-b border-border px-2 py-1 text-start">{t('items.quantity')}</th>
+            <th className="w-16 border-b border-border px-2 py-1 text-start">{t('items.uom')}</th>
+            <th className="w-20 border-b border-border px-2 py-1 text-start">{t('items.control')}</th>
             <th className="w-10 border-b border-border px-2 py-1" aria-label={t('items.removeRow')} />
           </tr>
         </thead>
@@ -77,7 +84,7 @@ export default function SimItemsEntry({ rows, onChange, disabled }: Props) {
               </td>
               <td className="border-b border-border px-2 py-1">
                 <input
-                  className={cellInput}
+                  className={numInput}
                   type="number"
                   min="0"
                   value={row.quantity}
@@ -91,6 +98,14 @@ export default function SimItemsEntry({ rows, onChange, disabled }: Props) {
                   value={row.qtyUnit}
                   disabled={disabled}
                   onChange={(e) => patch(row.id, 'qtyUnit', e.target.value)}
+                />
+              </td>
+              <td className="border-b border-border px-2 py-1">
+                <input
+                  className={cellInput}
+                  value={row.itemConditionControl}
+                  disabled={disabled}
+                  onChange={(e) => patch(row.id, 'itemConditionControl', e.target.value)}
                 />
               </td>
               <td className="border-b border-border px-2 py-1 text-center">

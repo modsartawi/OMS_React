@@ -1,0 +1,56 @@
+{
+  "menu": {
+    "sendBroadcast": "Send Broadcast"
+  },
+  "title": "Send Broadcast",
+  "access": {
+    "checking": "Checking access…"
+  },
+  "denied": {
+    "title": "You don't have access to Send Broadcast",
+    "hint": "Broadcasting to stores or the whole fleet needs the NotificationBroadcast grant. Ask an administrator to add it to your role."
+  },
+  "field": {
+    "title": "Title",
+    "message": "Message",
+    "sendTo": "Send to",
+    "expires": "Expires",
+    "expiresHint": "(optional — blank keeps it visible for 30 days)"
+  },
+  "placeholder": {
+    "title": "Short headline everyone sees",
+    "message": "What do you need people to know?"
+  },
+  "counter": "{{current}} / {{max}}",
+  "channel": {
+    "fleet": "Whole fleet",
+    "store": "One store"
+  },
+  "storePicker": {
+    "label": "Store",
+    "placeholder": "Select a store"
+  },
+  "send": "Send broadcast",
+  "hint": {
+    "required": "Title and message are required.",
+    "tooLong": "Trim the text to fit the limits.",
+    "pickStore": "Pick a store to send to.",
+    "expiryFuture": "The expiry date must be in the future.",
+    "ready": "Ready to send."
+  },
+  "warn": {
+    "fleet": "This reaches every open store and back-office user. You'll be asked to confirm before it sends."
+  },
+  "confirm": {
+    "fleetTitle": "Send to the whole fleet?",
+    "fleetBody": "\"{{title}}\" will reach every open store and back-office user immediately. This can't be recalled."
+  },
+  "target": {
+    "fleet": "the whole fleet"
+  },
+  "toast": {
+    "sentTitle": "Broadcast sent",
+    "sentDetail": "Delivered to {{target}}.",
+    "failed": "Couldn't send the broadcast"
+  }
+}

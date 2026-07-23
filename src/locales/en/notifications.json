@@ -1,0 +1,24 @@
+{
+  "bell": {
+    "ariaLabel": "Notifications"
+  },
+  "panel": {
+    "title": "Notifications",
+    "empty": "You're all caught up.",
+    "markAll": "Mark all as read"
+  },
+  "type": {
+    "broadcast": "Broadcast",
+    "job": "Job"
+  },
+  "toast": {
+    "view": "View",
+    "dismiss": "Dismiss"
+  },
+  "relative": {
+    "justNow": "just now",
+    "minutes": "{{count}}m ago",
+    "hours": "{{count}}h ago",
+    "days": "{{count}}d ago"
+  }
+}

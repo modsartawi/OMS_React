@@ -10,20 +10,37 @@ export interface SimHeaderState {
   salesOrganization: string
   distributionChannel: string
   documentPricingProcedureKey: string
-  loyId: string
   loyGroups: string
   loyTier: string
 }
 
-export const EMPTY_HEADER: SimHeaderState = {
-  plant: '',
-  pricingDate: '',
-  salesOrganization: '',
-  distributionChannel: '',
-  documentPricingProcedureKey: '',
-  loyId: '',
-  loyGroups: '',
-  loyTier: '',
+// The loyalty-tier codes offered in the header select, in order. An empty selection
+// (no tier) is the first option; the Page coerces a blank `loyTier` to null on submit.
+const LOY_TIERS = ['S', 'G', 'P'] as const
+
+// Today's date as a `YYYY-MM-DD` string in LOCAL time (not toISOString(), which is
+// UTC and can land on the wrong calendar day near midnight).
+function todayIso(): string {
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
+// The starting header — sensible defaults for the common Wasfaty basket so an analyst
+// can Process without retyping the determination fields. A factory (not a const) so
+// the pricing date is re-evaluated to "today" on each mount and on Clear. Loyalty
+// fields stay blank (optional). Also drives Clear (SimulationPage.clearAll).
+export function defaultHeader(): SimHeaderState {
+  return {
+    plant: 'P001',
+    pricingDate: todayIso(),
+    salesOrganization: '1000',
+    distributionChannel: '20',
+    documentPricingProcedureKey: '',
+    loyGroups: '',
+    loyTier: '',
+  }
 }
 
 interface Props {
@@ -66,6 +83,25 @@ export default function SimHeaderForm({
     </label>
   )
 
+  const loyTierField = (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs font-medium text-muted-foreground">{t('header.loyTier')}</span>
+      <select
+        value={value.loyTier}
+        disabled={disabled}
+        onChange={(e) => onChange({ loyTier: e.target.value })}
+        className="rounded-md border border-input bg-background px-2 py-1.5 text-sm outline-none focus:border-primary disabled:opacity-60"
+      >
+        <option value="">{t('header.loyTierNone')}</option>
+        {LOY_TIERS.map((tier) => (
+          <option key={tier} value={tier}>
+            {t(`header.loyTierOptions.${tier}`)}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+
   return (
     <div className="rounded-lg border border-border/60 bg-card p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -100,9 +136,8 @@ export default function SimHeaderForm({
         {field('documentPricingProcedureKey', t('header.procedureKey'), {
           hint: t('header.procedureKeyHint'),
         })}
-        {field('loyId', t('header.loyId'))}
         {field('loyGroups', t('header.loyGroup'))}
-        {field('loyTier', t('header.loyTier'))}
+        {loyTierField}
       </div>
     </div>
   )

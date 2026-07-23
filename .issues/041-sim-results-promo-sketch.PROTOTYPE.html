@@ -1,0 +1,773 @@
+<style>
+  /* =========================================================================
+     POS Simulation — promo-visibility sketch (wayfinder ticket 041 / map 039).
+     THROWAWAY design artifact. Three directions for showing per-line promo +
+     buy→get relationships, switchable from the bottom bar (or ← / → keys).
+     Palette + type mirror the real app tokens (src/app/global.css,
+     src/core/theme/ag-grid-theme.ts): warm neutrals, terracotta accent.
+     ========================================================================= */
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --surface-2: #f5f4ef; --surface-3: #efeee8;
+    --fg: #26241f; --fg-muted: #6b6860; --fg-faint: #928f86;
+    --border: #e8e6df; --border-strong: #dcdad2;
+    --accent: #c96442; --accent-ink: #a24a2d; --accent-soft: #f4e4dd;
+    --good: #3f7d5b; --good-soft: #e6f0ea;
+    --warn: #9a6f1c; --warn-soft: #f4ead0;
+    --info: #3a6a8d; --info-soft: #e2ecf3;
+    --shadow: 0 1px 2px rgba(38,36,31,.05), 0 4px 16px rgba(38,36,31,.06);
+    --radius: 0.625rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #201f1b; --surface: #262521; --surface-2: #2c2b26; --surface-3: #34322c;
+      --fg: #eeede7; --fg-muted: #a8a598; --fg-faint: #817e78;
+      --border: #393731; --border-strong: #47443d;
+      --accent: #e08d70; --accent-ink: #eda487; --accent-soft: #3a2a24;
+      --good: #7cba95; --good-soft: #253128;
+      --warn: #d6b671; --warn-soft: #332b1d;
+      --info: #8fb6d4; --info-soft: #223039;
+      --shadow: 0 1px 2px rgba(0,0,0,.25), 0 4px 16px rgba(0,0,0,.30);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfaf7; --surface: #ffffff; --surface-2: #f5f4ef; --surface-3: #efeee8;
+    --fg: #26241f; --fg-muted: #6b6860; --fg-faint: #928f86;
+    --border: #e8e6df; --border-strong: #dcdad2;
+    --accent: #c96442; --accent-ink: #a24a2d; --accent-soft: #f4e4dd;
+    --good: #3f7d5b; --good-soft: #e6f0ea;
+    --warn: #9a6f1c; --warn-soft: #f4ead0;
+    --info: #3a6a8d; --info-soft: #e2ecf3;
+    --shadow: 0 1px 2px rgba(38,36,31,.05), 0 4px 16px rgba(38,36,31,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #201f1b; --surface: #262521; --surface-2: #2c2b26; --surface-3: #34322c;
+    --fg: #eeede7; --fg-muted: #a8a598; --fg-faint: #817e78;
+    --border: #393731; --border-strong: #47443d;
+    --accent: #e08d70; --accent-ink: #eda487; --accent-soft: #3a2a24;
+    --good: #7cba95; --good-soft: #253128;
+    --warn: #d6b671; --warn-soft: #332b1d;
+    --info: #8fb6d4; --info-soft: #223039;
+    --shadow: 0 1px 2px rgba(0,0,0,.25), 0 4px 16px rgba(0,0,0,.30);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 20px 120px; }
+
+  /* ---- intro ---- */
+  .intro { margin-bottom: 18px; }
+  .intro .eyebrow {
+    font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 6px;
+  }
+  .intro h1 { font-size: 22px; font-weight: 680; letter-spacing: -.01em; }
+  .intro p { margin: 8px 0 0; color: var(--fg-muted); max-width: 66ch; font-size: 13.5px; }
+
+  /* ---- app shell chrome ---- */
+  .app {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2);
+  }
+  .topbar .title { font-weight: 640; font-size: 14px; letter-spacing: -.005em; }
+  .topbar .crumb { color: var(--fg-faint); font-size: 12.5px; }
+  .topbar .spacer { flex: 1; }
+  .adv-toggle {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--fg-muted);
+    border: 1px solid var(--border); background: var(--surface); border-radius: 999px;
+    padding: 5px 11px 5px 9px;
+  }
+  .adv-toggle .sw {
+    width: 30px; height: 17px; border-radius: 999px; background: var(--border-strong);
+    position: relative; transition: background .15s;
+  }
+  .adv-toggle .sw::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px;
+    border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.25);
+    transition: transform .15s;
+  }
+  .adv-toggle[aria-pressed="true"] .sw { background: var(--accent); }
+  .adv-toggle[aria-pressed="true"] .sw::after { transform: translateX(13px); }
+
+  /* ---- summary strip ---- */
+  .summary {
+    display: flex; align-items: stretch; gap: 0; flex-wrap: wrap;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+  }
+  .summary .cell { padding: 0 18px; border-right: 1px solid var(--border); }
+  .summary .cell:first-child { padding-left: 0; }
+  .summary .cell:last-child { border-right: 0; }
+  .summary .k { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--fg-faint); }
+  .summary .v { font-size: 15px; font-weight: 640; margin-top: 3px; }
+  .summary .v.big { font-size: 26px; font-weight: 720; letter-spacing: -.02em; }
+  .summary .v.save { color: var(--good); }
+  .summary .cur { font-size: 12px; font-weight: 500; color: var(--fg-faint); margin-left: 3px; }
+
+  .stage { padding: 16px; }
+
+  .readnote {
+    display: flex; gap: 9px; align-items: flex-start;
+    font-size: 12.5px; color: var(--fg-muted); background: var(--surface-2);
+    border: 1px dashed var(--border-strong); border-radius: var(--radius);
+    padding: 9px 12px; margin-bottom: 14px;
+  }
+  .readnote b { color: var(--fg); font-weight: 620; }
+  .readnote .dot { color: var(--accent); font-weight: 700; }
+
+  /* ---- shared chips ---- */
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px; white-space: nowrap; line-height: 1.5;
+  }
+  .chip .gl { font-weight: 800; font-size: 10px; }
+  .kind-free    { background: var(--good-soft); color: var(--good); }
+  .kind-percent { background: var(--accent-soft); color: var(--accent-ink); }
+  .kind-fixed   { background: var(--warn-soft); color: var(--warn); }
+  .kind-setprice{ background: var(--info-soft); color: var(--info); }
+  .role {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border-strong); color: var(--fg-muted);
+  }
+  .role.get { border-color: transparent; }
+  .role.buy { background: var(--surface-3); }
+
+  .save-amt { color: var(--good); font-weight: 640; }
+  .strike { color: var(--fg-faint); text-decoration: line-through; font-size: 12.5px; }
+
+  /* =========================================================================
+     VARIANT A — Promo bands (grouped grid)
+     ========================================================================= */
+  .bands { display: flex; flex-direction: column; gap: 12px; }
+  .band { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); }
+  .band.promo { border-color: var(--border-strong); }
+  .band-head {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    padding: 10px 12px; background: var(--surface-2); border: 0; border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .band.promo .band-head::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent);
+  }
+  .band-head .caret { color: var(--fg-faint); transition: transform .15s; font-size: 12px; width: 12px; }
+  .band-head[aria-expanded="true"] .caret { transform: rotate(90deg); }
+  .band-head .pname { font-weight: 640; font-size: 13px; }
+  .band-head .pmeta { color: var(--fg-faint); font-size: 11.5px; font-weight: 500; }
+  .band-head .spacer { flex: 1; }
+  .band-head .bsave { font-size: 12.5px; }
+
+  table.lines { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.lines th {
+    text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--fg-faint); padding: 7px 10px; border-bottom: 1px solid var(--border); background: var(--surface);
+  }
+  table.lines td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table.lines tr:last-child td { border-bottom: 0; }
+  table.lines .r { text-align: right; }
+  table.lines .mat { font-weight: 560; }
+  table.lines .code { color: var(--fg-faint); font-size: 11.5px; }
+  .getrow td { background: color-mix(in srgb, var(--good-soft) 45%, transparent); }
+  .getrow .link { color: var(--good); font-weight: 700; }
+  .conn { color: var(--accent); font-weight: 800; }
+
+  .band-detail { padding: 12px; background: var(--surface-2); border-top: 1px solid var(--border); }
+
+  /* condition cards (today's detail — shared by all variants) */
+  .cards { display: flex; flex-direction: column; gap: 6px; }
+  .ccard { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 8px 10px; }
+  .ccard .row1 { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+  .ccard .idx { color: var(--fg-faint); font-weight: 700; }
+  .ccard .cat { font-weight: 620; }
+  .ccard .ctype { font-weight: 700; }
+  .ccard .cdesc { color: var(--fg-muted); }
+  .ccard .cval { margin-left: auto; font-weight: 640; }
+  .badge-promo { font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    background: var(--accent); color: #fff; padding: 1px 6px; border-radius: 4px; }
+  .subhead { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); margin: 2px 0 7px; }
+
+  /* pricing elements table (deep detail) */
+  .pe-wrap { margin-top: 12px; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table.pe { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 560px; }
+  table.pe th { text-align: left; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--fg-faint); padding: 6px 9px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  table.pe td { padding: 5px 9px; border-bottom: 1px solid var(--border); }
+  table.pe tr:last-child td { border-bottom: 0; }
+  table.pe .r { text-align: right; }
+
+  /* didn't-fire strip (shared idea, styled per variant) */
+  .missed {
+    margin-top: 4px; border: 1px solid var(--border); border-left: 3px solid var(--warn);
+    border-radius: var(--radius); background: var(--surface); overflow: hidden;
+  }
+  .missed-head { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+    padding: 9px 12px; background: var(--warn-soft); border: 0; }
+  .missed-head .caret { color: var(--warn); transition: transform .15s; font-size: 12px; }
+  .missed-head[aria-expanded="true"] .caret { transform: rotate(90deg); }
+  .missed-head .mt { font-weight: 620; font-size: 12.5px; }
+  .missed-head .ms { color: var(--fg-muted); font-size: 11.5px; }
+  .missed-body { padding: 11px 12px; font-size: 12.5px; }
+  .prereq-line { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+  .meter { flex: 1; height: 6px; border-radius: 999px; background: var(--surface-3); overflow: hidden; max-width: 220px; }
+  .meter > span { display: block; height: 100%; background: var(--warn); }
+
+  .section-label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--fg-faint); margin: 16px 2px 8px;
+  }
+
+  /* =========================================================================
+     VARIANT B — Flat grid + linked promo rail
+     ========================================================================= */
+  .splitB { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 14px; align-items: start; }
+  @media (max-width: 900px) { .splitB { grid-template-columns: 1fr; } }
+  .gridwrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  table.flat { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.flat th { text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--fg-faint); padding: 8px 10px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  table.flat td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  table.flat tr:last-child td { border-bottom: 0; }
+  table.flat .r { text-align: right; }
+  table.flat tr[data-key] { transition: background .12s; cursor: default; }
+  table.flat tr.hot td { background: var(--accent-soft); }
+  table.flat tr.hot td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .adv-col { color: var(--fg-faint); font-size: 11.5px; }
+
+  .rail { display: flex; flex-direction: column; gap: 10px; }
+  .rail-title { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--fg-faint); }
+  .pcard {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden;
+    transition: border-color .12s, box-shadow .12s;
+  }
+  .pcard.hot { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .pcard-main { width: 100%; text-align: left; border: 0; background: transparent; padding: 11px 12px; }
+  .pcard .ptop { display: flex; align-items: center; gap: 8px; }
+  .pcard .pn { font-weight: 630; font-size: 12.5px; }
+  .pcard .psave { margin-left: auto; }
+  .bg { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; margin-top: 9px; }
+  .bg .box { border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px; background: var(--surface-2); }
+  .bg .lab { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+  .bg .m { font-size: 12px; font-weight: 560; margin-top: 2px; }
+  .bg .sub { font-size: 11px; color: var(--fg-muted); }
+  .bg .arrow { color: var(--accent); font-weight: 800; font-size: 16px; text-align: center; }
+  .bg .box.getbox { border-color: color-mix(in srgb, var(--good) 40%, var(--border)); background: var(--good-soft); }
+  .pcard-more { border-top: 1px solid var(--border); padding: 11px 12px; background: var(--surface-2); }
+  .disc-link { color: var(--accent); font-weight: 600; font-size: 12px; background: none; border: 0; padding: 6px 12px; }
+  .pcard-foot { border-top: 1px solid var(--border); padding: 4px 6px; display: flex; }
+
+  /* =========================================================================
+     VARIANT C — Receipt / statement
+     ========================================================================= */
+  .statement { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+  .stmt-block { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+  .stmt-block.promo { border-color: var(--border-strong); }
+  .stmt-top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .stmt-top .icon {
+    width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0;
+    font-weight: 800; font-size: 14px;
+  }
+  .ic-free { background: var(--good-soft); color: var(--good); }
+  .ic-percent { background: var(--accent-soft); color: var(--accent-ink); }
+  .ic-fixed { background: var(--warn-soft); color: var(--warn); }
+  .ic-setprice { background: var(--info-soft); color: var(--info); }
+  .stmt-top .htitle { font-weight: 660; font-size: 14.5px; letter-spacing: -.005em; }
+  .stmt-top .hsub { font-size: 11.5px; color: var(--fg-faint); }
+  .stmt-top .hsave { margin-left: auto; text-align: right; }
+  .stmt-top .hsave .lab { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+  .stmt-lines { padding: 6px 14px 10px; }
+  .sl { display: flex; align-items: baseline; gap: 10px; padding: 7px 0; border-bottom: 1px dashed var(--border); }
+  .sl:last-child { border-bottom: 0; }
+  .sl .qty { color: var(--fg-faint); font-size: 12px; width: 26px; }
+  .sl .nm { flex: 1; }
+  .sl .nm .code { color: var(--fg-faint); font-size: 11px; }
+  .sl.get .tagline { color: var(--good); font-weight: 700; font-size: 11px; letter-spacing: .03em; }
+  .sl .amt { text-align: right; font-weight: 560; }
+  .flow { text-align: center; color: var(--accent); font-weight: 800; font-size: 13px; padding: 1px 0; }
+  .stmt-adv { border-top: 1px solid var(--border); }
+  .stmt-adv-btn { width: 100%; text-align: left; background: var(--surface-2); border: 0; padding: 9px 14px;
+    font-size: 12px; color: var(--fg-muted); display: flex; align-items: center; gap: 8px; }
+  .stmt-adv-btn .caret { transition: transform .15s; }
+  .stmt-adv-btn[aria-expanded="true"] .caret { transform: rotate(90deg); }
+  .stmt-adv-body { padding: 11px 14px; background: var(--surface-2); border-top: 1px solid var(--border); }
+  .stmt-plain { padding: 4px 14px 10px; }
+
+  /* =========================================================================
+     Floating variant switcher
+     ========================================================================= */
+  .switcher {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 50;
+    display: flex; align-items: center; gap: 4px; padding: 5px;
+    background: var(--fg); color: var(--bg); border-radius: 999px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.28); font-size: 13px;
+  }
+  .switcher button {
+    width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; color: var(--bg);
+    display: grid; place-items: center; font-size: 17px;
+  }
+  .switcher button:hover { background: rgba(255,255,255,.15); }
+  :root[data-theme="dark"] .switcher button:hover, .switcher button:hover { }
+  .switcher .lbl { padding: 0 10px; min-width: 190px; text-align: center; }
+  .switcher .lbl .k { font-weight: 720; }
+  .switcher .lbl .n { opacity: .72; }
+  .switcher .dots { display: flex; gap: 4px; padding: 0 8px 0 4px; }
+  .switcher .dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.35); }
+  .switcher .dots i.on { background: var(--bg); }
+  .theme-btn {
+    position: fixed; bottom: 22px; right: 22px; z-index: 50; width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--surface); color: var(--fg-muted);
+    display: grid; place-items: center; box-shadow: var(--shadow); font-size: 16px;
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+</style>
+
+<div class="wrap">
+  <div class="intro">
+    <div class="eyebrow">POS Simulation · design sketch · ticket 041</div>
+    <h1>Making applied promotions read at a glance</h1>
+    <p>
+      Three directions for the same priced basket — so a user sees <b>which lines a promotion touched</b>,
+      <b>what kind</b> it is, and <b>how "buy X" links to "get Y"</b> without opening every line, while the full
+      pricing detail stays one click away. Flip with the bar below or the ← / → keys. Same data in all three.
+    </p>
+  </div>
+
+  <div class="app">
+    <div class="topbar">
+      <span class="title">POS Simulation</span>
+      <span class="crumb">al-dawaa BackOffice · Pricing</span>
+      <span class="spacer"></span>
+      <button class="adv-toggle" id="advToggle" aria-pressed="false" title="Show the raw pricing-procedure detail advanced users rely on">
+        <span class="sw" aria-hidden="true"></span> Advanced detail
+      </button>
+    </div>
+
+    <div class="summary">
+      <div class="cell">
+        <div class="k">Net total</div>
+        <div class="v big num">183.43<span class="cur">SAR</span></div>
+      </div>
+      <div class="cell">
+        <div class="k">Gross</div>
+        <div class="v num">232.00</div>
+      </div>
+      <div class="cell">
+        <div class="k">Promotions</div>
+        <div class="v save num">−72.50</div>
+      </div>
+      <div class="cell">
+        <div class="k">VAT 15%</div>
+        <div class="v num">23.93</div>
+      </div>
+      <div class="cell">
+        <div class="k">Promotions fired</div>
+        <div class="v num">4 <span class="cur">· 1 missed</span></div>
+      </div>
+    </div>
+
+    <div class="stage" id="stage"><!-- variant renders here --></div>
+  </div>
+</div>
+
+<div class="switcher" role="group" aria-label="Switch design variant">
+  <button id="prev" aria-label="Previous variant">‹</button>
+  <span class="lbl"><span class="k" id="vk">A</span> — <span class="n" id="vn">Promo bands</span></span>
+  <span class="dots" id="dots"></span>
+  <button id="next" aria-label="Next variant">›</button>
+</div>
+<button class="theme-btn" id="themeBtn" aria-label="Toggle light / dark">◐</button>
+
+<script>
+/* ---- mock data: the priced basket, assuming the enhanced applied contract
+   (per-line isPrerequisite/isCondition role + shared conditionKey). ---------- */
+const KIND = {
+  free:     { cls: 'free',     ic: 'ic-free',     gl: '＋', label: 'Free goods',    tag: 'FREE' },
+  percent:  { cls: 'percent',  ic: 'ic-percent',  gl: '%',  label: '% off',         tag: '−50%' },
+  fixed:    { cls: 'fixed',    ic: 'ic-fixed',    gl: '−',  label: 'Amount off',    tag: 'AMOUNT OFF' },
+  setprice: { cls: 'setprice', ic: 'ic-setprice', gl: '=',  label: 'Set price',     tag: 'SET PRICE' },
+};
+
+const lines = [
+  { item:10, mat:'Panadol Extra 24 Tablets',      code:'PN-0024', qty:2, unit:18.00, gross:36.00, net:18.00, promo:'P1', role:'buy+get' },
+  { item:20, mat:'Centrum Vitamin C 30',          code:'CN-VC30', qty:2, unit:25.00, gross:50.00, net:37.50, promo:'P2', role:'buy+get' },
+  { item:30, mat:'Nivea Sun SPF50 200ml',         code:'NV-S050', qty:1, unit:45.00, gross:45.00, net:45.00, promo:'P3', role:'buy' },
+  { item:40, mat:'Nivea After-Sun Lotion 200ml',  code:'NV-AS20', qty:1, unit:32.00, gross:32.00, net:0.00,  promo:'P3', role:'get' },
+  { item:50, mat:'Johnson Baby Shampoo 300ml',    code:'JJ-SH30', qty:1, unit:20.00, gross:20.00, net:20.00, promo:'P4', role:'buy' },
+  { item:60, mat:'Johnson Baby Lotion 200ml',     code:'JJ-LO20', qty:1, unit:22.00, gross:22.00, net:22.00, promo:'P4', role:'buy' },
+  { item:70, mat:'Johnson Baby Wipes 72s',        code:'JJ-WP72', qty:1, unit:15.00, gross:15.00, net:5.00,  promo:'P4', role:'get' },
+  { item:80, mat:'Colgate Total Toothpaste 100ml',code:'CG-TT10', qty:1, unit:12.00, gross:12.00, net:12.00, promo:null, role:null },
+];
+
+const promos = [
+  { id:'P1', key:'BBK-8841', kind:'free', name:'Buy 1 Get 1 Free — Panadol Extra',
+    promoNo:'900101', offer:'OF-2201', buy:[10], get:[10], save:18.00, sameSku:true },
+  { id:'P2', key:'BBK-8842', kind:'percent', name:'Half price on the 2nd piece — Centrum C',
+    promoNo:'900140', offer:'OF-2214', buy:[20], get:[20], save:12.50, sameSku:true },
+  { id:'P3', key:'BBK-8850', kind:'free', name:'Free After-Sun with any Nivea Sun',
+    promoNo:'900177', offer:'OF-2230', buy:[30], get:[40], save:32.00, sameSku:false },
+  { id:'P4', key:'BBK-8863', kind:'setprice', name:'Baby Wipes for 5.00 with any 2 Baby Care',
+    promoNo:'900205', offer:'OF-2251', buy:[50,60], get:[70], save:10.00, sameSku:false, grouping:'Baby Care' },
+];
+
+const missed = [
+  { id:'P5', kind:'percent', name:'15% off Vitamins when you spend 100',
+    promoNo:'900166', prereqText:'Spend on “Vitamins & Supplements”', found:50.00, min:100.00,
+    wouldSave:'≈ 7.50', reason:'Basket has 50.00 of the 100.00 minimum' },
+];
+
+const money = n => n.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const lineById = id => lines.find(l => l.item === id);
+const promoById = id => promos.find(p => p.id === id);
+
+/* mock per-line condition rows (today's aggregated-card detail) */
+function conditionsFor(line) {
+  const rows = [{ idx:1, cat:'Pricing', type:'ZPR0', desc:'Base price', val:line.gross, promo:false }];
+  const p = line.promo ? promoById(line.promo) : null;
+  if (p && line.role !== 'buy') {
+    const t = p.kind === 'free' ? 'VKA0' : p.kind === 'percent' ? 'ZB03' : p.kind === 'setprice' ? 'ZB01' : 'ZB02';
+    rows.push({ idx:2, cat:'Promotion', type:t, desc:p.name, val:-(line.gross - line.net), promo:true });
+  }
+  rows.push({ idx: rows.length+1, cat:'Tax', type:'MWST', desc:'VAT 15%', val:+(line.net*0.15).toFixed(2), promo:false });
+  return rows;
+}
+
+/* ---------- shared fragments ---------- */
+function kindChip(kind) {
+  const k = KIND[kind];
+  return `<span class="chip kind-${k.cls}"><span class="gl">${k.gl}</span>${k.label}</span>`;
+}
+function conditionCards(line) {
+  const rows = conditionsFor(line).map(c => `
+    <div class="ccard"><div class="row1">
+      <span class="idx">${c.idx}.</span>
+      <span class="cat">${c.cat}:</span>
+      <span class="ctype">${c.type}</span>
+      <span class="cdesc">— ${c.desc}</span>
+      ${c.promo ? '<span class="badge-promo">Promotion</span>' : ''}
+      <span class="cval num">${money(c.val)}</span>
+    </div></div>`).join('');
+  return `<div class="subhead">Pricing rules · item ${line.item} · ${line.mat}</div><div class="cards">${rows}</div>`;
+}
+function pricingElements(scopeLines) {
+  const body = scopeLines.flatMap(l => conditionsFor(l).map((c,i) => `
+    <tr>
+      <td class="num">${l.item}</td><td>${c.type}</td><td>${c.desc}</td>
+      <td class="r num">${money(c.val)}</td>
+      <td>${c.promo ? '<span class="role get" style="background:var(--accent-soft);color:var(--accent-ink)">BBY</span>' : ''}</td>
+    </tr>`)).join('');
+  return `<div class="pe-wrap"><table class="pe">
+    <thead><tr><th>Item</th><th>Cond. type</th><th>Description</th><th class="r">Value</th><th>Origin</th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
+}
+function missedBlockInner(m) {
+  const pct = Math.round(m.found / m.min * 100);
+  return `<div class="missed-body">
+    <div>${m.name} <span style="color:var(--fg-faint)">· ${KIND[m.kind].label}</span></div>
+    <div class="prereq-line">
+      <span>${m.prereqText}</span>
+      <span class="meter"><span style="width:${pct}%"></span></span>
+      <span class="num" style="color:var(--warn);font-weight:640">${money(m.found)} / ${money(m.min)}</span>
+    </div>
+    <div style="color:var(--fg-muted)">Not met — ${m.reason}. Would save <b>${m.wouldSave} SAR</b>.</div>
+  </div>`;
+}
+
+const advOn = () => document.getElementById('advToggle').getAttribute('aria-pressed') === 'true';
+
+/* =========================================================================
+   VARIANT A — Promo bands
+   ========================================================================= */
+function renderA() {
+  const plain = lines.filter(l => !l.promo);
+  let html = `<div class="readnote"><span class="dot">A</span><div><b>Promo bands.</b>
+    Each fired promotion wraps its own lines in a titled band, with a terracotta rail marking the group and a
+    <span class="conn">→</span> tying the buy line to the get line. Click a band for its pricing rules. The result-level
+    “Applied Bonus Buys” tab is <b>gone</b> — it lives inline with the lines it explains.</div></div>`;
+
+  html += '<div class="bands">';
+  for (const p of promos) {
+    const items = [...new Set([...p.buy, ...p.get])].map(lineById);
+    const k = KIND[p.kind];
+    html += `<div class="band promo">
+      <button class="band-head" aria-expanded="false" data-band="${p.id}">
+        <span class="caret">▶</span>
+        ${kindChip(p.kind)}
+        <span class="pname">${p.name}</span>
+        <span class="pmeta">· ${p.key} · promo ${p.promoNo}${p.grouping ? ' · group “'+p.grouping+'”' : ''}</span>
+        <span class="spacer"></span>
+        <span class="bsave save-amt num">You save ${money(p.save)}</span>
+      </button>
+      <table class="lines"><thead><tr>
+        <th style="width:70px">Role</th><th>Item</th><th class="r">Qty</th><th class="r">Unit</th>
+        <th class="r">Was</th><th class="r">Now</th></tr></thead><tbody>`;
+    for (const l of items) {
+      const isGet = p.get.includes(l.item);
+      const isBuy = p.buy.includes(l.item);
+      const roleLabel = isGet && isBuy ? 'Buy + Get' : isGet ? 'Get' : 'Buy';
+      html += `<tr class="${isGet ? 'getrow' : ''}">
+        <td>${isGet ? `<span class="conn">→</span> <span class="role get chip kind-${k.cls}" style="border:0">${roleLabel}</span>`
+                     : `<span class="role buy">${roleLabel}</span>`}</td>
+        <td><span class="mat">${l.mat}</span> <span class="code">${l.code} · #${l.item}</span></td>
+        <td class="r num">${l.qty}</td>
+        <td class="r num">${money(l.unit)}</td>
+        <td class="r"><span class="strike num">${money(l.gross)}</span></td>
+        <td class="r num" ${isGet ? 'style="font-weight:640"' : ''}>${money(l.net)}
+          ${isGet ? `<div class="link" style="font-size:10.5px">${k.tag}</div>` : ''}</td></tr>`;
+    }
+    html += `</tbody></table>
+      <div class="band-detail" data-detail="${p.id}" hidden>
+        ${items.filter(l=>p.get.includes(l.item)).map(conditionCards).join('')}
+        ${advOn() ? pricingElements(items) : ''}
+      </div></div>`;
+  }
+  html += '</div>';
+
+  html += `<div class="section-label">Plain items · no promotion</div>
+    <div class="band"><table class="lines"><tbody>`;
+  for (const l of plain) {
+    html += `<tr><td style="width:70px"></td>
+      <td><span class="mat">${l.mat}</span> <span class="code">${l.code} · #${l.item}</span></td>
+      <td class="r num">${l.qty}</td><td class="r num">${money(l.unit)}</td>
+      <td class="r"></td><td class="r num">${money(l.net)}</td></tr>`;
+  }
+  html += `</tbody></table></div>`;
+
+  html += `<div class="section-label">Could have applied — but didn't</div>`;
+  for (const m of missed) {
+    html += `<div class="missed"><button class="missed-head" aria-expanded="false" data-missed="${m.id}">
+      <span class="caret">▶</span>${kindChip(m.kind)}
+      <span class="mt">${m.name}</span>
+      <span class="ms">· ${money(m.found)} of ${money(m.min)} needed</span></button>
+      <div data-missedbody="${m.id}" hidden>${missedBlockInner(m)}</div></div>`;
+  }
+  return html;
+}
+
+/* =========================================================================
+   VARIANT B — Flat grid + linked promo rail
+   ========================================================================= */
+function renderB() {
+  let html = `<div class="readnote"><span class="dot">B</span><div><b>Flat grid, linked rail.</b>
+    The dense per-line grid stays exactly as advanced users know it — every line, in order — but gains a
+    <b>Promo</b> column so presence and kind are glanceable. The right rail is the “Applied Bonus Buys” tab,
+    <b>reborn as buy → get cards</b>; hover or click one to light up its lines in the grid (they share a
+    <code>conditionKey</code>). “Details” opens today's pricing rules.</div></div>`;
+
+  html += '<div class="splitB"><div class="gridwrap"><table class="flat"><thead><tr>' +
+    '<th>#</th><th>Item</th><th class="r">Qty</th><th class="r">Net</th><th>Promo</th>' +
+    (advOnCache ? '<th>Cond.</th>' : '') + '</tr></thead><tbody>';
+  for (const l of lines) {
+    const p = l.promo ? promoById(l.promo) : null;
+    const promoCell = p
+      ? `${kindChip(p.kind)} <span class="role ${l.role==='get'?'get':'buy'}" style="${l.role==='get'?'background:var(--good-soft);color:var(--good);border:0':''}">${l.role==='buy'?'buy':l.role==='get'?'get':'buy+get'}</span>`
+      : `<span style="color:var(--fg-faint)">—</span>`;
+    html += `<tr data-key="${p ? p.id : ''}">
+      <td class="num">${l.item}</td>
+      <td><span class="mat">${l.mat}</span> <span class="code">${l.code}</span></td>
+      <td class="r num">${l.qty}</td>
+      <td class="r num">${money(l.net)}${l.net<l.gross?` <span class="strike">${money(l.gross)}</span>`:''}</td>
+      <td>${promoCell}</td>
+      ${advOnCache ? `<td class="adv-col num">${conditionsFor(l).map(c=>c.type).join(', ')}</td>` : ''}
+    </tr>`;
+  }
+  html += '</tbody></table></div>';
+
+  /* rail */
+  html += '<div class="rail"><div class="rail-title">Promotions fired · 4</div>';
+  for (const p of promos) {
+    const buyItems = p.buy.map(lineById);
+    const getItems = p.get.map(lineById);
+    const k = KIND[p.kind];
+    const buyDesc = p.grouping ? `Any 2 · ${p.grouping}` : buyItems.map(l=>l.mat.split(' ').slice(0,2).join(' ')).join(', ');
+    const getDesc = getItems.map(l=>l.mat.split(' ').slice(0,2).join(' ')).join(', ');
+    html += `<div class="pcard" data-pcard="${p.id}">
+      <button class="pcard-main" data-key="${p.id}">
+        <div class="ptop">${kindChip(p.kind)}<span class="pn">${p.name.split('—')[0].trim()}</span>
+          <span class="psave save-amt num">−${money(p.save)}</span></div>
+        <div class="bg">
+          <div class="box"><div class="lab">Buy</div><div class="m">${buyDesc}</div>
+            <div class="sub">${p.grouping ? 'from a category' : buyItems.map(l=>'#'+l.item).join(', ')}</div></div>
+          <div class="arrow">→</div>
+          <div class="box getbox"><div class="lab">Get · ${k.tag}</div><div class="m">${getDesc}</div>
+            <div class="sub">${getItems.map(l=>'#'+l.item).join(', ')}</div></div>
+        </div>
+      </button>
+      <div class="pcard-foot"><button class="disc-link" data-more="${p.id}">Details ▾</button></div>
+      <div class="pcard-more" data-morebody="${p.id}" hidden>
+        ${getItems.map(conditionCards).join('')}
+        <div style="font-size:11.5px;color:var(--fg-muted);margin-top:8px">
+          Prerequisite: ${p.grouping ? 'any 2 items from “'+p.grouping+'”' : buyItems.map(l=>l.mat).join(' + ')} · met ✓</div>
+        ${advOnCache ? pricingElements([...buyItems, ...getItems]) : ''}
+      </div>
+    </div>`;
+  }
+  html += `<div class="rail-title" style="margin-top:6px">Didn't apply · 1</div>`;
+  for (const m of missed) {
+    html += `<div class="missed"><button class="missed-head" aria-expanded="false" data-missed="${m.id}">
+      <span class="caret">▶</span>${kindChip(m.kind)}<span class="mt" style="flex:1">${m.name.split('when')[0]}</span></button>
+      <div data-missedbody="${m.id}" hidden>${missedBlockInner(m)}</div></div>`;
+  }
+  html += '</div></div>';
+  return html;
+}
+
+/* =========================================================================
+   VARIANT C — Receipt / statement
+   ========================================================================= */
+function renderC() {
+  let html = `<div class="readnote"><span class="dot">C</span><div><b>Statement.</b>
+    No grid at all — each promotion is a plain-language block: what you bought, what you got, and the word for it
+    (<span style="color:var(--good);font-weight:700">FREE</span>, −50%, set price). Built for a store user confirming
+    the deal, not reading a pricing table. Every block can expand to the exact pricing rules for the analysts.</div></div>`;
+
+  html += '<div class="statement">';
+  for (const p of promos) {
+    const k = KIND[p.kind];
+    const buyItems = p.buy.map(lineById);
+    const getItems = p.get.map(lineById);
+    const humanTitle = p.kind==='free' && p.sameSku ? 'Buy 1, Get 1 Free'
+      : p.kind==='free' ? 'Buy one, get one free'
+      : p.kind==='percent' ? 'Second one, half price'
+      : p.kind==='setprice' ? 'Bundle price' : 'Amount off';
+    html += `<div class="stmt-block promo">
+      <div class="stmt-top">
+        <div class="icon ${k.ic}">${k.gl}</div>
+        <div><div class="htitle">${humanTitle}</div><div class="hsub">${p.name} · ${p.key}</div></div>
+        <div class="hsave"><div class="lab">Saved</div><div class="save-amt num" style="font-size:15px;font-weight:680">${money(p.save)}</div></div>
+      </div>
+      <div class="stmt-lines">`;
+    for (const l of buyItems) {
+      html += `<div class="sl"><span class="qty num">${l.qty}×</span>
+        <span class="nm">${l.mat} <span class="code">#${l.item}</span>${p.grouping?` · <span style="color:var(--fg-faint)">counts toward ${p.grouping}</span>`:''}</span>
+        <span class="amt num">${money(l.gross)}</span></div>`;
+    }
+    html += `<div class="flow">↓ unlocks</div>`;
+    for (const l of getItems) {
+      const wasFree = l.net === 0;
+      html += `<div class="sl get"><span class="qty num">${l.qty}×</span>
+        <span class="nm">${l.mat} <span class="code">#${l.item}</span>
+          <div class="tagline">${wasFree ? 'FREE' : k.tag} ${p.sameSku?'':'· reward item'}</div></span>
+        <span class="amt num">${wasFree?'<span class="save-amt">0.00</span>':money(l.net)} ${l.net<l.gross?`<span class="strike">${money(l.gross)}</span>`:''}</span></div>`;
+    }
+    html += `</div>
+      <div class="stmt-adv">
+        <button class="stmt-adv-btn" aria-expanded="false" data-adv="${p.id}"><span class="caret">▶</span> Show pricing detail</button>
+        <div class="stmt-adv-body" data-advbody="${p.id}" hidden>
+          ${getItems.map(conditionCards).join('')}
+          ${advOnCache ? pricingElements([...buyItems, ...getItems]) : ''}
+        </div>
+      </div></div>`;
+  }
+  html += '</div>';
+
+  const plain = lines.filter(l=>!l.promo);
+  html += `<div class="statement" style="margin-top:14px"><div class="stmt-block">
+    <div class="stmt-top" style="border-bottom:1px solid var(--border)"><div><div class="htitle" style="font-size:13px">Other items</div></div></div>
+    <div class="stmt-plain">`;
+  for (const l of plain) {
+    html += `<div class="sl"><span class="qty num">${l.qty}×</span><span class="nm">${l.mat} <span class="code">#${l.item}</span></span><span class="amt num">${money(l.net)}</span></div>`;
+  }
+  html += `</div></div></div>`;
+
+  html += `<div class="statement" style="margin-top:14px">`;
+  for (const m of missed) {
+    html += `<div class="missed"><button class="missed-head" aria-expanded="false" data-missed="${m.id}">
+      <span class="caret">▶</span>${kindChip(m.kind)}<span class="mt" style="flex:1">Missed: ${m.name}</span>
+      <span class="ms">${money(m.found)}/${money(m.min)}</span></button>
+      <div data-missedbody="${m.id}" hidden>${missedBlockInner(m)}</div></div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+/* =========================================================================
+   Switcher + wiring
+   ========================================================================= */
+const VARIANTS = [
+  { k:'A', n:'Promo bands', render:renderA },
+  { k:'B', n:'Flat grid + rail', render:renderB },
+  { k:'C', n:'Statement', render:renderC },
+];
+let cur = 0;
+let advOnCache = false; // mirror of the advanced toggle, read during render
+
+const stage = document.getElementById('stage');
+const dots = document.getElementById('dots');
+VARIANTS.forEach((_,i)=>{ const d=document.createElement('i'); dots.appendChild(d); });
+
+function draw() {
+  advOnCache = advOn();
+  const v = VARIANTS[cur];
+  document.getElementById('vk').textContent = v.k;
+  document.getElementById('vn').textContent = v.n;
+  [...dots.children].forEach((d,i)=>d.classList.toggle('on', i===cur));
+  stage.innerHTML = v.render();
+  wireStage();
+}
+function go(delta){ cur = (cur + delta + VARIANTS.length) % VARIANTS.length; draw(); }
+
+document.getElementById('prev').onclick = () => go(-1);
+document.getElementById('next').onclick = () => go(1);
+document.getElementById('advToggle').onclick = (e) => {
+  const b = e.currentTarget; b.setAttribute('aria-pressed', String(!(b.getAttribute('aria-pressed')==='true'))); draw();
+};
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName||'').toLowerCase();
+  if (tag==='input'||tag==='textarea'||e.target.isContentEditable) return;
+  if (e.key==='ArrowLeft') go(-1);
+  if (e.key==='ArrowRight') go(1);
+});
+
+/* per-variant interactions (delegated, re-wired each draw) */
+function wireStage() {
+  const toggle = (btn, bodySel) => {
+    const open = btn.getAttribute('aria-expanded')==='true';
+    btn.setAttribute('aria-expanded', String(!open));
+    const body = stage.querySelector(bodySel);
+    if (body) body.hidden = open;
+  };
+  stage.querySelectorAll('[data-band]').forEach(b => b.onclick = () => toggle(b, `[data-detail="${b.dataset.band}"]`));
+  stage.querySelectorAll('[data-missed]').forEach(b => b.onclick = () => toggle(b, `[data-missedbody="${b.dataset.missed}"]`));
+  stage.querySelectorAll('[data-adv]').forEach(b => b.onclick = () => toggle(b, `[data-advbody="${b.dataset.adv}"]`));
+  stage.querySelectorAll('[data-more]').forEach(b => b.onclick = () => {
+    const body = stage.querySelector(`[data-morebody="${b.dataset.more}"]`);
+    const open = !body.hidden; body.hidden = open; b.textContent = open ? 'Details ▾' : 'Hide details ▴';
+  });
+  /* Variant B cross-highlight from conditionKey grouping */
+  const hot = (id, on) => {
+    stage.querySelectorAll(`tr[data-key="${id}"]`).forEach(r => r.classList.toggle('hot', on));
+    const card = stage.querySelector(`[data-pcard="${id}"]`); if (card) card.classList.toggle('hot', on);
+  };
+  stage.querySelectorAll('[data-key]').forEach(el => {
+    const id = el.dataset.key; if (!id) return;
+    el.addEventListener('mouseenter', () => hot(id, true));
+    el.addEventListener('mouseleave', () => hot(id, false));
+    if (el.classList.contains('pcard-main')) el.addEventListener('click', () => {
+      stage.querySelectorAll('.pcard').forEach(c => c.classList.remove('hot'));
+      stage.querySelectorAll('tr.hot').forEach(r => r.classList.remove('hot'));
+      hot(id, true);
+    });
+  });
+}
+
+/* theme toggle */
+const root = document.documentElement;
+document.getElementById('themeBtn').onclick = () => {
+  const cur = root.getAttribute('data-theme')
+    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  root.setAttribute('data-theme', cur==='dark' ? 'light' : 'dark');
+};
+
+draw();
+</script>

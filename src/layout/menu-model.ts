@@ -1,10 +1,12 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, Calculator, Download, FileText, KeyRound, LifeBuoy, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
+import { Activity, Box, Calculator, Download, FileText, KeyRound, LifeBuoy, Search, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
+import { broadcastApi } from '@/features/admin/broadcast/api'
 import { simulationApi } from '@/features/pricing/simulation/api'
 import { bonusBuyDownloadApi } from '@/features/pricing/bonus-buy-download/api'
+import { bonusBuyInquiryApi } from '@/features/pricing/bonus-buy-inquiry/api'
 import { couponsApi } from '@/features/pricing/coupons/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
@@ -111,6 +113,22 @@ export const MENU: ShellMenuItem[] = [
           visible: (r) => r.canOpen === true,
         }),
       },
+      {
+        // Send Broadcast (spec 031). Soft-gated on the NotificationBroadcast grant
+        // (038) via the SAME ['broadcast','access'] probe the page's own guard uses
+        // → one shared call. ⚠️ GET Notifications/Access doesn't exist server-side
+        // yet: the probe maps a 404 to allowed=true (unknown → shown) so the nav
+        // degrades gracefully; the server Create stays authoritative (NC_FORBIDDEN).
+        labelKey: 'broadcast:menu.sendBroadcast',
+        icon: Send,
+        routerLink: '/admin/broadcast',
+        activePrefix: '/admin/broadcast',
+        access: accessProbe({
+          key: ['broadcast', 'access'],
+          run: () => broadcastApi.access(),
+          visible: (r) => r.allowed === true,
+        }),
+      },
     ],
   },
   {
@@ -140,6 +158,22 @@ export const MENU: ShellMenuItem[] = [
         access: accessProbe({
           key: ['bonus-buy-download', 'access'],
           run: () => bonusBuyDownloadApi.access(),
+          visible: (r) => r.screenAllowed === true,
+        }),
+      },
+      {
+        labelKey: 'bonus-buy-inquiry:menu.bbyInquiry',
+        icon: Search,
+        routerLink: '/pricing/bonus-buy-inquiry',
+        activePrefix: '/pricing/bonus-buy-inquiry',
+        // Same key + call as BonusBuyInquiryPage's own guard → one shared probe.
+        // Gated by its OWN screen grant (BackOfficeScreen[BbyInquiry]). ⚠️ GET Bby/Access
+        // doesn't exist server-side yet: the probe maps 404/network to screenAllowed=true
+        // (fail-open) so this read-only inquiry degrades gracefully; the list endpoint's
+        // 403 ACCESS_DENIED stays the real boundary (spec 061 / contract 057 §4).
+        access: accessProbe({
+          key: ['bonus-buy-inquiry', 'access'],
+          run: () => bonusBuyInquiryApi.access(),
           visible: (r) => r.screenAllowed === true,
         }),
       },

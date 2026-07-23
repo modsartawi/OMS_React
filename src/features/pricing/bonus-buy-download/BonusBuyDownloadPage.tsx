@@ -18,17 +18,23 @@ import { bonusBuyDownloadApi } from './api'
 // listing the numbers. Self-guards on Access (spinner → denied card → content),
 // sharing the ['bonus-buy-download','access'] key with the menu probe (issue 429).
 
-// The six free-text override fields — always rendered; blank CLEARS (design 492). The
+// The five free-text override fields — always rendered; blank CLEARS (design 492). The
 // four capped columns (Includes/Excludes/OriginFilter/StackingExcludes) get maxLength
-// 300 per the contract; the two loyalty fields are uncapped like the WPF.
+// 300 per the contract; loyGroups is uncapped like the WPF. loyTiers is NOT here — it
+// is a fixed S/G/P checkbox set (see LOY_TIERS) joined back to the same space-separated
+// wire string.
 const TEXT_FIELDS: { key: keyof BbyOverrides; labelKey: string; maxLength?: number }[] = [
   { key: 'includes', labelKey: 'attributes.includes', maxLength: 300 },
   { key: 'excludes', labelKey: 'attributes.excludes', maxLength: 300 },
   { key: 'originFilter', labelKey: 'attributes.originFilter', maxLength: 300 },
   { key: 'stackingExcludes', labelKey: 'attributes.stackingExcludes', maxLength: 300 },
   { key: 'loyGroups', labelKey: 'attributes.loyGroups' },
-  { key: 'loyTiers', labelKey: 'attributes.loyTiers' },
 ]
+
+// The loyalty-tier codes, in wire order. `loyTiers` is a space-separated string of these
+// (e.g. "S G P", "S", "G P"); the checkboxes edit that set and rejoin in this order, so
+// none checked ⇒ "" ⇒ CLEARS, faithful to the "blank clears" contract.
+const LOY_TIERS = ['S', 'G', 'P'] as const
 
 type RunAction = 'download' | 'delete'
 
@@ -72,8 +78,8 @@ export default function BonusBuyDownloadPage() {
     originFilter: '',
     stackingExcludes: '',
     loyGroups: '',
-    loyTiers: '',
   })
+  const [loyTiers, setLoyTiers] = useState<Set<string>>(new Set())
   const [isStackable, setIsStackable] = useState(false)
   const [maxValue, setMaxValue] = useState('')
   const [score, setScore] = useState('')
@@ -104,7 +110,7 @@ export default function BonusBuyDownloadPage() {
       originFilter: text.originFilter,
       stackingExcludes: text.stackingExcludes,
       loyGroups: text.loyGroups,
-      loyTiers: text.loyTiers,
+      loyTiers: LOY_TIERS.filter((tier) => loyTiers.has(tier)).join(' '),
       isStackable,
       maxValue: num(maxValue),
       score: Math.trunc(num(score)),
@@ -247,6 +253,31 @@ export default function BonusBuyDownloadPage() {
             </label>
           ))}
         </div>
+
+        {/* loyalty tiers — fixed S/G/P checkbox set, joined to the space-separated wire string */}
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="text-xs font-medium text-muted-foreground">{t('attributes.loyTiers')}</legend>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {LOY_TIERS.map((tier) => (
+              <label key={tier} className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                  checked={loyTiers.has(tier)}
+                  onChange={(e) =>
+                    setLoyTiers((prev) => {
+                      const next = new Set(prev)
+                      if (e.target.checked) next.add(tier)
+                      else next.delete(tier)
+                      return next
+                    })
+                  }
+                />
+                {t(`attributes.loyTierOptions.${tier}`)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         {/* numeric + boolean + times */}
         <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3 lg:grid-cols-5">

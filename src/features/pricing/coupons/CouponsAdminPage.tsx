@@ -72,13 +72,18 @@ export default function CouponsAdminPage() {
         ))}
       </div>
 
-      {tab === 'templates' ? (
+      {/* All three stay mounted so switching tabs preserves each one's in-progress
+          inputs and unsaved edits — the inactive panels are hidden, not unmounted.
+          Their queries are `enabled`-gated (Templates has none), so this is lazy. */}
+      <div className={tab === 'templates' ? undefined : 'hidden'} role="tabpanel" hidden={tab !== 'templates'}>
         <TemplatesWorkspace />
-      ) : tab === 'inquiry' ? (
+      </div>
+      <div className={tab === 'inquiry' ? undefined : 'hidden'} role="tabpanel" hidden={tab !== 'inquiry'}>
         <InquiryWorkspace />
-      ) : (
+      </div>
+      <div className={tab === 'import' ? undefined : 'hidden'} role="tabpanel" hidden={tab !== 'import'}>
         <ImportWorkspace />
-      )}
+      </div>
     </section>
   )
 }

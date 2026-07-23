@@ -1,0 +1,222 @@
+{
+  "menu": {
+    "bbyInquiry": "BBY Inquiry"
+  },
+  "title": "Bonus Buy Inquiry",
+  "subtitle": "Look up Bonus Buy promotions. Opens on the ones active right now; search the full set by number or validity date.",
+  "access": {
+    "checking": "Checking access…",
+    "deniedTitle": "No access",
+    "deniedHint": "You don't have permission to open BBY Inquiry. Ask an administrator for the BBY Inquiry grant."
+  },
+  "toolbar": {
+    "filterRow": "Filter row"
+  },
+  "search": {
+    "bbyNumber": "BBY number",
+    "bbyNumberPlaceholder": "e.g. 100234",
+    "activeFrom": "Active during — from",
+    "activeTo": "Active during — to",
+    "activeOnly": "Active only",
+    "activeOnlyHint": "status A & valid today",
+    "activeOnlyOverridden": "A number or date search reaches inactive and deleted BBYs, so Active only is cleared.",
+    "search": "Search",
+    "reset": "Reset",
+    "filtered": "Filtered",
+    "clearFilter": "Clear filter"
+  },
+  "capReached": "Showing the first 1,000, newest first — narrow your search to see more.",
+  "export": {
+    "button": "Export CSV",
+    "filename": "bonus-buy-inquiry"
+  },
+  "actions": {
+    "details": "Details"
+  },
+  "groups": {
+    "identity": "Identity & offer",
+    "validity": "Validity",
+    "buyGet": "Buy/Get rules",
+    "stacking": "Stacking",
+    "loyalty": "Loyalty",
+    "audit": "Audit"
+  },
+  "columns": {
+    "identity": "BBY #",
+    "bbyStatus": "Status",
+    "description": "Description",
+    "bbyProfile": "Profile",
+    "promoNumber": "Promotion",
+    "offerId": "Offer",
+    "validFrom": "Valid from",
+    "validTo": "Valid to",
+    "validFromTime": "From time",
+    "validToTime": "To time",
+    "condTargetType": "Target",
+    "linkCategoryBuy": "Link (buy)",
+    "linkCategoryGet": "Link (get)",
+    "limitNumber": "Limit",
+    "minValue": "Min value",
+    "maxValue": "Max value",
+    "includes": "Includes",
+    "excludes": "Excludes",
+    "isStackable": "Stackable",
+    "allowNestedStacking": "Nested stacking",
+    "stackingExcludes": "Stacking excludes",
+    "score": "Score",
+    "originFilter": "Origin filter",
+    "priceListType": "Price list",
+    "loyGroups": "Loyalty groups",
+    "loyTiers": "Loyalty tiers",
+    "createdAt": "Created",
+    "createdBy": "Created by"
+  },
+  "status": {
+    "A": "Activated",
+    "I": "Inactive",
+    "D": "Draft",
+    "X": "Deleted"
+  },
+  "link": {
+    "A": "And",
+    "O": "Or"
+  },
+  "condTarget": {
+    "R": "Document",
+    "P": "Product",
+    "M": "Material group",
+    "G": "Grouping"
+  },
+  "discount": {
+    "P": "Price",
+    "R": "Amount",
+    "%": "Percent"
+  },
+  "condType": {
+    "ZB01": "ZB01",
+    "ZB02": "ZB02",
+    "ZB03": "ZB03",
+    "ZB12": "ZB12",
+    "ZB13": "ZB13"
+  },
+  "scale": {
+    "A": "From",
+    "B": "Up to",
+    "C": "Equal"
+  },
+  "activeMarker": {
+    "label": "Valid today"
+  },
+  "loading": "Loading Bonus Buys…",
+  "empty": {
+    "title": "No Bonus Buys",
+    "hint": "There are no currently-active Bonus Buys to show."
+  },
+  "errors": {
+    "loadFailed": "Couldn't load Bonus Buys. Please try again.",
+    "dateTitle": "Check the dates"
+  },
+  "detail": {
+    "eyebrow": "Bonus Buy · Display",
+    "dash": "—",
+    "expand": "Expand section",
+    "collapse": "Collapse section",
+    "validity": {
+      "live": "Active now",
+      "ended": "Window ended",
+      "notStarted": "Not yet started"
+    },
+    "org": {
+      "title": "Organisation",
+      "sub": "Where this Bonus Buy applies",
+      "salesOrg": "Sales org",
+      "distChannel": "Dist. channel",
+      "plant": "Plant",
+      "currency": "Currency"
+    },
+    "rules": {
+      "title": "Header & rules",
+      "sub": "Validity & rule settings",
+      "promotion": "Promotion",
+      "offer": "Offer",
+      "profile": "Profile",
+      "status": "Status",
+      "validityWindow": "Validity window",
+      "condTarget": "Condition target",
+      "limit": "Limit",
+      "unlimited": "Unlimited",
+      "link": "Link — Buy / Get",
+      "minMax": "Min / Max value",
+      "stackability": "Stackability",
+      "stackable": "Stackable",
+      "notStackable": "Not stackable",
+      "nestedAllowed": "nested allowed",
+      "score": "Score",
+      "loyGroups": "Loyalty groups",
+      "loyTiers": "Loyalty tiers",
+      "includes": "Includes",
+      "excludes": "Excludes"
+    },
+    "buy": {
+      "title": "Buy side",
+      "sub": "Prerequisites · link {{link}}",
+      "pos": "Pos",
+      "material": "Material / grouping",
+      "kind": "Kind",
+      "qty": "Qty",
+      "minValue": "Min value",
+      "emptyNote": "No line prerequisites — qualification is basket value (see Header · Min value)."
+    },
+    "then": "then",
+    "get": {
+      "title": "Get side",
+      "sub": "Conditions · link {{link}}",
+      "cond": "Cond",
+      "material": "Material / grouping",
+      "discount": "Discount",
+      "scalePricing": "Scale / pricing",
+      "condType": "Cond. type",
+      "perUnit": "per {{qty}} {{uom}}",
+      "emptyNote": "No Get conditions."
+    },
+    "kind": {
+      "grouping": "Material grouping",
+      "material": "Material"
+    },
+    "members": "{{count}} members",
+    "membersOpen": "Show the {{count}} members of this grouping",
+    "totalDiscount": {
+      "title": "Get side — total discount",
+      "sub": "Document mode (condTargetType R)",
+      "appliedTo": "Applied to the whole document",
+      "discountType": "Discount type",
+      "condType": "Condition type",
+      "requirement": "Basket requirement",
+      "requirementValue": "≥ {{value}} {{currency}}"
+    },
+    "loading": "Loading Bonus Buy…",
+    "notFound": {
+      "title": "Bonus Buy not found",
+      "hint": "This number is listed but has no detail record."
+    },
+    "loadFailed": "Couldn't load this Bonus Buy. Please try again."
+  },
+  "members": {
+    "title": "Grouping members",
+    "side": {
+      "buy": "Buy side",
+      "get": "Get side"
+    },
+    "material": "Material",
+    "description": "Description",
+    "qty": "Qty",
+    "range": "Showing {{first}}–{{last}} of {{total}}",
+    "pageOf": "Page {{page}} of {{pageCount}}",
+    "prev": "Previous",
+    "next": "Next",
+    "loading": "Loading members…",
+    "loadingShort": "Loading…",
+    "empty": "This grouping has no members.",
+    "loadFailed": "Couldn't load these members. Please try again."
+  }
+}

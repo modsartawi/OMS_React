@@ -17,9 +17,14 @@
     "distChannel": "Distribution channel",
     "procedureKey": "Procedure key",
     "procedureKeyHint": "'W' = Wasfaty",
-    "loyId": "Loyalty ID",
     "loyGroup": "Loyalty group",
     "loyTier": "Loyalty tier",
+    "loyTierNone": "(none)",
+    "loyTierOptions": {
+      "S": "Silver (S)",
+      "G": "Gold (G)",
+      "P": "Platinum (P)"
+    },
     "promotion": "Promotion",
     "pricingElements": "Pricing Elements"
   },
@@ -28,18 +33,43 @@
     "material": "Material",
     "quantity": "Qty",
     "uom": "UoM",
+    "control": "Control",
     "addRow": "Add item",
     "removeRow": "Remove item"
   },
+  "manual": {
+    "title": "Manual Conditions",
+    "item": "Item",
+    "type": "Type",
+    "rate": "Rate",
+    "unit": "Unit",
+    "addRow": "Add condition",
+    "removeRow": "Remove condition",
+    "empty": "No manual conditions.",
+    "itemHint": "Item number = (line position) × 10, or 0 for a header condition."
+  },
   "actions": {
+    "title": "Actions",
     "process": "Process",
     "processing": "Processing…",
     "clear": "Clear"
   },
+  "clearCache": {
+    "button": "Clear cache",
+    "confirmTitle": "Clear the whole pricing cache?",
+    "confirmBody": "This clears the entire server-side pricing cache for every user on this server, not just your session. Prices will be re-read fresh on the next simulation. Continue?",
+    "success": "Pricing cache cleared.",
+    "denied": "Couldn't clear the cache"
+  },
   "summary": {
-    "netTotal": "Net Total",
+    "title": "Summary",
+    "netTotal": "Total Net Total",
+    "totalDiscount": "Total discount",
+    "tax": "Tax",
     "elapsed": "{{ms}} ms",
-    "noResult": "Process a basket to see results."
+    "calc": "Calc: {{ms}} ms",
+    "noResult": "Process a basket to see results.",
+    "placeholder": "—"
   },
   "banner": {
     "failed": "Simulation failed",
@@ -52,12 +82,76 @@
     "material": "Material",
     "description": "Description",
     "qty": "Qty",
+    "promotion": "Promotion",
+    "promoNone": {
+      "mark": "—",
+      "label": "No promotion on this line"
+    },
+    "promoKind": {
+      "free": "Free goods",
+      "percent": "% off",
+      "fixed": "Amount off",
+      "setprice": "Set price",
+      "unknown": "Promotion"
+    },
+    "promoRole": {
+      "buy": "buy",
+      "get": "get",
+      "buy+get": "buy + get"
+    },
     "subtotal": "Subtotal",
     "promo": "Promo",
     "gross": "Gross",
     "tax": "Tax",
     "net": "Net",
     "empty": "No priced lines yet."
+  },
+  "promo": {
+    "paneTitle": "Promotions",
+    "firedCount": "{{count}} fired",
+    "empty": "No promotions fired on this basket.",
+    "savedLabel": "Saved",
+    "buyLabel": "Buy",
+    "getLabel": "Get",
+    "itemsLabel": "Items",
+    "noItems": "No basket lines resolved.",
+    "reward": "reward",
+    "free": "FREE",
+    "qty": "{{qty}}×",
+    "promoNoLabel": "promo {{promo}}",
+    "offerLabel": "offer {{offer}}",
+    "usage_one": "{{count}} use left",
+    "usage_other": "{{count}} uses left",
+    "appliedTimes_one": "applied {{count}}×",
+    "appliedTimes_other": "applied {{count}}×",
+    "title": {
+      "free": "Buy {{buy}}, Get {{get}} Free",
+      "percent": "Buy {{buy}}, Get {{get}} at a discount",
+      "fixed": "Buy {{buy}}, Get {{get}} with amount off",
+      "setprice": "Buy {{buy}}, Get {{get}} at a set price",
+      "fallback": "Promotion"
+    },
+    "kindTag": {
+      "free": "Free",
+      "percent": "% off",
+      "fixed": "Amount off",
+      "setprice": "Set price"
+    }
+  },
+  "missed": {
+    "sectionTitle": "Could have applied",
+    "count_one": "{{count}} near-miss",
+    "count_other": "{{count}} near-misses",
+    "fallbackName": "Promotion",
+    "wouldSaveLabel": "Would save",
+    "found": "{{found}} of {{required}}",
+    "prereqMaterial": "Material {{material}}",
+    "prereqGrouping": "Any from '{{grouping}}'",
+    "prereqAny": "Prerequisite not met",
+    "reasonQty": "Basket has {{found}} of the {{required}} required.",
+    "reasonValue": "Basket has {{found}} of the {{required}} minimum.",
+    "skipReason": "Didn't fire: {{reason}}",
+    "noReason": "This promotion didn't fire for this basket."
   },
   "detail": {
     "title": "Pricing details for item {{item}}: {{material}}",
@@ -94,47 +188,10 @@
     "error": "Error"
   },
   "bonus": {
-    "tabsAriaLabel": "Bonus buys and pricing elements",
     "yes": "Yes",
     "no": "No",
     "tabs": {
-      "applied": "Applied Bonus Buys",
-      "potential": "Potential Bonus Buys",
       "elements": "Pricing Elements"
-    },
-    "applied": {
-      "bby": "Bby no.",
-      "promo": "Promo no.",
-      "offer": "Offer",
-      "description": "Description",
-      "discountType": "Discount type",
-      "totalDiscount": "Total discount",
-      "remainingUsage": "Remaining usage",
-      "empty": "No bonus buys applied to this basket."
-    },
-    "potential": {
-      "bby": "Bby no.",
-      "promo": "Promo no.",
-      "description": "Description",
-      "status": "Status",
-      "validTo": "Valid to",
-      "minValue": "Min value",
-      "skipReason": "Skip reason",
-      "empty": "No potential bonus buys for this basket."
-    },
-    "prereq": {
-      "title": "Prerequisites",
-      "titleFor": "Prerequisites for {{bby}}",
-      "prereq": "Prereq",
-      "matGrouping": "Material grouping",
-      "material": "Material",
-      "requiredQty": "Required qty",
-      "foundQty": "Found qty",
-      "minValue": "Min value",
-      "foundValue": "Found value",
-      "met": "Met?",
-      "empty": "Select a potential bonus buy to see its prerequisites.",
-      "none": "This bonus buy has no prerequisites."
     },
     "elements": {
       "step": "Step",

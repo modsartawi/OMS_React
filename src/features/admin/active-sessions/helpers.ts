@@ -17,7 +17,7 @@ const PAGE = { skip: 0, take: 50 }
  * sessions with no recent heartbeat (per-channel rule, spec 006). The chip
  * composes with the search term — e.g. Web + "john".
  */
-export type SessionChip = 'all' | 'web' | 'mobile' | 'backoffice' | 'idle'
+export type SessionChip = 'all' | 'web' | 'mobile' | 'backoffice' | 'pos' | 'idle'
 
 /**
  * Shape the GET Sessions params from the search term and the active chip. A

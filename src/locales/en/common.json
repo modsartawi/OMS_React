@@ -1,5 +1,7 @@
 {
-  "brand": "OMS Portal",
+  "brand": "al-dawaa BackOffice",
+  "brandKicker": "al-dawaa",
+  "brandName": "BackOffice",
   "user": "User",
   "yes": "Yes",
   "no": "No",

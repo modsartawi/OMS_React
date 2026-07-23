@@ -1,0 +1,491 @@
+<style>
+  /* =========================================================================
+     POS Simulation — the B+C HYBRID (wayfinder ticket 042 / map 039).
+     Flat grid anchor (B) + plain-language buy→get blocks (C), linked by
+     conditionKey. The bottom bar flips the LAYOUT (the one open question);
+     everything else is the locked hybrid. Palette/type mirror the app tokens.
+     ========================================================================= */
+  :root {
+    --bg: #fbfaf7; --surface: #ffffff; --surface-2: #f5f4ef; --surface-3: #efeee8;
+    --fg: #26241f; --fg-muted: #6b6860; --fg-faint: #928f86;
+    --border: #e8e6df; --border-strong: #dcdad2;
+    --accent: #c96442; --accent-ink: #a24a2d; --accent-soft: #f4e4dd;
+    --good: #3f7d5b; --good-soft: #e6f0ea;
+    --warn: #9a6f1c; --warn-soft: #f4ead0;
+    --info: #3a6a8d; --info-soft: #e2ecf3;
+    --shadow: 0 1px 2px rgba(38,36,31,.05), 0 4px 16px rgba(38,36,31,.06);
+    --radius: 0.625rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #201f1b; --surface: #262521; --surface-2: #2c2b26; --surface-3: #34322c;
+      --fg: #eeede7; --fg-muted: #a8a598; --fg-faint: #817e78;
+      --border: #393731; --border-strong: #47443d;
+      --accent: #e08d70; --accent-ink: #eda487; --accent-soft: #3a2a24;
+      --good: #7cba95; --good-soft: #253128;
+      --warn: #d6b671; --warn-soft: #332b1d;
+      --info: #8fb6d4; --info-soft: #223039;
+      --shadow: 0 1px 2px rgba(0,0,0,.25), 0 4px 16px rgba(0,0,0,.30);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #fbfaf7; --surface: #ffffff; --surface-2: #f5f4ef; --surface-3: #efeee8;
+    --fg: #26241f; --fg-muted: #6b6860; --fg-faint: #928f86;
+    --border: #e8e6df; --border-strong: #dcdad2;
+    --accent: #c96442; --accent-ink: #a24a2d; --accent-soft: #f4e4dd;
+    --good: #3f7d5b; --good-soft: #e6f0ea; --warn: #9a6f1c; --warn-soft: #f4ead0;
+    --info: #3a6a8d; --info-soft: #e2ecf3;
+    --shadow: 0 1px 2px rgba(38,36,31,.05), 0 4px 16px rgba(38,36,31,.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #201f1b; --surface: #262521; --surface-2: #2c2b26; --surface-3: #34322c;
+    --fg: #eeede7; --fg-muted: #a8a598; --fg-faint: #817e78;
+    --border: #393731; --border-strong: #47443d;
+    --accent: #e08d70; --accent-ink: #eda487; --accent-soft: #3a2a24;
+    --good: #7cba95; --good-soft: #253128; --warn: #d6b671; --warn-soft: #332b1d;
+    --info: #8fb6d4; --info-soft: #223039;
+    --shadow: 0 1px 2px rgba(0,0,0,.25), 0 4px 16px rgba(0,0,0,.30);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  h1,h2,h3 { text-wrap: balance; margin: 0; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  [hidden] { display: none !important; }
+  .wrap { max-width: 1220px; margin: 0 auto; padding: 20px 20px 120px; }
+
+  .intro { margin-bottom: 16px; }
+  .intro .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+  .intro h1 { font-size: 22px; font-weight: 680; letter-spacing: -.01em; }
+  .intro p { margin: 8px 0 0; color: var(--fg-muted); max-width: 70ch; font-size: 13.5px; }
+
+  .app { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+  .topbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+  .topbar .title { font-weight: 640; font-size: 14px; }
+  .topbar .crumb { color: var(--fg-faint); font-size: 12.5px; }
+  .topbar .spacer { flex: 1; }
+  .adv-toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--fg-muted); border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 11px 5px 9px; }
+  .adv-toggle .sw { width: 30px; height: 17px; border-radius: 999px; background: var(--border-strong); position: relative; transition: background .15s; }
+  .adv-toggle .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s; }
+  .adv-toggle[aria-pressed="true"] .sw { background: var(--accent); }
+  .adv-toggle[aria-pressed="true"] .sw::after { transform: translateX(13px); }
+
+  .summary { display: flex; flex-wrap: wrap; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+  .summary .cell { padding: 0 18px; border-right: 1px solid var(--border); }
+  .summary .cell:first-child { padding-left: 0; }
+  .summary .cell:last-child { border-right: 0; }
+  .summary .k { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--fg-faint); }
+  .summary .v { font-size: 15px; font-weight: 640; margin-top: 3px; }
+  .summary .v.big { font-size: 26px; font-weight: 720; letter-spacing: -.02em; }
+  .summary .v.save { color: var(--good); }
+  .summary .cur { font-size: 12px; font-weight: 500; color: var(--fg-faint); margin-left: 3px; }
+
+  .stage { padding: 16px; }
+  .readnote { display: flex; gap: 9px; align-items: flex-start; font-size: 12.5px; color: var(--fg-muted); background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: var(--radius); padding: 9px 12px; margin-bottom: 14px; }
+  .readnote b { color: var(--fg); font-weight: 620; }
+  .readnote .dot { color: var(--accent); font-weight: 800; white-space: nowrap; }
+
+  /* compact-mode segmented control */
+  .seg { display: none; margin-bottom: 12px; }
+  .seg .segbtns { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; background: var(--surface-2); padding: 3px; gap: 2px; }
+  .seg button { border: 0; background: transparent; color: var(--fg-muted); font-size: 12.5px; font-weight: 600; padding: 5px 14px; border-radius: 999px; }
+  .seg button[aria-selected="true"] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,.10); }
+
+  /* chips + roles */
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; line-height: 1.5; }
+  .chip .gl { font-weight: 800; font-size: 10px; }
+  .kind-free { background: var(--good-soft); color: var(--good); }
+  .kind-percent { background: var(--accent-soft); color: var(--accent-ink); }
+  .kind-fixed { background: var(--warn-soft); color: var(--warn); }
+  .kind-setprice { background: var(--info-soft); color: var(--info); }
+  .role { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border-strong); color: var(--fg-muted); }
+  .role.buy { background: var(--surface-3); }
+  .role.get { border: 0; background: var(--good-soft); color: var(--good); }
+  .save-amt { color: var(--good); font-weight: 640; }
+  .strike { color: var(--fg-faint); text-decoration: line-through; font-size: 12px; }
+
+  /* ---- the hybrid container: layout switches via a class ---- */
+  .hybrid { display: grid; gap: 14px; align-items: start; }
+  .hybrid.side  { grid-template-columns: minmax(0,1fr) 388px; }
+  .hybrid.stack { grid-template-columns: 1fr; }
+  .hybrid.stack .promopane { order: 1; }
+  .hybrid.stack .gridpane  { order: 2; }
+  .hybrid.compact { grid-template-columns: 1fr; }
+  @media (max-width: 920px) { .hybrid.side { grid-template-columns: 1fr; } }
+
+  .panehead { font-size: 10.5px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--fg-faint); margin: 0 2px 8px; display: flex; align-items: center; gap: 8px; }
+  .panehead .count { color: var(--accent); }
+
+  /* ---- flat grid (anchor, from B) ---- */
+  .gridwrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  table.flat { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.flat th { text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-faint); padding: 8px 10px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  table.flat td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  table.flat tr:last-child td { border-bottom: 0; }
+  table.flat .r { text-align: right; }
+  table.flat .mat { font-weight: 560; }
+  table.flat .code { color: var(--fg-faint); font-size: 11px; }
+  table.flat tr[data-key] { transition: background .12s; }
+  table.flat tr[data-key]:not([data-key=""]) { cursor: pointer; }
+  table.flat tr.hot td { background: var(--accent-soft); }
+  table.flat tr.hot td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .adv-col { color: var(--fg-faint); font-size: 11px; }
+
+  /* ---- promo blocks (from C, enriched to carry every Applied-tab field) ---- */
+  .blocks { display: flex; flex-direction: column; gap: 10px; }
+  .block { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); overflow: hidden; transition: border-color .12s, box-shadow .12s; }
+  .block.hot { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .block-top { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; cursor: pointer; }
+  .block-top .icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; font-weight: 800; font-size: 14px; }
+  .ic-free { background: var(--good-soft); color: var(--good); }
+  .ic-percent { background: var(--accent-soft); color: var(--accent-ink); }
+  .ic-fixed { background: var(--warn-soft); color: var(--warn); }
+  .ic-setprice { background: var(--info-soft); color: var(--info); }
+  .block-top .htitle { font-weight: 660; font-size: 14px; letter-spacing: -.005em; }
+  .block-top .hsub { font-size: 11px; color: var(--fg-faint); margin-top: 2px; }
+  .block-top .hsave { margin-left: auto; text-align: right; flex-shrink: 0; }
+  .block-top .hsave .lab { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+  .block-top .hsave .amt { font-size: 15px; font-weight: 680; }
+
+  .bg { display: grid; grid-template-columns: 1fr 26px 1fr; gap: 6px; align-items: stretch; padding: 0 12px 11px; }
+  .bg .box { border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; background: var(--surface-2); }
+  .bg .box.getbox { border-color: color-mix(in srgb, var(--good) 40%, var(--border)); background: var(--good-soft); }
+  .bg .lab { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); }
+  .bg .arrow { display: grid; place-items: center; color: var(--accent); font-weight: 800; font-size: 17px; }
+  .bgline { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; font-size: 12px; }
+  .bgline .q { color: var(--fg-faint); font-size: 11px; }
+  .bgline .nm { flex: 1; font-weight: 540; }
+  .bgline .code { color: var(--fg-faint); font-size: 10.5px; font-weight: 400; }
+  .bgline .amt { font-weight: 560; }
+  .bgline .amt.free { color: var(--good); font-weight: 700; }
+  .bg .grpnote { font-size: 11px; color: var(--fg-muted); margin-top: 4px; font-style: italic; }
+  .tagline { color: var(--good); font-weight: 700; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+
+  .block-foot { border-top: 1px solid var(--border); background: var(--surface-2); }
+  .disc-btn { width: 100%; text-align: left; background: transparent; border: 0; padding: 8px 12px; font-size: 12px; color: var(--fg-muted); display: flex; align-items: center; gap: 8px; }
+  .disc-btn .caret { transition: transform .15s; }
+  .disc-btn[aria-expanded="true"] .caret { transform: rotate(90deg); }
+  .disc-body { padding: 11px 12px; border-top: 1px solid var(--border); }
+
+  /* condition cards (today's detail) */
+  .subhead { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); margin: 2px 0 7px; }
+  .cards { display: flex; flex-direction: column; gap: 6px; }
+  .ccard { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 7px 9px; }
+  .ccard .row1 { display: flex; align-items: center; gap: 7px; font-size: 12px; flex-wrap: wrap; }
+  .ccard .idx { color: var(--fg-faint); font-weight: 700; }
+  .ccard .cat { font-weight: 620; }
+  .ccard .ctype { font-weight: 700; }
+  .ccard .cdesc { color: var(--fg-muted); }
+  .ccard .cval { margin-left: auto; font-weight: 640; }
+  .badge-promo { font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; background: var(--accent); color: #fff; padding: 1px 6px; border-radius: 4px; }
+  .pe-wrap { margin-top: 10px; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table.pe { width: 100%; border-collapse: collapse; font-size: 11.5px; min-width: 460px; }
+  table.pe th { text-align: left; font-size: 9.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--fg-faint); padding: 6px 8px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  table.pe td { padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  table.pe tr:last-child td { border-bottom: 0; }
+  table.pe .r { text-align: right; }
+
+  /* didn't-fire */
+  .missed-wrap { margin-top: 12px; }
+  .missed { border: 1px solid var(--border); border-left: 3px solid var(--warn); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+  .missed-head { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; padding: 9px 12px; background: var(--warn-soft); border: 0; }
+  .missed-head .caret { color: var(--warn); transition: transform .15s; font-size: 12px; }
+  .missed-head[aria-expanded="true"] .caret { transform: rotate(90deg); }
+  .missed-head .mt { font-weight: 620; font-size: 12.5px; flex: 1; }
+  .missed-head .ms { color: var(--fg-muted); font-size: 11px; }
+  .missed-body { padding: 11px 12px; font-size: 12.5px; }
+  .prereq-line { display: flex; align-items: center; gap: 10px; padding: 6px 0; flex-wrap: wrap; }
+  .meter { flex: 1; height: 6px; border-radius: 999px; background: var(--surface-3); overflow: hidden; min-width: 120px; max-width: 220px; }
+  .meter > span { display: block; height: 100%; background: var(--warn); }
+
+  /* switcher */
+  .switcher { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 50; display: flex; align-items: center; gap: 4px; padding: 5px; background: var(--fg); color: var(--bg); border-radius: 999px; box-shadow: 0 6px 24px rgba(0,0,0,.28); font-size: 13px; }
+  .switcher button { width: 34px; height: 34px; border: 0; border-radius: 50%; background: transparent; color: var(--bg); display: grid; place-items: center; font-size: 17px; }
+  .switcher button:hover { background: rgba(255,255,255,.15); }
+  .switcher .lbl { padding: 0 8px; min-width: 172px; text-align: center; }
+  .switcher .lbl .k { font-weight: 720; }
+  .switcher .lbl .n { opacity: .72; }
+  .switcher .dots { display: flex; gap: 4px; padding: 0 8px 0 4px; }
+  .switcher .dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.35); }
+  .switcher .dots i.on { background: var(--bg); }
+  .theme-btn { position: fixed; bottom: 22px; right: 22px; z-index: 50; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); color: var(--fg-muted); display: grid; place-items: center; box-shadow: var(--shadow); font-size: 16px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+</style>
+
+<div class="wrap">
+  <div class="intro">
+    <div class="eyebrow">POS Simulation · B + C hybrid · ticket 042</div>
+    <h1>Flat grid, plain-language promotions — one screen</h1>
+    <p>
+      The dense per-line grid stays as the analyst's anchor; the promotions read as plain-language
+      <b>buy → get</b> blocks that carry everything the old “Applied Bonus Buys” tab did. Hover a grid line or a
+      block and its partner lights up (they share a <b>conditionKey</b>). The bar below flips only the <b>layout</b>
+      — the open question — between side-by-side, stacked, and a compact toggle. Same basket throughout.
+    </p>
+  </div>
+
+  <div class="app">
+    <div class="topbar">
+      <span class="title">POS Simulation</span>
+      <span class="crumb">al-dawaa BackOffice · Pricing</span>
+      <span class="spacer"></span>
+      <button class="adv-toggle" id="advToggle" aria-pressed="false" title="Reveal the raw pricing-procedure trace under each block, and a condition column on the grid">
+        <span class="sw" aria-hidden="true"></span> Advanced detail
+      </button>
+    </div>
+    <div class="summary">
+      <div class="cell"><div class="k">Net total</div><div class="v big num">183.43<span class="cur">SAR</span></div></div>
+      <div class="cell"><div class="k">Gross</div><div class="v num">232.00</div></div>
+      <div class="cell"><div class="k">Promotions</div><div class="v save num">−72.50</div></div>
+      <div class="cell"><div class="k">VAT 15%</div><div class="v num">23.93</div></div>
+      <div class="cell"><div class="k">Promotions fired</div><div class="v num">4 <span class="cur">· 1 missed</span></div></div>
+    </div>
+    <div class="stage">
+      <div class="readnote"><span class="dot">B + C</span><div id="note"></div></div>
+      <div class="seg" id="seg" role="tablist" aria-label="Show">
+        <div class="segbtns">
+          <button role="tab" aria-selected="true" data-pane="grid">Lines</button>
+          <button role="tab" aria-selected="false" data-pane="promo">Promotions</button>
+        </div>
+      </div>
+      <div class="hybrid side" id="hybrid">
+        <div class="gridpane" id="gridpane"></div>
+        <div class="promopane" id="promopane"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="switcher" role="group" aria-label="Switch layout">
+  <button id="prev" aria-label="Previous layout">‹</button>
+  <span class="lbl"><span class="k" id="vk">1</span> — <span class="n" id="vn">Side by side</span></span>
+  <span class="dots" id="dots"></span>
+  <button id="next" aria-label="Next layout">›</button>
+</div>
+<button class="theme-btn" id="themeBtn" aria-label="Toggle light / dark">◐</button>
+
+<script>
+const KIND = {
+  free:     { cls:'free',     ic:'ic-free',     gl:'＋', label:'Free goods', tag:'FREE' },
+  percent:  { cls:'percent',  ic:'ic-percent',  gl:'%',  label:'% off',      tag:'−50%' },
+  fixed:    { cls:'fixed',    ic:'ic-fixed',    gl:'−',  label:'Amount off', tag:'AMOUNT OFF' },
+  setprice: { cls:'setprice', ic:'ic-setprice', gl:'=',  label:'Set price',  tag:'SET PRICE' },
+};
+const lines = [
+  { item:10, mat:'Panadol Extra 24 Tablets',      code:'PN-0024', qty:2, unit:18.00, gross:36.00, net:18.00, promo:'P1', role:'buy+get' },
+  { item:20, mat:'Centrum Vitamin C 30',          code:'CN-VC30', qty:2, unit:25.00, gross:50.00, net:37.50, promo:'P2', role:'buy+get' },
+  { item:30, mat:'Nivea Sun SPF50 200ml',         code:'NV-S050', qty:1, unit:45.00, gross:45.00, net:45.00, promo:'P3', role:'buy' },
+  { item:40, mat:'Nivea After-Sun Lotion 200ml',  code:'NV-AS20', qty:1, unit:32.00, gross:32.00, net:0.00,  promo:'P3', role:'get' },
+  { item:50, mat:'Johnson Baby Shampoo 300ml',    code:'JJ-SH30', qty:1, unit:20.00, gross:20.00, net:20.00, promo:'P4', role:'buy' },
+  { item:60, mat:'Johnson Baby Lotion 200ml',     code:'JJ-LO20', qty:1, unit:22.00, gross:22.00, net:22.00, promo:'P4', role:'buy' },
+  { item:70, mat:'Johnson Baby Wipes 72s',        code:'JJ-WP72', qty:1, unit:15.00, gross:15.00, net:5.00,  promo:'P4', role:'get' },
+  { item:80, mat:'Colgate Total Toothpaste 100ml',code:'CG-TT10', qty:1, unit:12.00, gross:12.00, net:12.00, promo:null, role:null },
+];
+const promos = [
+  { id:'P1', key:'BBK-8841', kind:'free', title:'Buy 1, Get 1 Free', name:'Panadol Extra — buy one get one',
+    promoNo:'900101', offer:'OF-2201', buy:[10], get:[10], save:18.00, usage:'1 use left', sameSku:true },
+  { id:'P2', key:'BBK-8842', kind:'percent', title:'Second one, half price', name:'Centrum Vitamin C — 50% off 2nd piece',
+    promoNo:'900140', offer:'OF-2214', buy:[20], get:[20], save:12.50, usage:'Unlimited', sameSku:true },
+  { id:'P3', key:'BBK-8850', kind:'free', title:'Free After-Sun with any Sunscreen', name:'Nivea Sun → After-Sun free',
+    promoNo:'900177', offer:'OF-2230', buy:[30], get:[40], save:32.00, usage:'2 uses left', sameSku:false },
+  { id:'P4', key:'BBK-8863', kind:'setprice', title:'Baby Wipes for 5.00', name:'Any 2 Baby Care → Wipes at set price',
+    promoNo:'900205', offer:'OF-2251', buy:[50,60], get:[70], save:10.00, usage:'1 use left', sameSku:false, grouping:'Baby Care' },
+];
+const missed = [
+  { id:'P5', kind:'percent', name:'15% off Vitamins when you spend 100', promoNo:'900166',
+    prereqText:'Spend on “Vitamins & Supplements”', found:50.00, min:100.00, wouldSave:'≈ 7.50',
+    reason:'basket has 50.00 of the 100.00 minimum' },
+];
+const money = n => n.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2});
+const lineById = id => lines.find(l => l.item === id);
+const promoById = id => promos.find(p => p.id === id);
+const advOn = () => document.getElementById('advToggle').getAttribute('aria-pressed') === 'true';
+
+function conditionsFor(line) {
+  const rows = [{ idx:1, cat:'Pricing', type:'ZPR0', desc:'Base price', val:line.gross, promo:false }];
+  const p = line.promo ? promoById(line.promo) : null;
+  if (p && line.role !== 'buy') {
+    const t = p.kind==='free'?'VKA0':p.kind==='percent'?'ZB03':p.kind==='setprice'?'ZB01':'ZB02';
+    rows.push({ idx:2, cat:'Promotion', type:t, desc:p.name, val:-(line.gross - line.net), promo:true });
+  }
+  rows.push({ idx:rows.length+1, cat:'Tax', type:'MWST', desc:'VAT 15%', val:+(line.net*0.15).toFixed(2), promo:false });
+  return rows;
+}
+function kindChip(kind){ const k=KIND[kind]; return `<span class="chip kind-${k.cls}"><span class="gl">${k.gl}</span>${k.label}</span>`; }
+function conditionCards(line){
+  const rows = conditionsFor(line).map(c => `
+    <div class="ccard"><div class="row1">
+      <span class="idx">${c.idx}.</span><span class="cat">${c.cat}:</span>
+      <span class="ctype">${c.type}</span><span class="cdesc">— ${c.desc}</span>
+      ${c.promo?'<span class="badge-promo">Promotion</span>':''}
+      <span class="cval num">${money(c.val)}</span></div></div>`).join('');
+  return `<div class="subhead">Pricing rules · item ${line.item} · ${line.mat}</div><div class="cards">${rows}</div>`;
+}
+function pricingElements(scope){
+  const body = scope.flatMap(l => conditionsFor(l).map(c => `
+    <tr><td class="num">${l.item}</td><td>${c.type}</td><td>${c.desc}</td>
+    <td class="r num">${money(c.val)}</td>
+    <td>${c.promo?'<span class="role get">BBY</span>':''}</td></tr>`)).join('');
+  return `<div class="pe-wrap"><table class="pe"><thead><tr><th>Item</th><th>Cond.</th><th>Description</th><th class="r">Value</th><th>Origin</th></tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+/* ---- flat grid (anchor) ---- */
+function renderGrid() {
+  const adv = advOn();
+  let h = `<div class="panehead">Priced lines <span class="count">· ${lines.length}</span></div>
+    <div class="gridwrap"><table class="flat"><thead><tr>
+    <th>#</th><th>Item</th><th class="r">Qty</th><th class="r">Net</th><th>Promotion</th>${adv?'<th>Cond.</th>':''}</tr></thead><tbody>`;
+  for (const l of lines) {
+    const p = l.promo ? promoById(l.promo) : null;
+    const cell = p
+      ? `${kindChip(p.kind)} <span class="role ${l.role==='get'?'get':'buy'}">${l.role==='buy'?'buy':l.role==='get'?'get':'buy+get'}</span>`
+      : `<span style="color:var(--fg-faint)">—</span>`;
+    h += `<tr data-key="${p?p.id:''}">
+      <td class="num">${l.item}</td>
+      <td><span class="mat">${l.mat}</span> <span class="code">${l.code}</span></td>
+      <td class="r num">${l.qty}</td>
+      <td class="r num">${money(l.net)}${l.net<l.gross?` <span class="strike">${money(l.gross)}</span>`:''}</td>
+      <td>${cell}</td>${adv?`<td class="adv-col num">${conditionsFor(l).map(c=>c.type).join(', ')}</td>`:''}</tr>`;
+  }
+  h += `</tbody></table></div>`;
+  return h;
+}
+
+/* ---- promo blocks (buy→get, all Applied-tab fields) ---- */
+function promoBlock(p) {
+  const k = KIND[p.kind];
+  const buyItems = p.buy.map(lineById);
+  const getItems = p.get.map(lineById);
+  const buyInner = (p.grouping
+      ? `<div class="grpnote">Any 2 items from “${p.grouping}”:</div>` : '') +
+    buyItems.map(l => `<div class="bgline"><span class="q num">${l.qty}×</span>
+      <span class="nm">${l.mat} <span class="code">#${l.item}</span></span>
+      <span class="amt num">${money(l.gross)}</span></div>`).join('');
+  const getInner = getItems.map(l => {
+    const free = l.net===0;
+    return `<div class="bgline"><span class="q num">${l.qty}×</span>
+      <span class="nm">${l.mat} <span class="code">#${l.item}</span>${p.sameSku?'':' <span class="tagline">reward</span>'}</span>
+      <span class="amt num ${free?'free':''}">${free?'FREE':money(l.net)}${(!free&&l.net<l.gross)?` <span class="strike">${money(l.gross)}</span>`:''}</span></div>`;
+  }).join('');
+  return `<div class="block" data-block="${p.id}">
+    <div class="block-top" data-key="${p.id}">
+      <div class="icon ${k.ic}">${k.gl}</div>
+      <div><div class="htitle">${p.title}</div>
+        <div class="hsub">${kindChip(p.kind)} · ${p.key} · promo ${p.promoNo} · offer ${p.offer} · ${p.usage}</div></div>
+      <div class="hsave"><div class="lab">Saved</div><div class="amt save-amt num">${money(p.save)}</div></div>
+    </div>
+    <div class="bg">
+      <div class="box"><div class="lab">Buy</div>${buyInner}</div>
+      <div class="arrow">→</div>
+      <div class="box getbox"><div class="lab">Get · <span class="tagline">${k.tag}</span></div>${getInner}</div>
+    </div>
+    <div class="block-foot">
+      <button class="disc-btn" aria-expanded="false" data-more="${p.id}"><span class="caret">▶</span> Pricing detail</button>
+      <div class="disc-body" data-morebody="${p.id}" hidden>
+        ${getItems.map(conditionCards).join('')}
+        <div style="font-size:11px;color:var(--fg-muted);margin-top:8px">Prerequisite: ${p.grouping?`any 2 from “${p.grouping}”`:buyItems.map(l=>l.mat).join(' + ')} · met ✓ · total discount ${money(p.save)}</div>
+        ${advOn()?pricingElements([...buyItems,...getItems]):''}
+      </div>
+    </div></div>`;
+}
+function renderPromos() {
+  let h = `<div class="panehead">Promotions <span class="count">· 4 fired</span></div><div class="blocks">`;
+  h += promos.map(promoBlock).join('');
+  h += `</div>`;
+  h += `<div class="missed-wrap"><div class="panehead">Could have applied <span class="count" style="color:var(--warn)">· 1 missed</span></div>`;
+  for (const m of missed) {
+    const pct = Math.round(m.found/m.min*100);
+    h += `<div class="missed"><button class="missed-head" aria-expanded="false" data-missed="${m.id}">
+      <span class="caret">▶</span>${kindChip(m.kind)}<span class="mt">${m.name}</span>
+      <span class="ms num">${money(m.found)}/${money(m.min)}</span></button>
+      <div data-missedbody="${m.id}" hidden><div class="missed-body">
+        <div class="prereq-line"><span>${m.prereqText}</span>
+          <span class="meter"><span style="width:${pct}%"></span></span>
+          <span class="num" style="color:var(--warn);font-weight:640">${money(m.found)} / ${money(m.min)}</span></div>
+        <div style="color:var(--fg-muted)">Not met — ${m.reason}. Would save <b>${m.wouldSave} SAR</b>.</div>
+      </div></div></div>`;
+  }
+  h += `</div>`;
+  return h;
+}
+
+/* ---- layouts (the open question) ---- */
+const LAYOUTS = [
+  { k:'1', n:'Side by side', cls:'side', note:'<b>Side by side.</b> Grid left as the anchor, promo blocks in a right rail. The everyday view — both truths visible at once on a wide screen.' },
+  { k:'2', n:'Stacked', cls:'stack', note:'<b>Stacked.</b> Promo blocks first as the headline of what happened, the full grid beneath. Reads top-down; better when promos are the story and the screen is narrow.' },
+  { k:'3', n:'Compact toggle', cls:'compact', note:'<b>Compact toggle.</b> One pane at a time via the Lines / Promotions switch — for tight spaces where side-by-side would crush both.' },
+];
+let cur = 0, pane = 'grid';
+const hybrid = document.getElementById('hybrid');
+const gridpane = document.getElementById('gridpane');
+const promopane = document.getElementById('promopane');
+const seg = document.getElementById('seg');
+const dots = document.getElementById('dots');
+LAYOUTS.forEach(()=>dots.appendChild(document.createElement('i')));
+
+function draw() {
+  const L = LAYOUTS[cur];
+  document.getElementById('vk').textContent = L.k;
+  document.getElementById('vn').textContent = L.n;
+  document.getElementById('note').innerHTML = L.note;
+  [...dots.children].forEach((d,i)=>d.classList.toggle('on', i===cur));
+  hybrid.className = 'hybrid ' + L.cls;
+  gridpane.innerHTML = renderGrid();
+  promopane.innerHTML = renderPromos();
+  // compact: show segmented control + one pane
+  if (L.cls === 'compact') {
+    seg.style.display = 'block';
+    gridpane.hidden = pane !== 'grid';
+    promopane.hidden = pane !== 'promo';
+    [...seg.querySelectorAll('button')].forEach(b => b.setAttribute('aria-selected', String(b.dataset.pane===pane)));
+  } else {
+    seg.style.display = 'none';
+    gridpane.hidden = false; promopane.hidden = false;
+  }
+  wire();
+}
+function go(d){ cur = (cur + d + LAYOUTS.length) % LAYOUTS.length; draw(); }
+document.getElementById('prev').onclick = () => go(-1);
+document.getElementById('next').onclick = () => go(1);
+document.getElementById('advToggle').onclick = e => { const b=e.currentTarget; b.setAttribute('aria-pressed', String(!(b.getAttribute('aria-pressed')==='true'))); draw(); };
+seg.querySelectorAll('button').forEach(b => b.onclick = () => { pane = b.dataset.pane; draw(); });
+document.addEventListener('keydown', e => {
+  const t=(e.target.tagName||'').toLowerCase();
+  if (t==='input'||t==='textarea'||e.target.isContentEditable) return;
+  if (e.key==='ArrowLeft') go(-1); if (e.key==='ArrowRight') go(1);
+});
+
+function wire() {
+  const toggle = (btn, sel, openTxt, closeTxt) => {
+    const open = btn.getAttribute('aria-expanded')==='true';
+    btn.setAttribute('aria-expanded', String(!open));
+    const body = document.querySelector(sel); if (body) body.hidden = open;
+  };
+  document.querySelectorAll('[data-more]').forEach(b => b.onclick = () => toggle(b, `[data-morebody="${b.dataset.more}"]`));
+  document.querySelectorAll('[data-missed]').forEach(b => b.onclick = () => toggle(b, `[data-missedbody="${b.dataset.missed}"]`));
+  // bidirectional cross-highlight via conditionKey (= promo id here)
+  const hot = (id,on) => {
+    if (!id) return;
+    document.querySelectorAll(`tr[data-key="${id}"]`).forEach(r => r.classList.toggle('hot', on));
+    const blk = document.querySelector(`[data-block="${id}"]`); if (blk) blk.classList.toggle('hot', on);
+  };
+  document.querySelectorAll('[data-key]').forEach(el => {
+    const id = el.dataset.key; if (!id) return;
+    el.addEventListener('mouseenter', () => hot(id,true));
+    el.addEventListener('mouseleave', () => hot(id,false));
+  });
+}
+
+const root = document.documentElement;
+document.getElementById('themeBtn').onclick = () => {
+  const c = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  root.setAttribute('data-theme', c==='dark'?'light':'dark');
+};
+draw();
+</script>

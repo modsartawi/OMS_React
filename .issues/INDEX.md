@@ -141,3 +141,28 @@ endpoints (`Bby/Access`, `Bby/List`, `Bby/Detail`, `Bby/GroupingMembers`) are bu
 - [065](065-bby-inquiry-csv-export.md) — exportingTheGridWritesAllTwentyEightRawFieldsToCsv · **done** (typecheck/build green; drove Export CSV — 28-col header + raw code/date cells — via mocked `Bby/List`; live-drive pending SIS.Api) · blocked by: 063
 - [066](066-bby-inquiry-details-modal.md) — openingDetailsShowsTheHeaderRecapBuyGetOrTotalDiscount · **done** · blocked by: 063 · dep: SIS.Api Bby/Detail
 - [067](067-bby-inquiry-grouping-drilldown.md) — groupingRowsOpenAPagedMembersDrilldown · **done** · blocked by: 066 · dep: SIS.Api Bby/GroupingMembers
+
+## POS palette + Document Details rework — wayfinder map 068
+
+Adopt the `Sartawi.POS/View/Themed/PosTheme.xaml` palette as oms-react's standard (retiring the
+claude.ai warm neutrals), then rebuild Document Details to match the POS "OMS Detail — reworked"
+prototype. Destination is two ready specs. Palette first, screen second — owner ruling.
+Reference capture: [assets/068-pos-detail-reference.html](assets/068-pos-detail-reference.html).
+All 13 tickets done — wayfinding complete. Spec 1 of 2 published (082); the Document Details rework
+spec is still to be synthesized.
+
+- [068](068-pos-palette-and-document-detail-rework.md) — POS palette as the app standard + Document Details rework · **open** · wayfinder map
+- [069](069-token-surface-inventory.md) — Token surface & call-site inventory · **done** · blocked by: —
+- [070](070-pos-token-remap-light.md) — The POS token remap (light) · **done** · blocked by: 069 · [prototype](assets/070-pos-token-remap.PROTOTYPE.html)
+- [071](071-pos-token-dark-twin.md) — The derived dark twin · **done** · blocked by: 070 · [prototype](assets/071-pos-dark-twin.PROTOTYPE.html)
+- [072](072-command-family-taxonomy.md) — The command-family taxonomy · **done** · blocked by: — · [prototype](assets/072-command-families.html)
+- [073](073-detail-layout-with-our-data.md) — The reworked layout, filled with our real fields · **done** · blocked by: 070 · [prototype](assets/073-detail-layout.PROTOTYPE.html)
+- [074](074-ag-grid-theme-mapping.md) — AG Grid theme mapping · **done** · blocked by: 070 · [research](assets/074-ag-grid-theme-mapping.RESEARCH.md)
+- [075](075-brand-surfaces-reconciliation.md) — What survives of al-dawaa gold & navy · **done** · blocked by: 069
+- [076](076-action-bar-grammar.md) — The action-bar grammar for our eight commands · **done** · blocked by: 072, 073
+- [077](077-severity-colour-layer.md) — The severity colour layer and the raw-palette sweep · **done** · blocked by: 070, 071, 075
+- [078](078-live-document-payload-capture.md) — Capture live document payloads · **done** · blocked by: — · [payloads](assets/078-document-payloads/)
+- [079](079-status-severity-mapping.md) — Status value → severity mapping for the pill rail · **done** · blocked by: 078
+- [080](080-rtl-mirroring-of-the-reworked-layout.md) — RTL mirroring of the reworked layout · **done** · blocked by: 073 · [prototype](assets/080-rtl-mirroring.PROTOTYPE.html)
+- [081](081-rail-card-field-rules.md) — The rail cards' field rules against live data · **done** · blocked by: 079
+- [082](082-pos-design-system-spec.md) — The POS design system · **ready** · spec (map 068, 1 of 2)

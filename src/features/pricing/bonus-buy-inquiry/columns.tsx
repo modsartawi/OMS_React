@@ -8,6 +8,7 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
 import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
+import BbyStatusBadge from './BbyStatusBadge'
 import { codeLabelKey, type CodeSet } from './codeLabels'
 import {
   formatBbyDate,
@@ -69,28 +70,9 @@ const codeChip =
     <CodeChip label={codeText(t, set, p.value ?? '')} />
   )
 
-/** Status A/I/D/X as a labelled, colour-coded badge — colour is redundant to the
- *  text, so it never carries meaning alone (WCAG). Rendered both here and in the
- *  pinned identity cell: this Status column is the sortable/filterable/exportable
- *  handle, the identity badge is the at-a-glance marker. */
-const STATUS_TONE: Record<string, string> = {
-  A: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  I: 'bg-muted text-muted-foreground',
-  D: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-  X: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
-}
-
-function StatusBadge({ code, label }: { code: string; label: string }) {
-  if (!code) return null
-  const tone = STATUS_TONE[code] ?? 'bg-muted text-muted-foreground'
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}
-    >
-      {label}
-    </span>
-  )
-}
+/* Status A/I/D/X renders through the shared `BbyStatusBadge` both here and in the
+   pinned identity cell: this Status column is the sortable/filterable/exportable
+   handle, the identity badge is the at-a-glance marker. */
 
 /** The pinned-start identity cell: status badge + "valid today" marker + BBY number +
  *  a Details ▸ action. The row stays readable while the operator scrolls the 27 other
@@ -105,7 +87,7 @@ function IdentityCell(
   if (!row) return null
   return (
     <span className="flex items-center gap-2">
-      <StatusBadge code={row.bbyStatus} label={statusLabel(t, row.bbyStatus)} />
+      <BbyStatusBadge code={row.bbyStatus} label={statusLabel(t, row.bbyStatus)} />
       {row.isActive && (
         <span
           className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500"
@@ -192,7 +174,7 @@ export function buildInquiryColumns(
           field: 'bbyStatus',
           width: 130,
           cellRenderer: (p: ICellRendererParams<BbyInquiryRow, string>) => (
-            <StatusBadge code={p.value ?? ''} label={statusLabel(t, p.value ?? '')} />
+            <BbyStatusBadge code={p.value ?? ''} label={statusLabel(t, p.value ?? '')} />
           ),
         },
         textCol('description', 260),

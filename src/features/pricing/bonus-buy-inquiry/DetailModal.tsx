@@ -5,8 +5,11 @@ import type { TFunction } from 'i18next'
 import { Boxes, ChevronDown, Gift, Info, ShoppingCart, TriangleAlert } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
+import StatusBadge from '@/core/ui/StatusBadge'
 import type { BbyDetailDto } from '@/core/models/bonus-buy-inquiry'
 import { bonusBuyInquiryApi } from './api'
+import BbyStatusBadge from './BbyStatusBadge'
+import { validitySeverity } from './status-severity'
 import GroupingMembersModal, { type GroupingTarget } from './GroupingMembersModal'
 import { codeLabelKey, type CodeSet } from './codeLabels'
 import { formatAmount, formatBbyDate, formatBbyTime } from './formatters'
@@ -38,19 +41,6 @@ function discountUnit(kind: DiscountKind, currency: string): string {
 // States: loading skeleton; BBY_NOT_FOUND (404 business outcome) → a clear not-found
 // card via apiErrorCode, never "unexpected". The grouping "N members" chip is shown
 // but inert here — the paged drilldown is slice 067.
-
-const STATUS_TONE: Record<string, string> = {
-  A: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  I: 'bg-muted text-muted-foreground',
-  D: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-  X: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
-}
-
-const VALIDITY_TONE: Record<string, string> = {
-  live: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  ended: 'bg-muted text-muted-foreground',
-  notStarted: 'bg-muted text-muted-foreground',
-}
 
 /** Today as `yyyyMMdd` (local) — the ordinal key the pure `toDetailView` compares the
  *  validity window against (glossary 054). Computed at the render tier so the pure map
@@ -165,7 +155,7 @@ function DetailBody({
           <Def k={t('detail.rules.offer')} v={header.offerId} mono />
           <Def k={t('detail.rules.profile')} v={header.bbyProfile} />
           <Def k={t('detail.rules.status')}>
-            <StatusBadge code={header.bbyStatus} label={codeText(t, 'status', header.bbyStatus)} />
+            <BbyStatusBadge code={header.bbyStatus} label={codeText(t, 'status', header.bbyStatus)} />
           </Def>
 
           <Def
@@ -242,14 +232,11 @@ function TitleRecap({ t, view }: { t: TFunction; view: DetailView }) {
         <span className="font-mono text-lg font-bold tabular-nums tracking-tight">
           {header.bbyNumber}
         </span>
-        <StatusBadge code={header.bbyStatus} label={codeText(t, 'status', header.bbyStatus)} />
+        <BbyStatusBadge code={header.bbyStatus} label={codeText(t, 'status', header.bbyStatus)} />
         {validity && (
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${VALIDITY_TONE[validity]}`}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+          <StatusBadge sev={validitySeverity(validity)}>
             {t(`detail.validity.${validity}`)}
-          </span>
+          </StatusBadge>
         )}
       </div>
       {header.description && (
@@ -641,19 +628,6 @@ function Chip({ children }: { children: ReactNode }) {
   return (
     <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[0.6875rem] font-semibold text-muted-foreground">
       {children}
-    </span>
-  )
-}
-
-function StatusBadge({ code, label }: { code: string; label: string }) {
-  if (!code) return null
-  const tone = STATUS_TONE[code] ?? 'bg-muted text-muted-foreground'
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${tone}`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
-      {label}
     </span>
   )
 }

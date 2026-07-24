@@ -438,6 +438,129 @@ async function run() {
   await page.keyboard.press('Escape')
   await page.waitForTimeout(150)
 
+  // ---- ticket 086: one StatusBadge, three sites, both themes ----------------
+  // The duplicate `STATUS_TONE` this ticket deleted is exactly the drift a
+  // screenshot cannot catch: two copies agreed until one was edited. So assert
+  // the badge is byte-identical across the Status COLUMN, the pinned IDENTITY
+  // cell and the detail MODAL, in both themes, and that none of them carries a
+  // `dark:` variant (spec 082 R4 — `-050`/`-800` swap lightness, one string
+  // serves both themes). The live validity marker is the app's only `go`
+  // consumer today, so its token pair is asserted here too.
+  const setTheme = (theme) =>
+    page.evaluate((th) => {
+      localStorage.setItem('oms.darkMode', String(th === 'dark'))
+      document.documentElement.classList.toggle('dark', th === 'dark')
+      document.documentElement.dataset.agThemeMode = th
+    }, theme)
+
+  const tokenValue = (name, prop) =>
+    page.evaluate(
+      ([n, p]) => {
+        const probe = document.createElement('div')
+        probe.style.color = `var(${n})`
+        probe.style.backgroundColor = `var(${n})`
+        document.body.appendChild(probe)
+        const v = getComputedStyle(probe)[p]
+        probe.remove()
+        return v
+      },
+      [name, prop],
+    )
+
+  // Read every painted badge under a root, keyed by its label.
+  const badgesUnder = (root) =>
+    page.$$eval(`${root} span.rounded-full`, (els) =>
+      els.map((el) => {
+        const cs = getComputedStyle(el)
+        return {
+          label: el.textContent.trim(),
+          cls: el.getAttribute('class') || '',
+          bg: cs.backgroundColor,
+          ink: cs.color,
+        }
+      }),
+    )
+
+  for (const theme of ['light', 'dark']) {
+    scenario = {
+      accessBody: { screenAllowed: true },
+      access404: false,
+      rows: [ROW({}), ROW({ bbyNumber: '100235', isActive: false, bbyStatus: 'I' })],
+      detailMode: 'rows',
+    }
+    await page.goto(URL)
+    await setTheme(theme)
+    await page.reload()
+    await page.waitForSelector('.ag-row', { timeout: 15000 }).catch(() => {})
+
+    const want = {
+      ok: [await tokenValue('--success-050', 'backgroundColor'), await tokenValue('--success-800', 'color')],
+      go: [await tokenValue('--primary-050', 'backgroundColor'), await tokenValue('--primary-800', 'color')],
+      mute: [await tokenValue('--muted', 'backgroundColor'), await tokenValue('--muted-foreground', 'color')],
+    }
+
+    // Pinned identity cell (always visible) — row 0 is Activated, row 1 Inactive.
+    const pinned = (await badgesUnder('.ag-cell[col-id="bbyNumber"]')).filter((b) =>
+      /Activated|Inactive/.test(b.label),
+    )
+    check(`${theme}: identity cell badges render (Activated + Inactive)`, pinned.length === 2, pinned.map((b) => b.label).join(', '))
+    const activated = pinned.find((b) => b.label === 'Activated')
+    const inactive = pinned.find((b) => b.label === 'Inactive')
+    check(
+      `${theme}: "Activated" paints ok (--success-050 + --success-800)`,
+      activated?.bg === want.ok[0] && activated?.ink === want.ok[1],
+      `${activated?.bg} / ${activated?.ink}`,
+    )
+    check(
+      `${theme}: "Inactive" paints mute (--muted + --muted-foreground)`,
+      inactive?.bg === want.mute[0] && inactive?.ink === want.mute[1],
+      `${inactive?.bg} / ${inactive?.ink}`,
+    )
+
+    // The sortable/filterable Status column — a scrolling cell, so park the
+    // horizontal scroll at the start where AG Grid keeps it mounted.
+    await page.evaluate(() => {
+      const vp = document.querySelector('.ag-body-horizontal-scroll-viewport')
+      if (vp) vp.scrollLeft = 0
+    })
+    await page.waitForTimeout(120)
+    const column = (await badgesUnder('.ag-cell[col-id="bbyStatus"]')).find(
+      (b) => b.label === 'Activated',
+    )
+
+    // The modal's recap + its Header & rules row.
+    await page.getByRole('button', { name: /Details/i }).first().click()
+    await page.locator('dialog[open]').getByText(/Buy side/i).waitFor({ timeout: 5000 }).catch(() => {})
+    const modal = await badgesUnder('dialog[open]')
+    const modalStatus = modal.find((b) => b.label === 'Activated')
+    const modalValidity = modal.find((b) => b.label === 'Active now')
+
+    check(
+      `${theme}: the Status column badge is identical to the identity-cell badge`,
+      !!column && column.cls === activated?.cls && column.bg === activated?.bg && column.ink === activated?.ink,
+      `${column?.cls} vs ${activated?.cls}`,
+    )
+    check(
+      `${theme}: the detail-modal badge is identical too (the duplicate map is gone)`,
+      !!modalStatus && modalStatus.cls === activated?.cls && modalStatus.bg === activated?.bg,
+      `${modalStatus?.cls} vs ${activated?.cls}`,
+    )
+    check(
+      `${theme}: the live validity marker paints go (--primary-050 + --primary-800)`,
+      modalValidity?.bg === want.go[0] && modalValidity?.ink === want.go[1],
+      `${modalValidity?.label}: ${modalValidity?.bg} / ${modalValidity?.ink}`,
+    )
+
+    const withDark = [column, activated, inactive, modalStatus, modalValidity].filter(
+      (b) => b && b.cls.includes('dark:'),
+    )
+    check(`${theme}: no badge carries a dark: variant`, withDark.length === 0, withDark.map((b) => b.label).join(', '))
+
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(150)
+  }
+  await setTheme('light')
+
   // The fail-open scenario (3a) intentionally 404s Bby/Access, which the browser logs
   // as a resource-load 404 — expected, not an app fault. Filter it out.
   // The date-error scenario (064) intentionally returns 400 INVALID_DATE_RANGE — a

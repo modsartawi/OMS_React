@@ -175,11 +175,14 @@ Expand → migrate → contract. 084 expands (tokens; zero `.tsx` churn), 085–
 **084 done** — the tokens are in and the contrast gate runs on every `npm run lint`; the app now
 renders steel-blue neutrals against warm status badges, the expected intermediate state.
 **085 done** — every grid now paints from the tokens out of one params block, so the grid can no
-longer diverge from `global.css`. Frontier: **086, 087** (both unblocked and independent).
+longer diverge from `global.css`.
+**086 done** — the badge idiom is one component taking a severity; the two feature tone maps (and
+the duplicate third) are gone, and `go` found its first consumer in the BBY validity marker.
+Frontier: **087** (independent), then **088** (now unblocked — it consumes `core/ui/StatusBadge`).
 
 - [084](084-pos-tokens-both-themes.md) — theAppRendersOnThePosTokensInBothThemes · **done** · blocked by: — · slice 0 · + contrast gate
 - [085](085-grid-theme-reads-tokens.md) — theGridReadsTheAppTokensInsteadOfItsOwnHexCopy · **done** · blocked by: 084 · one params block · + `tools/grid-theme-drive.mjs`
-- [086](086-status-badge-takes-a-severity.md) — aStatusBadgeTakesASeverityRatherThanAClassString · **open** · blocked by: 084 · new `core/ui` primitive
+- [086](086-status-badge-takes-a-severity.md) — aStatusBadgeTakesASeverityRatherThanAClassString · **done** · blocked by: 084 · new `core/ui` primitive · + `tools/status-badge-drive.mjs`
 - [087](087-brand-colour-lives-in-the-mark.md) — brandColourLivesOnlyInTheMark · **open** · blocked by: 084
 - [088](088-raw-palette-sweep.md) — noScreenSpellsARawPaletteClass · **open** · blocked by: 084, 086 · one pass, 35 files
 - [089](089-colour-literal-lint-gates.md) — lintFailsOnAReintroducedColourLiteral · **open** · blocked by: 085, 087, 088

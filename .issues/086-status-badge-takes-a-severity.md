@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 082
 blocked-by: 084
 ---
@@ -63,14 +63,25 @@ sites land, so neutral has exactly one spelling in the app.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `everySeverityRendersOneClassStringValidInBothThemes` — the map is exhaustive over the union
+- [x] `everySeverityRendersOneClassStringValidInBothThemes` — the map is exhaustive over the union
       and no entry carries a `dark:` variant · pure (`tsc` proves exhaustiveness; verify by drive
       until the runner lands)
-- [ ] Drive ua-admin's user list in **both themes** — the four password-state pills read correctly
+      → `Record<Severity, string>` makes the compiler the exhaustiveness check. The `dark:` half is
+      NOT provable by `tsc`, so both drives read the painted `class` attribute back off the DOM and
+      assert it contains no `dark:` — a reintroduced twin looks right in a screenshot, so it is
+      checked by name, not by eye.
+- [x] Drive ua-admin's user list in **both themes** — the four password-state pills read correctly
       with no theme-specific string · flow (`npm run dev`)
-- [ ] Drive BBY Inquiry in **both themes** — the status badge renders identically in the Status
+      → **new `tools/status-badge-drive.mjs`**, 21/21. Six rows, one per `deriveStatus` branch, so
+      `ok` / `warn` / `bad` / `mute` paint side by side; each pill's computed ground+ink is compared
+      to its tokens resolved in the same live document, per theme. Screenshots in
+      `tools/.badge-shots/` (gitignored).
+- [x] Drive BBY Inquiry in **both themes** — the status badge renders identically in the Status
       column, the pinned identity cell **and** the detail modal, which is the assertion that proves
       the duplicate map is gone · flow (extend `tools/bby-inquiry-drive.mjs`)
+      → 73/73 (was 60). The three sites are compared class-string to class-string, not just by
+      colour. The live validity marker is asserted here too — it is the app's only `go` consumer,
+      so the two drives together cover all five severities.
 
 ## Boundaries
 
@@ -85,6 +96,40 @@ hue is reserved for severity). Do not leave it as a raw-palette map.
 
 `core/ui/StatusBadge` is the only place the badge idiom is spelled; ua-admin and BBY Inquiry render
 through it in both themes; and `grep -rn "STATUS_TONE\|TONE_CLASS" src/` returns nothing.
+
+## Built
+
+`core/ui/severity.ts` (the union + `SEVERITY_BADGE`) · `core/ui/StatusBadge.tsx` ·
+`bonus-buy-inquiry/status-severity.ts` (`statusSeverity` + `validitySeverity`, pure) ·
+`bonus-buy-inquiry/BbyStatusBadge.tsx` · ua-admin `helpers.ts` + `StatusPill.tsx` ·
+`bonus-buy-inquiry/columns.tsx` + `DetailModal.tsx` · `tools/status-badge-drive.mjs` (new) +
+`tools/bby-inquiry-drive.mjs`. `grep -rn "STATUS_TONE\|TONE_CLASS" src/` returns nothing.
+
+Four decisions a later reader will want the reasoning for:
+
+1. **`VALIDITY_TONE` is severity, not categorical** — the ticket's open question. `live` is exactly
+   D-5's `go` ("actively in motion"); it is deliberately **not** `ok`, because the window being open
+   is motion rather than a good outcome, and `ok` is already spent on the Activated status badge
+   sitting beside it. `ended` / `notStarted` are positions on a timeline with no severity, so they
+   take the one neutral spelling. This also gives `go` its first real consumer.
+
+2. **One shape, so two flourishes were dropped.** ua-admin's pills were `font-semibold` and the
+   modal's badges carried a leading dot; the Status column's had neither. "Renders identically in
+   all three sites" is the Proof, so the badge is one shape and the flourishes go. Visible change,
+   intended.
+
+3. **`BbyStatusBadge.tsx` is a new file the ticket didn't name.** The ticket said columns' local
+   `StatusBadge` becomes a thin wrapper — but the modal needs the same wrapper, and leaving a copy
+   in each is the same drift the class-string maps had, one level down. One wrapper, both sites.
+   (Found in review, not while slicing.)
+
+4. **`SEVERITY_BADGE` is the only shape map.** The ticket says "the map per shape"; D-6 names four
+   more shapes (bare ink, callout, filled chip, bare fill) whose ~50 sites all belong to **088**.
+   Adding four maps with no consumer is speculative — 088 adds each beside the sites that take it.
+   Flagged rather than silently narrowed.
+
+`StatusBadge` takes **no `className`** — that would be the one seam through which a caller could
+re-add a per-site flourish or a sixth colour, which is what the component exists to prevent.
 
 ## Blocked by
 

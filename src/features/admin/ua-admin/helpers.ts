@@ -1,13 +1,14 @@
 // Pure, framework-free helpers for the Ua Admin screen: the client-side status
 // derivation the mock computes, zone-safe stamp formatting, and the temp-password
-// generator. i18n text lives in the ua-admin namespace; these return keys/tones.
+// generator. i18n text lives in the ua-admin namespace; these return keys/severities.
 
-export type StatusTone = 'ok' | 'warn' | 'bad' | 'muted'
+import type { Severity } from '@/core/ui/severity'
 
-/** Status key (→ i18n `status.<key>`) + a tone for the pill colour. */
+/** Status key (→ i18n `status.<key>`) + the severity the badge paints (ticket 086 —
+ *  the tone map that used to live here graduated to `@/core/ui/severity`). */
 export interface DerivedStatus {
   key: string
-  tone: StatusTone
+  sev: Severity
 }
 
 interface StatusInputs {
@@ -24,15 +25,15 @@ interface StatusInputs {
  * must-change → active.
  */
 export function deriveStatus(p: StatusInputs): DerivedStatus {
-  if (!p.isSeeded) return { key: 'notSeeded', tone: 'bad' }
-  if (!p.isActive) return { key: 'disabled', tone: 'muted' }
+  if (!p.isSeeded) return { key: 'notSeeded', sev: 'bad' }
+  if (!p.isActive) return { key: 'disabled', sev: 'mute' }
   if (p.credentialState === 'none') {
     return p.phoneClass === 'usable'
-      ? { key: 'awaitingActivation', tone: 'warn' }
-      : { key: 'blockedNoPhone', tone: 'bad' }
+      ? { key: 'awaitingActivation', sev: 'warn' }
+      : { key: 'blockedNoPhone', sev: 'bad' }
   }
-  if (p.credentialState === 'temporary-must-change') return { key: 'mustChange', tone: 'warn' }
-  return { key: 'active', tone: 'ok' }
+  if (p.credentialState === 'temporary-must-change') return { key: 'mustChange', sev: 'warn' }
+  return { key: 'active', sev: 'ok' }
 }
 
 /** raw credentialState code → i18n key under `credential.*`. */
@@ -40,14 +41,6 @@ export function credentialKey(state: string): string {
   if (state === 'temporary-must-change') return 'mustChange'
   if (state === 'active') return 'active'
   return 'none'
-}
-
-/** Tailwind classes per pill tone (light + dark). */
-export const TONE_CLASS: Record<StatusTone, string> = {
-  ok: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  warn: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-  bad: 'bg-red-500/15 text-red-700 dark:text-red-300',
-  muted: 'border border-border bg-muted text-muted-foreground',
 }
 
 /**

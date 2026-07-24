@@ -8,6 +8,7 @@ import type { UaReportCountsResult } from '@/core/models/ua-user'
 import { deriveStatus, formatStamp } from './helpers'
 import { uaAdminApi } from './api'
 import StatusPill from './StatusPill'
+import ChannelPill from './ChannelPill'
 import UserDetailPane from './UserDetailPane'
 import NewIdentityModal from './NewIdentityModal'
 
@@ -191,6 +192,7 @@ export default function UaAdminUsersPage() {
                     <th className="border-b border-border px-3 py-1.5">{t('grid.employee')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.name')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.mobile')}</th>
+                    <th className="border-b border-border px-3 py-1.5">{t('grid.channel')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.status')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.totp')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.lastLogin')}</th>
@@ -208,6 +210,10 @@ export default function UaAdminUsersPage() {
                       <td className="border-b border-border px-3 py-1.5 tabular-nums">{r.employeeId}</td>
                       <td className="border-b border-border px-3 py-1.5">{r.displayName}</td>
                       <td className="border-b border-border px-3 py-1.5 tabular-nums">{r.phone || t('detail.none')}</td>
+                      <td className="border-b border-border px-3 py-1.5">
+                        {/* who is on the non-standard channel, and whether it can reach them */}
+                        <ChannelPill phoneClass={r.phoneClass} email={r.email} deliveryChannel={r.deliveryChannel} />
+                      </td>
                       <td className="border-b border-border px-3 py-1.5">
                         <StatusPill status={deriveStatus(r)} />
                       </td>

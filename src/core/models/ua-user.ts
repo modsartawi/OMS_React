@@ -8,6 +8,8 @@ export interface UaEmployeeGridRow {
   displayName: string
   phone: string
   phoneClass: string // UaPhoneClasses: missing | placeholder | usable
+  email: string // '' = none (ticket 721)
+  deliveryChannel: string // UaDeliveryChannels: sms | email — NORMALIZED server-side
   isActive: boolean
   isSeeded: boolean
   credentialState: string // UaCredentialStates: none | temporary-must-change | active
@@ -30,6 +32,8 @@ export interface UaEmployeeStatusResult {
   displayName: string
   phone: string
   phoneClass: string
+  email: string // '' = none (ticket 721)
+  deliveryChannel: string // sms | email — always the NORMALIZED word, never blank
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -83,11 +87,21 @@ export interface UaSessionModel {
   userAgent: string
 }
 
-/** Create/edit identity body (UaEmployeeInput). */
+/**
+ * Create/edit identity body (UaEmployeeInput).
+ *
+ * `email` / `deliveryChannel` are OPTIONAL on the wire and an OMITTED one means
+ * NOT SUPPLIED — the server leaves the stored value alone (ticket 721). For
+ * `email` only, the empty string is the CLEAR. There is no clear for the channel:
+ * an unrecognised word is refused at the door rather than normalized to sms, so
+ * only ever send `sms` | `email` or nothing at all.
+ */
 export interface UaEmployeeInput {
   employeeId: string
   displayName: string
   phone: string
+  email?: string
+  deliveryChannel?: string
   isActive: boolean
 }
 

@@ -30,3 +30,6 @@ tools/.grid-shots/
 
 # StatusBadge drive screenshots (tools/status-badge-drive.mjs) — same deal
 tools/.badge-shots/
+
+# Delivery-channel drive screenshots (tools/ua-channel-drive.mjs) — same deal
+tools/.channel-shots/

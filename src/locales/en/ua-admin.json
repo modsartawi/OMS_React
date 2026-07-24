@@ -25,6 +25,7 @@
     "employee": "Employee",
     "name": "Name",
     "mobile": "Mobile",
+    "channel": "Codes via",
     "status": "Status",
     "totp": "TOTP",
     "lastLogin": "Last login",
@@ -46,6 +47,7 @@
     "loading": "Loading…",
     "notFound": "No such employee.",
     "mobile": "Mobile",
+    "email": "Email",
     "credential": "Credential",
     "totp": "TOTP",
     "createdUpdated": "Created / Updated",
@@ -69,6 +71,7 @@
     "disabled": "Disabled",
     "awaitingActivation": "Awaiting activation",
     "blockedNoPhone": "Blocked — no phone",
+    "blockedNoEmail": "Blocked — no email",
     "mustChange": "Must change password",
     "active": "Active"
   },
@@ -108,6 +111,15 @@
       "TOTP_REENROLL_OVERWRITE": "Authenticator re-enrolled"
     }
   },
+  "delivery": {
+    "label": "Codes via",
+    "sms": "SMS",
+    "email": "Email",
+    "smsNoDestination": "SMS — no mobile",
+    "emailNoDestination": "Email — no address",
+    "warnNoPhone": "On the SMS channel with no usable mobile — this person cannot receive a code, and self-activation and reset will both refuse. Add a mobile number.",
+    "warnNoEmail": "On the email channel with no address — this person cannot receive a code, and self-activation and reset will both refuse. Add an address or put them back on SMS."
+  },
   "channel": {
     "web": "web",
     "mobile": "mobile",
@@ -137,6 +149,7 @@
     "employeeId": "Employee id",
     "displayName": "Display name",
     "phone": "Mobile",
+    "email": "Email",
     "active": "Active",
     "create": "Create"
   },

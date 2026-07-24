@@ -11,25 +11,85 @@ export interface DerivedStatus {
   sev: Severity
 }
 
-interface StatusInputs {
+/** The two delivery channels (UaDeliveryChannels) — where one-time codes go. */
+export type DeliveryChannel = 'sms' | 'email'
+export const DELIVERY_CHANNELS: DeliveryChannel[] = ['sms', 'email']
+
+/**
+ * Mirror of the server's `UaDeliveryChannels.Normalize`: anything that is not the
+ * word `email` — blank, whitespace, an unrecognised word — READS as `sms`. Both
+ * read paths already normalize, so this is belt-and-braces for a legacy row that
+ * reaches a pane by another route; it must never diverge from the server rule.
+ */
+export function normalizeChannel(raw: string | null | undefined): DeliveryChannel {
+  return (raw ?? '').trim().toLowerCase() === 'email' ? 'email' : 'sms'
+}
+
+interface ContactInputs {
+  phoneClass: string
+  email?: string
+  deliveryChannel?: string
+}
+
+/**
+ * Can the CHOSEN channel actually reach this person? The server accepts an
+ * identity marked `email` with no address — spec 718 makes that a deliberate,
+ * visible state rather than a silent fallback to SMS — so the screen is what
+ * has to show it (ticket 722).
+ */
+export function hasDestination(p: ContactInputs): boolean {
+  return normalizeChannel(p.deliveryChannel) === 'email'
+    ? (p.email ?? '').trim() !== ''
+    : p.phoneClass === 'usable'
+}
+
+/**
+ * The class a phone BOX's current text stands for, while it is being edited.
+ * Unchanged text keeps the server's classification — only the server knows a
+ * placeholder number from a real one — but text the administrator has just
+ * changed can honestly only be judged blank-or-not until it is saved and read
+ * back. `stored` omitted (the create modal) means there is nothing to compare to.
+ */
+export function typedPhoneClass(typed: string, stored?: string, storedClass?: string): string {
+  if (stored !== undefined && typed.trim() === stored.trim()) return storedClass ?? 'missing'
+  return typed.trim() === '' ? 'missing' : 'usable'
+}
+
+/** Channel badge (→ i18n `delivery.<key>`) + the severity it paints. A channel
+ *  with no destination is `bad`, not `warn`: that person cannot be reached at
+ *  all. A reachable channel is neutral — it is a fact, not a state. */
+export function channelMark(p: ContactInputs): DerivedStatus {
+  const channel = normalizeChannel(p.deliveryChannel)
+  return hasDestination(p)
+    ? { key: channel, sev: 'mute' }
+    : { key: channel === 'email' ? 'emailNoDestination' : 'smsNoDestination', sev: 'bad' }
+}
+
+interface StatusInputs extends ContactInputs {
   isSeeded: boolean
   isActive: boolean
   credentialState: string
-  phoneClass: string
 }
 
 /**
  * The single tri-/multi-state a person is in, derived client-side from the raw
  * codes (contract 414 §5) exactly as the confirmed 390 mock does: not-seeded →
- * disabled → (no credential ? awaiting-activation | blocked-no-phone) →
+ * disabled → (no credential ? awaiting-activation | blocked-no-destination) →
  * must-change → active.
+ *
+ * The blocked branch asks the CHOSEN channel, not the phone (ticket 722): an
+ * Egypt collector on the email channel self-activates by email, so reading their
+ * (rightly) empty phone as "blocked" would flag a person who is fine — and a
+ * phone-owning person marked `email` with no address would read as ready when
+ * nothing can reach them.
  */
 export function deriveStatus(p: StatusInputs): DerivedStatus {
   if (!p.isSeeded) return { key: 'notSeeded', sev: 'bad' }
   if (!p.isActive) return { key: 'disabled', sev: 'mute' }
   if (p.credentialState === 'none') {
-    return p.phoneClass === 'usable'
-      ? { key: 'awaitingActivation', sev: 'warn' }
+    if (hasDestination(p)) return { key: 'awaitingActivation', sev: 'warn' }
+    return normalizeChannel(p.deliveryChannel) === 'email'
+      ? { key: 'blockedNoEmail', sev: 'bad' }
       : { key: 'blockedNoPhone', sev: 'bad' }
   }
   if (p.credentialState === 'temporary-must-change') return { key: 'mustChange', sev: 'warn' }

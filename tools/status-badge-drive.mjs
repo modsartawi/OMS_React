@@ -158,8 +158,9 @@ for (const theme of ['light', 'dark']) {
   const rowCount = await page.locator('tbody tr').count()
   check(`${theme}: ua-admin worklist renders the six derived states`, rowCount === 6, `${rowCount} rows`)
 
-  // Every pill in the Status column: its label, its class attribute, its paint.
-  const pills = await page.$$eval('tbody tr td:nth-child(4) > span', (els) =>
+  // Every pill in the Status column — 5th since ticket 722 put the delivery
+  // channel beside the mobile it may no longer be reached on.
+  const pills = await page.$$eval('tbody tr td:nth-child(5) > span', (els) =>
     els.map((el) => {
       const cs = getComputedStyle(el)
       return {

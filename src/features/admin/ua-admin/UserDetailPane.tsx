@@ -5,9 +5,19 @@ import { Loader2 } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
+import type { UaEmployeeStatusResult } from '@/core/models/ua-user'
 import { uaAdminApi } from './api'
-import { credentialKey, deriveStatus, formatStamp } from './helpers'
+import {
+  credentialKey,
+  deriveStatus,
+  formatStamp,
+  normalizeChannel,
+  typedPhoneClass,
+  type DeliveryChannel,
+} from './helpers'
 import StatusPill from './StatusPill'
+import ChannelSelect from './ChannelSelect'
+import ChannelWarning from './ChannelWarning'
 import SetPasswordModal from './SetPasswordModal'
 
 const FIELD =
@@ -26,6 +36,8 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('sessions')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [channel, setChannel] = useState<DeliveryChannel>('sms')
   const [pwdOpen, setPwdOpen] = useState(false)
   const [acting, setActing] = useState(false)
 
@@ -35,10 +47,14 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
   })
   const status = statusQuery.data
 
-  // Keep the phone field in sync with the loaded record (new selection or refetch).
+  // Keep the contact fields in sync with the loaded record (new selection or
+  // refetch). The channel comes back NORMALIZED, but a legacy blank is read
+  // through the same rule as the server's so the select is never empty.
   useEffect(() => {
     setPhone(status?.phone ?? '')
-  }, [status?.phone, employeeId])
+    setEmail(status?.email ?? '')
+    setChannel(normalizeChannel(status?.deliveryChannel))
+  }, [status?.phone, status?.email, status?.deliveryChannel, employeeId])
 
   // Loaded on selection (not gated on the tab) so the live-session COUNT can sit
   // beside TOTP in the detail — "one look answers why can't they log in" (story 9).
@@ -77,14 +93,38 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
     }
   }
 
-  async function savePhone() {
+  /** Which of the three contact boxes differ from the loaded record — the one
+   *  place that question is answered, for both the Save button and the body. */
+  function contactChanges(s: UaEmployeeStatusResult) {
+    return {
+      phoneDirty: phone.trim() !== s.phone.trim(),
+      emailDirty: email.trim() !== (s.email ?? '').trim(),
+      channelDirty: channel !== normalizeChannel(s.deliveryChannel),
+    }
+  }
+
+  // One save for the whole contact block: the three fields are one decision
+  // ("how do we reach this person"), and sending them together means switching
+  // someone to email and typing their address can never land as two saves with a
+  // window in between where they are on email with nothing to send to.
+  async function saveContact() {
     if (!status) return
+    const { emailDirty, channelDirty } = contactChanges(status)
     await run(
       () =>
         uaAdminApi.upsert({
           employeeId,
           displayName: status.displayName,
           phone: phone.trim(),
+          // Only a field the administrator actually CHANGED travels. An
+          // untouched one is omitted (= not supplied), because '' and 'sms' are
+          // not neutral on the wire — they are the CLEAR and an explicit channel
+          // write. Mirroring an unchanged box back would let a status read that
+          // omits the fields (an SPA deployed ahead of SIS.Api, an older cached
+          // response) turn a mobile-number fix into "address wiped, channel
+          // forced to sms". A change to '' IS the clear, and still travels.
+          ...(emailDirty ? { email: email.trim() } : {}),
+          ...(channelDirty ? { deliveryChannel: channel } : {}),
           isActive: status.isActive, // never flips active — the server ignores a stale true anyway
         }),
       t('toast.saved'),
@@ -133,6 +173,10 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
   // A loaded status implies a Ua identity row exists, so isSeeded is true here
   // (not-seeded people have no row and answer found=false above).
   const derived = deriveStatus({ ...status, isSeeded: true })
+  // Any of the three contact fields differing from the stored record arms Save —
+  // they travel as one body, so one edit is enough.
+  const changes = contactChanges(status)
+  const contactDirty = changes.phoneDirty || changes.emailDirty || changes.channelDirty
   const disabledText = status.disabledAt
     ? t('detail.disabledBy', { at: formatStamp(status.disabledAt), by: status.disabledBy || t('detail.none') })
     : t('detail.none')
@@ -148,11 +192,52 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
 
       <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1.5 text-sm">
         <dt className="text-muted-foreground">{t('detail.mobile')}</dt>
-        <dd className="flex gap-2">
-          <input className={FIELD} value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" />
-          <Button variant="secondary" onClick={savePhone} disabled={acting || phone.trim() === status.phone.trim()}>
+        <dd>
+          {/* Frozen while a save is in flight: the post-save re-read mirrors the
+              stored record back into these boxes, which would silently swallow
+              anything typed in between. */}
+          <input
+            id="ud-phone"
+            className={FIELD}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            inputMode="tel"
+            disabled={acting}
+          />
+        </dd>
+
+        <dt className="text-muted-foreground">{t('detail.email')}</dt>
+        <dd>
+          <input
+            id="ud-email"
+            className={FIELD}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            inputMode="email"
+            disabled={acting}
+          />
+        </dd>
+
+        <dt className="text-muted-foreground">{t('delivery.label')}</dt>
+        <dd className="flex items-center gap-2">
+          <ChannelSelect id="ud-channel" className={FIELD} value={channel} onChange={setChannel} disabled={acting} />
+          <Button variant="secondary" onClick={saveContact} disabled={acting || !contactDirty}>
             {t('detail.save')}
           </Button>
+        </dd>
+
+        {/* A second <dd> for the same <dt> — the pending choice's consequence.
+            Reads the EDITED fields, including a phone the box has just been
+            given, so the alert answers the save that is about to happen. */}
+        {/* `empty:hidden` — a reachable channel renders no warning at all, and an
+            empty cell would still take a grid row's worth of space. */}
+        <dd className="col-span-2 empty:hidden">
+          <ChannelWarning
+            phoneClass={typedPhoneClass(phone, status.phone, status.phoneClass)}
+            email={email}
+            deliveryChannel={channel}
+            className="text-xs text-danger-800"
+          />
         </dd>
 
         <dt className="text-muted-foreground">{t('detail.credential')}</dt>

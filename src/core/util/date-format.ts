@@ -62,6 +62,19 @@ export function formatLongDate(value: string | null | undefined): string {
 }
 
 /**
+ * Format an ISO datetime as the clock time alone — `15:42`. The Screen 2
+ * identity band's "Placed" row pairs it with `formatLongDate` of a *different*
+ * field (`documentDate` + `entryTime`), which is why the time is formatted on
+ * its own rather than by `formatDateTime`.
+ */
+export function formatTimeOfDay(value: string | null | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (isBlankDate(date)) return ''
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+/**
  * Format an ISO datetime as `dd/MM/yyyy hh:mm tt` (12-hour + AM/PM) — the
  * Screen 2 Log and Jobs timestamp format.
  */

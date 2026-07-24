@@ -162,6 +162,26 @@ async function run() {
   )
   check('the shipping address group survives this slice', body.includes('Shipping Address'))
 
+  // --- what left the band did not leave the screen ---------------------------
+  // D-2 sends `refDocumentNo`, the source and the entry user to the
+  // All-statuses disclosure's NEIGHBOURHOOD — a second group beside the
+  // thirteen, which stay exactly as 090 left them.
+  const disclosure = page.locator('summary', { hasText: 'All statuses' })
+  await disclosure.click()
+  const groups = await page.locator('details[open] h3, details[open] h4').allInnerTexts()
+  const labels = await page.locator('details[open] dt').allInnerTexts()
+  check(
+    'the disclosure keeps its thirteen status rows unchanged',
+    labels.filter((l) => /Status$|Last Action/.test(l)).length === 13,
+    String(labels.length),
+  )
+  check(
+    'and gains the provenance the band does not carry',
+    ['Ref Document No', 'Source', 'Entry User'].every((l) => labels.includes(l)),
+    groups.join(' | '),
+  )
+  await disclosure.click()
+
   // --- the band's own geometry ----------------------------------------------
   const geometry = await band().evaluate((el) => {
     const box = el.getBoundingClientRect()

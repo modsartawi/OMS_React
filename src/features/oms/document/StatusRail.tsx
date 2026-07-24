@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { SdDocumentHeaderStatusModel } from '@/core/models/sd-document'
 import { railEntries, type RailEntry } from './rail'
-import { statusBreakdownRows } from './fields'
+import { statusBreakdownRows, type FieldRow } from './fields'
 import FieldGroup from './FieldGroup'
 
 /**
@@ -21,9 +21,17 @@ import FieldGroup from './FieldGroup'
  */
 export default function StatusRail({
   status,
+  provenance,
   children,
 }: {
   status: SdDocumentHeaderStatusModel | null | undefined
+  /**
+   * The document's provenance rows (`refDocumentNo`, source, entry user). They
+   * live in the disclosure's **neighbourhood** rather than the identity band
+   * (083 D-2): how the document got here, not what it is. A second group beside
+   * the breakdown, never rows inside it — D-3 keeps the thirteen unchanged.
+   */
+  provenance?: FieldRow[]
   children?: ReactNode
 }) {
   const { t } = useTranslation('document')
@@ -66,8 +74,11 @@ export default function StatusRail({
           <summary className="cursor-pointer list-none rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
             {t('rail.allStatuses')} <span className="tabular-nums">{rows.length}</span>
           </summary>
-          <div className="absolute end-0 z-10 mt-1 w-max max-w-[22rem] shadow-lg">
+          <div className="absolute end-0 z-10 mt-1 grid w-max max-w-[22rem] gap-1.5 shadow-lg">
             <FieldGroup title={t('rail.allStatuses')} fields={rows} />
+            {provenance && provenance.length > 0 && (
+              <FieldGroup title={t('rail.provenance')} fields={provenance} />
+            )}
           </div>
         </details>
       )}

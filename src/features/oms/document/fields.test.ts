@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bandSubIds, overallStatusCode } from './fields'
+import { bandCustomer, bandSubIds, documentProvenanceRows, overallStatusCode } from './fields'
 import { DOCUMENT_NUMBERS, PAYLOADS } from './__fixtures__/payloads'
 import documentEn from '@/locales/en/document.json'
 
@@ -77,6 +77,45 @@ describe('bandSubIds', () => {
   })
 })
 
+describe('bandCustomer', () => {
+  it('joins the phone and the city, and drops the city when the document has none', () => {
+    expect(bandCustomer(PAYLOADS['8000000174'])).toEqual({
+      name: 'MOHAMMED SARTAWI 33',
+      contact: '966501076360 · Riyadh - adh dhubbat',
+    })
+    // `2000000551` has no `shippingAddress` at all (a pickup) and `8000000253`
+    // has one whose `cityName` is `''` — one code path, by D-5.
+    expect(bandCustomer(PAYLOADS['2000000551'])).toEqual({
+      name: 'Sample Patient',
+      contact: '966501076360',
+    })
+    expect(bandCustomer(PAYLOADS['8000000253']).contact).toBe('966501076360')
+  })
+})
+
+describe('documentProvenanceRows', () => {
+  it('carries refDocumentNo, the source and the entry user out of the band', () => {
+    // D-2 sends these three to the All-statuses disclosure's neighbourhood.
+    expect(documentProvenanceRows(PAYLOADS['9000000003'], t)).toEqual([
+      { label: 'Ref Document No', value: '3000000007' },
+      { label: 'Source', value: 'Call Center' },
+      { label: 'Entry User', value: 'Outbox' },
+    ])
+  })
+
+  it('falls the source back to its code, and leaves a blank ref blank', () => {
+    // The disclosure's job is completeness, so a blank row stays and is dashed
+    // by `FieldGroup` — the band's omit rule does not apply here.
+    expect(documentProvenanceRows(PAYLOADS['2000000551'], t)).toEqual([
+      { label: 'Ref Document No', value: '' },
+      { label: 'Source', value: 'BKOF' },
+      { label: 'Entry User', value: 'BackOffice' },
+    ])
+  })
+})
+
+// The unit under test is `overallStatusCode`; the name is ticket 091's Proof
+// seam, which is phrased for the lozenge the value decides.
 describe('overallLozengeOmitted', () => {
   it('gives the three documents with a blank overall status no lozenge', () => {
     // Spec 083 D-2 counted 3/5 blank, and names `8000000174` as the one that

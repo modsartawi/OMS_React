@@ -7,7 +7,7 @@ import type {
   SdDocumentHeaderModel,
   SdDocumentHeaderStatusModel,
 } from '@/core/models/sd-document'
-import { formatLongDate, isBlankDate } from '@/core/util/date-format'
+import { formatLongDate, formatTimeOfDay } from '@/core/util/date-format'
 
 /** One label/value row. A blank `value` renders as an em dash. */
 export interface FieldRow {
@@ -76,15 +76,6 @@ function isBandCodeEcho(description: string, code: string | null | undefined): b
   return !description || description === text(code)
 }
 
-/** `HH:mm` from an ISO datetime — blank for an unset/sentinel timestamp. */
-function timeOfDay(value: string | null | undefined): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (isBlankDate(date)) return ''
-  const pad = (n: number): string => String(n).padStart(2, '0')
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
 /**
  * The identity band's sub-ids (spec 083 D-2): the five rows under the big line,
  * in band order.
@@ -125,7 +116,7 @@ export function bandSubIds(doc: SdDocumentHeaderModel, t: TFn): BandSubId[] {
   push(
     'placed',
     t('band.placed'),
-    [formatLongDate(doc.documentDate), timeOfDay(doc.entryTime)].filter(Boolean).join(' · '),
+    [formatLongDate(doc.documentDate), formatTimeOfDay(doc.entryTime)].filter(Boolean).join(' · '),
   )
   push('storeCode', t('band.store'), text(doc.storeCode))
 
@@ -140,6 +131,47 @@ export function bandSubIds(doc: SdDocumentHeaderModel, t: TFn): BandSubId[] {
  */
 export function overallStatusCode(doc: SdDocumentHeaderModel): string {
   return text(doc.status?.overallStatus)
+}
+
+/** The identity band's customer block — blank parts are dropped, not dashed. */
+export interface BandCustomer {
+  name: string
+  /** Phone and city, joined — either may be absent (`cityName` is on 3/5). */
+  contact: string
+}
+
+/**
+ * The band's customer block (spec 083 D-2), at the end of the band and
+ * **duplicated with the Customer rail card by design**: the band answers "whose
+ * is this" without a read of the rail.
+ */
+export function bandCustomer(doc: SdDocumentHeaderModel): BandCustomer {
+  return {
+    name: text(doc.customer?.customerName),
+    contact: [text(doc.customer?.customerPhone), text(doc.shippingAddress?.cityName)]
+      .filter(Boolean)
+      .join(' · '),
+  }
+}
+
+/**
+ * The document's provenance — `refDocumentNo`, the source and the entry user.
+ *
+ * D-2 sends these three "to the All-statuses disclosure's neighbourhood rather
+ * than into the band": they are how the document got here, not what it is, and
+ * they are the wrong weight for the one line an operator reads first. They keep
+ * `describedStatus`'s fallback and the disclosure's em dash, because a
+ * disclosure's job is completeness.
+ */
+export function documentProvenanceRows(doc: SdDocumentHeaderModel, t: TFn): FieldRow[] {
+  return [
+    { label: t('fields.refDocumentNo'), value: text(doc.refDocumentNo) },
+    {
+      label: t('fields.documentSource'),
+      value: describedStatus(doc.documentSourceDescription, doc.documentSource),
+    },
+    { label: t('fields.entryUser'), value: text(doc.entryUser) },
+  ]
 }
 
 /**

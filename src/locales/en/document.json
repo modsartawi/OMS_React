@@ -31,13 +31,17 @@
     "clearStatus": "Clear",
     "acceptanceStatus": "Acceptance",
     "closeStatus": "Cancellation",
-    "allStatuses": "All statuses"
+    "allStatuses": "All statuses",
+    "provenance": "Where it came from"
   },
   "groups": {
     "shippingAddress": "Shipping Address",
     "noAddress": "No shipping address on this document."
   },
   "fields": {
+    "refDocumentNo": "Ref Document No",
+    "documentSource": "Source",
+    "entryUser": "Entry User",
     "overallStatus": "Overall Status",
     "lastAction": "Last Action",
     "readyStatus": "Ready Status",

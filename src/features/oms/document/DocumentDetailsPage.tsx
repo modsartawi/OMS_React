@@ -23,6 +23,7 @@ import {
   type UpdateHeaderExtras,
 } from './actions'
 import { documentColumns, failedJobRowStyle } from './columns'
+import { documentProvenanceRows } from './fields'
 import IdentityBand from './IdentityBand'
 import StatusRail from './StatusRail'
 import CommandPanel from './CommandPanel'
@@ -311,7 +312,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               behaviour is unchanged — spinner in place, silent on success, a
               toast only on failure.
             */}
-            <StatusRail status={document.status}>
+            <StatusRail status={document.status} provenance={documentProvenanceRows(document, t)}>
               <Button variant="outlined" disabled={actionRunning || refreshing} onClick={() => void reload()}>
                 {refreshing ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />

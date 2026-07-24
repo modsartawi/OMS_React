@@ -2,7 +2,14 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { ChevronLeft, Zap } from 'lucide-react'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
-import { bandSubIds, overallStatusCode } from './fields'
+import { bandCustomer, bandSubIds, overallStatusCode } from './fields'
+
+/**
+ * The band's two squared tags — the overall lozenge and Dawaa Now — share one
+ * shape so neither reads as the more important of the two. Colour is what
+ * separates them, and it comes from tokens.
+ */
+const TAG = 'inline-flex items-center rounded-md px-2 py-0.5 text-[0.625rem] font-bold uppercase'
 
 /**
  * The document's identity (spec 083 D-2, ticket 091).
@@ -37,11 +44,7 @@ export default function IdentityBand({
 
   const subIds = document ? bandSubIds(document, t) : []
   const overall = document ? overallStatusCode(document) : ''
-  const customerName = (document?.customer?.customerName ?? '').trim()
-  const customerLine = [document?.customer?.customerPhone, document?.shippingAddress?.cityName]
-    .map((value) => (value ?? '').trim())
-    .filter(Boolean)
-    .join(' · ')
+  const customer = document ? bandCustomer(document) : { name: '', contact: '' }
 
   return (
     <header
@@ -75,7 +78,9 @@ export default function IdentityBand({
               companion on the payload, so the band says it is a code rather
               than letting it read as an unresolved word. Blank ⇒ no lozenge. */}
           {overall && (
-            <span className="inline-flex items-center gap-1.5 rounded-md border border-brand-panel-foreground/25 bg-brand-panel-foreground/10 px-2 py-0.5 text-[0.625rem] font-bold tracking-widest uppercase">
+            <span
+              className={`${TAG} gap-1.5 border border-brand-panel-foreground/25 bg-brand-panel-foreground/10 tracking-widest`}
+            >
               {t('band.overall')}
               <span className="font-mono text-xs tracking-normal">{overall}</span>
             </span>
@@ -84,7 +89,7 @@ export default function IdentityBand({
           {/* Dawaa Now is an ATTRIBUTE of the order, not a lifecycle state — a
               squared tag in the band, never a pill on the status rail. */}
           {document?.isExpressDelivery === true && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-attention-050 px-2 py-0.5 text-[0.625rem] font-bold tracking-wider text-attention-800 uppercase">
+            <span className={`${TAG} gap-1 bg-attention-050 tracking-wider text-attention-800`}>
               <Zap className="h-3 w-3" aria-hidden />
               {t('dawaaNow')}
             </span>
@@ -113,12 +118,12 @@ export default function IdentityBand({
       {/* The customer block sits at the END of the band — duplicated with the
           Customer rail card by design. `ms-auto` is inert while the sub-ids
           column grows and bites the moment the band wraps. */}
-      {(customerName || customerLine) && (
+      {(customer.name || customer.contact) && (
         <div className="ms-auto text-end">
-          {customerName && <div className="text-sm font-semibold">{customerName}</div>}
-          {customerLine && (
+          {customer.name && <div className="text-sm font-semibold">{customer.name}</div>}
+          {customer.contact && (
             <div className="mt-0.5 text-xs text-brand-panel-foreground/70 tabular-nums">
-              {customerLine}
+              {customer.contact}
             </div>
           )}
         </div>

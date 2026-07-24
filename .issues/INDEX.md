@@ -209,7 +209,7 @@ page (`pendingNote`). 095 lands the RTL respellings byte-identical under LTR; 09
 drive.
 
 - [090](090-pill-rail-and-vitest.md) — theRailRendersOnlyTheStatusesThatCarryAValue · **done** (vitest bootstrapped, `npm test` 17/17 on the five captured payloads; typecheck/lint/build green; drove the rendered rail 25/25 via `tools/document-rail-drive.mjs`) · blocked by: — · slice 0 · + Status tab removed, header Status group retired early
-- [091](091-identity-band.md) — theDocumentNumberIsTheLargestThingOnTheScreen · **open** · blocked by: 090 · + `isExpressDelivery` contract check
+- [091](091-identity-band.md) — theDocumentNumberIsTheLargestThingOnTheScreen · **done** (`npm test` 28/28; typecheck/lint/build green; drove the rendered band 32/32 via `tools/document-band-drive.mjs` in both themes) · blocked by: 090 · `isExpressDelivery` binds — no contract bug; `DocumentHeader` retired, provenance moved into the disclosure
 - [092](092-summary-rail-cards.md) — theScatteredFieldsBecomeFiveCardsOnASummaryRail · **open** · blocked by: 091 · `FieldGroup`/`ShippingAddress` retire
 - [093](093-items-grid-and-jobs-count.md) — theItemsGridSumsItselfAndFlagsASignedDiscount · **open** · blocked by: 090 · parallel with 091/092
 - [094](094-action-bar-grammar.md) — theActionBarReadsAsThreeClustersAndATerminalTier · **open** · blocked by: 092 · `pendingNote` dies

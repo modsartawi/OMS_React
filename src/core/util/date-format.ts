@@ -5,8 +5,12 @@ const pad = (n: number): string => String(n).padStart(2, '0')
 /**
  * Whether a parsed date should render as blank — an invalid date, or the .NET
  * `DateTime` default (`0001-01-01`) the API emits for unset timestamps.
+ *
+ * Exported for spec 083 D-5: the Details screen's emptiness test needs the same
+ * sentinel check on fields it formats itself, and reinventing it at the card is
+ * how two spellings of "unset" start to disagree.
  */
-function isBlankDate(date: Date): boolean {
+export function isBlankDate(date: Date): boolean {
   return Number.isNaN(date.getTime()) || date.getFullYear() <= 1
 }
 

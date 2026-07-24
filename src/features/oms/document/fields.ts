@@ -7,8 +7,7 @@ import type {
   SdDocumentHeaderModel,
   SdDocumentHeaderStatusModel,
 } from '@/core/models/sd-document'
-import { formatLongDate } from '@/core/util/date-format'
-import { formatMoney } from '@/core/util/number-format'
+import { formatLongDate, isBlankDate } from '@/core/util/date-format'
 
 /** One label/value row. A blank `value` renders as an em dash. */
 export interface FieldRow {
@@ -45,56 +44,102 @@ function mapsLink(lat: number | null | undefined, lon: number | null | undefined
   return `https://www.google.com/maps?q=${lat},${lon}`
 }
 
+// The header "Document" and "Customer" groups left with ticket 091, and the
+// "Status" summary group with 090. Identity — the document number, its sub-ids
+// and the customer block — is the identity band's job now; the money, e-Rx,
+// fulfilment, driver and payment fields become the summary rail's cards (092),
+// and the thirteen status rows keep their home in the rail's All-statuses
+// disclosure, which `statusBreakdownRows` below still builds. Overall Status
+// keeps binding the RAW `status.overallStatus`: the WPF bound a non-existent
+// `overallStatusDescription` and so rendered nothing at all (Appendix B bug 3).
+
+/** One sub-id under the identity band's big line. */
+export interface BandSubId {
+  /** The payload field this row reports. */
+  key: 'orderNo' | 'documentType' | 'deliveryDocumentType' | 'placed' | 'storeCode'
+  label: string
+  value: string
+  /** Render `value` in monospace: it is a code, not a word (the D-3 echo test). */
+  isCode: boolean
+}
+
 /**
- * The header "Document" group. Approval Number and Prescription are appended
- * only when non-empty; Prescription renders as an external link.
+ * The band's echo test: whether a `*Description` says nothing its code did not.
+ *
+ * **Exact**, where the rail's `isCodeEcho` is case-insensitive, and the corpus is
+ * why: `documentTypeDescription: 'Cash'` against `documentType: 'CASH'` is a
+ * resolved *word*, and the band prints the word. Only a description that is
+ * blank or byte-identical to its code (`'NUPP'`, `'ORRT'` — 2 of 5 captures)
+ * falls back to the raw code and renders in monospace.
  */
-export function documentGroupRows(doc: SdDocumentHeaderModel, t: TFn): FieldRow[] {
-  const rows: FieldRow[] = [
-    { label: t('fields.documentNo'), value: text(doc.documentNo) },
-    { label: t('fields.refDocumentNo'), value: text(doc.refDocumentNo) },
-    { label: t('fields.orderNo'), value: text(doc.orderNo) },
-    { label: t('fields.date'), value: formatLongDate(doc.documentDate) },
-    { label: t('fields.pharmacy'), value: text(doc.storeCode) },
-    { label: t('fields.slotDay'), value: text(doc.timeSlotDay) },
-    { label: t('fields.slotTime'), value: text(doc.timeSlotDescription) },
-    { label: t('fields.netTotal'), value: formatMoney(doc.netTotal) },
-    { label: t('fields.deliveryFees'), value: formatMoney(doc.deliveryFees) },
-    { label: t('fields.paidAmount'), value: formatMoney(doc.paidAmount) },
-    { label: t('fields.amountDue'), value: formatMoney(doc.amountDue) },
-    { label: t('fields.deliveryDocType'), value: text(doc.deliveryDocumentTypeDescription) },
-    { label: t('fields.dawaaNow'), value: doc.isExpressDelivery ? t('common:yes') : t('common:no') },
-    { label: t('fields.lastNote'), value: text(doc.note) },
-  ]
+function isBandCodeEcho(description: string, code: string | null | undefined): boolean {
+  return !description || description === text(code)
+}
 
-  const approvalNumber = text(doc.approvalNumber)
-  if (approvalNumber) rows.push({ label: t('fields.approvalNumber'), value: approvalNumber })
+/** `HH:mm` from an ISO datetime — blank for an unset/sentinel timestamp. */
+function timeOfDay(value: string | null | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (isBlankDate(date)) return ''
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 
-  const prescriptionUrl = text(doc.prescriptionUrl)
-  if (prescriptionUrl)
-    rows.push({
-      label: t('fields.prescription'),
-      value: t('fields.viewPrescription'),
-      href: prescriptionUrl,
-    })
+/**
+ * The identity band's sub-ids (spec 083 D-2): the five rows under the big line,
+ * in band order.
+ *
+ * A description falls back to its code, and an echo (`isBandCodeEcho`) is
+ * flagged so the band renders it in monospace — the same signal the pill rail
+ * uses for the same reason. A row the document does not carry is
+ * **omitted** rather than em-dashed (D-5): `deliveryDocumentType` is `null` on
+ * the e-Rx capture, and an absent sub-id is not a fact worth a dash.
+ *
+ * "Placed" is one row built from two fields — the calendar date from
+ * `documentDate`, the clock time from `entryTime`.
+ */
+export function bandSubIds(doc: SdDocumentHeaderModel, t: TFn): BandSubId[] {
+  const rows: BandSubId[] = []
+
+  const push = (key: BandSubId['key'], label: string, value: string, isCode = false): void => {
+    if (value) rows.push({ key, label, value, isCode })
+  }
+  const pushCoded = (
+    key: BandSubId['key'],
+    label: string,
+    description: string | null | undefined,
+    code: string | null | undefined,
+  ): void => {
+    const resolved = text(description)
+    push(key, label, resolved || text(code), isBandCodeEcho(resolved, code))
+  }
+
+  push('orderNo', t('band.orderNo'), text(doc.orderNo))
+  pushCoded('documentType', t('band.documentType'), doc.documentTypeDescription, doc.documentType)
+  pushCoded(
+    'deliveryDocumentType',
+    t('band.deliveryDocumentType'),
+    doc.deliveryDocumentTypeDescription,
+    doc.deliveryDocumentType,
+  )
+  push(
+    'placed',
+    t('band.placed'),
+    [formatLongDate(doc.documentDate), timeOfDay(doc.entryTime)].filter(Boolean).join(' · '),
+  )
+  push('storeCode', t('band.store'), text(doc.storeCode))
 
   return rows
 }
 
-// The header "Status" summary group left with ticket 090 — its four rows are the
-// pill rail's job now (three as pills, all four in the All-statuses disclosure,
-// which `statusBreakdownRows` below still builds). Overall Status keeps binding
-// the RAW `status.overallStatus` there: the WPF bound a non-existent
-// `overallStatusDescription` and so rendered nothing at all (Appendix B bug 3).
-
-/** The header "Customer" group. */
-export function customerRows(doc: SdDocumentHeaderModel, t: TFn): FieldRow[] {
-  const customer = doc.customer
-  return [
-    { label: t('fields.loyaltyId'), value: text(customer?.customerId) },
-    { label: t('fields.loyaltyMobile'), value: text(customer?.customerPhone) },
-    { label: t('fields.loyaltyName'), value: text(customer?.customerName) },
-  ]
+/**
+ * The band's overall-status lozenge value: the RAW `status.overallStatus`, blank
+ * when the document carries none — and blank means **no lozenge**, on 3 of the
+ * 5 captured documents. There is no `overallStatusDescription` on the payload,
+ * which is why this one renders as a labelled monospace code rather than a word.
+ */
+export function overallStatusCode(doc: SdDocumentHeaderModel): string {
+  return text(doc.status?.overallStatus)
 }
 
 /**

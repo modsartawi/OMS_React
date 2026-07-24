@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, Loader2, RefreshCw } from 'lucide-react'
+import { Loader2, RefreshCw } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
@@ -23,7 +23,7 @@ import {
   type UpdateHeaderExtras,
 } from './actions'
 import { documentColumns, failedJobRowStyle } from './columns'
-import DocumentHeader from './DocumentHeader'
+import IdentityBand from './IdentityBand'
 import StatusRail from './StatusRail'
 import CommandPanel from './CommandPanel'
 import ShippingAddress from './ShippingAddress'
@@ -62,9 +62,10 @@ const PENDING = { rows: null, loading: true, error: null } as const
 /**
  * Screen 2 — Document Details.
  *
- * Loads the full document (as an order or a delivery), renders the header
- * groups, the command panel, the shipping address and the five tabs. Log and
- * Jobs are fetched after the document renders — never blocking the page.
+ * Loads the full document (as an order or a delivery), renders the identity
+ * band, the status pill rail, the command panel, the shipping address and the
+ * four tabs. Log and Jobs are fetched after the document renders — never
+ * blocking the page.
  *
  * Two different fields choose two different endpoints, and mixing them up breaks
  * real documents (D-17/D-19):
@@ -284,23 +285,15 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
 
   return (
     <section className="flex flex-col gap-2.5">
-      <div className="flex items-center gap-2">
-        <Link to="/oms/deliveries" className="inline-flex items-center gap-1.5 text-sm text-primary">
-          <ArrowLeft className="h-4 w-4" aria-hidden />
-          {t('back')}
-        </Link>
-        <span className="flex-1" />
-        {document?.isExpressDelivery === true && (
-          <span className="rounded-full bg-attention-050 px-2 py-0.5 text-xs font-semibold text-attention-800">
-            {t('dawaaNow')}
-          </span>
-        )}
-      </div>
-
-      <h1 className="text-base font-semibold tracking-tight">
-        {t('title')}
-        {document && <span className="text-muted-foreground"> · {document.documentNo}</span>}
-      </h1>
+      {/*
+        The page opens straight into the identity band (083 D-2, ticket 091):
+        `documentNo` is the largest thing on screen, the sub-ids sit under it,
+        the customer block sits at the end, and Back is the chevron at its
+        start. The old title row, toolbar row and header field groups are gone.
+        It renders while the document loads and after a failure too — the
+        chevron is this screen's only way out.
+      */}
+      <IdentityBand document={document} routeId={routeId} />
 
       {documentLoading ? (
         <div className="flex items-center gap-2 rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground" role="status">
@@ -328,8 +321,6 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 {t('refresh.button')}
               </Button>
             </StatusRail>
-
-            <DocumentHeader document={document} />
 
             <CommandPanel
               note={note}

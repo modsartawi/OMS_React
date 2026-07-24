@@ -1,7 +1,15 @@
 {
-  "title": "Document Details",
   "back": "Back to Delivery Documents",
   "dawaaNow": "Dawaa Now",
+  "band": {
+    "ariaLabel": "Document identity",
+    "overall": "Overall",
+    "orderNo": "Order",
+    "documentType": "Type",
+    "deliveryDocumentType": "Delivery doc",
+    "placed": "Placed",
+    "store": "Store"
+  },
   "load": {
     "loading": "Loading document…",
     "failed": "Could not load the document.",
@@ -26,29 +34,10 @@
     "allStatuses": "All statuses"
   },
   "groups": {
-    "document": "Document",
-    "customer": "Customer",
     "shippingAddress": "Shipping Address",
     "noAddress": "No shipping address on this document."
   },
   "fields": {
-    "documentNo": "Document No",
-    "refDocumentNo": "Ref Document No",
-    "orderNo": "Order No.",
-    "date": "Date",
-    "pharmacy": "Pharmacy",
-    "slotDay": "Slot Day",
-    "slotTime": "Slot Time",
-    "netTotal": "Net Total",
-    "deliveryFees": "Delivery Fees",
-    "paidAmount": "Paid Amount",
-    "amountDue": "Amount Due",
-    "deliveryDocType": "Delivery Doc Type",
-    "dawaaNow": "Dawaa Now",
-    "lastNote": "Last Note",
-    "approvalNumber": "Approval Number",
-    "prescription": "Prescription",
-    "viewPrescription": "View prescription",
     "overallStatus": "Overall Status",
     "lastAction": "Last Action",
     "readyStatus": "Ready Status",
@@ -62,9 +51,6 @@
     "consignmentStatus": "Consignment Status",
     "controlStatus": "Control Status",
     "notificationStatus": "Notification Status",
-    "loyaltyId": "Loyalty Id",
-    "loyaltyMobile": "Loyalty Mobile",
-    "loyaltyName": "Loyalty Name",
     "cityCode": "City Code",
     "cityName": "City Name",
     "districtCode": "District Code",

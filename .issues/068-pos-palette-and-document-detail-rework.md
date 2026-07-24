@@ -1,6 +1,6 @@
 ---
 type: wayfinder-map
-status: open
+status: done
 ---
 
 # 068 — POS palette as the app standard + Document Details rework
@@ -18,6 +18,11 @@ Two `status: ready` specs, consumable by `/to-tickets`:
    action bar) against our real `SdDocumentHeaderModel` fields and our 8 commands.
 
 Reached when both specs are `ready` and no decision blocks the build.
+
+**Reached 2026-07-24.** Both specs are published and `ready` for `/to-tickets`:
+[082 — The POS design system](082-pos-design-system-spec.md) and
+[083 — The Document Details rework](083-document-details-rework-spec.md). 083 consumes 082 and must
+not start until it has landed (the rollout ruling below: palette first, then the screen).
 
 ## Notes
 

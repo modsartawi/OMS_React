@@ -148,10 +148,10 @@ Adopt the `Sartawi.POS/View/Themed/PosTheme.xaml` palette as oms-react's standar
 claude.ai warm neutrals), then rebuild Document Details to match the POS "OMS Detail — reworked"
 prototype. Destination is two ready specs. Palette first, screen second — owner ruling.
 Reference capture: [assets/068-pos-detail-reference.html](assets/068-pos-detail-reference.html).
-All 13 tickets done — wayfinding complete. Spec 1 of 2 published (082); the Document Details rework
-spec is still to be synthesized.
+All 13 tickets done — wayfinding complete. **Both specs published: 082 (design system) and 083
+(Document Details rework).** The map is reached; 083 consumes 082 and must not start until it lands.
 
-- [068](068-pos-palette-and-document-detail-rework.md) — POS palette as the app standard + Document Details rework · **open** · wayfinder map
+- [068](068-pos-palette-and-document-detail-rework.md) — POS palette as the app standard + Document Details rework · **done** · wayfinder map — destination reached, both specs ready
 - [069](069-token-surface-inventory.md) — Token surface & call-site inventory · **done** · blocked by: —
 - [070](070-pos-token-remap-light.md) — The POS token remap (light) · **done** · blocked by: 069 · [prototype](assets/070-pos-token-remap.PROTOTYPE.html)
 - [071](071-pos-token-dark-twin.md) — The derived dark twin · **done** · blocked by: 070 · [prototype](assets/071-pos-dark-twin.PROTOTYPE.html)
@@ -166,3 +166,4 @@ spec is still to be synthesized.
 - [080](080-rtl-mirroring-of-the-reworked-layout.md) — RTL mirroring of the reworked layout · **done** · blocked by: 073 · [prototype](assets/080-rtl-mirroring.PROTOTYPE.html)
 - [081](081-rail-card-field-rules.md) — The rail cards' field rules against live data · **done** · blocked by: 079
 - [082](082-pos-design-system-spec.md) — The POS design system · **ready** · spec (map 068, 1 of 2)
+- [083](083-document-details-rework-spec.md) — The Document Details rework · **ready** · spec (map 068, 2 of 2) · consumes 082

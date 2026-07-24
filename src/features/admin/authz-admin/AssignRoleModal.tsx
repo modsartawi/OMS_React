@@ -112,7 +112,7 @@ function KindTag({ kind }: { kind: 'single' | 'composite' | 'system' }) {
   if (kind === 'single') return null
   const cls =
     kind === 'system'
-      ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+      ? 'bg-attention-050 text-attention-800'
       : 'bg-primary/10 text-primary'
   return (
     <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${cls}`}>

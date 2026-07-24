@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
 import { formatMoney } from '@/core/util/number-format'
-import type { AggregatedCondition, ConditionBadge } from './aggregate'
+import type { AggregatedCondition } from './aggregate'
 
 // One aggregated pricing rule (ticket 014) — a faithful port of the WPF card:
 // index + category + type + description, a record-count pill + origin badge + the
@@ -12,14 +12,6 @@ import type { AggregatedCondition, ConditionBadge } from './aggregate'
 /** Rate is shown to 3 decimals (the WPF `N3`); base/value use the shared 2-dp money. */
 function formatRate(value: number): string {
   return Number.isFinite(value) ? value.toFixed(3) : ''
-}
-
-/** Badge token → the pill's colour. Green promotion / navy manual / terracotta header
- *  echo the WPF swatches, re-expressed against the app's Tailwind palette. */
-const BADGE_TONE: Record<ConditionBadge, string> = {
-  promotion: 'bg-emerald-600 text-white',
-  manual: 'bg-slate-700 text-white',
-  header: 'bg-orange-600 text-white',
 }
 
 interface Props {
@@ -57,7 +49,7 @@ export default function ConditionCard({ card }: Props) {
       ) : null}
 
       {badgeLabel ? (
-        <span className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-bold ${BADGE_TONE[card.badge!]}`}>
+        <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
           {badgeLabel}
         </span>
       ) : null}

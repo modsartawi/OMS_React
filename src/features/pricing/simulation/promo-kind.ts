@@ -1,17 +1,10 @@
 import type { PromoKind } from './promo-view'
 
-// Shared promo-kind palette + glyphs (map 039 sketch 042): free = good/green,
-// percent = accent, fixed = warn/amber, setprice = info/blue. One source so the grid
-// Promotion cell (ticket 046) and the buy→get blocks (ticket 047) read as one visual
-// language and never drift apart.
-
-/** kind → chip / icon-tile colour classes. */
-export const KIND_CLASS: Record<PromoKind, string> = {
-  free: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-  percent: 'bg-primary/15 text-primary',
-  fixed: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
-  setprice: 'bg-blue-500/15 text-blue-700 dark:text-blue-400',
-}
+// Shared promo-kind glyphs (map 039 sketch 042). Kind is an identity distinguisher,
+// not a severity — spec 082 D-13 / ticket 088 retired the per-kind colour map so hue
+// stays reserved for severity; every kind chip now renders on the neutral
+// `bg-muted text-muted-foreground` ground with its glyph and text label carrying the
+// meaning.
 
 /** kind → the glyph shown on a block's icon tile (prototype 042). */
 export const KIND_GLYPH: Record<PromoKind, string> = {
@@ -20,3 +13,8 @@ export const KIND_GLYPH: Record<PromoKind, string> = {
   fixed: '−',
   setprice: '=',
 }
+
+/** The single neutral chip ground every kind chip now shares — one source so the grid
+ *  Promotion cell (ticket 046) and the buy→get blocks (ticket 047) can't drift apart,
+ *  the invariant the retired per-kind colour map used to hold (ticket 088). */
+export const KIND_CHIP = 'bg-muted text-muted-foreground'

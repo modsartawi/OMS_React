@@ -197,7 +197,7 @@ export default function ImportWorkspace() {
                       <td className="px-3 py-2">
                         <StatusPill status={job.status} label={t(`import.status.${job.status}`)} />
                         {job.status === 'Failed' && job.errorMessage ? (
-                          <div className="mt-0.5 text-xs text-red-700 dark:text-red-400">{job.errorMessage}</div>
+                          <div className="mt-0.5 text-xs text-danger-800">{job.errorMessage}</div>
                         ) : null}
                       </td>
                       <td className="px-3 py-2 text-end tabular-nums">{job.totalCodes}</td>
@@ -283,10 +283,10 @@ function Th({ children, className = '' }: { children: ReactNode; className?: str
 }
 
 const PILL: Record<ImportJobStatus, string> = {
-  Pending: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300',
-  Processing: 'bg-blue-100 text-blue-800 dark:bg-blue-500/15 dark:text-blue-300',
-  Completed: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300',
-  Failed: 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300',
+  Pending: 'bg-attention-050 text-attention-800',
+  Processing: 'bg-primary-050 text-primary-800',
+  Completed: 'bg-success-050 text-success-800',
+  Failed: 'bg-danger-050 text-danger-800',
 }
 
 function StatusPill({ status, label }: { status: ImportJobStatus; label: string }) {

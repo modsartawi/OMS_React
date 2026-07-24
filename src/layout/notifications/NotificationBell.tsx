@@ -88,7 +88,7 @@ export default function NotificationBell() {
         {count > 0 && (
           <span
             className={
-              'absolute -top-0.5 -end-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-ring px-1 text-[10px] font-bold text-white ring-2 ring-background tabular-nums transition-transform duration-200 ' +
+              'absolute -top-0.5 -end-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-ring px-1 text-[10px] font-bold text-primary-foreground ring-2 ring-background tabular-nums transition-transform duration-200 ' +
               (pop ? 'scale-125' : 'scale-100')
             }
             aria-hidden

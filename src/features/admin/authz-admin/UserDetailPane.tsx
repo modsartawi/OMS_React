@@ -136,7 +136,7 @@ export default function UserDetailPane({ employeeId, displayName, access, catalo
                             className={
                               'rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ' +
                               (kind === 'system'
-                                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                                ? 'bg-attention-050 text-attention-800'
                                 : 'bg-primary/10 text-primary')
                             }
                           >
@@ -145,7 +145,7 @@ export default function UserDetailPane({ employeeId, displayName, access, catalo
                         )}
                         {removable ? (
                           <button
-                            className="grid h-5 w-5 place-items-center rounded-full text-muted-foreground hover:bg-red-500/15 hover:text-red-600 disabled:opacity-40"
+                            className="grid h-5 w-5 place-items-center rounded-full text-muted-foreground hover:bg-danger-050 hover:text-danger-800 disabled:opacity-40"
                             title={t('roles.remove')}
                             onClick={() => removeRole(rn)}
                             disabled={acting}
@@ -207,7 +207,7 @@ export default function UserDetailPane({ employeeId, displayName, access, catalo
                 >
                   <span className="font-mono text-xs tabular-nums">{text}</span>
                   {wildcard && (
-                    <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">
+                    <span className="rounded-full bg-danger-050 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-danger-800">
                       {t('effective.wildcard')}
                     </span>
                   )}

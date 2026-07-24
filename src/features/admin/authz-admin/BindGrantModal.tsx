@@ -91,7 +91,7 @@ export default function BindGrantModal({ open, onClose, roleName, boundIds, onBo
     >
       {confirming ? (
         <div className="flex flex-col gap-3">
-          <div className="flex items-start gap-2 rounded-lg border border-red-800/25 bg-red-700/5 p-3 text-sm text-red-900 dark:border-red-400/25 dark:bg-red-400/10 dark:text-red-200">
+          <div className="flex items-start gap-2 rounded-lg border border-danger-border bg-danger-050 p-3 text-sm text-danger-800">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <span>
               {t('bindGrant.wildcardBody', { grant: grantText(confirming).text, role: roleName })}
@@ -141,7 +141,7 @@ export default function BindGrantModal({ open, onClose, roleName, boundIds, onBo
                   >
                     <span className="min-w-0 flex-1 font-mono text-xs tabular-nums">{text}</span>
                     {wildcard && (
-                      <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">
+                      <span className="rounded-full bg-danger-050 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-danger-800">
                         {t('effective.wildcard')}
                       </span>
                     )}

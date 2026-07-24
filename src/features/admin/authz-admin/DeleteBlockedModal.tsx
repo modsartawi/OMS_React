@@ -59,7 +59,7 @@ export default function DeleteBlockedModal({
     >
       <div className="flex flex-col gap-3">
         <div className="flex items-start gap-2 text-sm">
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" aria-hidden />
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-danger" aria-hidden />
           <span>{t('deleteBlocked.body', { role: roleName })}</span>
         </div>
         <div className="grid grid-cols-3 gap-2">

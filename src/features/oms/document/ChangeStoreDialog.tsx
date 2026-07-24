@@ -187,7 +187,7 @@ export default function ChangeStoreDialog({
         <p
           className={
             'm-0 flex items-center gap-1.5 text-[0.8125rem] ' +
-            (unresolved ? 'font-semibold text-red-900 dark:text-red-300' : 'text-muted-foreground')
+            (unresolved ? 'font-semibold text-danger-800' : 'text-muted-foreground')
           }
         >
           {unresolved ? (

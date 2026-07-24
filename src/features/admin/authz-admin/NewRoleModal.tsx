@@ -93,7 +93,7 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
 
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-xs font-semibold text-muted-foreground">
-            {t('newRole.name')} <span className="text-red-600">•</span>
+            {t('newRole.name')} <span className="text-danger-800">•</span>
           </span>
           <input
             className="rounded-lg border border-input bg-background px-3 py-2 text-sm uppercase outline-none"
@@ -107,8 +107,8 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
             <Lock className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
             {t('newRole.nameLock')}
           </span>
-          {duplicate && <span className="text-[11px] text-red-600">{t('newRole.duplicate')}</span>}
-          {tooLong && <span className="text-[11px] text-red-600">{t('newRole.tooLong')}</span>}
+          {duplicate && <span className="text-[11px] text-danger-800">{t('newRole.duplicate')}</span>}
+          {tooLong && <span className="text-[11px] text-danger-800">{t('newRole.tooLong')}</span>}
         </label>
 
         <label className="flex flex-col gap-1 text-sm">

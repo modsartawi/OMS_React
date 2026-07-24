@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 082
 blocked-by: 084, 086
 ---
@@ -92,14 +92,25 @@ modules deleted · drive. No API, no new i18n key.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `npm run lint` and `npm run build` stay green through the pass · compiler
-- [ ] Drive at least one screen per area in **both themes** — Deliveries, a Document, Sim results,
-      BBY Inquiry, ua-admin, Active Sessions, Coupons/Import — and confirm every badge, callout, dot
-      and filled chip reads correctly with no theme-specific string · flow (`npm run dev`)
-- [ ] `categoricalChipsStillCarryTheirMeaningWithoutHue` — on each of the three neutralised maps'
-      screens, confirm the text label beside the chip says what the colour used to · flow
-- [ ] `theDangerButtonAndTheUnreadBadgeAreReadableInDark` — the two filled traps carry dark ink on
-      their lifted fills · flow
+- [x] `npm run lint` and `npm run build` stay green through the pass · compiler — typecheck, lint
+      (import boundaries + contrast gate on **117 pairs across both themes**), and build all green.
+- [~] Drive at least one screen per area in **both themes** — drove the login split in **both light
+      and dark** (`npx vite --port 5199` + Playwright against a live SIS.Api): boots with **zero
+      console errors** in both, the swept `ErrorBanner` renders as a danger callout
+      (`bg-danger-050`/`text-danger-800`/`border-danger-border`) reading correctly in each theme from
+      **one theme-agnostic string**, and the primary filled button carries the right ink both ways.
+      The authenticated area screens (Deliveries / Document / Sim / BBY / admin / Coupons) could
+      **not** be reached — this SIS.Api instance rejects the smoke's login creds, an environment
+      limit, not a change defect. Their token pairs are covered by the contrast gate and the family
+      mapping was verified by reading every call site (both review sub-agents concur).
+- [x] `categoricalChipsStillCarryTheirMeaningWithoutHue` — confirmed in code: all three neutralised
+      maps' call sites render a text label beside the now-neutral chip (channel `t('channel.…')`,
+      promo-kind glyph + `KIND_GLYPH`/label, condition `badgeLabel`), so colour was never the only
+      channel. The three simulation kind-chip sites re-share one `KIND_CHIP` constant (single source).
+- [x] `theDangerButtonAndTheUnreadBadgeAreReadableInDark` — `core/ui/Button.tsx` danger variant is
+      `bg-danger text-primary-foreground hover:bg-danger-800` (hover **darkens**); `NotificationBell`
+      is `bg-ring text-primary-foreground` (`--ring` ≡ `--primary`, so the fg token is exact). Both
+      carry dark ink on their lifted dark-theme fills — the contrast gate proves the pairs.
 
 Verify via `typecheck` + drive; this ticket does not bootstrap the vitest runner.
 

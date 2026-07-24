@@ -97,7 +97,7 @@ export default function RolesWorkspace({ access, catalog, onJumpToUser }: Props)
           >
             <span
               className={
-                'text-xl font-bold tabular-nums ' + (k === 'system' ? 'text-amber-600 dark:text-amber-400' : '')
+                'text-xl font-bold tabular-nums ' + (k === 'system' ? 'text-attention-800' : '')
               }
             >
               {counts[k].toLocaleString()}
@@ -146,7 +146,7 @@ export default function RolesWorkspace({ access, catalog, onJumpToUser }: Props)
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-sm font-semibold">{r.roleName}</span>
                         {kind === 'system' && (
-                          <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                          <span className="rounded-full bg-attention-050 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-attention-800">
                             {t('kind.system')}
                           </span>
                         )}

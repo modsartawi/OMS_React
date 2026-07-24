@@ -545,7 +545,7 @@ function Section({
   const [collapsed, setCollapsed] = useState(collapsible && defaultCollapsed)
   const iconTone =
     tone === 'buy'
-      ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+      ? 'bg-primary-050 text-primary-800'
       : tone === 'get'
         ? 'bg-primary/10 text-primary'
         : 'bg-muted text-muted-foreground'
@@ -660,7 +660,7 @@ function DetailError({
 }) {
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-10 text-center" role="alert">
-      <span className="grid h-12 w-12 place-items-center rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-300">
+      <span className="grid h-12 w-12 place-items-center rounded-full bg-danger-050 text-danger-800">
         <TriangleAlert className="h-6 w-6" aria-hidden />
       </span>
       <div className="text-[0.9375rem] font-semibold tracking-tight">

@@ -204,8 +204,8 @@ function ComposeCard() {
 
         {/* Whole-fleet blast-radius warning (037) — shown while composing an All send. */}
         {form.channel === 'all' && (
-          <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2.5 text-xs text-muted-foreground">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+          <div className="flex items-start gap-2 rounded-md border border-attention-border bg-attention-050 px-3 py-2.5 text-xs text-muted-foreground">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-attention" aria-hidden />
             <span>{t('warn.fleet')}</span>
           </div>
         )}

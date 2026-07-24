@@ -30,7 +30,7 @@ export default function SimItemDetail({ item, currency }: Props) {
     { label: t('detail.tiles.base'), value: item.netPrice },
     { label: t('detail.tiles.discounts'), value: totalDiscounts, tone: 'text-destructive' },
     { label: t('detail.tiles.tax'), value: item.taxValue },
-    { label: t('detail.tiles.net'), value: item.netTotal, tone: 'text-emerald-600 dark:text-emerald-400' },
+    { label: t('detail.tiles.net'), value: item.netTotal, tone: 'text-success-800' },
   ]
 
   return (
@@ -83,7 +83,7 @@ export default function SimItemDetail({ item, currency }: Props) {
 
       {/* Per-line pricing messages. */}
       {item.pricingStatusMessages.length > 0 ? (
-        <div className="mt-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-900 dark:text-amber-200">
+        <div className="mt-4 rounded-md border border-attention-border bg-attention-050 p-3 text-xs text-attention-800">
           <div className="mb-1 flex items-center gap-1.5 font-semibold">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
             {t('detail.messagesTitle')}

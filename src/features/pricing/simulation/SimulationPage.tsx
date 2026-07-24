@@ -209,15 +209,15 @@ export default function SimulationPage() {
                 </span>
                 <span className="ms-1.5 text-sm text-muted-foreground">{result.header.currency}</span>
               </div>
-              {/* Discount (red) + tax (blue) breakdown beneath the headline net total. */}
+              {/* Discount (danger) + tax (primary) breakdown beneath the headline net total. */}
               <div className="mt-1.5 flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
-                <span className="text-sm font-semibold tabular-nums text-red-600 dark:text-red-400">
+                <span className="text-sm font-semibold tabular-nums text-danger-800">
                   <span className="me-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                     {t('summary.totalDiscount')}
                   </span>
                   {formatMoney(result.header.totalDiscount)}
                 </span>
-                <span className="text-sm font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+                <span className="text-sm font-semibold tabular-nums text-primary-800">
                   <span className="me-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                     {t('summary.tax')}
                   </span>
@@ -308,7 +308,7 @@ export default function SimulationPage() {
           {showStatusBanner ? (
             <div
               role="alert"
-              className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-200"
+              className="flex items-center gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-sm text-attention-800"
             >
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
               {t('banner.counts', { errors: errorCount, warnings: warnCount })}

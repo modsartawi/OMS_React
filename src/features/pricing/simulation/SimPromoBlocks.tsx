@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next'
 import { ArrowRight } from 'lucide-react'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { PromoBlock, PromoGetLine, PromoItemRef } from './promo-view'
-import { KIND_CLASS, KIND_GLYPH } from './promo-kind'
+import { KIND_CHIP, KIND_GLYPH } from './promo-kind'
 
 // The fired promotions, rendered as plain-language buy→get blocks (ticket 047) — the
 // heart of the map-039 rework, replacing the result-level Applied Bonus Buys tab. Each
@@ -80,7 +80,6 @@ function Block({
   onHotChange: (bby: string | null) => void
   t: TFunction
 }) {
-  const kindClass = block.kind ? KIND_CLASS[block.kind] : 'bg-muted text-muted-foreground'
   const glyph = block.kind ? KIND_GLYPH[block.kind] : '•'
   const buyMaterials = new Set(block.buyItems.map((i) => i.materialNumber))
   const title = blockTitle(block, t)
@@ -100,7 +99,7 @@ function Block({
       {/* Header — kind glyph · plain-language title · identity line · total saved. */}
       <div className="flex items-start gap-2.5 p-3">
         <span
-          className={`grid h-8 w-8 shrink-0 place-items-center rounded-md text-base font-bold ${kindClass}`}
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-md text-base font-bold ${KIND_CHIP}`}
           aria-hidden
         >
           {glyph}
@@ -118,7 +117,7 @@ function Block({
           <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
             {t('promo.savedLabel')}
           </div>
-          <div className="text-sm font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+          <div className="text-sm font-bold tabular-nums text-success-800">
             {formatMoney(block.totalSaved)}{' '}
             <span className="text-[10px] font-medium text-muted-foreground">{currency}</span>
           </div>
@@ -161,7 +160,7 @@ function Block({
   )
 }
 
-/** The Buy / Get / Items container — a labelled box; the Get box carries the green
+/** The Buy / Get / Items container — a labelled box; the Get box carries the success
  *  reward treatment and its discount-kind tag. */
 function ItemBox({
   label,
@@ -176,7 +175,7 @@ function ItemBox({
 }) {
   const boxClass =
     tone === 'get'
-      ? 'border-emerald-600/40 bg-emerald-500/10'
+      ? 'border-success-border bg-success-050'
       : 'border-border/60 bg-muted/40'
   return (
     <div className={`rounded-md border p-2 ${boxClass}`}>
@@ -187,7 +186,7 @@ function ItemBox({
             <span aria-hidden className="text-muted-foreground/50">
               ·
             </span>
-            <span className="text-emerald-700 dark:text-emerald-400">{tag}</span>
+            <span className="text-success-800">{tag}</span>
           </>
         ) : null}
       </div>
@@ -222,13 +221,13 @@ function GetLine({ line, reward, t }: { line: PromoGetLine; reward: boolean; t: 
       <span className="min-w-0 flex-1 font-medium">
         {line.materialDescription} <span className="text-muted-foreground">{line.materialNumber}</span>
         {reward ? (
-          <span className="ms-1 text-[9px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+          <span className="ms-1 text-[9px] font-bold uppercase tracking-wide text-success-800">
             {t('promo.reward')}
           </span>
         ) : null}
       </span>
       {line.free ? (
-        <span className="shrink-0 font-bold text-emerald-700 dark:text-emerald-400">{t('promo.free')}</span>
+        <span className="shrink-0 font-bold text-success-800">{t('promo.free')}</span>
       ) : (
         <span className="shrink-0 tabular-nums">
           {formatMoney(line.netValue)}

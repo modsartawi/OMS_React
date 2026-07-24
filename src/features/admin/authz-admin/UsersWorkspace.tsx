@@ -147,7 +147,7 @@ export default function UsersWorkspace({ access, catalog, initialTerm }: Props) 
           >
             <span
               className={
-                'text-xl font-bold tabular-nums ' + (k === 'admins' ? 'text-amber-600 dark:text-amber-400' : '')
+                'text-xl font-bold tabular-nums ' + (k === 'admins' ? 'text-attention-800' : '')
               }
             >
               {submitted === null ? '—' : enriching && k !== 'all' ? '…' : counts[k].toLocaleString()}

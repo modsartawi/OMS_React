@@ -226,7 +226,7 @@ export default function UserDetailPane({ employeeId, onChanged }: Props) {
                   <span className="tabular-nums text-muted-foreground">{s.ipAddress}</span>
                 </span>
                 <button
-                  className="shrink-0 rounded-full text-xs font-medium text-red-700 hover:underline dark:text-red-400"
+                  className="shrink-0 rounded-full text-xs font-medium text-danger-800 hover:underline"
                   onClick={() => revoke(s.sessionId)}
                   disabled={acting}
                 >

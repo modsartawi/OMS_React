@@ -178,7 +178,7 @@ export default function BonusBuyInquiryPage() {
       {capReached && (
         <div
           role="status"
-          className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[0.8125rem] text-amber-800 dark:text-amber-200"
+          className="flex items-start gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-[0.8125rem] text-attention-800"
         >
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>{t('capReached')}</span>

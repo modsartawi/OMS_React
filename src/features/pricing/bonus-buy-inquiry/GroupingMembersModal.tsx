@@ -222,7 +222,7 @@ function MembersSkeleton({ label }: { label: string }) {
 function MembersError({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-8 text-center" role="alert">
-      <span className="grid h-10 w-10 place-items-center rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-300">
+      <span className="grid h-10 w-10 place-items-center rounded-full bg-danger-050 text-danger-800">
         <TriangleAlert className="h-5 w-5" aria-hidden />
       </span>
       <div className="text-sm font-semibold tracking-tight">{message}</div>

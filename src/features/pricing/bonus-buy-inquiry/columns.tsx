@@ -90,7 +90,7 @@ function IdentityCell(
       <BbyStatusBadge code={row.bbyStatus} label={statusLabel(t, row.bbyStatus)} />
       {row.isActive && (
         <span
-          className="inline-block h-2 w-2 shrink-0 rounded-full bg-emerald-500"
+          className="inline-block h-2 w-2 shrink-0 rounded-full bg-success"
           title={t('activeMarker.label')}
           aria-label={t('activeMarker.label')}
         />

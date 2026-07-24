@@ -214,7 +214,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
               {t(`kind.${d.isComposite ? 'composite' : 'single'}`)}
             </span>
             {isProtected && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-attention-050 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-attention-800">
                 <Lock className="h-3 w-3" />
                 {t('kind.system')}
               </span>
@@ -240,7 +240,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
       </div>
 
       {isProtected && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs text-amber-800 dark:text-amber-200">
+        <div className="flex items-start gap-2 rounded-lg border border-attention-border bg-attention-050 p-2.5 text-xs text-attention-800">
           <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
           <span>{t('roleDetail.systemBanner')}</span>
         </div>
@@ -295,7 +295,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
                   </span>
                   {canManage && (
                     <button
-                      className="ms-auto grid h-5 w-5 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-red-500/15 hover:text-red-600 disabled:opacity-40"
+                      className="ms-auto grid h-5 w-5 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-050 hover:text-danger-800 disabled:opacity-40"
                       title={t('roleDetail.removeMember')}
                       onClick={() => removeMember(m)}
                       disabled={acting}
@@ -328,7 +328,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
                   >
                     <span className="font-mono text-xs tabular-nums">{text}</span>
                     {wildcard && (
-                      <span className="rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700 dark:text-red-300">
+                      <span className="rounded-full bg-danger-050 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-danger-800">
                         {t('effective.wildcard')}
                       </span>
                     )}
@@ -343,7 +343,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
                         </span>
                       ) : (
                         <button
-                          className="ms-auto rounded-full px-2 py-0.5 text-[11px] font-medium text-red-700 hover:bg-red-500/15 disabled:opacity-40 dark:text-red-300"
+                          className="ms-auto rounded-full px-2 py-0.5 text-[11px] font-medium text-danger-800 hover:bg-danger-050 disabled:opacity-40"
                           onClick={() => unbindGrant(g.authorizationId, text)}
                           disabled={acting}
                         >
@@ -408,7 +408,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
                     </button>
                     {revocable && (
                       <button
-                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-red-500/15 hover:text-red-600 disabled:opacity-40"
+                        className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-danger-050 hover:text-danger-800 disabled:opacity-40"
                         title={t('roleDetail.revoke')}
                         onClick={() => revokeHolder(h.userId, h.displayName)}
                         disabled={acting}

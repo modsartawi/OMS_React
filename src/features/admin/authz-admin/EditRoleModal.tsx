@@ -89,7 +89,7 @@ export default function EditRoleModal({ open, onClose, roleName, isProtected, de
         </label>
 
         {isProtected && (
-          <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs text-amber-800 dark:text-amber-200">
+          <p className="rounded-lg border border-attention-border bg-attention-050 p-2.5 text-xs text-attention-800">
             {t('editRole.protectedNote')}
           </p>
         )}

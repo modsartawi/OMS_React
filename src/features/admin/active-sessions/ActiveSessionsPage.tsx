@@ -12,15 +12,6 @@ import { sessionMonitorApi } from './api'
 import { isDormant, relativeTime, singleDistinctUser, type SessionChip, type SingleUser } from './helpers'
 import type { ActiveSessionSearchResult, SessionCountsResult } from '@/core/models/session-monitor'
 
-// Subtle per-channel badge tints (light + dark). Unknown channels fall back to
-// the neutral muted chip — the label always comes from `channel.<key>` (i18n).
-const CHANNEL_TONE: Record<string, string> = {
-  web: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
-  mobile: 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
-  backoffice: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
-  pos: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-}
-
 // The channel chips, in screen order. `count` picks the field off the counts DTO.
 // Idle is rendered separately (no count number, a per-channel tooltip). Chip label
 // text comes from `chips.<chip>` (i18n). Ticket 009.
@@ -295,7 +286,7 @@ export default function ActiveSessionsPage() {
             })}
           </span>
           <button
-            className="shrink-0 rounded-full border border-red-600/40 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-600/10 dark:text-red-400"
+            className="shrink-0 rounded-full border border-danger-border px-3 py-1 text-xs font-medium text-danger-800 hover:bg-danger-050"
             onClick={() => revokeAll(soleUser)}
           >
             {t('revokeAll.button')}
@@ -404,12 +395,7 @@ function SessionsTable({
                 </td>
                 <td className="border-b border-border px-3 py-1.5 tabular-nums">{r.currentStoreCode || t('grid.none')}</td>
                 <td className="border-b border-border px-3 py-1.5">
-                  <span
-                    className={
-                      'inline-flex rounded-full px-2 py-0.5 text-xs font-medium ' +
-                      (CHANNEL_TONE[r.channel] ?? 'border border-border bg-muted text-muted-foreground')
-                    }
-                  >
+                  <span className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                     {t(`channel.${r.channel}`, { defaultValue: r.channel })}
                   </span>
                 </td>
@@ -418,13 +404,10 @@ function SessionsTable({
                 </td>
                 <td className="border-b border-border px-3 py-1.5">
                   <div
-                    className={
-                      'flex items-center gap-1.5 ' +
-                      (dormant ? 'text-amber-700 dark:text-amber-300' : '')
-                    }
+                    className={'flex items-center gap-1.5 ' + (dormant ? 'text-attention-800' : '')}
                     title={dormant ? t('dormant.tooltip') : undefined}
                   >
-                    {dormant && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />}
+                    {dormant && <span className="h-1.5 w-1.5 rounded-full bg-attention" aria-hidden />}
                     <span>{t(`relative.${rel.key}`, { count: rel.count })}</span>
                     {dormant && <span className="text-xs font-medium uppercase">{t('dormant.label')}</span>}
                   </div>
@@ -438,7 +421,7 @@ function SessionsTable({
                 </td>
                 <td className="border-b border-border px-3 py-1.5 text-end">
                   <button
-                    className="shrink-0 rounded-full text-xs font-medium text-red-700 hover:underline dark:text-red-400"
+                    className="shrink-0 rounded-full text-xs font-medium text-danger-800 hover:underline"
                     onClick={() => onRevoke(r)}
                   >
                     {t('grid.revoke')}

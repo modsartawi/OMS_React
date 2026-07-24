@@ -3,7 +3,7 @@ import type { KeyboardEvent } from 'react'
 import type { SimulationResultItem } from '@/core/models/simulation'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { PromoLineRef } from './promo-view'
-import { KIND_CLASS } from './promo-kind'
+import { KIND_CHIP } from './promo-kind'
 
 // The per-line results grid (spec 503, reworked map 053). Replaces the AG Grid table
 // with a hand-rolled surface that RESPONDS to the width it is given: above the
@@ -127,7 +127,7 @@ export default function SimResultsGrid({
                 </td>
                 <td className="px-2.5 py-2 text-end tabular-nums">{formatMoney(item.grossValue)}</td>
                 <td className="px-2.5 py-2 text-end tabular-nums">{formatMoney(item.taxValue)}</td>
-                <td className="px-2.5 py-2 text-end font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                <td className="px-2.5 py-2 text-end font-semibold tabular-nums text-success-800">
                   {formatMoney(item.netTotal)}
                 </td>
               </tr>
@@ -193,7 +193,7 @@ export default function SimResultsGrid({
                 <MoneyRow label={t('results.tax')} value={item.taxValue} currency={currency} />
                 <div className="col-span-2 mt-1 flex items-baseline justify-between border-t border-border/60 pt-1.5">
                   <span className="text-sm font-semibold">{t('results.net')}</span>
-                  <span className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="text-[15px] font-bold text-success-800">
                     {formatMoney(item.netTotal)}
                     <span className="ms-1 text-[10px] font-medium text-muted-foreground">{currency}</span>
                   </span>
@@ -241,7 +241,7 @@ function MoneyRow({
  *  the colour isn't the only channel. Inline (not an AG Grid renderer). */
 function StatusDot({ status, t }: { status: string; t: ReturnType<typeof useTranslation>[0] }) {
   const tone = status === 'E' ? 'error' : status === 'W' ? 'warning' : 'ok'
-  const color = tone === 'error' ? 'bg-red-500' : tone === 'warning' ? 'bg-amber-500' : 'bg-emerald-500'
+  const color = tone === 'error' ? 'bg-danger' : tone === 'warning' ? 'bg-attention' : 'bg-success'
   const label = t(`status.${tone}`)
   return (
     <span className="inline-flex items-center" title={label} aria-label={label}>
@@ -250,9 +250,9 @@ function StatusDot({ status, t }: { status: string; t: ReturnType<typeof useTran
   )
 }
 
-/** The promotion(s) touching a line — a colour-coded KIND chip (shared `KIND_CLASS`
- *  palette) plus a ROLE tag; a plain em-dash when none, so promoted and un-promoted
- *  lines read distinct. Lifted from the retired `PromoCell` (ticket 046), now plain. */
+/** The promotion(s) touching a line — a neutral KIND chip (hue is reserved for
+ *  severity, ticket 088) plus a ROLE tag; a plain em-dash when none, so promoted and
+ *  un-promoted lines read distinct. Lifted from the retired `PromoCell` (ticket 046). */
 function PromoTags({ promos, t }: { promos: PromoLineRef[]; t: ReturnType<typeof useTranslation>[0] }) {
   if (promos.length === 0) {
     return (
@@ -264,10 +264,9 @@ function PromoTags({ promos, t }: { promos: PromoLineRef[]; t: ReturnType<typeof
   return (
     <span className="flex flex-wrap items-center gap-1">
       {promos.map((p, i) => {
-        const kindClass = p.kind ? KIND_CLASS[p.kind] : 'bg-muted text-muted-foreground'
         return (
           <span key={`${p.bbyNumber}-${p.conditionKey ?? i}`} className="inline-flex items-center gap-1">
-            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${kindClass}`}>
+            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${KIND_CHIP}`}>
               {t(`results.promoKind.${p.kind ?? 'unknown'}`)}
             </span>
             {p.role ? (

@@ -106,8 +106,8 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
               className={
                 'inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ' +
                 (instance.isDisabled
-                  ? 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300'
-                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300')
+                  ? 'bg-danger-050 text-danger-800'
+                  : 'bg-success-050 text-success-800')
               }
             >
               {instance.isDisabled ? t('inquiry.instance.disabled') : t('inquiry.instance.active')}
@@ -211,9 +211,9 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
                       <td className="px-3 py-2 font-mono text-xs">{x.transactionReference || '—'}</td>
                       <td className="px-3 py-2 text-center">
                         {x.isSuccessful ? (
-                          <Check className="mx-auto h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-label="ok" />
+                          <Check className="mx-auto h-4 w-4 text-success" aria-label="ok" />
                         ) : (
-                          <X className="mx-auto h-4 w-4 text-red-600 dark:text-red-400" aria-label="failed" />
+                          <X className="mx-auto h-4 w-4 text-danger" aria-label="failed" />
                         )}
                       </td>
                     </tr>
@@ -302,7 +302,7 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
       >
         <div className="flex flex-col gap-3 text-sm">
           <p className="flex items-start gap-2">
-            <Ban className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden />
+            <Ban className="mt-0.5 h-4 w-4 shrink-0 text-danger" aria-hidden />
             <span>{t('inquiry.resetModal.body', { count: instance.redeemCount })}</span>
           </p>
           <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">

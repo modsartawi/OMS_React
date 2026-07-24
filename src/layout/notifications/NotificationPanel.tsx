@@ -39,7 +39,7 @@ function NotificationRow({ item, now }: { item: NotificationItem; now: number })
             className={
               'shrink-0 rounded-full px-1.5 py-px text-[10px] font-bold uppercase tracking-wide ' +
               (tag === 'broadcast'
-                ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                ? 'bg-attention-050 text-attention-800'
                 : 'bg-muted text-muted-foreground')
             }
           >

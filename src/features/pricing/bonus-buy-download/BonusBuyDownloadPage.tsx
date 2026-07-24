@@ -232,7 +232,7 @@ export default function BonusBuyDownloadPage() {
       <fieldset className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4" disabled={running}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <legend className="text-sm font-medium">{t('attributes.legend')}</legend>
-          <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+          <span className="inline-flex items-center gap-1.5 text-xs text-attention-800">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
             {t('attributes.clearsWarning')}
           </span>
@@ -367,16 +367,16 @@ export default function BonusBuyDownloadPage() {
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
               {lastAction === 'download' ? (
                 <>
-                  <span className="text-emerald-700 dark:text-emerald-400">{t('tally.succeeded', { count: counts.succeeded })}</span>
+                  <span className="text-success-800">{t('tally.succeeded', { count: counts.succeeded })}</span>
                   <span className="text-muted-foreground">{t('tally.notFoundInHana', { count: counts.notFoundInHana })}</span>
-                  <span className="text-red-700 dark:text-red-400">{t('tally.failed', { count: counts.failed })}</span>
+                  <span className="text-danger-800">{t('tally.failed', { count: counts.failed })}</span>
                   <span className="text-muted-foreground">{t('tally.overwritten', { count: counts.overwritten })}</span>
                 </>
               ) : (
                 <>
-                  <span className="text-emerald-700 dark:text-emerald-400">{t('tally.deleted', { count: counts.deleted })}</span>
+                  <span className="text-success-800">{t('tally.deleted', { count: counts.deleted })}</span>
                   <span className="text-muted-foreground">{t('tally.notFound', { count: counts.notFound })}</span>
-                  <span className="text-red-700 dark:text-red-400">{t('tally.failed', { count: counts.failed })}</span>
+                  <span className="text-danger-800">{t('tally.failed', { count: counts.failed })}</span>
                 </>
               )}
             </div>
@@ -410,9 +410,9 @@ function StatusRow({ row }: { row: Row }) {
 
   const Icon = ok ? Check : failed ? X : Ban
   const tone = ok
-    ? 'text-emerald-700 dark:text-emerald-400'
+    ? 'text-success-800'
     : failed
-      ? 'text-red-700 dark:text-red-400'
+      ? 'text-danger-800'
       : 'text-muted-foreground'
 
   return (

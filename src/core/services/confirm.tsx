@@ -70,7 +70,7 @@ export function ConfirmHost() {
       }
     >
       <p className="flex items-start gap-2 text-sm">
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-attention" aria-hidden />
         <span>{request?.message}</span>
       </p>
     </Modal>

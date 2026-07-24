@@ -290,7 +290,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         </Link>
         <span className="flex-1" />
         {document?.isExpressDelivery === true && (
-          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+          <span className="rounded-full bg-attention-050 px-2 py-0.5 text-xs font-semibold text-attention-800">
             {t('dawaaNow')}
           </span>
         )}

@@ -20,9 +20,9 @@ export default function BoolCell(params: BoolCellParams) {
   return (
     <span className="flex h-full items-center justify-center" title={label} aria-label={label}>
       {value ? (
-        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
+        <Check className="h-4 w-4 text-success" aria-hidden />
       ) : mode === 'met' ? (
-        <X className="h-4 w-4 text-red-500" aria-hidden />
+        <X className="h-4 w-4 text-danger" aria-hidden />
       ) : (
         <span className="text-muted-foreground" aria-hidden>
           –

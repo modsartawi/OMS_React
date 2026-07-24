@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import { ChevronRight } from 'lucide-react'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { MissedPrereq, MissedPromo } from './promo-view'
-import { KIND_CLASS, KIND_GLYPH } from './promo-kind'
+import { KIND_CHIP, KIND_GLYPH } from './promo-kind'
 
 // The "Could have applied" section (ticket 048) — the near-misses beneath the fired
 // promotion blocks (SimPromoBlocks, 047). Driven by `promoView(result).missed` (045),
@@ -51,7 +51,6 @@ export default function SimMissedPromotions({ missed, currency }: Props) {
 
 function MissedRow({ missed, currency, t }: { missed: MissedPromo; currency: string; t: TFunction }) {
   const [expanded, setExpanded] = useState(false)
-  const kindClass = missed.kind ? KIND_CLASS[missed.kind] : 'bg-muted text-muted-foreground'
   const glyph = missed.kind ? KIND_GLYPH[missed.kind] : '•'
   const name = missed.description || t('missed.fallbackName')
 
@@ -65,7 +64,7 @@ function MissedRow({ missed, currency, t }: { missed: MissedPromo; currency: str
         className="flex w-full items-center gap-2.5 rounded-lg p-2.5 text-start hover:bg-muted/40"
       >
         <span
-          className={`grid h-7 w-7 shrink-0 place-items-center rounded-md text-sm font-bold ${kindClass}`}
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-md text-sm font-bold ${KIND_CHIP}`}
           aria-hidden
         >
           {glyph}
@@ -172,7 +171,7 @@ function PrereqMeter({ prereq, t }: { prereq: MissedPrereq; t: TFunction }) {
           aria-valuemin={0}
           aria-valuemax={required}
         >
-          <div className="h-full rounded-full bg-amber-500/70" style={{ width: `${pct}%` }} />
+          <div className="h-full rounded-full bg-attention" style={{ width: `${pct}%` }} />
         </div>
       ) : null}
 

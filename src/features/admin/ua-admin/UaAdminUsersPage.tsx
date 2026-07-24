@@ -16,8 +16,8 @@ import NewIdentityModal from './NewIdentityModal'
 // is BOTH the count key and the /ReportCards/{card} path arg.
 const CARDS: { card: string; count: (c: UaReportCountsResult) => number; tone: string }[] = [
   { card: 'all', count: (c) => c.allPeople, tone: '' },
-  { card: 'notSeeded', count: (c) => c.notSeeded, tone: 'text-red-600 dark:text-red-400' },
-  { card: 'phoneGap', count: (c) => c.phoneGap, tone: 'text-amber-600 dark:text-amber-400' },
+  { card: 'notSeeded', count: (c) => c.notSeeded, tone: 'text-danger-800' },
+  { card: 'phoneGap', count: (c) => c.phoneGap, tone: 'text-attention-800' },
   { card: 'awaitingActivation', count: (c) => c.awaitingActivation, tone: 'text-sidebar-active' },
   { card: 'mustChange', count: (c) => c.mustChangePassword, tone: 'text-sidebar-active' },
   { card: 'disabled', count: (c) => c.disabled, tone: '' },

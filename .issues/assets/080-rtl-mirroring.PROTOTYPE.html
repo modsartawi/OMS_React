@@ -1,0 +1,846 @@
+<!doctype html>
+<!--
+  080 — RTL mirroring of the reworked layout.
+  Map 068 · ticket 080. Blocked-by 073 (done).
+
+  The 073 device is written ONCE, into a <template>, and stamped three times:
+    A  dir="ltr"                 — the reference
+    B  dir="rtl"                 — as-built, faults live and marked
+    C  dir="rtl" class=repaired  — the same markup with the proposed fixes applied
+
+  Identical markup by construction: only `dir` and the `.repaired` class differ.
+  If a difference between A and B is not deliberate, it is a mirroring fault.
+
+  Copy is deliberately Latin — the map rules Arabic translation out of scope
+  (068 "Out of scope"). Latin text in an RTL frame is enough to expose layout
+  faults, and it keeps the diff against 073 readable.
+
+  Device CSS below is copied VERBATIM from assets/073-detail-layout.PROTOTYPE.html
+  so the faults are real, not re-typed. The `.repaired` block at the end is the
+  only addition, and it is the deliverable.
+-->
+<html lang="en"><head><meta charset="utf8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>080 — RTL mirroring of the reworked layout</title>
+<style>
+  /* ============ 070 light token table (as 073) ============ */
+  :root{
+    --background:#F4F7FA; --foreground:#19232E;
+    --card:#FFFFFF; --card-2:#FAFBFC;
+    --muted:#EEF2F6; --muted-foreground:#586674; --ink-3:#8593A1;
+    --border:#E3E9F0; --border-strong:#CBD6E2; --divider:#EDF1F5; --input:#CBD6E2;
+    --primary:#2F63A6; --primary-050:#E9EFF7; --primary-border:#C6D6EC; --primary-800:#27538C;
+    --primary-foreground:#FFFFFF;
+    --secondary:#586674; --secondary-press:#495562;
+    --success:#1E874B; --success-050:#E7F3EC; --success-border:#BFE0CD; --success-800:#155F36;
+    --attention:#B4791F; --attention-050:#F8F0DE; --attention-border:#E7D3A3; --attention-800:#7C5410;
+    --danger:#C23B41; --danger-050:#FBECEC; --danger-border:#E7BFC1; --danger-800:#8E2A2F;
+    --fam-fulfilment:#2E7D5B; --fam-cancel-request:#5D5A93;
+    --prescription:#0B7C8C; --prescription-050:#E3F0F2; --prescription-800:#085C68;
+    --radius:0.625rem;
+    --page:#eef1f5; --page-ink:#31404f; --page-ink-2:#6b7885; --page-card:#fff; --page-border:#dbe2ea;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--page-ink); font-size:15px;
+    font-family:Inter,"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif; }
+  .wrap{ max-width:1280px; margin:0 auto; padding:34px 20px 90px; }
+  h1.title{ font-size:26px; line-height:1.15; margin:.2em 0 .3em; font-weight:700; letter-spacing:-.01em; }
+  .lede{ max-width:78ch; color:var(--page-ink-2); font-size:14.5px; line-height:1.6; margin:0 0 6px; }
+  h2.sec{ font-size:17px; margin:44px 0 10px; letter-spacing:-.01em; }
+  h3.sub{ font-size:13.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--page-ink-2);
+    margin:26px 0 8px; font-weight:700; }
+  .tnum{ font-variant-numeric:tabular-nums; }
+  .nosrc{ border-bottom:1px dashed var(--danger); }
+  .nosrc::after{ content:"⚠"; font-size:9px; vertical-align:super; color:var(--danger); margin-left:2px; }
+
+  /* ================= THE DEVICE — verbatim from 073 ================= */
+  .device{ width:100%; background:var(--background); border:1px solid var(--border-strong);
+    border-radius:12px; overflow:hidden; box-shadow:0 24px 60px -34px rgba(20,35,55,.42);
+    color:var(--foreground); font-size:13px; }
+
+  .hdr{ background:linear-gradient(180deg,#2b3a4b,#223140); color:#fff; padding:12px 16px 14px;
+    display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+  .hdr .backwrap{ padding-top:5px; }
+  .hdr .back{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px;
+    border-radius:8px; border:1px solid rgba(255,255,255,.22); background:rgba(255,255,255,.07);
+    color:#fff; font-size:15px; cursor:default; }
+  .hdr .ids{ min-width:0; flex:1 1 320px; }
+  .hdr .idline{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .hdr .docno{ font-size:20px; font-weight:700; letter-spacing:.01em; line-height:1.1;
+    font-variant-numeric:tabular-nums; }
+  .hdr .subids{ display:flex; gap:15px; margin-top:6px; font-size:11.5px;
+    color:rgba(255,255,255,.72); flex-wrap:wrap; }
+  .hdr .subids b{ color:#dfe7f0; font-weight:600; }
+  .hdr .cust{ margin-left:auto; text-align:end; flex:0 1 auto; }
+  .hdr .cust .nm{ font-size:14.5px; font-weight:600; }
+  .hdr .cust .ph{ font-size:12px; color:rgba(255,255,255,.72); margin-top:2px; font-variant-numeric:tabular-nums; }
+
+  .lozenge{ display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700;
+    letter-spacing:.07em; text-transform:uppercase; padding:3px 9px; border-radius:6px;
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.26); color:#eaf1f8; }
+  .lozenge .code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:0; font-size:11px; }
+  .nowtag{ display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:800;
+    letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px;
+    background:var(--attention); color:#231604; }
+
+  .pills{ display:flex; gap:7px; padding:8px 16px; background:var(--card);
+    border-bottom:1px solid var(--border); flex-wrap:wrap; align-items:center; }
+  .pills .lab{ font-size:10.5px; text-transform:uppercase; letter-spacing:.09em;
+    color:var(--ink-3); font-weight:700; margin-inline-end:2px; }
+  .pill{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+    padding:4px 10px; border-radius:999px; border:1px solid transparent; }
+  .pill .dot{ width:7px; height:7px; border-radius:50%; flex:none; }
+  .pill.ok{ background:var(--success-050); color:var(--success-800); border-color:var(--success-border); }
+  .pill.ok .dot{ background:var(--success); }
+  .pill.go{ background:var(--primary-050); color:var(--primary-800); border-color:var(--primary-border); }
+  .pill.go .dot{ background:var(--primary); }
+  .pill.warn{ background:var(--attention-050); color:var(--attention-800); border-color:var(--attention-border); }
+  .pill.warn .dot{ background:var(--attention); }
+  .pill.bad{ background:var(--danger-050); color:var(--danger-800); border-color:var(--danger-border); }
+  .pill.bad .dot{ background:var(--danger); }
+  .pill.mute{ background:var(--muted); color:var(--muted-foreground); border-color:var(--border); }
+  .pill.mute .dot{ background:var(--ink-3); }
+  .railend{ margin-inline-start:auto; display:flex; gap:6px; align-items:center; }
+  .quietbtn{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600;
+    color:var(--muted-foreground); background:transparent; border:1px solid var(--border-strong);
+    border-radius:7px; padding:4px 9px; cursor:default; font-family:inherit; }
+
+  .body{ display:grid; grid-template-columns:340px minmax(0,1fr); }
+  .rail{ background:var(--card-2); border-inline-end:1px solid var(--border); padding:13px;
+    display:flex; flex-direction:column; gap:11px; }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+  .card > h4{ margin:0; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:700; padding:9px 12px 7px; display:flex; align-items:center; gap:8px; }
+  .card > h4 .accentbar{ width:3px; height:12px; border-radius:2px; background:var(--primary); flex:none; }
+  .card.presc > h4 .accentbar{ background:var(--prescription); }
+  .card.driver > h4 .accentbar{ background:var(--fam-fulfilment); }
+  .kv{ padding:0 12px 11px; display:grid; grid-template-columns:auto minmax(0,1fr); gap:3px 12px; font-size:12.5px; }
+  .kv dt{ color:var(--ink-3); white-space:nowrap; }
+  .kv dd{ margin:0; color:var(--foreground); text-align:end; font-weight:500; min-width:0;
+    overflow-wrap:anywhere; }
+  .kv dd.soft{ color:var(--muted-foreground); font-weight:400; }
+  .presc .link{ color:var(--prescription); font-weight:600; text-decoration:none; }
+  .driver .link{ color:var(--fam-fulfilment); font-weight:600; text-decoration:none; }
+  .totline{ display:flex; justify-content:space-between; gap:12px; padding:7px 12px;
+    border-top:1px dashed var(--border); font-size:12.5px; }
+  .totline > span:first-child{ color:var(--ink-3); }
+  .totline.big{ font-weight:700; font-size:14px; border-top:1px solid var(--border-strong); }
+  .totline.big > span:first-child{ color:var(--foreground); }
+  .totline .amt{ font-variant-numeric:tabular-nums; }
+  .linkline{ padding:7px 12px; border-top:1px solid var(--border); font-size:12.5px; }
+
+  .work{ display:flex; flex-direction:column; min-width:0; }
+  .tabs{ display:flex; gap:2px; padding:10px 14px 0; background:var(--background); overflow-x:auto; }
+  .tab{ font-size:12.5px; font-weight:600; color:var(--muted-foreground); padding:8px 15px;
+    border:1px solid transparent; border-bottom:none; border-radius:7px 7px 0 0; cursor:default; white-space:nowrap; }
+  .tab .cnt{ font-size:11px; color:var(--ink-3); margin-inline-start:6px; font-variant-numeric:tabular-nums; }
+  .tab .warncnt{ color:var(--danger); font-weight:700; }
+  .tab.on{ background:var(--card); color:var(--foreground); border-color:var(--border); position:relative; }
+  .tab.on::after{ content:""; position:absolute; inset-inline:0; top:0; height:3px;
+    background:var(--primary); border-radius:7px 7px 0 0; }
+
+  .gridwrap{ margin:0 14px 12px; background:var(--card); border:1px solid var(--border);
+    border-radius:0 9px 9px 9px; overflow:auto; flex:1; }
+  table.items{ width:100%; min-width:820px; border-collapse:collapse; font-size:12.5px; }
+  table.items thead th{ background:var(--muted); color:var(--muted-foreground); font-weight:700;
+    font-size:11px; text-align:end; padding:8px 10px; border-bottom:1px solid var(--border-strong); white-space:nowrap; }
+  table.items thead th.l{ text-align:start; }
+  table.items tbody td{ padding:8px 10px; border-bottom:1px solid var(--divider); text-align:end;
+    font-variant-numeric:tabular-nums; white-space:nowrap; }
+  table.items tbody td.l{ text-align:start; font-variant-numeric:normal; }
+  table.items tbody tr.sel{ background:var(--primary-050); box-shadow:inset 3px 0 0 var(--primary); }
+  table.items tbody tr.del td{ color:var(--ink-3); text-decoration:line-through; }
+  .mtag{ display:inline-block; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px;
+    letter-spacing:.02em; margin-inline-start:6px; }
+  .mtag.rx{ background:var(--prescription-050); color:var(--prescription-800); }
+  .mtag.otc{ background:var(--muted); color:var(--muted-foreground); }
+  .disc{ color:var(--attention-800); }
+  .netcol{ font-weight:700; color:var(--foreground); }
+  .amtfoot td{ background:var(--card-2); border-top:1px solid var(--border-strong);
+    font-weight:700; text-align:end; padding:9px 10px; font-variant-numeric:tabular-nums;
+    position:sticky; bottom:0; }
+  .amtfoot td.l{ text-align:start; color:var(--muted-foreground); font-weight:600; }
+
+  .actionbar{ border-top:1px solid var(--border-strong); background:var(--card); padding:10px 14px;
+    display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+  .ab-clusters{ display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; flex:1; }
+  .ab-primary{ margin-inline-start:auto; display:flex; gap:9px; align-items:center; }
+  .cluster{ display:flex; flex-direction:column; gap:5px; }
+  .cluster .clab{ font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; font-weight:700;
+    color:var(--ink-3); padding-inline-start:2px; }
+  .cluster .row{ display:flex; gap:6px; flex-wrap:wrap; }
+  .btn{ font-family:inherit; font-size:12.5px; font-weight:600; border-radius:7px;
+    border:1px solid transparent; padding:8px 13px; color:#fff; background:var(--secondary);
+    cursor:default; white-space:nowrap; line-height:1; display:inline-flex; align-items:center; gap:7px; }
+  .btn.sm{ font-size:11.5px; padding:7px 11px; }
+  .btn.fulfil{ background:var(--fam-fulfilment); }
+  .btn.cancelreq{ background:var(--fam-cancel-request); }
+  .btn.ghost{ background:transparent; color:var(--muted-foreground); border-color:var(--border-strong); }
+  .btn.terminal{ background:var(--danger); font-size:13px; padding:10px 17px;
+    box-shadow:0 2px 0 rgba(142,42,47,.35); }
+  .btn.terminal.override{ background:transparent; color:var(--danger-800);
+    border-color:var(--danger-border); box-shadow:none; }
+  .btn.inert{ background:var(--muted); color:var(--ink-3); border-color:var(--border); }
+
+  @media (max-width:900px){
+    .body{ grid-template-columns:minmax(0,1fr); }
+    .rail{ border-inline-end:none; border-bottom:1px solid var(--border);
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); align-items:start; }
+    .hdr .cust{ margin-left:0; text-align:start; flex-basis:100%; }
+    .ab-primary{ margin-inline-start:0; flex-basis:100%; justify-content:flex-end; }
+  }
+
+  /* ================= 080 ADDITIONS — fault markers ================= */
+  /* Markers ride in the markup for every stamp, but only surface on the
+     as-built RTL device: the LTR reference has no faults, and the repaired
+     device has none left. */
+  .fmark{ display:none; }
+  .device[dir="rtl"]:not(.repaired) .fmark{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:17px; height:17px; padding:0 4px; margin-inline:4px;
+    border-radius:5px; background:var(--danger); color:#fff;
+    font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-variant-numeric:tabular-nums; vertical-align:middle;
+    direction:ltr; unicode-bidi:isolate; }
+  .device[dir="rtl"]:not(.repaired) .hdr .fmark{ background:#ff5f6a; color:#2b0a0d; }
+
+  /* ================= 080 ADDITIONS — the proposed repairs ================= */
+  /* Each rule below is the fix for one fault in §2. Every one of them is
+     equivalent to the 073 rule under LTR — none of this is an RTL-only branch
+     except F2, which is genuinely direction-dependent. */
+
+  /* F1 — physical margin-left:auto → logical */
+  .device.repaired .hdr .cust{ margin-left:0; margin-inline-start:auto; }
+  @media (max-width:900px){ .device.repaired .hdr .cust{ margin-inline-start:0; } }
+
+  /* F2 — the back chevron is a reading-order icon and MUST mirror.
+     Scoped to the SVG: a Bidi_Mirrored text glyph would already have flipped,
+     and this would double-mirror it back to wrong. */
+  .device.repaired[dir="rtl"] .back svg{ transform:scaleX(-1); }
+
+  /* F3 — bidi isolation for mixed LTR runs inside an RTL paragraph */
+  .device.repaired .bidi{ direction:ltr; unicode-bidi:isolate; }
+
+  /* F4 — selected-row accent bar: box-shadow is physical; a pseudo-element
+     with inset-inline-start is not. This is 074's `.ag-row-selected::after`
+     in HTML-table form. */
+  .device.repaired table.items tbody tr.sel{ box-shadow:none; }
+  .device.repaired table.items tbody tr.sel td:first-child{ position:relative; }
+  .device.repaired table.items tbody tr.sel td:first-child::after{
+    content:""; position:absolute; inset-block:0; inset-inline-start:0;
+    width:3px; background:var(--primary); }
+
+  /* F5 — the notch that meets the active tab must follow the tab */
+  .device.repaired .gridwrap{ border-radius:9px; border-start-start-radius:0; }
+
+  /* ================= page chrome ================= */
+  .stamp{ display:flex; align-items:center; gap:10px; margin:30px 0 8px; }
+  .stamp .badge{ font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.06em;
+    text-transform:uppercase; padding:5px 9px; border-radius:6px; }
+  .stamp .badge.ltr{ background:#dfe6ee; color:#35485c; }
+  .stamp .badge.rtl{ background:#fbe3e4; color:#8e2a2f; }
+  .stamp .badge.fix{ background:#e2f0e8; color:#155f36; }
+  .stamp .cap{ font-size:13px; color:var(--page-ink-2); }
+  table.map{ width:100%; border-collapse:collapse; font-size:13px; background:var(--page-card);
+    border:1px solid var(--page-border); border-radius:8px; overflow:hidden; }
+  table.map th{ background:#e5eaf0; text-align:start; font-size:11.5px; text-transform:uppercase;
+    letter-spacing:.05em; padding:8px 10px; color:#4a5765; border-bottom:1px solid var(--page-border); }
+  table.map td{ padding:7px 10px; border-bottom:1px solid #eaeef3; vertical-align:top; }
+  table.map tr:last-child td{ border-bottom:none; }
+  table.map code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;
+    background:#eef2f6; padding:1px 5px; border-radius:4px; }
+  .fid{ font:700 11px/1 ui-monospace,SFMono-Regular,Menlo,monospace; background:var(--danger);
+    color:#fff; padding:3px 6px; border-radius:5px; display:inline-block; }
+  .ok{ color:#155f36; font-weight:700; }
+  .tablescroll{ overflow-x:auto; }
+  .note{ background:var(--page-card); border:1px solid var(--page-border);
+    border-inline-start:3px solid var(--primary); border-radius:8px; padding:12px 14px;
+    font-size:13.5px; line-height:1.6; margin:12px 0; }
+  .note.warnbox{ border-inline-start-color:var(--danger); }
+  .note.askbox{ border-inline-start-color:var(--attention); }
+  .note b{ color:#22303d; }
+  .legend{ display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:var(--page-ink-2); margin:10px 0 18px; }
+  .bidi-demo{ background:var(--page-card); border:1px solid var(--page-border); border-radius:8px;
+    padding:14px; margin:12px 0; }
+  .bidi-demo .row{ display:grid; grid-template-columns:150px 1fr 1fr; gap:10px; align-items:center;
+    padding:7px 0; border-bottom:1px solid #eef2f6; font-size:13px; }
+  .bidi-demo .row:last-child{ border-bottom:none; }
+  .bidi-demo .row.head{ font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--page-ink-2); font-weight:700; }
+  .bidi-demo .cellbox{ border:1px solid var(--page-border); border-radius:6px; padding:6px 9px;
+    background:#fafbfc; font-variant-numeric:tabular-nums; }
+  .bidi-demo .cellbox.broke{ border-color:var(--danger-border); background:var(--danger-050); }
+  .bidi-demo .cellbox.fixed{ border-color:var(--success-border); background:var(--success-050); }
+  .bidi-demo .cellbox .iso{ direction:ltr; unicode-bidi:isolate; }
+</style></head><body>
+
+<div class="wrap">
+  <h1 class="title">RTL mirroring of the reworked layout</h1>
+  <p class="lede">Ticket <b>080</b> of map 068. The 073 device is authored <b>once</b> in a
+  <code>&lt;template&gt;</code> and stamped three times — only <code>dir</code> and a
+  <code>.repaired</code> class differ between stamps. Any difference between A and B that is not a
+  deliberate mirror is a fault; the eight found are indexed in §2 and each is repaired in C.</p>
+  <p class="lede"><b>Stacked, not literally side by side.</b> Two devices in a 1280&nbsp;px column are
+  ~620&nbsp;px each, which trips 073's <code>max-width:900px</code> breakpoint and collapses the rail —
+  hiding the very two-column faults this ticket exists to find. Full-width stamps keep the desktop
+  layout under test.</p>
+  <p class="lede"><b>Copy stays Latin</b> — the map rules Arabic translation content out of scope.
+  Latin text in an RTL frame exposes every layout fault, and it keeps the visual diff against 073
+  readable.</p>
+  <div class="legend">
+    <span><span class="fid">F3</span> = a numbered fault, marked in place on device B</span>
+    <span>·&nbsp; payload is 073's synthetic payload, unchanged</span>
+  </div>
+
+  <!-- ============================================================ -->
+  <div class="stamp">
+    <span class="badge ltr">A · dir=ltr</span>
+    <span class="cap">The reference. This is 073 exactly as it stands.</span>
+  </div>
+  <div id="slot-a"></div>
+
+  <div class="stamp">
+    <span class="badge rtl">B · dir=rtl · as built</span>
+    <span class="cap">Same markup, flipped. Faults live and numbered.</span>
+  </div>
+  <div id="slot-b"></div>
+
+  <div class="stamp">
+    <span class="badge fix">C · dir=rtl · repaired</span>
+    <span class="cap">Same markup again, with §2's fixes applied. Compare against A.</span>
+  </div>
+  <div id="slot-c"></div>
+
+  <!-- ============================================================ -->
+  <h2 class="sec">1 · What mirrored for free</h2>
+  <p class="lede">The headline result: <b>logical-tailwind carried nearly all of it.</b> 073 was
+  written to the rule and the rule paid out. Everything below flipped correctly with zero work, and
+  is listed so the spec can state it as verified rather than assumed.</p>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:27%">Element</th><th style="width:32%">Mechanism</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Summary rail ↔ work area</td><td><code>grid-template-columns:340px 1fr</code> + <code>border-inline-end</code></td>
+        <td class="ok">Rail moves to the right, its divider with it. The 340&nbsp;px track follows <code>dir</code> — grid columns are laid out in inline order.</td></tr>
+      <tr><td>Pill rail pinning</td><td><code>.railend{margin-inline-start:auto}</code></td>
+        <td class="ok"><b>Survives, as asked.</b> <i>All statuses</i> / <i>Refresh</i> pin to the left in RTL, and pills wrap from the right edge. The <code>Status</code> label leads correctly.</td></tr>
+      <tr><td>Action-bar terminal pair</td><td><code>.ab-primary{margin-inline-start:auto}</code></td>
+        <td class="ok">Pins to bottom-left in RTL. Whether that is <i>wanted</i> is Q2 in §7 — mechanically it works.</td></tr>
+      <tr><td>Active-tab underline</td><td><code>.tab.on::after{inset-inline:0}</code></td>
+        <td class="ok">Spans the tab in both directions.</td></tr>
+      <tr><td>Card accent bars</td><td>flex child, <code>gap</code></td>
+        <td class="ok">3&nbsp;px vertical bar, flow-positioned — leads the heading on whichever side the heading starts. No physical rule involved.</td></tr>
+      <tr><td>Identity-band gradient</td><td><code>linear-gradient(180deg,…)</code></td>
+        <td class="ok"><b>Direction-neutral, confirmed.</b> Vertical axis only; nothing to mirror.</td></tr>
+      <tr><td>Table alignment</td><td><code>text-align:start/end</code> on <code>th</code>/<code>td</code></td>
+        <td class="ok">Column order reverses (Description leads from the right), text columns stay start-aligned, figures stay end-aligned.</td></tr>
+      <tr><td>Sub-id run, pill order, cluster order</td><td>flex inline order</td>
+        <td class="ok">All reverse, preserving reading order. Q2 asks whether cluster order <i>should</i>.</td></tr>
+      <tr><td>Rx/OTC tag, tab counts, cluster labels</td><td><code>margin-inline-start</code>, <code>padding-inline-start</code></td>
+        <td class="ok">Already logical in 073.</td></tr>
+      <tr><td>Terminal-button drop shadow</td><td><code>box-shadow:0 2px 0</code></td>
+        <td class="ok">Vertical offset only — the one <code>box-shadow</code> in the device that is legitimately direction-neutral. Contrast F4.</td></tr>
+      <tr><td>Items-grid horizontal scroll</td><td><code>overflow:auto</code> on <code>.gridwrap</code></td>
+        <td class="ok">Browser starts the scroll at the right edge under RTL. Native, nothing to do.</td></tr>
+    </tbody>
+  </table></div>
+
+  <!-- ============================================================ -->
+  <h2 class="sec">2 · The eight faults</h2>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:6%">#</th><th style="width:27%">Fault</th><th style="width:33%">Why it fails</th><th>Fix (applied in device C)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span class="fid">F1</span></td>
+        <td><b>Customer block uses <code>margin-left:auto</code></b><br><code>.hdr .cust</code></td>
+        <td><b>Latent</b>, not visible above: <code>.ids</code> has <code>flex:1 1 320px</code> so it eats the free space and the auto margin is inert. It bites the moment the band <b>wraps</b> — a lone wrapped flex item with <code>margin-left:auto</code> is pushed to the physical right, which under RTL is the <i>start</i>. Narrow this page past ~900&nbsp;px to see it, and note the media query repeats the violation with <code>margin-left:0</code>.</td>
+        <td><code>margin-inline-start:auto</code> (and <code>:0</code> in the query). A direct rule violation that logical-tailwind's grep would have caught.</td>
+      </tr>
+      <tr>
+        <td><span class="fid">F2</span></td>
+        <td><b>Back chevron does not mirror</b><br><code>.hdr .back</code> — <b>only when it is an SVG</b></td>
+        <td>"Back" means <i>against the reading direction</i>; in RTL that is rightward. An SVG path has no direction sense, so it keeps pointing left — i.e. <b>forward</b>. This is the one genuinely direction-<i>dependent</i> visual in the device, and it inverts the rule's stated exception: it does not need a physical utility to stay put, it needs an explicit flip to move.<br><br><b>⚠ The trap, found by measuring.</b> This prototype originally drew the chevron as the character <code>‹</code> (U+2039) — which is in Unicode's <b>Bidi_Mirrored</b> set and <b>flips for free</b> under RTL. With a text glyph the fault is invisible <i>and</i> the obvious fix double-mirrors it back to wrong. The device now draws lucide's actual <code>ChevronLeft</code> path so it demonstrates what the app really does.</td>
+        <td><code>[dir="rtl"] .back svg{transform:scaleX(-1)}</code> — Tailwind <code>rtl:-scale-x-100</code>. Scope it to the <b>icon</b>, never the 28&nbsp;px chrome, and <b>never to a mirroring punctuation character</b>.</td>
+      </tr>
+      <tr>
+        <td><span class="fid">F3</span></td>
+        <td><b>Space-separated numeric runs reorder</b><br>phones, date-times, ranges, the totals footer</td>
+        <td><b>The largest fault, and invisible to the logical-tailwind grep</b> — it is not CSS at all, it is Unicode bidi. Measured, not predicted (§3): <code>+966 55 018 7712</code> renders as <code>7712 018 55 +966</code> — the failure mode the ticket named, to the character. <code>font-variant-numeric:tabular-nums</code> does <b>nothing</b> here — it sets glyph advance width, not character order.</td>
+        <td>Isolate the whole value: <code>direction:ltr; unicode-bidi:isolate</code>, i.e. <code>&lt;bdi dir="ltr"&gt;</code>. §3 measures exactly which values need it — it is a <b>much shorter list</b> than it first appears.</td>
+      </tr>
+      <tr>
+        <td><span class="fid">F4</span></td>
+        <td><b>Selected-row accent bar stays left</b><br><code>tr.sel{box-shadow:inset 3px 0 0}</code></td>
+        <td><code>box-shadow</code> offsets are <b>physical and have no logical form</b>. The bar sits against the left edge while the row now reads from the right, so it marks the <i>trailing</i> edge. <b>073's §7 mapping table calls this treatment logical and says it "mirrors in RTL for free" — that claim is wrong</b>; it describes <code>inset-inline-start</code>, but the prototype implements <code>box-shadow</code>.</td>
+        <td>The pseudo-element form 074 already specified: <code>::after</code> with <code>inset-inline-start:0</code> + <code>inset-block:0</code>. <b>074's grid CSS escape was already correct</b> — only 073's HTML twin and its prose need fixing.</td>
+      </tr>
+      <tr>
+        <td><span class="fid">F5</span></td>
+        <td><b>Grid-frame notch stays top-left</b><br><code>.gridwrap{border-radius:0 9px 9px 9px}</code></td>
+        <td>The square corner exists to meet the active tab. The tab strip mirrors, so the tab moves to the top-right — and the notch does not follow, leaving a rounded corner under the tab and a square corner in open air.</td>
+        <td><code>border-radius:9px; border-start-start-radius:0</code>. Identical output under LTR, correct under RTL.</td>
+      </tr>
+      <tr>
+        <td><span class="fid">F6</span></td>
+        <td><b><code>enableRtl</code> is set on 1 grid of 7</b><br><code>BonusBuyInquiryPage.tsx:206</code></td>
+        <td>Three problems in one line. It is a per-call-site prop set on exactly one of seven <code>AgGridReact</code> mounts; it reads <code>document.documentElement.dir</code>, which <b>nothing in the app ever sets</b>, so it is permanently <code>false</code>; and it is read during render with no subscription, so a later direction switch would not re-render the grid. See §5.</td>
+        <td>One derived value beside the theme, spread into every grid. §5 gives the shape.</td>
+      </tr>
+      <tr>
+        <td><span class="fid">F7</span></td>
+        <td><b>Decorative arrows: no ruling</b><br><code>↗</code> track/view, <code>↻</code> refresh, <code>▾</code></td>
+        <td>Not a bug — an <b>unmade decision</b> that will otherwise be made accidentally by whoever types the icon. Each needs an explicit mirror/no-mirror ruling, because CSS will not decide for them.</td>
+        <td>§4 rules each one. Only <code>↗</code> is a real judgement call.</td>
+      </tr>
+      <tr>
+        <td><span class="fid">F8</span></td>
+        <td><b>No direction wiring exists</b><br><code>&lt;html dir&gt;</code> is never set</td>
+        <td>The app is en-only and <code>core/i18n.ts</code> comments that Arabic will be "a locale folder + <code>dir="rtl"</code>". But nothing sets <code>dir</code> today, so <b>there is no switch to test against</b> and F6's probe is dead code. This prototype had to force <code>dir</code> by hand.</td>
+        <td>Out of scope to <i>build</i> the switch (Q3, §7) — but the spec should name the single place it will live, so F6's derived value has something to read.</td>
+      </tr>
+    </tbody>
+  </table></div>
+  <div class="note warnbox">
+    <b>Five of the eight are one-line CSS fixes that are byte-identical under LTR.</b> F1, F4 and F5
+    can land in 073's build ticket with no RTL switch in existence and no visual change to the shipping
+    LTR screen — they are simply the correct spelling of rules already written. F2, F3 and F7 need
+    rulings; F6 and F8 are wiring.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="sec">3 · F3 in detail — the bidi fault</h2>
+  <p class="lede">The ticket asked whether <code>tabular-nums</code> plus the browser's bidi algorithm
+  is enough. <b>It is not, and the two are unrelated.</b> Below, every value is rendered inside an RTL
+  paragraph: left column untreated, right column isolated. This is live text, not a screenshot.</p>
+  <p class="lede"><b>These verdicts are measured, not reasoned.</b> Every value below was rendered
+  headless inside an RTL paragraph next to an Arabic label — the real case — and its <i>visual</i>
+  token order read back off the client rects and compared to source. The result overturned two guesses
+  in this prototype's own first draft, so trust the table over the intuition.</p>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:19%">Field</th><th style="width:25%">Source</th><th style="width:12%">Verdict</th><th>Rendered under RTL</th></tr></thead>
+    <tbody>
+      <tr><td>Header / customer phone</td><td><code>+966 55 018 7712</code></td>
+        <td><span class="fid">BREAKS</span></td><td><code>7712 018 55 +966</code> — groups reverse, <code>+</code> stays welded to <code>966</code>.</td></tr>
+      <tr><td>Placed</td><td><code>24 Jul 2026 · 15:42</code></td>
+        <td><span class="fid">BREAKS</span></td><td><code>Jul 2026 · 15:42 24</code> — the leading day detaches and lands at the far end.</td></tr>
+      <tr><td>Scheduled range</td><td><code>24 Jul 16:00 – 18:00</code></td>
+        <td><span class="fid">BREAKS</span></td><td><code>Jul 16:00 – 18:00 24</code> — same detachment.</td></tr>
+      <tr><td><b>Totals footer</b></td><td><code>4 lines · 7 units</code></td>
+        <td><span class="fid">BREAKS</span></td><td><code>lines · 7 units 4</code> — <b>not in this prototype's first draft.</b> The pinned bottom row is a bidi hazard too; see the note below.</td></tr>
+      <tr><td>Slot</td><td><code>Thu · 4–6 PM</code></td>
+        <td class="ok">safe</td><td>Unchanged — it <i>begins</i> with a Latin word, so the run holds together.</td></tr>
+      <tr><td>e-Rx ref</td><td><code>ERX-77120934</code></td>
+        <td class="ok">safe</td><td>Unchanged. <b>No internal space</b> — the hyphen alone does not split it.</td></tr>
+      <tr><td>Tracking id</td><td><code>SMSA-91180442</code></td>
+        <td class="ok">safe</td><td>Unchanged, same reason.</td></tr>
+      <tr><td>Approval no.</td><td><code>1180-4471</code></td>
+        <td class="ok">safe</td><td>Unchanged.</td></tr>
+      <tr><td>Address line</td><td><code>RQAA3948, Tower 3</code></td>
+        <td class="ok">safe</td><td>Unchanged — spaces, but it begins with a Latin token.</td></tr>
+      <tr><td>documentNo · loyalty id</td><td><code>1000000393</code></td>
+        <td class="ok">safe</td><td>Bare digit run.</td></tr>
+      <tr><td>Money, incl. negative</td><td><code>240.70</code> · <code>-9.20</code></td>
+        <td class="ok">safe</td><td>Bare number; the decimal point is a Common Separator between digits, the sign a European Terminator.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <b>The rule, measured.</b> A value breaks when it contains a <b>space</b> and <b>begins or ends
+    with a digit</b>. Nothing else does. Specifically: bidi rule N1 resolves a neutral sitting between
+    two same-direction strong characters to that direction — but it treats digits as
+    <i>right</i>-directional for that test, so a <b>space</b> beside a digit takes the paragraph's RTL
+    direction and cuts the run there. A hyphen, comma, decimal point or plus sign does <b>not</b> —
+    which is why <code>ERX-77120934</code>, <code>1180-4471</code> and <code>-9.20</code> all survive
+    untouched. <b>The space is the culprit, not the punctuation.</b><br><br>
+    <b>This makes the fix much smaller than feared.</b> Ids, money, tracking codes and loyalty numbers
+    — the bulk of the screen's figures — need <i>nothing</i>. The list is: <b>phones (×3), Placed,
+    Scheduled, and the grid's totals footer.</b> Six fields, not the dozen the first draft assumed.
+  </div>
+  <div class="note warnbox">
+    <b>Wrap the whole value, never a fragment of a run.</b> Measured the hard way: isolating just
+    <code>SMSA-91180442</code> inside <code>↗ Track SMSA-91180442</code> <i>created</i> a fault —
+    it split an all-Latin run in two and the RTL paragraph then ordered the halves right-to-left,
+    putting the id before its verb. Isolation is safe on a complete value and dangerous on a piece of
+    one. (In the shipped screen the label will be Arabic, so the value is a genuine LTR island and the
+    question does not arise — but the rule is worth stating, because it is the mistake a developer
+    makes when they see the fault and reach for the nearest span.)<br><br>
+    Over-application is otherwise free: isolating a value that was already correct never breaks it.
+    So the reviewable rule can stay dumb — <b>"server value mixing digits and spaces ⇒ wrap it"</b> —
+    rather than asking anyone to run N1 in their head.
+  </div>
+  <div class="note">
+    <b>The totals footer lands on 074, not here.</b> <code>4 lines · 7 units</code> is a
+    <code>pinnedBottomRowData</code> cell, which 074 already specified via the <code>pinnedRow*</code>
+    params. It is the one bidi fault that is <i>inside</i> the grid rather than in our own markup, so
+    it needs the <code>cellClass</code> form of the fix, not the <code>&lt;bdi&gt;</code> component.
+    Flagged back to 074's mapping as a follow-up.
+  </div>
+  <div class="note">
+    <b>Recommended mechanism: <code>&lt;bdi dir="ltr"&gt;</code>, not a CSS class.</b> <code>&lt;bdi&gt;</code>
+    is <code>unicode-bidi:isolate</code> by construction, so the isolation survives a stylesheet that
+    fails to load, and <code>dir="ltr"</code> forces the internal order rather than guessing it from
+    first-strong. Proposed shape — one component in the shared layer, since every feature's ids and
+    phones need it:<br><br>
+    <code>src/core/ui/Ltr.tsx</code> → <code>&lt;bdi dir="ltr" className="tabular-nums"&gt;{children}&lt;/bdi&gt;</code><br><br>
+    It renders a value, never a label, so it is <b>outside</b> zero-literal i18n's remit — the text
+    inside it is server data passed through as data. Six call sites on this screen (§3).<br><br>
+    Inside AG Grid the same treatment arrives as a <code>cellClass</code> carrying
+    <code>direction:ltr; unicode-bidi:isolate</code> — a cell is already its own element, so no wrapper
+    is needed. Per §3 the <b>only</b> grid cell that needs it is the pinned totals row; the id, money
+    and quantity columns are all measured safe.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="sec">4 · F7 — the icon mirroring rulings</h2>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:14%">Icon</th><th style="width:20%">Where</th><th style="width:16%">Ruling</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td><code>‹</code> back<br><i>(lucide <code>ChevronLeft</code>)</i></td><td>Identity band</td><td><b>Mirror</b></td>
+        <td>Depicts movement <i>against</i> reading order. Universal in every bidi guideline; the one non-negotiable flip on this screen. <b>But mirror the SVG, and only the SVG</b> — see F2's trap: the lookalike character <code>‹</code> already mirrors itself and must be left alone.</td></tr>
+      <tr><td><code>↻</code> refresh</td><td>End of pill rail</td><td><b>Do not mirror</b></td>
+        <td>A closed loop. Its handedness encodes nothing about reading order, and flipping it makes it read as "undo" in some conventions. Leave it.</td></tr>
+      <tr><td><code>▾</code> disclosure</td><td><i>All statuses</i></td><td><b>Do not mirror</b></td>
+        <td>Vertical axis. Nothing to flip.</td></tr>
+      <tr><td><code>⚡</code> Dawaa Now</td><td>Identity band tag</td><td><b>Do not mirror</b></td>
+        <td>A pictogram, not a direction.</td></tr>
+      <tr><td><code>↗</code> external link</td><td>e-Rx + tracking links</td><td><b>Mirror → <code>↖</code></b><br><i>(low confidence)</i></td>
+        <td><b>The only genuine judgement call.</b> It reads as "leaves the page, outward" — outward is away from the text's start edge, which mirrors. Guidance across design systems is split on this one, so it is flagged rather than asserted; see Q4 in §7. Cheap either way, and cheap to reverse.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warnbox">
+    <b>Glyph or SVG decides whether you must act at all.</b> Unicode's <code>Bidi_Mirrored</code>
+    property makes a small set of characters flip themselves under RTL — <code>‹ › ( ) [ ] &lt; &gt;</code>
+    and friends. Everything else does not: <code>↗</code>, <code>↻</code>, <code>←</code> and
+    <b>every SVG path</b> render identically in both directions. Verified here by rendering
+    <code>‹</code>, <code>←</code> and an SVG chevron side by side in an RTL run: the first flipped,
+    the other two did not.<br><br>
+    <b>So the rule for reviewers is:</b> if an icon should mirror, ship it as an SVG and flip it
+    explicitly. Never rely on a punctuation character to be an icon — it either flips when you did not
+    ask, or gets flipped twice when you did.
+  </div>
+  <div class="note">
+    <b>This is the "genuinely direction-dependent visual" the rule asks to be commented.</b>
+    logical-tailwind's exception clause covers a visual that must <i>not</i> mirror; the back chevron is
+    the mirror image of that problem — it must mirror and CSS will not do it. Either way the rule's
+    requirement is the same: a comment saying why. Proposed comment for the one flip:
+    <code>/* reading-order icon: "back" points against the text direction, so it mirrors */</code>
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="sec">5 · F6 — how <code>enableRtl</code> should be set</h2>
+  <p class="lede">The ticket asked: per-grid prop, or theme-level? <b>Neither, exactly.</b> AG Grid v36
+  exposes <code>enableRtl</code> as a <i>grid option</i>, not a theme param — a theme cannot carry it,
+  so "theme-level" is not available. But seven hand-written props is the shape that produced today's
+  one-of-seven drift. The answer is <b>one derived value, exported beside the theme, spread into every
+  grid.</b></p>
+  <div class="note">
+    <b>Today, verbatim:</b> <code>enableRtl={document.documentElement.dir === 'rtl'}</code> —
+    <code>BonusBuyInquiryPage.tsx:206</code>, the only occurrence in the repo. The other six grids
+    (<code>DeliveriesPage</code>, <code>DetailGrid</code>, <code>ChangeStoreDialog</code> ×2,
+    <code>SimBonusBuyPanel</code>, and the reworked Items grid) do not set it at all.<br><br>
+    <b>Proposed:</b> a single <code>useGridDirection()</code> (or a plain exported constant, if Q3
+    rules the direction static) living next to <code>omsGridTheme</code> in
+    <code>src/core/theme/ag-grid-theme.ts</code>, read from the same source of truth that sets
+    <code>&lt;html dir&gt;</code> — <b>not</b> from <code>document.documentElement</code>, which is a DOM
+    read with no subscription. Every <code>AgGridReact</code> then carries the same one prop, and the
+    BBY call site's bespoke probe is deleted.
+  </div>
+  <p class="lede">Everything <i>inside</i> the grid then mirrors itself — 074 already confirmed this by
+  reading the v36 stylesheet: AG guards its own directional rules with <code>.ag-ltr</code> /
+  <code>.ag-rtl</code>, so column order, pinned sides, header sort arrows and scroll direction flip
+  without a class from us. That is exactly the boundary logical-tailwind draws around third-party
+  widget internals, now verified. <b>The single piece of hand-written grid CSS —</b> 074's
+  <code>.ag-row-selected::after{inset-inline-start:0}</code> <b>— is logical by construction and
+  mirrors correctly</b>, as device C demonstrates in its HTML-table form. F4 is a fault in 073's
+  prototype and prose, not in 074's specification.</p>
+
+  <!-- ============================================================ -->
+  <h2 class="sec">6 · What this does <i>not</i> settle</h2>
+  <div class="note">
+    <b>Copy, deliberately.</b> No Arabic string is in this prototype and none should be — the map rules
+    translation content out of scope. What that leaves genuinely unknown is <b>text metrics</b>: Arabic
+    at the same point size is taller and often wider than Latin, which will pressure the 340&nbsp;px
+    rail, the 10.5&nbsp;px uppercase card headings (uppercase is meaningless in Arabic — it will simply
+    not apply), and the <code>white-space:nowrap</code> on table headers. That is a <b>copy-era</b>
+    problem, not a layout-mirroring one, and it belongs to whatever effort ships Arabic.<br><br>
+    <b>Not tested:</b> the collapsed &lt;900&nbsp;px layout under RTL beyond F1 (the rail unstack is
+    <code>auto-fit</code>, direction-neutral), and keyboard/focus order (DOM order is unchanged by
+    <code>dir</code>, so it follows the visual mirror for free).
+  </div>
+  <div class="note">
+    <b>An artifact worth naming, because it looks like a bug and is not one.</b> Look at the rail in
+    devices B and C: <code>Approval no.</code> renders as <code>.Approval no</code>, <code>Item no.</code>
+    as <code>.Item no</code>, <code>Disc.</code> as <code>.Disc</code>. A trailing full stop is a
+    <i>neutral</i> at the end of a Latin run, so in an RTL paragraph it takes the paragraph's direction
+    and jumps to the visual start.<br><br>
+    This is <b>not a layout fault and needs no fix</b> — it is the Latin-copy method showing its edge.
+    In the shipped screen those labels come from <code>t()</code> and will be Arabic, i.e. RTL runs whose
+    trailing punctuation sits correctly with no help. It is recorded here only so the next reader does
+    not open a ticket for it. <b>It does mean one thing for the copy effort:</b> if any label is ever
+    left in Latin under an Arabic locale — a product name, a code, an untranslated string — it will show
+    this, and the answer there is the same <code>&lt;bdi&gt;</code> treatment §3 specifies for values.
+  </div>
+
+  <!-- ============================================================ -->
+  <h2 class="sec">7 · The four rulings — all taken</h2>
+  <p class="lede"><b>Owner ruled all four this session, each as recommended.</b> They are premises now,
+  not questions; the reasoning is kept below because the spec will need it.</p>
+  <div class="note askbox">
+    <b>Q1 · The identity band's split. → RULED: let it mirror.</b> Big line + sub-ids start-side,
+    customer block end-side — mirrored, the customer lands on the <b>left</b>. The band is a
+    two-column "what is this / whose is it" split, and both halves are read start-first in their own
+    direction. Anchoring the customer to the physical right in RTL would freeze one half of a mirrored
+    band against the flip and buy nothing — the block is end-aligned <i>relative to its own text</i>,
+    which is what <code>text-align:end</code> already gives.
+  </div>
+  <div class="note askbox">
+    <b>Q2 · The action bar, and cluster order. → RULED: both mirror.</b> The terminal red pair lands
+    bottom-<b>left</b>. 072's grammar is <i>escape-start · clusters ·
+    terminal-end</i> — it is stated in logical terms, so "commit-right" was always shorthand for
+    "commit-end". Freezing the terminal pair on the right would put it on the same side as the mirrored
+    pill rail's start and break the one spatial promise the bar makes.<br><br>
+    <b>And yes, clusters reverse too</b> — that is what flex gives for free, and it is <i>first-by-reading-order</i>,
+    not Fulfilment-always-leftmost. An operator scanning from the start edge meets Fulfilment first in
+    both directions, which is the invariant worth keeping; "leftmost" is not.
+  </div>
+  <div class="note askbox">
+    <b>Q3 · How much of this lands now? → RULED: (b) fixes + bidi.</b> The <code>dir</code> switch and
+    F6's derived value are <b>not</b> built now; F6/F8 stay recorded so the spec names where they will
+    live. The three options as weighed:
+    <br>· <b>(a) Fixes only</b> — F1/F4/F5 spelled correctly in the 073 build, F2/F3/F7 rulings recorded
+    in the spec, no <code>dir</code> switch, no <code>&lt;bdi&gt;</code> component. Nearly free; leaves
+    F3 as a documented debt.
+    <br>· <b>(b) Fixes + bidi</b> <i>(recommended)</i> — also ship <code>core/ui/Ltr.tsx</code> and use
+    it on the <b>six</b> fields §3 measured. Costs one small component and six wrappers, and it is
+    <b>invisible under LTR</b>, so it can never regress the shipping screen. The reason to do it now:
+    these wrappers must go on the exact fields 073/079/081 are defining <i>this month</i> — doing it
+    later means re-reading every one of them.
+    <br>· <b>(c) All of it</b> — plus the <code>dir</code> switch and F6's derived value. Buys a
+    testable RTL mode, but builds a switch with no locale behind it.
+  </div>
+  <div class="note askbox">
+    <b>Q4 · Does <code>↗</code> mirror? → RULED: yes, to <code>↖</code>.</b> Consistent with the back
+    chevron's "direction is relative to reading order" logic. Design-system guidance genuinely splits
+    here, so this is the one ruling on the page held with low confidence — and it is a two-character
+    change, trivially reversible if it reads wrong once Arabic copy is in.<br><br>
+    <b>Note it is not a free flip.</b> Per §4, <code>↗</code> (U+2197) is <b>not</b> in Unicode's
+    <code>Bidi_Mirrored</code> set, so this ruling costs an explicit <code>rtl:-scale-x-100</code> on the
+    icon — the same treatment as the back chevron, and subject to the same "SVG, not a glyph" rule.
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<!-- The device, authored once. Stamped three times below. -->
+<template id="device-tpl">
+  <div class="device">
+
+    <!-- ============ identity band ============ -->
+    <div class="hdr">
+      <!-- Inline SVG, not a '‹' glyph — deliberately. U+2039 is in Unicode's Bidi_Mirrored
+           set and flips for free under RTL, which HIDES this fault. lucide ships SVG paths,
+           which do not. See F2. -->
+      <div class="backwrap"><span class="back"><svg viewBox="0 0 24 24" width="15" height="15"
+        fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+        stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></span><span class="fmark">F2</span></div>
+      <div class="ids">
+        <div class="idline">
+          <span class="docno">1000000393</span>
+          <span class="lozenge">Overall <span class="code">RDY</span></span>
+          <span class="nowtag">⚡ Dawaa Now</span>
+        </div>
+        <div class="subids">
+          <span>Order <b class="tnum">4510098231</b></span>
+          <span>Type <b>Call Center</b></span>
+          <span>Delivery doc <b>Pick-In-Store Erx</b></span>
+          <span>Placed <b class="tnum bidi">24 Jul 2026 · 15:42</b><span class="fmark">F3</span></span>
+          <span>Store <b class="tnum">1042</b></span>
+        </div>
+      </div>
+      <div class="cust">
+        <div class="nm">Fatimah Al-Otaibi<span class="fmark">F1</span></div>
+        <div class="ph"><span class="bidi">+966 55 018 7712</span> · Riyadh<span class="fmark">F3</span></div>
+      </div>
+    </div>
+
+    <!-- ============ status pill rail ============ -->
+    <div class="pills">
+      <span class="lab">Status</span>
+      <span class="pill ok"><span class="dot"></span>Ready</span>
+      <span class="pill ok"><span class="dot"></span>Fully available</span>
+      <span class="pill ok"><span class="dot"></span>Approved</span>
+      <span class="pill ok"><span class="dot"></span>Paid</span>
+      <span class="pill go"><span class="dot"></span>Out for delivery</span>
+      <span class="pill mute"><span class="dot"></span>No cancellation</span>
+      <span class="railend">
+        <button class="quietbtn">All statuses <span class="tnum">13</span> ▾</button>
+        <button class="quietbtn">↻ Refresh</button>
+      </span>
+    </div>
+
+    <!-- ============ body ============ -->
+    <div class="body">
+
+      <!-- ---- summary rail ---- -->
+      <div class="rail">
+
+        <div class="card">
+          <h4><span class="accentbar"></span>Customer</h4>
+          <dl class="kv">
+            <dt>Name</dt><dd>Fatimah Al-Otaibi</dd>
+            <dt>Mobile</dt><dd class="tnum"><span class="bidi">+966 55 018 7712</span><span class="fmark">F3</span></dd>
+            <dt>Loyalty ID</dt><dd class="tnum">300114872</dd>
+            <dt>City</dt><dd>Riyadh</dd>
+            <dt>Address</dt><dd class="soft">Al Olaya, King Fahd Rd<br>RQAA3948, Tower 3</dd>
+          </dl>
+        </div>
+
+        <div class="card presc">
+          <h4><span class="accentbar"></span>Prescription (e-Rx)</h4>
+          <dl class="kv">
+            <dt>Approval no.</dt><dd class="tnum">1180-4471</dd>
+            <dt>Patient ID</dt><dd class="tnum">1098447122</dd>
+            <dt>Clinician</dt><dd>Dr. Sami Nasser</dd>
+            <dt>e-Rx ref</dt><dd class="tnum">ERX-77120934</dd>
+          </dl>
+          <div class="linkline"><a href="#" class="link">↗ View prescription</a><span class="fmark">F7</span></div>
+        </div>
+
+        <div class="card">
+          <h4><span class="accentbar"></span>Fulfilment</h4>
+          <dl class="kv">
+            <dt>Type</dt><dd>Pick In Store</dd>
+            <dt>Store</dt><dd class="tnum">1042</dd>
+            <dt>Slot</dt><dd>Thu · 4–6 PM</dd>
+            <dt>Scheduled</dt><dd class="tnum"><span class="bidi">24 Jul 16:00 – 18:00</span><span class="fmark">F3</span></dd>
+            <dt>Last note</dt><dd class="soft">Call on arrival, gate code 4471</dd>
+          </dl>
+        </div>
+
+        <div class="card driver">
+          <h4><span class="accentbar"></span>Driver &amp; tracking</h4>
+          <dl class="kv">
+            <dt>Courier</dt><dd>SMSA</dd>
+            <dt>Driver</dt><dd>Khalid Al-Harbi</dd>
+            <dt>Mobile</dt><dd class="tnum"><span class="bidi">+966 50 442 1180</span></dd>
+            <dt>Approved</dt><dd>Yes</dd>
+          </dl>
+          <!-- NOT wrapped: SMSA-91180442 is measured safe, and isolating a fragment of an
+               all-Latin run creates a fault rather than fixing one (§3). -->
+          <div class="linkline"><a href="#" class="link">↗ Track SMSA-91180442</a></div>
+        </div>
+
+        <div class="card">
+          <h4><span class="accentbar"></span>Payment</h4>
+          <div class="totline"><span>Payment type</span><span>Prepaid · Card</span></div>
+          <div class="totline"><span>Delivery fees</span><span class="amt">15.00</span></div>
+          <div class="totline"><span>Paid</span><span class="amt">240.70</span></div>
+          <div class="totline"><span>Amount due</span><span class="amt">0.00</span></div>
+          <div class="totline big"><span>Net total</span><span class="amt">240.70</span></div>
+        </div>
+      </div>
+
+      <!-- ---- work area ---- -->
+      <div class="work">
+        <div class="tabs">
+          <div class="tab on">Items <span class="cnt">4</span></div>
+          <div class="tab">Header Conditions <span class="cnt">2</span></div>
+          <div class="tab">Log <span class="cnt">11</span></div>
+          <div class="tab">Jobs <span class="cnt warncnt">1 failed</span></div>
+          <span class="fmark">F5</span>
+        </div>
+
+        <div class="gridwrap">
+          <table class="items">
+            <thead>
+              <tr>
+                <th class="l">Description</th><th class="l">Item no.</th>
+                <th>Price</th><th>Qty</th><th>Disc.</th>
+                <th>Amount</th><th>VAT</th><th>Net</th>
+                <th class="l">Need tx</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="sel">
+                <td class="l"><span class="fmark">F4</span>Panadol Extra 24 Tab <span class="mtag otc">OTC</span></td>
+                <td class="l tnum">65200145</td>
+                <td>12.00</td><td>2</td><td>0.00</td>
+                <td>24.00</td><td>3.60</td><td class="netcol">27.60</td><td class="l">No</td>
+              </tr>
+              <tr>
+                <td class="l">Augmentin 1g 14 Tab <span class="mtag rx">Rx</span></td>
+                <td class="l tnum">65200783</td>
+                <td>48.50</td><td>1</td><td>0.00</td>
+                <td>48.50</td><td>7.28</td><td class="netcol">55.78</td><td class="l">No</td>
+              </tr>
+              <tr>
+                <td class="l">Nexium 40mg 28 Tab <span class="mtag rx">Rx</span></td>
+                <td class="l tnum">65201120</td>
+                <td>92.00</td><td>1</td><td class="disc">9.20</td>
+                <td>82.80</td><td>12.42</td><td class="netcol">95.22</td><td class="l">Yes</td>
+              </tr>
+              <tr>
+                <td class="l">Vitamin D3 60,000 IU <span class="mtag otc">OTC</span></td>
+                <td class="l tnum">65200560</td>
+                <td>18.00</td><td>3</td><td>0.00</td>
+                <td>54.00</td><td>8.10</td><td class="netcol">62.10</td><td class="l">No</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="amtfoot">
+                <td class="l" colspan="5"><span class="bidi">4 lines · 7 units</span><span class="fmark">F3</span></td>
+                <td>209.30</td><td>31.40</td><td>240.70</td><td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- ---- action bar ---- -->
+        <div class="actionbar">
+          <div class="ab-clusters">
+            <div class="cluster">
+              <span class="clab">Fulfilment</span>
+              <div class="row">
+                <button class="btn fulfil sm">Reschedule</button>
+                <button class="btn fulfil sm">Change Store</button>
+              </div>
+            </div>
+            <div class="cluster">
+              <span class="clab">Cancellation request</span>
+              <div class="row">
+                <button class="btn cancelreq sm">Request Cancellation</button>
+                <button class="btn cancelreq sm">Withdraw Request</button>
+              </div>
+            </div>
+            <div class="cluster">
+              <span class="clab">Notes &amp; docs</span>
+              <div class="row">
+                <button class="btn ghost sm">Add Note…</button>
+                <button class="btn inert sm">Return Document</button>
+              </div>
+            </div>
+          </div>
+          <div class="ab-primary">
+            <button class="btn terminal override">Force Cancel</button>
+            <button class="btn terminal">Cancel Order</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  // Stamp the SAME template three times. Only `dir` and `.repaired` differ —
+  // that is the whole point of the artifact: any A/B difference is either a
+  // deliberate mirror (§1) or a fault (§2).
+  const tpl = document.getElementById('device-tpl')
+  const stamp = (slotId, dir, repaired) => {
+    const node = tpl.content.firstElementChild.cloneNode(true)
+    node.setAttribute('dir', dir)
+    if (repaired) node.classList.add('repaired')
+    document.getElementById(slotId).appendChild(node)
+  }
+  stamp('slot-a', 'ltr', false)
+  stamp('slot-b', 'rtl', false)
+  stamp('slot-c', 'rtl', true)
+</script>
+</body></html>

@@ -1,0 +1,523 @@
+<!--
+  Prototype asset for .issues/072-command-family-taxonomy.md (map 068).
+  Palette, pill rail and button styles are POS tokens, verbatim from assets/068-pos-detail-reference.html.
+  Rev 2 — corrected: `close` means CANCEL the order, not complete it. There is no positive commit.
+  Head/body wrappers omitted so this file doubles as a publishable artifact body.
+-->
+<title>072 — Command families for the eight document commands</title>
+<style>
+  /* ---- POS design tokens (verbatim from PosTheme.xaml, via the 068 reference) ---- */
+  :root{
+    --accent:#2F63A6; --accent-700:#27538C; --accent-050:#E9EFF7;
+    --key:#586674; --key-press:#495562;
+    --disabled:#E8EDF2; --disabled-ink:#A6B0BA; --disabled-border:#D7DEE6;
+    --surface:#F4F7FA; --panel:#FFFFFF; --panel-2:#FAFBFC;
+    --border:#E3E9F0; --border-strong:#CBD6E2; --divider:#EDF1F5;
+    --ink:#19232E; --ink-2:#586674; --ink-3:#8593A1;
+    --on:#FFFFFF; --on-sub:rgba(255,255,255,.8);
+    --success:#1E874B; --success-050:#E7F3EC;
+    --danger:#C23B41; --danger-050:#FBECEC; --danger-border:#E7BFC1; --danger-800:#8E2A2F;
+    --attention:#B4791F; --attention-050:#F8F0DE;
+    --fam-sales:#2F63A6; --fam-insurance:#0B7C8C; --fam-loyalty:#B4791F;
+    --fam-fulfil:#2E7D5B; --fam-admin:#5D5A93;
+    /* the two we propose to keep, under our own names */
+    --fam-fulfilment:#2E7D5B; --fam-cancel-request:#5D5A93;
+
+    --page:#eef1f5; --page-ink:#31404f; --page-ink-2:#6b7885; --page-card:#ffffff; --page-border:#dbe2ea;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --page:#12171d; --page-ink:#d6dee7; --page-ink-2:#8b98a6; --page-card:#1a2129; --page-border:#28313b; }
+  }
+  :root[data-theme="dark"]{ --page:#12171d; --page-ink:#d6dee7; --page-ink-2:#8b98a6; --page-card:#1a2129; --page-border:#28313b; }
+  :root[data-theme="light"]{ --page:#eef1f5; --page-ink:#31404f; --page-ink-2:#6b7885; --page-card:#ffffff; --page-border:#dbe2ea; }
+
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--page-ink);
+    font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,"Helvetica Neue",Arial,sans-serif; }
+  .wrap{ max-width:1160px; margin:0 auto; padding:36px 24px 90px; display:flex; flex-direction:column; gap:36px; }
+  .tnum{ font-variant-numeric:tabular-nums; }
+
+  h1.title{ font-size:26px; line-height:1.15; margin:0; font-weight:700; letter-spacing:-.01em; text-wrap:balance; }
+  .lede{ max-width:70ch; color:var(--page-ink-2); font-size:14.5px; line-height:1.6; margin:0; }
+  h2.sec{ font-size:12px; text-transform:uppercase; letter-spacing:.1em; font-weight:700;
+    color:var(--page-ink-2); margin:0 0 12px; padding-bottom:7px; border-bottom:1px solid var(--page-border); }
+  .note{ font-size:13px; line-height:1.62; color:var(--page-ink-2); max-width:76ch; margin:0; }
+  .note b, .note strong{ color:var(--page-ink); font-weight:600; }
+  section{ display:flex; flex-direction:column; gap:14px; }
+  code{ font-family:"Cascadia Mono",Consolas,ui-monospace,monospace; font-size:.9em;
+    background:color-mix(in srgb, var(--page-ink) 8%, transparent); padding:1px 5px; border-radius:4px; }
+  .scroller{ overflow-x:auto; }
+
+  /* ---- correction banner ---- */
+  .fix{ background:var(--page-card); border:1px solid var(--page-border); border-inline-start:4px solid var(--danger);
+    border-radius:10px; padding:15px 17px; display:flex; flex-direction:column; gap:9px; }
+  .fix h3{ margin:0; font-size:14.5px; font-weight:700; }
+  .fix p{ margin:0; font-size:13px; line-height:1.6; color:var(--page-ink-2); max-width:76ch; }
+  .fix p b{ color:var(--page-ink); font-weight:600; }
+  table.means{ border-collapse:collapse; font-size:12.5px; }
+  table.means td{ padding:5px 16px 5px 0; vertical-align:top; border-top:1px solid var(--page-border); }
+  table.means tr:first-child td{ border-top:0; }
+  table.means td:first-child{ font-family:"Cascadia Mono",Consolas,ui-monospace,monospace;
+    font-size:11.5px; color:var(--page-ink); white-space:nowrap; }
+  table.means td:last-child{ color:var(--page-ink-2); }
+
+  /* ---- family table ---- */
+  .fams{ display:grid; gap:10px; }
+  .fam{ display:grid; grid-template-columns:14px 176px 1fr; gap:14px; align-items:start;
+    background:var(--page-card); border:1px solid var(--page-border); border-radius:10px; padding:13px 15px; }
+  .fam .chip{ width:14px; height:100%; min-height:38px; border-radius:4px; }
+  .fam .nm{ font-size:14px; font-weight:700; }
+  .fam .tok{ font-family:"Cascadia Mono",Consolas,ui-monospace,monospace; font-size:11.5px;
+    color:var(--page-ink-2); margin-top:3px; }
+  .fam .why{ font-size:13px; line-height:1.55; color:var(--page-ink-2); }
+  .fam .why em{ color:var(--page-ink); font-style:normal; font-weight:600; }
+  .fam.quiet .chip{ background:transparent; border:1.5px solid var(--border-strong); }
+
+  /* ---- the device slab ---- */
+  .slab{ background:var(--surface); border:1px solid var(--border-strong); border-radius:11px;
+    overflow:hidden; color:var(--ink); font-size:13px; box-shadow:0 18px 44px -30px rgba(20,35,55,.5); }
+  .slab .ctx{ background:linear-gradient(180deg,#2b3a4b,#223140); color:var(--on);
+    padding:10px 15px; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .slab .ctx .no{ font-size:15px; font-weight:700; }
+  .slab .ctx .st{ font-size:11.5px; color:var(--on-sub); }
+  .slab .filler{ padding:15px; color:var(--ink-3); font-size:11.5px;
+    text-transform:uppercase; letter-spacing:.09em; font-weight:700; background:var(--panel-2); }
+
+  /* ---- status pill rail (verbatim POS styles) ---- */
+  .pills{ display:flex; gap:8px; padding:9px 15px; background:var(--panel); border-bottom:1px solid var(--border);
+    flex-wrap:wrap; align-items:center; }
+  .pills .lab{ font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--ink-3);
+    font-weight:700; margin-inline-end:2px; }
+  .pill{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+    padding:4px 10px; border-radius:999px; border:1px solid transparent; }
+  .pill .dot{ width:7px; height:7px; border-radius:50%; flex:none; }
+  .pill.ok{ background:var(--success-050); color:#155f36; border-color:#bfe0cd; } .pill.ok .dot{ background:var(--success); }
+  .pill.go{ background:var(--accent-050); color:var(--accent-700); border-color:#c6d6ec; } .pill.go .dot{ background:var(--accent); }
+  .pill.warn{ background:var(--attention-050); color:#7c5410; border-color:#e7d3a3; } .pill.warn .dot{ background:var(--attention); }
+  .pill.bad{ background:var(--danger-050); color:var(--danger-800); border-color:var(--danger-border); } .pill.bad .dot{ background:var(--danger); }
+  .pill.mute{ background:#eef2f6; color:var(--ink-2); border-color:var(--border); } .pill.mute .dot{ background:var(--ink-3); }
+  .pills .more{ font-size:11.5px; color:var(--ink-3); font-weight:600; margin-inline-start:2px; }
+
+  /* ---- ACTION BAR ---- */
+  .actionbar{ border-top:1px solid var(--border-strong); background:var(--panel); padding:11px 14px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .ab-escape{ order:0; }
+  .ab-clusters{ order:1; display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; flex:1; }
+  .ab-primary{ order:2; margin-inline-start:auto; display:flex; gap:9px; align-items:flex-end; }
+  .cluster{ display:flex; flex-direction:column; gap:5px; }
+  .cluster .clab{ font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; font-weight:700;
+    color:var(--ink-3); padding-inline-start:2px; }
+  .cluster .row{ display:flex; gap:6px; flex-wrap:wrap; }
+
+  .btn{ font-family:inherit; font-size:12.5px; font-weight:600; border-radius:7px; border:1px solid transparent;
+    padding:8px 13px; color:var(--on); background:var(--key); cursor:default; white-space:nowrap; line-height:1;
+    display:inline-flex; align-items:center; gap:7px; }
+  .btn.sm{ font-size:11.5px; padding:7px 11px; }
+  .btn.fulfilment{ background:var(--fam-fulfilment); }
+  .btn.cancelreq{ background:var(--fam-cancel-request); }
+  .btn.danger{ background:var(--danger); }
+  .btn.terminal{ background:var(--danger); font-size:13.5px; padding:11px 20px; box-shadow:0 2px 0 rgba(150,45,49,.35); }
+  .btn.override{ background:transparent; color:var(--danger-800); border-color:var(--danger-border);
+    font-size:13.5px; padding:11px 18px; }
+  .btn.escape{ background:transparent; color:var(--ink-2); border-color:var(--border-strong); }
+  .btn.ghost{ background:transparent; color:var(--ink-2); border-color:var(--border-strong); }
+  .btn.inert{ background:var(--disabled); color:var(--disabled-ink); border-color:var(--disabled-border); box-shadow:none; }
+
+  /* ---- annotations ---- */
+  .annot{ display:grid; grid-template-columns:repeat(auto-fit,minmax(185px,1fr)); gap:10px; }
+  .annot div{ font-size:12px; line-height:1.5; color:var(--page-ink-2);
+    border-top:2px solid var(--page-border); padding-top:7px; }
+  .annot div b{ display:block; color:var(--page-ink); font-size:11px; text-transform:uppercase;
+    letter-spacing:.07em; margin-bottom:3px; }
+
+  /* ---- A/B ---- */
+  .ab{ display:grid; gap:16px; }
+  @media (min-width:900px){ .ab{ grid-template-columns:1fr 1fr; } }
+  .opt{ display:flex; flex-direction:column; gap:9px; min-width:0; }
+  .opt .hd{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
+  .opt .hd .k{ font-size:13px; font-weight:700; }
+  .tag{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+    padding:3px 7px; border-radius:99px; border:1px solid; }
+  .tag.rec{ color:#1E874B; border-color:#1E874B; }
+  .tag.no{ color:#C23B41; border-color:#C23B41; }
+  .tag.q{ color:#B4791F; border-color:#B4791F; }
+  .opt .verdict{ font-size:12.5px; line-height:1.55; color:var(--page-ink-2); }
+  .opt .verdict b{ color:var(--page-ink); font-weight:600; }
+
+  .states{ display:flex; flex-direction:column; gap:20px; }
+  .state .cap{ font-size:12.5px; color:var(--page-ink-2); margin-bottom:8px; max-width:76ch; line-height:1.55; }
+  .state .cap b{ color:var(--page-ink); font-weight:600; }
+
+  .calls{ display:grid; gap:12px; }
+  @media (min-width:820px){ .calls{ grid-template-columns:repeat(2,1fr); } }
+  .call{ background:var(--page-card); border:1px solid var(--page-border); border-radius:10px;
+    padding:14px 15px; display:flex; flex-direction:column; gap:7px; }
+  .call .q{ font-size:13.5px; font-weight:700; line-height:1.35; text-wrap:balance;
+    display:flex; gap:9px; align-items:baseline; flex-wrap:wrap; }
+  .call .a{ font-size:12.5px; line-height:1.55; color:var(--page-ink-2); }
+  .call .a em{ font-style:normal; font-weight:600; color:var(--page-ink); }
+
+  /* ---- status inventory ---- */
+  .stat{ display:grid; gap:10px; }
+  @media (min-width:760px){ .stat{ grid-template-columns:1fr 1fr; } }
+  .statbox{ background:var(--page-card); border:1px solid var(--page-border); border-radius:10px; padding:14px 15px; }
+  .statbox h4{ margin:0 0 9px; font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+    font-weight:700; color:var(--page-ink-2); }
+  .statbox ul{ margin:0; padding-inline-start:17px; font-size:12.5px; line-height:1.7; color:var(--page-ink-2); }
+  .statbox ul b{ color:var(--page-ink); font-weight:600; }
+</style>
+
+<div class="wrap">
+
+  <header style="display:flex;flex-direction:column;gap:10px;">
+    <h1 class="title">Command families for the eight document commands</h1>
+    <p class="lede">Ticket <b>072</b> of map 068 · revision 2. Which family each command belongs to, what colour
+    carries it, and which commands take no colour at all. Every value is a POS token; nothing new is invented.</p>
+  </header>
+
+  <div class="fix">
+    <h3>Correction that reshaped this proposal</h3>
+    <p>Revision 1 painted <b>Close Order</b> green with a check mark. That was wrong. In this system
+    <b>“close” means cancel</b> — <code>request-close</code> opens a picker of
+    <code>CANCEL_REASONS</code> (“Customer requested cancellation”, “Item out of stock”, …) and the dialog
+    hint reads <i>“Pick a cancellation reason.”</i></p>
+    <table class="means">
+      <tr><td>request-close</td><td>ask for the order to be cancelled, with a reason</td></tr>
+      <tr><td>cancel-close-request</td><td>withdraw that ask — the order lives on</td></tr>
+      <tr><td>close</td><td>cancel the order</td></tr>
+      <tr><td>force-close</td><td>cancel it, overriding whatever blocked the normal path</td></tr>
+    </table>
+    <p>The consequence is structural, not cosmetic: <b>none of our eight commands is a positive outcome.</b>
+    A till has “Customer Received ✓” because the till completes the happy path. This back office only ever
+    touches the unhappy one — orders complete in the field, never from this screen. So there is no green
+    commit button to colour. The end of our bar is <b>terminal, and it is red</b>.</p>
+  </div>
+
+  <section>
+    <h2 class="sec">The proposal — two family colours, a quiet tier, a terminal end</h2>
+    <p class="note">POS ships five families because a till does five different jobs. Our eight commands answer
+    only two questions — <b>“change how this gets delivered”</b> and <b>“work the cancellation round-trip”</b> —
+    so two colours carry the bar. The other four commands don’t want a family: two <em>are</em> the ending, and
+    two are low-stakes chatter.</p>
+
+    <div class="fams">
+      <div class="fam">
+        <div class="chip" style="background:var(--fam-fulfilment);"></div>
+        <div>
+          <div class="nm">Fulfilment</div>
+          <div class="tok">--fam-fulfilment · #2E7D5B</div>
+          <div class="tok">POS <code>--fam-fulfil</code>, value kept</div>
+        </div>
+        <div class="why"><em>Reschedule</em> · <em>Change Store</em><br>
+        Changes <b>when</b> or <b>where</b> the order is served, without touching whether it lives. Fully
+        reversible — do it again tomorrow and nothing is lost. The only family on this screen whose members
+        keep the order alive.</div>
+      </div>
+
+      <div class="fam">
+        <div class="chip" style="background:var(--fam-cancel-request);"></div>
+        <div>
+          <div class="nm">Cancellation request</div>
+          <div class="tok">--fam-cancel-request · #5D5A93</div>
+          <div class="tok">POS <code>--fam-admin</code>, value kept</div>
+        </div>
+        <div class="why"><em>Request Close</em> · <em>Cancel Close Request</em><br>
+        The round-trip <b>about</b> cancelling — raising the ask and withdrawing it. Neither cancels anything
+        itself, and each undoes the other, so they are a reversible pair. Indigo, not red: asking is not doing.</div>
+      </div>
+
+      <div class="fam quiet">
+        <div class="chip"></div>
+        <div>
+          <div class="nm">Quiet</div>
+          <div class="tok">no family colour · <code>ghost</code></div>
+          <div class="tok"><code>--ink-2</code> on <code>--border-strong</code></div>
+        </div>
+        <div class="why"><em>Add Note</em> · <em>Return Document</em><br>
+        Frequent and low-consequence. A note appends to the audit log and changes no state; Return Document
+        posts nothing at all today. Colouring them spends attention on the two commands that need none.</div>
+      </div>
+
+      <div class="fam">
+        <div class="chip" style="background:linear-gradient(180deg,var(--danger) 55%,#FBECEC 55%);"></div>
+        <div>
+          <div class="nm">Terminal end</div>
+          <div class="tok">--danger #C23B41 filled</div>
+          <div class="tok">+ danger-outlined override</div>
+        </div>
+        <div class="why"><em>Close Order</em> · <em>Force Close</em><br>
+        Not a family — a <b>tier</b>. The two commands that end the order, pinned to the far edge and larger.
+        Both are destructive, so the colour is red for both; the override is separated by <b>weight</b>
+        (outlined, not filled) rather than by a second, louder red.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">The whole thing — status rail on top, action bar below</h2>
+    <p class="note">You asked whether the statuses become chips: <b>yes — the POS pill rail, verbatim.</b> Our
+    document carries <b>13</b> coded status fields; the rail promotes the few that decide what the operator does
+    next and the rest go to a Status card in the summary rail. <em>Which</em> six are promoted, and which severity
+    each coded value maps to, is ticket <b>073</b>’s call — the rail below is a plausible stand-in so you can see
+    the two elements together.</p>
+    <div class="scroller">
+      <div class="slab">
+        <div class="ctx"><span class="no tnum">8000012477</span>
+          <span class="st">Delivery · Store 1042 · no cancellation requested</span></div>
+        <div class="pills">
+          <span class="lab">Status</span>
+          <span class="pill go"><span class="dot"></span>Out for delivery</span>
+          <span class="pill ok"><span class="dot"></span>Ready ✓</span>
+          <span class="pill ok"><span class="dot"></span>Paid</span>
+          <span class="pill warn"><span class="dot"></span>Partly available</span>
+          <span class="pill mute"><span class="dot"></span>Not closed</span>
+          <span class="pill ok"><span class="dot"></span>Approved</span>
+          <span class="more">+7 in Status card</span>
+        </div>
+        <div class="filler">Summary rail · tabs · line items</div>
+        <div class="actionbar">
+          <div class="ab-escape"><button class="btn escape sm" type="button">← Back to list</button></div>
+          <div class="ab-clusters">
+            <div class="cluster">
+              <span class="clab">Fulfilment</span>
+              <div class="row">
+                <button class="btn fulfilment sm" type="button">Reschedule</button>
+                <button class="btn fulfilment sm" type="button">Change Store</button>
+              </div>
+            </div>
+            <div class="cluster">
+              <span class="clab">Cancellation request</span>
+              <div class="row">
+                <button class="btn cancelreq sm" type="button">Request Close</button>
+              </div>
+            </div>
+            <div class="cluster">
+              <span class="clab">Notes &amp; docs</span>
+              <div class="row">
+                <button class="btn ghost sm" type="button">Add Note</button>
+                <button class="btn ghost sm" type="button">Return Document</button>
+              </div>
+            </div>
+          </div>
+          <div class="ab-primary">
+            <button class="btn override" type="button">Force Close</button>
+            <button class="btn terminal" type="button">Close Order</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="annot">
+      <div><b>Status rail</b>Pills, not a field list. Severity is carried twice — dot colour and background —
+      so it survives a colour-blind reading and a grayscale print.</div>
+      <div><b>Escape · start edge</b>Neutral outline. It only navigates back, so tinting it red (as POS does)
+      would over-claim on a screen where red now means <i>cancelled</i>.</div>
+      <div><b>Clusters · centre</b>Tiny caps label above each group. The label is what makes a two-colour bar
+      legible; colour is reinforcement, never the only signal.</div>
+      <div><b>Terminal end</b>Filled red is the sanctioned cancel; outlined red beside it is the override.
+      Nothing green appears anywhere, because nothing here is a happy ending.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">The one call I’d most like you to check — how the override reads</h2>
+    <div class="ab">
+      <div class="opt">
+        <div class="hd"><span class="k">A · Filled red + outlined override</span><span class="tag rec">Recommended</span></div>
+        <div class="scroller"><div class="slab"><div class="actionbar">
+          <div class="ab-escape"><button class="btn escape sm" type="button">← Back</button></div>
+          <div class="ab-clusters">
+            <div class="cluster"><span class="clab">Fulfilment</span><div class="row">
+              <button class="btn fulfilment sm" type="button">Reschedule</button>
+              <button class="btn fulfilment sm" type="button">Change Store</button></div></div>
+            <div class="cluster"><span class="clab">Cancellation request</span><div class="row">
+              <button class="btn cancelreq sm" type="button">Request Close</button></div></div>
+          </div>
+          <div class="ab-primary"><button class="btn override" type="button">Force Close</button>
+            <button class="btn terminal" type="button">Close Order</button></div>
+        </div></div></div>
+        <div class="verdict">One filled red on the bar. Force Close reads as heavier by being the
+        <b>deliberate second choice</b> — you must aim past the obvious button to reach it. Weight, not volume.</div>
+      </div>
+
+      <div class="opt">
+        <div class="hd"><span class="k">B · Two filled reds</span><span class="tag no">Not recommended</span></div>
+        <div class="scroller"><div class="slab"><div class="actionbar">
+          <div class="ab-escape"><button class="btn escape sm" type="button">← Back</button></div>
+          <div class="ab-clusters">
+            <div class="cluster"><span class="clab">Fulfilment</span><div class="row">
+              <button class="btn fulfilment sm" type="button">Reschedule</button>
+              <button class="btn fulfilment sm" type="button">Change Store</button></div></div>
+            <div class="cluster"><span class="clab">Cancellation request</span><div class="row">
+              <button class="btn cancelreq sm" type="button">Request Close</button></div></div>
+          </div>
+          <div class="ab-primary"><button class="btn terminal" type="button">Force Close</button>
+            <button class="btn terminal" type="button">Close Order</button></div>
+        </div></div></div>
+        <div class="verdict">Two identical reds side by side. They read as equally weighted alternatives, so the
+        override stops feeling like an override — and the operator has to read text, not shape, to tell the
+        <b>safe cancel from the one that bypasses the guard</b>.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">Contextual — the same taxonomy across three document states</h2>
+    <p class="note">Families never change; only which members are live. Unavailable commands are <b>removed</b>,
+    not greyed — except the terminal pair, which holds its place as <code>inert</code> so the end of the bar
+    doesn’t jump between documents.</p>
+
+    <div class="states">
+      <div class="state">
+        <div class="cap"><b>1 · Open, in fulfilment</b> — nothing requested yet. Everything is on the table, and
+        the terminal end is live.</div>
+        <div class="scroller"><div class="slab">
+          <div class="pills"><span class="lab">Status</span>
+            <span class="pill go"><span class="dot"></span>Out for delivery</span>
+            <span class="pill ok"><span class="dot"></span>Ready ✓</span>
+            <span class="pill ok"><span class="dot"></span>Paid</span>
+            <span class="pill mute"><span class="dot"></span>Not closed</span></div>
+          <div class="actionbar">
+          <div class="ab-escape"><button class="btn escape sm" type="button">← Back</button></div>
+          <div class="ab-clusters">
+            <div class="cluster"><span class="clab">Fulfilment</span><div class="row">
+              <button class="btn fulfilment sm" type="button">Reschedule</button>
+              <button class="btn fulfilment sm" type="button">Change Store</button></div></div>
+            <div class="cluster"><span class="clab">Cancellation request</span><div class="row">
+              <button class="btn cancelreq sm" type="button">Request Close</button></div></div>
+            <div class="cluster"><span class="clab">Notes &amp; docs</span><div class="row">
+              <button class="btn ghost sm" type="button">Add Note</button>
+              <button class="btn ghost sm" type="button">Return Document</button></div></div>
+          </div>
+          <div class="ab-primary"><button class="btn override" type="button">Force Close</button>
+            <button class="btn terminal" type="button">Close Order</button></div>
+        </div></div></div>
+      </div>
+
+      <div class="state">
+        <div class="cap"><b>2 · Cancellation requested</b> — Request Close is spent; its withdrawal takes the
+        same slot, same colour, same position, so the operator’s eye lands where it did before. A warning pill
+        appears in the rail: a pending cancellation is the single most decision-relevant fact on the document.</div>
+        <div class="scroller"><div class="slab">
+          <div class="pills"><span class="lab">Status</span>
+            <span class="pill warn"><span class="dot"></span>Cancellation requested</span>
+            <span class="pill go"><span class="dot"></span>Out for delivery</span>
+            <span class="pill ok"><span class="dot"></span>Paid</span>
+            <span class="pill mute"><span class="dot"></span>Not closed</span></div>
+          <div class="actionbar">
+          <div class="ab-escape"><button class="btn escape sm" type="button">← Back</button></div>
+          <div class="ab-clusters">
+            <div class="cluster"><span class="clab">Fulfilment</span><div class="row">
+              <button class="btn fulfilment sm" type="button">Reschedule</button>
+              <button class="btn fulfilment sm" type="button">Change Store</button></div></div>
+            <div class="cluster"><span class="clab">Cancellation request</span><div class="row">
+              <button class="btn cancelreq sm" type="button">Cancel Close Request</button></div></div>
+            <div class="cluster"><span class="clab">Notes &amp; docs</span><div class="row">
+              <button class="btn ghost sm" type="button">Add Note</button>
+              <button class="btn ghost sm" type="button">Return Document</button></div></div>
+          </div>
+          <div class="ab-primary"><button class="btn override" type="button">Force Close</button>
+            <button class="btn terminal" type="button">Close Order</button></div>
+        </div></div></div>
+      </div>
+
+      <div class="state">
+        <div class="cap"><b>3 · Closed (cancelled)</b> — the order is dead. Only the quiet tier survives; the
+        terminal pair holds its place, inert. The lead pill turns red, because “cancelled” is the one status
+        that changes how everything else on the screen should be read.</div>
+        <div class="scroller"><div class="slab">
+          <div class="pills"><span class="lab">Status</span>
+            <span class="pill bad"><span class="dot"></span>Cancelled</span>
+            <span class="pill mute"><span class="dot"></span>Delivery —</span>
+            <span class="pill ok"><span class="dot"></span>Refunded</span></div>
+          <div class="actionbar">
+          <div class="ab-escape"><button class="btn escape sm" type="button">← Back</button></div>
+          <div class="ab-clusters">
+            <div class="cluster"><span class="clab">Notes &amp; docs</span><div class="row">
+              <button class="btn ghost sm" type="button">Add Note</button>
+              <button class="btn ghost sm" type="button">Return Document</button></div></div>
+          </div>
+          <div class="ab-primary"><button class="btn override inert" type="button">Force Close</button>
+            <button class="btn terminal inert" type="button">Close Order</button></div>
+        </div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">Where the 13 statuses go (ticket 073 owns the final split)</h2>
+    <div class="stat">
+      <div class="statbox">
+        <h4>Promoted to the pill rail — a plausible six</h4>
+        <ul>
+          <li><b>Overall Status</b> — the one-line verdict</li>
+          <li><b>Delivery Status</b> — where the goods are</li>
+          <li><b>Payment Status</b> — is money settled</li>
+          <li><b>Close Status</b> — is a cancellation pending or done</li>
+          <li><b>Availability Status</b> — can it even be fulfilled</li>
+          <li><b>Approval Status</b> — is it cleared to proceed</li>
+        </ul>
+      </div>
+      <div class="statbox">
+        <h4>To the Status card in the summary rail</h4>
+        <ul>
+          <li>Ready Status · Clear Status · Acceptance Status</li>
+          <li>Consignment Status · Control Status</li>
+          <li>Notification Status · Last Action</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">Severity uses four POS pill styles — <b>ok</b> (<code>--success</code>),
+    <b>go</b> (<code>--accent</code>, in-flight), <b>warn</b> (<code>--attention</code>),
+    <b>mute</b> (<code>--ink-3</code>, absent) — plus a fifth this screen needs that the POS reference
+    never used: <b>bad</b> (<code>--danger</code>), for a cancelled order. Mapping each coded value to a
+    severity is the map’s open “status → severity” question, sharpened once 073 fixes the six.</p>
+  </section>
+
+  <section>
+    <h2 class="sec">Calls this prototype takes — say if any is wrong</h2>
+    <div class="calls">
+      <div class="call">
+        <div class="q"><span>“Close Order” is the wrong label</span><span class="tag q">Your call</span></div>
+        <div class="a">It reads as <i>complete</i> to anyone who hasn’t been told otherwise — it fooled me for a
+        whole revision. <em>“Cancel Order” would say what it does.</em> The catch is that
+        <code>cancel-close-request</code> then contains the word twice over, so the pair may want renaming
+        together (e.g. <b>Cancel Order</b> / <b>Request Cancellation</b> / <b>Withdraw Request</b>). This is
+        copy only — no behaviour, no endpoint changes — but it is your call whether renaming belongs in this
+        effort or a separate one.</div>
+      </div>
+      <div class="call">
+        <div class="q"><span>Return Document is quiet, not its own family</span><span class="tag rec">Recommended</span></div>
+        <div class="a">It posts nothing today (<code>actions.ts</code> calls it a placeholder). The obvious third
+        colour would be POS teal <code>--fam-insurance</code> #0B7C8C — but that teal is the prescription / e-Rx
+        accent on this very screen, so it would collide. <em>If Return Document grows real behaviour it graduates
+        to a family then</em>, with the collision in view.</div>
+      </div>
+      <div class="call">
+        <div class="q"><span>Force Close is a tier, not a family member</span><span class="tag rec">Recommended</span></div>
+        <div class="a">It sits at the terminal end beside Close Order rather than in the indigo cluster. Both end
+        the order; one is the sanctioned cancel and one bypasses the guard. <em>Putting them together makes the
+        end of the bar mean exactly one thing: this order stops here.</em></div>
+      </div>
+      <div class="call">
+        <div class="q"><span>Document-scoped, with one extension rule</span><span class="tag rec">Recommended</span></div>
+        <div class="a">Deliveries, BBY Inquiry and Sim get the <em>grammar</em> — escape at the start, quiet tier,
+        terminal end — but no family colour, because none of their actions form a family. <em>A new family colour
+        is minted only when a screen has two or more commands sharing a purpose.</em> That stops ticket 070
+        over-designing the token set.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="sec">What lands in the token set (ticket 070)</h2>
+    <p class="note">Two new family tokens, both POS values under our names —
+    <code>--fam-fulfilment: #2E7D5B</code> and <code>--fam-cancel-request: #5D5A93</code> — plus
+    <code>--danger-800: #8E2A2F</code> for the outlined override’s text. The other three POS family tokens
+    (<code>--fam-sales</code>, <code>--fam-loyalty</code>, <code>--fam-admin</code>) are <b>not</b> ported: a
+    back office sells nothing, runs no loyalty tier, and “admin” names a nav area rather than a command family.
+    <code>--fam-insurance</code>’s value survives only as the prescription accent, under a name 073 gives it.
+    Notably <code>--success</code> earns no button on this screen at all — it appears in the status rail and
+    nowhere else.</p>
+  </section>
+
+</div>

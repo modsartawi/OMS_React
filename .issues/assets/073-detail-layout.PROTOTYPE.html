@@ -1,0 +1,633 @@
+<!doctype html>
+<!--
+  073 — The reworked Document Details layout, filled with OUR fields.
+  Map 068 · ticket 073. Built on the 070 light token table (hex, verbatim).
+
+  The device below replicates the POS reference (assets/068-pos-detail-reference.html)
+  but every slot is bound to a real `SdDocumentHeaderModel` path — the mapping table
+  under the device names them. Fields with NO source in our model are marked ⚠.
+
+  ⚠ The payload is SYNTHETIC. SIS.Api (:5111) was unreachable this session, so the
+  values are hand-built to the shape of `src/core/models/sd-document.ts` and to the
+  codes the model comments verify on `Document/1000000393` (documentCategory 'O',
+  deliveryType 'P', documentType 'CLCN' + 'Call Center'). Shapes are real; values are not.
+-->
+<html><head><meta charset="utf8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>073 — Document Details reworked (our fields)</title>
+<style>
+  /* ============ 070 light token table (subset actually used here) ============ */
+  :root{
+    --background:#F4F7FA; --foreground:#19232E;
+    --card:#FFFFFF; --card-2:#FAFBFC;
+    --muted:#EEF2F6; --muted-foreground:#586674; --ink-3:#8593A1;
+    --border:#E3E9F0; --border-strong:#CBD6E2; --divider:#EDF1F5; --input:#CBD6E2;
+    --primary:#2F63A6; --primary-050:#E9EFF7; --primary-border:#C6D6EC; --primary-800:#27538C;
+    --primary-foreground:#FFFFFF;
+    --secondary:#586674; --secondary-press:#495562;
+    --success:#1E874B; --success-050:#E7F3EC; --success-border:#BFE0CD; --success-800:#155F36;
+    --attention:#B4791F; --attention-050:#F8F0DE; --attention-border:#E7D3A3; --attention-800:#7C5410;
+    --danger:#C23B41; --danger-050:#FBECEC; --danger-border:#E7BFC1; --danger-800:#8E2A2F;
+    --fam-fulfilment:#2E7D5B; --fam-cancel-request:#5D5A93;
+
+    /* ---- NEW in this ticket: the prescription / e-Rx accent 070 left unnamed ---- */
+    --prescription:#0B7C8C;        /* POS --fam-insurance, value ruled to survive by 072 */
+    --prescription-050:#E3F0F2;    /* derived — card tint + Rx item tag ground */
+    --prescription-800:#085C68;    /* derived — ink on the -050 ground (AA on tint) */
+
+    --radius:0.625rem;
+    --page:#eef1f5; --page-ink:#31404f; --page-ink-2:#6b7885; --page-card:#fff; --page-border:#dbe2ea;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--page); color:var(--page-ink); font-size:15px;
+    font-family:Inter,"Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,Arial,sans-serif; }
+  .wrap{ max-width:1280px; margin:0 auto; padding:34px 20px 90px; }
+  h1.title{ font-size:26px; line-height:1.15; margin:.2em 0 .3em; font-weight:700; letter-spacing:-.01em; }
+  .lede{ max-width:74ch; color:var(--page-ink-2); font-size:14.5px; line-height:1.6; margin:0 0 6px; }
+  h2.sec{ font-size:17px; margin:44px 0 10px; letter-spacing:-.01em; }
+  .tnum{ font-variant-numeric:tabular-nums; }
+
+  /* a field with no source in SdDocumentHeaderModel */
+  .nosrc{ border-bottom:1px dashed var(--danger); }
+  .nosrc::after{ content:"⚠"; font-size:9px; vertical-align:super; color:var(--danger); margin-left:2px; }
+
+  /* ================= THE DEVICE — responsive, not a fixed 1024 till ================= */
+  .device{ width:100%; background:var(--background); border:1px solid var(--border-strong);
+    border-radius:12px; overflow:hidden; box-shadow:0 24px 60px -34px rgba(20,35,55,.42);
+    color:var(--foreground); font-size:13px; }
+
+  /* ---- identity band — the ONE dark band on the page (070 §5 reserved it for here) ---- */
+  .hdr{ background:linear-gradient(180deg,#2b3a4b,#223140); color:#fff; padding:12px 16px 14px;
+    display:flex; align-items:flex-start; gap:16px; flex-wrap:wrap; }
+  .hdr .backwrap{ padding-top:5px; }
+  .hdr .back{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px;
+    border-radius:8px; border:1px solid rgba(255,255,255,.22); background:rgba(255,255,255,.07);
+    color:#fff; font-size:15px; cursor:default; }
+  .hdr .ids{ min-width:0; flex:1 1 320px; }
+  .hdr .idline{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+  .hdr .docno{ font-size:20px; font-weight:700; letter-spacing:.01em; line-height:1.1;
+    font-variant-numeric:tabular-nums; }
+  .hdr .subids{ display:flex; gap:15px; margin-top:6px; font-size:11.5px;
+    color:rgba(255,255,255,.72); flex-wrap:wrap; }
+  .hdr .subids b{ color:#dfe7f0; font-weight:600; }
+  .hdr .cust{ margin-left:auto; text-align:end; flex:0 1 auto; }
+  .hdr .cust .nm{ font-size:14.5px; font-weight:600; }
+  .hdr .cust .ph{ font-size:12px; color:rgba(255,255,255,.72); margin-top:2px; font-variant-numeric:tabular-nums; }
+
+  /* overall-status lozenge — raw code, no *Description companion exists */
+  .lozenge{ display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700;
+    letter-spacing:.07em; text-transform:uppercase; padding:3px 9px; border-radius:6px;
+    background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.26); color:#eaf1f8; }
+  .lozenge .code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:0; font-size:11px; }
+  /* Dawaa Now — an attribute of the order, not a status: a tag, not a pill */
+  .nowtag{ display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:800;
+    letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px;
+    background:var(--attention); color:#231604; }
+
+  /* ---- status pill rail — six described statuses ---- */
+  .pills{ display:flex; gap:7px; padding:8px 16px; background:var(--card);
+    border-bottom:1px solid var(--border); flex-wrap:wrap; align-items:center; }
+  .pills .lab{ font-size:10.5px; text-transform:uppercase; letter-spacing:.09em;
+    color:var(--ink-3); font-weight:700; margin-inline-end:2px; }
+  .pill{ display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+    padding:4px 10px; border-radius:999px; border:1px solid transparent; }
+  .pill .dot{ width:7px; height:7px; border-radius:50%; flex:none; }
+  .pill.ok{ background:var(--success-050); color:var(--success-800); border-color:var(--success-border); }
+  .pill.ok .dot{ background:var(--success); }
+  .pill.go{ background:var(--primary-050); color:var(--primary-800); border-color:var(--primary-border); }
+  .pill.go .dot{ background:var(--primary); }
+  .pill.warn{ background:var(--attention-050); color:var(--attention-800); border-color:var(--attention-border); }
+  .pill.warn .dot{ background:var(--attention); }
+  .pill.bad{ background:var(--danger-050); color:var(--danger-800); border-color:var(--danger-border); }
+  .pill.bad .dot{ background:var(--danger); }
+  .pill.mute{ background:var(--muted); color:var(--muted-foreground); border-color:var(--border); }
+  .pill.mute .dot{ background:var(--ink-3); }
+  .railend{ margin-inline-start:auto; display:flex; gap:6px; align-items:center; }
+  .quietbtn{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600;
+    color:var(--muted-foreground); background:transparent; border:1px solid var(--border-strong);
+    border-radius:7px; padding:4px 9px; cursor:default; font-family:inherit; }
+
+  /* ---- body: summary rail + work area ---- */
+  .body{ display:grid; grid-template-columns:340px minmax(0,1fr); }
+  .rail{ background:var(--card-2); border-inline-end:1px solid var(--border); padding:13px;
+    display:flex; flex-direction:column; gap:11px; }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+  .card > h4{ margin:0; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink-3); font-weight:700; padding:9px 12px 7px; display:flex; align-items:center; gap:8px; }
+  .card > h4 .accentbar{ width:3px; height:12px; border-radius:2px; background:var(--primary); flex:none; }
+  .card.presc > h4 .accentbar{ background:var(--prescription); }
+  .card.driver > h4 .accentbar{ background:var(--fam-fulfilment); }
+  .kv{ padding:0 12px 11px; display:grid; grid-template-columns:auto minmax(0,1fr); gap:3px 12px; font-size:12.5px; }
+  .kv dt{ color:var(--ink-3); white-space:nowrap; }
+  .kv dd{ margin:0; color:var(--foreground); text-align:end; font-weight:500; min-width:0;
+    overflow-wrap:anywhere; }
+  .kv dd.soft{ color:var(--muted-foreground); font-weight:400; }
+  .presc .link{ color:var(--prescription); font-weight:600; text-decoration:none; }
+  .driver .link{ color:var(--fam-fulfilment); font-weight:600; text-decoration:none; }
+  .totline{ display:flex; justify-content:space-between; gap:12px; padding:7px 12px;
+    border-top:1px dashed var(--border); font-size:12.5px; }
+  .totline > span:first-child{ color:var(--ink-3); }
+  .totline.big{ font-weight:700; font-size:14px; border-top:1px solid var(--border-strong); }
+  .totline.big > span:first-child{ color:var(--foreground); }
+  .totline .amt{ font-variant-numeric:tabular-nums; }
+  .linkline{ padding:7px 12px; border-top:1px solid var(--border); font-size:12.5px; }
+
+  /* ---- work area ---- */
+  .work{ display:flex; flex-direction:column; min-width:0; }
+  .tabs{ display:flex; gap:2px; padding:10px 14px 0; background:var(--background); overflow-x:auto; }
+  .tab{ font-size:12.5px; font-weight:600; color:var(--muted-foreground); padding:8px 15px;
+    border:1px solid transparent; border-bottom:none; border-radius:7px 7px 0 0; cursor:default; white-space:nowrap; }
+  .tab .cnt{ font-size:11px; color:var(--ink-3); margin-inline-start:6px; font-variant-numeric:tabular-nums; }
+  .tab .warncnt{ color:var(--danger); font-weight:700; }
+  .tab.on{ background:var(--card); color:var(--foreground); border-color:var(--border); position:relative; }
+  .tab.on::after{ content:""; position:absolute; inset-inline:0; top:0; height:3px;
+    background:var(--primary); border-radius:7px 7px 0 0; }
+
+  .gridwrap{ margin:0 14px 12px; background:var(--card); border:1px solid var(--border);
+    border-radius:0 9px 9px 9px; overflow:auto; flex:1; }
+  table.items{ width:100%; min-width:820px; border-collapse:collapse; font-size:12.5px; }
+  table.items thead th{ background:var(--muted); color:var(--muted-foreground); font-weight:700;
+    font-size:11px; text-align:end; padding:8px 10px; border-bottom:1px solid var(--border-strong); white-space:nowrap; }
+  table.items thead th.l{ text-align:start; }
+  table.items tbody td{ padding:8px 10px; border-bottom:1px solid var(--divider); text-align:end;
+    font-variant-numeric:tabular-nums; white-space:nowrap; }
+  table.items tbody td.l{ text-align:start; font-variant-numeric:normal; }
+  table.items tbody tr.sel{ background:var(--primary-050); box-shadow:inset 3px 0 0 var(--primary); }
+  table.items tbody tr.del td{ color:var(--ink-3); text-decoration:line-through; }
+  .mtag{ display:inline-block; font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px;
+    letter-spacing:.02em; margin-inline-start:6px; }
+  .mtag.rx{ background:var(--prescription-050); color:var(--prescription-800); }
+  .mtag.otc{ background:var(--muted); color:var(--muted-foreground); }
+  .disc{ color:var(--attention-800); }
+  .netcol{ font-weight:700; color:var(--foreground); }
+  .amtfoot td{ background:var(--card-2); border-top:1px solid var(--border-strong);
+    font-weight:700; text-align:end; padding:9px 10px; font-variant-numeric:tabular-nums;
+    position:sticky; bottom:0; }
+  .amtfoot td.l{ text-align:start; color:var(--muted-foreground); font-weight:600; }
+
+  /* ---- action bar ---- */
+  .actionbar{ border-top:1px solid var(--border-strong); background:var(--card); padding:10px 14px;
+    display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+  .ab-clusters{ display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end; flex:1; }
+  .ab-primary{ margin-inline-start:auto; display:flex; gap:9px; align-items:center; }
+  .cluster{ display:flex; flex-direction:column; gap:5px; }
+  .cluster .clab{ font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; font-weight:700;
+    color:var(--ink-3); padding-inline-start:2px; }
+  .cluster .row{ display:flex; gap:6px; flex-wrap:wrap; }
+  .btn{ font-family:inherit; font-size:12.5px; font-weight:600; border-radius:7px;
+    border:1px solid transparent; padding:8px 13px; color:#fff; background:var(--secondary);
+    cursor:default; white-space:nowrap; line-height:1; display:inline-flex; align-items:center; gap:7px; }
+  .btn.sm{ font-size:11.5px; padding:7px 11px; }
+  .btn.fulfil{ background:var(--fam-fulfilment); }
+  .btn.cancelreq{ background:var(--fam-cancel-request); }
+  .btn.ghost{ background:transparent; color:var(--muted-foreground); border-color:var(--border-strong); }
+  .btn.terminal{ background:var(--danger); font-size:13px; padding:10px 17px;
+    box-shadow:0 2px 0 rgba(142,42,47,.35); }
+  .btn.terminal.override{ background:transparent; color:var(--danger-800);
+    border-color:var(--danger-border); box-shadow:none; }
+  .btn.inert{ background:var(--muted); color:var(--ink-3); border-color:var(--border); }
+
+  @media (max-width:900px){
+    .body{ grid-template-columns:minmax(0,1fr); }
+    .rail{ border-inline-end:none; border-bottom:1px solid var(--border);
+      display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); align-items:start; }
+    .hdr .cust{ margin-left:0; text-align:start; flex-basis:100%; }
+    .ab-primary{ margin-inline-start:0; flex-basis:100%; justify-content:flex-end; }
+  }
+
+  /* ================= documentation blocks ================= */
+  table.map{ width:100%; border-collapse:collapse; font-size:13px; background:var(--page-card);
+    border:1px solid var(--page-border); border-radius:8px; overflow:hidden; }
+  table.map th{ background:#e5eaf0; text-align:start; font-size:11.5px; text-transform:uppercase;
+    letter-spacing:.05em; padding:8px 10px; color:#4a5765; border-bottom:1px solid var(--page-border); }
+  table.map td{ padding:7px 10px; border-bottom:1px solid #eaeef3; vertical-align:top; }
+  table.map tr:last-child td{ border-bottom:none; }
+  table.map code{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;
+    background:#eef2f6; padding:1px 5px; border-radius:4px; }
+  .tablescroll{ overflow-x:auto; }
+  .note{ background:var(--page-card); border:1px solid var(--page-border); border-inline-start:3px solid var(--primary);
+    border-radius:8px; padding:12px 14px; font-size:13.5px; line-height:1.6; margin:12px 0; }
+  .note.warnbox{ border-inline-start-color:var(--danger); }
+  .note b{ color:#22303d; }
+  .legend{ display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:var(--page-ink-2); margin:10px 0 18px; }
+</style></head><body>
+
+<div class="wrap">
+  <h1 class="title">Document Details — reworked, on our fields</h1>
+  <p class="lede">Ticket <b>073</b> of map 068. The POS reference layout rebuilt against
+  <code>SdDocumentHeaderModel</code>, on the 070 light token table, responsive rather than a fixed
+  1024&nbsp;px till. Every slot below names a real model path in the mapping table that follows.</p>
+  <div class="legend">
+    <span><span class="nosrc">dotted red</span> = no source in our model</span>
+    <span>·&nbsp; payload is synthetic (SIS.Api was down) — shapes real, values invented</span>
+  </div>
+
+  <div class="device">
+
+    <!-- ============ identity band ============ -->
+    <div class="hdr">
+      <div class="backwrap"><span class="back">‹</span></div>
+      <div class="ids">
+        <div class="idline">
+          <span class="docno">1000000393</span>
+          <span class="lozenge">Overall <span class="code">RDY</span></span>
+          <span class="nowtag">⚡ Dawaa Now</span>
+        </div>
+        <div class="subids">
+          <span>Order <b class="tnum">4510098231</b></span>
+          <span>Type <b>Call Center</b></span>
+          <span>Delivery doc <b>Pick-In-Store Erx</b></span>
+          <span>Placed <b class="tnum">24 Jul 2026 · 15:42</b></span>
+          <span>Store <b class="tnum">1042</b></span>
+        </div>
+      </div>
+      <div class="cust">
+        <div class="nm">Fatimah Al-Otaibi</div>
+        <div class="ph">+966 55 018 7712 · Riyadh</div>
+      </div>
+    </div>
+
+    <!-- ============ status pill rail ============ -->
+    <div class="pills">
+      <span class="lab">Status</span>
+      <span class="pill ok"><span class="dot"></span>Ready</span>
+      <span class="pill ok"><span class="dot"></span>Fully available</span>
+      <span class="pill ok"><span class="dot"></span>Approved</span>
+      <span class="pill ok"><span class="dot"></span>Paid</span>
+      <span class="pill go"><span class="dot"></span>Out for delivery</span>
+      <span class="pill mute"><span class="dot"></span>No cancellation</span>
+      <span class="railend">
+        <button class="quietbtn">All statuses <span class="tnum">13</span> ▾</button>
+        <button class="quietbtn">↻ Refresh</button>
+      </span>
+    </div>
+
+    <!-- ============ body ============ -->
+    <div class="body">
+
+      <!-- ---- summary rail ---- -->
+      <div class="rail">
+
+        <div class="card">
+          <h4><span class="accentbar"></span>Customer</h4>
+          <dl class="kv">
+            <dt>Name</dt><dd>Fatimah Al-Otaibi</dd>
+            <dt>Mobile</dt><dd class="tnum">+966 55 018 7712</dd>
+            <dt>Loyalty ID</dt><dd class="tnum">300114872</dd>
+            <dt>City</dt><dd>Riyadh</dd>
+            <dt>Address</dt><dd class="soft">Al Olaya, King Fahd Rd<br>RQAA3948, Tower 3</dd>
+          </dl>
+        </div>
+
+        <div class="card presc">
+          <h4><span class="accentbar"></span>Prescription (e-Rx)</h4>
+          <dl class="kv">
+            <dt>Approval no.</dt><dd class="tnum">1180-4471</dd>
+            <dt>Patient ID</dt><dd class="tnum">1098447122</dd>
+            <dt>Clinician</dt><dd>Dr. Sami Nasser</dd>
+            <dt>e-Rx ref</dt><dd class="tnum">ERX-77120934</dd>
+          </dl>
+          <div class="linkline"><a href="#" class="link">↗ View prescription</a></div>
+        </div>
+
+        <div class="card">
+          <h4><span class="accentbar"></span>Fulfilment</h4>
+          <dl class="kv">
+            <dt>Type</dt><dd>Pick In Store</dd>
+            <dt>Store</dt><dd class="tnum">1042</dd>
+            <dt>Slot</dt><dd>Thu · 4–6 PM</dd>
+            <dt>Scheduled</dt><dd class="tnum">24 Jul 16:00 – 18:00</dd>
+            <dt>Last note</dt><dd class="soft">Call on arrival, gate code 4471</dd>
+          </dl>
+        </div>
+
+        <div class="card driver">
+          <h4><span class="accentbar"></span>Driver &amp; tracking</h4>
+          <dl class="kv">
+            <dt>Courier</dt><dd>SMSA</dd>
+            <dt>Driver</dt><dd>Khalid Al-Harbi</dd>
+            <dt>Mobile</dt><dd class="tnum">+966 50 442 1180</dd>
+            <dt>Approved</dt><dd>Yes</dd>
+          </dl>
+          <div class="linkline"><a href="#" class="link">↗ Track SMSA-91180442</a></div>
+        </div>
+
+        <div class="card">
+          <h4><span class="accentbar"></span>Payment</h4>
+          <div class="totline"><span>Payment type</span><span>Prepaid · Card</span></div>
+          <div class="totline"><span>Delivery fees</span><span class="amt">15.00</span></div>
+          <div class="totline"><span>Paid</span><span class="amt">240.70</span></div>
+          <div class="totline"><span>Amount due</span><span class="amt">0.00</span></div>
+          <div class="totline big"><span>Net total</span><span class="amt">240.70</span></div>
+        </div>
+      </div>
+
+      <!-- ---- work area ---- -->
+      <div class="work">
+        <div class="tabs">
+          <div class="tab on">Items <span class="cnt">4</span></div>
+          <div class="tab">Header Conditions <span class="cnt">2</span></div>
+          <div class="tab">Log <span class="cnt">11</span></div>
+          <div class="tab">Jobs <span class="cnt warncnt">1 failed</span></div>
+        </div>
+
+        <div class="gridwrap">
+          <table class="items">
+            <thead>
+              <tr>
+                <th class="l">Description</th><th class="l">Item no.</th>
+                <th>Price</th><th>Qty</th><th>Disc.</th>
+                <th>Amount</th><th>VAT</th><th>Net</th>
+                <th class="l">Need tx</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="sel">
+                <td class="l">Panadol Extra 24 Tab <span class="mtag otc">OTC</span></td>
+                <td class="l tnum">65200145</td>
+                <td>12.00</td><td>2</td><td>0.00</td>
+                <td>24.00</td><td>3.60</td><td class="netcol">27.60</td><td class="l">No</td>
+              </tr>
+              <tr>
+                <td class="l">Augmentin 1g 14 Tab <span class="mtag rx">Rx</span></td>
+                <td class="l tnum">65200783</td>
+                <td>48.50</td><td>1</td><td>0.00</td>
+                <td>48.50</td><td>7.28</td><td class="netcol">55.78</td><td class="l">No</td>
+              </tr>
+              <tr>
+                <td class="l">Nexium 40mg 28 Tab <span class="mtag rx">Rx</span></td>
+                <td class="l tnum">65201120</td>
+                <td>92.00</td><td>1</td><td class="disc">9.20</td>
+                <td>82.80</td><td>12.42</td><td class="netcol">95.22</td><td class="l">Yes</td>
+              </tr>
+              <tr>
+                <td class="l">Vitamin D3 60,000 IU <span class="mtag otc">OTC</span></td>
+                <td class="l tnum">65200560</td>
+                <td>18.00</td><td>3</td><td>0.00</td>
+                <td>54.00</td><td>8.10</td><td class="netcol">62.10</td><td class="l">No</td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr class="amtfoot">
+                <td class="l" colspan="5">4 lines · 7 units</td>
+                <td>209.30</td><td>31.40</td><td>240.70</td><td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- ---- action bar (072 taxonomy; 076 owns contextual disclosure) ---- -->
+        <div class="actionbar">
+          <div class="ab-clusters">
+            <div class="cluster">
+              <span class="clab">Fulfilment</span>
+              <div class="row">
+                <button class="btn fulfil sm">Reschedule</button>
+                <button class="btn fulfil sm">Change Store</button>
+              </div>
+            </div>
+            <div class="cluster">
+              <span class="clab">Cancellation request</span>
+              <div class="row">
+                <button class="btn cancelreq sm">Request Cancellation</button>
+                <button class="btn cancelreq sm">Withdraw Request</button>
+              </div>
+            </div>
+            <div class="cluster">
+              <span class="clab">Notes &amp; docs</span>
+              <div class="row">
+                <button class="btn ghost sm">Add Note…</button>
+                <button class="btn inert sm">Return Document</button>
+              </div>
+            </div>
+          </div>
+          <div class="ab-primary">
+            <button class="btn terminal override">Force Cancel</button>
+            <button class="btn terminal">Cancel Order</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== the mapping ==================== -->
+
+  <h2 class="sec">1 · Identity band → our fields</h2>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:26%">Slot</th><th style="width:34%">Source</th><th>Ruling</th></tr></thead>
+    <tbody>
+      <tr><td>Big line</td><td><code>documentNo</code></td>
+        <td>The route key, the Screen 1 link target and today's page title — the one id an operator quotes.</td></tr>
+      <tr><td>Overall lozenge</td><td><code>status.overallStatus</code> (raw)</td>
+        <td>No <code>*Description</code> companion exists. Rendered as a labelled raw code in a monospace lozenge — <b>owning that it is a code</b> beats a hand-maintained map (the 406 precedent). Absent ⇒ lozenge omitted.</td></tr>
+      <tr><td>Dawaa Now tag</td><td><code>isExpressDelivery</code></td>
+        <td>Moves from a pill above the title into the band. It is an <b>attribute</b> of the order, not a status, so it is a tag (squared-off amber chip), never a rail pill. Rendered only when <code>true</code>.</td></tr>
+      <tr><td>Sub-id · Order</td><td><code>orderNo</code></td><td>The upstream order behind the document.</td></tr>
+      <tr><td>Sub-id · Type</td><td><code>documentTypeDescription</code></td><td>Falls back to <code>documentType</code> when blank.</td></tr>
+      <tr><td>Sub-id · Delivery doc</td><td><code>deliveryDocumentTypeDescription</code></td><td>Falls back to <code>deliveryDocumentType</code>. <code>BB</code> here is the Return Document gate.</td></tr>
+      <tr><td>Sub-id · Placed</td><td><code>documentDate</code> + <code>entryTime</code></td>
+        <td>One field: date from <code>documentDate</code>, clock from <code>entryTime</code>.</td></tr>
+      <tr><td>Sub-id · Store</td><td><code>storeCode</code></td><td>Promoted out of today's Document group — it is identity, not detail.</td></tr>
+      <tr><td>Customer block</td><td><code>customer.customerName</code>, <code>customer.customerPhone</code>, <code>shippingAddress.cityName</code></td>
+        <td>Duplicated with the Customer rail card <b>by design</b> — the band answers "whose is this" without a read of the rail.</td></tr>
+      <tr><td>Back chevron</td><td>—</td><td>Route back to the list. <b>This screen's escape lives here, not in the action bar</b> — a page is not a modal, and 072's escape-left slot has no occupant once Back is in the band. Flagged to 076.</td></tr>
+      <tr><td><i>not shown</i></td><td><code>refDocumentNo</code>, <code>documentSourceDescription</code>, <code>entryUser</code>, <code>documentCategory</code></td>
+        <td>Demoted to the "All statuses / document facts" disclosure. <code>documentCategory</code> is machinery (it picks the mutation endpoint), never operator-facing.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 class="sec">2 · The pill rail — six promoted statuses</h2>
+  <p class="lede">Owner ruling, this session: <b>the Status tab is removed</b> — the statuses are on top now.
+  So the rail must not lose the record: a quiet <b>All statuses (13)</b> disclosure at the end of the rail
+  opens the full breakdown <code>statusBreakdownRows</code> renders today, including the three code-only
+  statuses. The tab is gone; the record is not.</p>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:20%">Pill</th><th style="width:32%">Source</th><th>Why promoted</th></tr></thead>
+    <tbody>
+      <tr><td>Ready</td><td><code>readyStatusDescription</code></td><td>Has the order been prepared. First question on the floor.</td></tr>
+      <tr><td>Availability</td><td><code>availabilityStatusDescription</code></td><td>Is the stock actually there — the single most common cause of the unhappy path this screen exists for.</td></tr>
+      <tr><td>Approval</td><td><code>approvalStatusDescription</code></td><td>Insurance / e-Rx clearance. Gates dispensing.</td></tr>
+      <tr><td>Payment</td><td><code>paymentStatusDescription</code></td><td>Paid vs due — decides whether cancelling needs a refund (<code>isRefundRequired</code>).</td></tr>
+      <tr><td>Delivery</td><td><code>deliveryStatusDescription</code></td><td>Where it is in the field.</td></tr>
+      <tr><td>Cancellation</td><td><code>closeStatusDescription</code></td><td><b>Relabelled.</b> "Close Status" reads as <i>completion</i>; 072 established close ≡ cancel. Field name and codes unchanged — copy only, in <code>document.json</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warnbox">
+    <b>Disqualified, and why.</b> <code>consignmentStatus</code>, <code>controlStatus</code> and
+    <code>notificationStatus</code> carry <b>no <code>*Description</code> companion</b> — a rail of raw
+    codes is a rail nobody reads, and the 406 precedent (deleted client-side code maps that never fired
+    on live data) says do not invent one. They keep their rows in the disclosure, as raw codes, exactly
+    as <code>statusBreakdownRows</code> shows them today.
+    <code>lastAction</code>, <code>clearStatus</code> and <code>acceptanceStatus</code> are described but
+    <b>not lifecycle</b> — last action is history (the Log tab is its real home), clear and acceptance are
+    accounting/consent sub-states. Six is the rail's budget; these three lose the contest, not the record.
+  </div>
+  <div class="note">
+    <b>Severity mapping stays fog — deliberately.</b> 072 fixed the palette at five (ok · go · warn · bad ·
+    mute) and 070 gave all five full token tiers, so the rail is a lookup. What is <b>not</b> known is the
+    coded value set behind each of the six statuses — SIS.Api was unreachable this session, so any
+    value→severity table written here would be invention. The build needs one live document plus the
+    server's code list. Until then: <b>unknown code ⇒ <code>mute</code></b>, blank ⇒ mute with an em dash.
+    This is the map's "Status → severity rules" fog patch, now narrowed from thirteen statuses to six.
+  </div>
+
+  <h2 class="sec">3 · The rail cards — five, two of them collapsible</h2>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:17%">Card</th><th style="width:41%">Rows → source</th><th>Emptiness rule</th></tr></thead>
+    <tbody>
+      <tr><td><b>Customer</b><br>accent: <code>--primary</code></td>
+        <td>Name <code>customer.customerName</code> · Mobile <code>customer.customerPhone</code> ·
+            Loyalty ID <code>customer.customerId</code> · City <code>shippingAddress.cityName</code> ·
+            Address <code>shippingAddress.shortAddress</code>, falling back to
+            <code>street1</code>/<code>street2</code> + <code>districtName</code></td>
+        <td><b>Always renders.</b> It is the identity anchor; an empty Customer card is itself the finding.</td></tr>
+      <tr><td><b>Prescription (e-Rx)</b><br>accent: <code>--prescription</code></td>
+        <td>Approval no. <code>approvalNumber</code> · Patient ID <code>patientId</code> ·
+            Clinician <code>clinicianName</code> · e-Rx ref <code>referenceErx</code> ·
+            link <code>prescriptionUrl</code></td>
+        <td><b>Collapses</b> when all five are blank. An OTC-only counter sale has no e-Rx and should not show an empty frame.</td></tr>
+      <tr><td><b>Fulfilment</b><br>accent: <code>--primary</code></td>
+        <td>Type <code>deliveryType</code> <span class="nosrc">code</span> · Store <code>storeCode</code> ·
+            Slot <code>timeSlotDay</code> + <code>timeSlotDescription</code> ·
+            Scheduled <code>deliveryScheduleFromTime</code>–<code>deliveryScheduleToTime</code> ·
+            Last note <code>note</code></td>
+        <td><b>Always renders</b> — every document has a delivery type.</td></tr>
+      <tr><td><b>Driver &amp; tracking</b><br>accent: <code>--fam-fulfilment</code></td>
+        <td>Courier <code>courierCode</code> <span class="nosrc">code</span> ·
+            Driver <code>courierDriverName</code> · Mobile <code>courierDriverPhone</code> ·
+            Approved <code>courierDriverApproved</code> ·
+            link <code>trackingUrl</code> + <code>trackingId</code></td>
+        <td><b>Collapses</b> when <code>courierDriverName</code>, <code>courierCode</code> and <code>trackingId</code> are all blank — i.e. on every pick-in-store order.</td></tr>
+      <tr><td><b>Payment</b><br>accent: <code>--primary</code></td>
+        <td>Payment type <code>paymentType</code> <span class="nosrc">code</span> ·
+            Delivery fees <code>deliveryFees</code> · Paid <code>paidAmount</code> ·
+            Amount due <code>amountDue</code> · <b>Net total</b> <code>netTotal</code></td>
+        <td><b>Always renders.</b> Money rows render at zero — "Amount due 0.00" is the answer, not a blank.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <b>The row rule, stated once.</b> Inside a card that renders: <b>money and boolean rows always render</b>
+    (0.00 and "No" are answers); <b>text rows are omitted when blank</b> (no em-dash graveyard). This
+    replaces today's <code>FieldGroup</code> behaviour, which em-dashes everything.<br>
+    <b>The fifth card exists.</b> The reference's annotations mention a Driver card it never draws; we have
+    <code>courierDriver*</code> + <code>tracking*</code>, and on a Dawaa Now delivery it is the most-wanted
+    block on the screen. <b>One field is deliberately never rendered:</b>
+    <code>courierDriverMasterPinCode</code> — a delivery PIN does not belong on a back-office screen.
+  </div>
+
+  <h2 class="sec">4 · The unnamed accent, now named</h2>
+  <p class="lede">070 ruled POS <code>--fam-insurance</code> <code>#0B7C8C</code> survives as the
+  prescription accent but deliberately left 073 to name it. It cannot be called <code>--accent</code>
+  (070 already spent that name on a hover ground) and it is not a command family (072 ruled it out of the
+  bar). It is named for what it marks:</p>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:24%">Token</th><th style="width:14%">Value</th><th style="width:14%">Source</th><th>Used by</th></tr></thead>
+    <tbody>
+      <tr><td><code>--prescription</code></td><td><code>#0B7C8C</code></td><td>POS <code>--fam-insurance</code></td>
+        <td>e-Rx card accent bar · "View prescription" link</td></tr>
+      <tr><td><code>--prescription-050</code></td><td><code>#E3F0F2</code></td><td>derived</td>
+        <td>Ground of the <b>Rx</b> item tag</td></tr>
+      <tr><td><code>--prescription-800</code></td><td><code>#085C68</code></td><td>derived</td>
+        <td>Ink on the <code>-050</code> ground (the teal itself is too light on a tint)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">Same <code>-050</code>/<code>-800</code> tiering as 070's four severity families, so 071's
+  dark-twin rule (<i>roles, not lightness levels — they swap sides</i>) applies to it unchanged. It is a
+  <b>marker</b>, never a control: no button, no pill, no focus ring is ever this teal.</div>
+
+  <h2 class="sec">5 · Tabs — four, no Status tab</h2>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:22%">Tab</th><th style="width:30%">Source</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>Items</td><td><code>lines</code></td><td>Count in the tab. Default.</td></tr>
+      <tr><td>Header Conditions</td><td><code>conditions</code> where <code>condDocumentLine === 0</code></td><td>Count is of the filtered set, not all conditions.</td></tr>
+      <tr><td>Log</td><td><code>Document/Logs</code> (deferred)</td><td>Stays a tab. It is the forensic record of the unhappy path this screen exists to work.</td></tr>
+      <tr><td>Jobs</td><td><code>Document/Outbox</code> (deferred)</td><td>Tab count shows <b>failed</b> jobs in <code>--danger</code> when any exist, total otherwise — a failed outbox job is the one thing here that demands attention unprompted.</td></tr>
+      <tr><td><s>Status</s></td><td><s><code>statusBreakdownRows</code></s></td>
+        <td><b>Removed</b> (owner ruling). Its 13 rows move into the pill rail's "All statuses" disclosure. The reference kept a Status tab; we do not, because our rail carries six described statuses where the till's carried a lead state.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">Deferred loading is unchanged: Log and Jobs fetch <i>after</i> the document renders and
+  never block the page. Panels stay mounted and hide with CSS — unmounting an AG Grid throws away the
+  operator's column widths, sort and filters (D-23).</div>
+
+  <h2 class="sec">6 · The note field — retired from the surface</h2>
+  <div class="note">
+    <b>Ruling:</b> the standing note textarea is <b>removed</b>. <code>Add Note…</code> opens a small dialog
+    (textarea + Save); every other note-posting command carries an <b>optional note field inside its own
+    confirm dialog</b> — which is exactly what <code>RequestCloseDialog</code> already does for the
+    cancellation reason.<br><br>
+    This is not only prototype fidelity. Today the note is coupled to the commands invisibly, and that
+    coupling has already cost a workaround: <code>DocumentDetailsPage</code> keeps a <code>pendingNote</code>
+    state <i>solely</i> because Change Store must post the note as it read when the picker opened, not as it
+    reads when the operator finishes picking. Capturing the note at the moment of commit <b>deletes that
+    state and the ambiguity under it</b>. The endpoints, <code>actionType</code> codes and request bodies are
+    untouched — only where the text is typed moves, so this stays inside map 068's scope.<br><br>
+    The <i>displayed</i> last note (<code>note</code>) keeps its home: the Fulfilment card's last row.
+  </div>
+
+  <h2 class="sec">7 · The items table — what is config, what is a renderer, what we drop</h2>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:26%">Prototype treatment</th><th style="width:20%">Verdict</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td>Right-aligned tabular figures</td><td><b>Config</b></td>
+        <td>Already there — <code>columnKit.money/number</code> set <code>type:'numericColumn'</code>. Add
+            <code>font-variant-numeric:tabular-nums</code> once in the grid theme (→ 074), not per column.</td></tr>
+      <tr><td>Selected row + inset accent bar</td><td><b>Config</b></td>
+        <td><code>rowSelection:'single'</code> + <code>--primary-050</code> as the selected-row background
+            and an <code>inset-inline-start</code> box-shadow in <code>--primary</code>. The inset bar is
+            logical, so it mirrors in RTL for free. Theme-level (→ 074).</td></tr>
+      <tr><td>Totals footer row</td><td><b>Config + helper</b></td>
+        <td><code>pinnedBottomRowData</code>, one row computed client-side from <code>lines</code>
+            (count, Σ quantity, Σ grossAmount, Σ vatAmount, Σ netAmount). Pure function beside
+            <code>columns.ts</code>; sticks to the bottom while the body scrolls.</td></tr>
+      <tr><td>Rx / OTC inline tag</td><td><b>Renderer — but gated</b></td>
+        <td><span class="nosrc">No Rx/OTC field exists.</span> The honest candidates are
+            <code>referenceErxLine</code> being non-empty, or a value of coded <code>itemCategory</code>.
+            <b>Build the renderer; do not ship the tag until one live e-Rx document confirms which field
+            separates them.</b> Absent confirmation the description column renders plain, and nothing is lost.</td></tr>
+      <tr><td>Discount in amber</td><td><b>Renderer</b></td>
+        <td><code>cellClassRules</code> — <code>--attention-800</code> when <code>discount &gt; 0</code>.
+            Tiny, and it is the column an operator scans for.</td></tr>
+      <tr><td>Deleted line</td><td><b>Renderer (ours, not the reference's)</b></td>
+        <td><code>deleted === true</code> ⇒ muted + struck row. We have the field, the till did not; a
+            deleted line silently indistinguishable from a live one is a real reading hazard.</td></tr>
+      <tr><td>Stock column</td><td><b>Dropped</b></td>
+        <td><span class="nosrc">No stock field on <code>SdDocumentLineModel</code>.</span> Availability is
+            answered by the rail pill, at document level. Its slot goes to <code>needTransaction</code>.</td></tr>
+      <tr><td>Zebra striping</td><td><b>Deferred to 074</b></td>
+        <td>Genuine collision: the reference stripes <code>nth-child(even)</code>; our restyle (map 463)
+            deliberately went zebra-less. The grid theme owns row banding for <i>every</i> grid in the app,
+            so one screen must not settle it. Rendered zebra-less above.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">Column set is otherwise today's <code>documentColumns.items()</code> unchanged —
+  item no., description, price, qty, discount, gross, VAT, net, need-transaction, deleted, e-Rx line — with
+  description promoted to the first column so the tag has a home and the eye lands on a name, not a number.</div>
+
+  <h2 class="sec">8 · Back, Refresh, and the responsive answer</h2>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:22%">Chrome</th><th>Placement</th></tr></thead>
+    <tbody>
+      <tr><td><b>Back</b></td><td>Chevron at the <b>start of the identity band</b>. It is navigation, and it stays put whether or not any command is available. Today's separate toolbar row above the title disappears entirely.</td></tr>
+      <tr><td><b>Refresh</b></td><td><b>End of the pill rail</b>, as a quiet outlined button, with its spinner in place. Refresh's most visible effect <i>is</i> the pill rail — putting it anywhere else makes the operator look in two places. (Success stays silent; only failure toasts. Unchanged.)</td></tr>
+      <tr><td><b>&lt; 900 px</b></td><td>Rail unstacks <b>above</b> the work area as a <code>repeat(auto-fit, minmax(250px, 1fr))</code> grid of cards — not a drawer. The summary is the context you read the grid <i>with</i>; hiding it behind a toggle on the narrow viewport that most needs orientation is backwards. Pill rail wraps, tab strip scrolls horizontally, items grid scrolls inside its own frame. Resize this page to see it.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 class="sec">9 · Fields with no source — the honest list</h2>
+  <div class="tablescroll"><table class="map">
+    <thead><tr><th style="width:26%">Wanted</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>Rx / OTC per line</td><td>No field. Renderer built, tag gated on confirming <code>referenceErxLine</code> or <code>itemCategory</code> against a live e-Rx document.</td></tr>
+      <tr><td>Per-line stock</td><td>No field. Column dropped; the Availability pill answers it at document level.</td></tr>
+      <tr><td><code>deliveryType</code> label</td><td>Code with no companion. Model comments verify exactly two values — <code>'D'</code> Delivery, <code>'P'</code> Pick In Store — so a <b>two-entry</b> map is safe. Anything larger repeats the mistake 406 deleted.</td></tr>
+      <tr><td><code>paymentType</code> label</td><td>Code with no companion and <b>no known value set</b>. Renders raw until the server's list is in hand. Do not invent a map.</td></tr>
+      <tr><td><code>courierCode</code> label</td><td>Same. Renders raw.</td></tr>
+      <tr><td><code>status.overallStatus</code> label</td><td>Same — hence the monospace lozenge that admits it is a code rather than a mis-resolved word.</td></tr>
+      <tr><td>Value → severity per pill</td><td>Six statuses' code sets unknown (API down). Unknown ⇒ <code>mute</code>. The one live document that answers this also answers the three rows above it.</td></tr>
+    </tbody>
+  </table></div>
+
+</div>
+</body></html>

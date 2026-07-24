@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>071 — The derived dark twin</title>
+<!--
+  PROTOTYPE for .issues/071-pos-dark-twin.md (wayfinder map 068).
+  PosTheme.xaml is light-only. This derives the dark counterpart of every value
+  approved in 070, from one stated rule, and proves it with measured contrast.
+  Nothing is applied — src/app/global.css is untouched. Throwaway artifact.
+-->
+<style>
+/* ============================ artifact chrome ============================ */
+:root{ --pg:#eef1f5; --pg-ink:#31404f; --pg-ink-2:#6b7885; --pg-card:#ffffff; --pg-bd:#dbe2ea; }
+@media (prefers-color-scheme: dark){
+  :root{ --pg:#12171d; --pg-ink:#d6dee7; --pg-ink-2:#8b98a6; --pg-card:#1a2129; --pg-bd:#28313b; }
+}
+*{ box-sizing:border-box; }
+body{ margin:0; background:var(--pg); color:var(--pg-ink); font-size:14px; line-height:1.5;
+  font-family:'Inter',system-ui,-apple-system,Segoe UI,sans-serif; }
+.wrap{ max-width:1180px; margin:0 auto; padding:28px 20px 80px; }
+h1{ font-size:22px; margin:0 0 4px; letter-spacing:-.01em; }
+h2{ font-size:16px; margin:38px 0 6px; letter-spacing:-.01em; }
+h3{ font-size:13px; margin:22px 0 6px; text-transform:uppercase; letter-spacing:.08em; color:var(--pg-ink-2); }
+p.lede{ max-width:74ch; color:var(--pg-ink-2); margin:0 0 10px; }
+a{ color:#2F63A6; }
+@media (prefers-color-scheme: dark){ a{ color:#6BA0E8; } }
+code{ font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.88em;
+  background:color-mix(in srgb, var(--pg-ink) 8%, transparent); padding:1px 5px; border-radius:4px; }
+hr{ border:0; border-top:1px solid var(--pg-bd); margin:30px 0; }
+table.doc{ border-collapse:collapse; width:100%; font-size:12.5px; background:var(--pg-card);
+  border:1px solid var(--pg-bd); border-radius:8px; overflow:hidden; }
+table.doc th{ text-align:left; background:color-mix(in srgb, var(--pg-ink) 6%, transparent);
+  padding:7px 10px; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--pg-ink-2);
+  border-bottom:1px solid var(--pg-bd); white-space:nowrap; }
+table.doc td{ padding:6px 10px; border-bottom:1px solid var(--pg-bd); vertical-align:top; }
+table.doc tr:last-child td{ border-bottom:0; }
+table.doc td.mono,table.doc th.mono{ font-family:ui-monospace,Consolas,monospace; font-size:11.5px; white-space:nowrap; }
+.sw{ display:inline-block; width:15px; height:15px; border-radius:4px; vertical-align:-3px;
+  margin-inline-end:7px; border:1px solid rgba(128,128,128,.35); }
+.note{ background:var(--pg-card); border:1px solid var(--pg-bd); border-inline-start:3px solid #2F63A6;
+  border-radius:8px; padding:12px 14px; margin:12px 0; font-size:13px; }
+.note.warn{ border-inline-start-color:#B4791F; }
+.note.stop{ border-inline-start-color:#C23B41; }
+.note.ok{ border-inline-start-color:#1E874B; }
+.note b{ font-weight:650; }
+.q{ font-weight:650; color:#B4791F; }
+ul.tight{ margin:6px 0; padding-inline-start:20px; } ul.tight li{ margin:3px 0; }
+.pass{ color:#1E874B; font-weight:700; } .fail{ color:#C23B41; font-weight:700; }
+@media (prefers-color-scheme: dark){ .pass{ color:#55B577; } .fail{ color:#DF6768; } }
+
+.pair{ display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
+@media (max-width:900px){ .pair{ grid-template-columns:1fr; } }
+.mock{ border:1px solid var(--pg-bd); border-radius:10px; overflow:hidden;
+  box-shadow:0 14px 34px -22px rgba(10,20,35,.6); }
+.mock .cap{ font-size:11px; text-transform:uppercase; letter-spacing:.09em; font-weight:700;
+  padding:6px 10px; background:var(--pg-card); color:var(--pg-ink-2); border-bottom:1px solid var(--pg-bd); }
+.mock .cap em{ font-style:normal; color:var(--pg-ink); }
+
+/* ======================= the two palettes under test ======================= */
+/* LIGHT — approved in ticket 070 (PosTheme values under our semantic names) */
+.pal-light{
+  --background:#F4F7FA; --foreground:#19232E; --card:#FFFFFF; --card-2:#FAFBFC;
+  --muted:#EEF2F6; --muted-foreground:#586674; --ink-3:#8593A1;
+  --border:#E3E9F0; --border-strong:#CBD6E2; --divider:#EDF1F5; --input:#CBD6E2; --ring:#2F63A6;
+  --primary:#2F63A6; --primary-050:#E9EFF7; --primary-border:#C6D6EC; --primary-800:#27538C;
+  --primary-foreground:#FFFFFF; --secondary:#586674; --secondary-press:#495562; --secondary-foreground:#FFFFFF;
+  --accent:#E4EAF1; --accent-foreground:#19232E;
+  --success:#1E874B; --success-050:#E7F3EC; --success-border:#BFE0CD; --success-800:#155F36;
+  --attention:#B4791F; --attention-050:#F8F0DE; --attention-border:#E7D3A3; --attention-800:#7C5410;
+  --danger:#C23B41; --danger-050:#FBECEC; --danger-border:#E7BFC1; --danger-800:#8E2A2F;
+  --sidebar:#E9EEF4; --sidebar-foreground:#19232E; --sidebar-accent:#DCE5EF; --sidebar-active:#2F63A6;
+  --fam-fulfilment:#2E7D5B; --fam-cancel-request:#5D5A93; --on-fill:#FFFFFF;
+  --grid-header:#EEF2F6; --grid-header-ink:#586674; --grid-row-hover:#F4F7FA; --grid-sel:#E9EFF7;
+}
+/* DARK — this ticket's proposal */
+.pal-dark{
+  --background:#121C27; --foreground:#ECF0F3; --card:#1C2631; --card-2:#17212C;
+  --muted:#27313A; --muted-foreground:#98A6B4; --ink-3:#76828E;
+  --border:#2E3742; --border-strong:#3B4755; --divider:#28313B; --input:#3B4755; --ring:#6BA0E8;
+  --primary:#6BA0E8; --primary-050:#22344B; --primary-border:#364C68; --primary-800:#B5D0F5;
+  --primary-foreground:#121C27; --secondary:#7D8B99; --secondary-press:#8F9DAB; --secondary-foreground:#121C27;
+  --accent:#323C46; --accent-foreground:#ECF0F3;
+  --success:#55B577; --success-050:#1E3A27; --success-border:#2E543A; --success-800:#ABDCB8;
+  --attention:#E4A249; --attention-050:#422F15; --attention-border:#5F4522; --attention-800:#F6CC9A;
+  --danger:#DF6768; --danger-050:#4C2625; --danger-border:#6F3837; --danger-800:#EEB3B0;
+  --sidebar:#0B151F; --sidebar-foreground:#ECF0F3; --sidebar-accent:#202A34; --sidebar-active:#6BA0E8;
+  --fam-fulfilment:#5FB28B; --fam-cancel-request:#9896DA; --on-fill:#121C27;
+  --grid-header:#27313A; --grid-header-ink:#98A6B4; --grid-row-hover:#222C37; --grid-sel:#22344B;
+}
+/* rejected alternative: family buttons as tinted outline instead of tonal fill */
+.pal-dark.fam-outline .btn.fulfil{ background:transparent; color:var(--fam-fulfilment);
+  border-color:color-mix(in srgb, var(--fam-fulfilment) 45%, transparent); }
+.pal-dark.fam-outline .btn.cancelreq{ background:transparent; color:var(--fam-cancel-request);
+  border-color:color-mix(in srgb, var(--fam-cancel-request) 45%, transparent); }
+.pal-dark.fam-outline .btn.dangerf{ background:transparent; color:var(--danger);
+  border-color:var(--danger-border); }
+
+/* ============================ shared screen CSS ============================ */
+.app{ display:grid; grid-template-columns:186px 1fr; background:var(--background); color:var(--foreground);
+  font-size:12.5px; min-height:430px; }
+.side{ background:var(--sidebar); color:var(--sidebar-foreground); border-inline-end:1px solid var(--border);
+  padding:11px 9px; display:flex; flex-direction:column; gap:2px; }
+.side .brand{ display:flex; align-items:center; gap:7px; font-weight:700; font-size:12.5px; padding:3px 6px 11px; }
+.side .brand .gl{ width:19px; height:19px; border-radius:5px; background:#FDC801; }
+.side .nav{ padding:6px 9px; border-radius:7px; color:inherit; opacity:.82; }
+.side .nav.on{ background:var(--sidebar-accent); opacity:1; font-weight:650;
+  box-shadow:inset 2px 0 0 var(--sidebar-active); }
+.side .grp{ font-size:9.5px; text-transform:uppercase; letter-spacing:.09em; opacity:.55;
+  padding:11px 6px 3px; font-weight:700; }
+.main{ padding:13px 15px; display:flex; flex-direction:column; gap:10px; min-width:0; }
+.row{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.h1{ font-size:14px; font-weight:650; letter-spacing:-.01em; }
+.dim{ color:var(--muted-foreground); }
+.dimmer{ color:var(--ink-3); }
+.btn{ border:1px solid transparent; border-radius:999px; padding:5px 13px; font-size:12px; font-weight:600;
+  background:var(--primary); color:var(--primary-foreground); cursor:default; white-space:nowrap; }
+.btn.sec{ background:var(--secondary); color:var(--secondary-foreground); }
+.btn.press{ background:var(--secondary-press); color:var(--secondary-foreground); }
+.btn.ghost{ background:transparent; color:var(--muted-foreground); border-color:var(--border-strong); }
+.btn.tint{ background:var(--primary-050); color:var(--primary-800); }
+.btn.fulfil{ background:var(--fam-fulfilment); color:var(--on-fill); }
+.btn.cancelreq{ background:var(--fam-cancel-request); color:var(--on-fill); }
+.btn.dangerf{ background:var(--danger); color:var(--on-fill); }
+.btn.dangero{ background:transparent; color:var(--danger-800); border-color:var(--danger-border); }
+.field{ background:var(--card); border:1px solid var(--input); border-radius:8px; padding:5px 10px;
+  color:var(--muted-foreground); font-size:12px; }
+.card{ background:var(--card); border:1px solid var(--border); border-radius:9px; }
+.card.two{ background:var(--card-2); }
+.card > .hd{ padding:6px 10px; border-bottom:1px solid var(--border); font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.07em; color:var(--muted-foreground); }
+.chip{ display:inline-flex; align-items:center; gap:5px; border:1px solid var(--border); border-radius:999px;
+  background:var(--muted); color:var(--muted-foreground); padding:2px 9px; font-size:11px; font-weight:600; }
+.chip .dot{ width:6px; height:6px; border-radius:50%; background:var(--ink-3); }
+.chip.ok{ background:var(--success-050); color:var(--success-800); border-color:var(--success-border); }
+.chip.ok .dot{ background:var(--success); }
+.chip.go{ background:var(--primary-050); color:var(--primary-800); border-color:var(--primary-border); }
+.chip.go .dot{ background:var(--primary); }
+.chip.warn{ background:var(--attention-050); color:var(--attention-800); border-color:var(--attention-border); }
+.chip.warn .dot{ background:var(--attention); }
+.chip.bad{ background:var(--danger-050); color:var(--danger-800); border-color:var(--danger-border); }
+.chip.bad .dot{ background:var(--danger); }
+.focusdemo{ outline:2px solid var(--ring); outline-offset:2px; }
+table.g{ width:100%; border-collapse:collapse; font-size:11.5px; background:var(--card); }
+table.g th{ background:var(--grid-header); color:var(--grid-header-ink); font-weight:700; text-align:left;
+  padding:6px 9px; border-bottom:1px solid var(--border-strong); font-size:10.5px; letter-spacing:.02em;
+  white-space:nowrap; }
+table.g td{ padding:6px 9px; border-bottom:1px solid var(--divider); white-space:nowrap; }
+table.g tr.hov td{ background:var(--grid-row-hover); }
+table.g tr.sel td{ background:var(--grid-sel); }
+table.g .num{ text-align:end; font-variant-numeric:tabular-nums; }
+.gwrap{ border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+.raw{ background:#c62828; color:#fff; font-weight:700; padding:1px 6px; border-radius:4px; font-size:10.5px; }
+
+/* swatch board — light half / dark half */
+.board{ display:grid; grid-template-columns:repeat(auto-fill,minmax(186px,1fr)); gap:9px; margin:10px 0 4px; }
+.tok{ background:var(--pg-card); border:1px solid var(--pg-bd); border-radius:9px; overflow:hidden; }
+.tok .chipbar{ height:34px; display:flex; }
+.tok .chipbar i{ flex:1; display:block; position:relative; }
+.tok .chipbar i::after{ content:attr(data-l); position:absolute; inset-block-end:2px; inset-inline-start:4px;
+  font-size:8px; font-family:ui-monospace,Consolas,monospace; opacity:.75; }
+.tok .meta{ padding:6px 9px 8px; }
+.tok .nm{ font-family:ui-monospace,Consolas,monospace; font-size:11px; font-weight:650; word-break:break-all; }
+.tok .vl{ font-family:ui-monospace,Consolas,monospace; font-size:10.5px; color:var(--pg-ink-2); }
+.tok .rl{ font-size:10.5px; color:var(--pg-ink-2); margin-top:3px; }
+.badge{ display:inline-block; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+  border-radius:4px; padding:1px 5px; margin-top:5px; }
+.badge.rehue{ background:#E9EFF7; color:#27538C; }
+.badge.lift{ background:#E7F3EC; color:#155F36; }
+.badge.flip{ background:#F8F0DE; color:#7C5410; }
+.badge.same{ background:#EEF2F6; color:#586674; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>071 — The derived dark twin</h1>
+<p class="lede">
+  Prototype for <a href="../071-pos-dark-twin.md">ticket 071</a> of
+  <a href="../068-pos-palette-and-document-detail-rework.md">map 068</a>.
+  <code>PosTheme.xaml</code> is light-only — a till renders one theme — so every value approved in
+  <a href="../070-pos-token-remap-light.md">070</a> needs a dark counterpart that does not exist upstream.
+  <b>The rule is the deliverable; the values follow from it.</b> Nothing is applied —
+  <code>src/app/global.css</code> is untouched.
+</p>
+
+<h2>The derivation rule</h2>
+
+<div class="note ok">
+  <b>R1 — Dark keeps our proven lightness ladder and borrows only POS's temperature.</b>
+  Every neutral keeps the <em>lightness</em> of the dark theme we ship today (background oklch L .224,
+  card .265, muted .307, sidebar .191 — levels already validated on real monitors across 40-odd screens)
+  and takes its <em>hue and chroma</em> from the POS scale: H ≈ 250°, with chroma on the same
+  C-vs-L curve PosTheme uses (C ≈ .005 near white → ≈ .026 near black). Warm near-blacks (H ≈ 84°)
+  become cool near-blacks (H ≈ 250°). <b>Nothing else moves.</b> The dark app keeps a depth structure
+  people already read correctly; only its temperature changes.
+  <br><span class="dim">Today, in hex: page <code>#1C1B19</code> · card <code>#262523</code> ·
+  muted <code>#302F2D</code> · rail <code>#151412</code>. After R1: <code>#121C27</code> ·
+  <code>#1C2631</code> · <code>#27313A</code> · <code>#0B151F</code>. Same ladder, one hue rotation.</span>
+</div>
+<div class="note ok">
+  <b>R2 — Chromatics lift to the L .66–.76 band, hold hue, and flip their ink.</b> R1 cannot apply to
+  <code>--primary</code>, the four severities or the two families: they are mid-tone fills
+  (L .50–.62) designed to carry <em>white</em> text on <em>white</em> panels, and at that lightness they
+  are near-invisible on a near-black card. Each keeps its POS hue exactly (255.9° / 152.8° / 72.0° /
+  22.4° / 161.9° / 285.0°) and its chroma within ±.02, and rises to L .66–.76 — the lowest band where
+  <code>--background</code> works as ink at AA. Consequence, stated once:
+  <b>in dark, every filled chromatic control is a light tonal fill with dark ink.</b>
+  (White ink on the lifted fills measures 2.2–2.3:1 — see §4. There is no version of this where dark
+  mode keeps white-on-colour.)
+</div>
+<div class="note ok">
+  <b>R3 — Interaction moves toward contrast with the page, not toward black.</b> In light,
+  <code>--accent</code> (hover) and <code>--secondary-press</code> sit <em>below</em> their base:
+  darker = more present on a white ground. In dark they sit <em>above</em> it. This is the one place the
+  ladder's rank deliberately inverts, and it is the same state-layer convention every dark UI uses.
+</div>
+<div class="note ok">
+  <b>R4 — <code>-050</code> and <code>-800</code> are roles, not lightness levels.</b>
+  <code>-050</code> means "the quiet ground of this family", <code>-800</code> means "ink on that ground".
+  Their absolute lightness swaps in dark: <code>-050</code> becomes a tinted near-black (L ≈ .32,
+  C ≈ .05 — chroma roughly <b>4×</b> the light tint, because a near-black needs far more chroma to read as
+  tinted at all), <code>-800</code> becomes a light tint (L ≈ .82–.87). <b>Zero call-site churn:</b>
+  <code>bg-danger-050 text-danger-800</code> keeps meaning exactly what it meant.
+</div>
+
+<div class="note">
+  <b>Why not reflect the light ladder about L = 0.5?</b> It was the first candidate and it fails twice.
+  (1) A literal reflection puts <code>--card</code> (L 1.000 → 0.000) <em>below</em> the page — a card cut
+  into the page rather than raised off it, inverting the elevation language on every screen.
+  (2) It compresses the seven surfaces into L 0.00–0.08, where our own shipped theme is evidence that
+  steps that small disappear: today's dark uses ~.04 between tiers where light uses ~.015. R1 sidesteps
+  both by not touching lightness at all.
+</div>
+
+<hr>
+
+<h2>1 · The surface ladder</h2>
+<p class="lede">
+  The ticket's sharpest requirement: three near-whites become three near-blacks with the same
+  <em>relative</em> separation, or the card / rail / page structure of the reworked screen collapses
+  into one flat plane. Measured in oklch L, since that is the axis separation lives on.
+</p>
+
+<table class="doc">
+<tr><th>Tier</th><th class="mono">light</th><th>L</th><th>Δ vs card</th><th class="mono">dark</th><th>L</th><th>Δ vs card</th><th>Role</th></tr>
+<tr><td><code>--card</code></td><td class="mono"><span class="sw" style="background:#FFFFFF"></span>#FFFFFF</td><td>1.000</td><td>—</td>
+    <td class="mono"><span class="sw" style="background:#1C2631"></span>#1C2631</td><td>.264</td><td>—</td><td>Raised panel. The reference tier.</td></tr>
+<tr><td><code>--card-2</code></td><td class="mono"><span class="sw" style="background:#FAFBFC"></span>#FAFBFC</td><td>.988</td><td>−.012</td>
+    <td class="mono"><span class="sw" style="background:#17212C"></span>#17212C</td><td>.244</td><td>−.020</td><td>Rail ground, grid zebra. One notch under card.</td></tr>
+<tr><td><code>--background</code></td><td class="mono"><span class="sw" style="background:#F4F7FA"></span>#F4F7FA</td><td>.975</td><td>−.025</td>
+    <td class="mono"><span class="sw" style="background:#121C27"></span>#121C27</td><td>.222</td><td>−.042</td><td>The page. Cards sit above it in both themes.</td></tr>
+<tr><td><code>--sidebar</code></td><td class="mono"><span class="sw" style="background:#E9EEF4"></span>#E9EEF4</td><td>.947</td><td>−.053</td>
+    <td class="mono"><span class="sw" style="background:#0B151F"></span>#0B151F</td><td>.191</td><td>−.073</td><td>Recessed rail — <em>below</em> the page in both, as 070 option A ruled.</td></tr>
+<tr><td><code>--muted</code></td><td class="mono"><span class="sw" style="background:#EEF2F6"></span>#EEF2F6</td><td>.959</td><td>−.041</td>
+    <td class="mono"><span class="sw" style="background:#27313A"></span>#27313A</td><td>.308</td><td>+.044</td><td>Chip / table-head fill. Sits <b>above</b> card in dark (R3 logic: fills read by contrast with the page).</td></tr>
+<tr><td><code>--accent</code></td><td class="mono"><span class="sw" style="background:#E4EAF1"></span>#E4EAF1</td><td>.935</td><td>−.065</td>
+    <td class="mono"><span class="sw" style="background:#323C46"></span>#323C46</td><td>.351</td><td>+.087</td><td><b>Hover ground — the R3 inversion.</b> One step past muted, away from the page.</td></tr>
+<tr><td><code>--sidebar-accent</code></td><td class="mono"><span class="sw" style="background:#DCE5EF"></span>#DCE5EF</td><td>.918</td><td>−.029 <span class="dim">vs rail</span></td>
+    <td class="mono"><span class="sw" style="background:#202A34"></span>#202A34</td><td>.280</td><td>+.089 <span class="dim">vs rail</span></td><td>Active/hover nav ground — measured against <code>--sidebar</code>, its own base. Same R3 inversion.</td></tr>
+</table>
+
+<div class="note warn">
+  <b>Dark steps are ~1.7× the light steps and that is deliberate.</b> oklch L is perceptually uniform in
+  theory; in practice a near-black step is eaten by panel gamma, ambient reflection and OLED crush in a
+  way a near-white step is not. Our shipped dark theme already encodes that correction (~.04 between
+  tiers vs ~.015 in light) and R1 inherits it rather than re-deriving it. The <em>ordering</em> is what
+  the ladder guarantees; the <em>magnitude</em> is empirical.
+</div>
+
+<hr>
+
+<h2>2 · The swatch board — every token, both themes</h2>
+<p class="lede">
+  Left half of each swatch is <b>light</b> (070, approved), right half is <b>dark</b> (this ticket).
+  Badges: <span class="badge rehue">re-hued</span> R1, lightness untouched ·
+  <span class="badge lift">lifted</span> R2, chromatic raised into the dark band ·
+  <span class="badge flip">flipped</span> R3/R4, role keeps its name, value crosses the middle ·
+  <span class="badge same">alias</span>.
+</p>
+
+<h3>Surfaces &amp; ink</h3>
+<div class="board">
+  <div class="tok"><div class="chipbar"><i style="background:#F4F7FA"></i><i style="background:#121C27"></i></div>
+    <div class="meta"><div class="nm">--background</div><div class="vl">#F4F7FA / #121C27</div>
+    <div class="rl">L .975 → .224 · H 248 → 250. 46 uses.</div><span class="badge rehue">re-hued</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#FFFFFF"></i><i style="background:#1C2631"></i></div>
+    <div class="meta"><div class="nm">--card</div><div class="vl">#FFFFFF / #1C2631</div>
+    <div class="rl">L 1.000 → .264. 59 uses. Today's dark card is the warm <code>#262523</code>; this is the same lightness, cooled to H 251.</div><span class="badge rehue">re-hued</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#FAFBFC"></i><i style="background:#17212C"></i></div>
+    <div class="meta"><div class="nm">--card-2</div><div class="vl">#FAFBFC / #17212C</div>
+    <div class="rl">New in 070. Between card and page in both themes — 073's rail ground.</div><span class="badge rehue">re-hued</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#19232E"></i><i style="background:#ECF0F3"></i></div>
+    <div class="meta"><div class="nm">--foreground</div><div class="vl">#19232E / #ECF0F3</div>
+    <div class="rl">The one true pole swap. 13.4:1 on card. Kept marginally off-white (L .953) — pure white on a dark panel haloes.</div><span class="badge flip">flipped</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#586674"></i><i style="background:#98A6B4"></i></div>
+    <div class="meta"><div class="nm">--muted-foreground</div><div class="vl">#586674 / #98A6B4</div>
+    <div class="rl"><b>358 uses.</b> 5.89:1 light / 6.16:1 dark — the two themes land within .3 of each other, which is the point.</div><span class="badge flip">flipped</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#8593A1"></i><i style="background:#76828E"></i></div>
+    <div class="meta"><div class="nm">--ink-3</div><div class="vl">#8593A1 / #76828E</div>
+    <div class="rl">Tertiary ink. 3.14:1 light / 3.91:1 dark — deliberately sub-AA in both; it is metadata, never a sentence.</div><span class="badge flip">flipped</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#EEF2F6"></i><i style="background:#27313A"></i></div>
+    <div class="meta"><div class="nm">--muted</div><div class="vl">#EEF2F6 / #27313A</div>
+    <div class="rl">75 uses. Chip fill, table head.</div><span class="badge rehue">re-hued</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#E4EAF1"></i><i style="background:#323C46"></i></div>
+    <div class="meta"><div class="nm">--accent</div><div class="vl">#E4EAF1 / #323C46</div>
+    <div class="rl">34 uses, a hover ground. <b>R3:</b> below muted in light, above it in dark.</div><span class="badge flip">flipped</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#E3E9F0"></i><i style="background:#2E3742"></i></div>
+    <div class="meta"><div class="nm">--border</div><div class="vl">#E3E9F0 / #2E3742</div>
+    <div class="rl"><b>218 uses.</b> ΔL from card is .069 in both themes — the separation is copied, not guessed. <b>Opaque hex</b>, retiring today's <code>oklch(1 0 0 / 10%)</code> alpha (070's hex ruling).</div><span class="badge rehue">re-hued</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#CBD6E2"></i><i style="background:#3B4755"></i></div>
+    <div class="meta"><div class="nm">--border-strong</div><div class="vl">#CBD6E2 / #3B4755</div>
+    <div class="rl">ΔL from card .129 in both. Table-head rule, action-bar rule, ghost edge.</div><span class="badge rehue">re-hued</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#EDF1F5"></i><i style="background:#28313B"></i></div>
+    <div class="meta"><div class="nm">--divider</div><div class="vl">#EDF1F5 / #28313B</div>
+    <div class="rl">ΔL from card .044 in both. Row rules inside a table.</div><span class="badge rehue">re-hued</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#CBD6E2"></i><i style="background:#3B4755"></i></div>
+    <div class="meta"><div class="nm">--input</div><div class="vl">#CBD6E2 / #3B4755</div>
+    <div class="rl">45 uses. = <code>--border-strong</code> in both themes, as 070 set it. Also retires an alpha value.</div><span class="badge rehue">re-hued</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#E9EEF4"></i><i style="background:#0B151F"></i></div>
+    <div class="meta"><div class="nm">--sidebar</div><div class="vl">#E9EEF4 / #0B151F</div>
+    <div class="rl">Recessed below the page in both. Dark's rail is the darkest surface in the app.</div><span class="badge rehue">re-hued</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#DCE5EF"></i><i style="background:#202A34"></i></div>
+    <div class="meta"><div class="nm">--sidebar-accent</div><div class="vl">#DCE5EF / #202A34</div>
+    <div class="rl">3 uses. <b>R3</b> inversion, on the rail's base.</div><span class="badge flip">flipped</span></div></div>
+</div>
+
+<h3>Action</h3>
+<div class="board">
+  <div class="tok"><div class="chipbar"><i style="background:#2F63A6"></i><i style="background:#6BA0E8"></i></div>
+    <div class="meta"><div class="nm">--primary</div><div class="vl">#2F63A6 / #6BA0E8</div>
+    <div class="rl"><b>126 uses.</b> L .498 → .700, H 256 held, C .121 → .120. 5.70:1 as text on card; 5.70:1 as fill.</div><span class="badge lift">lifted</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#FFFFFF"></i><i style="background:#121C27"></i></div>
+    <div class="meta"><div class="nm">--primary-foreground</div><div class="vl">#FFFFFF / #121C27</div>
+    <div class="rl">15 uses. <b>= <code>--background</code> in dark.</b> The R2 consequence made concrete: white measures 2.34:1 on the lifted blue and is not available.</div><span class="badge flip">flipped</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#E9EFF7"></i><i style="background:#22344B"></i></div>
+    <div class="meta"><div class="nm">--primary-050</div><div class="vl">#E9EFF7 / #22344B</div>
+    <div class="rl"><b>R4.</b> Selection ground, tint badge, info. L .950 → .320; C .013 → .048.</div><span class="badge flip">flipped</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#C6D6EC"></i><i style="background:#364C68"></i></div>
+    <div class="meta"><div class="nm">--primary-border</div><div class="vl">#C6D6EC / #364C68</div>
+    <div class="rl">Pill edge. 1.44:1 against its own ground in dark — the same job the light border does at 1.17:1.</div><span class="badge flip">flipped</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#27538C"></i><i style="background:#B5D0F5"></i></div>
+    <div class="meta"><div class="nm">--primary-800</div><div class="vl">#27538C / #B5D0F5</div>
+    <div class="rl"><b>R4.</b> Ink on <code>-050</code>: 6.72:1 light, 8.01:1 dark. Also the press state.</div><span class="badge flip">flipped</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#2F63A6"></i><i style="background:#6BA0E8"></i></div>
+    <div class="meta"><div class="nm">--ring</div><div class="vl">#2F63A6 / #6BA0E8</div>
+    <div class="rl">= <code>--primary</code> in both. 6.40:1 against the dark page; <code>outline-offset:2px</code> keeps the gap that lets it read on a primary button.</div><span class="badge lift">lifted</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#586674"></i><i style="background:#7D8B99"></i></div>
+    <div class="meta"><div class="nm">--secondary</div><div class="vl">#586674 / #7D8B99</div>
+    <div class="rl">The neutral filled button (POS <code>--key</code>). Lifted to L .630 — the exact level where <code>--background</code> ink clears AA (4.93:1). Below it, nothing works as ink.</div><span class="badge lift">lifted</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#495562"></i><i style="background:#8F9DAB"></i></div>
+    <div class="meta"><div class="nm">--secondary-press</div><div class="vl">#495562 / #8F9DAB</div>
+    <div class="rl"><b>R3.</b> Press <em>darkens</em> the fill in light (−.063 L) and <em>lightens</em> it in dark (+.060 L). Same gesture, opposite direction.</div><span class="badge flip">flipped</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#FFFFFF"></i><i style="background:#121C27"></i></div>
+    <div class="meta"><div class="nm">--secondary-foreground</div><div class="vl">#FFFFFF / #121C27</div>
+    <div class="rl">Tracks <code>--primary-foreground</code>.</div><span class="badge flip">flipped</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#19232E"></i><i style="background:#ECF0F3"></i></div>
+    <div class="meta"><div class="nm">--accent-foreground · --card-foreground</div><div class="vl">#19232E / #ECF0F3</div>
+    <div class="rl">Both dead (0 uses) but declared; track <code>--foreground</code>.</div><span class="badge flip">flipped</span></div></div>
+</div>
+
+<h3>Severity — four families × four tiers</h3>
+<div class="board">
+  <div class="tok"><div class="chipbar"><i style="background:#1E874B"></i><i style="background:#55B577"></i><i style="background:#1E3A27"></i><i style="background:#ABDCB8"></i></div>
+    <div class="meta"><div class="nm">--success / -050 / -800</div><div class="vl">#55B577 · #1E3A27 · #ABDCB8</div>
+    <div class="rl">H 152.8 held. Ink on fill 6.77:1; <code>-800</code> on <code>-050</code> 8.08:1. <code>-border #2E543A</code>.</div><span class="badge lift">lifted</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#B4791F"></i><i style="background:#E4A249"></i><i style="background:#422F15"></i><i style="background:#F6CC9A"></i></div>
+    <div class="meta"><div class="nm">--attention / -050 / -800</div><div class="vl">#E4A249 · #422F15 · #F6CC9A</div>
+    <div class="rl">H 72.0 held, lifted further (L .760) — amber loses chroma fast below it. Ink on fill 7.83:1. <code>-border #5F4522</code>.</div><span class="badge lift">lifted</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#C23B41"></i><i style="background:#DF6768"></i><i style="background:#4C2625"></i><i style="background:#EEB3B0"></i></div>
+    <div class="meta"><div class="nm">--danger / -050 / -800</div><div class="vl">#DF6768 · #4C2625 · #EEB3B0</div>
+    <div class="rl">H 22.4 held, L .660 — lifted least, so the terminal red stays the heaviest thing on screen. Ink on fill 5.14:1. <code>-border #6F3837</code>.</div><span class="badge lift">lifted</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#C23B41"></i><i style="background:#DF6768"></i></div>
+    <div class="meta"><div class="nm">--destructive</div><div class="vl">var(--danger) in both</div>
+    <div class="rl">Compatibility alias (14 uses). <code>--destructive-foreground</code> → <code>#121C27</code> in dark.</div><span class="badge same">alias</span></div></div>
+</div>
+
+<h3>Command families &amp; the reserved value</h3>
+<div class="board">
+  <div class="tok"><div class="chipbar"><i style="background:#2E7D5B"></i><i style="background:#5FB28B"></i></div>
+    <div class="meta"><div class="nm">--fam-fulfilment</div><div class="vl">#2E7D5B / #5FB28B</div>
+    <div class="rl">H 161.9 held. Solid fill in dark, ink 6.74:1. Reschedule · Change Store.</div><span class="badge lift">lifted</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#5D5A93"></i><i style="background:#9896DA"></i></div>
+    <div class="meta"><div class="nm">--fam-cancel-request</div><div class="vl">#5D5A93 / #9896DA</div>
+    <div class="rl">H 285.0 held. Ink 6.31:1. Request Cancellation · Withdraw Request.</div><span class="badge lift">lifted</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#0B7C8C"></i><i style="background:#40B1B7"></i></div>
+    <div class="meta"><div class="nm">(reserved) prescription accent</div><div class="vl">#0B7C8C / #40B1B7</div>
+    <div class="rl"><b>Value reserved, name still 073's</b> (070 §4). The dark twin is derived here so 073 does not have to.</div><span class="badge lift">lifted</span></div></div>
+</div>
+
+<hr>
+
+<h2>3 · The two screens, in dark</h2>
+<p class="lede">The same two screens 070 used, so the comparison is apples to apples: POS light beside POS dark.</p>
+
+<h3>Deliveries</h3>
+<div class="pair">
+  <div class="mock">
+    <div class="cap">light — <em>approved in 070</em></div>
+    <div class="app pal-light">
+      <div class="side">
+        <div class="brand"><span class="gl"></span>al-dawaa BackOffice</div>
+        <div class="grp">OMS</div><div class="nav on">Deliveries</div><div class="nav">Documents</div>
+        <div class="grp">Pricing</div><div class="nav">Bonus Buy Inquiry</div><div class="nav">Simulation</div>
+      </div>
+      <div class="main">
+        <div class="row"><span class="h1">Deliveries</span><span class="dim">128 hits</span>
+          <span style="flex:1"></span><span class="btn">Search</span></div>
+        <div class="row"><span class="field">Document no.</span><span class="field">Store</span>
+          <span class="field focusdemo">Status</span><span class="btn ghost">Reset</span></div>
+        <div class="row"><span class="chip go"><span class="dot"></span>In transit</span>
+          <span class="chip ok"><span class="dot"></span>Delivered</span>
+          <span class="chip warn"><span class="dot"></span>Late</span>
+          <span class="chip bad"><span class="dot"></span>Cancelled</span>
+          <span class="chip"><span class="dot"></span>Draft</span></div>
+        <div class="gwrap"><table class="g">
+          <tr><th>Document</th><th>Store</th><th>Status</th><th class="num">Lines</th><th class="num">Net</th></tr>
+          <tr><td>9000000003</td><td>0412</td><td>In transit</td><td class="num">4</td><td class="num">318.50</td></tr>
+          <tr class="sel"><td>9000000011</td><td>0412</td><td>Delivered</td><td class="num">7</td><td class="num">1,204.00</td></tr>
+          <tr class="hov"><td>9000000012</td><td>0388</td><td>Late</td><td class="num">2</td><td class="num">96.75</td></tr>
+          <tr><td>9000000019</td><td>0388</td><td><span class="raw">3 failed</span></td><td class="num">5</td><td class="num">742.10</td></tr>
+          <tr><td>9000000021</td><td>0501</td><td>Cancelled</td><td class="num">1</td><td class="num">44.00</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </div>
+  <div class="mock">
+    <div class="cap">dark — <em>this ticket</em></div>
+    <div class="app pal-dark">
+      <div class="side">
+        <div class="brand"><span class="gl"></span>al-dawaa BackOffice</div>
+        <div class="grp">OMS</div><div class="nav on">Deliveries</div><div class="nav">Documents</div>
+        <div class="grp">Pricing</div><div class="nav">Bonus Buy Inquiry</div><div class="nav">Simulation</div>
+      </div>
+      <div class="main">
+        <div class="row"><span class="h1">Deliveries</span><span class="dim">128 hits</span>
+          <span style="flex:1"></span><span class="btn">Search</span></div>
+        <div class="row"><span class="field">Document no.</span><span class="field">Store</span>
+          <span class="field focusdemo">Status</span><span class="btn ghost">Reset</span></div>
+        <div class="row"><span class="chip go"><span class="dot"></span>In transit</span>
+          <span class="chip ok"><span class="dot"></span>Delivered</span>
+          <span class="chip warn"><span class="dot"></span>Late</span>
+          <span class="chip bad"><span class="dot"></span>Cancelled</span>
+          <span class="chip"><span class="dot"></span>Draft</span></div>
+        <div class="gwrap"><table class="g">
+          <tr><th>Document</th><th>Store</th><th>Status</th><th class="num">Lines</th><th class="num">Net</th></tr>
+          <tr><td>9000000003</td><td>0412</td><td>In transit</td><td class="num">4</td><td class="num">318.50</td></tr>
+          <tr class="sel"><td>9000000011</td><td>0412</td><td>Delivered</td><td class="num">7</td><td class="num">1,204.00</td></tr>
+          <tr class="hov"><td>9000000012</td><td>0388</td><td>Late</td><td class="num">2</td><td class="num">96.75</td></tr>
+          <tr><td>9000000019</td><td>0388</td><td><span class="raw">3 failed</span></td><td class="num">5</td><td class="num">742.10</td></tr>
+          <tr><td>9000000021</td><td>0501</td><td>Cancelled</td><td class="num">1</td><td class="num">44.00</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h3>Document Details — today's layout (073 reworks it)</h3>
+<div class="pair">
+  <div class="mock">
+    <div class="cap">light — <em>approved in 070</em></div>
+    <div class="app pal-light" style="grid-template-columns:1fr">
+      <div class="main">
+        <div class="row"><span class="btn ghost">← Back</span><span class="h1">Document 9000000003</span>
+          <span class="chip go"><span class="dot"></span>In transit</span>
+          <span style="flex:1"></span><span class="btn ghost">Refresh</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
+          <div class="card"><div class="hd">Order</div><div style="padding:7px 10px;display:grid;gap:4px">
+            <div class="row" style="justify-content:space-between"><span class="dim">Type</span><span>ZOR</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dim">Created</span><span>2026-07-19</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dimmer">Close status</span><span class="dimmer">—</span></div></div></div>
+          <div class="card two"><div class="hd">Store</div><div style="padding:7px 10px;display:grid;gap:4px">
+            <div class="row" style="justify-content:space-between"><span class="dim">Code</span><span>0412</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dim">Slot</span><span>14:00–16:00</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dimmer">Zone</span><span class="dimmer">RUH-3</span></div></div></div>
+          <div class="card"><div class="hd">Customer</div><div style="padding:7px 10px;display:grid;gap:4px">
+            <div class="row" style="justify-content:space-between"><span class="dim">Name</span><span>A. Al-Otaibi</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dim">Phone</span><span>05x xxx 4417</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dimmer">Address</span><span class="dimmer">Al Nakheel…</span></div></div></div>
+        </div>
+        <div class="card"><div class="hd">Commands</div>
+          <div style="padding:8px 10px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <span class="field" style="flex:1;min-width:150px">Note…</span>
+            <span class="btn ghost">Add note</span><span class="btn fulfil">Reschedule</span>
+            <span class="btn fulfil">Change Store</span><span class="btn cancelreq">Request Cancellation</span>
+            <span class="btn dangerf">Cancel Order</span><span class="btn dangero">Force Cancel</span></div></div>
+        <div class="row" style="gap:2px">
+          <span class="btn tint" style="border-radius:7px 7px 0 0">Items <span class="dimmer">4</span></span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Conditions</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Log</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Status</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Jobs</span></div>
+        <div class="gwrap"><table class="g">
+          <tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Net</th></tr>
+          <tr><td>102384</td><td>Panadol Extra 500mg ×24</td><td class="num">2</td><td class="num">27.00</td></tr>
+          <tr class="sel"><td>119022</td><td>Ventolin Inhaler 100mcg</td><td class="num">1</td><td class="num">31.50</td></tr>
+          <tr><td>140881</td><td>Vitamin D3 50,000 IU</td><td class="num">3</td><td class="num">96.00</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </div>
+  <div class="mock">
+    <div class="cap">dark — <em>this ticket</em></div>
+    <div class="app pal-dark" style="grid-template-columns:1fr">
+      <div class="main">
+        <div class="row"><span class="btn ghost">← Back</span><span class="h1">Document 9000000003</span>
+          <span class="chip go"><span class="dot"></span>In transit</span>
+          <span style="flex:1"></span><span class="btn ghost">Refresh</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
+          <div class="card"><div class="hd">Order</div><div style="padding:7px 10px;display:grid;gap:4px">
+            <div class="row" style="justify-content:space-between"><span class="dim">Type</span><span>ZOR</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dim">Created</span><span>2026-07-19</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dimmer">Close status</span><span class="dimmer">—</span></div></div></div>
+          <div class="card two"><div class="hd">Store</div><div style="padding:7px 10px;display:grid;gap:4px">
+            <div class="row" style="justify-content:space-between"><span class="dim">Code</span><span>0412</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dim">Slot</span><span>14:00–16:00</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dimmer">Zone</span><span class="dimmer">RUH-3</span></div></div></div>
+          <div class="card"><div class="hd">Customer</div><div style="padding:7px 10px;display:grid;gap:4px">
+            <div class="row" style="justify-content:space-between"><span class="dim">Name</span><span>A. Al-Otaibi</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dim">Phone</span><span>05x xxx 4417</span></div>
+            <div class="row" style="justify-content:space-between"><span class="dimmer">Address</span><span class="dimmer">Al Nakheel…</span></div></div></div>
+        </div>
+        <div class="card"><div class="hd">Commands</div>
+          <div style="padding:8px 10px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <span class="field" style="flex:1;min-width:150px">Note…</span>
+            <span class="btn ghost">Add note</span><span class="btn fulfil">Reschedule</span>
+            <span class="btn fulfil">Change Store</span><span class="btn cancelreq">Request Cancellation</span>
+            <span class="btn dangerf">Cancel Order</span><span class="btn dangero">Force Cancel</span></div></div>
+        <div class="row" style="gap:2px">
+          <span class="btn tint" style="border-radius:7px 7px 0 0">Items <span class="dimmer">4</span></span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Conditions</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Log</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Status</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Jobs</span></div>
+        <div class="gwrap"><table class="g">
+          <tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Net</th></tr>
+          <tr><td>102384</td><td>Panadol Extra 500mg ×24</td><td class="num">2</td><td class="num">27.00</td></tr>
+          <tr class="sel"><td>119022</td><td>Ventolin Inhaler 100mcg</td><td class="num">1</td><td class="num">31.50</td></tr>
+          <tr><td>140881</td><td>Vitamin D3 50,000 IU</td><td class="num">3</td><td class="num">96.00</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <b>The `--card-2` tier is visible.</b> The middle card ("Store") is <code>--card-2</code> in both screens
+  above; the outer two are <code>--card</code>. If the rail tier had collapsed, that card would be
+  invisible — it is the ladder's own smoke test, and 073's 340px rail depends on it.
+</div>
+
+<h3>The family-fill question, decided</h3>
+<p class="lede">The ticket asks whether family buttons lighten or flip to tinted-outline on dark. Both are
+  rendered; the proposal is <b>tonal fill</b> (left).</p>
+<div class="pair">
+  <div class="mock">
+    <div class="cap">proposed — <em>tonal fill + dark ink</em></div>
+    <div class="app pal-dark" style="grid-template-columns:1fr;min-height:0">
+      <div class="main"><div class="row" style="gap:8px">
+        <span class="btn ghost">Add note</span><span class="btn fulfil">Reschedule</span>
+        <span class="btn fulfil">Change Store</span><span class="btn cancelreq">Request Cancellation</span>
+        <span class="btn dangerf">Cancel Order</span><span class="btn dangero">Force Cancel</span></div>
+        <div class="row"><span class="dim">Weight order survives: the two terminal reds still outrank the family clusters, and the ghost still recedes.</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="mock">
+    <div class="cap">rejected — <em>tinted outline</em></div>
+    <div class="app pal-dark fam-outline" style="grid-template-columns:1fr;min-height:0">
+      <div class="main"><div class="row" style="gap:8px">
+        <span class="btn ghost">Add note</span><span class="btn fulfil">Reschedule</span>
+        <span class="btn fulfil">Change Store</span><span class="btn cancelreq">Request Cancellation</span>
+        <span class="btn dangerf">Cancel Order</span><span class="btn dangero">Force Cancel</span></div>
+        <div class="row"><span class="dim">Every button is now an outline. 072's whole point — a quiet ghost tier below the coloured tiers, and a filled/outlined split inside danger — has nothing left to express.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="note warn">
+  <b>Why fill wins.</b> 072 spends the button's <em>fill</em> as its weight axis: ghost (add-note,
+  return-document) &lt; family fill &lt; danger fill, with danger-outlined as the deliberate override
+  step below danger-filled. Flipping families to outline on dark collapses four weight tiers into two and
+  makes Force Cancel indistinguishable from Reschedule at a glance. The tonal fill costs one thing — the
+  label ink stops being white — and R2 pays that price once, uniformly, for every chromatic fill.
+</div>
+
+<hr>
+
+<h2>4 · Contrast proof</h2>
+<p class="lede">
+  Measured, not asserted: WCAG 2.1 relative-luminance ratios, computed over the exact hex values in §2.
+  Body text needs 4.5:1, large text and non-text UI need 3:1. Light column is the 070 table, for
+  comparison — the goal was <b>parity</b>, not merely passing.
+</p>
+
+<table class="doc">
+<tr><th>Pair</th><th>Light</th><th>Dark</th><th>Need</th><th>Verdict</th></tr>
+<tr><td><code>--foreground</code> on <code>--card</code></td><td>15.89</td><td>13.37</td><td>4.5</td><td class="pass">both AAA</td></tr>
+<tr><td><code>--foreground</code> on <code>--background</code></td><td>14.78</td><td>15.01</td><td>4.5</td><td class="pass">both AAA</td></tr>
+<tr><td><code>--foreground</code> on <code>--sidebar</code></td><td>13.62</td><td>16.06</td><td>4.5</td><td class="pass">both AAA</td></tr>
+<tr><td><code>--muted-foreground</code> on <code>--card</code> <span class="dim">(358 uses)</span></td><td>5.89</td><td>6.16</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td><code>--muted-foreground</code> on <code>--muted</code></td><td>5.23</td><td>5.32</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td><code>--ink-3</code> on <code>--card</code></td><td>3.14</td><td>3.91</td><td>3 <span class="dim">(UI/large)</span></td><td class="pass">tertiary, sub-AA by design in both</td></tr>
+<tr><td><code>--primary</code> as text on <code>--card</code></td><td>6.08</td><td>5.70</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td><code>--primary-foreground</code> on <code>--primary</code> fill</td><td>6.08</td><td>6.40</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td><code>--primary</code> fill vs <code>--background</code></td><td>5.65</td><td>6.40</td><td>3</td><td class="pass">both</td></tr>
+<tr><td><code>--ring</code> vs <code>--background</code></td><td>5.65</td><td>6.40</td><td>3</td><td class="pass">both</td></tr>
+<tr><td>ink on <code>--secondary</code> fill</td><td>5.89</td><td>4.93</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td>ink on <code>--secondary-press</code></td><td>7.61</td><td>6.21</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td>ink on <code>--success</code> fill</td><td>4.54</td><td>6.77</td><td>4.5</td><td class="pass">both AA <span class="dim">(light only just)</span></td></tr>
+<tr><td>ink on <code>--danger</code> fill</td><td>5.26</td><td>5.14</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td>ink on <code>--fam-fulfilment</code> fill</td><td>5.00</td><td>6.74</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td>ink on <code>--fam-cancel-request</code> fill</td><td>6.27</td><td>6.31</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td><b>white on <code>--attention</code> fill</b></td><td><b>3.69</b></td><td>7.83</td><td>4.5</td><td class="fail">light FAILS — see the finding below</td></tr>
+<tr><td><code>--success-800</code> on <code>--success-050</code></td><td>6.77</td><td>8.08</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td><code>--attention-800</code> on <code>--attention-050</code></td><td>5.91</td><td>8.50</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td><code>--danger-800</code> on <code>--danger-050</code></td><td>7.26</td><td>7.27</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td><code>--primary-800</code> on <code>--primary-050</code></td><td>6.72</td><td>8.01</td><td>4.5</td><td class="pass">both AA</td></tr>
+<tr><td><span class="dim">rejected:</span> white ink on dark <code>--primary</code></td><td>—</td><td>2.34</td><td>4.5</td><td class="fail">why R2 flips the ink</td></tr>
+<tr><td><span class="dim">rejected:</span> white ink on dark <code>--fam-fulfilment</code></td><td>—</td><td>2.23</td><td>4.5</td><td class="fail">same</td></tr>
+</table>
+
+<h3>Surface separations — the metric WCAG does not measure</h3>
+<p class="lede">
+  Ratios between two near-identical grounds are useless (a 1.2:1 "failure" describes every card edge in
+  every design system). The honest number is oklch ΔL, with the light theme as the yardstick.
+</p>
+<table class="doc">
+<tr><th>Pair</th><th>Light ΔL · ratio</th><th>Dark ΔL · ratio</th><th>Verdict</th></tr>
+<tr><td><code>--background</code> vs <code>--card</code></td><td>.025 · 1.08</td><td>.042 · 1.12</td><td class="pass">dark separates card from page <em>better</em> than light does</td></tr>
+<tr><td><code>--card-2</code> vs <code>--card</code></td><td>.012 · 1.04</td><td>.020 · 1.06</td><td class="pass">the rail tier holds</td></tr>
+<tr><td><code>--border</code> vs <code>--card</code></td><td>.069 · 1.22</td><td>.069 · 1.27</td><td class="pass">ΔL copied exactly</td></tr>
+<tr><td><code>--border-strong</code>/<code>--input</code> vs <code>--card</code></td><td>.129 · 1.47</td><td>.129 · 1.62</td><td class="pass">ΔL copied exactly</td></tr>
+<tr><td><code>--divider</code> vs <code>--card</code></td><td>.044 · 1.14</td><td>.045 · 1.16</td><td class="pass">ΔL copied exactly</td></tr>
+<tr><td><code>--primary-050</code> vs <code>--card</code></td><td>.050 · 1.16</td><td>.057 · 1.21</td><td class="pass">pill reads as a chip on the panel</td></tr>
+<tr><td><code>--danger-050</code> vs <code>--card</code></td><td>.045 · 1.15</td><td>.055 · 1.18</td><td class="pass">plus a 22° hue break the ratio can't see</td></tr>
+<tr><td><code>--primary-050</code> vs <code>--card-2</code> <span class="dim">(pill on the rail)</span></td><td>.038 · 1.12</td><td>.077 · 1.29</td><td class="pass">the hardest case in the set, and dark wins it</td></tr>
+</table>
+
+<div class="note stop">
+  <b>Finding handed back to 070 / 077 — the light <code>--attention</code> fill fails AA.</b>
+  White on <code>#B4791F</code> is <b>3.69:1</b>. It is latent today (072 gives attention no button; it
+  appears only as a pill, where <code>--attention-800</code> on <code>--attention-050</code> measures
+  5.91:1 and is fine). But the moment anything fills a button with <code>--attention</code>, the light
+  theme is non-compliant while dark is not. <b>No ink rescues it:</b> white 3.69, <code>--foreground</code>
+  <code>#19232E</code> 4.31, <code>--attention-800</code> 1.82 — the hue simply sits at the luminance where
+  nothing clears 4.5. So the ruling is a prohibition, not an ink swap: <b><code>--attention</code> is a
+  pill / border / icon colour in light, never a filled-button ground.</b> If a later ticket genuinely needs
+  an attention-filled button, it needs a <em>darker</em> fill token of its own (<code>#8E6318</code> carries
+  white at 5.32:1) — it does not get to re-use <code>--attention</code>. Dark is unaffected: R2 lifts the
+  fill to <code>#E4A249</code>, where the dark ink measures 7.83. Recorded here rather than silently
+  patched, because it constrains an already-approved table.
+</div>
+
+<div class="note">
+  <b>Not in scope for this ticket.</b> <code>core/theme/ag-grid-theme.ts</code> carries its own dark mode
+  (9 params × 2 modes, hand-mirrored hex) — the <code>--grid-*</code> values in the mocks above are a
+  <em>suggestion</em> to <a href="../074-ag-grid-theme-mapping.md">074</a>, which now has both halves of
+  the palette to map from. The 249 raw palette occurrences include their own <code>dark:</code> twins
+  (≈165 distinct decisions after pairing) and sweep in <a href="../077-severity-colour-layer.md">077</a>,
+  which this table now unblocks. The two brand surfaces are
+  <a href="../075-brand-surfaces-reconciliation.md">075</a> — note navy <code>#002554</code> is
+  <em>darker</em> than this dark theme's own page, which is new information for that ticket.
+</div>
+
+</div>
+</body>
+</html>

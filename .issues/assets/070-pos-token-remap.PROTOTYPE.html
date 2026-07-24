@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>070 — The POS token remap (light)</title>
+<!--
+  PROTOTYPE for .issues/070-pos-token-remap-light.md (wayfinder map 068).
+  Proposes the full light-mode value table once PosTheme is the standard, and
+  re-tints two existing screens (Deliveries, Document Details as it stands today)
+  side by side: TODAY (claude.ai warm neutrals, issue 464) vs PROPOSED (POS steel).
+  Nothing here is applied — global.css is untouched. Throwaway artifact.
+-->
+<style>
+/* ============================ artifact chrome ============================ */
+:root{
+  --pg:#eef1f5; --pg-ink:#31404f; --pg-ink-2:#6b7885; --pg-card:#ffffff; --pg-bd:#dbe2ea;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --pg:#12171d; --pg-ink:#d6dee7; --pg-ink-2:#8b98a6; --pg-card:#1a2129; --pg-bd:#28313b; }
+}
+*{ box-sizing:border-box; }
+body{ margin:0; background:var(--pg); color:var(--pg-ink); font-size:14px; line-height:1.5;
+  font-family:'Inter',system-ui,-apple-system,Segoe UI,sans-serif; }
+.wrap{ max-width:1180px; margin:0 auto; padding:28px 20px 80px; }
+h1{ font-size:22px; margin:0 0 4px; letter-spacing:-.01em; }
+h2{ font-size:16px; margin:38px 0 6px; letter-spacing:-.01em; }
+h3{ font-size:13px; margin:22px 0 6px; text-transform:uppercase; letter-spacing:.08em; color:var(--pg-ink-2); }
+p.lede{ max-width:72ch; color:var(--pg-ink-2); margin:0 0 10px; }
+a{ color:#2F63A6; }
+code{ font-family:ui-monospace,SFMono-Regular,Consolas,monospace; font-size:.88em;
+  background:color-mix(in srgb, var(--pg-ink) 8%, transparent); padding:1px 5px; border-radius:4px; }
+hr{ border:0; border-top:1px solid var(--pg-bd); margin:30px 0; }
+table.doc{ border-collapse:collapse; width:100%; font-size:12.5px; background:var(--pg-card);
+  border:1px solid var(--pg-bd); border-radius:8px; overflow:hidden; }
+table.doc th{ text-align:left; background:color-mix(in srgb, var(--pg-ink) 6%, transparent);
+  padding:7px 10px; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--pg-ink-2);
+  border-bottom:1px solid var(--pg-bd); white-space:nowrap; }
+table.doc td{ padding:6px 10px; border-bottom:1px solid var(--pg-bd); vertical-align:top; }
+table.doc tr:last-child td{ border-bottom:0; }
+.sw{ display:inline-block; width:15px; height:15px; border-radius:4px; vertical-align:-3px;
+  margin-right:7px; border:1px solid rgba(0,0,0,.18); }
+.note{ background:var(--pg-card); border:1px solid var(--pg-bd); border-inline-start:3px solid #2F63A6;
+  border-radius:8px; padding:12px 14px; margin:12px 0; font-size:13px; }
+.note.warn{ border-inline-start-color:#B4791F; }
+.note.stop{ border-inline-start-color:#C23B41; }
+.note b{ font-weight:650; }
+.q{ font-weight:650; color:#B4791F; }
+ul.tight{ margin:6px 0; padding-inline-start:20px; } ul.tight li{ margin:3px 0; }
+
+/* pair of screen mocks, today vs proposed */
+.pair{ display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start; }
+@media (max-width:900px){ .pair{ grid-template-columns:1fr; } }
+.mock{ border:1px solid var(--pg-bd); border-radius:10px; overflow:hidden;
+  box-shadow:0 14px 34px -22px rgba(20,35,55,.5); }
+.mock .cap{ font-size:11px; text-transform:uppercase; letter-spacing:.09em; font-weight:700;
+  padding:6px 10px; background:var(--pg-card); color:var(--pg-ink-2); border-bottom:1px solid var(--pg-bd); }
+.mock .cap em{ font-style:normal; color:var(--pg-ink); }
+
+/* ======================= the two palettes under test ======================= */
+/* TODAY — claude.ai warm neutrals (src/app/global.css :root, oklch → hex here) */
+.pal-warm{
+  --background:#FDFCFA; --foreground:#26241F; --card:#FFFFFF; --card-fg:#26241F; --card-2:#FFFFFF;
+  --muted:#F5F3EE; --muted-foreground:#7B766D; --ink-3:#7B766DA0;
+  --border:#E8E5DE; --border-strong:#E2DFD7; --divider:#EFEDE7; --input:#E2DFD7; --ring:#C96442;
+  --primary:#26241F; --primary-050:#26241F1A; --primary-800:#26241F; --primary-foreground:#FBFAF7;
+  --secondary:#F5F3EE; --secondary-foreground:#26241F; --accent:#EFEDE7; --accent-foreground:#26241F;
+  --success:#059669; --success-050:#ECFDF5; --success-border:#A7F3D0; --success-800:#065F46;
+  --attention:#D97706; --attention-050:#FFFBEB; --attention-border:#FDE68A; --attention-800:#92400E;
+  --danger:#DC2626; --danger-050:#FEF2F2; --danger-border:#FECACA; --danger-800:#991B1B;
+  --sidebar:#F7F5F0; --sidebar-foreground:#26241F; --sidebar-accent:#EAE7E0; --sidebar-active:#C96442;
+  --fam-fulfilment:#26241F; --fam-cancel-request:#26241F;
+  --grid-header:#F5F4EF; --grid-header-ink:#57544C; --grid-row-hover:#F3F2EC; --grid-sel:#D9775726;
+}
+/* PROPOSED — PosTheme.xaml values under our semantic names */
+.pal-pos{
+  --background:#F4F7FA; --foreground:#19232E; --card:#FFFFFF; --card-fg:#19232E; --card-2:#FAFBFC;
+  --muted:#EEF2F6; --muted-foreground:#586674; --ink-3:#8593A1;
+  --border:#E3E9F0; --border-strong:#CBD6E2; --divider:#EDF1F5; --input:#CBD6E2; --ring:#2F63A6;
+  --primary:#2F63A6; --primary-050:#E9EFF7; --primary-800:#27538C; --primary-foreground:#FFFFFF;
+  --secondary:#586674; --secondary-foreground:#FFFFFF; --accent:#E4EAF1; --accent-foreground:#19232E;
+  --success:#1E874B; --success-050:#E7F3EC; --success-border:#BFE0CD; --success-800:#155F36;
+  --attention:#B4791F; --attention-050:#F8F0DE; --attention-border:#E7D3A3; --attention-800:#7C5410;
+  --danger:#C23B41; --danger-050:#FBECEC; --danger-border:#E7BFC1; --danger-800:#8E2A2F;
+  --sidebar:#E9EEF4; --sidebar-foreground:#19232E; --sidebar-accent:#DCE5EF; --sidebar-active:#2F63A6;
+  --fam-fulfilment:#2E7D5B; --fam-cancel-request:#5D5A93;
+  --grid-header:#EEF2F6; --grid-header-ink:#586674; --grid-row-hover:#F4F7FA; --grid-sel:#E9EFF7;
+}
+/* option B for the sidebar orphan — dark steel band echoing the POS header */
+.pal-pos.sb-dark{
+  --sidebar:#223140; --sidebar-foreground:#E7EDF3; --sidebar-accent:#2E4053; --sidebar-active:#7FB0E8;
+}
+
+/* ============================ shared screen CSS ============================ */
+.app{ display:grid; grid-template-columns:186px 1fr; background:var(--background); color:var(--foreground);
+  font-size:12.5px; min-height:430px; }
+.side{ background:var(--sidebar); color:var(--sidebar-foreground); border-inline-end:1px solid var(--border);
+  padding:11px 9px; display:flex; flex-direction:column; gap:2px; }
+.side .brand{ display:flex; align-items:center; gap:7px; font-weight:700; font-size:12.5px; padding:3px 6px 11px; }
+.side .brand .gl{ width:19px; height:19px; border-radius:5px; background:#FDC801; }
+.side .nav{ padding:6px 9px; border-radius:7px; color:inherit; opacity:.82; }
+.side .nav.on{ background:var(--sidebar-accent); opacity:1; font-weight:650;
+  box-shadow:inset 2px 0 0 var(--sidebar-active); }
+.side .grp{ font-size:9.5px; text-transform:uppercase; letter-spacing:.09em; opacity:.55;
+  padding:11px 6px 3px; font-weight:700; }
+.main{ padding:13px 15px; display:flex; flex-direction:column; gap:10px; min-width:0; }
+.row{ display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
+.h1{ font-size:14px; font-weight:650; letter-spacing:-.01em; }
+.dim{ color:var(--muted-foreground); }
+.dimmer{ color:var(--ink-3); }
+.btn{ border:1px solid transparent; border-radius:999px; padding:5px 13px; font-size:12px; font-weight:600;
+  background:var(--primary); color:var(--primary-foreground); cursor:default; white-space:nowrap; }
+.btn.sec{ background:var(--secondary); color:var(--secondary-foreground); }
+.btn.ghost{ background:transparent; color:var(--muted-foreground); border-color:var(--border-strong); }
+.btn.tint{ background:var(--primary-050); color:var(--primary-800); }
+.btn.fulfil{ background:var(--fam-fulfilment); color:#fff; }
+.btn.cancelreq{ background:var(--fam-cancel-request); color:#fff; }
+.btn.dangerf{ background:var(--danger); color:#fff; }
+.btn.dangero{ background:transparent; color:var(--danger-800); border-color:var(--danger-border); }
+.btn.escape{ background:transparent; color:var(--danger); border-color:var(--danger-border); }
+.field{ background:var(--card); border:1px solid var(--input); border-radius:8px; padding:5px 10px;
+  color:var(--muted-foreground); font-size:12px; }
+.card{ background:var(--card); border:1px solid var(--border); border-radius:9px; }
+.card > .hd{ padding:6px 10px; border-bottom:1px solid var(--border); font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.07em; color:var(--muted-foreground); }
+.chip{ display:inline-flex; align-items:center; gap:5px; border:1px solid var(--border); border-radius:999px;
+  background:var(--muted); color:var(--muted-foreground); padding:2px 9px; font-size:11px; font-weight:600; }
+.chip .dot{ width:6px; height:6px; border-radius:50%; background:var(--ink-3); }
+.chip.ok{ background:var(--success-050); color:var(--success-800); border-color:var(--success-border); }
+.chip.ok .dot{ background:var(--success); }
+.chip.go{ background:var(--primary-050); color:var(--primary-800); border-color:#C6D6EC; }
+.chip.go .dot{ background:var(--primary); }
+.chip.warn{ background:var(--attention-050); color:var(--attention-800); border-color:var(--attention-border); }
+.chip.warn .dot{ background:var(--attention); }
+.chip.bad{ background:var(--danger-050); color:var(--danger-800); border-color:var(--danger-border); }
+.chip.bad .dot{ background:var(--danger); }
+.focusdemo{ outline:2px solid var(--ring); outline-offset:2px; }
+
+/* grid — stands in for AG Grid (ticket 074 remaps the real params) */
+table.g{ width:100%; border-collapse:collapse; font-size:11.5px; background:var(--card); }
+table.g th{ background:var(--grid-header); color:var(--grid-header-ink); font-weight:700; text-align:left;
+  padding:6px 9px; border-bottom:1px solid var(--border-strong); font-size:10.5px; letter-spacing:.02em;
+  white-space:nowrap; }
+table.g td{ padding:6px 9px; border-bottom:1px solid var(--divider); white-space:nowrap; }
+table.g tr.hov td{ background:var(--grid-row-hover); }
+table.g tr.sel td{ background:var(--grid-sel); }
+table.g .num{ text-align:right; font-variant-numeric:tabular-nums; }
+.gwrap{ border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+.raw{ background:#c62828; color:#fff; font-weight:700; padding:1px 6px; border-radius:4px; font-size:10.5px; }
+
+/* swatch board */
+.board{ display:grid; grid-template-columns:repeat(auto-fill,minmax(178px,1fr)); gap:9px; margin:10px 0 4px; }
+.tok{ background:var(--pg-card); border:1px solid var(--pg-bd); border-radius:9px; overflow:hidden; }
+.tok .chipbar{ height:34px; display:flex; }
+.tok .chipbar i{ flex:1; display:block; }
+.tok .meta{ padding:6px 9px 8px; }
+.tok .nm{ font-family:ui-monospace,Consolas,monospace; font-size:11px; font-weight:650; word-break:break-all; }
+.tok .vl{ font-family:ui-monospace,Consolas,monospace; font-size:10.5px; color:var(--pg-ink-2); }
+.tok .rl{ font-size:10.5px; color:var(--pg-ink-2); margin-top:3px; }
+.badge{ display:inline-block; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em;
+  border-radius:4px; padding:1px 5px; margin-top:5px; }
+.badge.new{ background:#E9EFF7; color:#27538C; }
+.badge.derived{ background:#F8F0DE; color:#7C5410; }
+.badge.pos{ background:#E7F3EC; color:#155F36; }
+.badge.keep{ background:#EEF2F6; color:#586674; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>070 — The POS token remap (light)</h1>
+<p class="lede">
+  Prototype for <a href="../070-pos-token-remap-light.md">ticket 070</a> of
+  <a href="../068-pos-palette-and-document-detail-rework.md">map 068</a>. Proposes the exact light-mode
+  value for every semantic token once <code>PosTheme.xaml</code> is the standard, and shows the swap
+  against two existing screens. <b>Nothing is applied</b> — <code>src/app/global.css</code> is untouched;
+  <code>/to-spec</code> carries the approved table into the spec.
+</p>
+
+<h2>The four decisions this ticket owes</h2>
+
+<table class="doc">
+<tr><th style="width:170px">Decision</th><th>Proposal</th><th style="width:44%">Why</th></tr>
+<tr>
+  <td><b><code>--primary</code></b><br><span class="dim">the genuine choice</span></td>
+  <td><span class="sw" style="background:#2F63A6"></span><code>#2F63A6</code> — POS <code>--accent</code>,
+      <b>not</b> <code>--key</code>.</td>
+  <td>POS <code>--key</code> <code>#586674</code> is the <em>same value</em> as <code>--ink-2</code>, which
+      becomes our 358-use <code>--muted-foreground</code>. Mapping <code>--primary</code> there would paint
+      every default button the exact colour of dim body text. All 126 <code>--primary</code> call sites are
+      actions or accents — filled buttons (17), <code>text-primary</code> on active tabs / badges / bullets
+      (33), <code>border-primary</code> on selected rows (26), <code>bg-primary/10</code> tints (15). Not one
+      is body ink, so the steel blue lands as an <em>improvement</em> on every one of them.
+      POS <code>--key</code> still gets a home — see <code>--secondary</code> below.</td>
+</tr>
+<tr>
+  <td><b>Colour space</b></td>
+  <td><b>Hex</b>, replacing the current <code>oklch()</code>.</td>
+  <td>Three reasons, all practical: (1) the values stay byte-verifiable against
+      <code>PosTheme.xaml</code> — a reviewer can diff them; (2) <code>core/theme/ag-grid-theme.ts</code>
+      is already a hand-mirrored <em>hex</em> copy (069 §4), so one notation covers both files and 074's
+      job becomes copy-paste; (3) Tailwind 4 resolves <code>bg-primary/10</code> through
+      <code>color-mix</code> identically for hex and oklch, so no utility changes behaviour.
+      071 still <em>derives</em> the dark twin in oklch space — it just emits hex.</td>
+</tr>
+<tr>
+  <td><b>The additions</b></td>
+  <td>22 new names, no <code>--info</code>, no <code>--disabled*</code>, no <code>--on-sub</code>.</td>
+  <td>Full board below. Three POS tokens are deliberately <b>not</b> adopted:
+      <code>--disabled</code>/<code>-ink</code>/<code>-border</code> (we express disabled with
+      <code>disabled:opacity-45</code> and that idiom is fine), <code>--on-sub</code> (=
+      <code>text-primary-foreground/80</code>), and any <code>--info</code> hue — see the ruling below.</td>
+</tr>
+<tr>
+  <td><b>The orphans</b></td>
+  <td><code>--ring</code>←<code>--primary</code>; <code>--input</code>←<code>--border-strong</code>;
+      <code>--secondary</code>←POS <code>--key</code>; the four <code>--sidebar*</code> <b>derived</b>
+      (two options, <span class="q">owner picks</span>).</td>
+  <td>The sidebar is the one surface PosTheme has no answer for at all — a till has no nav rail. Both
+      derivations are rendered side by side in §3.</td>
+</tr>
+</table>
+
+<div class="note">
+  <b>Ruling — there is no <code>--info</code> token.</b> POS declares no info hue, and our
+  15 raw <code>blue/sky-*</code> sites (069 §3a) are informational states. Now that <code>--primary</code>
+  <em>is</em> steel blue, an info token would be a second blue three shades from the first — two tokens
+  the eye cannot tell apart and the reader cannot choose between. Informational states use
+  <code>--primary</code> / <code>--primary-050</code>. This is a constraint handed to
+  <a href="../077-severity-colour-layer.md">077</a>: it inherits four severity families, not five.
+</div>
+
+<div class="note">
+  <b>Naming reconciliation.</b> 072 wrote <code>--danger-800</code>; our existing token is
+  <code>--destructive</code> (14 uses). Rather than run two spellings, the severity family is named
+  <code>--success</code> / <code>--attention</code> / <code>--danger</code> — each with a
+  <code>-050</code> ground, a <code>-border</code> and an <code>-800</code> ink — and
+  <code>--destructive: var(--danger)</code> is kept as a <b>compatibility alias</b> so the 14 existing
+  call sites and shadcn idiom keep working. Zero churn, one symmetric family.
+  <code>--primary</code> takes the same four tiers, which is what makes the pill rail's four severities
+  (ok / go / warn / bad) mechanical.
+</div>
+
+<hr>
+
+<h2>1 · The swatch board — every token, valued</h2>
+<p class="lede">
+  Left half of each swatch is <b>today</b>, right half is <b>proposed</b>. Badges:
+  <span class="badge pos">POS</span> verbatim from PosTheme ·
+  <span class="badge derived">derived</span> no POS answer, derived from the scale ·
+  <span class="badge new">new name</span> ·
+  <span class="badge keep">unchanged</span>.
+</p>
+
+<h3>Surfaces &amp; ink</h3>
+<div class="board">
+  <div class="tok"><div class="chipbar"><i style="background:#FDFCFA"></i><i style="background:#F4F7FA"></i></div>
+    <div class="meta"><div class="nm">--background</div><div class="vl">#FDFCFA → #F4F7FA</div>
+    <div class="rl">POS <code>--surface</code>. 46 uses.</div><span class="badge pos">POS</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#FFFFFF"></i><i style="background:#FFFFFF"></i></div>
+    <div class="meta"><div class="nm">--card</div><div class="vl">#FFFFFF → #FFFFFF</div>
+    <div class="rl">POS <code>--panel</code>. 59 uses. Value identical; only its <em>contrast</em> changes
+      — white now sits on a cool ground, so cards finally read as raised.</div><span class="badge keep">unchanged</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#FFFFFF"></i><i style="background:#FAFBFC"></i></div>
+    <div class="meta"><div class="nm">--card-2</div><div class="vl">— → #FAFBFC</div>
+    <div class="rl">POS <code>--panel-2</code>. Second panel tier: the 340px rail ground and grid zebra.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#26241F"></i><i style="background:#19232E"></i></div>
+    <div class="meta"><div class="nm">--foreground</div><div class="vl">#26241F → #19232E</div>
+    <div class="rl">POS <code>--ink</code>. 26 uses (body ink flows from <code>body</code>).</div><span class="badge pos">POS</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#7B766D"></i><i style="background:#586674"></i></div>
+    <div class="meta"><div class="nm">--muted-foreground</div><div class="vl">#7B766D → #586674</div>
+    <div class="rl">POS <code>--ink-2</code>. <b>358 uses — the single most-felt swap in the app.</b></div><span class="badge pos">POS</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#7B766D;opacity:.63"></i><i style="background:#8593A1"></i></div>
+    <div class="meta"><div class="nm">--ink-3</div><div class="vl">(opacity hack) → #8593A1</div>
+    <div class="rl">POS <code>--ink-3</code>. Third ink tier — replaces today's
+      <code>text-muted-foreground/60</code> idiom with a real name.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#F5F3EE"></i><i style="background:#EEF2F6"></i></div>
+    <div class="meta"><div class="nm">--muted</div><div class="vl">#F5F3EE → #EEF2F6</div>
+    <div class="rl">The reference's own neutral ground (chip fill, table head). 75 uses.</div><span class="badge pos">POS</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#EFEDE7"></i><i style="background:#E4EAF1"></i></div>
+    <div class="meta"><div class="nm">--accent</div><div class="vl">#EFEDE7 → #E4EAF1</div>
+    <div class="rl"><b>Do not copy POS <code>--accent</code>'s name.</b> Ours is a <em>hover ground</em>
+      (34 uses); POS <code>--accent</code> is the primary action. Derived one step below
+      <code>--muted</code> so hover still reads over a muted chip.</div><span class="badge derived">derived</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#E8E5DE"></i><i style="background:#E3E9F0"></i></div>
+    <div class="meta"><div class="nm">--border</div><div class="vl">#E8E5DE → #E3E9F0</div>
+    <div class="rl">POS <code>--border</code>. <b>218 uses.</b></div><span class="badge pos">POS</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#E2DFD7"></i><i style="background:#CBD6E2"></i></div>
+    <div class="meta"><div class="nm">--border-strong</div><div class="vl">— → #CBD6E2</div>
+    <div class="rl">POS <code>--border-strong</code>. Table head rule, action-bar rule, ghost button edge.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#EFEDE7"></i><i style="background:#EDF1F5"></i></div>
+    <div class="meta"><div class="nm">--divider</div><div class="vl">— → #EDF1F5</div>
+    <div class="rl">POS <code>--divider</code>. Lighter than border: row rules inside a table.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#E2DFD7"></i><i style="background:#CBD6E2"></i></div>
+    <div class="meta"><div class="nm">--input</div><div class="vl">#E2DFD7 → #CBD6E2</div>
+    <div class="rl">← POS <code>--border-strong</code>. <b>45 uses.</b> Fields read stronger than card
+      edges — same relationship POS draws.</div><span class="badge pos">POS</span></div></div>
+</div>
+
+<h3>Action</h3>
+<div class="board">
+  <div class="tok"><div class="chipbar"><i style="background:#26241F"></i><i style="background:#2F63A6"></i></div>
+    <div class="meta"><div class="nm">--primary</div><div class="vl">#26241F → #2F63A6</div>
+    <div class="rl">POS <code>--accent</code>. <b>126 uses.</b> Warm black → steel blue.</div><span class="badge pos">POS</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#26241F1A"></i><i style="background:#E9EFF7"></i></div>
+    <div class="meta"><div class="nm">--primary-050</div><div class="vl">— → #E9EFF7</div>
+    <div class="rl">POS <code>--accent-050</code>. Selection ground, tint badges, "info". Replaces the
+      15 <code>bg-primary/10</code> approximations with an exact value.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#26241F"></i><i style="background:#27538C"></i></div>
+    <div class="meta"><div class="nm">--primary-800</div><div class="vl">— → #27538C</div>
+    <div class="rl">POS <code>--accent-700</code>. Doubles as press state and as ink on
+      <code>--primary-050</code> (today <code>hover:bg-primary/85</code> <em>lightens</em>, which is the
+      wrong direction on a blue).</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#FBFAF7"></i><i style="background:#FFFFFF"></i></div>
+    <div class="meta"><div class="nm">--primary-foreground</div><div class="vl">#FBFAF7 → #FFFFFF</div>
+    <div class="rl">POS <code>--on</code>. 15 uses.</div><span class="badge pos">POS</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#F5F3EE"></i><i style="background:#586674"></i></div>
+    <div class="meta"><div class="nm">--secondary</div><div class="vl">#F5F3EE → #586674</div>
+    <div class="rl">POS <code>--key</code>. <b>Dead today (0 uses)</b> — revived as the neutral filled
+      button, which is exactly the role POS gives <code>--key</code>.</div><span class="badge pos">POS</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#F5F3EE"></i><i style="background:#495562"></i></div>
+    <div class="meta"><div class="nm">--secondary-press</div><div class="vl">— → #495562</div>
+    <div class="rl">POS <code>--key-press</code>.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#26241F"></i><i style="background:#FFFFFF"></i></div>
+    <div class="meta"><div class="nm">--secondary-foreground</div><div class="vl">#26241F → #FFFFFF</div>
+    <div class="rl">POS <code>--on</code>. Dead today; flips meaning with <code>--secondary</code>.</div><span class="badge pos">POS</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#26241F"></i><i style="background:#19232E"></i></div>
+    <div class="meta"><div class="nm">--accent-foreground</div><div class="vl">#26241F → #19232E</div>
+    <div class="rl">= <code>--foreground</code>. Dead today; kept so <code>bg-accent</code> has a
+      declared partner.</div><span class="badge keep">unchanged role</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#C96442"></i><i style="background:#2F63A6"></i></div>
+    <div class="meta"><div class="nm">--ring</div><div class="vl">#C96442 → #2F63A6</div>
+    <div class="rl">= <code>--primary</code>. <b>The terracotta's last stand.</b> POS has no focus token;
+      the ring joins the primary family. The existing <code>outline-offset:2px</code> keeps a white gap,
+      so it still reads on a primary button. 15 uses + the one <code>var()</code> read in the repo.</div><span class="badge derived">derived</span></div></div>
+</div>
+
+<h3>Severity — four families × four tiers (no info)</h3>
+<div class="board">
+  <div class="tok"><div class="chipbar"><i style="background:#1E874B"></i><i style="background:#E7F3EC"></i><i style="background:#BFE0CD"></i><i style="background:#155F36"></i></div>
+    <div class="meta"><div class="nm">--success / -050 / -border / -800</div>
+    <div class="vl">#1E874B · #E7F3EC · #BFE0CD · #155F36</div>
+    <div class="rl">POS <code>--success</code> + the <code>.pill.ok</code> inline ink/border.
+      <b>No token exists today</b> — 55 raw <code>emerald-*</code> sites.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#B4791F"></i><i style="background:#F8F0DE"></i><i style="background:#E7D3A3"></i><i style="background:#7C5410"></i></div>
+    <div class="meta"><div class="nm">--attention / -050 / -border / -800</div>
+    <div class="vl">#B4791F · #F8F0DE · #E7D3A3 · #7C5410</div>
+    <div class="rl">POS <code>--attention</code> + <code>.pill.warn</code>. 75 raw <code>amber-*</code> sites.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#C23B41"></i><i style="background:#FBECEC"></i><i style="background:#E7BFC1"></i><i style="background:#8E2A2F"></i></div>
+    <div class="meta"><div class="nm">--danger / -050 / -border / -800</div>
+    <div class="vl">#C23B41 · #FBECEC · #E7BFC1 · #8E2A2F</div>
+    <div class="rl">POS <code>--danger</code>; <code>-800</code> is 072's Force-Cancel ink.
+      87 raw <code>red/rose-*</code> sites.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#DC2626"></i><i style="background:#C23B41"></i></div>
+    <div class="meta"><div class="nm">--destructive</div><div class="vl">#DC2626 → var(--danger)</div>
+    <div class="rl"><b>Compatibility alias.</b> 14 uses keep working untouched;
+      <code>--destructive-foreground</code> (dead) becomes <code>#FFFFFF</code>.</div><span class="badge keep">alias</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#2F63A6"></i><i style="background:#E9EFF7"></i><i style="background:#C6D6EC"></i><i style="background:#27538C"></i></div>
+    <div class="meta"><div class="nm">(info) → --primary tiers</div>
+    <div class="vl">#2F63A6 · #E9EFF7 · #C6D6EC · #27538C</div>
+    <div class="rl">The fourth severity family <em>is</em> primary. <code>--primary-border #C6D6EC</code>
+      is the one addition this needs (POS <code>.pill.go</code> inline).</div><span class="badge derived">derived</span></div></div>
+</div>
+
+<h3>Command families (from <a href="../072-command-family-taxonomy.md">072</a>) &amp; leftovers</h3>
+<div class="board">
+  <div class="tok"><div class="chipbar"><i style="background:#2E7D5B"></i></div>
+    <div class="meta"><div class="nm">--fam-fulfilment</div><div class="vl">#2E7D5B</div>
+    <div class="rl">POS <code>--fam-fulfil</code>. Reschedule · Change Store.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#5D5A93"></i></div>
+    <div class="meta"><div class="nm">--fam-cancel-request</div><div class="vl">#5D5A93</div>
+    <div class="rl">POS <code>--fam-admin</code>. Request Cancellation · Withdraw Request.</div><span class="badge new">new name</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#0B7C8C"></i></div>
+    <div class="meta"><div class="nm">(reserved) #0B7C8C</div><div class="vl">POS --fam-insurance</div>
+    <div class="rl"><b>Value reserved, name deferred to 073</b> — the prescription / e-Rx accent. Not
+      declared by this ticket.</div><span class="badge derived">deferred</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#E8EDF2"></i><i style="background:#A6B0BA"></i><i style="background:#D7DEE6"></i></div>
+    <div class="meta"><div class="nm">--disabled / -ink / -border</div><div class="vl">not adopted</div>
+    <div class="rl">We express disabled as <code>disabled:opacity-45</code>. Adopting three tokens would
+      mean rewriting every disabled control for no gain.</div><span class="badge keep">rejected</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#FFFFFFCC"></i></div>
+    <div class="meta"><div class="nm">--on-sub</div><div class="vl">not adopted</div>
+    <div class="rl">= <code>text-primary-foreground/80</code>. Two sites (069 §5).</div><span class="badge keep">rejected</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#26241F"></i><i style="background:#19232E"></i></div>
+    <div class="meta"><div class="nm">--card-foreground</div><div class="vl">#26241F → #19232E</div>
+    <div class="rl">Dead (0 uses) but declared; tracks <code>--foreground</code>.</div><span class="badge keep">unchanged role</span></div></div>
+  <div class="tok"><div class="chipbar"><i style="background:#e8e5de"></i><i style="background:#e3e9f0"></i></div>
+    <div class="meta"><div class="nm">--radius · --font-sans</div><div class="vl">0.625rem · Inter/Readex</div>
+    <div class="rl"><b>Untouched.</b> POS declares no radius token and is a WPF prototype with no web
+      font contract. 185 <code>rounded-lg/md</code> uses keep their geometry.</div><span class="badge keep">unchanged</span></div></div>
+</div>
+
+<div class="note">
+  <b>Count:</b> 21 declared tokens → <b>43</b>. Of the 21 originals, 19 keep their name and role and
+  simply change value; <code>--secondary</code> / <code>--secondary-foreground</code> (both dead) flip
+  role to carry POS <code>--key</code> / <code>--on</code>. <b>Zero <code>.tsx</code> edits are required
+  by this table</b> — 069 §1 proved every token is consumed as a Tailwind utility, with one
+  <code>var()</code> read (<code>:focus-visible</code>) that needs no change.
+</div>
+
+<hr>
+
+<h2>2 · Deliveries, re-tinted</h2>
+<p class="lede">Grid-heavy screen — the one that tells you whether the app is <em>livable</em> in the new
+  palette. The mock stands in for AG Grid; the real grid params are ticket 074's job (069 §4: the theme
+  file is a hand-mirrored hex copy and gets <b>nothing</b> for free).</p>
+
+<div class="pair">
+  <div class="mock">
+    <div class="cap">today — <em>warm neutrals</em> (issue 464)</div>
+    <div class="app pal-warm">
+      <div class="side">
+        <div class="brand"><span class="gl"></span>al-dawaa BackOffice</div>
+        <div class="grp">OMS</div>
+        <div class="nav on">Deliveries</div>
+        <div class="nav">Documents</div>
+        <div class="grp">Pricing</div>
+        <div class="nav">Bonus Buy Inquiry</div>
+        <div class="nav">Simulation</div>
+      </div>
+      <div class="main">
+        <div class="row"><span class="h1">Deliveries</span><span class="dim">128 hits</span>
+          <span style="flex:1"></span><span class="btn">Search</span></div>
+        <div class="row">
+          <span class="field">Document no.</span><span class="field">Store</span>
+          <span class="field focusdemo">Status</span><span class="btn ghost">Reset</span></div>
+        <div class="row"><span class="chip go"><span class="dot"></span>In transit</span>
+          <span class="chip ok"><span class="dot"></span>Delivered</span>
+          <span class="chip warn"><span class="dot"></span>Late</span>
+          <span class="chip bad"><span class="dot"></span>Cancelled</span>
+          <span class="chip"><span class="dot"></span>Draft</span></div>
+        <div class="gwrap"><table class="g">
+          <tr><th>Document</th><th>Store</th><th>Status</th><th class="num">Lines</th><th class="num">Net</th></tr>
+          <tr><td>9000000003</td><td>0412</td><td>In transit</td><td class="num">4</td><td class="num">318.50</td></tr>
+          <tr class="sel"><td>9000000011</td><td>0412</td><td>Delivered</td><td class="num">7</td><td class="num">1,204.00</td></tr>
+          <tr class="hov"><td>9000000012</td><td>0388</td><td>Late</td><td class="num">2</td><td class="num">96.75</td></tr>
+          <tr><td>9000000019</td><td>0388</td><td><span class="raw">3 failed</span></td><td class="num">5</td><td class="num">742.10</td></tr>
+          <tr><td>9000000021</td><td>0501</td><td>Cancelled</td><td class="num">1</td><td class="num">44.00</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mock">
+    <div class="cap">proposed — <em>POS steel</em></div>
+    <div class="app pal-pos">
+      <div class="side">
+        <div class="brand"><span class="gl"></span>al-dawaa BackOffice</div>
+        <div class="grp">OMS</div>
+        <div class="nav on">Deliveries</div>
+        <div class="nav">Documents</div>
+        <div class="grp">Pricing</div>
+        <div class="nav">Bonus Buy Inquiry</div>
+        <div class="nav">Simulation</div>
+      </div>
+      <div class="main">
+        <div class="row"><span class="h1">Deliveries</span><span class="dim">128 hits</span>
+          <span style="flex:1"></span><span class="btn">Search</span></div>
+        <div class="row">
+          <span class="field">Document no.</span><span class="field">Store</span>
+          <span class="field focusdemo">Status</span><span class="btn ghost">Reset</span></div>
+        <div class="row"><span class="chip go"><span class="dot"></span>In transit</span>
+          <span class="chip ok"><span class="dot"></span>Delivered</span>
+          <span class="chip warn"><span class="dot"></span>Late</span>
+          <span class="chip bad"><span class="dot"></span>Cancelled</span>
+          <span class="chip"><span class="dot"></span>Draft</span></div>
+        <div class="gwrap"><table class="g">
+          <tr><th>Document</th><th>Store</th><th>Status</th><th class="num">Lines</th><th class="num">Net</th></tr>
+          <tr><td>9000000003</td><td>0412</td><td>In transit</td><td class="num">4</td><td class="num">318.50</td></tr>
+          <tr class="sel"><td>9000000011</td><td>0412</td><td>Delivered</td><td class="num">7</td><td class="num">1,204.00</td></tr>
+          <tr class="hov"><td>9000000012</td><td>0388</td><td>Late</td><td class="num">2</td><td class="num">96.75</td></tr>
+          <tr><td>9000000019</td><td>0388</td><td><span class="raw">3 failed</span></td><td class="num">5</td><td class="num">742.10</td></tr>
+          <tr><td>9000000021</td><td>0501</td><td>Cancelled</td><td class="num">1</td><td class="num">44.00</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="note warn">
+  <b>Read the four things that moved.</b> (1) The <b>page ground stops being paper</b> — <code>#F4F7FA</code>
+  under white cards is what finally separates a card from the page; today's <code>#FDFCFA</code>-under-white
+  is a 1% step nobody sees. (2) The <b>selected row is now a meaning, not a mood</b>: terracotta-at-15%
+  becomes the primary tint. (3) <b>Fields gain an edge</b> — <code>--input #CBD6E2</code> is markedly
+  stronger than <code>--border</code>, so inputs stop dissolving into cards. (4) The <b>focus ring</b>
+  (third field, shown focused) goes terracotta → steel; it is now the same colour as the button it
+  usually sits next to, which is the point.
+</div>
+<div class="note stop">
+  <b>Will not re-tint (069 §3).</b> The red <span class="raw">3 failed</span> cell is
+  <code>deliveries/columns.ts:46</code> — a <code>cellStyle</code> hard-coded to <code>#c62828</code>,
+  bypassing the theme entirely. It looks equally out of place in both palettes and is
+  <b>one of 249 raw palette occurrences across 41 files</b> that this table does nothing for. That sweep
+  is <a href="../077-severity-colour-layer.md">ticket 077</a>, which now has the four families above to
+  sweep <em>into</em>.
+</div>
+
+<hr>
+
+<h2>3 · Document Details as it stands today, re-tinted</h2>
+<p class="lede">
+  Deliberately <b>today's</b> layout, not the reworked one — 073 designs that. The question here is only
+  what the swap does to the screen we already have, so the palette can be judged before the layout moves.
+</p>
+
+<div class="pair">
+  <div class="mock">
+    <div class="cap">today — <em>warm neutrals</em></div>
+    <div class="app pal-warm" style="grid-template-columns:1fr">
+      <div class="main">
+        <div class="row"><span class="btn ghost">← Back</span><span class="h1">Document 9000000003</span>
+          <span class="chip go"><span class="dot"></span>In transit</span>
+          <span style="flex:1"></span><span class="btn ghost">Refresh</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
+          <div class="card"><div class="hd">Order</div>
+            <div style="padding:7px 10px;display:grid;gap:4px">
+              <div class="row" style="justify-content:space-between"><span class="dim">Type</span><span>ZOR</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dim">Created</span><span>2026-07-19</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dim">Close status</span><span>—</span></div>
+            </div></div>
+          <div class="card"><div class="hd">Store</div>
+            <div style="padding:7px 10px;display:grid;gap:4px">
+              <div class="row" style="justify-content:space-between"><span class="dim">Code</span><span>0412</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dim">Slot</span><span>14:00–16:00</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dimmer">Zone</span><span class="dimmer">RUH-3</span></div>
+            </div></div>
+          <div class="card"><div class="hd">Customer</div>
+            <div style="padding:7px 10px;display:grid;gap:4px">
+              <div class="row" style="justify-content:space-between"><span class="dim">Name</span><span>A. Al-Otaibi</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dim">Phone</span><span>05x xxx 4417</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dimmer">Address</span><span class="dimmer">Al Nakheel…</span></div>
+            </div></div>
+        </div>
+        <div class="card">
+          <div class="hd">Commands</div>
+          <div style="padding:8px 10px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <span class="field" style="flex:1;min-width:150px">Note…</span>
+            <span class="btn ghost">Add note</span>
+            <span class="btn fulfil">Reschedule</span>
+            <span class="btn fulfil">Change Store</span>
+            <span class="btn cancelreq">Request Cancellation</span>
+            <span class="btn dangerf">Cancel Order</span>
+            <span class="btn dangero">Force Cancel</span>
+          </div>
+        </div>
+        <div class="row" style="gap:2px">
+          <span class="btn tint" style="border-radius:7px 7px 0 0">Items <span class="dimmer">4</span></span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Conditions</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Log</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Status</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Jobs</span>
+        </div>
+        <div class="gwrap"><table class="g">
+          <tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Net</th></tr>
+          <tr><td>102384</td><td>Panadol Extra 500mg ×24</td><td class="num">2</td><td class="num">27.00</td></tr>
+          <tr class="sel"><td>119022</td><td>Ventolin Inhaler 100mcg</td><td class="num">1</td><td class="num">31.50</td></tr>
+          <tr><td>140881</td><td>Vitamin D3 50,000 IU</td><td class="num">3</td><td class="num">96.00</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mock">
+    <div class="cap">proposed — <em>POS steel</em>, sidebar option A</div>
+    <div class="app pal-pos" style="grid-template-columns:1fr">
+      <div class="main">
+        <div class="row"><span class="btn ghost">← Back</span><span class="h1">Document 9000000003</span>
+          <span class="chip go"><span class="dot"></span>In transit</span>
+          <span style="flex:1"></span><span class="btn ghost">Refresh</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px">
+          <div class="card"><div class="hd">Order</div>
+            <div style="padding:7px 10px;display:grid;gap:4px">
+              <div class="row" style="justify-content:space-between"><span class="dim">Type</span><span>ZOR</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dim">Created</span><span>2026-07-19</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dim">Close status</span><span>—</span></div>
+            </div></div>
+          <div class="card"><div class="hd">Store</div>
+            <div style="padding:7px 10px;display:grid;gap:4px">
+              <div class="row" style="justify-content:space-between"><span class="dim">Code</span><span>0412</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dim">Slot</span><span>14:00–16:00</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dimmer">Zone</span><span class="dimmer">RUH-3</span></div>
+            </div></div>
+          <div class="card"><div class="hd">Customer</div>
+            <div style="padding:7px 10px;display:grid;gap:4px">
+              <div class="row" style="justify-content:space-between"><span class="dim">Name</span><span>A. Al-Otaibi</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dim">Phone</span><span>05x xxx 4417</span></div>
+              <div class="row" style="justify-content:space-between"><span class="dimmer">Address</span><span class="dimmer">Al Nakheel…</span></div>
+            </div></div>
+        </div>
+        <div class="card">
+          <div class="hd">Commands</div>
+          <div style="padding:8px 10px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <span class="field" style="flex:1;min-width:150px">Note…</span>
+            <span class="btn ghost">Add note</span>
+            <span class="btn fulfil">Reschedule</span>
+            <span class="btn fulfil">Change Store</span>
+            <span class="btn cancelreq">Request Cancellation</span>
+            <span class="btn dangerf">Cancel Order</span>
+            <span class="btn dangero">Force Cancel</span>
+          </div>
+        </div>
+        <div class="row" style="gap:2px">
+          <span class="btn tint" style="border-radius:7px 7px 0 0">Items <span class="dimmer">4</span></span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Conditions</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Log</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Status</span>
+          <span class="btn ghost" style="border:0;border-radius:7px 7px 0 0">Jobs</span>
+        </div>
+        <div class="gwrap"><table class="g">
+          <tr><th>Item</th><th>Description</th><th class="num">Qty</th><th class="num">Net</th></tr>
+          <tr><td>102384</td><td>Panadol Extra 500mg ×24</td><td class="num">2</td><td class="num">27.00</td></tr>
+          <tr class="sel"><td>119022</td><td>Ventolin Inhaler 100mcg</td><td class="num">1</td><td class="num">31.50</td></tr>
+          <tr><td>140881</td><td>Vitamin D3 50,000 IU</td><td class="num">3</td><td class="num">96.00</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <b>The command row is the proof 072 lands.</b> In the warm palette both family colours collapse to
+  near-black — a back office where every button is the same weight. In the POS palette Fulfilment green,
+  Cancellation-request indigo and the red terminal pair separate at a glance, <em>without</em> the layout
+  changing at all. (The arrangement — escape-left, clusters, terminal-right — is 076's.)
+</div>
+
+<h3 style="margin-top:26px">The sidebar orphan — <span class="q">the one open choice</span></h3>
+<p class="lede">PosTheme has no nav rail, so these values are <b>derived</b>, not copied. A is quiet and
+  keeps the shell out of the way; B borrows the POS header band (<code>#223140</code>) and makes the rail
+  the app's signature surface.</p>
+
+<div class="pair">
+  <div class="mock">
+    <div class="cap">option A — <em>light rail</em> (recommended)</div>
+    <div class="app pal-pos" style="min-height:230px">
+      <div class="side">
+        <div class="brand"><span class="gl"></span>al-dawaa BackOffice</div>
+        <div class="grp">OMS</div><div class="nav on">Deliveries</div><div class="nav">Documents</div>
+        <div class="grp">Admin</div><div class="nav">Users</div><div class="nav">Roles</div>
+      </div>
+      <div class="main"><div class="row"><span class="h1">Deliveries</span></div>
+        <div class="card" style="padding:10px"><span class="dim">
+          <code>--sidebar #E9EEF4</code> · <code>--sidebar-accent #DCE5EF</code> ·
+          <code>--sidebar-active #2F63A6</code> · fg <code>#19232E</code></span></div>
+        <div class="row"><span class="btn">Search</span><span class="btn ghost">Reset</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="mock">
+    <div class="cap">option B — <em>dark steel band</em></div>
+    <div class="app pal-pos sb-dark" style="min-height:230px">
+      <div class="side">
+        <div class="brand"><span class="gl"></span>al-dawaa BackOffice</div>
+        <div class="grp">OMS</div><div class="nav on">Deliveries</div><div class="nav">Documents</div>
+        <div class="grp">Admin</div><div class="nav">Users</div><div class="nav">Roles</div>
+      </div>
+      <div class="main"><div class="row"><span class="h1">Deliveries</span></div>
+        <div class="card" style="padding:10px"><span class="dim">
+          <code>--sidebar #223140</code> · <code>--sidebar-accent #2E4053</code> ·
+          <code>--sidebar-active #7FB0E8</code> · fg <code>#E7EDF3</code></span></div>
+        <div class="row"><span class="btn">Search</span><span class="btn ghost">Reset</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<table class="doc" style="margin-top:12px">
+<tr><th style="width:70px">Option</th><th>For</th><th>Against</th></tr>
+<tr><td><b>A — light</b></td>
+  <td>Continuous with today's shell, so the swap reads as a re-tint rather than a redesign. Leaves the
+    single dark band on the page for 073's document identity header, where the POS reference actually
+    puts it. Only surface that changes is its hue.</td>
+  <td>Unremarkable. The app has no signature surface at all in light mode.</td></tr>
+<tr><td><b>B — dark</b></td>
+  <td>Distinctive; borrows the reference's most recognisable element; makes light/dark mode differ less
+    (the rail is already dark in both), which simplifies 071.</td>
+  <td><b>Competes with 073.</b> If the Document Details identity band is also dark steel, the screen has
+    two dark bands meeting at a corner and the document header stops being special. Also makes the
+    <code>--sidebar-active</code> derivation a fifth blue.</td></tr>
+</table>
+
+<hr>
+
+<h2>4 · What this table does <em>not</em> fix</h2>
+<div class="note stop">
+<ul class="tight">
+  <li><b>249 raw palette occurrences in 41 files</b> (danger 87 · warning 75 · success 55 · info 15 ·
+    misc 4 · b/w 13), across 41 files, ≈165 distinct decisions after <code>dark:</code> twins. They are
+    Tailwind palette classes (<code>bg-amber-500/15</code>, <code>text-red-700</code>) and will keep
+    rendering Tailwind's hues on a POS ground until swept. → <a href="../077-severity-colour-layer.md">077</a>,
+    which this table now gives four families and four tiers to sweep into.</li>
+  <li><b><code>core/theme/ag-grid-theme.ts</code></b> — 9 colour params × 2 modes, a hand-mirrored hex copy
+    by design ("AG params don't resolve CSS vars in all paths"). 6 grids. Gets nothing for free.
+    → <a href="../074-ag-grid-theme-mapping.md">074</a>. The <code>--grid-*</code> values in this mock's
+    <code>.pal-pos</code> are a <em>suggestion</em> to 074, not a decision.</li>
+  <li><b>Two <code>cellStyle</code> hex overrides</b> — <code>deliveries/columns.ts:46</code> and
+    <code>document/columns.ts:190</code>, both <code>#c62828</code>. Inside the grid, bypassing even the
+    grid theme. Shown red in §2.</li>
+  <li><b>The two brand surfaces</b> — <code>LoginPage</code> navy panel + gold kicker,
+    <code>HomePage</code> navy hero + gold kicker, and their four paired <code>text-white*</code> classes.
+    Navy <code>#002554</code> against steel <code>#2F63A6</code> is the collision.
+    → <a href="../075-brand-surfaces-reconciliation.md">075</a>. <code>BrandMark</code> is colour-agnostic
+    by construction and survives either way (069 §5).</li>
+  <li><b>Dark mode.</b> PosTheme declares <em>no</em> dark values at all. Every <code>.dark</code> value in
+    <code>global.css</code> is still warm near-black until <a href="../071-pos-token-dark-twin.md">071</a>
+    derives the twin — which is why the rollout is palette-light → palette-dark → screen.</li>
+</ul>
+</div>
+
+</div>
+</body>
+</html>

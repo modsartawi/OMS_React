@@ -35,6 +35,28 @@ code (`LAST_ADMIN`, `SYSTEM_ROLE`, `IN_USE`, `DUPLICATE_NAME`). The UI explains 
 it is a designed outcome, not an error.
 _Avoid_: validation error, failure.
 
+**Close** (of a document):
+**Cancelling it.** Not completing it — the trap this word sets. The four close-commands are all
+cancellation: **request close** asks for the order to be cancelled and carries a reason from
+`CANCEL_REASONS` as its note, **cancel close request** withdraws that ask, **close** cancels the
+order, **force close** cancels it overriding whatever blocked the normal path. Nothing a back-office
+operator does on Document Details is a positive outcome — orders complete in the field, never from
+this screen. User-facing labels therefore say *cancel* ("Cancel Order", "Request Cancellation");
+the `CommandKind` identifiers and `actionType` codes keep the `close` spelling.
+_Avoid_: complete, fulfil, finish — and never pair `close` with a success/check affordance.
+
+**Command family**:
+Which of a screen's commands share a purpose, and therefore a colour, in the action bar. Document
+Details has two — **fulfilment** (reschedule, change store: changes when or where, keeps the order
+alive) and **cancellation request** (request close, cancel close request: the reversible round-trip
+*about* cancelling). Two commands sit outside any family, in the **quiet tier** (add note, return
+document — frequent and low-consequence, outlined not filled), and two form the **terminal tier**
+(close, force close — the commands that end the order, red, pinned to the end of the bar). A family
+is a *colour*; a tier is a *position and weight*. A new family colour is minted only when a screen
+has two or more commands sharing a purpose.
+_Avoid_: action group, category (a family is specifically the colour-carrying grouping; nav areas
+are not families).
+
 **Bonus buy (BBY)**:
 A promotion evaluated by the pricing engine, identified by a `bbyNumber` (with a `promoNumber` /
 `offerId`). One shape: a **buy side** ("buy X") linked to a **get side** ("get Y"). It is

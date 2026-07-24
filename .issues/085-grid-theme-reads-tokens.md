@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 082
 blocked-by: 084
 ---
@@ -65,19 +65,51 @@ does not exist.
 `core/theme/ag-grid-theme.ts` (params + the exported RTL value) · one CSS rule in `global.css` ·
 two feature `columns.ts` modules (`cellStyle` + comments) · drive.
 
+**Amended on build:** `features/pricing/bonus-buy-inquiry/BonusBuyInquiryPage.tsx` too — it is the
+one grid of seven that hand-rolled `enableRtl`, so declaring the value's home and leaving that line
+duplicating it would have shipped the divergence this ticket exists to remove. Net-neutral: an
+identical expression replaced by the shared export. The other six grids stay untouched.
+
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] Drive all five grid modules in **both themes** — Deliveries, Document Details' four tabs, the
-      Change Store picker, Sim's bonus-buy panel, BBY Inquiry — and confirm header ground, header
-      rule, row rules, hover, selection, pinned footer and filter inputs all read from the tokens ·
-      flow (extend `tools/screen1-smoke.mjs` / `tools/bby-inquiry-drive.mjs`)
-- [ ] `selectedRowShowsAnAccentBarOnItsLeadingEdge` — the `::after` bar renders on the inline-start
-      edge, and under a manually applied `dir="rtl"` it moves to the other side · flow
-- [ ] `aFailedJobsCellIsReadableInBothThemes` — the `cellStyle` cell renders `--danger` ground with
-      `--primary-foreground` ink, dark ink in dark mode · flow
-- [ ] Toggle the theme with a grid on screen and confirm there is no frame where the app is dark and
-      the grid is light — the theme store rewrites `.dark` and `agThemeMode` in one synchronous
-      block, and `index.html` does both pre-paint. Verify via `typecheck` + drive.
+Verified by `tools/grid-theme-drive.mjs` (new) — **36 passed, 0 failed, 12 skipped**, plus
+`npm run typecheck`, `npm run lint` and `npm run build`. The drive mocks every `/api/**` envelope
+(SIS.Api's delivery list needs a store grant a dev session doesn't have — the skip
+`tools/palette-drive.mjs` already records) and reads computed styles back out of the real, painted
+DOM in both themes. Both sides of every assertion are read from the same live document, so a check
+reads "the grid equals the app", never "the grid equals a hex retyped in the test". The matrix is
+data-dependent, so the drive **prints what it could not reach** next to the pass count — a green
+total never stands in for full coverage.
+
+- [x] Drive the grid modules in **both themes** — Deliveries, Document Details' four tabs, the
+      Change Store picker, BBY Inquiry — and confirm header ground, header rule, row rules, hover,
+      selection, pinned footer and filter inputs all read from the tokens · flow
+      (`tools/grid-theme-drive.mjs`). All **17** params asserted on the Deliveries grid as the
+      emitted `--ag-*` custom properties (where a `var()` that failed to serialise would surface as
+      an empty string) *and* on painted elements for the ones that reach pixels; every other module
+      re-asserts header ground, header ink, row ground and cell ink through its own scope, plus
+      selection where the grid has it. The **12 named skips** are: row selection on the four Details
+      tabs and BBY (read-only inquiry grids — selection is off, so there is nothing to assert), the
+      Conditions tab (no rows in the mocked payload), and Sim's bonus-buy panel (its grid only
+      mounts on a simulation result; mocking a whole `SimulationResult` was out of proportion — it
+      renders from the same single params block, which is asserted).
+- [x] `selectedRowShowsAnAccentBarOnItsLeadingEdge` — the bar renders on the inline-start edge
+      (`--primary`, 3px, `left: 0px`) and mirrors to `right: 0px` under `dir="rtl"` · flow.
+      **Deviation, verified not assumed:** it rides `::before`, not the `::after` this ticket named.
+      In the installed `36.0.1`, `.ag-row::after` carries the row's own background layer
+      (`background-color: var(--ag-data-background-color)`) plus the row-drag highlight, so taking
+      it drops a paint layer AND buries the bar under the positioned cell containers (measured: the
+      bar was invisible on `::after`). v36 paints the selection/hover overlay on a **child**
+      (`.ag-row-selected .ag-grid-scrolling-cells::before`), leaving the ROW's own `::before` free
+      for every non-full-width row. The rule is `.ag-row-selected:not(.ag-full-width-row)::before`
+      with `z-index`, and the drive asserts the row's own `::after` layer survives.
+- [x] `aFailedJobsCellIsReadableInBothThemes` — the `cellStyle` cell renders `--danger` ground with
+      `--primary-foreground` ink (light `#c23b41`/white, dark `#df6768`/`#121c27`) · flow. Both the
+      Deliveries cell and the Document Details Jobs-tab row are asserted.
+- [x] Toggle the theme with a grid on screen and confirm there is no frame where the app is dark and
+      the grid is light — one params block means the grid re-tints with `.dark` itself; the only
+      mode-scoped passenger left is `browserColorScheme`, asserted to still switch on
+      `data-ag-theme-mode`. Verified via `typecheck` + drive.
 
 ## Boundaries
 
@@ -94,3 +126,20 @@ themes.
 ## Blocked by
 
 [084](084-pos-tokens-both-themes.md) — the tokens the theme reads must exist first.
+
+## What shipped
+
+`core/theme/ag-grid-theme.ts` is now **one** params block of `var(--token)` values plus two
+one-line mode blocks carrying nothing but `browserColorScheme`. Twenty mirrored hex values are gone;
+the two stale comments are corrected (`var()` DOES resolve on 36.0.1 — the serialiser returns a
+string param verbatim; and `data-ag-theme-mode` on `<html>` IS matched, because the extracted
+selector's `:where(:root[…])` **is** `<html>`).
+
+`enableRtl` has a declared home — `omsGridDirection`, exported beside the theme, ready to spread
+into every grid. The one call site that hand-rolled it (`BonusBuyInquiryPage`) now spreads the
+shared value; the other six grids are untouched and the `dir` switch stays out of scope, as ruled.
+
+**One note for [089](089-colour-literal-lint-gates.md):** the two `cellStyle` values are now
+`var(--danger)` / `var(--primary-foreground)` inside `.ts` strings, so 089's literal gate has no
+colour literal left to see in either module — its open question about scanning `.ts` strings is
+narrower than it was.

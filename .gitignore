@@ -24,3 +24,6 @@ Thumbs.db
 
 # Palette drive screenshots (tools/palette-drive.mjs) — regenerated on demand
 tools/.palette-shots/
+
+# Grid theme drive screenshots (tools/grid-theme-drive.mjs) — same deal
+tools/.grid-shots/

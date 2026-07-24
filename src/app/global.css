@@ -316,6 +316,33 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Selected-row accent bar (spec 082 D-11). The `--primary-050` ground is the
+   theme's `selectedRowBackgroundColor`; the leading-edge bar has NO AG Grid
+   param — the token API has no answer, which is exactly the case the
+   logical-tailwind rule's exception clause anticipates. A `box-shadow` inset
+   would NOT mirror (shadow offsets are physical and have no logical form);
+   `inset-inline-start` does, verified under `dir="rtl"`.
+
+   It rides `::before`, NOT the `::after` D-11 named. Checked against the
+   installed ag-grid-community@36.0.1 rather than assumed: `.ag-row::after`
+   carries the row's own background layer (`background-color:
+   var(--ag-data-background-color)`) and the row-drag highlight, so overriding
+   it drops a paint layer AND buries the bar under the cell containers, which
+   are positioned. The selection/hover overlay v36 paints is on a CHILD
+   (`.ag-row-selected .ag-grid-scrolling-cells::before`), leaving the ROW's own
+   `::before` free for every non-full-width row — full-width rows do use it, so
+   they are excluded. `z-index` lifts the bar above the cell containers. */
+.ag-row-selected:not(.ag-full-width-row)::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: 0;
+  width: 3px;
+  z-index: 1;
+  background: var(--primary);
+  pointer-events: none;
+}
+
 /* Mobile sidebar overlay: block body scroll while open */
 body.blocked-scroll {
   overflow: hidden;

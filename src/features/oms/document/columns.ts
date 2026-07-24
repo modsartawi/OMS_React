@@ -179,14 +179,15 @@ export const DETAIL_DEFAULT_COL_DEF: ColDef = {
 
 /**
  * Jobs-tab row highlight — a failed job (`outboxStatus === 'F'`) gets the red
- * triage treatment, matching Screen 1's Failed Jobs column. White on `#c62828`
- * clears WCAG AA.
+ * triage treatment, matching Screen 1's Failed Jobs column — same `--danger` /
+ * `--primary-foreground` pair, and the same reason it must stay a pair
+ * (`deliveries/columns.ts`'s `failedJobsCellStyle` carries it in full).
  */
 export function failedJobRowStyle(
   params: RowClassParams<SdDocumentOutboxModel>,
 ): RowStyle | undefined {
   const status = (params.data?.outboxStatus ?? '').trim().toUpperCase()
   return status === 'F'
-    ? { backgroundColor: '#c62828', color: '#ffffff', fontWeight: '700' }
+    ? { backgroundColor: 'var(--danger)', color: 'var(--primary-foreground)', fontWeight: '700' }
     : undefined
 }

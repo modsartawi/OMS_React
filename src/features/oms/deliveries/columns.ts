@@ -39,11 +39,23 @@ export function dateFilterComparator(filterDate: Date, cellValue: unknown): numb
 /**
  * Failed-Jobs conditional cell style — red background, bold white text when the
  * delivery has one or more failed background jobs; the key triage signal.
- * White on #c62828 clears the WCAG AA contrast minimum.
+ *
+ * The pair is `--danger` ground with `--primary-foreground` ink, and it must
+ * stay a PAIR: in dark, `--danger` is a light tonal fill (082 R2) on which
+ * white measures 2.2:1, and `--primary-foreground` is the token that flips to
+ * dark ink with it. Both clear AA in their own theme. These are inline styles,
+ * so `var()` resolves against `:root`/`.dark` regardless of how the grid theme
+ * is written.
  */
 export function failedJobsCellStyle(params: { value: unknown }): CellStyle | null {
   const count = typeof params.value === 'number' ? params.value : 0
-  return count > 0 ? { backgroundColor: '#c62828', color: '#ffffff', fontWeight: '700' } : null
+  return count > 0
+    ? {
+        backgroundColor: 'var(--danger)',
+        color: 'var(--primary-foreground)',
+        fontWeight: '700',
+      }
+    : null
 }
 
 /**

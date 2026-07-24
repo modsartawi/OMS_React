@@ -9,7 +9,12 @@ import { Download, Filter, Loader2, PackageSearch, TriangleAlert } from 'lucide-
 import '@/core/ag-grid-setup'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
+import {
+  OMS_GRID_HEADER_HEIGHT,
+  OMS_GRID_ROW_HEIGHT,
+  omsGridDirection,
+  omsGridTheme,
+} from '@/core/theme/ag-grid-theme'
 import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
 import { bonusBuyInquiryApi } from './api'
 import { buildListParams, type BbyListCriteria } from './list-params'
@@ -203,7 +208,7 @@ export default function BonusBuyInquiryPage() {
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             groupHeaderHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
-            enableRtl={document.documentElement.dir === 'rtl'}
+            {...omsGridDirection}
             onGridReady={onGridReady}
           />
         </div>

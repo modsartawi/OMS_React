@@ -174,10 +174,11 @@ Expand → migrate → contract. 084 expands (tokens; zero `.tsx` churn), 085–
 089 contracts (the gates are green only when the sweep is complete).
 **084 done** — the tokens are in and the contrast gate runs on every `npm run lint`; the app now
 renders steel-blue neutrals against warm status badges, the expected intermediate state.
-Frontier: **085, 086, 087** (all unblocked, and independent of each other).
+**085 done** — every grid now paints from the tokens out of one params block, so the grid can no
+longer diverge from `global.css`. Frontier: **086, 087** (both unblocked and independent).
 
 - [084](084-pos-tokens-both-themes.md) — theAppRendersOnThePosTokensInBothThemes · **done** · blocked by: — · slice 0 · + contrast gate
-- [085](085-grid-theme-reads-tokens.md) — theGridReadsTheAppTokensInsteadOfItsOwnHexCopy · **open** · blocked by: 084
+- [085](085-grid-theme-reads-tokens.md) — theGridReadsTheAppTokensInsteadOfItsOwnHexCopy · **done** · blocked by: 084 · one params block · + `tools/grid-theme-drive.mjs`
 - [086](086-status-badge-takes-a-severity.md) — aStatusBadgeTakesASeverityRatherThanAClassString · **open** · blocked by: 084 · new `core/ui` primitive
 - [087](087-brand-colour-lives-in-the-mark.md) — brandColourLivesOnlyInTheMark · **open** · blocked by: 084
 - [088](088-raw-palette-sweep.md) — noScreenSpellsARawPaletteClass · **open** · blocked by: 084, 086 · one pass, 35 files

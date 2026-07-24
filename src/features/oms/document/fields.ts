@@ -81,29 +81,11 @@ export function documentGroupRows(doc: SdDocumentHeaderModel, t: TFn): FieldRow[
   return rows
 }
 
-/**
- * The header "Status" summary group. Overall Status binds the RAW
- * `status.overallStatus` — the WPF bound a non-existent
- * `overallStatusDescription` and so rendered nothing at all (Appendix B bug 3).
- */
-export function statusSummaryRows(doc: SdDocumentHeaderModel, t: TFn): FieldRow[] {
-  const status = doc.status
-  return [
-    { label: t('fields.overallStatus'), value: text(status?.overallStatus) },
-    {
-      label: t('fields.lastAction'),
-      value: describedStatus(status?.lastActionDescription, status?.lastAction),
-    },
-    {
-      label: t('fields.readyStatus'),
-      value: describedStatus(status?.readyStatusDescription, status?.readyStatus),
-    },
-    {
-      label: t('fields.deliveryStatus'),
-      value: describedStatus(status?.deliveryStatusDescription, status?.deliveryStatus),
-    },
-  ]
-}
+// The header "Status" summary group left with ticket 090 — its four rows are the
+// pill rail's job now (three as pills, all four in the All-statuses disclosure,
+// which `statusBreakdownRows` below still builds). Overall Status keeps binding
+// the RAW `status.overallStatus` there: the WPF bound a non-existent
+// `overallStatusDescription` and so rendered nothing at all (Appendix B bug 3).
 
 /** The header "Customer" group. */
 export function customerRows(doc: SdDocumentHeaderModel, t: TFn): FieldRow[] {

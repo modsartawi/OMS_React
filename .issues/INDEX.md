@@ -197,3 +197,21 @@ are file-scoped exclusions carrying their reason inline.
 - [087](087-brand-colour-lives-in-the-mark.md) — brandColourLivesOnlyInTheMark · **done** · blocked by: 084 · both kickers + 4 brand `text-white` retired, hero → card
 - [088](088-raw-palette-sweep.md) — noScreenSpellsARawPaletteClass · **done** · one pass, 35 files
 - [089](089-colour-literal-lint-gates.md) — lintFailsOnAReintroducedColourLiteral · **done** · blocked by: 085, 087, 088 · `tools/check-palette.mjs`, hex gate widened
+
+### Document Details build — spec 083
+
+Region by region, each slice taking one region of Screen 2 the whole way down (payload → pure rule →
+component → i18n → test). **090 is slice 0**: it bootstraps vitest against the five captured payloads
+and cuts the pill rail, retiring the spec's biggest unknown — that rules derived from real data hold
+against that data. 093 needs only the runner, so it runs in parallel with 091/092. The action bar is
+094 rather than earlier because it is the only region whose change deletes state elsewhere in the
+page (`pendingNote`). 095 lands the RTL respellings byte-identical under LTR; 096 is the acceptance
+drive.
+
+- [090](090-pill-rail-and-vitest.md) — theRailRendersOnlyTheStatusesThatCarryAValue · **done** (vitest bootstrapped, `npm test` 17/17 on the five captured payloads; typecheck/lint/build green; drove the rendered rail 25/25 via `tools/document-rail-drive.mjs`) · blocked by: — · slice 0 · + Status tab removed, header Status group retired early
+- [091](091-identity-band.md) — theDocumentNumberIsTheLargestThingOnTheScreen · **open** · blocked by: 090 · + `isExpressDelivery` contract check
+- [092](092-summary-rail-cards.md) — theScatteredFieldsBecomeFiveCardsOnASummaryRail · **open** · blocked by: 091 · `FieldGroup`/`ShippingAddress` retire
+- [093](093-items-grid-and-jobs-count.md) — theItemsGridSumsItselfAndFlagsASignedDiscount · **open** · blocked by: 090 · parallel with 091/092
+- [094](094-action-bar-grammar.md) — theActionBarReadsAsThreeClustersAndATerminalTier · **open** · blocked by: 092 · `pendingNote` dies
+- [095](095-rtl-mirroring-and-bidi.md) — theLayoutMirrorsCorrectlyBeforeAnyDirSwitchExists · **open** · blocked by: 091, 092, 093, 094 · new `core/ui/Ltr`
+- [096](096-document-detail-drive.md) — theRebuiltScreenDrivesEndToEndInBothThemes · **open** · blocked by: 095 · `tools/document-detail-drive.mjs`

@@ -12,9 +12,21 @@
     "failed": "Refresh failed",
     "failedDetail": "Could not refresh the document."
   },
+  "rail": {
+    "ariaLabel": "Document status",
+    "lastAction": "Last action",
+    "readyStatus": "Ready",
+    "availabilityStatus": "Availability",
+    "approvalStatus": "Approval",
+    "paymentStatus": "Payment",
+    "deliveryStatus": "Delivery",
+    "clearStatus": "Clear",
+    "acceptanceStatus": "Acceptance",
+    "closeStatus": "Cancellation",
+    "allStatuses": "All statuses"
+  },
   "groups": {
     "document": "Document",
-    "status": "Status",
     "customer": "Customer",
     "shippingAddress": "Shipping Address",
     "noAddress": "No shipping address on this document."
@@ -40,7 +52,7 @@
     "overallStatus": "Overall Status",
     "lastAction": "Last Action",
     "readyStatus": "Ready Status",
-    "closeStatus": "Close Status",
+    "closeStatus": "Cancellation Status",
     "clearStatus": "Clear Status",
     "paymentStatus": "Payment Status",
     "deliveryStatus": "Delivery Status",
@@ -96,7 +108,6 @@
     "items": "Items",
     "conditions": "Header Conditions",
     "log": "Log",
-    "status": "Status",
     "jobs": "Jobs"
   },
   "grid": {

@@ -22,12 +22,11 @@ import {
   type UpdateActionKind,
   type UpdateHeaderExtras,
 } from './actions'
-import { statusBreakdownRows } from './fields'
 import { documentColumns, failedJobRowStyle } from './columns'
 import DocumentHeader from './DocumentHeader'
+import StatusRail from './StatusRail'
 import CommandPanel from './CommandPanel'
 import ShippingAddress from './ShippingAddress'
-import FieldGroup from './FieldGroup'
 import DetailGrid from './DetailGrid'
 import RescheduleDialog from './RescheduleDialog'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
@@ -36,8 +35,10 @@ import RequestCloseDialog from './RequestCloseDialog'
 /** Whether this record was opened as a document or a delivery. */
 export type OpenedAs = 'document' | 'delivery'
 
-type TabId = 'items' | 'conditions' | 'log' | 'status' | 'jobs'
-const TAB_IDS: TabId[] = ['items', 'conditions', 'log', 'status', 'jobs']
+// No `status` tab: the document's state is the pill rail under the header, and
+// its full thirteen-row breakdown is that rail's All-statuses disclosure (083 D-3).
+type TabId = 'items' | 'conditions' | 'log' | 'jobs'
+const TAB_IDS: TabId[] = ['items', 'conditions', 'log', 'jobs']
 
 /** `DeliveryDocumentType` code for BeyondBorder — the Return Document gate. */
 const BEYOND_BORDER = 'BB'
@@ -294,16 +295,6 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             {t('dawaaNow')}
           </span>
         )}
-        {document && (
-          <Button variant="outlined" disabled={actionRunning || refreshing} onClick={() => void reload()}>
-            {refreshing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-            )}
-            {t('refresh.button')}
-          </Button>
-        )}
       </div>
 
       <h1 className="text-base font-semibold tracking-tight">
@@ -321,6 +312,23 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       ) : (
         document && (
           <>
+            {/*
+              Refresh sits at the very end of the rail, not in the page chrome:
+              the rail is what a refresh most visibly changes (083 D-3). Its
+              behaviour is unchanged — spinner in place, silent on success, a
+              toast only on failure.
+            */}
+            <StatusRail status={document.status}>
+              <Button variant="outlined" disabled={actionRunning || refreshing} onClick={() => void reload()}>
+                {refreshing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                )}
+                {t('refresh.button')}
+              </Button>
+            </StatusRail>
+
             <DocumentHeader document={document} />
 
             <CommandPanel
@@ -393,12 +401,6 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                           loading={logs.loading}
                           error={logs.error}
                           emptyMessage={t('log.empty')}
-                        />
-                      )}
-                      {id === 'status' && (
-                        <FieldGroup
-                          title={t('groups.status')}
-                          fields={document.status ? statusBreakdownRows(document.status, t) : []}
                         />
                       )}
                       {id === 'jobs' && (

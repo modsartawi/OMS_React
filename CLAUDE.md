@@ -14,9 +14,15 @@ lucide. Package manager is **npm** (not pnpm — see README). Path alias `@/` �
 - `npm run dev` — Vite dev server on :5173, proxies `/api` → SIS.Api on :5111.
 - `npm run typecheck` — `tsc --noEmit`. Run this regularly; it is the fast feedback loop.
 - `npm run build` — typecheck + static `dist/`.
-- Tests (vitest / RTL / Playwright) are **not installed yet** — deferred to the hardening ticket.
-  The one live check is the Playwright smoke at `tools/screen1-smoke.mjs`. Until the runner lands,
-  `/tdd` and `/implement` verify by driving the app and by `typecheck` (see the `tdd` skill).
+- `npm run lint` — three gates: import boundaries, token contrast, colour literals.
+- `npm test` — **vitest** (`vitest run`, `src/**/*.test.ts`, node environment). Bootstrapped by
+  ticket 090; config in `vitest.config.ts`, deliberately separate from `vite.config.ts`.
+  **React Testing Library is still not installed** (spec 083's ruling: the pure modules are where
+  regression is silent, the components are thin renderers) — so a component or screen slice is still
+  verified by driving the app, and RTL remains the hardening ticket's to add.
+- Playwright **drives** live under `tools/*-drive.mjs` (plus the `tools/screen1-smoke.mjs` smoke).
+  They are manual-run tools, not CI gates: `npx vite --port 5199` in one shell, `node tools/<x>.mjs`
+  in another. `/tdd` and `/implement` verify a UI slice with one of these plus `typecheck`.
 
 ## Conventions — `.claude/rules/`
 

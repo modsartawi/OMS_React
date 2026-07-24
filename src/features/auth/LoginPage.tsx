@@ -11,10 +11,6 @@ import { authApi } from './api'
 // Post-login lands on the BackOffice home (map 478), not a specific module.
 const DEFAULT_LANDING = '/'
 
-// The al-dawaa royal navy (#002554), sampled from the logo — the brand panel's
-// ground. A deliberate brand surface, so the literal is intentional here.
-const BRAND_NAVY = '#002554'
-
 // The one error code that means the in-flight challenge is gone (expired, spent,
 // or attempt-capped): the two-step flow must restart from the password step.
 const CHALLENGE_INVALID = 'UAAUTH-90070'
@@ -436,13 +432,12 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen">
       {/* ===== Editorial Split brand panel (map 478) — the al-dawaa mark as an
-          oversized watermark on royal navy, with the lockup + tagline. Desktop
-          only; the sign-in panel carries a compact lockup on small screens. ===== */}
-      <div
-        className="relative hidden w-1/2 flex-col justify-between overflow-hidden p-10 text-white lg:flex"
-        style={{ backgroundColor: BRAND_NAVY }}
-      >
-        {/* Watermark — clipped by the panel, bled off the start edge. */}
+          oversized watermark on the brand slab, with the lockup + tagline. The
+          ground is `--brand-panel` (D-9): the navy retired, brand colour now
+          carried only by the marks. Desktop only; the sign-in panel carries a
+          compact lockup on small screens. ===== */}
+      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-brand-panel p-10 text-brand-panel-foreground lg:flex">
+        {/* Watermark — clipped by the panel, bled off the start edge. Stays gold. */}
         <BrandMark
           size={560}
           className="pointer-events-none absolute -bottom-24 -start-24 opacity-[0.12]"
@@ -450,7 +445,7 @@ export default function LoginPage() {
         <div className="relative flex items-center gap-3">
           <BrandMark size={40} />
           <div className="flex flex-col leading-none">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#FDC801]">
+            <span className="text-xs font-semibold uppercase tracking-[0.18em]">
               {t('common:brandKicker')}
             </span>
             <span className="text-xl font-semibold tracking-tight">{t('common:brandName')}</span>
@@ -458,14 +453,16 @@ export default function LoginPage() {
         </div>
         <div className="relative">
           <p className="text-2xl font-semibold tracking-tight">{t('brandPanel.tagline')}</p>
-          <p className="mt-2 max-w-sm text-sm text-white/70">{t('brandPanel.blurb')}</p>
+          <p className="mt-2 max-w-sm text-sm text-brand-panel-foreground/70">
+            {t('brandPanel.blurb')}
+          </p>
         </div>
       </div>
 
       {/* ===== Sign-in panel ===== */}
       <div className="flex w-full items-center justify-center bg-background p-4 lg:w-1/2">
       <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm">
-        {/* Compact lockup for small screens, where the navy panel is hidden. */}
+        {/* Compact lockup for small screens, where the brand panel is hidden. */}
         <div className="mb-5 flex items-center gap-2 lg:hidden">
           <BrandMark size={26} />
           <span className="text-sm font-semibold tracking-tight">{t('common:brandName')}</span>

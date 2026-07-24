@@ -178,11 +178,16 @@ renders steel-blue neutrals against warm status badges, the expected intermediat
 longer diverge from `global.css`.
 **086 done** — the badge idiom is one component taking a severity; the two feature tone maps (and
 the duplicate third) are gone, and `go` found its first consumer in the BBY validity marker.
-Frontier: **087** (independent), then **088** (now unblocked — it consumes `core/ui/StatusBadge`).
+**087 done** — al-dawaa gold/navy now live only inside the mark: the login Editorial Split swaps its
+ground to `--brand-panel` (kickers lose their gold, marks stay gold), the home hero becomes a plain
+`--card` tool (watermark + gold kicker dropped), both `text-[#FDC801]` classes and the four brand
+`text-white` sites are gone, and the dead `auth.json` `subtitle` key is deleted. `-\[#` is zero across
+`src/`. Frontier: **088** (unblocked — it consumes `core/ui/StatusBadge`), then **089** (the lint
+gate, still blocked on 088).
 
 - [084](084-pos-tokens-both-themes.md) — theAppRendersOnThePosTokensInBothThemes · **done** · blocked by: — · slice 0 · + contrast gate
 - [085](085-grid-theme-reads-tokens.md) — theGridReadsTheAppTokensInsteadOfItsOwnHexCopy · **done** · blocked by: 084 · one params block · + `tools/grid-theme-drive.mjs`
 - [086](086-status-badge-takes-a-severity.md) — aStatusBadgeTakesASeverityRatherThanAClassString · **done** · blocked by: 084 · new `core/ui` primitive · + `tools/status-badge-drive.mjs`
-- [087](087-brand-colour-lives-in-the-mark.md) — brandColourLivesOnlyInTheMark · **open** · blocked by: 084
+- [087](087-brand-colour-lives-in-the-mark.md) — brandColourLivesOnlyInTheMark · **done** · blocked by: 084 · both kickers + 4 brand `text-white` retired, hero → card
 - [088](088-raw-palette-sweep.md) — noScreenSpellsARawPaletteClass · **open** · blocked by: 084, 086 · one pass, 35 files
 - [089](089-colour-literal-lint-gates.md) — lintFailsOnAReintroducedColourLiteral · **open** · blocked by: 085, 087, 088

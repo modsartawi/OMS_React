@@ -8,10 +8,10 @@ import BrandMark from '@/core/ui/BrandMark'
 // The BackOffice landing (map 478) — the default route in place of Deliveries.
 // Lives in `app/` (the composition root), not `features/`: it reaches into the
 // layout's menu model to render itself, which a feature is not allowed to do.
-// An Editorial-Split hero (navy ground + gold mark watermark) over section cards
-// built from the SAME permission-filtered menu as the sidebar — a gated area the
-// user can't open never appears here either.
-const BRAND_NAVY = '#002554'
+// Post-auth the hero is a tool, not a marketing surface (D-9): a plain card in
+// the app's own language (no brand ground, no gold, no watermark — the lockup
+// carries the brand), over section cards built from the SAME permission-filtered
+// menu as the sidebar — a gated area the user can't open never appears here.
 
 export default function HomePage() {
   const { t } = useTranslation('home')
@@ -20,28 +20,17 @@ export default function HomePage() {
 
   return (
     <section className="flex flex-col gap-6">
-      {/* Hero — the chosen Editorial Split direction, scoped to a banner. */}
-      <div
-        className="relative overflow-hidden rounded-2xl p-8 text-white"
-        style={{ backgroundColor: BRAND_NAVY }}
-      >
-        <BrandMark
-          size={360}
-          className="pointer-events-none absolute -bottom-20 -end-16 opacity-[0.10]"
-        />
-        <div className="relative flex items-center gap-3">
+      {/* Hero — a card in the app's own language (D-9), hierarchy from type and
+          padding. The lockup carries the brand; no brand ground, no watermark. */}
+      <div className="rounded-2xl border border-border bg-card p-8">
+        <div className="flex items-center gap-3">
           <BrandMark size={44} />
-          <div className="flex flex-col leading-none">
-            <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#FDC801]">
-              {t('common:brandKicker')}
-            </span>
-            <span className="text-2xl font-semibold tracking-tight">{t('common:brandName')}</span>
-          </div>
+          <span className="text-2xl font-semibold tracking-tight">{t('common:brandName')}</span>
         </div>
-        <h1 className="relative mt-6 text-2xl font-semibold tracking-tight">
+        <h1 className="mt-6 text-2xl font-semibold tracking-tight">
           {name ? t('welcomeNamed', { name }) : t('welcome')}
         </h1>
-        <p className="relative mt-1 max-w-xl text-sm text-white/70">{t('subtitle')}</p>
+        <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {/* Section cards — one per visible nav group, its leaves as quick links. */}

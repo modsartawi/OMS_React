@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 082
 blocked-by: 084
 ---
@@ -67,12 +67,12 @@ Tokens come from 084; this ticket declares none.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] Drive the login screen in **both themes** and confirm the panel reads as a deliberate dark slab
+- [x] Drive the login screen in **both themes** and confirm the panel reads as a deliberate dark slab
       in each — in dark it must separate from the page rather than dissolve into it, which is the
       exact failure the navy had and the reason `--brand-panel` exists · flow (`npm run dev`)
-- [ ] Drive the home page in **both themes** and confirm the hero reads as a card in the app's own
+- [x] Drive the home page in **both themes** and confirm the hero reads as a card in the app's own
       language, with the lockup present and no gold wash · flow
-- [ ] `grep -rn -- "-\[#" src/` returns **nothing**, and `grep -rn "FDC801\|002554" src/` matches only
+- [x] `grep -rn -- "-\[#" src/` returns **nothing**, and `grep -rn "FDC801\|002554" src/` matches only
       the al-dawaa SVG · pure (folded into ticket 089's gate, asserted by hand here)
 
 ## Boundaries
@@ -91,3 +91,17 @@ across `src/`; and the dead `auth.json` key is gone.
 
 [084](084-pos-tokens-both-themes.md) — `--brand-panel` and `--brand-panel-foreground` are declared
 there.
+
+## Comments
+
+**Done 2026-07-24.** Login and Home reworked (LoginPage.tsx / HomePage.tsx), the `BRAND_NAVY`
+constants and both `text-[#FDC801]` kickers removed, and the dead `auth.json` `subtitle` deleted.
+`grep -rn -- "-\[#" src/` returns nothing; typecheck + build green; both screens driven in light and
+dark (login panel reads as a raised slab in dark, ΔL +.058 above the page; home hero reads as a card).
+
+One nuance on the second gate: `grep -rn "FDC801\|002554" src/` matches the al-dawaa SVG **and** a
+prose comment in `src/app/global.css:144` (084's, explaining why `--brand-panel` exists). That is the
+sanctioned token file — spec 082 D-12 excludes `global.css` and the SVG, and ticket 089's gates
+(`text-white` + `-\[#`, `global.css` excluded) never look at it — so it is not a leak. The Proof
+line's "only the al-dawaa SVG" wording is stricter than its parent spec; the actual invariant (no
+brand hex on a surface, none reachable from the token utilities) holds.

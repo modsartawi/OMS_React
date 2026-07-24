@@ -167,3 +167,15 @@ All 13 tickets done — wayfinding complete. **Both specs published: 082 (design
 - [081](081-rail-card-field-rules.md) — The rail cards' field rules against live data · **done** · blocked by: 079
 - [082](082-pos-design-system-spec.md) — The POS design system · **ready** · spec (map 068, 1 of 2)
 - [083](083-document-details-rework-spec.md) — The Document Details rework · **ready** · spec (map 068, 2 of 2) · consumes 082
+
+### Design-system build — spec 082
+
+Expand → migrate → contract. 084 expands (tokens; zero `.tsx` churn), 085–088 migrate the consumers,
+089 contracts (the gates are green only when the sweep is complete). Frontier: **084**.
+
+- [084](084-pos-tokens-both-themes.md) — theAppRendersOnThePosTokensInBothThemes · **open** · blocked by: — · slice 0 · + contrast gate
+- [085](085-grid-theme-reads-tokens.md) — theGridReadsTheAppTokensInsteadOfItsOwnHexCopy · **open** · blocked by: 084
+- [086](086-status-badge-takes-a-severity.md) — aStatusBadgeTakesASeverityRatherThanAClassString · **open** · blocked by: 084 · new `core/ui` primitive
+- [087](087-brand-colour-lives-in-the-mark.md) — brandColourLivesOnlyInTheMark · **open** · blocked by: 084
+- [088](088-raw-palette-sweep.md) — noScreenSpellsARawPaletteClass · **open** · blocked by: 084, 086 · one pass, 35 files
+- [089](089-colour-literal-lint-gates.md) — lintFailsOnAReintroducedColourLiteral · **open** · blocked by: 085, 087, 088

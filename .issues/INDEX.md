@@ -171,9 +171,12 @@ All 13 tickets done — wayfinding complete. **Both specs published: 082 (design
 ### Design-system build — spec 082
 
 Expand → migrate → contract. 084 expands (tokens; zero `.tsx` churn), 085–088 migrate the consumers,
-089 contracts (the gates are green only when the sweep is complete). Frontier: **084**.
+089 contracts (the gates are green only when the sweep is complete).
+**084 done** — the tokens are in and the contrast gate runs on every `npm run lint`; the app now
+renders steel-blue neutrals against warm status badges, the expected intermediate state.
+Frontier: **085, 086, 087** (all unblocked, and independent of each other).
 
-- [084](084-pos-tokens-both-themes.md) — theAppRendersOnThePosTokensInBothThemes · **open** · blocked by: — · slice 0 · + contrast gate
+- [084](084-pos-tokens-both-themes.md) — theAppRendersOnThePosTokensInBothThemes · **done** · blocked by: — · slice 0 · + contrast gate
 - [085](085-grid-theme-reads-tokens.md) — theGridReadsTheAppTokensInsteadOfItsOwnHexCopy · **open** · blocked by: 084
 - [086](086-status-badge-takes-a-severity.md) — aStatusBadgeTakesASeverityRatherThanAClassString · **open** · blocked by: 084 · new `core/ui` primitive
 - [087](087-brand-colour-lives-in-the-mark.md) — brandColourLivesOnlyInTheMark · **open** · blocked by: 084

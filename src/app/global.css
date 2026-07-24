@@ -35,83 +35,257 @@
 }
 
 /* ---------------------------------------------------------------------------
-   Design tokens (issue 464 — claude.ai-derived warm neutrals).
-   Light: white content over an ivory sidebar; primary actions are warm black.
-   Dark: layered warm near-blacks (never blue-gray); primary inverts to white.
-   The single chromatic accent (terracotta) is spent ONLY on focus rings,
-   selection and the rare active indicator — everything else stays neutral.
+   Design tokens — the POS steel-blue system (spec 082, ticket 084).
+   Supersedes the warm-neutral palette of issue 464, retired outright.
+
+   This block is the ONLY place a colour is written in this application.
+   Values are hex, not oklch (D-1): they stay byte-verifiable against the
+   upstream `Sartawi.POS` `PosTheme.xaml`, and the AG Grid theme is already a
+   hex surface, so one notation covers both.
+
+   Light (D-2) is PosTheme transcribed. Dark (D-4) is DERIVED from it by four
+   rules (D-3), never chosen freehand — read them before adding a token:
+
+     R1  Neutrals hold the lightness ladder this app already ships (page .224,
+         card .265, muted .307, rail .191) and take ONLY POS's temperature.
+         Warm near-blacks become cool near-blacks; nothing else moves.
+     R2  Chromatics lift to the L .66–.76 band, hold their hue, and FLIP their
+         ink. Consequence, stated once: in dark, every filled chromatic control
+         is a light tonal fill with DARK ink. White on these fills measures
+         2.5–3.4:1 — there is no version of dark that keeps white-on-colour.
+     R3  Interaction moves toward contrast with the page, not toward black:
+         `--accent` and `--secondary-press` sit BELOW their base in light and
+         ABOVE it in dark.
+     R4  `-050` and `-800` are ROLES, not lightness levels. `-050` = "the quiet
+         ground of this family"; `-800` = "ink on that ground". Their absolute
+         lightness swaps between themes. This is what makes one class string
+         (`bg-danger-050 text-danger-800`) correct in BOTH themes, and it is
+         why status badges carry no `dark:` variant at all.
+
+   `tools/check-contrast.mjs` (wired into `npm run lint`) re-measures the
+   pairs below on every run — a value nudged under AA fails the build.
    --------------------------------------------------------------------------- */
 :root {
-  --background: oklch(0.991 0.003 92);
-  --foreground: oklch(0.229 0.006 84);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.229 0.006 84);
-  --primary: oklch(0.229 0.006 84);
-  --primary-foreground: oklch(0.985 0.002 92);
-  --secondary: oklch(0.962 0.005 92);
-  --secondary-foreground: oklch(0.229 0.006 84);
-  --muted: oklch(0.962 0.005 92);
-  --muted-foreground: oklch(0.538 0.009 84);
-  --accent: oklch(0.941 0.006 92);
-  --accent-foreground: oklch(0.229 0.006 84);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0.002 92);
-  --border: oklch(0.915 0.006 92);
-  --input: oklch(0.898 0.006 92);
-  --ring: oklch(0.663 0.129 44);
-  --sidebar: oklch(0.97 0.005 92);
-  --sidebar-foreground: oklch(0.229 0.006 84);
-  --sidebar-accent: oklch(0.927 0.006 92);
-  --sidebar-active: oklch(0.663 0.129 44);
+  --background: #f4f7fa;
+  --foreground: #19232e;
+  --card: #ffffff;
+  --card-foreground: #19232e;
+  --card-2: #fafbfc; /* second panel tier; grid row hover */
+  --muted: #eef2f6;
+  --muted-foreground: #586674;
+  --ink-3: #8593a1; /* tertiary ink — replaces the `text-muted-foreground/60` idiom */
+  --accent: #e4eaf1; /* a hover GROUND. POS's own `--accent` is our `--primary`, not this. */
+  --accent-foreground: #19232e;
+  --border: #e3e9f0;
+  --border-strong: #cbd6e2; /* table-head rule, action-bar rule */
+  --divider: #edf1f5; /* row rules inside a table */
+  --input: #cbd6e2; /* fields read stronger than card edges */
+  --ring: #2f63a6;
+
+  --primary: #2f63a6;
+  --primary-050: #e9eff7;
+  --primary-border: #c6d6ec;
+  --primary-800: #27538c;
+  --primary-foreground: #ffffff;
+
+  /* Revived from the dead (both were at zero uses) to carry POS `--key`: the
+     neutral FILLED button. Reserved, not yet wired — `core/ui/Button`'s
+     `secondary` variant is an outline (`border-border bg-card`) and stays that
+     way until the app actually needs a neutral filled button. The gap is
+     deliberate (ticket 084, Open questions); do not wire it up unasked. */
+  --secondary: #586674;
+  --secondary-press: #495562;
+  --secondary-foreground: #ffffff;
+
+  /* Severity — four families, four tiers each (D-5). `--primary` above is the
+     fourth, informational family; there is deliberately no `--info`. */
+  --success: #1e874b;
+  --success-050: #e7f3ec;
+  --success-border: #bfe0cd;
+  --success-800: #155f36;
+  /* `--attention` must NEVER be a filled-button ground in LIGHT: its hue sits
+     at the luminance where no ink clears AA (white 3.69, --foreground 4.31).
+     Pill / border / icon / dot only. A future attention-filled button needs a
+     darker token of its own (#8E6318); it does not get to re-use this one. */
+  --attention: #b4791f;
+  --attention-050: #f8f0de;
+  --attention-border: #e7d3a3;
+  --attention-800: #7c5410;
+  --danger: #c23b41;
+  --danger-050: #fbecec;
+  --danger-border: #e7bfc1;
+  --danger-800: #8e2a2f; /* the Force-Cancel ink */
+
+  /* Compatibility alias for 14 existing call sites — a rename was avoided on
+     purpose. `--destructive` IS `--danger`. */
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
+
+  --sidebar: #e9eef4; /* a light rail. A dark steel band was rendered and rejected. */
+  --sidebar-foreground: #19232e;
+  --sidebar-accent: #dce5ef;
+  --sidebar-active: #2f63a6;
+
+  /* Command families (D-8). Colour on a command bar carries FUNCTION, not
+     stakes — a token that shifts meaning per document state is not a system.
+     A new family colour is minted only when a screen has two or more commands
+     sharing a purpose. */
+  --fam-fulfilment: #2e7d5b; /* reschedule · change-store */
+  --fam-cancel-request: #5d5a93; /* request-close · withdraw — indigo, not red: asking is not doing */
+
+  /* A marker, never a control. Declared here, consumed by the Details spec. */
+  --prescription: #0b7c8c;
+  --prescription-050: #e3f0f2;
+  --prescription-800: #085c68;
+
   --radius: 0.625rem;
 }
 
-.dark {
-  --background: oklch(0.224 0.004 84);
-  --foreground: oklch(0.953 0.004 92);
-  --card: oklch(0.265 0.004 84);
-  --card-foreground: oklch(0.953 0.004 92);
-  --primary: oklch(0.953 0.004 92);
-  --primary-foreground: oklch(0.224 0.004 84);
-  --secondary: oklch(0.307 0.004 84);
-  --secondary-foreground: oklch(0.953 0.004 92);
-  --muted: oklch(0.307 0.004 84);
-  --muted-foreground: oklch(0.718 0.005 84);
-  --accent: oklch(0.307 0.004 84);
-  --accent-foreground: oklch(0.953 0.004 92);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.953 0.004 92);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.714 0.113 44);
-  --sidebar: oklch(0.191 0.004 84);
-  --sidebar-foreground: oklch(0.953 0.004 92);
-  --sidebar-accent: oklch(0.284 0.004 84);
-  --sidebar-active: oklch(0.714 0.113 44);
+/* Brand panel (D-9). al-dawaa gold #FDC801 and navy #002554 now live ONLY
+   inside the logo SVG and are not reachable from `src/` — brand identity on a
+   surface is carried by the mark plus the wordmark, never by a brand-coloured
+   field. This pair replaces the navy ground on the login split.
+
+   These two are the ONLY tokens declared outside the `.dark` block with no
+   dark counterpart, and that structural oddity IS the enforcement mechanism —
+   it must not be "tidied up" into `.dark`:
+     - `--brand-panel` #202A34 is deep steel at the navy's own darkness
+       (navy L .245, this L .280) but near-neutral, so the login composition's
+       weight survives the hue swap. In light it is a dramatic dark slab; in
+       dark it sits ΔL +.058 ABOVE `--background`, a raised slab rather than a
+       dissolve.
+     - `--brand-panel-foreground` is fixed white. It CANNOT be
+       `--primary-foreground`, which flips to #121C27 in dark under R2 and
+       would invert the panel's ink.
+   It shares its hex with dark `--sidebar-accent` and is deliberately NOT
+   aliased: moving the sidebar hover ground must not drag the login with it. */
+:root {
+  --brand-panel: #202a34;
+  --brand-panel-foreground: #ffffff;
 }
 
+.dark {
+  /* R1 — the ladder is ours, the temperature is POS's. */
+  --background: #121c27;
+  --foreground: #ecf0f3; /* off-white; pure white haloes on a dark panel */
+  --card: #1c2631;
+  --card-foreground: #ecf0f3;
+  --card-2: #17212c;
+  --muted: #27313a;
+  --muted-foreground: #98a6b4;
+  --ink-3: #76828e; /* tertiary — sub-AA by design in both themes */
+  --accent: #323c46; /* R3 — hover moves UP in dark */
+  --accent-foreground: #ecf0f3;
+  --border: #2e3742; /* ΔL .069 from card in BOTH themes; retires an alpha value */
+  --border-strong: #3b4755; /* ΔL .129 in both; retires an alpha value */
+  --divider: #28313b; /* ΔL .044 in both */
+  --input: #3b4755;
+  --ring: #6ba0e8;
+
+  /* R2 — L .498 → .700, hue 256 held. */
+  --primary: #6ba0e8;
+  --primary-050: #22344b; /* R4 */
+  --primary-border: #364c68; /* R4 */
+  --primary-800: #b5d0f5; /* R4 */
+  --primary-foreground: #121c27; /* R2 consequence — NOT white. See the gate's negative assertion. */
+
+  --secondary: #7d8b99; /* R2 — L .630 is exactly where `--background` ink clears AA */
+  --secondary-press: #8f9dab; /* R3 */
+  --secondary-foreground: #121c27;
+
+  --success: #55b577; /* R2, H 152.8 held */
+  --success-050: #1e3a27;
+  --success-border: #2e543a;
+  --success-800: #abdcb8;
+  --attention: #e4a249; /* R2, H 72.0 held, lifted to L .760 */
+  --attention-050: #422f15;
+  --attention-border: #5f4522;
+  --attention-800: #f6cc9a;
+  --danger: #df6768; /* R2, H 22.4 held, lifted LEAST (L .660) so terminal red stays heaviest */
+  --danger-050: #4c2625;
+  --danger-border: #6f3837;
+  --danger-800: #eeb3b0;
+
+  --destructive: var(--danger);
+  --destructive-foreground: #121c27;
+
+  --sidebar: #0b151f; /* the darkest surface in the app */
+  --sidebar-foreground: #ecf0f3;
+  --sidebar-accent: #202a34; /* R3 */
+  --sidebar-active: #6ba0e8;
+
+  --fam-fulfilment: #5fb28b; /* R2, H 161.9 held */
+  --fam-cancel-request: #9896da; /* R2, H 285.0 held */
+
+  /* The base is D-4's; the two tiers are derived by R4 at the same L/C the
+     other four families land on in dark (-050 L .32 C .05, -800 L .85 C .06),
+     anchored to the dark base's hue so the dark trio stays internally coherent. */
+  --prescription: #40b1b7;
+  --prescription-050: #083a3d;
+  --prescription-800: #9ed9dc;
+}
+
+/* Every token consumed as a Tailwind utility needs its `--color-*` bridge line
+   here. Declaring it in `:root` above is NOT sufficient — without the line,
+   `bg-success-050` simply does not compile. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
+  --color-card-2: var(--card-2);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-ink-3: var(--ink-3);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-divider: var(--divider);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-050: var(--primary-050);
+  --color-primary-border: var(--primary-border);
+  --color-primary-800: var(--primary-800);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-press: var(--secondary-press);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-success: var(--success);
+  --color-success-050: var(--success-050);
+  --color-success-border: var(--success-border);
+  --color-success-800: var(--success-800);
+  --color-attention: var(--attention);
+  --color-attention-050: var(--attention-050);
+  --color-attention-border: var(--attention-border);
+  --color-attention-800: var(--attention-800);
+  --color-danger: var(--danger);
+  --color-danger-050: var(--danger-050);
+  --color-danger-border: var(--danger-border);
+  --color-danger-800: var(--danger-800);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-active: var(--sidebar-active);
+
+  --color-fam-fulfilment: var(--fam-fulfilment);
+  --color-fam-cancel-request: var(--fam-cancel-request);
+
+  --color-prescription: var(--prescription);
+  --color-prescription-050: var(--prescription-050);
+  --color-prescription-800: var(--prescription-800);
+
+  --color-brand-panel: var(--brand-panel);
+  --color-brand-panel-foreground: var(--brand-panel-foreground);
+
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
@@ -121,7 +295,10 @@ body {
   @apply bg-background text-foreground antialiased;
 }
 
-/* One focus language everywhere: the terracotta ring. Controls that draw their
+/* One focus language everywhere: the `--ring` outline (steel blue since 084;
+   `--ring` is `--primary`). This is the repo's ONE `var()` read of a token —
+   everything else consumes tokens as Tailwind utilities, which is what made
+   the palette swap a one-file edit. Controls that draw their
    own focus (e.g. inputs with focus:ring) opt out via focus:outline-none. */
 @layer base {
   :focus-visible {

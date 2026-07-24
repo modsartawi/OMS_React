@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OMS Portal</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fdfdfb" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1f1e1b" />
+    <!-- Mobile browser chrome. These must track `--background` in global.css
+         (light #F4F7FA / dark #121C27, spec 082 D-2/D-4) but cannot read it:
+         a meta tag has no access to CSS custom properties. They are the only
+         colour literals outside `global.css` and the logo SVG, and they live
+         outside `src/`, which is what D-12's gates scan. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F7FA" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121C27" />
     <script>
       // Apply theme before first paint — stored choice, else OS preference.
       try {

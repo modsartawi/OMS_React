@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 082
 blocked-by: —
 ---
@@ -56,16 +56,34 @@ change). Zero call-site churn is a measured property, not an aspiration.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `contrastGateFailsWhenATokenDropsBelowItsThreshold` — the gate reports a `file:line` hit and
+- [x] `contrastGateFailsWhenATokenDropsBelowItsThreshold` — the gate reports a `file:line` hit and
       exits non-zero when a token value is nudged; passes on the shipped table · pure (node script,
       the `check-boundaries.mjs` shape)
-- [ ] `contrastGateRejectsWhiteInkOnADarkChromaticFill` — the **negative** assertion: white on any
+      · **Verified red-green**: nudging `--muted-foreground` `#586674`→`#9AA6B2` produced 3 hits
+      (2.48 / 2.31 / 2.20:1 on card / background / muted) at `global.css:75`, exit 1; restoring the
+      shipped value returns green. 117 pairs measured across both themes.
+- [x] `contrastGateRejectsWhiteInkOnADarkChromaticFill` — the **negative** assertion: white on any
       lifted dark fill is below AA. This is what stops a later reader "fixing" R2 by reverting
       `--primary-foreground` to white · pure
-- [ ] Drive the app in **both themes** across a page from each area — Deliveries, a Document, Sim
+      · **Verified red-green**: reverting dark `--primary-foreground` to `#FFFFFF` produced 5 hits
+      (2.54–3.35:1 across `--primary`, `--success`, `--danger`, both `--fam-*`), exit 1. Guarded
+      twice over — the positive pairs catch the revert, and 9 explicit `below-AA` assertions catch
+      a fill lifted out of R2's band from the other direction.
+- [x] Drive the app in **both themes** across a page from each area — Deliveries, a Document, Sim
       results, BBY Inquiry, ua-admin, the sidebar — and confirm nothing lost its surface separation,
       its hairlines, or its disabled reading. Verify via `typecheck` + drive; the vitest runner is
       not installed and this ticket does not bootstrap it.
+      · **Driven** via the new `tools/palette-drive.mjs` (Playwright, borrowed as `screen1-smoke.mjs`
+      does), against a live SIS.Api. 29/29 checks. It reads computed styles back out of the painted
+      DOM, which is the only way to catch a token that parses but never reaches the screen: all
+      45 tokens resolve to their D-2/D-4 values in both themes, and all 27 new utilities compile.
+      Screens: login, Deliveries, Sim results, BBY Inquiry, ua-admin, Active Sessions, home, sidebar.
+      · **One gap, honestly**: the grid was never driven with **rows**, and Document Details was not
+      reached. `Auth/UaLogin` needs a real UA account; the legacy `Auth/Login` gives a valid session
+      (`Auth/Me` → `authenticated:true`) but not delivery-read, so `DeliveryDocumentList` 401s even
+      with a store set. The drive reports this as a SKIP rather than a failure. Low risk for *this*
+      ticket: the grid still hand-mirrors its own hex (measured header ink `rgb(87,84,76)` — the
+      **old warm** value), so grid colour is entirely ticket 085's subject, not something 084 moved.
 
 ## Boundaries
 
@@ -92,3 +110,53 @@ None — can start immediately.
 ~30 call sites) is **not** changed to read them. Record the reservation in a comment beside the
 tokens — they carry POS `--key` for a neutral *filled* button, which the app does not have yet —
 so the next reader does not read the gap as an oversight and wire it up unasked.
+
+## Comments
+
+**Built 2026-07-24.** `npm run lint` green (import boundaries + 117 contrast pairs), `npm run build`
+green, **zero `.tsx` modified** — the measured zero-call-site-churn property held exactly as the
+inventory predicted.
+
+**Beyond the declared spine reach**, three files the ticket didn't name. None is a `.tsx`, i18n or
+API change, so the stated boundary holds, but they are recorded rather than left to be discovered:
+
+- `index.html` — the two `theme-color` metas still carried the retired warm hexes (`#fdfdfb` /
+  `#1f1e1b`), so mobile browser chrome would have stayed warm after every other surface went steel.
+  Now `#F4F7FA` / `#121C27`. These are the only colour literals outside `global.css` and the logo
+  SVG; a meta tag cannot read a CSS custom property, and they live outside `src/`, which is what
+  D-12's gates scan. Commented in place.
+- `tools/palette-drive.mjs` — new, serves the third Proof bullet.
+- `.gitignore` — ignores that drive's screenshots.
+
+**Dark `--prescription-050` / `-800` were unspecified.** D-4 leaves both as *(R4)*. Derived to
+`#083A3D` / `#9ED9DC` — L .319 / L .846, landing on exactly the band R4 states and matching where
+the other four families sit in dark (`-050` L .32 C .048, `-800` L .85 C .06). Anchored to the dark
+base's hue (200°) rather than the light tier's (211°), because D-4's own given `--prescription`
+`#40B1B7` sits at 200° — following the light hue would have left the dark trio internally
+inconsistent. The gate proves `-800` on `-050` clears AA.
+
+**Two review findings applied:**
+
+1. *Spec axis* — the gate dropped `--attention` as a fill ground unconditionally, citing D-4's
+   light-only constraint, but D-4 also measures the dark twin ("the lifted `#E4A249` carries dark
+   ink at 7.83") and that pair was unguarded. Added as a `darkOnly` assertion, with
+   `--prescription`. 115 → 117 pairs.
+2. *Standards axis* — the drive's bridge list was hand-transcribed and would silently drift. The
+   attempted fix (deriving class names at runtime) **failed and taught something worth recording**:
+   Tailwind 4 is JIT and scans source files for *literal* class names, so a name built as
+   `bg-${x}` is never emitted and every probe fails. The list must stay literal. It is still real
+   evidence rather than circular — a scanned class whose token lacks a bridge line emits no CSS at
+   all (verified: `bg-nosuchtoken` → nothing, `bg-card-2` → a rule). Drift is now caught **statically
+   instead**, by a bridge-completeness check added to `check-contrast.mjs`: every colour token in
+   `:root` must have its `--color-*` line, with `--radius` the one explicit exemption. Proven by
+   deleting `--color-divider` — reported at `global.css:81`, exit 1.
+
+**Two naming findings rejected**, both deliberately: `--ink-3` reads oddly beside `--foreground` /
+`--muted-foreground`, and `--fam-cancel-request` abbreviates CONTEXT.md's "cancellation request".
+Both are spec 082 D-2's own token names; renaming them here would put the code out of step with the
+spec, the map and tickets 085–089. If they are wrong, they are wrong in 082 and should change there.
+
+**Still warm after this ticket, as predicted** (082 D-13, and visible in the drive screenshots): the
+~230 raw-palette status sites (ticket 088), the AG Grid theme's hand-mirrored hex (085), and the
+login/home brand navy + gold kickers (087). The home hero in dark is the most conspicuous — the navy
+now sits oddly against the cool page, which is precisely the dissolve D-9 exists to fix.

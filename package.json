@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "node tools/check-boundaries.mjs"
+    "lint": "node tools/check-boundaries.mjs && node tools/check-contrast.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "5.101.2",

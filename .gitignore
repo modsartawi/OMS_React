@@ -21,3 +21,6 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Palette drive screenshots (tools/palette-drive.mjs) — regenerated on demand
+tools/.palette-shots/

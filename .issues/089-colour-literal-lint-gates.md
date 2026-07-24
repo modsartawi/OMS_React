@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 082
 blocked-by: 085, 087, 088
 ---
@@ -36,12 +36,17 @@ reason inline, so a later reader does not delete it as noise or widen it by prec
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `paletteGateFailsOnAReintroducedRawClass` — add `bg-emerald-500/15` to any file, `npm run lint`
-      exits non-zero naming the `file:line`; remove it, lint is green · pure (node script)
-- [ ] `literalGateFailsOnAnArbitraryColourValue` — same for `text-[#FDC801]` and for a stray
-      `text-white` outside the exclusions · pure
-- [ ] `theExcludedScrimsAndQrGroundDoNotTripTheGate` — the four legitimate sites pass · pure
-- [ ] `npm run lint` green on the tree as it stands after tickets 085 / 087 / 088 · compiler
+- [x] `paletteGateFailsOnAReintroducedRawClass` — `bg-emerald-500/15` injected into
+      `core/ui/StatusBadge.tsx`; the gate exits 1 naming `src/core/ui/StatusBadge.tsx:1` and the
+      matched class; removed, green again · pure (node script)
+- [x] `literalGateFailsOnAnArbitraryColourValue` — same run also caught `text-[#FDC801]`,
+      `text-white` and the bare `'#c62828'` string (the widened hex gate), 4 hits in one pass · pure
+- [x] `theExcludedScrimsAndQrGroundDoNotTripTheGate` — the four sites are in the tree and the gate is
+      green over it; a `bg-black/50` injected into a *non*-excluded file still fails, so the
+      exclusions are file-scoped rather than a blanket pattern hole · pure
+- [x] `npm run lint` green on the tree as it stands after tickets 085 / 087 / 088 — all three gates:
+      boundaries (145 files), contrast (117 pairs), palette (147 files, 4 exclusions); `npm run
+      build` green · compiler
 
 ## Boundaries
 
@@ -85,3 +90,19 @@ Two ways to close it:
 
 Recommend (1) — the whole value of this ticket is that the rule stops depending on review, and the
 one place the app has ever hidden a colour literal was a `.ts` string, not a class.
+
+**Resolved: (1), widened.** Run against the tree first, as the option required: `#[0-9a-fA-F]{3,8}\b`
+over `src/` flags nothing outside `global.css` and the al-dawaa SVG, so it needed no non-colour
+exclusion — both files are excluded whole (each *is* the colour), and the pattern ships as written.
+
+Two smaller decisions the build made, both to keep the exclusion paragraph operative rather than
+decorative:
+
+- The literal gate also matches `white`/`black` colour utilities (`bg-white`, `bg-black`, …), not
+  just `text-white`. As specified, none of the four deliberate sites could ever have tripped the
+  gate, so "the exclusions belong in the script" had nothing to exclude. Now they do, and the
+  allowlist is keyed by file + class rather than by line number so ordinary edits don't rot it.
+- All three patterns live in one script, `tools/check-palette.mjs`, not two. They share the walk and
+  the report; the palette/literal split is a `[gate]` tag on each hit, which is what a reader needs.
+  `npm run lint` therefore runs three scripts as the Boundaries section says, counting 084's
+  contrast gate.

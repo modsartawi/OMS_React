@@ -182,12 +182,18 @@ the duplicate third) are gone, and `go` found its first consumer in the BBY vali
 ground to `--brand-panel` (kickers lose their gold, marks stay gold), the home hero becomes a plain
 `--card` tool (watermark + gold kicker dropped), both `text-[#FDC801]` classes and the four brand
 `text-white` sites are gone, and the dead `auth.json` `subtitle` key is deleted. `-\[#` is zero across
-`src/`. Frontier: **088** (unblocked — it consumes `core/ui/StatusBadge`), then **089** (the lint
-gate, still blocked on 088).
+`src/`.
+**089 done — the design-system build is closed.** `npm run lint` runs three gates; the third,
+`tools/check-palette.mjs`, fails on a raw palette class, an arbitrary colour value, a `white`/`black`
+utility or a bare hex anywhere in `src/` outside `global.css` and the mark. The ticket's open question
+was resolved as it recommended: the hex pattern is widened past D-12's `-\[#` to `#[0-9a-fA-F]{3,8}`,
+so a colour hidden in a `.ts` string — the one place this app ever hid one — is caught by lint rather
+than by review. The four deliberate literals (three `bg-black/50` scrims, the login QR quiet zone)
+are file-scoped exclusions carrying their reason inline.
 
 - [084](084-pos-tokens-both-themes.md) — theAppRendersOnThePosTokensInBothThemes · **done** · blocked by: — · slice 0 · + contrast gate
 - [085](085-grid-theme-reads-tokens.md) — theGridReadsTheAppTokensInsteadOfItsOwnHexCopy · **done** · blocked by: 084 · one params block · + `tools/grid-theme-drive.mjs`
 - [086](086-status-badge-takes-a-severity.md) — aStatusBadgeTakesASeverityRatherThanAClassString · **done** · blocked by: 084 · new `core/ui` primitive · + `tools/status-badge-drive.mjs`
 - [087](087-brand-colour-lives-in-the-mark.md) — brandColourLivesOnlyInTheMark · **done** · blocked by: 084 · both kickers + 4 brand `text-white` retired, hero → card
 - [088](088-raw-palette-sweep.md) — noScreenSpellsARawPaletteClass · **done** · one pass, 35 files
-- [089](089-colour-literal-lint-gates.md) — lintFailsOnAReintroducedColourLiteral · **open** · blocked by: 085, 087, 088
+- [089](089-colour-literal-lint-gates.md) — lintFailsOnAReintroducedColourLiteral · **done** · blocked by: 085, 087, 088 · `tools/check-palette.mjs`, hex gate widened

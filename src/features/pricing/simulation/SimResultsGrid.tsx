@@ -96,6 +96,10 @@ function hotForLine(promos: PromoLineRef[]): PromoHot | null {
 /** One column head's classes, shared so the seven cannot drift apart. */
 const HEAD_CELL = 'px-2 py-1.5 font-semibold'
 
+/** The line's column count — 104's set B. Named because the expansion row spans it, and
+ *  a `colSpan` that drifts from the `<colgroup>` puts the expansion in the wrong box. */
+const COLUMNS = 7
+
 /**
  * The two placeholder glyphs, and why they are not keys.
  *
@@ -125,10 +129,9 @@ export default function SimResultsGrid({
   return (
     <table className="w-full table-fixed border-collapse" onMouseLeave={() => onHotChange(null)}>
       {/* The seven widths of 104's set B: the description takes everything left over
-          (it reads first), every money column is fixed so the figures line up down
-          the table as well as across it. */}
-      {/* The seven columns of 104's set B, the first widened by 14 px to seat the
-          twisty beside the position number — the disclosure earns its affordance
+          (it reads first), every money column is fixed so the figures line up down the
+          table as well as across it. The first is 14 px wider than 104 drew it, to seat
+          the twisty beside the position number — the disclosure earns its affordance
           inside the anatomy rather than adding an eighth column to it. */}
       <colgroup>
         <col className="w-[44px]" />
@@ -182,9 +185,13 @@ export default function SimResultsGrid({
             >
               <td className="px-2 align-middle text-[11px] font-bold tabular-nums text-ink-3">
                 <span className="flex items-center gap-0.5">
+                  {/* The twisty is now the screen's load-bearing directional glyph, and
+                      mirroring it is ticket 121's — an SVG chevron is exactly the
+                      double-mirror trap that audit exists to measure, so this slice
+                      leaves it un-transformed rather than guessing at the fix. */}
                   <ChevronRight
                     data-line-twisty={open ? 'open' : 'closed'}
-                    className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform rtl:-scale-x-100 ${
+                    className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${
                       open ? 'rotate-90' : ''
                     }`}
                     aria-hidden
@@ -267,7 +274,7 @@ export default function SimResultsGrid({
                 key={`${item.itemNumber}-expansion`}
                 className="border-b border-b-divider bg-card-2/40 last:border-b-0"
               >
-                <td colSpan={7} className="border-s-[3px] border-s-primary p-0">
+                <td colSpan={COLUMNS} className="border-s-[3px] border-s-primary p-0">
                   <SimLineExpansion item={item} currency={currency} notPriced={money.notPriced} />
                 </td>
               </tr>

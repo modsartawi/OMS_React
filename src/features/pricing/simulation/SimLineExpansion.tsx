@@ -138,9 +138,9 @@ function FootTerm({
 }) {
   return (
     <span className="inline-flex items-baseline gap-1">
-      {/* Rendered as authored, NOT `uppercase`: the three foot labels are sentence-case
-          in the 123 ledger, and the ledger's uppercase inventory is the list of values
-          that carry their own caps — a CSS transform is a no-op on Arabic script. */}
+      {/* Sentence case, unlike the column heads above and below: the foot is a SENTENCE
+          — `Net 118.64 + Tax 17.80 = Net total 136.44` — and caps mid-sentence shout.
+          (The heads keep the screen's `uppercase` head convention from 115.) */}
       <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
       <span className={emphasis ? 'font-semibold' : ''}>{formatMoney(value)}</span>
     </span>

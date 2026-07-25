@@ -61,12 +61,18 @@ export interface AggregatedCondition {
   isBonusBuy: boolean
   /** Distinct non-empty bonus-buy numbers across the group's rows. */
   bbyNumbers: string[]
-  /** Number of raw rows folded into this group; a card expands only when > 1. */
+  /** Number of raw rows folded into this group. The card prints it as a `×N` pill —
+   *  the rule applied N times for the summed value; it is no longer an expand cue. */
   count: number
   conditionOrigin: string
   badge: ConditionBadge | null
   category: ConditionCategory
-  /** The raw rows themselves — revealed as sub-records when `count > 1`. */
+  /** The raw rows themselves. Ticket 116 retired the card's sub-record list — the
+   *  per-application split belongs to the promotions rail, not to a nested list inside
+   *  a nested list — so nothing RENDERS these any more. They stay because they are how
+   *  ticket 111's tests prove the fold is lossless: every raw row appears in exactly one
+   *  group, in first-appearance order. That is the aggregator's contract, not a view
+   *  detail, and it outlives the surface that used to display it. */
   subs: SimulationResultCondition[]
 }
 

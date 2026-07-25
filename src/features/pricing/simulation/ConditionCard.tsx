@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import { formatMoney } from '@/core/util/number-format'
-import { KIND_CHIP } from './promo-kind'
 import type { AggregatedCondition } from './aggregate'
 
 /**
@@ -53,10 +52,14 @@ export default function ConditionCard({ card }: Props) {
           {card.description ? <span className="text-muted-foreground"> — {card.description}</span> : null}
         </span>
 
+        {/* Deliberately the SAME chip as the origin badge two elements along, rather
+            than the promo-kind chip ground: `STAT` and `PROMOTION` are both "a fact
+            about this rule", and coupling a statistical marker to the promotion-kind
+            vocabulary would tie two unrelated things together. */}
         {card.isStatistics ? (
           <span
             data-stat-key
-            className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wider ${KIND_CHIP}`}
+            className="shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
           >
             {t('detail.stat')}
           </span>

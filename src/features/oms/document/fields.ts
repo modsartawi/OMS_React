@@ -1,20 +1,24 @@
 /**
- * Pure builders mapping a loaded document onto the read-only label/value rows of
- * the Screen 2 header groups and the Status tab.
+ * Pure builders mapping a loaded document onto the read-only rows of Screen 2 —
+ * the identity band, the summary rail's five cards, and the pill rail's
+ * All-statuses disclosure.
  */
 import type {
   SdDocumentAddressModel,
   SdDocumentHeaderModel,
   SdDocumentHeaderStatusModel,
 } from '@/core/models/sd-document'
-import { formatLongDate, formatTimeOfDay } from '@/core/util/date-format'
+import { formatLongDate, formatTimeOfDay, isBlankDate } from '@/core/util/date-format'
+import { formatMoney } from '@/core/util/number-format'
 
-/** One label/value row. A blank `value` renders as an em dash. */
+/**
+ * One label/value row of the All-statuses disclosure, where a blank `value`
+ * renders as an em dash because a disclosure's job is completeness. The summary
+ * rail's cards use `CardRow` below, which omits a blank row instead.
+ */
 export interface FieldRow {
   label: string
   value: string
-  /** When set, the value renders as an external link opening in a new tab. */
-  href?: string
 }
 
 function text(value: string | null | undefined): string {
@@ -30,18 +34,6 @@ function describedStatus(
   code: string | null | undefined,
 ): string {
   return text(description) || text(code)
-}
-
-/** A GPS coordinate for display — blank when unset (missing or exactly `0`). */
-function gpsText(value: number | null | undefined): string {
-  return typeof value === 'number' && Number.isFinite(value) && value !== 0 ? String(value) : ''
-}
-
-/** A Google Maps link for a coordinate pair, or `null` when unusable. */
-function mapsLink(lat: number | null | undefined, lon: number | null | undefined): string | null {
-  if (typeof lat !== 'number' || typeof lon !== 'number') return null
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) return null
-  return `https://www.google.com/maps?q=${lat},${lon}`
 }
 
 // The header "Document" and "Customer" groups left with ticket 091, and the
@@ -174,31 +166,235 @@ export function documentProvenanceRows(doc: SdDocumentHeaderModel, t: TFn): Fiel
   ]
 }
 
+// ─── The summary rail's five cards (spec 083 D-5 to D-8, ticket 092) ──────────
+//
+// The three equal-weight header groups and the standalone address panel are gone;
+// what they carried is re-cut here into five cards. `FieldGroup`'s em dash goes
+// with them: inside a card that renders, **money and boolean rows always render
+// (`0.00` and `No` are answers) and a blank text row is omitted** — one rule for
+// the whole rail (D-5), so a card shows what is true rather than a column of
+// dashes to read past.
+
+/** One row inside a rail card. Only rows that survive D-5 reach the component. */
+export interface CardRow {
+  /** The payload field this row reports — and the rendered list's React key. */
+  key: string
+  label: string
+  value: string
+  /** Tabular figures: the value is a number or a code, not a word. */
+  numeric?: boolean
+  /** Quieter ink: free text an operator scans, not a value they quote. */
+  soft?: boolean
+  /** When set, the value renders as an external link opening in a new tab. */
+  href?: string
+  /** The card's closing line — `netTotal`, the one figure that gets weight. */
+  total?: boolean
+}
+
+/** One card on the summary rail. A collapsed card is absent from the array. */
+export interface RailCard {
+  key: 'customer' | 'prescription' | 'fulfilment' | 'driver' | 'payment'
+  title: string
+  rows: CardRow[]
+}
+
 /**
- * The "Shipping Address" group; an "open in maps" row is appended when the GPS
- * pair is usable. Returns `[]` when the document carries no shipping address.
+ * The delivery-type map — exactly two entries, which the model's own comment
+ * verifies (`'D'` Delivery / `'P'` PickInStore). An unrecognised code renders
+ * raw rather than vanishing: the 406 precedent is that a client-side map which
+ * silently swallows a value is worse than the value.
  */
-export function shippingAddressRows(
-  address: SdDocumentAddressModel | null | undefined,
-  t: TFn,
-): FieldRow[] {
-  if (!address) return []
+const DELIVERY_TYPES: Record<string, string> = { D: 'delivery', P: 'pickInStore' }
 
-  const rows: FieldRow[] = [
-    { label: t('fields.cityCode'), value: text(address.cityCode) },
-    { label: t('fields.cityName'), value: text(address.cityName) },
-    { label: t('fields.districtCode'), value: text(address.districtCode) },
-    { label: t('fields.districtName'), value: text(address.districtName) },
-    { label: t('fields.street1'), value: text(address.street1) },
-    { label: t('fields.street2'), value: text(address.street2) },
-    { label: t('fields.gpsLat'), value: gpsText(address.gpsLat) },
-    { label: t('fields.gpsLon'), value: gpsText(address.gpsLon) },
-  ]
+/**
+ * A schedule timestamp, or `null` when it is the .NET `DateTime.MinValue`
+ * sentinel the API sends for every unset date. `isBlankDate` is imported rather
+ * than re-spelled — two spellings of "unset" are how they start to disagree.
+ */
+function scheduledAt(value: string | null | undefined): Date | null {
+  if (!text(value)) return null
+  const date = new Date(value as string)
+  return isBlankDate(date) ? null : date
+}
 
-  const link = mapsLink(address.gpsLat, address.gpsLon)
-  if (link) rows.push({ label: t('fields.map'), value: t('fields.openInMaps'), href: link })
+/**
+ * The Customer card's address line: `shortAddress` → `street1`/`street2` →
+ * `districtName`. Every step is the only thing present on some captured document,
+ * and the whole chain optional-chains a `shippingAddress` that is typed `| null`
+ * — so `tsc` is the null-address test.
+ *
+ * Blank is the answer for a document with no delivery address, and it renders as
+ * **no row and no marker** (D-6): the one null-address capture is a pickup, where
+ * having no address is correct rather than missing. An address object whose every
+ * field is `''` takes this identical path.
+ */
+export function addressFallback(address: SdDocumentAddressModel | null | undefined): string {
+  const short = text(address?.shortAddress)
+  if (short) return short
+  const street = [text(address?.street1), text(address?.street2)].filter(Boolean).join(', ')
+  if (street) return street
+  return text(address?.districtName)
+}
 
-  return rows
+/**
+ * The Fulfilment card's **one** "Delivery window" row (D-7). Rendering the slot
+ * and the schedule adjacently showed a contradiction on `8000000174` (slot text
+ * `"8am - 12 am"` against a schedule of 20:00–22:00) and a zero-length window on
+ * `8000000121` (From == To == a capture timestamp), so one row wins:
+ *
+ * 1. the schedule when both ends are non-sentinel **and From `<` To** — strict,
+ *    which is what makes the equal-timestamp case fall through rather than
+ *    render a window of no length;
+ * 2. otherwise the time slot (`timeSlotDay` + `timeSlotDescription`);
+ * 3. otherwise blank, and a blank text row is omitted.
+ *
+ * The malformed slot text and its disagreement with its own schedule are data
+ * findings, not UI findings — this order means the rail never shows the
+ * disagreement, and it does not adjudicate which source is right.
+ */
+export function deliveryWindow(doc: SdDocumentHeaderModel): string {
+  const from = scheduledAt(doc.deliveryScheduleFromTime)
+  const to = scheduledAt(doc.deliveryScheduleToTime)
+  if (from && to && from.getTime() < to.getTime()) {
+    return `${formatTimeOfDay(doc.deliveryScheduleFromTime)} - ${formatTimeOfDay(doc.deliveryScheduleToTime)}`
+  }
+  return [text(doc.timeSlotDay), text(doc.timeSlotDescription)].filter(Boolean).join(', ')
+}
+
+/**
+ * The Payment card's instrument row (D-8). Coded `paymentType` is `'C'` on all
+ * five captures — one value, no companion, no map worth writing; the real
+ * instrument rides on a header-level condition carrying `cardType: 'Visa'` and
+ * `paymentMethod: 'ApplePay'`, already server-resolved and human-readable.
+ *
+ * The scan is for those **fields**, never for a `condType`: on both captures they
+ * ride the `DFEE` (delivery fees) condition, which is plainly incidental and
+ * breaks the first time it moves. Falls back to the raw `paymentType`, and blank
+ * omits the row.
+ */
+export function paymentInstrument(doc: SdDocumentHeaderModel): string {
+  const carrier = (doc.conditions ?? []).find(
+    (condition) => text(condition.cardType) || text(condition.paymentMethod),
+  )
+  if (carrier) return [text(carrier.paymentMethod), text(carrier.cardType)].filter(Boolean).join(' · ')
+  return text(doc.paymentType)
+}
+
+/**
+ * The summary rail (D-6): the cards that render, in the rail's reading order.
+ *
+ * Customer, Fulfilment and Payment always render — an empty Customer card is
+ * itself the finding, not a reason to hide the identity anchor. Prescription
+ * collapses when all five of its fields are blank (an over-the-counter order) and
+ * Driver & tracking when the courier, the driver's name and the tracking id are
+ * all blank; a collapsed card is **absent**, not an empty frame on the rail.
+ */
+export function railCards(doc: SdDocumentHeaderModel, t: TFn): RailCard[] {
+  const cards: RailCard[] = []
+
+  /** Collect the rows that survive D-5: money and booleans always, text if set. */
+  const rowsOf = (candidates: (CardRow | null)[]): CardRow[] =>
+    candidates.filter((row): row is CardRow => row !== null && row.value !== '')
+
+  const textRow = (key: string, label: string, value: string, extra?: Partial<CardRow>): CardRow =>
+    ({ key, label, value, ...extra })
+  // A money row always renders — `0.00` is an answer. What it will not do is
+  // fabricate one: a non-numeric amount formats blank and the row drops, rather
+  // than asserting a zero the server never sent.
+  const moneyRow = (key: string, label: string, value: number, extra?: Partial<CardRow>): CardRow =>
+    ({ key, label, value: formatMoney(value), numeric: true, ...extra })
+  const boolRow = (key: string, label: string, value: boolean): CardRow =>
+    ({ key, label, value: value ? t('cards.yes') : t('cards.no') })
+
+  const address = doc.shippingAddress
+  cards.push({
+    key: 'customer',
+    title: t('cards.customer'),
+    rows: rowsOf([
+      textRow('name', t('cards.name'), text(doc.customer?.customerName)),
+      textRow('mobile', t('cards.mobile'), text(doc.customer?.customerPhone), { numeric: true }),
+      textRow('loyaltyId', t('cards.loyaltyId'), text(doc.customer?.customerId) || text(doc.customerId), {
+        numeric: true,
+      }),
+      textRow('city', t('cards.city'), text(address?.cityName)),
+      textRow('address', t('cards.address'), addressFallback(address), { soft: true }),
+    ]),
+  })
+
+  const prescription = rowsOf([
+    textRow('approvalNumber', t('cards.approvalNumber'), text(doc.approvalNumber), { numeric: true }),
+    textRow('patientId', t('cards.patientId'), text(doc.patientId), { numeric: true }),
+    textRow('clinicianName', t('cards.clinician'), text(doc.clinicianName)),
+    textRow('referenceErx', t('cards.referenceErx'), text(doc.referenceErx), { numeric: true }),
+    text(doc.prescriptionUrl)
+      ? textRow('prescriptionUrl', t('cards.rxDocument'), t('cards.view'), {
+          href: text(doc.prescriptionUrl),
+        })
+      : null,
+  ])
+  if (prescription.length > 0) {
+    cards.push({ key: 'prescription', title: t('cards.prescription'), rows: prescription })
+  }
+
+  const deliveryType = text(doc.deliveryType)
+  const mapped = DELIVERY_TYPES[deliveryType.toUpperCase()]
+  cards.push({
+    key: 'fulfilment',
+    title: t('cards.fulfilment'),
+    rows: rowsOf([
+      textRow(
+        'deliveryType',
+        t('cards.deliveryType'),
+        mapped ? t(`cards.deliveryTypes.${mapped}`) : deliveryType,
+        { numeric: !mapped },
+      ),
+      textRow('store', t('cards.store'), text(doc.storeCode), { numeric: true }),
+      textRow('window', t('cards.window'), deliveryWindow(doc), { numeric: true }),
+      textRow('note', t('cards.note'), text(doc.note), { soft: true }),
+    ]),
+  })
+
+  // `courierDriverMasterPinCode` is never rendered. It is genuinely populated
+  // (`"1234"`) — and a delivery credential does not belong on a back-office
+  // screen (D-6).
+  const trackingId = text(doc.trackingId)
+  const trackingUrl = text(doc.trackingUrl)
+  const collapseDriver = !text(doc.courierDriverName) && !text(doc.courierCode) && !trackingId
+  if (!collapseDriver) {
+    cards.push({
+      key: 'driver',
+      title: t('cards.driver'),
+      rows: rowsOf([
+        textRow('courierCode', t('cards.courier'), text(doc.courierCode), { numeric: true }),
+        textRow('courierDriverName', t('cards.driverName'), text(doc.courierDriverName)),
+        textRow('courierDriverPhone', t('cards.driverPhone'), text(doc.courierDriverPhone), {
+          numeric: true,
+        }),
+        boolRow('courierDriverApproved', t('cards.driverApproved'), doc.courierDriverApproved === true),
+        textRow('trackingId', t('cards.tracking'), trackingId, {
+          numeric: true,
+          // The id is the value with or without a link — a tracking number an
+          // operator can quote is worth a row on its own (`9000000003` carries
+          // one and no URL).
+          ...(trackingUrl ? { href: trackingUrl } : {}),
+        }),
+      ]),
+    })
+  }
+
+  cards.push({
+    key: 'payment',
+    title: t('cards.payment'),
+    rows: rowsOf([
+      textRow('instrument', t('cards.instrument'), paymentInstrument(doc)),
+      moneyRow('deliveryFees', t('cards.deliveryFees'), doc.deliveryFees),
+      moneyRow('paidAmount', t('cards.paid'), doc.paidAmount),
+      moneyRow('amountDue', t('cards.amountDue'), doc.amountDue),
+      moneyRow('netTotal', t('cards.netTotal'), doc.netTotal, { total: true }),
+    ]),
+  })
+
+  return cards
 }
 
 /**

@@ -27,7 +27,7 @@ import { documentProvenanceRows } from './fields'
 import IdentityBand from './IdentityBand'
 import StatusRail from './StatusRail'
 import CommandPanel from './CommandPanel'
-import ShippingAddress from './ShippingAddress'
+import SummaryRail from './SummaryRail'
 import DetailGrid from './DetailGrid'
 import RescheduleDialog from './RescheduleDialog'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
@@ -331,8 +331,18 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               onCommand={(kind) => void onCommand(kind)}
             />
 
-            <div className="grid gap-2.5 lg:grid-cols-[minmax(16rem,20rem)_1fr]">
-              <ShippingAddress address={document.shippingAddress} />
+            {/*
+              The page's two regions (083 D-6, ticket 092): a 340px summary rail
+              and the work area. Below 900px the grid collapses to one column and
+              the rail — first in the DOM — becomes a card grid ABOVE the work
+              area rather than a drawer, because the summary is the context the
+              grid is read with. `rail:` is the named 900px screen declared in
+              `global.css` — not Tailwind's `lg`: the spec names the number, and
+              it is where the 340px rail plus a readable grid stop fitting side
+              by side.
+            */}
+            <div className="grid gap-2.5 rail:grid-cols-[340px_minmax(0,1fr)]">
+              <SummaryRail document={document} />
 
               <div className="min-w-0">
                 <div role="tablist" aria-label={t('tabs.ariaLabel')} className="flex gap-1 border-b border-border">

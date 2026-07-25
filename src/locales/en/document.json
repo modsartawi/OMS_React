@@ -34,9 +34,44 @@
     "allStatuses": "All statuses",
     "provenance": "Where it came from"
   },
-  "groups": {
-    "shippingAddress": "Shipping Address",
-    "noAddress": "No shipping address on this document."
+  "cards": {
+    "ariaLabel": "Document summary",
+    "customer": "Customer",
+    "prescription": "Prescription (e-Rx)",
+    "fulfilment": "Fulfilment",
+    "driver": "Driver & tracking",
+    "payment": "Payment",
+    "name": "Name",
+    "mobile": "Mobile",
+    "loyaltyId": "Loyalty ID",
+    "city": "City",
+    "address": "Address",
+    "approvalNumber": "Approval no.",
+    "patientId": "Patient ID",
+    "clinician": "Clinician",
+    "referenceErx": "e-Rx ref",
+    "rxDocument": "Rx document",
+    "view": "View",
+    "deliveryType": "Type",
+    "deliveryTypes": {
+      "delivery": "Delivery",
+      "pickInStore": "Pick In Store"
+    },
+    "store": "Store",
+    "window": "Delivery window",
+    "note": "Last note",
+    "courier": "Courier",
+    "driverName": "Driver",
+    "driverPhone": "Driver mobile",
+    "driverApproved": "Approved",
+    "tracking": "Tracking",
+    "instrument": "Payment",
+    "deliveryFees": "Delivery fees",
+    "paid": "Paid",
+    "amountDue": "Amount due",
+    "netTotal": "Net total",
+    "yes": "Yes",
+    "no": "No"
   },
   "fields": {
     "refDocumentNo": "Ref Document No",
@@ -54,17 +89,7 @@
     "approvalStatus": "Approval Status",
     "consignmentStatus": "Consignment Status",
     "controlStatus": "Control Status",
-    "notificationStatus": "Notification Status",
-    "cityCode": "City Code",
-    "cityName": "City Name",
-    "districtCode": "District Code",
-    "districtName": "District Name",
-    "street1": "Street 1",
-    "street2": "Street 2",
-    "gpsLat": "GPS Lat",
-    "gpsLon": "GPS Lon",
-    "map": "Map",
-    "openInMaps": "Open in Google Maps"
+    "notificationStatus": "Notification Status"
   },
   "command": {
     "title": "Actions",

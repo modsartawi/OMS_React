@@ -32,6 +32,13 @@
      same sans, small and bold — the owner ruled out a serif display face
      (464): one family everywhere, weight does the hierarchy. */
   --font-sans: 'Inter', 'Readex Pro', system-ui, sans-serif;
+
+  /* The Document Details rail breakpoint (spec 083 D-6, ticket 092): above it a
+     340px summary rail sits beside the work area; below it the rail unstacks
+     ABOVE the work area as a card grid. It is a named screen because the page
+     grid and the rail's own grid must agree on the number — two hand-spelled
+     `min-[900px]` would be one edit away from laying out against each other. */
+  --breakpoint-rail: 900px;
 }
 
 /* ---------------------------------------------------------------------------

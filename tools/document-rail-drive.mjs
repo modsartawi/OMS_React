@@ -141,7 +141,12 @@ async function run() {
   check('All statuses sits at the end of the rail, counting 13', (await disclosure.innerText()).trim() === 'All statuses 13')
   await disclosure.click()
   const rows = await page.locator('details[open] dt').allInnerTexts()
-  check('opening it shows all thirteen rows', rows.length === 13, String(rows.length))
+  // Ticket 091 put the provenance group (`Ref Document No`, `Source`,
+  // `Entry User`) BESIDE the breakdown inside the same disclosure, so the count
+  // is of the status rows rather than of every `dt` under it — D-3 keeps the
+  // thirteen unchanged, and 091 added three neighbours, not three rows.
+  const statusRows = rows.filter((label) => /Status$|Last Action/.test(label))
+  check('opening it shows all thirteen rows', statusRows.length === 13, String(rows.length))
   check(
     'including the three code-only statuses the rail omits',
     ['Consignment Status', 'Control Status', 'Notification Status'].every((l) => rows.includes(l)),

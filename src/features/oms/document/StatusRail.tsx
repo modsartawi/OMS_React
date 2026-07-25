@@ -4,7 +4,6 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import type { SdDocumentHeaderStatusModel } from '@/core/models/sd-document'
 import { railEntries, type RailEntry } from './rail'
 import { statusBreakdownRows, type FieldRow } from './fields'
-import FieldGroup from './FieldGroup'
 
 /**
  * The document's state, as one line under the header (spec 083 D-3).
@@ -75,9 +74,9 @@ export default function StatusRail({
             {t('rail.allStatuses')} <span className="tabular-nums">{rows.length}</span>
           </summary>
           <div className="absolute end-0 z-10 mt-1 grid w-max max-w-[22rem] gap-1.5 shadow-lg">
-            <FieldGroup title={t('rail.allStatuses')} fields={rows} />
+            <DisclosureGroup title={t('rail.allStatuses')} fields={rows} />
             {provenance && provenance.length > 0 && (
-              <FieldGroup title={t('rail.provenance')} fields={provenance} />
+              <DisclosureGroup title={t('rail.provenance')} fields={provenance} />
             )}
           </div>
         </details>
@@ -85,6 +84,38 @@ export default function StatusRail({
 
       {children}
     </div>
+  )
+}
+
+/**
+ * A titled label/value list inside the disclosure — the last of `FieldGroup`,
+ * which ticket 092 retired along with the header groups and the address panel it
+ * also drew. It lives here rather than in a shared component because the
+ * disclosure is now its only caller, and because its **em dash is a local rule,
+ * not the screen's**: a disclosure's job is completeness, so a status the server
+ * left blank is reported as blank. The summary rail's cards do the opposite —
+ * they omit the row (D-5).
+ */
+function DisclosureGroup({ title, fields }: { title: string; fields: readonly FieldRow[] }) {
+  return (
+    <section className="rounded-lg border border-border/60 bg-card">
+      {/* `h3`, the same level the summary rail's cards take: both are sections of
+          the page, and neither is a child of the other. */}
+      <h3 className="border-b border-border/60 px-2.5 py-1.5 text-xs font-semibold tracking-tight">
+        {title}
+      </h3>
+      <dl className="grid px-2.5 py-1.5">
+        {fields.map((field) => (
+          <div
+            key={field.label}
+            className="grid grid-cols-[minmax(8.5rem,max-content)_1fr] items-baseline gap-x-3 py-0.5"
+          >
+            <dt className="text-xs font-semibold text-muted-foreground">{field.label}</dt>
+            <dd className="m-0 break-words text-[0.8125rem] font-semibold">{field.value || '—'}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }
 

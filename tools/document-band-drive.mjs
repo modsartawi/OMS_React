@@ -160,7 +160,15 @@ async function run() {
     'the Document and Customer field groups are gone',
     !/\bLoyalty (Id|Mobile|Name)\b/.test(body) && !/\bRef Document No\b/.test(body),
   )
-  check('the shipping address group survives this slice', body.includes('Shipping Address'))
+  // The Shipping Address group did NOT survive ticket 092: the address is a row
+  // on the summary rail's Customer card now, and the standalone panel retired
+  // with `FieldGroup`. What this drive still owns is that the band does not
+  // duplicate the address — only the city, alongside the phone.
+  check(
+    'the address lives on the summary rail, not in a panel of its own',
+    !body.includes('Shipping Address') && /customer/i.test(body),
+    body.slice(0, 80),
+  )
 
   // --- what left the band did not leave the screen ---------------------------
   // D-2 sends `refDocumentNo`, the source and the entry user to the

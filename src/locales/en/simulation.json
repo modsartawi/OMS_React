@@ -10,7 +10,6 @@
     "deniedHint": "You don't have permission to open POS Simulation. Ask an administrator for the POS Simulation grant."
   },
   "header": {
-    "title": "Header",
     "plant": "Plant",
     "pricingDate": "Pricing date",
     "salesOrg": "Sales org",
@@ -49,7 +48,6 @@
     "itemHint": "Item number = (line position) × 10, or 0 for a header condition."
   },
   "actions": {
-    "title": "Actions",
     "process": "Process",
     "processing": "Processing…",
     "clear": "Clear"
@@ -62,7 +60,6 @@
     "denied": "Couldn't clear the cache"
   },
   "summary": {
-    "title": "Summary",
     "netTotal": "Total Net Total",
     "totalDiscount": "Total discount",
     "tax": "Tax",
@@ -157,6 +154,7 @@
   "strip": {
     "netTotal": "Net total",
     "edit": "Edit ▾",
+    "done": "Done ▴",
     "stale": "Inputs changed",
     "promoOn": "PROMO on",
     "promoOff": "PROMO off",

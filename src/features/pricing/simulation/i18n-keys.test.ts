@@ -21,6 +21,9 @@ const NEW_KEYS = [
   'promo.notMeasured',
   'strip.netTotal',
   'strip.edit',
+  // Added to the 123 ledger by slice 113: the chip set reads `Done ▴` while the
+  // form is open, and the ledger had minted only its collapsed half.
+  'strip.done',
   'strip.stale',
   'strip.key.plant',
   'strip.key.org',
@@ -55,15 +58,19 @@ const RETIRING_KEYS = [
   'results.subtotal',
   'results.tax',
   'banner.counts',
-  'summary.title',
   'summary.netTotal',
   'summary.elapsed',
-  'actions.title',
-  'header.title',
   'status.ok',
   'detail.records',
   'detail.subRate',
 ]
+
+/**
+ * The contract half, as far as it has run. Ticket 113 dissolved the Header form,
+ * the Summary tile and the Actions card into the run strip, so these three frame
+ * headings retired WITH their call sites — the rest of the sweep is 121's.
+ */
+const RETIRED_KEYS = ['header.title', 'summary.title', 'actions.title']
 
 /** Values that must carry their own uppercase — a CSS transform is a no-op on Arabic script. */
 const UPPERCASE_KEYS = [
@@ -101,8 +108,12 @@ describe('simulation namespace — the expand step', () => {
     expect(value).not.toBe(path)
   })
 
-  it.each(RETIRING_KEYS)('%s is still present — nothing retires here', (path) => {
+  it.each(RETIRING_KEYS)('%s is still present — its call site has not moved yet', (path) => {
     expect(typeof resolve(path)).toBe('string')
+  })
+
+  it.each(RETIRED_KEYS)('%s is gone — it retired with the frame it titled (113)', (path) => {
+    expect(resolve(path)).toBeUndefined()
   })
 
   it.each(UPPERCASE_KEYS)('%s is authored uppercase in the value', (path) => {

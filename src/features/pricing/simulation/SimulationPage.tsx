@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, DatabaseZap, Loader2, Play } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk (the
@@ -10,10 +10,11 @@ import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import { confirmAction } from '@/core/services/confirm'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import { formatMoney } from '@/core/util/number-format'
 import type { SimulateRequest, SimulationResult } from '@/core/models/simulation'
 import { simulationApi } from './api'
-import SimHeaderForm, { defaultHeader, type SimHeaderState } from './SimHeaderForm'
+// The header form is no longer rendered here — it is the run strip's expansion
+// (ticket 113); only its state shape and defaults are the Page's.
+import { defaultHeader, type SimHeaderState } from './SimHeaderForm'
 import SimItemsEntry, { emptyItemRow, type SimItemRow } from './SimItemsEntry'
 import SimManualConditions, { type SimManualConditionRow } from './SimManualConditions'
 import SimItemDetail from './SimItemDetail'
@@ -22,7 +23,9 @@ import SimPromoBlocks from './SimPromoBlocks'
 // SimMissedPromotions temporarily hidden — Potential Bonus Buys held back for now.
 // import SimMissedPromotions from './SimMissedPromotions'
 import SimResultsGrid, { type PromoHot } from './SimResultsGrid'
+import SimRunStrip from './SimRunStrip'
 import { promoView } from './promo-view'
+import { runChips } from './run-chips'
 
 // Ticket 013 — the POS Simulation tracer. Self-guards on Pricing/Access (issue-429
 // pattern, shared ['simulation','access'] key with the menu probe), then: a 4-column
@@ -73,6 +76,11 @@ export default function SimulationPage() {
   // Which result line's pricing detail is shown (ticket 014). Selecting a line in
   // the results grid drives the detail below; a fresh Process selects the first line.
   const [selectedItemNumber, setSelectedItemNumber] = useState<number | null>(null)
+  // The run strip's disclosure (ticket 113). The Page owns it because it collapses
+  // on every Process — and auto-expands NEVER, including a Process that fails,
+  // which is still a Process: the screen must not move itself while the analyst is
+  // starting to read a failure.
+  const [stripOpen, setStripOpen] = useState(false)
 
   const process = useMutation({
     mutationFn: async (request: SimulateRequest) => {
@@ -103,9 +111,11 @@ export default function SimulationPage() {
   const validItems = items.filter((r) => r.materialNumber.trim() !== '')
   const canProcess = validItems.length > 0 && !process.isPending
 
-  function runProcess() {
-    if (validItems.length === 0) return
-    const request: SimulateRequest = {
+  // The request the inputs on screen currently describe. Built once and read
+  // twice: Process posts it, and the run strip's chip set reads its determination
+  // off it (ticket 113 — the chips are the request, not a second spelling of it).
+  const request = useMemo<SimulateRequest>(() => {
+    const built: SimulateRequest = {
       header: {
         plant: header.plant.trim(),
         salesOrganization: header.salesOrganization.trim(),
@@ -130,15 +140,47 @@ export default function SimulationPage() {
     // 0 (a header condition) when blank or non-numeric.
     const validManual = manualConditions.filter((c) => c.conditionType.trim() !== '')
     if (validManual.length > 0) {
-      request.manualConditions = validManual.map((c) => ({
+      built.manualConditions = validManual.map((c) => ({
         itemNumber: Number(c.itemNumber) || 0,
         conditionType: c.conditionType.trim(),
         rate: Number(c.rate) || 0,
         rateUnit: c.rateUnit.trim(),
       }))
     }
+    return built
+    // `validItems` is derived from `items` on every render, so the item rows are
+    // the dependency, not the filtered array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [header, promotion, pricingElements, items, manualConditions])
+
+  const chips = useMemo(() => runChips(request), [request])
+
+  const runProcess = useCallback(() => {
+    if (request.items.length === 0 || process.isPending) return
+    // Collapse on EVERY Process (ticket 113) — the determination is settled the
+    // moment it is sent, and the results deserve the width.
+    setStripOpen(false)
     process.mutate(request)
-  }
+    // `process` is a stable mutation object bar its flags; the request is what changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request, process.isPending])
+
+  // Ctrl+Enter processes from ANYWHERE — including inside the items grid and the
+  // expanded form (102 §6), which is what makes the tweak-one-field-and-re-run loop
+  // mouse-free. Signposted on the button itself (`▶ Process ⌃⏎`). A window listener
+  // rather than a container handler so "anywhere" means anywhere on the screen.
+  const runProcessRef = useRef(runProcess)
+  runProcessRef.current = runProcess
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault()
+        runProcessRef.current()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   function clearAll() {
     setHeader(defaultHeader())
@@ -177,113 +219,52 @@ export default function SimulationPage() {
   const selectedItem =
     result?.items.find((i) => i.itemNumber === selectedItemNumber) ?? result?.items[0] ?? null
 
+  // `@container` declares the WORK AREA as the measurement everything on this
+  // screen responds to (ticket 113). Every responsive rule in the rework is a
+  // container query on this element, never a viewport media query: the nav eats
+  // 200–260 px, so a 1280 laptop is a *960* screen and the viewport systematically
+  // lies. (`SimResultsGrid` declares its own inner container for its 820 px
+  // table↔card swap; nothing below reads the viewport again.)
   return (
-    <section className="flex flex-col gap-3">
+    <section className="@container flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <h1 className="text-base font-semibold tracking-tight">{t('title')}</h1>
       </div>
 
-      {/* ===== TOP BAR: header input form | Net-Total summary | actions (spec 503). ===== */}
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,3fr)_auto_auto]">
-        <SimHeaderForm
-          value={header}
-          onChange={(patch) => setHeader((h) => ({ ...h, ...patch }))}
-          promotion={promotion}
-          pricingElements={pricingElements}
-          onPromotionChange={setPromotion}
-          onPricingElementsChange={setPricingElements}
-          disabled={process.isPending}
-        />
-
-        {/* Net-Total summary — the run's headline figure + calc time. */}
-        <div className="flex min-w-52 flex-col justify-center rounded-lg border border-border/60 bg-card p-3">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('summary.title')}
-          </div>
-          <div className="mt-1 text-xs text-muted-foreground">{t('summary.netTotal')}</div>
-          {result ? (
-            <>
-              <div className="mt-0.5">
-                <span className="text-3xl font-bold tabular-nums tracking-tight">
-                  {formatMoney(result.header.netTotal)}
-                </span>
-                <span className="ms-1.5 text-sm text-muted-foreground">{result.header.currency}</span>
-              </div>
-              {/* Discount (danger) + tax (primary) breakdown beneath the headline net total. */}
-              <div className="mt-1.5 flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
-                <span className="text-sm font-semibold tabular-nums text-danger-800">
-                  <span className="me-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {t('summary.totalDiscount')}
-                  </span>
-                  {formatMoney(result.header.totalDiscount)}
-                </span>
-                <span className="text-sm font-semibold tabular-nums text-primary-800">
-                  <span className="me-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {t('summary.tax')}
-                  </span>
-                  {formatMoney(result.header.taxValue)}
-                </span>
-              </div>
-              {data ? (
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  {t('summary.calc', { ms: data.elapsedMs })}
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <div className="mt-0.5 text-3xl font-bold tabular-nums tracking-tight text-muted-foreground/40">
-              {t('summary.placeholder')}
-            </div>
-          )}
-        </div>
-
-        {/* Actions — Process + Clear, plus a Clear-cache button gated on the pricing-
-            cache-admin grant (ticket 051, spec 022 — reinstating the WPF "Clear Cache"
-            that spec 503 had dropped). The clear behaviour lands in ticket 052. */}
-        <div className="flex min-w-36 flex-col justify-center gap-2 rounded-lg border border-border/60 bg-card p-3">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('actions.title')}
-          </div>
-          <button
-            type="button"
-            onClick={runProcess}
-            disabled={!canProcess}
-            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50"
-          >
-            {process.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            ) : (
-              <Play className="h-4 w-4" aria-hidden />
-            )}
-            {process.isPending ? t('actions.processing') : t('actions.process')}
-          </button>
-          <button
-            type="button"
-            onClick={clearAll}
-            disabled={process.isPending}
-            className="inline-flex h-9 w-full items-center justify-center rounded-full border border-input px-4 text-sm font-medium hover:bg-accent disabled:opacity-50"
-          >
-            {t('actions.clear')}
-          </button>
-          {/* Cache-admins only (gate: ticket 051). Confirm → clear the whole pricing
-              cache → toast (ticket 052). Disabled while the clear is in flight. */}
-          {canClearCache ? (
-            <button
-              type="button"
-              onClick={() => void runClearCache()}
-              disabled={clearCache.isPending}
-              className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-input px-4 text-sm font-medium hover:bg-accent disabled:opacity-50"
-            >
-              {clearCache.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                <DatabaseZap className="h-4 w-4" aria-hidden />
-              )}
-              {t('clearCache.button')}
-            </button>
-          ) : null}
-        </div>
-      </div>
+      {/* ===== THE RUN STRIP (ticket 113): the header form, the Summary tile and
+          the Actions card dissolved into ONE unframed row — chip set · status slot ·
+          money · run controls. ===== */}
+      <SimRunStrip
+        chips={chips}
+        header={header}
+        onHeaderChange={(patch) => setHeader((h) => ({ ...h, ...patch }))}
+        promotion={promotion}
+        pricingElements={pricingElements}
+        onPromotionChange={setPromotion}
+        onPricingElementsChange={setPricingElements}
+        expanded={stripOpen}
+        onExpandedChange={setStripOpen}
+        // A total belongs to a run: absent before the first Process and after a
+        // failure, rather than zeroed or placeheld.
+        money={
+          result && data
+            ? {
+                netTotal: result.header.netTotal,
+                currency: result.header.currency,
+                totalDiscount: result.header.totalDiscount,
+                taxValue: result.header.taxValue,
+                elapsedMs: data.elapsedMs,
+              }
+            : null
+        }
+        pending={process.isPending}
+        canProcess={canProcess}
+        onProcess={runProcess}
+        onClear={clearAll}
+        canClearCache={canClearCache}
+        clearCachePending={clearCache.isPending}
+        onClearCache={() => void runClearCache()}
+      />
 
       {/* A pricing rejection (400 [PRICING_ERROR] message) — the whole run failed. */}
       {process.isError ? (

@@ -62,6 +62,18 @@ export function formatLongDate(value: string | null | undefined): string {
 }
 
 /**
+ * Format an ISO datetime as a short date — `25 Jul 2026` — the form a value
+ * wears when it has to fit one line-height beside other values (the POS
+ * Simulation run strip's date chip, spec 110).
+ */
+export function formatShortDate(value: string | null | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (isBlankDate(date)) return ''
+  return `${pad(date.getDate())} ${MONTH_NAMES[date.getMonth()].slice(0, 3)} ${date.getFullYear()}`
+}
+
+/**
  * Format an ISO datetime as the clock time alone — `15:42`. The Screen 2
  * identity band's "Placed" row pairs it with `formatLongDate` of a *different*
  * field (`documentDate` + `entryTime`), which is why the time is formatted on

@@ -50,27 +50,47 @@ export type ElementColumnId =
  */
 export type ElementColumnRole = 'figure' | 'identifier' | 'text' | 'flag'
 
-/** How much room a column needs before the trace has to shed something.
- *  Measured off the rendered table at `text-[11.5px]` with `px-2` cells. */
+/**
+ * One trace column, declared ONCE. `headKey` and `align` live here beside `role` and
+ * `minWidth` rather than in the component, so a column is a single entry rather than
+ * one entry here and a matching one in a parallel table over there — which is how a
+ * head and its cells drift apart by one column. Only the cell RENDERER stays in the
+ * component, because it is the only part that touches React.
+ *
+ * `align` is semantic (`start`/`end`/`center`), not a Tailwind class: this module is
+ * pure and node-tested, and it has no business naming a stylesheet.
+ *
+ * `minWidth` is how much room the column needs to read COMFORTABLY, measured off the
+ * rendered table at `text-[11.5px]` with `px-2` cells. It is not a hard floor — see
+ * `traceLevel`.
+ */
 interface ColumnSpec {
   id: ElementColumnId
   role: ElementColumnRole
+  headKey: string
+  align: 'start' | 'end' | 'center'
   minWidth: number
 }
 
 const COLUMNS: readonly ColumnSpec[] = [
-  { id: 'step', role: 'identifier', minWidth: 46 },
-  { id: 'ctr', role: 'identifier', minWidth: 46 },
-  { id: 'type', role: 'identifier', minWidth: 58 },
-  { id: 'description', role: 'text', minWidth: 170 },
-  { id: 'base', role: 'figure', minWidth: 78 },
-  { id: 'rate', role: 'figure', minWidth: 68 },
-  { id: 'unit', role: 'identifier', minWidth: 54 },
-  { id: 'value', role: 'figure', minWidth: 80 },
-  { id: 'statistical', role: 'flag', minWidth: 46 },
-  { id: 'subtotal', role: 'flag', minWidth: 46 },
-  { id: 'bonusBuy', role: 'flag', minWidth: 54 },
+  { id: 'step', role: 'identifier', headKey: 'bonus.elements.step', align: 'end', minWidth: 46 },
+  { id: 'ctr', role: 'identifier', headKey: 'bonus.elements.counter', align: 'end', minWidth: 46 },
+  { id: 'type', role: 'identifier', headKey: 'bonus.elements.type', align: 'start', minWidth: 58 },
+  { id: 'description', role: 'text', headKey: 'bonus.elements.description', align: 'start', minWidth: 170 },
+  { id: 'base', role: 'figure', headKey: 'bonus.elements.base', align: 'end', minWidth: 78 },
+  { id: 'rate', role: 'figure', headKey: 'bonus.elements.rate', align: 'end', minWidth: 68 },
+  { id: 'unit', role: 'identifier', headKey: 'bonus.elements.unit', align: 'start', minWidth: 54 },
+  { id: 'value', role: 'figure', headKey: 'bonus.elements.value', align: 'end', minWidth: 80 },
+  { id: 'statistical', role: 'flag', headKey: 'bonus.elements.statistical', align: 'center', minWidth: 46 },
+  { id: 'subtotal', role: 'flag', headKey: 'bonus.elements.subtotal', align: 'center', minWidth: 46 },
+  { id: 'bonusBuy', role: 'flag', headKey: 'bonus.elements.bonusBuy', align: 'center', minWidth: 54 },
 ]
+
+/** A column's head key and alignment, for the component that draws it. */
+export function elementColumn(id: ElementColumnId): ColumnSpec {
+  // Non-null: `ElementColumnId` is the union of this table's own ids.
+  return COLUMNS.find((c) => c.id === id)!
+}
 
 export const ELEMENT_COLUMNS: readonly ElementColumnId[] = COLUMNS.map((c) => c.id)
 
@@ -84,8 +104,7 @@ export type TraceLevel = 'full' | 'compact' | 'tight'
 export const TRACE_LEVELS: readonly TraceLevel[] = ['full', 'compact', 'tight']
 
 export function columnRole(id: ElementColumnId): ElementColumnRole {
-  // Non-null: `ElementColumnId` is the union of the table's own ids.
-  return COLUMNS.find((c) => c.id === id)!.role
+  return elementColumn(id).role
 }
 
 /** The columns a level renders, in the procedure's order. */
@@ -94,16 +113,24 @@ export function elementColumns(level: TraceLevel): ElementColumnId[] {
   return COLUMNS.filter((c) => !shed.has(c.id)).map((c) => c.id)
 }
 
-/** The room a level's columns need — the sum of their minimums. The thresholds below
- *  are consequences of this table rather than three hand-picked numbers. */
+/** The room a level's columns need to read comfortably — the sum of their minimums.
+ *  The thresholds are consequences of this table rather than three hand-picked
+ *  numbers. */
 export function traceMinWidth(level: TraceLevel): number {
   const kept = new Set<ElementColumnId>(elementColumns(level))
   return COLUMNS.filter((c) => kept.has(c.id)).reduce((sum, c) => sum + c.minWidth, 0)
 }
 
-/** The widest level that fits the measured trace width — `tight` when nothing does,
- *  because the trace answers a too-narrow column by shedding, never by dropping a
- *  figure and never by scrolling. */
+/**
+ * The widest level that fits the measured trace width — and `tight` when none does.
+ *
+ * `tight` is TERMINAL, and deliberately reached before the width runs out: at a 960 px
+ * work area the trace has ~580 px against `tight`'s 646 px of comfort, and it renders
+ * anyway because the table is `w-full` and the description column absorbs the squeeze.
+ * That is the intended end of the line. The trace answers a column narrower than
+ * `tight` by letting prose compress — never by dropping a figure, and never by
+ * scrolling sideways inside a disclosure.
+ */
 export function traceLevel(width: number): TraceLevel {
   return TRACE_LEVELS.find((level) => width >= traceMinWidth(level)) ?? 'tight'
 }

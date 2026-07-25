@@ -286,7 +286,11 @@ export default function SimulationPage() {
   return (
     <section
       data-sim-work-area
-      className="@container flex min-w-[780px] flex-col gap-3"
+      // NAMED `work`, so the rail's card row can query the same 900 px breakpoint the
+      // split does from two components down (`@max-[900px]/work:`) — the card row is
+      // the STACKED arrangement, and naming the container is what lets it say exactly
+      // that instead of approximating it from the rail's own width.
+      className="@container/work flex min-w-[780px] flex-col gap-3"
     >
       <div className="flex items-center gap-3">
         <h1 className="text-base font-semibold tracking-tight">{t('title')}</h1>

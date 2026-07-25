@@ -115,7 +115,10 @@ async function run() {
     return workArea().evaluate((el) => el.getBoundingClientRect().width)
   }
 
-  const process = async () => {
+  // NOT named `process`: a local by that name shadows the Node global, and the
+  // `process.exitCode` at the bottom would then set a property on this function
+  // instead — a drive that reports failures and still exits 0.
+  const runProcess = async () => {
     await page.getByRole('button', { name: /Process/ }).first().click()
     await page.waitForTimeout(450)
   }
@@ -136,28 +139,57 @@ async function run() {
       width: Math.round(el.getBoundingClientRect().width),
     }))
 
-  /** The strip as rows: the distinct top edges its four groups occupy, and whether any
-   *  chip is truncated or the chip set scrolls. */
+  /**
+   * The strip as ROWS — counted off its LEAF parts, not its two group boxes. Measuring
+   * the groups would be near-tautological (two elements can occupy at most two tops);
+   * the real claim is that every chip, the status slot, every money figure and every
+   * control between them occupy at most two lines. A chip wrapping to a third line
+   * inside the chip set is exactly the fragmentation the rule forbids, and only a
+   * leaf-level count sees it.
+   */
   const readStrip = () =>
     page.locator('[data-run-strip]').evaluate((el) => {
       const groups = [...el.querySelectorAll('[data-strip-group]')]
-      const rows = [...new Set(groups.map((g) => Math.round(g.getBoundingClientRect().top)))]
       const chips = [...el.querySelectorAll('[data-chip]')]
       const chipSet = el.querySelector('[data-chip-set]')
+      const leaves = [
+        ...chips,
+        ...el.querySelectorAll('[data-status-slot], [data-strip-group="tail"] button'),
+        ...(el.querySelector('[data-strip-group="tail"] > div:first-child')?.children ?? []),
+      ].filter((n) => n.getBoundingClientRect().height > 0)
+      // Cluster the tops rather than counting distinct ones: the money figures are
+      // BASELINE-aligned at three different sizes, so one visual row legitimately
+      // spans a few pixels of top edge. 16 px is comfortably under a row's ~32 px
+      // height, so a genuine second row can never be absorbed into a cluster.
+      const tops = leaves.map((n) => Math.round(n.getBoundingClientRect().top)).sort((a, b) => a - b)
+      const rows = tops.reduce((acc, t) => {
+        if (!acc.length || t - acc[acc.length - 1] > 16) acc.push(t)
+        return acc
+      }, [])
       return {
         rows: rows.length,
+        rowTops: rows,
+        leaves: leaves.length,
         groups: groups.length,
         chipCount: chips.length,
+        // The status slot must never wrap away from the chips it is commenting on: it
+        // has to be inside the HEAD, and — when it is actually saying something — on a
+        // row a chip is also on. `absent` is a zero-size span with no row to be on, so
+        // it reports `null` rather than a verdict it cannot support.
+        slotInHead: Boolean(el.querySelector('[data-strip-group="head"] [data-status-slot]')),
+        slotWithChips: (() => {
+          const slot = el.querySelector('[data-strip-group="head"] [data-status-slot]')
+          const rect = slot?.getBoundingClientRect()
+          if (!rect || rect.height === 0) return null
+          return chips.some(
+            (c) => Math.abs(Math.round(c.getBoundingClientRect().top) - Math.round(rect.top)) < 14,
+          )
+        })(),
         // A truncated chip renders narrower than its own content; an ellipsis or a
         // clipped key would show up here as a positive difference.
         truncated: chips.filter((c) => c.scrollWidth > c.clientWidth + 1).length,
         chipSetScrolls: chipSet ? chipSet.scrollWidth > chipSet.clientWidth + 1 : false,
         stripScrolls: el.scrollWidth > el.clientWidth + 1,
-        // The status slot must never wrap away from the chips it comments on: same
-        // group, therefore same wrapping unit.
-        slotInHead: Boolean(
-          el.querySelector('[data-strip-group="head"] [data-status-slot], [data-strip-group="head"]'),
-        ),
       }
     })
 
@@ -180,6 +212,16 @@ async function run() {
       railText: document.querySelector('[data-promotions-rail]')?.innerText.replace(/\s+/g, ' ').trim() ?? '',
       cards: document.querySelectorAll('[data-promo-card]').length,
       missedSection: Boolean(document.querySelector('[data-promo-missed-section]')),
+      // The two things the rework rules HIDEABLE — the line expansion and manual
+      // conditions — must hide IDENTICALLY at every width: the disclosure is present
+      // and in the same state, so narrowing changes arrangement, never disclosure.
+      manualConditions: (() => {
+        const trigger = [...document.querySelectorAll('button[aria-expanded]')].find((b) =>
+          /manual condition/i.test(b.innerText),
+        )
+        return trigger ? trigger.getAttribute('aria-expanded') : 'missing'
+      })(),
+      openExpansions: document.querySelectorAll('[data-line-expansion]').length,
     }))
 
   /** 115's density claims, re-measured wherever the widths are already set up. Scoped
@@ -207,7 +249,7 @@ async function run() {
   await page.locator('table').first().locator('tbody input').first().fill('107255')
   await page.locator('table').first().locator('tbody input').nth(1).fill('1')
   await page.locator('label').filter({ hasText: /Pricing elements/i }).first().click().catch(() => {})
-  await process()
+  await runProcess()
   await rail().waitFor()
 
   // ===================================================== 1 · the arrangement, by width
@@ -292,9 +334,14 @@ async function run() {
     // ------------------------------------------------------- 4 · the strip's two rows
     const strip = await readStrip()
     check(
-      `at ${work} px the strip stays within two rows — its four groups wrap as units`,
-      strip.rows <= 2 && strip.groups === 2,
-      `${strip.rows} row(s) across ${strip.groups} groups`,
+      `at ${work} px the strip stays within two rows — measured across every chip, the slot, the money and the controls`,
+      strip.rows <= 2 && strip.groups === 2 && strip.leaves > 6,
+      `${strip.rows} row(s) at y=${strip.rowTops.join('/')} across ${strip.leaves} leaf parts in ${strip.groups} groups`,
+    )
+    check(
+      `at ${work} px the status slot rides in the SAME wrapping unit as the chips it comments on`,
+      strip.slotInHead && strip.slotWithChips !== false,
+      `in head=${strip.slotInHead} · shares a row with a chip=${strip.slotWithChips ?? 'n/a (absent slot)'}`,
     )
     check(
       `at ${work} px no chip is truncated and the chip set does not scroll`,
@@ -339,11 +386,18 @@ async function run() {
     narrow.railState === wide.railState && narrow.cards === wide.cards,
     `${wide.railState}/${wide.cards} card(s) → ${narrow.railState}/${narrow.cards}`,
   )
+  check(
+    'and the two RULED-hideable things hide identically at both widths — narrowing changes arrangement, never disclosure',
+    narrow.manualConditions === wide.manualConditions &&
+      wide.manualConditions !== 'missing' &&
+      narrow.openExpansions === wide.openExpansions,
+    `manual conditions aria-expanded ${wide.manualConditions} → ${narrow.manualConditions} · ${wide.openExpansions} → ${narrow.openExpansions} open expansion(s)`,
+  )
 
   // ========================================= 2 · stacked, the rail is a CARD ROW
   serving = 'both-kinds'
   await setWorkArea(780)
-  await process()
+  await runProcess()
   await rail().waitFor()
   const railBox = await box(rail())
   const cards = await page.locator('[data-promo-card]').evaluateAll((els) =>
@@ -384,7 +438,7 @@ async function run() {
 
   // ======================== 5b · a W line's message is on the LINE at every width
   serving = 'w-line'
-  await process()
+  await runProcess()
   await setWorkArea(1400)
   const wideW = (await resultsFrame().innerText()).replace(/\s+/g, ' ')
   await setWorkArea(780)

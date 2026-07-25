@@ -148,13 +148,18 @@ export default function SimRunStrip({
   // while it is open. `Clear cache` rides along as a run control, not an
   // administrative curio: the real loop is fix in SAP → re-download → wipe cache →
   // Process. Its existing grant (ticket 051) and confirm (052) are unchanged.
+  // TICKET 119 — the `@max-[900px]/work` variants below TIGHTEN, they never hide. The
+  // tail (money + controls) measures ~808 px at its roomy spacing, which is 28 px more
+  // than the 780 px floor has, and a tail that wrapped internally would put the strip
+  // on a third row. Every figure, every control and the shortcut signpost survive at
+  // every width; what narrows is padding. Arrangement, never disclosure.
   const runControls = (
     <>
       <button
         type="button"
         onClick={onProcess}
         disabled={!canProcess}
-        className="inline-flex h-8 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50 @[900px]/work:px-4"
       >
         {/* The icon swaps on the SHARED 150 ms flag, not on `pending` — a spinner
             that flashed here while the slot held still would be two answers to
@@ -175,7 +180,7 @@ export default function SimRunStrip({
         type="button"
         onClick={onClear}
         disabled={pending}
-        className="inline-flex h-8 items-center rounded-full border border-input px-3.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+        className="inline-flex h-8 items-center rounded-full border border-input px-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50 @[900px]/work:px-3.5"
       >
         {t('actions.clear')}
       </button>
@@ -184,7 +189,7 @@ export default function SimRunStrip({
           type="button"
           onClick={onClearCache}
           disabled={pending || clearCachePending}
-          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-input px-3.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-input px-2.5 text-sm font-medium hover:bg-accent disabled:opacity-50 @[900px]/work:px-3.5"
         >
           {clearCachePending ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
@@ -329,9 +334,12 @@ export default function SimRunStrip({
       {/* The tail: money and run controls travel TOGETHER (ticket 119). `ms-auto`
           pushes the pair to the far end on one row and lets it drop as one unit to the
           second when the head fills the first. */}
-      <div data-strip-group="tail" className="ms-auto flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div
+        data-strip-group="tail"
+        className="ms-auto flex flex-wrap items-center gap-x-2 gap-y-2 @[900px]/work:gap-x-3"
+      >
         {money ? (
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 @[900px]/work:gap-x-4">
             {/* Net total keeps its emphasis by WEIGHT — semibold beside three smaller
                 keyed pairs — never by border, size or hue. The discount and the tax
                 lost the tint the Summary tile gave them: the screen's whole hue
@@ -355,7 +363,9 @@ export default function SimRunStrip({
         {/* The run controls end the tail, separated from the money by a rule — which is
             absent when there is no money to separate them from, rather than hanging off
             the start of the group. */}
-        <div className={`flex items-center gap-2 ${money ? 'border-s border-border/60 ps-3' : ''}`}>
+        <div
+          className={`flex items-center gap-1.5 @[900px]/work:gap-2 ${money ? 'border-s border-border/60 ps-2 @[900px]/work:ps-3' : ''}`}
+        >
           {runControls}
         </div>
       </div>

@@ -6,7 +6,7 @@ import { formatMoney, formatNumber } from '@/core/util/number-format'
 import { aggregateConditions } from './aggregate'
 import BoolCell from './BoolCell'
 import ConditionCard from './ConditionCard'
-import { elementColumns, traceLevel, type ElementColumnId } from './element-columns'
+import { elementColumn, elementColumns, traceLevel, type ElementColumnId } from './element-columns'
 import { useMeasuredWidth } from './use-measured-width'
 
 /**
@@ -149,73 +149,31 @@ function FootTerm({
   )
 }
 
-/** The eleven trace columns, in the pricing procedure's own order. Labels unchanged
- *  from the grid that used to draw them — component churn, zero key churn.
- *
- *  Each column is declared ONCE, head and cell together, so `elementColumns` can drive
- *  both from the same list. The alternative — two parallel `{level && <th>}` ladders —
- *  is how a head and its cells drift apart by one column. */
+/** How a trace column DRAWS — the only part of a column that touches React, and so
+ *  the only part that lives here. Its head label, its alignment, its role and its
+ *  minimum width are all declared once in `element-columns.ts`; this is a renderer per
+ *  id, not a second column table. Labels unchanged from the grid that used to draw
+ *  them — component churn, zero key churn. */
 const ELEMENT_HEAD = 'px-2 py-1 font-semibold'
 
-const ELEMENT_CELL: Record<
-  ElementColumnId,
-  { headKey: string; align: string; cell: (el: PricingElement) => ReactNode }
-> = {
-  step: {
-    headKey: 'bonus.elements.step',
-    align: 'text-end',
-    cell: (el) => <span className="tabular-nums">{formatNumber(el.stepNumber)}</span>,
-  },
-  ctr: {
-    headKey: 'bonus.elements.counter',
-    align: 'text-end',
-    cell: (el) => <span className="tabular-nums">{formatNumber(el.conditionCounter)}</span>,
-  },
-  type: {
-    headKey: 'bonus.elements.type',
-    align: 'text-start',
-    cell: (el) => <span className="font-medium">{el.conditionType}</span>,
-  },
-  description: {
-    headKey: 'bonus.elements.description',
-    align: 'text-start',
-    cell: (el) => <span className="text-muted-foreground">{el.description}</span>,
-  },
-  base: {
-    headKey: 'bonus.elements.base',
-    align: 'text-end',
-    cell: (el) => <span className="tabular-nums">{formatMoney(el.conditionBaseValue)}</span>,
-  },
-  rate: {
-    headKey: 'bonus.elements.rate',
-    align: 'text-end',
-    cell: (el) => <span className="tabular-nums">{formatNumber(el.conditionRate)}</span>,
-  },
-  unit: {
-    headKey: 'bonus.elements.unit',
-    align: 'text-start',
-    cell: (el) => <span className="text-muted-foreground">{el.conditionRateUnit}</span>,
-  },
-  value: {
-    headKey: 'bonus.elements.value',
-    align: 'text-end',
-    cell: (el) => <span className="tabular-nums">{formatMoney(el.conditionValue)}</span>,
-  },
-  statistical: {
-    headKey: 'bonus.elements.statistical',
-    align: 'text-center',
-    cell: (el) => <BoolCell value={el.isStatistics} />,
-  },
-  subtotal: {
-    headKey: 'bonus.elements.subtotal',
-    align: 'text-center',
-    cell: (el) => <BoolCell value={el.isSubtotal} />,
-  },
-  bonusBuy: {
-    headKey: 'bonus.elements.bonusBuy',
-    align: 'text-center',
-    cell: (el) => <BoolCell value={el.isBonusBuy} />,
-  },
+const ALIGN: Record<'start' | 'end' | 'center', string> = {
+  start: 'text-start',
+  end: 'text-end',
+  center: 'text-center',
+}
+
+const ELEMENT_CELL: Record<ElementColumnId, (el: PricingElement) => ReactNode> = {
+  step: (el) => <span className="tabular-nums">{formatNumber(el.stepNumber)}</span>,
+  ctr: (el) => <span className="tabular-nums">{formatNumber(el.conditionCounter)}</span>,
+  type: (el) => <span className="font-medium">{el.conditionType}</span>,
+  description: (el) => <span className="text-muted-foreground">{el.description}</span>,
+  base: (el) => <span className="tabular-nums">{formatMoney(el.conditionBaseValue)}</span>,
+  rate: (el) => <span className="tabular-nums">{formatNumber(el.conditionRate)}</span>,
+  unit: (el) => <span className="text-muted-foreground">{el.conditionRateUnit}</span>,
+  value: (el) => <span className="tabular-nums">{formatMoney(el.conditionValue)}</span>,
+  statistical: (el) => <BoolCell value={el.isStatistics} />,
+  subtotal: (el) => <BoolCell value={el.isSubtotal} />,
+  bonusBuy: (el) => <BoolCell value={el.isBonusBuy} />,
 }
 
 function ElementsTable({ elements }: { elements: PricingElement[] }) {
@@ -241,8 +199,12 @@ function ElementsTable({ elements }: { elements: PricingElement[] }) {
         <thead>
           <tr className="border-b border-border/70 text-[10px] uppercase tracking-wide text-muted-foreground">
             {columns.map((id) => (
-              <th key={id} data-trace-col={id} className={`${ELEMENT_HEAD} ${ELEMENT_CELL[id].align}`}>
-                {t(ELEMENT_CELL[id].headKey)}
+              <th
+                key={id}
+                data-trace-col={id}
+                className={`${ELEMENT_HEAD} ${ALIGN[elementColumn(id).align]}`}
+              >
+                {t(elementColumn(id).headKey)}
               </th>
             ))}
           </tr>
@@ -254,8 +216,8 @@ function ElementsTable({ elements }: { elements: PricingElement[] }) {
               className="border-b border-b-divider last:border-b-0"
             >
               {columns.map((id) => (
-                <td key={id} className={`px-2 py-0.5 ${ELEMENT_CELL[id].align}`}>
-                  {ELEMENT_CELL[id].cell(el)}
+                <td key={id} className={`px-2 py-0.5 ${ALIGN[elementColumn(id).align]}`}>
+                  {ELEMENT_CELL[id](el)}
                 </td>
               ))}
             </tr>

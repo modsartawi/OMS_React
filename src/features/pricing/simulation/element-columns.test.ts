@@ -94,15 +94,23 @@ describe('the level is derived from the column minimums, not chosen', () => {
   })
 
   it('bottoms out at tight — there is no width too narrow to render the trace', () => {
-    // Below the floor the shell scrolls (spec 110's 780 px work area); the trace does
-    // not answer that by shedding a figure, so `tight` is terminal.
+    // Below `tight`'s own minimum the description column absorbs the squeeze: the
+    // trace never answers a narrow column by shedding a figure or by scrolling, so
+    // `tight` is terminal rather than the start of a fourth level.
     expect(traceLevel(0)).toBe('tight')
     expect(traceLevel(-100)).toBe('tight')
   })
 
-  it('treats an unmeasured trace as full rather than pre-emptively shedding', () => {
-    // The width arrives from a layout-effect measurement; a very wide value must not
-    // wrap around into a narrower level.
+  it('resolves an UNMEASURED trace (width 0) to tight — safe, and never seen', () => {
+    // `useMeasuredWidth` starts at 0 and measures in a LAYOUT effect, so this level is
+    // resolved and replaced before the browser paints. It is asserted anyway because
+    // it is the value the module is actually called with on the first render, and
+    // `tight` is the right answer to "I do not know how much room there is": it drops
+    // two identifiers, never a figure.
+    expect(traceLevel(0)).toBe('tight')
+  })
+
+  it('never wraps around at a very wide trace', () => {
     expect(traceLevel(10_000)).toBe('full')
   })
 })

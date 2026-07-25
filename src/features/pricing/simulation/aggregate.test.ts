@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SimulationResultCondition } from '@/core/models/simulation'
-import { aggregateConditions, countStatistical } from './aggregate'
+import { aggregateConditions } from './aggregate'
 import { PAYLOADS, SCENARIOS, conditionsOf, type CapturedScenario } from './__fixtures__/payloads'
 
 /**
@@ -200,33 +200,8 @@ describe('aggregateConditions keeps distinct non-empty bbyNumbers and survives e
   })
 })
 
-describe('countStatistical reports the hidden-group count the toggle shows', () => {
-  /** Same corpus-plus-stated-deviation shape as the numbering block above. */
-  function statistical(types: string[]) {
-    return aggregateConditions(
-      rows('pricing-elements', 0).map((c) =>
-        types.includes(c.conditionType) ? { ...c, isStatistics: true } : c,
-      ),
-    )
-  }
-
-  it('counts the statistical groups, not the non-statistical ones', () => {
-    expect(countStatistical(statistical(['VKP0', 'MWST']))).toBe(2)
-  })
-
-  it('counts GROUPS, not the raw rows they folded', () => {
-    // ZB03 is two raw rows in one group — the toggle hides one card, so it reads 1.
-    const groups = statistical(['ZB03'])
-    expect(groups.find((g) => g.conditionType === 'ZB03')?.count).toBe(2)
-    expect(countStatistical(groups)).toBe(1)
-  })
-
-  it('reads zero for a corpus line and for no groups at all', () => {
-    for (const scenario of SCENARIOS) {
-      PAYLOADS[scenario].items.forEach((_item, index) => {
-        expect(countStatistical(aggregateConditions(rows(scenario, index)))).toBe(0)
-      })
-    }
-    expect(countStatistical([])).toBe(0)
-  })
-})
+// The `countStatistical` block retired with the function (ticket 116) — the
+// show/hide-statistical toggle was its only call site, and the expansion now lists
+// every group and marks the statistical ones. The flag itself stays under test above:
+// it survives the fold, it is never inferred from a sibling row, and it drives the
+// two-pass numbering.

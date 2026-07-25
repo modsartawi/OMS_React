@@ -1,20 +1,23 @@
-import type { ICellRendererParams } from 'ag-grid-community'
 import { Check, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
-// Boolean flag cell renderer for the bonus-buy / pricing-elements grids (ticket 015).
-// Two modes so the colour isn't the only channel and the semantics read right:
+// Boolean flag cell for the pricing-elements trace. Two modes so the colour isn't the
+// only channel and the semantics read right:
 //   'met'   — a green check when true, a red X when false (a prerequisite is/ isn't met);
 //   'check' — a green check when true, a muted dash when false (a neutral flag column:
-//             statistical / subtotal / bonus-buy). `mode` arrives via cellRendererParams.
-interface BoolCellParams extends ICellRendererParams {
+//             statistical / subtotal / bonus-buy).
+//
+// Ticket 116 took the AG Grid renderer signature off it: the trace is a plain table now
+// (the feature's last grid went with `SimBonusBuyPanel`), so this takes a plain `value`
+// prop instead of `ICellRendererParams`. The component itself is otherwise unchanged —
+// the trace still has its three flag columns and they still read the same.
+interface Props {
+  value: boolean
   mode?: 'met' | 'check'
 }
 
-export default function BoolCell(params: BoolCellParams) {
+export default function BoolCell({ value, mode = 'check' }: Props) {
   const { t } = useTranslation('simulation')
-  const value = Boolean(params.value)
-  const mode = params.mode ?? 'check'
   const label = value ? t('bonus.yes') : t('bonus.no')
 
   return (

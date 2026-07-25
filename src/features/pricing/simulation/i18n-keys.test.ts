@@ -46,19 +46,8 @@ const NEW_KEYS = [
 
 /** Keys the rework retires later (ticket 121's close-out) — they must survive the expand step. */
 const RETIRING_KEYS = [
-  'detail.title',
-  'detail.tiles.base',
-  'detail.tiles.discounts',
-  'detail.tiles.tax',
-  'detail.tiles.net',
-  'detail.showStatistical',
-  'detail.hideStatistical',
-  'bonus.tabs.elements',
-  'bonus.elements.empty',
   'summary.netTotal',
   'summary.elapsed',
-  'detail.records',
-  'detail.subRate',
   // 115 removed the last call site of the per-line kind + role tags: the rebuilt line
   // has ONE promotion slot with four states, and the kind label belongs to the
   // promotions rail (117), which spells it `promo.kindTag.*`. Recorded here rather
@@ -84,8 +73,10 @@ const RETIRING_KEYS = [
  * the Summary tile and the Actions card into the run strip, so these three frame
  * headings retired WITH their call sites; ticket 115 rebuilt the result line, which
  * retires the five money labels, the status column, the promo-none em-dash, the two
- * halves of the merged Item column, the E/W count banner and the healthy-line label.
- * The rest of the sweep is 121's.
+ * halves of the merged Item column, the E/W count banner and the healthy-line label;
+ * ticket 116 dissolved the detail panel and the Pricing-Elements panel into the line
+ * expansion, retiring the nine keys they held plus the two the card's second expansion
+ * held. The rest of the sweep is 121's.
  *
  * The five money keys are the reason this list exists rather than a rename sweep.
  * `results.subtotal`'s natural rename is `results.net` — occupied, by a DIFFERENT
@@ -113,6 +104,31 @@ const RETIRED_KEYS = [
   'banner.counts',
   // 115 — a healthy line renders no label at all, so `OK` has no call site.
   'status.ok',
+  // ---- 116: the line expansion --------------------------------------------------
+  // These eight retired WITH the two components that held them — the detail panel and
+  // the Pricing-Elements panel — rather than waiting for 121. Each was referenced from
+  // exactly one dissolving file, so no sweep was needed to find the call sites:
+  // the frame heading and its four summary tiles (the tiles' figures are now the
+  // expansion's self-footing money row), the two halves of the show/hide-statistical
+  // toggle (retired with `countStatistical`; the DISTINCTION survives as `detail.stat`
+  // on the card), and the elements panel's heading and empty state (`results.elementsTitle`
+  // is the sub-heading now, and an elements-less line renders no section at all rather
+  // than an empty pane).
+  'detail.title',
+  'detail.tiles.base',
+  'detail.tiles.discounts',
+  'detail.tiles.tax',
+  'detail.tiles.net',
+  'detail.showStatistical',
+  'detail.hideStatistical',
+  'bonus.tabs.elements',
+  'bonus.elements.empty',
+  // Retired BY SWEEP rather than with a file: `ConditionCard` survives 116, so these two
+  // needed their call sites found and removed. The card's own second expansion is gone —
+  // rate and base came OUT onto the card (`detail.rateBase`, which survives), and the
+  // sub-record list they titled went with it.
+  'detail.records',
+  'detail.subRate',
 ]
 
 /** Values that must carry their own uppercase — a CSS transform is a no-op on Arabic script. */
@@ -158,7 +174,7 @@ describe('simulation namespace — the expand step', () => {
     expect(typeof resolve(path)).toBe('string')
   })
 
-  it.each(RETIRED_KEYS)('%s is gone — it retired with the frame it titled (113)', (path) => {
+  it.each(RETIRED_KEYS)('%s is gone — it retired with the surface it named', (path) => {
     expect(resolve(path)).toBeUndefined()
   })
 

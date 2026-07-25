@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-// Side-effect import: registers the AG Grid Community modules in this lazy chunk (the
-// Pricing-Elements panel below still renders an AG Grid; the results grid no longer does).
-import '@/core/ag-grid-setup'
+// No AG Grid import here any more: ticket 116 dissolved the Pricing-Elements panel into
+// the line expansion as a plain table, which was the feature's LAST grid. The screen now
+// renders zero grids, so the setup side-effect import and the column-definition builder
+// went with it.
 import { apiErrorMessage } from '@/core/api'
 import { confirmAction } from '@/core/services/confirm'
 import type { SimulateRequest, SimulationResult } from '@/core/models/simulation'
@@ -17,8 +18,6 @@ import { defaultHeader, type SimHeaderState } from './SimHeaderForm'
 import SimItemsEntry, { emptyItemRow, type SimItemRow } from './SimItemsEntry'
 import SimManualConditions, { type SimManualConditionRow } from './SimManualConditions'
 import SimFailureBanner from './SimFailureBanner'
-import SimItemDetail from './SimItemDetail'
-import SimBonusBuyPanel from './SimBonusBuyPanel'
 import SimPromoBlocks from './SimPromoBlocks'
 // SimMissedPromotions temporarily hidden — Potential Bonus Buys held back for now.
 // import SimMissedPromotions from './SimMissedPromotions'
@@ -75,9 +74,18 @@ export default function SimulationPage() {
   const [pricingElements, setPricingElements] = useState(false)
   const [items, setItems] = useState<SimItemRow[]>(() => [emptyItemRow()])
   const [manualConditions, setManualConditions] = useState<SimManualConditionRow[]>([])
-  // Which result line's pricing detail is shown (ticket 014). Selecting a line in
-  // the results grid drives the detail below; a fresh Process selects the first line.
-  const [selectedItemNumber, setSelectedItemNumber] = useState<number | null>(null)
+  // Which result lines have their expansion OPEN (ticket 116). A set, not a selection:
+  // the detail panel it replaced could show one line at a time, and comparing two lines'
+  // rules is the reason to open two. Empty at rest — nothing ever auto-opens, so the
+  // Results frame's resting height depends only on how many lines were priced.
+  const [openLines, setOpenLines] = useState<ReadonlySet<number>>(() => new Set())
+  const toggleLine = useCallback((itemNumber: number) => {
+    setOpenLines((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(itemNumber)) next.add(itemNumber)
+      return next
+    })
+  }, [])
   // The run strip's disclosure (ticket 113). The Page owns it because it collapses
   // on every Process — and auto-expands NEVER, including a Process that fails,
   // which is still a Process: the screen must not move itself while the analyst is
@@ -107,14 +115,15 @@ export default function SimulationPage() {
       const result = await simulationApi.simulate(request)
       return { result, elapsedMs: Math.round(performance.now() - start), request }
     },
-    // A re-run CLEARS the selection (ticket 115, ruled in 104 §6) — it no longer
-    // auto-selects the first line. The new result is new lines, `conditionKey` is not
+    // A re-run CLOSES every expansion (ticket 115, ruled in 104 §6) — it never
+    // auto-opens the first line. The new result is new lines, `conditionKey` is not
     // stable across runs (098 finding 4), and a stale expansion showing the previous
-    // run's conditions is worse than an extra click. (The detail panel on the right
-    // keeps its own first-line fallback until ticket 116 folds it into the line.)
+    // run's conditions is worse than an extra click. The first line's detail used to
+    // open itself via the old right-hand panel's fallback; ticket 116 signed for
+    // losing that in the design ledger.
     onSuccess: ({ result, elapsedMs, request }) => {
       setRun({ result, elapsedMs, request })
-      setSelectedItemNumber(null)
+      setOpenLines(new Set())
     },
     // A whole-run failure takes the previous run down with it (spec 110): a total
     // and an error banner side by side would invite reading the old numbers as
@@ -230,7 +239,7 @@ export default function SimulationPage() {
     setPricingElements(false)
     setItems([emptyItemRow()])
     setManualConditions([])
-    setSelectedItemNumber(null)
+    setOpenLines(new Set())
     setRun(null)
     process.reset()
   }
@@ -254,9 +263,6 @@ export default function SimulationPage() {
   }
 
   const result: SimulationResult | null = run?.result ?? null
-
-  const selectedItem =
-    result?.items.find((i) => i.itemNumber === selectedItemNumber) ?? result?.items[0] ?? null
 
   // `@container` declares the WORK AREA as the measurement everything on this
   // screen responds to (ticket 113). Every responsive rule in the rework is a
@@ -353,12 +359,11 @@ export default function SimulationPage() {
                   items={result.items}
                   promoByItem={promoByItem}
                   hot={hot}
-                  // The table marks what is actually SELECTED — `null` after a re-run.
-                  // The detail panel's first-line fallback must not put a mark on a line
-                  // the analyst never chose.
-                  selectedItemNumber={selectedItemNumber}
+                  // The table marks — and expands — exactly the lines the analyst
+                  // opened. Empty after a re-run; never seeded with a first line.
+                  openItemNumbers={openLines}
                   currency={result.header.currency}
-                  onSelect={setSelectedItemNumber}
+                  onToggle={toggleLine}
                   onHotChange={setHot}
                 />
               </div>
@@ -366,9 +371,13 @@ export default function SimulationPage() {
           )}
         </div>
 
-        {/* RIGHT column — fired-promotion blocks + pricing detail + bonus-buy tabs.
-            Absent entirely with no result: an empty dashed box is a frame drawn
-            around nothing, which is the shape ticket 120 reclaims. */}
+        {/* RIGHT column — the fired-promotion blocks, and nothing else now.
+            Ticket 116 dissolved the per-line detail panel and the Pricing-Elements
+            panel into the line expansion, which is what this column existed to hold;
+            what remains is the promotions surface, and ticket 117 rebuilds this column
+            as the promotions rail at 66/34. Absent entirely with no result: an empty
+            dashed box is a frame drawn around nothing, which is the shape ticket 120
+            reclaims. */}
         {result ? (
           <div className="flex min-w-0 flex-col gap-3">
             {/* Fired promotions as plain-language buy→get blocks (ticket 047), linked to
@@ -386,18 +395,6 @@ export default function SimulationPage() {
                 048); absent when nothing was missed. Temporarily hidden — the Potential
                 Bonus Buys surface is held back for now (re-enable to restore). */}
             {/* <SimMissedPromotions missed={view.missed} currency={result.header.currency} /> */}
-
-            {/* Per-line pricing detail + aggregated condition cards (ticket 014). */}
-            {selectedItem ? (
-              <SimItemDetail
-                key={selectedItem.itemNumber}
-                item={selectedItem}
-                currency={result.header.currency}
-              />
-            ) : null}
-
-            {/* Bonus-buy tabs + pricing-elements trace (ticket 015). */}
-            <SimBonusBuyPanel result={result} selectedItem={selectedItem} />
           </div>
         ) : null}
       </div>

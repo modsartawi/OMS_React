@@ -126,7 +126,7 @@ export function aggregateConditions(
   return list
 }
 
-/** Count of statistical groups — the "(N hidden)" the toggle reports. */
-export function countStatistical(groups: AggregatedCondition[]): number {
-  return groups.filter((g) => g.isStatistics).length
-}
+// `countStatistical` retired with the show/hide-statistical toggle (ticket 116): the
+// line expansion lists EVERY group and marks the statistical ones with a neutral
+// `STAT` key, so nothing is hidden and there is no hidden count to report. The
+// `isStatistics` flag above stays load-bearing — it is what the key reads.

@@ -1,11 +1,16 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
 
 // Ticket 016's manual-conditions grid — operator-entered conditions that ride the
 // SimulateRequest alongside the basket. Each row is a (item number, condition type,
 // rate, rate unit): the item number references the server's (position)*10 scheme, or
 // 0 for a header/group condition (the engine coerces header-only condition types to
 // 0 anyway). Only rows with a condition type are sent; a blank grid sends nothing.
+//
+// Ticket 120 folds it into the Items frame as a **disclosure with no frame of its
+// own** — Items and manual conditions are one instrument, and a fourth frame for
+// four inputs was one of the eleven the rework reclaims.
 export interface SimManualConditionRow {
   id: string
   itemNumber: string
@@ -32,6 +37,15 @@ interface Props {
 export default function SimManualConditions({ rows, onChange, disabled }: Props) {
   const { t } = useTranslation('simulation')
 
+  // The disclosure OPENS ITSELF whenever rows exist, and cannot be shut while they
+  // do (spec 110 story 24). The grid's own default item number — `0` — is a value
+  // the server rejects (`INVALID_CONDITION_ITEM_LEVEL`, 098 finding 6), so a manual
+  // condition behind a closed twisty is the difference between an explicable run
+  // and an inexplicable 400. `open` is therefore derived, not stored: the local
+  // state only decides what an EMPTY disclosure does.
+  const [emptyOpen, setEmptyOpen] = useState(false)
+  const open = rows.length > 0 || emptyOpen
+
   const patch = (id: string, key: keyof SimManualConditionRow, val: string) =>
     onChange(rows.map((r) => (r.id === id ? { ...r, [key]: val } : r)))
 
@@ -46,10 +60,53 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
     cellInput +
     ' [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
 
+  // The label. While rows exist it is a plain heading, not a twisty: a control
+  // whose only two states are "open" and "open" would be a dead affordance, and
+  // the count is what tells you there is something there (story 25). Empty, it is
+  // an ordinary toggle.
+  const label = (
+    <>
+      {open ? (
+        <ChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      ) : (
+        // A directional chevron, mirrored with the text rather than left pointing
+        // back into the margin. Built in rather than left for 121's sweep, since
+        // 121 mirrors what exists and this chevron did not exist then.
+        <ChevronRight className="h-3.5 w-3.5 shrink-0 rtl:-scale-x-100" aria-hidden />
+      )}
+      {/* Semibold only when there is something behind it. Shut and empty this is a
+          twisty, not a heading — and the pre-run screen's budget is ONE frame and
+          ONE heading, which a second bold line would spend twice. */}
+      <span className={`text-sm tracking-tight ${rows.length > 0 ? 'font-semibold' : 'font-medium'}`}>
+        {t('manual.title')}
+      </span>
+      {rows.length > 0 ? (
+        <span
+          data-manual-count
+          className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground"
+        >
+          {t('manual.count', { count: rows.length })}
+        </span>
+      ) : null}
+    </>
+  )
+
   return (
-    <div className="rounded-lg border border-border/60 bg-card p-3">
+    <div data-manual-conditions={open ? 'open' : 'closed'} className="mt-3 border-t border-border/60 pt-3">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold tracking-tight">{t('manual.title')}</h2>
+        {rows.length > 0 ? (
+          <div className="flex items-center gap-1.5">{label}</div>
+        ) : (
+          <button
+            type="button"
+            data-manual-toggle
+            aria-expanded={open}
+            onClick={() => setEmptyOpen((o) => !o)}
+            className="flex items-center gap-1.5 rounded-md text-start text-muted-foreground hover:text-foreground"
+          >
+            {label}
+          </button>
+        )}
         <button
           type="button"
           onClick={addRow}
@@ -61,10 +118,8 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
         </button>
       </div>
 
-      {rows.length === 0 ? (
-        <div className="rounded-md border border-dashed border-border/60 px-3 py-6 text-center text-xs text-muted-foreground">
-          {t('manual.empty')}
-        </div>
+      {!open ? null : rows.length === 0 ? (
+        <div className="px-1 py-2 text-xs text-muted-foreground">{t('manual.empty')}</div>
       ) : (
         <table className="w-full border-collapse text-sm">
           <thead>
@@ -131,7 +186,7 @@ export default function SimManualConditions({ rows, onChange, disabled }: Props)
           </tbody>
         </table>
       )}
-      <p className="mt-2 text-[0.7rem] text-muted-foreground">{t('manual.itemHint')}</p>
+      {open ? <p className="mt-2 text-[0.7rem] text-muted-foreground">{t('manual.itemHint')}</p> : null}
     </div>
   )
 }

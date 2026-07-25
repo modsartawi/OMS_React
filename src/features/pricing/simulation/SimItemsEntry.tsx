@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Plus, Trash2 } from 'lucide-react'
 
@@ -27,9 +28,13 @@ interface Props {
   rows: SimItemRow[]
   onChange: (rows: SimItemRow[]) => void
   disabled?: boolean
+  /** Rendered inside this frame, under the table — the manual-conditions
+   *  disclosure (ticket 120). Manual conditions are part of the same instrument,
+   *  so they fold in here rather than claiming a fourth frame of their own. */
+  children?: ReactNode
 }
 
-export default function SimItemsEntry({ rows, onChange, disabled }: Props) {
+export default function SimItemsEntry({ rows, onChange, disabled, children }: Props) {
   const { t } = useTranslation('simulation')
 
   const patch = (id: string, key: keyof SimItemRow, val: string) =>
@@ -124,6 +129,8 @@ export default function SimItemsEntry({ rows, onChange, disabled }: Props) {
           ))}
         </tbody>
       </table>
+
+      {children}
     </div>
   )
 }

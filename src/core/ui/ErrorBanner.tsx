@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { AlertTriangle } from 'lucide-react'
 
 /**
@@ -10,17 +11,23 @@ import { AlertTriangle } from 'lucide-react'
  * Sizing (height / padding) is the call site's business via `className`;
  * `center` switches between the centered fixed-height form and the top-aligned
  * title + detail form.
+ *
+ * `children` render under the message, inside the title block — the route a
+ * failure points at (ticket 120's simulation banner). Titled form only: an
+ * untitled banner is one line by construction.
  */
 export default function ErrorBanner({
   title,
   message,
   center = false,
   className = '',
+  children,
 }: {
   title?: string
   message: string
   center?: boolean
   className?: string
+  children?: ReactNode
 }) {
   return (
     <div
@@ -36,6 +43,7 @@ export default function ErrorBanner({
         <div>
           <p className="font-semibold">{title}</p>
           <p>{message}</p>
+          {children}
         </div>
       ) : (
         <span>{message}</span>

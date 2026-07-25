@@ -45,6 +45,8 @@
     "addRow": "Add condition",
     "removeRow": "Remove condition",
     "empty": "No manual conditions.",
+    "count_one": "{{count}} row",
+    "count_other": "{{count}} rows",
     "itemHint": "Item number = (line position) × 10, or 0 for a header condition."
   },
   "actions": {
@@ -70,6 +72,8 @@
   },
   "banner": {
     "failed": "Simulation failed",
+    "routeItems": "Correct the offending line in Items above, then Process again.",
+    "routeSettings": "Open the run settings",
     "counts": "{{errors}} error(s), {{warnings}} warning(s) — check the flagged lines."
   },
   "results": {

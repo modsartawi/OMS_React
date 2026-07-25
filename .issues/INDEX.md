@@ -197,6 +197,7 @@ are file-scoped exclusions carrying their reason inline.
 - [087](087-brand-colour-lives-in-the-mark.md) — brandColourLivesOnlyInTheMark · **done** · blocked by: 084 · both kickers + 4 brand `text-white` retired, hero → card
 - [088](088-raw-palette-sweep.md) — noScreenSpellsARawPaletteClass · **done** · one pass, 35 files
 - [089](089-colour-literal-lint-gates.md) — lintFailsOnAReintroducedColourLiteral · **done** · blocked by: 085, 087, 088 · `tools/check-palette.mjs`, hex gate widened
+- [107](107-identity-band-dark-separation.md) — theIdentityBandReadsAsASlabOnTheDarkPage · **open** · blocked by: — · follow-up from [096](096-document-detail-drive.md)'s manual pass · `--brand-panel` separates at 13.54:1 in light but 1.18:1 in dark and is the page's only borderless slab; D-9 sized that step deliberately, but for the login half, not for 091's full-width header
 
 ### Document Details build — spec 083
 

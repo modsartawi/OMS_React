@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 110
 blocked-by: —
 ---
@@ -58,9 +58,16 @@ not mistaken for a slice. It is deliberately the one ticket that owns this file.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `every new key parses and resolves` — the namespace loads and each new key returns its value rather than its own name · **flow (script: load the JSON, assert each key path present and non-empty)**
+- [x] `every new key parses and resolves` — the namespace loads and each new key returns its value rather than its own name · **flow (script: load the JSON, assert each key path present and non-empty)**
 
 Verify with `npm run typecheck` and `npm run build`. There is nothing to render yet — that is the point.
+
+**Done 2026-07-25.** `src/features/pricing/simulation/i18n-keys.test.ts` (vitest, 69 cases) asserts every
+new key resolves non-empty, every retiring key still resolves, the uppercase inventory is authored in the
+value, `promotions.lines` carries its `{{lines}}` slot, and the new key set is disjoint from the retiring
+one. `npm test` 137/137 green, `npm run typecheck` green, `npm run lint` green. `npm run build` fails
+**only** on a concurrent session's in-flight [112](112-bby-detail-modal-to-core.md) file move
+(5 dangling `core/bonus-buy` imports) — no error touches the locale file or the simulation feature.
 
 ## Boundaries
 

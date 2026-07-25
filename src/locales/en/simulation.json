@@ -104,7 +104,18 @@
     "gross": "Gross",
     "tax": "Tax",
     "net": "Net",
-    "empty": "No priced lines yet."
+    "empty": "No priced lines yet.",
+    "pos": "#",
+    "was": "Was",
+    "saved": "Saved",
+    "netTotal": "Net total",
+    "expandNet": "Net",
+    "expandTax": "Tax",
+    "expandTotal": "Net total",
+    "unitPrice": "Unit price",
+    "fired": "fired",
+    "notPriced": "not priced",
+    "elementsTitle": "Pricing elements"
   },
   "promo": {
     "paneTitle": "Promotions",
@@ -136,6 +147,27 @@
       "percent": "% off",
       "fixed": "Amount off",
       "setprice": "Set price"
+    },
+    "bbyDetails": "Bonus buy details",
+    "notMeasured": "Promotions were switched off for this run — nothing was measured."
+  },
+  "promotions": {
+    "lines": "lines {{lines}}"
+  },
+  "strip": {
+    "netTotal": "Net total",
+    "edit": "Edit ▾",
+    "stale": "Inputs changed",
+    "promoOn": "PROMO on",
+    "promoOff": "PROMO off",
+    "key": {
+      "plant": "PLANT",
+      "org": "ORG",
+      "chan": "CHAN",
+      "proc": "PROC",
+      "loy": "LOY",
+      "tier": "TIER",
+      "elem": "ELEM"
     }
   },
   "missed": {
@@ -180,7 +212,8 @@
       "manual": "Manual Discount",
       "header": "Header Discount",
       "pricing": "Pricing"
-    }
+    },
+    "stat": "STAT"
   },
   "status": {
     "ok": "OK",

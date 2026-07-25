@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SimulationResultCondition } from '@/core/models/simulation'
-import { aggregateConditions } from './aggregate'
+import { aggregateConditions, countStatistical } from './aggregate'
 import { PAYLOADS, SCENARIOS, conditionsOf, type CapturedScenario } from './__fixtures__/payloads'
 
 /**
@@ -94,7 +94,17 @@ describe('aggregateConditions folds rows sharing type, rate, unit and origin', (
         const raw = rows(scenario, index)
         const groups = aggregateConditions(raw)
         expect(groups.reduce((sum, g) => sum + g.count, 0)).toBe(raw.length)
-        expect(groups.flatMap((g) => g.subs)).toEqual(raw)
+        // The flattened subs are the raw rows as a MULTISET, not as a sequence:
+        // two interleaved groups (rows A, B, A) flatten to A, A, B by design. Rows
+        // are cloned per test, so reference identity is an exact multiset check.
+        const flattened = groups.flatMap((g) => g.subs)
+        expect(flattened).toHaveLength(raw.length)
+        expect(raw.every((row) => flattened.includes(row))).toBe(true)
+        // Wire order IS a property within a group.
+        for (const g of groups) {
+          const positions = g.subs.map((s) => raw.indexOf(s))
+          expect(positions).toEqual([...positions].sort((a, b) => a - b))
+        }
         expect(groups.length).toBeLessThanOrEqual(raw.length)
       })
     }
@@ -187,5 +197,36 @@ describe('aggregateConditions keeps distinct non-empty bbyNumbers and survives e
     expect(aggregateConditions([])).toEqual([])
     expect(aggregateConditions(null)).toEqual([])
     expect(aggregateConditions(undefined)).toEqual([])
+  })
+})
+
+describe('countStatistical reports the hidden-group count the toggle shows', () => {
+  /** Same corpus-plus-stated-deviation shape as the numbering block above. */
+  function statistical(types: string[]) {
+    return aggregateConditions(
+      rows('pricing-elements', 0).map((c) =>
+        types.includes(c.conditionType) ? { ...c, isStatistics: true } : c,
+      ),
+    )
+  }
+
+  it('counts the statistical groups, not the non-statistical ones', () => {
+    expect(countStatistical(statistical(['VKP0', 'MWST']))).toBe(2)
+  })
+
+  it('counts GROUPS, not the raw rows they folded', () => {
+    // ZB03 is two raw rows in one group — the toggle hides one card, so it reads 1.
+    const groups = statistical(['ZB03'])
+    expect(groups.find((g) => g.conditionType === 'ZB03')?.count).toBe(2)
+    expect(countStatistical(groups)).toBe(1)
+  })
+
+  it('reads zero for a corpus line and for no groups at all', () => {
+    for (const scenario of SCENARIOS) {
+      PAYLOADS[scenario].items.forEach((_item, index) => {
+        expect(countStatistical(aggregateConditions(rows(scenario, index)))).toBe(0)
+      })
+    }
+    expect(countStatistical([])).toBe(0)
   })
 })

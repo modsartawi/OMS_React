@@ -121,6 +121,9 @@ describe('simulation namespace — the expand step', () => {
 
   it.each(UPPERCASE_KEYS)('%s is authored uppercase in the value', (path) => {
     const value = resolve(path) as string
+    // A value with no cased letter (`—`, `#`, `123`) equals its own upper-case and
+    // would pass vacuously — the constraint is that a LETTER was authored upper.
+    expect(value).toMatch(/[A-Za-z]/)
     expect(value).toBe(value.toUpperCase())
   })
 

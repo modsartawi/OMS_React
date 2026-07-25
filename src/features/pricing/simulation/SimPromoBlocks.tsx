@@ -5,6 +5,7 @@ import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { PromoBlock, PromoGetLine, PromoItemRef } from './promo-view'
 import { promoLineList } from './promo-lines'
 import { KIND_CHIP, KIND_GLYPH } from './promo-kind'
+import SimBbyDetailsButton from './SimBbyDetailsButton'
 
 // The fired promotions, rendered as plain-language buy→get blocks (ticket 047) — the
 // heart of the map-039 rework, replacing the result-level Applied Bonus Buys tab. Each
@@ -37,9 +38,18 @@ interface Props {
   hotBby: string | null
   /** Raise the hot promotion as the pointer/focus enters (bbyNumber) or leaves (null). */
   onHotChange: (bby: string | null) => void
+  /** Open the bonus-buy detail modal for a promotion — `null` when the grant is not
+   *  CONFIRMED, which is what makes the control absent rather than dead (ticket 118). */
+  onOpenBbyDetails: ((bbyNumber: string) => void) | null
 }
 
-export default function SimPromoBlocks({ blocks, currency, hotBby, onHotChange }: Props) {
+export default function SimPromoBlocks({
+  blocks,
+  currency,
+  hotBby,
+  onHotChange,
+  onOpenBbyDetails,
+}: Props) {
   const { t } = useTranslation('simulation')
 
   if (blocks.length === 0) return null
@@ -53,6 +63,7 @@ export default function SimPromoBlocks({ blocks, currency, hotBby, onHotChange }
           currency={currency}
           hot={hotBby === b.bbyNumber}
           onHotChange={onHotChange}
+          onOpenBbyDetails={onOpenBbyDetails}
           t={t}
         />
       ))}
@@ -65,12 +76,14 @@ function Block({
   currency,
   hot,
   onHotChange,
+  onOpenBbyDetails,
   t,
 }: {
   block: PromoBlock
   currency: string
   hot: boolean
   onHotChange: (bby: string | null) => void
+  onOpenBbyDetails: ((bbyNumber: string) => void) | null
   t: TFunction
 }) {
   const glyph = block.kind ? KIND_GLYPH[block.kind] : '•'
@@ -151,6 +164,13 @@ function Block({
           </ItemBox>
         </div>
       )}
+
+      {/* Last on the card, below the amount and the buy→get relationship (ticket 118).
+          Absent unless the grant is CONFIRMED, and absent for a block the wire gave no
+          bonus-buy key — there would be no record to open. */}
+      {onOpenBbyDetails && block.bbyNumber ? (
+        <SimBbyDetailsButton bbyNumber={block.bbyNumber} onOpen={onOpenBbyDetails} />
+      ) : null}
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { MissedPrereq, MissedPromo } from './promo-view'
 import { KIND_CHIP, MISS_GLYPH } from './promo-kind'
+import SimBbyDetailsButton from './SimBbyDetailsButton'
 
 // The "Could have applied" section (ticket 048) — the near-misses beneath the fired
 // promotion blocks (SimPromoBlocks, 047). Driven by `promoView(result).missed` (045),
@@ -43,9 +44,15 @@ import { KIND_CHIP, MISS_GLYPH } from './promo-kind'
 interface Props {
   missed: MissedPromo[]
   currency: string
+  /** Open the bonus-buy detail modal for a promotion — `null` when the grant is not
+   *  CONFIRMED (ticket 118). The near-miss is the STRONGER case for this control, not
+   *  the weaker one: a missed promotion carries no prerequisite data on the wire (the
+   *  captures sent `prerequisites: []` on all four), so the modal is the only route to
+   *  a miss's rules. If the affordance is ever cut back, it is kept HERE. */
+  onOpenBbyDetails: ((bbyNumber: string) => void) | null
 }
 
-export default function SimMissedPromotions({ missed, currency }: Props) {
+export default function SimMissedPromotions({ missed, currency, onOpenBbyDetails }: Props) {
   const { t } = useTranslation('simulation')
 
   // A fully-fired basket has no near-misses — the section is absent, not empty.
@@ -67,13 +74,29 @@ export default function SimMissedPromotions({ missed, currency }: Props) {
       </div>
 
       {missed.map((m) => (
-        <MissedRow key={m.bbyNumber} missed={m} currency={currency} t={t} />
+        <MissedRow
+          key={m.bbyNumber}
+          missed={m}
+          currency={currency}
+          onOpenBbyDetails={onOpenBbyDetails}
+          t={t}
+        />
       ))}
     </div>
   )
 }
 
-function MissedRow({ missed, currency, t }: { missed: MissedPromo; currency: string; t: TFunction }) {
+function MissedRow({
+  missed,
+  currency,
+  onOpenBbyDetails,
+  t,
+}: {
+  missed: MissedPromo
+  currency: string
+  onOpenBbyDetails: ((bbyNumber: string) => void) | null
+  t: TFunction
+}) {
   const [expanded, setExpanded] = useState(false)
   const name = missed.description || t('missed.fallbackName')
 
@@ -128,6 +151,13 @@ function MissedRow({ missed, currency, t }: { missed: MissedPromo; currency: str
             </p>
           )}
         </div>
+      ) : null}
+
+      {/* Last on the card, below the would-save amount (ticket 118) — and OUTSIDE the
+          disclosure, so it does not have to be found before it can be used: on a
+          near-miss the modal is the only place the promotion's rules exist at all. */}
+      {onOpenBbyDetails && missed.bbyNumber ? (
+        <SimBbyDetailsButton bbyNumber={missed.bbyNumber} onOpen={onOpenBbyDetails} />
       ) : null}
     </div>
   )

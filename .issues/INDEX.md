@@ -243,7 +243,7 @@ Supersedes the two open 043 build tickets (049, 050).
 - [108](108-sim-bby-details-affordance.md) — The bonus-buy details affordance on a promo card · **done** · blocked by: 101, 103 · both cards · modal in place · ships dark until Bby/Detail lands
 - [109](109-sim-i18n-churn-and-test-seams.md) — The i18n churn and the testing seams · **done** · blocked by: 108 · research · 22 retired / 6 renamed / 17 new keys, 6 pure seams, 5 drives
 - [110](110-sim-screen-rework-spec.md) — The POS Simulation screen rework · **ready** · spec · synthesized from map [097](097-simulation-screen-rework.md); 80 stories, 6 pure seams, 4 drives to build; sliced into 111–122
-- [111](111-sim-aggregate-conditions-under-test.md) — `aggregateConditions` holds its grouping contract under test · **open** · blocked by: — · spec 110 · prefactor · safety net before 116 grows its blast radius
+- [111](111-sim-aggregate-conditions-under-test.md) — `aggregateConditions` holds its grouping contract under test · **done** · blocked by: — · spec 110 · prefactor · safety net before 116 grows its blast radius
 - [112](112-bby-detail-modal-to-core.md) — The bonus-buy detail modal answers from `@/core/` · **open** · blocked by: — · spec 110 · prefactor · file move, zero behaviour; i18n namespace unchanged
 - [113](113-sim-run-strip.md) — The run strip collapses the determination into chips and processes from there · **open** · blocked by: 123 · spec 110 · **slice 0** · + the work-area `@container` · drive port 5199
 - [114](114-sim-status-slot.md) — The status slot marks a stale run and an in-flight one · **open** · blocked by: 113 · spec 110 · the rework's only new component · drive port 5199

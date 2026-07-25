@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 110
 blocked-by: —
 ---
@@ -48,9 +48,14 @@ so it is not mistaken for a tracer bullet.)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `aggregateConditions folds rows sharing type, rate, unit and origin into one summed group` — base and value summed, `count` correct, `subs` carries the raw rows · **pure**
-- [ ] `aggregateConditions numbers non-statistical groups before statistical ones` — the two-pass index, on a fixture holding both · **pure**
-- [ ] `aggregateConditions keeps distinct non-empty bbyNumbers and survives empty input` — de-duplication, blank rejection, and the `null`/`undefined`/`[]` guard · **pure**
+- [x] `aggregateConditions folds rows sharing type, rate, unit and origin into one summed group` — base and value summed, `count` correct, `subs` carries the raw rows · **pure**
+- [x] `aggregateConditions numbers non-statistical groups before statistical ones` — the two-pass index, on a fixture holding both · **pure**
+- [x] `aggregateConditions keeps distinct non-empty bbyNumbers and survives empty input` — de-duplication, blank rejection, and the `null`/`undefined`/`[]` guard · **pure**
+
+Landed as `src/features/pricing/simulation/aggregate.test.ts` (14 cases under the three named
+describes) over a new `src/features/pricing/simulation/__fixtures__/payloads.ts`, which imports the
+nine ticket-098 captures that carry a `data` block. `npm test` 152 passed / 7 files; `typecheck`,
+`lint` and `build` green. `aggregate.ts` is byte-for-byte unchanged.
 
 Runs on the existing `vitest` tier (`environment: 'node'`, `src/**/*.test.ts`), bootstrapped by ticket
 090. Prior art: the document feature's five pure test files, built under the same ruling.
@@ -68,3 +73,27 @@ The three named tests are green under `npm test`, using 098 captures as fixtures
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+**Corpus gap: no capture is statistical.** Not one of the 098 payloads carries `isStatistics: true`
+(nor a `H`-origin row) — origins across the corpus are only `A`, `B` and `M`. So the two-pass index
+cannot be proved on a capture as-is. The test builds the case by spreading captured rows and
+flipping the flag, with the deviation stated at the call site; the same technique covers the
+space-in-a-field key collision and a second distinct `bbyNumber`, neither of which the corpus holds
+either. Worth a statistical/`H` scenario next time `tools/sim-payload-capture.mjs` runs — 103's
+`STAT` key rides on a flag no live capture has yet exercised.
+
+**Behaviour recorded, not changed.** Two facts the tests pin that were implicit before:
+
+- A group's `isStatistics` (and `description`, `conditionRate`, `badge`, `category`) comes from the
+  **first** row of the group — flagging only the second row of a fold leaves the group
+  non-statistical. That is the WPF `GroupBy(...).Select(g => g.First())` shape, so it is the
+  contract, but 103 should know the flag is first-row-wins, not any-row-wins.
+- `isBonusBuy` is the one field that **ORs** across the fold rather than taking the first row.
+
+**Mutation-checked.** Collapsing the two-pass loop into one pass fails exactly the two index tests
+and nothing else — the net bites where it claims to.
+
+**Concurrent session.** The working tree also held an in-flight `112` (bonus-buy move to `core/`)
+while this ran; the commit is limited to this ticket's two new files and the ticket/INDEX edits.

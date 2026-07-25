@@ -171,12 +171,17 @@ export default function SimulationPage() {
   // rather than a container handler so "anywhere" means anywhere on the screen.
   const runProcessRef = useRef(runProcess)
   runProcessRef.current = runProcess
+  const canProcessRef = useRef(canProcess)
+  canProcessRef.current = canProcess
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault()
-        runProcessRef.current()
-      }
+      if (e.key !== 'Enter' || !(e.ctrlKey || e.metaKey)) return
+      // Only swallow the keystroke when it actually starts a run — a shortcut
+      // that eats Ctrl+Enter while the basket is empty or a run is already out
+      // would be a dead key rather than a quiet no-op.
+      if (!canProcessRef.current) return
+      e.preventDefault()
+      runProcessRef.current()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)

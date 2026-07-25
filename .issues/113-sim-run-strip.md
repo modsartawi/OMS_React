@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 110
 blocked-by: 123
 ---
@@ -62,14 +62,44 @@ i18n (the `strip.*` keys) · test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `the chip set is five chips ordinarily and eight when the levers are set` — determination fields chip at their defaults, levers only when set, promo in both states, blank ⇒ no chip · **pure**
-- [ ] `the strip collapses on every Process and never expands itself` — including a Process that fails · **flow (Playwright, new `tools/sim-strip-drive.mjs`)**
-- [ ] `the chip set is one tab stop and Ctrl+Enter processes from the items grid` — plus `Esc` returning focus to the chip set · **flow (Playwright, same drive)**
+- [x] `the chip set is five chips ordinarily and eight when the levers are set` — determination fields chip at their defaults, levers only when set, promo in both states, blank ⇒ no chip · **pure**
+- [x] `the strip collapses on every Process and never expands itself` — including a Process that fails · **flow (Playwright, new `tools/sim-strip-drive.mjs`)**
+- [x] `the chip set is one tab stop and Ctrl+Enter processes from the items grid` — plus `Esc` returning focus to the chip set · **flow (Playwright, same drive)**
 
 Commission `tools/sim-strip-drive.mjs` here — one focused drive per concern, matching the existing
 `document-band` / `-cards` / `-items` / `-rail` / `-actions` pattern, so it stays runnable alone while
 later tickets are in flight. Manual-run, not a CI gate: `npx vite --port 5199` in one shell,
 `node tools/sim-strip-drive.mjs` in another.
+
+**Done 2026-07-25.** `src/features/pricing/simulation/run-chips.ts` (the pure chip-set module, 9 vitest
+cases in `run-chips.test.ts`), `SimRunStrip.tsx` (the strip; `SimHeaderForm` became its frameless
+expansion), and the work-area `@container` on the page shell. `tools/sim-strip-drive.mjs` — **29
+assertions, all green** against the real app with the `03-applied-and-potential` capture on the wire:
+five/eight/nine chips, every chip a span with no cursor change, four tab stops for the whole collapsed
+row, expansion in place with focus on Plant, `Done ▴` / `Esc` / Process all collapsing, `Esc` from
+inside the items grid too, the money removed while the form is open and absent after a 400, the run
+controls as one terminal cluster, and `Ctrl`+`Enter` from the items grid posting the basket the chips
+describe. `npm test` 162/162, `typecheck`, `lint` and `build` clean.
+
+Three decisions the ticket left to the build, all recorded rather than assumed:
+
+- **A blank pricing date drops its chip** (the one deviation from "determination fields chip always").
+  A blank date is the *absence* of a determination — the engine prices at "now" — and a bare chip with
+  no text would render as exactly the muted empty pill 100 §4 forbids. Named test, commented module.
+- **The elements flag chips key-only (`ELEM`), not `ELEM on`.** Its presence *is* its state, since it
+  chips only when on, and the ledger minted `strip.key.elem` as a key rather than a whole phrase — so
+  a value slot would have needed a word the ledger does not carry.
+- **The money's discount/tax tint is gone**, not carried over from the Summary tile. The screen's hue
+  budget is two (`success` on a fire, `attention` on a `W`); net total keeps its emphasis by weight
+  alone, as this ticket asks.
+
+One key joined 123's ledger, per this ticket's own instruction: **`strip.done`** (`Done ▴`) — the ledger
+had minted only the collapsed half of the control. Retired here with their call sites: `header.title`,
+`summary.title`, `actions.title`.
+
+**Not run in a worktree.** The concurrency note asks for one; the tree was clean, 111/112/123 had all
+landed, and no other session was editing this checkout — but ports 5199–5207 were taken, so the drive
+ran on **5208** via its `DRIVE_PORT` env var (`DRIVE_PORT=5208 node tools/sim-strip-drive.mjs`).
 
 ## Boundaries
 

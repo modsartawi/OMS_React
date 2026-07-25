@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DatabaseZap, Loader2, Play } from 'lucide-react'
 
@@ -32,6 +32,26 @@ import type { RunChip } from './run-chips'
  * Collapse/expand is the Page's state (it collapses on every Process); this
  * component owns only the focus choreography that goes with it.
  */
+
+/** The tiny uppercase key a chip or a money pair wears. Authored uppercase in the
+ *  JSON value, never by a CSS transform — a transform is a no-op on Arabic. */
+const chipKey = 'text-[10px] font-bold tracking-wider'
+const moneyKey = 'text-[10px] font-medium tracking-wide text-muted-foreground'
+
+/** A secondary money figure behind its key — discount and tax read identically. */
+function pair(label: string, value: string) {
+  return (
+    <span className="text-sm font-medium tabular-nums">
+      <span className={`${moneyKey} me-1`}>{label}</span>
+      {value}
+    </span>
+  )
+}
+
+/** A chip's identity, for React's list key: one chip per kind+key on any run. */
+function chipId(chip: RunChip): string {
+  return chip.kind === 'date' || chip.kind === 'promo' ? chip.kind : `${chip.kind}:${chip.key}`
+}
 
 /** The run's headline figures, absent before the first Process and after a failure. */
 export interface RunMoney {
@@ -86,12 +106,35 @@ export default function SimRunStrip({
   // `Esc` collapses and returns focus HERE, never to the document (102 §6) — so
   // the chip set has to be reachable from inside the expansion.
   const chipSetRef = useRef<HTMLButtonElement>(null)
+  const returnFocus = useRef(false)
 
   function collapse() {
+    returnFocus.current = true
     onExpandedChange(false)
-    // The chip set only exists once the collapsed row is back on screen.
-    requestAnimationFrame(() => chipSetRef.current?.focus())
   }
+
+  // Focus lands in an effect, not in a `requestAnimationFrame` after the click:
+  // the effect runs once the collapsed row is COMMITTED, so the ref is never
+  // null and focus can never fall through to the document.
+  useEffect(() => {
+    if (!expanded && returnFocus.current) {
+      returnFocus.current = false
+      chipSetRef.current?.focus()
+    }
+  }, [expanded])
+
+  // `Esc` collapses from ANYWHERE while the form is open — not only from inside
+  // it. The analyst can be typing in the items grid with the form still up, and
+  // an `Esc` that depended on where focus sat would be a rule with a hole in it.
+  useEffect(() => {
+    if (!expanded) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') collapse()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded])
 
   // The run controls — a terminal cluster in the collapsed row, the form's footer
   // while it is open. `Clear cache` rides along as a run control, not an
@@ -146,16 +189,7 @@ export default function SimRunStrip({
   // ---- expanded: the form replaces the collapsed row in place ---------------
   if (expanded) {
     return (
-      <div
-        data-run-strip="expanded"
-        className="flex flex-col gap-3 border-b border-border/60 pb-3"
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            e.stopPropagation()
-            collapse()
-          }
-        }}
-      >
+      <div data-run-strip="expanded" className="flex flex-col gap-3 border-b border-border/60 pb-3">
         <div className="flex items-center justify-end">
           <button
             type="button"
@@ -199,31 +233,33 @@ export default function SimRunStrip({
         onClick={() => onExpandedChange(true)}
         className="flex flex-wrap items-center gap-1.5 rounded-full border border-transparent px-1 py-0.5 text-start hover:border-input disabled:opacity-50"
       >
-        {chips.map((chip, index) => (
+        {chips.map((chip) => (
           // A chip is a readout: a plain span, no hover, no cursor, never a button.
+          // Neutral ground, always — hue on this screen is reserved for severity
+          // (100 §2), and "promotion is on" is an input value, not a severity.
           <span
-            key={index}
+            key={chipId(chip)}
             data-chip
             className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
           >
             {chip.kind === 'keyed' ? (
               <>
-                <span className="text-[10px] font-bold tracking-wider">
-                  {t(`strip.key.${chip.key}`)}
-                </span>
+                <span className={chipKey}>{t(`strip.key.${chip.key}`)}</span>
                 <span className="font-medium text-foreground">{chip.value}</span>
               </>
             ) : null}
-            {chip.kind === 'date' ? <span className="font-medium text-foreground">{chip.value}</span> : null}
+            {chip.kind === 'date' ? (
+              <span className="font-medium text-foreground">{chip.value}</span>
+            ) : null}
+            {/* The flag's state is not a code, so it is one authored phrase per
+                state rather than a key with a value slot (123's ledger). */}
             {chip.kind === 'promo' ? (
-              <span className="text-[10px] font-bold tracking-wider">
-                {t(chip.on ? 'strip.promoOn' : 'strip.promoOff')}
-              </span>
+              <span className={chipKey}>{t(chip.on ? 'strip.promoOn' : 'strip.promoOff')}</span>
             ) : null}
             {/* The elements flag chips only when on, so its presence IS its state
                 and it carries no value slot (run-chips.ts). */}
             {chip.kind === 'flag' ? (
-              <span className="text-[10px] font-bold tracking-wider">{t('strip.key.elem')}</span>
+              <span className={chipKey}>{t(`strip.key.${chip.key}`)}</span>
             ) : null}
           </span>
         ))}
@@ -237,26 +273,18 @@ export default function SimRunStrip({
 
       {money ? (
         <div className="ms-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          {/* Money keeps emphasis by WEIGHT, not by border or size. */}
+          {/* Net total keeps its emphasis by WEIGHT — semibold beside three smaller
+              keyed pairs — never by border, size or hue. The discount and the tax
+              lost the tint the Summary tile gave them: the screen's whole hue
+              budget is two (success on a fire, attention on a `W` line, 100 §2),
+              and a figure that is merely negative is not a severity. */}
           <span className="text-base font-semibold tabular-nums tracking-tight">
-            <span className="me-1.5 text-[10px] font-medium tracking-wide text-muted-foreground">
-              {t('strip.netTotal')}
-            </span>
+            <span className={`${moneyKey} me-1.5`}>{t('strip.netTotal')}</span>
             {formatMoney(money.netTotal)}
             <span className="ms-1 text-xs font-normal text-muted-foreground">{money.currency}</span>
           </span>
-          <span className="text-sm font-medium tabular-nums text-danger-800">
-            <span className="me-1 text-[10px] font-medium tracking-wide text-muted-foreground">
-              {t('summary.totalDiscount')}
-            </span>
-            {formatMoney(money.totalDiscount)}
-          </span>
-          <span className="text-sm font-medium tabular-nums text-primary-800">
-            <span className="me-1 text-[10px] font-medium tracking-wide text-muted-foreground">
-              {t('summary.tax')}
-            </span>
-            {formatMoney(money.taxValue)}
-          </span>
+          {pair(t('summary.totalDiscount'), formatMoney(money.totalDiscount))}
+          {pair(t('summary.tax'), formatMoney(money.taxValue))}
           <span className="text-[11px] tabular-nums text-muted-foreground">
             {t('summary.calc', { ms: money.elapsedMs })}
           </span>

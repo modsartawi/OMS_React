@@ -69,6 +69,13 @@ one. `npm test` 137/137 green, `npm run typecheck` green, `npm run lint` green. 
 **only** on a concurrent session's in-flight [112](112-bby-detail-modal-to-core.md) file move
 (5 dangling `core/bonus-buy` imports) — no error touches the locale file or the simulation feature.
 
+**Ledger follow-up, 2026-07-25 (from slice [113](113-sim-run-strip.md)).** One key the ledger missed,
+added here so the file keeps one owner: **`strip.done`** (`Done ▴`) — the chip set's label while the form
+is open. The ledger had minted `strip.edit` (`Edit ▾`) alone, but the control reads `Done ▴` expanded
+(spec 110, "The run strip"). 18 keys, not 17. Also noted: 113 retired `header.title`, `summary.title` and
+`actions.title` with the frames they titled, so `i18n-keys.test.ts` now asserts those three are **absent**
+while the rest of the retiring set stays present for 121.
+
 ## Boundaries
 
 No API, no component, no nav, no test-runner change. **This ticket owns `src/locales/en/simulation.json`

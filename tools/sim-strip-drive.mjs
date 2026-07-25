@@ -231,6 +231,16 @@ async function run() {
   )
 
   await chipSet().click()
+  await itemsTable().locator('input').first().click()
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(100)
+  check(
+    'and Esc collapses from ANYWHERE while the form is open, not only from inside it',
+    (await readStrip()).mode === 'collapsed' && (await focused()) === 'CHIP-SET',
+    `${(await readStrip()).mode} · ${await focused()}`,
+  )
+
+  await chipSet().click()
   await page.getByLabel('Procedure key').fill('W')
   await page.getByLabel('Loyalty group').fill('0001')
   await page.getByLabel('Loyalty tier').selectOption('G')

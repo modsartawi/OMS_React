@@ -108,7 +108,10 @@ describe('simulation namespace — the expand step', () => {
     expect(value).not.toBe(path)
   })
 
-  it.each(RETIRING_KEYS)('%s is still present — its call site has not moved yet', (path) => {
+  // Some of these have already lost their call site (113 moved `summary.netTotal`
+  // to `strip.netTotal`); the KEYS stay until 121's contract half sweeps them,
+  // which is what "expand, then contract" means.
+  it.each(RETIRING_KEYS)('%s is still present — the contract half belongs to 121', (path) => {
     expect(typeof resolve(path)).toBe('string')
   })
 

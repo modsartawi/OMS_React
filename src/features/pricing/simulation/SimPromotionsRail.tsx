@@ -76,6 +76,9 @@ export default function SimPromotionsRail({
       : 'cards'
 
   return (
+    // The card lists inside (`PROMO_CARD_ROW`) query the WORK AREA by name, not this
+    // frame — the row is the stacked arrangement, so it reads the same 900 px
+    // breakpoint that stacks it. So the rail declares no container of its own.
     <div
       data-promotions-rail={state}
       className="flex min-w-0 flex-col rounded-lg border border-border/60 bg-card p-3"

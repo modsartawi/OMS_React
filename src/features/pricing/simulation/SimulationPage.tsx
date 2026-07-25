@@ -303,13 +303,28 @@ export default function SimulationPage() {
   const ranWithPromotions = run?.request.header.isPromotionApplicable === true
 
   // `@container` declares the WORK AREA as the measurement everything on this
-  // screen responds to (ticket 113). Every responsive rule in the rework is a
-  // container query on this element, never a viewport media query: the nav eats
-  // 200–260 px, so a 1280 laptop is a *960* screen and the viewport systematically
-  // lies. (`SimResultsGrid` declares its own inner container for its 820 px
-  // table↔card swap; nothing below reads the viewport again.)
+  // screen responds to (ticket 113, completed in 119). Every responsive rule in the
+  // rework is a container query on this element, never a viewport media query: the
+  // nav eats 200–260 px, so a 1280 laptop is a *960* screen and the viewport
+  // systematically lies. Nothing under this element reads the viewport — the
+  // feature's last `md:` prefix went with ticket 119, and the only measurement left
+  // in JavaScript is the elements trace's own width, which the shed order needs as a
+  // number because it is a pure module rather than CSS.
+  //
+  // `min-w-[780px]` is the FLOOR (spec 110): below 780 px of work area — roughly a
+  // 1024 px window with the nav open — the shell scrolls horizontally and no further
+  // arrangement exists. There is no phone layout, ever: this is an internal
+  // back-office tool run by an analyst at a desk, and a fourth arrangement for a
+  // width nobody works at would be three rules maintained for none.
   return (
-    <section className="@container flex flex-col gap-3">
+    <section
+      data-sim-work-area
+      // NAMED `work`, so the rail's card row can query the same 900 px breakpoint the
+      // split does from two components down (`@max-[900px]/work:`) — the card row is
+      // the STACKED arrangement, and naming the container is what lets it say exactly
+      // that instead of approximating it from the rail's own width.
+      className="@container/work flex min-w-[780px] flex-col gap-3"
+    >
       <div className="flex items-center gap-3">
         <h1 className="text-base font-semibold tracking-tight">{t('title')}</h1>
       </div>
@@ -403,9 +418,25 @@ export default function SimulationPage() {
 
               The split is a `@container` query on the work area, not a viewport media
               query (ticket 113's mechanism): the nav eats 200–260 px, so a 1280 laptop
-              is a *960* screen. Below 900 px the grid falls back to its single column;
-              ticket 119 owns that stacked arrangement proper — including putting the
-              rail ABOVE the results, so the verdict never sits under its evidence. ===== */}
+              is a *960* screen.
+
+              THE ONE BREAKPOINT — 900 px of work area (ticket 119), derived rather than
+              chosen: the rebuilt line needs ~470 px and the rail has a 250 px floor, so
+              *beside* is structurally possible from ~740, and 900 leaves headroom rather
+              than sitting on the limit. The rejected 1140 would have kept every
+              beside-layout roomy at the price that a 1280 or 1366 laptop with the nav
+              open never sees the approved device — making the arrangement the exception
+              rather than the rule.
+
+              Below 900 the grid falls back to one column and the RESULTS take
+              `order-last`, which puts the rail ABOVE them: the verdict may not sit under
+              the evidence it explains. So the order of the three frames changes with
+              width — beside is Items → Results | Promotions, stacked is Items →
+              Promotions → Results — and that is deliberate, not a fallout.
+
+              The `order` lives on the results rather than on the rail so the SOURCE
+              order stays results-then-rail, which is the reading and tab order at the
+              width the screen is normally worked at. ===== */}
           {/* `items-start` is what "held apart as its own frame" means in CSS: without
               it the grid stretches both frames to the taller one, so a rail carrying
               three cards would print a Results frame with a hand's width of empty card
@@ -414,7 +445,7 @@ export default function SimulationPage() {
           <div className="grid items-start gap-3 @[900px]:grid-cols-[66fr_34fr]">
             <div
               data-work-area="results"
-              className="min-w-0 rounded-lg border border-border/60 bg-card p-3"
+              className="order-last min-w-0 rounded-lg border border-border/60 bg-card p-3 @[900px]:order-none"
             >
               <h2 className="mb-2 text-sm font-semibold tracking-tight">{t('results.title')}</h2>
               <SimResultsGrid

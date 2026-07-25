@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 110
 blocked-by: 116, 117
 ---
@@ -60,9 +60,12 @@ test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `the trace sheds ctr first, then unit, and never a number` — one assertion across all three levels · **pure**
-- [ ] `below 900 px of work area the rail stacks above the results` — the frame order changes with width; the rail becomes a card row, not a band · **flow (Playwright, new `tools/sim-responsive-drive.mjs`)**
-- [ ] `nothing new hides at any supported width, and the strip never exceeds two rows` — chips never truncate, down to the 780 px floor · **flow (same drive)**
+- [x] `the trace sheds ctr first, then unit, and never a number` — one assertion across all three levels · **pure** — `src/features/pricing/simulation/element-columns.test.ts`, 10 assertions. The "never a number" sweep runs over every level, and a second one guards the *order itself* (no `figure` can even be put in `SHED_ORDER`) so the edit that breaks the rule fails rather than the level that happens to reach the new column.
+- [x] `below 900 px of work area the rail stacks above the results` — the frame order changes with width; the rail becomes a card row, not a band · **flow (Playwright, new `tools/sim-responsive-drive.mjs`)** — 47/47 on port 5203.
+- [x] `nothing new hides at any supported width, and the strip never exceeds two rows` — chips never truncate, down to the 780 px floor · **flow (same drive)** — the two-row count is taken across the strip's 13 **leaf** parts (every chip, the slot, every money figure, every control), not its two group boxes, because a group-level count cannot exceed two by construction. That measurement found and fixed a real three-row fragmentation at 780: the tail measured ~808 px against a 780 px floor and wrapped internally.
+
+Also verified green after the strip's restructure: `sim-strip-drive` 51/51, `sim-rail-drive` 31/31,
+`sim-density-drive` 33/33, `sim-states-drive` 27/27. `typecheck`, `npm test` (250), `lint`, `build` green.
 
 Commission `tools/sim-responsive-drive.mjs` here, driving the three measured work-area widths
 (1400 / 960 / 780). This drive is also where 115's density claims — 34 px rows, no scroll box, every
@@ -91,3 +94,30 @@ The pure shed test and `tools/sim-responsive-drive.mjs` green.
 - [116](116-sim-line-expansion.md) — the elements trace is the only table that sheds, and it does not
   exist until the expansion does.
 - [117](117-sim-promotions-rail.md) — there is no rail to stack until the rail exists.
+
+## Comments
+
+**Two things the build settled that the ticket left to it.**
+
+**The card row is scoped to the stacked arrangement, by name.** Spec 110 gives the rail's card row as
+`auto-fit, minmax(258px, 340px)` under "Below 900". Applied unconditionally, the 340 px maximum leaves
+~130 px of dead space inside the 472 px rail *beside* the results at 1400. So the work-area container is
+**named** (`@container/work`) and the card row queries `@max-[900px]/work` — the same breakpoint that
+stacks it. Beside: one card filling its column, exactly as before. Stacked: a bounded card row. The rule
+is the spec's, and it now applies exactly where the spec put it. One source for both lists
+(`PROMO_CARD_ROW` in `promo-kind.ts`) so the fires and the near-misses cannot reflow at different widths
+— the seam [117](117-sim-promotions-rail.md) closed.
+
+**The two-row rule needed spacing to give, and it was allowed to.** At 780 the money-and-controls tail
+measured ~808 px against a 780 px floor and wrapped internally — three rows. Nothing was hidden to fix
+it: the tail's gaps and the buttons' padding tighten under `@max-[900px]/work` and every figure, every
+control and the `⌃⏎` signpost survive at every width. 748 px at the floor, 32 px of slack. Padding is
+arrangement; the rule the ticket protects is disclosure.
+
+**`tight` is reached before the width runs out, and that is the design.** `traceLevel` picks the widest
+level whose columns fit *comfortably*; at a 960 px work area the trace has ~580 px against `tight`'s
+646 px and renders anyway, because the description column absorbs the squeeze. Below `tight` there is no
+fourth level — the trace never answers a narrow column by dropping a figure or by scrolling.
+
+**Left for [121](121-sim-rtl-mirroring.md):** nothing new. The slice added no physical utilities; the
+shed order is direction-neutral, and `order-last` mirrors correctly.

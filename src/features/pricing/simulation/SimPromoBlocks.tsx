@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { PromoBlock, PromoGetLine, PromoItemRef } from './promo-view'
 import { promoLineList } from './promo-lines'
-import { KIND_CHIP, KIND_GLYPH } from './promo-kind'
+import { KIND_CHIP, KIND_GLYPH, PROMO_CARD_ROW } from './promo-kind'
 import SimBbyDetailsButton from './SimBbyDetailsButton'
 
 // The fired promotions, rendered as plain-language buy→get blocks (ticket 047) — the
@@ -55,7 +55,18 @@ export default function SimPromoBlocks({
   if (blocks.length === 0) return null
 
   return (
-    <div className="flex flex-col gap-2.5">
+    // A CARD ROW when the layout STACKS, not a stack of bands (ticket 119). The query
+    // is `@max-[900px]/work` — the same breakpoint, on the same named work-area
+    // container, that puts the rail above the results in the first place — so the card
+    // row is exactly the stacked arrangement rather than an approximation of it from
+    // the rail's own width. Beside, the rail is a 34% column and a card fills it,
+    // exactly as the flex column this replaced.
+    //
+    // The `340px` MAXIMUM is what stops one fired promotion from printing as a stripe
+    // across the screen when stacked: a fired promotion is one card-sized card, and
+    // three of them sit side by side rather than three bands deep pushing the results
+    // they explain below the fold.
+    <div className={PROMO_CARD_ROW + ' gap-2.5'}>
       {blocks.map((b) => (
         <Block
           key={b.bbyNumber}

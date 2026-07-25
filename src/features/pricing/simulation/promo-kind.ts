@@ -29,3 +29,14 @@ export const MISS_GLYPH = '○'
  *  Promotion cell (ticket 046) and the buy→get blocks (ticket 047) can't drift apart,
  *  the invariant the retired per-kind colour map used to hold (ticket 088). */
 export const KIND_CHIP = 'bg-muted text-muted-foreground'
+
+/** The rail's card row (ticket 119) — one column beside the results, an auto-fit row of
+ *  258–340 px cards when the layout stacks below 900 px of work area.
+ *
+ *  One source, for the same reason `KIND_CHIP` is one: the fires (`SimPromoBlocks`) and
+ *  the near-misses (`SimMissedPromotions`) are two lists in ONE rail, and a card row
+ *  that reflowed at two different widths would be the visible seam that ticket 117
+ *  closed. Each list still sets its own `gap`, which is the one thing they legitimately
+ *  differ on. */
+export const PROMO_CARD_ROW =
+  'grid grid-cols-1 items-start @max-[900px]/work:grid-cols-[repeat(auto-fit,minmax(258px,340px))]'

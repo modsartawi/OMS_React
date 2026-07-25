@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import { ChevronRight } from 'lucide-react'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { MissedPrereq, MissedPromo } from './promo-view'
-import { KIND_CHIP, MISS_GLYPH } from './promo-kind'
+import { KIND_CHIP, MISS_GLYPH, PROMO_CARD_ROW } from './promo-kind'
 import SimBbyDetailsButton from './SimBbyDetailsButton'
 
 // The "Could have applied" section (ticket 048) — the near-misses beneath the fired
@@ -73,15 +73,22 @@ export default function SimMissedPromotions({ missed, currency, onOpenBbyDetails
         </span>
       </div>
 
-      {missed.map((m) => (
-        <MissedRow
-          key={m.bbyNumber}
-          missed={m}
-          currency={currency}
-          onOpenBbyDetails={onOpenBbyDetails}
-          t={t}
-        />
-      ))}
+      {/* The same card row as the fires (ticket 119), from the same source — a
+          near-miss is a card-sized card at every width too. Its own grid ELEMENT rather
+          than one shared with the fires, so a near-miss can never rise onto a row
+          beside a fire: what happened reads before what did not, and that order is the
+          section boundary. */}
+      <div className={PROMO_CARD_ROW + ' gap-2'}>
+        {missed.map((m) => (
+          <MissedRow
+            key={m.bbyNumber}
+            missed={m}
+            currency={currency}
+            onOpenBbyDetails={onOpenBbyDetails}
+            t={t}
+          />
+        ))}
+      </div>
     </div>
   )
 }

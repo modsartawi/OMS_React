@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle } from 'lucide-react'
 import type { PricingElement, SimulationResultItem } from '@/core/models/simulation'
@@ -6,6 +6,8 @@ import { formatMoney, formatNumber } from '@/core/util/number-format'
 import { aggregateConditions } from './aggregate'
 import BoolCell from './BoolCell'
 import ConditionCard from './ConditionCard'
+import { elementColumn, elementColumns, traceLevel, type ElementColumnId } from './element-columns'
+import { useMeasuredWidth } from './use-measured-width'
 
 /**
  * The result line's expansion (ticket 116, spec 110 §Disclosure) — the surface that
@@ -147,36 +149,64 @@ function FootTerm({
   )
 }
 
-/** The eleven trace columns, in the pricing procedure's own order. Labels unchanged
- *  from the grid that used to draw them — component churn, zero key churn. */
+/** How a trace column DRAWS — the only part of a column that touches React, and so
+ *  the only part that lives here. Its head label, its alignment, its role and its
+ *  minimum width are all declared once in `element-columns.ts`; this is a renderer per
+ *  id, not a second column table. Labels unchanged from the grid that used to draw
+ *  them — component churn, zero key churn. */
 const ELEMENT_HEAD = 'px-2 py-1 font-semibold'
+
+const ALIGN: Record<'start' | 'end' | 'center', string> = {
+  start: 'text-start',
+  end: 'text-end',
+  center: 'text-center',
+}
+
+const ELEMENT_CELL: Record<ElementColumnId, (el: PricingElement) => ReactNode> = {
+  step: (el) => <span className="tabular-nums">{formatNumber(el.stepNumber)}</span>,
+  ctr: (el) => <span className="tabular-nums">{formatNumber(el.conditionCounter)}</span>,
+  type: (el) => <span className="font-medium">{el.conditionType}</span>,
+  description: (el) => <span className="text-muted-foreground">{el.description}</span>,
+  base: (el) => <span className="tabular-nums">{formatMoney(el.conditionBaseValue)}</span>,
+  rate: (el) => <span className="tabular-nums">{formatNumber(el.conditionRate)}</span>,
+  unit: (el) => <span className="text-muted-foreground">{el.conditionRateUnit}</span>,
+  value: (el) => <span className="tabular-nums">{formatMoney(el.conditionValue)}</span>,
+  statistical: (el) => <BoolCell value={el.isStatistics} />,
+  subtotal: (el) => <BoolCell value={el.isSubtotal} />,
+  bonusBuy: (el) => <BoolCell value={el.isBonusBuy} />,
+}
 
 function ElementsTable({ elements }: { elements: PricingElement[] }) {
   const { t } = useTranslation('simulation')
 
+  // The shed (ticket 119). The trace measures ITSELF, not the viewport and not even the
+  // work area: it is the one table that can outgrow its column, and how much room it
+  // has does not track the work area linearly — at a 780 px work area it is stacked and
+  // full-width, at 960 it sits inside a 66% column and is *narrower*. `traceLevel`
+  // turns that width into a level and `elementColumns` into a column list; neither the
+  // order nor the "never a number" rule is expressible in the classes below.
+  const { ref, width } = useMeasuredWidth<HTMLDivElement>()
+  const columns = elementColumns(traceLevel(width))
+
   return (
     // No scroll region, in either axis. Vertically it is as tall as its rows — no fixed
     // height, no box sized for thirty rows around seven, which is what the AG Grid it
-    // replaced did. Horizontally it fills the frame and wraps: spec 110 §66 rules that
-    // the trace SHEDS identifier columns rather than scrolling sideways, because a
-    // nested scroll region inside a disclosure is the one thing worse than a wide table.
-    // The shedding itself is ticket 119's — this slice must simply not foreclose it by
-    // installing the scroll box here.
-    <div>
+    // replaced did. Horizontally it fills the frame and SHEDS (spec 110 §66) rather than
+    // scrolling sideways, because a nested scroll region inside a disclosure is the one
+    // thing worse than a wide table.
+    <div ref={ref} data-trace-level={traceLevel(width)}>
       <table className="w-full border-collapse text-[11.5px]">
         <thead>
           <tr className="border-b border-border/70 text-[10px] uppercase tracking-wide text-muted-foreground">
-            <th className={`${ELEMENT_HEAD} text-end`}>{t('bonus.elements.step')}</th>
-            <th className={`${ELEMENT_HEAD} text-end`}>{t('bonus.elements.counter')}</th>
-            <th className={`${ELEMENT_HEAD} text-start`}>{t('bonus.elements.type')}</th>
-            <th className={`${ELEMENT_HEAD} text-start`}>{t('bonus.elements.description')}</th>
-            <th className={`${ELEMENT_HEAD} text-end`}>{t('bonus.elements.base')}</th>
-            <th className={`${ELEMENT_HEAD} text-end`}>{t('bonus.elements.rate')}</th>
-            <th className={`${ELEMENT_HEAD} text-start`}>{t('bonus.elements.unit')}</th>
-            <th className={`${ELEMENT_HEAD} text-end`}>{t('bonus.elements.value')}</th>
-            <th className={`${ELEMENT_HEAD} text-center`}>{t('bonus.elements.statistical')}</th>
-            <th className={`${ELEMENT_HEAD} text-center`}>{t('bonus.elements.subtotal')}</th>
-            <th className={`${ELEMENT_HEAD} text-center`}>{t('bonus.elements.bonusBuy')}</th>
+            {columns.map((id) => (
+              <th
+                key={id}
+                data-trace-col={id}
+                className={`${ELEMENT_HEAD} ${ALIGN[elementColumn(id).align]}`}
+              >
+                {t(elementColumn(id).headKey)}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -185,23 +215,11 @@ function ElementsTable({ elements }: { elements: PricingElement[] }) {
               key={`${el.stepNumber}-${el.conditionCounter}-${i}`}
               className="border-b border-b-divider last:border-b-0"
             >
-              <td className="px-2 py-0.5 text-end tabular-nums">{formatNumber(el.stepNumber)}</td>
-              <td className="px-2 py-0.5 text-end tabular-nums">{formatNumber(el.conditionCounter)}</td>
-              <td className="px-2 py-0.5 font-medium">{el.conditionType}</td>
-              <td className="px-2 py-0.5 text-muted-foreground">{el.description}</td>
-              <td className="px-2 py-0.5 text-end tabular-nums">{formatMoney(el.conditionBaseValue)}</td>
-              <td className="px-2 py-0.5 text-end tabular-nums">{formatNumber(el.conditionRate)}</td>
-              <td className="px-2 py-0.5 text-muted-foreground">{el.conditionRateUnit}</td>
-              <td className="px-2 py-0.5 text-end tabular-nums">{formatMoney(el.conditionValue)}</td>
-              <td className="px-2 py-0.5">
-                <BoolCell value={el.isStatistics} />
-              </td>
-              <td className="px-2 py-0.5">
-                <BoolCell value={el.isSubtotal} />
-              </td>
-              <td className="px-2 py-0.5">
-                <BoolCell value={el.isBonusBuy} />
-              </td>
+              {columns.map((id) => (
+                <td key={id} className={`px-2 py-0.5 ${ALIGN[elementColumn(id).align]}`}>
+                  {ELEMENT_CELL[id](el)}
+                </td>
+              ))}
             </tr>
           ))}
         </tbody>

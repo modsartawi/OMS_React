@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 110
 blocked-by: 113, 123
 ---
@@ -66,13 +66,30 @@ test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `an undiscounted line renders was and saved blank rather than 0.00` — on the plain-line captures · **pure**
-- [ ] `a W line suppresses all five zeros the wire sent and reports not priced` — the `COUP01` capture · **pure**
-- [ ] `the promotion slot resolves to exactly one of four states, with fired and MANUAL able to stack` · **pure**
+- [x] `an undiscounted line renders was and saved blank rather than 0.00` — on the plain-line captures · **pure**
+- [x] `a W line suppresses all five zeros the wire sent and reports not priced` — the `COUP01` capture · **pure**
+- [x] `the promotion slot resolves to exactly one of four states, with fired and MANUAL able to stack` · **pure**
 
 Verify the rendered result by driving the app against the captured baskets — the density rules (34 px,
 no scroll box, every line visible) belong to [119](119-sim-responsive-arrangement.md)'s drive, which has
 the widths to measure them at.
+
+**Done, 2026-07-25.** `line-money.test.ts` — **20 pure assertions** over the nine priced captures:
+the three named above, plus two the review added. `failedStatus` is a CLOSED `E|W` pair rather than
+"any non-empty status": `PricingStatus` is an open string on the wire, and suppressing five real
+figures behind an unrecognised letter would be the same mistake mirrored — the screen inventing a
+failure the engine never reported. And the slot now has to **agree with `promoView`** about which
+lines a promotion touched, on every capture including 05 (one bonus buy against items 10 and 20):
+the slot reads the line's own conditions while the cross-highlight joins through the projection, and
+104 §3 makes that highlight the only thing on the screen that says which lines a promotion touched,
+so a lit line with an em-dash slot would be a straight contradiction.
+
+The rendered result was checked by a **throwaway** drive (22 assertions on a scratch port: the seven
+heads in order, no status column, no `tfoot`, no scroll box and `max-height:none`, 34 px rows, `·` not
+`0.00`, `was`/`saved` = 182.52/63.88 neutral, `✔ fired` and `✔ fired MANUAL`, the `W` badge with its
+`[070]` on the line and `not priced` in the money column, and a re-run clearing the selection). It is
+deliberately **not** committed — the scripted drive and its port are [119](119-sim-responsive-arrangement.md)'s
+per this ticket's Boundaries.
 
 ## Boundaries
 

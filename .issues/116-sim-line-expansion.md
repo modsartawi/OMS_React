@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 110
 blocked-by: 111, 115, 123
 ---
@@ -55,12 +55,40 @@ dissolve) · i18n · test (drive; the pure tests already exist from 111)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `a line expands in place inside the Results frame, never wider than it, and never auto-opens` — with any number of lines open at once · **flow (Playwright, new `tools/sim-density-drive.mjs`)**
-- [ ] `the expansion's money foot proves net + tax = net total` — on the captured baskets · **flow (same drive)**
-- [ ] `a statistical condition carries the neutral STAT key and no hue` — plus rate and base visible on the card at rest · **flow (same drive)**
+- [x] `a line expands in place inside the Results frame, never wider than it, and never auto-opens` — with any number of lines open at once · **flow (Playwright, new `tools/sim-density-drive.mjs`)**
+- [x] `the expansion's money foot proves net + tax = net total` — on the captured baskets · **flow (same drive)**
+- [x] `a statistical condition carries the neutral STAT key and no hue` — plus rate and base visible on the card at rest · **flow (same drive)**
 
 Commission `tools/sim-density-drive.mjs` here — density and disclosure are one concern, and this drive
 also measures 115's 34 px rows, no scroll box, and every-line-visible claims, which have no pure surface.
+
+## What was built
+
+`tools/sim-density-drive.mjs` (port 5200) — **33/33**, in six passes: density and nothing-auto-opens ·
+expanding in place · the money foot on both `01-plain-multiline` and `05-pricing-elements` · the rules
+(rate + base at rest, the STAT key) · the elements trace · the `W` line. `npm test` 233/233,
+`typecheck`, `lint` and `build` clean; the built `SimulationPage` chunk no longer references
+`ag-grid-theme` at all.
+
+Four rulings this slice had to make, none of them contradicted by the ticket:
+
+1. **A not-priced line has no money foot.** The wire sends `0` for net, tax and total on a `W` line, so
+   footing them would say *priced at zero* one click below a line that says *did not price* — the exact
+   claim 115 suppresses. There is no arithmetic to check, so there is nothing to foot. Driven.
+2. **The elements trace gates per LINE, not per run.** The ticket words the opt-in at run level, but the
+   Boundaries retire `bonus.elements.empty` — and a line with no trace rows in an elements run has
+   nothing to say. Absent beats an empty pane; the retired key is the ticket agreeing.
+3. **`AggregatedCondition.subs` stays** even though nothing renders it. It is how [111](111-sim-aggregate-conditions-under-test.md)
+   proves the fold is lossless (every raw row in exactly one group, in first-appearance order) — an
+   aggregator contract that outlives the surface that displayed it. `countStatistical` really is deleted.
+4. **The right column survives as the promotions blocks' home.** The ticket asks for "the whole right
+   column they lived in"; both components that made it a *detail* column are gone, but removing the
+   column itself would move `SimPromoBlocks` — and [117](117-sim-promotions-rail.md), in this same wave,
+   rebuilds exactly that column as the promotions rail at 66/34. Left standing rather than moved twice.
+
+Also **deferred out**, deliberately: RTL mirroring of the new twisty. It is the screen's load-bearing
+directional glyph now and an SVG chevron is the double-mirror trap [121](121-sim-rtl-mirroring.md) exists
+to measure, so it ships un-transformed rather than guessed at.
 
 ## Boundaries
 

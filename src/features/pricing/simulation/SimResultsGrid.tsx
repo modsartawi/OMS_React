@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { KeyboardEvent } from 'react'
+import { ChevronRight } from 'lucide-react'
 import type { SimulationResultItem } from '@/core/models/simulation'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
@@ -7,6 +8,7 @@ import { formatMoney, formatNumber } from '@/core/util/number-format'
 import { lineMoney, type PromoSlot } from './line-money'
 import { KIND_CHIP } from './promo-kind'
 import type { PromoLineRef } from './promo-view'
+import SimLineExpansion from './SimLineExpansion'
 
 /**
  * The per-line results table (ticket 115, spec 110 — the line's anatomy ruled in
@@ -41,8 +43,15 @@ import type { PromoLineRef } from './promo-view'
  * the promotion slot resolves to. This component only renders that verdict — a `null`
  * becomes a faint `·`, a token becomes a `t()` call.
  *
- * Selection (which drives the line expansion) and the bidirectional promo
- * cross-highlight (ticket 047) are preserved.
+ * The bidirectional promo cross-highlight (ticket 047) is preserved.
+ *
+ * **Ticket 116 turned selection into disclosure.** Selecting a line used to drive a
+ * detail panel in a right-hand column; that panel is gone and the line expands in place
+ * instead (`SimLineExpansion`, rendered in a `colSpan` cell so it can never be wider
+ * than the Results frame). So there is no longer a single "selected" line — there is a
+ * SET of open ones: closed at rest, any number open at once, nothing ever auto-opens.
+ * The 3 px `primary` inline-start edge now marks *open*, which is the same fact it used
+ * to mark; the twisty in the `#` cell states it in a second, colour-free channel.
  */
 
 /** The promotion currently hot (hovered/focused anywhere in the surface) — drives the
@@ -61,9 +70,10 @@ interface Props {
    *  conditions by `lineMoney`, not from here. */
   promoByItem: Map<number, PromoLineRef[]>
   hot: PromoHot | null
-  selectedItemNumber: number | null
+  /** The item numbers whose expansion is open. Empty at rest; a re-run empties it. */
+  openItemNumbers: ReadonlySet<number>
   currency: string
-  onSelect: (itemNumber: number) => void
+  onToggle: (itemNumber: number) => void
   onHotChange: (hot: PromoHot | null) => void
 }
 
@@ -86,6 +96,10 @@ function hotForLine(promos: PromoLineRef[]): PromoHot | null {
 /** One column head's classes, shared so the seven cannot drift apart. */
 const HEAD_CELL = 'px-2 py-1.5 font-semibold'
 
+/** The line's column count — 104's set B. Named because the expansion row spans it, and
+ *  a `colSpan` that drifts from the `<colgroup>` puts the expansion in the wrong box. */
+const COLUMNS = 7
+
 /**
  * The two placeholder glyphs, and why they are not keys.
  *
@@ -103,9 +117,9 @@ export default function SimResultsGrid({
   items,
   promoByItem,
   hot,
-  selectedItemNumber,
+  openItemNumbers,
   currency,
-  onSelect,
+  onToggle,
   onHotChange,
 }: Props) {
   const { t } = useTranslation('simulation')
@@ -115,10 +129,12 @@ export default function SimResultsGrid({
   return (
     <table className="w-full table-fixed border-collapse" onMouseLeave={() => onHotChange(null)}>
       {/* The seven widths of 104's set B: the description takes everything left over
-          (it reads first), every money column is fixed so the figures line up down
-          the table as well as across it. */}
+          (it reads first), every money column is fixed so the figures line up down the
+          table as well as across it. The first is 14 px wider than 104 drew it, to seat
+          the twisty beside the position number — the disclosure earns its affordance
+          inside the anatomy rather than adding an eighth column to it. */}
       <colgroup>
-        <col className="w-[30px]" />
+        <col className="w-[44px]" />
         <col />
         <col className="w-[80px]" />
         <col className="w-[104px]" />
@@ -141,24 +157,26 @@ export default function SimResultsGrid({
         {items.map((item) => {
           const promos = promoByItem.get(item.itemNumber) ?? []
           const money = lineMoney(item)
-          const selected = item.itemNumber === selectedItemNumber
+          const open = openItemNumbers.has(item.itemNumber)
           const lit = isLineHot(promos, hot)
-          return (
+          return [
             <tr
               key={item.itemNumber}
+              data-result-line={item.itemNumber}
               tabIndex={0}
               role="button"
-              aria-pressed={selected}
-              onClick={() => onSelect(item.itemNumber)}
-              onKeyDown={(e) => onRowKey(e, () => onSelect(item.itemNumber))}
+              aria-expanded={open}
+              onClick={() => onToggle(item.itemNumber)}
+              onKeyDown={(e) => onRowKey(e, () => onToggle(item.itemNumber))}
               onMouseEnter={() => onHotChange(hotForLine(promos))}
               onFocus={() => onHotChange(hotForLine(promos))}
-              // 34 px at rest, two text rows. The selection edge is 3 px of `primary`
-              // on the inline start plus a `card-2` fill — transparent when unselected
-              // so nothing shifts; distinguishable from the cross-highlight's
-              // `primary-050` tint, which 104 drew the two together to check.
+              // 34 px at rest, two text rows. The open edge is 3 px of `primary` on the
+              // inline start plus a `card-2` fill — transparent when closed so nothing
+              // shifts; distinguishable from the cross-highlight's `primary-050` tint,
+              // which 104 drew the two together to check. An open line keeps its bottom
+              // border: the expansion row below owns the one that closes the pair.
               className={`h-[34px] cursor-pointer border-s-[3px] border-b border-b-divider text-sm outline-none last:border-b-0 focus-visible:ring-1 focus-visible:ring-ring ${
-                selected
+                open
                   ? 'border-s-primary bg-card-2'
                   : lit
                     ? 'border-s-transparent bg-primary-050'
@@ -166,7 +184,20 @@ export default function SimResultsGrid({
               }`}
             >
               <td className="px-2 align-middle text-[11px] font-bold tabular-nums text-ink-3">
-                {item.itemNumber}
+                <span className="flex items-center gap-0.5">
+                  {/* The twisty is now the screen's load-bearing directional glyph, and
+                      mirroring it is ticket 121's — an SVG chevron is exactly the
+                      double-mirror trap that audit exists to measure, so this slice
+                      leaves it un-transformed rather than guessing at the fix. */}
+                  <ChevronRight
+                    data-line-twisty={open ? 'open' : 'closed'}
+                    className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${
+                      open ? 'rotate-90' : ''
+                    }`}
+                    aria-hidden
+                  />
+                  {item.itemNumber}
+                </span>
               </td>
 
               {/* The widest column, and the one that reads first: description over
@@ -231,8 +262,24 @@ export default function SimResultsGrid({
                   </span>
                 )}
               </td>
-            </tr>
-          )
+            </tr>,
+
+            // The expansion, in place: its own row, one `colSpan` cell, so the surface
+            // inside it is bounded by the table's width and can never widen the frame.
+            // Rendered only while open — a closed line contributes NOTHING to the
+            // frame's height, which is what "resting height depends only on line
+            // count" means.
+            open ? (
+              <tr
+                key={`${item.itemNumber}-expansion`}
+                className="border-b border-b-divider bg-card-2/40 last:border-b-0"
+              >
+                <td colSpan={COLUMNS} className="border-s-[3px] border-s-primary p-0">
+                  <SimLineExpansion item={item} currency={currency} notPriced={money.notPriced} />
+                </td>
+              </tr>
+            ) : null,
+          ]
         })}
       </tbody>
     </table>

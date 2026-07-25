@@ -175,21 +175,10 @@
     "noReason": "This promotion didn't fire for this basket."
   },
   "detail": {
-    "title": "Pricing details for item {{item}}: {{material}}",
-    "tiles": {
-      "base": "Base price",
-      "discounts": "Total discounts",
-      "tax": "Tax",
-      "net": "Net total"
-    },
     "rulesTitle": "Applied pricing rules",
     "noRules": "No pricing rules applied to this line.",
-    "showStatistical": "Show statistical conditions ({{count}} hidden)",
-    "hideStatistical": "Hide statistical conditions ({{count}} hidden)",
     "countPill": "×{{count}}",
-    "records": "{{count}} records",
     "rateBase": "Rate: {{rate}} {{unit}}  |  Base: {{base}}",
-    "subRate": "Rate: {{rate}} {{unit}}",
     "messagesTitle": "Pricing messages",
     "badge": {
       "promotion": "PROMOTION",
@@ -211,9 +200,6 @@
   "bonus": {
     "yes": "Yes",
     "no": "No",
-    "tabs": {
-      "elements": "Pricing Elements"
-    },
     "elements": {
       "step": "Step",
       "counter": "Counter",
@@ -225,8 +211,7 @@
       "value": "Value",
       "statistical": "Statistical",
       "subtotal": "Subtotal",
-      "bonusBuy": "Bonus buy",
-      "empty": "This line has no pricing elements."
+      "bonusBuy": "Bonus buy"
     }
   }
 }

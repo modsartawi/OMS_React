@@ -51,6 +51,20 @@ const RETIRING_KEYS = [
   'summary.elapsed',
   'detail.records',
   'detail.subRate',
+  // 115 removed the last call site of the per-line kind + role tags: the rebuilt line
+  // has ONE promotion slot with four states, and the kind label belongs to the
+  // promotions rail (117), which spells it `promo.kindTag.*`. Recorded here rather
+  // than deleted because 115's own ledger does not name them and 117 has not run yet —
+  // an unowned key is 121's contract half to sweep, and this list is how it hears
+  // about one.
+  'results.promoKind.free',
+  'results.promoKind.percent',
+  'results.promoKind.fixed',
+  'results.promoKind.setprice',
+  'results.promoKind.unknown',
+  'results.promoRole.buy',
+  'results.promoRole.get',
+  'results.promoRole.buy+get',
 ]
 
 /**

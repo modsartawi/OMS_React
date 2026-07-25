@@ -35,8 +35,9 @@ import { conditionBadge } from './aggregate'
  */
 export type PromoSlot =
   /** The line failed to price — 082's `StatusBadge` takes the slot; there is no
-   *  status column, and no collision, because such a line never fires a promotion. */
-  | { state: 'warned' }
+   *  status column, and no collision, because such a line never fires a promotion.
+   *  It carries the engine's own status letter so the badge needs nothing else. */
+  | { state: 'warned'; status: 'E' | 'W' }
   /** A promotion fired on this line, possibly with a hand-entered condition too. */
   | { state: 'fired'; manual: boolean }
   /** Only a hand-entered condition touched the line — a neutral `MANUAL` chip. */
@@ -65,11 +66,20 @@ export interface LineMoney {
   messages: string[]
 }
 
-/** Ok is the empty status; `E` and `W` both mean the line did not price. The letter
- *  is not the reasoning — an error is not a weaker failure than a warning — so the
- *  rule keys on "not ok" rather than on `'W'`. */
-function isNotPriced(item: SimulationResultItem): boolean {
-  return (item.pricingStatus ?? '').trim() !== ''
+/**
+ * The two letters that mean the line did not price. `E` rides the same rule as the
+ * evidenced `W` — the letter is not the reasoning, and an error is not a weaker
+ * failure than a warning.
+ *
+ * It is a closed pair rather than "any non-empty status", deliberately: the wire's
+ * `PricingStatus` is an OPEN string, and suppressing five real figures behind an
+ * unrecognised letter would be the same mistake in the other direction — the screen
+ * inventing a failure the engine never reported. An unknown letter reads as ok, which
+ * is what the retired status dot did too.
+ */
+function failedStatus(item: SimulationResultItem): 'E' | 'W' | null {
+  const status = (item.pricingStatus ?? '').trim()
+  return status === 'E' || status === 'W' ? status : null
 }
 
 /** `P`/`B` origins are the promotion rows; `isBonusBuy` is the same fact stated by
@@ -89,24 +99,25 @@ function promoSlot(item: SimulationResultItem): PromoSlot {
   // `warned` wins unconditionally. The two can never legitimately collide, so this
   // is a guard rather than a precedence rule: the slot must resolve to ONE state
   // whatever the wire sends.
-  if (isNotPriced(item)) return { state: 'warned' }
+  const failed = failedStatus(item)
+  if (failed) return { state: 'warned', status: failed }
   const manual = hasManual(item)
   if (hasPromotion(item)) return { state: 'fired', manual }
   return manual ? { state: 'manual' } : { state: 'none' }
 }
 
 export function lineMoney(item: SimulationResultItem): LineMoney {
-  const notPriced = isNotPriced(item)
+  const failed = failedStatus(item)
   const messages = item.pricingStatusMessages ?? []
 
-  if (notPriced) {
+  if (failed) {
     return {
       was: null,
       saved: null,
       netTotal: null,
       unitPrice: null,
       notPriced: true,
-      promoSlot: { state: 'warned' },
+      promoSlot: { state: 'warned', status: failed },
       messages,
     }
   }

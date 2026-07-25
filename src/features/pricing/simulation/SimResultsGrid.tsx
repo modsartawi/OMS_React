@@ -83,8 +83,21 @@ function hotForLine(promos: PromoLineRef[]): PromoHot | null {
   return ref ? { bby: ref.bbyNumber, conditionKey: ref.conditionKey } : null
 }
 
-/** One column head, shared so the seven cannot drift apart. */
-const HEAD = 'px-2 py-1.5 font-semibold'
+/** One column head's classes, shared so the seven cannot drift apart. */
+const HEAD_CELL = 'px-2 py-1.5 font-semibold'
+
+/**
+ * The two placeholder glyphs, and why they are not keys.
+ *
+ * `·` = *nothing happened here* (an undiscounted line) and `—` = *this line did not
+ * price*. Both are non-linguistic marks that translate to themselves, and 115's i18n
+ * ledger RETIRES the key the em-dash used to carry (`results.promoNone.mark`) without
+ * minting a replacement — a deliberate ruling, not an oversight, so 121's key audit
+ * finds this note rather than a gap. They are `aria-hidden`: a screen reader reading
+ * "middle dot" is noise, and the not-priced line says so in words in its own column.
+ */
+const BLANK = '·'
+const SUPPRESSED = '—'
 
 export default function SimResultsGrid({
   items,
@@ -115,13 +128,13 @@ export default function SimResultsGrid({
       </colgroup>
       <thead>
         <tr className="border-b border-border/70 text-[11px] uppercase tracking-wide text-muted-foreground">
-          <th className={`${HEAD} text-start`}>{t('results.pos')}</th>
-          <th className={`${HEAD} text-start`}>{t('results.item')}</th>
-          <th className={`${HEAD} text-end`}>{t('results.qty')}</th>
-          <th className={`${HEAD} text-end`}>{t('results.promotion')}</th>
-          <th className={`${HEAD} text-end`}>{t('results.was')}</th>
-          <th className={`${HEAD} text-end`}>{t('results.saved')}</th>
-          <th className={`${HEAD} text-end`}>{t('results.netTotal')}</th>
+          <th className={`${HEAD_CELL} text-start`}>{t('results.pos')}</th>
+          <th className={`${HEAD_CELL} text-start`}>{t('results.item')}</th>
+          <th className={`${HEAD_CELL} text-end`}>{t('results.qty')}</th>
+          <th className={`${HEAD_CELL} text-end`}>{t('results.promotion')}</th>
+          <th className={`${HEAD_CELL} text-end`}>{t('results.was')}</th>
+          <th className={`${HEAD_CELL} text-end`}>{t('results.saved')}</th>
+          <th className={`${HEAD_CELL} text-end`}>{t('results.netTotal')}</th>
         </tr>
       </thead>
       <tbody>
@@ -169,8 +182,11 @@ export default function SimResultsGrid({
                   {item.materialNumber}
                 </div>
                 {money.notPriced
-                  ? money.messages.map((message) => (
-                      <div key={message} className="text-[11px] leading-[14px] text-attention-800">
+                  ? money.messages.map((message, i) => (
+                      <div
+                        key={`${item.itemNumber}-${i}`}
+                        className="text-[11px] leading-[14px] text-attention-800"
+                      >
                         {message}
                       </div>
                     ))
@@ -184,18 +200,22 @@ export default function SimResultsGrid({
                 <div className="leading-4">
                   {`${formatNumber(item.quantity)} ${item.unitOfMeasure ?? ''}`.trim()}
                 </div>
-                {money.unitPrice === null ? null : (
-                  <div
-                    className="text-[11px] leading-[13px] tabular-nums text-ink-3"
-                    title={t('results.unitPrice')}
-                  >
-                    {`× ${formatMoney(money.unitPrice)}`}
-                  </div>
-                )}
+                <div
+                  className="text-[11px] leading-[13px] tabular-nums text-ink-3"
+                  title={t('results.unitPrice')}
+                >
+                  {money.unitPrice === null ? (
+                    <span aria-hidden>{SUPPRESSED}</span>
+                  ) : (
+                    <>
+                      <span aria-hidden>×</span> {formatMoney(money.unitPrice)}
+                    </>
+                  )}
+                </div>
               </td>
 
               <td className="px-2 align-middle text-end">
-                <PromoMark slot={money.promoSlot} status={item.pricingStatus} t={t} />
+                <PromoMark slot={money.promoSlot} t={t} />
               </td>
 
               <MoneyCell value={money.was} notPriced={money.notPriced} className="text-muted-foreground" />
@@ -230,9 +250,7 @@ function onRowKey(e: KeyboardEvent, select: () => void) {
 /**
  * One money column. Three renderings for three different facts: a figure · a faint
  * `·` for *nothing happened here* (never `0.00`, which would read as *we measured,
- * and it was nothing*) · an em-dash for *this line did not price*. Both placeholders
- * are `aria-hidden` — a screen reader reading "·" is noise, and a not-priced line
- * says so in words in its own column.
+ * and it was nothing*) · an em-dash for *this line did not price*.
  */
 function MoneyCell({
   value,
@@ -247,7 +265,7 @@ function MoneyCell({
     <td className={`px-2 align-middle text-end text-[13px] tabular-nums ${className ?? ''}`}>
       {value === null ? (
         <span className="text-ink-3" aria-hidden>
-          {notPriced ? '—' : '·'}
+          {notPriced ? SUPPRESSED : BLANK}
         </span>
       ) : (
         formatMoney(value)
@@ -256,8 +274,9 @@ function MoneyCell({
   )
 }
 
-/** `E`/`W` → the severity the badge wears. */
-const STATUS_SEVERITY: Record<string, Severity> = { E: 'bad', W: 'warn' }
+/** The engine's status letter → the severity the badge wears, and the word for it. */
+const STATUS_SEVERITY: Record<'E' | 'W', Severity> = { E: 'bad', W: 'warn' }
+const STATUS_LABEL: Record<'E' | 'W', string> = { E: 'status.error', W: 'status.warning' }
 
 /**
  * The promotion slot — one slot, exactly one of four states (104 §3): `✔ fired` (the
@@ -265,38 +284,31 @@ const STATUS_SEVERITY: Record<string, Severity> = { E: 'bad', W: 'warn' }
  * letter, a neutral `MANUAL` chip, or an em-dash. Fired and MANUAL stack; fired and
  * the badge cannot co-occur, which is why there is no status column.
  *
- * The badge's label is the wire's `pricingStatus` — server-supplied data, not a
+ * The badge's label is the wire's own status letter — server-supplied data, not a
  * literal; the human word for it rides the `title`, and the line reads `not priced`
  * in words in its money column regardless.
  */
-function PromoMark({
-  slot,
-  status,
-  t,
-}: {
-  slot: PromoSlot
-  status: string
-  t: ReturnType<typeof useTranslation>[0]
-}) {
+function PromoMark({ slot, t }: { slot: PromoSlot; t: ReturnType<typeof useTranslation>[0] }) {
   if (slot.state === 'warned') {
-    const sev = STATUS_SEVERITY[status] ?? 'warn'
     return (
-      <span className="inline-flex" title={t(sev === 'bad' ? 'status.error' : 'status.warning')}>
-        <StatusBadge sev={sev}>{status}</StatusBadge>
+      <span className="inline-flex" title={t(STATUS_LABEL[slot.status])}>
+        <StatusBadge sev={STATUS_SEVERITY[slot.status]}>{slot.status}</StatusBadge>
       </span>
     )
   }
   if (slot.state === 'none') {
     return (
       <span className="text-ink-3" aria-hidden>
-        —
+        {SUPPRESSED}
       </span>
     )
   }
   return (
     <span className="inline-flex items-center justify-end gap-1">
       {slot.state === 'fired' ? (
-        <span className="text-[11.5px] font-semibold text-success-800">{`✔ ${t('results.fired')}`}</span>
+        <span className="text-[11.5px] font-semibold text-success-800">
+          <span aria-hidden>✔</span> {t('results.fired')}
+        </span>
       ) : null}
       {slot.state === 'manual' || slot.manual ? <ManualChip t={t} /> : null}
     </span>

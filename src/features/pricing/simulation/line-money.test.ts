@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { SimulationResultItem } from '@/core/models/simulation'
 import { PAYLOADS, SCENARIOS } from './__fixtures__/payloads'
 import { lineMoney } from './line-money'
+import { promoView } from './promo-view'
 
 /**
  * The result line's money projection (ticket 115, spec 110 — ruled in 104 §1/§4/§5
@@ -117,6 +118,19 @@ describe('a W line suppresses all five zeros the wire sent and reports not price
     const money = lineMoney({ ...coup01, pricingStatus: 'E' })
     expect(money.notPriced).toBe(true)
     expect(money.netTotal).toBeNull()
+    expect(money.promoSlot).toEqual({ state: 'warned', status: 'E' })
+  })
+
+  it('does NOT suppress on an unrecognised status letter — the wire type is open', () => {
+    // The mirror-image mistake: `PricingStatus` is an open string, so keying on "any
+    // non-empty status" would let one unknown letter blank five real figures and have
+    // the screen report a failure the engine never did. An unknown letter reads as ok,
+    // which is what the retired status dot did too.
+    const priced = { ...PAYLOADS['no-price'].items[1], pricingStatus: 'I' }
+    const money = lineMoney(priced)
+    expect(money.notPriced).toBe(false)
+    expect(money.netTotal).toBe(35.95)
+    expect(money.promoSlot.state).not.toBe('warned')
   })
 })
 
@@ -153,7 +167,10 @@ describe('the promotion slot resolves to exactly one of four states', () => {
   })
 
   it('is warned on the W line, where the badge takes the slot (04b-no-price)', () => {
-    expect(lineMoney(PAYLOADS['no-price'].items[0]).promoSlot).toEqual({ state: 'warned' })
+    expect(lineMoney(PAYLOADS['no-price'].items[0]).promoSlot).toEqual({
+      state: 'warned',
+      status: 'W',
+    })
   })
 
   it('lets warned win over a promotion — the two can never legitimately collide', () => {
@@ -161,7 +178,34 @@ describe('the promotion slot resolves to exactly one of four states', () => {
     // guard, not a case: the slot must resolve to ONE state whatever the wire sends.
     const fired = PAYLOADS['fired-bonus-buy'].items[0]
     const slot = lineMoney({ ...fired, pricingStatus: 'W' }).promoSlot
-    expect(slot).toEqual({ state: 'warned' })
+    expect(slot).toEqual({ state: 'warned', status: 'W' })
+  })
+
+  it('agrees with promoView about which lines a promotion touched', () => {
+    // The line's slot is read off the line's own conditions; the cross-highlight is
+    // joined through `promoView`'s per-line refs. Two derivations of one fact can
+    // drift — and 104 §3 makes the highlight "the only thing on the screen that says
+    // which lines a promotion touched", so a lit line with an em-dash slot would be a
+    // straight contradiction. Asserted across the whole corpus, capture 05 included
+    // (one bonus buy against items 10 AND 20).
+    for (const scenario of SCENARIOS) {
+      const result = PAYLOADS[scenario]
+      const refs = new Map(promoView(result).lines.map((l) => [l.itemNumber, l.promos]))
+      for (const item of result.items) {
+        const slot = lineMoney(item).promoSlot
+        // A not-priced line is out of scope: it never fires, so it has no refs either.
+        if (slot.state === 'warned') continue
+        expect({
+          scenario,
+          item: item.itemNumber,
+          fired: slot.state === 'fired',
+        }).toEqual({
+          scenario,
+          item: item.itemNumber,
+          fired: (refs.get(item.itemNumber) ?? []).length > 0,
+        })
+      }
+    }
   })
 
   it('resolves to one of the four states on every line in the corpus', () => {

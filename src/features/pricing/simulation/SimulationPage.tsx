@@ -18,9 +18,7 @@ import { defaultHeader, type SimHeaderState } from './SimHeaderForm'
 import SimItemsEntry, { emptyItemRow, type SimItemRow } from './SimItemsEntry'
 import SimManualConditions, { type SimManualConditionRow } from './SimManualConditions'
 import SimFailureBanner from './SimFailureBanner'
-import SimPromoBlocks from './SimPromoBlocks'
-// SimMissedPromotions temporarily hidden — Potential Bonus Buys held back for now.
-// import SimMissedPromotions from './SimMissedPromotions'
+import SimPromotionsRail from './SimPromotionsRail'
 import SimResultsGrid, { type PromoHot } from './SimResultsGrid'
 import SimRunStrip from './SimRunStrip'
 import { SimStaleResultsNote } from './SimStatusSlot'
@@ -264,6 +262,13 @@ export default function SimulationPage() {
 
   const result: SimulationResult | null = run?.result ?? null
 
+  // Whether the run ON SCREEN measured promotions at all — read off the request that
+  // produced it, never off the checkbox as it currently stands, which may already
+  // describe the NEXT run (that difference is what the status slot's stale mark is
+  // for). It is the difference between the rail saying "nothing fired" and "nothing
+  // was measured", so it is named here rather than walked inline in the JSX.
+  const ranWithPromotions = run?.request.header.isPromotionApplicable === true
+
   // `@container` declares the WORK AREA as the measurement everything on this
   // screen responds to (ticket 113). Every responsive rule in the rework is a
   // container query on this element, never a viewport media query: the nav eats
@@ -312,92 +317,105 @@ export default function SimulationPage() {
         onClearCache={() => void runClearCache()}
       />
 
-      {/* ===== MAIN: 7/5 split — left = inputs + work area; right = detail + bonus
-          buys, present only when there IS a run to describe. ===== */}
-      <div className="grid gap-3 xl:grid-cols-[7fr_5fr]">
-        {/* LEFT column. Items never collapse, never join the strip, and never move:
-            they are the instrument retyped every run, and a failed run must leave
-            them exactly where they were so the offending line is corrected in place
-            (ticket 120). Manual conditions fold in as a disclosure — no fourth frame. */}
-        <div className="flex min-w-0 flex-col gap-3">
-          <SimItemsEntry rows={items} onChange={setItems} disabled={process.isPending}>
-            <SimManualConditions
-              rows={manualConditions}
-              onChange={setManualConditions}
-              disabled={process.isPending}
-            />
-          </SimItemsEntry>
+      {/* Items never collapse, never join the strip, and never move: they are the
+          instrument retyped every run, and a failed run must leave them exactly where
+          they were so the offending line is corrected in place (ticket 120). Manual
+          conditions fold in as a disclosure — no fourth frame.
 
-          {/* ---- THE WORK AREA: exactly one of three things, never a stack ----
-              The banner REPLACES it rather than pushing it down, and before the
-              first Process it is one line of quiet text — not a framed empty box,
-              not a skeleton, not a sample basket. Nothing has happened, so there
-              is nothing to draw; that is the reclaim.
+          They take the FULL width (ticket 117). The 66/34 split below is between the
+          results and the promotions rail — the two things the split is about — so Items
+          is not squeezed into two thirds to make room for a frame that describes a run
+          rather than an input. */}
+      <SimItemsEntry rows={items} onChange={setItems} disabled={process.isPending}>
+        <SimManualConditions
+          rows={manualConditions}
+          onChange={setManualConditions}
+          disabled={process.isPending}
+        />
+      </SimItemsEntry>
 
-              The per-item E/W count banner is RETIRED (ticket 115, ruled in 104 §2):
-              on the captured evidence it is a warning-only banner over a three-line
-              table where the line's own badge is already in view — two surfaces for
-              one fact, and the badge is the one that says WHICH line. */}
-          {process.isError ? (
-            <SimFailureBanner error={process.error} onOpenSettings={() => setStripOpen(true)} />
-          ) : result === null ? (
-            <p data-work-area="pre-run" className="px-1 py-2 text-sm text-muted-foreground">
-              {t('summary.noResult')}
-            </p>
-          ) : (
-            <>
-              {/* The stale mark's second appearance (ticket 114): the strip carries it
-                  where the change happened, this line carries it where the stale
-                  numbers are. Only when there is a result for it to be about — and
-                  never while a run is out, because the slot's three states are
-                  exclusive there and two vocabularies for one state is one too many. */}
-              {stale && !process.isPending ? <SimStaleResultsNote /> : null}
+      {/* ---- THE WORK AREA: exactly one of three things, never a stack ----
+          The banner REPLACES it rather than pushing it down, and before the
+          first Process it is one line of quiet text — not a framed empty box,
+          not a skeleton, not a sample basket. Nothing has happened, so there
+          is nothing to draw; that is the reclaim.
 
-              <div data-work-area="results" className="rounded-lg border border-border/60 bg-card p-3">
-                <h2 className="mb-2 text-sm font-semibold tracking-tight">{t('results.title')}</h2>
-                <SimResultsGrid
-                  items={result.items}
-                  promoByItem={promoByItem}
-                  hot={hot}
-                  // The table marks — and expands — exactly the lines the analyst
-                  // opened. Empty after a re-run; never seeded with a first line.
-                  openItemNumbers={openLines}
-                  currency={result.header.currency}
-                  onToggle={toggleLine}
-                  onHotChange={setHot}
-                />
-              </div>
-            </>
-          )}
-        </div>
+          The per-item E/W count banner is RETIRED (ticket 115, ruled in 104 §2):
+          on the captured evidence it is a warning-only banner over a three-line
+          table where the line's own badge is already in view — two surfaces for
+          one fact, and the badge is the one that says WHICH line. */}
+      {process.isError ? (
+        <SimFailureBanner error={process.error} onOpenSettings={() => setStripOpen(true)} />
+      ) : result === null ? (
+        <p data-work-area="pre-run" className="px-1 py-2 text-sm text-muted-foreground">
+          {t('summary.noResult')}
+        </p>
+      ) : (
+        <>
+          {/* The stale mark's second appearance (ticket 114): the strip carries it
+              where the change happened, this line carries it where the stale
+              numbers are. Only when there is a result for it to be about — and
+              never while a run is out, because the slot's three states are
+              exclusive there and two vocabularies for one state is one too many. */}
+          {stale && !process.isPending ? <SimStaleResultsNote /> : null}
 
-        {/* RIGHT column — the fired-promotion blocks, and nothing else now.
-            Ticket 116 dissolved the per-line detail panel and the Pricing-Elements
-            panel into the line expansion, which is what this column existed to hold;
-            what remains is the promotions surface, and ticket 117 rebuilds this column
-            as the promotions rail at 66/34. Absent entirely with no result: an empty
-            dashed box is a frame drawn around nothing, which is the shape ticket 120
-            reclaims. */}
-        {result ? (
-          <div className="flex min-w-0 flex-col gap-3">
-            {/* Fired promotions as plain-language buy→get blocks (ticket 047), linked to
-                the results grid by the shared hot-promotion state. */}
-            <SimPromoBlocks
-              blocks={view.blocks}
+          {/* ===== THE 66/34 SPLIT (ticket 117) — the results table left, the promotions
+              rail right, so the screen's PRIMARY question ("did the promotion fire?") is
+              answered at eye level rather than in a right-hand column below the fold.
+
+              The two frames are SIBLINGS in one grid rather than the rail riding at the
+              top of a column beside Items: they align at the top, and the rail — held
+              apart as its own frame — grows and shrinks without ever shifting the lines
+              it explains.
+
+              The split is a `@container` query on the work area, not a viewport media
+              query (ticket 113's mechanism): the nav eats 200–260 px, so a 1280 laptop
+              is a *960* screen. Below 900 px the grid falls back to its single column;
+              ticket 119 owns that stacked arrangement proper — including putting the
+              rail ABOVE the results, so the verdict never sits under its evidence. ===== */}
+          {/* `items-start` is what "held apart as its own frame" means in CSS: without
+              it the grid stretches both frames to the taller one, so a rail carrying
+              three cards would print a Results frame with a hand's width of empty card
+              under two lines. Each frame is as tall as its own content (ticket 115's
+              rule for the table, and the rail inherits it). */}
+          <div className="grid items-start gap-3 @[900px]:grid-cols-[66fr_34fr]">
+            <div
+              data-work-area="results"
+              className="min-w-0 rounded-lg border border-border/60 bg-card p-3"
+            >
+              <h2 className="mb-2 text-sm font-semibold tracking-tight">{t('results.title')}</h2>
+              <SimResultsGrid
+                items={result.items}
+                promoByItem={promoByItem}
+                hot={hot}
+                // The table marks — and expands — exactly the lines the analyst
+                // opened (ticket 116). Empty after a re-run; never seeded with a
+                // first line.
+                openItemNumbers={openLines}
+                currency={result.header.currency}
+                onToggle={toggleLine}
+                onHotChange={setHot}
+              />
+            </div>
+
+            {/* Fires AND near-misses in ONE column: the fired buy→get cards (ticket 047)
+                and the reinstated "Could have applied" cards (048), sharing the results
+                table's hot-promotion state for the cross-highlight. `promotionApplicable`
+                comes off the REQUEST that produced this result — never the checkbox as it
+                currently stands, which may already describe the next run. */}
+            <SimPromotionsRail
+              view={view}
               currency={result.header.currency}
-              // A block spans a whole bby (potentially several applications), so it lights
-              // on bby alone; hovering one raises the whole bby (conditionKey null).
+              promotionApplicable={ranWithPromotions}
+              // A card spans a whole bby (potentially several applications), so it
+              // raises the whole bby: `conditionKey` null. The results table narrows to
+              // one application when the projection (044) supplies a key; a card cannot.
               hotBby={hot?.bby ?? null}
               onHotChange={(bby) => setHot(bby ? { bby, conditionKey: null } : null)}
             />
-
-            {/* "Could have applied" — the near-misses beneath the fired blocks (ticket
-                048); absent when nothing was missed. Temporarily hidden — the Potential
-                Bonus Buys surface is held back for now (re-enable to restore). */}
-            {/* <SimMissedPromotions missed={view.missed} currency={result.header.currency} /> */}
           </div>
-        ) : null}
-      </div>
+        </>
+      )}
     </section>
   )
 }

@@ -436,12 +436,20 @@ async function run() {
 
   /** The results frame: how many lines it shows, and whether it is dimmed. */
   const resultsCard = () => page.locator('h2', { hasText: 'Results' }).locator('..')
+  // `note` asks the question the ticket asks — is the stale line ABOVE the results —
+  // by measuring, rather than by assuming the note is a sibling of the results card.
+  // Ticket 117 moved the results into a 66/34 grid with the promotions rail, so the
+  // note is now an uncle rather than a sibling; the arrangement rule it proves is
+  // unchanged, and a geometric check cannot break on the next rearrangement either.
   const readResults = () =>
-    resultsCard().evaluate((el) => ({
-      rows: el.querySelectorAll('tbody tr').length,
-      opacity: getComputedStyle(el).opacity,
-      note: !!el.parentElement?.querySelector('[data-stale-note]'),
-    }))
+    resultsCard().evaluate((el) => {
+      const note = document.querySelector('[data-stale-note]')
+      return {
+        rows: el.querySelectorAll('tbody tr').length,
+        opacity: getComputedStyle(el).opacity,
+        note: !!note && note.getBoundingClientRect().bottom <= el.getBoundingClientRect().top,
+      }
+    })
 
   // ------------------------------------------------------- 9 · staleness
   let slot = await readSlot()

@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import { ChevronRight } from 'lucide-react'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { MissedPrereq, MissedPromo } from './promo-view'
-import { KIND_CHIP } from './promo-kind'
+import { KIND_CHIP, MISS_GLYPH } from './promo-kind'
 
 // The "Could have applied" section (ticket 048) — the near-misses beneath the fired
 // promotion blocks (SimPromoBlocks, 047). Driven by `promoView(result).missed` (045),
@@ -25,16 +25,20 @@ import { KIND_CHIP } from './promo-kind'
 // rail as the fires, and it loses its own frame: `SimPromotionsRail` is the frame, this
 // is a sub-section inside it (an `h3`, not the fourth `h2` on a three-heading screen).
 //
-// Two hue corrections came with the reinstatement. A near-miss is NEUTRAL, not a
-// warning — the screen's hue budget is two, spent on a fired promotion and a `W` line,
-// and a near-miss is neither. So the kind glyph becomes a neutral `○` (the mark that
-// distinguishes a near-miss card from a fired one at a glance, and the reason the two
-// can share a column), and the found-vs-required meter's fill leaves `bg-attention` for
-// a neutral ink. Nothing here promises a fault; it reports an unmet prerequisite.
-
-/** The near-miss mark. Not a kind glyph: a promotion that did not fire has no fired
- *  shape to name, and `○` reads as "open / not closed" without spending a hue. */
-const MISS_GLYPH = '○'
+// Two changes came with the reinstatement.
+//
+// The card is MARKED as a near-miss: `○` takes the tile the fired card gives its kind
+// glyph, so the two card shapes are told apart at a glance and can therefore share a
+// column. The condition type the promotion WOULD have applied is not lost with the
+// glyph — it is named in words beside the identity (`promo.kindTag.*`), which is what
+// the ticket asks a card to print and reads better than a glyph anyway.
+//
+// And the found-vs-required meter's fill leaves `bg-attention` for a neutral ink. THIS
+// is the hue correction: a near-miss is neutral, not a warning — the screen's budget is
+// two hues, spent on a fired promotion and a `W` line, and a near-miss is neither.
+// (The tile itself was already neutral: ticket 088 retired the per-kind colour map, so
+// `KIND_CHIP` has spent no hue since.) Nothing here promises a fault; it reports an
+// unmet prerequisite.
 
 interface Props {
   missed: MissedPromo[]
@@ -129,12 +133,20 @@ function MissedRow({ missed, currency, t }: { missed: MissedPromo; currency: str
   )
 }
 
-/** BBY key · promo no — the near-miss identity, as separated spans (not a concatenated
- *  `·`) so the middot never mis-orders between bidi runs under RTL. Empty parts drop. */
+/** BBY key · promo no · CONDITION TYPE — the near-miss identity, as separated spans (not
+ *  a concatenated `·`) so the middot never mis-orders between bidi runs under RTL. Empty
+ *  parts drop.
+ *
+ *  The kind rides here in words (ticket 117) rather than as the glyph the tile used to
+ *  carry, because the tile is now the `○` that says this promotion did not fire. It is
+ *  the same `promo.kindTag.*` vocabulary a fired card's Get box spells, so one promotion
+ *  reads the same whether it fired or nearly did. Absent when the wire's discount code
+ *  did not classify — `promoView` keeps that honest rather than guessing. */
 function IdentitySubLine({ missed, t }: { missed: MissedPromo; t: TFunction }) {
   const parts = [
     missed.bbyNumber || null,
     missed.promoNumber ? t('promo.promoNoLabel', { promo: missed.promoNumber }) : null,
+    missed.kind ? t(`promo.kindTag.${missed.kind}`) : null,
   ].filter((p): p is string => Boolean(p))
 
   return (

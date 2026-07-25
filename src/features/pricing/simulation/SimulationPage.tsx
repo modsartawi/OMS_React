@@ -256,6 +256,13 @@ export default function SimulationPage() {
   const selectedItem =
     result?.items.find((i) => i.itemNumber === selectedItemNumber) ?? result?.items[0] ?? null
 
+  // Whether the run ON SCREEN measured promotions at all — read off the request that
+  // produced it, never off the checkbox as it currently stands, which may already
+  // describe the NEXT run (that difference is what the status slot's stale mark is
+  // for). It is the difference between the rail saying "nothing fired" and "nothing
+  // was measured", so it is named here rather than walked inline in the JSX.
+  const ranWithPromotions = run?.request.header.isPromotionApplicable === true
+
   // `@container` declares the WORK AREA as the measurement everything on this
   // screen responds to (ticket 113). Every responsive rule in the rework is a
   // container query on this element, never a viewport media query: the nav eats
@@ -393,9 +400,12 @@ export default function SimulationPage() {
             <SimPromotionsRail
               view={view}
               currency={result.header.currency}
-              promotionApplicable={run?.request.header.isPromotionApplicable !== false}
-              hot={hot}
-              onHotChange={setHot}
+              promotionApplicable={ranWithPromotions}
+              // A card spans a whole bby (potentially several applications), so it
+              // raises the whole bby: `conditionKey` null. The results table narrows to
+              // one application when the projection (044) supplies a key; a card cannot.
+              hotBby={hot?.bby ?? null}
+              onHotChange={(bby) => setHot(bby ? { bby, conditionKey: null } : null)}
             />
           </div>
 

@@ -189,12 +189,6 @@ async function run() {
     JSON.stringify([...lit].sort((a, b) => a - b)) === JSON.stringify(printed),
     `lit ${JSON.stringify(lit)} vs printed ${JSON.stringify(printed)}`,
   )
-  check(
-    'and it tints nothing else — every basket line is accounted for',
-    lit.length === (await resultsFrame().locator('tbody tr').count()) || lit.length < (await resultsFrame().locator('tbody tr').count()),
-    `${lit.length} lit of ${await resultsFrame().locator('tbody tr').count()} line(s)`,
-  )
-
   await page.locator('h1').hover()
   await page.waitForTimeout(120)
   check('moving off the card clears the tint', (await litLines()).length === 0)
@@ -233,6 +227,43 @@ async function run() {
     view.cards[1].glyph === '○',
     String(view.cards[1].glyph),
   )
+  check(
+    // The ticket asks every card to name its bonus buy, its CONDITION TYPE and its line
+    // list. The `○` takes the tile the kind glyph used to hold, so the kind has to be
+    // named in words instead — and the near-miss capture is a `P` (set price), which is
+    // exactly the kind that would be unreadable if it were dropped with the glyph.
+    'and it still names its condition type — in words, since ○ took the glyph\'s tile',
+    /Set price/.test(view.text),
+    view.text,
+  )
+  check(
+    'every card names its bonus buy',
+    view.cards.every((c) => c.bby) && /000100000131/.test(view.text) && /000100000132/.test(view.text),
+    view.cards.map((c) => c.bby).join(', '),
+  )
+
+  // This capture is the one where the promotion touches a STRICT SUBSET — two basket
+  // lines, one of them promoted — so "tints exactly the lines it names" is a real claim
+  // here rather than one satisfied by lighting everything.
+  const total = await resultsFrame().locator('tbody tr').count()
+  await page.locator('[data-promo-card="fired"]').first().hover()
+  await page.waitForTimeout(120)
+  const subset = await litLines()
+  check(
+    'hovering a card that touches SOME lines tints those and leaves the rest alone',
+    total === 2 &&
+      JSON.stringify(subset) === JSON.stringify(view.cards[0].lines.replace('lines ', '').split(' · ').map(Number)),
+    `lit ${JSON.stringify(subset)} of ${total} line(s) · card prints "${view.cards[0].lines}"`,
+  )
+  await page.locator('[data-promo-card="missed"]').first().hover()
+  await page.waitForTimeout(120)
+  check(
+    'a NEAR-MISS card tints nothing — the wire sends it no item linkage at all, which is why the rail is screen-level',
+    (await litLines()).length === 0,
+    JSON.stringify(await litLines()),
+  )
+  await page.locator('h1').hover()
+  await page.waitForTimeout(120)
   check(
     'and it spends NEITHER of the screen\'s two hues — a near-miss is not a warning',
     view.missAttention === 0 && view.missSuccess === 0,

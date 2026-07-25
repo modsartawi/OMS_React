@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next'
 import type { PromoView } from './promo-view'
 import SimPromoBlocks from './SimPromoBlocks'
 import SimMissedPromotions from './SimMissedPromotions'
-import type { PromoHot } from './SimResultsGrid'
 
 /**
  * The promotions rail (ticket 117, spec 110) — the screen's third and last frame,
@@ -40,16 +39,20 @@ interface Props {
   currency: string
   /** Whether the RUN on screen asked for promotions — `request.header.isPromotionApplicable`. */
   promotionApplicable: boolean
-  /** The promotion hot anywhere in the surface, so a card can light its lines and vice-versa. */
-  hot: PromoHot | null
-  onHotChange: (hot: PromoHot | null) => void
+  /** The promotion hot anywhere in the surface, so a card can light its lines and
+   *  vice-versa. A `bbyNumber`, not the results table's `PromoHot`: a CARD spans a whole
+   *  bonus buy — potentially several applications — so it can neither raise nor read a
+   *  `conditionKey`, and taking the wider type would mean accepting a field this
+   *  component has no way to honour. */
+  hotBby: string | null
+  onHotChange: (bby: string | null) => void
 }
 
 export default function SimPromotionsRail({
   view,
   currency,
   promotionApplicable,
-  hot,
+  hotBby,
   onHotChange,
 }: Props) {
   const { t } = useTranslation('simulation')
@@ -82,15 +85,13 @@ export default function SimPromotionsRail({
         <p className="px-1 py-2 text-sm text-muted-foreground">{t('promo.empty')}</p>
       ) : (
         <div className="flex flex-col gap-3">
+          {/* A card lights on bby alone, which is exactly the set of lines it PRINTS —
+              so the tint and the printed list can never disagree. */}
           <SimPromoBlocks
             blocks={view.blocks}
             currency={currency}
-            // A card spans a whole bby (potentially several applications), so it lights
-            // on bby alone; hovering one raises the whole bby (conditionKey null). That
-            // is exactly the set of lines the card PRINTS, so the tint and the printed
-            // list can never disagree.
-            hotBby={hot?.bby ?? null}
-            onHotChange={(bby) => onHotChange(bby ? { bby, conditionKey: null } : null)}
+            hotBby={hotBby}
+            onHotChange={onHotChange}
           />
           {/* Near-misses last, under the fires: what DID happen reads before what did
               not. Absent entirely when nothing was missed. */}

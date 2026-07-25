@@ -120,6 +120,10 @@
   },
   "tabs": {
     "ariaLabel": "Document sections",
+    "rowCount_one": "{{count}} row",
+    "rowCount_other": "{{count}} rows",
+    "failedCount_one": "{{count}} failed job",
+    "failedCount_other": "{{count}} failed jobs",
     "items": "Items",
     "conditions": "Header Conditions",
     "log": "Log",
@@ -129,7 +133,12 @@
     "loading": "Loading…"
   },
   "items": {
-    "empty": "This document has no line items."
+    "empty": "This document has no line items.",
+    "totals": "{{lines}} · {{units}}",
+    "totalsLines_one": "{{count}} line",
+    "totalsLines_other": "{{count}} lines",
+    "totalsUnits_one": "{{count}} unit",
+    "totalsUnits_other": "{{count}} units"
   },
   "conditions": {
     "empty": "This document has no header-level conditions."

@@ -1,7 +1,7 @@
 import { AgGridReact } from 'ag-grid-react'
 import { useTranslation } from 'react-i18next'
 import { Inbox, Loader2 } from 'lucide-react'
-import type { ColDef, RowClassParams, RowStyle } from 'ag-grid-community'
+import type { ColDef, RowClassParams, RowSelectionOptions, RowStyle } from 'ag-grid-community'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -23,6 +23,8 @@ export default function DetailGrid<T>({
   error = null,
   emptyMessage,
   getRowStyle,
+  pinnedBottomRowData,
+  rowSelection,
 }: {
   columnDefs: ColDef<T>[]
   /** `null` before a deferred fetch resolves. */
@@ -31,6 +33,13 @@ export default function DetailGrid<T>({
   error?: string | null
   emptyMessage: string
   getRowStyle?: (params: RowClassParams<T>) => RowStyle | undefined
+  /**
+   * The totals row pinned under the last row (Items only). Never reached when
+   * `rowData` is empty — the empty state renders instead of a grid, and a footer
+   * summing nothing has nothing to say.
+   */
+  pinnedBottomRowData?: T[]
+  rowSelection?: RowSelectionOptions<T>
 }) {
   const { t } = useTranslation('document')
   const STATE =
@@ -63,6 +72,8 @@ export default function DetailGrid<T>({
         columnDefs={columnDefs}
         defaultColDef={DETAIL_DEFAULT_COL_DEF}
         getRowStyle={getRowStyle}
+        pinnedBottomRowData={pinnedBottomRowData}
+        rowSelection={rowSelection}
         rowHeight={OMS_GRID_ROW_HEIGHT}
         headerHeight={OMS_GRID_HEADER_HEIGHT}
         tooltipShowDelay={500}

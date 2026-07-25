@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 083
 blocked-by: 090
 ---
@@ -37,13 +37,51 @@ pure (totals reducer) · component/config (`columns.ts`, `DetailGrid` usage, tab
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `totalsReducer` — the pinned footer row computed from each corpus document's `lines`: the line
+- [x] `totalsReducer` — the pinned footer row computed from each corpus document's `lines`: the line
       count and the four column sums, **including the negative discount on `2000000551`** · pure
-      (vitest)
-- [ ] `discountFlag` — the amber rule fires on a negative discount and not on `0` · pure (vitest)
+      (vitest) → `src/features/oms/document/items.test.ts`, `describe('totalsReducer')`
+- [x] `discountFlag` — the amber rule fires on a negative discount and not on `0` · pure (vitest) →
+      same file, `describe('discountFlag')`
 
 Verify the deleted-line treatment, the description-first order, the selected-row bar and the Jobs
 failed count by driving `npm run dev`, plus `npm run typecheck`.
+
+**What was run:** `npm test` 56/56 · `npm run typecheck` · `npm run lint` (all three gates) ·
+`npm run build` — all green. The rendered grid was driven by a new
+`tools/document-items-drive.mjs` (**23/23**), which replays the five captures over a routed wire and
+asserts description-first, the pinned totals row and its four sums, `-1.50` in `--attention-800` with
+its sign, a zero discount unflagged, click selection plus 082's leading `::before` bar, the deleted
+line struck and muted, and both Jobs states (1 failed of 3 → the `bad` pill; 2 healthy → the neutral
+one). `tools/document-rail-drive.mjs` (25/25), `-band-` (32/32) and `-cards-` (45/45) still pass; the
+rail drive's tab assertion was widened for the new count badge.
+
+Two Done-when items the corpus cannot show verbatim, synthesised from a real payload inside the
+drive and labelled there: **no captured line is `deleted`**, and the captures carry no Log/Outbox
+collections (those are separate endpoints).
+
+## What the build decided
+
+- **Counts land on all four tabs**, not only Jobs. A lone number on Jobs reads as an anomaly rather
+  than a count; and the badge doubles as the "loaded but empty" signal — a deferred collection shows
+  **no** count until it resolves, so a `0` is never a claim the app cannot yet make.
+- **The failed count is 082 D-10's `bad` pill** (`StatusBadge sev="bad"` → `--danger-050` ground,
+  `--danger-800` ink), not a raw `--danger` fill. The severity layer is how this app spells danger;
+  a sixth colour decision at this one site is exactly what 086 removed. The drive asserts the two
+  token values, so the claim is proved rather than asserted as "different from neutral".
+- **The footer label is two pluralised fragments** joined through a key (`items.totals` ·
+  `items.totalsLines_one/_other` · `items.totalsUnits_one/_other`). i18next pluralises on ONE
+  `count` per call, and every capture carries exactly one line — a single `{{lines}} lines` string
+  would have shipped `1 lines` on all five.
+- **The sums round off binary-float dust** (`0.1 + 0.2` → `0.3`). `formatMoney` would have hidden it
+  on the three amount columns, but `quantity` renders through `formatNumber`, which prints every
+  digit.
+- **The footer's figures are the document's, not the filtered view's** — the row is computed once
+  from `lines`; a column filter does not recompute it. That is the question the operator opened the
+  screen with.
+- **Discount ink only, no weight bump.** D-9 specifies `--attention-800`; the amber is the flag.
+- `-1.500` renders as `-1.50` — `formatMoney` is the app's one money formatter and it is fixed
+  2 dp. The sign, which is the load-bearing part, is intact; the spec's 3 dp is payload notation.
+- `isFailedJob` now serves both the row highlight and the tab count — one reading of `outboxStatus`.
 
 ## Boundaries
 

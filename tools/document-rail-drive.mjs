@@ -133,7 +133,11 @@ async function run() {
   // --- the Status tab is gone, the record is not -----------------------------
   await page.goto(`${BASE}/oms/document/8000000253`)
   await rail().waitFor()
-  const tabs = await page.locator('[role="tab"]').allInnerTexts()
+  // Ticket 093 put a count badge inside each tab, so the label is the tab's text
+  // with the trailing number dropped — `Items\n1` is still the Items tab.
+  const tabs = (await page.locator('[role="tab"]').allInnerTexts()).map((text) =>
+    text.replace(/\s*\d+\s*$/, '').trim(),
+  )
   check('the Status tab is gone', !tabs.includes('Status'), tabs.join(' · '))
   check('the four remaining tabs are intact', tabs.join('|') === 'Items|Header Conditions|Log|Jobs', tabs.join('|'))
 

@@ -3,6 +3,7 @@ import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, RefreshCw } from 'lucide-react'
 import Button from '@/core/ui/Button'
+import StatusBadge from '@/core/ui/StatusBadge'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
@@ -22,7 +23,14 @@ import {
   type UpdateActionKind,
   type UpdateHeaderExtras,
 } from './actions'
-import { documentColumns, failedJobRowStyle } from './columns'
+import {
+  documentColumns,
+  deletedLineRowStyle,
+  failedJobRowStyle,
+  isFailedJob,
+  ITEM_ROW_SELECTION,
+} from './columns'
+import { totalsFooterRow } from './items'
 import { documentProvenanceRows } from './fields'
 import IdentityBand from './IdentityBand'
 import StatusRail from './StatusRail'
@@ -280,6 +288,24 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     [document],
   )
   const itemColumns = useMemo(() => documentColumns.items(), [])
+  const itemsFooter = useMemo(() => totalsFooterRow(document?.lines, t), [document, t])
+  /**
+   * The tab counts. Jobs is the one that judges: while any job has failed it
+   * counts the FAILURES in `bad`, not the total — otherwise a failed outbox job
+   * is a number indistinguishable from a healthy one (083 D-9). A deferred
+   * collection shows no count at all until it resolves; a `0` while Log is still
+   * loading would be a claim the app cannot yet make.
+   */
+  const tabCounts = useMemo(() => {
+    const failed = (jobs.rows ?? []).filter(isFailedJob).length
+    const plain = (value: number) => ({ value, bad: false })
+    return {
+      items: plain(document?.lines?.length ?? 0),
+      conditions: plain(headerConditions.length),
+      log: logs.rows ? plain(logs.rows.length) : null,
+      jobs: jobs.rows ? (failed > 0 ? { value: failed, bad: true } : plain(jobs.rows.length)) : null,
+    } satisfies Record<TabId, { value: number; bad: boolean } | null>
+  }, [document, headerConditions, logs.rows, jobs.rows])
   const conditionColumns = useMemo(() => documentColumns.conditions(), [])
   const logColumns = useMemo(() => documentColumns.logs(), [])
   const jobColumns = useMemo(() => documentColumns.jobs(), [])
@@ -346,25 +372,39 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
 
               <div className="min-w-0">
                 <div role="tablist" aria-label={t('tabs.ariaLabel')} className="flex gap-1 border-b border-border">
-                  {TAB_IDS.map((id) => (
-                    <button
-                      key={id}
-                      type="button"
-                      role="tab"
-                      id={`tab-${id}`}
-                      aria-selected={activeTab === id}
-                      aria-controls={`tabpanel-${id}`}
-                      onClick={() => setActiveTab(id)}
-                      className={
-                        'border-b-2 px-3 py-1.5 text-sm ' +
-                        (activeTab === id
-                          ? 'border-primary font-semibold text-primary'
-                          : 'border-transparent text-muted-foreground hover:text-foreground')
-                      }
-                    >
-                      {t(`tabs.${id}`)}
-                    </button>
-                  ))}
+                  {TAB_IDS.map((id) => {
+                    const count = tabCounts[id]
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        role="tab"
+                        id={`tab-${id}`}
+                        aria-selected={activeTab === id}
+                        aria-controls={`tabpanel-${id}`}
+                        onClick={() => setActiveTab(id)}
+                        className={
+                          'flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-sm ' +
+                          (activeTab === id
+                            ? 'border-primary font-semibold text-primary'
+                            : 'border-transparent text-muted-foreground hover:text-foreground')
+                        }
+                      >
+                        {t(`tabs.${id}`)}
+                        {count && (
+                          // The count is the severity layer's `bad` pill when it
+                          // reports failures and `mute` otherwise — one badge, one
+                          // vocabulary, no per-site colour (082 D-10). The title
+                          // says which number it is; `1` alone would not.
+                          <span title={t(count.bad ? 'tabs.failedCount' : 'tabs.rowCount', { count: count.value })}>
+                            <StatusBadge sev={count.bad ? 'bad' : 'mute'}>
+                              <span className="tabular-nums">{count.value}</span>
+                            </StatusBadge>
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
 
                 {/*
@@ -387,6 +427,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                           columnDefs={itemColumns}
                           rowData={document.lines ?? []}
                           emptyMessage={t('items.empty')}
+                          pinnedBottomRowData={itemsFooter}
+                          rowSelection={ITEM_ROW_SELECTION}
+                          getRowStyle={deletedLineRowStyle}
                         />
                       )}
                       {id === 'conditions' && (

@@ -467,6 +467,16 @@ separation sits between two the dark table already ships (`--card` vs `--backgro
 `--brand-panel` shares its hex with dark `--sidebar-accent` and is **deliberately not aliased** — a
 future move of the sidebar hover ground must not drag the login panel with it.
 
+**Amended by [107](107-identity-band-dark-separation.md) — the tokens stand, the consumers carry a
+hairline.** The ΔL +.058 above was sized for the login Editorial Split, where the panel is one half of
+a two-half composition and the light sign-in ground beside it defines the slab. Ticket 091 made
+`--brand-panel` the ground of a **full-width page header** (083 D-2) with nothing beside it, where the
+same step reads as a faint raise: 13.54:1 against the light page, 1.18:1 against the dark one, and the
+band was the page's only slab with no `--border` hairline. The resolution is a border on **that
+consumer**, not a dark twin: the pair stays the only one declared outside the `.dark` block with no
+counterpart, which is the enforcement mechanism this section names. A future `--brand-panel` consumer
+that is a whole surface rather than half a composition should draw the hairline too.
+
 | Surface | Ruling |
 |---|---|
 | Login (Editorial Split) | Composition intact — bled watermark, lockup, kicker, tagline, desktop-only half. Ground → `--brand-panel`; ink → `--brand-panel-foreground` (and `/70` for the muted line); the gold kicker loses its gold. The watermark and lockup marks stay gold — that is where brand colour lives now. |

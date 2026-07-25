@@ -56,7 +56,14 @@ export default function IdentityBand({
       // is gone.
       role="group"
       aria-label={t('band.ariaLabel')}
-      className="flex flex-wrap items-start gap-x-4 gap-y-2.5 rounded-lg bg-brand-panel px-4 py-3 text-brand-panel-foreground"
+      // The hairline is ticket 107, and it is `--border` at FULL strength while
+      // every peer slab on this page draws `border-border/60`. The peers sit on
+      // `--card`, a near-page ground whose edge is a refinement; this band's
+      // edge is its separation. `--brand-panel` is fixed in both themes
+      // (082 D-9), so in dark the band is a raised slab at ΔL +.058 — a step
+      // sized for the login Editorial Split, where a light half sits beside it.
+      // Full-width with nothing beside it, the band needs the whole hairline.
+      className="flex flex-wrap items-start gap-x-4 gap-y-2.5 rounded-lg border border-border bg-brand-panel px-4 py-3 text-brand-panel-foreground"
     >
       <Link
         to="/oms/deliveries"

@@ -278,6 +278,18 @@ A dark band — the one dark band on the page, which is why 082 rejected a dark 
 `refDocumentNo`, `documentSourceDescription` and `entryUser` move to the All-statuses disclosure's
 neighbourhood rather than the band. `documentCategory` is machinery and stays off-screen.
 
+**Amended by [107](107-identity-band-dark-separation.md):** the band draws a `--border` hairline, like
+every other slab on the page. "The one dark band" is a *light-theme* sentence — `--brand-panel` is
+fixed in both themes (082 D-9), so in dark the band separates from the page by ΔL +.058 and is a
+raised slab rather than a dark one. That step was sized on purpose for the login Editorial Split,
+where a light half sits beside it; this band is full-width with nothing beside it, and it was the
+page's only slab drawing its separation bare. In dark the hairline is what makes the edge read. In
+light it changes nothing that matters — `--border` is a pale line one step off the page ground
+(ΔL .118), so it reads as the band inset by a pixel rather than as a ring, and the band's own ΔL .904
+against the page is still what separates it. Both figures are measured, in both themes, by
+`tools/document-band-drive.mjs`. The token pair and the login composition are untouched, and the band
+takes `--border` at full strength rather than the peers' `/60` — the reason is on `IdentityBand.tsx`.
+
 **One build-time check:** `isExpressDelivery` is `false` on all five payloads and the owner reports the
 source flag is named `IsDeliveryExpress`. Verify our field actually binds it before trusting the tag;
 if it does not, the tag renders on nothing and that is a contract bug to file, not a design change.

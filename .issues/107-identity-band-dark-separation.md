@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 082
 blocked-by: —
 ---
@@ -56,11 +56,41 @@ design decision · one component (`IdentityBand.tsx`) or one spec line · both t
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `bandSeparatesInBothThemes` — the band's edge is distinguishable from the page ground in dark by
+- [x] `bandSeparatesInBothThemes` — the band's edge is distinguishable from the page ground in dark by
       the same measure the other slabs pass (border, or a luminance step) · flow (Playwright,
       `tools/document-band-drive.mjs` — it already reads the band in both themes)
-- [ ] the light theme is byte-identical, or its change is deliberate and stated · flow (same drive)
-- [ ] `npm run lint`'s contrast gate stays green · gate
+- [x] the light theme is byte-identical, or its change is deliberate and stated · flow (same drive)
+- [x] `npm run lint`'s contrast gate stays green · gate
+
+**Resolved: option 2**, the hairline, scoped to the band. `IdentityBand.tsx` gains
+`border border-border` — one class, no token minted, the login Editorial Split untouched.
+
+**How it was verified.** `tools/document-band-drive.mjs` **34/34** (was 32; the two new assertions
+measure the edge in both themes). In dark the hairline is ΔL **.026** from the page against the band's
+own **.011** — the edge is more than twice the separation the band had alone — and .015 from the band's
+ground, so it paints from both sides. In light the band's ΔL **.904** against the page still carries
+the separation and the pale edge sits .118 off the page ground: the band reads as inset by a pixel,
+not ringed (screenshots in both themes confirm it). Ink is unchanged at 14.56:1 in both.
+
+The other six document drives re-ran green untouched (detail 39, rail 25, cards 45, items 23,
+actions 38, rtl 33); `npm test` 68/68; typecheck, lint (three gates — including the contrast gate) and
+build green.
+
+**The choice is recorded** in [082](082-pos-design-system-spec.md) D-9 (the tokens stand; a
+`--brand-panel` consumer that is a whole surface rather than half a composition draws the hairline)
+and [083](083-document-details-rework-spec.md) D-2 (the band's amendment, with both measurements).
+
+## Notes from the build
+
+- **The band takes `--border` at full strength, while every peer slab on the page draws
+  `border-border/60`** — raised in review as two hairline recipes on one page. Kept, with the reason
+  on the component: the peers sit on `--card`, a near-page ground whose edge is a *refinement*; this
+  band's edge is its *separation*. A `/60` alpha over the deep-steel ground would spend on consistency
+  exactly the strength the ticket exists to buy.
+- The drive does **not** compare the band's edge against a peer's, though an earlier draft's wording
+  claimed to. It cannot honestly: the peers' border is an alpha and `getComputedStyle` returns it as
+  `oklab(… / .6)`, which the drive has no way to composite. The assertion now says what it measures —
+  a 1px hairline distinguishable from both grounds.
 
 ## Boundaries
 

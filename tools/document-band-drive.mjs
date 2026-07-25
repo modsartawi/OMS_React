@@ -13,7 +13,11 @@
 //   4. the customer block sits at the END of the band;
 //   5. Back is a chevron at the START of the band and routes to the list;
 //   6. the overall lozenge renders as a monospace code on the two documents
-//      that carry one and is absent on the three that do not.
+//      that carry one and is absent on the three that do not;
+//   7. (ticket 107) the band draws a 1px hairline that is distinguishable from
+//      both its own ground and the page, in both themes. In light the band's ΔL
+//      against the page carries the separation alone; in dark that step is +.058
+//      (082 D-9's own figure) and the band was the one slab drawing it bare.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/document-band-drive.mjs
@@ -230,14 +234,40 @@ async function run() {
       const style = getComputedStyle(el)
       const band = lum(style.backgroundColor)
       const ink = lum(style.color)
+      const edge = lum(style.borderTopColor)
       const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
       // `--brand-panel` is a deep-steel slab in BOTH themes: a dramatic dark
       // band against the light page, and a RAISED slab (ΔL +.058) against the
       // dark one — 082 D-9 states that asymmetry, so the assertion is
       // separation from the page, not "darker than" it.
-      return { separated: Math.abs(band - page) > 0.01, inkContrast: ratio(ink, band) }
+      return {
+        separated: Math.abs(band - page) > 0.01,
+        inkContrast: ratio(ink, band),
+        // Ticket 107. The ΔL above is the whole of the band's separation in
+        // LIGHT and it is dramatic; in dark it is +.058, and the band was the
+        // page's only slab drawing it with no hairline. The edge is measured
+        // from BOTH sides — a border that matched either ground would be a
+        // class name that paints nothing. It is NOT compared against a peer
+        // slab's border: the peers' is an alpha over `--card`, and this drive
+        // has no honest way to composite that (`getComputedStyle` hands back an
+        // `oklab(… / .6)` string). The band deliberately draws `--border` at
+        // full strength — the reason is on `IdentityBand.tsx`.
+        edgeWidth: style.borderTopWidth,
+        edgeVsBand: Math.abs(edge - band),
+        edgeVsPage: Math.abs(edge - page),
+        deltaL: Math.abs(band - page),
+      }
     })
-    check(`${theme}: the band is a distinct slab against the page`, contrast.separated)
+    check(
+      `${theme}: the band is a distinct slab against the page`,
+      contrast.separated,
+      `ΔL ${contrast.deltaL.toFixed(3)}`,
+    )
+    check(
+      `${theme}: and draws a 1px hairline distinguishable from BOTH its ground and the page`,
+      contrast.edgeWidth === '1px' && contrast.edgeVsBand > 0.005 && contrast.edgeVsPage > 0.005,
+      `${contrast.edgeWidth}, ΔL vs band ${contrast.edgeVsBand.toFixed(3)} · vs page ${contrast.edgeVsPage.toFixed(3)}`,
+    )
     check(
       `${theme}: its ink clears AA on that slab`,
       contrast.inkContrast >= 4.5,

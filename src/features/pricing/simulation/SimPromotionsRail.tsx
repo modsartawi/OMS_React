@@ -20,7 +20,10 @@ import SimMissedPromotions from './SimMissedPromotions'
  *
  * **The rail is its own frame so the results never shift** when it grows or shrinks,
  * and it renders straight off the promo view — it never waits on the bonus-buy details
- * probe ([118](.issues/118-sim-bby-details-affordance.md) adds that control).
+ * probe ([118](.issues/118-sim-bby-details-affordance.md) added that control, and kept
+ * this property: the verdict is the screen's primary answer and must not be delayed by
+ * a permission check, so the cards paint immediately and the control appears if and when
+ * the probe resolves to a CONFIRMED grant — `onOpenBbyDetails` arriving non-null).
  *
  * ## The three things it can say
  *
@@ -46,6 +49,13 @@ interface Props {
    *  component has no way to honour. */
   hotBby: string | null
   onHotChange: (bby: string | null) => void
+  /** Open a promotion's bonus-buy record as a modal in place. `null` while the grant is
+   *  unprobed or denied — UNKNOWN MEANS ABSENT here (ticket 118). The inquiry screen's
+   *  probe degrades an unreachable endpoint to *granted*, which is right for a read-only
+   *  inquiry and wrong on a card: reused verbatim it would put a button on every card
+   *  that fails on every click, today, on live SIS.Api. The Page therefore gates on
+   *  `probed && screenAllowed` and passes null otherwise. */
+  onOpenBbyDetails: ((bbyNumber: string) => void) | null
 }
 
 export default function SimPromotionsRail({
@@ -54,6 +64,7 @@ export default function SimPromotionsRail({
   promotionApplicable,
   hotBby,
   onHotChange,
+  onOpenBbyDetails,
 }: Props) {
   const { t } = useTranslation('simulation')
 
@@ -92,10 +103,15 @@ export default function SimPromotionsRail({
             currency={currency}
             hotBby={hotBby}
             onHotChange={onHotChange}
+            onOpenBbyDetails={onOpenBbyDetails}
           />
           {/* Near-misses last, under the fires: what DID happen reads before what did
               not. Absent entirely when nothing was missed. */}
-          <SimMissedPromotions missed={view.missed} currency={currency} />
+          <SimMissedPromotions
+            missed={view.missed}
+            currency={currency}
+            onOpenBbyDetails={onOpenBbyDetails}
+          />
         </div>
       )}
     </div>

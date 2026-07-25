@@ -9,6 +9,8 @@ import { toast } from 'sonner'
 // renders zero grids, so the setup side-effect import and the column-definition builder
 // went with it.
 import { apiErrorMessage } from '@/core/api'
+import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
+import DetailModal from '@/core/bonus-buy/DetailModal'
 import { confirmAction } from '@/core/services/confirm'
 import type { SimulateRequest, SimulationResult } from '@/core/models/simulation'
 import { simulationApi } from './api'
@@ -66,6 +68,37 @@ export default function SimulationPage() {
     const ok = await confirmAction(t('clearCache.confirmBody'), t('clearCache.confirmTitle'))
     if (ok) clearCache.mutate()
   }
+
+  // The bonus-buy grant (ticket 118) — a grant this screen does not own, over a record
+  // this screen does not own. It is the SAME `Bby/Access` screen-open probe the menu and
+  // the inquiry screen read, consumed unchanged and under the same cache key, so the
+  // three of them cost one call. There is no details-specific endpoint; what differs
+  // here is only how strictly the answer is read.
+  //
+  // It degrades an unreachable
+  // endpoint to `{ screenAllowed: true, probed: false }` — correct for the read-only
+  // inquiry screen it was written for, wrong on a promotion card: reused verbatim it
+  // would put a button on every card that fails on every click, today, because
+  // GET Bby/Detail is a designed, unbuilt contract. So the gate is
+  // `probed && screenAllowed` — UNKNOWN MEANS ABSENT — and the affordance ships DARK
+  // until the backend endpoint exists.
+  //
+  // Nothing on the screen waits on this query. It is not a route guard; the rail renders
+  // off the promo view the moment a run returns, and the control appears if and when the
+  // probe resolves to a confirmed grant.
+  const bbyAccess = useQuery({
+    queryKey: BBY_ACCESS_KEY,
+    queryFn: () => bonusBuyAccessApi.access(),
+  })
+  const canOpenBbyDetails =
+    bbyAccess.data?.probed === true && bbyAccess.data.screenAllowed === true
+
+  // Which bonus buy has its detail modal open (null = none). The ONE exception to this
+  // screen's expand-in-place rule: another record, another endpoint, another grant — so
+  // it is a modal OVER the basket, and closing it returns to exactly the basket that was
+  // there. Held at the Page (not in the rail) so the modal mounts above the whole work
+  // area rather than inside a frame that a re-run can unmount.
+  const [bbyDetails, setBbyDetails] = useState<string | null>(null)
 
   const [header, setHeader] = useState<SimHeaderState>(defaultHeader)
   const [promotion, setPromotion] = useState(true)
@@ -412,10 +445,21 @@ export default function SimulationPage() {
               // one application when the projection (044) supplies a key; a card cannot.
               hotBby={hot?.bby ?? null}
               onHotChange={(bby) => setHot(bby ? { bby, conditionKey: null } : null)}
+              // Null — so no control renders at all — until the probe CONFIRMS the
+              // grant. Unprobed and denied are the same answer here.
+              onOpenBbyDetails={canOpenBbyDetails ? setBbyDetails : null}
             />
           </div>
         </>
       )}
+
+      {/* The bonus-buy record, over the basket (ticket 118). The shared `@/core/`
+          modal (moved there by 112 for exactly this second consumer) — its copy stays
+          in the `bonus-buy-inquiry` namespace, un-renamed: namespaces are flat and
+          feature-named regardless of which folder the component sits in. It renders
+          nothing while `bbyNumber` is null, so it costs the screen no query and no
+          markup until asked for. */}
+      <DetailModal bbyNumber={bbyDetails} onClose={() => setBbyDetails(null)} />
     </section>
   )
 }

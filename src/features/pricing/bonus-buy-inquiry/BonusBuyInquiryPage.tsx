@@ -17,6 +17,7 @@ import {
 } from '@/core/theme/ag-grid-theme'
 import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
 import DetailModal from '@/core/bonus-buy/DetailModal'
+import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
 import { bonusBuyInquiryApi } from './api'
 import { buildListParams, type BbyListCriteria } from './list-params'
 import { buildDefaultColDef, buildInquiryColumns } from './columns'
@@ -52,8 +53,8 @@ export default function BonusBuyInquiryPage() {
   const { t } = useTranslation('bonus-buy-inquiry')
 
   const access = useQuery({
-    queryKey: ['bonus-buy-inquiry', 'access'],
-    queryFn: () => bonusBuyInquiryApi.access(),
+    queryKey: BBY_ACCESS_KEY,
+    queryFn: () => bonusBuyAccessApi.access(),
   })
 
   // `criteria` is the live toolbar draft; `appliedParams` is the query that has actually

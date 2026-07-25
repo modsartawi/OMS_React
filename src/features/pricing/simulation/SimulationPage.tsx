@@ -9,7 +9,6 @@ import { toast } from 'sonner'
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import { confirmAction } from '@/core/services/confirm'
-import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { SimulateRequest, SimulationResult } from '@/core/models/simulation'
 import { simulationApi } from './api'
 // The header form is no longer rendered here — it is the run strip's expansion
@@ -17,6 +16,7 @@ import { simulationApi } from './api'
 import { defaultHeader, type SimHeaderState } from './SimHeaderForm'
 import SimItemsEntry, { emptyItemRow, type SimItemRow } from './SimItemsEntry'
 import SimManualConditions, { type SimManualConditionRow } from './SimManualConditions'
+import SimFailureBanner from './SimFailureBanner'
 import SimItemDetail from './SimItemDetail'
 import SimBonusBuyPanel from './SimBonusBuyPanel'
 import SimPromoBlocks from './SimPromoBlocks'
@@ -82,7 +82,12 @@ export default function SimulationPage() {
   // on every Process — and auto-expands NEVER, including a Process that fails,
   // which is still a Process: the screen must not move itself while the analyst is
   // starting to read a failure.
-  const [stripOpen, setStripOpen] = useState(false)
+  //
+  // It starts OPEN (ticket 120): before any Process there is no run to condense,
+  // and this is the moment the determination is actually set. The three test levers
+  // — procedure key, loyalty group, loyalty tier — are reachable from the first
+  // paint rather than behind a chip set describing a run that has not happened.
+  const [stripOpen, setStripOpen] = useState(true)
 
   // The run ON SCREEN: its result, how long it took, and — the part ticket 114
   // needs — the request that produced it, which is what staleness compares
@@ -301,66 +306,73 @@ export default function SimulationPage() {
         onClearCache={() => void runClearCache()}
       />
 
-      {/* A pricing rejection (400 [PRICING_ERROR] message) — the whole run failed. */}
-      {process.isError ? (
-        <ErrorBanner title={t('banner.failed')} message={apiErrorMessage(process.error, t('banner.failed'))} className="p-4" />
-      ) : null}
-
-      {/* ===== MAIN: 7/5 split — left = inputs + results; right = detail + bonus buys. ===== */}
+      {/* ===== MAIN: 7/5 split — left = inputs + work area; right = detail + bonus
+          buys, present only when there IS a run to describe. ===== */}
       <div className="grid gap-3 xl:grid-cols-[7fr_5fr]">
-        {/* LEFT column. */}
+        {/* LEFT column. Items never collapse, never join the strip, and never move:
+            they are the instrument retyped every run, and a failed run must leave
+            them exactly where they were so the offending line is corrected in place
+            (ticket 120). Manual conditions fold in as a disclosure — no fourth frame. */}
         <div className="flex min-w-0 flex-col gap-3">
-          {/* Editable items grid + manual-conditions grid, side by side. */}
-          <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
-            <SimItemsEntry rows={items} onChange={setItems} disabled={process.isPending} />
+          <SimItemsEntry rows={items} onChange={setItems} disabled={process.isPending}>
             <SimManualConditions
               rows={manualConditions}
               onChange={setManualConditions}
               disabled={process.isPending}
             />
-          </div>
+          </SimItemsEntry>
 
-          {/* The per-item E/W count banner is RETIRED (ticket 115, ruled in 104 §2):
+          {/* ---- THE WORK AREA: exactly one of three things, never a stack ----
+              The banner REPLACES it rather than pushing it down, and before the
+              first Process it is one line of quiet text — not a framed empty box,
+              not a skeleton, not a sample basket. Nothing has happened, so there
+              is nothing to draw; that is the reclaim.
+
+              The per-item E/W count banner is RETIRED (ticket 115, ruled in 104 §2):
               on the captured evidence it is a warning-only banner over a three-line
               table where the line's own badge is already in view — two surfaces for
               one fact, and the badge is the one that says WHICH line. */}
+          {process.isError ? (
+            <SimFailureBanner error={process.error} onOpenSettings={() => setStripOpen(true)} />
+          ) : result === null ? (
+            <p data-work-area="pre-run" className="px-1 py-2 text-sm text-muted-foreground">
+              {t('summary.noResult')}
+            </p>
+          ) : (
+            <>
+              {/* The stale mark's second appearance (ticket 114): the strip carries it
+                  where the change happened, this line carries it where the stale
+                  numbers are. Only when there is a result for it to be about — and
+                  never while a run is out, because the slot's three states are
+                  exclusive there and two vocabularies for one state is one too many. */}
+              {stale && !process.isPending ? <SimStaleResultsNote /> : null}
 
-          {/* The stale mark's second appearance (ticket 114): the strip carries it
-              where the change happened, this line carries it where the stale
-              numbers are. Only when there is a result for it to be about — and
-              never while a run is out, because the slot's three states are
-              exclusive there and two vocabularies for one state is one too many. */}
-          {stale && result && !process.isPending ? <SimStaleResultsNote /> : null}
-
-          {/* Results table. */}
-          <div className="rounded-lg border border-border/60 bg-card p-3">
-            <h2 className="mb-2 text-sm font-semibold tracking-tight">{t('results.title')}</h2>
-            {result === null ? (
-              <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-                {t('results.empty')}
+              <div data-work-area="results" className="rounded-lg border border-border/60 bg-card p-3">
+                <h2 className="mb-2 text-sm font-semibold tracking-tight">{t('results.title')}</h2>
+                <SimResultsGrid
+                  items={result.items}
+                  promoByItem={promoByItem}
+                  hot={hot}
+                  // The table marks what is actually SELECTED — `null` after a re-run.
+                  // The detail panel's first-line fallback must not put a mark on a line
+                  // the analyst never chose.
+                  selectedItemNumber={selectedItemNumber}
+                  currency={result.header.currency}
+                  onSelect={setSelectedItemNumber}
+                  onHotChange={setHot}
+                />
               </div>
-            ) : (
-              <SimResultsGrid
-                items={result.items}
-                promoByItem={promoByItem}
-                hot={hot}
-                // The table marks what is actually SELECTED — `null` after a re-run.
-                // The detail panel's first-line fallback must not put a mark on a line
-                // the analyst never chose.
-                selectedItemNumber={selectedItemNumber}
-                currency={result.header.currency}
-                onSelect={setSelectedItemNumber}
-                onHotChange={setHot}
-              />
-            )}
-          </div>
+            </>
+          )}
         </div>
 
-        {/* RIGHT column — fired-promotion blocks + pricing detail + bonus-buy tabs. */}
-        <div className="flex min-w-0 flex-col gap-3">
-          {/* Fired promotions as plain-language buy→get blocks (ticket 047), linked to
-              the results grid by the shared hot-promotion state. */}
-          {result ? (
+        {/* RIGHT column — fired-promotion blocks + pricing detail + bonus-buy tabs.
+            Absent entirely with no result: an empty dashed box is a frame drawn
+            around nothing, which is the shape ticket 120 reclaims. */}
+        {result ? (
+          <div className="flex min-w-0 flex-col gap-3">
+            {/* Fired promotions as plain-language buy→get blocks (ticket 047), linked to
+                the results grid by the shared hot-promotion state. */}
             <SimPromoBlocks
               blocks={view.blocks}
               currency={result.header.currency}
@@ -369,25 +381,25 @@ export default function SimulationPage() {
               hotBby={hot?.bby ?? null}
               onHotChange={(bby) => setHot(bby ? { bby, conditionKey: null } : null)}
             />
-          ) : null}
 
-          {/* "Could have applied" — the near-misses beneath the fired blocks (ticket
-              048); absent when nothing was missed. Temporarily hidden — the Potential
-              Bonus Buys surface is held back for now (re-enable to restore). */}
-          {/* {result ? <SimMissedPromotions missed={view.missed} currency={result.header.currency} /> : null} */}
+            {/* "Could have applied" — the near-misses beneath the fired blocks (ticket
+                048); absent when nothing was missed. Temporarily hidden — the Potential
+                Bonus Buys surface is held back for now (re-enable to restore). */}
+            {/* <SimMissedPromotions missed={view.missed} currency={result.header.currency} /> */}
 
-          {selectedItem ? (
-            /* Per-line pricing detail + aggregated condition cards (ticket 014). */
-            <SimItemDetail key={selectedItem.itemNumber} item={selectedItem} currency={result?.header.currency ?? ''} />
-          ) : (
-            <div className="flex h-40 items-center justify-center rounded-lg border border-dashed border-border/60 bg-card text-sm text-muted-foreground">
-              {t('summary.noResult')}
-            </div>
-          )}
+            {/* Per-line pricing detail + aggregated condition cards (ticket 014). */}
+            {selectedItem ? (
+              <SimItemDetail
+                key={selectedItem.itemNumber}
+                item={selectedItem}
+                currency={result.header.currency}
+              />
+            ) : null}
 
-          {/* Bonus-buy tabs + pricing-elements trace (ticket 015). */}
-          {result ? <SimBonusBuyPanel result={result} selectedItem={selectedItem} /> : null}
-        </div>
+            {/* Bonus-buy tabs + pricing-elements trace (ticket 015). */}
+            <SimBonusBuyPanel result={result} selectedItem={selectedItem} />
+          </div>
+        ) : null}
       </div>
     </section>
   )

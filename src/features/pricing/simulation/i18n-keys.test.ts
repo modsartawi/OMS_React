@@ -34,6 +34,14 @@ const NEW_KEYS = [
   'strip.key.elem',
   'strip.promoOn',
   'strip.promoOff',
+  // Added to the 123 ledger by slice 120: the failure banner carries the route to
+  // the fault, and the manual-conditions disclosure carries a count on its label.
+  // The ledger anticipated neither — 120's boundary sends new copy here rather
+  // than to an ad-hoc key beside the call site.
+  'banner.routeItems',
+  'banner.routeSettings',
+  'manual.count_one',
+  'manual.count_other',
 ]
 
 /** Keys the rework retires later (ticket 121's close-out) — they must survive the expand step. */
@@ -65,6 +73,10 @@ const RETIRING_KEYS = [
   'results.promoRole.buy',
   'results.promoRole.get',
   'results.promoRole.buy+get',
+  // Lost its call site to slice 120 — the work area no longer draws a framed
+  // "No priced lines yet." box before a run, it draws one line of `summary.noResult`.
+  // The KEY stays until 121's contract half, like every other entry here.
+  'results.empty',
 ]
 
 /**

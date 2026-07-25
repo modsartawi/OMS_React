@@ -177,6 +177,15 @@ async function run() {
   // and the tab-stop count below is only meaningful once the run loop is takeable.
   await itemsTable().locator('input').first().fill('107255')
 
+  // Ticket 120 made the PRE-RUN screen the open form — there is no run to condense
+  // before the first Process. The collapsed-row assertions below are about the
+  // strip's steady state, so collapse it first; 120's own drive owns the pre-run
+  // state itself.
+  if ((await readStrip()).mode === 'expanded') {
+    await page.locator('[data-chip-set]').click()
+    await page.waitForTimeout(100)
+  }
+
   // ------------------------------------------------- 1 · the chips are readouts
   let view = await readStrip()
   check(

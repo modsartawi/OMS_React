@@ -76,6 +76,20 @@ is open. The ledger had minted `strip.edit` (`Edit ▾`) alone, but the control 
 `actions.title` with the frames they titled, so `i18n-keys.test.ts` now asserts those three are **absent**
 while the rest of the retiring set stays present for 121.
 
+**Ledger follow-up, 2026-07-25 (from slice [120](120-sim-non-result-states.md)).** Four more keys the
+ledger did not anticipate, added here so the file keeps one owner:
+
+- **`banner.routeItems`** and **`banner.routeSettings`** — the whole-run 400 banner carries the route to
+  the fault (spec 110 stories 69–70). The ledger kept `banner.failed` but minted nothing for the route,
+  which did not exist before 120.
+- **`manual.count_one` / `manual.count_other`** — the count on the manual-conditions disclosure label
+  (story 25). A plural pair rather than a bare `{{count}}`, so the pill reads as a phrase.
+
+22 keys, not 18. `manual.empty` and `manual.itemHint` both keep their call sites inside the new
+disclosure. One key **lost** its call site and joins the retiring set for 121 to sweep:
+**`results.empty`** — the work area no longer draws a framed "No priced lines yet." box before a run, it
+draws one line of `summary.noResult`.
+
 ## Boundaries
 
 No API, no component, no nav, no test-runner change. **This ticket owns `src/locales/en/simulation.json`

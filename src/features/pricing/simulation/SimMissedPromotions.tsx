@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { ChevronRight } from 'lucide-react'
+import Ltr from '@/core/ui/Ltr'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { MissedPrereq, MissedPromo } from './promo-view'
 import { KIND_CHIP, MISS_GLYPH, PROMO_CARD_ROW } from './promo-kind'
@@ -68,8 +69,10 @@ export default function SimMissedPromotions({ missed, currency, onOpenBbyDetails
         <h3 className="text-xs font-semibold tracking-tight text-muted-foreground">
           {t('missed.sectionTitle')}
         </h3>
+        {/* `1 near-miss` — the sibling count badge to the rail's `1 fired`, and the same
+            audit finding: a run opening with a digit reorders. Isolated whole (121). */}
         <span className="text-[11px] font-medium text-muted-foreground">
-          {t('missed.count', { count: missed.length })}
+          <Ltr>{t('missed.count', { count: missed.length })}</Ltr>
         </span>
       </div>
 
@@ -127,7 +130,13 @@ function MissedRow({
           {MISS_GLYPH}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium">{name}</span>
+          {/* THE offender the 106 audit found instead of the one it expected: the raw
+              server promotion title (`2 PC for 29.95 SR`, `70% 2nd PCS`). It opens with a
+              digit and reorders, and — unlike the English we compose — it **cannot be
+              re-worded**, because it is server data passed through as data. Isolated. */}
+          <span className="block truncate text-sm font-medium">
+            <Ltr>{name}</Ltr>
+          </span>
           <IdentitySubLine missed={missed} t={t} />
         </span>
         {missed.wouldSave != null && missed.wouldSave > 0 ? (
@@ -135,14 +144,29 @@ function MissedRow({
             <span className="block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
               {t('missed.wouldSaveLabel')}
             </span>
+            {/* Money AND currency inside one isolate: the audit measured that a
+                figure+unit pair breaks **only when a literal space separates them**, and
+                this one has one (`105.18 SAR`). Wrapped as a whole value — the figure
+                alone would be the fragment 080 warns about. */}
             <span className="block text-sm font-bold tabular-nums text-muted-foreground">
-              {formatMoney(missed.wouldSave)}{' '}
-              <span className="text-[10px] font-medium">{currency}</span>
+              <Ltr>
+                {formatMoney(missed.wouldSave)}{' '}
+                <span className="text-[10px] font-medium">{currency}</span>
+              </Ltr>
             </span>
           </span>
         ) : null}
+        {/* One twisty idiom across the screen (ticket 121): the flip rides the CLOSED
+            state, where the chevron points the way the text runs; open it points down,
+            which is direction-neutral. Composing a rotate with a mirror is the
+            double-mirror trap in its second form — two transforms on one property,
+            resolved by stylesheet order rather than by intent. */}
         <ChevronRight
-          className={'h-4 w-4 shrink-0 text-muted-foreground transition-transform rtl:rotate-180 ' + (expanded ? 'rotate-90 rtl:-rotate-90' : '')}
+          data-card-twisty={expanded ? 'open' : 'closed'}
+          className={
+            'h-4 w-4 shrink-0 text-muted-foreground transition-transform ' +
+            (expanded ? 'rotate-90' : 'rtl:-scale-x-100')
+          }
           aria-hidden
         />
       </button>
@@ -195,7 +219,11 @@ function IdentitySubLine({ missed, t }: { missed: MissedPromo; t: TFunction }) {
               ·
             </span>
           ) : null}
-          <span>{p}</span>
+          {/* Each part is its own isolate — `000100000131`, `promo 0001000040`, the kind
+              in words. The separated-spans spelling this function already used keeps the
+              middots out of the runs; the isolate keeps each part's own digits in
+              order (121). */}
+          <Ltr>{p}</Ltr>
         </span>
       ))}
     </span>

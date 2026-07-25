@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import Ltr from '@/core/ui/Ltr'
 import type { PromoView } from './promo-view'
 import SimPromoBlocks from './SimPromoBlocks'
 import SimMissedPromotions from './SimMissedPromotions'
@@ -88,8 +89,12 @@ export default function SimPromotionsRail({
         {/* The fired count is a fact about a run that measured — it has no meaning on a
             promo-off run, and printing `0 fired` there is the confusion the state exists
             to prevent. */}
+        {/* `1 fired` — a count badge, and the audit's site #5: a run that OPENS with a
+            digit reorders under RTL however short it is. Isolated whole (ticket 121). */}
         {state === 'cards' && fired > 0 ? (
-          <span className="text-xs font-medium text-primary">{t('promo.firedCount', { count: fired })}</span>
+          <span className="text-xs font-medium text-primary">
+            <Ltr>{t('promo.firedCount', { count: fired })}</Ltr>
+          </span>
         ) : null}
       </div>
 

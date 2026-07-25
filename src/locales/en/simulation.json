@@ -62,13 +62,10 @@
     "denied": "Couldn't clear the cache"
   },
   "summary": {
-    "netTotal": "Total Net Total",
     "totalDiscount": "Total discount",
     "tax": "Tax",
-    "elapsed": "{{ms}} ms",
     "calc": "Calc: {{ms}} ms",
-    "noResult": "Process a basket to see results.",
-    "placeholder": "—"
+    "noResult": "Process a basket to see results."
   },
   "banner": {
     "failed": "Simulation failed",
@@ -80,19 +77,6 @@
     "item": "Item",
     "qty": "Qty",
     "promotion": "Promotion",
-    "promoKind": {
-      "free": "Free goods",
-      "percent": "% off",
-      "fixed": "Amount off",
-      "setprice": "Set price",
-      "unknown": "Promotion"
-    },
-    "promoRole": {
-      "buy": "buy",
-      "get": "get",
-      "buy+get": "buy + get"
-    },
-    "empty": "No priced lines yet.",
     "pos": "#",
     "was": "Was",
     "saved": "Saved",

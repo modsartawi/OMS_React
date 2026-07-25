@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 110
 blocked-by: 115, 116, 117, 119
 ---
@@ -95,11 +95,64 @@ retirements only) · test (drive + script)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `every region of the reworked screen mirrors with no physical-utility fix owed` — the existing 180-combination sweep, re-run against the rebuilt markup · **flow (Playwright, `tools/sim-rtl-drive.mjs`)**
-- [ ] `every digit-and-space run keeps its internal order in RTL` — including the raw server promotion title and money-with-currency · **flow (same drive)**
-- [ ] `the twisty, the bonus-buy control and the buy→get arrow point the way the text runs` — and Process does not mirror · **flow (same drive)**
-- [ ] `no retired simulation key remains in the locale file or any call site` — the five money keys named explicitly, plus the full retirement list and the already-dead orphan; and every `t()` call resolves · **flow (script gate under `tools/`)**
-- [ ] `the screen spends exactly two hues` — success only on a fired promotion, attention only on a `W` line, the elements trace's flags neutral · **flow (same drive)**
+- [x] `every region of the reworked screen mirrors with no physical-utility fix owed` — the existing 180-combination sweep, re-run against the rebuilt markup · **flow (Playwright, `tools/sim-rtl-drive.mjs`)**
+- [x] `every digit-and-space run keeps its internal order in RTL` — including the raw server promotion title and money-with-currency · **flow (same drive)**
+- [x] `the twisty, the bonus-buy control and the buy→get arrow point the way the text runs` — and Process does not mirror · **flow (same drive)**
+- [x] `no retired simulation key remains in the locale file or any call site` — the five money keys named explicitly, plus the full retirement list and the already-dead orphan; and every `t()` call resolves · **flow (script gate under `tools/`)**
+- [x] `the screen spends exactly two hues` — success only on a fired promotion, attention only on a `W` line, the elements trace's flags neutral · **flow (same drive)**
+
+**Green:** `node tools/sim-rtl-drive.mjs` **29/29** on port 5205 (8 states × both directions);
+`node tools/check-sim-keys.mjs` **8/8**; `npm test` **251/251** (13 files); typecheck, build and all
+three `npm run lint` gates clean. The six neighbouring sim drives re-run untouched.
+
+## What the build found that the audit could not
+
+The audit measured **prototypes**; five things only the built screen could say:
+
+- **The 106 measurement had to be sharpened, not softened.** Measuring a run from its first to
+  its last *printing* character reports `Vat %`, `-105.18` and `Process a basket to see results.`
+  as scrambled — they are not: a leading or trailing **neutral** resolves from the surrounding
+  line, not from the run (N1/N2), so it relocates to the paragraph edge while the value stays
+  intact. 080 ruled that class not-a-bug; the drive now measures from first to last
+  **alphanumeric**, and the false-positive class is reported rather than hidden. Left uncorrected
+  it would have pushed a later session into isolating English prose.
+- **A label and its amount is not a composed value.** 106's composed pass treated
+  `money + currency` and `key + amount` as one class. Against the built money foot that reports
+  `Net total 136.44` as a fault, when the two parts swapping IS the mirroring — the label must lead
+  from the reading edge. The pass is now figure-and-unit only, and the distinction is written down.
+- **The wrappers landed on 9 runs and 5 composed values, not 13 sites.** Two of the audit's sites
+  do not exist in the build (the strip's money is spelled without a literal space — the second line
+  of defence held; the trace's `Rate: … | Base: …` opens with a Latin word and is W7-immune), and
+  the raw server title turned up in **three** places rather than one: the near-miss card's name,
+  the fired card's *title* (on the corpus the classified branch never renders, so the title IS the
+  server text) and the elements trace's description cell.
+- **A v4 flip is invisible to `transform`.** Tailwind 4 writes `scale-x`/`rotate` to the separate
+  `scale` and `rotate` longhands, so a drive reading `transform` alone reports every icon as
+  unflipped — the first version of this drive passed `▶ Process` and failed all four real icons for
+  the same wrong reason. The flip is now composed from all three, which is also what catches a
+  double mirror (it lands back on `+1`).
+- **The `buy → get` arrow is unprovable on the corpus.** No capture produces the structural split
+  (ticket 044 is still open), so every captured promotion renders degraded and the arrow has no
+  call site to measure. The drive falls back to asserting the **spelling** and says so, the way
+  117 did for the prerequisite meter.
+
+**One hue rule was widened, and it is a decision rather than a measurement.** The ticket says
+*attention on a `W` line*. The built screen has a second place carrying it: the line expansion's
+advisory `Pricing messages` panel, which appears on a line that **did** price and still has engine
+messages (116 shipped it that way, and this ticket was not asked to change it). It is the same
+meaning — the engine flagging something — and the hue COUNT is unaffected, so the drive's second
+home is *"a `W` line, or the panel carrying the engine's messages on a priced one"* rather than the
+ticket's narrower wording. Recorded here because the alternative was to relax the assertion quietly,
+and a passing check must not read as proof of a stricter rule than the one it checks. If the owner
+wants the ticket's letter instead, the panel goes neutral — one class change, and the drive tightens
+to `[data-line-priced="no"]` alone.
+
+Two ledger notes: 122's dead `met` branch **was already deleted by 116**, so the third hue left
+with a dissolving component rather than needing this pass; and the sweep found one orphan the
+ledger never named — `summary.placeholder`, the old Summary tile's em-dash — which is the argument
+for sweeping the ledger rather than diffing it. The whole-run 400 keeps its `danger` ground: it is
+core's `ErrorBanner` in place of the work area (120's ruling), not a third readout hue, and the
+drive asserts that by name instead of folding it into the census.
 
 `tools/sim-rtl-drive.mjs` **already exists and is green against today's screen.** Its job here is to go
 green again against the rebuilt one; extend its state matrix to cover the strip's collapsed and expanded

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DatabaseZap, Loader2, Play } from 'lucide-react'
 
+import Ltr from '@/core/ui/Ltr'
 import { formatMoney } from '@/core/util/number-format'
 import SimHeaderForm, { type SimHeaderState } from './SimHeaderForm'
 import SimStatusSlot, { useSpinnerVisible } from './SimStatusSlot'
@@ -163,7 +164,14 @@ export default function SimRunStrip({
       >
         {/* The icon swaps on the SHARED 150 ms flag, not on `pending` — a spinner
             that flashed here while the slot held still would be two answers to
-            the same question. `▶ Process` does not mirror (spec 110's RTL pass). */}
+            the same question.
+
+            **`▶ Process` does not mirror** — the logical-utility rule's exception
+            clause, exercised here (ticket 121, ruled in the 106 audit). Media players
+            do mirror a play triangle in RTL locales, but this is not a transport
+            control for a timeline: it is a run glyph in the same family as the wipe-
+            cache `⛁`, and it points at nothing the reader travels along. It carries no
+            `rtl:` flip, deliberately, and this is the note the sweep looks for. */}
         {spinner ? (
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
         ) : (
@@ -303,12 +311,19 @@ export default function SimRunStrip({
             >
               {chip.kind === 'keyed' ? (
                 <>
-                  <span className={chipKey}>{t(`strip.key.${chip.key}`)}</span>
+                  <span data-chip-key data-upper-mark className={chipKey}>
+                    {t(`strip.key.${chip.key}`)}
+                  </span>
                   <span className="font-medium text-foreground">{chip.value}</span>
                 </>
               ) : null}
+              {/* `25 Jul 2026` — a digit-space-digit run, and the first entry on the
+                  106 audit's bidi list: it reorders to `2026 Jul 25` under RTL. Isolated
+                  WHOLE, never a fragment (ticket 121). */}
               {chip.kind === 'date' ? (
-                <span className="font-medium text-foreground">{chip.value}</span>
+                <span className="font-medium text-foreground">
+                  <Ltr>{chip.value}</Ltr>
+                </span>
               ) : null}
               {/* The flag's state is not a code, so it is one authored phrase per
                   state rather than a key with a value slot (123's ledger). */}
@@ -318,7 +333,9 @@ export default function SimRunStrip({
               {/* The elements flag chips only when on, so its presence IS its state
                   and it carries no value slot (run-chips.ts). */}
               {chip.kind === 'flag' ? (
-                <span className={chipKey}>{t(`strip.key.${chip.key}`)}</span>
+                <span data-chip-key data-upper-mark className={chipKey}>
+                  {t(`strip.key.${chip.key}`)}
+                </span>
               ) : null}
             </span>
           ))}

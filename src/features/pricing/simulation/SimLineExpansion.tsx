@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle } from 'lucide-react'
 import type { PricingElement, SimulationResultItem } from '@/core/models/simulation'
+import Ltr from '@/core/ui/Ltr'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import { aggregateConditions } from './aggregate'
 import BoolCell from './BoolCell'
@@ -100,9 +101,16 @@ export default function SimLineExpansion({ item, currency, notPriced }: Props) {
         )}
       </div>
 
-      {/* ---- a priced line's advisory messages ---- */}
+      {/* ---- a priced line's advisory messages ----
+          The engine's own voice, so it wears the engine's hue — `attention`, the same
+          spend a `W` line makes on the line above (ticket 121's two-hue budget). The
+          `data-pricing-messages` marker is here so the hue assertion can find this home
+          in the rendered tree. */}
       {messages.length > 0 ? (
-        <div className="rounded-md border border-attention-border bg-attention-050 p-2.5 text-xs text-attention-800">
+        <div
+          data-pricing-messages
+          className="rounded-md border border-attention-border bg-attention-050 p-2.5 text-xs text-attention-800"
+        >
           <div className="mb-1 flex items-center gap-1.5 font-semibold">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
             {t('detail.messagesTitle')}
@@ -166,7 +174,14 @@ const ELEMENT_CELL: Record<ElementColumnId, (el: PricingElement) => ReactNode> =
   step: (el) => <span className="tabular-nums">{formatNumber(el.stepNumber)}</span>,
   ctr: (el) => <span className="tabular-nums">{formatNumber(el.conditionCounter)}</span>,
   type: (el) => <span className="font-medium">{el.conditionType}</span>,
-  description: (el) => <span className="text-muted-foreground">{el.description}</span>,
+  // The condition's own description, straight off the wire — a promotion's reads
+  // `70% 2nd PCS`, which opens with a digit and reorders under RTL. Isolated whole
+  // (ticket 121); it is the same raw server title the promotion card carries.
+  description: (el) => (
+    <span className="text-muted-foreground">
+      <Ltr>{el.description}</Ltr>
+    </span>
+  ),
   base: (el) => <span className="tabular-nums">{formatMoney(el.conditionBaseValue)}</span>,
   rate: (el) => <span className="tabular-nums">{formatNumber(el.conditionRate)}</span>,
   unit: (el) => <span className="text-muted-foreground">{el.conditionRateUnit}</span>,

@@ -39,7 +39,11 @@ export default function SimBbyDetailsButton({
       className="flex w-full items-center gap-1 rounded-b-lg border-t border-border/60 px-3 py-1.5 text-start text-[11px] font-semibold text-primary hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {t('promo.bbyDetails')}
-      <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden />
+      {/* `Bonus buy details ▸` is one of the two real mirroring faults the 106 audit
+          found: `▸` does not self-mirror, so the affordance would point backwards under
+          RTL. It ships as a lucide SVG flipped explicitly — `-scale-x-100`, the same
+          spelling every mirrored icon on this screen uses (ticket 121). */}
+      <ChevronRight className="h-3.5 w-3.5 rtl:-scale-x-100" aria-hidden />
     </button>
   )
 }

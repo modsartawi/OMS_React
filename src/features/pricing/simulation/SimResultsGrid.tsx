@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { KeyboardEvent } from 'react'
 import { ChevronRight } from 'lucide-react'
 import type { SimulationResultItem } from '@/core/models/simulation'
+import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { Severity } from '@/core/ui/severity'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
@@ -163,6 +164,11 @@ export default function SimResultsGrid({
             <tr
               key={item.itemNumber}
               data-result-line={item.itemNumber}
+              // The engine's verdict on this line, on the line itself. Ticket 121's hue
+              // assertion needs it: `attention` may only be spent where the engine
+              // flagged something, and that home has to be findable in the rendered tree
+              // — which token is spent where is not visible to a lint.
+              data-line-priced={money.notPriced ? 'no' : 'yes'}
               tabIndex={0}
               role="button"
               aria-expanded={open}
@@ -185,14 +191,20 @@ export default function SimResultsGrid({
             >
               <td className="px-2 align-middle text-[11px] font-bold tabular-nums text-ink-3">
                 <span className="flex items-center gap-0.5">
-                  {/* The twisty is now the screen's load-bearing directional glyph, and
-                      mirroring it is ticket 121's — an SVG chevron is exactly the
-                      double-mirror trap that audit exists to measure, so this slice
-                      leaves it un-transformed rather than guessing at the fix. */}
+                  {/* The screen's load-bearing directional glyph, mirrored by ticket
+                      121. It is an SVG (lucide), so it does NOT auto-mirror and needs
+                      the explicit flip — where the CHARACTER `›` would have mirrored
+                      itself and double-mirrored back to wrong the moment anyone added
+                      one. That trap is why the twisty is never a punctuation character.
+
+                      The flip is on the CLOSED state only: closed, the chevron points
+                      the way the text runs, so it must follow direction; open, it
+                      points DOWN, which is direction-neutral — and composing a rotate
+                      with a scale is the second half of the same double-mirror trap. */}
                   <ChevronRight
                     data-line-twisty={open ? 'open' : 'closed'}
                     className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${
-                      open ? 'rotate-90' : ''
+                      open ? 'rotate-90' : 'rtl:-scale-x-100'
                     }`}
                     aria-hidden
                   />
@@ -212,13 +224,17 @@ export default function SimResultsGrid({
                 <div className="truncate text-[11px] leading-[13px] tabular-nums text-muted-foreground">
                   {item.materialNumber}
                 </div>
+                {/* The engine's own words, and the longest digit-and-space run on the
+                    screen — `[070] Mandatory condition 'VKP0' … at step 5` opens with a
+                    bracketed number and reorders wholesale under RTL (106's site #8).
+                    Server text, so it cannot be re-worded: isolated whole. */}
                 {money.notPriced
                   ? money.messages.map((message, i) => (
                       <div
                         key={`${item.itemNumber}-${i}`}
                         className="text-[11px] leading-[14px] text-attention-800"
                       >
-                        {message}
+                        <Ltr>{message}</Ltr>
                       </div>
                     ))
                   : null}
@@ -228,8 +244,11 @@ export default function SimResultsGrid({
                   is the cheapest sanity check on a price-master problem, and under the
                   quantity it costs no column. */}
               <td className="px-2 py-[2px] text-end text-[13px] text-muted-foreground">
+                {/* `2 EA` — a quantity and its unit, the audit's site #6. Isolated as
+                    ONE value: 080 created a fault by wrapping a fragment, and the
+                    quantity without its unit is exactly that fragment. */}
                 <div className="leading-4">
-                  {`${formatNumber(item.quantity)} ${item.unitOfMeasure ?? ''}`.trim()}
+                  <Ltr>{`${formatNumber(item.quantity)} ${item.unitOfMeasure ?? ''}`.trim()}</Ltr>
                 </div>
                 <div
                   className="text-[11px] leading-[13px] tabular-nums text-ink-3"
@@ -353,7 +372,7 @@ function PromoMark({ slot, t }: { slot: PromoSlot; t: ReturnType<typeof useTrans
   return (
     <span className="inline-flex items-center justify-end gap-1">
       {slot.state === 'fired' ? (
-        <span className="text-[11.5px] font-semibold text-success-800">
+        <span data-fired-mark className="text-[11.5px] font-semibold text-success-800">
           <span aria-hidden>✔</span> {t('results.fired')}
         </span>
       ) : null}
@@ -367,6 +386,7 @@ function PromoMark({ slot, t }: { slot: PromoSlot; t: ReturnType<typeof useTrans
 function ManualChip({ t }: { t: ReturnType<typeof useTranslation>[0] }) {
   return (
     <span
+      data-upper-mark
       className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-wider ${KIND_CHIP}`}
     >
       {t('detail.badge.manual')}

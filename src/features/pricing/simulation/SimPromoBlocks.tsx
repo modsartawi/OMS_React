@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { ArrowRight } from 'lucide-react'
+import Ltr from '@/core/ui/Ltr'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { PromoBlock, PromoGetLine, PromoItemRef } from './promo-view'
 import { promoLineList } from './promo-lines'
@@ -124,11 +125,20 @@ function Block({
           {glyph}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold tracking-tight">{title}</div>
+          <div className="text-sm font-semibold tracking-tight">
+            {title.fromServer ? <Ltr>{title.text}</Ltr> : title.text}
+          </div>
           {/* The server's promo name — a field the old Applied tab carried; shown unless
-              it already IS the (degraded/unclassified) title, to avoid echoing it. */}
-          {block.description && block.description !== title ? (
-            <div className="truncate text-xs text-muted-foreground">{block.description}</div>
+              it already IS the (degraded/unclassified) title, to avoid echoing it. It is
+              isolated for the same reason the fallback title above is: this is the audit's
+              real offender (`70% 2nd PCS`), and unlike the English we compose it cannot be
+              re-worded (121). The composed title is measured SAFE — a sentence opening
+              with a Latin word immunises its numbers (bidi W7), the finding that
+              overturned that audit's own prime suspect. */}
+          {block.description && block.description !== title.text ? (
+            <div className="truncate text-xs text-muted-foreground">
+              <Ltr>{block.description}</Ltr>
+            </div>
           ) : null}
           <IdentityLine block={block} t={t} />
         </div>
@@ -136,9 +146,14 @@ function Block({
           <div className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
             {t('promo.savedLabel')}
           </div>
+          {/* Figure and unit in ONE isolate — separated by a literal space, which is the
+              only condition under which the pair breaks (106, measured against the
+              strip's space-less spelling, which is safe). */}
           <div className="text-sm font-bold tabular-nums text-success-800">
-            {formatMoney(block.totalSaved)}{' '}
-            <span className="text-[10px] font-medium text-muted-foreground">{currency}</span>
+            <Ltr>
+              {formatMoney(block.totalSaved)}{' '}
+              <span className="text-[10px] font-medium text-muted-foreground">{currency}</span>
+            </Ltr>
           </div>
         </div>
       </div>
@@ -161,8 +176,12 @@ function Block({
               <ItemLine key={it.itemNumber} item={it} t={t} />
             ))}
           </ItemBox>
-          <div className="grid place-items-center text-primary" aria-hidden>
-            <ArrowRight className="h-4 w-4 rtl:rotate-180" />
+          {/* The `buy → get` arrow — the 106 audit's second real mirroring fault: `→`
+              does not self-mirror, so the relationship would read backwards under RTL.
+              A lucide SVG flipped explicitly, in the one spelling the whole screen uses
+              (ticket 121). */}
+          <div data-buy-get-arrow className="grid place-items-center text-primary" aria-hidden>
+            <ArrowRight className="h-4 w-4 rtl:-scale-x-100" />
           </div>
           <ItemBox
             label={t('promo.getLabel')}
@@ -253,7 +272,9 @@ function GetLine({ line, reward, t }: { line: PromoGetLine; reward: boolean; t: 
         ) : null}
       </span>
       {line.free ? (
-        <span className="shrink-0 font-bold text-success-800">{t('promo.free')}</span>
+        <span data-upper-mark className="shrink-0 font-bold text-success-800">
+          {t('promo.free')}
+        </span>
       ) : (
         <span className="shrink-0 tabular-nums">
           {formatMoney(line.netValue)}
@@ -299,7 +320,12 @@ function IdentityLine({ block, t }: { block: PromoBlock; t: TFunction }) {
               ·
             </span>
           ) : null}
-          <span data-promo-part={p.mark}>{p.text}</span>
+          {/* One isolate per part (`000100000131` · `promo 0001000040` · `applied 2×` ·
+              `lines 10 · 20`) — the audit's site #9. Per part rather than per line so
+              the middots between them still mirror as separators (121). */}
+          <span data-promo-part={p.mark}>
+            <Ltr>{p.text}</Ltr>
+          </span>
         </span>
       ))}
     </div>
@@ -308,10 +334,22 @@ function IdentityLine({ block, t }: { block: PromoBlock; t: TFunction }) {
 
 /** The block's plain-language title: a per-kind template keyed on kind + buy/get item
  *  counts. On the degradation path (no split) or an unclassifiable kind it falls back
- *  to the server `description`, then a generic label — never a fabricated buy→get. */
-function blockTitle(block: PromoBlock, t: TFunction): string {
+ *  to the server `description`, then a generic label — never a fabricated buy→get.
+ *
+ *  `fromServer` says which of the two it turned out to be, and ticket 121 needs it: copy WE
+ *  compose is measured safe (a sentence opening with a Latin word immunises its numbers,
+ *  bidi W7) and must keep mirroring, while the raw server title (`70% 2nd PCS`) opens
+ *  with a digit, reorders, and cannot be re-worded — so exactly one of the two branches
+ *  wants bidi isolation. On the corpus this is the branch that actually renders, because
+ *  the structural buy/get split is still pending (ticket 044). */
+function blockTitle(block: PromoBlock, t: TFunction): { text: string; fromServer: boolean } {
   if (!block.degraded && block.kind && (block.buyItems.length > 0 || block.getLines.length > 0)) {
-    return t(`promo.title.${block.kind}`, { buy: block.buyItems.length, get: block.getLines.length })
+    return {
+      text: t(`promo.title.${block.kind}`, { buy: block.buyItems.length, get: block.getLines.length }),
+      fromServer: false,
+    }
   }
-  return block.description || t('promo.title.fallback')
+  return block.description
+    ? { text: block.description, fromServer: true }
+    : { text: t('promo.title.fallback'), fromServer: false }
 }

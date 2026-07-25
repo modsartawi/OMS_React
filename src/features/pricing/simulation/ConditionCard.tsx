@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import Ltr from '@/core/ui/Ltr'
 import { formatMoney } from '@/core/util/number-format'
 import type { AggregatedCondition } from './aggregate'
 
@@ -49,7 +50,20 @@ export default function ConditionCard({ card }: Props) {
           <span className="font-bold text-muted-foreground">{card.index}. </span>
           <span className="font-semibold">{t(`detail.category.${card.category}`)}: </span>
           <span className="font-bold">{card.conditionType}</span>
-          {card.description ? <span className="text-muted-foreground"> — {card.description}</span> : null}
+          {/* The same raw server description the elements trace and the promotion card
+              carry (`70% 2nd PCS`), isolated for the same reason (ticket 121). Here it
+              measures SAFE unwrapped — the em-dash is a neutral and the condition type
+              in front of it is strong Latin in the same paragraph run, so bidi W7/N1
+              hold it in place — but that immunity is a property of the DATA beside it,
+              not of the value, so the value is wrapped like its two siblings.
+              Over-application is free; a call site that depends on its neighbours is
+              not a rule anyone can review. */}
+          {card.description ? (
+            <span className="text-muted-foreground">
+              {' — '}
+              <Ltr>{card.description}</Ltr>
+            </span>
+          ) : null}
         </span>
 
         {/* Deliberately the SAME chip as the origin badge two elements along, rather
@@ -59,6 +73,7 @@ export default function ConditionCard({ card }: Props) {
         {card.isStatistics ? (
           <span
             data-stat-key
+            data-upper-mark
             className="shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
           >
             {t('detail.stat')}
@@ -74,7 +89,10 @@ export default function ConditionCard({ card }: Props) {
         ) : null}
 
         {badgeLabel ? (
-          <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
+          <span
+            data-upper-mark
+            className="shrink-0 rounded bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
+          >
             {badgeLabel}
           </span>
         ) : null}

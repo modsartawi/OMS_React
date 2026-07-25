@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import { ArrowRight } from 'lucide-react'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { PromoBlock, PromoGetLine, PromoItemRef } from './promo-view'
+import { promoLineList } from './promo-lines'
 import { KIND_CHIP, KIND_GLYPH } from './promo-kind'
 
 // The fired promotions, rendered as plain-language buy→get blocks (ticket 047) — the
@@ -20,9 +21,14 @@ import { KIND_CHIP, KIND_GLYPH } from './promo-kind'
 // vice-versa, keyed on the promotion (bbyNumber) so it works on the degradation path
 // too — the conditionKey buy↔get precision (ticket 044) sharpens it with no code change.
 // On the degradation path a block has no split: it renders one undivided items box off
-// `touchedItems` (never throws). The disclosure ("Pricing detail"), the "Could have
-// applied" section and the responsive side/stack/compact layout are follow-on tickets
-// (049 / 048 / 050) — this ticket is the blocks and the cross-highlight.
+// `touchedItems` (never throws).
+//
+// TICKET 117 — this component lost its FRAME. `SimPromotionsRail` is now the screen's
+// third and last frame: it carries the `Promotions` heading, the fired count, the
+// empty and promo-off states, and the near-miss cards in the SAME column. What is left
+// here is the list of fired cards, so the fires and the near-misses cannot drift into
+// two frames again. Each card also now PRINTS the lines it touched (`promoLineList`) —
+// the cross-highlight below is the enhancement, not the mechanism.
 
 interface Props {
   blocks: PromoBlock[]
@@ -36,33 +42,20 @@ interface Props {
 export default function SimPromoBlocks({ blocks, currency, hotBby, onHotChange }: Props) {
   const { t } = useTranslation('simulation')
 
-  return (
-    <div className="rounded-lg border border-border/60 bg-card p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <h2 className="text-sm font-semibold tracking-tight">{t('promo.paneTitle')}</h2>
-        {blocks.length > 0 ? (
-          <span className="text-xs font-medium text-primary">{t('promo.firedCount', { count: blocks.length })}</span>
-        ) : null}
-      </div>
+  if (blocks.length === 0) return null
 
-      {blocks.length === 0 ? (
-        <div className="flex h-24 items-center justify-center rounded-md border border-dashed border-border/60 text-sm text-muted-foreground">
-          {t('promo.empty')}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2.5">
-          {blocks.map((b) => (
-            <Block
-              key={b.bbyNumber}
-              block={b}
-              currency={currency}
-              hot={hotBby === b.bbyNumber}
-              onHotChange={onHotChange}
-              t={t}
-            />
-          ))}
-        </div>
-      )}
+  return (
+    <div className="flex flex-col gap-2.5">
+      {blocks.map((b) => (
+        <Block
+          key={b.bbyNumber}
+          block={b}
+          currency={currency}
+          hot={hotBby === b.bbyNumber}
+          onHotChange={onHotChange}
+          t={t}
+        />
+      ))}
     </div>
   )
 }
@@ -87,6 +80,8 @@ function Block({
   return (
     <div
       tabIndex={0}
+      data-promo-card="fired"
+      data-bby={block.bbyNumber}
       onMouseEnter={() => onHotChange(block.bbyNumber)}
       onMouseLeave={() => onHotChange(null)}
       onFocus={() => onHotChange(block.bbyNumber)}
@@ -240,18 +235,29 @@ function GetLine({ line, reward, t }: { line: PromoGetLine; reward: boolean; t: 
   )
 }
 
-/** BBY key · promo no · offer · applied ×N · remaining usage — the old Applied-tab
- *  identity, kept. `applied ×N` = how many times this same promo fired into this one
- *  card (its distinct condition keys, counted in `promoView`). Shown only when it fired
- *  more than once. */
+/** BBY key · promo no · offer · applied ×N · remaining usage · THE LINE LIST — the old
+ *  Applied-tab identity, kept, plus ticket 117's printed linkage. `applied ×N` = how
+ *  many times this same promo fired into this one card (its distinct condition keys,
+ *  counted in `promoView`). Shown only when it fired more than once.
+ *
+ *  `lines 10 · 20` is last because it is the part the eye travels BACK from — it names
+ *  where in the table to look, and it is the honest degradation of the hover
+ *  cross-highlight: it costs one part of an existing line, it survives the rail
+ *  stacking above the results (ticket 119), and it survives having no pointer at all.
+ *  It is absent when the promotion resolved no basket line, rather than printing an
+ *  empty `lines`. */
 function IdentityLine({ block, t }: { block: PromoBlock; t: TFunction }) {
-  const parts = [
-    block.bbyNumber || null,
-    block.promoNumber ? t('promo.promoNoLabel', { promo: block.promoNumber }) : null,
-    block.offerId ? t('promo.offerLabel', { offer: block.offerId }) : null,
-    block.appliedCount > 1 ? t('promo.appliedTimes', { count: block.appliedCount }) : null,
-    t('promo.usage', { count: block.remainingUsage }),
-  ].filter((p): p is string => Boolean(p))
+  const lines = promoLineList(block)
+  const parts: { text: string; mark?: string }[] = [
+    block.bbyNumber ? { text: block.bbyNumber } : null,
+    block.promoNumber ? { text: t('promo.promoNoLabel', { promo: block.promoNumber }) } : null,
+    block.offerId ? { text: t('promo.offerLabel', { offer: block.offerId }) } : null,
+    block.appliedCount > 1 ? { text: t('promo.appliedTimes', { count: block.appliedCount }) } : null,
+    { text: t('promo.usage', { count: block.remainingUsage }) },
+    lines.length > 0
+      ? { text: t('promotions.lines', { lines: lines.join(' · ') }), mark: 'lines' }
+      : null,
+  ].filter((p): p is { text: string; mark?: string } => p !== null)
 
   return (
     <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
@@ -262,7 +268,7 @@ function IdentityLine({ block, t }: { block: PromoBlock; t: TFunction }) {
               ·
             </span>
           ) : null}
-          <span>{p}</span>
+          <span data-promo-part={p.mark}>{p.text}</span>
         </span>
       ))}
     </div>

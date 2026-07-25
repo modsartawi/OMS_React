@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import { ChevronRight } from 'lucide-react'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import type { MissedPrereq, MissedPromo } from './promo-view'
-import { KIND_CHIP, KIND_GLYPH } from './promo-kind'
+import { KIND_CHIP } from './promo-kind'
 
 // The "Could have applied" section (ticket 048) — the near-misses beneath the fired
 // promotion blocks (SimPromoBlocks, 047). Driven by `promoView(result).missed` (045),
@@ -19,6 +19,22 @@ import { KIND_CHIP, KIND_GLYPH } from './promo-kind'
 // When accumulation (not a prerequisite) blocked it, `prereq` is null and the server
 // `skipReason` reads as the reason instead. Absent entirely when nothing was missed
 // (the whole section returns null), so a fully-fired basket shows no "Could have applied".
+//
+// TICKET 117 — REINSTATED. This component was built, then commented out of the page,
+// so "why didn't it fire?" had no answer on screen at all. It comes back into the SAME
+// rail as the fires, and it loses its own frame: `SimPromotionsRail` is the frame, this
+// is a sub-section inside it (an `h3`, not the fourth `h2` on a three-heading screen).
+//
+// Two hue corrections came with the reinstatement. A near-miss is NEUTRAL, not a
+// warning — the screen's hue budget is two, spent on a fired promotion and a `W` line,
+// and a near-miss is neither. So the kind glyph becomes a neutral `○` (the mark that
+// distinguishes a near-miss card from a fired one at a glance, and the reason the two
+// can share a column), and the found-vs-required meter's fill leaves `bg-attention` for
+// a neutral ink. Nothing here promises a fault; it reports an unmet prerequisite.
+
+/** The near-miss mark. Not a kind glyph: a promotion that did not fire has no fired
+ *  shape to name, and `○` reads as "open / not closed" without spending a hue. */
+const MISS_GLYPH = '○'
 
 interface Props {
   missed: MissedPromo[]
@@ -32,31 +48,38 @@ export default function SimMissedPromotions({ missed, currency }: Props) {
   if (missed.length === 0) return null
 
   return (
-    <div className="rounded-lg border border-border/60 bg-card p-3">
-      <div className="mb-2 flex items-center gap-2">
-        <h2 className="text-sm font-semibold tracking-tight">{t('missed.sectionTitle')}</h2>
-        <span className="text-xs font-medium text-muted-foreground">
+    <div data-promo-missed-section className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        {/* An `h3`, not the fourth `h2` on a three-heading screen — the near-misses are a
+            sub-section of Promotions, not a frame of their own. And no CSS `uppercase`:
+            a transform is a no-op on Arabic script, so uppercase on this screen is
+            authored in the JSON value or not at all (spec 110's uppercase inventory). */}
+        <h3 className="text-xs font-semibold tracking-tight text-muted-foreground">
+          {t('missed.sectionTitle')}
+        </h3>
+        <span className="text-[11px] font-medium text-muted-foreground">
           {t('missed.count', { count: missed.length })}
         </span>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {missed.map((m) => (
-          <MissedRow key={m.bbyNumber} missed={m} currency={currency} t={t} />
-        ))}
-      </div>
+      {missed.map((m) => (
+        <MissedRow key={m.bbyNumber} missed={m} currency={currency} t={t} />
+      ))}
     </div>
   )
 }
 
 function MissedRow({ missed, currency, t }: { missed: MissedPromo; currency: string; t: TFunction }) {
   const [expanded, setExpanded] = useState(false)
-  const glyph = missed.kind ? KIND_GLYPH[missed.kind] : '•'
   const name = missed.description || t('missed.fallbackName')
 
   return (
-    <div className={'rounded-lg border transition-colors ' + (expanded ? 'border-border' : 'border-border/60')}>
-      {/* Collapsed header — the disclosure trigger: kind glyph · name · would-save · chevron. */}
+    <div
+      data-promo-card="missed"
+      data-bby={missed.bbyNumber}
+      className={'rounded-lg border bg-card transition-colors ' + (expanded ? 'border-border' : 'border-border/60')}
+    >
+      {/* Collapsed header — the disclosure trigger: `○` · name · would-save · chevron. */}
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -67,7 +90,7 @@ function MissedRow({ missed, currency, t }: { missed: MissedPromo; currency: str
           className={`grid h-7 w-7 shrink-0 place-items-center rounded-md text-sm font-bold ${KIND_CHIP}`}
           aria-hidden
         >
-          {glyph}
+          {MISS_GLYPH}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{name}</span>
@@ -171,7 +194,9 @@ function PrereqMeter({ prereq, t }: { prereq: MissedPrereq; t: TFunction }) {
           aria-valuemin={0}
           aria-valuemax={required}
         >
-          <div className="h-full rounded-full bg-attention" style={{ width: `${pct}%` }} />
+          {/* Neutral ink, not `bg-attention` (ticket 117): the two-hue budget is spent
+              on a fired promotion and a `W` line, and a near-miss is neither. */}
+          <div data-prereq-meter className="h-full rounded-full bg-ink-3" style={{ width: `${pct}%` }} />
         </div>
       ) : null}
 

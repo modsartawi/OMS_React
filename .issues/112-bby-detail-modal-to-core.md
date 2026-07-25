@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 110
 blocked-by: —
 ---
@@ -39,8 +39,8 @@ model/api · component (moved, not rebuilt)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `import boundaries pass with the modal in core` — `npm run lint`'s boundary gate green, and a scratch import of the modal from the simulation feature no longer trips it · **flow (lint gate)**
-- [ ] `the inquiry screen's detail modal still opens, renders and closes` — `node tools/bby-inquiry-drive.mjs` green, unchanged · **flow (Playwright)**
+- [x] `import boundaries pass with the modal in core` — `npm run lint`'s boundary gate green, and a scratch import of the modal from the simulation feature no longer trips it · **flow (lint gate)**
+- [x] `the inquiry screen's detail modal still opens, renders and closes` — `node tools/bby-inquiry-drive.mjs` green, unchanged · **flow (Playwright)**
 
 Verify via `npm run typecheck` + `npm run lint` + the existing drive. The drive is the real proof: this
 ticket's whole claim is that nothing observable changed.
@@ -60,6 +60,27 @@ six siblings under `@/core/`, and `tools/bby-inquiry-drive.mjs` passes unchanged
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+**Built 2026-07-25.** Home chosen: `src/core/bonus-buy/` — the moved set stays importable as a unit
+and no existing `core/ui` / `core/models` / `core/util` file learns about bonus buys. Seven files
+moved verbatim (`git mv`, 100% similarity bar the import lines); the two detail-side calls became
+`bonusBuyDetailApi` in `src/core/bonus-buy/api.ts`, renamed only because `bonusBuyInquiryApi` still
+exists in the feature with `access` + `list`. TanStack **query keys were deliberately left**
+(`['bonus-buy-inquiry','detail'|'members',…]`) so cache identity is unchanged, matching the i18n
+ruling: this ticket renames nothing that is observable.
+
+Gates: `typecheck`, `build`, all three `lint` gates, `vitest` 152/152, and
+`tools/bby-inquiry-drive.mjs` **73/73** — unchanged. The scratch proof also ran: a temporary
+`import DetailModal from '@/core/bonus-buy/DetailModal'` inside `features/pricing/simulation/` passes
+the boundary gate (163 files checked), which is the whole point of the prefactor.
+
+Both reviews flagged one thing, out of scope by the ticket's own ruling and recorded here for the
+consumer ticket: the moved components still call `useTranslation('bonus-buy-inquiry')`, so a shared
+component reads a feature-named namespace. Correct today (the namespace stays registered), but when
+[118](118-sim-bby-details-affordance.md) makes Simulation the second consumer, decide whether the
+keys graduate to a `bonus-buy` namespace — a deliberate i18n ticket, not a side effect of this one.
 
 ## Open questions
 

@@ -7,7 +7,7 @@ import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
 import type { BbyGroupMember, BbySide } from '@/core/models/bonus-buy-inquiry'
-import { bonusBuyInquiryApi } from './api'
+import { bonusBuyDetailApi } from './api'
 import { formatAmount } from './formatters'
 
 // The material-grouping members drilldown (spec 061, ticket 067) — a SECOND
@@ -60,7 +60,7 @@ export default function GroupingMembersModal({
   const members = useQuery({
     queryKey: ['bonus-buy-inquiry', 'members', bbyNumber, target?.side, target?.groupingKey, page],
     queryFn: () =>
-      bonusBuyInquiryApi.groupingMembers({
+      bonusBuyDetailApi.groupingMembers({
         bbyNumber,
         side: (target as GroupingTarget).side,
         groupingKey: (target as GroupingTarget).groupingKey,

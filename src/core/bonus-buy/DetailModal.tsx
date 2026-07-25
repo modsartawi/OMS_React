@@ -7,7 +7,7 @@ import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { BbyDetailDto } from '@/core/models/bonus-buy-inquiry'
-import { bonusBuyInquiryApi } from './api'
+import { bonusBuyDetailApi } from './api'
 import BbyStatusBadge from './BbyStatusBadge'
 import { validitySeverity } from './status-severity'
 import GroupingMembersModal, { type GroupingTarget } from './GroupingMembersModal'
@@ -77,7 +77,7 @@ export default function DetailModal({ bbyNumber, onClose }: DetailModalProps) {
 
   const detail = useQuery({
     queryKey: ['bonus-buy-inquiry', 'detail', bbyNumber],
-    queryFn: () => bonusBuyInquiryApi.detail(bbyNumber as string),
+    queryFn: () => bonusBuyDetailApi.detail(bbyNumber as string),
     enabled: open,
   })
 

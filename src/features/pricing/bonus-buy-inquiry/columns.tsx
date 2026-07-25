@@ -8,15 +8,15 @@ import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
 import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
-import BbyStatusBadge from './BbyStatusBadge'
-import { codeLabelKey, type CodeSet } from './codeLabels'
+import BbyStatusBadge from '@/core/bonus-buy/BbyStatusBadge'
+import { codeLabelKey, type CodeSet } from '@/core/bonus-buy/codeLabels'
 import {
   formatBbyDate,
   formatBbyTime,
   formatBool,
   formatIsoDate,
   formatNumber,
-} from './formatters'
+} from '@/core/bonus-buy/formatters'
 
 // The FULL 28-field BBY inquiry grid (spec 061, ticket 063) — the operator's
 // scan/filter/export surface. All formatting/label logic lives in the pure

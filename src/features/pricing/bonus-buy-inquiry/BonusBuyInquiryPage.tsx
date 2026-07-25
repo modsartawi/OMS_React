@@ -16,11 +16,11 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
+import DetailModal from '@/core/bonus-buy/DetailModal'
 import { bonusBuyInquiryApi } from './api'
 import { buildListParams, type BbyListCriteria } from './list-params'
 import { buildDefaultColDef, buildInquiryColumns } from './columns'
 import SearchToolbar from './SearchToolbar'
-import DetailModal from './DetailModal'
 import { exportBbyToCsv } from './export'
 
 // The BBY Inquiry screen (spec 061). Self-guards on Bby/Access (issue-429 pattern,

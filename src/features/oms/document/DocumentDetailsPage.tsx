@@ -7,7 +7,6 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
-import { confirmAction } from '@/core/services/confirm'
 import type {
   SdDocumentHeaderModel,
   SdDocumentLogModel,
@@ -40,6 +39,7 @@ import DetailGrid from './DetailGrid'
 import RescheduleDialog from './RescheduleDialog'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
 import RequestCloseDialog from './RequestCloseDialog'
+import NoteDialog, { type NoteCommandKind } from './NoteDialog'
 
 /** Whether this record was opened as a document or a delivery. */
 export type OpenedAs = 'document' | 'delivery'
@@ -48,9 +48,6 @@ export type OpenedAs = 'document' | 'delivery'
 // its full thirteen-row breakdown is that rail's All-statuses disclosure (083 D-3).
 type TabId = 'items' | 'conditions' | 'log' | 'jobs'
 const TAB_IDS: TabId[] = ['items', 'conditions', 'log', 'jobs']
-
-/** `DeliveryDocumentType` code for BeyondBorder — the Return Document gate. */
-const BEYOND_BORDER = 'BB'
 
 /** Ascending comparator treating numeric strings (`logNo`, `outboxId`) as numbers. */
 function numericAsc(a: string, b: string): number {
@@ -102,20 +99,21 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const [jobs, setJobs] = useState<Deferred<SdDocumentOutboxModel>>(PENDING)
 
   const [activeTab, setActiveTab] = useState<TabId>('items')
-  const [note, setNote] = useState('')
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [changeStoreOpen, setChangeStoreOpen] = useState(false)
   const [requestCloseOpen, setRequestCloseOpen] = useState(false)
 
   /**
-   * The note captured when Change Store was triggered. Change Store posts the
-   * note that was on screen when the operator opened the picker, not whatever it
-   * says when they finish picking.
+   * The note-carrying command awaiting its dialog, or `null`. Since 094 there is
+   * no standing textarea and no `pendingNote` to snapshot: every command that
+   * posts a note captures it inside its own confirm dialog, so the note typed
+   * there is unambiguously the note that posts (083 D-11).
    */
-  const [pendingNote, setPendingNote] = useState('')
+  const [noteCommand, setNoteCommand] = useState<NoteCommandKind | null>(null)
 
   const actionBusy = actionRunning || refreshing
-  const commandBusy = actionBusy || rescheduleOpen || changeStoreOpen || requestCloseOpen
+  const commandBusy =
+    actionBusy || rescheduleOpen || changeStoreOpen || requestCloseOpen || noteCommand !== null
 
   const loadLogs = useCallback(
     async (documentNo: string) => {
@@ -219,7 +217,6 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         await post(body)
         setActionRunning(false)
         notify.success(t('toast.done', { label }), t('toast.doneDetail', { label }))
-        if (kind === 'add-note') setNote('')
         void reload()
       } catch (err) {
         setActionRunning(false)
@@ -229,19 +226,18 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     [document, actionBusy, reload, t],
   )
 
-  async function onCommand(kind: CommandKind) {
+  function onCommand(kind: CommandKind) {
     if (actionBusy) return
     switch (kind) {
+      // The four note-carrying commands share one dialog: it confirms AND
+      // captures the note, so there is no pre-confirm on top of a dialog.
       case 'add-note':
       case 'close':
       case 'force-close':
-      case 'cancel-close-request': {
-        const label = t(`actions.${kind}`)
-        if (await confirmAction(t('confirm.message'), label)) void postUpdate(kind, note)
+      case 'cancel-close-request':
+        setNoteCommand(kind)
         return
-      }
       case 'change-store':
-        setPendingNote(note)
         setChangeStoreOpen(true)
         return
       case 'reschedule':
@@ -276,13 +272,12 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   }
 
   function onChangeStoreConfirmed(result: ChangeStoreResult) {
-    void postUpdate('change-store', pendingNote, {
+    void postUpdate('change-store', result.note, {
       actionData: result.actionData,
       actionData2: result.actionData2,
     })
   }
 
-  const returnEnabled = (document?.deliveryDocumentType ?? '').trim().toUpperCase() === BEYOND_BORDER
   const headerConditions = useMemo(
     () => (document?.conditions ?? []).filter((c) => c.condDocumentLine === 0),
     [document],
@@ -349,12 +344,21 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               </Button>
             </StatusRail>
 
+            {/*
+              The action bar's grammar (083 D-10, ticket 094): three labelled
+              clusters in order of increasing consequence, then the unlabelled
+              terminal pair. Gating is evidence-only — `closeStatus` and
+              `deliveryDocumentType` are the only two fields live data proves a
+              contradiction on; the server remains the authority on everything
+              else and says so in its `400`.
+            */}
             <CommandPanel
-              note={note}
-              onNoteChange={setNote}
-              busy={commandBusy}
-              returnEnabled={returnEnabled}
-              onCommand={(kind) => void onCommand(kind)}
+              context={{
+                closeStatus: document.status?.closeStatus,
+                deliveryDocumentType: document.deliveryDocumentType,
+                busy: commandBusy,
+              }}
+              onCommand={onCommand}
             />
 
             {/*
@@ -480,6 +484,11 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               open={requestCloseOpen}
               onClose={() => setRequestCloseOpen(false)}
               onConfirmed={(reason) => void postUpdate('request-close', reason)}
+            />
+            <NoteDialog
+              kind={noteCommand}
+              onClose={() => setNoteCommand(null)}
+              onConfirmed={(kind, text) => void postUpdate(kind, text)}
             />
           </>
         )

@@ -57,6 +57,16 @@ has two or more commands sharing a purpose.
 _Avoid_: action group, category (a family is specifically the colour-carrying grouping; nav areas
 are not families).
 
+**Command cluster**:
+A labelled group of commands on the action bar — the unit a cluster label sits above. Document
+Details has three, in order of increasing consequence: **fulfilment**, **cancellation request** and
+**notes & docs**. The first two are families; the third is the quiet tier, which has a cluster and a
+label but no colour. So a cluster is what the operator *reads*, a family is a *colour*, and a tier is
+a *position and weight* — three axes that mostly, but deliberately not always, coincide. The terminal
+tier is the one group with no cluster label at all: labelling it would make it read as a fourth
+family rather than as the edge of the bar.
+_Avoid_: button group, section.
+
 **Bonus buy (BBY)**:
 A promotion evaluated by the pricing engine, identified by a `bbyNumber` (with a `promoNumber` /
 `offerId`). One shape: a **buy side** ("buy X") linked to a **get side** ("get Y"). It is

@@ -93,18 +93,32 @@
   },
   "command": {
     "title": "Actions",
-    "note": "Note",
-    "notePlaceholder": "Type a note for this document…"
+    "clusters": {
+      "fulfilment": "Fulfilment",
+      "cancel-request": "Cancellation request",
+      "notes": "Notes & docs"
+    },
+    "disabled": {
+      "requestOpen": "A cancellation request is already open for this document.",
+      "beyondBorderOnly": "Only a BeyondBorder delivery can be returned."
+    }
   },
   "actions": {
-    "add-note": "Add Note",
+    "add-note": "Add Note…",
     "change-store": "Change Store",
     "reschedule": "Reschedule",
-    "request-close": "Request Close",
-    "cancel-close-request": "Cancel Close Request",
-    "close": "Close Order",
-    "force-close": "Force Close",
+    "request-close": "Request Cancellation",
+    "cancel-close-request": "Withdraw Request",
+    "close": "Cancel Order",
+    "force-close": "Force Cancel",
     "return-document": "Return Document"
+  },
+  "note": {
+    "label": "Note",
+    "labelOptional": "Note (optional)",
+    "placeholder": "Type a note for this document…",
+    "hintRequired": "The note is appended to this document's log — it changes no other state.",
+    "title": "Add Note"
   },
   "confirm": {
     "message": "Are you sure you want to proceed?"

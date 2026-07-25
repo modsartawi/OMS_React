@@ -16,6 +16,7 @@ import type { SdDistrictModel, StoreDetailModel } from '@/core/models/lookups'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import { DETAIL_DEFAULT_COL_DEF } from './columns'
 import { changeStoreMode, deriveStoreCode, districtCityName } from './change-store'
+import NoteField from './NoteField'
 
 /** What the dialog reports when the operator commits a store change. */
 export interface ChangeStoreResult {
@@ -23,6 +24,13 @@ export interface ChangeStoreResult {
   actionData: string
   /** The shipping city — `actionData2` in delivery mode; else `''`. */
   actionData2: string
+  /**
+   * The note that posts with the change. Captured HERE since 094 deleted the
+   * standing textarea and `pendingNote` with it: the note typed in this dialog
+   * is unambiguously the note that posts. Optional — the store change is the
+   * record; the note only annotates it.
+   */
+  note: string
 }
 
 function boolText(value: unknown): string {
@@ -67,6 +75,7 @@ export default function ChangeStoreDialog({
 
   const [store, setStore] = useState<StoreDetailModel | null>(null)
   const [district, setDistrict] = useState<SdDistrictModel | null>(null)
+  const [note, setNote] = useState('')
 
   const stores = useQuery({ ...lookupQueries.storeDetails(), enabled: open && pickInStore })
   const districts = useQuery({ ...lookupQueries.districts(), enabled: open && !pickInStore })
@@ -116,7 +125,11 @@ export default function ChangeStoreDialog({
 
   function submit() {
     if (!canSubmit) return
-    onConfirmed({ actionData: derived, actionData2: pickInStore ? '' : districtCityName(district) })
+    onConfirmed({
+      actionData: derived,
+      actionData2: pickInStore ? '' : districtCityName(district),
+      note: note.trim(),
+    })
     onClose()
   }
 
@@ -129,6 +142,7 @@ export default function ChangeStoreDialog({
       onShow={() => {
         setStore(null)
         setDistrict(null)
+        setNote('')
       }}
       footer={
         <>
@@ -183,6 +197,13 @@ export default function ChangeStoreDialog({
             )}
           </div>
         )}
+
+        {/*
+          The note the change posts (094 / D-11). It lives in the dialog because
+          the standing textarea it replaced is gone — there is no longer anything
+          on screen to snapshot when the picker opens.
+        */}
+        <NoteField id="change-store-note" value={note} onChange={setNote} rows={2} />
 
         <p
           className={

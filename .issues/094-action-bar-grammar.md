@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 083
 blocked-by: 092
 ---
@@ -78,13 +78,67 @@ app-drive
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `commandGating` — from a captured payload, `closeStatus === 'R'` disables Request Cancellation
+- [x] `commandGating` — from a captured payload, `closeStatus === 'R'` disables Request Cancellation
       with its reason and leaves Withdraw Request enabled; `deliveryDocumentType !== 'BB'` disables
-      Return Document with its reason; busy disables everything **with no reason** · pure (vitest)
+      Return Document with its reason; busy disables everything **with no reason** · pure (vitest) →
+      `src/features/oms/document/commands.test.ts`, `describe('commandGating')` (12 cases)
 
 Verify by driving `npm run dev`: the three clusters read in consequence order, the terminal pair sits
 at the end at the same height as every other button, Add Note…'s confirm stays disabled until text is
 typed, and the note typed in the Change Store dialog is the one that posts. Plus `npm run typecheck`.
+
+**What was run:** `npm test` 68/68 · `npm run typecheck` · `npm run lint` (all three gates) ·
+`npm run build` — all green. The rendered bar was driven by a new
+`tools/document-actions-drive.mjs` (**38/38**), which replays the five captures over a routed wire
+and asserts the three cluster labels and their command order, the two family fills against the
+resolved `--fam-*` tokens, the ghost tier's absent ground, the terminal pair's position past every
+cluster button at the **same 28px height**, the absence of any check mark, all eight commands on all
+five documents, the two disabled reasons appearing on hover **and on keyboard focus**, busy disabling
+everything with **no** `aria-describedby`, Add Note…'s confirm gated on non-empty text, and — by
+reading the intercepted POST bodies — that the note typed in the Add Note and Change Store dialogs is
+the note that posts (`DADN` / `DCST`, `actionData: 'P001'`). It also drops the viewport to 720px and
+confirms the cluster group wraps to three rows with the terminal pair still last and still eight
+commands. `-band-` (32/32), `-rail-` (25/25), `-cards-` (45/45) and `-items-` (23/23) still pass.
+
+One Done-when item the corpus cannot show verbatim is synthesised from a real payload inside the
+drive and labelled there: **no capture carries `deliveryDocumentType: 'BB'`**, so the enabled half of
+the Return Document gate is driven from a mutated `8000000253`.
+
+## What the build decided
+
+- **A disabled-with-a-reason command carries `aria-disabled`, not `disabled`.** A real `disabled`
+  attribute takes the button out of the tab order, so the spec's "on hover **and focus**" is
+  unreachable and the reason is never announced — which is the same discoverability failure hiding
+  the command would cause, one layer down. A busy command keeps the real `disabled`: it has nothing
+  to explain and should not be tabbable mid-request. The two treatments the spec names therefore map
+  onto two different HTML mechanisms, and the drive asserts both.
+- **The reason is hidden by opacity, never `display:none`.** An `aria-describedby` target that is not
+  rendered is not announced.
+- **The three confirms that were `confirmAction` become one `NoteDialog`.** Cancel Order, Force
+  Cancel and Withdraw Request all posted the standing textarea's note; with the textarea gone they
+  need a place to capture it, and D-11's rule is that the place is the command's own confirm dialog.
+  So the generic confirm is replaced by a dialog that both confirms and captures — one component for
+  all four note-carrying commands, `required` only for Add Note. Their confirm button **restates the
+  command** rather than saying "Yes": the one button that ends an order should say what it ends.
+- **The note field is one component (`NoteField`), used by two dialogs** — `NoteDialog` and Change
+  Store. It is the standing textarea, moved to the two places that can now say which command it
+  belongs to.
+- **Add Note's dialog takes its own title key** (`note.title` → "Add Note"). The bar's label ends in
+  an ellipsis to promise a dialog; once the dialog is open the ellipsis has nothing left to promise.
+- **`ChangeStoreResult` grows a `note`.** That is what deletes `pendingNote` outright rather than
+  relocating it — the note travels with the store code it belongs to.
+- **The terminal tier is typed** (`TerminalKind`), so its variant map is exhaustive. An untyped map
+  with a `?? 'danger'` fallback would let a future terminal command paint as the *filled* red, which
+  is precisely the "two filled reds read as equal alternatives" outcome 072 rejected.
+- **Four `core/ui/Button` variants are new** — `fulfilment`, `cancel-request`, `ghost` and
+  `danger-outlined`. 083 D-14 says the spec adds nothing to `core/`, but that sentence is about
+  *logic*; 072 handed 070 the tokens and the button treatments that consume them have to live where
+  the button does. Every filled ground pairs with `--primary-foreground`, and the contrast gate
+  already guarded both family pairs.
+- **`Cancel Order` takes the `Ban` icon**, `Force Cancel` keeps `XCircle`. `CheckCircle2` is gone.
+- **"Command cluster" is now in `CONTEXT.md`.** The glossary had *family* (a colour) and *tier* (a
+  position and weight) but no word for the labelled group — which matters because the quiet tier has
+  a cluster and a label but no family colour, and the terminal tier has neither.
 
 ## Boundaries
 

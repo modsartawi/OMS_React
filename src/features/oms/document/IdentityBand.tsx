@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { ChevronLeft, Zap } from 'lucide-react'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
+import Ltr from '@/core/ui/Ltr'
 import { bandCustomer, bandSubIds, overallStatusCode } from './fields'
 
 /**
@@ -107,7 +108,11 @@ export default function IdentityBand({
                     (row.isCode ? ' font-mono' : '')
                   }
                 >
-                  {row.value}
+                  {/* `Placed` is the band's one date/time value — `bandSubIds`
+                      joins a long date and a clock time with a space, which is
+                      the shape that reorders under RTL (095). The other four
+                      sub-ids are single tokens and are measured safe. */}
+                  {row.key === 'placed' ? <Ltr>{row.value}</Ltr> : row.value}
                 </b>
               </span>
             ))}
@@ -123,7 +128,10 @@ export default function IdentityBand({
           {customer.name && <div className="text-sm font-semibold">{customer.name}</div>}
           {customer.contact && (
             <div className="mt-0.5 text-xs text-brand-panel-foreground/70 tabular-nums">
-              {customer.contact}
+              {/* Phone · city — the phone is the band's bidi hazard, and the
+                  isolate takes the WHOLE line rather than the phone fragment:
+                  splitting a Latin run is how the audit created a fault. */}
+              <Ltr>{customer.contact}</Ltr>
             </div>
           )}
         </div>

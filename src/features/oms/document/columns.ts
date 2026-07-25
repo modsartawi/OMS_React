@@ -1,6 +1,7 @@
 import type {
   CellClassParams,
   ColDef,
+  ICellRendererParams,
   RowClassParams,
   RowSelectionOptions,
   RowStyle,
@@ -8,6 +9,7 @@ import type {
   ValueGetterParams,
 } from 'ag-grid-community'
 import i18n from '@/core/i18n'
+import Ltr from '@/core/ui/Ltr'
 import { describeConditionCategory, describeConditionType } from '@/core/constants/oms-codes'
 import type {
   SdDocumentLineModel,
@@ -98,9 +100,25 @@ export const documentColumns = {
   items(): ColDef<SdDocumentLineModel>[] {
     const item = columnKit<SdDocumentLineModel>()
     return [
-      // Description first: the eye should land on a name, not a number (083 D-9).
-      // It is also the column the pinned totals row labels itself in.
-      item.text('description', 'itemDescription', 280),
+      {
+        // Description first: the eye should land on a name, not a number
+        // (083 D-9). It is also the column the pinned totals row labels itself
+        // in — and that label, `4 lines · 7 units`, is the grid's one bidi
+        // hazard (095): digits at both ends of a spaced run, which an RTL
+        // paragraph reorders to `lines · 7 units 4`.
+        //
+        // The selector returns `undefined` for data rows, which leaves AG Grid's
+        // own default renderer in place — the isolate rides the pinned row only,
+        // and an item description (server text, no renderer) is untouched.
+        //
+        // A renderer is handed `params.value`, never `valueFormatted`: this
+        // column deliberately has no `valueFormatter` (the totals label is
+        // already a formatted `t()` string), and adding one would need the
+        // renderer to read it.
+        ...item.text('description', 'itemDescription', 280),
+        cellRendererSelector: (p: ICellRendererParams<SdDocumentLineModel>) =>
+          p.node.rowPinned === 'bottom' ? { component: Ltr } : undefined,
+      },
       item.text('itemNumber', 'itemNumber', 130),
       item.money('unitPrice', 'unitPrice', 110),
       item.number('quantity', 'quantity', 100),

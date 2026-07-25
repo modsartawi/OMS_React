@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
+import Ltr from '@/core/ui/Ltr'
 import { railCards, type CardRow, type RailCard } from './fields'
 
 /**
@@ -21,6 +22,21 @@ const ACCENTS: Record<RailCard['key'], { bar: string; link: string }> = {
   driver: { bar: 'bg-fam-fulfilment', link: 'text-fam-fulfilment' },
   payment: { bar: 'bg-primary', link: 'text-primary' },
 }
+
+/**
+ * The rail's bidi hazards, by `CardRow.key` (ticket 095, measured in the 080
+ * audit): the two phone numbers and the delivery window — the three rail values
+ * that carry a space with a digit at one end. Every other row on the rail is a
+ * single token (`1180-4471`, `240.70`, `1000000393`) or free text, and was
+ * measured to reorder correctly on its own.
+ *
+ * A key set rather than a flag on `CardRow`: the hazard is a property of how the
+ * value is *rendered in a paragraph*, not of the row the pure builder produces.
+ * `CardRow.key` is a free-form string, so `tsc` cannot bind these three to the
+ * rows in `fields.ts` — `tools/document-rtl-drive.mjs` does, by asserting each
+ * isolate carries the value its own card row produces.
+ */
+const BIDI_ISOLATE = new Set(['mobile', 'courierDriverPhone', 'window'])
 
 /**
  * The summary rail (spec 083 D-6, ticket 092) — the context the work area is
@@ -76,6 +92,7 @@ export default function SummaryRail({ document }: { document: SdDocumentHeaderMo
  */
 function Row({ row, ink }: { row: CardRow; ink: string }) {
   const total = row.total === true
+  const value = BIDI_ISOLATE.has(row.key) ? <Ltr>{row.value}</Ltr> : row.value
   const pair = (
     <>
       <dt
@@ -100,11 +117,15 @@ function Row({ row, ink }: { row: CardRow; ink: string }) {
             rel="noopener noreferrer"
             className={`inline-flex items-center gap-1 font-semibold ${ink}`}
           >
-            <ExternalLink className="h-3 w-3 shrink-0" aria-hidden />
-            {row.value}
+            {/* `↗` mirrors to `↖` under RTL — an explicit flip on the SVG, the
+                same mechanism as the band's back chevron and for the same
+                reason: an SVG path never auto-mirrors, and a punctuation glyph
+                standing in for an icon would flip itself and hide the fault. */}
+            <ExternalLink className="h-3 w-3 shrink-0 rtl:-scale-x-100" aria-hidden />
+            {value}
           </a>
         ) : (
-          row.value
+          value
         )}
       </dd>
     </>

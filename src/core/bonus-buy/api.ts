@@ -10,12 +10,20 @@ import type {
 // alongside the modal they feed (ticket 112): the detail modal is today opened by the
 // Bonus Buy Inquiry grid and is about to be opened by the Simulation screen too (118),
 // and a feature may never import another feature — so the modal and its calls graduate
-// up to the shared layer ahead of that second consumer. The list/search + access probe
-// stay with the inquiry screen, which is the only consumer of those.
+// up to the shared layer ahead of that second consumer. Ticket 118 is that consumer
+// arriving, and it brought the ACCESS PROBE up here too for the same reason. Only the
+// list/search stays with the inquiry screen, which is still its one consumer.
 //
 // Every call goes through @/core/api (see .claude/rules/api-envelope.md): it unwraps the
 // SIS.Api envelope, returns `.data`, and maps failures to a typed ApiError.
 const BASE = 'Bby'
+
+/** The ONE cache key the three consumers of the probe share — the menu's nav gate, the
+ *  inquiry screen's route guard and the Simulation rail's details control — so the three
+ *  of them cost one call. Exported rather than re-spelled at each site: a typo in a
+ *  string literal would not fail a build, it would silently double the request and let
+ *  the two copies disagree about the same grant. */
+export const BBY_ACCESS_KEY = ['bonus-buy-inquiry', 'access'] as const
 
 /** Raw wire shape of GET Bby/Access (backend TBD; mirrors the sibling
  *  BonusBuyDownloadWeb/Access `{ screenAllowed }` probe). */

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 110
 blocked-by: 112, 117, 123
 ---
@@ -40,9 +40,9 @@ component (the card control; the modal mounted from `@/core/`) · i18n · test (
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `the control is absent when the grant is unprobed, present when confirmed, absent when denied` — all three probe states, including the degraded-to-granted trap · **flow (Playwright, new `tools/sim-bby-gate-drive.mjs`)**
-- [ ] `the promotions rail renders before the probe resolves` — the verdict never waits on a permission check · **flow (same drive)**
-- [ ] `the control opens the bonus-buy modal in place and closing it returns to the basket` — on both a fired and a near-miss card · **flow (same drive)**
+- [x] `the control is absent when the grant is unprobed, present when confirmed, absent when denied` — all three probe states, including the degraded-to-granted trap · **flow (Playwright, new `tools/sim-bby-gate-drive.mjs`)**
+- [x] `the promotions rail renders before the probe resolves` — the verdict never waits on a permission check · **flow (same drive)**
+- [x] `the control opens the bonus-buy modal in place and closing it returns to the basket` — on both a fired and a near-miss card · **flow (same drive)**
 
 Commission `tools/sim-bby-gate-drive.mjs` here, stubbing the probe across its three states — the gate is
 one boolean and needs no pure test, but its *consequence* is a mount decision that only a rendered tree
@@ -75,3 +75,27 @@ green, `npm run lint`'s boundary gate green.
   inquiry feature is a boundary violation the lint gate catches.
 - [117](117-sim-promotions-rail.md) — there are no cards to carry the control until the rail exists.
 - [123](123-sim-i18n-key-expand.md) — `promo.bbyDetails` is minted there.
+
+## Comments
+
+**Built** — `tools/sim-bby-gate-drive.mjs` (port 5202) **22/22**. All three Proof bullets are
+carried there as commissioned; the drive stubs `Bby/Access` across four states — the ticket's three
+plus a HELD one, which is what actually proves "the rail never waits" rather than inferring it.
+
+**The probe moved, unchanged.** The Boundaries section said to consume the existing probe unchanged,
+and that turned out to require moving it: `access()` still lived in
+`features/pricing/bonus-buy-inquiry/api.ts`, and Simulation reading it there is exactly the
+feature→feature import the lint gate fails. So it graduated to `@/core/bonus-buy/api` as
+`bonusBuyAccessApi` — byte-identical behaviour, including the degrade-to-granted — with its two
+existing call sites (the inquiry page, the menu probe) re-pointed at the shared layer. This is
+spillover [112](112-bby-detail-modal-to-core.md) should have carried when it moved the modal and the
+detail call for this same second consumer; recorded here rather than reverted. The shared cache key
+is now exported as `BBY_ACCESS_KEY` beside the probe, so the three consumers can't drift by typo.
+
+**Not proven, and deliberately so.** The control is also absent for a card the wire gave no
+bonus-buy key — an extra absence condition beyond the gate, since there would be no record to open.
+No capture in the corpus carries such a card, so it is code without a drive assertion behind it.
+
+**Still dark on live SIS.Api**, as designed: `GET Bby/Access` 404s today, which the gate reads as
+unprobed → absent, and `GET Bby/Detail` does not exist either. The affordance lights up when the
+backend contracts (057/058) are built — no further front-end work.

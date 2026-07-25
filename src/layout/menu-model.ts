@@ -9,7 +9,7 @@ import { bonusBuyDownloadApi } from '@/features/pricing/bonus-buy-download/api'
 import { couponsApi } from '@/features/pricing/coupons/api'
 // The bonus-buy grant probe lives in `@/core/` (ticket 118): the Simulation screen is a
 // second consumer, and a feature may not import another feature's api.
-import { bonusBuyAccessApi } from '@/core/bonus-buy/api'
+import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -174,7 +174,7 @@ export const MENU: ShellMenuItem[] = [
         // (fail-open) so this read-only inquiry degrades gracefully; the list endpoint's
         // 403 ACCESS_DENIED stays the real boundary (spec 061 / contract 057 §4).
         access: accessProbe({
-          key: ['bonus-buy-inquiry', 'access'],
+          key: BBY_ACCESS_KEY,
           run: () => bonusBuyAccessApi.access(),
           visible: (r) => r.screenAllowed === true,
         }),

@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 // renders zero grids, so the setup side-effect import and the column-definition builder
 // went with it.
 import { apiErrorMessage } from '@/core/api'
-import { bonusBuyAccessApi } from '@/core/bonus-buy/api'
+import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
 import DetailModal from '@/core/bonus-buy/DetailModal'
 import { confirmAction } from '@/core/services/confirm'
 import type { SimulateRequest, SimulationResult } from '@/core/models/simulation'
@@ -69,12 +69,13 @@ export default function SimulationPage() {
     if (ok) clearCache.mutate()
   }
 
-  // The bonus-buy DETAILS grant (ticket 118) — a distinct grant from screen-open, on a
-  // distinct endpoint, for a distinct record. Shares the ['bonus-buy-inquiry','access']
-  // cache key with the menu probe and the inquiry screen, so the three of them cost one
-  // call.
+  // The bonus-buy grant (ticket 118) — a grant this screen does not own, over a record
+  // this screen does not own. It is the SAME `Bby/Access` screen-open probe the menu and
+  // the inquiry screen read, consumed unchanged and under the same cache key, so the
+  // three of them cost one call. There is no details-specific endpoint; what differs
+  // here is only how strictly the answer is read.
   //
-  // The probe is consumed UNCHANGED but read STRICTLY. It degrades an unreachable
+  // It degrades an unreachable
   // endpoint to `{ screenAllowed: true, probed: false }` — correct for the read-only
   // inquiry screen it was written for, wrong on a promotion card: reused verbatim it
   // would put a button on every card that fails on every click, today, because
@@ -86,7 +87,7 @@ export default function SimulationPage() {
   // off the promo view the moment a run returns, and the control appears if and when the
   // probe resolves to a confirmed grant.
   const bbyAccess = useQuery({
-    queryKey: ['bonus-buy-inquiry', 'access'],
+    queryKey: BBY_ACCESS_KEY,
     queryFn: () => bonusBuyAccessApi.access(),
   })
   const canOpenBbyDetails =

@@ -163,8 +163,29 @@ async function run() {
         // The control must be LAST on the card, below the amount — and must not have
         // borrowed the chip treatment (no chip on this screen is ever clickable).
         isLast: c.lastElementChild?.hasAttribute('data-bby-details') ?? false,
-        pill: /\brounded-full\b/.test(c.querySelector('[data-bby-details]')?.className ?? ''),
+        // "Never a chip" is a claim about the CHIP TREATMENT, not about one utility
+        // class — so the test is the shared chip ground itself (`KIND_CHIP` =
+        // `bg-muted text-muted-foreground`, promo-kind.ts) plus the pill radius. A
+        // control built chip-shaped by some other route still fails this.
+        //  A `hover:` tint is not the chip ground, so the class must be RESTING —
+        //  hence the leading start-or-space rather than a bare word boundary.
+        chipShaped: [/(^|\s)rounded-full\b/, /(^|\s)bg-muted\b/, /(^|\s)text-muted-foreground\b/].some(
+          (re) => re.test(c.querySelector('[data-bby-details]')?.className ?? ''),
+        ),
       })),
+    )
+
+  /** The other half of the same rule: nothing chip-shaped anywhere in the rail is
+   *  clickable. That is what makes "a chip is a readout" enforceable rather than a
+   *  convention only this one control happens to honour. */
+  const clickableChips = () =>
+    rail().evaluate((el) =>
+      [...el.querySelectorAll('*')].filter(
+        (n) =>
+          typeof n.className === 'string' &&
+          /\brounded-full\b/.test(n.className) &&
+          (n.tagName === 'BUTTON' || n.tagName === 'A' || n.closest('button,a') !== null),
+      ).length,
     )
 
   // ================================================== 1 · unprobed — the degraded trap
@@ -220,8 +241,14 @@ async function run() {
     cards.map((c) => `${c.kind}:${c.isLast}`).join(' · '),
   )
   check(
-    'and it is never a chip — a chip on this screen is a readout, so nothing chip-shaped is clickable',
-    cards.every((c) => !c.pill),
+    'and it is never a chip — it borrows neither the pill radius nor the shared chip ground',
+    cards.every((c) => !c.chipShaped),
+    cards.map((c) => `${c.kind}:${c.chipShaped}`).join(' · '),
+  )
+  check(
+    'the rule holds the other way too — nothing chip-shaped in the rail is clickable',
+    (await clickableChips()) === 0,
+    `${await clickableChips()} clickable chip(s)`,
   )
 
   // ===================================== 4 · the rail never waits on a permission check
@@ -282,7 +309,27 @@ async function run() {
       (await controlsByCard()).length === 2,
   )
 
+  // The core Modal carries no close button (title bar + body only), so its two dismissal
+  // paths are Escape and the backdrop — and BOTH have to land back on the basket, not
+  // just the one a keyboard takes. A backdrop click is a click whose target IS the
+  // <dialog> element; anything over the content bubbles from a child instead.
+  await openFrom('fired')
+  // Top-left of the viewport: outside the centred dialog's box, so the click lands on
+  // the backdrop — which reports the <dialog> itself as its target.
+  await page.mouse.click(5, 5)
+  await page.waitForTimeout(300)
+  check(
+    'the BACKDROP dismisses it too, back to the same basket — not only Escape',
+    (await dialog().count()) === 0 &&
+      (await page.locator('table').first().innerText()) === basketBefore &&
+      (await controlsByCard()).length === 2,
+    `${await dialog().count()} dialog(s) after a backdrop click`,
+  )
+
   const missedBby = (await controlsByCard()).find((c) => c.kind === 'missed').bby
+  // Relative, not absolute: re-opening the SAME bonus buy is served from the query cache
+  // and issues no second request, so only the DELTA for a new bby is a real claim.
+  const callsBefore = detailCalls
   await openFrom('missed')
   check(
     'and the control on a NEAR-MISS card opens the same modal — the only route to a miss\'s rules',
@@ -291,7 +338,7 @@ async function run() {
   )
   check(
     'it asked for THAT card\'s bonus buy, not the fired one — the modal is keyed on the card',
-    lastDetailBby === missedBby && detailCalls === 2,
+    lastDetailBby === missedBby && detailCalls === callsBefore + 1,
     `asked ${lastDetailBby} · card ${missedBby}`,
   )
   await page.keyboard.press('Escape')

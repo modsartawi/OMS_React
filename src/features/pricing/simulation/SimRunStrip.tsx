@@ -4,6 +4,7 @@ import { DatabaseZap, Loader2, Play } from 'lucide-react'
 
 import { formatMoney } from '@/core/util/number-format'
 import SimHeaderForm, { type SimHeaderState } from './SimHeaderForm'
+import SimStatusSlot, { useSpinnerVisible } from './SimStatusSlot'
 import type { RunChip } from './run-chips'
 
 /**
@@ -74,6 +75,8 @@ interface Props {
   onExpandedChange: (next: boolean) => void
   money: RunMoney | null
   pending: boolean
+  /** The inputs no longer describe the on-screen result (`staleness.ts`, 114). */
+  stale: boolean
   canProcess: boolean
   onProcess: () => void
   onClear: () => void
@@ -94,6 +97,7 @@ export default function SimRunStrip({
   onExpandedChange,
   money,
   pending,
+  stale,
   canProcess,
   onProcess,
   onClear,
@@ -102,6 +106,10 @@ export default function SimRunStrip({
   onClearCache,
 }: Props) {
   const { t } = useTranslation('simulation')
+
+  // One waiting, one timer: the status slot's spinner and the Process button's
+  // both wait 150 ms (ticket 114), so an ordinary 184–268 ms run shows neither.
+  const spinner = useSpinnerVisible(pending)
 
   // `Esc` collapses and returns focus HERE, never to the document (102 §6) — so
   // the chip set has to be reachable from inside the expansion.
@@ -148,7 +156,10 @@ export default function SimRunStrip({
         disabled={!canProcess}
         className="inline-flex h-8 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50"
       >
-        {pending ? (
+        {/* The icon swaps on the SHARED 150 ms flag, not on `pending` — a spinner
+            that flashed here while the slot held still would be two answers to
+            the same question. `▶ Process` does not mirror (spec 110's RTL pass). */}
+        {spinner ? (
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
         ) : (
           <Play className="h-4 w-4" aria-hidden />
@@ -186,10 +197,30 @@ export default function SimRunStrip({
     </>
   )
 
+  // An indeterminate hairline along the strip's OWN bottom edge while a run is
+  // out (114) — absolutely positioned inside the border, so waiting introduces no
+  // new region and no layout shift. It rides the same 150 ms gate as the spinners:
+  // a bar that appeared and vanished inside 200 ms would be a blink, not feedback.
+  const hairline = spinner ? (
+    <span
+      data-run-hairline
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden"
+    >
+      {/* The travelling segment. Its animation is a physical translate — the one
+          direction-bound exception on this strip (spec 110's RTL pass): a
+          progress sweep reads left-to-right as a machine motion, not as text. */}
+      <span className="absolute inset-y-0 w-1/3 animate-indeterminate bg-primary/60" />
+    </span>
+  ) : null
+
   // ---- expanded: the form replaces the collapsed row in place ---------------
   if (expanded) {
     return (
-      <div data-run-strip="expanded" className="flex flex-col gap-3 border-b border-border/60 pb-3">
+      <div
+        data-run-strip="expanded"
+        className="relative flex flex-col gap-3 border-b border-border/60 pb-3"
+      >
         <div className="flex items-center justify-end">
           <button
             type="button"
@@ -214,6 +245,7 @@ export default function SimRunStrip({
         />
 
         <div className="flex flex-wrap items-center gap-2">{runControls}</div>
+        {hairline}
       </div>
     )
   }
@@ -222,7 +254,7 @@ export default function SimRunStrip({
   return (
     <div
       data-run-strip="collapsed"
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 pb-3"
+      className="relative flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 pb-3"
     >
       <button
         type="button"
@@ -266,10 +298,9 @@ export default function SimRunStrip({
         <span className="ps-1 text-xs font-medium text-muted-foreground">{t('strip.edit')}</span>
       </button>
 
-      {/* The status slot — one place, three states (absent · stale · in flight).
-          Empty until ticket 114 fills it; the placeholder holds its source order
-          so the slot can never wrap away from the chips it comments on. */}
-      <span data-status-slot />
+      {/* The status slot (ticket 114) — one place, three states (absent · stale ·
+          in flight), sitting immediately after the chips it comments on. */}
+      <SimStatusSlot pending={pending} stale={stale} spinner={spinner} />
 
       {money ? (
         <div className="ms-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -298,6 +329,8 @@ export default function SimRunStrip({
       >
         {runControls}
       </div>
+
+      {hairline}
     </div>
   )
 }

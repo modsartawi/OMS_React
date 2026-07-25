@@ -39,6 +39,23 @@
      grid and the rail's own grid must agree on the number — two hand-spelled
      `min-[900px]` would be one edit away from laying out against each other. */
   --breakpoint-rail: 900px;
+
+  /* The in-flight hairline on the Simulation run strip (ticket 114, spec 110):
+     an indeterminate sweep, because the pricing call reports no progress. It is
+     the one PHYSICAL-direction exception on that strip (110's RTL pass) — a
+     progress sweep reads as machine motion, not as text, so it does not mirror.
+     Named here rather than spelled inline: `animate-[...]` arbitrary values
+     cannot carry a comment, and this one needs the exception recorded. */
+  --animate-indeterminate: indeterminate 1.15s ease-in-out infinite;
+
+  @keyframes indeterminate {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(400%);
+    }
+  }
 }
 
 /* ---------------------------------------------------------------------------

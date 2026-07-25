@@ -24,8 +24,10 @@ import SimPromoBlocks from './SimPromoBlocks'
 // import SimMissedPromotions from './SimMissedPromotions'
 import SimResultsGrid, { type PromoHot } from './SimResultsGrid'
 import SimRunStrip from './SimRunStrip'
+import { SimStaleResultsNote } from './SimStatusSlot'
 import { promoView } from './promo-view'
 import { runChips } from './run-chips'
+import { isStaleRun } from './staleness'
 
 // Ticket 013 — the POS Simulation tracer. Self-guards on Pricing/Access (issue-429
 // pattern, shared ['simulation','access'] key with the menu probe), then: a 4-column
@@ -82,18 +84,40 @@ export default function SimulationPage() {
   // starting to read a failure.
   const [stripOpen, setStripOpen] = useState(false)
 
+  // The run ON SCREEN: its result, how long it took, and — the part ticket 114
+  // needs — the request that produced it, which is what staleness compares
+  // against. It is the Page's own state rather than `process.data` because a
+  // mutation clears its data the moment `mutate` is called again, and the
+  // previous results must STAY on screen while the next run is out: the captured
+  // runs return in 184–268 ms, so blanking them would be a flicker of nothing.
+  const [run, setRun] = useState<{
+    result: SimulationResult
+    elapsedMs: number
+    request: SimulateRequest
+  } | null>(null)
+
   const process = useMutation({
     mutationFn: async (request: SimulateRequest) => {
       const start = performance.now()
       const result = await simulationApi.simulate(request)
-      return { result, elapsedMs: Math.round(performance.now() - start) }
+      return { result, elapsedMs: Math.round(performance.now() - start), request }
     },
-    onSuccess: ({ result }) => setSelectedItemNumber(result.items[0]?.itemNumber ?? null),
+    onSuccess: ({ result, elapsedMs, request }) => {
+      setRun({ result, elapsedMs, request })
+      setSelectedItemNumber(result.items[0]?.itemNumber ?? null)
+    },
+    // A whole-run failure takes the previous run down with it (spec 110): a total
+    // and an error banner side by side would invite reading the old numbers as
+    // this run's. So it is absent, never zeroed and never left standing.
+    onError: () => {
+      setRun(null)
+      setSelectedItemNumber(null)
+    },
   })
 
   // The reworked promotions view model (promoView, ticket 045): per-line refs for the
   // grid's Promotion column (046) and the fired promotions as buy→get blocks (047).
-  const view = useMemo(() => promoView(process.data?.result ?? null), [process.data])
+  const view = useMemo(() => promoView(run?.result ?? null), [run])
   const promoByItem = useMemo(
     () => new Map(view.lines.map((l) => [l.itemNumber, l.promos])),
     [view],
@@ -155,6 +179,12 @@ export default function SimulationPage() {
 
   const chips = useMemo(() => runChips(request), [request])
 
+  // The status slot's stale state (ticket 114) — the inputs on screen against the
+  // request that produced the on-screen result. It MARKS only: Process is not
+  // blocked, nothing re-runs, and the results below stay readable and undimmed,
+  // because comparing this total against the last one is the loop's whole point.
+  const stale = useMemo(() => isStaleRun(request, run?.request ?? null), [request, run])
+
   const runProcess = useCallback(() => {
     if (request.items.length === 0 || process.isPending) return
     // Collapse on EVERY Process (ticket 113) — the determination is settled the
@@ -194,6 +224,7 @@ export default function SimulationPage() {
     setItems([emptyItemRow()])
     setManualConditions([])
     setSelectedItemNumber(null)
+    setRun(null)
     process.reset()
   }
 
@@ -215,8 +246,7 @@ export default function SimulationPage() {
     )
   }
 
-  const data = process.data ?? null
-  const result: SimulationResult | null = data?.result ?? null
+  const result: SimulationResult | null = run?.result ?? null
   const errorCount = result ? result.items.filter((i) => i.pricingStatus === 'E').length : 0
   const warnCount = result ? result.items.filter((i) => i.pricingStatus === 'W').length : 0
   const showStatusBanner = errorCount + warnCount > 0
@@ -252,17 +282,18 @@ export default function SimulationPage() {
         // A total belongs to a run: absent before the first Process and after a
         // failure, rather than zeroed or placeheld.
         money={
-          result && data
+          run
             ? {
-                netTotal: result.header.netTotal,
-                currency: result.header.currency,
-                totalDiscount: result.header.totalDiscount,
-                taxValue: result.header.taxValue,
-                elapsedMs: data.elapsedMs,
+                netTotal: run.result.header.netTotal,
+                currency: run.result.header.currency,
+                totalDiscount: run.result.header.totalDiscount,
+                taxValue: run.result.header.taxValue,
+                elapsedMs: run.elapsedMs,
               }
             : null
         }
         pending={process.isPending}
+        stale={stale}
         canProcess={canProcess}
         onProcess={runProcess}
         onClear={clearAll}
@@ -300,6 +331,11 @@ export default function SimulationPage() {
               {t('banner.counts', { errors: errorCount, warnings: warnCount })}
             </div>
           ) : null}
+
+          {/* The stale mark's second appearance (ticket 114): the strip carries it
+              where the change happened, this line carries it where the stale
+              numbers are. Only when there is a result for it to be about. */}
+          {stale && result ? <SimStaleResultsNote /> : null}
 
           {/* Results grid. */}
           <div className="rounded-lg border border-border/60 bg-card p-3">

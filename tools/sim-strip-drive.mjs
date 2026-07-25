@@ -20,6 +20,16 @@
 //   8. `▶ Process` / `Clear` / `⛁ Wipe cache` sit together as one cluster, past
 //      every other control in the row.
 //
+// Extended by ticket 114 — the status slot's three states:
+//   9. after a run the slot is ABSENT; editing any input raises `↻ Inputs changed`
+//      in it plus one dashed line above the results, neutral (a chip's own ground,
+//      no hue) and not a chip; the results stay readable and undimmed; Process is
+//      not blocked; and the mark CLEARS when the new results arrive;
+//  10. a run in flight keeps the previous results on screen, reads `Processing…`,
+//      waits 150 ms for its spinner and hairline (an ordinary run shows neither),
+//      puts the hairline on the strip's own bottom edge with no layout shift, and
+//      DISABLES `Edit ▾` rather than hiding it.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/sim-strip-drive.mjs
 import { createRequire } from 'node:module'
@@ -76,6 +86,20 @@ async function run() {
   const posted = []
   /** Flipped late in the run so the SAME app meets a rejection (assertion 6). */
   let rejectNext = false
+  /** A gate on the Simulate response (assertion 10): when set, the route waits on
+   *  this promise, so "a run is out" is a state the drive holds open and reads
+   *  rather than a race it tries to sample. */
+  let release = null
+  const holdNext = () => {
+    let resolve
+    const gate = new Promise((r) => (resolve = r))
+    release = () => {
+      release = null
+      resolve()
+    }
+    return gate
+  }
+  let gate = null
 
   await page.route('**/api/**', async (route) => {
     const url = route.request().url()
@@ -88,6 +112,11 @@ async function run() {
     if (p === 'Pricing/CacheAccess') return route.fulfill(envelope({ canClear: true }))
     if (p === 'Pricing/Simulate') {
       posted.push(JSON.parse(route.request().postData() || '{}'))
+      if (gate) {
+        const held = gate
+        gate = null
+        await held
+      }
       return route.fulfill(rejectNext ? rejection() : envelope(SIMULATION))
     }
     return route.fulfill(envelope({}))
@@ -373,6 +402,203 @@ async function run() {
     JSON.stringify(posted.at(-1)?.header ?? {}),
   )
   check('the shortcut is signposted on the button itself', /⌃⏎/.test(await strip().innerText()))
+
+  // ============================================ ticket 114 — the status slot
+  // The slot as data: its state, its words, and the two things that make it a
+  // different species from a chip (dashed border) and keep it neutral (a chip's
+  // own ground, nothing chromatic).
+  const readSlot = () =>
+    page.locator('[data-status-slot]').evaluate((el) => {
+      const style = getComputedStyle(el)
+      const chip = el.parentElement?.querySelector('[data-chip]')
+      return {
+        state: el.getAttribute('data-status-slot'),
+        text: el.innerText.replace(/\s+/g, ' ').trim(),
+        borderStyle: style.borderTopStyle,
+        background: style.backgroundColor,
+        chipBackground: chip ? getComputedStyle(chip).backgroundColor : '',
+        // A chip is a readout; the slot is not a chip, and must not be mistaken
+        // for one by anything that counts them.
+        isChip: el.hasAttribute('data-chip'),
+        focusable: el.matches('button, a, input, select, [tabindex]'),
+        spinning: !!el.querySelector('.animate-spin'),
+      }
+    })
+
+  /** The results frame: how many lines it shows, and whether it is dimmed. */
+  const resultsCard = () => page.locator('h2', { hasText: 'Results' }).locator('..')
+  const readResults = () =>
+    resultsCard().evaluate((el) => ({
+      rows: el.querySelectorAll('tbody tr').length,
+      opacity: getComputedStyle(el).opacity,
+      note: !!el.parentElement?.querySelector('[data-stale-note]'),
+    }))
+
+  // ------------------------------------------------------- 9 · staleness
+  let slot = await readSlot()
+  const settled = await readResults()
+  check(
+    'after a run the slot is ABSENT — silence is the healthy state',
+    slot.state === 'absent' && slot.text === '' && settled.note === false,
+    `${slot.state} · "${slot.text}"`,
+  )
+  check('and the run it describes is on screen', settled.rows > 0, `${settled.rows} line(s)`)
+
+  // Every input counts; the quantity is the one the analyst actually retypes.
+  await itemsTable().locator('input').nth(1).fill('7')
+  await page.waitForTimeout(150)
+  slot = await readSlot()
+  const staleResults = await readResults()
+  check(
+    'changing an input raises ↻ Inputs changed in the slot',
+    slot.state === 'stale' && /Inputs changed/.test(slot.text),
+    `${slot.state} · "${slot.text}"`,
+  )
+  check(
+    'and one dashed line above the results says it where the stale numbers are',
+    staleResults.note === true,
+  )
+  check(
+    'the slot is NOT a chip — dashed where a chip is solid, unfocusable, uncounted',
+    slot.isChip === false &&
+      slot.focusable === false &&
+      slot.borderStyle === 'dashed' &&
+      (await chips().count()) === 5,
+    `${slot.borderStyle} · chips=${await chips().count()}`,
+  )
+  check(
+    'and it is neutral by force: a chip\'s own ground, no hue borrowed from the budget',
+    slot.background === slot.chipBackground,
+    `${slot.background} vs chip ${slot.chipBackground}`,
+  )
+  check(
+    'the stale results stay READABLE and undimmed — comparing totals is the loop',
+    staleResults.rows === settled.rows && staleResults.opacity === '1',
+    `${staleResults.rows} line(s) at opacity ${staleResults.opacity}`,
+  )
+  check(
+    'and it MARKS only: Process is not blocked, nothing re-ran, nothing was discarded',
+    (await page.getByRole('button', { name: /Process/ }).first().isEnabled()) &&
+      posted.length === postsBeforeShortcut + 1,
+    `${posted.length - postsBeforeShortcut} post(s) since the last run`,
+  )
+
+  // ------------------------------------------------- 10 · a run in flight
+  // A fast run first: the spinner and the hairline must NEVER appear, which is
+  // watched for continuously rather than sampled once.
+  const watch = page.evaluate(async () => {
+    let saw = ''
+    const t0 = performance.now()
+    while (performance.now() - t0 < 600) {
+      const slotEl = document.querySelector('[data-status-slot]')
+      if (slotEl?.querySelector('.animate-spin')) saw += 'spinner '
+      if (document.querySelector('[data-run-hairline]')) saw += 'hairline '
+      await new Promise((r) => requestAnimationFrame(r))
+    }
+    return saw.trim()
+  })
+  await page.getByRole('button', { name: /Process/ }).first().click()
+  const flashed = await watch
+  check(
+    'an ordinary run flashes NO spinner and no hairline — the 150 ms wait holds',
+    flashed === '',
+    flashed || 'neither appeared',
+  )
+  slot = await readSlot()
+  check(
+    'and the new results clear the mark: the slot is absent again',
+    slot.state === 'absent' && (await readResults()).note === false,
+    slot.state,
+  )
+
+  // Now a run held open, so "in flight" is a state to read rather than a race.
+  const beforeHeld = await readResults()
+  gate = holdNext()
+  await page.getByRole('button', { name: /Process/ }).first().click()
+  await page.waitForTimeout(60)
+  slot = await readSlot()
+  let held = await readResults()
+  const stripStops = await readStrip()
+  check(
+    'a run in flight reads Processing… in the slot',
+    slot.state === 'processing' && /Processing/.test(slot.text),
+    `${slot.state} · "${slot.text}"`,
+  )
+  check(
+    'the previous results STAY on screen — a 184 ms round trip is not a flicker of nothing',
+    held.rows === beforeHeld.rows && (await strip().innerText()).includes('Net total'),
+    `${held.rows} line(s), money ${stripStops.money ? 'present' : 'absent'}`,
+  )
+  check(
+    'under 150 ms there is still no spinner and no hairline',
+    slot.spinning === false && (await page.locator('[data-run-hairline]').count()) === 0,
+  )
+  check(
+    'Edit ▾ is DISABLED rather than hidden — hiding it would reflow the strip twice per run',
+    (await chipSet().count()) === 1 && (await chipSet().isDisabled()),
+    `${await chipSet().count()} control(s), disabled=${await chipSet().isDisabled()}`,
+  )
+  check(
+    'and Clear and ⛁ Wipe cache lock with it while ▶ Process reads Processing…',
+    (await page.getByRole('button', { name: 'Clear', exact: true }).isDisabled()) &&
+      (await page.getByRole('button', { name: /cache/i }).isDisabled()) &&
+      /Processing/.test(await page.getByRole('button', { name: /Processing/ }).first().innerText()),
+  )
+
+  // Past 150 ms: the spinner and the hairline arrive, and the hairline sits on the
+  // strip's own bottom edge without moving anything.
+  const stripBoxBefore = await strip().evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom) }
+  })
+  await page.waitForTimeout(250)
+  slot = await readSlot()
+  const hairline = await page.locator('[data-run-hairline]').evaluate((el) => {
+    const bar = el.getBoundingClientRect()
+    const host = el.closest('[data-run-strip]').getBoundingClientRect()
+    return {
+      height: Math.round(bar.height),
+      // Inside the strip's own border, not a new region below it.
+      offsetFromBottom: Math.round(host.bottom - bar.bottom),
+      spansTheStrip: Math.round(bar.width) === Math.round(host.width),
+      animated: getComputedStyle(el.firstElementChild).animationName,
+    }
+  })
+  const stripBoxDuring = await strip().evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom) }
+  })
+  check(
+    'past 150 ms the spinner appears in the slot',
+    slot.spinning === true,
+    slot.text,
+  )
+  check(
+    'and a hairline runs along the strip’s OWN bottom edge, animated and indeterminate',
+    hairline.height <= 2 &&
+      hairline.offsetFromBottom <= 1 &&
+      hairline.spansTheStrip &&
+      hairline.animated === 'indeterminate',
+    JSON.stringify(hairline),
+  )
+  check(
+    'it introduces no layout shift — the strip’s own box is unmoved',
+    stripBoxDuring.top === stripBoxBefore.top && stripBoxDuring.bottom === stripBoxBefore.bottom,
+    `${JSON.stringify(stripBoxBefore)} → ${JSON.stringify(stripBoxDuring)}`,
+  )
+
+  release()
+  await page.waitForTimeout(400)
+  slot = await readSlot()
+  held = await readResults()
+  check(
+    'and when the results arrive the slot empties and the hairline goes',
+    slot.state === 'absent' &&
+      (await page.locator('[data-run-hairline]').count()) === 0 &&
+      held.rows > 0 &&
+      (await chipSet().isEnabled()),
+    `${slot.state} · ${held.rows} line(s)`,
+  )
 
   check('no page errors while driving the strip', errors.length === 0, errors.join(' | '))
 

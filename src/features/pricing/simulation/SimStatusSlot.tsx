@@ -64,9 +64,29 @@ interface Props {
   spinner: boolean
 }
 
-/** The dashed neutral pill both non-absent states wear. */
-const pill =
-  'inline-flex items-center gap-1 rounded-full border border-dashed border-border-strong bg-muted px-2 py-0.5 text-xs text-muted-foreground'
+/** The species itself: **dashed** where a chip is solid, on a chip's own neutral
+ *  ground. Shared by the slot and the line above the results so the two can
+ *  never drift into two different-looking marks for one state. */
+const dashedNeutral =
+  'border border-dashed border-border-strong bg-muted text-xs text-muted-foreground'
+
+/** The dashed neutral pill both non-absent slot states wear. */
+const pill = `inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${dashedNeutral}`
+
+/** The stale mark's words and its glyph, in one place — the slot and the line
+ *  above the results are the same mark twice, not two sentences. */
+function StaleMark() {
+  const { t } = useTranslation('simulation')
+  return (
+    <>
+      {/* The `↻` is a glyph, not copy — `strip.stale` is the words alone (123).
+          A closed refresh circle is direction-independent: it carries no reading
+          order to mirror, so it is not one of 121's flipped SVGs. */}
+      <RotateCw className="h-3 w-3 shrink-0" aria-hidden />
+      {t('strip.stale')}
+    </>
+  )
+}
 
 export default function SimStatusSlot({ pending, stale, spinner }: Props) {
   const { t } = useTranslation('simulation')
@@ -90,11 +110,7 @@ export default function SimStatusSlot({ pending, stale, spinner }: Props) {
   if (stale) {
     return (
       <span data-status-slot="stale" role="status" className={pill}>
-        {/* The `↻` is a glyph, not copy — `strip.stale` is the words alone (123).
-            A closed refresh circle is direction-independent: it carries no reading
-            order to mirror, so it is not one of 121's flipped SVGs. */}
-        <RotateCw className="h-3 w-3" aria-hidden />
-        {t('strip.stale')}
+        <StaleMark />
       </span>
     )
   }
@@ -116,16 +132,14 @@ export default function SimStatusSlot({ pending, stale, spinner }: Props) {
  * fully readable and undimmed underneath it.
  */
 export function SimStaleResultsNote() {
-  const { t } = useTranslation('simulation')
   return (
     <p
       data-stale-note
       // NOT a live region: the slot above already announces the change once, and
       // two polite regions carrying the same sentence would say it twice.
-      className="flex items-center gap-1.5 rounded-lg border border-dashed border-border-strong bg-muted px-3 py-1.5 text-xs text-muted-foreground"
+      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${dashedNeutral}`}
     >
-      <RotateCw className="h-3 w-3 shrink-0" aria-hidden />
-      {t('strip.stale')}
+      <StaleMark />
     </p>
   )
 }

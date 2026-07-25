@@ -246,7 +246,7 @@ Supersedes the two open 043 build tickets (049, 050).
 - [111](111-sim-aggregate-conditions-under-test.md) — `aggregateConditions` holds its grouping contract under test · **done** · blocked by: — · spec 110 · prefactor · safety net before 116 grows its blast radius
 - [112](112-bby-detail-modal-to-core.md) — The bonus-buy detail modal answers from `@/core/` · **done** · blocked by: — · spec 110 · prefactor · file move, zero behaviour; i18n namespace unchanged
 - [113](113-sim-run-strip.md) — The run strip collapses the determination into chips and processes from there · **done** · blocked by: 123 · spec 110 · **slice 0** · + the work-area `@container` · 9 pure + 29 drive assertions
-- [114](114-sim-status-slot.md) — The status slot marks a stale run and an in-flight one · **open** · blocked by: 113 · spec 110 · the rework's only new component · drive port 5199
+- [114](114-sim-status-slot.md) — The status slot marks a stale run and an in-flight one · **done** · blocked by: 113 · spec 110 · the rework's only new component · 30 pure + 22 drive assertions; no new i18n key
 - [115](115-sim-result-line.md) — The result line reads its money in the corrected order · **open** · blocked by: 113, 123 · spec 110 · 7 columns; blank not 0.00; W ⇒ not priced · pure only
 - [116](116-sim-line-expansion.md) — A result line expands its rules and elements in place · **open** · blocked by: 111, 115, 123 · spec 110 · dissolves 2 components and the last AG Grid · drive port 5200
 - [117](117-sim-promotions-rail.md) — The promotions rail shows fires and near-misses beside the lines · **open** · blocked by: 115, 123 · spec 110 · near-misses reinstated; card prints its line list · drive port 5201

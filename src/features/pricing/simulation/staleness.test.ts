@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { SimulateRequest } from '@/core/models/simulation'
+import type { SimulateHeaderInput, SimulateRequest } from '@/core/models/simulation'
+import { REQUESTS, REQUEST_SCENARIOS } from './__fixtures__/payloads'
 import { isStaleRun } from './staleness'
 
 /**
@@ -17,8 +18,18 @@ import { isStaleRun } from './staleness'
  *    and stop meaning anything.
  */
 
-/** The ordinary run: the header defaults every capture in the 098 corpus used. */
-function request(patch: Partial<SimulateRequest> = {}): SimulateRequest {
+/**
+ * The ordinary run: the header defaults every capture in the 098 corpus used.
+ * Hand-built rather than captured **only** for the single-field permutations
+ * below — a capture cannot be edited one field at a time. The captured requests
+ * themselves drive the closing block, which is where the evidence rule bites:
+ * a real request must not read as stale against itself.
+ */
+type RequestPatch = Omit<Partial<SimulateRequest>, 'header'> & {
+  header?: Partial<SimulateHeaderInput>
+}
+
+function request(patch: RequestPatch = {}): SimulateRequest {
   return {
     header: {
       plant: 'P001',
@@ -50,7 +61,7 @@ describe('isStaleRun marks the results as describing an older basket', () => {
   })
 
   it('is stale on a changed determination field', () => {
-    expect(isStaleRun(request({ header: { plant: 'P002' } as never }), request())).toBe(true)
+    expect(isStaleRun(request({ header: { plant: 'P002' } }), request())).toBe(true)
   })
 
   it('is stale on a changed lever — as stale as a changed determination field', () => {
@@ -178,6 +189,41 @@ describe('isStaleRun marks the results as describing an older basket', () => {
         },
       }
       expect(isStaleRun(rebuilt, request())).toBe(false)
+    })
+  })
+
+  // Map 097's standing evidence rule: the captures, not a hypothesis. The request
+  // halves are the corpus's own baskets — seven of the eleven captures recorded
+  // one — and every false-positive shape above must hold against them too.
+  describe('against the 098 captures', () => {
+    it.each(REQUEST_SCENARIOS)('%s is not stale against itself', (scenario) => {
+      expect(isStaleRun(REQUESTS[scenario], REQUESTS[scenario])).toBe(false)
+    })
+
+    it.each(REQUEST_SCENARIOS)('%s survives a JSON round trip unchanged', (scenario) => {
+      // The shape the wire and a re-read capture actually produce: same data,
+      // rebuilt object. A predicate that compared identity would fail here.
+      const rebuilt = JSON.parse(JSON.stringify(REQUESTS[scenario])) as SimulateRequest
+      expect(isStaleRun(rebuilt, REQUESTS[scenario])).toBe(false)
+    })
+
+    it('reads two DIFFERENT captured baskets as stale', () => {
+      expect(isStaleRun(REQUESTS['plain-multiline'], REQUESTS['no-price'])).toBe(true)
+    })
+
+    it('reads a captured manual-condition row as an input like any other', () => {
+      // `06-manual-conditions` is the corpus's only captured request carrying
+      // rows, so it is the only real evidence that they reach the predicate.
+      const captured = REQUESTS['manual-conditions']
+      expect(captured.manualConditions?.length).toBeGreaterThan(0)
+      const withoutRows: SimulateRequest = { ...captured, manualConditions: [] }
+      expect(isStaleRun(withoutRows, captured)).toBe(true)
+    })
+
+    it('reads the pricing-elements flag off a captured request', () => {
+      const captured = REQUESTS['pricing-elements']
+      expect(captured.includePricingElements).toBe(true)
+      expect(isStaleRun({ ...captured, includePricingElements: false }, captured)).toBe(true)
     })
   })
 })

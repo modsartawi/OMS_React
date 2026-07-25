@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 110
 blocked-by: 113
 ---
@@ -55,9 +55,9 @@ i18n · test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `an input differing from the request that produced the results reads as stale` — header field, lever, checkbox, item row and manual-condition row each count; no prior run is not stale · **pure**
-- [ ] `blank, null and undefined on an optional field are not a change` — the false positive that would stick the mark on permanently · **pure**
-- [ ] `a run in flight keeps the previous results, waits 150 ms for its spinner, and disables Edit rather than hiding it` · **flow (Playwright, extends `tools/sim-strip-drive.mjs`)**
+- [x] `an input differing from the request that produced the results reads as stale` — header field, lever, checkbox, item row and manual-condition row each count; no prior run is not stale · **pure**
+- [x] `blank, null and undefined on an optional field are not a change` — the false positive that would stick the mark on permanently · **pure**
+- [x] `a run in flight keeps the previous results, waits 150 ms for its spinner, and disables Edit rather than hiding it` · **flow (Playwright, extends `tools/sim-strip-drive.mjs`)**
 
 ## Boundaries
 
@@ -81,3 +81,44 @@ mark clears when the new results arrive. Both pure tests and the extended strip 
 
 [113](113-sim-run-strip.md) — the slot is a group within the strip and has nowhere to live until the
 strip exists.
+
+## Comments
+
+**Done 2026-07-25** on branch `ticket/114-sim-status-slot` (worktree, per the concurrency note).
+
+**What landed.** `staleness.ts` — the pure predicate, canonicalising both sides before comparing so
+`''`, `null`, `undefined` and an absent key are one absence and a rebuilt request object is not a
+change; item rows normalise **in array order**, since the server numbers by position (contract 486),
+so a reorder is a different basket. `SimStatusSlot.tsx` — the rework's one new component: a dashed
+neutral pill (`bg-muted` + dashed `border-strong`, a chip's own ground so nothing is borrowed from
+the two-hue budget), three states, plus `SimStaleResultsNote` for the confirmation above the results
+and `useSpinnerVisible` for the 150 ms wait. The strip mounts the slot in **both** its collapsed and
+expanded rows and runs the indeterminate hairline on its own bottom edge. The Page holds the run on
+screen in its own state — a mutation clears `data` the moment `mutate` is called again, so keeping
+the previous results was a prerequisite, not a nicety.
+
+**Proof.** `staleness.test.ts` — 30 vitest cases: the single-field permutations on a hand-built
+request (a capture cannot be edited one field at a time) **plus** a closing block driven by the 098
+captures' own request halves, exposed as `REQUESTS` in `__fixtures__/payloads.ts` (seven of the
+eleven captures recorded one; the two owner-supplied ones are absent rather than reconstructed).
+`tools/sim-strip-drive.mjs` extended 29 → **51 assertions, 51/51 green** on port 5219 (see the
+concurrency note below). `npm test` 192/192, `typecheck`, `lint` and `build` green.
+
+**Three judgement calls, recorded because a reader will ask:**
+
+1. **No new i18n key.** The line above the results says `strip.stale` in the same words as the slot —
+   one key in two places, exactly like `actions.processing` — rather than minting a second sentence
+   for one state. The ticket's own i18n boundary ("call it, do not add keys here") is the reason;
+   123 kept sole ownership of `simulation.json` and this slice edited it not at all.
+2. **The Process button's icon rides the same 150 ms flag as the slot's spinner**, so "an ordinary
+   run never flashes a spinner" holds for the whole screen rather than for one of its two spinner
+   sites. For the first 150 ms the button reads `Processing…` behind its `▶` glyph.
+3. **The stale line above the results stands down while a run is out.** The slot's three states are
+   exclusive; two vocabularies for one state, live at once, would undo that. The mark returns only
+   if the arriving results are themselves stale.
+
+**Concurrency note.** The drive is written for port 5199 as the ticket specifies, but a *stale* dev
+server from an earlier session was still answering on 5199 — serving the old checkout, which would
+have made every new assertion pass against code that does not contain them. It was run against a
+worktree-local server on **5219** instead (`DRIVE_PORT` is honoured by the file). Anyone re-running
+it should check what is on 5199 first.

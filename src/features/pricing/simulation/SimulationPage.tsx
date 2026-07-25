@@ -109,10 +109,7 @@ export default function SimulationPage() {
     // A whole-run failure takes the previous run down with it (spec 110): a total
     // and an error banner side by side would invite reading the old numbers as
     // this run's. So it is absent, never zeroed and never left standing.
-    onError: () => {
-      setRun(null)
-      setSelectedItemNumber(null)
-    },
+    onError: () => setRun(null),
   })
 
   // The reworked promotions view model (promoView, ticket 045): per-line refs for the
@@ -334,8 +331,10 @@ export default function SimulationPage() {
 
           {/* The stale mark's second appearance (ticket 114): the strip carries it
               where the change happened, this line carries it where the stale
-              numbers are. Only when there is a result for it to be about. */}
-          {stale && result ? <SimStaleResultsNote /> : null}
+              numbers are. Only when there is a result for it to be about — and
+              never while a run is out, because the slot's three states are
+              exclusive there and two vocabularies for one state is one too many. */}
+          {stale && result && !process.isPending ? <SimStaleResultsNote /> : null}
 
           {/* Results grid. */}
           <div className="rounded-lg border border-border/60 bg-card p-3">

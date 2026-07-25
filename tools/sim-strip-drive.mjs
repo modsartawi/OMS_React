@@ -476,6 +476,17 @@ async function run() {
     staleResults.rows === settled.rows && staleResults.opacity === '1',
     `${staleResults.rows} line(s) at opacity ${staleResults.opacity}`,
   )
+  // The open form is where inputs change, so the mark has to survive expanding.
+  await chipSet().click()
+  await page.waitForTimeout(100)
+  slot = await readSlot()
+  check(
+    'the mark comes with the expansion — the open form is where inputs change',
+    slot.state === 'stale' && (await readStrip()).mode === 'expanded',
+    `${slot.state} in the ${(await readStrip()).mode} strip`,
+  )
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(100)
   check(
     'and it MARKS only: Process is not blocked, nothing re-ran, nothing was discarded',
     (await page.getByRole('button', { name: /Process/ }).first().isEnabled()) &&
@@ -512,7 +523,15 @@ async function run() {
   )
 
   // Now a run held open, so "in flight" is a state to read rather than a race.
+  // Entered FROM the stale state, so "in flight is the only thing said" is a real
+  // assertion rather than a vacuous one.
+  await itemsTable().locator('input').nth(1).fill('4')
+  await page.waitForTimeout(150)
   const beforeHeld = await readResults()
+  check(
+    'the run about to go out is a stale one — the mark and the line are both up',
+    (await readSlot()).state === 'stale' && beforeHeld.note === true,
+  )
   gate = holdNext()
   await page.getByRole('button', { name: /Process/ }).first().click()
   await page.waitForTimeout(60)
@@ -532,6 +551,10 @@ async function run() {
   check(
     'under 150 ms there is still no spinner and no hairline',
     slot.spinning === false && (await page.locator('[data-run-hairline]').count()) === 0,
+  )
+  check(
+    'and in flight is the ONLY thing said: the stale line above the results stands down',
+    held.note === false,
   )
   check(
     'Edit ▾ is DISABLED rather than hidden — hiding it would reflow the strip twice per run',

@@ -12,7 +12,11 @@
  * Test-only. Nothing in the app imports this module — the payloads live outside
  * `src/` and never reach the bundle.
  */
-import type { SimulationResult, SimulationResultCondition } from '@/core/models/simulation'
+import type {
+  SimulateRequest,
+  SimulationResult,
+  SimulationResultCondition,
+} from '@/core/models/simulation'
 import nearMissOwnerSupplied from '../../../../../.issues/assets/098-simulate-payloads/01-near-miss-owner-supplied.json'
 import plainMultiline from '../../../../../.issues/assets/098-simulate-payloads/01-plain-multiline.json'
 import firedBonusBuy from '../../../../../.issues/assets/098-simulate-payloads/02-fired-bonus-buy.json'
@@ -59,6 +63,34 @@ export type CapturedScenario = keyof typeof PAYLOADS
 
 /** The corpus in capture order — 01 through 06. */
 export const SCENARIOS = Object.keys(PAYLOADS) as CapturedScenario[]
+
+/**
+ * The **request** halves of the captures that recorded one (ticket 114 needs
+ * them: the staleness predicate compares two requests, so its evidence is the
+ * request side of the corpus rather than the response side).
+ *
+ * Two of the eleven captures were owner-supplied without their request and carry
+ * a reconstruction note instead of a `header` — they are absent here rather than
+ * reconstructed, which is the same rule the response side follows.
+ */
+function requestOf(capture: { _capture: { request: unknown } }): SimulateRequest {
+  return capture._capture.request as unknown as SimulateRequest
+}
+
+export const REQUESTS = {
+  'near-miss-owner-supplied': requestOf(nearMissOwnerSupplied),
+  'plain-multiline': requestOf(plainMultiline),
+  'fired-bonus-buy': requestOf(firedBonusBuy),
+  'near-miss': requestOf(nearMiss),
+  'no-price': requestOf(noPrice),
+  'pricing-elements': requestOf(pricingElements),
+  'manual-conditions': requestOf(manualConditions),
+} as const
+
+export type CapturedRequest = keyof typeof REQUESTS
+
+/** The captured requests in capture order — 01 through 06. */
+export const REQUEST_SCENARIOS = Object.keys(REQUESTS) as CapturedRequest[]
 
 /** Every raw condition row in the corpus, line by line, in wire order. */
 export function conditionsOf(scenario: CapturedScenario, itemIndex: number): SimulationResultCondition[] {

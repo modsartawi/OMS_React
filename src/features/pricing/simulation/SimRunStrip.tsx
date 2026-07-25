@@ -221,7 +221,12 @@ export default function SimRunStrip({
         data-run-strip="expanded"
         className="relative flex flex-col gap-3 border-b border-border/60 pb-3"
       >
-        <div className="flex items-center justify-end">
+        {/* The slot comes with the expansion — the open form is where the inputs
+            actually change, so a strip that dropped the mark while editing would
+            lose it exactly when it is being earned. The MONEY is the only group
+            the expansion removes (113). */}
+        <div className="flex items-center justify-between gap-3">
+          <SimStatusSlot pending={pending} stale={stale} spinner={spinner} />
           <button
             type="button"
             data-chip-set

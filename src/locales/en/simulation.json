@@ -69,21 +69,13 @@
     "placeholder": "—"
   },
   "banner": {
-    "failed": "Simulation failed",
-    "counts": "{{errors}} error(s), {{warnings}} warning(s) — check the flagged lines."
+    "failed": "Simulation failed"
   },
   "results": {
     "title": "Results",
-    "status": "Status",
     "item": "Item",
-    "material": "Material",
-    "description": "Description",
     "qty": "Qty",
     "promotion": "Promotion",
-    "promoNone": {
-      "mark": "—",
-      "label": "No promotion on this line"
-    },
     "promoKind": {
       "free": "Free goods",
       "percent": "% off",
@@ -96,11 +88,6 @@
       "get": "get",
       "buy+get": "buy + get"
     },
-    "subtotal": "Subtotal",
-    "promo": "Promo",
-    "gross": "Gross",
-    "tax": "Tax",
-    "net": "Net",
     "empty": "No priced lines yet.",
     "pos": "#",
     "was": "Was",
@@ -214,7 +201,6 @@
     "stat": "STAT"
   },
   "status": {
-    "ok": "OK",
     "warning": "Warning",
     "error": "Error"
   },

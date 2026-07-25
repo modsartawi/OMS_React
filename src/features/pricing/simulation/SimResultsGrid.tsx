@@ -1,24 +1,54 @@
 import { useTranslation } from 'react-i18next'
 import type { KeyboardEvent } from 'react'
 import type { SimulationResultItem } from '@/core/models/simulation'
+import StatusBadge from '@/core/ui/StatusBadge'
+import type { Severity } from '@/core/ui/severity'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
-import type { PromoLineRef } from './promo-view'
+import { lineMoney, type PromoSlot } from './line-money'
 import { KIND_CHIP } from './promo-kind'
+import type { PromoLineRef } from './promo-view'
 
-// The per-line results grid (spec 503, reworked map 053). Replaces the AG Grid table
-// with a hand-rolled surface that RESPONDS to the width it is given: above the
-// container threshold it is the dense WPF-order table (status · item · material ·
-// description · qty · Promotion · subtotal · promo · gross · tax · net); below it —
-// the common case, since the grid lives in the 7fr side of the split and never fits
-// even a 27" — each line folds into a self-contained card so the eleven fields stack
-// instead of spilling into a horizontal scroll. One `@container` query does the swap;
-// no JS width-measuring. Selection (drives the detail panel) and the bidirectional
-// promo cross-highlight (ticket 047) are preserved on both layouts.
+/**
+ * The per-line results table (ticket 115, spec 110 — the line's anatomy ruled in
+ * 104 against the 098 captures).
+ *
+ *   `# · item · qty ×unit · promotion · was · saved · net total`
+ *
+ * Seven columns, three of them money, rebuilt around the arithmetic the engine
+ * actually performs (`grossValue + promotionDiscount = netValue`, then
+ * `netValue + taxValue = netTotal`). The old line printed *subtotal · promo · gross ·
+ * tax · net* — the post-discount figure BEFORE the discount, the pre-discount figure
+ * AFTER it, under labels that named neither. `netValue`, `taxValue` and the
+ * arithmetic move into the line expansion (ticket 116); this slice stops printing
+ * them here.
+ *
+ * What went, and why:
+ *
+ * - **The status column.** A healthy line carries no mark at all, so a dot column
+ *   would spend colour on "nothing is wrong" three times to surface the one case
+ *   that matters. The `W` badge takes the promotion slot instead — and the two can
+ *   never collide, because a line that failed to price never fires a promotion.
+ * - **The `@[820px]` card fallback and the `max-h-[32rem]` scroll box.** The corpus
+ *   is 1–3 lines: every line of every captured basket is visible at once and the
+ *   frame is as tall as its content. The table never sheds and never scrolls — the
+ *   rework's one breakpoint is derived FROM its ~470 px (ticket 119).
+ * - **The discount's red.** Every real discount is negative and the old grid painted
+ *   it `text-destructive` — a third hue, spent on good news. `saved` is now a neutral
+ *   end-aligned magnitude.
+ *
+ * The figures themselves are not computed here: `lineMoney` (pure, tested against the
+ * captures) decides what is blank, what is suppressed and which of the four states
+ * the promotion slot resolves to. This component only renders that verdict — a `null`
+ * becomes a faint `·`, a token becomes a `t()` call.
+ *
+ * Selection (which drives the line expansion) and the bidirectional promo
+ * cross-highlight (ticket 047) are preserved.
+ */
 
 /** The promotion currently hot (hovered/focused anywhere in the surface) — drives the
- *  grid↔block cross-highlight (ticket 047). `conditionKey` narrows the highlight to one
+ *  line↔card cross-highlight (ticket 047). `conditionKey` narrows the highlight to one
  *  buy↔get application when the projection (044) supplies it; `null` (the degradation
- *  path, or a whole-block hover) lights every line of the `bby`. */
+ *  path, or a whole-card hover) lights every line of the `bby`. */
 export interface PromoHot {
   bby: string
   conditionKey: string | null
@@ -26,7 +56,9 @@ export interface PromoHot {
 
 interface Props {
   items: SimulationResultItem[]
-  /** Per-line promo refs from `promoView(result).lines` (ticket 045). */
+  /** Per-line promo refs from `promoView(result).lines` (ticket 045) — the
+   *  cross-highlight's join. The line's own promotion SLOT is read off the line's
+   *  conditions by `lineMoney`, not from here. */
   promoByItem: Map<number, PromoLineRef[]>
   hot: PromoHot | null
   selectedItemNumber: number | null
@@ -35,8 +67,8 @@ interface Props {
   onHotChange: (hot: PromoHot | null) => void
 }
 
-/** A line is lit when the hot promotion touches it — matching the row-class rule the
- *  AG Grid version carried: same bby, and same application when `conditionKey` is set. */
+/** A line is lit when the hot promotion touches it — same bby, and same application
+ *  when `conditionKey` is set. */
 function isLineHot(promos: PromoLineRef[], hot: PromoHot | null): boolean {
   if (!hot) return false
   return promos.some(
@@ -44,12 +76,15 @@ function isLineHot(promos: PromoLineRef[], hot: PromoHot | null): boolean {
   )
 }
 
-/** The promotion to raise when the pointer/focus enters a line — its first ref, mirroring
- *  the old `onCellMouseOver`; `null` on a plain, un-promoted line. */
+/** The promotion to raise when the pointer/focus enters a line — its first ref;
+ *  `null` on a plain, un-promoted line. */
 function hotForLine(promos: PromoLineRef[]): PromoHot | null {
   const ref = promos[0]
   return ref ? { bby: ref.bbyNumber, conditionKey: ref.conditionKey } : null
 }
+
+/** One column head, shared so the seven cannot drift apart. */
+const HEAD = 'px-2 py-1.5 font-semibold'
 
 export default function SimResultsGrid({
   items,
@@ -62,88 +97,41 @@ export default function SimResultsGrid({
 }: Props) {
   const { t } = useTranslation('simulation')
 
-  // onMouseLeave clears the cross-highlight once — per-line mouse-out would flicker as
-  // the pointer crosses lines.
+  // onMouseLeave clears the cross-highlight once — per-line mouse-out would flicker
+  // as the pointer crosses lines.
   return (
-    <div
-      className="@container max-h-[32rem] overflow-y-auto"
-      onMouseLeave={() => onHotChange(null)}
-    >
-      {/* ===== WIDE: the dense table (shown only when the container is wide enough). ===== */}
-      <table className="hidden w-full border-collapse @[820px]:table">
-        <thead>
-          <tr className="border-b border-border/70 text-[11px] uppercase tracking-wide text-muted-foreground">
-            <th className="px-2.5 py-2 text-start font-semibold">{t('results.status')}</th>
-            <th className="px-2.5 py-2 text-end font-semibold">{t('results.item')}</th>
-            <th className="px-2.5 py-2 text-start font-semibold">{t('results.material')}</th>
-            <th className="px-2.5 py-2 text-start font-semibold">{t('results.description')}</th>
-            <th className="px-2.5 py-2 text-end font-semibold">{t('results.qty')}</th>
-            <th className="px-2.5 py-2 text-start font-semibold">{t('results.promotion')}</th>
-            <th className="px-2.5 py-2 text-end font-semibold">{t('results.subtotal')}</th>
-            <th className="px-2.5 py-2 text-end font-semibold">{t('results.promo')}</th>
-            <th className="px-2.5 py-2 text-end font-semibold">{t('results.gross')}</th>
-            <th className="px-2.5 py-2 text-end font-semibold">{t('results.tax')}</th>
-            <th className="px-2.5 py-2 text-end font-semibold">{t('results.net')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => {
-            const promos = promoByItem.get(item.itemNumber) ?? []
-            const selected = item.itemNumber === selectedItemNumber
-            const lit = isLineHot(promos, hot)
-            return (
-              <tr
-                key={item.itemNumber}
-                tabIndex={0}
-                role="button"
-                aria-pressed={selected}
-                onClick={() => onSelect(item.itemNumber)}
-                onKeyDown={(e) => onRowKey(e, () => onSelect(item.itemNumber))}
-                onMouseEnter={() => onHotChange(hotForLine(promos))}
-                onFocus={() => onHotChange(hotForLine(promos))}
-                className={`cursor-pointer border-b border-border/50 text-sm outline-none last:border-b-0 focus-visible:ring-1 focus-visible:ring-ring ${
-                  selected
-                    ? 'bg-primary/10'
-                    : lit
-                      ? 'bg-primary/5'
-                      : 'hover:bg-accent/60'
-                }`}
-              >
-                <td className="px-2.5 py-2">
-                  <StatusDot status={item.pricingStatus} t={t} />
-                </td>
-                <td className="px-2.5 py-2 text-end tabular-nums">{item.itemNumber}</td>
-                <td className="px-2.5 py-2 tabular-nums text-muted-foreground">{item.materialNumber}</td>
-                <td className="px-2.5 py-2">{item.materialDescription}</td>
-                <td className="px-2.5 py-2 text-end tabular-nums">
-                  {`${formatNumber(item.quantity)} ${item.unitOfMeasure ?? ''}`.trim()}
-                </td>
-                <td className="px-2.5 py-2">
-                  <PromoTags promos={promos} t={t} />
-                </td>
-                <td className="px-2.5 py-2 text-end tabular-nums">{formatMoney(item.netValue)}</td>
-                <td className={`px-2.5 py-2 text-end tabular-nums ${item.promotionDiscount < 0 ? 'text-destructive' : ''}`}>
-                  {formatMoney(item.promotionDiscount)}
-                </td>
-                <td className="px-2.5 py-2 text-end tabular-nums">{formatMoney(item.grossValue)}</td>
-                <td className="px-2.5 py-2 text-end tabular-nums">{formatMoney(item.taxValue)}</td>
-                <td className="px-2.5 py-2 text-end font-semibold tabular-nums text-success-800">
-                  {formatMoney(item.netTotal)}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-
-      {/* ===== NARROW: one card per line (the default; hidden once the table fits). ===== */}
-      <div className="flex flex-col gap-2 @[820px]:hidden">
+    <table className="w-full table-fixed border-collapse" onMouseLeave={() => onHotChange(null)}>
+      {/* The seven widths of 104's set B: the description takes everything left over
+          (it reads first), every money column is fixed so the figures line up down
+          the table as well as across it. */}
+      <colgroup>
+        <col className="w-[30px]" />
+        <col />
+        <col className="w-[80px]" />
+        <col className="w-[104px]" />
+        <col className="w-[80px]" />
+        <col className="w-[76px]" />
+        <col className="w-[96px]" />
+      </colgroup>
+      <thead>
+        <tr className="border-b border-border/70 text-[11px] uppercase tracking-wide text-muted-foreground">
+          <th className={`${HEAD} text-start`}>{t('results.pos')}</th>
+          <th className={`${HEAD} text-start`}>{t('results.item')}</th>
+          <th className={`${HEAD} text-end`}>{t('results.qty')}</th>
+          <th className={`${HEAD} text-end`}>{t('results.promotion')}</th>
+          <th className={`${HEAD} text-end`}>{t('results.was')}</th>
+          <th className={`${HEAD} text-end`}>{t('results.saved')}</th>
+          <th className={`${HEAD} text-end`}>{t('results.netTotal')}</th>
+        </tr>
+      </thead>
+      <tbody>
         {items.map((item) => {
           const promos = promoByItem.get(item.itemNumber) ?? []
+          const money = lineMoney(item)
           const selected = item.itemNumber === selectedItemNumber
           const lit = isLineHot(promos, hot)
           return (
-            <div
+            <tr
               key={item.itemNumber}
               tabIndex={0}
               role="button"
@@ -152,58 +140,82 @@ export default function SimResultsGrid({
               onKeyDown={(e) => onRowKey(e, () => onSelect(item.itemNumber))}
               onMouseEnter={() => onHotChange(hotForLine(promos))}
               onFocus={() => onHotChange(hotForLine(promos))}
-              className={`cursor-pointer rounded-lg border bg-card p-3 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-ring ${
+              // 34 px at rest, two text rows. The selection edge is 3 px of `primary`
+              // on the inline start plus a `card-2` fill — transparent when unselected
+              // so nothing shifts; distinguishable from the cross-highlight's
+              // `primary-050` tint, which 104 drew the two together to check.
+              className={`h-[34px] cursor-pointer border-s-[3px] border-b border-b-divider text-sm outline-none last:border-b-0 focus-visible:ring-1 focus-visible:ring-ring ${
                 selected
-                  ? 'border-s-[3px] border-s-primary border-border/60'
+                  ? 'border-s-primary bg-card-2'
                   : lit
-                    ? 'border-primary/40 bg-primary/5'
-                    : 'border-border/60 hover:border-border'
+                    ? 'border-s-transparent bg-primary-050'
+                    : 'border-s-transparent hover:bg-accent/60'
               }`}
             >
-              {/* Header — who is this line. */}
-              <div className="flex items-baseline gap-2">
-                <StatusDot status={item.pricingStatus} t={t} />
-                <span className="text-xs font-bold tabular-nums text-muted-foreground">#{item.itemNumber}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold tracking-tight">{item.materialDescription}</div>
-                  <div className="text-xs tabular-nums text-muted-foreground">{item.materialNumber}</div>
+              <td className="px-2 align-middle text-[11px] font-bold tabular-nums text-ink-3">
+                {item.itemNumber}
+              </td>
+
+              {/* The widest column, and the one that reads first: description over
+                  material. A not-priced line carries its engine message HERE, on the
+                  line — never behind a disclosure (104's correction from 103). */}
+              <td className="min-w-0 px-2 py-[2px]">
+                <div
+                  className={`truncate text-[13px] font-medium leading-4 ${money.notPriced ? 'text-attention-800' : ''}`}
+                >
+                  {item.materialDescription}
                 </div>
-              </div>
+                <div className="truncate text-[11px] leading-[13px] tabular-nums text-muted-foreground">
+                  {item.materialNumber}
+                </div>
+                {money.notPriced
+                  ? money.messages.map((message) => (
+                      <div key={message} className="text-[11px] leading-[14px] text-attention-800">
+                        {message}
+                      </div>
+                    ))
+                  : null}
+              </td>
 
-              {/* Context band — qty + promotion. */}
-              <div className="my-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-y border-dashed border-border/60 py-2 text-sm">
-                <span className="text-muted-foreground">
-                  {t('results.qty')}{' '}
-                  <span className="font-semibold tabular-nums text-foreground">{formatNumber(item.quantity)}</span>{' '}
-                  {item.unitOfMeasure}
-                </span>
-                <PromoTags promos={promos} t={t} />
-              </div>
+              {/* Quantity over unit price — `netPrice` is not on the screen today, it
+                  is the cheapest sanity check on a price-master problem, and under the
+                  quantity it costs no column. */}
+              <td className="px-2 py-[2px] text-end text-[13px] text-muted-foreground">
+                <div className="leading-4">
+                  {`${formatNumber(item.quantity)} ${item.unitOfMeasure ?? ''}`.trim()}
+                </div>
+                {money.unitPrice === null ? null : (
+                  <div
+                    className="text-[11px] leading-[13px] tabular-nums text-ink-3"
+                    title={t('results.unitPrice')}
+                  >
+                    {`× ${formatMoney(money.unitPrice)}`}
+                  </div>
+                )}
+              </td>
 
-              {/* Money block — the aligned breakdown, net emphasized. */}
-              <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 tabular-nums">
-                <MoneyRow label={t('results.subtotal')} value={item.netValue} currency={currency} />
-                <MoneyRow
-                  label={t('results.promo')}
-                  value={item.promotionDiscount}
-                  currency={currency}
-                  tone={item.promotionDiscount < 0 ? 'text-destructive' : ''}
-                />
-                <MoneyRow label={t('results.gross')} value={item.grossValue} currency={currency} />
-                <MoneyRow label={t('results.tax')} value={item.taxValue} currency={currency} />
-                <div className="col-span-2 mt-1 flex items-baseline justify-between border-t border-border/60 pt-1.5">
-                  <span className="text-sm font-semibold">{t('results.net')}</span>
-                  <span className="text-[15px] font-bold text-success-800">
-                    {formatMoney(item.netTotal)}
+              <td className="px-2 align-middle text-end">
+                <PromoMark slot={money.promoSlot} status={item.pricingStatus} t={t} />
+              </td>
+
+              <MoneyCell value={money.was} notPriced={money.notPriced} className="text-muted-foreground" />
+              <MoneyCell value={money.saved} notPriced={money.notPriced} />
+
+              <td className="px-2 align-middle text-end">
+                {money.netTotal === null ? (
+                  <span className="text-[11.5px] italic text-ink-3">{t('results.notPriced')}</span>
+                ) : (
+                  <span className="text-[14px] font-semibold tabular-nums">
+                    {formatMoney(money.netTotal)}
                     <span className="ms-1 text-[10px] font-medium text-muted-foreground">{currency}</span>
                   </span>
-                </div>
-              </div>
-            </div>
+                )}
+              </td>
+            </tr>
           )
         })}
-      </div>
-    </div>
+      </tbody>
+    </table>
   )
 }
 
@@ -215,68 +227,90 @@ function onRowKey(e: KeyboardEvent, select: () => void) {
   }
 }
 
-function MoneyRow({
-  label,
+/**
+ * One money column. Three renderings for three different facts: a figure · a faint
+ * `·` for *nothing happened here* (never `0.00`, which would read as *we measured,
+ * and it was nothing*) · an em-dash for *this line did not price*. Both placeholders
+ * are `aria-hidden` — a screen reader reading "·" is noise, and a not-priced line
+ * says so in words in its own column.
+ */
+function MoneyCell({
   value,
-  currency,
-  tone,
+  notPriced,
+  className,
 }: {
-  label: string
-  value: number
-  currency: string
-  tone?: string
+  value: number | null
+  notPriced: boolean
+  className?: string
 }) {
   return (
-    <>
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className={`text-end text-sm ${tone ?? ''}`}>
-        {formatMoney(value)}
-        <span className="ms-1 text-[10px] text-muted-foreground">{currency}</span>
-      </span>
-    </>
+    <td className={`px-2 align-middle text-end text-[13px] tabular-nums ${className ?? ''}`}>
+      {value === null ? (
+        <span className="text-ink-3" aria-hidden>
+          {notPriced ? '—' : '·'}
+        </span>
+      ) : (
+        formatMoney(value)
+      )}
+    </td>
   )
 }
 
-/** Red (E) / amber (W) / green (ok) line-health dot — the status text is title + aria so
- *  the colour isn't the only channel. Inline (not an AG Grid renderer). */
-function StatusDot({ status, t }: { status: string; t: ReturnType<typeof useTranslation>[0] }) {
-  const tone = status === 'E' ? 'error' : status === 'W' ? 'warning' : 'ok'
-  const color = tone === 'error' ? 'bg-danger' : tone === 'warning' ? 'bg-attention' : 'bg-success'
-  const label = t(`status.${tone}`)
-  return (
-    <span className="inline-flex items-center" title={label} aria-label={label}>
-      <span className={`inline-block h-2.5 w-2.5 rounded-full ${color}`} />
-    </span>
-  )
-}
+/** `E`/`W` → the severity the badge wears. */
+const STATUS_SEVERITY: Record<string, Severity> = { E: 'bad', W: 'warn' }
 
-/** The promotion(s) touching a line — a neutral KIND chip (hue is reserved for
- *  severity, ticket 088) plus a ROLE tag; a plain em-dash when none, so promoted and
- *  un-promoted lines read distinct. Lifted from the retired `PromoCell` (ticket 046). */
-function PromoTags({ promos, t }: { promos: PromoLineRef[]; t: ReturnType<typeof useTranslation>[0] }) {
-  if (promos.length === 0) {
+/**
+ * The promotion slot — one slot, exactly one of four states (104 §3): `✔ fired` (the
+ * hue budget's first spend), 082's `StatusBadge` carrying the engine's own status
+ * letter, a neutral `MANUAL` chip, or an em-dash. Fired and MANUAL stack; fired and
+ * the badge cannot co-occur, which is why there is no status column.
+ *
+ * The badge's label is the wire's `pricingStatus` — server-supplied data, not a
+ * literal; the human word for it rides the `title`, and the line reads `not priced`
+ * in words in its money column regardless.
+ */
+function PromoMark({
+  slot,
+  status,
+  t,
+}: {
+  slot: PromoSlot
+  status: string
+  t: ReturnType<typeof useTranslation>[0]
+}) {
+  if (slot.state === 'warned') {
+    const sev = STATUS_SEVERITY[status] ?? 'warn'
     return (
-      <span className="text-muted-foreground" aria-label={t('results.promoNone.label')}>
-        {t('results.promoNone.mark')}
+      <span className="inline-flex" title={t(sev === 'bad' ? 'status.error' : 'status.warning')}>
+        <StatusBadge sev={sev}>{status}</StatusBadge>
+      </span>
+    )
+  }
+  if (slot.state === 'none') {
+    return (
+      <span className="text-ink-3" aria-hidden>
+        —
       </span>
     )
   }
   return (
-    <span className="flex flex-wrap items-center gap-1">
-      {promos.map((p, i) => {
-        return (
-          <span key={`${p.bbyNumber}-${p.conditionKey ?? i}`} className="inline-flex items-center gap-1">
-            <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${KIND_CHIP}`}>
-              {t(`results.promoKind.${p.kind ?? 'unknown'}`)}
-            </span>
-            {p.role ? (
-              <span className="inline-flex items-center rounded border border-border px-1 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {t(`results.promoRole.${p.role}`)}
-              </span>
-            ) : null}
-          </span>
-        )
-      })}
+    <span className="inline-flex items-center justify-end gap-1">
+      {slot.state === 'fired' ? (
+        <span className="text-[11.5px] font-semibold text-success-800">{`✔ ${t('results.fired')}`}</span>
+      ) : null}
+      {slot.state === 'manual' || slot.manual ? <ManualChip t={t} /> : null}
+    </span>
+  )
+}
+
+/** The hand-entered mark. Reuses `detail.badge.manual` — one key, two call sites — on
+ *  the same neutral chip ground every non-severity chip on this screen shares. */
+function ManualChip({ t }: { t: ReturnType<typeof useTranslation>[0] }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-wider ${KIND_CHIP}`}
+    >
+      {t('detail.badge.manual')}
     </span>
   )
 }

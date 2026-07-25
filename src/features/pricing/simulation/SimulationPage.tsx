@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk (the
@@ -88,7 +88,12 @@ export default function SimulationPage() {
       const result = await simulationApi.simulate(request)
       return { result, elapsedMs: Math.round(performance.now() - start) }
     },
-    onSuccess: ({ result }) => setSelectedItemNumber(result.items[0]?.itemNumber ?? null),
+    // A re-run CLEARS the selection (ticket 115, ruled in 104 §6) — it no longer
+    // auto-selects the first line. The new result is new lines, `conditionKey` is not
+    // stable across runs (098 finding 4), and a stale expansion showing the previous
+    // run's conditions is worse than an extra click. (The detail panel on the right
+    // keeps its own first-line fallback until ticket 116 folds it into the line.)
+    onSuccess: () => setSelectedItemNumber(null),
   })
 
   // The reworked promotions view model (promoView, ticket 045): per-line refs for the
@@ -217,9 +222,6 @@ export default function SimulationPage() {
 
   const data = process.data ?? null
   const result: SimulationResult | null = data?.result ?? null
-  const errorCount = result ? result.items.filter((i) => i.pricingStatus === 'E').length : 0
-  const warnCount = result ? result.items.filter((i) => i.pricingStatus === 'W').length : 0
-  const showStatusBanner = errorCount + warnCount > 0
 
   const selectedItem =
     result?.items.find((i) => i.itemNumber === selectedItemNumber) ?? result?.items[0] ?? null
@@ -290,18 +292,12 @@ export default function SimulationPage() {
             />
           </div>
 
-          {/* Per-item E/W summary — one bad line among good ones (still HTTP 200). */}
-          {showStatusBanner ? (
-            <div
-              role="alert"
-              className="flex items-center gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-sm text-attention-800"
-            >
-              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
-              {t('banner.counts', { errors: errorCount, warnings: warnCount })}
-            </div>
-          ) : null}
+          {/* The per-item E/W count banner is RETIRED (ticket 115, ruled in 104 §2):
+              on the captured evidence it is a warning-only banner over a three-line
+              table where the line's own badge is already in view — two surfaces for
+              one fact, and the badge is the one that says WHICH line. */}
 
-          {/* Results grid. */}
+          {/* Results table. */}
           <div className="rounded-lg border border-border/60 bg-card p-3">
             <h2 className="mb-2 text-sm font-semibold tracking-tight">{t('results.title')}</h2>
             {result === null ? (
@@ -313,7 +309,10 @@ export default function SimulationPage() {
                 items={result.items}
                 promoByItem={promoByItem}
                 hot={hot}
-                selectedItemNumber={selectedItem?.itemNumber ?? null}
+                // The table marks what is actually SELECTED — `null` after a re-run.
+                // The detail panel's first-line fallback must not put a mark on a line
+                // the analyst never chose.
+                selectedItemNumber={selectedItemNumber}
                 currency={result.header.currency}
                 onSelect={setSelectedItemNumber}
                 onHotChange={setHot}

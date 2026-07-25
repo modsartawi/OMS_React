@@ -47,20 +47,8 @@ const RETIRING_KEYS = [
   'detail.hideStatistical',
   'bonus.tabs.elements',
   'bonus.elements.empty',
-  'results.status',
-  'results.promoNone.mark',
-  'results.promoNone.label',
-  'results.material',
-  'results.description',
-  'results.gross',
-  'results.promo',
-  'results.net',
-  'results.subtotal',
-  'results.tax',
-  'banner.counts',
   'summary.netTotal',
   'summary.elapsed',
-  'status.ok',
   'detail.records',
   'detail.subRate',
 ]
@@ -68,9 +56,38 @@ const RETIRING_KEYS = [
 /**
  * The contract half, as far as it has run. Ticket 113 dissolved the Header form,
  * the Summary tile and the Actions card into the run strip, so these three frame
- * headings retired WITH their call sites — the rest of the sweep is 121's.
+ * headings retired WITH their call sites; ticket 115 rebuilt the result line, which
+ * retires the five money labels, the status column, the promo-none em-dash, the two
+ * halves of the merged Item column, the E/W count banner and the healthy-line label.
+ * The rest of the sweep is 121's.
+ *
+ * The five money keys are the reason this list exists rather than a rename sweep.
+ * `results.subtotal`'s natural rename is `results.net` — occupied, by a DIFFERENT
+ * figure. A rename onto an occupied key is the one shape the zero-literal rule cannot
+ * protect: a half-finished sweep leaves a key that resolves, renders plausible
+ * English, and is about the wrong number — strictly worse than a raw key, which is at
+ * least visibly broken. So all five retired and 123's replacements minted fresh.
  */
-const RETIRED_KEYS = ['header.title', 'summary.title', 'actions.title']
+const RETIRED_KEYS = [
+  'header.title',
+  'summary.title',
+  'actions.title',
+  // 115 — the money labels of the old order (subtotal · promo · gross · tax · net).
+  'results.subtotal',
+  'results.promo',
+  'results.gross',
+  'results.tax',
+  'results.net',
+  // 115 — the status column, the promo-none mark, the split Item column, the banner.
+  'results.status',
+  'results.promoNone.mark',
+  'results.promoNone.label',
+  'results.material',
+  'results.description',
+  'banner.counts',
+  // 115 — a healthy line renders no label at all, so `OK` has no call site.
+  'status.ok',
+]
 
 /** Values that must carry their own uppercase — a CSS transform is a no-op on Arabic script. */
 const UPPERCASE_KEYS = [
@@ -129,10 +146,20 @@ describe('simulation namespace — the expand step', () => {
   })
 
   it('the fresh money keys are minted beside the occupied ones, never onto them', () => {
-    // `results.subtotal`'s natural rename is `results.net` — occupied today by a different
-    // figure. The five money keys mint fresh so no half-finished sweep can resolve to
-    // plausible English about the wrong number.
-    const collisions = NEW_KEYS.filter((path) => RETIRING_KEYS.includes(path))
+    // The invariant behind the mint-fresh ruling: no key the sweep RETIRES is also a
+    // key the new line reads. If one were, a half-finished sweep would leave a key that
+    // resolves and renders plausible English about the wrong number.
+    const collisions = NEW_KEYS.filter(
+      (path) => RETIRED_KEYS.includes(path) || RETIRING_KEYS.includes(path),
+    )
     expect(collisions).toEqual([])
+  })
+
+  it('the retired money keys are gone from the call sites too, not just the JSON', () => {
+    // 121's close-out is the backstop for the whole screen; the five money keys are
+    // this slice's own, because a resolving key about the wrong number is the failure
+    // mode, and it survives a JSON-only sweep.
+    const retiredMoney = ['results.subtotal', 'results.promo', 'results.gross', 'results.tax', 'results.net']
+    for (const path of retiredMoney) expect(resolve(path)).toBeUndefined()
   })
 })

@@ -108,8 +108,8 @@ Tracer tickets sliced from spec 043. Two chains meeting at the pure view model: 
 - [046](046-sim-grid-promo-column.md) — theResultsGridShowsPromoKindAndRolePerLine · **done** (typecheck/build/transform green; live-drive pending SIS.Api) · blocked by: 045
 - [047](047-sim-promo-blocks.md) — firedPromotionsRenderAsBuyGetBlocks · **done** (typecheck/build green; drove real component via Playwright — live-drive of split path pending 044) · blocked by: 045
 - [048](048-sim-could-have-applied.md) — aMissedPromotionShowsWhyItDidNotFire · **done** (typecheck/build green; drove real component via Playwright 13/13 — found-vs-required meter, would-save, reason, expand, absent-when-empty) · blocked by: 047
-- [049](049-sim-progressive-disclosure.md) — aPromotionBlockRevealsTodaysConditionAndPricingDetail · **open** · blocked by: 047
-- [050](050-sim-responsive-hybrid.md) — theHybridLaysOutResponsivelyByWidth · **open** · blocked by: 046, 047, 048, 049
+- [049](049-sim-progressive-disclosure.md) — aPromotionBlockRevealsTodaysConditionAndPricingDetail · **wontfix** (superseded by map 097 → [103](103-sim-deep-layers-placement.md)) · blocked by: 047
+- [050](050-sim-responsive-hybrid.md) — theHybridLaysOutResponsivelyByWidth · **wontfix** (superseded by map 097 → [105](105-sim-responsive-arrangement.md)) · blocked by: 046, 047, 048, 049
 
 ## BBY Inquiry screen (map 053)
 
@@ -197,7 +197,7 @@ are file-scoped exclusions carrying their reason inline.
 - [087](087-brand-colour-lives-in-the-mark.md) — brandColourLivesOnlyInTheMark · **done** · blocked by: 084 · both kickers + 4 brand `text-white` retired, hero → card
 - [088](088-raw-palette-sweep.md) — noScreenSpellsARawPaletteClass · **done** · one pass, 35 files
 - [089](089-colour-literal-lint-gates.md) — lintFailsOnAReintroducedColourLiteral · **done** · blocked by: 085, 087, 088 · `tools/check-palette.mjs`, hex gate widened
-- [107](107-identity-band-dark-separation.md) — theIdentityBandReadsAsASlabOnTheDarkPage · **done** (resolved as recommended — option 2, one `border border-border` on `IdentityBand.tsx`, no token minted, login untouched; `tools/document-band-drive.mjs` 34/34 with the edge measured in both themes, the other six drives green, `npm test` 68/68, typecheck/lint/build green) · blocked by: — · follow-up from [096](096-document-detail-drive.md)'s manual pass · in dark the hairline is ΔL .026 from the page against the band's own .011; in light the band's .904 still carries it · recorded in 082 D-9 + 083 D-2 · the band takes `--border` at full strength where peers take `/60` — the peers' edge refines, this one separates
+- [107](107-identity-band-dark-separation.md) — theIdentityBandReadsAsASlabOnTheDarkPage · **open** · blocked by: — · follow-up from [096](096-document-detail-drive.md)'s manual pass · `--brand-panel` separates at 13.54:1 in light but 1.18:1 in dark and is the page's only borderless slab; D-9 sized that step deliberately, but for the login half, not for 091's full-width header
 
 ### Document Details build — spec 083
 
@@ -221,3 +221,38 @@ from the page at 13.54:1 in light and 1.18:1 in dark.
 - [094](094-action-bar-grammar.md) — theActionBarReadsAsThreeClustersAndATerminalTier · **done** (`npm test` 68/68; typecheck/lint/build green; drove the rendered bar 38/38 via `tools/document-actions-drive.mjs`) · blocked by: 092 · `pendingNote` dies with the standing textarea; the note is captured in each command's own dialog (`NoteDialog` + `NoteField`, `ChangeStoreResult.note`); a reasoned command carries `aria-disabled` (not `disabled`) so it stays focusable enough to explain itself; four new `core/ui/Button` variants carry 072's families; "command cluster" added to `CONTEXT.md`
 - [095](095-rtl-mirroring-and-bidi.md) — theLayoutMirrorsCorrectlyBeforeAnyDirSwitchExists · **done** (`npm test` 68/68 unchanged; typecheck/lint/build green; drove both directions 33/33 via `tools/document-rtl-drive.mjs`, and the four region drives re-run green untouched) · blocked by: 091, 092, 093, 094 · new `core/ui/Ltr` on six fields; F1/F2/F4 were already correct from 085/091/093 and are now measured rather than assumed; **F5 has no counterpart in this build** — 073's notched frame became an underline tablist, so there is no notch to respell; `↗` flips to `↖`; `Undo2`/`Reply` on the action bar were never ruled on and stay unflipped for the `dir`-switch effort
 - [096](096-document-detail-drive.md) — theRebuiltScreenDrivesEndToEndInBothThemes · **done** (`tools/document-detail-drive.mjs` 39/39; the six region drives re-run green untouched — rail 25, band 32, cards 45, items 23, actions 38, rtl 33; `npm test` 68/68, typecheck/lint/build green) · blocked by: 095 · **no source change was needed** — the pass found no defect; the one finding is recorded, not fixed: `--brand-panel` separates from the page at 13.54:1 in light but **1.18:1 in dark**, and the band is the page's only borderless surface, so the "one dark band" reads as a faint slab in dark — an 082 token decision, not a one-line correction · 090's fold-in note answered: the corpus table folded in, `document-rail-drive.mjs` stays as region evidence
+
+## POS Simulation screen rework — wayfinder map 097
+
+The Simulation twin of map 068: the whole screen — input side and results side — rearranged on the
+shipped POS design system (082) into a denser, chip-led device that reclaims the space eleven
+bordered cards spend on chrome. **Fresh design, no external reference**; evidence-first (098 before
+every design ticket); **arrangement only**, no behaviour change. Destination = one **ready spec**.
+Supersedes the two open 043 build tickets (049, 050).
+
+- [097](097-simulation-screen-rework.md) — The POS Simulation screen rework · **done** · wayfinder map · all 11 tickets resolved, fog clear → hand off to `/to-spec`
+- [098](098-simulate-payload-capture.md) — Capture live Simulate payloads · **done** · blocked by: — · task · 11 payloads under assets/098-simulate-payloads/
+- [099](099-sim-region-question-inventory.md) — What the analyst reads the screen for, region by region · **done** · blocked by: — · grilling · arrangement D approved; 9 frames → 3
+- [100](100-sim-chip-vocabulary.md) — The chip vocabulary: what earns a chip · **done** · blocked by: 098, 099 · grilling · two kinds, two hues, chips never act
+- [101](101-sim-screen-device-prototype.md) — The reworked screen as one device · **done** · blocked by: 098, 099, 100 · prototype · quiet strip, 3 frames, near-misses in
+- [102](102-sim-input-chip-bar.md) — The input chip bar: collapse, expand, edit, stale run · **done** · blocked by: 101 · prototype · one status slot, three states; defaults chip
+- [103](103-sim-deep-layers-placement.md) — Where the deep layers live · **done** · blocked by: 101 · supersedes 049 · one idiom + the modal; only trace hides
+- [104](104-sim-results-line-anatomy.md) — The anatomy of a result line · **done** · blocked by: 098, 101
+- [105](105-sim-responsive-arrangement.md) — How the arrangement behaves across widths · **done** · blocked by: 101, 103, 104 · supersedes 050 · one breakpoint at 900 of work area; floor 1024
+- [106](106-sim-rtl-mirroring.md) — Mirroring and bidi for the reworked arrangement · **done** · blocked by: 101, 104 · mirroring clean, 13 Ltr wrappers, 2 icons to flip
+- [108](108-sim-bby-details-affordance.md) — The bonus-buy details affordance on a promo card · **done** · blocked by: 101, 103 · both cards · modal in place · ships dark until Bby/Detail lands
+- [109](109-sim-i18n-churn-and-test-seams.md) — The i18n churn and the testing seams · **done** · blocked by: 108 · research · 22 retired / 6 renamed / 17 new keys, 6 pure seams, 5 drives
+- [110](110-sim-screen-rework-spec.md) — The POS Simulation screen rework · **ready** · spec · synthesized from map [097](097-simulation-screen-rework.md); 80 stories, 6 pure seams, 4 drives to build; sliced into 111–122
+- [111](111-sim-aggregate-conditions-under-test.md) — `aggregateConditions` holds its grouping contract under test · **open** · blocked by: — · spec 110 · prefactor · safety net before 116 grows its blast radius
+- [112](112-bby-detail-modal-to-core.md) — The bonus-buy detail modal answers from `@/core/` · **open** · blocked by: — · spec 110 · prefactor · file move, zero behaviour; i18n namespace unchanged
+- [113](113-sim-run-strip.md) — The run strip collapses the determination into chips and processes from there · **open** · blocked by: 123 · spec 110 · **slice 0** · + the work-area `@container` · drive port 5199
+- [114](114-sim-status-slot.md) — The status slot marks a stale run and an in-flight one · **open** · blocked by: 113 · spec 110 · the rework's only new component · drive port 5199
+- [115](115-sim-result-line.md) — The result line reads its money in the corrected order · **open** · blocked by: 113, 123 · spec 110 · 7 columns; blank not 0.00; W ⇒ not priced · pure only
+- [116](116-sim-line-expansion.md) — A result line expands its rules and elements in place · **open** · blocked by: 111, 115, 123 · spec 110 · dissolves 2 components and the last AG Grid · drive port 5200
+- [117](117-sim-promotions-rail.md) — The promotions rail shows fires and near-misses beside the lines · **open** · blocked by: 115, 123 · spec 110 · near-misses reinstated; card prints its line list · drive port 5201
+- [118](118-sim-bby-details-affordance.md) — A promotion card opens its bonus buy details · **open** · blocked by: 112, 117, 123 · spec 110 · gate `probed && screenAllowed`; ships dark · drive port 5202
+- [119](119-sim-responsive-arrangement.md) — The arrangement stacks the rail above the results below 900 px · **open** · blocked by: 116, 117 · spec 110 · container queries; pure shed order · drive port 5203
+- [120](120-sim-non-result-states.md) — The screen's non-result states: pre-run, manual conditions, and the whole-run failure · **open** · blocked by: 113, 123 · spec 110 · manual conditions self-open; 400 replaces the work area · drive port 5204
+- [121](121-sim-rtl-mirroring.md) — The reworked screen mirrors, spends two hues, and carries no retired key · **open** · blocked by: 115, 116, 117, 119 · spec 110 · absorbs 122; 13 `Ltr` wrappers + the ledger close-out · drive port 5205
+- [122](122-sim-hue-and-key-audit.md) — The screen spends two hues and carries no retired key · **wontfix** · blocked by: 116, 121 · spec 110 · merged into [121](121-sim-rtl-mirroring.md) to remove a build wave
+- [123](123-sim-i18n-key-expand.md) — The simulation namespace carries every new key before any slice needs it · **open** · blocked by: — · spec 110 · **expand half** · sub-hour; owns simulation.json; land first

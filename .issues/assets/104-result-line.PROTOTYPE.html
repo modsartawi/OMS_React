@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>104 — The anatomy of a result line</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* 082's shipped POS tokens — copied verbatim from 101's prototype so the two devices agree. */
+  body.tl, .device.light {
+    --background: #f4f7fa; --foreground: #19232e;
+    --card: #ffffff; --card-2: #fafbfc;
+    --muted: #eef2f6; --muted-foreground: #586674; --ink-3: #8593a1;
+    --accent: #e4eaf1;
+    --border: #e3e9f0; --border-strong: #cbd6e2; --divider: #edf1f5; --input: #cbd6e2;
+    --ring: #2f63a6;
+    --primary: #2f63a6; --primary-050: #e9eff7; --primary-border: #c6d6ec;
+    --primary-800: #27538c; --primary-foreground: #ffffff;
+    --success: #1e874b; --success-050: #e7f3ec; --success-border: #bfe0cd; --success-800: #155f36;
+    --attention: #b4791f; --attention-050: #f8f0de; --attention-border: #e7d3a3; --attention-800: #7c5410;
+    --danger: #c23b41; --danger-050: #fbecec; --danger-border: #e7bfc1; --danger-800: #8e2a2f;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  body.td, .device.dark {
+    --background: #121c27; --foreground: #ecf0f3;
+    --card: #1c2631; --card-2: #17212c;
+    --muted: #27313a; --muted-foreground: #98a6b4; --ink-3: #76828e;
+    --accent: #323c46;
+    --border: #2e3742; --border-strong: #3b4755; --divider: #28313b; --input: #3b4755;
+    --ring: #6ba0e8;
+    --primary: #6ba0e8; --primary-050: #22344b; --primary-border: #364c68;
+    --primary-800: #b5d0f5; --primary-foreground: #121c27;
+    --success: #55b577; --success-050: #1e3a27; --success-border: #2e543a; --success-800: #abdcb8;
+    --attention: #e4a249; --attention-050: #422f15; --attention-border: #5f4522; --attention-800: #f6cc9a;
+    --danger: #df6768; --danger-050: #4c2625; --danger-border: #6f3837; --danger-800: #eeb3b0;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  :root { color-scheme: light dark; }
+  body.tl { color-scheme: light; }
+  body.td { color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--background); color: var(--foreground);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .page { max-width: 1240px; margin: 0 auto; padding: 28px 20px 72px; }
+  .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-size: 22px; font-weight: 650; letter-spacing: -.015em; margin: 4px 0 0; text-wrap: balance; }
+  h2.sec { font-size: 15px; font-weight: 650; letter-spacing: -.01em; margin: 34px 0 0; }
+  .lede { max-width: 74ch; color: var(--muted-foreground); margin: 10px 0 0; }
+  .lede code, .caption code, .foot code, td code {
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    font-size: .88em; background: var(--muted); padding: 1px 5px; border-radius: 4px;
+  }
+
+  .controls { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
+  .switch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; border: 0; }
+  .switch > .sl { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); min-width: 86px; }
+  .switch label {
+    display: inline-flex; align-items: baseline; gap: 7px;
+    border: 1px solid var(--input); border-radius: 999px; padding: 6px 14px;
+    cursor: pointer; user-select: none; background: var(--card); font-size: 12.5px; font-weight: 500;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .switch label:hover { background: var(--accent); }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch label:has(input:checked) { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+  .switch label:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
+  .switch .key { font-size: 10px; font-weight: 700; opacity: .55; font-family: ui-monospace, Consolas, monospace; }
+
+  .caption {
+    margin: 16px 0 0; padding: 12px 14px;
+    border: 1px solid var(--border); border-inline-start: 3px solid var(--primary);
+    border-radius: 6px; background: var(--card-2); max-width: 88ch;
+    color: var(--muted-foreground); font-size: 13px;
+  }
+  .caption b { color: var(--foreground); font-weight: 600; }
+
+  .devices { display: grid; gap: 14px; margin-top: 18px; }
+  /* both themes stack rather than sit side by side — a half-width device would
+     misrepresent the line's width, which is the whole subject here */
+  body:has(#t-light:checked) #wrap-dark, body:has(#t-dark:checked) #wrap-light { display: none; }
+  .device {
+    border: 1px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--background); color: var(--foreground); overflow: hidden;
+    box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 8px 24px rgb(0 0 0 / .05);
+  }
+  .device-bar { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--brand-panel); color: var(--brand-panel-foreground); }
+  .device-bar .dot { width: 8px; height: 8px; border-radius: 999px; background: rgb(255 255 255 / .3); }
+  .device-bar .name { font-size: 11px; font-weight: 600; letter-spacing: .04em; opacity: .85; }
+  .stage { padding: 10px 12px 14px; }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+
+  .frame { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 12px; }
+  .frame > h2 { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+  .frame > h2 .n { font-size: 11px; font-weight: 500; color: var(--muted-foreground); }
+  .label { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted-foreground); }
+
+  /* the run strip, drawn quietly for context only — 101/102 own it */
+  .strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: var(--radius); background: var(--card-2); border: 1px solid var(--border);
+  }
+  .chip {
+    display: inline-flex; align-items: baseline; gap: 5px; border-radius: 999px; padding: 3px 9px;
+    font-size: 12px; background: var(--muted); color: var(--foreground);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .chip .ck { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .strip .grow { flex: 1 1 20px; }
+  .money { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; font-variant-numeric: tabular-nums; }
+  .money .big { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+  .money .cur { font-size: 11px; font-weight: 600; color: var(--muted-foreground); margin-inline-start: 3px; }
+  .money .pair { font-size: 12.5px; color: var(--muted-foreground); }
+  .money .pair .v { color: var(--foreground); font-weight: 600; }
+  .money .k { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-inline-end: 5px; }
+
+  /* ===== the work area ===== */
+  .split { display: grid; grid-template-columns: minmax(0, 1.94fr) minmax(230px, 1fr); gap: 10px; align-items: start; }
+
+  /* ---- THE RESULT LINE — this ticket's subject ---- */
+  .lines { display: flex; flex-direction: column; }
+  .colhead, .lhead { display: grid; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
+  .colhead {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-3); padding: 0 6px 5px; border-bottom: 1px solid var(--border);
+  }
+  .colhead .e { text-align: end; }
+
+  /* a set that does not fit scrolls rather than bleeding — which is itself a finding about set A */
+  .set-a, .set-b, .set-c { overflow-x: auto; }
+  .set-a .colhead, .set-a .lhead { min-width: 640px; }
+  .set-b .colhead, .set-b .lhead { min-width: 470px; }
+
+  /* the three column sets — one grid template each, applied to head + row alike */
+  .set-a .colhead, .set-a .lhead { grid-template-columns: 22px minmax(0,1fr) 62px 78px 76px 66px 66px 58px 78px; }
+  .set-b .colhead, .set-b .lhead { grid-template-columns: 22px minmax(0,1fr) 74px 92px 74px 68px 86px; }
+  .set-c .colhead, .set-c .lhead { grid-template-columns: 22px minmax(0,1fr) 74px 110px 92px; }
+  .set-a .m-b, .set-a .m-c { display: none; }
+  .set-b .m-a, .set-b .m-c { display: none; }
+  .set-c .m-a, .set-c .m-b { display: none; }
+
+  .line {
+    border-bottom: 1px solid var(--divider); padding: 6px; border-radius: 6px;
+    cursor: pointer; border-inline-start: 3px solid transparent; margin-inline-start: -3px;
+  }
+  .line:last-of-type { border-bottom: 0; }
+  .line:hover { background: var(--accent); }
+  /* the cross-highlight (047) — a line lit from the rail, and vice versa */
+  .line.lit { background: var(--primary-050); }
+  /* selection IS the expansion (see the ruling) — one open line at a time */
+  .line.open { background: var(--card-2); border-inline-start-color: var(--primary); }
+  .line:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+
+  .lno { font-size: 11px; font-weight: 700; color: var(--ink-3); }
+  .lname { min-width: 0; }
+  .lname .d { display: block; font-size: 13px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lname .m { display: block; font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .lqty { font-size: 12.5px; color: var(--muted-foreground); text-align: end; }
+  .lqty .up { display: block; font-size: 10.5px; color: var(--ink-3); }
+  .lmark { font-size: 11.5px; text-align: end; }
+  .lmark .yes { color: var(--success-800); font-weight: 650; }
+  .lmark .no { color: var(--ink-3); }
+  .lmark .man {
+    display: inline-block; border-radius: 999px; padding: 1px 7px; background: var(--muted);
+    color: var(--muted-foreground); font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  }
+  .mny { text-align: end; font-size: 12.5px; }
+  .mny.dim { color: var(--muted-foreground); }
+  .mny.was { color: var(--muted-foreground); }
+  .mny.saved { color: var(--foreground); }          /* neutral: the hue budget is spent (100) */
+  .mny.blank { color: var(--ink-3); }
+  .ltot { text-align: end; font-size: 14px; font-weight: 650; }
+  .ltot .cu { font-size: 10px; font-weight: 600; color: var(--muted-foreground); margin-inline-start: 3px; }
+
+  /* 082's StatusBadge — the only severity mark a line can carry */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 1px 8px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: .03em;
+    background: var(--attention-050); color: var(--attention-800); border: 1px solid var(--attention-border);
+  }
+  .line.warn .lname .d { color: var(--attention-800); }
+  .nopr { font-size: 11.5px; color: var(--ink-3); font-style: italic; }
+
+  /* the expansion, drawn only far enough to show what the line hands to 103 */
+  .exp { margin: 7px 0 2px; padding: 8px 9px; border-radius: 6px; background: var(--card); border: 1px solid var(--border); }
+  .exp .stub { font-size: 11.5px; color: var(--ink-3); }
+  .cond { display: grid; grid-template-columns: minmax(0,1fr) 70px 84px; gap: 8px; align-items: baseline; font-size: 12px; font-variant-numeric: tabular-nums; padding: 2px 0; }
+  .cond .ct { font-weight: 700; }
+  .cond .cd { color: var(--muted-foreground); font-weight: 400; margin-inline-start: 6px; }
+  .cond .cr, .cond .cv { text-align: end; }
+  .cond .cr { color: var(--muted-foreground); }
+  .cond .cv { font-weight: 600; }
+  .cond.promo .ct { color: var(--success-800); }
+  .cond .x2 { display: inline-block; margin-inline-start: 5px; padding: 0 5px; border-radius: 999px; background: var(--muted); color: var(--muted-foreground); font-size: 10px; font-weight: 700; }
+  .msg {
+    margin: 6px 0 0; padding: 6px 9px; border-radius: 6px; background: var(--attention-050);
+    border: 1px solid var(--attention-border); color: var(--attention-800);
+    font-size: 11.5px; font-family: ui-monospace, Consolas, monospace;
+  }
+  .expfoot { margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--divider); font-size: 11px; color: var(--ink-3); display: flex; gap: 12px; flex-wrap: wrap; }
+
+  /* the totals row — drawn so it can be judged, then ruled out */
+  .totals {
+    display: none; align-items: baseline; justify-content: flex-end; gap: 18px;
+    margin-top: 8px; padding-top: 9px; border-top: 1px solid var(--border-strong); font-variant-numeric: tabular-nums;
+  }
+  body:has(#f-on:checked) .totals { display: flex; }
+  .totals .k { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-inline-end: 6px; }
+  .totals .sm { font-size: 12.5px; color: var(--muted-foreground); }
+  .totals .sm .v { color: var(--foreground); font-weight: 600; }
+  .totals .big { font-size: 16px; font-weight: 700; }
+
+  /* the promotions rail — 101's, reused so the cross-highlight can be shown honestly */
+  .promo-list { display: flex; flex-direction: column; gap: 8px; }
+  .promo { padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-2); cursor: default; }
+  .promo.fired { border-color: var(--success-border); background: var(--success-050); }
+  .promo.lit { outline: 2px solid var(--ring); outline-offset: 1px; }
+  .promo .top { display: flex; align-items: flex-start; gap: 8px; }
+  .promo .mark { font-size: 13px; font-weight: 700; line-height: 1.35; flex: 0 0 auto; }
+  .promo.fired .mark { color: var(--success-800); }
+  .promo.miss .mark { color: var(--ink-3); }
+  .promo .ttl { font-size: 13px; font-weight: 600; letter-spacing: -.01em; }
+  .promo .ident { margin-top: 3px; font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .amtrow { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
+  .amtrow .k { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .amtrow .v { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .promo.fired .amtrow .v { color: var(--success-800); }
+  .promo.miss .amtrow .v { color: var(--muted-foreground); }
+  .railquiet { padding: 10px 2px; color: var(--ink-3); font-size: 11.5px; }
+
+  .tally { margin-top: 9px; font-size: 11px; color: var(--ink-3); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .tally b { color: var(--muted-foreground); font-weight: 650; }
+
+  table.ev { border-collapse: collapse; margin-top: 12px; font-size: 12.5px; width: 100%; max-width: 92ch; }
+  table.ev th, table.ev td { border: 1px solid var(--border); padding: 5px 9px; text-align: start; vertical-align: top; }
+  table.ev th { background: var(--muted); font-weight: 650; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted-foreground); }
+  table.ev td.n { font-variant-numeric: tabular-nums; text-align: end; }
+  .foot { margin-top: 30px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--ink-3); font-size: 12px; max-width: 88ch; }
+  ul.tight { margin: 8px 0 0; padding-inline-start: 20px; }
+  ul.tight li { margin-bottom: 5px; color: var(--muted-foreground); }
+  ul.tight li b { color: var(--foreground); font-weight: 600; }
+</style>
+</head>
+<body class="tl">
+<div class="page">
+  <div class="eyebrow">Ticket 104 · map 097 · prototype</div>
+  <h1>The anatomy of a result line</h1>
+  <p class="lede">
+    Every line, number and promotion below is read from <a href="098-simulate-payloads/">098's captured payloads</a> —
+    nothing is invented. The device is <a href="101-screen-device.PROTOTYPE.html">101's</a>: no status-dot column, no
+    count banner, the promotions rail beside the results. What is being ruled here is the <b>line</b> — which columns
+    earn width, how money reads, how a <code>W</code> line behaves, what marks the selected line, and whether the
+    table foots itself.
+  </p>
+
+  <p class="caption" style="border-inline-start-color: var(--success); max-width: 88ch;">
+    <b>Ruled by the owner, 2026-07-25</b> — the defaults below are the approved line:
+    column set <b>B, the verdict</b> (was / saved, blank on an undiscounted line); a <code>W</code> line
+    <b>suppresses its money</b> and says <i>not priced</i>; <b>no totals row</b> (the strip already carries it,
+    and the captures prove they agree); a hand-entered condition is marked with a neutral <b>MANUAL</b> chip.
+    The other switch positions are kept as the rejected candidates, drawn on the same captures.
+  </p>
+
+  <div class="controls">
+    <fieldset class="switch">
+      <span class="sl">Basket</span>
+      <label><input type="radio" name="basket" id="b-fired" checked><span>Fired promotion, 2 lines</span><span class="key">05</span></label>
+      <label><input type="radio" name="basket" id="b-mixed"><span>One promoted, one not</span><span class="key">03</span></label>
+      <label><input type="radio" name="basket" id="b-plain"><span>Plain, promo off</span><span class="key">01</span></label>
+      <label><input type="radio" name="basket" id="b-warn"><span>A <code>W</code> line</span><span class="key">04b</span></label>
+      <label><input type="radio" name="basket" id="b-manual"><span>Manual condition</span><span class="key">06</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Columns</span>
+      <label><input type="radio" name="cols" id="c-a"><span>A · full ledger</span><span class="key">5 money</span></label>
+      <label><input type="radio" name="cols" id="c-b" checked><span>B · the verdict</span><span class="key">3 money</span></label>
+      <label><input type="radio" name="cols" id="c-c"><span>C · one figure</span><span class="key">1 money</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">A <code>W</code> line</span>
+      <label><input type="radio" name="warn" id="w-sup" checked><span>Suppresses its money</span></label>
+      <label><input type="radio" name="warn" id="w-zero"><span>Prints 0.00</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Totals row</span>
+      <label><input type="radio" name="foot" id="f-off" checked><span>Off</span></label>
+      <label><input type="radio" name="foot" id="f-on"><span>On</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Theme</span>
+      <label><input type="radio" name="theme" id="t-light" checked><span>Light</span></label>
+      <label><input type="radio" name="theme" id="t-dark"><span>Dark</span></label>
+      <label><input type="radio" name="theme" id="t-both"><span>Both</span></label>
+    </fieldset>
+  </div>
+
+  <p class="caption" id="cap"></p>
+
+  <div class="devices">
+    <div id="wrap-light"><div class="device light"><div class="device-bar"><span class="dot"></span><span class="name">LIGHT</span></div><div class="stage"><div class="stack" id="stack-light"></div></div></div></div>
+    <div id="wrap-dark"><div class="device dark"><div class="device-bar"><span class="dot"></span><span class="name">DARK</span></div><div class="stage"><div class="stack" id="stack-dark"></div></div></div></div>
+  </div>
+
+  <h2 class="sec">What the captures proved before a pixel was drawn</h2>
+  <table class="ev">
+    <thead><tr><th>Claim</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>Today's money column <b>order does not follow the arithmetic</b></td>
+          <td>The chain on every line is <code>gross + promo = net</code>, then <code>net + tax = netTotal</code>. Today's grid prints <i>subtotal(netValue) · promo · gross · tax · net(netTotal)</i> — the post-discount figure sits <i>before</i> the discount and the pre-discount figure after it. Verified on all 9 priced captures.</td></tr>
+      <tr><td><b>Tax carries no per-line information</b></td>
+          <td>15.0% of net on every line of every capture (27.38/182.52, 17.80/118.64, 11.50/76.70 …). A column that is the same multiple everywhere is a column the eye can reconstruct.</td></tr>
+      <tr><td>On an undiscounted line, <b>gross ≡ net</b></td>
+          <td>Every line of <code>01</code>, <code>03</code> #20, <code>04b</code> #20. So a plain line spends 5 money columns on 2 independent numbers.</td></tr>
+      <tr><td>The lines <b>do</b> foot to the header — exactly</td>
+          <td>Σ netTotal, Σ promotionDiscount, Σ grossValue and Σ taxValue equal the header's to the penny on <b>all 9</b> captures. 098's "different pennies" is a <i>cross-run</i> artefact, not an intra-run one.</td></tr>
+      <tr><td>A discount is <b>always negative</b>, never positive</td>
+          <td>−63.88, −41.30, −41.48, −43.30, −105.18. The sign is real, so it is printed; but it is not an error, so it is <b>not red</b>.</td></tr>
+      <tr><td>A <code>W</code> line is <b>all zeros</b>, not a small number</td>
+          <td><code>04b</code> #10 <code>COUP01</code>: netPrice, gross, net, tax, netTotal all <code>0</code>, one message, one condition. Printing five 0.00s says "priced at zero"; it did not price at all.</td></tr>
+      <tr><td>One promotion <b>spans lines</b></td>
+          <td><code>05</code>: BBY <code>000100000131</code> against items 10 <i>and</i> 20 (materials 200706, 200710), one summed discount. The cross-highlight is the only thing on screen that says so.</td></tr>
+      <tr><td>A manual condition is <b>invisible on the line</b> today</td>
+          <td><code>06</code> #10 carries <code>ZB01 −5.00</code> with <code>conditionOrigin: 'M'</code> folded into the same promotionDiscount as the bonus buy. 098 finding 6 makes a silent manual condition the difference between an explicable run and a 400.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="foot">
+    <b>Not settled here.</b> What the expansion contains, and the disclosure grammar around it, is
+    <a href="103-sim-deep-layers-placement.md">103</a> — the expansion is drawn only far enough to show what the line
+    hands over. The rail's card fields are 101's. Stacking behaviour is
+    <a href="105-sim-responsive-arrangement.md">105</a>; mirroring is <a href="106-sim-rtl-mirroring.md">106</a>.
+    Arrangement only: no endpoint, request, or <code>promoView</code> rule is touched.
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// The captures, transcribed from .issues/assets/098-simulate-payloads/*.json.
+// Money fields are exactly as the wire carried them.
+// ---------------------------------------------------------------------------
+const BASKETS = {
+  fired: {
+    file: '05-pricing-elements.json',
+    cap: 'Capture <b>05</b> — one bonus buy across <b>two</b> lines. The only thing on the screen that says the two lines belong to one promotion is the cross-highlight: hover either line, or the rail card.',
+    currency: 'SAR', header: { netTotal: 224.64, discount: -105.18, tax: 29.30, ms: 268 },
+    lines: [
+      { n: 10, mat: '200706', desc: 'BIODERMA ATODERM CREAM PUMP 200 ML', qty: 2, uom: 'EA', unit: 91.26,
+        gross: 182.52, promo: -63.88, net: 118.64, tax: 17.80, total: 136.44, status: '', bby: '131',
+        conds: [ {t:'VKP0',d:'Basic Price',r:'',v:182.52}, {t:'ZB03',d:'70% 2nd PCS',r:'−35 %',v:-63.88,promo:true,x:2}, {t:'MWST',d:'Vat %',r:'15 %',v:17.80} ] },
+      { n: 20, mat: '200710', desc: 'BIODERMA ATODERM SOAP PAIN NETOY', qty: 2, uom: 'EA', unit: 59.00,
+        gross: 118.00, promo: -41.30, net: 76.70, tax: 11.50, total: 88.20, status: '', bby: '131',
+        conds: [ {t:'VKP0',d:'Basic Price',r:'',v:118.00}, {t:'ZB03',d:'70% 2nd PCS',r:'−35 %',v:-41.30,promo:true,x:2}, {t:'MWST',d:'Vat %',r:'15 %',v:11.50} ] },
+    ],
+    promos: [ { fired: true, bby: '131', title: 'Buy 2, the second at 70% off', ident: '000100000131 · ZB03 · applied ×2', amt: 105.18, k: 'Saved' } ],
+  },
+  mixed: {
+    file: '03-applied-and-potential-owner-supplied.json',
+    cap: 'Capture <b>03</b> — a promoted line, a plain line, and a near-miss in the rail. This is the basket that tests whether the money columns are <i>read</i> or merely <i>present</i>: line 20 has nothing to say in three of them.',
+    currency: 'SAR', header: { netTotal: 172.38, discount: -63.88, tax: 22.48, ms: 241 },
+    lines: [
+      { n: 10, mat: '200706', desc: 'BIODERMA ATODERM CREAM PUMP 200 ML', qty: 2, uom: 'EA', unit: 91.26,
+        gross: 182.52, promo: -63.88, net: 118.64, tax: 17.79, total: 136.43, status: '', bby: '131',
+        conds: [ {t:'VKP0',d:'Basic Price',r:'',v:182.52}, {t:'ZB03',d:'70% 2nd PCS',r:'−35 %',v:-63.88,promo:true,x:2}, {t:'MWST',d:'Vat %',r:'15 %',v:17.79} ] },
+      { n: 20, mat: '200382', desc: 'AXE DEO SPRAY FIFA EDITION 150 ML', qty: 1, uom: 'EA', unit: 31.26,
+        gross: 31.26, promo: 0, net: 31.26, tax: 4.69, total: 35.95, status: '', bby: null,
+        conds: [ {t:'VKP0',d:'Basic Price',r:'',v:31.26}, {t:'MWST',d:'Vat %',r:'15 %',v:4.69} ] },
+    ],
+    promos: [
+      { fired: true, bby: '131', title: 'Buy 2, the second at 70% off', ident: '000100000131 · ZB03', amt: 63.88, k: 'Saved' },
+      { fired: false, bby: '132', title: '2 PC for 29.95 SR', ident: '000100000132 · ZB01 · stackable', amt: 26.04, k: 'Would save' },
+    ],
+  },
+  plain: {
+    file: '01-plain-multiline.json',
+    cap: 'Capture <b>01</b>, promotion <b>off</b> — three lines, no discount anywhere. Column set A prints fifteen money figures here, of which <b>three</b> are independent; the rest are the same number twice and a fixed 15% of it.',
+    currency: 'SAR', header: { netTotal: 417.50, discount: 0, tax: 54.46, ms: 198 },
+    lines: [
+      { n: 10, mat: '200706', desc: 'BIODERMA ATODERM CREAM PUMP 200 ML', qty: 2, uom: 'EA', unit: 91.26, gross: 182.52, promo: 0, net: 182.52, tax: 27.38, total: 209.90, status: '', bby: null,
+        conds: [ {t:'VKP0',d:'Basic Price',r:'',v:182.52}, {t:'MWST',d:'Vat %',r:'15 %',v:27.38} ] },
+      { n: 20, mat: '200382', desc: 'AXE DEO SPRAY FIFA EDITION 150 ML', qty: 2, uom: 'EA', unit: 31.26, gross: 62.52, promo: 0, net: 62.52, tax: 9.38, total: 71.90, status: '', bby: null,
+        conds: [ {t:'VKP0',d:'Basic Price',r:'',v:62.52}, {t:'MWST',d:'Vat %',r:'15 %',v:9.38} ] },
+      { n: 30, mat: '200710', desc: 'BIODERMA ATODERM SOAP PAIN NETOY', qty: 2, uom: 'EA', unit: 59.00, gross: 118.00, promo: 0, net: 118.00, tax: 17.70, total: 135.70, status: '', bby: null,
+        conds: [ {t:'VKP0',d:'Basic Price',r:'',v:118.00}, {t:'MWST',d:'Vat %',r:'15 %',v:17.70} ] },
+    ],
+    promos: [],
+  },
+  warn: {
+    file: '04b-no-price.json',
+    cap: 'Capture <b>04b</b> — <code>COUP01</code> found no base price. It is the only coloured thing on the screen, and the switch above asks the real question: does a line that <i>failed to price</i> print five zeros, or say so?',
+    currency: 'SAR', header: { netTotal: 35.95, discount: 0, tax: 4.69, ms: 212 },
+    lines: [
+      { n: 10, mat: 'COUP01', desc: 'Coupon', qty: 1, uom: 'EA', unit: 0, gross: 0, promo: 0, net: 0, tax: 0, total: 0, status: 'W', bby: null,
+        msg: "[070] Mandatory condition 'VKP0' (Basic Price) not found at step 5",
+        conds: [ {t:'MWST',d:'Vat %',r:'15 %',v:0} ] },
+      { n: 20, mat: '200382', desc: 'AXE DEO SPRAY FIFA EDITION 150 ML', qty: 1, uom: 'EA', unit: 31.26, gross: 31.26, promo: 0, net: 31.26, tax: 4.69, total: 35.95, status: '', bby: null,
+        conds: [ {t:'VKP0',d:'Basic Price',r:'',v:31.26}, {t:'MWST',d:'Vat %',r:'15 %',v:4.69} ] },
+    ],
+    promos: [ { fired: false, bby: '132', title: '2 PC for 29.95 SR', ident: '000100000132 · ZB01 · stackable', amt: 26.04, k: 'Would save' } ],
+  },
+  manual: {
+    file: '06-manual-conditions.json',
+    cap: 'Capture <b>06</b> — both lines carry a hand-entered <code>ZB01</code> alongside the bonus buy, and the wire folds both into one <code>promotionDiscount</code>. Without the <code>MANUAL</code> mark the analyst cannot tell this run from an ordinary one.',
+    currency: 'SAR', header: { netTotal: 110.10, discount: -84.78, tax: 14.36, ms: 288 },
+    lines: [
+      { n: 10, mat: '200382', desc: 'AXE DEO SPRAY FIFA EDITION 150 ML', qty: 2, uom: 'EA', unit: 31.26, gross: 62.52, promo: -41.48, net: 21.04, tax: 3.16, total: 24.20, status: '', bby: '132', manual: true,
+        conds: [ {t:'VKP0',d:'Basic Price',r:'',v:62.52}, {t:'ZB01',d:'2 PC for 29.95 SR',r:'',v:-36.48,promo:true,x:2}, {t:'ZB01',d:'entered by hand',r:'5 %',v:-5.00,manual:true}, {t:'MWST',d:'Vat %',r:'15 %',v:3.16} ] },
+      { n: 20, mat: '200710', desc: 'BIODERMA ATODERM SOAP PAIN NETOY', qty: 2, uom: 'EA', unit: 59.00, gross: 118.00, promo: -43.30, net: 74.70, tax: 11.20, total: 85.90, status: '', bby: '131', manual: true,
+        conds: [ {t:'VKP0',d:'Basic Price',r:'',v:118.00}, {t:'ZB03',d:'70% 2nd PCS',r:'−35 %',v:-41.30,promo:true,x:2}, {t:'ZB01',d:'entered by hand',r:'',v:-2.00,manual:true}, {t:'MWST',d:'Vat %',r:'15 %',v:11.20} ] },
+    ],
+    promos: [
+      { fired: true, bby: '131', title: 'Buy 2, the second at 70% off', ident: '000100000131 · ZB03', amt: 41.30, k: 'Saved' },
+      { fired: true, bby: '132', title: '2 PC for 29.95 SR', ident: '000100000132 · ZB01', amt: 36.48, k: 'Saved' },
+    ],
+  },
+};
+
+const money = (v) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const el = (id) => document.getElementById(id);
+const pick = (name) => document.querySelector(`input[name="${name}"]:checked`).id;
+
+// one open line and one lit promotion per device, so both can be seen at once
+const state = { open: {}, lit: null };
+
+function colHead(set, t) {
+  const cell = (cls, txt) => `<span class="${cls}">${txt}</span>`;
+  const head = [ cell('', '#'), cell('', 'Item'), cell('e', 'Qty') ];
+  if (set === 'c') return head.concat([ cell('e', 'Promotion'), cell('e', 'Net total') ]).join('');
+  if (set === 'b') return head.concat([ cell('e', 'Promotion'), cell('e', 'Was'), cell('e', 'Saved'), cell('e', 'Net total') ]).join('');
+  return head.concat([ cell('e', 'Promotion'), cell('e', 'Gross'), cell('e', 'Promo'), cell('e', 'Net'), cell('e', 'Tax'), cell('e', 'Net total') ]).join('');
+}
+
+function lineHTML(l, b, set, warnMode, theme) {
+  const wDead = l.status === 'W' && warnMode === 'w-sup';
+  const isOpen = state.open[theme] === l.n;
+  const lit = state.lit && l.bby === state.lit;
+  const m = (v, cls) => wDead ? `<span class="mny blank">—</span>` : `<span class="mny ${cls || ''}">${money(v)}</span>`;
+  const blankIfZero = (v, cls) => wDead ? `<span class="mny blank">—</span>` : (v === 0 ? `<span class="mny blank">·</span>` : `<span class="mny ${cls}">${money(v)}</span>`);
+
+  // the mark slot: severity badge OR promotion verdict — never both (a W line never prices, so never fires)
+  let mark;
+  if (l.status === 'W') mark = `<span class="badge">W</span>`;
+  else if (l.bby) mark = `<span class="yes">✔ fired</span>${l.manual ? ' <span class="man">MANUAL</span>' : ''}`;
+  else mark = l.manual ? `<span class="man">MANUAL</span>` : `<span class="no">—</span>`;
+
+  let cells;
+  if (set === 'c') {
+    cells = `<span class="lmark">${mark}</span>${wDead ? '<span class="ltot"><span class="nopr">not priced</span></span>' : `<span class="ltot">${money(l.total)}<span class="cu">${b.currency}</span></span>`}`;
+  } else if (set === 'b') {
+    cells = `<span class="lmark">${mark}</span>${blankIfZero(l.promo ? l.gross : 0, 'was')}${blankIfZero(l.promo ? -l.promo : 0, 'saved')}` +
+      (wDead ? '<span class="ltot"><span class="nopr">not priced</span></span>' : `<span class="ltot">${money(l.total)}<span class="cu">${b.currency}</span></span>`);
+  } else {
+    cells = `<span class="lmark">${mark}</span>${m(l.gross, 'dim')}${m(l.promo, 'saved')}${m(l.net, 'dim')}${m(l.tax, 'dim')}` +
+      (wDead ? '<span class="ltot"><span class="nopr">not priced</span></span>' : `<span class="ltot">${money(l.total)}<span class="cu">${b.currency}</span></span>`);
+  }
+
+  const qty = `<span class="lqty">${l.qty} ${l.uom}${set !== 'a' && !wDead ? `<span class="up">× ${money(l.unit)}</span>` : ''}</span>`;
+
+  let exp = '';
+  if (isOpen) {
+    const conds = l.conds.map((c) => `<div class="cond ${c.promo ? 'promo' : ''}">
+        <span><span class="ct">${c.t}</span><span class="cd">${c.d}</span>${c.x ? `<span class="x2">×${c.x}</span>` : ''}${c.manual ? ' <span class="man">MANUAL</span>' : ''}</span>
+        <span class="cr">${c.r || ''}</span><span class="cv">${money(c.v)}</span></div>`).join('');
+    exp = `<div class="exp">${conds}${l.msg ? `<div class="msg">${l.msg}</div>` : ''}
+      <div class="expfoot"><span>net ${money(l.net)} + tax ${money(l.tax)} = <b>${money(l.total)}</b> ${b.currency}</span><span>unit ${money(l.unit)}</span>
+      <span>103 rules what else lives here</span></div></div>`;
+  }
+
+  return `<div class="line ${l.status === 'W' ? 'warn' : ''} ${isOpen ? 'open' : ''} ${lit ? 'lit' : ''}" tabindex="0"
+      data-line="${l.n}" data-bby="${l.bby || ''}" data-theme="${theme}">
+      <div class="lhead"><span class="lno">${l.n}</span>
+        <span class="lname"><span class="d">${l.desc}</span><span class="m">${l.mat}</span></span>
+        ${qty}${cells}</div>${exp}</div>`;
+}
+
+function render(theme) {
+  const b = BASKETS[pick('basket').slice(2)];
+  const set = pick('cols').slice(2);
+  const warnMode = pick('warn');
+  const rows = b.lines.map((l) => lineHTML(l, b, set, warnMode, theme)).join('');
+
+  const sum = (k) => b.lines.reduce((a, l) => a + l[k], 0);
+  const totals = `<div class="totals"><span class="sm"><span class="k">lines</span><span class="v">${b.lines.length}</span></span>
+     <span class="sm"><span class="k">saved</span><span class="v num">${money(-sum('promo'))}</span></span>
+     <span class="sm"><span class="k">tax</span><span class="v num">${money(sum('tax'))}</span></span>
+     <span class="big num">${money(sum('total'))}</span></div>`;
+
+  const rail = b.promos.length === 0
+    ? `<div class="railquiet">Promotion is off — this run measured none.</div>`
+    : b.promos.map((p) => `<div class="promo ${p.fired ? 'fired' : 'miss'} ${state.lit === p.bby ? 'lit' : ''}" data-bby="${p.bby}" data-theme="${theme}">
+        <div class="top"><span class="mark">${p.fired ? '✔' : '○'}</span>
+          <div><div class="ttl">${p.title}</div><div class="ident">${p.ident}</div></div></div>
+        <div class="amtrow"><span class="k">${p.k}</span><span class="v">${money(p.amt)}<span class="cu"> ${b.currency}</span></span></div></div>`).join('');
+
+  const cols = set === 'a' ? 9 : set === 'b' ? 7 : 5;
+  const moneyCols = set === 'a' ? 5 : set === 'b' ? 3 : 1;
+
+  el('stack-' + theme).innerHTML = `
+    <div class="strip">
+      <span class="chip"><span class="ck">plant</span>P001</span>
+      <span class="chip"><span class="ck">org</span>1000</span>
+      <span class="chip"><span class="ck">chan</span>20</span>
+      <span class="chip">25 Jul 2026</span>
+      <span class="chip"><span class="ck">promo</span>${b.promos.length || b.header.discount ? 'on' : 'off'}</span>
+      <span class="grow"></span>
+      <span class="money"><span class="big num">${money(b.header.netTotal)}<span class="cur">${b.currency}</span></span>
+        <span class="pair"><span class="k">disc</span><span class="v num">${money(b.header.discount)}</span></span>
+        <span class="pair"><span class="k">tax</span><span class="v num">${money(b.header.tax)}</span></span>
+        <span class="pair"><span class="k">ms</span><span class="v num">${b.header.ms}</span></span></span>
+    </div>
+    <div class="split">
+      <div class="frame set-${set}">
+        <h2>Results <span class="n">${b.lines.length} line${b.lines.length === 1 ? '' : 's'}</span></h2>
+        <div class="colhead">${colHead(set)}</div>
+        <div class="lines">${rows}</div>
+        ${totals}
+        <div class="tally"><span><b>${cols}</b> columns</span><span><b>${moneyCols}</b> of them money</span>
+          <span>row <b>34 px</b> at rest</span><span><b>${b.lines.length}</b> lines, all visible</span></div>
+      </div>
+      <div class="frame">
+        <h2>Promotions <span class="n">${b.promos.length || ''}</span></h2>
+        <div class="promo-list">${rail}</div>
+      </div>
+    </div>`;
+  el('cap').innerHTML = b.cap + ` <span style="opacity:.7">— <code>${b.file}</code></span>`;
+}
+
+function renderAll() { render('light'); render('dark'); }
+
+document.addEventListener('change', (e) => {
+  if (e.target.name === 'theme') {
+    document.body.className = pick('theme') === 't-dark' ? 'td' : 'tl';
+  }
+  if (e.target.name === 'basket') { state.open = {}; state.lit = null; }
+  renderAll();
+});
+
+// selection IS the expansion; the cross-highlight is bidirectional (047)
+document.addEventListener('click', (e) => {
+  const line = e.target.closest('.line');
+  if (line) {
+    const th = line.dataset.theme, n = +line.dataset.line;
+    state.open[th] = state.open[th] === n ? null : n;
+    renderAll();
+  }
+});
+document.addEventListener('mouseover', (e) => {
+  const el2 = e.target.closest('.line, .promo');
+  const bby = el2 ? (el2.dataset.bby || null) : null;
+  if (bby !== state.lit) { state.lit = bby; renderAll(); }
+});
+document.addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('line')) {
+    e.preventDefault(); e.target.click();
+  }
+});
+
+document.body.className = 'tl';
+renderAll();
+</script>
+</body>
+</html>

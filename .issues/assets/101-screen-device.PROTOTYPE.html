@@ -1,0 +1,905 @@
+<title>101 — The reworked Simulation screen as one device</title>
+
+<style>
+  /* ===== The shipped POS design system (082), lifted verbatim from src/app/global.css.
+     Declared twice as scoped classes so both themes can be drawn side by side — the
+     ticket forbids a light-only prototype. ===== */
+  .tl {
+    --background: #f4f7fa; --foreground: #19232e;
+    --card: #ffffff; --card-2: #fafbfc;
+    --muted: #eef2f6; --muted-foreground: #586674; --ink-3: #8593a1;
+    --accent: #e4eaf1;
+    --border: #e3e9f0; --border-strong: #cbd6e2; --divider: #edf1f5; --input: #cbd6e2;
+    --ring: #2f63a6;
+    --primary: #2f63a6; --primary-050: #e9eff7; --primary-border: #c6d6ec;
+    --primary-800: #27538c; --primary-foreground: #ffffff;
+    --success: #1e874b; --success-050: #e7f3ec; --success-border: #bfe0cd; --success-800: #155f36;
+    --attention: #b4791f; --attention-050: #f8f0de; --attention-border: #e7d3a3; --attention-800: #7c5410;
+    --danger: #c23b41; --danger-050: #fbecec; --danger-border: #e7bfc1; --danger-800: #8e2a2f;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  .td {
+    --background: #121c27; --foreground: #ecf0f3;
+    --card: #1c2631; --card-2: #17212c;
+    --muted: #27313a; --muted-foreground: #98a6b4; --ink-3: #76828e;
+    --accent: #323c46;
+    --border: #2e3742; --border-strong: #3b4755; --divider: #28313b; --input: #3b4755;
+    --ring: #6ba0e8;
+    --primary: #6ba0e8; --primary-050: #22344b; --primary-border: #364c68;
+    --primary-800: #b5d0f5; --primary-foreground: #121c27;
+    --success: #55b577; --success-050: #1e3a27; --success-border: #2e543a; --success-800: #abdcb8;
+    --attention: #e4a249; --attention-050: #422f15; --attention-border: #5f4522; --attention-800: #f6cc9a;
+    --danger: #df6768; --danger-050: #4c2625; --danger-border: #6f3837; --danger-800: #eeb3b0;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  :root { color-scheme: light dark; }
+  body.tl { color-scheme: light; }
+  body.td { color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---- page chrome (the harness around the mock, deliberately quiet) ---- */
+  .page { max-width: 1240px; margin: 0 auto; padding: 28px 20px 72px; }
+  .eyebrow {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-3);
+  }
+  h1 { font-size: 22px; font-weight: 650; letter-spacing: -.015em; margin: 4px 0 0; text-wrap: balance; }
+  .lede { max-width: 72ch; color: var(--muted-foreground); margin: 10px 0 0; }
+  .lede code, .caption code, .foot code {
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    font-size: .88em; background: var(--muted); padding: 1px 5px; border-radius: 4px;
+  }
+
+  /* ---- the switchers ---- */
+  .controls { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
+  .switch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; border: 0; }
+  .switch > .sl {
+    font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--ink-3); min-width: 74px;
+  }
+  .switch label {
+    display: inline-flex; align-items: baseline; gap: 7px;
+    border: 1px solid var(--input); border-radius: 999px;
+    padding: 6px 14px; cursor: pointer; user-select: none;
+    background: var(--card); font-size: 12.5px; font-weight: 500;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .switch label:hover { background: var(--accent); }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch label:has(input:checked) {
+    background: var(--primary); border-color: var(--primary);
+    color: var(--primary-foreground); font-weight: 600;
+  }
+  .switch label:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
+  .switch .key { font-size: 10px; font-weight: 700; opacity: .55; font-family: ui-monospace, Consolas, monospace; }
+
+  .caption {
+    margin: 16px 0 0; padding: 12px 14px;
+    border: 1px solid var(--border); border-inline-start: 3px solid var(--primary);
+    border-radius: 6px; background: var(--card-2);
+    max-width: 86ch; color: var(--muted-foreground); font-size: 13px;
+  }
+  .caption b { color: var(--foreground); font-weight: 600; }
+
+  /* ---- the device: a viewport-shaped frame the mock lives inside ---- */
+  .devices { display: grid; gap: 14px; margin-top: 18px; }
+  body:has(#t-both:checked) .devices { grid-template-columns: 1fr 1fr; }
+  body:has(#t-light:checked) #wrap-dark, body:has(#t-dark:checked) #wrap-light { display: none; }
+  .device {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius); background: var(--background); color: var(--foreground);
+    overflow: hidden; box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 8px 24px rgb(0 0 0 / .05);
+  }
+  .device-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 12px; background: var(--brand-panel); color: var(--brand-panel-foreground);
+  }
+  .device-bar .dot { width: 8px; height: 8px; border-radius: 999px; background: rgb(255 255 255 / .3); }
+  .device-bar .name { font-size: 11px; font-weight: 600; letter-spacing: .04em; opacity: .85; }
+  /* a scrolling viewport, so a sticky headline can actually be judged */
+  .stage { padding: 0 12px 14px; height: 520px; overflow-y: auto; }
+  .stack { display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
+
+  /* ===== the screen's own vocabulary ===== */
+
+  /* frames — the unit of chrome this rework is spending, so they are drawn honestly */
+  .frame { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 12px; }
+  .frame > h2 {
+    margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: -.01em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .frame > h2 .n { font-size: 11px; font-weight: 500; color: var(--muted-foreground); }
+  .label { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted-foreground); }
+
+  /* ---- the run strip: chips · money readout · run controls. Not a frame. ---- */
+  .runwrap { margin-inline: -12px; padding: 10px 12px 0; background: var(--background); }
+  .strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: var(--radius);
+    background: var(--card-2); border: 1px solid var(--border);
+  }
+  /* headline A — the band pins; results scroll under it */
+  body:has(#h-band:checked) .runwrap { position: sticky; top: 0; z-index: 3; padding-bottom: 10px; box-shadow: 0 6px 10px -8px rgb(0 0 0 / .35); }
+  body:has(#h-band:checked) .strip { background: var(--card); border-color: var(--border-strong); }
+  /* headline C — the money leaves the strip for a totals row under the results */
+  body:has(#h-foot:checked) .strip .money { display: none; }
+  body:has(#h-foot:checked) .totals { display: flex; }
+  .totals { display: none; }
+
+  /* the strip is ONE hover target (100 §3); no chip inside it ever acts */
+  .runset { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 3px 5px; border-radius: 8px; cursor: pointer; }
+  .runset:hover { background: var(--accent); }
+  .chip {
+    display: inline-flex; align-items: baseline; gap: 5px;
+    border-radius: 999px; padding: 3px 9px; font-size: 12px;
+    background: var(--muted); color: var(--foreground);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .chip .ck { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .editbtn {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 600; color: var(--primary);
+    background: none; border: 0; padding: 3px 7px; cursor: pointer; border-radius: 6px;
+  }
+  .editbtn:hover { background: var(--primary-050); }
+  .strip .grow { flex: 1 1 20px; }
+
+  /* money readout — emphasis by weight, never by border */
+  .money { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; font-variant-numeric: tabular-nums; }
+  .money .big { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+  .money .cur { font-size: 11px; font-weight: 600; color: var(--muted-foreground); margin-inline-start: 3px; }
+  .money .pair { font-size: 12.5px; color: var(--muted-foreground); }
+  .money .pair .v { color: var(--foreground); font-weight: 600; }
+  .money .k { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-inline-end: 5px; }
+  .money .ms { font-size: 11px; color: var(--ink-3); }
+
+  /* run controls */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 30px;
+    padding: 0 14px; border-radius: 999px; font-size: 12.5px; font-weight: 550;
+    border: 1px solid var(--input); background: var(--card); color: var(--foreground); cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--accent); }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+  .btn.primary:hover { background: var(--primary-800); border-color: var(--primary-800); }
+  .btn.quiet { border-color: transparent; background: none; color: var(--muted-foreground); }
+  .btn.quiet:hover { background: var(--accent); color: var(--foreground); }
+  .runbtns { display: flex; align-items: center; gap: 6px; }
+  .vrule { width: 1px; height: 20px; background: var(--border-strong); margin-inline: 2px; }
+
+  /* the expanded run form (pre-run, and after Edit) */
+  .fields { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 9px 10px; }
+  .fld { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .fld .fl { font-size: 10.5px; font-weight: 600; color: var(--muted-foreground); }
+  .fld.lever .fl::after { content: ' · test lever'; color: var(--ink-3); font-weight: 500; }
+  .cell {
+    border: 1px solid var(--input); border-radius: 6px; background: var(--card-2);
+    padding: 4px 8px; font-size: 12.5px; font-variant-numeric: tabular-nums; min-height: 26px;
+  }
+  .cell.dim { color: var(--ink-3); }
+  .ck2 { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
+  .ck2 i { width: 13px; height: 13px; border: 1px solid var(--input); border-radius: 3px; display: inline-block; background: var(--card-2); }
+  .ck2.on i { background: var(--primary); border-color: var(--primary); }
+  .formfoot { display: flex; align-items: center; gap: 14px; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--divider); }
+
+  /* items entry — never collapses (099) */
+  .items { display: flex; flex-direction: column; gap: 5px; }
+  .itemrow { display: grid; grid-template-columns: 1fr 58px 52px 74px 26px; gap: 6px; align-items: center; }
+  .itemrow.ihead > span {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-3); padding-inline: 2px;
+  }
+  /* `M` is the coupon lever — a coupon carries no base price, so unset the line prices W. */
+  .cell.ctl { position: relative; padding-inline-end: 16px; cursor: pointer; }
+  .cell.ctl::after { content: '⌄'; position: absolute; inset-inline-end: 5px; top: 2px; font-size: 11px; color: var(--ink-3); }
+  .cell.ctl.set { font-weight: 700; }
+  .xbtn { border: 0; background: none; color: var(--ink-3); cursor: pointer; font-size: 14px; line-height: 1; }
+  .xbtn:hover { color: var(--danger); }
+  .disclose {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
+    background: none; border: 0; padding: 3px 0; cursor: pointer;
+    font-size: 12px; font-weight: 600; color: var(--muted-foreground);
+  }
+  .disclose:hover { color: var(--foreground); }
+  .disclose .tw { color: var(--ink-3); }
+  .itemfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+  /* ---- the work area: results ~66%, promotions rail ~34% ---- */
+  .split { display: grid; grid-template-columns: minmax(0, 1.94fr) minmax(250px, 1fr); gap: 10px; align-items: start; }
+
+  /* results lines */
+  .lines { display: flex; flex-direction: column; }
+  .line { border-top: 1px solid var(--divider); padding: 7px 2px; }
+  .lines .line:first-child { border-top: 0; }
+  .line.open { background: var(--card-2); border-radius: 6px; padding-inline: 8px; }
+  .lhead {
+    display: grid; align-items: baseline; gap: 10px;
+    grid-template-columns: 14px 28px minmax(0,1fr) 62px 104px 88px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tw2 { color: var(--ink-3); font-size: 11px; }
+  .lno { font-size: 11px; font-weight: 700; color: var(--ink-3); }
+  .lname { min-width: 0; }
+  .lname .d { font-size: 13px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lname .m { font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .lqty { font-size: 12.5px; color: var(--muted-foreground); text-align: end; }
+  .lpromo { font-size: 11.5px; text-align: end; }
+  .lpromo .yes { color: var(--success-800); font-weight: 600; }
+  .lpromo .no { color: var(--ink-3); }
+  .lnet { text-align: end; font-size: 14px; font-weight: 650; }
+  /* 082's StatusBadge — the only severity mark on a line; an ok line carries none (100) */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; border-radius: 999px;
+    padding: 1px 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .03em;
+    background: var(--attention-050); color: var(--attention-800); border: 1px solid var(--attention-border);
+  }
+  .conds {
+    margin: 7px 0 3px; padding: 7px 9px 8px;
+    border-radius: 6px; background: var(--card); border: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .cond {
+    display: grid; grid-template-columns: 15px minmax(0,1fr) 74px 84px;
+    gap: 8px; align-items: baseline; font-size: 12px; font-variant-numeric: tabular-nums;
+  }
+  .cond .ci { color: var(--ink-3); font-weight: 700; }
+  .cond .ct { font-weight: 700; }
+  .cond .cd { color: var(--muted-foreground); font-weight: 400; }
+  .cond .cr { text-align: end; color: var(--muted-foreground); }
+  .cond .cv { text-align: end; font-weight: 600; }
+  .cond.promo .ct { color: var(--success-800); }
+  .cond .x2 {
+    display: inline-block; margin-inline-start: 5px; padding: 0 5px; border-radius: 999px;
+    background: var(--muted); color: var(--muted-foreground); font-size: 10px; font-weight: 700;
+  }
+  .condfoot { margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--divider); font-size: 11px; color: var(--ink-3); display: flex; gap: 12px; flex-wrap: wrap; }
+  .condfoot .more { color: var(--muted-foreground); font-weight: 600; cursor: pointer; }
+  .msg {
+    margin: 6px 0 0; padding: 6px 9px; border-radius: 6px;
+    background: var(--attention-050); border: 1px solid var(--attention-border); color: var(--attention-800);
+    font-size: 11.5px; font-family: ui-monospace, Consolas, monospace;
+  }
+  /* headline C — the totals row that replaces the strip's money readout */
+  .totals {
+    align-items: baseline; justify-content: flex-end; gap: 18px;
+    margin-top: 8px; padding-top: 9px; border-top: 1px solid var(--border-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  .totals .k { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-inline-end: 6px; }
+  .totals .sm { font-size: 12.5px; color: var(--muted-foreground); }
+  .totals .sm .v { color: var(--foreground); font-weight: 600; }
+  .totals .big { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+  .totals .cur { font-size: 11px; font-weight: 600; color: var(--muted-foreground); margin-inline-start: 3px; }
+
+  /* the promotions rail */
+  .promo-list { display: flex; flex-direction: column; gap: 8px; }
+  .promo { padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-2); }
+  .promo.fired { border-color: var(--success-border); background: var(--success-050); }
+  .promo .top { display: flex; align-items: flex-start; gap: 8px; }
+  .promo .mark { font-size: 13px; font-weight: 700; line-height: 1.35; flex: 0 0 auto; }
+  .promo.fired .mark { color: var(--success-800); }
+  .promo.miss .mark { color: var(--ink-3); }
+  .promo .ttl { font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+  .promo .ident { margin-top: 3px; font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .promo .ident .sep { color: var(--ink-3); margin: 0 5px; }
+  .promo .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .promo .chip { font-size: 10.5px; padding: 2px 8px; }
+  .amtrow {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border);
+  }
+  .amtrow .k { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .amtrow .v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .amtrow .v .cu { font-size: 10px; font-weight: 600; color: var(--muted-foreground); margin-inline-start: 3px; }
+  .promo.fired .amtrow .v { color: var(--success-800); }
+  .promo.miss .amtrow .v { color: var(--muted-foreground); }
+  .detbtn {
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+    height: 26px; padding: 0 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--input); background: var(--card);
+    font-size: 11.5px; font-weight: 600; color: var(--foreground);
+  }
+  .detbtn:hover { background: var(--accent); }
+
+  /* quiet empty states — a sentence, never an empty framed box */
+  .quiet {
+    padding: 18px 4px; color: var(--ink-3); font-size: 12.5px; text-align: center;
+  }
+  .quiet b { color: var(--muted-foreground); font-weight: 600; }
+  .railquiet { padding: 10px 2px; color: var(--ink-3); font-size: 11.5px; }
+
+  /* the whole-run 400 */
+  .errbanner {
+    display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px;
+    border: 1px solid var(--danger-border); background: var(--danger-050);
+    color: var(--danger-800); border-radius: var(--radius); font-size: 12.5px;
+  }
+  .errbanner .code { font-family: ui-monospace, Consolas, monospace; font-size: 11px; opacity: .8; }
+
+  /* ---- state + headline visibility ---- */
+  .s { display: none; }
+  body:has(#s-prerun:checked)  .s.prerun,
+  body:has(#s-result:checked)  .s.result,
+  body:has(#s-promooff:checked) .s.promooff,
+  body:has(#s-warn:checked)    .s.warn,
+  body:has(#s-fail:checked)    .s.fail { display: block; }
+  body:has(#s-prerun:checked)  .s.prerun.flex,
+  body:has(#s-result:checked)  .s.result.flex,
+  body:has(#s-promooff:checked) .s.promooff.flex,
+  body:has(#s-warn:checked)    .s.warn.flex,
+  body:has(#s-fail:checked)    .s.fail.flex { display: flex; }
+  body:has(#s-result:checked)  .s.result.grid,
+  body:has(#s-promooff:checked) .s.promooff.grid,
+  body:has(#s-warn:checked)    .s.warn.grid { display: grid; }
+  .strip.form { flex-direction: column; align-items: stretch; gap: 0; }
+  body:has(#m-off:checked) .nearmiss { display: none; }
+  body:has(#m-off:checked) .missnote { display: block; }
+  .missnote { display: none; }
+
+  /* the tally under the device */
+  .tally { margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat { border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 8px 13px; min-width: 100px; }
+  .stat .sv { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .stat .sk { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .stat.down .sv { color: var(--success-800); }
+  .stat.up .sv { color: var(--danger-800); }
+
+  .foot { margin: 34px 0 0; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 12.5px; max-width: 86ch; }
+  .foot a { color: var(--primary); }
+  .foot h3 { font-size: 13px; margin: 18px 0 6px; color: var(--foreground); }
+  .foot ul { margin: 6px 0; padding-inline-start: 18px; }
+  .foot li { margin: 3px 0; }
+
+  @media (max-width: 900px) {
+    body:has(#t-both:checked) .devices { grid-template-columns: 1fr; }
+    .split { grid-template-columns: 1fr; }
+    .fields { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<body class="tl">
+<div class="page">
+  <div class="eyebrow">Ticket 101 · map 097 · arrangement only</div>
+  <h1>The reworked Simulation screen, as one device</h1>
+  <p class="lede">
+    Arrangement <b>D</b> from <a href="099-stack-order.PROTOTYPE.html">099</a>, built properly and
+    corrected to <a href="../100-sim-chip-vocabulary.md">100</a>'s chip vocabulary — the tinted
+    <code>Promotion on</code> pill and the dashed ghost chip are gone, chips are borderless
+    <code>bg-muted</code>, no chip is clickable, and an <code>ok</code> line carries no status mark at
+    all. Every number is a real <a href="098-simulate-payloads/">098</a> capture; the state switcher
+    names which one. The device viewport <b>scrolls</b>, so a sticky headline can be judged rather
+    than imagined.
+  </p>
+
+  <div class="controls">
+    <fieldset class="switch">
+      <span class="sl">State</span>
+      <label><input type="radio" name="s" id="s-result" checked><span>After a run</span><span class="key">1</span></label>
+      <label><input type="radio" name="s" id="s-prerun"><span>Before any run</span><span class="key">2</span></label>
+      <label><input type="radio" name="s" id="s-promooff"><span>Promotion off</span><span class="key">3</span></label>
+      <label><input type="radio" name="s" id="s-warn"><span>A warning line</span><span class="key">4</span></label>
+      <label><input type="radio" name="s" id="s-fail"><span>Run failed (400)</span><span class="key">5</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Headline</span>
+      <label><input type="radio" name="h" id="h-quiet" checked><span>A · quiet strip, scrolls away</span><span class="key">q</span></label>
+      <label><input type="radio" name="h" id="h-band"><span>B · sticky run band</span><span class="key">w</span></label>
+      <label><input type="radio" name="h" id="h-foot"><span>C · money in a totals row</span><span class="key">e</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Near-misses</span>
+      <label><input type="radio" name="m" id="m-on" checked><span>Rail carries them</span><span class="key">a</span></label>
+      <label><input type="radio" name="m" id="m-off"><span>Left out (as today)</span><span class="key">s</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Theme</span>
+      <label><input type="radio" name="t" id="t-light" checked><span>Light</span><span class="key">z</span></label>
+      <label><input type="radio" name="t" id="t-dark"><span>Dark</span><span class="key">x</span></label>
+      <label><input type="radio" name="t" id="t-both"><span>Both, side by side</span><span class="key">c</span></label>
+    </fieldset>
+  </div>
+
+  <p class="caption s result">
+    <b>After a run</b> — capture <code>03-applied-and-potential</code>: two lines, one fired bonus buy,
+    one near-miss. Three frames: <b>Items</b>, <b>Results</b>, <b>Promotions</b>. The run strip is not
+    a frame — it is a readout and a control cluster, so it gets no border and no heading. Net Total is
+    weighted but not a hero: 099 ruled it the <i>confirming</i> number, and the promotion verdict —
+    the thing the analyst actually came for — sits at eye level on the rail beside the lines it explains.
+  </p>
+  <p class="caption s prerun">
+    <b>Before any run.</b> The run strip is <b>expanded as the form</b>, because nothing has been set
+    up yet and there is no run to condense; it collapses to chips on the first Process. Results and
+    Promotions <b>do not exist</b> — no empty frame, no placeholder card, one sentence where the work
+    area will be. That is the answer to "what does the screen cost when it has nothing to say":
+    <b>one frame</b>. The three test levers (procedure key, loyalty group, loyalty tier) live here in
+    the open form and never appear as chips unless set.
+  </p>
+  <p class="caption s promooff">
+    <b>Promotion off</b> — capture <code>01-plain-multiline</code>: three lines, no promotion.
+    098 finding 3: turning promotion off blanks <i>both</i> applied and potential, so an empty rail
+    here does not mean "nothing fired" — it means nothing was measured. The <code>PROMO off</code>
+    chip is what stops the blackout being read as a result, which is exactly why 100 chips promotion
+    in <b>both</b> states.
+  </p>
+  <p class="caption s warn">
+    <b>A warning line</b> — capture <code>04b-no-price</code>: <code>COUP01</code> with no
+    <code>itemConditionControl</code>. The line is the only coloured thing on the screen, its message
+    sits inside its own expansion, and the fix — set Control to <code>M</code> — is one row up in the
+    items frame. No count banner, no dot column: healthy lines are silent, so the eye lands on the one
+    line that is not.
+  </p>
+  <p class="caption s fail">
+    <b>The whole run failed</b> — capture <code>04a-unknown-material</code>, HTTP 400
+    <code>INVALID_UOM</code>. 098 finding 5: this, not a per-line <code>E</code>, is how failure
+    actually arrives. The banner replaces the work area rather than pushing it down, and the items
+    frame stays exactly where it was so the offending line can be corrected in place.
+  </p>
+
+  <div class="devices">
+    <div id="wrap-light" class="tl"></div>
+    <div id="wrap-dark" class="td"></div>
+  </div>
+
+  <div class="tally s result flex">
+    <div class="stat down"><div class="sv">3</div><div class="sk">frames</div></div>
+    <div class="stat down"><div class="sv">3</div><div class="sk">headings</div></div>
+    <div class="stat down"><div class="sv">2</div><div class="sk">hues used</div></div>
+    <div class="stat"><div class="sv">5</div><div class="sk">chips</div></div>
+    <div class="stat down"><div class="sv">1st</div><div class="sk">promo rank</div></div>
+  </div>
+  <div class="tally s prerun flex">
+    <div class="stat down"><div class="sv">1</div><div class="sk">frame</div></div>
+    <div class="stat down"><div class="sv">1</div><div class="sk">heading</div></div>
+    <div class="stat down"><div class="sv">0</div><div class="sk">hues used</div></div>
+    <div class="stat down"><div class="sv">0</div><div class="sk">empty frames</div></div>
+  </div>
+  <div class="tally s promooff flex">
+    <div class="stat down"><div class="sv">3</div><div class="sk">frames</div></div>
+    <div class="stat down"><div class="sv">0</div><div class="sk">hues used</div></div>
+    <div class="stat"><div class="sv">5</div><div class="sk">chips</div></div>
+  </div>
+  <div class="tally s warn flex">
+    <div class="stat down"><div class="sv">3</div><div class="sk">frames</div></div>
+    <div class="stat"><div class="sv">1</div><div class="sk">hue used</div></div>
+    <div class="stat down"><div class="sv">1</div><div class="sk">marked line</div></div>
+  </div>
+  <div class="tally s fail flex">
+    <div class="stat down"><div class="sv">1</div><div class="sk">frame</div></div>
+    <div class="stat"><div class="sv">1</div><div class="sk">banner</div></div>
+    <div class="stat down"><div class="sv">1</div><div class="sk">hue used</div></div>
+  </div>
+
+  <div class="foot">
+    <h3>What this prototype is asking you to rule</h3>
+    <ul>
+      <li><b>The headline.</b> Three candidates on the switcher.
+        <b>A · quiet strip</b> (drawn first, and the recommendation): the strip carries chips, money
+        and controls, and scrolls away with everything else — because on 098's evidence the whole
+        screen is 1–3 lines and ≤2 promo cards, so <i>nothing scrolls</i> and a pinned band buys
+        nothing but a permanent 44px tax. <b>B · sticky band</b>: same content, pinned — worth it only
+        if you expect baskets far larger than anything captured. <b>C · totals row</b>: the money
+        leaves the strip entirely and becomes a right-aligned row under the results, making the
+        results the headline and Net Total a figure among the lines. C is the most honest about
+        "Net Total is a confirming readout" — and it costs you the ability to see the total while the
+        run strip is in view.</li>
+      <li><b>The frame budget: three.</b> Items (the instrument you retype every run), Results (the
+        lines), Promotions (the verdict). Each buys a region with a different lifetime. Everything
+        else — Summary, Actions, Manual Conditions, the detail panel, the Pricing Elements panel —
+        is either dissolved into the strip or folded into a disclosure. Eleven frames become three,
+        and <b>one</b> before the first Process.</li>
+      <li><b>Near-misses.</b> Switch them off to see what the rail looks like as today's screen ships
+        it. On <code>03-applied-and-potential</code> the rail loses half its content and the analyst
+        loses the answer to "what would ×2 have got me" — the exact question this loop exists to ask.
+        Recommendation: keep them, as 099 ruled, and let this switcher be the evidence.</li>
+      <li><b>The pre-run state</b> — is one sentence enough where the work area will be, or does the
+        screen owe the analyst something more (a last-run recall, a worked example)?</li>
+    </ul>
+    <h3>Deliberately not settled here</h3>
+    <p>
+      Chip copy and the expand/collapse mechanics (<a href="../102-sim-input-chip-bar.md">102</a>),
+      how the four disclosures behave (<a href="../103-sim-deep-layers-placement.md">103</a>), the
+      line's exact columns and the missed card's fields
+      (<a href="../104-sim-results-line-anatomy.md">104</a>), where the 66/34 split stacks
+      (<a href="../105-sim-responsive-arrangement.md">105</a>), and mirroring
+      (<a href="../106-sim-rtl-mirroring.md">106</a>). Keys <b>1–5</b> switch state,
+      <b>q/w/e</b> the headline, <b>a/s</b> near-misses, <b>z/x/c</b> the theme.
+    </p>
+  </div>
+</div>
+
+<template id="device-tpl">
+  <div class="device">
+    <div class="device-bar"><span class="dot"></span><span class="name">POS Simulation</span></div>
+    <div class="stage">
+
+      <!-- ===================== the run strip ===================== -->
+      <div class="runwrap">
+        <!-- collapsed: after a run -->
+        <div class="strip s result flex">
+          <div class="runset">
+            <span class="chip"><span class="ck">Plant</span>P001</span>
+            <span class="chip"><span class="ck">Org</span>1000</span>
+            <span class="chip"><span class="ck">Chan</span>20</span>
+            <span class="chip">25 Jul 2026</span>
+            <span class="chip"><span class="ck">Promo</span>on</span>
+            <button class="editbtn">Edit ▾</button>
+          </div>
+          <span class="grow"></span>
+          <div class="money">
+            <span class="big num">172.38<span class="cur">SAR</span></span>
+            <span class="pair"><span class="k">disc</span><span class="v num">−63.88</span></span>
+            <span class="pair"><span class="k">tax</span><span class="v num">22.48</span></span>
+            <span class="ms num">268 ms</span>
+          </div>
+          <div class="runbtns">
+            <span class="vrule"></span>
+            <button class="btn primary">▶ Process</button>
+            <button class="btn quiet">Clear</button>
+            <button class="btn quiet" title="Wipe the server pricing cache so a re-downloaded bonus buy fires with its latest version">⛁ Wipe cache</button>
+          </div>
+        </div>
+
+        <div class="strip s promooff flex">
+          <div class="runset">
+            <span class="chip"><span class="ck">Plant</span>P001</span>
+            <span class="chip"><span class="ck">Org</span>1000</span>
+            <span class="chip"><span class="ck">Chan</span>20</span>
+            <span class="chip">25 Jul 2026</span>
+            <span class="chip"><span class="ck">Promo</span>off</span>
+            <button class="editbtn">Edit ▾</button>
+          </div>
+          <span class="grow"></span>
+          <div class="money">
+            <span class="big num">417.50<span class="cur">SAR</span></span>
+            <span class="pair"><span class="k">disc</span><span class="v num">0.00</span></span>
+            <span class="pair"><span class="k">tax</span><span class="v num">54.46</span></span>
+            <span class="ms num">201 ms</span>
+          </div>
+          <div class="runbtns">
+            <span class="vrule"></span>
+            <button class="btn primary">▶ Process</button>
+            <button class="btn quiet">Clear</button>
+            <button class="btn quiet">⛁ Wipe cache</button>
+          </div>
+        </div>
+
+        <div class="strip s warn flex">
+          <div class="runset">
+            <span class="chip"><span class="ck">Plant</span>P001</span>
+            <span class="chip"><span class="ck">Org</span>1000</span>
+            <span class="chip"><span class="ck">Chan</span>20</span>
+            <span class="chip">25 Jul 2026</span>
+            <span class="chip"><span class="ck">Promo</span>on</span>
+            <button class="editbtn">Edit ▾</button>
+          </div>
+          <span class="grow"></span>
+          <div class="money">
+            <span class="big num">35.95<span class="cur">SAR</span></span>
+            <span class="pair"><span class="k">disc</span><span class="v num">0.00</span></span>
+            <span class="pair"><span class="k">tax</span><span class="v num">4.69</span></span>
+            <span class="ms num">184 ms</span>
+          </div>
+          <div class="runbtns">
+            <span class="vrule"></span>
+            <button class="btn primary">▶ Process</button>
+            <button class="btn quiet">Clear</button>
+            <button class="btn quiet">⛁ Wipe cache</button>
+          </div>
+        </div>
+
+        <div class="strip s fail flex">
+          <div class="runset">
+            <span class="chip"><span class="ck">Plant</span>P001</span>
+            <span class="chip"><span class="ck">Org</span>1000</span>
+            <span class="chip"><span class="ck">Chan</span>20</span>
+            <span class="chip">25 Jul 2026</span>
+            <span class="chip"><span class="ck">Promo</span>on</span>
+            <button class="editbtn">Edit ▾</button>
+          </div>
+          <span class="grow"></span>
+          <div class="runbtns">
+            <button class="btn primary">▶ Process</button>
+            <button class="btn quiet">Clear</button>
+            <button class="btn quiet">⛁ Wipe cache</button>
+          </div>
+        </div>
+
+        <!-- expanded: before any run (and after Edit ▾) -->
+        <div class="strip form s prerun flex">
+          <div class="fields">
+            <div class="fld"><span class="fl">Plant</span><span class="cell num">P001</span></div>
+            <div class="fld"><span class="fl">Sales org</span><span class="cell num">1000</span></div>
+            <div class="fld"><span class="fl">Distribution channel</span><span class="cell num">20</span></div>
+            <div class="fld"><span class="fl">Pricing date</span><span class="cell num">2026-07-25</span></div>
+            <div class="fld lever"><span class="fl">Procedure key</span><span class="cell dim">&nbsp;</span></div>
+            <div class="fld lever"><span class="fl">Loyalty group</span><span class="cell dim">&nbsp;</span></div>
+            <div class="fld lever"><span class="fl">Loyalty tier</span><span class="cell dim">(none)</span></div>
+            <div class="fld" style="justify-content:flex-end;gap:7px">
+              <span class="ck2 on"><i></i>Promotion</span>
+              <span class="ck2"><i></i>Pricing elements</span>
+            </div>
+          </div>
+          <div class="formfoot">
+            <button class="btn primary">▶ Process</button>
+            <button class="btn quiet">Clear</button>
+            <button class="btn quiet" title="Wipe the server pricing cache so a re-downloaded bonus buy fires with its latest version">⛁ Wipe cache</button>
+            <span class="grow"></span>
+            <span style="font-size:11.5px;color:var(--ink-3)">Collapses to chips on the first run</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <!-- ===================== items — never collapses ===================== -->
+        <div class="frame">
+          <h2>Items <span class="n s result">2</span><span class="n s promooff">3</span><span class="n s warn">2</span><span class="n s fail">2</span></h2>
+          <div class="items">
+            <div class="itemrow ihead"><span>Material</span><span>Qty</span><span>UoM</span><span>Control</span><span></span></div>
+
+            <div class="s result">
+              <div class="itemrow"><span class="cell num">200706</span><span class="cell num">2</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+              <div class="itemrow"><span class="cell num">200382</span><span class="cell num">1</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+            </div>
+            <div class="s promooff">
+              <div class="itemrow"><span class="cell num">200706</span><span class="cell num">2</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+              <div class="itemrow"><span class="cell num">200382</span><span class="cell num">2</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+              <div class="itemrow"><span class="cell num">200710</span><span class="cell num">2</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+            </div>
+            <div class="s warn">
+              <div class="itemrow"><span class="cell num">COUP01</span><span class="cell num">1</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+              <div class="itemrow"><span class="cell num">200382</span><span class="cell num">1</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+            </div>
+            <div class="s fail">
+              <div class="itemrow"><span class="cell num">32423333</span><span class="cell num">1</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+              <div class="itemrow"><span class="cell num">200382</span><span class="cell num">1</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+            </div>
+            <div class="s prerun">
+              <div class="itemrow"><span class="cell dim">Material number</span><span class="cell num">1</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+            </div>
+
+            <div class="itemrow"><span class="cell dim">+ Add item</span><span></span><span></span><span></span><span></span></div>
+          </div>
+          <div class="itemfoot">
+            <button class="disclose"><span class="tw">›</span>Manual conditions</button>
+            <span class="s warn" style="font-size:11.5px;color:var(--attention-800)">A coupon needs Control = <b>M</b> to price.</span>
+          </div>
+        </div>
+
+        <!-- ===================== the work area ===================== -->
+        <div class="s prerun quiet">
+          Nothing priced yet. <b>Add items and press Process</b> — results and promotions appear here.
+        </div>
+
+        <div class="s fail">
+          <div class="errbanner">
+            <span>⚠</span>
+            <span>
+              UoM 'EA' is not valid for material '32423333'.<br>
+              <span class="code">INVALID_UOM · the whole run was rejected, nothing was priced</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="split s result grid">
+          <div class="frame">
+            <h2>Results <span class="n">2 lines</span></h2>
+            <div class="lines">
+              <div class="line open">
+                <div class="lhead">
+                  <span class="tw2">⌄</span><span class="lno">#10</span>
+                  <span class="lname"><span class="d">BIODERMA ATODERM CREAM PUMP 200 ML</span><span class="m">200706</span></span>
+                  <span class="lqty num">2 EA</span>
+                  <span class="lpromo"><span class="yes">✓ 70% 2nd PCS</span></span>
+                  <span class="lnet num">136.43</span>
+                </div>
+                <div class="conds">
+                  <div class="cond"><span class="ci">1.</span><span><span class="ct">VKP0</span> <span class="cd">— Basic Price</span></span><span class="cr">91.26 SAR</span><span class="cv">182.52</span></div>
+                  <div class="cond promo"><span class="ci">2.</span><span><span class="ct">ZB03</span> <span class="cd">— 70% 2nd PCS</span><span class="x2">×2</span></span><span class="cr">−35.000 %</span><span class="cv">−63.88</span></div>
+                  <div class="cond"><span class="ci">3.</span><span><span class="ct">MWST</span> <span class="cd">— Vat %</span></span><span class="cr">15.000</span><span class="cv">17.79</span></div>
+                  <div class="condfoot">
+                    <span>Gross 182.52 · net 118.64 · tax 17.79</span>
+                    <span class="more">‹ Pricing elements</span>
+                  </div>
+                </div>
+              </div>
+              <div class="line">
+                <div class="lhead">
+                  <span class="tw2">›</span><span class="lno">#20</span>
+                  <span class="lname"><span class="d">AXE DEO SPRAY FIFA EDITION 150 ML</span><span class="m">200382</span></span>
+                  <span class="lqty num">1 EA</span>
+                  <span class="lpromo"><span class="no">—</span></span>
+                  <span class="lnet num">35.95</span>
+                </div>
+              </div>
+            </div>
+            <div class="totals">
+              <span class="sm"><span class="k">discount</span><span class="v num">−63.88</span></span>
+              <span class="sm"><span class="k">tax</span><span class="v num">22.48</span></span>
+              <span><span class="k">net total</span><span class="big num">172.38<span class="cur">SAR</span></span></span>
+            </div>
+          </div>
+
+          <div class="frame">
+            <h2>Promotions <span class="n"><span class="nearmiss">1 fired · 1 near-miss</span><span class="missnote">1 fired</span></span></h2>
+            <div class="promo-list">
+              <div class="promo fired">
+                <div class="top">
+                  <span class="mark">✓</span>
+                  <span>
+                    <span class="ttl">70% 2nd PCS</span>
+                    <span class="ident">000100000131<span class="sep">·</span>ZB03<span class="sep">·</span>line 10</span>
+                  </span>
+                </div>
+                <div class="chips"><span class="chip">% off</span><span class="chip">buy → get</span></div>
+                <div class="amtrow"><span class="k">Saved</span><span class="v num">−63.88<span class="cu">SAR</span></span></div>
+                <button class="detbtn">Bonus buy details ▸</button>
+              </div>
+              <div class="promo miss nearmiss">
+                <div class="top">
+                  <span class="mark">○</span>
+                  <span>
+                    <span class="ttl">2 PC for 29.95 SR</span>
+                    <span class="ident">000100000132<span class="sep">·</span>ZB01<span class="sep">·</span>didn't fire</span>
+                  </span>
+                </div>
+                <div class="chips"><span class="chip">% off</span><span class="chip">to 31 Jul 2026</span><span class="chip">not stackable</span></div>
+                <div class="amtrow"><span class="k">Would save</span><span class="v num">26.04<span class="cu">SAR</span></span></div>
+                <button class="detbtn">Bonus buy details ▸</button>
+              </div>
+            </div>
+            <div class="railquiet missnote">
+              One potential bonus buy on this run is not being shown — <code>000100000132</code>,
+              would have saved 26.04.
+            </div>
+          </div>
+        </div>
+
+        <div class="split s promooff grid">
+          <div class="frame">
+            <h2>Results <span class="n">3 lines</span></h2>
+            <div class="lines">
+              <div class="line">
+                <div class="lhead">
+                  <span class="tw2">›</span><span class="lno">#10</span>
+                  <span class="lname"><span class="d">BIODERMA ATODERM CREAM PUMP 200 ML</span><span class="m">200706</span></span>
+                  <span class="lqty num">2 EA</span><span class="lpromo"><span class="no">—</span></span>
+                  <span class="lnet num">209.90</span>
+                </div>
+              </div>
+              <div class="line">
+                <div class="lhead">
+                  <span class="tw2">›</span><span class="lno">#20</span>
+                  <span class="lname"><span class="d">AXE DEO SPRAY FIFA EDITION 150 ML</span><span class="m">200382</span></span>
+                  <span class="lqty num">2 EA</span><span class="lpromo"><span class="no">—</span></span>
+                  <span class="lnet num">71.90</span>
+                </div>
+              </div>
+              <div class="line">
+                <div class="lhead">
+                  <span class="tw2">›</span><span class="lno">#30</span>
+                  <span class="lname"><span class="d">BIODERMA ATODERM SOAP PAIN NETOY</span><span class="m">200710</span></span>
+                  <span class="lqty num">2 EA</span><span class="lpromo"><span class="no">—</span></span>
+                  <span class="lnet num">135.70</span>
+                </div>
+              </div>
+            </div>
+            <div class="totals">
+              <span class="sm"><span class="k">discount</span><span class="v num">0.00</span></span>
+              <span class="sm"><span class="k">tax</span><span class="v num">54.46</span></span>
+              <span><span class="k">net total</span><span class="big num">417.50<span class="cur">SAR</span></span></span>
+            </div>
+          </div>
+          <div class="frame">
+            <h2>Promotions <span class="n">off</span></h2>
+            <div class="railquiet">
+              Promotion was <b>off</b> for this run, so nothing fired — and nothing was measured.
+              Turn it on in the run settings to see what this basket would have earned.
+            </div>
+          </div>
+        </div>
+
+        <div class="split s warn grid">
+          <div class="frame">
+            <h2>Results <span class="n">2 lines · 1 warning</span></h2>
+            <div class="lines">
+              <div class="line open">
+                <div class="lhead">
+                  <span class="tw2">⌄</span><span class="lno">#10</span>
+                  <span class="lname"><span class="d">Coupon</span><span class="m">COUP01</span></span>
+                  <span class="lqty num">1 EA</span>
+                  <span class="lpromo"><span class="badge">Warning</span></span>
+                  <span class="lnet num">0.00</span>
+                </div>
+                <div class="conds">
+                  <div class="msg">[070] Mandatory condition 'VKP0' (Basic Price) not found at step 5</div>
+                  <div class="cond" style="margin-top:6px"><span class="ci">1.</span><span><span class="ct">MWST</span> <span class="cd">— Vat %</span></span><span class="cr">0.000</span><span class="cv">0.00</span></div>
+                  <div class="condfoot"><span>Gross 0.00 · net 0.00 · tax 0.00</span><span class="more">‹ Pricing elements</span></div>
+                </div>
+              </div>
+              <div class="line">
+                <div class="lhead">
+                  <span class="tw2">›</span><span class="lno">#20</span>
+                  <span class="lname"><span class="d">AXE DEO SPRAY FIFA EDITION 150 ML</span><span class="m">200382</span></span>
+                  <span class="lqty num">1 EA</span><span class="lpromo"><span class="no">—</span></span>
+                  <span class="lnet num">35.95</span>
+                </div>
+              </div>
+            </div>
+            <div class="totals">
+              <span class="sm"><span class="k">discount</span><span class="v num">0.00</span></span>
+              <span class="sm"><span class="k">tax</span><span class="v num">4.69</span></span>
+              <span><span class="k">net total</span><span class="big num">35.95<span class="cur">SAR</span></span></span>
+            </div>
+          </div>
+          <div class="frame">
+            <h2>Promotions <span class="n"><span class="nearmiss">1 near-miss</span><span class="missnote">none fired</span></span></h2>
+            <div class="promo-list">
+              <div class="promo miss nearmiss">
+                <div class="top">
+                  <span class="mark">○</span>
+                  <span>
+                    <span class="ttl">2 PC for 29.95 SR</span>
+                    <span class="ident">000100000132<span class="sep">·</span>ZB01<span class="sep">·</span>didn't fire</span>
+                  </span>
+                </div>
+                <div class="chips"><span class="chip">% off</span><span class="chip">to 31 Jul 2026</span><span class="chip">not stackable</span></div>
+                <div class="amtrow"><span class="k">Would save</span><span class="v num">26.04<span class="cu">SAR</span></span></div>
+                <button class="detbtn">Bonus buy details ▸</button>
+              </div>
+            </div>
+            <div class="railquiet missnote">Nothing fired on this run.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  // The device is written once and cloned into a light and a dark wrapper, so both
+  // themes are always the same markup and can be judged side by side.
+  const tpl = document.getElementById('device-tpl')
+  for (const id of ['wrap-light', 'wrap-dark']) {
+    document.getElementById(id).appendChild(tpl.content.cloneNode(true))
+  }
+
+  // Keyboard switching; the radios do the real work so the page renders without JS.
+  const keys = {
+    '1': 's-result', '2': 's-prerun', '3': 's-promooff', '4': 's-warn', '5': 's-fail',
+    q: 'h-quiet', w: 'h-band', e: 'h-foot',
+    a: 'm-on', s: 'm-off',
+    z: 't-light', x: 't-dark', c: 't-both',
+  }
+  addEventListener('keydown', (ev) => {
+    if (ev.target.matches('input, textarea')) return
+    const id = keys[ev.key.toLowerCase()]
+    if (!id) return
+    const el = document.getElementById(id)
+    el.checked = true
+    el.focus()
+    if (id.startsWith('t-')) document.body.className = id === 't-dark' ? 'td' : 'tl'
+  })
+  // the page chrome follows the theme switcher too
+  for (const id of ['t-light', 't-dark', 't-both']) {
+    document.getElementById(id).addEventListener('change', () => {
+      document.body.className = id === 't-dark' ? 'td' : 'tl'
+    })
+  }
+</script>
+</body>
+</html>

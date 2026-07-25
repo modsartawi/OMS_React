@@ -1,10 +1,16 @@
 ---
-status: open
+status: wontfix
 spec: 043
 blocked-by: 046, 047, 048, 049
 ---
 
 # 050 — theHybridLaysOutResponsivelyByWidth
+
+> **Superseded 2026-07-25 by [map 097 — The POS Simulation screen rework](097-simulation-screen-rework.md).**
+> Responsive behaviour is re-decided for the reworked device by
+> [105 — How the arrangement behaves across widths](105-sim-responsive-arrangement.md), which carries
+> this ticket's live concern forward explicitly: the 047 cross-highlight when the blocks are no
+> longer beside the grid.
 
 ## What to build
 

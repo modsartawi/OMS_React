@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>108 — The bonus-buy details affordance on a promo card</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* 082's shipped POS tokens — copied verbatim from 101/104's prototypes so every device agrees. */
+  body.tl, .device.light {
+    --background: #f4f7fa; --foreground: #19232e;
+    --card: #ffffff; --card-2: #fafbfc;
+    --muted: #eef2f6; --muted-foreground: #586674; --ink-3: #8593a1;
+    --accent: #e4eaf1;
+    --border: #e3e9f0; --border-strong: #cbd6e2; --divider: #edf1f5; --input: #cbd6e2;
+    --ring: #2f63a6;
+    --primary: #2f63a6; --primary-050: #e9eff7; --primary-border: #c6d6ec;
+    --primary-800: #27538c; --primary-foreground: #ffffff;
+    --success: #1e874b; --success-050: #e7f3ec; --success-border: #bfe0cd; --success-800: #155f36;
+    --attention: #b4791f; --attention-050: #f8f0de; --attention-border: #e7d3a3; --attention-800: #7c5410;
+    --danger: #c23b41; --danger-050: #fbecec; --danger-border: #e7bfc1; --danger-800: #8e2a2f;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  body.td, .device.dark {
+    --background: #121c27; --foreground: #ecf0f3;
+    --card: #1c2631; --card-2: #17212c;
+    --muted: #27313a; --muted-foreground: #98a6b4; --ink-3: #76828e;
+    --accent: #323c46;
+    --border: #2e3742; --border-strong: #3b4755; --divider: #28313b; --input: #3b4755;
+    --ring: #6ba0e8;
+    --primary: #6ba0e8; --primary-050: #22344b; --primary-border: #364c68;
+    --primary-800: #b5d0f5; --primary-foreground: #121c27;
+    --success: #55b577; --success-050: #1e3a27; --success-border: #2e543a; --success-800: #abdcb8;
+    --attention: #e4a249; --attention-050: #422f15; --attention-border: #5f4522; --attention-800: #f6cc9a;
+    --danger: #df6768; --danger-050: #4c2625; --danger-border: #6f3837; --danger-800: #eeb3b0;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  :root { color-scheme: light dark; }
+  body.tl { color-scheme: light; }
+  body.td { color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--background); color: var(--foreground);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .page { max-width: 1240px; margin: 0 auto; padding: 28px 20px 80px; }
+  .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-size: 22px; font-weight: 650; letter-spacing: -.015em; margin: 4px 0 0; text-wrap: balance; }
+  h2.sec { font-size: 15px; font-weight: 650; letter-spacing: -.01em; margin: 40px 0 0; }
+  .lede { max-width: 76ch; color: var(--muted-foreground); margin: 10px 0 0; }
+  .lede code, .caption code, .foot code, td code, li code {
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    font-size: .88em; background: var(--muted); padding: 1px 5px; border-radius: 4px;
+  }
+
+  .controls { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
+  .switch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; border: 0; }
+  .switch > .sl { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); min-width: 104px; }
+  .switch label {
+    display: inline-flex; align-items: baseline; gap: 7px;
+    border: 1px solid var(--input); border-radius: 999px; padding: 6px 14px;
+    cursor: pointer; user-select: none; background: var(--card); font-size: 12.5px; font-weight: 500;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .switch label:hover { background: var(--accent); }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch label:has(input:checked) { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+  .switch label:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+  .caption {
+    margin: 16px 0 0; padding: 12px 14px;
+    border: 1px solid var(--border); border-inline-start: 3px solid var(--primary);
+    border-radius: 6px; background: var(--card-2); max-width: 92ch;
+    color: var(--muted-foreground); font-size: 13px;
+  }
+  .caption.warn { border-inline-start-color: var(--attention); }
+  .caption.bad { border-inline-start-color: var(--danger); }
+  .caption b { color: var(--foreground); font-weight: 600; }
+  .caption + .caption { margin-top: 8px; }
+
+  .devices { display: grid; gap: 14px; margin-top: 18px; }
+  body:has(#t-light:checked) .device.dark, body:has(#t-dark:checked) .device.light { display: none; }
+  .device {
+    border: 1px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--background); color: var(--foreground); overflow: hidden;
+    box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 8px 24px rgb(0 0 0 / .05);
+  }
+  .device-bar { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--brand-panel); color: var(--brand-panel-foreground); }
+  .device-bar .dot { width: 8px; height: 8px; border-radius: 999px; background: rgb(255 255 255 / .3); }
+  .device-bar .name { font-size: 11px; font-weight: 600; letter-spacing: .04em; opacity: .85; }
+  .stage { padding: 10px 12px 14px; position: relative; }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+
+  .frame { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 12px; }
+  .frame > h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+  .frame > h3 .n { font-size: 11px; font-weight: 500; color: var(--muted-foreground); }
+  .label { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted-foreground); }
+
+  /* the run strip — 101/102 own it; drawn quietly for context only */
+  .strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: var(--radius); background: var(--card-2); border: 1px solid var(--border);
+  }
+  .chip {
+    display: inline-flex; align-items: baseline; gap: 5px; border-radius: 999px; padding: 3px 9px;
+    font-size: 12px; background: var(--muted); color: var(--foreground);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .chip .ck { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .strip .grow { flex: 1 1 20px; }
+  .money { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; font-variant-numeric: tabular-nums; }
+  .money .big { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+  .money .cur { font-size: 11px; font-weight: 600; color: var(--muted-foreground); margin-inline-start: 3px; }
+  .money .pair { font-size: 12.5px; color: var(--muted-foreground); }
+  .money .pair .v { color: var(--foreground); font-weight: 600; }
+  .money .k { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-inline-end: 5px; }
+
+  .split { display: grid; grid-template-columns: minmax(0, 1.94fr) minmax(238px, 1fr); gap: 10px; align-items: start; }
+
+  /* result lines — 104's column set B, abbreviated: this ticket is not about them */
+  .colhead, .lrow {
+    display: grid; grid-template-columns: 20px minmax(0,1fr) 66px 84px 66px 62px 78px;
+    align-items: baseline; gap: 9px; font-variant-numeric: tabular-nums;
+  }
+  .colhead { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 0 6px 5px; border-bottom: 1px solid var(--border); }
+  .colhead .e, .lrow .e { text-align: end; }
+  .lrow { padding: 8px 6px; border-bottom: 1px solid var(--divider); font-size: 13px; height: 34px; }
+  .lrow .desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lrow .n { color: var(--ink-3); font-size: 11.5px; }
+  .lrow .sub { color: var(--muted-foreground); font-size: 12px; }
+  .lrow.hl { background: var(--primary-050); }
+  .fired { color: var(--success); font-weight: 600; font-size: 12.5px; }
+  .dash { color: var(--ink-3); }
+
+  /* ===== THE PROMOTIONS RAIL — this ticket's subject ===== */
+  .rail { display: flex; flex-direction: column; gap: 8px; }
+  .pcard {
+    border: 1px solid var(--border); border-radius: 8px; background: var(--card-2);
+    padding: 9px 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .pcard.fire { border-color: var(--success-border); background: var(--success-050); }
+  .pcard .top { display: flex; align-items: flex-start; gap: 7px; }
+  .pcard .glyph { font-size: 13px; line-height: 1.3; }
+  .pcard.fire .glyph { color: var(--success); }
+  .pcard.miss .glyph { color: var(--ink-3); }
+  .pcard .title { font-size: 13px; font-weight: 600; letter-spacing: -.01em; flex: 1 1 auto; }
+  .pcard .meta { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pcard .amt { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-variant-numeric: tabular-nums; }
+  .pcard .amt .k { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .pcard .amt .v { font-size: 15px; font-weight: 700; letter-spacing: -.02em; }
+  .pcard.fire .amt .v { color: var(--success-800); }
+  .pcard .lines { font-size: 11.5px; color: var(--muted-foreground); }
+  .pcard .valid { font-size: 11.5px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+
+  /* --- the affordance, three candidate forms --- */
+  .aff-a {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    border: 1px solid var(--input); border-radius: 7px; background: var(--card);
+    padding: 5px 9px; font-size: 12px; font-weight: 500; color: var(--foreground);
+    cursor: pointer; width: 100%; font-family: inherit; text-align: start;
+  }
+  .aff-a:hover { background: var(--accent); }
+  .aff-a .car { color: var(--ink-3); }
+  .aff-b {
+    background: none; border: 0; padding: 0; font: inherit; font-size: 12px; font-weight: 500;
+    color: var(--primary); cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
+    font-variant-numeric: tabular-nums; align-self: flex-start;
+  }
+  .aff-c {
+    width: 24px; height: 24px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid var(--input); border-radius: 6px; background: var(--card);
+    color: var(--muted-foreground); cursor: pointer; font-size: 12px; padding: 0;
+  }
+  .aff-c:hover { background: var(--accent); color: var(--foreground); }
+  .aff-a:focus-visible, .aff-b:focus-visible, .aff-c:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+  /* variant switching */
+  body:has(#f-a:checked) .aff-b, body:has(#f-a:checked) .aff-c,
+  body:has(#f-b:checked) .aff-a, body:has(#f-b:checked) .aff-c,
+  body:has(#f-c:checked) .aff-a, body:has(#f-c:checked) .aff-b { display: none; }
+  /* the "number as chip" only exists in form B, where the number becomes the link instead */
+  body:has(#f-b:checked) .chip-bby { display: none; }
+
+  body:has(#g-deny:checked) .aff, body:has(#g-pending:checked) .aff { display: none !important; }
+  body:has(#c-fire:checked) .pcard.miss .aff,
+  body:has(#c-miss:checked) .pcard.fire .aff { display: none !important; }
+
+  .ghost { opacity: .45; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 2px 8px;
+    font-size: 11px; font-weight: 600; border: 1px solid transparent;
+  }
+  .badge.att { background: var(--attention-050); border-color: var(--attention-border); color: var(--attention-800); }
+
+  /* ===== the two destinations ===== */
+  .cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 18px; }
+  @media (max-width: 900px) { .cmp { grid-template-columns: 1fr; } }
+  .cmp > div > .ch { font-size: 12.5px; font-weight: 650; margin: 0 0 8px; display: flex; align-items: baseline; gap: 8px; }
+  .cmp .tag { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+
+  .mini { border: 1px solid var(--border-strong); border-radius: 8px; background: var(--background); overflow: hidden; position: relative; height: 300px; }
+  .mini .mstage { padding: 8px; display: flex; flex-direction: column; gap: 7px; font-size: 11px; }
+  .mini .mbar { padding: 5px 9px; background: var(--brand-panel); color: var(--brand-panel-foreground); font-size: 10px; font-weight: 600; letter-spacing: .04em; opacity: .95; }
+  .mini .mframe { border: 1px solid var(--border); border-radius: 6px; background: var(--card); padding: 7px; }
+  .mini .bar { height: 7px; border-radius: 3px; background: var(--muted); }
+  .mini .bar.w60 { width: 60%; } .mini .bar.w40 { width: 40%; } .mini .bar.w80 { width: 80%; }
+  .mini .scrim { position: absolute; inset: 0; background: rgb(10 16 22 / .42); display: flex; align-items: flex-start; justify-content: center; padding-top: 14px; }
+  .mini .modal {
+    width: 90%; border-radius: 10px; background: var(--card); border: 1px solid var(--border-strong);
+    box-shadow: 0 18px 40px rgb(0 0 0 / .28); overflow: hidden;
+  }
+  .mini .modal .mh { padding: 7px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; justify-content: space-between; }
+  .mini .modal .mh b { font-size: 11.5px; font-weight: 650; }
+  .mini .modal .mb { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .mini .modal .mrow { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .mini .pnl { border: 1px solid var(--border); border-radius: 5px; padding: 5px 6px; background: var(--card-2); }
+  .mini .pnl .pk { font-size: 8.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px; }
+  .mini .fail { border: 1px solid var(--danger-border); background: var(--danger-050); color: var(--danger-800); border-radius: 6px; padding: 8px 10px; font-size: 11px; }
+  .mini .gone { color: var(--ink-3); font-size: 10.5px; font-style: italic; }
+
+  /* ===== the mount sequence ===== */
+  .seq { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+  @media (max-width: 900px) { .seq { grid-template-columns: 1fr; } }
+  .seq .st { border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 11px; }
+  .seq .st .t { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+  .seq .st .d { font-size: 12.5px; color: var(--muted-foreground); margin-top: 6px; }
+  .seq .st .card { margin-top: 9px; }
+
+  table.tbl { border-collapse: collapse; width: 100%; margin-top: 14px; font-size: 13px; }
+  table.tbl th, table.tbl td { border-bottom: 1px solid var(--border); padding: 7px 9px; text-align: start; vertical-align: top; }
+  table.tbl th { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+  .foot { margin-top: 34px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 12.5px; max-width: 92ch; }
+  ul.tight { margin: 8px 0 0; padding-inline-start: 20px; }
+  ul.tight li { margin: 4px 0; }
+</style>
+</head>
+<body class="tl">
+<div class="page">
+
+  <div class="eyebrow">Wayfinder 097 · ticket 108 · prototype</div>
+  <h1>The bonus-buy details affordance on a promo card</h1>
+  <p class="lede">
+    Drawn on <b>capture 03</b> — the only captured basket carrying a fire <em>and</em> a near-miss in one
+    rail. The fire is BBY <code>000100000131</code> ("70% 2nd PCS", <code>ZB03</code>, −63.88 on line #10);
+    the near-miss is BBY <code>000100000132</code> ("2 PC for 29.95 SR", <code>ZB01</code>, would save 26.04).
+    Both carry a <code>bbyNumber</code>, so both <em>can</em> offer the affordance — this prototype is about
+    whether both <em>should</em>, what the click does, and how the three grant states read.
+    Everything else on the device (strip, lines, card fields) is 101 / 102 / 104's settled work, drawn
+    quietly for context and not up for review here.
+  </p>
+
+  <div class="controls">
+    <fieldset class="switch">
+      <span class="sl">Theme</span>
+      <label><input type="radio" name="theme" id="t-light" checked onchange="document.body.className='tl'">Light</label>
+      <label><input type="radio" name="theme" id="t-dark" onchange="document.body.className='td'">Dark</label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Which cards</span>
+      <label><input type="radio" name="carry" id="c-both" checked>Both</label>
+      <label><input type="radio" name="carry" id="c-fire">Fires only</label>
+      <label><input type="radio" name="carry" id="c-miss">Near-misses only</label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Affordance</span>
+      <label><input type="radio" name="form" id="f-a" checked>A · bordered control</label>
+      <label><input type="radio" name="form" id="f-b">B · the number is the link</label>
+      <label><input type="radio" name="form" id="f-c">C · corner icon</label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Grant state</span>
+      <label><input type="radio" name="grant" id="g-grant" checked>Probe grants</label>
+      <label><input type="radio" name="grant" id="g-deny">Probe denies</label>
+      <label><input type="radio" name="grant" id="g-pending">Probe in flight</label>
+    </fieldset>
+  </div>
+
+  <div class="caption">
+    <b>Read the rail, not the screen.</b> Switch <b>Affordance</b> to see the three candidate forms in the
+    same card; switch <b>Grant state</b> to check that <em>absent</em> leaves no hole (099's requirement) and
+    that <em>in flight</em> looks identical to absent — the cards never wait for the probe.
+  </div>
+
+  <!-- ============ THE DEVICE ============ -->
+  <div class="devices">
+    <div class="device light" id="dev-light">
+      <div class="device-bar"><span class="dot"></span><span class="name">POS SIMULATION — capture 03 — LIGHT</span></div>
+      <div class="stage"><div class="stack">
+
+        <div class="strip">
+          <span class="chip"><span class="ck">plant</span>P001</span>
+          <span class="chip"><span class="ck">org</span>1000</span>
+          <span class="chip"><span class="ck">chan</span>20</span>
+          <span class="chip">25 Jul 2026</span>
+          <span class="chip"><span class="ck">promo</span>on</span>
+          <span class="chip" style="background:none;color:var(--muted-foreground)">Edit ▾</span>
+          <span class="grow"></span>
+          <span class="money">
+            <span><span class="big num">172.38</span><span class="cur">SAR</span></span>
+            <span class="pair"><span class="k">disc</span><span class="v num">−63.88</span></span>
+            <span class="pair"><span class="k">tax</span><span class="v num">22.48</span></span>
+          </span>
+        </div>
+
+        <div class="split">
+          <div class="frame">
+            <h3>Results <span class="n">2 lines</span></h3>
+            <div class="colhead">
+              <span>#</span><span>Item</span><span class="e">Qty</span><span>Promotion</span>
+              <span class="e">Was</span><span class="e">Saved</span><span class="e">Net total</span>
+            </div>
+            <div class="lrow hl">
+              <span class="n">10</span>
+              <span class="desc">BIODERMA ATODERM CREAM PUMP 200 ML<span class="sub"> · 200706</span></span>
+              <span class="e num">2 <span class="sub">×91.26</span></span>
+              <span class="fired">✔ 70% 2nd PCS</span>
+              <span class="e num sub">182.52</span><span class="e num">−63.88</span><span class="e num">136.43</span>
+            </div>
+            <div class="lrow">
+              <span class="n">20</span>
+              <span class="desc">PANADOL EXTRA 24 TAB<span class="sub"> · 200382</span></span>
+              <span class="e num">1 <span class="sub">×31.26</span></span>
+              <span class="dash">—</span>
+              <span class="e dash">—</span><span class="e dash">—</span><span class="e num">35.95</span>
+            </div>
+          </div>
+
+          <div class="frame">
+            <h3>Promotions <span class="n">1 fired · 1 near-miss</span></h3>
+            <div class="rail">
+
+              <!-- FIRED -->
+              <div class="pcard fire">
+                <div class="top">
+                  <span class="glyph">✔</span>
+                  <span class="title">70% 2nd PCS</span>
+                  <button class="aff aff-c" title="Bonus buy details">▸</button>
+                </div>
+                <div class="meta">
+                  <span class="chip"><span class="ck">cond</span>ZB03</span>
+                  <span class="chip chip-bby"><span class="ck">bby</span>000100000131</span>
+                </div>
+                <button class="aff aff-b num">000100000131 ▸</button>
+                <div class="amt"><span class="k">Saved</span><span class="v num">−63.88 SAR</span></div>
+                <div class="lines">Line #10</div>
+                <button class="aff aff-a">Bonus buy details<span class="car">▸</span></button>
+              </div>
+
+              <!-- NEAR-MISS -->
+              <div class="pcard miss">
+                <div class="top">
+                  <span class="glyph">○</span>
+                  <span class="title">2 PC for 29.95 SR</span>
+                  <button class="aff aff-c" title="Bonus buy details">▸</button>
+                </div>
+                <div class="meta">
+                  <span class="chip"><span class="ck">cond</span>ZB01</span>
+                  <span class="chip chip-bby"><span class="ck">bby</span>000100000132</span>
+                </div>
+                <button class="aff aff-b num">000100000132 ▸</button>
+                <div class="amt"><span class="k">Would save</span><span class="v num">26.04 SAR</span></div>
+                <div class="valid">19 Jul – 31 Jul 2026 · not stackable</div>
+                <button class="aff aff-a">Bonus buy details<span class="car">▸</span></button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div></div>
+    </div>
+
+    <div class="device dark" id="dev-dark">
+      <div class="device-bar"><span class="dot"></span><span class="name">POS SIMULATION — capture 03 — DARK</span></div>
+      <div class="stage"><div class="stack">
+
+        <div class="strip">
+          <span class="chip"><span class="ck">plant</span>P001</span>
+          <span class="chip"><span class="ck">org</span>1000</span>
+          <span class="chip"><span class="ck">chan</span>20</span>
+          <span class="chip">25 Jul 2026</span>
+          <span class="chip"><span class="ck">promo</span>on</span>
+          <span class="chip" style="background:none;color:var(--muted-foreground)">Edit ▾</span>
+          <span class="grow"></span>
+          <span class="money">
+            <span><span class="big num">172.38</span><span class="cur">SAR</span></span>
+            <span class="pair"><span class="k">disc</span><span class="v num">−63.88</span></span>
+            <span class="pair"><span class="k">tax</span><span class="v num">22.48</span></span>
+          </span>
+        </div>
+
+        <div class="split">
+          <div class="frame">
+            <h3>Results <span class="n">2 lines</span></h3>
+            <div class="colhead">
+              <span>#</span><span>Item</span><span class="e">Qty</span><span>Promotion</span>
+              <span class="e">Was</span><span class="e">Saved</span><span class="e">Net total</span>
+            </div>
+            <div class="lrow hl">
+              <span class="n">10</span>
+              <span class="desc">BIODERMA ATODERM CREAM PUMP 200 ML<span class="sub"> · 200706</span></span>
+              <span class="e num">2 <span class="sub">×91.26</span></span>
+              <span class="fired">✔ 70% 2nd PCS</span>
+              <span class="e num sub">182.52</span><span class="e num">−63.88</span><span class="e num">136.43</span>
+            </div>
+            <div class="lrow">
+              <span class="n">20</span>
+              <span class="desc">PANADOL EXTRA 24 TAB<span class="sub"> · 200382</span></span>
+              <span class="e num">1 <span class="sub">×31.26</span></span>
+              <span class="dash">—</span>
+              <span class="e dash">—</span><span class="e dash">—</span><span class="e num">35.95</span>
+            </div>
+          </div>
+
+          <div class="frame">
+            <h3>Promotions <span class="n">1 fired · 1 near-miss</span></h3>
+            <div class="rail">
+              <div class="pcard fire">
+                <div class="top">
+                  <span class="glyph">✔</span>
+                  <span class="title">70% 2nd PCS</span>
+                  <button class="aff aff-c" title="Bonus buy details">▸</button>
+                </div>
+                <div class="meta">
+                  <span class="chip"><span class="ck">cond</span>ZB03</span>
+                  <span class="chip chip-bby"><span class="ck">bby</span>000100000131</span>
+                </div>
+                <button class="aff aff-b num">000100000131 ▸</button>
+                <div class="amt"><span class="k">Saved</span><span class="v num">−63.88 SAR</span></div>
+                <div class="lines">Line #10</div>
+                <button class="aff aff-a">Bonus buy details<span class="car">▸</span></button>
+              </div>
+              <div class="pcard miss">
+                <div class="top">
+                  <span class="glyph">○</span>
+                  <span class="title">2 PC for 29.95 SR</span>
+                  <button class="aff aff-c" title="Bonus buy details">▸</button>
+                </div>
+                <div class="meta">
+                  <span class="chip"><span class="ck">cond</span>ZB01</span>
+                  <span class="chip chip-bby"><span class="ck">bby</span>000100000132</span>
+                </div>
+                <button class="aff aff-b num">000100000132 ▸</button>
+                <div class="amt"><span class="k">Would save</span><span class="v num">26.04 SAR</span></div>
+                <div class="valid">19 Jul – 31 Jul 2026 · not stackable</div>
+                <button class="aff aff-a">Bonus buy details<span class="car">▸</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div></div>
+    </div>
+  </div>
+
+  <div class="caption">
+    <b>Form B carries a vocabulary conflict, drawn on purpose.</b> Making the number the link means the
+    number stops being a chip — 100 ruled <em>no chip on this screen is ever clickable</em>, and that rule is
+    what makes "a chip is a readout" enforceable. B either breaks the rule or spends the number's chip to
+    buy a link. Both costs are visible in the switch.
+  </div>
+  <div class="caption">
+    <b>The near-miss argument, visible in the rail.</b> The fired card already says what happened —
+    which rule, how much, which line. The near-miss card says a promotion exists and would have saved
+    26.04, and 098 found it carries <em>no prerequisites and no item linkage</em>, so the card cannot say
+    <em>what you would have had to buy</em>. On a miss the details surface is the only place the rule is
+    legible; on a fire it is a nice-to-have. Try <b>Near-misses only</b>.
+  </div>
+
+  <!-- ============ WHAT THE CLICK DOES ============ -->
+  <h2 class="sec">What the click does — the two destinations</h2>
+  <p class="lede">
+    103 already ruled the grammar: <em>this run's data expands in place; anything fetched fresh opens a
+    modal</em>, with the bonus-buy modal named as the single principled exception. The open question is not
+    which reads better — it is whether the modal's <b>structural cost</b> is payable inside this map.
+  </p>
+
+  <div class="cmp">
+    <div>
+      <p class="ch">2a · Modal in place <span class="tag">the run survives</span></p>
+      <div class="mini">
+        <div class="mbar">POS SIMULATION</div>
+        <div class="mstage">
+          <div class="mframe"><div class="bar w60"></div></div>
+          <div class="mframe" style="flex:1"><div class="bar w80" style="margin-bottom:6px"></div><div class="bar w40"></div></div>
+        </div>
+        <div class="scrim">
+          <div class="modal">
+            <div class="mh"><b>Display Bonus Buy</b><span style="font-size:10px;color:var(--ink-3)" class="num">000100000132</span></div>
+            <div class="mb">
+              <div class="mrow">
+                <div class="pnl"><div class="pk">Organisation</div><div class="bar w80"></div></div>
+                <div class="pnl"><div class="pk">Header &amp; rules</div><div class="bar w60"></div></div>
+              </div>
+              <div class="pnl"><div class="pk">Buy</div><div class="bar w80" style="margin-bottom:5px"></div><div class="bar w60"></div></div>
+              <div class="pnl"><div class="pk">then · Get</div><div class="bar w40"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption" style="max-width:none">
+        Reuses <b>060</b>'s approved surface as <b>066</b> built it. <code>DetailModal</code> takes
+        <code>bbyNumber: string | null</code> and fetches its own record — it needs <em>nothing</em> from the
+        inquiry page, so this is a file-move question, not an API-shape question.
+        <b>The cost:</b> <code>DetailModal</code> sits in a sibling <em>feature</em>, and features never
+        import features. Graduating it to <code>@/core/</code> moves 8 files and an i18n namespace.
+      </div>
+    </div>
+
+    <div>
+      <p class="ch">2b · Navigate to BBY Inquiry <span class="tag">the run is left</span></p>
+      <div class="mini">
+        <div class="mbar">BONUS BUY INQUIRY</div>
+        <div class="mstage">
+          <div class="mframe"><div class="bar w60"></div></div>
+          <div class="mframe" style="flex:1">
+            <div class="bar w80" style="margin-bottom:6px"></div>
+            <div class="bar w80" style="margin-bottom:6px"></div>
+            <div class="bar w40"></div>
+          </div>
+          <div class="gone">the simulation run is gone — coming back lands on an unprocessed screen</div>
+        </div>
+      </div>
+      <div class="caption" style="max-width:none">
+        No boundary problem — but <b>the screen has no deep link today</b>
+        (<code>BonusBuyInquiryPage</code> reads no search params), so this option requires <em>adding
+        behaviour to another feature's screen</em>, which is the same kind of out-of-line change it was
+        meant to avoid. And 102 ruled the strip <b>collapses on every Process, auto-expand never</b> —
+        the run does not re-run itself when the analyst comes back.
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ THE THREE STATES ============ -->
+  <h2 class="sec">The three states — and the one the code makes awkward</h2>
+
+  <div class="seq">
+    <div class="st">
+      <div class="t">Probe grants</div>
+      <div class="d">The button is present on every card that carries it. Nothing else changes.</div>
+      <div class="card">
+        <div class="pcard miss">
+          <div class="top"><span class="glyph">○</span><span class="title">2 PC for 29.95 SR</span></div>
+          <div class="amt"><span class="k">Would save</span><span class="v num">26.04 SAR</span></div>
+          <button class="aff-a">Bonus buy details<span class="car">▸</span></button>
+        </div>
+      </div>
+    </div>
+    <div class="st">
+      <div class="t">Probe denies</div>
+      <div class="d">The button is absent — <b>no disabled control, no explanation, no reserved space</b>.
+        The card simply ends at its last fact. Same show/hide hygiene as the cache button; the server stays
+        the boundary.</div>
+      <div class="card">
+        <div class="pcard miss">
+          <div class="top"><span class="glyph">○</span><span class="title">2 PC for 29.95 SR</span></div>
+          <div class="amt"><span class="k">Would save</span><span class="v num">26.04 SAR</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="st">
+      <div class="t">Endpoint unbuilt</div>
+      <div class="d">Today <code>Bby/Detail</code> does not exist. The click opens the modal, which fails —
+        not a crash, but a dead affordance on a live screen.</div>
+      <div class="card">
+        <div class="mini" style="height:auto">
+          <div class="mstage"><div class="fail">Couldn't load the bonus buy. <span style="opacity:.8">(Bby/Detail — 404)</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption bad">
+    <b>The finding this ticket did not expect.</b> <code>bonusBuyInquiryApi.access()</code> deliberately
+    degrades a missing probe to <em>granted</em> — <code>404 / network → { screenAllowed: true, probed: false }</code>
+    — because for the inquiry <em>screen</em>, hiding a whole read-only screen behind an unbuilt probe is worse
+    than showing it. Reused verbatim here, that rule produces the <b>third tile above</b>: today, on live SIS.Api,
+    the button appears on every card and every click fails. The proposal drawn: in Simulation the affordance is
+    gated on <code>probed &amp;&amp; screenAllowed</code> — <b>unprobed means absent</b> — because a button that
+    fails is worse than a button that was never there, which is the opposite trade to the one the inquiry screen
+    faced. It is one boolean, and it makes the affordance ship dark until the endpoints land.
+  </div>
+
+  <!-- ============ MOUNT COST ============ -->
+  <h2 class="sec">The mount cost — the third probe</h2>
+  <p class="lede">
+    099 recorded the consequence: this is a <b>third</b> access probe on mount, after
+    <code>Pricing/Access</code> and the cache grant. Drawn as a sequence, the rule is that
+    <b>the rail never waits</b>.
+  </p>
+  <table class="tbl">
+    <tr><th>Moment</th><th>The rail</th><th>The button</th></tr>
+    <tr><td>Process returns</td><td>cards render immediately from <code>promoView</code></td><td>absent</td></tr>
+    <tr><td>Probe still in flight</td><td>unchanged — no skeleton, no reserved row</td><td>absent</td></tr>
+    <tr><td>Probe grants (late)</td><td>unchanged</td><td><b>appears</b> — the card grows by one row</td></tr>
+    <tr><td>Probe denies / never answers</td><td>unchanged</td><td>never appears</td></tr>
+  </table>
+  <div class="caption">
+    The probe is a <b>screen-mount</b> query, not a per-run one — it is fired once, shares the inquiry
+    screen's cache key <code>['bonus-buy-inquiry','access']</code>, and is almost always settled long
+    before the first Process. The late-appearance case is therefore rare in practice; it is drawn because
+    it must not be the case where the promotions are held back.
+  </div>
+
+  <div class="foot">
+    <b>What this prototype does not touch.</b> The detail surface itself (060's approved SAP mirror, 058's
+    contract, 066's build), <code>promoView</code>'s derivation, the endpoints, and the card's own field list
+    (101 §6). The only new pixels proposed here are one control on a card.
+    <ul class="tight">
+      <li>Capture: <code>.issues/assets/098-simulate-payloads/03-applied-and-potential-owner-supplied.json</code></li>
+      <li>Surface: <code>src/features/pricing/bonus-buy-inquiry/DetailModal.tsx</code> (+ <code>detail-view.ts</code>,
+        <code>GroupingMembersModal.tsx</code>, <code>BbyStatusBadge.tsx</code>, <code>status-severity.ts</code>,
+        <code>codeLabels.ts</code>, <code>formatters.ts</code>, <code>api.ts</code>'s <code>detail</code>/<code>groupingMembers</code>)</li>
+      <li>Probe: <code>bonusBuyInquiryApi.access()</code>, key <code>['bonus-buy-inquiry','access']</code></li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{
+  "_capture": {
+    "ticket": "098",
+    "map": "097",
+    "purpose": "The SAME manual condition type at header level (itemNumber 0). EVIDENCED: rejected HTTP 400 INVALID_CONDITION_ITEM_LEVEL — ZB01 is item-only, and no header-level condition type is known.",
+    "endpoint": "POST Pricing/Simulate",
+    "api": "http://localhost:5111",
+    "httpStatus": 400,
+    "capturedAt": "2026-07-25 07:08:52",
+    "request": {
+      "header": {
+        "plant": "P001",
+        "salesOrganization": "1000",
+        "distributionChannel": "20",
+        "pricingDate": "2026-07-25T00:00:00",
+        "documentPricingProcedureKey": "",
+        "loyGroups": null,
+        "loyTier": null,
+        "isPromotionApplicable": true
+      },
+      "items": [
+        {
+          "materialNumber": "200382",
+          "quantity": 2,
+          "qtyUnit": "EA",
+          "itemConditionControl": null
+        }
+      ],
+      "includeConditions": true,
+      "includePricingElements": false,
+      "manualConditions": [
+        {
+          "itemNumber": 0,
+          "conditionType": "ZB01",
+          "rate": 5,
+          "rateUnit": "%"
+        }
+      ]
+    },
+    "redaction": "No customer-identifying fields are present in a Simulate request or response (materials, plant, org, quantities and money only). Nothing redacted."
+  },
+  "response": {
+    "statusCode": 400,
+    "success": false,
+    "message": "Condition type 'ZB01' is an item condition and must have a non-zero ItemNumber, but was passed with ItemNumber = 0.",
+    "errors": [
+      {
+        "errorCode": "INVALID_CONDITION_ITEM_LEVEL",
+        "internalErrorCode": null,
+        "errorMessage": "Condition type 'ZB01' is an item condition and must have a non-zero ItemNumber, but was passed with ItemNumber = 0."
+      }
+    ]
+  }
+}

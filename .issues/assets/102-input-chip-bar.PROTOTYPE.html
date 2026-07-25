@@ -1,0 +1,855 @@
+<title>102 — The input chip bar: collapse, expand, edit, and the stale run</title>
+
+<style>
+  /* ===== 082's shipped POS design system, lifted verbatim from src/app/global.css,
+     scoped twice so both themes draw side by side (same rig as 101). ===== */
+  .tl {
+    --background: #f4f7fa; --foreground: #19232e;
+    --card: #ffffff; --card-2: #fafbfc;
+    --muted: #eef2f6; --muted-foreground: #586674; --ink-3: #8593a1;
+    --accent: #e4eaf1;
+    --border: #e3e9f0; --border-strong: #cbd6e2; --divider: #edf1f5; --input: #cbd6e2;
+    --ring: #2f63a6;
+    --primary: #2f63a6; --primary-050: #e9eff7; --primary-border: #c6d6ec;
+    --primary-800: #27538c; --primary-foreground: #ffffff;
+    --success: #1e874b; --success-050: #e7f3ec; --success-border: #bfe0cd; --success-800: #155f36;
+    --attention: #b4791f; --attention-050: #f8f0de; --attention-border: #e7d3a3; --attention-800: #7c5410;
+    --danger: #c23b41; --danger-050: #fbecec; --danger-border: #e7bfc1; --danger-800: #8e2a2f;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  .td {
+    --background: #121c27; --foreground: #ecf0f3;
+    --card: #1c2631; --card-2: #17212c;
+    --muted: #27313a; --muted-foreground: #98a6b4; --ink-3: #76828e;
+    --accent: #323c46;
+    --border: #2e3742; --border-strong: #3b4755; --divider: #28313b; --input: #3b4755;
+    --ring: #6ba0e8;
+    --primary: #6ba0e8; --primary-050: #22344b; --primary-border: #364c68;
+    --primary-800: #b5d0f5; --primary-foreground: #121c27;
+    --success: #55b577; --success-050: #1e3a27; --success-border: #2e543a; --success-800: #abdcb8;
+    --attention: #e4a249; --attention-050: #422f15; --attention-border: #5f4522; --attention-800: #f6cc9a;
+    --danger: #df6768; --danger-050: #4c2625; --danger-border: #6f3837; --danger-800: #eeb3b0;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  :root { color-scheme: light dark; }
+  body.tl { color-scheme: light; }
+  body.td { color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--background); color: var(--foreground);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---- page chrome ---- */
+  .page { max-width: 1240px; margin: 0 auto; padding: 28px 20px 72px; }
+  .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-size: 22px; font-weight: 650; letter-spacing: -.015em; margin: 4px 0 0; text-wrap: balance; }
+  .lede { max-width: 74ch; color: var(--muted-foreground); margin: 10px 0 0; }
+  .lede code, .caption code, .foot code, .tbl code {
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    font-size: .88em; background: var(--muted); padding: 1px 5px; border-radius: 4px;
+  }
+
+  .controls { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
+  .switch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; border: 0; }
+  .switch > .sl {
+    font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--ink-3); min-width: 84px;
+  }
+  .switch label {
+    display: inline-flex; align-items: baseline; gap: 7px;
+    border: 1px solid var(--input); border-radius: 999px; padding: 6px 14px;
+    cursor: pointer; user-select: none; background: var(--card);
+    font-size: 12.5px; font-weight: 500; transition: background .12s, border-color .12s, color .12s;
+  }
+  .switch label:hover { background: var(--accent); }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch label:has(input:checked) {
+    background: var(--primary); border-color: var(--primary);
+    color: var(--primary-foreground); font-weight: 600;
+  }
+  .switch label:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
+  .switch .key { font-size: 10px; font-weight: 700; opacity: .55; font-family: ui-monospace, Consolas, monospace; }
+
+  .caption {
+    margin: 16px 0 0; padding: 12px 14px;
+    border: 1px solid var(--border); border-inline-start: 3px solid var(--primary);
+    border-radius: 6px; background: var(--card-2);
+    max-width: 92ch; color: var(--muted-foreground); font-size: 13px;
+  }
+  .caption b { color: var(--foreground); font-weight: 600; }
+
+  /* ---- the device ---- */
+  .devices { display: grid; gap: 14px; margin-top: 18px; }
+  body:has(#t-both:checked) .devices { grid-template-columns: 1fr 1fr; }
+  body:has(#t-light:checked) #wrap-dark, body:has(#t-dark:checked) #wrap-light { display: none; }
+  .device {
+    border: 1px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--background); color: var(--foreground); overflow: hidden;
+    box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 8px 24px rgb(0 0 0 / .05);
+  }
+  .device-bar {
+    display: flex; align-items: center; gap: 8px; padding: 7px 12px;
+    background: var(--brand-panel); color: var(--brand-panel-foreground);
+  }
+  .device-bar .dot { width: 8px; height: 8px; border-radius: 999px; background: rgb(255 255 255 / .3); }
+  .device-bar .name { font-size: 11px; font-weight: 600; letter-spacing: .04em; opacity: .85; }
+  .stage { padding: 0 12px 14px; height: 560px; overflow-y: auto; }
+  .stack { display: flex; flex-direction: column; gap: 10px; padding-bottom: 6px; }
+
+  /* frames — 101's budget of three, unchanged */
+  .frame { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 12px; }
+  .frame > h2 {
+    margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: -.01em;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .frame > h2 .n { font-size: 11px; font-weight: 500; color: var(--muted-foreground); }
+
+  /* ===================== the run strip ===================== */
+  .runwrap { margin-inline: -12px; padding: 10px 12px 0; background: var(--background); }
+  .strip {
+    position: relative; overflow: hidden;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 8px 10px; border-radius: var(--radius);
+    background: var(--card-2); border: 1px solid var(--border);
+  }
+  .strip.grid2 { display: none; }
+
+  /* The chip set is ONE control (100 §3) — a real button, so it is one tab stop and
+     one aria-expanded. The chips inside are spans and never act on their own. */
+  .runset {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    padding: 3px 5px; border-radius: 8px; cursor: pointer;
+    border: 1px solid transparent; background: none; color: inherit;
+    font: inherit; text-align: start;
+  }
+  .runset:hover { background: var(--accent); border-color: var(--border); }
+  .runset.focusdemo { outline: 2px solid var(--ring); outline-offset: 1px; }
+  .chip {
+    display: inline-flex; align-items: baseline; gap: 5px;
+    border-radius: 999px; padding: 3px 9px; font-size: 12px;
+    background: var(--muted); color: var(--foreground);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .chip .ck { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .chip.lever { display: none; }
+  .chip.elem { display: none; }
+  body:has(#c-levers:checked) .chip.lever { display: inline-flex; }
+  body:has(#c-elem:checked) .chip.lever { display: inline-flex; }
+  body:has(#c-elem:checked) .chip.elem { display: inline-flex; }
+  .editcue {
+    display: inline-flex; align-items: center; gap: 4px; margin-inline-start: 2px;
+    font-size: 12px; font-weight: 600; color: var(--primary);
+  }
+  .strip .grow { flex: 1 1 20px; }
+
+  /* the money readout — emphasis by weight (101 headline A) */
+  .money { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; font-variant-numeric: tabular-nums; }
+  .money .big { font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+  .money .cur { font-size: 11px; font-weight: 600; color: var(--muted-foreground); margin-inline-start: 3px; }
+  .money .pair { font-size: 12.5px; color: var(--muted-foreground); }
+  .money .pair .v { color: var(--foreground); font-weight: 600; }
+  .money .k { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-inline-end: 5px; }
+  .money .ms { font-size: 11px; color: var(--ink-3); }
+
+  /* ---- THE STATUS SLOT: one place in the strip, three states, no hue ----
+     settled = empty · stale = "inputs changed" · in-flight = "Processing…" */
+  .slot {
+    display: none; align-items: center; gap: 6px;
+    font-size: 11.5px; font-weight: 600; color: var(--muted-foreground);
+    padding: 2px 9px 2px 7px; border-radius: 999px;
+    background: var(--muted); border: 1px dashed var(--border-strong);
+    white-space: nowrap;
+  }
+  .slot .gl { font-size: 12px; color: var(--ink-3); }
+  body:has(#s-stale:checked) .slot.stale { display: inline-flex; }
+  body:has(#s-flight:checked) .slot.flight { display: inline-flex; }
+  /* staleness treatment B — silent, as today */
+  body:has(#k-silent:checked) .slot.stale { display: none !important; }
+  body:has(#k-silent:checked) .stalenote { display: none !important; }
+  /* staleness treatment C — the money dims instead of the slot speaking */
+  body:has(#k-dim:checked) .slot.stale { display: none !important; }
+  body:has(#k-dim:checked) .stalenote { display: none !important; }
+  body:has(#s-stale:checked):has(#k-dim:checked) .money .big,
+  body:has(#s-stale:checked):has(#k-dim:checked) .money .pair .v { color: var(--ink-3); }
+  body:has(#s-stale:checked):has(#k-dim:checked) .money { opacity: .65; }
+
+  .spin {
+    width: 11px; height: 11px; border-radius: 999px; display: inline-block;
+    border: 2px solid var(--border-strong); border-top-color: var(--primary);
+    animation: sp .7s linear infinite;
+  }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  /* the in-flight hairline along the strip's own bottom edge */
+  .flightbar { display: none; position: absolute; inset-inline: 0; bottom: 0; height: 2px; overflow: hidden; background: var(--muted); }
+  body:has(#s-flight:checked) .flightbar { display: block; }
+  .flightbar i { position: absolute; inset-block: 0; width: 38%; background: var(--primary); animation: sl 1.15s ease-in-out infinite; }
+  @keyframes sl { 0% { inset-inline-start: -40%; } 100% { inset-inline-start: 100%; } }
+
+  /* run controls */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 30px;
+    padding: 0 14px; border-radius: 999px; font-size: 12.5px; font-weight: 550;
+    border: 1px solid var(--input); background: var(--card); color: var(--foreground);
+    cursor: pointer; white-space: nowrap;
+  }
+  .btn:hover { background: var(--accent); }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+  .btn.primary:hover { background: var(--primary-800); border-color: var(--primary-800); }
+  .btn.quiet { border-color: transparent; background: none; color: var(--muted-foreground); }
+  .btn.quiet:hover { background: var(--accent); color: var(--foreground); }
+  .btn .kbd {
+    font-family: ui-monospace, Consolas, monospace; font-size: 9.5px; font-weight: 700;
+    opacity: .7; padding: 1px 4px; border-radius: 4px; background: rgb(255 255 255 / .18);
+  }
+  .runbtns { display: flex; align-items: center; gap: 6px; }
+  .vrule { width: 1px; height: 20px; background: var(--border-strong); margin-inline: 2px; }
+  /* in-flight: the inputs and the other two verbs are locked, as they are today */
+  body:has(#s-flight:checked) .lockable { opacity: .45; pointer-events: none; }
+  body:has(#s-flight:checked) .runset { cursor: default; }
+  .flightonly { display: none; }
+  body:has(#s-flight:checked) .flightonly { display: inline-flex; }
+  body:has(#s-flight:checked) .settledonly { display: none; }
+
+  /* ---- the expanded form: replaces the collapsed row IN PLACE (101 §3) ---- */
+  .strip.form { flex-direction: column; align-items: stretch; gap: 0; }
+  .formhead {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 9px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--divider);
+  }
+  .formhead .ft { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+  .fields { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 9px 10px; }
+  .fld { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .fld .fl { font-size: 10.5px; font-weight: 600; color: var(--muted-foreground); }
+  .fld.lever .fl::after { content: ' · test lever'; color: var(--ink-3); font-weight: 500; }
+  .cell {
+    border: 1px solid var(--input); border-radius: 6px; background: var(--card-2);
+    padding: 4px 8px; font-size: 12.5px; font-variant-numeric: tabular-nums; min-height: 26px;
+  }
+  .cell.dim { color: var(--ink-3); }
+  .cell.focused { border-color: var(--ring); outline: 2px solid var(--ring); outline-offset: -1px; background: var(--card); }
+  .cell.edited { border-color: var(--primary-border); background: var(--primary-050); font-weight: 600; }
+  .ck2 { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
+  .ck2 i { width: 13px; height: 13px; border: 1px solid var(--input); border-radius: 3px; display: inline-block; background: var(--card-2); }
+  .ck2.on i { background: var(--primary); border-color: var(--primary); }
+  .formfoot { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--divider); }
+  .hint { font-size: 11.5px; color: var(--ink-3); }
+  .hint kbd {
+    font-family: ui-monospace, Consolas, monospace; font-size: 10px; font-weight: 700;
+    border: 1px solid var(--border-strong); border-radius: 4px; padding: 0 4px;
+    background: var(--card); color: var(--muted-foreground);
+  }
+
+  /* items — never collapses (099/101) */
+  .items { display: flex; flex-direction: column; gap: 5px; }
+  .itemrow { display: grid; grid-template-columns: 1fr 58px 52px 74px 26px; gap: 6px; align-items: center; }
+  .itemrow.ihead > span {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--ink-3); padding-inline: 2px;
+  }
+  .cell.ctl { position: relative; padding-inline-end: 16px; cursor: pointer; }
+  .cell.ctl::after { content: '⌄'; position: absolute; inset-inline-end: 5px; top: 2px; font-size: 11px; color: var(--ink-3); }
+  .xbtn { border: 0; background: none; color: var(--ink-3); cursor: pointer; font-size: 14px; line-height: 1; }
+  .xbtn:hover { color: var(--danger); }
+  .disclose {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: none; border: 0; padding: 3px 0; cursor: pointer;
+    font-size: 12px; font-weight: 600; color: var(--muted-foreground);
+  }
+  .disclose:hover { color: var(--foreground); }
+  .disclose .tw { color: var(--ink-3); }
+  .disclose .cnt {
+    font-size: 10px; font-weight: 700; padding: 0 6px; border-radius: 999px;
+    background: var(--muted); color: var(--muted-foreground);
+  }
+  .itemfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+
+  /* manual conditions — a disclosure inside a frame that already exists (103's constraint) */
+  .mc { display: none; margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--divider); }
+  body:has(#c-mc:checked) .mc { display: block; }
+  body:has(#c-mc:checked) .mc-closed { display: none; }
+  .mcrow { display: grid; grid-template-columns: 60px 1fr 74px 52px 26px; gap: 6px; align-items: center; margin-top: 5px; }
+  .mcrow.ihead > span { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding-inline: 2px; }
+
+  /* ---- the work area ---- */
+  .split { display: grid; grid-template-columns: minmax(0, 1.94fr) minmax(250px, 1fr); gap: 10px; align-items: start; }
+  /* staleness treatment A — the work area says, once, what it is describing */
+  .stalenote {
+    display: none; align-items: center; gap: 7px;
+    padding: 7px 11px; border-radius: 8px; margin-bottom: 2px;
+    background: var(--muted); border: 1px dashed var(--border-strong);
+    color: var(--muted-foreground); font-size: 12px;
+  }
+  .stalenote b { color: var(--foreground); font-weight: 600; }
+  body:has(#s-stale:checked) .stalenote { display: flex; }
+
+  .lines { display: flex; flex-direction: column; }
+  .line { border-top: 1px solid var(--divider); padding: 7px 2px; }
+  .lines .line:first-child { border-top: 0; }
+  .lhead {
+    display: grid; align-items: baseline; gap: 10px;
+    grid-template-columns: 14px 28px minmax(0,1fr) 62px 104px 88px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tw2 { color: var(--ink-3); font-size: 11px; }
+  .lno { font-size: 11px; font-weight: 700; color: var(--ink-3); }
+  .lname { min-width: 0; }
+  .lname .d { font-size: 13px; font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lname .m { font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .lqty { font-size: 12.5px; color: var(--muted-foreground); text-align: end; }
+  .lpromo { font-size: 11.5px; text-align: end; }
+  .lpromo .yes { color: var(--success-800); font-weight: 600; }
+  .lpromo .no { color: var(--ink-3); }
+  .lnet { text-align: end; font-size: 14px; font-weight: 650; }
+
+  .promo-list { display: flex; flex-direction: column; gap: 8px; }
+  .promo { padding: 9px 11px; border-radius: 8px; border: 1px solid var(--border); background: var(--card-2); }
+  .promo.fired { border-color: var(--success-border); background: var(--success-050); }
+  .promo .top { display: flex; align-items: flex-start; gap: 8px; }
+  .promo .mark { font-size: 13px; font-weight: 700; line-height: 1.35; flex: 0 0 auto; }
+  .promo.fired .mark { color: var(--success-800); }
+  .promo.miss .mark { color: var(--ink-3); }
+  .promo .ttl { font-size: 13.5px; font-weight: 600; letter-spacing: -.01em; }
+  .promo .ident { margin-top: 3px; font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .promo .ident .sep { color: var(--ink-3); margin: 0 5px; }
+  .promo .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .promo .chip { font-size: 10.5px; padding: 2px 8px; }
+  .amtrow {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border);
+  }
+  .amtrow .k { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .amtrow .v { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .amtrow .v .cu { font-size: 10px; font-weight: 600; color: var(--muted-foreground); margin-inline-start: 3px; }
+  .promo.fired .amtrow .v { color: var(--success-800); }
+  .promo.miss .amtrow .v { color: var(--muted-foreground); }
+  .detbtn {
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+    height: 26px; padding: 0 10px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--input); background: var(--card);
+    font-size: 11.5px; font-weight: 600; color: var(--foreground);
+  }
+  .detbtn:hover { background: var(--accent); }
+
+  /* the whole-run 400, with the signposted route back into the run settings */
+  .errbanner {
+    display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px;
+    border: 1px solid var(--danger-border); background: var(--danger-050);
+    color: var(--danger-800); border-radius: var(--radius); font-size: 12.5px;
+  }
+  .errbanner .code { font-family: ui-monospace, Consolas, monospace; font-size: 11px; opacity: .8; }
+  .errbanner .route {
+    display: inline-flex; align-items: center; gap: 4px; margin-top: 6px;
+    background: none; border: 0; padding: 0; cursor: pointer;
+    font: inherit; font-weight: 700; color: var(--danger-800); text-decoration: underline;
+  }
+
+  /* ---- state visibility ---- */
+  .s { display: none; }
+  body:has(#s-settled:checked) .s.settled,
+  body:has(#s-expanded:checked) .s.expanded,
+  body:has(#s-stale:checked) .s.stale,
+  body:has(#s-flight:checked) .s.flight,
+  body:has(#s-fail:checked) .s.fail { display: block; }
+  body:has(#s-settled:checked) .s.settled.flex,
+  body:has(#s-expanded:checked) .s.expanded.flex,
+  body:has(#s-stale:checked) .s.stale.flex,
+  body:has(#s-flight:checked) .s.flight.flex,
+  body:has(#s-fail:checked) .s.fail.flex { display: flex; }
+  body:has(#s-settled:checked) .s.settled.grid,
+  body:has(#s-expanded:checked) .s.expanded.grid,
+  body:has(#s-stale:checked) .s.stale.grid,
+  body:has(#s-flight:checked) .s.flight.grid { display: grid; }
+  /* the collapsed strip is shared by settled / stale / in-flight / failed */
+  body:has(#s-settled:checked) .strip.collapsed,
+  body:has(#s-stale:checked) .strip.collapsed,
+  body:has(#s-flight:checked) .strip.collapsed,
+  body:has(#s-fail:checked) .strip.collapsed { display: flex; }
+  .strip.collapsed { display: none; }
+  /* the work area is shared by settled / in-flight (previous results stay) and stale */
+  body:has(#s-settled:checked) .work,
+  body:has(#s-stale:checked) .work,
+  body:has(#s-flight:checked) .work { display: grid; }
+  .work { display: none; }
+  /* the stale case shows an item edited but not yet run */
+  .staleqty { display: none; }
+  body:has(#s-stale:checked) .staleqty { display: block; }
+  body:has(#s-stale:checked) .settledqty { display: none; }
+
+  /* the tally */
+  .tally { margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .stat { border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 8px 13px; min-width: 104px; }
+  .stat .sv { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .stat .sk { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .stat.down .sv { color: var(--success-800); }
+
+  .foot { margin: 34px 0 0; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 12.5px; max-width: 92ch; }
+  .foot a { color: var(--primary); }
+  .foot h3 { font-size: 13px; margin: 20px 0 6px; color: var(--foreground); }
+  .foot ul { margin: 6px 0; padding-inline-start: 18px; }
+  .foot li { margin: 4px 0; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  .tbl th, .tbl td { text-align: start; padding: 5px 8px; border-bottom: 1px solid var(--divider); vertical-align: top; }
+  .tbl th { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .tbl td b { color: var(--foreground); }
+
+  @media (max-width: 900px) {
+    body:has(#t-both:checked) .devices { grid-template-columns: 1fr; }
+    .split, .work { grid-template-columns: 1fr; }
+    .fields { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<body class="tl">
+<div class="page">
+  <div class="eyebrow">Ticket 102 · map 097 · arrangement only</div>
+  <h1>The run strip: collapse, expand, edit, and the stale run</h1>
+  <p class="lede">
+    <a href="../101-sim-screen-device-prototype.md">101</a> approved the strip and placed it; this
+    prototype settles <b>how it behaves</b>. Its one structural proposal is a single
+    <b>status slot</b> in the strip that is empty when the run on screen matches the inputs, says
+    <code>inputs changed</code> when it does not, and becomes <code>Processing…</code> while a run is
+    out — so <b>stale, in-flight and settled are one slot in three states</b>, not three inventions.
+    Every value is a real <a href="098-simulate-payloads/">098</a> capture
+    (<code>03-applied-and-potential</code>, and <code>04a-unknown-material</code> for the 400).
+  </p>
+
+  <div class="controls">
+    <fieldset class="switch">
+      <span class="sl">State</span>
+      <label><input type="radio" name="s" id="s-settled" checked><span>Settled</span><span class="key">1</span></label>
+      <label><input type="radio" name="s" id="s-expanded"><span>Expanded (Edit ▾)</span><span class="key">2</span></label>
+      <label><input type="radio" name="s" id="s-stale"><span>Stale — qty changed</span><span class="key">3</span></label>
+      <label><input type="radio" name="s" id="s-flight"><span>In flight</span><span class="key">4</span></label>
+      <label><input type="radio" name="s" id="s-fail"><span>Run failed (400)</span><span class="key">5</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Chip set</span>
+      <label><input type="radio" name="c" id="c-default" checked><span>Default · 5 chips</span><span class="key">q</span></label>
+      <label><input type="radio" name="c" id="c-levers"><span>Test levers set · 8</span><span class="key">w</span></label>
+      <label><input type="radio" name="c" id="c-elem"><span>+ pricing elements · 9</span><span class="key">e</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Staleness</span>
+      <label><input type="radio" name="k" id="k-slot" checked><span>A · slot says it, work area confirms</span><span class="key">a</span></label>
+      <label><input type="radio" name="k" id="k-silent"><span>B · silent, as today</span><span class="key">s</span></label>
+      <label><input type="radio" name="k" id="k-dim"><span>C · the money dims</span><span class="key">d</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Manual cond.</span>
+      <label><input type="radio" name="mc" id="mc-off" checked><span>None entered</span><span class="key">f</span></label>
+      <label><input type="radio" name="mc" id="c-mc"><span>Two rows · open</span><span class="key">g</span></label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Theme</span>
+      <label><input type="radio" name="t" id="t-light" checked><span>Light</span><span class="key">z</span></label>
+      <label><input type="radio" name="t" id="t-dark"><span>Dark</span><span class="key">x</span></label>
+      <label><input type="radio" name="t" id="t-both"><span>Both, side by side</span><span class="key">c</span></label>
+    </fieldset>
+  </div>
+
+  <p class="caption s settled">
+    <b>Settled</b> — the inputs on screen are the inputs that produced these results, so the status
+    slot is <b>absent, not reassuring</b>. Five chips (the chip-set switcher adds the three test levers
+    and the pricing-elements flag). <b>Plant, org, channel and date are chipped even when they hold
+    their defaults</b> — 098 finding 8 (an invalid plant prices silently) means the determination the
+    run actually used must be visible without expanding anything. The levers are the opposite: blank ⇒
+    no chip, per 100 §4.
+  </p>
+  <p class="caption s expanded">
+    <b>Expanded.</b> The form <b>replaces</b> the collapsed row in place — the chips, the money and the
+    buttons are all inside it, so nothing below moves except by the form's own height, and the results
+    stay exactly where the eye left them. Focus lands on <b>Plant</b>, the first field.
+    <kbd>Esc</kbd> collapses and returns focus to the chip set; <kbd>Ctrl</kbd>+<kbd>Enter</kbd>
+    processes from anywhere. Note the money readout is <b>gone, not moved</b> while the form is open:
+    the total belongs to a run, and you are no longer looking at that run's inputs.
+  </p>
+  <p class="caption s stale">
+    <b>Stale.</b> Item 10's quantity has been typed up to <code>3</code>; the results still describe
+    the <code>×2</code> run — look at the Items row against the line's <code>2 EA</code>. Three
+    treatments on the switcher. <b>A</b> (drawn) marks it in the slot where the change happened and
+    once at the top of the work area. <b>B</b> is today: the screen says nothing and the analyst
+    reads a total for a basket that no longer exists. <b>C</b> dims the money instead of speaking.
+    Note what none of them do: no re-run, no block, no discard — that is behaviour, and the map's
+    scope line puts it outside this effort.
+  </p>
+  <p class="caption s flight">
+    <b>In flight.</b> Same slot, next state. The previous results <b>stay on screen</b> — 098's runs
+    return in 184–268 ms, so blanking them would be a flicker of nothing, and the analyst's whole loop
+    is comparing this total with the last one. The inputs, <code>Edit ▾</code>, <code>Clear</code> and
+    <code>⛁ Wipe cache</code> lock (as they do today); a hairline runs along the strip's own bottom
+    edge. The spinner is proposed to appear only after <b>150 ms</b>, so an ordinary run never flashes.
+  </p>
+  <p class="caption s fail">
+    <b>The run failed.</b> The strip stays collapsed — a failed Process is still a Process, and
+    auto-expanding would move the screen at the moment the analyst starts reading the error. The money
+    readout is absent because there is no total. Instead the banner carries the <b>route</b>:
+    <code>INVALID_UOM</code> is an item fault, so it points at Items; a determination fault
+    (098's bad distribution channel) points at the run settings and opens the form on click.
+  </p>
+
+  <div class="devices">
+    <div id="wrap-light" class="tl"></div>
+    <div id="wrap-dark" class="td"></div>
+  </div>
+
+  <div class="tally s settled flex">
+    <div class="stat"><div class="sv">5</div><div class="sk">chips</div></div>
+    <div class="stat down"><div class="sv">0</div><div class="sk">status marks</div></div>
+    <div class="stat down"><div class="sv">1</div><div class="sk">tab stop for 7 fields</div></div>
+    <div class="stat down"><div class="sv">3</div><div class="sk">frames</div></div>
+  </div>
+  <div class="tally s stale flex">
+    <div class="stat"><div class="sv">2</div><div class="sk">stale marks</div></div>
+    <div class="stat down"><div class="sv">0</div><div class="sk">hues spent</div></div>
+    <div class="stat down"><div class="sv">0</div><div class="sk">results discarded</div></div>
+  </div>
+  <div class="tally s flight flex">
+    <div class="stat down"><div class="sv">1</div><div class="sk">slot, reused</div></div>
+    <div class="stat down"><div class="sv">0</div><div class="sk">results blanked</div></div>
+    <div class="stat"><div class="sv">150</div><div class="sk">ms before spinner</div></div>
+  </div>
+
+  <div class="foot">
+    <h3>The seven questions, and what this prototype proposes</h3>
+    <table class="tbl">
+      <tr><th style="width:24%">Question</th><th>Proposal</th></tr>
+      <tr>
+        <td><b>1 · What the bar says</b></td>
+        <td>The <b>header only</b> — the five determination chips, plus a lever chip per lever that is
+          set and <code>ELEM on</code> when pricing elements are asked for. Determination fields chip
+          <b>even at their defaults</b>; levers and flags chip only when set. <b>No counts in the
+          strip at all</b>: <code>5 items</code> and <code>2 conditions</code> would be summarising a
+          frame that is <i>right there</i> and never collapses. The manual-conditions count rides its
+          own disclosure label inside Items (<code>Manual conditions · 2</code>), where the thing it
+          counts actually lives.</td>
+      </tr>
+      <tr>
+        <td><b>2 · What expands it</b></td>
+        <td>The chip set <b>is</b> the control — one <code>&lt;button&gt;</code>, one tab stop, one
+          <code>aria-expanded</code>, with <code>Edit ▾</code> as its visible tail for
+          discoverability (100 §3 forbids the chips themselves acting). Expansion <b>replaces the row
+          in place</b>, per 101. Collapse: the same control, <kbd>Esc</kbd>, or Process.</td>
+      </tr>
+      <tr>
+        <td><b>3 · Auto-collapse</b></td>
+        <td><b>Collapses on Process — every Process, including one that 400s.</b> It <b>never
+          auto-expands</b>: the screen must not move itself while the analyst is reading a failure.
+          The 400 banner instead offers an explicit route into whichever region caused it.</td>
+      </tr>
+      <tr>
+        <td><b>4 · Staleness</b></td>
+        <td>Treatment <b>A</b>: the slot says <code>inputs changed</code>, the work area says once
+          what it is describing. <b>Neutral by force, not by taste</b> — 100 spent the whole hue
+          budget on <code>success</code> and <code>attention</code>, so amber here would both break
+          that budget and promise a fault where there is none. Derived from a pure comparison of the
+          current request against the request that produced the on-screen result — a testable seam,
+          and the one the spec should name.</td>
+      </tr>
+      <tr>
+        <td><b>5 · Items &amp; manual conditions</b></td>
+        <td>Neither collapses, neither joins the strip (099's two-lifetimes ruling). Manual conditions
+          stay a disclosure <b>inside</b> the Items frame — no fourth frame (101 §4) — carrying a
+          count when non-empty, and <b>opening itself when rows exist</b>, so a manual condition can
+          never be silently in effect behind a closed twisty.</td>
+      </tr>
+      <tr>
+        <td><b>6 · Keyboard</b></td>
+        <td>Expand → focus <b>Plant</b>. <kbd>Esc</kbd> → collapse, focus returns to the chip set.
+          <kbd>Ctrl</kbd>+<kbd>Enter</kbd> → Process from anywhere, including inside the items grid,
+          which is what makes the tweak-one-field-and-re-run loop mouse-free. Process keeps focus
+          across the collapse because it is in the strip in <b>both</b> states.</td>
+      </tr>
+      <tr>
+        <td><b>7 · In flight</b></td>
+        <td>The slot's third state. Previous results stay; inputs and the two quiet verbs lock; a
+          hairline on the strip's bottom edge; the spinner waits 150 ms so a 268 ms run doesn't
+          flash. <code>Edit ▾</code> is disabled rather than hidden — hiding it would reflow the strip
+          twice per run.</td>
+      </tr>
+    </table>
+
+    <h3>What this prototype is asking you to rule</h3>
+    <ul>
+      <li><b>The status slot itself.</b> One slot, three states — or should staleness and in-flight
+        live in different places? The slot is drawn dashed and neutral deliberately: it is the only
+        new form on the screen, and it is <i>not</i> a chip (it changes while you read it, which is
+        exactly what 100's chip test excludes).</li>
+      <li><b>Which staleness treatment</b> — A, B or C. C is the quiet one and costs the analyst the
+        readable total; B is honest about doing nothing and leaves a lie on screen.</li>
+      <li><b>Whether defaults earn chips.</b> Drawn yes. The alternative — chip only what differs
+        from the default — halves the strip on most runs and makes the strip's length meaningful, at
+        the price of not being able to see what the run actually used.</li>
+      <li><b>Whether a failed run may auto-expand.</b> Drawn no, with a route. Say if the
+        determination-fault case should just open the form.</li>
+    </ul>
+
+    <h3>Deliberately not settled here</h3>
+    <p>
+      The per-line expansion and the elements trace (<a href="../103-sim-deep-layers-placement.md">103</a>),
+      the line's columns and the missed card's fields (<a href="../104-sim-results-line-anatomy.md">104</a>),
+      where the strip wraps and the 66/34 stacks (<a href="../105-sim-responsive-arrangement.md">105</a>),
+      and mirroring (<a href="../106-sim-rtl-mirroring.md">106</a>) — though note the strip has three
+      wrap groups (chips · money · controls) and 105 inherits that. Keys: <b>1–5</b> state,
+      <b>q/w/e</b> chip set, <b>a/s/d</b> staleness, <b>f/g</b> manual conditions, <b>z/x/c</b> theme.
+    </p>
+  </div>
+</div>
+
+<template id="device-tpl">
+  <div class="device">
+    <div class="device-bar"><span class="dot"></span><span class="name">POS Simulation</span></div>
+    <div class="stage">
+
+      <!-- ===================== the run strip ===================== -->
+      <div class="runwrap">
+
+        <!-- collapsed — shared by settled / stale / in-flight / failed -->
+        <div class="strip collapsed">
+          <button class="runset lockable" aria-expanded="false">
+            <span class="chip"><span class="ck">Plant</span>P001</span>
+            <span class="chip"><span class="ck">Org</span>1000</span>
+            <span class="chip"><span class="ck">Chan</span>20</span>
+            <span class="chip">25 Jul 2026</span>
+            <span class="chip"><span class="ck">Promo</span>on</span>
+            <span class="chip lever"><span class="ck">Proc</span>ZDMS</span>
+            <span class="chip lever"><span class="ck">Loy</span>0001</span>
+            <span class="chip lever"><span class="ck">Tier</span>Gold</span>
+            <span class="chip elem"><span class="ck">Elem</span>on</span>
+            <span class="editcue">Edit ▾</span>
+          </button>
+
+          <span class="slot stale"><span class="gl">↻</span>Inputs changed</span>
+          <span class="slot flight"><span class="spin"></span>Processing…</span>
+
+          <span class="grow"></span>
+
+          <div class="money s settled flex">
+            <span class="big num">172.38<span class="cur">SAR</span></span>
+            <span class="pair"><span class="k">disc</span><span class="v num">−63.88</span></span>
+            <span class="pair"><span class="k">tax</span><span class="v num">22.48</span></span>
+            <span class="ms num">268 ms</span>
+          </div>
+          <div class="money s stale flex">
+            <span class="big num">172.38<span class="cur">SAR</span></span>
+            <span class="pair"><span class="k">disc</span><span class="v num">−63.88</span></span>
+            <span class="pair"><span class="k">tax</span><span class="v num">22.48</span></span>
+            <span class="ms num">268 ms</span>
+          </div>
+          <div class="money s flight flex">
+            <span class="big num">172.38<span class="cur">SAR</span></span>
+            <span class="pair"><span class="k">disc</span><span class="v num">−63.88</span></span>
+            <span class="pair"><span class="k">tax</span><span class="v num">22.48</span></span>
+            <span class="ms num">268 ms</span>
+          </div>
+          <!-- a failed run has no total, so the readout is absent rather than zeroed -->
+
+          <div class="runbtns">
+            <span class="vrule"></span>
+            <button class="btn primary settledonly">▶ Process <span class="kbd">⌃⏎</span></button>
+            <button class="btn primary flightonly" disabled><span class="spin"></span> Processing…</button>
+            <button class="btn quiet lockable">Clear</button>
+            <button class="btn quiet lockable" title="Wipe the server pricing cache so a re-downloaded bonus buy fires with its latest version">⛁ Wipe cache</button>
+          </div>
+
+          <span class="flightbar"><i></i></span>
+        </div>
+
+        <!-- expanded — replaces the collapsed row in place -->
+        <div class="strip form s expanded flex">
+          <div class="formhead">
+            <span class="ft">Run settings</span>
+            <span class="grow"></span>
+            <span class="hint"><kbd>Esc</kbd> to collapse</span>
+            <button class="editcue" aria-expanded="true" style="background:none;border:0;cursor:pointer">Done ▴</button>
+          </div>
+          <div class="fields">
+            <div class="fld"><span class="fl">Plant</span><span class="cell num focused">P001</span></div>
+            <div class="fld"><span class="fl">Sales org</span><span class="cell num">1000</span></div>
+            <div class="fld"><span class="fl">Distribution channel</span><span class="cell num">20</span></div>
+            <div class="fld"><span class="fl">Pricing date</span><span class="cell num">2026-07-25</span></div>
+            <div class="fld lever"><span class="fl">Procedure key</span><span class="cell dim">&nbsp;</span></div>
+            <div class="fld lever"><span class="fl">Loyalty group</span><span class="cell dim">&nbsp;</span></div>
+            <div class="fld lever"><span class="fl">Loyalty tier</span><span class="cell dim">(none)</span></div>
+            <div class="fld" style="justify-content:flex-end;gap:7px">
+              <span class="ck2 on"><i></i>Promotion</span>
+              <span class="ck2"><i></i>Pricing elements</span>
+            </div>
+          </div>
+          <div class="formfoot">
+            <button class="btn primary">▶ Process <span class="kbd">⌃⏎</span></button>
+            <button class="btn quiet">Clear</button>
+            <button class="btn quiet">⛁ Wipe cache</button>
+            <span class="grow"></span>
+            <span class="hint">Collapses to chips on Process</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stack">
+        <!-- ===================== items — never collapses ===================== -->
+        <div class="frame">
+          <h2>Items <span class="n">2</span></h2>
+          <div class="items lockable">
+            <div class="itemrow ihead"><span>Material</span><span>Qty</span><span>UoM</span><span>Control</span><span></span></div>
+            <div class="itemrow">
+              <span class="cell num">200706</span>
+              <span class="cell num settledqty">2</span>
+              <span class="cell num edited staleqty">3</span>
+              <span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button>
+            </div>
+            <div class="itemrow"><span class="cell num">200382</span><span class="cell num">1</span><span class="cell">EA</span><span class="cell ctl dim">—</span><button class="xbtn">✕</button></div>
+            <div class="itemrow"><span class="cell dim">+ Add item</span><span></span><span></span><span></span><span></span></div>
+          </div>
+
+          <!-- manual conditions: a disclosure inside a frame that already exists -->
+          <div class="mc lockable">
+            <div class="mcrow ihead"><span>Item</span><span>Condition type</span><span>Rate</span><span>Unit</span><span></span></div>
+            <div class="mcrow"><span class="cell num">10</span><span class="cell">ZB01</span><span class="cell num">5</span><span class="cell">%</span><button class="xbtn">✕</button></div>
+            <div class="mcrow"><span class="cell num">20</span><span class="cell">ZB01</span><span class="cell num">2.50</span><span class="cell">SAR</span><button class="xbtn">✕</button></div>
+            <div class="mcrow"><span class="cell dim">+ Add condition</span><span></span><span></span><span></span><span></span></div>
+          </div>
+
+          <div class="itemfoot">
+            <button class="disclose lockable">
+              <span class="tw mc-closed">›</span>
+              <span class="tw" style="display:none">⌄</span>
+              Manual conditions
+              <span class="cnt" style="display:none">2</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ===================== the work area ===================== -->
+        <div class="s fail">
+          <div class="errbanner">
+            <span>⚠</span>
+            <span>
+              UoM 'EA' is not valid for material '32423333'.<br>
+              <span class="code">INVALID_UOM · the whole run was rejected, nothing was priced</span><br>
+              <button class="route">Fix it in Items ↑</button>
+            </span>
+          </div>
+        </div>
+
+        <div class="work split">
+          <div>
+            <div class="stalenote">
+              <span>↻</span>
+              <span>These results describe the <b>previous</b> run — one input has changed since.</span>
+            </div>
+            <div class="frame">
+              <h2>Results <span class="n">2 lines</span></h2>
+              <div class="lines">
+                <div class="line">
+                  <div class="lhead">
+                    <span class="tw2">›</span><span class="lno">#10</span>
+                    <span class="lname"><span class="d">BIODERMA ATODERM CREAM PUMP 200 ML</span><span class="m">200706</span></span>
+                    <span class="lqty num">2 EA</span>
+                    <span class="lpromo"><span class="yes">✓ 70% 2nd PCS</span></span>
+                    <span class="lnet num">136.43</span>
+                  </div>
+                </div>
+                <div class="line">
+                  <div class="lhead">
+                    <span class="tw2">›</span><span class="lno">#20</span>
+                    <span class="lname"><span class="d">AXE DEO SPRAY FIFA EDITION 150 ML</span><span class="m">200382</span></span>
+                    <span class="lqty num">1 EA</span>
+                    <span class="lpromo"><span class="no">—</span></span>
+                    <span class="lnet num">35.95</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="frame">
+            <h2>Promotions <span class="n">1 fired · 1 near-miss</span></h2>
+            <div class="promo-list">
+              <div class="promo fired">
+                <div class="top">
+                  <span class="mark">✓</span>
+                  <span>
+                    <span class="ttl">70% 2nd PCS</span>
+                    <span class="ident">000100000131<span class="sep">·</span>ZB03<span class="sep">·</span>line 10</span>
+                  </span>
+                </div>
+                <div class="chips"><span class="chip">% off</span><span class="chip">buy → get</span></div>
+                <div class="amtrow"><span class="k">Saved</span><span class="v num">−63.88<span class="cu">SAR</span></span></div>
+                <button class="detbtn">Bonus buy details ▸</button>
+              </div>
+              <div class="promo miss">
+                <div class="top">
+                  <span class="mark">○</span>
+                  <span>
+                    <span class="ttl">2 PC for 29.95 SR</span>
+                    <span class="ident">000100000132<span class="sep">·</span>ZB01<span class="sep">·</span>didn't fire</span>
+                  </span>
+                </div>
+                <div class="chips"><span class="chip">% off</span><span class="chip">to 31 Jul 2026</span><span class="chip">not stackable</span></div>
+                <div class="amtrow"><span class="k">Would save</span><span class="v num">26.04<span class="cu">SAR</span></span></div>
+                <button class="detbtn">Bonus buy details ▸</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script>
+  // Written once, cloned into a light and a dark wrapper, so both themes are the same markup.
+  const tpl = document.getElementById('device-tpl')
+  for (const id of ['wrap-light', 'wrap-dark']) {
+    document.getElementById(id).appendChild(tpl.content.cloneNode(true))
+  }
+
+  // The manual-conditions disclosure label follows its switcher: closed twisty + no count
+  // when empty, open twisty + count when rows exist. Drawn in CSS for the rows themselves;
+  // the label needs the two spans swapped, which is cheaper in one line of JS than in :has().
+  function syncMc() {
+    const open = document.getElementById('c-mc').checked
+    for (const d of document.querySelectorAll('.disclose')) {
+      // element children only: closed twisty, open twisty, count (the label is a text node)
+      const [closed, opened, cnt] = d.children
+      closed.style.display = open ? 'none' : ''
+      opened.style.display = open ? '' : 'none'
+      cnt.style.display = open ? '' : 'none'
+    }
+  }
+  for (const id of ['mc-off', 'c-mc']) document.getElementById(id).addEventListener('change', syncMc)
+  syncMc()
+
+  // Keyboard switching; the radios do the real work so the page renders without JS.
+  const keys = {
+    '1': 's-settled', '2': 's-expanded', '3': 's-stale', '4': 's-flight', '5': 's-fail',
+    q: 'c-default', w: 'c-levers', e: 'c-elem',
+    a: 'k-slot', s: 'k-silent', d: 'k-dim',
+    f: 'mc-off', g: 'c-mc',
+    z: 't-light', x: 't-dark', c: 't-both',
+  }
+  addEventListener('keydown', (ev) => {
+    if (ev.target.matches('input, textarea')) return
+    const id = keys[ev.key.toLowerCase()]
+    if (!id) return
+    const el = document.getElementById(id)
+    el.checked = true
+    el.focus()
+    el.dispatchEvent(new Event('change', { bubbles: true }))
+    if (id.startsWith('t-')) document.body.className = id === 't-dark' ? 'td' : 'tl'
+  })
+  for (const id of ['t-light', 't-dark', 't-both']) {
+    document.getElementById(id).addEventListener('change', () => {
+      document.body.className = id === 't-dark' ? 'td' : 'tl'
+    })
+  }
+</script>
+</body>
+</html>

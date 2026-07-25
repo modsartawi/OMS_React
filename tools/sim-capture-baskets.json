@@ -1,0 +1,107 @@
+{
+  "_readme": [
+    "Basket corpus for ticket 098 (map 097). One entry per capture target.",
+    "`materials` are the only values that need real data — fill them from a live",
+    "pricing-enabled store before running tools/sim-payload-capture.mjs.",
+    "Header defaults mirror SimHeaderForm.defaultHeader() (the common Wasfaty basket).",
+    "`pricingDate` is filled with today's date at run time when left empty."
+  ],
+  "defaultHeader": {
+    "plant": "P001",
+    "salesOrganization": "1000",
+    "distributionChannel": "20",
+    "pricingDate": "",
+    "documentPricingProcedureKey": "",
+    "loyGroups": null,
+    "loyTier": null,
+    "isPromotionApplicable": true
+  },
+  "baskets": [
+    {
+      "slug": "01-plain-multiline",
+      "purpose": "Several lines, no promotion, includePricingElements false.",
+      "header": { "isPromotionApplicable": false },
+      "items": [
+        { "materialNumber": "200706", "quantity": 2, "qtyUnit": "EA", "itemConditionControl": null },
+        { "materialNumber": "200382", "quantity": 2, "qtyUnit": "EA", "itemConditionControl": null },
+        { "materialNumber": "200710", "quantity": 2, "qtyUnit": "EA", "itemConditionControl": null }
+      ],
+      "includeConditions": true,
+      "includePricingElements": false
+    },
+    {
+      "slug": "02-fired-bonus-buy",
+      "purpose": "A bonus buy that FIRES — the surface SimPromoBlocks renders. Material 200706 (BIODERMA ATODERM CREAM PUMP 200 ML) carries BBY 000100000131 'ZB03 70% 2nd PCS', which fires at quantity 2 (owner-supplied evidence, 2026-07-25).",
+      "items": [
+        { "materialNumber": "200706", "quantity": 2, "qtyUnit": "EA", "itemConditionControl": null }
+      ],
+      "includeConditions": true,
+      "includePricingElements": false
+    },
+    {
+      "slug": "03-near-miss",
+      "purpose": "The SAME bonus buy one unit short — quantity 1 cannot earn a 2nd-piece discount, so it should land in potentialBonusBuys (promoView.missed).",
+      "items": [
+        { "materialNumber": "200706", "quantity": 1, "qtyUnit": "EA", "itemConditionControl": null }
+      ],
+      "includeConditions": true,
+      "includePricingElements": false
+    },
+    {
+      "slug": "04a-unknown-material",
+      "purpose": "An unknown material (32423333) alongside a good line. EVIDENCED: this is NOT a per-line E — the whole run fails HTTP 400 INVALID_UOM, a business ApiError.",
+      "items": [
+        { "materialNumber": "32423333", "quantity": 1, "qtyUnit": "EA", "itemConditionControl": null },
+        { "materialNumber": "200382", "quantity": 1, "qtyUnit": "EA", "itemConditionControl": null }
+      ],
+      "includeConditions": true,
+      "includePricingElements": false
+    },
+    {
+      "slug": "04b-no-price",
+      "purpose": "A material that reads no price (COUP01) alongside a good line — the candidate for a per-line pricingStatus E/W inside an HTTP 200.",
+      "items": [
+        { "materialNumber": "COUP01", "quantity": 1, "qtyUnit": "EA", "itemConditionControl": null },
+        { "materialNumber": "200382", "quantity": 1, "qtyUnit": "EA", "itemConditionControl": null }
+      ],
+      "includeConditions": true,
+      "includePricingElements": false
+    },
+    {
+      "slug": "05-pricing-elements",
+      "purpose": "includePricingElements true — the procedure trace SimBonusBuyPanel renders. Runs the known-promo material so the trace covers a bonus-buy step, not just base pricing.",
+      "items": [
+        { "materialNumber": "200706", "quantity": 2, "qtyUnit": "EA", "itemConditionControl": null },
+        { "materialNumber": "200710", "quantity": 2, "qtyUnit": "EA", "itemConditionControl": null }
+      ],
+      "includeConditions": true,
+      "includePricingElements": true
+    },
+    {
+      "slug": "06-manual-conditions",
+      "purpose": "Manual conditions at header (itemNumber 0) and item level — evidences the request half.",
+      "items": [
+        { "materialNumber": "200382", "quantity": 2, "qtyUnit": "EA", "itemConditionControl": null },
+        { "materialNumber": "200710", "quantity": 2, "qtyUnit": "EA", "itemConditionControl": null }
+      ],
+      "manualConditions": [
+        { "itemNumber": 10, "conditionType": "ZB01", "rate": 5, "rateUnit": "%" },
+        { "itemNumber": 20, "conditionType": "ZB01", "rate": 2, "rateUnit": "SAR" }
+      ],
+      "includeConditions": true,
+      "includePricingElements": false
+    },
+    {
+      "slug": "06a-manual-header-rejected",
+      "purpose": "The SAME manual condition type at header level (itemNumber 0). EVIDENCED: rejected HTTP 400 INVALID_CONDITION_ITEM_LEVEL — ZB01 is item-only, and no header-level condition type is known.",
+      "items": [
+        { "materialNumber": "200382", "quantity": 2, "qtyUnit": "EA", "itemConditionControl": null }
+      ],
+      "manualConditions": [
+        { "itemNumber": 0, "conditionType": "ZB01", "rate": 5, "rateUnit": "%" }
+      ],
+      "includeConditions": true,
+      "includePricingElements": false
+    }
+  ]
+}

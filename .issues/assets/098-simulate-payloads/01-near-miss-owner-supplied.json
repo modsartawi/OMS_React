@@ -1,0 +1,166 @@
+{
+  "_capture": {
+    "ticket": "098",
+    "map": "097",
+    "purpose": "The NEAR-MISS run — material 200706 at quantity 1, one piece short of the '70% 2nd PCS' bonus buy. Nothing fires; the promotion lands in potentialBonusBuys. This is promoView.missed's evidence.",
+    "endpoint": "POST Pricing/Simulate",
+    "source": "Owner-supplied, pasted into the 098 session on 2026-07-25. The first payload to arrive WITH its request half.",
+    "httpStatus": 200,
+    "request": {
+      "header": {
+        "plant": "P001",
+        "salesOrganization": "1000",
+        "distributionChannel": "20",
+        "pricingDate": "2026-07-25T00:00:00",
+        "documentPricingProcedureKey": "",
+        "loyGroups": null,
+        "loyTier": null,
+        "isPromotionApplicable": true
+      },
+      "items": [
+        { "materialNumber": "200706", "quantity": 1, "qtyUnit": "EA", "itemConditionControl": null }
+      ],
+      "includeConditions": true,
+      "includePricingElements": false
+    },
+    "redaction": "Nothing redacted — a Simulate exchange carries materials, org determination, quantities and money only, no customer-identifying fields."
+  },
+  "response": {
+    "data": {
+      "header": {
+        "currency": "SAR",
+        "netValue": 91.26,
+        "taxValue": 13.69,
+        "grossValue": 91.26,
+        "netTotal": 104.95,
+        "totalDiscount": 0,
+        "salesDiscount": 0,
+        "promotionDiscount": 0,
+        "headerDiscount": 0,
+        "payment": 0,
+        "receivableValue": 104.95,
+        "deductibleTotalValue": 0,
+        "conditions": [],
+        "pricingElements": []
+      },
+      "items": [
+        {
+          "itemNumber": 10,
+          "materialNumber": "200706",
+          "materialDescription": "BIODERMA ATODERM CREAM PUMP 200 ML",
+          "quantity": 1,
+          "unitOfMeasure": "EA",
+          "netPrice": 91.26,
+          "netValue": 91.26,
+          "taxValue": 13.69,
+          "grossValue": 91.26,
+          "netTotal": 104.95,
+          "salesDiscount": 0,
+          "promotionDiscount": 0,
+          "payment": 0,
+          "receivableValue": 104.95,
+          "maxPayerShare": 0,
+          "patientShare": 0,
+          "calculatedDeductible": 0,
+          "deductibleValue": 0,
+          "isDeleted": false,
+          "pricingStatus": "",
+          "pricingStatusMessages": [],
+          "conditions": [
+            {
+              "stepNumber": 5,
+              "conditionCounter": 0,
+              "conditionType": "VKP0",
+              "description": "Basic Price",
+              "conditionRate": 91.26,
+              "conditionRateUnit": "SAR",
+              "conditionValue": 91.26,
+              "conditionBaseValue": 1,
+              "isStatistics": false,
+              "conditionCategory": "",
+              "conditionOrigin": "A",
+              "inactiveReason": null,
+              "pricingUnit": 1,
+              "pricingQuantityUnit": "EA",
+              "isBonusBuy": false,
+              "bbyNumber": null,
+              "isPrerequisite": false,
+              "isCondition": false,
+              "conditionKey": null,
+              "bbyItemIndex": 0
+            },
+            {
+              "stepNumber": 140,
+              "conditionCounter": 0,
+              "conditionType": "MWST",
+              "description": "Vat %",
+              "conditionRate": 15.0,
+              "conditionRateUnit": "",
+              "conditionValue": 13.69,
+              "conditionBaseValue": 91.26,
+              "isStatistics": false,
+              "conditionCategory": "",
+              "conditionOrigin": "A",
+              "inactiveReason": null,
+              "pricingUnit": 0,
+              "pricingQuantityUnit": "",
+              "isBonusBuy": false,
+              "bbyNumber": null,
+              "isPrerequisite": false,
+              "isCondition": false,
+              "conditionKey": null,
+              "bbyItemIndex": 0
+            }
+          ],
+          "pricingElements": []
+        }
+      ],
+      "appliedBonusBuys": [],
+      "potentialBonusBuys": [
+        {
+          "bbyNumber": "000100000131",
+          "bbyProfile": "BBCH",
+          "promoNumber": "0001000040",
+          "offerId": "",
+          "description": "70% 2nd PCS",
+          "bbyStatus": "2",
+          "validFrom": "20260719",
+          "validTo": "20260731",
+          "validFromTime": "",
+          "validToTime": "",
+          "linkCategoryBuy": "A",
+          "linkCategoryGet": "A",
+          "condTargetType": "G",
+          "minValue": 0.0,
+          "maxValue": 0.0,
+          "limitNumber": 0,
+          "includes": "",
+          "excludes": "",
+          "isStackable": false,
+          "allowNestedStacking": false,
+          "stackingExcludes": "",
+          "score": 0,
+          "originFilter": "",
+          "priceListType": "",
+          "loyGroups": "",
+          "loyTiers": "",
+          "prerequisites": [],
+          "discount": {
+            "discountType": "%",
+            "value": 35.0,
+            "conditionType": "ZB03"
+          },
+          "remainingUsage": null,
+          "skipReason": null
+        }
+      ],
+      "analysis": null,
+      "completeAnalysis": null,
+      "insuranceSummary": null
+    },
+    "statusCode": 200,
+    "success": true,
+    "message": "",
+    "errors": null
+  }
+}

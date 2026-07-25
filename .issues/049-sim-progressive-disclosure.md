@@ -1,10 +1,16 @@
 ---
-status: open
+status: wontfix
 spec: 043
 blocked-by: 047
 ---
 
 # 049 — aPromotionBlockRevealsTodaysConditionAndPricingDetail
+
+> **Superseded 2026-07-25 by [map 097 — The POS Simulation screen rework](097-simulation-screen-rework.md).**
+> The disclosure question is re-answered inside the new whole-screen arrangement by
+> [103 — Where the deep layers live](103-sim-deep-layers-placement.md), which covers this block's two
+> layers plus the line detail, the condition cards and the elements trace under one disclosure
+> grammar. Building this against the arrangement 097 is replacing would be work done twice.
 
 ## What to build
 

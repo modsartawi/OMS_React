@@ -45,7 +45,14 @@ export default function SimPromoBlocks({ blocks, currency, hotBby, onHotChange }
   if (blocks.length === 0) return null
 
   return (
-    <div className="flex flex-col gap-2.5">
+    // A CARD ROW, not a stack of bands (ticket 119), on the RAIL's own container query.
+    // Below 560 px the rail is the 34% column beside the results and a card fills it,
+    // exactly as the flex column this replaced. At 560 and above the rail is stacked
+    // above the results and full work-area wide — and the `340px` MAXIMUM is what stops
+    // one fired promotion from printing as a stripe across the screen: a fired
+    // promotion is one card-sized card at every width, and three of them sit side by
+    // side rather than three bands deep pushing the results they explain below the fold.
+    <div className="grid grid-cols-1 items-start gap-2.5 @[560px]:grid-cols-[repeat(auto-fit,minmax(258px,340px))]">
       {blocks.map((b) => (
         <Block
           key={b.bbyNumber}

@@ -256,83 +256,108 @@ export default function SimRunStrip({
   }
 
   // ---- collapsed: chips · status slot · money · run controls ----------------
+  //
+  // TICKET 119 — THE STRIP CANNOT FRAGMENT PAST TWO ROWS. The four groups wrap as
+  // UNITS, in two pairs, rather than as four independent flex children that find their
+  // own rows: the status slot must never wrap away from the chips it is commenting on,
+  // and the money-and-controls tail travels together. So the strip is two wrapping
+  // halves — `head` (chips · status) and `tail` (money · controls) — which is at most
+  // two rows however narrow the work area gets, down to the 780 px floor.
+  //
+  // Chips themselves never scroll and never truncate: their content is a bounded domain
+  // (a plant, a channel, a procedure key) precisely so that is possible, so a chip wraps
+  // to the next line whole rather than eliding. That wrapping happens INSIDE the head,
+  // which is why the head is the unit and not the chip.
   return (
     <div
       data-run-strip="collapsed"
       className="relative flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border/60 pb-3"
     >
-      <button
-        type="button"
-        ref={chipSetRef}
-        data-chip-set
-        aria-expanded={false}
-        disabled={pending}
-        onClick={() => onExpandedChange(true)}
-        className="flex flex-wrap items-center gap-1.5 rounded-full border border-transparent px-1 py-0.5 text-start hover:border-input disabled:opacity-50"
-      >
-        {chips.map((chip) => (
-          // A chip is a readout: a plain span, no hover, no cursor, never a button.
-          // Neutral ground, always — hue on this screen is reserved for severity
-          // (100 §2), and "promotion is on" is an input value, not a severity.
-          <span
-            key={chipId(chip)}
-            data-chip
-            className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-          >
-            {chip.kind === 'keyed' ? (
-              <>
-                <span className={chipKey}>{t(`strip.key.${chip.key}`)}</span>
+      <div data-strip-group="head" className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+        <button
+          type="button"
+          ref={chipSetRef}
+          data-chip-set
+          aria-expanded={false}
+          disabled={pending}
+          onClick={() => onExpandedChange(true)}
+          className="flex flex-wrap items-center gap-1.5 rounded-full border border-transparent px-1 py-0.5 text-start hover:border-input disabled:opacity-50"
+        >
+          {chips.map((chip) => (
+            // A chip is a readout: a plain span, no hover, no cursor, never a button.
+            // Neutral ground, always — hue on this screen is reserved for severity
+            // (100 §2), and "promotion is on" is an input value, not a severity.
+            <span
+              key={chipId(chip)}
+              data-chip
+              // `whitespace-nowrap`: a chip wraps to the next line WHOLE or not at all
+              // (ticket 119). It never truncates and it never breaks across two lines —
+              // half a procedure key is a misreading waiting to happen, and the domain
+              // is bounded precisely so it does not have to.
+              className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+            >
+              {chip.kind === 'keyed' ? (
+                <>
+                  <span className={chipKey}>{t(`strip.key.${chip.key}`)}</span>
+                  <span className="font-medium text-foreground">{chip.value}</span>
+                </>
+              ) : null}
+              {chip.kind === 'date' ? (
                 <span className="font-medium text-foreground">{chip.value}</span>
-              </>
-            ) : null}
-            {chip.kind === 'date' ? (
-              <span className="font-medium text-foreground">{chip.value}</span>
-            ) : null}
-            {/* The flag's state is not a code, so it is one authored phrase per
-                state rather than a key with a value slot (123's ledger). */}
-            {chip.kind === 'promo' ? (
-              <span className={chipKey}>{t(chip.on ? 'strip.promoOn' : 'strip.promoOff')}</span>
-            ) : null}
-            {/* The elements flag chips only when on, so its presence IS its state
-                and it carries no value slot (run-chips.ts). */}
-            {chip.kind === 'flag' ? (
-              <span className={chipKey}>{t(`strip.key.${chip.key}`)}</span>
-            ) : null}
-          </span>
-        ))}
-        <span className="ps-1 text-xs font-medium text-muted-foreground">{t('strip.edit')}</span>
-      </button>
+              ) : null}
+              {/* The flag's state is not a code, so it is one authored phrase per
+                  state rather than a key with a value slot (123's ledger). */}
+              {chip.kind === 'promo' ? (
+                <span className={chipKey}>{t(chip.on ? 'strip.promoOn' : 'strip.promoOff')}</span>
+              ) : null}
+              {/* The elements flag chips only when on, so its presence IS its state
+                  and it carries no value slot (run-chips.ts). */}
+              {chip.kind === 'flag' ? (
+                <span className={chipKey}>{t(`strip.key.${chip.key}`)}</span>
+              ) : null}
+            </span>
+          ))}
+          <span className="ps-1 text-xs font-medium text-muted-foreground">{t('strip.edit')}</span>
+        </button>
 
-      {/* The status slot (ticket 114) — one place, three states (absent · stale ·
-          in flight), sitting immediately after the chips it comments on. */}
-      <SimStatusSlot pending={pending} stale={stale} spinner={spinner} />
+        {/* The status slot (ticket 114) — one place, three states (absent · stale ·
+            in flight), sitting immediately after the chips it comments on, and inside
+            the same wrapping unit so it can never be commenting on chips a row away. */}
+        <SimStatusSlot pending={pending} stale={stale} spinner={spinner} />
+      </div>
 
-      {money ? (
-        <div className="ms-auto flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          {/* Net total keeps its emphasis by WEIGHT — semibold beside three smaller
-              keyed pairs — never by border, size or hue. The discount and the tax
-              lost the tint the Summary tile gave them: the screen's whole hue
-              budget is two (success on a fire, attention on a `W` line, 100 §2),
-              and a figure that is merely negative is not a severity. */}
-          <span className="text-base font-semibold tabular-nums tracking-tight">
-            <span className={`${moneyKey} me-1.5`}>{t('strip.netTotal')}</span>
-            {formatMoney(money.netTotal)}
-            <span className="ms-1 text-xs font-normal text-muted-foreground">{money.currency}</span>
-          </span>
-          {pair(t('summary.totalDiscount'), formatMoney(money.totalDiscount))}
-          {pair(t('summary.tax'), formatMoney(money.taxValue))}
-          <span className="text-[11px] tabular-nums text-muted-foreground">
-            {t('summary.calc', { ms: money.elapsedMs })}
-          </span>
+      {/* The tail: money and run controls travel TOGETHER (ticket 119). `ms-auto`
+          pushes the pair to the far end on one row and lets it drop as one unit to the
+          second when the head fills the first. */}
+      <div data-strip-group="tail" className="ms-auto flex flex-wrap items-center gap-x-3 gap-y-2">
+        {money ? (
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            {/* Net total keeps its emphasis by WEIGHT — semibold beside three smaller
+                keyed pairs — never by border, size or hue. The discount and the tax
+                lost the tint the Summary tile gave them: the screen's whole hue
+                budget is two (success on a fire, attention on a `W` line, 100 §2),
+                and a figure that is merely negative is not a severity. */}
+            <span className="text-base font-semibold tabular-nums tracking-tight">
+              <span className={`${moneyKey} me-1.5`}>{t('strip.netTotal')}</span>
+              {formatMoney(money.netTotal)}
+              <span className="ms-1 text-xs font-normal text-muted-foreground">
+                {money.currency}
+              </span>
+            </span>
+            {pair(t('summary.totalDiscount'), formatMoney(money.totalDiscount))}
+            {pair(t('summary.tax'), formatMoney(money.taxValue))}
+            <span className="text-[11px] tabular-nums text-muted-foreground">
+              {t('summary.calc', { ms: money.elapsedMs })}
+            </span>
+          </div>
+        ) : null}
+
+        {/* The run controls end the tail, separated from the money by a rule — which is
+            absent when there is no money to separate them from, rather than hanging off
+            the start of the group. */}
+        <div className={`flex items-center gap-2 ${money ? 'border-s border-border/60 ps-3' : ''}`}>
+          {runControls}
         </div>
-      ) : null}
-
-      {/* The run controls are a terminal cluster, separated by a rule. `ms-auto`
-          when no money precedes them, so the cluster still ends the row. */}
-      <div
-        className={`flex items-center gap-2 border-s border-border/60 ps-3 ${money ? '' : 'ms-auto'}`}
-      >
-        {runControls}
       </div>
 
       {hairline}

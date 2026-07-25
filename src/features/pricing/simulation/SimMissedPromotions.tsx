@@ -66,9 +66,15 @@ export default function SimMissedPromotions({ missed, currency }: Props) {
         </span>
       </div>
 
-      {missed.map((m) => (
-        <MissedRow key={m.bbyNumber} missed={m} currency={currency} t={t} />
-      ))}
+      {/* The same card row as the fires (ticket 119) — a near-miss is a card-sized
+          card at every width too. Its OWN grid rather than one shared with the fires,
+          so a near-miss can never rise onto a row beside a fire: what happened reads
+          before what did not, and that order is the section boundary. */}
+      <div className="grid grid-cols-1 items-start gap-2 @[560px]:grid-cols-[repeat(auto-fit,minmax(258px,340px))]">
+        {missed.map((m) => (
+          <MissedRow key={m.bbyNumber} missed={m} currency={currency} t={t} />
+        ))}
+      </div>
     </div>
   )
 }

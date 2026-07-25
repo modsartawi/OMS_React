@@ -65,9 +65,15 @@ export default function SimPromotionsRail({
       : 'cards'
 
   return (
+    // `@container` on the rail itself (ticket 119): the two card lists inside become a
+    // CARD ROW at `@[560px]` — which is the stacked arrangement, since beside the
+    // results the rail is 34% of the work area and never reaches it below an ultrawide
+    // window. Scoping the row to the rail's own width rather than to the work area's
+    // means one rule covers both arrangements: beside, a card fills the column exactly
+    // as it always has; stacked, cards sit side by side instead of striping.
     <div
       data-promotions-rail={state}
-      className="flex min-w-0 flex-col rounded-lg border border-border/60 bg-card p-3"
+      className="@container flex min-w-0 flex-col rounded-lg border border-border/60 bg-card p-3"
     >
       <div className="mb-2 flex items-center gap-2">
         <h2 className="text-sm font-semibold tracking-tight">{t('promo.paneTitle')}</h2>

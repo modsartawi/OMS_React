@@ -117,7 +117,11 @@ export default function SimHeaderForm({
   // the run strip's expansion, and `header.title` retires with it.
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {/* `@[680px]` on the WORK AREA, not `md:` on the viewport (ticket 119) — this was
+          the feature's last viewport prefix. `md:` (768 px of window) fired at a work
+          area of ~500, four fields into 500 px; the container query fires when there is
+          actually room for four. 680 = four ~155 px fields plus the grid's three gaps. */}
+      <div className="grid grid-cols-2 gap-3 @[680px]:grid-cols-4">
         {field('plant', t('header.plant'), { autoFocus: autoFocusFirstField })}
         {field('pricingDate', t('header.pricingDate'), { type: 'date' })}
         {field('salesOrganization', t('header.salesOrg'))}

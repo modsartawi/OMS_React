@@ -170,7 +170,7 @@ export default function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const sidebarRef = useRef<HTMLElement>(null)
   // Permission-aware nav: gated items the user can't open are hidden (issue 429).
-  const menu = useVisibleMenu(MENU)
+  const { items: menu } = useVisibleMenu(MENU)
 
   // Mobile overlay: Esc closes, body scroll locks, focus moves in, auto-close on nav/resize.
   useEffect(() => {

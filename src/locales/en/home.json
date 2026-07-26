@@ -1,5 +1,10 @@
 {
   "welcome": "Welcome back",
   "welcomeNamed": "Welcome back, {{name}}",
-  "subtitle": "Run pricing, deliveries and access across POS, OMS and Collection — one place, before it ships to SAP."
+  "subtitle": "Run pricing, deliveries and access across POS, OMS and Collection — one place, before it ships to SAP.",
+  "noAccess": {
+    "title": "Nothing to show here yet",
+    "body": "Your account is active and you are signed in, but no screens have been assigned to it yet.",
+    "hint": "If you expect to see something here, please contact IT support."
+  }
 }

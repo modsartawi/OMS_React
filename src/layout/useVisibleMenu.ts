@@ -34,11 +34,49 @@ function filterMenu(items: ShellMenuItem[], granted: Set<ShellMenuItem>): ShellM
   return out
 }
 
+/** The slice of a react-query result the filter reads — one per gated item, in order. */
+export interface ProbeState {
+  isPending: boolean
+  isSuccess: boolean
+  data: unknown
+}
+
+export interface VisibleMenu {
+  items: ShellMenuItem[]
+  /**
+   * True once every gated item's probe has resolved OR errored (ticket 124). Because
+   * a pending probe hides its item, an unsettled menu is legitimately empty on first
+   * paint — so "no items" only means "nothing to open" once this is true. An errored
+   * probe counts as settled: it fails closed, and never answering would hang the flag.
+   */
+  settled: boolean
+}
+
+/**
+ * The pure half of {@link useVisibleMenu}: menu + one probe state per gated item
+ * (in `collectGated` order) → what to show and whether that answer is trustworthy.
+ */
+export function resolveMenu(menu: ShellMenuItem[], results: ProbeState[]): VisibleMenu {
+  const gated = collectGated(menu)
+
+  const granted = new Set<ShellMenuItem>()
+  gated.forEach((item, i) => {
+    const r = results[i]
+    // isSuccess ⇒ data present and no error; pending/error/missing all fail closed.
+    if (r?.isSuccess && item.access!.visible(r.data)) granted.add(item)
+  })
+
+  // A missing result is "not answered yet", never "answered no" — hence the length check.
+  const settled = results.length === gated.length && results.every((r) => !r.isPending)
+
+  return { items: filterMenu(menu, granted), settled }
+}
+
 /**
  * Filters MENU down to the items the current user may open. `useQueries`'
  * query list is stable across renders because MENU is static (issue 429).
  */
-export function useVisibleMenu(menu: ShellMenuItem[]): ShellMenuItem[] {
+export function useVisibleMenu(menu: ShellMenuItem[]): VisibleMenu {
   const gated = collectGated(menu)
   const results = useQueries({
     queries: gated.map((item) => ({
@@ -49,12 +87,5 @@ export function useVisibleMenu(menu: ShellMenuItem[]): ShellMenuItem[] {
     })),
   })
 
-  const granted = new Set<ShellMenuItem>()
-  gated.forEach((item, i) => {
-    const r = results[i]
-    // isSuccess ⇒ data present and no error; pending/error both fail closed.
-    if (r.isSuccess && item.access!.visible(r.data)) granted.add(item)
-  })
-
-  return filterMenu(menu, granted)
+  return resolveMenu(menu, results)
 }

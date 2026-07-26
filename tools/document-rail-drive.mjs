@@ -1,6 +1,6 @@
 // Document pill-rail drive (ticket 090, spec 083 D-3) — drives the REAL app in
 // Chromium and serves the FIVE CAPTURED PAYLOADS from
-// `.issues/assets/078-document-payloads/` as the `SdDocument/Document/{no}`
+// `.issues/assets/078-document-payloads/` as the `SdDocumentWeb/Document/{no}`
 // response. The payloads are replayed verbatim, so what renders here is what the
 // live estate sent on 2026-07-24; the app is not stubbed, only the wire is.
 // (SIS.Api is reachable on :5111 but needs an operator login this tool has no
@@ -69,7 +69,12 @@ async function run() {
     const p = url.split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }))
-    const doc = p.match(/^SdDocument\/(?:Document|Delivery)\/(\d+)$/)
+    // Ticket 125 put the OMS screens behind SdDocumentWeb/Access; the detail page
+    // guards on canOpenDetail, so this drive must answer the probe or every
+    // assertion below meets the denied card instead of the screen.
+    if (p === 'SdDocumentWeb/Access')
+      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) {
       refreshCount++
       return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))

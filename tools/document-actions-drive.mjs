@@ -87,14 +87,19 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }),
       )
-    if (p === 'SdDocument/UpdateDocument' || p === 'SdDocument/UpdateDelivery') {
+    if (p === 'SdDocumentWeb/UpdateDocument' || p === 'SdDocumentWeb/UpdateDelivery') {
       posted.push({ path: p, body: JSON.parse(route.request().postData() || '{}') })
       if (updateDelayMs) await new Promise((r) => setTimeout(r, updateDelayMs))
       return route.fulfill(envelope(true))
     }
     if (p === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORE_DETAILS))
     if (p === 'SdDocument/Districts') return route.fulfill(envelope([]))
-    const doc = p.match(/^SdDocument\/(?:Document|Delivery)\/(\d+)$/)
+    // Ticket 125 put the OMS screens behind SdDocumentWeb/Access; the detail page
+    // guards on canOpenDetail, so this drive must answer the probe or every
+    // assertion below meets the denied card instead of the screen.
+    if (p === 'SdDocumentWeb/Access')
+      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
     if (/\/Outbox$/.test(p) || /\/Logs$/.test(p)) return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))
@@ -370,7 +375,7 @@ async function run() {
   const notePost = posted.at(-1)
   check(
     'the note typed in the dialog is the note that posts, on the category’s own endpoint',
-    notePost?.path === 'SdDocument/UpdateDelivery' &&
+    notePost?.path === 'SdDocumentWeb/UpdateDelivery' &&
       notePost?.body.actionType === 'DADN' &&
       notePost?.body.note === 'Customer called about the address',
     JSON.stringify(notePost),

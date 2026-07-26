@@ -1,6 +1,6 @@
 // Summary-rail drive (ticket 092, spec 083 D-5 to D-8) — drives the REAL app in
 // Chromium and serves the FIVE CAPTURED PAYLOADS from
-// `.issues/assets/078-document-payloads/` as the `SdDocument/Document/{no}`
+// `.issues/assets/078-document-payloads/` as the `SdDocumentWeb/Document/{no}`
 // response, exactly as `tools/document-band-drive.mjs` does. The payloads are
 // replayed verbatim; the app is not stubbed, only the wire is.
 //
@@ -142,7 +142,12 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: 'P001' }),
       )
-    const doc = p.match(/^SdDocument\/(?:Document|Delivery)\/(\d+)$/)
+    // Ticket 125 put the OMS screens behind SdDocumentWeb/Access; the detail page
+    // guards on canOpenDetail, so this drive must answer the probe or every
+    // assertion below meets the denied card instead of the screen.
+    if (p === 'SdDocumentWeb/Access')
+      return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+    const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
     if (/\/(Logs|Outbox)$/.test(p)) return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))

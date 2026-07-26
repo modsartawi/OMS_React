@@ -10,6 +10,9 @@ import { couponsApi } from '@/features/pricing/coupons/api'
 // The bonus-buy grant probe lives in `@/core/` (ticket 118): the Simulation screen is a
 // second consumer, and a feature may not import another feature's api.
 import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
+// The OMS probe likewise lives in `@/core/` (ticket 125): both OMS pages guard on it,
+// and a feature may not import another feature's api.
+import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -22,7 +25,9 @@ export interface ShellMenuItem {
   items?: ShellMenuItem[]
   /**
    * Optional permission-aware show/hide gate (issue 429, web-platform foundation).
-   * ABSENT = always visible (e.g. deliveries). Present = the shell hides this
+   * ABSENT = always visible. Since ticket 125 gated the OMS leaf, every leaf in
+   * `MENU` carries a probe — an ungated one is now the exception, not the rule, and
+   * a new one needs a reason. Present = the shell hides this
    * item until the probe confirms access. This is show/hide hygiene only — the
    * server grant stays authoritative (a deep-link still hits the screen's own
    * in-page denied backstop). Build a probe with `accessProbe(...)`.
@@ -69,6 +74,15 @@ export const MENU: ShellMenuItem[] = [
         icon: FileText,
         routerLink: '/oms/deliveries',
         activePrefix: '/oms',
+        // Same key + call as BOTH OMS page guards → one shared probe (ticket 125).
+        // Gated on the LIST grant: the leaf opens the list, and a session that holds
+        // the detail grant but not the list one has no business in the nav here.
+        // This probe FAILS CLOSED — see `@/core/oms/api`.
+        access: accessProbe({
+          key: OMS_ACCESS_KEY,
+          run: () => omsAccessApi.access(),
+          visible: (r) => r.canOpenList === true,
+        }),
       },
     ],
   },

@@ -49,7 +49,7 @@ function assignText(params: Record<string, unknown>, key: string, value: string 
 }
 
 /**
- * Build the `GET SdDocument/DeliveryDocumentList` query from the panel value.
+ * Build the `GET SdDocumentWeb/DeliveryDocumentList` query from the panel value.
  *
  * - empty/blank filters are omitted entirely;
  * - `Limit` is ALWAYS sent — a cleared/invalid value falls back to {@link DEFAULT_LIMIT};

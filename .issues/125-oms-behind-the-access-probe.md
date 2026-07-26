@@ -1,5 +1,5 @@
 ---
-status: open
+status: code-complete
 blocked-by: 124
 ---
 
@@ -81,16 +81,16 @@ api (path swap + `access()`) · model · menu · component (two page guards) · 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] An entitled session sees the OMS group, opens the list, and opens a document — unchanged behaviour
+- [x] An entitled session sees the OMS group, opens the list, and opens a document — unchanged behaviour
       end to end against the new paths · **flow (Playwright, new `tools/oms-access-drive.mjs`)**
-- [ ] `canOpenList: false` → the OMS group is absent from the sidebar **and** from the home page cards ·
+- [x] `canOpenList: false` → the OMS group is absent from the sidebar **and** from the home page cards ·
       **flow (same drive)**
-- [ ] `canOpenList: false` + deep link to `/oms/deliveries` → the denied card, and **no**
+- [x] `canOpenList: false` + deep link to `/oms/deliveries` → the denied card, and **no**
       `DeliveryDocumentList` request is fired · **flow (same drive)**
-- [ ] `canOpenList: true, canOpenDetail: false` → the list opens, the deep link to `/oms/document/:no`
+- [x] `canOpenList: true, canOpenDetail: false` → the list opens, the deep link to `/oms/document/:no`
       shows the denied card · **flow (same drive)** — the split the single-grant shortcut would lose
-- [ ] A failed/unreachable probe hides the screen rather than revealing it · **flow (same drive)**
-- [ ] The menu probe and the page guard share one cache entry — exactly one `SdDocumentWeb/Access`
+- [x] A failed/unreachable probe hides the screen rather than revealing it · **flow (same drive)**
+- [x] The menu probe and the page guard share one cache entry — exactly one `SdDocumentWeb/Access`
       request per page life · **flow (same drive)**
 
 ## Boundaries
@@ -132,3 +132,55 @@ not merely hidden by the client.
 2. **Does the deliveries list need its own grant separate from the document detail?** Assumed yes (two
    grants, per 749). If 749 lands one combined grant, `OmsAccessResult` collapses to one bool and Proof
    box 4 goes away.
+
+## Comments
+
+**2026-07-26 — built, `code-complete` not `done`.** `tools/oms-access-drive.mjs` (port 5206, wire
+fully stubbed) is **28/28**; `typecheck`, `lint`, `build` and `npm test` (261) green. Every Proof box
+is ticked against that drive. What is NOT proven, and why this is not `done`: SIS.Api was not
+running, so nothing here has met a real `SdDocumentWeb/*` door. The Done-when clause that closes the
+original hole — **a reschedule attempted without `canOpenDetail` is refused by the server** — and the
+entitled-user pass against live 750 both still need a run once 750 is deployed. Open question 1
+(is the OMS team bound to the role?) is likewise still an operator action, unanswered.
+
+**Deviation from the written design — the probe lives in `@/core/oms/api`, not on `deliveriesApi`.**
+The ticket spelled `run: () => deliveriesApi.access()`. Both OMS pages guard on this call, and a
+feature may never import another feature (`.claude/rules/feature-structure.md`), so putting it on
+`deliveriesApi` would have forced either a boundary violation or a second copy of `access()` in
+`document/api.ts` with the cache key re-spelled at three sites. Instead `@/core/oms/api.ts` exports
+`OMS_ACCESS_KEY` + `omsAccessApi.access()` — exactly the move ticket 118 made for the bonus-buy probe,
+for the same reason. `searchDeliveries` still folded into `deliveriesApi.search` as asked.
+
+**Two things the reviews found and this change fixes beyond the letter of the ticket:**
+
+1. *`staleTime` had to match, not just `retry`.* `useVisibleMenu` probes with
+   `staleTime: Infinity, retry: false`. A page guard registering the same key with the global
+   default (`staleTime: 0`) marks the shared entry stale and **refetches on mount** — one call
+   became two on an in-app navigation, and a second answer that failed would have emptied the OMS
+   group from the sidebar while the operator stood on a working list. Both guards now carry the
+   menu's options verbatim. New drive box: *navigating INTO the screen in-app re-asks nothing*.
+2. *A failed probe is a server fault, not a missing grant.* Fail-closed is right, but the denied
+   copy told a fully entitled operator to go ask for a permission they already hold — which is
+   exactly the state a not-yet-deployed 750 produces. `access.isError` now renders
+   `access.unavailableTitle` / `unavailableHint` (two keys per namespace beyond the three the ticket
+   listed) with the envelope message via `apiErrorMessage`. The screen stays closed either way.
+
+**Blast radius the ticket did not mention: eight sibling drives.** `document-{detail,actions,band,
+cards,items,rail,rtl}-drive.mjs` and `grid-theme-drive.mjs` all stub `SdDocument/Document|Delivery|
+Update*` and fell through to a catch-all `envelope({})` for the new probe — post-swap every one of
+them met the denied card. All eight repointed and answer `SdDocumentWeb/Access`; re-run green
+(39/38/36/34/45/23/25/33).
+
+**Deliberately NOT swapped, and now commented at the code:** the five session-stable lookups in
+`core/services/lookups.ts` (`DocumentTypes`, `DocumentSources`, `DeliveryDocumentTypes`,
+`StoreDetails`, `Districts`) stay on the ungated `SdDocument/*` door — `storeDetails` feeds the store
+switcher on **every** screen, so moving them behind the OMS grant would break the shell for an
+admin-only user. Plus `Slots/AvailableSlots/{storeCode}` (750 OQ2).
+
+**Follow-up worth a ticket (not taken here):** the spinner + denied card block is now pasted in ten
+pages, byte-identical but for the namespace. A `core/ui/AccessGate` taking `{ query, allow, ns }`
+would collapse all ten; touching the other eight screens is outside this ticket's Boundaries.
+
+**Concurrency note:** built on `main` in the main working tree, not a worktree — 124 was already
+merged and no parallel session was running. Port 5206 was occupied by a stray dev server, so the
+drive ran against 5208 via `DRIVE_PORT`; the tool still defaults to 5206.

@@ -20,6 +20,11 @@ import type { SdDocumentRescheduleReasonModel } from '@/core/models/slots'
  */
 const session = { staleTime: Infinity, gcTime: Infinity, retry: false } as const
 
+// ⚠️ These five stay on the ungated `SdDocument/*` door on purpose — ticket 125 moved the
+// OMS list, loads and write actions to `SdDocumentWeb/*` behind a grant, but not these.
+// `storeDetails` feeds the store switcher on EVERY screen, so putting them behind the OMS
+// grant would break the shell for an admin-only user. Don't "finish" the swap here.
+
 export const lookupQueries = {
   documentTypes: () =>
     queryOptions({

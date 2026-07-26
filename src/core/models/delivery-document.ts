@@ -1,6 +1,6 @@
 /**
  * A single row of the Screen 1 results grid.
- * Returned in the `data` array of `GET SdDocument/DeliveryDocumentList`.
+ * Returned in the `data` array of `GET SdDocumentWeb/DeliveryDocumentList`.
  * Fields marked "coded" carry raw codes resolved for display by the CodeResolver.
  */
 export interface DeliveryDocumentModel {

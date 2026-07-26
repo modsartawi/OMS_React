@@ -124,18 +124,18 @@ await page.route('**/api/**', async (route) => {
     return route.fulfill(
       envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }),
     )
-  if (path === 'SdDocument/DeliveryDocumentList')
+  if (path === 'SdDocumentWeb/DeliveryDocumentList')
     return route.fulfill(
       envelope([
         DELIVERY({ failedJobsCount: 3, deliveryNo: '8000001' }),
         DELIVERY({ failedJobsCount: 0, deliveryNo: '8000002', documentNo: '1000000394' }),
       ]),
     )
-  if (/^SdDocument\/Document\/[^/]+\/Outbox$/.test(path))
+  if (/^SdDocumentWeb\/Document\/[^/]+\/Outbox$/.test(path))
     return route.fulfill(envelope([OUTBOX({ outboxStatus: 'F' }), OUTBOX({ outboxStatus: 'S' })]))
-  if (/^SdDocument\/Document\/[^/]+\/Logs$/.test(path))
+  if (/^SdDocumentWeb\/Document\/[^/]+\/Logs$/.test(path))
     return route.fulfill(envelope([{ documentNo: '1000000393', action: 'CREATE', createdOn: '2026-07-01T09:00:00' }]))
-  if (/^SdDocument\/(Document|Delivery)\/[^/]+$/.test(path)) return route.fulfill(envelope(DOCUMENT))
+  if (/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/.test(path)) return route.fulfill(envelope(DOCUMENT))
   if (path === 'Bby/List')
     return route.fulfill(envelope({ rows: [BBY_ROW({}), BBY_ROW({ bbyNumber: '100235' })], capReached: false }))
   // The filter panel's lookup reads iterate their payload — an empty object
@@ -158,7 +158,12 @@ await page.route('**/api/**', async (route) => {
       ]),
     )
   // Every screen-open probe answers yes so each grid module is reachable.
-  if (/Access$/.test(path)) return route.fulfill(envelope({ screenAllowed: true, allowed: true }))
+  // canOpenList/canOpenDetail answer the OMS probe added in ticket 125; the other flags
+  // answer every sibling screen probe.
+  if (/Access$/.test(path))
+    return route.fulfill(
+      envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true }),
+    )
   // Anything else (notifications, slots, …) → benign empty success.
   return route.fulfill(envelope({}))
 })

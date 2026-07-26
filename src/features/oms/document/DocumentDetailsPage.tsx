@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, RefreshCw } from 'lucide-react'
@@ -6,6 +7,7 @@ import Button from '@/core/ui/Button'
 import StatusBadge from '@/core/ui/StatusBadge'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
+import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
 import { notify } from '@/core/services/notify'
 import type {
   SdDocumentHeaderModel,
@@ -83,11 +85,31 @@ const PENDING = { rows: null, loading: true, error: null } as const
  * Delivery `9000000003` is the live proof they diverge: opened as a delivery,
  * category `T`, so it loads from `Delivery/{no}` and mutates via
  * `UpdateDocument`.
+ *
+ * Self-guards on `canOpenDetail` (ticket 125) — the grant that matters, since this is a
+ * deep-linkable route carrying the update/reschedule write doors and `router.tsx` has no
+ * per-route permission metadata. Spinner → denied card → content, sharing the ONE
+ * `OMS_ACCESS_KEY` cache entry with the menu probe and the list guard; the document load
+ * itself waits on the probe, so a denied session fires no document request at all.
  */
 export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }) {
   const { t } = useTranslation('document')
   const params = useParams()
   const routeId = (params.documentNo ?? params.deliveryNo ?? '').trim()
+
+  // Both options MATCH the menu probe's own on this shared key (see useVisibleMenu), and
+  // matching is the point: `staleTime: Infinity` keeps this observer from marking the
+  // shared entry stale and refetching on mount — a second answer that failed would empty
+  // the OMS group from the nav while this screen is happily open. `retry: false` lands a
+  // fail-closed grant on the card at once instead of holding "Checking access…" through a
+  // retry backoff.
+  const access = useQuery({
+    queryKey: OMS_ACCESS_KEY,
+    queryFn: () => omsAccessApi.access(),
+    staleTime: Infinity,
+    retry: false,
+  })
+  const canOpenDetail = access.data?.canOpenDetail === true
 
   const [document, setDocument] = useState<SdDocumentHeaderModel | null>(null)
   const [documentLoading, setDocumentLoading] = useState(true)
@@ -142,8 +164,10 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   )
 
   // Initial load. Keyed on the route id, so navigating between documents without
-  // unmounting still reloads.
+  // unmounting still reloads. Gated on the access probe: until it says yes, nothing is
+  // requested — the denied card below must not be preceded by a document fetch.
   useEffect(() => {
+    if (!canOpenDetail) return
     let cancelled = false
     setDocumentLoading(true)
     setDocumentError(null)
@@ -165,7 +189,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     return () => {
       cancelled = true
     }
-  }, [routeId, openedAs, loadLogs, loadJobs, t])
+  }, [routeId, openedAs, canOpenDetail, loadLogs, loadJobs, t])
 
   /**
    * Reload the document plus Log and Jobs, in place. A failed reload is
@@ -304,6 +328,36 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const conditionColumns = useMemo(() => documentColumns.conditions(), [])
   const logColumns = useMemo(() => documentColumns.logs(), [])
   const jobColumns = useMemo(() => documentColumns.jobs(), [])
+
+  // ----- access states ------------------------------------------------------
+  // After every hook, before any render. The identity band is not rendered either: a
+  // denied session should not learn the document number resolves to anything.
+  if (access.isPending) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground" role="status">
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        {t('access.checking')}
+      </div>
+    )
+  }
+  if (!canOpenDetail) {
+    // Same split as the list guard: a failed probe is a server fault, not a missing grant.
+    const unreachable = access.isError
+    return (
+      <div
+        className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
+        role="alert"
+        data-oms-denied="detail"
+      >
+        <div className="text-base font-semibold tracking-tight">
+          {t(unreachable ? 'access.unavailableTitle' : 'access.deniedTitle')}
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {unreachable ? apiErrorMessage(access.error, t('access.unavailableHint')) : t('access.deniedHint')}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <section className="flex flex-col gap-2.5">

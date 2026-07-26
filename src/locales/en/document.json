@@ -237,5 +237,12 @@
     "hint": "Pick a cancellation reason — it is recorded as the document note.",
     "label": "Cancellation reason",
     "placeholder": "Select a reason"
+  },
+  "access": {
+    "checking": "Checking access…",
+    "deniedTitle": "You don't have access to Document Details",
+    "deniedHint": "This screen needs the Document Details permission. Ask an administrator to grant it.",
+    "unavailableTitle": "Access check unavailable",
+    "unavailableHint": "The permission check for Document Details could not be completed, so the screen stays closed. This is a server problem, not a missing permission — try again shortly."
   }
 }

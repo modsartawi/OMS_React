@@ -22,6 +22,12 @@
 //      selected person survives the page change (the do-nothing implementation
 //      spec 147 records — the pane fetches by employee id).
 //
+// Ticket 149 adds, against the same estate:
+//   8. acting on someone from the pane HOLDS the worklist page — page 2 stays
+//      page 2 — with the counts refreshed;
+//   9. acting on the last row of the LAST page clamps to the new last page
+//      instead of showing an empty grid, with the pane still open.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/ua-users-scale-drive.mjs
 import { createRequire } from 'node:module'
@@ -64,9 +70,20 @@ const row = (n) => ({
 })
 const ESTATE = Array.from({ length: TOTAL }, (_, i) => row(i))
 
+// The *Awaiting activation* worklist is the one with LIVE membership: 152 people
+// = 4 pages of 50/50/50/2, and the stub treats Clear TOTP as the fix that takes
+// a person off it. That is the shape ticket 149 needs — a worklist an
+// administrator works DOWN, whose last page can be emptied by succeeding at the
+// last row.
+const awaiting = new Set(ESTATE.slice(0, 152).map((r) => r.employeeId))
+
 // Every list read the screen makes, in order — so the drive can assert on the
 // `skip` that was actually asked for, not just on what rendered.
 const reads = []
+// Counts reads and mutations, so "the counts refreshed" is asserted on the wire
+// rather than inferred from a number that happened not to move.
+let countsReads = 0
+const mutations = []
 
 /** The server's paging contract: `take` clamps down to 50, `isCapped` says a row
  *  exists past this page. Deterministic order, as every path already guarantees. */
@@ -95,22 +112,39 @@ await page.route('**/api/**', async (route) => {
   if (path === 'Auth/Me')
     return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
   if (path === 'UaAdminWeb/Access') return route.fulfill(envelope({ canOpen: true }))
-  if (path === 'UaAdminWeb/ReportCounts')
+  if (path === 'UaAdminWeb/ReportCounts') {
+    countsReads += 1
     return route.fulfill(
       envelope({
         allPeople: TOTAL,
         notSeeded: 12,
         phoneGap: 400,
-        awaitingActivation: 900,
+        awaitingActivation: awaiting.size,
         mustChangePassword: 3,
         disabled: 40,
       }),
     )
+  }
+  // The one mutation this drive fires. The stub takes the person off the
+  // *Awaiting activation* worklist, which is what makes "the page holds" and
+  // "the emptied last page clamps" observable.
+  if (path === 'UaAdminWeb/Employees/ClearTotp' && req.method() === 'POST') {
+    const employeeId = String(req.postDataJSON()?.employeeId ?? '')
+    awaiting.delete(employeeId)
+    mutations.push(employeeId)
+    return route.fulfill(envelope({}))
+  }
   const card = /^UaAdminWeb\/ReportCards\/([^/]+)$/.exec(path)
   if (card) {
-    reads.push({ kind: 'card', card: decodeURIComponent(card[1]), skip: q.get('skip'), take: q.get('take') })
+    const which = decodeURIComponent(card[1])
+    reads.push({ kind: 'card', card: which, skip: q.get('skip'), take: q.get('take') })
     // `mustChange` is the deliberately small worklist: 3 rows, one page, no footer.
-    const pool = decodeURIComponent(card[1]) === 'mustChange' ? ESTATE.slice(0, 3) : ESTATE
+    const pool =
+      which === 'mustChange'
+        ? ESTATE.slice(0, 3)
+        : which === 'awaitingActivation'
+          ? ESTATE.filter((r) => awaiting.has(r.employeeId))
+          : ESTATE
     return route.fulfill(envelope(slice(pool, q.get('skip'), q.get('take'))))
   }
   if (path === 'UaAdminWeb/Employees' && req.method() === 'GET') {
@@ -281,6 +315,65 @@ const bodyAfter = await page.locator('main').innerText()
 check('no cap note survives on a paged screen', !/refine to narrow|first \d+ of/i.test(bodyAfter))
 
 await page.screenshot({ path: `${SHOTS}/ua-users-paged.png` })
+
+// ---- 8. a fix HOLDS the worklist page (ticket 149) --------------------------
+// Awaiting activation: 152 people, 4 pages. Walk to page 2, fix someone, and the
+// grid must still be on page 2 — a worklist worked down must not restart.
+const clearTotp = page.getByRole('button', { name: 'Clear TOTP' })
+const confirmYes = page.getByRole('button', { name: 'Yes' })
+const fixSelectedPerson = async () => {
+  const before = mutations.length
+  await clearTotp.click()
+  await confirmYes.click()
+  for (let i = 0; i < 40 && mutations.length === before; i++) await page.waitForTimeout(100)
+  await page.waitForTimeout(900) // the invalidate-driven refetch of list + counts
+}
+
+await page.getByRole('button', { name: /^152/ }).click()
+await page.waitForSelector('tbody tr', { timeout: 10000 })
+check('the awaiting worklist spans four pages', (await readout()).trim() === 'Page 1 of 4', await readout())
+await next.click()
+await page.waitForTimeout(700)
+check('walked to page 2 of the worklist', (await readout()).trim() === 'Page 2 of 4', await readout())
+
+await page.locator('tbody tr').first().click()
+await page.waitForSelector('#ud-phone', { timeout: 10000 })
+const countsBeforeFix = countsReads
+await fixSelectedPerson()
+
+check('a fix holds the worklist page — page 2 stays page 2', (await readout()).trim().startsWith('Page 2 of'), await readout())
+check('the fixed person left the worklist', awaiting.size === 151, String(awaiting.size))
+check(
+  'the header count refreshed with the worklist',
+  (await page.locator('main').getByText(/matches$/).first().textContent()).trim() === '151 matches',
+  await page.locator('main').getByText(/matches$/).first().textContent(),
+)
+check('the report counts were re-read after the fix', countsReads > countsBeforeFix, `${countsReads - countsBeforeFix}`)
+check('the pane stayed open through the fix', (await page.locator('#ud-phone').count()) === 1)
+
+// ---- 9. the emptied last page clamps to the new last page -------------------
+// 151 left = pages of 50/50/50/1. Fix the single person on page 4 and that page
+// is gone; the grid must land on page 3, not on an empty table.
+await next.click()
+await page.waitForTimeout(600)
+await next.click()
+await page.waitForTimeout(600)
+check('walked to the last page', (await readout()).trim() === 'Page 4 of 4', await readout())
+check('the last page holds one row', (await page.locator('tbody tr').count()) === 1, String(await page.locator('tbody tr').count()))
+
+await page.locator('tbody tr').first().click()
+await page.waitForSelector('#ud-phone', { timeout: 10000 })
+await fixSelectedPerson()
+
+check('an emptied last page clamps to the new last page', (await readout()).trim() === 'Page 3 of 3', await readout())
+check(
+  'and lands on rows, not on an empty grid',
+  (await page.locator('tbody tr').count()) === 50,
+  String(await page.locator('tbody tr').count()),
+)
+check('no "no people match" message after the clamp', !/No people match/i.test(await page.locator('main').innerText()))
+check('the pane survives the clamp too', (await page.locator('#ud-phone').count()) === 1)
+await page.screenshot({ path: `${SHOTS}/ua-users-clamped.png` })
 check('no uncaught page errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '))
 
 await browser.close()

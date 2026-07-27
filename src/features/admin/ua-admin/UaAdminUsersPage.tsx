@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
@@ -7,7 +7,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { UaReportCountsResult } from '@/core/models/ua-user'
 import { deriveStatus, formatStamp } from './helpers'
 import { uaAdminApi } from './api'
-import { showsPager } from './pager'
+import { clampToLastPageWhenCurrentPageEmpties, showsPager } from './pager'
 import GridPager from './GridPager'
 import StatusPill from './StatusPill'
 import ChannelPill from './ChannelPill'
@@ -70,6 +70,29 @@ export default function UaAdminUsersPage() {
   // Dim-and-disable, not blank: true whenever rows are showing and a read is in
   // flight (an uncached page, or a refetch after a mutation).
   const refreshing = list.isFetching && list.data !== undefined
+
+  // A mutation HOLDS the page — nothing here does that, it is what having the
+  // page in the query buys. This is only the one guard (ticket 149): a refetch
+  // that leaves the current page empty above page 1 falls back to the new last
+  // page, so fixing the final person on a worklist doesn't look like the screen
+  // broke. Sitting on the list RESULT rather than in an action handler is what
+  // makes it cover every caller of `refreshLists`, present and future.
+  //
+  // Gated on a settled read: with `keepPreviousData`, `list.data` mid-flight is
+  // the previous page's rows, which would clamp off stale counts.
+  const settled = list.data !== undefined && !list.isFetching && !list.isPlaceholderData
+  const settledPage = settled && query !== null ? query.page : null
+  const settledRows = settled ? list.data!.rows.length : 0
+  const settledTotal = settled ? list.data!.totalMatches : 0
+  useEffect(() => {
+    if (settledPage === null) return
+    const clamped = clampToLastPageWhenCurrentPageEmpties({
+      page: settledPage,
+      rowCount: settledRows,
+      totalMatches: settledTotal,
+    })
+    if (clamped !== settledPage) goToPage(clamped)
+  }, [settledPage, settledRows, settledTotal])
 
   function runSearch() {
     const trimmed = term.trim()

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 147
 blocked-by: 148
 ---
@@ -29,12 +29,32 @@ happens after a mutation's refetch) · test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `clampToLastPageWhenCurrentPageEmpties` — page 3 of 3 goes empty at 100 total ⇒ page 2; page 1
+- [x] `clampToLastPageWhenCurrentPageEmpties` — page 3 of 3 goes empty at 100 total ⇒ page 2; page 1
       going empty stays on page 1 (there is nowhere to clamp to, and "no results" is the honest
-      state); a page still holding rows is untouched · pure
-- [ ] `aFixHoldsTheWorklistPage` — drive: page to 2 of a worklist, clear someone's TOTP from the
+      state); a page still holding rows is untouched · pure ·
+      `src/features/admin/ua-admin/pager.test.ts` (3 new tests, 12 in the file, green)
+- [x] `aFixHoldsTheWorklistPage` — drive: page to 2 of a worklist, clear someone's TOTP from the
       pane, and the grid is still on page 2 with the counts refreshed · flow (Playwright, extends
-      `tools/ua-users-scale-drive.mjs`)
+      `tools/ua-users-scale-drive.mjs`) — **41/41 passing** (28 from 148 + 13 new), against an
+      *Awaiting activation* worklist of 152 whose membership the stub really changes
+
+## As built
+
+- `pager.ts` — `clampToLastPageWhenCurrentPageEmpties({ page, rowCount, totalMatches })`. Rows present
+  or page 1 ⇒ the page is returned untouched; otherwise `min(page, pageCountFromTotalMatches(total))`.
+- `UaAdminUsersPage.tsx` — the clamp sits on the **list result**, not in an action handler: an effect
+  reads the settled query and calls the existing `goToPage`. That is what makes it cover every caller
+  of `refreshLists` (the pane's disable / re-enable / clear-TOTP / save-contact / revoke, the
+  set-password modal, and the new-identity modal) rather than the one the drive exercises — the
+  boundary the ticket asked to check.
+- It is gated on a **settled** read (`!isFetching && !isPlaceholderData`): with `keepPreviousData`,
+  `list.data` mid-flight is the *previous* page's rows, and clamping off those counts would fire a
+  page change on every ordinary Next.
+- "The page holds" needed **no code** — the page is a field of the query and a mutation only
+  invalidates, so nothing resets it. The drive asserts it so a later change can't quietly break it.
+- The drive's stub gained live worklist membership (Clear TOTP takes a person off *Awaiting
+  activation*) plus counts-read and mutation ledgers, so "the counts refreshed" is asserted on the
+  wire rather than inferred from a number that happened not to move.
 
 ## Boundaries
 

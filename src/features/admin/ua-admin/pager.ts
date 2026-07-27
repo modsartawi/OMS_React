@@ -31,6 +31,26 @@ export function showsPager(totalMatches: number): boolean {
 }
 
 /**
+ * Where the grid should sit after a mutation's refetch (ticket 149). The rule is
+ * *hold* — page 7 of a worklist stays page 7 — with one guard: an action can
+ * remove the last row of the last page (fix the final person on *Awaiting
+ * activation* and that page is now empty), and landing on an empty grid would
+ * look like the screen broke at the exact moment the work succeeded. So an
+ * emptied page above 1 falls back to the new last page.
+ *
+ * Page 1 emptying is NOT a clamp — there is nowhere to go, and "no results" is
+ * the honest state.
+ */
+export function clampToLastPageWhenCurrentPageEmpties(p: {
+  page: number
+  rowCount: number
+  totalMatches: number
+}): number {
+  if (p.rowCount > 0 || p.page <= 1) return p.page
+  return Math.min(p.page, pageCountFromTotalMatches(p.totalMatches))
+}
+
+/**
  * Which of Previous / Next is live. `isCapped` is the envelope's "more rows
  * exist beyond THIS page" flag; it used to be shown as a cap note and is now
  * simply what enables Next (ticket 143).

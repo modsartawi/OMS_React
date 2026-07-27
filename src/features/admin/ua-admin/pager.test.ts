@@ -2,7 +2,14 @@
 // ticket's Proof names: how many pages a match count spans (and whether the
 // footer shows at all), and which of Previous / Next is live.
 import { describe, expect, it } from 'vitest'
-import { PAGE_SIZE, pageCountFromTotalMatches, pagerButtonEnablement, showsPager, skipForPage } from './pager'
+import {
+  PAGE_SIZE,
+  clampToLastPageWhenCurrentPageEmpties,
+  pageCountFromTotalMatches,
+  pagerButtonEnablement,
+  showsPager,
+  skipForPage,
+} from './pager'
 
 describe('pageCountFromTotalMatches', () => {
   it('spans one page for an empty or single-page result', () => {
@@ -44,6 +51,30 @@ describe('pageCountFromTotalMatches', () => {
     // A page number below 1 can only come from a bug; it must not ask the
     // server for a negative offset.
     expect(skipForPage(0)).toBe(0)
+  })
+})
+
+describe('clampToLastPageWhenCurrentPageEmpties', () => {
+  it('holds the page whenever the refetch still has rows', () => {
+    // The rule this slice exists for: working down a worklist must not restart
+    // it. A page that still holds rows is untouched, whatever the total did.
+    expect(clampToLastPageWhenCurrentPageEmpties({ page: 7, rowCount: 50, totalMatches: 6000 })).toBe(7)
+    expect(clampToLastPageWhenCurrentPageEmpties({ page: 2, rowCount: 1, totalMatches: 51 })).toBe(2)
+    expect(clampToLastPageWhenCurrentPageEmpties({ page: 1, rowCount: 4, totalMatches: 4 })).toBe(1)
+  })
+
+  it('falls back to the new last page when the current one empties', () => {
+    // Fixing the final person on a worklist emptied page 3; 100 matches remain,
+    // so the new last page is 2 — not an empty grid at the moment the work
+    // succeeded.
+    expect(clampToLastPageWhenCurrentPageEmpties({ page: 3, rowCount: 0, totalMatches: 100 })).toBe(2)
+    expect(clampToLastPageWhenCurrentPageEmpties({ page: 120, rowCount: 0, totalMatches: 51 })).toBe(2)
+  })
+
+  it('stays on page 1 when the whole worklist empties', () => {
+    // There is nowhere to clamp to, and "no results" is the honest state.
+    expect(clampToLastPageWhenCurrentPageEmpties({ page: 1, rowCount: 0, totalMatches: 0 })).toBe(1)
+    expect(clampToLastPageWhenCurrentPageEmpties({ page: 2, rowCount: 0, totalMatches: 0 })).toBe(1)
   })
 })
 

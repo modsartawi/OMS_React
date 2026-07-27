@@ -19,6 +19,22 @@ export const router = createBrowserRouter([
       Component: (await import('@/features/callcenter/__prototype__/ConsolePrototypePage')).default,
     }),
   },
+  // PROTOTYPE — throwaway (wayfinder ticket 138). Same reasoning: it mounts
+  // 135's console whole, with only the guidance region swapped per variant.
+  {
+    path: '/prototype/near-miss-guidance',
+    lazy: async () => ({
+      Component: (await import('@/features/callcenter/__prototype__/guidance/GuidancePrototypePage')).default,
+    }),
+  },
+  // PROTOTYPE — throwaway (wayfinder ticket 138). Same reasoning: it mounts
+  // 135's console whole, with only the guidance region swapped per variant.
+  {
+    path: '/prototype/near-miss-guidance',
+    lazy: async () => ({
+      Component: (await import('@/features/callcenter/__prototype__/guidance/GuidancePrototypePage')).default,
+    }),
+  },
   {
     path: '/',
     Component: ProtectedLayout,

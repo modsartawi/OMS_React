@@ -122,6 +122,23 @@
 //        committed line and the order header carry the below-availability flags,
 //        with the line's pill reading *at add* rather than like the live one —
 //        while an UNKNOWN stock read never raises a confirmation at all.
+// Asserts ticket 170's Proof:
+//   theBasketTakesCorrections
+//    33. the receipt is ENGINE truth: totals that disagree with the lines on
+//        screen are still what the caller is quoted — the console sums nothing;
+//    34. a line says what it costs and WHY — the store price and VAT as separate
+//        conditions, and the promotion that fired on it in the offer's words —
+//        with the receipt pinned whole at the end edge;
+//    35. quantity, unit of measure and void each send ONE verb naming the line
+//        (a new quantity, never a delta, never a price), each re-renders from
+//        the returned state, and the receipt moves with all three — including
+//        the DELIVERY FEE, which is quoted live and waives itself as the basket
+//        crosses the threshold, as an outcome with no control on it;
+//    36. a quantity raised beyond availability takes 169's path unchanged — the
+//        same sheet, the same id, the same token — and declining puts the field
+//        back to what the order holds;
+//    37. LINE_NOT_FOUND and UOM_NOT_AVAILABLE are explained in the agent's words
+//        ON the line they were about, and the order is left exactly as it was.
 //   aRefusedRebindChangesNothingAndSaysWhichLine
 //    29. REBIND_REFUSED draws the banner in the server's own words, names the
 //        offending line THERE and tints it in the basket, and leaves the store,
@@ -274,7 +291,7 @@ const DERIVED_PLANT = {
 // §6.3's two refusals, each carrying a MACHINE code and a server sentence the
 // console must not simply relay: "not found" is precisely the wording the
 // contract forbids, so the stub says it and the console had better not.
-const addressRefusalResponse = (code, status, message) => ({
+const codedRefusal = (code, status, message) => ({
   status,
   contentType: 'application/json',
   body: JSON.stringify({
@@ -286,8 +303,8 @@ const addressRefusalResponse = (code, status, message) => ({
   }),
 })
 const ADDRESS_REFUSALS = {
-  noCustomer: addressRefusalResponse('NO_CUSTOMER_ATTACHED', 409, 'No customer attached to session.'),
-  notTheirs: addressRefusalResponse('ADDRESS_NOT_FOR_CUSTOMER', 403, 'Address 77120 not found for customer.'),
+  noCustomer: codedRefusal('NO_CUSTOMER_ATTACHED', 409, 'No customer attached to session.'),
+  notTheirs: codedRefusal('ADDRESS_NOT_FOR_CUSTOMER', 403, 'Address 77120 not found for customer.'),
 }
 
 // ---- ticket 167: the plant rebind, previewed then committed ----
@@ -483,6 +500,59 @@ const belowAtpAskFor = (row, qty, plant) => ({
   detail: { ...BELOW_ATP_BLOCK.detail, itemNumber: row.materialNumber, requested: qty, available: row.atp, plant },
 })
 
+// ---- ticket 170: the three corrections, and the engine that re-prices them ----
+//
+// 🚩 The re-price is the SERVER's, so all of it lives in the stub: a corrected
+// line is re-totalled from its own unit price, the order's totals are re-summed,
+// and the delivery fee falls away over the threshold fixture 02 already carries.
+// The console is watched to see that it RENDERS every one of those rather than
+// computing any of them — which is the whole subject of the ticket.
+const round = (value) => Math.round(value * 100) / 100
+
+// A box is not twelve singles: the unit decides the price, which is why
+// `changeUom` re-prices at all and why the receipt has to move with it.
+const UOM_FACTOR = { EA: 1, BOX: 12 }
+
+const linePriced = (line, { qty = line.qty, uom = line.uom } = {}) => {
+  const factor = UOM_FACTOR[uom] / UOM_FACTOR[line.uom]
+  const unitPrice = { net: round(line.unitPrice.net * factor), gross: round(line.unitPrice.gross * factor) }
+  return {
+    ...line,
+    qty,
+    uom,
+    unitPrice,
+    lineTotal: { net: round(unitPrice.net * qty), gross: round(unitPrice.gross * qty) },
+  }
+}
+
+// The engine's own totals. The console never does this — that is the point.
+const repriced = (state) => {
+  const net = round(state.lines.reduce((sum, line) => sum + line.lineTotal.net, 0))
+  const gross = round(state.lines.reduce((sum, line) => sum + line.lineTotal.gross, 0))
+  const fee = state.totals.deliveryFee
+  // Quoted LIVE as the basket changes (US36): crossing the threshold is
+  // something the agent watches happen, not something submit tells them.
+  const waived = gross >= fee.thresholdGross
+  return {
+    ...state,
+    totals: {
+      net,
+      vat: round(gross - net),
+      gross,
+      deliveryFee: { ...fee, waived },
+      payable: round(gross + (waived ? 0 : fee.amount)),
+    },
+  }
+}
+
+// §7's three codes for this verb family, each carrying the envelope so
+// `core/api.ts` maps it to kind:'business' and the console can read the code.
+const LINE_REFUSALS = {
+  notFound: codedRefusal('LINE_NOT_FOUND', 404, 'Line not found.'),
+  uom: codedRefusal('UOM_NOT_AVAILABLE', 409, 'UoM BOX is not valid for material 100455.'),
+  qty: codedRefusal('QTY_INVALID', 400, 'Quantity 0 is not valid.'),
+}
+
 // §7 — CONSOLE_NOT_GRANTED is a 403 CARRYING the envelope, so `core/api.ts` maps
 // it to kind:'business' and `apiErrorCode()` can read it. A refusal, not a fault.
 const REFUSAL = {
@@ -544,6 +614,10 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
  *                       a diff that already names an unpriceable line.
  *                       Otherwise the preview is unaffected: the agent must be
  *                       able to see the diff before the commit is what is tested.
+ * @param opts.lineEdit  how the three corrections answer (170): `null` applies
+ *                       them and re-prices, `'notFound'` refuses every one with
+ *                       LINE_NOT_FOUND (the stale screen), `'uomRefused'` and
+ *                       `'qtyInvalid'` refuse their own verb with §7's codes.
  */
 async function open(
   browser,
@@ -561,6 +635,7 @@ async function open(
     addressRefusal = null,
     bookFailures = 0,
     rebind = null,
+    lineEdit = null,
   } = {},
 ) {
   let stateReads = 0
@@ -686,6 +761,63 @@ async function open(
           submitBlockers: served.capabilities.submitBlockers.filter((c) => c !== 'NO_LINES'),
         },
       }
+      return route.fulfill(envelope(speak(served)))
+    }
+    // ---- 170: the three corrections, each returning the WHOLE state ----
+    if (p === 'CallCenterWeb/ChangeQty' || p === 'CallCenterWeb/VoidLine' || p === 'CallCenterWeb/ChangeUom') {
+      const body = route.request().postDataJSON()
+      if (lineEdit === 'notFound') return route.fulfill(LINE_REFUSALS.notFound)
+      const line = served.lines.find((l) => l.lineId === body.lineId)
+      // A line the order no longer holds — usually a screen that fell behind.
+      if (!line) return route.fulfill(LINE_REFUSALS.notFound)
+
+      let lines
+      let short = false
+      if (p === 'CallCenterWeb/VoidLine') {
+        lines = served.lines.filter((l) => l.lineId !== body.lineId)
+      } else if (p === 'CallCenterWeb/ChangeUom') {
+        if (lineEdit === 'uomRefused' || !line.uomOptions.includes(body.uom))
+          return route.fulfill(LINE_REFUSALS.uom)
+        lines = served.lines.map((l) => (l.lineId === body.lineId ? linePriced(l, { uom: body.uom }) : l))
+      } else {
+        if (lineEdit === 'qtyInvalid') return route.fulfill(LINE_REFUSALS.qty)
+        // 🚩 §5.2's soft gate, on the OTHER verb that can cross it — the same
+        // protocol as `addItem`, and an unknown freeze still asks nothing.
+        short = line.atpAtScan.known && body.newQty > line.atpAtScan.quantity
+        if (short && !body.confirmToken)
+          return route.fulfill(
+            envelope(
+              speak({
+                ...served,
+                pendingConfirmation: belowAtpAskFor(
+                  { materialNumber: line.itemNumber, atp: line.atpAtScan.quantity },
+                  body.newQty,
+                  served.header.plant,
+                ),
+              }),
+            ),
+          )
+        lines = served.lines.map((l) =>
+          l.lineId === body.lineId
+            ? { ...linePriced(l, { qty: body.newQty }), belowAtpAtScan: l.belowAtpAtScan || short }
+            : l,
+        )
+      }
+
+      served = repriced({
+        ...served,
+        version: served.version + 1,
+        pendingConfirmation: null,
+        header: { ...served.header, hasBelowAtp: served.header.hasBelowAtp || short },
+        lines,
+        capabilities: {
+          ...served.capabilities,
+          submitBlockers: [
+            ...served.capabilities.submitBlockers.filter((code) => code !== 'NO_LINES'),
+            ...(lines.length === 0 ? ['NO_LINES'] : []),
+          ],
+        },
+      })
       return route.fulfill(envelope(speak(served)))
     }
     // ---- 166 ----
@@ -2297,6 +2429,288 @@ async function run() {
       (await page.locator('[data-cc-line-below-atp]').count()) === 1,
     )
     check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ============ ticket 170 — the basket corrects itself ============
+
+  // ---- 33. the receipt is the ENGINE's, not a sum of what is on screen ----
+  {
+    // 🚩 Totals that deliberately do NOT match the lines. A console that summed
+    // would quote the caller its own arithmetic; this one quotes the till.
+    const DIVERGENT = { ...PRIOR_STATE, totals: { ...PRIOR_STATE.totals, net: 1, vat: 2, payable: 999.99 } }
+    const { context, page, errors } = await open(browser, { openState: DIVERGENT })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    const payable = await text(page, '[data-cc-payable]')
+    check('🚩 the receipt quotes the engine, not the lines on screen', payable.includes('999.99'), payable)
+    const lineTotals = await page.locator('[data-cc-line-total]').allInnerTexts()
+    check(
+      'and the lines it disagrees with are still drawn as the engine sent them',
+      lineTotals.some((row) => row.includes(String(PRIOR_STATE.lines[0].lineTotal.gross))),
+      lineTotals.join(' | '),
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 34. a line says what it costs and WHY ----
+  {
+    const { context, page, errors } = await open(browser, { openState: PRIOR_STATE })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    const L1 = PRIOR_STATE.lines[0]
+    const why = (await page.locator(`[data-cc-line-why="${L1.lineId}"]`).innerText()).replace(/\s+/g, ' ')
+    // 🚩 The store price and VAT as SEPARATE things — VAT is its own condition,
+    // and it is the fact that explains why the line reads above the estimate.
+    check(
+      'the line names the store price condition',
+      why.includes(L1.conditions[0].description) && why.includes(L1.conditions[0].value.toFixed(2)),
+      why,
+    )
+    check(
+      '🚩 and VAT as a condition of its own, not folded into the price',
+      (await page.locator(`[data-cc-line-why="${L1.lineId}"] [data-cc-condition="MWST"]`).count()) === 1 &&
+        why.includes(L1.conditions[2].value.toFixed(2)),
+      why,
+    )
+    check(
+      'and the promotion that fired on it, in the offer’s own words',
+      (await page.locator(`[data-cc-line-promo="${L1.promotions[0].offerId}"]`).count()) === 1 &&
+        why.includes(L1.promotions[0].description),
+      why,
+    )
+    check(
+      'the line total is the projection’s own figure',
+      (await text(page, `[data-cc-line-total="${L1.lineId}"]`)).includes(L1.lineTotal.gross.toFixed(2)),
+      await text(page, `[data-cc-line-total="${L1.lineId}"]`),
+    )
+    // The receipt is at the end edge and never scrolls away (US53).
+    const receipt = await page.locator('[data-cc-receipt]').boundingBox()
+    const console_ = await page.locator('[data-cc-console]').boundingBox()
+    check(
+      'the receipt is pinned at the end edge, whole',
+      receipt.x + receipt.width >= console_.x + console_.width - 1 && receipt.height >= 800,
+      JSON.stringify(receipt),
+    )
+    check('with Place order at its foot', await page.locator('[data-cc-receipt] [data-cc-submit]').isVisible())
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 35. quantity, unit and void — each re-renders from the returned state ----
+  {
+    const { context, page, errors, wire } = await open(browser, { openState: PRIOR_STATE })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    const [L1, L2] = PRIOR_STATE.lines
+    const payableBefore = await text(page, '[data-cc-payable]')
+
+    // ---- the quantity ----
+    await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).fill('3')
+    await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).press('Enter')
+    await page.waitForFunction(
+      (before) => document.querySelector('[data-cc-payable]').innerText.trim() !== before,
+      payableBefore,
+      { timeout: 10_000 },
+    )
+    const qtyCalls = wire.filter((w) => w.path === 'CallCenterWeb/ChangeQty')
+    check('one ChangeQty, naming the line and the NEW quantity', qtyCalls.length === 1 && qtyCalls[0].body.lineId === L1.lineId && qtyCalls[0].body.newQty === 3, JSON.stringify(qtyCalls[0]?.body))
+    // 🚩 Law 1 — no verb takes an amount, and none of them sends a delta either:
+    // a delta applied to a line that moved under the agent is a quantity nobody
+    // chose.
+    check(
+      'and never a price and never a delta',
+      !/price|amount|delta|by\b/i.test(Object.keys(qtyCalls[0].body).join(',')),
+      JSON.stringify(qtyCalls[0].body),
+    )
+    check(
+      'the line re-renders at the engine’s quantity',
+      (await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).inputValue()) === '3',
+    )
+    const payableAfterQty = await text(page, '[data-cc-payable]')
+    check('and the receipt moves with it', payableAfterQty !== payableBefore, `${payableBefore} → ${payableAfterQty}`)
+
+    // ---- 🚩 the delivery fee, quoted live while the basket is under it ----
+    check('the fee is quoted while the basket is under the threshold', await page.locator('[data-cc-delivery-fee]').isVisible())
+    check(
+      'and the threshold itself is stated, so the crossing is watchable',
+      (await text(page, '[data-cc-delivery-threshold]')).includes(
+        PRIOR_STATE.totals.deliveryFee.thresholdGross.toFixed(2),
+      ),
+      await text(page, '[data-cc-delivery-threshold]'),
+    )
+
+    // ---- the unit of measure ----
+    check(
+      'a line with one unit gets a word, not a control',
+      (await page.locator(`select[data-cc-line-uom="${L1.lineId}"]`).count()) === 0 &&
+        (await text(page, `[data-cc-line-uom="${L1.lineId}"]`)) === L1.uom,
+    )
+    check('a line with two gets the choice', (await page.locator(`select[data-cc-line-uom="${L2.lineId}"]`).count()) === 1)
+    await page.locator(`select[data-cc-line-uom="${L2.lineId}"]`).selectOption('BOX')
+    await page.waitForFunction(
+      (before) => document.querySelector('[data-cc-payable]').innerText.trim() !== before,
+      payableAfterQty,
+      { timeout: 10_000 },
+    )
+    const uomCalls = wire.filter((w) => w.path === 'CallCenterWeb/ChangeUom')
+    check('one ChangeUom, naming the line and the unit', uomCalls.length === 1 && uomCalls[0].body.lineId === L2.lineId && uomCalls[0].body.uom === 'BOX', JSON.stringify(uomCalls[0]?.body))
+    check('the line re-renders in the new unit', (await page.locator(`select[data-cc-line-uom="${L2.lineId}"]`).inputValue()) === 'BOX')
+    check('and the receipt re-prices — a box is not a single', (await text(page, '[data-cc-payable]')) !== payableAfterQty)
+
+    // 🚩 And the crossing itself: the unit change took the basket over the
+    // threshold, so the fee falls away WHILE the agent is on the call rather
+    // than being discovered at submit (US36).
+    await page.locator('[data-cc-delivery-waived]').waitFor({ timeout: 10_000 })
+    check(
+      '🚩 crossing the threshold waives the fee, live and mid-basket',
+      (await page.locator('[data-cc-delivery-fee]').count()) === 0 &&
+        (await page.locator('[data-cc-delivery-threshold]').count()) === 0,
+      await text(page, '[data-cc-receipt]'),
+    )
+    check(
+      '🚩 and the waiver is an OUTCOME, never a control',
+      (await page.locator('[data-cc-delivery-waived] button, [data-cc-delivery-waived] input').count()) === 0 &&
+        (await page.locator('[data-cc-receipt] button').count()) === 1,
+    )
+
+    // ---- the void ----
+    const linesBefore = await page.locator('[data-cc-line]').count()
+    await page.locator(`[data-cc-line-void="${L1.lineId}"]`).click()
+    await page.waitForFunction(
+      (count) => document.querySelectorAll('[data-cc-line]').length < count,
+      linesBefore,
+      { timeout: 10_000 },
+    )
+    const voids = wire.filter((w) => w.path === 'CallCenterWeb/VoidLine')
+    check('one VoidLine, on its own requestId', voids.length === 1 && voids[0].body.lineId === L1.lineId && !!voids[0].body.requestId, JSON.stringify(voids[0]?.body))
+    check('voiding one line needs no confirmation', (await page.locator('dialog[open]').count()) === 0)
+    check('the line is gone from the basket', (await page.locator(`[data-cc-line="${L1.lineId}"]`).count()) === 0)
+    check('and the other line is still there', (await page.locator(`[data-cc-line="${L2.lineId}"]`).count()) === 1)
+    // Every correction is one action with one id — three verbs, three ids.
+    const ids = [...qtyCalls, ...uomCalls, ...voids].map((w) => w.body.requestId)
+    check('each correction carried an id of its own', new Set(ids).size === ids.length, ids.join(' | '))
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 36. raising a quantity beyond availability takes 169's path, unchanged ----
+  {
+    const { context, page, errors, wire } = await open(browser, { openState: PRIOR_STATE })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    const L1 = PRIOR_STATE.lines[0]
+    await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).fill('9')
+    await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).press('Enter')
+    await page.locator('[data-cc-confirm-sheet="belowAtp"]').waitFor({ timeout: 10_000 })
+
+    // 🚩 The SAME sheet as the add's — one mechanism, two verbs.
+    check(
+      'it arrives in the console’s ONE confirmation surface',
+      (await page.locator('[data-cc-confirm-accept]').count()) === 1 &&
+        (await page.locator('[data-cc-confirm-sheet]').count()) === 1,
+    )
+    check(
+      'naming what was asked for and what is there',
+      (await text(page, '[data-cc-below-atp="requested"]')) === '9' &&
+        (await text(page, '[data-cc-below-atp="available"]')) === String(L1.atpAtScan.quantity),
+    )
+    // 🚩 One mechanism, the verb's own WORDS: an agent raising a line already in
+    // the basket must not be asked whether to *add* it.
+    const raiseSheet = (await page.locator('dialog').innerText()).replace(/\s+/g, ' ')
+    check(
+      '🚩 and it asks about the quantity, never about adding an item',
+      /raise/i.test(raiseSheet) && !/\badd\b/i.test(raiseSheet),
+      raiseSheet,
+    )
+    check(
+      'nothing was applied — the ask carried the unchanged state',
+      (await text(page, `[data-cc-line-total="${L1.lineId}"]`)).includes(L1.lineTotal.gross.toFixed(2)),
+      await text(page, `[data-cc-line-total="${L1.lineId}"]`),
+    )
+
+    await page.locator('[data-cc-confirm-accept]').click()
+    await page.waitForFunction(
+      (id) => document.querySelector(`[data-cc-line-qty="${id}"]`).value === '9',
+      L1.lineId,
+      { timeout: 10_000 },
+    )
+    const qtyCalls = wire.filter((w) => w.path === 'CallCenterWeb/ChangeQty')
+    check('the acceptance is a second send of the same verb', qtyCalls.length === 2, String(qtyCalls.length))
+    check(
+      '🚩 on the SAME requestId, carrying the token',
+      qtyCalls[0].body.requestId === qtyCalls[1].body.requestId &&
+        !qtyCalls[0].body.confirmToken &&
+        qtyCalls[1].body.confirmToken === BELOW_ATP_TOKEN,
+      JSON.stringify(qtyCalls[1].body),
+    )
+    check('the line now carries the below-availability flag', (await page.locator(`[data-cc-line-below-atp="${L1.lineId}"]`).count()) === 1)
+    check('and so does the order header', await page.locator('[data-cc-has-below-atp]').isVisible())
+
+    // ---- declining a raise leaves the line exactly as the engine holds it ----
+    await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).fill('40')
+    await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).press('Enter')
+    await page.locator('[data-cc-confirm-sheet="belowAtp"]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-confirm-decline]').click()
+    await page.locator('[data-cc-confirm-sheet="belowAtp"]').waitFor({ state: 'detached', timeout: 10_000 })
+    check(
+      '🚩 declining puts the field back to what the order holds',
+      (await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).inputValue()) === '9',
+      await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).inputValue(),
+    )
+    check(
+      'and sends no commit behind the agent’s back',
+      wire.filter((w) => w.path === 'CallCenterWeb/ChangeQty').length === 3,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 37. a refused correction is explained and changes nothing ----
+  for (const [kind, verb] of [
+    ['notFound', 'void'],
+    ['uomRefused', 'uom'],
+    ['qtyInvalid', 'qty'],
+  ]) {
+    const { context, page, errors } = await open(browser, { openState: PRIOR_STATE, lineEdit: kind })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    const [L1, L2] = PRIOR_STATE.lines
+    const target = verb === 'uom' ? L2 : L1
+    const payableBefore = await text(page, '[data-cc-payable]')
+    if (verb === 'void') await page.locator(`[data-cc-line-void="${L1.lineId}"]`).click()
+    else if (verb === 'uom') await page.locator(`select[data-cc-line-uom="${L2.lineId}"]`).selectOption('BOX')
+    else {
+      await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).fill('4')
+      await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).press('Enter')
+    }
+
+    await page.locator(`[data-cc-line-error="${target.lineId}"]`).waitFor({ timeout: 10_000 })
+    const shown = (await text(page, `[data-cc-line-error="${target.lineId}"]`)).replace(/\s+/g, ' ')
+    check(`the refusal is explained (${kind})`, shown.length > 40, shown)
+    check(`no machine code reaches the agent (${kind})`, !/[A-Z]{3,}_[A-Z_]+/.test(shown), shown)
+    check(
+      `it is drawn ON the line it was about (${kind})`,
+      (await page.locator(`[data-cc-line="${target.lineId}"] [data-cc-line-error]`).count()) === 1,
+    )
+    check(`the basket is untouched (${kind})`, (await page.locator('[data-cc-line]').count()) === PRIOR_STATE.lines.length)
+    check(
+      `and the line still reads what the order holds (${kind})`,
+      verb === 'qty'
+        ? (await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).inputValue()) === String(L1.qty)
+        : verb === 'uom'
+          ? (await page.locator(`select[data-cc-line-uom="${L2.lineId}"]`).inputValue()) === L2.uom
+          : (await page.locator(`[data-cc-line="${L1.lineId}"]`).count()) === 1,
+    )
+    check(`and the total is exactly what it was (${kind})`, (await text(page, '[data-cc-payable]')) === payableBefore)
+    check(`the console is still usable (${kind})`, await page.locator('[data-cc-search-input]').isEnabled())
+    check(`no console errors (${kind})`, errors.length === 0, errors[0] ?? '')
     await context.close()
   }
 

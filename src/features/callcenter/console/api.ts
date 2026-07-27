@@ -328,6 +328,73 @@ export const callCenterApi = {
   },
 
   /**
+   * `POST CallCenterWeb/ChangeQty` → the whole `SessionState` (law 2). The
+   * commonest correction on a call: the caller changes their mind, and the
+   * basket keeps up without starting over.
+   *
+   * 🚩 It sends a **new quantity**, never a delta — the engine owns what the
+   * line holds, and a delta applied to a line that moved under the agent would
+   * be a quantity nobody chose.
+   *
+   * Beyond availability it is the SAME two-phase path as `addItem`
+   * ([169](.issues/169-below-availability-accepted.md)): `200` with the
+   * unchanged state and a `belowAtp` token, and the acceptance is a second send
+   * of this verb on the same `requestId` carrying it. Where availability is
+   * merely *unknown*, nothing is raised at all.
+   *
+   * Refuses `LINE_NOT_FOUND` (usually a stale screen) and `QTY_INVALID` (zero,
+   * negative, or beyond the per-line cap — the cap is the engine's and is never
+   * re-implemented here).
+   */
+  changeQty(
+    transactionId: string,
+    requestId: string,
+    lineId: string,
+    newQty: number,
+    confirmToken?: string,
+  ): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/ChangeQty', {
+      transactionId,
+      requestId,
+      lineId,
+      newQty,
+      ...(confirmToken ? { confirmToken } : {}),
+    })
+  },
+
+  /**
+   * `POST CallCenterWeb/VoidLine` → the whole `SessionState` (law 2).
+   *
+   * 🚩 **No confirmation, by contract and by ruling.** It carries no
+   * `confirmToken` field at all (§1.1): voiding one line is an ordinary
+   * correction the agent can undo by adding it again, and §5's "are you sure"
+   * is reserved for what re-prices the whole basket. The act that DOES throw a
+   * basket away — abandon — keeps its dialog (163).
+   *
+   * Refuses `LINE_NOT_FOUND`, which on this verb is nearly always a screen that
+   * has fallen behind rather than a mistake the agent made.
+   */
+  voidLine(transactionId: string, requestId: string, lineId: string): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/VoidLine', { transactionId, requestId, lineId })
+  },
+
+  /**
+   * `POST CallCenterWeb/ChangeUom` → the whole `SessionState` (law 2).
+   *
+   * The unit is one of the line's own `uomOptions` — the projection's list, so
+   * the console never offers a unit the item does not come in. A unit outside it
+   * refuses `UOM_NOT_AVAILABLE`; that path stays reachable because the basket
+   * can fall behind, not because the console invents units.
+   *
+   * It re-prices (a box is not twelve singles), which is why it returns the
+   * whole state like everything else — including `totals`, so the receipt moves
+   * with it.
+   */
+  changeUom(transactionId: string, requestId: string, lineId: string, uom: string): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/ChangeUom', { transactionId, requestId, lineId, uom })
+  },
+
+  /**
    * `GET CallCenterWeb/State` — refresh, recovery, reload and second tab only
    * (law 2). Never a way to "sync": a mutating verb has already returned the
    * whole state.

@@ -64,7 +64,7 @@ import {
   readOpenResult,
   type PendingAbandon,
 } from './open-outcome'
-import { isCommitting } from './confirm-action'
+import { isCommitting, type ConfirmableAction } from './confirm-action'
 import {
   beginStoreMove,
   committingStoreMove,
@@ -83,6 +83,13 @@ import {
   type BelowAtpAsk,
   type ItemAdd,
 } from './below-atp'
+import {
+  beginLineEdit,
+  committingLineEdit,
+  lineRefusalKey,
+  reaskingLineEdit,
+  type LineEdit,
+} from './line-edit'
 import AbandonConfirm from './AbandonConfirm'
 import AddressPicker from './AddressPicker'
 import BelowAtpConfirm from './BelowAtpConfirm'
@@ -253,6 +260,17 @@ function ConsoleSession() {
   /** An ask this console could not state truthfully, so it drew no sheet — and
    *  the add therefore did not land. See `addItem.onSuccess`. */
   const [addUnconfirmable, setAddUnconfirmable] = useState(false)
+
+  /**
+   * The correction in flight (170) — quantity, unit of measure or void — as the
+   * same three facts, for the same reasons. A quantity RAISED beyond
+   * availability takes 169's confirm path unchanged, which is why `editAsk` and
+   * `editReissue` exist here at all and why they feed the same sheet: a second
+   * acceptance surface would be the defect both slices exist to prevent.
+   */
+  const [edit, setEdit] = useState<LineEdit | null>(null)
+  const [editAsk, setEditAsk] = useState<BelowAtpAsk | null>(null)
+  const [editReissue, setEditReissue] = useState<PreviewReissue | null>(null)
 
   /** `REBIND_REFUSED` — atomic, so the order behind it is untouched. It outlives
    *  the action that raised it: the agent has to read it, and it names the line
@@ -428,6 +446,10 @@ function ConsoleSession() {
       setBelowAtp(null)
       setAddReissue(null)
       setAddUnconfirmable(false)
+      // And a correction to a line on a basket that no longer exists.
+      setEdit(null)
+      setEditAsk(null)
+      setEditReissue(null)
       setPickingStore(false)
       colliders.current = 0
       setColliding(null)
@@ -598,6 +620,172 @@ function ConsoleSession() {
     clearAdd()
     addItem.reset()
   }
+
+  /**
+   * The basket's three corrections (170), as ONE mutation — because they are one
+   * act with three shapes, only one of them can be in flight at a time (the
+   * engine's claim is a mutual exclusion), and one pending flag plus one failure
+   * surface is therefore the honest shape. The same reasoning that made attach
+   * and remove one mutation at 165.
+   *
+   * 🚩 **Each returns the whole `SessionState`**, so the basket and the receipt
+   * are RE-RENDERED rather than patched — including `totals`, which is how the
+   * delivery fee re-quotes live as the basket crosses its threshold (US36)
+   * without this console knowing the fee rule at all (that is 156's, server-side).
+   *
+   * 🚩 **A quantity raised beyond availability takes 169's path unchanged**: the
+   * same `belowAtp` block, the same sheet, the same token on the same
+   * `requestId`. Nothing about it is re-implemented here.
+   */
+  const lineEdit = useMutation({
+    // No `again`: the row draws this call's own failure, on the line it was
+    // about, and a strip offering a second retry above it is one retry too many.
+    mutationFn: (correction: LineEdit) =>
+      // 🚩 The id is the CORRECTION's, minted once at `beginLineEdit` and carried
+      // through an acceptance and a re-ask. A fresh id inside the thunk would let
+      // a busy retry look like two voids of a line the caller can only lose once.
+      runGuarded(() => {
+        const { requestId, lineId } = correction
+        if (correction.kind === 'qty')
+          return callCenterApi.changeQty(transactionId!, requestId, lineId, correction.qty, correction.confirmToken)
+        if (correction.kind === 'uom')
+          return callCenterApi.changeUom(transactionId!, requestId, lineId, correction.uom)
+        return callCenterApi.voidLine(transactionId!, requestId, lineId)
+      }),
+    onSuccess: (fresh, correction) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+      const asked = belowAtpAsk(fresh.pendingConfirmation)
+      if (asked) {
+        // Are-you-sure, on the success path — the quantity did NOT change. The
+        // token pins THESE figures, so it travels with the action.
+        setEdit(committingLineEdit(correction, asked.confirmToken))
+        setEditAsk(asked)
+        return
+      }
+      clearEdit()
+    },
+    onError: (err, correction) => {
+      const code = apiErrorCode(err)
+      // The same bounded re-ask as the add and the rebind: only a send that
+      // CARRIED a token can raise these, and the re-send carries none.
+      if (
+        correction.confirmToken !== undefined &&
+        (code === 'CONFIRM_TOKEN_STALE' || code === 'CONFIRM_TOKEN_INVALID')
+      ) {
+        setEditReissue(code === 'CONFIRM_TOKEN_STALE' ? 'stale' : 'expired')
+        setEditAsk(null)
+        const again = reaskingLineEdit(correction)
+        setEdit(again)
+        lineEdit.mutate(again)
+        return
+      }
+      // A failed ACCEPTANCE stays in the sheet the agent is looking at (169's
+      // ruling); an ordinary failure is drawn on the line, by `lineFailure`.
+      if (correction.confirmToken !== undefined) return
+      // The action is over — its failure is drawn on the line by `lineFailure`,
+      // and nothing may keep pointing at an ask that is no longer being made.
+      clearEdit()
+    },
+    retry: false,
+  })
+
+  /** Everything one correction was holding. */
+  const clearEdit = () => {
+    setEdit(null)
+    setEditAsk(null)
+    setEditReissue(null)
+  }
+
+  /**
+   * 🚩 What a refused correction says, wherever it is drawn.
+   *
+   * The three codes this verb family raises are worded by the console
+   * (`line-edit.ts`), because the server's own sentence answers the wrong
+   * question — an agent told "line L2 not found" mid-call has no idea that the
+   * screen has simply fallen behind. Anything else is the server's own words
+   * (§7), never flattened into a generic failure.
+   *
+   * It is ONE function because the same refusal can arrive on either send: the
+   * first, which the line draws, or the token-carrying acceptance, which the
+   * sheet draws. Wording only the first would leave the agent reading a machine
+   * sentence at exactly the moment they are being asked to decide.
+   */
+  const lineRefusal = (fallback: string) => {
+    const key = lineRefusalKey(apiErrorCode(lineEdit.error))
+    return key ? t(`line.refused.${key}`) : apiErrorMessage(lineEdit.error, fallback)
+  }
+
+  /**
+   * What the basket should say about the last correction, on the line it was
+   * about. Silent while the sheet is open: a failure of the acceptance is named
+   * IN the sheet, and one refusal in two voices is what 167 settled.
+   */
+  const lineFailure =
+    lineEdit.isError && lineEdit.variables && !editAsk
+      ? { lineId: lineEdit.variables.lineId, message: lineRefusal(t('line.refused.fallback')) }
+      : null
+
+  /** Declining a quantity raise costs nothing: the ask carried the UNCHANGED
+   *  state, so the line still holds what it held — only the sheet to close. */
+  const declineEdit = () => {
+    clearEdit()
+    lineEdit.reset()
+  }
+
+  /**
+   * A failed COMMIT — the send that carried a token — worded for the sheet the
+   * agent is looking at. Ordinary failures belong to the surface that raised
+   * them, and a code this page has already answered by re-asking belongs to
+   * neither: one refusal, one voice (167).
+   */
+  const commitFailure = (
+    mutation: { isError: boolean; error: unknown; variables?: ConfirmableAction | null },
+    fallback: string,
+  ) =>
+    mutation.isError && isCommitting(mutation.variables) && !ANSWERED_BY_THE_PAGE.includes(apiErrorCode(mutation.error) ?? '')
+      ? apiErrorMessage(mutation.error, fallback)
+      : null
+
+  /**
+   * 🚩 **The one below-availability acceptance on screen**, whichever verb
+   * raised it — the add (169) or the quantity raise (170). They cannot both be
+   * asking: each is a claim on the same order, so the second would have
+   * collided. Answering them through one object is what keeps the sheet one
+   * mechanism rather than one per verb.
+   */
+  const acceptance = belowAtp
+    ? {
+        // The verb is the acceptance's, and it changes the WORDS and nothing
+        // else: an agent raising a line already in the basket must not be asked
+        // whether to *add* it.
+        verb: 'add' as const,
+        ask: belowAtp,
+        item: add?.description,
+        reissue: addReissue,
+        busy: addItem.isPending,
+        error: commitFailure(addItem, t('belowAtp.failed')),
+        confirm: () => add && addItem.mutate(add),
+        cancel: declineAdd,
+      }
+    : editAsk
+      ? {
+          verb: 'raise' as const,
+          ask: editAsk,
+          item: edit?.description,
+          reissue: editReissue,
+          busy: lineEdit.isPending,
+          // 🚩 Worded like the first send: a `LINE_NOT_FOUND` on the acceptance
+          // is the same fact and needs the same sentence.
+          error:
+            commitFailure(lineEdit, t('belowAtp.raiseFailed')) === null
+              ? null
+              : lineRefusal(t('belowAtp.raiseFailed')),
+          confirm: () => edit && lineEdit.mutate(edit),
+          cancel: declineEdit,
+        }
+      : null
 
   /**
    * 🚩 **The plant rebind, as ONE action** — the verb the agent reached it by is
@@ -962,6 +1150,32 @@ function ConsoleSession() {
             setAddUnconfirmable(false)
           },
         }}
+        // 🚩 The three corrections are offered only while the order is OPEN: a
+        // submitted basket has nothing to correct, and a control that would be
+        // refused is worse than no control (165's ruling, and the same one the
+        // abandon button already follows).
+        lineEdit={
+          session.data.status === 'open'
+            ? {
+                onQty: (line, qty) =>
+                  lineEdit.mutate(
+                    // The description travels so the acceptance sheet can name
+                    // what the agent is holding rather than an item number. It
+                    // is display only — the wire carries the line id (law 1).
+                    beginLineEdit({ kind: 'qty', lineId: line.lineId, qty, description: line.description }),
+                  ),
+                onUom: (line, uom) =>
+                  lineEdit.mutate(beginLineEdit({ kind: 'uom', lineId: line.lineId, uom })),
+                onVoid: (line) => lineEdit.mutate(beginLineEdit({ kind: 'void', lineId: line.lineId })),
+                // 🚩 Unfinished, not merely in flight: a quantity raise waiting
+                // on the agent's acceptance is still this line's correction, and
+                // the field must keep what they typed until it settles. Which is
+                // the two halves below — the call itself, and the ask it raised.
+                pending: lineEdit.isPending ? lineEdit.variables : editAsk ? edit : null,
+                error: lineFailure,
+              }
+            : null
+        }
         onAbandon={
           session.data.status === 'open'
             ? () =>
@@ -1029,23 +1243,22 @@ function ConsoleSession() {
         onConfirm={() => move && rebind.mutate(move)}
         onCancel={declineMove}
       />
+      {/* 🚩 ONE below-availability acceptance on screen, whichever verb raised
+          it: the add (169) and the quantity raise (170) reach the SAME sheet
+          with the same figures and the same buttons. Two mount points would be
+          the second mechanism this pattern exists to prevent. */}
       <BelowAtpConfirm
-        ask={belowAtp}
-        itemName={add?.description}
-        reissue={addReissue}
-        busy={addItem.isPending}
-        // The panel draws an ordinary add failure under the rows; what belongs
-        // in the sheet is only a failure of the ACCEPTANCE the agent is looking
-        // at — and never one this page has already answered by re-asking.
-        error={
-          addItem.isError &&
-          isCommitting(addItem.variables) &&
-          !ANSWERED_BY_THE_PAGE.includes(apiErrorCode(addItem.error) ?? '')
-            ? apiErrorMessage(addItem.error, t('belowAtp.failed'))
-            : null
-        }
-        onConfirm={() => add && addItem.mutate(add)}
-        onCancel={declineAdd}
+        ask={acceptance?.ask ?? null}
+        verb={acceptance?.verb}
+        itemName={acceptance?.item}
+        reissue={acceptance?.reissue ?? null}
+        busy={acceptance?.busy ?? false}
+        // The panel draws an ordinary failure where the agent's eye is; what
+        // belongs in the sheet is only a failure of the ACCEPTANCE they are
+        // looking at — and never one this page has already answered by re-asking.
+        error={acceptance?.error ?? null}
+        onConfirm={() => acceptance?.confirm()}
+        onCancel={() => acceptance?.cancel()}
       />
       {abandonDialog}
     </>

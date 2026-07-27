@@ -24,12 +24,13 @@ import { useTranslation } from 'react-i18next'
 import { RefreshCw, X } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import { formatMoney } from '@/core/util/number-format'
-import AvailabilityPill from './AvailabilityPill'
-import { frozenAvailability } from './below-atp'
+import BasketPanel, { type BasketActions } from './BasketPanel'
+import { receiptView } from './basket-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CustomerRail, { type CustomerActions } from './CustomerRail'
 import { headerChips, type HeaderChip } from './header-chips'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
+import Money from './Money'
 import type { RebindRefusal } from './store-move'
 
 export default function ConsoleShell({
@@ -40,6 +41,7 @@ export default function ConsoleShell({
   busy = null,
   customerActions,
   addItem,
+  lineEdit,
   onPickAddress,
   onChangeStore,
   refusal = null,
@@ -62,6 +64,10 @@ export default function ConsoleShell({
    *  page's for the same reason as every other verb: it returns the whole
    *  `SessionState`. */
   addItem: AddItemActions
+  /** The basket's own three verbs (170) — quantity, unit of measure, void. The
+   *  page's for the same reason as every other verb: each returns the whole
+   *  `SessionState`. `null` once the order is no longer open. */
+  lineEdit: BasketActions | null
   /** Opens the address book (166). The dialog and the `setAddress` verb are the
    *  page's — it returns the whole `SessionState` — so all that travels down
    *  here is the request to open it. */
@@ -107,7 +113,7 @@ export default function ConsoleShell({
               search is above the basket because that is the direction the work
               runs in: what the agent finds lands underneath it. */}
           <ItemSearchPanel state={state} add={addItem} />
-          <Basket state={state} refusedLines={refusedLines} />
+          <BasketPanel state={state} refusedLines={refusedLines} actions={lineEdit} />
         </main>
         <Receipt state={state} />
       </div>
@@ -277,97 +283,20 @@ function RebindBanner({ refusal, onDismiss }: { refusal: RebindRefusal | null; o
   )
 }
 
-function Basket({ state, refusedLines }: { state: SessionState; refusedLines: Set<string> }) {
-  const { t } = useTranslation('callcenter')
-  return (
-    <div className="min-h-0 flex-1 overflow-auto" data-cc-basket>
-      <div className="flex items-center justify-between border-b border-divider px-4 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-        <span>{t('basket.heading')}</span>
-        <span className="flex items-center gap-2">
-          {/* 🚩 The order-level fraud signal (§5.2, BackOffice 285/286), shown
-              because the agent accepted it and should be able to see that they
-              did — never as a warning to act on, and never client-derived: it is
-              the header's own field. */}
-          {state.header.hasBelowAtp && (
-            <span className="rounded-full bg-attention-050 px-2 py-0.5 font-medium normal-case text-attention-800" data-cc-has-below-atp>
-              {t('basket.hasBelowAtp')}
-            </span>
-          )}
-          <span data-numeric>{t('basket.lineCount', { count: state.lines.length })}</span>
-        </span>
-      </div>
-      {state.lines.length === 0 ? (
-        <div className="p-10 text-center text-sm text-muted-foreground" data-cc-basket-empty>
-          {t('basket.empty')}
-        </div>
-      ) : (
-        state.lines.map((line) => {
-          // 🚩 The second of the refusal's two places. A banner alone leaves the
-          // agent reading an item number back against a list; the tint puts the
-          // answer where their eye already is.
-          const refused = refusedLines.has(line.lineId)
-          return (
-          <div
-            key={line.lineId}
-            className={`border-b border-divider px-4 py-2.5 ${refused ? 'bg-danger-050' : ''}`}
-            data-cc-line={line.lineId}
-            {...(refused ? { 'data-cc-line-refused': line.lineId } : {})}
-          >
-            <div className="flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm">{line.description}</div>
-                <div data-numeric className="text-xs text-muted-foreground">
-                  {line.itemNumber}
-                  {/* 🚩 What the agent's acceptance produced (§5.2). The server's
-                      own flag on the line, not a client re-derivation from the
-                      frozen figure beside it — the token is what recorded it. */}
-                  {line.belowAtpAtScan && (
-                    <span className="ms-2 font-medium text-attention-800" data-cc-line-below-atp={line.lineId}>
-                      {t('line.belowAtpAccepted')}
-                    </span>
-                  )}
-                  {refused && (
-                    <span className="ms-2 font-medium text-danger-800">{t('rebind.lineRefused')}</span>
-                  )}
-                </div>
-              </div>
-              {/* 🚩 Availability as FROZEN when the item was added (§2.1), in the
-                  search row's own three states but labelled *at add* — so a
-                  frozen figure and a live one never read alike, and a re-freeze
-                  after a store move (167) is visible rather than silent. */}
-              <span data-cc-line-atp={line.lineId}>
-                <AvailabilityPill availability={frozenAvailability(line.atpAtScan)} keyBase="line.atp" />
-              </span>
-              <span data-numeric className="text-xs text-muted-foreground">
-                {line.qty} {line.uom}
-              </span>
-              <Money value={line.lineTotal.gross} />
-            </div>
-          </div>
-          )
-        })
-      )}
-    </div>
-  )
-}
-
-/** Engine money — VAT-inclusive, tabular, currency named. `SAR` is reserved for
- *  this register: an estimate never carries a currency word (135 amendment 1). */
-function Money({ value, size = 'md' }: { value: number; size?: 'md' | 'lg' }) {
-  const { t } = useTranslation('callcenter')
-  return (
-    <span data-numeric className={size === 'lg' ? 'text-xl font-semibold' : 'text-sm font-medium'}>
-      {formatMoney(value)}
-      <span className="ms-1 text-[0.7em] font-normal text-ink-3">{t('money.currency')}</span>
-    </span>
-  )
-}
-
-/** The live receipt — never goes below the fold, with *Place order* pinned to
- *  its foot where it never scrolls away (US53). */
+/**
+ * The live receipt — never goes below the fold, with *Place order* pinned to its
+ * foot where it never scrolls away (US53).
+ *
+ * 🚩 **Every figure is the engine's** (`receiptView` takes `totals` and is never
+ * given the lines, §2.1). It re-quotes as the basket changes because the basket's
+ * verbs return the whole state — including the **delivery fee**, so crossing its
+ * threshold is something the agent watches happen rather than discovers at
+ * submit (US36).
+ */
 function Receipt({ state }: { state: SessionState }) {
   const { t } = useTranslation('callcenter')
-  const { totals, capabilities } = state
+  const { capabilities } = state
+  const receipt = receiptView(state.totals)
   return (
     <aside className="flex min-h-0 flex-col bg-card" data-cc-receipt>
       <div className="border-b border-divider px-4 py-2 text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -375,23 +304,44 @@ function Receipt({ state }: { state: SessionState }) {
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
         <dl className="space-y-1.5 text-sm">
-          <Row label={t('receipt.items')} value={<Money value={totals.net} />} />
-          <Row label={t('receipt.vat')} value={<Money value={totals.vat} />} />
-          <Row
-            label={t('receipt.delivery')}
-            value={
-              totals.deliveryFee.waived ? (
-                // `waived` is an outcome shown, never a control (156).
-                <span className="text-xs text-success-800">{t('receipt.waived')}</span>
-              ) : (
-                <Money value={totals.deliveryFee.amount} />
-              )
-            }
-          />
+          <Row label={t('receipt.items')} value={<Money value={receipt.net} />} />
+          <Row label={t('receipt.vat')} value={<Money value={receipt.vat} />} />
+          {receipt.delivery && (
+            <Row
+              label={t('receipt.delivery')}
+              value={
+                receipt.delivery.waived ? (
+                  // 🚩 `waived` is an OUTCOME the agent is shown, never a control
+                  // they operate — the manual waiver was removed (map note 4's
+                  // correction), so there is nothing here to switch.
+                  <span className="text-xs font-medium text-success-800" data-cc-delivery-waived>
+                    {t('receipt.waived')}
+                  </span>
+                ) : (
+                  <span data-cc-delivery-fee>
+                    <Money value={receipt.delivery.amount} />
+                  </span>
+                )
+              }
+            />
+          )}
+          {/* What the basket has to reach for the fee to fall away — the
+              server's own threshold, so the agent can say it out loud while the
+              caller is still deciding. */}
+          {receipt.delivery && !receipt.delivery.waived && receipt.delivery.thresholdGross !== null && (
+            <p className="text-[11px] text-muted-foreground" data-cc-delivery-threshold>
+              {/* Engine money, so it carries the currency word — read from the
+                  one key that holds it rather than spelled into the sentence. */}
+              {t('receipt.freeOver', {
+                amount: formatMoney(receipt.delivery.thresholdGross),
+                currency: t('money.currency'),
+              })}
+            </p>
+          )}
           <div className="mt-3 flex items-baseline justify-between border-t border-border-strong pt-3">
             <span className="text-sm font-semibold">{t('receipt.total')}</span>
             <span data-cc-payable>
-              <Money value={totals.payable} size="lg" />
+              <Money value={receipt.payable} size="lg" />
             </span>
           </div>
         </dl>

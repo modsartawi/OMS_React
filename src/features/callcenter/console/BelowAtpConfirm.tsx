@@ -21,8 +21,18 @@ import type { BelowAtpAsk } from './below-atp'
 import ConfirmSheet, { type PreviewReissue } from './ConfirmSheet'
 import { NOTE } from './console-notes'
 
+/**
+ * Which act the acceptance is about. 🚩 The **mechanism** is one — the same
+ * sheet, the same figures, the same token — but the **words** are the verb's:
+ * an agent raising a line that is already in the basket must not be asked
+ * whether to *add* it (170). Three classes told apart by words rather than by
+ * treatment alone is this console's standing habit.
+ */
+export type BelowAtpVerb = 'add' | 'raise'
+
 export default function BelowAtpConfirm({
   ask,
+  verb = 'add',
   /** The item's own name, where the row the agent added from carried one. Server
    *  text, passed through as data; the item number is what it falls back to. */
   itemName,
@@ -34,6 +44,7 @@ export default function BelowAtpConfirm({
 }: {
   /** `null` closes the sheet — the ask IS the open state. */
   ask: BelowAtpAsk | null
+  verb?: BelowAtpVerb
   itemName?: string
   reissue: PreviewReissue | null
   busy: boolean
@@ -48,15 +59,15 @@ export default function BelowAtpConfirm({
     <ConfirmSheet
       open={ask !== null}
       marker="belowAtp"
-      title={t('belowAtp.title', { item })}
+      title={t(`belowAtp.${verb}.title`, { item })}
       reissue={reissue}
       busy={busy}
       error={error}
       // Named, not "Cancel": declining leaves the basket exactly as it is, and
       // the agent should be able to read which of the two does that.
-      keepLabel={t('belowAtp.keep')}
-      confirmLabel={t('belowAtp.confirm')}
-      busyLabel={t('belowAtp.adding')}
+      keepLabel={t(`belowAtp.${verb}.keep`)}
+      confirmLabel={t(`belowAtp.${verb}.confirm`)}
+      busyLabel={t(`belowAtp.${verb}.working`)}
       onConfirm={onConfirm}
       onCancel={onCancel}
     >

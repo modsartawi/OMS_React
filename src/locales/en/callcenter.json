@@ -188,19 +188,42 @@
     }
   },
   "belowAtp": {
-    "title": "More {{item}} than this store has — take the order anyway?",
     "requested": "Asked for",
     "available": "Available now",
     "atStore": "Item {{item}}, at store {{store}}.",
     "atThisStore": "Item {{item}}, at this order's store.",
     "recorded": "The order can still be taken. Accepting is recorded against this line, so only accept what the caller has agreed to wait for.",
-    "keep": "Don't add it",
-    "confirm": "Add it anyway",
-    "adding": "Adding…",
-    "failed": "That acceptance did not land, so nothing was added. Nothing has changed on this order — try again."
+    "add": {
+      "title": "More {{item}} than this store has — take the order anyway?",
+      "keep": "Don't add it",
+      "confirm": "Add it anyway",
+      "working": "Adding…"
+    },
+    "raise": {
+      "title": "More {{item}} than this store has — raise the line anyway?",
+      "keep": "Leave the quantity as it is",
+      "confirm": "Raise it anyway",
+      "working": "Changing…"
+    },
+    "failed": "That acceptance did not land, so nothing has changed on this order — try again.",
+    "raiseFailed": "That acceptance did not land, so the quantity is unchanged. Nothing has changed on this order — try again."
   },
   "line": {
     "belowAtpAccepted": "accepted below availability",
+    "qty": "Quantity of {{item}}",
+    "uom": "Unit of measure for {{item}}",
+    "void": "Remove {{item}} from the basket",
+    "statistical": "(informational)",
+    "pricedBy": "Priced by",
+    "firedBy": "Offer",
+    "promoShared_one": "shared with {{count}} other line",
+    "promoShared_other": "shared with {{count}} other lines",
+    "refused": {
+      "LINE_NOT_FOUND": "That line is no longer on this order — the screen had fallen behind. Refresh the order to see what it holds now.",
+      "UOM_NOT_AVAILABLE": "This item does not come in that unit, so the line was left as it was.",
+      "QTY_INVALID": "That quantity was not accepted. Nothing has changed on the line — try a different quantity, or remove the line.",
+      "fallback": "That change was not applied. Nothing has changed on this order — try again."
+    },
     "atp": {
       "count": "{{qty}} at add",
       "none": "none at add",
@@ -220,6 +243,7 @@
     "vat": "VAT",
     "delivery": "Delivery",
     "waived": "waived",
+    "freeOver": "Delivery is free over {{amount}} {{currency}}.",
     "total": "Total",
     "needed": "Needed first: {{list}}",
     "placeOrder": "Place order"

@@ -1,0 +1,97 @@
+{
+  "_contract": {
+    "provisional": true,
+    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
+    "scenario": "setAddress moves the derived plant with lines in the basket → pendingConfirmation(storeChange) carrying the whole non-persisted diff, then the committed rebind",
+    "contractVersion": "1.0",
+    "authoredAt": "2026-07-27",
+    "authoredBy": ".issues/136-session-api-contract.md"
+  },
+  "step1_preview": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetAddress",
+      "body": {
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "requestId": "01JC8QK2M4P6R8T0V2X4Z6B8D0",
+        "addressNumber": "77121"
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "success": true,
+      "message": "",
+      "errors": [],
+      "data": {
+        "contractVersion": "1.0",
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "version": 13,
+        "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-13",
+        "status": "open",
+        "replayed": false,
+        "_note": "state is UNCHANGED at version 13 — the preview is the engine door run and NOT persisted (129: preview is free under resume-per-request, so there is no dryRun flag).",
+        "pendingConfirmation": {
+          "kind": "storeChange",
+          "confirmToken": "01JC8QKZ9B1D3F5H7K9M1P3R5T",
+          "expiresInMs": 120000,
+          "detail": {
+            "fromPlant": "1101",
+            "fromPlantName": "Riyadh — Al Malqa",
+            "toPlant": "1204",
+            "toPlantName": "Riyadh — Al Yasmin",
+            "trigger": "addressChanged",
+            "lineDiffs": [
+              { "lineId": "L1", "itemNumber": "100001", "fromGross": 27.6, "toGross": 25.3 },
+              { "lineId": "L2", "itemNumber": "100455", "fromGross": 34.5, "toGross": 34.5 }
+            ],
+            "promotionsMoved": [
+              { "offerId": "BBY-4471", "description": "70% 2nd PCS", "fromAmount": -8.4, "toAmount": -6.0 }
+            ],
+            "unpriceableLines": [],
+            "atpReFreeze": [
+              { "lineId": "L1", "fromQty": 5, "toQty": 9, "belowAfter": false },
+              { "lineId": "L2", "fromQty": 40, "toQty": 3, "belowAfter": false }
+            ],
+            "deliveryFee": { "fromAmount": 15.0, "toAmount": 15.0 }
+          }
+        }
+      }
+    }
+  },
+  "step2_commit": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetAddress",
+      "body": {
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "requestId": "01JC8QK2M4P6R8T0V2X4Z6B8D0",
+        "addressNumber": "77121",
+        "confirmToken": "01JC8QKZ9B1D3F5H7K9M1P3R5T"
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "success": true,
+      "message": "",
+      "errors": [],
+      "data": {
+        "contractVersion": "1.0",
+        "version": 14,
+        "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-14",
+        "status": "open",
+        "replayed": false,
+        "header": { "_elided": true, "plant": "1204", "plantSource": "derivedFromAddress" },
+        "pendingConfirmation": null,
+        "_note": "lines re-priced, promotions revalued, ATP re-frozen to the toQty column above."
+      }
+    }
+  },
+  "_notes": [
+    "The plant is DERIVED, not chosen: CC2's district → tempStoreCode || storeCode rule, which this repo already implements as pure code (132). setStore is the same protocol for an explicit operator override, with trigger: 'operatorOverride'.",
+    "An empty basket or an unchanged plant applies inline with NO confirmation — the confirm exists only where money on screen would move.",
+    "Re-price is \"C\" NewPricingAndKeepManual, so the coupon line and DFEE survive; the engine's first redetermining mutation (129).",
+    "Promotion SELECTION does not change on a rebind — only its value. Plant occurs once in SIS.Pricing.Core (BbyProcess.cs:39); BBY keys on Origin, which is sticky C000 (128/129).",
+    "ATP is re-frozen from a caller-supplied per-line map — the engine never reads stock (129 amends map note 8). old→new is kept in the audit and shown here.",
+    "🚩 The commit depends on BackOffice 797 (ResumeAsync drops PcHeader.Plant) being fixed first, or every resumed header silently takes the national price."
+  ]
+}

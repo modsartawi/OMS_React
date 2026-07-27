@@ -1,0 +1,71 @@
+{
+  "_contract": {
+    "provisional": true,
+    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
+    "scenario": "A buy-side near-miss inline, its on-demand resolvePrereq resolution, and a NOT_DISCOVERED skip — the map's headline feature and its honest blind spot",
+    "contractVersion": "1.0",
+    "authoredAt": "2026-07-27",
+    "authoredBy": ".issues/136-session-api-contract.md"
+  },
+  "stateFragment": {
+    "_note": "Only the promotion surfaces of SessionState; everything else is as 02.",
+    "firedPromotions": [],
+    "nearMisses": [
+      {
+        "offerId": "BBY-5510",
+        "description": "Buy 2 get 1 free — oral care",
+        "isReady": false,
+        "progress": { "have": 1, "need": 2 },
+        "prereq": { "kind": "grouping", "groupingId": "G-8812", "eligibleCount": 42 },
+        "skipReason": null
+      },
+      {
+        "offerId": "BBY-5602",
+        "description": "SAR 10 off when you buy 3 — baby care",
+        "isReady": true,
+        "progress": { "have": 3, "need": 3 },
+        "prereq": { "kind": "grouping", "groupingId": "G-9001", "eligibleCount": 18 },
+        "skipReason": null
+      },
+      {
+        "offerId": "BBY-6120",
+        "description": "Buy shampoo get conditioner free",
+        "isReady": false,
+        "progress": { "have": 1, "need": 1 },
+        "prereq": null,
+        "skipReason": "NOT_DISCOVERED"
+      }
+    ]
+  },
+  "resolve": {
+    "request": {
+      "method": "GET",
+      "path": "CallCenterWeb/ResolvePrereq",
+      "query": { "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X", "offerId": "BBY-5510" }
+    },
+    "response": {
+      "statusCode": 200,
+      "success": true,
+      "message": "",
+      "errors": [],
+      "data": {
+        "offerId": "BBY-5510",
+        "prereq": { "kind": "grouping", "groupingId": "G-8812" },
+        "items": [
+          { "itemNumber": "200145", "description": "Oral-B Toothpaste 100ml", "description2": "معجون أسنان", "estimatePriceExVat": 9.13, "atp": 12 },
+          { "itemNumber": "200146", "description": "Oral-B Toothbrush Soft", "description2": "فرشاة أسنان", "estimatePriceExVat": 7.83, "atp": 40 },
+          { "itemNumber": "200190", "description": "Mouthwash 250ml", "description2": "غسول فم", "estimatePriceExVat": 14.35, "atp": null }
+        ],
+        "truncated": true,
+        "topN": 25
+      }
+    }
+  },
+  "_notes": [
+    "isReady sorts first in nearMisses — spec 574/579's AvailableOffersBuilder ruling, reused verbatim (130).",
+    "eligibleCount (42) is the population; items[] is the ATP-filtered, ranked top-N of it. A grouping is a SET — both BackOffice builders currently collapse it to [0], which 787 must fix (130).",
+    "atp: null on the third row is a degraded stock read, not zero availability — it is still offered.",
+    "BBY-6120 carries skipReason NOT_DISCOVERED: the basket holds only the buy-side item, and BBY lookup keys on the condition-side access tables, so the promotion never loaded. This is 130's blocker made visible on the wire rather than silently omitted — and it is what lets this contract freeze before 787-C lands.",
+    "No wouldSave field exists anywhere in this fixture, by rule (spec 574 US26)."
+  ]
+}

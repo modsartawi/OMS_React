@@ -1,0 +1,73 @@
+{
+  "_contract": {
+    "provisional": true,
+    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
+    "scenario": "open on a clean agent — the empty basket every other fixture starts from",
+    "contractVersion": "1.0",
+    "authoredAt": "2026-07-27",
+    "authoredBy": ".issues/136-session-api-contract.md",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
+  },
+  "request": {
+    "method": "POST",
+    "path": "CallCenterWeb/Open",
+    "body": { "requestId": "01JC8Q4KYZ3M7N2P5R8T1V6W90" }
+  },
+  "response": {
+    "statusCode": 200,
+    "success": true,
+    "message": "",
+    "errors": [],
+    "data": {
+      "outcome": "opened",
+      "existing": null,
+      "state": {
+        "contractVersion": "1.0",
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "version": 1,
+        "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-1",
+        "status": "open",
+        "replayed": false,
+        "header": {
+          "plant": "1001",
+          "plantName": "Riyadh — Olaya",
+          "plantSource": "operatorOverride",
+          "origin": "C000",
+          "documentType": "CLCN",
+          "register": "WEB-a.alharbi",
+          "operatorId": "a.alharbi",
+          "entryStore": "1001",
+          "openedAt": "2026-07-27T09:14:03Z",
+          "customer": null,
+          "address": null,
+          "slot": null,
+          "documentSource": null,
+          "sourceReference": null,
+          "hasBelowAtp": false
+        },
+        "lines": [],
+        "totals": {
+          "net": 0.0,
+          "vat": 0.0,
+          "gross": 0.0,
+          "deliveryFee": { "amount": 0.0, "waived": false, "thresholdGross": 200.0, "conditionType": "DFEE" },
+          "payable": 0.0
+        },
+        "firedPromotions": [],
+        "nearMisses": [],
+        "pendingConfirmation": null,
+        "capabilities": {
+          "canAddItem": true,
+          "canSubmit": false,
+          "canChangeStore": true,
+          "canOpenAddressBook": false,
+          "submitBlockers": ["NO_LINES", "NO_CUSTOMER", "NO_ADDRESS", "MISSING_SOURCE_REFERENCE"]
+        }
+      }
+    }
+  },
+  "_notes": [
+    "plant at open is the agent's entry store (an operatorOverride, not yet derived) — the engine binds PcHeader.Plant once at open (map note 6), so a store must exist before the first item.",
+    "canOpenAddressBook is false until attachCustomer — the ordering constraint from 137 (CONTRACT.md §6.3)."
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "_contract": {
+    "provisional": true,
+    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
+    "scenario": "The two concurrency shapes: a routine strict-claim collision the client rides out, and the requestId replay that makes an ambiguous retry safe. Plus the stale-tab refusal.",
+    "contractVersion": "1.0",
+    "authoredAt": "2026-07-27",
+    "authoredBy": ".issues/136-session-api-contract.md"
+  },
+  "busy": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/ChangeQty",
+      "body": {
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "requestId": "01JC8QT8V0X2Z4B6D8F0H2J4L6",
+        "lineId": "L1",
+        "newQty": 3
+      }
+    },
+    "response": {
+      "statusCode": 409,
+      "success": false,
+      "message": "Another request is updating this order.",
+      "errors": [
+        {
+          "errorCode": "SESSION_BUSY",
+          "internalErrorCode": "POS.CLAIM.CONFLICT",
+          "errorMessage": "claim held"
+        }
+      ],
+      "data": { "retryAfterMs": 400 }
+    }
+  },
+  "replay": {
+    "_note": "Same requestId as `busy`, resent after the claim freed. It applied on an earlier attempt whose response was lost; the ledger recognises it.",
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/ChangeQty",
+      "body": {
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "requestId": "01JC8QT8V0X2Z4B6D8F0H2J4L6",
+        "lineId": "L1",
+        "newQty": 3
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "success": true,
+      "message": "",
+      "errors": [],
+      "data": {
+        "contractVersion": "1.0",
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "version": 15,
+        "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-15",
+        "status": "open",
+        "replayed": true,
+        "_elided": "current state — NOT the state as of the original apply",
+        "pendingConfirmation": null
+      }
+    }
+  },
+  "staleTab": {
+    "_note": "The agent abandoned this order and opened a fresh one for a new caller; a forgotten tab fires an add on the dead id.",
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/AddItem",
+      "body": {
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "requestId": "01JC8QV0X2Z4B6D8F0H2J4L6N8",
+        "itemNumber": "100001",
+        "qty": 1
+      }
+    },
+    "response": {
+      "statusCode": 409,
+      "success": false,
+      "message": "This order was cancelled and can no longer be changed.",
+      "errors": [
+        {
+          "errorCode": "SESSION_CLOSED",
+          "internalErrorCode": "CC.SESSION.ABANDONED",
+          "errorMessage": "abandoned"
+        }
+      ],
+      "data": { "reason": "abandoned" }
+    }
+  },
+  "secondOpen": {
+    "_note": "One active order per agent — the refusal that IS the reconnect story (127).",
+    "request": { "method": "POST", "path": "CallCenterWeb/Open", "body": { "requestId": "01JC8QW2Z4B6D8F0H2J4L6N8P0" } },
+    "response": {
+      "statusCode": 200,
+      "success": true,
+      "message": "",
+      "errors": [],
+      "data": {
+        "outcome": "refusedExisting",
+        "state": null,
+        "existing": {
+          "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+          "customerName": "Test Customer",
+          "lineCount": 4,
+          "openedAt": "2026-07-27T08:41:00Z",
+          "plant": "1101"
+        }
+      }
+    }
+  },
+  "_notes": [
+    "SESSION_BUSY is ROUTINE, not an outage: the 15 s strict claim is the only mutual exclusion in the engine (SaveAsync blind-increments Version — 127 finding 1). The client retries 0·400·800·1600·3200 ms in features/callcenter/api.ts, never in core/api.ts.",
+    "The explicit, ownership-validated transactionId is what makes staleTab a refusal instead of caller A's item landing on caller B's live order — the same harm 127 refused auto-resume to prevent, closed on the other side.",
+    "refusedExisting rides the SUCCESS path: it is a choice (resume or abandon-and-open-fresh), not a failure. Never a silent auto-resume."
+  ]
+}

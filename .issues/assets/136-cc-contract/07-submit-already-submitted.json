@@ -1,0 +1,87 @@
+{
+  "_contract": {
+    "provisional": true,
+    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
+    "scenario": "submit's four outcomes — the first success, the already-submitted replay success, the fixable refusal, and the transient unavailable",
+    "contractVersion": "1.0",
+    "authoredAt": "2026-07-27",
+    "authoredBy": ".issues/136-session-api-contract.md"
+  },
+  "request": {
+    "method": "POST",
+    "path": "CallCenterWeb/Submit",
+    "body": {
+      "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+      "requestId": "01JC8QR6T8V0X2Z4B6D8F0H2J4"
+    }
+  },
+  "outcome_submitted": {
+    "statusCode": 200,
+    "success": true,
+    "message": "",
+    "errors": [],
+    "data": {
+      "outcome": "submitted",
+      "documentNo": "0090012345",
+      "state": {
+        "contractVersion": "1.0",
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "version": 21,
+        "status": "submitted",
+        "replayed": false,
+        "capabilities": {
+          "canAddItem": false,
+          "canSubmit": false,
+          "canChangeStore": false,
+          "canOpenAddressBook": false,
+          "submitBlockers": ["ALREADY_SUBMITTED"]
+        },
+        "_elided": "header / lines / totals as at submit"
+      }
+    }
+  },
+  "outcome_alreadySubmitted": {
+    "statusCode": 200,
+    "success": true,
+    "message": "",
+    "errors": [],
+    "data": {
+      "outcome": "alreadySubmitted",
+      "documentNo": "0090012345",
+      "state": { "status": "submitted", "version": 21, "replayed": true, "_elided": true }
+    }
+  },
+  "outcome_refused": {
+    "statusCode": 409,
+    "success": false,
+    "message": "A delivery slot is required before this order can be submitted.",
+    "errors": [
+      {
+        "errorCode": "SUBMIT_REFUSED",
+        "internalErrorCode": "CC.SUBMIT.MISSING_SLOT",
+        "errorMessage": "slot"
+      }
+    ],
+    "data": { "field": "slot" }
+  },
+  "outcome_unavailable": {
+    "statusCode": 503,
+    "success": false,
+    "message": "The order service is not responding. The order is safe — try again.",
+    "errors": [
+      {
+        "errorCode": "SUBMIT_UNAVAILABLE",
+        "internalErrorCode": "CC.SUBMIT.DOWNSTREAM_TIMEOUT",
+        "errorMessage": "SdDocument mint timed out"
+      }
+    ],
+    "data": { "retryable": true }
+  },
+  "_notes": [
+    "submitted and alreadySubmitted are BOTH successes and the client treats them IDENTICALLY — once-only is (OrderNo, DocumentType) with OrderNo := TransactionId, and the server still completes the local tail on the replay (133).",
+    "There is no 'unknown' outcome. 133 ruled the reuse of 278's orchestration in-process, not HTTP-to-self, which removes the in-flight gap that would produce one.",
+    "🚩 SUBMIT_UNAVAILABLE returns 503 but MUST carry the envelope. src/core/api.ts maps a bare status >= 500 to ApiError(kind:'server') — 'unexpected' — so an envelope-less 503 turns a routine retryable outcome into a crash on screen. This is a conformance-test assertion for 804, not a note.",
+    "The transaction stays Open and retryable on both refused and unavailable. Only submitted/alreadySubmitted close it.",
+    "🚩 127's 12h sweeper would auto-void a transaction whose order was actually minted, firing coupon reversal on a live order — 133's hosted reconciler + sweeper guard (786) is what keeps this fixture honest."
+  ]
+}

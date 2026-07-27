@@ -1,0 +1,91 @@
+{
+  "_contract": {
+    "provisional": true,
+    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
+    "scenario": "addItem below availability → pendingConfirmation(belowAtp) → the same requestId + confirmToken commits, stamping the fraud flag",
+    "contractVersion": "1.0",
+    "authoredAt": "2026-07-27",
+    "authoredBy": ".issues/136-session-api-contract.md"
+  },
+  "step1_ask": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/AddItem",
+      "body": {
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "requestId": "01JC8QD1F3H5K7M9P1R3T5V7X9",
+        "itemNumber": "100001",
+        "qty": 5
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "success": true,
+      "message": "",
+      "errors": [],
+      "data": {
+        "contractVersion": "1.0",
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "version": 12,
+        "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-12",
+        "status": "open",
+        "replayed": false,
+        "_note": "header / lines / totals are UNCHANGED — version has not moved. Elided here; see 02.",
+        "pendingConfirmation": {
+          "kind": "belowAtp",
+          "confirmToken": "01JC8QDX7A9C1E3G5J7L9N1Q3S",
+          "expiresInMs": 120000,
+          "detail": { "itemNumber": "100001", "requested": 5, "available": 2, "plant": "1101" }
+        }
+      }
+    }
+  },
+  "step2_commit": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/AddItem",
+      "body": {
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "requestId": "01JC8QD1F3H5K7M9P1R3T5V7X9",
+        "itemNumber": "100001",
+        "qty": 5,
+        "confirmToken": "01JC8QDX7A9C1E3G5J7L9N1Q3S"
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "success": true,
+      "message": "",
+      "errors": [],
+      "data": {
+        "contractVersion": "1.0",
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "version": 13,
+        "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-13",
+        "status": "open",
+        "replayed": false,
+        "header": { "_elided": true, "hasBelowAtp": true },
+        "lines": [
+          {
+            "lineId": "L1",
+            "itemNumber": "100001",
+            "qty": 5,
+            "uom": "EA",
+            "atpAtScan": { "quantity": 2, "frozenAt": "2026-07-27T09:21:08Z", "known": true },
+            "belowAtpAtScan": true,
+            "warnings": [{ "code": "BELOW_ATP", "requested": 5, "available": 2 }],
+            "_elided": "pricing fields as 02"
+          }
+        ],
+        "pendingConfirmation": null
+      }
+    }
+  },
+  "_notes": [
+    "The SAME requestId spans both calls — one user action. The confirmToken is what changes.",
+    "The token IS the audit record: it proves the agent was shown available:2 before accepting. A client-set boolean could not prove that (map note 8, ticket 136 Q4).",
+    "ATP is a SOFT gate — the commit always succeeds. 287's rule survives: where the stock read degrades (known:false) there is no confirmation step at all.",
+    "atpAtScan stays frozen at 2 (availability at add), not 5 (requested) — the BackOffice fraud signal 285/286 reads this pair.",
+    "A stale token (basket moved underneath) returns CONFIRM_TOKEN_STALE and the client re-asks without a token."
+  ]
+}

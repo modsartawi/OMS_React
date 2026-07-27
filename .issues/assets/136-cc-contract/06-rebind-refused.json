@@ -1,0 +1,64 @@
+{
+  "_contract": {
+    "provisional": true,
+    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
+    "scenario": "The atomic rebind refusal — a line that no longer prices at the new store. The canonical business-outcome envelope this repo's ApiError maps to kind:'business'.",
+    "contractVersion": "1.0",
+    "authoredAt": "2026-07-27",
+    "authoredBy": ".issues/136-session-api-contract.md"
+  },
+  "preview": {
+    "_note": "The preview (step 1) already showed it — unpriceableLines is non-empty there, so the console can refuse before the agent commits. This fixture is the commit path, for the case where the basket changed between preview and commit.",
+    "pendingConfirmation": {
+      "kind": "storeChange",
+      "confirmToken": "01JC8QN4Q6S8U0W2Y4A6C8E0G2",
+      "expiresInMs": 120000,
+      "detail": {
+        "fromPlant": "1101",
+        "toPlant": "1204",
+        "trigger": "addressChanged",
+        "lineDiffs": [{ "lineId": "L1", "itemNumber": "100001", "fromGross": 27.6, "toGross": 25.3 }],
+        "promotionsMoved": [],
+        "unpriceableLines": [
+          { "lineId": "L3", "itemNumber": "300921", "description": "Compounded cream 50g", "reason": "NO_PRICE_AT_PLANT" }
+        ],
+        "atpReFreeze": []
+      }
+    }
+  },
+  "commit": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetAddress",
+      "body": {
+        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
+        "requestId": "01JC8QN0P2R4T6V8X0Z2B4D6F8",
+        "addressNumber": "77121",
+        "confirmToken": "01JC8QN4Q6S8U0W2Y4A6C8E0G2"
+      }
+    },
+    "response": {
+      "statusCode": 409,
+      "success": false,
+      "message": "This order cannot move to Riyadh — Al Yasmin: 1 item has no price there.",
+      "errors": [
+        {
+          "errorCode": "REBIND_REFUSED",
+          "internalErrorCode": "PRICING.REBIND.NO_PRICE_AT_PLANT",
+          "errorMessage": "Compounded cream 50g (300921) has no price at plant 1204."
+        }
+      ],
+      "data": {
+        "unpriceableLines": [
+          { "lineId": "L3", "itemNumber": "300921", "description": "Compounded cream 50g", "reason": "NO_PRICE_AT_PLANT" }
+        ]
+      }
+    }
+  },
+  "_notes": [
+    "ATOMIC: nothing is persisted. The engine instance that attempted the rebind is discarded, never saved (129's documented discard-never-save).",
+    "The plant does NOT move. The agent voids the offending line and retries — the console names the line, which is why unpriceableLines rides both the preview and the refusal.",
+    "🚩 core/api.ts maps a non-2xx-with-envelope to ApiError(kind:'business') carrying message + errors[0].errorCode, but it DROPS body.data (src/core/api.ts:110-120). The console therefore reads the offending lines off the PREVIEW it already holds, not off this refusal — which is exactly why every 'are you sure' rides the success path instead (CONTRACT.md §5). A future core change could surface data; nothing here depends on it.",
+    "message is server-supplied and passed through as data — no i18n key needed for it. Every label AROUND it needs one (.claude/rules/i18n-zero-literal.md)."
+  ]
+}

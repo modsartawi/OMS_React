@@ -134,9 +134,6 @@ export const authApi = {
   uaReenrollTotp(resetId: string): Promise<UaReenrollResult> {
     return api.post<UaReenrollResult>('Auth/UaReenrollTotp', { resetId })
   },
-  logout(): Promise<unknown> {
-    return api.post('Auth/Logout', {})
-  },
   /** Always HTTP 200 — anonymous is a response ({authenticated:false}), not an error. */
   me(): Promise<WebMeResult> {
     return api.get<WebMeResult>('Auth/Me')

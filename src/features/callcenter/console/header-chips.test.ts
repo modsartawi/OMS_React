@@ -1,0 +1,59 @@
+/**
+ * The chip row's derivation, asserted at its edge: header + capabilities in,
+ * chip states out. Shape from the open fixture; every state below is set by the
+ * test (CONTRACT.md §11 — a fixture value is never evidence).
+ */
+import { describe, expect, it } from 'vitest'
+import { EMPTY_SESSION } from './__fixtures__/payloads'
+import { headerChips } from './header-chips'
+
+const byId = (chips: ReturnType<typeof headerChips>) =>
+  Object.fromEntries(chips.map((c) => [c.id, c]))
+
+describe('headerChips', () => {
+  it('renders an open, empty order as store-settled and the rest unset', () => {
+    const chips = byId(headerChips(EMPTY_SESSION.header, { ...EMPTY_SESSION.capabilities, submitBlockers: [] }))
+    // `open` seeds the plant from the agent's entry store, so a store exists
+    // before the first item (CONTRACT.md §2.2) — the chip is settled at once.
+    expect(chips.store.state).toBe('settled')
+    expect(chips.slot.state).toBe('unset')
+    expect(chips.source.state).toBe('unset')
+    expect(chips.reference.state).toBe('unset')
+  })
+
+  it('takes "needs attention" from the server blocker list, not a second rule', () => {
+    const chips = byId(
+      headerChips(EMPTY_SESSION.header, {
+        ...EMPTY_SESSION.capabilities,
+        submitBlockers: ['NO_LINES', 'MISSING_SLOT', 'MISSING_SOURCE_REFERENCE'],
+      }),
+    )
+    expect(chips.slot.state).toBe('needsAttention')
+    expect(chips.reference.state).toBe('needsAttention')
+    // NO_LINES belongs to the basket, not the chip row — it must not leak in.
+    expect(chips.store.state).toBe('settled')
+    expect(chips.source.state).toBe('unset')
+  })
+
+  it('marks the store derived only when it came from the address', () => {
+    const derived = byId(
+      headerChips({ ...EMPTY_SESSION.header, plantSource: 'derivedFromAddress' }, EMPTY_SESSION.capabilities),
+    )
+    expect(derived.store.derived).toBe(true)
+    const override = byId(
+      headerChips({ ...EMPTY_SESSION.header, plantSource: 'operatorOverride' }, EMPTY_SESSION.capabilities),
+    )
+    expect(override.store.derived).toBeUndefined()
+  })
+
+  it('keeps a blocking chip attention-marked even once it carries a value', () => {
+    const chips = byId(
+      headerChips(
+        { ...EMPTY_SESSION.header, sourceReference: 'CRM-1' },
+        { ...EMPTY_SESSION.capabilities, submitBlockers: ['SOURCE_REFERENCE_REQUIRED'] },
+      ),
+    )
+    expect(chips.reference.state).toBe('needsAttention')
+    expect(chips.reference.value).toBe('CRM-1')
+  })
+})

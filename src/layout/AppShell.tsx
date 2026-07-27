@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { NavLink, Outlet, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, LogOut, Menu, Moon, Sun } from 'lucide-react'
 import { MENU, isActive, type ShellMenuItem } from './menu-model'
 import { useVisibleMenu } from './useVisibleMenu'
 import { useTheme } from './theme'
 import { useSession } from '@/core/session'
-import { authApi } from '@/features/auth/api'
+import { signOut } from '@/core/auth/sign-out'
 import { buildTag } from '@/core/build-info'
 import BrandMark from '@/core/ui/BrandMark'
 import NotificationBell from './notifications/NotificationBell'
@@ -85,7 +85,6 @@ function MenuGroup({ item, onNavigate }: { item: ShellMenuItem; onNavigate: () =
 
 function AccountPopup() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const session = useSession()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -107,17 +106,6 @@ function AccountPopup() {
   }, [open])
 
   const name = session.displayName || session.userId || t('user')
-
-  async function logout() {
-    // Best-effort: clear + redirect even if Auth/Logout fails.
-    try {
-      await authApi.logout()
-    } catch {
-      /* ignore */
-    }
-    useSession.getState().clear()
-    navigate('/login', { replace: true })
-  }
 
   return (
     <div className="relative" ref={ref}>
@@ -147,7 +135,7 @@ function AccountPopup() {
           </div>
           <button
             type="button"
-            onClick={logout}
+            onClick={() => void signOut()}
             className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
           >
             <LogOut className="h-4 w-4" aria-hidden />

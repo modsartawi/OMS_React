@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 160
 blocked-by: —
 ---
@@ -37,13 +37,13 @@ registered) · test (pure + flow)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `stateAppliesOnlyForward` — the guard admits a higher `version`, is idempotent on an equal one,
+- [x] `stateAppliesOnlyForward` — the guard admits a higher `version`, is idempotent on an equal one,
       and **discards a lower one**; an unset current accepts anything · pure
-- [ ] `theConsoleOpensAndRendersTheReturnedState` — drive: a granted agent lands on `/callcenter`,
+- [x] `theConsoleOpensAndRendersTheReturnedState` — drive: a granted agent lands on `/callcenter`,
       one `Open` call is made, and the shell renders the returned header, empty basket and engine
       totals — with no app nav chrome around it · flow (Playwright, new
       `tools/callcenter-drive.mjs`, stubbed envelope)
-- [ ] `aRefusedConsoleIsNotADeadEnd` — drive: `canOpenConsole:false` renders the denial with both
+- [x] `aRefusedConsoleIsNotADeadEnd` — drive: `canOpenConsole:false` renders the denial with both
       ways home, and **no order is opened**; the same holds when the probe itself errors · flow
 
 ## Boundaries
@@ -68,3 +68,45 @@ projection with no app chrome; an ungranted one sees a refusal they can leave.
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+**Built 2026-07-27.** Green: `typecheck` · `vitest` 337/337 (11 new across
+`session-state.test.ts` + `header-chips.test.ts`) · `lint` (boundaries, contrast, palette) ·
+`build` · `tools/callcenter-drive.mjs` **35/35** against the stubbed envelope.
+
+Three decisions worth carrying forward, each a deviation from the letter of a document:
+
+1. **The feature is `features/callcenter/console/`, not `features/callcenter/`.** Spec 160 and
+   CONTRACT.md §6.1 both write the api as `features/callcenter/api.ts`. `callcenter` is the
+   **area** (its own top-level nav group, 134 §7) and `console` is the feature inside it — which
+   is what `feature-structure.md` asks for and what `tools/check-boundaries.mjs` mechanically
+   requires: it classifies `features/<area>/<feature>/` and reads two flat files under
+   `features/callcenter/` as two different features importing each other. Same files, one
+   directory deeper. Recorded in the api's header so the `SESSION_BUSY` retry lands in the right
+   place in [164](164-busy-collision-and-staleness.md).
+2. **The i18n namespace stays `callcenter`**, per spec 160's *"a new `callcenter` namespace"*,
+   even though the namespace-==-feature-name rule would say `console`. It is the area's namespace;
+   `console` would be a poor global name for a namespace shared by the whole nav group.
+3. **`refusedExisting` gets a minimal honest notice, not 163's screen.** `Open` can return it on
+   the success path today, so leaving it unhandled would strand the agent on "Opening…". It says
+   what happened and carries both ways home; the previous caller's name, opened-at and the
+   resume / abandon-and-open-fresh choice remain [163](163-order-already-open.md)'s.
+
+Two review findings fixed after the first green run, both worth naming:
+
+- **`CONSOLE_NOT_GRANTED` is a refusal, not a fault.** Branching on `isError` alone showed a real
+  denial as *"a server problem — try again shortly"*, the exact failure 125's late fix was about.
+  Both the probe path and the door path now branch on `apiErrorCode()`, and the door refusal
+  offers no dead *Try again*. Drive boxes 7 and 8.
+- **`Open` is modelled as a query, not a mutation.** With a mutation, one action's `requestId` was
+  minted per invocation (a *Try again* would have been a genuinely new action to the server's
+  ledger — a double-open on the verb that mints a real order), and under StrictMode the failure
+  never reached the render that draws it, leaving the console stuck on "Opening…". The contract
+  makes `Open` idempotent by construction (§4), so a query keyed on one console-life `requestId`
+  is the honest shape: concurrent mounts dedupe into one request, and a retry re-sends the same id.
+
+Follow-up for `/domain-modeling`, not this ticket: `CONTEXT.md` defines **session** as the
+`sis_session` login session, and the frozen contract's `SessionState` now uses the same word for
+the engine transaction. Two meanings, one glossary entry. `plant` (glossary says *store*),
+`caller` and `basket` are likewise unglossed.

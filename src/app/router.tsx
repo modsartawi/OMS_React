@@ -35,6 +35,23 @@ export const router = createBrowserRouter([
       Component: (await import('@/features/callcenter/__prototype__/guidance/GuidancePrototypePage')).default,
     }),
   },
+  // The call-center console (ticket 162). Under the SAME auth guard as every
+  // other screen — session, theme and the 401 path are unchanged — but OUTSIDE
+  // AppShell: the console renders its own full-viewport three-column layout
+  // (map 126 note 13), and hosting it inside the nav chrome would leave it
+  // ~1100px of a 1440px desktop and two competing top bars.
+  {
+    path: '/callcenter',
+    element: <ProtectedLayout chromeless />,
+    children: [
+      {
+        index: true,
+        lazy: async () => ({
+          Component: (await import('@/features/callcenter/console/CallCenterConsolePage')).default,
+        }),
+      },
+    ],
+  },
   {
     path: '/',
     Component: ProtectedLayout,

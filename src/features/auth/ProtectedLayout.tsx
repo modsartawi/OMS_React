@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Navigate, useLocation } from 'react-router'
+import { Navigate, Outlet, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/core/session'
 import { authApi } from './api'
@@ -12,7 +12,7 @@ import AppShell from '@/layout/AppShell'
  * post-login short-circuits it, transport failure is NOT cached (retry re-probes),
  * anonymous is a 200-with-flag response — never a 401.
  */
-export default function ProtectedLayout() {
+export default function ProtectedLayout({ chromeless = false }: { chromeless?: boolean } = {}) {
   const { t } = useTranslation()
   const location = useLocation()
   const hydrated = useSession((s) => s.loaded)
@@ -31,7 +31,12 @@ export default function ProtectedLayout() {
     if (!hydrated && authenticated) setSession(me.data!)
   }, [hydrated, authenticated, me.data, setSession])
 
-  if (hydrated) return <AppShell />
+  // The call-center console renders its OWN full-viewport layout inside this
+  // guard's session/auth/theme, not AppShell's nav (map 126 note 13) — so the
+  // one place that decides "authenticated" is still this file, and only the
+  // chrome differs. The consequence 134 §8 draws out: a refusal under
+  // `chromeless` has no nav to leave by and must carry its own way home.
+  if (hydrated) return chromeless ? <Outlet /> : <AppShell />
 
   if (me.isPending || authenticated) {
     return (

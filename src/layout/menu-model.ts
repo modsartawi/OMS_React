@@ -1,9 +1,10 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, Calculator, Download, FileText, KeyRound, LifeBuoy, Search, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
+import { Activity, Box, Calculator, Download, FileText, Headset, KeyRound, LifeBuoy, Search, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
 import { broadcastApi } from '@/features/admin/broadcast/api'
+import { CALLCENTER_ACCESS_KEY, callCenterApi } from '@/features/callcenter/console/api'
 import { simulationApi } from '@/features/pricing/simulation/api'
 import { bonusBuyDownloadApi } from '@/features/pricing/bonus-buy-download/api'
 import { couponsApi } from '@/features/pricing/coupons/api'
@@ -143,6 +144,30 @@ export const MENU: ShellMenuItem[] = [
           key: ['broadcast', 'access'],
           run: () => broadcastApi.access(),
           visible: (r) => r.allowed === true,
+        }),
+      },
+    ],
+  },
+  {
+    // Its own top-level group (134 §7): `features/callcenter/` is neither `oms/`
+    // nor `admin/`, and a new area folder appears exactly when a new nav group
+    // does. The leaf carries the SAME exported key the route guard uses, which
+    // is the one-call invariant.
+    labelKey: 'callcenter:menu.callCenter',
+    icon: Headset,
+    items: [
+      {
+        labelKey: 'callcenter:menu.console',
+        icon: Headset,
+        routerLink: '/callcenter',
+        activePrefix: '/callcenter',
+        // FAILS CLOSED — see `features/callcenter/console/api`. What is behind
+        // this leaf mints real OMS orders, so a pending or errored probe hides
+        // it rather than revealing it.
+        access: accessProbe({
+          key: CALLCENTER_ACCESS_KEY,
+          run: () => callCenterApi.access(),
+          visible: (r) => r.canOpenConsole === true,
         }),
       },
     ],

@@ -1,0 +1,76 @@
+{
+  "menu": {
+    "callCenter": "Call center",
+    "console": "Console"
+  },
+  "access": {
+    "checking": "Checking access…",
+    "deniedTitle": "The call-center console isn't available to your account",
+    "deniedHint": "It needs the Call Center Agent role. Ask an administrator to add it, then sign in again.",
+    "unavailableTitle": "Access check unavailable",
+    "unavailableHint": "The permission check for the call-center console could not be completed, so the console stays closed. This is a server problem, not a missing permission — try again shortly."
+  },
+  "open": {
+    "opening": "Opening a new order…",
+    "failedTitle": "The order could not be opened",
+    "failedHint": "Nothing was created. Try again, or go back to the portal."
+  },
+  "existing": {
+    "title": "You already have an order open",
+    "hint_one": "It has {{count}} line. Nothing is resumed automatically — resuming or abandoning it is not built yet, so go back to the portal for now.",
+    "hint_other": "It has {{count}} lines. Nothing is resumed automatically — resuming or abandoning it is not built yet, so go back to the portal for now."
+  },
+  "console": {
+    "title": "New order",
+    "store": "Store {{store}}"
+  },
+  "rail": {
+    "caller": "Caller",
+    "mobile": "Mobile number",
+    "mobilePlaceholder": "05…",
+    "emptyHint": "No caller attached yet.",
+    "address": "Address",
+    "noAddress": "No address yet"
+  },
+  "chips": {
+    "store": "Store",
+    "slot": "Slot",
+    "source": "Source",
+    "reference": "Ref",
+    "notSet": "not set",
+    "derived": "derived"
+  },
+  "basket": {
+    "heading": "Basket · prices include VAT",
+    "lineCount_one": "{{count}} line",
+    "lineCount_other": "{{count}} lines",
+    "empty": "Nothing added yet."
+  },
+  "receipt": {
+    "heading": "The caller pays",
+    "items": "Items",
+    "vat": "VAT",
+    "delivery": "Delivery",
+    "waived": "waived",
+    "total": "Total",
+    "needed": "Needed first: {{list}}",
+    "placeOrder": "Place order"
+  },
+  "blockers": {
+    "NO_LINES": "add an item",
+    "NO_CUSTOMER": "attach the caller",
+    "NO_ADDRESS": "pick an address",
+    "MISSING_SLOT": "choose a delivery slot",
+    "MISSING_SOURCE": "choose a document source",
+    "MISSING_SOURCE_REFERENCE": "enter the source reference",
+    "SOURCE_REFERENCE_REQUIRED": "enter the source reference"
+  },
+  "money": {
+    "currency": "SAR"
+  },
+  "actions": {
+    "retry": "Try again",
+    "backToPortal": "Back to the portal",
+    "signOut": "Sign out"
+  }
+}

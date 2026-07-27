@@ -32,6 +32,21 @@
       "detail": "The store was not changed."
     }
   },
+  "discount": {
+    "percent": "{{value}}% off",
+    "fixed": "{{value}} off",
+    "setPrice": "For {{value}}",
+    "setPriceBoth": "Both for {{value}}",
+    "setPriceQty_one": "{{count}} for {{value}}",
+    "setPriceQty_other": "{{count}} for {{value}}",
+    "free": "Free",
+    "freeQty_one": "{{count}} free",
+    "freeQty_other": "{{count}} free",
+    "freeNth_ordinal_one": "{{count}}st free",
+    "freeNth_ordinal_two": "{{count}}nd free",
+    "freeNth_ordinal_few": "{{count}}rd free",
+    "freeNth_ordinal_other": "{{count}}th free"
+  },
   "errors": {
     "sessionEnded": "Your session has ended — please log in.",
     "network": "Cannot reach the OMS API. Check your connection and try again.",

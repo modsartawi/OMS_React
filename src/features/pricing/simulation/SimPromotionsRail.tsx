@@ -115,11 +115,10 @@ export default function SimPromotionsRail({
           />
           {/* Near-misses last, under the fires: what DID happen reads before what did
               not. Absent entirely when nothing was missed. */}
-          <SimMissedPromotions
-            missed={view.missed}
-            currency={currency}
-            onOpenBbyDetails={onOpenBbyDetails}
-          />
+          {/* No `currency`: a near-miss card prints no money at all any more (ticket
+              161) — it states what the offer GIVES, and a definition carries no unit
+              the client may attach. */}
+          <SimMissedPromotions missed={view.missed} onOpenBbyDetails={onOpenBbyDetails} />
         </div>
       )}
     </div>

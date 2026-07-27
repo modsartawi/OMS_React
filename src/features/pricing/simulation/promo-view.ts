@@ -5,6 +5,12 @@ import type {
   SimulationResult,
   SimulationResultItem,
 } from '@/core/models/simulation'
+import {
+  discountDefinition,
+  discountKindFromCode,
+  type DiscountDefinition,
+  type PromoKind,
+} from '@/core/promotions/discount-definition'
 
 // Pure view model for the reworked results-and-promotions surface (spec 043,
 // ticket 045). Turns a `SimulationResult` into the three collections the B+C
@@ -17,9 +23,10 @@ import type {
 // degrades gracefully to the flat `affectedItemNumbers` when that projection is
 // absent — one undivided block, no role, no cross-highlight partnering, never throws.
 
-/** The four discount kinds (taxonomy 040): `N`→free, `%`→percent, `R`→fixed,
- *  `P`→setprice. `null` when the code can't be classified (kept honest, not guessed). */
-export type PromoKind = 'free' | 'percent' | 'fixed' | 'setprice'
+/** The four discount kinds (taxonomy 040) — re-exported from `@/core/promotions`,
+ *  where the kind and its wording rule graduated (ticket 161) so the call-center
+ *  console's guidance strip can share them without importing this feature. */
+export type { PromoKind }
 
 /** A line's role in a promotion — buy (prerequisite), get (reward), or both (a
  *  buy-line set-price). `null` on the degradation path, where the split is unknown. */
@@ -113,8 +120,16 @@ export interface MissedPromo {
   /** The first unmet prerequisite, or `null` when all were met but accumulation
    *  blocked it (see `skipReason`). */
   prereq: MissedPrereq | null
-  /** The discount the promotion would have granted, from its potential discount. */
-  wouldSave: number | null
+  /** What the offer GIVES, as a definition — `20% off`, `both for 29.95` — resolved
+   *  through the shared `@/core/promotions` wording rule and rendered with `t()`.
+   *  `null` when the discount code did not classify, so the card falls back to the
+   *  server's own description.
+   *
+   *  🚩 There is deliberately NO savings figure here, and none may be added — a
+   *  real total requires firing the promotion (spec 574 US26). This field replaced
+   *  `wouldSave`; `@/core/promotions/discount-definition` carries the whole account
+   *  of what that published and why it could not stand. */
+  definition: DiscountDefinition | null
   skipReason: string | null
 }
 
@@ -124,22 +139,6 @@ export interface PromoView {
   missed: MissedPromo[]
   /** True when ANY fired block fell back to the flat affected-items path. */
   degraded: boolean
-}
-
-/** Clean discount code (`N`/`%`/`R`/`P`) → kind. */
-function kindFromClean(code: string | null | undefined): PromoKind | null {
-  switch (code) {
-    case 'N':
-      return 'free'
-    case '%':
-      return 'percent'
-    case 'R':
-      return 'fixed'
-    case 'P':
-      return 'setprice'
-    default:
-      return null
-  }
 }
 
 /** Raw SAP condition code → kind, so a degraded block (only the raw `discountType`)
@@ -165,7 +164,11 @@ function kindFromSap(code: string | null | undefined): PromoKind | null {
 /** The block's kind: prefer the projection's clean `discountKind`, else map the raw
  *  SAP `discountType` (also handles a raw response that already carries a clean code). */
 function appliedKind(bby: AppliedBonusBuy): PromoKind | null {
-  return kindFromClean(bby.discountKind) ?? kindFromClean(bby.discountType) ?? kindFromSap(bby.discountType)
+  return (
+    discountKindFromCode(bby.discountKind) ??
+    discountKindFromCode(bby.discountType) ??
+    kindFromSap(bby.discountType)
+  )
 }
 
 /** A net value rounds to zero (a fully-free reward line). Guards float dust. */
@@ -349,12 +352,13 @@ function stripGetLine(l: PromoGetLine): PromoItemRef {
 function buildMissed(p: PotentialBonusBuy): MissedPromo {
   const prereqs: PrereqStatus[] = p.prerequisites ?? []
   const driving = prereqs.find((q) => !q.isMet) ?? null
+  const kind = discountKindFromCode(p.discount?.discountType ?? null)
   return {
     bbyNumber: p.bbyNumber,
     promoNumber: p.promoNumber,
     offerId: p.offerId,
     description: p.description,
-    kind: kindFromClean(p.discount?.discountType ?? null),
+    kind,
     prereq: driving
       ? {
           materialNumber: driving.materialNumber,
@@ -365,7 +369,10 @@ function buildMissed(p: PotentialBonusBuy): MissedPromo {
           foundValue: driving.foundValue,
         }
       : null,
-    wouldSave: p.discount?.value ?? null,
+    // The definition, not a total. `Pricing/Simulate`'s `PotentialDiscount` carries
+    // no piece count and no free-goods ordinal, so the phrase resolves to its
+    // count-less spelling here; the console's own payload (171) may carry more.
+    definition: discountDefinition({ kind, value: p.discount?.value ?? null }),
     skipReason: p.skipReason,
   }
 }

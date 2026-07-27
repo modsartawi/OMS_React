@@ -50,11 +50,18 @@ const capture = (file) => JSON.parse(readFileSync(DIR + file, 'utf8')).response.
  *   rail" claim is testable rather than asserted twice on two baskets.
  * - `plain`      — 01-plain-multiline: three lines, nothing fired, nothing missed. The
  *   measured-but-empty case, which must NOT read like the promo-off one.
+ *
+ * A fourth arrived with ticket 161:
+ *
+ * - `percent-miss` — 01-near-miss-owner-supplied: the `70% 2nd PCS` promotion, whose
+ *   wire discount is `{ '%', 35 }`. THE regression capture — that 35 is a percentage,
+ *   and the card printed it through the money formatter beside the currency word.
  */
 const CAPTURES = {
   'two-lines': capture('05-pricing-elements.json'),
   'both-kinds': capture('03-applied-and-potential-owner-supplied.json'),
   plain: capture('01-plain-multiline.json'),
+  'percent-miss': capture('01-near-miss-owner-supplied.json'),
 }
 
 async function run() {
@@ -272,9 +279,25 @@ async function run() {
 
   check(
     'the near-miss names the promotion it is about, without being expanded',
-    // Case-insensitive on the label: the card's micro-labels are still CSS-uppercased
-    // across this feature — spec 110's uppercase inventory and its sweep are 121's.
-    /2 PC for 29\.95 SR/.test(view.text) && /would save/i.test(view.text),
+    /2 PC for 29\.95 SR/.test(view.text),
+    view.text,
+  )
+  // ---- ticket 161: what the offer GIVES, never a saving it cannot know -------------
+  // This capture is the `P` (set price) near-miss, wire value 26.04. The card used to
+  // print that through `formatMoney` beside the currency under a "Would save" label;
+  // on the `%` capture the same slot printed a PERCENTAGE as `35.00 SAR`.
+  check(
+    'the near-miss states what the offer GIVES — the discount definition, not a total',
+    /GIVES/.test(view.text) && /For 26\.04/.test(view.text),
+    view.text,
+  )
+  // The NARROW rule 138 settled on: not "no `SAR` anywhere" — the server's own
+  // description legitimately reads `2 PC for 29.95 SR`, and nobody may edit it — but no
+  // figure the CLIENT composes may arrive formatted as money. So the wire value 26.04
+  // must never appear with a currency word after it.
+  check(
+    'and it promises no saving at all — the label and the money-formatted pair are both gone',
+    !/would save/i.test(view.text) && !/26\.04\s+[A-Za-z]{2,3}\b/.test(view.text),
     view.text,
   )
 
@@ -293,6 +316,24 @@ async function run() {
   check(
     'and the expanded card still spends neither hue',
     (await readRail()).missAttention === 0 && (await readRail()).missSuccess === 0,
+  )
+
+  // =========== 4b · ticket 161's regression capture: a PERCENT near-miss on screen
+  // `70% 2nd PCS`, wire discount `{ '%', 35 }`. Before 161 this card read `35.00 SAR`
+  // under "Would save" — a percentage printed as money, a number the engine never
+  // computed and the customer would never see. It must now read `35% off`.
+  serving = 'percent-miss'
+  await process()
+  view = await readRail()
+  check(
+    'the percent near-miss states the DEFINITION — 35% off, the offer as a percentage',
+    /35% off/.test(view.text),
+    view.text,
+  )
+  check(
+    'and 35 never reaches the money formatter — no 35.00, and no currency beside it',
+    !/35\.00/.test(view.text) && !/would save/i.test(view.text),
+    view.text,
   )
 
   // ============ 5 · promo-off says nothing was MEASURED; promo-on-but-empty does not

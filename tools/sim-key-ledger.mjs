@@ -68,6 +68,10 @@ export const RETIRED = [
   // every "nothing here" the rebuilt screen shows, so this lost its call site with the
   // tile and no ledger entry ever named it.
   'summary.placeholder',
+  // 161 — the near-miss card's would-save label, retired with the invented figure it
+  // named. `missed.givesLabel` is minted fresh beside it rather than renamed onto it:
+  // "would save" is about a number that no longer exists at all.
+  'missed.wouldSaveLabel',
 ]
 
 /** The five whose natural rename target was OCCUPIED by a different number — which is
@@ -97,4 +101,7 @@ export const UPPERCASE = [
   'detail.badge.manual',
   'detail.badge.header',
   'promo.free',
+  // 161 — the near-miss card's `GIVES` label, minted uppercase from the start rather
+  // than transformed, unlike the would-save label it replaced.
+  'missed.givesLabel',
 ]

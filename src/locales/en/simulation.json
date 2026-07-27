@@ -148,7 +148,7 @@
     "count_one": "{{count}} near-miss",
     "count_other": "{{count}} near-misses",
     "fallbackName": "Promotion",
-    "wouldSaveLabel": "Would save",
+    "givesLabel": "GIVES",
     "found": "{{found}} of {{required}}",
     "prereqMaterial": "Material {{material}}",
     "prereqGrouping": "Any from '{{grouping}}'",

@@ -16,8 +16,7 @@ import SimBbyDetailsButton from './SimBbyDetailsButton'
 //   • the driving UNMET prerequisite as a found-vs-required meter (found qty/value vs
 //     required qty / min value — the data `potentialBonusBuys[].prerequisites[].isMet`
 //     already carries, projected onto `missed[].prereq`);
-//   • a short plain-language REASON ("basket has 50.00 of the 100.00 minimum");
-//   • the WOULD-SAVE figure — the discount it would have granted had the prereq been met.
+//   • a short plain-language REASON ("basket has 50.00 of the 100.00 minimum").
 // When accumulation (not a prerequisite) blocked it, `prereq` is null and the server
 // `skipReason` reads as the reason instead. Absent entirely when nothing was missed
 // (the whole section returns null), so a fully-fired basket shows no "Could have applied".
@@ -41,10 +40,20 @@ import SimBbyDetailsButton from './SimBbyDetailsButton'
 // (The tile itself was already neutral: ticket 088 retired the per-kind colour map, so
 // `KIND_CHIP` has spent no hue since.) Nothing here promises a fault; it reports an
 // unmet prerequisite.
+//
+// TICKET 161 — THE CARD STOPS PROMISING A SAVING IT CANNOT KNOW. Where the header
+// printed a would-save figure it now prints what the offer GIVES: the discount
+// DEFINITION (`35% off`, `Both for 26.04`), resolved through the shared wording rule
+// in `@/core/promotions`. The retired figure was `discount.value`, which is a
+// PERCENTAGE for the `%` kind — and it went through `formatMoney` beside a currency
+// word, so the capture's `70% 2nd PCS` promotion read `35.00 SAR`: a number the
+// engine never computed and the customer would never see. A real savings total
+// requires firing the promotion (spec 574 US26), so the honest card states the
+// definition and no total at all. The card therefore takes no `currency` any more —
+// the only money on it was the invented figure.
 
 interface Props {
   missed: MissedPromo[]
-  currency: string
   /** Open the bonus-buy detail modal for a promotion — `null` when the grant is not
    *  CONFIRMED (ticket 118). The near-miss is the STRONGER case for this control, not
    *  the weaker one: a missed promotion carries no prerequisite data on the wire (the
@@ -53,7 +62,7 @@ interface Props {
   onOpenBbyDetails: ((bbyNumber: string) => void) | null
 }
 
-export default function SimMissedPromotions({ missed, currency, onOpenBbyDetails }: Props) {
+export default function SimMissedPromotions({ missed, onOpenBbyDetails }: Props) {
   const { t } = useTranslation('simulation')
 
   // A fully-fired basket has no near-misses — the section is absent, not empty.
@@ -83,13 +92,7 @@ export default function SimMissedPromotions({ missed, currency, onOpenBbyDetails
           section boundary. */}
       <div className={PROMO_CARD_ROW + ' gap-2'}>
         {missed.map((m) => (
-          <MissedRow
-            key={m.bbyNumber}
-            missed={m}
-            currency={currency}
-            onOpenBbyDetails={onOpenBbyDetails}
-            t={t}
-          />
+          <MissedRow key={m.bbyNumber} missed={m} onOpenBbyDetails={onOpenBbyDetails} t={t} />
         ))}
       </div>
     </div>
@@ -98,12 +101,10 @@ export default function SimMissedPromotions({ missed, currency, onOpenBbyDetails
 
 function MissedRow({
   missed,
-  currency,
   onOpenBbyDetails,
   t,
 }: {
   missed: MissedPromo
-  currency: string
   onOpenBbyDetails: ((bbyNumber: string) => void) | null
   t: TFunction
 }) {
@@ -139,20 +140,23 @@ function MissedRow({
           </span>
           <IdentitySubLine missed={missed} t={t} />
         </span>
-        {missed.wouldSave != null && missed.wouldSave > 0 ? (
+        {/* WHAT THE OFFER GIVES — the discount definition, in the slot the invented
+            would-save figure used to hold (see the header note). Absent when the
+            wire's discount code did not classify: the server's own description, on
+            the line beside it, is then the whole of what the card can honestly say.
+
+            The label is authored uppercase in the JSON, not transformed in CSS: a
+            `uppercase` transform is a no-op on Arabic script (spec 110's inventory).
+
+            Isolated whole: the phrase OPENS with a digit (`35% off`) and reorders
+            under RTL — the same audit finding as every other figure on this screen. */}
+        {missed.definition ? (
           <span className="shrink-0 text-end">
-            <span className="block text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
-              {t('missed.wouldSaveLabel')}
+            <span className="block text-[9px] font-bold tracking-wide text-muted-foreground">
+              {t('missed.givesLabel')}
             </span>
-            {/* Money AND currency inside one isolate: the audit measured that a
-                figure+unit pair breaks **only when a literal space separates them**, and
-                this one has one (`105.18 SAR`). Wrapped as a whole value — the figure
-                alone would be the fragment 080 warns about. */}
-            <span className="block text-sm font-bold tabular-nums text-muted-foreground">
-              <Ltr>
-                {formatMoney(missed.wouldSave)}{' '}
-                <span className="text-[10px] font-medium">{currency}</span>
-              </Ltr>
+            <span className="block text-sm font-semibold">
+              <Ltr>{t(missed.definition.key, missed.definition.params)}</Ltr>
             </span>
           </span>
         ) : null}

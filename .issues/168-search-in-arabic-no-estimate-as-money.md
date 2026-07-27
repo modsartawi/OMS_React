@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 160
 blocked-by: 162
 ---
@@ -36,12 +36,12 @@ api (`ItemSearch`, `AddItem`) · logic (pure availability classification; the se
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `availabilityHasThreeStatesAndUnknownIsNotZero` — pure: a positive count, zero, and `null` map
+- [x] `availabilityHasThreeStatesAndUnknownIsNotZero` — pure: a positive count, zero, and `null` map
       to three distinct classifications with distinct words; nothing collapses `null` onto zero · pure
-- [ ] `theRowNeverPutsAnEstimateInTheMoneyColumn` — pure: the row view model places the estimate on
+- [x] `theRowNeverPutsAnEstimateInTheMoneyColumn` — pure: the row view model places the estimate on
       the meta line and exposes **no money-formatted figure** — the estimate carries `≈` and no
       currency word, so a caller cannot render it as money by accident · pure
-- [ ] `searchingInArabicFindsAndAddsAnItem` — drive: an Arabic query returns rows carrying Arabic
+- [x] `searchingInArabicFindsAndAddsAnItem` — drive: an Arabic query returns rows carrying Arabic
       names, the estimate renders on the second line (never the end edge), all three availability
       states are visibly different, and *Add* puts the item in the basket · flow (Playwright, extends
       `tools/callcenter-drive.mjs`)
@@ -65,3 +65,44 @@ and an estimate that cannot be misquoted, and adds it to the basket in one actio
 ## Blocked by
 
 [162](162-console-opens-an-order.md) — the search reads at the order's plant, so an order must exist.
+
+## Built
+
+`item-search.ts` is the pure module and it is where both rulings live, because both
+are properties of the ROW and not of the panel:
+
+- 🚩 **The estimate cannot enter the money column, structurally.** `SearchRowView` is
+  four fields — `itemNumber`, `title`, `meta[]`, `availability` — and there is no
+  money-column field to assign. The estimate is a `MetaPart` beside the item number,
+  composed with `≈` and no currency word; an absent one is **dropped rather than
+  drawn as `≈0.00`**, since a nought price on a row an agent quotes from is worse
+  than no price. The drive proves it spatially rather than by class name: the
+  estimate's box ends 400 px before the availability pill starts, it sits on the
+  row's second line, and the end edge holds no `\d+\.\d{2}` at all.
+- 🚩 **`availabilityOf` returns three classifications carrying `labelKey` AND
+  `tone` separately**, so ground, ink and wording differ by construction — one
+  `tone` would let a later edit distinguish them by colour alone, which is what
+  135 ruled out. `null`, an absent field and a negative count are all answered
+  honestly (unknown, unknown, none); nothing collapses onto zero.
+
+The panel keeps the **standing** note above the input rather than as the results
+box's caption (US28): a rule that arrives with the rows is read after the agent is
+already looking at prices. Search is held until the term would be accepted
+(`MIN_QUERY_LENGTH`, 3 — 799 answers 400 below it), settles for 250 ms, and is
+keyed by **order + term**: the same words on a different order are a different
+question, and a key without the order would answer this one with the previous
+one's stock. `truncated` gets *narrow your search*, never a pager. The Arabic run
+rides the meta line inside the **`dir`-pinned** isolate (138) — measured: the name
+stays at the start edge instead of flipping the block.
+
+`addItem` sends an item number and a quantity and **never a price** (law 1,
+asserted on the wire), on a `requestId` minted once outside `runGuarded` so a busy
+retry cannot become a second add of a real item.
+
+⚠ **For [169](169-below-availability-accepted.md):** a `pendingConfirmation:
+belowAtp` currently draws one sentence under the search box (`search.addBeyondAvailability`)
+— the honest outcome of an add that did not land, standing in for the acceptance
+sheet. 169 replaces it with the modal and should delete the key.
+
+Proof: 17 pure (`item-search.test.ts`) + `callcenter-drive` 301/301; `typecheck`,
+`lint` (3 gates), `build`, 421 unit tests green.

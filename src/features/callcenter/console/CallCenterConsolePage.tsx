@@ -447,6 +447,56 @@ function ConsoleSession() {
   })
 
   /**
+   * `addItem` (168) — the one verb the search panel has, on its own mutation
+   * because it is its own act with its own failure surface.
+   *
+   * 🚩 **It sends an item number and a quantity, never a price** (law 1): the
+   * estimate the agent was looking at when they pressed *Add* is a
+   * material-master figure that has never been near the engine. What the line
+   * costs comes back in the projection, VAT included, and is the only figure the
+   * caller is ever told.
+   *
+   * Quantity is 1: the search row's action is *add this*, and changing how many
+   * is the basket's own verb (`changeQty`, ticket 170).
+   */
+  const addItem = useMutation({
+    // No `again`: the panel draws this call's own failure under the rows, where
+    // the agent's eye already is, and a strip offering a second retry behind it
+    // is one retry too many (164's ruling).
+    mutationFn: (action: { itemNumber: string }) => {
+      // 🚩 Minted ONCE, outside the thunk — `runGuarded` re-runs it on every
+      // `SESSION_BUSY` retry, and a fresh id inside would make each retry a
+      // genuinely new action to the server's ledger (law 3 / §4): the same item
+      // added six times, on the verb the agent presses most.
+      const requestId = newRequestId()
+      return runGuarded(() => callCenterApi.addItem(transactionId!, requestId, action.itemNumber, 1))
+    },
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+    },
+    retry: false,
+  })
+
+  /**
+   * What the panel says about the last add.
+   *
+   * ⚠️ **Beyond availability is 169's, not this slice's.** It arrives as
+   * `pendingConfirmation: belowAtp` on the SUCCESS path with the unchanged state
+   * (§5.2), so nothing was added — and a console that said nothing at all would
+   * leave the agent watching a basket that did not move. Until 169 draws the
+   * acceptance, the honest answer is the outcome: it was not added, and why.
+   * Where availability is merely *unknown* the server raises no confirmation at
+   * all, so this sentence cannot reach a degraded stock read.
+   */
+  const addOutcome = addItem.isError
+    ? apiErrorMessage(addItem.error, t('search.addFailed'))
+    : addItem.data?.pendingConfirmation?.kind === 'belowAtp'
+      ? t('search.addBeyondAvailability')
+      : null
+
+  /**
    * 🚩 **The plant rebind, as ONE action** — the verb the agent reached it by is
    * a parameter, not a second flow (167). Picking an address derives the store
    * (`setAddress`, §5.1's usual path) and overriding it names one (`setStore`,
@@ -788,6 +838,21 @@ function ConsoleSession() {
                 t(customer.variables?.customerId === null ? 'rail.removeFailed' : 'rail.attachFailed'),
               )
             : null,
+        }}
+        addItem={{
+          // 🚩 Passed only while the door says it will accept an add — the same
+          // rule as the address book and the store chip: a control the door
+          // refuses is worse than no control.
+          onAdd: session.data.capabilities.canAddItem
+            ? (itemNumber) => addItem.mutate({ itemNumber })
+            : null,
+          pending: addItem.isPending ? (addItem.variables?.itemNumber ?? null) : null,
+          error: addOutcome,
+          // 🚩 The outcome belongs to the act, not to the screen: a new search is
+          // a new question, and `reset` is what stops the last one's refusal
+          // standing over it. Nothing else clears it — a successful add already
+          // replaces the mutation's own data.
+          dismissError: addItem.reset,
         }}
         onAbandon={
           session.data.status === 'open'

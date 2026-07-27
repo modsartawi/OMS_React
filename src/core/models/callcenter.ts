@@ -294,3 +294,56 @@ export interface CustomerAddressBookEntry {
 export interface CallCenterAccessResult {
   canOpenConsole: boolean
 }
+
+/**
+ * One catalogue row as `GET CallCenterWeb/ItemSearch` answers it (BackOffice
+ * [799](C:\Work\DMSCO\BackOffice\.issues\799-cc-item-search-endpoint.md)).
+ *
+ * 🚩 **Not part of the session contract**, like the loyalty and address-book
+ * reads: it is how the agent FINDS an item, and `SessionState.lines` is what the
+ * order actually holds. Only what a search row renders is typed — the wire also
+ * carries six merchandising categories (`otcList`, `brand`, `salesCategory3`,
+ * `materialType`, `materialStatus`, `materialGroup`) that no console surface has
+ * a use for, and unknown fields are ignored by rule (§9).
+ *
+ * 🚩 **`estimatePriceExVat` is not money.** It is `Item.UnitPrice`, a
+ * material-master column served as an estimate BEFORE VAT, and because VAT is a
+ * separate 15% condition it reads ~13% under the basket line beside it. The wire
+ * field is named so the omission cannot be silent, and the console's whole job
+ * with it is to keep it out of the money register (135 amendment 1) — which is
+ * `item-search.ts`'s, not a component's.
+ *
+ * 🚩 **`atp: null` is UNKNOWN, and never a zero.** A degraded stock read
+ * degrades to `null` on every row with `atpAvailable: false`, on a 200 — never a
+ * non-200 (map note 8, preserving 287's rule). They are opposite decisions for
+ * the agent, so nothing may collapse one onto the other.
+ */
+export interface ItemSearchRow {
+  /** What `addItem` is given. The client sends an item number and a quantity,
+   *  and never a price (map note 3 / law 1). */
+  materialNumber: string
+  descriptionEn: string
+  /** The Arabic name — `Item.Description2`, which WPF never searched or showed.
+   *  Nullable: the master has rows that carry none. */
+  descriptionAr: string | null
+  estimatePriceExVat: number | null
+  /** Availability at the ORDER's plant. `null` = unknown, distinct from `0`. */
+  atp: number | null
+}
+
+/**
+ * `GET CallCenterWeb/ItemSearch?transactionId=&query=` (CONTRACT.md §1.1).
+ *
+ * **No paging by design.** An agent scanning results at call pace retypes rather
+ * than pages, and keyset paging over a relevance-ordered set is unstable under
+ * re-ranking — so the answer is a cap plus `truncated`, and the console's
+ * affordance for it is *narrow your search*, never *next page*.
+ */
+export interface ItemSearchResult {
+  /** The underlying match had more rows than the cap returned. */
+  truncated: boolean
+  /** `false` ⇒ the stock service failed and EVERY row's `atp` is `null`. The
+   *  search still succeeded: unknown availability never gates order entry. */
+  atpAvailable: boolean
+  rows: ItemSearchRow[]
+}

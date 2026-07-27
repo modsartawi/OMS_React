@@ -27,6 +27,7 @@ import type {
   AbandonResult,
   CallCenterAccessResult,
   CustomerAddressBookEntry,
+  ItemSearchResult,
   LoyaltyMember,
   OpenResult,
   SessionState,
@@ -67,6 +68,16 @@ export const sessionKey = (transactionId: string) =>
  */
 export const addressBookKey = (customerId: string) =>
   ['callcenter', 'addresses', customerId] as const
+
+/**
+ * One catalogue search. Keyed by the **order** as well as the term, because the
+ * answer is scoped to the order's plant: availability and eligibility are both
+ * read at `header.plant` (BackOffice 799), so the same words asked on a
+ * different order are a different question — and a key that did not carry the
+ * order would answer this one with the previous one's stock.
+ */
+export const itemSearchKey = (transactionId: string, query: string) =>
+  ['callcenter', 'itemSearch', transactionId, query] as const
 
 const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ' // Crockford base32
 
@@ -261,6 +272,57 @@ export const callCenterApi = {
       transactionId,
       requestId,
       storeCode,
+      ...(confirmToken ? { confirmToken } : {}),
+    })
+  },
+
+  /**
+   * `GET CallCenterWeb/ItemSearch` — the box the agent types into while talking
+   * (§1.1, BackOffice 799). A **pure read**, so it carries no `requestId`.
+   *
+   * It takes the `transactionId` and NOT a plant: the search is scoped to the
+   * ORDER's fulfilment store server-side, which is the same rule the rest of the
+   * door follows — a client-supplied plant would be a second opinion about where
+   * this order is served from, and the one the agent could not see.
+   *
+   * 🚩 **The rows it answers are already the ones this order would accept.** The
+   * eligibility whitelist (CC1's own, `POSOrderController`) and the ATP
+   * annotation both run server-side, which is what makes every row addable in
+   * one action — the agent never picks something and then hits a dead end
+   * mid-call. Nothing here re-filters that answer.
+   */
+  itemSearch(transactionId: string, query: string): Promise<ItemSearchResult> {
+    return api.get<ItemSearchResult>('CallCenterWeb/ItemSearch', { transactionId, query })
+  },
+
+  /**
+   * `POST CallCenterWeb/AddItem` → the whole `SessionState` (law 2).
+   *
+   * 🚩 **It sends an item number and a quantity, and never a price** (law 1 / map
+   * note 3). The estimate the agent was looking at when they pressed *Add* is a
+   * material-master figure that has never been near the engine; what the line
+   * costs is decided by pricing and comes back in the projection.
+   *
+   * On a quantity beyond availability it answers `pendingConfirmation: belowAtp`
+   * on the SUCCESS path with the unchanged state and a token to commit with —
+   * the same two-phase protocol as the plant rebind, and
+   * [169](.issues/169-below-availability-accepted.md)'s surface, which is why
+   * `confirmToken` is already in this signature. Where availability is merely
+   * *unknown* there is no confirmation at all: a degraded stock read never gates
+   * order entry (§5.2).
+   */
+  addItem(
+    transactionId: string,
+    requestId: string,
+    itemNumber: string,
+    qty: number,
+    confirmToken?: string,
+  ): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/AddItem', {
+      transactionId,
+      requestId,
+      itemNumber,
+      qty,
       ...(confirmToken ? { confirmToken } : {}),
     })
   },

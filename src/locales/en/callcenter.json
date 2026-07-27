@@ -168,6 +168,25 @@
       "store": "Change the fulfilment store"
     }
   },
+  "search": {
+    "label": "Search the catalogue",
+    "placeholder": "Search items — name, Arabic name, or item number",
+    "minChars": "Type at least {{min}} characters — part of the name, in English or Arabic, or the item number.",
+    "searching": "Searching the catalogue…",
+    "failed": "The catalogue search could not be completed. Nothing has changed on this order — try again.",
+    "noMatch": "Nothing matches that. Try part of the name, in English or Arabic, or the item number.",
+    "estimateNote": "Catalogue prices are estimates before VAT — the basket price is what the caller pays.",
+    "truncated": "Showing the first {{shown}} — narrow your search.",
+    "add": "Add",
+    "adding": "Adding…",
+    "addFailed": "That item could not be added. Nothing has changed on this order — try again.",
+    "addBeyondAvailability": "That is beyond what is available at this store, so it was not added.",
+    "atp": {
+      "count": "{{qty}} in stock",
+      "none": "none at store",
+      "unknown": "? stock unknown"
+    }
+  },
   "basket": {
     "heading": "Basket · prices include VAT",
     "lineCount_one": "{{count}} line",

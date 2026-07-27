@@ -27,6 +27,7 @@ import { formatMoney } from '@/core/util/number-format'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CustomerRail, { type CustomerActions } from './CustomerRail'
 import { headerChips, type HeaderChip } from './header-chips'
+import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
 import type { RebindRefusal } from './store-move'
 
 export default function ConsoleShell({
@@ -36,6 +37,7 @@ export default function ConsoleShell({
   refreshing = false,
   busy = null,
   customerActions,
+  addItem,
   onPickAddress,
   onChangeStore,
   refusal = null,
@@ -54,6 +56,10 @@ export default function ConsoleShell({
    *  They are the page's because they return the whole `SessionState`, and the
    *  cache is the store of record. */
   customerActions: CustomerActions
+  /** `addItem` and its outcome (168), passed through to the search panel — the
+   *  page's for the same reason as every other verb: it returns the whole
+   *  `SessionState`. */
+  addItem: AddItemActions
   /** Opens the address book (166). The dialog and the `setAddress` verb are the
    *  page's — it returns the whole `SessionState` — so all that travels down
    *  here is the request to open it. */
@@ -95,6 +101,10 @@ export default function ConsoleShell({
         <CustomerRail state={state} customerActions={customerActions} onPickAddress={onPickAddress} />
         <main className="flex min-h-0 min-w-0 flex-col border-x border-border">
           <ChipRow state={state} onChangeStore={onChangeStore} />
+          {/* 135's fixed vertical order — chip row → item search → basket. The
+              search is above the basket because that is the direction the work
+              runs in: what the agent finds lands underneath it. */}
+          <ItemSearchPanel state={state} add={addItem} />
           <Basket state={state} refusedLines={refusedLines} />
         </main>
         <Receipt state={state} />

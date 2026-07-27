@@ -97,6 +97,20 @@
 //        the id is not, and the agent is told why they are being asked twice;
 //    30. the deliberate override rides SetStore into the SAME sheet — one
 //        confirmation mechanism, not two — and the chip stops saying *derived*.
+//
+// Asserts ticket 168's Proof:
+//   searchingInArabicFindsAndAddsAnItem
+//    31. a term too short to ask with asks nothing; an Arabic term reaches the
+//        catalogue verbatim on ONE settled request carrying the ORDER (never a
+//        client-chosen plant); every row carries its Arabic name in a dir-PINNED
+//        isolate that does not flip the block; the estimate rides the SECOND
+//        line with `≈` and no currency word and is measurably nowhere near the
+//        row's end edge, which holds no money-formatted figure at all; the three
+//        availability states differ in ground, ink AND words, with unknown
+//        reading as nothing like none; a capped result offers narrowing rather
+//        than a pager; and one click adds the item — one AddItem, an item number
+//        and a quantity, never a price — leaving it in the basket at the
+//        ENGINE's price, not the estimate.
 //   aRefusedRebindChangesNothingAndSaysWhichLine
 //    29. REBIND_REFUSED draws the banner in the server's own words, names the
 //        offending line THERE and tints it in the basket, and leaves the store,
@@ -361,6 +375,84 @@ const STORE_PLANT = Object.fromEntries(
   STORE_DETAILS.map((s) => [s.storeCode, { plant: s.storeCode, plantName: `${s.city} — ${s.storeAddress}` }]),
 )
 
+// ---- ticket 168: the catalogue the agent searches, and what it answers ----
+//
+// `CallCenterWeb/ItemSearch` has no committed fixture either (BackOffice 799
+// specifies it), so the drive spells that ticket's own response row and only the
+// fields the panel reads. Four rows on purpose, and in this order:
+//
+//   1. a positive count, 2. nought, 3. a degraded read (`atp: null`) — the three
+//   availability states the console must tell apart — and 4. a fourth match that
+//   the cap drops, so `truncated` is a real consequence of the search rather
+//   than a flag the stub sets by hand.
+//
+// Every row carries an Arabic name, because the Arabic run in an LTR row is the
+// thing 138's bidi ruling is about and a catalogue without one proves nothing.
+const CATALOGUE = [
+  {
+    materialNumber: '200145',
+    descriptionEn: 'Panadol Extra 500mg 24 Tablets',
+    descriptionAr: 'بنادول إكسترا ٥٠٠ مجم ٢٤ قرص',
+    estimatePriceExVat: 9.13,
+    atp: 12,
+  },
+  {
+    materialNumber: '200146',
+    descriptionEn: 'Panadol Cold & Flu 24 Tablets',
+    descriptionAr: 'بنادول للبرد والإنفلونزا ٢٤ قرص',
+    estimatePriceExVat: 11.4,
+    atp: 0,
+  },
+  {
+    materialNumber: '200147',
+    descriptionEn: 'Panadol Advance 32 Tablets',
+    descriptionAr: 'بنادول أدفانس ٣٢ قرص',
+    estimatePriceExVat: 7.85,
+    atp: null,
+  },
+  {
+    materialNumber: '200148',
+    descriptionEn: 'Panadol Baby Suspension 100ml',
+    descriptionAr: 'بنادول للأطفال شراب ١٠٠ مل',
+    estimatePriceExVat: 14.25,
+    atp: 5,
+  },
+]
+
+// The cap, small enough that one query proves *no paging, a cap and a flag*.
+const SEARCH_TAKE = 3
+
+// 799's match clause in miniature: every whitespace-separated token must appear
+// in the English OR the Arabic name. The Arabic axis is the point — WPF never
+// searched `Description2` at all.
+const searchCatalogue = (term) => {
+  const tokens = term.trim().split(/\s+/).filter(Boolean)
+  return CATALOGUE.filter((row) =>
+    tokens.every(
+      (token) =>
+        row.descriptionEn.toLowerCase().includes(token.toLowerCase()) ||
+        (row.descriptionAr ?? '').includes(token) ||
+        row.materialNumber.startsWith(token),
+    ),
+  )
+}
+
+// What one add puts in the basket. The line's SHAPE is fixture 02's (a priced
+// engine line, VAT-inclusive, with its own conditions); the identity and the
+// frozen availability are the added row's. A hand-built line would be testing
+// the drive's idea of a line rather than the console's rendering of one.
+const lineFor = (row, qty, index) => ({
+  ...PRIOR_STATE.lines[0],
+  lineId: `LS${index}`,
+  itemNumber: row.materialNumber,
+  description: row.descriptionEn,
+  description2: row.descriptionAr,
+  qty,
+  // §2.1 — frozen AT ADD, and `known:false` is the degraded read, never a zero.
+  atpAtScan: { quantity: row.atp, frozenAt: PRIOR_STATE.header.openedAt, known: row.atp !== null },
+  belowAtpAtScan: false,
+})
+
 // §7 — CONSOLE_NOT_GRANTED is a 403 CARRYING the envelope, so `core/api.ts` maps
 // it to kind:'business' and `apiErrorCode()` can read it. A refusal, not a fault.
 const REFUSAL = {
@@ -466,6 +558,9 @@ async function open(
   // Every POST with its body, in order — how "abandon BEFORE open" and "a new
   // requestId" are PROVEN rather than inferred from what ends up on screen.
   const wire = []
+  // Every ItemSearch URL in full — how "it rides the order, not a client-chosen
+  // plant" is proven from the request rather than from what ends up on screen.
+  const searches = []
   let opens = 0
   page.on('pageerror', (e) => errors.push(String(e)))
   // Chromium logs EVERY non-2xx as a console error, whether or not the app
@@ -518,6 +613,36 @@ async function open(
         version: served.version + 1,
         header: { ...served.header, customer: ATTACHED_CUSTOMER },
         capabilities: { ...served.capabilities, canOpenAddressBook: true },
+      }
+      return route.fulfill(envelope(speak(served)))
+    }
+    // ---- 168: the catalogue read, and the one verb that adds from it ----
+    if (p === 'CallCenterWeb/ItemSearch') {
+      searches.push(url)
+      const term = new URL(url).searchParams.get('query') ?? ''
+      const matched = searchCatalogue(term)
+      return route.fulfill(
+        envelope({
+          rows: matched.slice(0, SEARCH_TAKE),
+          // No paging: the cap plus the flag is the whole protocol (799).
+          truncated: matched.length > SEARCH_TAKE,
+          // The stock read landed. Its FAILURE is `atp: null` on every row with
+          // this false — never a non-200 — which row 3 already covers per-row.
+          atpAvailable: true,
+        }),
+      )
+    }
+    if (p === 'CallCenterWeb/AddItem') {
+      const body = route.request().postDataJSON()
+      const row = CATALOGUE.find((r) => r.materialNumber === body.itemNumber)
+      served = {
+        ...served,
+        version: served.version + 1,
+        lines: [...served.lines, lineFor(row, body.qty, served.lines.length + 1)],
+        capabilities: {
+          ...served.capabilities,
+          submitBlockers: served.capabilities.submitBlockers.filter((c) => c !== 'NO_LINES'),
+        },
       }
       return route.fulfill(envelope(speak(served)))
     }
@@ -632,7 +757,7 @@ async function open(
     return route.fulfill(envelope([]))
   })
 
-  return { context, page, errors, calls, wire }
+  return { context, page, errors, calls, wire, searches }
 }
 
 const count = (calls, re) => calls.filter((c) => re.test(c)).length
@@ -1813,6 +1938,192 @@ async function run() {
     // 🚩 The provenance is the server's, and it changed: this branch was CHOSEN.
     // A chip that still said *derived* would be explaining the wrong decision.
     check('and no longer reads as derived — this one was chosen', !/derived/i.test(storeAfter), storeAfter)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ============ ticket 168 — the search, the estimate and availability ============
+
+  // ---- 31. searching in Arabic finds and adds an item ----
+  {
+    const { context, page, errors, calls, wire, searches } = await open(browser, {})
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    check('the search box is there from the first frame', await page.locator('[data-cc-search-input]').isEnabled())
+    // 165's ruling still holds: the caret opens the call in the phone field, and
+    // the search box must not have taken it.
+    check(
+      'and it has not stolen the caret from the phone field',
+      (await page.evaluate(() => document.activeElement?.id)) === 'cc-phone',
+      await page.evaluate(() => document.activeElement?.id ?? '—'),
+    )
+
+    // 🚩 STANDING: the mis-quote rule is on screen before a single price is —
+    // a caption that arrives with the rows is read after the agent is already
+    // looking at prices (US28).
+    check(
+      'the estimate note stands before anything is searched',
+      (await page.locator('[data-cc-search-note]').isVisible()) &&
+        /estimate/i.test(await text(page, '[data-cc-search-note]')),
+      (await text(page, '[data-cc-search-note]')).replace(/\s+/g, ' '),
+    )
+
+    // 🚩 Under three characters the endpoint answers 400, so the console does not
+    // spend the round trip: it says what is needed instead of failing.
+    await page.locator('[data-cc-search-input]').fill('بن')
+    await page.locator('[data-cc-search-hint]').waitFor({ timeout: 5_000 })
+    check('a term too short to ask with asks nothing', count(calls, /^CallCenterWeb\/ItemSearch$/) === 0)
+    check('and says what is needed', (await text(page, '[data-cc-search-hint]')).length > 20, await text(page, '[data-cc-search-hint]'))
+
+    // ---- the Arabic run: part of a name, in the caller's own words ----
+    await page.locator('[data-cc-search-input]').fill('بنادول')
+    await page.locator('[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
+
+    check(
+      'the Arabic term reached the catalogue verbatim',
+      searches.length === 1 && decodeURIComponent(searches[0]).includes('query=بنادول'),
+      decodeURIComponent(searches[0] ?? '—'),
+    )
+    check(
+      'it is asked ONCE for one settled term, not once per keystroke',
+      count(calls, /^CallCenterWeb\/ItemSearch$/) === 1,
+      `${count(calls, /^CallCenterWeb\/ItemSearch$/)} search call(s)`,
+    )
+    check(
+      'the search rides the ORDER, not a client-chosen plant',
+      searches.length > 0 &&
+        searches.every((u) => u.includes(`transactionId=${STATE.transactionId}`) && !/plant=/.test(u)),
+      searches[0] ?? '',
+    )
+
+    const rows = page.locator('[data-cc-search-row]')
+    check('the cap decides how many come back, not the console', (await rows.count()) === SEARCH_TAKE, `${await rows.count()} row(s)`)
+    check(
+      'every row carries its Arabic name',
+      (await page.locator('[data-cc-search-part="description2"]').allInnerTexts()).map((s) => s.trim()).join('|') ===
+        CATALOGUE.slice(0, SEARCH_TAKE).map((r) => r.descriptionAr).join('|'),
+      (await page.locator('[data-cc-search-part="description2"]').allInnerTexts()).join(' | '),
+    )
+    // 138's ruling: the isolate is `dir`-pinned, never `dir="auto"` — a bare
+    // <bdi> reads the Arabic and flips the whole block.
+    check(
+      'the Arabic run is isolated with a dir-PINNED wrapper',
+      await page
+        .locator('[data-cc-search-part="description2"] bdi')
+        .first()
+        .evaluate((el) => el.getAttribute('dir') === 'ltr'),
+    )
+    // And the flip it prevents, measured: the name stays start-aligned, on the
+    // same line as the item number rather than pushed onto one of its own.
+    const firstRow = page.locator('[data-cc-search-row="200145"]')
+    const titleBox = await firstRow.locator('[data-cc-search-title]').boundingBox()
+    const metaBox = await firstRow.locator('[data-cc-search-meta]').boundingBox()
+    check(
+      'the Arabic did not flip the block — the name stays at the start edge',
+      Math.abs(metaBox.x - titleBox.x) < 2,
+      `${titleBox.x} vs ${metaBox.x}`,
+    )
+
+    // ---- 🚩 the estimate is on the second line, and is not money ----
+    const estimate = firstRow.locator('[data-cc-search-part="estimate"]')
+    const estimateText = (await estimate.innerText()).trim()
+    check('the estimate carries the approximation mark', estimateText.startsWith('≈'), estimateText)
+    check(
+      'and no currency word — SAR is reserved for engine money',
+      !/\bSAR\b|\bSR\b|ريال/i.test((await firstRow.innerText())),
+      (await firstRow.innerText()).replace(/\s+/g, ' '),
+    )
+    check(
+      'it rides the META line, beside the item number',
+      await estimate.evaluate((el) => !!el.closest('[data-cc-search-meta]')),
+    )
+    const estimateBox = await estimate.boundingBox()
+    check('which is the row’s SECOND line', estimateBox.y > titleBox.y, `${titleBox.y} → ${estimateBox.y}`)
+    // 🚩 The whole ruling, measured: the end edge carries availability and *Add*
+    // only, and the estimate is nowhere near it.
+    const pillBox = await firstRow.locator('[data-cc-atp]').boundingBox()
+    check(
+      'and never the row’s end edge, where a price would read as money',
+      estimateBox.x + estimateBox.width < pillBox.x,
+      `estimate ends ${Math.round(estimateBox.x + estimateBox.width)}, pill starts ${Math.round(pillBox.x)}`,
+    )
+    check(
+      'the end edge holds no money-formatted figure at all',
+      !/\d+\.\d{2}/.test(await firstRow.locator('[data-cc-atp]').innerText()),
+      await firstRow.locator('[data-cc-atp]').innerText(),
+    )
+    // Stated once, at the top of the panel, rather than inferred per row.
+    check(
+      'the panel carries the standing estimate note',
+      /estimate/i.test(await text(page, '[data-cc-search-note]')),
+      (await text(page, '[data-cc-search-note]')).replace(/\s+/g, ' '),
+    )
+
+    // ---- 🚩 three availability states, and unknown is not zero ----
+    const kinds = await page.locator('[data-cc-atp]').evaluateAll((els) =>
+      els.map((el) => ({
+        kind: el.getAttribute('data-cc-atp'),
+        text: el.innerText.trim(),
+        ground: getComputedStyle(el).backgroundColor,
+        ink: getComputedStyle(el).color,
+      })),
+    )
+    check('the three rows classify three different ways', kinds.map((k) => k.kind).join(',') === 'count,none,unknown', kinds.map((k) => k.kind).join(','))
+    check('differing in WORDS', new Set(kinds.map((k) => k.text)).size === 3, kinds.map((k) => k.text).join(' | '))
+    check('in GROUND', new Set(kinds.map((k) => k.ground)).size === 3, kinds.map((k) => k.ground).join(' | '))
+    check('and in INK — never colour alone', new Set(kinds.map((k) => k.ink)).size === 3, kinds.map((k) => k.ink).join(' | '))
+    const unknown = kinds.find((k) => k.kind === 'unknown')
+    const none = kinds.find((k) => k.kind === 'none')
+    check(
+      '🚩 unknown does not read as none — a degraded read is not a zero',
+      unknown.text !== none.text && !/\b0\b/.test(unknown.text),
+      `${unknown.text} vs ${none.text}`,
+    )
+    check('and the count says the number', /\b12\b/.test(kinds[0].text), kinds[0].text)
+
+    // ---- no paging: a cap, a flag, and an affordance that is not *next* ----
+    check('a capped result says so', await page.locator('[data-cc-search-truncated]').isVisible())
+    check(
+      'and offers narrowing, never a pager',
+      /narrow/i.test(await text(page, '[data-cc-search-truncated]')) &&
+        !/next|page \d|›|»/i.test(await text(page, '[data-cc-search]')),
+      await text(page, '[data-cc-search-truncated]'),
+    )
+
+    // ---- 🚩 one action adds it ----
+    check('the basket is empty before the add', await page.locator('[data-cc-basket-empty]').isVisible())
+    await page.locator('[data-cc-search-add="200145"]').click()
+    await page.locator('[data-cc-line]').first().waitFor({ timeout: 10_000 })
+
+    check('one click added it — no second step, no confirmation', (await page.locator('[data-cc-confirm-sheet]').count()) === 0)
+    const adds = wire.filter((w) => w.path === 'CallCenterWeb/AddItem')
+    check('exactly one AddItem', adds.length === 1, String(adds.length))
+    check(
+      'naming the item and a quantity',
+      adds[0].body.itemNumber === '200145' && adds[0].body.qty === 1 && !!adds[0].body.requestId,
+      JSON.stringify(adds[0].body),
+    )
+    // 🚩 Law 1 — money is one-way, engine → client. The estimate the agent was
+    // looking at never goes back.
+    check(
+      'and never a price — the estimate never reaches the server',
+      !JSON.stringify(adds[0].body).includes('9.13') &&
+        !/price|estimate|amount/i.test(Object.keys(adds[0].body).join(',')),
+      JSON.stringify(adds[0].body),
+    )
+    const line = page.locator('[data-cc-line]').first()
+    check(
+      'the item is in the basket, priced by the ENGINE',
+      (await line.innerText()).includes(CATALOGUE[0].descriptionEn) && /\d+\.\d{2}/.test(await line.innerText()),
+      (await line.innerText()).replace(/\s+/g, ' '),
+    )
+    check(
+      'and what the basket shows is not the estimate',
+      !(await line.innerText()).includes('9.13'),
+      (await line.innerText()).replace(/\s+/g, ' '),
+    )
+    check('the search results are still there to add the next one from', (await rows.count()) === SEARCH_TAKE)
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }

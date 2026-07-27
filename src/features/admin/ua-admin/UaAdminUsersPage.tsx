@@ -80,12 +80,14 @@ export default function UaAdminUsersPage() {
   //
   // Gated on a settled read: with `keepPreviousData`, `list.data` mid-flight is
   // the previous page's rows, which would clamp off stale counts.
-  const settled = list.data !== undefined && !list.isFetching && !list.isPlaceholderData
-  const settledPage = settled && query !== null ? query.page : null
-  const settledRows = settled ? list.data!.rows.length : 0
-  const settledTotal = settled ? list.data!.totalMatches : 0
+  // `null`, not `0`, when unsettled — 0 rows is the very signal the clamp reads,
+  // so an unsettled read must not be able to look like an emptied page.
+  const settledData = !list.isFetching && !list.isPlaceholderData ? list.data : undefined
+  const settledPage = settledData !== undefined && query !== null ? query.page : null
+  const settledRows = settledData?.rows.length ?? null
+  const settledTotal = settledData?.totalMatches ?? null
   useEffect(() => {
-    if (settledPage === null) return
+    if (settledPage === null || settledRows === null || settledTotal === null) return
     const clamped = clampToLastPageWhenCurrentPageEmpties({
       page: settledPage,
       rowCount: settledRows,
@@ -224,7 +226,12 @@ export default function UaAdminUsersPage() {
               <b className="text-sm">{t('grid.emptyTitle')}</b>
               <span className="max-w-sm text-sm text-muted-foreground">{t('grid.emptyHint')}</span>
             </div>
-          ) : list.isPending ? (
+          ) : /* The clamp's landing page, if it isn't cached, arrives behind the
+                 EMPTIED page as placeholder — and rendering "no people match"
+                 for that round trip is exactly the broken-looking screen the
+                 clamp exists to prevent. A placeholder with no rows is not this
+                 page's answer, so it reads as a first load. */
+            list.isPending || (list.isPlaceholderData && list.data.rows.length === 0) ? (
             <div className="flex flex-1 items-center justify-center gap-2 p-10 text-sm text-muted-foreground" role="status">
               <Loader2 className="h-4 w-4 animate-spin" />
               {t('grid.loading')}

@@ -95,6 +95,15 @@ on screen right now.
 _Avoid_: cap, capped, "first 50" (a page boundary is not a wall — advising someone to narrow their
 search to get past it is the retired behaviour).
 
+**Worklist**:
+The people a **report card** pulls up — a *card* is the count you click, the **worklist** is the list
+you then work **down**, page by page, acting on each person. The distinction matters because the two
+behave differently: a card is a number that refreshes, while a worklist has **live membership** —
+fixing someone removes them from it, which is why acting on a person holds the page rather than
+restarting it, and why succeeding at the last row of the last page has to land on the new last page
+rather than on an empty grid.
+_Avoid_: filter, query (a search is also a query; only a card yields a worklist), queue.
+
 **Bonus buy (BBY)**:
 A promotion evaluated by the pricing engine, identified by a `bbyNumber` (with a `promoNumber` /
 `offerId`). One shape: a **buy side** ("buy X") linked to a **get side** ("get Y"). It is

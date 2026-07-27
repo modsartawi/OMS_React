@@ -9,6 +9,16 @@ export const router = createBrowserRouter([
     path: '/login',
     lazy: async () => ({ Component: (await import('@/features/auth/LoginPage')).default }),
   },
+  // PROTOTYPE — throwaway (wayfinder ticket 135). Top-level, OUTSIDE
+  // ProtectedLayout on purpose: the call-center console renders its own
+  // full-viewport layout with no app chrome (map 126 note 13), and hosting it
+  // inside AppShell would hide exactly the thing being judged.
+  {
+    path: '/prototype/callcenter-console',
+    lazy: async () => ({
+      Component: (await import('@/features/callcenter/__prototype__/ConsolePrototypePage')).default,
+    }),
+  },
   {
     path: '/',
     Component: ProtectedLayout,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -7,8 +7,8 @@ import { apiErrorMessage } from '@/core/api'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import type { UaReportCountsResult } from '@/core/models/ua-user'
 import { deriveStatus, formatStamp } from './helpers'
+import { visibleCards } from './cards'
 import { buildUaUsersCsv, csvFileName } from './csv'
 import {
   ExportCancelledError,
@@ -25,18 +25,6 @@ import StatusPill from './StatusPill'
 import ChannelPill from './ChannelPill'
 import UserDetailPane from './UserDetailPane'
 import NewIdentityModal from './NewIdentityModal'
-
-// The six cards, in screen order. `count` picks the field off the counts DTO —
-// note `mustChange` reads `mustChangePassword` (the one name asymmetry). `card`
-// is BOTH the count key and the /ReportCards/{card} path arg.
-const CARDS: { card: string; count: (c: UaReportCountsResult) => number; tone: string }[] = [
-  { card: 'all', count: (c) => c.allPeople, tone: '' },
-  { card: 'notSeeded', count: (c) => c.notSeeded, tone: 'text-danger-800' },
-  { card: 'phoneGap', count: (c) => c.phoneGap, tone: 'text-attention-800' },
-  { card: 'awaitingActivation', count: (c) => c.awaitingActivation, tone: 'text-sidebar-active' },
-  { card: 'mustChange', count: (c) => c.mustChangePassword, tone: 'text-sidebar-active' },
-  { card: 'disabled', count: (c) => c.disabled, tone: '' },
-]
 
 /**
  * The 1-based page is a FIELD of the query, not separate state (ticket 148). That
@@ -246,6 +234,8 @@ export default function UaAdminUsersPage() {
   }
 
   const countsData = counts.data
+  // The row as it will render — its length is also the grid's track count.
+  const cardRow = visibleCards(countsData)
   const activeCard = query?.kind === 'card' ? query.card : null
   const gridTitle =
     query === null
@@ -303,19 +293,33 @@ export default function UaAdminUsersPage() {
       </div>
       <p className="text-xs text-muted-foreground">{showMinCharsHint ? t('search.minChars') : t('search.hint')}</p>
 
-      {/* report cards — server-counted, worklist filters */}
-      <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
-        {CARDS.map((c) => (
+      {/* Report cards — server-counted, worklist filters. The track is ONE
+          PER CARD, not a fixed six slots: the seventh appears the moment the
+          server starts sending its count (ticket 152), and six is a real state
+          that has to look deliberate too. `auto-fit` was the obvious reach and
+          is wrong here — it derives its own column count from the width, so
+          around 1000px seven cards become six plus a full-width orphan, which
+          is the row-with-a-hole this is avoiding. Counting them is exact at
+          both arrangements. */}
+      <div
+        className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:[grid-template-columns:repeat(var(--card-count),minmax(0,1fr))]"
+        style={{ '--card-count': cardRow.length } as CSSProperties}
+      >
+        {cardRow.map((c) => (
           <button
             key={c.card}
+            // Not styling — the row's shape and order is what ticket 152 is
+            // about, and this is what lets the drive assert it.
+            data-card={c.card}
             onClick={() => openCard(c.card)}
             className={
-              'flex flex-col items-start rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:bg-accent ' +
+              'flex flex-col items-start rounded-lg border bg-card px-3 py-2 text-start transition-colors hover:bg-accent ' +
               (activeCard === c.card ? 'border-primary bg-accent' : 'border-border/60')
             }
           >
+            {/* `null` is the read still in flight; a real 0 prints as 0. */}
             <span className={`text-xl font-bold tabular-nums ${c.tone}`}>
-              {countsData ? c.count(countsData).toLocaleString() : '—'}
+              {c.count === null ? '—' : c.count.toLocaleString()}
             </span>
             <span className="text-xs text-muted-foreground">{t(`cards.${c.card}`)}</span>
           </button>
@@ -369,7 +373,7 @@ export default function UaAdminUsersPage() {
             >
               <table className="w-full min-w-[640px] border-collapse text-sm">
                 <thead>
-                  <tr className="text-left text-xs font-medium text-muted-foreground">
+                  <tr className="text-start text-xs font-medium text-muted-foreground">
                     <th className="border-b border-border px-3 py-1.5">{t('grid.employee')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.name')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.mobile')}</th>

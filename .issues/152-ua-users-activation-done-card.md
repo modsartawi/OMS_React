@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 147
 blocked-by: —
 ---
@@ -49,12 +49,39 @@ component (the card row's layout + conditional render) · i18n (`ua-admin`:
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `visibleCardsAtSixAndSeven` — counts without the field yield six cards in today's order;
+- [x] `visibleCardsAtSixAndSeven` — counts without the field yield six cards in today's order;
       counts **with** it yield seven with *Activation done* fifth and *Disabled* still last; a
-      `completedActivation` of `0` still renders (zero is a count, absence is not) · pure
-- [ ] `theSeventhCardOpensItsWorklist` — drive against a stubbed envelope carrying the field: the
+      `completedActivation` of `0` still renders (zero is a count, absence is not) · pure ·
+      `src/features/admin/ua-admin/cards.test.ts`, 6 cases
+- [x] `theSeventhCardOpensItsWorklist` — drive against a stubbed envelope carrying the field: the
       card shows its count untoned, clicking it lists people and titles the grid with its label ·
-      flow (Playwright, extends `tools/ua-users-scale-drive.mjs`)
+      flow (Playwright, `tools/ua-users-scale-drive.mjs` sections 14–16) — **85/85**, with
+      `typecheck` / `lint` / `build` green
+
+## What it took
+
+- `cards.ts` — `visibleCards(counts)`, pure. A card whose count is `undefined` is skipped
+  entirely; `completedActivation` carries a `conditional: true` flag so "which card may be absent"
+  is stated **once** and the loaded and in-flight arms can't drift apart. `ROW` is `as const`, so
+  `CardCode` is a union and a typo in a card code is a type error rather than a raw i18n key on
+  screen. Counts still in flight return the six-card shape with `count: null` (a dash), so the row
+  doesn't appear from nothing on first paint.
+- 🚩 **`auto-fit` was the obvious reach and is wrong here.** Review caught it: `auto-fit` derives its
+  own column count from the available width, so at ~1000px seven cards render as six plus a
+  full-width orphan — the row-with-a-hole the ticket exists to avoid. The track is now **one column
+  per card** (`repeat(var(--card-count), minmax(0,1fr))` at `md`+), exact at both arrangements. The
+  drive measures it: one row, equal widths, at 1600px *and* at 1024px, in both the six- and
+  seven-card states.
+- The drive runs its whole length against an envelope with **no** `completedActivation` — the state
+  production is in — and flips the field on at the end with a reload, which is exactly how the card
+  will appear in production when BackOffice 805 deploys: no client release.
+- `data-card` on each card button (a `data-*` key, not user-visible) is what lets the drive assert
+  order and count rather than scraping labels.
+- Drive-by, on the element this ticket edits: `text-left` → `text-start`
+  (`.claude/rules/logical-tailwind.md`), plus the same fix on the grid header row.
+- Label check: the ticket specifies **"Activation done"**, which is not `CONTEXT.md`'s
+  *Completed activation*. The code identifier is `completedActivation` throughout; the difference is
+  label-only and deliberate (row width).
 
 ## Boundaries
 

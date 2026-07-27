@@ -46,8 +46,14 @@ export interface UaEmployeeStatusResult {
 }
 
 /**
- * The six report-card counts (UaReportCountsResult). NOTE the one asymmetry:
+ * The report-card counts (UaReportCountsResult). NOTE the one asymmetry:
  * the `mustChange` card key backs the property `mustChangePassword`.
+ *
+ * `completedActivation` is OPTIONAL on purpose (ticket 152): it arrives only
+ * once BackOffice 805 deploys, and until then the field is absent from the wire.
+ * Absent means the card is not rendered — never `0`, which would read as "the
+ * cutover hasn't started". A server that sends `0` is stating a count, and that
+ * renders.
  */
 export interface UaReportCountsResult {
   allPeople: number
@@ -56,6 +62,7 @@ export interface UaReportCountsResult {
   awaitingActivation: number
   mustChangePassword: number
   disabled: number
+  completedActivation?: number
 }
 
 /** One audit row (UaAuditEntry). `action` is a code; `targetId` is polymorphic. */

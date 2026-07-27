@@ -39,7 +39,15 @@
 //  11. Export raises a confirm naming the row count and the wait; dismissing it
 //      does nothing at all — no read, no toast, no file;
 //  12. confirming shows a cancellable progress toast, and cancelling stops the
-//      walk, says so, and leaves NO file behind.
+//      walk, says so, and leaves NO file behind;
+//  13. letting one finish writes all 6,000 identities, each exactly once.
+//
+// Ticket 152 adds, at the end (everything above runs against the SIX-card
+// envelope, which is what production shows until BackOffice 805 deploys):
+//  14. six cards while `completedActivation` is absent — no card, no 0;
+//  15. the field starts arriving and the row becomes seven, *Activation done*
+//      fifth and untoned, with no client release;
+//  16. clicking it opens its worklist, titled with its label.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/ua-users-scale-drive.mjs
@@ -103,6 +111,11 @@ const mutations = []
 // walk is long enough to interrupt.
 let allPageDelayMs = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+// Ticket 152: BackOffice 805 has not shipped, so the counts envelope has NO
+// `completedActivation` field — which is the six-card state production sees. The
+// drive runs its whole length that way and flips this on at the end to prove the
+// seventh card appears with no client release.
+let completedActivation = null
 
 /** The server's paging contract: `take` clamps down to 50, `isCapped` says a row
  *  exists past this page. Deterministic order, as every path already guarantees. */
@@ -141,6 +154,8 @@ await page.route('**/api/**', async (route) => {
         awaitingActivation: awaiting.size,
         mustChangePassword: 3,
         disabled: 40,
+        // Absent until 805 ships — and absent means ABSENT, not 0.
+        ...(completedActivation === null ? {} : { completedActivation }),
       }),
     )
   }
@@ -167,7 +182,9 @@ await page.route('**/api/**', async (route) => {
           ? ESTATE.slice(0, 400)
           : which === 'awaitingActivation'
             ? ESTATE.filter((r) => awaiting.has(r.employeeId))
-            : ESTATE
+            : which === 'completedActivation'
+              ? ESTATE.slice(0, completedActivation ?? 0)
+              : ESTATE
     if (which === 'all' && allPageDelayMs) await sleep(allPageDelayMs)
     return route.fulfill(envelope(slice(pool, q.get('skip'), q.get('take'))))
   }
@@ -533,6 +550,93 @@ check('confirming walks the whole estate into one file', bigLines.length === 600
 const exportedIds = bigLines.slice(2).map((l) => l.split(',')[0])
 check('every identity lands exactly once', new Set(exportedIds).size === 6000, `${new Set(exportedIds).size} distinct`)
 check('the finished export left the grid where it was', (await readout()).trim() === 'Page 1 of 120', await readout())
+
+// ---- 14/15. the card row at six and at seven (ticket 152) -------------------
+// Everything above ran against an envelope with NO `completedActivation` — the
+// six-card state, which is what production shows until BackOffice 805 deploys.
+const cards = page.locator('[data-card]')
+check('six cards while the field is absent', (await cards.count()) === 6, String(await cards.count()))
+check(
+  'no Activation done card, and no 0 standing in for the missing count',
+  !/Activation done/.test(await page.locator('main').innerText()),
+)
+const sixthOrder = await cards.evaluateAll((els) => els.map((e) => e.dataset.card))
+check('and the six read in today’s order', sixthOrder.join(',') === 'all,notSeeded,phoneGap,awaitingActivation,mustChange,disabled', sixthOrder.join(','))
+const sixShape = await cards.evaluateAll((els) => {
+  const tops = new Set(els.map((e) => Math.round(e.getBoundingClientRect().top)))
+  const widths = new Set(els.map((e) => Math.round(e.getBoundingClientRect().width)))
+  return { rows: tops.size, widths: widths.size }
+})
+check('six cards are one row of equal cards too', sixShape.rows === 1 && sixShape.widths === 1, JSON.stringify(sixShape))
+await page.screenshot({ path: `${SHOTS}/ua-users-cards-six.png` })
+
+// 805 deploys: the field starts arriving, with no client release.
+completedActivation = 4812
+await page.reload()
+await page.waitForSelector('[data-card]', { timeout: 20000 })
+await page.waitForFunction(() => document.querySelectorAll('[data-card]').length === 7, null, { timeout: 10000 })
+const sevenOrder = await cards.evaluateAll((els) => els.map((e) => e.dataset.card))
+check('seven cards once the count arrives', sevenOrder.length === 7, String(sevenOrder.length))
+check(
+  'Activation done is FIFTH, and Disabled is still last',
+  sevenOrder[4] === 'completedActivation' && sevenOrder.at(-1) === 'disabled',
+  sevenOrder.join(','),
+)
+const doneCard = page.locator('[data-card="completedActivation"]')
+check('it states its count', /4,812/.test(await doneCard.innerText()), (await doneCard.innerText()).replace(/\s+/g, ' '))
+check('it is labelled Activation done', /Activation done/.test(await doneCard.innerText()))
+// Untoned: colour on this row means "there is work here", and this is the one
+// card whose rows need nothing done. Compared against People, the untoned card.
+const toneOf = (card) =>
+  page.locator(`[data-card="${card}"] span`).first().evaluate((el) => getComputedStyle(el).color)
+check('and it carries no tone', (await toneOf('completedActivation')) === (await toneOf('all')), `${await toneOf('completedActivation')} vs ${await toneOf('all')}`)
+check(
+  'while its neighbour keeps its accent — the asymmetry is deliberate',
+  (await toneOf('awaitingActivation')) !== (await toneOf('all')),
+  await toneOf('awaitingActivation'),
+)
+
+// The row must look deliberate at BOTH arrangements, and "deliberate" means one
+// row of equal cards — not six plus a full-width orphan. 1024px is where an
+// `auto-fit` track would have derived six columns for seven cards.
+const rowShape = () =>
+  page.locator('[data-card]').evaluateAll((els) => {
+    const tops = new Set(els.map((e) => Math.round(e.getBoundingClientRect().top)))
+    const widths = new Set(els.map((e) => Math.round(e.getBoundingClientRect().width)))
+    return { rows: tops.size, widths: widths.size }
+  })
+const wide = await rowShape()
+check('seven cards are one row of equal cards at 1600px', wide.rows === 1 && wide.widths === 1, JSON.stringify(wide))
+await page.setViewportSize({ width: 1024, height: 1000 })
+await page.waitForTimeout(300)
+const narrow = await rowShape()
+check(
+  'and still one row at 1024px, where auto-fit would have orphaned the seventh',
+  narrow.rows === 1 && narrow.widths === 1,
+  JSON.stringify(narrow),
+)
+await page.setViewportSize({ width: 1600, height: 1000 })
+await page.waitForTimeout(300)
+await page.screenshot({ path: `${SHOTS}/ua-users-cards-seven.png` })
+
+// ---- 16. and it opens its worklist like any other card ----------------------
+await doneCard.click()
+await page.waitForSelector('tbody tr', { timeout: 10000 })
+const doneRead = reads.at(-1)
+check(
+  'clicking it asks for its own worklist from page 1',
+  doneRead?.kind === 'card' && doneRead?.card === 'completedActivation' && doneRead?.skip === '0',
+  JSON.stringify(doneRead),
+)
+check(
+  'the grid is titled with its label',
+  /Activation done/.test(await page.locator('main').innerText()),
+)
+check(
+  'and lists exactly the people it counted',
+  (await page.locator('main').getByText(/matches$/).first().textContent()).trim() === '4,812 matches',
+  await page.locator('main').getByText(/matches$/).first().textContent(),
+)
 
 check('no uncaught page errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '))
 

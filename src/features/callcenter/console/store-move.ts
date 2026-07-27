@@ -30,20 +30,16 @@
  */
 import type { PendingConfirmation } from '@/core/models/callcenter'
 import { newRequestId } from './api'
+import { committing, repreviewing, type ConfirmableAction } from './confirm-action'
 
 /** Which verb moves the plant. `address` derives it (§5.1's usual path);
  *  `store` is the explicit operator override. Same protocol, same modal. */
 export type StoreMoveKind = 'address' | 'store'
 
-export interface StoreMove {
+export interface StoreMove extends ConfirmableAction {
   kind: StoreMoveKind
   /** `addressNumber` for an address move, `storeCode` for an override. */
   target: string
-  /** Minted once, at `beginStoreMove`, and never re-minted for this action. */
-  requestId: string
-  /** The token pinning a previewed diff. Absent on the first send, and dropped
-   *  again on a re-preview — a token is single-use and two-minute (§5). */
-  confirmToken?: string
 }
 
 /**
@@ -61,26 +57,17 @@ export function beginStoreMove(
   return { kind, target, requestId: mint() }
 }
 
-/** The confirm re-send: the same verb, the same id, plus the token (§5). */
-export function committingStoreMove(move: StoreMove, confirmToken: string): StoreMove {
-  return { ...move, confirmToken }
-}
-
 /**
- * 🚩 The `CONFIRM_TOKEN_STALE` answer: the basket moved underneath the preview,
- * so the console re-sends **without** the token and shows a fresh preview. It
- * never commits a diff the agent did not see — and it is still the same action,
- * so it is still the same id.
+ * The confirm re-send and the re-preview are `confirm-action.ts`'s, not this
+ * module's: the id discipline is identical for every two-phase verb, and
+ * [169](.issues/169-below-availability-accepted.md)'s acceptance takes the same
+ * three functions. What is a rebind's own — the target, the diff, the refusal —
+ * is what stays here.
  */
-export function repreviewingStoreMove(move: StoreMove): StoreMove {
-  const { confirmToken: _spent, ...rest } = move
-  return rest
-}
+export const committingStoreMove = (move: StoreMove, confirmToken: string): StoreMove =>
+  committing(move, confirmToken)
 
-/** True while the move is holding a token — i.e. the next send commits. */
-export function isCommitting(move: StoreMove | null): boolean {
-  return move?.confirmToken !== undefined
-}
+export const repreviewingStoreMove = (move: StoreMove): StoreMove => repreviewing(move)
 
 export interface PreviewLineDiff {
   lineId: string

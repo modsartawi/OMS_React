@@ -33,12 +33,12 @@ import type { SessionState } from '@/core/models/callcenter'
 import { apiErrorMessage } from '@/core/api'
 import Ltr from '@/core/ui/Ltr'
 import { callCenterApi, itemSearchKey } from './api'
+import AvailabilityPill from './AvailabilityPill'
 import { NOTE } from './console-notes'
 import {
   MIN_QUERY_LENGTH,
   isSearchable,
   searchRowViews,
-  type Availability,
   type MetaPart,
   type SearchRowView,
 } from './item-search'
@@ -55,7 +55,7 @@ export interface AddItemActions {
    * refuse is worse than no control (165's ruling), so a refused add is not a
    * disabled button the agent can reach for — the row simply carries none.
    */
-  onAdd: ((itemNumber: string) => void) | null
+  onAdd: ((itemNumber: string, description: string) => void) | null
   /** The item number currently being added, if any. */
   pending: string | null
   /** This add's own outcome, already worded. Drawn under the rows, where the
@@ -261,12 +261,17 @@ function Row({ row, add }: { row: SearchRowView; add: AddItemActions }) {
         </div>
       </div>
       {/* 🚩 The end edge: availability, and the one action. No figure that could
-          be read as money is drawn here. */}
-      <AvailabilityPill availability={row.availability} />
+          be read as money is drawn here. LIVE availability — the same pill on a
+          basket line reads *at add* instead, because a frozen figure and a live
+          one must never read alike (169). */}
+      <AvailabilityPill availability={row.availability} keyBase="search.atp" />
       {add.onAdd && (
         <button
           type="button"
-          onClick={() => add.onAdd?.(row.itemNumber)}
+          // The name travels with the press so a below-availability acceptance
+          // (169) can say what the agent just read out, rather than an item
+          // number. It is display only — the wire carries neither (law 1).
+          onClick={() => add.onAdd?.(row.itemNumber, row.title)}
           // Every row's action is held while one is in flight, deliberately: the
           // engine's claim is a 15 s mutual exclusion, so a second add sent on
           // top of the first collides and is ridden out (law 7) — and a panel
@@ -283,26 +288,3 @@ function Row({ row, add }: { row: SearchRowView; add: AddItemActions }) {
   )
 }
 
-/**
- * The three states, differing in ground, ink **and** wording (135). Colour is
- * never the only difference: `? stock unknown` and `none at store` are opposite
- * decisions, and an agent reading at speed under a headset is exactly who a
- * colour-only distinction fails.
- */
-function AvailabilityPill({ availability }: { availability: Availability }) {
-  const { t } = useTranslation('callcenter')
-  const tone =
-    availability.tone === 'positive'
-      ? 'border-success-border bg-success-050 text-success-800'
-      : availability.tone === 'negative'
-        ? 'border-danger-border bg-danger-050 text-danger-800'
-        : 'border-attention-border bg-attention-050 text-attention-800'
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${tone}`}
-      data-cc-atp={availability.kind}
-    >
-      {t(`search.atp.${availability.labelKey}`, { qty: availability.quantity })}
-    </span>
-  )
-}

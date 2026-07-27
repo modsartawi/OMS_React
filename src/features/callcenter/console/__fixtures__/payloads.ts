@@ -21,6 +21,7 @@
 import type { OpenResult, PendingConfirmation, SessionState } from '@/core/models/callcenter'
 import openEmpty from '../../../../../.issues/assets/136-cc-contract/01-open-empty.json'
 import twoLinesPriced from '../../../../../.issues/assets/136-cc-contract/02-two-lines-priced.json'
+import belowAtp from '../../../../../.issues/assets/136-cc-contract/04-below-atp-confirm.json'
 import rebindPreview from '../../../../../.issues/assets/136-cc-contract/05-rebind-preview.json'
 import rebindRefused from '../../../../../.issues/assets/136-cc-contract/06-rebind-refused.json'
 
@@ -49,6 +50,18 @@ export const EMPTY_SESSION: SessionState = OPEN_EMPTY.state!
  * author's illustration and not the engine's.
  */
 export const ATTACHED_SESSION: SessionState = payload<SessionState>(twoLinesPriced)
+
+/**
+ * §5.2's OTHER confirmation, as `addItem` answers a quantity beyond availability
+ * (ticket 169). Like the rebind preview, step 1 carries the **unchanged** state —
+ * so what this exports is the `pendingConfirmation` off it, which is the only
+ * part of that payload the console reads.
+ *
+ * 🚩 Shape only, as always: `requested: 5, available: 2` is the contract author's
+ * illustration. Every case that turns on those figures sets them itself.
+ */
+export const BELOW_ATP_CONFIRM: PendingConfirmation =
+  payload<{ pendingConfirmation: PendingConfirmation }>(belowAtp.step1_ask).pendingConfirmation
 
 /**
  * §5's confirmation block, as `setAddress` answers it on a basket with lines

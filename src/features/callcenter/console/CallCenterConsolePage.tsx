@@ -64,10 +64,10 @@ import {
   readOpenResult,
   type PendingAbandon,
 } from './open-outcome'
+import { isCommitting } from './confirm-action'
 import {
   beginStoreMove,
   committingStoreMove,
-  isCommitting,
   rebindRefusal,
   repreviewingStoreMove,
   storeMovePreview,
@@ -75,19 +75,31 @@ import {
   type StoreMove,
   type StoreMovePreview,
 } from './store-move'
+import {
+  beginAdd,
+  belowAtpAsk,
+  committingAdd,
+  reaskingAdd,
+  type BelowAtpAsk,
+  type ItemAdd,
+} from './below-atp'
 import AbandonConfirm from './AbandonConfirm'
 import AddressPicker from './AddressPicker'
+import BelowAtpConfirm from './BelowAtpConfirm'
 import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
 import ConsoleShell from './ConsoleShell'
 import ExistingOrderScreen from './ExistingOrderScreen'
-import StoreMoveConfirm, { type PreviewReissue } from './StoreMoveConfirm'
+import type { PreviewReissue } from './ConfirmSheet'
+import StoreMoveConfirm from './StoreMoveConfirm'
 import StorePicker from './StorePicker'
 
 /**
- * The rebind refusals this page answers ITSELF — with a fresh preview, or with
- * the banner over the basket. They are never also drawn as a dialog's own
- * failure: one refusal, one voice (167).
+ * The refusals this page answers ITSELF — with a fresh preview, or with the
+ * banner over the basket. They are never also drawn as a dialog's own failure:
+ * one refusal, one voice (167). The two token codes reach BOTH two-phase actions
+ * (the rebind's and the add's), which is why the list is shared rather than
+ * spelled per surface.
  */
 const ANSWERED_BY_THE_PAGE = ['CONFIRM_TOKEN_STALE', 'CONFIRM_TOKEN_INVALID', 'REBIND_REFUSED']
 
@@ -224,6 +236,23 @@ function ConsoleSession() {
   const [move, setMove] = useState<StoreMove | null>(null)
   const [preview, setPreview] = useState<StoreMovePreview | null>(null)
   const [reissue, setReissue] = useState<PreviewReissue | null>(null)
+
+  /**
+   * The add in flight (169), as the same three facts — for the same reasons:
+   *
+   * - `add` is the action, carrying the one `requestId` that survives the
+   *   acceptance and the re-ask (§4).
+   * - `belowAtp` is what the server pinned to that action's token. 🚩 Held here
+   *   and NOT read off the cache, because the ask carries the *unchanged* state
+   *   — same `version` — so `applyState` rightly keeps what is on screen.
+   * - `addReissue` says why the agent is being asked twice.
+   */
+  const [add, setAdd] = useState<ItemAdd | null>(null)
+  const [belowAtp, setBelowAtp] = useState<BelowAtpAsk | null>(null)
+  const [addReissue, setAddReissue] = useState<PreviewReissue | null>(null)
+  /** An ask this console could not state truthfully, so it drew no sheet — and
+   *  the add therefore did not land. See `addItem.onSuccess`. */
+  const [addUnconfirmable, setAddUnconfirmable] = useState(false)
 
   /** `REBIND_REFUSED` — atomic, so the order behind it is untouched. It outlives
    *  the action that raised it: the agent has to read it, and it names the line
@@ -394,6 +423,11 @@ function ConsoleSession() {
       setPreview(null)
       setReissue(null)
       setRefusal(null)
+      // Likewise an acceptance about an item on a basket that no longer exists.
+      setAdd(null)
+      setBelowAtp(null)
+      setAddReissue(null)
+      setAddUnconfirmable(false)
       setPickingStore(false)
       colliders.current = 0
       setColliding(null)
@@ -447,7 +481,7 @@ function ConsoleSession() {
   })
 
   /**
-   * `addItem` (168) — the one verb the search panel has, on its own mutation
+   * `addItem` (168, 169) — the one verb the search panel has, on its own mutation
    * because it is its own act with its own failure surface.
    *
    * 🚩 **It sends an item number and a quantity, never a price** (law 1): the
@@ -456,6 +490,15 @@ function ConsoleSession() {
    * costs comes back in the projection, VAT included, and is the only figure the
    * caller is ever told.
    *
+   * 🚩 **Beyond availability it is TWO-PHASE, on the same protocol as the plant
+   * rebind** (169): a quantity the store cannot cover answers `200` with the
+   * unchanged state and a `belowAtp` token, and the acceptance is a second send
+   * of this same verb carrying the **same `requestId`** plus the token (§4/§5.2).
+   * The token is the audit record — it proves the agent was shown the number
+   * they accepted, which a client-set boolean never could. Where availability is
+   * merely *unknown* the server raises nothing at all, and this path is never
+   * entered: a degraded stock read must not become a workflow.
+   *
    * Quantity is 1: the search row's action is *add this*, and changing how many
    * is the basket's own verb (`changeQty`, ticket 170).
    */
@@ -463,38 +506,98 @@ function ConsoleSession() {
     // No `again`: the panel draws this call's own failure under the rows, where
     // the agent's eye already is, and a strip offering a second retry behind it
     // is one retry too many (164's ruling).
-    mutationFn: (action: { itemNumber: string }) => {
-      // 🚩 Minted ONCE, outside the thunk — `runGuarded` re-runs it on every
-      // `SESSION_BUSY` retry, and a fresh id inside would make each retry a
-      // genuinely new action to the server's ledger (law 3 / §4): the same item
-      // added six times, on the verb the agent presses most.
-      const requestId = newRequestId()
-      return runGuarded(() => callCenterApi.addItem(transactionId!, requestId, action.itemNumber, 1))
-    },
-    onSuccess: (fresh) => {
+    mutationFn: (add: ItemAdd) =>
+      // 🚩 The id is the ADD's, minted once at `beginAdd` and carried through the
+      // acceptance and the re-ask. Nothing here mints one — a fresh id inside the
+      // thunk would let a busy retry look like the same item added twice, on the
+      // verb the agent presses most.
+      runGuarded(() =>
+        callCenterApi.addItem(transactionId!, add.requestId, add.itemNumber, add.qty, add.confirmToken),
+      ),
+    // The last add's unreadable-ask sentence belongs to the last add. Left
+    // standing under the rows it would describe the one now in flight.
+    onMutate: () => setAddUnconfirmable(false),
+    onSuccess: (fresh, add) => {
       queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
         applyState(current, fresh),
       )
+      const asked = belowAtpAsk(fresh.pendingConfirmation)
+      if (asked) {
+        // Are-you-sure, on the success path — nothing was added. The token pins
+        // THESE figures, so it travels with the action rather than the screen.
+        setAdd(committingAdd(add, asked.confirmToken))
+        setBelowAtp(asked)
+        return
+      }
+      clearAdd()
+      // 🚩 A `belowAtp` block this console cannot state truthfully — figures
+      // missing or not numbers (§5.2 says the server does not raise one then) —
+      // is still an ask, and an ask carries the UNCHANGED state. So nothing was
+      // added, and saying nothing would leave the agent watching a basket that
+      // did not move. It is not the acceptance sheet, because there is no number
+      // to accept; it is the outcome, under the rows.
+      setAddUnconfirmable(fresh.pendingConfirmation?.kind === 'belowAtp')
+    },
+    onError: (err, add) => {
+      const code = apiErrorCode(err)
+      // 🚩 The same bounded re-ask as the rebind (167): only a send that CARRIED
+      // a token can raise these, and the re-send carries none, so a server
+      // answering the same code again falls through to the ordinary failure
+      // surface instead of round-tripping forever.
+      if (
+        add.confirmToken !== undefined &&
+        (code === 'CONFIRM_TOKEN_STALE' || code === 'CONFIRM_TOKEN_INVALID')
+      ) {
+        setAddReissue(code === 'CONFIRM_TOKEN_STALE' ? 'stale' : 'expired')
+        setBelowAtp(null)
+        const again = reaskingAdd(add)
+        setAdd(again)
+        addItem.mutate(again)
+        return
+      }
+      // 🚩 A failed ACCEPTANCE stays in the sheet the agent is looking at, with
+      // the failure named there and the same acceptance still offered — the id
+      // and the token are unchanged, so pressing again is a retry of the one
+      // action rather than a second one (law 3). Closing the modal and moving
+      // the sentence to the panel behind it is exactly the two-voices failure
+      // 167 ruled out.
+      if (add.confirmToken !== undefined) return
+      // An ordinary add failure has no sheet — the panel draws it, under the
+      // rows, where the agent's eye already is.
+      clearAdd()
     },
     retry: false,
   })
 
+  /** Everything one add action was holding. */
+  const clearAdd = () => {
+    setAdd(null)
+    setBelowAtp(null)
+    setAddReissue(null)
+    setAddUnconfirmable(false)
+  }
+
   /**
-   * What the panel says about the last add.
+   * What the panel says about the last add. Beyond availability is no longer a
+   * sentence here — it is the sheet, and the agent answers it.
    *
-   * ⚠️ **Beyond availability is 169's, not this slice's.** It arrives as
-   * `pendingConfirmation: belowAtp` on the SUCCESS path with the unchanged state
-   * (§5.2), so nothing was added — and a console that said nothing at all would
-   * leave the agent watching a basket that did not move. Until 169 draws the
-   * acceptance, the honest answer is the outcome: it was not added, and why.
-   * Where availability is merely *unknown* the server raises no confirmation at
-   * all, so this sentence cannot reach a degraded stock read.
+   * 🚩 Silent while the sheet is open: a failure of the acceptance is named IN
+   * the sheet, and one refusal in two voices is the thing 167 settled.
    */
-  const addOutcome = addItem.isError
-    ? apiErrorMessage(addItem.error, t('search.addFailed'))
-    : addItem.data?.pendingConfirmation?.kind === 'belowAtp'
-      ? t('search.addBeyondAvailability')
-      : null
+  const addOutcome = belowAtp
+    ? null
+    : addItem.isError
+      ? apiErrorMessage(addItem.error, t('search.addFailed'))
+      : addUnconfirmable
+        ? t('search.addNotConfirmable')
+        : null
+
+  /** Declining costs nothing: the ask carried the UNCHANGED state, so there is
+   *  no line to remove — only the sheet to close. */
+  const declineAdd = () => {
+    clearAdd()
+    addItem.reset()
+  }
 
   /**
    * 🚩 **The plant rebind, as ONE action** — the verb the agent reached it by is
@@ -843,8 +946,10 @@ function ConsoleSession() {
           // 🚩 Passed only while the door says it will accept an add — the same
           // rule as the address book and the store chip: a control the door
           // refuses is worse than no control.
+          // 🚩 One action per press: the id is minted HERE, once, and the
+          // acceptance re-sends it (§4).
           onAdd: session.data.capabilities.canAddItem
-            ? (itemNumber) => addItem.mutate({ itemNumber })
+            ? (itemNumber, description) => addItem.mutate(beginAdd({ itemNumber, qty: 1, description }))
             : null,
           pending: addItem.isPending ? (addItem.variables?.itemNumber ?? null) : null,
           error: addOutcome,
@@ -852,7 +957,10 @@ function ConsoleSession() {
           // a new question, and `reset` is what stops the last one's refusal
           // standing over it. Nothing else clears it — a successful add already
           // replaces the mutation's own data.
-          dismissError: addItem.reset,
+          dismissError: () => {
+            addItem.reset()
+            setAddUnconfirmable(false)
+          },
         }}
         onAbandon={
           session.data.status === 'open'
@@ -909,8 +1017,10 @@ function ConsoleSession() {
         onPick={(storeCode) => rebind.mutate(beginStoreMove('store', storeCode))}
         onClose={closeStorePicker}
       />
-      {/* 🚩 The console's ONE confirmation surface. Both ways in land here, and
-          169's below-availability acceptance reuses it verbatim. */}
+      {/* 🚩 The console's ONE confirmation surface, twice: the same `ConfirmSheet`
+          with two bodies. Both kinds of `pendingConfirmation` land in the same
+          modal, with the same buttons and the same re-issue notice — a second
+          confirmation mechanism would be the defect (167, 169). */}
       <StoreMoveConfirm
         preview={preview}
         reissue={reissue}
@@ -918,6 +1028,24 @@ function ConsoleSession() {
         error={commitError}
         onConfirm={() => move && rebind.mutate(move)}
         onCancel={declineMove}
+      />
+      <BelowAtpConfirm
+        ask={belowAtp}
+        itemName={add?.description}
+        reissue={addReissue}
+        busy={addItem.isPending}
+        // The panel draws an ordinary add failure under the rows; what belongs
+        // in the sheet is only a failure of the ACCEPTANCE the agent is looking
+        // at — and never one this page has already answered by re-asking.
+        error={
+          addItem.isError &&
+          isCommitting(addItem.variables) &&
+          !ANSWERED_BY_THE_PAGE.includes(apiErrorCode(addItem.error) ?? '')
+            ? apiErrorMessage(addItem.error, t('belowAtp.failed'))
+            : null
+        }
+        onConfirm={() => add && addItem.mutate(add)}
+        onCancel={declineAdd}
       />
       {abandonDialog}
     </>

@@ -8,10 +8,10 @@
 import { describe, expect, it } from 'vitest'
 import type { PendingConfirmation } from '@/core/models/callcenter'
 import { REBIND_PREVIEW, REBIND_REFUSAL_DATA } from './__fixtures__/payloads'
+import { isCommitting } from './confirm-action'
 import {
   beginStoreMove,
   committingStoreMove,
-  isCommitting,
   rebindRefusal,
   repreviewingStoreMove,
   storeMovePreview,

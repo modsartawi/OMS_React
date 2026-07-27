@@ -111,6 +111,17 @@
 //        than a pager; and one click adds the item — one AddItem, an item number
 //        and a quantity, never a price — leaving it in the basket at the
 //        ENGINE's price, not the estimate.
+//
+// Asserts ticket 169's Proof:
+//   acceptingAShortfallMarksTheLineAndTheOrder
+//    32. adding beyond a KNOWN availability returns the unchanged state and asks —
+//        in the SAME confirmation surface as the rebind, naming the item, what was
+//        asked for, what is there and at which store, with no money in it and no
+//        block on the commit; declining adds nothing and sends no token; accepting
+//        re-sends the same verb on the SAME requestId plus the token, and the
+//        committed line and the order header carry the below-availability flags,
+//        with the line's pill reading *at add* rather than like the live one —
+//        while an UNKNOWN stock read never raises a confirmation at all.
 //   aRefusedRebindChangesNothingAndSaysWhichLine
 //    29. REBIND_REFUSED draws the banner in the server's own words, names the
 //        offending line THERE and tints it in the basket, and leaves the store,
@@ -441,7 +452,7 @@ const searchCatalogue = (term) => {
 // engine line, VAT-inclusive, with its own conditions); the identity and the
 // frozen availability are the added row's. A hand-built line would be testing
 // the drive's idea of a line rather than the console's rendering of one.
-const lineFor = (row, qty, index) => ({
+const lineFor = (row, qty, index, below = false) => ({
   ...PRIOR_STATE.lines[0],
   lineId: `LS${index}`,
   itemNumber: row.materialNumber,
@@ -450,7 +461,26 @@ const lineFor = (row, qty, index) => ({
   qty,
   // §2.1 — frozen AT ADD, and `known:false` is the degraded read, never a zero.
   atpAtScan: { quantity: row.atp, frozenAt: PRIOR_STATE.header.openedAt, known: row.atp !== null },
-  belowAtpAtScan: false,
+  // 🚩 The flag the AGENT's acceptance produced — stamped by the server on the
+  // commit, never set by the client (§5.2, BackOffice 285/286).
+  belowAtpAtScan: below,
+})
+
+// ---- ticket 169: adding beyond availability, accepted deliberately ----
+//
+// The soft gate is the SERVER's (§5.2), so it lives in the stub: a KNOWN
+// shortfall answers 200 with the UNCHANGED state plus a token, and the re-send
+// carrying that token commits — stamping the line and the header. An UNKNOWN
+// stock read raises nothing at all, at any quantity.
+//
+// The block is fixture 04's own, with only the figures varied to the row the
+// agent actually pressed *Add* on: a confirmation about an item the search panel
+// is not showing could not prove that the sheet names what they are holding.
+const BELOW_ATP_BLOCK = raw('04-below-atp-confirm').step1_ask.response.data.pendingConfirmation
+const BELOW_ATP_TOKEN = BELOW_ATP_BLOCK.confirmToken
+const belowAtpAskFor = (row, qty, plant) => ({
+  ...BELOW_ATP_BLOCK,
+  detail: { ...BELOW_ATP_BLOCK.detail, itemNumber: row.materialNumber, requested: qty, available: row.atp, plant },
 })
 
 // §7 — CONSOLE_NOT_GRANTED is a 403 CARRYING the envelope, so `core/api.ts` maps
@@ -635,10 +665,22 @@ async function open(
     if (p === 'CallCenterWeb/AddItem') {
       const body = route.request().postDataJSON()
       const row = CATALOGUE.find((r) => r.materialNumber === body.itemNumber)
+      // 🚩 §5.2 — a shortfall against a KNOWN figure asks; a degraded read
+      // (`atp: null`) never does, at any quantity. Unknown ATP has never gated
+      // order entry (287's rule).
+      const short = row.atp !== null && body.qty > row.atp
+      if (short && !body.confirmToken)
+        // 🚩 200, success, the UNCHANGED state — same version, nothing added.
+        return route.fulfill(
+          envelope(speak({ ...served, pendingConfirmation: belowAtpAskFor(row, body.qty, served.header.plant) })),
+        )
       served = {
         ...served,
         version: served.version + 1,
-        lines: [...served.lines, lineFor(row, body.qty, served.lines.length + 1)],
+        pendingConfirmation: null,
+        // The BackOffice fraud signal, stamped by the commit the agent accepted.
+        header: { ...served.header, hasBelowAtp: served.header.hasBelowAtp || short },
+        lines: [...served.lines, lineFor(row, body.qty, served.lines.length + 1, short)],
         capabilities: {
           ...served.capabilities,
           submitBlockers: served.capabilities.submitBlockers.filter((c) => c !== 'NO_LINES'),
@@ -2124,6 +2166,136 @@ async function run() {
       (await line.innerText()).replace(/\s+/g, ' '),
     )
     check('the search results are still there to add the next one from', (await rows.count()) === SEARCH_TAKE)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ============ ticket 169 — below availability, accepted deliberately ============
+
+  // ---- 32. a known shortfall is accepted by the agent; unknown never asks ----
+  {
+    const { context, page, errors, wire } = await open(browser, {})
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-search-input]').fill('بنادول')
+    await page.locator('[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
+
+    // Row 200146 has NONE at store, so one of it is already beyond availability.
+    const NONE_ROW = CATALOGUE[1]
+    await page.locator(`[data-cc-search-add="${NONE_ROW.materialNumber}"]`).click()
+    await page.locator('[data-cc-confirm-sheet="belowAtp"]').waitFor({ timeout: 10_000 })
+
+    // 🚩 The SAME mechanism as the plant rebind — one confirmation surface, two
+    // bodies. The shared markers are the proof: same sheet, same two buttons.
+    check(
+      'it arrives in the console’s ONE confirmation surface, not a second one',
+      (await page.locator('[data-cc-confirm-accept]').count()) === 1 &&
+        (await page.locator('[data-cc-confirm-decline]').count()) === 1,
+    )
+    const sheet = page.locator('[data-cc-confirm-sheet="belowAtp"]')
+    const sheetText = (await page.locator('dialog').innerText()).replace(/\s+/g, ' ')
+    // The name the agent just read out, not an item number they would have to
+    // look up mid-call.
+    check('the sheet names the item the agent pressed Add on', sheetText.includes(NONE_ROW.descriptionEn), sheetText)
+    check(
+      'and both numbers — what was asked for, and what is there',
+      (await text(page, '[data-cc-below-atp="requested"]')) === '1' &&
+        (await text(page, '[data-cc-below-atp="available"]')) === String(NONE_ROW.atp),
+      `${await text(page, '[data-cc-below-atp="requested"]')} vs ${await text(page, '[data-cc-below-atp="available"]')}`,
+    )
+    check(
+      'and at which store',
+      (await text(page, '[data-cc-below-atp-where]')).includes(STATE.header.plant),
+      await text(page, '[data-cc-below-atp-where]'),
+    )
+    // 🚩 It is never a block: the order can always be taken, so the commit is
+    // offered rather than disabled behind a refusal.
+    check('the acceptance is offered, never blocked', await page.locator('[data-cc-confirm-accept]').isEnabled())
+    check('no machine code reaches the agent', !/[A-Z]{3,}_[A-Z_]+/.test(sheetText), sheetText)
+    check('and no money is drawn in it — these are counts, not prices', !/\d+\.\d{2}/.test(sheetText), sheetText)
+    check('nothing was added while the agent reads it', await page.locator('[data-cc-basket-empty]').isVisible())
+    check('and nothing carries the flag yet', (await page.locator('[data-cc-has-below-atp]').count()) === 0)
+
+    // ---- declining leaves the basket exactly as it was ----
+    await page.locator('[data-cc-confirm-decline]').click()
+    await sheet.waitFor({ state: 'detached', timeout: 10_000 })
+    check('declining adds nothing at all', await page.locator('[data-cc-basket-empty]').isVisible())
+    const declined = wire.filter((w) => w.path === 'CallCenterWeb/AddItem')
+    check('and sends no commit behind the agent’s back', declined.length === 1 && !declined[0].body.confirmToken)
+
+    // ---- accepting: the same verb, the same id, plus the token ----
+    await page.locator(`[data-cc-search-add="${NONE_ROW.materialNumber}"]`).click()
+    await sheet.waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-confirm-accept]').click()
+    await page.locator('[data-cc-line]').first().waitFor({ timeout: 10_000 })
+
+    const adds = wire.filter((w) => w.path === 'CallCenterWeb/AddItem')
+    check('the acceptance is a second send of the same verb', adds.length === 3, String(adds.length))
+    // 🚩 One user action is one requestId — INCLUDING the send that carries the
+    // token (§4). A fresh id here is the double-add the ledger exists to stop.
+    check(
+      'on the SAME requestId as the ask',
+      adds[1].body.requestId === adds[2].body.requestId,
+      `${adds[1].body.requestId} | ${adds[2].body.requestId}`,
+    )
+    check(
+      'carrying the token the figures were pinned with',
+      !adds[1].body.confirmToken && adds[2].body.confirmToken === BELOW_ATP_TOKEN,
+      JSON.stringify(adds[2].body),
+    )
+    // The declined attempt was a different action, and asking again is too.
+    check(
+      'a second ask is a genuinely new action with a new id',
+      adds[0].body.requestId !== adds[1].body.requestId,
+      `${adds[0].body.requestId} | ${adds[1].body.requestId}`,
+    )
+    // 🚩 Law 1 — the acceptance carries a quantity and a token, never a price.
+    check(
+      'and still never a price',
+      !/price|estimate|amount/i.test(Object.keys(adds[2].body).join(',')),
+      JSON.stringify(adds[2].body),
+    )
+
+    // ---- what the acceptance produced, on the line and on the order ----
+    const line = page.locator('[data-cc-line]').first()
+    check(
+      '🚩 the committed line carries the below-availability flag',
+      (await page.locator('[data-cc-line-below-atp]').count()) === 1,
+      (await line.innerText()).replace(/\s+/g, ' '),
+    )
+    check('and the order header carries it too', await page.locator('[data-cc-has-below-atp]').isVisible())
+    const linePill = await text(page, '[data-cc-line-atp] [data-cc-atp]')
+    check('the line’s pill reads AT ADD — frozen, not live', /at add/i.test(linePill), linePill)
+    check(
+      'and never reads like the live pill for the same item',
+      linePill !== (await text(page, `[data-cc-search-row="${NONE_ROW.materialNumber}"] [data-cc-atp]`)),
+      `${linePill} vs ${await text(page, `[data-cc-search-row="${NONE_ROW.materialNumber}"] [data-cc-atp]`)}`,
+    )
+
+    // ---- 🚩 unknown availability never interrupts them at all ----
+    const UNKNOWN_ROW = CATALOGUE[2]
+    await page.locator(`[data-cc-search-add="${UNKNOWN_ROW.materialNumber}"]`).click()
+    await page.locator('[data-cc-line]').nth(1).waitFor({ timeout: 10_000 })
+    check(
+      '🚩 a degraded stock read raises no confirmation at all',
+      (await page.locator('[data-cc-confirm-sheet]').count()) === 0,
+    )
+    const unknownAdds = wire.filter(
+      (w) => w.path === 'CallCenterWeb/AddItem' && w.body.itemNumber === UNKNOWN_ROW.materialNumber,
+    )
+    check('it took one send and no token', unknownAdds.length === 1 && !unknownAdds[0].body.confirmToken)
+    const secondPill = (
+      await page.locator('[data-cc-line]').nth(1).locator('[data-cc-line-atp] [data-cc-atp]').innerText()
+    ).trim()
+    check(
+      'and its line reads unknown at add — never a zero',
+      /unknown/i.test(secondPill) && !/\b0\b/.test(secondPill),
+      secondPill,
+    )
+    check(
+      'that line carries no acceptance flag — there was nothing to accept',
+      (await page.locator('[data-cc-line-below-atp]').count()) === 1,
+    )
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }

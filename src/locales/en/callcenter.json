@@ -180,15 +180,36 @@
     "add": "Add",
     "adding": "Adding…",
     "addFailed": "That item could not be added. Nothing has changed on this order — try again.",
-    "addBeyondAvailability": "That is beyond what is available at this store, so it was not added.",
+    "addNotConfirmable": "That item was not added: the store's availability could not be read to check it against. Try again.",
     "atp": {
       "count": "{{qty}} in stock",
       "none": "none at store",
       "unknown": "? stock unknown"
     }
   },
+  "belowAtp": {
+    "title": "More {{item}} than this store has — take the order anyway?",
+    "requested": "Asked for",
+    "available": "Available now",
+    "atStore": "Item {{item}}, at store {{store}}.",
+    "atThisStore": "Item {{item}}, at this order's store.",
+    "recorded": "The order can still be taken. Accepting is recorded against this line, so only accept what the caller has agreed to wait for.",
+    "keep": "Don't add it",
+    "confirm": "Add it anyway",
+    "adding": "Adding…",
+    "failed": "That acceptance did not land, so nothing was added. Nothing has changed on this order — try again."
+  },
+  "line": {
+    "belowAtpAccepted": "accepted below availability",
+    "atp": {
+      "count": "{{qty}} at add",
+      "none": "none at add",
+      "unknown": "? unknown at add"
+    }
+  },
   "basket": {
     "heading": "Basket · prices include VAT",
+    "hasBelowAtp": "below availability accepted",
     "lineCount_one": "{{count}} line",
     "lineCount_other": "{{count}} lines",
     "empty": "Nothing added yet."

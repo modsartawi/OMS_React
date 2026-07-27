@@ -24,6 +24,8 @@ import { useTranslation } from 'react-i18next'
 import { RefreshCw, X } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import { formatMoney } from '@/core/util/number-format'
+import AvailabilityPill from './AvailabilityPill'
+import { frozenAvailability } from './below-atp'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CustomerRail, { type CustomerActions } from './CustomerRail'
 import { headerChips, type HeaderChip } from './header-chips'
@@ -281,7 +283,18 @@ function Basket({ state, refusedLines }: { state: SessionState; refusedLines: Se
     <div className="min-h-0 flex-1 overflow-auto" data-cc-basket>
       <div className="flex items-center justify-between border-b border-divider px-4 py-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
         <span>{t('basket.heading')}</span>
-        <span data-numeric>{t('basket.lineCount', { count: state.lines.length })}</span>
+        <span className="flex items-center gap-2">
+          {/* 🚩 The order-level fraud signal (§5.2, BackOffice 285/286), shown
+              because the agent accepted it and should be able to see that they
+              did — never as a warning to act on, and never client-derived: it is
+              the header's own field. */}
+          {state.header.hasBelowAtp && (
+            <span className="rounded-full bg-attention-050 px-2 py-0.5 font-medium normal-case text-attention-800" data-cc-has-below-atp>
+              {t('basket.hasBelowAtp')}
+            </span>
+          )}
+          <span data-numeric>{t('basket.lineCount', { count: state.lines.length })}</span>
+        </span>
       </div>
       {state.lines.length === 0 ? (
         <div className="p-10 text-center text-sm text-muted-foreground" data-cc-basket-empty>
@@ -305,11 +318,26 @@ function Basket({ state, refusedLines }: { state: SessionState; refusedLines: Se
                 <div className="truncate text-sm">{line.description}</div>
                 <div data-numeric className="text-xs text-muted-foreground">
                   {line.itemNumber}
+                  {/* 🚩 What the agent's acceptance produced (§5.2). The server's
+                      own flag on the line, not a client re-derivation from the
+                      frozen figure beside it — the token is what recorded it. */}
+                  {line.belowAtpAtScan && (
+                    <span className="ms-2 font-medium text-attention-800" data-cc-line-below-atp={line.lineId}>
+                      {t('line.belowAtpAccepted')}
+                    </span>
+                  )}
                   {refused && (
                     <span className="ms-2 font-medium text-danger-800">{t('rebind.lineRefused')}</span>
                   )}
                 </div>
               </div>
+              {/* 🚩 Availability as FROZEN when the item was added (§2.1), in the
+                  search row's own three states but labelled *at add* — so a
+                  frozen figure and a live one never read alike, and a re-freeze
+                  after a store move (167) is visible rather than silent. */}
+              <span data-cc-line-atp={line.lineId}>
+                <AvailabilityPill availability={frozenAvailability(line.atpAtScan)} keyBase="line.atp" />
+              </span>
               <span data-numeric className="text-xs text-muted-foreground">
                 {line.qty} {line.uom}
               </span>

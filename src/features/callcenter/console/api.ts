@@ -26,6 +26,7 @@ import { api, apiErrorCode } from '@/core/api'
 import type {
   AbandonResult,
   CallCenterAccessResult,
+  LoyaltyMember,
   OpenResult,
   SessionState,
 } from '@/core/models/callcenter'
@@ -125,6 +126,52 @@ export const callCenterApi = {
    */
   abandon(transactionId: string, requestId: string): Promise<AbandonResult> {
     return api.post<AbandonResult>('CallCenterWeb/Abandon', { transactionId, requestId })
+  },
+
+  /**
+   * `GET CallCenterWeb/MemberByMobile/{mobile}` — how the agent FINDS the caller,
+   * before there is a caller to scope anything to (BackOffice 801: the four
+   * loyalty routes precede attach, so grant-only is their whole boundary).
+   *
+   * 🚩 **A miss is `null`, not a throw.** The service answers an absent member
+   * with an empty payload, and that is an ordinary outcome of the first thing
+   * that happens on a call — not a failure to draw a refusal for. What the
+   * console does with a miss is deliberately nothing more than saying so:
+   * loyalty *signup* is [159](.issues/159-coupon-and-loyalty-signup-drawn.md)'s
+   * undrawn surface and this slice must not invent one.
+   *
+   * `branchId` is left unsent — the query param is optional on the original and
+   * the console has no branch to scope a loyalty read by that the session does
+   * not already imply.
+   */
+  memberByMobile(mobile: string): Promise<LoyaltyMember | null> {
+    return api.get<LoyaltyMember | null>(`CallCenterWeb/MemberByMobile/${encodeURIComponent(mobile)}`)
+  },
+
+  /**
+   * `POST CallCenterWeb/AttachCustomer` → the whole `SessionState` (law 2).
+   *
+   * It is also what **opens the address book**: the five `CustomerAddresses`
+   * routes are server-side scoped to the session's attached customer (§6.3,
+   * BackOffice 801), so before this call there is no address book to reach —
+   * which the response says in `capabilities.canOpenAddressBook`, the only thing
+   * the console is allowed to read that from.
+   */
+  attachCustomer(transactionId: string, requestId: string, customerId: string): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/AttachCustomer', { transactionId, requestId, customerId })
+  },
+
+  /**
+   * `POST CallCenterWeb/RemoveCustomer` → the whole `SessionState`.
+   *
+   * 🚩 It **clears the address and keeps the derived plant** (§6.3) — and that is
+   * the SERVER's doing, arriving in the projection. The console must not "help"
+   * by clearing a store it did not derive: a subsequent `setAddress` re-derives
+   * it through the normal confirm path, which is what stops re-attaching a caller
+   * from silently re-pricing the basket.
+   */
+  removeCustomer(transactionId: string, requestId: string): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/RemoveCustomer', { transactionId, requestId })
   },
 
   /**

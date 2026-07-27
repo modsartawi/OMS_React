@@ -344,6 +344,42 @@ function ConsoleSession() {
     [queryClient],
   )
 
+  /**
+   * The two customer verbs (165), as one mutation because they are one act with
+   * two directions and the agent may only be doing one of them at a time — so
+   * one pending flag and one error surface is the honest shape.
+   *
+   * Both return the **whole `SessionState`** (law 2), and it is written through
+   * the same guarded entry point as everything else: `applyState` decides,
+   * never a hand-patched header. 🚩 Which is what makes *removing the caller
+   * clears the address and keeps the derived store* free — that is the server's
+   * ruling (§6.3) arriving in the projection, not a client rule about what to
+   * clear. A console that emptied `plant` on remove would re-price the basket
+   * on the next attach, which is exactly what the rule exists to prevent.
+   */
+  const customer = useMutation({
+    // No `again`: the rail draws this call's own failure, and a strip offering
+    // a second retry beside it is one retry too many (164's ruling).
+    mutationFn: (action: { customerId: string | null }) => {
+      // 🚩 Minted ONCE, outside the thunk. `runGuarded` re-runs the thunk on
+      // every `SESSION_BUSY` retry, and a fresh id inside it would make each
+      // retry a genuinely new action to the server's ledger (law 3 / §4) — the
+      // double-apply the ring buffer exists to prevent, on the verb that binds
+      // a real caller to a real order.
+      const requestId = newRequestId()
+      return runGuarded(() =>
+        action.customerId === null
+          ? callCenterApi.removeCustomer(transactionId!, requestId)
+          : callCenterApi.attachCustomer(transactionId!, requestId, action.customerId),
+      )
+    },
+    onSuccess: (fresh) =>
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      ),
+    retry: false,
+  })
+
   const abandon = useMutation({
     // No `again`: the dialog is this call's own failure surface (164), and the
     // strip offering a second retry behind a modal is one retry too many.
@@ -515,6 +551,21 @@ function ConsoleSession() {
         busy={busy}
         onRefresh={refreshSession}
         refreshing={session.isFetching}
+        customerActions={{
+          onAttach: (member) => customer.mutate({ customerId: member.loyId }),
+          onRemove: () => customer.mutate({ customerId: null }),
+          busy: customer.isPending,
+          // The fallback follows the DIRECTION that failed — `variables` is the
+          // action the mutation is reporting on. One sentence for both would
+          // tell an agent whose remove failed that the caller could not be
+          // attached, which is the opposite of what happened.
+          error: customer.isError
+            ? apiErrorMessage(
+                customer.error,
+                t(customer.variables?.customerId === null ? 'rail.removeFailed' : 'rail.attachFailed'),
+              )
+            : null,
+        }}
         onAbandon={
           session.data.status === 'open'
             ? () =>

@@ -56,6 +56,18 @@
 //        new order one click away;
 //    17. a major contractVersion mismatch stops the console dead (no basket, no
 //        totals, no dead "try again"), while minor drift is a non-event.
+//
+// Asserts ticket 165's Proof:
+//   attachingACallerOpensTheAddressBook
+//    18. the caret is IN the phone field the moment the console opens — nothing is
+//        clicked first; before a caller there is no address control to reach at all;
+//    19. looking a caller up names them, attaching sends the found loyalty id on one
+//        requestId, and the rail fills with a compact card of AT MOST six fields in a
+//        fixed order — with the empty address slot and its *Pick an address* appearing
+//        only once `capabilities.canOpenAddressBook` says the door will answer;
+//    20. a number nobody holds says so and offers no signup surface (159 is undrawn);
+//    21. removing the caller clears the address and LEAVES THE STORE CHIP STANDING —
+//        a re-attach must never silently re-price the basket.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -113,6 +125,45 @@ const freshOpenResult = () => ({
   existing: null,
 })
 
+// ---- ticket 165: the caller, and the two verbs that bind and unbind them ----
+//
+// The loyalty lookup is NOT part of the session contract — it precedes attach and
+// has no committed fixture (BackOffice 801 delegates it verbatim to
+// `LoyEndpoints.GetLoyMemberByMobile`). So the drive spells `LoyMemberModel`'s own
+// field names, and only the ones the rail reads.
+const MEMBER = {
+  loyId: PRIOR_STATE.header.customer.customerId,
+  mobile: '0551234567',
+  fullName: 'Nouf Al-Qahtani',
+  tier: 'Gold',
+  pointsBalance: 1240,
+  email: 'caller@example.com',
+}
+
+// The caller as the ORDER holds them once attached — `SessionCustomer`, not the
+// loyalty record. Deliberately spelled with a name of its own: the rail must read
+// the projection rather than the member it searched with, and a check that cannot
+// tell the two apart proves nothing.
+const ATTACHED_CUSTOMER = {
+  customerId: MEMBER.loyId,
+  name: 'Nouf A. Al-Qahtani',
+  mobile: MEMBER.mobile,
+  loyaltyAttached: true,
+}
+
+// What `removeCustomer` answers (§6.3): the customer and the address are gone,
+// **the derived plant is retained**, and the address book has closed again.
+// Every one of those is the SERVER's doing — the console is only being watched
+// to see that it re-renders them rather than inventing them. Derived from the
+// state the stub last served, so removal answers about the order actually on
+// screen rather than about a fixture.
+const removedFrom = (state) => ({
+  ...state,
+  version: state.version + 1,
+  header: { ...state.header, customer: null, address: null },
+  capabilities: { ...state.capabilities, canOpenAddressBook: false },
+})
+
 // §7 — CONSOLE_NOT_GRANTED is a 403 CARRYING the envelope, so `core/api.ts` maps
 // it to kind:'business' and `apiErrorCode()` can read it. A refusal, not a fault.
 const REFUSAL = {
@@ -157,6 +208,9 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
  *                       lands (164): 3 rides the schedule out, 6 exhausts it
  * @param opts.stateClosed  every `State` read answers SESSION_CLOSED — the stale tab
  * @param opts.contractVersion  overrides the version every returned state declares
+ * @param opts.memberFound  whether the loyalty lookup finds anyone (165) — `false`
+ *                       is the number nobody holds, answered `null` on the success
+ *                       envelope rather than as a refusal
  */
 async function open(
   browser,
@@ -170,9 +224,13 @@ async function open(
     stateBusy = 0,
     stateClosed = false,
     contractVersion = null,
+    memberFound = true,
   } = {},
 ) {
   let stateReads = 0
+  // The state this stub last served, so the two customer verbs (165) answer
+  // about the order on screen rather than about a fixture.
+  let served = openState ?? STATE
   // Law 10 — every response carries one, so the override is applied wherever a
   // state leaves this stub rather than at one call site. `'none'` strips the
   // field entirely: a server that has not shipped it yet is a real state, and
@@ -229,6 +287,27 @@ async function open(
       return route.fulfill(
         envelope(speak(new URL(url).searchParams.get('transactionId') === PRIOR_ID ? PRIOR_STATE : STATE)),
       )
+    }
+    // ---- 165 ----
+    if (p.startsWith('CallCenterWeb/MemberByMobile/'))
+      // `null` is how the service answers a number nobody holds — an ordinary
+      // outcome carried on the SUCCESS envelope, not a refusal.
+      return route.fulfill(envelope(memberFound ? MEMBER : null))
+    if (p === 'CallCenterWeb/AttachCustomer') {
+      // The order the agent is on, with the caller bound and the book opened —
+      // whichever order that is. `openState` seeds a session that already has
+      // one, so attaching must answer about THAT state, not about the empty one.
+      served = {
+        ...served,
+        version: served.version + 1,
+        header: { ...served.header, customer: ATTACHED_CUSTOMER },
+        capabilities: { ...served.capabilities, canOpenAddressBook: true },
+      }
+      return route.fulfill(envelope(speak(served)))
+    }
+    if (p === 'CallCenterWeb/RemoveCustomer') {
+      served = removedFrom(served)
+      return route.fulfill(envelope(speak(served)))
     }
     if (p === 'CallCenterWeb/Abandon')
       return route.fulfill(envelope({ outcome: 'abandoned', transactionId: route.request().postDataJSON().transactionId }))
@@ -329,10 +408,8 @@ async function run() {
     check('no app nav chrome', (await page.locator('nav').count()) === 0)
     check('the console fills the viewport', (await page.locator('[data-cc-console]').boundingBox()).height >= 880)
 
-    // The rail is drawn empty and INERT: attaching a caller is ticket 165's, and
-    // US9's caret ships with the lookup that answers it rather than focusing a
-    // field that would swallow what the agent types.
-    check('the empty rail is drawn, not yet interactive', await page.locator('#cc-phone').isDisabled())
+    // 165 — the rail is live from the first frame, and the caret is already in it.
+    check('the empty rail is drawn and live', await page.locator('#cc-phone').isEnabled())
 
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
@@ -748,6 +825,178 @@ async function run() {
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
     check('a missing version degrades rather than refusing', await page.locator('[data-cc-basket]').isVisible())
+    await context.close()
+  }
+
+  // ============ ticket 165 — the caller, the rail, and the address book ============
+
+  // ---- 18/19. the caret, the lookup, the six-field card, the opened book ----
+  {
+    const { context, page, errors, calls, wire } = await open(browser, {})
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    // 🚩 US9 / CC2 finding 1: the first keystroke of the call is the one the
+    // screen expects. Nothing has been clicked at this point.
+    check(
+      'the caret is in the phone field the moment the console opens',
+      await page.evaluate(() => document.activeElement?.id === 'cc-phone'),
+      await page.evaluate(() => document.activeElement?.tagName + '#' + document.activeElement?.id),
+    )
+
+    // 🚩 Customer-first as intent, not enforcement: with no caller there is no
+    // control to poke — the console states the next step instead.
+    check(
+      'no caller ⇒ the address block offers nothing to reach',
+      (await page.locator('[data-cc-pick-address]').count()) === 0 &&
+        (await page.locator('[data-cc-address="noCaller"]').isVisible()),
+    )
+    check(
+      'and it says what the next step is',
+      (await text(page, '[data-cc-address="noCaller"]')).length > 10,
+      (await text(page, '[data-cc-address="noCaller"]')).replace(/\s+/g, ' '),
+    )
+
+    // Typing straight in, without clicking: the caret is already there.
+    await page.keyboard.type(MEMBER.mobile)
+    await page.keyboard.press('Enter')
+    await page.locator('[data-cc-lookup-found]').waitFor({ timeout: 10_000 })
+    check(
+      'the lookup names who was found BEFORE anything is bound to the order',
+      (await text(page, '[data-cc-lookup-found]')).includes(MEMBER.fullName),
+      (await text(page, '[data-cc-lookup-found]')).replace(/\s+/g, ' '),
+    )
+    check('finding is not attaching', count(calls, /^CallCenterWeb\/AttachCustomer$/) === 0)
+    check('the caller is still not on the order', (await page.locator('[data-cc-caller]').count()) === 0)
+    check(
+      'and the address book is still shut',
+      (await page.locator('[data-cc-pick-address]').count()) === 0,
+    )
+
+    await page.locator('[data-cc-attach]').click()
+    await page.locator('[data-cc-caller]').waitFor({ timeout: 10_000 })
+
+    const attach = wire.find((w) => w.path === 'CallCenterWeb/AttachCustomer')
+    check('attach sends the loyalty id the lookup returned', attach?.body?.customerId === MEMBER.loyId, String(attach?.body?.customerId))
+    check('on this order, with its own requestId', attach?.body?.transactionId === STATE.transactionId && !!attach?.body?.requestId)
+    check(
+      'and it is one action, one id — not the open’s',
+      attach?.body?.requestId !== wire.find((w) => w.path === 'CallCenterWeb/Open')?.body?.requestId,
+    )
+
+    // 135's compact-layout discipline: the seventh field is what turns a rail
+    // into a form. The cap is asserted, not assumed.
+    const fields = await page.locator('[data-cc-rail-field]').evaluateAll((els) =>
+      els.map((e) => e.getAttribute('data-cc-rail-field')),
+    )
+    check('the rail card is capped at six fields', fields.length <= 6, `${fields.length}: ${fields.join(', ')}`)
+    check(
+      'in a fixed order, identity first',
+      fields.join(',') === 'name,mobile,member,tier,points,email',
+      fields.join(','),
+    )
+    check(
+      'the identity shown is the ORDER’s, not the lookup’s',
+      (await text(page, '[data-cc-rail-field="name"]')).includes(ATTACHED_CUSTOMER.name) &&
+        ATTACHED_CUSTOMER.name !== MEMBER.fullName,
+      await text(page, '[data-cc-rail-field="name"]'),
+    )
+    check('the rail is still pinned at the start edge', await page.locator('[data-cc-rail]').isVisible())
+
+    // 🚩 The heart of it: the control appears because `capabilities` opened it.
+    check('attaching opens the address book', await page.locator('[data-cc-pick-address]').isVisible())
+    check(
+      'as an empty dashed slot, with its own action',
+      (await page.locator('[data-cc-address="pick"]').isVisible()) &&
+        (await page.locator('[data-cc-address="noCaller"]').count()) === 0,
+    )
+
+    // 🚩 And the next call starts clean. A found card left standing would offer
+    // *Attach this caller* for the caller just removed, over a box still holding
+    // their number — and US9's caret would land in the previous call.
+    await page.locator('[data-cc-remove-caller]').click()
+    await page.locator('#cc-phone').waitFor({ timeout: 10_000 })
+    check('removing the caller empties the search', (await page.locator('#cc-phone').inputValue()) === '')
+    check('the removed caller is not left there to re-attach', (await page.locator('[data-cc-attach]').count()) === 0)
+    check('nor their found card', (await page.locator('[data-cc-lookup-found]').count()) === 0)
+
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 19b. the capability decides, not "a caller is attached" ----
+  {
+    // A caller IS attached and the door still says no (§6.3 — v1.1's PickInStore
+    // reports through the same capability). A console that re-derived the rule
+    // would offer a control the door refuses.
+    const attachedShut = {
+      ...PRIOR_STATE,
+      header: { ...PRIOR_STATE.header, address: null },
+      capabilities: { ...PRIOR_STATE.capabilities, canOpenAddressBook: false },
+    }
+    const { context, page } = await open(browser, { openState: attachedShut })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    check('a caller alone does not open the book', (await page.locator('[data-cc-pick-address]').count()) === 0)
+    check(
+      'and the closed state is not a disabled control to poke',
+      (await page.locator('[data-cc-address="unavailable"]').isVisible()) &&
+        (await page.locator('[data-cc-address="unavailable"] button').count()) === 0,
+    )
+    await context.close()
+  }
+
+  // ---- 20. a number nobody holds ----
+  {
+    const { context, page, errors, calls } = await open(browser, { memberFound: false })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.keyboard.type('0500000000')
+    await page.keyboard.press('Enter')
+    await page.locator('[data-cc-lookup-miss]').waitFor({ timeout: 10_000 })
+
+    check('a miss says so', (await text(page, '[data-cc-lookup-miss]')).length > 10, (await text(page, '[data-cc-lookup-miss]')).replace(/\s+/g, ' '))
+    check('a miss is not an error', (await page.locator('[data-cc-lookup-error]').count()) === 0)
+    // ⚠ Loyalty signup is 159's undrawn surface — this slice must not invent one.
+    check('and offers nothing to attach', (await page.locator('[data-cc-attach]').count()) === 0)
+    check('nothing was bound to the order', count(calls, /^CallCenterWeb\/AttachCustomer$/) === 0)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 21. removing the caller: the address goes, the store stays ----
+  {
+    // Off an order that has BOTH — a caller, their address, and a plant derived
+    // from it. That is the only shape in which "the store stays" can be seen.
+    const { context, page, errors, wire } = await open(browser, { openState: PRIOR_STATE })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-caller]').waitFor({ timeout: 10_000 })
+    check('the address is on the order to begin with', await page.locator('[data-cc-address="set"]').isVisible())
+    const storeBefore = (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ')
+
+    await page.locator('[data-cc-remove-caller]').click()
+    await page.locator('[data-cc-caller]').waitFor({ state: 'detached', timeout: 10_000 })
+
+    check('the caller is gone from the rail', (await page.locator('[data-cc-caller]').count()) === 0)
+    check('the address goes with them', (await page.locator('[data-cc-address="set"]').count()) === 0)
+    check('and the book is shut again', (await page.locator('[data-cc-pick-address]').count()) === 0)
+
+    // 🚩 The property the whole slice turns on: a re-attach must not silently
+    // re-price the basket, so the derived store is still standing.
+    const storeAfter = (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ')
+    check('the derived store chip is still standing', storeAfter === storeBefore && storeAfter.includes(PRIOR_STATE.header.plant), storeAfter)
+    check(
+      'and still reads as derived, not chosen',
+      (await text(page, '[data-cc-chip="store"]')).length > 0 &&
+        (await page.locator('[data-cc-chip="store"]').getAttribute('data-cc-chip-state')) === 'settled',
+    )
+    check('the basket is untouched', (await page.locator('[data-cc-line]').count()) === PRIOR_STATE.lines.length)
+
+    const remove = wire.find((w) => w.path === 'CallCenterWeb/RemoveCustomer')
+    check('remove carries the order and its own requestId', remove?.body?.transactionId === PRIOR_STATE.transactionId && !!remove?.body?.requestId)
+    // The caret returns to where the next call starts.
+    check('the phone field is back', await page.locator('#cc-phone').isVisible())
+    check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }
 

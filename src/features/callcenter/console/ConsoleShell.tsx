@@ -15,15 +15,17 @@
  * because `capabilities.canSubmit` said so, and the reason under it is
  * `submitBlockers`, the server's own list.
  *
- * The interactive halves — attaching a caller, item search, the basket's own
- * verbs, the guidance strip — arrive with tickets 165–172. What is here is the
- * furniture they land in.
+ * Ticket 165 fills the first of those columns: the rail is now the call's
+ * opening move rather than furniture (see `CustomerRail.tsx`). The rest — item
+ * search, the basket's own verbs, the guidance strip — arrive with tickets
+ * 166–172, in the centre column that is the only region that grows.
  */
 import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import { formatMoney } from '@/core/util/number-format'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
+import CustomerRail, { type CustomerActions } from './CustomerRail'
 import { headerChips, type HeaderChip } from './header-chips'
 
 export default function ConsoleShell({
@@ -32,6 +34,7 @@ export default function ConsoleShell({
   onRefresh,
   refreshing = false,
   busy = null,
+  customerActions,
 }: {
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
@@ -42,6 +45,10 @@ export default function ConsoleShell({
   refreshing?: boolean
   /** A claim collision being ridden out, or the spent schedule (164). */
   busy?: BusyPhase | null
+  /** The two customer verbs and their outcome (165), passed through to the rail.
+   *  They are the page's because they return the whole `SessionState`, and the
+   *  cache is the store of record. */
+  customerActions: CustomerActions
 }) {
   return (
     <div
@@ -61,7 +68,7 @@ export default function ConsoleShell({
       {/* 1440×900 by design, degrading to 1280; below that is out of scope —
           it is a desktop console (135's density budget). */}
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
-        <CustomerRail state={state} />
+        <CustomerRail state={state} customerActions={customerActions} />
         <main className="flex min-h-0 min-w-0 flex-col border-x border-border">
           <ChipRow state={state} />
           <Basket state={state} />
@@ -131,64 +138,6 @@ function TopBar({
         )}
       </div>
     </header>
-  )
-}
-
-/** Six fields maximum (135 — Salesforce compact-layout discipline). An empty
- *  order has none of them, so the rail is the phone field and nothing else. */
-function CustomerRail({ state }: { state: SessionState }) {
-  const { t } = useTranslation('callcenter')
-  const customer = state.header.customer
-  return (
-    <aside className="flex min-h-0 flex-col gap-3 overflow-auto bg-sidebar p-4" data-cc-rail>
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {t('rail.caller')}
-      </div>
-      {customer ? (
-        <div>
-          <div className="text-sm font-semibold leading-tight">{customer.name}</div>
-          <div data-numeric className="text-xs text-muted-foreground">
-            {customer.mobile}
-          </div>
-        </div>
-      ) : (
-        <>
-          <label className="text-xs text-muted-foreground" htmlFor="cc-phone">
-            {t('rail.mobile')}
-          </label>
-          {/* The field US9's caret lands in the moment the console opens — but
-              looking up a caller is ticket 165's, so slice 0 draws it inert
-              rather than focusing an input that would swallow what the agent
-              types. The caret ruling ships with the lookup that answers it. */}
-          <input
-            id="cc-phone"
-            disabled
-            placeholder={t('rail.mobilePlaceholder')}
-            className="rounded-md border border-input bg-card px-3 py-2 text-sm outline-none disabled:opacity-70"
-          />
-          <p className="text-[11px] text-muted-foreground">{t('rail.emptyHint')}</p>
-        </>
-      )}
-
-      <div className="mt-2 border-t border-border pt-3">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('rail.address')}
-        </div>
-        {state.header.address ? (
-          <div className="rounded-md border border-border bg-card p-2 text-xs">
-            <div className="font-medium">{state.header.address.label}</div>
-            <div className="text-muted-foreground">{state.header.address.line}</div>
-          </div>
-        ) : (
-          // US12 — the empty slot states the next step without a message to read.
-          // Its action is gated on `capabilities.canOpenAddressBook`, which is
-          // false until a caller is attached (§6.3), never on a client rule.
-          <div className="rounded-md border border-dashed border-input p-3 text-center text-xs text-muted-foreground">
-            {t('rail.noAddress')}
-          </div>
-        )}
-      </div>
-    </aside>
   )
 }
 

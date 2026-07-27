@@ -20,6 +20,7 @@
  */
 import type { OpenResult, SessionState } from '@/core/models/callcenter'
 import openEmpty from '../../../../../.issues/assets/136-cc-contract/01-open-empty.json'
+import twoLinesPriced from '../../../../../.issues/assets/136-cc-contract/02-two-lines-priced.json'
 
 /**
  * A fixture file is `{ _contract, request, response }` — the provenance block
@@ -38,3 +39,11 @@ export const OPEN_EMPTY: OpenResult = payload<OpenResult>(openEmpty)
 
 /** The empty `SessionState` that open returns — slice 0's whole render input. */
 export const EMPTY_SESSION: SessionState = OPEN_EMPTY.state!
+
+/**
+ * A settled order: a caller attached, an address picked, the plant derived from
+ * it. Ticket 165 reads it for the SHAPE of an attached customer and of the
+ * address the rail renders — never for the values, which are the contract
+ * author's illustration and not the engine's.
+ */
+export const ATTACHED_SESSION: SessionState = payload<SessionState>(twoLinesPriced)

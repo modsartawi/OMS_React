@@ -237,6 +237,28 @@ export interface AbandonResult {
   transactionId: string
 }
 
+/**
+ * A loyalty member as the door's lookup answers it
+ * (`GET CallCenterWeb/MemberByMobile/{mobile}` — BackOffice 801's verbatim
+ * delegation to `LoyEndpoints.GetLoyMemberByMobile`, projecting `LoyMemberModel`).
+ *
+ * 🚩 **This is NOT part of the session contract** — it precedes attach, which is
+ * why 801 could not session-scope it. It is how the agent FINDS the caller;
+ * `SessionState.header.customer` is what the order actually holds, and where the
+ * two could disagree the projection wins. Only what the rail reads is typed: the
+ * model carries a dozen more fields (points factors, join date, profile flags)
+ * that no console surface has a use for, and unknown fields are ignored by rule.
+ */
+export interface LoyaltyMember {
+  /** The loyalty id — what `attachCustomer` is given as `customerId`. */
+  loyId: string
+  mobile: string
+  fullName: string
+  tier: string | null
+  pointsBalance: number | null
+  email: string | null
+}
+
 /** The screen-access probe (134 §6). One boolean; open implies act. */
 export interface CallCenterAccessResult {
   canOpenConsole: boolean

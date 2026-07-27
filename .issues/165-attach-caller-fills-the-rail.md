@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 160
 blocked-by: 162
 ---
@@ -37,12 +37,18 @@ is in) · component (customer rail, six-field card, empty address slot) · i18n 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `theRailShowsSixFieldsAndTheRightAddressState` — pure: given a header, the rail's fields are
+- [x] `theRailShowsSixFieldsAndTheRightAddressState` — pure: given a header, the rail's fields are
       capped at six in a fixed order, and the address block resolves to one of *no caller* / *caller,
       no address yet* / *address set* — driven off `capabilities`, never a re-derived rule · pure
-- [ ] `attachingACallerOpensTheAddressBook` — drive: the caret is in the phone field at open;
+      → `rail-view.test.ts`, 12 cases (vitest, node). A **fourth** address state fell out and is
+      kept: *caller attached, book still shut* (`unavailable`) — the case a re-derived
+      *attached ⇒ reachable* rule gets wrong, and the one v1.1's `PickInStore` will land on.
+- [x] `attachingACallerOpensTheAddressBook` — drive: the caret is in the phone field at open;
       attaching renders the compact card and the empty address slot; removing clears the address and
       **leaves the store chip standing** · flow (Playwright, extends `tools/callcenter-drive.mjs`)
+      → boxes 18–21, **150/150 green** against the stubbed envelope (the door is unbuilt: BackOffice
+      800/801). Also proves the identity shown is the **order's**, not the lookup's, and that
+      removing the caller empties the search rather than leaving the last call re-attachable.
 
 ## Boundaries
 

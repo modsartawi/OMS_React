@@ -77,9 +77,28 @@
     "caller": "Caller",
     "mobile": "Mobile number",
     "mobilePlaceholder": "05…",
-    "emptyHint": "No caller attached yet.",
+    "find": "Find the caller",
+    "emptyHint": "Type the number the caller is ringing from.",
+    "notFound": "No loyalty member has that number. Check it with the caller and search again.",
+    "lookupFailed": "The loyalty lookup could not be completed. Nothing has changed — try again.",
+    "attach": "Attach this caller",
+    "attaching": "Attaching…",
+    "attachFailed": "The caller could not be attached to this order. Nothing has changed — try again.",
+    "removeFailed": "The caller could not be removed from this order. Nothing has changed — try again.",
+    "remove": "Remove this caller",
+    "field": {
+      "name": "Name",
+      "mobile": "Mobile",
+      "member": "Member",
+      "tier": "Tier",
+      "points": "Points",
+      "email": "Email"
+    },
     "address": "Address",
-    "noAddress": "No address yet"
+    "noAddress": "No address yet",
+    "pickAddress": "Pick an address",
+    "addressNeedsCaller": "Attach the caller first — their address book opens with them.",
+    "addressUnavailable": "This order takes no address."
   },
   "chips": {
     "store": "Store",

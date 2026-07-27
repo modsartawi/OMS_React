@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
@@ -7,6 +7,8 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { UaReportCountsResult } from '@/core/models/ua-user'
 import { deriveStatus, formatStamp } from './helpers'
 import { uaAdminApi } from './api'
+import { showsPager } from './pager'
+import GridPager from './GridPager'
 import StatusPill from './StatusPill'
 import ChannelPill from './ChannelPill'
 import UserDetailPane from './UserDetailPane'
@@ -24,7 +26,12 @@ const CARDS: { card: string; count: (c: UaReportCountsResult) => number; tone: s
   { card: 'disabled', count: (c) => c.disabled, tone: '' },
 ]
 
-type Query = { kind: 'search'; term: string } | { kind: 'card'; card: string }
+/**
+ * The 1-based page is a FIELD of the query, not separate state (ticket 148). That
+ * buys three behaviours with no code: a new search or a card switch builds a
+ * fresh query at page 1, and each page is its own cache entry.
+ */
+type Query = { kind: 'search'; term: string; page: number } | { kind: 'card'; card: string; page: number }
 
 export default function UaAdminUsersPage() {
   const { t } = useTranslation('ua-admin')
@@ -45,9 +52,24 @@ export default function UaAdminUsersPage() {
 
   const list = useQuery({
     queryKey: ['ua-admin', 'list', query],
-    queryFn: () => (query!.kind === 'search' ? uaAdminApi.search(query!.term) : uaAdminApi.worklist(query!.card)),
+    queryFn: () =>
+      query!.kind === 'search'
+        ? uaAdminApi.search(query!.term, query!.page)
+        : uaAdminApi.worklist(query!.card, query!.page),
     enabled: query !== null && access.data?.canOpen === true,
+    // Keep the previous page's rows on screen while the next loads, so the
+    // spinner means FIRST load again and a walk isn't a stutter of blanks.
+    placeholderData: keepPreviousData,
+    // A page already visited must come back INSTANTLY, not dim through a
+    // round trip (ticket 148). The global default is `staleTime: 0`, which would
+    // refetch every step back. A mutation still refreshes the page it's on —
+    // `refreshLists` invalidates, and invalidation ignores staleness.
+    staleTime: 30_000,
   })
+
+  // Dim-and-disable, not blank: true whenever rows are showing and a read is in
+  // flight (an uncached page, or a refetch after a mutation).
+  const refreshing = list.isFetching && list.data !== undefined
 
   function runSearch() {
     const trimmed = term.trim()
@@ -56,13 +78,17 @@ export default function UaAdminUsersPage() {
       return
     }
     setShowMinCharsHint(false)
-    setQuery({ kind: 'search', term: trimmed })
+    setQuery({ kind: 'search', term: trimmed, page: 1 })
   }
 
   function openCard(card: string) {
     setTerm('')
     setShowMinCharsHint(false)
-    setQuery({ kind: 'card', card })
+    setQuery({ kind: 'card', card, page: 1 })
+  }
+
+  function goToPage(page: number) {
+    setQuery((q) => (q === null ? q : { ...q, page }))
   }
 
   function refreshLists() {
@@ -157,13 +183,15 @@ export default function UaAdminUsersPage() {
           <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3 py-1.5 text-xs">
             <span className="font-semibold tracking-tight">{gridTitle}</span>
             <span className="tabular-nums text-muted-foreground">
+              {/* The TRUE total, not the page's row count — reading `rows.length`
+                  made a 6,000-row card report "50" (ticket 148). */}
+              {/* `count` drives the plural; `formatted` is what's shown, so 6,000
+                  reads with a thousands separator. */}
               {list.data
-                ? list.data.isCapped
-                  ? t('grid.capped', {
-                      shown: list.data.rows.length,
-                      total: list.data.totalMatches.toLocaleString(),
-                    })
-                  : t('grid.matchCount', { count: list.data.rows.length })
+                ? t('grid.matchCount', {
+                    count: list.data.totalMatches,
+                    formatted: list.data.totalMatches.toLocaleString(),
+                  })
                 : ''}
             </span>
           </div>
@@ -185,7 +213,10 @@ export default function UaAdminUsersPage() {
               {t('grid.noResults')}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div
+              className={'overflow-x-auto transition-opacity ' + (refreshing ? 'pointer-events-none opacity-50' : '')}
+              aria-busy={refreshing}
+            >
               <table className="w-full min-w-[640px] border-collapse text-sm">
                 <thead>
                   <tr className="text-left text-xs font-medium text-muted-foreground">
@@ -227,6 +258,20 @@ export default function UaAdminUsersPage() {
               </table>
             </div>
           )}
+
+          {/* The footer exists only past the first page. `query` is non-null
+              whenever `list.data` is, so `query.page` is safe here. */}
+          {query !== null && list.data && !list.isError && showsPager(list.data.totalMatches) && (
+            <div className="mt-auto">
+              <GridPager
+                page={query.page}
+                totalMatches={list.data.totalMatches}
+                isCapped={list.data.isCapped}
+                busy={refreshing}
+                onPage={goToPage}
+              />
+            </div>
+          )}
         </div>
 
         <div className="min-h-[22rem] rounded-lg border border-border/60 bg-card p-3">
@@ -247,7 +292,7 @@ export default function UaAdminUsersPage() {
         onCreated={(id) => {
           setSelectedId(id)
           setTerm(id)
-          setQuery({ kind: 'search', term: id })
+          setQuery({ kind: 'search', term: id, page: 1 })
           refreshLists()
         }}
       />

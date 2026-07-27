@@ -33,3 +33,6 @@ tools/.badge-shots/
 
 # Delivery-channel drive screenshots (tools/ua-channel-drive.mjs) — same deal
 tools/.channel-shots/
+
+# Ua-users scale drive screenshots (tools/ua-users-scale-drive.mjs) — same deal
+tools/.ua-scale-shots/

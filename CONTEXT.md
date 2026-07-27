@@ -67,6 +67,34 @@ tier is the one group with no cluster label at all: labelling it would make it r
 family rather than as the edge of the bar.
 _Avoid_: button group, section.
 
+**Seeded** (of an employee identity):
+An identity that exists in the UA tables, is **active**, is backed by a real legacy `[User_]` row,
+and is not a shared/service account. It is the base population every UA rollout card narrows —
+"a real person who could be cut over". A deactivated person is deliberately excluded: they cannot
+sign in at all, so they are not a cutover blocker, and they have their own card.
+_Avoid_: registered, imported (seeding is the one-way SAP→UA identity import; being seeded says
+nothing about whether the person has a password).
+
+**Completed activation**:
+An employee who has finished setting themselves up: legacy-backed, not a shared account, and holding
+a credential whose state is `active` — a **self-chosen, settled password**. A `temporary-must-change`
+credential is *not* completed (the person still has the step to do), and signing in afterwards is not
+required (that is adoption, a different question). Unlike **Seeded**, it carries **no active clause**:
+someone who completed activation and has since been disabled still counts, because the term measures
+*how far the cutover got*, not who can work today. It is therefore its own population, overlapping
+the Disabled card, and it does **not** partition the estate with **awaiting activation** — the
+temp-password people sit on neither.
+_Avoid_: active user (means live *sessions* to everyone else on this screen), enrolled, onboarded.
+
+**Page** (of a list read):
+A fixed 50-row window of one query's match set, asked for by `skip` and walked with Previous / Next.
+The envelope's `isCapped` reads as **"a row exists beyond *this* page"** — it is the next-page flag,
+not a statement that the result was truncated, and it is never shown to the user as a cap. The match
+count a screen states is `totalMatches`, the whole set; `rows.length` is only ever how much of it is
+on screen right now.
+_Avoid_: cap, capped, "first 50" (a page boundary is not a wall — advising someone to narrow their
+search to get past it is the retired behaviour).
+
 **Bonus buy (BBY)**:
 A promotion evaluated by the pricing engine, identified by a `bbyNumber` (with a `promoNumber` /
 `offerId`). One shape: a **buy side** ("buy X") linked to a **get side** ("get Y"). It is

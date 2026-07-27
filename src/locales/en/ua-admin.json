@@ -10,7 +10,7 @@
     "placeholderNoCount": "Search people — employee id, mobile, or part of the name…",
     "button": "Search",
     "minChars": "Type at least 2 characters.",
-    "hint": "Nothing loads until you search or open a report card — results are a server query, capped at 50 rows."
+    "hint": "Nothing loads until you search or open a report card — results are a server query, walked 50 rows to a page."
   },
   "newIdentity": "+ New identity",
   "cards": {
@@ -32,14 +32,19 @@
     "noQuery": "No query yet",
     "searchTitle": "Search: \"{{term}}\"",
     "worklistTitle": "Worklist: {{label}}",
-    "capped": "first {{shown}} of {{total}} — refine to narrow",
-    "matchCount": "{{count}} match",
-    "matchCount_other": "{{count}} matches",
+    "matchCount": "{{formatted}} match",
+    "matchCount_other": "{{formatted}} matches",
     "loading": "Searching…",
     "emptyTitle": "Search first",
-    "emptyHint": "Type an employee id, a mobile number, or part of a name — or click a report card above to pull a worklist (first 50, refine to narrow).",
+    "emptyHint": "Type an employee id, a mobile number, or part of a name — or click a report card above to pull a worklist and walk it page by page.",
     "noResults": "No people match this query.",
     "never": "never"
+  },
+  "pager": {
+    "previous": "Previous",
+    "next": "Next",
+    "readout": "Page {{page}} of {{pages}}",
+    "ariaLabel": "Result pages"
   },
   "detail": {
     "selectTitle": "Select a person",

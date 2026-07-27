@@ -9,12 +9,18 @@ import type {
   UaSessionModel,
 } from '@/core/models/ua-user'
 
+import { PAGE_SIZE, skipForPage } from './pager'
+
 const BASE = 'UaAdminWeb'
 const encode = (segment: string) => encodeURIComponent(segment)
 
-// Reads are capped at 50 server-side (take clamps down); the screen shows the
-// first page and the "refine to narrow" cap note rather than offset-paging.
-const PAGE = { skip: 0, take: 50 }
+// The people reads offset-page: both endpoints already bind `skip` and clamp
+// only `take` (research 140), so paging cost zero server change (ticket 148).
+const pageArgs = (page: number) => ({ skip: skipForPage(page), take: PAGE_SIZE })
+
+// The per-person audit tab keeps its own single 50-row read — paging it was
+// ruled out of scope (spec 147).
+const FIRST_PAGE = pageArgs(1)
 
 export const uaAdminApi = {
   // Screen-open grant probe. Drives BOTH the in-page route-guard (the "no
@@ -28,11 +34,11 @@ export const uaAdminApi = {
   reportCounts(): Promise<UaReportCountsResult> {
     return api.get<UaReportCountsResult>(`${BASE}/ReportCounts`)
   },
-  search(term: string): Promise<UaEmployeeSearchResult> {
-    return api.get<UaEmployeeSearchResult>(`${BASE}/Employees`, { term, ...PAGE })
+  search(term: string, page = 1): Promise<UaEmployeeSearchResult> {
+    return api.get<UaEmployeeSearchResult>(`${BASE}/Employees`, { term, ...pageArgs(page) })
   },
-  worklist(card: string): Promise<UaEmployeeSearchResult> {
-    return api.get<UaEmployeeSearchResult>(`${BASE}/ReportCards/${encode(card)}`, PAGE)
+  worklist(card: string, page = 1): Promise<UaEmployeeSearchResult> {
+    return api.get<UaEmployeeSearchResult>(`${BASE}/ReportCards/${encode(card)}`, pageArgs(page))
   },
   status(employeeId: string): Promise<UaEmployeeStatusResult> {
     return api.get<UaEmployeeStatusResult>(`${BASE}/Employees/${encode(employeeId)}`)
@@ -41,7 +47,7 @@ export const uaAdminApi = {
     return api.get<UaSessionModel[]>(`${BASE}/Employees/${encode(employeeId)}/Sessions`)
   },
   audit(employeeId: string): Promise<UaAuditHistoryResult> {
-    return api.get<UaAuditHistoryResult>(`${BASE}/Employees/${encode(employeeId)}/Audit`, PAGE)
+    return api.get<UaAuditHistoryResult>(`${BASE}/Employees/${encode(employeeId)}/Audit`, FIRST_PAGE)
   },
 
   // Mutations — actor is the cookie UserId server-side; body carries no actor.

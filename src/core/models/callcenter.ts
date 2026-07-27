@@ -259,6 +259,37 @@ export interface LoyaltyMember {
   email: string | null
 }
 
+/**
+ * One entry of the caller's address book, as the door's read answers it
+ * (`GET CallCenterWeb/CustomerAddresses` — BackOffice 801's session-scoped
+ * sibling of `SdDocument/CustomerAddresses`, projecting `CustomerAddressBookModel`).
+ *
+ * 🚩 **Not part of the session contract** — like the loyalty lookup, it is how the
+ * agent CHOOSES; `SessionState.header.address` is what the order actually holds,
+ * and where the two could disagree the projection wins. Only what the picker
+ * reads is typed: the model carries GPS, phones, postal codes and timestamps that
+ * no console surface has a use for, and unknown fields are ignored by rule.
+ */
+export interface AddressBookAddress {
+  cityCode: string
+  cityName: string | null
+  districtCode: string
+  districtName: string | null
+  street1: string | null
+  street2: string | null
+  buildingNumber: string | null
+}
+
+export interface CustomerAddressBookEntry {
+  addressNumber: string
+  labelCode: string | null
+  labelNameEn: string | null
+  isDefault: boolean
+  /** The address proper. Nullable because the wire model nests it and a book row
+   *  with no address behind it is a data fault, not a crash. */
+  address: AddressBookAddress | null
+}
+
 /** The screen-access probe (134 §6). One boolean; open implies act. */
 export interface CallCenterAccessResult {
   canOpenConsole: boolean

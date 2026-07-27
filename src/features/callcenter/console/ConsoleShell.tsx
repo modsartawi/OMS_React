@@ -35,6 +35,7 @@ export default function ConsoleShell({
   refreshing = false,
   busy = null,
   customerActions,
+  onPickAddress,
 }: {
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
@@ -49,6 +50,10 @@ export default function ConsoleShell({
    *  They are the page's because they return the whole `SessionState`, and the
    *  cache is the store of record. */
   customerActions: CustomerActions
+  /** Opens the address book (166). The dialog and the `setAddress` verb are the
+   *  page's — it returns the whole `SessionState` — so all that travels down
+   *  here is the request to open it. */
+  onPickAddress?: () => void
 }) {
   return (
     <div
@@ -68,7 +73,7 @@ export default function ConsoleShell({
       {/* 1440×900 by design, degrading to 1280; below that is out of scope —
           it is a desktop console (135's density budget). */}
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
-        <CustomerRail state={state} customerActions={customerActions} />
+        <CustomerRail state={state} customerActions={customerActions} onPickAddress={onPickAddress} />
         <main className="flex min-h-0 min-w-0 flex-col border-x border-border">
           <ChipRow state={state} />
           <Basket state={state} />

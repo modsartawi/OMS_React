@@ -98,7 +98,23 @@
     "noAddress": "No address yet",
     "pickAddress": "Pick an address",
     "addressNeedsCaller": "Attach the caller first — their address book opens with them.",
-    "addressUnavailable": "This order takes no address."
+    "addressUnavailable": "This order takes no address.",
+    "changeAddress": "Change"
+  },
+  "address": {
+    "title": "Pick the delivery address",
+    "close": "Close",
+    "loading": "Reading the caller's address book…",
+    "loadFailed": "The address book could not be read. Nothing has changed on this order — try again.",
+    "emptyBook": "This caller has no addresses on file yet.",
+    "unlabelled": "Address",
+    "noLine": "No street details on this address.",
+    "default": "default",
+    "onThisOrder": "on this order",
+    "applyFailed": "That address could not be applied. Nothing has changed on this order — try again.",
+    "refusedNoCaller": "This order has no caller attached, so their address book is closed. Attach the caller again, then pick the address.",
+    "refusedNotTheirs": "That address is on file for a different customer, so it was not applied. Pick one of this caller's own addresses — and if it should be theirs, it needs sorting out on the customer record.",
+    "confirmNeeded": "This basket already has lines, so moving the fulfilment store would re-price them. Nothing has changed yet — the preview of what moves is not available in this version."
   },
   "chips": {
     "store": "Store",

@@ -65,6 +65,7 @@ import {
   type PendingAbandon,
 } from './open-outcome'
 import AbandonConfirm from './AbandonConfirm'
+import AddressPicker from './AddressPicker'
 import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
 import ConsoleShell from './ConsoleShell'
@@ -176,6 +177,13 @@ function ConsoleSession() {
    * whatever is rendered when this is set is a basket that no longer exists.
    */
   const [fault, setFault] = useState<ShownSessionFault | null>(null)
+
+  /**
+   * The address book, open or not (166). A boolean rather than a route or a
+   * region: it is one caller's short list, read when it is opened and closed the
+   * moment it has answered.
+   */
+  const [pickingAddress, setPickingAddress] = useState(false)
 
   /** How many calls are currently riding out a collision. A ref, not state: it
    *  arbitrates who may clear the strip and is never itself rendered. */
@@ -373,12 +381,61 @@ function ConsoleSession() {
           : callCenterApi.attachCustomer(transactionId!, requestId, action.customerId),
       )
     },
-    onSuccess: (fresh) =>
+    onSuccess: (fresh) => {
       queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
         applyState(current, fresh),
-      ),
+      )
+      // 🚩 The book belongs to whoever is attached, so a change of caller closes
+      // it. Without this, an agent who opened the book, removed the caller and
+      // attached the next one would have the new caller's addresses spring open
+      // by themselves — the previous call's intent, acted on in this one.
+      setPickingAddress(false)
+    },
     retry: false,
   })
+
+  /**
+   * `setAddress` — the verb that decides where the order is fulfilled from.
+   *
+   * 🚩 The store it lands on is the **server's** derivation, arriving in the
+   * projection like everything else. This mutation writes the returned state
+   * through the same guarded entry point and does nothing else: there is no
+   * client-side district→store rule here, and adding one is how the console and
+   * the engine start disagreeing about which branch serves an address.
+   *
+   * On an empty basket that is the whole story — no confirmation is raised, so
+   * the dialog closes on the answer. With lines the answer carries
+   * `pendingConfirmation: storeChange` and the UNCHANGED state (§5), which is
+   * [167](.issues/167-store-move-shows-the-diff.md)'s to draw; until then the
+   * dialog stays open and says so rather than reporting a change that did not
+   * happen.
+   */
+  const setAddress = useMutation({
+    // No `again`: the dialog is this call's own failure surface, and a strip
+    // offering a second retry behind it is one retry too many (164's ruling).
+    mutationFn: (addressNumber: string) => {
+      // Minted ONCE, outside the thunk — a retry of this action is the same
+      // action (law 3 / §4), and a fresh id inside would let the ledger see two.
+      const requestId = newRequestId()
+      return runGuarded(() => callCenterApi.setAddress(transactionId!, requestId, addressNumber))
+    },
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+      // A preview is not an application: the book stays open on the one path
+      // where nothing moved.
+      if (!fresh.pendingConfirmation) setPickingAddress(false)
+    },
+    retry: false,
+  })
+
+  /** Closing forgets the last refusal with it — a failure the agent has walked
+   *  away from must not be waiting for them the next time they open the book. */
+  const closeAddressBook = () => {
+    setPickingAddress(false)
+    setAddress.reset()
+  }
 
   const abandon = useMutation({
     // No `again`: the dialog is this call's own failure surface (164), and the
@@ -575,7 +632,36 @@ function ConsoleSession() {
                 })
             : undefined
         }
+        // 🚩 Passed only while the door says the book will answer — the one
+        // place `canOpenAddressBook` is read on the way in, so the rail draws
+        // the offer without re-testing the rule (§6.3, and 165's ruling that a
+        // control the door refuses is worse than no control).
+        onPickAddress={
+          session.data.capabilities.canOpenAddressBook ? () => setPickingAddress(true) : undefined
+        }
       />
+      {/* Mounted on the same condition. A caller removed in another tab shuts
+          the book from under an open dialog, which is the honest outcome: the
+          addresses on screen are no longer readable and the order no longer has
+          a customer to read them for. */}
+      {session.data.header.customer && session.data.capabilities.canOpenAddressBook && (
+        <AddressPicker
+          open={pickingAddress}
+          customerId={session.data.header.customer.customerId}
+          currentAddressNumber={session.data.header.address?.addressNumber ?? null}
+          apply={{
+            pending: setAddress.isPending ? (setAddress.variables ?? null) : null,
+            error: setAddress.isError ? setAddress.error : null,
+            // 🚩 Read off THIS action's answer, not off the cache. A preview
+            // carries the unchanged state — same `version` — so `applyState`
+            // rightly keeps what is on screen and the confirmation never reaches
+            // the cached state. It belongs to the act that raised it (§5).
+            confirmNeeded: setAddress.data?.pendingConfirmation?.kind === 'storeChange',
+            onPick: (addressNumber) => setAddress.mutate(addressNumber),
+          }}
+          onClose={closeAddressBook}
+        />
+      )}
       {abandonDialog}
     </>
   )

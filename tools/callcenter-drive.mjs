@@ -68,6 +68,21 @@
 //    20. a number nobody holds says so and offers no signup surface (159 is undrawn);
 //    21. removing the caller clears the address and LEAVES THE STORE CHIP STANDING —
 //        a re-attach must never silently re-price the basket.
+//
+// Asserts ticket 166's Proof:
+//   anAddressOnAnEmptyBasketAppliesInline
+//    22. on an EMPTY basket, picking an address sends SetAddress on its own requestId
+//        and applies INLINE — no confirmation modal at all — and the store chip moves
+//        to the plant the SERVER derived, carrying *derived* so a store the agent did
+//        not choose reads as explained;
+//    23. a chip that still needs something looks like it does, off the server's own
+//        `submitBlockers` — and an unknown blocker code reaches no chip at all;
+//    24. both address refusals are EXPLAINED, never raw and never "not found":
+//        NO_CUSTOMER_ATTACHED and ADDRESS_NOT_FOR_CUSTOMER read as different facts,
+//        and the order is left untouched by either;
+//    25. the book is read when it is OPENED (not when a caller is attached), a
+//        failed read is not a dead end, and the next caller's book never opens by
+//        itself off the previous caller's intent.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -164,6 +179,74 @@ const removedFrom = (state) => ({
   capabilities: { ...state.capabilities, canOpenAddressBook: false },
 })
 
+// ---- ticket 166: the address book, and the store the server derives from it ----
+//
+// The book read has no committed fixture either (BackOffice 801 specifies it),
+// so the drive spells `CustomerAddressBookModel`'s own field names and only the
+// ones the picker reads. Two entries, the DEFAULT one second in the array on
+// purpose: "the default is offered first" is a claim about the console's
+// ordering, and a book already in that order would prove nothing.
+const ADDRESS_BOOK = [
+  {
+    addressNumber: '77120',
+    labelCode: 'HOME',
+    labelNameEn: 'Home',
+    isDefault: false,
+    address: {
+      cityCode: '0021',
+      cityName: 'Riyadh',
+      districtCode: 'R-114',
+      districtName: 'Al Malqa',
+      street1: 'King Abdulaziz Rd',
+      street2: null,
+      buildingNumber: 'Bldg 4',
+    },
+  },
+  {
+    addressNumber: '77121',
+    labelCode: 'WORK',
+    labelNameEn: 'Work',
+    isDefault: true,
+    address: {
+      cityCode: '0021',
+      cityName: 'Riyadh',
+      districtCode: 'R-220',
+      districtName: 'Al Olaya',
+      street1: 'Olaya St',
+      street2: 'Tower 2',
+      buildingNumber: null,
+    },
+  },
+]
+
+// 🚩 The district→store rule is the SERVER's, so it lives in the stub — this is
+// the whole subject of the ticket. Both plants differ from the fixture's entry
+// store (1001), which is what makes "the store moved, and it was not the agent
+// who moved it" visible at all.
+const DERIVED_PLANT = {
+  77120: { plant: '1101', plantName: 'Riyadh — Al Malqa' },
+  77121: { plant: '1204', plantName: 'Riyadh — Olaya North' },
+}
+
+// §6.3's two refusals, each carrying a MACHINE code and a server sentence the
+// console must not simply relay: "not found" is precisely the wording the
+// contract forbids, so the stub says it and the console had better not.
+const addressRefusalResponse = (code, status, message) => ({
+  status,
+  contentType: 'application/json',
+  body: JSON.stringify({
+    statusCode: status,
+    success: false,
+    message,
+    errors: [{ errorCode: code, internalErrorCode: '', errorMessage: '' }],
+    data: null,
+  }),
+})
+const ADDRESS_REFUSALS = {
+  noCustomer: addressRefusalResponse('NO_CUSTOMER_ATTACHED', 409, 'No customer attached to session.'),
+  notTheirs: addressRefusalResponse('ADDRESS_NOT_FOR_CUSTOMER', 403, 'Address 77120 not found for customer.'),
+}
+
 // §7 — CONSOLE_NOT_GRANTED is a 403 CARRYING the envelope, so `core/api.ts` maps
 // it to kind:'business' and `apiErrorCode()` can read it. A refusal, not a fault.
 const REFUSAL = {
@@ -211,6 +294,12 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
  * @param opts.memberFound  whether the loyalty lookup finds anyone (165) — `false`
  *                       is the number nobody holds, answered `null` on the success
  *                       envelope rather than as a refusal
+ * @param opts.bookFailures  how many address-book READS fail before one lands —
+ *                       the read is pure, so a failure owes the agent a retry
+ * @param opts.addressRefusal  how `SetAddress` answers (166): `null` applies it,
+ *                       `'noCustomer'` / `'notTheirs'` refuse with §6.3's two codes.
+ *                       The book READ still answers normally — the agent has to be
+ *                       able to reach the address before the refusal is about it.
  */
 async function open(
   browser,
@@ -225,9 +314,12 @@ async function open(
     stateClosed = false,
     contractVersion = null,
     memberFound = true,
+    addressRefusal = null,
+    bookFailures = 0,
   } = {},
 ) {
   let stateReads = 0
+  let bookReads = 0
   // The state this stub last served, so the two customer verbs (165) answer
   // about the order on screen rather than about a fixture.
   let served = openState ?? STATE
@@ -302,6 +394,46 @@ async function open(
         version: served.version + 1,
         header: { ...served.header, customer: ATTACHED_CUSTOMER },
         capabilities: { ...served.capabilities, canOpenAddressBook: true },
+      }
+      return route.fulfill(envelope(speak(served)))
+    }
+    // ---- 166 ----
+    if (p === 'CallCenterWeb/CustomerAddresses') {
+      // No customer id in the request and none accepted: the door reads it off
+      // the session row (801). The stub answers the whole book.
+      bookReads += 1
+      if (bookReads <= bookFailures)
+        return route.fulfill(envelope(null, { status: 500, success: false, message: 'book read failed' }))
+      return route.fulfill(envelope(ADDRESS_BOOK))
+    }
+    if (p === 'CallCenterWeb/SetAddress') {
+      if (addressRefusal) return route.fulfill(ADDRESS_REFUSALS[addressRefusal])
+      const number = route.request().postDataJSON().addressNumber
+      const entry = ADDRESS_BOOK.find((a) => a.addressNumber === number)
+      const derived = DERIVED_PLANT[number]
+      served = {
+        ...served,
+        version: served.version + 1,
+        header: {
+          ...served.header,
+          address: {
+            addressNumber: number,
+            label: entry.labelNameEn,
+            cityCode: entry.address.cityCode,
+            cityName: entry.address.cityName,
+            districtCode: entry.address.districtCode,
+            districtName: entry.address.districtName,
+            line: [entry.address.street1, entry.address.street2].filter(Boolean).join(', '),
+          },
+          // 🚩 The server derived it. Nothing the client sent named a plant.
+          plant: derived.plant,
+          plantName: derived.plantName,
+          plantSource: 'derivedFromAddress',
+        },
+        capabilities: {
+          ...served.capabilities,
+          submitBlockers: served.capabilities.submitBlockers.filter((c) => c !== 'NO_ADDRESS'),
+        },
       }
       return route.fulfill(envelope(speak(served)))
     }
@@ -996,6 +1128,210 @@ async function run() {
     check('remove carries the order and its own requestId', remove?.body?.transactionId === PRIOR_STATE.transactionId && !!remove?.body?.requestId)
     // The caret returns to where the next call starts.
     check('the phone field is back', await page.locator('#cc-phone').isVisible())
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ========== ticket 166 — the address derives the store, and says so ==========
+
+  /** Open a console, attach the caller, and open their address book. The three
+   *  steps every box below starts from — 165's path, driven rather than stubbed. */
+  const openTheBook = async (page) => {
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.keyboard.type(MEMBER.mobile)
+    await page.keyboard.press('Enter')
+    await page.locator('[data-cc-attach]').click()
+    await page.locator('[data-cc-pick-address]').click()
+    await page.locator('[data-cc-address-picker]').waitFor({ timeout: 10_000 })
+  }
+
+  // ---- 22. an address on an EMPTY basket applies inline, and says it derived ----
+  {
+    const { context, page, errors, calls, wire } = await open(browser, {})
+    await page.goto(`${BASE}/callcenter`)
+    await openTheBook(page)
+
+    check(
+      'the book lists the caller’s addresses',
+      (await page.locator('[data-cc-address-option]').count()) === ADDRESS_BOOK.length,
+      `${await page.locator('[data-cc-address-option]').count()} option(s)`,
+    )
+    check(
+      'the default is offered first',
+      (await page.locator('[data-cc-address-option]').first().getAttribute('data-cc-address-option')) === '77121',
+    )
+    check('and is marked as the default', await page.locator('[data-cc-address-default]').first().isVisible())
+
+    const storeBefore = await text(page, '[data-cc-chip="store"]')
+    check('the store is the entry store until an address decides', storeBefore.includes(STATE.header.plant), storeBefore.replace(/\s+/g, ' '))
+
+    await page.locator('[data-cc-address-option="77120"]').click()
+    // 🚩 The heart of it: it applies, and the dialog simply goes. Nothing to
+    // confirm — an empty basket has nothing to re-price (§5.1).
+    await page.locator('[data-cc-address-picker]').waitFor({ state: 'detached', timeout: 10_000 })
+
+    check('picking an address sends SetAddress once', count(calls, /^CallCenterWeb\/SetAddress$/) === 1)
+    const setAddress = wire.find((w) => w.path === 'CallCenterWeb/SetAddress')
+    check(
+      'on this order, naming the address the agent picked',
+      setAddress?.body?.transactionId === STATE.transactionId && setAddress?.body?.addressNumber === '77120',
+      JSON.stringify(setAddress?.body ?? null),
+    )
+    check(
+      'with its own requestId — one action, one id',
+      !!setAddress?.body?.requestId &&
+        setAddress.body.requestId !== wire.find((w) => w.path === 'CallCenterWeb/AttachCustomer')?.body?.requestId,
+    )
+    check(
+      'and NOTHING that names a store — the client does not derive one',
+      !('storeCode' in (setAddress?.body ?? {})) && !('plant' in (setAddress?.body ?? {})),
+      JSON.stringify(setAddress?.body ?? null),
+    )
+    // A console that derived the store itself would have to read the district
+    // table to do it. It never asks for one.
+    check(
+      'no district or store lookup was fetched to work it out',
+      count(calls, /Districts|Cities|StoreDetails/) === 0,
+      calls.filter((c) => /Districts|Cities|StoreDetails/.test(c)).join(', '),
+    )
+
+    // 🚩 No confirmation, at all — not a dismissed one, not a skipped one.
+    check('no confirmation stood in the way', (await page.locator('[data-cc-address-confirm-needed]').count()) === 0)
+    check('and no modal is left on screen', (await page.locator('dialog').count()) === 0)
+
+    const storeAfter = await text(page, '[data-cc-chip="store"]')
+    check(
+      'the store chip moved to the plant the SERVER derived',
+      storeAfter.includes(DERIVED_PLANT['77120'].plant) && !storeAfter.includes(STATE.header.plant),
+      storeAfter.replace(/\s+/g, ' '),
+    )
+    // The whole reason the chip carries a parenthetical: "why that branch?" is
+    // answerable without opening anything.
+    check(
+      'and says it was DERIVED, not chosen',
+      /derived/i.test(storeAfter),
+      storeAfter.replace(/\s+/g, ' '),
+    )
+    check(
+      'the chip reads settled — a derived store is not a problem to fix',
+      (await page.locator('[data-cc-chip="store"]').getAttribute('data-cc-chip-state')) === 'settled',
+    )
+    check('the address is on the rail', await page.locator('[data-cc-address="set"]').isVisible())
+    check('and can be re-opened in place', await page.locator('[data-cc-change-address]').isVisible())
+    check('the basket is still empty — an address adds nothing to it', await page.locator('[data-cc-basket-empty]').isVisible())
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 23. a chip that still needs something looks like it does ----
+  {
+    // The server's own list, including a code this client has never heard of —
+    // §9's additive change, which must reach no chip rather than be printed raw.
+    const blocked = {
+      ...STATE,
+      capabilities: {
+        ...STATE.capabilities,
+        submitBlockers: ['NO_LINES', 'MISSING_SLOT', 'MISSING_PAYMENT_TYPE'],
+      },
+    }
+    const { context, page, errors } = await open(browser, { openState: blocked })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    check(
+      'the blocking chip is marked as needing attention',
+      (await page.locator('[data-cc-chip="slot"]').getAttribute('data-cc-chip-state')) === 'needsAttention',
+    )
+    check(
+      'and the ones the server did not name are not',
+      (await page.locator('[data-cc-chip="source"]').getAttribute('data-cc-chip-state')) !== 'needsAttention' &&
+        (await page.locator('[data-cc-chip="store"]').getAttribute('data-cc-chip-state')) === 'settled',
+    )
+    check(
+      'an unknown blocker code reaches no chip at all',
+      !/MISSING_PAYMENT_TYPE/.test(await text(page, '[data-cc-chips]')),
+      (await text(page, '[data-cc-chips]')).replace(/\s+/g, ' '),
+    )
+    check(
+      'the chip row is the four the header captures',
+      (await page.locator('[data-cc-chip]').count()) === 4,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 24. both refusals explained, and told apart ----
+  {
+    const explained = {}
+    for (const kind of ['noCustomer', 'notTheirs']) {
+      const { context, page, errors } = await open(browser, { addressRefusal: kind })
+      await page.goto(`${BASE}/callcenter`)
+      await openTheBook(page)
+      const storeBefore = await text(page, '[data-cc-chip="store"]')
+      await page.locator('[data-cc-address-option="77120"]').click()
+      await page.locator('[data-cc-address-error]').waitFor({ timeout: 10_000 })
+
+      const shown = (await text(page, '[data-cc-address-error]')).replace(/\s+/g, ' ')
+      explained[kind] = shown
+      check(`the refusal is explained (${kind})`, shown.length > 40, shown)
+      check(`no machine code reaches the agent (${kind})`, !/[A-Z]{3,}_[A-Z_]+/.test(shown), shown)
+      // 🚩 The contract's own wording rule: never "not found" — and the stub's
+      // sentence says exactly that, so a console that relayed it would fail here.
+      check(`and it never reads as "not found" (${kind})`, !/not found/i.test(shown), shown)
+      check(
+        `the order is untouched by the refusal (${kind})`,
+        (await text(page, '[data-cc-chip="store"]')) === storeBefore &&
+          (await page.locator('[data-cc-address="set"]').count()) === 0,
+      )
+      check(`the book stays open so the agent can act (${kind})`, await page.locator('[data-cc-address-picker]').isVisible())
+      check(`no console errors (${kind})`, errors.length === 0, errors[0] ?? '')
+      await context.close()
+    }
+    // The distinction is the point: one is an ordering problem the agent fixes
+    // in a step, the other is a data problem someone has to hear about.
+    check('the two refusals are told apart', explained.noCustomer !== explained.notTheirs)
+  }
+
+  // ---- 25. the book is read when it is opened, and never opens itself ----
+  {
+    const { context, page, errors, calls } = await open(browser, { bookFailures: 1 })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.keyboard.type(MEMBER.mobile)
+    await page.keyboard.press('Enter')
+    await page.locator('[data-cc-attach]').click()
+    await page.locator('[data-cc-pick-address]').waitFor({ timeout: 10_000 })
+
+    // Attaching a caller opens the book's DOOR; it does not read it. An agent
+    // who never changes the address should cost the door nothing.
+    check(
+      'attaching does not read the address book',
+      count(calls, /^CallCenterWeb\/CustomerAddresses$/) === 0,
+    )
+
+    await page.locator('[data-cc-pick-address]').click()
+    await page.locator('[data-cc-address-error]').waitFor({ timeout: 10_000 })
+    // 🚩 A failed read is not a dead end — the read is pure, so it may be tried
+    // again, and the agent is holding the only address the caller has.
+    check('a failed book read offers a retry', await page.locator('[data-cc-address-reload]').isVisible())
+    await page.locator('[data-cc-address-reload]').click()
+    await page.locator('[data-cc-address-option="77120"]').waitFor({ timeout: 10_000 })
+    check('and the retry lands on the book', (await page.locator('[data-cc-address-option]').count()) === 2)
+    check('it is not retried into the ground', count(calls, /^CallCenterWeb\/CustomerAddresses$/) === 2)
+
+    // 🚩 The book belongs to whoever is attached. Swapping callers mid-open must
+    // not leave the next caller's addresses springing open by themselves.
+    await page.locator('[data-cc-address-close]').click()
+    await page.locator('[data-cc-remove-caller]').click()
+    await page.locator('#cc-phone').waitFor({ timeout: 10_000 })
+    await page.keyboard.type(MEMBER.mobile)
+    await page.keyboard.press('Enter')
+    await page.locator('[data-cc-attach]').click()
+    await page.locator('[data-cc-pick-address]').waitFor({ timeout: 10_000 })
+    check(
+      'the next caller’s book does not open by itself',
+      (await page.locator('[data-cc-address-picker]').count()) === 0,
+    )
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }

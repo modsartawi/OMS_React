@@ -67,9 +67,10 @@ export default function CustomerRail({
   state: SessionState
   customerActions: CustomerActions
   /** Opens the address book — [166](.issues/166-address-derives-the-store.md)'s
-   *  surface. WHEN the offer may appear is this ticket's ruling; what it opens
-   *  is the next one's, so until it is wired the offer is drawn as words rather
-   *  than as a button that would answer with nothing. */
+   *  surface, wired at that ticket. **Absent means the door will not answer it**:
+   *  the page passes it only while `capabilities.canOpenAddressBook` holds, so
+   *  the capability is read in one place rather than re-tested here, and an
+   *  offer with nothing behind it is drawn as words rather than as a button. */
   onPickAddress?: () => void
 }) {
   const { t } = useTranslation('callcenter')
@@ -303,6 +304,20 @@ function AddressBlock({
       <div className="rounded-md border border-border bg-card p-2 text-xs" data-cc-address="set">
         <div className="font-medium">{address.label}</div>
         <div className="text-muted-foreground">{address.line}</div>
+        {/* A settled section re-opens in place. Changing it on a basket with
+            lines moves the store and is previewed first (167) — which is the
+            server's call, raised on the answer to `setAddress`, not a rule
+            this button checks. */}
+        {onPickAddress && (
+          <button
+            type="button"
+            onClick={onPickAddress}
+            data-cc-change-address
+            className="mt-1.5 text-xs font-medium text-primary underline-offset-2 hover:underline"
+          >
+            {t('rail.changeAddress')}
+          </button>
+        )}
       </div>
     )
 

@@ -26,6 +26,7 @@ import { api, apiErrorCode } from '@/core/api'
 import type {
   AbandonResult,
   CallCenterAccessResult,
+  CustomerAddressBookEntry,
   LoyaltyMember,
   OpenResult,
   SessionState,
@@ -56,6 +57,16 @@ export const openKey = (requestId: string) => ['callcenter', 'open', requestId] 
  *  identity and arbitrate version alone. */
 export const sessionKey = (transactionId: string) =>
   ['callcenter', 'session', transactionId] as const
+
+/**
+ * One caller's address book. Keyed by the **customer** rather than by the order,
+ * because that is what the book belongs to — and because the key is what stops
+ * the previous caller's addresses from being offered for this one. The door
+ * scopes the read to whoever is attached (§6.3), so a key that did not change
+ * with the customer would hold an answer the door would no longer give.
+ */
+export const addressBookKey = (customerId: string) =>
+  ['callcenter', 'addresses', customerId] as const
 
 const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ' // Crockford base32
 
@@ -172,6 +183,53 @@ export const callCenterApi = {
    */
   removeCustomer(transactionId: string, requestId: string): Promise<SessionState> {
     return api.post<SessionState>('CallCenterWeb/RemoveCustomer', { transactionId, requestId })
+  },
+
+  /**
+   * `GET CallCenterWeb/CustomerAddresses` — the attached caller's address book.
+   *
+   * 🚩 **It takes no customer id.** The original is unscoped (`:1412` reads a
+   * client-supplied `customerId` off the query string), which on a per-agent
+   * door would let any agent enumerate any customer's addresses; BackOffice 801
+   * resolves the customer off the agent's own session row instead, and
+   * browser-supplied identity is exactly what the cookie branch exists to
+   * distrust. So there is nothing to pass — and nothing the console could pass
+   * that would widen what it may read.
+   *
+   * Before `attachCustomer` it refuses `NO_CUSTOMER_ATTACHED` (§6.3), which is
+   * why the picker is only ever opened off `capabilities.canOpenAddressBook`.
+   */
+  customerAddresses(): Promise<CustomerAddressBookEntry[]> {
+    return api.get<CustomerAddressBookEntry[]>('CallCenterWeb/CustomerAddresses')
+  },
+
+  /**
+   * `POST CallCenterWeb/SetAddress` → the whole `SessionState` (law 2).
+   *
+   * 🚩 **This is what decides where the order is fulfilled from**, and the
+   * decision is the SERVER's: the district→store rule runs here and the answer
+   * arrives as `header.plant` + `plantSource: 'derivedFromAddress'`. The console
+   * derives nothing — a second client-side derivation is how the console and the
+   * engine start disagreeing about which branch serves an address (spec 160).
+   *
+   * On an **empty basket** it applies inline: there is nothing to re-price, so
+   * §5.1's confirmation is not raised at all. With lines it answers
+   * `pendingConfirmation: storeChange` on the SUCCESS path, carrying the
+   * unchanged state and a token to commit with — [167](.issues/167-store-move-shows-the-diff.md)'s
+   * surface, which is why `confirmToken` is already in this signature.
+   */
+  setAddress(
+    transactionId: string,
+    requestId: string,
+    addressNumber: string,
+    confirmToken?: string,
+  ): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/SetAddress', {
+      transactionId,
+      requestId,
+      addressNumber,
+      ...(confirmToken ? { confirmToken } : {}),
+    })
   },
 
   /**

@@ -42,6 +42,20 @@
 //    13. abandoning from inside a live order is the same act — same confirmation,
 //        naming what is thrown away — and lands the agent on a fresh order, never on
 //        nothing.
+//
+// Asserts ticket 164's Proof:
+//   aBusyCollisionKeepsTheScreenUsable
+//    14. a stub answering SESSION_BUSY (fixture 08's own refusal) three times then
+//        succeeding shows the STRIP — in the flow, inside the console, never a
+//        blocking spinner — the basket and its controls stay usable throughout, and
+//        the strip clears itself when the collision does;
+//    15. the exhausted case: the schedule runs out and the agent is offered a manual
+//        retry, which lands them back on their order;
+//    16. a stale tab is REFUSED, not misrouted — SESSION_CLOSED returns it to the
+//        start, naming the reason, with the dead basket gone from the screen and a
+//        new order one click away;
+//    17. a major contractVersion mismatch stops the console dead (no basket, no
+//        totals, no dead "try again"), while minor drift is a non-event.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -51,9 +65,22 @@ const BASE = `http://localhost:${process.env.DRIVE_PORT || 5210}`
 
 // The contract's own fixture, verbatim — the same file `__fixtures__/payloads.ts`
 // imports. A drive that hand-wrote this payload would be testing the drive.
-const fixture = (name) =>
+const raw = (name) =>
   JSON.parse(readFileSync(new URL(`../.issues/assets/136-cc-contract/${name}.json`, import.meta.url), 'utf8'))
-    .response.data
+const fixture = (name) => raw(name).response.data
+
+// A REFUSAL out of a fixture that holds several (08 carries four scenarios), as a
+// Playwright fulfilment. Hand-writing a 409 body here would be testing the drive;
+// the codes, the messages and the `data` payloads are the contract's own.
+const refusal = (name, key) => {
+  const response = raw(name)[key].response
+  return { status: response.statusCode, contentType: 'application/json', body: JSON.stringify(response) }
+}
+
+// §6.1's routine collision and §6.2's stale tab, verbatim from fixture 08.
+const BUSY = refusal('08-session-busy', 'busy')
+const CLOSED = refusal('08-session-busy', 'staleTab')
+const CLOSED_MESSAGE = raw('08-session-busy').staleTab.response.message
 
 const OPEN_RESULT = fixture('01-open-empty')
 const STATE = OPEN_RESULT.state
@@ -126,6 +153,10 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
  *                       default, `02-two-lines-priced` for the live-order abandon
  * @param opts.stateFailures how many `State` reads fail before one succeeds — the
  *                       failed-resume case, and whether *Resume* retries itself
+ * @param opts.stateBusy how many `State` reads answer SESSION_BUSY before one
+ *                       lands (164): 3 rides the schedule out, 6 exhausts it
+ * @param opts.stateClosed  every `State` read answers SESSION_CLOSED — the stale tab
+ * @param opts.contractVersion  overrides the version every returned state declares
  */
 async function open(
   browser,
@@ -136,9 +167,24 @@ async function open(
     existing = null,
     openState = null,
     stateFailures = 0,
+    stateBusy = 0,
+    stateClosed = false,
+    contractVersion = null,
   } = {},
 ) {
   let stateReads = 0
+  // Law 10 — every response carries one, so the override is applied wherever a
+  // state leaves this stub rather than at one call site. `'none'` strips the
+  // field entirely: a server that has not shipped it yet is a real state, and
+  // it is the one this check must NOT stop on.
+  const speak = (state) => {
+    if (!contractVersion) return state
+    if (contractVersion === 'none') {
+      const { contractVersion: _absent, ...rest } = state
+      return rest
+    }
+    return { ...state, contractVersion }
+  }
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const errors = []
@@ -148,7 +194,18 @@ async function open(
   const wire = []
   let opens = 0
   page.on('pageerror', (e) => errors.push(String(e)))
-  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  // Chromium logs EVERY non-2xx as a console error, whether or not the app
+  // handled it — and 164's whole subject is refusals the app handles on purpose
+  // (SESSION_BUSY, SESSION_CLOSED). That line is the browser's network log, not
+  // the app's; a real fault still arrives as `pageerror` or as an app-authored
+  // console error, both of which are still collected.
+  page.on(
+    'console',
+    (m) =>
+      m.type() === 'error' &&
+      !/^Failed to load resource: the server responded with a status of/.test(m.text()) &&
+      errors.push(m.text()),
+  )
 
   await page.route('**/api/**', async (route) => {
     const url = route.request().url()
@@ -167,7 +224,11 @@ async function open(
       stateReads += 1
       if (stateReads <= stateFailures)
         return route.fulfill(envelope(null, { status: 500, success: false, message: 'state read failed' }))
-      return route.fulfill(envelope(new URL(url).searchParams.get('transactionId') === PRIOR_ID ? PRIOR_STATE : STATE))
+      if (stateReads <= stateFailures + stateBusy) return route.fulfill(BUSY)
+      if (stateClosed) return route.fulfill(CLOSED)
+      return route.fulfill(
+        envelope(speak(new URL(url).searchParams.get('transactionId') === PRIOR_ID ? PRIOR_STATE : STATE)),
+      )
     }
     if (p === 'CallCenterWeb/Abandon')
       return route.fulfill(envelope({ outcome: 'abandoned', transactionId: route.request().postDataJSON().transactionId }))
@@ -192,8 +253,9 @@ async function open(
       // genuinely fresh, empty one — anything else would let box 13 pass while
       // the console quietly re-rendered the basket it had just voided.
       if (openState && opens === 1)
-        return route.fulfill(envelope({ outcome: 'opened', state: openState, existing: null }))
-      return route.fulfill(envelope(existing || openState ? freshOpenResult() : OPEN_RESULT))
+        return route.fulfill(envelope({ outcome: 'opened', state: speak(openState), existing: null }))
+      const result = existing || openState ? freshOpenResult() : OPEN_RESULT
+      return route.fulfill(envelope({ ...result, state: speak(result.state) }))
     }
     // Every other screen's probe: allowed, so the rest of the shell is normal.
     if (/Access$/.test(p))
@@ -540,6 +602,152 @@ async function run() {
     check('abandon then open, and the agent lands on an order', verbs.join(' → ') === 'CallCenterWeb/Open → CallCenterWeb/Abandon → CallCenterWeb/Open', verbs.join(' → '))
     check('the console is still there, holding a fresh order', await page.locator('[data-cc-console]').isVisible())
     check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ============ ticket 164 — collisions, stale tabs, and the contract ============
+
+  // ---- 14. a busy collision is ridden out, and never blocks the screen ----
+  {
+    const { context, page, errors, calls } = await open(browser, { openState: PRIOR_STATE, stateBusy: 3 })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    // `getState` is §6.1's universal recovery action, and this is the agent's
+    // hand on it — the one verb slice 0 has that can meet the claim.
+    await page.locator('[data-cc-refresh]').click()
+    await page.locator('[data-cc-busy="retrying"]').waitFor({ timeout: 10_000 })
+
+    check('a collision shows the retrying strip', await page.locator('[data-cc-busy="retrying"]').isVisible())
+    check(
+      'it says it is retrying AND that nothing is lost',
+      (await text(page, '[data-cc-busy="retrying"]')).length > 20,
+      (await text(page, '[data-cc-busy="retrying"]')).replace(/\s+/g, ' '),
+    )
+    // 🚩 The heart of it: routine, so the screen is never taken away.
+    check('the console is still on screen', await page.locator('[data-cc-console]').isVisible())
+    check('the basket is still on screen', await page.locator('[data-cc-basket]').isVisible())
+    check(
+      'the lines are still there — nothing was blanked while waiting',
+      (await page.locator('[data-cc-line]').count()) === PRIOR_STATE.lines.length,
+    )
+    check('no blocking full-screen spinner', (await page.locator('[data-cc-status]').count()) === 0)
+    check('no modal over the order', (await page.locator('[data-cc-abandon-dialog]').count()) === 0)
+    check('the strip is IN the flow, inside the console', (await page.locator('[data-cc-console] [data-cc-busy]').count()) === 1)
+    check('and the order stays usable — its controls are live', await page.locator('[data-cc-abandon]').isEnabled())
+    check('it does not offer a retry while it is retrying itself', (await page.locator('[data-cc-busy-retry]').count()) === 0)
+
+    // It clears itself: a collision that resolves leaves no trace to dismiss.
+    await page.locator('[data-cc-busy]').waitFor({ state: 'detached', timeout: 15_000 })
+    check('the strip clears itself when the collision does', (await page.locator('[data-cc-busy]').count()) === 0)
+    check(
+      'the retries were the CLIENT’s, on one agent action',
+      count(calls, /^CallCenterWeb\/State$/) === 4,
+      `${count(calls, /^CallCenterWeb\/State$/)} State call(s)`,
+    )
+    check('and it opened no second order to recover', count(calls, /^CallCenterWeb\/Open$/) === 1)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 15. the schedule runs out — and the agent still has an action ----
+  {
+    // Six busy answers = every attempt of the first run; the manual retry then
+    // lands on the seventh. The schedule is 0·400·800·1600·3200 ms, so this box
+    // spends ~6 s in the strip on purpose — that IS the ceiling being bounded.
+    const { context, page, errors } = await open(browser, { openState: PRIOR_STATE, stateBusy: 6 })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-refresh]').click()
+
+    await page.locator('[data-cc-busy="exhausted"]').waitFor({ timeout: 20_000 })
+    check('the exhausted schedule says so', await page.locator('[data-cc-busy="exhausted"]').isVisible())
+    // 🚩 Never left without an action (US61).
+    check('and offers a manual retry', await page.locator('[data-cc-busy-retry]').isVisible())
+    check('the order is still there behind it', (await page.locator('[data-cc-line]').count()) === PRIOR_STATE.lines.length)
+    check('the sweep stops — nothing implies it is still trying', (await page.locator('[data-cc-busy-hairline]').count()) === 0)
+
+    await page.locator('[data-cc-busy-retry]').click()
+    await page.locator('[data-cc-busy]').waitFor({ state: 'detached', timeout: 15_000 })
+    check('the manual retry lands them back on their order', await page.locator('[data-cc-console]').isVisible())
+    check('and it is the same order, not a new one', (await page.locator('[data-cc-console]').getAttribute('data-cc-transaction')) === PRIOR_STATE.transactionId)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 16. the stale tab: refused, returned to the start, never misrouted ----
+  {
+    const { context, page, errors, calls } = await open(browser, { openState: PRIOR_STATE, stateClosed: true })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-refresh]').click()
+    await page.locator('[data-cc-notice="sessionClosed"]').waitFor({ timeout: 10_000 })
+
+    // 🚩 The dead basket is GONE. A tab still showing an order that no longer
+    // exists is where the stale-tab harm starts (§6.2).
+    check('the dead order stops being rendered', (await page.locator('[data-cc-console]').count()) === 0)
+    check('no lines survive it', (await page.locator('[data-cc-line]').count()) === 0)
+    check(
+      'the reason is named in the agent’s words',
+      /abandoned/i.test(await text(page, '[data-cc-notice="sessionClosed"]')),
+      (await text(page, '[data-cc-notice="sessionClosed"]')).replace(/\s+/g, ' '),
+    )
+    check(
+      'and the server’s own sentence is passed through',
+      (await text(page, '[data-cc-notice="sessionClosed"]')).includes(CLOSED_MESSAGE),
+    )
+    check('it is not retried into the ground', count(calls, /^CallCenterWeb\/State$/) === 1)
+    check('a chrome-less dead end still carries both ways home', (await page.locator('[data-cc-home]').isVisible()) && (await page.locator('[data-cc-signout]').isVisible()))
+
+    // Return to the start: a genuinely new open action, which either opens or
+    // lands on 163's choice naming the agent's real current order.
+    await page.locator('[data-cc-retry]').click()
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    check('starting again opens a new order', count(calls, /^CallCenterWeb\/Open$/) === 2)
+    check(
+      'and it is not the dead one',
+      (await page.locator('[data-cc-console]').getAttribute('data-cc-transaction')) === FRESH_ID,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 17. the contract version: a major stops it, a minor is a non-event ----
+  {
+    const { context, page, errors } = await open(browser, { contractVersion: '2.0' })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-notice="contractVersion"]').waitFor({ timeout: 10_000 })
+
+    check('a major mismatch stops the console', (await page.locator('[data-cc-console]').count()) === 0)
+    check('no money is rendered at all', (await page.locator('[data-cc-payable]').count()) === 0)
+    check(
+      'it names both versions, so someone can act on it',
+      /2\.0/.test(await text(page, '[data-cc-notice="contractVersion"]')),
+      (await text(page, '[data-cc-notice="contractVersion"]')).replace(/\s+/g, ' '),
+    )
+    // Retrying cannot change which client is installed.
+    check('and offers no dead "try again" — only the ways home', (await page.locator('[data-cc-notice] button, [data-cc-notice] a').count()) === 2)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+  {
+    // §9 — additive changes bump the minor and ship server-first. A console that
+    // stopped on one would make every additive server change a client release.
+    const { context, page } = await open(browser, { contractVersion: '1.7' })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    check('minor drift is ignored by rule', await page.locator('[data-cc-basket]').isVisible())
+    await context.close()
+  }
+  {
+    // 🚩 And a server that sends no version at all still gets a console. Law 10
+    // says it should send one, but silence is not evidence of a MAJOR change —
+    // stopping here would brick the console against the very server this slice
+    // is waiting on (BackOffice 804 is unbuilt).
+    const { context, page } = await open(browser, { contractVersion: 'none' })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    check('a missing version degrades rather than refusing', await page.locator('[data-cc-basket]').isVisible())
     await context.close()
   }
 

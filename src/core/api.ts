@@ -25,6 +25,18 @@ export class ApiError extends Error {
     message: string,
     public statusCode: number,
     public details: GeneralErrorResponse[] = [],
+    /**
+     * The envelope's own `data` on a refusal that carried one. A guardrail
+     * refusal is not always just a code and a sentence — some carry a
+     * structured body the screen has to read to explain itself. The envelope
+     * is this module's to unwrap on the success path, so it is this module's
+     * to carry on the failure path too: a feature that re-read the body would
+     * be re-implementing the envelope.
+     *
+     * `unknown` deliberately. What a refusal's `data` MEANS is the refusing
+     * feature's to know, and `core/` must not learn one feature's codes.
+     */
+    public data: unknown = null,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -108,6 +120,7 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
       body?.message || i18n.t('common:errors.rejected'),
       400,
       body?.errors ?? [],
+      body?.data ?? null,
     )
   if (res.status >= 500) throw new ApiError('server', i18n.t('common:errors.server'), res.status)
 
@@ -123,6 +136,7 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
         body.message || i18n.t('common:errors.notSuccessful'),
         body.statusCode || res.status,
         body.errors ?? [],
+        body.data ?? null,
       )
     throw new ApiError('unknown', i18n.t('common:errors.unexpected', { status: res.status }), res.status)
   }
@@ -135,6 +149,7 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
       body.message || i18n.t('common:errors.notSuccessful'),
       body.statusCode,
       body.errors ?? [],
+      body.data ?? null,
     )
   return body.data
 }

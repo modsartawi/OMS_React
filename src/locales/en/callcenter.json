@@ -20,6 +20,29 @@
   "state": {
     "readFailed": "That order could not be read. Nothing has changed on it — try again, or abandon it and start fresh."
   },
+  "busy": {
+    "retrying": "Another change is being applied to this order…",
+    "keepTyping": "Retrying on its own — carry on, nothing is lost.",
+    "stillBusy": "This order is still busy.",
+    "nothingLost": "Nothing has changed and nothing is lost."
+  },
+  "fault": {
+    "closedTitle": "This order is closed",
+    "closed": {
+      "submitted": "This order has already been placed",
+      "abandoned": "This order was abandoned",
+      "swept": "This order timed out and was closed"
+    },
+    "closedHint": "It can no longer be changed. Start a new order to carry on.",
+    "notYoursTitle": "This order belongs to another session",
+    "notYoursHint": "It is not the order this account has open. Start again to get back to your own order.",
+    "startAgain": "Start again"
+  },
+  "contract": {
+    "title": "This console is out of date",
+    "hint": "The server is speaking version {{received}} of the order service and this console was built for version {{expected}}. It will not run rather than risk showing the wrong prices. Reload the page; if that does not help, ask for the console to be updated.",
+    "noneSent": "an unknown version"
+  },
   "existing": {
     "marker": "Order already in progress",
     "titleNamed": "You have an open order for {{name}}",
@@ -47,7 +70,8 @@
   },
   "console": {
     "title": "New order",
-    "store": "Store {{store}}"
+    "store": "Store {{store}}",
+    "refresh": "Refresh this order"
   },
   "rail": {
     "caller": "Caller",

@@ -26,15 +26,38 @@
  *    basket (127), so the choice screen renders no order at all until they
  *    choose — and every way that choice can fail still leaves both choices
  *    reachable.
+ *
+ * Ticket 164 adds the resilience spine, deliberately **before** the verbs that
+ * will lean on it hardest, so they inherit it rather than retrofit it. Three
+ * properties, and one seam that carries all three:
+ *
+ * 4. **A collision is routine and looks routine.** Every call goes through
+ *    `runGuarded`, which rides out `SESSION_BUSY` on the contract's bounded
+ *    schedule (`api.ts`) and reports it as a strip in the flow — never a spinner
+ *    over the basket, and never a state without an action in it.
+ * 5. 🚩 **A dead order is never written to and never rendered.** `SESSION_CLOSED`
+ *    and `NOT_YOUR_SESSION` come back through the same seam and return the tab
+ *    to the start (§6.2) — which is the stale-tab harm closed from the side 163
+ *    could not reach.
+ * 6. **A major `contractVersion` mismatch stops the console** rather than
+ *    mis-rendering money (law 10). Minor drift, either way, is a non-event.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { SessionState } from '@/core/models/callcenter'
-import { CALLCENTER_ACCESS_KEY, callCenterApi, newRequestId, openKey, sessionKey } from './api'
-import { applyState } from './session-state'
+import {
+  CALLCENTER_ACCESS_KEY,
+  callCenterApi,
+  newRequestId,
+  openKey,
+  sessionKey,
+  withBusyRetry,
+} from './api'
+import { applyState, checkContractVersion } from './session-state'
+import { readSessionFault, type ShownSessionFault } from './session-fault'
 import {
   abandonTargetOfExisting,
   abandonTargetOfSession,
@@ -42,6 +65,7 @@ import {
   type PendingAbandon,
 } from './open-outcome'
 import AbandonConfirm from './AbandonConfirm'
+import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
 import ConsoleShell from './ConsoleShell'
 import ExistingOrderScreen from './ExistingOrderScreen'
@@ -125,6 +149,102 @@ function ConsoleSession() {
   const [abandoning, setAbandoning] = useState<PendingAbandon | null>(null)
 
   /**
+   * The strip, as two independent facts rather than one slot (164).
+   *
+   * `colliding` is a schedule currently running; `stalled` is a schedule that
+   * ran out, holding the only handle on the action that never landed. 🚩 They
+   * are separate because calls overlap — which is not a corner case here but
+   * the very condition `SESSION_BUSY` announces. Sharing one slot lets a second
+   * call's first retry overwrite the first call's *manual retry* and take the
+   * agent's only way to finish it with it.
+   */
+  const [colliding, setColliding] = useState<{ retry: number } | null>(null)
+  const [stalled, setStalled] = useState<{ again: () => void } | null>(null)
+
+  // A live collision outranks a spent one: while something is still being
+  // ridden out, "still busy — try again" would be asking the agent to do what
+  // the console is already doing.
+  const busy: BusyPhase | null = colliding
+    ? { phase: 'retrying', retry: colliding.retry }
+    : stalled
+      ? { phase: 'exhausted', again: stalled.again }
+      : null
+
+  /**
+   * The order died under this tab — abandoned, submitted, swept, or never this
+   * agent's to begin with (§6.2). It outranks every other state on the screen:
+   * whatever is rendered when this is set is a basket that no longer exists.
+   */
+  const [fault, setFault] = useState<ShownSessionFault | null>(null)
+
+  /** How many calls are currently riding out a collision. A ref, not state: it
+   *  arbitrates who may clear the strip and is never itself rendered. */
+  const colliders = useRef(0)
+
+  /**
+   * 🚩 **The one seam every server call on this screen goes through** — built at
+   * this ticket rather than at the tenth verb, so tickets 165–174 inherit it
+   * instead of each remembering it.
+   *
+   * It does three things and refuses to do a fourth: it rides out a routine
+   * collision on the contract's schedule (never touching any other error), it
+   * publishes that collision as a strip rather than as a fault, and it reads a
+   * dead-order refusal once, here, so "return to the start" cannot become a
+   * branch per verb. Everything else — what the call meant, what to render — is
+   * still the caller's.
+   *
+   * `again` is the caller's own re-run, held for the strip's manual retry. A
+   * caller that has its own failure surface (the abandon dialog, the open
+   * failure card) passes none, and then the ceiling simply surfaces as that
+   * surface's error: two places offering the same retry is how an agent ends up
+   * pressing the wrong one.
+   *
+   * 🚩 **Calls overlap**, so a call only stops SAYING it is colliding once no
+   * other call still is — a plain last-writer-wins would pull the strip out
+   * from under a retry that is still running.
+   */
+  const runGuarded = async <T,>(verb: () => Promise<T>, again?: () => void): Promise<T> => {
+    let mine = false
+    const settle = () => {
+      if (mine) colliders.current -= 1
+      mine = false
+      if (colliders.current === 0) setColliding(null)
+    }
+    try {
+      const result = await withBusyRetry(verb, {
+        onRetry: (retry) => {
+          if (!mine) {
+            mine = true
+            colliders.current += 1
+          }
+          setColliding({ retry })
+        },
+      })
+      settle()
+      // The order answered, so any standing offer to retry is out of date —
+      // the claim it was waiting on is demonstrably free.
+      setStalled(null)
+      return result
+    } catch (err) {
+      settle()
+      // Only a spent SCHEDULE leaves a strip behind; any other failure is the
+      // caller's to draw, and a strip left over it would blame the mutex.
+      if (apiErrorCode(err) === 'SESSION_BUSY' && again) setStalled({ again })
+      const dead = readSessionFault(err)
+      if (dead) {
+        // Nothing may keep pointing at the dead order — including a confirmation
+        // asking whether to void something that is already gone.
+        setAbandoning(null)
+        setFault({
+          ...dead,
+          message: apiErrorMessage(err, t(dead.kind === 'closed' ? 'fault.closedHint' : 'fault.notYoursHint')),
+        })
+      }
+      throw err
+    }
+  }
+
+  /**
    * `Open` is a POST, and it is modelled as a **query** rather than a mutation
    * on purpose. The contract makes it idempotent by construction — the same
    * `requestId` is never re-applied and answers `replayed: true` (§4) — so what
@@ -138,7 +258,11 @@ function ConsoleSession() {
    */
   const open = useQuery({
     queryKey: openKey(requestId),
-    queryFn: () => callCenterApi.open(requestId),
+    // Guarded like every other call — a collision here is ridden out silently
+    // under "Opening a new order…", which is the honest thing for it to say. No
+    // `again`: there is no console to hang a strip on yet, and the open failure
+    // card below already owns the retry (on the SAME id, law 3).
+    queryFn: () => runGuarded(() => callCenterApi.open(requestId)),
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,
@@ -170,6 +294,13 @@ function ConsoleSession() {
   /** The order on screen. A resume outranks whatever `Open` last answered. */
   const transactionId = resumedId ?? openedId
 
+  /** Re-read the order — the agent's hand on `getState`, which §6.1 names the
+   *  universal recovery action after any conflict. Also the strip's manual
+   *  retry once the busy schedule is spent. */
+  const refreshSession = useCallback(() => {
+    void queryClient.refetchQueries({ queryKey: sessionKey(transactionId ?? '') })
+  }, [queryClient, transactionId])
+
   // Seeded by the write above, so this observer fires no request. `getState`
   // is the query function for what it is for (law 2): refresh, recovery, reload
   // and second tab — none of which is this mount.
@@ -180,7 +311,7 @@ function ConsoleSession() {
   const session = useQuery({
     queryKey: sessionKey(transactionId ?? ''),
     queryFn: async () => {
-      const fresh = await callCenterApi.getState(transactionId!)
+      const fresh = await runGuarded(() => callCenterApi.getState(transactionId!), refreshSession)
       const current = queryClient.getQueryData<SessionState>(sessionKey(transactionId!))
       return applyState(current, fresh)
     },
@@ -204,21 +335,30 @@ function ConsoleSession() {
       setResumedId(null)
       setOpenedId(null)
       setAbandoning(null)
+      colliders.current = 0
+      setColliding(null)
+      setStalled(null)
+      setFault(null)
       setRequestId(newRequestId())
     },
     [queryClient],
   )
 
   const abandon = useMutation({
+    // No `again`: the dialog is this call's own failure surface (164), and the
+    // strip offering a second retry behind a modal is one retry too many.
     mutationFn: (action: { transactionId: string; requestId: string }) =>
-      callCenterApi.abandon(action.transactionId, action.requestId),
+      runGuarded(() => callCenterApi.abandon(action.transactionId, action.requestId)),
     onSuccess: (_result, action) => startFresh(action.transactionId),
     // A failed abandon is shown in the dialog and retried on the SAME id; the
-    // order is untouched, so there is nothing to undo. `SESSION_CLOSED` — the
-    // order was already gone — is deliberately NOT special-cased here: that
-    // code, and the stale-tab return-to-start it triggers everywhere, is
-    // [164](.issues/164-busy-collision-and-staleness.md)'s whole subject, and
-    // half of it here would be the half that later has to be unpicked.
+    // order is untouched, so there is nothing to undo. The one failure that is
+    // NOT the dialog's is the order having already gone: `runGuarded` reads
+    // `SESSION_CLOSED` and returns the tab to the start (164), because asking
+    // again whether to void something already voided is a dead end.
+    //
+    // `retry: false` is react-query's blind retry, and it stays off: the only
+    // retryable failure here is a claim collision, which `runGuarded` has
+    // already ridden out on the contract's schedule.
     retry: false,
   })
 
@@ -238,6 +378,35 @@ function ConsoleSession() {
       onCancel={cancelAbandon}
     />
   )
+
+  // 🚩 The dead order outranks everything. A tab that has been told its order
+  // is gone must stop showing it AT ONCE — a basket still on screen is the
+  // beginning of the stale-tab harm (§6.2), not the end of it. *Start again*
+  // mints a genuinely new open action, which either opens or lands on 163's
+  // choice screen naming the agent's real current order — which is exactly the
+  // "offer `getState` on the agent's own order" §7 asks for after
+  // `NOT_YOUR_SESSION`, without the console having to guess at an id.
+  if (fault) {
+    return (
+      <ConsoleNotice
+        marker={fault.kind === 'closed' ? 'sessionClosed' : 'notYourSession'}
+        title={t(
+          fault.kind === 'closed'
+            ? fault.reason
+              ? `fault.closed.${fault.reason}`
+              : 'fault.closedTitle'
+            : 'fault.notYoursTitle',
+          // An unknown `reason` is a minor-version addition (§9) and must read
+          // as the general case rather than as a raw key.
+          { defaultValue: t('fault.closedTitle') },
+        )}
+        // The server's own words, passed through as data (§7).
+        body={fault.message}
+        retry={() => startFresh(transactionId ?? '')}
+        retryLabel={t('fault.startAgain')}
+      />
+    )
+  }
 
   // Held until the resumed order has actually been READ — the choice screen
   // stays up, with its *Resume* button saying so, rather than flicking to a
@@ -315,6 +484,26 @@ function ConsoleSession() {
 
   if (!session.data) return <ConsoleStatus message={t('open.opening')} spinner />
 
+  // 🚩 Checked on the first state of the session and before a single figure is
+  // drawn (law 10 / §9). A major mismatch means a field this console reads has
+  // been removed or re-meant, and the only honest answer to that is to refuse to
+  // run: a console that mis-renders money is worse than a console that is down,
+  // because the agent reads the wrong number out loud. There is no *Try again* —
+  // retrying cannot change which client is installed.
+  const contract = checkContractVersion(session.data.contractVersion)
+  if (!contract.ok) {
+    return (
+      <ConsoleNotice
+        marker="contractVersion"
+        title={t('contract.title')}
+        body={t('contract.hint', {
+          expected: contract.expected,
+          received: contract.received ?? t('contract.noneSent'),
+        })}
+      />
+    )
+  }
+
   return (
     <>
       {/* Abandoning from inside a live order is the SAME act as abandoning the
@@ -323,6 +512,9 @@ function ConsoleSession() {
           actually open; there is nothing to void once it has been submitted. */}
       <ConsoleShell
         state={session.data}
+        busy={busy}
+        onRefresh={refreshSession}
+        refreshing={session.isFetching}
         onAbandon={
           session.data.status === 'open'
             ? () =>
@@ -339,7 +531,8 @@ function ConsoleSession() {
 }
 
 /** A full-viewport waiting state. Chrome-less like everything else here, and
- *  deliberately without an exit: it resolves on its own within one request. */
+ *  deliberately without an exit: it resolves on its own — within one request,
+ *  or within the bounded busy schedule if that request met the claim (164). */
 function ConsoleStatus({ message, spinner }: { message: string; spinner?: boolean }) {
   return (
     <div
@@ -363,11 +556,15 @@ function ConsoleNotice({
   title,
   body,
   retry,
+  /** What the action is called when *Try again* is not what it does — 164's
+   *  dead-order screen starts a new order rather than re-running anything. */
+  retryLabel,
 }: {
   marker: string
   title: string
   body: string
   retry?: () => void
+  retryLabel?: string
 }) {
   const { t } = useTranslation('callcenter')
   return (
@@ -382,7 +579,7 @@ function ConsoleNotice({
             data-cc-retry
             className="mt-5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
-            {t('actions.retry')}
+            {retryLabel ?? t('actions.retry')}
           </button>
         )}
       </div>

@@ -20,17 +20,28 @@
  * furniture they land in.
  */
 import { useTranslation } from 'react-i18next'
+import { RefreshCw } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import { formatMoney } from '@/core/util/number-format'
+import BusyStrip, { type BusyPhase } from './BusyStrip'
 import { headerChips, type HeaderChip } from './header-chips'
 
 export default function ConsoleShell({
   state,
   onAbandon,
+  onRefresh,
+  refreshing = false,
+  busy = null,
 }: {
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
   onAbandon?: () => void
+  /** Re-reads the order (`getState`) — §6.1's *universal recovery action after
+   *  any conflict*, and the one verb on this screen that is safe to press twice. */
+  onRefresh?: () => void
+  refreshing?: boolean
+  /** A claim collision being ridden out, or the spent schedule (164). */
+  busy?: BusyPhase | null
 }) {
   return (
     <div
@@ -42,7 +53,11 @@ export default function ConsoleShell({
       // emptiness, which any other empty order would also satisfy.
       data-cc-transaction={state.transactionId}
     >
-      <TopBar state={state} onAbandon={onAbandon} />
+      <TopBar state={state} onAbandon={onAbandon} onRefresh={onRefresh} refreshing={refreshing} />
+      {/* 🚩 In the flow, above the columns — never over them. A collision is
+          routine (law 7), so it costs the basket no interactivity and the strip
+          no pixels it does not need. */}
+      <BusyStrip busy={busy} />
       {/* 1440×900 by design, degrading to 1280; below that is out of scope —
           it is a desktop console (135's density budget). */}
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
@@ -57,7 +72,17 @@ export default function ConsoleShell({
   )
 }
 
-function TopBar({ state, onAbandon }: { state: SessionState; onAbandon?: () => void }) {
+function TopBar({
+  state,
+  onAbandon,
+  onRefresh,
+  refreshing,
+}: {
+  state: SessionState
+  onAbandon?: () => void
+  onRefresh?: () => void
+  refreshing?: boolean
+}) {
   const { t } = useTranslation('callcenter')
   return (
     <header className="flex h-11 shrink-0 items-center justify-between border-b border-border-strong bg-card px-4">
@@ -73,6 +98,23 @@ function TopBar({ state, onAbandon }: { state: SessionState; onAbandon?: () => v
         <span>{t('console.store', { store: state.header.entryStore })}</span>
         <span aria-hidden>·</span>
         <span data-cc-operator>{state.header.operatorId}</span>
+        {onRefresh && (
+          // `getState` is the console's recovery verb (law 2, §6.1: *the
+          // universal recovery action after any conflict*) and this is the
+          // agent's hand on it — after a collision, a second tab, or simply a
+          // doubt. It is a pure read, so pressing it twice costs nothing.
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            data-cc-refresh
+            aria-label={t('console.refresh')}
+            title={t('console.refresh')}
+            className="ms-2 rounded-full border border-input px-2 py-1 hover:bg-accent disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
+          </button>
+        )}
         {onAbandon && (
           // Quiet by design and set apart from the receipt's *Place order*: the
           // two terminal acts of a call must not sit side by side. It is the

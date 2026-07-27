@@ -8,10 +8,10 @@
  * 800 carries the grant, 801 the route table), so slice 0 is verified against a
  * stubbed envelope — the approach tickets 051/052 and 152 already used.
  *
- * Not here on purpose: the `SESSION_BUSY` retry/backoff (§6.1) belongs in this
- * file and nowhere else, but it arrives with the collision slice
- * ([164](.issues/164-busy-collision-and-staleness.md)) along with the verbs that
- * can actually collide.
+ * The `SESSION_BUSY` retry/backoff (§6.1) lives at the foot of this file and
+ * **nowhere else** — 🚩 never in `src/core/api.ts`: lease semantics have no
+ * business in the layer every back-office grid shares
+ * ([164](.issues/164-busy-collision-and-staleness.md)).
  *
  * **Path note.** Spec 160 and CONTRACT.md §6.1 both write this file as
  * `features/callcenter/api.ts`; it lands one level down, at
@@ -22,7 +22,7 @@
  * read two flat files under `features/callcenter/` as two different features
  * importing each other. Same file, one directory deeper; nothing else moves.
  */
-import { api } from '@/core/api'
+import { api, apiErrorCode } from '@/core/api'
 import type {
   AbandonResult,
   CallCenterAccessResult,
@@ -139,4 +139,65 @@ export const callCenterApi = {
   getState(transactionId: string): Promise<SessionState> {
     return api.get<SessionState>('CallCenterWeb/State', { transactionId })
   },
+}
+
+/**
+ * The collision backoff, in milliseconds before each retry (§6.1 / law 7).
+ *
+ * Five retries after the first attempt — six attempts, ~6 s of waiting inside
+ * the worst-case 15 s self-lockout, so the ceiling is reached while the agent is
+ * still on the call. The first retry is immediate because the common collision
+ * is two of the agent's OWN requests overlapping by milliseconds, and making
+ * them all wait 400 ms would be a self-inflicted stutter.
+ *
+ * 🚩 The schedule is the **contract's**, not the server's hint. `SESSION_BUSY`
+ * carries `retryAfterMs` and it is deliberately not honoured as a delay: a
+ * bounded client ceiling is what guarantees the agent reaches the still-busy
+ * state with an action in it, and a server hint could postpone that forever.
+ */
+export const BUSY_BACKOFF_MS = [0, 400, 800, 1600, 3200] as const
+
+export interface BusyRetryHooks {
+  /** Fired before each wait — `retry` is 1-based, so the strip can say which
+   *  attempt it is on. It is never called when the first attempt succeeds. */
+  onRetry?: (retry: number, delayMs: number) => void
+  /** Injected by the pure test so the schedule is proved in microseconds. */
+  sleep?: (ms: number) => Promise<void>
+}
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+/**
+ * Run one verb, riding out a routine claim collision.
+ *
+ * `SESSION_BUSY` is not a fault (law 7): the 15 s strict claim is the engine's
+ * only mutual exclusion, so two requests on one order collide as a matter of
+ * course — a second tab, or the agent's own two keystrokes. It is retried
+ * automatically and **bounded**; after the ceiling the refusal is rethrown so
+ * the console can draw the still-busy state with a manual retry in it. The agent
+ * is never left without an action.
+ *
+ * 🚩 **Every other error is rethrown untouched, on the first attempt.** A
+ * guardrail refusal (§7) is the server's considered answer to what was asked;
+ * retrying it would turn one refusal into six and delay the banner the agent has
+ * to read.
+ *
+ * It takes a thunk rather than a verb name so **every verb inherits it** without
+ * this module knowing which verbs exist — which is why 164 is built before the
+ * verbs that will collide most.
+ */
+export async function withBusyRetry<T>(
+  verb: () => Promise<T>,
+  { onRetry, sleep = wait }: BusyRetryHooks = {},
+): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await verb()
+    } catch (err) {
+      if (apiErrorCode(err) !== 'SESSION_BUSY' || attempt >= BUSY_BACKOFF_MS.length) throw err
+      const delayMs = BUSY_BACKOFF_MS[attempt]
+      onRetry?.(attempt + 1, delayMs)
+      await sleep(delayMs)
+    }
+  }
 }

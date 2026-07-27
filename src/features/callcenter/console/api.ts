@@ -30,6 +30,7 @@ import type {
   ItemSearchResult,
   LoyaltyMember,
   OpenResult,
+  PrereqResolution,
   SessionState,
 } from '@/core/models/callcenter'
 
@@ -76,8 +77,21 @@ export const addressBookKey = (customerId: string) =>
  * different order are a different question — and a key that did not carry the
  * order would answer this one with the previous one's stock.
  */
-export const itemSearchKey = (transactionId: string, query: string) =>
-  ['callcenter', 'itemSearch', transactionId, query] as const
+export const itemSearchKey = (transactionId: string, query: string, offerId?: string | null) =>
+  ['callcenter', 'itemSearch', transactionId, query, offerId ?? null] as const
+
+/**
+ * One offer's eligible items (§3.3), keyed by the **order** as well as the offer
+ * — the set is ATP-filtered and ranked at the order's plant, so the same offer
+ * asked on a different order is a different question.
+ *
+ * 🚩 It is deliberately NOT keyed by `version`. The rows must not move while an
+ * add launched from one of them is running (138 / ticket 172), and a key that
+ * changed with every re-price would re-rank the list under the agent's cursor
+ * mid-click.
+ */
+export const prereqKey = (transactionId: string, offerId: string) =>
+  ['callcenter', 'prereq', transactionId, offerId] as const
 
 const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ' // Crockford base32
 
@@ -291,8 +305,37 @@ export const callCenterApi = {
    * one action — the agent never picks something and then hits a dead end
    * mid-call. Nothing here re-filters that answer.
    */
-  itemSearch(transactionId: string, query: string): Promise<ItemSearchResult> {
-    return api.get<ItemSearchResult>('CallCenterWeb/ItemSearch', { transactionId, query })
+  /**
+   * 🚩 `offerId` is the guidance strip's **hand-off** (172): a set of 997 must
+   * not become a second screen, so `Search the other 994` narrows the console's
+   * OWN search to that offer rather than opening a list of its own.
+   *
+   * It is an **optional, additive** query param the frozen contract's §1.1 does
+   * not yet spell (`?transactionId=&query=`), on an endpoint BackOffice 799 has
+   * not built — the same additive-and-server-first shape as `NearMiss.discount`
+   * (§9), and recorded as a contract gap rather than smuggled in. A server that
+   * ignores it answers the unnarrowed catalogue, which is why the panel's scope
+   * chip states the offer it asked to be narrowed to instead of implying it.
+   */
+  itemSearch(transactionId: string, query: string, offerId?: string | null): Promise<ItemSearchResult> {
+    return api.get<ItemSearchResult>('CallCenterWeb/ItemSearch', { transactionId, query, offerId })
+  },
+
+  /**
+   * `GET CallCenterWeb/ResolvePrereq` — what would actually close one offer's
+   * gap (§3.3). A **pure read**, so it carries no `requestId`.
+   *
+   * 🚩 **On demand, never inline.** It is asked when the agent opens a card and
+   * not once per near-miss per keystroke: a grouping expansion plus a stock read
+   * for cards nobody opens is the hot path this endpoint exists to keep clear.
+   *
+   * 🚩 **Ranking, availability filtering and the cap are the SERVER's.** A
+   * grouping is a set, not an item, and the handful the card draws is `topN` —
+   * never a client slice (138 finding 1). Nothing here re-sorts or trims the
+   * answer, exactly as nothing re-filters the item search's.
+   */
+  resolvePrereq(transactionId: string, offerId: string): Promise<PrereqResolution> {
+    return api.get<PrereqResolution>('CallCenterWeb/ResolvePrereq', { transactionId, offerId })
   },
 
   /**

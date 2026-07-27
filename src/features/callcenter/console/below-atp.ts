@@ -48,12 +48,21 @@ export interface ItemAdd extends ConfirmableAction {
   /** The row's own name, held only so the confirmation can say what the agent
    *  read out rather than an item number. Never sent. */
   description?: string
+  /**
+   * Which guidance card this add was launched from (172), where it was. Held so
+   * the strip can say *Adding…* on the row that launched it — and so the outcome
+   * is classified against the offer the agent was actually working on.
+   *
+   * 🚩 Never sent, like `description`: the wire carries an item number and a
+   * quantity (law 1). The engine decides what fires; the console does not ask.
+   */
+  offerId?: string
 }
 
 /** What the agent asked for. The ONLY place an add's id is minted — a second
  *  call site is how a busy retry starts looking like a second add. */
 export function beginAdd(
-  intent: { itemNumber: string; qty: number; description?: string },
+  intent: { itemNumber: string; qty: number; description?: string; offerId?: string },
   mint: () => string = newRequestId,
 ): ItemAdd {
   return { ...intent, requestId: mint() }

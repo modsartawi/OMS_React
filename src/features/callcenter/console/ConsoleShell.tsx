@@ -28,7 +28,7 @@ import BasketPanel, { type BasketActions } from './BasketPanel'
 import { receiptView } from './basket-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CustomerRail, { type CustomerActions } from './CustomerRail'
-import GuidanceStrip from './GuidanceStrip'
+import GuidanceStrip, { type GuidanceActions } from './GuidanceStrip'
 import { guidanceView } from './guidance-view'
 import { headerChips, type HeaderChip } from './header-chips'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
@@ -43,6 +43,9 @@ export default function ConsoleShell({
   busy = null,
   customerActions,
   addItem,
+  guidance: guidanceActions,
+  searchScope = null,
+  onClearSearchScope,
   lineEdit,
   onPickAddress,
   onChangeStore,
@@ -66,6 +69,18 @@ export default function ConsoleShell({
    *  page's for the same reason as every other verb: it returns the whole
    *  `SessionState`. */
   addItem: AddItemActions
+  /** The one-click add from a guidance card, and what the engine did with it
+   *  (172). The page's for the same reason as every other verb — `addItem`
+   *  returns the whole `SessionState`. */
+  guidance: GuidanceActions
+  /**
+   * The offer the item search is currently narrowed to (172's hand-off), or
+   * `null`. It is the page's state rather than the panel's because the request
+   * to narrow comes from the guidance strip, at the other end of the column —
+   * `Search the other 994` must not become a second list.
+   */
+  searchScope?: { offerId: string; description: string } | null
+  onClearSearchScope?: () => void
   /** The basket's own three verbs (170) — quantity, unit of measure, void. The
    *  page's for the same reason as every other verb: each returns the whole
    *  `SessionState`. `null` once the order is no longer open. */
@@ -124,11 +139,17 @@ export default function ConsoleShell({
           {/* 135's fixed vertical order — chip row → item search → basket. The
               search is above the basket because that is the direction the work
               runs in: what the agent finds lands underneath it. */}
-          <ItemSearchPanel state={state} add={addItem} />
+          <ItemSearchPanel
+            state={state}
+            add={addItem}
+            scope={searchScope}
+            onClearScope={onClearSearchScope}
+          />
           <BasketPanel state={state} refusedLines={refusedLines} actions={lineEdit} />
           {/* Last in the fixed vertical order (135), UNDER the basket it is
-              about — the offers the basket nearly qualifies for (171). */}
-          <GuidanceStrip view={guidance} />
+              about — the offers the basket nearly qualifies for (171), and the
+              one-click add that closes their gap (172). */}
+          <GuidanceStrip view={guidance} transactionId={state.transactionId} actions={guidanceActions} />
         </main>
         <Receipt state={state} />
       </div>

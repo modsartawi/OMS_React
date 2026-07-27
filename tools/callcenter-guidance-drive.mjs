@@ -12,9 +12,19 @@
 //
 // Asserts ticket 171's Proof (`theStripScansAtAGlance`), over 138's states:
 //   three · bigSet · many · readyOnly · none · getSideLanded, plus `definitions`
-//   (the additive discount block the strip's headline is for).
-//   ⚠ 138's other three states — `adding` · `didNotFire` · `firedOther` — are the
-//   one-click ADD's, which is ticket 172. They land with it, in this file.
+//   (the additive discount block the strip's headline is for);
+// and ticket 172's (`oneClickAddSaysWhatHappened`), over 138's remaining three —
+//   adding · didNotFire · firedOther:
+//   10. the handful is THREE and it is the server's `topN`, never a client slice;
+//   11. the qualifying row carries Arabic on the META line, beside the item
+//       number and the estimate;
+//   12. the add runs on the row that launched it (`Adding…`) and 🚩 the row does
+//       NOT move while it runs — measured, not assumed;
+//   13. each of the three outcomes renders its OWN banner, outside the clamp:
+//       fired · a better offer fired instead · did not fire (the offer stays and
+//       only its meter moves);
+//   14. `Search the other N` lands in the console's own item search, narrowed to
+//       the offer — the request carries it, and the panel says which offer.
 //
 //   1. three classes, visibly distinct in RANK, TREATMENT and WORDS: only the
 //      actionable class is a card, only it carries an action, `already counted`
@@ -127,9 +137,23 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
   body: JSON.stringify({ statusCode: status, success, message, errors, data }),
 })
 
-/** A console whose order carries `nearMisses`, and nothing else changed. */
-async function open(browser, nearMisses) {
+// The on-demand half (§3.3) — the contract's own resolution for BBY-5510: three
+// ranked, ATP-filtered rows, one of them with a degraded stock read, all three
+// carrying `description2`. `truncated: true` against a 42-strong population, so
+// the route to the rest is real.
+const RESOLUTION = raw('03-near-miss-buy-side').resolve.response.data
+
+/**
+ * A console whose order carries `nearMisses`, and nothing else changed.
+ *
+ * `opts.afterAdd` is what the engine answers an `AddItem` with — the whole
+ * `SessionState`, as every mutating verb does (law 2), with its `version` moved
+ * on. `opts.addDelayMs` holds the answer long enough for the in-flight row to be
+ * measured, which is the only way to prove it does not move.
+ */
+async function open(browser, nearMisses, opts = {}) {
   const state = { ...PRICED, nearMisses }
+  const requests = []
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const errors = []
@@ -143,7 +167,18 @@ async function open(browser, nearMisses) {
   )
 
   await page.route('**/api/**', async (route) => {
-    const p = route.request().url().split('/api/')[1].split('?')[0]
+    const url = route.request().url()
+    requests.push(url)
+    const p = url.split('/api/')[1].split('?')[0]
+    // 🚩 On demand and never inline: the console asks for one offer's items when
+    // a card is opened, and the drive records every call so "never inline" is a
+    // measurement rather than a comment.
+    if (p === 'CallCenterWeb/ResolvePrereq')
+      return route.fulfill(envelope(opts.resolution ?? RESOLUTION))
+    if (p === 'CallCenterWeb/AddItem') {
+      if (opts.addDelayMs) await new Promise((r) => setTimeout(r, opts.addDelayMs))
+      return route.fulfill(envelope(opts.afterAdd ?? { ...state, version: state.version + 1 }))
+    }
     if (p === 'Auth/Me')
       return route.fulfill(
         envelope({ authenticated: true, userId: 'a.alharbi', displayName: 'A. Alharbi', currentStoreCode: '1001' }),
@@ -152,6 +187,8 @@ async function open(browser, nearMisses) {
     if (p === 'CallCenterWeb/Open')
       return route.fulfill(envelope({ ...OPEN_RESULT, outcome: 'opened', state, existing: null }))
     if (p === 'CallCenterWeb/State') return route.fulfill(envelope(state))
+    if (p === 'CallCenterWeb/ItemSearch')
+      return route.fulfill(envelope({ truncated: false, atpAvailable: true, rows: [] }))
     if (/Access$/.test(p)) return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
     return route.fulfill(envelope([]))
   })
@@ -159,7 +196,7 @@ async function open(browser, nearMisses) {
   await page.goto(`${BASE}/callcenter`)
   await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
   await page.locator('[data-cc-guidance]').waitFor({ timeout: 10_000 })
-  return { context, page, errors }
+  return { context, page, errors, requests }
 }
 
 const text = async (page, selector) => (await page.locator(selector).first().innerText()).trim()
@@ -509,6 +546,313 @@ async function run() {
     )
     check('no console errors', errors.length === 0 && landed.errors.length === 0, errors[0] ?? landed.errors[0] ?? '')
     await landed.context.close()
+  }
+
+  // ================= ticket 172 — the half that DOES something =================
+
+  // ---- 10, 11. the qualifying handful: three, the server's, and Arabic on the meta line ----
+  {
+    const { context, page, errors, requests } = await open(browser, SCENARIOS.three)
+    const card = `[data-cc-card="${ACTIONABLE.offerId}"]`
+    await page.locator(`${card} [data-cc-qualifying-row]`).first().waitFor({ timeout: 10_000 })
+
+    check(
+      'the open card resolves its prerequisite to actual items',
+      (await page.locator(`${card} [data-cc-qualifying-row]`).count()) === 3,
+      `${await page.locator(`${card} [data-cc-qualifying-row]`).count()} row(s)`,
+    )
+    check(
+      '🚩 on demand — one resolution, for the open card only',
+      requests.filter((u) => u.includes('ResolvePrereq')).length === 1 &&
+        requests.some((u) => u.includes(`offerId=${ACTIONABLE.offerId}`)) &&
+        !requests.some((u) => u.includes(`offerId=${COUNTED.offerId}`)),
+      requests.filter((u) => u.includes('ResolvePrereq')).length + ' call(s)',
+    )
+    check(
+      '🚩 and never on Bby/* — 134’s one-grant ruling',
+      !requests.some((u) => /\/api\/Bby\//.test(u)),
+    )
+
+    // 11 — the Arabic name, on the META line beside the item number and the
+    // estimate. Its own line would have pushed the route to the rest below the
+    // fold (138's second Arabic finding); here it costs zero pixels.
+    const meta = `${card} [data-cc-qualifying-row="200145"] [data-cc-qualifying-meta]`
+    const parts = await page.locator(`${meta} [data-cc-qualifying-part]`).evaluateAll((els) =>
+      els.map((el) => [el.getAttribute('data-cc-qualifying-part'), el.textContent.trim()]),
+    )
+    check(
+      'the qualifying row carries item number · Arabic · estimate, in that order',
+      parts.map(([id]) => id).join('>') === 'itemNumber>description2>estimate',
+      parts.map(([id]) => id).join('>'),
+    )
+    check(
+      '🚩 and the Arabic is the master’s own name',
+      parts[1][1] === 'معجون أسنان',
+      parts[1][1],
+    )
+    check(
+      'the Arabic run is bidi-isolated and dir-PINNED, never dir="auto"',
+      await page
+        .locator(`${meta} [data-cc-qualifying-part="description2"] bdi`)
+        .evaluate((el) => el.getAttribute('dir') === 'ltr'),
+    )
+    check(
+      'the estimate stays off the money column and is marked as one',
+      /^≈9\.13$/.test(parts[2][1]),
+      parts[2][1],
+    )
+    check(
+      'a degraded stock read is drawn as unknown, not as none',
+      (await page
+        .locator(`${card} [data-cc-qualifying-row="200190"] [data-cc-atp]`)
+        .getAttribute('data-cc-atp')) === 'unknown',
+    )
+    const authored = await consoleText(page)
+    check(
+      '🚩 still no figure formatted as money, with the items on screen',
+      moneyShaped(authored).length === 0 && authored.includes('9.13'),
+      moneyShaped(authored).join(' · '),
+    )
+
+    // 🚩 138's own finding, on the content 172 adds: a clamped region turns new
+    // content into SCROLL, and what went below the fold when Arabic took a line
+    // of its own was **the third item and the route to the rest** — the two
+    // things this ticket puts inside the clamp. Height checks all passed while
+    // it happened, so the assertion is what is VISIBLE.
+    const scroller = '[data-cc-guidance-scroll]'
+    for (const [what, sel] of [
+      ['the third qualifying item', `${card} [data-cc-qualifying-row="200190"]`],
+      ['the route to the rest', `${card} [data-cc-search-rest]`],
+      ['its Arabic name', `${card} [data-cc-qualifying-row="200190"] [data-cc-qualifying-part="description2"]`],
+    ])
+      check(`${what} is visible without scrolling`, await visibleInside(page, scroller, sel))
+
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 7b. and still visible at SEVEN offers, where 138 measured the budget ----
+  {
+    const { context, page, errors } = await open(browser, SCENARIOS.many)
+    const card = `[data-cc-card="${ACTIONABLE.offerId}"]`
+    const scroller = '[data-cc-guidance-scroll]'
+    await page.locator(`${card} [data-cc-qualifying-row]`).first().waitFor({ timeout: 10_000 })
+    await page.locator(scroller).evaluate((el) => el.scrollTo(0, 0))
+    for (const [what, sel] of [
+      ['the first qualifying item', `${card} [data-cc-qualifying-row="200145"]`],
+      ['the third qualifying item', `${card} [data-cc-qualifying-row="200190"]`],
+      ['the route to the rest', `${card} [data-cc-search-rest]`],
+    ])
+      check(`at seven offers, ${what} is still visible`, await visibleInside(page, scroller, sel))
+    const region = await page.locator('[data-cc-guidance]').boundingBox()
+    const console_ = await page.locator('[data-cc-console]').boundingBox()
+    check(
+      'and the region is still inside 135’s density budget with the items open',
+      region.height < console_.height * 0.45,
+      `${Math.round(region.height)}px of ${Math.round(console_.height)}px`,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 10b. three is the SERVER's topN — the client slices nothing ----
+  {
+    const wider = {
+      ...RESOLUTION,
+      items: [...RESOLUTION.items, { ...RESOLUTION.items[0], itemNumber: '200999' }],
+    }
+    const { context, page, errors } = await open(browser, SCENARIOS.three, { resolution: wider })
+    const rows = `[data-cc-card="${ACTIONABLE.offerId}"] [data-cc-qualifying-row]`
+    await page.locator(rows).first().waitFor({ timeout: 10_000 })
+    check(
+      '🚩 a fourth row the server ranked is drawn — the handful is topN, not a client slice',
+      (await page.locator(rows).count()) === 4,
+      `${await page.locator(rows).count()} row(s)`,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 12. adding: the row that launched it says so, and does NOT move ----
+  {
+    const { context, page, errors } = await open(browser, SCENARIOS.three, { addDelayMs: 1200 })
+    const card = `[data-cc-card="${ACTIONABLE.offerId}"]`
+    const row = `${card} [data-cc-qualifying-row="200145"]`
+    await page.locator(row).waitFor({ timeout: 10_000 })
+    const before = await page.locator(row).boundingBox()
+    const others = await page.locator(`${card} [data-cc-qualifying-row]`).evaluateAll((els) =>
+      els.map((el) => el.getAttribute('data-cc-qualifying-row')),
+    )
+
+    await page.locator(`${card} [data-cc-qualifying-add="200145"]`).click()
+    check(
+      'the add runs on the row that launched it',
+      /adding/i.test(await text(page, `${card} [data-cc-qualifying-add="200145"]`)),
+      await text(page, `${card} [data-cc-qualifying-add="200145"]`),
+    )
+    const during = await page.locator(row).boundingBox()
+    check(
+      '🚩 and the row does not move while it runs',
+      Math.abs(during.y - before.y) < 1 && Math.abs(during.x - before.x) < 1,
+      `${Math.round(before.y)} → ${Math.round(during.y)}`,
+    )
+    check(
+      'the order of the rows is untouched mid-flight',
+      (
+        await page.locator(`${card} [data-cc-qualifying-row]`).evaluateAll((els) =>
+          els.map((el) => el.getAttribute('data-cc-qualifying-row')),
+        )
+      ).join(',') === others.join(','),
+    )
+    check(
+      'no second add can be launched on top of it',
+      await page.locator(`${card} [data-cc-qualifying-add="200146"]`).isDisabled(),
+    )
+    await page.locator('[data-cc-outcome]').waitFor({ timeout: 10_000 })
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 13. three outcomes, because the re-price is the ENGINE's ----
+  const addFrom = async (afterAdd) => {
+    const opened = await open(browser, SCENARIOS.three, { afterAdd })
+    const add = `[data-cc-card="${ACTIONABLE.offerId}"] [data-cc-qualifying-add="200145"]`
+    await opened.page.locator(add).waitFor({ timeout: 10_000 })
+    await opened.page.locator(add).click()
+    await opened.page.locator('[data-cc-outcome]').waitFor({ timeout: 10_000 })
+    return opened
+  }
+  const nextState = (over) => ({ ...PRICED, nearMisses: SCENARIOS.three, version: PRICED.version + 1, ...over })
+
+  {
+    // 1 — fired: the offer moved to the fired list.
+    const { context, page, errors } = await addFrom(
+      nextState({
+        nearMisses: [COUNTED, SKIPPED],
+        firedPromotions: [
+          ...PRICED.firedPromotions,
+          { offerId: ACTIONABLE.offerId, description: ACTIONABLE.description, amount: -9.5, lineIds: ['L1'] },
+        ],
+      }),
+    )
+    check(
+      'a fired offer says so',
+      (await page.locator('[data-cc-outcome]').getAttribute('data-cc-outcome')) === 'fired' &&
+        /this offer applied/i.test(await text(page, '[data-cc-outcome-said]')),
+      await text(page, '[data-cc-outcome]'),
+    )
+    check('and the card it came from is gone — the offer is no longer a near-miss', (await page.locator(`[data-cc-card="${ACTIONABLE.offerId}"]`).count()) === 0)
+    // 🚩 The banner is where 171 pinned its slot: OUTSIDE the clamp, so it does
+    // not scroll away from the agent who has just pressed the button.
+    check(
+      '🚩 the outcome banner is outside the clamped body',
+      await page.evaluate(
+        () =>
+          !!document.querySelector('[data-cc-guidance-head]')?.contains(document.querySelector('[data-cc-outcome]')) &&
+          !document.querySelector('[data-cc-guidance-scroll]')?.contains(document.querySelector('[data-cc-outcome]')),
+      ),
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  {
+    // 2 — a DIFFERENT offer fired. The caller is about to be told a figure that
+    // belongs to something else, so it is named.
+    const { context, page, errors } = await addFrom(
+      nextState({
+        nearMisses: [{ ...ACTIONABLE, progress: { have: 2, need: 3 } }, COUNTED, SKIPPED],
+        firedPromotions: [
+          ...PRICED.firedPromotions,
+          { offerId: 'BBY-9900', description: 'SAR 15 off two — oral care', amount: -15, lineIds: ['L1'] },
+        ],
+      }),
+    )
+    check(
+      'a better offer firing instead is said out loud, and named',
+      (await page.locator('[data-cc-outcome]').getAttribute('data-cc-outcome')) === 'firedOther' &&
+        /better offer fired instead/i.test(await text(page, '[data-cc-outcome-said]')) &&
+        (await text(page, '[data-cc-outcome]')).includes('SAR 15 off two'),
+      await text(page, '[data-cc-outcome]'),
+    )
+    // 🚩 The offer's own name carries a currency word, and it is SERVER text —
+    // the region's rule is *no figure the console formats as money*.
+    const authored = await consoleText(page)
+    check('🚩 and the console still formats no money around it', moneyShaped(authored).length === 0, moneyShaped(authored).join(' · '))
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  {
+    // 3 — nothing fired. The offer STAYS and only its meter moves. Silence here
+    // reads as a broken button; removing the card reads as a bug.
+    const { context, page, errors } = await addFrom(
+      nextState({ nearMisses: [{ ...ACTIONABLE, progress: { have: 2, need: 3 } }, COUNTED, SKIPPED] }),
+    )
+    check(
+      'an add that fired nothing says what is still needed',
+      (await page.locator('[data-cc-outcome]').getAttribute('data-cc-outcome')) === 'didNotFire' &&
+        /still needs 1 more/i.test(await text(page, '[data-cc-outcome-said]')),
+      await text(page, '[data-cc-outcome-said]'),
+    )
+    check(
+      '🚩 the offer STAYS — the card is still there',
+      (await page.locator(`[data-cc-card="${ACTIONABLE.offerId}"]`).count()) === 1,
+    )
+    check(
+      '🚩 and only its meter moved: 1/2 → 2/3',
+      /2\/3/.test(await text(page, `[data-cc-card="${ACTIONABLE.offerId}"] [data-cc-meter]`)),
+      await text(page, `[data-cc-card="${ACTIONABLE.offerId}"] [data-cc-meter]`),
+    )
+    // It is read once and dismissed — a banner the agent cannot clear becomes
+    // furniture by the third call.
+    await page.locator('[data-cc-outcome-dismiss]').click()
+    check('the banner is dismissible', (await page.locator('[data-cc-outcome]').count()) === 0)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 14. the route to the rest is a HAND-OFF, not a second list ----
+  {
+    const { context, page, errors, requests } = await open(browser, SCENARIOS.bigSet)
+    const card = `[data-cc-card="${BIG_SET.offerId}"]`
+    await page.locator(`${card} [data-cc-search-rest]`).waitFor({ timeout: 10_000 })
+    const route = await text(page, `${card} [data-cc-search-rest]`)
+    check(
+      'a 997-strong set offers the route to the rest, with the honest figure',
+      /search the other 994/i.test(route),
+      route,
+    )
+
+    await page.locator(`${card} [data-cc-search-rest]`).click()
+    check(
+      '🚩 it lands in the console’s own item search — no second list, no modal',
+      (await page.locator('[data-cc-search-scope]').count()) === 1 &&
+        (await page.locator('[data-cc-qualifying-row]').count()) > 0,
+    )
+    check(
+      'and the panel says WHICH offer it is narrowed to',
+      (await text(page, '[data-cc-search-scope]')).includes(BIG_SET.description),
+      await text(page, '[data-cc-search-scope]'),
+    )
+    check(
+      'the cursor is already in the box the agent is about to type in',
+      await page.evaluate(() => document.activeElement?.id === 'cc-item-search'),
+    )
+
+    await page.locator('[data-cc-search-input]').fill('tooth')
+    await page.locator('[data-cc-search-empty],[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
+    const searches = requests.filter((u) => u.includes('CallCenterWeb/ItemSearch'))
+    check(
+      '🚩 and the search itself is narrowed to the offer',
+      searches.length > 0 && searches.every((u) => u.includes(`offerId=${BIG_SET.offerId}`)),
+      searches.at(-1) ?? 'no search',
+    )
+
+    await page.locator('[data-cc-search-scope-clear]').click()
+    check('the way back to the whole catalogue is one click', (await page.locator('[data-cc-search-scope]').count()) === 0)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
   }
 
   await browser.close()

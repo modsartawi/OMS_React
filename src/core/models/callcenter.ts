@@ -190,6 +190,60 @@ export interface NearMiss {
   discount?: NearMissDiscount | null
 }
 
+/**
+ * One item that would satisfy a near-miss's prerequisite, as
+ * `GET CallCenterWeb/ResolvePrereq` answers it (CONTRACT.md §3.3).
+ *
+ * 🚩 **The set is the server's, ranked and ATP-filtered at the order's plant** —
+ * rows with no availability are not returned, and `atp: null` is a degraded
+ * stock read on a 200 rather than a zero (the same rule the item search follows).
+ * Nothing client-side re-ranks or re-filters this, and nothing slices it: the
+ * handful the card shows is `topN`, server-side (138 finding 1).
+ *
+ * Field names are the resolution's own — `itemNumber` / `description` /
+ * `description2`, not the item search's `materialNumber` / `descriptionEn` /
+ * `descriptionAr`. Two reads, two projections; the console maps one onto the
+ * other rather than pretending the wire agrees with itself.
+ */
+export interface PrereqItem {
+  /** What `addItem` is given. The client sends an item number and a quantity,
+   *  and never a price (law 1). */
+  itemNumber: string
+  description: string
+  /** The Arabic name. It rides the row's **meta line** (138's ruling), which is
+   *  what made carrying it cost zero pixels. Nullable: the master has rows with
+   *  none. */
+  description2: string | null
+  /** 🚩 Not money — the material-master estimate, before VAT, exactly as the
+   *  search row's is (135 amendment 1). It never enters a money column. */
+  estimatePriceExVat: number | null
+  /** Availability at the ORDER's plant. `null` = unknown, distinct from `0`. */
+  atp: number | null
+}
+
+/**
+ * `GET CallCenterWeb/ResolvePrereq?transactionId=&offerId=` (CONTRACT.md §3.3) —
+ * the **on-demand** half of the guidance surface.
+ *
+ * 🚩 **Never inline.** Resolving every near-miss on every add would pay a
+ * grouping expansion plus a stock read per keystroke, to populate cards the agent
+ * mostly never opens. 🚩 And never on `Bby/*` — this read lives on the
+ * call-center door, which is what keeps 134's one-grant ruling true.
+ */
+export interface PrereqResolution {
+  offerId: string
+  /** The prerequisite the items satisfy — the same block the near-miss carries. */
+  prereq: NearMissPrereq | null
+  /** The ranked, availability-filtered handful. `eligibleCount` on the near-miss
+   *  is the population this is the top of; the difference is the route to the
+   *  rest (`Search the other 994`). */
+  items: PrereqItem[]
+  /** The population had more rows than the cap returned. */
+  truncated: boolean
+  /** The server's cap. Read as data — the console never slices `items` itself. */
+  topN: number
+}
+
 /** §5 — "are you sure" arrives on the SUCCESS path with the UNCHANGED state. */
 export interface PendingConfirmation {
   kind: 'storeChange' | 'belowAtp'

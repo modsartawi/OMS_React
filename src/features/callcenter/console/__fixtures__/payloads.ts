@@ -18,7 +18,13 @@
  * Slice 0 (ticket 162) needs one scenario: the empty basket every other fixture
  * starts from. The remaining eight land with the tickets that render them.
  */
-import type { NearMiss, OpenResult, PendingConfirmation, SessionState } from '@/core/models/callcenter'
+import type {
+  NearMiss,
+  OpenResult,
+  PendingConfirmation,
+  PrereqResolution,
+  SessionState,
+} from '@/core/models/callcenter'
 import openEmpty from '../../../../../.issues/assets/136-cc-contract/01-open-empty.json'
 import twoLinesPriced from '../../../../../.issues/assets/136-cc-contract/02-two-lines-priced.json'
 import nearMissBuySide from '../../../../../.issues/assets/136-cc-contract/03-near-miss-buy-side.json'
@@ -71,6 +77,17 @@ export const ATTACHED_SESSION: SessionState = payload<SessionState>(twoLinesPric
 export const NEAR_MISSES: NearMiss[] = (
   nearMissBuySide as unknown as { stateFragment: { nearMisses: NearMiss[] } }
 ).stateFragment.nearMisses
+
+/**
+ * The on-demand half of the same fixture (ticket 172): what `ResolvePrereq`
+ * answers for `BBY-5510` — the ranked, ATP-filtered top of a 42-strong grouping,
+ * with `truncated: true` and the server's own `topN` beside it.
+ *
+ * 🚩 Shape only, as always. Its third row carries `atp: null` — a **degraded
+ * stock read on a 200**, never a zero — and its rows carry `description2`,
+ * which is the Arabic name 138 ruled onto the meta line.
+ */
+export const PREREQ_RESOLUTION: PrereqResolution = payload<PrereqResolution>(nearMissBuySide.resolve)
 
 /**
  * §5.2's OTHER confirmation, as `addItem` answers a quantity beyond availability

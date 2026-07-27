@@ -237,6 +237,55 @@ describe('noFigureInTheRegionIsFormattedAsMoney', () => {
   })
 })
 
+/**
+ * `theGetSideNoticeIsAPropertyOfTheSurface` (ticket 172).
+ *
+ * 787-C has not landed: buy-one-get-one near-misses are **absent, not empty**
+ * (BBY lookup keys on the condition-side access tables, so a basket holding only
+ * the buy-side item never loads the promotion — 130's headline blocker). The
+ * surface acknowledges that once, quietly, at its edge.
+ *
+ * 🚩 The property that matters is that it **disappears on its own**: it is
+ * derived from the projection rather than configured, so a get-side prerequisite
+ * arriving IS the coverage landing — with **nothing else in the view model
+ * changing**. A flag would need a deploy; this needs a server that has started
+ * sending them.
+ */
+describe('theGetSideNoticeIsAPropertyOfTheSurface', () => {
+  /** The same three offers, with a get-side prerequisite added — 787-C landing. */
+  const GET_SIDE: NearMiss = miss({
+    offerId: 'BBY-6033',
+    prereq: { kind: 'condition', groupingId: 'G-6033', eligibleCount: 18 },
+  })
+
+  it('is present while no get-side near-miss can arrive', () => {
+    expect(guidanceView(NEAR_MISSES).getSideCovered).toBe(false)
+    // Not a property of a CARD: no card carries it, and no class implies it.
+    for (const c of guidanceView(NEAR_MISSES).cards) expect('getSideCovered' in c).toBe(false)
+  })
+
+  it('is gone the moment one does', () => {
+    expect(guidanceView([...NEAR_MISSES, GET_SIDE]).getSideCovered).toBe(true)
+    // A buy-side `grouping` is NOT coverage — the distinction is the whole point.
+    expect(guidanceView([...NEAR_MISSES, miss({ offerId: 'X' })]).getSideCovered).toBe(false)
+  })
+
+  it('changes nothing else in the view model when it does', () => {
+    // 138 scenario 9, as an assertion. The two projections differ in ONE field
+    // of one offer — the prerequisite's kind — so every other field of the view
+    // model is byte-identical, and the acknowledgement's disappearance is the
+    // only visible consequence of the server starting to send them.
+    const buySide = miss({ offerId: 'BBY-6033', prereq: { kind: 'grouping', groupingId: 'G-6033', eligibleCount: 18 } })
+    const before = guidanceView([...NEAR_MISSES, buySide])
+    const after = guidanceView([...NEAR_MISSES, GET_SIDE])
+    expect(before.getSideCovered).toBe(false)
+    expect(after).toEqual({ ...before, getSideCovered: true })
+    // The get-side offer is drawn like any other actionable one — it does not
+    // arrive as a fourth class.
+    expect(after.cards[3].klass).toBe('actionable')
+  })
+})
+
 /** Every numeric leaf of a card, with the key it sat under. */
 function numbersIn(value: unknown, key = ''): Array<[string, number]> {
   if (typeof value === 'number') return [[key, value]]

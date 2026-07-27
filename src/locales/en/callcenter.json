@@ -179,6 +179,8 @@
     "truncated": "Showing the first {{shown}} — narrow your search.",
     "add": "Add",
     "adding": "Adding…",
+    "scope": "Narrowed to this offer:",
+    "scopeClear": "Search the whole catalogue",
     "addFailed": "That item could not be added. Nothing has changed on this order — try again.",
     "addNotConfirmable": "That item was not added: the store's availability could not be read to check it against. Try again.",
     "atp": {
@@ -257,6 +259,22 @@
     "setItem_other": "{{count}} more of this item",
     "unavailable_one": "{{count}} more offer can't be reached from this basket",
     "unavailable_other": "{{count}} more offers can't be reached from this basket",
+    "qualifying": "Add one of these:",
+    "resolving": "Finding what qualifies…",
+    "resolveFailed": "The qualifying items could not be listed. Nothing has changed on this order — try again.",
+    "resolveEmpty": "Nothing that qualifies is available at this store right now.",
+    "searchRest_one": "Search the other {{count}} — filtered to this offer",
+    "searchRest_other": "Search the other {{count}} — filtered to this offer",
+    "searchRestUnknown": "Search the rest of the selection — filtered to this offer",
+    "addItem": "Add {{item}} to the basket",
+    "outcome": {
+      "fired": "Added — this offer applied.",
+      "firedOther": "Added. A better offer fired instead:",
+      "didNotFire_one": "Added — this offer still needs {{count}} more.",
+      "didNotFire_other": "Added — this offer still needs {{count}} more.",
+      "didNotFirePlain": "Added — this offer has not fired.",
+      "dismiss": "Dismiss this message"
+    },
     "skip": {
       "ORIGIN_FILTERED": "not offered on call-center orders",
       "PLANT_FILTERED": "not offered at this store",

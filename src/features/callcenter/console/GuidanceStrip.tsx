@@ -28,12 +28,56 @@
  * skip-reason words. This file arranges them and owns no vocabulary of its own.
  */
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Loader2, X } from 'lucide-react'
+import { apiErrorMessage } from '@/core/api'
 import Ltr from '@/core/ui/Ltr'
+import type { AddOutcome, GuidanceAdd } from './add-outcome'
+import { callCenterApi, prereqKey } from './api'
+import AvailabilityPill from './AvailabilityPill'
+import { NOTE } from './console-notes'
 import type { GuidanceCard, GuidanceView } from './guidance-view'
+import type { SearchRowView } from './item-search'
+import { prereqRows, restOfSet } from './prereq-view'
 
-export default function GuidanceStrip({ view }: { view: GuidanceView }) {
+/**
+ * The half of the guidance surface that DOES something (ticket 172) — the add,
+ * what it is currently doing, what the engine did with it, and the hand-off to
+ * the item search for a set too big to draw.
+ *
+ * The verb itself is the page's, like every other verb on this screen: `addItem`
+ * returns the whole `SessionState` and the cache is the store of record.
+ */
+export interface GuidanceActions {
+  /** 🚩 `null` while `capabilities.canAddItem` is false — a control the door
+   *  would refuse is worse than no control (165's ruling, and the same rule the
+   *  search row's *Add* follows). */
+  onAdd: ((add: GuidanceAdd) => void) | null
+  /** The row currently adding, as the offer AND the item: two cards can list the
+   *  same item, and only the row that launched the add says *Adding…*. It is the
+   *  same triple `onAdd` takes — one type rather than three loose strings, so a
+   *  caller cannot swap two of them and still compile. */
+  pending: GuidanceAdd | null
+  /** What the engine actually did with the last add — already classified. */
+  outcome: AddOutcome | null
+  dismissOutcome: () => void
+  /** The route to the rest of a set: narrow the console's OWN item search to
+   *  this offer. Never a second list (138). */
+  onSearchRest: (offerId: string, description: string) => void
+}
+
+export default function GuidanceStrip({
+  view,
+  transactionId,
+  actions,
+}: {
+  view: GuidanceView
+  /** Which order the qualifying items are resolved for — the set is ranked and
+   *  ATP-filtered at THIS order's plant, server-side. */
+  transactionId: string
+  actions: GuidanceActions
+}) {
   const { t } = useTranslation('callcenter')
   // Which card is open. `undefined` is *nobody has chosen* — the top-ranked
   // actionable offer opens by construction; `null` is *the agent closed it*; an
@@ -66,6 +110,11 @@ export default function GuidanceStrip({ view }: { view: GuidanceView }) {
             {t('guidance.getSideAbsent')}
           </p>
         )}
+        {/* 🚩 What the engine DID, pinned outside the clamp — the one thing an
+            agent needs after an add, and the one thing a scrolling body would
+            take away from them. Its slot shipped with 171 because the layout
+            property is load-bearing; this is its content. */}
+        <Outcome outcome={actions.outcome} onDismiss={actions.dismissOutcome} />
       </div>
 
       {view.cards.length === 0 ? (
@@ -83,6 +132,8 @@ export default function GuidanceStrip({ view }: { view: GuidanceView }) {
                   card={card}
                   open={open === card.offerId}
                   onToggle={() => setChosen(open === card.offerId ? null : card.offerId)}
+                  transactionId={transactionId}
+                  actions={actions}
                 />
               ))}
             </div>
@@ -162,7 +213,19 @@ export default function GuidanceStrip({ view }: { view: GuidanceView }) {
 }
 
 /** The only class with an action, and the only one drawn as a card. */
-function Card({ card, open, onToggle }: { card: GuidanceCard; open: boolean; onToggle: () => void }) {
+function Card({
+  card,
+  open,
+  onToggle,
+  transactionId,
+  actions,
+}: {
+  card: GuidanceCard
+  open: boolean
+  onToggle: () => void
+  transactionId: string
+  actions: GuidanceActions
+}) {
   const { t } = useTranslation('callcenter')
   return (
     <div
@@ -215,6 +278,204 @@ function Card({ card, open, onToggle }: { card: GuidanceCard; open: boolean; onT
           {t(card.set.key, card.set.params)}
         </p>
       )}
+
+      {/* 🚩 The prerequisite RESOLVED — on demand, and only while the card is
+          open. Resolving every near-miss inline would pay a grouping expansion
+          plus a stock read per keystroke for cards the agent mostly never opens
+          (§3.3), which is the whole reason this endpoint is a second call. */}
+      {open && <Qualifying card={card} transactionId={transactionId} actions={actions} />}
+    </div>
+  )
+}
+
+/**
+ * What would actually close the gap: a **ranked, availability-filtered handful**
+ * and the route to the rest.
+ *
+ * 🚩 **The handful is the server's `topN`, never a client slice** — nothing here
+ * calls `.slice()`, which is what keeps the three the drive counts the same three
+ * the engine ranked (138 finding 1, and `prereq-view.ts`'s first ruling).
+ */
+function Qualifying({
+  card,
+  transactionId,
+  actions,
+}: {
+  card: GuidanceCard
+  transactionId: string
+  actions: GuidanceActions
+}) {
+  const { t } = useTranslation('callcenter')
+  const resolved = useQuery({
+    queryKey: prereqKey(transactionId, card.offerId),
+    queryFn: () => callCenterApi.resolvePrereq(transactionId, card.offerId),
+    // 🚩 The rows must NOT move while an add launched from one of them is
+    // running. The answer is a ranked set at the order's plant, so a re-fetch on
+    // every re-price would re-rank the list under the agent's cursor mid-click —
+    // and the outcome banner, not a silently re-ordered list, is what tells them
+    // what happened.
+    staleTime: Infinity,
+    retry: false,
+  })
+  const rows = prereqRows(resolved.data)
+  const rest = restOfSet(resolved.data, card.eligible)
+
+  return (
+    <div className="mt-2 border-t border-divider pt-1.5" data-cc-qualifying={card.offerId}>
+      {resolved.isPending && (
+        <p className="flex items-center gap-1.5 py-1 text-[11px] text-muted-foreground" data-cc-qualifying-loading>
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          {t('guidance.resolving')}
+        </p>
+      )}
+      {resolved.isError && (
+        <p className={`py-1 ${NOTE.danger}`} data-cc-qualifying-error>
+          {apiErrorMessage(resolved.error, t('guidance.resolveFailed'))}
+        </p>
+      )}
+      {resolved.isSuccess && rows.length === 0 && (
+        <p className="py-1 text-[11px] text-muted-foreground" data-cc-qualifying-empty>
+          {t('guidance.resolveEmpty')}
+        </p>
+      )}
+      {rows.length > 0 && (
+        <>
+          <p className="text-[11px] text-muted-foreground">{t('guidance.qualifying')}</p>
+          <div className="divide-y divide-divider">
+            {rows.map((row) => (
+              <QualifyingRow key={row.itemNumber} offerId={card.offerId} row={row} actions={actions} />
+            ))}
+          </div>
+        </>
+      )}
+      {rest && (
+        // 🚩 A hand-off, not a second list: it narrows the console's OWN item
+        // search to this offer. A modal here would be the second screen 138
+        // ruled out, and at 997 the card cannot be the list.
+        <button
+          type="button"
+          onClick={() => actions.onSearchRest(card.offerId, card.description)}
+          data-cc-search-rest={card.offerId}
+          className="mt-1.5 text-[11px] font-medium text-primary hover:underline"
+        >
+          {t(rest.key, rest.params)}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * One qualifying item — **the search row's own shape**, so the estimate sits on
+ * the meta line beside the item number and the Arabic name and never in a money
+ * column (`item-search.ts`, 135 amendment 1).
+ *
+ * 🚩 **The add runs on the row that launched it, and the row does not move while
+ * it runs**: the list is not re-fetched, and only this row's button changes.
+ */
+function QualifyingRow({
+  offerId,
+  row,
+  actions,
+}: {
+  offerId: string
+  row: SearchRowView
+  actions: GuidanceActions
+}) {
+  const { t } = useTranslation('callcenter')
+  const adding = actions.pending?.offerId === offerId && actions.pending.itemNumber === row.itemNumber
+  return (
+    <div className="flex items-center gap-2 py-1" data-cc-qualifying-row={row.itemNumber}>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-xs" data-cc-server-text>
+          <Ltr>{row.title}</Ltr>
+        </div>
+        {/* 🚩 The meta line: item number · Arabic name · estimate. All three are
+            secondary and the isolate is `dir`-pinned (138 finding 1 of the
+            Arabic ruling — a bare `<bdi>` implies `dir="auto"` and flips the
+            block). Putting Arabic here is what made the ruling cost zero pixels
+            rather than pushing the route to the rest below the fold. */}
+        <div className="flex min-w-0 items-baseline gap-2 text-[11px] text-muted-foreground" data-cc-qualifying-meta>
+          {row.meta.map((part) => (
+            <span
+              key={part.id}
+              className={part.id === 'description2' ? 'min-w-0 truncate' : 'shrink-0'}
+              data-cc-qualifying-part={part.id}
+              {...(part.id === 'description2' ? {} : { 'data-numeric': '' })}
+            >
+              <Ltr>{part.text}</Ltr>
+            </span>
+          ))}
+        </div>
+      </div>
+      {/* LIVE availability, like the search row's — the set is ATP-filtered at
+          the order's plant, and `unknown` is still not a zero. */}
+      <AvailabilityPill availability={row.availability} keyBase="search.atp" />
+      {actions.onAdd && (
+        <button
+          type="button"
+          onClick={() => actions.onAdd?.({ offerId, itemNumber: row.itemNumber, itemName: row.title })}
+          // Held while any add is in flight, for the reason the search panel
+          // holds its rows: the engine's claim is a mutual exclusion, so a
+          // second add collides and is ridden out — and two rows saying
+          // *Adding…* would be one press the agent never made.
+          disabled={actions.pending !== null}
+          // Server text inside a console sentence, deliberately: an `aria-label`
+          // is not a figure on screen, and *Add* alone tells a screen-reader
+          // user nothing about which of three rows they are on.
+          aria-label={t('guidance.addItem', { item: row.title })}
+          data-cc-qualifying-add={row.itemNumber}
+          className="shrink-0 rounded-full border border-primary-border bg-primary-050 px-2.5 py-0.5 text-[11px] font-medium text-primary-800 hover:bg-accent disabled:opacity-50"
+        >
+          {adding ? t('search.adding') : t('search.add')}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * 🚩 **Three outcomes, because the re-price is the engine's and not the card's**
+ * (`add-outcome.ts`). Two of them are the ones a naive implementation gets
+ * wrong: *a better offer fired instead*, and *nothing fired* — where the offer
+ * stays and only its meter moves. Silence on that path reads as a broken button.
+ *
+ * The console's own sentence is a `t()` phrase whose only parameter is a COUNT;
+ * the item's name and the offer's description are server text, drawn as data
+ * beside it. Which is what lets the region keep its *no figure formatted as
+ * money* guarantee over a banner that names an offer called `SAR 10 off…`.
+ */
+function Outcome({ outcome, onDismiss }: { outcome: AddOutcome | null; onDismiss: () => void }) {
+  const { t } = useTranslation('callcenter')
+  if (!outcome) return null
+  const tone =
+    outcome.kind === 'didNotFire'
+      ? 'border-attention-border bg-attention-050 text-attention-800'
+      : 'border-success-border bg-success-050 text-success-800'
+  return (
+    <div
+      className={`mt-1 flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs ${tone}`}
+      role="status"
+      data-cc-outcome={outcome.kind}
+    >
+      <div className="min-w-0 flex-1">
+        <span data-cc-outcome-said>{t(outcome.phrase.key, outcome.phrase.params)}</span>{' '}
+        <span className="opacity-90" data-cc-server-text>
+          <Ltr>{outcome.itemName}</Ltr>
+          {outcome.offerDescription ? ' · ' : ''}
+          <Ltr>{outcome.offerDescription}</Ltr>
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onDismiss}
+        data-cc-outcome-dismiss
+        aria-label={t('guidance.outcome.dismiss')}
+        title={t('guidance.outcome.dismiss')}
+        className="shrink-0 rounded-full p-0.5 hover:opacity-70"
+      >
+        <X className="h-3 w-3" aria-hidden />
+      </button>
     </div>
   )
 }

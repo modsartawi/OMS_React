@@ -84,12 +84,34 @@ const SETTLE_MS = 250
 export default function ItemSearchPanel({
   state,
   add,
+  scope = null,
+  onClearScope,
 }: {
   state: SessionState
   add: AddItemActions
+  /**
+   * The offer this search is narrowed to — the guidance strip's hand-off (172),
+   * `Search the other 994`. A set of 997 must not become a second screen, so it
+   * lands HERE, in the search the agent already has, with the offer stated
+   * rather than implied.
+   *
+   * 🚩 The narrowing itself is the SERVER's: `offerId` rides the query. The chip
+   * says which offer was asked for, which is the honest thing to draw while
+   * BackOffice 799 has not built the parameter yet — a server that ignores it
+   * answers the whole catalogue, and a chip that claimed *filtered* would then
+   * be the console's own lie.
+   */
+  scope?: { offerId: string; description: string } | null
+  onClearScope?: () => void
 }) {
   const { t } = useTranslation('callcenter')
   const [query, setQuery] = useState('')
+  /** The box the hand-off puts the agent's cursor in. A scope with no term is
+   *  not a dead end — it is the agent about to say what the caller asked for. */
+  const box = useRef<HTMLInputElement | null>(null)
+  useEffect(() => {
+    if (scope) box.current?.focus()
+  }, [scope])
   /** The settled term — what is actually asked. Separate from `query` so every
    *  keystroke does not become a scan of the item master. */
   const [term, setTerm] = useState('')
@@ -111,8 +133,11 @@ export default function ItemSearchPanel({
   }, [term])
 
   const search = useQuery({
-    queryKey: itemSearchKey(state.transactionId, term),
-    queryFn: () => callCenterApi.itemSearch(state.transactionId, term),
+    // The scope is part of the question, so it is part of the key: the same
+    // words asked inside an offer and across the catalogue are two different
+    // answers, and one key would serve the first from the other's cache.
+    queryKey: itemSearchKey(state.transactionId, term, scope?.offerId ?? null),
+    queryFn: () => callCenterApi.itemSearch(state.transactionId, term, scope?.offerId ?? null),
     // 🚩 Held until the server would accept the term — under three characters it
     // answers 400, and spending that round trip while a caller waits buys the
     // agent nothing. The hint below says so rather than the console failing.
@@ -137,6 +162,7 @@ export default function ItemSearchPanel({
           />
           <input
             id="cc-item-search"
+            ref={box}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             aria-label={t('search.label')}
@@ -149,6 +175,32 @@ export default function ItemSearchPanel({
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden data-cc-search-busy />
         )}
       </div>
+
+      {/* The hand-off, landed (172): which offer this search is narrowed to, and
+          the way back to the whole catalogue. Above the note, because it changes
+          what the rows below MEAN. */}
+      {scope && (
+        <div
+          className="mt-2 flex items-baseline gap-2 text-[11px] text-primary-800"
+          data-cc-search-scope={scope.offerId}
+        >
+          <span className="shrink-0">{t('search.scope')}</span>
+          {/* Server text, passed through as data — the offer's own words. */}
+          <span className="min-w-0 truncate font-medium" data-cc-server-text>
+            <Ltr>{scope.description}</Ltr>
+          </span>
+          {onClearScope && (
+            <button
+              type="button"
+              onClick={onClearScope}
+              data-cc-search-scope-clear
+              className="shrink-0 underline hover:no-underline"
+            >
+              {t('search.scopeClear')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* 🚩 STANDING, in the panel and not in the results box (US28): the rule is
           stated once and is on screen before the agent has typed anything, which

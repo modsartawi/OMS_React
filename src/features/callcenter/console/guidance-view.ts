@@ -78,6 +78,11 @@ export interface GuidanceCard {
    *  item would imply the caller must buy that one. `null` when there is nothing
    *  honest to say about the prerequisite. */
   set: GuidancePhrase | null
+  /** The population the prerequisite draws from, where the wire stated one — the
+   *  `42` of *42 qualify*. Held as a figure as well as inside `set`'s phrase
+   *  because the on-demand resolution (172) subtracts the handful it shows from
+   *  it to offer the route to the rest. `null` where the wire stated none. */
+  eligible: number | null
   /** Why no basket change reaches this offer, in the agent's words. `null` on
    *  every class but `unavailable`. 🚩 The wire code never reaches the screen —
    *  an unknown category still reads as words. */
@@ -151,6 +156,7 @@ function toCard(miss: NearMiss): GuidanceCard {
     progress,
     shortfall,
     set: klass === 'actionable' ? setStatement(miss, shortfall) : null,
+    eligible: klass === 'actionable' ? numberOrNull(miss.prereq?.eligibleCount) : null,
     reason: klass === 'unavailable' ? reasonOf(miss.skipReason) : null,
   }
 }

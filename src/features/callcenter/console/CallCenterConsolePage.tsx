@@ -90,6 +90,7 @@ import {
   reaskingLineEdit,
   type LineEdit,
 } from './line-edit'
+import { classifyAdd, type AddOutcome, type GuidanceAdd } from './add-outcome'
 import AbandonConfirm from './AbandonConfirm'
 import AddressPicker from './AddressPicker'
 import BelowAtpConfirm from './BelowAtpConfirm'
@@ -260,6 +261,29 @@ function ConsoleSession() {
   /** An ask this console could not state truthfully, so it drew no sheet — and
    *  the add therefore did not land. See `addItem.onSuccess`. */
   const [addUnconfirmable, setAddUnconfirmable] = useState(false)
+
+  /**
+   * An add launched from a guidance card (172), as the two facts classifying its
+   * outcome needs: which offer the agent was working on, and **the state before
+   * the add**.
+   *
+   * 🚩 The snapshot is held with the ACTION rather than read back off the cache,
+   * for the same reason the rebind's preview is: by the time the answer arrives
+   * the cache already holds the new state, and *what the engine did* is only
+   * legible as a difference. It survives the below-availability acceptance —
+   * that ask carries the UNCHANGED state, so the add has not happened yet and
+   * the same *before* is still the right one to compare against.
+   */
+  const [addedFrom, setAddedFrom] = useState<(GuidanceAdd & { before: SessionState }) | null>(null)
+
+  /** What the engine actually did with that add — fired, fired a different
+   *  offer, or nothing at all. Drawn in the strip's pinned head (171's slot). */
+  const [guidanceOutcome, setGuidanceOutcome] = useState<AddOutcome | null>(null)
+
+  /** The offer the item search is narrowed to — `Search the other 994` (172).
+   *  Page state because the request comes from the guidance strip and lands in
+   *  the search panel, at the other end of the centre column. */
+  const [searchScope, setSearchScope] = useState<{ offerId: string; description: string } | null>(null)
 
   /**
    * The correction in flight (170) — quantity, unit of measure or void — as the
@@ -446,6 +470,11 @@ function ConsoleSession() {
       setBelowAtp(null)
       setAddReissue(null)
       setAddUnconfirmable(false)
+      // And the guidance an abandoned basket's offers were about: the outcome
+      // banner, the add it classified, and the search narrowed to one of them.
+      setAddedFrom(null)
+      setGuidanceOutcome(null)
+      setSearchScope(null)
       // And a correction to a line on a basket that no longer exists.
       setEdit(null)
       setEditAsk(null)
@@ -538,7 +567,12 @@ function ConsoleSession() {
       ),
     // The last add's unreadable-ask sentence belongs to the last add. Left
     // standing under the rows it would describe the one now in flight.
-    onMutate: () => setAddUnconfirmable(false),
+    onMutate: () => {
+      setAddUnconfirmable(false)
+      // The last add's outcome belongs to the last add. Left standing over the
+      // one now in flight it would describe the wrong press.
+      setGuidanceOutcome(null)
+    },
     onSuccess: (fresh, add) => {
       queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
         applyState(current, fresh),
@@ -551,6 +585,13 @@ function ConsoleSession() {
         setBelowAtp(asked)
         return
       }
+      // 🚩 The add landed, so the engine has re-priced — and what it DID is only
+      // legible as a difference. Three outcomes, and the two that a naive
+      // implementation gets wrong (a different offer fired; nothing fired and
+      // the offer stays with its meter advanced) are the ones the agent most
+      // needs said out loud (`add-outcome.ts`).
+      if (addedFrom && add.offerId === addedFrom.offerId)
+        setGuidanceOutcome(classifyAdd(addedFrom.before, fresh, addedFrom))
       clearAdd()
       // 🚩 A `belowAtp` block this console cannot state truthfully — figures
       // missing or not numbers (§5.2 says the server does not raise one then) —
@@ -591,12 +632,16 @@ function ConsoleSession() {
     retry: false,
   })
 
-  /** Everything one add action was holding. */
+  /** Everything one add action was holding — including the *before* a guidance
+   *  add was going to be classified against, which is dead the moment the action
+   *  is over however it ended. The OUTCOME is not cleared here: it is what the
+   *  agent has to read, and it outlives the action that produced it. */
   const clearAdd = () => {
     setAdd(null)
     setBelowAtp(null)
     setAddReissue(null)
     setAddUnconfirmable(false)
+    setAddedFrom(null)
   }
 
   /**
@@ -1150,6 +1195,32 @@ function ConsoleSession() {
             setAddUnconfirmable(false)
           },
         }}
+        // 🚩 The same verb, launched from a card (172) — one `addItem`, not a
+        // second add path: a card that had its own would be a second place for
+        // the below-availability acceptance and the busy retry to be forgotten.
+        guidance={{
+          onAdd: session.data.capabilities.canAddItem
+            ? (from) => {
+                // The state BEFORE, held with the action: what the engine did is
+                // only legible as a difference, and by the time the answer
+                // arrives the cache holds the after.
+                setAddedFrom({ ...from, before: session.data })
+                addItem.mutate(
+                  beginAdd({ itemNumber: from.itemNumber, qty: 1, description: from.itemName, offerId: from.offerId }),
+                )
+              }
+            : null,
+          // The row that launched it, and only that row, says *Adding…* — and it
+          // does not move while it runs (the resolution is not re-fetched).
+          pending: addItem.isPending && addedFrom ? addedFrom : null,
+          outcome: guidanceOutcome,
+          dismissOutcome: () => setGuidanceOutcome(null),
+          // The route to the rest of a big set: the console's own search,
+          // narrowed — never a second list.
+          onSearchRest: (offerId, description) => setSearchScope({ offerId, description }),
+        }}
+        searchScope={searchScope}
+        onClearSearchScope={() => setSearchScope(null)}
         // 🚩 The three corrections are offered only while the order is OPEN: a
         // submitted basket has nothing to correct, and a control that would be
         // refused is worse than no control (165's ruling, and the same one the

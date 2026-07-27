@@ -23,7 +23,12 @@
  * importing each other. Same file, one directory deeper; nothing else moves.
  */
 import { api } from '@/core/api'
-import type { CallCenterAccessResult, OpenResult, SessionState } from '@/core/models/callcenter'
+import type {
+  AbandonResult,
+  CallCenterAccessResult,
+  OpenResult,
+  SessionState,
+} from '@/core/models/callcenter'
 
 /**
  * The ONE cache key the nav leaf and the route guard share, so a gated console
@@ -32,6 +37,18 @@ import type { CallCenterAccessResult, OpenResult, SessionState } from '@/core/mo
  * a build, it would silently split the cache entry.
  */
 export const CALLCENTER_ACCESS_KEY = ['callcenter', 'access'] as const
+
+/**
+ * The key one `open` action's result lives under. Keyed by the action's own
+ * `requestId`, which is what makes *abandon and start fresh* work: a genuinely
+ * new open action is a new id and therefore a new key, and the refusal the old
+ * one answered can never be mistaken for the new one's answer.
+ *
+ * Spelled here rather than at the call site because it is load-bearing and
+ * mutable — a typo in an inline literal would not fail a build, it would split
+ * the cache entry and re-open an order.
+ */
+export const openKey = (requestId: string) => ['callcenter', 'open', requestId] as const
 
 /** The query key holding one order's `SessionState` — the store of record.
  *  Keyed per transaction, which is what makes `applyState` free to be blind to
@@ -92,9 +109,32 @@ export const callCenterApi = {
   },
 
   /**
+   * `POST CallCenterWeb/Abandon` → `AbandonResult` (§8.2). Voids the engine
+   * transaction; the coupon reversal is server-side and rides
+   * `CollectReversalContexts()`, so there is nothing to undo here.
+   *
+   * 🚩 **It returns no state, so the caller owes the agent a landing.** Abandon
+   * is never the last thing that happens: on the already-open screen it is the
+   * first half of *abandon-and-start-fresh* and is immediately followed by
+   * `open`, in that order ([163](.issues/163-order-already-open.md)); from
+   * inside a live order it is the same act and lands the same way. An abandon
+   * with no follow-on leaves the agent holding nothing.
+   *
+   * `requestId` is the **abandon action's own** id, not the open's — two actions,
+   * two ids (law 3), reused verbatim only across retries of the same one.
+   */
+  abandon(transactionId: string, requestId: string): Promise<AbandonResult> {
+    return api.post<AbandonResult>('CallCenterWeb/Abandon', { transactionId, requestId })
+  },
+
+  /**
    * `GET CallCenterWeb/State` — refresh, recovery, reload and second tab only
    * (law 2). Never a way to "sync": a mutating verb has already returned the
    * whole state.
+   *
+   * It is also **the resume half of 163**: the agent who chooses to resume the
+   * order they already have open is read back onto it through this call and
+   * nothing else — there is no client-side memory of an order to restore from.
    */
   getState(transactionId: string): Promise<SessionState> {
     return api.get<SessionState>('CallCenterWeb/State', { transactionId })

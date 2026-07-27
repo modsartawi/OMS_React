@@ -223,6 +223,20 @@ export interface OpenResult {
   existing: ExistingOrder | null
 }
 
+/**
+ * §8.2 — the answer to `abandon`. **No state comes back**: `VoidTransactionAsync`
+ * has run and there is nothing left to render, which is precisely why abandoning
+ * must be followed by a decision about what the agent lands on
+ * ([163](.issues/163-order-already-open.md) — never nowhere).
+ *
+ * Coupon reversal rides for free on `CollectReversalContexts()`, server-side.
+ * Nothing on this side of the wire reverses anything.
+ */
+export interface AbandonResult {
+  outcome: 'abandoned'
+  transactionId: string
+}
+
 /** The screen-access probe (134 §6). One boolean; open implies act. */
 export interface CallCenterAccessResult {
   canOpenConsole: boolean

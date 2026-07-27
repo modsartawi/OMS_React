@@ -24,10 +24,25 @@ import type { SessionState } from '@/core/models/callcenter'
 import { formatMoney } from '@/core/util/number-format'
 import { headerChips, type HeaderChip } from './header-chips'
 
-export default function ConsoleShell({ state }: { state: SessionState }) {
+export default function ConsoleShell({
+  state,
+  onAbandon,
+}: {
+  state: SessionState
+  /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
+  onAbandon?: () => void
+}) {
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground" data-cc-console>
-      <TopBar state={state} />
+    <div
+      className="flex h-screen flex-col overflow-hidden bg-background text-foreground"
+      data-cc-console
+      // WHICH order is on screen, for the drives. Not rendered text — a
+      // 26-character ULID is nothing an agent reads — but "the order you landed
+      // on is not the one you abandoned" is otherwise only provable by its
+      // emptiness, which any other empty order would also satisfy.
+      data-cc-transaction={state.transactionId}
+    >
+      <TopBar state={state} onAbandon={onAbandon} />
       {/* 1440×900 by design, degrading to 1280; below that is out of scope —
           it is a desktop console (135's density budget). */}
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
@@ -42,7 +57,7 @@ export default function ConsoleShell({ state }: { state: SessionState }) {
   )
 }
 
-function TopBar({ state }: { state: SessionState }) {
+function TopBar({ state, onAbandon }: { state: SessionState; onAbandon?: () => void }) {
   const { t } = useTranslation('callcenter')
   return (
     <header className="flex h-11 shrink-0 items-center justify-between border-b border-border-strong bg-card px-4">
@@ -58,6 +73,20 @@ function TopBar({ state }: { state: SessionState }) {
         <span>{t('console.store', { store: state.header.entryStore })}</span>
         <span aria-hidden>·</span>
         <span data-cc-operator>{state.header.operatorId}</span>
+        {onAbandon && (
+          // Quiet by design and set apart from the receipt's *Place order*: the
+          // two terminal acts of a call must not sit side by side. It is the
+          // only destructive control on the screen, and it never voids anything
+          // on its own — the confirmation names what is thrown away first (US6).
+          <button
+            type="button"
+            onClick={onAbandon}
+            data-cc-abandon
+            className="ms-2 rounded-full border border-danger-border px-2.5 py-0.5 text-[11px] font-medium text-danger-800 hover:bg-danger-050"
+          >
+            {t('abandon.action')}
+          </button>
+        )}
       </div>
     </header>
   )

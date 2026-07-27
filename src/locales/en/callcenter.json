@@ -13,12 +13,37 @@
   "open": {
     "opening": "Opening a new order…",
     "failedTitle": "The order could not be opened",
-    "failedHint": "Nothing was created. Try again, or go back to the portal."
+    "failedHint": "Nothing was created. Try again, or go back to the portal.",
+    "malformedTitle": "The order could not be read",
+    "malformedHint": "The server answered in a way this console does not recognise, so no order is shown. Try again — if it keeps happening, this is a server problem worth reporting."
+  },
+  "state": {
+    "readFailed": "That order could not be read. Nothing has changed on it — try again, or abandon it and start fresh."
   },
   "existing": {
-    "title": "You already have an order open",
-    "hint_one": "It has {{count}} line. Nothing is resumed automatically — resuming or abandoning it is not built yet, so go back to the portal for now.",
-    "hint_other": "It has {{count}} lines. Nothing is resumed automatically — resuming or abandoning it is not built yet, so go back to the portal for now."
+    "marker": "Order already in progress",
+    "titleNamed": "You have an open order for {{name}}",
+    "titleAnonymous": "You have an open order with no caller attached yet",
+    "lines": "Lines",
+    "opened": "Opened",
+    "openedUnknown": "unknown",
+    "store": "Store",
+    "note": "Nothing is resumed automatically. If this is a different caller, abandon it and start fresh — that basket belongs to the previous call.",
+    "resume": "Resume this order",
+    "resuming": "Reading that order…",
+    "startFresh": "Abandon and start fresh"
+  },
+  "abandon": {
+    "action": "Abandon order",
+    "title": "Abandon this order?",
+    "bodyNamed": "The order for {{name}} will be voided. It cannot be brought back.",
+    "bodyAnonymous": "This order will be voided. It cannot be brought back.",
+    "cost_one": "{{count}} line will be thrown away.",
+    "cost_other": "{{count}} lines will be thrown away.",
+    "keep": "Keep it",
+    "confirm": "Abandon it",
+    "working": "Abandoning…",
+    "failed": "The order could not be abandoned. Nothing has changed — try again."
   },
   "console": {
     "title": "New order",

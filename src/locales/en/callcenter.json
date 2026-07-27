@@ -113,8 +113,49 @@
     "onThisOrder": "on this order",
     "applyFailed": "That address could not be applied. Nothing has changed on this order — try again.",
     "refusedNoCaller": "This order has no caller attached, so their address book is closed. Attach the caller again, then pick the address.",
-    "refusedNotTheirs": "That address is on file for a different customer, so it was not applied. Pick one of this caller's own addresses — and if it should be theirs, it needs sorting out on the customer record.",
-    "confirmNeeded": "This basket already has lines, so moving the fulfilment store would re-price them. Nothing has changed yet — the preview of what moves is not available in this version."
+    "refusedNotTheirs": "That address is on file for a different customer, so it was not applied. Pick one of this caller's own addresses — and if it should be theirs, it needs sorting out on the customer record."
+  },
+  "store": {
+    "title": "Choose the fulfilment store",
+    "search": "Search the stores",
+    "searchPlaceholder": "Store code, city or region…",
+    "close": "Close",
+    "loading": "Reading the store list…",
+    "loadFailed": "The store list could not be read. Nothing has changed on this order — try again.",
+    "noMatch": "No store matches that. Try the store code, or the city.",
+    "onThisOrder": "on this order",
+    "truncated": "Showing the first {{shown}} of {{total}} matches — keep typing to narrow it.",
+    "applyFailed": "That store could not be applied. Nothing has changed on this order — try again."
+  },
+  "confirm": {
+    "reissuedStale": "The basket changed while you were reading the last preview, so this is a fresh one. Nothing has been applied.",
+    "reissuedExpired": "The last preview expired before it was confirmed, so this is a fresh one. Nothing has been applied."
+  },
+  "rebind": {
+    "title": "Move this order to {{store}}?",
+    "unnamedStore": "another store",
+    "pricesCaption": "Line totals, VAT included, in SAR",
+    "colLine": "Line",
+    "colNow": "Now",
+    "colAfter": "After the move",
+    "moneyStandsStill": "No line changes price at the new store.",
+    "noLineMovement": "Nothing in the basket changes price at the new store.",
+    "promotionMoved": "{{promotion}} is worth {{to}} there instead of {{from}}.",
+    "deliveryFeeMoved": "The delivery fee becomes {{to}} instead of {{from}}.",
+    "atpReFrozen": "{{line}}: availability re-freezes from {{from}} to {{to}} at the new store.",
+    "atpBelow": "{{line}}: only {{to}} available at the new store (was {{from}}) — the line will be below availability.",
+    "qtyUnknown": "unknown",
+    "wouldRefuse": "This order cannot move to {{store}} as it stands:",
+    "voidThenRetry": "The move is all-or-nothing, so nothing will be changed. Remove the line above, then move the order.",
+    "keep": "Keep {{store}}",
+    "keepPlain": "Keep the current store",
+    "confirm": "Move and re-price",
+    "moving": "Moving…",
+    "failed": "The order could not be moved. Nothing has changed — try again.",
+    "refusedFallback": "The order could not be moved to that store. Nothing has been changed.",
+    "nothingChanged": "Nothing was changed — the order is exactly as it was.",
+    "lineRefused": "no price at the new store",
+    "dismiss": "Dismiss this message"
   },
   "chips": {
     "store": "Store",
@@ -122,7 +163,10 @@
     "source": "Source",
     "reference": "Ref",
     "notSet": "not set",
-    "derived": "derived"
+    "derived": "derived",
+    "change": {
+      "store": "Change the fulfilment store"
+    }
   },
   "basket": {
     "heading": "Basket · prices include VAT",

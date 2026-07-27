@@ -46,7 +46,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { SessionState } from '@/core/models/callcenter'
 import {
   CALLCENTER_ACCESS_KEY,
@@ -64,12 +64,32 @@ import {
   readOpenResult,
   type PendingAbandon,
 } from './open-outcome'
+import {
+  beginStoreMove,
+  committingStoreMove,
+  isCommitting,
+  rebindRefusal,
+  repreviewingStoreMove,
+  storeMovePreview,
+  type RebindRefusal,
+  type StoreMove,
+  type StoreMovePreview,
+} from './store-move'
 import AbandonConfirm from './AbandonConfirm'
 import AddressPicker from './AddressPicker'
 import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
 import ConsoleShell from './ConsoleShell'
 import ExistingOrderScreen from './ExistingOrderScreen'
+import StoreMoveConfirm, { type PreviewReissue } from './StoreMoveConfirm'
+import StorePicker from './StorePicker'
+
+/**
+ * The rebind refusals this page answers ITSELF — with a fresh preview, or with
+ * the banner over the basket. They are never also drawn as a dialog's own
+ * failure: one refusal, one voice (167).
+ */
+const ANSWERED_BY_THE_PAGE = ['CONFIRM_TOKEN_STALE', 'CONFIRM_TOKEN_INVALID', 'REBIND_REFUSED']
 
 export default function CallCenterConsolePage() {
   const { t } = useTranslation('callcenter')
@@ -184,6 +204,31 @@ function ConsoleSession() {
    * moment it has answered.
    */
   const [pickingAddress, setPickingAddress] = useState(false)
+
+  /** The store override, open or not (167) — the other way into the same rebind. */
+  const [pickingStore, setPickingStore] = useState(false)
+
+  /**
+   * The plant rebind in flight (167), as three facts that belong to the ACTION
+   * rather than to the screen:
+   *
+   * - `move` is the action itself, carrying the one `requestId` that survives
+   *   the confirm re-send and the re-preview (§4).
+   * - `preview` is the diff the server pinned to that action's token. 🚩 It is
+   *   held here and NOT read off the cache, because a preview response carries
+   *   the *unchanged* state — same `version` — so `applyState` rightly keeps
+   *   what is on screen and the confirmation never reaches it (§5).
+   * - `reissue` says why the agent is being shown a second preview of the same
+   *   action, which is the whole reason they are being asked twice.
+   */
+  const [move, setMove] = useState<StoreMove | null>(null)
+  const [preview, setPreview] = useState<StoreMovePreview | null>(null)
+  const [reissue, setReissue] = useState<PreviewReissue | null>(null)
+
+  /** `REBIND_REFUSED` — atomic, so the order behind it is untouched. It outlives
+   *  the action that raised it: the agent has to read it, and it names the line
+   *  they have to void. */
+  const [refusal, setRefusal] = useState<RebindRefusal | null>(null)
 
   /** How many calls are currently riding out a collision. A ref, not state: it
    *  arbitrates who may clear the strip and is never itself rendered. */
@@ -343,6 +388,13 @@ function ConsoleSession() {
       setResumedId(null)
       setOpenedId(null)
       setAbandoning(null)
+      // A rebind is about a basket that no longer exists — the preview, the
+      // token and the refusal go with it.
+      setMove(null)
+      setPreview(null)
+      setReissue(null)
+      setRefusal(null)
+      setPickingStore(false)
       colliders.current = 0
       setColliding(null)
       setStalled(null)
@@ -395,46 +447,160 @@ function ConsoleSession() {
   })
 
   /**
-   * `setAddress` — the verb that decides where the order is fulfilled from.
+   * 🚩 **The plant rebind, as ONE action** — the verb the agent reached it by is
+   * a parameter, not a second flow (167). Picking an address derives the store
+   * (`setAddress`, §5.1's usual path) and overriding it names one (`setStore`,
+   * the explicit operator override); both re-price the same basket at the same
+   * new branch, so both take the same two-phase path and the same modal. A
+   * second confirmation mechanism would be a defect.
    *
-   * 🚩 The store it lands on is the **server's** derivation, arriving in the
-   * projection like everything else. This mutation writes the returned state
-   * through the same guarded entry point and does nothing else: there is no
-   * client-side district→store rule here, and adding one is how the console and
-   * the engine start disagreeing about which branch serves an address.
+   * Three things this mutation does and nothing else does:
    *
-   * On an empty basket that is the whole story — no confirmation is raised, so
-   * the dialog closes on the answer. With lines the answer carries
-   * `pendingConfirmation: storeChange` and the UNCHANGED state (§5), which is
-   * [167](.issues/167-store-move-shows-the-diff.md)'s to draw; until then the
-   * dialog stays open and says so rather than reporting a change that did not
-   * happen.
+   * 1. **The whole returned state is written through `applyState`**, as always.
+   *    On a preview the version has NOT moved (§5 — the unchanged state), so
+   *    the write is a no-op and the diff never reaches the cached state: it
+   *    belongs to the act that raised it, which is why it is held here.
+   * 2. 🚩 **`CONFIRM_TOKEN_STALE` re-previews rather than committing.** The
+   *    basket moved underneath, so the token is dropped, the **same
+   *    `requestId`** goes back out without it, and the agent is shown the fresh
+   *    diff. The console never commits a change the agent did not see.
+   * 3. **`REBIND_REFUSED` is a banner, not a crash.** Atomic by contract —
+   *    nothing partial was persisted — so the order on screen is already
+   *    correct and all that is owed is naming the line that stopped it.
+   *
+   * Every other failure stays on the surface that raised it: the address book,
+   * the store picker, or the sheet.
    */
-  const setAddress = useMutation({
-    // No `again`: the dialog is this call's own failure surface, and a strip
-    // offering a second retry behind it is one retry too many (164's ruling).
-    mutationFn: (addressNumber: string) => {
-      // Minted ONCE, outside the thunk — a retry of this action is the same
-      // action (law 3 / §4), and a fresh id inside would let the ledger see two.
-      const requestId = newRequestId()
-      return runGuarded(() => callCenterApi.setAddress(transactionId!, requestId, addressNumber))
-    },
-    onSuccess: (fresh) => {
+  const rebind = useMutation({
+    // No `again`: each of those three surfaces draws this call's own failure,
+    // and a strip offering a second retry behind it is one retry too many
+    // (164's ruling).
+    mutationFn: (move: StoreMove) =>
+      // 🚩 The id is the MOVE's, minted once at `beginStoreMove` and carried
+      // through the confirm and the re-preview (law 3 / §4). Nothing here mints
+      // one — a fresh id inside the thunk would let a busy retry look like a
+      // second rebind of a real basket.
+      runGuarded(() =>
+        move.kind === 'address'
+          ? callCenterApi.setAddress(transactionId!, move.requestId, move.target, move.confirmToken)
+          : callCenterApi.setStore(transactionId!, move.requestId, move.target, move.confirmToken),
+      ),
+    onSuccess: (fresh, move) => {
       queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
         applyState(current, fresh),
       )
-      // A preview is not an application: the book stays open on the one path
-      // where nothing moved.
-      if (!fresh.pendingConfirmation) setPickingAddress(false)
+      const previewed = storeMovePreview(fresh.pendingConfirmation)
+      if (previewed) {
+        // Are-you-sure, on the success path. The token pins THIS diff, so it
+        // travels with the action rather than with the screen.
+        setMove(committingStoreMove(move, previewed.confirmToken))
+        setPreview(previewed)
+        // The sheet is the surface now: one modal at a time, and the picker the
+        // agent came from has done its job.
+        setPickingAddress(false)
+        setPickingStore(false)
+        return
+      }
+      // Applied — inline on an empty basket, or committed exactly as previewed.
+      // The action is over, and so is everything it was holding.
+      clearRebind()
+      setPickingAddress(false)
+      setPickingStore(false)
+    },
+    onError: (err, move) => {
+      const code = apiErrorCode(err)
+      // 🚩 The re-preview answers a spent TOKEN, so it is only ever raised by a
+      // send that carried one. That condition is what BOUNDS it: the re-send
+      // carries none, so a server answering the same code again falls through to
+      // the ordinary failure surface instead of round-tripping a live basket
+      // forever. `CONFIRM_TOKEN_INVALID` (expired, or already used) is answered
+      // the same way on purpose — both mean *this token cannot commit*, and the
+      // only safe answer to that is a diff the agent can look at again.
+      if (
+        move.confirmToken !== undefined &&
+        (code === 'CONFIRM_TOKEN_STALE' || code === 'CONFIRM_TOKEN_INVALID')
+      ) {
+        setReissue(code === 'CONFIRM_TOKEN_STALE' ? 'stale' : 'expired')
+        setPreview(null)
+        const again = repreviewingStoreMove(move)
+        setMove(again)
+        rebind.mutate(again)
+        return
+      }
+      if (code === 'REBIND_REFUSED') {
+        setRefusal(
+          rebindRefusal(
+            // The server's own sentence (§7) — it names the store and the count.
+            apiErrorMessage(err, t('rebind.refusedFallback')),
+            err instanceof ApiError ? err.data : null,
+            preview,
+          ),
+        )
+        setMove(null)
+        setPreview(null)
+        setReissue(null)
+      }
+      // Anything else is left to the surface that raised it, below.
     },
     retry: false,
   })
+
+  /** Everything one rebind action was holding. */
+  const clearRebind = () => {
+    setMove(null)
+    setPreview(null)
+    setReissue(null)
+    setRefusal(null)
+    rebind.reset()
+  }
+
+  /**
+   * What one surface — the address book, the store picker — should be saying
+   * about the rebind right now: the target it is applying, and the failure it
+   * owns. The two always travel together and are always asked per surface, so
+   * they are answered together rather than by two parallel lookups.
+   *
+   * 🚩 A code this page has already turned into a re-preview or a banner is NOT
+   * that surface's error. Without that filter, a refusal being answered
+   * elsewhere would also appear inside a dialog the console is closing, and the
+   * agent would be told the same thing twice in two voices.
+   */
+  const rebindOn = (kind: StoreMove['kind']) => {
+    const mine = rebind.variables?.kind === kind
+    const answeredHere = ANSWERED_BY_THE_PAGE.includes(apiErrorCode(rebind.error) ?? '')
+    return {
+      pending: mine && rebind.isPending ? (rebind.variables?.target ?? null) : null,
+      error: mine && rebind.isError && !answeredHere ? rebind.error : null,
+    }
+  }
+  /** The commit's own failure, for the sheet — the same filter, on the send that
+   *  is carrying a token. */
+  const commitError =
+    rebind.isError &&
+    isCommitting(rebind.variables ?? null) &&
+    !ANSWERED_BY_THE_PAGE.includes(apiErrorCode(rebind.error) ?? '')
+      ? apiErrorMessage(rebind.error, t('rebind.failed'))
+      : null
 
   /** Closing forgets the last refusal with it — a failure the agent has walked
    *  away from must not be waiting for them the next time they open the book. */
   const closeAddressBook = () => {
     setPickingAddress(false)
-    setAddress.reset()
+    rebind.reset()
+  }
+
+  const closeStorePicker = () => {
+    setPickingStore(false)
+    rebind.reset()
+  }
+
+  /** Declining costs nothing: the preview was the engine door run and not
+   *  persisted (129), so there is no trace to undo — only the sheet to close. */
+  const declineMove = () => {
+    setMove(null)
+    setPreview(null)
+    setReissue(null)
+    rebind.reset()
   }
 
   const abandon = useMutation({
@@ -639,6 +805,14 @@ function ConsoleSession() {
         onPickAddress={
           session.data.capabilities.canOpenAddressBook ? () => setPickingAddress(true) : undefined
         }
+        // 🚩 Same rule, other capability: the store chip re-opens only where the
+        // door says it will accept an override (§2), so the console never draws
+        // a control it has to apologise for.
+        onChangeStore={
+          session.data.capabilities.canChangeStore ? () => setPickingStore(true) : undefined
+        }
+        refusal={refusal}
+        onDismissRefusal={() => setRefusal(null)}
       />
       {/* Mounted on the same condition. A caller removed in another tab shuts
           the book from under an open dialog, which is the honest outcome: the
@@ -650,18 +824,36 @@ function ConsoleSession() {
           customerId={session.data.header.customer.customerId}
           currentAddressNumber={session.data.header.address?.addressNumber ?? null}
           apply={{
-            pending: setAddress.isPending ? (setAddress.variables ?? null) : null,
-            error: setAddress.isError ? setAddress.error : null,
-            // 🚩 Read off THIS action's answer, not off the cache. A preview
-            // carries the unchanged state — same `version` — so `applyState`
-            // rightly keeps what is on screen and the confirmation never reaches
-            // the cached state. It belongs to the act that raised it (§5).
-            confirmNeeded: setAddress.data?.pendingConfirmation?.kind === 'storeChange',
-            onPick: (addressNumber) => setAddress.mutate(addressNumber),
+            pending: rebindOn('address').pending,
+            error: rebindOn('address').error,
+            // 🚩 One action per pick: a genuinely new rebind mints a genuinely
+            // new id, and the confirm re-send below reuses it (§4).
+            onPick: (addressNumber) => rebind.mutate(beginStoreMove('address', addressNumber)),
           }}
           onClose={closeAddressBook}
         />
       )}
+      {/* The deliberate override (US14) — the same rebind, asked for outright. */}
+      <StorePicker
+        open={pickingStore}
+        currentPlant={session.data.header.plant}
+        pending={rebindOn('store').pending}
+        error={
+          rebindOn('store').error ? apiErrorMessage(rebindOn('store').error, t('store.applyFailed')) : null
+        }
+        onPick={(storeCode) => rebind.mutate(beginStoreMove('store', storeCode))}
+        onClose={closeStorePicker}
+      />
+      {/* 🚩 The console's ONE confirmation surface. Both ways in land here, and
+          169's below-availability acceptance reuses it verbatim. */}
+      <StoreMoveConfirm
+        preview={preview}
+        reissue={reissue}
+        busy={rebind.isPending}
+        error={commitError}
+        onConfirm={() => move && rebind.mutate(move)}
+        onCancel={declineMove}
+      />
       {abandonDialog}
     </>
   )

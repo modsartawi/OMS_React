@@ -59,7 +59,7 @@ contract amendment 136 must carry, plus whatever BackOffice issue the server hal
 **Both modes ship in phase 1** — owner ruling, *"these are the bare minimum"*. Contract goes to
 **v1.1, additive**, with a dated §10 amendment: [CONTRACT.md §2.2](assets/136-cc-contract/CONTRACT.md)
 plus fixture [09](assets/136-cc-contract/09-fulfilment-flip.json). Server half: BackOffice
-[814](C:\Work\DMSCO\BackOffice\.issues\814-cc-fulfilment-mode.md).
+[826](C:\Work\DMSCO\BackOffice\.issues\826-cc-fulfilment-mode.md).
 
 ### The reframing: three facts that dissolved most of the question
 

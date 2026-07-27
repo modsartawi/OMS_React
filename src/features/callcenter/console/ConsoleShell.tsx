@@ -21,12 +21,13 @@
  * 166–172, in the centre column that is the only region that grows.
  */
 import { useTranslation } from 'react-i18next'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, X } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import { formatMoney } from '@/core/util/number-format'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CustomerRail, { type CustomerActions } from './CustomerRail'
 import { headerChips, type HeaderChip } from './header-chips'
+import type { RebindRefusal } from './store-move'
 
 export default function ConsoleShell({
   state,
@@ -36,6 +37,9 @@ export default function ConsoleShell({
   busy = null,
   customerActions,
   onPickAddress,
+  onChangeStore,
+  refusal = null,
+  onDismissRefusal,
 }: {
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
@@ -54,7 +58,19 @@ export default function ConsoleShell({
    *  page's — it returns the whole `SessionState` — so all that travels down
    *  here is the request to open it. */
   onPickAddress?: () => void
+  /** Opens the deliberate store override (167) — the store chip re-opening the
+   *  section it collapsed. Absent while `capabilities.canChangeStore` is false,
+   *  so the chip is a chip rather than a control that refuses. */
+  onChangeStore?: () => void
+  /** `REBIND_REFUSED` — atomic, so nothing was persisted (167). It is drawn in
+   *  TWO places on purpose: named in the banner and tinted on the line, so
+   *  "nothing was changed, fix this line" is legible in one glance. */
+  refusal?: RebindRefusal | null
+  onDismissRefusal?: () => void
 }) {
+  // The lines the refusal named, for the tint. A Set because the basket asks per
+  // line and a refusal can name several.
+  const refusedLines = new Set((refusal?.lines ?? []).map((line) => line.lineId))
   return (
     <div
       className="flex h-screen flex-col overflow-hidden bg-background text-foreground"
@@ -70,13 +86,16 @@ export default function ConsoleShell({
           routine (law 7), so it costs the basket no interactivity and the strip
           no pixels it does not need. */}
       <BusyStrip busy={busy} />
+      {/* 🚩 A refusal is a banner, not a crash surface — in the flow, above the
+          columns, over an order that is exactly as the agent left it. */}
+      <RebindBanner refusal={refusal} onDismiss={onDismissRefusal} />
       {/* 1440×900 by design, degrading to 1280; below that is out of scope —
           it is a desktop console (135's density budget). */}
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
         <CustomerRail state={state} customerActions={customerActions} onPickAddress={onPickAddress} />
         <main className="flex min-h-0 min-w-0 flex-col border-x border-border">
-          <ChipRow state={state} />
-          <Basket state={state} />
+          <ChipRow state={state} onChangeStore={onChangeStore} />
+          <Basket state={state} refusedLines={refusedLines} />
         </main>
         <Receipt state={state} />
       </div>
@@ -146,18 +165,21 @@ function TopBar({
   )
 }
 
-function ChipRow({ state }: { state: SessionState }) {
+function ChipRow({ state, onChangeStore }: { state: SessionState; onChangeStore?: () => void }) {
   const chips = headerChips(state.header, state.capabilities)
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-divider bg-card px-4 py-2" data-cc-chips>
       {chips.map((chip) => (
-        <Chip key={chip.id} chip={chip} />
+        // 🚩 135's progressive collapse: a settled section re-opens IN PLACE.
+        // The store is the first chip that has somewhere to re-open to (167);
+        // slot, source and reference get theirs at 173.
+        <Chip key={chip.id} chip={chip} onOpen={chip.id === 'store' ? onChangeStore : undefined} />
       ))}
     </div>
   )
 }
 
-function Chip({ chip }: { chip: HeaderChip }) {
+function Chip({ chip, onOpen }: { chip: HeaderChip; onOpen?: () => void }) {
   const { t } = useTranslation('callcenter')
   const tone =
     chip.state === 'needsAttention'
@@ -165,20 +187,85 @@ function Chip({ chip }: { chip: HeaderChip }) {
       : chip.state === 'settled'
         ? 'border-border bg-muted text-foreground'
         : 'border-dashed border-input bg-card text-muted-foreground'
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${tone}`}
-      data-cc-chip={chip.id}
-      data-cc-chip-state={chip.state}
-    >
+  const body = (
+    <>
       <span className="text-[10px] uppercase tracking-wide opacity-70">{t(`chips.${chip.id}`)}</span>
       <span className="font-medium">{chip.value ?? t('chips.notSet')}</span>
       {chip.derived && <span className="text-[10px] opacity-60">({t('chips.derived')})</span>}
-    </span>
+    </>
+  )
+  const shape = `inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${tone}`
+
+  // A chip with nowhere to go is not a control. `capabilities` decides that —
+  // the page passes the handler only while the door will accept the change —
+  // so a disabled button the agent can reach for never appears here.
+  if (!onOpen)
+    return (
+      <span className={shape} data-cc-chip={chip.id} data-cc-chip-state={chip.state}>
+        {body}
+      </span>
+    )
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`${shape} hover:bg-accent`}
+      data-cc-chip={chip.id}
+      data-cc-chip-state={chip.state}
+      data-cc-chip-open={chip.id}
+      aria-label={t(`chips.change.${chip.id}`)}
+      title={t(`chips.change.${chip.id}`)}
+    >
+      {body}
+    </button>
   )
 }
 
-function Basket({ state }: { state: SessionState }) {
+/**
+ * `REBIND_REFUSED`, drawn (167). Atomic by contract — nothing partial is ever
+ * persisted — so the sentence is *nothing was changed*, and the offending line
+ * is named here as well as tinted in the basket.
+ *
+ * It is dismissible because the order is fine: it is a refusal the agent has to
+ * read once, not a state the console is stuck in.
+ */
+function RebindBanner({ refusal, onDismiss }: { refusal: RebindRefusal | null; onDismiss?: () => void }) {
+  const { t } = useTranslation('callcenter')
+  if (!refusal) return null
+  return (
+    <div
+      className="flex shrink-0 items-start gap-3 border-b border-danger-border bg-danger-050 px-4 py-2"
+      role="alert"
+      data-cc-rebind-refused
+    >
+      <div className="min-w-0 flex-1">
+        {/* Server-supplied, passed through as data (§7). */}
+        <div className="text-sm font-medium text-danger-800">{refusal.message}</div>
+        {refusal.lines.map((line) => (
+          <div key={line.lineId} className="mt-0.5 text-xs text-danger-800" data-cc-refused-line={line.lineId}>
+            {[line.itemNumber, line.description].filter(Boolean).join(' · ') || line.lineId}
+          </div>
+        ))}
+        <div className="mt-0.5 text-[11px] text-danger-800/80">{t('rebind.nothingChanged')}</div>
+      </div>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          data-cc-rebind-refused-dismiss
+          aria-label={t('rebind.dismiss')}
+          title={t('rebind.dismiss')}
+          className="shrink-0 rounded-full border border-danger-border p-1 text-danger-800 hover:bg-danger-050"
+        >
+          <X className="h-3 w-3" aria-hidden />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Basket({ state, refusedLines }: { state: SessionState; refusedLines: Set<string> }) {
   const { t } = useTranslation('callcenter')
   return (
     <div className="min-h-0 flex-1 overflow-auto" data-cc-basket>
@@ -191,13 +278,26 @@ function Basket({ state }: { state: SessionState }) {
           {t('basket.empty')}
         </div>
       ) : (
-        state.lines.map((line) => (
-          <div key={line.lineId} className="border-b border-divider px-4 py-2.5" data-cc-line={line.lineId}>
+        state.lines.map((line) => {
+          // 🚩 The second of the refusal's two places. A banner alone leaves the
+          // agent reading an item number back against a list; the tint puts the
+          // answer where their eye already is.
+          const refused = refusedLines.has(line.lineId)
+          return (
+          <div
+            key={line.lineId}
+            className={`border-b border-divider px-4 py-2.5 ${refused ? 'bg-danger-050' : ''}`}
+            data-cc-line={line.lineId}
+            {...(refused ? { 'data-cc-line-refused': line.lineId } : {})}
+          >
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm">{line.description}</div>
                 <div data-numeric className="text-xs text-muted-foreground">
                   {line.itemNumber}
+                  {refused && (
+                    <span className="ms-2 font-medium text-danger-800">{t('rebind.lineRefused')}</span>
+                  )}
                 </div>
               </div>
               <span data-numeric className="text-xs text-muted-foreground">
@@ -206,7 +306,8 @@ function Basket({ state }: { state: SessionState }) {
               <Money value={line.lineTotal.gross} />
             </div>
           </div>
-        ))
+          )
+        })
       )}
     </div>
   )

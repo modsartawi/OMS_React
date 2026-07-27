@@ -18,9 +18,11 @@
  * Slice 0 (ticket 162) needs one scenario: the empty basket every other fixture
  * starts from. The remaining eight land with the tickets that render them.
  */
-import type { OpenResult, SessionState } from '@/core/models/callcenter'
+import type { OpenResult, PendingConfirmation, SessionState } from '@/core/models/callcenter'
 import openEmpty from '../../../../../.issues/assets/136-cc-contract/01-open-empty.json'
 import twoLinesPriced from '../../../../../.issues/assets/136-cc-contract/02-two-lines-priced.json'
+import rebindPreview from '../../../../../.issues/assets/136-cc-contract/05-rebind-preview.json'
+import rebindRefused from '../../../../../.issues/assets/136-cc-contract/06-rebind-refused.json'
 
 /**
  * A fixture file is `{ _contract, request, response }` — the provenance block
@@ -47,3 +49,26 @@ export const EMPTY_SESSION: SessionState = OPEN_EMPTY.state!
  * author's illustration and not the engine's.
  */
 export const ATTACHED_SESSION: SessionState = payload<SessionState>(twoLinesPriced)
+
+/**
+ * §5's confirmation block, as `setAddress` answers it on a basket with lines
+ * (ticket 167). Fixture 05's step 1 carries the **unchanged** state — the
+ * preview is the engine door run and not persisted — so what this exports is the
+ * `pendingConfirmation` off it, which is the only part of that payload the
+ * console reads: the sheet draws the diff, and `applyState` rightly keeps the
+ * state already on screen because the version did not move.
+ */
+export const REBIND_PREVIEW: PendingConfirmation =
+  payload<{ pendingConfirmation: PendingConfirmation }>(rebindPreview.step1_preview).pendingConfirmation
+
+/**
+ * The `REBIND_REFUSED` envelope's `data` — the atomic refusal's own
+ * `unpriceableLines[]`, which `core/api.ts` carries onto the thrown `ApiError`.
+ *
+ * 🚩 Fixture 06's own note says core DROPS `data`; that is out of date —
+ * `ApiError` carries it (`src/core/api.ts`, the `data` constructor argument).
+ * Both paths are covered anyway (`store-move.ts` falls back to the preview),
+ * because the offending lines ride both by contract (§5.1) and neither source
+ * may be the only one the banner can name a line from.
+ */
+export const REBIND_REFUSAL_DATA: unknown = rebindRefused.commit.response.data

@@ -76,9 +76,10 @@ const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ' // Crockford base32
  * 50 legible when something goes wrong.
  *
  * **One action = one id**, reused verbatim across every retry of that action
- * including the retry that carries a `confirmToken`. Slice 0 has exactly one
- * mutating action (`open`) and therefore one call site; the discipline that
- * threads an id through a retry lands with the verbs that retry.
+ * including the retry that carries a `confirmToken`. That two-phase case is a
+ * rule rather than a convention, so it does not live at a call site: `store-move.ts`
+ * mints a rebind's id once and carries it through the confirm and the
+ * re-preview, and is the only module here that calls this function for one.
  */
 export function newRequestId(): string {
   let time = Date.now()
@@ -228,6 +229,38 @@ export const callCenterApi = {
       transactionId,
       requestId,
       addressNumber,
+      ...(confirmToken ? { confirmToken } : {}),
+    })
+  },
+
+  /**
+   * `POST CallCenterWeb/SetStore` → the whole `SessionState` (law 2). The
+   * **explicit operator override** of the fulfilment store (§5.1) — the same
+   * plant rebind `setAddress` reaches by derivation, asked for deliberately.
+   *
+   * 🚩 It is the SAME two-phase protocol, not a second one: on a basket with
+   * lines whose plant would move it answers `200` with the unchanged state and
+   * `pendingConfirmation: storeChange`, and the re-send carrying that token
+   * commits exactly what was previewed — on the **same `requestId`** (§4). A
+   * second confirmation mechanism would be a defect
+   * ([167](.issues/167-store-move-shows-the-diff.md)).
+   *
+   * The store list it picks from is the whole estate, unfiltered (§2.2, CC2's
+   * own behaviour) and is a reference read **off the door** — `StoreDetails`,
+   * already served by `@/core/services/lookups.ts`. Nothing about which store
+   * is legal is decided here: `capabilities.canChangeStore` opens the control
+   * and the door refuses what it will not do.
+   */
+  setStore(
+    transactionId: string,
+    requestId: string,
+    storeCode: string,
+    confirmToken?: string,
+  ): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/SetStore', {
+      transactionId,
+      requestId,
+      storeCode,
       ...(confirmToken ? { confirmToken } : {}),
     })
   },

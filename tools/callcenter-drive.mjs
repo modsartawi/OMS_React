@@ -83,6 +83,24 @@
 //    25. the book is read when it is OPENED (not when a caller is attached), a
 //        failed read is not a dead end, and the next caller's book never opens by
 //        itself off the previous caller's intent.
+//
+// Asserts ticket 167's Proof:
+//   aStoreMoveIsPreviewedThenCommitted
+//    26. a store change on a basket WITH lines returns the UNCHANGED state plus a
+//        modal naming the diff line by line — price movement, the promotion whose
+//        value moves, the delivery fee, the availability re-freeze — and declining
+//        leaves no trace; and a preview that already names an unpriceable line
+//        refuses the commit HERE rather than after a round trip (26b);
+//    27. accepting commits exactly what was previewed, as a second send of the
+//        same verb on the SAME requestId carrying the token;
+//    28. a stale token RE-PREVIEWS instead of committing — the token is dropped,
+//        the id is not, and the agent is told why they are being asked twice;
+//    30. the deliberate override rides SetStore into the SAME sheet — one
+//        confirmation mechanism, not two — and the chip stops saying *derived*.
+//   aRefusedRebindChangesNothingAndSaysWhichLine
+//    29. REBIND_REFUSED draws the banner in the server's own words, names the
+//        offending line THERE and tints it in the basket, and leaves the store,
+//        the total and the lines exactly as they were.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -247,6 +265,102 @@ const ADDRESS_REFUSALS = {
   notTheirs: addressRefusalResponse('ADDRESS_NOT_FOR_CUSTOMER', 403, 'Address 77120 not found for customer.'),
 }
 
+// ---- ticket 167: the plant rebind, previewed then committed ----
+//
+// The two-phase protocol is the SERVER's (CONTRACT.md §5), so it lives in the
+// stub: a plant that would move on a basket with lines answers 200 with the
+// UNCHANGED state plus a token, and the re-send carrying that token commits.
+//
+// The diff is fixture 05's own `detail`, verbatim except for the two plants —
+// which are taken from the stub's own derivation table so the sheet and the chip
+// cannot disagree. Its `lineDiffs` already name L1/L2, which are exactly the
+// lines fixture 02 puts in the basket: a diff about lines the basket does not
+// hold could not prove that the sheet names what the agent is holding.
+const REBIND_DETAIL = raw('05-rebind-preview').step1_preview.response.data.pendingConfirmation.detail
+const CONFIRM_TOKEN = raw('05-rebind-preview').step1_preview.response.data.pendingConfirmation.confirmToken
+
+// Fixture 06's OWN preview half — the diff that already names a line which does
+// not price at the new store. Its own note is the point: "the preview already
+// showed it … so the console can refuse before the agent commits." The offending
+// line's identity is varied to one this basket actually holds, as below.
+const REFUSING_DETAIL = raw('06-rebind-refused').preview.pendingConfirmation.detail
+
+const previewOf = (state, plant, refuses) => ({
+  kind: 'storeChange',
+  confirmToken: CONFIRM_TOKEN,
+  expiresInMs: 120000,
+  detail: {
+    ...(refuses ? REFUSING_DETAIL : REBIND_DETAIL),
+    ...(refuses
+      ? {
+          unpriceableLines: REFUSING_DETAIL.unpriceableLines.map((row) => ({
+            ...row,
+            lineId: PRIOR_STATE.lines[1].lineId,
+            itemNumber: PRIOR_STATE.lines[1].itemNumber,
+            description: PRIOR_STATE.lines[1].description,
+          })),
+        }
+      : {}),
+    fromPlant: state.header.plant,
+    fromPlantName: state.header.plantName,
+    toPlant: plant.plant,
+    toPlantName: plant.plantName,
+  },
+})
+
+// §7's `CONFIRM_TOKEN_STALE`. Hand-built: 136 froze nine payloads and this is not
+// one of them, so the drive spells the envelope and only the code is load-bearing.
+const STALE_TOKEN = {
+  status: 409,
+  contentType: 'application/json',
+  body: JSON.stringify({
+    statusCode: 409,
+    success: false,
+    message: 'The basket changed while that preview was open.',
+    errors: [{ errorCode: 'CONFIRM_TOKEN_STALE', internalErrorCode: '', errorMessage: '' }],
+    data: null,
+  }),
+}
+
+// Fixture 06's atomic refusal — its envelope, its message, its `data` shape, with
+// the offending line's IDENTITY varied to one that is actually in this basket
+// (the fixture's L3 is not). "The named line is tinted" is a claim about the
+// basket on screen; the same device `FRESH_ID` uses.
+const REFUSED_COMMIT = (() => {
+  const response = raw('06-rebind-refused').commit.response
+  const line = PRIOR_STATE.lines[1]
+  return {
+    status: response.statusCode,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      ...response,
+      data: {
+        unpriceableLines: response.data.unpriceableLines.map((row) => ({
+          ...row,
+          lineId: line.lineId,
+          itemNumber: line.itemNumber,
+          description: line.description,
+        })),
+      },
+    }),
+  }
+})()
+const REFUSED_MESSAGE = raw('06-rebind-refused').commit.response.message
+const REFUSED_LINE = PRIOR_STATE.lines[1]
+
+// The estate as `SdDocument/StoreDetails` answers it — a reference read OFF the
+// call-center door (137), already shared app-wide. Unfiltered on purpose (§2.2):
+// the door refuses what it will not do, and a client-side filter here would be a
+// second opinion about fulfilment.
+const STORE_DETAILS = [
+  { storeCode: '1101', city: 'Riyadh', region: 'Central', storeAddress: 'Al Malqa', deliveryStore: true, latitude: '', longitude: '', wasfatyRefill: false },
+  { storeCode: '1204', city: 'Riyadh', region: 'Central', storeAddress: 'Olaya North', deliveryStore: true, latitude: '', longitude: '', wasfatyRefill: false },
+  { storeCode: '2301', city: 'Jeddah', region: 'Western', storeAddress: 'Al Rawdah', deliveryStore: true, latitude: '', longitude: '', wasfatyRefill: false },
+]
+const STORE_PLANT = Object.fromEntries(
+  STORE_DETAILS.map((s) => [s.storeCode, { plant: s.storeCode, plantName: `${s.city} — ${s.storeAddress}` }]),
+)
+
 // §7 — CONSOLE_NOT_GRANTED is a 403 CARRYING the envelope, so `core/api.ts` maps
 // it to kind:'business' and `apiErrorCode()` can read it. A refusal, not a fault.
 const REFUSAL = {
@@ -300,6 +414,14 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
  *                       `'noCustomer'` / `'notTheirs'` refuse with §6.3's two codes.
  *                       The book READ still answers normally — the agent has to be
  *                       able to reach the address before the refusal is about it.
+ * @param opts.rebind    how the CONFIRM re-send answers (167): `null` commits,
+ *                       `'staleOnce'` refuses the first token with
+ *                       CONFIRM_TOKEN_STALE and commits the next one, `'refused'`
+ *                       answers fixture 06's atomic REBIND_REFUSED every time,
+ *                       and `'previewRefuses'` raises fixture 06's PREVIEW half —
+ *                       a diff that already names an unpriceable line.
+ *                       Otherwise the preview is unaffected: the agent must be
+ *                       able to see the diff before the commit is what is tested.
  */
 async function open(
   browser,
@@ -316,10 +438,12 @@ async function open(
     memberFound = true,
     addressRefusal = null,
     bookFailures = 0,
+    rebind = null,
   } = {},
 ) {
   let stateReads = 0
   let bookReads = 0
+  let staleSpent = false
   // The state this stub last served, so the two customer verbs (165) answer
   // about the order on screen rather than about a fixture.
   let served = openState ?? STATE
@@ -406,29 +530,59 @@ async function open(
         return route.fulfill(envelope(null, { status: 500, success: false, message: 'book read failed' }))
       return route.fulfill(envelope(ADDRESS_BOOK))
     }
-    if (p === 'CallCenterWeb/SetAddress') {
-      if (addressRefusal) return route.fulfill(ADDRESS_REFUSALS[addressRefusal])
-      const number = route.request().postDataJSON().addressNumber
-      const entry = ADDRESS_BOOK.find((a) => a.addressNumber === number)
-      const derived = DERIVED_PLANT[number]
+    // ---- 166 / 167: the two verbs that move the plant, one protocol ----
+    if (p === 'CallCenterWeb/SetAddress' || p === 'CallCenterWeb/SetStore') {
+      if (addressRefusal && p === 'CallCenterWeb/SetAddress')
+        return route.fulfill(ADDRESS_REFUSALS[addressRefusal])
+      const body = route.request().postDataJSON()
+      const isAddress = p === 'CallCenterWeb/SetAddress'
+      // 🚩 The district→store rule is the SERVER's; the override names a store
+      // outright. Either way nothing the CLIENT sent decided a plant on the
+      // address path — the request carries an address number and nothing else.
+      const target = isAddress ? DERIVED_PLANT[body.addressNumber] : STORE_PLANT[body.storeCode]
+
+      // §5.1 — the confirmation exists only where money on screen would move: a
+      // basket with lines AND a plant that actually changes. An empty basket or
+      // an unchanged plant applies inline with no confirmation at all.
+      const moves = served.lines.length > 0 && target.plant !== served.header.plant
+      if (moves && !body.confirmToken)
+        // 🚩 200, success, the UNCHANGED state — same version, nothing persisted.
+        return route.fulfill(
+          envelope(speak({ ...served, pendingConfirmation: previewOf(served, target, rebind === 'previewRefuses') })),
+        )
+      if (moves && body.confirmToken) {
+        if (rebind === 'refused') return route.fulfill(REFUSED_COMMIT)
+        if (rebind === 'staleOnce' && !staleSpent) {
+          staleSpent = true
+          return route.fulfill(STALE_TOKEN)
+        }
+      }
+
+      const entry = isAddress ? ADDRESS_BOOK.find((a) => a.addressNumber === body.addressNumber) : null
       served = {
         ...served,
         version: served.version + 1,
+        pendingConfirmation: null,
         header: {
           ...served.header,
-          address: {
-            addressNumber: number,
-            label: entry.labelNameEn,
-            cityCode: entry.address.cityCode,
-            cityName: entry.address.cityName,
-            districtCode: entry.address.districtCode,
-            districtName: entry.address.districtName,
-            line: [entry.address.street1, entry.address.street2].filter(Boolean).join(', '),
-          },
-          // 🚩 The server derived it. Nothing the client sent named a plant.
-          plant: derived.plant,
-          plantName: derived.plantName,
-          plantSource: 'derivedFromAddress',
+          ...(isAddress
+            ? {
+                address: {
+                  addressNumber: body.addressNumber,
+                  label: entry.labelNameEn,
+                  cityCode: entry.address.cityCode,
+                  cityName: entry.address.cityName,
+                  districtCode: entry.address.districtCode,
+                  districtName: entry.address.districtName,
+                  line: [entry.address.street1, entry.address.street2].filter(Boolean).join(', '),
+                },
+              }
+            : {}),
+          plant: target.plant,
+          plantName: target.plantName,
+          // The provenance is the server's answer to "why that branch?" — derived
+          // from the address, or chosen by this operator.
+          plantSource: isAddress ? 'derivedFromAddress' : 'operatorOverride',
         },
         capabilities: {
           ...served.capabilities,
@@ -437,6 +591,8 @@ async function open(
       }
       return route.fulfill(envelope(speak(served)))
     }
+    // The estate, off the door and shared app-wide (137).
+    if (p === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORE_DETAILS))
     if (p === 'CallCenterWeb/RemoveCustomer') {
       served = removedFrom(served)
       return route.fulfill(envelope(speak(served)))
@@ -1332,6 +1488,331 @@ async function run() {
       'the next caller’s book does not open by itself',
       (await page.locator('[data-cc-address-picker]').count()) === 0,
     )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ====== ticket 167 — the store move is previewed, committed, or refused ======
+
+  /** A LIVE order — a caller, an address, two priced lines — with its address
+   *  book open. Everything below starts here: the confirmation exists only where
+   *  there is money on screen to move. */
+  const openTheBookOnALiveOrder = async (page) => {
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-change-address]').click()
+    await page.locator('[data-cc-address-picker]').waitFor({ timeout: 10_000 })
+  }
+  const MOVED_TO = DERIVED_PLANT['77121']
+
+  // ---- 26. a move on a live basket is PREVIEWED, and declining leaves nothing ----
+  {
+    const { context, page, errors, calls, wire } = await open(browser, { openState: PRIOR_STATE })
+    await page.goto(`${BASE}/callcenter`)
+    await openTheBookOnALiveOrder(page)
+
+    const storeBefore = (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ')
+    const payableBefore = await text(page, '[data-cc-payable]')
+
+    await page.locator('[data-cc-address-option="77121"]').click()
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ timeout: 10_000 })
+
+    // 🚩 The heart of it: the server answered 200 with the UNCHANGED state, so
+    // nothing on the order has moved while the agent reads what would.
+    check(
+      'the store chip has NOT moved — the preview is not an application',
+      (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ') === storeBefore,
+      await text(page, '[data-cc-chip="store"]'),
+    )
+    check('and the total is exactly what it was', (await text(page, '[data-cc-payable]')) === payableBefore)
+    check('the basket is untouched', (await page.locator('[data-cc-line]').count()) === PRIOR_STATE.lines.length)
+
+    // A modal sheet, ruled at 135: an inline card in a scrolling flow can be
+    // scrolled past, and this is a moment that must be able to stop the agent.
+    check('the preview is a modal, not a card in the flow', (await page.locator('dialog[open]').count()) === 1)
+    check(
+      'and it replaced the book rather than stacking on it',
+      (await page.locator('[data-cc-address-picker]').count()) === 0,
+    )
+
+    const sheet = (await text(page, '[data-cc-confirm-sheet="storeChange"]')).replace(/\s+/g, ' ')
+    check('it names where the order is moving from', (await text(page, '[data-cc-rebind-from]')).includes(PRIOR_STATE.header.plant), sheet)
+    check('and where it is moving to', (await text(page, '[data-cc-rebind-to]')).includes(MOVED_TO.plant), sheet)
+    check(
+      'every line in the diff is named, line by line',
+      (await page.locator('[data-cc-rebind-line]').count()) === REBIND_DETAIL.lineDiffs.length,
+      `${await page.locator('[data-cc-rebind-line]').count()} of ${REBIND_DETAIL.lineDiffs.length}`,
+    )
+    for (const line of REBIND_DETAIL.lineDiffs) {
+      const row = (await text(page, `[data-cc-rebind-line="${line.lineId}"]`)).replace(/\s+/g, ' ')
+      check(
+        `line ${line.lineId} shows what it costs now and what it would cost`,
+        row.includes(line.fromGross.toFixed(2)) && row.includes(line.toGross.toFixed(2)),
+        row,
+      )
+    }
+    check(
+      'a promotion whose value moves is named with both amounts',
+      (await page.locator('[data-cc-rebind-promo]').count()) === REBIND_DETAIL.promotionsMoved.length &&
+        (await text(page, '[data-cc-rebind-promo]')).includes(Math.abs(REBIND_DETAIL.promotionsMoved[0].toAmount).toFixed(2)),
+      await text(page, '[data-cc-rebind-promo]'),
+    )
+    check(
+      'the availability re-freeze is named',
+      (await page.locator('[data-cc-rebind-atp]').count()) > 0,
+      (await text(page, '[data-cc-rebind-atp]')).replace(/\s+/g, ' '),
+    )
+    // The fee IS part of the diff (§2.2 recomputes it at the new plant) — it is
+    // drawn only when it moves, and fixture 05's own quote is 15.00 either side.
+    check(
+      'a delivery fee that does not move is not reported as a change',
+      REBIND_DETAIL.deliveryFee.fromAmount === REBIND_DETAIL.deliveryFee.toAmount &&
+        (await page.locator('[data-cc-rebind-fee]').count()) === 0,
+    )
+    check('nothing has been committed yet', count(calls, /^CallCenterWeb\/SetAddress$/) === 1)
+    check(
+      'and the one call carried no token — the preview IS the first send',
+      wire.filter((w) => w.path === 'CallCenterWeb/SetAddress').every((w) => !w.body.confirmToken),
+    )
+
+    // 🚩 Declining costs nothing: the preview was the engine door run and not
+    // persisted, which is why there is no dry-run flag (129).
+    await page.locator('[data-cc-confirm-decline]').click()
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ state: 'detached', timeout: 10_000 })
+    check('declining sends nothing at all', count(calls, /^CallCenterWeb\/(SetAddress|SetStore)$/) === 1)
+    check('and leaves no trace on the order', (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ') === storeBefore)
+    check('no modal is left on screen', (await page.locator('dialog[open]').count()) === 0)
+    check('the console is still there, holding the same order', await page.locator('[data-cc-console]').isVisible())
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 26b. a preview that already names an unpriceable line offers no commit ----
+  {
+    // Fixture 06's own preview half. Its note: the console can refuse BEFORE the
+    // agent commits, because `unpriceableLines[]` rides the preview as well as
+    // the refusal (§5.1). A button whose only possible answer is REBIND_REFUSED
+    // is a refusal the agent has to discover by pressing it.
+    const { context, page, errors, calls } = await open(browser, {
+      openState: PRIOR_STATE,
+      rebind: 'previewRefuses',
+    })
+    await page.goto(`${BASE}/callcenter`)
+    await openTheBookOnALiveOrder(page)
+    await page.locator('[data-cc-address-option="77121"]').click()
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ timeout: 10_000 })
+
+    check(
+      'the preview names the line that would not price',
+      await page.locator(`[data-cc-rebind-unpriceable-line="${REFUSED_LINE.lineId}"]`).isVisible(),
+      (await text(page, '[data-cc-rebind-unpriceable]')).replace(/\s+/g, ' '),
+    )
+    check('and says the move is all-or-nothing', /all-or-nothing/i.test(await text(page, '[data-cc-rebind-unpriceable]')))
+    check('the commit is refused here, before it is sent', await page.locator('[data-cc-confirm-accept]').isDisabled())
+    check('backing out is still offered', await page.locator('[data-cc-confirm-decline]').isEnabled())
+
+    await page.locator('[data-cc-confirm-decline]').click()
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ state: 'detached', timeout: 10_000 })
+    check('nothing was ever committed', count(calls, /^CallCenterWeb\/SetAddress$/) === 1)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 27. accepting commits exactly what was previewed, on the SAME id ----
+  {
+    const { context, page, errors, calls, wire } = await open(browser, { openState: PRIOR_STATE })
+    await page.goto(`${BASE}/callcenter`)
+    await openTheBookOnALiveOrder(page)
+    await page.locator('[data-cc-address-option="77121"]').click()
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ timeout: 10_000 })
+
+    await page.locator('[data-cc-confirm-accept]').click()
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ state: 'detached', timeout: 10_000 })
+
+    const sends = wire.filter((w) => w.path === 'CallCenterWeb/SetAddress')
+    check('the commit is a second send of the same verb', sends.length === 2)
+    // 🚩 One user action is one requestId — INCLUDING the retry that carries the
+    // token (§4). A fresh id here is the double-apply the ledger exists to stop.
+    check(
+      'on the SAME requestId as the preview',
+      sends[0].body.requestId === sends[1].body.requestId,
+      `${sends[0].body.requestId} | ${sends[1].body.requestId}`,
+    )
+    check(
+      'carrying the token the preview was pinned with',
+      !sends[0].body.confirmToken && sends[1].body.confirmToken === CONFIRM_TOKEN,
+      JSON.stringify(sends[1].body),
+    )
+    check('and naming the same address the agent picked', sends[1].body.addressNumber === '77121')
+
+    const storeAfter = (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ')
+    check(
+      'the order is now at the store the preview named',
+      storeAfter.includes(MOVED_TO.plant) && !storeAfter.includes(PRIOR_STATE.header.plant),
+      storeAfter,
+    )
+    check('and it still reads as derived — the address decided it', /derived/i.test(storeAfter), storeAfter)
+    check('the basket survived the move', (await page.locator('[data-cc-line]').count()) === PRIOR_STATE.lines.length)
+    check('no refusal banner', (await page.locator('[data-cc-rebind-refused]').count()) === 0)
+    check('and the address book did not spring back open', (await page.locator('[data-cc-address-picker]').count()) === 0)
+    check('it opened no order to do it', count(calls, /^CallCenterWeb\/Open$/) === 1)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 28. a stale token RE-PREVIEWS — it never commits a diff unseen ----
+  {
+    const { context, page, errors, wire } = await open(browser, { openState: PRIOR_STATE, rebind: 'staleOnce' })
+    await page.goto(`${BASE}/callcenter`)
+    await openTheBookOnALiveOrder(page)
+    await page.locator('[data-cc-address-option="77121"]').click()
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-confirm-accept]').click()
+
+    // 🚩 The basket moved underneath the preview, so the agent is shown a fresh
+    // one rather than having the old diff committed for them.
+    await page.locator('[data-cc-confirm-reissued]').waitFor({ timeout: 10_000 })
+    check('a stale token re-previews rather than committing', await page.locator('[data-cc-confirm-sheet="storeChange"]').isVisible())
+    check(
+      'and says why they are being asked twice',
+      (await text(page, '[data-cc-confirm-reissued]')).length > 40,
+      (await text(page, '[data-cc-confirm-reissued]')).replace(/\s+/g, ' '),
+    )
+    check('no machine code reaches the agent', !/[A-Z]{3,}_[A-Z_]+/.test(await text(page, '[data-cc-confirm-sheet="storeChange"]')))
+
+    const sends = wire.filter((w) => w.path === 'CallCenterWeb/SetAddress')
+    check('it took three sends: preview, refused commit, fresh preview', sends.length === 3, String(sends.length))
+    check(
+      'the re-send dropped the token — a fresh preview, not a second commit',
+      sends[1].body.confirmToken === CONFIRM_TOKEN && !sends[2].body.confirmToken,
+      sends.map((s) => s.body.confirmToken ?? '—').join(' | '),
+    )
+    // Still one action: the agent asked once.
+    check(
+      'and all three carry the one requestId',
+      new Set(sends.map((s) => s.body.requestId)).size === 1,
+      sends.map((s) => s.body.requestId).join(' | '),
+    )
+    check(
+      'nothing was committed while that happened',
+      (await text(page, '[data-cc-chip="store"]')).includes(PRIOR_STATE.header.plant),
+      await text(page, '[data-cc-chip="store"]'),
+    )
+
+    // And the fresh preview commits normally — the ceiling is one re-issue, not a loop.
+    await page.locator('[data-cc-confirm-accept]').click()
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ state: 'detached', timeout: 10_000 })
+    check(
+      'accepting the fresh preview lands the move',
+      (await text(page, '[data-cc-chip="store"]')).includes(MOVED_TO.plant),
+      await text(page, '[data-cc-chip="store"]'),
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 29. REBIND_REFUSED — whole, named twice, and byte-identical after ----
+  {
+    const { context, page, errors } = await open(browser, { openState: PRIOR_STATE, rebind: 'refused' })
+    await page.goto(`${BASE}/callcenter`)
+    await openTheBookOnALiveOrder(page)
+
+    const storeBefore = (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ')
+    const payableBefore = await text(page, '[data-cc-payable]')
+    const basketBefore = (await text(page, '[data-cc-basket]')).replace(/\s+/g, ' ')
+
+    await page.locator('[data-cc-address-option="77121"]').click()
+    await page.locator('[data-cc-confirm-accept]').click()
+    await page.locator('[data-cc-rebind-refused]').waitFor({ timeout: 10_000 })
+
+    const banner = (await text(page, '[data-cc-rebind-refused]')).replace(/\s+/g, ' ')
+    check('the refusal is a banner, not a crash surface', await page.locator('[data-cc-console]').isVisible())
+    check("and it is the server's own sentence", banner.includes(REFUSED_MESSAGE), banner)
+    check('no machine code reaches the agent', !/[A-Z]{3,}_[A-Z_]+/.test(banner), banner)
+    check('it says nothing was changed', /nothing was changed/i.test(banner), banner)
+    // 🚩 Named TWICE — in the banner and on the line — so "nothing was changed,
+    // fix this line" is legible in one glance.
+    check(
+      'the banner names the offending line',
+      (await page.locator(`[data-cc-refused-line="${REFUSED_LINE.lineId}"]`).isVisible()) &&
+        banner.includes(REFUSED_LINE.itemNumber),
+      banner,
+    )
+    check(
+      'and that line is tinted in the basket',
+      await page.locator(`[data-cc-line-refused="${REFUSED_LINE.lineId}"]`).isVisible(),
+    )
+    check(
+      'only that line — the refusal is about one of them',
+      (await page.locator('[data-cc-line-refused]').count()) === 1,
+    )
+
+    // 🚩 Atomic: nothing partial is ever persisted.
+    check('the sheet is gone — there is nothing left to confirm', (await page.locator('[data-cc-confirm-sheet="storeChange"]').count()) === 0)
+    check('the store did not move', (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ') === storeBefore, storeBefore)
+    check('the total did not move', (await text(page, '[data-cc-payable]')) === payableBefore)
+    check(
+      'and the basket is byte-identical apart from the tint',
+      (await text(page, '[data-cc-basket]')).replace(/\s+/g, ' ').includes(basketBefore.split(' ').slice(0, 6).join(' ')) &&
+        (await page.locator('[data-cc-line]').count()) === PRIOR_STATE.lines.length,
+    )
+
+    // It is a refusal to read once, not a state to be stuck in.
+    await page.locator('[data-cc-rebind-refused-dismiss]').click()
+    await page.locator('[data-cc-rebind-refused]').waitFor({ state: 'detached', timeout: 10_000 })
+    check('the banner can be dismissed once read', (await page.locator('[data-cc-line-refused]').count()) === 0)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 30. the deliberate override takes the SAME path, not a second one ----
+  {
+    const { context, page, errors, calls, wire } = await open(browser, { openState: PRIOR_STATE })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    // The chip re-opens the section it collapsed (135's progressive collapse).
+    check('the store chip is the way back in', await page.locator('[data-cc-chip-open="store"]').isVisible())
+    check(
+      'and the estate is not read until it is opened',
+      count(calls, /StoreDetails/) === 0,
+      calls.filter((c) => /StoreDetails/.test(c)).join(', '),
+    )
+
+    await page.locator('[data-cc-chip-open="store"]').click()
+    await page.locator('[data-cc-store-picker]').waitFor({ timeout: 10_000 })
+    check('opening it reads the estate once', count(calls, /StoreDetails/) === 1)
+    check(
+      'unfiltered — the door refuses what it will not do, not the console',
+      (await page.locator('[data-cc-store-option]').count()) === STORE_DETAILS.length,
+      `${await page.locator('[data-cc-store-option]').count()} of ${STORE_DETAILS.length}`,
+    )
+    check(
+      'the store already on the order is marked and not offered',
+      (await page.locator('[data-cc-store-current]').isVisible()) &&
+        (await page.locator(`[data-cc-store-option="${PRIOR_STATE.header.plant}"]`).isDisabled()),
+    )
+
+    await page.locator('[data-cc-store-option="1204"]').click()
+    // 🚩 The same modal, from the other door. A second confirmation mechanism
+    // would be the defect this box exists to catch.
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ timeout: 10_000 })
+    check('an override is previewed by the same sheet', (await page.locator('[data-cc-rebind-line]').count()) > 0)
+    check('the store picker gave way to it', (await page.locator('[data-cc-store-picker]').count()) === 0)
+
+    await page.locator('[data-cc-confirm-accept]').click()
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ state: 'detached', timeout: 10_000 })
+
+    const sends = wire.filter((w) => w.path === 'CallCenterWeb/SetStore')
+    check('the override rides SetStore, twice, on one requestId', sends.length === 2 && sends[0].body.requestId === sends[1].body.requestId)
+    check('naming the store the agent chose', sends[0].body.storeCode === '1204' && !('addressNumber' in sends[0].body))
+    check('and the commit carries the token', sends[1].body.confirmToken === CONFIRM_TOKEN)
+    check('SetAddress was never involved', count(calls, /^CallCenterWeb\/SetAddress$/) === 0)
+
+    const storeAfter = (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ')
+    check('the chip moved to the chosen store', storeAfter.includes('1204'), storeAfter)
+    // 🚩 The provenance is the server's, and it changed: this branch was CHOSEN.
+    // A chip that still said *derived* would be explaining the wrong decision.
+    check('and no longer reads as derived — this one was chosen', !/derived/i.test(storeAfter), storeAfter)
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }

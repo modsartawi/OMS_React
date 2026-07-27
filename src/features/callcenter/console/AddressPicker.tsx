@@ -8,9 +8,11 @@
  * 1. 🚩 **One click applies.** On an empty basket there is nothing to re-price,
  *    so §5.1 raises no confirmation and this dialog must not invent one — a
  *    select-then-confirm step here would be a modal in front of a modal for a
- *    change that costs nothing. A basket WITH lines takes the confirm path,
- *    which is [167](.issues/167-store-move-shows-the-diff.md)'s; until it lands,
- *    the preview is stated rather than silently dropped.
+ *    change that costs nothing. A basket WITH lines takes the confirm path
+ *    ([167](.issues/167-store-move-shows-the-diff.md)), which is the page's:
+ *    the answer to the pick carries the preview, and `StoreMoveConfirm` draws
+ *    it in place of this dialog. There is exactly one confirmation mechanism on
+ *    this screen and it is not here.
  * 2. 🚩 **Both refusals are explained, and neither reads as "not found."** An
  *    address act before a caller is attached and an address belonging to someone
  *    else are different facts, and the distinction matters to support (§6.3).
@@ -30,6 +32,7 @@ import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
 import { addressBookKey, callCenterApi } from './api'
 import { addressChoices, addressRefusalKey } from './address-book'
+import { NOTE } from './console-notes'
 
 /**
  * `setAddress` and everything it is currently saying, as one prop — they are one
@@ -43,9 +46,6 @@ export interface AddressApply {
   /** The failed `setAddress`, raw. Explained here so that the list read and the
    *  apply — which refuse with the SAME two codes — cannot drift apart. */
   error: unknown
-  /** The server answered `pendingConfirmation: storeChange` — the basket has
-   *  lines and the move must be previewed (167). */
-  confirmNeeded: boolean
   onPick: (addressNumber: string) => void
 }
 
@@ -66,7 +66,7 @@ export default function AddressPicker({
   onClose: () => void
 }) {
   const { t } = useTranslation('callcenter')
-  const { pending, error: applyError, confirmNeeded, onPick } = apply
+  const { pending, error: applyError, onPick } = apply
 
   const book = useQuery({
     queryKey: addressBookKey(customerId),
@@ -178,18 +178,6 @@ export default function AddressPicker({
         {applyError !== null && applyError !== undefined && (
           <Refusal error={applyError} fallbackKey="address.applyFailed" />
         )}
-
-        {confirmNeeded && (
-          // §5.1 — the basket has lines, so the move is a preview the agent must
-          // see before it commits. Drawing that diff is 167's; what this slice
-          // owes is that nothing changed and that the agent knows why.
-          <p
-            className="rounded-md border border-attention-border bg-attention-050 p-2 text-xs text-attention-800"
-            data-cc-address-confirm-needed
-          >
-            {t('address.confirmNeeded')}
-          </p>
-        )}
       </div>
     </Modal>
   )
@@ -204,10 +192,7 @@ function Refusal({ error, fallbackKey }: { error: unknown; fallbackKey: string }
   const { t } = useTranslation('callcenter')
   const explained = addressRefusalKey(apiErrorCode(error))
   return (
-    <p
-      className="rounded-md border border-danger-border bg-danger-050 p-2 text-xs text-danger-800"
-      data-cc-address-error
-    >
+    <p className={NOTE.danger} data-cc-address-error>
       {explained ? t(explained) : apiErrorMessage(error, t(fallbackKey))}
     </p>
   )

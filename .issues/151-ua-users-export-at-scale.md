@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 147
 blocked-by: 150
 ---
@@ -45,16 +45,42 @@ outcome toasts) · test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `theWalkStopsAndDedupes` — driven in-memory with a fake page fetcher: walks from 0 in steps of
+- [x] `theWalkStopsAndDedupes` — driven in-memory with a fake page fetcher: walks from 0 in steps of
       50, stops when `isCapped` goes false, the 200-page guard fires against a fetcher that never
-      stops, and an `employeeId` appearing on two pages lands once · pure
-- [ ] `cancelOrErrorYieldsNoRows` — cancelling mid-walk and a page that throws both make the walk
+      stops, and an `employeeId` appearing on two pages lands once · pure ·
+      `src/features/admin/ua-admin/export.test.ts`
+- [x] `cancelOrErrorYieldsNoRows` — cancelling mid-walk and a page that throws both make the walk
       **refuse to return a result** rather than return what it had; asserted at the walk's edge, not
-      as "no file was written" · pure
-- [ ] `exportingEverybodyAsksFirst` — drive: Export on *All people* raises a confirm naming the row
+      as "no file was written" · pure · same file (plus `theConfirmIsAWaitTimeDevice` over
+      `needsConfirm` / `estimateWalkSeconds`) — 298 tests green
+- [x] `exportingEverybodyAsksFirst` — drive: Export on *All people* raises a confirm naming the row
       count; dismissing it does nothing at all; confirming shows a progress toast that can be
       cancelled, after which no file has downloaded · flow (Playwright, extends
-      `tools/ua-users-scale-drive.mjs`)
+      `tools/ua-users-scale-drive.mjs` — sections 11/12, plus 13 letting the walk finish to prove
+      6,000 identities land exactly once) — **70/70**, with `typecheck` / `lint` / `build` green
+
+## What it took
+
+- `export.ts` gained the guards around the existing walk: `isCancelled` polled **before and after**
+  every page (the page in flight when Cancel is clicked must not be able to complete the walk), an
+  `employeeId` `Set` for the dedupe, `onProgress` for the toast, `needsConfirm` +
+  `estimateWalkSeconds` as pure functions so the threshold is one testable fact rather than a `>` on
+  a screen, and two named errors — `ExportCancelledError` and `ExportRunawayError`. The walk
+  **throws** on both, which is the no-partial-file rule expressed where it can be tested.
+- 🚩 Review caught a real hole: the confirm read `list.data?.totalMatches ?? 0`, so an export fired
+  before the first read settled (or after a failed one) saw **0 matches**, skipped the dialog, and
+  walked 6,000 people with no progress and no Cancel — the exact outcome the ticket forbids. The
+  count is now required: the button is dead until `list.data` lands, and `exportCsv` returns early.
+- The runaway guard got its own error type because `apiErrorMessage` would render it as a generic
+  "unexpected" — "the walk never ended" is different news for an administrator than "the server
+  refused", so it carries `export.runawayDetail`.
+- The progress toast is one sonner id re-fired per page (120 pages updating one toast, not 120
+  toasts), `duration: Infinity`, with the cancel affordance flipping a **ref** — the running walk
+  polls it between pages and must see the click without waiting for a render.
+- `exporting` is now taken **before** the confirm rather than after: the dialog is awaited, and a
+  button that stayed live through it could open a second dialog and start a second walk.
+- Copy check: nothing in the dialog, the keys or the comments frames the confirm as a control — it
+  is written up as a wait-time device throughout, per ticket 146.
 
 ## Boundaries
 

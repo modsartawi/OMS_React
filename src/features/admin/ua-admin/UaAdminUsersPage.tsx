@@ -1,14 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
+import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { UaReportCountsResult } from '@/core/models/ua-user'
 import { deriveStatus, formatStamp } from './helpers'
 import { buildUaUsersCsv, csvFileName } from './csv'
-import { collectAllRows, downloadCsv } from './export'
+import {
+  ExportCancelledError,
+  ExportRunawayError,
+  collectAllRows,
+  downloadCsv,
+  estimateWalkSeconds,
+  needsConfirm,
+} from './export'
 import { uaAdminApi } from './api'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from './pager'
 import GridPager from './GridPager'
@@ -36,6 +45,9 @@ const CARDS: { card: string; count: (c: UaReportCountsResult) => number; tone: s
  */
 type Query = { kind: 'search'; term: string; page: number } | { kind: 'card'; card: string; page: number }
 
+/** One id for the export's progress toast, so 120 pages update one toast. */
+const EXPORT_TOAST_ID = 'ua-users-export'
+
 export default function UaAdminUsersPage() {
   const { t } = useTranslation('ua-admin')
   const qc = useQueryClient()
@@ -46,6 +58,9 @@ export default function UaAdminUsersPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
+  // A ref, not state: the running walk polls this between pages, and it must see
+  // the click immediately rather than on the next render.
+  const cancelExport = useRef(false)
 
   const access = useQuery({ queryKey: ['ua-admin', 'access'], queryFn: () => uaAdminApi.access() })
   const counts = useQuery({
@@ -123,30 +138,86 @@ export default function UaAdminUsersPage() {
   /**
    * The export walks the CURRENT QUERY's full match set from page 1 — it ignores
    * whichever page is on screen (spec 147, story 21), and it walks with
-   * `uaAdminApi` directly so it never writes to the mounted query's cache.
+   * `uaAdminApi` directly so it never writes to the mounted query's cache:
+   * downloading must not double as a navigation event.
    *
-   * This is the routine path: a narrowed card, no dialog, the file just arrives.
-   * Ticket 151 adds the >500 confirm, the cancellable progress toast and the
-   * dedupe a 45-second walk needs. The rule that already holds here: the string
-   * is built only once every page is in hand, so a failure means **no file at
-   * all** rather than a truncated one.
+   * Past `EXPORT_CONFIRM_THRESHOLD` matches the walk is long enough to feel hung,
+   * so it asks first (naming the count and the rough wait) and then runs behind a
+   * cancellable toast rather than a blocking modal — the screen stays usable.
+   * Below it, nothing appears: the file just arrives, as it does on every
+   * narrowed card.
+   *
+   * The rule in both directions: cancel or any failure ⇒ **no file at all**. The
+   * walk throws instead of returning what it had, so the string is never built
+   * and nothing partial can land in a downloads folder looking complete.
    */
   async function exportCsv() {
-    if (query === null || exporting) return
+    // `list.data` is what says how big this export is, so an unsettled count is
+    // not a small one: without this, an export fired before the first read
+    // landed would see 0 matches, skip the confirm and walk 6,000 people with no
+    // progress and no way to stop it. The button is disabled for the same reason.
+    if (query === null || exporting || list.data === undefined) return
     const q = query
+    const totalMatches = list.data.totalMatches
+    const long = needsConfirm(totalMatches)
+
+    // Taken BEFORE the confirm, not after: the dialog is awaited, and a button
+    // that stayed live through it could open a second dialog and start a second
+    // walk over the same query.
+    cancelExport.current = false
     setExporting(true)
+    // One toast id, so 120 pages update the same toast instead of stacking 120 of
+    // them. Only a long walk shows one — a card of 400 is over in a few seconds
+    // and the button's own spinner already says so.
+    const showProgress = (collected: number, total: number) => {
+      if (!long) return
+      toast.loading(t('export.progressTitle'), {
+        id: EXPORT_TOAST_ID,
+        description: t('export.progressDetail', {
+          done: collected.toLocaleString(),
+          total: total.toLocaleString(),
+        }),
+        duration: Infinity,
+        cancel: { label: t('export.cancel'), onClick: () => (cancelExport.current = true) },
+      })
+    }
+
     try {
-      const rows = await collectAllRows((page) =>
-        q.kind === 'search' ? uaAdminApi.search(q.term, page) : uaAdminApi.worklist(q.card, page),
+      if (long) {
+        const accepted = await confirmAction(
+          t('export.confirmBody', {
+            formatted: totalMatches.toLocaleString(),
+            seconds: estimateWalkSeconds(totalMatches),
+          }),
+          t('export.confirmTitle', { count: totalMatches, formatted: totalMatches.toLocaleString() }),
+        )
+        // Dismissed ⇒ nothing at all happened: no read, no toast, no file.
+        if (!accepted) return
+        showProgress(0, totalMatches)
+      }
+
+      const rows = await collectAllRows(
+        (page) => (q.kind === 'search' ? uaAdminApi.search(q.term, page) : uaAdminApi.worklist(q.card, page)),
+        {
+          isCancelled: () => cancelExport.current,
+          onProgress: (p) => showProgress(p.collected, p.totalMatches),
+        },
       )
       // A search exports under the scope `search`; a card under its own code —
       // the label wouldn't survive sanitising into a filename.
       const scope = q.kind === 'search' ? 'search' : q.card
       downloadCsv(csvFileName(scope, new Date()), buildUaUsersCsv(rows, (key) => t(key)))
     } catch (err) {
-      // No file at all — the string is never built, so nothing partial can land.
-      notify.apiError(t('export.failed'), err, t('toast.failed'))
+      // No file at all, whichever way it ended — the string is never built, so
+      // nothing partial can land. A cancellation says so quietly; the runaway
+      // guard says the walk never ended, which is not the same news as a refusal;
+      // anything else says what broke, through `apiErrorMessage`. 401 stays
+      // `handle401`'s business.
+      if (err instanceof ExportCancelledError) notify.info(t('export.cancelled'), t('export.cancelledDetail'))
+      else if (err instanceof ExportRunawayError) notify.error(t('export.failed'), t('export.runawayDetail'))
+      else notify.apiError(t('export.failed'), err, t('toast.failed'))
     } finally {
+      if (long) toast.dismiss(EXPORT_TOAST_ID)
       setExporting(false)
     }
   }
@@ -215,7 +286,10 @@ export default function UaAdminUsersPage() {
         <button
           className="inline-flex h-9 items-center gap-1.5 rounded-full border border-input px-4 text-sm font-medium hover:bg-accent disabled:opacity-50"
           onClick={() => void exportCsv()}
-          disabled={query === null || exporting}
+          // Dead until a count has landed: how many people this exports is what
+          // decides whether it asks first, so exporting before the first read
+          // settles would silently skip the confirm (ticket 151).
+          disabled={query === null || exporting || list.data === undefined}
         >
           {exporting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           {t('export.button')}

@@ -48,7 +48,16 @@
   },
   "export": {
     "button": "Export CSV",
-    "failed": "Export failed"
+    "confirmTitle": "Export {{formatted}} person?",
+    "confirmTitle_other": "Export {{formatted}} people?",
+    "confirmBody": "Building this file walks every page and takes about {{seconds}} seconds. Nothing downloads until the whole list is in hand, and you can stop it while it runs.",
+    "progressTitle": "Building the file",
+    "progressDetail": "{{done}} of {{total}} people collected.",
+    "cancel": "Cancel",
+    "cancelled": "Export stopped",
+    "cancelledDetail": "Nothing was downloaded.",
+    "failed": "Export failed",
+    "runawayDetail": "The list kept saying more people existed, so the export stopped instead of running on. Nothing was downloaded — report this."
   },
   "csv": {
     "yes": "Yes",

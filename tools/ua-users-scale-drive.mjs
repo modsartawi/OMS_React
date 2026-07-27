@@ -34,6 +34,13 @@
 //      the 50 on screen, walked from skip 0 in 50s, with the Excel guards intact
 //      and the grid undisturbed.
 //
+//
+// Ticket 151 adds, on *All people* (6,000 = 120 pages):
+//  11. Export raises a confirm naming the row count and the wait; dismissing it
+//      does nothing at all — no read, no toast, no file;
+//  12. confirming shows a cancellable progress toast, and cancelling stops the
+//      walk, says so, and leaves NO file behind.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/ua-users-scale-drive.mjs
 import { createRequire } from 'node:module'
@@ -90,6 +97,12 @@ const reads = []
 // rather than inferred from a number that happened not to move.
 let countsReads = 0
 const mutations = []
+// Ticket 151: an in-memory stub answers 120 pages faster than anyone can reach
+// the Cancel button, which would make "cancel mid-walk" untestable. Delaying the
+// *All people* pages restores the only property that matters here — that the
+// walk is long enough to interrupt.
+let allPageDelayMs = 0
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 /** The server's paging contract: `take` clamps down to 50, `isCapped` says a row
  *  exists past this page. Deterministic order, as every path already guarantees. */
@@ -155,6 +168,7 @@ await page.route('**/api/**', async (route) => {
           : which === 'awaitingActivation'
             ? ESTATE.filter((r) => awaiting.has(r.employeeId))
             : ESTATE
+    if (which === 'all' && allPageDelayMs) await sleep(allPageDelayMs)
     return route.fulfill(envelope(slice(pool, q.get('skip'), q.get('take'))))
   }
   if (path === 'UaAdminWeb/Employees' && req.method() === 'GET') {
@@ -430,6 +444,95 @@ check(
 check('the row carries labels, not wire codes', /,Usable,,SMS,Yes,Active,Yes,Yes,Active,No,2026-07-01 09:00$/.test(lines[2]), lines[2])
 check('exporting did not disturb the grid', (await readout()).trim() === 'Page 1 of 8', await readout())
 check('the export button came back live', await exportBtn.isEnabled())
+
+// ---- 11/12. exporting everybody warns first, and cancels with no file --------
+// Every download that fires from here on, so "no file at all" is asserted on the
+// browser rather than inferred from the absence of a timeout.
+const lateDownloads = []
+page.on('download', (d) => lateDownloads.push(d.suggestedFilename()))
+
+await page.getByRole('button', { name: /^6,000/ }).click()
+await page.waitForSelector('tbody tr', { timeout: 10000 })
+
+// 11a. the confirm names the count and the wait
+const readsBeforeDismissed = reads.length
+await exportBtn.click()
+const dialog = page.locator('dialog[open]')
+const progress = page.locator('[data-sonner-toast]').filter({ hasText: 'Building the file' })
+await dialog.waitFor({ timeout: 5000 })
+const dialogText = (await dialog.innerText()).replace(/\s+/g, ' ')
+check('exporting everybody asks first', await dialog.isVisible())
+check('the confirm names the row count', /6,000 people/.test(dialogText), dialogText.slice(0, 160))
+check('and the rough wait', /about \d+ seconds/.test(dialogText), dialogText.slice(0, 200))
+
+// 11b. dismissing does nothing at all — not a shorter export, nothing
+await dialog.getByRole('button', { name: 'No', exact: true }).click()
+await page.waitForTimeout(600)
+check('dismissing the confirm reads nothing', reads.length === readsBeforeDismissed, `${reads.length - readsBeforeDismissed} reads`)
+check('dismissing the confirm downloads nothing', lateDownloads.length === 0, lateDownloads.join(','))
+check('dismissing the confirm starts no walk to show progress for', (await progress.count()) === 0)
+check('and the export button is live again', await exportBtn.isEnabled())
+
+// 12. confirming shows cancellable progress; cancelling leaves no file
+allPageDelayMs = 90 // 120 pages ≈ 11s — long enough to reach the Cancel button
+await exportBtn.click()
+await dialog.waitFor({ timeout: 5000 })
+await confirmYes.click()
+
+await progress.waitFor({ timeout: 10000 })
+check('a long export shows progress, not a blocking modal', await progress.isVisible())
+check('the screen stays usable behind it', (await page.locator('dialog[open]').count()) === 0)
+// A count that has actually MOVED — the toast is reporting the walk, not a
+// placeholder painted once when it started.
+await page.waitForFunction(
+  () => /[1-9][\d,]* of 6,000 people collected/.test(document.body.innerText),
+  null,
+  { timeout: 15000 },
+)
+const progressText = (await progress.innerText()).replace(/\s+/g, ' ')
+check('the progress counts people against the total', /of 6,000 people collected/.test(progressText), progressText)
+await page.screenshot({ path: `${SHOTS}/ua-users-export-progress.png` })
+
+await progress.getByRole('button', { name: 'Cancel' }).click()
+// Let the in-flight page land, THEN take the reading: the property is that the
+// walk stops, not that it stops inside Playwright's click latency.
+await page.waitForTimeout(1200)
+const readsAtCancel = reads.length
+await page.waitForTimeout(1500)
+check('cancelling stops the walk', reads.length === readsAtCancel, `${reads.length - readsAtCancel} pages after it settled`)
+check('the walk had not finished — this was a real mid-walk cancel', readsAtCancel - readsBeforeDismissed < 120, `${readsAtCancel - readsBeforeDismissed} of 120 pages`)
+check('cancelling produces no file at all', lateDownloads.length === 0, lateDownloads.join(','))
+check(
+  'and says so',
+  /Export stopped/.test(await page.locator('body').innerText()),
+  (await page.locator('[data-sonner-toast]').first().innerText().catch(() => '')).replace(/\s+/g, ' '),
+)
+check('the progress toast is gone', (await progress.count()) === 0)
+check('the export button came back live after a cancel', await exportBtn.isEnabled())
+check('cancelling left the grid where it was', (await readout()).trim() === 'Page 1 of 120', await readout())
+allPageDelayMs = 0
+
+// ---- 13. and letting it finish writes everybody, exactly once ---------------
+// The "Export stopped" toast is top-right, over the toolbar — dismiss it rather
+// than clicking through it.
+await page.locator('[data-sonner-toast] [data-close-button]').first().click()
+await page.waitForTimeout(400)
+const [bigDownload] = await Promise.all([
+  page.waitForEvent('download', { timeout: 120000 }),
+  (async () => {
+    await exportBtn.click()
+    await dialog.waitFor({ timeout: 5000 })
+    await confirmYes.click()
+  })(),
+])
+const bigLines = readFileSync(await bigDownload.path(), 'utf8')
+  .split('\r\n')
+  .filter((l) => l !== '')
+// sep= + header + 6,000 people.
+check('confirming walks the whole estate into one file', bigLines.length === 6002, `${bigLines.length} lines`)
+const exportedIds = bigLines.slice(2).map((l) => l.split(',')[0])
+check('every identity lands exactly once', new Set(exportedIds).size === 6000, `${new Set(exportedIds).size} distinct`)
+check('the finished export left the grid where it was', (await readout()).trim() === 'Page 1 of 120', await readout())
 
 check('no uncaught page errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '))
 

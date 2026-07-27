@@ -140,7 +140,9 @@ function Row({
             >
               <div className="min-w-0">
                 <div className="truncate text-xs">{i.description}</div>
-                <div className="truncate text-[11px] text-ink-3">{i.description2}</div>
+                <bdi dir="ltr" className="block truncate text-[11px] text-ink-3">
+                  {i.description2}
+                </bdi>
               </div>
               <span data-numeric className="text-[11px] text-muted-foreground">
                 {i.itemNumber}

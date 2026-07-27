@@ -118,8 +118,25 @@ export function ItemRow({ i, busy, dense = false }: { i: PrereqItem; busy?: bool
           <span className="truncate text-xs">{i.description}</span>
           {i.rank && <span className="shrink-0 text-[10px] text-ink-3">{i.rank}</span>}
         </div>
-        <div className="flex items-center gap-2">
-          <span data-numeric className="text-[11px] text-muted-foreground">
+        {/* Owner ruling, 2026-07-27: the guidance row carries Arabic, because
+            131 put Arabic in the item search for the reason that applies here
+            harder — the agent reads the name to the caller. Wrapped in <bdi>:
+            an Arabic run inside an LTR row is exactly the case where a trailing
+            neutral relocates (121's audit finding), and the row ends in one.
+            dir="ltr" is NOT redundant: <bdi> implies dir="auto", which reads the
+            Arabic and flips the whole block RTL — the name then aligns to the far
+            end, away from the English line it belongs to. We want the isolation
+            without the flip: the run renders RTL inside a start-aligned block.
+            It rides the META line rather than taking one of its own: variant 1 is
+            clamped at 18rem against the drive's 45%-of-centre budget, so a third
+            line per row is not paid for in height — it is paid for in hidden
+            scroll, and what it pushed below the fold was `Search the other 37`,
+            the route to the rest of the set that part 1 requires. */}
+        <div className="flex items-baseline gap-2">
+          <bdi dir="ltr" className="min-w-0 truncate text-[11px] text-ink-3">
+            {i.description2}
+          </bdi>
+          <span data-numeric className="shrink-0 text-[11px] text-muted-foreground">
             {i.itemNumber}
           </span>
           <Estimate v={i.estimatePriceExVat} />

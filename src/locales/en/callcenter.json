@@ -237,6 +237,35 @@
     "lineCount_other": "{{count}} lines",
     "empty": "Nothing added yet."
   },
+  "guidance": {
+    "heading": "Offers within reach",
+    "topCount_one": "{{count}} offer within reach",
+    "topCount_other": "{{count}} offers within reach",
+    "none": "No offers within reach of this basket.",
+    "getSideAbsent": "Buy-one-get-one offers aren't checked yet — this list covers discounts only.",
+    "withinReach": "within reach",
+    "alreadyCounted": "Already counted:",
+    "countedMark": "already counted — a better offer applied",
+    "add_one": "add {{count}} more",
+    "add_other": "add {{count}} more",
+    "meter": "{{have}} of {{need}}",
+    "set_one": "any {{count}} from this selection",
+    "set_other": "any {{count}} from this selection",
+    "setCounted_one": "any {{count}} from this selection · {{eligible}} qualify",
+    "setCounted_other": "any {{count}} from this selection · {{eligible}} qualify",
+    "setItem_one": "{{count}} more of this item",
+    "setItem_other": "{{count}} more of this item",
+    "unavailable_one": "{{count}} more offer can't be reached from this basket",
+    "unavailable_other": "{{count}} more offers can't be reached from this basket",
+    "skip": {
+      "ORIGIN_FILTERED": "not offered on call-center orders",
+      "PLANT_FILTERED": "not offered at this store",
+      "VALIDITY_WINDOW": "not running today",
+      "CUSTOMER_SEGMENT": "not for this caller",
+      "NOT_DISCOVERED": "can't be checked from this basket",
+      "unknown": "this offer isn't available on this order"
+    }
+  },
   "receipt": {
     "heading": "The caller pays",
     "items": "Items",

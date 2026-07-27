@@ -18,9 +18,10 @@
  * Slice 0 (ticket 162) needs one scenario: the empty basket every other fixture
  * starts from. The remaining eight land with the tickets that render them.
  */
-import type { OpenResult, PendingConfirmation, SessionState } from '@/core/models/callcenter'
+import type { NearMiss, OpenResult, PendingConfirmation, SessionState } from '@/core/models/callcenter'
 import openEmpty from '../../../../../.issues/assets/136-cc-contract/01-open-empty.json'
 import twoLinesPriced from '../../../../../.issues/assets/136-cc-contract/02-two-lines-priced.json'
+import nearMissBuySide from '../../../../../.issues/assets/136-cc-contract/03-near-miss-buy-side.json'
 import belowAtp from '../../../../../.issues/assets/136-cc-contract/04-below-atp-confirm.json'
 import rebindPreview from '../../../../../.issues/assets/136-cc-contract/05-rebind-preview.json'
 import rebindRefused from '../../../../../.issues/assets/136-cc-contract/06-rebind-refused.json'
@@ -50,6 +51,26 @@ export const EMPTY_SESSION: SessionState = OPEN_EMPTY.state!
  * author's illustration and not the engine's.
  */
 export const ATTACHED_SESSION: SessionState = payload<SessionState>(twoLinesPriced)
+
+/**
+ * The map's headline feature and its honest blind spot, as fixture 03 carries
+ * them (ticket 171): one buy-side near-miss with a shortfall, one `isReady`
+ * offer that is fully qualified and out-ranked, and one `NOT_DISCOVERED` skip —
+ * 130's blocker made visible on the wire rather than silently omitted.
+ *
+ * 🚩 Fixture 03 is a **`stateFragment`**, not a whole response: it carries only
+ * the promotion surfaces of `SessionState` ("everything else is as 02"). So this
+ * export is the `nearMisses` array itself, which is exactly what the guidance
+ * view model takes.
+ *
+ * 🚩 Shape only, as always. One of its descriptions is `"SAR 10 off when you buy
+ * 3 — baby care"` — a currency word in **server text nobody may edit**, which is
+ * precisely why the region's money rule is *no figure formatted as money* rather
+ * than *no `SAR` anywhere*.
+ */
+export const NEAR_MISSES: NearMiss[] = (
+  nearMissBuySide as unknown as { stateFragment: { nearMisses: NearMiss[] } }
+).stateFragment.nearMisses
 
 /**
  * §5.2's OTHER confirmation, as `addItem` answers a quantity beyond availability

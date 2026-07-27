@@ -154,13 +154,40 @@ export interface NearMissPrereq {
   eligibleCount?: number
 }
 
+/**
+ * What the offer GIVES, as facts rather than a phrase — the discount
+ * *definition* 130's consequence put on the wire in place of the savings total
+ * spec 574 US26 ruled out. The console words it with `@/core/promotions`'
+ * rule (ticket 161); nothing here is money and nothing here is a total.
+ *
+ * 🚩 **Optional and additive** (§9). The frozen v1.1 fixtures do not carry it —
+ * `BuildSimulationResult` has the facts, the projection has not been asked for
+ * them yet — so the client degrades while it is absent and the server's own
+ * `description` carries the card. Same pattern as `AppliedBonusBuy.applications?`.
+ */
+export interface NearMissDiscount {
+  /** The clean discount code — `N` / `%` / `R` / `P` (taxonomy 040). */
+  discountType?: string | null
+  /** What the code says it is: a PERCENTAGE for `%`, an amount for `R`/`P`, a
+   *  free quantity for `N`. 🚩 Never money, whatever the kind — the unit rides
+   *  the code, which is the defect ticket 161 ended. */
+  value?: number | null
+  /** How many pieces a set price covers (`2 PC for 29.95` → 2). */
+  quantity?: number | null
+  /** Which piece free goods land on (`3rd free`). */
+  nthFree?: number | null
+}
+
 export interface NearMiss {
   offerId: string
   description: string
   isReady: boolean
   progress: { have: number; need: number }
-  prereq: NearMissPrereq
+  /** `null` where the offer was never evaluated — fixture 03's `NOT_DISCOVERED`
+   *  entry carries no prerequisite at all, because nothing loaded it. */
+  prereq: NearMissPrereq | null
   skipReason: SkipReason | null
+  discount?: NearMissDiscount | null
 }
 
 /** §5 — "are you sure" arrives on the SUCCESS path with the UNCHANGED state. */

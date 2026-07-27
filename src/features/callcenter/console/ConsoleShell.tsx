@@ -28,6 +28,8 @@ import BasketPanel, { type BasketActions } from './BasketPanel'
 import { receiptView } from './basket-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CustomerRail, { type CustomerActions } from './CustomerRail'
+import GuidanceStrip from './GuidanceStrip'
+import { guidanceView } from './guidance-view'
 import { headerChips, type HeaderChip } from './header-chips'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
 import Money from './Money'
@@ -85,6 +87,10 @@ export default function ConsoleShell({
   // The lines the refusal named, for the tint. A Set because the basket asks per
   // line and a refusal can name several.
   const refusedLines = new Set((refusal?.lines ?? []).map((line) => line.lineId))
+  // Read ONCE, here: the strip draws it and the top bar mirrors its count
+  // (US51), and two reads would be two chances for the two to disagree about
+  // what is actionable.
+  const guidance = guidanceView(state.nearMisses)
   return (
     <div
       className="flex h-screen flex-col overflow-hidden bg-background text-foreground"
@@ -95,7 +101,13 @@ export default function ConsoleShell({
       // emptiness, which any other empty order would also satisfy.
       data-cc-transaction={state.transactionId}
     >
-      <TopBar state={state} onAbandon={onAbandon} onRefresh={onRefresh} refreshing={refreshing} />
+      <TopBar
+        state={state}
+        actionableOffers={guidance.actionableCount}
+        onAbandon={onAbandon}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
+      />
       {/* 🚩 In the flow, above the columns — never over them. A collision is
           routine (law 7), so it costs the basket no interactivity and the strip
           no pixels it does not need. */}
@@ -114,6 +126,9 @@ export default function ConsoleShell({
               runs in: what the agent finds lands underneath it. */}
           <ItemSearchPanel state={state} add={addItem} />
           <BasketPanel state={state} refusedLines={refusedLines} actions={lineEdit} />
+          {/* Last in the fixed vertical order (135), UNDER the basket it is
+              about — the offers the basket nearly qualifies for (171). */}
+          <GuidanceStrip view={guidance} />
         </main>
         <Receipt state={state} />
       </div>
@@ -123,11 +138,16 @@ export default function ConsoleShell({
 
 function TopBar({
   state,
+  actionableOffers,
   onAbandon,
   onRefresh,
   refreshing,
 }: {
   state: SessionState
+  /** How many offers are within reach — the strip's own count, mirrored (US51).
+   *  A count rather than the view: the strip is the surface, and a top bar
+   *  holding the whole model is a top bar that could disagree with it. */
+  actionableOffers: number
   onAbandon?: () => void
   onRefresh?: () => void
   refreshing?: boolean
@@ -144,6 +164,17 @@ function TopBar({
         </span>
       </div>
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        {/* 🚩 US51 — an offer that arrives while the agent is reading search
+            results announces itself HERE, so guidance is not something they have
+            to remember to look at. It is the strip's own count, read once. */}
+        {actionableOffers > 0 && (
+          <span
+            data-cc-guidance-count={actionableOffers}
+            className="rounded-full border border-primary-border bg-primary-050 px-2 py-0.5 text-[11px] font-medium text-primary-800"
+          >
+            {t('guidance.topCount', { count: actionableOffers })}
+          </span>
+        )}
         <span>{t('console.store', { store: state.header.entryStore })}</span>
         <span aria-hidden>·</span>
         <span data-cc-operator>{state.header.operatorId}</span>

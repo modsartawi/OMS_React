@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 147
 blocked-by: 148
 ---
@@ -53,15 +53,15 @@ one key per column header) · test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `csvColumnsAndLabels` — 13 columns in order; channel split into codes-via + reachable; every
+- [x] `csvColumnsAndLabels` — 13 columns in order; channel split into codes-via + reachable; every
       classification the screen's label, not the code; empty cell for a null last-login; a stamp
-      passes through unshifted · pure
-- [ ] `csvSurvivesExcel` — leading-zero employee id and phone wrapped as formula text; a display
+      passes through unshifted · pure — `src/features/admin/ua-admin/csv.test.ts` (12 cases)
+- [x] `csvSurvivesExcel` — leading-zero employee id and phone wrapped as formula text; a display
       name starting `=` prefixed; BOM, `sep=,` and CRLF present; a name containing a comma, a quote
-      and a newline round-trips · pure
-- [ ] `exportingAWorklistDownloadsIt` — drive: open a narrowed card, click Export, a file named
+      and a newline round-trips · pure — same file
+- [x] `exportingAWorklistDownloadsIt` — drive: open a narrowed card, click Export, a file named
       `ua-users-<card>-<date>.csv` lands with one row per match (not one per visible page) · flow
-      (Playwright, extends `tools/ua-users-scale-drive.mjs`)
+      (Playwright, extends `tools/ua-users-scale-drive.mjs` — now 50/50)
 
 ## Boundaries
 
@@ -79,3 +79,34 @@ legible, and the two pure suites are green.
 ## Blocked by
 
 [148](148-ua-users-pager.md) — the export walks with the paged call that slice introduces.
+
+## Comments
+
+**Built 2026-07-27.** Two new modules beside the pager: pure `csv.ts` (writer + filename builder,
+no DOM, no `t` instance — it takes a **label resolver**, which is what let the suite drive it with
+the *real* `ua-admin` locale file rather than a stub map, so a missing key fails as a raw key in a
+cell) and `export.ts` (the walk + the download, the two halves that can't be pure). The page gained
+one button, one `exporting` flag, and an `exportCsv` that captures the query it started with.
+
+Column 4 is the one header the ticket didn't name: `phoneClass` has **no on-screen word** (the grid
+shows the number or a dash, and the class only reaches the eye through the channel pill), so
+*Mobile status* + `csv.phoneClass.*` is new vocabulary — the only new vocabulary in the file. Every
+other classification resolves through the pills' own keys (`status.*`, `delivery.*`, `credential.*`),
+and the drive asserts the row reads `…,Usable,,SMS,Yes,Active,Yes,Yes,Active,No,2026-07-01 09:00`
+— labels end to end, not a wire code in sight. Yes/No got `csv.yes`/`csv.no` rather than reaching
+across to the `common` namespace, so the resolver stays single-namespace.
+
+Two review fixes on the way out, both about the no-partial-file rule:
+
+- the runaway-page bound **throws** instead of returning what it has. Returning a short list would
+  be exactly the silent early stop spec 147 story 29 forbids, and it would have written a file.
+- the download anchor is parked in the document and its object URL revoked a tick after the click —
+  a synchronous revoke is fine in Chrome and can abort the download elsewhere.
+
+Left to 151, deliberately: the >500 confirm, the cancellable progress toast, dedupe by `employeeId`,
+and turning the runaway bound into a reported failure. The walk already takes its page fetcher as a
+parameter, which is the seam 151's in-memory suite needs.
+
+The drive's `phoneGap` stub pool became **400 rows** (it had been the whole 6,000-row estate), which
+is both the number its card already claims and the eight-page walk that makes "the whole match set,
+not the visible page" observable — 402 lines out, not 52.

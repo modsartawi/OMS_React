@@ -28,10 +28,16 @@
 //   9. acting on the last row of the LAST page clamps to the new last page
 //      instead of showing an empty grid, with the pane still open.
 //
+// Ticket 150 adds:
+//  10. Export CSV on a narrowed card (Phone gap, 400 people = 8 pages) downloads
+//      a file named for the scope and the day, holding EVERY match rather than
+//      the 50 on screen, walked from skip 0 in 50s, with the Excel guards intact
+//      and the grid undisturbed.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/ua-users-scale-drive.mjs
 import { createRequire } from 'node:module'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -139,12 +145,16 @@ await page.route('**/api/**', async (route) => {
     const which = decodeURIComponent(card[1])
     reads.push({ kind: 'card', card: which, skip: q.get('skip'), take: q.get('take') })
     // `mustChange` is the deliberately small worklist: 3 rows, one page, no footer.
+    // `phoneGap` is the narrowed card ticket 150 exports: 400 people = 8 pages,
+    // enough that "the whole match set" is visibly not "the visible page".
     const pool =
       which === 'mustChange'
         ? ESTATE.slice(0, 3)
-        : which === 'awaitingActivation'
-          ? ESTATE.filter((r) => awaiting.has(r.employeeId))
-          : ESTATE
+        : which === 'phoneGap'
+          ? ESTATE.slice(0, 400)
+          : which === 'awaitingActivation'
+            ? ESTATE.filter((r) => awaiting.has(r.employeeId))
+            : ESTATE
     return route.fulfill(envelope(slice(pool, q.get('skip'), q.get('take'))))
   }
   if (path === 'UaAdminWeb/Employees' && req.method() === 'GET') {
@@ -374,6 +384,53 @@ check(
 check('no "no people match" message after the clamp', !/No people match/i.test(await page.locator('main').innerText()))
 check('the pane survives the clamp too', (await page.locator('#ud-phone').count()) === 1)
 await page.screenshot({ path: `${SHOTS}/ua-users-clamped.png` })
+
+// ---- 10. exporting a narrowed card downloads the whole match set (ticket 150)
+// Phone gap: 400 people = 8 pages. Sitting on page 1, one click must produce all
+// 400 — the export is over the QUERY, not over what happens to be on screen.
+const exportBtn = page.getByRole('button', { name: 'Export CSV' })
+await page.getByRole('button', { name: /^400/ }).click()
+await page.waitForSelector('tbody tr', { timeout: 10000 })
+const readsBeforeExport = reads.length
+const [download] = await Promise.all([
+  page.waitForEvent('download', { timeout: 30000 }),
+  exportBtn.click(),
+])
+
+const fileName = download.suggestedFilename()
+check(
+  'the file is named for the scope CODE and the day',
+  /^ua-users-phonegap-\d{4}-\d{2}-\d{2}\.csv$/.test(fileName),
+  fileName,
+)
+
+const csv = readFileSync(await download.path(), 'utf8')
+const lines = csv.split('\r\n').filter((l) => l !== '')
+// sep= + header + 400 people. Not 52 — that would be the visible page.
+check('the file holds every match, not the visible page', lines.length === 402, `${lines.length} lines`)
+
+const walk = reads.slice(readsBeforeExport)
+check(
+  'the walk started at skip 0 and stepped in 50s to the end',
+  walk.length === 8 && walk.every((r, i) => r.skip === String(i * 50) && r.take === '50'),
+  walk.map((r) => r.skip).join(','),
+)
+
+check('the file opens in columns in any locale (BOM + sep=)', csv.startsWith('﻿sep=,'), lines[0])
+check(
+  'the header names all 13 columns',
+  lines[1] === 'Employee,Name,Mobile,Mobile status,Email,Codes via,Reachable,Status,Seeded,Enabled,Credential,TOTP,Last login',
+  lines[1],
+)
+check(
+  'employee id and mobile survive Excel as formula text',
+  lines[2].startsWith('"=""100000""",Person 100000,"=""0500000000"""'),
+  lines[2],
+)
+check('the row carries labels, not wire codes', /,Usable,,SMS,Yes,Active,Yes,Yes,Active,No,2026-07-01 09:00$/.test(lines[2]), lines[2])
+check('exporting did not disturb the grid', (await readout()).trim() === 'Page 1 of 8', await readout())
+check('the export button came back live', await exportBtn.isEnabled())
+
 check('no uncaught page errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '))
 
 await browser.close()

@@ -46,6 +46,34 @@
     "readout": "Page {{page}} of {{pages}}",
     "ariaLabel": "Result pages"
   },
+  "export": {
+    "button": "Export CSV",
+    "failed": "Export failed"
+  },
+  "csv": {
+    "yes": "Yes",
+    "no": "No",
+    "phoneClass": {
+      "missing": "Missing",
+      "placeholder": "Placeholder",
+      "usable": "Usable"
+    },
+    "headers": {
+      "employeeId": "Employee",
+      "name": "Name",
+      "mobile": "Mobile",
+      "mobileStatus": "Mobile status",
+      "email": "Email",
+      "codesVia": "Codes via",
+      "reachable": "Reachable",
+      "status": "Status",
+      "seeded": "Seeded",
+      "enabled": "Enabled",
+      "credential": "Credential",
+      "totp": "TOTP",
+      "lastLogin": "Last login"
+    }
+  },
   "detail": {
     "selectTitle": "Select a person",
     "selectHint": "Their identity, actions, sessions and audit history appear here.",

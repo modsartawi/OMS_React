@@ -3,9 +3,12 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
+import { notify } from '@/core/services/notify'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { UaReportCountsResult } from '@/core/models/ua-user'
 import { deriveStatus, formatStamp } from './helpers'
+import { buildUaUsersCsv, csvFileName } from './csv'
+import { collectAllRows, downloadCsv } from './export'
 import { uaAdminApi } from './api'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from './pager'
 import GridPager from './GridPager'
@@ -42,6 +45,7 @@ export default function UaAdminUsersPage() {
   const [query, setQuery] = useState<Query | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const access = useQuery({ queryKey: ['ua-admin', 'access'], queryFn: () => uaAdminApi.access() })
   const counts = useQuery({
@@ -116,6 +120,37 @@ export default function UaAdminUsersPage() {
     setQuery((q) => (q === null ? q : { ...q, page }))
   }
 
+  /**
+   * The export walks the CURRENT QUERY's full match set from page 1 — it ignores
+   * whichever page is on screen (spec 147, story 21), and it walks with
+   * `uaAdminApi` directly so it never writes to the mounted query's cache.
+   *
+   * This is the routine path: a narrowed card, no dialog, the file just arrives.
+   * Ticket 151 adds the >500 confirm, the cancellable progress toast and the
+   * dedupe a 45-second walk needs. The rule that already holds here: the string
+   * is built only once every page is in hand, so a failure means **no file at
+   * all** rather than a truncated one.
+   */
+  async function exportCsv() {
+    if (query === null || exporting) return
+    const q = query
+    setExporting(true)
+    try {
+      const rows = await collectAllRows((page) =>
+        q.kind === 'search' ? uaAdminApi.search(q.term, page) : uaAdminApi.worklist(q.card, page),
+      )
+      // A search exports under the scope `search`; a card under its own code —
+      // the label wouldn't survive sanitising into a filename.
+      const scope = q.kind === 'search' ? 'search' : q.card
+      downloadCsv(csvFileName(scope, new Date()), buildUaUsersCsv(rows, (key) => t(key)))
+    } catch (err) {
+      // No file at all — the string is never built, so nothing partial can land.
+      notify.apiError(t('export.failed'), err, t('toast.failed'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   function refreshLists() {
     void qc.invalidateQueries({ queryKey: ['ua-admin', 'list'] })
     void qc.invalidateQueries({ queryKey: ['ua-admin', 'counts'] })
@@ -174,6 +209,17 @@ export default function UaAdminUsersPage() {
             {t('search.button')}
           </button>
         </div>
+        {/* Carries NO permission check of its own — it renders whenever the
+            screen renders, behind the existing access probe (ticket 146). It is
+            dead only when there is nothing to export yet. */}
+        <button
+          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-input px-4 text-sm font-medium hover:bg-accent disabled:opacity-50"
+          onClick={() => void exportCsv()}
+          disabled={query === null || exporting}
+        >
+          {exporting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {t('export.button')}
+        </button>
         <button
           className="inline-flex h-9 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85"
           onClick={() => setNewOpen(true)}

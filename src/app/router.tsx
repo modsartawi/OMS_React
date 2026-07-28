@@ -27,12 +27,14 @@ export const router = createBrowserRouter([
       Component: (await import('@/features/callcenter/__prototype__/guidance/GuidancePrototypePage')).default,
     }),
   },
-  // PROTOTYPE — throwaway (wayfinder ticket 138). Same reasoning: it mounts
-  // 135's console whole, with only the guidance region swapped per variant.
+  // PROTOTYPE — throwaway (wayfinder ticket 175, reaching 176 + 155). Same
+  // reasoning again: 135's furniture whole, with the HEADER-CAPTURE region
+  // swapped per variant — the opening gate, fulfilment mode, the store pick,
+  // the slot, source + reference, and the payment type that is drawn nowhere.
   {
-    path: '/prototype/near-miss-guidance',
+    path: '/prototype/callcenter-header',
     lazy: async () => ({
-      Component: (await import('@/features/callcenter/__prototype__/guidance/GuidancePrototypePage')).default,
+      Component: (await import('@/features/callcenter/__prototype__/header/HeaderPrototypePage')).default,
     }),
   },
   // The call-center console (ticket 162). Under the SAME auth guard as every

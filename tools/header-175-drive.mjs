@@ -175,24 +175,56 @@ ok(pops.deliveryOnly.length > 0, `stores that deliver but are NOT in the collect
 ok(pops.noStoreDistricts > 0, `districts with NO delivery store assigned: ${pops.noStoreDistricts} (§7 has no code for this)`)
 ok(pops.tempReassigned > 0, `districts on a TEMP reassignment (TempStoreCode outranks StoreCode): ${pops.tempReassigned}`)
 
-// 5. the ADD path is a typeahead, not a 112-row dropdown
+// 5. the address BOOK carries the fields a driver needs, not just a district
 await page.goto(`${BASE}?variant=4&state=deliveryWhere`)
 await page.waitForSelector('main')
+const bookFields = await page.evaluate(() => document.querySelector('main').innerText)
+ok(/RIMA6904/.test(bookFields), 'a saved address shows its SPL national address')
+ok(/\+966/.test(bookFields), 'a saved address shows its DELIVERY phone')
 await shot('delivery-address-book')
+
+// 5b. the ADD path — CC2's UNIFIED location search, not a cascade
 await page.click('main >> text=Add a new address')
-await page.waitForSelector('main input[placeholder^="Start typing a city"]')
-const cityCount = await page.evaluate(() => /112 of them/.test(document.querySelector('main').innerText))
-ok(cityCount, 'the city step names the scale that makes a dropdown wrong')
-const beforeType = await page.evaluate(() => document.querySelectorAll('main button').length)
-await page.type('main input[placeholder^="Start typing a city"]', 'da', { delay: 20 })
-const hits = await page.evaluate(() => document.querySelector('main').innerText)
-ok(/Dammam/.test(hits), 'typing narrows the cities')
-ok(beforeType < 8, 'no city list is rendered until the agent types')
-await page.click('main >> text=Dammam')
+await page.waitForSelector('main input[placeholder^="District or city"]')
+const beforeType = await page.evaluate(() => document.querySelector('main').innerText)
+ok(!/Al Malqa/.test(beforeType), 'no location list renders until the agent types')
+ok(/Home|Work/.test(beforeType), 'the label list is offered, from the server catalogue')
+
+// one box matches DISTRICT english...
+await page.type('main input[placeholder^="District or city"]', 'malqa', { delay: 20 })
+ok(/Al Malqa/.test(await page.evaluate(() => document.querySelector('main').innerText)), 'searching by DISTRICT name (en) hits')
+
+// ...and CITY english, which a cascade could never do in one step
+await page.fill('main input[placeholder^="District or city"]', 'jeddah')
+const byCity = await page.evaluate(() => document.querySelector('main').innerText)
+ok(/Al Andalus/.test(byCity), 'searching by CITY name returns its districts — one box, both fields')
+
+// ...and Arabic, which is how half the agents type
+await page.fill('main input[placeholder^="District or city"]', 'الملقا')
+ok(/Al Malqa/.test(await page.evaluate(() => document.querySelector('main').innerText)), 'searching in ARABIC hits')
+await shot('delivery-location-search')
+
+// picking commits BOTH city and district, and names the derived store
+await page.fill('main input[placeholder^="District or city"]', 'malqa')
+await page.click('main >> text=Al Malqa')
 await page.waitForTimeout(80)
-const districts = await page.evaluate(() => document.querySelector('main').innerText)
-ok(/Al Faisaliyah/.test(districts), 'city then district — a cascade, not one flat list')
-await shot('delivery-new-address-cascade')
+const picked = await page.evaluate(() => document.querySelector('main').innerText)
+ok(/Riyadh/.test(picked), 'one pick commits BOTH district and city')
+ok(/delivers from/.test(picked), 'and names the store the district derives')
+
+// 5c. SPL format validation — CC2's rule, format only
+await page.fill('main input[placeholder="RIMA6904"]', 'ABC123')
+const bad = await page.evaluate(() => document.querySelector('main').innerText)
+ok(/4 letters followed by 4 digits/.test(bad), 'a malformed national address is refused inline')
+await page.fill('main input[placeholder="RIMA6904"]', 'RIMA6904')
+const good = await page.evaluate(() => document.querySelector('main').innerText)
+ok(!/4 letters followed by 4 digits/.test(good), 'a well-formed one clears the error')
+await page.fill('main input[placeholder="RIMA6904"]', '')
+ok(
+  !/4 letters followed by 4 digits/.test(await page.evaluate(() => document.querySelector('main').innerText)),
+  'and EMPTY is valid — the national address is optional',
+)
+await shot('delivery-new-address')
 
 // 6. the store picker matches a CODE — agents know their stores by number
 await page.goto(`${BASE}?variant=4&state=pickupStore&store=grouped`)

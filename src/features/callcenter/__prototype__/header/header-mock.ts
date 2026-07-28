@@ -189,34 +189,128 @@ export const DELIVERY_CITIES: City[] = [
  */
 export type BookEntry = {
   addressNumber: string
+  /** `LabelCode` — the catalogue's, not an enum. Display falls back to the code. */
+  labelCode: string
   label: string | null
-  line: string
+  /** The nine fields CC2's editor actually writes (`BuildBusinessAddress`). */
+  street1: string
+  street2: string
+  buildingNumber: string
+  phone1: string
+  phone2: string
+  /** Saudi National Address (SPL): 4 letters + 4 digits. Optional. */
+  shortAddress: string
+  cityCode: string
+  cityName: string
   districtCode: string
   districtName: string
-  cityName: string
   isDefault: boolean
   lastUsedOn: string
 }
 
+/** `GetAddressLabels()` — server data, never a client enum. */
+export const ADDRESS_LABELS = [
+  { labelCode: 'HOME', en: 'Home', ar: 'المنزل' },
+  { labelCode: 'WORK', en: 'Work', ar: 'العمل' },
+  { labelCode: 'OTHER', en: 'Other', ar: 'أخرى' },
+]
+
+/** The SPL format check CC2 applies client-side. Live verification against
+ *  splonline.com.sa is a separate integration and is NOT wired in CC2 either. */
+export const SHORT_ADDRESS_RE = /^[A-Z]{4}[0-9]{4}$/
+
+/**
+ * The unified location list — CC2's `AllDistricts`: every district across every
+ * city, fetched ONCE (`GetDistricts("")`), searched by district name EN/AR **or**
+ * city name EN/AR. Picking one row commits BOTH city and district. This is the
+ * control the agent actually uses; the city→district cascade is the older path.
+ */
+export type Location = {
+  districtCode: string
+  districtNameEn: string
+  districtNameAr: string
+  cityCode: string
+  cityNameEn: string
+  cityNameAr: string
+  storeCode: string | null
+  tempStoreCode?: string
+}
+
+const CITY_AR: Record<string, string> = {
+  Riyadh: 'الرياض',
+  Jeddah: 'جدة',
+  Dammam: 'الدمام',
+  Makkah: 'مكة',
+  Madinah: 'المدينة',
+  Khobar: 'الخبر',
+  Dhahran: 'الظهران',
+  Taif: 'الطائف',
+  Buraidah: 'بريدة',
+  Tabuk: 'تبوك',
+  Abha: 'أبها',
+  'Khamis Mushait': 'خميس مشيط',
+  Hail: 'حائل',
+  Jubail: 'الجبيل',
+  Najran: 'نجران',
+  Yanbu: 'ينبع',
+}
+
+const DISTRICT_AR: Record<string, string> = {
+  'Al Malqa': 'الملقا',
+  'Al Yasmin': 'الياسمين',
+  'Al Narjis': 'النرجس',
+  'Al Aqiq': 'العقيق',
+  'Al Andalus': 'الأندلس',
+  'Al Shati': 'الشاطئ',
+}
+
+export const ALL_LOCATIONS: Location[] = DELIVERY_CITIES.flatMap((c) =>
+  c.districts.map((d) => ({
+    districtCode: d.districtCode,
+    districtNameEn: d.districtName,
+    districtNameAr: DISTRICT_AR[d.districtName] ?? d.districtName,
+    cityCode: c.cityCode,
+    cityNameEn: c.cityName,
+    cityNameAr: CITY_AR[c.cityName] ?? c.cityName,
+    storeCode: d.storeCode,
+    tempStoreCode: d.tempStoreCode,
+  })),
+)
+
 export const ADDRESS_BOOK: BookEntry[] = [
   {
     addressNumber: '77120',
+    labelCode: 'HOME',
     label: 'Home',
-    line: 'Villa 22, Anas Ibn Malik Rd',
+    street1: 'Anas Ibn Malik Rd',
+    street2: 'Villa 22',
+    buildingNumber: '22',
+    phone1: '+966 55 214 8890',
+    phone2: '',
+    shortAddress: 'RIMA6904',
+    cityCode: '0021',
+    cityName: 'Riyadh',
     districtCode: 'R-114',
     districtName: 'Al Malqa',
-    cityName: 'Riyadh',
     isDefault: true,
     lastUsedOn: '2026-07-21',
   },
   {
     // Temp reassignment: still deliverable, and it says which store and why.
     addressNumber: '77455',
-    label: 'Mother',
-    line: 'Apt 4, Building 12, Al Yasmin',
+    labelCode: 'OTHER',
+    label: 'Other',
+    street1: 'Al Yasmin Main St',
+    street2: 'Apt 4',
+    buildingNumber: '12',
+    phone1: '+966 50 771 2210',
+    phone2: '',
+    // No national address on file — optional, and empty is valid.
+    shortAddress: '',
+    cityCode: '0021',
+    cityName: 'Riyadh',
     districtCode: 'R-118',
     districtName: 'Al Yasmin',
-    cityName: 'Riyadh',
     isDefault: false,
     lastUsedOn: '2026-06-02',
   },
@@ -226,15 +320,28 @@ export const ADDRESS_BOOK: BookEntry[] = [
     // UNPICKABLE and says why — it is not hidden, because a caller asking
     // "what about my office?" deserves an answer, not a missing row.
     addressNumber: '78002',
+    labelCode: 'WORK',
     label: 'Work',
-    line: 'Office 1102, Al Aqiq Tower',
+    street1: 'Al Aqiq Tower',
+    street2: 'Office 1102',
+    buildingNumber: '1102',
+    phone1: '+966 11 220 4400',
+    phone2: '',
+    shortAddress: 'RIAQ2210',
+    cityCode: '0021',
+    cityName: 'Riyadh',
     districtCode: 'R-155',
     districtName: 'Al Aqiq',
-    cityName: 'Riyadh',
     isDefault: false,
     lastUsedOn: '2026-05-14',
   },
 ]
+
+/** The composed display line — CC2's `OrderSummaryVM.cs:60-69` order. */
+export const addressLine = (e: BookEntry) =>
+  [e.street2, e.street1, e.buildingNumber && `Bldg ${e.buildingNumber}`, e.districtName, e.cityName]
+    .filter(Boolean)
+    .join(', ')
 
 /** The district behind a book row — how the hard block is known. */
 export const districtOf = (e: BookEntry): District | undefined =>

@@ -63,7 +63,7 @@ Everything below is a consequence of these. If an example and a law disagree, th
 | open | `POST CallCenterWeb/Open` | `{ requestId }` | `OpenResult` |
 | abandon | `POST CallCenterWeb/Abandon` | `{ transactionId, requestId }` | `AbandonResult` |
 | submit | `POST CallCenterWeb/Submit` | `{ transactionId, requestId }` | `SubmitResult` |
-| addItem | `POST CallCenterWeb/AddItem` | `{ transactionId, requestId, itemNumber, qty, confirmToken? }` | `SessionState` |
+| addItem | `POST CallCenterWeb/AddItem` | `{ transactionId, requestId, itemNumber, qty, uom?, confirmToken? }` | `SessionState` |
 | changeQty | `POST CallCenterWeb/ChangeQty` | `{ transactionId, requestId, lineId, newQty, confirmToken? }` | `SessionState` |
 | voidLine | `POST CallCenterWeb/VoidLine` | `{ transactionId, requestId, lineId }` | `SessionState` |
 | changeUom | `POST CallCenterWeb/ChangeUom` | `{ transactionId, requestId, lineId, uom }` | `SessionState` |
@@ -73,7 +73,7 @@ Everything below is a consequence of these. If an example and a law disagree, th
 | setAddress | `POST CallCenterWeb/SetAddress` | `{ transactionId, requestId, addressNumber, confirmToken? }` | `SessionState` |
 | setStore | `POST CallCenterWeb/SetStore` | `{ transactionId, requestId, storeCode, confirmToken? }` | `SessionState` |
 | setFulfilment | `POST CallCenterWeb/SetFulfilment` | `{ transactionId, requestId, mode }` | `SessionState` |
-| setSlot | `POST CallCenterWeb/SetSlot` | `{ transactionId, requestId, slotId \| null }` | `SessionState` |
+| setSlot | `POST CallCenterWeb/SetSlot` | `{ transactionId, requestId, slotId \| null, day?, description?, from?, to? }` | `SessionState` |
 | setDocumentSource | `POST CallCenterWeb/SetDocumentSource` | `{ transactionId, requestId, documentSource, sourceReference }` | `SessionState` |
 | getState | `GET CallCenterWeb/State` | `?transactionId=` | `SessionState` |
 | resolvePrereq | `GET CallCenterWeb/ResolvePrereq` | `?transactionId=&offerId=` | `PrereqResolution` |
@@ -602,6 +602,7 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 |---|---|---|---|---|
 | 1.0 | 2026-07-27 | Frozen. | — | [136](../../136-session-api-contract.md) |
 | 1.1 | 2026-07-27 | **The fulfilment-mode axis.** New `header.deliveryType`, new `setFulfilment` verb, new `capabilities.canChangeFulfilment`, new fixture 09. Both modes in phase 1. | **minor — additive** | [154](../../154-fulfilment-mode-and-store-choice.md) |
+| 1.2 | 2026-07-28 | **Two optional request fields, from the server build.** `addItem.uom?` — `ScanOptions.Uom` already exists, and an agent adding a box rather than a strip should not have to add-then-change; absent ⇒ the engine's own default unit, exactly as before. `setSlot.day? / description? / from? / to?` — the CLCN header stamps all five slot fields (`CreateDocument :18730-18734`) and the slot catalogue is deliberately **not** on this door ([137](../../137-callcenter-web-door.md) kept the reference reads on their existing routes), so the client passes back the slot it already picked rather than the server re-resolving it through a route that would have to be added. Neither field is price-affecting and both are optional, so a client that sends neither is unchanged. | **minor — additive** | [804](C:\Work\DMSCO\BackOffice\.issues\804-cc-session-contract-server-obligations.md) |
 
 **Why 1.1 and not 2.0.** 154 was raised expecting a major: *"address optional, store chosen not
 derived, no delivery fee"* reads like three changed meanings. Checked against the frozen text, none

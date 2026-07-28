@@ -364,6 +364,50 @@ for the console layout.
   thing the **agent does**, and the charting was organised around the **engine's verbs** — which is
   why the verb list looked complete and the console did not.
 
+- [The second owner gap review](INDEX.md) — 2026-07-28, on driving the **built** console. Four
+  findings, three of them minted as [175](175-nothing-enters-an-unaddressed-order.md)–[177](177-v1.2-captures-land-on-the-client.md).
+  Two are the same finding from two sides — **the console opens ready to take items and it should
+  not be**: nothing gates `addItem` on an attached caller, and the plant is seeded from the agent's
+  entry store with the chip saying nothing about where it came from (154 had recorded exactly that as
+  hygiene; the owner raised it as the behaviour). Owner rulings: caller first as in CC1/CC2, and the
+  agent **picks** the store — which reopens **note 6**, since the engine binds `PcHeader.Plant` once
+  at open. The third is [154](154-fulfilment-mode-and-store-choice.md)'s ruling **never drawn** — spec
+  160 carved it out and the build has no mode axis at all. The fourth was a plain defect in the item
+  search (no clear affordance, and the results list outliving the add that answered it), **fixed in
+  the session**, recorded on [168](168-search-in-arabic-no-estimate-as-money.md). 🚩 The review also
+  found note 15's budgeted contract revision sitting **half-landed in the working tree** — the nine
+  fixtures are now real captures and this side never moved with them, so typecheck, vitest and both
+  drives are down and three legs the console depends on are captured **unreachable**
+  ([177](177-v1.2-captures-land-on-the-client.md)). 🚩 The pattern worth keeping: the first gap review
+  found what the charting missed by organising around the engine's verbs; this one found what the
+  **spec deliberately carved out** and nobody put back — a carve-out with a named ticket still reads
+  as done to everyone downstream of it.
+
+- [The v1.2 captures land on the client](177-v1.2-captures-land-on-the-client.md) — note 15's budgeted
+  revision, landed on this side. The corpus is now **two tiers, named as such**: the wire's own bytes,
+  plus an `unreachable-v1_0.json` block — deliberately NOT in `.issues/assets/`, so nobody mistakes it
+  for a capture — holding only what [859](C:\Work\DMSCO\BackOffice\.issues\859-near-miss-offer-id-is-blank.md) blocks, read by the tests AND both drives so they cannot
+  drift. 🚩 **07 ruled hold-both**: the client's *both successes are the same news* stays, because it
+  is a claim about this repo that must hold the day [860](C:\Work\DMSCO\BackOffice\.issues\860-already-submitted-replay-unreachable.md) lands, and the capture's real
+  `409 SESSION_CLOSED` is asserted beside it — including that **no order number survives anywhere**,
+  which is 860's harm as one assertion. 🚩 **Ship-blocked ruled detect-and-say-so** (owner): two of the
+  four blocked paths **lied to the agent** — a below-ATP acceptance and a plant-rebind confirm each
+  returned `200` and did nothing, silently ([858](C:\Work\DMSCO\BackOffice\.issues\858-confirm-retry-swallowed-as-replay.md)) — so `commitWasSwallowed` draws a banner. 🚩 **Its first
+  version was unsound and the review caught it**: §4's `replayed` means *not re-applied*, which is
+  equally true of a commit that already landed — §6.4's crash resolution is by construction a replay
+  answer over an APPLIED mutation — and a banner reading *nothing changed* over a basket that did move
+  is worse than the silence it replaces. The captures killed both obvious repairs too: `version`
+  advances on both swallowed commits (`SaveAsync` blind-increments it, §2.1) and fixture 04 answers
+  `hasBelowAtp: true` over ZERO lines. The predicate now asks *did the accepted change actually happen
+  in the returned projection* — the basket's own quantity for an add, the plant against the token's
+  target for a rebind. No retry is offered and it disappears on its own when 858 lands. 859 and 860 ship as they are — both already say something honest. 🚩 **The
+  pattern worth keeping**: driving the REAL projection found two client defects the illustration never
+  could — a blank `offerId` is a real wire answer, and the guidance strip keyed React on it, so two
+  distinct offers de-duplicated into one card and opening one opened both (fixed with a `cardId` that
+  is a render key and never an offer identity, so 859 stays visible); the basket's promotion rows had
+  the same defect. A hand-authored fixture is a hypothesis about SHAPE **and about population** — this
+  one held every shape and none of the population.
+
 ## Not yet specified
 - **Latency budget and its measurement.** Resume-per-request was accepted on the owner's word;
   nobody has measured a 30-line basket end-to-end. Needs a number and a place to watch it.

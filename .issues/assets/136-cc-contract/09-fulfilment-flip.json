@@ -1,193 +1,369 @@
 {
-  "_contract": {
-    "provisional": true,
-    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
+  "_capture": {
+    "ticket": "857",
+    "map": "126",
     "scenario": "setFulfilment to PickInStore on a basket with lines — the plant does not move, so there is no confirmation; address and slot leave the projection and the delivery fee goes to 0",
-    "contractVersion": "1.1",
-    "authoredAt": "2026-07-27",
-    "authoredBy": ".issues/154-fulfilment-mode-and-store-choice.md"
+    "contractVersion": "1.2",
+    "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
+    "capturedAt": "2026-07-28",
+    "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
-  "request": {
-    "method": "POST",
-    "path": "CallCenterWeb/SetFulfilment",
-    "body": {
-      "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-      "requestId": "01JC8Q4KYZ3M7N2P5R8T1V6WA4",
-      "mode": "PickInStore"
+  "deliveryBefore": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetAddress",
+      "body": {
+        "addressNumber": "1000000284",
+        "transactionId": "06FTGNWWVWG193KJZQB99GMK85",
+        "requestId": "06FTGNWXHBGFKTN94NEZ9P4KD5",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.2",
+          "transactionId": "06FTGNWWVWG193KJZQB99GMK85",
+          "version": 13,
+          "etag": "06FTGNWWVWG193KJZQB99GMK85-13",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "derivedFromAddress",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-td61aac0a",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-28T13:49:01.9488052",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": {
+              "addressNumber": "1000000284",
+              "label": "Home",
+              "cityCode": "C016",
+              "cityName": "Hail",
+              "districtCode": "D00592",
+              "districtName": "Airport",
+              "line": "Redacted street line"
+            },
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "hasBelowAtp": false
+          },
+          "lines": [],
+          "totals": {
+            "net": 0,
+            "vat": 0,
+            "gross": 0,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 12.0
+          },
+          "firedPromotions": [],
+          "nearMisses": [
+            {
+              "offerId": "",
+              "description": "10% Coupon",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "prereq": {
+                "kind": "material",
+                "materialNumber": "COUP01",
+                "groupingId": null,
+                "eligibleCount": 1
+              },
+              "skipReason": null
+            }
+          ],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_LINES",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
     }
   },
-  "response": {
-    "statusCode": 200,
-    "success": true,
-    "message": "",
-    "errors": [],
-    "data": {
-      "contractVersion": "1.1",
-      "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-      "version": 13,
-      "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-13",
-      "status": "open",
-      "replayed": false,
-      "header": {
-        "deliveryType": "PickInStore",
-        "plant": "1101",
-        "plantName": "Riyadh — Al Malqa",
-        "plantSource": "derivedFromAddress",
-        "origin": "C000",
-        "documentType": "CLCN",
-        "register": "WEB-a.alharbi",
-        "operatorId": "a.alharbi",
-        "entryStore": "1001",
-        "openedAt": "2026-07-27T09:14:03Z",
-        "customer": {
-          "customerId": "0001234567",
-          "name": "Test Customer",
-          "mobile": "+9665XXXXXXXX",
-          "loyaltyAttached": true
-        },
-        "address": null,
-        "slot": null,
-        "documentSource": "CALLCENTER",
-        "sourceReference": "CRM-889231",
-        "hasBelowAtp": false
-      },
-      "lines": [
-        {
-          "lineId": "L1",
-          "itemNumber": "100001",
-          "description": "Panadol Extra 24 Tab",
-          "description2": "بنادول اكسترا ٢٤ قرص",
-          "qty": 2,
-          "uom": "EA",
-          "uomOptions": [
-            "EA"
-          ],
-          "unitPrice": {
-            "net": 12.0,
-            "gross": 13.8
-          },
-          "lineTotal": {
-            "net": 24.0,
-            "gross": 27.6
-          },
-          "conditions": [
-            {
-              "type": "ZVKP",
-              "description": "Store price",
-              "value": 12.0,
-              "isStatistical": false
+  "flip": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetFulfilment",
+      "body": {
+        "mode": "PickInStore",
+        "transactionId": "06FTGNWWVWG193KJZQB99GMK85",
+        "requestId": "06FTGNWZXAGYX1T3M1BMKBKXA2",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.2",
+          "transactionId": "06FTGNWWVWG193KJZQB99GMK85",
+          "version": 26,
+          "etag": "06FTGNWWVWG193KJZQB99GMK85-26",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "PickInStore",
+            "plant": "P516",
+            "plantName": "Fahd Al-Arify Street",
+            "plantSource": "derivedFromAddress",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-td61aac0a",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-28T13:49:01.9488052",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
             },
+            "address": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "hasBelowAtp": false
+          },
+          "lines": [
             {
-              "type": "BBY1",
-              "description": "70% 2nd PCS",
-              "value": -8.4,
-              "isStatistical": false
-            },
-            {
-              "type": "MWST",
-              "description": "VAT 15%",
-              "value": 3.6,
-              "isStatistical": false
+              "lineId": "L10",
+              "itemNumber": "200021",
+              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+              "qty": 2.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "lineTotal": {
+                "net": 25.72,
+                "gross": 29.58
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 25.72,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 3.86,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
             }
           ],
-          "promotions": [
-            {
-              "offerId": "BBY-4471",
-              "description": "70% 2nd PCS",
-              "amount": -8.4
-            }
-          ],
-          "atpAtScan": {
-            "quantity": 5,
-            "frozenAt": "2026-07-27T09:15:41Z",
-            "known": true
-          },
-          "belowAtpAtScan": false,
-          "warnings": []
-        },
-        {
-          "lineId": "L2",
-          "itemNumber": "100455",
-          "description": "Vitamin C 1000mg 20 Eff",
-          "description2": "فيتامين سي ١٠٠٠ ملغ",
-          "qty": 1,
-          "uom": "EA",
-          "uomOptions": [
-            "EA",
-            "BOX"
-          ],
-          "unitPrice": {
-            "net": 30.0,
-            "gross": 34.5
-          },
-          "lineTotal": {
-            "net": 30.0,
-            "gross": 34.5
-          },
-          "conditions": [
-            {
-              "type": "ZVKP",
-              "description": "Store price",
-              "value": 30.0,
-              "isStatistical": false
+          "totals": {
+            "net": 25.72,
+            "vat": 3.86,
+            "gross": 29.58,
+            "deliveryFee": {
+              "amount": 0,
+              "waived": false,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
             },
+            "payable": 29.58
+          },
+          "firedPromotions": [],
+          "nearMisses": [],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": false,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "flipBack": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetFulfilment",
+      "body": {
+        "mode": "Delivery",
+        "transactionId": "06FTGNWWVWG193KJZQB99GMK85",
+        "requestId": "06FTGNX0KGD5S69TW4TF75Z5G6",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.2",
+          "transactionId": "06FTGNWWVWG193KJZQB99GMK85",
+          "version": 29,
+          "etag": "06FTGNWWVWG193KJZQB99GMK85-29",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "P516",
+            "plantName": "Fahd Al-Arify Street",
+            "plantSource": "derivedFromAddress",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-td61aac0a",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-28T13:49:01.9488052",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": {
+              "addressNumber": "1000000284",
+              "label": "Home",
+              "cityCode": "C016",
+              "cityName": "Hail",
+              "districtCode": "D00592",
+              "districtName": "Airport",
+              "line": "Redacted street line"
+            },
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "hasBelowAtp": false
+          },
+          "lines": [
             {
-              "type": "MWST",
-              "description": "VAT 15%",
-              "value": 4.5,
-              "isStatistical": false
+              "lineId": "L10",
+              "itemNumber": "200021",
+              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+              "qty": 2.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "lineTotal": {
+                "net": 25.72,
+                "gross": 29.58
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 25.72,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 3.86,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
             }
           ],
-          "promotions": [],
-          "atpAtScan": {
-            "quantity": 40,
-            "frozenAt": "2026-07-27T09:16:02Z",
-            "known": true
+          "totals": {
+            "net": 25.72,
+            "vat": 3.86,
+            "gross": 29.58,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 41.58
           },
-          "belowAtpAtScan": false,
-          "warnings": []
-        }
-      ],
-      "totals": {
-        "net": 45.6,
-        "vat": 6.84,
-        "gross": 52.44,
-        "deliveryFee": {
-          "amount": 0.0,
-          "waived": false,
-          "thresholdGross": 200.0,
-          "conditionType": "DFEE"
+          "firedPromotions": [],
+          "nearMisses": [],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
         },
-        "payable": 52.44
-      },
-      "firedPromotions": [
-        {
-          "offerId": "BBY-4471",
-          "description": "70% 2nd PCS",
-          "amount": -8.4,
-          "lineIds": [
-            "L1"
-          ]
-        }
-      ],
-      "nearMisses": [],
-      "pendingConfirmation": null,
-      "capabilities": {
-        "canAddItem": true,
-        "canSubmit": true,
-        "canChangeStore": true,
-        "canOpenAddressBook": false,
-        "canChangeFulfilment": true,
-        "submitBlockers": []
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
       }
     }
   },
   "_notes": [
-    "The state this starts from is 02-two-lines-priced.json at version 12 — same transaction, same two lines.",
-    "pendingConfirmation is null and lines are byte-identical to 02: the flip does not move the plant, so it does not re-price. A server that raises a storeChange confirm here has implemented CONTRACT.md §2.2 wrong.",
-    "plant stays 1101 and plantSource stays 'derivedFromAddress' — that IS how the plant got there, and it is retained across the flip. This is also the open question 154 records: plantSource now does double duty and has no value meaning 'chosen for pickup'.",
-    "header.address is null but the address is RETAINED in the CallCenterSession sidecar (CC2 keeps _lastAddress). Flipping back to Delivery restores it without re-keying and re-derives the plant through setAddress's existing confirm path. A server that clears it is the second likely mis-implementation.",
-    "submitBlockers is empty: NO_ADDRESS and MISSING_SLOT do not apply to a pickup order.",
-    "deliveryFee.amount is 0 by the predicate that already exists for the CallCenterOrder doctype (POSController.NewPos.cs:8977 — subSourceCarriesFee && isDelivery && underThreshold), not by a new rule. thresholdGross is still quoted because the threshold is real: POSCommon.ShippingMinimumAmount."
+    "pendingConfirmation is null and the lines are unchanged: the flip does not move the plant, so it does not re-price. A server that raises a storeChange confirm here has implemented §2.2 wrong.",
+    "plant and plantSource are RETAINED across the flip — that IS how the plant got there. This is also the open question 154 records: plantSource now does double duty and has no value meaning 'chosen for pickup'.",
+    "header.address is null but the address is RETAINED in the CallCenterSession sidecar. Flipping back to Delivery restores it without re-keying and re-derives the plant through setAddress's existing confirm path. A server that clears it is the second likely mis-implementation.",
+    "submitBlockers drops NO_ADDRESS and MISSING_SLOT: neither applies to a pickup order.",
+    "deliveryFee.amount is 0 by the predicate that already exists for the CallCenterOrder doctype (786's CallCenterDeliveryFeePolicy, extracted from POSController.NewPos.cs), not by a new rule — and waived stays FALSE, because a fee that never existed was not waived. thresholdGross is still quoted because the threshold is real."
   ]
 }

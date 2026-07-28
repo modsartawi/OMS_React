@@ -154,8 +154,14 @@ export default function StoreMoveConfirm({
             </p>
           )}
 
-          {preview.promotionsMoved.map((promo) => (
-            <p key={promo.offerId} className={NOTE.attention} data-cc-rebind-promo={promo.offerId}>
+          {/* Keyed on position for the same reason as the basket's promotions:
+              a blank `offerId` is a real wire answer (859). */}
+          {preview.promotionsMoved.map((promo, index) => (
+            <p
+              key={`${promo.offerId}-${index}`}
+              className={NOTE.attention}
+              data-cc-rebind-promo={promo.offerId}
+            >
               {t('rebind.promotionMoved', {
                 // Server-supplied where there is one; the offer id is the only
                 // thing the console can name it by when there is not.

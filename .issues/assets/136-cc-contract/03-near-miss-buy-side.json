@@ -1,71 +1,79 @@
 {
-  "_contract": {
-    "provisional": true,
-    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
-    "scenario": "A buy-side near-miss inline, its on-demand resolvePrereq resolution, and a NOT_DISCOVERED skip — the map's headline feature and its honest blind spot",
-    "contractVersion": "1.0",
-    "authoredAt": "2026-07-27",
-    "authoredBy": ".issues/136-session-api-contract.md"
+  "_capture": {
+    "ticket": "857",
+    "map": "126",
+    "scenario": "A near-miss inline, its on-demand resolvePrereq resolution, and the NOT_DISCOVERED blind spot — the map's headline feature and its honest gap",
+    "contractVersion": "1.2",
+    "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
+    "capturedAt": "2026-07-28",
+    "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
   "stateFragment": {
-    "_note": "Only the promotion surfaces of SessionState; everything else is as 02.",
-    "firedPromotions": [],
+    "contractVersion": "1.2",
     "nearMisses": [
       {
-        "offerId": "BBY-5510",
-        "description": "Buy 2 get 1 free — oral care",
+        "offerId": "",
+        "description": "10% Coupon",
         "isReady": false,
-        "progress": { "have": 1, "need": 2 },
-        "prereq": { "kind": "grouping", "groupingId": "G-8812", "eligibleCount": 42 },
+        "progress": {
+          "have": 0,
+          "need": 1
+        },
+        "prereq": {
+          "kind": "material",
+          "materialNumber": "COUP01",
+          "groupingId": null,
+          "eligibleCount": 1
+        },
         "skipReason": null
       },
       {
-        "offerId": "BBY-5602",
-        "description": "SAR 10 off when you buy 3 — baby care",
-        "isReady": true,
-        "progress": { "have": 3, "need": 3 },
-        "prereq": { "kind": "grouping", "groupingId": "G-9001", "eligibleCount": 18 },
-        "skipReason": null
-      },
-      {
-        "offerId": "BBY-6120",
-        "description": "Buy shampoo get conditioner free",
+        "offerId": "",
+        "description": "T173 COUPON-GATED BBY",
         "isReady": false,
-        "progress": { "have": 1, "need": 1 },
-        "prereq": null,
-        "skipReason": "NOT_DISCOVERED"
+        "progress": {
+          "have": 0,
+          "need": 1
+        },
+        "prereq": {
+          "kind": "material",
+          "materialNumber": "COUPT173",
+          "groupingId": null,
+          "eligibleCount": 1
+        },
+        "skipReason": null
       }
     ]
   },
   "resolve": {
     "request": {
       "method": "GET",
-      "path": "CallCenterWeb/ResolvePrereq",
-      "query": { "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X", "offerId": "BBY-5510" }
+      "path": "CallCenterWeb/ResolvePrereq?transactionId=06FTGNWTK5KVQPH1HD7QSRYJA0&offerId=",
+      "body": null
     },
     "response": {
-      "statusCode": 200,
-      "success": true,
-      "message": "",
-      "errors": [],
-      "data": {
-        "offerId": "BBY-5510",
-        "prereq": { "kind": "grouping", "groupingId": "G-8812" },
-        "items": [
-          { "itemNumber": "200145", "description": "Oral-B Toothpaste 100ml", "description2": "معجون أسنان", "estimatePriceExVat": 9.13, "atp": 12 },
-          { "itemNumber": "200146", "description": "Oral-B Toothbrush Soft", "description2": "فرشاة أسنان", "estimatePriceExVat": 7.83, "atp": 40 },
-          { "itemNumber": "200190", "description": "Mouthwash 250ml", "description2": "غسول فم", "estimatePriceExVat": 14.35, "atp": null }
-        ],
-        "truncated": true,
-        "topN": 25
+      "statusCode": 404,
+      "body": {
+        "data": null,
+        "statusCode": 404,
+        "success": false,
+        "message": "That offer is not a near-miss on this order any more.",
+        "errors": [
+          {
+            "errorCode": "ITEM_NOT_FOUND",
+            "internalErrorCode": null,
+            "errorMessage": "That offer is not a near-miss on this order any more."
+          }
+        ]
       }
     }
   },
   "_notes": [
     "isReady sorts first in nearMisses — spec 574/579's AvailableOffersBuilder ruling, reused verbatim (130).",
-    "eligibleCount (42) is the population; items[] is the ATP-filtered, ranked top-N of it. A grouping is a SET — both BackOffice builders currently collapse it to [0], which 787 must fix (130).",
-    "atp: null on the third row is a degraded stock read, not zero availability — it is still offered.",
-    "BBY-6120 carries skipReason NOT_DISCOVERED: the basket holds only the buy-side item, and BBY lookup keys on the condition-side access tables, so the promotion never loaded. This is 130's blocker made visible on the wire rather than silently omitted — and it is what lets this contract freeze before 787-C lands.",
+    "eligibleCount is the POPULATION; resolve's items[] is the ATP-filtered, ranked top-N of it. A grouping is a SET — 787-A fixed both builders' collapse to [0].",
+    "\uD83D\uDEA9 NOT_DISCOVERED is ABSENT and cannot appear until 855 lands: the category names an offer the BBY lookup never loaded (discovery keys on the condition-side access tables), so the offer is not in PotentialBonusBuys and there is no row to carry it. PLANT_FILTERED and CUSTOMER_SEGMENT likewise have no engine producer today.",
+    "\uD83D\uDEA9 THE RESOLVE LEG IS THE 404, NOT A SUCCESS — issue 859. offerId is EMPTY on every near-miss because BbyHeader.OfferId is blank in this master data, and §3.3 addresses an offer by exactly that field, so the click-through cannot reach its own near-miss. Captured as it really answers; re-capture the success leg when 859 lands.",
     "No wouldSave field exists anywhere in this fixture, by rule (spec 574 US26)."
   ]
 }

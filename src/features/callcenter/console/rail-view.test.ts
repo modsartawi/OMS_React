@@ -6,7 +6,12 @@
  * (CONTRACT.md §11 — a fixture value is never evidence of engine behaviour).
  */
 import { describe, expect, it } from 'vitest'
-import type { LoyaltyMember, SessionCapabilities, SessionHeader } from '@/core/models/callcenter'
+import type {
+  LoyaltyMember,
+  SessionAddress,
+  SessionCapabilities,
+  SessionHeader,
+} from '@/core/models/callcenter'
 import { ATTACHED_SESSION, EMPTY_SESSION } from './__fixtures__/payloads'
 import { MAX_RAIL_FIELDS, addressSlot, railFields } from './rail-view'
 
@@ -19,6 +24,26 @@ const MEMBER: LoyaltyMember = {
   tier: 'Gold',
   pointsBalance: 1240,
   email: 'caller@example.com',
+}
+
+/**
+ * An address the way `setAddress` leaves one on the header.
+ *
+ * 🚩 Stated here rather than read off `ATTACHED_SESSION`: the v1.2 capture's
+ * attached caller has `address: null` — the capture environment reached the
+ * loyalty attach but not the address book — and *attached caller, no address
+ * yet* is itself a console state 135 drew. So the fixture supplies the shape of
+ * an attached CALLER and this supplies the shape of a set ADDRESS, which is what
+ * the file's own rule said all along.
+ */
+const ADDRESS: SessionAddress = {
+  addressNumber: '77120',
+  label: 'Home',
+  cityCode: '0021',
+  cityName: 'Riyadh',
+  districtCode: 'R-114',
+  districtName: 'Al Malqa',
+  line: '…',
 }
 
 const header = (over: Partial<SessionHeader> = {}): SessionHeader => ({
@@ -88,9 +113,18 @@ describe('addressSlot', () => {
 
   it('renders the address once one is set', () => {
     expect(
-      addressSlot(ATTACHED_SESSION.header, caps({ canOpenAddressBook: true })),
+      addressSlot(header({ customer: CUSTOMER, address: ADDRESS }), caps({ canOpenAddressBook: true })),
     ).toBe('set')
-    expect(ATTACHED_SESSION.header.address).not.toBeNull()
+  })
+
+  it('is the pick state on the capture’s own attached-but-address-less caller', () => {
+    // 🚩 The v1.2 capture's settled order carries a caller and NO address, which
+    // is the state 137's ordering constraint produces: the book only becomes
+    // reachable at attach, so every order passes through here. It must read as
+    // *a thing left to do*, never as the no-caller state.
+    expect(ATTACHED_SESSION.header.customer).not.toBeNull()
+    expect(ATTACHED_SESSION.header.address).toBeNull()
+    expect(addressSlot(ATTACHED_SESSION.header, ATTACHED_SESSION.capabilities)).toBe('pick')
   })
 
   it('🚩 never offers the book on a client rule the capability contradicts', () => {
@@ -104,6 +138,8 @@ describe('addressSlot', () => {
   })
 
   it('shows the address it has even if the book has since closed', () => {
-    expect(addressSlot(ATTACHED_SESSION.header, caps({ canOpenAddressBook: false }))).toBe('set')
+    expect(
+      addressSlot(header({ customer: CUSTOMER, address: ADDRESS }), caps({ canOpenAddressBook: false })),
+    ).toBe('set')
   })
 })

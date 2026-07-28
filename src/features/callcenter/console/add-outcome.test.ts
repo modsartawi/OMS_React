@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import i18n from '@/core/i18n'
 import type { FiredPromotion, NearMiss, SessionState } from '@/core/models/callcenter'
-import { ATTACHED_SESSION, NEAR_MISSES, PREREQ_RESOLUTION } from './__fixtures__/payloads'
+import { ATTACHED_SESSION, NEAR_MISS_CLASSES, PREREQ_RESOLUTION } from './__fixtures__/payloads'
 import { classifyAdd, type AddOutcome } from './add-outcome'
 import { guidanceView } from './guidance-view'
 import { prereqRows, restOfSet } from './prereq-view'
@@ -17,11 +17,11 @@ import { prereqRows, restOfSet } from './prereq-view'
  */
 
 /** The fixture's buy-side near-miss — the card an add is launched from. */
-const [ACTIONABLE] = NEAR_MISSES
+const [ACTIONABLE] = NEAR_MISS_CLASSES
 
 const state = (over: { nearMisses?: NearMiss[]; firedPromotions?: FiredPromotion[] }): SessionState => ({
   ...ATTACHED_SESSION,
-  nearMisses: over.nearMisses ?? NEAR_MISSES,
+  nearMisses: over.nearMisses ?? NEAR_MISS_CLASSES,
   firedPromotions: over.firedPromotions ?? [],
 })
 
@@ -29,7 +29,7 @@ const state = (over: { nearMisses?: NearMiss[]; firedPromotions?: FiredPromotion
  *  content: the prerequisite was one of several, so the offer stays. */
 const advanced = (have: number, need = 2): NearMiss[] => [
   { ...ACTIONABLE, progress: { have, need } },
-  ...NEAR_MISSES.slice(1),
+  ...NEAR_MISS_CLASSES.slice(1),
 ]
 
 const fired = (offerId: string, description: string): FiredPromotion => ({
@@ -49,7 +49,7 @@ describe('anAddIsClassifiedByWhatTheEngineDid', () => {
   it('reads an offer that moved to the fired list as fired', () => {
     const before = state({})
     const after = state({
-      nearMisses: NEAR_MISSES.slice(1),
+      nearMisses: NEAR_MISS_CLASSES.slice(1),
       firedPromotions: [fired(ACTIONABLE.offerId, ACTIONABLE.description)],
     })
     const outcome = classifyAdd(before, after, ADD)
@@ -104,7 +104,7 @@ describe('anAddIsClassifiedByWhatTheEngineDid', () => {
   it('still says something when the offer left the list without firing', () => {
     // An under-populated or re-projected answer is not a reason to say nothing:
     // the agent pressed a button and the basket moved.
-    const outcome = classifyAdd(state({}), state({ nearMisses: NEAR_MISSES.slice(1) }), ADD)
+    const outcome = classifyAdd(state({}), state({ nearMisses: NEAR_MISS_CLASSES.slice(1) }), ADD)
     expect(outcome.kind).toBe('didNotFire')
     expect(outcome.progress).toBeNull()
     expect(say(outcome)).toBe('Added — this offer has not fired.')
@@ -192,7 +192,7 @@ describe('theQualifyingHandfulIsTheServersOwn', () => {
     // The two halves meet here: `eligibleCount` rides the near-miss (§3.1) and
     // the items ride the resolution (§3.3) — the same population, so the card
     // holds the figure the route subtracts from.
-    expect(guidanceView(NEAR_MISSES).cards[0].eligible).toBe(42)
-    expect(guidanceView(NEAR_MISSES).cards[1].eligible).toBeNull()
+    expect(guidanceView(NEAR_MISS_CLASSES).cards[0].eligible).toBe(42)
+    expect(guidanceView(NEAR_MISS_CLASSES).cards[1].eligible).toBeNull()
   })
 })

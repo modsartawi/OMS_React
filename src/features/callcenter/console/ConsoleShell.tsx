@@ -75,6 +75,8 @@ export default function ConsoleShell({
   onChangeSource,
   refusal = null,
   onDismissRefusal,
+  swallowed = null,
+  onDismissSwallowed,
   submit,
 }: {
   state: SessionState
@@ -131,6 +133,13 @@ export default function ConsoleShell({
    *  "nothing was changed, fix this line" is legible in one glance. */
   refusal?: RebindRefusal | null
   onDismissRefusal?: () => void
+  /** 🚩 An acceptance the server swallowed as a replay (177 / BackOffice 858) —
+   *  which of the two two-phase verbs it was, or `null`. Console-wide rather than
+   *  per-surface, because by the time it is known the sheet the agent answered has
+   *  closed and the panel they were in may have too: the one thing that must not
+   *  happen is the agent walking away believing it applied. */
+  swallowed?: SwallowedCommit | null
+  onDismissSwallowed?: () => void
   /** *Place order* and what it last answered (174) — the page's, like every
    *  other verb, because the outcome is a real OMS order and the cache is the
    *  store of record. */
@@ -167,6 +176,9 @@ export default function ConsoleShell({
       {/* 🚩 A refusal is a banner, not a crash surface — in the flow, above the
           columns, over an order that is exactly as the agent left it. */}
       <RebindBanner refusal={refusal} onDismiss={onDismissRefusal} />
+      {/* The same slot, the same shape: something the agent has to read once
+          about an order that is otherwise fine. */}
+      <SwallowedBanner kind={swallowed} onDismiss={onDismissSwallowed} />
       {/* 1440×900 by design, degrading to 1280; below that is out of scope —
           it is a desktop console (135's density budget). */}
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
@@ -370,6 +382,91 @@ function Chip({ chip, onOpen }: { chip: HeaderChip; onOpen?: () => void }) {
   )
 }
 
+/** Which two-phase verb's acceptance was swallowed (858). */
+export type SwallowedCommit = 'belowAtp' | 'storeChange'
+
+/**
+ * 🚩 **The acceptance that did nothing** (177, BackOffice 858).
+ *
+ * The agent accepted a below-availability add or a store move, the server
+ * answered `200` — and answered it as a `requestId` REPLAY, so the commit never
+ * reached the engine. Nothing changed. The console cannot fix that; what it must
+ * not do is stay silent, because silence here is the one outcome that sends an
+ * agent on to quote a figure for a basket that did not move.
+ *
+ * It offers no retry on purpose: the same id would be swallowed identically, and
+ * a fresh one would be a genuinely new action against a real basket. What it
+ * offers is the truth and a dismissal — the order itself is intact.
+ *
+ * It disappears on its own when 858 lands: a commit that applies is not a replay.
+ */
+function SwallowedBanner({
+  kind,
+  onDismiss,
+}: {
+  kind: SwallowedCommit | null
+  onDismiss?: () => void
+}) {
+  const { t } = useTranslation('callcenter')
+  if (!kind) return null
+  return (
+    <ConsoleBanner tone="attention" marker={{ 'data-cc-swallowed': kind }} onDismiss={onDismiss}>
+      <div className="text-sm font-medium text-attention-800">{t(`swallowed.${kind}`)}</div>
+      <div className="mt-0.5 text-[11px] text-attention-800/80">{t('swallowed.hint')}</div>
+    </ConsoleBanner>
+  )
+}
+
+/**
+ * The console's one in-the-flow banner: something the agent has to read once
+ * about an order that is otherwise fine, pinned above the columns so it survives
+ * the modal or panel the news came out of closing.
+ *
+ * It exists because there are now TWO of them (167's atomic refusal and 177's
+ * swallowed acceptance) and they were identical down to the dismiss button. The
+ * tone is the only thing that differs, and it differs meaningfully: `danger` is
+ * a refusal, `attention` is a thing that silently did not happen.
+ */
+function ConsoleBanner({
+  tone,
+  marker,
+  children,
+  onDismiss,
+}: {
+  tone: 'danger' | 'attention'
+  /** The drive's hook, as the attribute it should carry — each banner names its
+   *  own, because a shared `data-cc-banner` would make two states one selector. */
+  marker: Record<string, string>
+  children: React.ReactNode
+  onDismiss?: () => void
+}) {
+  const { t } = useTranslation('callcenter')
+  const ink = tone === 'danger' ? 'text-danger-800' : 'text-attention-800'
+  const edge = tone === 'danger' ? 'border-danger-border bg-danger-050' : 'border-attention-border bg-attention-050'
+  return (
+    <div className={`flex shrink-0 items-start gap-3 border-b px-4 py-2 ${edge}`} role="alert" {...marker}>
+      <div className="min-w-0 flex-1">{children}</div>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          data-cc-banner-dismiss
+          {...(tone === 'danger'
+            ? { 'data-cc-rebind-refused-dismiss': '' }
+            : { 'data-cc-swallowed-dismiss': '' })}
+          aria-label={t('rebind.dismiss')}
+          title={t('rebind.dismiss')}
+          className={`shrink-0 rounded-full border p-1 hover:opacity-80 ${ink} ${
+            tone === 'danger' ? 'border-danger-border' : 'border-attention-border'
+          }`}
+        >
+          <X className="h-3 w-3" aria-hidden />
+        </button>
+      )}
+    </div>
+  )
+}
+
 /**
  * `REBIND_REFUSED`, drawn (167). Atomic by contract — nothing partial is ever
  * persisted — so the sentence is *nothing was changed*, and the offending line
@@ -382,34 +479,16 @@ function RebindBanner({ refusal, onDismiss }: { refusal: RebindRefusal | null; o
   const { t } = useTranslation('callcenter')
   if (!refusal) return null
   return (
-    <div
-      className="flex shrink-0 items-start gap-3 border-b border-danger-border bg-danger-050 px-4 py-2"
-      role="alert"
-      data-cc-rebind-refused
-    >
-      <div className="min-w-0 flex-1">
-        {/* Server-supplied, passed through as data (§7). */}
-        <div className="text-sm font-medium text-danger-800">{refusal.message}</div>
-        {refusal.lines.map((line) => (
-          <div key={line.lineId} className="mt-0.5 text-xs text-danger-800" data-cc-refused-line={line.lineId}>
-            {[line.itemNumber, line.description].filter(Boolean).join(' · ') || line.lineId}
-          </div>
-        ))}
-        <div className="mt-0.5 text-[11px] text-danger-800/80">{t('rebind.nothingChanged')}</div>
-      </div>
-      {onDismiss && (
-        <button
-          type="button"
-          onClick={onDismiss}
-          data-cc-rebind-refused-dismiss
-          aria-label={t('rebind.dismiss')}
-          title={t('rebind.dismiss')}
-          className="shrink-0 rounded-full border border-danger-border p-1 text-danger-800 hover:bg-danger-050"
-        >
-          <X className="h-3 w-3" aria-hidden />
-        </button>
-      )}
-    </div>
+    <ConsoleBanner tone="danger" marker={{ 'data-cc-rebind-refused': '' }} onDismiss={onDismiss}>
+      {/* Server-supplied, passed through as data (§7). */}
+      <div className="text-sm font-medium text-danger-800">{refusal.message}</div>
+      {refusal.lines.map((line) => (
+        <div key={line.lineId} className="mt-0.5 text-xs text-danger-800" data-cc-refused-line={line.lineId}>
+          {[line.itemNumber, line.description].filter(Boolean).join(' · ') || line.lineId}
+        </div>
+      ))}
+      <div className="mt-0.5 text-[11px] text-danger-800/80">{t('rebind.nothingChanged')}</div>
+    </ConsoleBanner>
   )
 }
 

@@ -52,3 +52,45 @@ export function repreviewing<T extends ConfirmableAction>(action: T): T {
 export function isCommitting(action: ConfirmableAction | null | undefined): boolean {
   return action?.confirmToken !== undefined
 }
+
+/**
+ * 🚩 **The acceptance that did nothing** (ticket 177, BackOffice 858).
+ *
+ * The live server swallows both two-phase commits today: the ask's own claim
+ * advances the engine version past the ledger's reservation, so the confirming
+ * retry — on the same `requestId`, as law 3 requires — resolves as already-applied
+ * and never touches the engine. The agent accepts a below-availability add or a
+ * store move, gets a `200`, and nothing happens. Fixtures 04 and 05 record it.
+ *
+ * The console cannot fix that; it must not be **silent** about it, because
+ * silence is the outcome that sends an agent on to quote a price for a line that
+ * is not in the basket.
+ *
+ * 🚩 **`replayed: true` alone is NOT evidence, and reading it as evidence was the
+ * first version of this function.** §4's replay means *not re-applied*, which is
+ * true of a commit that never landed **and** of one that already had: §6.4's
+ * crash-between-2-and-3 resolution is by construction a replay answer over an
+ * applied mutation, and a `SESSION_BUSY` retry of a commit reaches it. Nor does
+ * the version help — both captures advance it (6→11, 10→15) while applying
+ * nothing, because `SaveAsync` blind-increments it (§2.1). Fixture 04 rules out
+ * the last tempting shortcut too: its swallowed commit answers
+ * `hasBelowAtp: true` over **zero lines**, the sidecar patch having landed where
+ * the engine mutation did not.
+ *
+ * So the caller passes `applied` — *did the thing the agent accepted actually
+ * happen, in the projection just returned*. That is verb-specific by nature (a
+ * line exists; the plant moved) and it is the only honest question. Getting it
+ * wrong the other way would be worse than the silence this replaces: a banner
+ * saying *nothing changed* over a basket that did move is a lie the agent would
+ * act on.
+ *
+ * It disappears on its own the day 858 lands — a commit that applies is applied.
+ */
+export function commitWasSwallowed(
+  action: ConfirmableAction | null | undefined,
+  state: { replayed?: boolean } | null | undefined,
+  /** Whether the projection just returned shows the accepted change. */
+  applied: boolean,
+): boolean {
+  return isCommitting(action) && state?.replayed === true && !applied
+}

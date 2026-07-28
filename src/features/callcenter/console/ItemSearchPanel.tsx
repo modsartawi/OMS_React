@@ -28,7 +28,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2, Search, X } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import { apiErrorMessage } from '@/core/api'
 import Ltr from '@/core/ui/Ltr'
@@ -58,6 +58,19 @@ export interface AddItemActions {
   onAdd: ((itemNumber: string, description: string) => void) | null
   /** The item number currently being added, if any. */
   pending: string | null
+  /**
+   * 🚩 How many adds have actually **landed** on the basket. The panel watches it
+   * change and puts the question away — the results of a question the agent has
+   * finished asking are a list they now have to clear by hand, over the basket
+   * line that just appeared.
+   *
+   * A counter rather than a boolean because the same item can be added twice and
+   * the second landing must read as an event, not as the first one still being
+   * true. It counts **landings only**: a below-availability ask carries the
+   * unchanged state, so nothing was added and the rows stay in front of the
+   * agent who is about to accept.
+   */
+  landed: number
   /** This add's own outcome, already worded. Drawn under the rows, where the
    *  agent's eye already is, rather than as a toast that leaves the screen. */
   error: string | null
@@ -121,6 +134,38 @@ export default function ItemSearchPanel({
     return () => clearTimeout(timer)
   }, [query])
 
+  /**
+   * Put the question away, and leave the caret where the next one is typed.
+   *
+   * 🚩 `term` is set here as well as `query` rather than being left to the
+   * settle timer: the rows are gated on `term`, so clearing only the box would
+   * leave the list standing for another quarter second — which is exactly the
+   * "I deleted it and the list is still there" the agent is trying to escape.
+   */
+  const clear = () => {
+    setQuery('')
+    setTerm('')
+    box.current?.focus()
+  }
+
+  /**
+   * 🚩 The add landed, so the question is answered — the list closes by itself
+   * and the box is empty and focused for the next item. Without this the agent
+   * finishes every add by deleting their own search text before they can type
+   * the next one, at call pace, on the console's most-pressed control.
+   *
+   * Guarded on the counter having actually moved: the first render is not a
+   * landing, and clearing a scoped search the guidance strip has just put the
+   * agent into (172) would undo the hand-off before they had typed a word.
+   */
+  const landed = add.landed
+  useEffect(() => {
+    if (landed === 0) return
+    setQuery('')
+    setTerm('')
+    box.current?.focus()
+  }, [landed])
+
   // 🚩 A new question is being asked, so the last add's outcome is over — it
   // named an item that is about to leave the screen. Held through a ref rather
   // than as a dependency: the page passes a fresh closure on every render, and
@@ -165,11 +210,42 @@ export default function ItemSearchPanel({
             ref={box}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            // 🚩 The keyboard's own way out, and the one every agent already
+            // tries. It is `Escape` on the box only — not a document listener —
+            // because a modal is the one thing on this console that outranks
+            // the search, and a global handler would eat the key that closes it.
+            onKeyDown={(event) => {
+              if (event.key === 'Escape' && query !== '') {
+                // Nothing above may also act on it: with rows on screen the key
+                // means "put this list away", not "leave the console".
+                event.stopPropagation()
+                clear()
+              }
+            }}
             aria-label={t('search.label')}
             placeholder={t('search.placeholder')}
             data-cc-search-input
-            className="w-full rounded-md border border-input bg-card py-2 pe-3 ps-8 text-sm outline-none focus:border-primary"
+            // Room at the end edge for the clear button, always — a padding that
+            // changed with the button's presence would shift the text under the
+            // caret as the agent types the third character.
+            className="w-full rounded-md border border-input bg-card py-2 pe-8 ps-8 text-sm outline-none focus:border-primary"
           />
+          {/* 🚩 The visible way out, for the hand that is on the mouse. Present
+              from the first character rather than from the third: a one- or
+              two-character term draws no rows but is still text the agent has to
+              get rid of before the next item. */}
+          {query !== '' && (
+            <button
+              type="button"
+              onClick={clear}
+              aria-label={t('search.clear')}
+              title={t('search.clear')}
+              data-cc-search-clear
+              className="absolute end-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          )}
         </div>
         {search.isFetching && (
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden data-cc-search-busy />

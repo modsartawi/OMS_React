@@ -83,9 +83,13 @@ export default function GuidanceStrip({
   // actionable offer opens by construction; `null` is *the agent closed it*; an
   // id that is no longer actionable (its offer fired, or the basket moved) falls
   // back to the construction rather than leaving the strip with nothing open.
+  //
+  // 🚩 It is the card's `cardId`, NOT its `offerId`: the v1.2 capture ships every
+  // `offerId` blank (859), and keying on it made two distinct offers one card —
+  // React de-duplicated them and opening one opened both.
   const [chosen, setChosen] = useState<string | null | undefined>(undefined)
   const open =
-    chosen !== undefined && (chosen === null || view.actionable.some((card) => card.offerId === chosen))
+    chosen !== undefined && (chosen === null || view.actionable.some((card) => card.cardId === chosen))
       ? chosen
       : view.openByDefault
   const [showUnavailable, setShowUnavailable] = useState(false)
@@ -128,10 +132,10 @@ export default function GuidanceStrip({
             <div className="grid grid-cols-2 gap-2">
               {view.actionable.map((card) => (
                 <Card
-                  key={card.offerId}
+                  key={card.cardId}
                   card={card}
-                  open={open === card.offerId}
-                  onToggle={() => setChosen(open === card.offerId ? null : card.offerId)}
+                  open={open === card.cardId}
+                  onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
                   transactionId={transactionId}
                   actions={actions}
                 />
@@ -148,7 +152,7 @@ export default function GuidanceStrip({
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 {view.counted.map((card) => (
                   <span
-                    key={card.offerId}
+                    key={card.cardId}
                     data-cc-counted-item={card.offerId}
                     className="inline-flex max-w-full items-baseline gap-1.5 rounded-full border border-success-border bg-success-050 px-2 py-0.5 text-[11px] text-success-800"
                   >
@@ -187,7 +191,7 @@ export default function GuidanceStrip({
                 <ul className="mt-1 space-y-0.5">
                   {view.unavailable.map((card) => (
                     <li
-                      key={card.offerId}
+                      key={card.cardId}
                       data-cc-unavailable-item={card.offerId}
                       className="flex items-baseline gap-2 text-xs text-muted-foreground"
                     >

@@ -3,9 +3,12 @@
 //   1. run the app:  npx vite --port 5210
 //   2. node tools/callcenter-guidance-drive.mjs
 //
-// Nothing is stubbed except the wire, and the near-misses come from the contract's
-// own committed fixture — `.issues/assets/136-cc-contract/03-near-miss-buy-side.json`,
-// whose `stateFragment` holds one of each class by construction. The basket under
+// Nothing is stubbed except the wire. 🚩 The near-misses come from TWO places since
+// the v1.2 capture (177): the three rendering classes are the v1.0 provisional in
+// `src/features/callcenter/console/__fixtures__/unreachable-v1_0.json`, because the
+// capture of `03-near-miss-buy-side.json` holds two unready offers with blank
+// `offerId`s (859) and no `NOT_DISCOVERED` (855); the `captured` scenario drives that
+// real projection as its own case. The basket under
 // them is fixture 02, because 138's density budget was measured inside a real
 // console with a real basket and a real receipt, and a guidance surface judged in a
 // vacuum always passes.
@@ -55,17 +58,36 @@ const BASE = `http://localhost:${process.env.DRIVE_PORT || 5210}`
 
 const raw = (name) =>
   JSON.parse(readFileSync(new URL(`../.issues/assets/136-cc-contract/${name}.json`, import.meta.url), 'utf8'))
-const fixture = (name) => raw(name).response.data
+// v1.2 (857): a capture is `{ request, response: { statusCode, body } }` where
+// `body` is the envelope — so a payload is one level deeper than it was.
+const fixture = (name) => raw(name).response.body.data
+
+// 🚩 The legs the capture could NOT take, from the same file `__fixtures__/payloads.ts`
+// reads (ticket 177). NOT the wire: 859 leaves every captured `offerId` blank, which
+// costs the three rendering classes AND 404s the resolve leg this drive's click-through
+// needs. Held at the v1.0 provisional until 859 lands and both can be re-captured.
+const UNREACHABLE = JSON.parse(
+  readFileSync(
+    new URL('../src/features/callcenter/console/__fixtures__/unreachable-v1_0.json', import.meta.url),
+    'utf8',
+  ),
+)
 
 const OPEN_RESULT = fixture('01-open-empty')
 // A real basket under the strip: 135 amendment 2 set this ticket's density budget
 // inside a console that has one.
 const PRICED = fixture('02-two-lines-priced')
 
-// The contract's own three classes — a shortfall, an `isReady` offer that is
-// out-ranked, and a `NOT_DISCOVERED` skip. Verbatim; the console is being driven
-// against the frozen shape rather than against a mock of it.
-const [ACTIONABLE, COUNTED, SKIPPED] = raw('03-near-miss-buy-side').stateFragment.nearMisses
+// The three classes — a shortfall, an `isReady` offer that is out-ranked, and a
+// `NOT_DISCOVERED` skip. 🚩 These are the UNREACHABLE block, not the capture: the
+// captured `stateFragment` holds two offers, both unready, both with a blank
+// `offerId` (859), and `NOT_DISCOVERED` cannot be produced at all until 855 lands.
+// The shape is the contract's either way; only the class diversity is provisional.
+const [ACTIONABLE, COUNTED, SKIPPED] = UNREACHABLE.nearMissClasses.nearMisses
+
+// What the capture really holds, driven as its own scenario below — the state the
+// console will actually meet the day it is pointed at the live server.
+const CAPTURED_NEAR_MISSES = raw('03-near-miss-buy-side').stateFragment.nearMisses
 
 /** A near-miss shaped like the fixture's, varied only where a scenario is about
  *  the variation. Ids are made distinct so "which card" is provable. */
@@ -123,6 +145,10 @@ const SCENARIOS = {
   // The construction test: the server's order is different, so a hardcoded id
   // would open the wrong card.
   reordered: [COUNTED, SECOND_ACTIONABLE, ACTIONABLE, SKIPPED],
+  // 🚩 Ticket 177 — the wire as it ACTUALLY is: two offers, both unready, both
+  // with a blank `offerId` (859). Every scenario above is the provisional; this
+  // is the one the console will meet on the day it is pointed at the server.
+  captured: CAPTURED_NEAR_MISSES,
 }
 
 const results = []
@@ -141,7 +167,11 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
 // ranked, ATP-filtered rows, one of them with a degraded stock read, all three
 // carrying `description2`. `truncated: true` against a 42-strong population, so
 // the route to the rest is real.
-const RESOLUTION = raw('03-near-miss-buy-side').resolve.response.data
+// 🚩 The captured leg is a 404 (859): §3.3 addresses an offer by `offerId` and
+// every captured one is blank, so the click-through cannot reach its own
+// near-miss. Held at the v1.0 provisional — the drive still has to prove the
+// surface, and there is no other input for it.
+const RESOLUTION = UNREACHABLE.prereqResolution.data
 
 /**
  * A console whose order carries `nearMisses`, and nothing else changed.
@@ -524,6 +554,28 @@ async function run() {
     check('and leaves no clamped body behind it', (await page.locator('[data-cc-guidance-scroll]').count()) === 0)
     const height = (await page.locator('[data-cc-guidance]').boundingBox()).height
     check('it costs the basket almost nothing', height < 120, `${Math.round(height)}px`)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 177: the capture's own near-misses, blank offer ids and all ----
+  {
+    const { context, page, errors } = await open(browser, SCENARIOS.captured)
+    const cards = await page.locator('[data-cc-card]').count()
+    check(
+      '🚩 two offers sharing one blank offerId still draw two cards',
+      cards === CAPTURED_NEAR_MISSES.length,
+      `${cards} of ${CAPTURED_NEAR_MISSES.length}`,
+    )
+    const strip = await text(page, '[data-cc-guidance]')
+    check(
+      'and neither of them prints the empty id at the agent',
+      !/offerId|undefined|null/i.test(strip),
+    )
+    check(
+      'the region still says the get side is unchecked',
+      (await page.locator('[data-cc-guidance-getside]').count()) === 1,
+    )
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }

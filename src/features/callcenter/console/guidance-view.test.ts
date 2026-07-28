@@ -2,16 +2,23 @@ import { describe, expect, it } from 'vitest'
 
 import i18n from '@/core/i18n'
 import type { NearMiss } from '@/core/models/callcenter'
-import { NEAR_MISSES } from './__fixtures__/payloads'
+import { NEAR_MISSES, NEAR_MISS_CLASSES } from './__fixtures__/payloads'
 import { guidanceView, type GuidanceCard, type GuidancePhrase } from './guidance-view'
 
 /**
  * Ticket 171 — the guidance strip's two pure rulings.
  *
- * The fixture is the contract's own `03-near-miss-buy-side`, not a hand-written
- * list: it holds one of each class by construction (a shortfall, an `isReady`
- * offer, and a `NOT_DISCOVERED` skip), and a hand-copied version of it would be
- * a rule tested against a hypothesis (CONTRACT.md §11).
+ * Two corpora, and which one a case reads is the case's own claim:
+ *
+ * - `NEAR_MISSES` is the **v1.2 capture** of `03-near-miss-buy-side` — what the
+ *   engine really projects off this store's master data. Two offers, both
+ *   unready, and every `offerId` blank (859). Anything that must hold against
+ *   the wire as it is today reads this.
+ * - `NEAR_MISS_CLASSES` is the v1.0 provisional, held in
+ *   `__fixtures__/unreachable-v1_0.json` under its own warning: one of each
+ *   rendering class, which the capture has no live source for and cannot until
+ *   855 and 859 land. The class rulings read this, and they are hypotheses until
+ *   then — CONTRACT.md §11's own words.
  */
 
 /** Resolve a phrase the way the render tier does, so what is asserted is WORDS
@@ -26,7 +33,7 @@ const card = (view: ReturnType<typeof guidanceView>, offerId: string): GuidanceC
 }
 
 describe('nearMissesSortIntoThreeClasses', () => {
-  const view = guidanceView(NEAR_MISSES)
+  const view = guidanceView(NEAR_MISS_CLASSES)
 
   it('reads the fixture as one of each class', () => {
     expect(view.cards.map((c) => c.klass)).toEqual(['actionable', 'counted', 'unavailable'])
@@ -37,7 +44,7 @@ describe('nearMissesSortIntoThreeClasses', () => {
     // §3.1 sorts ready-first server-side. The classes are a rendering RANK; the
     // list is the engine's, and a view model that re-ordered it would be
     // overruling the sort the contract specifies.
-    expect(view.cards.map((c) => c.offerId)).toEqual(NEAR_MISSES.map((m) => m.offerId))
+    expect(view.cards.map((c) => c.offerId)).toEqual(NEAR_MISS_CLASSES.map((m) => m.offerId))
   })
 
   it('gives the actionable class its action and nothing else one', () => {
@@ -61,7 +68,7 @@ describe('nearMissesSortIntoThreeClasses', () => {
     // 138 finding 4: drawn with a hardcoded id first, and the big-set scenario
     // rendered collapsed. It is the FIRST actionable in the server's order.
     expect(view.openByDefault).toBe('BBY-5510')
-    expect(guidanceView([NEAR_MISSES[1], NEAR_MISSES[2]]).openByDefault).toBeNull()
+    expect(guidanceView([NEAR_MISS_CLASSES[1], NEAR_MISS_CLASSES[2]]).openByDefault).toBeNull()
   })
 
   it('says why an unreachable offer is unreachable, in the agent’s words', () => {
@@ -205,7 +212,7 @@ describe('noFigureInTheRegionIsFormattedAsMoney', () => {
   })
 
   it('produces no money-shaped figure over a fixture whose text carries a currency word', () => {
-    const view = guidanceView(NEAR_MISSES)
+    const view = guidanceView(NEAR_MISS_CLASSES)
     // The server's text is untouched — the currency word is still there, on the
     // card, exactly as the engine sent it.
     expect(card(view, 'BBY-5602').description).toBe('SAR 10 off when you buy 3 — baby care')
@@ -230,7 +237,7 @@ describe('noFigureInTheRegionIsFormattedAsMoney', () => {
     // does not exist on the wire and no client-side equivalent may replace it
     // (spec 574 US26), so a future caller must not find a field to print.
     const allowed = new Set(['have', 'need', 'shortfall', 'count', 'eligible'])
-    for (const c of guidanceView([...NEAR_MISSES, miss({ discount: { discountType: '%', value: 20 } })]).cards) {
+    for (const c of guidanceView([...NEAR_MISS_CLASSES, miss({ discount: { discountType: '%', value: 20 } })]).cards) {
       for (const [key] of numbersIn(c)) expect(allowed.has(key), `numeric field ${key}`).toBe(true)
       expect(JSON.stringify(c)).not.toMatch(/save|saving|total/i)
     }
@@ -259,15 +266,15 @@ describe('theGetSideNoticeIsAPropertyOfTheSurface', () => {
   })
 
   it('is present while no get-side near-miss can arrive', () => {
-    expect(guidanceView(NEAR_MISSES).getSideCovered).toBe(false)
+    expect(guidanceView(NEAR_MISS_CLASSES).getSideCovered).toBe(false)
     // Not a property of a CARD: no card carries it, and no class implies it.
-    for (const c of guidanceView(NEAR_MISSES).cards) expect('getSideCovered' in c).toBe(false)
+    for (const c of guidanceView(NEAR_MISS_CLASSES).cards) expect('getSideCovered' in c).toBe(false)
   })
 
   it('is gone the moment one does', () => {
-    expect(guidanceView([...NEAR_MISSES, GET_SIDE]).getSideCovered).toBe(true)
+    expect(guidanceView([...NEAR_MISS_CLASSES, GET_SIDE]).getSideCovered).toBe(true)
     // A buy-side `grouping` is NOT coverage — the distinction is the whole point.
-    expect(guidanceView([...NEAR_MISSES, miss({ offerId: 'X' })]).getSideCovered).toBe(false)
+    expect(guidanceView([...NEAR_MISS_CLASSES, miss({ offerId: 'X' })]).getSideCovered).toBe(false)
   })
 
   it('changes nothing else in the view model when it does', () => {
@@ -276,13 +283,99 @@ describe('theGetSideNoticeIsAPropertyOfTheSurface', () => {
     // model is byte-identical, and the acknowledgement's disappearance is the
     // only visible consequence of the server starting to send them.
     const buySide = miss({ offerId: 'BBY-6033', prereq: { kind: 'grouping', groupingId: 'G-6033', eligibleCount: 18 } })
-    const before = guidanceView([...NEAR_MISSES, buySide])
-    const after = guidanceView([...NEAR_MISSES, GET_SIDE])
+    const before = guidanceView([...NEAR_MISS_CLASSES, buySide])
+    const after = guidanceView([...NEAR_MISS_CLASSES, GET_SIDE])
     expect(before.getSideCovered).toBe(false)
     expect(after).toEqual({ ...before, getSideCovered: true })
     // The get-side offer is drawn like any other actionable one — it does not
     // arrive as a fourth class.
     expect(after.cards[3].klass).toBe('actionable')
+  })
+})
+
+/**
+ * `theStripHoldsAgainstTheWireAsItActuallyIs` (ticket 177).
+ *
+ * Everything above reads the provisional three-class list, because the capture
+ * has no source for the classes. This reads the **capture** — and what it finds
+ * is the state the console will actually meet on the day it is pointed at the
+ * real server: two offers, both unready, and **no `offerId` on either of them**
+ * (859). The strip is keyed on that field.
+ *
+ * 🚩 Nothing here asserts the strip is USEFUL in that state — it is not, and 859
+ * is why. What it asserts is that the strip stays HONEST: it does not throw, it
+ * does not collapse two offers into one card, and it does not invent an identity
+ * the wire declined to give.
+ */
+describe('theStripHoldsAgainstTheWireAsItActuallyIs', () => {
+  const view = guidanceView(NEAR_MISSES)
+
+  it('draws one card per offer even when the wire names none of them', () => {
+    // 🚩 The hazard 859 creates on this side, and a real defect the capture
+    // found: two DISTINCT offers arriving under the same empty key. Keyed on
+    // `offerId`, React de-duplicated them and opening one opened both — the
+    // agent was shown one offer where the engine sent two.
+    expect(NEAR_MISSES.map((m) => m.offerId)).toEqual(['', ''])
+    expect(view.cards).toHaveLength(NEAR_MISSES.length)
+    expect(view.cards.map((c) => c.description)).toEqual(NEAR_MISSES.map((m) => m.description))
+  })
+
+  it('gives every card a distinct identity even where the wire gave none', () => {
+    // The identity the STRIP keys and opens by. Distinct per card, whether or
+    // not the wire named the offer.
+    expect(new Set(view.cards.map((c) => c.cardId)).size).toBe(view.cards.length)
+    // ...and it opens exactly one of them, not both.
+    expect(view.cards.filter((c) => c.cardId === view.openByDefault)).toHaveLength(1)
+  })
+
+  it('keeps the offer id itself untouched — it is the server’s address', () => {
+    // 🚩 `cardId` is a render key, never an offer identity: `addItem` and
+    // `ResolvePrereq` address an offer by `offerId` (§3.3), and sending a
+    // positional id would name a different offer on the next projection. So the
+    // blank stays blank, and 859 stays visible rather than being papered over.
+    expect(view.cards.map((c) => c.offerId)).toEqual(['', ''])
+  })
+
+  it('still gives a NAMED offer its own id as its identity', () => {
+    // The fallback is for the blank case only — a named offer keeps a stable
+    // identity across projections, which is what makes the open card survive an
+    // add that re-orders the list.
+    expect(guidanceView(NEAR_MISS_CLASSES).cards.map((c) => c.cardId)).toEqual(
+      NEAR_MISS_CLASSES.map((m) => m.offerId),
+    )
+  })
+
+  it('reads them as the class their projection actually states', () => {
+    // Both are unready with a shortfall, so both are actionable — the capture
+    // simply holds no `counted` and no `unavailable` offer.
+    expect(view.cards.map((c) => c.klass)).toEqual(['actionable', 'actionable'])
+    expect(view.actionableCount).toBe(2)
+  })
+
+  it('states a one-material prerequisite as that item, never as a selection', () => {
+    // 🚩 Every captured prerequisite is `kind: 'material'` — the illustration
+    // had none, so this leg of `setPhrase` had no fixture behind it until the
+    // capture arrived. US42's rule runs both ways: a set sentence about exactly
+    // one item would say *any 1 from this selection* of a thing the caller has
+    // no selection over.
+    for (const c of view.cards) expect(say(c.set)).toBe('1 more of this item')
+    expect(view.cards.map((c) => c.eligible)).toEqual([1, 1])
+  })
+
+  it('still says the get side is uncovered, off a real projection', () => {
+    // The acknowledgement is derived, not configured (172), so it has to answer
+    // the same way over the wire's own near-misses as over the illustration.
+    expect(view.getSideCovered).toBe(false)
+  })
+
+  it('produces no money-shaped figure over the captured offers either', () => {
+    for (const c of view.cards)
+      for (const figure of [
+        ...Object.values(c.set?.params ?? {}).map(String),
+        String(c.shortfall),
+        ...(c.progress ? [String(c.progress.have), String(c.progress.need)] : []),
+      ])
+        expect(/(?:SAR|SR)\s*\d|\d\s*(?:SAR|SR)\b/.test(figure), figure).toBe(false)
   })
 })
 
@@ -297,5 +390,5 @@ function numbersIn(value: unknown, key = ''): Array<[string, number]> {
 /** A near-miss shaped like the fixture's, varied one field at a time — the
  *  shape is the contract's, and only what a case is about is spelled here. */
 function miss(over: Partial<NearMiss>): NearMiss {
-  return { ...NEAR_MISSES[1], progress: { have: 1, need: 2 }, isReady: false, skipReason: null, ...over }
+  return { ...NEAR_MISS_CLASSES[1], progress: { have: 1, need: 2 }, isReady: false, skipReason: null, ...over }
 }

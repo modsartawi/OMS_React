@@ -603,6 +603,7 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 | 1.0 | 2026-07-27 | Frozen. | — | [136](../../136-session-api-contract.md) |
 | 1.1 | 2026-07-27 | **The fulfilment-mode axis.** New `header.deliveryType`, new `setFulfilment` verb, new `capabilities.canChangeFulfilment`, new fixture 09. Both modes in phase 1. | **minor — additive** | [154](../../154-fulfilment-mode-and-store-choice.md) |
 | 1.2 | 2026-07-28 | **Two optional request fields, from the server build.** `addItem.uom?` — `ScanOptions.Uom` already exists, and an agent adding a box rather than a strip should not have to add-then-change; absent ⇒ the engine's own default unit, exactly as before. `setSlot.day? / description? / from? / to?` — the CLCN header stamps all five slot fields (`CreateDocument :18730-18734`) and the slot catalogue is deliberately **not** on this door ([137](../../137-callcenter-web-door.md) kept the reference reads on their existing routes), so the client passes back the slot it already picked rather than the server re-resolving it through a route that would have to be added. Neither field is price-affecting and both are optional, so a client that sends neither is unchanged. | **minor — additive** | [804](C:\Work\DMSCO\BackOffice\.issues\804-cc-session-contract-server-obligations.md) |
+| 1.2 | 2026-07-28 | **The fixtures became CAPTURES** ([§11](#11-fixtures)). Driven live against the real `CallCenterWeb/*` handlers, the engine and the serializer; `_contract.provisional` deleted, `_capture` in its place. **No wire change** — the shapes the eight v1.0 fixtures hand-authored all held, and the one difference every diff shows is `contractVersion` reading `1.2` rather than `1.0`, which is these two additive amendments, not drift. Three legs are recorded as unreachable (858 / 859 / 860) and the §5.1 diff basis is settled: `lineDiffs[].fromGross` / `toGross` are the ENGINE's gross — **pre-discount and ex-VAT** (`RepricingItemDiff.Old/NewGrossValue`), NOT the line's VAT-inclusive `lineTotal.gross`; carried as-is because the preview is what the confirm token PINS, and a computed number would pin a figure the engine never produced. `promotionsMoved` is always `[]` for the same reason: the engine's rebind diff is per LINE, not per offer. | **documentation — no wire change** | [857](C:\Work\DMSCO\BackOffice\.issues\857-cc-contract-fixture-conformance.md) |
 
 **Why 1.1 and not 2.0.** 154 was raised expecting a major: *"address optional, store chosen not
 derived, no delivery fee"* reads like three changed meanings. Checked against the frozen text, none
@@ -620,31 +621,58 @@ reasoning is the part worth keeping.
 
 ## 11. Fixtures
 
-Nine scenarios, committed beside this document. Each is `{ _contract, request, response }` — the
-provenance block mirrors 098's `_capture` but declares itself **provisional**, because unlike 098
-these are hand-authored against a server that does not exist yet.
+Nine scenarios, committed beside this document. **They are CAPTURES** (857, 2026-07-28), no longer
+hand-authored: each opens with a `_capture` provenance block — the 098 pattern — and was taken off
+the real `CallCenterWeb/*` handlers running against a live store DB and the real pricing engine, with
+the response produced by ASP.NET Core's own result execution so the status code and the JSON bytes
+are the wire's. The `_contract.provisional` flag is gone.
 
 | File | Scenario |
 |---|---|
 | [`01-open-empty.json`](01-open-empty.json) | `open` on a clean agent — the empty basket every other fixture starts from |
 | [`02-two-lines-priced.json`](02-two-lines-priced.json) | Two priced lines, a fired promotion, a delivery fee, full header |
-| [`03-near-miss-buy-side.json`](03-near-miss-buy-side.json) | A buy-side near-miss + its `resolvePrereq` resolution, and a `NOT_DISCOVERED` skip |
-| [`04-below-atp-confirm.json`](04-below-atp-confirm.json) | `addItem` → `pendingConfirmation: belowAtp` → confirmed commit |
-| [`05-rebind-preview.json`](05-rebind-preview.json) | `setAddress` → `pendingConfirmation: storeChange` with a full diff |
+| [`03-near-miss-buy-side.json`](03-near-miss-buy-side.json) | A near-miss inline and its on-demand `resolvePrereq` — which currently 404s (859) |
+| [`04-below-atp-confirm.json`](04-below-atp-confirm.json) | `addItem` → `pendingConfirmation: belowAtp`; the commit leg is a no-op (858) |
+| [`05-rebind-preview.json`](05-rebind-preview.json) | `setStore` → `pendingConfirmation: storeChange` with a full diff; the commit leg is a no-op (858) |
 | [`06-rebind-refused.json`](06-rebind-refused.json) | The atomic `REBIND_REFUSED` with `unpriceableLines[]` |
-| [`07-submit-already-submitted.json`](07-submit-already-submitted.json) | The already-submitted success carrying the first `documentNo` |
-| [`08-session-busy.json`](08-session-busy.json) | `SESSION_BUSY` and the `replayed: true` response to the retried `requestId` |
+| [`07-submit-already-submitted.json`](07-submit-already-submitted.json) | The first submit success, and the `SESSION_CLOSED` a retry currently gets instead of §8.3's replay success (860) |
+| [`08-session-busy.json`](08-session-busy.json) | `SESSION_BUSY` (a real held claim), the `replayed: true` retry, the stale tab, and the second `open` |
 | [`09-fulfilment-flip.json`](09-fulfilment-flip.json) | v1.1 — `setFulfilment` to `PickInStore` on a basket with lines: plant unchanged, no confirmation, address retained but header-absent, slot cleared, fee to 0 |
 
 Fixture 09 exists because the other eight are **all delivery-path**. Nothing in 01–08 would catch a
 server that raised a `storeChange` confirm on the flip, or one that cleared the retained address —
 the two ways [§2.2](#22-deliverytype--the-fulfilment-axis-v11) is most likely to be implemented wrong.
 
-**They are provisional until the conformance test replaces them.** At first integration the captures
-overwrite these files, the `_contract.provisional` flag is deleted, and the block becomes a
-`_capture`. Until then, no client test may treat a fixture *value* as evidence of engine behaviour —
-only its **shape**. (098's `payloads.ts` states the standing rule this qualifies: a hand-copied
-fixture is a rule tested against a hypothesis.)
+### What the capture changed, and what it found
+
+`CcContractFixtureTests` (BackOffice, `Pricing/SIS.Pricing.Tests/Pos/CcContract/`) drives all nine
+against the real handlers and then **diffs** them: every key at every depth and the JSON kind of every
+leaf, so a renamed or dropped field is red. Re-capturing is opt-in (`CC_CONTRACT_CAPTURE=1`) so it
+cannot happen by accident — the file is a gate, not a snapshot that re-blesses itself. Values that
+move between runs (ids, timestamps, prices, tokens) are not diffed; each scenario asserts the values
+that ARE contract explicitly. Customer identity is replaced by stable placeholders on the way out, so
+the standing "no real identity in any fixture" rule holds against a live database.
+
+Three fixtures record a leg the server **cannot currently reach**, captured as it really answers
+rather than as the contract promises — an honest fixture that goes red the day the fix lands:
+
+| Fixture | Leg | Blocked by |
+|---|---|---|
+| `03` | `resolvePrereq` answers **404**: `nearMisses[].offerId` is blank, and §3.3 addresses an offer by exactly that field | [859](C:\Work\DMSCO\BackOffice\.issues\859-near-miss-offer-id-is-blank.md) |
+| `04`, `05` | The **commit** half of both two-phase verbs is a no-op: the ask's own claim advances the engine version past the ledger's reservation, so the confirming retry (same `requestId`, as §0 law 3 requires) resolves as "already applied" and never touches the engine | [858](C:\Work\DMSCO\BackOffice\.issues\858-confirm-retry-swallowed-as-replay.md) |
+| `07` | The retry gets `SESSION_CLOSED`, not §8.3's `alreadySubmitted` success — the session's liveness gate refuses before the once-only path runs, so a client that lost the first response cannot recover the `documentNo` | [860](C:\Work\DMSCO\BackOffice\.issues\860-already-submitted-replay-unreachable.md) |
+
+Two defects the capture found were **fixed** in the same pass and are not visible as divergences: the
+submit sent the POS engine's document-type id where the OMS catalogue needs `CLCN` (every submit died
+as `SUBMIT_UNAVAILABLE`), and `setFulfilment` answered with the PRE-flip `deliveryFee` / `payable`
+because the projection ran before the sidecar patch. A third, the shipping short address being filled
+from the customer's second street line, is carried as
+[861](C:\Work\DMSCO\BackOffice\.issues\861-web-cc-short-address-filled-from-street2.md).
+
+Also confirmed as **expected, not drift**: `lines[].uomOptions` ships empty in phase 1 (`changeUom`
+works; only the picker is missing), `nearMisses[].skipReason` can never be `NOT_DISCOVERED` until
+buy-side BBY discovery lands (855), and `atpAtScan.known` is `false` wherever no stock service is
+reachable — `null` is an honest answer the console renders differently from `0` (287).
 
 Wiring them into `src/features/callcenter/__fixtures__/payloads.ts` is build work for `/implement`,
 following the 098 pattern — imported from `.issues/assets/`, test-only, never in the bundle.

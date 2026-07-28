@@ -206,6 +206,7 @@
   "search": {
     "label": "Search the catalogue",
     "placeholder": "Search items — name, Arabic name, or item number",
+    "clear": "Clear the search",
     "minChars": "Type at least {{min}} characters — part of the name, in English or Arabic, or the item number.",
     "searching": "Searching the catalogue…",
     "failed": "The catalogue search could not be completed. Nothing has changed on this order — try again.",
@@ -359,5 +360,11 @@
     "retry": "Try again",
     "backToPortal": "Back to the portal",
     "signOut": "Sign out"
+  },
+  "swallowed": {
+    "belowAtp": "That item was not added. The order service accepted the answer but did not apply it — the basket is exactly as it was.",
+    "storeChange": "The store was not changed. The order service accepted the answer but did not apply it — the order is still at the store it was.",
+    "hint": "Nothing on the order has changed. Try the action again from the start; if it keeps happening, it needs raising.",
+    "dismiss": "Dismiss"
   }
 }

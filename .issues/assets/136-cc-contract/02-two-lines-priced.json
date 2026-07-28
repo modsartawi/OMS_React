@@ -1,129 +1,236 @@
 {
-  "_contract": {
-    "provisional": true,
-    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
-    "scenario": "Two priced lines, a fired promotion, a delivery fee, a complete header — the everyday rendering case",
-    "contractVersion": "1.0",
-    "authoredAt": "2026-07-27",
-    "authoredBy": ".issues/136-session-api-contract.md"
+  "_capture": {
+    "ticket": "857",
+    "map": "126",
+    "scenario": "Two priced lines, a fired promotion, a delivery fee, a full header — the everyday rendering case",
+    "contractVersion": "1.2",
+    "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
+    "capturedAt": "2026-07-28",
+    "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
   "request": {
     "method": "POST",
     "path": "CallCenterWeb/AddItem",
     "body": {
-      "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-      "requestId": "01JC8Q7B2E4F6H8K0M2P4R6T8V",
-      "itemNumber": "100001",
-      "qty": 2
+      "itemNumber": "200022",
+      "qty": 1,
+      "uom": null,
+      "transactionId": "06FTGNWHF1AMRTEW7PXCP14B16",
+      "requestId": "06FTGNWM1YN5B8D2RBMZS09ZK5",
+      "confirmToken": null
     }
   },
   "response": {
     "statusCode": 200,
-    "success": true,
-    "message": "",
-    "errors": [],
-    "data": {
-      "contractVersion": "1.0",
-      "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-      "version": 12,
-      "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-12",
-      "status": "open",
-      "replayed": false,
-      "header": {
-        "plant": "1101",
-        "plantName": "Riyadh — Al Malqa",
-        "plantSource": "derivedFromAddress",
-        "origin": "C000",
-        "documentType": "CLCN",
-        "register": "WEB-a.alharbi",
-        "operatorId": "a.alharbi",
-        "entryStore": "1001",
-        "openedAt": "2026-07-27T09:14:03Z",
-        "customer": {
-          "customerId": "0001234567",
-          "name": "Test Customer",
-          "mobile": "+9665XXXXXXXX",
-          "loyaltyAttached": true
+    "body": {
+      "data": {
+        "contractVersion": "1.2",
+        "transactionId": "06FTGNWHF1AMRTEW7PXCP14B16",
+        "version": 24,
+        "etag": "06FTGNWHF1AMRTEW7PXCP14B16-24",
+        "status": "open",
+        "replayed": false,
+        "header": {
+          "deliveryType": "Delivery",
+          "plant": "1001",
+          "plantName": "King AbdelAziz Road",
+          "plantSource": "operatorOverride",
+          "origin": "C000",
+          "documentType": "CallCenterOrder",
+          "register": "WEB-t50ab6358",
+          "operatorId": "TEST-OP",
+          "entryStore": "1001",
+          "openedAt": "2026-07-28T13:48:59.0194368",
+          "customer": {
+            "customerId": "C-REDACTED",
+            "name": "Redacted Customer",
+            "mobile": "9665REDACTED",
+            "loyaltyAttached": true
+          },
+          "address": null,
+          "slot": null,
+          "documentSource": "CINB",
+          "sourceReference": "CALL-857-02",
+          "hasBelowAtp": false
         },
-        "address": {
-          "addressNumber": "77120",
-          "label": "Home",
-          "cityCode": "0021",
-          "cityName": "Riyadh",
-          "districtCode": "R-114",
-          "districtName": "Al Malqa",
-          "line": "King Abdulaziz Rd, Bldg 4"
+        "lines": [
+          {
+            "lineId": "L10",
+            "itemNumber": "200021",
+            "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+            "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+            "qty": 2.00,
+            "uom": "EA",
+            "uomOptions": [],
+            "unitPrice": {
+              "net": 11.57,
+              "gross": 13.305
+            },
+            "lineTotal": {
+              "net": 23.14,
+              "gross": 26.61
+            },
+            "conditions": [
+              {
+                "type": "VKP0",
+                "description": "Basic Price",
+                "value": 25.72,
+                "isStatistical": false
+              },
+              {
+                "type": "ZB03",
+                "description": "10% Coupon",
+                "value": -1.29,
+                "isStatistical": false
+              },
+              {
+                "type": "ZB03",
+                "description": "10% Coupon",
+                "value": -1.29,
+                "isStatistical": false
+              },
+              {
+                "type": "MWST",
+                "description": "Vat %",
+                "value": 3.47,
+                "isStatistical": false
+              }
+            ],
+            "promotions": [
+              {
+                "offerId": "",
+                "description": "10% Coupon",
+                "amount": -3.87
+              }
+            ],
+            "atpAtScan": {
+              "quantity": null,
+              "frozenAt": null,
+              "known": false
+            },
+            "belowAtpAtScan": false,
+            "warnings": []
+          },
+          {
+            "lineId": "L30",
+            "itemNumber": "200022",
+            "description": "8X4 DEO SPRAY MUSK/MARKNT 150M",
+            "description2": "8×4 بخاخ مسك رجال مزيل عرق 150مل",
+            "qty": 1,
+            "uom": "EA",
+            "uomOptions": [],
+            "unitPrice": {
+              "net": 11.57,
+              "gross": 13.31
+            },
+            "lineTotal": {
+              "net": 11.57,
+              "gross": 13.31
+            },
+            "conditions": [
+              {
+                "type": "VKP0",
+                "description": "Basic Price",
+                "value": 12.86,
+                "isStatistical": false
+              },
+              {
+                "type": "ZB03",
+                "description": "10% Coupon",
+                "value": -1.29,
+                "isStatistical": false
+              },
+              {
+                "type": "MWST",
+                "description": "Vat %",
+                "value": 1.74,
+                "isStatistical": false
+              }
+            ],
+            "promotions": [
+              {
+                "offerId": "",
+                "description": "10% Coupon",
+                "amount": -3.87
+              }
+            ],
+            "atpAtScan": {
+              "quantity": null,
+              "frozenAt": null,
+              "known": false
+            },
+            "belowAtpAtScan": false,
+            "warnings": []
+          }
+        ],
+        "totals": {
+          "net": 34.71,
+          "vat": 5.21,
+          "gross": 39.92,
+          "deliveryFee": {
+            "amount": 12.0,
+            "waived": false,
+            "thresholdGross": 100,
+            "conditionType": "DFEE"
+          },
+          "payable": 51.92
         },
-        "slot": { "slotId": "2026-07-28#S3", "from": "18:00", "to": "21:00", "isActive": true },
-        "documentSource": "CALLCENTER",
-        "sourceReference": "CRM-889231",
-        "hasBelowAtp": false
-      },
-      "lines": [
-        {
-          "lineId": "L1",
-          "itemNumber": "100001",
-          "description": "Panadol Extra 24 Tab",
-          "description2": "بنادول اكسترا ٢٤ قرص",
-          "qty": 2,
-          "uom": "EA",
-          "uomOptions": ["EA"],
-          "unitPrice": { "net": 12.0, "gross": 13.8 },
-          "lineTotal": { "net": 24.0, "gross": 27.6 },
-          "conditions": [
-            { "type": "ZVKP", "description": "Store price", "value": 12.0, "isStatistical": false },
-            { "type": "BBY1", "description": "70% 2nd PCS", "value": -8.4, "isStatistical": false },
-            { "type": "MWST", "description": "VAT 15%", "value": 3.6, "isStatistical": false }
-          ],
-          "promotions": [{ "offerId": "BBY-4471", "description": "70% 2nd PCS", "amount": -8.4 }],
-          "atpAtScan": { "quantity": 5, "frozenAt": "2026-07-27T09:15:41Z", "known": true },
-          "belowAtpAtScan": false,
-          "warnings": []
-        },
-        {
-          "lineId": "L2",
-          "itemNumber": "100455",
-          "description": "Vitamin C 1000mg 20 Eff",
-          "description2": "فيتامين سي ١٠٠٠ ملغ",
-          "qty": 1,
-          "uom": "EA",
-          "uomOptions": ["EA", "BOX"],
-          "unitPrice": { "net": 30.0, "gross": 34.5 },
-          "lineTotal": { "net": 30.0, "gross": 34.5 },
-          "conditions": [
-            { "type": "ZVKP", "description": "Store price", "value": 30.0, "isStatistical": false },
-            { "type": "MWST", "description": "VAT 15%", "value": 4.5, "isStatistical": false }
-          ],
-          "promotions": [],
-          "atpAtScan": { "quantity": 40, "frozenAt": "2026-07-27T09:16:02Z", "known": true },
-          "belowAtpAtScan": false,
-          "warnings": []
+        "firedPromotions": [
+          {
+            "offerId": "",
+            "description": "10% Coupon",
+            "amount": -3.87,
+            "lineIds": [
+              "L10",
+              "L30",
+              "L20"
+            ]
+          }
+        ],
+        "nearMisses": [
+          {
+            "offerId": "",
+            "description": "T173 COUPON-GATED BBY",
+            "isReady": false,
+            "progress": {
+              "have": 0,
+              "need": 1
+            },
+            "prereq": {
+              "kind": "material",
+              "materialNumber": "COUPT173",
+              "groupingId": null,
+              "eligibleCount": 1
+            },
+            "skipReason": null
+          }
+        ],
+        "pendingConfirmation": null,
+        "capabilities": {
+          "canAddItem": true,
+          "canSubmit": false,
+          "canChangeStore": true,
+          "canOpenAddressBook": true,
+          "canChangeFulfilment": true,
+          "submitBlockers": [
+            "NO_ADDRESS",
+            "MISSING_SLOT"
+          ]
         }
-      ],
-      "totals": {
-        "net": 45.6,
-        "vat": 6.84,
-        "gross": 52.44,
-        "deliveryFee": { "amount": 15.0, "waived": false, "thresholdGross": 200.0, "conditionType": "DFEE" },
-        "payable": 67.44
       },
-      "firedPromotions": [
-        { "offerId": "BBY-4471", "description": "70% 2nd PCS", "amount": -8.4, "lineIds": ["L1"] }
-      ],
-      "nearMisses": [],
-      "pendingConfirmation": null,
-      "capabilities": {
-        "canAddItem": true,
-        "canSubmit": true,
-        "canChangeStore": true,
-        "canOpenAddressBook": true,
-        "submitBlockers": []
-      }
+      "statusCode": 200,
+      "success": true,
+      "message": "",
+      "errors": null
     }
   },
   "_notes": [
-    "The line total is net of the promotion: 24.00 net = (12.00 × 2) − 8.40 promo + … ; the client never re-derives it (CONTRACT.md §2.1). Values here are illustrative and are exactly what the conformance capture will overwrite.",
-    "unitPrice.gross vs item search's estimatePriceExVat differ by the separate 15% MWST condition — 131's labelling requirement.",
-    "deliveryFee is quoted live as lines change, not at submit (133)."
+    "SET UP BY: open · attachCustomer · setDocumentSource · addItem(200021 ×2) · applyCoupon. The CAPTURED call is the second addItem, so this fixture is what the console repaints on an ordinary add.",
+    "The line total is net of any promotion and the client never re-derives it (CONTRACT.md §2.1).",
+    "unitPrice.net vs unitPrice.gross differ by the separate MWST condition — 131's labelling requirement, visible in lines[].conditions.",
+    "deliveryFee is quoted live as lines change, not at submit (133).",
+    "\uD83D\uDEA9 lines[].uomOptions is EMPTY by construction in phase 1 — changeUom works and the engine refuses an invalid pair with UOM_NOT_AVAILABLE, so only the picker is missing. The option source is MaterialUnitOfMeasure, whose home DB the web host does not read (857, parked).",
+    "\uD83D\uDEA9 atpAtScan.known is FALSE here: no stock service is reachable from the capture environment, so the freeze is honestly unknown rather than zero (287). In an environment with StockV2 this carries a number and a frozenAt."
   ]
 }

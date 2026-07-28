@@ -16,7 +16,8 @@
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import callcenter from '@/locales/en/callcenter.json'
-import { SUBMIT_PLACED, SUBMIT_REPLAYED } from './__fixtures__/payloads'
+import { SUBMIT_PLACED, SUBMIT_REPLAYED, SUBMIT_RETRY_REFUSED } from './__fixtures__/payloads'
+import { readSessionFault } from './session-fault'
 import { readSubmitFailure, readSubmitResult, submitRefusalChip } from './submit-outcome'
 
 /** `submit.placed` → the phrase, or undefined if the key does not exist. */
@@ -54,6 +55,55 @@ describe('readSubmitResult', () => {
     // fixture's own replay carries an ELIDED state — and the equality above
     // would be quietly weaker than it looks.
     expect(Object.keys(readSubmitResult(SUBMIT_PLACED))).toEqual(['documentNo'])
+  })
+})
+
+/**
+ * `theRetryTheServerCannotAnswerYet` (ticket 177, the 07 ruling).
+ *
+ * §8.3 promises a submit retry answers `alreadySubmitted` with the same
+ * `documentNo`. The v1.2 capture shows it answers `409 SESSION_CLOSED` with
+ * `reason: "submitted"` — the session's liveness gate refuses before the
+ * once-only path runs (860). The corpus **holds both**: the case above keeps the
+ * client's promise, because it is a claim about this module and has to be true
+ * the day 860 lands; this one states what the wire really does today, so the
+ * gap is visible in the tests rather than only in a ticket.
+ *
+ * 🚩 The console's answer to it is already correct and already routed: a
+ * `SESSION_CLOSED` is a `session-fault`, not a submit failure, so the tab
+ * returns to the start rather than showing a submit error over a dead order.
+ * What it CANNOT do is give the agent the order number, and that is 860's harm
+ * stated exactly: an agent whose response was lost mid-call has no way back to
+ * the number they were about to read out.
+ */
+describe('theRetryTheServerCannotAnswerYet', () => {
+  /** The captured refusal, as `core/api.ts` hands it over. */
+  const thrown = new ApiError(
+    'business',
+    'That order is no longer open.',
+    409,
+    SUBMIT_RETRY_REFUSED.errors ?? [],
+    SUBMIT_RETRY_REFUSED.data,
+  )
+
+  it('is read as a dead session and not as a submit failure', () => {
+    expect(readSessionFault(thrown)).toEqual({ kind: 'closed', reason: 'submitted' })
+  })
+
+  it('carries no order number anywhere on it', () => {
+    // 🚩 860 in one assertion. No other response on this contract carries a
+    // `documentNo`, so a lost first response currently loses the number for
+    // good. If this case ever goes red because a number appeared, 860 has
+    // landed and the fixture should be re-captured.
+    expect(JSON.stringify(SUBMIT_RETRY_REFUSED)).not.toContain(SUBMIT_PLACED.documentNo)
+  })
+
+  it('still says something rather than crashing, if it reaches the submit path', () => {
+    // The page asks `readSessionFault` first, but this module is not allowed to
+    // depend on that ordering: an uncoded outcome is `failed`, retryable false,
+    // and the order is reported open — which is the safe reading when the truth
+    // is that it is closed BECAUSE it succeeded.
+    expect(readSubmitFailure(thrown, 'fallback')).toMatchObject({ kind: 'failed', retryable: false })
   })
 })
 

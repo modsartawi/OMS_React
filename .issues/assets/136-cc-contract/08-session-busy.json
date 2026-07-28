@@ -1,116 +1,229 @@
 {
-  "_contract": {
-    "provisional": true,
-    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
-    "scenario": "The two concurrency shapes: a routine strict-claim collision the client rides out, and the requestId replay that makes an ambiguous retry safe. Plus the stale-tab refusal.",
-    "contractVersion": "1.0",
-    "authoredAt": "2026-07-27",
-    "authoredBy": ".issues/136-session-api-contract.md"
+  "_capture": {
+    "ticket": "857",
+    "map": "126",
+    "scenario": "The two concurrency shapes — a routine strict-claim collision the client rides out and the requestId replay that makes an ambiguous retry safe — plus the stale-tab refusal and the second open",
+    "contractVersion": "1.2",
+    "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
+    "capturedAt": "2026-07-28",
+    "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
   "busy": {
     "request": {
       "method": "POST",
-      "path": "CallCenterWeb/ChangeQty",
+      "path": "CallCenterWeb/AddItem",
       "body": {
-        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-        "requestId": "01JC8QT8V0X2Z4B6D8F0H2J4L6",
-        "lineId": "L1",
-        "newQty": 3
+        "itemNumber": "200021",
+        "qty": 1,
+        "uom": null,
+        "transactionId": "06FTGNWCSQX80T9WK03DMSE0Q6",
+        "requestId": "06FTGNWD8C0KR8BE1YD36GZXW0",
+        "confirmToken": null
       }
     },
     "response": {
       "statusCode": 409,
-      "success": false,
-      "message": "Another request is updating this order.",
-      "errors": [
-        {
-          "errorCode": "SESSION_BUSY",
-          "internalErrorCode": "POS.CLAIM.CONFLICT",
-          "errorMessage": "claim held"
-        }
-      ],
-      "data": { "retryAfterMs": 400 }
+      "body": {
+        "data": {
+          "retryAfterMs": 400
+        },
+        "statusCode": 409,
+        "success": false,
+        "message": "Another request is working on this order. Retrying.",
+        "errors": [
+          {
+            "errorCode": "SESSION_BUSY",
+            "internalErrorCode": null,
+            "errorMessage": "Another request is working on this order. Retrying."
+          }
+        ]
+      }
     }
   },
   "replay": {
-    "_note": "Same requestId as `busy`, resent after the claim freed. It applied on an earlier attempt whose response was lost; the ledger recognises it.",
-    "request": {
-      "method": "POST",
-      "path": "CallCenterWeb/ChangeQty",
-      "body": {
-        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-        "requestId": "01JC8QT8V0X2Z4B6D8F0H2J4L6",
-        "lineId": "L1",
-        "newQty": 3
-      }
-    },
-    "response": {
-      "statusCode": 200,
-      "success": true,
-      "message": "",
-      "errors": [],
-      "data": {
-        "contractVersion": "1.0",
-        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-        "version": 15,
-        "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-15",
-        "status": "open",
-        "replayed": true,
-        "_elided": "current state — NOT the state as of the original apply",
-        "pendingConfirmation": null
-      }
-    }
-  },
-  "staleTab": {
-    "_note": "The agent abandoned this order and opened a fresh one for a new caller; a forgotten tab fires an add on the dead id.",
     "request": {
       "method": "POST",
       "path": "CallCenterWeb/AddItem",
       "body": {
-        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-        "requestId": "01JC8QV0X2Z4B6D8F0H2J4L6N8",
-        "itemNumber": "100001",
-        "qty": 1
+        "itemNumber": "200021",
+        "qty": 1,
+        "uom": null,
+        "transactionId": "06FTGNWCSQX80T9WK03DMSE0Q6",
+        "requestId": "06FTGNWDHST4W6B6GR9MV4R6J4",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.2",
+          "transactionId": "06FTGNWCSQX80T9WK03DMSE0Q6",
+          "version": 15,
+          "etag": "06FTGNWCSQX80T9WK03DMSE0Q6-15",
+          "status": "open",
+          "replayed": true,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "operatorOverride",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-tcba80f38",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-28T13:48:57.8177603",
+            "customer": null,
+            "address": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "hasBelowAtp": false
+          },
+          "lines": [
+            {
+              "lineId": "L10",
+              "itemNumber": "200021",
+              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+              "qty": 1.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "lineTotal": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 12.86,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 1.93,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
+            }
+          ],
+          "totals": {
+            "net": 12.86,
+            "vat": 1.93,
+            "gross": 14.79,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 26.79
+          },
+          "firedPromotions": [],
+          "nearMisses": [],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": false,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_CUSTOMER",
+              "NO_ADDRESS",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "staleTab": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/AddItem",
+      "body": {
+        "itemNumber": "200021",
+        "qty": 1,
+        "uom": null,
+        "transactionId": "06FTGNWFGN49C84NB1BF4KN0B6",
+        "requestId": "06FTGNWGEZ98Q3FR3BPMA9W5J1",
+        "confirmToken": null
       }
     },
     "response": {
       "statusCode": 409,
-      "success": false,
-      "message": "This order was cancelled and can no longer be changed.",
-      "errors": [
-        {
-          "errorCode": "SESSION_CLOSED",
-          "internalErrorCode": "CC.SESSION.ABANDONED",
-          "errorMessage": "abandoned"
-        }
-      ],
-      "data": { "reason": "abandoned" }
+      "body": {
+        "data": {
+          "reason": "abandoned"
+        },
+        "statusCode": 409,
+        "success": false,
+        "message": "That order is no longer open.",
+        "errors": [
+          {
+            "errorCode": "SESSION_CLOSED",
+            "internalErrorCode": null,
+            "errorMessage": "That order is no longer open."
+          }
+        ]
+      }
     }
   },
   "secondOpen": {
-    "_note": "One active order per agent — the refusal that IS the reconnect story (127).",
-    "request": { "method": "POST", "path": "CallCenterWeb/Open", "body": { "requestId": "01JC8QW2Z4B6D8F0H2J4L6N8P0" } },
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/Open",
+      "body": {
+        "requestId": "06FTGNWGHWAQ13PYT1ZDHRQTB5"
+      }
+    },
     "response": {
       "statusCode": 200,
-      "success": true,
-      "message": "",
-      "errors": [],
-      "data": {
-        "outcome": "refusedExisting",
-        "state": null,
-        "existing": {
-          "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-          "customerName": "Test Customer",
-          "lineCount": 4,
-          "openedAt": "2026-07-27T08:41:00Z",
-          "plant": "1101"
-        }
+      "body": {
+        "data": {
+          "outcome": "refusedExisting",
+          "state": null,
+          "existing": {
+            "transactionId": "06FTGNWCSQX80T9WK03DMSE0Q6",
+            "customerName": "Redacted Customer",
+            "lineCount": 1,
+            "openedAt": "2026-07-28T13:48:57.8052608",
+            "plant": "1001"
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
       }
     }
   },
   "_notes": [
-    "SESSION_BUSY is ROUTINE, not an outage: the 15 s strict claim is the only mutual exclusion in the engine (SaveAsync blind-increments Version — 127 finding 1). The client retries 0·400·800·1600·3200 ms in features/callcenter/api.ts, never in core/api.ts.",
-    "The explicit, ownership-validated transactionId is what makes staleTab a refusal instead of caller A's item landing on caller B's live order — the same harm 127 refused auto-resume to prevent, closed on the other side.",
-    "refusedExisting rides the SUCCESS path: it is a choice (resume or abandon-and-open-fresh), not a failure. Never a silent auto-resume."
+    "busy is a REAL collision: the capture holds an engine claim open across the verb. The 15 s strict claim is the only mutual exclusion in the engine (SaveAsync blind-increments Version — 127 finding 1). The client retries 0·400·800·1600·3200 ms in features/callcenter/api.ts, never in core/api.ts.",
+    "replay carries replayed:true and the SAME basket — the ledger reserved the requestId with the version it was about to mutate FROM, so the retry resolves as a replay rather than a second add (§6.4).",
+    "The explicit, ownership-validated transactionId is what makes staleTab a refusal instead of caller A's item landing on caller B's live order.",
+    "refusedExisting rides the SUCCESS path and carries a line COUNT, not the basket: the agent only has to RECOGNISE the order. Resuming it is a second, explicit call."
   ]
 }

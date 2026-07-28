@@ -106,3 +106,39 @@ sheet. 169 replaces it with the modal and should delete the key.
 
 Proof: 17 pure (`item-search.test.ts`) + `callcenter-drive` 301/301; `typecheck`,
 `lint` (3 gates), `build`, 421 unit tests green.
+
+## Comments
+
+**2026-07-28 — owner gap review #2: the panel could be typed into but not put away.**
+
+Owner, driving the built console: *"after the products appear I can add an item but there is no x
+button or the combo not disappear — I should delete the content from the text input so the
+list/combobox disappears."* Both halves were real, and both were structural rather than cosmetic:
+
+- The input had **no clear affordance at all** — no button, no `Escape`. Emptying it by hand was the
+  only exit, and even that left the rows standing for the 250 ms settle.
+- **A landed add did not put the question away.** The rows are gated on the settled term alone, so
+  the results of a question the agent had finished asking stayed on screen over the basket line that
+  had just appeared — on the console's most-pressed control, at call pace.
+
+Fixed here rather than ticketed. Three things, and the third is the one with a rule in it:
+
+1. A clear button at the input's end edge, from the **first** character rather than from the third
+   (a one- or two-character term draws no rows but is still text in the way). It sets `term` as well
+   as `query`, so the rows go at once instead of after the settle. Padding is reserved whether or not
+   the button is there — a padding that appeared with the button would shift the text under the caret
+   mid-word.
+2. `Escape` **on the box only**, never a document listener: a modal is the one thing on this console
+   that outranks the search, and a global handler would eat the key that closes it.
+3. 🚩 **The panel clears on a *landing*, not on a success.** The page counts adds that actually
+   reached the basket and the panel watches that counter. A below-availability **ask** carries the
+   unchanged state (§5.2) — nothing was added — so the rows stay in front of the agent who is about
+   to accept, and the guidance strip's scoped hand-off (172) survives untouched. Cleared, the caret
+   stays in the box for the next item.
+
+Proof: 15 checks in a focused drive over the four claims (X clears and refocuses, `Escape` clears,
+a landing dismisses and empties, an ask does **not**), no page errors; all three lint gates green.
+⚠ **`typecheck` and `vitest` could not be run against it** — the tree's fixture corpus was mid-revision
+and both were already red before this change; the repo's own `callcenter-drive.mjs` could not load for
+the same reason, which is why the drive here was a standalone one. See
+[177](177-v1.2-captures-land-on-the-client.md).

@@ -187,20 +187,22 @@ const BASE = `http://localhost:${process.env.DRIVE_PORT || 5210}`
 // imports. A drive that hand-wrote this payload would be testing the drive.
 const raw = (name) =>
   JSON.parse(readFileSync(new URL(`../.issues/assets/136-cc-contract/${name}.json`, import.meta.url), 'utf8'))
-const fixture = (name) => raw(name).response.data
+// v1.2 (857): a capture is `{ request, response: { statusCode, body } }` where
+// `body` is the envelope — so a payload is one level deeper than it was.
+const fixture = (name) => raw(name).response.body.data
 
 // A REFUSAL out of a fixture that holds several (08 carries four scenarios), as a
 // Playwright fulfilment. Hand-writing a 409 body here would be testing the drive;
 // the codes, the messages and the `data` payloads are the contract's own.
 const refusal = (name, key) => {
   const response = raw(name)[key].response
-  return { status: response.statusCode, contentType: 'application/json', body: JSON.stringify(response) }
+  return { status: response.statusCode, contentType: 'application/json', body: JSON.stringify(response.body) }
 }
 
 // §6.1's routine collision and §6.2's stale tab, verbatim from fixture 08.
 const BUSY = refusal('08-session-busy', 'busy')
 const CLOSED = refusal('08-session-busy', 'staleTab')
-const CLOSED_MESSAGE = raw('08-session-busy').staleTab.response.message
+const CLOSED_MESSAGE = raw('08-session-busy').staleTab.response.body.message
 
 const OPEN_RESULT = fixture('01-open-empty')
 const STATE = OPEN_RESULT.state
@@ -209,8 +211,42 @@ const STATE = OPEN_RESULT.state
 // `02-two-lines-priced` is the resume target on purpose: an order with LINES in
 // it is the one whose inheritance would do harm, and two lines on screen after
 // *Resume* is what "back where it was" looks like.
-const PRIOR_STATE = fixture('02-two-lines-priced')
+// 🚩 The v1.2 capture carries `address: null` — the capture environment reached the
+// loyalty attach but not the address book, so a settled order in it has a caller and
+// no address. Ticket 167's cases are about moving a plant that was DERIVED from an
+// address, so the address is stated here: the capture supplies the caller, the lines
+// and the money, and this supplies the one field it could not reach. It is the same
+// address `ADDRESS_BOOK` offers, so the picker and the header agree.
+const PRIOR_STATE = (() => {
+  const captured = fixture('02-two-lines-priced')
+  return {
+    ...captured,
+    header: {
+      ...captured.header,
+      address: {
+        addressNumber: '77120',
+        label: 'Home',
+        cityCode: '0021',
+        cityName: 'Riyadh',
+        districtCode: 'R-114',
+        districtName: 'Al Malqa',
+        line: 'King Abdulaziz Rd, Bldg 4',
+      },
+    },
+  }
+})()
 const PRIOR_ID = PRIOR_STATE.transactionId
+
+// 🚩 The v1.2 capture ships `uomOptions: []` on EVERY line — 857 confirmed that as
+// expected rather than drift: `changeUom` works and only the picker's catalogue is
+// missing in phase 1. The unit picker therefore has nothing to draw, so the cases
+// that drive it state the second line's units. Everything else stays the capture's.
+const PRIOR_WITH_UNITS = {
+  ...PRIOR_STATE,
+  lines: PRIOR_STATE.lines.map((line, index) =>
+    index === 1 ? { ...line, uomOptions: ['EA', 'BOX'] } : line,
+  ),
+}
 
 // §8.1's shape, hand-built: there is no committed fixture for a refusal (136
 // froze nine payloads and this is not one of them), so the drive spells the four
@@ -324,7 +360,7 @@ const DERIVED_PLANT = {
 // §6.3's two refusals, each carrying a MACHINE code and a server sentence the
 // console must not simply relay: "not found" is precisely the wording the
 // contract forbids, so the stub says it and the console had better not.
-const codedRefusal = (code, status, message) => ({
+const codedRefusal = (code, status, message, data = null) => ({
   status,
   contentType: 'application/json',
   body: JSON.stringify({
@@ -332,7 +368,7 @@ const codedRefusal = (code, status, message) => ({
     success: false,
     message,
     errors: [{ errorCode: code, internalErrorCode: '', errorMessage: '' }],
-    data: null,
+    data,
   }),
 })
 const ADDRESS_REFUSALS = {
@@ -351,14 +387,22 @@ const ADDRESS_REFUSALS = {
 // cannot disagree. Its `lineDiffs` already name L1/L2, which are exactly the
 // lines fixture 02 puts in the basket: a diff about lines the basket does not
 // hold could not prove that the sheet names what the agent is holding.
-const REBIND_DETAIL = raw('05-rebind-preview').step1_preview.response.data.pendingConfirmation.detail
-const CONFIRM_TOKEN = raw('05-rebind-preview').step1_preview.response.data.pendingConfirmation.confirmToken
+const REBIND_DETAIL = raw('05-rebind-preview').preview.response.body.data.pendingConfirmation.detail
+const CONFIRM_TOKEN = raw('05-rebind-preview').preview.response.body.data.pendingConfirmation.confirmToken
 
-// Fixture 06's OWN preview half — the diff that already names a line which does
-// not price at the new store. Its own note is the point: "the preview already
-// showed it … so the console can refuse before the agent commits." The offending
-// line's identity is varied to one this basket actually holds, as below.
-const REFUSING_DETAIL = raw('06-rebind-refused').preview.pendingConfirmation.detail
+// A preview whose diff already names a line that does not price at the new store.
+//
+// 🚩 The v1.2 capture of fixture 06 has NO preview half any more, and its own note
+// says why: the atomicity check fires on the preview too, so the live server
+// refuses an unpriceable rebind on the FIRST call — the agent is never asked to
+// accept a diff they could not commit. That is stricter than what this drive
+// covers, not looser, so the case is kept: a server that DID preview-then-refuse
+// (129's door run twice) must still leave the console able to name the line.
+// Built off 05's real preview with 06's real `unpriceableLines` shape.
+const REFUSING_DETAIL = {
+  ...REBIND_DETAIL,
+  unpriceableLines: raw('06-rebind-refused').refusal.response.body.data.unpriceableLines,
+}
 
 const previewOf = (state, plant, refuses) => ({
   kind: 'storeChange',
@@ -402,7 +446,7 @@ const STALE_TOKEN = {
 // (the fixture's L3 is not). "The named line is tinted" is a claim about the
 // basket on screen; the same device `FRESH_ID` uses.
 const REFUSED_COMMIT = (() => {
-  const response = raw('06-rebind-refused').commit.response
+  const response = raw('06-rebind-refused').refusal.response.body
   const line = PRIOR_STATE.lines[1]
   return {
     status: response.statusCode,
@@ -420,7 +464,7 @@ const REFUSED_COMMIT = (() => {
     }),
   }
 })()
-const REFUSED_MESSAGE = raw('06-rebind-refused').commit.response.message
+const REFUSED_MESSAGE = raw('06-rebind-refused').refusal.response.body.message
 const REFUSED_LINE = PRIOR_STATE.lines[1]
 
 // The estate as `SdDocument/StoreDetails` answers it — a reference read OFF the
@@ -428,6 +472,11 @@ const REFUSED_LINE = PRIOR_STATE.lines[1]
 // the door refuses what it will not do, and a client-side filter here would be a
 // second opinion about fulfilment.
 const STORE_DETAILS = [
+  // 🚩 The order's OWN store is in the estate — it has to be, or "the store already
+  // on the order is marked and not offered" has nothing to mark. The v1.2 capture
+  // opens on plant 1001 (the capture environment's entry store), so the estate
+  // carries it rather than the fixture being bent to the drive's reference list.
+  { storeCode: '1001', city: 'Riyadh', region: 'Central', storeAddress: 'King AbdelAziz Road', deliveryStore: true, latitude: '', longitude: '', wasfatyRefill: false },
   { storeCode: '1101', city: 'Riyadh', region: 'Central', storeAddress: 'Al Malqa', deliveryStore: true, latitude: '', longitude: '', wasfatyRefill: false },
   { storeCode: '1204', city: 'Riyadh', region: 'Central', storeAddress: 'Olaya North', deliveryStore: true, latitude: '', longitude: '', wasfatyRefill: false },
   { storeCode: '2301', city: 'Jeddah', region: 'Western', storeAddress: 'Al Rawdah', deliveryStore: true, latitude: '', longitude: '', wasfatyRefill: false },
@@ -526,7 +575,7 @@ const lineFor = (row, qty, index, below = false) => ({
 // The block is fixture 04's own, with only the figures varied to the row the
 // agent actually pressed *Add* on: a confirmation about an item the search panel
 // is not showing could not prove that the sheet names what they are holding.
-const BELOW_ATP_BLOCK = raw('04-below-atp-confirm').step1_ask.response.data.pendingConfirmation
+const BELOW_ATP_BLOCK = raw('04-below-atp-confirm').ask.response.body.data.pendingConfirmation
 const BELOW_ATP_TOKEN = BELOW_ATP_BLOCK.confirmToken
 const belowAtpAskFor = (row, qty, plant) => ({
   ...BELOW_ATP_BLOCK,
@@ -640,23 +689,35 @@ const SLOT_REFUSAL = codedRefusal('SLOT_UNAVAILABLE', 409, 'Slot 2026-07-28#S1 i
 
 // ---- ticket 174: placing the order, and the three ways it can answer ----
 //
-// Fixture 07 holds four scenarios at its top level (not under `.response` like
-// 08's), so it is read directly rather than through `refusal()`. 🚩 The two
-// refusals are the fixture's own: the 409 carrying `field`, and the **503 that
-// carries the envelope** — the one whose mapping this ticket asserts, because a
-// bare 503 would reach the agent as "unexpected" for a routine retryable outcome.
+// 🚩 The v1.2 capture (857) keeps only the two SUCCESS legs here. `outcome_refused`
+// and `outcome_unavailable` are gone: neither is reproducible on demand against a
+// live server, so the contract's own fixture note leaves them to the BackOffice
+// `CallCenterWebRefusalTableTests`, which asserts the code/status/envelope pairing
+// for every §7 row INCLUDING the 503. So this drive states the two refusals with
+// `codedRefusal` — the shape is §7's, the pairing is proven server-side, and what
+// the drive is actually asserting is what the CONSOLE does with them.
+//
+// The 503 is still the interesting one: it carries the envelope, so `core/api.ts`
+// keeps it as kind:'business'. A bare 503 would reach the agent as "unexpected"
+// for a routine retryable outcome.
 const SUBMIT_07 = raw('07-submit-already-submitted')
-const submitRefusalOf = (key) => ({
-  status: SUBMIT_07[key].statusCode,
+const SUBMIT_REFUSED_MESSAGE = 'A delivery slot is required.'
+const SUBMIT_UNAVAILABLE_MESSAGE = 'The order service is not responding. The order is still open.'
+const SUBMIT_REFUSED = codedRefusal('SUBMIT_REFUSED', 409, SUBMIT_REFUSED_MESSAGE, { field: 'slot' })
+const SUBMIT_UNAVAILABLE = codedRefusal('SUBMIT_UNAVAILABLE', 503, SUBMIT_UNAVAILABLE_MESSAGE)
+// The order number the caller is read — the capture's own mint. One per
+// transaction, by construction.
+const DOCUMENT_NO = SUBMIT_07.submitted.response.body.data.documentNo
+
+// 🚩 What a submit RETRY really gets today: 409 SESSION_CLOSED, not §8.3's
+// `alreadySubmitted` (860). The console's replay leg below is driven against the
+// contract's promise, because that is the client rule under test; this is the
+// capture's own answer, driven as its own case so 860's harm is visible here too.
+const SUBMIT_RETRY_REFUSED = {
+  status: SUBMIT_07.retryRefused.response.statusCode,
   contentType: 'application/json',
-  body: JSON.stringify(SUBMIT_07[key]),
-})
-const SUBMIT_REFUSED = submitRefusalOf('outcome_refused')
-const SUBMIT_UNAVAILABLE = submitRefusalOf('outcome_unavailable')
-const SUBMIT_REFUSED_MESSAGE = SUBMIT_07.outcome_refused.message
-const SUBMIT_UNAVAILABLE_MESSAGE = SUBMIT_07.outcome_unavailable.message
-// The order number the caller is read. One per transaction, by construction.
-const DOCUMENT_NO = SUBMIT_07.outcome_submitted.data.documentNo
+  body: JSON.stringify(SUBMIT_07.retryRefused.response.body),
+}
 
 // What the order looks like once it is placed — `status: 'submitted'`, and the
 // capabilities that follow from it. The blocker names ITSELF (fixture 07's own
@@ -782,6 +843,10 @@ async function open(
     slotLapses = false,
     submit = null,
     submitDelayMs = 0,
+    // 🚩 858, as the live server really behaves: a send carrying a confirmToken
+    // is resolved as an already-applied REPLAY, so the commit never reaches the
+    // engine. 200, success, the state unchanged, `replayed: true`.
+    swallowCommit = false,
   } = {},
 ) {
   let stateReads = 0
@@ -896,6 +961,8 @@ async function open(
       // 🚩 §5.2 — a shortfall against a KNOWN figure asks; a degraded read
       // (`atp: null`) never does, at any quantity. Unknown ATP has never gated
       // order entry (287's rule).
+      if (swallowCommit && body.confirmToken)
+        return route.fulfill(envelope(speak({ ...served, pendingConfirmation: null, replayed: true })))
       const short = row.atp !== null && body.qty > row.atp
       if (short && !body.confirmToken)
         // 🚩 200, success, the UNCHANGED state — same version, nothing added.
@@ -987,6 +1054,8 @@ async function open(
       if (addressRefusal && p === 'CallCenterWeb/SetAddress')
         return route.fulfill(ADDRESS_REFUSALS[addressRefusal])
       const body = route.request().postDataJSON()
+      if (swallowCommit && body.confirmToken)
+        return route.fulfill(envelope(speak({ ...served, pendingConfirmation: null, replayed: true })))
       const isAddress = p === 'CallCenterWeb/SetAddress'
       // 🚩 The district→store rule is the SERVER's; the override names a store
       // outright. Either way nothing the CLIENT sent decided a plant on the
@@ -1097,10 +1166,15 @@ async function open(
       const replay = minted !== null
       minted = minted ?? DOCUMENT_NO
       served = submittedState(served)
-      if (submit === 'outageOnce' && !outageSpent) {
+      if ((submit === 'outageOnce' || submit === 'outageThenClosed') && !outageSpent) {
         outageSpent = true
         return route.fulfill(SUBMIT_UNAVAILABLE)
       }
+      // 🚩 860, as the v1.2 capture really answers: the order IS minted, the first
+      // response was lost, and the retry is refused by the session's liveness gate
+      // before the once-only path runs — so the number is unrecoverable. This is
+      // the SAME press as the outage above (one action, one requestId).
+      if (submit === 'outageThenClosed' && replay) return route.fulfill(SUBMIT_RETRY_REFUSED)
       if (submitDelayMs) await new Promise((resolve) => setTimeout(resolve, submitDelayMs))
       return route.fulfill(
         envelope({
@@ -2071,22 +2145,25 @@ async function run() {
         row,
       )
     }
+    // 🚩 The v1.2 capture reports `promotionsMoved: []` and will keep doing so:
+    // the engine's rebind diff is per LINE, not per offer (857 divergence 3). So the
+    // sheet draws no promotion row — asserted as the capture's own truth rather than
+    // deleted, because a row appearing here would mean the engine changed.
     check(
-      'a promotion whose value moves is named with both amounts',
-      (await page.locator('[data-cc-rebind-promo]').count()) === REBIND_DETAIL.promotionsMoved.length &&
-        (await text(page, '[data-cc-rebind-promo]')).includes(Math.abs(REBIND_DETAIL.promotionsMoved[0].toAmount).toFixed(2)),
-      await text(page, '[data-cc-rebind-promo]'),
+      'the capture moves no promotion, so the sheet claims none',
+      REBIND_DETAIL.promotionsMoved.length === 0 &&
+        (await page.locator('[data-cc-rebind-promo]').count()) === 0,
     )
     check(
       'the availability re-freeze is named',
       (await page.locator('[data-cc-rebind-atp]').count()) > 0,
       (await text(page, '[data-cc-rebind-atp]')).replace(/\s+/g, ' '),
     )
-    // The fee IS part of the diff (§2.2 recomputes it at the new plant) — it is
-    // drawn only when it moves, and fixture 05's own quote is 15.00 either side.
+    // 🚩 The capture's `detail` carries no `deliveryFee` at all — the engine's diff
+    // does not report one. An ABSENT fee is not a fee that moved, so no row.
     check(
-      'a delivery fee that does not move is not reported as a change',
-      REBIND_DETAIL.deliveryFee.fromAmount === REBIND_DETAIL.deliveryFee.toAmount &&
+      'a diff that states no delivery fee reports no fee change',
+      REBIND_DETAIL.deliveryFee === undefined &&
         (await page.locator('[data-cc-rebind-fee]').count()) === 0,
     )
     check('nothing has been committed yet', count(calls, /^CallCenterWeb\/SetAddress$/) === 1)
@@ -2519,7 +2596,10 @@ async function run() {
       !(await line.innerText()).includes('9.13'),
       (await line.innerText()).replace(/\s+/g, ' '),
     )
-    check('the search results are still there to add the next one from', (await rows.count()) === SEARCH_TAKE)
+    // 🚩 168 REVERSED this: the results list outliving the add that answered it was
+    // the defect — the agent adds an item and the panel that answered them closes,
+    // so the next search starts clean rather than on a stale list.
+    check('the search results close on the add that answered them', (await rows.count()) === 0)
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }
@@ -2578,6 +2658,11 @@ async function run() {
     check('and sends no commit behind the agent’s back', declined.length === 1 && !declined[0].body.confirmToken)
 
     // ---- accepting: the same verb, the same id, plus the token ----
+    // 🚩 The LIVE pill is read here, BEFORE the add: ticket 168 made the results
+    // list close on the add that answered it, so the row is gone by the time the
+    // line exists. The comparison below is still the real one — the same item, its
+    // live availability against the frozen one — it just has to be taken in order.
+    const livePill = await text(page, `[data-cc-search-row="${NONE_ROW.materialNumber}"] [data-cc-atp]`)
     await page.locator(`[data-cc-search-add="${NONE_ROW.materialNumber}"]`).click()
     await sheet.waitFor({ timeout: 10_000 })
     await page.locator('[data-cc-confirm-accept]').click()
@@ -2622,12 +2707,16 @@ async function run() {
     check('the line’s pill reads AT ADD — frozen, not live', /at add/i.test(linePill), linePill)
     check(
       'and never reads like the live pill for the same item',
-      linePill !== (await text(page, `[data-cc-search-row="${NONE_ROW.materialNumber}"] [data-cc-atp]`)),
-      `${linePill} vs ${await text(page, `[data-cc-search-row="${NONE_ROW.materialNumber}"] [data-cc-atp]`)}`,
+      linePill !== livePill,
+      `${linePill} vs ${livePill}`,
     )
 
     // ---- 🚩 unknown availability never interrupts them at all ----
+    // The results list closed on the add that answered it (168), so the agent
+    // searches again for the next item — which is what they really do.
     const UNKNOWN_ROW = CATALOGUE[2]
+    await page.locator('[data-cc-search-input]').fill('بنادول')
+    await page.locator(`[data-cc-search-add="${UNKNOWN_ROW.materialNumber}"]`).waitFor({ timeout: 10_000 })
     await page.locator(`[data-cc-search-add="${UNKNOWN_ROW.materialNumber}"]`).click()
     await page.locator('[data-cc-line]').nth(1).waitFor({ timeout: 10_000 })
     check(
@@ -2698,10 +2787,14 @@ async function run() {
         why.includes(L1.conditions[2].value.toFixed(2)),
       why,
     )
+    // 🚩 Scoped to the LINE. The capture ships every `offerId` blank (859), so a
+    // global `[data-cc-line-promo=""]` matches every promotion in the basket — the
+    // same identity gap that made the guidance strip draw one card for two offers.
     check(
       'and the promotion that fired on it, in the offer’s own words',
-      (await page.locator(`[data-cc-line-promo="${L1.promotions[0].offerId}"]`).count()) === 1 &&
-        why.includes(L1.promotions[0].description),
+      (await page
+        .locator(`[data-cc-line-why="${L1.lineId}"] [data-cc-line-promo]`)
+        .count()) === L1.promotions.length && why.includes(L1.promotions[0].description),
       why,
     )
     check(
@@ -2724,11 +2817,11 @@ async function run() {
 
   // ---- 35. quantity, unit and void — each re-renders from the returned state ----
   {
-    const { context, page, errors, wire } = await open(browser, { openState: PRIOR_STATE })
+    const { context, page, errors, wire } = await open(browser, { openState: PRIOR_WITH_UNITS })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
 
-    const [L1, L2] = PRIOR_STATE.lines
+    const [L1, L2] = PRIOR_WITH_UNITS.lines
     const payableBefore = await text(page, '[data-cc-payable]')
 
     // ---- the quantity ----
@@ -2822,11 +2915,24 @@ async function run() {
 
   // ---- 36. raising a quantity beyond availability takes 169's path, unchanged ----
   {
-    const { context, page, errors, wire } = await open(browser, { openState: PRIOR_STATE })
+    // 🚩 Every captured line reads `atpAtScan.known: false` — no stock service is
+    // reachable from the capture environment (857), and an unknown freeze correctly
+    // asks NOTHING (287). So a KNOWN freeze is stated here, because that is the only
+    // state in which this case's question — what raising a quantity past
+    // availability does — exists at all. The unknown path is case 32's.
+    const KNOWN_FREEZE = {
+      ...PRIOR_STATE,
+      lines: PRIOR_STATE.lines.map((line, index) =>
+        index === 0
+          ? { ...line, atpAtScan: { quantity: 4, frozenAt: line.atpAtScan.frozenAt, known: true } }
+          : line,
+      ),
+    }
+    const { context, page, errors, wire } = await open(browser, { openState: KNOWN_FREEZE })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
 
-    const L1 = PRIOR_STATE.lines[0]
+    const L1 = KNOWN_FREEZE.lines[0]
     await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).fill('9')
     await page.locator(`[data-cc-line-qty="${L1.lineId}"]`).press('Enter')
     await page.locator('[data-cc-confirm-sheet="belowAtp"]').waitFor({ timeout: 10_000 })
@@ -2899,11 +3005,11 @@ async function run() {
     ['uomRefused', 'uom'],
     ['qtyInvalid', 'qty'],
   ]) {
-    const { context, page, errors } = await open(browser, { openState: PRIOR_STATE, lineEdit: kind })
+    const { context, page, errors } = await open(browser, { openState: PRIOR_WITH_UNITS, lineEdit: kind })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
 
-    const [L1, L2] = PRIOR_STATE.lines
+    const [L1, L2] = PRIOR_WITH_UNITS.lines
     const target = verb === 'uom' ? L2 : L1
     const payableBefore = await text(page, '[data-cc-payable]')
     if (verb === 'void') await page.locator(`[data-cc-line-void="${L1.lineId}"]`).click()
@@ -3288,6 +3394,109 @@ async function run() {
       '🚩 a replay is the same news, word for word, as a first submit',
       (await text(page, '[data-cc-order-placed]')).replace(/\s+/g, ' ') === placedPanel,
       placedPanel,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 177 / 858: the acceptance the server swallows, said out loud ----
+  //
+  // The v1.2 capture found both two-phase commits are a no-op on the live server:
+  // the confirming retry — on the same requestId, as law 3 requires — resolves as
+  // an already-applied REPLAY and never reaches the engine. The agent accepts, the
+  // answer is a 200, and nothing changed. 🚩 The console cannot fix that; what it
+  // must not do is stay SILENT, because silence is the outcome that sends an agent
+  // on to quote a figure for a basket that did not move.
+  {
+    const { context, page, errors } = await open(browser, { swallowCommit: true })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-search-input]').fill('بنادول')
+    await page.locator('[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
+
+    const NONE_ROW = CATALOGUE[1]
+    await page.locator(`[data-cc-search-add="${NONE_ROW.materialNumber}"]`).click()
+    await page.locator('[data-cc-confirm-sheet="belowAtp"]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-confirm-accept]').click()
+
+    await page.locator('[data-cc-swallowed="belowAtp"]').waitFor({ timeout: 10_000 })
+    const said = (await text(page, '[data-cc-swallowed="belowAtp"]')).replace(/\s+/g, ' ')
+    check('🚩 an acceptance that did nothing is NOT silent', said.length > 0, said)
+    check('and the basket really is empty, exactly as it says', await page.locator('[data-cc-basket-empty]').isVisible())
+    check('the sheet is gone — the agent answered it', (await page.locator('[data-cc-confirm-sheet]').count()) === 0)
+    check('no machine code reaches the agent', !/[A-Z]{3,}_[A-Z_]+/.test(said), said)
+    // 🚩 No retry: the same id would be swallowed identically, and a fresh one
+    // would be a genuinely new action against a real basket.
+    check('it offers no blind retry', !/try again/i.test(said), said)
+    check('the console is still usable underneath it', await page.locator('[data-cc-search-input]').isEnabled())
+    // It is a thing to read once, not a state to be stuck in.
+    await page.locator('[data-cc-swallowed-dismiss]').click()
+    await page.locator('[data-cc-swallowed]').waitFor({ state: 'detached', timeout: 10_000 })
+    check('and it can be dismissed once read', (await page.locator('[data-cc-swallowed]').count()) === 0)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 177 / 858: the same, on the OTHER two-phase verb ----
+  {
+    const { context, page, errors } = await open(browser, { openState: PRIOR_STATE, swallowCommit: true })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    const storeBefore = (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ')
+
+    await page.locator('[data-cc-chip-open="store"]').click()
+    await page.locator('[data-cc-store-picker]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-store-option="1204"]').click()
+    await page.locator('[data-cc-confirm-sheet="storeChange"]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-confirm-accept]').click()
+
+    await page.locator('[data-cc-swallowed="storeChange"]').waitFor({ timeout: 10_000 })
+    const said = (await text(page, '[data-cc-swallowed="storeChange"]')).replace(/\s+/g, ' ')
+    check('🚩 a store move that did nothing is NOT silent either', said.length > 0, said)
+    check(
+      'and the chip still reads the store the order is really at',
+      (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ') === storeBefore,
+      storeBefore,
+    )
+    check('one banner, not two — the same mechanism as the add', (await page.locator('[data-cc-swallowed]').count()) === 1)
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 177 / 860: the retry the server cannot answer yet ----
+  //
+  // Everything above drives §8.3's promise, because that is the CLIENT rule under
+  // test and it has to hold the day 860 lands. This drives the v1.2 capture's own
+  // answer: the outage loses the first response, the order IS minted, and the
+  // retry is refused `SESSION_CLOSED { reason: "submitted" }` before the once-only
+  // path runs. 🚩 The console's behaviour here is CORRECT and still bad news — it
+  // returns the tab to the start rather than showing a submit error over a dead
+  // order, and there is no surface anywhere that can give the agent the number.
+  {
+    const { context, page, errors } = await open(browser, {
+      openState: SUBMITTABLE,
+      submit: 'outageThenClosed',
+    })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    await page.locator('[data-cc-submit]').click()
+    await page.locator('[data-cc-submit-failed="unavailable"]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-submit]').click()
+
+    await page.locator('[data-cc-notice="sessionClosed"]').waitFor({ timeout: 10_000 })
+    const notice = (await text(page, '[data-cc-notice="sessionClosed"]')).replace(/\s+/g, ' ')
+    check('a refused retry is read as a dead order, not as a submit failure', notice.length > 0, notice)
+    check(
+      'and the reason it names is that the order was SUBMITTED',
+      /submitted|placed/i.test(notice),
+      notice,
+    )
+    check('it offers a way onward rather than a dead end', await page.locator('[data-cc-retry]').isVisible())
+    check(
+      '🚩 860 — and the order number is nowhere on the screen',
+      (await page.locator('[data-cc-order-no]').count()) === 0 &&
+        !(await page.locator('body').innerText()).includes(DOCUMENT_NO),
     )
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()

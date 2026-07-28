@@ -31,6 +31,7 @@ import type { TimeSlotTimeModel } from '@/core/models/slots'
 import { lookupQueries } from '@/core/services/lookups'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
+import type { PickedSlot } from './api'
 import { NOTE } from './console-notes'
 
 export interface SlotApply {
@@ -41,8 +42,15 @@ export interface SlotApply {
   /** 🚩 The lapse, kept apart from `error` on purpose: it is the soft gate's own
    *  outcome and reads as a warning, not as something that went wrong. */
   lapsed: boolean
-  onPick: (slotId: string) => void
+  /**
+   * The window the agent chose, with the four descriptive fields v1.2 added to
+   * `setSlot` (§10). They ride from here because the slot catalogue is not on
+   * the call-center door (137) — the console already holds what it picked, and
+   * the server would otherwise need a route added just to look it back up.
+   */
+  onPick: (slot: PickedSlot) => void
 }
+
 
 export default function SlotPicker({
   open,
@@ -159,7 +167,17 @@ export default function SlotPicker({
             current={current?.slotId === entry.slotId}
             pending={apply.pending === entry.slotId}
             busy={busy}
-            onPick={() => apply.onPick(entry.slotId)}
+            onPick={() =>
+              apply.onPick({
+                slotId: entry.slotId,
+                // Server-supplied, passed straight back as data — the console
+                // authors none of it and re-words none of it.
+                day: day.day,
+                description: entry.time,
+                from: entry.slotFrom,
+                to: entry.slotTo,
+              })
+            }
           />
         ))}
 

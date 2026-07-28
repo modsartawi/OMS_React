@@ -55,6 +55,24 @@ export interface GuidancePhrase {
 /** One offer, as the strip draws it. */
 export interface GuidanceCard {
   offerId: string
+  /**
+   * The card's identity on THIS projection — what the strip keys, opens and
+   * closes by. It is the `offerId` where the wire supplied one, and the offer's
+   * position in the server's own list where it did not.
+   *
+   * 🚩 It exists because the wire really does not always supply one: every
+   * `offerId` in the v1.2 capture is the empty string
+   * ([859](C:\Work\DMSCO\BackOffice\.issues\859-near-miss-offer-id-is-blank.md)),
+   * so two distinct offers arrive under the same key. Keyed on `offerId`, React
+   * de-duplicates them and opening one opens both — the agent is shown one offer
+   * where the engine sent two. Position is a safe fallback precisely because
+   * this view model **preserves the server's order** and never re-sorts.
+   *
+   * It is NOT an offer identity and must never be sent to the server: `addItem`
+   * and `ResolvePrereq` address an offer by `offerId`, and a positional id there
+   * would name a different offer on the next projection.
+   */
+  cardId: string
   klass: GuidanceClass
   /**
    * What the offer GIVES, at headline size — `20% off`, `3rd free`,
@@ -140,16 +158,18 @@ export function guidanceView(nearMisses: NearMiss[] | null | undefined): Guidanc
     unavailable: cards.filter((card) => card.klass === 'unavailable'),
     actionableCount: actionable.length,
     getSideCovered: (nearMisses ?? []).some((miss) => miss.prereq?.kind === 'condition'),
-    openByDefault: actionable[0]?.offerId ?? null,
+    openByDefault: actionable[0]?.cardId ?? null,
   }
 }
 
-function toCard(miss: NearMiss): GuidanceCard {
+function toCard(miss: NearMiss, index: number): GuidanceCard {
   const klass = classOf(miss)
   const progress = progressOf(miss)
   const shortfall = klass === 'actionable' && progress ? progress.need - progress.have : 0
   return {
     offerId: miss.offerId,
+    // Position where the wire named no offer (859) — see `cardId`.
+    cardId: miss.offerId === '' || miss.offerId == null ? `#${index}` : miss.offerId,
     klass,
     definition: definitionOf(miss),
     description: miss.description ?? '',

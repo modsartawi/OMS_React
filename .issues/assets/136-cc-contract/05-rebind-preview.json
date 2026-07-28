@@ -1,97 +1,288 @@
 {
-  "_contract": {
-    "provisional": true,
-    "why": "Hand-authored from CONTRACT.md v1.0 before CallCenterWeb/* exists. Shape is contract; values are illustrative. Replaced by a real capture at first integration (CONTRACT.md §11).",
-    "scenario": "setAddress moves the derived plant with lines in the basket → pendingConfirmation(storeChange) carrying the whole non-persisted diff, then the committed rebind",
-    "contractVersion": "1.0",
-    "authoredAt": "2026-07-27",
-    "authoredBy": ".issues/136-session-api-contract.md"
+  "_capture": {
+    "ticket": "857",
+    "map": "126",
+    "scenario": "setStore → pendingConfirmation: storeChange with a full diff. The commit leg is blocked by 858 and captured as the no-op it currently is",
+    "contractVersion": "1.2",
+    "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
+    "capturedAt": "2026-07-28",
+    "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
-  "step1_preview": {
+  "preview": {
     "request": {
       "method": "POST",
-      "path": "CallCenterWeb/SetAddress",
+      "path": "CallCenterWeb/SetStore",
       "body": {
-        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-        "requestId": "01JC8QK2M4P6R8T0V2X4Z6B8D0",
-        "addressNumber": "77121"
+        "storeCode": "P974",
+        "transactionId": "06FTGNVWK0KFYBZ046YVRQHZY3",
+        "requestId": "06FTGNW0KHBZ6BMABTRTKYTPV0",
+        "confirmToken": null
       }
     },
     "response": {
       "statusCode": 200,
-      "success": true,
-      "message": "",
-      "errors": [],
-      "data": {
-        "contractVersion": "1.0",
-        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-        "version": 13,
-        "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-13",
-        "status": "open",
-        "replayed": false,
-        "_note": "state is UNCHANGED at version 13 — the preview is the engine door run and NOT persisted (129: preview is free under resume-per-request, so there is no dryRun flag).",
-        "pendingConfirmation": {
-          "kind": "storeChange",
-          "confirmToken": "01JC8QKZ9B1D3F5H7K9M1P3R5T",
-          "expiresInMs": 120000,
-          "detail": {
-            "fromPlant": "1101",
-            "fromPlantName": "Riyadh — Al Malqa",
-            "toPlant": "1204",
-            "toPlantName": "Riyadh — Al Yasmin",
-            "trigger": "addressChanged",
-            "lineDiffs": [
-              { "lineId": "L1", "itemNumber": "100001", "fromGross": 27.6, "toGross": 25.3 },
-              { "lineId": "L2", "itemNumber": "100455", "fromGross": 34.5, "toGross": 34.5 }
-            ],
-            "promotionsMoved": [
-              { "offerId": "BBY-4471", "description": "70% 2nd PCS", "fromAmount": -8.4, "toAmount": -6.0 }
-            ],
-            "unpriceableLines": [],
-            "atpReFreeze": [
-              { "lineId": "L1", "fromQty": 5, "toQty": 9, "belowAfter": false },
-              { "lineId": "L2", "fromQty": 40, "toQty": 3, "belowAfter": false }
-            ],
-            "deliveryFee": { "fromAmount": 15.0, "toAmount": 15.0 }
+      "body": {
+        "data": {
+          "contractVersion": "1.2",
+          "transactionId": "06FTGNVWK0KFYBZ046YVRQHZY3",
+          "version": 10,
+          "etag": "06FTGNVWK0KFYBZ046YVRQHZY3-10",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "P684",
+            "plantName": "King Khalid International Airport",
+            "plantSource": "operatorOverride",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-t449a453b",
+            "operatorId": "TEST-OP",
+            "entryStore": "P684",
+            "openedAt": "2026-07-28T13:48:53.6772783",
+            "customer": null,
+            "address": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "hasBelowAtp": false
+          },
+          "lines": [
+            {
+              "lineId": "L10",
+              "itemNumber": "214145",
+              "description": "CARON EDT 125ML SPRAY",
+              "description2": "عطر كارون للرجل 125 مل",
+              "qty": 1.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 315,
+                "gross": 315
+              },
+              "lineTotal": {
+                "net": 315.00,
+                "gross": 315.00
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 315.00,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
+            }
+          ],
+          "totals": {
+            "net": 315.00,
+            "vat": 0,
+            "gross": 315.00,
+            "deliveryFee": {
+              "amount": 0,
+              "waived": true,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 315.00
+          },
+          "firedPromotions": [],
+          "nearMisses": [
+            {
+              "offerId": "",
+              "description": "10% Coupon",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "prereq": {
+                "kind": "material",
+                "materialNumber": "COUP01",
+                "groupingId": null,
+                "eligibleCount": 1
+              },
+              "skipReason": null
+            }
+          ],
+          "pendingConfirmation": {
+            "kind": "storeChange",
+            "confirmToken": "06FTGNW1AH8FZ5CJ0H9ERC1CB4",
+            "expiresInMs": 120000,
+            "detail": {
+              "fromPlant": "P684",
+              "toPlant": "P974",
+              "lineDiffs": [
+                {
+                  "lineId": "L10",
+                  "fromGross": 315.00,
+                  "toGross": 315.00
+                }
+              ],
+              "promotionsMoved": [],
+              "unpriceableLines": [],
+              "atpReFreeze": [
+                {
+                  "lineId": "L10",
+                  "fromQty": null,
+                  "toQty": null,
+                  "belowAfter": false
+                }
+              ]
+            }
+          },
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": false,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_CUSTOMER",
+              "NO_ADDRESS",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
           }
-        }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
       }
     }
   },
-  "step2_commit": {
+  "commitAttempt": {
     "request": {
       "method": "POST",
-      "path": "CallCenterWeb/SetAddress",
+      "path": "CallCenterWeb/SetStore",
       "body": {
-        "transactionId": "01JC8Q4KYZ3M7N2P5R8T1V6W9X",
-        "requestId": "01JC8QK2M4P6R8T0V2X4Z6B8D0",
-        "addressNumber": "77121",
-        "confirmToken": "01JC8QKZ9B1D3F5H7K9M1P3R5T"
+        "storeCode": "P974",
+        "transactionId": "06FTGNVWK0KFYBZ046YVRQHZY3",
+        "requestId": "06FTGNW0KHBZ6BMABTRTKYTPV0",
+        "confirmToken": "06FTGNW1AH8FZ5CJ0H9ERC1CB4"
       }
     },
     "response": {
       "statusCode": 200,
-      "success": true,
-      "message": "",
-      "errors": [],
-      "data": {
-        "contractVersion": "1.0",
-        "version": 14,
-        "etag": "01JC8Q4KYZ3M7N2P5R8T1V6W9X-14",
-        "status": "open",
-        "replayed": false,
-        "header": { "_elided": true, "plant": "1204", "plantSource": "derivedFromAddress" },
-        "pendingConfirmation": null,
-        "_note": "lines re-priced, promotions revalued, ATP re-frozen to the toQty column above."
+      "body": {
+        "data": {
+          "contractVersion": "1.2",
+          "transactionId": "06FTGNVWK0KFYBZ046YVRQHZY3",
+          "version": 15,
+          "etag": "06FTGNVWK0KFYBZ046YVRQHZY3-15",
+          "status": "open",
+          "replayed": true,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "P684",
+            "plantName": "King Khalid International Airport",
+            "plantSource": "operatorOverride",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-t449a453b",
+            "operatorId": "TEST-OP",
+            "entryStore": "P684",
+            "openedAt": "2026-07-28T13:48:53.6772783",
+            "customer": null,
+            "address": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "hasBelowAtp": false
+          },
+          "lines": [
+            {
+              "lineId": "L10",
+              "itemNumber": "214145",
+              "description": "CARON EDT 125ML SPRAY",
+              "description2": "عطر كارون للرجل 125 مل",
+              "qty": 1.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 315,
+                "gross": 362.25
+              },
+              "lineTotal": {
+                "net": 315.00,
+                "gross": 362.25
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 315.00,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 47.25,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
+            }
+          ],
+          "totals": {
+            "net": 315.00,
+            "vat": 47.25,
+            "gross": 362.25,
+            "deliveryFee": {
+              "amount": 0,
+              "waived": true,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 362.25
+          },
+          "firedPromotions": [],
+          "nearMisses": [],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": false,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_CUSTOMER",
+              "NO_ADDRESS",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
       }
     }
   },
   "_notes": [
-    "The plant is DERIVED, not chosen: CC2's district → tempStoreCode || storeCode rule, which this repo already implements as pure code (132). setStore is the same protocol for an explicit operator override, with trigger: 'operatorOverride'.",
-    "An empty basket or an unchanged plant applies inline with NO confirmation — the confirm exists only where money on screen would move.",
-    "Re-price is \"C\" NewPricingAndKeepManual, so the coupon line and DFEE survive; the engine's first redetermining mutation (129).",
-    "Promotion SELECTION does not change on a rebind — only its value. Plant occurs once in SIS.Pricing.Core (BbyProcess.cs:39); BBY keys on Origin, which is sticky C000 (128/129).",
-    "ATP is re-frozen from a caller-supplied per-line map — the engine never reads stock (129 amends map note 8). old→new is kept in the audit and shown here.",
-    "🚩 The commit depends on BackOffice 797 (ResumeAsync drops PcHeader.Plant) being fixed first, or every resumed header silently takes the national price."
+    "⚠ THE COMMIT LEG IS BROKEN — issue 858, found by this capture: the agent accepts the diff and the plant does not move. `commitAttempt` records that rather than pretending otherwise. Re-capture when 858 lands.",
+    "\uD83D\uDEA9 lineDiffs[].fromGross / toGross are the ENGINE's gross — RepricingItemDiff's Old/NewGrossValue, which are PRE-DISCOUNT and EX-VAT. That is NOT the same number as the line's own lineTotal.gross, which is VAT-inclusive. RepricingItemDiff exposes no VAT-inclusive pair, and 804 carried the engine's value rather than computing one because the preview is what the confirm token PINS: a computed number would pin a figure the engine never produced. (857 divergence 2 — settled at capture.)",
+    "promotionsMoved is EMPTY and will stay so until the engine's rebind diff reports per OFFER rather than per LINE (857 divergence 3).",
+    "atpReFreeze carries fromQty/toQty NULL: no caller-supplied ATP map goes into the rebind (a fresh read is a remote hop per line and 287 says unknown ATP gates nothing), so 'availability not re-checked' is the true answer.",
+    "The preview is run and NOT persisted — which is exactly why 129 needed no dryRun flag (§5.1). header.plant on the preview is still the OLD plant; only the commit moves it.",
+    "The same requestId rides preview and commit."
   ]
 }

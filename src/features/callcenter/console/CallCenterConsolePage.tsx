@@ -55,6 +55,7 @@ import {
   openKey,
   sessionKey,
   withBusyRetry,
+  type PickedSlot,
 } from './api'
 import { applyState, checkContractVersion } from './session-state'
 import { readSessionFault, type ShownSessionFault } from './session-fault'
@@ -64,7 +65,7 @@ import {
   readOpenResult,
   type PendingAbandon,
 } from './open-outcome'
-import { isCommitting, type ConfirmableAction } from './confirm-action'
+import { commitWasSwallowed, isCommitting, type ConfirmableAction } from './confirm-action'
 import {
   beginStoreMove,
   committingStoreMove,
@@ -97,7 +98,7 @@ import AddressPicker from './AddressPicker'
 import BelowAtpConfirm from './BelowAtpConfirm'
 import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
-import ConsoleShell from './ConsoleShell'
+import ConsoleShell, { type SwallowedCommit } from './ConsoleShell'
 import ExistingOrderScreen from './ExistingOrderScreen'
 import SlotPicker from './SlotPicker'
 import SourceForm from './SourceForm'
@@ -282,6 +283,14 @@ function ConsoleSession() {
   /** An ask this console could not state truthfully, so it drew no sheet — and
    *  the add therefore did not land. See `addItem.onSuccess`. */
   const [addUnconfirmable, setAddUnconfirmable] = useState(false)
+  /** 🚩 An acceptance the server swallowed as a replay (177 / BackOffice 858).
+   *  Console-wide rather than per-surface: by the time it is known the sheet the
+   *  agent answered has closed, and the one thing that must not happen is their
+   *  walking away believing it applied. */
+  const [swallowed, setSwallowed] = useState<SwallowedCommit | null>(null)
+  /** How many adds have landed on the basket this console life. The search
+   *  panel's signal to put its rows away — a question that has been answered. */
+  const [addsLanded, setAddsLanded] = useState(0)
 
   /**
    * An add launched from a guidance card (172), as the two facts classifying its
@@ -579,11 +588,13 @@ function ConsoleSession() {
   const slot = useMutation({
     // No `again`: the picker draws this call's own failure, and a strip offering
     // a second retry behind a modal is one retry too many (164's ruling).
-    mutationFn: (action: { slotId: string }) => {
+    mutationFn: ({ slotId, ...window }: PickedSlot) => {
       // 🚩 Minted ONCE, outside the thunk — a fresh id inside it would make each
       // busy retry a genuinely new action to the server's ledger (law 3 / §4).
       const requestId = newRequestId()
-      return runGuarded(() => callCenterApi.setSlot(transactionId!, requestId, action.slotId))
+      // v1.2 (§10): the window's own four descriptive fields ride with it, because
+      // the slot catalogue is not on this door and the CLCN header stamps all five.
+      return runGuarded(() => callCenterApi.setSlot(transactionId!, requestId, slotId, window))
     },
     // The last attempt's lapse belongs to the last attempt; left standing it
     // would warn about a window the agent is no longer choosing.
@@ -781,6 +792,10 @@ function ConsoleSession() {
       setGuidanceOutcome(null)
     },
     onSuccess: (fresh, add) => {
+      // Read BEFORE the write: "did the accepted add actually land" is a
+      // difference between two projections, and the cache is about to hold only
+      // the later one.
+      const before = queryClient.getQueryData<SessionState>(sessionKey(fresh.transactionId))
       queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
         applyState(current, fresh),
       )
@@ -792,6 +807,22 @@ function ConsoleSession() {
         setBelowAtp(asked)
         return
       }
+      // 🚩 858: an acceptance the server swallowed as a replay. The agent said
+      // yes to a below-availability add, the answer was a 200, and the line is
+      // not in the basket. Say so — silence here is the outcome that sends them
+      // on to read out a total for an item nobody is sending.
+      //
+      // 🚩 *Applied* is asked of the BASKET, never of `replayed` alone: a replay
+      // is also how §6.4 resolves a commit that already landed, so the flag on its
+      // own would accuse a real add. The engine either opens a line or raises an
+      // existing one, so the item's total quantity is what moves either way — and
+      // fixture 04 shows why nothing softer will do, answering `hasBelowAtp: true`
+      // over zero lines.
+      if (commitWasSwallowed(add, fresh, qtyOf(fresh, add.itemNumber) > qtyOf(before, add.itemNumber))) {
+        setSwallowed('belowAtp')
+        clearAdd()
+        return
+      }
       // 🚩 The add landed, so the engine has re-priced — and what it DID is only
       // legible as a difference. Three outcomes, and the two that a naive
       // implementation gets wrong (a different offer fired; nothing fired and
@@ -800,6 +831,13 @@ function ConsoleSession() {
       if (addedFrom && add.offerId === addedFrom.offerId)
         setGuidanceOutcome(classifyAdd(addedFrom.before, fresh, addedFrom))
       clearAdd()
+      // 🚩 The add is ON the basket, so the question the search rows answered is
+      // over and the panel puts them away. Counted HERE and not on every success:
+      // the two paths above this line are an ask (nothing added) and a
+      // guidance classification, and the one below is an ask this console could
+      // not word — none of them is a landing, and a list cleared under any of
+      // them would take away rows the agent is still working from.
+      if (fresh.pendingConfirmation?.kind !== 'belowAtp') setAddsLanded((n) => n + 1)
       // 🚩 A `belowAtp` block this console cannot state truthfully — figures
       // missing or not numbers (§5.2 says the server does not raise one then) —
       // is still an ask, and an ask carries the UNCHANGED state. So nothing was
@@ -1090,6 +1128,21 @@ function ConsoleSession() {
         setPreview(previewed)
         // The sheet is the surface now: one modal at a time, and the picker the
         // agent came from has done its job.
+        setPickingAddress(false)
+        setPickingStore(false)
+        return
+      }
+      // 🚩 858: an acceptance the server swallowed as a replay. The agent said
+      // yes, the answer was a 200, and the plant did not move. Say so — silence
+      // here sends them on to quote a price from a store the order is not at.
+      //
+      // 🚩 *Applied* is the PLANT, against the one the token pinned — not the
+      // `replayed` flag, which is also §6.4's answer for a commit that landed, and
+      // not the version, which both captures advance while applying nothing. A
+      // preview that named no target cannot be judged, so it is not accused.
+      if (commitWasSwallowed(move, fresh, !preview?.toPlant || fresh.header.plant === preview.toPlant)) {
+        setSwallowed('storeChange')
+        clearRebind()
         setPickingAddress(false)
         setPickingStore(false)
         return
@@ -1393,6 +1446,7 @@ function ConsoleSession() {
             : null,
           pending: addItem.isPending ? (addItem.variables?.itemNumber ?? null) : null,
           error: addOutcome,
+          landed: addsLanded,
           // 🚩 The outcome belongs to the act, not to the screen: a new search is
           // a new question, and `reset` is what stops the last one's refusal
           // standing over it. Nothing else clears it — a successful add already
@@ -1483,6 +1537,8 @@ function ConsoleSession() {
         onChangeSlot={session.data.status === 'open' ? () => setPickingSlot(true) : undefined}
         onChangeSource={session.data.status === 'open' ? () => setEditingSource(true) : undefined}
         refusal={refusal}
+        swallowed={swallowed}
+        onDismissSwallowed={() => setSwallowed(null)}
         onDismissRefusal={() => setRefusal(null)}
         submit={{
           // 🚩 The DOOR decides whether this order may be placed (§2), with no
@@ -1531,7 +1587,7 @@ function ConsoleSession() {
           error:
             slot.isError && !slotLapsed ? apiErrorMessage(slot.error, t('slot.applyFailed')) : null,
           lapsed: slotLapsed,
-          onPick: (slotId) => slot.mutate({ slotId }),
+          onPick: (picked) => slot.mutate(picked),
         }}
         onClose={() => {
           setPickingSlot(false)
@@ -1610,6 +1666,21 @@ function ConsoleSession() {
 /** A full-viewport waiting state. Chrome-less like everything else here, and
  *  deliberately without an exit: it resolves on its own — within one request,
  *  or within the bounded busy schedule if that request met the claim (164). */
+/**
+ * How much of one item the basket holds, across every line carrying it.
+ *
+ * 🚩 Summed rather than counted, and it is not money: the engine may open a new
+ * line for an add or raise an existing one, so line COUNT misses the second case
+ * and would read a raised line as an add that never landed. Law 1 is untouched —
+ * this is a quantity, and quantities are the one thing the client may reason
+ * about (`basket-view.ts` holds the rule that money never is).
+ */
+function qtyOf(state: SessionState | null | undefined, itemNumber: string): number {
+  return (state?.lines ?? [])
+    .filter((line) => line.itemNumber === itemNumber)
+    .reduce((total, line) => total + line.qty, 0)
+}
+
 function ConsoleStatus({ message, spinner }: { message: string; spinner?: boolean }) {
   return (
     <div

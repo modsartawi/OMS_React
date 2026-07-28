@@ -1,0 +1,80 @@
+{
+  "_warning": [
+    "NOT A CAPTURE. This is the v1.0 provisional payload for the legs the v1.2 capture",
+    "could not reach (857) — held here, named so nobody mistakes it for the wire, and",
+    "deleted the day its server issue lands and the leg can be re-captured.",
+    "",
+    "It lives under the feature's __fixtures__/ rather than in .issues/assets/136-cc-contract/",
+    "on purpose: a tenth hand-authored JSON beside nine captures is exactly the pattern 857",
+    "deleted, and it would read as evidence at a glance. Here the file name is the warning.",
+    "",
+    "Read by src/features/callcenter/console/__fixtures__/payloads.ts and by",
+    "tools/callcenter-guidance-drive.mjs, so the tests and the drive cannot drift apart.",
+    "",
+    "CONTRACT.md §11's standing rule still governs everything below: no test may treat a",
+    "value here as evidence of engine behaviour — only its shape. Ticket 177."
+  ],
+
+  "nearMissClasses": {
+    "_blockedBy": "859 — nearMisses[].offerId is blank in this master data, and 855: NOT_DISCOVERED cannot be produced until buy-side BBY discovery lands. The capture holds two offers, both unready, both unnamed, so the three rendering classes have no live source.",
+    "nearMisses": [
+      {
+        "offerId": "BBY-5510",
+        "description": "Buy 2 get 1 free — oral care",
+        "isReady": false,
+        "progress": { "have": 1, "need": 2 },
+        "prereq": { "kind": "grouping", "groupingId": "G-8812", "eligibleCount": 42 },
+        "skipReason": null
+      },
+      {
+        "offerId": "BBY-5602",
+        "description": "SAR 10 off when you buy 3 — baby care",
+        "isReady": true,
+        "progress": { "have": 3, "need": 3 },
+        "prereq": { "kind": "grouping", "groupingId": "G-9001", "eligibleCount": 18 },
+        "skipReason": null
+      },
+      {
+        "offerId": "BBY-6120",
+        "description": "Buy shampoo get conditioner free",
+        "isReady": false,
+        "progress": { "have": 1, "need": 1 },
+        "prereq": null,
+        "skipReason": "NOT_DISCOVERED"
+      }
+    ]
+  },
+
+  "prereqResolution": {
+    "_blockedBy": "859 — the captured ResolvePrereq leg is a 404: §3.3 addresses an offer by offerId and every captured offerId is blank, so the click-through cannot reach its own near-miss.",
+    "data": {
+      "offerId": "BBY-5510",
+      "prereq": { "kind": "grouping", "groupingId": "G-8812" },
+      "items": [
+        {
+          "itemNumber": "200145",
+          "description": "Oral-B Toothpaste 100ml",
+          "description2": "معجون أسنان",
+          "estimatePriceExVat": 9.13,
+          "atp": 12
+        },
+        {
+          "itemNumber": "200146",
+          "description": "Oral-B Toothbrush Soft",
+          "description2": "فرشاة أسنان",
+          "estimatePriceExVat": 7.83,
+          "atp": 40
+        },
+        {
+          "itemNumber": "200190",
+          "description": "Mouthwash 250ml",
+          "description2": "غسول فم",
+          "estimatePriceExVat": 14.35,
+          "atp": null
+        }
+      ],
+      "truncated": true,
+      "topN": 25
+    }
+  }
+}

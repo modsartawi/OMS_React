@@ -218,8 +218,17 @@ function Line({
           {line.promotions.length > 0 && (
             <span className="uppercase tracking-wide opacity-70">{t('line.firedBy')}</span>
           )}
-          {line.promotions.map((promo) => (
-            <span key={promo.offerId} className="font-medium text-success-800" data-cc-line-promo={promo.offerId}>
+          {/* 🚩 Keyed on POSITION, not on `offerId`: the wire really does ship
+              blank offer ids (859 — every one in the v1.2 capture is the empty
+              string), and two promotions on one line would then collapse into
+              one. The id stays on the data attribute, blank and visible, so the
+              gap reads as the server's rather than being papered over here. */}
+          {line.promotions.map((promo, index) => (
+            <span
+              key={`${promo.offerId}-${index}`}
+              className="font-medium text-success-800"
+              data-cc-line-promo={promo.offerId}
+            >
               <Ltr>{promo.description}</Ltr>
               <span data-numeric className="ms-1">
                 {formatMoney(promo.amount)}

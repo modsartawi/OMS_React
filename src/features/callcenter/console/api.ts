@@ -128,6 +128,23 @@ export function newRequestId(): string {
   return chars.join('')
 }
 
+/**
+ * The window `setSlot` is told about, as v1.2 (§10) added it — the id plus four
+ * optional descriptive fields, none of them price-affecting.
+ *
+ * 🚩 It lives here, with the call that sends it, rather than in the picker that
+ * collects it: it is a REQUEST shape, and a wire contract declared inside a
+ * presentational component is one the page has to import a type from a component
+ * to satisfy.
+ */
+export interface PickedSlot {
+  slotId: string
+  day: string
+  description: string
+  from: string
+  to: string
+}
+
 export const callCenterApi = {
   /**
    * `GET CallCenterWeb/Access` → `{ canOpenConsole }`. One boolean: open implies
@@ -370,12 +387,19 @@ export const callCenterApi = {
     itemNumber: string,
     qty: number,
     confirmToken?: string,
+    /** v1.2 (§10) — optional. `ScanOptions.Uom` already exists on the engine, and
+     *  an agent adding a box rather than a strip should not have to add-then-change.
+     *  ABSENT means the engine's own default unit, exactly as before, so omitting
+     *  it is not a lesser call. Not price-affecting on this side either way: the
+     *  unit is an intent, the money comes back in the projection (law 1). */
+    uom?: string,
   ): Promise<SessionState> {
     return api.post<SessionState>('CallCenterWeb/AddItem', {
       transactionId,
       requestId,
       itemNumber,
       qty,
+      ...(uom ? { uom } : {}),
       ...(confirmToken ? { confirmToken } : {}),
     })
   },
@@ -478,8 +502,30 @@ export const callCenterApi = {
    * `Slots/AvailableSlots/{storeCode}`, served by `@/core/services/lookups.ts`
    * (137: store operational data, no document or customer data in it).
    */
-  setSlot(transactionId: string, requestId: string, slotId: string | null): Promise<SessionState> {
-    return api.post<SessionState>('CallCenterWeb/SetSlot', { transactionId, requestId, slotId })
+  setSlot(
+    transactionId: string,
+    requestId: string,
+    slotId: string | null,
+    /**
+     * v1.2 (§10) — the window's own four fields, optional.
+     *
+     * 🚩 The client passes back the slot it already picked rather than the
+     * server re-resolving it, because the slot catalogue is deliberately NOT on
+     * this door (137 kept the reference reads on their existing routes) and the
+     * CLCN header stamps all five slot fields. None of them is price-affecting,
+     * and a client that sends none is unchanged — which is what makes the field
+     * additive rather than a new contract.
+     */
+    window?: Omit<PickedSlot, 'slotId'>,
+  ): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/SetSlot', {
+      transactionId,
+      requestId,
+      slotId,
+      // Only what the picker actually held. A null slot clears the window, and
+      // there is nothing to describe about a window that is being removed.
+      ...(slotId !== null && window ? window : {}),
+    })
   },
 
   /**

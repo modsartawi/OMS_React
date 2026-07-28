@@ -18,7 +18,8 @@
  * three steps, and they retire the moment the gate opens — a sequence card that
  * is not permanent furniture, which is the objection to v1's ladder.
  */
-import { DeliveryGeography, FulfilmentChoice, PaymentChoice, SlotPicker, SourceCapture, StorePicker } from './header-parts'
+import { FulfilmentChoice, PaymentChoice, SlotPicker, SourceCapture, StorePicker } from './header-parts'
+import { AddressBook } from './AddressBook'
 import type { HeaderState, OpenSurface } from './header-mock'
 
 export const NAME = '4 · Chips + full section (rec.)'
@@ -122,12 +123,13 @@ export default function Variant4Hybrid({
           <div className="max-w-3xl">
             {open.id === 'fulfilment' && <FulfilmentChoice mode={s.mode} />}
             {/* 🚩 TWO LISTS, NOT ONE. Delivery opens the ADDRESS GEOGRAPHY
-                (cities → districts, store derived); collection opens the STORE
+                (the CALLER'S ADDRESS BOOK, city/district only on the add path);
+                collection opens the STORE
                 ESTATE. Different reads, different models, different populations
                 — see `header-mock.ts`. */}
             {open.id === 'where' &&
               (delivery ? (
-                <DeliveryGeography />
+                <AddressBook />
               ) : (
                 <StorePicker shape={storeShape} seeded="1001" chosen={chosen ? s.plant.code : undefined} />
               ))}

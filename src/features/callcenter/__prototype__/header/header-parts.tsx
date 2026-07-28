@@ -8,12 +8,10 @@
  */
 import { useState, type ReactNode } from 'react'
 import {
-  DELIVERY_CITIES,
   DOCUMENT_SOURCES,
   RECENT_STORE_CODES,
   SLOT_DAYS,
   STORES,
-  deriveStore,
   type HeaderState,
   type Mode,
   type Payment,
@@ -189,15 +187,59 @@ function StoreRow({ s, on }: { s: Store; on: boolean }) {
   )
 }
 
+/** One input, three fields: code first, then name, then district. */
+function StoreSearch() {
+  const [q, setQ] = useState('')
+  const digits = /^\d+$/.test(q.trim())
+  const hits = q.trim()
+    ? STORES.filter(
+        (s) =>
+          s.code.startsWith(q.trim()) ||
+          s.name.toLowerCase().includes(q.trim().toLowerCase()) ||
+          s.district.toLowerCase().includes(q.trim().toLowerCase()),
+      )
+    : []
+  return (
+    <div className="mb-2">
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Store number, name, or district — e.g. 1204 or Yasmin"
+        className="w-full rounded-md border border-input bg-card px-3 py-1.5 text-sm outline-none"
+      />
+      {q.trim() && (
+        <div className="mt-1 rounded-md border border-border-strong bg-card">
+          {hits.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-muted-foreground">No store matches “{q}”.</p>
+          ) : (
+            hits.map((h) => (
+              <button
+                key={h.code}
+                type="button"
+                className="flex w-full items-center justify-between gap-3 px-3 py-2 text-start hover:bg-accent"
+              >
+                <span className="text-sm">{h.name}</span>
+                <span data-numeric className={`text-xs ${digits ? 'font-semibold text-primary-800' : 'text-muted-foreground'}`}>
+                  {h.code}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StoreGrouped({ seeded, chosen }: { seeded: string; chosen?: string }) {
   const cities = [...new Set(STORES.map((s) => s.city))]
   return (
     <div>
       <ConfirmSeeded seeded={seeded} />
-      <input
-        placeholder="Find any store — name, district, or code"
-        className="mb-2 w-full rounded-md border border-input bg-card px-3 py-1.5 text-sm outline-none"
-      />
+      {/* 🚩 Code search is not a nicety: most agents know their stores by
+          NUMBER, so a digit typed here must match the code before it matches
+          anything else. `1204` is a faster, surer answer than "Al Yasmin". */}
+      <StoreSearch />
       <div className="max-h-64 overflow-auto rounded-md border border-border">
         <div className="border-b border-divider bg-card-2 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Recent
@@ -451,94 +493,6 @@ export function PaymentChoice({ value, forced, reason }: { value: Payment | null
           <span aria-hidden>🔒</span> {reason ?? 'Locked by the order source.'}
         </p>
       )}
-    </div>
-  )
-}
-
-/* -------------------------------------------- the delivery side (city/district) --- */
-
-/**
- * 🚩 THE OTHER LIST. Under delivery the agent picks a CITY and a DISTRICT — the
- * address geography (`GetCities` / `GetDistricts`) — and never sees a store at
- * all. The store is derived from the district: `TempStoreCode ?? StoreCode`
- * (`StoreSelectionVM:519`). This is a different read, a different model and a
- * different population from the pick-in-store estate, and conflating the two is
- * how a console ends up offering a collection-only branch as a delivery store.
- *
- * Three things drawn because they are real and none of them is in the contract:
- *   - the derived store is NAMED as the district's consequence, so the agent can
- *     answer "which branch is this coming from?" without leaving the address
- *   - a TEMP reassignment says it is temporary rather than silently winning
- *   - a district with NO delivery store assigned is a refusal, in words — the
- *     one case §7 has no error code for
- */
-export function DeliveryGeography({ selected }: { selected?: string }) {
-  const [cityCode, setCityCode] = useState(DELIVERY_CITIES[0].cityCode)
-  const city = DELIVERY_CITIES.find((c) => c.cityCode === cityCode) ?? DELIVERY_CITIES[0]
-
-  return (
-    <div>
-      <div className="mb-2 flex gap-1.5">
-        {DELIVERY_CITIES.map((c) => (
-          <button
-            key={c.cityCode}
-            type="button"
-            onClick={() => setCityCode(c.cityCode)}
-            className={`rounded-md border px-3 py-1.5 text-xs font-medium ${
-              c.cityCode === cityCode
-                ? 'border-primary-border bg-primary-050 text-primary-800'
-                : 'border-input bg-card hover:bg-accent'
-            }`}
-          >
-            {c.cityName}
-          </button>
-        ))}
-      </div>
-
-      <div className="overflow-hidden rounded-md border border-border">
-        {city.districts.map((d) => {
-          const store = deriveStore(d)
-          const temp = !!d.tempStoreCode
-          const named = STORES.find((s) => s.code === store)
-          return (
-            <div
-              key={d.districtCode}
-              className={`flex items-center justify-between gap-3 border-b border-divider px-3 py-2 last:border-b-0 ${
-                selected === d.districtCode ? 'bg-primary-050' : ''
-              }`}
-            >
-              <div className="min-w-0">
-                <div className="text-sm">{d.districtName}</div>
-                <div data-numeric className="text-xs text-muted-foreground">
-                  {d.districtCode}
-                </div>
-              </div>
-              {store ? (
-                <div className="text-end">
-                  <div className="text-xs text-muted-foreground">delivers from</div>
-                  <div data-numeric className="text-sm font-medium">
-                    {named?.name ?? 'Store'} ({store})
-                  </div>
-                  {temp && (
-                    <div className="text-[11px] text-attention-800">
-                      temporarily — normally {d.storeCode}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                // The refusal CC2 words and the contract cannot express.
-                <div className="max-w-56 rounded-md border border-danger-border bg-danger-050 px-2 py-1 text-end text-[11px] text-danger-800">
-                  No delivery store assigned — pick another address
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-
-      <p className="mt-2 text-xs text-muted-foreground">
-        This is the address geography, not the store estate. Collection uses a different list.
-      </p>
     </div>
   )
 }

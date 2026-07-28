@@ -132,6 +132,14 @@ export const STORES: Store[] = [
  *     contract cannot currently express
  *   - `Al Yasmin` is on a TEMP reassignment to 1101 while 1204 is closed
  */
+/**
+ * 🚩 PRODUCTION HAS ~112 CITIES. That number is the design constraint: a
+ * select-from-a-list picker fills the screen and cannot be eyeballed, so the
+ * city step is a TYPEAHEAD like the store search, not a dropdown. Sixteen are
+ * carried here — enough that a list is visibly the wrong control.
+ */
+export const CITY_COUNT = 112
+
 export const DELIVERY_CITIES: City[] = [
   {
     cityCode: '0021',
@@ -151,7 +159,86 @@ export const DELIVERY_CITIES: City[] = [
       { districtCode: 'J-044', districtName: 'Al Shati', storeCode: null },
     ],
   },
+  { cityCode: '0003', cityName: 'Dammam', districts: [{ districtCode: 'D-010', districtName: 'Al Faisaliyah', storeCode: '3011' }] },
+  { cityCode: '0004', cityName: 'Makkah', districts: [{ districtCode: 'M-004', districtName: 'Al Aziziyah', storeCode: '2004' }] },
+  { cityCode: '0005', cityName: 'Madinah', districts: [{ districtCode: 'N-002', districtName: 'Al Haram', storeCode: null }] },
+  { cityCode: '0006', cityName: 'Khobar', districts: [{ districtCode: 'K-011', districtName: 'Al Ulaya', storeCode: '3011' }] },
+  { cityCode: '0007', cityName: 'Dhahran', districts: [{ districtCode: 'K-020', districtName: 'Doha', storeCode: '3011' }] },
+  { cityCode: '0008', cityName: 'Taif', districts: [{ districtCode: 'T-003', districtName: 'Al Hawiyah', storeCode: null }] },
+  { cityCode: '0009', cityName: 'Buraidah', districts: [{ districtCode: 'Q-001', districtName: 'Al Khaleej', storeCode: '1402' }] },
+  { cityCode: '0010', cityName: 'Tabuk', districts: [{ districtCode: 'B-001', districtName: 'Al Wurud', storeCode: null }] },
+  { cityCode: '0011', cityName: 'Abha', districts: [{ districtCode: 'A-001', districtName: 'Al Sad', storeCode: null }] },
+  { cityCode: '0012', cityName: 'Khamis Mushait', districts: [{ districtCode: 'A-020', districtName: 'Al Rasras', storeCode: null }] },
+  { cityCode: '0013', cityName: 'Hail', districts: [{ districtCode: 'H-001', districtName: 'Al Nuqrah', storeCode: null }] },
+  { cityCode: '0014', cityName: 'Jubail', districts: [{ districtCode: 'K-040', districtName: 'Al Fanateer', storeCode: '3011' }] },
+  { cityCode: '0015', cityName: 'Najran', districts: [{ districtCode: 'J-900', districtName: 'Al Faisaliyah', storeCode: null }] },
+  { cityCode: '0016', cityName: 'Yanbu', districts: [{ districtCode: 'N-500', districtName: 'Al Nakheel', storeCode: null }] },
 ]
+
+/**
+ * 🚩 THE DELIVERY PICKER IS THE CALLER'S ADDRESS BOOK — not a geography picker.
+ * CC2's `AddressSectionVM` holds `Addresses` (`CustomerAddressBookModel`),
+ * pre-sorted `IsDefault desc, LastUsedOn desc`, surfaced as two tiles with a
+ * Manage-Addresses overflow. The city/district cascade lives in
+ * `AddressEditingForm` — the ADD/EDIT path, reached only when the caller's
+ * address is not already on file.
+ *
+ * This is also what `features/callcenter/console/address-book.ts` already
+ * implements (tickets 165/166), and that module deliberately DERIVES NO STORE:
+ * the district→store rule is the server's and arrives in the projection.
+ */
+export type BookEntry = {
+  addressNumber: string
+  label: string | null
+  line: string
+  districtCode: string
+  districtName: string
+  cityName: string
+  isDefault: boolean
+  lastUsedOn: string
+}
+
+export const ADDRESS_BOOK: BookEntry[] = [
+  {
+    addressNumber: '77120',
+    label: 'Home',
+    line: 'Villa 22, Anas Ibn Malik Rd',
+    districtCode: 'R-114',
+    districtName: 'Al Malqa',
+    cityName: 'Riyadh',
+    isDefault: true,
+    lastUsedOn: '2026-07-21',
+  },
+  {
+    // Temp reassignment: still deliverable, and it says which store and why.
+    addressNumber: '77455',
+    label: 'Mother',
+    line: 'Apt 4, Building 12, Al Yasmin',
+    districtCode: 'R-118',
+    districtName: 'Al Yasmin',
+    cityName: 'Riyadh',
+    isDefault: false,
+    lastUsedOn: '2026-06-02',
+  },
+  {
+    // 🚩 HARD BLOCK (owner ruling): this district has neither a store nor a
+    // temp store, so the order cannot be delivered here at all. The row is
+    // UNPICKABLE and says why — it is not hidden, because a caller asking
+    // "what about my office?" deserves an answer, not a missing row.
+    addressNumber: '78002',
+    label: 'Work',
+    line: 'Office 1102, Al Aqiq Tower',
+    districtCode: 'R-155',
+    districtName: 'Al Aqiq',
+    cityName: 'Riyadh',
+    isDefault: false,
+    lastUsedOn: '2026-05-14',
+  },
+]
+
+/** The district behind a book row — how the hard block is known. */
+export const districtOf = (e: BookEntry): District | undefined =>
+  DELIVERY_CITIES.flatMap((c) => c.districts).find((d) => d.districtCode === e.districtCode)
 
 /** `DeriveStoreCode` — `StoreSelectionVM:519`, temp outranks permanent. */
 export const deriveStore = (d: District): string | null => d.tempStoreCode ?? d.storeCode

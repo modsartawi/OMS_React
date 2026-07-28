@@ -129,12 +129,30 @@ const pickupPane = await page.evaluate(() => document.querySelector('main').inne
 // 1. they are not the same surface
 ok(deliveryPane !== pickupPane, 'the two modes open DIFFERENT surfaces')
 
-// 2. delivery offers DISTRICTS and never asks the agent to choose a store
-ok(/Al Malqa|Al Narjis/.test(deliveryPane), 'delivery lists districts')
+// 2. delivery opens the CALLER'S ADDRESS BOOK — CC2's AddressSectionVM shape,
+//    and what tickets 165/166 already shipped. Not a geography picker.
+ok(/saved addresses/.test(deliveryPane), "delivery opens the caller's ADDRESS BOOK")
+ok(/Home|Mother|Work/.test(deliveryPane), 'the book lists the caller’s own labelled addresses')
 ok(!/Yes, collect here/.test(deliveryPane), 'delivery never offers the collection confirm')
-ok(/delivers from/.test(deliveryPane), 'delivery NAMES the store the district derives')
+ok(/delivers from/.test(deliveryPane), 'each address NAMES the store it derives')
+ok(/temporarily, normally/.test(deliveryPane), 'a TEMP reassignment says it is temporary')
+
+// 2b. OWNER RULING: a district with no store and no temp store is a HARD BLOCK,
+//     shown on the row and unpickable — never hidden, never discovered at submit.
+await page.goto(`${BASE}?variant=4&state=deliveryWhere`)
+await page.waitForSelector('main')
+const block = await page.evaluate(() => {
+  const btns = [...document.querySelectorAll('main button')]
+  const work = btns.find((b) => b.innerText.includes('Al Aqiq'))
+  return { present: !!work, disabled: work?.disabled === true, says: /do not deliver/i.test(work?.innerText ?? '') }
+})
+ok(block.present, 'the undeliverable address is still SHOWN, not hidden')
+ok(block.disabled, 'the undeliverable address is a HARD BLOCK — unpickable')
+ok(block.says, 'and it says why, in words')
 
 // 3. collection offers STORES and never asks for a district assignment
+await page.goto(`${BASE}?variant=4&state=pickupStore`)
+await page.waitForSelector('main')
 ok(/Yes, collect here/.test(pickupPane), 'collection offers the seeded-store confirm')
 ok(!/delivers from/.test(pickupPane), 'collection never speaks of derivation')
 
@@ -157,12 +175,33 @@ ok(pops.deliveryOnly.length > 0, `stores that deliver but are NOT in the collect
 ok(pops.noStoreDistricts > 0, `districts with NO delivery store assigned: ${pops.noStoreDistricts} (§7 has no code for this)`)
 ok(pops.tempReassigned > 0, `districts on a TEMP reassignment (TempStoreCode outranks StoreCode): ${pops.tempReassigned}`)
 
-// 5. the district with none assigned refuses IN WORDS, on screen
+// 5. the ADD path is a typeahead, not a 112-row dropdown
 await page.goto(`${BASE}?variant=4&state=deliveryWhere`)
 await page.waitForSelector('main')
-const refuses = await page.evaluate(() => document.querySelector('main').innerText.includes('No delivery store assigned'))
-ok(refuses, 'a district with no delivery store refuses in words, not silently')
-await shot('delivery-geography')
+await shot('delivery-address-book')
+await page.click('main >> text=Add a new address')
+await page.waitForSelector('main input[placeholder^="Start typing a city"]')
+const cityCount = await page.evaluate(() => /112 of them/.test(document.querySelector('main').innerText))
+ok(cityCount, 'the city step names the scale that makes a dropdown wrong')
+const beforeType = await page.evaluate(() => document.querySelectorAll('main button').length)
+await page.type('main input[placeholder^="Start typing a city"]', 'da', { delay: 20 })
+const hits = await page.evaluate(() => document.querySelector('main').innerText)
+ok(/Dammam/.test(hits), 'typing narrows the cities')
+ok(beforeType < 8, 'no city list is rendered until the agent types')
+await page.click('main >> text=Dammam')
+await page.waitForTimeout(80)
+const districts = await page.evaluate(() => document.querySelector('main').innerText)
+ok(/Al Faisaliyah/.test(districts), 'city then district — a cascade, not one flat list')
+await shot('delivery-new-address-cascade')
+
+// 6. the store picker matches a CODE — agents know their stores by number
+await page.goto(`${BASE}?variant=4&state=pickupStore&store=grouped`)
+await page.waitForSelector('main input[placeholder^="Store number"]')
+await page.type('main input[placeholder^="Store number"]', '1204', { delay: 20 })
+await page.waitForTimeout(80)
+const byCode = await page.evaluate(() => document.querySelector('main').innerText)
+ok(/Al Yasmin/.test(byCode), 'typing a store CODE finds the store')
+await shot('store-by-code')
 
 // ---- the keyboard add loop, driven for real (the part a screenshot cannot argue)
 console.log('\nkeyboard add loop — type, Enter, repeat')

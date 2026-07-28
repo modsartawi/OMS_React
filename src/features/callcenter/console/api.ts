@@ -33,6 +33,7 @@ import type {
   OpenResult,
   PrereqResolution,
   SessionState,
+  SubmitResult,
 } from '@/core/models/callcenter'
 
 /**
@@ -505,6 +506,33 @@ export const callCenterApi = {
       documentSource,
       sourceReference,
     })
+  },
+
+  /**
+   * `POST CallCenterWeb/Submit` → `SubmitResult` (§8.3) — the CLCN document, and
+   * the one moment this console is deliberately not optimistic.
+   *
+   * 🚩 **It takes only the transaction id.** No document, no lines, no amounts,
+   * no fee: the document is built server-side from engine state by
+   * `Cc2DocumentHeaderBuilder`, which is precisely what makes the browser unable
+   * to influence what the caller pays (map note 3). The delivery fee is quoted
+   * live in `totals` as lines change and is not computed here or at submit.
+   *
+   * 🚩 **Submitting twice is a success.** Once-only is `(OrderNo, DocumentType)`
+   * with `OrderNo := TransactionId`, so a replay answers `alreadySubmitted`
+   * carrying the FIRST order number — and the server still completes the local
+   * tail on that path (133). The console treats the two identically;
+   * `submit-outcome.ts` is what makes that structural rather than a promise.
+   *
+   * Refuses `SUBMIT_REFUSED` (409, carrying `field` — the transaction stays
+   * Open, so a refusal is a correction rather than a lost basket) and
+   * `SUBMIT_UNAVAILABLE` (**503 carrying the envelope** — transient, the order
+   * stays Open and retryable). 🚩 That 503 is only readable as a refusal because
+   * `core/api.ts` lets a CODED envelope outrank a 5xx status; without it a
+   * routine retryable outcome would reach the agent as "unexpected".
+   */
+  submit(transactionId: string, requestId: string): Promise<SubmitResult> {
+    return api.post<SubmitResult>('CallCenterWeb/Submit', { transactionId, requestId })
   },
 
   /**

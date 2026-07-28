@@ -319,6 +319,29 @@ export interface AbandonResult {
 }
 
 /**
+ * §8.3 — the answer to `submit`, and the only place an order number exists.
+ *
+ * 🚩 **Both outcomes are successes and mean the same thing.** Once-only is
+ * `(OrderNo, DocumentType)` with `OrderNo := TransactionId`, so a second submit
+ * of the same transaction answers `alreadySubmitted` carrying the FIRST order
+ * number — and the server still completes the local tail on that path (133).
+ * `outcome` is therefore server-side provenance and **not a client branch**: any
+ * code that makes the two look different to the agent is the defect
+ * ([174](.issues/174-placing-the-order.md)). `submit-outcome.ts` is where that
+ * stops being a convention.
+ *
+ * `refused` and `unavailable` are the error path (§7), not values of this field.
+ */
+export interface SubmitResult {
+  outcome: 'submitted' | 'alreadySubmitted'
+  /** The order number the agent reads to the caller — carried on BOTH successes
+   *  (the replay's is the first submit's). */
+  documentNo: string
+  /** The order as at submit — `status: 'submitted'` (law 2, like every verb). */
+  state: SessionState | null
+}
+
+/**
  * A loyalty member as the door's lookup answers it
  * (`GET CallCenterWeb/MemberByMobile/{mobile}` — BackOffice 801's verbatim
  * delegation to `LoyEndpoints.GetLoyMemberByMobile`, projecting `LoyMemberModel`).

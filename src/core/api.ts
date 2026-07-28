@@ -122,15 +122,22 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
       body?.errors ?? [],
       body?.data ?? null,
     )
-  if (res.status >= 500) throw new ApiError('server', i18n.t('common:errors.server'), res.status)
-
   // A non-2xx that still carries the SIS.Api envelope with success=false is a mapped
   // business outcome — the AuthzAdminWeb family answers guard denials (403), unknown
   // targets (404) and rule violations (409) with a machine code + message INSIDE the
   // envelope. Surface that message + code so guardrail refusals (LAST_ADMIN,
   // SYSTEM_ROLE, IN_USE, …) explain themselves, rather than a generic "unexpected".
+  //
+  // 🚩 **A CODED refusal outranks its status, including a 5xx.** A service that
+  // answers a deliberate, named outcome with a 503 (a downstream it depends on
+  // being briefly unavailable, say) is still telling us something the screen can
+  // act on, and flattening it to `kind:'server'` turns a routine retryable answer
+  // into "something unexpected happened". The error CODE is what admits a 5xx
+  // here: a genuine crash carries no `errorCode` and still reads as a server
+  // fault below, exactly as it did before.
   if (!res.ok) {
-    if (body && body.success === false)
+    const coded = body?.success === false && !!body.errors?.[0]?.errorCode
+    if (body && body.success === false && (res.status < 500 || coded))
       throw new ApiError(
         'business',
         body.message || i18n.t('common:errors.notSuccessful'),
@@ -138,6 +145,7 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
         body.errors ?? [],
         body.data ?? null,
       )
+    if (res.status >= 500) throw new ApiError('server', i18n.t('common:errors.server'), res.status)
     throw new ApiError('unknown', i18n.t('common:errors.unexpected', { status: res.status }), res.status)
   }
   if (body === null)

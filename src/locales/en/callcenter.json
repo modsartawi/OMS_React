@@ -330,6 +330,18 @@
     "needed": "Needed first: {{list}}",
     "placeOrder": "Place order"
   },
+  "submit": {
+    "placing": "Placing the order…",
+    "placed": "Order placed",
+    "orderNo": "Order number",
+    "readToCaller": "Read this number to the caller.",
+    "refusedTitle": "The order was not placed",
+    "fixSection": "Fix the {{section}} on this order, then place it again.",
+    "stillOpen": "The order is still open — nothing has been lost.",
+    "unavailableTitle": "The order has not been placed yet",
+    "tryAgain": "Try again",
+    "failed": "The order could not be placed. The order is still open — try again."
+  },
   "blockers": {
     "NO_LINES": "add an item",
     "NO_CUSTOMER": "attach the caller",

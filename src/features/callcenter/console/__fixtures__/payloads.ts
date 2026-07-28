@@ -24,6 +24,7 @@ import type {
   PendingConfirmation,
   PrereqResolution,
   SessionState,
+  SubmitResult,
 } from '@/core/models/callcenter'
 import openEmpty from '../../../../../.issues/assets/136-cc-contract/01-open-empty.json'
 import twoLinesPriced from '../../../../../.issues/assets/136-cc-contract/02-two-lines-priced.json'
@@ -31,6 +32,7 @@ import nearMissBuySide from '../../../../../.issues/assets/136-cc-contract/03-ne
 import belowAtp from '../../../../../.issues/assets/136-cc-contract/04-below-atp-confirm.json'
 import rebindPreview from '../../../../../.issues/assets/136-cc-contract/05-rebind-preview.json'
 import rebindRefused from '../../../../../.issues/assets/136-cc-contract/06-rebind-refused.json'
+import submitOutcomes from '../../../../../.issues/assets/136-cc-contract/07-submit-already-submitted.json'
 
 /**
  * A fixture file is `{ _contract, request, response }` — the provenance block
@@ -123,3 +125,23 @@ export const REBIND_PREVIEW: PendingConfirmation =
  * may be the only one the banner can name a line from.
  */
 export const REBIND_REFUSAL_DATA: unknown = rebindRefused.commit.response.data
+
+/**
+ * §8.3's two successes, as fixture 07 carries them (ticket 174) — the first
+ * submit and the replay of it.
+ *
+ * 🚩 They are exported as a PAIR and read by one test that compares them to each
+ * other. Separately they are two ordinary payloads; together they are the
+ * ticket's headline rule — *both are the same news* — and a fixture that only
+ * ever appeared one at a time could not state it.
+ *
+ * 🚩 Shape only, as always. The replay's `state` is `_elided` in the fixture
+ * ("as at submit"), which is the contract author's shorthand and not a state a
+ * server would send — so nothing may read it as a whole projection. What this
+ * ticket reads off it is the ORDER NUMBER, which is the same one either way,
+ * and that is the fixture's own claim rather than an illustration.
+ */
+export const SUBMIT_PLACED: SubmitResult = submitOutcomes.outcome_submitted
+  .data as unknown as SubmitResult
+export const SUBMIT_REPLAYED: SubmitResult = submitOutcomes.outcome_alreadySubmitted
+  .data as unknown as SubmitResult

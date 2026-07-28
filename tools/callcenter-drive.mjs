@@ -156,6 +156,22 @@
 //        named on the chip and warned about in the flow while the chip stays
 //        settled and submit stays live, and a window that goes mid-call warns
 //        inside the picker — no failure, nothing changed, the next window lands.
+// Asserts ticket 174's Proof:
+//   placingAnOrderWaitsForItsNumber
+//    39. *Place order* becomes *Placing the order…* and cannot be pressed again;
+//        the receipt HOLDS — no confirmation, no order number, not a figure moved
+//        — until a documentNo arrives; the request carries ONLY the transaction
+//        id and a requestId (no document, no lines, no amounts, no fee); and a
+//        placed order has nothing left to place, correct or abandon.
+//   aRefusedSubmitKeepsTheOrder
+//    40. SUBMIT_REFUSED is drawn in the server's own words, points at the section
+//        that fixes it, and leaves the basket, the total and a live *Place order*
+//        exactly as they were — a correction, not a lost basket;
+//    40b. SUBMIT_UNAVAILABLE — a 503 CARRYING the envelope — reads as the
+//        server's own retryable sentence rather than as "unexpected", the one
+//        control offers the retry, and that retry re-sends the SAME requestId
+//        and is answered `alreadySubmitted` with the FIRST order's number, drawn
+//        word for word as the first submit was.
 //   aRefusedRebindChangesNothingAndSaysWhichLine
 //    29. REBIND_REFUSED draws the banner in the server's own words, names the
 //        offending line THERE and tints it in the basket, and leaves the store,
@@ -622,6 +638,43 @@ const SOURCE_REFUSAL = codedRefusal('SOURCE_REFERENCE_REQUIRED', 400, 'Source re
 // while the list was open; the order is untouched.
 const SLOT_REFUSAL = codedRefusal('SLOT_UNAVAILABLE', 409, 'Slot 2026-07-28#S1 is no longer active.')
 
+// ---- ticket 174: placing the order, and the three ways it can answer ----
+//
+// Fixture 07 holds four scenarios at its top level (not under `.response` like
+// 08's), so it is read directly rather than through `refusal()`. 🚩 The two
+// refusals are the fixture's own: the 409 carrying `field`, and the **503 that
+// carries the envelope** — the one whose mapping this ticket asserts, because a
+// bare 503 would reach the agent as "unexpected" for a routine retryable outcome.
+const SUBMIT_07 = raw('07-submit-already-submitted')
+const submitRefusalOf = (key) => ({
+  status: SUBMIT_07[key].statusCode,
+  contentType: 'application/json',
+  body: JSON.stringify(SUBMIT_07[key]),
+})
+const SUBMIT_REFUSED = submitRefusalOf('outcome_refused')
+const SUBMIT_UNAVAILABLE = submitRefusalOf('outcome_unavailable')
+const SUBMIT_REFUSED_MESSAGE = SUBMIT_07.outcome_refused.message
+const SUBMIT_UNAVAILABLE_MESSAGE = SUBMIT_07.outcome_unavailable.message
+// The order number the caller is read. One per transaction, by construction.
+const DOCUMENT_NO = SUBMIT_07.outcome_submitted.data.documentNo
+
+// What the order looks like once it is placed — `status: 'submitted'`, and the
+// capabilities that follow from it. The blocker names ITSELF (fixture 07's own
+// `ALREADY_SUBMITTED`) rather than leaving a dead button silent.
+const submittedState = (state) => ({
+  ...state,
+  version: state.version + 1,
+  status: 'submitted',
+  capabilities: {
+    ...state.capabilities,
+    canSubmit: false,
+    canAddItem: false,
+    canChangeStore: false,
+    canOpenAddressBook: false,
+    submitBlockers: ['ALREADY_SUBMITTED'],
+  },
+})
+
 // §7's three codes for this verb family, each carrying the envelope so
 // `core/api.ts` maps it to kind:'business' and the console can read the code.
 const LINE_REFUSALS = {
@@ -694,6 +747,16 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
  * @param opts.slotLapses  the FIRST `SetSlot` naming the offered window answers
  *                       §7's `SLOT_UNAVAILABLE` (173) — the soft gate, which
  *                       warns and never blocks; the next send lands.
+ * @param opts.submit    how `Submit` answers (174): `null` places the order,
+ *                       `'refused'` answers fixture 07's SUBMIT_REFUSED every
+ *                       time (the field to fix, order untouched), and
+ *                       `'outageOnce'` answers its 503-WITH-ENVELOPE on the
+ *                       first send — 🚩 having minted the order anyway, which is
+ *                       exactly why the retry must answer `alreadySubmitted`
+ *                       with the same number and must look like a first submit.
+ * @param opts.submitDelayMs  how long `Submit` takes to answer — the window in
+ *                       which *Placing the order…* and the HELD receipt are
+ *                       observable at all.
  * @param opts.lineEdit  how the three corrections answer (170): `null` applies
  *                       them and re-prices, `'notFound'` refuses every one with
  *                       LINE_NOT_FOUND (the stale screen), `'uomRefused'` and
@@ -717,12 +780,20 @@ async function open(
     rebind = null,
     lineEdit = null,
     slotLapses = false,
+    submit = null,
+    submitDelayMs = 0,
   } = {},
 ) {
   let stateReads = 0
   let bookReads = 0
   let staleSpent = false
   let lapseSpent = false
+  // 🚩 The order number this transaction minted, or `null`. ONE per transaction
+  // by construction — once-only is keyed on the transaction id (§8.3) — which is
+  // what makes "a repeated submit is not a second order" provable from the stub
+  // rather than inferred from the screen.
+  let minted = null
+  let outageSpent = false
   // The state this stub last served, so the two customer verbs (165) answer
   // about the order on screen rather than about a fixture.
   let served = openState ?? STATE
@@ -1016,6 +1087,28 @@ async function open(
         },
       }
       return route.fulfill(envelope(speak(served)))
+    }
+    // ---- 174: the last thirty seconds of the call ----
+    if (p === 'CallCenterWeb/Submit') {
+      if (submit === 'refused') return route.fulfill(SUBMIT_REFUSED)
+      // 🚩 The order IS minted — the outage is in the ANSWER, not in the work.
+      // That is the whole reason `alreadySubmitted` exists, and a stub whose
+      // 503 changed nothing would let the retry mint a second order unnoticed.
+      const replay = minted !== null
+      minted = minted ?? DOCUMENT_NO
+      served = submittedState(served)
+      if (submit === 'outageOnce' && !outageSpent) {
+        outageSpent = true
+        return route.fulfill(SUBMIT_UNAVAILABLE)
+      }
+      if (submitDelayMs) await new Promise((resolve) => setTimeout(resolve, submitDelayMs))
+      return route.fulfill(
+        envelope({
+          outcome: replay ? 'alreadySubmitted' : 'submitted',
+          documentNo: minted,
+          state: speak(served),
+        }),
+      )
     }
     // The windows one store offers — off the door, on their old path (750 OQ2).
     if (p.startsWith('Slots/AvailableSlots/')) return route.fulfill(envelope(SLOT_DAYS))
@@ -3012,6 +3105,189 @@ async function run() {
       'and the second attempt settles the chip, lapse note gone',
       (await page.locator('[data-cc-chip-lapsed]').count()) === 0 &&
         (await page.locator('[data-cc-slot-lapsed]').count()) === 0,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 39. placing the order: the receipt HOLDS until an order number exists ----
+  //
+  // An order the door is willing to place — lines, a caller, an address, and
+  // `canSubmit` with nothing left in `submitBlockers`.
+  const SUBMITTABLE = {
+    ...PRIOR_STATE,
+    capabilities: { ...PRIOR_STATE.capabilities, canSubmit: true, submitBlockers: [] },
+  }
+  // What a placed order looks like on screen, captured here and compared against
+  // the REPLAY in box 40. 🚩 That comparison is the ticket's headline rule —
+  // *both submitted outcomes are the same news* — and it is only assertable by
+  // holding one panel's words next to the other's.
+  let placedPanel = null
+
+  {
+    // The delay is what makes the in-flight state observable at all: without it
+    // "the receipt holds" is a claim about a frame nobody can see.
+    const { context, page, errors, wire } = await open(browser, {
+      openState: SUBMITTABLE,
+      submitDelayMs: 700,
+    })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    check('a complete order offers a live Place order', await page.locator('[data-cc-submit]').isEnabled())
+    const payableBefore = await text(page, '[data-cc-payable]')
+    const linesBefore = await page.locator('[data-cc-line]').count()
+
+    await page.locator('[data-cc-submit]').click()
+    await page.locator('[data-cc-submit-placing]').waitFor({ timeout: 10_000 })
+
+    const placingLabel = (await text(page, '[data-cc-submit]')).replace(/\s+/g, ' ')
+    check('the button says it is placing the order', /placing/i.test(placingLabel), placingLabel)
+    check('and cannot be pressed a second time mid-flight', await page.locator('[data-cc-submit]').isDisabled())
+    // 🚩 The whole ruling, in one assertion: no optimistic hand-off. An order
+    // the agent has been told about that then refuses is a phone call they
+    // cannot take back.
+    check(
+      '🚩 nothing is confirmed while it is in flight — the receipt HOLDS',
+      (await page.locator('[data-cc-order-placed]').count()) === 0 &&
+        (await page.locator('[data-cc-order-no]').count()) === 0,
+    )
+    check(
+      'and the order on screen is exactly as it was',
+      (await text(page, '[data-cc-payable]')) === payableBefore &&
+        (await page.locator('[data-cc-line]').count()) === linesBefore,
+    )
+
+    await page.locator('[data-cc-order-placed]').waitFor({ timeout: 10_000 })
+    const orderNo = (await text(page, '[data-cc-order-no]')).replace(/\s+/g, '')
+    check('the agent is given a real order number to read out', orderNo === DOCUMENT_NO, orderNo)
+    placedPanel = (await text(page, '[data-cc-order-placed]')).replace(/\s+/g, ' ')
+
+    const submits = wire.filter((w) => w.path === 'CallCenterWeb/Submit')
+    check('exactly one Submit', submits.length === 1, `${submits.length} Submit call(s)`)
+    // 🚩 The browser cannot influence what the caller pays: the CLCN document is
+    // built server-side from engine state, so the request carries the id and
+    // nothing else — no document, no lines, no amounts, no fee.
+    check(
+      '🚩 which carried ONLY the transaction id and a requestId',
+      JSON.stringify(Object.keys(submits[0]?.body ?? {}).sort()) === '["requestId","transactionId"]',
+      JSON.stringify(submits[0]?.body),
+    )
+    check(
+      'a placed order has nothing left to place, correct or abandon',
+      (await page.locator('[data-cc-submit]').count()) === 0 &&
+        (await page.locator('[data-cc-line-void]').count()) === 0 &&
+        (await page.locator('[data-cc-abandon]').count()) === 0,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 40. a refusal is a correction, and an outage is retryable ----
+  {
+    const { context, page, errors, wire } = await open(browser, {
+      openState: SUBMITTABLE,
+      submit: 'refused',
+    })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    const payableBefore = await text(page, '[data-cc-payable]')
+    const linesBefore = await page.locator('[data-cc-line]').count()
+
+    await page.locator('[data-cc-submit]').click()
+    await page.locator('[data-cc-submit-failed="refused"]').waitFor({ timeout: 10_000 })
+
+    const refused = (await text(page, '[data-cc-submit-failed="refused"]')).replace(/\s+/g, ' ')
+    // The server's own sentence (§7), passed through as data — it is what names
+    // the field, and no client wording could name it better.
+    check('a refusal is drawn in the server’s own words', refused.includes(SUBMIT_REFUSED_MESSAGE), refused)
+    check(
+      '🚩 and points at the section that fixes it',
+      await page.locator('[data-cc-submit-fix="slot"]').isVisible(),
+    )
+    check('🚩 the basket survives it — nothing was lost', (await page.locator('[data-cc-line]').count()) === linesBefore)
+    check('and the total is untouched', (await text(page, '[data-cc-payable]')) === payableBefore)
+    check('the order is still there to place', await page.locator('[data-cc-submit]').isEnabled())
+    check('nothing is confirmed', (await page.locator('[data-cc-order-placed]').count()) === 0)
+    check('a refusal is NOT offered as a blind retry', (await page.locator('[data-cc-submit-retryable]').count()) === 0)
+
+    // 🚩 The correction ENDS the refusal. Any verb moves the version, and a
+    // danger box still saying *the order was not placed* under a receipt the
+    // agent has just corrected is the console arguing with itself.
+    await page.locator('[data-cc-line-void]').first().click()
+    await page.waitForFunction(() => !document.querySelector('[data-cc-submit-failed]'), null, { timeout: 10_000 })
+    check(
+      '🚩 and it stops being said the moment the agent corrects the order',
+      (await page.locator('[data-cc-submit-failed]').count()) === 0,
+    )
+    // The next press is a genuinely new action — the order it is about has moved.
+    await page.locator('[data-cc-submit]').click()
+    await page.locator('[data-cc-submit-failed="refused"]').waitFor({ timeout: 10_000 })
+    const submits = wire.filter((w) => w.path === 'CallCenterWeb/Submit')
+    check(
+      'so placing a CORRECTED order is a new action, not a retry of the old one',
+      submits.length === 2 && submits[0].body.requestId !== submits[1].body.requestId,
+      JSON.stringify(submits.map((s) => s.body.requestId)),
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 40b. the 503 that carries the envelope, and the retry that lands ----
+  {
+    const { context, page, errors, wire } = await open(browser, {
+      openState: SUBMITTABLE,
+      submit: 'outageOnce',
+    })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    const linesBefore = await page.locator('[data-cc-line]').count()
+
+    await page.locator('[data-cc-submit]').click()
+    await page.locator('[data-cc-submit-failed="unavailable"]').waitFor({ timeout: 10_000 })
+
+    const outage = (await text(page, '[data-cc-submit-failed="unavailable"]')).replace(/\s+/g, ' ')
+    // 🚩 The assertion this ticket exists for. SUBMIT_UNAVAILABLE is a 503 that
+    // CARRIES the envelope; a `core/api.ts` that let the status outrank the code
+    // would map it to kind:'server' and the agent would read "unexpected" for a
+    // routine retryable outcome, mid-call.
+    check(
+      '🚩 a transient outage reads as the server’s own sentence, not "unexpected"',
+      outage.includes(SUBMIT_UNAVAILABLE_MESSAGE),
+      outage,
+    )
+    check('and is marked retryable', await page.locator('[data-cc-submit-retryable]').isVisible())
+    check('the transaction is still open and still has its basket', (await page.locator('[data-cc-line]').count()) === linesBefore)
+    const retryLabel = (await text(page, '[data-cc-submit]')).replace(/\s+/g, ' ')
+    check('the one control now offers the retry itself', /try again/i.test(retryLabel), retryLabel)
+    check('and nothing was confirmed', (await page.locator('[data-cc-order-placed]').count()) === 0)
+
+    await page.locator('[data-cc-submit]').click()
+    await page.locator('[data-cc-order-placed]').waitFor({ timeout: 10_000 })
+
+    const submits = wire.filter((w) => w.path === 'CallCenterWeb/Submit')
+    // 🚩 One press, one requestId (law 3 / §4): the retry is a retry of that
+    // press, not a second action — so the ledger reads as one attempt, and the
+    // once-only key answers with the order the first send already minted.
+    check(
+      '🚩 the retry re-sends the SAME requestId — one action, not two orders',
+      submits.length === 2 && submits[0].body.requestId === submits[1].body.requestId,
+      JSON.stringify(submits.map((s) => s.body.requestId)),
+    )
+    const replayNo = (await text(page, '[data-cc-order-no]')).replace(/\s+/g, '')
+    check(
+      'and the agent is given the FIRST order’s number, not a second order',
+      replayNo === DOCUMENT_NO && (await page.locator('[data-cc-order-no]').count()) === 1,
+      replayNo,
+    )
+    // 🚩 The headline rule, asserted as an EQUALITY rather than as two readings
+    // that happen to agree: `alreadySubmitted` is drawn word for word as the
+    // first submit was. Any client branch that made the two look different is
+    // the defect, and it would show up here.
+    check(
+      '🚩 a replay is the same news, word for word, as a first submit',
+      (await text(page, '[data-cc-order-placed]')).replace(/\s+/g, ' ') === placedPanel,
+      placedPanel,
     )
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()

@@ -91,6 +91,7 @@ import {
   type LineEdit,
 } from './line-edit'
 import { classifyAdd, type AddOutcome, type GuidanceAdd } from './add-outcome'
+import { readSubmitFailure, readSubmitResult, type SubmitOutcome } from './submit-outcome'
 import AbandonConfirm from './AbandonConfirm'
 import AddressPicker from './AddressPicker'
 import BelowAtpConfirm from './BelowAtpConfirm'
@@ -504,6 +505,10 @@ function ConsoleSession() {
       setPickingSlot(false)
       setSlotLapsed(false)
       setEditingSource(false)
+      // And a submit of a basket that no longer exists — including its order
+      // number, which belongs to an order this agent is no longer on.
+      setSubmitAction(null)
+      setPlaced(null)
       colliders.current = 0
       setColliding(null)
       setStalled(null)
@@ -630,6 +635,108 @@ function ConsoleSession() {
     },
     retry: false,
   })
+
+  /**
+   * Placing the order (174) — the one moment this console is deliberately **not**
+   * optimistic, and the only verb whose answer is a real OMS document.
+   *
+   * 🚩 **It sends only the transaction id.** No document, no lines, no amounts,
+   * no fee: the CLCN document is built server-side from engine state, which is
+   * what makes the browser unable to influence what the caller pays (map note 3).
+   *
+   * 🚩 **The receipt HOLDS until an order number exists.** There is no optimistic
+   * hand-off — CC2's research recommends one and it is ruled out here, because an
+   * optimistically confirmed order that then refuses is a phone call the agent
+   * cannot take back. Which is why nothing is written on `onMutate` beyond
+   * clearing the last attempt's news.
+   *
+   * 🚩 **Both successes are the same news**, and this file cannot tell them apart
+   * even if it tried: `readSubmitResult` drops the outcome word and `replayed`
+   * before either reaches state. Once-only is keyed on the transaction id, and
+   * the server completes the local tail on the replay path too (§8.3).
+   *
+   * Neither failure closes the order. `SUBMIT_REFUSED` names a field to fix and
+   * `SUBMIT_UNAVAILABLE` is a transient outage the agent rides out — both leave
+   * the transaction Open, which is what makes a refusal a correction rather than
+   * a lost basket.
+   */
+  /**
+   * The press in flight or last attempted: its `requestId`, and **the order
+   * version it was made against**.
+   *
+   * 🚩 The version is what makes a refusal stop being true. `SUBMIT_REFUSED`
+   * names a field, the agent fixes it — and that fix is a verb, so the version
+   * moves. A danger box still saying *the order was not placed* under a receipt
+   * the agent has just corrected is a console arguing with itself.
+   */
+  const [submitAction, setSubmitAction] = useState<{ requestId: string; version: number } | null>(null)
+  const [placed, setPlaced] = useState<SubmitOutcome | null>(null)
+
+  const submit = useMutation({
+    // No `again`: the receipt draws this call's own outcome, at the foot where
+    // the agent's hand already is, and a strip offering a second retry beside it
+    // is one retry too many (164's ruling).
+    mutationFn: (action: { requestId: string }) =>
+      // 🚩 The id is the PRESS's, minted at `placeOrder` and re-sent verbatim by
+      // the retry a transient outage offers. Minting one inside the thunk would
+      // make every busy retry a new action to the server's ledger — on the one
+      // verb that mints a real OMS order.
+      runGuarded(() => callCenterApi.submit(transactionId!, action.requestId)),
+    // The last attempt's news belongs to the last attempt.
+    onMutate: () => setPlaced(null),
+    onSuccess: (result) => {
+      // Law 2, as everywhere: the whole returned state goes through the one
+      // write path. It is what closes the order on screen — the corrections, the
+      // abandon and the header sections all read `status` and stand down.
+      //
+      // Keyed on the order this submit was FOR rather than on the response's own
+      // id: `submit` is the one verb whose result is not primarily a projection
+      // (§8.3), and there is exactly one order it could be about.
+      if (result.state) {
+        queryClient.setQueryData<SessionState>(sessionKey(transactionId!), (current) =>
+          applyState(current, result.state!),
+        )
+      }
+      setPlaced(readSubmitResult(result))
+    },
+    retry: false,
+  })
+
+  /**
+   * What the last attempt said, worded once. A `SUBMIT_UNAVAILABLE` that reached
+   * here as anything but `retryable` would be the defect this ticket names — see
+   * the coded-envelope rule in `core/api.ts`.
+   *
+   * 🚩 Read through `submitAction` rather than off the mutation alone, and only
+   * while the order is still the one the attempt was about. *Abandon and start
+   * fresh* forgets the action outright; an ordinary correction moves the version
+   * — and either way a refusal about an order that has since changed must not be
+   * waiting at the foot of the receipt.
+   */
+  const submitFailure =
+    submit.isError && submitAction && session.data?.version === submitAction.version
+      ? readSubmitFailure(submit.error, t('submit.failed'))
+      : null
+
+  /**
+   * 🚩 **One press, one `requestId`, reused verbatim across every retry of that
+   * press** (law 3 / §4) — including the retry a transient outage offers, and
+   * including a retry after a failure this console could not classify, which is
+   * precisely the case where the submit may have landed server-side. Only a
+   * press with no standing failure behind it mints a new id, which is what makes
+   * *fix the field and place it again* a genuinely new action.
+   *
+   * Once-only is keyed on the transaction id either way, so no path here can
+   * mint a second order; what the id buys is a server-side ledger that reads as
+   * one attempt rather than as several.
+   */
+  const placeOrder = () => {
+    const action = submitFailure
+      ? submitAction!
+      : { requestId: newRequestId(), version: session.data?.version ?? -1 }
+    setSubmitAction(action)
+    submit.mutate(action)
+  }
 
   /**
    * `addItem` (168, 169) — the one verb the search panel has, on its own mutation
@@ -1377,6 +1484,19 @@ function ConsoleSession() {
         onChangeSource={session.data.status === 'open' ? () => setEditingSource(true) : undefined}
         refusal={refusal}
         onDismissRefusal={() => setRefusal(null)}
+        submit={{
+          // 🚩 The DOOR decides whether this order may be placed (§2), with no
+          // exception and no client-side predicate beside it — the console never
+          // re-implements *is this order complete*, and the reason a dead button
+          // is dead is `submitBlockers` (173).
+          onPlace:
+            session.data.status === 'open' && session.data.capabilities.canSubmit
+              ? placeOrder
+              : undefined,
+          placing: submit.isPending,
+          outcome: placed,
+          failure: submitFailure,
+        }}
       />
       {/* Mounted on the same condition. A caller removed in another tab shuts
           the book from under an open dialog, which is the honest outcome: the

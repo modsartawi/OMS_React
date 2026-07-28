@@ -11,9 +11,10 @@
  * Slice 0 renders what an empty order actually has, and nothing it does not:
  * every value below comes off `SessionState`. There is no client-computed total
  * (law 1 / §2.1 — the console never sums lines), no hand-made placeholder, and
- * no control enabled by a client-side predicate: *Place order* is disabled
- * because `capabilities.canSubmit` said so, and the reason under it is
- * `submitBlockers`, the server's own list.
+ * no control enabled by a client-side predicate: *Place order* is live only
+ * because `capabilities.canSubmit` said so (the page reads it and passes the
+ * handler, as it does for every other capability-gated control), and the reason
+ * under a dead one is `submitBlockers`, the server's own list.
  *
  * Ticket 165 fills the first of those columns: the rail is now the call's
  * opening move rather than furniture (see `CustomerRail.tsx`). The rest — item
@@ -21,8 +22,9 @@
  * 166–172, in the centre column that is the only region that grows.
  */
 import { useTranslation } from 'react-i18next'
-import { RefreshCw, X } from 'lucide-react'
+import { Loader2, RefreshCw, X } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
+import Ltr from '@/core/ui/Ltr'
 import { formatMoney } from '@/core/util/number-format'
 import BasketPanel, { type BasketActions } from './BasketPanel'
 import { receiptView } from './basket-view'
@@ -35,6 +37,25 @@ import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
 import Money from './Money'
 import type { RebindRefusal } from './store-move'
 import { submitBlockers } from './submit-blockers'
+import { submitRefusalChip, type SubmitFailure, type SubmitOutcome } from './submit-outcome'
+
+/**
+ * *Place order* and everything it can answer (174). The call itself is the
+ * page's, like every other verb — what travels down here is the request to
+ * place, what it is currently doing, and what it last said.
+ */
+export interface SubmitActions {
+  /** Absent once the order is no longer open: a placed order has nothing to
+   *  place, and a control that would be refused is worse than no control. */
+  onPlace?: () => void
+  /** 🚩 In flight. The receipt HOLDS while this is true — no optimistic
+   *  hand-off, because a confirmed order that then refuses is a phone call the
+   *  agent cannot take back. */
+  placing: boolean
+  /** The order number, once one exists. The only thing that ends the wait. */
+  outcome: SubmitOutcome | null
+  failure: SubmitFailure | null
+}
 
 export default function ConsoleShell({
   state,
@@ -54,6 +75,7 @@ export default function ConsoleShell({
   onChangeSource,
   refusal = null,
   onDismissRefusal,
+  submit,
 }: {
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
@@ -109,6 +131,10 @@ export default function ConsoleShell({
    *  "nothing was changed, fix this line" is legible in one glance. */
   refusal?: RebindRefusal | null
   onDismissRefusal?: () => void
+  /** *Place order* and what it last answered (174) — the page's, like every
+   *  other verb, because the outcome is a real OMS order and the cache is the
+   *  store of record. */
+  submit: SubmitActions
 }) {
   // The lines the refusal named, for the tint. A Set because the basket asks per
   // line and a refusal can name several.
@@ -167,7 +193,7 @@ export default function ConsoleShell({
               one-click add that closes their gap (172). */}
           <GuidanceStrip view={guidance} transactionId={state.transactionId} actions={guidanceActions} />
         </main>
-        <Receipt state={state} />
+        <Receipt state={state} submit={submit} />
       </div>
     </div>
   )
@@ -397,11 +423,16 @@ function RebindBanner({ refusal, onDismiss }: { refusal: RebindRefusal | null; o
  * threshold is something the agent watches happen rather than discovers at
  * submit (US36).
  */
-function Receipt({ state }: { state: SessionState }) {
+function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions }) {
   const { t } = useTranslation('callcenter')
   const { capabilities } = state
   const receipt = receiptView(state.totals)
   const blockers = submitBlockers(capabilities.submitBlockers)
+  // 🚩 The order number outranks everything else in this foot. Once it exists
+  // there is nothing left to press and nothing left to fix — including the
+  // `ALREADY_SUBMITTED` blocker, which is the projection saying the same thing
+  // in the negative and would read as a problem beside the confirmation.
+  const placed = submit.outcome
   return (
     <aside className="flex min-h-0 flex-col bg-card" data-cc-receipt>
       <div className="border-b border-divider px-4 py-2 text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -452,27 +483,138 @@ function Receipt({ state }: { state: SessionState }) {
         </dl>
       </div>
       <div className="space-y-2 border-t border-divider p-4">
-        {blockers.length > 0 && (
-          // 🚩 US54 / US22 — *Place order* is never mysteriously dead: while
-          // something is missing the reason is NAMED, from the server's own
-          // list. The wording and the chip ownership are `submit-blockers.ts`'s,
-          // so a code this client has never heard of still reaches the agent as
-          // words rather than as `MISSING_PAYMENT_TYPE`, and the chip row cannot
-          // disagree with this sentence about which section is at fault.
-          <div className="text-xs text-attention-800" data-cc-blockers>
-            {t('receipt.needed', { list: blockers.map((blocker) => t(blocker.key)).join(' · ') })}
-          </div>
+        {placed ? (
+          <OrderPlaced documentNo={placed.documentNo} />
+        ) : (
+          <>
+            {/* 🚩 What the last attempt said, between the figures and the
+                button — never a modal, and never over the basket: on every one
+                of these the order is still Open and exactly as the agent left
+                it, so the call carries on from here. */}
+            <SubmitFailureNote failure={submit.failure} />
+            {blockers.length > 0 && (
+              // 🚩 US54 / US22 — *Place order* is never mysteriously dead: while
+              // something is missing the reason is NAMED, from the server's own
+              // list. The wording and the chip ownership are `submit-blockers.ts`'s,
+              // so a code this client has never heard of still reaches the agent as
+              // words rather than as `MISSING_PAYMENT_TYPE`, and the chip row cannot
+              // disagree with this sentence about which section is at fault.
+              <div className="text-xs text-attention-800" data-cc-blockers>
+                {t('receipt.needed', { list: blockers.map((blocker) => t(blocker.key)).join(' · ') })}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={submit.onPlace}
+              // 🚩 Dead unless the page passed a handler — which it does only on
+              // the door's own `canSubmit` — and dead while it is running: a
+              // second press mid-flight is one action sent twice, on the verb
+              // that mints a real OMS order.
+              disabled={!submit.onPlace || submit.placing}
+              data-cc-submit
+              // The handle the drive asserts *the receipt holds* through: the
+              // button says what it is doing and nothing else on screen moves.
+              {...(submit.placing ? { 'data-cc-submit-placing': '' } : {})}
+              className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40"
+            >
+              {submit.placing && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
+              {/* 🚩 The retryable outage is the ONE case where this button
+                  changes its word — and it re-sends the SAME action rather than
+                  starting a second one. A separate *Try again* beside it would
+                  be two controls for one act (164's ruling). */}
+              {submit.placing
+                ? t('submit.placing')
+                : submit.failure?.retryable
+                  ? t('submit.tryAgain')
+                  : t('receipt.placeOrder')}
+            </button>
+          </>
         )}
-        <button
-          type="button"
-          disabled={!capabilities.canSubmit}
-          data-cc-submit
-          className="w-full rounded-md bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-40"
-        >
-          {t('receipt.placeOrder')}
-        </button>
       </div>
     </aside>
+  )
+}
+
+/**
+ * The order number, and the sentence that tells the agent what to do with it.
+ *
+ * 🚩 It appears only when a `documentNo` exists — there is no optimistic
+ * hand-off on this screen (174). And it is the SAME panel whichever success
+ * produced it: `submit-outcome.ts` has already dropped the outcome word, so
+ * there is nothing here that could tell a replay from a first submit.
+ */
+function OrderPlaced({ documentNo }: { documentNo: string }) {
+  const { t } = useTranslation('callcenter')
+  return (
+    <div
+      className="rounded-md border border-success-border bg-success-050 p-3 text-center"
+      role="status"
+      data-cc-order-placed
+    >
+      <div className="text-xs font-medium uppercase tracking-wide text-success-800">
+        {t('submit.placed')}
+      </div>
+      <div className="mt-1 text-[11px] text-muted-foreground">{t('submit.orderNo')}</div>
+      {/* Server-supplied, passed through as data — and read out loud, so it is
+          the biggest thing in the receipt's foot. LTR-pinned like every other
+          identifier: an order number is not text that mirrors. */}
+      <div data-numeric className="text-xl font-semibold tracking-wide" data-cc-order-no>
+        <Ltr>{documentNo}</Ltr>
+      </div>
+      <p className="mt-1 text-[11px] text-muted-foreground">{t('submit.readToCaller')}</p>
+    </div>
+  )
+}
+
+const TONES = {
+  attention: { box: 'border-attention-border bg-attention-050', ink: 'text-attention-800' },
+  danger: { box: 'border-danger-border bg-danger-050', ink: 'text-danger-800' },
+} as const
+
+/**
+ * What the last attempt said. Two shapes, and the difference between them is
+ * what the agent does next:
+ *
+ * - **refused** — something on the order needs fixing first, and the section is
+ *   named so it is somewhere to look rather than a word in a sentence.
+ * - **unavailable** — 🚩 retryable, and it must never read as *unexpected*: the
+ *   order is Open and safe, and the button beside this already says *Try again*.
+ *
+ * Either way the last line says the order is still open, because that is the
+ * fact that decides whether the agent keeps the caller on the phone.
+ */
+function SubmitFailureNote({ failure }: { failure: SubmitFailure | null }) {
+  const { t } = useTranslation('callcenter')
+  if (!failure) return null
+  const chip = submitRefusalChip(failure.field)
+  // 🚩 A retryable outage is drawn in the ATTENTION register, not the danger
+  // one — nothing is wrong with the order, and the agent's next move is simply
+  // to press again. Spelled as whole class strings rather than composed from a
+  // tone word: Tailwind scans source text, and an interpolated class name is one
+  // that never reaches the stylesheet.
+  const tone = failure.retryable ? TONES.attention : TONES.danger
+  return (
+    <div
+      className={`rounded-md border p-2.5 ${tone.box}`}
+      role="alert"
+      data-cc-submit-failed={failure.kind}
+      {...(failure.retryable ? { 'data-cc-submit-retryable': '' } : {})}
+    >
+      <div className={`text-xs font-medium ${tone.ink}`}>
+        {t(failure.kind === 'unavailable' ? 'submit.unavailableTitle' : 'submit.refusedTitle')}
+      </div>
+      {/* The server's own sentence (§7), passed through as data — it is what
+          names the field, in words the agent can act on. */}
+      <p className={`mt-0.5 text-[11px] ${tone.ink}`}>{failure.message}</p>
+      {chip && (
+        <p className="mt-0.5 text-[11px] text-muted-foreground" data-cc-submit-fix={chip}>
+          {t('submit.fixSection', { section: t(`chips.${chip}`) })}
+        </p>
+      )}
+      {/* 🚩 Said out loud on every failure: only the two successes close the
+          transaction (§7), so a refusal is a correction and not a lost basket. */}
+      <p className="mt-0.5 text-[11px] text-muted-foreground">{t('submit.stillOpen')}</p>
+    </div>
   )
 }
 

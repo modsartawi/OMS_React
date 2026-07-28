@@ -170,7 +170,7 @@ describe('theReceiptIsEngineTruth', () => {
 
   it('quotes the delivery fee as it stands, live', () => {
     const view = receiptView(totals())
-    expect(view.delivery).toEqual({ waived: false, amount: 15, thresholdGross: 200 })
+    expect(view.delivery).toEqual({ waived: false, waivedReason: null, amount: 15, thresholdGross: 200 })
   })
 
   it('🚩 reads a waiver as an outcome, not as a nought', () => {

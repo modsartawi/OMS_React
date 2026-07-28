@@ -350,10 +350,13 @@ one event.
 
 **Carved out of this spec but real work on this map** — each named, with what would unblock it:
 
-- **[153](153-console-keyboard-grammar.md) — the keyboard grammar.** `Ctrl+K`, `?`, and focus-gated
-  single letters are drawn as affordances in all three variants and specified in none. The console
-  ships with its controls reachable and labelled; the grammar lands on top. Needs 153's prototype to
-  settle what gates a single letter when the resting focus *is* a text box.
+- **[153](153-console-keyboard-grammar.md) — the keyboard grammar.** ✅ **Settled 2026-07-29 and
+  ready to fold in as an additive revision** — no contract change and no server work. The answer:
+  **four keys and a palette** (`Ctrl+K` · `↑↓` · `Enter` · `Esc`), and **no single letters** — the
+  focus gate this carve-out named is dead here, because the resting focus is a text box twice over.
+  🚩 It also found that the map's headline feature ships **mouse-only**: neither a search row's *Add*
+  nor a guidance card's has any keyboard path, so `↓`+`Enter` on the search rows is a **gap in what
+  this spec shipped**, not just an ergonomic addition. Read 153's table before writing the stories.
 - **[154](154-fulfilment-mode-and-store-choice.md) — fulfilment mode (delivery vs pick-in-store)**
   and **[155](155-payment-type-cod-or-online.md) — payment type (COD vs online).** 🚩 These are
   **holes in the frozen contract**, not just undrawn screens: `Cc2DocumentHeaderBuilder` writes both
@@ -361,11 +364,43 @@ one event.
   **contract revision** (§9's major/minor protocol and an owner ruling), not a client ticket. This
   spec assumes the delivery, cash-on-delivery defaults the WPF path defaults to, and says so out
   loud rather than implying the question is closed.
+  ✅ **Both carve-outs are spent, 2026-07-29** — [176](176-fulfilment-mode-drawn.md) drew the axis
+  (and 155's payment chip with it, because the chip's WORD follows the mode) at contract **v1.8
+  §2.6**. What the build owes, as acceptance surface:
+  1. **The chip row gains two chips and loses one conditionally**: `fulfilment` **first** and always
+     settled, `payment` last and settled; the `slot` chip is **absent under `PickInStore`**, not empty
+     and not disabled.
+  2. **The customer rail's second block is one block with two faces** — *Address* under delivery,
+     *Collecting from* under collection, **at the same pixels**. This is testable and must be tested:
+     if the flip moves anything under it, the drawing is wrong.
+  3. **The receipt draws no delivery region at all under `PickInStore`** — this is (b) below, and it
+     is where it becomes reachable.
+  4. **The store chip carries no *(derived)* parenthetical under collection**, whatever `plantSource`
+     says: capture 09 keeps `derivedFromAddress` in a response that also carries `address: null`.
+  5. **Nothing is drawn where the slot chip was.** Owner ruling — a collection order has no collection
+     time, and the console must not imply one.
+  6. **`header.retainedAddressLabel`** draws one muted line in the collection block. 🚩 It is
+     server-supplied by ruling: a client that remembers the last address IT saw is blank after a
+     refresh and in a second tab.
+  7. **`capabilities.capabilityReasons`** words a shut `canChangeFulfilment` (delivery-only source)
+     and a shut `canChangePaymentType` (⚠ unreachable in phase 1, implemented anyway). A shut
+     capability removes the chip's handler and prints its reason beside the row.
+  8. **`STORE_NOT_CHOSEN`** must be in the blocker table — 175 ruled it and this client never got it.
+  Prototype and captures: [assets/176-fulfilment](assets/176-fulfilment/), branch
+  `prototype/176-fulfilment-mode`.
 - **[156](156-delivery-fee-shared-rule.md) — the delivery fee rule.** The console **displays**
-  `totals.deliveryFee` including its `waived` outcome, because the contract already carries it. What
-  is out of scope is the rule itself, which is WPF-resident (`POSCommon`, hardcoded campaign window
-  and all) and must become shared server code or the web quotes a different fee from the till. Owner
+  `totals.deliveryFee` including its `waived` outcome, because the contract already carries it. Owner
   ruling stands: rule-driven, **no manual waiver** — `waived` is an outcome shown, never a control.
+  ✅ **Resolved 2026-07-29, and the carve-out is spent**: the rule is no longer WPF-resident —
+  BackOffice 786 §2 extracted `CallCenterDeliveryFeePolicy` as the one copy the till, the live quote
+  and the submit all call, and the campaign window became `PosConfig` rows rather than a recompile.
+  Two client-side amendments fall out. **(a)** Contract **v1.5** adds
+  `deliveryFee.waivedReason` — the waived state draws its reason (`ThresholdReached` /
+  `PromotionalWindow`), never a bare green word, because today the *"free over …"* line is gated on
+  `!waived` and so vanishes at the instant it would explain itself. The console **must not** derive
+  the reason by comparing `gross` against `thresholdGross`. **(b)** Under `PickInStore` the fee region
+  is **absent, not zero** — recorded on [176](176-fulfilment-mode-drawn.md), which draws the mode axis
+  and is where it becomes reachable.
 - **[157](157-price-check.md) — price check** and **[158](158-stock-in-other-stores.md) — stock in
   other stores.** Both ruled into phase 1 by the owner but never charted; 158 is the first thing on
   this map needing geo. Each needs its own endpoint contract before it can be drawn.

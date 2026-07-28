@@ -408,7 +408,281 @@ for the console layout.
   the same defect. A hand-authored fixture is a hypothesis about SHAPE **and about population** — this
   one held every shape and none of the population.
 
+- [The order opens, and nothing may go into it yet](175-nothing-enters-an-unaddressed-order.md) —
+  **contract v1.3, additive**: `canAddItem = open && customer != null && plantSource !=
+  "seededAtOpen"`. `open` still seeds the plant (note 6 untouched — the engine cannot hold a
+  plant-less order); what changes is that the seeded value is **labelled unchosen** instead of
+  reported as settled, so the fix was a missing vocabulary word, not a rebind. `plantSource` gains
+  `seededAtOpen` and `chosenForPickup`; the chip says *not chosen* through a `STORE_NOT_CHOSEN`
+  **submitBlocker**, never a client rule; a shut gate makes the item command line **absent, not
+  disabled**. The pickup one-click *Yes, this store* is `setStore` with the store already held —
+  no plant move, no confirmation, but a choice now on the record — and under delivery there is no
+  shortcut, so §6.3 makes **caller-first true by construction**. 🚩 **Session 1's hope was wrong and
+  acting on it would have broken every `open`**: `IsCustomerRequired` is an open-time check on
+  `options.CustomerId` that *throws* (`PosTransaction.cs:916`), and the `CallCenterOrder` row sets it
+  `false` with the reason written down — a flag whose name matches your rule is not evidence, the
+  enforcement site is; 871 carries a **negative** Done-when so nobody "fixes" it. Owner rulings:
+  `removeCustomer` with lines **keeps the lines** (no WPF precedent — CC2 has no basket), the
+  store-less district is a **hard block** (`NO_DELIVERY_STORE_FOR_DISTRICT`), the **order note is in**,
+  and P2E-forces-online + the delivery-only sources are **in** (source rules, not kind rules — with
+  *"we might need the payment type"* landing on [155](155-payment-type-cod-or-online.md)). 🚩 **The
+  store code is never saved on the address** — resolved from the district while the order is created,
+  which is why `plantSource` belongs to the order and corrects
+  [154](154-fulfilment-mode-and-store-choice.md)'s unfiltered-estate ruling to **collection only**.
+  🚩 **One answer outgrew the ticket**: the owner ruled the sidecar's fields into the `PosTransaction`
+  snapshot itself — real ground (`Loyalty`/`Insurance`/`Order` are already 1:1 companions and
+  `TransactionOrder` already holds `DeliveryType`), and it would dissolve §6.4's two-store ordering —
+  carried whole to [178](178-the-transaction-absorbs-the-sidecar.md) because v1.3 does not depend on
+  which side wins. Server work minted as BackOffice
+  [871](C:\Work\DMSCO\BackOffice\.issues\871-cc-opening-gate-and-plant-source.md); found on the way,
+  [872](C:\Work\DMSCO\BackOffice\.issues\872-callcenter-order-inherits-gs1-required.md) — the
+  `CallCenterOrder` doctype never sets `IsGs1Required` (default `true`), so the engine demands a scan
+  for a serial-controlled article on an order captured over the phone.
+  🚩 **The pattern worth keeping**: gap review #2 found the console lying about a field it had
+  *already been told the truth about* — 154 recorded `plantSource`'s double duty as "contract
+  hygiene" and it was the behaviour itself. A defect filed under hygiene reads as optional.
+  Read first: [CC2 inventory](assets/175-cc2-inventory/CC2-INVENTORY.md) ·
+  [prototype captures](assets/175-header-prototype/).
+
+- [The transaction absorbs the sidecar](178-the-transaction-absorbs-the-sidecar.md) — **it does not.**
+  Raised on an owner ruling to move the header capture into `PosTransaction` and **withdrawn by the
+  owner** once grounded: *"we can add columns there — any missing column — so we don't touch the
+  engine."* The grounding is what settled it. 🚩 **The protocol state cannot move, and it is what
+  §6.4 protects**: `ScopeAsync` deliberately never flushes, because §5's ask half runs the engine door
+  and 798 requires the previewed instance be *"discarded without `SaveAsync`"* — so writing a confirm
+  token into the snapshot would commit a re-price the agent never authorised, and a sidecar would
+  survive holding the ledger anyway, taking §6.4's two-store hazard with it. Absorption would have
+  paid engine risk and **removed nothing**. 🚩 Second collision: `PosTransactionStore` treats a null
+  companion as *"don't touch"*, not *"clear"* — a guard protecting migration-057 backfilled
+  provenance — while [175](175-nothing-enters-an-unaddressed-order.md) just ruled that
+  `removeCustomer` **clears** the customer and address. ⚖ Recorded fairly: the snapshot bump was
+  **not** the expensive part (`PosSnapshotSchema` is v8 and **v4 was literally this pattern**;
+  `TransactionOrder` already holds `DeliveryType`), and absorption's real prize was **provenance** —
+  the address visible to the sweeper, the reconciler, FindInvoice and a future web till. Worth
+  naming, not worth the two findings; it returns as its own effort if ever wanted. **The audit the
+  owner asked for**: `CallCenterSession` needs exactly **one new column** (`OrderNote`), **one changed
+  default** (`PlantSource`'s field initialiser is `OperatorOverride` — the 175 defect, sitting in the
+  initialiser), and **one deferred** (payment type, awaiting [155](155-payment-type-cod-or-online.md));
+  the nine CC2 address-capture fields correctly stay out, since the sidecar holds `AddressNumber` and
+  the address book is the system of record. **Owner addendum 2026-07-29** — the sidecar should hold **what the OMS
+  document holds**, so the submit builder copies rather than translates: add `DocumentType` (`CLCN`,
+  hardcoded at submit today), add `PaymentType` (`C`/`O`/`R`), and recode `DeliveryType` to `D`/`P`.
+  🚩 Two corrections on grounding: **online is `"O"`, not `"P"`** (`"P"` is `PickInStore` on the
+  *delivery* axis — crossed letters, and nothing downstream validates the domain), and **the wire does
+  not change** (`header.deliveryType`'s frozen values would be a §9 major and would render `"P"` at
+  the agent — the projection maps instead). 🚩 It also exposed that `PaymentType` replaces a
+  placeholder that is already wrong: `Submit.cs:196` derives `CashOnDelivery = isDelivery`, and the
+  owner has since ruled the two axes **independent** (*"any order could be paid online or cash on
+  delivery"*) — so the derivation fails **both ways**, stamping a pickup order online-paid and
+  denying a delivery caller the online option. ⚠ It is **not a tender**: nothing is paid on the
+  console: the field tells OMS to send the customer a payment-gateway link, which is why it creates
+  no price-affecting power and leaves note 4 untouched. All folded into BackOffice
+  [871](C:\Work\DMSCO\BackOffice\.issues\871-cc-opening-gate-and-plant-source.md); contract §1.2's
+  under-review flag replaced by the ruling. 🚩 **The pattern worth keeping**: the ticket existed to
+  test an assumption 804 had already written down and defended in a class comment. The comment was
+  right. A design note that states its own reasoning survives a re-litigation that a bare decision
+  would have lost.
+
+- [Payment type: cash on delivery, or paid online](155-payment-type-cod-or-online.md) — **contract
+  v1.4, additive**: `header.paymentType` (`CashOnDelivery | Online | Receivable`, the third
+  **reserved and refused** so the day the business wants it is a data change and not a §9 major),
+  `setPaymentType`, `canChangePaymentType`, `paymentTypeForcedReason`. Owner rulings: default
+  **`CashOnDelivery`** (WPF parity), and it draws as a **chip, settled and collapsed** — it has a real
+  default, no `submitBlocker`, and the agent's whole act is one spoken question. 🚩 **The forcing rule
+  this ticket was handed does not exist on this axis**: 175 carried *"P2E forces online"* here as a
+  **source** rule, but CC2 forces on the **kind** (`IsPaymentForced` reads the kind strategy) and CC1
+  says it louder — `OnlinePayment`'s setter opens `if (!IsCash && value) return`, so insurance and
+  Wasfaty refuse online outright and **the cash kind is the one where the operator is free**. Phase 1
+  is the cash kind, so **nothing can force this field**; `DocumentSourcePolicyService` forces only
+  *delivery-only*, which is 176's axis, not this one. The confusion is in the codebase itself — CC1
+  calls the *kind* axis `OrderSource`, and `P2E` is both a kind strategy and a source code. The flag
+  ships anyway with **no rule behind it**, so a later rule is a server data change; hard-coding a
+  source list was rejected as a rule this map would be *inventing*. 🚩 It **deletes** `Submit.cs:196`'s
+  `CashOnDelivery = isDelivery` rather than adjusting it. Note 4 is untouched on the owner's own
+  grounding — *"nothing will be paid there, no tender"*; `Online` tells OMS to send the customer a
+  gateway link, so no price-affecting power is created and the delivery fee's predicate has no payment
+  term. One console rule rides out: under pickup the chip reads **Pay on collection**, while the wire
+  value never changes — which is why the chip and 176's mode control cannot be drawn independently.
+  Server work folded into BackOffice
+  [871](C:\Work\DMSCO\BackOffice\.issues\871-cc-opening-gate-and-plant-source.md).
+
+- [The console's keyboard grammar](153-console-keyboard-grammar.md) — **four keys and a palette**:
+  `Ctrl+K` · `↑↓` · `Enter` · `Esc`, and **no single letters, no `Alt` chords, no `?`, no `F1`**. The
+  focus gate the ticket was raised to test is dead here, and the **built** console proved it harder
+  than the drawing could: the resting focus is a text box *twice over* — the rail `autoFocus`es the
+  phone field at open (US9) and the search box **re-focuses itself after every landed add**,
+  deliberately — so a grammar armed only when the agent is not typing is armed only between a sheet
+  closing and their next keystroke. 🚩 **The finding that reframed the ticket**: the map's headline
+  feature was **mouse-only in the shipped build** — neither a search row's *Add* nor a guidance card's
+  had any keyboard path at all — so the in-box half (`↓` then `Enter` adds) is the half that pays and
+  the palette is the smaller one. `Enter` is armed **only after an arrow**, because 131's
+  non-sargable `LIKE '%…%'` makes the top row a relevance *guess* and a one-key add of a guess puts a
+  line on a live order. **Nothing on the keyboard can end a call**: `submit`/`abandon` are palette
+  rows only, sorted last and **never auto-highlighted**, so a mistyped `Enter` cannot reach them
+  (abandon still opens its *Keep*-defaulted modal on top). 🚩 A refused verb is a **disabled row
+  carrying its reason** — the one deliberate exception to *a control the door would refuse is worse
+  than no control*, because the palette is a question the agent **asked** and an empty answer teaches
+  nothing; enablement stays the `capabilities` boolean and the reason is a separate lookup, so a wrong
+  reason is a vague sentence and never a wrong refusal. `Alt+1..3` for the offer strip was rejected
+  (the cards re-order, so the number is a position, not an offer) and the live offers are palette rows
+  instead; line verbs stay out (the palette is one level deep and its object is the **order**);
+  `Ctrl+K` is advertised in the search placeholder, cost accepted. **No contract change, no server
+  work, no BackOffice issue** — every gate in the table is a `capabilities` field the client already
+  holds; an additive `capabilityReasons` was named as the tidier answer and deliberately not minted.
+  Lands as an additive revision to spec [160](160-callcenter-console-spec.md).
+
+- [The delivery fee stops living in WPF](156-delivery-fee-shared-rule.md) — **it already had.** The
+  ticket was two days out of date: BackOffice
+  [786](C:\Work\DMSCO\BackOffice\.issues\786-web-cc-submission-path.md) §2, minted by
+  [133](133-submission-path-server-side.md), extracted `CallCenterDeliveryFeePolicy` — a pure static
+  the till, the live quote and the submit **all three** call over the same options in the same HQ
+  store DB, so 133's *"or the web quotes a different fee from the till"* is closed and §8.3's
+  WPF-resident flag is cleared. The compiled-in campaign window became **configuration, not a
+  deletion** (`PosConfig` rows, `"NONE"` closes a window without deleting the row, a fat-fingered
+  value leaves the shipped default standing); `thresholdGross` is **real** (100 SAR, the dead
+  pre-2022 50 branch not carried); pick-in-store is the policy's *first* predicate with `waived`
+  deliberately **false** — a fee that never existed was not waived. 🚩 **What the ticket actually
+  found was in the console, twice.** `waived` collapses every cause into one boolean and
+  `ConsoleShell.tsx:546` gates the *"free over SAR 100"* line on `!waived` — so the sentence that
+  would explain the waiver **vanishes at the instant it becomes true**, and during a campaign an
+  agent will say *"because you're over 100"*, which may be false ⇒ contract **v1.5** adds
+  `deliveryFee.waivedReason`, ships the branch the server already took, and forbids the client
+  deriving it from `gross` vs `thresholdGross` (§2.1, and wrong the day the third branch is
+  reachable). 🚩 And capture 09's pickup state (`amount: 0, waived: false, thresholdGross: 100`)
+  makes the console draw **`Delivery SAR 0.00`** plus a free-delivery promise on a collection order —
+  invisible only because the mode axis is undrawn, so it lands on [176](176-fulfilment-mode-drawn.md)
+  as *absent, not zero*, with no wire change. Residual named and not designed: quote and submit
+  **recompute rather than pin**, so a call crossing a campaign boundary quotes one number and charges
+  another (not a till-vs-web break — same source). ⚠ The standard fee is **12**, not the 10 this
+  ticket inherited from a stale `POSCommon` comment. Server work minted as BackOffice
+  [874](C:\Work\DMSCO\BackOffice\.issues\874-cc-delivery-fee-waived-reason.md).
+  🚩 **The pattern worth keeping**: a research ticket sat open holding a question another ticket's
+  *implementation* had already answered. Reading the shipped code first, rather than the WPF the
+  ticket pointed at, is what turned it into two findings instead of a restatement.
+  [Research note](assets/156-delivery-fee/RESEARCH.md).
+
+- [Price check: what an item costs, without adding it](157-price-check.md) — **contract v1.6,
+  additive**, and the ticket's own premise was the expensive part. It opened *"the whole difficulty is
+  131's note 9 made worse"* — the ex-VAT estimate, read out loud, with no basket line beside it to
+  contradict it. ✅ **The estimate was never the answer**: `SimulationService.Simulate` prices in a
+  throwaway `SIM_<guid>` context and calls `RemoveContext` — **no claim, no resume, no persist** — so
+  the engine gives VAT-inclusive truth (`EnrichItem` overwrites `TaxClassificationMaterial` from the
+  master) **and** the read cannot collide with the agent's own basket. It is the only read on the
+  contract that never queues behind 127's 15 s lease, which is why *"how much is that?"* never pauses
+  order entry. Rulings: item alone at **qty 1**, priced at the order's own plant/origin/customer/
+  loyalty, with `unitPrice.gross` required to **equal the basket line's**; the number **and** the
+  offers on it in 138's promise language (no `wouldSave`, no figure formatted as money in the region);
+  the surface is the deliberate **expansion of a search row**, one *"about this item"* panel shared
+  with [158](158-stock-in-other-stores.md); **refused** before a caller and a chosen store
+  (`canPriceCheck` = `canAddItem`'s predicate), because quoting at a seeded store is
+  [797](C:\Work\DMSCO\BackOffice\.issues\797-resume-drops-pcheader-plant.md)'s silent wrong price
+  said aloud — a good consequence being that loyalty is then always known; and the `≈` estimate stays
+  exactly where [168](168-search-in-arabic-no-estimate-as-money.md) put it, so no row changes shape
+  mid-list. 🚩 **`Pricing/Simulate` must not be reused — route *or* body**: it is grant-gated on
+  `BackOfficeScreen[PosSimulation,03]`, and `SimulateRequest.ManualConditions` plus header enrichment
+  that fills SalesOrg/DistCh/DepartureCountry **only when empty** would hand an agent exactly the
+  power note 4 removed, on the one number the caller cannot check. The server composes the whole
+  request from the order's `PcHeader`; the wire carries `transactionId` + `itemNumber` and nothing
+  else. 🚩 **`EnrichItem` does not fill `MaterialGroup`** — it stops after `ACode`…`ECode` — yet
+  `MaterialGroup` is a BBY grouping key (`BbyModelExtensions.cs:137`) the engine's scan path *does*
+  set (`PosTransaction.cs:6768`), so omitting it shows an offer on the basket line and not on the
+  price check: the ruled-against contradiction arriving through the back door, failing quietly and
+  only on the offers half. (`MaterialPricingGroup`/`MaterialCategory` are read **nowhere** — recorded
+  so nobody re-derives it.) Offers ship **blind and say so** — `offersComplete: false` until 787-C,
+  since a one-item run is by construction 130's discovery blocker. Server work minted as BackOffice
+  [875](C:\Work\DMSCO\BackOffice\.issues\875-cc-price-check-endpoint.md).
+  🚩 **The pattern worth keeping**: the ticket named the estimate as the problem to solve, and the
+  estimate was only the answer nobody had looked past. A truthful, cheaper, lock-free answer was
+  sitting in a route this map had already used for a *different* screen. Reading what the adjacent
+  screen already calls, before designing what this one needs, is the same move that made
+  [156](156-delivery-fee-shared-rule.md) two findings instead of a restatement — twice in three
+  tickets.
+
+- [Stock for an item in other stores](158-stock-in-other-stores.md) — **contract v1.7, additive**, and
+  **read-only, ruled**. The read exists and SIS.Api already holds the client it never calls: the till's
+  `Stock/CurrentStockByDistance` reached through `StockV2HttpService`'s two registered-but-unused
+  methods, so the endpoint is two existing calls and the two screens cannot quote different
+  availability. ⚠ **The ticket's two-way choice was not one** — the OMS `MaterialPlantStockModel` path
+  takes no location and returns on-hand, filling a different grid. SIS.Api's own geo stack
+  (`Stores/Nearby` over the pure, tested `NearestStoreFinder`) was rejected as a **second definition of
+  distance** on a screen whose value is agreeing with the till — [156](156-delivery-fee-shared-rule.md)'s
+  lesson — but it supplied the degradation rule the SQL lacks. 🚩 **The dangerous coordinate is the
+  ORIGIN, not the row**: nothing refuses `(0,0)`, so an unlocatable order plant yields a fully-populated,
+  plausible, entirely wrong ranking measured from the Gulf of Guinea — the exact fiction
+  `NearestStoreFinder.cs:65-70` already refuses **by name**; reuse it ⇒ `distanceKnown: false`, never an
+  omitted store. 🚩 **The estate derives store coordinates twice from one table** — SIS.Stock off
+  `StoreArea.StoreLatitude/Longitude`, SIS.Api off the free-text `StoreGPS` *because* its own read-model
+  documents those columns as existing "in some environments but not others" — so the ranking rests on a
+  pair another team warned about, making a query-verification a deploy step. **ATP proved identical** to
+  131's search-row `atp` (same formula, table and 11-day window), and only ATP ships: the till's grid
+  shows on-hand beside it, which is how the larger number gets promised. Read-only stands on the till's
+  own precedent — the only action on its grid **SMSes the customer a map link**, never moves the order —
+  plus the scope mismatch (an item's panel cannot host an act that re-prices every line) and the fact
+  that a rebind invalidates the list it was clicked from. Separate call from the price check because it
+  is the **only remote HTTP hop on the contract**, so a stock outage cannot cost the agent the price.
+  Server work minted as BackOffice
+  [876](C:\Work\DMSCO\BackOffice\.issues\876-cc-stock-elsewhere-endpoint.md).
+  [Research note](assets/158-stock-elsewhere/RESEARCH.md).
+  🚩 **The pattern worth keeping**: the ticket asked which of two reads was authoritative, and only one
+  of them was a distance read at all. Establishing what each candidate actually *returns* before
+  comparing them collapsed the stated question and left the session for the defect underneath it — the
+  third ticket running to that shape, after [156](156-delivery-fee-shared-rule.md) and
+  [157](157-price-check.md).
+
+- [Fulfilment mode, drawn where the agent asks the question](176-fulfilment-mode-drawn.md) —
+  **contract v1.8, additive**, and the ticket's headline question was already answered twice.
+  *Where does the control live* was settled by [175](175-nothing-enters-an-unaddressed-order.md)'s
+  variant-4 ruling and then by spec [160](160-callcenter-console-spec.md)'s build, which decided what
+  a chip opens **to** (a modal, like every other chip) — so the mode is the **first chip in the row**,
+  opening two full-sentence choices, and the session spent itself on the half that was open: what the
+  flip does to the screen. 🚩 **The rail's two blocks are ONE block** — *Address* and *Collecting
+  from* at the same pixels — which dissolves the ticket's own *collapse or mark as not-applicable*:
+  it does neither, because the two modes ask the same question of two different orders. Measured
+  rather than eyeballed (226 px in both modes, asserted by the drive). Slot chip and the whole
+  delivery region are **absent, not zero** ([156](156-delivery-fee-shared-rule.md)'s ruling against
+  its own capture); the store chip **drops its *(derived)* parenthetical** under collection, because
+  capture 09 keeps `plantSource: derivedFromAddress` in a response that also carries `address: null`;
+  and a collection order's missing collection time draws **nothing** — owner ruling, no promise this
+  map has a system to keep. 🚩 **The client-side retained-address trace was built and then rejected
+  by the owner**: it is blank after a refresh and in a second tab, so one order reads two ways ⇒
+  `header.retainedAddressLabel` — the label, never the address, because the whole address would be a
+  second copy of PII on a projection that deliberately dropped it. 🚩 **`capabilityReasons` is minted
+  here** rather than a sibling field per rule, because [153](153-console-keyboard-grammar.md) had
+  already named exactly it for the command palette's identical problem and deliberately not minted
+  it — one field now serves both, and the delivery-only sources (the *only* surviving half of 175's
+  *"P2E forces online + the delivery-only sources"* after [155](155-payment-type-cod-or-online.md)
+  moved the payment half to the out-of-scope kind axis) become a server data change. Eleven states
+  captured, **five named as stubs** (177's rule). Server work minted as BackOffice
+  [877](C:\Work\DMSCO\BackOffice\.issues\877-cc-fulfilment-drawn-server-half.md).
+  🚩 **Two findings on the way.** The **import-boundary gate is why every previous prototype on this
+  map was an illustration** — `callcenter/__prototype__` may not import `callcenter/console`, so 135's
+  and 138's prototypes each re-drew the console, and 177 then found two defects in the real one that
+  no illustration could have surfaced; this prototype lives at `console/__prototype__/` and mounts the
+  real `ConsoleShell`. And **`STORE_NOT_CHOSEN` had never reached this client**: 175 ruled it onto the
+  contract and into 871, but the blocker table never gained the code, so the one blocker 175 exists to
+  raise would have printed the *unknown blocker* phrase. 🚩 **The pattern worth keeping**: the ticket's
+  stated question had been answered by two earlier decisions nobody had joined up, and the real work
+  was the consequence list underneath it. Reading what the ticket ALREADY inherited, before designing
+  anything, is the same move that made [156](156-delivery-fee-shared-rule.md),
+  [157](157-price-check.md) and [158](158-stock-in-other-stores.md) findings instead of restatements —
+  four tickets running to that shape now.
+  [Captures](assets/176-fulfilment/) · [prototype](../src/features/callcenter/console/__prototype__/).
+
 ## Not yet specified
+
+- **§6.4's double-apply hazard, and a cheap way to remove it.** Ruling the absorption out leaves the
+  map's self-declared *"single most fragile thing"* exactly where it was. One option removes it
+  **without touching the engine**, so it sits inside the owner's ruling rather than against it: move
+  the `CallCenterSession` **row** onto the `CallCenterStore` connection, where the engine snapshot
+  already lives. `CallCenterSessionMap` is on the same `DataAccess.SessionFactory` that
+  `CallCenterStoreContext` opens its session over, so it is a table create plus a resolution change —
+  no entity, map or engine change — and `PosUnitOfWork` is **already ambient-aware** (issue 029a: join
+  an open transaction, `CommitAsync` only flushes) precisely so *"the engine terminal write + the
+  legacy shadow + the shift record can land in ONE db transaction"*. One transaction means no
+  reservation, no version arbitration, no crash windows. Fog rather than a ticket because the *cost*
+  side is unexamined — moving a table between databases touches deploy, backup and the dual-running
+  story, and nobody has looked at any of it. [178](178-the-transaction-absorbs-the-sidecar.md) holds
+  the evidence.
 - **Latency budget and its measurement.** Resume-per-request was accepted on the owner's word;
   nobody has measured a 30-line basket end-to-end. Needs a number and a place to watch it.
   131 adds a **second, independent latency surface on the same screen**: the item search's match
@@ -416,6 +690,15 @@ for the console layout.
   and equally unmeasured. It carries its own proposed target (p95 ≤ 500 ms) inside
   [799](C:\Work\DMSCO\BackOffice\.issues\799-cc-item-search-endpoint.md), but the *place to watch
   both* is still the undecided part.
+  157 adds a **third** surface on the same screen: the price check is a full pricing run
+  (`CalculateAllItems` + `CalculateBonusBuy`) per expand. It is the cheapest of the three on
+  contention — it takes no claim — and the most expensive per call, and it is paid at most once per
+  item the agent actually asks about. Still unmeasured, like the other two.
+  158 adds a **fourth**, and it is the odd one out: the stock-elsewhere read is the only surface on
+  this screen that is a **remote HTTP hop out of SIS.Api**, so its slow path is somebody else's
+  outage rather than our query plan. Its distance is computed per row and sorted on — non-indexable
+  by construction, like 131's `LIKE` — and it inherits `CallCenterAtpAnnotator`'s never-throw degrade
+  with its own ~3 s budget. Four surfaces, four unmeasured, one place to watch them still undecided.
 - **Observability and ops.** What an ops team watches: orphaned claims, sweeper activity, failed
   submissions, `PosIntegrationAttempt` in `Pending`/`Unknown`. 133 gave this a concrete reason to
   exist: web CC attempts **never reach `POS_Server.PosIntegrationAttempt`** — the mirror publish
@@ -438,6 +721,20 @@ for the console layout.
 
 ## Out of scope
 
+- **The density toggle and the launch seeds.** Owner ruling while resolving
+  [175](175-nothing-enters-an-unaddressed-order.md), asked directly and not selected. CC2 has a
+  compact/comfortable toggle (`Ctrl+D`, persisted per user) and `KindLocked` / `SourceLocked` /
+  `DeliveryOnly` launch seeds letting an external caller pin an order's shape. The seeds were
+  **already** dropped once by [132](132-header-capture-inventory.md) (all three are out-of-scope
+  kinds, and the cash caller passes none), so this only confirms it; nothing deep-links into the
+  console in phase 1. The density toggle is pure client ergonomics with no contract impact and
+  returns whenever the floor asks for it.
+- **Texting the customer a pharmacy's location.** The till's stock-in-other-stores grid can SMS the
+  caller a map link to the store that has the item (`StockByDistanceController.cs:317-376`), guarded
+  on ATP and on the row not being your own store. Ruled out while resolving
+  [158](158-stock-in-other-stores.md): it is a new outbound-messaging power aimed at a customer's
+  phone, with its own consent and abuse design, and nothing about a CLCN cash order requires it. The
+  console's panel is read-only in every direction — it neither moves the order nor sends anything.
 - **Every non-CLCN order kind** — Nphies (`NPHS`, spec 301), Wasfaty (302), Insurance, P2E. CC1's
   `CallCenterOrderTypes` and CC2's five `OrderKinds` strategies all reduce to the cash kind here.
   Each returns as its own effort.
@@ -463,6 +760,12 @@ for the console layout.
   WPF OMS screen, the WPF call center, and the ecommerce integrations, a blast radius past this map's
   destination. Minted standalone as BackOffice
   [802](C:\Work\DMSCO\BackOffice\.issues\802-callcenter-pii-routes-ungated.md).
+- **`Pricing/Simulate`'s own `MaterialGroup` blind spot on the POS Simulation screen.** Found while
+  resolving [157](157-price-check.md): `EnrichItem` never fills `MaterialGroup`, so any caller of that
+  route who does not supply it loses a BBY grouping key the engine's scan path sets — which means the
+  Simulation screen can under-report offers the same way a price check would. 875 fixes it for the
+  call center's own read. Fixing the *sim screen* is that screen's question and sits past this map's
+  destination; named here so the finding is not lost.
 - **A store rebind with no operator action** — the trigger 132 raised, where ops flips a district's
   `TempStoreCode` and a live basket moves by itself. Owner ruling while resolving
   [129](129-rebind-store-door.md): the district→store derivation is **pinned at the moment the

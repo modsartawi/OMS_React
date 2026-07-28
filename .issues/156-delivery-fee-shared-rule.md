@@ -2,7 +2,7 @@
 type: wayfinder-ticket
 wayfinder: research
 map: 126
-status: open
+status: done
 blocked-by: —
 ---
 
@@ -77,3 +77,97 @@ it is not smuggled in as a checkbox.
   call).
 
 Deliverable: a research note with file:line evidence, and the BackOffice issue for the shared rule.
+
+---
+
+## Answer
+
+**The rule already moved. This ticket was two days out of date, and what it actually found is on the
+console side, not the server's.**
+
+Full evidence: [research note](assets/156-delivery-fee/RESEARCH.md).
+
+### The question this ticket was raised to answer is closed
+
+BackOffice [786](C:\Work\DMSCO\BackOffice\.issues\786-web-cc-submission-path.md) §2 — minted by
+[133](133-submission-path-server-side.md), now `done` — extracted
+`Sartawi.Retail.Data/…/CallCenter/CallCenterDeliveryFeePolicy.cs`, a **pure static** taking `now` and
+its options as arguments and reading nothing ambient. Three callers, one copy:
+
+- the till, through `POSCommon.ShippingAmount` / `ShippingMinimumAmount`, now thin readers
+  (`POSCommon.cs:377-435`);
+- SIS.Api's **live quote** (`CallCenterSessionService.Harness.cs:277-305`);
+- SIS.Api's **submit** (`CallCenterSubmissionService.cs:101-117`).
+
+Both SIS.Api calls pass `BasketTotal = transaction.BalanceDue` and resolve options through the same
+`CallCenterDeliveryFeeOptionsStore` over the same HQ store DB — so the quoted fee and the charged fee
+are the same computation over the same inputs, and 133's *"or the web quotes a different fee from the
+till"* is closed. Fifteen tests in `Tests/Data.Tests/CallCenterDeliveryFeePolicyTests.cs`, no DB, no
+WPF.
+
+Each owed item, answered:
+
+- **The compiled-in campaign window** became **configuration, not a deletion**:
+  `CallCenter.DeliveryFee.FreeFrom` / `.FreeUntil` `PosConfig` rows, `"NONE"` closing the window
+  without deleting the row, invariant-culture exact-format local dates, and a fat-fingered value
+  leaving the shipped default standing rather than zeroing a fee or opening an endless promotion.
+  The shipped defaults reproduce the old literal (`2026-06-20` → `2026-06-28` exclusive) byte for
+  byte, so an unconfigured estate behaves exactly as today. Three more numbers moved with it.
+- **`thresholdGross` is real** — `ShippingMinimumAmount` → `MinimumOrderAmount`, **100 SAR**; the
+  dead pre-2022 `50m` branch was deliberately not carried. The contract invented nothing.
+- **Pick-in-store carries no fee by rule**, and it is the policy's *first* predicate — with `waived`
+  deliberately **false** there, because a fee that never existed was not waived.
+- **The no-manual-waiver ruling is honoured by construction**: no waiver control exists anywhere in
+  `features/callcenter/`, no verb takes a fee, and `receiptView` is not given the lines, so it could
+  not compute one if a later edit wanted to.
+
+⚠ One correction to this ticket's own text: the standard fee is **12.0**, not 10. `POSCommon`
+annotated it `// 10m` and the constant was 12; the question above inherited the stale comment.
+
+### 🚩 What it actually found — A: `waived: true` says nothing about why
+
+`Harness.cs:301` collapses every cause into `Waived = isDelivery && amount == 0m`. Two are live in
+phase 1 (the threshold, the promotional window) and a third exists in the policy (a configured
+override of zero). The console makes it worse than the wire does: `ConsoleShell.tsx:546` shows the
+*"free over SAR 100"* line **only when `!waived`**, so the one sentence that would explain the waiver
+disappears at the exact moment it becomes true. An agent asked *"why is my delivery free?"* has
+nothing to read, and during a campaign will say *"because you're over 100"* — which may be false.
+That is the support call this ticket predicted.
+
+**The client cannot honestly derive it.** It holds `gross` and `thresholdGross` and could compare
+them — but that is the client recomputing a server rule against §2.1's *engine truth, read and not
+computed*, and it is wrong the moment the third branch is reachable. The server already knows which
+branch it took, so it ships the branch: **contract v1.5 §2.5**, `deliveryFee.waivedReason`
+(`ThresholdReached | PromotionalWindow | ConfiguredOverride`, the third reserved and unreachable in
+phase 1), non-null **exactly** when `waived` is true. Additive under §9 — no verb, no code, no
+capability — so it needed no owner ruling. Precedence is the policy's existing order (threshold
+before window) and is now documented on the wire rather than incidental. Server work minted as
+BackOffice [874](C:\Work\DMSCO\BackOffice\.issues\874-cc-delivery-fee-waived-reason.md).
+
+### 🚩 B: under pickup the console draws `Delivery SAR 0.00` and promises free delivery
+
+Capture-confirmed, not hypothesised: `09-fulfilment-flip.json` line 206 has the pickup state as
+`amount: 0, waived: false, thresholdGross: 100`. Against that, `ConsoleShell.tsx:524` draws a
+**Delivery 0.00** row on an order nobody is delivering, and `:546` — `!waived && thresholdGross !==
+null`, both true — puts **"free over SAR 100"** underneath it.
+
+Not visible yet, only because the mode axis is undrawn. It becomes visible the day
+[176](176-fulfilment-mode-drawn.md) lands, so it is recorded there as a requirement rather than left
+to be found as a bug: the fee region is **absent** under `PickInStore`, the same absent-not-disabled
+posture 175 chose for the item command line. The block still ships on the wire so the flip back
+re-quotes instantly; the console simply does not draw it. No wire change.
+
+### Residual, named and not designed
+
+The quote and the submit **recompute rather than pin**, so a call crossing a campaign boundary — or
+an ops `PosConfig` edit landing between them, past the 5-minute options cache — quotes one number and
+charges another. Rare, real, and *not* a till-vs-web parity break, since both hosts share the source.
+Deliberately not fixed: pinning would contradict §8.3's *quoted live, never computed at submit*.
+Also worth somebody knowing before the first campaign: **nothing in the estate edits these
+`PosConfig` rows through a UI** — ending a promotion is a SQL row edit.
+
+🚩 **The pattern worth keeping.** This ticket owed a decision that another ticket's *implementation*
+had already made. 133 flagged the fee in one line, minted 786, 786 shipped — and 156 sat open for two
+days holding a question with a shipped answer, while the two things nobody had looked at were both in
+the console. Reading the shipped code first, rather than the WPF the ticket pointed at, is what
+turned a research ticket into two findings.

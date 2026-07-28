@@ -2,7 +2,7 @@
 type: wayfinder-ticket
 wayfinder: grilling
 map: 126
-status: open
+status: done
 blocked-by: —
 ---
 
@@ -62,6 +62,151 @@ amendment with the owner's ruling, not a quiet edit. Coordinate with
 
 Deliverable: the ruling on the opening sequence, written as the contract amendment plus whatever
 BackOffice issue the server half needs, and the console states 135's list gains.
+
+---
+
+## Answer — 2026-07-28
+
+**An order opens holding a plant it cannot yet be trusted with, and refuses items until a human has
+supplied both halves of the header that decides every price.** Contract goes to **v1.3, additive**:
+[CONTRACT.md §2.3](assets/136-cc-contract/CONTRACT.md), dated in §10. Server half: BackOffice
+[871](C:\Work\DMSCO\BackOffice\.issues\871-cc-opening-gate-and-plant-source.md).
+
+### The ruling, in one predicate
+
+```
+canAddItem  =  status == "open"  &&  customer != null  &&  plantSource != "seededAtOpen"
+```
+
+The ticket asked three questions and they collapse into that line.
+
+**"What does `open` bind, and what does the console show?"** — `open` still binds the plant, seeded
+from the agent's `entryStore`. It has to: the engine binds `PcHeader.Plant` once
+(`PosTransaction.cs:883`) and an order with no plant is not a thing it can hold, so map note 6 and
+[129](129-rebind-store-door.md)'s whole premise are untouched. What was dishonest was never the
+seeding — it was that the console reported the seeded value as a **settled fact**. The fix is a
+label, not a rebind: `plantSource: "seededAtOpen"` says *nobody chose this*, and the chip reads as
+unchosen because the wire says so.
+
+That answers the ticket's own sharpest question — *"is that honest, or a lie by omission on the one
+field that decides every price?"* It was a lie by omission, and the omission was a **missing
+vocabulary word**, not a missing mechanism. `plantSource` had four states in reality and two names.
+
+**"What actually gates `canAddItem`?"** — the server, in SIS.Api's session service. The ticket
+predicted this ("the same reasoning that keeps `submitBlockers` the only thing that dims *Place
+order*") and it holds for the same reason: a console that re-derives the rule is a second
+implementation that can disagree with the server on a live basket.
+
+**"Does confirming the seeded store count as choosing it?"** — yes, and it is **pick-in-store only**.
+`setStore` carrying the store the order already holds advances `plantSource` to `chosenForPickup`;
+the plant does not move, so §5.1 raises no confirmation and nothing re-prices. The entire effect is
+that a choice is now on the record — which is precisely the difference the ticket named between "a
+chip that was already settled" and "a one-click *Yes, this store*": **only one of them leaves a
+record**, and now it does. Under delivery there is no shortcut, because the address is what chooses
+the store.
+
+### 🚩 The correction that mattered most
+
+Session 1 recorded a hope: *"`IsCustomerRequired = false` sits right beside the GS1 flag — the engine
+already carries the flag that expresses ruling 1, so the server half may be far smaller than this
+ticket assumed."*
+
+**That is wrong, and acting on it would have broken every web `open`.** `IsCustomerRequired` is an
+**open-time** validation of `options.CustomerId` that throws `InvalidOperationException`
+(`PosTransaction.cs:916`) — evaluated once, before any line exists. It cannot express *caller before
+items*; it expresses *caller before the transaction*. And the `CallCenterOrder` catalogue row sets it
+`false` deliberately, with the reason written down: *"the CC customer rides a `LoyaltyCustomer` line
++ `SetLoyaltyAsync`, not `options.CustomerId`; requiring one would brick `OpenAsync`"*
+(`DocumentTypeCatalog.cs:735`). Flipping it `true` makes `open` throw for every agent.
+
+871 carries this as a **negative Done-when** — assert the flag is unchanged — so the next reader who
+spots it does not "fix" it. The lesson generalises: a flag whose *name* matches your rule is not
+evidence; the enforcement site is.
+
+### The other rulings, as landed
+
+| | |
+|---|---|
+| `plantSource` | four values: `seededAtOpen` · `derivedFromAddress` · `operatorOverride` · `chosenForPickup` |
+| Refusals | reuse `NO_CUSTOMER_ATTACHED`; add `STORE_NOT_CHOSEN` (409) |
+| The chip | says *not chosen* through a `STORE_NOT_CHOSEN` **submitBlocker** — never a client rule, so `header-chips.ts`'s one-table discipline holds |
+| Gate shut | the item command line is **absent, not disabled** — a control the door refuses is worse than none, and search prices its estimate at the order's plant |
+| 135's states | gains `opening` and `storeUnchosen`; **`empty` is re-defined** as gate-open, basket-empty |
+| Arrangement | **variant 4** — v3's chip bar at rest, v2's full section when one opens, one command line reaching both; `Ctrl+K` **folds into** the `/` grammar rather than being a second surface |
+| Version | **minor, v1.3** — reasoning in §10's *"Why 1.3 and not 2.0"* |
+
+### The owner's four rulings this session
+
+1. **`NO_DELIVERY_STORE_FOR_DISTRICT`** — the owner did not confirm the code as asked; they answered
+   the question underneath it: 🚩 ***"we will not save the storeCode in the customer address, it will
+   be identified while we are creating the order."*** That confirms the CC2 reading
+   ([inventory §0.1](assets/175-cc2-inventory/CC2-INVENTORY.md)) — the address is pure customer data,
+   the store is a property of the geography resolved at pick time — and it is *why* the hard block
+   needs a code at all: the failure is a **derivation failure at order-creation time**, not a bad
+   address. So the code ships (409, business, on `setAddress`), and the district row stays visible
+   and unpickable. ⚠ It also means the same saved address can derive a different store next week,
+   which is exactly why `plantSource` is a property of **the order** and not of the address.
+2. **The order note is in** — and the owner's answer went much further than the question (below).
+3. **P2E-forces-online and the delivery-only sources are IN**, and *"already there, in the
+   `PosTransactionOrder` (`DocumentSource`)"*. Source rules are not kind rules; phase 1 has sources.
+   ⚠ *"but we might need the payment type"* — that lands on
+   [155](155-payment-type-cod-or-online.md), which now has a forcing input it did not have.
+   The density toggle and the launch seeds were **not** selected — ruled out of scope.
+4. **`removeCustomer` with lines keeps the lines.** Clears caller and address, keeps the basket and
+   the plant, does **not** rewind `plantSource`. The gate shuts, the command line disappears,
+   re-attaching re-opens it. The ordinary "wrong caller, same items" correction must not cost the
+   basket. No WPF precedent — CC2 has no basket, so the state cannot arise there; the web creates it,
+   the same way 154's mid-basket fulfilment flip was created.
+
+### 🚩 The finding that outgrew this ticket
+
+Answering the order-note question, the owner ruled on something much larger:
+
+> *"we will need `PosTransactionAddress` for example, to have the address in the pre-order object
+> (`PosTransaction`) … since we are moving to web and it's stateless, we should save everything
+> inside the `PosTransaction` object."*
+
+That is a ruling against [CONTRACT.md §1.2](assets/136-cc-contract/CONTRACT.md)'s **two-store join** —
+the `CallCenterSession` sidecar — and it has real ground under it: `PosTransactionSnapshot` already
+carries 1:1 companions of exactly that shape (`Loyalty`, `Insurance`, `Order`), and `TransactionOrder`
+persists as `PosTransactionOrderEntity` through `SetOrderInfoAsync`, round-tripping via `ResumeAsync`
+and **already holding `DeliveryType`** — the field v1.1 put in the sidecar. So `PosTransactionAddress`
+extends a shipped pattern rather than inventing one, and absorbing the sidecar would dissolve §6.4's
+two-store write ordering, which 136 named *"the single most fragile thing in the contract."*
+
+**It is not resolved here, and it did not need to be.** Every field is projected into `SessionState`
+identically whichever side stores it — the client never sees the storage — so v1.3 shipped without
+waiting. But deleting a hazard is a bigger claim than adding a field, and §6.4 is a live
+acceptance-test obligation on
+[804](C:\Work\DMSCO\BackOffice\.issues\804-cc-session-contract-server-obligations.md). Minted as
+[178](178-the-transaction-absorbs-the-sidecar.md), with the residue questions the ruling leaves open
+(the `requestId` ledger and confirm tokens are **protocol**, not order data; the snapshot schema
+version is shared with every till; 133's builder input moves with the fields). §1.2 carries a flag
+pointing at it.
+
+### What else came out of the CC2 read-through
+
+- **The two-list correction to [154](154-fulfilment-mode-and-store-choice.md)** — recorded on that
+  ticket. Delivery reads the address book + the district's assignment; collection reads the estate.
+  154's *"whole estate, unfiltered"* stands **for collection only**.
+- **`plantName` stays server-supplied** — a delivery-only store (e.g. `1402`) is in no client-held
+  list, so a client-side lookup cannot name it. Noted in §2.
+- **The address editor is a hole** — nine fields, a server label catalogue, SPL format-only
+  validation, and the one-box location search that is *not* a cascade. Minted as
+  [179](179-the-address-editor-and-its-capture-contract.md). Loyalty-customer **creation** was
+  already [159](159-coupon-and-loyalty-signup-drawn.md)'s — the read-through only added three details
+  to it (`BranchId` is the agent's store, the language choice is the *customer's*, the referral rule
+  is verbatim legacy), recorded on 179 rather than duplicated as a ticket.
+- **BackOffice [872](C:\Work\DMSCO\BackOffice\.issues\872-callcenter-order-inherits-gs1-required.md)**
+  — `DocumentTypeCatalog.cs:739` never sets `IsGs1Required`, whose default is `true`, so the engine
+  demands a scan for a serial-controlled article on an order captured over the phone. Live on the WPF
+  path too; the web is just the first thing that will trip over it. One line, in the shape the row's
+  own *"silence is not neutral"* comment already demands.
+
+### What this unblocks
+
+[176](176-fulfilment-mode-drawn.md) — its drawing is already done in the prototype (fulfilment as two
+full-sentence choices, not a toggle) and the opening sequence it was waiting on is now ruled.
 
 ---
 
@@ -141,3 +286,27 @@ Three of its findings correct rulings this map already took.
   no WPF precedent (CC2 has no basket). Never put to the owner.
 - [176](176-fulfilment-mode-drawn.md) is blocked on this ruling and its drawing is already
   done in the prototype (fulfilment as two full-sentence choices, not a toggle).
+
+### Session 2, 2026-07-28 — the owed list, closed
+
+Everything under **What is still OWED** above is discharged by the `## Answer`. Line by line, so
+nobody re-derives it:
+
+| Owed | Where it went |
+|---|---|
+| The `## Answer` | written |
+| CONTRACT v1.3 | [CONTRACT.md](assets/136-cc-contract/CONTRACT.md) §2.3 + §6.3 + §7 + §10 |
+| 🚩 §7 code for the hard block | owner-ruled; `NO_DELIVERY_STORE_FOR_DISTRICT` ships |
+| 🚩 Address-capture contract | outgrew this ticket → [179](179-the-address-editor-and-its-capture-contract.md) |
+| 🚩 Two-list correction to 154 | written onto [154](154-fulfilment-mode-and-store-choice.md), with the owner's *store-is-not-on-the-address* ruling as its reason |
+| BackOffice server half | [871](C:\Work\DMSCO\BackOffice\.issues\871-cc-opening-gate-and-plant-source.md) |
+| `IsGs1Required` | [872](C:\Work\DMSCO\BackOffice\.issues\872-callcenter-order-inherits-gs1-required.md) |
+| `IsCustomerRequired` "may be far smaller" | 🚩 **wrong** — see the Answer's correction; 871 asserts the flag unchanged |
+| `plantName` server-supplied | noted in CONTRACT §2 |
+| Order note / density / launch seeds | owner: note **in** (v1.3 field + verb); density and seeds **out of scope**, on the map |
+| P2E-forces-online + delivery-only sources | owner: **in**; payment-type consequence → [155](155-payment-type-cod-or-online.md) |
+| `removeCustomer` with lines | owner: **keeps the lines**; CONTRACT §6.3 |
+| 176 blocked | unblocked |
+
+One thing the session added that was not on the list: the owner's sidecar ruling, carried whole to
+[178](178-the-transaction-absorbs-the-sidecar.md).

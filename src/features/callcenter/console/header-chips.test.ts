@@ -57,7 +57,17 @@ describe('headerChips', () => {
       ...EMPTY_SESSION.capabilities,
       submitBlockers: ['MISSING_PAYMENT_TYPE', 'MISSING_SLOT'],
     })
-    expect(chips.map((c) => c.id)).toEqual(['store', 'slot', 'source', 'reference'])
+    // 176: the mode leads the row and the payment type closes it — both are the
+    // console's own words for a closed enumeration, and neither can be marked by
+    // a blocker (the mode has none; payment carries none by ruling).
+    expect(chips.map((c) => c.id)).toEqual([
+      'fulfilment',
+      'store',
+      'slot',
+      'source',
+      'reference',
+      'payment',
+    ])
     expect(byId(chips).slot.state).toBe('needsAttention')
     expect(chips.filter((c) => c.state === 'needsAttention')).toHaveLength(1)
     expect(chips.some((c) => c.value === 'MISSING_PAYMENT_TYPE')).toBe(false)

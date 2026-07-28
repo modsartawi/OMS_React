@@ -132,3 +132,34 @@ and the web reuses this predicate rather than authoring a rule. 156's flag stand
   anything (it is the seeded entry store), and there is no value meaning *chosen for pickup* —
   fixture 09 keeps `derivedFromAddress` across the flip because that genuinely is how the plant got
   there. A third value would be additive; it is contract hygiene, not a fulfilment question.
+  ✅ **Resolved by [175](175-nothing-enters-an-unaddressed-order.md)** (contract v1.3), and it was not
+  hygiene after all — the owner raised it as the behaviour. Four values now:
+  `seededAtOpen | derivedFromAddress | operatorOverride | chosenForPickup`, and the first one **shuts
+  the item gate**.
+
+## Corrections taken 2026-07-28 (while resolving [175](175-nothing-enters-an-unaddressed-order.md))
+
+Two rulings above need narrowing. Neither reverses this ticket; both were stated wider than the
+evidence supports.
+
+1. 🚩 **"Pickup store = the whole estate, unfiltered" stands for COLLECTION ONLY.** As written, that
+   bullet reads as *the* store-choice rule, and the build downstream can read it that way. There are
+   **two lists**, and they answer different questions:
+
+   | Mode | The list | Where it comes from |
+   |---|---|---|
+   | `Delivery` | the customer's **address book**, and the store falls out of the picked district's assignment (`tempStoreCode \|\| storeCode`) | the address book + the district table |
+   | `PickInStore` | the **whole estate, unfiltered** — CC2's `GetStoreAreas()` | `StoreDetails` |
+
+   Under delivery the agent never sees a store list at all; they pick an address and the geography
+   decides. The unfiltered estate is the *pickup* picker. 🚩 And the owner's ruling of 2026-07-28
+   sharpens why: **the store code is never saved on the customer's address** — it is resolved while
+   the order is being created, from the district, at pick time. So the same saved address can derive
+   a different store next week, and the order records which one it actually got. That is why
+   `plantSource` belongs to the **order**, not to the address.
+
+2. **A district carrying neither `StoreCode` nor `TempStoreCode` is a hard block** — owner ruling.
+   `setAddress` refuses it (`NO_DELIVERY_STORE_FOR_DISTRICT`, contract v1.3 §7) rather than attaching
+   an address that leaves the order unfulfillable, and the district row stays **visible and
+   unpickable** saying why. This ticket's derivation rule never said what happens when it derives
+   nothing.

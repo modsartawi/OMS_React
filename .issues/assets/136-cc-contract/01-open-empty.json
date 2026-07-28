@@ -2,10 +2,10 @@
   "_capture": {
     "ticket": "857",
     "map": "126",
-    "scenario": "open on a clean agent — the empty basket every other fixture starts from",
-    "contractVersion": "1.2",
+    "scenario": "open on a clean agent — the empty basket every other fixture starts from, and the SHUT opening gate (871 §2.3)",
+    "contractVersion": "1.5",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
-    "capturedAt": "2026-07-28",
+    "capturedAt": "2026-07-29",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
     "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
@@ -13,7 +13,7 @@
     "method": "POST",
     "path": "CallCenterWeb/Open",
     "body": {
-      "requestId": "06FTGNVHJZNWXT0WD9ZTMJCZW7"
+      "requestId": "06FTP1AWMV7697YE99W9DYXGP6"
     }
   },
   "response": {
@@ -22,28 +22,31 @@
       "data": {
         "outcome": "opened",
         "state": {
-          "contractVersion": "1.2",
-          "transactionId": "06FTGNVMJTC159EG6S0FXV7GF3",
+          "contractVersion": "1.5",
+          "transactionId": "06FTP1AZYT8593G21W48K22EA6",
           "version": 5,
-          "etag": "06FTGNVMJTC159EG6S0FXV7GF3-5",
+          "etag": "06FTP1AZYT8593G21W48K22EA6-5",
           "status": "open",
           "replayed": false,
           "header": {
             "deliveryType": "Delivery",
             "plant": "1001",
             "plantName": "King AbdelAziz Road",
-            "plantSource": "operatorOverride",
+            "plantSource": "seededAtOpen",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t1694db5d",
+            "register": "WEB-t4469a3d1",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-28T13:48:52.0798303+03:00",
+            "openedAt": "2026-07-29T02:18:04.5088946+03:00",
             "customer": null,
             "address": null,
             "slot": null,
             "documentSource": null,
             "sourceReference": null,
+            "orderNote": null,
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
             "hasBelowAtp": false
           },
           "lines": [],
@@ -54,6 +57,7 @@
             "deliveryFee": {
               "amount": 12.0,
               "waived": false,
+              "waivedReason": null,
               "thresholdGross": 100,
               "conditionType": "DFEE"
             },
@@ -63,14 +67,17 @@
           "nearMisses": [],
           "pendingConfirmation": null,
           "capabilities": {
-            "canAddItem": true,
+            "canAddItem": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": false,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
             "canChangeFulfilment": true,
             "submitBlockers": [
               "NO_LINES",
               "NO_CUSTOMER",
+              "STORE_NOT_CHOSEN",
               "NO_ADDRESS",
               "MISSING_SLOT",
               "MISSING_SOURCE_REFERENCE"
@@ -86,8 +93,12 @@
     }
   },
   "_notes": [
-    "plant at open is the agent's entry store (an operatorOverride, not yet derived) — the engine binds PcHeader.Plant once at open (map note 6), so a store must exist before the first item.",
+    "\uD83D\uDEA9 plantSource is `seededAtOpen` and canAddItem is FALSE. The v1.2 capture of this scenario recorded canAddItem:true on an order whose customer was null and whose plant was labelled `operatorOverride` — a store nobody had chosen, reported as an override nobody made. 871 closed both: the plant is still SEEDED at open (map note 6 is untouched — the engine binds PcHeader.Plant once), the order just no longer claims it can take items.",
+    "The gate is `status == open && customer != null && plantSource != seededAtOpen`, and addItem ENFORCES it (NO_CUSTOMER_ATTACHED / STORE_NOT_CHOSEN) — the capability is the report of the gate, not the gate. Fixture 10 drives both halves.",
+    "STORE_NOT_CHOSEN rides submitBlockers under the SAME spelling as the refusal: the client has a one-table discipline for chip states and must not grow a second, client-side predicate that can disagree with the server on a live basket.",
     "canOpenAddressBook is false until attachCustomer — the ordering constraint from 137 (CONTRACT.md §6.3).",
+    "\uD83D\uDEA9 header.deliveryType still spells `Delivery`. The sidecar COLUMN now holds the OMS code `D` (owner addendum 2026-07-29: the sidecar holds what the OMS document holds, so the header builder copies rather than translates), but these two values are FROZEN on a frozen field — recoding them on the wire would be a §9 MAJOR and would render `D` at the agent. The mapping lives in CallCenterDeliveryTypes.",
+    "v1.4 adds header.paymentType / header.paymentTypeForcedReason and capabilities.canChangePaymentType. paymentType is an INDEPENDENT axis — it is NOT derived from deliveryType, and all four combinations are legal (owner ruling 2026-07-29). forcedReason is null on every phase-1 order.",
     "deliveryFee is quoted on an EMPTY basket too: the fee is a live quote off the current gross, and an empty order is under the threshold like any other."
   ]
 }

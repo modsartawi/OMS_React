@@ -1,0 +1,486 @@
+{
+  "_capture": {
+    "ticket": "857",
+    "map": "126",
+    "scenario": "The opening gate: an addItem refused for each half independently, the delivery exit (setAddress), the pickup one-click store confirm, and removeCustomer keeping the basket",
+    "contractVersion": "1.5",
+    "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
+    "capturedAt": "2026-07-29",
+    "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
+  },
+  "addItemNoCustomer": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/AddItem",
+      "body": {
+        "itemNumber": "200021",
+        "qty": 1,
+        "uom": null,
+        "transactionId": "06FTP1B645CKKQXKDJRECF89H2",
+        "requestId": "06FTP1B6GQG3NZ9DE404YFS7T4",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 409,
+      "body": {
+        "data": null,
+        "statusCode": 409,
+        "success": false,
+        "message": "Attach the caller before adding items to this order.",
+        "errors": [
+          {
+            "errorCode": "NO_CUSTOMER_ATTACHED",
+            "internalErrorCode": null,
+            "errorMessage": "Attach the caller before adding items to this order."
+          }
+        ]
+      }
+    }
+  },
+  "attachCustomer": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/AttachCustomer",
+      "body": {
+        "customerId": "C-REDACTED",
+        "transactionId": "06FTP1B645CKKQXKDJRECF89H2",
+        "requestId": "06FTP1B7N73DV1KQMKCRKK7351",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.5",
+          "transactionId": "06FTP1B645CKKQXKDJRECF89H2",
+          "version": 12,
+          "etag": "06FTP1B645CKKQXKDJRECF89H2-12",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "seededAtOpen",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-tc58300b4",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-29T02:18:05.6183658",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "orderNote": null,
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false
+          },
+          "lines": [],
+          "totals": {
+            "net": 0,
+            "vat": 0,
+            "gross": 0,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 12.0
+          },
+          "firedPromotions": [],
+          "nearMisses": [],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": false,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_LINES",
+              "STORE_NOT_CHOSEN",
+              "NO_ADDRESS",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "addItemNoStore": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/AddItem",
+      "body": {
+        "itemNumber": "200021",
+        "qty": 1,
+        "uom": null,
+        "transactionId": "06FTP1B645CKKQXKDJRECF89H2",
+        "requestId": "06FTP1B92M2F2ST5PGHGB5CKQ4",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 409,
+      "body": {
+        "data": null,
+        "statusCode": 409,
+        "success": false,
+        "message": "Choose the store this order is served from before adding items.",
+        "errors": [
+          {
+            "errorCode": "STORE_NOT_CHOSEN",
+            "internalErrorCode": null,
+            "errorMessage": "Choose the store this order is served from before adding items."
+          }
+        ]
+      }
+    }
+  },
+  "setAddressOpensTheGate": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetAddress",
+      "body": {
+        "addressNumber": "1000000284",
+        "transactionId": "06FTP1B645CKKQXKDJRECF89H2",
+        "requestId": "06FTP1B99K5JR8TFWEJVS01F33",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.5",
+          "transactionId": "06FTP1B645CKKQXKDJRECF89H2",
+          "version": 16,
+          "etag": "06FTP1B645CKKQXKDJRECF89H2-16",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "derivedFromAddress",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-tc58300b4",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-29T02:18:05.6183658",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": {
+              "addressNumber": "1000000284",
+              "label": "Home",
+              "cityCode": "C016",
+              "cityName": "Hail",
+              "districtCode": "D00592",
+              "districtName": "Airport",
+              "line": "Redacted street line"
+            },
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "orderNote": null,
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false
+          },
+          "lines": [],
+          "totals": {
+            "net": 0,
+            "vat": 0,
+            "gross": 0,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 12.0
+          },
+          "firedPromotions": [],
+          "nearMisses": [
+            {
+              "offerId": "",
+              "description": "10% Coupon",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "prereq": {
+                "kind": "material",
+                "materialNumber": "COUP01",
+                "groupingId": null,
+                "eligibleCount": 1
+              },
+              "skipReason": null
+            }
+          ],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_LINES",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "pickupConfirmSeededStore": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetStore",
+      "body": {
+        "storeCode": "1001",
+        "transactionId": "06FTP1BECG7ENMWA4RH1DF1D13",
+        "requestId": "06FTP1BGHN29059SRTB6728GB6",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.5",
+          "transactionId": "06FTP1BECG7ENMWA4RH1DF1D13",
+          "version": 15,
+          "etag": "06FTP1BECG7ENMWA4RH1DF1D13-15",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "PickInStore",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "chosenForPickup",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-t890c6f45",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-29T02:18:07.7385039",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "orderNote": null,
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false
+          },
+          "lines": [],
+          "totals": {
+            "net": 0,
+            "vat": 0,
+            "gross": 0,
+            "deliveryFee": {
+              "amount": 0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 0
+          },
+          "firedPromotions": [],
+          "nearMisses": [],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": false,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_LINES",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "removeCustomerKeepsTheBasket": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/RemoveCustomer",
+      "body": {
+        "transactionId": "06FTP1B645CKKQXKDJRECF89H2",
+        "requestId": "06FTP1BH9FN0V0XF5PHZE3K0X2",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.5",
+          "transactionId": "06FTP1B645CKKQXKDJRECF89H2",
+          "version": 23,
+          "etag": "06FTP1B645CKKQXKDJRECF89H2-23",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "P516",
+            "plantName": "Fahd Al-Arify Street",
+            "plantSource": "derivedFromAddress",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-tc58300b4",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-29T02:18:05.6183658",
+            "customer": null,
+            "address": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "orderNote": null,
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false
+          },
+          "lines": [
+            {
+              "lineId": "L10",
+              "itemNumber": "200021",
+              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+              "qty": 1.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "lineTotal": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 12.86,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 1.93,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
+            }
+          ],
+          "totals": {
+            "net": 12.86,
+            "vat": 1.93,
+            "gross": 14.79,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 26.79
+          },
+          "firedPromotions": [],
+          "nearMisses": [],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": false,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": false,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_CUSTOMER",
+              "NO_ADDRESS",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "_notes": [
+    "\uD83D\uDEA9 BOTH HALVES ARE CAPTURED SEPARATELY. `addItemNoCustomer` has neither; `addItemNoStore` has a caller and a store nobody chose. A gate that only ever fails on the first condition is half-built, and one capture could not tell the two apart.",
+    "The gate is ENFORCED by addItem, not by the capability: capabilities.canAddItem is the REPORT of it (§2 advisory-but-authoritative). A console that ignored the capability gets a typed refusal, never a line on an order priced at a store nobody picked.",
+    "The DELIVERY exit is setAddress and nothing else. With §6.3's attach-before-address constraint already server-side, that makes the delivery path enforce caller-first by construction.",
+    "\uD83D\uDEA9 The PICKUP exit is setStore carrying the store the order ALREADY holds — legal, and it advances plantSource to `chosenForPickup`. The plant does not move, so pendingConfirmation is null and nothing re-prices; the entire effect is that a choice is on the record. A server that raised a storeChange confirm here has read §2.3 item 4 wrong.",
+    "`chosenForPickup` is a FOURTH plantSource value rather than reuse of `operatorOverride`, which would claim an operator moved the store. That conflation — `open` reporting `operatorOverride` on a plant nobody chose — is the defect 871 closed, and oms-react 154 recorded it before it had a fix.",
+    "\uD83D\uDEA9 removeCustomer with LINES keeps them, keeps the plant AND keeps plantSource (owner ruling). The gate shuts on the missing caller alone, so nothing more can be added until one is re-attached — and re-attaching restores the order exactly as it was.",
+    "STORE_NOT_CHOSEN is one spelling used twice: the refusal code and the submitBlocker. The client has a one-table discipline for chip states and must not grow a second, client-side predicate that can disagree with the server on a live basket."
+  ]
+}

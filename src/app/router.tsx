@@ -37,6 +37,16 @@ export const router = createBrowserRouter([
       Component: (await import('@/features/callcenter/__prototype__/header/HeaderPrototypePage')).default,
     }),
   },
+  // PROTOTYPE — throwaway (wayfinder ticket 176, drawing 155 + 156). Unlike the
+  // three above it mounts the REAL ConsoleShell rather than a host that looks
+  // like it: the subject is what the SHIPPED console does when `deliveryType`
+  // flips, which a hand-drawn host would answer by construction (177's lesson).
+  {
+    path: '/prototype/callcenter-fulfilment',
+    lazy: async () => ({
+      Component: (await import('@/features/callcenter/console/__prototype__/FulfilmentPrototypePage')).default,
+    }),
+  },
   // The call-center console (ticket 162). Under the SAME auth guard as every
   // other screen — session, theme and the 401 path are unchanged — but OUTSIDE
   // AppShell: the console renders its own full-viewport three-column layout

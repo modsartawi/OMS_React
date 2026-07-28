@@ -3,14 +3,14 @@
     "ticket": "857",
     "map": "126",
     "scenario": "A near-miss inline, its on-demand resolvePrereq resolution, and the NOT_DISCOVERED blind spot — the map's headline feature and its honest gap",
-    "contractVersion": "1.2",
+    "contractVersion": "1.5",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
-    "capturedAt": "2026-07-28",
+    "capturedAt": "2026-07-29",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
     "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
   "stateFragment": {
-    "contractVersion": "1.2",
+    "contractVersion": "1.5",
     "nearMisses": [
       {
         "offerId": "",
@@ -49,7 +49,7 @@
   "resolve": {
     "request": {
       "method": "GET",
-      "path": "CallCenterWeb/ResolvePrereq?transactionId=06FTGNWTK5KVQPH1HD7QSRYJA0&offerId=",
+      "path": "CallCenterWeb/ResolvePrereq?transactionId=06FTP1CWTBE4WWHAK7BAG21S71&offerId=",
       "body": null
     },
     "response": {

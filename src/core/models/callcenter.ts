@@ -17,9 +17,37 @@
  *     a verb; no verb in the contract accepts an amount.
  */
 
-/** `header.plant` provenance — `derivedFromAddress` is what makes a store the
- *  agent did not choose read as explained rather than arbitrary (135). */
-export type PlantSource = 'derivedFromAddress' | 'operatorOverride'
+/**
+ * `header.plant` provenance — `derivedFromAddress` is what makes a store the
+ * agent did not choose read as explained rather than arbitrary (135).
+ *
+ * v1.3 (§2.3) added the two ends: `seededAtOpen` is the one value that means
+ * **nobody chose this**, and `chosenForPickup` is `setStore` under
+ * `PickInStore`. Exactly one of the four shuts the item gate.
+ */
+export type PlantSource =
+  | 'seededAtOpen'
+  | 'derivedFromAddress'
+  | 'operatorOverride'
+  | 'chosenForPickup'
+
+/**
+ * v1.4 (§2.4) — how the money will be collected. **Not a tender**: nothing is
+ * paid on the console; `Online` tells OMS to send the caller a gateway link.
+ *
+ * `Receivable` is **reserved** — no phase-1 path produces or accepts it. It is
+ * named so the day the business wants it is a data change rather than a §9
+ * major, and a client that never receives it is never wrong.
+ */
+export type PaymentType = 'CashOnDelivery' | 'Online' | 'Receivable'
+
+/** v1.5 (§2.5) — which branch of the fee policy fell away. Non-null exactly
+ *  when `waived` is true. An unknown category degrades (§9), never throws. */
+export type WaivedReason =
+  | 'ThresholdReached'
+  | 'PromotionalWindow'
+  | 'ConfiguredOverride'
+  | (string & {})
 
 /** v1.1 (§2.2). Both modes are phase 1; the flip never moves the plant. */
 export type DeliveryType = 'Delivery' | 'PickInStore'
@@ -67,6 +95,27 @@ export interface SessionHeader {
   slot: SessionSlot | null
   documentSource: string | null
   sourceReference: string | null
+  /** v1.4 — absent on a pre-1.4 server, which a client renders as the default
+   *  the order actually carries there (`CashOnDelivery`, §2.4). */
+  paymentType?: PaymentType
+  /** v1.4 — `null` while the agent may choose; a typed code when the server has
+   *  decided for them. 🚩 **`null` on every phase-1 order** (§2.4): the forcing
+   *  rule is a *kind* rule and every forcing kind is out of scope. */
+  paymentTypeForcedReason?: string | null
+  /** v1.3 — CC2's `OrderNote`. Free text, never price-affecting. */
+  orderNote?: string | null
+  /**
+   * v1.8 (176) — the LABEL of the address the sidecar is holding while the order
+   * collects. Non-null only under `PickInStore`, and only where an address was
+   * ever picked.
+   *
+   * 🚩 **The label, never the address.** It is not a field the agent acts on and
+   * not one they read to the caller — it exists so that *switching back to
+   * delivery may move the store* is a thing the agent already knows when the
+   * confirmation arrives. Shipping the whole address here would be a second copy
+   * of PII on a projection that deliberately dropped it.
+   */
+  retainedAddressLabel?: string | null
   /** Any line added or re-frozen below availability — the BackOffice fraud signal. */
   hasBelowAtp: boolean
 }
@@ -118,6 +167,13 @@ export interface DeliveryFee {
   amount: number
   /** An outcome the console shows, never a control (156 — no manual waiver). */
   waived: boolean
+  /**
+   * v1.5 — **why** it fell away. 🚩 The console must never infer this by
+   * comparing `gross` against `thresholdGross`: that is the client recomputing a
+   * server rule, and it is wrong the day `ConfiguredOverride` becomes reachable.
+   * Absent (pre-1.5 server) degrades to the bare word, which is v1.4's behaviour.
+   */
+  waivedReason?: WaivedReason | null
   thresholdGross: number
   conditionType: string
 }
@@ -259,8 +315,26 @@ export interface SessionCapabilities {
   canSubmit: boolean
   canChangeStore: boolean
   canOpenAddressBook: boolean
-  /** v1.1 — true whenever `status` is open. */
+  /** v1.1 — true whenever `status` is open. 🚩 …and false when the order's
+   *  `documentSource` is delivery-only (`DocumentSourcePolicyService`'s
+   *  `SupportsPickInStore`) — the one rule in phase 1 that can shut this axis. */
   canChangeFulfilment?: boolean
+  /** v1.4 — open AND `paymentTypeForcedReason == null` (§2.4). */
+  canChangePaymentType?: boolean
+  /** v1.3 — the one-click *Yes, collect here*, `PickInStore` only (§2.3). */
+  canConfirmSeededStore?: boolean
+  /**
+   * 🚩 **PROPOSED, ticket 176 — not on the frozen contract.** Why a `can*` above
+   * is false, keyed by its own name (`canChangeFulfilment`), valued as a typed
+   * code the client words. [153](.issues/153-console-keyboard-grammar.md) named
+   * this as the tidier answer to the same problem from the palette's side and
+   * deliberately did not mint it; 176 needs it for exactly one live rule, so it
+   * is drawn here to be argued from.
+   *
+   * The alternative is a per-capability sibling field (`fulfilmentLockedReason`),
+   * which is one field per rule forever.
+   */
+  capabilityReasons?: Record<string, string>
   /** Names the reason submit is refused; the console shows it, never derives it. */
   submitBlockers: string[]
 }

@@ -1,0 +1,531 @@
+{
+  "_capture": {
+    "ticket": "857",
+    "map": "126",
+    "scenario": "setPaymentType on an order with lines — the plant, lines, totals and delivery fee are unchanged; all four deliveryType × paymentType combinations round-trip; Receivable is refused; and setOrderNote round-trips",
+    "contractVersion": "1.5",
+    "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
+    "capturedAt": "2026-07-29",
+    "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
+  },
+  "atOpen": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/Open",
+      "body": {
+        "requestId": "06FTP1CE5CNJ6RNT71RS25XVX5"
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "outcome": "opened",
+          "state": {
+            "contractVersion": "1.5",
+            "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+            "version": 5,
+            "etag": "06FTP1CECH516GHWMKBGA32A12-5",
+            "status": "open",
+            "replayed": false,
+            "header": {
+              "deliveryType": "Delivery",
+              "plant": "1001",
+              "plantName": "King AbdelAziz Road",
+              "plantSource": "seededAtOpen",
+              "origin": "C000",
+              "documentType": "CallCenterOrder",
+              "register": "WEB-t02229756",
+              "operatorId": "TEST-OP",
+              "entryStore": "1001",
+              "openedAt": "2026-07-29T02:18:15.9263128+03:00",
+              "customer": null,
+              "address": null,
+              "slot": null,
+              "documentSource": null,
+              "sourceReference": null,
+              "orderNote": null,
+              "paymentType": "CashOnDelivery",
+              "paymentTypeForcedReason": null,
+              "hasBelowAtp": false
+            },
+            "lines": [],
+            "totals": {
+              "net": 0,
+              "vat": 0,
+              "gross": 0,
+              "deliveryFee": {
+                "amount": 12.0,
+                "waived": false,
+                "waivedReason": null,
+                "thresholdGross": 100,
+                "conditionType": "DFEE"
+              },
+              "payable": 12.0
+            },
+            "firedPromotions": [],
+            "nearMisses": [],
+            "pendingConfirmation": null,
+            "capabilities": {
+              "canAddItem": false,
+              "canSubmit": false,
+              "canChangeStore": true,
+              "canOpenAddressBook": false,
+              "canConfirmSeededStore": false,
+              "canChangePaymentType": true,
+              "canChangeFulfilment": true,
+              "submitBlockers": [
+                "NO_LINES",
+                "NO_CUSTOMER",
+                "STORE_NOT_CHOSEN",
+                "NO_ADDRESS",
+                "MISSING_SLOT",
+                "MISSING_SOURCE_REFERENCE"
+              ]
+            }
+          },
+          "existing": null
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "setOnline": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetPaymentType",
+      "body": {
+        "paymentType": "Online",
+        "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+        "requestId": "06FTP1CHPQ73M9MQJ3ZYTRV222",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.5",
+          "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+          "version": 22,
+          "etag": "06FTP1CECH516GHWMKBGA32A12-22",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "operatorOverride",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-t02229756",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-29T02:18:15.9263128",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "orderNote": null,
+            "paymentType": "Online",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false
+          },
+          "lines": [
+            {
+              "lineId": "L10",
+              "itemNumber": "200021",
+              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+              "qty": 2.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "lineTotal": {
+                "net": 25.72,
+                "gross": 29.58
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 25.72,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 3.86,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
+            }
+          ],
+          "totals": {
+            "net": 25.72,
+            "vat": 3.86,
+            "gross": 29.58,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 41.58
+          },
+          "firedPromotions": [],
+          "nearMisses": [],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_ADDRESS",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "setCashOnDelivery": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetPaymentType",
+      "body": {
+        "paymentType": "CashOnDelivery",
+        "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+        "requestId": "06FTP1CJHQF7FSKNKY59CRNEF5",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.5",
+          "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+          "version": 25,
+          "etag": "06FTP1CECH516GHWMKBGA32A12-25",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "operatorOverride",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-t02229756",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-29T02:18:15.9263128",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "orderNote": null,
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false
+          },
+          "lines": [
+            {
+              "lineId": "L10",
+              "itemNumber": "200021",
+              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+              "qty": 2.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "lineTotal": {
+                "net": 25.72,
+                "gross": 29.58
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 25.72,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 3.86,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
+            }
+          ],
+          "totals": {
+            "net": 25.72,
+            "vat": 3.86,
+            "gross": 29.58,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 41.58
+          },
+          "firedPromotions": [],
+          "nearMisses": [],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_ADDRESS",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "combinations": {
+    "PickInStore-Online": {
+      "deliveryType": "PickInStore",
+      "paymentType": "Online"
+    },
+    "PickInStore-CashOnDelivery": {
+      "deliveryType": "PickInStore",
+      "paymentType": "CashOnDelivery"
+    },
+    "Delivery-Online": {
+      "deliveryType": "Delivery",
+      "paymentType": "Online"
+    },
+    "Delivery-CashOnDelivery": {
+      "deliveryType": "Delivery",
+      "paymentType": "CashOnDelivery"
+    }
+  },
+  "receivableRefused": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetPaymentType",
+      "body": {
+        "paymentType": "Receivable",
+        "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+        "requestId": "06FTP1CP4YHGDTC86YWW5HDJ62",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 400,
+      "body": {
+        "data": null,
+        "statusCode": 400,
+        "success": false,
+        "message": "'Receivable' is not a payment type this order can take.",
+        "errors": [
+          {
+            "errorCode": "PAYMENT_TYPE_INVALID",
+            "internalErrorCode": null,
+            "errorMessage": "'Receivable' is not a payment type this order can take."
+          }
+        ]
+      }
+    }
+  },
+  "setOrderNote": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/SetOrderNote",
+      "body": {
+        "note": "Caller asked for the box, not the strip.",
+        "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+        "requestId": "06FTP1CPSBMRSQGJ2GV4841YT1",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.5",
+          "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+          "version": 49,
+          "etag": "06FTP1CECH516GHWMKBGA32A12-49",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "operatorOverride",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-t02229756",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-29T02:18:15.9263128",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "orderNote": "Caller asked for the box, not the strip.",
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false
+          },
+          "lines": [
+            {
+              "lineId": "L10",
+              "itemNumber": "200021",
+              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+              "qty": 2.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "lineTotal": {
+                "net": 25.72,
+                "gross": 29.58
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 25.72,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 3.86,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
+            }
+          ],
+          "totals": {
+            "net": 25.72,
+            "vat": 3.86,
+            "gross": 29.58,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 41.58
+          },
+          "firedPromotions": [],
+          "nearMisses": [],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "submitBlockers": [
+              "NO_ADDRESS",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "_notes": [
+    "\uD83D\uDEA9 NO MONEY MOVES. paymentType is not a tender — no gateway, no amount, no result. It is an INSTRUCTION to OMS that the customer wants to pay before delivery, on which OMS sends them a payment-gateway link. A routing flag on the document, in the same family as documentSource, which is why it creates no price-affecting power.",
+    "\uD83D\uDEA9 IT IS AN INDEPENDENT AXIS. All four combinations are legal (owner ruling 2026-07-29: 'it's not linked with deliveryType — any order could be paid online or cash on delivery'). What this replaced, CallCenterSessionService.Submit's `CashOnDelivery = isDelivery`, took the value off an unrelated axis and was wrong BOTH ways — and it was stamping values nobody chose onto real documents.",
+    "The flip leaves plant, lines and totals byte-identical INCLUDING totals.deliveryFee: the fee predicate has no payment term, and a capture is the cheapest place to keep it that way.",
+    "\uD83D\uDEA9 Receivable is RESERVED: a legal COLUMN value ('R' in DocumentPaymentTypeConstants, so the domain is three-valued and adding it later is data rather than a schema change) and a REFUSED request. It is named on the wire so adding it later is not a §9 major, not because any phase-1 path may set it.",
+    "⚠ ONLINE IS 'O', NOT 'P' — 'P' is PickInStore on the DELIVERY axis. The wire spells the words; the column keeps C / O / R. Storing 'P' as a payment type would push a value SAP does not recognise onto a real order, and nothing downstream validates the domain, so it would land silently.",
+    "canChangePaymentType is TRUE on every phase-1 order and paymentTypeForcedReason is NULL — a negative assertion, deliberately. 155 found the premise for a forcing rule wrong (P2E online-forcing is a KIND rule; DocumentSourcePolicyService forces only delivery-only, which is 826's axis), so it is built as a server-side lookup that answers 'no rule' rather than a hard-coded source list.",
+    "There is no lines-exist gate on setPaymentType: nothing moves.",
+    "setOrderNote is free text onto the CLCN header — CC2 carries OrderNote on its main VM and it was never charted. null CLEARS it; the column is NVARCHAR(MAX) so a long note is not silently truncated at 8000."
+  ]
+}

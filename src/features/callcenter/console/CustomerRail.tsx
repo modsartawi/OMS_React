@@ -38,6 +38,7 @@ import type {
 } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
 import { callCenterApi } from './api'
+import { railBlock } from './fulfilment-view'
 import { addressSlot, railFields, type AddressSlot } from './rail-view'
 
 /**
@@ -130,6 +131,24 @@ export default function CustomerRail({
 
   const slot = addressSlot(state.header, state.capabilities)
 
+  /**
+   * 🚩 **The retained address is the SERVER'S to say** (176, contract v1.8).
+   *
+   * Under `PickInStore` the address leaves the projection entirely — capture 09's
+   * flip answers `address: null` — but the sidecar keeps it, and a flip back
+   * re-derives the store from it (§2.2). An agent looking at a collection order
+   * therefore has no way to know that switching back will MOVE the store: the
+   * diff would arrive as a confirmation about a store they never chose.
+   *
+   * The obvious client answer — remember the last address this tab saw — was
+   * **built and rejected** (owner ruling, 2026-07-29). It is invisible after a
+   * refresh, absent in a second tab and absent on a resumed order, so the same
+   * order reads two ways depending on how the agent arrived at it. That is the
+   * failure this map has ruled against everywhere else, and the sidecar already
+   * holds the truth. So the header carries the label and the console renders it.
+   */
+  const retained = state.header.retainedAddressLabel ?? null
+
   return (
     <aside className="flex min-h-0 flex-col gap-3 overflow-auto bg-sidebar p-4" data-cc-rail>
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -212,11 +231,24 @@ export default function CustomerRail({
         </form>
       )}
 
+      {/* 🚩 **The two modes are two blocks in the SAME place, never one block
+          with a conditional label** (176). 135's one winning property is that
+          the furniture does not move, and a rail whose second section collapses
+          under collection would move everything under it. They are the same
+          question asked of two different orders — *where is this going* /
+          *where are they collecting it* — so they get the same pixels and
+          different words. */}
       <div className="mt-2 border-t border-border pt-3">
-        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('rail.address')}
-        </div>
-        <AddressBlock address={state.header.address} slot={slot} onPickAddress={onPickAddress} />
+        {railBlock(state.header) === 'collection' ? (
+          <CollectionBlock state={state} retained={retained} />
+        ) : (
+          <>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t('rail.address')}
+            </div>
+            <AddressBlock address={state.header.address} slot={slot} onPickAddress={onPickAddress} />
+          </>
+        )}
       </div>
     </aside>
   )
@@ -285,6 +317,73 @@ function CustomerError({ error }: { error: string | null }) {
     <p className="mt-2 text-xs text-danger-800" data-cc-customer-error>
       {error}
     </p>
+  )
+}
+
+/**
+ * The rail under `PickInStore` — *collecting from*, in the address block's own
+ * pixels (176).
+ *
+ * Three things it deliberately holds:
+ *
+ * 1. **No control.** The store's control is the store chip, which already opens
+ *    the picker. A second *Choose a store* here would be two doors onto one act,
+ *    and the console's rule is one section, one way in.
+ * 2. 🚩 **It says when nobody has chosen** — `plantSource: seededAtOpen` is the
+ *    value that means the plant is the agent's own entry store and no human
+ *    picked it (§2.3). The same fact reaches the chip row as a
+ *    `STORE_NOT_CHOSEN` blocker; this is the rail saying it in the place the
+ *    agent is looking while they talk.
+ * 3. 🚩 **The retained-address trace.** One line, no data the agent can act on —
+ *    enough that *switch back and the store may move* is not a surprise.
+ */
+function CollectionBlock({
+  state,
+  retained,
+}: {
+  state: SessionState
+  /** `header.retainedAddressLabel` — the label alone, never the address. The
+   *  agent cannot act on it and must not read it out; it exists so that
+   *  *switching back moves the store* is not a surprise. */
+  retained: string | null
+}) {
+  const { t } = useTranslation('callcenter')
+  const { header } = state
+  const chosen = header.plantSource !== 'seededAtOpen'
+  return (
+    <>
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {t('rail.collectingFrom')}
+      </div>
+      <div
+        className={`rounded-md border p-2 text-xs ${
+          chosen ? 'border-border bg-card' : 'border-dashed border-input'
+        }`}
+        data-cc-collection={chosen ? 'chosen' : 'unchosen'}
+      >
+        {chosen ? (
+          <>
+            {/* Server-supplied, passed through as data — `plantName` is always
+                the server's, because a delivery-only store is in no list this
+                client holds. */}
+            <div className="font-medium">{header.plantName}</div>
+            <div data-numeric className="text-muted-foreground">
+              <Ltr>{header.plant}</Ltr>
+            </div>
+          </>
+        ) : (
+          <p className="text-attention-800">{t('rail.storeNotChosen')}</p>
+        )}
+      </div>
+      {/* 🚩 The trace. Drawn only where there IS one — an order that has never
+          held an address has nothing to keep, and a sentence promising a kept
+          address that does not exist is worse than silence. */}
+      {retained && (
+        <p className="mt-1.5 text-[11px] text-muted-foreground" data-cc-address-retained>
+          {t('rail.addressRetained', { label: retained })}
+        </p>
+      )}
+    </>
   )
 }
 

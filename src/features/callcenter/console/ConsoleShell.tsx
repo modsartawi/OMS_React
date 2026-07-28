@@ -27,7 +27,8 @@ import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
 import { formatMoney } from '@/core/util/number-format'
 import BasketPanel, { type BasketActions } from './BasketPanel'
-import { receiptView } from './basket-view'
+import { receiptView, type DeliveryFeeView } from './basket-view'
+import { capabilityGate, feeLine, showsDeliveryRegion } from './fulfilment-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CustomerRail, { type CustomerActions } from './CustomerRail'
 import GuidanceStrip, { type GuidanceActions } from './GuidanceStrip'
@@ -73,6 +74,8 @@ export default function ConsoleShell({
   onChangeStore,
   onChangeSlot,
   onChangeSource,
+  onChangeFulfilment,
+  onChangePayment,
   refusal = null,
   onDismissRefusal,
   swallowed = null,
@@ -128,6 +131,15 @@ export default function ConsoleShell({
    *  they collapse two fields of one section, and a reference belongs to the
    *  source it references. */
   onChangeSource?: () => void
+  /** Opens the fulfilment choice (176) — *delivering, or collecting?*. Absent
+   *  once the order is no longer open; the SHUT-GATE case is handled inside the
+   *  chip row off `capabilities`, because a delivery-only source is a different
+   *  fact from a closed order and says a different sentence. */
+  onChangeFulfilment?: () => void
+  /** Opens the payment choice (155). Absent while `canChangePaymentType` is
+   *  false, which no phase-1 order reaches — the chip is then settled and
+   *  non-interactive, carrying its reason. */
+  onChangePayment?: () => void
   /** `REBIND_REFUSED` — atomic, so nothing was persisted (167). It is drawn in
    *  TWO places on purpose: named in the banner and tinted on the line, so
    *  "nothing was changed, fix this line" is legible in one glance. */
@@ -189,6 +201,8 @@ export default function ConsoleShell({
             onChangeStore={onChangeStore}
             onChangeSlot={onChangeSlot}
             onChangeSource={onChangeSource}
+            onChangeFulfilment={onChangeFulfilment}
+            onChangePayment={onChangePayment}
           />
           {/* 135's fixed vertical order — chip row → item search → basket. The
               search is above the basket because that is the direction the work
@@ -294,22 +308,34 @@ function ChipRow({
   onChangeStore,
   onChangeSlot,
   onChangeSource,
+  onChangeFulfilment,
+  onChangePayment,
 }: {
   state: SessionState
   onChangeStore?: () => void
   onChangeSlot?: () => void
   onChangeSource?: () => void
+  onChangeFulfilment?: () => void
+  onChangePayment?: () => void
 }) {
   const { t } = useTranslation('callcenter')
   const chips = headerChips(state.header, state.capabilities)
+  const gate = capabilityGate(state.capabilities, 'canChangeFulfilment')
+  const payGate = capabilityGate(state.capabilities, 'canChangePaymentType')
   // 🚩 135's progressive collapse, complete at 173: every chip now re-opens the
   // section it collapsed. Source and reference share one — they are two fields
   // of one act, and a reference belongs to the source it references.
   const opener: Record<HeaderChip['id'], (() => void) | undefined> = {
+    // 🚩 A shut gate passes NO handler: a delivery-only source means the door
+    // will refuse `setFulfilment`, and the console's standing rule is that a
+    // control the door would refuse is worse than no control. The chip stays —
+    // the order still HAS a mode — and its reason is drawn beside the row.
+    fulfilment: gate.open ? onChangeFulfilment : undefined,
     store: onChangeStore,
     slot: onChangeSlot,
     source: onChangeSource,
     reference: onChangeSource,
+    payment: payGate.open ? onChangePayment : undefined,
   }
   const lapsed = chips.some((chip) => chip.lapsed)
   return (
@@ -327,6 +353,29 @@ function ChipRow({
           {t('slot.lapsedWarning')}
         </p>
       )}
+      {/* 🚩 A chip that stopped being a control says why, once, beside the row —
+          the same posture 153 took for a refused palette row: an unexplained
+          dead control teaches the agent nothing, and *this order's source is
+          delivery-only* is a sentence they can repeat to a caller. The reason
+          is the SERVER'S typed code (`capabilityReasons`), worded here; an
+          unknown code falls back to the general phrase rather than to silence. */}
+      {!gate.open && (
+        <p className="mt-1.5 text-[11px] text-muted-foreground" data-cc-fulfilment-locked={gate.reason ?? ''}>
+          {t(gate.reason ? `fulfilment.locked.${gate.reason}` : 'fulfilment.locked.unknown', {
+            defaultValue: t('fulfilment.locked.unknown'),
+          })}
+        </p>
+      )}
+      {/* ⚠ Unreachable in phase 1 and implemented anyway (§2.4): a capability
+          the client ignores is exactly the failure §2's advisory-but-
+          authoritative rule exists to prevent. */}
+      {!payGate.open && (
+        <p className="mt-1.5 text-[11px] text-muted-foreground" data-cc-payment-locked={payGate.reason ?? ''}>
+          {t(payGate.reason ? `payment.locked.${payGate.reason}` : 'payment.locked.unknown', {
+            defaultValue: t('payment.locked.unknown'),
+          })}
+        </p>
+      )}
     </div>
   )
 }
@@ -342,7 +391,12 @@ function Chip({ chip, onOpen }: { chip: HeaderChip; onOpen?: () => void }) {
   const body = (
     <>
       <span className="text-[10px] uppercase tracking-wide opacity-70">{t(`chips.${chip.id}`)}</span>
-      <span className="font-medium">{chip.value ?? t('chips.notSet')}</span>
+      {/* A key for the two enumerated chips (fulfilment, payment) — the wire's
+          `PickInStore` and `CashOnDelivery` are values, not sentences — and
+          server-supplied text passed through as data for every other. */}
+      <span className="font-medium">
+        {chip.valueKey ? t(`chips.value.${chip.valueKey}`) : (chip.value ?? t('chips.notSet'))}
+      </span>
       {chip.derived && <span className="text-[10px] opacity-60">({t('chips.derived')})</span>}
       {/* 🚩 The chip stays *settled* — the order holds this window — and only
           says that it has lapsed. Attention ground is the server's to grant, off
@@ -521,37 +575,13 @@ function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions
         <dl className="space-y-1.5 text-sm">
           <Row label={t('receipt.items')} value={<Money value={receipt.net} />} />
           <Row label={t('receipt.vat')} value={<Money value={receipt.vat} />} />
-          {receipt.delivery && (
-            <Row
-              label={t('receipt.delivery')}
-              value={
-                receipt.delivery.waived ? (
-                  // 🚩 `waived` is an OUTCOME the agent is shown, never a control
-                  // they operate — the manual waiver was removed (map note 4's
-                  // correction), so there is nothing here to switch.
-                  <span className="text-xs font-medium text-success-800" data-cc-delivery-waived>
-                    {t('receipt.waived')}
-                  </span>
-                ) : (
-                  <span data-cc-delivery-fee>
-                    <Money value={receipt.delivery.amount} />
-                  </span>
-                )
-              }
-            />
-          )}
-          {/* What the basket has to reach for the fee to fall away — the
-              server's own threshold, so the agent can say it out loud while the
-              caller is still deciding. */}
-          {receipt.delivery && !receipt.delivery.waived && receipt.delivery.thresholdGross !== null && (
-            <p className="text-[11px] text-muted-foreground" data-cc-delivery-threshold>
-              {/* Engine money, so it carries the currency word — read from the
-                  one key that holds it rather than spelled into the sentence. */}
-              {t('receipt.freeOver', {
-                amount: formatMoney(receipt.delivery.thresholdGross),
-                currency: t('money.currency'),
-              })}
-            </p>
+          {/* 🚩 **Absent, not zero** under `PickInStore` (156, capture 09). The
+              block still arrives on the wire — `{ amount: 0, waived: false,
+              thresholdGross: 100 }` — so the flip back re-quotes instantly; what
+              must not happen is this console drawing `Delivery SAR 0.00` and a
+              free-delivery promise on an order nobody is delivering. */}
+          {showsDeliveryRegion(state.header) && receipt.delivery && (
+            <DeliveryRegion fee={receipt.delivery} />
           )}
           <div className="mt-3 flex items-baseline justify-between border-t border-border-strong pt-3">
             <span className="text-sm font-semibold">{t('receipt.total')}</span>
@@ -611,6 +641,69 @@ function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions
         )}
       </div>
     </aside>
+  )
+}
+
+/**
+ * The delivery line and the sentence under it — drawn only where the order is
+ * actually being delivered (176).
+ *
+ * 🚩 **The waived state stops being a bare green word** (contract v1.5, ticket
+ * 156). `ConsoleShell.tsx` used to gate *"free over SAR 100"* on `!waived`, so
+ * the sentence that would EXPLAIN a waiver vanished at the instant it became
+ * true — and during a free-delivery campaign an agent would fill that silence
+ * with *"because you're over 100"*, which may be false. The server ships the
+ * branch it took; this draws it.
+ *
+ * ⚠ **`waivedReason` is not reachable yet** — capture 09 is a v1.4 response and
+ * carries no such field (BackOffice 874 is unbuilt), so the `waived` arm below is
+ * proved from a stubbed state in the drive and the drive says so. 177's lesson:
+ * an unreachable path is drawn *and named*, never drawn and assumed.
+ */
+function DeliveryRegion({ fee }: { fee: DeliveryFeeView }) {
+  const { t } = useTranslation('callcenter')
+  const line = feeLine(fee)
+  return (
+    <>
+      <Row
+        label={t('receipt.delivery')}
+        value={
+          line.kind === 'amount' ? (
+            <span data-cc-delivery-fee>
+              <Money value={line.amount} />
+            </span>
+          ) : (
+            // 🚩 `waived` is an OUTCOME the agent is shown, never a control they
+            // operate — the manual waiver was removed (map note 4's correction),
+            // so there is nothing here to switch.
+            <span className="text-xs font-medium text-success-800" data-cc-delivery-waived>
+              {t('receipt.waived')}
+            </span>
+          )
+        }
+      />
+      {/* What the basket has to reach for the fee to fall away — the server's own
+          threshold, so the agent can say it out loud while the caller is still
+          deciding. */}
+      {line.kind === 'amount' && line.thresholdGross !== null && (
+        <p className="text-[11px] text-muted-foreground" data-cc-delivery-threshold>
+          {/* Engine money, so it carries the currency word — read from the one
+              key that holds it rather than spelled into the sentence. */}
+          {t('receipt.freeOver', {
+            amount: formatMoney(line.thresholdGross),
+            currency: t('money.currency'),
+          })}
+        </p>
+      )}
+      {/* The reason it fell away, in the server's own branch. An unrecognised
+          category degrades to the bare word above and no sentence here (§9) —
+          which is exactly what v1.4 does today. */}
+      {line.kind === 'waived' && t(`receipt.waivedReason.${line.reason}`, { defaultValue: '' }) && (
+        <p className="text-[11px] text-success-800" data-cc-delivery-waived-reason={line.reason}>
+          {t(`receipt.waivedReason.${line.reason}`, { defaultValue: '' })}
+        </p>
+      )}
+    </>
   )
 }
 

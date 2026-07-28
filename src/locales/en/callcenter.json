@@ -99,7 +99,10 @@
     "pickAddress": "Pick an address",
     "addressNeedsCaller": "Attach the caller first — their address book opens with them.",
     "addressUnavailable": "This order takes no address.",
-    "changeAddress": "Change"
+    "changeAddress": "Change",
+    "collectingFrom": "Collecting from",
+    "storeNotChosen": "No store chosen yet",
+    "addressRetained": "Their {{label}} address is kept — switch back to delivery and it is used again."
   },
   "address": {
     "title": "Pick the delivery address",
@@ -169,7 +172,19 @@
       "store": "Change the fulfilment store",
       "slot": "Change the delivery slot",
       "source": "Change the document source",
-      "reference": "Change the source reference"
+      "reference": "Change the source reference",
+      "fulfilment": "Change how this order is fulfilled",
+      "payment": "Change how the caller pays"
+    },
+    "fulfilment": "Fulfilment",
+    "payment": "Payment",
+    "value": {
+      "delivery": "Delivery",
+      "pickInStore": "Collection",
+      "cashOnDelivery": "Cash on delivery",
+      "payOnCollection": "Pay on collection",
+      "paidOnline": "Paid online",
+      "receivable": "On account"
     }
   },
   "slot": {
@@ -329,7 +344,12 @@
     "freeOver": "Delivery is free over {{amount}} {{currency}}.",
     "total": "Total",
     "needed": "Needed first: {{list}}",
-    "placeOrder": "Place order"
+    "placeOrder": "Place order",
+    "waivedReason": {
+      "ThresholdReached": "This basket is over the free-delivery threshold.",
+      "PromotionalWindow": "A free-delivery campaign is running.",
+      "ConfiguredOverride": "This order type carries no delivery fee."
+    }
   },
   "submit": {
     "placing": "Placing the order…",
@@ -351,7 +371,8 @@
     "MISSING_SOURCE": "choose a document source",
     "MISSING_SOURCE_REFERENCE": "enter the source reference",
     "ALREADY_SUBMITTED": "this order has already been placed",
-    "unknown": "something else this order needs — refresh it to see what changed"
+    "unknown": "something else this order needs — refresh it to see what changed",
+    "STORE_NOT_CHOSEN": "choose the fulfilment store"
   },
   "money": {
     "currency": "SAR"
@@ -366,5 +387,49 @@
     "storeChange": "The store was not changed. The order service accepted the answer but did not apply it — the order is still at the store it was.",
     "hint": "Nothing on the order has changed. Try the action again from the start; if it keeps happening, it needs raising.",
     "dismiss": "Dismiss"
+  },
+  "fulfilment": {
+    "title": "Delivering, or collecting?",
+    "close": "Close",
+    "onThisOrder": "on this order",
+    "option": {
+      "Delivery": {
+        "title": "Deliver to the caller",
+        "consequence": "Their address decides the fulfilment store, and the order needs a delivery slot."
+      },
+      "PickInStore": {
+        "title": "They collect in store",
+        "consequence": "You choose the store. No address, no slot, and no delivery fee."
+      }
+    },
+    "backToDelivery": "Switching back to delivery re-derives the store from the address this order kept — if that moves the store, you will be asked to confirm it first.",
+    "locked": {
+      "DELIVERY_ONLY_SOURCE": "This order came from a source that is delivered, never collected, so the fulfilment cannot be changed.",
+      "unknown": "This order's fulfilment cannot be changed."
+    },
+    "failed": "The fulfilment could not be changed. Nothing has changed on this order — try again."
+  },
+  "payment": {
+    "title": "How are they paying?",
+    "close": "Close",
+    "option": {
+      "cashOnDelivery": {
+        "title": "Cash on delivery",
+        "detail": "The driver collects payment on the doorstep."
+      },
+      "payOnCollection": {
+        "title": "Pay on collection",
+        "detail": "They pay at the counter when they collect the order."
+      },
+      "paidOnline": {
+        "title": "Paid online",
+        "detail": "A payment link is sent to the caller and settled before the order is dispatched."
+      }
+    },
+    "failed": "The payment type could not be changed. Nothing has changed on this order — try again.",
+    "locked": {
+      "PAYMENT_TYPE_FORCED": "This order must be paid online before it is dispatched, so the payment type cannot be changed.",
+      "unknown": "The payment type on this order cannot be changed."
+    }
   }
 }

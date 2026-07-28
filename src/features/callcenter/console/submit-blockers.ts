@@ -46,6 +46,10 @@ const BLOCKERS: Record<string, { phrase: string; chip: HeaderChip['id'] | null }
   // The rail's — the caller and their address are captured there (165, 166).
   NO_CUSTOMER: { phrase: 'NO_CUSTOMER', chip: null },
   NO_ADDRESS: { phrase: 'NO_ADDRESS', chip: null },
+  // v1.3 (§2.3) — the plant is the one the agent was SEEDED with and nobody has
+  // chosen it. The chip says so through this table like every other, never
+  // through a client-side read of `plantSource`.
+  STORE_NOT_CHOSEN: { phrase: 'STORE_NOT_CHOSEN', chip: 'store' },
   // The chip row's own three sections (173).
   MISSING_SLOT: { phrase: 'MISSING_SLOT', chip: 'slot' },
   MISSING_SOURCE: { phrase: 'MISSING_SOURCE', chip: 'source' },

@@ -135,6 +135,9 @@ export function basketLineViews(state: SessionState): BasketLineView[] {
  */
 export interface DeliveryFeeView {
   waived: boolean
+  /** v1.5 (§2.5) — the server's own branch, never inferred here by comparing
+   *  `gross` against `thresholdGross`. `null` on a pre-1.5 server. */
+  waivedReason: string | null
   amount: number
   /** What the basket has to reach for the fee to fall away, where the server
    *  sent one. `null` rather than `0`: a threshold of nought is not a threshold,
@@ -164,6 +167,7 @@ export function receiptView(totals: SessionTotals): ReceiptView {
     delivery: fee
       ? {
           waived: fee.waived === true,
+          waivedReason: typeof fee.waivedReason === 'string' ? fee.waivedReason : null,
           amount: fee.amount,
           thresholdGross: typeof fee.thresholdGross === 'number' && fee.thresholdGross > 0 ? fee.thresholdGross : null,
         }

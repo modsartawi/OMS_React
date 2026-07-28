@@ -98,6 +98,8 @@ import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
 import ConsoleShell from './ConsoleShell'
 import ExistingOrderScreen from './ExistingOrderScreen'
+import SlotPicker from './SlotPicker'
+import SourceForm from './SourceForm'
 import type { PreviewReissue } from './ConfirmSheet'
 import StoreMoveConfirm from './StoreMoveConfirm'
 import StorePicker from './StorePicker'
@@ -227,6 +229,24 @@ function ConsoleSession() {
 
   /** The store override, open or not (167) — the other way into the same rebind. */
   const [pickingStore, setPickingStore] = useState(false)
+
+  /** The slot picker, open or not (173) — the slot chip re-opening its section. */
+  const [pickingSlot, setPickingSlot] = useState(false)
+
+  /**
+   * 🚩 The slot the agent chose had lapsed — `SLOT_UNAVAILABLE` (409), which the
+   * contract calls *a warning path, not a submit blocker* (§7).
+   *
+   * It is held apart from the mutation's ordinary error state precisely so it
+   * can be DRAWN differently: the order is untouched, the call carries on, and
+   * the picker stays open with the windows still in front of the agent. A soft
+   * gate rendered as a failure is a soft gate the console has quietly hardened.
+   */
+  const [slotLapsed, setSlotLapsed] = useState(false)
+
+  /** The source + reference form, open or not (173). One flag for two chips:
+   *  they collapse two fields of one act. */
+  const [editingSource, setEditingSource] = useState(false)
 
   /**
    * The plant rebind in flight (167), as three facts that belong to the ACTION
@@ -480,6 +500,10 @@ function ConsoleSession() {
       setEditAsk(null)
       setEditReissue(null)
       setPickingStore(false)
+      // And the header sections of a basket that no longer exists.
+      setPickingSlot(false)
+      setSlotLapsed(false)
+      setEditingSource(false)
       colliders.current = 0
       setColliding(null)
       setStalled(null)
@@ -527,6 +551,82 @@ function ConsoleSession() {
       // attached the next one would have the new caller's addresses spring open
       // by themselves — the previous call's intent, acted on in this one.
       setPickingAddress(false)
+    },
+    retry: false,
+  })
+
+  /**
+   * The delivery slot (173, US19) — `setSlot`, on its own mutation because it is
+   * its own act with its own surface.
+   *
+   * 🚩 **The soft gate is honoured here and nowhere else.** A window that has
+   * gone since the list was read answers `SLOT_UNAVAILABLE` (409), which §7
+   * calls *a warning path, not a submit blocker*: the order is untouched, the
+   * picker stays open, and the agent chooses another window. Nothing about it
+   * touches submit — only `capabilities.submitBlockers` can, and this code is
+   * deliberately not in it.
+   *
+   * 🚩 It returns the whole `SessionState` like everything else, so the chip is
+   * RE-RENDERED from the projection rather than patched from what was clicked:
+   * whether the slot the agent picked is the slot the order holds is the
+   * server's answer, not this console's assumption.
+   */
+  const slot = useMutation({
+    // No `again`: the picker draws this call's own failure, and a strip offering
+    // a second retry behind a modal is one retry too many (164's ruling).
+    mutationFn: (action: { slotId: string }) => {
+      // 🚩 Minted ONCE, outside the thunk — a fresh id inside it would make each
+      // busy retry a genuinely new action to the server's ledger (law 3 / §4).
+      const requestId = newRequestId()
+      return runGuarded(() => callCenterApi.setSlot(transactionId!, requestId, action.slotId))
+    },
+    // The last attempt's lapse belongs to the last attempt; left standing it
+    // would warn about a window the agent is no longer choosing.
+    onMutate: () => setSlotLapsed(false),
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+      // The section has answered, so the chip it collapsed into is the surface
+      // again (135's progressive disclosure).
+      setPickingSlot(false)
+    },
+    onError: (err) => {
+      if (apiErrorCode(err) === 'SLOT_UNAVAILABLE') setSlotLapsed(true)
+      // Anything else is the picker's own failure, drawn below.
+    },
+    retry: false,
+  })
+
+  /**
+   * The document source and its reference (173, US20) — `setDocumentSource`, ONE
+   * verb carrying both fields.
+   *
+   * 🚩 **Which sources require a reference is the SERVER's rule**, evaluated over
+   * the pair. The console sends what the agent keyed and words the refusal
+   * (`SOURCE_REFERENCE_REQUIRED`, 400) if there is one; it never predicts the
+   * answer, because a client-side required-field rule is a second opinion about
+   * a predicate this console does not own — the same reasoning that keeps
+   * `submitBlockers` the only thing that dims *Place order*.
+   */
+  const documentSource = useMutation({
+    // No `again`: the form draws this call's own failure.
+    mutationFn: (action: { documentSource: string; sourceReference: string }) => {
+      const requestId = newRequestId()
+      return runGuarded(() =>
+        callCenterApi.setDocumentSource(
+          transactionId!,
+          requestId,
+          action.documentSource,
+          action.sourceReference,
+        ),
+      )
+    },
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+      setEditingSource(false)
     },
     retry: false,
   })
@@ -1269,6 +1369,12 @@ function ConsoleSession() {
         onChangeStore={
           session.data.capabilities.canChangeStore ? () => setPickingStore(true) : undefined
         }
+        // 🚩 Offered only while the order is OPEN — the same rule the three
+        // corrections and the abandon button follow. There is no capability of
+        // their own for these two sections (§2 lists none), and a submitted
+        // order has no header left to capture.
+        onChangeSlot={session.data.status === 'open' ? () => setPickingSlot(true) : undefined}
+        onChangeSource={session.data.status === 'open' ? () => setEditingSource(true) : undefined}
         refusal={refusal}
         onDismissRefusal={() => setRefusal(null)}
       />
@@ -1291,6 +1397,51 @@ function ConsoleSession() {
           onClose={closeAddressBook}
         />
       )}
+      {/* The slot, at the ORDER's store (173). The windows are read fresh on
+          every open — a window free two minutes ago may be full now. */}
+      <SlotPicker
+        open={pickingSlot}
+        plant={session.data.header.plant}
+        current={session.data.header.slot}
+        apply={{
+          pending: slot.isPending ? (slot.variables?.slotId ?? null) : null,
+          // 🚩 The lapse is NOT an error here: it is the soft gate's own outcome
+          // and the picker draws it as a warning. Wording it as a failure would
+          // harden a gate the contract deliberately left soft.
+          error:
+            slot.isError && !slotLapsed ? apiErrorMessage(slot.error, t('slot.applyFailed')) : null,
+          lapsed: slotLapsed,
+          onPick: (slotId) => slot.mutate({ slotId }),
+        }}
+        onClose={() => {
+          setPickingSlot(false)
+          setSlotLapsed(false)
+          slot.reset()
+        }}
+      />
+      {/* The document source and its reference (173) — two chips, one form, one
+          verb, because the reference belongs to the source it references. */}
+      <SourceForm
+        open={editingSource}
+        currentSource={session.data.header.documentSource}
+        currentReference={session.data.header.sourceReference}
+        apply={{
+          busy: documentSource.isPending,
+          // 🚩 The mandatory-reference rule is the SERVER's; all the console owes
+          // it is words. Anything else is the server's own sentence (§7).
+          error: documentSource.isError
+            ? apiErrorCode(documentSource.error) === 'SOURCE_REFERENCE_REQUIRED'
+              ? t('source.refusedReferenceRequired')
+              : apiErrorMessage(documentSource.error, t('source.applyFailed'))
+            : null,
+          onApply: (source, reference) =>
+            documentSource.mutate({ documentSource: source, sourceReference: reference }),
+        }}
+        onClose={() => {
+          setEditingSource(false)
+          documentSource.reset()
+        }}
+      />
       {/* The deliberate override (US14) — the same rebind, asked for outright. */}
       <StorePicker
         open={pickingStore}

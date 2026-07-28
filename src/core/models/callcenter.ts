@@ -371,6 +371,31 @@ export interface CustomerAddressBookEntry {
   address: AddressBookAddress | null
 }
 
+/**
+ * One document source the AGENT may use, as `GET CallCenterWeb/MyDocumentSources`
+ * answers it (BackOffice 801's session-scoped sibling of
+ * `SdDocument/DocumentSourceUsers/{userId}`, projecting `DocumentSourceModel`).
+ *
+ * 🚩 **It takes no user id.** The original reads a client-supplied `userId` off
+ * the path, which on a per-agent door would let any agent read any other agent's
+ * source list — browser-supplied identity is exactly what the cookie branch
+ * exists to distrust (137's second deliberate break with *delegates verbatim*).
+ * So there is nothing to pass, and nothing the console could pass that would
+ * widen what it may read: the sources offered are the agent's own, derived from
+ * the session.
+ *
+ * 🚩 **Not part of the session contract** — like the loyalty and address-book
+ * reads, it is how the agent CHOOSES; `SessionState.header.documentSource` is
+ * what the order actually holds, and where the two could disagree the projection
+ * wins.
+ */
+export interface AgentDocumentSource {
+  /** The code `setDocumentSource` is given, and what the header holds. */
+  documentSource: string
+  description: string
+  documentSourceCategory: string
+}
+
 /** The screen-access probe (134 §6). One boolean; open implies act. */
 export interface CallCenterAccessResult {
   canOpenConsole: boolean

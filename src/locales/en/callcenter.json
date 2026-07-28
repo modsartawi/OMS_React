@@ -164,9 +164,44 @@
     "reference": "Ref",
     "notSet": "not set",
     "derived": "derived",
+    "lapsed": "lapsed",
     "change": {
-      "store": "Change the fulfilment store"
+      "store": "Change the fulfilment store",
+      "slot": "Change the delivery slot",
+      "source": "Change the document source",
+      "reference": "Change the source reference"
     }
+  },
+  "slot": {
+    "title": "Choose the delivery slot",
+    "atStore": "Windows offered by store {{store}}, the store this order is served from.",
+    "day": "Day",
+    "close": "Close",
+    "loading": "Reading this store's delivery windows…",
+    "loadFailed": "The delivery windows could not be read. Nothing has changed on this order — try again.",
+    "noneOffered": "This store is offering no delivery windows at the moment.",
+    "noWindows": "No windows on that day.",
+    "full": "full",
+    "onThisOrder": "on this order",
+    "applyFailed": "That slot could not be set. Nothing has changed on this order — try again.",
+    "lapsedRefusal": "That window has just gone. The slot on the order is unchanged — pick another one. The order can still be placed either way.",
+    "lapsedWarning": "The delivery slot on this order has lapsed. The order can still be placed — change the slot if the caller needs a firm window."
+  },
+  "source": {
+    "title": "Document source and reference",
+    "field": "Document source",
+    "choose": "Choose a source…",
+    "reference": "Source reference",
+    "referencePlaceholder": "e.g. CRM-889231",
+    "referenceHint": "What this order can be traced back to — the campaign, ticket or system that produced the call.",
+    "close": "Close",
+    "save": "Save",
+    "saving": "Saving…",
+    "loading": "Reading the sources you can use…",
+    "loadFailed": "Your document sources could not be read. Nothing has changed on this order — try again.",
+    "noneForYou": "No document sources are assigned to your account, so this order cannot be traced to one yet. Ask an administrator to assign you a source.",
+    "applyFailed": "The source could not be saved. Nothing has changed on this order — try again.",
+    "refusedReferenceRequired": "That source needs a reference, so nothing was saved. Enter the campaign, ticket or system reference and save again."
   },
   "search": {
     "label": "Search the catalogue",
@@ -302,7 +337,8 @@
     "MISSING_SLOT": "choose a delivery slot",
     "MISSING_SOURCE": "choose a document source",
     "MISSING_SOURCE_REFERENCE": "enter the source reference",
-    "SOURCE_REFERENCE_REQUIRED": "enter the source reference"
+    "ALREADY_SUBMITTED": "this order has already been placed",
+    "unknown": "something else this order needs — refresh it to see what changed"
   },
   "money": {
     "currency": "SAR"

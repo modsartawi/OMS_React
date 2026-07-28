@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 160
 blocked-by: 166
 ---
@@ -33,10 +33,10 @@ reason) · i18n · test (pure + flow)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `aDeadSubmitAlwaysNamesItsReason` — pure: every `submitBlockers` code resolves to an
+- [x] `aDeadSubmitAlwaysNamesItsReason` — pure: every `submitBlockers` code resolves to an
       agent-facing phrase **and** to the chip that owns it; an unrecognised code still produces words
       rather than a raw code; an empty list leaves submit live · pure
-- [ ] `theHeaderSettlesIntoChips` — drive: setting a slot, a source and a reference collapses each
+- [x] `theHeaderSettlesIntoChips` — drive: setting a slot, a source and a reference collapses each
       into a re-openable chip, the *needs attention* state clears as each lands, and a lapsed slot
       **warns without blocking submit** · flow (Playwright, extends `tools/callcenter-drive.mjs`)
 
@@ -59,3 +59,37 @@ without being told what it is waiting for.
 ## Blocked by
 
 [166](166-address-derives-the-store.md) — the chip row and its states are built there.
+
+## As built
+
+- **One table, two surfaces.** `submit-blockers.ts` is the pure module: code → agent-facing
+  phrase → the chip that owns it. The chip row's old private `BLOCKER_FOR` and the receipt's
+  inline `t(code, { defaultValue: code })` both now read it, so a chip that looks settled while
+  the receipt names its section is no longer expressible. 🚩 An unrecognised code (§9 ships
+  server-first) resolves to a **phrase**, never to `MISSING_PAYMENT_TYPE` on screen; codes that
+  would print the same sentence — `MISSING_SOURCE_REFERENCE` / `SOURCE_REFERENCE_REQUIRED`, and
+  any two unknowns — collapse to one, because saying it twice tells the agent less.
+- **The soft gate is soft in two places.** A slot the order HOLDS that has lapsed
+  (`slot.isActive: false`) keeps its chip *settled*, says `(lapsed)` on it and warns in the flow —
+  submit is untouched, since only `submitBlockers` may dim it. A window that goes between the list
+  being read and the pick answers `SLOT_UNAVAILABLE` (409) and is drawn in the **attention**
+  register inside the picker, not the danger one: the order is unchanged and the next window
+  lands. No Wasfaty rule and no `1283`/`1154` exemption anywhere.
+- **The mandatory-reference rule stays the server's.** Source and reference go up on ONE verb;
+  *Save* is not disabled on an empty reference, because which sources need one is a predicate this
+  console does not own. The drive asserts the console **sent** the empty reference and worded the
+  refusal, rather than predicting it.
+- **`MyDocumentSources` carries no user id** — asserted from the recorded request, not from a
+  comment.
+- **`Slots/AvailableSlots/{storeCode}` graduated to `@/core/services/lookups.ts`** (uncached by
+  construction — store- and time-specific). Two features now ask it and a feature may never import
+  a feature; `features/oms/document`'s reschedule dialog reads the same options.
+- **Ruled while building.** *Re-open in place* (US21) is a modal, following 167's `StorePicker`
+  precedent rather than inventing a second disclosure shape. There is **no clear-the-slot** action:
+  `setSlot` takes `slotId | null` but this ticket does not ask for the unset path, and an agent who
+  picked the wrong window picks another.
+
+**Proof run:** 8 pure (`submit-blockers.test.ts`) with the locale file asserted against — a `t()`
+with no backing key is exactly this ticket's failure mode and no type check can see it — plus
+`tools/callcenter-drive.mjs` **416/416** (boxes 38 and 38b), `callcenter-guidance-drive` 103/103,
+`npm test` 500, typecheck, lint and build green.

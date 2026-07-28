@@ -7,10 +7,12 @@ import type {
   SdDocumentTypeModel,
   StoreDetailModel,
 } from '@/core/models/lookups'
-import type { SdDocumentRescheduleReasonModel } from '@/core/models/slots'
+import type { SdDocumentRescheduleReasonModel, TimeSlotsModel } from '@/core/models/slots'
 
 /**
- * The OMS reference lookups, fetched at most once per session.
+ * The OMS reference lookups, fetched at most once per session — with ONE
+ * deliberate exception at the foot of the table (`availableSlots`), which is
+ * store- and time-specific and therefore never cached at all.
  *
  * `staleTime: Infinity` + the shared QueryClient reproduce the Angular
  * prototype's `shareReplay({refCount:false})` semantics — the first caller
@@ -56,6 +58,30 @@ export const lookupQueries = {
       queryKey: ['lookup', 'districts'],
       queryFn: () => api.get<SdDistrictModel[]>('SdDocument/Districts'),
       ...session,
+    }),
+  /**
+   * The bookable delivery windows at one store — `Slots/AvailableSlots/{storeCode}`.
+   *
+   * 🚩 **Deliberately not session-cached.** Slots are store- AND time-specific: a
+   * window free two minutes ago may be full now, so this one is refetched on
+   * every open rather than shared like the five above it.
+   *
+   * It sits here rather than on a feature's `api.ts` because TWO features ask it
+   * — Screen 2's reschedule dialog and the call-center console's slot chip — and
+   * a feature may never import a feature (`.claude/rules/feature-structure.md`).
+   * It stays on the ungated `Slots/*` path on purpose: spec 750 OQ2 ruled it is
+   * not an `SdDocument` endpoint, and 137 re-confirmed it off the call-center
+   * door on its own terms — slot availability is store *operational* data, with
+   * no document or customer data in it.
+   */
+  availableSlots: (storeCode: string) =>
+    queryOptions({
+      queryKey: ['lookup', 'availableSlots', storeCode],
+      queryFn: () => api.get<TimeSlotsModel>(`Slots/AvailableSlots/${encodeURIComponent(storeCode.trim())}`),
+      staleTime: 0,
+      gcTime: 0,
+      retry: false,
+      refetchOnMount: 'always' as const,
     }),
   /** Reasons for the Screen 2 Reschedule picker. */
   rescheduleReasons: () =>

@@ -9,7 +9,6 @@ import { apiErrorMessage } from '@/core/api'
 import { lookupQueries } from '@/core/services/lookups'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import type { RescheduleDocumentModel } from '@/core/models/slots'
-import { documentApi } from './api'
 import { buildRescheduleModel, selectableDays, selectableTimes } from './reschedule'
 
 /**
@@ -42,16 +41,9 @@ export default function RescheduleDialog({
   const [reasonCode, setReasonCode] = useState('')
 
   // Slots are store- AND time-specific: a window free two minutes ago may be
-  // full now. Never cached, always refetched on open.
-  const slots = useQuery({
-    queryKey: ['slots', storeCode],
-    queryFn: () => documentApi.availableSlots(storeCode),
-    enabled: open && storeCode !== '',
-    staleTime: 0,
-    gcTime: 0,
-    retry: false,
-    refetchOnMount: 'always',
-  })
+  // full now. Never cached, always refetched on open — the query options carry
+  // that (`core/services/lookups`), where the console's slot chip shares them.
+  const slots = useQuery({ ...lookupQueries.availableSlots(storeCode), enabled: open && storeCode !== '' })
   const reasons = useQuery({ ...lookupQueries.rescheduleReasons(), enabled: open })
 
   const loading = slots.isPending || reasons.isPending

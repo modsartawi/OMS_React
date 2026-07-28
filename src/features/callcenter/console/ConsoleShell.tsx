@@ -34,6 +34,7 @@ import { headerChips, type HeaderChip } from './header-chips'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
 import Money from './Money'
 import type { RebindRefusal } from './store-move'
+import { submitBlockers } from './submit-blockers'
 
 export default function ConsoleShell({
   state,
@@ -49,6 +50,8 @@ export default function ConsoleShell({
   lineEdit,
   onPickAddress,
   onChangeStore,
+  onChangeSlot,
+  onChangeSource,
   refusal = null,
   onDismissRefusal,
 }: {
@@ -93,6 +96,14 @@ export default function ConsoleShell({
    *  section it collapsed. Absent while `capabilities.canChangeStore` is false,
    *  so the chip is a chip rather than a control that refuses. */
   onChangeStore?: () => void
+  /** Opens the slot picker (173) — the slot chip re-opening its own section.
+   *  Absent once the order is no longer open, so a settled chip stops being a
+   *  control the door would refuse. */
+  onChangeSlot?: () => void
+  /** Opens the source + reference form (173). ONE handler for the two chips:
+   *  they collapse two fields of one section, and a reference belongs to the
+   *  source it references. */
+  onChangeSource?: () => void
   /** `REBIND_REFUSED` — atomic, so nothing was persisted (167). It is drawn in
    *  TWO places on purpose: named in the banner and tinted on the line, so
    *  "nothing was changed, fix this line" is legible in one glance. */
@@ -135,7 +146,12 @@ export default function ConsoleShell({
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
         <CustomerRail state={state} customerActions={customerActions} onPickAddress={onPickAddress} />
         <main className="flex min-h-0 min-w-0 flex-col border-x border-border">
-          <ChipRow state={state} onChangeStore={onChangeStore} />
+          <ChipRow
+            state={state}
+            onChangeStore={onChangeStore}
+            onChangeSlot={onChangeSlot}
+            onChangeSource={onChangeSource}
+          />
           {/* 135's fixed vertical order — chip row → item search → basket. The
               search is above the basket because that is the direction the work
               runs in: what the agent finds lands underneath it. */}
@@ -235,16 +251,44 @@ function TopBar({
   )
 }
 
-function ChipRow({ state, onChangeStore }: { state: SessionState; onChangeStore?: () => void }) {
+function ChipRow({
+  state,
+  onChangeStore,
+  onChangeSlot,
+  onChangeSource,
+}: {
+  state: SessionState
+  onChangeStore?: () => void
+  onChangeSlot?: () => void
+  onChangeSource?: () => void
+}) {
+  const { t } = useTranslation('callcenter')
   const chips = headerChips(state.header, state.capabilities)
+  // 🚩 135's progressive collapse, complete at 173: every chip now re-opens the
+  // section it collapsed. Source and reference share one — they are two fields
+  // of one act, and a reference belongs to the source it references.
+  const opener: Record<HeaderChip['id'], (() => void) | undefined> = {
+    store: onChangeStore,
+    slot: onChangeSlot,
+    source: onChangeSource,
+    reference: onChangeSource,
+  }
+  const lapsed = chips.some((chip) => chip.lapsed)
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-divider bg-card px-4 py-2" data-cc-chips>
-      {chips.map((chip) => (
-        // 🚩 135's progressive collapse: a settled section re-opens IN PLACE.
-        // The store is the first chip that has somewhere to re-open to (167);
-        // slot, source and reference get theirs at 173.
-        <Chip key={chip.id} chip={chip} onOpen={chip.id === 'store' ? onChangeStore : undefined} />
-      ))}
+    <div className="border-b border-divider bg-card px-4 py-2" data-cc-chips>
+      <div className="flex flex-wrap items-center gap-2">
+        {chips.map((chip) => (
+          <Chip key={chip.id} chip={chip} onOpen={opener[chip.id]} />
+        ))}
+      </div>
+      {/* 🚩 The soft gate, said out loud (US19): the window the order holds has
+          lapsed, and the order can still be placed. It is a warning in the flow
+          — never a blocker, and never a modal that stops the call. */}
+      {lapsed && (
+        <p className="mt-1.5 text-[11px] text-attention-800" data-cc-slot-lapsed>
+          {t('slot.lapsedWarning')}
+        </p>
+      )}
     </div>
   )
 }
@@ -262,6 +306,14 @@ function Chip({ chip, onOpen }: { chip: HeaderChip; onOpen?: () => void }) {
       <span className="text-[10px] uppercase tracking-wide opacity-70">{t(`chips.${chip.id}`)}</span>
       <span className="font-medium">{chip.value ?? t('chips.notSet')}</span>
       {chip.derived && <span className="text-[10px] opacity-60">({t('chips.derived')})</span>}
+      {/* 🚩 The chip stays *settled* — the order holds this window — and only
+          says that it has lapsed. Attention ground is the server's to grant, off
+          `submitBlockers`, and a soft gate never earns it. */}
+      {chip.lapsed && (
+        <span className="text-[10px] font-medium text-attention-800" data-cc-chip-lapsed>
+          ({t('chips.lapsed')})
+        </span>
+      )}
     </>
   )
   const shape = `inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${tone}`
@@ -349,6 +401,7 @@ function Receipt({ state }: { state: SessionState }) {
   const { t } = useTranslation('callcenter')
   const { capabilities } = state
   const receipt = receiptView(state.totals)
+  const blockers = submitBlockers(capabilities.submitBlockers)
   return (
     <aside className="flex min-h-0 flex-col bg-card" data-cc-receipt>
       <div className="border-b border-divider px-4 py-2 text-[11px] uppercase tracking-wide text-muted-foreground">
@@ -399,17 +452,15 @@ function Receipt({ state }: { state: SessionState }) {
         </dl>
       </div>
       <div className="space-y-2 border-t border-divider p-4">
-        {capabilities.submitBlockers.length > 0 && (
-          // US54 — the reason is named while something is missing, so the agent
-          // fixes it rather than guessing. Each code is a key: these are machine
-          // codes, and an unknown one falls back to the code itself rather than
-          // rendering a blank.
+        {blockers.length > 0 && (
+          // 🚩 US54 / US22 — *Place order* is never mysteriously dead: while
+          // something is missing the reason is NAMED, from the server's own
+          // list. The wording and the chip ownership are `submit-blockers.ts`'s,
+          // so a code this client has never heard of still reaches the agent as
+          // words rather than as `MISSING_PAYMENT_TYPE`, and the chip row cannot
+          // disagree with this sentence about which section is at fault.
           <div className="text-xs text-attention-800" data-cc-blockers>
-            {t('receipt.needed', {
-              list: capabilities.submitBlockers
-                .map((code) => t(`blockers.${code}`, { defaultValue: code }))
-                .join(' · '),
-            })}
+            {t('receipt.needed', { list: blockers.map((blocker) => t(blocker.key)).join(' · ') })}
           </div>
         )}
         <button

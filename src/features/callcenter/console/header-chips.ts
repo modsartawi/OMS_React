@@ -13,6 +13,7 @@
  * section they collapsed — with the tickets that build those sections.
  */
 import type { SessionCapabilities, SessionHeader } from '@/core/models/callcenter'
+import { blockedChips } from './submit-blockers'
 
 export type ChipState = 'settled' | 'needsAttention' | 'unset'
 
@@ -26,36 +27,49 @@ export interface HeaderChip {
   /** True only when the plant came from the address — the parenthetical that
    *  makes a store the agent did not choose read as explained (135). */
   derived?: boolean
-}
-
-/** `submitBlockers` entries the chip row answers for (CONTRACT.md §2). Anything
- *  else in the list belongs to another region and is ignored here. */
-const BLOCKER_FOR: Record<string, HeaderChip['id']> = {
-  MISSING_SLOT: 'slot',
-  MISSING_SOURCE: 'source',
-  MISSING_SOURCE_REFERENCE: 'reference',
-  SOURCE_REFERENCE_REQUIRED: 'reference',
+  /**
+   * 🚩 The slot the order holds is no longer active — `slot.isActive: false`.
+   *
+   * It is a **warning, not an attention state**, and the difference is the
+   * ticket's whole point: on a CLCN order the slot is a SOFT gate (§7 —
+   * `SLOT_UNAVAILABLE` is "a warning path, not a submit blocker"), so a lapsed
+   * slot is something the agent should see and may act on, never something that
+   * stops the order being placed. Only the server's `submitBlockers` can make a
+   * chip *needsAttention*; nothing here promotes a lapse into one.
+   */
+  lapsed?: boolean
 }
 
 export function headerChips(header: SessionHeader, capabilities: SessionCapabilities): HeaderChip[] {
-  const blocked = new Set(
-    (capabilities.submitBlockers ?? []).map((code) => BLOCKER_FOR[code]).filter(Boolean),
-  )
+  // 🚩 The SAME table the receipt words its blockers from (`submit-blockers.ts`,
+  // ticket 173). Two tables would eventually disagree about which section a
+  // blocker belongs to, and the agent would meet the difference at submit —
+  // which is the whole failure US22 exists to close.
+  const blocked = blockedChips(capabilities.submitBlockers)
 
-  const chip = (id: HeaderChip['id'], value: string | null, derived?: boolean): HeaderChip => ({
+  const chip = (
+    id: HeaderChip['id'],
+    value: string | null,
+    extra?: Partial<Pick<HeaderChip, 'derived' | 'lapsed'>>,
+  ): HeaderChip => ({
     id,
     // Attention beats settled: a chip the server says is blocking submit must
     // LOOK like it needs something, or the agent finds out at submit (US22).
     state: blocked.has(id) ? 'needsAttention' : value ? 'settled' : 'unset',
     value,
-    ...(derived ? { derived: true } : {}),
+    ...(extra?.derived ? { derived: true } : {}),
+    ...(extra?.lapsed ? { lapsed: true } : {}),
   })
 
   const plant = header.plant ? [header.plant, header.plantName].filter(Boolean).join(' · ') : null
+  const slot = header.slot
 
   return [
-    chip('store', plant, header.plantSource === 'derivedFromAddress'),
-    chip('slot', header.slot ? `${header.slot.from}–${header.slot.to}` : null),
+    chip('store', plant, { derived: header.plantSource === 'derivedFromAddress' }),
+    // 🚩 A lapsed slot still SHOWS its window and stays *settled*: the order
+    // holds it, and hollowing the chip out would read as "no slot chosen" — the
+    // one thing that is not true. The warning rides beside it (soft gate, §7).
+    chip('slot', slot ? `${slot.from}–${slot.to}` : null, { lapsed: slot ? !slot.isActive : false }),
     chip('source', header.documentSource),
     chip('reference', header.sourceReference),
   ]

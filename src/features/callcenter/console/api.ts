@@ -25,6 +25,7 @@
 import { api, apiErrorCode } from '@/core/api'
 import type {
   AbandonResult,
+  AgentDocumentSource,
   CallCenterAccessResult,
   CustomerAddressBookEntry,
   ItemSearchResult,
@@ -92,6 +93,14 @@ export const itemSearchKey = (transactionId: string, query: string, offerId?: st
  */
 export const prereqKey = (transactionId: string, offerId: string) =>
   ['callcenter', 'prereq', transactionId, offerId] as const
+
+/**
+ * The agent's own document sources (§ ticket 173). Keyed by nothing but the
+ * screen: the list is derived from the SESSION server-side, so there is no
+ * parameter that could vary it — and a key carrying a user id would be a client
+ * asserting an identity the door deliberately does not accept.
+ */
+export const MY_SOURCES_KEY = ['callcenter', 'documentSources'] as const
 
 const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ' // Crockford base32
 
@@ -435,6 +444,67 @@ export const callCenterApi = {
    */
   changeUom(transactionId: string, requestId: string, lineId: string, uom: string): Promise<SessionState> {
     return api.post<SessionState>('CallCenterWeb/ChangeUom', { transactionId, requestId, lineId, uom })
+  },
+
+  /**
+   * `GET CallCenterWeb/MyDocumentSources` — the sources THIS agent may use
+   * (BackOffice 801). A pure read, so it carries no `requestId`.
+   *
+   * 🚩 **No user id in the path.** The original (`DocumentSourceUsers/{userId}`)
+   * trusts a client-supplied identifier, which is the thing the cookie branch
+   * exists to distrust; the door resolves the agent off the session row instead
+   * (137's second deliberate break with *delegates verbatim*). So there is
+   * nothing to pass — and nothing the console could pass that would widen what
+   * it may read.
+   */
+  myDocumentSources(): Promise<AgentDocumentSource[]> {
+    return api.get<AgentDocumentSource[]>('CallCenterWeb/MyDocumentSources')
+  },
+
+  /**
+   * `POST CallCenterWeb/SetSlot` → the whole `SessionState` (law 2).
+   *
+   * 🚩 **A soft gate, and it stays soft.** A slot that lapses `warns` — the door
+   * answers `SLOT_UNAVAILABLE` (409) and the order is untouched, which is a
+   * warning path and explicitly **not** a submit blocker (§7). Nothing here
+   * turns it into one, and nothing here re-implements *is this slot still
+   * active*: `SlotIsActive` is off the door and the server decides.
+   *
+   * `slotId: null` clears the slot — the same verb, so there is no second
+   * "unset" path to keep aligned.
+   *
+   * The windows it picks from are a reference read **off the door** —
+   * `Slots/AvailableSlots/{storeCode}`, served by `@/core/services/lookups.ts`
+   * (137: store operational data, no document or customer data in it).
+   */
+  setSlot(transactionId: string, requestId: string, slotId: string | null): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/SetSlot', { transactionId, requestId, slotId })
+  },
+
+  /**
+   * `POST CallCenterWeb/SetDocumentSource` → the whole `SessionState` (law 2) —
+   * how the order is traced back to the campaign or system that produced the
+   * call.
+   *
+   * 🚩 **One verb for both fields.** The source and its reference are sent
+   * together because the mandatory-reference rule is the SERVER's and is
+   * evaluated over the pair: a source sent alone would be refused
+   * `SOURCE_REFERENCE_REQUIRED` (400), and a console that split them into two
+   * verbs would be re-implementing which sources require one — the second
+   * opinion this door exists to prevent.
+   */
+  setDocumentSource(
+    transactionId: string,
+    requestId: string,
+    documentSource: string,
+    sourceReference: string,
+  ): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/SetDocumentSource', {
+      transactionId,
+      requestId,
+      documentSource,
+      sourceReference,
+    })
   },
 
   /**

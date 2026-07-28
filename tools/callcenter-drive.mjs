@@ -139,6 +139,23 @@
 //        back to what the order holds;
 //    37. LINE_NOT_FOUND and UOM_NOT_AVAILABLE are explained in the agent's words
 //        ON the line they were about, and the order is left exactly as it was.
+//
+// Asserts ticket 173's Proof:
+//   theHeaderSettlesIntoChips
+//    38. a chip whose section the SERVER says is blocking submit looks like it
+//        needs something, and the dead *Place order* names every reason in
+//        words — including a blocker code this client has never heard of;
+//        setting a slot (one SetSlot, one requestId, at the ORDER's store,
+//        picking from the server's own windows with a full one drawn and
+//        unpickable) collapses it into a settled chip and clears the attention
+//        with it; the source and its reference go up on ONE verb and settle two
+//        chips, with the mandatory-reference rule left to the door — the
+//        console sends the empty reference and words the refusal rather than
+//        predicting it;
+//    38b. the soft gate stays soft: a slot the order holds that has LAPSED is
+//        named on the chip and warned about in the flow while the chip stays
+//        settled and submit stays live, and a window that goes mid-call warns
+//        inside the picker — no failure, nothing changed, the next window lands.
 //   aRefusedRebindChangesNothingAndSaysWhichLine
 //    29. REBIND_REFUSED draws the banner in the server's own words, names the
 //        offending line THERE and tints it in the basket, and leaves the store,
@@ -545,6 +562,66 @@ const repriced = (state) => {
   }
 }
 
+// ---- ticket 173: the rest of the header — the slot, the source, its reference ----
+//
+// The delivery windows are `Slots/AvailableSlots/{storeCode}` — a reference read
+// OFF the call-center door (137), so this is `TimeSlotsModel`'s own shape and not
+// the session contract's. Two days, and the second day's first window FULL
+// (`status: false`), because "the server decides which windows are offerable" is
+// a claim the console has to be seen not to re-implement.
+const SLOT_DAYS = {
+  slots: [
+    {
+      day: 'MONDAY',
+      date: '2026/07/28',
+      fullDay: '2026/07/28 MONDAY',
+      times: [
+        { time: '10:00 AM - 12:00 PM', status: true, slotId: '2026-07-28#S1', slotFrom: '2026-07-28T10:00:00', slotTo: '2026-07-28T12:00:00' },
+        { time: '06:00 PM - 09:00 PM', status: true, slotId: '2026-07-28#S3', slotFrom: '2026-07-28T18:00:00', slotTo: '2026-07-28T21:00:00' },
+      ],
+    },
+    {
+      day: 'TUESDAY',
+      date: '2026/07/29',
+      fullDay: '2026/07/29 TUESDAY',
+      times: [
+        { time: '10:00 AM - 12:00 PM', status: false, slotId: '2026-07-29#S1', slotFrom: '2026-07-29T10:00:00', slotTo: '2026-07-29T12:00:00' },
+      ],
+    },
+  ],
+}
+const SLOT_CHOSEN = SLOT_DAYS.slots[0].times[0]
+const SLOT_OTHER = SLOT_DAYS.slots[0].times[1]
+const SLOT_FULL = SLOT_DAYS.slots[1].times[0]
+
+// What the projection holds once a window is set — `SessionSlot`, the contract's
+// own shape (fixture 02 carries one). The window's own identity, so "the chip
+// says what was picked" is provable.
+const slotHeldFor = (window, isActive = true) => ({
+  slotId: window.slotId,
+  from: window.slotFrom.slice(11, 16),
+  to: window.slotTo.slice(11, 16),
+  isActive,
+})
+
+// `GET CallCenterWeb/MyDocumentSources` — the AGENT's own sources, with NO user
+// id anywhere in the request (137's deliberate break with "delegates verbatim").
+// `DocumentSourceModel`'s field names, since 801 projects that model.
+const MY_SOURCES = [
+  { documentSource: 'CALLCENTER', description: 'Call center', documentSourceCategory: 'CC' },
+  { documentSource: 'CAMPAIGN', description: 'Marketing campaign', documentSourceCategory: 'CC' },
+]
+
+// §7's mandatory-reference refusal — a 400 carrying the envelope, so the console
+// can read the code and word it. The RULE is the server's: this stub refuses a
+// source sent with an empty reference, and the console is watched to see that it
+// sent it rather than predicting the refusal itself.
+const SOURCE_REFUSAL = codedRefusal('SOURCE_REFERENCE_REQUIRED', 400, 'Source reference is required.')
+
+// §7's soft gate — 409, and explicitly NOT a submit blocker. The window went
+// while the list was open; the order is untouched.
+const SLOT_REFUSAL = codedRefusal('SLOT_UNAVAILABLE', 409, 'Slot 2026-07-28#S1 is no longer active.')
+
 // §7's three codes for this verb family, each carrying the envelope so
 // `core/api.ts` maps it to kind:'business' and the console can read the code.
 const LINE_REFUSALS = {
@@ -614,6 +691,9 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
  *                       a diff that already names an unpriceable line.
  *                       Otherwise the preview is unaffected: the agent must be
  *                       able to see the diff before the commit is what is tested.
+ * @param opts.slotLapses  the FIRST `SetSlot` naming the offered window answers
+ *                       §7's `SLOT_UNAVAILABLE` (173) — the soft gate, which
+ *                       warns and never blocks; the next send lands.
  * @param opts.lineEdit  how the three corrections answer (170): `null` applies
  *                       them and re-prices, `'notFound'` refuses every one with
  *                       LINE_NOT_FOUND (the stale screen), `'uomRefused'` and
@@ -636,11 +716,13 @@ async function open(
     bookFailures = 0,
     rebind = null,
     lineEdit = null,
+    slotLapses = false,
   } = {},
 ) {
   let stateReads = 0
   let bookReads = 0
   let staleSpent = false
+  let lapseSpent = false
   // The state this stub last served, so the two customer verbs (165) answer
   // about the order on screen rather than about a fixture.
   let served = openState ?? STATE
@@ -890,6 +972,53 @@ async function open(
       }
       return route.fulfill(envelope(speak(served)))
     }
+    // ---- 173: the rest of the header ----
+    if (p === 'CallCenterWeb/MyDocumentSources') return route.fulfill(envelope(MY_SOURCES))
+    if (p === 'CallCenterWeb/SetSlot') {
+      const body = route.request().postDataJSON()
+      // §7's soft gate: the window went while the list was open. The order is
+      // untouched — this stub changes nothing before answering.
+      if (slotLapses && !lapseSpent) {
+        lapseSpent = true
+        return route.fulfill(SLOT_REFUSAL)
+      }
+      const chosen = SLOT_DAYS.slots.flatMap((d) => d.times).find((w) => w.slotId === body.slotId)
+      served = {
+        ...served,
+        version: served.version + 1,
+        header: { ...served.header, slot: slotHeldFor(chosen) },
+        capabilities: {
+          ...served.capabilities,
+          submitBlockers: served.capabilities.submitBlockers.filter((c) => c !== 'MISSING_SLOT'),
+        },
+      }
+      return route.fulfill(envelope(speak(served)))
+    }
+    if (p === 'CallCenterWeb/SetDocumentSource') {
+      const body = route.request().postDataJSON()
+      // 🚩 The mandatory-reference rule is the SERVER's, so it lives here — and
+      // the console had better have SENT the empty reference rather than
+      // deciding for itself that it could not.
+      if (!body.sourceReference) return route.fulfill(SOURCE_REFUSAL)
+      served = {
+        ...served,
+        version: served.version + 1,
+        header: {
+          ...served.header,
+          documentSource: body.documentSource,
+          sourceReference: body.sourceReference,
+        },
+        capabilities: {
+          ...served.capabilities,
+          submitBlockers: served.capabilities.submitBlockers.filter(
+            (c) => c !== 'MISSING_SOURCE' && c !== 'MISSING_SOURCE_REFERENCE',
+          ),
+        },
+      }
+      return route.fulfill(envelope(speak(served)))
+    }
+    // The windows one store offers — off the door, on their old path (750 OQ2).
+    if (p.startsWith('Slots/AvailableSlots/')) return route.fulfill(envelope(SLOT_DAYS))
     // The estate, off the door and shared app-wide (137).
     if (p === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORE_DETAILS))
     if (p === 'CallCenterWeb/RemoveCustomer') {
@@ -2711,6 +2840,180 @@ async function run() {
     check(`and the total is exactly what it was (${kind})`, (await text(page, '[data-cc-payable]')) === payableBefore)
     check(`the console is still usable (${kind})`, await page.locator('[data-cc-search-input]').isEnabled())
     check(`no console errors (${kind})`, errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 38. the header settles into chips, and a dead submit names its reason ----
+  //
+  // theHeaderSettlesIntoChips (173): the slot, the source and its reference each
+  // collapse into a re-openable chip, the *needs attention* state clears as each
+  // lands, and a lapsed slot warns without blocking submit.
+  {
+    // An order whose header is empty and whose server says so — the two chip
+    // sections this ticket builds, plus an UNKNOWN code, which is an ordinary
+    // wire state (§9) and must still reach the agent as words.
+    const NEEDY = {
+      ...STATE,
+      capabilities: {
+        ...STATE.capabilities,
+        submitBlockers: ['MISSING_SLOT', 'MISSING_SOURCE', 'MISSING_SOURCE_REFERENCE', 'MISSING_PAYMENT_TYPE'],
+      },
+    }
+    const { context, page, errors, wire, calls } = await open(browser, { openState: NEEDY })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    const chipState = (id) => page.locator(`[data-cc-chip="${id}"]`).getAttribute('data-cc-chip-state')
+    check(
+      'a chip whose section is blocking looks like it needs something',
+      (await chipState('slot')) === 'needsAttention' &&
+        (await chipState('source')) === 'needsAttention' &&
+        (await chipState('reference')) === 'needsAttention',
+    )
+    check('and submit is dead while they are', await page.locator('[data-cc-submit]').isDisabled())
+    const blockers = (await text(page, '[data-cc-blockers]')).replace(/\s+/g, ' ')
+    check('the dead submit NAMES what it is waiting for', blockers.length > 20, blockers)
+    check(
+      '🚩 in words — an unknown blocker code never reaches the agent',
+      !/[A-Z]{3,}_[A-Z_]+/.test(blockers),
+      blockers,
+    )
+
+    // ---- the slot: chosen from the store's own windows, at the ORDER's store ----
+    await page.locator('[data-cc-chip-open="slot"]').click()
+    await page.locator('[data-cc-slot-picker]').waitFor({ timeout: 10_000 })
+    check(
+      'the windows are read at the order’s store, and say so',
+      (await text(page, '[data-cc-slot-store]')).includes(NEEDY.header.plant),
+    )
+    // 🚩 Which windows are offerable is the SERVER's answer: a full one is drawn
+    // (so the agent can say so to the caller) and cannot be picked.
+    await page.locator('[data-cc-slot-day]').selectOption('1')
+    check(
+      'a window the server marks full is drawn, not hidden, and cannot be picked',
+      (await page.locator(`[data-cc-slot-option="${SLOT_FULL.slotId}"]`).count()) === 1 &&
+        (await page.locator(`[data-cc-slot-option="${SLOT_FULL.slotId}"]`).isDisabled()),
+    )
+    await page.locator('[data-cc-slot-day]').selectOption('0')
+    await page.locator(`[data-cc-slot-option="${SLOT_CHOSEN.slotId}"]`).click()
+    await page.locator('[data-cc-slot-picker]').waitFor({ state: 'detached', timeout: 10_000 })
+
+    const slotCalls = wire.filter((w) => w.path === 'CallCenterWeb/SetSlot')
+    check('one SetSlot, carrying the window and one requestId', slotCalls.length === 1 && !!slotCalls[0].body.requestId, JSON.stringify(slotCalls[0]?.body))
+    const slotChip = await text(page, '[data-cc-chip="slot"]')
+    check(
+      'the section collapses into a settled chip carrying the window',
+      (await chipState('slot')) === 'settled' && slotChip.includes('10:00'),
+      slotChip.replace(/\s+/g, ' '),
+    )
+    check(
+      'and the *needs attention* state clears with it',
+      !(await text(page, '[data-cc-blockers]')).toLowerCase().includes('slot'),
+      await text(page, '[data-cc-blockers]'),
+    )
+
+    // ---- the source and its reference: two chips, one form, one verb ----
+    await page.locator('[data-cc-chip-open="source"]').click()
+    await page.locator('[data-cc-source-form]').waitFor({ timeout: 10_000 })
+    // 🚩 137's deliberate break with "delegates verbatim": the list is the
+    // agent's own, resolved off the session row — so the request carries NO user
+    // id, and there is nothing the console could send that would widen it.
+    const sourceReads = calls.filter((c) => c.startsWith('CallCenterWeb/MyDocumentSources'))
+    check(
+      'the sources are the agent’s own — the read carries no user id at all',
+      sourceReads.length === 1 && sourceReads[0] === 'CallCenterWeb/MyDocumentSources',
+      sourceReads.join(', '),
+    )
+    // The mandatory-reference rule is the SERVER's: the console sends what was
+    // keyed and lets the door decide.
+    await page.locator('[data-cc-source-select]').selectOption(MY_SOURCES[1].documentSource)
+    await page.locator('[data-cc-source-apply]').click()
+    await page.locator('[data-cc-source-error]').waitFor({ timeout: 10_000 })
+    const refused = (await text(page, '[data-cc-source-error]')).replace(/\s+/g, ' ')
+    check('a source with no reference is refused IN WORDS', refused.length > 30 && !/[A-Z]{3,}_[A-Z_]+/.test(refused), refused)
+    // 🚩 The mandatory-reference rule is the SERVER's: the console had to have
+    // SENT the empty reference to have been refused it, rather than deciding
+    // for itself which sources need one.
+    const firstSend = wire.filter((w) => w.path === 'CallCenterWeb/SetDocumentSource')[0]
+    check(
+      '🚩 which means the console asked the door rather than predicting it',
+      firstSend?.body.documentSource === MY_SOURCES[1].documentSource && firstSend?.body.sourceReference === '',
+      JSON.stringify(firstSend?.body),
+    )
+    check('and the order is untouched — the chips still say so', (await chipState('source')) === 'needsAttention')
+
+    await page.locator('[data-cc-source-reference]').fill('CRM-889231')
+    await page.locator('[data-cc-source-apply]').click()
+    await page.locator('[data-cc-source-form]').waitFor({ state: 'detached', timeout: 10_000 })
+    const sourceCalls = wire.filter((w) => w.path === 'CallCenterWeb/SetDocumentSource')
+    check(
+      '🚩 ONE verb carries both fields, on its own requestId each time',
+      sourceCalls.length === 2 &&
+        sourceCalls[1].body.documentSource === MY_SOURCES[1].documentSource &&
+        sourceCalls[1].body.sourceReference === 'CRM-889231' &&
+        sourceCalls[0].body.requestId !== sourceCalls[1].body.requestId,
+      JSON.stringify(sourceCalls[1]?.body),
+    )
+    check(
+      'both chips settle, and nothing is left blocking the header',
+      (await chipState('source')) === 'settled' && (await chipState('reference')) === 'settled',
+    )
+    check(
+      'and the reference chip carries what was keyed',
+      (await text(page, '[data-cc-chip="reference"]')).includes('CRM-889231'),
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 38b. the soft gate: a lapsed slot WARNS, and never blocks ----
+  {
+    // An order the server is willing to submit, holding a window that has since
+    // gone inactive. 🚩 `submitBlockers` is empty — §7 is explicit that
+    // SLOT_UNAVAILABLE is a warning path and not a submit blocker, so a console
+    // that dimmed *Place order* here would have hardened a soft gate itself.
+    const LAPSED = {
+      ...STATE,
+      header: { ...STATE.header, slot: slotHeldFor(SLOT_CHOSEN, false) },
+      capabilities: { ...STATE.capabilities, canSubmit: true, submitBlockers: [] },
+    }
+    const { context, page, errors } = await open(browser, { openState: LAPSED, slotLapses: true })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    check('a lapsed slot is named ON the chip', await page.locator('[data-cc-chip-lapsed]').isVisible())
+    const warning = (await text(page, '[data-cc-slot-lapsed]')).replace(/\s+/g, ' ')
+    check('and warned about in the flow, in words', warning.length > 30, warning)
+    check(
+      '🚩 the chip stays SETTLED — the order does hold a window',
+      (await page.locator('[data-cc-chip="slot"]').getAttribute('data-cc-chip-state')) === 'settled',
+    )
+    check('🚩 and submit is NOT blocked by it', await page.locator('[data-cc-submit]').isEnabled())
+
+    // The other half of the same soft gate: the window that goes between the
+    // list being read and the agent picking it.
+    await page.locator('[data-cc-chip-open="slot"]').click()
+    await page.locator('[data-cc-slot-picker]').waitFor({ timeout: 10_000 })
+    // 🚩 A different window — the fix for a lapsed slot is another window, and
+    // the one the order already holds is not offered again.
+    await page.locator(`[data-cc-slot-option="${SLOT_OTHER.slotId}"]`).click()
+    await page.locator('[data-cc-slot-lapsed-refusal]').waitFor({ timeout: 10_000 })
+    check(
+      'a window that goes mid-call warns rather than failing',
+      (await page.locator('[data-cc-slot-error]').count()) === 0,
+    )
+    check('the picker stays open with the windows still in front of the agent', await page.locator('[data-cc-slot-picker]').isVisible())
+    check('and submit is still live throughout', await page.locator('[data-cc-submit]').isEnabled())
+
+    // The retry lands: the gate was soft, so the call carries on.
+    await page.locator(`[data-cc-slot-option="${SLOT_OTHER.slotId}"]`).click()
+    await page.locator('[data-cc-slot-picker]').waitFor({ state: 'detached', timeout: 10_000 })
+    check(
+      'and the second attempt settles the chip, lapse note gone',
+      (await page.locator('[data-cc-chip-lapsed]').count()) === 0 &&
+        (await page.locator('[data-cc-slot-lapsed]').count()) === 0,
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }
 

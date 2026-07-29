@@ -517,7 +517,9 @@
     "otpPlaceholder": "Code",
     "confirm": "Confirm",
     "confirming": "Confirming…",
-    "createdHint": "Signed up. Attach them to this order."
+    "createdHint": "Signed up. Attach them to this order.",
+    "sendFailed": "The code could not be sent. Try again.",
+    "confirmFailed": "That code was not accepted."
   },
   "note": {
     "title": "Order note",

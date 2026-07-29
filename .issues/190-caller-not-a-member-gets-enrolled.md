@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 180
 blocked-by: —
 ---
@@ -50,13 +50,21 @@ i18n (already present) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `signup-view` — the step machine's legal transitions; `beginSignup` carries the typed number;
-      `canSendCode` / `canConfirmOtp` predicates · pure
-- [ ] `mobilePreview` — display only and SA-only; a test asserting the previewed string is **never**
-      what goes on the wire · pure
-- [ ] `coupon-159-drive.mjs` signup section, **re-pointed at the wired console** — a not-found lookup
+- [x] `signup-view` — the step machine's legal transitions; `beginSignup` carries the typed number;
+      `canSendCode` / `canConfirmOtp` predicates · pure — `signup-view.test.ts`, 14 green. `codeSent`
+      and `signupCreated` are the two transitions, each legal from exactly one step and returning the
+      state **untouched** from any other (an enrolled caller is never put back in front of a code box)
+- [x] `mobilePreview` — display only and SA-only; a test asserting the previewed string is **never**
+      what goes on the wire · pure — the wire is `signupCapture` / `signupConfirmCapture`, and the
+      test asserts `capture.mobile !== preview`, carries no `+`, carries no dialling code, and that
+      the body's keys are exactly `countryCode` + `mobile` (+ `otp`) — no branch to omit, because
+      `LoyaltySignupCapture` cannot express one
+- [x] `coupon-159-drive.mjs` signup section, **re-pointed at the wired console** — a not-found lookup
       offers enrolment on ordinary ground, the panel opens **inline** with the basket still visible,
-      and the flow ends at an Attach button rather than an attached caller · flow (Playwright)
+      and the flow ends at an Attach button rather than an attached caller · flow (Playwright) —
+      29 green against `/callcenter` with only the wire stubbed, including the two rules that are
+      observable **only on the wire**: no `branchId` on either body, and `mobile: '0501234567'` going
+      out while the preview read `+966501234567`. Screenshots `wired-signup-{details,otp,created,attached}.png`
 
 ## Boundaries
 
@@ -77,3 +85,25 @@ un-normalised mobile.
 ## Blocked by
 
 None — can start immediately.
+
+## Built
+
+`signup-view.ts` grew the two transitions and the two capture builders; the bodies are typed by
+`LoyaltySignupCapture` / `LoyaltySignupConfirmCapture` in `core/models/callcenter.ts`, which is where
+both omissions become structural rather than remembered. `api.ts` gained `signUpByBranch` and
+`confirmSignUpByBranch` — **not session verbs**: no `transactionId`, no `withBusyRetry` (the signup
+precedes attach, so there is no claim to collide with), but a `requestId` each, minted once.
+`CallCenterConsolePage` holds the four-step state and the two mutations, and passes the `signup` prop
+`ConsoleShell` and `CustomerRail` have accepted since 159.
+
+Two things the wiring decided that the ticket did not spell:
+
+- **The step moves on the server's answer, never on the press.** A code that was never sent must not
+  put the agent in front of a box asking for it.
+- **The panel's own *Attach* failure lands in the panel.** The rail draws an attach failure beside the
+  LOOKUP's card, which is not on screen on this path — without folding `customerFailure` into the
+  panel's error at `step: 'created'`, a failed attach would re-enable the button and say nothing.
+
+⚠ Server side: BackOffice 879 §4 (`branchId` off the wire, normalisation server-side) is the half
+still landing. The console is correct either way — it never sends a branch and never normalises — but
+until 879 ships, a server still reading `BranchId` simply receives none.

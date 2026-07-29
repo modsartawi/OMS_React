@@ -112,6 +112,14 @@ import ExistingOrderScreen from './ExistingOrderScreen'
 import FulfilmentPicker from './FulfilmentPicker'
 import NoteForm from './NoteForm'
 import { currentMode, currentPaymentType, isPickup } from './fulfilment-view'
+import {
+  CLOSED_SIGNUP,
+  codeSent,
+  signupCapture,
+  signupConfirmCapture,
+  signupCreated,
+  type SignupState,
+} from './signup-view'
 import PaymentPicker from './PaymentPicker'
 import SlotPicker from './SlotPicker'
 import SourceForm from './SourceForm'
@@ -556,6 +564,73 @@ function ConsoleSession() {
   )
 
   /**
+   * The caller who is not a member yet (190) — the enrolment's four steps, held
+   * on the page because its two calls are the page's.
+   *
+   * 🚩 **It is not order state and is not cleared with the order.** Nothing about
+   * a signup is a fact of the ORDER — it belongs to the caller, who is still on
+   * the line after an abandon — so `startFresh` deliberately does not touch it.
+   * What DOES close it is a change of who the order holds, below: an enrolment
+   * that has reached its attach has nothing left to do.
+   */
+  const [signup, setSignup] = useState<SignupState>(CLOSED_SIGNUP)
+
+  /**
+   * *Send code* — `SignUpByBranch` (contract §6.6).
+   *
+   * 🚩 **Not a session verb**, so no `runGuarded` and no busy retry: the signup
+   * precedes attach, there is no transaction to scope it to and no claim to
+   * collide with. It still mints a `requestId`, once and outside the thunk, for
+   * the same reason every other action does (law 3 / §4).
+   *
+   * 🚩 The body is `signupCapture`'s — no branch, and the mobile as typed. The
+   * two omissions are the ticket's two 🚩s and they are structural: neither field
+   * exists on `LoyaltySignupCapture` to be filled in here by accident.
+   */
+  const sendCode = useMutation({
+    mutationFn: (state: SignupState) =>
+      callCenterApi.signUpByBranch(newRequestId(), signupCapture(state)),
+    // The step moves on the SERVER's answer, never on the press: a code that was
+    // never sent must not put the agent in front of a box asking for it.
+    onSuccess: () => setSignup(codeSent),
+    retry: false,
+  })
+
+  /**
+   * *Confirm* — `ConfirmSignUpByBranch`, and the member it answers with.
+   *
+   * 🚩 **It ends at a member the agent still has to attach** (165's two steps).
+   * Nothing here calls `attachCustomer`: enrolling somebody and putting them on
+   * a live order are two acts, and only the second one is about this order.
+   */
+  const confirmOtp = useMutation({
+    mutationFn: (state: SignupState) =>
+      callCenterApi.confirmSignUpByBranch(newRequestId(), signupConfirmCapture(state)),
+    onSuccess: (member) => setSignup((current) => signupCreated(current, member)),
+    retry: false,
+  })
+
+  /** Whichever leg last failed, in the server's own words — one surface, because
+   *  only one of the two can be in flight. A refused code and an unreachable
+   *  loyalty service are both business outcomes the agent says out loud, so
+   *  neither is dressed as a crash nor as the other (§7). */
+  const signupLegFailure = sendCode.isError
+    ? apiErrorMessage(sendCode.error, t('signup.sendFailed'))
+    : confirmOtp.isError
+      ? apiErrorMessage(confirmOtp.error, t('signup.confirmFailed'))
+      : null
+
+  /** Closing the panel, and forgetting the last attempt's failure with it —
+   *  cancelling and starting again is the honest retry here, since there is no
+   *  resend (CC2 has none, and a countdown the console invented would promise an
+   *  expiry only the loyalty service knows). */
+  const closeSignup = () => {
+    setSignup(CLOSED_SIGNUP)
+    sendCode.reset()
+    confirmOtp.reset()
+  }
+
+  /**
    * The two customer verbs (165), as one mutation because they are one act with
    * two directions and the agent may only be doing one of them at a time — so
    * one pending flag and one error surface is the honest shape.
@@ -593,9 +668,39 @@ function ConsoleSession() {
       // attached the next one would have the new caller's addresses spring open
       // by themselves — the previous call's intent, acted on in this one.
       setPickingAddress(false)
+      // 🚩 And the enrolment closes with it (190). Attaching is what the created
+      // member was FOR, so a panel still holding them afterwards would offer a
+      // second attach of somebody already on the order; and the caller being
+      // swapped out makes an enrolment about the last one stale in the same way
+      // the rail's own search is.
+      closeSignup()
     },
     retry: false,
   })
+
+  /** Whichever of the two customer verbs last failed, in the server's own words.
+   *  The fallback follows the DIRECTION that failed — `variables` is the action
+   *  the mutation is reporting on. One sentence for both would tell an agent
+   *  whose remove failed that the caller could not be attached, which is the
+   *  opposite of what happened. */
+  const customerFailure = customer.isError
+    ? apiErrorMessage(
+        customer.error,
+        t(customer.variables?.customerId === null ? 'rail.removeFailed' : 'rail.attachFailed'),
+      )
+    : null
+
+  /**
+   * What the signup panel shows — its own leg's failure, or, once it is holding a
+   * created member, the failure of the ATTACH it offers.
+   *
+   * 🚩 The second half is not decoration. The panel draws its own *Attach*
+   * button, and the rail's attach failure is drawn beside the LOOKUP's card —
+   * which is not on screen on this path. Without this, an attach that failed
+   * under the signup's own button would re-enable it and say nothing.
+   */
+  const signupError =
+    signupLegFailure ?? (signup.step === 'created' ? customerFailure : null)
 
   /**
    * The delivery slot (173, US19) — `setSlot`, on its own mutation because it is
@@ -1683,12 +1788,36 @@ function ConsoleSession() {
           // action the mutation is reporting on. One sentence for both would
           // tell an agent whose remove failed that the caller could not be
           // attached, which is the opposite of what happened.
-          error: customer.isError
-            ? apiErrorMessage(
-                customer.error,
-                t(customer.variables?.customerId === null ? 'rail.removeFailed' : 'rail.attachFailed'),
-              )
-            : null,
+          error: customerFailure,
+        }}
+        // 🚩 The caller the lookup could not find, enrolled without leaving the
+        // console (190) — INLINE in the rail, because the wait between *Send
+        // code* and the code arriving is SPOKEN and a modal would take the basket
+        // away for the length of a conversation the agent is having anyway. It
+        // hangs off the not-found lookup as the ordinary next thing: a miss is
+        // not a failure.
+        signup={{
+          state: signup,
+          actions: {
+            // 🚩 A failure belongs to the ATTEMPT, not to the panel: the agent
+            // who re-types the code the caller just repeated is asking a new
+            // question, and the last one's refusal must not stand over it.
+            onChange: (next) => {
+              setSignup(next)
+              if (sendCode.isError) sendCode.reset()
+              if (confirmOtp.isError) confirmOtp.reset()
+            },
+            onSendCode: () => sendCode.mutate(signup),
+            onConfirm: () => confirmOtp.mutate(signup),
+            onCancel: closeSignup,
+            // 🚩 The SAME attach the lookup's own card uses — one verb, one
+            // `requestId`, one error surface. A freshly enrolled caller reaches
+            // the order by exactly the path a found one does (165).
+            onAttach: (member) => customer.mutate({ customerId: member.loyId }),
+            sending: sendCode.isPending,
+            confirming: confirmOtp.isPending,
+            error: signupError,
+          },
         }}
         addItem={{
           // 🚩 Passed only while the door says it will accept an add — the same

@@ -33,9 +33,14 @@
 //      console during a spoken wait), and carries the number already typed
 //   8. the signup ends at a member the agent still has to attach (165's two
 //      steps, which a freshly enrolled caller does not skip)
+//   8b. 🚩 ticket 190 — 7 and 8 are now asserted against the WIRED console
+//      (`/callcenter`, only the wire stubbed) rather than the prototype, which
+//      is what lets them assert the two rules that exist only ON THE WIRE: the
+//      body carries NO `branchId`, and the mobile goes out AS TYPED while the
+//      dialling-code line the agent read back stays a display preview
 //   9. no state throws, and the centre column never scrolls sideways
 import { createRequire } from 'node:module'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
@@ -44,6 +49,19 @@ const OUT = '.issues/assets/159-coupon-signup'
 const STATES = ['none', 'applied', 'twoCoupons', 'shutNoStore', 'shutHolding', 'couponGated', 'signupMiss']
 
 mkdirSync(OUT, { recursive: true })
+
+// The session half of the wired-console section below is the contract's OWN
+// committed fixture — the loyalty half beside it is this drive's stub.
+const fixture = (name) =>
+  JSON.parse(
+    readFileSync(new URL(`../.issues/assets/136-cc-contract/${name}.json`, import.meta.url), 'utf8'),
+  ).response.body.data
+
+const envelope = (data, { status = 200, success = true, message = '', errors = [] } = {}) => ({
+  status,
+  contentType: 'application/json',
+  body: JSON.stringify({ statusCode: status, success, message, errors, data }),
+})
 
 let pass = 0
 let fail = 0
@@ -251,61 +269,231 @@ await load('couponGated')
 }
 
 /* ------------------------------------------------- the signup ------------- */
+//
+// 🚩 **Re-pointed at the WIRED console** (ticket 190). Everything above drives
+// the prototype, because contract v1.10's coupon projection exists on no server;
+// the signup does not need one — both routes have been on the door since 137 —
+// so from here the drive opens `/callcenter`, the real `CallCenterConsolePage`,
+// with only the wire stubbed. Which is what lets it assert the two things the
+// prototype never could: what actually goes out on the wire, and what does not.
 
-console.log('\nsignupMiss — the enrolment hangs off a lookup that found nobody')
-await load('signupMiss')
+console.log('\nthe wired console — a lookup that finds nobody, and the enrolment that follows')
 {
-  const m = await page.evaluate(() => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const consolePage = await context.newPage()
+  const wire = []
+  const calls = []
+  const pageErrors = []
+  consolePage.on('pageerror', (e) => pageErrors.push(String(e)))
+  consolePage.on(
+    'console',
+    (m) =>
+      m.type() === 'error' &&
+      !/^Failed to load resource: the server responded with a status of/.test(m.text()) &&
+      pageErrors.push(m.text()),
+  )
+
+  // The contract's own committed fixture for the session half; the loyalty half
+  // is this drive's ⚠ stub — the routes ship, but no SIS.Api runs beside this.
+  const OPEN = fixture('01-open-empty')
+  const LINES = fixture('02-two-lines-priced').lines
+  const MEMBER = {
+    loyId: '8809900123',
+    mobile: '+966501234567',
+    fullName: 'Reem S. Al-Otaibi',
+    tier: 'Blue',
+    pointsBalance: 0,
+    email: null,
+  }
+  let served = { ...OPEN.state, lines: LINES }
+
+  await consolePage.route('**/api/**', async (route) => {
+    const request = route.request()
+    const p = request.url().split('/api/')[1].split('?')[0]
+    const method = request.method()
+    calls.push(`${method} ${p}`)
+    if (method === 'POST') {
+      let body = null
+      try {
+        body = request.postDataJSON()
+      } catch {
+        body = null
+      }
+      wire.push({ path: p, body })
+    }
+
+    if (p === 'Auth/Me')
+      return route.fulfill(
+        envelope({
+          authenticated: true,
+          userId: 'a.alharbi',
+          displayName: 'A. Alharbi',
+          currentStoreCode: '1001',
+        }),
+      )
+    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'CallCenterWeb/Open')
+      return route.fulfill(envelope({ outcome: 'opened', state: served, existing: null }))
+    if (p === 'CallCenterWeb/State') return route.fulfill(envelope(served))
+
+    // 🚩 A miss is an empty payload on the SUCCESS path, not a 404 — the ordinary
+    // outcome of the first thing that happens on a call.
+    if (p.startsWith('CallCenterWeb/MemberByMobile')) return route.fulfill(envelope(null))
+
+    // The enrolment's two legs. The first answers nothing but success; the second
+    // answers the member — the same shape the lookup would have.
+    if (p === 'CallCenterWeb/SignUpByBranch') return route.fulfill(envelope(null))
+    if (p === 'CallCenterWeb/ConfirmSignUpByBranch') return route.fulfill(envelope(MEMBER))
+
+    if (p === 'CallCenterWeb/AttachCustomer') {
+      served = {
+        ...served,
+        version: served.version + 1,
+        header: {
+          ...served.header,
+          customer: {
+            customerId: MEMBER.loyId,
+            name: MEMBER.fullName,
+            mobile: MEMBER.mobile,
+            loyaltyAttached: true,
+          },
+        },
+      }
+      return route.fulfill(envelope(served))
+    }
+
+    if (/Access$/.test(p))
+      return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }))
+    return route.fulfill(envelope([]))
+  })
+
+  await consolePage.goto(`http://localhost:5199/callcenter`)
+  await consolePage.waitForSelector('[data-cc-rail]')
+
+  // ---- the miss, on ordinary ground --------------------------------------
+  await consolePage.fill('#cc-phone', '0501234567')
+  await consolePage.click('[data-cc-find]')
+  await consolePage.waitForSelector('[data-cc-lookup-miss]')
+
+  const miss = await consolePage.evaluate(() => {
+    const block = document.querySelector('[data-cc-lookup-miss]')
+    return {
+      offered: !!document.querySelector('[data-cc-signup-open]'),
+      // A miss is not a failure and must not be dressed as one — no danger
+      // ground and no alarm colour anywhere in the block that offers enrolment.
+      alarmed: /danger|destructive/.test(block.outerHTML),
+      panelBefore: !!document.querySelector('[data-cc-signup]'),
+    }
+  })
+  ok(miss.offered, 'a not-found lookup OFFERS the enrolment')
+  ok(!miss.alarmed, 'on ordinary ground — a miss is not a failure')
+  ok(!miss.panelBefore, 'and the panel is shut until the agent asks for it')
+
+  await consolePage.click('[data-cc-signup-open]')
+  await consolePage.waitForSelector('[data-cc-signup]')
+
+  const opened = await consolePage.evaluate(() => {
     const panel = document.querySelector('[data-cc-signup]')
     const rail = document.querySelector('[data-cc-rail]')
     return {
-      // 7. INLINE. A modal over the console during a wait the agent is talking
-      //    through takes the basket away for no reason.
       insideRail: !!(panel && rail && rail.contains(panel)),
       isModal: !!document.querySelector('[role="dialog"] [data-cc-signup]'),
       mobile: document.querySelector('[data-cc-signup-mobile]')?.value ?? null,
-      preview: document.querySelector('[data-cc-signup-preview]')?.innerText ?? null,
+      preview: document.querySelector('[data-cc-signup-preview]')?.innerText ?? '',
       fields: document.querySelectorAll('[data-cc-signup] input, [data-cc-signup] select').length,
-      basketStillThere: !!document.querySelector('[data-cc-receipt]'),
+      basketRows: document.querySelectorAll('[data-cc-line]').length,
+      receipt: !!document.querySelector('[data-cc-receipt]'),
     }
   })
-  ok(m.insideRail, 'the signup is INLINE in the caller rail')
-  ok(!m.isModal, 'and never a modal over the console')
-  ok(m.basketStillThere, 'the receipt is still on screen throughout')
-  // 🚩 The number already typed carries in — asking again would read as *that
-  // was wrong* when it was merely new.
-  ok(m.mobile === '0501234567', 'the number from the lookup carries into the signup')
-  // 132's ruling kept whole: country + mobile, and nothing else.
-  ok(m.fields === 2, 'exactly two fields — country and mobile, no name and no email')
-  ok(/\+966501234567/.test(m.preview ?? ''), 'the number the agent reads back drops SA’s leading zero')
-  await shot('signup-details')
+  // 🚩 INLINE. The wait between *Send code* and the code arriving is SPOKEN, and
+  // a modal would take the basket away for the length of a conversation the
+  // agent is having anyway.
+  ok(opened.insideRail, 'the signup runs INLINE in the caller rail')
+  ok(!opened.isModal, 'and never as a modal over the console')
+  ok(opened.receipt && opened.basketRows > 0, 'the basket is still on screen and still readable')
+  ok(opened.mobile === '0501234567', 'the number already typed carries into the signup')
+  ok(opened.fields === 2, 'exactly two fields — country and mobile, no name and no email')
+  ok(/\+966501234567/.test(opened.preview), 'the previewed number drops SA’s leading zero')
+  await consolePage.screenshot({ path: `${OUT}/wired-signup-details.png` })
 
-  await page.click('[data-cc-signup-send]')
-  await page.waitForSelector('[data-cc-signup-otp]')
-  const otp = await page.evaluate(() => ({
+  // ---- send: what goes on the wire, and what does not ---------------------
+  await consolePage.click('[data-cc-signup-send]')
+  await consolePage.waitForSelector('[data-cc-signup-otp]')
+
+  const sent = wire.filter((w) => w.path === 'CallCenterWeb/SignUpByBranch')
+  ok(sent.length === 1, `one SignUpByBranch on the wire (${sent.length})`)
+  const sentBody = sent[0]?.body ?? {}
+  // 🚩 The ticket's first deliberate omission. `BranchId` is written to
+  // `CreatedByBranchId` PERMANENTLY and the validator does not require it, so a
+  // console that named a branch could credit any pharmacy in the estate.
+  ok(
+    !Object.keys(sentBody).some((k) => /branch/i.test(k)),
+    'the body carries NO branch — the server stamps the call centre’s own',
+  )
+  // 🚩 The second. One normalisation rule, in one place, and that place is not a
+  // browser — the loyalty base is keyed on this value (156's exact failure).
+  ok(sentBody.mobile === '0501234567', 'the mobile goes out AS TYPED, un-normalised')
+  ok(
+    sentBody.mobile !== '+966501234567' && !String(sentBody.mobile).includes('966'),
+    'the dialling-code line the agent read back is a PREVIEW and never the wire',
+  )
+  ok(sentBody.countryCode === 'SA', 'the country goes out beside it')
+  ok(typeof sentBody.requestId === 'string' && sentBody.requestId.length > 0, 'one action, one id')
+
+  const otp = await consolePage.evaluate(() => ({
     spoken: document.querySelector('[data-cc-signup-spoken]')?.innerText ?? '',
     focused: document.activeElement?.dataset.ccSignupOtp !== undefined,
     resend: !!document.querySelector('[data-cc-signup-resend]'),
+    countdown: /\b\d{1,2}:\d\d\b/.test(document.querySelector('[data-cc-signup]').innerText),
+    receipt: !!document.querySelector('[data-cc-receipt]'),
   }))
-  // The wait is SPOKEN, so the instruction is the agent's script rather than a
-  // field label.
   ok(/read back/i.test(otp.spoken), 'the OTP step scripts what the agent says')
-  ok(otp.focused, 'the caret is in the code box — the agent’s next keystroke is the code')
-  // CC2 has neither a resend nor a countdown, and a countdown the console
-  // invented would promise an expiry only the loyalty service knows.
-  ok(!otp.resend, 'no resend and no countdown — cancelling and starting again is the retry')
-  await shot('signup-otp')
+  ok(otp.focused, 'the caret is in the code box')
+  // CC2 has neither, and a countdown the console invented would promise an
+  // expiry only the loyalty service knows.
+  ok(!otp.resend && !otp.countdown, 'no resend and no countdown')
+  ok(otp.receipt, 'the basket is still there through the spoken wait')
+  await consolePage.screenshot({ path: `${OUT}/wired-signup-otp.png` })
 
-  await page.fill('[data-cc-signup-otp]', '1234')
-  await page.click('[data-cc-signup-confirm]')
-  await page.waitForSelector('[data-cc-signup-created]')
-  // 8. 165's two steps. Enrolling somebody and putting them on a live order are
-  //    two acts, and only the second is about this order.
+  // ---- confirm: it ends at a member, not at an attached caller ------------
+  await consolePage.fill('[data-cc-signup-otp]', '1234')
+  await consolePage.click('[data-cc-signup-confirm]')
+  await consolePage.waitForSelector('[data-cc-signup-created]')
+
+  const confirmed = wire.filter((w) => w.path === 'CallCenterWeb/ConfirmSignUpByBranch')
+  ok(confirmed.length === 1, `one ConfirmSignUpByBranch on the wire (${confirmed.length})`)
+  ok(confirmed[0]?.body?.otp === '1234', 'the code the caller read back is on it')
   ok(
-    (await page.locator('[data-cc-signup-attach]').count()) === 1,
+    !Object.keys(confirmed[0]?.body ?? {}).some((k) => /branch/i.test(k)) &&
+      confirmed[0]?.body?.mobile === '0501234567',
+    'the confirm keeps both omissions — no branch, and the number as typed',
+  )
+  // 🚩 165's two steps, which a freshly enrolled caller does not get to skip.
+  ok(
+    (await consolePage.locator('[data-cc-signup-attach]').count()) === 1,
     'the confirm ends at a member the agent still has to ATTACH',
   )
-  await shot('signup-created')
+  ok(
+    calls.filter((c) => /AttachCustomer/.test(c)).length === 0,
+    'and NOTHING has been attached — enrolling and attaching are two acts',
+  )
+  await consolePage.screenshot({ path: `${OUT}/wired-signup-created.png` })
+
+  // ---- the attach the agent still presses ---------------------------------
+  await consolePage.click('[data-cc-signup-attach]')
+  await consolePage.waitForSelector('[data-cc-caller]')
+  const attached = wire.filter((w) => w.path === 'CallCenterWeb/AttachCustomer')
+  ok(attached.length === 1, 'pressing Attach sends ONE AttachCustomer')
+  ok(attached[0]?.body?.customerId === '8809900123', 'carrying the loyalty id the confirm answered')
+  ok(
+    (await consolePage.locator('[data-cc-signup]').count()) === 0,
+    'and the panel closes behind it — its member is on the order',
+  )
+  await consolePage.screenshot({ path: `${OUT}/wired-signup-attached.png` })
+
+  ok(pageErrors.length === 0, `the wired console threw nothing (${pageErrors.length})`)
+  if (pageErrors.length) console.log(pageErrors.join('\n'))
+  await context.close()
 }
 
 /* ------------------------------------------------------------ verdict ----- */

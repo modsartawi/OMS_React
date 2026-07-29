@@ -28,7 +28,11 @@
  * below is display only: it shows the agent the number they are about to enrol,
  * and the wire carries the country code beside what was typed.
  */
-import type { LoyaltyMember } from '@/core/models/callcenter'
+import type {
+  LoyaltyMember,
+  LoyaltySignupCapture,
+  LoyaltySignupConfirmCapture,
+} from '@/core/models/callcenter'
 
 /** One country the loyalty base accepts a mobile from. */
 export interface SignupCountry {
@@ -136,4 +140,56 @@ export function canSendCode(state: SignupState): boolean {
  *  decides whether the code is right. */
 export function canConfirmOtp(state: SignupState): boolean {
   return state.step === 'otp' && /^\d{4,6}$/.test(state.otp.trim())
+}
+
+/**
+ * The code has been asked for: `details → otp`, with the code box empty.
+ *
+ * 🚩 **Legal from `details` and nowhere else.** The two steps are the flow's
+ * whole shape, and a transition that fired from `created` would put an enrolled
+ * caller back in front of a code box for an enrolment that has already happened.
+ * An illegal move returns the state untouched rather than throwing: this is a
+ * console an agent is driving mid-call, and the honest answer to a step that
+ * cannot happen is that nothing moved.
+ */
+export function codeSent(state: SignupState): SignupState {
+  if (state.step !== 'details') return state
+  return { ...state, step: 'otp', otp: '' }
+}
+
+/**
+ * The code was right and the loyalty base has a member: `otp → created`.
+ *
+ * 🚩 It records the member and stops. **Attaching is a second act** — 165's two
+ * steps, which a freshly enrolled caller does not get to skip: enrolling
+ * somebody and putting them on a live order are two different facts, and only
+ * the second is about this order.
+ */
+export function signupCreated(state: SignupState, member: LoyaltyMember): SignupState {
+  if (state.step !== 'otp') return state
+  return { ...state, step: 'created', created: member }
+}
+
+/**
+ * What `SignUpByBranch` is given — and, as much, what it is NOT given.
+ *
+ * 🚩 The mobile is `trim`med and otherwise **verbatim**. Trimming removes what
+ * the agent's keyboard added; anything beyond that (a leading zero, a dialling
+ * code) is the loyalty base's key being decided in a browser, which is the
+ * second implementation [156](.issues/156-delivery-fee-shared-rule.md) named. The
+ * dialling-code line the agent reads back is `mobilePreview` and it is drawn
+ * only — the two are allowed to disagree, and the day they do it is the server's
+ * answer that enrols the caller.
+ *
+ * 🚩 There is no `branchId` field to leave out at a call site, because there is
+ * no `branchId` field: `LoyaltySignupCapture` cannot express one.
+ */
+export function signupCapture(state: SignupState): LoyaltySignupCapture {
+  return { countryCode: state.countryCode, mobile: state.mobile.trim() }
+}
+
+/** The confirm's body — the same two values (the server re-reads the number it
+ *  sent the code to) plus the code itself. */
+export function signupConfirmCapture(state: SignupState): LoyaltySignupConfirmCapture {
+  return { ...signupCapture(state), otp: state.otp.trim() }
 }

@@ -533,6 +533,38 @@ export interface LoyaltyMember {
 }
 
 /**
+ * The body of `POST CallCenterWeb/SignUpByBranch` — the caller who is not a
+ * member yet, as contract §6.6 narrows the request (190).
+ *
+ * 🚩 **`branchId` is absent by construction.** The server writes it to the
+ * member's `CreatedByBranchId` permanently and onto every member-action row, and
+ * the validator does not require it — so a browser that could name the branch
+ * could credit any pharmacy in the estate with an enrolment. The call centre's
+ * own store code is stamped server-side, exactly as `CountryKey` / `LanguageKey`
+ * / `AddressType` are stamped on the address capture.
+ *
+ * 🚩 **`mobile` is what the agent TYPED**, un-normalised. CC2 builds the enrolled
+ * number itself out of a country list compiled into the WPF client; re-doing that
+ * here would put one rule in two clients over the value the loyalty base is keyed
+ * on. `signup-view.ts`'s `mobilePreview` is a display line and never this field.
+ *
+ * `preferredLanguage` is deliberately not sent: 132 ruled the form to two fields
+ * and no more, and the server's own default is the honest answer to a question
+ * the agent was never asked.
+ */
+export interface LoyaltySignupCapture {
+  countryCode: string
+  mobile: string
+}
+
+/** The body of `POST CallCenterWeb/ConfirmSignUpByBranch` — the same two values,
+ *  plus the code the caller read back down the phone. Same two omissions, for
+ *  the same two reasons. */
+export interface LoyaltySignupConfirmCapture extends LoyaltySignupCapture {
+  otp: string
+}
+
+/**
  * One entry of the caller's address book, as the door's read answers it
  * (`GET CallCenterWeb/CustomerAddresses` — BackOffice 801's session-scoped
  * sibling of `SdDocument/CustomerAddresses`, projecting `CustomerAddressBookModel`).

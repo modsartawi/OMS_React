@@ -32,6 +32,8 @@ import type {
   DeliveryType,
   ItemSearchResult,
   LoyaltyMember,
+  LoyaltySignupCapture,
+  LoyaltySignupConfirmCapture,
   OpenResult,
   PaymentType,
   PrereqResolution,
@@ -213,6 +215,47 @@ export const callCenterApi = {
    */
   memberByMobile(mobile: string): Promise<LoyaltyMember | null> {
     return api.get<LoyaltyMember | null>(`CallCenterWeb/MemberByMobile/${encodeURIComponent(mobile)}`)
+  },
+
+  /**
+   * `POST CallCenterWeb/SignUpByBranch` — the first of the loyalty enrolment's
+   * two steps (190, contract §6.6). It asks the loyalty service to send the
+   * caller a code; the answer the console acts on is the envelope's own success.
+   *
+   * 🚩 **Not a session verb.** No `transactionId`, no `withBusyRetry`: the
+   * signup precedes attach, so there is no transaction to scope it to and no
+   * claim to collide with (the same posture as the address-book writes). It
+   * still carries a `requestId` — CC2's own two calls do, and a re-sent enrolment
+   * is exactly the double-apply §4's ledger exists to absorb.
+   *
+   * 🚩 **The body is `signup-view.ts`'s and only ever `signup-view.ts`'s** — see
+   * `LoyaltySignupCapture` for what is not on it and why: no `branchId` (the
+   * server stamps the call centre's own store, permanently, on the member) and
+   * no normalised mobile (one rule, one place, and it is not a browser).
+   */
+  signUpByBranch(requestId: string, capture: LoyaltySignupCapture): Promise<void> {
+    return api.post<void>('CallCenterWeb/SignUpByBranch', { requestId, ...capture })
+  },
+
+  /**
+   * `POST CallCenterWeb/ConfirmSignUpByBranch` → the new `LoyaltyMember` — the
+   * same shape the lookup answers, which is what lets the rail draw an enrolled
+   * caller with the card it already has.
+   *
+   * 🚩 **It ends at a member, it does not attach one.** Putting the caller on
+   * this order is `attachCustomer`, pressed deliberately — 165's two steps, which
+   * a freshly enrolled caller does not get to skip.
+   *
+   * A wrong code is the service's own **business** refusal carrying its own
+   * sentence, not a crash and not a client-side verdict: `canConfirmOtp` holds
+   * the 4–6 digit shape so a typo costs a keystroke, and the server alone decides
+   * whether the digits are right.
+   */
+  confirmSignUpByBranch(
+    requestId: string,
+    capture: LoyaltySignupConfirmCapture,
+  ): Promise<LoyaltyMember> {
+    return api.post<LoyaltyMember>('CallCenterWeb/ConfirmSignUpByBranch', { requestId, ...capture })
   },
 
   /**

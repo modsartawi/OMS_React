@@ -681,6 +681,29 @@ export const callCenterApi = {
   },
 
   /**
+   * `POST CallCenterWeb/SetOrderNote` → the whole `SessionState` (law 2) — what
+   * the caller told the agent, travelling with the order (183, v1.3).
+   *
+   * 🚩 **`null` CLEARS it, and clearing is a real act.** A stale instruction
+   * that survives on the header travels to the store with the order, so the verb
+   * takes `string | null` rather than only text and the console sends `null`
+   * rather than `''`: the column is what the picker reads, and *empty but
+   * present* is not the same fact as *no instruction*.
+   *
+   * 🚩 **Never price-affecting, and it blocks nothing.** It raises no
+   * `pendingConfirmation`, has no `confirmToken`, and no `submitBlocker` names
+   * it — an order with no note is an ordinary order. The column is
+   * `NVARCHAR(MAX)`, so a long note is not silently truncated and the console
+   * imposes no length rule of its own.
+   *
+   * Refuses only the session's ordinary faults (`SESSION_CLOSED`,
+   * `SESSION_BUSY`) — there is nothing about free text for the door to reject.
+   */
+  setOrderNote(transactionId: string, requestId: string, note: string | null): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/SetOrderNote', { transactionId, requestId, note })
+  },
+
+  /**
    * `POST CallCenterWeb/Submit` → `SubmitResult` (§8.3) — the CLCN document, and
    * the one moment this console is deliberately not optimistic.
    *

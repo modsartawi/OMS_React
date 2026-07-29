@@ -8,6 +8,21 @@ import type { SessionState } from '@/core/models/callcenter'
 import capture09 from '../../../../.issues/assets/136-cc-contract/09-fulfilment-flip.json'
 import { EMPTY_SESSION } from './__fixtures__/payloads'
 import { headerChips } from './header-chips'
+import { blockedChips } from './submit-blockers'
+
+/** Every blocker code CONTRACT.md §7 names — the whole list, so "no blocker owns
+ *  the note chip" is asserted against the contract rather than against one. */
+const EVERY_BLOCKER_CODE = [
+  'NO_LINES',
+  'NO_CUSTOMER',
+  'NO_ADDRESS',
+  'STORE_NOT_CHOSEN',
+  'MISSING_SLOT',
+  'MISSING_SOURCE',
+  'MISSING_SOURCE_REFERENCE',
+  'SOURCE_REFERENCE_REQUIRED',
+  'ALREADY_SUBMITTED',
+]
 
 /**
  * 🚩 The pickup leg of capture [09](.issues/assets/136-cc-contract/09-fulfilment-flip.json)
@@ -69,10 +84,10 @@ describe('headerChips', () => {
       ...EMPTY_SESSION.capabilities,
       submitBlockers: ['MISSING_PAYMENT_TYPE', 'MISSING_SLOT'],
     })
-    // 176: the mode leads the row. 159: the coupon closes it — the only chip an
-    // order need never fill, which is why it sits past the ones that must be.
-    // Neither enumerated chip can be marked by a blocker (the mode has none;
-    // payment carries none by ruling) and neither can the coupon.
+    // 176: the mode leads the row. 159 + 183: the coupon and the note close it —
+    // the two chips an order need never fill, which is why they sit past the ones
+    // that must be. Neither enumerated chip can be marked by a blocker (the mode
+    // has none; payment carries none by ruling) and neither can those two.
     expect(chips.map((c) => c.id)).toEqual([
       'fulfilment',
       'store',
@@ -81,6 +96,7 @@ describe('headerChips', () => {
       'reference',
       'payment',
       'coupon',
+      'note',
     ])
     expect(byId(chips).slot.state).toBe('needsAttention')
     expect(chips.filter((c) => c.state === 'needsAttention')).toHaveLength(1)
@@ -97,7 +113,7 @@ describe('headerChips', () => {
     expect(ids).not.toContain('slot')
     expect(ids[0]).toBe('fulfilment')
     // Nothing else leaves with it: the row is the delivery row minus one chip.
-    expect(ids).toEqual(['fulfilment', 'store', 'source', 'reference', 'payment', 'coupon'])
+    expect(ids).toEqual(['fulfilment', 'store', 'source', 'reference', 'payment', 'coupon', 'note'])
   })
 
   it('🚩 suppresses (derived) under collection even where plantSource still says otherwise', () => {
@@ -128,7 +144,52 @@ describe('headerChips', () => {
       EMPTY_SESSION.capabilities,
     ).map((c) => c.id)
     expect(ids).not.toContain('payment')
-    expect(ids).toEqual(['fulfilment', 'store', 'slot', 'source', 'reference', 'coupon'])
+    expect(ids).toEqual(['fulfilment', 'store', 'slot', 'source', 'reference', 'coupon', 'note'])
+  })
+
+  it('🚩 carries the order note as text, and reads unset when it is null', () => {
+    // 183 — the agent types what the caller told them and it travels with the
+    // order. It is server-supplied text like the reference chip, never a key:
+    // there is no enumeration to word.
+    const noted = byId(
+      headerChips(
+        { ...EMPTY_SESSION.header, orderNote: 'Caller asked for the box, not the strip.' },
+        EMPTY_SESSION.capabilities,
+      ),
+    )
+    expect(noted.note.state).toBe('settled')
+    expect(noted.note.value).toBe('Caller asked for the box, not the strip.')
+    // 🚩 Cleared is UNSET, not settled-and-blank. `setOrderNote(null)` is a real
+    // act (a stale instruction must not travel with the order), so the chip has
+    // to read as empty afterwards rather than as a note nobody can see. The
+    // server clears to `null`; an empty string reaching the client is the same
+    // fact and must not draw a settled chip either.
+    for (const cleared of [null, '', '   ']) {
+      const chips = byId(
+        headerChips({ ...EMPTY_SESSION.header, orderNote: cleared }, EMPTY_SESSION.capabilities),
+      )
+      expect(chips.note.state).toBe('unset')
+      expect(chips.note.value).toBeNull()
+    }
+    // An order that never had one is the same resting state.
+    expect(byId(headerChips(EMPTY_SESSION.header, EMPTY_SESSION.capabilities)).note.state).toBe('unset')
+  })
+
+  it('🚩 the note never contributes a submit blocker', () => {
+    // An order with no note is an ordinary order (183). Nothing in the server's
+    // list names it — and the chip must not invent an attention state of its own
+    // for a field nothing waits on.
+    const chips = byId(
+      headerChips(EMPTY_SESSION.header, {
+        ...EMPTY_SESSION.capabilities,
+        submitBlockers: ['NO_LINES', 'MISSING_SLOT', 'MISSING_SOURCE_REFERENCE'],
+      }),
+    )
+    expect(chips.note.state).toBe('unset')
+    expect(blockedChips(['NO_LINES', 'MISSING_SLOT', 'MISSING_SOURCE_REFERENCE'])).not.toContain('note')
+    // And no blocker the contract names owns it — a chip that could be marked
+    // would be a client-side rule about what an order needs (§2).
+    expect([...blockedChips(EVERY_BLOCKER_CODE)]).not.toContain('note')
   })
 
   it('keeps a blocking chip attention-marked even once it carries a value', () => {

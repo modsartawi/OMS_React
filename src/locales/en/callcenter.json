@@ -216,7 +216,8 @@
       "source": "Change the document source",
       "reference": "Change the source reference",
       "fulfilment": "Change how this order is fulfilled",
-      "payment": "Change how the caller pays"
+      "payment": "Change how the caller pays",
+      "note": "Add or change the order note"
     },
     "fulfilment": "Fulfilment",
     "payment": "Payment",
@@ -227,7 +228,8 @@
       "payOnCollection": "Pay on collection",
       "paidOnline": "Paid online"
     },
-    "coupon": "Coupon"
+    "coupon": "Coupon",
+    "note": "Note"
   },
   "slot": {
     "title": "Choose the delivery slot",
@@ -516,5 +518,16 @@
     "confirm": "Confirm",
     "confirming": "Confirming…",
     "createdHint": "Signed up. Attach them to this order."
+  },
+  "note": {
+    "title": "Order note",
+    "field": "What the caller asked for",
+    "placeholder": "e.g. Caller asked for the box, not the strip.",
+    "hint": "Free text that travels with the order. It changes nothing about the price and an order without one is an ordinary order.",
+    "close": "Close",
+    "save": "Save",
+    "saving": "Saving…",
+    "clear": "Clear the note",
+    "failed": "The note could not be saved. Nothing has changed on this order — try again."
   }
 }

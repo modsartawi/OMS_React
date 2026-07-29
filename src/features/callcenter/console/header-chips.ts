@@ -21,7 +21,7 @@ export type ChipState = 'settled' | 'needsAttention' | 'unset'
 
 export interface HeaderChip {
   /** Stable id — the i18n key suffix and the drive's handle on the chip. */
-  id: 'fulfilment' | 'store' | 'slot' | 'source' | 'reference' | 'payment' | 'coupon'
+  id: 'fulfilment' | 'store' | 'slot' | 'source' | 'reference' | 'payment' | 'coupon' | 'note'
   state: ChipState
   /**
    * Server-supplied text (a store name, a slot label). Null renders the chip's
@@ -103,17 +103,29 @@ export function headerChips(header: SessionHeader, capabilities: SessionCapabili
     // so it is a fact the agent confirms in one spoken question, not an
     // outstanding field. Its WORD follows the mode; its value never does.
     chip('payment', null, { valueKey: payment ?? undefined }),
-    // 🚩 **Last, and the only chip an order need never fill** (159, owner ruling
-    // 2026-07-29 — chip row over receipt row). Every chip to its left is a fact
-    // the order always holds or must hold before it can be placed; a coupon is a
-    // thing the caller may or may not have, so it carries no `submitBlocker` and
-    // its *unset* state is an ordinary resting state rather than an outstanding
-    // field. That is exactly why it sits at the end: a chip that is empty on
-    // most orders would otherwise push the ones that matter along the row.
+    // 🚩 **The two chips an order need never fill close the row** (159, owner
+    // ruling 2026-07-29 — chip row over receipt row; 183 for the second). Every
+    // chip to their left is a fact the order always holds or must hold before it
+    // can be placed; a coupon is a thing the caller may or may not have and a
+    // note is a thing they may or may not have said, so neither carries a
+    // `submitBlocker` and *unset* is an ordinary resting state for both rather
+    // than an outstanding field. That is exactly why they sit at the end: chips
+    // that are empty on most orders would otherwise push the ones that matter
+    // along the row.
     //
-    // Its value is the CODE — server-supplied text — and never the amount. The
-    // chip row has never carried money and this is not the chip to start with.
+    // The coupon's value is the CODE — server-supplied text — and never the
+    // amount. The chip row has never carried money and this is not the chip to
+    // start with.
     chip('coupon', couponChipValue(header)),
+    // 🚩 **Free text, and the loosest field on the header** (183) — what the
+    // caller told the agent, travelling with the order. Server-supplied text
+    // like the reference chip, never a key: there is no enumeration to word.
+    //
+    // 🚩 Blank is UNSET, not settled-and-blank. `setOrderNote(null)` is a real
+    // act — a stale instruction must not travel with the order — so a cleared
+    // note has to READ as cleared. The server clears to `null`; a whitespace-only
+    // note is the same fact arriving by another route and settles nothing.
+    chip('note', header.orderNote?.trim() ? header.orderNote : null),
   ].filter((entry) => {
     // 🚩 **Absent, not disabled** — the posture 175 chose for the item command
     // line and 156 for the fee region, applied to the one chip a pickup order

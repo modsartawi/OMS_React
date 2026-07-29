@@ -852,6 +852,18 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
  * @param opts.slotLapses  the FIRST `SetSlot` naming the offered window answers
  *                       §7's `SLOT_UNAVAILABLE` (173) — the soft gate, which
  *                       warns and never blocks; the next send lands.
+ * @param opts.staysOpen  every Open after the first answers `refusedExisting`
+ *                       naming the order this stub is holding (law 9, §8.1) —
+ *                       which is what a RELOAD really meets: the agent still has
+ *                       an active order, and *Resume* is the path back onto it.
+ *                       Pairs with `statePersists`, which is what that resume
+ *                       then reads.
+ * @param opts.statePersists  `State` answers with the state this stub has been
+ *                       MUTATING rather than with the opening fixture (183) —
+ *                       which is what makes "it survives a refresh and a second
+ *                       tab" a read of the server's own answer rather than of a
+ *                       cache the reload just threw away. Opt-in, so every other
+ *                       scenario's `State` stays the fixture echo it was.
  * @param opts.submit    how `Submit` answers (174): `null` places the order,
  *                       `'refused'` answers fixture 07's SUBMIT_REFUSED every
  *                       time (the field to fix, order untouched), and
@@ -885,6 +897,8 @@ async function open(
     rebind = null,
     lineEdit = null,
     slotLapses = false,
+    staysOpen = false,
+    statePersists = false,
     submit = null,
     submitDelayMs = 0,
     // 🚩 858, as the live server really behaves: a send carrying a confirmToken
@@ -943,7 +957,10 @@ async function open(
       errors.push(m.text()),
   )
 
-  await page.route('**/api/**', async (route) => {
+  // 🚩 Named rather than inline so a SECOND TAB can be handed the same stub
+  // (183): the state a second tab has to read back lives in this closure, and a
+  // new page with no route of its own would reach the real proxy instead.
+  const apiRoutes = async (route) => {
     const url = route.request().url()
     const p = url.split('/api/')[1].split('?')[0]
     calls.push(p)
@@ -962,6 +979,12 @@ async function open(
         return route.fulfill(envelope(null, { status: 500, success: false, message: 'state read failed' }))
       if (stateReads <= stateFailures + stateBusy) return route.fulfill(BUSY)
       if (stateClosed) return route.fulfill(CLOSED)
+      // 🚩 The recovery verb answering what the SERVER holds (183) — the state
+      // this stub has been mutating, not the opening fixture. A refresh throws
+      // the cache away, so anything still on screen afterwards came back over
+      // the wire; a `State` that echoed the fixture could never prove that.
+      if (statePersists && new URL(url).searchParams.get('transactionId') !== PRIOR_ID)
+        return route.fulfill(envelope(speak(served)))
       return route.fulfill(
         envelope(speak(new URL(url).searchParams.get('transactionId') === PRIOR_ID ? PRIOR_STATE : STATE)),
       )
@@ -1209,6 +1232,22 @@ async function open(
       }
       return route.fulfill(envelope(speak(served)))
     }
+    // ---- 183: what the caller told the agent ----
+    if (p === 'CallCenterWeb/SetOrderNote') {
+      const body = route.request().postDataJSON()
+      served = {
+        ...served,
+        version: served.version + 1,
+        // 🚩 `null` CLEARS — the column is what the picker reads, so the stub
+        // stores exactly what the console sent. An `''` arriving here would be
+        // *empty but present*, which is the failure the ticket exists to close,
+        // and it is stored as-is rather than normalised so the drive can SEE it.
+        header: { ...served.header, orderNote: body.note },
+        // Nothing else moves: free text is never price-affecting and no blocker
+        // names it (an order with no note is an ordinary order).
+      }
+      return route.fulfill(envelope(speak(served)))
+    }
     // ---- 174: the last thirty seconds of the call ----
     if (p === 'CallCenterWeb/Submit') {
       if (submit === 'refused') return route.fulfill(SUBMIT_REFUSED)
@@ -1268,6 +1307,23 @@ async function open(
       // the console quietly re-rendered the basket it had just voided.
       if (openState && opens === 1)
         return route.fulfill(envelope({ outcome: 'opened', state: speak(openState), existing: null }))
+      // 🚩 Law 9, as a reload really meets it: the agent still HAS this order, so
+      // opening again is refused with its identity and *Resume* is the way back
+      // onto it. §8.1's four fields, off the state this stub is holding.
+      if (staysOpen && opens > 1)
+        return route.fulfill(
+          envelope({
+            outcome: 'refusedExisting',
+            state: null,
+            existing: {
+              transactionId: served.transactionId,
+              customerName: served.header.customer?.name ?? null,
+              lineCount: served.lines.length,
+              openedAt: served.header.openedAt,
+              plant: served.header.plant,
+            },
+          }),
+        )
       const result = existing || openState ? freshOpenResult() : OPEN_RESULT
       return route.fulfill(envelope({ ...result, state: speak(result.state) }))
     }
@@ -1277,9 +1333,10 @@ async function open(
         envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }),
       )
     return route.fulfill(envelope([]))
-  })
+  }
+  await page.route('**/api/**', apiRoutes)
 
-  return { context, page, errors, calls, wire, searches }
+  return { context, page, errors, calls, wire, searches, apiRoutes }
 }
 
 const count = (calls, re) => calls.filter((c) => re.test(c)).length
@@ -2078,15 +2135,16 @@ async function run() {
       !/MISSING_PAYMENT_TYPE/.test(await text(page, '[data-cc-chips]')),
       (await text(page, '[data-cc-chips]')).replace(/\s+/g, ' '),
     )
-    // The row grew twice since this box was written — 176 put the mode first and
-    // the payment word after the reference, 159 put the coupon last — so the
-    // claim is the ORDER of what the header captures rather than a count.
+    // The row grew three times since this box was written — 176 put the mode
+    // first and the payment word after the reference, 159 put the coupon last and
+    // 183 the note after it — so the claim is the ORDER of what the header
+    // captures rather than a count.
     const chipRow = await page
       .locator('[data-cc-chip]')
       .evaluateAll((els) => els.map((el) => el.getAttribute('data-cc-chip')))
     check(
       'the chip row is what the header captures, in the order it captures it',
-      chipRow.join(',') === 'fulfilment,store,slot,source,reference,payment,coupon',
+      chipRow.join(',') === 'fulfilment,store,slot,source,reference,payment,coupon,note',
       chipRow.join(','),
     )
     check('no console errors', errors.length === 0, errors[0] ?? '')
@@ -3307,6 +3365,98 @@ async function run() {
     await context.close()
   }
 
+  // ---- 38c. the order note: it travels with the order, and clearing is an act ----
+  {
+    // 🚩 `statePersists` is the whole point of this scenario: the note has to be
+    // read back from the SERVER after a refresh throws the cache away, and again
+    // in a second tab that never held one. A stub echoing the opening fixture
+    // would let a purely client-side note pass both.
+    const { context, page, errors, wire, apiRoutes } = await open(browser, {
+      statePersists: true,
+      staysOpen: true,
+    })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    const chipState = (id) => page.locator(`[data-cc-chip="${id}"]`).getAttribute('data-cc-chip-state')
+    const NOTE_TEXT = 'Caller asked for the box, not the strip.'
+    check('an order with no note carries an unset chip and an ordinary submit', (await chipState('note')) === 'unset')
+    // 🚩 It blocks nothing: the receipt never names it, whatever else it names.
+    check(
+      '🚩 and nothing in the receipt is waiting on a note',
+      !(await text(page, '[data-cc-blockers]')).toLowerCase().includes('note'),
+      await text(page, '[data-cc-blockers]'),
+    )
+
+    await page.locator('[data-cc-chip-open="note"]').click()
+    await page.locator('[data-cc-note-form]').waitFor({ timeout: 10_000 })
+    check('a note nobody has written offers nothing to clear', (await page.locator('[data-cc-note-clear]').count()) === 0)
+    await page.locator('[data-cc-note-text]').fill(NOTE_TEXT)
+    await page.locator('[data-cc-note-apply]').click()
+    await page.locator('[data-cc-note-form]').waitFor({ state: 'detached', timeout: 10_000 })
+
+    const noteCalls = wire.filter((w) => w.path === 'CallCenterWeb/SetOrderNote')
+    check(
+      'one SetOrderNote, carrying the text and one requestId',
+      noteCalls.length === 1 && noteCalls[0].body.note === NOTE_TEXT && !!noteCalls[0].body.requestId,
+      JSON.stringify(noteCalls[0]?.body),
+    )
+    check(
+      'the section collapses into a settled chip carrying what was typed',
+      (await chipState('note')) === 'settled' && (await text(page, '[data-cc-chip="note"]')).includes('the box'),
+      (await text(page, '[data-cc-chip="note"]')).replace(/\s+/g, ' '),
+    )
+
+    // ---- it survives a refresh: the cache is gone, so this came off the wire ----
+    // 🚩 The path an agent really takes: the order is still theirs (law 9), so
+    // the reload meets *you have an order open* and *Resume* reads it back with
+    // `GET State` — the console's own recovery verb (§6.1).
+    await page.reload()
+    await page.locator('[data-cc-resume]').click({ timeout: 10_000 })
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    check(
+      '🚩 and it is still there after a reload — read back from the server',
+      (await chipState('note')) === 'settled' && (await text(page, '[data-cc-chip="note"]')).includes('the box'),
+    )
+    // ...and in a second tab, which never held a cache of this order at all.
+    const second = await context.newPage()
+    // The same stub, because it is the same SERVER — a second tab that reached a
+    // different one would prove nothing about what the order holds.
+    await second.route('**/api/**', apiRoutes)
+    await second.goto(`${BASE}/callcenter`)
+    await second.locator('[data-cc-resume]').click({ timeout: 10_000 })
+    await second.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    check(
+      '🚩 and in a second tab, which never held it',
+      (await second.locator('[data-cc-chip="note"]').getAttribute('data-cc-chip-state')) === 'settled',
+      (await text(second, '[data-cc-chip="note"]')).replace(/\s+/g, ' '),
+    )
+    await second.close()
+
+    // ---- clearing it is a real act: gone, not blank-but-present ----
+    await page.locator('[data-cc-chip-open="note"]').click()
+    await page.locator('[data-cc-note-form]').waitFor({ timeout: 10_000 })
+    check('the form re-opens on what the ORDER holds', (await page.locator('[data-cc-note-text]').inputValue()) === NOTE_TEXT)
+    await page.locator('[data-cc-note-clear]').click()
+    await page.locator('[data-cc-note-form]').waitFor({ state: 'detached', timeout: 10_000 })
+    const cleared = wire.filter((w) => w.path === 'CallCenterWeb/SetOrderNote')[1]
+    check(
+      '🚩 clearing sends null — never an empty string, which would travel as a blank instruction',
+      cleared?.body.note === null,
+      JSON.stringify(cleared?.body),
+    )
+    await page.reload()
+    await page.locator('[data-cc-resume]').click({ timeout: 10_000 })
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    check(
+      '🚩 and it is GONE after the reload — unset, not settled-and-blank',
+      (await chipState('note')) === 'unset',
+      (await text(page, '[data-cc-chip="note"]')).replace(/\s+/g, ' '),
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
   // ---- 39. placing the order: the receipt HOLDS until an order number exists ----
   //
   // An order the door is willing to place — lines, a caller, an address, and
@@ -3620,7 +3770,12 @@ async function run() {
     // the gate passed, and `Enter` still adds nothing — because nothing is
     // highlighted. The top row is a relevance guess off a non-sargable LIKE, and
     // a one-key add of a guess puts a line on a live order (153 ruling 2).
-    check('nothing is highlighted when the rows land', (await page.locator('[data-cc-search-aimed]').count()) === 0)
+    check('nothing is highlighted when the rows land', (await page.locator('[data-cc-search-highlighted]').count()) === 0)
+    check(
+      'and the box points at no row — the aim is absent in ARIA too, not just unpainted',
+      (await page.locator('[data-cc-search-input]').getAttribute('aria-activedescendant')) === null,
+      await page.locator('[data-cc-search-input]').getAttribute('aria-activedescendant'),
+    )
     await page.keyboard.press('Enter')
     check('🚩 Enter with nothing highlighted adds NOTHING at all', count(calls, /^CallCenterWeb\/AddItem$/) === 0)
     check('and no line reached the basket', await page.locator('[data-cc-basket-empty]').isVisible())
@@ -3632,14 +3787,40 @@ async function run() {
 
     // ---- the first press arms it, on the FIRST row ----
     await page.keyboard.press('ArrowDown')
-    await page.locator('[data-cc-search-aimed]').waitFor({ timeout: 5_000 })
+    await page.locator('[data-cc-search-highlighted]').waitFor({ timeout: 5_000 })
     check(
       '↓ highlights the first row',
-      (await page.locator('[data-cc-search-aimed]').getAttribute('data-cc-search-aimed')) ===
+      (await page.locator('[data-cc-search-highlighted]').getAttribute('data-cc-search-highlighted')) ===
         CATALOGUE[0].materialNumber,
-      await page.locator('[data-cc-search-aimed]').getAttribute('data-cc-search-aimed'),
+      await page.locator('[data-cc-search-highlighted]').getAttribute('data-cc-search-highlighted'),
     )
-    check('exactly one row is aimed at, never two', (await page.locator('[data-cc-search-aimed]').count()) === 1)
+    check('exactly one row is aimed at, never two', (await page.locator('[data-cc-search-highlighted]').count()) === 1)
+    // 🚩 153's build note: the highlight is `aria-activedescendant` over the
+    // rows, NEVER a focus move — so an agent on a screen reader is told which
+    // row `Enter` would add, while the caret stays where they are typing. A
+    // highlight that were colour alone would be no aim at all for them.
+    check(
+      'the aim is ANNOUNCED, not just tinted — aria-activedescendant names the row',
+      (await page.locator('[data-cc-search-input]').getAttribute('aria-activedescendant')) ===
+        `cc-search-option-${CATALOGUE[0].materialNumber}`,
+      await page.locator('[data-cc-search-input]').getAttribute('aria-activedescendant'),
+    )
+    check(
+      'and the row it names really is the highlighted option, marked selected',
+      await page
+        .locator(`#cc-search-option-${CATALOGUE[0].materialNumber}`)
+        .evaluate((el) => el.getAttribute('role') === 'option' && el.getAttribute('aria-selected') === 'true'),
+    )
+    check(
+      'the box drives the list it points into',
+      (await page.locator('[data-cc-search-input]').getAttribute('role')) === 'combobox' &&
+        (await page.locator('[data-cc-search-input]').getAttribute('aria-controls')) === 'cc-search-results' &&
+        (await page.locator('#cc-search-results').getAttribute('role')) === 'listbox',
+    )
+    check(
+      'exactly one option is selected, and only while it is aimed at',
+      (await page.locator('#cc-search-results [aria-selected="true"]').count()) === 1,
+    )
     // The arrow belongs to the list, not to the text: an unhandled ArrowDown
     // jumps the caret to the end of the term, and the next character lands in
     // the wrong place mid-call.
@@ -3668,7 +3849,7 @@ async function run() {
     check('no confirmation stood between the key and the line', (await page.locator('[data-cc-confirm-sheet]').count()) === 0)
     // The landed add closes the question and hands the box back (168) — so the
     // highlight it was aimed with must go with it.
-    check('the answered question closed, highlight and all', (await page.locator('[data-cc-search-aimed]').count()) === 0)
+    check('the answered question closed, highlight and all', (await page.locator('[data-cc-search-highlighted]').count()) === 0)
     check('and the box is empty and focused for the next item', (await page.locator('[data-cc-search-input]').inputValue()) === '')
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
@@ -3684,12 +3865,12 @@ async function run() {
     await page.locator('[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
     await page.keyboard.press('ArrowDown')
     await page.keyboard.press('ArrowDown')
-    await page.locator('[data-cc-search-aimed]').waitFor({ timeout: 5_000 })
+    await page.locator('[data-cc-search-highlighted]').waitFor({ timeout: 5_000 })
     check(
       '↓↓ walks to the second row',
-      (await page.locator('[data-cc-search-aimed]').getAttribute('data-cc-search-aimed')) ===
+      (await page.locator('[data-cc-search-highlighted]').getAttribute('data-cc-search-highlighted')) ===
         CATALOGUE[1].materialNumber,
-      await page.locator('[data-cc-search-aimed]').getAttribute('data-cc-search-aimed'),
+      await page.locator('[data-cc-search-highlighted]').getAttribute('data-cc-search-highlighted'),
     )
 
     // 🚩 A new question, and the aim from the old one must not survive it: the
@@ -3711,7 +3892,7 @@ async function run() {
       (await page.locator('[data-cc-search-row]').first().getAttribute('data-cc-search-row')) ===
         CATALOGUE[2].materialNumber,
     )
-    check('a new term drops the highlight', (await page.locator('[data-cc-search-aimed]').count()) === 0)
+    check('a new term drops the highlight', (await page.locator('[data-cc-search-highlighted]').count()) === 0)
     await page.keyboard.press('Enter')
     check('so Enter on the new rows adds nothing either', count(calls, /^CallCenterWeb\/AddItem$/) === 0)
 
@@ -3742,7 +3923,7 @@ async function run() {
     await page.locator('[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
     check('the gate is shut — no row carries an Add', (await page.locator('[data-cc-search-add]').count()) === 0)
     await page.keyboard.press('ArrowDown')
-    check('🚩 ↓ highlights nothing while the door is shut', (await page.locator('[data-cc-search-aimed]').count()) === 0)
+    check('🚩 ↓ highlights nothing while the door is shut', (await page.locator('[data-cc-search-highlighted]').count()) === 0)
     await page.keyboard.press('Enter')
     check('and Enter adds nothing', count(calls, /^CallCenterWeb\/AddItem$/) === 0)
     check('the basket is untouched', await page.locator('[data-cc-basket-empty]').isVisible())

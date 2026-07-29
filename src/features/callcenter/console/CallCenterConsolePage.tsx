@@ -110,6 +110,7 @@ import ConsoleCard from './ConsoleCard'
 import ConsoleShell, { type SwallowedCommit } from './ConsoleShell'
 import ExistingOrderScreen from './ExistingOrderScreen'
 import FulfilmentPicker from './FulfilmentPicker'
+import NoteForm from './NoteForm'
 import { currentMode, currentPaymentType, isPickup } from './fulfilment-view'
 import PaymentPicker from './PaymentPicker'
 import SlotPicker from './SlotPicker'
@@ -272,6 +273,10 @@ function ConsoleSession() {
   /** The source + reference form, open or not (173). One flag for two chips:
    *  they collapse two fields of one act. */
   const [editingSource, setEditingSource] = useState(false)
+
+  /** The order note, open or not (183) — the note chip re-opening its own
+   *  section. One free-text field, on one verb, like every other chip. */
+  const [editingNote, setEditingNote] = useState(false)
 
   /**
    * The plant rebind in flight (167), as three facts that belong to the ACTION
@@ -730,6 +735,39 @@ function ConsoleSession() {
         applyState(current, fresh),
       )
       setEditingSource(false)
+    },
+    retry: false,
+  })
+
+  /**
+   * What the caller told the agent (183, v1.3) — `setOrderNote`, the loosest
+   * field on the header and the plainest verb on the page.
+   *
+   * 🚩 **`null` is a real act, not an empty save.** Clearing is what stops a
+   * stale instruction travelling to the store with an order the caller has since
+   * changed their mind about, so the console sends `null` rather than `''`:
+   * *empty but present* is not the same fact as *no instruction*, and the
+   * difference is what the picker reads.
+   *
+   * 🚩 **It blocks nothing.** No `submitBlocker` names it and it is never
+   * price-affecting — an order with no note is an ordinary order — so there is no
+   * capability to test on the way in and nothing here touches submit.
+   */
+  const orderNote = useMutation({
+    // No `again`: the form draws this call's own failure (164's ruling).
+    mutationFn: (note: string | null) => {
+      // 🚩 Minted ONCE, outside the thunk — a fresh id inside it would make each
+      // busy retry a genuinely new action to the server's ledger (law 3 / §4).
+      const requestId = newRequestId()
+      return runGuarded(() => callCenterApi.setOrderNote(transactionId!, requestId, note))
+    },
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+      // The section has answered, so the chip it collapsed into is the surface
+      // again (135's progressive disclosure).
+      setEditingNote(false)
     },
     retry: false,
   })
@@ -1748,6 +1786,9 @@ function ConsoleSession() {
         // order has no header left to capture.
         onChangeSlot={session.data.status === 'open' ? () => setPickingSlot(true) : undefined}
         onChangeSource={session.data.status === 'open' ? () => setEditingSource(true) : undefined}
+        // Same rule again (183): there is no capability of its own for the note
+        // (§2 lists none), and a submitted order has no header left to capture.
+        onChangeNote={session.data.status === 'open' ? () => setEditingNote(true) : undefined}
         // 🚩 The two axis chips (182). Only the OPEN rule is applied here —
         // `canChangeFulfilment` / `canChangePaymentType` are read inside the
         // shell, through `capabilityGate`, because the shell is also what prints
@@ -1883,6 +1924,21 @@ function ConsoleSession() {
         onClose={() => {
           setEditingSource(false)
           documentSource.reset()
+        }}
+      />
+      {/* What the caller told the agent (183) — free text, and the one field on
+          this header whose CLEARING is as much an act as its setting. */}
+      <NoteForm
+        open={editingNote}
+        current={session.data.header.orderNote}
+        apply={{
+          busy: orderNote.isPending,
+          error: orderNote.isError ? apiErrorMessage(orderNote.error, t('note.failed')) : null,
+          onApply: (note) => orderNote.mutate(note),
+        }}
+        onClose={() => {
+          setEditingNote(false)
+          orderNote.reset()
         }}
       />
       {/* The deliberate override (US14) — the same rebind, asked for outright. */}

@@ -107,6 +107,8 @@ import {
   requestOffer,
   requestRows,
   skippedReport,
+  submitRefusal,
+  unlinkCost,
   type LinkReport,
   type SkippedRow,
 } from './linked-request'
@@ -140,6 +142,7 @@ import SourceForm from './SourceForm'
 import type { PreviewReissue } from './ConfirmSheet'
 import StoreMoveConfirm from './StoreMoveConfirm'
 import StorePicker from './StorePicker'
+import UnlinkConfirm from './UnlinkConfirm'
 
 /**
  * The refusals this page answers ITSELF — with a fresh preview, or with the
@@ -577,6 +580,9 @@ function ConsoleSession() {
       // about somebody else's basket.
       setPickingRequest(false)
       setRequestReport(null)
+      // …and a confirmation asking whether to take back a link on an order that
+      // is gone, which is the same dead end the abandon dialog is cleared for.
+      setUnlinking(null)
       // And the header sections of a basket that no longer exists.
       setPickingSlot(false)
       setSlotLapsed(false)
@@ -708,6 +714,11 @@ function ConsoleSession() {
       // complete A's request against B's order.
       setPickingRequest(false)
       setRequestReport(null)
+      // …and the sheet asking whether to take back a link the server has just
+      // cleared: 195's obligation on this arm is an ABSENCE, and a confirmation
+      // still naming the previous caller's request would be the console
+      // contradicting the projection it has just been handed.
+      setUnlinking(null)
       // 🚩 And the enrolment closes with it (190). Attaching is what the created
       // member was FOR, so a panel still holding them afterwards would offer a
       // second attach of somebody already on the order; and the caller being
@@ -993,19 +1004,17 @@ function ConsoleSession() {
    * rail volunteer one.
    *
    * 🚩 **Fired off the attached caller, and keyed by them.** The door scopes the
-   * list to whoever is on the session row (880 §3) — the console sends no customer
-   * id at all — so the cache key has to move with the caller or a swap would show
-   * the previous one's requests. `enabled` is what makes the read impossible before
-   * an attach, where it would refuse `NO_CUSTOMER_ATTACHED`.
+   * list to whoever is on the session row (880 §3) — the console sends the
+   * TRANSACTION id and no customer id at all — so the cache key has to move with
+   * the caller or a swap would show the previous one's requests. `enabled` is what
+   * makes the read impossible before an attach, where it would refuse
+   * `NO_CUSTOMER_ATTACHED`.
    *
    * A pure read: no `runGuarded`, no `requestId`, nothing to collide with.
-   *
-   * ⚠ Unbuilt server-side (880). Against today's server this 404s and the rail
-   * simply says nothing, which is the same silence a caller with no requests gets.
    */
   const requests = useQuery({
     queryKey: customerRequestsKey(session.data?.header.customer?.customerId ?? ''),
-    queryFn: () => callCenterApi.customerRequests(),
+    queryFn: () => callCenterApi.customerRequests(transactionId!),
     enabled: session.data?.header.customer != null && session.data?.status === 'open',
     // 🚩 Read ONCE per caller, deliberately. The list is the pharmacist's and it
     // can change under the call — but a re-read is not the console's answer to
@@ -1066,6 +1075,65 @@ function ConsoleSession() {
     },
     retry: false,
   })
+
+  /**
+   * The undo in flight, if any (195) — its own `requestId`, minted when the
+   * confirmation opens, exactly as the abandon's is. One confirmation is one
+   * action: a *Try again* inside the sheet re-sends the same id, and a second
+   * unlink later in the console's life is a second action with a second id.
+   *
+   * 🚩 It is the CONFIRMATION's state and not the verb's, because the whole point
+   * of this slice is that the verb is never reached without it: unlink removes the
+   * copied lines, and an agent who read it as *stop referencing this request*
+   * would lose a basket they meant to keep.
+   */
+  const [unlinking, setUnlinking] = useState<{ requestId: string } | null>(null)
+
+  /**
+   * Taking the link back (195) — **a full undo, not a stamp being cleared**.
+   *
+   * 🚩 The console removes nothing itself. The door clears both columns, removes
+   * the copied lines, resets `plantSource` and returns the two axes to the session
+   * defaults, all in the one `SessionState` it answers with (880 §5) — so the
+   * empty basket, the re-shut store gate and the re-opened link offer are the
+   * projection arriving through `applyState`, not a client rewind of a copy this
+   * console never made.
+   *
+   * 🚩 **The caller is untouched**, which is the sheet's third fact and is true
+   * here by omission: nothing on this path names the customer.
+   */
+  const unlink = useMutation({
+    // No `again`: the sheet is this call's own failure surface, and a strip
+    // offering a second retry behind a modal is one retry too many (164's ruling).
+    mutationFn: (action: { requestId: string }) =>
+      // The id is the CONFIRMATION's, re-sent verbatim by a retry inside the sheet
+      // — a fresh id per busy retry would make each retry a genuinely new undo to
+      // the server's ledger (law 3 / §4).
+      runGuarded(() => callCenterApi.unlinkRequest(transactionId!, action.requestId)),
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+      setUnlinking(null)
+      // 🚩 The report is news about a copy that no longer exists. Its rows claim
+      // *this line did not land*, over a basket the undo has just emptied — every
+      // line is off the order now, and a banner still singling out two of them
+      // would be describing an act the agent has taken back.
+      setRequestReport(null)
+    },
+    retry: false,
+  })
+
+  /** One press, one confirmation, one action — and the id is minted HERE rather
+   *  than at the send, so the sheet's own *Try again* re-sends the same one. Both
+   *  ways in (the card, and the submit refusal's escape) come through this: they
+   *  are the same act with the same cost. */
+  const beginUnlink = () => setUnlinking({ requestId: newRequestId() })
+
+  const cancelUnlink = () => {
+    setUnlinking(null)
+    unlink.reset()
+  }
 
   /**
    * Placing the order (174) — the one moment this console is deliberately **not**
@@ -2147,6 +2215,11 @@ function ConsoleSession() {
           offer: requestOffer(session.data, requests.data),
           card: linkedCard(session.data),
           onView: () => setPickingRequest(true),
+          // 🚩 195 — the press opens the CONFIRMATION, never the verb. Offered
+          // only while the order is open, the same rule the corrections and the
+          // abandon follow: a submitted order's link is history, and a control
+          // the door would refuse is worse than no control.
+          onUnlink: session.data.status === 'open' ? beginUnlink : undefined,
         }}
         // The lines the copy did not take, and the one act they offer.
         requestReport={{
@@ -2177,6 +2250,12 @@ function ConsoleSession() {
           placing: submit.isPending,
           outcome: placed,
           failure: submitFailure,
+          // 🚩 195 — the request was converted or cancelled behind the agent's
+          // back. Read off the refusal's CODE and the order's own link, and only
+          // while a refusal is actually standing: `submitFailure` is already
+          // version-gated, so the escape disappears the moment the unlink lands.
+          requestGone: submitFailure ? submitRefusal(apiErrorCode(submit.error), session.data) : null,
+          onUnlink: beginUnlink,
         }}
       />
       {/* Mounted on the same condition. A caller removed in another tab shuts
@@ -2369,6 +2448,21 @@ function ConsoleSession() {
           setPickingRequest(false)
           linkRequest.reset()
         }}
+      />
+      {/* 🚩 Taking the link back (195) — the console's one confirmation surface
+          again, with a body of its own. It asks because unlink EMPTIES THE
+          BASKET: an agent who reads it as *stop referencing this request* would
+          lose a basket they meant to keep. The cost is read off the state at the
+          moment it is drawn rather than remembered from the copy, so a link whose
+          lines were partly skipped offers to remove what actually landed — and a
+          link that has gone from under the sheet (the caller removed in another
+          tab) closes it rather than asking about nothing. */}
+      <UnlinkConfirm
+        cost={unlinking ? unlinkCost(session.data) : null}
+        busy={unlink.isPending}
+        error={unlink.isError ? apiErrorMessage(unlink.error, t('request.unlink.failed')) : null}
+        onConfirm={() => unlinking && unlink.mutate(unlinking)}
+        onCancel={cancelUnlink}
       />
       {/* The deliberate override (US14) — the same rebind, asked for outright. */}
       <StorePicker

@@ -453,6 +453,7 @@
     "refusedTitle": "The order was not placed",
     "fixSection": "Fix the {{section}} on this order, then place it again.",
     "stillOpen": "The order is still open — nothing has been lost.",
+    "requestGone": "Request {{documentNo}} has already been completed or cancelled by somebody else, so this order can't convert it. Unlink it and place the order — the order itself is fine.",
     "unavailableTitle": "The order has not been placed yet",
     "tryAgain": "Try again",
     "failed": "The order could not be placed. The order is still open — try again."
@@ -635,6 +636,19 @@
     "link": "Link this request",
     "linkFailed": "That request could not be linked. Nothing has changed on this order — try again.",
     "openDocument": "Open this request in the OMS (new tab)",
+    "unlink": {
+      "action": "Unlink this request",
+      "title": "Unlink request {{documentNo}}?",
+      "lines_one": "The 1 item on this order will be taken off it.",
+      "lines_other": "All {{count}} items on this order will be taken off it.",
+      "linesNone": "There is nothing on the basket to lose — none of the request's items landed.",
+      "storeReopens": "Store {{store}} stops being this order's choice, so items can't be added until a store is chosen again.",
+      "callerStays": "The caller stays on this order.",
+      "keep": "Keep the request",
+      "confirm": "Unlink it",
+      "working": "Unlinking…",
+      "failed": "The request could not be unlinked. Nothing has changed on this order — try again."
+    },
     "raisedAt": "Raised at store {{store}}",
     "qty": "{{qty}} {{uom}}",
     "noteFrom": "Pharmacist's note: {{note}}",

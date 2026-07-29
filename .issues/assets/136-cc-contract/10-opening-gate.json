@@ -3,9 +3,9 @@
     "ticket": "857",
     "map": "126",
     "scenario": "The opening gate: an addItem refused for each half independently, the delivery exit (setAddress), the pickup one-click store confirm, and removeCustomer keeping the basket",
-    "contractVersion": "1.10",
+    "contractVersion": "1.11",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
-    "capturedAt": "2026-07-29",
+    "capturedAt": "2026-07-30",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
     "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
@@ -17,8 +17,8 @@
         "itemNumber": "200021",
         "qty": 1,
         "uom": null,
-        "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-        "requestId": "06FTV3T68VCJ26J9TSD56GJT01",
+        "transactionId": "06FTZPKHDW62X3SMJMYM24XY64",
+        "requestId": "06FTZPKHMBK7W1YAVSTY51T4D1",
         "confirmToken": null
       }
     },
@@ -45,8 +45,8 @@
       "path": "CallCenterWeb/AttachCustomer",
       "body": {
         "customerId": "C-REDACTED",
-        "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-        "requestId": "06FTV3V4HESGPFDNV0AACD1YY0",
+        "transactionId": "06FTZPKHDW62X3SMJMYM24XY64",
+        "requestId": "06FTZPKJ029NRSKZ3CA7AAR637",
         "confirmToken": null
       }
     },
@@ -54,10 +54,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPKHDW62X3SMJMYM24XY64",
           "version": 12,
-          "etag": "06FTV3SSZBGH0FSS80MM2EN0M3-12",
+          "etag": "06FTZPKHDW62X3SMJMYM24XY64-12",
           "status": "open",
           "replayed": false,
           "header": {
@@ -67,10 +67,10 @@
             "plantSource": "seededAtOpen",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-tc7d6dd66",
+            "register": "WEB-t58247a24",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:07:52.946506",
+            "openedAt": "2026-07-30T00:49:16.5403808",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -86,7 +86,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [],
           "totals": {
@@ -110,6 +111,7 @@
             "canPriceCheck": false,
             "canApplyCoupon": false,
             "canRemoveCoupon": false,
+            "canLinkRequest": true,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
@@ -143,8 +145,8 @@
         "itemNumber": "200021",
         "qty": 1,
         "uom": null,
-        "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-        "requestId": "06FTV3VHJPMKF4SDVNE7W9PFX5",
+        "transactionId": "06FTZPKHDW62X3SMJMYM24XY64",
+        "requestId": "06FTZPKJ8G073R2N8JM9FDAY37",
         "confirmToken": null
       }
     },
@@ -171,8 +173,8 @@
       "path": "CallCenterWeb/SetAddress",
       "body": {
         "addressNumber": "1000000284",
-        "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-        "requestId": "06FTV3VNHCSZBGYJEMYJV30BP2",
+        "transactionId": "06FTZPKHDW62X3SMJMYM24XY64",
+        "requestId": "06FTZPKJBESJ7R4VWV65JW6ZN5",
         "confirmToken": null
       }
     },
@@ -180,10 +182,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPKHDW62X3SMJMYM24XY64",
           "version": 16,
-          "etag": "06FTV3SSZBGH0FSS80MM2EN0M3-16",
+          "etag": "06FTZPKHDW62X3SMJMYM24XY64-16",
           "status": "open",
           "replayed": false,
           "header": {
@@ -193,10 +195,10 @@
             "plantSource": "derivedFromAddress",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-tc7d6dd66",
+            "register": "WEB-t58247a24",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:07:52.946506",
+            "openedAt": "2026-07-30T00:49:16.5403808",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -220,7 +222,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [],
           "totals": {
@@ -261,6 +264,7 @@
             "canPriceCheck": true,
             "canApplyCoupon": true,
             "canRemoveCoupon": false,
+            "canLinkRequest": true,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
@@ -288,8 +292,8 @@
       "path": "CallCenterWeb/SetStore",
       "body": {
         "storeCode": "1001",
-        "transactionId": "06FTV3X8BH8NXQ8XVC3W03W9T2",
-        "requestId": "06FTV3Y0XEVJ7DJKC675FXE4F2",
+        "transactionId": "06FTZPKKS5QSE7PSTAYM28GN57",
+        "requestId": "06FTZPKMFV0J8327JNKBEAJX85",
         "confirmToken": null
       }
     },
@@ -297,10 +301,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV3X8BH8NXQ8XVC3W03W9T2",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPKKS5QSE7PSTAYM28GN57",
           "version": 15,
-          "etag": "06FTV3X8BH8NXQ8XVC3W03W9T2-15",
+          "etag": "06FTZPKKS5QSE7PSTAYM28GN57-15",
           "status": "open",
           "replayed": false,
           "header": {
@@ -310,10 +314,10 @@
             "plantSource": "chosenForPickup",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t9a4a28a4",
+            "register": "WEB-t8e29d165",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:08:21.4165659",
+            "openedAt": "2026-07-30T00:49:17.1390037",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -329,7 +333,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [],
           "totals": {
@@ -353,6 +358,7 @@
             "canPriceCheck": true,
             "canApplyCoupon": true,
             "canRemoveCoupon": false,
+            "canLinkRequest": true,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": false,
@@ -378,8 +384,8 @@
       "method": "POST",
       "path": "CallCenterWeb/RemoveCustomer",
       "body": {
-        "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-        "requestId": "06FTV3Y7RYV6MMEJFK469GP7B0",
+        "transactionId": "06FTZPKHDW62X3SMJMYM24XY64",
+        "requestId": "06FTZPKMYDJDWVWT2HS6H9DRG6",
         "confirmToken": null
       }
     },
@@ -387,10 +393,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPKHDW62X3SMJMYM24XY64",
           "version": 23,
-          "etag": "06FTV3SSZBGH0FSS80MM2EN0M3-23",
+          "etag": "06FTZPKHDW62X3SMJMYM24XY64-23",
           "status": "open",
           "replayed": false,
           "header": {
@@ -400,10 +406,10 @@
             "plantSource": "derivedFromAddress",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-tc7d6dd66",
+            "register": "WEB-t58247a24",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:07:52.946506",
+            "openedAt": "2026-07-30T00:49:16.5403808",
             "customer": null,
             "address": null,
             "retainedAddressLabel": null,
@@ -414,7 +420,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [
             {
@@ -478,6 +485,7 @@
             "canPriceCheck": false,
             "canApplyCoupon": false,
             "canRemoveCoupon": false,
+            "canLinkRequest": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": false,
@@ -485,7 +493,8 @@
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
             "capabilityReasons": {
-              "canApplyCoupon": "NO_CUSTOMER"
+              "canApplyCoupon": "NO_CUSTOMER",
+              "canLinkRequest": "NO_CUSTOMER"
             },
             "submitBlockers": [
               "NO_CUSTOMER",

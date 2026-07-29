@@ -3,9 +3,9 @@
     "ticket": "857",
     "map": "126",
     "scenario": "v1.10 — a coupon applied, seen, refused as a duplicate, and taken back off; and a coupon SKU refused as an item",
-    "contractVersion": "1.10",
+    "contractVersion": "1.11",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
-    "capturedAt": "2026-07-29",
+    "capturedAt": "2026-07-30",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
     "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
@@ -15,8 +15,8 @@
       "path": "CallCenterWeb/ApplyCoupon",
       "body": {
         "couponCode": "HD20AA1335717",
-        "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
-        "requestId": "06FTV40R3QXB5BXRN45MGMS8G4",
+        "transactionId": "06FTZPKVZ30T2KPFCHTV11F171",
+        "requestId": "06FTZPKXSQ5YPF3CCD0TV1XZZ4",
         "confirmToken": null
       }
     },
@@ -24,10 +24,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPKVZ30T2KPFCHTV11F171",
           "version": 26,
-          "etag": "06FTV40CNB3Q1N0WRYB8D5FZH4-26",
+          "etag": "06FTZPKVZ30T2KPFCHTV11F171-26",
           "status": "open",
           "replayed": false,
           "header": {
@@ -37,10 +37,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t19cf59b8",
+            "register": "WEB-t403e0a4f",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:08:46.8135671",
+            "openedAt": "2026-07-30T00:49:19.2351745",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -62,7 +62,8 @@
                 "description": "Coupon",
                 "amount": -2.58
               }
-            ]
+            ],
+            "linkedRequest": null
           },
           "lines": [
             {
@@ -171,13 +172,16 @@
             "canPriceCheck": true,
             "canApplyCoupon": true,
             "canRemoveCoupon": true,
+            "canLinkRequest": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
-            "capabilityReasons": {},
+            "capabilityReasons": {
+              "canLinkRequest": "LINES_EXIST"
+            },
             "submitBlockers": [
               "NO_ADDRESS",
               "MISSING_SLOT"
@@ -197,8 +201,8 @@
       "path": "CallCenterWeb/ApplyCoupon",
       "body": {
         "couponCode": "HD20AA1335717",
-        "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
-        "requestId": "06FTV40Y010P9RF81AB5R2QPE3",
+        "transactionId": "06FTZPKVZ30T2KPFCHTV11F171",
+        "requestId": "06FTZPKZ74NFPW30M9GYY33DW2",
         "confirmToken": null
       }
     },
@@ -225,8 +229,8 @@
       "path": "CallCenterWeb/RemoveCoupon",
       "body": {
         "couponCode": "HD20AA1335717",
-        "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
-        "requestId": "06FTV40YVRFWMXG84B0TFMQHF3",
+        "transactionId": "06FTZPKVZ30T2KPFCHTV11F171",
+        "requestId": "06FTZPKZFQ8B1V30NR0M8HXJN6",
         "confirmToken": null
       }
     },
@@ -234,10 +238,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPKVZ30T2KPFCHTV11F171",
           "version": 33,
-          "etag": "06FTV40CNB3Q1N0WRYB8D5FZH4-33",
+          "etag": "06FTZPKVZ30T2KPFCHTV11F171-33",
           "status": "open",
           "replayed": false,
           "header": {
@@ -247,10 +251,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t19cf59b8",
+            "register": "WEB-t403e0a4f",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:08:46.8135671",
+            "openedAt": "2026-07-30T00:49:19.2351745",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -266,7 +270,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [
             {
@@ -363,13 +368,16 @@
             "canPriceCheck": true,
             "canApplyCoupon": true,
             "canRemoveCoupon": false,
+            "canLinkRequest": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
-            "capabilityReasons": {},
+            "capabilityReasons": {
+              "canLinkRequest": "LINES_EXIST"
+            },
             "submitBlockers": [
               "NO_ADDRESS",
               "MISSING_SLOT"
@@ -391,8 +399,8 @@
         "itemNumber": "COUPT173",
         "qty": 1,
         "uom": null,
-        "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
-        "requestId": "06FTV411C2ZNZ3J1K8QXQ0JMY7",
+        "transactionId": "06FTZPKVZ30T2KPFCHTV11F171",
+        "requestId": "06FTZPM0GHHCQGGDX49EBQNVY1",
         "confirmToken": null
       }
     },

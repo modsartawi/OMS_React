@@ -1,8 +1,11 @@
 /**
  * The caller's open sales request, derived once — **whether to volunteer one**,
  * **what the picker shows before it copies anything**, **what the linked order
- * says about itself**, and **which lines did not make it** (ticket 194, contract
- * v1.11, BackOffice [880](C:\Work\DMSCO\BackOffice\.issues\880-cc-linked-sales-request.md)).
+ * says about itself**, **which lines did not make it**, and — since
+ * [195](.issues/195-unlinking-and-the-request-that-went-away.md) — **what taking
+ * the link back costs** and **the one refusal that says the request has gone**
+ * (tickets 194/195, contract v1.11, BackOffice
+ * [880](C:\Work\DMSCO\BackOffice\.issues\880-cc-linked-sales-request.md)).
  *
  * A pharmacist standing with a customer raises a sales request (category `'Q'`)
  * when the store cannot sell the item right now, or when the customer has paid
@@ -179,8 +182,9 @@ export function requestRows(requests: CustomerRequest[] | null | undefined): Req
  * the console may not sub-edit somebody else's text — which is why the rule is
  * asserted field by field rather than over the card's whole text.
  *
- * *Unlink* is [195](.issues/195-unlinking-and-the-request-that-went-away.md)'s and
- * is not offered here yet.
+ * *Unlink* hangs off this card (195) and is the card's own control rather than a
+ * field on it: what it costs is `unlinkCost`'s, read off the state at the moment
+ * the agent asks rather than remembered here.
  */
 export interface LinkedCard {
   documentNo: string
@@ -200,6 +204,93 @@ export function linkedCard(state: SessionState): LinkedCard | null {
     note: request.note,
     href: requestHref(request.documentNo),
   }
+}
+
+/**
+ * What taking the link back costs, said before it is taken (ticket 195).
+ *
+ * 🚩 **Unlink is a full undo, not a stamp being cleared.** It removes the copied
+ * lines and re-shuts the store gate, and it is that way by force rather than by
+ * choice: 194's link is refused unless the basket is empty (`LINES_EXIST`), so a
+ * tidy unlink that left six copied lines behind would make the re-link
+ * impossible and an agent who picked the wrong row out of two could never pick
+ * the right one. The invariant *linkable ⇔ empty basket* has to survive an undo.
+ * WPF's `CancelRequestLink` drops the stamp alone, correctly — it copies no
+ * items, so it never had this problem.
+ *
+ * Which is why there is a confirmation at all, and why it states three facts.
+ * The third one is a **field** rather than a sentence the sheet is trusted to
+ * remember: *unlink* and *remove the caller* sit next to each other in the rail,
+ * and an agent who fears losing the caller they have just attached will not
+ * press the one control that fixes a mis-picked request.
+ */
+export interface UnlinkCost {
+  /** The request being taken back. */
+  documentNo: string
+  /**
+   * How many lines the basket holds **right now** — 🚩 off the state, never off
+   * the copy's own report. A link whose lines were partly skipped landed fewer
+   * lines than the request asked for, and a sheet offering to remove six when
+   * four landed would be describing the request rather than the basket.
+   */
+  lines: number
+  /** The store the copy pinned, which the undo re-opens (`plantSource` goes back
+   *  to `seededAtOpen`, 880 §5). */
+  storeCode: string
+  /** 🚩 Always true, and stated: `removeCustomer` clears the link, but unlinking
+   *  does not touch the caller. */
+  keepsCustomer: true
+}
+
+export function unlinkCost(state: SessionState): UnlinkCost | null {
+  const request = state.header.linkedRequest ?? null
+  // A submitted order's link is history — the document carries it now, and there
+  // is no verb left that could take it back.
+  if (!request || state.status !== 'open') return null
+  return {
+    documentNo: request.documentNo,
+    lines: state.lines.length,
+    storeCode: request.storeCode,
+    keepsCustomer: true,
+  }
+}
+
+/**
+ * The request went away under the agent (880 §7) — `REQUEST_ALREADY_CONVERTED`,
+ * and **a sentence rather than a retry**.
+ *
+ * Another agent, or the pharmacist at the till, can convert or cancel the
+ * request between the link and the submit; 055c's one-shot guard then refuses
+ * the order. 🚩 Without this the refusal arrives as the transient
+ * `SUBMIT_UNAVAILABLE` its `catch`-all would otherwise produce, and an agent
+ * retries forever on an order that will never post. Told the request is gone,
+ * they unlink and place an order that is otherwise perfectly good.
+ *
+ * ⚠ **The console must not pre-check.** Re-reading the request before submit
+ * would narrow the window rather than close it, and would invite a reader to
+ * believe it was closed. The refusal is the guard — which is why this family is
+ * read off a refusal and off nothing else.
+ */
+export interface RequestGone {
+  /** The request the submit was refused over, off the projection's own stamp —
+   *  the refusal has to NAME it. */
+  documentNo: string
+  /** The one act that resolves it. A closed set of one, so a surface cannot
+   *  invent a second escape from a refusal that has only this one. */
+  escape: 'unlink'
+}
+
+export function submitRefusal(
+  /** The refusal's machine code (`apiErrorCode`). */
+  code: string | null | undefined,
+  state: SessionState,
+): RequestGone | null {
+  if (code !== 'REQUEST_ALREADY_CONVERTED') return null
+  const request = state.header.linkedRequest ?? null
+  // Nothing to name and nothing to unlink: the server's own sentence stands
+  // alone rather than being decorated with a control that would be refused.
+  if (!request) return null
+  return { documentNo: request.documentNo, escape: 'unlink' }
 }
 
 /** Which of the two outcomes kept a line off the order. */

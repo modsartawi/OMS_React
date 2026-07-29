@@ -1,0 +1,425 @@
+{
+  "_capture": {
+    "ticket": "857",
+    "map": "126",
+    "scenario": "v1.11 — a TMRA sales request listed, linked (store + pickup + online + its lines), refused a second time, and fully unlinked",
+    "contractVersion": "1.11",
+    "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
+    "capturedAt": "2026-07-30",
+    "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
+  },
+  "customerRequests": {
+    "request": {
+      "method": "GET",
+      "path": "CallCenterWeb/CustomerRequests?transactionId=06FTZPK5C63E47M9P4RQM4F9V2",
+      "body": null
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": [
+          {
+            "documentNo": "7000000015",
+            "documentDate": "2026-07-30T00:49:12.4090817",
+            "storeCode": "P974",
+            "reason": "TMRA",
+            "reasonDescription": "Tamara Payment",
+            "note": "Raised by CcContractFixtureTests scenario 15.",
+            "lines": [
+              {
+                "itemNumber": "214145",
+                "description": "CARON EDT 125ML SPRAY",
+                "quantity": 1.000,
+                "uom": null
+              }
+            ]
+          },
+          {
+            "documentNo": "7000000011",
+            "documentDate": "2026-07-30T00:44:47.0799189",
+            "storeCode": "P974",
+            "reason": "TMRA",
+            "reasonDescription": "Tamara Payment",
+            "note": "Raised by CcContractFixtureTests scenario 15.",
+            "lines": [
+              {
+                "itemNumber": "214145",
+                "description": "CARON EDT 125ML SPRAY",
+                "quantity": 1.000,
+                "uom": null
+              }
+            ]
+          },
+          {
+            "documentNo": "7000000010",
+            "documentDate": "2026-07-30T00:43:25.2440799",
+            "storeCode": "P974",
+            "reason": "TMRA",
+            "reasonDescription": "Tamara Payment",
+            "note": "Raised by CcContractFixtureTests scenario 15.",
+            "lines": [
+              {
+                "itemNumber": "214145",
+                "description": "CARON EDT 125ML SPRAY",
+                "quantity": 1.000,
+                "uom": null
+              }
+            ]
+          },
+          {
+            "documentNo": "7000000009",
+            "documentDate": "2026-07-30T00:42:22.9043412",
+            "storeCode": "P974",
+            "reason": "TMRA",
+            "reasonDescription": "Tamara Payment",
+            "note": "Raised by CcContractFixtureTests scenario 15.",
+            "lines": [
+              {
+                "itemNumber": "214145",
+                "description": "CARON EDT 125ML SPRAY",
+                "quantity": 1.000,
+                "uom": null
+              }
+            ]
+          },
+          {
+            "documentNo": "7000000008",
+            "documentDate": "2026-07-30T00:42:01.4856736",
+            "storeCode": "P974",
+            "reason": "TMRA",
+            "reasonDescription": "Tamara Payment",
+            "note": "Raised by CcContractFixtureTests scenario 15.",
+            "lines": [
+              {
+                "itemNumber": "214145",
+                "description": "CARON EDT 125ML SPRAY",
+                "quantity": 1.000,
+                "uom": null
+              }
+            ]
+          }
+        ],
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "linked": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/LinkRequest",
+      "body": {
+        "documentNo": "7000000015",
+        "transactionId": "06FTZPK5C63E47M9P4RQM4F9V2",
+        "requestId": "06FTZPKAKMPHH5ZGJD4WE3NM67",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "state": {
+            "contractVersion": "1.11",
+            "transactionId": "06FTZPK5C63E47M9P4RQM4F9V2",
+            "version": 16,
+            "etag": "06FTZPK5C63E47M9P4RQM4F9V2-16",
+            "status": "open",
+            "replayed": false,
+            "header": {
+              "deliveryType": "PickInStore",
+              "plant": "1001",
+              "plantName": "King AbdelAziz Road",
+              "plantSource": "fromLinkedRequest",
+              "origin": "C000",
+              "documentType": "CallCenterOrder",
+              "register": "WEB-t1e5538d4",
+              "operatorId": "TEST-OP",
+              "entryStore": "1001",
+              "openedAt": "2026-07-30T00:49:13.8612263",
+              "customer": {
+                "customerId": "C-REDACTED",
+                "name": "Redacted Customer",
+                "mobile": "9665REDACTED",
+                "loyaltyAttached": true
+              },
+              "address": null,
+              "retainedAddressLabel": null,
+              "slot": null,
+              "documentSource": null,
+              "sourceReference": "7000000015",
+              "orderNote": null,
+              "paymentType": "Online",
+              "paymentTypeForcedReason": null,
+              "hasBelowAtp": false,
+              "coupons": [],
+              "linkedRequest": {
+                "documentNo": "7000000015",
+                "reason": "TMRA",
+                "reasonDescription": "Tamara Payment",
+                "storeCode": "P974",
+                "note": "Raised by CcContractFixtureTests scenario 15."
+              }
+            },
+            "lines": [
+              {
+                "lineId": "L10",
+                "itemNumber": "214145",
+                "description": "CARON EDT 125ML SPRAY",
+                "description2": "عطر كارون للرجل 125 مل",
+                "qty": 1.000,
+                "uom": "EA",
+                "uomOptions": [],
+                "unitPrice": {
+                  "net": 315,
+                  "gross": 362.25
+                },
+                "lineTotal": {
+                  "net": 315.00,
+                  "gross": 362.25
+                },
+                "conditions": [
+                  {
+                    "type": "VKP0",
+                    "description": "Basic Price",
+                    "value": 315.00,
+                    "isStatistical": false
+                  },
+                  {
+                    "type": "MWST",
+                    "description": "Vat %",
+                    "value": 47.25,
+                    "isStatistical": false
+                  }
+                ],
+                "promotions": [],
+                "atpAtScan": {
+                  "quantity": null,
+                  "frozenAt": null,
+                  "known": false
+                },
+                "belowAtpAtScan": false,
+                "warnings": []
+              }
+            ],
+            "totals": {
+              "net": 315.00,
+              "vat": 47.25,
+              "gross": 362.25,
+              "deliveryFee": {
+                "amount": 0,
+                "waived": false,
+                "waivedReason": null,
+                "thresholdGross": 100,
+                "conditionType": "DFEE"
+              },
+              "payable": 362.25
+            },
+            "firedPromotions": [],
+            "nearMisses": [
+              {
+                "offerId": "",
+                "description": "10% Coupon",
+                "isReady": false,
+                "progress": {
+                  "have": 0,
+                  "need": 1
+                },
+                "prereq": {
+                  "kind": "coupon",
+                  "materialNumber": "COUP01",
+                  "groupingId": null,
+                  "eligibleCount": 1
+                },
+                "skipReason": null
+              }
+            ],
+            "pendingConfirmation": null,
+            "capabilities": {
+              "canAddItem": true,
+              "canPriceCheck": true,
+              "canApplyCoupon": true,
+              "canRemoveCoupon": false,
+              "canLinkRequest": false,
+              "canSubmit": true,
+              "canChangeStore": true,
+              "canOpenAddressBook": false,
+              "canConfirmSeededStore": false,
+              "canChangePaymentType": true,
+              "canChangeFulfilment": true,
+              "capabilityReasons": {
+                "canLinkRequest": "LINES_EXIST"
+              },
+              "submitBlockers": []
+            }
+          },
+          "copied": [
+            {
+              "itemNumber": "214145",
+              "quantity": 1.000
+            }
+          ],
+          "skipped": []
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "secondLinkRefused": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/LinkRequest",
+      "body": {
+        "documentNo": "7000000015",
+        "transactionId": "06FTZPK5C63E47M9P4RQM4F9V2",
+        "requestId": "06FTZPKDYMDPEADHJVHP4Y3RT6",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 409,
+      "body": {
+        "data": null,
+        "statusCode": 409,
+        "success": false,
+        "message": "Link the request before adding items. This order already has lines.",
+        "errors": [
+          {
+            "errorCode": "LINES_EXIST",
+            "internalErrorCode": null,
+            "errorMessage": "Link the request before adding items. This order already has lines."
+          }
+        ]
+      }
+    }
+  },
+  "unlinked": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/UnlinkRequest",
+      "body": {
+        "transactionId": "06FTZPK5C63E47M9P4RQM4F9V2",
+        "requestId": "06FTZPKE1SFHE44NV9SKMK7XX7",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPK5C63E47M9P4RQM4F9V2",
+          "version": 23,
+          "etag": "06FTZPK5C63E47M9P4RQM4F9V2-23",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "P974",
+            "plantName": "King Abdullah Road, Al-Salaam Mall",
+            "plantSource": "seededAtOpen",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-t1e5538d4",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-30T00:49:13.8612263",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": null,
+            "retainedAddressLabel": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": "7000000015",
+            "orderNote": null,
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false,
+            "coupons": [],
+            "linkedRequest": null
+          },
+          "lines": [],
+          "totals": {
+            "net": 0,
+            "vat": 0,
+            "gross": 0,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 12.0
+          },
+          "firedPromotions": [],
+          "nearMisses": [
+            {
+              "offerId": "",
+              "description": "10% Coupon",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "prereq": {
+                "kind": "coupon",
+                "materialNumber": "COUP01",
+                "groupingId": null,
+                "eligibleCount": 1
+              },
+              "skipReason": null
+            }
+          ],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": false,
+            "canPriceCheck": false,
+            "canApplyCoupon": false,
+            "canRemoveCoupon": false,
+            "canLinkRequest": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "capabilityReasons": {
+              "canApplyCoupon": "STORE_NOT_CHOSEN"
+            },
+            "submitBlockers": [
+              "NO_LINES",
+              "STORE_NOT_CHOSEN",
+              "NO_ADDRESS",
+              "MISSING_SLOT"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "_notes": [
+    "SET UP BY: a real category-'Q' request minted through the same AddDocument path the till uses, then open · attachCustomer. The request's store is NOT the agent's, so the link's store copy is a real plant move.",
+    "\uD83D\uDEA9 header.plantSource is `fromLinkedRequest`, the FIFTH value, and it does NOT shut 871's gate: the PHARMACIST who raised the request chose that store and the request document is the evidence. It is its own value and not a re-use of chosenForPickup — collapsing them would lose the distinction 871 was built to keep, a store the AGENT picked versus one a DOCUMENT supplied.",
+    "\uD83D\uDEA9 linkRequest is ONE compound act behind ONE requestId: refuse unless the basket is EMPTY (LINES_EXIST), stamp, copy the store, fork on TMRA to pickup + online, prefill sourceReference only when empty, and copy the lines through addItem's own guardrails. The link STANDS regardless of how many lines landed.",
+    "\uD83D\uDEA9 The read is scoped by LOYALTY ID and refuses NO_CUSTOMER_ATTACHED before it queries. That is a safety property: GetSalesRequestList's filter is `@CustomerId IS NULL OR …`, so an unscoped call lists the whole estate. Not by PHONE, because one number is a household and a relative's request must not be offerable.",
+    "⚠ The reason arrives with its description resolved SERVER-side off the SREQ group (057) — the agent must never read a bare `TMRA`, and the console may not call SdDocument/ReasonsByGroup, which its CallCenterWeb grant does not cover.",
+    "⚠ NO MONEY on customerRequests[] — the request is unpriced, so there is no price to carry and none may be invented.",
+    "\uD83D\uDEA9 unlinkRequest is a FULL undo, forced by §4.1 rather than chosen: the invariant `linkable ⇔ empty basket` has to survive an unlink. WPF's CancelRequestLink drops the stamp alone, correctly — it copies no items, so it never had this problem.",
+    "NOT captured here, and unreachable without a second actor: REQUEST_ALREADY_CONVERTED, the submit's mapping of 055c's one-shot guard for a request converted between the link and the submit. It is pinned as a unit in Data.Tests/CallCenterWeb/CallCenterLinkedRequestTests."
+  ]
+}

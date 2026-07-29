@@ -41,7 +41,7 @@ import CustomerRail, {
 import GuidanceStrip, { type GuidanceActions } from './GuidanceStrip'
 import { guidanceView } from './guidance-view'
 import { headerChips, type HeaderChip } from './header-chips'
-import type { LinkReport, SkippedRow } from './linked-request'
+import type { LinkReport, RequestGone, SkippedRow } from './linked-request'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
 import Money from './Money'
 import type { RebindRefusal } from './store-move'
@@ -64,6 +64,19 @@ export interface SubmitActions {
   /** The order number, once one exists. The only thing that ends the wait. */
   outcome: SubmitOutcome | null
   failure: SubmitFailure | null
+  /**
+   * 🚩 The request went away under the agent (195) — `REQUEST_ALREADY_CONVERTED`,
+   * the one refusal on this verb that is answered by an act rather than by a fix
+   * on the order. It rides beside `failure` rather than inside it because the
+   * fact is not the submit's: it is read off the order's own link
+   * (`submitRefusal`), which is also what makes it disappear the moment the
+   * agent unlinks.
+   */
+  requestGone?: RequestGone | null
+  /** Opens the unlink CONFIRMATION — the same one the rail's card opens, because
+   *  it is the same act with the same cost. Absent ⇒ no escape is drawn and the
+   *  server's own sentence stands alone. */
+  onUnlink?: () => void
 }
 
 /**
@@ -890,7 +903,11 @@ function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions
                 button — never a modal, and never over the basket: on every one
                 of these the order is still Open and exactly as the agent left
                 it, so the call carries on from here. */}
-            <SubmitFailureNote failure={submit.failure} />
+            <SubmitFailureNote
+              failure={submit.failure}
+              requestGone={submit.requestGone ?? null}
+              onUnlink={submit.onUnlink}
+            />
             {blockers.length > 0 && (
               // 🚩 US54 / US22 — *Place order* is never mysteriously dead: while
               // something is missing the reason is NAMED, from the server's own
@@ -1045,8 +1062,21 @@ const TONES = {
  *
  * Either way the last line says the order is still open, because that is the
  * fact that decides whether the agent keeps the caller on the phone.
+ *
+ * 🚩 And one refusal is answered by an ACT rather than by a fix (195): the
+ * request this order converts was converted or cancelled behind the agent's back,
+ * so nothing on the order is wrong and there is nothing to correct — the escape
+ * is *unlink, then submit*, and the refusal names the request it is about.
  */
-function SubmitFailureNote({ failure }: { failure: SubmitFailure | null }) {
+function SubmitFailureNote({
+  failure,
+  requestGone,
+  onUnlink,
+}: {
+  failure: SubmitFailure | null
+  requestGone: RequestGone | null
+  onUnlink?: () => void
+}) {
   const { t } = useTranslation('callcenter')
   if (!failure) return null
   const chip = submitRefusalChip(failure.field)
@@ -1067,12 +1097,39 @@ function SubmitFailureNote({ failure }: { failure: SubmitFailure | null }) {
         {t(failure.kind === 'unavailable' ? 'submit.unavailableTitle' : 'submit.refusedTitle')}
       </div>
       {/* The server's own sentence (§7), passed through as data — it is what
-          names the field, in words the agent can act on. */}
-      <p className={`mt-0.5 text-[11px] ${tone.ink}`}>{failure.message}</p>
+          names the field, in words the agent can act on.
+          🚩 Except under the one refusal the console words itself: §7's
+          `REQUEST_ALREADY_CONVERTED` sentence names the same request the block
+          below does, and printing both would say one thing twice in two voices.
+          The console's is the one that carries the escape, so it is the one that
+          survives — the same posture `COUPON_REVERSAL_REFUSED` takes (189). */}
+      {!requestGone && <p className={`mt-0.5 text-[11px] ${tone.ink}`}>{failure.message}</p>}
       {chip && (
         <p className="mt-0.5 text-[11px] text-muted-foreground" data-cc-submit-fix={chip}>
           {t('submit.fixSection', { section: t(`chips.${chip}`) })}
         </p>
+      )}
+      {/* 🚩 The request is gone, and the order is perfectly good. Named — the
+          agent has to be able to say WHICH request to whoever converted it — and
+          offered the one act that resolves it. The button opens the ordinary
+          unlink confirmation: the escape costs the copied lines like any other
+          unlink, and this is not the place to discover that. */}
+      {requestGone && (
+        <div className="mt-1.5" data-cc-submit-request-gone={requestGone.documentNo}>
+          <p className={`text-[11px] ${tone.ink}`}>
+            {t('submit.requestGone', { documentNo: requestGone.documentNo })}
+          </p>
+          {onUnlink && (
+            <button
+              type="button"
+              onClick={onUnlink}
+              data-cc-submit-unlink
+              className="mt-1 rounded-md border border-danger-border px-2.5 py-1 text-[11px] font-semibold text-danger-800 hover:opacity-80"
+            >
+              {t('request.unlink.action')}
+            </button>
+          )}
+        </div>
       )}
       {/* 🚩 Said out loud on every failure: only the two successes close the
           transaction (§7), so a refusal is a correction and not a lost basket. */}

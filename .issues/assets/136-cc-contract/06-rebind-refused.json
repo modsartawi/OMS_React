@@ -3,9 +3,9 @@
     "ticket": "857",
     "map": "126",
     "scenario": "The atomic REBIND_REFUSED with unpriceableLines[] — a line that no longer prices at the new store",
-    "contractVersion": "1.10",
+    "contractVersion": "1.11",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
-    "capturedAt": "2026-07-29",
+    "capturedAt": "2026-07-30",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
     "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
@@ -15,8 +15,8 @@
       "path": "CallCenterWeb/SetStore",
       "body": {
         "storeCode": "P974",
-        "transactionId": "06FTV455AY50H0YWWTA02G9K81",
-        "requestId": "06FTV45PR9QYX70HSP79825T66",
+        "transactionId": "06FTZPMYX12W274YFXSKV7F312",
+        "requestId": "06FTZPMZY4Y755NWDX05NY46G5",
         "confirmToken": null
       }
     },
@@ -48,17 +48,17 @@
   "stateAfter": {
     "request": {
       "method": "GET",
-      "path": "CallCenterWeb/State?transactionId=06FTV455AY50H0YWWTA02G9K81",
+      "path": "CallCenterWeb/State?transactionId=06FTZPMYX12W274YFXSKV7F312",
       "body": null
     },
     "response": {
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV455AY50H0YWWTA02G9K81",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPMYX12W274YFXSKV7F312",
           "version": 21,
-          "etag": "06FTV455AY50H0YWWTA02G9K81-21",
+          "etag": "06FTZPMYX12W274YFXSKV7F312-21",
           "status": "open",
           "replayed": false,
           "header": {
@@ -68,10 +68,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-tf185d957",
+            "register": "WEB-t413b494d",
             "operatorId": "TEST-OP",
             "entryStore": "1185",
-            "openedAt": "2026-07-29T14:09:26.1085266",
+            "openedAt": "2026-07-30T00:49:28.1804513",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -87,7 +87,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [
             {
@@ -151,13 +152,16 @@
             "canPriceCheck": true,
             "canApplyCoupon": true,
             "canRemoveCoupon": false,
+            "canLinkRequest": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
-            "capabilityReasons": {},
+            "capabilityReasons": {
+              "canLinkRequest": "LINES_EXIST"
+            },
             "submitBlockers": [
               "NO_ADDRESS",
               "MISSING_SLOT",

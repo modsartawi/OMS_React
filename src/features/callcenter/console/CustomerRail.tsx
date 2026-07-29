@@ -90,6 +90,16 @@ export interface RailRequests {
   /** Opens the picker. 🚩 Nothing opens by itself: the agent is mid-greeting and
    *  a picker over the basket takes the call away from them. */
   onView: () => void
+  /**
+   * Asks whether to take the link back (195). 🚩 It opens the CONFIRMATION and
+   * never the verb: unlink removes the copied lines, so a control that acted on
+   * the press would cost an agent a basket they meant to keep.
+   *
+   * Absent means the act is not available — a submitted order has no link left to
+   * take back — and then the card simply carries no control, the same posture the
+   * rail takes for the address book.
+   */
+  onUnlink?: () => void
 }
 
 export default function CustomerRail({
@@ -381,12 +391,15 @@ function AttachedCard({
  * card **replaces** the count rather than sitting under it.
  *
  * 🚩 **No money on the card at all.** The request is unpriced; the basket and the
- * receipt are where this order's money lives. *Unlink* is
- * [195](.issues/195-unlinking-and-the-request-that-went-away.md)'s and is
- * deliberately not offered yet — it is a full undo of the copy, not a stamp being
- * cleared, and it asks first.
+ * receipt are where this order's money lives.
+ *
+ * 🚩 **Unlink is on the card and it asks first** (195). It is a full undo of the
+ * copy rather than a stamp being cleared — the copied lines go and the store
+ * choice re-opens — so the press opens `UnlinkConfirm` and the verb is fired from
+ * there. What it costs is stated in that sheet, including the fact this card's
+ * neighbour makes urgent: the caller stays.
  */
-function RequestBlock({ requests: { offer, card, onView } }: { requests: RailRequests }) {
+function RequestBlock({ requests: { offer, card, onView, onUnlink } }: { requests: RailRequests }) {
   const { t } = useTranslation('callcenter')
 
   if (card)
@@ -429,6 +442,20 @@ function RequestBlock({ requests: { offer, card, onView } }: { requests: RailReq
           <p className="mt-1 text-muted-foreground" data-cc-request-card-note>
             {t('request.noteFrom', { note: card.note })}
           </p>
+        )}
+        {/* 🚩 The way back out, and the only one: the link is not something an
+            agent can correct by linking a second request, because one order
+            converts at most one. Drawn quietly — it is the rarer act of the two
+            the card can lead to — and it asks before it empties anything. */}
+        {onUnlink && (
+          <button
+            type="button"
+            onClick={onUnlink}
+            data-cc-request-unlink
+            className="mt-2 w-full rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+          >
+            {t('request.unlink.action')}
+          </button>
         )}
       </div>
     )

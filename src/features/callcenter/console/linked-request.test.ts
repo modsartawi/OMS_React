@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ApiError } from '@/core/api'
 import type {
   CustomerRequest,
   LinkRequestResult,
@@ -14,7 +15,10 @@ import {
   requestOffer,
   requestRows,
   skippedReport,
+  submitRefusal,
+  unlinkCost,
 } from './linked-request'
+import { readSubmitFailure } from './submit-outcome'
 import { ATTACHED_SESSION, EMPTY_SESSION } from './__fixtures__/payloads'
 
 /**
@@ -149,10 +153,12 @@ describe('linkGate', () => {
   })
 
   it('is shut with no reason rather than open, when the reason is missing', () => {
-    expect(linkGate({ ...EMPTY_SESSION.capabilities, canLinkRequest: false })).toEqual({
-      canLink: false,
-      reason: null,
-    })
+    // The reasons map is emptied deliberately: capture 01 now carries
+    // `canLinkRequest: 'NO_CUSTOMER'` in it (v1.11, re-captured live), and this
+    // case is about the server that shuts the door and says nothing.
+    expect(
+      linkGate({ ...EMPTY_SESSION.capabilities, canLinkRequest: false, capabilityReasons: {} }),
+    ).toEqual({ canLink: false, reason: null })
   })
 
   it('degrades to open on a pre-v1.11 server', () => {
@@ -232,6 +238,101 @@ describe('linkedCard', () => {
       expect(String(value)).not.toMatch(/\d+[.,]\d{2}\b/)
       expect(String(value)).not.toMatch(/SAR/i)
     }
+  })
+})
+
+describe('unlinkCost', () => {
+  /** A linked order that actually holds the copied lines — capture 02's two. */
+  const converting = (over: Partial<LinkedRequest> = {}): SessionState =>
+    linked({ ...ATTACHED_SESSION, capabilities: { ...ATTACHED_SESSION.capabilities } }, { ...TMRA, ...over })
+
+  it('is null on an order that converts nothing — there is nothing to take back', () => {
+    expect(unlinkCost(EMPTY_SESSION)).toBeNull()
+    expect(unlinkCost(linked(linkable(), null))).toBeNull()
+  })
+
+  it('states the three facts the undo costs', () => {
+    // The lines go, the store the copy pinned re-opens, and 🚩 the caller STAYS.
+    // The third is a field rather than a sentence a surface has to remember: the
+    // two acts sit next to each other in the rail, and an agent must not fear
+    // losing the caller they have just attached.
+    expect(unlinkCost(converting())).toEqual({
+      documentNo: 'SREQ-0001234',
+      lines: ATTACHED_SESSION.lines.length,
+      storeCode: '1234',
+      keepsCustomer: true,
+    })
+  })
+
+  it('counts the lines OFF THE STATE, never off what the copy claimed', () => {
+    // 🚩 The sharp one. A link whose lines were partly skipped landed fewer lines
+    // than the request had — the request asked for six, four landed — and a
+    // confirmation offering to remove six would be describing the request rather
+    // than the basket. The only truthful count is the one on the order right now,
+    // which is why this function takes the STATE and nothing else.
+    const partly: SessionState = { ...converting(), lines: [ATTACHED_SESSION.lines[0]] }
+    expect(unlinkCost(partly)?.lines).toBe(1)
+    // And an empty basket says so rather than saying nothing: a link whose every
+    // line was refused is still a link, and taking it back still re-opens the store.
+    expect(unlinkCost({ ...converting(), lines: [] })?.lines).toBe(0)
+  })
+
+  it('is null once the order is no longer open', () => {
+    // A submitted order's link is history — the document carries it now.
+    expect(unlinkCost({ ...converting(), status: 'submitted' })).toBeNull()
+  })
+})
+
+describe('submitRefusal', () => {
+  const converting = linked(ATTACHED_SESSION, TMRA)
+  /** §7's refusals as `core/api.ts` hands them over: business-kind and coded. */
+  const refusal = (code: string, message: string) =>
+    new ApiError('business', message, code === 'SUBMIT_UNAVAILABLE' ? 503 : 409, [
+      { errorCode: code, internalErrorCode: '', errorMessage: '' },
+    ], null)
+
+  it('names the request and offers the one act that resolves it', () => {
+    // Another agent — or the pharmacist at the till — converted or cancelled the
+    // request between the link and the submit (880 §7). The order itself is
+    // perfectly good: unlink, then submit.
+    expect(submitRefusal('REQUEST_ALREADY_CONVERTED', converting)).toEqual({
+      documentNo: 'SREQ-0001234',
+      escape: 'unlink',
+    })
+  })
+
+  it('does NOT reach the transient outage’s retry wording', () => {
+    // 🚩 The defect this exists to prevent: without the mapping the refusal
+    // arrives as `SUBMIT_UNAVAILABLE`'s catch-all and the agent retries forever
+    // on an order that will never post. Asserted on the classification the
+    // receipt actually reads — `retryable` is what turns the button into *Try
+    // again* and the box into the attention register.
+    const gone = readSubmitFailure(refusal('REQUEST_ALREADY_CONVERTED', 'That request has already been converted.'), 'x')
+    expect(gone.retryable).toBe(false)
+    expect(gone.kind).not.toBe('unavailable')
+    expect(gone.orderOpen).toBe(true)
+  })
+
+  it('leaves the transient outage exactly where it was — the two must not swap', () => {
+    const outage = readSubmitFailure(refusal('SUBMIT_UNAVAILABLE', 'Try again shortly.'), 'x')
+    expect(outage.kind).toBe('unavailable')
+    expect(outage.retryable).toBe(true)
+    // …and it is no business of this family's: nothing about an outage is about
+    // the request, so no unlink is offered beside it.
+    expect(submitRefusal('SUBMIT_UNAVAILABLE', converting)).toBeNull()
+  })
+
+  it('is silent on every other outcome', () => {
+    expect(submitRefusal('SUBMIT_REFUSED', converting)).toBeNull()
+    expect(submitRefusal(null, converting)).toBeNull()
+    expect(submitRefusal(undefined, converting)).toBeNull()
+  })
+
+  it('is silent where the order holds no link — there is nothing to name or undo', () => {
+    // 🚩 Then the server's own sentence stands alone. Inventing an unlink offer
+    // over an order with no `linkedRequest` would be a control that answers with
+    // a refusal, on the one screen where the agent has a caller on the line.
+    expect(submitRefusal('REQUEST_ALREADY_CONVERTED', ATTACHED_SESSION)).toBeNull()
   })
 })
 

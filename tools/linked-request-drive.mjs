@@ -37,6 +37,17 @@
 //      capability, never re-derived; the picker's own refusal wording guards the
 //      rarer mid-call case, where a link lands in another tab under an open picker
 //   9. no page errors, and the centre column never scrolls sideways
+//
+// 195 adds the two paths OFF a linked order, and the one refusal that ends it:
+//
+//  10. unlink ASKS first, counting the lines on the BASKET; declining costs
+//      nothing; confirming leaves an empty basket, the store gate SHUT (no *Add*
+//      over the same rows), the caller still attached and the offer re-opened —
+//      the `linkable ⇔ empty basket` invariant surviving the undo
+//  11. `removeCustomer` takes the link with the caller (880 §6) — asserted as an
+//      ABSENCE, over the WHOLE screen, because that absence is the abuse answer
+//  12. `REQUEST_ALREADY_CONVERTED` names the request and offers *unlink*, and is
+//      NOT drawn as the transient outage the agent would retry forever
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -254,7 +265,88 @@ const linked = (served, request) => {
       ),
     },
   })
+  // The door's own rule, not a second one: nothing is placeable while the
+  // projection still names something missing (§2).
+  state.capabilities.canSubmit = state.capabilities.submitBlockers.length === 0
   return { state, copied, skipped }
+}
+
+/**
+ * 880 §5, applied — **the full undo** (195), shaped on capture 15's `unlinked`
+ * step rather than on the ticket's prose.
+ *
+ * Both columns cleared, the copied lines **gone**, `plantSource` back to
+ * `seededAtOpen` and the two axes back to the session defaults — and with them
+ * `canAddItem: false` and `STORE_NOT_CHOSEN` back among the blockers, which is
+ * what *the store gate re-shuts* actually looks like on the wire.
+ *
+ * 🚩 The caller is NOT touched, and neither is the prefilled `sourceReference`:
+ * capture 15 keeps both, and the console's whole job on this path is to render
+ * what came back rather than to rewind anything itself.
+ */
+const unlinkedFrom = (served) =>
+  gated({
+    ...served,
+    version: served.version + 1,
+    header: {
+      ...served.header,
+      linkedRequest: null,
+      plantSource: 'seededAtOpen',
+      deliveryType: EMPTY.header.deliveryType,
+      paymentType: EMPTY.header.paymentType,
+      address: null,
+      slot: null,
+    },
+    lines: [],
+    totals: EMPTY.totals,
+    firedPromotions: EMPTY.firedPromotions,
+    capabilities: {
+      ...served.capabilities,
+      canAddItem: false,
+      canPriceCheck: false,
+      canSubmit: false,
+      submitBlockers: ['NO_LINES', 'STORE_NOT_CHOSEN', 'NO_ADDRESS', 'MISSING_SLOT'],
+    },
+  })
+
+/**
+ * 880 §6 — `removeCustomer` clears the link, server-side, in the same arm that
+ * already clears the address.
+ *
+ * 🚩 It clears the STAMP and the address and **nothing else**: the lines and the
+ * plant stay (871 §6 — the ordinary *wrong caller, same items* correction must
+ * not cost the basket). The console's correctness here is an ABSENCE, which is
+ * why the box below reads the whole screen for the request number rather than
+ * checking one element.
+ */
+const customerRemovedFrom = (served) =>
+  gated({
+    ...served,
+    version: served.version + 1,
+    header: { ...served.header, customer: null, address: null, linkedRequest: null },
+    capabilities: {
+      ...served.capabilities,
+      canOpenAddressBook: false,
+      canSubmit: false,
+      submitBlockers: [...new Set([...served.capabilities.submitBlockers, 'NO_CUSTOMER'])],
+    },
+  })
+
+/** ⚠ Hand-authored, like 185's: one row, so *the door will accept an add* is
+ *  provable by a button being there — and *the gate is shut* by the same button
+ *  being absent over the same rows. */
+const SEARCH = {
+  truncated: false,
+  atpAvailable: true,
+  rows: [
+    {
+      materialNumber: PRICED.lines[0].itemNumber,
+      descriptionEn: PRICED.lines[0].description,
+      descriptionAr: PRICED.lines[0].description,
+      estimatePriceExVat: 12.5,
+      atp: 4,
+    },
+  ],
 }
 
 const browser = await chromium.launch()
@@ -328,13 +420,47 @@ async function open(scenario) {
             status: 409,
             success: false,
             message: 'That request is no longer open.',
-            errors: [{ code: 'REQUEST_NOT_OPEN', message: 'That request is no longer open.' }],
+            errors: [
+              { errorCode: 'REQUEST_NOT_OPEN', internalErrorCode: '', errorMessage: 'That request is no longer open.' },
+            ],
           }),
         )
       const result = linked(served, request)
       served = result.state
       return route.fulfill(envelope(result))
     }
+    // ⚠ 195's three server halves, on 880 §5/§6/§7 and capture 15's own bytes.
+    if (path === 'CallCenterWeb/UnlinkRequest') {
+      served = unlinkedFrom(served)
+      return route.fulfill(envelope(served))
+    }
+    if (path === 'CallCenterWeb/RemoveCustomer') {
+      served = customerRemovedFrom(served)
+      return route.fulfill(envelope(served))
+    }
+    if (path === 'CallCenterWeb/Submit') {
+      // 🚩 880 §7 — the request went away between the link and the submit, and
+      // the refusal is the guard: the console must not pre-check. `NotAllowedWhenCompleted`
+      // on the referenced request maps to a business refusal NAMING it, never to
+      // the transient `SUBMIT_UNAVAILABLE` the catch-all would otherwise produce.
+      if (served.header.linkedRequest)
+        return route.fulfill(
+          envelope(null, {
+            status: 409,
+            success: false,
+            message: `Request ${served.header.linkedRequest.documentNo} has already been completed.`,
+            errors: [
+              {
+                errorCode: 'REQUEST_ALREADY_CONVERTED',
+                internalErrorCode: '',
+                errorMessage: 'That request has already been completed.',
+              },
+            ],
+          }),
+        )
+      return route.fulfill(envelope({ outcome: 'submitted', documentNo: 'CLCN-0009001', replayed: false, state: served }))
+    }
+    if (path === 'CallCenterWeb/ItemSearch') return route.fulfill(envelope(SEARCH))
     if (path === 'CallCenterWeb/AddItem') {
       // The ordinary add, in its ordinary TWO phases (§5.2) — reached here only by
       // the report's *add anyway*. The first send answers the unchanged state with
@@ -629,13 +755,195 @@ console.log('\na basket with lines refuses the link')
   await context.close()
 }
 
+/* ------------------------- 6. taking the link back (195) -------------------- */
+//
+// 🚩 The act that carries the real risk: an agent who reads *unlink* as *stop
+// referencing this request* loses a basket they meant to keep. So it asks, it
+// says what it costs, and the cost is read off the BASKET rather than off what
+// the copy claimed.
+
+/** Attach, open the picker, link the TMRA request — the ground every box below
+ *  starts from. */
+async function linkTmra(page) {
+  await attach(page)
+  await page.waitForSelector('[data-cc-request-view]')
+  await page.click('[data-cc-request-view]')
+  await page.waitForSelector('[data-cc-request-picker]')
+  await page.click('[data-cc-request-link="SREQ-0001234"]')
+  await page.waitForSelector('[data-cc-request-card]')
+}
+
+/** Whether the search panel offers an *Add* over its rows — the one honest read
+ *  of `canAddItem` from outside: the console draws the control only while the
+ *  door says it will accept one. */
+async function searchOffersAdd(page) {
+  await page.fill('[data-cc-search-input]', 'deo')
+  await page.waitForTimeout(600)
+  return page.evaluate(() => !!document.querySelector('[data-cc-search-add]'))
+}
+
+console.log('\nunlinking is a full undo, and it asks first')
+{
+  const { context, page, errors, wire } = await open('twoRequests')
+  await linkTmra(page)
+  const linkedNow = await measure(page)
+  ok(linkedNow.lines === 2, `the copy landed its lines first (${linkedNow.lines})`)
+  ok(await searchOffersAdd(page), 'and the store gate is OPEN while the request holds the store')
+
+  // 🚩 The press opens the CONFIRMATION, and nothing else happens.
+  await page.click('[data-cc-request-unlink]')
+  await page.waitForSelector('[data-cc-confirm-sheet="unlink"]')
+  const sheet = await page.evaluate(() => ({
+    text: document.querySelector('[data-cc-confirm-sheet="unlink"]').innerText,
+    cost: document.querySelector('[data-cc-unlink-cost]')?.dataset.ccUnlinkCost ?? null,
+    keeps: !!document.querySelector('[data-cc-unlink-keeps-customer]'),
+  }))
+  ok(sheet.cost === '2', `the sheet counts the lines ON THE BASKET (${sheet.cost})`)
+  ok(/2 items on this order will be taken off/i.test(sheet.text), '…and says they go, in words')
+  ok(/store/i.test(sheet.text), 'that the store choice re-opens')
+  ok(sheet.keeps && /caller stays/i.test(sheet.text), '🚩 and that the CALLER STAYS — the two acts sit side by side')
+  ok(
+    wire.filter((w) => w.path === 'CallCenterWeb/UnlinkRequest').length === 0,
+    'and NOTHING has been sent: asking is not doing',
+  )
+  await shot(page, 'unlink-confirm')
+
+  // Declining costs nothing — the sheet closes over an order that never moved.
+  await page.click('[data-cc-confirm-decline]')
+  await page.waitForSelector('[data-cc-confirm-sheet="unlink"]', { state: 'detached' })
+  const kept = await measure(page)
+  ok(kept.lines === 2 && kept.card !== null, 'declining leaves the link and the lines exactly as they were')
+
+  // And now the undo itself.
+  await page.click('[data-cc-request-unlink]')
+  await page.waitForSelector('[data-cc-confirm-sheet="unlink"]')
+  await page.click('[data-cc-confirm-accept]')
+  await page.waitForSelector('[data-cc-request-card]', { state: 'detached' })
+  const undone = await measure(page)
+
+  ok(undone.lines === 0, `the basket is EMPTY — the copied lines went with the link (${undone.lines})`)
+  ok(undone.card === null, 'the linked card is gone')
+  ok(!(await searchOffersAdd(page)), '🚩 and the store gate is SHUT again — no add is offered')
+  ok(/A. Alharbi|Redacted|Nouf/.test(undone.rail) || !!(await page.$('[data-cc-caller]')), 'the caller is still attached')
+  // 🚩 The invariant the whole undo exists to keep: linkable ⇔ empty basket. If
+  // unlink had left the copied lines behind, `LINES_EXIST` would refuse the
+  // re-link and an agent who picked the wrong row could never pick the right one.
+  ok(undone.offer === '2', `the offer is back, so the right request can be picked (${undone.offer})`)
+  const unlinks = wire.filter((w) => w.path === 'CallCenterWeb/UnlinkRequest')
+  ok(unlinks.length === 1, `exactly one UnlinkRequest (${unlinks.length})`)
+  ok(
+    typeof unlinks[0]?.body?.requestId === 'string' && unlinks[0].body.requestId.length > 0,
+    'carrying ONE requestId, minted when the sheet opened (law 3)',
+  )
+  ok(
+    wire.filter((w) => w.path === 'CallCenterWeb/VoidLine').length === 0,
+    '🚩 and ZERO VoidLine calls — the console never rewinds the copy itself',
+  )
+  await shot(page, 'unlinked')
+  allErrors.push(...errors)
+  await context.close()
+}
+
+/* ---------------- 7. the request leaves with the caller (880 §6) ------------- */
+
+console.log('\nremoving the caller takes the request with them')
+{
+  const { context, page, errors } = await open('twoRequests')
+  await linkTmra(page)
+  const before = await measure(page)
+  ok(/SREQ-0001234/.test(before.screen), 'the request number is on screen while the caller is')
+
+  await page.click('[data-cc-remove-caller]')
+  await page.waitForSelector('[data-cc-request-card]', { state: 'detached' })
+  const gone = await measure(page)
+
+  ok(gone.card === null, 'the linked card goes with the caller — the server cleared the stamp (880 §6)')
+  // 🚩 The client's correctness here is an ABSENCE, so it is proved by reading the
+  // WHOLE screen rather than one element: this is the abuse answer (link caller
+  // A's request, swap to caller B, submit), and any remembered copy of the request
+  // is the hole.
+  //
+  // ⚠ With ONE documented exception, and it is the server's rather than the
+  // console's: `sourceReference` was prefilled with the request's number by the
+  // link (880 §4.4) and neither `removeCustomer` nor the unlink clears it —
+  // capture 15 keeps it too. It is the ORDER's own field from that moment on,
+  // arriving in the projection like any other, and a console that scrubbed it
+  // would be editing the header behind the server's back. So the sweep is over
+  // everything the console itself draws about the request.
+  const remembered = await page.evaluate(() => {
+    const chips = document.querySelector('[data-cc-chips]')
+    const clone = document.body.cloneNode(true)
+    // Drop the header row: whatever survives in there is `sourceReference`, an
+    // order field, not a memory of a caller who has gone.
+    clone.querySelector('[data-cc-chips]')?.remove()
+    return { rest: clone.innerText, chips: chips.innerText }
+  })
+  ok(!/SREQ-0001234/.test(remembered.rest), '🚩 and the request number is nowhere the console draws it')
+  ok(!/Tamara payment/.test(gone.screen), '…nor its reason, nor any other trace of it')
+  ok(
+    /SREQ-0001234/.test(remembered.chips),
+    '…the one survivor being the ORDER’s own sourceReference, which the server keeps (§4.4)',
+  )
+  ok(gone.offer === null, 'and no count either: there is no caller to count requests for')
+  await shot(page, 'caller-removed')
+  allErrors.push(...errors)
+  await context.close()
+}
+
+/* ------------- 8. the request that went away under the agent (§7) ----------- */
+
+console.log('\na request converted behind the agent’s back')
+{
+  const { context, page, errors } = await open('twoRequests')
+  await linkTmra(page)
+  await page.waitForSelector('[data-cc-submit]:not([disabled])')
+  await page.click('[data-cc-submit]')
+  await page.waitForSelector('[data-cc-submit-failed]')
+  const refused = await page.evaluate(() => ({
+    kind: document.querySelector('[data-cc-submit-failed]').dataset.ccSubmitFailed,
+    text: document.querySelector('[data-cc-submit-failed]').innerText,
+    retryable: !!document.querySelector('[data-cc-submit-retryable]'),
+    named: document.querySelector('[data-cc-submit-request-gone]')?.dataset.ccSubmitRequestGone ?? null,
+    escape: !!document.querySelector('[data-cc-submit-unlink]'),
+    button: document.querySelector('[data-cc-submit]').innerText,
+  }))
+
+  ok(refused.named === 'SREQ-0001234', `the refusal NAMES the request (${refused.named})`)
+  ok(/SREQ-0001234/.test(refused.text), '…in the sentence the agent reads')
+  ok(refused.escape, 'and offers the one act that resolves it: unlink')
+  // 🚩 The defect this box exists to catch: as `SUBMIT_UNAVAILABLE` the agent
+  // would retry forever on an order that will never post.
+  ok(!refused.retryable, '🚩 it is NOT drawn as the transient outage…')
+  ok(!/Try again/i.test(refused.button), '…and the button is not the outage’s *Try again*')
+  ok(/still open/i.test(refused.text), 'the order itself is untouched, and says so')
+  await shot(page, 'submit-request-gone')
+
+  // The escape is the ORDINARY unlink — same sheet, same cost, no second act.
+  await page.click('[data-cc-submit-unlink]')
+  await page.waitForSelector('[data-cc-confirm-sheet="unlink"]')
+  ok(true, 'the escape opens the ordinary unlink confirmation, cost and all')
+  await page.click('[data-cc-confirm-accept]')
+  await page.waitForSelector('[data-cc-request-card]', { state: 'detached' })
+  const after = await measure(page)
+  ok(after.lines === 0, 'unlinking from the refusal empties the basket like any other unlink')
+  ok(
+    !(await page.$('[data-cc-submit-failed]')),
+    'and the refusal goes with the order it was about — the version moved',
+  )
+  allErrors.push(...errors)
+  await context.close()
+}
+
 /* --------------------------------------------------------------------------- */
 
 ok(allErrors.length === 0, `no page errors (${allErrors.length})`)
 if (allErrors.length) console.log(allErrors.slice(0, 5))
 
-console.log('\n⚠ STUBS: CallCenterWeb/CustomerRequests + LinkRequest (BackOffice 880, UNBUILT) — 880 §3/§4 shape,')
-console.log('  and `header.linkedRequest` / `capabilities.canLinkRequest` are contract v1.11, which no server answers yet.')
+console.log('\n⚠ STUBS: CallCenterWeb/CustomerRequests, LinkRequest, UnlinkRequest, RemoveCustomer and Submit are')
+console.log('  answered here rather than by SIS.Api. 880 has since been BUILT and captured live — capture 15')
+console.log('  (`.issues/assets/136-cc-contract/15-linked-sales-request.json`, contract v1.11) is what the link and')
+console.log('  the unlink arms above are shaped on. REQUEST_ALREADY_CONVERTED is the one thing capture 15 could not')
+console.log('  reach — it needs a second actor — so its refusal is hand-authored to 880 §7.')
 console.log(`\n${pass} passed, ${fail} failed`)
 await browser.close()
 process.exit(fail ? 1 : 0)

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 193
 blocked-by: 194
 ---
@@ -51,13 +51,13 @@ sheet wiring, the submit-refusal path) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `unlinkCost(state)` — the confirm's three facts, and the **line count comes off the state** never
+- [x] `unlinkCost(state)` — the confirm's three facts, and the **line count comes off the state** never
       off a remembered copy (a link whose lines were partly skipped must not offer to remove six when
       four landed) · pure
-- [ ] `submitRefusal` — `REQUEST_ALREADY_CONVERTED` names the request number and resolves to the
+- [x] `submitRefusal` — `REQUEST_ALREADY_CONVERTED` names the request number and resolves to the
       unlink escape; asserted **not** to reach the `SUBMIT_UNAVAILABLE` retry wording, and the
       transient code asserted still to reach it (the two must not swap) · pure
-- [ ] `tools/linked-request-drive.mjs` boxes — unlink from a linked TMRA order leaves the basket
+- [x] `tools/linked-request-drive.mjs` boxes — unlink from a linked TMRA order leaves the basket
       **empty**, the store gate **shut** (`canAddItem` false) and the caller **still attached**; a
       `removeCustomer` on a linked order leaves **no linked card and no stale request text anywhere on
       the screen**; and a stubbed `REQUEST_ALREADY_CONVERTED` submit draws the request's number with
@@ -84,3 +84,60 @@ request converted behind the agent's back is named on the submit refusal with un
 ## Open questions
 
 None.
+
+## As built
+
+**Proof:** 9 new pure cases in `linked-request.test.ts` (41 in the file, 792 suite-wide) +
+`linked-request-drive.mjs` **92/92**. Typecheck, lint and build green.
+
+🚩 **880 was BUILT under this ticket.** `.issues/assets/136-cc-contract/15-linked-sales-request.json`
+(contract v1.11, captured live at 00:49 today) landed mid-session with the whole scenario on the
+wire — list, link, a second link refused `LINES_EXIST`, and the unlink. Two things came out of
+reading it rather than the prose:
+
+- **The read was calling the wrong door.** 194 sent `CustomerRequests` with no parameters at all;
+  the live route is `CustomerRequests?transactionId=…` — the session row is what holds the loyalty
+  id the query is scoped by. Fixed here (194's shape was read off an unbuilt ticket), and the scope
+  is still the SERVER's: no customer id crosses the wire.
+- **The unlink's own bytes.** `linkedRequest: null`, `lines: []`, `plantSource: seededAtOpen`,
+  `canAddItem` **false** with `STORE_NOT_CHOSEN` back among the blockers, `canLinkRequest` **true**
+  again — and the caller untouched. The drive's stub is shaped on those rather than on §5's prose,
+  which is also how the one **surprise** surfaced: the prefilled `sourceReference` **survives** both
+  the unlink and the caller's removal. It is the ORDER's field from the moment §4.4 filled it, so
+  the drive's whole-screen sweep exempts the chip row and says why — a console that scrubbed it
+  would be editing the header behind the server's back.
+
+**The cost is read off the basket, at the moment it is asked.** `unlinkCost(state)` takes the state
+and nothing else — no report, no remembered copy — so a link that landed four of six lines offers to
+remove four. It is re-derived on every render of the open sheet rather than frozen when it opened,
+which also closes the sheet by itself if the link goes from under it (the caller removed in a second
+tab). An empty basket says *there is nothing to lose* in its own words rather than through a plural
+with a zero in it.
+
+**The third fact is a field.** `keepsCustomer: true` rides the cost object rather than living as a
+sentence the sheet is trusted to remember, for the same reason `SubmitFailure.orderOpen` does:
+*unlink* and *remove the caller* sit next to each other in the rail, and an agent who fears losing
+the caller will not press the one control that fixes a mis-picked request.
+
+**`REQUEST_ALREADY_CONVERTED` did not need a new failure kind.** `readSubmitFailure` already answers
+it `retryable: false`, so it never reaches the outage's *Try again* — asserted in the pure tests
+from both directions, since the two swapping is the actual defect. What 195 adds is the naming and
+the escape: `submitRefusal(code, state)` reads the request off the projection's own stamp and
+answers a closed set of one escape, so the receipt cannot invent a second way out. 🚩 It is silent
+when the order holds no link — then the server's sentence stands alone rather than being decorated
+with a control that would be refused. And when it does speak, the server's own sentence is
+**dropped**: §7's phrase names the same request the block does, and one thing said twice in two
+voices is what 189 settled for `COUPON_REVERSAL_REFUSED`.
+
+**No pre-check anywhere**, as the ticket rules: the requests read still fires once per caller
+(`staleTime: 60_000`) and nothing re-reads the request before submit. The refusal is the guard.
+
+**Where things ended up.** *Unlink* is on the rail's linked card and, identically, inside the submit
+refusal — one act, one confirmation, one `requestId` minted when the sheet opens. The sheet is
+`ConfirmSheet` with an `UnlinkConfirm` body (a third body, not a third mechanism); it carries no
+`reissue`, because there is no token to go stale. `removeCustomer` gained no client behaviour beyond
+closing what was open: the link disappears because the projection says so.
+
+⚠ **Not done, and named rather than left silent:** the command palette (192) still lists neither
+*view requests* (194) nor *unlink* — `VERB_ORDER` predates the whole request surface. Whoever
+revisits 192's "one key reaches every order act" owns both, together.

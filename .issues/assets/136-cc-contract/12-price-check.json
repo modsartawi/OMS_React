@@ -3,16 +3,16 @@
     "ticket": "857",
     "map": "126",
     "scenario": "priceCheck on an item that is NOT in the basket: refused before the caller is attached, then quoted VAT-inclusive, and the quote equals the basket line the same item becomes",
-    "contractVersion": "1.10",
+    "contractVersion": "1.11",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
-    "capturedAt": "2026-07-29",
+    "capturedAt": "2026-07-30",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
     "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
   "refusedBeforeAttach": {
     "request": {
       "method": "GET",
-      "path": "CallCenterWeb/PriceCheck?transactionId=06FTV2JQREZQ215D79GNE96X43&itemNumber=200021",
+      "path": "CallCenterWeb/PriceCheck?transactionId=06FTZPM66RXFQ16J90VSV3F7T3&itemNumber=200021",
       "body": null
     },
     "response": {
@@ -35,21 +35,21 @@
   "quoted": {
     "request": {
       "method": "GET",
-      "path": "CallCenterWeb/PriceCheck?transactionId=06FTV2JQREZQ215D79GNE96X43&itemNumber=200021",
+      "path": "CallCenterWeb/PriceCheck?transactionId=06FTZPM66RXFQ16J90VSV3F7T3&itemNumber=200021",
       "body": null
     },
     "response": {
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
+          "contractVersion": "1.11",
           "itemNumber": "200021",
           "description": "8X4 DEO SPRAY MODN CHARM 150ML",
           "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
           "uom": "EA",
           "plant": "1001",
           "plantName": "King AbdelAziz Road",
-          "pricedAt": "2026-07-29T14:02:33.2393271+03:00",
+          "pricedAt": "2026-07-30T00:49:22.2028965+03:00",
           "unitPrice": {
             "net": 12.86,
             "gross": 14.79
@@ -107,8 +107,8 @@
         "itemNumber": "200021",
         "qty": 1,
         "uom": null,
-        "transactionId": "06FTV2JQREZQ215D79GNE96X43",
-        "requestId": "06FTV2JTA7T9PPWC31E7GS6AN0",
+        "transactionId": "06FTZPM66RXFQ16J90VSV3F7T3",
+        "requestId": "06FTZPM7V8ZX9SZ59M5PDHBVA1",
         "confirmToken": null
       }
     },
@@ -116,10 +116,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV2JQREZQ215D79GNE96X43",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPM66RXFQ16J90VSV3F7T3",
           "version": 19,
-          "etag": "06FTV2JQREZQ215D79GNE96X43-19",
+          "etag": "06FTZPM66RXFQ16J90VSV3F7T3-19",
           "status": "open",
           "replayed": false,
           "header": {
@@ -129,10 +129,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t4bc2a468",
+            "register": "WEB-t9821f6dc",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:02:32.6550916",
+            "openedAt": "2026-07-30T00:49:21.8587826",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -148,7 +148,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [
             {
@@ -245,13 +246,16 @@
             "canPriceCheck": true,
             "canApplyCoupon": true,
             "canRemoveCoupon": false,
+            "canLinkRequest": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
-            "capabilityReasons": {},
+            "capabilityReasons": {
+              "canLinkRequest": "LINES_EXIST"
+            },
             "submitBlockers": [
               "NO_ADDRESS",
               "MISSING_SLOT",
@@ -269,7 +273,7 @@
   "noPriceAtPlant": {
     "request": {
       "method": "GET",
-      "path": "CallCenterWeb/PriceCheck?transactionId=06FTV2JQREZQ215D79GNE96X43&itemNumber=104218",
+      "path": "CallCenterWeb/PriceCheck?transactionId=06FTZPM66RXFQ16J90VSV3F7T3&itemNumber=104218",
       "body": null
     },
     "response": {
@@ -292,7 +296,7 @@
   "itemNotFound": {
     "request": {
       "method": "GET",
-      "path": "CallCenterWeb/PriceCheck?transactionId=06FTV2JQREZQ215D79GNE96X43&itemNumber=000000000000",
+      "path": "CallCenterWeb/PriceCheck?transactionId=06FTZPM66RXFQ16J90VSV3F7T3&itemNumber=000000000000",
       "body": null
     },
     "response": {

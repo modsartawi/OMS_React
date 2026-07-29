@@ -3,9 +3,9 @@
     "ticket": "857",
     "map": "126",
     "scenario": "a delivery-only documentSource (P2E) shuts the fulfilment axis: canChangeFulfilment is false WITH a reason, and setFulfilment(PickInStore) refuses with the same code",
-    "contractVersion": "1.10",
+    "contractVersion": "1.11",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
-    "capturedAt": "2026-07-29",
+    "capturedAt": "2026-07-30",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
     "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
@@ -16,8 +16,8 @@
       "body": {
         "documentSource": "P2E",
         "sourceReference": "CALL-877-13",
-        "transactionId": "06FTV46ETW5SGB71QBTG5EQRR7",
-        "requestId": "06FTV46ZRCX0AB8PMR3BAHZW17",
+        "transactionId": "06FTZPN13K89PQ1ZSWQTB588S7",
+        "requestId": "06FTZPN1Y0DB4VG66M2VP56JN1",
         "confirmToken": null
       }
     },
@@ -25,10 +25,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV46ETW5SGB71QBTG5EQRR7",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPN13K89PQ1ZSWQTB588S7",
           "version": 15,
-          "etag": "06FTV46ETW5SGB71QBTG5EQRR7-15",
+          "etag": "06FTZPN13K89PQ1ZSWQTB588S7-15",
           "status": "open",
           "replayed": false,
           "header": {
@@ -38,10 +38,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-tf8698013",
+            "register": "WEB-t887e1b11",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:09:36.5543492",
+            "openedAt": "2026-07-30T00:49:28.7391529",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -57,7 +57,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [],
           "totals": {
@@ -81,6 +82,7 @@
             "canPriceCheck": true,
             "canApplyCoupon": true,
             "canRemoveCoupon": false,
+            "canLinkRequest": true,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
@@ -110,8 +112,8 @@
       "path": "CallCenterWeb/SetFulfilment",
       "body": {
         "mode": "PickInStore",
-        "transactionId": "06FTV46ETW5SGB71QBTG5EQRR7",
-        "requestId": "06FTV473EV8C0CN00NPTYRGB71",
+        "transactionId": "06FTZPN13K89PQ1ZSWQTB588S7",
+        "requestId": "06FTZPN262B3G2MSNGG4QWMX01",
         "confirmToken": null
       }
     },
@@ -138,8 +140,8 @@
       "path": "CallCenterWeb/SetFulfilment",
       "body": {
         "mode": "Delivery",
-        "transactionId": "06FTV46ETW5SGB71QBTG5EQRR7",
-        "requestId": "06FTV478H7FEK1BJVCGR0SXV72",
+        "transactionId": "06FTZPN13K89PQ1ZSWQTB588S7",
+        "requestId": "06FTZPN2D032EYP6TAPYCFS1D7",
         "confirmToken": null
       }
     },
@@ -147,10 +149,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV46ETW5SGB71QBTG5EQRR7",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPN13K89PQ1ZSWQTB588S7",
           "version": 21,
-          "etag": "06FTV46ETW5SGB71QBTG5EQRR7-21",
+          "etag": "06FTZPN13K89PQ1ZSWQTB588S7-21",
           "status": "open",
           "replayed": false,
           "header": {
@@ -160,10 +162,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-tf8698013",
+            "register": "WEB-t887e1b11",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:09:36.5543492",
+            "openedAt": "2026-07-30T00:49:28.7391529",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -179,7 +181,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [],
           "totals": {
@@ -203,6 +206,7 @@
             "canPriceCheck": true,
             "canApplyCoupon": true,
             "canRemoveCoupon": false,
+            "canLinkRequest": true,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
@@ -233,8 +237,8 @@
       "body": {
         "documentSource": "P2E",
         "sourceReference": "CALL-877-13B",
-        "transactionId": "06FTV46JFWC41V195GZC2VYVS1",
-        "requestId": "06FTV47GMQ8SKXFA3C11KNDPT5",
+        "transactionId": "06FTZPN1AE3HPY2YVV4J4HFQ92",
+        "requestId": "06FTZPN37HE63FTJVGKVGDKWW1",
         "confirmToken": null
       }
     },
@@ -242,10 +246,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV46JFWC41V195GZC2VYVS1",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPN1AE3HPY2YVV4J4HFQ92",
           "version": 18,
-          "etag": "06FTV46JFWC41V195GZC2VYVS1-18",
+          "etag": "06FTZPN1AE3HPY2YVV4J4HFQ92-18",
           "status": "open",
           "replayed": false,
           "header": {
@@ -255,10 +259,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t0a5a0888",
+            "register": "WEB-t52545e3f",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:09:37.5358353",
+            "openedAt": "2026-07-30T00:49:28.7975547",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -274,7 +278,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [],
           "totals": {
@@ -298,6 +303,7 @@
             "canPriceCheck": true,
             "canApplyCoupon": true,
             "canRemoveCoupon": false,
+            "canLinkRequest": true,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": false,
@@ -323,8 +329,8 @@
       "path": "CallCenterWeb/SetFulfilment",
       "body": {
         "mode": "Delivery",
-        "transactionId": "06FTV46JFWC41V195GZC2VYVS1",
-        "requestId": "06FTV47HPYXKZCENBY6DCYYBT5",
+        "transactionId": "06FTZPN1AE3HPY2YVV4J4HFQ92",
+        "requestId": "06FTZPN3DM5MJ380H11D1VDTV0",
         "confirmToken": null
       }
     },
@@ -332,10 +338,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.10",
-          "transactionId": "06FTV46JFWC41V195GZC2VYVS1",
+          "contractVersion": "1.11",
+          "transactionId": "06FTZPN1AE3HPY2YVV4J4HFQ92",
           "version": 21,
-          "etag": "06FTV46JFWC41V195GZC2VYVS1-21",
+          "etag": "06FTZPN1AE3HPY2YVV4J4HFQ92-21",
           "status": "open",
           "replayed": false,
           "header": {
@@ -345,10 +351,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t0a5a0888",
+            "register": "WEB-t52545e3f",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:09:37.5358353",
+            "openedAt": "2026-07-30T00:49:28.7975547",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -364,7 +370,8 @@
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
-            "coupons": []
+            "coupons": [],
+            "linkedRequest": null
           },
           "lines": [],
           "totals": {
@@ -388,6 +395,7 @@
             "canPriceCheck": true,
             "canApplyCoupon": true,
             "canRemoveCoupon": false,
+            "canLinkRequest": true,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,

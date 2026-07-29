@@ -953,11 +953,16 @@ export const callCenterApi = {
    * console to `SdDocument/ReasonsByGroup` would make it knock on a second door
    * its `CallCenterWeb` grant does not cover.
    *
-   * ⚠ **Unbuilt server-side** (880) — stubbed in `tools/linked-request-drive.mjs`
-   * to 880 §3's documented shape.
+   * 🚩 **The transaction id is how the door finds the caller, and it is the only
+   * id this call carries.** Capture 15 (v1.11, the live route) reads
+   * `CustomerRequests?transactionId=…`: the session row is what holds the loyalty
+   * id the query is scoped by, so without it there is no scope — which is the same
+   * fact as the paragraph above, seen from the client's side. 194 sent none
+   * because 880 was unbuilt and the shape was read off the ticket; the capture is
+   * the correction.
    */
-  customerRequests(): Promise<CustomerRequest[]> {
-    return api.get<CustomerRequest[]>('CallCenterWeb/CustomerRequests')
+  customerRequests(transactionId: string): Promise<CustomerRequest[]> {
+    return api.get<CustomerRequest[]>('CallCenterWeb/CustomerRequests', { transactionId })
   },
 
   /**
@@ -973,9 +978,8 @@ export const callCenterApi = {
    *
    * 🚩 Refused unless the basket is **empty** (`LINES_EXIST`) — the restriction
    * the rest of the design hangs off, and the reason `capabilities.canLinkRequest`
-   * exists.
-   *
-   * ⚠ **Unbuilt server-side** (880) — stubbed in the drive.
+   * exists — capture 15 catches that refusal on the wire, on a second link
+   * attempted over the basket the first one filled.
    */
   linkRequest(
     transactionId: string,
@@ -990,6 +994,30 @@ export const callCenterApi = {
       requestId,
       documentNo,
     })
+  },
+
+  /**
+   * `POST CallCenterWeb/UnlinkRequest` → the whole `SessionState` (195, 880 §5) —
+   * the link taken back, as a **full undo**.
+   *
+   * 🚩 **It is not the stamp being cleared.** The door clears both columns,
+   * **removes the copied lines**, resets `plantSource` to `seededAtOpen` and
+   * returns delivery type and payment type to the session defaults — because
+   * §4.1 refuses a link onto a basket with lines, so an unlink that left the
+   * copied lines behind would make the re-link impossible and an agent who picked
+   * the wrong row out of two could never pick the right one. The invariant
+   * *linkable ⇔ empty basket* has to survive the undo.
+   *
+   * Which is why the console asks first (`unlinkCost`, `UnlinkConfirm`): this is
+   * the one verb on this contract that empties a basket without voiding an order.
+   *
+   * Capture 15's `unlinked` step is the whole of it on the wire: `linkedRequest`
+   * back to `null`, `lines` empty, `plantSource` back to `seededAtOpen`,
+   * `canAddItem` **false** again with `STORE_NOT_CHOSEN` back among the blockers,
+   * `canLinkRequest` **true** again — and the caller still on the header.
+   */
+  unlinkRequest(transactionId: string, requestId: string): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/UnlinkRequest', { transactionId, requestId })
   },
 
   /**

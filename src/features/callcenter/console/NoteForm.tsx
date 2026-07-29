@@ -14,6 +14,11 @@
  *    (§1.1's verb table, capture 11), so nothing here caps, counts down or
  *    truncates what an agent types. A client-side limit would be this console
  *    inventing a refusal the door does not have.
+ *
+ *    The one normalisation it does make is at the ENDS — leading and trailing
+ *    whitespace go, line breaks inside the note stay — and it is what makes an
+ *    emptied box, a box holding only spaces, and *Clear* the same single act.
+ *    Without it, *empty but present* would have a third way to reach the header.
  * 3. **Free text, and nothing else.** It is never price-affecting and no
  *    `submitBlocker` names it, so this form has no gate to draw and no
  *    completeness to assert — an order with no note is an ordinary order.
@@ -55,11 +60,22 @@ export default function NoteForm({
   }, [open, current])
 
   const trimmed = text.trim()
+  // What this form would SEND: `null` for an emptied box, the trimmed text
+  // otherwise. Spelled once, because both controls reach the same verb with it.
+  const outgoing = trimmed === '' ? null : trimmed
   // 🚩 The one rule this form owns, and it is about the ACT rather than the
   // value: a save that would send what the order already holds is not a
   // correction, and the ledger should not carry it (§4).
-  const changed = trimmed !== (current?.trim() ?? '')
-  const holdsNote = (current?.trim() ?? '') !== ''
+  //
+  // 🚩 Compared against what the order LITERALLY holds, never against a trimmed
+  // reading of it. A header carrying `'   '` — *empty but present*, the exact
+  // residue this ticket exists to remove — would otherwise be the one state the
+  // console could not clear: the chip reads it as unset, so nothing looks
+  // outstanding, while *Save* would sit disabled because the trimmed forms match.
+  const changed = outgoing !== (current ?? null)
+  // Offered wherever the header holds anything at all, whitespace included, for
+  // the same reason: *Clear* is the direct way out of that state.
+  const holdsNote = (current ?? '') !== ''
 
   return (
     <Modal
@@ -88,7 +104,7 @@ export default function NoteForm({
           <Button
             variant="primary"
             // Emptied and saved is the same act as *Clear*: one verb, one `null`.
-            onClick={() => apply.onApply(trimmed === '' ? null : trimmed)}
+            onClick={() => apply.onApply(outgoing)}
             disabled={apply.busy || !changed}
             data-cc-note-apply
           >

@@ -425,10 +425,13 @@ function Chip({ chip, onOpen }: { chip: HeaderChip; onOpen?: () => void }) {
       {/* A key for the two enumerated chips (fulfilment, payment) — the wire's
           `PickInStore` and `CashOnDelivery` are values, not sentences — and
           server-supplied text passed through as data for every other. */}
-      {/* 🚩 Clamped, because one chip's value is free text (183): the column is
-          `NVARCHAR(MAX)` and a note of any length must not push the chips that
-          matter off the row. The text is intact in the DOM — this is a rendering
-          limit, never a truncation of what the order holds. */}
+      {/* 🚩 Clamped for EVERY chip, because one of them is now free text (183):
+          the note's column is `NVARCHAR(MAX)` and a note of any length must not
+          push the chips that matter off the row. One rule rather than a note-only
+          exception — a store name long enough to do the same damage would
+          otherwise be a second bug waiting for a long branch name. The text is
+          intact in the DOM: this is a rendering limit, never a truncation of what
+          the order holds. */}
       <span className="max-w-[16rem] truncate font-medium">
         {chip.valueKey ? t(`chips.value.${chip.valueKey}`) : (chip.value ?? t('chips.notSet'))}
       </span>

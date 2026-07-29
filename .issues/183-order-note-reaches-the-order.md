@@ -57,6 +57,18 @@ component (page wiring + a small form) · i18n · test
   limit only — the text is intact in the DOM.
 - i18n — `chips.note`, `chips.change.note`, and the `note.*` block.
 
+**Review (standards + spec, both axes on the commit itself)** — no rule violated (envelope,
+zero-literal, logical utilities, feature shape all clean). Two findings taken and fixed:
+🚩 a header carrying `'   '` was the ONE state the console could not clear — the chip read it as
+unset so nothing looked outstanding, while *Save* sat disabled because the trimmed forms matched
+and *Clear* was hidden for the same reason. *Empty but present* is the exact residue this slice
+exists to remove, so `changed` now compares what would be SENT against what the order LITERALLY
+holds, and *Clear* is offered wherever the header holds anything at all. And the chip clamp's
+comment was corrected: it applies to every chip, deliberately — a branch name long enough to do
+the same damage would otherwise be a second bug waiting. Left as built: *Save* disabled when
+nothing changed (an act that would send what the order already holds is not a correction), and
+the ends-only trim, which is what makes an emptied box, a spaces-only box and *Clear* one act.
+
 ⚠ **Server-side is BackOffice 871** (the `OrderNote` column + the `SetOrderNote` verb). This slice
 is driven against the stub; nothing was verified against a live SIS.Api.
 

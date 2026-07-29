@@ -234,11 +234,34 @@ export interface UnlinkCost {
    * four landed would be describing the request rather than the basket.
    */
   lines: number
-  /** The store the copy pinned, which the undo re-opens (`plantSource` goes back
-   *  to `seededAtOpen`, 880 §5). */
-  storeCode: string
-  /** 🚩 Always true, and stated: `removeCustomer` clears the link, but unlinking
-   *  does not touch the caller. */
+  /**
+   * 🚩 Whether the undo takes a **chosen** store away. `plantSource` goes back to
+   * `seededAtOpen` (880 §5), which re-shuts the item gate — but only where the
+   * order had a chosen store to lose. A request that names no store copies no
+   * store (880 *what shipped* §3), and there the plant was already the seeded
+   * one: claiming the gate re-shuts would describe a gate that never opened.
+   */
+  reopensStore: boolean
+  /**
+   * The store the ORDER is on, where the projection names one — 🚩 read off
+   * `header.plant` and **not** off the request's stamp. The two are the same
+   * store only until the address wins it back (spec 193: *the address still wins
+   * the plant*), and a sheet naming the request's store on an order that has
+   * since moved would be telling the agent they are about to lose a branch they
+   * left an hour ago.
+   */
+  storeCode: string | null
+  /**
+   * 🚩 Always true, and stated: `removeCustomer` clears the link, but unlinking
+   * does not touch the caller.
+   *
+   * A field rather than a sentence the sheet is trusted to remember — the same
+   * shape (and the same always-true literal) as `SubmitFailure.orderOpen`, which
+   * the receipt likewise draws unconditionally. The surface does not branch on
+   * either: what the field buys is that the fact is part of the ANSWER, where the
+   * pure test can hold it, so an arm added later that stopped keeping the caller
+   * would have to say so here.
+   */
   keepsCustomer: true
 }
 
@@ -247,10 +270,16 @@ export function unlinkCost(state: SessionState): UnlinkCost | null {
   // A submitted order's link is history — the document carries it now, and there
   // is no verb left that could take it back.
   if (!request || state.status !== 'open') return null
+  const reopensStore = state.header.plantSource !== 'seededAtOpen'
+  const plant = (state.header.plant ?? '').trim()
   return {
     documentNo: request.documentNo,
     lines: state.lines.length,
-    storeCode: request.storeCode,
+    reopensStore,
+    // Named only where there is both something to lose and a name for it: the
+    // sheet says the gate re-shuts either way, and an empty store code drawn
+    // into the sentence is a blank the agent has to interpret.
+    storeCode: reopensStore && plant !== '' ? plant : null,
     keepsCustomer: true,
   }
 }

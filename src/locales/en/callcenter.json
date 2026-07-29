@@ -643,6 +643,7 @@
       "lines_other": "All {{count}} items on this order will be taken off it.",
       "linesNone": "There is nothing on the basket to lose — none of the request's items landed.",
       "storeReopens": "Store {{store}} stops being this order's choice, so items can't be added until a store is chosen again.",
+      "storeReopensPlain": "This order's store stops being chosen, so items can't be added until a store is chosen again.",
       "callerStays": "The caller stays on this order.",
       "keep": "Keep the request",
       "confirm": "Unlink it",

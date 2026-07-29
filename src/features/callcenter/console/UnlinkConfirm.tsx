@@ -72,18 +72,23 @@ export default function UnlinkConfirm({
               ? t('request.unlink.lines', { count: cost.lines })
               : t('request.unlink.linesNone')}
           </p>
-          {/* The store the copy pinned goes back to the one the call opened on,
-              which re-shuts the item gate — so it is said before, not discovered
-              after. */}
-          <p className="mt-2 text-muted-foreground" data-cc-unlink-store>
-            {t('request.unlink.storeReopens', { store: cost.storeCode })}
-          </p>
-          {/* 🚩 And the reassurance that makes the control pressable at all. */}
-          {cost.keepsCustomer && (
-            <p className="mt-1 text-muted-foreground" data-cc-unlink-keeps-customer>
-              {t('request.unlink.callerStays')}
+          {/* The order's chosen store stops being chosen, which re-shuts the item
+              gate — said before rather than discovered after. 🚩 Silent where
+              there was no chosen store to lose (a request that named none), and
+              store-less where the projection names none: a blank interpolated
+              into the sentence is a gap the agent has to interpret. */}
+          {cost.reopensStore && (
+            <p className="mt-2 text-muted-foreground" data-cc-unlink-store={cost.storeCode ?? ''}>
+              {cost.storeCode
+                ? t('request.unlink.storeReopens', { store: cost.storeCode })
+                : t('request.unlink.storeReopensPlain')}
             </p>
           )}
+          {/* 🚩 And the reassurance that makes the control pressable at all. It is
+              unconditional: `keepsCustomer` is a fact of the verb, not a state. */}
+          <p className="mt-1 text-muted-foreground" data-cc-unlink-keeps-customer>
+            {t('request.unlink.callerStays')}
+          </p>
         </div>
       )}
     </ConfirmSheet>

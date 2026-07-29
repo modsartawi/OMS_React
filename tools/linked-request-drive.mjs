@@ -800,7 +800,11 @@ console.log('\nunlinking is a full undo, and it asks first')
   }))
   ok(sheet.cost === '2', `the sheet counts the lines ON THE BASKET (${sheet.cost})`)
   ok(/2 items on this order will be taken off/i.test(sheet.text), '…and says they go, in words')
-  ok(/store/i.test(sheet.text), 'that the store choice re-opens')
+  // 🚩 The store named is the ORDER's plant, which the link moved to the
+  // request's — not the request's stamp read back. They agree here; they stop
+  // agreeing the moment an address wins the plant (spec 193), which is where the
+  // pure test takes over.
+  ok(/Store 1234 stops being this order/i.test(sheet.text), 'that the store choice re-opens, naming it')
   ok(sheet.keeps && /caller stays/i.test(sheet.text), '🚩 and that the CALLER STAYS — the two acts sit side by side')
   ok(
     wire.filter((w) => w.path === 'CallCenterWeb/UnlinkRequest').length === 0,

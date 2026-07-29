@@ -129,6 +129,15 @@ with a control that would be refused. And when it does speak, the server's own s
 **dropped**: §7's phrase names the same request the block does, and one thing said twice in two
 voices is what 189 settled for `COUPON_REVERSAL_REFUSED`.
 
+🚩 **Review moved real code once.** The first cut read the confirmation's store off the request's own
+stamp (`linkedRequest.storeCode`) and drew the store line unconditionally, which is wrong twice: 880
+*what shipped* §3 says **a request that names no store copies no store** and leaves `plantSource` at
+`seededAtOpen` — the sheet would have rendered a blank and claimed a gate re-shut that never opened —
+and spec 193 rules that **the address still wins the plant**, so on an order whose store has since
+been re-derived the sheet would have named a branch the order left. The cost now reads
+`header.plant` + `plantSource`: `reopensStore` is false where there was no chosen store to lose, and
+the store is named only where the projection names one.
+
 **No pre-check anywhere**, as the ticket rules: the requests read still fires once per caller
 (`staleTime: 60_000`) and nothing re-reads the request before submit. The refusal is the guard.
 

@@ -252,16 +252,62 @@ describe('unlinkCost', () => {
   })
 
   it('states the three facts the undo costs', () => {
-    // The lines go, the store the copy pinned re-opens, and 🚩 the caller STAYS.
-    // The third is a field rather than a sentence a surface has to remember: the
-    // two acts sit next to each other in the rail, and an agent must not fear
-    // losing the caller they have just attached.
-    expect(unlinkCost(converting())).toEqual({
+    // The lines go, the chosen store re-opens, and 🚩 the caller STAYS. The third
+    // is a field rather than a sentence a surface has to remember: the two acts
+    // sit next to each other in the rail, and an agent must not fear losing the
+    // caller they have just attached.
+    const linkedOrder: SessionState = {
+      ...converting(),
+      header: { ...converting().header, plant: '1234', plantSource: 'fromLinkedRequest' },
+    }
+    expect(unlinkCost(linkedOrder)).toEqual({
       documentNo: 'SREQ-0001234',
       lines: ATTACHED_SESSION.lines.length,
+      reopensStore: true,
       storeCode: '1234',
       keepsCustomer: true,
     })
+  })
+
+  it('names the store the ORDER is on, never the one the request stamped', () => {
+    // 🚩 Spec 193: *the address still wins the plant*. Once a `setAddress` has
+    // re-derived the store, the request's own store is where a pharmacist stood
+    // an hour ago — a sheet naming it would tell the agent they are about to lose
+    // a branch this order is not at.
+    const moved: SessionState = {
+      ...converting(),
+      header: {
+        ...converting().header,
+        plant: '1007',
+        plantSource: 'derivedFromAddress',
+        linkedRequest: { ...TMRA, storeCode: '1234' },
+      },
+    }
+    expect(unlinkCost(moved)?.storeCode).toBe('1007')
+  })
+
+  it('claims no store where the order never had a chosen one', () => {
+    // 880 (*what shipped* §3): a request that names no store copies no store and
+    // `plantSource` stays `seededAtOpen` — the gate was never opened, so an undo
+    // that said it re-shuts would be describing something that did not happen.
+    const seeded: SessionState = {
+      ...converting(),
+      header: {
+        ...converting().header,
+        plant: '1001',
+        plantSource: 'seededAtOpen',
+        linkedRequest: { ...TMRA, storeCode: '' },
+      },
+    }
+    expect(unlinkCost(seeded)).toMatchObject({ reopensStore: false, storeCode: null })
+  })
+
+  it('re-shuts the gate without naming a store, where the projection names none', () => {
+    const nameless: SessionState = {
+      ...converting(),
+      header: { ...converting().header, plant: '', plantSource: 'fromLinkedRequest' },
+    }
+    expect(unlinkCost(nameless)).toMatchObject({ reopensStore: true, storeCode: null })
   })
 
   it('counts the lines OFF THE STATE, never off what the copy claimed', () => {

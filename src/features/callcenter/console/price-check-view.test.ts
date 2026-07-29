@@ -34,8 +34,13 @@ const ROW = searchRowView({
   materialNumber: '200021',
   descriptionEn: '8X4 DEO SPRAY MODN CHARM 150ML',
   descriptionAr: '8×4 بخاخ مودرن حريمى مزيل عرق 150مل',
-  // ~13% under the captured quote's 14.79 — the gap the whole ticket exists for.
-  estimatePriceExVat: 12.86,
+  // 🚩 Under what the caller pays — the gap the whole ticket exists for — and
+  // deliberately a figure the capture contains NOWHERE: not its `gross`, not its
+  // `net`, not a condition value. `Item.UnitPrice` is a material-master column and
+  // `VKP0` is a condition record; they happen to agree in this store's data, and
+  // an estimate set to the value they share would make the assertion below unable
+  // to fail on a QUOTED panel.
+  estimatePriceExVat: 12.5,
   atp: 4,
 })
 
@@ -88,7 +93,6 @@ describe('priceCheckProjectsConditionsAndOffers', () => {
     expect(panel.kind).toBe('quoted')
     if (panel.kind !== 'quoted') return
     expect(panel.quote.gross).toBe(PRICE_CHECK.unitPrice.gross)
-    expect(panel.quote.net).toBe(PRICE_CHECK.unitPrice.net)
     // WHERE it was priced is part of the answer: a price with no store beside it
     // is the seeded-plant harm said out loud (§3.4 rule 5).
     expect(panel.quote.plantName).toBe(PRICE_CHECK.plantName)

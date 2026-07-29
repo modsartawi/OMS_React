@@ -30,8 +30,8 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
-import { formatMoney } from '@/core/util/number-format'
 import { callCenterApi, priceCheckKey } from './api'
+import Conditions from './Conditions'
 import { NOTE } from './console-notes'
 import type { GuidanceCard } from './guidance-view'
 import type { SearchRowView } from './item-search'
@@ -59,7 +59,9 @@ export default function ItemPanel({ state, row }: { state: SessionState; row: Se
   })
 
   const panel = priceCheckPanel({
-    canPriceCheck: state.capabilities.canPriceCheck,
+    // The same read as `enabled` above, off the same const — one strictness
+    // rule, not two that could drift apart.
+    canPriceCheck,
     row,
     result: price.data,
     error: price.error,
@@ -100,7 +102,7 @@ export default function ItemPanel({ state, row }: { state: SessionState; row: Se
             <span className="min-w-0 truncate text-[11px] text-muted-foreground" data-cc-panel-priced-at>
               {/* The store is server text, interpolated as data. A price with no
                   store beside it is the seeded-plant harm said out loud. */}
-              {t('panel.priceAt', { uom: panel.quote.uom, plant: panel.quote.plantName })}
+              {t('panel.priceAt', { uom: panel.quote.uom, store: panel.quote.plantName })}
             </span>
           </div>
           <p className="text-[11px] text-muted-foreground">{t('panel.unitNote')}</p>
@@ -114,16 +116,7 @@ export default function ItemPanel({ state, row }: { state: SessionState; row: Se
               className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground"
               data-cc-panel-conditions
             >
-              <span className="uppercase tracking-wide">{t('line.pricedBy')}</span>
-              {panel.quote.conditions.map((condition, index) => (
-                <span key={`${condition.type}-${index}`} data-cc-panel-condition={condition.type}>
-                  {condition.description}
-                  <span className="ms-1" data-numeric>
-                    {formatMoney(condition.value)}
-                  </span>
-                  {condition.isStatistical && <span className="ms-1">{t('line.statistical')}</span>}
-                </span>
-              ))}
+              <Conditions conditions={panel.quote.conditions} />
             </div>
           )}
 
@@ -166,11 +159,14 @@ export default function ItemPanel({ state, row }: { state: SessionState; row: Se
  */
 function Offer({ offer }: { offer: GuidanceCard }) {
   const { t } = useTranslation('callcenter')
-  const shortfall = offer.klass === 'unavailable' ? 0 : offer.shortfall
   return (
     <li
       className="flex min-w-0 items-baseline gap-2 text-[11px]"
-      data-cc-panel-offer={offer.offerId}
+      // 🚩 The card's OWN id, never its `offerId`: every `offerId` in the v1.2
+      // capture is the empty string (859), so two distinct offers would share one
+      // handle and neither could be addressed. `guidance-view` mints this for
+      // exactly that case.
+      data-cc-panel-offer={offer.cardId}
       data-cc-panel-offer-class={offer.klass}
     >
       {offer.definition && (
@@ -182,15 +178,38 @@ function Offer({ offer }: { offer: GuidanceCard }) {
       <span className="min-w-0 truncate text-muted-foreground" data-cc-server-text>
         <Ltr>{offer.description}</Ltr>
       </span>
+      {/* The meter's two counts, in the strip's own words — `progress` is part of
+          138's promise language, and two counts are not a figure formatted as
+          money. Dropped where the wire stated no requirement to draw. */}
+      {offer.progress && (
+        <span className="shrink-0 text-muted-foreground" data-numeric data-cc-panel-progress>
+          {t('guidance.meter', { have: offer.progress.have, need: offer.progress.need })}
+        </span>
+      )}
       <span className="shrink-0 text-muted-foreground" data-cc-panel-offer-state>
-        {offer.klass === 'unavailable' && offer.reason
-          ? // The agent's words, never the wire code — including for a category
-            // this client has never seen.
-            t(offer.reason.key, offer.reason.params)
-          : shortfall > 0
-            ? t('panel.offerNeeds', { count: shortfall })
-            : t('panel.offerApplies')}
+        <OfferState offer={offer} />
       </span>
     </li>
   )
+}
+
+/**
+ * What the offer's state IS, said in words.
+ *
+ * 🚩 Branched on the **class**, never on `shortfall === 0`. `guidance-view` sets
+ * a shortfall of nought on every class that is not `actionable` AND on an
+ * actionable offer whose `progress` the wire did not state — so a not-ready offer
+ * with no meter would have been announced as already applying, which is the exact
+ * inverse of the fact. Where there is nothing honest to say, this says nothing:
+ * silence beats a wrong sentence, and the description above still names the offer.
+ */
+function OfferState({ offer }: { offer: GuidanceCard }) {
+  const { t } = useTranslation('callcenter')
+  // The agent's words, never the wire code — including for a category this
+  // client has never seen.
+  if (offer.klass === 'unavailable') return offer.reason ? <>{t(offer.reason.key, offer.reason.params)}</> : null
+  // `counted` IS `isReady`: on a one-unit run that means the offer applies to
+  // this item as it stands.
+  if (offer.klass === 'counted') return <>{t('panel.offerApplies')}</>
+  return offer.shortfall > 0 ? <>{t('panel.offerNeeds', { count: offer.shortfall })}</> : null
 }

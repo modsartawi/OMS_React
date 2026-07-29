@@ -758,7 +758,14 @@ export interface PriceCheckOffer {
   isReady: boolean
   progress: { have: number; need: number }
   skipReason: SkipReason | null
-  /** Optional and additive, exactly as `NearMiss.discount` is (§9). */
+  /**
+   * ⚠ **Not on §3.4's shape, and not in fixture 12.** It is the same optional,
+   * additive block `NearMiss.discount` is (§9), carried here because the offers
+   * region is the guidance strip's own projection and a definition is what a card
+   * says an offer GIVES. While the wire sends none — which is today — every card
+   * degrades to the server's `description` as its headline, exactly as the strip
+   * already does. It is a PROPOSAL to the contract, not something it promises.
+   */
   discount?: NearMissDiscount | null
 }
 

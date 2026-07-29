@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 180
 blocked-by: —
 ---
@@ -49,15 +49,47 @@ logic (`price-check-view` — new) · component (the expansion + panel — new) 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `priceCheckView` — conditions and offers projected; `offersComplete: false` yields the *not
-      fully checked* state · pure
-- [ ] `priceCheckView` — **no figure formatted as money anywhere in the offers region**, asserted in
-      the narrow form over a fixture whose BBY description deliberately contains a currency word
-      (`"2 PC for 29.95 SR"` is in our own captures — the broad *no `SAR` anywhere* form fails on
-      server text nobody may edit) · pure
-- [ ] `priceCheckView` — a refusal yields a refusal state and **never** the row's estimate · pure
-- [ ] new `tools/item-panel-drive.mjs` — expanding a row shows the price with `SAR` while the row's
-      `≈` estimate stays on its meta line; the panel is absent while the gate is shut · flow (Playwright)
+The projection shipped as `priceCheckPanel` in `price-check-view.ts` — one entry point answering
+**which of four states the panel is in** (`shut` · `pending` · `refused` · `quoted`) rather than a
+`view` over a result that a caller would still have to branch on. Three of the four have **no money
+field at all**, which is how rule 4 is held structurally instead of remembered.
+
+- [x] `priceCheckPanel` — conditions and offers projected; `offersComplete: false` yields the *not
+      fully checked* state, and flipping it to `true` changes that one flag and **nothing else**
+      (same offers, same quote — 787-C's "no client change", made mechanical) · pure
+- [x] `priceCheckPanel` — **no figure formatted as money anywhere in the offers region**, in the
+      narrow form `guidance-view.test.ts` already settled (a currency word, or decimals *forced* to
+      two — `29.95` is the numeral a set price already is). Over a description carrying
+      `"2 PC for 29.95 SR"` **and** a `P`-kind discount, which is the one definition that comes
+      nearest to being money. The guard self-tests the shape it guards against · pure
+- [x] `priceCheckPanel` — a refusal yields a refusal state and **never** the row's estimate: the
+      module is handed the whole row, estimate and all, and the refusal state serialises with no
+      figure in it at all. Each of §3.4's five codes is a sentence, and an unknown code is one too · pure
+- [x] new `tools/item-panel-drive.mjs` (31 assertions, 31/31) — expanding a row shows the price with
+      `SAR`, **equal to the capture's own basket line** for the same item; the row's meta line is
+      **byte-identical** before and after expanding with its `≈` still on it; the estimate appears
+      nowhere in the panel; the shut gate draws no expander and sends **no `PriceCheck` at all**; the
+      request carries `transactionId` + `itemNumber` and nothing else, on a GET with no body; and
+      `Pricing/Simulate` is never touched · flow (Playwright)
+
+Also green: `npm run typecheck`, `npx vitest run` (671), `npm run lint`, and
+`tools/callcenter-drive.mjs` 507/507 — the last because the *priced by* conditions run was extracted
+into a shared `Conditions.tsx` the basket line now uses too (one rule, two surfaces).
+
+## What the reviews moved
+
+`/standards-review`'s two axes each found something real, and both are fixed in the slice:
+
+- an offer whose `progress` the wire omitted got `shortfall: 0` and was announced as ***applies to
+  this item*** — the inverse of the fact. The state is now branched on the **class**, and where there
+  is nothing honest to say it says nothing.
+- the offer's DOM handle keyed on `offerId`, which is the empty string on every offer in this
+  capture (859) — two distinct offers under one handle. It keys on `guidance-view`'s `cardId`, which
+  exists for exactly that case, and the drive asserts the handles are distinct.
+- the pure test's row estimate was the capture's own `net`, so the *never the estimate* assertion
+  could not have failed on a **quoted** panel. It is now a figure the capture contains nowhere.
+- `PriceQuote` no longer carries `title` / `title2` / `net`: nothing drew them, and the row one line
+  above already carries both names and the number.
 
 ## Boundaries
 

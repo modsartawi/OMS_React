@@ -52,10 +52,12 @@ const REFUSALS = [
  * rule 4).
  */
 export interface PriceQuote {
-  /** The name the agent reads out — server text. */
-  title: string
-  /** The Arabic name, where the master carries one. Rides the meta line. */
-  title2: string | null
+  /**
+   * 🚩 The item's NAME is deliberately not here. The row this panel expands from
+   * is one line above it, carrying the English name, the Arabic name and the item
+   * number already — repeating them would be the panel re-stating what the agent
+   * is looking at, and a second copy that could disagree with the first.
+   */
   uom: string
   /** WHERE it was priced. 🚩 Part of the answer, not decoration: a price with no
    *  store beside it is exactly the seeded-plant harm §3.4 rule 5 closes. */
@@ -64,8 +66,6 @@ export interface PriceQuote {
    *  the field that must equal the basket line's, so it is read and never
    *  computed. */
   gross: number
-  /** The same run's ex-VAT half, for the conditions line. */
-  net: number
   /** The store price and VAT as SEPARATE things, exactly as a basket line carries
    *  them (§2.1) — and that separation is precisely what explains the gap to the
    *  `≈` estimate on the row above. */
@@ -136,12 +136,9 @@ export function priceCheckPanel({
     kind: 'quoted',
     itemNumber,
     quote: {
-      title: result.description ?? '',
-      title2: result.description2 ?? null,
       uom: result.uom ?? '',
       plantName: result.plantName ?? '',
       gross: result.unitPrice.gross,
-      net: result.unitPrice.net,
       conditions: result.conditions ?? [],
     },
     offers: offerCards(result),

@@ -249,7 +249,7 @@ async function run() {
     )
     check(
       'the conditions behind it are drawn, VAT as its own thing',
-      (await page.locator('[data-cc-panel-condition]').count()) === QUOTE.conditions.length,
+      (await page.locator('[data-cc-panel-conditions] [data-cc-condition]').count()) === QUOTE.conditions.length,
     )
 
     // 5. The row AFTER — byte-identical. 168's spatial rule is what stops a list
@@ -270,6 +270,21 @@ async function run() {
     check(
       'every offer the server sent is drawn',
       (await page.locator('[data-cc-panel-offer]').count()) === QUOTE.offers.length,
+    )
+    // 🚩 Every `offerId` in this capture is the empty string (859), so an offer
+    //    handle keyed on it would collapse two distinct offers into one — the
+    //    agent shown one offer where the engine sent two.
+    const handles = await page.locator('[data-cc-panel-offer]').evaluateAll((els) =>
+      els.map((el) => el.getAttribute('data-cc-panel-offer')),
+    )
+    check(
+      '🚩 each offer is separately addressable even though the wire named none',
+      new Set(handles).size === QUOTE.offers.length,
+      handles.join(', '),
+    )
+    check(
+      'each offer carries its progress, in the strip own two counts',
+      (await page.locator('[data-cc-panel-progress]').count()) === QUOTE.offers.length,
     )
     check('🚩 the offers region carries no figure formatted as money', !moneyShaped(offersText), offersText.replace(/\n/g, ' · '))
     // 9. The honesty flag, while 787-C is outstanding.

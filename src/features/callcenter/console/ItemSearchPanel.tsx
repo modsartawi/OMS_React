@@ -454,7 +454,11 @@ export default function ItemSearchPanel({
           )}
 
           {rows.map((row, index) => (
-            <div key={row.itemNumber}>
+            // 🚩 `presentation`, so the wrapper leaves the accessibility tree
+            // entirely and the row below it stays a direct `option` of the
+            // listbox. A plain `div` between the two would break the combobox
+            // binding `aria-activedescendant` depends on (153).
+            <div key={row.itemNumber} role="presentation">
               <Row
                 row={row}
                 add={add}

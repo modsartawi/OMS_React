@@ -26,6 +26,7 @@ import { formatMoney } from '@/core/util/number-format'
 import Ltr from '@/core/ui/Ltr'
 import AvailabilityPill from './AvailabilityPill'
 import { basketLineViews, type BasketLineView } from './basket-view'
+import Conditions from './Conditions'
 import { NOTE } from './console-notes'
 import { nextQty, nextUom, type LineEdit } from './line-edit'
 import Money from './Money'
@@ -200,21 +201,9 @@ function Line({
               projects one discount twice — as the condition that applied it and
               as the offer that fired — and two −8.40s in a row with nothing
               between them read as two deductions. */}
-          {line.conditions.length > 0 && (
-            <span className="uppercase tracking-wide opacity-70">{t('line.pricedBy')}</span>
-          )}
-          {line.conditions.map((condition, index) => (
-            <span key={`${condition.type}-${index}`} data-cc-condition={condition.type}>
-              {condition.description}
-              <span data-numeric className="ms-1 text-foreground/80">
-                {formatMoney(condition.value)}
-              </span>
-              {/* An informational condition did not move the money. Said in
-                  words, not by tone alone — it is a different fact, not a
-                  quieter one. */}
-              {condition.isStatistical && <span className="ms-1">{t('line.statistical')}</span>}
-            </span>
-          ))}
+          {/* The *priced by* run — shared with the price-check panel (185), which
+              asks the identical question about the identical type. */}
+          <Conditions conditions={line.conditions} />
           {line.promotions.length > 0 && (
             <span className="uppercase tracking-wide opacity-70">{t('line.firedBy')}</span>
           )}

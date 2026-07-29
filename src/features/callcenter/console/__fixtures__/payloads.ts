@@ -40,6 +40,8 @@ import type {
   OpenResult,
   PendingConfirmation,
   PrereqResolution,
+  PriceCheckResult,
+  SessionLine,
   SessionState,
   SubmitResult,
 } from '@/core/models/callcenter'
@@ -50,6 +52,7 @@ import belowAtp from '../../../../../.issues/assets/136-cc-contract/04-below-atp
 import rebindPreview from '../../../../../.issues/assets/136-cc-contract/05-rebind-preview.json'
 import rebindRefused from '../../../../../.issues/assets/136-cc-contract/06-rebind-refused.json'
 import submitOutcomes from '../../../../../.issues/assets/136-cc-contract/07-submit-already-submitted.json'
+import priceCheck from '../../../../../.issues/assets/136-cc-contract/12-price-check.json'
 import unreachable from './unreachable-v1_0.json'
 
 /**
@@ -194,6 +197,39 @@ export const SUBMIT_PLACED: SubmitResult = payload<SubmitResult>(submitOutcomes.
  */
 export const SUBMIT_RETRY_REFUSED: { data: unknown; errors: GeneralErrorResponse[] | null } = envelope(
   submitOutcomes.retryRefused,
+)
+
+/**
+ * §3.4's quote, as `GET CallCenterWeb/PriceCheck` really answers it (fixture 12,
+ * capture 857 at contract v1.10) — VAT-inclusive engine money at qty 1, the two
+ * conditions behind it, and two offers whose `offersComplete` is `false`.
+ *
+ * 🚩 It is a capture of the **whole ticket's rule**: the same exchange added the
+ * same item to the basket, so `PRICE_CHECK_LINE` below is the line this quote
+ * must equal. The equality is the reason the read exists, and it is asserted off
+ * the wire's own bytes rather than off two hand-authored numbers that agree
+ * because the author made them.
+ */
+export const PRICE_CHECK: PriceCheckResult = payload<PriceCheckResult>(priceCheck.quoted)
+
+/** The basket line the SAME item became under the SAME header, from the same
+ *  capture — §3.4 rule 1's other half. */
+export const PRICE_CHECK_LINE: SessionLine = payload<SessionState>(
+  priceCheck.theSameItemAsABasketLine,
+).lines[0]
+
+/** The refusal before the caller is attached — a `409 NO_CUSTOMER_ATTACHED`
+ *  carrying the envelope, as `core/api.ts` reads one off a non-2xx. §3.4 rule 5:
+ *  quoting at a store nobody chose is a silent wrong price, said out loud. */
+export const PRICE_CHECK_REFUSED: { data: unknown; errors: GeneralErrorResponse[] | null } = envelope(
+  priceCheck.refusedBeforeAttach,
+)
+
+/** The second refusal the capture holds — the item that does not price at the
+ *  order's own plant, which is the failure a fall-back to the estimate would
+ *  hide behind a number ~13% under what the caller pays. */
+export const PRICE_CHECK_NO_PRICE: { data: unknown; errors: GeneralErrorResponse[] | null } = envelope(
+  priceCheck.noPriceAtPlant,
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

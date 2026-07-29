@@ -327,6 +327,27 @@
       "unknown": "? unknown at add"
     }
   },
+  "panel": {
+    "expand": "About this item",
+    "heading": "About this item",
+    "checking": "Checking the price…",
+    "priceAt": "One {{uom}} at {{plant}} · VAT included",
+    "unitNote": "Adding it creates a line at this price.",
+    "offersHeading": "Offers on this item",
+    "offersNone": "No offers on this item.",
+    "offersIncomplete": "Offers were not fully checked — buy-one-get-one offers aren't included yet.",
+    "offerApplies": "applies to this item",
+    "offerNeeds_one": "needs {{count}} more",
+    "offerNeeds_other": "needs {{count}} more",
+    "refused": {
+      "ITEM_NOT_FOUND": "There is no such item number, so there is no price to give.",
+      "ITEM_NOT_SELLABLE": "This item can't be sold on a call-center order, so it has no price here.",
+      "NO_PRICE_AT_PLANT": "This item has no price at the store this order is served from.",
+      "NO_CUSTOMER_ATTACHED": "Attach the caller before checking a price — the price depends on who is buying.",
+      "STORE_NOT_CHOSEN": "Choose the store this order is served from before checking a price.",
+      "fallback": "The price could not be checked. Nothing has changed on this order — try again."
+    }
+  },
   "basket": {
     "heading": "Basket · prices include VAT",
     "hasBelowAtp": "below availability accepted",

@@ -10,9 +10,15 @@
  * 1. 🚩 **The estimate never enters the money column.** Where it goes is
  *    `item-search.ts`'s ruling and this component only obeys it: the row's
  *    second line carries item number · Arabic name · estimate, and the row's end
- *    edge carries availability and *Add* only. The panel keeps a **standing**
- *    note above the rows saying catalogue prices are estimates and the basket
- *    price is what the caller pays — stated once, rather than inferred per row.
+ *    edge carries **no figure at all** — availability, the expander (185) and
+ *    *Add*. The panel keeps a **standing** note above the rows saying catalogue
+ *    prices are estimates and the basket price is what the caller pays — stated
+ *    once, rather than inferred per row.
+ *
+ *    🚩 185 put engine money on this screen for the first time, and it went in
+ *    the EXPANSION rather than on the row: the `≈` estimate keeps its meta-line
+ *    home, the real VAT-inclusive price appears only inside `ItemPanel`, and the
+ *    two coexist without ever swapping places — so no row changes shape mid-list.
  * 2. 🚩 **Availability renders three ways and `unknown` is not `zero`** — ground,
  *    ink and wording all differ, because they are opposite decisions.
  * 3. **Every row is addable in one action.** The server already filtered to what
@@ -28,13 +34,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Search, X } from 'lucide-react'
+import { ChevronDown, Loader2, Search, X } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import { apiErrorMessage } from '@/core/api'
 import Ltr from '@/core/ui/Ltr'
 import { callCenterApi, itemSearchKey } from './api'
 import AvailabilityPill from './AvailabilityPill'
 import { NOTE } from './console-notes'
+import ItemPanel from './ItemPanel'
 import { NO_HIGHLIGHT, highlightMoveOf, highlightedIndex, moveHighlight } from './highlight'
 import {
   MIN_QUERY_LENGTH,
@@ -197,6 +204,29 @@ export default function ItemSearchPanel({
 
   const rows = searchRowViews(search.data)
   const asked = isSearchable(term)
+
+  /**
+   * Which row is expanded into its *about this item* panel (185), or `null`.
+   *
+   * 🚩 **One at a time**, and it is the panel's own state rather than the page's:
+   * the price check is a pure read that takes no claim (§3.4 rule 8), so opening
+   * one costs the order nothing and nothing above this component needs to know
+   * one is open.
+   *
+   * 🚩 It is dropped whenever the QUESTION changes — a new term, or an add that
+   * landed and cleared the list. A panel left standing across two searches is a
+   * price quoted for an item no longer on screen, which is the same harm as
+   * quoting the wrong number: the agent reads it out.
+   */
+  const [expanded, setExpanded] = useState<string | null>(null)
+  useEffect(() => {
+    setExpanded(null)
+  }, [term])
+  // The gate is the SERVER's (§3.4 rule 5 — `canAddItem`'s predicate), read
+  // strictly: absent on a pre-1.6 server. A row that cannot be priced does not
+  // grow a control that would refuse — 165's ruling, the same one the row's *Add*
+  // follows.
+  const canPriceCheck = state.capabilities.canPriceCheck === true
 
   /**
    * 🚩 The add's KEYBOARD path (ticket 191). Until this, the map's headline
@@ -424,7 +454,24 @@ export default function ItemSearchPanel({
           )}
 
           {rows.map((row, index) => (
-            <Row key={row.itemNumber} row={row} add={add} highlighted={index === highlighted} />
+            <div key={row.itemNumber}>
+              <Row
+                row={row}
+                add={add}
+                highlighted={index === highlighted}
+                // 🚩 The expander is ABSENT while the gate is shut, never
+                // disabled: quoting at a store nobody chose is a silent wrong
+                // price said out loud, and a control the door would refuse is
+                // worse than no control.
+                onExpand={canPriceCheck ? () => setExpanded(expanded === row.itemNumber ? null : row.itemNumber) : null}
+                expanded={expanded === row.itemNumber}
+              />
+              {/* Under the row it is about, inside the same list — the panel is
+                  an expansion of the row and not a surface of its own. The row
+                  above it does not change shape (168): its `≈` estimate stays on
+                  its meta line, and engine money appears only in here. */}
+              {expanded === row.itemNumber && <ItemPanel state={state} row={row} />}
+            </div>
           ))}
         </div>
       )}
@@ -436,10 +483,16 @@ function Row({
   row,
   add,
   highlighted,
+  onExpand,
+  expanded,
 }: {
   row: SearchRowView
   add: AddItemActions
   highlighted: boolean
+  /** Opens (or closes) the *about this item* panel. 🚩 `null` while
+   *  `capabilities.canPriceCheck` is false — the row simply carries no expander. */
+  onExpand: (() => void) | null
+  expanded: boolean
 }) {
   const { t } = useTranslation('callcenter')
   const adding = add.pending === row.itemNumber
@@ -492,6 +545,23 @@ function Row({
           basket line reads *at add* instead, because a frozen figure and a live
           one must never read alike (169). */}
       <AvailabilityPill availability={row.availability} keyBase="search.atp" />
+      {/* 🚩 The question that is NOT an act, before the one that is. It carries
+          no figure of its own — the price it opens is engine money and lives
+          inside the panel, never on the row, so no row changes shape mid-list
+          (168). */}
+      {onExpand && (
+        <button
+          type="button"
+          onClick={onExpand}
+          aria-expanded={expanded}
+          aria-label={t('panel.expand')}
+          title={t('panel.expand')}
+          data-cc-item-expand={row.itemNumber}
+          className="shrink-0 rounded-full border border-input px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+      )}
       {add.onAdd && (
         <button
           type="button"

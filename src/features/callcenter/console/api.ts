@@ -37,6 +37,7 @@ import type {
   OpenResult,
   PaymentType,
   PrereqResolution,
+  PriceCheckResult,
   SessionState,
   SubmitResult,
 } from '@/core/models/callcenter'
@@ -86,6 +87,20 @@ export const addressBookKey = (customerId: string) =>
  */
 export const itemSearchKey = (transactionId: string, query: string, offerId?: string | null) =>
   ['callcenter', 'itemSearch', transactionId, query, offerId ?? null] as const
+
+/**
+ * One item's price check (§3.4), keyed by the **order** as well as the item: the
+ * quote is a pricing run at the order's own plant, origin, customer and loyalty,
+ * so the same item asked on a different order is a different question — and a key
+ * that did not carry the order would answer this one with another order's price,
+ * which is the one number on this screen that gets read out loud.
+ *
+ * 🚩 Deliberately NOT keyed by `version`, for the opposite reason to `prereqKey`'s:
+ * the price is re-asked when the panel is opened (`staleTime: 0`), and a key that
+ * moved with every re-price would evict a quote the agent is mid-sentence about.
+ */
+export const priceCheckKey = (transactionId: string, itemNumber: string) =>
+  ['callcenter', 'priceCheck', transactionId, itemNumber] as const
 
 /**
  * One offer's eligible items (§3.3), keyed by the **order** as well as the offer
@@ -456,6 +471,35 @@ export const callCenterApi = {
    */
   itemSearch(transactionId: string, query: string, offerId?: string | null): Promise<ItemSearchResult> {
     return api.get<ItemSearchResult>('CallCenterWeb/ItemSearch', { transactionId, query, offerId })
+  },
+
+  /**
+   * `GET CallCenterWeb/PriceCheck` — *"how much is that?"*, answered before the
+   * item is in the basket (§3.4, v1.6, BackOffice 875). A **pure read**, so it
+   * carries no `requestId`.
+   *
+   * 🚩 **It sends `transactionId` and `itemNumber` and NOTHING else.** No
+   * quantity (always one unit, owner ruling), no plant, no sales org, no
+   * condition: the server composes the whole pricing request from the order's own
+   * header, and map note 4 is enforced by this signature having no other field to
+   * abuse. That is also why `Pricing/Simulate` is **not** reused — route or body:
+   * it is gated on the pricing-analysis screen's grant, and its `ManualConditions`
+   * would hand an agent the price-affecting power the map note removes.
+   *
+   * 🚩 **It takes no claim and so it does not ride `withBusyRetry`.** The engine
+   * prices in a throwaway context that is never persisted, so this read cannot
+   * collide with the agent's own basket and never queues behind the 15-second
+   * lease (§6.1) — which is why asking the price mid-basket costs the call
+   * nothing. It is the only read on this contract with that property.
+   *
+   * Refuses `ITEM_NOT_FOUND`, `ITEM_NOT_SELLABLE`, `NO_PRICE_AT_PLANT`,
+   * `NO_CUSTOMER_ATTACHED` and `STORE_NOT_CHOSEN` — no new codes. 🚩 Every one of
+   * them is a **refusal the panel says**, never a fall back to the search row's
+   * ex-VAT estimate: this number is read out loud with nothing beside it to
+   * correct it (`price-check-view.ts`).
+   */
+  priceCheck(transactionId: string, itemNumber: string): Promise<PriceCheckResult> {
+    return api.get<PriceCheckResult>('CallCenterWeb/PriceCheck', { transactionId, itemNumber })
   },
 
   /**

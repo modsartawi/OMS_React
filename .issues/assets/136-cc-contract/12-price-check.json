@@ -1,0 +1,322 @@
+{
+  "_capture": {
+    "ticket": "857",
+    "map": "126",
+    "scenario": "priceCheck on an item that is NOT in the basket: refused before the caller is attached, then quoted VAT-inclusive, and the quote equals the basket line the same item becomes",
+    "contractVersion": "1.10",
+    "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
+    "capturedAt": "2026-07-29",
+    "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
+  },
+  "refusedBeforeAttach": {
+    "request": {
+      "method": "GET",
+      "path": "CallCenterWeb/PriceCheck?transactionId=06FTV2JQREZQ215D79GNE96X43&itemNumber=200021",
+      "body": null
+    },
+    "response": {
+      "statusCode": 409,
+      "body": {
+        "data": null,
+        "statusCode": 409,
+        "success": false,
+        "message": "Attach the caller before checking a price on this order.",
+        "errors": [
+          {
+            "errorCode": "NO_CUSTOMER_ATTACHED",
+            "internalErrorCode": null,
+            "errorMessage": "Attach the caller before checking a price on this order."
+          }
+        ]
+      }
+    }
+  },
+  "quoted": {
+    "request": {
+      "method": "GET",
+      "path": "CallCenterWeb/PriceCheck?transactionId=06FTV2JQREZQ215D79GNE96X43&itemNumber=200021",
+      "body": null
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.10",
+          "itemNumber": "200021",
+          "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+          "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+          "uom": "EA",
+          "plant": "1001",
+          "plantName": "King AbdelAziz Road",
+          "pricedAt": "2026-07-29T14:02:33.2393271+03:00",
+          "unitPrice": {
+            "net": 12.86,
+            "gross": 14.79
+          },
+          "conditions": [
+            {
+              "type": "VKP0",
+              "description": "Basic Price",
+              "value": 12.86,
+              "isStatistical": false
+            },
+            {
+              "type": "MWST",
+              "description": "Vat %",
+              "value": 1.93,
+              "isStatistical": false
+            }
+          ],
+          "offers": [
+            {
+              "offerId": "",
+              "description": "10% Coupon",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "skipReason": null
+            },
+            {
+              "offerId": "",
+              "description": "T173 COUPON-GATED BBY",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "skipReason": null
+            }
+          ],
+          "offersComplete": false
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "theSameItemAsABasketLine": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/AddItem",
+      "body": {
+        "itemNumber": "200021",
+        "qty": 1,
+        "uom": null,
+        "transactionId": "06FTV2JQREZQ215D79GNE96X43",
+        "requestId": "06FTV2JTA7T9PPWC31E7GS6AN0",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.10",
+          "transactionId": "06FTV2JQREZQ215D79GNE96X43",
+          "version": 19,
+          "etag": "06FTV2JQREZQ215D79GNE96X43-19",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "operatorOverride",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-t4bc2a468",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-29T14:02:32.6550916",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": null,
+            "retainedAddressLabel": null,
+            "slot": null,
+            "documentSource": null,
+            "sourceReference": null,
+            "orderNote": null,
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false,
+            "coupons": []
+          },
+          "lines": [
+            {
+              "lineId": "L10",
+              "itemNumber": "200021",
+              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+              "qty": 1,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "lineTotal": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 12.86,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 1.93,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
+            }
+          ],
+          "totals": {
+            "net": 12.86,
+            "vat": 1.93,
+            "gross": 14.79,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 26.79
+          },
+          "firedPromotions": [],
+          "nearMisses": [
+            {
+              "offerId": "",
+              "description": "10% Coupon",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "prereq": {
+                "kind": "coupon",
+                "materialNumber": "COUP01",
+                "groupingId": null,
+                "eligibleCount": 1
+              },
+              "skipReason": null
+            },
+            {
+              "offerId": "",
+              "description": "T173 COUPON-GATED BBY",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "prereq": {
+                "kind": "coupon",
+                "materialNumber": "COUPT173",
+                "groupingId": null,
+                "eligibleCount": 1
+              },
+              "skipReason": null
+            }
+          ],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": false,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "capabilityReasons": {},
+            "submitBlockers": [
+              "NO_ADDRESS",
+              "MISSING_SLOT",
+              "MISSING_SOURCE_REFERENCE"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "noPriceAtPlant": {
+    "request": {
+      "method": "GET",
+      "path": "CallCenterWeb/PriceCheck?transactionId=06FTV2JQREZQ215D79GNE96X43&itemNumber=104218",
+      "body": null
+    },
+    "response": {
+      "statusCode": 409,
+      "body": {
+        "data": null,
+        "statusCode": 409,
+        "success": false,
+        "message": "Item '104218' does not price at store 1001.",
+        "errors": [
+          {
+            "errorCode": "NO_PRICE_AT_PLANT",
+            "internalErrorCode": null,
+            "errorMessage": "Item '104218' does not price at store 1001."
+          }
+        ]
+      }
+    }
+  },
+  "itemNotFound": {
+    "request": {
+      "method": "GET",
+      "path": "CallCenterWeb/PriceCheck?transactionId=06FTV2JQREZQ215D79GNE96X43&itemNumber=000000000000",
+      "body": null
+    },
+    "response": {
+      "statusCode": 404,
+      "body": {
+        "data": null,
+        "statusCode": 404,
+        "success": false,
+        "message": "No such item number.",
+        "errors": [
+          {
+            "errorCode": "ITEM_NOT_FOUND",
+            "internalErrorCode": null,
+            "errorMessage": "No such item number."
+          }
+        ]
+      }
+    }
+  },
+  "_notes": [
+    "\uD83D\uDEA9 unitPrice.gross EQUALS the line's unitPrice.gross for the same item under the same header — the whole ticket (875 / §3.4 rule 1). The two are one engine run at one header: the ORDER's plant, the C000 seat, its loyalty and its Z00001 procedure, at qty 1.",
+    "It is VAT-INCLUSIVE. The search row's estimatePriceExVat is Item.UnitPrice, a material-master column BEFORE the separate 15% MWST condition, so it reads ~13% under what the caller pays. On a search row a real line contradicts it seconds later; a price check is read out loud with nothing beside it, which is why a pricing failure here is a typed refusal and never a fallback to that number.",
+    "\uD83D\uDEA9 IT TAKES NO CLAIM. Captured under a live 15-second strict lease held by the agent's own register: the price check answers, and getState — which resumes — answers SESSION_BUSY on the same lease. That is why 'how much is that?' never pauses order entry.",
+    "offersComplete is FALSE and will stay false until 787-C lands (130: BBY lookup keys on the condition-side access tables, so a one-item run never loads a 'buy X get Y' whose X is the priced item). It flips to true with NO client change.",
+    "The client sends transactionId and itemNumber and NOTHING else — no quantity (always one unit, owner ruling), no plant, no sales org, no condition. This is deliberately NOT Pricing/Simulate, whose body carries manual conditions and a sales org that would beat the plant's, and whose grant is the pricing-analysis screen's."
+  ]
+}

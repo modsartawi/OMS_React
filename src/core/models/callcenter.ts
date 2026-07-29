@@ -410,6 +410,20 @@ export interface SessionCapabilities {
    */
   canApplyCoupon?: boolean
   /**
+   * v1.6 (§3.4) — **`canAddItem`'s own predicate**: a caller attached AND a store
+   * somebody chose (§2.3), projected under its own name because it gates a
+   * different surface — the *about this item* panel.
+   *
+   * 🚩 It is the gate on **quoting**, and that is a sharper thing than the gate
+   * on adding. A price check is read out loud with no basket line beside it to
+   * correct it, so quoting at a store nobody chose
+   * ([797](C:\Work\DMSCO\BackOffice\.issues\797-resume-drops-pcheader-plant.md)'s
+   * seeded plant) is a silent wrong price the caller acts on. Absent on a pre-1.6
+   * server, and the console reads it **strictly** — no panel rather than a panel
+   * quoting from a store nobody picked.
+   */
+  canPriceCheck?: boolean
+  /**
    * v1.10 (159) — open AND the order holds at least one coupon.
    *
    * 🚩 The removal is NOT `voidLine`: the voucher line is not on the wire, and
@@ -721,4 +735,89 @@ export interface ItemSearchResult {
    *  search still succeeded: unknown availability never gates order entry. */
   atpAvailable: boolean
   rows: ItemSearchRow[]
+}
+
+/**
+ * One offer on a price-checked item (§3.4). It is a `NearMiss` **minus its
+ * prerequisite**: a one-item pricing run knows what the offer needs in the
+ * aggregate (`progress`) but has no basket to name a prerequisite against, so
+ * there is no `prereq` block and the panel offers no add.
+ *
+ * 🚩 **No `wouldSave`, and nothing here is money.** Same promise language as the
+ * guidance strip (138): the discount *definition*, `progress`, `isReady`. The
+ * offers region can guarantee it holds no figure formatted as money absolutely,
+ * because it holds no engine money at all (§3.4 rule 6).
+ */
+export interface PriceCheckOffer {
+  offerId: string
+  /** The offer's own words, server text — passed through, never re-worded. It is
+   *  the one field here that may legitimately contain a currency word (`"2 PC for
+   *  29.95 SR"` is in this repo's own captures), which is why the no-money rule is
+   *  asserted in its narrow form. */
+  description: string
+  isReady: boolean
+  progress: { have: number; need: number }
+  skipReason: SkipReason | null
+  /** Optional and additive, exactly as `NearMiss.discount` is (§9). */
+  discount?: NearMissDiscount | null
+}
+
+/**
+ * `GET CallCenterWeb/PriceCheck?transactionId=&itemNumber=` (CONTRACT.md §3.4,
+ * v1.6) — **what an item costs, without adding it.**
+ *
+ * 🚩 **It is engine money, and that is the whole point.** `unitPrice.gross` comes
+ * from a real pricing run at the ORDER's own plant, origin, customer and loyalty,
+ * VAT-inclusive, at quantity one — so it is §2.1 money, rendered in a money column
+ * with `SAR`, and it **equals the basket line's `unitPrice.gross`** for the same
+ * item under the same header. Adding the item must never contradict what the
+ * agent just said out loud.
+ *
+ * 🚩 **It is not `ItemSearchRow.estimatePriceExVat`, and must never silently
+ * become it.** The estimate reads ~13% under what the caller pays; a price check
+ * exists to be READ OUT LOUD, with no basket line beside it to correct it. A
+ * pricing failure is therefore a typed refusal (`ITEM_NOT_FOUND`,
+ * `ITEM_NOT_SELLABLE`, `NO_PRICE_AT_PLANT`, `NO_CUSTOMER_ATTACHED`,
+ * `STORE_NOT_CHOSEN` — no new codes), never a fall back to the estimate. The two
+ * numbers coexist on one screen and never swap places (168's spatial rule).
+ *
+ * 🚩 **It takes no claim.** Like `getState` this is a pure read, priced in a
+ * throwaway context that is never persisted — so it cannot collide with the
+ * agent's own basket and never queues behind the 15-second lease (§6.1). It is the
+ * only read on this contract with that property, and it is why *"how much is
+ * that?"* never pauses order entry.
+ *
+ * 🚩 **The request carries `transactionId` and `itemNumber` and nothing else** —
+ * no quantity (always one unit, owner ruling), no plant, no sales org, no
+ * condition. Map note 4 is enforced by the wire having no other field, which is
+ * also why `Pricing/Simulate` may not be reused: its body carries manual
+ * conditions and a sales org that would beat the plant's.
+ */
+export interface PriceCheckResult {
+  contractVersion: string
+  itemNumber: string
+  description: string
+  /** The Arabic name. Nullable: the master has rows with none. */
+  description2: string | null
+  uom: string
+  /** WHERE it was priced — the order's own fulfilment store, never a plant the
+   *  client asked for. `plantName` is what the panel says out loud. */
+  plant: string
+  plantName: string
+  pricedAt: string
+  /** ENGINE money, quantity one. §2.1's rules apply to `gross`. */
+  unitPrice: MoneyPair
+  /** The conditions behind that price — the store price and VAT as separate
+   *  things, exactly as a basket line carries them. */
+  conditions: LineCondition[]
+  offers: PriceCheckOffer[]
+  /**
+   * 🚩 **130's blindness, made visible.** A one-item pricing run of a *"buy X get
+   * Y"* whose X is the priced item never loads the promotion at all — BBY lookup
+   * keys on the condition-side access tables — so this is `false` until BackOffice
+   * 787-C lands and the panel says *offers were not fully checked* rather than
+   * letting silence read as *no offer exists*. It flips to `true` with **no client
+   * change**.
+   */
+  offersComplete: boolean
 }

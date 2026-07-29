@@ -71,10 +71,16 @@ describe('addressChoices', () => {
     expect(choice.addressNumber).toBe('77120')
   })
 
-  // 187 — the editor arrived beside this projection. The five capture-only
-  // fields now on the wire model are the editor's seed and must reach neither
-  // the composed line nor the choice: the picker's row is what an agent reads
-  // out on a call, and a driver's phone number is not part of it.
+  // 187 — the editor arrived beside this projection. The capture-only fields now
+  // on the wire model are the editor's seed and must not reach the composed
+  // line: the picker's row is what an agent reads out on a call, and a driver's
+  // phone number is not part of it.
+  //
+  // 🚩 The NATIONAL ADDRESS is the one exception, owner-stated 2026-07-29 — it
+  // rides the choice as a field of its own so the picker can draw it, in italic,
+  // as the CODE it is. What 187 ruled still holds where it matters: it is not in
+  // the composed line, because that line is a sentence and this is not part of
+  // it.
   it('composes the same line now that the editor’s fields are on the row', () => {
     const [choice] = addressChoices(
       [
@@ -99,7 +105,19 @@ describe('addressChoices', () => {
     )
     expect(choice.line).toBe('King Abdulaziz Rd, Bldg 4, Al Malqa, Riyadh')
     expect(JSON.stringify(choice)).not.toContain('0551234567')
-    expect(JSON.stringify(choice)).not.toContain('RIMA6904')
+
+    // Its own run, never joined onto the line — an agent reading the line out to
+    // a caller must not find a code punctuated into the middle of it.
+    expect(choice.nationalAddress).toBe('RIMA6904')
+    expect(choice.line).not.toContain('RIMA6904')
+  })
+
+  it('carries no national address where the row has none, blank or absent', () => {
+    // 🚩 `null`, not `''`. The picker draws the run only when there is one — an
+    // empty italic line would read as a code that failed to load, which is a
+    // worse thing to show than nothing at all.
+    expect(addressChoices([entry()], null)[0].nationalAddress).toBeNull()
+    expect(addressChoices([entry({ address: null })], null)[0].nationalAddress).toBeNull()
   })
 
   // 188 — the delete control's whole rule, read off this projection. The server

@@ -70,11 +70,28 @@ export default function SourceForm({
 
   // Seeded from what the ORDER holds, every time the form opens — a re-opened
   // section shows what is settled, not what was typed into it last time.
+  //
+  // 🚩 On an order that names NO source, the agent's own default fills the box
+  // (`isDefault`, BackOffice owner ruling 2026-07-29 — the operator's usual
+  // channel is configured for them, and typing it on every call is work nobody
+  // asked for). It is a PRE-SELECTION and nothing more: the select stays open,
+  // and nothing is on the order until *Save* is pressed. What the order already
+  // holds always wins — a settled source is never overwritten by a default.
   useEffect(() => {
     if (!open) return
     setSource(currentSource ?? '')
     setReference(currentReference ?? '')
   }, [open, currentSource, currentReference])
+
+  // Deliberately a SECOND effect keyed on the list, not a branch inside the one
+  // above: the sources arrive after the form opens, so the seed cannot be read
+  // at open time — and folding it in would re-run on every list settle and undo
+  // what the agent had already picked.
+  useEffect(() => {
+    if (!open || currentSource) return
+    const preferred = sources.data?.find((option) => option.isDefault)
+    if (preferred) setSource((chosen) => (chosen === '' ? preferred.documentSource : chosen))
+  }, [open, currentSource, sources.data])
 
   // The one thing that is genuinely this form's to require: a verb that names no
   // source has nothing to send. Which sources need a REFERENCE is not asked here.

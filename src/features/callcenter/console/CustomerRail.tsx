@@ -39,7 +39,7 @@ import type {
 import Ltr from '@/core/ui/Ltr'
 import { callCenterApi } from './api'
 import { railBlock } from './fulfilment-view'
-import { addressSlot, railFields, type AddressSlot } from './rail-view'
+import { addressPlace, addressSlot, railFields, type AddressSlot } from './rail-view'
 import SignupPanel, { type SignupActions } from './SignupPanel'
 import { beginSignup, type SignupState } from './signup-view'
 
@@ -429,11 +429,31 @@ function AddressBlock({
 }) {
   const { t } = useTranslation('callcenter')
 
+  const place = addressPlace(address)
+
   if (slot === 'set' && address)
     return (
       <div className="rounded-md border border-border bg-card p-2 text-xs" data-cc-address="set">
         <div className="font-medium">{address.label}</div>
-        <div className="text-muted-foreground">{address.line}</div>
+        {/* The server's own line — the STREET, and only the street. Absent
+            rather than an empty run: plenty of book rows carry no street at
+            all, and a blank line under the label reads as something that failed
+            to arrive. */}
+        {address.line?.trim() && <div className="text-muted-foreground">{address.line}</div>}
+        {/* 🚩 WHERE THE ORDER IS GOING (owner-stated 2026-07-29). The district is
+            what derives the fulfilment store, and until now the rail could show
+            an agent *Home* and nothing else — the label is the caller's word for
+            an address, not a place. Rendered from the two fields the projection
+            already sends, never re-composed from the line. */}
+        {place && (
+          <div className="text-muted-foreground" data-cc-address-place>
+            {place.district && place.city
+              ? // The same sentence the district picker settles on, so the two
+                // surfaces name one place the same way.
+                t('address.form.districtLine', { district: place.district, city: place.city })
+              : (place.district ?? place.city)}
+          </div>
+        )}
         {/* A settled section re-opens in place. Changing it on a basket with
             lines moves the store and is previewed first (167) — which is the
             server's call, raised on the answer to `setAddress`, not a rule

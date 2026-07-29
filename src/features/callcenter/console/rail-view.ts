@@ -21,6 +21,7 @@
  */
 import type {
   LoyaltyMember,
+  SessionAddress,
   SessionCapabilities,
   SessionCustomer,
   SessionHeader,
@@ -103,4 +104,42 @@ export function addressSlot(
   if (header.address) return 'set'
   if (capabilities.canOpenAddressBook) return 'pick'
   return header.customer ? 'unavailable' : 'noCaller'
+}
+
+/** The district and city of the address on the order, blanks dropped. `null`
+ *  when the projection carries neither. */
+export interface AddressPlace {
+  district: string | null
+  city: string | null
+}
+
+/**
+ * **Where the order is going**, for the rail's address block (owner-stated
+ * 2026-07-29).
+ *
+ * 🚩 The projection's `address.line` is the STREET lines and nothing else —
+ * server-side it is `JoinAddressLine(AddressLine1, AddressLine2)`. District and
+ * city ride the wire as their own fields and were drawn nowhere, so an address
+ * whose book row carries no street showed the rail its **label alone**: *Home*,
+ * on the one fact that decides which store serves the order.
+ *
+ * ⚠️ This is **not** the console re-composing the order's address. That rule
+ * (`address-book.ts`) forbids rebuilding `line` from parts, because two
+ * derivations of one sentence is how the rail and the book start disagreeing.
+ * These are two fields the projection already sends, rendered as themselves,
+ * beside the server's line rather than folded into it.
+ *
+ * Either half alone is still worth saying — a district with no city named is
+ * more than a label — so the shape is *whichever of the two there is*, and
+ * `null` only when there is neither.
+ */
+export function addressPlace(address: SessionAddress | null | undefined): AddressPlace | null {
+  const district = trimmed(address?.districtName)
+  const city = trimmed(address?.cityName)
+  return district === null && city === null ? null : { district, city }
+}
+
+const trimmed = (value: string | null | undefined): string | null => {
+  const text = (value ?? '').trim()
+  return text === '' ? null : text
 }

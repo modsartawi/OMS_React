@@ -676,7 +676,24 @@ export interface AgentDocumentSource {
   /** The code `setDocumentSource` is given, and what the header holds. */
   documentSource: string
   description: string
+  /** Always `'C'` — the call-centre category IS the filter the server applies. */
   documentSourceCategory: string
+  /**
+   * 🚩 **The agent's own default, flagged on the row rather than named beside the
+   * list** — so it cannot name a source the picker has no option for.
+   *
+   * Two tables answer this route, and conflating them is what left the picker
+   * empty for every agent in the estate: `SdDocumentSource` (category `'C'`) is
+   * what may be CHOSEN, `SdDocumentSourceUser` is what is chosen FOR them. At
+   * most one row carries the flag — that table is keyed by user id alone — and
+   * for an agent with no row of their own, none do.
+   *
+   * It is a **pre-selection, not a lock**: it seeds the form when the order names
+   * no source yet, and the agent may still pick another. CC2 instead collapses
+   * the list to the configured row; whether the web should too is an open ruling
+   * (BackOffice, owner 2026-07-29), and locking is additive to this shape.
+   */
+  isDefault: boolean
 }
 
 /** The screen-access probe (134 §6). One boolean; open implies act. */

@@ -13,7 +13,7 @@ import type {
   SessionHeader,
 } from '@/core/models/callcenter'
 import { ATTACHED_SESSION, EMPTY_SESSION } from './__fixtures__/payloads'
-import { MAX_RAIL_FIELDS, addressSlot, railFields } from './rail-view'
+import { MAX_RAIL_FIELDS, addressPlace, addressSlot, railFields } from './rail-view'
 
 const CUSTOMER = ATTACHED_SESSION.header.customer!
 
@@ -141,5 +141,34 @@ describe('addressSlot', () => {
     expect(
       addressSlot(header({ customer: CUSTOMER, address: ADDRESS }), caps({ canOpenAddressBook: false })),
     ).toBe('set')
+  })
+})
+
+describe('addressPlace', () => {
+  it('names where the order is going, from the two fields the projection sends', () => {
+    expect(addressPlace(ADDRESS)).toEqual({ district: 'Al Malqa', city: 'Riyadh' })
+  })
+
+  it('🚩 does not depend on the line, which is the STREET and only the street', () => {
+    // The defect this exists for: server-side `line` is
+    // `JoinAddressLine(AddressLine1, AddressLine2)`, so a book row with no
+    // street left the rail showing the LABEL alone — *Home*, on the one fact
+    // that decides which store serves the order.
+    expect(addressPlace({ ...ADDRESS, line: '' })).toEqual({ district: 'Al Malqa', city: 'Riyadh' })
+  })
+
+  it('keeps either half on its own — a district with no city named is still a place', () => {
+    expect(addressPlace({ ...ADDRESS, cityName: '' })).toEqual({ district: 'Al Malqa', city: null })
+    expect(addressPlace({ ...ADDRESS, districtName: '   ' })).toEqual({ district: null, city: 'Riyadh' })
+  })
+
+  it('is absent, not empty, when there is nothing to say', () => {
+    // Absent-not-empty, the rail's rule everywhere else: a blank run under the
+    // label reads as a fact that failed to arrive rather than one that is not
+    // there. Under `PickInStore` the whole address leaves the projection (§2.2),
+    // which is the shape `null` most has to survive.
+    expect(addressPlace({ ...ADDRESS, districtName: '', cityName: '' })).toBeNull()
+    expect(addressPlace(null)).toBeNull()
+    expect(addressPlace(undefined)).toBeNull()
   })
 })

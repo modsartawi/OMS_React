@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { SdDistrictModel } from '@/core/models/lookups'
-import { districtChoices } from './district-choice'
+import { cityChoices, districtChoices } from './district-choice'
 
 const district = (over: Partial<SdDistrictModel> = {}): SdDistrictModel => ({
   districtCode: 'R-114',
@@ -81,7 +81,11 @@ describe('districtChoices — the one search box', () => {
     expect(rows.map((r) => r.districtCode)).toEqual(['R-114'])
   })
 
-  it('matches on the CITY name too — one box, not a cascade', () => {
+  it('matches on the CITY name too, even though the form now asks the city first', () => {
+    // The form narrows by `cityCode` before this box is drawn, so city matching
+    // is usually redundant there. It is KEPT rather than removed: the narrowing
+    // is the caller's, and an unnarrowed call (`cityCode` null) is still a
+    // supported shape of this function — see the city-scoping block below.
     const { rows } = districtChoices(ALL, { query: 'jed' })
     expect(rows.map((r) => r.districtCode)).toEqual(['J-201'])
   })
@@ -163,5 +167,114 @@ describe('districtChoices — a list that is not there', () => {
 
   it('drops a row with no district code — unpickable by construction', () => {
     expect(districtChoices([district({ districtCode: '' })], {}).rows).toEqual([])
+  })
+})
+
+// ═══ city first (owner-stated 2026-07-29) ═══════════════════════════════════
+//
+// "I need the city first then district (Dammam - <district>) — the operator
+// usually asks the caller what city you are in first."
+//
+// The estate is ~1,674 districts across 34 cities (query-verified on the dev
+// POS_Server), which is the whole argument: the city step is the one question
+// that turns an unusable list into a short one, and it is the question the call
+// opens with anyway.
+
+describe('cityChoices — folding the district list up', () => {
+  const ALL = [
+    district({ districtCode: 'D-1', cityCode: '0041', cityNameEn: 'Dammam', districtNameEn: 'Al Faisaliyah' }),
+    district({ districtCode: 'D-2', cityCode: '0041', cityNameEn: 'Dammam', districtNameEn: 'Al Adamah' }),
+    district({ districtCode: 'R-114', cityCode: '0021', cityNameEn: 'Riyadh', districtNameEn: 'Al Malqa' }),
+  ]
+
+  it('answers one row per city, not one per district', () => {
+    const { rows } = cityChoices(ALL, {})
+    expect(rows.map((c) => c.cityCode)).toEqual(['0041', '0021'])
+    expect(rows.map((c) => c.cityName)).toEqual(['Dammam', 'Riyadh'])
+  })
+
+  it('counts only the districts something actually delivers to', () => {
+    const { rows } = cityChoices(
+      [...ALL, district({ districtCode: 'D-3', cityCode: '0041', storeCode: '', tempStoreCode: '' })],
+      {},
+    )
+    const dammam = rows.find((c) => c.cityCode === '0041')!
+    // Three districts in Dammam, two of them deliverable — the count must be the
+    // second number. A count of "3 districts" over a city where one cannot be
+    // picked is the console overstating what it can do for the caller.
+    expect(dammam.deliverableDistricts).toBe(2)
+    expect(dammam.deliverable).toBe(true)
+  })
+
+  it('🚩 greys a city no store delivers to ANYWHERE, rather than hiding it', () => {
+    const { rows } = cityChoices(
+      [district({ districtCode: 'X-1', cityCode: '0099', cityNameEn: 'Hail', storeCode: '', tempStoreCode: '' })],
+      {},
+    )
+    // Same rule as a district (§2.3): visible and unpickable. And it is answered
+    // HERE rather than after the agent has hunted through the city's districts.
+    expect(rows[0]).toMatchObject({ cityName: 'Hail', deliverable: false, deliverableDistricts: 0 })
+  })
+
+  it('never lets a store code out of the module either', () => {
+    const projected = JSON.stringify(
+      cityChoices([district({ storeCode: '1101', tempStoreCode: '1102', insuranceStoreCode: '9901' })], {}),
+    )
+    // The negative property this whole file exists for, restated for the new
+    // step: asking WHETHER is allowed, asking WHICH is not (179 ruling 4).
+    for (const store of ['1101', '1102', '9901']) expect(projected).not.toContain(store)
+  })
+
+  it('matches on the city name, and falls back to Arabic when English is blank', () => {
+    expect(cityChoices(ALL, { query: 'damm' }).rows.map((c) => c.cityCode)).toEqual(['0041'])
+    const arabicOnly = cityChoices([district({ cityCode: '0051', cityNameEn: '', cityNameAr: 'مكة' })], {})
+    expect(arabicOnly.rows[0].cityName).toBe('مكة')
+  })
+
+  it('pins the chosen city above the rest, exactly as the district step does', () => {
+    const { pinned, rows } = cityChoices(ALL, { query: 'riy', currentCityCode: '0041' })
+    expect(pinned).toMatchObject({ cityCode: '0041', isCurrent: true })
+    expect(rows.map((c) => c.cityCode)).toEqual(['0021'])
+  })
+
+  it('answers empty rather than throwing while the lookup is in flight', () => {
+    expect(cityChoices(undefined, {})).toEqual({ pinned: null, rows: [], truncated: false, total: 0 })
+  })
+
+  it('drops rows with no city code — a city that cannot be picked is not offered', () => {
+    expect(cityChoices([district({ cityCode: '  ' })], {}).rows).toEqual([])
+  })
+})
+
+describe('districtChoices — scoped to the chosen city', () => {
+  const ALL = [
+    district({ districtCode: 'D-1', cityCode: '0041', cityNameEn: 'Dammam', districtNameEn: 'Al Faisaliyah' }),
+    district({ districtCode: 'R-1', cityCode: '0021', cityNameEn: 'Riyadh', districtNameEn: 'Al Faisaliyah' }),
+  ]
+
+  it('🚩 shows only the named city, even for a name TWO cities share', () => {
+    // Al Faisaliyah exists in both. Under the old one-box search the agent saw
+    // two identical-looking rows and had to read the city off the end of each to
+    // tell them apart — and picking the wrong one silently routes the order to
+    // another city's store. The city step makes that ambiguity unreachable.
+    const { rows } = districtChoices(ALL, { query: 'faisaliyah', cityCode: '0041' })
+    expect(rows.map((r) => r.districtCode)).toEqual(['D-1'])
+  })
+
+  it('falls back to the whole estate when no city is named', () => {
+    // Null and blank are the same fact — no city chosen yet — and neither may be
+    // read as "a city whose code is empty", which would match nothing at all.
+    for (const cityCode of [null, undefined, '']) {
+      expect(districtChoices(ALL, { query: 'faisaliyah', cityCode }).rows).toHaveLength(2)
+    }
+  })
+
+  it('leaves the pin alone: a pick outside the city is still shown, not dropped', () => {
+    const { pinned } = districtChoices(ALL, { currentDistrictCode: 'R-1', cityCode: '0041' })
+    // The rule this file already holds — "a search that would hide the current
+    // pick must not clear it" — and the city step is one more thing that could
+    // hide it. An address settled in Riyadh must not read as districtless the
+    // moment the agent opens the city step to change it.
+    expect(pinned?.districtCode).toBe('R-1')
   })
 })

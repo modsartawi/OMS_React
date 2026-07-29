@@ -400,8 +400,18 @@ function TopBar({
             {t('guidance.topCount', { count: actionableOffers })}
           </span>
         )}
-        <span>{t('console.store', { store: state.header.entryStore })}</span>
-        <span aria-hidden>·</span>
+        {/* ABSENT, NOT BLANK (156/176's rule, and 183's: blank in any form reads
+            *unset*). `entryStore` is the AUDIT stamp — where the order was entered —
+            and it is legitimately NULL for a till-less HQ agent, which is precisely
+            who this console is for. Rendering the label anyway prints a bare
+            "Store " with nothing after it, which reads as a value that failed to
+            load rather than one that correctly does not exist. */}
+        {state.header.entryStore ? (
+          <>
+            <span>{t('console.store', { store: state.header.entryStore })}</span>
+            <span aria-hidden>·</span>
+          </>
+        ) : null}
         <span data-cc-operator>{state.header.operatorId}</span>
         {onRefresh && (
           // `getState` is the console's recovery verb (law 2, §6.1: *the

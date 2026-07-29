@@ -396,6 +396,23 @@ export default function AddressPicker({
                   <div className="text-xs text-muted-foreground">
                     {choice.line ?? t('address.noLine')}
                   </div>
+                  {/* 🚩 The national address, on its own run and in ITALIC — the
+                      one part of a book row that is a CODE rather than words the
+                      agent reads out. Italic is the whole distinction: it says
+                      *this is not part of the sentence above* without adding a
+                      label that would cost a line on every row.
+
+                      Absent, not blank, when the row carries none — an empty
+                      italic run would read as a code that failed to load. And
+                      still no tick: format-checked, never verified. */}
+                  {choice.nationalAddress && (
+                    <div
+                      className="text-xs italic text-muted-foreground"
+                      data-cc-address-national={choice.nationalAddress}
+                    >
+                      {choice.nationalAddress}
+                    </div>
+                  )}
                 </div>
                 {choice.isCurrent && (
                   <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-success-800" data-cc-address-current>

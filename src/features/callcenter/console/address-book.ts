@@ -41,6 +41,20 @@ export interface AddressChoice {
   /** The composed line, server text throughout. `null` when the row has nothing
    *  to compose from — which is a real (bad) row, not a reason to hide it. */
   line: string | null
+  /**
+   * The Saudi National Address (`shortAddress`), or `null`.
+   *
+   * 🚩 **Kept OUT of `line`** rather than appended to it. CC2's composition is
+   * street, street 2, building, district, city — a sentence an agent reads out to
+   * a caller. The national address is a **code**, and joining it with commas onto
+   * the end would make it read as another piece of the spoken address. The picker
+   * draws it as its own run, in italic, for exactly that reason.
+   *
+   * ⚠️ Format-checked and never verified (`AddressForm`'s property 3) — so it is
+   * a code the agent typed, drawn as one. There is no tick and no verified state
+   * to earn.
+   */
+  nationalAddress: string | null
   isDefault: boolean
   /** Already on the order. The picker says so rather than offering it as a
    *  change: re-applying the address the order already holds is a wasted verb. */
@@ -69,6 +83,7 @@ export function addressChoices(
     addressNumber: entry.addressNumber,
     label: text(entry.labelNameEn) ?? text(entry.labelCode),
     line: addressLine(entry),
+    nationalAddress: text(entry.address?.shortAddress),
     isDefault: Boolean(entry.isDefault),
     isCurrent: entry.addressNumber === currentAddressNumber,
   }))

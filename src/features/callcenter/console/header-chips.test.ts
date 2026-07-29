@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import type { SessionState } from '@/core/models/callcenter'
 import capture09 from '../../../../.issues/assets/136-cc-contract/09-fulfilment-flip.json'
+import callcenter from '@/locales/en/callcenter.json'
 import { EMPTY_SESSION } from './__fixtures__/payloads'
 import { headerChips } from './header-chips'
 import { blockedChips } from './submit-blockers'
@@ -190,6 +191,28 @@ describe('headerChips', () => {
     // And no blocker the contract names owns it — a chip that could be marked
     // would be a client-side rule about what an order needs (§2).
     expect([...blockedChips(EVERY_BLOCKER_CODE)]).not.toContain('note')
+  })
+
+  it('🚩 every chip the row can emit has a `chips.change.*` label to open it by', () => {
+    // Found by DRIVING the live console: the coupon chip (189) shipped with no
+    // `chips.change.coupon`, so its button announced the RAW KEY —
+    // `aria-label="chips.change.coupon"` — to a screen reader, and showed it as
+    // the tooltip.
+    //
+    // 🚩 It hid because the key is COMPUTED: ConsoleShell builds it as
+    // t(`chips.change.${chip.id}`), so no grep for the literal finds the call
+    // site, and the i18n rule's own tell ("a human sentence inside a `"..."`")
+    // cannot see a key that is never spelled out. The guard therefore has to run
+    // over the ID UNION rather than over any call site — every chip this module
+    // can emit, against the locale file that has to answer it.
+    const everyChipId = headerChips(EMPTY_SESSION.header, EMPTY_SESSION.capabilities).map((c) => c.id)
+    expect(everyChipId.length).toBeGreaterThan(0)
+
+    const labels = callcenter.chips.change as Record<string, string>
+    for (const id of everyChipId) {
+      expect(labels[id], `chips.change.${id} must exist — a t() with no backing key renders the key`)
+        .toBeTruthy()
+    }
   })
 
   it('keeps a blocking chip attention-marked even once it carries a value', () => {

@@ -74,7 +74,8 @@ fires **the ordinary rebind** (`beginStoreMove('address', …)`) — so §5.1's 
 existed. No new verb, no new confirmation mechanism, no second path to `setAddress`.
 
 The comparison is trim/case-insensitive because `CallCenterAddressScope`'s is; what it hands **back**
-is the ORDER's spelling, because it is the order being re-pinned.
+is the ORDER's spelling — it is the order being re-pinned — trimmed, since padding is not part of the
+identity and there is no reason to put it on the wire.
 
 Rule 2: `api.del` (new on `core/api.ts` — params, not a body, because 801's route names its target on
 the query string) → `deleteCustomerAddress` → `deleteAddress`, plus `ADDRESS_IN_USE_BY_ORDER` on
@@ -102,11 +103,11 @@ was lost and key it a second time. It is deliberately shown **only** beside a re
 would announce a state the rail already shows.
 
 Proof: **8 new pure** in `address-book.test.ts` (18 green in the file) +
-`address-editor-drive` **79/79** (was 51/51), covering the re-pin on the wire and in order, the
+`address-editor-drive` **80/80** (was 51/51), covering the re-pin on the wire and in order, the
 preview it raises, the saved-but-refused pair, the two-press delete with its target on the query
 string, and `ADDRESS_IN_USE_BY_ORDER` reaching the agent as a sentence. `callcenter-drive` at HEAD
-re-run against these changes: **460/461**, its one failure the header chip-row order, which belongs to
-183's uncommitted note chip and not to this ticket. typecheck, lint and build clean.
+re-run against these changes: **460/461**, its one failure the header chip-row order, which belonged to
+183's note chip — uncommitted in the tree at the time, since landed — and not to this ticket. typecheck, lint and build clean.
 
 ⚠ Not driven live: no SIS.Api ran beside the drive, so the book, the write answers and both refusals
 are the drive's stubs over the contract's own committed session fixtures (177's rule).

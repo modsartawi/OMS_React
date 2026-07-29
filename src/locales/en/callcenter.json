@@ -264,7 +264,7 @@
   },
   "search": {
     "label": "Search the catalogue",
-    "placeholder": "Search items — name, Arabic name, or item number",
+    "placeholder": "Search items — name, Arabic name, or item number · Ctrl+K for everything else",
     "clear": "Clear the search",
     "minChars": "Type at least {{min}} characters — part of the name, in English or Arabic, or the item number.",
     "searching": "Searching the catalogue…",
@@ -574,5 +574,41 @@
     "saving": "Saving…",
     "clear": "Clear the note",
     "failed": "The note could not be saved. Nothing has changed on this order — try again."
+  },
+  "palette": {
+    "title": "What do you want to do?",
+    "placeholder": "Type an act — offer, chip, caller, or order",
+    "empty": "Nothing matches that.",
+    "offer": "Offer",
+    "verb": {
+      "searchItems": "Search items",
+      "addressBook": "Address book",
+      "changeStore": "Change store",
+      "slot": "Delivery slot",
+      "source": "Source & reference",
+      "note": "Order note",
+      "fulfilment": "Fulfilment mode",
+      "payment": "Payment type",
+      "coupon": "Apply coupon",
+      "attachCaller": "Attach caller",
+      "removeCaller": "Remove caller",
+      "refresh": "Refresh this order"
+    },
+    "terminal": {
+      "place": "Place order",
+      "abandon": "Abandon call"
+    },
+    "reason": {
+      "NO_CUSTOMER_ATTACHED": "Attach the caller first — their address book opens with them.",
+      "STORE_NOT_CHOSEN": "Choose the store first — this act is about the store the order ships from.",
+      "SESSION_CLOSED": "This order is no longer open.",
+      "unknown": "This can't be done on this order right now."
+    },
+    "foot": {
+      "open": "Ctrl+K opens this",
+      "move": "↑↓ move",
+      "run": "↵ run",
+      "close": "esc close"
+    }
   }
 }

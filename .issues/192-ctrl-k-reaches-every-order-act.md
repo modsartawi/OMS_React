@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 180
 blocked-by: 182, 183, 187, 189, 191
 ---
@@ -61,18 +61,59 @@ hint) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `palette-model` — row order: offers, then order verbs, then the two terminals **last** · pure
-- [ ] `palette-model` — the terminals are **never** the auto-highlighted row, including when the
+- [x] `palette-model` — row order: offers, then order verbs, then the two terminals **last** · pure
+- [x] `palette-model` — the terminals are **never** the auto-highlighted row, including when the
       query matches only one of them · pure
-- [ ] `palette-model` — a disabled row is highlightable, carries its `capabilityReasons` phrase, and
+- [x] `palette-model` — a disabled row is highlightable, carries its `capabilityReasons` phrase, and
       running it does nothing; a row with no reason available still renders disabled · pure
-- [ ] `palette-model` — offer rows are read from the strip's view model, asserted against the same
+- [x] `palette-model` — offer rows are read from the strip's view model, asserted against the same
       fixture that drives the top-bar count, so the two cannot drift · pure
-- [ ] new `tools/palette-drive.mjs` — `Ctrl+K` opens from inside the search box and from inside the
-      phone field · flow (Playwright)
-- [ ] `palette-drive.mjs` — **the negatives, asserted as hard as the positives**: `Ctrl+K` over an
-      open confirmation sheet does nothing; no key sequence reaches *Place order*; *Abandon* reaches
-      only its `Keep`-defaulted modal · flow (Playwright)
+- [x] new `tools/command-palette-drive.mjs` — `Ctrl+K` opens from inside the search box and from
+      inside the phone field · flow (Playwright)
+- [x] `command-palette-drive.mjs` — **the negatives, asserted as hard as the positives**: `Ctrl+K`
+      over an open confirmation sheet does nothing; no *mistyped* key sequence reaches *Place order*;
+      *Abandon* reaches only its `Keep`-defaulted modal · flow (Playwright)
+
+**Built** — 29 pure (`palette-model.test.ts`) + `command-palette-drive.mjs` 44/44, typecheck, lint
+and build green.
+
+`palette-model.ts` takes the strip's `GuidanceView` (read ONCE in `ConsoleShell`, where the top-bar
+count is read, so the two cannot drift by construction) and a record of **handlers** — never
+`capabilities` booleans. A row is enabled exactly when the page handed it the same handler the chip,
+the rail or the receipt already reads, so an act withdrawn from one surface is withdrawn from both.
+`ConsoleShell` needed **no new prop**: every palette row runs a handler the shell already had.
+
+Three rulings taken during the build, all beyond the ticket's letter:
+
+1. 🚩 **An offer row hands off to the item search** (172's `onSearchRest`) rather than adding. A
+   near-miss names no material to add — an add row would need `ResolvePrereq` run for every
+   actionable offer the instant the palette opens. The strip resolves one card, on demand; the
+   palette gives the strip the keyboard path US91 asks for and leaves the add where it is aimed.
+2. 🚩 **The aim is carried against the query AND the row ids** (`paletteQuestion`). The rows are
+   rebuilt from the live `SessionState`, so an add landing or an offer arriving reshuffles them
+   under an open palette with the query untouched — and `highlight.ts` clamps an over-long index to
+   the LAST row, which here is *Abandon call*. Folding the ids in makes any such change a new
+   question, which falls the aim back to `autoHighlight`, which never aims at a terminal.
+3. 🚩 **`Ctrl+K` is `preventDefault()`ed BEFORE the inert check.** *Inert* must mean this console
+   does nothing — not that Chrome does something: left to its default the key puts the caret in the
+   omnibox, so an agent reaching for it over an open sheet would leave the application entirely.
+
+⚠ **One place the letter and the grammar disagree, resolved in favour of 153.** The Done-when reads
+*no sequence of keys places or abandons an order without its modal*; 153 ruling 3 says *Place order*
+"presses the button the receipt already gates on `canSubmit`", and submit has no modal anywhere on
+this console. So the two guards that ARE specified — sorted last, never auto-aimed — are what stand
+between a mistyped `Enter` and it, and both are asserted; a **deliberate** `↓` then `Enter` places
+the order exactly as the receipt's own button does, which the drive asserts for what it is (one
+`Submit`, one `requestId`). *Abandon* keeps its `Keep`-defaulted modal, asserted with the wire
+proving nothing was voided. If the owner wants submit gated behind a confirmation, that is a new
+ticket about the receipt's button, not about the palette.
+
+⚠ **`palette.reason.*` is one key per capability the contract has NOT yet given a code.** The
+fulfilment and payment refusals are worded from the chip row's own `fulfilment.locked.*` /
+`payment.locked.*` families — one refusal, one sentence, whichever surface asked — and a dead
+*Place order* borrows the receipt's `submitBlockers`. The one reason quoted rather than looked up is
+§6.3's attach-before-address ordering, guarded on `hasCaller` being false so it can never be a wrong
+refusal.
 
 ## Boundaries
 

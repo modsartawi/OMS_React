@@ -35,7 +35,7 @@ import Ltr from '@/core/ui/Ltr'
 import { callCenterApi, itemSearchKey } from './api'
 import AvailabilityPill from './AvailabilityPill'
 import { NOTE } from './console-notes'
-import { NO_HIGHLIGHT, highlightMoveOf, highlightedRow, moveHighlight } from './highlight'
+import { NO_HIGHLIGHT, highlightMoveOf, highlightedIndex, moveHighlight } from './highlight'
 import {
   MIN_QUERY_LENGTH,
   isSearchable,
@@ -222,7 +222,57 @@ export default function ItemSearchPanel({
     term,
     armed: add.onAdd !== null && add.pending === null,
   }
-  const aimed = highlightedRow(highlight, list)
+  const highlighted = highlightedIndex(highlight, list)
+
+  /**
+   * The whole grammar, in the order the branches must be read.
+   *
+   * 🚩 The **composing guard comes first**, before `Escape` and before the
+   * arrows. Half this console's searching is Arabic, and an IME's own keys — its
+   * `Escape` cancels a candidate, its arrows walk them, its `Enter` commits one —
+   * reach this handler as ordinary keys. A key still finishing a WORD is not a
+   * key aimed at the list, and acting on one would clear the agent's term or put
+   * a line on the order while they were still typing the item's name.
+   */
+  const onSearchKey = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return
+    // 🚩 The keyboard's own way out, and the one every agent already tries. It is
+    // `Escape` on the box only — not a document listener — because a modal is
+    // the one thing on this console that outranks the search, and a global
+    // handler would eat the key that closes it.
+    if (event.key === 'Escape' && query !== '') {
+      // Nothing above may also act on it: with rows on screen the key means "put
+      // this list away", not "leave the console".
+      event.stopPropagation()
+      clear()
+      return
+    }
+    const move = highlightMoveOf(event.key)
+    if (move) {
+      // The caret must stay where the agent is typing: an unhandled arrow jumps
+      // it to the start or the end of the term, so the next character lands in
+      // the wrong place mid-call.
+      event.preventDefault()
+      setHighlight(moveHighlight(highlight, list, move))
+      return
+    }
+    // 🚩 `Enter` adds the highlighted row — and reaches NO row until an arrow has
+    // aimed it, because `highlighted` is null until then. It calls the same
+    // handler, with the same two arguments, that the row's own button calls;
+    // there is no keyboard-only add path to drift.
+    if (event.key === 'Enter' && highlighted !== null) {
+      event.preventDefault()
+      const row = rows[highlighted]
+      add.onAdd?.(row.itemNumber, row.title)
+    }
+  }
+
+  /** 🚩 The highlight is announced through `aria-activedescendant` over the rows
+   *  (153's build note, WAI-ARIA combobox) and NEVER by moving focus: the caret
+   *  has to stay in the box so the agent can keep typing. Without this the aim is
+   *  a colour a screen-reader agent cannot read at all. */
+  const OPTION_ID = 'cc-search-option-'
+  const LIST_ID = 'cc-search-results'
 
   return (
     <div className="shrink-0 border-b border-divider bg-card-2 px-4 py-3" data-cc-search>
@@ -237,44 +287,15 @@ export default function ItemSearchPanel({
             ref={box}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            // 🚩 The keyboard's own way out, and the one every agent already
-            // tries. It is `Escape` on the box only — not a document listener —
-            // because a modal is the one thing on this console that outranks
-            // the search, and a global handler would eat the key that closes it.
-            onKeyDown={(event) => {
-              if (event.key === 'Escape' && query !== '') {
-                // Nothing above may also act on it: with rows on screen the key
-                // means "put this list away", not "leave the console".
-                event.stopPropagation()
-                clear()
-                return
-              }
-              // 🚩 A key that is still finishing a WORD is not a key aimed at
-              // the list. Half this console's searching is Arabic, and an IME's
-              // own Enter (commit the candidate) and arrows (walk the
-              // candidates) reach this handler as ordinary keys — acting on them
-              // would add a line while the agent was still typing the item's
-              // name.
-              if (event.nativeEvent.isComposing) return
-              const move = highlightMoveOf(event.key)
-              if (move) {
-                // The caret must stay where the agent is typing: an unhandled
-                // arrow jumps it to the start or the end of the term, so the
-                // next character lands in the wrong place mid-call.
-                event.preventDefault()
-                setHighlight(moveHighlight(highlight, list, move))
-                return
-              }
-              // 🚩 `Enter` adds the highlighted row — and reaches NO row until an
-              // arrow has aimed it, because `aimed` is null until then. It calls
-              // the same handler, with the same two arguments, that the row's
-              // own button calls; there is no keyboard-only add path to drift.
-              if (event.key === 'Enter' && aimed !== null) {
-                event.preventDefault()
-                const row = rows[aimed]
-                add.onAdd?.(row.itemNumber, row.title)
-              }
-            }}
+            onKeyDown={onSearchKey}
+            // The combobox binding, and only what it needs: the box names the
+            // list it drives and the row it is aimed at, and the rows stay where
+            // they are. Focus never moves (153).
+            role="combobox"
+            aria-expanded={asked && rows.length > 0}
+            aria-controls={LIST_ID}
+            aria-autocomplete="list"
+            aria-activedescendant={highlighted === null ? undefined : `${OPTION_ID}${rows[highlighted].itemNumber}`}
             aria-label={t('search.label')}
             placeholder={t('search.placeholder')}
             data-cc-search-input
@@ -367,8 +388,10 @@ export default function ItemSearchPanel({
         </p>
       )}
 
+      {/* The list the box drives. Unnamed on purpose: the combobox that owns it
+          already carries the name, and a second one would be read twice. */}
       {asked && (
-        <div className="mt-2 overflow-hidden rounded-md border border-border bg-card">
+        <div className="mt-2 overflow-hidden rounded-md border border-border bg-card" id={LIST_ID} role="listbox">
           {search.isPending && (
             <p className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground" data-cc-search-loading>
               <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
@@ -401,7 +424,7 @@ export default function ItemSearchPanel({
           )}
 
           {rows.map((row, index) => (
-            <Row key={row.itemNumber} row={row} add={add} aimed={index === aimed} />
+            <Row key={row.itemNumber} row={row} add={add} highlighted={index === highlighted} />
           ))}
         </div>
       )}
@@ -409,7 +432,15 @@ export default function ItemSearchPanel({
   )
 }
 
-function Row({ row, add, aimed }: { row: SearchRowView; add: AddItemActions; aimed: boolean }) {
+function Row({
+  row,
+  add,
+  highlighted,
+}: {
+  row: SearchRowView
+  add: AddItemActions
+  highlighted: boolean
+}) {
   const { t } = useTranslation('callcenter')
   const adding = add.pending === row.itemNumber
   return (
@@ -419,13 +450,18 @@ function Row({ row, add, aimed }: { row: SearchRowView; add: AddItemActions; aim
       // a live order, and it has to be readable at a glance, mid-sentence. The
       // ring is inset and direction-neutral, so it mirrors for free.
       className={`flex items-center gap-3 border-b border-divider px-3 py-2 last:border-0 hover:bg-accent ${
-        aimed ? 'bg-accent ring-1 ring-inset ring-primary' : ''
+        highlighted ? 'bg-accent ring-1 ring-inset ring-primary' : ''
       }`}
       data-cc-search-row={row.itemNumber}
       // The keyboard's own handle, for the drive and for the row's state — it is
-      // present only on the aimed row, so "nothing is highlighted" is a count of
+      // present only on the highlighted row, so "nothing is highlighted" is a count of
       // zero rather than a value to interpret.
-      {...(aimed ? { 'data-cc-search-aimed': row.itemNumber } : {})}
+      {...(highlighted ? { 'data-cc-search-highlighted': row.itemNumber } : {})}
+      // The option half of the combobox: a stable id for the box to point at,
+      // and the state said in ARIA as well as in ground and ring.
+      id={`cc-search-option-${row.itemNumber}`}
+      role="option"
+      aria-selected={highlighted}
     >
       <div className="min-w-0 flex-1">
         {/* The name, alone on its line — it is what the agent reads out. */}

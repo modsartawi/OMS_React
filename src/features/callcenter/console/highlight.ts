@@ -72,7 +72,7 @@ export function highlightMoveOf(key: string): HighlightMove | null {
  * dropping it, so the agent's aim survives the catalogue moving under a long
  * call.
  */
-export function highlightedRow(state: HighlightState, list: HighlightList): number | null {
+export function highlightedIndex(state: HighlightState, list: HighlightList): number | null {
   if (!list.armed) return null
   if (state.index === null) return null
   if (state.term !== list.term) return null
@@ -94,7 +94,7 @@ export function moveHighlight(state: HighlightState, list: HighlightList, move: 
   if (!list.armed) return state
   if (list.count <= 0) return { index: null, term: list.term }
 
-  const current = highlightedRow(state, list)
+  const current = highlightedIndex(state, list)
   if (move === 'down') {
     const next = current === null ? 0 : Math.min(current + 1, list.count - 1)
     return { index: next, term: list.term }

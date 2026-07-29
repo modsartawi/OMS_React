@@ -93,7 +93,12 @@ nothing; and the keyboard obeys exactly the same gate the button does.
   unhandled arrow jumps the caret to the end of the term and the next character lands in the wrong
   place mid-call), and a key still **finishing a word** is ignored outright — half this console's
   searching is Arabic, and an IME's own `Enter` and arrows reach the handler as ordinary keys. The
-  aim is drawn as ground **and** an inset ring, direction-neutral so it mirrors for free.
+  aim is drawn as ground **and** an inset ring, direction-neutral so it mirrors for free — and it is
+  **announced**, not only painted: 153's build note binds the highlight to `aria-activedescendant`
+  over the existing rows (WAI-ARIA combobox) and **never** to a focus move, because the caret has to
+  stay in the box. The box is the `combobox` naming the `listbox` it drives; each row is an `option`
+  with a stable id and `aria-selected`. A highlight that were colour alone would be no aim at all for
+  an agent on a screen reader.
 - **`GuidanceStrip` — untouched, deliberately.** 153's table gives the guidance card's *Add* its
   keyboard path through the **palette** (192's offer rows), not through an arrow grammar of its own:
   a second highlight over a second list, both armed from the same box, is two lists competing for
@@ -104,8 +109,30 @@ nothing; and the keyboard obeys exactly the same gate the button does.
   sends, for exactly one basket line. 42 proves a new term drops the aim, and that `Esc` still clears
   the box and keeps the caret. 43 proves the shut gate is shut to the keyboard too.
 
+## Review
+
+`/standards-review` since `HEAD~1`, both axes, and three findings were taken:
+
+- **Spec — the ARIA binding was missing.** 153's *Notes for the build* asks for
+  `aria-activedescendant` over the rows and WCAG 2.2 SC 2.4.11/2.4.13 on the ring; the first cut
+  shipped the ring and the test hook only. Now built, and asserted in the drive **both ways** —
+  the box names the highlighted option, and names **nothing** while nothing is highlighted.
+- **Standards — one word for one thing.** The module said *highlight*, the component said *aimed*
+  and the DOM said `data-cc-search-aimed`, with `armed` (the gate) a near-homophone of *aimed* (the
+  row). All of it is *highlight* now: `highlightedIndex` (it returns an index and says so),
+  `highlighted`, `data-cc-search-highlighted`. `armed` keeps its own word, because it is a different
+  idea — the door, not the aim. This matters most for 192, which inherits the vocabulary.
+- **Correctness — the composing guard was in the wrong place.** It sat *after* the `Escape` branch,
+  so an IME's cancel-candidate `Escape` still cleared the agent's whole term — the same class of
+  defect the guard was added for. It is the first branch now, and the handler is a named
+  `onSearchKey` so the branch order is readable at the call site.
+
+Declined: `GuidanceStrip` remains untouched (its keyboard path is 192's palette — see above), and
+the module keeps the name `highlight.ts` rather than 153's provisional `search-cursor.ts`, since it
+is the palette's module too.
+
 **Verified:** 13 pure cases green (`highlight.test.ts`); `npm run typecheck`, `npm run build` and
-`npm run lint` clean; the drive run **490/491** against the running app, with all 24 of this
+`npm run lint` clean; the drive run **495/496** against the running app, with all 24 of this
 ticket's own checks green. ⚠ The one failure is *the chip row is what the header captures* — a
 **concurrently in-flight** change to `header-chips.ts` in the same working tree (another session's
 188/header work), not this slice. The drive was therefore run from a clean `HEAD` copy carrying only

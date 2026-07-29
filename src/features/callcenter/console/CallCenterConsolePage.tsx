@@ -58,6 +58,7 @@ import {
   addressBookKey,
   CALLCENTER_ACCESS_KEY,
   callCenterApi,
+  customerRequestsKey,
   newRequestId,
   openKey,
   sessionKey,
@@ -99,6 +100,16 @@ import {
   type LineEdit,
 } from './line-edit'
 import { classifyAdd, type AddOutcome, type GuidanceAdd } from './add-outcome'
+import {
+  linkGate,
+  linkedCard,
+  reportWithout,
+  requestOffer,
+  requestRows,
+  skippedReport,
+  type LinkReport,
+  type SkippedRow,
+} from './linked-request'
 import { readSubmitFailure, readSubmitResult, type SubmitOutcome } from './submit-outcome'
 import AbandonConfirm from './AbandonConfirm'
 // 188 / §6.5 — the one predicate that turns a book `PUT` into an order act.
@@ -123,6 +134,7 @@ import {
   type SignupState,
 } from './signup-view'
 import PaymentPicker from './PaymentPicker'
+import RequestPicker from './RequestPicker'
 import SlotPicker from './SlotPicker'
 import SourceForm from './SourceForm'
 import type { PreviewReissue } from './ConfirmSheet'
@@ -560,6 +572,11 @@ function ConsoleSession() {
       setEditAsk(null)
       setEditReissue(null)
       setPickingStore(false)
+      // And the request a basket that no longer exists was converting: the new
+      // order holds no link, so a report about the old one's copied lines is news
+      // about somebody else's basket.
+      setPickingRequest(false)
+      setRequestReport(null)
       // And the header sections of a basket that no longer exists.
       setPickingSlot(false)
       setSlotLapsed(false)
@@ -682,6 +699,15 @@ function ConsoleSession() {
       // attached the next one would have the new caller's addresses spring open
       // by themselves — the previous call's intent, acted on in this one.
       setPickingAddress(false)
+      // 🚩 And so does the request picker, for the same reason and a sharper one:
+      // `removeCustomer` clears the link server-side (880 §6) because a request
+      // belongs to a CALLER, not to an order — so nothing about the previous
+      // caller's requests may survive them, including the report of what a link
+      // copied. That absence is the whole abuse answer (195): link caller A's
+      // request, swap to caller B, submit, and the 055b spine would otherwise
+      // complete A's request against B's order.
+      setPickingRequest(false)
+      setRequestReport(null)
       // 🚩 And the enrolment closes with it (190). Attaching is what the created
       // member was FOR, so a panel still holding them afterwards would offer a
       // second attach of somebody already on the order; and the caller being
@@ -963,6 +989,85 @@ function ConsoleSession() {
   })
 
   /**
+   * The caller's still-open sales requests (194, v1.11) — the read that makes the
+   * rail volunteer one.
+   *
+   * 🚩 **Fired off the attached caller, and keyed by them.** The door scopes the
+   * list to whoever is on the session row (880 §3) — the console sends no customer
+   * id at all — so the cache key has to move with the caller or a swap would show
+   * the previous one's requests. `enabled` is what makes the read impossible before
+   * an attach, where it would refuse `NO_CUSTOMER_ATTACHED`.
+   *
+   * A pure read: no `runGuarded`, no `requestId`, nothing to collide with.
+   *
+   * ⚠ Unbuilt server-side (880). Against today's server this 404s and the rail
+   * simply says nothing, which is the same silence a caller with no requests gets.
+   */
+  const requests = useQuery({
+    queryKey: customerRequestsKey(session.data?.header.customer?.customerId ?? ''),
+    queryFn: () => callCenterApi.customerRequests(),
+    enabled: session.data?.header.customer != null && session.data?.status === 'open',
+    // 🚩 Read ONCE per caller, deliberately. The list is the pharmacist's and it
+    // can change under the call — but a re-read is not the console's answer to
+    // that: 195 rules that the console must not pre-check the request, because
+    // narrowing the window invites a reader to believe it was closed. The guard is
+    // the submit refusal, and a list that moved while the agent read it out would
+    // be the harm without the protection.
+    staleTime: 60_000,
+    retry: false,
+  })
+
+  /** The picker is drawn only when the agent asks for it — 🚩 nothing opens by
+   *  itself: they are mid-greeting, and a picker over the basket takes the call
+   *  away from them. */
+  const [pickingRequest, setPickingRequest] = useState(false)
+
+  /**
+   * What the copy did NOT put on the order — held here, because by the time the
+   * agent works through it the picker has closed and one of its rows raises the
+   * below-availability sheet.
+   *
+   * 🚩 **It is news about an act, not state about an order.** The link itself is
+   * read off `header.linkedRequest` in the projection and remembered nowhere; this
+   * is the per-line report of one press, which no re-read can reproduce.
+   */
+  const [requestReport, setRequestReport] = useState<LinkReport | null>(null)
+
+  /**
+   * The link (194) — **one press, one act, one id**.
+   *
+   * 🚩 **No `addItem` loop.** The verb stamps the request and its reason, copies
+   * the store, copies the items through `addItem`'s own guardrails server-side,
+   * prefills `sourceReference` where it is empty, and for `TMRA` forces pickup and
+   * paid-online — all in the one `SessionState` it answers with. N ids for one
+   * agent action would be §4 law 3 broken by design, and the guardrail outcomes
+   * belong to the server's own copy.
+   *
+   * 🚩 **The chips are not told anything.** `fulfilment` and `payment` already draw
+   * from the projection, so the TMRA consequences announce themselves; a second
+   * voice here would be a client rule about what a reason code does.
+   */
+  const linkRequest = useMutation({
+    mutationFn: (documentNo: string) => {
+      // Minted ONCE, outside the thunk — a fresh id per busy retry would make each
+      // retry a genuinely new link to the server's ledger (law 3 / §4).
+      const requestId = newRequestId()
+      return runGuarded(() => callCenterApi.linkRequest(transactionId!, requestId, documentNo))
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData<SessionState>(sessionKey(result.state.transactionId), (current) =>
+        applyState(current, result.state),
+      )
+      // The picker has answered its question: which request this order converts.
+      // What is left to read is the report, and it is drawn above the columns
+      // rather than inside a modal the agent has finished with.
+      setPickingRequest(false)
+      setRequestReport(skippedReport(result))
+    },
+    retry: false,
+  })
+
+  /**
    * Placing the order (174) — the one moment this console is deliberately **not**
    * optimistic, and the only verb whose answer is a real OMS document.
    *
@@ -1152,7 +1257,16 @@ function ConsoleSession() {
       // guidance classification, and the one below is an ask this console could
       // not word — none of them is a landing, and a list cleared under any of
       // them would take away rows the agent is still working from.
-      if (fresh.pendingConfirmation?.kind !== 'belowAtp') setAddsLanded((n) => n + 1)
+      if (fresh.pendingConfirmation?.kind !== 'belowAtp') {
+        setAddsLanded((n) => n + 1)
+        // 🚩 194 — and the skipped row for this item goes with it. The row says
+        // *this did not land, and here is how to land it*; once a line for the item
+        // is on the order that sentence is false, and a banner still making it
+        // would be the console arguing with the basket. Pruned on ANY landed add,
+        // not only on the report's own *add anyway*: an agent who typed the item
+        // into the search box has answered the same row.
+        setRequestReport((report) => reportWithout(report, add.itemNumber))
+      }
       // 🚩 A `belowAtp` block this console cannot state truthfully — figures
       // missing or not numbers (§5.2 says the server does not raise one then) —
       // is still an ask, and an ask carries the UNCHANGED state. So nothing was
@@ -2025,6 +2139,28 @@ function ConsoleSession() {
           session.data.status === 'open' ? () => setPickingFulfilment(true) : undefined
         }
         onChangePayment={session.data.status === 'open' ? () => setPickingPayment(true) : undefined}
+        // 🚩 194 — the count block and the linked card, derived ONCE here off the
+        // same state the picker reads, so the rail, the card and the modal cannot
+        // disagree about whether this order converts a request. The read itself is
+        // scoped by the door; the console never sends a customer id.
+        requests={{
+          offer: requestOffer(session.data, requests.data),
+          card: linkedCard(session.data),
+          onView: () => setPickingRequest(true),
+        }}
+        // The lines the copy did not take, and the one act they offer.
+        requestReport={{
+          report: requestReport,
+          // 🚩 The ORDINARY add, on the ordinary gate: `canAddItem` is what decides,
+          // exactly as it does for a typed row, and the server answers with the same
+          // `belowAtp` acceptance. Absent while the gate is shut — a handle that
+          // would be refused is worse than no handle.
+          onAddAnyway: session.data.capabilities.canAddItem
+            ? (row: SkippedRow) =>
+                addItem.mutate(beginAdd({ itemNumber: row.itemNumber, qty: row.quantity }))
+            : undefined,
+          onDismiss: () => setRequestReport(null),
+        }}
         refusal={refusal}
         swallowed={swallowed}
         onDismissSwallowed={() => setSwallowed(null)}
@@ -2207,6 +2343,31 @@ function ConsoleSession() {
           setPickingCoupon(false)
           applyCoupon.reset()
           removeCoupon.reset()
+        }}
+      />
+      {/* The caller's open request, and what linking it will copy (194). 🚩 It is
+          NOT `DocumentDetailsPage`: that page has no view-only mode, so reusing it
+          would hand an agent change-store / reschedule / close-request mid-call —
+          and `callcenter → oms` is a boundary violation. The picker shows the lines
+          it is about to copy and links out for the rest. */}
+      <RequestPicker
+        open={pickingRequest}
+        rows={requestRows(requests.data)}
+        // 🚩 The gate is read HERE and nowhere else, and the picker opens whatever
+        // it says: an agent may need to READ a request on an order it can no longer
+        // be linked onto (a basket with lines, most of all). The modal is where the
+        // reason is said — 189's ruling that a shut gate is not a shut chip.
+        gate={linkGate(session.data.capabilities)}
+        actions={{
+          onLink: (documentNo) => linkRequest.mutate(documentNo),
+          pending: linkRequest.isPending ? (linkRequest.variables ?? null) : null,
+          error: linkRequest.isError
+            ? apiErrorMessage(linkRequest.error, t('request.linkFailed'))
+            : null,
+        }}
+        onClose={() => {
+          setPickingRequest(false)
+          linkRequest.reset()
         }}
       />
       {/* The deliberate override (US14) — the same rebind, asked for outright. */}

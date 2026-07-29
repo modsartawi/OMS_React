@@ -167,3 +167,32 @@ Grouping, **P** = All Prerequisites, **R** = **Document**, the header-level **to
 (e.g. Al-Rajhi 5% off the whole basket subtotal). In Document mode the detail view hides the
 per-line Get grid and shows a single total-discount figure instead.
 _Avoid_: scope (it is the specific `CondTargetType` code, not a general notion of scope).
+
+**Sales request** (SREQ, category `'Q'`):
+The unpriced, open document a **pharmacist** raises standing with a customer — the store cannot sell
+them the item now, or they have paid through Tamara and will collect. It carries lines, a
+`DocumentReason` and the pharmacist's note, and **no money at all** ("the child is a real, priced
+order; only the request is unpriced"). It is not a back-office ask and has nothing to do with
+**request close** (see **Close**): that is a cancellation, this is an order waiting to happen.
+_Avoid_: order request, quote, reservation — and never shorten it to "request" where a cancellation
+request could be meant.
+
+**Linked request** (of a call-center order):
+The one sales request an order **converts**. Linking is a single compound act (`linkRequest`): it
+stamps the request number and reason onto the order, copies the request's **store** and **items**,
+prefills the source reference, and — for `TMRA` only — forces collection and paid-online. Refused
+unless the basket is **empty** (`LINES_EXIST`), which is what makes unlinking a full undo rather than
+a stamp-drop. One order links at most one request: `RefDocumentNo` is singular and the conversion is
+one-shot. The order is what converts; the request is what is **converted**, by the 055b spine, at
+submit.
+_Avoid_: attached request (a *caller* is attached; a request is linked), parent order, reference
+document.
+
+**Skipped line** (of a link):
+A line on the linked request that the copy did **not** put on the order, reported per line rather
+than silently dropped. Two kinds, and they are different rows: **refused** (not sellable at the
+plant, no price, an engine refusal — the server's code, nothing to press) and **below ATP**
+(`requested`/`available`, and an *add anyway* the agent presses deliberately, because `HasBelowAtp`
+is a fraud signal and a flag nobody saw proves nothing). The link stands regardless of how many
+lines landed.
+_Avoid_: failed line, dropped item (nothing failed — the guardrails held).

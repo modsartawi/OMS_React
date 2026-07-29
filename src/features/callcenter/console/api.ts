@@ -29,8 +29,10 @@ import type {
   CallCenterAccessResult,
   CustomerAddressBookEntry,
   CustomerAddressCapture,
+  CustomerRequest,
   DeliveryType,
   ItemSearchResult,
+  LinkRequestResult,
   LoyaltyMember,
   LoyaltySignupCapture,
   LoyaltySignupConfirmCapture,
@@ -50,6 +52,17 @@ import type {
  * a build, it would silently split the cache entry.
  */
 export const CALLCENTER_ACCESS_KEY = ['callcenter', 'access'] as const
+
+/**
+ * `LoyaltyErrorCodes.CustomerNotExists` — the loyalty service's machine code for
+ * *no member holds that number*.
+ *
+ * 🚩 A machine code matched against the envelope, which the i18n rule names as a
+ * literal that is deliberately NOT localised: it is the server's identifier, not
+ * anything a user reads. Matching the message instead would break the first time
+ * somebody fixed its spelling — and its spelling today is *"doesn't exists"*.
+ */
+const MEMBER_NOT_FOUND = 'LOY-00100'
 
 /**
  * The key one `open` action's result lives under. Keyed by the action's own
@@ -78,6 +91,16 @@ export const sessionKey = (transactionId: string) =>
  */
 export const addressBookKey = (customerId: string) =>
   ['callcenter', 'addresses', customerId] as const
+
+/**
+ * One caller's still-open sales requests (194, v1.11). Keyed by the **customer**
+ * for the same reason the address book is: the requests belong to the caller, the
+ * door scopes the read to whoever is attached (880 §3), and a key that did not
+ * move with the customer would offer the previous caller's requests for this one
+ * — which is the swap this whole slice is careful about.
+ */
+export const customerRequestsKey = (customerId: string) =>
+  ['callcenter', 'requests', customerId] as const
 
 /**
  * One catalogue search. Keyed by the **order** as well as the term, because the
@@ -232,19 +255,42 @@ export const callCenterApi = {
    * before there is a caller to scope anything to (BackOffice 801: the four
    * loyalty routes precede attach, so grant-only is their whole boundary).
    *
-   * 🚩 **A miss is `null`, not a throw.** The service answers an absent member
-   * with an empty payload, and that is an ordinary outcome of the first thing
-   * that happens on a call — not a failure to draw a refusal for. What the
-   * console does with a miss is deliberately nothing more than saying so:
-   * loyalty *signup* is [159](.issues/159-coupon-and-loyalty-signup-drawn.md)'s
-   * undrawn surface and this slice must not invent one.
+   * 🚩 **A miss is `null`, not a throw** — and the ONE place that is made true is
+   * here. This function's original note claimed *"the service answers an absent
+   * member with an empty payload"*; driving it against a live SIS.Api on
+   * 2026-07-29 showed it does not. `LoyMemberService.GetAndValidateMemberByMobile`
+   * throws `DomainException(CustomerNotExists)`, so the envelope comes back
+   * `success:false` and the console read it as a **failure**.
+   *
+   * ⚠️ The cost was not the red text. The rail hangs the enrolment offer off the
+   * MISS branch (`isSuccess && !data`), so a caller who was not a member landed on
+   * the error branch instead and the *Sign this caller up* button — built by 190,
+   * wired, tested — was **unreachable in the running app**. The one path the whole
+   * signup exists to serve was the one path that could not reach it.
+   *
+   * `LOY-00100` is therefore translated back into the absence it describes. This
+   * is the api-envelope rule's own instruction — branch on the machine code, never
+   * on the message — and it is done HERE rather than at the call site so there is
+   * exactly one opinion about what *not a member* looks like to this console.
+   *
+   * 🚩 Only that code. Every other business refusal (a blocked customer, a
+   * malformed number) still throws and is still drawn as what it is; a `catch`
+   * that swallowed the lot would answer *no such caller* to a service that is
+   * merely down, and the agent would enrol somebody who already exists.
    *
    * `branchId` is left unsent — the query param is optional on the original and
    * the console has no branch to scope a loyalty read by that the session does
    * not already imply.
    */
-  memberByMobile(mobile: string): Promise<LoyaltyMember | null> {
-    return api.get<LoyaltyMember | null>(`CallCenterWeb/MemberByMobile/${encodeURIComponent(mobile)}`)
+  async memberByMobile(mobile: string): Promise<LoyaltyMember | null> {
+    try {
+      return await api.get<LoyaltyMember | null>(
+        `CallCenterWeb/MemberByMobile/${encodeURIComponent(mobile)}`,
+      )
+    } catch (error) {
+      if (apiErrorCode(error) === MEMBER_NOT_FOUND) return null
+      throw error
+    }
   },
 
   /**
@@ -885,6 +931,64 @@ export const callCenterApi = {
       transactionId,
       requestId,
       couponCode,
+    })
+  },
+
+  /**
+   * `GET CallCenterWeb/CustomerRequests` — the attached caller's still-open sales
+   * requests, newest first, each with its lines (194, BackOffice 880 §3). A pure
+   * read, so it carries no `requestId`.
+   *
+   * 🚩 **It takes no customer id, and that is a safety property rather than a
+   * tidiness one.** The scope comes off the session row (§6.3);
+   * `GetSalesRequestList`'s own filter is `@CustomerId IS NULL OR …`, so an empty
+   * scope answers with **every open request in the estate** — a door that accepted
+   * a browser-supplied id would be one typo away from offering an agent a
+   * stranger's request to convert. Before `attachCustomer` it refuses
+   * `NO_CUSTOMER_ATTACHED`, which is why the read is only ever fired with a caller
+   * on the order.
+   *
+   * The reason arrives with its description already resolved (the SREQ reason
+   * group's curated text): the agent must never read `TMRA`, and sending the
+   * console to `SdDocument/ReasonsByGroup` would make it knock on a second door
+   * its `CallCenterWeb` grant does not cover.
+   *
+   * ⚠ **Unbuilt server-side** (880) — stubbed in `tools/linked-request-drive.mjs`
+   * to 880 §3's documented shape.
+   */
+  customerRequests(): Promise<CustomerRequest[]> {
+    return api.get<CustomerRequest[]>('CallCenterWeb/CustomerRequests')
+  },
+
+  /**
+   * `POST CallCenterWeb/LinkRequest` → `LinkRequestResult` (194, 880 §4) — the
+   * caller's open request becomes this order.
+   *
+   * 🚩 **One press, one act, one id.** The verb stamps the request number and its
+   * reason, copies the request's **store**, copies its **items** through
+   * `addItem`'s own guardrails, prefills `sourceReference` where it is empty, and
+   * for `TMRA` additionally forces `PickInStore` + `Online`. The console must
+   * **not** loop `addItem` over the lines: N ids for one agent action is §4 law 3
+   * broken by design, and the guardrail outcomes belong to the server's own copy.
+   *
+   * 🚩 Refused unless the basket is **empty** (`LINES_EXIST`) — the restriction
+   * the rest of the design hangs off, and the reason `capabilities.canLinkRequest`
+   * exists.
+   *
+   * ⚠ **Unbuilt server-side** (880) — stubbed in the drive.
+   */
+  linkRequest(
+    transactionId: string,
+    requestId: string,
+    /** The picked request's own document number. The ONE request this order
+     *  converts — `RefDocumentNo` is singular and 055c makes the conversion
+     *  one-shot, so there is no list to send. */
+    documentNo: string,
+  ): Promise<LinkRequestResult> {
+    return api.post<LinkRequestResult>('CallCenterWeb/LinkRequest', {
+      transactionId,
+      requestId,
+      documentNo,
     })
   },
 

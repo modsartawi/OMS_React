@@ -33,10 +33,15 @@ import CommandPalette from './CommandPalette'
 import { paletteRows } from './palette-model'
 import { capabilityGate, feeLine, showsDeliveryRegion } from './fulfilment-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
-import CustomerRail, { type CustomerActions, type RailSignup } from './CustomerRail'
+import CustomerRail, {
+  type CustomerActions,
+  type RailRequests,
+  type RailSignup,
+} from './CustomerRail'
 import GuidanceStrip, { type GuidanceActions } from './GuidanceStrip'
 import { guidanceView } from './guidance-view'
 import { headerChips, type HeaderChip } from './header-chips'
+import type { LinkReport, SkippedRow } from './linked-request'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
 import Money from './Money'
 import type { RebindRefusal } from './store-move'
@@ -61,6 +66,24 @@ export interface SubmitActions {
   failure: SubmitFailure | null
 }
 
+/**
+ * The skipped-line report and the one act it offers (194).
+ *
+ * 🚩 **`onAddAnyway` is the console's ORDINARY add**, not a second path: it mints
+ * an `addItem` for the item and quantity the copy refused to guess at, and the
+ * server answers with the same `belowAtp` confirmation any typed add would raise.
+ * A below-ATP line may never arrive already added — `HasBelowAtp` is a fraud
+ * signal and a flag nobody saw proves nothing — so the agent's press is the whole
+ * point.
+ */
+export interface RequestReportActions {
+  report: LinkReport | null
+  /** Absent ⇒ the door will not accept an add (a shut item gate, a closed order),
+   *  and then the rows are drawn without a handle rather than with a dead one. */
+  onAddAnyway?: (row: SkippedRow) => void
+  onDismiss?: () => void
+}
+
 export default function ConsoleShell({
   state,
   onAbandon,
@@ -82,6 +105,8 @@ export default function ConsoleShell({
   onChangeCoupon,
   onChangeNote,
   signup,
+  requests,
+  requestReport = null,
   refusal = null,
   onDismissRefusal,
   swallowed = null,
@@ -153,6 +178,18 @@ export default function ConsoleShell({
   /** The loyalty signup (159), passed through to the rail. Absent ⇒ the rail
    *  offers no enrolment at all. */
   signup?: RailSignup
+  /** The caller's open sales requests (194), passed through to the rail. Absent
+   *  ⇒ the rail says nothing about requests at all. */
+  requests?: RailRequests
+  /**
+   * What the copy did NOT put on the order (194) — the interesting half of a link.
+   *
+   * Console-wide rather than inside the picker, for the same reason `swallowed` is:
+   * the picker has closed by the time the agent works through these rows, and one
+   * of them raises the below-availability acceptance sheet — a second `<dialog>`
+   * over an open one would be two truths on one screen.
+   */
+  requestReport?: RequestReportActions | null
   /** Opens the payment choice (155). Absent while `canChangePaymentType` is
    *  false, which no phase-1 order reaches — the chip is then settled and
    *  non-interactive, carrying its reason. */
@@ -209,11 +246,14 @@ export default function ConsoleShell({
       {/* The same slot, the same shape: something the agent has to read once
           about an order that is otherwise fine. */}
       <SwallowedBanner kind={swallowed} onDismiss={onDismissSwallowed} />
+      {/* The same slot again (194): the lines the link did not copy, over an order
+          that is otherwise exactly what the agent asked for. */}
+      <RequestReportBanner actions={requestReport} />
       {/* 1440×900 by design, degrading to 1280; below that is out of scope —
           it is a desktop console (135's density budget). */}
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
         <CustomerRail state={state} customerActions={customerActions}
-            signup={signup} onPickAddress={onPickAddress} />
+            signup={signup} requests={requests} onPickAddress={onPickAddress} />
         <main className="flex min-h-0 min-w-0 flex-col border-x border-border">
           <ChipRow
             state={state}
@@ -631,9 +671,84 @@ function SwallowedBanner({
   const { t } = useTranslation('callcenter')
   if (!kind) return null
   return (
-    <ConsoleBanner tone="attention" marker={{ 'data-cc-swallowed': kind }} onDismiss={onDismiss}>
+    <ConsoleBanner
+      tone="attention"
+      marker={{ 'data-cc-swallowed': kind }}
+      dismissMarker={{ 'data-cc-swallowed-dismiss': '' }}
+      onDismiss={onDismiss}
+    >
       <div className="text-sm font-medium text-attention-800">{t(`swallowed.${kind}`)}</div>
       <div className="mt-0.5 text-[11px] text-attention-800/80">{t('swallowed.hint')}</div>
+    </ConsoleBanner>
+  )
+}
+
+/**
+ * The lines the link did not copy (194) — the interesting half of a link, drawn
+ * where the agent cannot miss it.
+ *
+ * 🚩 **Two kinds of row, two different offers.** A below-ATP row states the two
+ * figures and offers the ordinary *add anyway*; a refused row states the server's
+ * own code and offers nothing, because a refusal is not something an agent can
+ * accept their way past. Which kind a row is belongs to `linked-request.ts`.
+ *
+ * Nothing is drawn when every line landed: the linked card is then the whole news.
+ */
+function RequestReportBanner({ actions }: { actions: RequestReportActions | null }) {
+  const { t } = useTranslation('callcenter')
+  const rows = actions?.report?.skipped ?? []
+  if (!actions?.report || rows.length === 0) return null
+  return (
+    <ConsoleBanner
+      tone="attention"
+      marker={{ 'data-cc-request-report': String(rows.length) }}
+      dismissMarker={{ 'data-cc-request-report-dismiss': '' }}
+      onDismiss={actions.onDismiss}
+    >
+      <div className="text-sm font-medium text-attention-800">
+        {t('request.report.title', { count: rows.length })}
+      </div>
+      <ul className="mt-1 space-y-1">
+        {rows.map((row) => (
+          <li
+            key={`${row.itemNumber}-${row.kind}`}
+            className="flex items-baseline gap-2 text-[11px] text-attention-800"
+            data-cc-request-skipped={row.itemNumber}
+            data-cc-request-skipped-kind={row.kind}
+          >
+            <span data-numeric>
+              <Ltr>{row.itemNumber}</Ltr>
+            </span>
+            <span className="min-w-0 flex-1">
+              {row.kind === 'belowAtp'
+                ? t('request.report.belowAtp', {
+                    requested: row.requested,
+                    available: row.available,
+                  })
+                : // The server's own code, worded where the console has a sentence
+                  // for it and fallen back to a phrase that claims nothing where it
+                  // has not — the same posture `submitBlockers` takes, and for the
+                  // same reason: a raw code is not a thing to read to a caller, and
+                  // a sentence invented for an unknown code would claim to know why.
+                  t(`request.report.refused.${row.code}`, {
+                    defaultValue: t('request.report.refused.unknown'),
+                  })}
+            </span>
+            {/* 🚩 The ordinary acceptance path, on the one kind of row that has
+                one. Absent when the door would refuse the add. */}
+            {row.addAnyway && actions.onAddAnyway && (
+              <button
+                type="button"
+                onClick={() => actions.onAddAnyway?.(row)}
+                data-cc-request-add-anyway={row.itemNumber}
+                className="shrink-0 rounded-md border border-attention-border px-2 py-0.5 font-semibold hover:opacity-80"
+              >
+                {t('request.report.addAnyway')}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
     </ConsoleBanner>
   )
 }
@@ -651,6 +766,7 @@ function SwallowedBanner({
 function ConsoleBanner({
   tone,
   marker,
+  dismissMarker,
   children,
   onDismiss,
 }: {
@@ -658,6 +774,10 @@ function ConsoleBanner({
   /** The drive's hook, as the attribute it should carry — each banner names its
    *  own, because a shared `data-cc-banner` would make two states one selector. */
   marker: Record<string, string>
+  /** The dismiss button's own hook. Named by each banner for the same reason
+   *  `marker` is: three banners share two tones now, so the tone cannot be what
+   *  picks the selector a drive was written against. */
+  dismissMarker: Record<string, string>
   children: React.ReactNode
   onDismiss?: () => void
 }) {
@@ -672,9 +792,7 @@ function ConsoleBanner({
           type="button"
           onClick={onDismiss}
           data-cc-banner-dismiss
-          {...(tone === 'danger'
-            ? { 'data-cc-rebind-refused-dismiss': '' }
-            : { 'data-cc-swallowed-dismiss': '' })}
+          {...dismissMarker}
           aria-label={t('rebind.dismiss')}
           title={t('rebind.dismiss')}
           className={`shrink-0 rounded-full border p-1 hover:opacity-80 ${ink} ${
@@ -700,7 +818,12 @@ function RebindBanner({ refusal, onDismiss }: { refusal: RebindRefusal | null; o
   const { t } = useTranslation('callcenter')
   if (!refusal) return null
   return (
-    <ConsoleBanner tone="danger" marker={{ 'data-cc-rebind-refused': '' }} onDismiss={onDismiss}>
+    <ConsoleBanner
+      tone="danger"
+      marker={{ 'data-cc-rebind-refused': '' }}
+      dismissMarker={{ 'data-cc-rebind-refused-dismiss': '' }}
+      onDismiss={onDismiss}
+    >
       {/* Server-supplied, passed through as data (§7). */}
       <div className="text-sm font-medium text-danger-800">{refusal.message}</div>
       {refusal.lines.map((line) => (

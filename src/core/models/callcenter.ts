@@ -30,6 +30,19 @@ export type PlantSource =
   | 'derivedFromAddress'
   | 'operatorOverride'
   | 'chosenForPickup'
+  /**
+   * v1.11 (194, BackOffice 880 §2) — the plant the **linked sales request**
+   * supplied.
+   *
+   * 🚩 **It does NOT shut the item gate**, and that is the load-bearing decision
+   * of the whole slice. `seededAtOpen` shuts it because a plant nobody chose
+   * prices every line at a store nobody chose; a request's store fails that test
+   * — the *pharmacist* chose it, standing with the customer, and the request
+   * document is the evidence. So this is its own value rather than a re-use of
+   * `chosenForPickup`: a store the AGENT picked and a store a DOCUMENT supplied
+   * are exactly the distinction 871 built this field to keep.
+   */
+  | 'fromLinkedRequest'
 
 /**
  * v1.4 (§2.4) — how the money will be collected. **Not a tender**: nothing is
@@ -136,8 +149,125 @@ export interface SessionHeader {
    * the only *not set* this has to draw.
    */
   coupons?: AppliedCoupon[]
+  /**
+   * v1.11 (194) — the OPEN sales request this order converts, or `null` on every
+   * ordinary order.
+   *
+   * 🚩 **The link is read off the projection and held nowhere else.** The stamp
+   * lives in the session sidecar, `removeCustomer` clears it server-side (880 §6,
+   * ticket 195) and the whole abuse answer — link caller A's request, swap to
+   * caller B, submit, and the 055b spine completes A's request against B's order
+   * — rests on the link not surviving the swap. A console that remembered the
+   * request in its own state would put that vector back.
+   */
+  linkedRequest?: LinkedRequest | null
   /** Any line added or re-frozen below availability — the BackOffice fraud signal. */
   hasBelowAtp: boolean
+}
+
+/**
+ * v1.11 (§9) — the request this order converts, as the projection carries it.
+ *
+ * **No money, by construction.** The request is unpriced (`ConvertSalesRequestModel`:
+ * *"the child is a real, priced order; only the request is unpriced"*), so there
+ * is no figure here to draw and none may be invented — the order's money lives in
+ * the basket and the receipt.
+ */
+export interface LinkedRequest {
+  /** The request document's own number — `RefDocumentNo` at submit. */
+  documentNo: string
+  /**
+   * The request's `DocumentReason` code (`TMRA`, …), carried onto the child's so
+   * request and order share one reason for reporting.
+   *
+   * 🚩 **Never shown to an agent.** It is here because the console has to reason
+   * about TMRA-shaped consequences, not because it is readable — see
+   * `reasonWords` in `linked-request.ts`, which renders `reasonDescription` or
+   * nothing at all.
+   */
+  reason: string
+  /** The SREQ reason group's curated text, resolved server-side (880 §3). `null`
+   *  where the group has none — and then the console says nothing rather than
+   *  falling back to the code. */
+  reasonDescription: string | null
+  /** Where the pharmacist stood. Copied onto the order's plant at link. */
+  storeCode: string
+  /** The pharmacist's own note. Shown, and copied onto no field of this order
+   *  (880 §4.4) — the same text on two documents, with words the agent cannot
+   *  remove because they did not write them. */
+  note: string | null
+}
+
+/** One line of a still-open sales request. Unpriced, like the request itself. */
+export interface CustomerRequestLine {
+  itemNumber: string
+  description: string
+  quantity: number
+  uom: string
+}
+
+/**
+ * v1.11 (880 §3) — one of the attached caller's still-open sales requests, with
+ * its lines, newest first.
+ *
+ * 🚩 **Scoped by loyalty id, and the scope is the SERVER's.** The read takes no
+ * customer at all: the customer comes off the session row (§6.3), because
+ * `GetSalesRequestList`'s filter is `@CustomerId IS NULL OR …` and an empty scope
+ * returns every open request in the estate. A console that sent an id would be
+ * one bug away from handing an agent a stranger's request to convert.
+ */
+export interface CustomerRequest {
+  documentNo: string
+  documentDate: string
+  storeCode: string
+  /** The code. Not for reading out — see `LinkedRequest.reason`. */
+  reason: string
+  reasonDescription: string | null
+  note: string | null
+  lines: CustomerRequestLine[]
+}
+
+/** One line the copy DID put on the order. */
+export interface CopiedRequestLine {
+  itemNumber: string
+  quantity: number
+}
+
+/**
+ * One line the copy did **not** put on the order (880 §4.5) — the interesting
+ * half of the answer.
+ *
+ * Two outcomes reach this list, and they are different rows:
+ *
+ * - **refused** — not sellable at the plant, no price, an engine refusal. The
+ *   server's own code, and nothing for the agent to press.
+ * - **below ATP** — `requested` / `available` ride along, and the agent adds it
+ *   deliberately through the acceptance path that already exists. 🚩 It may
+ *   **never** arrive already added: `HasBelowAtp` is the BackOffice fraud signal
+ *   and `BelowAtpLedger`'s own comment is that a client-set boolean cannot prove
+ *   the agent saw the number.
+ */
+export interface SkippedRequestLine {
+  itemNumber: string
+  quantity: number
+  /** The server's own code for why this line is not on the order. */
+  reason: string
+  requested?: number | null
+  available?: number | null
+}
+
+/**
+ * v1.11 (880 §4) — the answer to `linkRequest`: the whole `SessionState` (law 2)
+ * plus a per-line report.
+ *
+ * 🚩 **The link stands regardless of how many lines landed.** A request whose
+ * items are all out of stock is still the request this order converts, so an
+ * empty `copied[]` is not a failed link.
+ */
+export interface LinkRequestResult {
+  state: SessionState
+  copied: CopiedRequestLine[]
+  skipped: SkippedRequestLine[]
 }
 
 /**
@@ -433,6 +563,21 @@ export interface SessionCapabilities {
    */
   canRemoveCoupon?: boolean
   /**
+   * v1.11 (194) — a request may be linked onto this order: a caller attached, the
+   * order open, and the basket **empty**.
+   *
+   * 🚩 **The empty basket is the restriction the rest of the design hangs off**
+   * (880 §4.1, `LINES_EXIST`): it kills the plant re-price, the copied-meets-typed
+   * merge and every quantity ambiguity at once — and it is what forces unlink to
+   * be a full undo (195), since a basket left un-emptied could never be re-linked.
+   * Its `capabilityReasons` entry is one of `NO_CUSTOMER`, `LINES_EXIST`,
+   * `ORDER_CLOSED`.
+   *
+   * Absent on a pre-v1.11 server; §9's rule then applies — the console degrades
+   * to what it can see rather than assuming the worst.
+   */
+  canLinkRequest?: boolean
+  /**
    * 🚩 **PROPOSED, ticket 176 — not on the frozen contract.** Why a `can*` above
    * is false, keyed by its own name (`canChangeFulfilment`), valued as a typed
    * code the client words. [153](.issues/153-console-keyboard-grammar.md) named
@@ -562,13 +707,21 @@ export interface LoyaltyMember {
  * here would put one rule in two clients over the value the loyalty base is keyed
  * on. `signup-view.ts`'s `mobilePreview` is a display line and never this field.
  *
- * `preferredLanguage` is deliberately not sent: 132 ruled the form to two fields
- * and no more, and the server's own default is the honest answer to a question
- * the agent was never asked.
+ * 🚩 **`preferredLanguage` IS sent** (owner-stated 2026-07-29), reversing this
+ * type's original ruling — which read *"the server's own default is the honest
+ * answer to a question the agent was never asked."* Half of that has moved: the
+ * agent now asks. And the default was never neutral — the door declares
+ * `PreferredLanguage = "A"`, so every caller this console enrolled was written
+ * down as Arabic-preferred and sent Arabic messages for the life of the
+ * membership. 132's other two omissions (name, email) stand.
  */
 export interface LoyaltySignupCapture {
   countryCode: string
   mobile: string
+  /** CC2's own two codes — `A` (Arabic) or `E` (English). Not validated server-
+   *  side (`LoySignUpByBranchRequestValidator` has no rule for it), so the
+   *  console's own union type is what keeps it to the two the loyalty base reads. */
+  preferredLanguage: string
 }
 
 /** The body of `POST CallCenterWeb/ConfirmSignUpByBranch` — the same two values,

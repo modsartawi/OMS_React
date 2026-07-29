@@ -242,6 +242,7 @@
     "title": "Choose the delivery slot",
     "atStore": "Windows offered by store {{store}}, the store this order is served from.",
     "day": "Day",
+    "windows": "Window",
     "close": "Close",
     "loading": "Reading this store's delivery windows…",
     "loadFailed": "The delivery windows could not be read. Nothing has changed on this order — try again.",
@@ -558,6 +559,11 @@
     },
     "mobile": "Mobile",
     "mobilePlaceholder": "Mobile number",
+    "language": "Language",
+    "languageName": {
+      "A": "Arabic",
+      "E": "English"
+    },
     "willEnrol": "Signing up",
     "sendCode": "Send code",
     "sending": "Sending…",
@@ -616,6 +622,37 @@
       "move": "↑↓ move",
       "run": "↵ run",
       "close": "esc close"
+    }
+  },
+  "request": {
+    "title": "The caller's open requests",
+    "close": "Close",
+    "cardTitle": "Converting request",
+    "openCount_one": "This caller has 1 open request.",
+    "openCount_other": "This caller has {{count}} open requests.",
+    "view": "View the requests",
+    "none": "This caller has no open request.",
+    "link": "Link this request",
+    "linkFailed": "That request could not be linked. Nothing has changed on this order — try again.",
+    "openDocument": "Open this request in the OMS (new tab)",
+    "raisedAt": "Raised at store {{store}}",
+    "qty": "{{qty}} {{uom}}",
+    "noteFrom": "Pharmacist's note: {{note}}",
+    "shut": {
+      "LINES_EXIST": "This order already has items on it. A request can only be linked onto an empty basket — void the lines first, or place this order and take the request on a new one.",
+      "unknown": "A request can't be linked onto this order right now."
+    },
+    "report": {
+      "title_one": "1 item on the request was not added to the order.",
+      "title_other": "{{count}} items on the request were not added to the order.",
+      "belowAtp": "Asked for {{requested}}, the store has {{available}}. Add it deliberately if the caller still wants it.",
+      "addAnyway": "Add anyway",
+      "refused": {
+        "NOT_SELLABLE_AT_PLANT": "This store cannot sell that item.",
+        "NO_PRICE": "That item has no price at this store.",
+        "ITEM_NOT_FOUND": "That item number is not in the catalogue.",
+        "unknown": "The store refused that item — add it by hand to see why."
+      }
     }
   }
 }

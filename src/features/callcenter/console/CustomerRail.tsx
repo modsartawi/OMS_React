@@ -28,7 +28,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Search, X } from 'lucide-react'
+import { ExternalLink, Loader2, Search, X } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import type {
   LoyaltyMember,
@@ -39,6 +39,7 @@ import type {
 import Ltr from '@/core/ui/Ltr'
 import { callCenterApi } from './api'
 import { railBlock } from './fulfilment-view'
+import type { LinkedCard, RequestOffer } from './linked-request'
 import { addressPlace, addressSlot, railFields, type AddressSlot } from './rail-view'
 import SignupPanel, { type SignupActions } from './SignupPanel'
 import { beginSignup, type SignupState } from './signup-view'
@@ -70,15 +71,39 @@ export interface RailSignup {
   actions: SignupActions
 }
 
+/**
+ * The caller's open sales requests, as one prop (194) — the count to volunteer,
+ * the card once one is linked, and the way into the picker.
+ *
+ * 🚩 **Both are the page's derivations, not the rail's.** `requestOffer` and
+ * `linkedCard` are read once, in the page, off the same `SessionState` the picker
+ * gets — so the count, the card and the picker cannot disagree about whether this
+ * order has a request on it. Absent means the console has no request surface
+ * wired, and then it offers none (the posture the rail already takes for the
+ * address book and the signup).
+ */
+export interface RailRequests {
+  /** The count block, or `null` for silence — a plain order gains no furniture. */
+  offer: RequestOffer | null
+  /** What this order converts, once it converts something. Replaces the count. */
+  card: LinkedCard | null
+  /** Opens the picker. 🚩 Nothing opens by itself: the agent is mid-greeting and
+   *  a picker over the basket takes the call away from them. */
+  onView: () => void
+}
+
 export default function CustomerRail({
   state,
   customerActions,
   onPickAddress,
+  requests,
   signup,
 }: {
   state: SessionState
   customerActions: CustomerActions
   signup?: RailSignup
+  /** 194's surface. Absent ⇒ the rail says nothing about requests at all. */
+  requests?: RailRequests
   /** Opens the address book — [166](.issues/166-address-derives-the-store.md)'s
    *  surface, wired at that ticket. **Absent means the door will not answer it**:
    *  the page passes it only while `capabilities.canOpenAddressBook` holds, so
@@ -262,6 +287,14 @@ export default function CustomerRail({
         </form>
       )}
 
+      {/* 🚩 **The count is drawn, the modal is not** (194) — under the caller card,
+          because a request belongs to the CALLER and not to the order: it arrives
+          with them and 880 §6 takes it away with them. Under rather than beside,
+          which was the ticket's own open question: the rail is 260px and the card
+          already carries name, mobile and tier, so a second column would have cost
+          the compact layout its one property. */}
+      {requests && <RequestBlock requests={requests} />}
+
       {/* 🚩 **The two modes are two blocks in the SAME place, never one block
           with a conditional label** (176). 135's one winning property is that
           the furniture does not move, and a rail whose second section collapses
@@ -337,6 +370,90 @@ function AttachedCard({
         </button>
       </div>
       <CustomerError error={error} />
+    </div>
+  )
+}
+
+/**
+ * The request block: either *"2 open requests · view"* or the card of the one this
+ * order converts. Never both — one order converts at most one request
+ * (`RefDocumentNo` is singular and 055c makes the conversion one-shot), so the
+ * card **replaces** the count rather than sitting under it.
+ *
+ * 🚩 **No money on the card at all.** The request is unpriced; the basket and the
+ * receipt are where this order's money lives. *Unlink* is
+ * [195](.issues/195-unlinking-and-the-request-that-went-away.md)'s and is
+ * deliberately not offered yet — it is a full undo of the copy, not a stamp being
+ * cleared, and it asks first.
+ */
+function RequestBlock({ requests: { offer, card, onView } }: { requests: RailRequests }) {
+  const { t } = useTranslation('callcenter')
+
+  if (card)
+    return (
+      <div className="rounded-md border border-border bg-card p-2.5 text-xs" data-cc-request-card>
+        <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          {t('request.cardTitle')}
+        </div>
+        <div className="mt-0.5 flex items-center gap-1.5">
+          <span data-numeric className="font-semibold">
+            <Ltr>{card.documentNo}</Ltr>
+          </span>
+          {/* The same escape hatch the picker offers, kept on the card because the
+              picker is gone by now and the request is the one thing on this order
+              an agent may still need to read in full. A new tab: the call keeps its
+              console, and this is the ONLY thing said here about that screen. */}
+          <a
+            href={card.href}
+            target="_blank"
+            rel="noreferrer"
+            data-cc-request-card-open
+            aria-label={t('request.openDocument')}
+            title={t('request.openDocument')}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ExternalLink className="h-3 w-3" aria-hidden />
+          </a>
+        </div>
+        {/* The reason in words, or nothing — never the code (880 §3). */}
+        {card.reason && (
+          <div className="text-muted-foreground" data-cc-request-card-reason>
+            {card.reason}
+          </div>
+        )}
+        <div className="mt-1 text-muted-foreground" data-cc-request-card-store>
+          {t('request.raisedAt', { store: card.storeCode })}
+        </div>
+        {/* The pharmacist's own words, shown and copied nowhere (880 §4.4). */}
+        {card.note && (
+          <p className="mt-1 text-muted-foreground" data-cc-request-card-note>
+            {t('request.noteFrom', { note: card.note })}
+          </p>
+        )}
+      </div>
+    )
+
+  if (!offer) return null
+
+  return (
+    <div
+      className="rounded-md border border-attention-border bg-attention-050 p-2.5"
+      data-cc-request-offer={String(offer.count)}
+    >
+      {/* 🚩 An unnoticed request is the failure this slice exists to prevent, so
+          the console volunteers it — on attention ground, because it is something
+          that happened and the agent has to read it, not a refusal. */}
+      <p className="text-xs text-attention-800">
+        {t('request.openCount', { count: offer.count })}
+      </p>
+      <button
+        type="button"
+        onClick={onView}
+        data-cc-request-view
+        className="mt-1.5 w-full rounded-md border border-attention-border px-3 py-1.5 text-xs font-semibold text-attention-800 hover:opacity-80"
+      >
+        {t('request.view')}
+      </button>
     </div>
   )
 }

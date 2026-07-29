@@ -39,6 +39,7 @@ import type {
   PrereqResolution,
   PriceCheckResult,
   SessionState,
+  StockElsewhereResult,
   SubmitResult,
 } from '@/core/models/callcenter'
 
@@ -101,6 +102,20 @@ export const itemSearchKey = (transactionId: string, query: string, offerId?: st
  */
 export const priceCheckKey = (transactionId: string, itemNumber: string) =>
   ['callcenter', 'priceCheck', transactionId, itemNumber] as const
+
+/**
+ * Who else has the item (§3.5), keyed by the **order** as well as the item — the
+ * list is ranked from the order's own plant, so the same item asked on an order
+ * served from elsewhere is a different question and must not be served a cached
+ * ranking measured from somewhere else.
+ *
+ * 🚩 **A different key from `priceCheckKey`, on purpose.** The two halves of the
+ * panel are two cache entries so they can fail, retry and expire independently —
+ * a shared key would make a stock outage evict the price, which is the one thing
+ * §3.5 rule 6 exists to prevent.
+ */
+export const stockElsewhereKey = (transactionId: string, itemNumber: string) =>
+  ['callcenter', 'stockElsewhere', transactionId, itemNumber] as const
 
 /**
  * One offer's eligible items (§3.3), keyed by the **order** as well as the offer
@@ -500,6 +515,35 @@ export const callCenterApi = {
    */
   priceCheck(transactionId: string, itemNumber: string): Promise<PriceCheckResult> {
     return api.get<PriceCheckResult>('CallCenterWeb/PriceCheck', { transactionId, itemNumber })
+  },
+
+  /**
+   * `GET CallCenterWeb/StockElsewhere` — *who else has it* (§3.5, v1.7,
+   * BackOffice 876). The same panel and the same gate as `priceCheck`, and
+   * deliberately **not the same call**.
+   *
+   * 🚩 **It is the only read on this contract that is a remote HTTP hop out of
+   * SIS.Api.** The price is a lock-free engine run in SIS.Api's own process; this
+   * is somebody else's stock service over the network — different failure modes,
+   * different budgets, its own ~3 s race server-side. Two verbs and two queries is
+   * what makes *a stock outage must not cost the agent the price* structural
+   * rather than a promise about error handling.
+   *
+   * 🚩 **A stock outage is not an error.** The server races a timeout and answers
+   * `available: false` with an EMPTY list on a 200 — which means *unknown*, never
+   * *nobody has it* (`stock-view.ts`). So an outage never arrives here as a throw,
+   * and the three codes it can refuse with are §7's existing ones — no new code,
+   * no new capability.
+   *
+   * 🚩 **Read-only, and there is no sibling verb.** Nothing on this read moves the
+   * order: a store change is the order's own act through `setStore` and §5.1's
+   * confirm (§3.5 rule 1).
+   *
+   * A pure read, so it carries no `requestId` and takes no claim — like the price
+   * check, asking costs the call nothing.
+   */
+  stockElsewhere(transactionId: string, itemNumber: string): Promise<StockElsewhereResult> {
+    return api.get<StockElsewhereResult>('CallCenterWeb/StockElsewhere', { transactionId, itemNumber })
   },
 
   /**

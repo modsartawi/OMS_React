@@ -346,6 +346,25 @@
       "NO_CUSTOMER_ATTACHED": "Attach the caller before checking a price — the price depends on who is buying.",
       "STORE_NOT_CHOSEN": "Choose the store this order is served from before checking a price.",
       "fallback": "The price could not be checked. Nothing has changed on this order — try again."
+    },
+    "stock": {
+      "heading": "Stock at other stores",
+      "checking": "Checking other stores…",
+      "unknown": "We couldn't check other stores just now — that isn't the same as nobody having it.",
+      "none": "No other store has this item available.",
+      "unranked": "Distances aren't available for this order's store, so this list is by store code — not by how near each store is.",
+      "shown_one": "{{count}} store with stock",
+      "shown_other": "{{count}} stores with stock",
+      "truncated": "Nearest {{shown}} of {{total}} stores with stock.",
+      "atp": "{{qty}} available",
+      "distance": "{{km}} km",
+      "readOnly": "To serve this order from one of these stores, change the store on the order — that re-prices every line.",
+      "refused": {
+        "ITEM_NOT_FOUND": "There is no such item number, so there is no stock to look up.",
+        "NO_CUSTOMER_ATTACHED": "Attach the caller before looking up stock at other stores.",
+        "STORE_NOT_CHOSEN": "Choose the store this order is served from — other stores are ranked from it.",
+        "fallback": "Stock at other stores could not be looked up. Nothing has changed on this order — try again."
+      }
     }
   },
   "basket": {

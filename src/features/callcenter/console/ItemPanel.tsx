@@ -23,20 +23,30 @@
  * 186 hangs `stockElsewhere` under the same heading, as an independent read that
  * **fails separately**: the price is a lock-free engine run inside SIS.Api, the
  * stock is the only remote HTTP hop on the contract, and a stock outage must not
- * cost the agent the price.
+ * cost the agent the price. That independence is built rather than promised —
+ * `StockBlock` is a **sibling** of the price's states with its own query, its own
+ * cache key and its own model, so neither half is inside the other's branch and
+ * neither can take the other down.
+ *
+ * 🚩 **The stock block is read-only, by ruling** (§3.5 rule 1). It draws no
+ * control at all: a store change re-prices every line and refuses atomically, and
+ * this list is ranked *from* the order's plant, so a one-click rebind would
+ * invalidate the list it was clicked from. It names that path in a sentence
+ * instead — which is the whole of what the panel is permitted to do about it.
  */
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
-import { callCenterApi, priceCheckKey } from './api'
+import { callCenterApi, priceCheckKey, stockElsewhereKey } from './api'
 import Conditions from './Conditions'
 import { NOTE } from './console-notes'
 import type { GuidanceCard } from './guidance-view'
 import type { SearchRowView } from './item-search'
 import Money from './Money'
 import { priceCheckPanel } from './price-check-view'
+import { stockView, type StockRow } from './stock-view'
 
 export default function ItemPanel({ state, row }: { state: SessionState; row: SearchRowView }) {
   const { t } = useTranslation('callcenter')
@@ -145,7 +155,147 @@ export default function ItemPanel({ state, row }: { state: SessionState; row: Se
           </div>
         </>
       )}
+
+      {/* 🚩 A SIBLING of every price state above, never a child of the quoted one.
+          The two reads share this panel and the gate and nothing else — so a
+          refused price still lists the stores that have it, and a stock outage
+          still leaves the price the agent asked for on screen. */}
+      <StockBlock state={state} row={row} canPriceCheck={canPriceCheck} />
     </div>
+  )
+}
+
+/**
+ * Who else has it (ticket 186, §3.5) — the panel's second half.
+ *
+ * Everything about which of the five states this is, and about the ordering, the
+ * unranked marker and the null distances, is `stock-view.ts`'s. This component
+ * arranges them and decides nothing.
+ */
+function StockBlock({
+  state,
+  row,
+  canPriceCheck,
+}: {
+  state: SessionState
+  row: SearchRowView
+  canPriceCheck: boolean
+}) {
+  const { t } = useTranslation('callcenter')
+
+  const stock = useQuery({
+    queryKey: stockElsewhereKey(state.transactionId, row.itemNumber),
+    queryFn: () => callCenterApi.stockElsewhere(state.transactionId, row.itemNumber),
+    // The same gate the price half reads, off the same const — one panel, one
+    // predicate (§3.5 rule 7), and the ranking needs a chosen plant to rank from.
+    enabled: canPriceCheck,
+    // Availability moves while the call is happening, and this number is read out
+    // loud. Re-asking takes no claim and costs the order nothing.
+    staleTime: 0,
+    // 🚩 Never retried, for the price half's reason and one of its own: the
+    // server already raced its own ~3 s timeout and answered `available: false`
+    // rather than throwing, so a throw here is a considered refusal, not a blip.
+    retry: false,
+  })
+
+  const panel = stockView({
+    canPriceCheck,
+    result: stock.data,
+    error: stock.error,
+    pending: stock.isPending,
+  })
+  if (panel.kind === 'shut') return null
+
+  return (
+    <div className="mt-2 border-t border-divider pt-2" data-cc-stock={row.itemNumber}>
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('panel.stock.heading')}</div>
+
+      {panel.kind === 'pending' && (
+        <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground" data-cc-stock-loading>
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          {t('panel.stock.checking')}
+        </p>
+      )}
+
+      {panel.kind === 'refused' && (
+        <p className="mt-1 text-[11px] text-danger-800" data-cc-stock-refusal>
+          {t(panel.refusal.key, panel.refusal.params)}
+        </p>
+      )}
+
+      {/* 🚩 *We could not check* — and it is its own sentence in its own element,
+          because the one thing this block must never do is let an unanswered hop
+          be read down a phone as *nobody has it*. */}
+      {panel.kind === 'unknown' && (
+        <p className="mt-0.5 text-[11px] text-muted-foreground" data-cc-stock-unknown>
+          {t('panel.stock.unknown')}
+        </p>
+      )}
+
+      {panel.kind === 'none' && (
+        <p className="mt-0.5 text-[11px] text-muted-foreground" data-cc-stock-none>
+          {t('panel.stock.none')}
+        </p>
+      )}
+
+      {panel.kind === 'listed' && (
+        <>
+          <p className="mt-0.5 text-[11px] text-muted-foreground" data-cc-stock-count>
+            {panel.truncated
+              ? t('panel.stock.truncated', { shown: panel.rows.length, total: panel.withStock })
+              : t('panel.stock.shown', { count: panel.withStock })}
+          </p>
+          {/* 🚩 An unranked list that does not announce itself is read as
+              nearest-first. This line is the announcement, and it is drawn from
+              the model's own flag rather than from *are the distances blank*. */}
+          {panel.unranked && (
+            <p className="mt-0.5 text-[11px] text-attention-800" data-cc-stock-unranked>
+              {t('panel.stock.unranked')}
+            </p>
+          )}
+          <ul className="mt-1 space-y-0.5">
+            {panel.rows.map((store) => (
+              <StoreRow key={store.plant} store={store} />
+            ))}
+          </ul>
+          {/* The store-change path, in words and not as a control (§3.5 rule 1). */}
+          <p className="mt-1 text-[11px] text-muted-foreground" data-cc-stock-readonly>
+            {t('panel.stock.readOnly')}
+          </p>
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * One store that has it.
+ *
+ * 🚩 **One availability number, and it is ATP** — the same definition as the
+ * search row's. The till's grid shows on-hand in the next column; two availability
+ * numbers read down a phone is how the larger one gets promised.
+ *
+ * 🚩 **A null distance draws blank and the row still appears.** The element stays
+ * so the columns still line up, and nothing is written into it — least of all a
+ * nought, which reads as *here*.
+ */
+function StoreRow({ store }: { store: StockRow }) {
+  const { t } = useTranslation('callcenter')
+  return (
+    <li className="flex min-w-0 items-baseline gap-2 text-[11px]" data-cc-stock-row={store.plant}>
+      <span className="shrink-0 font-semibold text-ink-1" data-numeric>
+        {store.plant}
+      </span>
+      <span className="min-w-0 truncate text-muted-foreground" data-cc-server-text>
+        <Ltr>{[store.city, store.areaName].filter(Boolean).join(' · ')}</Ltr>
+      </span>
+      <span className="ms-auto shrink-0 text-muted-foreground" data-numeric data-cc-stock-distance={store.plant}>
+        {store.distanceKm === null ? '' : t('panel.stock.distance', { km: store.distanceKm.toFixed(1) })}
+      </span>
+      <span className="shrink-0 font-medium text-ink-1" data-numeric data-cc-stock-atp={store.plant}>
+        {t('panel.stock.atp', { qty: store.atp })}
+      </span>
+    </li>
   )
 }
 

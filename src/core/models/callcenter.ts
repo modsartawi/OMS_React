@@ -828,3 +828,72 @@ export interface PriceCheckResult {
    */
   offersComplete: boolean
 }
+
+/**
+ * One store that can supply the item, on `StockElsewhereResult` (§3.5, v1.7).
+ *
+ * 🚩 **`atp` is the search row's own definition** — `UnrestrictedPos − active
+ * orders (11 days)`, one formula, one source. The WPF till's grid shows on-hand
+ * in the adjacent column; this contract carries ATP alone, because two
+ * availability numbers read down a phone is how the larger one gets promised.
+ */
+export interface StockElsewhereStore {
+  plant: string
+  city: string
+  areaName: string
+  address: string
+  atp: number
+  /**
+   * 🚩 **`null` is a value, never a missing store.** The origin plant or this row
+   * may have no coordinate; the store still appears and its distance draws blank.
+   * A store is never omitted for want of a coordinate, and `0` is never written
+   * here to stand for *unknown*.
+   */
+  distanceKm: number | null
+}
+
+/**
+ * `GET CallCenterWeb/StockElsewhere?transactionId=&itemNumber=` (CONTRACT.md
+ * §3.5, v1.7) — **who else has this item.**
+ *
+ * 🚩 **A separate call from `priceCheck`, and that is the design.** The price is a
+ * lock-free engine run inside SIS.Api's own process; this is the only read on the
+ * whole contract that is a **remote HTTP hop out of SIS.Api**. Different failure
+ * modes, different budgets — so the two share the *about this item* panel and the
+ * `canPriceCheck` gate, and **fail independently**: a stock outage must not cost
+ * the agent the price they asked for.
+ *
+ * 🚩 **Read-only by ruling, not omission.** No field here moves the order. A store
+ * change re-prices every line, re-freezes every ATP and refuses atomically — a
+ * blast radius that cannot live inside a per-item disclosure — and the list is
+ * ranked *from* the order's plant, so a one-click rebind would invalidate the list
+ * it was clicked from. The store moves through `setStore` and §5.1's confirm, and
+ * the panel may name that path in words.
+ */
+export interface StockElsewhereResult {
+  contractVersion: string
+  itemNumber: string
+  /** The order's own plant — excluded from `stores`, because its number is
+   *  already on the search row and one number belongs in one place. */
+  originPlant: string
+  /**
+   * 🚩 **`false` ⇒ the whole list is honestly unranked.** The origin plant has no
+   * coordinate, so every `distanceKm` is `null` and the order is by store code —
+   * never a plausible ranking measured from `(0,0)`, a fiction this estate
+   * already refuses by name.
+   */
+  distanceKnown: boolean
+  /**
+   * 🚩 **`false` means UNKNOWN, never empty.** The stock hop did not answer, so
+   * `stores` is `[]` and means *we could not check* — which the console must
+   * render differently from *nobody has it* (135's three-way ATP rule).
+   */
+  available: boolean
+  /** Nearest first (or by code, unranked), `atp <= 0` dropped, own plant
+   *  excluded, capped at 10. */
+  stores: StockElsewhereStore[]
+  /** The honest total with stock BEFORE the cap. */
+  withStock: number
+  /** `withStock > stores.length`. */
+  truncated: boolean
+}

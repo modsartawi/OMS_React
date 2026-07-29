@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 180
 blocked-by: 187
 ---
@@ -55,15 +55,52 @@ component (the picker's row controls + the re-pin sequence) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `address-book` — `isCurrent` suppresses the delete control on exactly one row · pure
-- [ ] `addressRefusalKey` — `ADDRESS_IN_USE_BY_ORDER` maps to its own phrase; an unknown code still
+- [x] `address-book` — `isCurrent` suppresses the delete control on exactly one row · pure
+- [x] `addressRefusalKey` — `ADDRESS_IN_USE_BY_ORDER` maps to its own phrase; an unknown code still
       degrades · pure
-- [ ] `rePinAfterEdit` — an edit of the **current** `addressNumber` yields a re-issue; an edit of any
+- [x] `rePinAfterEdit` — an edit of the **current** `addressNumber` yields a re-issue; an edit of any
       other address yields none. A test that would fail if anyone treated the two alike · pure
-- [ ] `address-editor-drive.mjs` extension — editing the order's own address into another district
+- [x] `address-editor-drive.mjs` extension — editing the order's own address into another district
       raises the **store-move preview**; editing it into a store-less district leaves the book edited
       and the order refusing, with both facts on screen; the delete control is absent on the current
       row · flow (Playwright)
+
+## Built
+
+`rePinAfterEdit` (`address-book.ts`) — the one predicate that turns a book `PUT` into an order act,
+and the whole of rule 1. `CallCenterConsolePage`'s `updateAddress.onSuccess` asks it and, on a match,
+fires **the ordinary rebind** (`beginStoreMove('address', …)`) — so §5.1's preview, the
+`CONFIRM_TOKEN_STALE` re-preview and `REBIND_REFUSED` all arrive through the paths that already
+existed. No new verb, no new confirmation mechanism, no second path to `setAddress`.
+
+The comparison is trim/case-insensitive because `CallCenterAddressScope`'s is; what it hands **back**
+is the ORDER's spelling, because it is the order being re-pinned.
+
+Rule 2: `api.del` (new on `core/api.ts` — params, not a body, because 801's route names its target on
+the query string) → `deleteCustomerAddress` → `deleteAddress`, plus `ADDRESS_IN_USE_BY_ORDER` on
+`addressRefusalKey`. The delete control is **absent** on the row the order holds and asks a second
+time **in place** on every other — a dialog would be the modal-on-modal `AddressPicker`'s own comment
+rejects, and it would ask the question away from the address it is about.
+
+🚩 **187's own drive assertion flipped with this ticket**, deliberately: *"the edit control is ABSENT
+on the address the order is using"* becomes *"is offered"*, and the absent-control assertion moves to
+DELETE. That is the shape of the split — 187 withheld the editor on that row precisely until the
+re-pin existed.
+
+⚠ §6.5's named consequence is drawn as **two facts, not one**: `address.savedNotMoved` renders beside
+the refusal, because an agent shown only *"no store delivers there"* would conclude the correction
+was lost and key it a second time. It is deliberately shown **only** beside a refusal — on its own it
+would announce a state the rail already shows.
+
+Proof: **8 new pure** in `address-book.test.ts` (18 green in the file) +
+`address-editor-drive` **79/79** (was 51/51), covering the re-pin on the wire and in order, the
+preview it raises, the saved-but-refused pair, the two-press delete with its target on the query
+string, and `ADDRESS_IN_USE_BY_ORDER` reaching the agent as a sentence. `callcenter-drive` at HEAD
+re-run against these changes: **460/461**, its one failure the header chip-row order, which belongs to
+183's uncommitted note chip and not to this ticket. typecheck, lint and build clean.
+
+⚠ Not driven live: no SIS.Api ran beside the drive, so the book, the write answers and both refusals
+are the drive's stubs over the contract's own committed session fixtures (177's rule).
 
 ## Boundaries
 

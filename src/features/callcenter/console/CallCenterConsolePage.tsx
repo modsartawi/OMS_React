@@ -101,6 +101,8 @@ import {
 import { classifyAdd, type AddOutcome, type GuidanceAdd } from './add-outcome'
 import { readSubmitFailure, readSubmitResult, type SubmitOutcome } from './submit-outcome'
 import AbandonConfirm from './AbandonConfirm'
+// 188 / §6.5 — the one predicate that turns a book `PUT` into an order act.
+import { rePinAfterEdit } from './address-book'
 import AddressPicker from './AddressPicker'
 import BelowAtpConfirm from './BelowAtpConfirm'
 import type { BusyPhase } from './BusyStrip'
@@ -1343,8 +1345,58 @@ function ConsoleSession() {
     }) => callCenterApi.updateCustomerAddress(addressNumber, capture),
     // The book is re-read so the corrected line is what the agent sees — the
     // `PUT` answers `true`, not the row, so unlike the create there is nothing
-    // to seed. The ORDER is not touched at all, which is the whole point of a
-    // book act on a row the order is not using.
+    // to seed.
+    onSuccess: (_ok, { addressNumber }) => {
+      const key = bookKey()
+      if (key) void queryClient.invalidateQueries({ queryKey: key })
+      // 🚩 **188 / §6.5 rule 1 — the re-pin.** `setAddress` carries only an
+      // `addressNumber` and an edit does not change it, so a `PUT` that moves an
+      // address from one district to another leaves the ORDER on a plant derived
+      // from a district the address has left, with `header.address.line` still
+      // rendering the old composition. Nothing on the wire would say so.
+      //
+      // So the console re-issues `setAddress` with that same number, and it is a
+      // rule rather than a mechanism: this is the ORDINARY rebind, which already
+      // carries the whole re-derivation, already raises §5.1's preview when there
+      // are lines, and already refuses `NO_DELIVERY_STORE_FOR_DISTRICT`. The
+      // agent sees exactly the store-move preview a *different* address would
+      // have shown them.
+      //
+      // ⚠️ It can leave the book **saved** and the order **refusing** — the
+      // caller corrects their address into a district carrying no store. That is
+      // drawn, not prevented (`address.savedNotMoved`): rolling back a correction
+      // the caller just made would be the console overruling them.
+      //
+      // 🚩 The server's side of this is a NEGATIVE obligation, pinned in
+      // BackOffice 878 §3: a same-number `setAddress` must not be short-circuited
+      // as a no-op. It is the one call on this contract that looks idempotent and
+      // is not — same `addressNumber` in, a different plant possibly out.
+      const rePin = rePinAfterEdit(addressNumber, session.data?.header.address?.addressNumber)
+      if (rePin !== null) rebind.mutate(beginStoreMove('address', rePin))
+    },
+  })
+
+  /**
+   * 188 / §6.5 rule 2 — a row off the book, and the ONE book act that has no
+   * order act behind it.
+   *
+   * `AddressPicker` omits the control on the address the order holds, and the
+   * server refuses that one with `ADDRESS_IN_USE_BY_ORDER` (409): the sidecar
+   * keeps an `addressNumber` while the submit builder copies address *fields*
+   * and `GetCustomerAddresses` filters `IsDeleted = 0`, so deleting it yields an
+   * order that cannot build a shipping address at its LAST step. The refusal is
+   * the guard and the omission is the courtesy — which is why the code is
+   * handled (`addressRefusalKey`) even though this console's own UI cannot
+   * provoke it.
+   *
+   * Clearing the order's address instead was rejected: it cascades a **book** act
+   * into **order** state, silently shutting §2.3's opening gate mid-call.
+   *
+   * 🚩 Nothing here touches the session. `mutateAsync` rejects into the picker,
+   * which is where the agent and the row they aimed at both are.
+   */
+  const deleteAddress = useMutation({
+    mutationFn: (addressNumber: string) => callCenterApi.deleteCustomerAddress(addressNumber),
     onSuccess: () => {
       const key = bookKey()
       if (key) void queryClient.invalidateQueries({ queryKey: key })
@@ -1749,6 +1801,8 @@ function ConsoleSession() {
             onCreate: (capture) => createAddress.mutateAsync(capture).then(() => undefined),
             onUpdate: (addressNumber, capture) =>
               updateAddress.mutateAsync({ addressNumber, capture }).then(() => undefined),
+            onDelete: (addressNumber) =>
+              deleteAddress.mutateAsync(addressNumber).then(() => undefined),
           }}
           onClose={closeAddressBook}
         />

@@ -27,16 +27,24 @@
  * property 1 above is the reason, stated for the confirm step and holding
  * exactly as well for the editor.
  *
- * ⚠️ **Edit is offered on rows the order is NOT using.** Editing the one the
- * order holds is an order act — it must be followed by a re-issued `setAddress`
- * on the same number, or the order keeps a plant derived from a district the
- * address has left (§6.5) — and that is
- * [188](.issues/188-editing-re-pins-deleting-is-refused.md)'s slice. Offering
- * the control here before the re-pin exists would be the silent wrong price
- * §6.5 was written to prevent. Deleting is 188's too, on both counts: the
- * control is omitted on the current row and the SERVER refuses it
- * (`ADDRESS_IN_USE_BY_ORDER`) — the refusal is the guard, the omission the
- * courtesy.
+ * 🚩 **Edit is offered on EVERY row and delete on every row but one** (188,
+ * §6.5). The asymmetry is the whole ticket: correcting the address the order
+ * holds is an **order act**, and the page re-issues `setAddress` on the same
+ * number after it (`rePinAfterEdit`) — so the agent meets exactly the store-move
+ * preview a *different* address would have shown them. *Deleting* that one
+ * cannot be made safe at all: the submit path re-reads a book filtered on
+ * `IsDeleted = 0` and would find nothing to build a shipping address from, so
+ * the order breaks at its LAST step. The control is therefore **absent on that
+ * row and the SERVER refuses it** (`ADDRESS_IN_USE_BY_ORDER`) — the refusal is
+ * the guard, the omission only the courtesy, which is why `Refusal` below still
+ * speaks the code this component's own UI should never provoke.
+ *
+ * ⚠️ **An edit can leave the book saved and the order refusing it.** The caller
+ * corrects their address into a district carrying no store, the `PUT` lands and
+ * the re-pin answers `NO_DELIVERY_STORE_FOR_DISTRICT`. Both facts go on screen
+ * together (`savedNotMoved`, beside the refusal). That is the honest outcome and
+ * it is drawn rather than prevented — rolling back a correction the caller just
+ * made would be the console overruling them.
  *
  * It derives no store. The plant that comes back is the server's, and the chip
  * row is where it is explained.
@@ -44,13 +52,13 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Check, Loader2, Pencil, Plus, Star } from 'lucide-react'
+import { Check, Loader2, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { CustomerAddressBookEntry, CustomerAddressCapture } from '@/core/models/callcenter'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
 import { addressBookKey, callCenterApi } from './api'
-import { addressChoices, addressRefusalKey } from './address-book'
+import { addressChoices, addressRefusalKey, rePinAfterEdit } from './address-book'
 import {
   addressFormIsSendable,
   addressFormOf,
@@ -77,18 +85,29 @@ export interface AddressApply {
 }
 
 /**
- * The two book WRITES (187). Both are the page's — the mutations, the book
- * invalidation and, for a create, the auto-apply that follows it.
+ * The book's WRITES — two in 187, three since 188. All of them are the page's:
+ * the mutations, the book invalidation, and the order acts that follow two.
  *
  * 🚩 A create **auto-applies**: `POST` answers the whole row including the new
  * `addressNumber`, and the only reason an agent creates an address mid-call is
  * to deliver to it (179 ruling 6). So `onCreate` resolving is the end of the
  * agent's task, not the start of a second one — the page applies and closes the
  * book, and this component never sees the pick it caused.
+ *
+ * 🚩 An UPDATE of the address the ORDER holds is likewise the page's: it is
+ * followed by a re-issued `setAddress` on the same number (188 / §6.5), which is
+ * an order act and belongs where every other one lives. This component decides
+ * only whether to *say* it happened — see `savedNotMoved`.
  */
 export interface AddressWrite {
   onCreate: (capture: CustomerAddressCapture) => Promise<void>
   onUpdate: (addressNumber: string, capture: CustomerAddressCapture) => Promise<void>
+  /**
+   * Takes a row off the book. Never offered on the address the order holds — and
+   * the server refuses that one anyway (`ADDRESS_IN_USE_BY_ORDER`), which is the
+   * guard this omission is only the courtesy for.
+   */
+  onDelete: (addressNumber: string) => Promise<void>
 }
 
 type View = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; addressNumber: string }
@@ -130,6 +149,28 @@ export default function AddressPicker({
   const [form, setForm] = useState<AddressFormValues>(emptyAddressForm)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<unknown>(null)
+  /**
+   * 188 — the row whose delete the agent has reached for, awaiting the second
+   * press. An **inline** confirm rather than a dialog: this component's own rule
+   * is that a confirmation must not open on top of the book (property 1), and it
+   * holds for a destructive one as much as for the store move. It also keeps the
+   * question beside the address it is about, which is the only thing that tells
+   * an agent they are on the right row.
+   */
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<unknown>(null)
+  /**
+   * 🚩 The address whose CORRECTION just landed while the order was holding it —
+   * held until the re-pin that correction triggered settles.
+   *
+   * It exists for §6.5's named consequence and nothing else: when the re-issued
+   * `setAddress` is refused, the book row is **saved** and the order is
+   * **unchanged**, and an agent shown only the refusal would reasonably conclude
+   * the correction was lost and key it a second time. Both facts, or neither is
+   * honest.
+   */
+  const [savedNotMoved, setSavedNotMoved] = useState<string | null>(null)
 
   // A closed dialog holds no half-typed address: the next open starts on the
   // book, which is what an agent opening it is looking for. Same rule the source
@@ -139,10 +180,14 @@ export default function AddressPicker({
     if (open) return
     setView({ kind: 'list' })
     setSaveError(null)
+    setConfirmingDelete(null)
+    setDeleteError(null)
+    setSavedNotMoved(null)
   }, [open])
 
   const choices = addressChoices(book.data, currentAddressNumber)
   const busy = pending !== null
+  const removing = deleting !== null
   const listing = view.kind === 'list'
 
   const startCreate = () => {
@@ -164,7 +209,14 @@ export default function AddressPicker({
     try {
       const capture = addressPayload(form)
       if (view.kind === 'create') await write.onCreate(capture)
-      else await write.onUpdate(view.addressNumber, capture)
+      else {
+        await write.onUpdate(view.addressNumber, capture)
+        // 🚩 188 — the same question the page asks before re-pinning, asked here
+        // for the one thing this component owns: whether a refusal about to
+        // arrive needs the *"and the book kept it"* half. One predicate read
+        // twice, never a second rule.
+        setSavedNotMoved(rePinAfterEdit(view.addressNumber, currentAddressNumber))
+      }
       // A landed write leaves the agent on the book, reading the row they just
       // corrected. (After a CREATE the page has already applied and closed it.)
       setView({ kind: 'list' })
@@ -174,6 +226,25 @@ export default function AddressPicker({
       setSaveError(err)
     } finally {
       setSaving(false)
+    }
+  }
+
+  /**
+   * The delete, on the agent's second press. It is the page's mutation; what is
+   * held here is the failure, because the book is where the agent is standing
+   * and the row they aimed at is still in front of them.
+   */
+  const remove = async (addressNumber: string) => {
+    if (removing) return
+    setDeleting(addressNumber)
+    setDeleteError(null)
+    try {
+      await write.onDelete(addressNumber)
+      setConfirmingDelete(null)
+    } catch (err) {
+      setDeleteError(err)
+    } finally {
+      setDeleting(null)
     }
   }
 
@@ -278,17 +349,14 @@ export default function AddressPicker({
           )}
 
           {choices.map((choice) => (
-            <div
-              key={choice.addressNumber}
-              className="flex items-stretch gap-1.5"
-              data-cc-address-row={choice.addressNumber}
-            >
+            <div key={choice.addressNumber} className="space-y-1.5" data-cc-address-row={choice.addressNumber}>
+             <div className="flex items-stretch gap-1.5">
               <button
                 type="button"
                 // 🚩 One click applies. No radio, no *Apply* — an empty basket has
                 // nothing to re-price and the server raises no confirmation.
                 onClick={() => onPick(choice.addressNumber)}
-                disabled={busy || choice.isCurrent}
+                disabled={busy || removing || choice.isCurrent}
                 data-cc-address-option={choice.addressNumber}
                 className="flex min-w-0 flex-1 items-start gap-2 rounded-md border border-border bg-card p-2.5 text-start hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-card"
               >
@@ -323,32 +391,97 @@ export default function AddressPicker({
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
                 )}
               </button>
+              {/* 🚩 188 — offered on EVERY row, the one the order holds
+                  included. Correcting that one re-pins the store and the page
+                  does exactly that, so what the agent meets is §5.1's preview,
+                  never a silently moved plant. */}
+              <button
+                type="button"
+                onClick={() => {
+                  const entry = (book.data ?? []).find(
+                    (e) => e.addressNumber === choice.addressNumber,
+                  )
+                  if (entry) startEdit(entry)
+                }}
+                disabled={busy || removing}
+                aria-label={t('address.form.edit')}
+                title={t('address.form.edit')}
+                data-cc-address-edit={choice.addressNumber}
+                className="flex shrink-0 items-center rounded-md border border-border bg-card px-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Pencil className="h-3.5 w-3.5" aria-hidden />
+              </button>
               {/* ⚠️ Absent — not disabled — on the address the order is using:
-                  correcting that one re-pins the store, which is 188. A control
-                  the agent's hand lands on is worse than no control (165). */}
+                  the server refuses that delete (`ADDRESS_IN_USE_BY_ORDER`), and
+                  a control whose only possible answer is a refusal is worse than
+                  no control (165). */}
               {!choice.isCurrent && (
                 <button
                   type="button"
                   onClick={() => {
-                    const entry = (book.data ?? []).find(
-                      (e) => e.addressNumber === choice.addressNumber,
-                    )
-                    if (entry) startEdit(entry)
+                    setDeleteError(null)
+                    setConfirmingDelete(choice.addressNumber)
                   }}
-                  disabled={busy}
-                  aria-label={t('address.form.edit')}
-                  title={t('address.form.edit')}
-                  data-cc-address-edit={choice.addressNumber}
-                  className="flex shrink-0 items-center rounded-md border border-border bg-card px-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={busy || removing}
+                  aria-label={t('address.delete')}
+                  title={t('address.delete')}
+                  data-cc-address-delete={choice.addressNumber}
+                  className="flex shrink-0 items-center rounded-md border border-border bg-card px-2 text-muted-foreground hover:bg-accent hover:text-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <Pencil className="h-3.5 w-3.5" aria-hidden />
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
                 </button>
               )}
+             </div>
+             {/* The second press, in place. A dialog here would be the
+                 modal-on-modal this file's own comment rejects, and it would ask
+                 the question away from the address it is about. */}
+             {confirmingDelete === choice.addressNumber && (
+               <div
+                 className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 p-2 text-xs"
+                 data-cc-address-delete-confirm={choice.addressNumber}
+               >
+                 <span className="flex-1">{t('address.deleteConfirm')}</span>
+                 <Button
+                   variant="text"
+                   onClick={() => setConfirmingDelete(null)}
+                   disabled={removing}
+                   data-cc-address-delete-no
+                 >
+                   {t('address.deleteNo')}
+                 </Button>
+                 <Button
+                   variant="danger"
+                   onClick={() => void remove(choice.addressNumber)}
+                   disabled={removing}
+                   data-cc-address-delete-yes
+                 >
+                   {deleting === choice.addressNumber ? t('address.deleting') : t('address.deleteYes')}
+                 </Button>
+               </div>
+             )}
             </div>
           ))}
 
+          {/* ⚠️ §6.5's named consequence, drawn as the two facts it is: the book
+              kept the correction, the order did not take it. Shown only beside
+              the refusal — on its own it would announce a state the rail already
+              shows. */}
+          {savedNotMoved !== null && applyError !== null && applyError !== undefined && (
+            <p className={NOTE.attention} data-cc-address-saved-not-moved>
+              {t('address.savedNotMoved')}
+            </p>
+          )}
+
           {applyError !== null && applyError !== undefined && (
             <Refusal error={applyError} fallbackKey="address.applyFailed" />
+          )}
+
+          {/* `ADDRESS_IN_USE_BY_ORDER` lands here — a code this component's own
+              UI cannot provoke, explained anyway because the book can move under
+              the agent and because the client must not be the only place the
+              rule lives. */}
+          {deleteError !== null && deleteError !== undefined && (
+            <Refusal error={deleteError} fallbackKey="address.deleteFailed" />
           )}
         </div>
       )}

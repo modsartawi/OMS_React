@@ -290,11 +290,37 @@ export const callCenterApi = {
    * console must re-issue `setAddress` on the same `addressNumber` afterwards,
    * because a `PUT` across districts leaves the order on a plant derived from a
    * district the address has left. Nothing in this function does that — it is
-   * the caller's, and it is [188](.issues/188-editing-re-pins-deleting-is-refused.md)'s
-   * slice. Until it lands, the editor is offered on non-current rows only.
+   * the caller's, and since [188](.issues/188-editing-re-pins-deleting-is-refused.md)
+   * the page does it, off `rePinAfterEdit`. A `PUT` sent from anywhere that does
+   * not ask that question is the silent wrong price §6.5 exists to prevent.
    */
   updateCustomerAddress(addressNumber: string, capture: CustomerAddressCapture): Promise<boolean> {
     return api.put<boolean>('CallCenterWeb/CustomerAddresses', { addressNumber, ...capture })
+  },
+
+  /**
+   * `DELETE CallCenterWeb/CustomerAddresses?addressNumber=…` — a row off the
+   * caller's book (188 / §6.5 rule 2).
+   *
+   * 🚩 **It refuses `ADDRESS_IN_USE_BY_ORDER` (409) on the address the open
+   * order is holding.** The sidecar keeps an `addressNumber` while the submit
+   * builder copies address *fields*, and `GetCustomerAddresses` filters
+   * `IsDeleted = 0` — so deleting the current address yields a delivery order
+   * that cannot build a shipping address at submit, broken at its LAST step by
+   * an act on a different door. The console omits the control on that row too,
+   * but that is the courtesy: **this refusal is the guard**, and the client
+   * handles a code its own UI should never provoke.
+   *
+   * Ownership is checked first and unchanged — an address on someone else's
+   * record still answers `ADDRESS_NOT_FOR_CUSTOMER` whether or not it happens to
+   * match an order (BackOffice 878 §2).
+   *
+   * 🚩 The target rides the **query string**, not a body: it is the shape 801's
+   * route already has. Not a session verb — no `transactionId`, no `requestId`,
+   * no `withBusyRetry`; the customer is resolved server-side.
+   */
+  deleteCustomerAddress(addressNumber: string): Promise<boolean> {
+    return api.del<boolean>('CallCenterWeb/CustomerAddresses', { addressNumber })
   },
 
   /**

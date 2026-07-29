@@ -188,4 +188,13 @@ export const api = {
   put<T>(path: string, body: unknown): Promise<T> {
     return request<T>(path, { method: 'PUT', body: JSON.stringify(body) })
   },
+  // `del` rather than `delete` — a reserved word cannot be a shorthand method
+  // name's call site everywhere (`api.delete` parses, `const { delete } = api`
+  // does not), and the three-letter form is what the rest of the estate uses.
+  // It takes PARAMS, not a body: the DELETE routes on this API name their target
+  // on the query string (`CallCenterWeb/CustomerAddresses?addressNumber=…`), and
+  // a body on a DELETE is the shape fetch and the proxy agree least about.
+  del<T>(path: string, params?: Record<string, unknown>): Promise<T> {
+    return request<T>(path + buildQuery(params), { method: 'DELETE' })
+  },
 }

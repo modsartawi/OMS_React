@@ -1,5 +1,5 @@
-// The address editor's drive (ticket 187) — the REAL console in Chromium, with
-// only the wire stubbed.
+// The address editor's drive (tickets 187 and 188) — the REAL console in
+// Chromium, with only the wire stubbed.
 //
 //   1. run the app:  npx vite --port 5211
 //   2. node tools/address-editor-drive.mjs
@@ -55,6 +55,35 @@
 //        there by the create's own answer rather than by a second read — a list
 //        missing it is what would invite them to key it twice;
 //    17. no state throws.
+//
+// ---- 188: the two book writes that reach into the order ------------------
+//
+//   editing the order's OWN address re-pins the store
+//    18. the edit control is present on that row now (187 withheld it until the
+//        re-pin existed; this drive's own assertion flips with the ticket);
+//    19. one `PUT` lands and is FOLLOWED by one `SetAddress` carrying THE SAME
+//        `addressNumber` — the whole of §6.5 rule 1, on the wire, in order;
+//    20. 🚩 what the agent meets is §5.1's store-move PREVIEW, not a moved
+//        plant: an edit across districts is answered exactly as a different
+//        address would have been;
+//    21. an edit of a row the order is NOT using still sends no `SetAddress` —
+//        the assertion that would fail if anyone treated the two alike.
+//
+//   an edit the order refuses — §6.5's named consequence, the second shape
+//    22. the `PUT` lands, the re-pin answers `NO_DELIVERY_STORE_FOR_DISTRICT`,
+//        and BOTH facts are on screen: the book kept the correction and the
+//        order kept the store and address it had;
+//    23. the order's rail is untouched — the console does not roll back a
+//        correction the caller just made.
+//
+//   deleting is refused, and the control is not there to press
+//    24. no delete control on the row the order is using, and one on every
+//        other row (`AddressChoice.isCurrent`);
+//    25. the delete asks a second time IN PLACE — no dialog on top of the book;
+//    26. one `DELETE` on the wire naming that address on the QUERY STRING;
+//    27. 🚩 `ADDRESS_IN_USE_BY_ORDER` reaches the agent as a sentence even
+//        though this UI cannot provoke it — the refusal is the guard and the
+//        omission only the courtesy, so the client handles the code.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -67,6 +96,12 @@ const raw = (name) =>
   JSON.parse(readFileSync(new URL(`../.issues/assets/136-cc-contract/${name}.json`, import.meta.url), 'utf8'))
 const fixture = (name) => raw(name).response.body.data
 const OPEN_RESULT = fixture('01-open-empty')
+// 188 — a basket with lines, and the preview a rebind of one answers. Both are
+// the contract's own committed captures: the point of §6.5 rule 1 is that an
+// edit takes the ORDINARY store-move path, so the drive must show the ordinary
+// store-move payload rather than one written for this scenario.
+const LINES = fixture('02-two-lines-priced').lines
+const STORE_MOVE = raw('05-rebind-preview').preview.response.body.data.pendingConfirmation
 
 const results = []
 const check = (name, pass, detail = '') => {
@@ -167,10 +202,11 @@ const onOrder = (addressNumber) => ({
  * ATTACHED, because the address book is unreachable before attach (§6.3) and
  * this drive's subject starts after it.
  */
-function seedState({ address = null } = {}) {
+function seedState({ address = null, lines = [] } = {}) {
   const state = OPEN_RESULT.state
   return {
     ...state,
+    lines,
     header: { ...state.header, customer: CUSTOMER, address },
     capabilities: {
       ...state.capabilities,
@@ -194,7 +230,26 @@ const NO_DELIVERY_STORE = {
   }),
 }
 
-async function open(browser, { book, state, applyRefused = false }) {
+// 188 §6.5 rule 2, as the door answers it — a 409 CARRYING the envelope. The
+// console's own UI never provokes this (the control is absent on that row); it
+// is stubbed so the drive can prove the client says a SENTENCE for a code the
+// guard, not the omission, is responsible for.
+const IN_USE_BY_ORDER = {
+  status: 409,
+  contentType: 'application/json',
+  body: JSON.stringify({
+    statusCode: 409,
+    success: false,
+    message: 'That address is in use by an open order.',
+    errors: [{ errorCode: 'ADDRESS_IN_USE_BY_ORDER', internalErrorCode: '', errorMessage: '' }],
+    data: null,
+  }),
+}
+
+async function open(
+  browser,
+  { book, state, applyRefused = false, applyPreviews = false, deleteRefused = false },
+) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const page = await context.newPage()
   const errors = []
@@ -227,6 +282,10 @@ async function open(browser, { book, state, applyRefused = false }) {
       }
     }
     if (body !== null) wire.push({ method, path: p, body })
+    // A DELETE names its target on the QUERY STRING (801's route shape), so its
+    // payload is not in a body and is recorded from the URL instead.
+    if (method === 'DELETE')
+      wire.push({ method, path: p, query: Object.fromEntries(new URL(request.url()).searchParams) })
 
     if (p === 'Auth/Me')
       return route.fulfill(
@@ -260,9 +319,20 @@ async function open(browser, { book, state, applyRefused = false }) {
         )
         return route.fulfill(envelope(true))
       }
+      if (method === 'DELETE') {
+        if (deleteRefused) return route.fulfill(IN_USE_BY_ORDER)
+        const gone = new URL(request.url()).searchParams.get('addressNumber')
+        currentBook = currentBook.filter((row) => row.addressNumber !== gone)
+        return route.fulfill(envelope(true))
+      }
     }
     if (p === 'CallCenterWeb/SetAddress') {
       if (applyRefused) return route.fulfill(NO_DELIVERY_STORE)
+      // §5.1 on the SUCCESS path: the unchanged state plus a token to commit
+      // with. 🚩 The version does NOT move — nothing was persisted — and that is
+      // what makes this a preview rather than a rebind the agent never saw.
+      if (applyPreviews && !body.confirmToken)
+        return route.fulfill(envelope({ ...served, pendingConfirmation: STORE_MOVE }))
       served = { ...served, version: served.version + 1, header: { ...served.header, address: onOrder(body.addressNumber) } }
       return route.fulfill(envelope(served))
     }
@@ -416,15 +486,29 @@ async function run() {
     await page.locator('[data-cc-change-address]').click()
     await page.locator('[data-cc-address-picker]').waitFor()
 
-    // 7. ⚠ Absent, not disabled, on the address the order is using — editing
-    //    that one re-pins the store, which is 188.
+    // 7 / 18. 🚩 **This assertion FLIPPED with 188.** 187 withheld the control
+    //    on the order's own address because the re-pin did not exist yet;
+    //    now it does, so the control is offered on every row and the
+    //    asymmetry moves to DELETE (asserted below, item 24).
     check(
-      'the edit control is ABSENT on the address the order is using',
-      (await page.locator('[data-cc-address-edit="77120"]').count()) === 0,
+      'the edit control is offered on the address the order is using',
+      (await page.locator('[data-cc-address-edit="77120"]').count()) === 1,
+    )
+    check(
+      'and on the one it is not',
+      (await page.locator('[data-cc-address-edit="88220"]').count()) === 1,
+    )
+    // 24. ⚠ Delete is the one that stays absent there: the server refuses it
+    //     (`ADDRESS_IN_USE_BY_ORDER`) because the submit path re-reads a book
+    //     filtered on `IsDeleted = 0` and would find nothing to build a
+    //     shipping address from.
+    check(
+      'the DELETE control is ABSENT on the address the order is using',
+      (await page.locator('[data-cc-address-delete="77120"]').count()) === 0,
     )
     check(
       'and present on the one it is not',
-      (await page.locator('[data-cc-address-edit="88220"]').count()) === 1,
+      (await page.locator('[data-cc-address-delete="88220"]').count()) === 1,
     )
 
     await page.locator('[data-cc-address-edit="88220"]').click()
@@ -457,8 +541,12 @@ async function run() {
       puts[0]?.body.address.gpsLat === 24.7743 && puts[0]?.body.address.gpsLon === 46.7386,
     )
 
-    // 10. 🚩 The whole point of the split with 188: a book act on a row the
-    //     order is not using never touches the order.
+    // 10 / 21. 🚩 The negative half of §6.5 rule 1, and the assertion that
+    //     would fail if anyone treated the two rows alike: a book act on a row
+    //     the order is not using never touches the order. A console that
+    //     re-pinned after EVERY edit would re-price a live basket, and raise
+    //     §5.1's are-you-sure, for a correction to an address the order never
+    //     had.
     check(
       'NO SetAddress follows a correction to a row the order is not using',
       calls.filter((c) => c === 'POST CallCenterWeb/SetAddress').length === 0,
@@ -576,6 +664,173 @@ async function run() {
       calls.filter((c) => c.includes('CustomerAddresses')).join(' → '),
     )
     check('the order still has no address', (await page.locator('[data-cc-address="pick"]').count()) === 1)
+    check('nothing threw', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  /* ---- 188: editing the order's OWN address re-pins the store (§6.5 rule 1) */
+  {
+    console.log('\ncorrecting the address the ORDER is using')
+    const { context, page, errors, calls, wire } = await open(browser, {
+      book: [bookRow('77120'), bookRow('88220', { labelCode: 'WORK', labelNameEn: 'Work' })],
+      // A basket WITH lines: it is what makes the re-pin raise §5.1 rather than
+      // apply inline, and the preview is the thing the agent must meet.
+      state: seedState({ address: onOrder('77120'), lines: LINES }),
+      applyPreviews: true,
+    })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-change-address]').click()
+    await page.locator('[data-cc-address-picker]').waitFor()
+
+    await page.locator('[data-cc-address-edit="77120"]').click()
+    await page.locator('[data-cc-address-form]').waitFor()
+    // The caller corrects the district — the one field on this form that can
+    // move the store, and the reason the whole rule exists.
+    await page.locator('[data-cc-district-search]').fill('rawdah')
+    await page.locator('[data-cc-district-option="J-201"]').click()
+    await page.locator('[data-cc-address-save]').click()
+
+    // 20. What the agent meets is the ordinary store-move preview.
+    await page.locator('[data-cc-rebind-to]').waitFor({ timeout: 10_000 })
+    check('the correction raises the store-move preview', await page.locator('[data-cc-rebind-to]').isVisible())
+    check(
+      'the book closes behind it — one modal at a time',
+      (await page.locator('[data-cc-address-picker]').count()) === 0,
+    )
+
+    // 19. The whole of §6.5 rule 1, on the wire and in order.
+    const puts = wire.filter((w) => w.method === 'PUT')
+    const sets = wire.filter((w) => w.path === 'CallCenterWeb/SetAddress')
+    check('one correction is sent, naming the order’s own address', puts.length === 1 && puts[0].body.addressNumber === '77120')
+    check(
+      '🚩 the correction is FOLLOWED by a re-issued SetAddress',
+      sets.length === 1 && sets[0].body.addressNumber === '77120',
+      sets.map((s) => s.body.addressNumber).join(', '),
+    )
+    check(
+      'and the re-pin carries THE SAME addressNumber — no new verb, no new field',
+      sets[0]?.body.addressNumber === puts[0]?.body.addressNumber,
+    )
+    check(
+      'the re-pin follows the write, never precedes it',
+      calls.indexOf('POST CallCenterWeb/SetAddress') > calls.indexOf('PUT CallCenterWeb/CustomerAddresses'),
+      calls.filter((c) => /CustomerAddresses|SetAddress/.test(c)).join(' → '),
+    )
+    check('nothing threw', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  /* ---- 188: the edit the book keeps and the order refuses (§6.5's ⚠) ------- */
+  {
+    console.log('\ncorrecting the order’s own address into a district no store delivers to')
+    const { context, page, errors, wire } = await open(browser, {
+      book: [bookRow('77120')],
+      state: seedState({ address: onOrder('77120'), lines: LINES }),
+      applyRefused: true,
+    })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-change-address]').click()
+    await page.locator('[data-cc-address-picker]').waitFor()
+
+    const before = await page.locator('[data-cc-address="set"]').innerText()
+    await page.locator('[data-cc-address-edit="77120"]').click()
+    await page.locator('[data-cc-address-form]').waitFor()
+    // ⚠ Picked from the districts the client believes are served — the client
+    // asks WHETHER a store delivers and the SERVER's answer is the authority
+    // (§2.3). This is the shape that reaches an agent when the two disagree,
+    // and it is the shape §6.5 named.
+    await page.locator('[data-cc-district-search]').fill('rawdah')
+    await page.locator('[data-cc-district-option="J-201"]').click()
+    await page.locator('[data-cc-address-save]').click()
+
+    await page.locator('[data-cc-address-error]').waitFor({ timeout: 10_000 })
+    const refusal = await page.locator('[data-cc-address-error]').innerText()
+    check('the refusal is worded, not a code', !/NO_DELIVERY_STORE_FOR_DISTRICT/.test(refusal), refusal)
+
+    // 22. 🚩 BOTH facts, or neither is honest: an agent shown only the refusal
+    //     would conclude the correction was lost and key it a second time.
+    check(
+      'the book kept the correction and the screen says so',
+      await page.locator('[data-cc-address-saved-not-moved]').isVisible(),
+    )
+    const saved = await page.locator('[data-cc-address-saved-not-moved]').innerText()
+    check('and it says the ORDER still has what it had', /still has/i.test(saved), saved)
+
+    check('the correction was sent', wire.filter((w) => w.method === 'PUT').length === 1)
+    check('and the re-pin was attempted', wire.filter((w) => w.path === 'CallCenterWeb/SetAddress').length === 1)
+    // 23. Nothing is rolled back — not the book row, and not the order.
+    check('the order’s address is untouched', (await page.locator('[data-cc-address="set"]').innerText()) === before)
+    check('nothing threw', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  /* ---- 188: deleting a row, and the refusal the UI cannot provoke --------- */
+  {
+    console.log('\nremoving an address from the book')
+    const { context, page, errors, calls, wire } = await open(browser, {
+      book: [bookRow('77120'), bookRow('88220', { labelCode: 'WORK', labelNameEn: 'Work' })],
+      state: seedState({ address: onOrder('77120') }),
+    })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-change-address]').click()
+    await page.locator('[data-cc-address-picker]').waitFor()
+
+    // 25. The second press is IN PLACE — a dialog here would be the
+    //     modal-on-modal `AddressPicker` rejected in 166, and it would ask the
+    //     question away from the address it is about.
+    await page.locator('[data-cc-address-delete="88220"]').click()
+    await page.locator('[data-cc-address-delete-confirm="88220"]').waitFor()
+    check('the delete asks a second time, in place', (await page.locator('dialog[open]').count()) === 1)
+    check('nothing is sent on the first press', calls.every((c) => !c.startsWith('DELETE')))
+
+    await page.locator('[data-cc-address-delete-yes]').click()
+    await page.locator('[data-cc-address-row="88220"]').waitFor({ state: 'detached', timeout: 10_000 })
+
+    // 26. One DELETE, naming the address on the query string — 801's own route
+    //     shape, and the reason `api.del` takes params rather than a body.
+    const deletes = wire.filter((w) => w.method === 'DELETE')
+    check('one delete is sent', deletes.length === 1, deletes.length + ' DELETE(s)')
+    check(
+      'it names the address on the query string, and nothing else',
+      JSON.stringify(deletes[0]?.query) === JSON.stringify({ addressNumber: '88220' }),
+      JSON.stringify(deletes[0]?.query),
+    )
+    check('the row is gone from the book', (await page.locator('[data-cc-address-row="88220"]').count()) === 0)
+    check('and the order’s own address is still there', (await page.locator('[data-cc-address-row="77120"]').count()) === 1)
+    check('the order is untouched', calls.filter((c) => c === 'POST CallCenterWeb/SetAddress').length === 0)
+    check('nothing threw', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  /* ---- 188: the code this console's own UI cannot provoke ----------------- */
+  {
+    console.log('\na delete the open order refuses')
+    const { context, page, errors } = await open(browser, {
+      book: [bookRow('77120'), bookRow('88220', { labelCode: 'WORK', labelNameEn: 'Work' })],
+      state: seedState({ address: onOrder('77120') }),
+      // The book moved under the agent — another window, another call. The
+      // control is only ever drawn on a row the console believes is free, so
+      // this is the ONLY way its own UI reaches the refusal.
+      deleteRefused: true,
+    })
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    await page.locator('[data-cc-change-address]').click()
+    await page.locator('[data-cc-address-picker]').waitFor()
+    await page.locator('[data-cc-address-delete="88220"]').click()
+    await page.locator('[data-cc-address-delete-yes]').click()
+
+    await page.locator('[data-cc-address-error]').waitFor({ timeout: 10_000 })
+    const refusal = await page.locator('[data-cc-address-error]').innerText()
+    // 27. 🚩 The refusal is the guard; the omission is only the courtesy. A
+    //     client that could not SAY this code would be relying on its own copy
+    //     of the rule, which is the second implementation §6.5 refuses to have.
+    check('the refusal is worded, not a machine code', !/ADDRESS_IN_USE_BY_ORDER/.test(refusal), refusal)
+    check('and it names the order as the reason', /order/i.test(refusal), refusal)
+    check('the row is still on the book', (await page.locator('[data-cc-address-row="88220"]').count()) === 1)
     check('nothing threw', errors.length === 0, errors[0] ?? '')
     await context.close()
   }

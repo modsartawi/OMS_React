@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { CustomerAddressBookEntry } from '@/core/models/callcenter'
-import { addressChoices, addressRefusalKey } from './address-book'
+import { addressChoices, addressRefusalKey, rePinAfterEdit } from './address-book'
 
 const entry = (over: Partial<CustomerAddressBookEntry> = {}): CustomerAddressBookEntry => ({
   addressNumber: '77120',
@@ -102,6 +102,23 @@ describe('addressChoices', () => {
     expect(JSON.stringify(choice)).not.toContain('RIMA6904')
   })
 
+  // 188 — the delete control's whole rule, read off this projection. The server
+  // refuses `ADDRESS_IN_USE_BY_ORDER` and that refusal is the guard; `isCurrent`
+  // is the courtesy, and it must mark EXACTLY the row the order holds — one row
+  // too few offers a control the door will refuse, one row too many hides a
+  // delete the caller asked for.
+  it('marks exactly one row as the order’s, and that is what suppresses delete', () => {
+    const book = [entry({ addressNumber: 'A1' }), entry({ addressNumber: 'A2' }), entry({ addressNumber: 'A3' })]
+    const held = addressChoices(book, 'A2')
+    expect(held.filter((c) => c.isCurrent).map((c) => c.addressNumber)).toEqual(['A2'])
+    expect(held.filter((c) => !c.isCurrent)).toHaveLength(2)
+    // No address on the order — every row is deletable, and none is "held".
+    expect(addressChoices(book, null).some((c) => c.isCurrent)).toBe(false)
+    // An order holding an address that is not in this book suppresses nothing:
+    // the projection never invents a current row.
+    expect(addressChoices(book, 'A9').some((c) => c.isCurrent)).toBe(false)
+  })
+
   it('drops a row that could never be picked', () => {
     // No `addressNumber` means there is nothing for `setAddress` to be given.
     expect(addressChoices([entry({ addressNumber: '' }), entry({ addressNumber: 'A1' })], null)).toHaveLength(1)
@@ -129,9 +146,72 @@ describe('addressRefusalKey', () => {
     )
   })
 
+  // 188 — the delete refusal. The console omits the control on the row the order
+  // holds, so its OWN UI should never provoke this; it is handled anyway,
+  // because the refusal is the guard and a second implementation of the rule on
+  // the client is exactly what §6.5 refuses to have.
+  it('explains a delete the open order refuses', () => {
+    expect(addressRefusalKey('ADDRESS_IN_USE_BY_ORDER')).toBe('address.refusedInUseByOrder')
+    // It is its OWN phrase — collapsing it into the not-theirs sentence would
+    // tell an agent their caller's own address belongs to someone else.
+    expect(addressRefusalKey('ADDRESS_IN_USE_BY_ORDER')).not.toBe(
+      addressRefusalKey('ADDRESS_NOT_FOR_CUSTOMER'),
+    )
+  })
+
   it('leaves every other refusal to the server’s own words', () => {
     expect(addressRefusalKey('SESSION_BUSY')).toBeNull()
     expect(addressRefusalKey(null)).toBeNull()
     expect(addressRefusalKey('SOMETHING_NEW_IN_A_MINOR_VERSION')).toBeNull()
+    // The degradation is the point: a code minted in a future minor version
+    // still reaches the agent as the server's own sentence, never as a blank.
+    expect(addressRefusalKey('ADDRESS_IN_USE_BY_SOMETHING_ELSE')).toBeNull()
+  })
+})
+
+/**
+ * 188 / §6.5 rule 1 — the one derivation that turns a BOOK write into an ORDER
+ * act. A `PUT` carries no store, `setAddress` carries only an `addressNumber`,
+ * and an edit does not change it: so unless the console re-issues, an edit
+ * across districts leaves the order on a plant derived from a district the
+ * address has left, with nothing on the wire saying so.
+ */
+describe('rePinAfterEdit', () => {
+  it('re-issues after an edit of the address the order holds', () => {
+    expect(rePinAfterEdit('77120', '77120')).toBe('77120')
+  })
+
+  // 🚩 The assertion that would fail if anyone treated the two alike. A console
+  // that re-pinned after every edit would re-price a live basket — and raise
+  // §5.1's confirmation — for a correction to an address the order never had.
+  it('re-issues nothing after an edit of any OTHER address', () => {
+    expect(rePinAfterEdit('88220', '77120')).toBeNull()
+    expect(rePinAfterEdit('77120', '88220')).toBeNull()
+  })
+
+  it('re-issues nothing when the order holds no address at all', () => {
+    expect(rePinAfterEdit('77120', null)).toBeNull()
+    expect(rePinAfterEdit('77120', undefined)).toBeNull()
+    expect(rePinAfterEdit('77120', '')).toBeNull()
+  })
+
+  it('re-issues nothing for an edit that names no address', () => {
+    expect(rePinAfterEdit('', '77120')).toBeNull()
+    expect(rePinAfterEdit(null, '77120')).toBeNull()
+  })
+
+  // The book's spelling and the order's are the SAME address written twice —
+  // `CallCenterAddressScope` resolves them trim/case-insensitively server-side,
+  // so a match here must too, or an edit made from a row whose number came back
+  // padded would silently skip the re-pin.
+  it('matches the two spellings the way the door does', () => {
+    expect(rePinAfterEdit(' 77120 ', '77120')).toBe('77120')
+    expect(rePinAfterEdit('a77120', 'A77120')).toBe('A77120')
+  })
+
+  // And what it hands back is the ORDER's spelling, not the book row's: it is
+  // the order being re-pinned, and `setAddress` is the order's verb.
+  it('re-issues with the number the ORDER holds', () => {
+    expect(rePinAfterEdit('77120  ', ' 77120')).toBe(' 77120')
   })
 })

@@ -115,8 +115,55 @@ const REFUSAL_KEY: Record<string, string> = {
   // the ORDER is unchanged either way, and it is the order the agent is asking
   // about.
   NO_DELIVERY_STORE_FOR_DISTRICT: 'address.refusedNoDeliveryStore',
+  // 🚩 Added by 188 (§6.5 rule 2). The console omits the delete control on the
+  // row the order holds, so **its own UI should never provoke this** — it is
+  // handled anyway, because the refusal is the guard and the omission is only
+  // the courtesy. A second copy of the rule living in the client alone is what
+  // the contract keeps refusing to have; a client that could not SAY the code
+  // would be relying on its own copy.
+  ADDRESS_IN_USE_BY_ORDER: 'address.refusedInUseByOrder',
 }
 
 export function addressRefusalKey(code: string | null | undefined): string | null {
   return (code && REFUSAL_KEY[code]) ?? null
+}
+
+/**
+ * 188 / §6.5 rule 1 — **the one derivation that turns a book write into an order
+ * act.** Given the address a `PUT` just corrected and the one the order is
+ * holding, this answers the `addressNumber` the console must re-issue
+ * `setAddress` with, or `null` when the edit was nobody's business but the
+ * book's.
+ *
+ * 🚩 It is a rule and not a mechanism. `setAddress` already carries the whole
+ * district→store re-derivation, already raises §5.1's `storeChange`
+ * confirmation when there are lines, and already refuses
+ * `NO_DELIVERY_STORE_FOR_DISTRICT` — so an edit is a book write followed by the
+ * ordinary pin, and the agent sees exactly the store-move preview a *different*
+ * address would have shown them. No new verb was needed and none was added.
+ *
+ * ⚠️ Why the two cases must not be treated alike, in both directions:
+ *
+ * - Re-pinning after **every** edit would re-price a live basket, and raise
+ *   §5.1's are-you-sure, for a correction to an address the order never had.
+ * - Re-pinning after **none** leaves the order on a plant derived from a
+ *   district the address has left, with `header.address.line` still rendering
+ *   the old composition — the silent wrong price, arriving through a door
+ *   nothing on the order side watches.
+ *
+ * The comparison is trim/case-insensitive because the door's own
+ * (`CallCenterAddressScope`) is: the book's spelling of a number and the
+ * order's are the same address written twice, and a strict compare here would
+ * skip the re-pin on a row that came back padded. What it hands BACK is the
+ * **order's** spelling — it is the order being re-pinned, and `setAddress` is
+ * the order's verb.
+ */
+export function rePinAfterEdit(
+  editedAddressNumber: string | null | undefined,
+  currentAddressNumber: string | null | undefined,
+): string | null {
+  const edited = text(editedAddressNumber)
+  const current = text(currentAddressNumber)
+  if (edited === null || current === null) return null
+  return edited.toUpperCase() === current.toUpperCase() ? (currentAddressNumber as string) : null
 }

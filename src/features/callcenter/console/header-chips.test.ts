@@ -4,8 +4,20 @@
  * test (CONTRACT.md §11 — a fixture value is never evidence).
  */
 import { describe, expect, it } from 'vitest'
+import type { SessionState } from '@/core/models/callcenter'
+import capture09 from '../../../../.issues/assets/136-cc-contract/09-fulfilment-flip.json'
 import { EMPTY_SESSION } from './__fixtures__/payloads'
 import { headerChips } from './header-chips'
+
+/**
+ * 🚩 The pickup leg of capture [09](.issues/assets/136-cc-contract/09-fulfilment-flip.json)
+ * — the wire's own bytes, chosen because they carry the exact contradiction this
+ * ticket's rule exists for: `plantSource: "derivedFromAddress"` surviving in a
+ * response that also carries `address: null`. A hand-written state could be
+ * accused of inventing the contradiction; the capture cannot.
+ */
+const PICKUP = (capture09 as { flip: { response: { body: { data: SessionState } } } }).flip.response
+  .body.data
 
 const byId = (chips: ReturnType<typeof headerChips>) =>
   Object.fromEntries(chips.map((c) => [c.id, c]))
@@ -73,6 +85,50 @@ describe('headerChips', () => {
     expect(byId(chips).slot.state).toBe('needsAttention')
     expect(chips.filter((c) => c.state === 'needsAttention')).toHaveLength(1)
     expect(chips.some((c) => c.value === 'MISSING_PAYMENT_TYPE')).toBe(false)
+  })
+
+  it('🚩 drops the slot chip ENTIRELY under collection — absent, not empty', () => {
+    // `RequiresSlot(bool isDelivery) => isDelivery`, and the server drops
+    // `MISSING_SLOT` from `submitBlockers` in the same response (capture 09). A
+    // slot chip here would be the console asking for something nothing will ever
+    // wait on — and an empty or disabled one would imply a collection time this
+    // business has no system to keep.
+    const ids = headerChips(PICKUP.header, PICKUP.capabilities).map((c) => c.id)
+    expect(ids).not.toContain('slot')
+    expect(ids[0]).toBe('fulfilment')
+    // Nothing else leaves with it: the row is the delivery row minus one chip.
+    expect(ids).toEqual(['fulfilment', 'store', 'source', 'reference', 'payment', 'coupon'])
+  })
+
+  it('🚩 suppresses (derived) under collection even where plantSource still says otherwise', () => {
+    // The capture's own contradiction: the flip leaves `plantSource` at
+    // `derivedFromAddress` while clearing `address`. A chip reading *from the
+    // address* on an order that has no address points at something the console
+    // cannot show — and under pickup the plant is what the agent CHOSE.
+    expect(PICKUP.header.plantSource).toBe('derivedFromAddress')
+    expect(PICKUP.header.address).toBeNull()
+    const collecting = byId(headerChips(PICKUP.header, PICKUP.capabilities))
+    expect(collecting.store.derived).toBeUndefined()
+    // ...and it is the MODE that suppresses it, not something else about the
+    // capture: the same header under delivery carries the parenthetical.
+    const delivering = byId(
+      headerChips({ ...PICKUP.header, deliveryType: 'Delivery' }, PICKUP.capabilities),
+    )
+    expect(delivering.store.derived).toBe(true)
+  })
+
+  it('🚩 drops the payment chip entirely for a value it cannot word', () => {
+    // US22, the row's half of it. `Receivable` is reserved (§2.4) and no phase-1
+    // path produces it; a chip drawn empty — or worse, worded — would be this
+    // console describing a payment arrangement nobody agreed to. It leaves the
+    // row, exactly as the slot chip does under pickup, and every other chip
+    // stays where it was.
+    const ids = headerChips(
+      { ...EMPTY_SESSION.header, paymentType: 'Receivable' },
+      EMPTY_SESSION.capabilities,
+    ).map((c) => c.id)
+    expect(ids).not.toContain('payment')
+    expect(ids).toEqual(['fulfilment', 'store', 'slot', 'source', 'reference', 'coupon'])
   })
 
   it('keeps a blocking chip attention-marked even once it carries a value', () => {

@@ -47,7 +47,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
-import type { SessionState } from '@/core/models/callcenter'
+import type {
+  DeliveryType,
+  PaymentType,
+  SessionState,
+} from '@/core/models/callcenter'
 import {
   CALLCENTER_ACCESS_KEY,
   callCenterApi,
@@ -100,6 +104,9 @@ import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
 import ConsoleShell, { type SwallowedCommit } from './ConsoleShell'
 import ExistingOrderScreen from './ExistingOrderScreen'
+import FulfilmentPicker from './FulfilmentPicker'
+import { currentMode, currentPaymentType, isPickup } from './fulfilment-view'
+import PaymentPicker from './PaymentPicker'
 import SlotPicker from './SlotPicker'
 import SourceForm from './SourceForm'
 import type { PreviewReissue } from './ConfirmSheet'
@@ -234,6 +241,17 @@ function ConsoleSession() {
 
   /** The slot picker, open or not (173) — the slot chip re-opening its section. */
   const [pickingSlot, setPickingSlot] = useState(false)
+
+  /**
+   * The two axis chips' modals (182), open or not — *delivering, or collecting?*
+   * and *how are they paying?*.
+   *
+   * Two flags rather than one `'fulfilment' | 'payment' | null`, matching every
+   * other section on this page: they are two acts on two verbs, and the console
+   * already opens one modal at a time by construction.
+   */
+  const [pickingFulfilment, setPickingFulfilment] = useState(false)
+  const [pickingPayment, setPickingPayment] = useState(false)
 
   /**
    * 🚩 The slot the agent chose had lapsed — `SLOT_UNAVAILABLE` (409), which the
@@ -610,6 +628,70 @@ function ConsoleSession() {
     onError: (err) => {
       if (apiErrorCode(err) === 'SLOT_UNAVAILABLE') setSlotLapsed(true)
       // Anything else is the picker's own failure, drawn below.
+    },
+    retry: false,
+  })
+
+  /**
+   * How the order arrives (182, US5–US17) — `setFulfilment`, the call's first
+   * question and the widest change of state on this screen.
+   *
+   * 🚩 **Nothing about the flip is computed here.** The verb returns the whole
+   * `SessionState` and every consequence rides in it: the server clears
+   * `address`, drops `MISSING_SLOT`, zeroes `deliveryFee` and sets
+   * `retainedAddressLabel` in the same response (capture 09). What the console
+   * decides is only what the agent SEES of that — the rail's face, the absent
+   * slot chip, the absent delivery region — and `fulfilment-view.ts` decides it
+   * once, for all four surfaces.
+   *
+   * 🚩 **No confirmation path, by the contract's own shape** (§5.1): the flip
+   * never moves the plant, and the re-derivation on the way back to delivery
+   * reaches the `storeChange` modal through `setAddress`'s existing rule rather
+   * than through a second one here. So this is an ordinary one-shot verb.
+   */
+  const fulfilment = useMutation({
+    // No `again`: the picker draws this call's own failure (164's ruling).
+    mutationFn: (mode: DeliveryType) => {
+      // 🚩 Minted ONCE, outside the thunk — a fresh id inside it would make each
+      // busy retry a genuinely new action to the server's ledger (law 3 / §4).
+      const requestId = newRequestId()
+      return runGuarded(() => callCenterApi.setFulfilment(transactionId!, requestId, mode))
+    },
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+      // The section has answered, so the chip it collapsed into is the surface
+      // again (135's progressive disclosure).
+      setPickingFulfilment(false)
+    },
+    retry: false,
+  })
+
+  /**
+   * How the caller pays (182, US18–US23) — `setPaymentType`.
+   *
+   * 🚩 **Not a tender, and no money moves through this console.** `Online` tells
+   * OMS to send a payment link the caller completes elsewhere; nothing here sees
+   * a gateway or a result (§2.4). It re-prices nothing and can raise no
+   * confirmation, which is why it is the plainest verb on the page.
+   *
+   * 🚩 **An axis independent of the mode.** All four combinations are legal, and
+   * the chip's WORD following the mode is a rendering (`paymentWordKey`) rather
+   * than a second rule about the value — the wire keeps saying `CashOnDelivery`
+   * while the agent reads *Pay on collection*.
+   */
+  const payment = useMutation({
+    // No `again`: the picker draws this call's own failure (164's ruling).
+    mutationFn: (value: PaymentType) => {
+      const requestId = newRequestId()
+      return runGuarded(() => callCenterApi.setPaymentType(transactionId!, requestId, value))
+    },
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+      setPickingPayment(false)
     },
     retry: false,
   })
@@ -1536,6 +1618,16 @@ function ConsoleSession() {
         // order has no header left to capture.
         onChangeSlot={session.data.status === 'open' ? () => setPickingSlot(true) : undefined}
         onChangeSource={session.data.status === 'open' ? () => setEditingSource(true) : undefined}
+        // 🚩 The two axis chips (182). Only the OPEN rule is applied here —
+        // `canChangeFulfilment` / `canChangePaymentType` are read inside the
+        // shell, through `capabilityGate`, because the shell is also what prints
+        // the reason beside the row. Testing the capability here too would be the
+        // same predicate in two places, and the one that went stale would be the
+        // one still drawing the chip.
+        onChangeFulfilment={
+          session.data.status === 'open' ? () => setPickingFulfilment(true) : undefined
+        }
+        onChangePayment={session.data.status === 'open' ? () => setPickingPayment(true) : undefined}
         refusal={refusal}
         swallowed={swallowed}
         onDismissSwallowed={() => setSwallowed(null)}
@@ -1593,6 +1685,39 @@ function ConsoleSession() {
           setPickingSlot(false)
           setSlotLapsed(false)
           slot.reset()
+        }}
+      />
+      {/* 🚩 *Delivering, or collecting?* (182) — two full-sentence choices, never
+          a toggle: a toggle has a default and a default here is a guess about the
+          caller. Each option states its consequence BEFORE it is chosen, because
+          the consequence is what the agent has to know in order to ask. */}
+      <FulfilmentPicker
+        open={pickingFulfilment}
+        current={currentMode(session.data.header)}
+        pending={fulfilment.isPending ? (fulfilment.variables ?? null) : null}
+        error={
+          fulfilment.isError ? apiErrorMessage(fulfilment.error, t('fulfilment.failed')) : null
+        }
+        onPick={(mode) => fulfilment.mutate(mode)}
+        onClose={() => {
+          setPickingFulfilment(false)
+          fulfilment.reset()
+        }}
+      />
+      {/* *How are they paying?* (182). No money moves here — `Online` is an
+          instruction to OMS to send a link, not a tender. */}
+      <PaymentPicker
+        open={pickingPayment}
+        current={currentPaymentType(session.data.header)}
+        // 🚩 Passed in rather than re-derived inside the modal, so the chip and
+        // the options cannot disagree about which word they are using.
+        pickup={isPickup(session.data.header)}
+        pending={payment.isPending ? (payment.variables ?? null) : null}
+        error={payment.isError ? apiErrorMessage(payment.error, t('payment.failed')) : null}
+        onPick={(value) => payment.mutate(value)}
+        onClose={() => {
+          setPickingPayment(false)
+          payment.reset()
         }}
       />
       {/* The document source and its reference (173) — two chips, one form, one

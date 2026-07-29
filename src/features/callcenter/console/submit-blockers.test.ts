@@ -24,6 +24,10 @@ const CONTRACT_CODES = [
   'NO_LINES',
   'NO_CUSTOMER',
   'NO_ADDRESS',
+  // v1.3 (§2.3) — the one blocker 175 exists to raise. Absent from this list it
+  // would print the *unknown blocker* phrase, which is the failure that ticket
+  // was written to close.
+  'STORE_NOT_CHOSEN',
   'MISSING_SLOT',
   'MISSING_SOURCE',
   'MISSING_SOURCE_REFERENCE',
@@ -48,6 +52,14 @@ describe('submitBlockers', () => {
     const owner = Object.fromEntries(
       CONTRACT_CODES.map((code) => [code, submitBlockers([code])[0].chip]),
     )
+    // 🚩 The store chip's own, and the reason it is here: 175 ruled this code
+    // onto the contract and this client never got it, so the ONE blocker that
+    // ticket exists to raise would otherwise reach the agent as the unknown
+    // phrase — words, but the wrong words, on the one chip that could fix it.
+    expect(owner.STORE_NOT_CHOSEN).toBe('store')
+    expect(submitBlockers(['STORE_NOT_CHOSEN'])[0].key).toBe('blockers.STORE_NOT_CHOSEN')
+    expect(submitBlockers(['STORE_NOT_CHOSEN'])[0].key).not.toBe(UNKNOWN_BLOCKER_KEY)
+    expect(blockedChips(['STORE_NOT_CHOSEN'])).toEqual(new Set(['store']))
     expect(owner.MISSING_SLOT).toBe('slot')
     expect(owner.MISSING_SOURCE).toBe('source')
     expect(owner.MISSING_SOURCE_REFERENCE).toBe('reference')

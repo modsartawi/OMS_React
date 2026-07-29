@@ -183,8 +183,7 @@
       "pickInStore": "Collection",
       "cashOnDelivery": "Cash on delivery",
       "payOnCollection": "Pay on collection",
-      "paidOnline": "Paid online",
-      "receivable": "On account"
+      "paidOnline": "Paid online"
     },
     "coupon": "Coupon"
   },

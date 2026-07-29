@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 180
 blocked-by: —
 ---
@@ -51,18 +51,19 @@ model (already present) · api (`setFulfilment`, `setPaymentType`) · logic (`fu
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `fulfilment-view` — mode in, block face and payment word out; *Pay on collection* under pickup
-      while `paymentType` is unchanged · pure
-- [ ] `capabilityGate` — a shut capability yields no handler and a reason; a missing reason degrades
-      to a vague sentence, never a wrong refusal · pure
-- [ ] `header-chips` — `slot` absent under pickup; `(derived)` suppressed under collection **even
+- [x] `fulfilment-view` — mode in, block face and payment word out; *Pay on collection* under pickup
+      while `paymentType` is unchanged · pure — plus all four legal combinations read off capture 11,
+      and US22's *no wording at all* (see Comments)
+- [x] `capabilityGate` — a shut capability yields no handler and a reason; a missing reason degrades
+      to a vague sentence, never a wrong refusal · pure — both axes, `canChangePaymentType` included
+- [x] `header-chips` — `slot` absent under pickup; `(derived)` suppressed under collection **even
       when `plantSource` says `derivedFromAddress`**, driven by the capture that contains exactly
       that contradiction · pure
-- [ ] `submit-blockers` — `STORE_NOT_CHOSEN` resolves to real words on the `store` chip; an unknown
+- [x] `submit-blockers` — `STORE_NOT_CHOSEN` resolves to real words on the `store` chip; an unknown
       code still degrades to the unknown phrase · pure
-- [ ] `fulfilment-176-drive.mjs` **re-pointed at the wired console** — the rail block's height is
-      **identical across the flip** (asserted, not eyeballed); the drive fails if anything below it
-      moves · flow (Playwright)
+- [x] `fulfilment-176-drive.mjs` **re-pointed at the wired console** — 108/108 against `/callcenter`
+      with the wire stubbed; the flip measured rather than eyeballed (see Comments for what the
+      measurement turned out to be) · flow (Playwright)
 
 ## Boundaries
 
@@ -83,3 +84,47 @@ wire value — and the re-pointed drive asserts all of it.
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+**Built 2026-07-29.** `npm run typecheck` / `build` / `lint` green; the three pure suites pass;
+`node tools/fulfilment-176-drive.mjs` **108 passed, 0 failed** against the real `/callcenter`.
+
+**What was actually left to do.** Almost everything this slice draws already existed and was
+unwired, exactly as the ticket said. The work was: two verbs in `api.ts` (`setFulfilment`,
+`setPaymentType`), two mutations plus two modal mounts in `CallCenterConsolePage`, and the drive
+re-pointed off the prototype route. `STORE_NOT_CHOSEN` (consequence 8) needed **no code at all** —
+it was already in `submit-blockers.ts`'s table and in the locale; the ticket's *"this client never
+got it"* was stale by the time the slice ran. It gained a test instead.
+
+**Consequence 9 was a live defect, not a gap.** `paymentWordKey` returned `'receivable'` and
+`chips.value.receivable` worded it *"On account"* — so a reserved value §2.4 says no phase-1 path
+produces would have drawn a chip selling a payment arrangement nobody agreed to. The branch and the
+key are both gone; `Receivable` now returns `null` and the chip leaves the row, which is what US22
+asked for. Found by the spec review, not by the build.
+
+**🚩 The flip's invariant is the block's TOP, not its height.** The ticket asked for *"the rail
+block's height is identical across the flip"*. It is not, and it was never going to be: the address
+face is **72 px** and the collection face **50 px**, because an address is more lines than a store
+name. What is identical is where the block *starts* — **226 px from the rail's top in all eleven
+states**, which is the number 176 measured and the number the spec quotes. The reason a 22 px
+difference moves nothing is that the block is the rail's **last child**, so the drive now asserts
+that too: `blockIsLast` in both modes, printed with both heights. The day a section is added beneath
+it, that assertion fails and the height invariant has to be earned rather than assumed — which a
+top-offset-only assertion would have passed straight over.
+
+**Proved from the requests, not the screen.** The one thing the flow tier can say that no pure test
+can: flipping the mode sends **one** `SetFulfilment` (carrying `mode` + one `requestId`) and
+**zero** `SetPaymentType` — the payment chip's word changed and its wire value did not (US21). Both
+axes then round-trip independently: the `Online` chosen under collection survives the flip back.
+
+⚠ **Everything the two verbs answer is a stub** — `SetFulfilment` / `SetPaymentType` are unbuilt
+server-side (BackOffice 877 / 871), and the drive says so in its own output, along with
+`waivedReason` (v1.5, BO 874), `canChangePaymentType: false` (§2.4 — unreachable in phase 1) and
+`retainedAddressLabel` (postdates capture 09). The two poles of the flip are capture 09's own bytes
+and the stub reproduces the transformation that capture recorded.
+
+**Not touched, deliberately.** `fulfilment.backToDelivery`'s wording promises a confirmation on the
+way back to delivery; §5.1 says `setFulfilment` never raises one and the verb carries no
+`confirmToken`, so that sentence is about the re-derivation reaching `setAddress`'s existing rule.
+Shipped as 176 wrote it; worth a look when 877 lands and the real flip-back can be captured.

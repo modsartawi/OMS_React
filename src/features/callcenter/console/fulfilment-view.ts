@@ -15,13 +15,42 @@
  * [09](.issues/assets/136-cc-contract/09-fulfilment-flip.json). This module only
  * decides what the agent *sees*, which is the half the wire cannot carry.
  */
-import type { SessionCapabilities, SessionHeader } from '@/core/models/callcenter'
+import type {
+  DeliveryType,
+  PaymentType,
+  SessionCapabilities,
+  SessionHeader,
+} from '@/core/models/callcenter'
 import type { DeliveryFeeView } from './basket-view'
 
 /** §2.2 — the field is optional (a v1.0 server does not send it) and its absence
  *  means `Delivery`. Read through here so the fallback lives in one place. */
 export function isPickup(header: SessionHeader): boolean {
   return header.deliveryType === 'PickInStore'
+}
+
+/**
+ * The mode the order holds, as the wire spells it — the same fallback as
+ * `isPickup`, handed back as the value rather than as a boolean.
+ *
+ * 🚩 It exists so a caller that needs the VALUE (the picker's `current`) does
+ * not decode the field to a boolean and re-encode it, which loses the day a
+ * third mode exists. One field, one reader, two shapes of answer.
+ */
+export function currentMode(header: SessionHeader): DeliveryType {
+  return isPickup(header) ? 'PickInStore' : 'Delivery'
+}
+
+/**
+ * The payment type the order holds. §2.4 — the column defaults to `"C"`, so a
+ * pre-1.4 server's silence means cash and not *unknown*.
+ *
+ * 🚩 The default lives HERE and nowhere else: a second `?? 'CashOnDelivery'` at
+ * a call site is the same domain rule in two places, and the one that goes stale
+ * is the one still drawing the chip.
+ */
+export function currentPaymentType(header: SessionHeader): PaymentType {
+  return header.paymentType ?? 'CashOnDelivery'
 }
 
 /**
@@ -89,15 +118,22 @@ export function feeLine(fee: DeliveryFeeView): FeeLine {
  * on the wire and `"C"` in the column. Wording follows the caller's experience;
  * the value follows OMS.
  *
- * An unrecognised value (a future `Receivable`, which no phase-1 path produces)
- * returns `null` and the chip draws the server's own value — degrade, never
- * throw (§9).
+ * 🚩 **A value this console cannot word draws NO wording** (US22, ticket 182's
+ * ninth consequence) — `null`, and `header-chips.ts` drops the chip rather than
+ * drawing an empty one. `Receivable` is the case that matters and it is
+ * deliberately in this set: §2.4 reserves it, no phase-1 path produces or
+ * accepts it, and the business has never asked for it. A chip reading *On
+ * account* would be this console selling a payment arrangement nobody has
+ * agreed — which is worse than silence, and is the one thing a reserved value
+ * must not be able to do. The day it is real it gets a word, and that is a data
+ * change plus a line here.
+ *
+ * Any other unrecognised value degrades the same way — never throw (§9).
  */
 export function paymentWordKey(header: SessionHeader): string | null {
-  const value = header.paymentType ?? 'CashOnDelivery'
+  const value = currentPaymentType(header)
   if (value === 'CashOnDelivery') return isPickup(header) ? 'payOnCollection' : 'cashOnDelivery'
   if (value === 'Online') return 'paidOnline'
-  if (value === 'Receivable') return 'receivable'
   return null
 }
 

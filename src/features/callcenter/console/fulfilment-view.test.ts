@@ -9,7 +9,13 @@
  * that neither of those is inferred from a figure the console happens to hold.
  */
 import { describe, expect, it } from 'vitest'
-import type { SessionCapabilities, SessionHeader } from '@/core/models/callcenter'
+import type {
+  DeliveryType,
+  PaymentType,
+  SessionCapabilities,
+  SessionHeader,
+} from '@/core/models/callcenter'
+import capture11 from '../../../../.issues/assets/136-cc-contract/11-payment-type.json'
 import type { DeliveryFeeView } from './basket-view'
 import {
   capabilityGate,
@@ -85,6 +91,17 @@ describe('theWordFollowsTheModeAndTheValueFollowsOms', () => {
     )
   })
 
+  it('🚩 words the mode WITHOUT touching the value the wire carries', () => {
+    // §2.4 — the console says *Pay on collection* and OMS still receives
+    // `CashOnDelivery` / `"C"`. The module is asked for a word and hands back a
+    // key; the header it was given is the header it leaves behind, so there is
+    // no path by which a wording decision could reach the value.
+    const collecting = header({ paymentType: 'CashOnDelivery', deliveryType: 'PickInStore' })
+    expect(paymentWordKey(collecting)).toBe('payOnCollection')
+    expect(collecting.paymentType).toBe('CashOnDelivery')
+    expect(collecting.deliveryType).toBe('PickInStore')
+  })
+
   it('leaves online alone — it means the same thing under either mode', () => {
     expect(paymentWordKey(header({ paymentType: 'Online' }))).toBe('paidOnline')
     expect(paymentWordKey(header({ paymentType: 'Online', deliveryType: 'PickInStore' }))).toBe('paidOnline')
@@ -96,8 +113,36 @@ describe('theWordFollowsTheModeAndTheValueFollowsOms', () => {
     expect(paymentWordKey(header())).toBe('cashOnDelivery')
   })
 
-  it('draws nothing rather than a wrong word for a value it cannot say', () => {
+  it('🚩 draws nothing rather than a wrong word for a value it cannot say', () => {
+    // US22 / 182's ninth consequence. `Receivable` is the case that matters: §2.4
+    // RESERVES it, no phase-1 path produces or accepts it, and the business has
+    // never asked for it — so a chip reading *On account* would be this console
+    // selling a payment arrangement nobody agreed to. Silence is the only honest
+    // rendering, and the chip leaves the row rather than standing there empty.
+    expect(paymentWordKey(header({ paymentType: 'Receivable' }))).toBeNull()
+    expect(paymentWordKey(header({ paymentType: 'Receivable', deliveryType: 'PickInStore' }))).toBeNull()
+    // And any other future value degrades identically — never a throw (§9).
     expect(paymentWordKey(header({ paymentType: 'Something' as never }))).toBeNull()
+  })
+
+  it('words all four legal combinations off the capture that round-trips them', () => {
+    // 🚩 The wire's own four, from capture 11 — the axes are independent (§2.4)
+    // and the console must word every combination the server accepts. Read from
+    // the capture rather than listed here, so a combination the server stops
+    // round-tripping stops being asserted.
+    const combinations = (
+      capture11 as { combinations: Record<string, { deliveryType: DeliveryType; paymentType: PaymentType }> }
+    ).combinations
+    expect(Object.keys(combinations)).toHaveLength(4)
+    const worded = Object.fromEntries(
+      Object.entries(combinations).map(([key, h]) => [key, paymentWordKey(header(h))]),
+    )
+    expect(worded).toEqual({
+      'Delivery-CashOnDelivery': 'cashOnDelivery',
+      'PickInStore-CashOnDelivery': 'payOnCollection',
+      'Delivery-Online': 'paidOnline',
+      'PickInStore-Online': 'paidOnline',
+    })
   })
 })
 
@@ -116,6 +161,26 @@ describe('aShutCapabilitySaysWhyItIsShut', () => {
         'canChangeFulfilment',
       ),
     ).toEqual({ open: false, reason: 'DELIVERY_ONLY_SOURCE' })
+  })
+
+  it('asks the SAME question of the payment axis — ⚠ unreachable in phase 1, answered anyway', () => {
+    // §2.4: no phase-1 order can force the payment type, so this state is
+    // stubbed rather than captured. It is implemented because a capability the
+    // client ignores is the failure §2's advisory-but-authoritative rule exists
+    // to prevent — the day a forcing rule is configured, the console is right
+    // without a change.
+    expect(capabilityGate(caps({ canChangePaymentType: true }), 'canChangePaymentType')).toEqual({
+      open: true,
+    })
+    expect(
+      capabilityGate(
+        caps({
+          canChangePaymentType: false,
+          capabilityReasons: { canChangePaymentType: 'PAYMENT_TYPE_FORCED' },
+        }),
+        'canChangePaymentType',
+      ),
+    ).toEqual({ open: false, reason: 'PAYMENT_TYPE_FORCED' })
   })
 
   it('🚩 is shut with NO reason where the server sent none', () => {

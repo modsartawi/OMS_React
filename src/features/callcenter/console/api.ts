@@ -28,9 +28,11 @@ import type {
   AgentDocumentSource,
   CallCenterAccessResult,
   CustomerAddressBookEntry,
+  DeliveryType,
   ItemSearchResult,
   LoyaltyMember,
   OpenResult,
+  PaymentType,
   PrereqResolution,
   SessionState,
   SubmitResult,
@@ -525,6 +527,65 @@ export const callCenterApi = {
       // Only what the picker actually held. A null slot clears the window, and
       // there is nothing to describe about a window that is being removed.
       ...(slotId !== null && window ? window : {}),
+    })
+  },
+
+  /**
+   * `POST CallCenterWeb/SetFulfilment` → the whole `SessionState` (law 2) — how
+   * the order arrives, which is the first question of the call.
+   *
+   * 🚩 **It carries no `confirmToken`, and that is the contract's own shape**
+   * (§1.1's verb table). The flip never moves the plant: under
+   * `Delivery → PickInStore` the order keeps the plant it already has, and the
+   * re-derivation on the way back reaches the `storeChange` confirmation through
+   * `setAddress`'s existing rule rather than through a second one on this verb
+   * (§5.1 — *"`setFulfilment` never raises this"*). So this is an ordinary
+   * one-shot verb and there is no two-phase path here to keep aligned.
+   *
+   * 🚩 **Every consequence of the flip arrives in the response**, and none of
+   * them is computed here: the server clears `address`, drops `MISSING_SLOT`,
+   * zeroes `deliveryFee` and sets `retainedAddressLabel` in the same payload
+   * (capture 09). The console draws that answer — `fulfilment-view.ts` decides
+   * only what the agent SEES of it.
+   *
+   * Refuses `SESSION_CLOSED` and the session's ordinary faults; there is no
+   * refusal specific to the mode, because for CLCN both modes are always
+   * permitted (§2.2, [132](.issues/132-header-capture-inventory.md)).
+   */
+  setFulfilment(transactionId: string, requestId: string, mode: DeliveryType): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/SetFulfilment', { transactionId, requestId, mode })
+  },
+
+  /**
+   * `POST CallCenterWeb/SetPaymentType` → the whole `SessionState` (law 2).
+   *
+   * 🚩 **Not a tender, and no money moves.** `Online` instructs OMS to send the
+   * caller a payment link they complete elsewhere; the console never sees a
+   * gateway, a card or a result (§2.4). It re-prices nothing — `deliveryFee`'s
+   * predicate contains no payment term at all — which is why it carries no
+   * `confirmToken` either.
+   *
+   * 🚩 **An axis independent of `deliveryType`.** All four combinations are
+   * legal, and this verb is what replaces `Submit.cs:196`'s live derivation of
+   * *paid online* from *is a delivery* — a rule that is wrong in both
+   * directions at once.
+   *
+   * Refuses `PAYMENT_TYPE_FORCED` (409 — the order's `paymentTypeForcedReason`
+   * is non-null; ⚠ unreachable in phase 1, no forcing rule is configured) and
+   * `PAYMENT_TYPE_INVALID` (`Receivable` is reserved, and reserved is not the
+   * same as accepted). The console offers neither path a control, and the
+   * refusals are still worded because a capability is advisory and the door is
+   * the enforcement.
+   */
+  setPaymentType(
+    transactionId: string,
+    requestId: string,
+    paymentType: PaymentType,
+  ): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/SetPaymentType', {
+      transactionId,
+      requestId,
+      paymentType,
     })
   },
 

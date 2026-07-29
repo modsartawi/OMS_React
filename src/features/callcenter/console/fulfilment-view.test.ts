@@ -81,6 +81,31 @@ describe('theFeeSaysWhatHappenedToIt', () => {
     // a campaign that is the real cause.
     expect(feeLine(fee({ waived: true, waivedReason: null }))).toEqual({ kind: 'waivedNoReason' })
   })
+
+  it('🚩 degrades a category it has no words for to the SAME bare word', () => {
+    // §9 — a v1.6 server adding a fourth branch must not reach the agent as a
+    // key, a blank sentence, or a neighbouring reason. The set of categories
+    // this console can SAY lives here rather than in the receipt's `t()` call,
+    // so the degrade is provable without rendering anything.
+    expect(feeLine(fee({ waived: true, waivedReason: 'SomethingNewer' }))).toEqual({
+      kind: 'waivedNoReason',
+    })
+  })
+
+  it('🚩 cannot be told the reason by the numbers — only by the server', () => {
+    // The guard against re-deriving 156's rule here. Both fees below are waived
+    // with the basket nowhere near the threshold the server still quotes; only
+    // the branch the server NAMED separates them. A console that compared a
+    // total against `thresholdGross` would call the campaign a threshold — the
+    // sentence the agent then reads to the caller is false.
+    const campaign = feeLine(fee({ waived: true, waivedReason: 'PromotionalWindow', thresholdGross: 100 }))
+    const override = feeLine(fee({ waived: true, waivedReason: 'ConfiguredOverride', thresholdGross: 100 }))
+    expect(campaign).toEqual({ kind: 'waived', reason: 'PromotionalWindow' })
+    expect(override).toEqual({ kind: 'waived', reason: 'ConfiguredOverride' })
+    // And the threshold does not survive into the waived arm at all: there is
+    // no number here for a later edit to compare anything against.
+    expect(campaign).not.toHaveProperty('thresholdGross')
+  })
 })
 
 describe('theWordFollowsTheModeAndTheValueFollowsOms', () => {

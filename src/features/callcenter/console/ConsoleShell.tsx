@@ -77,6 +77,7 @@ export default function ConsoleShell({
   onChangeFulfilment,
   onChangePayment,
   onChangeCoupon,
+  onChangeNote,
   signup,
   refusal = null,
   onDismissRefusal,
@@ -142,6 +143,10 @@ export default function ConsoleShell({
    *  order is no longer open; the SHUT-APPLY case lives inside the modal, which
    *  still has an applied list to show and a reason to give. */
   onChangeCoupon?: () => void
+  /** Opens the order note (183) — the note chip re-opening its own section.
+   *  Absent once the order is no longer open: a submitted order has no header
+   *  left to capture, and a control the door would refuse is worse than none. */
+  onChangeNote?: () => void
   /** The loyalty signup (159), passed through to the rail. Absent ⇒ the rail
    *  offers no enrolment at all. */
   signup?: RailSignup
@@ -214,6 +219,7 @@ export default function ConsoleShell({
             onChangeFulfilment={onChangeFulfilment}
             onChangePayment={onChangePayment}
             onChangeCoupon={onChangeCoupon}
+            onChangeNote={onChangeNote}
           />
           {/* 135's fixed vertical order — chip row → item search → basket. The
               search is above the basket because that is the direction the work
@@ -322,6 +328,7 @@ function ChipRow({
   onChangeFulfilment,
   onChangePayment,
   onChangeCoupon,
+  onChangeNote,
 }: {
   state: SessionState
   onChangeStore?: () => void
@@ -330,6 +337,7 @@ function ChipRow({
   onChangeFulfilment?: () => void
   onChangePayment?: () => void
   onChangeCoupon?: () => void
+  onChangeNote?: () => void
 }) {
   const { t } = useTranslation('callcenter')
   const chips = headerChips(state.header, state.capabilities)
@@ -355,6 +363,10 @@ function ChipRow({
     // reason for the shut gate is stated. There is nothing to say beside the
     // row, so nothing is said there.
     coupon: onChangeCoupon,
+    // 🚩 The note has no capability of its own either (§2 lists none) and no
+    // blocker can mark it: it opens whenever the order is still open, which is
+    // the page's rule, and shuts with it.
+    note: onChangeNote,
   }
   const lapsed = chips.some((chip) => chip.lapsed)
   return (
@@ -715,11 +727,12 @@ function DeliveryRegion({ fee }: { fee: DeliveryFeeView }) {
         </p>
       )}
       {/* The reason it fell away, in the server's own branch. An unrecognised
-          category degrades to the bare word above and no sentence here (§9) —
-          which is exactly what v1.4 does today. */}
-      {line.kind === 'waived' && t(`receipt.waivedReason.${line.reason}`, { defaultValue: '' }) && (
+          category never reaches here at all — `feeLine` has already degraded it
+          to `waivedNoReason`, the bare word above and no sentence (§9), which is
+          exactly what v1.4 does today. So this key always exists. */}
+      {line.kind === 'waived' && (
         <p className="text-[11px] text-success-800" data-cc-delivery-waived-reason={line.reason}>
-          {t(`receipt.waivedReason.${line.reason}`, { defaultValue: '' })}
+          {t(`receipt.waivedReason.${line.reason}`)}
         </p>
       )}
     </>

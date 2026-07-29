@@ -95,18 +95,38 @@ export function showsDeliveryRegion(header: SessionHeader): boolean {
  *   branch (§2.5); the console never infers it by comparing `gross` against
  *   `thresholdGross`, which is right today and wrong the day
  *   `ConfiguredOverride` becomes reachable.
- * - `waivedNoReason` — a pre-1.5 server. The bare word, which is v1.4's
- *   behaviour, rather than a guessed sentence.
+ * - `waivedNoReason` — a pre-1.5 server, **or a category this console has no
+ *   words for**. The bare word, which is v1.4's behaviour, rather than a
+ *   guessed sentence.
+ *
+ * 🚩 The waived arm carries **no `thresholdGross`**. That is deliberate rather
+ * than incidental: with the number absent from the shape, a later edit that
+ * wanted to explain a waiver by comparing it against a total has nothing here to
+ * compare — it would have to reach past this module, which is the point.
  */
 export type FeeLine =
   | { kind: 'amount'; amount: number; thresholdGross: number | null }
-  | { kind: 'waived'; reason: string }
+  | { kind: 'waived'; reason: WordedWaivedReason }
   | { kind: 'waivedNoReason' }
+
+/**
+ * The categories §2.5 names **and this console has a sentence for**.
+ *
+ * 🚩 It lives here, beside the rule, rather than as a lookup that misses in the
+ * receipt's `t()`: a v1.6 server's fourth branch must degrade to the bare word,
+ * and a degrade decided by whether a translation key happens to exist is one an
+ * empty string in the JSON silently changes. Adding a category is a line here
+ * plus a key — the same two-step every other enumerated word on this screen has.
+ */
+const WORDED_REASONS = ['ThresholdReached', 'PromotionalWindow', 'ConfiguredOverride'] as const
+
+export type WordedWaivedReason = (typeof WORDED_REASONS)[number]
 
 export function feeLine(fee: DeliveryFeeView): FeeLine {
   if (!fee.waived)
     return { kind: 'amount', amount: fee.amount, thresholdGross: fee.thresholdGross }
-  return fee.waivedReason ? { kind: 'waived', reason: fee.waivedReason } : { kind: 'waivedNoReason' }
+  const reason = WORDED_REASONS.find((worded) => worded === fee.waivedReason)
+  return reason ? { kind: 'waived', reason } : { kind: 'waivedNoReason' }
 }
 
 /**

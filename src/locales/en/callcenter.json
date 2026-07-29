@@ -185,7 +185,8 @@
       "payOnCollection": "Pay on collection",
       "paidOnline": "Paid online",
       "receivable": "On account"
-    }
+    },
+    "coupon": "Coupon"
   },
   "slot": {
     "title": "Choose the delivery slot",
@@ -333,7 +334,9 @@
       "CUSTOMER_SEGMENT": "not for this caller",
       "NOT_DISCOVERED": "can't be checked from this basket",
       "unknown": "this offer isn't available on this order"
-    }
+    },
+    "needsCoupon": "This offer needs a coupon — apply one on the Coupon chip above.",
+    "needsCoupon_other": "These offers need a coupon — apply one on the Coupon chip above."
   },
   "receipt": {
     "heading": "The caller pays",
@@ -431,5 +434,46 @@
       "PAYMENT_TYPE_FORCED": "This order must be paid online before it is dispatched, so the payment type cannot be changed.",
       "unknown": "The payment type on this order cannot be changed."
     }
+  },
+  "coupon": {
+    "title": "Coupon",
+    "close": "Close",
+    "none": "No coupon on this order.",
+    "codeLabel": "Coupon code",
+    "codePlaceholder": "Read the code from the caller",
+    "apply": "Apply",
+    "remove": "Remove this coupon",
+    "readBack": "Read the code back to the caller before you apply it — applying redeems it straight away.",
+    "shut": {
+      "NO_CUSTOMER": "Attach the caller first — a coupon is redeemed against them.",
+      "STORE_NOT_CHOSEN": "Choose the store first — a coupon is redeemed against the store the order ships from, and that cannot be moved afterwards.",
+      "ORDER_CLOSED": "This order is no longer open.",
+      "unknown": "A coupon cannot be applied to this order right now."
+    }
+  },
+  "signup": {
+    "open": "Sign this caller up",
+    "title": "New loyalty member",
+    "country": "Country",
+    "countryName": {
+      "SA": "Saudi Arabia",
+      "BH": "Bahrain",
+      "KW": "Kuwait",
+      "AE": "United Arab Emirates",
+      "QA": "Qatar",
+      "OM": "Oman"
+    },
+    "mobile": "Mobile",
+    "mobilePlaceholder": "Mobile number",
+    "willEnrol": "Signing up",
+    "sendCode": "Send code",
+    "sending": "Sending…",
+    "cancel": "Cancel",
+    "spokenWait": "Ask the caller to read back the code we have just sent them.",
+    "otp": "Verification code",
+    "otpPlaceholder": "Code",
+    "confirm": "Confirm",
+    "confirming": "Confirming…",
+    "createdHint": "Signed up. Attach them to this order."
   }
 }

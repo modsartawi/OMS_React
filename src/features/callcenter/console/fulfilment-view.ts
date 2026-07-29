@@ -135,7 +135,7 @@ export function fulfilmentGate(capabilities: SessionCapabilities): FulfilmentGat
  */
 export function capabilityGate(
   capabilities: SessionCapabilities,
-  name: 'canChangeFulfilment' | 'canChangePaymentType',
+  name: 'canChangeFulfilment' | 'canChangePaymentType' | 'canApplyCoupon',
 ): FulfilmentGate {
   // Absent means a server older than the field, and §9's rule is that a client
   // ignores what it does not know rather than assuming the worst — the door

@@ -13,6 +13,7 @@
  * section they collapsed — with the tickets that build those sections.
  */
 import type { SessionCapabilities, SessionHeader } from '@/core/models/callcenter'
+import { couponChipValue } from './coupon-view'
 import { isPickup, paymentWordKey } from './fulfilment-view'
 import { blockedChips } from './submit-blockers'
 
@@ -20,7 +21,7 @@ export type ChipState = 'settled' | 'needsAttention' | 'unset'
 
 export interface HeaderChip {
   /** Stable id — the i18n key suffix and the drive's handle on the chip. */
-  id: 'fulfilment' | 'store' | 'slot' | 'source' | 'reference' | 'payment'
+  id: 'fulfilment' | 'store' | 'slot' | 'source' | 'reference' | 'payment' | 'coupon'
   state: ChipState
   /**
    * Server-supplied text (a store name, a slot label). Null renders the chip's
@@ -102,6 +103,17 @@ export function headerChips(header: SessionHeader, capabilities: SessionCapabili
     // so it is a fact the agent confirms in one spoken question, not an
     // outstanding field. Its WORD follows the mode; its value never does.
     chip('payment', null, { valueKey: payment ?? undefined }),
+    // 🚩 **Last, and the only chip an order need never fill** (159, owner ruling
+    // 2026-07-29 — chip row over receipt row). Every chip to its left is a fact
+    // the order always holds or must hold before it can be placed; a coupon is a
+    // thing the caller may or may not have, so it carries no `submitBlocker` and
+    // its *unset* state is an ordinary resting state rather than an outstanding
+    // field. That is exactly why it sits at the end: a chip that is empty on
+    // most orders would otherwise push the ones that matter along the row.
+    //
+    // Its value is the CODE — server-supplied text — and never the amount. The
+    // chip row has never carried money and this is not the chip to start with.
+    chip('coupon', couponChipValue(header)),
   ].filter((entry) => {
     // 🚩 **Absent, not disabled** — the posture 175 chose for the item command
     // line and 156 for the fee region, applied to the one chip a pickup order

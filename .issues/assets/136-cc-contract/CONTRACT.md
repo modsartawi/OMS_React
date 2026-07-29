@@ -1,4 +1,4 @@
-# The web call-center session API — frozen contract v1.9
+# The web call-center session API — frozen contract v1.10
 
 > Asset of [136](../../136-session-api-contract.md), map [126](../../126-web-call-center.md).
 > Frozen 2026-07-27 at v1.0; **v1.1** adds the fulfilment-mode axis
@@ -82,6 +82,7 @@ Everything below is a consequence of these. If an example and a law disagree, th
 | attachCustomer | `POST CallCenterWeb/AttachCustomer` | `{ transactionId, requestId, customerId }` | `SessionState` |
 | removeCustomer | `POST CallCenterWeb/RemoveCustomer` | `{ transactionId, requestId }` | `SessionState` |
 | applyCoupon | `POST CallCenterWeb/ApplyCoupon` | `{ transactionId, requestId, couponCode }` | `SessionState` |
+| removeCoupon | `POST CallCenterWeb/RemoveCoupon` | `{ transactionId, requestId, couponCode }` | `SessionState` (v1.10, [§2.7](#27-the-redeemed-coupon-v110)) |
 | setAddress | `POST CallCenterWeb/SetAddress` | `{ transactionId, requestId, addressNumber, confirmToken? }` | `SessionState` |
 | setStore | `POST CallCenterWeb/SetStore` | `{ transactionId, requestId, storeCode, confirmToken? }` | `SessionState` |
 | setFulfilment | `POST CallCenterWeb/SetFulfilment` | `{ transactionId, requestId, mode }` | `SessionState` |
@@ -224,6 +225,7 @@ CallCenterSession              (SIS.Api, keyed by transactionId) → customer, a
       "isReady": false,
       "progress": { "have": 1, "need": 2 },
       "prereq": { "kind": "grouping", "groupingId": "G-8812", "eligibleCount": 42 },
+                                  // v1.10 adds a FOURTH kind, "coupon" — §2.7's second half
       "skipReason": null          // §3.2 typed category when the offer was not evaluated
     }
   ],
@@ -238,6 +240,11 @@ CallCenterSession              (SIS.Api, keyed by transactionId) → customer, a
     "canChangePaymentType": true, // v1.4 — open AND paymentTypeForcedReason == null (§2.4)
     "canConfirmSeededStore": false, // v1.3 — the one-click "yes, this store", PickInStore only (§2.3)
     "canPriceCheck": true,        // v1.6 — same predicate as canAddItem (§3.4); also gates §3.5
+    "canApplyCoupon": true,       // v1.10 — canAddItem's predicate, and for a sharper reason
+                                  // than symmetry: the redemption is stamped with the ORDER'S
+                                  // PLANT in the coupon service's ledger, permanently (§2.7)
+    "canRemoveCoupon": false,     // v1.10 — open AND the order holds one AND the reversal leg
+                                  // is available. NOT derivable from coupons.length (§2.7)
     "capabilityReasons": {},      // v1.8 — why a can* above is false, keyed by its name (§2.6)
     "submitBlockers": ["MISSING_SLOT"]
   }
@@ -588,6 +595,116 @@ the contract because both tracks' fixtures assert it.
   neither WPF nor this contract can answer *"when can I collect?"* — that gap belongs to whoever owns
   the pickup call script ([154](../../154-fulfilment-mode-and-store-choice.md)), and inventing an
   answer here would be this map promising something no system behind it can keep.
+
+---
+
+### 2.7 The redeemed coupon (v1.10)
+
+`applyCoupon` shipped in v1.0 and the server built it end-to-end. What it never had was a
+**projection**: the only coupon-aware line in the whole `SessionState` builder is the one that
+*hides* the coupon.
+
+```csharp
+// CallCenterSessionStateProjection.cs:195-201
+// Coupon voucher lines carry no sellable material and their money is already flattened onto
+// the product line's PromotionCouponDiscount - the same reason the CLCN builder drops them.
+// Showing one would have the agent read a second line for one discount.
+```
+
+That exclusion is **right** and stays. What was wrong is that nothing replaced it, so an applied
+coupon moved the totals and named itself nowhere: its discount reaches the client as an
+`AppliedBonusBuy` in `firedPromotions` and `lines[].promotions[]`, which carries **no coupon
+attribution at all** (`AppliedBonusBuy` has nine fields and none of them is a coupon), and is
+therefore indistinguishable from an automatic promotion. The agent's only way to discover that a
+coupon was on the order was to apply it again and read `COUPON_ALREADY_APPLIED`.
+
+#### `header.coupons` - an array, not a field
+
+The engine holds a list (`PosTransaction._coupons`) and the server's duplicate check is per-code
+(`Verbs.cs:273-275`), so a second, *different* coupon is accepted today. A single-valued field would
+have been the contract asserting a one-coupon rule the engine does not enforce.
+
+`amount` is the coupon-attributed slice - `TransactionLine.PromotionCouponDiscount` summed over the
+lines carrying the code, negative like every other discount. It needs **no engine change and no new
+read**: `CallCenterProjectionInput.Lines` already carries the live `TransactionLine`s, and
+`PromotionCouponCode` / `PromotionCouponDiscount` are already on them.
+
+**Where it draws is a ruling, not a detail** (owner, 2026-07-29): a **chip in the header row**, not a
+row in the live receipt. So the amount appears inside the chip's own modal and the receipt goes on
+reporting the engine's totals unchanged - which is also what keeps a coupon from reading as a fourth
+near-miss class beside [138](../../138-near-miss-guidance-design.md)'s cards.
+
+#### `removeCoupon` - reverse first, void only if the reverse landed
+
+The engine *can* take a coupon off: `VoidLineAsync` on the `COUP` line drops the bonus buy correctly
+(issue 581 fixed the soft-deleted line re-qualifying its own offer). But `CollectReversalContexts()`
+is called from **`VoidTransactionAsync` only** - so a bare line-void would drop the discount and
+leave the customer's coupon spent.
+
+> **The correct ordering is already built and already defended**, for the till, by issue 211:
+
+```csharp
+// PosCouponReverser.cs:15-27
+//   1. Deleting a coupon LINE mid-sale - reverse FIRST, and only continue to VoidLineAsync when
+//      the reverse landed; block the delete otherwise. The invariant the whole slice defends:
+//      never a line whose code stays burned, never a released code whose line the customer
+//      still pays for.
+// ... a transport fault (Unavailable) is a REFUSAL here, not a pass.
+```
+
+`removeCoupon` composes that with the web's own in-process seam (the same `ICouponService` that
+`CouponServiceCallCenterCouponRedeemer` already reaches, rather than the till's `OmsHttpService`
+hop). Three consequences the console must draw:
+
+1. **`COUPON_REVERSAL_REFUSED` means NOTHING CHANGED.** The reverse runs before the void, so a
+   refusal leaves the order untouched and the coupon still on it - the opposite of what a failed
+   remove normally means. An agent told *"could not remove"* would reasonably tell the caller the
+   discount had gone.
+2. **The escape hatch is `abandon`**, which reverses properly, and the console says so.
+3. `NothingToReverse` (a blank `serverTransactionId`) is a **success**: there is no burn to release.
+   Unreachable on this door - `applyCoupon` always redeems first - and named so nobody adds a
+   refusal for it.
+
+#### `canApplyCoupon` is `canAddItem`'s predicate
+
+Not symmetry. `applyCoupon` redeems **before** it adds, and the redemption is written to the coupon
+service's ledger with `storeCode: scope.Plant` (`Verbs.cs:287-294`). [129](../../129-rebind-store-door.md)
+ruled a plant rebind a *documented non-event* for coupons - true of the ORDER (the `"C"` re-price
+keeps the line; the sticky `C000` origin keeps the template matching) and **false of the ledger row**,
+which does not move. Redeeming against a store [175](../../175-nothing-enters-an-unaddressed-order.md)
+has labelled `seededAtOpen` therefore burns a real coupon against a store the order will not ship
+from. Gating on `canAddItem`'s predicate closes it, and makes the caller - whose id the redeemer also
+sends - always known.
+
+A shut gate is **not** a shut chip: the order may hold a coupon the agent has to read out on a call
+where a new one may not be applied. `capabilityReasons.canApplyCoupon` carries why.
+
+#### `prereq.kind: "coupon"` - the offer no basket change can reach
+
+> **Capture 02 already contains this hole.** Its near-miss is:
+
+```jsonc
+{ "description": "T173 COUPON-GATED BBY", "progress": { "have": 0, "need": 1 },
+  "prereq": { "kind": "material", "materialNumber": "COUPT173", "eligibleCount": 1 } }
+```
+
+`COUPT173` is a **coupon SKU** - the campaign material `AddCouponAsync` scans. Drawn as an ordinary
+material prerequisite it becomes *add 1 more* with ticket 172's one-click add behind it. And
+prerequisite matching has **no line-type filter**: `BonusBuySession.Prepare` enumerates
+`pricingItems.Where(i => !i.IsDeleted)`, and `PcItem.IsCoupon` is read only by
+`BbyProcess.SetCouponAttribution` and the stacking carve-out. So a plain `addItem("COUPT173")`
+qualifies the same bonus buy a redeemed coupon does, while burning nothing at the coupon service -
+**the discount is given away free**.
+
+Recorded fairly: it may instead be **refused**, because a zero-priced coupon SKU trips the no-price
+scan back-out - the very thing `AddCouponAsync` sidesteps by forcing a manual-condition line
+(`PosTransaction.cs:4532-4537`). Which of the two happens depends on whether the campaign SKU carries
+a price. Both are wrong, and neither is something the console should be offering.
+
+A client cannot tell a coupon SKU from any other material - that is server knowledge - so the kind
+comes down the wire. Such an offer is **stated, never offered as an add**: it is not `actionable`
+(no basket change reaches it) and not `unavailable` (it is real, and the caller may hold the coupon),
+it does not count toward the top bar's *offers within reach*, and it is answered at the coupon chip.
 
 ---
 
@@ -1038,6 +1155,7 @@ console branches.
 | `QTY_INVALID` | 400 | business | Zero, negative, or beyond the per-line cap |
 | `COUPON_REJECTED` | 409 | business | Carries the engine's own reason sub-code; never a crash |
 | `COUPON_ALREADY_APPLIED` | 409 | business | Idempotent-ish duplicate the agent should see |
+| `COUPON_REVERSAL_REFUSED` | 409 | business | v1.10 — the coupon service would not release the code, so **the void never ran**: the order is untouched and the coupon is still on it. The opposite of what a failed remove normally means (§2.7) |
 | `SLOT_UNAVAILABLE` | 409 | business | Slot no longer active (CLCN's *soft* gate — a warning path, not a submit blocker) |
 | `SOURCE_REFERENCE_REQUIRED` | 400 | business | Mandatory source reference missing |
 | `SUBMIT_REFUSED` | 409 | business | 133's `refused`. Carries `field` naming what to fix. Transaction stays Open |
@@ -1152,6 +1270,16 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 | 1.7 | 2026-07-29 | **Stock at other stores, read-only** ([§3.5](#35-stockelsewhere--who-else-has-it-read-only)). New `stockElsewhere` read (`GET CallCenterWeb/StockElsewhere`) returning a new `StockElsewhereResult`, new fixture 13. **No new error code, no new capability** — `canPriceCheck` gates both halves of the one "about this item" panel. It is the **only read on this contract that is a remote HTTP hop out of SIS.Api**, so `available: false` means *unknown*, never *nobody has it*, and it is a separate call from `priceCheck` precisely so a stock outage cannot cost the agent the price. `atp` is the same definition the search row already carries. Ruled **read-only**: a store change is the order's act through `setStore` + §5.1, never a one-click from an item's panel. | **minor — additive** | [158](../../158-stock-in-other-stores.md) |
 
 | 1.9 | 2026-07-29 | **The two address-book writes that are order acts** ([§6.5](#65-the-two-address-book-writes-that-are-order-acts-v19)). One new code, `ADDRESS_IN_USE_BY_ORDER`. **No new verb, no new field, no new capability** — an edit of the order's current address re-pins the store by re-issuing the `setAddress` this contract already has, which is why the map's *"pinned at the moment the operator picks **or edits** an address"* ruling needed a rule here rather than a mechanism. 🚩 The one server obligation is a **negative** one: a same-`addressNumber` `setAddress` must not be short-circuited as a no-op, because it is the single call on this contract that looks idempotent and is not. The capture payload itself is [878](C:\Work\DMSCO\BackOffice\.issues\878-cc-address-capture-and-order-acts.md)'s, on 801's door, not this document's. | **minor — additive** | [179](../../179-the-address-editor-and-its-capture-contract.md) |
+
+| 1.10 | 2026-07-29 | **The redeemed coupon gets a projection, a way off, and stops being offered as an add** ([2.7](#27-the-redeemed-coupon-v110)). New `header.coupons[]`; new `removeCoupon` verb; new `capabilities.canApplyCoupon` (= `canAddItem`'s predicate) and `canRemoveCoupon`; new code `COUPON_REVERSAL_REFUSED`; a fourth `nearMisses[].prereq.kind`, **`coupon`**. Two of the five are not drawings but holes: `applyCoupon` was the one verb on this contract with **no field to show its result**, and capture 02 shows the guidance strip already offering a **coupon SKU** as *add 1 more*, which qualifies the bonus buy while burning nothing. Neither the reversal ordering nor the redemption's plant stamping is new design - both are read off shipped code (issue 211, `Verbs.cs:287`). | **minor - additive** | [159](../../159-coupon-and-loyalty-signup-drawn.md) |
+
+**Why 1.10 and not 2.0.** Four new fields, one new verb, one new code - nothing frozen moves. The
+one place a v1.9 client is genuinely wrong is the fourth `prereq.kind`: it does not know `coupon`,
+and `guidance-view`'s existing rule for an unrecognised kind is to say nothing about the prerequisite
+rather than to guess - so it degrades to a card with no *add N more* phrase, which is the safe
+direction. It would still render the card as actionable and let the agent press Add, which is the
+defect; but that is what a v1.9 client does **today**, so the major buys nothing it does not already
+have and costs a re-baseline of every capture. The fix ships server-first, as section 9 requires.
 
 **Why 1.6 and 1.7 are not 2.0.** Nothing frozen moves. Each is one new read, one new result shape,
 and at most one new capability — a v1.5 client that has never heard of `priceCheck` or

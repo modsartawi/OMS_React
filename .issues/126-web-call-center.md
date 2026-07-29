@@ -702,6 +702,51 @@ for the console layout.
   endpoint — which de-risked the narrowing *and* produced a rule a mapper written from the endpoint
   signature alone would have got backwards.
 
+
+- [The console draws its coupon and its loyalty signup](159-coupon-and-loyalty-signup-drawn.md) —
+  **contract v1.10, additive**, and the ticket's own *"this is a **drawing** job: no contract
+  question is open"* was wrong four times. 🚩 **`applyCoupon` was the one verb on this contract with
+  no field to show its result**: the server built it end-to-end, and the only coupon-aware line in
+  the whole projection is the one that **hides** the `COUP` voucher — correctly, its money is already
+  flattened onto the product line — with nothing put in its place, so an applied coupon moved the
+  totals and named itself nowhere (its discount arrives as an `AppliedBonusBuy`, which carries no
+  coupon attribution at all, indistinguishable from an automatic promotion; the agent's only way to
+  find one was to apply it again and read `COUPON_ALREADY_APPLIED`) ⇒ `header.coupons[]`, an
+  **array** because the engine holds a list and the duplicate check is per-code, costing **no engine
+  change and no new read**. Owner ruled **remove with a real server-side reversal** — and 🚩 **it was
+  already built, for the till, by issue 211**: *reverse FIRST, void only if the reverse landed*, with
+  a transport fault a **refusal** rather than a pass, so the option's feared *"what if the void lands
+  and the reversal does not"* cannot occur by construction — leaving the console one hard sentence,
+  that `COUPON_REVERSAL_REFUSED` means **NOTHING CHANGED**, the opposite of what a failed remove
+  usually means, with `abandon` as the escape. 🚩 **`canApplyCoupon` is `canAddItem`'s predicate**
+  and not for symmetry: the redeem runs before the add and stamps `storeCode: scope.Plant` into the
+  coupon service's ledger, and [129](129-rebind-store-door.md)'s *documented non-event* is true of
+  the **order** and false of the **ledger row**, which never moves — so redeeming at a
+  `seededAtOpen` store burns a real coupon against a store the order will not ship from. 🚩 **The
+  capture handed over a money hole no drawing would have**: capture 02's near-miss prereq is
+  `COUPT173`, a **coupon SKU**, drawn as *add 1 more* with 172's one-click add behind it — and
+  prerequisite matching has **no line-type filter** (`Prepare` filters only `!IsDeleted`; `IsCoupon`
+  is read solely for attribution), so a plain add qualifies the same bonus buy while burning nothing
+  ⇒ a fourth `prereq.kind`, **`coupon`**: stated, never offered, uncounted in *offers within reach*.
+  ⚖ Fairly: it might instead be *refused* by the no-price back-out — both wrong. The coupon draws as
+  the **last chip** (owner: chip over receipt), carrying the code and never the amount, so the
+  receipt gains no coupon row. **Signup**: ✅ both routes are **already on 137's door**, so the
+  console cannot find a caller it cannot create; drawn **inline in the rail, never a modal**, because
+  the OTP wait is *spoken*; 🚩 `BranchId` must leave the wire and be **server-stamped** — it is
+  written to `CreatedByBranchId` forever and the routes are verbatim pass-throughs, so any agent
+  could credit any pharmacy — which is 137's *delegates verbatim* law breaking a **third** time; and
+  🚩 CC2's dialling-code rule stays a **display preview** rather than a second implementation of the
+  value the loyalty base keys on ([156](156-delivery-fee-shared-rule.md)'s failure). Built on the
+  REAL `ConsoleShell`; drive **84/84**, ⚠ every state a **stub** (v1.10 is on no server).
+  🚩 Found on the way and not this ticket's: `callcenter-drive.mjs` is **red on a clean tree** —
+  175's opening gate makes the search's *Add* absent, and the drive predates it. Server work minted
+  as BackOffice [879](C:\Work\DMSCO\BackOffice\.issues\879-cc-coupon-projection-removal-and-signup-branch.md).
+  🚩 **The pattern worth keeping**: six tickets now have become findings by reading what the ticket
+  already **inherited** — and this one narrows it, because what had to be distrusted was the ticket's
+  own declaration that *nothing was open*. A claim of completeness written weeks before the work is
+  the same shape as 175's defect filed under *hygiene*.
+  [Captures](assets/159-coupon-signup/) · [prototype](../src/features/callcenter/console/__prototype__/CouponSignupPrototypePage.tsx)
+
 ## Not yet specified
 
 - **§6.4's double-apply hazard, and a cheap way to remove it.** Ruling the absorption out leaves the

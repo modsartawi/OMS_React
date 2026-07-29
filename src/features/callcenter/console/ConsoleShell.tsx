@@ -30,7 +30,7 @@ import BasketPanel, { type BasketActions } from './BasketPanel'
 import { receiptView, type DeliveryFeeView } from './basket-view'
 import { capabilityGate, feeLine, showsDeliveryRegion } from './fulfilment-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
-import CustomerRail, { type CustomerActions } from './CustomerRail'
+import CustomerRail, { type CustomerActions, type RailSignup } from './CustomerRail'
 import GuidanceStrip, { type GuidanceActions } from './GuidanceStrip'
 import { guidanceView } from './guidance-view'
 import { headerChips, type HeaderChip } from './header-chips'
@@ -76,6 +76,8 @@ export default function ConsoleShell({
   onChangeSource,
   onChangeFulfilment,
   onChangePayment,
+  onChangeCoupon,
+  signup,
   refusal = null,
   onDismissRefusal,
   swallowed = null,
@@ -136,6 +138,13 @@ export default function ConsoleShell({
    *  chip row off `capabilities`, because a delivery-only source is a different
    *  fact from a closed order and says a different sentence. */
   onChangeFulfilment?: () => void
+  /** Opens the coupon modal (159) — the last chip in the row. Absent once the
+   *  order is no longer open; the SHUT-APPLY case lives inside the modal, which
+   *  still has an applied list to show and a reason to give. */
+  onChangeCoupon?: () => void
+  /** The loyalty signup (159), passed through to the rail. Absent ⇒ the rail
+   *  offers no enrolment at all. */
+  signup?: RailSignup
   /** Opens the payment choice (155). Absent while `canChangePaymentType` is
    *  false, which no phase-1 order reaches — the chip is then settled and
    *  non-interactive, carrying its reason. */
@@ -194,7 +203,8 @@ export default function ConsoleShell({
       {/* 1440×900 by design, degrading to 1280; below that is out of scope —
           it is a desktop console (135's density budget). */}
       <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
-        <CustomerRail state={state} customerActions={customerActions} onPickAddress={onPickAddress} />
+        <CustomerRail state={state} customerActions={customerActions}
+            signup={signup} onPickAddress={onPickAddress} />
         <main className="flex min-h-0 min-w-0 flex-col border-x border-border">
           <ChipRow
             state={state}
@@ -203,6 +213,7 @@ export default function ConsoleShell({
             onChangeSource={onChangeSource}
             onChangeFulfilment={onChangeFulfilment}
             onChangePayment={onChangePayment}
+            onChangeCoupon={onChangeCoupon}
           />
           {/* 135's fixed vertical order — chip row → item search → basket. The
               search is above the basket because that is the direction the work
@@ -310,6 +321,7 @@ function ChipRow({
   onChangeSource,
   onChangeFulfilment,
   onChangePayment,
+  onChangeCoupon,
 }: {
   state: SessionState
   onChangeStore?: () => void
@@ -317,6 +329,7 @@ function ChipRow({
   onChangeSource?: () => void
   onChangeFulfilment?: () => void
   onChangePayment?: () => void
+  onChangeCoupon?: () => void
 }) {
   const { t } = useTranslation('callcenter')
   const chips = headerChips(state.header, state.capabilities)
@@ -336,6 +349,12 @@ function ChipRow({
     source: onChangeSource,
     reference: onChangeSource,
     payment: payGate.open ? onChangePayment : undefined,
+    // 🚩 The coupon chip opens WHATEVER `canApplyCoupon` says, unlike its two
+    // neighbours. A shut apply-gate is not a shut chip: the order may already
+    // hold a coupon the agent needs to read out, and the modal is where the
+    // reason for the shut gate is stated. There is nothing to say beside the
+    // row, so nothing is said there.
+    coupon: onChangeCoupon,
   }
   const lapsed = chips.some((chip) => chip.lapsed)
   return (

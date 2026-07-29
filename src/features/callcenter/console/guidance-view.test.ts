@@ -392,3 +392,49 @@ function numbersIn(value: unknown, key = ''): Array<[string, number]> {
 function miss(over: Partial<NearMiss>): NearMiss {
   return { ...NEAR_MISS_CLASSES[1], progress: { have: 1, need: 2 }, isReady: false, skipReason: null, ...over }
 }
+
+describe('a coupon-gated offer (159, contract v1.10 proposal)', () => {
+  const couponGated = (): NearMiss => ({
+    offerId: '',
+    description: 'T173 COUPON-GATED BBY',
+    isReady: false,
+    progress: { have: 0, need: 1 },
+    // The shape capture 02 actually carries — except for `kind`, which is
+    // `material` there, which is the whole defect.
+    prereq: { kind: 'coupon', materialNumber: 'COUPT173', eligibleCount: 1 },
+    skipReason: null,
+  })
+
+  it('is never actionable, so it can never grow an Add', () => {
+    // 🚩 `BonusBuySession.Prepare` filters only `!IsDeleted` — there is no
+    // line-type filter on prerequisite matching — so a one-click add of the
+    // campaign SKU qualifies the same bonus buy as a redeemed coupon while
+    // burning nothing at the coupon service.
+    const view = guidanceView([couponGated()])
+    expect(view.actionable).toHaveLength(0)
+    expect(view.needsCoupon).toHaveLength(1)
+    expect(view.cards[0].klass).toBe('needsCoupon')
+  })
+
+  it('does not inflate the count the top bar mirrors', () => {
+    // *One offer within reach* must mean one the agent can reach by putting
+    // something in the basket.
+    expect(guidanceView([couponGated()]).actionableCount).toBe(0)
+  })
+
+  it('is never the card that opens by default', () => {
+    expect(guidanceView([couponGated()]).openByDefault).toBeNull()
+  })
+
+  it('is not filed as unavailable either — it is real and reachable', () => {
+    // With a coupon it fires. Burying it with the origin-filtered and
+    // out-of-window offers would tell the agent it cannot happen.
+    expect(guidanceView([couponGated()]).unavailable).toHaveLength(0)
+  })
+
+  it('still yields to a skipReason — an offer that was never evaluated is not an offer', () => {
+    const view = guidanceView([{ ...couponGated(), skipReason: 'ORIGIN_FILTERED' }])
+    expect(view.cards[0].klass).toBe('unavailable')
+    expect(view.needsCoupon).toHaveLength(0)
+  })
+})

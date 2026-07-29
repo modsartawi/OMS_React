@@ -172,6 +172,31 @@ export default function GuidanceStrip({
               change can fix (128 makes this class permanent and common). One
               collapsed line, never a card: a card invites an action there is
               none of. Each row says WHY in the agent's words. */}
+          {/* 🚩 159 — a coupon-gated offer, stated and never offered as an add.
+              Its prerequisite is the campaign SKU, and `BonusBuySession.Prepare`
+              filters only `!IsDeleted`, so a one-click add of that material
+              would qualify the same bonus buy while burning nothing at the
+              coupon service. Drawn flat, like the counted list: it is a fact
+              about the basket, and the way to act on it is the coupon chip. */}
+          {view.needsCoupon.length > 0 && (
+            <div className="mt-2 border-t border-divider pt-2" data-cc-guidance-needs-coupon>
+              <ul className="space-y-0.5">
+                {view.needsCoupon.map((card) => (
+                  <li
+                    key={card.cardId}
+                    data-cc-needs-coupon-item={card.offerId}
+                    className="text-[11px] text-muted-foreground"
+                  >
+                    {card.description}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {t('guidance.needsCoupon', { count: view.needsCoupon.length })}
+              </p>
+            </div>
+          )}
+
           {view.unavailable.length > 0 && (
             <div className="mt-2 border-t border-divider pt-2">
               <button

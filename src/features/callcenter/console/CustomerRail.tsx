@@ -40,6 +40,8 @@ import Ltr from '@/core/ui/Ltr'
 import { callCenterApi } from './api'
 import { railBlock } from './fulfilment-view'
 import { addressSlot, railFields, type AddressSlot } from './rail-view'
+import SignupPanel, { type SignupActions } from './SignupPanel'
+import { beginSignup, type SignupState } from './signup-view'
 
 /**
  * The two customer verbs and their one shared outcome, as one prop. They travel
@@ -60,13 +62,23 @@ export interface CustomerActions {
   error: string | null
 }
 
+/** The signup's state and its verbs, as one prop — 159. Absent means the console
+ *  has no enrolment wired, and then it offers none (the posture the rail already
+ *  takes for the address book). */
+export interface RailSignup {
+  state: SignupState
+  actions: SignupActions
+}
+
 export default function CustomerRail({
   state,
   customerActions,
   onPickAddress,
+  signup,
 }: {
   state: SessionState
   customerActions: CustomerActions
+  signup?: RailSignup
   /** Opens the address book — [166](.issues/166-address-derives-the-store.md)'s
    *  surface, wired at that ticket. **Absent means the door will not answer it**:
    *  the page passes it only while `capabilities.canOpenAddressBook` holds, so
@@ -201,11 +213,30 @@ export default function CustomerRail({
           )}
 
           {/* A miss is an ordinary outcome of the first thing that happens on a
-              call, so it is stated and left there. No signup control (159). */}
+              call — so it is stated plainly, on no alarm ground, and 159 hangs
+              the enrolment off it as the next ordinary thing rather than as a
+              recovery from a failure. */}
           {lookup.isSuccess && !lookup.data && (
-            <p className="text-xs text-muted-foreground" data-cc-lookup-miss>
-              {t('rail.notFound')}
-            </p>
+            <div data-cc-lookup-miss>
+              <p className="text-xs text-muted-foreground">{t('rail.notFound')}</p>
+              {/* 🚩 Absent, not disabled — the console's standing posture (175,
+                  156, 176). A rail with no signup wired offers no control at
+                  all rather than one that answers with silence. */}
+              {signup && signup.state.step === 'closed' && (
+                <button
+                  type="button"
+                  onClick={() => signup.actions.onChange(beginSignup(mobile.trim()))}
+                  data-cc-signup-open
+                  className="mt-1.5 w-full rounded-md border border-input px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                >
+                  {t('signup.open')}
+                </button>
+              )}
+            </div>
+          )}
+
+          {signup && (
+            <SignupPanel state={signup.state} actions={signup.actions} attaching={busy} />
           )}
 
           {lookup.isSuccess && lookup.data && (

@@ -44,7 +44,7 @@ import {
  * - `unavailable` — an origin or accumulation refusal **no basket change can
  *   fix** (128 makes this class permanent and common once Origin becomes C000).
  */
-export type GuidanceClass = 'actionable' | 'counted' | 'unavailable'
+export type GuidanceClass = 'actionable' | 'counted' | 'unavailable' | 'needsCoupon'
 
 /** An i18n key plus what `t()` needs to resolve it. Nothing user-visible. */
 export interface GuidancePhrase {
@@ -115,6 +115,9 @@ export interface GuidanceView {
   actionable: GuidanceCard[]
   counted: GuidanceCard[]
   unavailable: GuidanceCard[]
+  /** v1.10 (159) — offers whose prerequisite is a coupon. Stated, never offered
+   *  as an add; the coupon chip is where they are answered. */
+  needsCoupon: GuidanceCard[]
   /** Mirrored in the top bar (US51), so an offer that arrives while the agent is
    *  reading search results still announces itself. */
   actionableCount: number
@@ -156,6 +159,10 @@ export function guidanceView(nearMisses: NearMiss[] | null | undefined): Guidanc
     actionable,
     counted: cards.filter((card) => card.klass === 'counted'),
     unavailable: cards.filter((card) => card.klass === 'unavailable'),
+    // Deliberately NOT folded into `actionable`, which is what drives both the
+    // expandable cards and the top bar's count — an offer nothing in the basket
+    // can reach must not be counted as one within reach.
+    needsCoupon: cards.filter((card) => card.klass === 'needsCoupon'),
     actionableCount: actionable.length,
     getSideCovered: (nearMisses ?? []).some((miss) => miss.prereq?.kind === 'condition'),
     openByDefault: actionable[0]?.cardId ?? null,
@@ -189,6 +196,14 @@ function toCard(miss: NearMiss, index: number): GuidanceCard {
  */
 function classOf(miss: NearMiss): GuidanceClass {
   if (typeof miss.skipReason === 'string' && miss.skipReason !== '') return 'unavailable'
+  // 🚩 159. A coupon-gated offer is reachable — but not by anything the agent
+  // can put in the basket, so it must never become an *add N more* card. It is
+  // neither `actionable` (no basket change reaches it) nor `unavailable` (it is
+  // real and the caller may hold the coupon): it is a statement, answered at the
+  // coupon chip. Drawn as a material prerequisite it would offer a one-click add
+  // of the campaign SKU, which qualifies the same bonus buy while burning
+  // nothing — see `NearMissPrereq.kind`.
+  if (miss.prereq?.kind === 'coupon') return 'needsCoupon'
   return miss.isReady === true ? 'counted' : 'actionable'
 }
 

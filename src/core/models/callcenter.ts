@@ -116,8 +116,51 @@ export interface SessionHeader {
    * of PII on a projection that deliberately dropped it.
    */
   retainedAddressLabel?: string | null
+  /**
+   * v1.10 (159) — the coupons the order holds.
+   *
+   * 🚩 **The map's one verb with no projection.** `applyCoupon` shipped in v1.0
+   * and the server built it end-to-end, but the only coupon-aware line in the
+   * whole `SessionState` projection is the one that HIDES it: the `COUP` voucher
+   * line is dropped from `lines[]` (correctly — its money is already flattened
+   * onto the product line, and two lines for one discount is worse). Nothing
+   * replaced it, so an applied coupon moved the totals and named itself nowhere.
+   * The agent could only discover one by applying it again and reading
+   * `COUPON_ALREADY_APPLIED`.
+   *
+   * An ARRAY, not a field: the engine holds a list (`_coupons`) and the server's
+   * duplicate check is per-code, so a second, different code is accepted today.
+   * A single-valued field would have been a client-side rule about the engine.
+   *
+   * Empty on an order with none — never `null`, so the chip's own emptiness is
+   * the only *not set* this has to draw.
+   */
+  coupons?: AppliedCoupon[]
   /** Any line added or re-frozen below availability — the BackOffice fraud signal. */
   hasBelowAtp: boolean
+}
+
+/**
+ * v1.10 (159) — one redeemed coupon, as the engine and the coupon service
+ * between them know it.
+ */
+export interface AppliedCoupon {
+  /** The code the agent typed, as the coupon service accepted it. Server-supplied
+   *  text — passed through as data, never worded by the console. */
+  code: string
+  /** The campaign's own description, when the engine has one. Null is ordinary:
+   *  the console then shows the code alone rather than an invented phrase. */
+  description: string | null
+  /**
+   * The coupon-attributed slice of the basket's discount — `PromotionCouponDiscount`
+   * summed over the lines carrying this code, negative like every other discount.
+   *
+   * 🚩 It is engine money and it stays OUT of the chip row. The owner ruled the
+   * coupon a chip rather than a receipt row, so this draws inside the chip's own
+   * modal and nowhere else; the receipt keeps reporting the engine's totals
+   * exactly as it did before, with no coupon line of its own.
+   */
+  amount: number
 }
 
 /** Availability as **frozen at add** (§2.1) — never live. `known:false` is a
@@ -205,9 +248,37 @@ export type SkipReason =
   | (string & {})
 
 export interface NearMissPrereq {
+  /**
+   * `material` · `grouping` · `condition` — and, PROPOSED at v1.10 (159),
+   * **`coupon`**.
+   *
+   * 🚩 That fourth kind exists because capture 02 already contains the hole.
+   * Its near-miss is `T173 COUPON-GATED BBY`, `have 0 / need 1`, with
+   * `kind: "material", materialNumber: "COUPT173"` — a **coupon SKU**, the
+   * campaign material `AddCouponAsync` scans. Drawn as an ordinary material
+   * prerequisite it becomes *add 1 more* with 172's one-click add behind it,
+   * and `BonusBuySession.Prepare` filters only `!IsDeleted` — there is no
+   * line-type filter on prerequisite matching, and `IsCoupon` is read solely
+   * for attribution (`SetCouponAttribution`) and the stacking carve-out. So a
+   * plain `addItem("COUPT173")` qualifies the same bonus buy a redeemed coupon
+   * does, while burning nothing at the coupon service: the discount is given
+   * away for free.
+   *
+   * (It may instead be REFUSED — a zero-priced coupon SKU trips the no-price
+   * scan back-out, which is the very thing `AddCouponAsync` bypasses by forcing
+   * a manual-condition line. Then the guidance strip is offering an add that
+   * always fails. Which of the two happens depends on whether the campaign SKU
+   * carries a price; both are wrong, and neither is a thing the console should
+   * be offering.)
+   *
+   * A client cannot tell a coupon SKU from any other material — that is server
+   * knowledge — so the kind has to come down the wire.
+   */
   kind: string
   groupingId?: string
   eligibleCount?: number
+  /** The prerequisite material, where the wire names one. */
+  materialNumber?: string
 }
 
 /**
@@ -323,6 +394,30 @@ export interface SessionCapabilities {
   canChangePaymentType?: boolean
   /** v1.3 — the one-click *Yes, collect here*, `PickInStore` only (§2.3). */
   canConfirmSeededStore?: boolean
+  /**
+   * v1.10 (159) — **the same predicate as `canAddItem`**, and for a sharper
+   * reason than symmetry.
+   *
+   * `applyCoupon` redeems before it adds, and the redemption is stamped with
+   * `storeCode: scope.Plant` in the coupon service's own ledger — permanently.
+   * 129 ruled a plant rebind a *documented non-event* for coupons (the `"C"`
+   * re-price keeps the line, the sticky `C000` origin keeps the template
+   * matching), which is true of the ORDER and false of the ledger row: the burn
+   * does not move. So redeeming against a store the agent has not chosen yet
+   * (175's `seededAtOpen`) writes a real coupon against a store the order will
+   * not ship from. Gating on `canAddItem`'s predicate closes it, and makes the
+   * caller — whose id the redeemer also sends — always known.
+   */
+  canApplyCoupon?: boolean
+  /**
+   * v1.10 (159) — open AND the order holds at least one coupon.
+   *
+   * 🚩 The removal is NOT `voidLine`: the voucher line is not on the wire, and
+   * the void alone would strand the burn. See `removeCoupon` — reverse first,
+   * void only if the reverse landed (issue 211's rule, which the till already
+   * defends).
+   */
+  canRemoveCoupon?: boolean
   /**
    * 🚩 **PROPOSED, ticket 176 — not on the frozen contract.** Why a `can*` above
    * is false, keyed by its own name (`canChangeFulfilment`), valued as a typed

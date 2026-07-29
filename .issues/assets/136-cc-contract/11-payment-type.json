@@ -3,7 +3,7 @@
     "ticket": "857",
     "map": "126",
     "scenario": "setPaymentType on an order with lines — the plant, lines, totals and delivery fee are unchanged; all four deliveryType × paymentType combinations round-trip; Receivable is refused; and setOrderNote round-trips",
-    "contractVersion": "1.5",
+    "contractVersion": "1.10",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
     "capturedAt": "2026-07-29",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
@@ -14,7 +14,7 @@
       "method": "POST",
       "path": "CallCenterWeb/Open",
       "body": {
-        "requestId": "06FTP1CE5CNJ6RNT71RS25XVX5"
+        "requestId": "06FTV2K5CPMNVR54YMJDK3S7C5"
       }
     },
     "response": {
@@ -23,10 +23,10 @@
         "data": {
           "outcome": "opened",
           "state": {
-            "contractVersion": "1.5",
-            "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+            "contractVersion": "1.10",
+            "transactionId": "06FTV2K5H38EJ2X29ASHDAMRP4",
             "version": 5,
-            "etag": "06FTP1CECH516GHWMKBGA32A12-5",
+            "etag": "06FTV2K5H38EJ2X29ASHDAMRP4-5",
             "status": "open",
             "replayed": false,
             "header": {
@@ -36,19 +36,21 @@
               "plantSource": "seededAtOpen",
               "origin": "C000",
               "documentType": "CallCenterOrder",
-              "register": "WEB-t02229756",
+              "register": "WEB-ta52e1a1f",
               "operatorId": "TEST-OP",
               "entryStore": "1001",
-              "openedAt": "2026-07-29T02:18:15.9263128+03:00",
+              "openedAt": "2026-07-29T14:02:36.1798295+03:00",
               "customer": null,
               "address": null,
+              "retainedAddressLabel": null,
               "slot": null,
               "documentSource": null,
               "sourceReference": null,
               "orderNote": null,
               "paymentType": "CashOnDelivery",
               "paymentTypeForcedReason": null,
-              "hasBelowAtp": false
+              "hasBelowAtp": false,
+              "coupons": []
             },
             "lines": [],
             "totals": {
@@ -69,12 +71,18 @@
             "pendingConfirmation": null,
             "capabilities": {
               "canAddItem": false,
+              "canPriceCheck": false,
+              "canApplyCoupon": false,
+              "canRemoveCoupon": false,
               "canSubmit": false,
               "canChangeStore": true,
               "canOpenAddressBook": false,
               "canConfirmSeededStore": false,
               "canChangePaymentType": true,
               "canChangeFulfilment": true,
+              "capabilityReasons": {
+                "canApplyCoupon": "NO_CUSTOMER"
+              },
               "submitBlockers": [
                 "NO_LINES",
                 "NO_CUSTOMER",
@@ -100,8 +108,8 @@
       "path": "CallCenterWeb/SetPaymentType",
       "body": {
         "paymentType": "Online",
-        "transactionId": "06FTP1CECH516GHWMKBGA32A12",
-        "requestId": "06FTP1CHPQ73M9MQJ3ZYTRV222",
+        "transactionId": "06FTV2K5H38EJ2X29ASHDAMRP4",
+        "requestId": "06FTV2K7CNX2YCPF1BSKB9XKZ7",
         "confirmToken": null
       }
     },
@@ -109,10 +117,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.5",
-          "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+          "contractVersion": "1.10",
+          "transactionId": "06FTV2K5H38EJ2X29ASHDAMRP4",
           "version": 22,
-          "etag": "06FTP1CECH516GHWMKBGA32A12-22",
+          "etag": "06FTV2K5H38EJ2X29ASHDAMRP4-22",
           "status": "open",
           "replayed": false,
           "header": {
@@ -122,10 +130,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t02229756",
+            "register": "WEB-ta52e1a1f",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T02:18:15.9263128",
+            "openedAt": "2026-07-29T14:02:36.1798295",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -133,13 +141,15 @@
               "loyaltyAttached": true
             },
             "address": null,
+            "retainedAddressLabel": null,
             "slot": null,
             "documentSource": null,
             "sourceReference": null,
             "orderNote": null,
             "paymentType": "Online",
             "paymentTypeForcedReason": null,
-            "hasBelowAtp": false
+            "hasBelowAtp": false,
+            "coupons": []
           },
           "lines": [
             {
@@ -200,12 +210,16 @@
           "pendingConfirmation": null,
           "capabilities": {
             "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
+            "capabilityReasons": {},
             "submitBlockers": [
               "NO_ADDRESS",
               "MISSING_SLOT",
@@ -226,8 +240,8 @@
       "path": "CallCenterWeb/SetPaymentType",
       "body": {
         "paymentType": "CashOnDelivery",
-        "transactionId": "06FTP1CECH516GHWMKBGA32A12",
-        "requestId": "06FTP1CJHQF7FSKNKY59CRNEF5",
+        "transactionId": "06FTV2K5H38EJ2X29ASHDAMRP4",
+        "requestId": "06FTV2K7V2Q63QQM3DR5365TR1",
         "confirmToken": null
       }
     },
@@ -235,10 +249,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.5",
-          "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+          "contractVersion": "1.10",
+          "transactionId": "06FTV2K5H38EJ2X29ASHDAMRP4",
           "version": 25,
-          "etag": "06FTP1CECH516GHWMKBGA32A12-25",
+          "etag": "06FTV2K5H38EJ2X29ASHDAMRP4-25",
           "status": "open",
           "replayed": false,
           "header": {
@@ -248,10 +262,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t02229756",
+            "register": "WEB-ta52e1a1f",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T02:18:15.9263128",
+            "openedAt": "2026-07-29T14:02:36.1798295",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -259,13 +273,15 @@
               "loyaltyAttached": true
             },
             "address": null,
+            "retainedAddressLabel": null,
             "slot": null,
             "documentSource": null,
             "sourceReference": null,
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
-            "hasBelowAtp": false
+            "hasBelowAtp": false,
+            "coupons": []
           },
           "lines": [
             {
@@ -326,12 +342,16 @@
           "pendingConfirmation": null,
           "capabilities": {
             "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
+            "capabilityReasons": {},
             "submitBlockers": [
               "NO_ADDRESS",
               "MISSING_SLOT",
@@ -370,8 +390,8 @@
       "path": "CallCenterWeb/SetPaymentType",
       "body": {
         "paymentType": "Receivable",
-        "transactionId": "06FTP1CECH516GHWMKBGA32A12",
-        "requestId": "06FTP1CP4YHGDTC86YWW5HDJ62",
+        "transactionId": "06FTV2K5H38EJ2X29ASHDAMRP4",
+        "requestId": "06FTV2KC505HMQ149FH72KMP35",
         "confirmToken": null
       }
     },
@@ -398,8 +418,8 @@
       "path": "CallCenterWeb/SetOrderNote",
       "body": {
         "note": "Caller asked for the box, not the strip.",
-        "transactionId": "06FTP1CECH516GHWMKBGA32A12",
-        "requestId": "06FTP1CPSBMRSQGJ2GV4841YT1",
+        "transactionId": "06FTV2K5H38EJ2X29ASHDAMRP4",
+        "requestId": "06FTV2KDBCSHFBQKBW1RBE1F32",
         "confirmToken": null
       }
     },
@@ -407,10 +427,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.5",
-          "transactionId": "06FTP1CECH516GHWMKBGA32A12",
+          "contractVersion": "1.10",
+          "transactionId": "06FTV2K5H38EJ2X29ASHDAMRP4",
           "version": 49,
-          "etag": "06FTP1CECH516GHWMKBGA32A12-49",
+          "etag": "06FTV2K5H38EJ2X29ASHDAMRP4-49",
           "status": "open",
           "replayed": false,
           "header": {
@@ -420,10 +440,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t02229756",
+            "register": "WEB-ta52e1a1f",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T02:18:15.9263128",
+            "openedAt": "2026-07-29T14:02:36.1798295",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -431,13 +451,15 @@
               "loyaltyAttached": true
             },
             "address": null,
+            "retainedAddressLabel": null,
             "slot": null,
             "documentSource": null,
             "sourceReference": null,
             "orderNote": "Caller asked for the box, not the strip.",
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
-            "hasBelowAtp": false
+            "hasBelowAtp": false,
+            "coupons": []
           },
           "lines": [
             {
@@ -498,12 +520,16 @@
           "pendingConfirmation": null,
           "capabilities": {
             "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
+            "capabilityReasons": {},
             "submitBlockers": [
               "NO_ADDRESS",
               "MISSING_SLOT",

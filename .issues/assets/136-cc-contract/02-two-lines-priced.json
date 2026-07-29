@@ -3,7 +3,7 @@
     "ticket": "857",
     "map": "126",
     "scenario": "Two priced lines, a fired promotion, a delivery fee, a full header — the everyday rendering case",
-    "contractVersion": "1.5",
+    "contractVersion": "1.10",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
     "capturedAt": "2026-07-29",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
@@ -16,8 +16,8 @@
       "itemNumber": "200022",
       "qty": 1,
       "uom": null,
-      "transactionId": "06FTP1C8S01YSE8FK4XB2P2NK0",
-      "requestId": "06FTP1CC471C0HR0RY0ETEM904",
+      "transactionId": "06FTV434G3ZC49R696CGB07FB1",
+      "requestId": "06FTV43BQN01H8ZPQGEYPYZQV7",
       "confirmToken": null
     }
   },
@@ -25,10 +25,10 @@
     "statusCode": 200,
     "body": {
       "data": {
-        "contractVersion": "1.5",
-        "transactionId": "06FTP1C8S01YSE8FK4XB2P2NK0",
+        "contractVersion": "1.10",
+        "transactionId": "06FTV434G3ZC49R696CGB07FB1",
         "version": 27,
-        "etag": "06FTP1C8S01YSE8FK4XB2P2NK0-27",
+        "etag": "06FTV434G3ZC49R696CGB07FB1-27",
         "status": "open",
         "replayed": false,
         "header": {
@@ -38,10 +38,10 @@
           "plantSource": "operatorOverride",
           "origin": "C000",
           "documentType": "CallCenterOrder",
-          "register": "WEB-tab562f0c",
+          "register": "WEB-t011d21b7",
           "operatorId": "TEST-OP",
           "entryStore": "1001",
-          "openedAt": "2026-07-29T02:18:14.4855606",
+          "openedAt": "2026-07-29T14:09:09.166437",
           "customer": {
             "customerId": "C-REDACTED",
             "name": "Redacted Customer",
@@ -49,13 +49,21 @@
             "loyaltyAttached": true
           },
           "address": null,
+          "retainedAddressLabel": null,
           "slot": null,
           "documentSource": "CINB",
           "sourceReference": "CALL-857-02",
           "orderNote": null,
           "paymentType": "CashOnDelivery",
           "paymentTypeForcedReason": null,
-          "hasBelowAtp": false
+          "hasBelowAtp": false,
+          "coupons": [
+            {
+              "code": "HD20AA1335717",
+              "description": "Coupon",
+              "amount": -3.87
+            }
+          ]
         },
         "lines": [
           {
@@ -202,7 +210,7 @@
               "need": 1
             },
             "prereq": {
-              "kind": "material",
+              "kind": "coupon",
               "materialNumber": "COUPT173",
               "groupingId": null,
               "eligibleCount": 1
@@ -213,12 +221,16 @@
         "pendingConfirmation": null,
         "capabilities": {
           "canAddItem": true,
+          "canPriceCheck": true,
+          "canApplyCoupon": true,
+          "canRemoveCoupon": true,
           "canSubmit": false,
           "canChangeStore": true,
           "canOpenAddressBook": true,
           "canConfirmSeededStore": false,
           "canChangePaymentType": true,
           "canChangeFulfilment": true,
+          "capabilityReasons": {},
           "submitBlockers": [
             "NO_ADDRESS",
             "MISSING_SLOT"

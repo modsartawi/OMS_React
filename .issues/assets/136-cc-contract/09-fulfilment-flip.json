@@ -3,7 +3,7 @@
     "ticket": "857",
     "map": "126",
     "scenario": "setFulfilment to PickInStore on a basket with lines — the plant does not move, so there is no confirmation; address and slot leave the projection and the delivery fee goes to 0",
-    "contractVersion": "1.5",
+    "contractVersion": "1.10",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
     "capturedAt": "2026-07-29",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
@@ -15,8 +15,8 @@
       "path": "CallCenterWeb/SetAddress",
       "body": {
         "addressNumber": "1000000284",
-        "transactionId": "06FTP1CYQ5E6F37NFX4WDBQE54",
-        "requestId": "06FTP1CZ4Z0NNV37S1X1Z241K6",
+        "transactionId": "06FTV48V7TMP716X9Q7EJQ4FT0",
+        "requestId": "06FTV48ZTM97XRHV270YQPEX57",
         "confirmToken": null
       }
     },
@@ -24,10 +24,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.5",
-          "transactionId": "06FTP1CYQ5E6F37NFX4WDBQE54",
+          "contractVersion": "1.10",
+          "transactionId": "06FTV48V7TMP716X9Q7EJQ4FT0",
           "version": 13,
-          "etag": "06FTP1CYQ5E6F37NFX4WDBQE54-13",
+          "etag": "06FTV48V7TMP716X9Q7EJQ4FT0-13",
           "status": "open",
           "replayed": false,
           "header": {
@@ -37,10 +37,10 @@
             "plantSource": "derivedFromAddress",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t60af5faa",
+            "register": "WEB-t1367fdf3",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T02:18:20.1012231",
+            "openedAt": "2026-07-29T14:09:56.1675318",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -56,13 +56,15 @@
               "districtName": "Airport",
               "line": "Redacted street line"
             },
+            "retainedAddressLabel": null,
             "slot": null,
             "documentSource": null,
             "sourceReference": null,
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
-            "hasBelowAtp": false
+            "hasBelowAtp": false,
+            "coupons": []
           },
           "lines": [],
           "totals": {
@@ -89,7 +91,7 @@
                 "need": 1
               },
               "prereq": {
-                "kind": "material",
+                "kind": "coupon",
                 "materialNumber": "COUP01",
                 "groupingId": null,
                 "eligibleCount": 1
@@ -100,12 +102,16 @@
           "pendingConfirmation": null,
           "capabilities": {
             "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
+            "capabilityReasons": {},
             "submitBlockers": [
               "NO_LINES",
               "MISSING_SLOT",
@@ -126,8 +132,8 @@
       "path": "CallCenterWeb/SetFulfilment",
       "body": {
         "mode": "PickInStore",
-        "transactionId": "06FTP1CYQ5E6F37NFX4WDBQE54",
-        "requestId": "06FTP1D0QXMFTZ0P18XKQBEWD6",
+        "transactionId": "06FTV48V7TMP716X9Q7EJQ4FT0",
+        "requestId": "06FTV49D24KGG2KNSZ2P0CPKN4",
         "confirmToken": null
       }
     },
@@ -135,10 +141,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.5",
-          "transactionId": "06FTP1CYQ5E6F37NFX4WDBQE54",
+          "contractVersion": "1.10",
+          "transactionId": "06FTV48V7TMP716X9Q7EJQ4FT0",
           "version": 26,
-          "etag": "06FTP1CYQ5E6F37NFX4WDBQE54-26",
+          "etag": "06FTV48V7TMP716X9Q7EJQ4FT0-26",
           "status": "open",
           "replayed": false,
           "header": {
@@ -148,10 +154,10 @@
             "plantSource": "derivedFromAddress",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t60af5faa",
+            "register": "WEB-t1367fdf3",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T02:18:20.1012231",
+            "openedAt": "2026-07-29T14:09:56.1675318",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -159,13 +165,15 @@
               "loyaltyAttached": true
             },
             "address": null,
+            "retainedAddressLabel": "Home",
             "slot": null,
             "documentSource": null,
             "sourceReference": null,
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
-            "hasBelowAtp": false
+            "hasBelowAtp": false,
+            "coupons": []
           },
           "lines": [
             {
@@ -226,12 +234,16 @@
           "pendingConfirmation": null,
           "capabilities": {
             "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": false,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
+            "capabilityReasons": {},
             "submitBlockers": [
               "MISSING_SOURCE_REFERENCE"
             ]
@@ -250,8 +262,8 @@
       "path": "CallCenterWeb/SetFulfilment",
       "body": {
         "mode": "Delivery",
-        "transactionId": "06FTP1CYQ5E6F37NFX4WDBQE54",
-        "requestId": "06FTP1D10CX37Z0P9AHKEYST64",
+        "transactionId": "06FTV48V7TMP716X9Q7EJQ4FT0",
+        "requestId": "06FTV49FD6244JZ61QEB749FQ4",
         "confirmToken": null
       }
     },
@@ -259,10 +271,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.5",
-          "transactionId": "06FTP1CYQ5E6F37NFX4WDBQE54",
+          "contractVersion": "1.10",
+          "transactionId": "06FTV48V7TMP716X9Q7EJQ4FT0",
           "version": 29,
-          "etag": "06FTP1CYQ5E6F37NFX4WDBQE54-29",
+          "etag": "06FTV48V7TMP716X9Q7EJQ4FT0-29",
           "status": "open",
           "replayed": false,
           "header": {
@@ -272,10 +284,10 @@
             "plantSource": "derivedFromAddress",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t60af5faa",
+            "register": "WEB-t1367fdf3",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T02:18:20.1012231",
+            "openedAt": "2026-07-29T14:09:56.1675318",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -291,13 +303,15 @@
               "districtName": "Airport",
               "line": "Redacted street line"
             },
+            "retainedAddressLabel": null,
             "slot": null,
             "documentSource": null,
             "sourceReference": null,
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
-            "hasBelowAtp": false
+            "hasBelowAtp": false,
+            "coupons": []
           },
           "lines": [
             {
@@ -358,12 +372,16 @@
           "pendingConfirmation": null,
           "capabilities": {
             "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
+            "capabilityReasons": {},
             "submitBlockers": [
               "MISSING_SLOT",
               "MISSING_SOURCE_REFERENCE"
@@ -380,6 +398,7 @@
   "_notes": [
     "pendingConfirmation is null and the lines are unchanged: the flip does not move the plant, so it does not re-price. A server that raises a storeChange confirm here has implemented §2.2 wrong.",
     "plant and plantSource are RETAINED across the flip — that IS how the plant got there. This is also the open question 154 records: plantSource now does double duty and has no value meaning 'chosen for pickup'.",
+    "\uD83D\uDEA9 v1.8 (877 §2.6): header.retainedAddressLabel carries the LABEL of the held address — \"Home\", \"Work\" — and NEVER the address line, city or district. Non-null exactly under PickInStore with an address on the sidecar, cleared on the flip back. It exists because the flip back re-derives the plant from that address and can raise a §5.1 storeChange confirmation about a store the agent never chose, on an order that has shown them no address for ten minutes. A console that remembered the last address IT saw was built and rejected (owner ruling 2026-07-29): blank after a refresh, blank in a second tab, blank on a resumed order.",
     "header.address is null but the address is RETAINED in the CallCenterSession sidecar. Flipping back to Delivery restores it without re-keying and re-derives the plant through setAddress's existing confirm path. A server that clears it is the second likely mis-implementation.",
     "submitBlockers drops NO_ADDRESS and MISSING_SLOT: neither applies to a pickup order.",
     "deliveryFee.amount is 0 by the predicate that already exists for the CallCenterOrder doctype (786's CallCenterDeliveryFeePolicy, extracted from POSController.NewPos.cs), not by a new rule — and waived stays FALSE, because a fee that never existed was not waived. thresholdGross is still quoted because the threshold is real."

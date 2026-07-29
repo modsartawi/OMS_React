@@ -108,6 +108,8 @@ import BelowAtpConfirm from './BelowAtpConfirm'
 import type { BusyPhase } from './BusyStrip'
 import ConsoleCard from './ConsoleCard'
 import ConsoleShell, { type SwallowedCommit } from './ConsoleShell'
+import CouponPicker from './CouponPicker'
+import { couponRemoveFailure, couponSurface } from './coupon-view'
 import ExistingOrderScreen from './ExistingOrderScreen'
 import FulfilmentPicker from './FulfilmentPicker'
 import NoteForm from './NoteForm'
@@ -285,6 +287,18 @@ function ConsoleSession() {
   /** The order note, open or not (183) — the note chip re-opening its own
    *  section. One free-text field, on one verb, like every other chip. */
   const [editingNote, setEditingNote] = useState(false)
+
+  /**
+   * The coupon modal, open or not (189) — the last chip in the row, and the only
+   * one an order need never fill.
+   *
+   * 🚩 Its two refusals are held on the MUTATIONS below rather than here,
+   * because they belong to different halves of the same modal: a refused apply
+   * is drawn under the entry box and a refused REMOVE beside the list it did not
+   * alter. A refused removal reported above the entry box reads as a refused
+   * apply, which is the one misreading this surface cannot afford.
+   */
+  const [pickingCoupon, setPickingCoupon] = useState(false)
 
   /**
    * The plant rebind in flight (167), as three facts that belong to the ACTION
@@ -873,6 +887,77 @@ function ConsoleSession() {
       // The section has answered, so the chip it collapsed into is the surface
       // again (135's progressive disclosure).
       setEditingNote(false)
+    },
+    retry: false,
+  })
+
+  /**
+   * The caller's coupon, redeemed (189, v1.10) — `applyCoupon`.
+   *
+   * 🚩 **The modal STAYS OPEN on success**, unlike every other section on this
+   * page. The others collapse back into their chip because they have answered a
+   * question; this one has just changed what the order holds, and the agent's
+   * next question — *did it come off the price?* — is answered by the list and
+   * the amount that are drawn right here. A second, different code is also an
+   * ordinary next act (the engine holds a list), and closing would put the entry
+   * box away between two halves of one conversation.
+   *
+   * 🚩 **Nothing is optimistic and nothing is pre-screened.** The redeem burns
+   * the code before the engine sees it, so the chip fills from the RESPONSE —
+   * a console that drew the coupon on the press would show one that was refused.
+   */
+  const applyCoupon = useMutation({
+    // No `again`: the modal draws this call's own failure (164's ruling).
+    mutationFn: (code: string) => {
+      // 🚩 Minted ONCE, outside the thunk — a fresh id inside it would make each
+      // busy retry a genuinely new redemption to the server's ledger (law 3).
+      const requestId = newRequestId()
+      return runGuarded(() => callCenterApi.applyCoupon(transactionId!, requestId, code))
+    },
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
+    },
+    retry: false,
+  })
+
+  /**
+   * The coupon taken back off (189) — `removeCoupon`, and the one refusal on
+   * this console that means the OPPOSITE of what its wording usually does.
+   *
+   * 🚩 **`COUPON_REVERSAL_REFUSED` means nothing changed.** The server reverses
+   * the burn at the coupon service before it voids the line (issue 211's till
+   * invariant), so a refused reversal leaves the order byte-identical with the
+   * coupon still on it — where a failed remove elsewhere would leave the agent
+   * safe to say *it did not come off*. Here the agent must be able to say both
+   * halves: it did not come off, AND nothing else moved either. So this is the
+   * one code the console words itself (`coupon.refusedReversal`) instead of
+   * passing the envelope's sentence through, and the wording names `abandon` as
+   * the only escape — because there is no second way to take it off.
+   */
+  /**
+   * The refusal, worded. `coupon-view` decides WHICH sentence and whether it
+   * outranks the server's; all this does is apply that answer — because
+   * `apiErrorMessage` would otherwise prefer the envelope's own shorter phrase
+   * and the *nothing changed* sentence would never reach the agent at all.
+   */
+  const couponRemoveMessage = (error: unknown) => {
+    const failure = couponRemoveFailure(apiErrorCode(error))
+    return failure.overridesServer
+      ? t(failure.key)
+      : apiErrorMessage(error, t(failure.key))
+  }
+
+  const removeCoupon = useMutation({
+    mutationFn: (code: string) => {
+      const requestId = newRequestId()
+      return runGuarded(() => callCenterApi.removeCoupon(transactionId!, requestId, code))
+    },
+    onSuccess: (fresh) => {
+      queryClient.setQueryData<SessionState>(sessionKey(fresh.transactionId), (current) =>
+        applyState(current, fresh),
+      )
     },
     retry: false,
   })
@@ -1923,6 +2008,13 @@ function ConsoleSession() {
         // Same rule again (183): there is no capability of its own for the note
         // (§2 lists none), and a submitted order has no header left to capture.
         onChangeNote={session.data.status === 'open' ? () => setEditingNote(true) : undefined}
+        // 🚩 189 — **a shut gate is not a shut chip.** The coupon chip opens on
+        // the OPEN rule alone; `canApplyCoupon` is deliberately not tested here,
+        // because an order may hold a coupon the agent has to read out on a call
+        // where a new one may not be applied. The modal is where the reason is
+        // said, and `couponSurface` is what says it — the one place the two
+        // capabilities are read.
+        onChangeCoupon={session.data.status === 'open' ? () => setPickingCoupon(true) : undefined}
         // 🚩 The two axis chips (182). Only the OPEN rule is applied here —
         // `canChangeFulfilment` / `canChangePaymentType` are read inside the
         // shell, through `capabilityGate`, because the shell is also what prints
@@ -2073,6 +2165,48 @@ function ConsoleSession() {
         onClose={() => {
           setEditingNote(false)
           orderNote.reset()
+        }}
+      />
+      {/* The caller's coupon (189) — the console's ONE coupon surface, and the
+          only place a coupon's money is drawn. The chip carries the code; the
+          receipt gains no coupon row, because the engine has already flattened
+          the discount onto the lines it touched. */}
+      <CouponPicker
+        open={pickingCoupon}
+        // 🚩 Both capabilities are read HERE and nowhere else. `canRemove` is the
+        // server's own boolean — never `coupons.length > 0` — because the
+        // removal reverses a burn at the coupon service before it touches the
+        // order, and whether that remote leg is reachable is not a count.
+        surface={couponSurface(session.data.header, session.data.capabilities)}
+        pendingApply={applyCoupon.isPending}
+        pendingRemove={removeCoupon.isPending ? (removeCoupon.variables ?? null) : null}
+        applyError={
+          applyCoupon.isError ? apiErrorMessage(applyCoupon.error, t('coupon.applyFailed')) : null
+        }
+        // 🚩 THE sentence of this ticket. `COUPON_REVERSAL_REFUSED` is the one
+        // refusal the console words itself: the reverse runs before the void, so
+        // the order is untouched and the coupon is STILL ON IT — the opposite of
+        // what "could not remove" means everywhere else on this screen. An agent
+        // reading the server's shorter phrase would tell the caller the discount
+        // had gone. Which sentence that is belongs to `coupon-view` with the
+        // rest of the coupon's rules, so it can be proved without a browser;
+        // every other failure still keeps the envelope's own words (§7).
+        removeError={removeCoupon.isError ? couponRemoveMessage(removeCoupon.error) : null}
+        // Each verb clears the OTHER's failure on the way in: the two are drawn
+        // at opposite ends of one modal, and a refusal left standing under a
+        // list that has since changed is a sentence about an order that is gone.
+        onApply={(code) => {
+          removeCoupon.reset()
+          applyCoupon.mutate(code)
+        }}
+        onRemove={(code) => {
+          applyCoupon.reset()
+          removeCoupon.mutate(code)
+        }}
+        onClose={() => {
+          setPickingCoupon(false)
+          applyCoupon.reset()
+          removeCoupon.reset()
         }}
       />
       {/* The deliberate override (US14) — the same rebind, asked for outright. */}

@@ -331,27 +331,6 @@
     "expand": "About this item",
     "heading": "About this item",
     "checking": "Checking the price…",
-    "priceAt": "One {{uom}} at {{plant}} · VAT included",
-    "unitNote": "Adding it creates a line at this price.",
-    "offersHeading": "Offers on this item",
-    "offersNone": "No offers on this item.",
-    "offersIncomplete": "Offers were not fully checked — buy-one-get-one offers aren't included yet.",
-    "offerApplies": "applies to this item",
-    "offerNeeds_one": "needs {{count}} more",
-    "offerNeeds_other": "needs {{count}} more",
-    "refused": {
-      "ITEM_NOT_FOUND": "There is no such item number, so there is no price to give.",
-      "ITEM_NOT_SELLABLE": "This item can't be sold on a call-center order, so it has no price here.",
-      "NO_PRICE_AT_PLANT": "This item has no price at the store this order is served from.",
-      "NO_CUSTOMER_ATTACHED": "Attach the caller before checking a price — the price depends on who is buying.",
-      "STORE_NOT_CHOSEN": "Choose the store this order is served from before checking a price.",
-      "fallback": "The price could not be checked. Nothing has changed on this order — try again."
-    }
-  },
-  "panel": {
-    "expand": "About this item",
-    "heading": "About this item",
-    "checking": "Checking the price…",
     "priceAt": "One {{uom}} at {{store}} · VAT included",
     "unitNote": "Adding it creates a line at this price.",
     "offersHeading": "Offers on this item",
@@ -528,6 +507,9 @@
     "codePlaceholder": "Read the code from the caller",
     "apply": "Apply",
     "remove": "Remove this coupon",
+    "applyFailed": "That coupon could not be applied. Read the code back to the caller and try again.",
+    "removeFailed": "That coupon could not be taken off, and this console cannot say whether it came off — check the list above before you tell the caller.",
+    "refusedReversal": "The coupon could not be released, so nothing has changed — it is still on this order and still spent. If it has to come off, abandon the order and start again.",
     "readBack": "Read the code back to the caller before you apply it — applying redeems it straight away.",
     "shut": {
       "NO_CUSTOMER": "Attach the caller first — a coupon is redeemed against them.",

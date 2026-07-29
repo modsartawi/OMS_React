@@ -1,8 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import type { AppliedCoupon, SessionCapabilities, SessionHeader } from '@/core/models/callcenter'
-import { appliedCoupons, couponChipValue, couponSurface } from './coupon-view'
-import { EMPTY_SESSION } from './__fixtures__/payloads'
+import {
+  appliedCoupons,
+  couponChipValue,
+  couponRemoveFailure,
+  couponSurface,
+} from './coupon-view'
+import { ATTACHED_SESSION, EMPTY_SESSION } from './__fixtures__/payloads'
 
+/**
+ * 🚩 **The captures now carry v1.10, so the fixture is no longer neutral.** The
+ * re-capture for 189 caught `header.coupons`, `canApplyCoupon` and
+ * `canRemoveCoupon` off the real handlers — and capture 01's gate is SHUT
+ * (`NO_CUSTOMER`), which is the truth about an order with no caller on it. Every
+ * case below therefore says which of the three it is varying, and the two that
+ * are about a server OLDER than the field strip them rather than assuming the
+ * fixture left them unset.
+ */
 const header = (coupons?: AppliedCoupon[]): SessionHeader => ({
   ...EMPTY_SESSION.header,
   ...(coupons ? { coupons } : {}),
@@ -12,6 +26,12 @@ const caps = (extra: Partial<SessionCapabilities> = {}): SessionCapabilities => 
   ...EMPTY_SESSION.capabilities,
   ...extra,
 })
+
+/** A pre-v1.10 server: the two coupon capabilities are absent, not false. */
+const preV110 = (): SessionCapabilities => {
+  const { canApplyCoupon: _apply, canRemoveCoupon: _remove, ...rest } = EMPTY_SESSION.capabilities
+  return { ...rest, capabilityReasons: {} }
+}
 
 const SAVE20: AppliedCoupon = { code: 'SAVE20', description: '20% off oral care', amount: -8.4 }
 const FREEDEL: AppliedCoupon = { code: 'FREEDEL', description: null, amount: -12 }
@@ -49,7 +69,31 @@ describe('couponChipValue', () => {
 
 describe('couponSurface', () => {
   it('opens the entry box on a server that has never heard of the capability', () => {
-    expect(couponSurface(header(), caps()).canApply).toBe(true)
+    expect(couponSurface(header(), preV110()).canApply).toBe(true)
+  })
+
+  it('reads the CAPTURE’S own shut gate — an order with no caller on it', () => {
+    // Capture 01, the wire's bytes since the v1.10 re-capture: the opening gate
+    // is shut and it names itself. This is the state an agent meets before the
+    // caller is attached, and it is the one the console must not dress as a
+    // coupon problem.
+    const surface = couponSurface(EMPTY_SESSION.header, EMPTY_SESSION.capabilities)
+    expect(surface.canApply).toBe(false)
+    expect(surface.applyReason).toBe('NO_CUSTOMER')
+    expect(surface.coupons).toEqual([])
+    expect(surface.canRemove).toBe(false)
+  })
+
+  it('reads the CAPTURE’S own applied coupon, removal and all', () => {
+    // 🚩 Capture 02 now carries a real redeemed coupon — the state that did not
+    // exist before v1.10, where the totals moved and nothing named it. Its
+    // `description` is the campaign's own word (`"Coupon"`), not a phrase the
+    // console invented, and its amount is negative engine money.
+    const surface = couponSurface(ATTACHED_SESSION.header, ATTACHED_SESSION.capabilities)
+    expect(surface.coupons.map((c) => c.code)).toEqual(['HD20AA1335717'])
+    expect(surface.coupons[0].amount).toBeLessThan(0)
+    expect(surface.canApply).toBe(true)
+    expect(surface.canRemove).toBe(true)
   })
 
   it('shuts the entry box with the SERVER’S reason when the gate is closed', () => {
@@ -76,7 +120,9 @@ describe('couponSurface', () => {
   })
 
   it('falls back to no reason rather than to silence', () => {
-    const surface = couponSurface(header(), caps({ canApplyCoupon: false }))
+    // A gate shut with no reason beside it — the server may add a code the
+    // console has never heard of, and both degrade to the same general phrase.
+    const surface = couponSurface(header(), caps({ canApplyCoupon: false, capabilityReasons: {} }))
     expect(surface.applyReason).toBeNull()
   })
 
@@ -90,5 +136,31 @@ describe('couponSurface', () => {
     expect(surface.canRemove).toBe(false)
 
     expect(couponSurface(header([SAVE20]), caps({ canRemoveCoupon: true })).canRemove).toBe(true)
+  })
+})
+
+describe('couponRemoveFailure', () => {
+  it('gives the reversal refusal the console’s OWN sentence, outranking the server’s', () => {
+    // 🚩 The reverse runs before the void, so this code — and only this code —
+    // guarantees the order is untouched and the coupon is still on it. The
+    // envelope's own phrase is true but short ("would not release that code"),
+    // and an agent reading only that would tell the caller the discount had
+    // gone. So the console replaces it rather than relaying it.
+    const failure = couponRemoveFailure('COUPON_REVERSAL_REFUSED')
+    expect(failure.key).toBe('coupon.refusedReversal')
+    expect(failure.overridesServer).toBe(true)
+  })
+
+  it('promises NOTHING about any other failure, and never outranks the server', () => {
+    // 🚩 The half a *nothing changed* fallback would get wrong: a lost response
+    // or a transport fault may well have landed the void. Saying the coupon is
+    // still there would be the console asserting the one fact it cannot see —
+    // and it would be doing it in the wording reserved for the one code that
+    // does guarantee it.
+    for (const code of ['SESSION_BUSY', 'SESSION_CLOSED', 'COUPON_UNAVAILABLE', null]) {
+      const failure = couponRemoveFailure(code)
+      expect(failure.key).toBe('coupon.removeFailed')
+      expect(failure.overridesServer).toBe(false)
+    }
   })
 })

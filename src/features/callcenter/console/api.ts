@@ -791,6 +791,60 @@ export const callCenterApi = {
   },
 
   /**
+   * `POST CallCenterWeb/ApplyCoupon` → the whole `SessionState` (law 2) — the
+   * caller's coupon, redeemed (189, v1.10).
+   *
+   * 🚩 **It redeems BEFORE the engine sees it.** `AddCouponAsync` burns the code
+   * at the coupon service and only then scans the campaign SKU, so a
+   * mistyped-but-valid code spends something real and there is no client-side
+   * undo for it — which is why `CouponPicker` reads the code back before the
+   * press rather than after. Nothing here validates a code: the coupon service
+   * owns what is redeemable, and a console that pre-screened would be a second
+   * opinion about a ledger it cannot see.
+   *
+   * 🚩 **A second, DIFFERENT code is an ordinary success.** The engine holds a
+   * list and the duplicate check is per-code (capture 14's `duplicate` leg), so
+   * the console enforces no one-coupon rule of its own.
+   *
+   * Refuses `COUPON_REJECTED` (409, carrying the coupon service's own message —
+   * said out loud, never shown as a code), `COUPON_ALREADY_APPLIED` (409) and
+   * the opening gate's own faults; `canApplyCoupon` is advisory and this door is
+   * the enforcement.
+   */
+  applyCoupon(transactionId: string, requestId: string, couponCode: string): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/ApplyCoupon', {
+      transactionId,
+      requestId,
+      couponCode,
+    })
+  },
+
+  /**
+   * `POST CallCenterWeb/RemoveCoupon` → the whole `SessionState` (law 2) — the
+   * coupon taken back off, and the release given back to the caller.
+   *
+   * 🚩 **Reverse first, void only if the reverse landed** (issue 211's till
+   * invariant, which the server composes here): `VoidLineAsync` on the `COUP`
+   * line drops the bonus buy correctly, but `CollectReversalContexts()` is
+   * reached from `VoidTransactionAsync` alone — so a bare void would take the
+   * discount off and leave the customer's coupon **spent**.
+   *
+   * 🚩 Which makes **`COUPON_REVERSAL_REFUSED` (409) mean NOTHING CHANGED** —
+   * the order is byte-identical and the coupon is still on it. That is the
+   * opposite of what a failed remove normally means, and it is the one refusal
+   * on this contract whose wording the console owns rather than passing through:
+   * an agent told *"could not remove"* would reasonably tell the caller the
+   * discount had gone.
+   */
+  removeCoupon(transactionId: string, requestId: string, couponCode: string): Promise<SessionState> {
+    return api.post<SessionState>('CallCenterWeb/RemoveCoupon', {
+      transactionId,
+      requestId,
+      couponCode,
+    })
+  },
+
+  /**
    * `POST CallCenterWeb/Submit` → `SubmitResult` (§8.3) — the CLCN document, and
    * the one moment this console is deliberately not optimistic.
    *

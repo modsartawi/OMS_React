@@ -3,7 +3,7 @@
     "ticket": "857",
     "map": "126",
     "scenario": "submit's first success, and the refusal a retry currently gets where §8.3 promises the already-submitted success",
-    "contractVersion": "1.5",
+    "contractVersion": "1.10",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
     "capturedAt": "2026-07-29",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
@@ -14,8 +14,8 @@
       "method": "POST",
       "path": "CallCenterWeb/Submit",
       "body": {
-        "transactionId": "06FTP1BVZC1GMSJ2TN4BBSQD44",
-        "requestId": "06FTP1BZNHGJ3KA4RH26RRMRF7",
+        "transactionId": "06FTV418YHPPWXVQ57P5PZC4B0",
+        "requestId": "06FTV41N1C7H800ERV7E8DFXE7",
         "confirmToken": null
       }
     },
@@ -24,7 +24,7 @@
       "body": {
         "data": {
           "outcome": "submitted",
-          "documentNo": "1000000414",
+          "documentNo": "1000000424",
           "state": null
         },
         "statusCode": 200,
@@ -39,8 +39,8 @@
       "method": "POST",
       "path": "CallCenterWeb/Submit",
       "body": {
-        "transactionId": "06FTP1BVZC1GMSJ2TN4BBSQD44",
-        "requestId": "06FTP1C3R44XP1TEZECBH39H65",
+        "transactionId": "06FTV418YHPPWXVQ57P5PZC4B0",
+        "requestId": "06FTV424681TV6B2D1N6VRZT84",
         "confirmToken": null
       }
     },

@@ -71,6 +71,39 @@ export interface CouponSurface {
   canRemove: boolean
 }
 
+/**
+ * Which sentence a refused REMOVAL gets, and whether it OUTRANKS the server's
+ * own — the one wording rule on this surface the console owns rather than
+ * passing the envelope through.
+ *
+ * 🚩 **Only `COUPON_REVERSAL_REFUSED` may say *nothing changed*.** The server
+ * reverses the burn at the coupon service before it voids the line (issue 211's
+ * till invariant), so that code — and only that code — guarantees the order is
+ * byte-identical with the coupon still on it. Its envelope message is true but
+ * short (*"the coupon service would not release that code"*), and an agent
+ * reading only that would reasonably tell the caller the discount had gone. So
+ * this is the one refusal whose sentence the console replaces rather than
+ * relays, and the replacement also names the only escape there is: abandon.
+ *
+ * 🚩 **And every other failure must promise nothing.** A lost response or a
+ * transport fault may well have landed the void — *nothing changed* there would
+ * be the console asserting the one fact it cannot see. Those keep the envelope's
+ * own words (§7) and fall back to a phrase that claims no outcome.
+ *
+ * It takes the CODE rather than the error so the rule stays pure, and `ApiError`
+ * stays out of a module that decides only what the agent sees.
+ */
+export function couponRemoveFailure(code: string | null): {
+  /** The i18n key, namespaced for the console's own bundle. */
+  key: string
+  /** True ⇒ draw this INSTEAD of the server's message, not merely under it. */
+  overridesServer: boolean
+} {
+  return code === 'COUPON_REVERSAL_REFUSED'
+    ? { key: 'coupon.refusedReversal', overridesServer: true }
+    : { key: 'coupon.removeFailed', overridesServer: false }
+}
+
 export function couponSurface(
   header: SessionHeader,
   capabilities: SessionCapabilities,

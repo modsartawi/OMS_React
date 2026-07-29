@@ -324,8 +324,19 @@ describe('theStripHoldsAgainstTheWireAsItActuallyIs', () => {
     // The identity the STRIP keys and opens by. Distinct per card, whether or
     // not the wire named the offer.
     expect(new Set(view.cards.map((c) => c.cardId)).size).toBe(view.cards.length)
-    // ...and it opens exactly one of them, not both.
-    expect(view.cards.filter((c) => c.cardId === view.openByDefault)).toHaveLength(1)
+  })
+
+  it('opens NOTHING by default over these two, because neither is reachable', () => {
+    // 🚩 The v1.10 re-capture changed this answer, and correctly. Both captured
+    // offers are `kind: 'coupon'` now that the server states the fourth kind —
+    // so there is no actionable card, and the card that opens by construction
+    // (171) is the top-ranked ACTIONABLE one. An offer no basket change reaches
+    // must not be the thing the strip opens itself on.
+    expect(view.openByDefault).toBeNull()
+    expect(view.cards.filter((c) => c.cardId === view.openByDefault)).toHaveLength(0)
+    // The illustration still has one, so this is the capture's own shape rather
+    // than the rule going missing.
+    expect(guidanceView(NEAR_MISS_CLASSES).openByDefault).not.toBeNull()
   })
 
   it('keeps the offer id itself untouched — it is the server’s address', () => {
@@ -346,20 +357,50 @@ describe('theStripHoldsAgainstTheWireAsItActuallyIs', () => {
   })
 
   it('reads them as the class their projection actually states', () => {
-    // Both are unready with a shortfall, so both are actionable — the capture
-    // simply holds no `counted` and no `unavailable` offer.
-    expect(view.cards.map((c) => c.klass)).toEqual(['actionable', 'actionable'])
-    expect(view.actionableCount).toBe(2)
+    // 🚩 **This is 189's central claim, and it is no longer a hypothesis.** The
+    // v1.10 re-capture answers `kind: "coupon"` on both of this store's offers
+    // — `10% Coupon` and `T173 COUPON-GATED BBY` — where the earlier capture
+    // said `material` and the strip therefore drew *add 1 more* with 172's
+    // one-click add behind it. That add would have qualified the bonus buy
+    // while burning nothing (the server now refuses it by name,
+    // `ITEM_NOT_SELLABLE`, capture 14).
+    expect(NEAR_MISSES.map((m) => m.prereq?.kind)).toEqual(['coupon', 'coupon'])
+    expect(view.cards.map((c) => c.klass)).toEqual(['needsCoupon', 'needsCoupon'])
+  })
+
+  it('counts NONE of them as within reach, off the wire’s own bytes', () => {
+    // The top bar's number means *offers the agent can reach by putting
+    // something in the basket*. Neither of these is one, and inflating the
+    // count is how an agent ends up hunting for an item that would not help.
+    expect(view.actionableCount).toBe(0)
+    expect(view.actionable).toHaveLength(0)
+    // And they are not buried as unavailable either: they are real, and the
+    // caller may be holding the coupon.
+    expect(view.unavailable).toHaveLength(0)
+    expect(view.needsCoupon).toHaveLength(2)
+  })
+
+  it('says nothing about a SET over an offer no basket change reaches', () => {
+    // 🚩 The set sentence and the eligible population belong to the actionable
+    // class alone — they are the answer to *what do I add*, and there is no add
+    // here. Since the re-capture there is no captured `kind: 'material'` left
+    // anywhere on the map, so US42's material leg is proved over the
+    // illustration below, where it still has an input.
+    for (const c of view.cards) {
+      expect(say(c.set)).toBeNull()
+      expect(c.eligible).toBeNull()
+    }
   })
 
   it('states a one-material prerequisite as that item, never as a selection', () => {
-    // 🚩 Every captured prerequisite is `kind: 'material'` — the illustration
-    // had none, so this leg of `setPhrase` had no fixture behind it until the
-    // capture arrived. US42's rule runs both ways: a set sentence about exactly
-    // one item would say *any 1 from this selection* of a thing the caller has
-    // no selection over.
-    for (const c of view.cards) expect(say(c.set)).toBe('1 more of this item')
-    expect(view.cards.map((c) => c.eligible)).toEqual([1, 1])
+    // US42's rule runs both ways: a set sentence about exactly one item would
+    // say *any 1 from this selection* of a thing the caller has no selection
+    // over. ⚠ Its fixture is the illustration — see above for why.
+    const material = guidanceView([
+      { ...NEAR_MISS_CLASSES[0], prereq: { kind: 'material', materialNumber: 'T173', eligibleCount: 1 } },
+    ])
+    expect(say(material.cards[0].set)).toBe('1 more of this item')
+    expect(material.cards[0].eligible).toBe(1)
   })
 
   it('still says the get side is uncovered, off a real projection', () => {
@@ -430,6 +471,20 @@ describe('a coupon-gated offer (159, contract v1.10 proposal)', () => {
     // With a coupon it fires. Burying it with the origin-filtered and
     // out-of-window offers would tell the agent it cannot happen.
     expect(guidanceView([couponGated()]).unavailable).toHaveLength(0)
+  })
+
+  it('is the ONLY kind treated as unreachable — a fifth one degrades, never guesses', () => {
+    // 🚩 The kinds are the SERVER's list and it has already grown once. A kind
+    // this client has never heard of must not be filed as coupon-gated (which
+    // would state a coupon the caller does not need) and must not throw: it
+    // keeps the pre-v1.10 answer, which is the class its own projection states.
+    const future = guidanceView([
+      { ...couponGated(), prereq: { kind: 'segment' as never, eligibleCount: 3 } },
+    ])
+    expect(future.cards[0].klass).toBe('actionable')
+    expect(future.needsCoupon).toHaveLength(0)
+    // …and it says nothing about a set it cannot describe.
+    expect(future.cards[0].set).toBeNull()
   })
 
   it('still yields to a skipReason — an offer that was never evaluated is not an offer', () => {

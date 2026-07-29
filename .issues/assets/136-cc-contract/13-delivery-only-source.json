@@ -2,51 +2,22 @@
   "_capture": {
     "ticket": "857",
     "map": "126",
-    "scenario": "The opening gate: an addItem refused for each half independently, the delivery exit (setAddress), the pickup one-click store confirm, and removeCustomer keeping the basket",
+    "scenario": "a delivery-only documentSource (P2E) shuts the fulfilment axis: canChangeFulfilment is false WITH a reason, and setFulfilment(PickInStore) refuses with the same code",
     "contractVersion": "1.10",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
     "capturedAt": "2026-07-29",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
     "redaction": "No real customer or staff identity appears in any fixture on this map."
   },
-  "addItemNoCustomer": {
+  "sourceSet": {
     "request": {
       "method": "POST",
-      "path": "CallCenterWeb/AddItem",
+      "path": "CallCenterWeb/SetDocumentSource",
       "body": {
-        "itemNumber": "200021",
-        "qty": 1,
-        "uom": null,
-        "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-        "requestId": "06FTV3T68VCJ26J9TSD56GJT01",
-        "confirmToken": null
-      }
-    },
-    "response": {
-      "statusCode": 409,
-      "body": {
-        "data": null,
-        "statusCode": 409,
-        "success": false,
-        "message": "Attach the caller before adding items to this order.",
-        "errors": [
-          {
-            "errorCode": "NO_CUSTOMER_ATTACHED",
-            "internalErrorCode": null,
-            "errorMessage": "Attach the caller before adding items to this order."
-          }
-        ]
-      }
-    }
-  },
-  "attachCustomer": {
-    "request": {
-      "method": "POST",
-      "path": "CallCenterWeb/AttachCustomer",
-      "body": {
-        "customerId": "C-REDACTED",
-        "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-        "requestId": "06FTV3V4HESGPFDNV0AACD1YY0",
+        "documentSource": "P2E",
+        "sourceReference": "CALL-877-13",
+        "transactionId": "06FTV46ETW5SGB71QBTG5EQRR7",
+        "requestId": "06FTV46ZRCX0AB8PMR3BAHZW17",
         "confirmToken": null
       }
     },
@@ -55,22 +26,22 @@
       "body": {
         "data": {
           "contractVersion": "1.10",
-          "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-          "version": 12,
-          "etag": "06FTV3SSZBGH0FSS80MM2EN0M3-12",
+          "transactionId": "06FTV46ETW5SGB71QBTG5EQRR7",
+          "version": 15,
+          "etag": "06FTV46ETW5SGB71QBTG5EQRR7-15",
           "status": "open",
           "replayed": false,
           "header": {
             "deliveryType": "Delivery",
             "plant": "1001",
             "plantName": "King AbdelAziz Road",
-            "plantSource": "seededAtOpen",
+            "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-tc7d6dd66",
+            "register": "WEB-tf8698013",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:07:52.946506",
+            "openedAt": "2026-07-29T14:09:36.5543492",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -80,8 +51,8 @@
             "address": null,
             "retainedAddressLabel": null,
             "slot": null,
-            "documentSource": null,
-            "sourceReference": null,
+            "documentSource": "P2E",
+            "sourceReference": "CALL-877-13",
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
@@ -106,25 +77,23 @@
           "nearMisses": [],
           "pendingConfirmation": null,
           "capabilities": {
-            "canAddItem": false,
-            "canPriceCheck": false,
-            "canApplyCoupon": false,
+            "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
             "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
-            "canChangeFulfilment": true,
+            "canChangeFulfilment": false,
             "capabilityReasons": {
-              "canApplyCoupon": "STORE_NOT_CHOSEN"
+              "canChangeFulfilment": "DELIVERY_ONLY_SOURCE"
             },
             "submitBlockers": [
               "NO_LINES",
-              "STORE_NOT_CHOSEN",
               "NO_ADDRESS",
-              "MISSING_SLOT",
-              "MISSING_SOURCE_REFERENCE"
+              "MISSING_SLOT"
             ]
           }
         },
@@ -135,16 +104,14 @@
       }
     }
   },
-  "addItemNoStore": {
+  "refusedFlip": {
     "request": {
       "method": "POST",
-      "path": "CallCenterWeb/AddItem",
+      "path": "CallCenterWeb/SetFulfilment",
       "body": {
-        "itemNumber": "200021",
-        "qty": 1,
-        "uom": null,
-        "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-        "requestId": "06FTV3VHJPMKF4SDVNE7W9PFX5",
+        "mode": "PickInStore",
+        "transactionId": "06FTV46ETW5SGB71QBTG5EQRR7",
+        "requestId": "06FTV473EV8C0CN00NPTYRGB71",
         "confirmToken": null
       }
     },
@@ -154,25 +121,25 @@
         "data": null,
         "statusCode": 409,
         "success": false,
-        "message": "Choose the store this order is served from before adding items.",
+        "message": "This order's channel is delivery-only. It cannot be collected in store.",
         "errors": [
           {
-            "errorCode": "STORE_NOT_CHOSEN",
+            "errorCode": "DELIVERY_ONLY_SOURCE",
             "internalErrorCode": null,
-            "errorMessage": "Choose the store this order is served from before adding items."
+            "errorMessage": "This order's channel is delivery-only. It cannot be collected in store."
           }
         ]
       }
     }
   },
-  "setAddressOpensTheGate": {
+  "deliveryIsStillReachable": {
     "request": {
       "method": "POST",
-      "path": "CallCenterWeb/SetAddress",
+      "path": "CallCenterWeb/SetFulfilment",
       "body": {
-        "addressNumber": "1000000284",
-        "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-        "requestId": "06FTV3VNHCSZBGYJEMYJV30BP2",
+        "mode": "Delivery",
+        "transactionId": "06FTV46ETW5SGB71QBTG5EQRR7",
+        "requestId": "06FTV478H7FEK1BJVCGR0SXV72",
         "confirmToken": null
       }
     },
@@ -181,41 +148,33 @@
       "body": {
         "data": {
           "contractVersion": "1.10",
-          "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-          "version": 16,
-          "etag": "06FTV3SSZBGH0FSS80MM2EN0M3-16",
+          "transactionId": "06FTV46ETW5SGB71QBTG5EQRR7",
+          "version": 21,
+          "etag": "06FTV46ETW5SGB71QBTG5EQRR7-21",
           "status": "open",
           "replayed": false,
           "header": {
             "deliveryType": "Delivery",
             "plant": "1001",
             "plantName": "King AbdelAziz Road",
-            "plantSource": "derivedFromAddress",
+            "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-tc7d6dd66",
+            "register": "WEB-tf8698013",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:07:52.946506",
+            "openedAt": "2026-07-29T14:09:36.5543492",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
               "mobile": "9665REDACTED",
               "loyaltyAttached": true
             },
-            "address": {
-              "addressNumber": "1000000284",
-              "label": "Home",
-              "cityCode": "C016",
-              "cityName": "Hail",
-              "districtCode": "D00592",
-              "districtName": "Airport",
-              "line": "Redacted street line"
-            },
+            "address": null,
             "retainedAddressLabel": null,
             "slot": null,
-            "documentSource": null,
-            "sourceReference": null,
+            "documentSource": "P2E",
+            "sourceReference": "CALL-877-13",
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
@@ -237,24 +196,7 @@
             "payable": 12.0
           },
           "firedPromotions": [],
-          "nearMisses": [
-            {
-              "offerId": "",
-              "description": "10% Coupon",
-              "isReady": false,
-              "progress": {
-                "have": 0,
-                "need": 1
-              },
-              "prereq": {
-                "kind": "coupon",
-                "materialNumber": "COUP01",
-                "groupingId": null,
-                "eligibleCount": 1
-              },
-              "skipReason": null
-            }
-          ],
+          "nearMisses": [],
           "pendingConfirmation": null,
           "capabilities": {
             "canAddItem": true,
@@ -266,12 +208,14 @@
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
-            "canChangeFulfilment": true,
-            "capabilityReasons": {},
+            "canChangeFulfilment": false,
+            "capabilityReasons": {
+              "canChangeFulfilment": "DELIVERY_ONLY_SOURCE"
+            },
             "submitBlockers": [
               "NO_LINES",
-              "MISSING_SLOT",
-              "MISSING_SOURCE_REFERENCE"
+              "NO_ADDRESS",
+              "MISSING_SLOT"
             ]
           }
         },
@@ -282,14 +226,15 @@
       }
     }
   },
-  "pickupConfirmSeededStore": {
+  "pickupOrderKeepsTheControl": {
     "request": {
       "method": "POST",
-      "path": "CallCenterWeb/SetStore",
+      "path": "CallCenterWeb/SetDocumentSource",
       "body": {
-        "storeCode": "1001",
-        "transactionId": "06FTV3X8BH8NXQ8XVC3W03W9T2",
-        "requestId": "06FTV3Y0XEVJ7DJKC675FXE4F2",
+        "documentSource": "P2E",
+        "sourceReference": "CALL-877-13B",
+        "transactionId": "06FTV46JFWC41V195GZC2VYVS1",
+        "requestId": "06FTV47GMQ8SKXFA3C11KNDPT5",
         "confirmToken": null
       }
     },
@@ -298,22 +243,22 @@
       "body": {
         "data": {
           "contractVersion": "1.10",
-          "transactionId": "06FTV3X8BH8NXQ8XVC3W03W9T2",
-          "version": 15,
-          "etag": "06FTV3X8BH8NXQ8XVC3W03W9T2-15",
+          "transactionId": "06FTV46JFWC41V195GZC2VYVS1",
+          "version": 18,
+          "etag": "06FTV46JFWC41V195GZC2VYVS1-18",
           "status": "open",
           "replayed": false,
           "header": {
             "deliveryType": "PickInStore",
             "plant": "1001",
             "plantName": "King AbdelAziz Road",
-            "plantSource": "chosenForPickup",
+            "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t9a4a28a4",
+            "register": "WEB-t0a5a0888",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:08:21.4165659",
+            "openedAt": "2026-07-29T14:09:37.5358353",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -323,8 +268,8 @@
             "address": null,
             "retainedAddressLabel": null,
             "slot": null,
-            "documentSource": null,
-            "sourceReference": null,
+            "documentSource": "P2E",
+            "sourceReference": "CALL-877-13B",
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
@@ -361,8 +306,7 @@
             "canChangeFulfilment": true,
             "capabilityReasons": {},
             "submitBlockers": [
-              "NO_LINES",
-              "MISSING_SOURCE_REFERENCE"
+              "NO_LINES"
             ]
           }
         },
@@ -373,13 +317,14 @@
       }
     }
   },
-  "removeCustomerKeepsTheBasket": {
+  "andCanLeave": {
     "request": {
       "method": "POST",
-      "path": "CallCenterWeb/RemoveCustomer",
+      "path": "CallCenterWeb/SetFulfilment",
       "body": {
-        "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-        "requestId": "06FTV3Y7RYV6MMEJFK469GP7B0",
+        "mode": "Delivery",
+        "transactionId": "06FTV46JFWC41V195GZC2VYVS1",
+        "requestId": "06FTV47HPYXKZCENBY6DCYYBT5",
         "confirmToken": null
       }
     },
@@ -388,79 +333,44 @@
       "body": {
         "data": {
           "contractVersion": "1.10",
-          "transactionId": "06FTV3SSZBGH0FSS80MM2EN0M3",
-          "version": 23,
-          "etag": "06FTV3SSZBGH0FSS80MM2EN0M3-23",
+          "transactionId": "06FTV46JFWC41V195GZC2VYVS1",
+          "version": 21,
+          "etag": "06FTV46JFWC41V195GZC2VYVS1-21",
           "status": "open",
           "replayed": false,
           "header": {
             "deliveryType": "Delivery",
-            "plant": "P516",
-            "plantName": "Fahd Al-Arify Street",
-            "plantSource": "derivedFromAddress",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-tc7d6dd66",
+            "register": "WEB-t0a5a0888",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T14:07:52.946506",
-            "customer": null,
+            "openedAt": "2026-07-29T14:09:37.5358353",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
             "address": null,
             "retainedAddressLabel": null,
             "slot": null,
-            "documentSource": null,
-            "sourceReference": null,
+            "documentSource": "P2E",
+            "sourceReference": "CALL-877-13B",
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
             "hasBelowAtp": false,
             "coupons": []
           },
-          "lines": [
-            {
-              "lineId": "L10",
-              "itemNumber": "200021",
-              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
-              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
-              "qty": 1.00,
-              "uom": "EA",
-              "uomOptions": [],
-              "unitPrice": {
-                "net": 12.86,
-                "gross": 14.79
-              },
-              "lineTotal": {
-                "net": 12.86,
-                "gross": 14.79
-              },
-              "conditions": [
-                {
-                  "type": "VKP0",
-                  "description": "Basic Price",
-                  "value": 12.86,
-                  "isStatistical": false
-                },
-                {
-                  "type": "MWST",
-                  "description": "Vat %",
-                  "value": 1.93,
-                  "isStatistical": false
-                }
-              ],
-              "promotions": [],
-              "atpAtScan": {
-                "quantity": null,
-                "frozenAt": null,
-                "known": false
-              },
-              "belowAtpAtScan": false,
-              "warnings": []
-            }
-          ],
+          "lines": [],
           "totals": {
-            "net": 12.86,
-            "vat": 1.93,
-            "gross": 14.79,
+            "net": 0,
+            "vat": 0,
+            "gross": 0,
             "deliveryFee": {
               "amount": 12.0,
               "waived": false,
@@ -468,30 +378,29 @@
               "thresholdGross": 100,
               "conditionType": "DFEE"
             },
-            "payable": 26.79
+            "payable": 12.0
           },
           "firedPromotions": [],
           "nearMisses": [],
           "pendingConfirmation": null,
           "capabilities": {
-            "canAddItem": false,
-            "canPriceCheck": false,
-            "canApplyCoupon": false,
+            "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
             "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
-            "canOpenAddressBook": false,
+            "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
-            "canChangeFulfilment": true,
+            "canChangeFulfilment": false,
             "capabilityReasons": {
-              "canApplyCoupon": "NO_CUSTOMER"
+              "canChangeFulfilment": "DELIVERY_ONLY_SOURCE"
             },
             "submitBlockers": [
-              "NO_CUSTOMER",
+              "NO_LINES",
               "NO_ADDRESS",
-              "MISSING_SLOT",
-              "MISSING_SOURCE_REFERENCE"
+              "MISSING_SLOT"
             ]
           }
         },
@@ -503,12 +412,10 @@
     }
   },
   "_notes": [
-    "\uD83D\uDEA9 BOTH HALVES ARE CAPTURED SEPARATELY. `addItemNoCustomer` has neither; `addItemNoStore` has a caller and a store nobody chose. A gate that only ever fails on the first condition is half-built, and one capture could not tell the two apart.",
-    "The gate is ENFORCED by addItem, not by the capability: capabilities.canAddItem is the REPORT of it (§2 advisory-but-authoritative). A console that ignored the capability gets a typed refusal, never a line on an order priced at a store nobody picked.",
-    "The DELIVERY exit is setAddress and nothing else. With §6.3's attach-before-address constraint already server-side, that makes the delivery path enforce caller-first by construction.",
-    "\uD83D\uDEA9 The PICKUP exit is setStore carrying the store the order ALREADY holds — legal, and it advances plantSource to `chosenForPickup`. The plant does not move, so pendingConfirmation is null and nothing re-prices; the entire effect is that a choice is on the record. A server that raised a storeChange confirm here has read §2.3 item 4 wrong.",
-    "`chosenForPickup` is a FOURTH plantSource value rather than reuse of `operatorOverride`, which would claim an operator moved the store. That conflation — `open` reporting `operatorOverride` on a plant nobody chose — is the defect 871 closed, and oms-react 154 recorded it before it had a fix.",
-    "\uD83D\uDEA9 removeCustomer with LINES keeps them, keeps the plant AND keeps plantSource (owner ruling). The gate shuts on the missing caller alone, so nothing more can be added until one is re-attached — and re-attaching restores the order exactly as it was.",
-    "STORE_NOT_CHOSEN is one spelling used twice: the refusal code and the submitBlocker. The client has a one-table discipline for chip states and must not grow a second, client-side predicate that can disagree with the server on a live basket."
+    "\uD83D\uDEA9 v1.8 (877 §2.6) — capabilities.capabilityReasons is a Record<string,string> keyed by CAPABILITY NAME, valued as a typed code the client words. Absent or {} where nothing is shut; fixture 01 records the empty case. The keys are camelCase on the wire because System.Text.Json's naming policy applies to properties only.",
+    "The rule is DocumentSourcePolicyService's SupportsPickInStore — WSFD / P2E / DKSW are delivery-only — and the list lives server-side in DocumentSourceFulfilmentPolicy, which CC2's WPF service now delegates to. A client-side list of source codes was REJECTED: DocumentSourceCategory membership is table data, so a console holding the list is a second opinion that goes stale silently.",
+    "It is the surviving half of a rule 175 stated too widely. 175 carried \"P2E forces online payment + the delivery-only sources\" as one item; 155 found the payment half sits on the KIND axis, where every forcing kind is out of phase 1. This half is a SOURCE rule, and phase 1 has sources.",
+    "capabilityReasons.canChangePaymentType is UNREACHABLE in phase 1 by ruling (§2.4) and appears in no fixture. It is wired so that a forcing rule arriving later is a server DATA change, not a client change.",
+    "\uD83D\uDEA9 Only the flip TO pickup is refused, and the CAPABILITY says exactly that. setFulfilment(Delivery) stays legal on every order, and an order ALREADY under pickup with a delivery-only source (reachable — setDocumentSource carries no fulfilment guard) keeps canChangeFulfilment TRUE with no reason: the one move left to it is the one that resolves the combination. A source rule must never be able to strand an order in a mode it cannot leave."
   ]
 }

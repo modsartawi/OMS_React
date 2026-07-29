@@ -3,7 +3,7 @@
     "ticket": "857",
     "map": "126",
     "scenario": "open on a clean agent — the empty basket every other fixture starts from, and the SHUT opening gate (871 §2.3)",
-    "contractVersion": "1.5",
+    "contractVersion": "1.10",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
     "capturedAt": "2026-07-29",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
@@ -13,7 +13,7 @@
     "method": "POST",
     "path": "CallCenterWeb/Open",
     "body": {
-      "requestId": "06FTP1AWMV7697YE99W9DYXGP6"
+      "requestId": "06FTV3P3JPW5XPXBTP2CBF2T25"
     }
   },
   "response": {
@@ -22,10 +22,10 @@
       "data": {
         "outcome": "opened",
         "state": {
-          "contractVersion": "1.5",
-          "transactionId": "06FTP1AZYT8593G21W48K22EA6",
+          "contractVersion": "1.10",
+          "transactionId": "06FTV3Q0R4YA2XSR09Y3X8C9S1",
           "version": 5,
-          "etag": "06FTP1AZYT8593G21W48K22EA6-5",
+          "etag": "06FTV3Q0R4YA2XSR09Y3X8C9S1-5",
           "status": "open",
           "replayed": false,
           "header": {
@@ -35,19 +35,21 @@
             "plantSource": "seededAtOpen",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t4469a3d1",
+            "register": "WEB-ta22d36a6",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T02:18:04.5088946+03:00",
+            "openedAt": "2026-07-29T14:07:45.7406033+03:00",
             "customer": null,
             "address": null,
+            "retainedAddressLabel": null,
             "slot": null,
             "documentSource": null,
             "sourceReference": null,
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
-            "hasBelowAtp": false
+            "hasBelowAtp": false,
+            "coupons": []
           },
           "lines": [],
           "totals": {
@@ -68,12 +70,18 @@
           "pendingConfirmation": null,
           "capabilities": {
             "canAddItem": false,
+            "canPriceCheck": false,
+            "canApplyCoupon": false,
+            "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": false,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
+            "capabilityReasons": {
+              "canApplyCoupon": "NO_CUSTOMER"
+            },
             "submitBlockers": [
               "NO_LINES",
               "NO_CUSTOMER",

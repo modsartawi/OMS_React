@@ -3,7 +3,7 @@
     "ticket": "857",
     "map": "126",
     "scenario": "addItem → pendingConfirmation: belowAtp — the ask half. The commit leg is blocked by 858 and captured as the no-op it currently is",
-    "contractVersion": "1.5",
+    "contractVersion": "1.10",
     "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
     "capturedAt": "2026-07-29",
     "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
@@ -17,8 +17,8 @@
         "itemNumber": "200021",
         "qty": 10,
         "uom": null,
-        "transactionId": "06FTP1BSBZ2TRRS7HN5AYHRY57",
-        "requestId": "06FTP1BTBW049C58RD228N6KG4",
+        "transactionId": "06FTV3ZX86E415YEYDJ5RZ28Y3",
+        "requestId": "06FTV401W7JT04JGJE308S06T3",
         "confirmToken": null
       }
     },
@@ -26,10 +26,10 @@
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.5",
-          "transactionId": "06FTP1BSBZ2TRRS7HN5AYHRY57",
+          "contractVersion": "1.10",
+          "transactionId": "06FTV3ZX86E415YEYDJ5RZ28Y3",
           "version": 12,
-          "etag": "06FTP1BSBZ2TRRS7HN5AYHRY57-12",
+          "etag": "06FTV3ZX86E415YEYDJ5RZ28Y3-12",
           "status": "open",
           "replayed": false,
           "header": {
@@ -39,10 +39,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t23427f31",
+            "register": "WEB-t93eee43d",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T02:18:10.5454923",
+            "openedAt": "2026-07-29T14:08:42.7760431",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -50,13 +50,15 @@
               "loyaltyAttached": true
             },
             "address": null,
+            "retainedAddressLabel": null,
             "slot": null,
             "documentSource": null,
             "sourceReference": null,
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
-            "hasBelowAtp": false
+            "hasBelowAtp": false,
+            "coupons": []
           },
           "lines": [],
           "totals": {
@@ -76,7 +78,7 @@
           "nearMisses": [],
           "pendingConfirmation": {
             "kind": "belowAtp",
-            "confirmToken": "06FTP1BTS8WNQ6GFKQDYEPF3A2",
+            "confirmToken": "06FTV403NQBTETPV3RW7ZWJRZ3",
             "expiresInMs": 120000,
             "detail": {
               "itemNumber": "200021",
@@ -87,12 +89,16 @@
           },
           "capabilities": {
             "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
+            "capabilityReasons": {},
             "submitBlockers": [
               "NO_LINES",
               "NO_ADDRESS",
@@ -116,19 +122,19 @@
         "itemNumber": "200021",
         "qty": 10,
         "uom": null,
-        "transactionId": "06FTP1BSBZ2TRRS7HN5AYHRY57",
-        "requestId": "06FTP1BTBW049C58RD228N6KG4",
-        "confirmToken": "06FTP1BTS8WNQ6GFKQDYEPF3A2"
+        "transactionId": "06FTV3ZX86E415YEYDJ5RZ28Y3",
+        "requestId": "06FTV401W7JT04JGJE308S06T3",
+        "confirmToken": "06FTV403NQBTETPV3RW7ZWJRZ3"
       }
     },
     "response": {
       "statusCode": 200,
       "body": {
         "data": {
-          "contractVersion": "1.5",
-          "transactionId": "06FTP1BSBZ2TRRS7HN5AYHRY57",
+          "contractVersion": "1.10",
+          "transactionId": "06FTV3ZX86E415YEYDJ5RZ28Y3",
           "version": 17,
-          "etag": "06FTP1BSBZ2TRRS7HN5AYHRY57-17",
+          "etag": "06FTV3ZX86E415YEYDJ5RZ28Y3-17",
           "status": "open",
           "replayed": true,
           "header": {
@@ -138,10 +144,10 @@
             "plantSource": "operatorOverride",
             "origin": "C000",
             "documentType": "CallCenterOrder",
-            "register": "WEB-t23427f31",
+            "register": "WEB-t93eee43d",
             "operatorId": "TEST-OP",
             "entryStore": "1001",
-            "openedAt": "2026-07-29T02:18:10.5454923",
+            "openedAt": "2026-07-29T14:08:42.7760431",
             "customer": {
               "customerId": "C-REDACTED",
               "name": "Redacted Customer",
@@ -149,13 +155,15 @@
               "loyaltyAttached": true
             },
             "address": null,
+            "retainedAddressLabel": null,
             "slot": null,
             "documentSource": null,
             "sourceReference": null,
             "orderNote": null,
             "paymentType": "CashOnDelivery",
             "paymentTypeForcedReason": null,
-            "hasBelowAtp": true
+            "hasBelowAtp": true,
+            "coupons": []
           },
           "lines": [],
           "totals": {
@@ -176,12 +184,16 @@
           "pendingConfirmation": null,
           "capabilities": {
             "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": false,
             "canSubmit": false,
             "canChangeStore": true,
             "canOpenAddressBook": true,
             "canConfirmSeededStore": false,
             "canChangePaymentType": true,
             "canChangeFulfilment": true,
+            "capabilityReasons": {},
             "submitBlockers": [
               "NO_LINES",
               "NO_ADDRESS",

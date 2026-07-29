@@ -1,0 +1,424 @@
+{
+  "_capture": {
+    "ticket": "857",
+    "map": "126",
+    "scenario": "v1.10 — a coupon applied, seen, refused as a duplicate, and taken back off; and a coupon SKU refused as an item",
+    "contractVersion": "1.10",
+    "capturedFrom": "The real CallCenterWeb/* handlers in SIS.Api, invoked in-process against the live dev store DB and the real pricing engine; the response is ASP.NET Core's own IResult execution, so the status code and the JSON bytes are the wire's.",
+    "capturedAt": "2026-07-29",
+    "capturedBy": "SIS.Pricing.Tests — Pos/CcContract/CcContractFixtureTests.cs (issue 857)",
+    "redaction": "No real customer or staff identity appears in any fixture on this map."
+  },
+  "applied": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/ApplyCoupon",
+      "body": {
+        "couponCode": "HD20AA1335717",
+        "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
+        "requestId": "06FTV40R3QXB5BXRN45MGMS8G4",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.10",
+          "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
+          "version": 26,
+          "etag": "06FTV40CNB3Q1N0WRYB8D5FZH4-26",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "operatorOverride",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-t19cf59b8",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-29T14:08:46.8135671",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": null,
+            "retainedAddressLabel": null,
+            "slot": null,
+            "documentSource": "CINB",
+            "sourceReference": "CALL-879-14",
+            "orderNote": null,
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false,
+            "coupons": [
+              {
+                "code": "HD20AA1335717",
+                "description": "Coupon",
+                "amount": -2.58
+              }
+            ]
+          },
+          "lines": [
+            {
+              "lineId": "L10",
+              "itemNumber": "200021",
+              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+              "qty": 2.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 11.57,
+                "gross": 13.305
+              },
+              "lineTotal": {
+                "net": 23.14,
+                "gross": 26.61
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 25.72,
+                  "isStatistical": false
+                },
+                {
+                  "type": "ZB03",
+                  "description": "10% Coupon",
+                  "value": -1.29,
+                  "isStatistical": false
+                },
+                {
+                  "type": "ZB03",
+                  "description": "10% Coupon",
+                  "value": -1.29,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 3.47,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [
+                {
+                  "offerId": "",
+                  "description": "10% Coupon",
+                  "amount": -2.58
+                }
+              ],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
+            }
+          ],
+          "totals": {
+            "net": 23.14,
+            "vat": 3.47,
+            "gross": 26.61,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 38.61
+          },
+          "firedPromotions": [
+            {
+              "offerId": "",
+              "description": "10% Coupon",
+              "amount": -2.58,
+              "lineIds": [
+                "L10",
+                "L20"
+              ]
+            }
+          ],
+          "nearMisses": [
+            {
+              "offerId": "",
+              "description": "T173 COUPON-GATED BBY",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "prereq": {
+                "kind": "coupon",
+                "materialNumber": "COUPT173",
+                "groupingId": null,
+                "eligibleCount": 1
+              },
+              "skipReason": null
+            }
+          ],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": true,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "capabilityReasons": {},
+            "submitBlockers": [
+              "NO_ADDRESS",
+              "MISSING_SLOT"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "duplicate": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/ApplyCoupon",
+      "body": {
+        "couponCode": "HD20AA1335717",
+        "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
+        "requestId": "06FTV40Y010P9RF81AB5R2QPE3",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 409,
+      "body": {
+        "data": null,
+        "statusCode": 409,
+        "success": false,
+        "message": "That coupon is already on this order.",
+        "errors": [
+          {
+            "errorCode": "COUPON_ALREADY_APPLIED",
+            "internalErrorCode": null,
+            "errorMessage": "That coupon is already on this order."
+          }
+        ]
+      }
+    }
+  },
+  "removed": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/RemoveCoupon",
+      "body": {
+        "couponCode": "HD20AA1335717",
+        "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
+        "requestId": "06FTV40YVRFWMXG84B0TFMQHF3",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 200,
+      "body": {
+        "data": {
+          "contractVersion": "1.10",
+          "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
+          "version": 33,
+          "etag": "06FTV40CNB3Q1N0WRYB8D5FZH4-33",
+          "status": "open",
+          "replayed": false,
+          "header": {
+            "deliveryType": "Delivery",
+            "plant": "1001",
+            "plantName": "King AbdelAziz Road",
+            "plantSource": "operatorOverride",
+            "origin": "C000",
+            "documentType": "CallCenterOrder",
+            "register": "WEB-t19cf59b8",
+            "operatorId": "TEST-OP",
+            "entryStore": "1001",
+            "openedAt": "2026-07-29T14:08:46.8135671",
+            "customer": {
+              "customerId": "C-REDACTED",
+              "name": "Redacted Customer",
+              "mobile": "9665REDACTED",
+              "loyaltyAttached": true
+            },
+            "address": null,
+            "retainedAddressLabel": null,
+            "slot": null,
+            "documentSource": "CINB",
+            "sourceReference": "CALL-879-14",
+            "orderNote": null,
+            "paymentType": "CashOnDelivery",
+            "paymentTypeForcedReason": null,
+            "hasBelowAtp": false,
+            "coupons": []
+          },
+          "lines": [
+            {
+              "lineId": "L10",
+              "itemNumber": "200021",
+              "description": "8X4 DEO SPRAY MODN CHARM 150ML",
+              "description2": "8×4 بخاخ مودرن حريمى مزيل عرق 150مل",
+              "qty": 2.00,
+              "uom": "EA",
+              "uomOptions": [],
+              "unitPrice": {
+                "net": 12.86,
+                "gross": 14.79
+              },
+              "lineTotal": {
+                "net": 25.72,
+                "gross": 29.58
+              },
+              "conditions": [
+                {
+                  "type": "VKP0",
+                  "description": "Basic Price",
+                  "value": 25.72,
+                  "isStatistical": false
+                },
+                {
+                  "type": "MWST",
+                  "description": "Vat %",
+                  "value": 3.86,
+                  "isStatistical": false
+                }
+              ],
+              "promotions": [],
+              "atpAtScan": {
+                "quantity": null,
+                "frozenAt": null,
+                "known": false
+              },
+              "belowAtpAtScan": false,
+              "warnings": []
+            }
+          ],
+          "totals": {
+            "net": 25.72,
+            "vat": 3.86,
+            "gross": 29.58,
+            "deliveryFee": {
+              "amount": 12.0,
+              "waived": false,
+              "waivedReason": null,
+              "thresholdGross": 100,
+              "conditionType": "DFEE"
+            },
+            "payable": 41.58
+          },
+          "firedPromotions": [],
+          "nearMisses": [
+            {
+              "offerId": "",
+              "description": "10% Coupon",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "prereq": {
+                "kind": "coupon",
+                "materialNumber": "COUP01",
+                "groupingId": null,
+                "eligibleCount": 1
+              },
+              "skipReason": null
+            },
+            {
+              "offerId": "",
+              "description": "T173 COUPON-GATED BBY",
+              "isReady": false,
+              "progress": {
+                "have": 0,
+                "need": 1
+              },
+              "prereq": {
+                "kind": "coupon",
+                "materialNumber": "COUPT173",
+                "groupingId": null,
+                "eligibleCount": 1
+              },
+              "skipReason": null
+            }
+          ],
+          "pendingConfirmation": null,
+          "capabilities": {
+            "canAddItem": true,
+            "canPriceCheck": true,
+            "canApplyCoupon": true,
+            "canRemoveCoupon": false,
+            "canSubmit": false,
+            "canChangeStore": true,
+            "canOpenAddressBook": true,
+            "canConfirmSeededStore": false,
+            "canChangePaymentType": true,
+            "canChangeFulfilment": true,
+            "capabilityReasons": {},
+            "submitBlockers": [
+              "NO_ADDRESS",
+              "MISSING_SLOT"
+            ]
+          }
+        },
+        "statusCode": 200,
+        "success": true,
+        "message": "",
+        "errors": null
+      }
+    }
+  },
+  "couponSkuIsNotAnAdd": {
+    "request": {
+      "method": "POST",
+      "path": "CallCenterWeb/AddItem",
+      "body": {
+        "itemNumber": "COUPT173",
+        "qty": 1,
+        "uom": null,
+        "transactionId": "06FTV40CNB3Q1N0WRYB8D5FZH4",
+        "requestId": "06FTV411C2ZNZ3J1K8QXQ0JMY7",
+        "confirmToken": null
+      }
+    },
+    "response": {
+      "statusCode": 409,
+      "body": {
+        "data": null,
+        "statusCode": 409,
+        "success": false,
+        "message": "That is a coupon, not an item. Apply it in the coupon field.",
+        "errors": [
+          {
+            "errorCode": "ITEM_NOT_SELLABLE",
+            "internalErrorCode": null,
+            "errorMessage": "That is a coupon, not an item. Apply it in the coupon field."
+          }
+        ]
+      }
+    }
+  },
+  "_notes": [
+    "\uD83D\uDEA9 v1.10 (879 §1 / §2.7) — header.coupons[] is an ARRAY, because the engine holds a LIST and applyCoupon's duplicate check is per-code, so a second, DIFFERENT coupon is accepted. `[]` on an order with none, never null.",
+    "`code` is what the AGENT typed. The engine attributes a coupon's money by the campaign MATERIAL (PromotionCouponCode = COUPT173 for a coupon keyed as SAVE20 — SIS.Pos's own CouponAttributionEndToEndTests pins that in those words) and keeps the typed code in a private list with no accessor, so the sidecar carries the label. `amount` is PromotionCouponDiscount summed over the lines carrying the material, negative.",
+    "\uD83D\uDEA9 removeCoupon REVERSES FIRST and voids only if the reverse landed (issue 211's till invariant). VoidLineAsync on a COUP line drops the bonus buy correctly since 581, but CollectReversalContexts() is reached from VoidTransactionAsync ONLY — so a bare line-void would drop the discount and leave the customer's coupon SPENT. A refused reverse answers COUPON_REVERSAL_REFUSED and leaves the order byte-identical, which is the refusal's whole meaning.",
+    "capabilities.canApplyCoupon is canAddItem's OWN predicate (§3), not a similar one: the redeem stamps storeCode: plant into the coupon ledger permanently, and 129's documented-non-event ruling is true of the ORDER and false of that row. canRemoveCoupon additionally needs the order to hold one AND the reversal leg to be reachable — the client deliberately does not derive it from coupons.length.",
+    "⚠ A SHUT GATE IS NOT A SHUT CHIP: header.coupons[] projects even when canApplyCoupon is false, because the order may hold a coupon the agent has to read out on a call where a new one may not be applied.",
+    "\uD83D\uDEA9 addItem of a coupon SKU is ITEM_NOT_SELLABLE, and the assertion is written so nobody later \"fixes\" it by allowing it (871's negative pattern). ⚖ Recorded fairly: the alternative outcome was a refusal by the no-price scan back-out AddCouponAsync sidesteps, and which of the two happened depended on whether the campaign SKU carried a price. Both are wrong; refusing by NAME means the outcome no longer varies with master data."
+  ]
+}

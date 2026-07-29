@@ -1,23 +1,34 @@
-// PROTOTYPE DRIVE — throwaway, wayfinder ticket 159.
+// The coupon and the loyalty signup, driven against the WIRED console.
 //
 //   1. npx vite --port 5199
 //   2. node tools/coupon-159-drive.mjs
 //
-// Drives the REAL `ConsoleShell` through the two surfaces 135 and 138 never
-// drew — the redeemed coupon and the loyalty signup — at 1440×900 (135's design
-// width), writing a PNG per state into .issues/assets/159-coupon-signup/.
+// 🚩 **Re-pointed twice.** This drive was written for wayfinder ticket 159's
+// prototype route (`/prototype/callcenter-coupon`), where both surfaces were
+// applied in local component state and neither verb existed. Ticket 190 moved
+// the signup half to `/callcenter`; ticket 189 moves the coupon half — so the
+// whole drive now runs the real `CallCenterConsolePage` through the real
+// `applyCoupon` / `removeCoupon` mutations, with nothing stubbed but the wire.
 //
-// ⚠ EVERY STATE HERE IS A STUB and the drive says so in its own output. Unlike
-// 176, which stood on a real capture of the flip, contract v1.10 exists on no
-// server: `header.coupons`, `canApplyCoupon`, `canRemoveCoupon` and
-// `removeCoupon` are what this ticket PROPOSES. 177's rule is that a
-// hand-authored fixture is a hypothesis about shape and about population, and
-// BackOffice `CcContractFixtureTests` is what will settle both.
+// 🚩 **And v1.10 is no longer a proposal.** When 159 drew this, `header.coupons`,
+// `canApplyCoupon`, `canRemoveCoupon` and `removeCoupon` existed on no server and
+// every state below said ⚠ stub. BackOffice 879 has since landed and the map's
+// fixtures were re-captured at v1.10: the coupon this drive applies, the state it
+// gets back, and the duplicate refusal are **capture 14's own bytes**
+// (`14-coupon-on-and-off.json`), and the coupon-gated near-miss is capture 02's.
+//
+// ⚠ Two things here are still stubs and the drive says so in its own output:
+//   · `COUPON_REVERSAL_REFUSED` — the reversal leg refusing. No capture holds it
+//     (the captured removal succeeded), and it is the one refusal whose WORDING
+//     the console owns, so it is driven from a hand-built envelope.
+//   · the loyalty half — the two signup routes ship, but no SIS.Api runs beside
+//     this drive.
 //
 // What it asserts is everything a screenshot cannot:
 //
-//   1. the coupon chip is LAST in the row and carries no attention mark — the
-//      only chip an order need never fill
+//   1. the coupon chip CLOSES the row beside the note and carries no attention
+//      mark — the two chips an order need never fill (159 put the coupon last;
+//      183 landed the note beside it under the same rule)
 //   2. the chip carries the CODE and never a figure formatted as money (135's
 //      register rule, 138's restatement of it)
 //   3. an applied coupon is NAMED — the state that did not exist before v1.10,
@@ -28,34 +39,38 @@
 //      the array being non-empty
 //   6. 🚩 a refused REMOVAL says NOTHING CHANGED, because the reverse runs
 //      before the void (issue 211's ordering) — the opposite of what a failed
-//      remove usually means
-//   7. the signup hangs off the not-found lookup, is INLINE (no modal over the
+//      remove usually means — and the coupon is still listed under it
+//   7. a second, DIFFERENT code is an ordinary success: the console enforces no
+//      one-coupon rule the engine does not have
+//   8. a coupon-gated offer is stated and never offered: no Add, and it does not
+//      raise the top bar's *within reach* count
+//   9. the signup hangs off the not-found lookup, is INLINE (no modal over the
 //      console during a spoken wait), and carries the number already typed
-//   8. the signup ends at a member the agent still has to attach (165's two
+//  10. the signup ends at a member the agent still has to attach (165's two
 //      steps, which a freshly enrolled caller does not skip)
-//   8b. 🚩 ticket 190 — 7 and 8 are now asserted against the WIRED console
-//      (`/callcenter`, only the wire stubbed) rather than the prototype, which
+//  10b. 🚩 ticket 190 — 9 and 10 are asserted against the WIRED console, which
 //      is what lets them assert the two rules that exist only ON THE WIRE: the
 //      body carries NO `branchId`, and the mobile goes out AS TYPED while the
 //      dialling-code line the agent read back stays a display preview
-//   9. no state throws, and the centre column never scrolls sideways
+//  11. no state throws, and the centre column never scrolls sideways
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
-const BASE = 'http://localhost:5199/prototype/callcenter-coupon'
+const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 const OUT = '.issues/assets/159-coupon-signup'
-const STATES = ['none', 'applied', 'twoCoupons', 'shutNoStore', 'shutHolding', 'couponGated', 'signupMiss']
 
 mkdirSync(OUT, { recursive: true })
 
-// The session half of the wired-console section below is the contract's OWN
-// committed fixture — the loyalty half beside it is this drive's stub.
-const fixture = (name) =>
+const capture = (name) =>
   JSON.parse(
     readFileSync(new URL(`../.issues/assets/136-cc-contract/${name}.json`, import.meta.url), 'utf8'),
-  ).response.body.data
+  )
+
+// The session half of the wired-console sections is the contract's OWN
+// committed fixture — the loyalty half beside it is this drive's stub.
+const fixture = (name) => capture(name).response.body.data
 
 const envelope = (data, { status = 200, success = true, message = '', errors = [] } = {}) => ({
   status,
@@ -63,36 +78,191 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
   body: JSON.stringify({ statusCode: status, success, message, errors, data }),
 })
 
+/** A refusal as the door actually answers it — a coded envelope on a non-2xx. */
+const refusal = (errorCode, errorMessage) =>
+  envelope(null, {
+    status: 409,
+    success: false,
+    message: errorMessage,
+    errors: [{ errorCode, internalErrorCode: null, errorMessage }],
+  })
+
 let pass = 0
 let fail = 0
 const ok = (c, m) => (c ? (pass++, console.log(`  ✓ ${m}`)) : (fail++, console.log(`  ✗ ${m}`)))
 
 const browser = await chromium.launch()
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
-const errors = []
-page.on('pageerror', (e) => errors.push(String(e)))
-// The capture the base state comes from carries a real near-miss, so the
-// guidance strip calls `ResolvePrereq` and the dev proxy answers 5xx with no
-// SIS.Api beside it. The ONE failure allowed through, named rather than
-// silenced — any other resource error still fails the drive.
-const PROXY_DEAD = /status of 5\d\d/
-page.on('console', (m) => m.type() === 'error' && !PROXY_DEAD.test(m.text()) && errors.push(m.text()))
 
-const shot = async (name) => {
+/* ------------------------------------------- the coupon, off the wire ------ */
+
+const COUPON_CAPTURE = capture('14-coupon-on-and-off')
+/** The coupon the real handler answered with, code, words and money. */
+const REAL_COUPON = COUPON_CAPTURE.applied.response.body.data.header.coupons[0]
+/** The duplicate refusal, in the server's own bytes. */
+const DUPLICATE = COUPON_CAPTURE.duplicate.response.body.errors[0]
+
+/** A second, different code — accepted because the duplicate check is per-code.
+ *  ⚠ Its own money is this drive's, the capture holding only one coupon. */
+const SECOND_COUPON = { code: 'FREEDEL', description: null, amount: -12 }
+/** ⚠ STUB. The code whose REVERSAL the coupon service refuses — the one leg no
+ *  capture holds, and the whole reason rule 6 above needs driving. */
+const UNREVERSIBLE = SECOND_COUPON.code
+/** A code the coupon service rejects outright, carrying its own sentence. */
+const REJECTED = 'EXPIRED'
+
+const ATTACHED = fixture('02-two-lines-priced')
+
+/** The order as the capture left it, with the coupon array and the two
+ *  capabilities set to whatever the scenario is about. Nothing else moves. */
+const withCoupons = (coupons, caps = {}) => ({
+  ...ATTACHED,
+  header: { ...ATTACHED.header, coupons },
+  capabilities: {
+    ...ATTACHED.capabilities,
+    canApplyCoupon: true,
+    canRemoveCoupon: coupons.length > 0,
+    capabilityReasons: {},
+    ...caps,
+  },
+})
+
+const SCENARIOS = {
+  // Capture 02's own state, minus the coupon it happens to carry: the resting
+  // state, where the chip is unset and nothing is outstanding.
+  none: withCoupons([]),
+  // 🚩 Capture 02 as it really answers since the v1.10 re-capture — a real
+  // redeemed coupon on a real basket.
+  holding: withCoupons([REAL_COUPON]),
+  // ⚠ Derived: two coupons, which the engine permits and no capture holds.
+  twoCoupons: withCoupons([REAL_COUPON, SECOND_COUPON]),
+  // 🚩 Capture 01's own shut gate: no caller, so nothing to redeem against.
+  shutNoCaller: fixture('01-open-empty').state,
+  // ⚠ Derived: the gate shut over an order that HOLDS one, which is the case
+  // the *shut gate is not a shut chip* rule exists for.
+  shutHolding: withCoupons([REAL_COUPON], {
+    canApplyCoupon: false,
+    canRemoveCoupon: false,
+    capabilityReasons: { canApplyCoupon: 'ORDER_CLOSED' },
+  }),
+}
+
+/**
+ * The coupon half of the door, stubbed over the capture's own answers.
+ *
+ * 🚩 Apply APPENDS and remove DROPS — and the refused removal changes nothing at
+ * all, because the server reverses before it voids and a refused reverse never
+ * reaches the void. That is the transformation being asserted, not a convenience.
+ */
+async function open(scenario) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  const page = await context.newPage()
+  const pageErrors = []
+  const wire = []
+  let served = SCENARIOS[scenario]
+
+  page.on('pageerror', (e) => pageErrors.push(String(e)))
+  // Chromium logs every non-2xx as a console error whether or not the app
+  // handled it; that line is the browser's network log, not the app's.
+  page.on(
+    'console',
+    (m) =>
+      m.type() === 'error' &&
+      !/^Failed to load resource: the server responded with a status of/.test(m.text()) &&
+      pageErrors.push(m.text()),
+  )
+
+  await page.route('**/api/**', async (route) => {
+    const request = route.request()
+    const p = request.url().split('/api/')[1].split('?')[0]
+    let body = null
+    if (request.method() === 'POST') {
+      try {
+        body = request.postDataJSON()
+      } catch {
+        body = null
+      }
+      wire.push({ path: p, body })
+    }
+
+    if (p === 'Auth/Me')
+      return route.fulfill(
+        envelope({
+          authenticated: true,
+          userId: 'a.alharbi',
+          displayName: 'A. Alharbi',
+          currentStoreCode: '1001',
+        }),
+      )
+    if (p === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (p === 'CallCenterWeb/Open')
+      return route.fulfill(envelope({ outcome: 'opened', state: served, existing: null }))
+    if (p === 'CallCenterWeb/State') return route.fulfill(envelope(served))
+
+    if (p === 'CallCenterWeb/ApplyCoupon') {
+      const code = body?.couponCode
+      // The coupon service's own sentence, said out loud by the agent.
+      if (code === REJECTED) return route.fulfill(refusal('COUPON_REJECTED', 'This coupon has expired.'))
+      // 🚩 Per-CODE, exactly as the engine's check is (capture 14's own bytes).
+      // `?? []` because a pre-v1.10 state carries no array at all — capture 01's
+      // own shape before the re-capture, and the shape the console degrades on.
+      if ((served.header.coupons ?? []).some((c) => c.code === code))
+        return route.fulfill(refusal(DUPLICATE.errorCode, DUPLICATE.errorMessage))
+      const applied = code === REAL_COUPON.code ? REAL_COUPON : { ...SECOND_COUPON, code }
+      served = {
+        ...served,
+        version: served.version + 1,
+        header: { ...served.header, coupons: [...(served.header.coupons ?? []), applied] },
+        capabilities: { ...served.capabilities, canRemoveCoupon: true },
+      }
+      return route.fulfill(envelope(served))
+    }
+
+    if (p === 'CallCenterWeb/RemoveCoupon') {
+      const code = body?.couponCode
+      // ⚠ STUB — no capture holds this leg. 🚩 The order is answered UNTOUCHED:
+      // the reverse runs first and the void never ran, so the coupon is still on
+      // it and still spent.
+      if (code === UNREVERSIBLE)
+        return route.fulfill(
+          refusal('COUPON_REVERSAL_REFUSED', 'The coupon service would not release that code.'),
+        )
+      const left = (served.header.coupons ?? []).filter((c) => c.code !== code)
+      served = {
+        ...served,
+        version: served.version + 1,
+        header: { ...served.header, coupons: left },
+        capabilities: { ...served.capabilities, canRemoveCoupon: left.length > 0 },
+      }
+      return route.fulfill(envelope(served))
+    }
+
+    if (/Access$/.test(p))
+      return route.fulfill(envelope({ canOpen: true, screenAllowed: true, allowed: true }))
+    return route.fulfill(envelope([]))
+  })
+
+  await page.goto(`${BASE}/callcenter`)
+  await page.waitForSelector('[data-cc-chips]')
+  return { context, page, pageErrors, wire }
+}
+
+const shoot = async (page, name) => {
   await page.addStyleTag({ content: '.fixed{display:none !important}' })
   await page.screenshot({ path: `${OUT}/${name}.png` })
 }
 
-const load = async (state) => {
-  await page.goto(`${BASE}?state=${state}`)
-  await page.waitForSelector('[data-cc-chips]')
+const openModal = async (page) => {
+  await page.click('[data-cc-chip-open="coupon"]')
+  await page.waitForSelector('[data-cc-coupon-picker]')
 }
+
+const allErrors = []
 
 /* ------------------------------------------------ the chip, per state ------ */
 
-for (const st of STATES) {
-  console.log(`\n${st}  ⚠ stub`)
-  await load(st)
+for (const st of Object.keys(SCENARIOS)) {
+  console.log(`\n${st}`)
+  const { context, page, pageErrors } = await open(st)
 
   const m = await page.evaluate(() => {
     const chips = [...document.querySelectorAll('[data-cc-chip]')].map((c) => c.dataset.ccChip)
@@ -108,9 +278,15 @@ for (const st of STATES) {
     }
   })
 
-  // 1. Last in the row. Everything to its left is a fact the order holds or must
-  //    hold; a coupon is one the caller may simply not have.
-  ok(m.chips[m.chips.length - 1] === 'coupon', 'the coupon chip is LAST in the row')
+  // 1. 🚩 In the CLOSING PAIR. 159 put the coupon last; 183 then landed the note
+  //    beside it under the same rule — the two chips an order need never fill
+  //    close the row, so chips that are empty on most orders do not push the
+  //    ones that carry a blocker along it. Everything to their left is a fact
+  //    the order holds or must hold before it can be placed.
+  ok(
+    m.chips.slice(-2).includes('coupon') && m.chips[m.chips.length - 1] !== 'coupon',
+    `the coupon chip closes the row beside the note (${m.chips.slice(-2).join(', ')})`,
+  )
 
   // 2. 🚩 The register rule. The chip row has never carried money and this is
   //    not the chip to start with — the amount draws inside the modal.
@@ -122,9 +298,8 @@ for (const st of STATES) {
   //    outstanding field.
   ok(m.couponAttention === false, 'the coupon chip is never attention-marked')
 
-  // 4. 🚩 A shut apply-gate is NOT a shut chip. The modal is where the reason
-  //    lives, and an order can hold a coupon on a call where a new one may not
-  //    be applied.
+  // 4. 🚩 A shut apply-gate is NOT a shut chip — proved on the wired console,
+  //    where the page passes `onChangeCoupon` on the OPEN rule alone.
   ok(m.couponIsButton, 'the coupon chip is a control in every state, including a shut gate')
 
   // 5. The coupon never grew a receipt row — the owner ruled chip over receipt,
@@ -133,88 +308,155 @@ for (const st of STATES) {
 
   ok(!m.overflowX, 'the centre never scrolls sideways')
 
-  await shot(st)
+  await shoot(page, st)
+  allErrors.push(...pageErrors)
+  await context.close()
 }
 
 /* --------------------------------------- what the chip says it holds ------- */
 
-console.log('\napplied — the state that did not exist before v1.10')
-await load('applied')
+console.log('\nholding — the state that did not exist before v1.10 (capture 14’s own coupon)')
 {
+  const { context, page, pageErrors } = await open('holding')
   const chip = await page.locator('[data-cc-chip="coupon"]').innerText()
   // 3. THE finding. `applyCoupon` shipped in v1.0 and the projection's only
-  //    coupon-aware line is the one that HIDES the voucher — so until now the
+  //    coupon-aware line is the one that HIDES the voucher — so until v1.10 the
   //    totals moved and nothing named the coupon.
-  ok(/SAVE20/.test(chip), 'the applied coupon is NAMED on the chip')
+  ok(chip.includes(REAL_COUPON.code), 'the applied coupon is NAMED on the chip')
 
-  await page.click('[data-cc-chip="coupon"]')
-  await page.waitForSelector('[data-cc-coupon-picker]')
+  await openModal(page)
   const modal = await page.evaluate(() => ({
     rows: [...document.querySelectorAll('[data-cc-coupon-row]')].map((r) => r.dataset.ccCouponRow),
     text: document.querySelector('[data-cc-coupon-picker]').innerText,
-    hasInput: !!document.querySelector('[data-cc-coupon-input'.concat(']')),
+    hasInput: !!document.querySelector('[data-cc-coupon-input]'),
     hasReadBack: !!document.querySelector('[data-cc-coupon-readback]'),
     removes: document.querySelectorAll('[data-cc-coupon-remove]').length,
   }))
-  ok(modal.rows.includes('SAVE20'), 'the modal lists the coupon the order holds')
+  ok(modal.rows.includes(REAL_COUPON.code), 'the modal lists the coupon the order holds')
   ok(/SAR/.test(modal.text), 'the amount IS drawn here — the one place a coupon’s money appears')
   ok(modal.hasInput, 'the entry box is open')
   // 🚩 The read-back is not decoration: the redeem burns the code before the
   // engine sees it, so the moment before the press is the cheap one.
   ok(modal.hasReadBack, 'the entry states that applying redeems the code straight away')
   ok(modal.removes === 1, 'the coupon the order holds offers a removal')
-  await shot('applied-modal')
+  await shoot(page, 'applied-modal')
+  allErrors.push(...pageErrors)
+  await context.close()
 }
 
-/* ---------------------------------------------- the two refusals ----------- */
+/* --------------------------- applying, twice, through the real mutation ---- */
 
-console.log('\napply refused — a business outcome the agent says out loud')
+console.log('\napplying — off an empty order, through the wired console')
 {
-  await page.fill('[data-cc-coupon-input]', 'EXPIRED')
+  const { context, page, pageErrors, wire } = await open('none')
+  await openModal(page)
+  ok(
+    (await page.locator('[data-cc-coupon-none]').count()) === 1,
+    'an order with no coupon says so in words, not with an empty list',
+  )
+
+  await page.fill('[data-cc-coupon-input]', REAL_COUPON.code)
+  await page.click('[data-cc-coupon-apply]')
+  await page.waitForSelector(`[data-cc-coupon-row="${REAL_COUPON.code}"]`)
+
+  // 🚩 The wire, not the screen: ONE redemption, carrying the code and one
+  // requestId. A second would be a second burn at the coupon service.
+  const applies = wire.filter((w) => w.path === 'CallCenterWeb/ApplyCoupon')
+  ok(applies.length === 1, `exactly one ApplyCoupon (${applies.length})`)
+  ok(applies[0]?.body?.couponCode === REAL_COUPON.code, 'carrying the code the agent typed')
+  ok(typeof applies[0]?.body?.requestId === 'string' && applies[0].body.requestId.length > 0, 'and one requestId (law 3)')
+
+  // The chip fills from the RESPONSE — nothing here is optimistic, because a
+  // coupon drawn on the press would show one the service refused.
+  const chip = await page.locator('[data-cc-chip="coupon"]').innerText()
+  ok(chip.includes(REAL_COUPON.code), 'the chip names the coupon the server answered with')
+  ok(
+    (await page.locator('[data-cc-coupon-input]').inputValue()) === '',
+    'and the box is empty again — a code left standing is one Enter from a second burn',
+  )
+  await shoot(page, 'wired-applied')
+
+  // 7. A second, DIFFERENT code. The engine holds a list and the duplicate check
+  //    is per-code, so the console must not invent a one-coupon rule.
+  await page.fill('[data-cc-coupon-input]', SECOND_COUPON.code)
+  await page.click('[data-cc-coupon-apply]')
+  await page.waitForSelector(`[data-cc-coupon-row="${SECOND_COUPON.code}"]`)
+  ok((await page.locator('[data-cc-coupon-row]').count()) === 2, 'a second, DIFFERENT code is accepted')
+  const both = await page.locator('[data-cc-chip="coupon"]').innerText()
+  ok(
+    both.includes(REAL_COUPON.code) && both.includes(SECOND_COUPON.code),
+    'and the chip joins the two codes rather than collapsing to a count',
+  )
+  await shoot(page, 'wired-two-coupons')
+
+  // The duplicate refusal, in the server's own words (capture 14's bytes).
+  await page.fill('[data-cc-coupon-input]', REAL_COUPON.code)
   await page.click('[data-cc-coupon-apply]')
   await page.waitForSelector('[data-cc-coupon-apply-error]')
-  const text = await page.locator('[data-cc-coupon-apply-error]').innerText()
-  ok(!/COUPON_/.test(text), 'the refusal is a sentence, never a machine code')
-  ok(
-    (await page.locator('[data-cc-coupon-row]').count()) === 1,
-    'a refused apply left the order exactly as it was',
-  )
-  await shot('apply-refused')
+  const dupe = await page.locator('[data-cc-coupon-apply-error]').innerText()
+  ok(!/COUPON_/.test(dupe), 'a refused apply is a sentence, never a machine code')
+  ok(/already/i.test(dupe), 'and it is the SERVER’S own sentence about a duplicate')
+  ok((await page.locator('[data-cc-coupon-row]').count()) === 2, 'a refused apply left the order exactly as it was')
+  await shoot(page, 'wired-apply-refused')
+
+  allErrors.push(...pageErrors)
+  await context.close()
 }
 
-console.log('\nremove refused — 🚩 NOTHING CHANGED, which is the opposite of the usual')
-await load('twoCoupons')
+/* ------------------------- removing, and the refusal that means nothing ---- */
+
+console.log('\nremoving — 🚩 a refusal that means NOTHING CHANGED (⚠ that leg is a stub)')
 {
-  await page.click('[data-cc-chip="coupon"]')
-  await page.waitForSelector('[data-cc-coupon-picker]')
-  // FREEDEL is the mock's un-reversible code. The reverse runs BEFORE the void
-  // (issue 211), so its refusal leaves the coupon on the order and spent.
-  await page.click('[data-cc-coupon-remove="FREEDEL"]')
+  const { context, page, pageErrors, wire } = await open('twoCoupons')
+  await openModal(page)
+
+  // The one the coupon service will not release. The reverse runs BEFORE the
+  // void (issue 211), so its refusal leaves the coupon on the order and spent.
+  await page.click(`[data-cc-coupon-remove="${UNREVERSIBLE}"]`)
   await page.waitForSelector('[data-cc-coupon-remove-error]')
   const text = await page.locator('[data-cc-coupon-remove-error]').innerText()
-  ok(/nothing has changed/i.test(text), 'the refusal says nothing changed')
+  ok(/nothing has changed/i.test(text), 'the refusal says NOTHING CHANGED')
   ok(/still/i.test(text), 'and that the coupon is still on the order')
+  // 🚩 The escape, named. There is no second way to take a coupon off, so a
+  // refusal that stopped at *nothing changed* would leave the agent with no
+  // next move to offer the caller.
+  ok(/abandon/i.test(text), 'and names abandoning the order as the way out')
+  ok(!/COUPON_/.test(text), 'never as a machine code')
+  ok((await page.locator('[data-cc-coupon-row]').count()) === 2, 'both coupons are still listed — the void never ran')
+  // The refusal is drawn beside the LIST it did not alter, not over the entry
+  // box: a refused remove reported up there reads as a refused apply.
   ok(
-    (await page.locator('[data-cc-coupon-row]').count()) === 2,
-    'both coupons are still listed — the void never ran',
+    (await page.locator('[data-cc-coupon-apply-error]').count()) === 0,
+    'and nothing is said under the entry box, which refused nothing',
   )
-  await shot('remove-refused')
+  await shoot(page, 'wired-remove-refused')
 
   // The one that does reverse.
-  await page.click('[data-cc-coupon-remove="SAVE20"]')
-  await page.waitForFunction(
-    () => document.querySelectorAll('[data-cc-coupon-row]').length === 1,
+  await page.click(`[data-cc-coupon-remove="${REAL_COUPON.code}"]`)
+  await page.waitForFunction(() => document.querySelectorAll('[data-cc-coupon-row]').length === 1)
+  ok(true, 'a removal the coupon service allowed takes the coupon off')
+  ok(
+    (await page.locator('[data-cc-coupon-remove-error]').count()) === 0,
+    'and the refusal it did not raise is gone with it',
   )
-  ok(true, 'a removal that the coupon service allowed takes the coupon off')
+  const removes = wire.filter((w) => w.path === 'CallCenterWeb/RemoveCoupon')
+  ok(removes.length === 2, `two RemoveCoupon calls, one per press (${removes.length})`)
+  ok(
+    removes.every((r) => typeof r.body?.requestId === 'string' && r.body.couponCode),
+    'each carrying its own requestId and the code it is for',
+  )
+  await shoot(page, 'wired-removed')
+
+  allErrors.push(...pageErrors)
+  await context.close()
 }
 
 /* ------------------------------------------------- the shut gate ----------- */
 
-console.log('\nshutNoStore — 🚩 the redemption is stamped with the order’s plant, permanently')
-await load('shutNoStore')
+console.log('\nshutNoCaller — 🚩 capture 01’s own gate: nobody to redeem against')
 {
-  await page.click('[data-cc-chip="coupon"]')
-  await page.waitForSelector('[data-cc-coupon-picker]')
+  const { context, page, pageErrors } = await open('shutNoCaller')
+  await openModal(page)
   const m = await page.evaluate(() => ({
     hasInput: !!document.querySelector('[data-cc-coupon-input]'),
     shut: document.querySelector('[data-cc-coupon-shut]')?.dataset.ccCouponShut ?? null,
@@ -223,16 +465,17 @@ await load('shutNoStore')
   // 153's rule with its one exception honoured: no dead control, but never an
   // empty answer either.
   ok(!m.hasInput, 'the entry box is ABSENT, not disabled')
-  ok(m.shut === 'STORE_NOT_CHOSEN', 'the SERVER’S own reason code drives the wording')
-  ok(/store/i.test(m.text), 'and the reason is a sentence the agent can repeat to a caller')
-  await shot('shut-no-store')
+  ok(m.shut === 'NO_CUSTOMER', 'the SERVER’S own reason code drives the wording')
+  ok(/caller/i.test(m.text), 'and the reason is a sentence the agent can repeat to a caller')
+  await shoot(page, 'shut-no-caller')
+  allErrors.push(...pageErrors)
+  await context.close()
 }
 
-console.log('\nshutHolding — a shut gate still shows what the order holds')
-await load('shutHolding')
+console.log('\nshutHolding — a shut gate still shows what the order holds ⚠ derived')
 {
-  await page.click('[data-cc-chip="coupon"]')
-  await page.waitForSelector('[data-cc-coupon-picker]')
+  const { context, page, pageErrors } = await open('shutHolding')
+  await openModal(page)
   const m = await page.evaluate(() => ({
     rows: document.querySelectorAll('[data-cc-coupon-row]').length,
     hasInput: !!document.querySelector('[data-cc-coupon-input]'),
@@ -240,33 +483,42 @@ await load('shutHolding')
   }))
   ok(m.rows === 1, 'the coupon the order holds is still listed')
   ok(!m.hasInput, 'and the way in is gone')
-  // 5. Removability is the SERVER'S answer, not `coupons.length > 0`.
-  ok(m.removes === 0, 'no removal offered — the server did not say it could be')
-  await shot('shut-holding')
+  // 5. 🚩 Removability is the SERVER'S answer, not `coupons.length > 0` — the
+  //    order holds one and no removal is offered, which is the whole assertion.
+  ok(m.removes === 0, 'no removal offered — the server did not say the reversal leg was reachable')
+  await shoot(page, 'shut-holding')
+  allErrors.push(...pageErrors)
+  await context.close()
 }
 
 /* ------------------------- the offer no basket change can reach ----------- */
 
-console.log('\ncouponGated — 🚩 what capture 02 was already offering as *add 1 more*')
-await load('couponGated')
+console.log('\ncouponGated — 🚩 what capture 02 was offering as *add 1 more* until v1.10')
 {
+  const { context, page, pageErrors } = await open('none')
   const m = await page.evaluate(() => ({
     needsCoupon: [...document.querySelectorAll('[data-cc-needs-coupon-item]')].length,
     text: document.querySelector('[data-cc-guidance-needs-coupon]')?.innerText ?? '',
     // 172's one-click add lives on an ACTIONABLE card. A coupon-gated offer must
-    // never become one: the add would qualify the bonus buy and burn nothing.
+    // never become one: the add would qualify the bonus buy and burn nothing —
+    // which the server now refuses by name (`ITEM_NOT_SELLABLE`, capture 14).
     actionableCards: document.querySelectorAll('[data-cc-card-class="actionable"]').length,
     count: document.querySelector('[data-cc-guidance-strip-count]')?.innerText ?? '',
     couponCards: document.querySelectorAll('[data-cc-card-class="needsCoupon"]').length,
   }))
-  ok(m.needsCoupon === 1, 'the coupon-gated offer is STATED')
+  ok(m.needsCoupon >= 1, 'the coupon-gated offer is STATED')
   ok(m.actionableCards === 0, 'and is never an actionable card — so it grows no Add')
   ok(m.couponCards === 0, 'it is not drawn as an expandable card at all')
   ok(/coupon/i.test(m.text), 'the row says a coupon is what it needs')
   ok(!/add \d+ more/i.test(m.text), 'and never *add N more*, which no basket change can satisfy')
   ok(!/1 offer/i.test(m.count), 'the top bar does not count it as within reach')
-  await shot('coupon-gated-offer')
+  await shoot(page, 'coupon-gated-offer')
+  allErrors.push(...pageErrors)
+  await context.close()
 }
+
+ok(allErrors.length === 0, `no page errors across the coupon states (${allErrors.length})`)
+if (allErrors.length) console.log(allErrors.slice(0, 5).join('\n'))
 
 /* ------------------------------------------------- the signup ------------- */
 //
@@ -367,7 +619,7 @@ console.log('\nthe wired console — a lookup that finds nobody, and the enrolme
     return route.fulfill(envelope([]))
   })
 
-  await consolePage.goto(`http://localhost:5199/callcenter`)
+  await consolePage.goto(`${BASE}/callcenter`)
   await consolePage.waitForSelector('[data-cc-rail]')
 
   // ---- the miss, on ordinary ground --------------------------------------
@@ -498,9 +750,8 @@ console.log('\nthe wired console — a lookup that finds nobody, and the enrolme
 
 /* ------------------------------------------------------------ verdict ----- */
 
-ok(errors.length === 0, `no page errors (${errors.length})`)
-if (errors.length) console.log(errors.join('\n'))
-
-console.log(`\n${pass}/${pass + fail} — ⚠ every state above is a STUB (contract v1.10 is unbuilt)`)
+console.log('\n⚠ STUBS: COUPON_REVERSAL_REFUSED — the reversal leg refusing, which no capture holds;')
+console.log('  the second coupon’s own money; and the whole loyalty half — no SIS.Api runs beside this drive.')
+console.log(`\n${pass} passed, ${fail} failed`)
 await browser.close()
 process.exit(fail ? 1 : 0)

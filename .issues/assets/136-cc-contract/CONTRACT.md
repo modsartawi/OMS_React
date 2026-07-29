@@ -180,7 +180,13 @@ CallCenterSession              (SIS.Api, keyed by transactionId) → customer, a
     "orderNote": null,            // v1.3 — free text, CC2's OrderNote; never price-affecting
   "retainedAddressLabel": null, // v1.8 — the LABEL of the address the sidecar holds while the
                                 // order collects; non-null only under PickInStore (§2.6)
-    "hasBelowAtp": true           // any line added or re-frozen below availability (§5.2)
+    "hasBelowAtp": true,          // any line added or re-frozen below availability (§5.2)
+    "coupons": [                  // v1.10 — every coupon this order HOLDS, `[]` never null (§2.7)
+      { "code": "SAVE20",         // what the AGENT typed — NOT the engine's PromotionCouponCode,
+                                  // which holds the campaign MATERIAL (COUPT173)
+        "description": "20% off oral care",   // the campaign's words, or null — null is ordinary
+        "amount": -8.40 }         // PromotionCouponDiscount summed over the lines it touched
+    ]
   },
 
   "lines": [
@@ -1121,6 +1127,36 @@ The alternative — allow the delete and clear the order's address — was rejec
 **book** act into **order** state, silently shutting the opening gate ([§2.3](#23-the-opening-gate-v13))
 mid-call and, under `Delivery`, discarding the store derivation with it. A caller tidying their
 address book must not lose the order they are placing.
+
+### 6.6 The loyalty sign-up, narrowed (v1.10)
+
+Added by [159](../../159-coupon-and-loyalty-signup-drawn.md). `CallCenterWeb/SignUpByBranch` and
+`ConfirmSignUpByBranch` are two of [801](C:\Work\DMSCO\BackOffice\.issues\801-callcenter-web-door.md)'s
+**verbatim** delegations — they precede customer attach, so there is no session to scope them to and
+the grant is their whole boundary. v1.10 stops one of them being verbatim, on the same ground 801
+removed `?customerId=` on.
+
+> **`branchId` is OFF both request bodies.** The console sends
+> `{ requestId, countryCode, mobile, preferredLanguage?[, otp, referralCode] }` and nothing else.
+
+`BranchId` is written to the member's `CreatedByBranchId` **permanently**, plus every
+`LogMemberUpdate` row and every member-action row — and `LoySignUpByBranchRequestValidator` does not
+require it. A verbatim pass-through therefore let any signed-in agent holding the console grant
+credit **any pharmacy in the estate** with an enrolment, or none at all. The server stamps the call
+centre's own store code from configuration (`CallCenter.BranchId`, with a shipped default), exactly
+as [878](C:\Work\DMSCO\BackOffice\.issues\878-cc-address-capture-and-order-acts.md) stamps
+`CountryKey` / `LanguageKey` / `AddressType` on the address capture.
+
+🚩 **And the mobile is normalised server-side.** CC2 builds the enrolled number itself (dialling code
++ local, leading zero stripped **for SA only**) out of a country list compiled into the WPF client.
+Reimplementing that in the console would put one rule in two clients over the value the loyalty base
+is **keyed on** — [156](../../156-delivery-fee-shared-rule.md)'s exact failure — and the two would
+eventually enrol the same caller twice. So the console sends `countryCode` and `mobile` **as typed**
+and draws its dialling-code line as a *display preview* only.
+
+⚠ A body that still carries `branchId` is **ignored**, never refused — which is why this is a minor
+bump on the request side. The property does not exist on the server type, so there is nothing to
+discard silently and nothing to start honouring later.
 
 ---
 

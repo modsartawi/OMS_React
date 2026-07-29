@@ -668,6 +668,40 @@ for the console layout.
   four tickets running to that shape now.
   [Captures](assets/176-fulfilment/) · [prototype](../src/features/callcenter/console/__prototype__/).
 
+- [The address the agent creates, and the contract that carries it](179-the-address-editor-and-its-capture-contract.md)
+  — **contract v1.9, additive**: one new code, no new verb, no new field. Three of the ticket's four
+  questions were answered by things already built — the payload by
+  [801](C:\Work\DMSCO\BackOffice\.issues\801-callcenter-web-door.md)'s shipped request types, the
+  ~1,000-district fetch by a `staleTime: Infinity` cache key this repo has had since Screen 2, and
+  the undeliverable district by `StoreCode`/`TempStoreCode` already on the wire — so 🚩 **the session
+  was really about a seam nothing on the ticket asked about: the address book is a CUSTOMER store on
+  a DIFFERENT door, and two of its writes reach into the order.** **Editing** the address the order
+  holds re-pins the store by **re-issuing `setAddress` with the same `addressNumber`** (the map had
+  already ruled the derivation pinned at *picks **or edits*** and the contract had no way to say the
+  second half) — whose one server obligation is a **negative** one: that call must not be
+  short-circuited as a no-op, being the only thing on the contract that looks idempotent and is not.
+  **Deleting** it is refused, `ADDRESS_IN_USE_BY_ORDER` — the sidecar holds a *number* while the
+  submit builder copies *fields* and `GetCustomerAddresses` filters `IsDeleted = 0`, so the delete
+  breaks the order at its **last** step; clearing the order's address instead was rejected as
+  cascading a book act into order state. The **payload narrows** to CC2's nine + label with the three
+  constants server-stamped (801's own *"a field the server silently discards is indistinguishable
+  from one it honours"*, one field-set wider) — ✅ safe because `UpdateCustomerAddress` is a
+  **null-coalescing merge**, so an omitted field is preserved; 🚩 and that merge's flip side is a
+  capture rule: a field can never be emptied by omission, so the client sends `""` and never `null`
+  and the mapper must not tidy blanks to null. The picker is CC2's **one box, not a cascade**, and
+  the client **may** grey a store-less district — it asks *whether* there is a store, never *which* —
+  so `address-book.ts`'s no-derivation rule stays literally true and the server refusal stays
+  authoritative. SPL stays **format-only with no verified affordance**. Server work minted as
+  BackOffice [878](C:\Work\DMSCO\BackOffice\.issues\878-cc-address-capture-and-order-acts.md).
+  🚩 **The pattern worth keeping**: five tickets now — after
+  [156](156-delivery-fee-shared-rule.md), [157](157-price-check.md),
+  [158](158-stock-in-other-stores.md) and [176](176-fulfilment-mode-drawn.md) — have turned into
+  findings rather than restatements by reading what the ticket already **inherited** before designing
+  anything. At five it stops being a coincidence and becomes how a ticket written weeks before it is
+  worked should be opened. And narrower: the merge was found by reading the **service**, not the
+  endpoint — which de-risked the narrowing *and* produced a rule a mapper written from the endpoint
+  signature alone would have got backwards.
+
 ## Not yet specified
 
 - **§6.4's double-apply hazard, and a cheap way to remove it.** Ruling the absorption out leaves the
@@ -721,6 +755,15 @@ for the console layout.
 
 ## Out of scope
 
+- **Live SPL national-address verification.** Ruled while resolving
+  [179](179-the-address-editor-and-its-capture-contract.md). `ShortAddress` is the Saudi National
+  Address and CC2 validates it **format-only** (`^[A-Z]{4}[0-9]{4}$`); its own comment says live
+  verification against `splonline.com.sa` *"is a separate integration that needs an API contract /
+  credentials"* and is not wired. The web inherits the same check and the same absence — knowingly,
+  which is what this line is for — and the console must not dress it as verification (no tick, no
+  *verified* affordance). A third-party integration with its own credentials, contract and failure
+  design sits past this map's destination; it returns as its own effort, and phase 1 is no worse than
+  the desktop client it replaces.
 - **The density toggle and the launch seeds.** Owner ruling while resolving
   [175](175-nothing-enters-an-unaddressed-order.md), asked directly and not selected. CC2 has a
   compact/comfortable toggle (`Ctrl+D`, persisted per user) and `KindLocked` / `SourceLocked` /

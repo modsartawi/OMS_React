@@ -1,4 +1,4 @@
-# The web call-center session API — frozen contract v1.8
+# The web call-center session API — frozen contract v1.9
 
 > Asset of [136](../../136-session-api-contract.md), map [126](../../126-web-call-center.md).
 > Frozen 2026-07-27 at v1.0; **v1.1** adds the fulfilment-mode axis
@@ -12,7 +12,9 @@
 > **v1.6** adds the price check — what an item costs, without adding it
 > ([157](../../157-price-check.md), additive);
 > **v1.7** adds stock at other stores, read-only
-> ([158](../../158-stock-in-other-stores.md), additive).
+> ([158](../../158-stock-in-other-stores.md), additive);
+> **v1.9** names the two address-book writes that are order acts
+> ([179](../../179-the-address-editor-and-its-capture-contract.md), additive).
 > **This document is the single source of truth for both tracks.**
 > Client track: `oms-react` `features/callcenter/`. Server track: SIS.Api + `SIS.Pricing`
 > (BackOffice [785](C:\Work\DMSCO\BackOffice\.issues\785-web-cc-engine-session.md),
@@ -948,6 +950,61 @@ contract, not an implementation detail:
 - Sidecar-only fields are never price-affecting, so an orphaned sidecar row is recoverable and an
   orphaned engine transaction is swept at 12 h (127).
 
+### 6.5 The two address-book writes that are order acts (v1.9)
+
+Added by [179](../../179-the-address-editor-and-its-capture-contract.md). The address book is a
+**customer** store reached through [801](C:\Work\DMSCO\BackOffice\.issues\801-callcenter-web-door.md)'s
+five `CallCenterWeb/CustomerAddresses*` routes — not through this contract. Three of the five are
+pure book acts and this document has nothing to say about them (create a *new* address, edit one the
+order is **not** using, set a default). **Two of them reach into the order**, and because they arrive
+on a different door than the verb that would notice, the rule has to be written here or nowhere.
+
+**1. Editing the address the order holds re-pins the store.** The map has already ruled that the
+district→store derivation is *"pinned at the moment the operator picks **or edits** an address"*
+([126](../../126-web-call-center.md), Out of scope). But `setAddress` carries only an
+`addressNumber`, and an edit does not change it — so a `PUT` that moves an address from Al Malqa to
+Al Olaya changes the **book row** while the order keeps a plant derived from a district that address
+no longer sits in, and `header.address.line` keeps rendering the old composition. Nothing on the
+wire would say so.
+
+> **The rule: after a successful `PUT` of the address whose `addressNumber` equals
+> `header.address.addressNumber`, the console re-issues `setAddress` with that same
+> `addressNumber`.** No new verb — `setAddress` already carries the whole re-derivation, already
+> raises the [§5.1](#51-kind-storechange) `storeChange` confirmation when there are lines, and
+> already refuses `NO_DELIVERY_STORE_FOR_DISTRICT`. An edit is a book write followed by a re-pin,
+> and the agent sees exactly the store-move preview a different address would have shown them.
+
+🚩 **The server must not short-circuit a same-number `setAddress` as a no-op.** This is the one place
+where a call that looks idempotent is genuinely state-changing: same `addressNumber` in, a different
+plant possibly out. An early-return on *"they already have this address"* would make the edit silent
+in exactly the case the rule exists for. (`requestId` replay is unaffected — a *replay* returns the
+recorded answer, which is correct; a *fresh* request must re-derive.)
+
+⚠ Consequence worth naming: an edit can leave the book row saved and the order **refusing** it —
+the agent edits their own current address into a district carrying no store, the `PUT` succeeds and
+the re-pin answers `NO_DELIVERY_STORE_FOR_DISTRICT`. The order keeps the plant and address it had;
+the book keeps the edit. That is the honest outcome (the customer's address really is what they
+said) and the console says the order cannot be delivered from it, rather than rolling back a
+correction the caller just made.
+
+**2. Deleting the address the order holds is refused.** The order's sidecar keeps an
+`AddressNumber`, not a copy of the fields — and the submit builder copies address **fields** onto the
+document (`Cc2DocumentHeaderBuilder.ApplyShippingAddress`), so the web's submit path re-reads the
+book. `SdAddressService.GetCustomerAddresses` filters `IsDeleted = 0`. A delete of the current
+address therefore produces a delivery order that **cannot build a shipping address at submit** — an
+order broken at the last step by an act on a different door.
+
+> **The rule: `DELETE CallCenterWeb/CustomerAddresses` refuses when the target is the session's
+> current `addressNumber` — `ADDRESS_IN_USE_BY_ORDER` (409, §7).** The console also omits the delete
+> control on that row (`AddressChoice.isCurrent` already exists), but the refusal is the guard and
+> the omission is the courtesy: a client-side rule alone is the second implementation this contract
+> keeps refusing to have.
+
+The alternative — allow the delete and clear the order's address — was rejected: it cascades a
+**book** act into **order** state, silently shutting the opening gate ([§2.3](#23-the-opening-gate-v13))
+mid-call and, under `Delivery`, discarding the store derivation with it. A caller tidying their
+address book must not lose the order they are placing.
+
 ---
 
 ## 7. Error taxonomy
@@ -972,6 +1029,7 @@ console branches.
 | `PAYMENT_TYPE_FORCED` | 409 | business | **v1.4** — `setPaymentType` on an order whose `paymentTypeForcedReason` is non-null. Unreachable in phase 1 (no forcing rule is configured — §2.4); typed now so it never has to be added later |
 | `PAYMENT_TYPE_INVALID` | 400 | business | **v1.4** — a value outside `CashOnDelivery \| Online`. Covers `Receivable`, which is **reserved and refused** in phase 1 (§2.4) |
 | `ADDRESS_NOT_FOR_CUSTOMER` | 403 | business | Address belongs to a different customer |
+| `ADDRESS_IN_USE_BY_ORDER` | 409 | business | **v1.9** — `DELETE CallCenterWeb/CustomerAddresses` against the address the open order currently holds ([§6.5](#65-the-two-address-book-writes-that-are-order-acts-v19)). The console omits the control too, but this is the guard |
 | `ITEM_NOT_SELLABLE` | 409 | business | Fails CC1's whitelist / blocked / wrong `ItemType` (131) |
 | `ITEM_NOT_FOUND` | 404 | business | Unknown item number at this client |
 | `NO_PRICE_AT_PLANT` | 409 | business | The item does not price at the order's store |
@@ -1092,6 +1150,8 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 | 1.8 | 2026-07-29 | **Two fields the drawn mode needs** ([§2.6](#26-what-the-flip-does-to-the-screen-v18)). New `header.retainedAddressLabel` — the LABEL, never the address — non-null only under `PickInStore` where an address was ever picked, so *switching back may move the store* is known before the confirmation arrives. New `capabilities.capabilityReasons` — a map keyed by capability name, valued as a typed code, carrying **why** a `can*` is false; its first use is `canChangeFulfilment: false` on a delivery-only document source (`DocumentSourcePolicyService.SupportsPickInStore` — WSFD / P2E / DKSW), and it also serves the already-shipped `canChangePaymentType`. 🚩 The client alternative to the first field was **built and rejected** by the owner: a console that remembers the last address IT saw is blank after a refresh and in a second tab, so one order reads two ways. No verb changes, no code changes, nothing frozen moves. | **minor — additive** | [176](../../176-fulfilment-mode-drawn.md) |
 
 | 1.7 | 2026-07-29 | **Stock at other stores, read-only** ([§3.5](#35-stockelsewhere--who-else-has-it-read-only)). New `stockElsewhere` read (`GET CallCenterWeb/StockElsewhere`) returning a new `StockElsewhereResult`, new fixture 13. **No new error code, no new capability** — `canPriceCheck` gates both halves of the one "about this item" panel. It is the **only read on this contract that is a remote HTTP hop out of SIS.Api**, so `available: false` means *unknown*, never *nobody has it*, and it is a separate call from `priceCheck` precisely so a stock outage cannot cost the agent the price. `atp` is the same definition the search row already carries. Ruled **read-only**: a store change is the order's act through `setStore` + §5.1, never a one-click from an item's panel. | **minor — additive** | [158](../../158-stock-in-other-stores.md) |
+
+| 1.9 | 2026-07-29 | **The two address-book writes that are order acts** ([§6.5](#65-the-two-address-book-writes-that-are-order-acts-v19)). One new code, `ADDRESS_IN_USE_BY_ORDER`. **No new verb, no new field, no new capability** — an edit of the order's current address re-pins the store by re-issuing the `setAddress` this contract already has, which is why the map's *"pinned at the moment the operator picks **or edits** an address"* ruling needed a rule here rather than a mechanism. 🚩 The one server obligation is a **negative** one: a same-`addressNumber` `setAddress` must not be short-circuited as a no-op, because it is the single call on this contract that looks idempotent and is not. The capture payload itself is [878](C:\Work\DMSCO\BackOffice\.issues\878-cc-address-capture-and-order-acts.md)'s, on 801's door, not this document's. | **minor — additive** | [179](../../179-the-address-editor-and-its-capture-contract.md) |
 
 **Why 1.6 and 1.7 are not 2.0.** Nothing frozen moves. Each is one new read, one new result shape,
 and at most one new capability — a v1.5 client that has never heard of `priceCheck` or

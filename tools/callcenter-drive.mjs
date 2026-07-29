@@ -295,18 +295,51 @@ const ATTACHED_CUSTOMER = {
   loyaltyAttached: true,
 }
 
+// ---- 175's opening gate, as the SERVER computes it (contract v1.3) ----
+//
+//   canAddItem = open && customer != null && plantSource != 'seededAtOpen'
+//
+// and `canPriceCheck` (157) and `canApplyCoupon` (159) are the SAME predicate.
+// The rule lives in the stub because the console never re-derives it — it reads
+// `capabilities`, which is precisely what 175 settled. Fixture 01 opens with the
+// gate SHUT (no caller, a plant nobody chose) and fixture 02 shows what it looks
+// like once both are settled; every state this stub builds in between has to
+// agree with the two of them, or the drive would be asking the console to open a
+// door the contract says is closed.
+const gated = (state) => {
+  const isOpen =
+    state.status === 'open' && state.header.customer != null && state.header.plantSource !== 'seededAtOpen'
+  const reasons = { ...(state.capabilities.capabilityReasons ?? {}) }
+  // The reason is the FIRST thing still missing — the one the agent does next.
+  if (isOpen) delete reasons.canApplyCoupon
+  else reasons.canApplyCoupon = state.header.customer == null ? 'NO_CUSTOMER' : 'STORE_NOT_CHOSEN'
+  return {
+    ...state,
+    capabilities: {
+      ...state.capabilities,
+      canAddItem: isOpen,
+      canPriceCheck: isOpen,
+      canApplyCoupon: isOpen,
+      capabilityReasons: reasons,
+    },
+  }
+}
+
 // What `removeCustomer` answers (§6.3): the customer and the address are gone,
 // **the derived plant is retained**, and the address book has closed again.
 // Every one of those is the SERVER's doing — the console is only being watched
 // to see that it re-renders them rather than inventing them. Derived from the
 // state the stub last served, so removal answers about the order actually on
 // screen rather than about a fixture.
-const removedFrom = (state) => ({
-  ...state,
-  version: state.version + 1,
-  header: { ...state.header, customer: null, address: null },
-  capabilities: { ...state.capabilities, canOpenAddressBook: false },
-})
+// The gate shuts again with the caller — a basket may not be added to for an
+// order nobody is on, whatever the plant says.
+const removedFrom = (state) =>
+  gated({
+    ...state,
+    version: state.version + 1,
+    header: { ...state.header, customer: null, address: null },
+    capabilities: { ...state.capabilities, canOpenAddressBook: false },
+  })
 
 // ---- ticket 166: the address book, and the store the server derives from it ----
 //
@@ -931,12 +964,16 @@ async function open(
       // The order the agent is on, with the caller bound and the book opened —
       // whichever order that is. `openState` seeds a session that already has
       // one, so attaching must answer about THAT state, not about the empty one.
-      served = {
+      served = gated({
         ...served,
         version: served.version + 1,
         header: { ...served.header, customer: ATTACHED_CUSTOMER },
-        capabilities: { ...served.capabilities, canOpenAddressBook: true },
-      }
+        capabilities: {
+          ...served.capabilities,
+          canOpenAddressBook: true,
+          submitBlockers: served.capabilities.submitBlockers.filter((c) => c !== 'NO_CUSTOMER'),
+        },
+      })
       return route.fulfill(envelope(speak(served)))
     }
     // ---- 168: the catalogue read, and the one verb that adds from it ----
@@ -1080,7 +1117,7 @@ async function open(
       }
 
       const entry = isAddress ? ADDRESS_BOOK.find((a) => a.addressNumber === body.addressNumber) : null
-      served = {
+      served = gated({
         ...served,
         version: served.version + 1,
         pendingConfirmation: null,
@@ -1107,9 +1144,13 @@ async function open(
         },
         capabilities: {
           ...served.capabilities,
-          submitBlockers: served.capabilities.submitBlockers.filter((c) => c !== 'NO_ADDRESS'),
+          // A plant somebody chose — by address or outright — is a plant that
+          // is no longer un-chosen (175).
+          submitBlockers: served.capabilities.submitBlockers.filter(
+            (c) => c !== 'NO_ADDRESS' && c !== 'STORE_NOT_CHOSEN',
+          ),
         },
-      }
+      })
       return route.fulfill(envelope(speak(served)))
     }
     // ---- 173: the rest of the header ----
@@ -1263,10 +1304,14 @@ async function run() {
       storeChip.includes(STATE.header.plant) && storeChip.includes(STATE.header.plantName),
       storeChip.replace(/\s+/g, ' '),
     )
+    // 🚩 175: the plant the engine seeded is DRAWN but not settled — the opening
+    // state carries `STORE_NOT_CHOSEN`, so the chip that shows it says so. The
+    // console does not decide that; it reads the server's own `submitBlockers`.
     check(
-      'the store chip is settled, the unset ones are not',
-      (await page.locator('[data-cc-chip="store"]').getAttribute('data-cc-chip-state')) === 'settled' &&
+      'the seeded store chip needs attention, and the unset ones are not settled',
+      (await page.locator('[data-cc-chip="store"]').getAttribute('data-cc-chip-state')) === 'needsAttention' &&
         (await page.locator('[data-cc-chip="slot"]').getAttribute('data-cc-chip-state')) !== 'settled',
+      STATE.capabilities.submitBlockers.join(', '),
     )
 
     // The empty basket and the engine's zero totals.
@@ -1896,6 +1941,25 @@ async function run() {
     await page.locator('[data-cc-address-picker]').waitFor({ timeout: 10_000 })
   }
 
+  /** 175's opening gate, opened the way an AGENT opens it: a caller on the order
+   *  and a store somebody chose. Until both hold, `canAddItem` is false and the
+   *  search row draws no *Add* at all — so every box below that puts an item in
+   *  the basket starts here rather than on the bare opening state.
+   *
+   *  🚩 The gate is right and the setup was wrong: this is the sequence the
+   *  console is built to expect, not a relaxation of the capability. The address
+   *  is the one `openTheBook` offers, so the plant it derives is the stub's own —
+   *  `GATED_PLANT`, which is what an order past this point is really at. */
+  const GATED_ADDRESS = '77120'
+  const GATED_PLANT = DERIVED_PLANT[GATED_ADDRESS].plant
+  const openTheGate = async (page) => {
+    await openTheBook(page)
+    await page.locator(`[data-cc-address-option="${GATED_ADDRESS}"]`).click()
+    await page.locator('[data-cc-address-picker]').waitFor({ state: 'detached', timeout: 10_000 })
+    // The address on the rail is the state that carries the open gate with it.
+    await page.locator('[data-cc-address="set"]').waitFor({ timeout: 10_000 })
+  }
+
   // ---- 22. an address on an EMPTY basket applies inline, and says it derived ----
   {
     const { context, page, errors, calls, wire } = await open(browser, {})
@@ -2003,9 +2067,16 @@ async function run() {
       !/MISSING_PAYMENT_TYPE/.test(await text(page, '[data-cc-chips]')),
       (await text(page, '[data-cc-chips]')).replace(/\s+/g, ' '),
     )
+    // The row grew twice since this box was written — 176 put the mode first and
+    // the payment word after the reference, 159 put the coupon last — so the
+    // claim is the ORDER of what the header captures rather than a count.
+    const chipRow = await page
+      .locator('[data-cc-chip]')
+      .evaluateAll((els) => els.map((el) => el.getAttribute('data-cc-chip')))
     check(
-      'the chip row is the four the header captures',
-      (await page.locator('[data-cc-chip]').count()) === 4,
+      'the chip row is what the header captures, in the order it captures it',
+      chipRow.join(',') === 'fulfilment,store,slot,source,reference,payment,coupon',
+      chipRow.join(','),
     )
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
@@ -2442,6 +2513,12 @@ async function run() {
       (await text(page, '[data-cc-search-note]')).replace(/\s+/g, ' '),
     )
 
+    // 🚩 Both checks above are about the OPENING state, so they are taken before
+    // the gate: the search box stands and the caret is elsewhere from the first
+    // frame. Adding is a later act, and 175 says it waits for a caller and a
+    // store — so the box now takes that step, as an agent would.
+    await openTheGate(page)
+
     // 🚩 Under three characters the endpoint answers 400, so the console does not
     // spend the round trip: it says what is needed instead of failing.
     await page.locator('[data-cc-search-input]').fill('بن')
@@ -2610,7 +2687,8 @@ async function run() {
   {
     const { context, page, errors, wire } = await open(browser, {})
     await page.goto(`${BASE}/callcenter`)
-    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    // 175's gate first: nothing enters an order with no caller and no store.
+    await openTheGate(page)
     await page.locator('[data-cc-search-input]').fill('بنادول')
     await page.locator('[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
 
@@ -2639,7 +2717,9 @@ async function run() {
     )
     check(
       'and at which store',
-      (await text(page, '[data-cc-below-atp-where]')).includes(STATE.header.plant),
+      // The plant the order is really at once the gate is open — the one the
+      // address derived, not the entry store it opened on.
+      (await text(page, '[data-cc-below-atp-where]')).includes(GATED_PLANT),
       await text(page, '[data-cc-below-atp-where]'),
     )
     // 🚩 It is never a block: the order can always be taken, so the commit is
@@ -3410,7 +3490,9 @@ async function run() {
   {
     const { context, page, errors } = await open(browser, { swallowCommit: true })
     await page.goto(`${BASE}/callcenter`)
-    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+    // 175's gate: the acceptance under test is an ADD, so the order needs a
+    // caller and a store before there is one to accept.
+    await openTheGate(page)
     await page.locator('[data-cc-search-input]').fill('بنادول')
     await page.locator('[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
 

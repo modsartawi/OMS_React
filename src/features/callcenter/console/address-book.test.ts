@@ -209,9 +209,11 @@ describe('rePinAfterEdit', () => {
     expect(rePinAfterEdit('a77120', 'A77120')).toBe('A77120')
   })
 
-  // And what it hands back is the ORDER's spelling, not the book row's: it is
-  // the order being re-pinned, and `setAddress` is the order's verb.
-  it('re-issues with the number the ORDER holds', () => {
-    expect(rePinAfterEdit('77120  ', ' 77120')).toBe(' 77120')
+  // And what it hands back is the ORDER's spelling rather than the book row's —
+  // it is the order being re-pinned — but trimmed: padding is not part of the
+  // identity and there is no reason to put it on the wire.
+  it('re-issues with the number the ORDER holds, trimmed', () => {
+    expect(rePinAfterEdit('77120  ', ' 77120')).toBe('77120')
+    expect(rePinAfterEdit('a77120', 'A77120')).toBe('A77120')
   })
 })

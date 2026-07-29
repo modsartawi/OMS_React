@@ -154,9 +154,12 @@ export function addressRefusalKey(code: string | null | undefined): string | nul
  * The comparison is trim/case-insensitive because the door's own
  * (`CallCenterAddressScope`) is: the book's spelling of a number and the
  * order's are the same address written twice, and a strict compare here would
- * skip the re-pin on a row that came back padded. What it hands BACK is the
- * **order's** spelling — it is the order being re-pinned, and `setAddress` is
- * the order's verb.
+ * skip the re-pin on a row that came back padded.
+ *
+ * What it hands BACK is the **order's** spelling, trimmed — it is the order
+ * being re-pinned and `setAddress` is the order's verb, but padding is not part
+ * of the identity and there is no reason to put it on the wire. (The door
+ * resolves trim-insensitively, so this is belt-and-braces rather than a fix.)
  */
 export function rePinAfterEdit(
   editedAddressNumber: string | null | undefined,
@@ -165,5 +168,5 @@ export function rePinAfterEdit(
   const edited = text(editedAddressNumber)
   const current = text(currentAddressNumber)
   if (edited === null || current === null) return null
-  return edited.toUpperCase() === current.toUpperCase() ? (currentAddressNumber as string) : null
+  return edited.toUpperCase() === current.toUpperCase() ? current : null
 }

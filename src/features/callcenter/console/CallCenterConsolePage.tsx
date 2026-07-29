@@ -1317,8 +1317,8 @@ function ConsoleSession() {
   })
 
   /**
-   * The address book's two WRITES (187) — a create and a correction, on the
-   * **customer** door rather than this order's (§6.5).
+   * The address book's WRITES — two in 187, three since 188 — on the **customer**
+   * door rather than this order's (§6.5).
    *
    * 🚩 **A create auto-applies.** `POST` answers the whole row including the new
    * `addressNumber`, so the console hands it straight to the rebind above with
@@ -1328,15 +1328,20 @@ function ConsoleSession() {
    * IS the ordinary one, and a second path to `setAddress` is the kind of
    * second implementation this contract keeps refusing to have.
    *
-   * ⚠️ **A correction is deliberately NOT an order act here.** Only rows the
-   * order is not using can be edited (`AddressPicker` omits the control on the
-   * current one), so nothing that lands here can move the order's plant. The
-   * moment the current row becomes editable it must be followed by a re-issued
-   * `setAddress` on the same number — that rule is §6.5's and
-   * [188](.issues/188-editing-re-pins-deleting-is-refused.md)'s to build.
+   * 🚩 **A correction of the address the order holds IS an order act** (188 /
+   * §6.5 rule 1) — `updateAddress.onSuccess` asks `rePinAfterEdit` and, on a
+   * match, fires the same rebind. A correction to any OTHER row is a pure book
+   * act and must fire nothing: that asymmetry is the ticket, and treating the
+   * two alike in either direction is the failure it exists to prevent.
    *
-   * Neither carries a `requestId` and neither rides `withBusyRetry`: there is no
-   * transaction lease to collide with on the address door.
+   * ⚠️ **A DELETE has no order act behind it and cannot be given one** — see
+   * `deleteAddress` below for why the answer there is a refusal rather than a
+   * cascade.
+   *
+   * None of the three carries a `requestId` and none rides `withBusyRetry`:
+   * there is no transaction lease to collide with on the address door. (The
+   * re-pin that follows a correction does — but it is the ordinary rebind, and
+   * it mints its own id at `beginStoreMove`.)
    */
 
   /**

@@ -760,6 +760,22 @@ async function run() {
 
     check('the correction was sent', wire.filter((w) => w.method === 'PUT').length === 1)
     check('and the re-pin was attempted', wire.filter((w) => w.path === 'CallCenterWeb/SetAddress').length === 1)
+
+    // ⚠ The saved-half qualifies ONE refusal — the one its own re-pin raised.
+    // The agent now tries a DIFFERENT address and is refused again; a leftover
+    // *the correction is saved* under that failure would credit this refusal
+    // with a correction it has nothing to do with.
+    await page.locator('[data-cc-address-add]').click()
+    await page.locator('[data-cc-address-form]').waitFor()
+    await page.locator('[data-cc-district-search]').fill('malqa')
+    await page.locator('[data-cc-district-option="R-114"]').click()
+    await page.locator('[data-cc-address-field="street1"]').fill('Takhassusi St')
+    await page.locator('[data-cc-address-save]').click()
+    await page.locator('[data-cc-address-error]').waitFor({ timeout: 10_000 })
+    check(
+      '🚩 the saved-half does not survive into the NEXT act’s refusal',
+      (await page.locator('[data-cc-address-saved-not-moved]').count()) === 0,
+    )
     // 23. Nothing is rolled back — not the book row, and not the order.
     check('the order’s address is untouched', (await page.locator('[data-cc-address="set"]').innerText()) === before)
     check('nothing threw', errors.length === 0, errors[0] ?? '')

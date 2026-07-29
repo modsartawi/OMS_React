@@ -169,6 +169,12 @@ export default function AddressPicker({
    * **unchanged**, and an agent shown only the refusal would reasonably conclude
    * the correction was lost and key it a second time. Both facts, or neither is
    * honest.
+   *
+   * ⚠️ It is dropped the moment the agent starts **any** next act (`pick`,
+   * `startCreate`, `startEdit`), not only when the dialog closes. It qualifies
+   * ONE refusal — the one its own re-pin raised — and a later, unrelated
+   * `applyError` inheriting it would tell the agent a correction was saved that
+   * this failure has nothing to do with.
    */
   const [savedNotMoved, setSavedNotMoved] = useState<string | null>(null)
 
@@ -188,17 +194,27 @@ export default function AddressPicker({
   const choices = addressChoices(book.data, currentAddressNumber)
   const busy = pending !== null
   const removing = deleting !== null
+  const applyRefused = applyError !== null && applyError !== undefined
   const listing = view.kind === 'list'
+
+  /** Applying an address — the pick, with the previous act's leftovers dropped. */
+  const pick = (addressNumber: string) => {
+    setSavedNotMoved(null)
+    setDeleteError(null)
+    onPick(addressNumber)
+  }
 
   const startCreate = () => {
     setForm(emptyAddressForm())
     setSaveError(null)
+    setSavedNotMoved(null)
     setView({ kind: 'create' })
   }
 
   const startEdit = (entry: CustomerAddressBookEntry) => {
     setForm(addressFormOf(entry))
     setSaveError(null)
+    setSavedNotMoved(null)
     setView({ kind: 'edit', addressNumber: entry.addressNumber })
   }
 
@@ -355,7 +371,7 @@ export default function AddressPicker({
                 type="button"
                 // 🚩 One click applies. No radio, no *Apply* — an empty basket has
                 // nothing to re-price and the server raises no confirmation.
-                onClick={() => onPick(choice.addressNumber)}
+                onClick={() => pick(choice.addressNumber)}
                 disabled={busy || removing || choice.isCurrent}
                 data-cc-address-option={choice.addressNumber}
                 className="flex min-w-0 flex-1 items-start gap-2 rounded-md border border-border bg-card p-2.5 text-start hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-card"
@@ -466,15 +482,13 @@ export default function AddressPicker({
               kept the correction, the order did not take it. Shown only beside
               the refusal — on its own it would announce a state the rail already
               shows. */}
-          {savedNotMoved !== null && applyError !== null && applyError !== undefined && (
+          {savedNotMoved !== null && applyRefused && (
             <p className={NOTE.attention} data-cc-address-saved-not-moved>
               {t('address.savedNotMoved')}
             </p>
           )}
 
-          {applyError !== null && applyError !== undefined && (
-            <Refusal error={applyError} fallbackKey="address.applyFailed" />
-          )}
+          {applyRefused && <Refusal error={applyError} fallbackKey="address.applyFailed" />}
 
           {/* `ADDRESS_IN_USE_BY_ORDER` lands here — a code this component's own
               UI cannot provoke, explained anyway because the book can move under

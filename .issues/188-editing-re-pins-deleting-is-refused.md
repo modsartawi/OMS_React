@@ -82,6 +82,15 @@ the query string) → `deleteCustomerAddress` → `deleteAddress`, plus `ADDRESS
 time **in place** on every other — a dialog would be the modal-on-modal `AddressPicker`'s own comment
 rejects, and it would ask the question away from the address it is about.
 
+⚠ **One thing here was NOT asked for and is kept deliberately: the two-press
+confirm.** The ticket asked only that the console *"omits the delete control"* on
+the current row. Removing an address from a caller's book is destructive, is not
+undoable from this console, and the control sits one row away from rows that
+cannot be deleted at all — so it asks a second time. It asks **in place** rather
+than in a dialog, which is the same rule that put the editor inside this dialog
+instead of on top of it. Flagged rather than buried: if the confirm is judged
+noise on a call, it is one predicate to remove.
+
 🚩 **187's own drive assertion flipped with this ticket**, deliberately: *"the edit control is ABSENT
 on the address the order is using"* becomes *"is offered"*, and the absent-control assertion moves to
 DELETE. That is the shape of the split — 187 withheld the editor on that row precisely until the

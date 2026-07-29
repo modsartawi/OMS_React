@@ -176,6 +176,17 @@
 //    29. REBIND_REFUSED draws the banner in the server's own words, names the
 //        offending line THERE and tints it in the basket, and leaves the store,
 //        the total and the lines exactly as they were.
+// Asserts ticket 191's Proof:
+//   arrowThenEnterAddsTheHighlightedRow
+//    41. from inside the search box and with nothing clicked: `Enter` on landed
+//        rows with NOTHING highlighted adds nothing at all (the negative, taken
+//        with the gate wide open), `↓` then highlights the FIRST row without the
+//        caret leaving the box, and `Enter` sends exactly ONE AddItem — the same
+//        body the row's button sends — for exactly one basket line;
+//    42. a new term DROPS the aim (a stale highlight would add the wrong item),
+//        and `Esc` with text still clears the box and keeps the caret;
+//    43. the shut gate is shut to the keyboard too — no *Add* is drawn, `↓`
+//        highlights nothing, and `Enter` reaches no verb.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -3580,6 +3591,161 @@ async function run() {
       (await page.locator('[data-cc-order-no]').count()) === 0 &&
         !(await page.locator('body').innerText()).includes(DOCUMENT_NO),
     )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ============ ticket 191 — the add, from the keyboard ============
+
+  // ---- 41. ↓ then Enter adds the highlighted row, and Enter alone adds nothing ----
+  //
+  // 153's finding, driven: the map's headline feature shipped mouse-only. The
+  // grammar works from INSIDE the search box, because the resting focus on this
+  // console is a text box twice over — so nothing here clicks anything after the
+  // gate is open, and the caret never leaves `#cc-item-search`.
+  {
+    const { context, page, errors, calls, wire } = await open(browser, {})
+    await page.goto(`${BASE}/callcenter`)
+    await openTheGate(page)
+
+    await page.locator('[data-cc-search-input]').fill('بنادول')
+    await page.locator('[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
+    check(
+      'the caret is in the search box, where the grammar is armed',
+      (await page.evaluate(() => document.activeElement?.id)) === 'cc-item-search',
+      await page.evaluate(() => document.activeElement?.id ?? '—'),
+    )
+
+    // 🚩 THE NEGATIVE, taken first and with the door wide open: rows on screen,
+    // the gate passed, and `Enter` still adds nothing — because nothing is
+    // highlighted. The top row is a relevance guess off a non-sargable LIKE, and
+    // a one-key add of a guess puts a line on a live order (153 ruling 2).
+    check('nothing is highlighted when the rows land', (await page.locator('[data-cc-search-aimed]').count()) === 0)
+    await page.keyboard.press('Enter')
+    check('🚩 Enter with nothing highlighted adds NOTHING at all', count(calls, /^CallCenterWeb\/AddItem$/) === 0)
+    check('and no line reached the basket', await page.locator('[data-cc-basket-empty]').isVisible())
+    check('nor did it open a sheet, or clear the question', (await page.locator('[data-cc-confirm-sheet]').count()) === 0)
+    check(
+      'the term the agent typed is still there',
+      (await page.locator('[data-cc-search-input]').inputValue()) === 'بنادول',
+    )
+
+    // ---- the first press arms it, on the FIRST row ----
+    await page.keyboard.press('ArrowDown')
+    await page.locator('[data-cc-search-aimed]').waitFor({ timeout: 5_000 })
+    check(
+      '↓ highlights the first row',
+      (await page.locator('[data-cc-search-aimed]').getAttribute('data-cc-search-aimed')) ===
+        CATALOGUE[0].materialNumber,
+      await page.locator('[data-cc-search-aimed]').getAttribute('data-cc-search-aimed'),
+    )
+    check('exactly one row is aimed at, never two', (await page.locator('[data-cc-search-aimed]').count()) === 1)
+    // The arrow belongs to the list, not to the text: an unhandled ArrowDown
+    // jumps the caret to the end of the term, and the next character lands in
+    // the wrong place mid-call.
+    check(
+      'and the caret has not left the box',
+      (await page.evaluate(() => document.activeElement?.id)) === 'cc-item-search',
+      await page.evaluate(() => document.activeElement?.id ?? '—'),
+    )
+
+    // ---- 🚩 and Enter adds it: the same act as the row's own *Add* ----
+    await page.keyboard.press('Enter')
+    await page.locator('[data-cc-line]').first().waitFor({ timeout: 10_000 })
+    const adds = wire.filter((w) => w.path === 'CallCenterWeb/AddItem')
+    check('exactly one AddItem, from two keys', adds.length === 1, String(adds.length))
+    check(
+      'naming the row that was highlighted, with the same body the button sends',
+      adds[0].body.itemNumber === CATALOGUE[0].materialNumber && adds[0].body.qty === 1 && !!adds[0].body.requestId,
+      JSON.stringify(adds[0].body),
+    )
+    check('the basket gains EXACTLY one line', (await page.locator('[data-cc-line]').count()) === 1)
+    check(
+      'and it is the item the highlight named',
+      (await page.locator('[data-cc-line]').first().innerText()).includes(CATALOGUE[0].descriptionEn),
+      (await page.locator('[data-cc-line]').first().innerText()).replace(/\s+/g, ' '),
+    )
+    check('no confirmation stood between the key and the line', (await page.locator('[data-cc-confirm-sheet]').count()) === 0)
+    // The landed add closes the question and hands the box back (168) — so the
+    // highlight it was aimed with must go with it.
+    check('the answered question closed, highlight and all', (await page.locator('[data-cc-search-aimed]').count()) === 0)
+    check('and the box is empty and focused for the next item', (await page.locator('[data-cc-search-input]').inputValue()) === '')
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 42. the highlight resets on a new question, and Esc still clears ----
+  {
+    const { context, page, errors, calls } = await open(browser, {})
+    await page.goto(`${BASE}/callcenter`)
+    await openTheGate(page)
+
+    await page.locator('[data-cc-search-input]').fill('بنادول')
+    await page.locator('[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('ArrowDown')
+    await page.locator('[data-cc-search-aimed]').waitFor({ timeout: 5_000 })
+    check(
+      '↓↓ walks to the second row',
+      (await page.locator('[data-cc-search-aimed]').getAttribute('data-cc-search-aimed')) ===
+        CATALOGUE[1].materialNumber,
+      await page.locator('[data-cc-search-aimed]').getAttribute('data-cc-search-aimed'),
+    )
+
+    // 🚩 A new question, and the aim from the old one must not survive it: the
+    // stale highlight is the failure here that is silent and lands on the
+    // caller's basket.
+    await page.locator('[data-cc-search-input]').fill('Advance')
+    // 🚩 Waited on the ANSWER changing, not on a row being present: the English
+    // term's one row is also in the Arabic term's three, so a row locator
+    // resolves against the STALE list and the box would press Enter on the old
+    // highlight — which is the very thing this box exists to prove cannot
+    // happen, proven by accident.
+    await page.waitForFunction(
+      (n) => document.querySelectorAll('[data-cc-search-row]').length === n,
+      1,
+      { timeout: 10_000 },
+    )
+    check(
+      'the new question really is a different answer',
+      (await page.locator('[data-cc-search-row]').first().getAttribute('data-cc-search-row')) ===
+        CATALOGUE[2].materialNumber,
+    )
+    check('a new term drops the highlight', (await page.locator('[data-cc-search-aimed]').count()) === 0)
+    await page.keyboard.press('Enter')
+    check('so Enter on the new rows adds nothing either', count(calls, /^CallCenterWeb\/AddItem$/) === 0)
+
+    // 153: already built, and it must survive the grammar landing on top of it.
+    await page.keyboard.press('Escape')
+    check('Esc with text still clears the box', (await page.locator('[data-cc-search-input]').inputValue()) === '')
+    check('and the rows went with it', (await page.locator('[data-cc-search-row]').count()) === 0)
+    check(
+      'the caret stayed put, ready for the next item',
+      (await page.evaluate(() => document.activeElement?.id)) === 'cc-item-search',
+      await page.evaluate(() => document.activeElement?.id ?? '—'),
+    )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 43. the shut gate is shut to the keyboard too ----
+  //
+  // 175's gate: with no caller and no store, `canAddItem` is false and the row
+  // draws no *Add* at all. The keyboard reads the SAME prop — so there is no
+  // second predicate that could let a key in through a door the button cannot.
+  {
+    const { context, page, errors, calls } = await open(browser, {})
+    await page.goto(`${BASE}/callcenter`)
+    await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+
+    await page.locator('[data-cc-search-input]').fill('بنادول')
+    await page.locator('[data-cc-search-row]').first().waitFor({ timeout: 10_000 })
+    check('the gate is shut — no row carries an Add', (await page.locator('[data-cc-search-add]').count()) === 0)
+    await page.keyboard.press('ArrowDown')
+    check('🚩 ↓ highlights nothing while the door is shut', (await page.locator('[data-cc-search-aimed]').count()) === 0)
+    await page.keyboard.press('Enter')
+    check('and Enter adds nothing', count(calls, /^CallCenterWeb\/AddItem$/) === 0)
+    check('the basket is untouched', await page.locator('[data-cc-basket-empty]').isVisible())
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }

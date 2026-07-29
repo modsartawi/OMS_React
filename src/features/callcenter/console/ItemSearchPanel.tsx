@@ -35,6 +35,7 @@ import Ltr from '@/core/ui/Ltr'
 import { callCenterApi, itemSearchKey } from './api'
 import AvailabilityPill from './AvailabilityPill'
 import { NOTE } from './console-notes'
+import { NO_HIGHLIGHT, highlightMoveOf, highlightedRow, moveHighlight } from './highlight'
 import {
   MIN_QUERY_LENGTH,
   isSearchable,
@@ -197,6 +198,32 @@ export default function ItemSearchPanel({
   const rows = searchRowViews(search.data)
   const asked = isSearchable(term)
 
+  /**
+   * 🚩 The add's KEYBOARD path (ticket 191). Until this, the map's headline
+   * feature — one action adds it — was a mouse target, on the console's
+   * most-pressed control, at hour nine.
+   *
+   * It works **from inside the box the agent is already in**, because 153 found
+   * the Gmail-style "armed when you are not typing" gate cannot exist here: the
+   * resting focus is a text box twice over (the rail autofocuses the phone
+   * field, and this box re-focuses itself after every landed add, above).
+   *
+   * Every rule about which row is aimed at is `highlight.ts`'s. What this
+   * component owns is the ONE gate — and it is the same expression the row's
+   * *Add* is drawn and disabled on, read off the same prop. 🚩 Never a second
+   * predicate: a keyboard that could add what the button would refuse is the
+   * defect this arrangement exists to make impossible.
+   */
+  const [highlight, setHighlight] = useState(NO_HIGHLIGHT)
+  const list = {
+    // Rows the agent can actually see: an unasked term draws none, whatever the
+    // last answer left in the cache.
+    count: asked ? rows.length : 0,
+    term,
+    armed: add.onAdd !== null && add.pending === null,
+  }
+  const aimed = highlightedRow(highlight, list)
+
   return (
     <div className="shrink-0 border-b border-divider bg-card-2 px-4 py-3" data-cc-search>
       <div className="flex items-center gap-2">
@@ -220,6 +247,32 @@ export default function ItemSearchPanel({
                 // means "put this list away", not "leave the console".
                 event.stopPropagation()
                 clear()
+                return
+              }
+              // 🚩 A key that is still finishing a WORD is not a key aimed at
+              // the list. Half this console's searching is Arabic, and an IME's
+              // own Enter (commit the candidate) and arrows (walk the
+              // candidates) reach this handler as ordinary keys — acting on them
+              // would add a line while the agent was still typing the item's
+              // name.
+              if (event.nativeEvent.isComposing) return
+              const move = highlightMoveOf(event.key)
+              if (move) {
+                // The caret must stay where the agent is typing: an unhandled
+                // arrow jumps it to the start or the end of the term, so the
+                // next character lands in the wrong place mid-call.
+                event.preventDefault()
+                setHighlight(moveHighlight(highlight, list, move))
+                return
+              }
+              // 🚩 `Enter` adds the highlighted row — and reaches NO row until an
+              // arrow has aimed it, because `aimed` is null until then. It calls
+              // the same handler, with the same two arguments, that the row's
+              // own button calls; there is no keyboard-only add path to drift.
+              if (event.key === 'Enter' && aimed !== null) {
+                event.preventDefault()
+                const row = rows[aimed]
+                add.onAdd?.(row.itemNumber, row.title)
               }
             }}
             aria-label={t('search.label')}
@@ -347,8 +400,8 @@ export default function ItemSearchPanel({
             </p>
           )}
 
-          {rows.map((row) => (
-            <Row key={row.itemNumber} row={row} add={add} />
+          {rows.map((row, index) => (
+            <Row key={row.itemNumber} row={row} add={add} aimed={index === aimed} />
           ))}
         </div>
       )}
@@ -356,13 +409,23 @@ export default function ItemSearchPanel({
   )
 }
 
-function Row({ row, add }: { row: SearchRowView; add: AddItemActions }) {
+function Row({ row, add, aimed }: { row: SearchRowView; add: AddItemActions; aimed: boolean }) {
   const { t } = useTranslation('callcenter')
   const adding = add.pending === row.itemNumber
   return (
     <div
-      className="flex items-center gap-3 border-b border-divider px-3 py-2 last:border-0 hover:bg-accent"
+      // 🚩 The aim, drawn where the agent's eye already is — ground AND an
+      // outline, never a tint alone: this is the row `Enter` is about to put on
+      // a live order, and it has to be readable at a glance, mid-sentence. The
+      // ring is inset and direction-neutral, so it mirrors for free.
+      className={`flex items-center gap-3 border-b border-divider px-3 py-2 last:border-0 hover:bg-accent ${
+        aimed ? 'bg-accent ring-1 ring-inset ring-primary' : ''
+      }`}
       data-cc-search-row={row.itemNumber}
+      // The keyboard's own handle, for the drive and for the row's state — it is
+      // present only on the aimed row, so "nothing is highlighted" is a count of
+      // zero rather than a value to interpret.
+      {...(aimed ? { 'data-cc-search-aimed': row.itemNumber } : {})}
     >
       <div className="min-w-0 flex-1">
         {/* The name, alone on its line — it is what the agent reads out. */}

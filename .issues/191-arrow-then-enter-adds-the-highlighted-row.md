@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 180
 blocked-by: 181
 ---
@@ -44,15 +44,18 @@ logic (`highlight` — new pure module) · component (`ItemSearchPanel`, `Guidan
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `highlight` — `↓` from nothing highlights the first row; `↑` from nothing highlights nothing
+- [x] `highlight` — `↓` from nothing highlights the first row; `↑` from nothing highlights nothing
       (or the last, per the module's ruling — assert whichever, so it is a decision and not an
-      accident) · pure
-- [ ] `highlight` — a new query **resets** the highlight; a shorter result set clamps rather than
+      accident) · pure — **ruled: `↑` from nothing highlights NOTHING**, and it is asserted as a
+      decision. Wrapping to the last row would arm `Enter` on the least relevant guess in the list,
+      which is the same defect the two-key grammar exists to prevent. `↓` at the end stays put; `↑`
+      off the first row hands the highlight back to nothing (the way out is the key that came in)
+- [x] `highlight` — a new query **resets** the highlight; a shorter result set clamps rather than
       pointing past the end · pure
-- [ ] `highlight` — inert while the gate is shut and while an add is in flight · pure
-- [ ] `callcenter-drive.mjs` extension — `↓` then `Enter` in the search box adds the highlighted item
+- [x] `highlight` — inert while the gate is shut and while an add is in flight · pure
+- [x] `callcenter-drive.mjs` extension — `↓` then `Enter` in the search box adds the highlighted item
       and the basket gains exactly one line · flow (Playwright)
-- [ ] `callcenter-drive.mjs` extension — **the negative**: `Enter` with **nothing** highlighted adds
+- [x] `callcenter-drive.mjs` extension — **the negative**: `Enter` with **nothing** highlighted adds
       nothing at all · flow (Playwright)
 
 ## Boundaries
@@ -70,3 +73,40 @@ nothing; and the keyboard obeys exactly the same gate the button does.
 ## Blocked by
 
 [181](181-console-drive-green-on-clean-tree.md)
+
+## Built
+
+- **`highlight.ts`** — the whole grammar, as a module and not component state: `moveHighlight` (one
+  arrow press) and `highlightedRow` (which row is aimed at *right now*). Two rulings live in the
+  shape rather than in a caller's discipline. The highlight is carried **with the term it was set
+  against**, so a new question drops it by construction — the stale-highlight add is the one failure
+  here that is silent and lands on the caller's basket. And a shorter answer to the **same** question
+  **clamps** to the last row rather than dropping the agent's aim, because the catalogue moving under
+  a long call is not the agent changing their mind. It holds no row, no item number and no verb —
+  the caller indexes its own list, which is what lets [192](192-ctrl-k-reaches-every-order-act.md)
+  reuse it over the palette unchanged.
+- **`ItemSearchPanel`** — the grammar, armed from inside the box the agent is already in. 🚩 The gate
+  is one expression, `add.onAdd !== null && add.pending === null`, which is **the same condition the
+  row's own *Add* is drawn and disabled on**: there is no second predicate a keyboard could get
+  through a door the button cannot. `Enter` calls the same handler with the same two arguments the
+  button passes, so there is no keyboard-only add path to drift. The arrows `preventDefault()` (an
+  unhandled arrow jumps the caret to the end of the term and the next character lands in the wrong
+  place mid-call), and a key still **finishing a word** is ignored outright — half this console's
+  searching is Arabic, and an IME's own `Enter` and arrows reach the handler as ordinary keys. The
+  aim is drawn as ground **and** an inset ring, direction-neutral so it mirrors for free.
+- **`GuidanceStrip` — untouched, deliberately.** 153's table gives the guidance card's *Add* its
+  keyboard path through the **palette** (192's offer rows), not through an arrow grammar of its own:
+  a second highlight over a second list, both armed from the same box, is two lists competing for
+  one `Enter`. Its buttons remain natively tab-reachable meanwhile.
+- **`callcenter-drive.mjs`** — boxes 41–43. 41 takes **the negative first and with the gate wide
+  open** (rows on screen, `Enter`, and nothing at all happens), then `↓` → the first row aimed with
+  the caret still in the box → `Enter` → exactly one `AddItem`, carrying the same body the button
+  sends, for exactly one basket line. 42 proves a new term drops the aim, and that `Esc` still clears
+  the box and keeps the caret. 43 proves the shut gate is shut to the keyboard too.
+
+**Verified:** 13 pure cases green (`highlight.test.ts`); `npm run typecheck`, `npm run build` and
+`npm run lint` clean; the drive run **490/491** against the running app, with all 24 of this
+ticket's own checks green. ⚠ The one failure is *the chip row is what the header captures* — a
+**concurrently in-flight** change to `header-chips.ts` in the same working tree (another session's
+188/header work), not this slice. The drive was therefore run from a clean `HEAD` copy carrying only
+this ticket's two hunks, so the number is about this change and nothing else.

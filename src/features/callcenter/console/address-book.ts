@@ -107,6 +107,14 @@ const text = (value: string | null | undefined): string | null => {
 const REFUSAL_KEY: Record<string, string> = {
   NO_CUSTOMER_ATTACHED: 'address.refusedNoCaller',
   ADDRESS_NOT_FOR_CUSTOMER: 'address.refusedNotTheirs',
+  // 🚩 Added by 187, and it is the district picker's own refusal rather than the
+  // book's: the editor greys a store-less district, but the SERVER's answer is
+  // the authority (§2.3) and it is the one an agent meets after keying a whole
+  // address. The sentence says what is true in both shapes it arrives in — a
+  // plain pick and a create's auto-apply — so it claims nothing about the book:
+  // the ORDER is unchanged either way, and it is the order the agent is asking
+  // about.
+  NO_DELIVERY_STORE_FOR_DISTRICT: 'address.refusedNoDeliveryStore',
 }
 
 export function addressRefusalKey(code: string | null | undefined): string | null {

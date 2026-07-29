@@ -22,6 +22,13 @@ const entry = (over: Partial<CustomerAddressBookEntry> = {}): CustomerAddressBoo
     street1: 'King Abdulaziz Rd',
     street2: null,
     buildingNumber: 'Bldg 4',
+    // The editor's five (187). On the wire since the row nests a whole
+    // `BusinessAddress`; nothing the picker's list reads.
+    phone1: null,
+    phone2: null,
+    shortAddress: null,
+    gpsLat: null,
+    gpsLon: null,
   },
   ...over,
 })
@@ -64,6 +71,37 @@ describe('addressChoices', () => {
     expect(choice.addressNumber).toBe('77120')
   })
 
+  // 187 — the editor arrived beside this projection. The five capture-only
+  // fields now on the wire model are the editor's seed and must reach neither
+  // the composed line nor the choice: the picker's row is what an agent reads
+  // out on a call, and a driver's phone number is not part of it.
+  it('composes the same line now that the editor’s fields are on the row', () => {
+    const [choice] = addressChoices(
+      [
+        entry({
+          address: {
+            cityCode: '0021',
+            cityName: 'Riyadh',
+            districtCode: 'R-114',
+            districtName: 'Al Malqa',
+            street1: 'King Abdulaziz Rd',
+            street2: null,
+            buildingNumber: 'Bldg 4',
+            phone1: '0551234567',
+            phone2: '0559876543',
+            shortAddress: 'RIMA6904',
+            gpsLat: 24.7743,
+            gpsLon: 46.7386,
+          },
+        }),
+      ],
+      null,
+    )
+    expect(choice.line).toBe('King Abdulaziz Rd, Bldg 4, Al Malqa, Riyadh')
+    expect(JSON.stringify(choice)).not.toContain('0551234567')
+    expect(JSON.stringify(choice)).not.toContain('RIMA6904')
+  })
+
   it('drops a row that could never be picked', () => {
     // No `addressNumber` means there is nothing for `setAddress` to be given.
     expect(addressChoices([entry({ addressNumber: '' }), entry({ addressNumber: 'A1' })], null)).toHaveLength(1)
@@ -79,6 +117,15 @@ describe('addressRefusalKey', () => {
     expect(addressRefusalKey('ADDRESS_NOT_FOR_CUSTOMER')).toBe('address.refusedNotTheirs')
     expect(addressRefusalKey('ADDRESS_NOT_FOR_CUSTOMER')).not.toBe(
       addressRefusalKey('NO_CUSTOMER_ATTACHED'),
+    )
+  })
+
+  // 187 — the code the editor provokes. The client greys a store-less district,
+  // but the server's refusal is the authority (§2.3) and it must not reach the
+  // agent as a machine code after they have keyed a whole address.
+  it('explains the district no store delivers from', () => {
+    expect(addressRefusalKey('NO_DELIVERY_STORE_FOR_DISTRICT')).toBe(
+      'address.refusedNoDeliveryStore',
     )
   })
 

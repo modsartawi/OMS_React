@@ -47,6 +47,21 @@ export interface StoreDetailModel {
 }
 
 /**
+ * A row of `GET SdDocument/AddressLabels` — the address book's label catalogue
+ * (`Home`, `Work`, …), read by the call-center address editor.
+ *
+ * 🚩 **Labels are server data, not an enum** (CC2 inventory §2.2). A new address
+ * defaults to `HOME`, and display falls back `labelNameEn ?? labelCode` — the
+ * same fallback `console/address-book.ts` already makes for the picker's rows,
+ * kept deliberately so agents go on seeing the untranslated code they know.
+ */
+export interface SdAddressLabelModel {
+  labelCode: string
+  labelNameAr: string
+  labelNameEn: string
+}
+
+/**
  * A row of `GET SdDocument/Districts` — the Screen 2 Change Store picker in
  * delivery mode.
  *

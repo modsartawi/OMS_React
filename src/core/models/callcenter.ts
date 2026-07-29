@@ -539,9 +539,16 @@ export interface LoyaltyMember {
  *
  * 🚩 **Not part of the session contract** — like the loyalty lookup, it is how the
  * agent CHOOSES; `SessionState.header.address` is what the order actually holds,
- * and where the two could disagree the projection wins. Only what the picker
- * reads is typed: the model carries GPS, phones, postal codes and timestamps that
- * no console surface has a use for, and unknown fields are ignored by rule.
+ * and where the two could disagree the projection wins. Only what the picker and
+ * the editor read is typed: the model nests a whole 25-field `BusinessAddress`,
+ * and the postal codes, names and timestamps on it have no console surface —
+ * unknown fields are ignored by rule.
+ *
+ * 🚩 The five fields below the composed line are here because **187's editor
+ * seeds an edit from this row**. They are not drawn on the picker's list, and
+ * the two GPS values are not drawn anywhere at all: they are round-tripped
+ * because the service assigns them unconditionally, so an edit that dropped them
+ * would write `0` over a real fix (BackOffice 878's one named gap).
  */
 export interface AddressBookAddress {
   cityCode: string
@@ -551,6 +558,44 @@ export interface AddressBookAddress {
   street1: string | null
   street2: string | null
   buildingNumber: string | null
+  /** The DELIVERY phone — the driver's number, never the loyalty mobile. */
+  phone1: string | null
+  phone2: string | null
+  /** The Saudi National Address, `^[A-Z]{4}[0-9]{4}$`. Format-only, unverified. */
+  shortAddress: string | null
+  gpsLat: number | null
+  gpsLon: number | null
+}
+
+/**
+ * The body of both address writes — `POST` (mints an `addressNumber`) and `PUT`
+ * (names one), as BackOffice 878 §1's `CallCenterWebAddressCapture` takes it.
+ *
+ * 🚩 Exactly CC2's twelve captured values plus the label. `CountryKey`,
+ * `LanguageKey` and `AddressType` are **stamped server-side** and are absent
+ * here by construction — a client that can send `AddressType` can send `"B"`.
+ *
+ * 🚩 Every string is required and `''` is a real value: `UpdateCustomerAddress`
+ * is a null-coalescing merge, so an omitted field is PRESERVED and a field can
+ * never be emptied by omission. `address-capture.ts` is the only place this
+ * shape is built.
+ */
+export interface CustomerAddressCapture {
+  labelCode: string
+  address: {
+    cityCode: string
+    cityName: string
+    districtCode: string
+    districtName: string
+    street1: string
+    street2: string
+    buildingNumber: string
+    phone1: string
+    phone2: string
+    shortAddress: string
+    gpsLat: number
+    gpsLon: number
+  }
 }
 
 export interface CustomerAddressBookEntry {

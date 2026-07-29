@@ -48,11 +48,14 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
 import type {
+  CustomerAddressBookEntry,
+  CustomerAddressCapture,
   DeliveryType,
   PaymentType,
   SessionState,
 } from '@/core/models/callcenter'
 import {
+  addressBookKey,
   CALLCENTER_ACCESS_KEY,
   callCenterApi,
   newRequestId,
@@ -1273,6 +1276,81 @@ function ConsoleSession() {
     retry: false,
   })
 
+  /**
+   * The address book's two WRITES (187) — a create and a correction, on the
+   * **customer** door rather than this order's (§6.5).
+   *
+   * 🚩 **A create auto-applies.** `POST` answers the whole row including the new
+   * `addressNumber`, so the console hands it straight to the rebind above with
+   * no re-read of the book: the only reason an agent creates an address mid-call
+   * is to deliver to it (179 ruling 6). The apply is the ordinary one — an empty
+   * basket takes it inline, a basket with lines gets §5.1's preview — because it
+   * IS the ordinary one, and a second path to `setAddress` is the kind of
+   * second implementation this contract keeps refusing to have.
+   *
+   * ⚠️ **A correction is deliberately NOT an order act here.** Only rows the
+   * order is not using can be edited (`AddressPicker` omits the control on the
+   * current one), so nothing that lands here can move the order's plant. The
+   * moment the current row becomes editable it must be followed by a re-issued
+   * `setAddress` on the same number — that rule is §6.5's and
+   * [188](.issues/188-editing-re-pins-deleting-is-refused.md)'s to build.
+   *
+   * Neither carries a `requestId` and neither rides `withBusyRetry`: there is no
+   * transaction lease to collide with on the address door.
+   */
+
+  /**
+   * The book's cache key for the caller who is attached RIGHT NOW. Keyed by the
+   * customer (`api.ts`), which is what stops a write from landing on the
+   * previous caller's book; `null` when there is nobody attached, a state in
+   * which neither write is reachable at all (§6.3 — the door refuses, and the
+   * picker is only mounted while `canOpenAddressBook` holds).
+   */
+  const bookKey = () => {
+    const customerId = session.data?.header.customer?.customerId
+    return customerId ? addressBookKey(customerId) : null
+  }
+
+  const createAddress = useMutation({
+    mutationFn: (capture: CustomerAddressCapture) => callCenterApi.createCustomerAddress(capture),
+    onSuccess: (entry) => {
+      if (!entry?.addressNumber) return
+      // 🚩 **No re-read — the row is put where the read would have found it.**
+      // The create answered the whole entry, so a `GET` between the write and
+      // the apply would spend a call to learn what is already in hand. Seeding
+      // matters on the path that is NOT the happy one: if the apply is refused
+      // (a store-less district), the book stays open and the agent sees the
+      // address they just saved rather than a list missing it, which is what
+      // would invite them to key it a second time.
+      const key = bookKey()
+      if (key)
+        queryClient.setQueryData<CustomerAddressBookEntry[]>(key, (current) =>
+          current
+            ? [...current.filter((row) => row.addressNumber !== entry.addressNumber), entry]
+            : current,
+        )
+      rebind.mutate(beginStoreMove('address', entry.addressNumber))
+    },
+  })
+
+  const updateAddress = useMutation({
+    mutationFn: ({
+      addressNumber,
+      capture,
+    }: {
+      addressNumber: string
+      capture: CustomerAddressCapture
+    }) => callCenterApi.updateCustomerAddress(addressNumber, capture),
+    // The book is re-read so the corrected line is what the agent sees — the
+    // `PUT` answers `true`, not the row, so unlike the create there is nothing
+    // to seed. The ORDER is not touched at all, which is the whole point of a
+    // book act on a row the order is not using.
+    onSuccess: () => {
+      const key = bookKey()
+      if (key) void queryClient.invalidateQueries({ queryKey: key })
+    },
+  })
+
   /** Everything one rebind action was holding. */
   const clearRebind = () => {
     setMove(null)
@@ -1661,6 +1739,16 @@ function ConsoleSession() {
             // 🚩 One action per pick: a genuinely new rebind mints a genuinely
             // new id, and the confirm re-send below reuses it (§4).
             onPick: (addressNumber) => rebind.mutate(beginStoreMove('address', addressNumber)),
+          }}
+          // 🚩 The writes are handed over as promises, not as pending/error
+          // props: the form is a second VIEW of this dialog, so the failure that
+          // belongs in front of the agent's own typing is held there — while the
+          // create's auto-apply, which is an ORDER act, stays here with every
+          // other rebind and keeps §5.1's one confirmation mechanism.
+          write={{
+            onCreate: (capture) => createAddress.mutateAsync(capture).then(() => undefined),
+            onUpdate: (addressNumber, capture) =>
+              updateAddress.mutateAsync({ addressNumber, capture }).then(() => undefined),
           }}
           onClose={closeAddressBook}
         />

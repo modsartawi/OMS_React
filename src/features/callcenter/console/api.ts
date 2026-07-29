@@ -28,6 +28,7 @@ import type {
   AgentDocumentSource,
   CallCenterAccessResult,
   CustomerAddressBookEntry,
+  CustomerAddressCapture,
   DeliveryType,
   ItemSearchResult,
   LoyaltyMember,
@@ -256,6 +257,44 @@ export const callCenterApi = {
    */
   customerAddresses(): Promise<CustomerAddressBookEntry[]> {
     return api.get<CustomerAddressBookEntry[]>('CallCenterWeb/CustomerAddresses')
+  },
+
+  /**
+   * `POST CallCenterWeb/CustomerAddresses` — a new address on the caller's book,
+   * answering the whole `CustomerAddressBookModel` **including the new
+   * `addressNumber`** (BackOffice 878 §1 over 801's shipped route).
+   *
+   * 🚩 That return is why a create can **auto-apply**: the console hands the
+   * minted number straight to `setAddress` with no re-read of the book, which is
+   * the one-step service 179 ruling 6 asked for — the only reason an agent
+   * creates an address mid-call is to deliver to it.
+   *
+   * 🚩 **Not a session verb.** It carries no `transactionId` and no `requestId`:
+   * the address book is a CUSTOMER store on a different door (§6.5), and the
+   * customer is resolved server-side off the agent's own session — the browser
+   * names nobody. It therefore does not ride `withBusyRetry` either; there is no
+   * transaction lease to collide with.
+   *
+   * The body is `address-capture.ts`'s and only ever `address-capture.ts`'s —
+   * see that module for the narrowing and for why a cleared field is `""`.
+   */
+  createCustomerAddress(capture: CustomerAddressCapture): Promise<CustomerAddressBookEntry> {
+    return api.post<CustomerAddressBookEntry>('CallCenterWeb/CustomerAddresses', capture)
+  },
+
+  /**
+   * `PUT CallCenterWeb/CustomerAddresses` — a correction to an address already
+   * on the book. Answers `true`, not the row: the book is re-read afterwards.
+   *
+   * ⚠️ **Editing the address the ORDER holds is an order act** (§6.5): the
+   * console must re-issue `setAddress` on the same `addressNumber` afterwards,
+   * because a `PUT` across districts leaves the order on a plant derived from a
+   * district the address has left. Nothing in this function does that — it is
+   * the caller's, and it is [188](.issues/188-editing-re-pins-deleting-is-refused.md)'s
+   * slice. Until it lands, the editor is offered on non-current rows only.
+   */
+  updateCustomerAddress(addressNumber: string, capture: CustomerAddressCapture): Promise<boolean> {
+    return api.put<boolean>('CallCenterWeb/CustomerAddresses', { addressNumber, ...capture })
   },
 
   /**

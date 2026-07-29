@@ -116,7 +116,41 @@
     "onThisOrder": "on this order",
     "applyFailed": "That address could not be applied. Nothing has changed on this order — try again.",
     "refusedNoCaller": "This order has no caller attached, so their address book is closed. Attach the caller again, then pick the address.",
-    "refusedNotTheirs": "That address is on file for a different customer, so it was not applied. Pick one of this caller's own addresses — and if it should be theirs, it needs sorting out on the customer record."
+    "refusedNotTheirs": "That address is on file for a different customer, so it was not applied. Pick one of this caller's own addresses — and if it should be theirs, it needs sorting out on the customer record.",
+    "refusedNoDeliveryStore": "No store delivers to that district, so the order cannot be sent to that address. Nothing has changed on this order — tell the caller now, and try another address.",
+    "form": {
+      "createTitle": "Add an address for this caller",
+      "editTitle": "Correct this address",
+      "add": "Add address",
+      "edit": "Correct this address",
+      "back": "Back to the book",
+      "save": "Save",
+      "saving": "Saving…",
+      "label": "Label",
+      "district": "District",
+      "districtSearchPlaceholder": "Type a district or a city…",
+      "districtLine": "{{district}} · {{city}}",
+      "districtLoading": "Reading the district list…",
+      "districtLoadFailed": "The district list could not be read. Try again — nothing has been saved.",
+      "districtNone": "No district or city matches that.",
+      "districtNoStore": "no delivery",
+      "districtTruncated": "Showing the first matches of {{total}}. Keep typing to narrow them.",
+      "street1": "Street",
+      "street2": "Street (second line)",
+      "buildingNumber": "Building",
+      "phone1": "Delivery phone",
+      "phone2": "Second delivery phone",
+      "phoneHint": "The number the driver rings — not the caller's loyalty mobile.",
+      "shortAddress": "National address",
+      "shortAddressPlaceholder": "RIMA6904",
+      "shortAddressHint": "Optional. Four letters then four digits — the format is checked here, the address itself is not verified.",
+      "errors": {
+        "district": "Pick the district. It is what decides which store delivers this order.",
+        "shortAddress": "A national address is four letters followed by four digits, e.g. RIMA6904."
+      },
+      "createFailed": "That address could not be added. Nothing has been saved — try again.",
+      "updateFailed": "That correction could not be saved. The address is unchanged — try again."
+    }
   },
   "store": {
     "title": "Choose the fulfilment store",

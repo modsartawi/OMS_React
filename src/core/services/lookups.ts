@@ -3,6 +3,7 @@ import { api } from '@/core/api'
 import type {
   DeliveryDocumentTypeModel,
   DocumentSourceModel,
+  SdAddressLabelModel,
   SdDistrictModel,
   SdDocumentTypeModel,
   StoreDetailModel,
@@ -50,6 +51,21 @@ export const lookupQueries = {
     queryOptions({
       queryKey: ['lookup', 'storeDetails'],
       queryFn: () => api.get<StoreDetailModel[]>('SdDocument/StoreDetails'),
+      ...session,
+    }),
+  /**
+   * The address book's label catalogue — `SdDocument/AddressLabels`.
+   *
+   * Here rather than on the console's `api.ts` because it is a **reference read
+   * with no customer data in it**, which is exactly why BackOffice 801 left it
+   * on the ungated door and gave it no `CallCenterWeb` sibling. Session-cached
+   * like its five neighbours: the list changes about as often as the district
+   * list does.
+   */
+  addressLabels: () =>
+    queryOptions({
+      queryKey: ['lookup', 'addressLabels'],
+      queryFn: () => api.get<SdAddressLabelModel[]>('SdDocument/AddressLabels'),
       ...session,
     }),
   /** Districts for the Screen 2 Change Store picker in delivery mode (~1.7k rows). */

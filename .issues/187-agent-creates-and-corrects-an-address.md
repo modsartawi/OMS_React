@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 180
 blocked-by: —
 ---
@@ -51,14 +51,19 @@ api (address create / update, through 801's shipped routes) · logic (district p
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `districtChoice` — a district with neither `StoreCode` nor `TempStoreCode` is greyed; the
+- [x] `districtChoice` — a district with neither `StoreCode` nor `TempStoreCode` is greyed; the
       module answers *whether*, never *which*, so no store code ever leaves it · pure
-- [ ] `addressPayload` — the body narrows to ten fields; a field the agent cleared serialises as
+      — `district-choice.test.ts`, 20 cases, including the negative read back off the whole
+      projection as text
+- [x] `addressPayload` — the body narrows to ten fields; a field the agent cleared serialises as
       `""` and **never `null`**; the three constants are absent (server-stamped) · pure
-- [ ] `address-book` — `addressChoices` still projects correctly with the new form present · pure
-- [ ] new `tools/address-editor-drive.mjs` — creating an address auto-applies it to the order;
+      — `address-capture.test.ts`, 20 cases. ⚠ **ten → twelve**, see comment 1
+- [x] `address-book` — `addressChoices` still projects correctly with the new form present · pure
+      — extended: the editor's five new wire fields reach neither the composed line nor the choice
+- [x] new `tools/address-editor-drive.mjs` — creating an address auto-applies it to the order;
       editing a **non-current** address updates the book and leaves the order alone; a store-less
-      district is visibly unpickable · flow (Playwright)
+      district is visibly unpickable · flow (Playwright) — **51/51**, plus §6.5's named
+      consequence (a create the order refuses)
 
 ## Boundaries
 
@@ -80,3 +85,70 @@ order in one step, and can correct an address the order is not using without tou
 ## Blocked by
 
 None — can start immediately.
+
+## Comments
+
+**Built 2026-07-29.** `district-choice.ts` + `address-capture.ts` (pure), `AddressForm.tsx` (the
+form view and CC2's one-box district picker), `AddressPicker.tsx` grown to two views, the two verbs
+on `api.ts`, the create/update wiring on `CallCenterConsolePage.tsx`, `SdAddressLabelModel` +
+`lookupQueries.addressLabels()` in `core/`, and `tools/address-editor-drive.mjs`.
+Proof: **46 pure** (20 + 20 + the extended book suite) · drive **51/51** · `callcenter-drive`
+**461/461** (unchanged by the picker's new DOM) · typecheck + lint + build clean.
+
+**1. 🚩 The Proof's "ten fields" is superseded — the shipped capture is TWELVE plus the label.**
+BackOffice [878](C:\Work\DMSCO\BackOffice\.issues\878-cc-address-capture-and-order-acts.md) is
+`done`, and its `CallCenterWebAddressCapture` carries `CityCode`, `CityName`, `DistrictCode`,
+`DistrictName`, `Street1`, `Street2`, `BuildingNumber`, `Phone1`, `Phone2`, `ShortAddress`,
+**`GpsLat`, `GpsLon`** — with `LabelCode` on the enclosing request. Ten was CC2's field *count*
+(city, district and GPS each being a pair); the wire's key count is twelve. Every assertion here is
+written against the shipped type, read from the source rather than from the ticket.
+
+**2. ⚠ And the GPS pair is why that matters — it is the ONE omission the merge cannot forgive.**
+878 names it: `GpsLat`/`GpsLon` are non-nullable `decimal`s that `UpdateCustomerAddress` assigns
+**unconditionally**, so an omitted pair writes `0` over a real fix instead of preserving it. The
+console has no map and captures neither, so `AddressFormValues` **round-trips** them from the book
+row (`addressFormOf` → `addressPayload`) and the drive asserts `24.7743 / 46.7386` arrive back
+unchanged on the `PUT`. A mapper that sent only "the nine strings" would silently zero every edited
+address's coordinates.
+
+**3. The label is defaulted on a create and never on an edit** — found by `/standards-review`'s spec
+axis. CC2's `HOME` default is `ResetForNewAsync`'s, i.e. a *new* address; defaulting in the mapper
+meant a street correction silently relabelled a row the server had left blank. `emptyAddressForm()`
+starts at `HOME`, `addressFormOf` takes the row verbatim (blank included), `addressPayload` passes
+it through.
+
+**4. `NO_DELIVERY_STORE_FOR_DISTRICT` now has a sentence.** The Boundaries named the code and
+nothing worded it, so an agent who keyed a whole address met the server's raw `message`. It joins
+`address-book.ts`'s refusal table — with the wording deliberately claiming nothing about the book
+(*"Nothing has changed on this order"*), because it arrives in two shapes: a plain pick, and a
+create's auto-apply where the address **is** saved. That is §6.5's named consequence, and the drive
+now covers it.
+
+**5. A create seeds the book rather than re-reading it.** 179's *"hand straight to `setAddress` with
+no re-read"* is asserted by the drive (the `POST` is followed immediately by `SetAddress`) — but the
+first cut then left a stale list on the refusal path, showing an agent a book **without** the
+address they had just saved and inviting a duplicate. The create's own answer is the whole row, so
+it is written into the cache; still no call, and nothing stale.
+
+**Two additions worth naming, neither in the ticket's Boundaries:**
+
+- **`GET SdDocument/AddressLabels`** — a new (ungated, customer-data-free) reference read, because
+  179 §2.2 rules labels **server data, not an enum**. Verified present at
+  `SdDocumentEndpoints.cs:416`; 801 deliberately left it off the `CallCenterWeb` door and gave it no
+  sibling. It sits in `core/services/lookups.ts` beside its five neighbours, session-cached. A
+  failed read degrades to the value the form already holds — an address stays creatable.
+- **The district results are capped at 30 with an honest *showing the first of {{total}}* line.**
+  The list is ~1,700 rows and an empty box would otherwise hand all of them to the DOM. No silent
+  truncation.
+
+**Deferred to [188](188-editing-re-pins-deleting-is-refused.md), by construction:** the edit control
+is **absent** on the address the order is using (not disabled), and there is no delete control and
+no delete verb. Offering an edit of the current row before the re-pin exists would be exactly the
+silent wrong price §6.5 was written to prevent — the drive asserts the absence, and asserts that a
+correction to any other row sends **no** `setAddress`.
+
+⚠ **Unrelated red seen while working, not this ticket's:** `coupon-view.test.ts` (2) and
+`guidance-view.test.ts` (3) fail against the working tree because a concurrent session is editing
+`.issues/assets/136-cc-contract/01-open-empty.json` (it now carries `canApplyCoupon` /
+`capabilityReasons`, which those suites assert absent). They pass at `HEAD`. That is
+[189](189-coupon-names-itself-and-comes-off.md)'s ground.

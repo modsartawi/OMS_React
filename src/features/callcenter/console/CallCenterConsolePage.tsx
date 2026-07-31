@@ -527,12 +527,18 @@ function ConsoleSession() {
   // Its answer goes through the SAME guard: a `getState` racing a mutation is
   // the one read that can carry an older `version` than what is on screen, so
   // the entry point has to be the entry point — one write path, not two.
+  //
+  // 🚩 It goes through as a **read**, which is the one distinction the guard
+  // draws: at an EQUAL version this account of the order outranks a verb's own
+  // projection of the same save point. Recovery that the guard can discard is
+  // not recovery — and the field it was discarding was the store the caller is
+  // served from.
   const session = useQuery({
     queryKey: sessionKey(transactionId ?? ''),
     queryFn: async () => {
       const fresh = await runGuarded(() => callCenterApi.getState(transactionId!), refreshSession)
       const current = queryClient.getQueryData<SessionState>(sessionKey(transactionId!))
-      return applyState(current, fresh)
+      return applyState(current, fresh, 'read')
     },
     enabled: transactionId !== null,
     staleTime: Infinity,
@@ -1649,6 +1655,24 @@ function ConsoleSession() {
       clearRebind()
       setPickingAddress(false)
       setPickingStore(false)
+      // 🚩 **The rebind's own answer is not trusted about the PLANT.** Both
+      // routes to this verb have been seen to return a projection whose store is
+      // not the one the order ends up at — the override answering the branch it
+      // replaced, and `setAddress` answering a placeholder plant (`P000`) that a
+      // page reload immediately corrects. Either way the chip names a store the
+      // caller is not being served from, which is the one figure on this screen
+      // an agent reads out and acts on. So the order is asked what it holds:
+      // `getState`, §6.1's universal recovery, on the one act whose whole point
+      // is that the plant moved.
+      //
+      // The store override skips the read when its answer already shows the
+      // branch that was named — there is nothing left to confirm. The address
+      // route can never skip it: the plant is DERIVED server-side, so there is
+      // no expected value to compare against and the response is the only thing
+      // that could be wrong. One read, no retry, and only on a rebind that
+      // actually applied — a preview returned above, and a refusal never got
+      // here.
+      if (!(move.kind === 'store' && fresh.header.plant === move.target)) refreshSession()
     },
     onError: (err, move) => {
       const code = apiErrorCode(err)
@@ -2414,8 +2438,19 @@ function ConsoleSession() {
         // 🚩 Same rule, other capability: the store chip re-opens only where the
         // door says it will accept an override (§2), so the console never draws
         // a control it has to apologise for.
+        //
+        // 🚩 **And only while the order is COLLECTED** (owner ruling, 2026-07-31).
+        // On a delivery order the store is not a choice: it is derived from where
+        // the caller lives, server-side, at `setAddress` (166) — so the way to
+        // move it is to change the address, and a picker beside that is a second
+        // opinion about fulfilment offered to an agent who cannot know better
+        // than the district rule. This narrows 167/US14, which allowed the
+        // override on any order; the operational escape it was written for now
+        // exists on collection orders only.
         onChangeStore={
-          session.data.capabilities.canChangeStore ? () => openSection('store') : undefined
+          session.data.capabilities.canChangeStore && isPickup(session.data.header)
+            ? () => openSection('store')
+            : undefined
         }
         // 🚩 Offered only while the order is OPEN — the same rule the three
         // corrections and the abandon button follow. There is no capability of

@@ -24,6 +24,7 @@ import {
   paletteQuestion,
   paletteRows,
   paletteRun,
+  STORE_FOLLOWS_ADDRESS,
   VAGUE_REASON,
   type PaletteActions,
   type PaletteInput,
@@ -67,6 +68,9 @@ const build = (over: Partial<PaletteInput> = {}): PaletteRow[] =>
     guidance: guidanceView(null),
     capabilities: EMPTY_SESSION.capabilities,
     hasCaller: false,
+    // Collection by default: the delivery reading is its own case below, and a
+    // default that hid the store row's sentence would make it the exception.
+    pickup: true,
     actions: ALL_LIVE,
     ...over,
   })
@@ -171,6 +175,7 @@ describe('theOffersAreTheStripsOwn', () => {
       guidance,
       capabilities: ATTACHED_SESSION.capabilities,
       hasCaller: true,
+      pickup: true,
       actions: { ...ALL_LIVE, onOffer: (offerId) => asked.push(offerId) },
     })
     rows.find((row) => row.kind === 'offer')?.run?.()
@@ -240,6 +245,33 @@ describe('aRefusedVerbIsADisabledRowCarryingItsReason', () => {
       key: VAGUE_REASON,
     })
     expect(withCaller.find((row) => row.id === 'verb:slot')!.reason).toEqual({ key: VAGUE_REASON })
+  })
+
+  // 🚩 A delivery order's store is DERIVED, not refused — no capability carries
+  // that, and the vague sentence would leave an agent hunting for a picker that
+  // is deliberately not there. It borrows the chip row's own words, so the two
+  // surfaces cannot come to say different things about one rule.
+  it('says the store follows the address on a delivery order', () => {
+    const rows = build({
+      pickup: false,
+      actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, changeStore: null } },
+    })
+    const reason = rows.find((row) => row.id === 'verb:changeStore')!.reason!
+    expect(reason.key).toBe(STORE_FOLLOWS_ADDRESS)
+    expect(phrase(reason.key)).toBeTruthy()
+  })
+
+  it('...and never on a collection order, where the store IS the agent’s choice', () => {
+    const rows = build({
+      pickup: true,
+      actions: { ...ALL_LIVE, verbs: { ...ALL_LIVE.verbs, changeStore: null } },
+    })
+    // Whatever it says there, it is not the delivery sentence: on a collection
+    // order a shut store row is a real refusal, and `capabilityReasons` (or the
+    // vague phrase) is what may speak for it.
+    expect(rows.find((row) => row.id === 'verb:changeStore')!.reason!.key).not.toBe(
+      STORE_FOLLOWS_ADDRESS,
+    )
   })
 
   it('gives a verb with no reason available a vague sentence rather than none', () => {

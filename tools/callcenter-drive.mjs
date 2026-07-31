@@ -2503,8 +2503,31 @@ async function run() {
   }
 
   // ---- 30. the deliberate override takes the SAME path, not a second one ----
+  //
+  // 🚩 On a COLLECTION order, which is the only kind that has a store to choose
+  // (owner ruling 2026-07-31, narrowing 167/US14): a delivery order's plant is
+  // derived from the caller's address server-side, so the chip there is a
+  // readout and the way to move the store is to change the address. The
+  // override path itself is unchanged, which is what this section still proves.
   {
-    const { context, page, errors, calls, wire } = await open(browser, { openState: PRIOR_STATE })
+    const COLLECTED = {
+      ...PRIOR_STATE,
+      header: { ...PRIOR_STATE.header, deliveryType: 'PickInStore' },
+    }
+    // First, the other half of the ruling, on the very same order.
+    {
+      const { context, page } = await open(browser, { openState: PRIOR_STATE })
+      await page.goto(`${BASE}/callcenter`)
+      await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
+      check(
+        '🚩 a DELIVERY order has no store to choose — it follows the address',
+        (await page.locator('[data-cc-chip-open="store"]').count()) === 0 &&
+          (await page.locator('[data-cc-store-derived]').isVisible()),
+      )
+      await context.close()
+    }
+
+    const { context, page, errors, calls, wire } = await open(browser, { openState: COLLECTED })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
 
@@ -3682,8 +3705,14 @@ async function run() {
   }
 
   // ---- 177 / 858: the same, on the OTHER two-phase verb ----
+  // On a collection order, for the same reason section 30 is: the store
+  // override is the collection order's act now (owner ruling 2026-07-31). What
+  // is under test — a commit the server swallowed — is untouched by that.
   {
-    const { context, page, errors } = await open(browser, { openState: PRIOR_STATE, swallowCommit: true })
+    const { context, page, errors } = await open(browser, {
+      openState: { ...PRIOR_STATE, header: { ...PRIOR_STATE.header, deliveryType: 'PickInStore' } },
+      swallowCommit: true,
+    })
     await page.goto(`${BASE}/callcenter`)
     await page.locator('[data-cc-console]').waitFor({ timeout: 10_000 })
     const storeBefore = (await text(page, '[data-cc-chip="store"]')).replace(/\s+/g, ' ')

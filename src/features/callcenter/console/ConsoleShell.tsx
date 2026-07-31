@@ -31,7 +31,7 @@ import BasketPanel, { type BasketActions } from './BasketPanel'
 import { receiptView, type DeliveryFeeView } from './basket-view'
 import CommandPalette from './CommandPalette'
 import { paletteRows } from './palette-model'
-import { capabilityGate, feeLine, showsDeliveryRegion } from './fulfilment-view'
+import { capabilityGate, feeLine, isPickup, showsDeliveryRegion } from './fulfilment-view'
 import BusyStrip, { type BusyPhase } from './BusyStrip'
 import CustomerRail, {
   type CustomerActions,
@@ -353,6 +353,10 @@ export default function ConsoleShell({
           guidance,
           capabilities: state.capabilities,
           hasCaller: state.header.customer != null,
+          // Read for one sentence: *Change store* is refused on a delivery order
+          // for a reason no capability carries, and the row borrows the chip
+          // row's own words for it rather than falling through to the vague one.
+          pickup: isPickup(state.header),
           actions: {
             verbs: {
               // The way home for focus stranded on a chip — and the box the
@@ -621,6 +625,19 @@ function ChipRow({
           {t(gate.reason ? `fulfilment.locked.${gate.reason}` : 'fulfilment.locked.unknown', {
             defaultValue: t('fulfilment.locked.unknown'),
           })}
+        </p>
+      )}
+      {/* 🚩 The store chip is a READOUT on a delivery order, and says so — the
+          same posture as the two locks below it. The plant is derived from the
+          caller's address server-side (166), so the way to move it is to change
+          the address, and an agent who found the chip inert without a sentence
+          beside it would go looking for a picker that is deliberately not there.
+          Drawn only while the order is OPEN: on a placed order nothing in this
+          row is a control, and singling the store out there would read as a rule
+          about delivery rather than as the state of this order. */}
+      {!isPickup(state.header) && state.status === 'open' && (
+        <p className="mt-1.5 text-[11px] text-muted-foreground" data-cc-store-derived>
+          {t('store.followsAddress')}
         </p>
       )}
       {/* ⚠ Unreachable in phase 1 and implemented anyway (§2.4): a capability

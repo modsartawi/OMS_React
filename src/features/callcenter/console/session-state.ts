@@ -26,8 +26,24 @@ import type { SessionState } from '@/core/models/callcenter'
  * - A **higher** `version` → `incoming` applies.
  * - An **equal** `version` → idempotent: the current state is kept, by identity,
  *   so a replay (§4, `replayed: true`) costs no re-render. `version` is
- *   blind-incremented on every engine `SaveAsync`, so equal means same state.
+ *   blind-incremented on every engine `SaveAsync`, so equal means same state —
+ *   **unless the `etag` disagrees**, which is the case below.
  * - A **lower** `version` → **discarded**. This is the slow-response case.
+ *
+ * 🚩 **Equal version, different `etag` → `incoming` applies.** Version ORDERS
+ * states; the etag IDENTIFIES one. A server that changed the order without
+ * advancing its counter is disagreeing with itself, and of the two readings only
+ * one is safe: the newly arrived state is the door's own answer to a verb the
+ * agent just performed, and dropping it renders an order the server no longer
+ * holds. That is not hypothetical — it is *"I chose the collection store and the
+ * chip kept the old one until I reloaded the page"*, which is this guard
+ * discarding a `setStore` response.
+ *
+ * It does not weaken the ordering rule it sits inside. A genuinely stale
+ * response carries a LOWER version and is still discarded; equal-and-different
+ * is two answers from the same save point, where the arrival order is the only
+ * evidence there is. And a true replay is byte-identical, so it still costs no
+ * re-render — the identity return below is kept for exactly that case.
  *
  * The function is deliberately blind to `transactionId`: the cache is keyed per
  * transaction (`sessionKey`), so two orders can never meet inside one entry, and
@@ -36,9 +52,32 @@ import type { SessionState } from '@/core/models/callcenter'
 export function applyState(
   current: SessionState | null | undefined,
   incoming: SessionState,
+  /**
+   * Where `incoming` came from. A **verb**'s response is a projection built
+   * alongside the act; a **read** is `getState` — the order's own account of
+   * itself, and §6.1's universal recovery.
+   *
+   * 🚩 It changes exactly one case: an equal version. A verb's projection can be
+   * wrong about a field it did not compute (`setAddress` answering the
+   * placeholder plant `P000` while the district rule has already put the order
+   * at a real branch), and the console's answer to that is to ask the order —
+   * which is worth nothing if the guard then discards the answer for having the
+   * same version as the bad one. A read at the same save point wins, because
+   * between two accounts of one save point the persisted one is the true one.
+   *
+   * It cannot rewind the basket: a read that arrives with a LOWER version is
+   * still discarded below, which is the race §2.1 is actually about.
+   */
+  source: 'verb' | 'read' = 'verb',
 ): SessionState {
   if (!current) return incoming
-  return incoming.version > current.version ? incoming : current
+  if (incoming.version > current.version) return incoming
+  if (incoming.version < current.version) return current
+  if (source === 'read') return incoming
+  // Same save point, and a verb said it. Only an etag that BOTH sides named can
+  // disagree — a server that sends none (or the same one) leaves the idempotent
+  // reading standing, which is what keeps a replay (§4) free of a re-render.
+  return incoming.etag && current.etag && incoming.etag !== current.etag ? incoming : current
 }
 
 /**

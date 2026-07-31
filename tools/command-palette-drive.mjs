@@ -514,9 +514,11 @@ console.log('\nthe rows that run')
   await page.keyboard.press('Escape')
   await page.waitForTimeout(150)
 
-  // 🚩 *Search items* is the way home for focus stranded on a chip.
-  await page.click('[data-cc-chip-open="store"]')
-  await page.waitForSelector('[data-cc-section="store"]')
+  // 🚩 *Search items* is the way home for focus stranded on a chip. The SOURCE
+  // chip, because this order is a delivery and its store chip is a readout —
+  // the plant follows the address there (owner ruling 2026-07-31).
+  await page.click('[data-cc-chip-open="source"]')
+  await page.waitForSelector('[data-cc-section="source"]')
   await page.keyboard.press('Escape')
   await page.waitForTimeout(150)
   await ctrlK(page)

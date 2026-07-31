@@ -152,6 +152,9 @@ const REASON_FAMILY: Partial<Record<PaletteVerb, { capability: string; family: s
   // stated. A reason here would name a refusal the row does not carry.
 }
 
+/** The store chip's own sentence, borrowed for the palette's row (see below). */
+export const STORE_FOLLOWS_ADDRESS = 'store.followsAddress'
+
 /** The phrase any refusal this console has no words for falls back to. */
 export const VAGUE_REASON = 'palette.reason.unknown'
 
@@ -201,6 +204,14 @@ export interface PaletteInput {
   capabilities: SessionCapabilities
   /** Whether a caller is on the order: which of the two caller rows exists. */
   hasCaller: boolean
+  /**
+   * Whether the order is COLLECTED. Read for one sentence only: a delivery
+   * order's store is derived from the caller's address, so *Change store* is
+   * refused there for a reason no capability carries — and a row that fell
+   * through to the vague phrase would tell the agent nothing at the moment they
+   * are looking for the picker.
+   */
+  pickup: boolean
   actions: PaletteActions
 }
 
@@ -214,7 +225,13 @@ export interface PaletteInput {
  * half of what stops a mistyped `Enter` reaching them — `autoHighlight` is the
  * other half.
  */
-export function paletteRows({ guidance, capabilities, hasCaller, actions }: PaletteInput): PaletteRow[] {
+export function paletteRows({
+  guidance,
+  capabilities,
+  hasCaller,
+  pickup,
+  actions,
+}: PaletteInput): PaletteRow[] {
   const rows: PaletteRow[] = []
 
   // 1. The offers within reach — the same cards the strip draws and the same
@@ -246,7 +263,7 @@ export function paletteRows({ guidance, capabilities, hasCaller, actions }: Pale
       label: { key: `palette.verb.${verb}` },
       detail: null,
       enabled: run !== null,
-      reason: run !== null ? null : refusalOf(verb, capabilities, hasCaller),
+      reason: run !== null ? null : refusalOf(verb, capabilities, hasCaller, pickup),
       run,
     })
   }
@@ -292,6 +309,7 @@ function refusalOf(
   verb: PaletteVerb,
   capabilities: SessionCapabilities,
   hasCaller: boolean,
+  pickup: boolean,
 ): PalettePhrase {
   const gate = REASON_FAMILY[verb]
   const code = gate ? capabilities.capabilityReasons?.[gate.capability] : undefined
@@ -299,6 +317,11 @@ function refusalOf(
   // The server said nothing. One precondition the contract states outright, and
   // otherwise the honest vague sentence.
   if (verb === 'addressBook' && !hasCaller) return { key: NEEDS_CALLER }
+  // 🚩 The store on a delivery order is not refused by a capability — it is not
+  // a choice at all (the district rule derives it at `setAddress`, 166). Worded
+  // with the SAME sentence the chip row uses, per the families rule above: two
+  // surfaces, one refusal, no way for them to drift apart.
+  if (verb === 'changeStore' && !pickup) return { key: STORE_FOLLOWS_ADDRESS }
   return { key: VAGUE_REASON }
 }
 

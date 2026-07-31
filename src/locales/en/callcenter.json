@@ -176,7 +176,8 @@
     "noMatch": "No store matches that. Try the store code, or the city.",
     "onThisOrder": "on this order",
     "truncated": "Showing the first {{shown}} of {{total}} matches — keep typing to narrow it.",
-    "applyFailed": "That store could not be applied. Nothing has changed on this order — try again."
+    "applyFailed": "That store could not be applied. Nothing has changed on this order — try again.",
+    "followsAddress": "The store follows the delivery address on this order — change the address to move it."
   },
   "confirm": {
     "reissuedStale": "The basket changed while you were reading the last preview, so this is a fresh one. Nothing has been applied.",

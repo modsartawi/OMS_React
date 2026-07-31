@@ -38,6 +38,64 @@ describe('applyState', () => {
     expect(applyState(current, replay)).toBe(current)
   })
 
+  it('🚩 applies an equal version whose etag disagrees — the store that would not appear', () => {
+    // The bug this rule ends: `setStore` answers with the new plant on a version
+    // the server did not advance, the guard reads *same save point, same state*,
+    // and the chip keeps the store the agent just replaced until the page is
+    // reloaded. Version orders states; the etag identifies one, and two
+    // different etags cannot be the same state whatever the counter says.
+    const current = at(12, 'E12')
+    const moved: SessionState = {
+      ...at(12, 'E12-MOVED'),
+      header: { ...EMPTY_SESSION.header, plant: '1044' },
+    }
+    expect(applyState(current, moved)).toBe(moved)
+  })
+
+  it('...but never on a LOWER version, whatever the etag says', () => {
+    // The ordering rule is untouched: a slow response that would rewind the
+    // basket is still discarded, and a fresh etag on it proves only that the
+    // server was somewhere else when it built it.
+    const current = at(14, 'E14')
+    expect(applyState(current, at(9, 'E9-DIFFERENT'))).toBe(current)
+  })
+
+  // 🚩 The other half of the same defect, and the one that actually bit: the
+  // console asks the order what it holds (§6.1) because a verb's answer looked
+  // wrong — and the guard threw the answer away for carrying the version the
+  // wrong one carried. Recovery a guard can discard is not recovery.
+  it('lets a READ win at an equal version — the recovery the guard used to discard', () => {
+    const projected: SessionState = {
+      ...at(12),
+      // What `setAddress` answered: the address landed, the plant is the
+      // placeholder the district rule has already replaced.
+      header: { ...EMPTY_SESSION.header, plant: 'P000' },
+    }
+    const held: SessionState = {
+      ...at(12),
+      header: { ...EMPTY_SESSION.header, plant: '1044' },
+    }
+    expect(applyState(projected, held, 'read')).toBe(held)
+    // The same pair from a VERB is the idempotent case — same save point, same
+    // etag, nothing to prefer.
+    expect(applyState(projected, held, 'verb')).toBe(projected)
+  })
+
+  it('...but a read still cannot rewind the basket', () => {
+    // The race §2.1 is actually about: a `getState` that left before the verb
+    // landed. Lower version, discarded, whoever asked for it.
+    const current = at(14)
+    expect(applyState(current, at(9), 'read')).toBe(current)
+  })
+
+  it('...and a server that names no etag keeps the idempotent reading', () => {
+    // Every state on the wire carries one today; a server that stops (or has not
+    // started) must not have its replays turned into re-renders by this rule.
+    const current = { ...at(12), etag: '' }
+    const replay = { ...at(12), etag: '', replayed: true }
+    expect(applyState(current, replay)).toBe(current)
+  })
+
   it('discards a lower version — the slow response that would rewind the basket', () => {
     const current = at(14)
     expect(applyState(current, at(9))).toBe(current)

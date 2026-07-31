@@ -3,8 +3,13 @@
  *
  * CC2's two-step loyalty OTP signup, drawn where the console actually needs it:
  * under a lookup that found nobody. [132](.issues/132-header-capture-inventory.md)
- * ruled the flow into phase 1 whole — country + mobile, then the code; no name,
- * no email, and customer *edit* stays out.
+ * ruled the flow into phase 1 whole — country + mobile + language, then the code;
+ * no name, no email, and customer *edit* stays out.
+ *
+ * 🚩 **Language joined the form on 2026-07-29** (owner-stated), the one field 132
+ * left out that could not stay out: the door defaults it to Arabic per body, so
+ * *not asking* was itself an answer, written onto the member permanently and used
+ * for every message they are ever sent. See `signup-view.ts`.
  *
  * 🚩 **Inline in the rail, not a modal**, and that is this ticket's one
  * arrangement decision rather than a preference. The wait between *Send code* and
@@ -32,6 +37,7 @@ import {
   canSendCode,
   mobilePreview,
   SIGNUP_COUNTRIES,
+  SIGNUP_LANGUAGES,
   type SignupState,
 } from './signup-view'
 
@@ -75,14 +81,28 @@ export default function SignupPanel({
       {/* ---- step 1: who is calling ------------------------------------- */}
       {state.step === 'details' && (
         <>
-          <div className="flex gap-1.5">
+          {/* 🚩 STACKED, not a row. The country and the number shared one line
+              until this was driven live (2026-07-29) — and a `<select>` is as wide
+              as its longest option, so *United Arab Emirates +971* sized the
+              control and pushed the MOBILE FIELD off the edge of a 200px rail.
+              The agent could see the form and could not type the number into it.
+
+              A row would fit in a modal, which is the case for making this one.
+              It is not enough of a case: the wait between *Send code* and the code
+              arriving is SPOKEN — the caller is on the line reading digits back —
+              and a modal takes the basket away for the length of a conversation
+              the agent is having anyway. Stacking costs one line of height. */}
+          <div className="space-y-1.5">
             <select
               value={state.countryCode}
               onChange={(e) => onChange({ ...state, countryCode: e.target.value })}
               disabled={busy}
               aria-label={t('signup.country')}
               data-cc-signup-country
-              className="rounded-md border border-input bg-card px-2 py-2 text-sm outline-none focus:border-ring"
+              // `w-full` + `min-w-0`: a select's intrinsic width is its longest
+              // option, and without both it grows past the rail rather than
+              // truncating inside it.
+              className="w-full min-w-0 rounded-md border border-input bg-card px-2 py-2 text-sm outline-none focus:border-ring"
             >
               {SIGNUP_COUNTRIES.map((country) => (
                 <option key={country.code} value={country.code}>
@@ -100,8 +120,49 @@ export default function SignupPanel({
               placeholder={t('signup.mobilePlaceholder')}
               data-numeric
               data-cc-signup-mobile
-              className="min-w-0 flex-1 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:border-ring"
+              className="w-full min-w-0 rounded-md border border-input bg-card px-3 py-2 text-sm outline-none focus:border-ring"
             />
+          </div>
+
+          {/* 🚩 THE LANGUAGE THE CALLER WILL BE WRITTEN DOWN AS. Two native
+              radios rather than a second dropdown: the set is closed at two, and
+              a control that has to be opened to reveal one alternative hides the
+              question the agent is meant to ask out loud. CC2 draws the same
+              pair, for what is plainly the same reason.
+
+              ⚠️ It is not a nicety. The door defaults `PreferredLanguage` to
+              `"A"` per body, so before this control existed every caller enrolled
+              here was recorded as Arabic-preferred — and it is what the loyalty
+              SMS goes out in, for the life of the membership. */}
+          <div
+            className="flex items-center gap-3"
+            role="radiogroup"
+            aria-label={t('signup.language')}
+            data-cc-signup-languages
+          >
+            <span className="text-[11px] text-muted-foreground">{t('signup.language')}</span>
+            {SIGNUP_LANGUAGES.map((code) => (
+              <label
+                key={code}
+                className={`flex cursor-pointer items-center gap-1.5 text-xs ${
+                  busy ? 'cursor-not-allowed opacity-60' : ''
+                }`}
+                data-cc-signup-language={code}
+                {...(state.language === code ? { 'data-cc-signup-language-chosen': code } : {})}
+              >
+                <input
+                  type="radio"
+                  // The rail can hold only one signup at a time, so a fixed group
+                  // name is safe and keeps the pair arrow-key navigable for free.
+                  name="cc-signup-language"
+                  checked={state.language === code}
+                  onChange={() => onChange({ ...state, language: code })}
+                  disabled={busy}
+                  className="h-3.5 w-3.5 accent-primary"
+                />
+                {t(`signup.languageName.${code}`)}
+              </label>
+            ))}
           </div>
 
           {/* 🚩 The number the agent reads back before anything is sent. It is a

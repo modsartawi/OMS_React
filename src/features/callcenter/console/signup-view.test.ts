@@ -10,6 +10,8 @@ import {
   mobilePreview,
   SIGNUP_COUNTRIES,
   signupCapture,
+  SIGNUP_LANGUAGES,
+  detectSignupCountry,
   signupConfirmCapture,
   signupCreated,
 } from './signup-view'
@@ -58,9 +60,47 @@ describe('beginSignup', () => {
     // *that was wrong* when the number was merely new.
     const state = beginSignup('0501234567')
     expect(state.step).toBe('details')
-    expect(state.mobile).toBe('0501234567')
     expect(state.countryCode).toBe('SA')
     expect(state.created).toBeNull()
+    // Its LOCAL part, with the country it implied moved into the picker — CC2's
+    // `QuickCreate`. See the prefill tests below for why that split matters.
+    expect(state.mobile).toBe('501234567')
+  })
+})
+
+describe('detectSignupCountry — what the two controls open on', () => {
+  it('reads the country out of a number dictated in full', () => {
+    // ⚠️ The defect this closes. The picker defaulted to Saudi, so a caller who
+    // read back `971501234567` was enrolled under SA — and the server, parsing
+    // against the country the agent NAMED, would build `966971501234567` and mint
+    // a member at a number nobody has. Nothing on screen looked wrong: the field
+    // held the right digits.
+    expect(detectSignupCountry('971501234567')).toEqual({ countryCode: 'AE', local: '501234567' })
+    expect(detectSignupCountry('+973361234567')).toEqual({ countryCode: 'BH', local: '361234567' })
+    expect(beginSignup('971501234567').countryCode).toBe('AE')
+  })
+
+  it('drops the leading zero a Saudi number is dictated with', () => {
+    expect(detectSignupCountry('0501234567')).toEqual({ countryCode: 'SA', local: '501234567' })
+    expect(detectSignupCountry('501234567')).toEqual({ countryCode: 'SA', local: '501234567' })
+    // Already full — the dialling code moves to the picker rather than staying in
+    // the field, so the server cannot be handed it twice.
+    expect(detectSignupCountry('966501234567')).toEqual({ countryCode: 'SA', local: '501234567' })
+  })
+
+  it('falls back to Saudi rather than inventing a country', () => {
+    // The call centre is Saudi. An unrecognised prefix is far likelier to be a
+    // typo than a seventh country, and the loyalty validator is what refuses it.
+    expect(detectSignupCountry('123').countryCode).toBe('SA')
+    expect(detectSignupCountry('')).toEqual({ countryCode: 'SA', local: '' })
+    expect(detectSignupCountry('   ')).toEqual({ countryCode: 'SA', local: '' })
+  })
+
+  it('does not treat a bare dialling code as a number from that country', () => {
+    // 🚩 `966` alone has no subscriber in it. Matching it would empty the field
+    // and leave the agent looking at a country they never chose.
+    expect(detectSignupCountry('966').local).not.toBe('')
+    expect(detectSignupCountry('966')).toEqual({ countryCode: 'SA', local: '966' })
   })
 })
 
@@ -128,7 +168,9 @@ describe('what goes on the wire', () => {
     // drops SA's leading zero and prefixes the dialling code; the body does
     // neither, because the loyalty base's key is normalised in ONE place and
     // that place is the server (156's exact failure, avoided).
-    const state = { ...beginSignup(' 0501234567 '), step: 'otp' as const, otp: ' 1234 ' }
+    // The field as the agent left it — a leading zero they typed back in is kept,
+    // because the field is theirs and the server is what resolves it.
+    const state = { ...beginSignup(' 0501234567 '), mobile: ' 0501234567 ', step: 'otp' as const, otp: ' 1234 ' }
     const preview = mobilePreview(state.countryCode, state.mobile)
     expect(preview).toBe('+966501234567')
 
@@ -147,13 +189,48 @@ describe('what goes on the wire', () => {
     // require it, so a browser that could name a branch could credit any
     // pharmacy in the estate. The server stamps the call centre's own store.
     const state = { ...beginSignup('0501234567'), step: 'otp' as const, otp: '1234' }
-    expect(Object.keys(signupCapture(state)).sort()).toEqual(['countryCode', 'mobile'])
+    expect(Object.keys(signupCapture(state)).sort()).toEqual([
+      'countryCode',
+      'mobile',
+      'preferredLanguage',
+    ])
     expect(Object.keys(signupConfirmCapture(state)).sort()).toEqual([
       'countryCode',
       'mobile',
       'otp',
+      'preferredLanguage',
     ])
-    // 132's ruling kept whole — two fields and no more, so no language either.
-    expect(JSON.stringify(signupConfirmCapture(state))).not.toMatch(/branch|language/i)
+    // ⚠️ The branch half of 132's ruling is the half that holds, and this is the
+    // assertion that keeps it: `language` used to be barred by the same line, and
+    // it was NOT the same argument. See the language tests below.
+    expect(JSON.stringify(signupConfirmCapture(state))).not.toMatch(/branch/i)
+  })
+})
+
+describe('the language the caller is written down as', () => {
+  it('starts at Arabic — the answer the door was already giving', () => {
+    // ⚠️ Not a fresh preference. The door declares `PreferredLanguage = "A"`, so
+    // starting the control anywhere else would change what an agent who never
+    // touches it enrols today.
+    expect(beginSignup('0501234567').language).toBe('A')
+    expect(CLOSED_SIGNUP.language).toBe('A')
+    expect(SIGNUP_LANGUAGES).toEqual(['A', 'E'])
+  })
+
+  it('rides on BOTH legs, or the question was decorative', () => {
+    // 🚩 The door defaults `preferredLanguage` PER BODY. A confirm that dropped
+    // an English answer given on the send would quietly overwrite it back to
+    // Arabic — the caller would be asked, answered, and recorded as the opposite.
+    const english = { ...beginSignup('0501234567'), language: 'E' as const, step: 'otp' as const, otp: '1234' }
+    expect(signupCapture(english).preferredLanguage).toBe('E')
+    expect(signupConfirmCapture(english).preferredLanguage).toBe('E')
+  })
+
+  it('sends CC2\'s codes, not its words', () => {
+    // The wire carries `A` / `E` (`CustomerCreateSectionVM:144`). *Arabic* and
+    // *English* are i18n keys the agent reads, and they never reach the server.
+    const capture = signupCapture({ ...beginSignup('05'), language: 'E' })
+    expect(capture.preferredLanguage).toBe('E')
+    expect(JSON.stringify(capture)).not.toMatch(/english|arabic/i)
   })
 })

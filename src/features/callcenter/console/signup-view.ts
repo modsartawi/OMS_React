@@ -61,6 +61,35 @@ export const SIGNUP_COUNTRIES: SignupCountry[] = [
 export const DEFAULT_SIGNUP_COUNTRY = 'SA'
 
 /**
+ * The language the loyalty base will speak to this caller in — `A` or `E`, CC2's
+ * own two codes (`IsEnglish ? "E" : "A"`, `CustomerCreateSectionVM:144`).
+ *
+ * 🚩 **It is asked, not defaulted** (owner-stated 2026-07-29). 132 ruled the form
+ * to country + mobile and no more, and the model's own comment justified the
+ * omission as *"the server's own default is the honest answer to a question the
+ * agent was never asked."* That reasoning stood only while the question went
+ * unasked. It doesn't: the agent is already on the phone with the caller, and the
+ * door's `PreferredLanguage = "A"` default is not a neutral absence — it is a
+ * standing answer of *Arabic*, written onto the member and used for every SMS
+ * they will ever be sent. An English-speaking caller enrolled by this console got
+ * Arabic messages forever and nobody was ever asked.
+ *
+ * The rest of 132's ruling is untouched: still no name and no email, and customer
+ * *edit* stays out.
+ */
+export type SignupLanguage = 'A' | 'E'
+
+/** Arabic first, as CC2 lists them and as its form defaults. */
+export const SIGNUP_LANGUAGES: SignupLanguage[] = ['A', 'E']
+
+/**
+ * ⚠️ The same default the door already holds, chosen deliberately rather than
+ * inherited: the control starts somewhere, and starting it anywhere else would
+ * change what an agent who never touches it enrols today.
+ */
+export const DEFAULT_SIGNUP_LANGUAGE: SignupLanguage = 'A'
+
+/**
  * What the agent reads back to the caller before the code is sent — never what
  * is put on the wire.
  *
@@ -98,6 +127,10 @@ export interface SignupState {
   step: SignupStep
   countryCode: string
   mobile: string
+  /** 🚩 Asked on step 1, beside the number — it is part of *who is calling*, not
+   *  a preference to be tidied up afterwards. There is no later: the confirm
+   *  enrols them and this console has no customer edit. */
+  language: SignupLanguage
   otp: string
   /** The member the confirm returned. The console still ATTACHES deliberately —
    *  165's two-step rule, which a freshly created caller does not get to skip:
@@ -106,15 +139,56 @@ export interface SignupState {
   created: LoyaltyMember | null
 }
 
+/**
+ * Splits what the agent typed at the LOOKUP into the country the picker should
+ * show and the local number the field should hold — CC2's `QuickCreate`
+ * (`CustomerSectionVM:167`) exactly.
+ *
+ * 🚩 **This is a PREFILL, not a normalisation.** It decides what the two controls
+ * open on; the agent can change either, and the wire still carries
+ * `{ countryCode, mobile }` for the server to build the key from. 156's rule bans
+ * a second implementation of the ENROLLED NUMBER, and this never produces one —
+ * `mobilePreview` remains the only display line and `LoyMobileNumbers` remains
+ * the only builder.
+ *
+ * ⚠️ Why it has to exist at all: the country picker defaults to Saudi, so a caller
+ * who dictated `971501234567` in full was enrolled under SA — and the server,
+ * parsing against the country the agent NAMED, would build `966971501234567` and
+ * mint a member at a number nobody has. The agent had no way to see it: the field
+ * showed the right digits.
+ */
+export function detectSignupCountry(typed: string): { countryCode: string; local: string } {
+  const cleaned = (typed ?? '').trim().replace(/^\+/, '').replace(/\D/g, '')
+  if (cleaned === '') return { countryCode: DEFAULT_SIGNUP_COUNTRY, local: '' }
+
+  // Longest dialling code first, so a short one cannot match ahead of a longer
+  // one that shares its prefix. `>` not `>=`: a number that is ONLY a dialling
+  // code has no subscriber in it and is not a match.
+  const match = [...SIGNUP_COUNTRIES]
+    .sort((a, b) => b.diallingCode.length - a.diallingCode.length)
+    .find((country) => cleaned.startsWith(country.diallingCode) && cleaned.length > country.diallingCode.length)
+
+  if (match) return { countryCode: match.code, local: cleaned.slice(match.diallingCode.length) }
+
+  // Unrecognised — the call centre is Saudi, so that is the honest default, and
+  // the one national quirk applies: a Saudi number is dictated with a leading
+  // zero and stored without it.
+  const local = cleaned.startsWith('0') ? cleaned.slice(1) : cleaned
+  return { countryCode: DEFAULT_SIGNUP_COUNTRY, local }
+}
+
 export function beginSignup(mobile: string): SignupState {
+  const detected = detectSignupCountry(mobile)
   return {
     step: 'details',
-    countryCode: DEFAULT_SIGNUP_COUNTRY,
-    // 🚩 The number the agent already typed into the lookup carries over. A
+    countryCode: detected.countryCode,
+    // 🚩 The number the agent already typed into the lookup carries over — as its
+    // LOCAL part, with the country it implied moved into the picker beside it. A
     // not-found lookup is the natural entry to signup (the ticket's own ruling),
-    // and asking for the number a second time would read as *that was wrong*
-    // when it was merely new.
-    mobile,
+    // and asking for the number a second time would read as *that was wrong* when
+    // it was merely new.
+    mobile: detected.local,
+    language: DEFAULT_SIGNUP_LANGUAGE,
     otp: '',
     created: null,
   }
@@ -124,6 +198,7 @@ export const CLOSED_SIGNUP: SignupState = {
   step: 'closed',
   countryCode: DEFAULT_SIGNUP_COUNTRY,
   mobile: '',
+  language: DEFAULT_SIGNUP_LANGUAGE,
   otp: '',
   created: null,
 }
@@ -183,9 +258,18 @@ export function signupCreated(state: SignupState, member: LoyaltyMember): Signup
  *
  * 🚩 There is no `branchId` field to leave out at a call site, because there is
  * no `branchId` field: `LoyaltySignupCapture` cannot express one.
+ *
+ * 🚩 `preferredLanguage` IS on the wire now, and it rides on **both** legs. The
+ * door defaults it to `"A"` per body, so a confirm that dropped it would silently
+ * overwrite an English answer given on the send — the two legs must agree or the
+ * agent's question was decorative.
  */
 export function signupCapture(state: SignupState): LoyaltySignupCapture {
-  return { countryCode: state.countryCode, mobile: state.mobile.trim() }
+  return {
+    countryCode: state.countryCode,
+    mobile: state.mobile.trim(),
+    preferredLanguage: state.language,
+  }
 }
 
 /** The confirm's body — the same two values (the server re-reads the number it

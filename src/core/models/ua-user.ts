@@ -54,6 +54,12 @@ export interface UaEmployeeStatusResult {
  * Absent means the card is not rendered — never `0`, which would read as "the
  * cutover hasn't started". A server that sends `0` is stating a count, and that
  * renders.
+ *
+ * It counts an ENABLED AUTHENTICATOR (`UaTotpSecret.IsEnabled`), not a password.
+ * The field kept its name when the rule changed — the wire word is load-bearing
+ * on a deployed client — so read the label, not the identifier: the old rule
+ * joined `[User_]`, which sees 209 of ~4,200 identities since store staff began
+ * being seeded from `Staff`, and the card understated the cutover 30×.
  */
 export interface UaReportCountsResult {
   allPeople: number

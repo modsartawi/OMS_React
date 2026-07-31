@@ -29,16 +29,18 @@ export type CardCode = (typeof ROW)[number]['card']
 /**
  * The row's order, and where each count comes from.
  *
- * Colour on this row means **there is work here**. That is why *Activation done*
- * is untoned even though it sits beside an accented neighbour: it is the one
- * card whose rows need nothing done. The asymmetry is deliberate — don't "fix"
- * it. *People* and *Disabled* are untoned for the same reason.
+ * Colour on this row means **there is work here**. That is why *Authenticator
+ * active* is untoned even though it sits beside an accented neighbour: it is the
+ * one card whose rows need nothing done. The asymmetry is deliberate — don't
+ * "fix" it. *People* and *Disabled* are untoned for the same reason.
  *
  * `completedActivation` sits fifth, immediately after *Awaiting activation*, so
  * the pair reads as two ends of one journey: how many still need chasing, how
  * many are finished. *Disabled* stays last and keeps its name — the collision is
  * the word *active*, and the fix is never spending it (it is the same word as
- * the status pill, the Status column, and the Disable/Re-enable actions).
+ * the status pill, the Status column, and the Disable/Re-enable actions). The
+ * label here says *Authenticator* first for exactly that reason: it is the noun
+ * that disambiguates, so it leads.
  */
 const ROW = [
   { card: 'all', count: (c: UaReportCountsResult) => c.allPeople, tone: '' },

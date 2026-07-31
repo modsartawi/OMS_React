@@ -18,7 +18,7 @@
     "notSeeded": "Not seeded",
     "phoneGap": "Phone gap — blocked",
     "awaitingActivation": "Awaiting activation",
-    "completedActivation": "Activation done",
+    "completedActivation": "Authenticator active",
     "mustChange": "Must change pwd",
     "disabled": "Disabled"
   },

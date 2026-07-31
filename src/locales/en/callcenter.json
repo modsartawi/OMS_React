@@ -406,6 +406,7 @@
     "resolving": "Finding what qualifies…",
     "resolveFailed": "The qualifying items could not be listed. Nothing has changed on this order — try again.",
     "resolveEmpty": "Nothing that qualifies is available at this store right now.",
+    "resolveUnaddressable": "This offer arrived without an id, so what qualifies can't be listed. Everything above still holds — search the selection by name to find one.",
     "searchRest_one": "Search the other {{count}} — filtered to this offer",
     "searchRest_other": "Search the other {{count}} — filtered to this offer",
     "searchRestUnknown": "Search the rest of the selection — filtered to this offer",

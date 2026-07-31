@@ -335,9 +335,21 @@ function Qualifying({
   actions: GuidanceActions
 }) {
   const { t } = useTranslation('callcenter')
+  // 🚩 An offer the wire named with a blank id CANNOT be resolved, and asking
+  // anyway is worse than not asking: `buildQuery` drops `''`, so the parameter
+  // never leaves the browser and the endpoint answers 500 on a required-query
+  // failure rather than the envelope's own refusal
+  // ([859](C:\Work\DMSCO\BackOffice\.issues\859-near-miss-offer-id-is-blank.md) —
+  // every `BbyHeader.OfferId` in dev master data is blank). The card keeps its
+  // meter and its set statement, which is everything the agent can say out loud
+  // except the ranked handful; only the handful is missing, and it is missing
+  // OUT LOUD. `cardId`'s positional fallback is not a substitute — a position is
+  // not an offer identity and must never be sent (see `guidance-view.ts`).
+  const addressable = card.offerId !== ''
   const resolved = useQuery({
     queryKey: prereqKey(transactionId, card.offerId),
     queryFn: () => callCenterApi.resolvePrereq(transactionId, card.offerId),
+    enabled: addressable,
     // 🚩 The rows must NOT move while an add launched from one of them is
     // running. The answer is a ranked set at the order's plant, so a re-fetch on
     // every re-price would re-rank the list under the agent's cursor mid-click —
@@ -348,6 +360,18 @@ function Qualifying({
   })
   const rows = prereqRows(resolved.data)
   const rest = restOfSet(resolved.data, card.eligible)
+
+  // A disabled query sits at `isPending` forever, so the unaddressable case is
+  // answered here rather than folded into the states below — it is not a load
+  // that has not finished, and it must never read as one.
+  if (!addressable)
+    return (
+      <div className="mt-2 border-t border-divider pt-1.5" data-cc-qualifying="">
+        <p className="py-1 text-[11px] text-muted-foreground" data-cc-qualifying-unaddressable>
+          {t('guidance.resolveUnaddressable')}
+        </p>
+      </div>
+    )
 
   return (
     <div className="mt-2 border-t border-divider pt-1.5" data-cc-qualifying={card.offerId}>

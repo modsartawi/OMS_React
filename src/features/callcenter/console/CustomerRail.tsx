@@ -4,11 +4,13 @@
  *
  * Three properties this file exists to hold:
  *
- * 1. 🚩 **The caret is in the phone field the moment the console opens** (US9,
+ * 1. 🚩 **The caret is in the phone field the moment an order opens** (US9,
  *    CC2 finding 1, never built in WPF). The agent's first keystroke is the one
- *    the screen expects — they do not click first and they do not hunt. It is an
- *    `autoFocus` on the input rather than an effect chasing a ref, because the
- *    field mounts exactly once, with the console.
+ *    the screen expects — they do not click first and they do not hunt. Keyed on
+ *    the ORDER rather than left to a mount-time `autoFocus`: *place, then take
+ *    the next call* keeps this console up and swaps the order underneath it, and
+ *    a caret still parked at the top of the document on call two is the same
+ *    lost keystroke as on call one.
  * 2. **Attaching fills a compact card of six fields maximum**, in a fixed order.
  *    The cap and the order are `rail-view.ts`'s; this file only draws what that
  *    module returns, so a seventh field cannot be added by widening some JSX.
@@ -169,6 +171,27 @@ export default function CustomerRail({
     if (attachedId === null) setFound(null)
   }, [attachedId])
 
+  /**
+   * US9's caret, put in the phone box for **this order**.
+   *
+   * 🚩 Keyed on the transaction id, so it fires again when the agent places one
+   * order and opens the next without the console ever unmounting — the case an
+   * `autoFocus` cannot see, because the input it is written on is the same
+   * element it already used up.
+   *
+   * Guarded on there being no caller yet: an order that arrives with one
+   * attached (a resume) draws the card, not the box, and a resumed basket is not
+   * a call that starts by typing a number.
+   */
+  const phoneBox = useRef<HTMLInputElement | null>(null)
+  const orderId = state.transactionId
+  useEffect(() => {
+    // Attaching does not move the caret — the box is gone by then and the agent
+    // is on to the order. Only an order with nobody on it wants the keystroke.
+    if (attachedId !== null) return
+    phoneBox.current?.focus()
+  }, [orderId, attachedId])
+
   const search = (event: React.FormEvent) => {
     event.preventDefault()
     const query = mobile.trim()
@@ -214,8 +237,10 @@ export default function CustomerRail({
               id="cc-phone"
               // 🚩 US9. The console has nothing else to focus and one obvious
               // first act; anything else here costs the agent a click on every
-              // call they take.
-              autoFocus
+              // call they take. The caret is put here by the effect above rather
+              // than by `autoFocus`, because the second call of a shift mounts
+              // no new input.
+              ref={phoneBox}
               value={mobile}
               onChange={(e) => setMobile(e.target.value)}
               inputMode="tel"

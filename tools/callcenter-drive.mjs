@@ -3236,13 +3236,14 @@ async function run() {
     )
     // 🚩 Which windows are offerable is the SERVER's answer: a full one is drawn
     // (so the agent can say so to the caller) and cannot be picked.
-    await page.locator('[data-cc-slot-day]').selectOption('1')
+    // The day is two rows of PRESSES now, not a dropdown (e9e3695).
+    await page.locator('[data-cc-slot-day="1"]').click()
     check(
       'a window the server marks full is drawn, not hidden, and cannot be picked',
       (await page.locator(`[data-cc-slot-option="${SLOT_FULL.slotId}"]`).count()) === 1 &&
         (await page.locator(`[data-cc-slot-option="${SLOT_FULL.slotId}"]`).isDisabled()),
     )
-    await page.locator('[data-cc-slot-day]').selectOption('0')
+    await page.locator('[data-cc-slot-day="0"]').click()
     await page.locator(`[data-cc-slot-option="${SLOT_CHOSEN.slotId}"]`).click()
     await page.locator('[data-cc-slot-picker]').waitFor({ state: 'detached', timeout: 10_000 })
 

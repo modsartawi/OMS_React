@@ -1867,6 +1867,59 @@ function ConsoleSession() {
     rebind.reset()
   }
 
+  /**
+   * 🚩 **One header section at a time** (175 §9's variant 4).
+   *
+   * While a chip opened a `<dialog>` this was true by construction — the backdrop
+   * meant a second chip could not be reached. A section in the flow leaves the
+   * chip row live above it, which is the point of drawing it there, and that is
+   * exactly what makes the invariant this page's to keep: two open sections would
+   * be two half-answered questions stacked over the basket.
+   *
+   * 🚩 A section also **opens clean**. Its own close resets its verb, but a
+   * section DISPLACED by another never gets its close — so the reset happens on
+   * the way in as well, and only for the section being opened. Nothing here
+   * touches a verb the agent did not just ask for: a rebind mid-flight belongs to
+   * the confirmation sheet, not to whichever chip was pressed after it.
+   */
+  const openSection = (
+    which: 'store' | 'slot' | 'source' | 'fulfilment' | 'payment' | 'coupon' | 'note',
+  ) => {
+    setPickingStore(which === 'store')
+    setPickingSlot(which === 'slot')
+    setEditingSource(which === 'source')
+    setPickingFulfilment(which === 'fulfilment')
+    setPickingPayment(which === 'payment')
+    setPickingCoupon(which === 'coupon')
+    setEditingNote(which === 'note')
+    switch (which) {
+      case 'slot':
+        // The lapse is the slot's alone, and it is a warning about a window the
+        // agent has since left behind (§7's soft gate).
+        setSlotLapsed(false)
+        slot.reset()
+        break
+      case 'source':
+        documentSource.reset()
+        break
+      case 'fulfilment':
+        fulfilment.reset()
+        break
+      case 'payment':
+        payment.reset()
+        break
+      case 'note':
+        orderNote.reset()
+        break
+      case 'coupon':
+        applyCoupon.reset()
+        removeCoupon.reset()
+        break
+      case 'store':
+        break
+    }
+  }
+
   /** Declining costs nothing: the preview was the engine door run and not
    *  persisted (129), so there is no trace to undo — only the sheet to close. */
   const declineMove = () => {
@@ -2036,259 +2089,26 @@ function ConsoleSession() {
     )
   }
 
-  return (
+  /**
+   * 🚩 **What the chips open into** (175 §9's variant 4, second half): seven
+   * sections, drawn by the shell directly under the chip row they collapsed
+   * rather than in a dialog over the order.
+   *
+   * They are built HERE because every one of them is a verb this page owns and a
+   * mutation this page holds; all the shell contributes is the place. A closed
+   * section renders nothing, so at rest this whole node is empty and the chip row
+   * sits straight on top of the item search — v3's resting state, which is what
+   * variant 4 asked for.
+   *
+   * 🚩 The address book is NOT among them, and neither are the confirmation
+   * sheets. A section is a header field the agent reads out while the caller is
+   * still talking, with the basket and receipt in view; a store move the caller
+   * has to agree to, an abandon, a below-availability acceptance are acts that
+   * must be finished before anything else on the screen is true. Those stay
+   * modal, which is the distinction this arrangement is drawing.
+   */
+  const headerSection = (
     <>
-      {/* Abandoning from inside a live order is the SAME act as abandoning the
-          one on the already-open screen — same confirmation, same wording, same
-          landing on a fresh order. It is only reachable while the order is
-          actually open; there is nothing to void once it has been submitted. */}
-      <ConsoleShell
-        state={session.data}
-        busy={busy}
-        onRefresh={refreshSession}
-        refreshing={session.isFetching}
-        customerActions={{
-          onAttach: (member) => customer.mutate({ customerId: member.loyId }),
-          onRemove: () => customer.mutate({ customerId: null }),
-          busy: customer.isPending,
-          // The fallback follows the DIRECTION that failed — `variables` is the
-          // action the mutation is reporting on. One sentence for both would
-          // tell an agent whose remove failed that the caller could not be
-          // attached, which is the opposite of what happened.
-          error: customerFailure,
-        }}
-        // 🚩 The caller the lookup could not find, enrolled without leaving the
-        // console (190) — INLINE in the rail, because the wait between *Send
-        // code* and the code arriving is SPOKEN and a modal would take the basket
-        // away for the length of a conversation the agent is having anyway. It
-        // hangs off the not-found lookup as the ordinary next thing: a miss is
-        // not a failure.
-        signup={{
-          state: signup,
-          actions: {
-            // 🚩 A failure belongs to the ATTEMPT, not to the panel: the agent
-            // who re-types the code the caller just repeated is asking a new
-            // question, and the last one's refusal must not stand over it.
-            onChange: (next) => {
-              setSignup(next)
-              if (sendCode.isError) sendCode.reset()
-              if (confirmOtp.isError) confirmOtp.reset()
-            },
-            onSendCode: () => sendCode.mutate(signup),
-            onConfirm: () => confirmOtp.mutate(signup),
-            onCancel: closeSignup,
-            // 🚩 The SAME attach the lookup's own card uses — one verb, one
-            // `requestId`, one error surface. A freshly enrolled caller reaches
-            // the order by exactly the path a found one does (165).
-            onAttach: (member) => customer.mutate({ customerId: member.loyId }),
-            sending: sendCode.isPending,
-            confirming: confirmOtp.isPending,
-            error: signupError,
-          },
-        }}
-        addItem={{
-          // 🚩 Passed only while the door says it will accept an add — the same
-          // rule as the address book and the store chip: a control the door
-          // refuses is worse than no control.
-          // 🚩 One action per press: the id is minted HERE, once, and the
-          // acceptance re-sends it (§4).
-          onAdd: session.data.capabilities.canAddItem
-            ? (itemNumber, description) => addItem.mutate(beginAdd({ itemNumber, qty: 1, description }))
-            : null,
-          pending: addItem.isPending ? (addItem.variables?.itemNumber ?? null) : null,
-          error: addOutcome,
-          landed: addsLanded,
-          // 🚩 The outcome belongs to the act, not to the screen: a new search is
-          // a new question, and `reset` is what stops the last one's refusal
-          // standing over it. Nothing else clears it — a successful add already
-          // replaces the mutation's own data.
-          dismissError: () => {
-            addItem.reset()
-            setAddUnconfirmable(false)
-          },
-        }}
-        // 🚩 The same verb, launched from a card (172) — one `addItem`, not a
-        // second add path: a card that had its own would be a second place for
-        // the below-availability acceptance and the busy retry to be forgotten.
-        guidance={{
-          onAdd: session.data.capabilities.canAddItem
-            ? (from) => {
-                // The state BEFORE, held with the action: what the engine did is
-                // only legible as a difference, and by the time the answer
-                // arrives the cache holds the after.
-                setAddedFrom({ ...from, before: session.data })
-                addItem.mutate(
-                  beginAdd({ itemNumber: from.itemNumber, qty: 1, description: from.itemName, offerId: from.offerId }),
-                )
-              }
-            : null,
-          // The row that launched it, and only that row, says *Adding…* — and it
-          // does not move while it runs (the resolution is not re-fetched).
-          pending: addItem.isPending && addedFrom ? addedFrom : null,
-          outcome: guidanceOutcome,
-          dismissOutcome: () => setGuidanceOutcome(null),
-          // The route to the rest of a big set: the console's own search,
-          // narrowed — never a second list.
-          onSearchRest: (offerId, description) => setSearchScope({ offerId, description }),
-        }}
-        searchScope={searchScope}
-        onClearSearchScope={() => setSearchScope(null)}
-        // 🚩 The three corrections are offered only while the order is OPEN: a
-        // submitted basket has nothing to correct, and a control that would be
-        // refused is worse than no control (165's ruling, and the same one the
-        // abandon button already follows).
-        lineEdit={
-          session.data.status === 'open'
-            ? {
-                onQty: (line, qty) =>
-                  lineEdit.mutate(
-                    // The description travels so the acceptance sheet can name
-                    // what the agent is holding rather than an item number. It
-                    // is display only — the wire carries the line id (law 1).
-                    beginLineEdit({ kind: 'qty', lineId: line.lineId, qty, description: line.description }),
-                  ),
-                onUom: (line, uom) =>
-                  lineEdit.mutate(beginLineEdit({ kind: 'uom', lineId: line.lineId, uom })),
-                onVoid: (line) => lineEdit.mutate(beginLineEdit({ kind: 'void', lineId: line.lineId })),
-                // 🚩 Unfinished, not merely in flight: a quantity raise waiting
-                // on the agent's acceptance is still this line's correction, and
-                // the field must keep what they typed until it settles. Which is
-                // the two halves below — the call itself, and the ask it raised.
-                pending: lineEdit.isPending ? lineEdit.variables : editAsk ? edit : null,
-                error: lineFailure,
-              }
-            : null
-        }
-        onAbandon={
-          session.data.status === 'open'
-            ? () =>
-                setAbandoning({
-                  target: abandonTargetOfSession(session.data),
-                  requestId: newRequestId(),
-                })
-            : undefined
-        }
-        // 🚩 Passed only while the door says the book will answer — the one
-        // place `canOpenAddressBook` is read on the way in, so the rail draws
-        // the offer without re-testing the rule (§6.3, and 165's ruling that a
-        // control the door refuses is worse than no control).
-        onPickAddress={
-          session.data.capabilities.canOpenAddressBook ? () => setPickingAddress(true) : undefined
-        }
-        // 🚩 Same rule, other capability: the store chip re-opens only where the
-        // door says it will accept an override (§2), so the console never draws
-        // a control it has to apologise for.
-        onChangeStore={
-          session.data.capabilities.canChangeStore ? () => setPickingStore(true) : undefined
-        }
-        // 🚩 Offered only while the order is OPEN — the same rule the three
-        // corrections and the abandon button follow. There is no capability of
-        // their own for these two sections (§2 lists none), and a submitted
-        // order has no header left to capture.
-        onChangeSlot={session.data.status === 'open' ? () => setPickingSlot(true) : undefined}
-        onChangeSource={session.data.status === 'open' ? () => setEditingSource(true) : undefined}
-        // Same rule again (183): there is no capability of its own for the note
-        // (§2 lists none), and a submitted order has no header left to capture.
-        onChangeNote={session.data.status === 'open' ? () => setEditingNote(true) : undefined}
-        // 🚩 189 — **a shut gate is not a shut chip.** The coupon chip opens on
-        // the OPEN rule alone; `canApplyCoupon` is deliberately not tested here,
-        // because an order may hold a coupon the agent has to read out on a call
-        // where a new one may not be applied. The modal is where the reason is
-        // said, and `couponSurface` is what says it — the one place the two
-        // capabilities are read.
-        onChangeCoupon={session.data.status === 'open' ? () => setPickingCoupon(true) : undefined}
-        // 🚩 The two axis chips (182). Only the OPEN rule is applied here —
-        // `canChangeFulfilment` / `canChangePaymentType` are read inside the
-        // shell, through `capabilityGate`, because the shell is also what prints
-        // the reason beside the row. Testing the capability here too would be the
-        // same predicate in two places, and the one that went stale would be the
-        // one still drawing the chip.
-        onChangeFulfilment={
-          session.data.status === 'open' ? () => setPickingFulfilment(true) : undefined
-        }
-        onChangePayment={session.data.status === 'open' ? () => setPickingPayment(true) : undefined}
-        // 🚩 194 — the count block and the linked card, derived ONCE here off the
-        // same state the picker reads, so the rail, the card and the modal cannot
-        // disagree about whether this order converts a request. The read itself is
-        // scoped by the door; the console never sends a customer id.
-        requests={{
-          offer: requestOffer(session.data, requests.data),
-          card: linkedCard(session.data),
-          onView: () => setPickingRequest(true),
-          // 🚩 195 — the press opens the CONFIRMATION, never the verb. Offered
-          // only while the order is open, the same rule the corrections and the
-          // abandon follow: a submitted order's link is history, and a control
-          // the door would refuse is worse than no control.
-          onUnlink: session.data.status === 'open' ? beginUnlink : undefined,
-        }}
-        // The lines the copy did not take, and the one act they offer.
-        requestReport={{
-          report: requestReport,
-          // 🚩 The ORDINARY add, on the ordinary gate: `canAddItem` is what decides,
-          // exactly as it does for a typed row, and the server answers with the same
-          // `belowAtp` acceptance. Absent while the gate is shut — a handle that
-          // would be refused is worse than no handle.
-          onAddAnyway: session.data.capabilities.canAddItem
-            ? (row: SkippedRow) =>
-                addItem.mutate(beginAdd({ itemNumber: row.itemNumber, qty: row.quantity }))
-            : undefined,
-          onDismiss: () => setRequestReport(null),
-        }}
-        refusal={refusal}
-        swallowed={swallowed}
-        onDismissSwallowed={() => setSwallowed(null)}
-        onDismissRefusal={() => setRefusal(null)}
-        submit={{
-          // 🚩 The DOOR decides whether this order may be placed (§2), with no
-          // exception and no client-side predicate beside it — the console never
-          // re-implements *is this order complete*, and the reason a dead button
-          // is dead is `submitBlockers` (173).
-          onPlace:
-            session.data.status === 'open' && session.data.capabilities.canSubmit
-              ? placeOrder
-              : undefined,
-          placing: submit.isPending,
-          outcome: placed,
-          failure: submitFailure,
-          // 🚩 195 — the request was converted or cancelled behind the agent's
-          // back. Read off the refusal's CODE and the order's own link, and only
-          // while a refusal is actually standing: `submitFailure` is already
-          // version-gated, so the escape disappears the moment the unlink lands.
-          requestGone: submitFailure ? submitRefusal(apiErrorCode(submit.error), session.data) : null,
-          onUnlink: beginUnlink,
-        }}
-      />
-      {/* Mounted on the same condition. A caller removed in another tab shuts
-          the book from under an open dialog, which is the honest outcome: the
-          addresses on screen are no longer readable and the order no longer has
-          a customer to read them for. */}
-      {session.data.header.customer && session.data.capabilities.canOpenAddressBook && (
-        <AddressPicker
-          open={pickingAddress}
-          customerId={session.data.header.customer.customerId}
-          currentAddressNumber={session.data.header.address?.addressNumber ?? null}
-          apply={{
-            pending: rebindOn('address').pending,
-            error: rebindOn('address').error,
-            // 🚩 One action per pick: a genuinely new rebind mints a genuinely
-            // new id, and the confirm re-send below reuses it (§4).
-            onPick: (addressNumber) => rebind.mutate(beginStoreMove('address', addressNumber)),
-          }}
-          // 🚩 The writes are handed over as promises, not as pending/error
-          // props: the form is a second VIEW of this dialog, so the failure that
-          // belongs in front of the agent's own typing is held there — while the
-          // create's auto-apply, which is an ORDER act, stays here with every
-          // other rebind and keeps §5.1's one confirmation mechanism.
-          write={{
-            onCreate: (capture) => createAddress.mutateAsync(capture).then(() => undefined),
-            onUpdate: (addressNumber, capture) =>
-              updateAddress.mutateAsync({ addressNumber, capture }).then(() => undefined),
-            onDelete: (addressNumber) =>
-              deleteAddress.mutateAsync(addressNumber).then(() => undefined),
-          }}
-          onClose={closeAddressBook}
-        />
-      )}
       {/* The slot, at the ORDER's store (173). The windows are read fresh on
           every open — a window free two minutes ago may be full now. */}
       <SlotPicker
@@ -2424,6 +2244,294 @@ function ConsoleSession() {
           removeCoupon.reset()
         }}
       />
+      {/* The deliberate override (US14) — the same rebind, asked for outright. */}
+      <StorePicker
+        open={pickingStore}
+        currentPlant={session.data.header.plant}
+        pending={rebindOn('store').pending}
+        error={
+          rebindOn('store').error ? apiErrorMessage(rebindOn('store').error, t('store.applyFailed')) : null
+        }
+        onPick={(storeCode) => rebind.mutate(beginStoreMove('store', storeCode))}
+        onClose={closeStorePicker}
+      />
+    </>
+  )
+
+  return (
+    <>
+      {/* Abandoning from inside a live order is the SAME act as abandoning the
+          one on the already-open screen — same confirmation, same wording, same
+          landing on a fresh order. It is only reachable while the order is
+          actually open; there is nothing to void once it has been submitted. */}
+      <ConsoleShell
+        state={session.data}
+        busy={busy}
+        // 🚩 175 §9 — the chips' sections land IN the centre column, under the row
+        // they collapsed. The shell owns the place; this page owns the verbs.
+        headerSection={headerSection}
+        // One open at a time (`openSection`), so this is the whole question the
+        // sequence card needs answered before it stands down.
+        headerSectionOpen={
+          pickingStore ||
+          pickingSlot ||
+          editingSource ||
+          pickingFulfilment ||
+          pickingPayment ||
+          pickingCoupon ||
+          editingNote
+        }
+        onRefresh={refreshSession}
+        refreshing={session.isFetching}
+        customerActions={{
+          onAttach: (member) => customer.mutate({ customerId: member.loyId }),
+          onRemove: () => customer.mutate({ customerId: null }),
+          busy: customer.isPending,
+          // The fallback follows the DIRECTION that failed — `variables` is the
+          // action the mutation is reporting on. One sentence for both would
+          // tell an agent whose remove failed that the caller could not be
+          // attached, which is the opposite of what happened.
+          error: customerFailure,
+        }}
+        // 🚩 The caller the lookup could not find, enrolled without leaving the
+        // console (190) — INLINE in the rail, because the wait between *Send
+        // code* and the code arriving is SPOKEN and a modal would take the basket
+        // away for the length of a conversation the agent is having anyway. It
+        // hangs off the not-found lookup as the ordinary next thing: a miss is
+        // not a failure.
+        signup={{
+          state: signup,
+          actions: {
+            // 🚩 A failure belongs to the ATTEMPT, not to the panel: the agent
+            // who re-types the code the caller just repeated is asking a new
+            // question, and the last one's refusal must not stand over it.
+            onChange: (next) => {
+              setSignup(next)
+              if (sendCode.isError) sendCode.reset()
+              if (confirmOtp.isError) confirmOtp.reset()
+            },
+            onSendCode: () => sendCode.mutate(signup),
+            onConfirm: () => confirmOtp.mutate(signup),
+            onCancel: closeSignup,
+            // 🚩 The SAME attach the lookup's own card uses — one verb, one
+            // `requestId`, one error surface. A freshly enrolled caller reaches
+            // the order by exactly the path a found one does (165).
+            onAttach: (member) => customer.mutate({ customerId: member.loyId }),
+            sending: sendCode.isPending,
+            confirming: confirmOtp.isPending,
+            error: signupError,
+          },
+        }}
+        addItem={{
+          // 🚩 Passed only while the door says it will accept an add — the same
+          // rule as the address book and the store chip: a control the door
+          // refuses is worse than no control.
+          // 🚩 One action per press: the id is minted HERE, once, and the
+          // acceptance re-sends it (§4).
+          onAdd: session.data.capabilities.canAddItem
+            ? (itemNumber, description) => addItem.mutate(beginAdd({ itemNumber, qty: 1, description }))
+            : null,
+          pending: addItem.isPending ? (addItem.variables?.itemNumber ?? null) : null,
+          error: addOutcome,
+          landed: addsLanded,
+          // 🚩 The outcome belongs to the act, not to the screen: a new search is
+          // a new question, and `reset` is what stops the last one's refusal
+          // standing over it. Nothing else clears it — a successful add already
+          // replaces the mutation's own data.
+          dismissError: () => {
+            addItem.reset()
+            setAddUnconfirmable(false)
+          },
+        }}
+        // 🚩 The same verb, launched from a card (172) — one `addItem`, not a
+        // second add path: a card that had its own would be a second place for
+        // the below-availability acceptance and the busy retry to be forgotten.
+        guidance={{
+          onAdd: session.data.capabilities.canAddItem
+            ? (from) => {
+                // The state BEFORE, held with the action: what the engine did is
+                // only legible as a difference, and by the time the answer
+                // arrives the cache holds the after.
+                setAddedFrom({ ...from, before: session.data })
+                addItem.mutate(
+                  beginAdd({ itemNumber: from.itemNumber, qty: 1, description: from.itemName, offerId: from.offerId }),
+                )
+              }
+            : null,
+          // The row that launched it, and only that row, says *Adding…* — and it
+          // does not move while it runs (the resolution is not re-fetched).
+          pending: addItem.isPending && addedFrom ? addedFrom : null,
+          outcome: guidanceOutcome,
+          dismissOutcome: () => setGuidanceOutcome(null),
+          // The route to the rest of a big set: the console's own search,
+          // narrowed — never a second list.
+          onSearchRest: (offerId, description) => setSearchScope({ offerId, description }),
+        }}
+        searchScope={searchScope}
+        onClearSearchScope={() => setSearchScope(null)}
+        // 🚩 The three corrections are offered only while the order is OPEN: a
+        // submitted basket has nothing to correct, and a control that would be
+        // refused is worse than no control (165's ruling, and the same one the
+        // abandon button already follows).
+        lineEdit={
+          session.data.status === 'open'
+            ? {
+                onQty: (line, qty) =>
+                  lineEdit.mutate(
+                    // The description travels so the acceptance sheet can name
+                    // what the agent is holding rather than an item number. It
+                    // is display only — the wire carries the line id (law 1).
+                    beginLineEdit({ kind: 'qty', lineId: line.lineId, qty, description: line.description }),
+                  ),
+                onUom: (line, uom) =>
+                  lineEdit.mutate(beginLineEdit({ kind: 'uom', lineId: line.lineId, uom })),
+                onVoid: (line) => lineEdit.mutate(beginLineEdit({ kind: 'void', lineId: line.lineId })),
+                // 🚩 Unfinished, not merely in flight: a quantity raise waiting
+                // on the agent's acceptance is still this line's correction, and
+                // the field must keep what they typed until it settles. Which is
+                // the two halves below — the call itself, and the ask it raised.
+                pending: lineEdit.isPending ? lineEdit.variables : editAsk ? edit : null,
+                error: lineFailure,
+              }
+            : null
+        }
+        onAbandon={
+          session.data.status === 'open'
+            ? () =>
+                setAbandoning({
+                  target: abandonTargetOfSession(session.data),
+                  requestId: newRequestId(),
+                })
+            : undefined
+        }
+        // 🚩 Passed only while the door says the book will answer — the one
+        // place `canOpenAddressBook` is read on the way in, so the rail draws
+        // the offer without re-testing the rule (§6.3, and 165's ruling that a
+        // control the door refuses is worse than no control).
+        onPickAddress={
+          session.data.capabilities.canOpenAddressBook ? () => setPickingAddress(true) : undefined
+        }
+        // 🚩 Same rule, other capability: the store chip re-opens only where the
+        // door says it will accept an override (§2), so the console never draws
+        // a control it has to apologise for.
+        onChangeStore={
+          session.data.capabilities.canChangeStore ? () => openSection('store') : undefined
+        }
+        // 🚩 Offered only while the order is OPEN — the same rule the three
+        // corrections and the abandon button follow. There is no capability of
+        // their own for these two sections (§2 lists none), and a submitted
+        // order has no header left to capture.
+        onChangeSlot={session.data.status === 'open' ? () => openSection('slot') : undefined}
+        onChangeSource={session.data.status === 'open' ? () => openSection('source') : undefined}
+        // Same rule again (183): there is no capability of its own for the note
+        // (§2 lists none), and a submitted order has no header left to capture.
+        onChangeNote={session.data.status === 'open' ? () => openSection('note') : undefined}
+        // 🚩 189 — **a shut gate is not a shut chip.** The coupon chip opens on
+        // the OPEN rule alone; `canApplyCoupon` is deliberately not tested here,
+        // because an order may hold a coupon the agent has to read out on a call
+        // where a new one may not be applied. The modal is where the reason is
+        // said, and `couponSurface` is what says it — the one place the two
+        // capabilities are read.
+        onChangeCoupon={session.data.status === 'open' ? () => openSection('coupon') : undefined}
+        // 🚩 The two axis chips (182). Only the OPEN rule is applied here —
+        // `canChangeFulfilment` / `canChangePaymentType` are read inside the
+        // shell, through `capabilityGate`, because the shell is also what prints
+        // the reason beside the row. Testing the capability here too would be the
+        // same predicate in two places, and the one that went stale would be the
+        // one still drawing the chip.
+        onChangeFulfilment={
+          session.data.status === 'open' ? () => openSection('fulfilment') : undefined
+        }
+        onChangePayment={session.data.status === 'open' ? () => openSection('payment') : undefined}
+        // 🚩 194 — the count block and the linked card, derived ONCE here off the
+        // same state the picker reads, so the rail, the card and the modal cannot
+        // disagree about whether this order converts a request. The read itself is
+        // scoped by the door; the console never sends a customer id.
+        requests={{
+          offer: requestOffer(session.data, requests.data),
+          card: linkedCard(session.data),
+          onView: () => setPickingRequest(true),
+          // 🚩 195 — the press opens the CONFIRMATION, never the verb. Offered
+          // only while the order is open, the same rule the corrections and the
+          // abandon follow: a submitted order's link is history, and a control
+          // the door would refuse is worse than no control.
+          onUnlink: session.data.status === 'open' ? beginUnlink : undefined,
+        }}
+        // The lines the copy did not take, and the one act they offer.
+        requestReport={{
+          report: requestReport,
+          // 🚩 The ORDINARY add, on the ordinary gate: `canAddItem` is what decides,
+          // exactly as it does for a typed row, and the server answers with the same
+          // `belowAtp` acceptance. Absent while the gate is shut — a handle that
+          // would be refused is worse than no handle.
+          onAddAnyway: session.data.capabilities.canAddItem
+            ? (row: SkippedRow) =>
+                addItem.mutate(beginAdd({ itemNumber: row.itemNumber, qty: row.quantity }))
+            : undefined,
+          onDismiss: () => setRequestReport(null),
+        }}
+        refusal={refusal}
+        swallowed={swallowed}
+        onDismissSwallowed={() => setSwallowed(null)}
+        onDismissRefusal={() => setRefusal(null)}
+        submit={{
+          // 🚩 The DOOR decides whether this order may be placed (§2), with no
+          // exception and no client-side predicate beside it — the console never
+          // re-implements *is this order complete*, and the reason a dead button
+          // is dead is `submitBlockers` (173).
+          onPlace:
+            session.data.status === 'open' && session.data.capabilities.canSubmit
+              ? placeOrder
+              : undefined,
+          placing: submit.isPending,
+          outcome: placed,
+          failure: submitFailure,
+          // 🚩 195 — the request was converted or cancelled behind the agent's
+          // back. Read off the refusal's CODE and the order's own link, and only
+          // while a refusal is actually standing: `submitFailure` is already
+          // version-gated, so the escape disappears the moment the unlink lands.
+          requestGone: submitFailure ? submitRefusal(apiErrorCode(submit.error), session.data) : null,
+          onUnlink: beginUnlink,
+          // 🚩 The next call, from the finished screen. `startFresh` is the whole
+          // act here — the ABANDON half belongs to a live order and this one is
+          // already a document, so there is nothing to void and nothing to
+          // confirm. Offered only once a placement has actually landed: it is a
+          // way ON from an outcome, never a way out of an order in progress
+          // (that is *abandon*, and it asks first).
+          onNewOrder: placed ? () => startFresh(session.data!.transactionId) : undefined,
+        }}
+      />
+      {/* Mounted on the same condition. A caller removed in another tab shuts
+          the book from under an open dialog, which is the honest outcome: the
+          addresses on screen are no longer readable and the order no longer has
+          a customer to read them for. */}
+      {session.data.header.customer && session.data.capabilities.canOpenAddressBook && (
+        <AddressPicker
+          open={pickingAddress}
+          customerId={session.data.header.customer.customerId}
+          currentAddressNumber={session.data.header.address?.addressNumber ?? null}
+          apply={{
+            pending: rebindOn('address').pending,
+            error: rebindOn('address').error,
+            // 🚩 One action per pick: a genuinely new rebind mints a genuinely
+            // new id, and the confirm re-send below reuses it (§4).
+            onPick: (addressNumber) => rebind.mutate(beginStoreMove('address', addressNumber)),
+          }}
+          // 🚩 The writes are handed over as promises, not as pending/error
+          // props: the form is a second VIEW of this dialog, so the failure that
+          // belongs in front of the agent's own typing is held there — while the
+          // create's auto-apply, which is an ORDER act, stays here with every
+          // other rebind and keeps §5.1's one confirmation mechanism.
+          write={{
+            onCreate: (capture) => createAddress.mutateAsync(capture).then(() => undefined),
+            onUpdate: (addressNumber, capture) =>
+              updateAddress.mutateAsync({ addressNumber, capture }).then(() => undefined),
+            onDelete: (addressNumber) =>
+              deleteAddress.mutateAsync(addressNumber).then(() => undefined),
+          }}
+          onClose={closeAddressBook}
+        />
+      )}
       {/* The caller's open request, and what linking it will copy (194). 🚩 It is
           NOT `DocumentDetailsPage`: that page has no view-only mode, so reusing it
           would hand an agent change-store / reschedule / close-request mid-call —
@@ -2463,17 +2571,6 @@ function ConsoleSession() {
         error={unlink.isError ? apiErrorMessage(unlink.error, t('request.unlink.failed')) : null}
         onConfirm={() => unlinking && unlink.mutate(unlinking)}
         onCancel={cancelUnlink}
-      />
-      {/* The deliberate override (US14) — the same rebind, asked for outright. */}
-      <StorePicker
-        open={pickingStore}
-        currentPlant={session.data.header.plant}
-        pending={rebindOn('store').pending}
-        error={
-          rebindOn('store').error ? apiErrorMessage(rebindOn('store').error, t('store.applyFailed')) : null
-        }
-        onPick={(storeCode) => rebind.mutate(beginStoreMove('store', storeCode))}
-        onClose={closeStorePicker}
       />
       {/* 🚩 The console's ONE confirmation surface, twice: the same `ConfirmSheet`
           with two bodies. Both kinds of `pendingConfirmation` land in the same

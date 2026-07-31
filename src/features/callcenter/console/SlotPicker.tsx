@@ -41,7 +41,7 @@ import type { SessionSlot } from '@/core/models/callcenter'
 import type { TimeSlotTimeModel } from '@/core/models/slots'
 import { lookupQueries } from '@/core/services/lookups'
 import Button from '@/core/ui/Button'
-import Modal from '@/core/ui/Modal'
+import ChipSection from './ChipSection'
 import type { PickedSlot } from './api'
 import { NOTE } from './console-notes'
 import { initialDayIndex } from './slot-view'
@@ -103,9 +103,10 @@ export default function SlotPicker({
   const busy = apply.pending !== null
 
   return (
-    <Modal
+    <ChipSection
       open={open}
       onClose={() => !busy && onClose()}
+      name="slot"
       title={t('slot.title')}
       width="32rem"
       footer={
@@ -251,7 +252,7 @@ export default function SlotPicker({
           </p>
         )}
       </div>
-    </Modal>
+    </ChipSection>
   )
 }
 

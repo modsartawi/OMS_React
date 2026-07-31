@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next'
 import { Check, Loader2 } from 'lucide-react'
 import type { DeliveryType } from '@/core/models/callcenter'
 import Button from '@/core/ui/Button'
-import Modal from '@/core/ui/Modal'
+import ChipSection from './ChipSection'
 import { NOTE } from './console-notes'
 
 const MODES: DeliveryType[] = ['Delivery', 'PickInStore']
@@ -49,9 +49,10 @@ export default function FulfilmentPicker({
   const busy = pending !== null
 
   return (
-    <Modal
+    <ChipSection
       open={open}
       onClose={() => !busy && onClose()}
+      name="fulfilment"
       title={t('fulfilment.title')}
       width="32rem"
       footer={
@@ -117,6 +118,6 @@ export default function FulfilmentPicker({
           </p>
         )}
       </div>
-    </Modal>
+    </ChipSection>
   )
 }

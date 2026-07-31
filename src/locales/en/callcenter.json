@@ -238,6 +238,29 @@
     "coupon": "Coupon",
     "note": "Note"
   },
+  "section": {
+    "close": "Close this section",
+    "closeHint": "Close (esc)"
+  },
+  "steps": {
+    "title": "This order is ready for its caller.",
+    "caller": {
+      "label": "Take the caller's mobile number",
+      "hint": "— in the panel on the left"
+    },
+    "address": {
+      "label": "Pick their delivery address",
+      "hint": "— the store this order ships from is derived from it"
+    },
+    "store": {
+      "label": "Choose the collection store",
+      "hint": "— the Store chip above, or type /store"
+    },
+    "items": {
+      "label": "Then add the items",
+      "hint": "— items can go on once the two above are done"
+    }
+  },
   "slot": {
     "title": "Choose the delivery slot",
     "atStore": "Windows offered by store {{store}}, the store this order is served from.",
@@ -411,6 +434,8 @@
     "searchRest_other": "Search the other {{count}} — filtered to this offer",
     "searchRestUnknown": "Search the rest of the selection — filtered to this offer",
     "addItem": "Add {{item}} to the basket",
+    "bbyDetails": "Bonus buy details",
+    "bbyDetailsHint": "Opens {{number}} in a new tab",
     "outcome": {
       "fired": "Added — this offer applied.",
       "firedOther": "Added. A better offer fired instead:",
@@ -451,6 +476,7 @@
     "placed": "Order placed",
     "orderNo": "Order number",
     "readToCaller": "Read this number to the caller.",
+    "newOrder": "Start the next order",
     "refusedTitle": "The order was not placed",
     "fixSection": "Fix the {{section}} on this order, then place it again.",
     "stillOpen": "The order is still open — nothing has been lost.",

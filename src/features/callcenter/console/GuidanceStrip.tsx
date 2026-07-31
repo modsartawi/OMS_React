@@ -30,8 +30,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, Loader2, X } from 'lucide-react'
+import { ChevronDown, ExternalLink, Loader2, X } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
+import { bbyDetailHref } from '@/core/bonus-buy/deep-link'
 import Ltr from '@/core/ui/Ltr'
 import type { AddOutcome, GuidanceAdd } from './add-outcome'
 import { callCenterApi, prereqKey } from './api'
@@ -313,7 +314,55 @@ function Card({
           plus a stock read per keystroke for cards the agent mostly never opens
           (§3.3), which is the whole reason this endpoint is a second call. */}
       {open && <Qualifying card={card} transactionId={transactionId} actions={actions} />}
+      {open && <BbyDetailsLink offerId={card.offerId} />}
     </div>
+  )
+}
+
+/**
+ * The rules behind the offer — the bonus buy's own record, in a NEW TAB.
+ *
+ * A card says what the caller needs to buy; sooner or later the caller asks
+ * *why*, or the agent does not believe it, and the answer is the bonus buy
+ * itself. That record is already drawn — Bonus Buy Inquiry's detail modal — so
+ * this is an address, not a second surface (`bbyDetailHref`, in `@/core/`).
+ *
+ * 🚩 **A new tab, and never this one.** The console is a live call: an order in
+ * progress, a caller on the line, and a route with no chrome to navigate back
+ * from. A link that replaced it would cost the agent the basket they are reading
+ * out. So `target="_blank"` here is not a convenience, it is the only form this
+ * link may take — with `rel="noopener"` because a tab we open must not get a
+ * handle on the console.
+ *
+ * 🚩 **Blank id ⇒ no link.** Every `BbyHeader.OfferId` in dev master data is
+ * blank (859), which is the same reason the ranked handful above says it cannot
+ * be listed. An unaddressable offer draws nothing here rather than a link to an
+ * unfiltered grid, which would read as *this bonus buy could not be found*.
+ *
+ * ⚠ **Not gated on `Bby/Access`.** The Simulation screen's own details control
+ * is (`probed && screenAllowed`, unknown ⇒ ABSENT) because it opens the record
+ * IN PLACE and a missing grant would fail under the operator's hand. This one
+ * navigates, and the screen it navigates to is its own guard: the inquiry route
+ * self-guards on the probe and `Bby/List` answers its own 403. Reusing the
+ * stricter gate would cost a probe call from every console session to hide a
+ * link whose denial is already stated where it lands.
+ */
+function BbyDetailsLink({ offerId }: { offerId: string }) {
+  const { t } = useTranslation('callcenter')
+  const href = bbyDetailHref(offerId)
+  if (!href) return null
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-cc-bby-details={offerId}
+      title={t('guidance.bbyDetailsHint', { number: offerId })}
+      className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+    >
+      {t('guidance.bbyDetails')}
+      <ExternalLink className="h-3 w-3" aria-hidden />
+    </a>
   )
 }
 

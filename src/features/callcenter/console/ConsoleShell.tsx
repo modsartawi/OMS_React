@@ -21,9 +21,9 @@
  * search, the basket's own verbs, the guidance strip — arrive with tickets
  * 166–172, in the centre column that is the only region that grows.
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, RefreshCw, X } from 'lucide-react'
+import { Loader2, PhoneCall, RefreshCw, X } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
 import { formatMoney } from '@/core/util/number-format'
@@ -44,6 +44,8 @@ import { headerChips, type HeaderChip } from './header-chips'
 import type { LinkReport, RequestGone, SkippedRow } from './linked-request'
 import ItemSearchPanel, { type AddItemActions } from './ItemSearchPanel'
 import Money from './Money'
+import OpeningSteps from './OpeningSteps'
+import { openingSteps } from './opening-steps'
 import type { RebindRefusal } from './store-move'
 import { submitBlockers } from './submit-blockers'
 import { submitRefusalChip, type SubmitFailure, type SubmitOutcome } from './submit-outcome'
@@ -77,6 +79,18 @@ export interface SubmitActions {
    *  it is the same act with the same cost. Absent ⇒ no escape is drawn and the
    *  server's own sentence stands alone. */
   onUnlink?: () => void
+  /**
+   * 🚩 **The way out of a placed order** — mints the next one, in this tab, with
+   * no confirmation.
+   *
+   * A placed order is a screen with nothing left to do on it: every verb has
+   * stood down on `status`, *Place order* is gone, and the only thing an agent
+   * could reach for was the browser's reload button. It needs no `AbandonConfirm`
+   * because there is nothing to void — the document exists and the transaction is
+   * closed — so this is the plain abandon-free half of *start fresh*: forget the
+   * finished order and open a new one.
+   */
+  onNewOrder?: () => void
 }
 
 /**
@@ -125,6 +139,8 @@ export default function ConsoleShell({
   swallowed = null,
   onDismissSwallowed,
   submit,
+  headerSection = null,
+  headerSectionOpen = false,
 }: {
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
@@ -223,6 +239,21 @@ export default function ConsoleShell({
    *  other verb, because the outcome is a real OMS order and the cache is the
    *  store of record. */
   submit: SubmitActions
+  /**
+   * 🚩 What a chip opens into (175 §9's variant 4) — the header sections, drawn
+   * **in the flow directly under the row they collapsed** rather than in a
+   * dialog over the order.
+   *
+   * They arrive as a node rather than as eight more handlers because every one
+   * of them is a verb the PAGE owns, wired to a mutation the page holds; what
+   * this shell owns is only *where they land*, which is the one thing the page
+   * cannot say. A closed section renders nothing, so this slot is empty at rest.
+   */
+  headerSection?: ReactNode
+  /** Whether one of those sections is currently open — the sequence card stands
+   *  down while it is, so a chip's section is never drawn under a card telling
+   *  the agent to open it. */
+  headerSectionOpen?: boolean
 }) {
   // The lines the refusal named, for the tint. A Set because the basket asks per
   // line and a refusal can name several.
@@ -278,6 +309,19 @@ export default function ConsoleShell({
             onChangeCoupon={onChangeCoupon}
             onChangeNote={onChangeNote}
           />
+          {/* 🚩 175 §9, the half that was owed: **the section a chip opens, in
+              the flow, immediately under the chip that opened it.** The row
+              stays visible above it — a chip is a place, and a place that
+              vanishes when you go to it is not one. */}
+          {headerSection}
+          {/* 🚩 The sequence, while the door will take nothing (175). It sits
+              exactly where the section would, because it is answering the same
+              question — *what now?* — and it retires the moment the gate opens.
+              Never both at once: an agent inside a section is already doing the
+              thing the card would tell them to do. */}
+          {!headerSectionOpen && (
+            <OpeningSteps steps={openingSteps(state.header, state.capabilities, state.status)} />
+          )}
           {/* 135's fixed vertical order — chip row → item search → basket. The
               search is above the basket because that is the direction the work
               runs in: what the agent finds lands underneath it. */}
@@ -896,7 +940,7 @@ function Receipt({ state, submit }: { state: SessionState; submit: SubmitActions
       </div>
       <div className="space-y-2 border-t border-divider p-4">
         {placed ? (
-          <OrderPlaced documentNo={placed.documentNo} />
+          <OrderPlaced documentNo={placed.documentNo} onNewOrder={submit.onNewOrder} />
         ) : (
           <>
             {/* 🚩 What the last attempt said, between the figures and the
@@ -1022,10 +1066,26 @@ function DeliveryRegion({ fee }: { fee: DeliveryFeeView }) {
  * hand-off on this screen (174). And it is the SAME panel whichever success
  * produced it: `submit-outcome.ts` has already dropped the outcome word, so
  * there is nothing here that could tell a replay from a first submit.
+ *
+ * 🚩 **And it carries the next act.** The order number is read out and then the
+ * call ends; what follows is another call, not another look at this order. Until
+ * this button existed the finished screen offered nothing at all — the agent
+ * reloaded the tab, or opened a change to the placed order just to be asked
+ * whether they wanted a new one, which is a junction reached by pretending to do
+ * something else.
  */
-function OrderPlaced({ documentNo }: { documentNo: string }) {
+function OrderPlaced({
+  documentNo,
+  onNewOrder,
+}: {
+  documentNo: string
+  /** Absent while the page has no order to replace — the panel then states the
+   *  outcome and offers nothing, rather than offering a dead control. */
+  onNewOrder?: () => void
+}) {
   const { t } = useTranslation('callcenter')
   return (
+    <>
     <div
       className="rounded-md border border-success-border bg-success-050 p-3 text-center"
       role="status"
@@ -1043,6 +1103,21 @@ function OrderPlaced({ documentNo }: { documentNo: string }) {
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">{t('submit.readToCaller')}</p>
     </div>
+      {onNewOrder && (
+        // In the place *Place order* just left, and shaped like it: after a
+        // placement this is the only live control on the screen, so it is the
+        // one the agent's hand is already over.
+        <button
+          type="button"
+          onClick={onNewOrder}
+          data-cc-new-order
+          className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+        >
+          <PhoneCall className="h-3.5 w-3.5" aria-hidden />
+          {t('submit.newOrder')}
+        </button>
+      )}
+    </>
   )
 }
 

@@ -502,14 +502,21 @@ console.log('\nthe rows that run')
   await page.waitForSelector('[data-cc-palette]')
   await page.fill('[data-cc-palette-input]', 'order note')
   await page.keyboard.press('Enter')
-  await page.waitForSelector('[data-cc-note-form], dialog[open]')
-  ok((await page.locator('dialog[open]').count()) === 1, 'Enter on an aimed verb opens its section')
+  // 🚩 The header sections are SECTIONS in the flow now, not dialogs (175 §9's
+  // variant 4, landed): the row a palette verb runs opens under the chip row,
+  // over an order the agent can still see.
+  await page.waitForSelector('[data-cc-section="note"]')
+  ok(
+    (await page.locator('[data-cc-section="note"]').count()) === 1 &&
+      (await page.locator('dialog[open]').count()) === 0,
+    'Enter on an aimed verb opens its section — in the flow, not over the order',
+  )
   await page.keyboard.press('Escape')
   await page.waitForTimeout(150)
 
   // 🚩 *Search items* is the way home for focus stranded on a chip.
   await page.click('[data-cc-chip-open="store"]')
-  await page.waitForSelector('dialog[open]')
+  await page.waitForSelector('[data-cc-section="store"]')
   await page.keyboard.press('Escape')
   await page.waitForTimeout(150)
   await ctrlK(page)

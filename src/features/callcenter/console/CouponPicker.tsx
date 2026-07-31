@@ -33,7 +33,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Ticket, X } from 'lucide-react'
 import type { AppliedCoupon } from '@/core/models/callcenter'
 import Button from '@/core/ui/Button'
-import Modal from '@/core/ui/Modal'
+import ChipSection from './ChipSection'
 import { NOTE } from './console-notes'
 import type { CouponSurface } from './coupon-view'
 import Money from './Money'
@@ -84,9 +84,10 @@ export default function CouponPicker({
   }
 
   return (
-    <Modal
+    <ChipSection
       open={open}
       onClose={() => !busy && onClose()}
+      name="coupon"
       title={t('coupon.title')}
       width="32rem"
       footer={
@@ -181,7 +182,7 @@ export default function CouponPicker({
           </p>
         )}
       </div>
-    </Modal>
+    </ChipSection>
   )
 }
 

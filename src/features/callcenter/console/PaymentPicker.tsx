@@ -25,7 +25,7 @@ import { useTranslation } from 'react-i18next'
 import { Check, Loader2 } from 'lucide-react'
 import type { PaymentType } from '@/core/models/callcenter'
 import Button from '@/core/ui/Button'
-import Modal from '@/core/ui/Modal'
+import ChipSection from './ChipSection'
 import { NOTE } from './console-notes'
 
 const OFFERED: PaymentType[] = ['CashOnDelivery', 'Online']
@@ -54,9 +54,10 @@ export default function PaymentPicker({
   const busy = pending !== null
 
   return (
-    <Modal
+    <ChipSection
       open={open}
       onClose={() => !busy && onClose()}
+      name="payment"
       title={t('payment.title')}
       width="32rem"
       footer={
@@ -107,6 +108,6 @@ export default function PaymentPicker({
           </p>
         )}
       </div>
-    </Modal>
+    </ChipSection>
   )
 }

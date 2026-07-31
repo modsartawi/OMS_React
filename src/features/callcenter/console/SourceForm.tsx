@@ -27,7 +27,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2 } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
-import Modal from '@/core/ui/Modal'
+import ChipSection from './ChipSection'
 import { callCenterApi, MY_SOURCES_KEY } from './api'
 import { NOTE } from './console-notes'
 
@@ -98,9 +98,10 @@ export default function SourceForm({
   const canApply = source !== '' && !apply.busy
 
   return (
-    <Modal
+    <ChipSection
       open={open}
       onClose={() => !apply.busy && onClose()}
+      name="source"
       title={t('source.title')}
       width="28rem"
       footer={
@@ -195,6 +196,6 @@ export default function SourceForm({
           </p>
         )}
       </div>
-    </Modal>
+    </ChipSection>
   )
 }

@@ -29,7 +29,7 @@ import { apiErrorMessage } from '@/core/api'
 import { lookupQueries } from '@/core/services/lookups'
 import type { StoreDetailModel } from '@/core/models/lookups'
 import Button from '@/core/ui/Button'
-import Modal from '@/core/ui/Modal'
+import ChipSection from './ChipSection'
 import { NOTE } from './console-notes'
 
 /** How many rows are drawn at once. The estate runs to hundreds and a modal is
@@ -64,9 +64,10 @@ export default function StorePicker({
   const busy = pending !== null
 
   return (
-    <Modal
+    <ChipSection
       open={open}
       onClose={() => !busy && onClose()}
+      name="store"
       title={t('store.title')}
       width="30rem"
       footer={
@@ -167,7 +168,7 @@ export default function StorePicker({
           </p>
         )}
       </div>
-    </Modal>
+    </ChipSection>
   )
 }
 

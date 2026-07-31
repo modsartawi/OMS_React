@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import type { GridApi, GridReadyEvent } from 'ag-grid-community'
@@ -18,6 +19,7 @@ import {
 import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
 import DetailModal from '@/core/bonus-buy/DetailModal'
 import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
+import { BBY_DETAIL_PARAM } from '@/core/bonus-buy/deep-link'
 import { bonusBuyInquiryApi } from './api'
 import { buildListParams, type BbyListCriteria } from './list-params'
 import { buildDefaultColDef, buildInquiryColumns } from './columns'
@@ -57,12 +59,25 @@ export default function BonusBuyInquiryPage() {
     queryFn: () => bonusBuyAccessApi.access(),
   })
 
+  // Where the operator was SENT — `?bby=<number>`, the address another screen
+  // linked to (`bbyDetailHref`). It seeds two things and then stops mattering:
+  // the modal below, and the search behind it, so that closing the modal lands
+  // on the record they were sent to rather than on a grid that never heard of it.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const linkedNumber = searchParams.get(BBY_DETAIL_PARAM)?.trim() || null
+
   // `criteria` is the live toolbar draft; `appliedParams` is the query that has actually
   // been issued (only Search/Reset promote the draft). Splitting them means typing in the
   // toolbar doesn't refetch on every keystroke — the operator commits with Search.
-  const [criteria, setCriteria] = useState<BbyListCriteria>(EMPTY_CRITERIA)
+  const [criteria, setCriteria] = useState<BbyListCriteria>(() =>
+    linkedNumber ? { ...EMPTY_CRITERIA, bbyNumber: linkedNumber, activeOnly: false } : EMPTY_CRITERIA,
+  )
   const [appliedParams, setAppliedParams] = useState<Record<string, unknown>>(() =>
-    buildListParams({}),
+    // 🚩 Not active-only when a number was named: a link is about ONE record, and
+    // an expired bonus buy the agent was sent to look at must not be filtered out
+    // of the grid it lands on. `buildListParams` already drops active-only for any
+    // number search; it is spelled here too so the toolbar agrees with the query.
+    buildListParams(linkedNumber ? { bbyNumber: linkedNumber, activeOnly: false } : {}),
   )
 
   const list = useQuery({
@@ -93,9 +108,23 @@ export default function BonusBuyInquiryPage() {
   // Bby/Detail query inside DetailModal; `null` keeps it closed. Closing (✕ / Escape /
   // backdrop) clears the selection, landing back on the grid with its state intact —
   // the Page never unmounts the grid, so scroll/sort/filters survive (story 47).
-  const [detailNumber, setDetailNumber] = useState<string | null>(null)
+  //
+  // 🚩 It also arrives from OUTSIDE — `?bby=<number>` (`bbyDetailHref`), which is
+  // how the call-center guidance strip reaches a promotion's rules without the
+  // agent leaving the call. Read ONCE, as the initial value: the param is an
+  // opening instruction, not a piece of state, and a modal bound to the URL
+  // would reopen itself the moment the operator closed it. The param is dropped
+  // on close for the same reason — what stays behind is an ordinary inquiry
+  // screen, filtered to the record they were sent to look at.
+  const [detailNumber, setDetailNumber] = useState<string | null>(linkedNumber)
   const onDetails = useCallback((row: BbyInquiryRow) => setDetailNumber(row.bbyNumber), [])
-  const onCloseDetail = useCallback(() => setDetailNumber(null), [])
+  const onCloseDetail = useCallback(() => {
+    setDetailNumber(null)
+    if (!linkedNumber) return
+    const rest = new URLSearchParams(searchParams)
+    rest.delete(BBY_DETAIL_PARAM)
+    setSearchParams(rest, { replace: true })
+  }, [linkedNumber, searchParams, setSearchParams])
 
   const columns = useMemo(() => buildInquiryColumns(t, onDetails), [t, onDetails])
 

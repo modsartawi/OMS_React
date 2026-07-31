@@ -26,7 +26,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Button from '@/core/ui/Button'
-import Modal from '@/core/ui/Modal'
+import ChipSection from './ChipSection'
 import { NOTE } from './console-notes'
 
 export interface NoteApply {
@@ -78,9 +78,10 @@ export default function NoteForm({
   const holdsNote = (current ?? '') !== ''
 
   return (
-    <Modal
+    <ChipSection
       open={open}
       onClose={() => !apply.busy && onClose()}
+      name="note"
       title={t('note.title')}
       width="28rem"
       footer={
@@ -134,6 +135,6 @@ export default function NoteForm({
           </p>
         )}
       </div>
-    </Modal>
+    </ChipSection>
   )
 }

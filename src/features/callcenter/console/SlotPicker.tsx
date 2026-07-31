@@ -20,6 +20,17 @@
  * 3. 🚩 **Nothing here decides whether a window is legal.** `status: false` is
  *    the server's own "full" and `SlotIsActive` is its own endpoint; the console
  *    renders both and the door refuses what it will not do.
+ *
+ * 🚩 **Two rows: the days, then that day's windows** (owner-stated 2026-07-29 —
+ * *"I think it will be faster to select"*). It replaces a `<select>` of days
+ * above a vertical stack of windows, which cost the agent a dropdown they had to
+ * open, read and close before they could see a single time. Both halves of the
+ * question are now on screen at once and each is one press.
+ *
+ * The shape is the same one this console already uses for a small closed set of
+ * choices, and it changes nothing about what a window MEANS: `full` is still
+ * drawn rather than hidden, the held window still carries its tick, and the
+ * apply is still one press with no confirm step.
  */
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -33,6 +44,7 @@ import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
 import type { PickedSlot } from './api'
 import { NOTE } from './console-notes'
+import { initialDayIndex } from './slot-view'
 
 export interface SlotApply {
   /** The window being applied, if any — its `slotId`. */
@@ -72,10 +84,20 @@ export default function SlotPicker({
 
   const slots = useQuery({ ...lookupQueries.availableSlots(plant), enabled: open && plant !== '' })
   const days = slots.data?.slots ?? []
-  // A day index from the last open would point at a different day's windows.
+  /**
+   * A day index from the last open would point at a different day's windows, so
+   * every open re-seeds it — and re-seeds it to **the day the order's own slot is
+   * on** (`initialDayIndex`), not to the first day.
+   *
+   * ⚠️ `days` is in the dependency list on purpose: the list arrives AFTER the
+   * open on a cold cache (the read is uncached by construction, property 2), so
+   * seeding only on `open` would always land on 0 and the rule would silently
+   * never fire. Re-running when the answer changes is what makes it land, and it
+   * is idempotent — the same list seeds the same index.
+   */
   useEffect(() => {
-    if (open) setDayIndex(0)
-  }, [open, plant])
+    if (open) setDayIndex(initialDayIndex(days, current))
+  }, [open, plant, slots.data, current])
 
   const day = days[dayIndex] ?? null
   const busy = apply.pending !== null
@@ -131,55 +153,88 @@ export default function SlotPicker({
           </p>
         )}
 
+        {/* ROW 1 — THE DAYS. Choosing one costs nothing: it is local state and
+            touches no order, which is why it is drawn as a strip of presses
+            rather than as a control that has to be opened first. */}
         {days.length > 0 && (
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-muted-foreground" htmlFor="cc-slot-day">
-              {t('slot.day')}
-            </label>
-            <select
-              id="cc-slot-day"
-              value={String(dayIndex)}
-              onChange={(e) => setDayIndex(Number(e.target.value))}
-              disabled={busy}
-              data-cc-slot-day
-              className="h-8 w-full rounded-lg border border-input bg-background px-2 text-[0.8125rem]"
+            <span className="text-xs font-semibold text-muted-foreground">{t('slot.day')}</span>
+            <div
+              // Scrolls rather than wraps: the days are in order and a strip that
+              // reflowed onto a second line would break the sequence the agent
+              // reads along.
+              className="flex gap-1.5 overflow-x-auto pb-1"
+              role="tablist"
+              aria-label={t('slot.day')}
+              data-cc-slot-days
             >
               {days.map((entry, index) => (
-                <option key={entry.fullDay || index} value={String(index)}>
-                  {/* Server-supplied, passed through as data. */}
-                  {entry.fullDay || `${entry.date} ${entry.day}`}
-                </option>
+                <button
+                  key={entry.fullDay || index}
+                  type="button"
+                  onClick={() => setDayIndex(index)}
+                  disabled={busy}
+                  role="tab"
+                  aria-selected={index === dayIndex}
+                  data-cc-slot-day={index}
+                  {...(index === dayIndex ? { 'data-cc-slot-day-chosen': index } : {})}
+                  className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-center leading-tight disabled:cursor-not-allowed disabled:opacity-60 ${
+                    index === dayIndex
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border bg-card text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  {/* Server-supplied both, split across two lines rather than
+                      re-worded — `fullDay` is `${date} ${day}` and printing it
+                      whole would make every chip the width of the row. */}
+                  <span className="block text-[11px] uppercase tracking-wide">{entry.day}</span>
+                  <span className="block text-[11px] tabular-nums" data-numeric>
+                    {entry.date}
+                  </span>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
         )}
 
-        {day && day.times.length === 0 && (
-          <p className="text-muted-foreground" data-cc-slot-day-empty>
-            {t('slot.noWindows')}
-          </p>
-        )}
+        {/* ROW 2 — THAT DAY'S WINDOWS. Wraps rather than scrolls, deliberately:
+            a window hidden off the end of a scroller is a window the agent never
+            offers the caller, and unlike the days these have no sequence to
+            break. */}
+        {day && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-muted-foreground">{t('slot.windows')}</span>
 
-        {(day?.times ?? []).map((entry) => (
-          <SlotRow
-            key={entry.slotId}
-            slot={entry}
-            current={current?.slotId === entry.slotId}
-            pending={apply.pending === entry.slotId}
-            busy={busy}
-            onPick={() =>
-              apply.onPick({
-                slotId: entry.slotId,
-                // Server-supplied, passed straight back as data — the console
-                // authors none of it and re-words none of it.
-                day: day.day,
-                description: entry.time,
-                from: entry.slotFrom,
-                to: entry.slotTo,
-              })
-            }
-          />
-        ))}
+            {day.times.length === 0 ? (
+              <p className="text-muted-foreground" data-cc-slot-day-empty>
+                {t('slot.noWindows')}
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5" data-cc-slot-windows>
+                {day.times.map((entry) => (
+                  <SlotChip
+                    key={entry.slotId}
+                    slot={entry}
+                    current={current?.slotId === entry.slotId}
+                    pending={apply.pending === entry.slotId}
+                    busy={busy}
+                    onPick={() =>
+                      apply.onPick({
+                        slotId: entry.slotId,
+                        // Server-supplied, passed straight back as data — the
+                        // console authors none of it and re-words none of it.
+                        day: day.day,
+                        description: entry.time,
+                        from: entry.slotFrom,
+                        to: entry.slotTo,
+                      })
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 🚩 The soft gate, drawn as a warning rather than as a failure: the
             window went while the list was open, the order is exactly as it was,
@@ -200,7 +255,15 @@ export default function SlotPicker({
   )
 }
 
-function SlotRow({
+/**
+ * One bookable window, as a chip in the second row.
+ *
+ * 🚩 The three states it can be in are drawn on the chip itself rather than in a
+ * column beside it — a wrapping row has no columns to line up in. `full` and
+ * *on this order* are both a second line under the time, so a chip never changes
+ * width because of its state and the row never reflows as one applies.
+ */
+function SlotChip({
   // Not named `window`: the domain word shadows the global, and a component that
   // has to think about which `window` it means is one keystroke from a bug.
   slot,
@@ -225,22 +288,28 @@ function SlotRow({
       onClick={onPick}
       disabled={busy || current || full}
       data-cc-slot-option={slot.slotId}
-      className="flex w-full items-center gap-2 rounded-md border border-border bg-card p-2.5 text-start hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-card"
+      className={`flex min-w-0 flex-col items-start gap-0.5 rounded-lg border px-2.5 py-1.5 text-start leading-tight disabled:cursor-not-allowed disabled:hover:bg-card ${
+        current
+          ? 'border-success-800/40 bg-success-800/5'
+          : 'border-border bg-card hover:bg-accent disabled:opacity-60'
+      }`}
     >
-      {/* Server-supplied, passed through as data. */}
-      <span className="min-w-0 flex-1 text-sm font-medium">{slot.time}</span>
+      <span className="flex items-center gap-1.5">
+        {/* Server-supplied, passed through as data. */}
+        <span className="text-[0.8125rem] font-medium">{slot.time}</span>
+        {pending && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" aria-hidden />}
+      </span>
       {full && (
-        <span className="shrink-0 text-[11px] text-muted-foreground" data-cc-slot-full>
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground" data-cc-slot-full>
           {t('slot.full')}
         </span>
       )}
       {current && (
-        <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-success-800" data-cc-slot-current>
-          <Check className="h-3 w-3" aria-hidden />
+        <span className="inline-flex items-center gap-1 text-[10px] text-success-800" data-cc-slot-current>
+          <Check className="h-2.5 w-2.5" aria-hidden />
           {t('slot.onThisOrder')}
         </span>
       )}
-      {pending && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />}
     </button>
   )
 }

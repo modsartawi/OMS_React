@@ -1,5 +1,6 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
+import { Link } from 'react-router'
 import { MessageCircleQuestion, PackageCheck } from 'lucide-react'
 
 import StatusBadge from '@/core/ui/StatusBadge'
@@ -59,6 +60,25 @@ export type AuthListOnAct = (act: AuthAct, row: AuthListRow) => void
 
 export function buildAuthListColumns(t: TFunction, onAct: AuthListOnAct): ColDef<AuthListRow>[] {
   return [
+    {
+      // 🚩 The way into the detail (216), and it is a real anchor rather than a
+      // row-click handler — right-clickable, copyable and middle-clickable, none
+      // of which a row handler is. It mirrors the eligibility list's own first
+      // column exactly, so an agent learns one gesture for both halves of the
+      // area.
+      headerName: t('list.columns.open'),
+      colId: 'open',
+      width: 90,
+      cellRenderer: (p: ICellRendererParams<AuthListRow>) =>
+        p.data?.id ? (
+          <Link
+            to={`/nphies/authorizations/${encodeURIComponent(p.data.id)}`}
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            {t('list.open')}
+          </Link>
+        ) : null,
+    },
     {
       headerName: t('list.columns.actionDateTime'),
       field: 'actionDateTime',

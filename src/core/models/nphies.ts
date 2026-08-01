@@ -268,6 +268,181 @@ export interface AuthListRow {
 }
 
 /**
+ * One supporting info on an authorization (§3.4) —
+ * `NphiesAuthSupportingInfoDto`
+ * (`Sartawi.Retail.Data\Modules\Nphies\Services\Models\AuthView\`, read
+ * 2026-08-02), which is SIS.Api's copy of the Nphies service's
+ * `AuthSupportingInfoDto`. Both carry these fields; the SIS.Api one adds
+ * `display`, so the client declares it.
+ *
+ * 🚩 **The collection is not "the attachments".** It also carries the
+ * `days-supply`, `reason-for-visit` and `morphology` rows, which have no base64
+ * at all — see `submittedAttachments` in the authorizations feature for what
+ * separates them.
+ *
+ * ⚠️ **`attachmentType` is NOT a MIME type**, however much §3.5's submit body
+ * spells its counterpart `contentType`. The service stores a two-valued flag —
+ * `ProcessAddAuthRequest.cs:216` writes `ContentType.StartsWith("image") ?
+ * "image" : "pdf"` and `Extensions.cs:725` reads it back the same way. Logged as
+ * a §8 gap in `.afk/HITL-216.md`.
+ */
+export interface AuthSupportingInfo {
+  id: string
+  sequence: number
+  /** `attachment` · `days-supply` · `reason-for-visit` · `morphology` —
+   *  `ClaimInformationCategoryConstants`. */
+  category: string
+  code: string
+  /** Base64. Empty on every supporting info that is not an attachment. */
+  attachment: string
+  valueString: string
+  valueBoolean?: boolean | null
+  valueDecimal?: number | null
+  /** ⚠️ `image` | `pdf`, not a MIME type — see the note above. */
+  attachmentType: string
+  /** §3.5's closed 7-value title, as it reached the payer. */
+  attachmentTitle: string
+  display: string
+}
+
+/**
+ * One line of the authorization detail (§3.4) — `NphiesAuthLineDto`, read
+ * 2026-08-02. Only the fields the detail renders are declared; the DTO's
+ * `factor`, `code1`/`code2`, `itemType*`, `submitted`, `deductible`,
+ * `unallocDeduct`, `tax`, `patientShare`, `discount`, `supportingInfos`,
+ * `diagnosisIndex`, `daysSupplyIndex` and its WPF-leftover `selected` are on the
+ * wire and are not things this screen shows.
+ *
+ * 🚩 **`maxCoverage` is absent, and that is the server's gap, not an omission
+ * here.** §3.4: `MaxCoverage` is on `NAuthLine` but **not on `AuthLineDto`**, so
+ * a prefill sourced from this response loses that one override (221's problem,
+ * priced and not taken).
+ *
+ * 🚩 **`benefitReason` is already decoded display text** — the service resolves
+ * the payer's `BenefitReasonCode` against the NPHIES `AdjudicationReason` code
+ * system and stores the 250-char `Display` (`ProcessAuthResponse.cs:139-146`).
+ * The browser does **no** code-system lookup; a raw code arriving here is a
+ * server-side mapping gap and not something to paper over client-side.
+ */
+export interface AuthDetailLine {
+  id: string
+  sequence: number
+  itemNumber: string
+  itemDescription: string
+  quantity: number
+  /** Engine, read-only (§4). Display only — law 1. */
+  unitPrice: number
+  extendedPrice: number
+  amount: number
+  netAmount: number
+  vat: number
+  discountPercentage: number
+  discountAmount: number
+  /** The only per-line money the payer adjudicates (§4). */
+  actualPatientShare: number
+  /** 🚩 Axis two's raw source **per line**: `approved` · `partial` · `rejected` ·
+   *  `not-required`. Never read directly — blank until the HEADER's Request is
+   *  `Complete`, which `projectAuthLines` is what enforces. */
+  adjudicationOutcome: string
+  /** What the payer allowed, which is not what was asked for on a partial. */
+  approvedQuantity: number
+  /** The refused money on this line. */
+  rejected: number
+  eligible: number
+  copay: number
+  benefit: number
+  /** 🚩 The payer's reason **in words** — see the note above. */
+  benefitReason: string
+  serviceDate: string
+  daysSupply: number
+  selectionReason: string
+  deductibleG: number
+  /** `Generic` · `Brand` · `Brand-IR` · `NonMed` — IS `InsuranceItemCategory`,
+   *  the same value under two names (§4), *not* the G1/G2/G3 bucket it reads
+   *  like. */
+  deductibleGroupName: string
+  diagnosis: string
+}
+
+/**
+ * `GET Nphies/AuthResponse/{id}` (§1.1 #6, §3.4) — **`NphiesAuthHeaderDto`**,
+ * SIS.Api's copy of the upstream `AuthHeaderDto`, with `AuthLines` and
+ * `AuthSupportingInfos` eagerly fetched. Read field by field 2026-08-02 from
+ * `Sartawi.Retail.Data\Modules\Nphies\Services\Models\AuthView\NphiesAuthHeaderDto.cs`
+ * — the DTO the browser actually receives (`NphiesEndpoints.cs:249` answers
+ * `AuthResponseForWeb(id)`).
+ *
+ * 🚩 **There is no `isDispensed` here**, unlike `AuthListRow`. The dispensed
+ * marker is a fact of the list row and of the till (§5); this detail cannot show
+ * one without inventing a field the endpoint does not answer with, so it does not
+ * (`.afk/HITL-216.md`).
+ *
+ * ⚠️ Declared narrower than the DTO on purpose. Its nine `deductibleG*` header
+ * money fields, `preAuthStart`/`preAuthEnd`, `responseSystem`/`responseValue`,
+ * `offline*`, `rowIndex`, `result`, `actionDuration`, `commRequest`/
+ * `commResponse`, `originalId`, `isReferral`, `internalCustomerId`,
+ * `hidpReference`, `newborn*`, `isMaternity`, `occupation`, `maritalStatus`,
+ * `isReferenceToDocument`/`refDocumentNo` and `authRef` are all on the wire and
+ * none of them is a thing this screen shows. Unknown fields are ignored by rule
+ * (law 10), so declaring one the screen never reads only makes a later reader
+ * wonder.
+ */
+export interface AuthDetail {
+  /** 🚩 Law 10's field, on every response of the web door. Read for display-free
+   *  purposes only: 211 settled that the client neither sends nor *checks* a
+   *  contract version until §8 says how. */
+  contractVersion?: string
+  id: string
+  /** The eligibility this authorization was raised from (§7.1's `Open` body). */
+  eligibilityId: string
+  /** The chosen coverage — **this IS the policy choice** (§2's `reference`). */
+  memberId: string
+  providerCode: string
+  payerCode: string
+  patientId: string
+  patientIdType: string
+  patientName: string
+  patientGender: string
+  patientBirthDate: string
+  /** The payer's own reference — what an agent is quoted on the phone. */
+  preAuthRef: string
+  /** 🚩 Axis one's raw sources — the same five `AuthAxisSource` names the list
+   *  row carries, so `deriveAuthAxes` reads a row and a detail identically. */
+  claimProcessingCodes: string
+  queued: boolean
+  error: boolean
+  cancelled: boolean
+  adjudicationOutcome: string
+  /** 🚩 **Marker, not an axis value** (§5). The payer asked a question; answering
+   *  one is out of v1, so the authorization stalls on the web. */
+  needComm: boolean
+  actionDateTime: string
+  /** When the payer's answer landed. Empty until one does. */
+  responseDateTime: string
+  serviceDate: string
+  /** 🚩 §5's dual-meaning field: a transport error OR the decoded adjudication
+   *  display, depending on branch. Readable ONLY under a failure label and only
+   *  when the Request state is not `Complete` — `failureMessage` is the one place
+   *  this ticket reads it. */
+  errorMessageShort: string
+  /** The payer's own summary. Single-meaning, unlike the field above. */
+  disposition: string
+  /** The payer's note. Single-meaning, same as the disposition. */
+  processNote: string
+  statusCode: number
+  claimType: number
+  /** 🚩 §3.4: `NAuthDiagnosis` is dead code upstream, so diagnoses round-trip as
+   *  this header string plus per-line `diagnosis` / `diagnosisIndex`. */
+  diagnosis: string
+  policyNumber: string
+  policyHolder: string
+  prescriptionRef: string
+  exceptionPrescription: boolean
+  authLines: AuthDetailLine[]
+  authSupportingInfos: AuthSupportingInfo[]
+}
+
+/**
  * The envelope the five **lookups** answer with (§1.1 rows 11–15, §3.8).
  *
  * 🚩 The list is wrapped because law 10 puts `contractVersion` on the **payload

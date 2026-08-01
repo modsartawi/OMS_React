@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 209
 blocked-by: 214
 ---
@@ -42,12 +42,23 @@ component/route (`/nphies/authorizations/:id`) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `theDualMeaningFieldIsReadInOneBranchOnly` — rendered under a failure label on `Failed` and
+- [x] `theDualMeaningFieldIsReadInOneBranchOnly` — rendered under a failure label on `Failed` and
       `Pending`, and **absent** on `Complete`, whatever it contains · pure
-- [ ] `aPartialApprovalShowsWhichLinesWereRefused` — an approved header with refused lines renders
-      both facts · pure
-- [ ] the detail renders per-line reasons and submitted attachments · flow (Playwright, extend
-      `tools/nphies-authorizations-drive.mjs`)
+      (`src/features/nphies/authorizations/detail-view.test.ts`, 5 assertions incl. the fourth state:
+      `Cancelled` does not slip through either)
+- [x] `aPartialApprovalShowsWhichLinesWereRefused` — an approved header with refused lines renders
+      both facts · pure (same file, 8 assertions incl. the blank-until-Complete rule applied to the
+      **lines**, and the header-only refusal that has no lines at all)
+- [x] the detail renders per-line reasons and submitted attachments · flow —
+      `tools/nphies-authorizations-drive.mjs` extended with scenarios 19–22, **121/121 green**
+      against mocked envelopes built from `NphiesAuthHeaderDto`/`NphiesAuthLineDto`/
+      `NphiesAuthSupportingInfoDto`. ⚠️ **SIS.Api is down** (expected — no Nphies endpoint is live
+      during this wave), so the network is stubbed at Playwright against the contract's own shapes,
+      the same posture 211–215 shipped under. **No live-server claim is made.**
+
+Gates: `npm run typecheck` clean · `npx vitest run` **953 passed / 58 files** (19 new) ·
+`npm run lint` clean (boundaries 353 files, contrast 117 pairs, palette 355 files) ·
+`npm run build` clean.
 
 ## Boundaries
 

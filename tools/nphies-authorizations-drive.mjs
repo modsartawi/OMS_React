@@ -1,4 +1,4 @@
-// Nphies authorizations drive (ticket 214, spec 209, contract v1.0) — drives the REAL app
+// Nphies authorizations drive (tickets 214 · 215 · 216, spec 209, contract v1.0) — drives the REAL app
 // in Chromium against MOCKED `Nphies/*` envelopes.
 //
 // ⚠ SIS.Api is down and this slice's server dependency does not exist: the re-modelled
@@ -211,6 +211,195 @@ function authList(q) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// The DETAIL (ticket 216) — `GET Nphies/AuthResponse/{id}` → `NphiesAuthHeaderDto`
+// (`Sartawi.Retail.Data\Modules\Nphies\Services\Models\AuthView\`, read 2026-08-02),
+// SIS.Api's copy of the upstream `AuthHeaderDto` with `AuthLines` and
+// `AuthSupportingInfos` eagerly fetched. Every field name below is on that DTO.
+//
+// 🚩 Note what is NOT here: `isDispensed`. It is on `AuthForListDto` and absent from the
+// header DTO, so the detail cannot show a dispensed marker without inventing a field.
+
+// A 1×1 JPEG and a stub PDF. Real base64, because the point of the attachment block is
+// that the response already carries the bytes and the browser renders them with no
+// second fetch and no upload endpoint.
+const TINY_JPEG =
+  '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigD//2Q=='
+const TINY_PDF = 'JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PC9UeXBlL0NhdGFsb2c+PgplbmRvYmoK'
+
+const DETAIL_LINE = (over = {}) => ({
+  id: 'L1',
+  sequence: 1,
+  itemNumber: '100001',
+  itemDescription: 'PANADOL 500MG TAB',
+  quantity: 2,
+  unitPrice: 25,
+  extendedPrice: 50,
+  amount: 50,
+  netAmount: 47.5,
+  vat: 7.13,
+  discountPercentage: 5,
+  discountAmount: 2.5,
+  actualPatientShare: 9.5,
+  adjudicationOutcome: 'approved',
+  approvedQuantity: 2,
+  rejected: 0,
+  eligible: 50,
+  copay: 9.5,
+  benefit: 40.5,
+  benefitReason: '',
+  serviceDate: DAYS_AGO(0),
+  daysSupply: 30,
+  selectionReason: '',
+  deductibleG: 9.5,
+  deductibleGroupName: 'Generic',
+  diagnosis: 'C50.9',
+  ...over,
+})
+
+const DETAIL_BASE = (row) => ({
+  contractVersion: '1.0',
+  id: row.id,
+  eligibilityId: row.eligibilityId,
+  memberId: 'MEM-4477',
+  providerCode: row.providerCode,
+  payerCode: row.payerCode,
+  patientId: row.patientId,
+  patientIdType: 'NI',
+  patientName: 'Ahmad Ali',
+  patientGender: 'male',
+  patientBirthDate: '1988-04-02',
+  preAuthRef: row.preAuthRef,
+  claimProcessingCodes: row.claimProcessingCodes,
+  queued: row.queued,
+  error: row.error,
+  cancelled: row.cancelled,
+  adjudicationOutcome: row.adjudicationOutcome,
+  needComm: row.needComm,
+  actionDateTime: row.actionDateTime,
+  responseDateTime: row.responseDateTime,
+  serviceDate: row.serviceDate,
+  errorMessageShort: row.errorMessageShort,
+  disposition: '',
+  processNote: '',
+  statusCode: row.statusCode,
+  claimType: row.claimType,
+  diagnosis: 'C50.9',
+  policyNumber: 'POL-77',
+  policyHolder: 'ACME INSURANCE',
+  prescriptionRef: 'RX-9001',
+  exceptionPrescription: false,
+  authLines: [],
+  authSupportingInfos: [],
+})
+
+/** Contract fixture 10 — a detail with a PARTIAL approval: some lines approved, some
+ *  rejected, each with a decoded `BenefitReason`, plus attachments as base64. */
+function authDetail(id) {
+  const row = [...IN_WINDOW, ...OUT_OF_WINDOW].find((r) => r.id === id)
+  if (!row) return null
+  const detail = DETAIL_BASE(row)
+
+  // 🚩 THE TICKET'S HEADLINE, on AUTH-1: the header says **Approved** and one of its
+  // lines was refused. The columns are always populated, so this is just the ordinary
+  // detail — there is no second surface to build.
+  if (id === 'AUTH-1') {
+    detail.disposition = 'Approved with adjustments.'
+    detail.processNote = 'Quantity on line 2 reduced per plan limits.'
+    detail.authLines = [
+      DETAIL_LINE({ id: 'L1', sequence: 1 }),
+      DETAIL_LINE({
+        id: 'L2',
+        sequence: 2,
+        itemNumber: '100002',
+        itemDescription: 'AMOXICILLIN 500MG CAP',
+        adjudicationOutcome: 'rejected',
+        approvedQuantity: 0,
+        rejected: 47.5,
+        benefit: 0,
+        copay: 0,
+        // 🚩 Already decoded server-side against the NPHIES `AdjudicationReason` code
+        // system (`ProcessAuthResponse.cs:139-146` stores the `Display`). The browser
+        // does NO code-system lookup.
+        benefitReason: 'Service not covered under the member benefit plan',
+      }),
+    ]
+    // The supporting infos are NOT "the attachments" — `days-supply` rides in the same
+    // collection with no base64 at all.
+    detail.authSupportingInfos = [
+      {
+        id: 'S1',
+        sequence: 1,
+        category: 'attachment',
+        code: '',
+        attachment: TINY_JPEG,
+        valueString: '',
+        valueBoolean: null,
+        valueDecimal: null,
+        attachmentType: 'image',
+        attachmentTitle: 'Prescription',
+        display: '',
+      },
+      {
+        id: 'S2',
+        sequence: 2,
+        category: 'attachment',
+        code: '',
+        attachment: TINY_PDF,
+        valueString: '',
+        valueBoolean: null,
+        valueDecimal: null,
+        attachmentType: 'pdf',
+        attachmentTitle: 'Medical report',
+        display: '',
+      },
+      {
+        id: 'S3',
+        sequence: 3,
+        category: 'days-supply',
+        code: '',
+        attachment: '',
+        valueString: '',
+        valueBoolean: null,
+        valueDecimal: 30,
+        attachmentType: '',
+        attachmentTitle: '',
+        display: '',
+      },
+    ]
+  }
+
+  // 🚩 A COMPLETE + Rejected authorization whose `ErrorMessageShort` holds the DECODED
+  // ADJUDICATION DISPLAY — `ProcessAuthResponse.cs:120`'s branch. It must never reach the
+  // screen, under any label.
+  if (id === 'AUTH-4') {
+    detail.errorMessageShort = 'ADJ-DISPLAY-DO-NOT-SHOW'
+    detail.disposition = 'The request was not approved.'
+    detail.authLines = [
+      DETAIL_LINE({
+        id: 'L1',
+        adjudicationOutcome: 'rejected',
+        approvedQuantity: 0,
+        rejected: 50,
+        benefit: 0,
+        benefitReason: 'Prior authorization requirements not met',
+      }),
+    ]
+  }
+
+  // Pending — §5 puts it under the FAILURE label alongside Failed, and its lines carry
+  // an outcome the payer has not given.
+  if (id === 'AUTH-6') {
+    detail.authLines = [DETAIL_LINE({ id: 'L1', adjudicationOutcome: 'approved' })]
+  }
+
+  // 🚩 The header-only refusal (§3.9): the service's guards throw BEFORE the lines are
+  // built, so a failed authorization really can arrive with none.
+  if (id === 'AUTH-7') detail.authLines = []
+
+  return detail
+}
+
 // The cancellation reasons (ticket 215). `GET Nphies/CodeSystem?valueSet=TaskReasonCode`
 // — `ValueSetConstants.TaskReasonCode`, the value set behind the cancel task's `reasonCode`
 // coding (`CancellationTaskEntry.cs:77`). `blocked` is a STRING upstream, not a boolean, and
@@ -228,6 +417,7 @@ const TASK_REASONS = {
 let scenario = { access: { canOpenNphies: true } }
 let lastListQuery = null
 let listCalls = 0
+let detailCalls = 0
 // The three acts (215): the last body each received, so the drive asserts what LEFT the
 // browser and not merely that something was clicked. Law 7's fields are absences, and an
 // absence is only assertable against the body itself.
@@ -312,6 +502,24 @@ async function run() {
           statusCode: 200,
         }),
       )
+    }
+    // The detail (216). `AUTH_NOT_FOUND` on an unknown id is a BUSINESS OUTCOME with the
+    // server's own sentence — SIS.Api answers it rather than forwarding the upstream's
+    // empty 204, which would render a blank detail for a mistyped id (BackOffice 916).
+    if (path.startsWith('Nphies/AuthResponse/')) {
+      const wanted = decodeURIComponent(path.slice('Nphies/AuthResponse/'.length))
+      const found = authDetail(wanted)
+      if (!found)
+        return route.fulfill(
+          envelope(null, {
+            status: 404,
+            success: false,
+            message: 'No authorization with that reference exists.',
+            errors: [{ errorCode: 'AUTH_NOT_FOUND', errorMessage: 'not found' }],
+          }),
+        )
+      detailCalls += 1
+      return route.fulfill(envelope(found))
     }
     if (path === 'Nphies/AuthResponses') {
       lastListQuery = new URLSearchParams(url.split('?')[1] || '')
@@ -925,7 +1133,179 @@ async function run() {
   )
   scenario.listDown = false
 
-  // ---- Scenario 19: no grant → leaf hidden, in-page backstop --------------
+  // ---- Scenario 19: the list OPENS the detail, as a real link -------------
+  // Ticket 216 is opened from the list, and the way in is an anchor rather than a row
+  // handler: right-clickable, copyable, middle-clickable — none of which a handler is.
+  await page.goto(LIST_URL)
+  await page.getByRole('button', { name: /^Search$/ }).waitFor({ timeout: 20000 })
+  await page.waitForTimeout(600)
+  const openLink = page
+    .locator('.ag-row', { hasText: 'PA-1001' })
+    .first()
+    .getByRole('link', { name: /^Open$/ })
+  check(
+    'the list offers a real LINK into the detail, carrying the authorization id',
+    (await openLink.getAttribute('href')) === '/nphies/authorizations/AUTH-1',
+    (await openLink.getAttribute('href')) || 'no href',
+  )
+  await openLink.click()
+  await page.waitForTimeout(900)
+  check('and it lands on the detail', page.url().endsWith('/nphies/authorizations/AUTH-1'), page.url())
+  check('the detail asks the server for that one authorization', detailCalls === 1)
+
+  // ---- Scenario 20: 🚩 A PARTIAL — approved header, refused lines ----------
+  const partial = await page.locator('main').innerText()
+  check(
+    '🚩 the header says APPROVED while one of its lines was refused — both facts, one screen',
+    /Approved/.test(partial) && /1 line was refused/.test(partial),
+    (partial.match(/\d+ lines? (was|were) refused/) || [''])[0],
+  )
+  const refusedLine = page.locator('tbody tr', { hasText: 'AMOXICILLIN' }).first()
+  const refusedText = (await refusedLine.innerText()).replace(/\n/g, ' | ')
+  check(
+    '🚩 the refused line carries the payer’s reason IN WORDS, already decoded',
+    /Service not covered under the member benefit plan/.test(refusedText),
+    refusedText,
+  )
+  check(
+    'and its verdict, approved quantity and rejected amount, all four facts on one row',
+    /Rejected/.test(refusedText) && /47\.50/.test(refusedText),
+    refusedText,
+  )
+  const approvedLine = (await page.locator('tbody tr', { hasText: 'PANADOL' }).first().innerText())
+    .replace(/\n/g, ' | ')
+  check(
+    'the approved line beside it says approved, and claims no reason it was not given',
+    /Approved/.test(approvedLine) && !/not covered/.test(approvedLine),
+    approvedLine,
+  )
+  check(
+    'the payer’s own header words render — the disposition and the process note',
+    /Approved with adjustments\./.test(partial) &&
+      /Quantity on line 2 reduced per plan limits\./.test(partial),
+  )
+  check(
+    '🚩 and the failure label is NOWHERE on a completed authorization',
+    !/Could not reach the payer/.test(partial),
+  )
+  check(
+    '🚩 no detail anywhere claims the authorization is ready to dispense',
+    !/ready to dispense/i.test(partial) && !/Dispensed/.test(partial),
+  )
+
+  // ---- Scenario 21: the attachments, as submitted, for free ---------------
+  check(
+    'the attachments the payer was actually given render, from the same response',
+    /2 attachments, as submitted/.test(partial) &&
+      /Prescription/.test(partial) &&
+      /Medical report/.test(partial),
+    (partial.match(/\d+ attachments?, as submitted/) || [''])[0],
+  )
+  const imageSrc = (await page.locator('main img').first().getAttribute('src')) || ''
+  check(
+    '🚩 an image renders INLINE from the base64 — no upload endpoint, no second fetch',
+    imageSrc.startsWith('data:image/jpeg;base64,') && imageSrc.includes(TINY_JPEG.slice(0, 24)),
+    imageSrc.slice(0, 40),
+  )
+  const pdfHref =
+    (await page.getByRole('link', { name: /Open the document/ }).first().getAttribute('href')) || ''
+  check(
+    'a PDF is a link into the browser’s own viewer, not something this screen rebuilds',
+    pdfHref.startsWith('data:application/pdf;base64,'),
+    pdfHref.slice(0, 40),
+  )
+  check(
+    '🚩 the days-supply supporting info is NOT rendered as an attachment — it carries no bytes',
+    (await page.locator('main img').count()) === 1 &&
+      (await page.getByRole('link', { name: /Open the document/ }).count()) === 1,
+  )
+  check(
+    'and no modal opened anywhere on this screen',
+    (await page.locator('dialog').count()) === 0,
+  )
+
+  // ---- Scenario 22: 🚩 THE DUAL-MEANING FIELD, READ IN ONE BRANCH ONLY -----
+  // The same field carries a transport error OR the decoded adjudication display,
+  // depending on which kind of bad news occurred. The Request state picks both the label
+  // and the source, so the ambiguity never reaches the screen.
+  await page.goto(BASE + '/nphies/authorizations/AUTH-4')
+  await page.waitForTimeout(900)
+  const rejectedDetail = await page.locator('main').innerText()
+  check(
+    '🚩 a COMPLETE authorization NEVER renders the dual-meaning field, whatever it holds',
+    !/ADJ-DISPLAY-DO-NOT-SHOW/.test(rejectedDetail) &&
+      !/Could not reach the payer/.test(rejectedDetail),
+    (rejectedDetail.match(/ADJ-DISPLAY[^\n]*/) || ['absent'])[0],
+  )
+  check(
+    'a payer REJECTION is DATA and renders — the verdict, the reason, and no error banner',
+    /Rejected/.test(rejectedDetail) &&
+      /Prior authorization requirements not met/.test(rejectedDetail) &&
+      (await page.locator('[role="alert"]').count()) === 0,
+  )
+  check(
+    'the payer’s words come from the disposition instead, which means only one thing',
+    /The request was not approved\./.test(rejectedDetail),
+  )
+
+  await page.goto(BASE + '/nphies/authorizations/AUTH-7')
+  await page.waitForTimeout(900)
+  const failedDetail = await page.locator('main').innerText()
+  check(
+    '🚩 a FAILED authorization renders it under the FAILURE label, never a neutral one',
+    /Could not reach the payer/.test(failedDetail) && /BV-00123/.test(failedDetail),
+    (failedDetail.match(/BV-00123[^\n]*/) || [''])[0],
+  )
+  check(
+    'its verdict stays BLANK, though the row carries adjudicationOutcome:approved',
+    !/\bApproved\b/.test(failedDetail),
+    failedDetail.replace(/\n/g, ' | ').slice(0, 120),
+  )
+  check(
+    '🚩 a header-only refusal says it has no lines rather than drawing an empty table',
+    /No lines were recorded/.test(failedDetail) && (await page.locator('tbody tr').count()) === 0,
+  )
+
+  await page.goto(BASE + '/nphies/authorizations/AUTH-6')
+  await page.waitForTimeout(900)
+  const pendingDetail = await page.locator('main').innerText()
+  check(
+    '🚩 a PENDING authorization goes under the same failure label — §5 puts both there',
+    /Pending/.test(pendingDetail) && /Could not reach the payer/.test(pendingDetail),
+  )
+  // 🚩 Read the ROW, not the page: the lines table's own column header is the word
+  // "Approved" (the approved-quantity column), so a page-wide match would pass on the
+  // furniture and prove nothing about the cell.
+  const pendingLine = (await page.locator('tbody tr').first().innerText()).replace(/\n/g, ' | ')
+  check(
+    '🚩 and its LINE verdict is blank too, though the line carries adjudicationOutcome:approved',
+    /—/.test(pendingLine) && !/Approved/.test(pendingLine),
+    pendingLine,
+  )
+
+  // A mistyped id is a business outcome with the server's own sentence, not a blank page.
+  await page.goto(BASE + '/nphies/authorizations/NOPE-1')
+  await page.waitForSelector('[role="alert"]', { timeout: 15000 })
+  check(
+    'an unknown authorization id states the server’s own refusal, never a blank detail',
+    /No authorization with that reference exists\./.test(
+      await page.locator('[role="alert"]').first().innerText(),
+    ),
+  )
+
+  const detailCallsBefore = detailCalls
+  await page.goto(BASE + '/nphies/authorizations/AUTH-1')
+  await page.waitForTimeout(3500)
+  check(
+    '🚩 the detail does NOT poll either — it is the heaviest read on the door (§3.6)',
+    detailCalls === detailCallsBefore + 1,
+    `${detailCalls - detailCallsBefore} reads in 3.5 s`,
+  )
+  await page.getByRole('link', { name: /Back to authorizations/ }).click()
+  await page.waitForTimeout(800)
+  check('and Back returns to the list', page.url().endsWith('/nphies/authorizations'))
+
+  // ---- Scenario 23: no grant → leaf hidden, in-page backstop --------------
   scenario.access = { canOpenNphies: false }
   await page.goto(LIST_URL)
   await page.waitForSelector('[role="alert"]', { timeout: 15000 })
@@ -936,8 +1316,17 @@ async function run() {
     'no grant → the nav leaf is HIDDEN',
     (await page.getByRole('link', { name: /^Authorizations$/ }).count()) === 0,
   )
+  // The detail is behind the same one probe, and it fails closed the same way — a
+  // linkable route is a route somebody can arrive at without passing the list.
+  await page.goto(BASE + '/nphies/authorizations/AUTH-1')
+  await page.waitForSelector('[role="alert"]', { timeout: 15000 })
+  check(
+    'no grant → the DETAIL is shut too, and no authorization is fetched',
+    /No access to Nphies/.test(await page.locator('main').innerText()) &&
+      detailCalls === detailCallsBefore + 1,
+  )
 
-  // ---- Scenario 20: an errored probe FAILS CLOSED -------------------------
+  // ---- Scenario 24: an errored probe FAILS CLOSED -------------------------
   // 🚩 The grant goes back to TRUE first. Without it scenario 19's
   // `canOpenNphies:false` is still in force and both assertions below would pass
   // with the 500 branch deleted — the path this scenario exists for, untested.

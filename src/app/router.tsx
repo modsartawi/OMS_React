@@ -165,6 +165,18 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // One authorization as its own page (216) — a ROUTE, not a modal, so it
+        // survives a refresh and can be linked to, and it is opened from the
+        // list's own Open column. It is where the payer's per-line reasons and
+        // the attachments as submitted live, which is why there is no separate
+        // rejection view anywhere in this area.
+        path: 'nphies/authorizations/:id',
+        lazy: async () => ({
+          Component: (await import('@/features/nphies/authorizations/AuthorizationDetailPage'))
+            .default,
+        }),
+      },
+      {
         path: 'pricing/simulation',
         lazy: async () => ({
           Component: (await import('@/features/pricing/simulation/SimulationPage')).default,

@@ -411,6 +411,23 @@ const AUTH_VERDICTS_BY_CODE: Record<string, AuthVerdict> = {
 }
 
 /**
+ * One adjudication-outcome code → the Verdict vocabulary, or `null` when the
+ * code is absent or is one we do not know.
+ *
+ * Exported because 216's **per-line** outcome is the same code from the same
+ * extension (`AuthLineDto.AdjudicationOutcome`), and the value set is `core`'s to
+ * own — the feature composes it with the header's Request state rather than
+ * keeping a second spelling of `approved`/`partial`/`rejected`/`not-required`.
+ *
+ * 🚩 An unrecognised code reads **blank** rather than being coerced to a nearby
+ * value. Inventing `Approved` from a code we do not know is the one error on this
+ * screen that costs money.
+ */
+export function authVerdictOf(raw: string | null | undefined): AuthVerdict | null {
+  return AUTH_VERDICTS_BY_CODE[code(raw)] ?? null
+}
+
+/**
  * Both axes of one authorization (§5). The Verdict is **blank until Complete**,
  * enforced here rather than at the render site for the eligibility side's reason:
  * the row carries `AdjudicationOutcome` whatever happened to the request.
@@ -422,7 +439,7 @@ const AUTH_VERDICTS_BY_CODE: Record<string, AuthVerdict> = {
 export function deriveAuthAxes(row: AuthAxisSource): AuthAxes {
   const request = authRequestState(row)
   if (request !== 'complete') return { request, verdict: null }
-  return { request, verdict: AUTH_VERDICTS_BY_CODE[code(row.adjudicationOutcome)] ?? null }
+  return { request, verdict: authVerdictOf(row.adjudicationOutcome) }
 }
 
 /**

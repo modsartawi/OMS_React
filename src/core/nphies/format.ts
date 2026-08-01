@@ -27,6 +27,22 @@ export function formatStamp(raw: string | null | undefined): string {
 }
 
 /**
+ * One money field, as the server sent it, to two decimals (ticket 216).
+ *
+ * 🚩 **This formats, it never computes.** Law 1: amounts are one-way — engine →
+ * client, display only. Nothing in the Nphies area sums, totals or derives a
+ * figure, and this function takes exactly one server field at a time so that
+ * staying true is the path of least resistance.
+ *
+ * A missing amount renders blank rather than as `0.00`: a line the payer said
+ * nothing about and a line the payer allowed nothing on are different facts.
+ */
+export function formatAmount(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return ''
+  return value.toFixed(2)
+}
+
+/**
  * The **clock time** of a read, for the load-time readout beside a Refresh
  * button (spec 209 story 76, contract §3.6).
  *

@@ -30,6 +30,7 @@
     "refresh": "Refresh",
     "loadedAt": "Loaded at {{at}}",
     "verdictBlank": "No verdict yet — the payer has not answered.",
+    "open": "Open",
     "window": {
       "chipDefault": "Last 7 days · {{from}} → {{to}}",
       "chip": "{{from}} → {{to}}",
@@ -55,6 +56,7 @@
       "reset": "Reset"
     },
     "columns": {
+      "open": "Open",
       "actionDateTime": "Raised at",
       "patientId": "Patient ID",
       "payerCode": "Payer",
@@ -129,7 +131,55 @@
     "confirm": "Cancel the authorization",
     "back": "Keep it"
   },
+  "detail": {
+    "backToList": "Back to authorizations",
+    "title": "Authorization",
+    "subtitle": "What was asked, what the payer answered, and what was sent with it.",
+    "loading": "Loading the authorization…",
+    "patientName": "Patient",
+    "patientId": "Patient ID",
+    "memberId": "Member ID",
+    "payerCode": "Payer",
+    "providerCode": "Provider",
+    "preAuthRef": "Preauth reference",
+    "policyNumber": "Policy",
+    "diagnosis": "Diagnosis",
+    "serviceDate": "Service date",
+    "raisedAt": "Raised at",
+    "answeredAt": "Answered at",
+    "request": "Request",
+    "verdict": "Verdict",
+    "failureLabel": "Could not reach the payer",
+    "failureHint": "This request was refused before the payer saw it, so there is no verdict to read. Fix the request and raise it again.",
+    "disposition": "The payer's summary",
+    "processNote": "The payer's note",
+    "lines": {
+      "title_one": "{{count}} line",
+      "title_other": "{{count}} lines",
+      "refusedCount_one": "{{count}} line was refused",
+      "refusedCount_other": "{{count}} lines were refused",
+      "none": "No lines were recorded on this authorization. A request refused before its lines were built has none.",
+      "sequence": "#",
+      "item": "Item",
+      "quantity": "Asked",
+      "verdict": "Verdict",
+      "approvedQuantity": "Approved",
+      "rejected": "Rejected",
+      "benefit": "Benefit",
+      "copay": "Copay",
+      "benefitReason": "The payer's reason"
+    },
+    "attachments": {
+      "title_one": "{{count}} attachment, as submitted",
+      "title_other": "{{count}} attachments, as submitted",
+      "none": "Nothing was attached to this authorization.",
+      "open": "Open the document",
+      "untitled": "Untitled"
+    }
+  },
   "errors": {
+    "detailTitle": "This authorization could not be opened",
+    "detailFailed": "The authorization could not be loaded.",
     "listFailed": "The authorizations could not be loaded.",
     "providersFailed": "The provider list could not be loaded.",
     "reasonsFailed": "The cancellation reasons could not be loaded."

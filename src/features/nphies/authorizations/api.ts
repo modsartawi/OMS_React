@@ -19,6 +19,7 @@ import { api } from '@/core/api'
 import type {
   AuthCancellationRequest,
   AuthCancellationResult,
+  AuthDetail,
   AuthListRow,
   AuthRetryResult,
   AuthStatusCheckResult,
@@ -41,6 +42,29 @@ export const authorizationsApi = {
    */
   list(params: Record<string, unknown>): Promise<NphiesPage<AuthListRow>> {
     return api.get<NphiesPage<AuthListRow>>('Nphies/AuthResponses', params)
+  },
+
+  /**
+   * `GET Nphies/AuthResponse/{id}` (§1.1 #6, §3.4, ticket 216) — one
+   * authorization, whole.
+   *
+   * 🚩 It answers **`AuthHeaderDto`**, not the thin submit DTO: `AuthLines` and
+   * `AuthSupportingInfos` are eagerly fetched, every line carries
+   * `AdjudicationOutcome` / `ApprovedQuantity` / `Rejected` / `Benefit` / `Copay`
+   * and the **already-decoded** `BenefitReason`, and the attachments come back as
+   * base64 whether anyone renders them or not. That is why **there is no
+   * rejection view to build** — no second endpoint, no second surface.
+   *
+   * ⚠️ It is also the heaviest read on this door: the response carries every
+   * attached megabyte. No `refetchInterval` anywhere near it (§3.6), and a stored
+   * response does not change on its own.
+   *
+   * An unknown id is a **business outcome**, not a crash — SIS.Api answers
+   * `AUTH_NOT_FOUND` rather than forwarding the upstream's empty 204, which would
+   * have rendered a blank detail for a mistyped id (BackOffice 916).
+   */
+  detail(id: string): Promise<AuthDetail> {
+    return api.get<AuthDetail>(`Nphies/AuthResponse/${encodeURIComponent(id)}`)
   },
 
   /**

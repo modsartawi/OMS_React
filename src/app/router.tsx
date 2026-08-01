@@ -126,6 +126,15 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/broadcast/BroadcastComposePage')).default,
         }),
       },
+      // The Nphies area (spec 209, ticket 211). Five more routes join this one
+      // under the same `/nphies/*` prefix as the wave lands; the check form is
+      // slice 0 because its endpoint is the one that already ships.
+      {
+        path: 'nphies/eligibility/new',
+        lazy: async () => ({
+          Component: (await import('@/features/nphies/eligibility/EligibilityCheckPage')).default,
+        }),
+      },
       {
         path: 'pricing/simulation',
         lazy: async () => ({

@@ -197,6 +197,25 @@ submit.
 _Avoid_: attached request (a *caller* is attached; a request is linked), parent order, reference
 document.
 
+**Eligibility check**:
+Asking a payer whether a patient is covered — one act (`Nphies/CheckEligibility`), one stored
+`NEligibility` row, and an answer carrying every **coverage** the patient holds. It is the *first*
+of the two Nphies acts and the only one that names a patient by hand: an authorization is always
+raised **from** a check, which is what keeps identity out of the authorization form entirely. Its
+answer is read in the two axes — **Request state** and **Verdict** — never as a single status.
+_Avoid_: eligibility request (the request is the body; the act is the check), verification,
+coverage check (a *coverage* is one of the policies the check returns, not the check).
+
+**Provider** (of a Nphies act):
+The healthcare organization the agent is acting **as** when they ask the exchange — a `ProviderCode`
+from the Nphies service's own `core/providers` list, already filtered to unblocked. It is **not** a
+**store**: no mapping between the two exists in either direction, the acting store plays no part in
+who is asking, and the two answer different questions (a provider is who NPHIES thinks is asking; a
+store is where the money is priced — see **plant**, when it arrives). It is the **one** value the
+browser supplies that the server does not stamp, so it is a free per-act pick with no default and no
+memory of the last one, and the check is blocked until it is chosen.
+_Avoid_: branch, site, store, pharmacy — and never default it from the acting store.
+
 **Request state** (of a Nphies act):
 Whether we got an answer from the payer at all — one of `Cancelled` · `Failed` · `Pending` ·
 `Complete`, derived from `Cancelled` / `Error` / `Queued` / `ClaimProcessingCodes`. It is the first

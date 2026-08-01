@@ -1,0 +1,89 @@
+{
+  "menu": {
+    "nphies": "Nphies",
+    "newCheck": "Check eligibility"
+  },
+  "title": "Check eligibility",
+  "subtitle": "Ask a payer whether a patient is covered. The answer comes back in two parts: whether we got an answer at all, and what they said.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Nphies",
+    "deniedHint": "Your account does not hold the Nphies grant. Ask an administrator if you need it."
+  },
+  "form": {
+    "provider": "Provider",
+    "providerUnchosen": "Choose a provider…",
+    "payer": "Payer code",
+    "patientId": "Patient ID",
+    "patientIdType": "ID type",
+    "patientName": "Patient name",
+    "patientGender": "Gender",
+    "patientBirthDate": "Date of birth",
+    "memberId": "Member ID",
+    "occupation": "Occupation",
+    "maritalStatus": "Marital status",
+    "transfer": "Transfer",
+    "newborn": "Newborn",
+    "fill": "Fill",
+    "fillNoPreviousCheck": "No previous check for that patient ID — fill the identity block by hand.",
+    "submit": "Check eligibility"
+  },
+  "blockers": {
+    "intro": "Cannot check yet:",
+    "separator": " · ",
+    "provider": "choose the provider you are acting for",
+    "patientId": "enter a patient ID",
+    "payer": "enter a payer code"
+  },
+  "idType": {
+    "NI": "National ID",
+    "PRC": "Iqama",
+    "PN": "Passport",
+    "Other": "Other"
+  },
+  "gender": {
+    "male": "Male",
+    "female": "Female"
+  },
+  "request": {
+    "cancelled": "Cancelled",
+    "failed": "Failed",
+    "pending": "Pending",
+    "complete": "Complete"
+  },
+  "verdict": {
+    "eligible": "Eligible",
+    "notInForce": "Not in force",
+    "notEligible": "Not eligible"
+  },
+  "site": {
+    "outsideNetwork": "outside network",
+    "notDirectBilling": "no direct billing"
+  },
+  "result": {
+    "request": "Request",
+    "verdict": "Verdict",
+    "verdictBlank": "No verdict yet — the payer has not answered.",
+    "failureLabel": "Could not reach the payer",
+    "notInForceReason": "Why the policy is not in force",
+    "disposition": "Payer's summary",
+    "coverages_one": "{{count}} coverage",
+    "coverages_other": "{{count}} coverages",
+    "noCoverages": "The payer returned no coverages for this patient."
+  },
+  "coverage": {
+    "inForce": "In force",
+    "notInForce": "Not in force",
+    "network": "Network: {{network}}",
+    "plan": "Plan: {{plan}}",
+    "class": "Class: {{className}}",
+    "policyHolder": "Policy holder: {{policyHolder}}"
+  },
+  "errors": {
+    "checkTitle": "The check was refused",
+    "checkFailed": "The eligibility check could not be completed.",
+    "code": "Code: {{code}}",
+    "providersFailed": "The provider list could not be loaded.",
+    "fillFailed": "That patient's last check could not be loaded."
+  }
+}

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, Calculator, Download, FileText, Headset, KeyRound, LifeBuoy, Search, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
+import { Activity, Box, Calculator, ClipboardCheck, Download, FileText, Headset, HeartPulse, KeyRound, LifeBuoy, Search, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -14,6 +14,10 @@ import { BBY_ACCESS_KEY, bonusBuyAccessApi } from '@/core/bonus-buy/api'
 // The OMS probe likewise lives in `@/core/` (ticket 125): both OMS pages guard on it,
 // and a feature may not import another feature's api.
 import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
+// The Nphies probe, same reason and one step further (ticket 211): contract 209 §1
+// gives the whole area ONE grant, so the leaf and every screen in both
+// `features/nphies/*` features share this single probe.
+import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -168,6 +172,31 @@ export const MENU: ShellMenuItem[] = [
           key: CALLCENTER_ACCESS_KEY,
           run: () => callCenterApi.access(),
           visible: (r) => r.canOpenConsole === true,
+        }),
+      },
+    ],
+  },
+  {
+    // Its own top-level group (spec 209 §1, ticket 211): `features/nphies/` is a
+    // new area, and a new area folder appears exactly when a new nav group and
+    // URL prefix do. Follows the call-centre group above as the precedent.
+    labelKey: 'eligibility:menu.nphies',
+    icon: HeartPulse,
+    items: [
+      {
+        labelKey: 'eligibility:menu.newCheck',
+        icon: ClipboardCheck,
+        routerLink: '/nphies/eligibility/new',
+        // The whole area, so the list and detail routes that join later keep this
+        // leaf highlighted rather than each needing their own.
+        activePrefix: '/nphies',
+        // FAILS CLOSED — see `@/core/nphies/api`. What is behind this leaf talks
+        // to the national exchange, so a pending or errored probe hides it rather
+        // than revealing it (ticket 211's Boundaries, in as many words).
+        access: accessProbe({
+          key: NPHIES_ACCESS_KEY,
+          run: () => nphiesAccessApi.access(),
+          visible: (r) => r.canOpenNphies === true,
         }),
       },
     ],

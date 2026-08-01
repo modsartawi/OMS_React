@@ -15,6 +15,7 @@ import coupons from '@/locales/en/coupons.json'
 import notifications from '@/locales/en/notifications.json'
 import broadcast from '@/locales/en/broadcast.json'
 import callcenter from '@/locales/en/callcenter.json'
+import eligibility from '@/locales/en/eligibility.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -22,7 +23,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility'],
   resources: {
     en: {
       common,
@@ -40,6 +41,7 @@ i18n.use(initReactI18next).init({
       notifications,
       broadcast,
       callcenter,
+      eligibility,
     },
   },
   interpolation: { escapeValue: false },

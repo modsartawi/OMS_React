@@ -19,7 +19,9 @@ import { api } from '@/core/api'
 import type {
   EligibilityCheckRequest,
   EligibilityCheckResponse,
+  EligibilityListRow,
   LastEligibility,
+  NphiesPage,
   NphiesProvider,
 } from '@/core/models/nphies'
 
@@ -67,5 +69,22 @@ export const eligibilityApi = {
    */
   check(body: EligibilityCheckRequest): Promise<EligibilityCheckResponse> {
     return api.post<EligibilityCheckResponse>('Nphies/CheckEligibility', body)
+  },
+
+  /**
+   * `GET Nphies/EligibilityResponses` (§1.1 #3, §3.3) — the list, **re-modelled**
+   * rather than proxied.
+   *
+   * 🚩 This is one of only two endpoints in the whole contract that SIS.Api
+   * re-models, and the only genuinely new logic in the proxy: upstream answers a
+   * `Take(20000)` with the ordering commented out, so **sort, page and total are
+   * the server's** and this call is the one place the browser trusts them.
+   *
+   * The params object is built by the pure `buildEligibilityListParams` — the
+   * window, the five filters and `showAll` all live there, and nothing on this
+   * function decides what narrows the read.
+   */
+  list(params: Record<string, unknown>): Promise<NphiesPage<EligibilityListRow>> {
+    return api.get<NphiesPage<EligibilityListRow>>('Nphies/EligibilityResponses', params)
   },
 }

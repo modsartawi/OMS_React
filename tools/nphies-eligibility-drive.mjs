@@ -115,9 +115,119 @@ const RESPONSE = (over = {}) => ({
   ...over,
 })
 
+// ---- ticket 212: the list -------------------------------------------------
+//
+// The in-window rows are stamped from the REAL clock, not a frozen date: the
+// screen's default window is derived from today, so a hard-coded fixture would
+// quietly fall out of the window tomorrow and the drive would assert against an
+// empty list.
+const isoOf = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const NOW = new Date()
+const DAYS_AGO = (n) =>
+  isoOf(new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate() - n)) + 'T09:15:00'
+//
+// One row of `GET Nphies/EligibilityResponses` — the eligibility equivalent of
+// `AuthForListDto`. 🚩 Every row here carries **no `outcome`**, deliberately:
+// `NEligibility` has no such column (`Data/Eligibility/NEligibility.cs`), the
+// value is read off the live FHIR bundle at `EligibilityService.cs:670` and
+// discarded. So the axes on a stored row come from `success` / `inforce` /
+// `isEligible` / `siteEligibility` alone, and a stub that helpfully supplied an
+// outcome would be testing a shape the endpoint cannot produce.
+const ROW = (over = {}) => ({
+  id: 'ELG-1',
+  eligibilityPurpose: 'benefits',
+  providerCode: 'P001',
+  payerCode: 'PAY-9',
+  patientId: '0000000003',
+  patientIdType: 'PRC',
+  patientGender: 'male',
+  patientName: 'Muhammad Ali Abbas',
+  patientBirthDate: '2010-08-21T00:00:00',
+  actionDateTime: DAYS_AGO(0),
+  success: true,
+  inforce: true,
+  coverage: true,
+  isEligible: true,
+  siteEligibility: 'eligible',
+  errorMessage: '',
+  disposition: 'Eligibility confirmed by the payer.',
+  statusCode: 200,
+  transfer: false,
+  newborn: false,
+  occupation: 'student',
+  maritalStatus: 'U',
+  ...over,
+})
+
+// The whole (stubbed) estate. Four rows the drive can tell apart by any of the
+// five filters, plus enough padding to make paging real.
+const IN_WINDOW = [
+  ROW({ id: 'ELG-1', patientId: '0000000003', patientName: 'Muhammad Ali Abbas' }),
+  // Six days back — the far edge of the seven-day window, INSIDE it. If the
+  // window were computed one day short this row would vanish.
+  ROW({ id: 'ELG-0', patientId: '0000000002', patientName: 'Edge Of The Window', actionDateTime: DAYS_AGO(6) }),
+  // Complete + outside network — the qualifier must render INSIDE the verdict.
+  ROW({ id: 'ELG-2', patientId: '0000000004', patientName: 'Sara Al Otaibi', siteEligibility: 'outside-network' }),
+  // Complete + not in force.
+  ROW({ id: 'ELG-3', patientId: '0000000005', patientName: 'Omar Nasser', payerCode: 'PAY-7', providerCode: 'P002', isEligible: false, inforce: false }),
+  // 🚩 Failed: the row still carries `isEligible: true`, and the verdict must
+  // stay BLANK anyway. This is the row `showAll=false` would hide entirely.
+  ROW({ id: 'ELG-4', patientId: '0000000006', patientName: 'Layla Hassan', success: false, isEligible: true, errorMessage: 'BV-00123: invalid member id' }),
+]
+// Older than the default window — only reachable once the chip is removed.
+const OUT_OF_WINDOW = Array.from({ length: 60 }, (_, i) =>
+  ROW({
+    id: `OLD-${i + 1}`,
+    patientId: '0000009999',
+    patientName: `Older Patient ${i + 1}`,
+    // Comfortably outside seven days, and outside the seven-day edge row too.
+    actionDateTime: DAYS_AGO(90),
+  }),
+)
+
+/** The re-modelled read, in the stub: filter, then page. SIS.Api owns sort/page/
+ *  total (§3.3), so the stub owns them here — a stub that returned everything
+ *  would make the pager untestable. */
+function eligibilityList(q) {
+  const showAll = q.get('showAll') === 'true'
+  const from = q.get('fromDate')
+  const to = q.get('toDate')
+  let rows = [...IN_WINDOW, ...OUT_OF_WINDOW]
+  // Upstream: `if (!showAll) query.Where(c => c.IsEligible)`.
+  if (!showAll) rows = rows.filter((r) => r.isEligible)
+  if (from) rows = rows.filter((r) => r.actionDateTime.slice(0, 10) >= from)
+  if (to) rows = rows.filter((r) => r.actionDateTime.slice(0, 10) <= to)
+  for (const [param, field] of [
+    ['patientId', 'patientId'],
+    ['payerCode', 'payerCode'],
+    ['providerCode', 'providerCode'],
+  ]) {
+    const value = q.get(param)
+    if (value) rows = rows.filter((r) => r[field] === value)
+  }
+  // The two axes, derived server-side in the stub exactly as the client derives
+  // them — a stored row has no outcome, so `success` is what separates them.
+  const request = (r) => (r.success === false ? 'failed' : 'complete')
+  const verdict = (r) => (r.isEligible ? 'eligible' : r.inforce ? 'notEligible' : 'notInForce')
+  if (q.get('request')) rows = rows.filter((r) => request(r) === q.get('request'))
+  if (q.get('verdict')) rows = rows.filter((r) => request(r) === 'complete' && verdict(r) === q.get('verdict'))
+
+  rows.sort((a, b) => b.actionDateTime.localeCompare(a.actionDateTime))
+  const page = Number(q.get('page') || 1)
+  const pageSize = Number(q.get('pageSize') || 50)
+  return {
+    rows: rows.slice((page - 1) * pageSize, page * pageSize),
+    total: rows.length,
+    page,
+    pageSize,
+  }
+}
+
 // Scenario state, mutated between steps.
 let scenario = { access: { canOpenNphies: true }, response: RESPONSE(), lastEligibility: LAST }
 let lastCheckBody = null
+let lastListQuery = null
 
 async function run() {
   const browser = await chromium.launch()
@@ -139,6 +249,21 @@ async function run() {
       return route.fulfill(envelope(scenario.access))
     }
     if (path === 'Nphies/Providers') return route.fulfill(envelope(PROVIDERS))
+    if (path === 'Nphies/EligibilityResponses') {
+      lastListQuery = new URLSearchParams(url.split('?')[1] || '')
+      // A guardrail refusal (taxonomy kind 2): non-2xx carrying the envelope
+      // with `success:false` and a human, server-supplied message.
+      if (scenario.listDown)
+        return route.fulfill(
+          envelope(null, {
+            status: 409,
+            success: false,
+            message: 'The date range is wider than this report allows.',
+            errors: [{ errorCode: 'INVALID_DATE_RANGE', errorMessage: 'range too wide' }],
+          }),
+        )
+      return route.fulfill(envelope(eligibilityList(lastListQuery)))
+    }
     if (path.startsWith('Nphies/LastEligibility/')) {
       // `fillDelayMs` holds the answer back so the stale-response race is
       // reachable from a drive at all.
@@ -432,9 +557,240 @@ async function run() {
     !/Verdict/.test(await page.locator('main').innerText()),
   )
 
+  // ==== ticket 212: the list opens on a VISIBLE window =====================
+  const LIST_URL = BASE + '/nphies/eligibility'
+  const iso = isoOf
+  const today = NOW
+  // SEVEN calendar dates inclusive: today-6 … today. Not today-7, which is eight.
+  const weekAgo = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6)
+
+  await page.goto(LIST_URL)
+  await page.getByRole('button', { name: /^Search$/ }).waitFor({ timeout: 15000 })
+  await page.waitForTimeout(400)
+
+  // ---- Scenario 13: the default window, and the chip that states it -------
+  check(
+    'the list opens on the LAST 7 DAYS, in the query',
+    lastListQuery &&
+      lastListQuery.get('fromDate') === iso(weekAgo) &&
+      lastListQuery.get('toDate') === iso(today),
+    lastListQuery ? lastListQuery.toString() : 'no query',
+  )
+  check(
+    '🚩 and it asks for EVERY row — showAll=true, or the refusals are invisible',
+    lastListQuery && lastListQuery.get('showAll') === 'true',
+  )
+  check(
+    'the list is server-paged: page and pageSize travel with every read',
+    lastListQuery && lastListQuery.get('page') === '1' && lastListQuery.get('pageSize') === '50',
+  )
+  const chip = await page.locator('main').innerText()
+  check(
+    '🚩 the window is VISIBLE as a chip, not applied silently',
+    /Last 7 days/.test(chip) && chip.includes(iso(weekAgo)) && chip.includes(iso(today)),
+    (chip.match(/Last 7 days[^\n]*/) || [''])[0],
+  )
+  check(
+    'the seven-day window spans SEVEN dates — the row on its far edge is inside',
+    /Edge Of The Window/.test(chip),
+  )
+
+  // ---- Scenario 14: both axes render, and the traps hold on a LIST row ----
+  const listText = await page.locator('main').innerText()
+  check('the in-window checks are listed', /Muhammad Ali Abbas/.test(listText) && /Layla Hassan/.test(listText))
+  const listBadges = await page.locator('main span.rounded-full').allInnerTexts()
+  check(
+    '🚩 a stored row (no `outcome` column exists) reads as Complete, not Pending',
+    listBadges.some((b) => /^Complete$/.test(b.trim())) && !listBadges.some((b) => /^Pending$/.test(b.trim())),
+    listBadges.join(' | '),
+  )
+  check(
+    '🚩 the verdict is ONE qualified cell on the list too — "Eligible · outside network"',
+    listBadges.some((b) => /^Eligible · outside network$/.test(b.trim())),
+    listBadges.join(' | '),
+  )
+  check('a not-in-force row states its verdict', listBadges.some((b) => /^Not in force$/.test(b.trim())))
+  check(
+    '🚩 a Failed row shows Failed and a BLANK verdict, though it carries isEligible:true',
+    listBadges.some((b) => /^Failed$/.test(b.trim())) &&
+      /Could not reach the payer/.test(listText) &&
+      /BV-00123/.test(listText),
+  )
+
+  // ---- Scenario 15: removing the chip DROPS the window --------------------
+  await page.getByRole('button', { name: /Remove the date window/i }).click()
+  await page.waitForTimeout(500)
+  check(
+    '🚩 removing the chip drops the window from the query — no wider one substituted',
+    lastListQuery && !lastListQuery.has('fromDate') && !lastListQuery.has('toDate'),
+    lastListQuery ? lastListQuery.toString() : 'no query',
+  )
+  const removed = await page.locator('main').innerText()
+  check(
+    'and the screen SAYS the window is gone rather than falling silent',
+    /No date window/.test(removed) && !/Last 7 days/.test(removed),
+  )
+  check(
+    'the older checks the window was hiding are now reachable',
+    /65 checks/.test(removed),
+    (removed.match(/\d+ checks?/) || [''])[0],
+  )
+  check(
+    '🚩 the count, the chip and the rows all describe the SAME read — no "everything" over a week',
+    !(/No date window/.test(removed) && /\b5 checks\b/.test(removed)),
+    (removed.match(/\d+ checks?/) || [''])[0],
+  )
+
+  // ---- Scenario 16: paging moves through the results ----------------------
+  check('a result past one page grows a pager', (await page.getByRole('navigation', { name: /pages/i }).count()) === 1)
+  check('the readout counts pages from the TRUE total', /Page 1 of 2/.test(removed))
+  await page.getByRole('button', { name: /^Next$/ }).click()
+  await page.waitForTimeout(500)
+  check('Next asks the server for page 2', lastListQuery && lastListQuery.get('page') === '2')
+  const page2 = await page.locator('main').innerText()
+  check('page 2 renders its own rows', /Page 2 of 2/.test(page2) && /Older Patient/.test(page2))
+  check(
+    'the window stays removed while paging — a page step is not a new search',
+    lastListQuery && !lastListQuery.has('fromDate'),
+  )
+  await page.getByRole('button', { name: /^Previous$/ }).click()
+  await page.waitForTimeout(400)
+  check('Previous walks back', lastListQuery && lastListQuery.get('page') === '1')
+
+  // ---- Scenario 17: the five filters narrow, and the axes do so alone -----
+  const providerFilter = page.getByLabel('Provider', { exact: true })
+  check(
+    '🚩 the provider filter defaults to ALL providers — the opposite of a till',
+    (await providerFilter.inputValue()) === '',
+  )
+  await providerFilter.selectOption('P002')
+  await page.getByRole('button', { name: /^Search$/ }).click()
+  await page.waitForTimeout(500)
+  check('the provider filter narrows the list', lastListQuery && lastListQuery.get('providerCode') === 'P002')
+  check(
+    'a new filter starts back at page 1',
+    lastListQuery && lastListQuery.get('page') === '1',
+  )
+  check('and only that provider’s rows remain', /Omar Nasser/.test(await page.locator('main').innerText()))
+
+  await providerFilter.selectOption('')
+  await page.getByLabel('Patient ID', { exact: true }).fill('0000000004')
+  await page.getByRole('button', { name: /^Search$/ }).click()
+  await page.waitForTimeout(500)
+  check(
+    'the patient id filter narrows the list, and the cleared provider is dropped',
+    lastListQuery &&
+      lastListQuery.get('patientId') === '0000000004' &&
+      !lastListQuery.has('providerCode'),
+    lastListQuery ? lastListQuery.toString() : '',
+  )
+  check('and only that patient’s check remains', /1 check\b/.test(await page.locator('main').innerText()))
+
+  await page.getByLabel('Patient ID', { exact: true }).fill('')
+  await page.getByLabel('Payer code', { exact: true }).fill('PAY-7')
+  await page.getByRole('button', { name: /^Search$/ }).click()
+  await page.waitForTimeout(500)
+  check(
+    'the payer filter narrows the list, and the blank patient id is dropped',
+    lastListQuery && lastListQuery.get('payerCode') === 'PAY-7' && !lastListQuery.has('patientId'),
+    lastListQuery ? lastListQuery.toString() : '',
+  )
+
+  await page.getByLabel('Payer code', { exact: true }).fill('')
+  const requestFilter = page.getByLabel('Request', { exact: true })
+  const requestOptions = await requestFilter.locator('option').allInnerTexts()
+  check(
+    '🚩 the Request filter offers only what a stored row can BE — no Cancelled, no Pending',
+    !requestOptions.some((o) => /Cancelled|Pending/.test(o)) &&
+      requestOptions.some((o) => /Failed/.test(o)) &&
+      requestOptions.some((o) => /Complete/.test(o)),
+    requestOptions.join(' | '),
+  )
+  await requestFilter.selectOption('failed')
+  await page.getByRole('button', { name: /^Search$/ }).click()
+  await page.waitForTimeout(500)
+  check(
+    'the Request axis narrows on its own',
+    lastListQuery && lastListQuery.get('request') === 'failed' && !lastListQuery.has('verdict'),
+  )
+  check('and only the refused check remains', /Layla Hassan/.test(await page.locator('main').innerText()))
+
+  await requestFilter.selectOption('')
+  await page.getByLabel('Verdict', { exact: true }).selectOption('notInForce')
+  await page.getByRole('button', { name: /^Search$/ }).click()
+  await page.waitForTimeout(500)
+  check(
+    '🚩 the Verdict axis narrows WITHOUT a Request filter — a legal question on its own',
+    lastListQuery && lastListQuery.get('verdict') === 'notInForce' && !lastListQuery.has('request'),
+    lastListQuery ? lastListQuery.toString() : '',
+  )
+  check('and only the not-in-force check remains', /Omar Nasser/.test(await page.locator('main').innerText()))
+
+  // ---- Scenario 17b: a WIDENED window stops calling itself "last 7 days" --
+  await page.getByLabel('Verdict', { exact: true }).selectOption('')
+  await page.getByLabel('From', { exact: true }).fill('2020-01-01')
+  await page.getByRole('button', { name: /^Search$/ }).click()
+  await page.waitForTimeout(500)
+  const widened = await page.locator('main').innerText()
+  check(
+    '🚩 a widened window is stated as itself, NOT as "Last 7 days"',
+    widened.includes('2020-01-01') && !/Last 7 days/.test(widened),
+    (widened.match(/2020-01-01[^\n]*/) || [''])[0],
+  )
+  check(
+    'and widening really does reach the older checks',
+    /65 checks/.test(widened),
+    (widened.match(/\d+ checks?/) || [''])[0],
+  )
+
+  // ---- Scenario 18: Reset restores the window it opened on ----------------
+  await page.getByRole('button', { name: /^Reset$/ }).click()
+  await page.waitForTimeout(500)
+  check(
+    'Reset restores the seven-day window and clears every filter',
+    lastListQuery &&
+      lastListQuery.get('fromDate') === iso(weekAgo) &&
+      !lastListQuery.has('verdict') &&
+      !lastListQuery.has('patientId'),
+    lastListQuery ? lastListQuery.toString() : '',
+  )
+  check('and the chip is back', /Last 7 days/.test(await page.locator('main').innerText()))
+
+  // ---- Scenario 19: the list leaf, and the gate behind it -----------------
+  check(
+    'the Nphies group carries BOTH leaves for a granted agent',
+    (await page.getByRole('link', { name: /^Eligibility checks$/ }).count()) === 1 &&
+      (await page.getByRole('link', { name: /^Check eligibility$/ }).count()) === 1,
+  )
+  scenario.access = { canOpenNphies: false }
+  await page.goto(LIST_URL)
+  await page.waitForSelector('[role="alert"]', { timeout: 10000 })
+  check(
+    'no grant → the list refuses in page too, and its leaf is hidden',
+    /No access to Nphies/.test(await page.locator('main').innerText()) &&
+      (await page.getByRole('link', { name: /^Eligibility checks$/ }).count()) === 0,
+  )
+  scenario.access = { canOpenNphies: true }
+
+  // ---- Scenario 20: a failed read explains itself, it does not blank ------
+  scenario.listDown = true
+  await page.goto(LIST_URL)
+  await page.waitForSelector('[role="alert"]', { timeout: 10000 })
+  const listRefused = await page.locator('main').innerText()
+  check(
+    'a refused list read surfaces the server’s own message, never "unexpected"',
+    /wider than this report allows/i.test(listRefused) && !/unexpected/i.test(listRefused),
+    listRefused.replace(/\n/g, ' ').slice(0, 100),
+  )
+  check(
+    'and it does not leave an empty grid reading as "no checks match"',
+    !/No checks match/.test(listRefused),
+  )
+  scenario.listDown = false
+
   // The refusal + probe-down scenarios intentionally answer 409/500, which the
   // browser logs as resource errors. Expected, not app faults.
-  const realErrors = errors.filter((e) => !/status of (409|500)/.test(e))
+  const realErrors = errors.filter((e) => !/status of (403|409|500)/.test(e))
   check('no uncaught page errors', realErrors.length === 0, realErrors.slice(0, 3).join(' | '))
 
   await browser.close()

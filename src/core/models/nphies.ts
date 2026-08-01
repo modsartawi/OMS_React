@@ -131,6 +131,81 @@ export interface EligibilityCheckResponse {
 }
 
 /**
+ * The envelope both **re-modelled** lists answer with (§3.3:
+ * "Both return `{ rows[], total, page, pageSize }`").
+ *
+ * 🚩 These two endpoints are the only ones SIS.Api re-models rather than proxies,
+ * and this shape is why: upstream returns `Take(20000)` with the ordering
+ * commented out, so **sort, page and total are SIS.Api's** and a browser that
+ * paged the raw read would be paging a truncation. `total` is the true match
+ * count, not the page's length — reading `rows.length` as a total is the exact
+ * defect ticket 148 fixed on the Ua Users grid.
+ *
+ * Generic because 214's authorization list takes the identical envelope over a
+ * different row.
+ */
+export interface NphiesPage<TRow> {
+  rows: TRow[]
+  total: number
+  /** 1-based, echoed back — the page the server actually served. */
+  page: number
+  pageSize: number
+}
+
+/**
+ * One row of `GET Nphies/EligibilityResponses` (§1.1 #3, §3.3) — "the eligibility
+ * equivalent" of `AuthForListDto`.
+ *
+ * Every field below is one the service's own list projection actually selects
+ * (`EligibilityService.GetEligibilityResponses`, `EligibilityService.cs:1003-1032`,
+ * read 2026-08-02), mapped to its `EligibilityResponse` name. The projection is
+ * narrower than the check response in two ways that matter:
+ *
+ * - **`notInForceReason` is NOT selected**, so the list cannot say *why* a policy
+ *   is out of force — that stays the detail's (213). It is absent here rather
+ *   than optional: a field the row never carries is one nobody should reach for.
+ *   `actionDuration` is absent for the mirror reason — the projection sets it on
+ *   the *entity*, but `EligibilityResponse` (the DTO the rows are mapped to) has
+ *   no such property, so it never reaches the wire.
+ * - **`outcome` is not a column at all.** `NEligibility` has no such property; the
+ *   value is read off the live FHIR bundle and discarded. It is declared optional
+ *   because SIS.Api re-models this row and may project one, and because
+ *   `deriveEligibilityAxes` reads a stored row correctly without it — see the
+ *   flag in `@/core/nphies/status`.
+ *
+ * `coverages` are likewise absent: the list read never fetches them.
+ */
+export interface EligibilityListRow {
+  id: string
+  eligibilityPurpose: string
+  providerCode: string
+  payerCode: string
+  patientId: string
+  patientIdType: string
+  patientGender: string
+  patientName: string
+  patientBirthDate: string
+  /** When the check was run. The list's sort key — newest first (§3.3). */
+  actionDateTime: string
+  /** ⚠️ Not persisted — see the note above. Present only if SIS.Api projects one. */
+  outcome?: string
+  success: boolean
+  inforce: boolean
+  coverage: boolean
+  isEligible: boolean
+  siteEligibility: string
+  /** 🚩 The dual-meaning field again: readable ONLY under a failure label, and
+   *  only when the Request state is not `Complete` (§5, `showsFailureMessage`). */
+  errorMessage: string
+  disposition: string
+  statusCode: number
+  transfer: boolean
+  newborn: boolean
+  occupation: string
+  maritalStatus: string
+}
+
+/**
  * `GET Nphies/LastEligibility/{patientId}` (§3.2) → `LastEligibilityModel` — what
  * **Fill** completes a cold form from. `null` when the patient has never been
  * checked.

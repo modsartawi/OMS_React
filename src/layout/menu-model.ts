@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, Calculator, ClipboardCheck, Download, FileText, Headset, HeartPulse, KeyRound, LifeBuoy, Search, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
+import { Activity, Box, Calculator, ClipboardCheck, Download, FileText, Headset, HeartPulse, KeyRound, LifeBuoy, ListChecks, Search, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -184,15 +184,30 @@ export const MENU: ShellMenuItem[] = [
     icon: HeartPulse,
     items: [
       {
+        // The area's landing screen (ticket 212) — the list, first, because that
+        // is what an agent opens on. It carries the area prefix so the detail
+        // routes joining later (213, 216) keep it highlighted.
+        labelKey: 'eligibility:menu.list',
+        icon: ListChecks,
+        routerLink: '/nphies/eligibility',
+        activePrefix: '/nphies',
+        // Both leaves share the ONE probe on the ONE key — §1 gives the whole
+        // area a single grant, so a gated area costs one network call.
+        // FAILS CLOSED — see `@/core/nphies/api`. What is behind these leaves
+        // talks to the national exchange, so a pending or errored probe hides
+        // them rather than revealing them (ticket 211's Boundaries).
+        access: accessProbe({
+          key: NPHIES_ACCESS_KEY,
+          run: () => nphiesAccessApi.access(),
+          visible: (r) => r.canOpenNphies === true,
+        }),
+      },
+      {
         labelKey: 'eligibility:menu.newCheck',
         icon: ClipboardCheck,
         routerLink: '/nphies/eligibility/new',
-        // The whole area, so the list and detail routes that join later keep this
-        // leaf highlighted rather than each needing their own.
-        activePrefix: '/nphies',
-        // FAILS CLOSED — see `@/core/nphies/api`. What is behind this leaf talks
-        // to the national exchange, so a pending or errored probe hides it rather
-        // than revealing it (ticket 211's Boundaries, in as many words).
+        // No `activePrefix`: its own exact route. The list leaf above owns the
+        // area prefix now that there is more than one screen under it.
         access: accessProbe({
           key: NPHIES_ACCESS_KEY,
           run: () => nphiesAccessApi.access(),

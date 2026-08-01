@@ -1,6 +1,7 @@
 {
   "menu": {
     "nphies": "Nphies",
+    "list": "Eligibility checks",
     "newCheck": "Check eligibility"
   },
   "title": "Check eligibility",
@@ -88,7 +89,57 @@
     "class": "Class: {{className}}",
     "policyHolder": "Policy holder: {{policyHolder}}"
   },
+  "list": {
+    "title": "Eligibility checks",
+    "subtitle": "Every check run against a payer, newest first. The window below is what you are looking at — remove it to see everything.",
+    "loading": "Loading checks…",
+    "matchCount_one": "{{formatted}} check",
+    "matchCount_other": "{{formatted}} checks",
+    "window": {
+      "chipDefault": "Last 7 days · {{from}} → {{to}}",
+      "chip": "{{from}} → {{to}}",
+      "remove": "Remove the date window",
+      "removed": "No date window — showing every check on record",
+      "openStart": "the beginning",
+      "openEnd": "no end date"
+    },
+    "filters": {
+      "patientId": "Patient ID",
+      "payerCode": "Payer code",
+      "providerCode": "Provider",
+      "allProviders": "All providers",
+      "request": "Request",
+      "anyRequest": "Any request state",
+      "verdict": "Verdict",
+      "anyVerdict": "Any verdict",
+      "fromDate": "From",
+      "toDate": "To",
+      "search": "Search",
+      "reset": "Reset"
+    },
+    "columns": {
+      "actionDateTime": "Checked at",
+      "patient": "Patient",
+      "payerCode": "Payer",
+      "providerCode": "Provider",
+      "request": "Request",
+      "verdict": "Verdict",
+      "failureReason": "Could not reach the payer"
+    },
+    "empty": {
+      "title": "No checks match",
+      "hint": "Nothing on record matches these filters.",
+      "hintWindowed": "Nothing matches these filters inside the date window above. Widen it or remove it to look further back."
+    },
+    "pager": {
+      "ariaLabel": "Eligibility check pages",
+      "previous": "Previous",
+      "next": "Next",
+      "readout": "Page {{page}} of {{pages}}"
+    }
+  },
   "errors": {
+    "listFailed": "The eligibility checks could not be loaded.",
     "checkTitle": "The check was refused",
     "checkFailed": "The eligibility check could not be completed.",
     "remedy": {

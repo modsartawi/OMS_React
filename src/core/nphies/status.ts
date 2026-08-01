@@ -14,7 +14,6 @@
  * sentences — the label is the screen's `t()` call, per the zero-literal rule.
  */
 
-import type { EligibilityCheckResponse } from '@/core/models/nphies'
 import type { Severity } from '@/core/ui/severity'
 
 /**
@@ -42,6 +41,35 @@ export type EligibilityVerdict = 'eligible' | 'notInForce' | 'notEligible'
  */
 export type SiteQualifier = 'outsideNetwork' | 'notDirectBilling'
 
+/**
+ * The whole Request vocabulary, in the order §5 lists it. Exported so a filter
+ * control offers exactly the axis's values and cannot drift from the type.
+ */
+export const REQUEST_STATES: readonly RequestState[] = ['cancelled', 'failed', 'pending', 'complete']
+
+/**
+ * The Request values a row of the **eligibility list** can actually take, and
+ * therefore the only ones its filter offers.
+ *
+ * Two, not four. `cancelled` is unreachable because there is no cancel act on an
+ * eligibility check and no field to carry one; `pending` is unreachable because
+ * the state is not persisted at all — see `deriveStoredEligibilityAxes`. A filter
+ * option that can never match is worse than no option: it reads as *"there are
+ * none this week"* rather than *"this cannot happen"*, and sends the agent to
+ * widen a window that will not help.
+ *
+ * 214 offers `REQUEST_STATES` in full, where the cancel act exists and
+ * `ClaimProcessingCodes` is a real column.
+ */
+export const ELIGIBILITY_LIST_REQUEST_STATES: readonly RequestState[] = ['failed', 'complete']
+
+/** The eligibility Verdict vocabulary, same purpose as above. */
+export const ELIGIBILITY_VERDICTS: readonly EligibilityVerdict[] = [
+  'eligible',
+  'notInForce',
+  'notEligible',
+]
+
 export interface EligibilityAxes {
   request: RequestState
   /** **Blank until `request` is `complete`** (§5) — a request that never reached
@@ -49,6 +77,28 @@ export interface EligibilityAxes {
   verdict: EligibilityVerdict | null
   /** Never set without a `verdict`: it qualifies one, it is not a fact of its own. */
   siteQualifier: SiteQualifier | null
+}
+
+/**
+ * The five raw fields both axes are derived from — and **the only** contract this
+ * module has with its callers.
+ *
+ * It is a structural subset rather than `EligibilityCheckResponse` because 212's
+ * list row is a different projection of the same record (`EligibilityResponse`
+ * minus the coverages, minus `NotInForceReason` — see
+ * `EligibilityService.cs:1003`), and the axes must come out identical from both.
+ * Naming the five fields is what makes "the same pair on both lists and both
+ * details" (§5) a type, rather than a promise.
+ *
+ * `outcome` is **optional**, and that is not defensiveness — see
+ * `eligibilityRequestState`.
+ */
+export interface EligibilityAxisSource {
+  outcome?: string | null
+  success: boolean
+  inforce: boolean
+  isEligible: boolean
+  siteEligibility?: string | null
 }
 
 /** Lowercased, trimmed — the exchange's own spelling is not something to depend on. */
@@ -65,7 +115,7 @@ const code = (raw: string | null | undefined): string => (raw ?? '').trim().toLo
  * (`Features/Eligibility/Dtos/EligibilityResponse.cs`), so the same question is
  * asked of the fields that exist.
  */
-function eligibilityRequestState(response: EligibilityCheckResponse): RequestState {
+function eligibilityRequestState(response: EligibilityAxisSource): RequestState {
   // 🚩 `success: false` outranks whatever `outcome` says, and this order is load
   // bearing. `EligibilityService` sets `Success = true` on exactly one line —
   // after a fully processed response (`:277`) — and `false` only in its catch
@@ -89,6 +139,19 @@ function eligibilityRequestState(response: EligibilityCheckResponse): RequestSta
     default:
       // No outcome and no failure: nothing has come back yet. A request still in
       // flight is `pending`, never `failed` (law 6's posture, one act earlier).
+      //
+      // 🚩 This branch IS reachable on a live check, and reading it as `complete`
+      // would be a §5 violation. `FillResponse` sets `Outcome` only inside
+      // `if (eligibilityResponse != null)` (`EligibilityService.cs:667-670`) —
+      // i.e. only when the bundle actually carried a `CoverageEligibilityResponse`
+      // — while `eResponse.Success = true` is set unconditionally after it returns
+      // (`:277`). So a bundle with no response resource arrives here saying
+      // success with no outcome, and calling that `Complete` would publish a
+      // verdict derived from `isEligible: false` for an answer the payer never
+      // gave.
+      //
+      // A **stored** row is a different question and has its own entry point —
+      // see `deriveStoredEligibilityAxes`.
       return 'pending'
   }
 }
@@ -101,7 +164,7 @@ function eligibilityRequestState(response: EligibilityCheckResponse): RequestSta
  * false, `inforce` is what separates *the policy is not in force* (the case that
  * carries `NotInForceReason`) from *not eligible* for any other reason.
  */
-function eligibilityVerdict(response: EligibilityCheckResponse): EligibilityVerdict {
+function eligibilityVerdict(response: EligibilityAxisSource): EligibilityVerdict {
   if (response.isEligible) return 'eligible'
   return response.inforce ? 'notEligible' : 'notInForce'
 }
@@ -114,20 +177,59 @@ const SITE_QUALIFIERS: Record<string, SiteQualifier> = {
 }
 
 /**
- * Both axes of one eligibility check, derived from the raw response.
+ * Both axes of one eligibility act, derived from the raw fields — a fresh check
+ * response (211) or a stored list row (212), which is why the parameter is the
+ * five-field `EligibilityAxisSource` and not either screen's model.
  *
  * 🚩 The blank-verdict rule is enforced **here**, not at the render site: the row
  * carries `IsEligible` whatever happened, so a screen that read that column
  * directly would tell an agent a payer said yes to a question the payer never
  * saw.
  */
-export function deriveEligibilityAxes(response: EligibilityCheckResponse): EligibilityAxes {
+export function deriveEligibilityAxes(response: EligibilityAxisSource): EligibilityAxes {
   const request = eligibilityRequestState(response)
   if (request !== 'complete') return { request, verdict: null, siteQualifier: null }
   return {
     request,
     verdict: eligibilityVerdict(response),
     siteQualifier: SITE_QUALIFIERS[code(response.siteEligibility)] ?? null,
+  }
+}
+
+/**
+ * Both axes of one **stored** eligibility — a row of the list (212) — which is a
+ * genuinely different question from a live check response, because the record
+ * carries less than the answer did.
+ *
+ * 🚩 `NEligibility` has **no `Outcome` column** (`Data/Eligibility/NEligibility.cs`,
+ * read 2026-08-02). The value is filled from the live FHIR bundle at
+ * `EligibilityService.cs:670` and never persisted, so the list's rows arrive
+ * without it and the live derivation's "no outcome ⇒ still in flight" reading
+ * would report every completed check in the estate as waiting, forever.
+ *
+ * What survives is `Success`, and it is trustworthy in exactly one direction:
+ * `nEligibility.Success = true` is written on ONE line (`:282`), after
+ * `FillResponse` ran to completion, and the catch never writes it (`:293` sets
+ * the *response*, leaving the row's default `false`). So on a stored row,
+ * success is `Complete` and its absence is `Failed`.
+ *
+ * ⚠️ **`Pending` is therefore unreachable on a stored row**, and that is a real
+ * loss rather than a simplification: a check the exchange answered `queued` is
+ * stored as `Success = true` and reads `Complete` here, while the check result
+ * that produced it read `Pending`. The queued-ness is not persisted and no client
+ * can recover it. Named as a contract gap in `.afk/HITL-212.md`.
+ *
+ * If SIS.Api's re-modelled row ever *does* project an outcome, this defers to it
+ * — which is why the parameter is the same source type and the delegation is one
+ * line.
+ */
+export function deriveStoredEligibilityAxes(row: EligibilityAxisSource): EligibilityAxes {
+  if (code(row.outcome) !== '') return deriveEligibilityAxes(row)
+  if (row.success !== true) return { request: 'failed', verdict: null, siteQualifier: null }
+  return {
+    request: 'complete',
+    verdict: eligibilityVerdict(row),
+    siteQualifier: SITE_QUALIFIERS[code(row.siteEligibility)] ?? null,
   }
 }
 

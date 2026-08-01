@@ -144,6 +144,16 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // One response as its own page (213) — a ROUTE, not a modal, so it
+        // survives a refresh and can be linked to. It follows the static `new`
+        // above; react-router ranks a static segment over a dynamic one either
+        // way, so `/nphies/eligibility/new` can never be read as an id.
+        path: 'nphies/eligibility/:id',
+        lazy: async () => ({
+          Component: (await import('@/features/nphies/eligibility/EligibilityDetailPage')).default,
+        }),
+      },
+      {
         path: 'pricing/simulation',
         lazy: async () => ({
           Component: (await import('@/features/pricing/simulation/SimulationPage')).default,

@@ -9,6 +9,7 @@ import {
   verdictCellKeys,
 } from '@/core/nphies/status'
 import type { EligibilityCheckResponse } from '@/core/models/nphies'
+import CoverageList from './CoverageList'
 
 /**
  * The answer to one eligibility check, in two axes (ticket 211, contract §5).
@@ -23,7 +24,19 @@ import type { EligibilityCheckResponse } from '@/core/models/nphies'
  * (§3.1). The parts come from `verdictCellKeys`, so what that cell contains is
  * not decided here.
  */
-export default function CheckResult({ response }: { response: EligibilityCheckResponse }) {
+export default function CheckResult({
+  response,
+  coverages = true,
+}: {
+  response: EligibilityCheckResponse
+  /**
+   * `false` on the response detail (213), which renders the same coverages as a
+   * **picker** in its own section — with the pick rule and the seam to the
+   * authorization form attached. Suppressing the read-only copy here is what
+   * stops one screen listing the patient's policies twice.
+   */
+  coverages?: boolean
+}) {
   const { t } = useTranslation('eligibility')
   const axes = deriveEligibilityAxes(response)
   const cell = verdictCellKeys(axes)
@@ -81,47 +94,22 @@ export default function CheckResult({ response }: { response: EligibilityCheckRe
         </div>
       )}
 
-      {/* Every policy the patient holds, read-only. Choosing between them is
-          213's ticket and nothing here selects one — but the coverages arrive on
-          this very response (§3.1), and a result that hid them would read as
-          though the patient holds no policy at all. */}
-      <div>
-        <div className="text-xs font-medium text-muted-foreground">
-          {t('result.coverages', { count: response.coverages?.length ?? 0 })}
+      {/* Every policy the patient holds. On the check form they are read-only —
+          choosing between them is the DETAIL's act (213), where the seam to the
+          authorization form lives. But the coverages arrive on this very response
+          (§3.1), and a result that hid them would read as though the patient
+          holds no policy at all.
+
+          Rendered through the shared `CoverageList` so the two screens state the
+          same six facts and cannot drift. */}
+      {coverages !== false && (
+        <div>
+          <div className="text-xs font-medium text-muted-foreground">
+            {t('result.coverages', { count: response.coverages?.length ?? 0 })}
+          </div>
+          <CoverageList coverages={response.coverages ?? []} />
         </div>
-        {(response.coverages ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('result.noCoverages')}</p>
-        ) : (
-          <ul className="mt-2 flex flex-col gap-2">
-            {response.coverages.map((c, i) => (
-              // Keyed by position as well as identity: `Id` and `MemberId` are
-              // both nullable on `EligibilityCoverageResponse`, and two blank-id
-              // coverages under one member id would otherwise collide.
-              <li
-                key={`${c.id}-${c.memberId}-${i}`}
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border/60 p-2 text-sm"
-              >
-                <span className="font-medium">{c.memberId}</span>
-                <StatusBadge sev={c.inForce ? 'ok' : 'mute'}>
-                  {c.inForce ? t('coverage.inForce') : t('coverage.notInForce')}
-                </StatusBadge>
-                <span className="text-muted-foreground">
-                  {t('coverage.network', { network: c.network })}
-                </span>
-                <span className="text-muted-foreground">
-                  {t('coverage.plan', { plan: c.coveragePlan })}
-                </span>
-                <span className="text-muted-foreground">
-                  {t('coverage.class', { className: c.coverageClass })}
-                </span>
-                <span className="text-muted-foreground">
-                  {t('coverage.policyHolder', { policyHolder: c.policyHolderName })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      )}
     </section>
   )
 }

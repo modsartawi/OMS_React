@@ -1,8 +1,10 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
+import { Link } from 'react-router'
 
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { EligibilityListRow } from '@/core/models/nphies'
+import { formatStamp } from './format'
 import {
   deriveStoredEligibilityAxes,
   eligibilityVerdictSeverity,
@@ -39,19 +41,26 @@ export const ELIGIBILITY_LIST_DEFAULT_COL_DEF: ColDef<EligibilityListRow> = {
   cellDataType: false,
 }
 
-/** `2026-08-01T10:04:37` → `2026-08-01 10:04`. Blank stays blank rather than
- *  becoming an epoch date. */
-function formatStamp(raw: string | null | undefined): string {
-  const value = (raw ?? '').trim()
-  if (value === '') return ''
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(parsed.getDate())} ${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`
-}
-
 export function buildEligibilityListColumns(t: TFunction): ColDef<EligibilityListRow>[] {
   return [
+    {
+      // 🚩 The way into the detail (213), and it is a real anchor rather than a
+      // row-click handler: spec 209 story 9 asks for a response that can be
+      // LINKED to, which means right-clickable, copyable and middle-clickable.
+      // A row handler is none of those.
+      headerName: t('list.columns.open'),
+      colId: 'open',
+      width: 90,
+      cellRenderer: (p: ICellRendererParams<EligibilityListRow>) =>
+        p.data?.id ? (
+          <Link
+            to={`/nphies/eligibility/${encodeURIComponent(p.data.id)}`}
+            className="font-medium text-primary underline-offset-2 hover:underline"
+          >
+            {t('list.open')}
+          </Link>
+        ) : null,
+    },
     {
       headerName: t('list.columns.actionDateTime'),
       field: 'actionDateTime',

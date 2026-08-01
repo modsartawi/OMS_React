@@ -1,4 +1,4 @@
-// Nphies eligibility-check drive (ticket 211, spec 209, contract v1.0) — drives the
+// Nphies eligibility drive (tickets 211 + 212 + 213, spec 209, contract v1.0) — drives the
 // REAL app in Chromium against MOCKED `Nphies/*` envelopes.
 //
 // ⚠ SIS.Api is down and NONE of this slice's four server dependencies exist yet
@@ -17,6 +17,11 @@
 //   4. the check submits and renders BOTH axes — including the site qualifier folded
 //      into the verdict inline, the blank verdict on a non-Complete request, and the
 //      failure message read in exactly one branch.
+//
+// 212 adds the list (scenarios 13–20) and 213 the response detail (21–28): the detail
+// lists every coverage, auto-selects a lone one — expired included — forces a pick on
+// two or more with no default, and **Raise authorization** carries the eligibility id
+// and the chosen member id in the URL.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/nphies-eligibility-drive.mjs
@@ -224,6 +229,77 @@ function eligibilityList(q) {
   }
 }
 
+// ---- ticket 213: the response detail, and the seam out of it ---------------
+//
+// `GET Nphies/EligibilityResponse/{id}` (§1.1 #4) answers the SAME
+// `EligibilityResponse` DTO the check act does — header fields plus every
+// coverage — which is why the fixtures below are `RESPONSE()` with a different
+// `coverages` array and nothing else invented.
+const COVERAGE = (over = {}) => ({
+  id: 'COV-1',
+  sequence: 1,
+  coverageId: 'COV-1',
+  memberId: 'M-4417',
+  subscriberId: 'S-1',
+  network: 'Gold',
+  coveragePlan: 'Comprehensive',
+  coverageClass: 'Class A',
+  coverageGroup: 'G-1',
+  policyHolderName: 'Al Dawaa Medical Services',
+  inForce: true,
+  benefitStart: '2026-01-01',
+  benefitEnd: '2026-12-31',
+  periodStart: '2026-01-01',
+  periodEnd: '2026-12-31',
+  ...over,
+})
+
+// Contract fixture 1 — an eligible check, ONE coverage: auto-selected, no picker.
+const DETAIL_ONE = RESPONSE({ id: 'ELG-1', coverages: [COVERAGE()] })
+// Ticket 213's own case — a LONE EXPIRED coverage. Still auto-selected: the
+// Verdict column is what says it is not in force.
+const DETAIL_LONE_EXPIRED = RESPONSE({
+  id: 'ELG-3',
+  isEligible: false,
+  inforce: false,
+  notInForceReason: 'Policy expired on 2026-06-30',
+  coverages: [COVERAGE({ id: 'COV-X', memberId: 'M-EXPIRED', inForce: false })],
+})
+// Contract fixture 2 — three coverages: the pick is forced, no default.
+const DETAIL_THREE = RESPONSE({
+  id: 'ELG-2',
+  coverages: [
+    COVERAGE({ id: 'COV-1', sequence: 1, memberId: 'M-1', coveragePlan: 'Comprehensive' }),
+    COVERAGE({ id: 'COV-2', sequence: 2, memberId: 'M-2', coveragePlan: 'Basic', inForce: false }),
+    COVERAGE({ id: 'COV-3', sequence: 3, memberId: 'M-3', coveragePlan: 'Dental' }),
+  ],
+})
+// A SECOND multi-coverage patient, reachable from the list by a client-side
+// navigation — which is what makes the stale-pick trap below reachable at all.
+const DETAIL_TWO = RESPONSE({
+  id: 'ELG-0',
+  patientName: 'Edge Of The Window',
+  patientId: '0000000002',
+  coverages: [
+    COVERAGE({ id: 'COV-A', sequence: 1, memberId: 'M-5A' }),
+    COVERAGE({ id: 'COV-B', sequence: 2, memberId: 'M-5B', coveragePlan: 'Basic' }),
+  ],
+})
+// 🚩 `MemberId` is nullable on `EligibilityCoverageResponse`, and §7.1's `Open`
+// takes one. A lone coverage without it is still auto-selected, and still cannot
+// be raised.
+const DETAIL_NO_MEMBER = RESPONSE({ id: 'ELG-9', coverages: [COVERAGE({ memberId: '' })] })
+const DETAIL_NONE = RESPONSE({ id: 'ELG-4', coverages: [] })
+
+const DETAILS = {
+  'ELG-1': DETAIL_ONE,
+  'ELG-2': DETAIL_THREE,
+  'ELG-3': DETAIL_LONE_EXPIRED,
+  'ELG-0': DETAIL_TWO,
+  'ELG-9': DETAIL_NO_MEMBER,
+  'ELG-4': DETAIL_NONE,
+}
+
 // Scenario state, mutated between steps.
 let scenario = { access: { canOpenNphies: true }, response: RESPONSE(), lastEligibility: LAST }
 let lastCheckBody = null
@@ -263,6 +339,28 @@ async function run() {
           }),
         )
       return route.fulfill(envelope(eligibilityList(lastListQuery)))
+    }
+    if (path.startsWith('Nphies/EligibilityResponse/')) {
+      const id = decodeURIComponent(path.split('Nphies/EligibilityResponse/')[1] || '')
+      if (scenario.detailDown)
+        return route.fulfill(
+          envelope(null, {
+            status: 404,
+            success: false,
+            message: 'That eligibility response no longer exists.',
+            errors: [{ errorCode: 'NOT_FOUND', errorMessage: 'no such response' }],
+          }),
+        )
+      const found = DETAILS[id]
+      if (!found)
+        return route.fulfill(
+          envelope(null, {
+            status: 404,
+            success: false,
+            message: 'That eligibility response no longer exists.',
+          }),
+        )
+      return route.fulfill(envelope(found))
     }
     if (path.startsWith('Nphies/LastEligibility/')) {
       // `fillDelayMs` holds the answer back so the stale-response race is
@@ -788,9 +886,215 @@ async function run() {
   )
   scenario.listDown = false
 
+  // ==== ticket 213: two coverages force a pick =============================
+  //
+  // ⚠ `GET Nphies/EligibilityResponse/{id}` does not exist yet either — stubbed
+  // above against §1.1 #4's shape, which is the same `EligibilityResponse` DTO
+  // the check act answers with.
+
+  /** The LIVE seam, or `null` when the act is withheld. Read off the anchor
+   *  rather than the role: the withheld act is deliberately a focusable
+   *  `role="link"` span carrying its reason, so a role query would find it and a
+   *  "no link" assertion would pass for the wrong reason. */
+  const raiseLink = page.locator('main a[href^="/nphies/authorizations/new"]')
+  const raiseHref = async () =>
+    (await raiseLink.count()) === 1 ? await raiseLink.getAttribute('href') : null
+
+  // ---- Scenario 21: the list OPENS the detail, and it is a real link -------
+  await page.goto(LIST_URL)
+  await page.getByRole('button', { name: /^Search$/ }).waitFor({ timeout: 15000 })
+  await page.waitForTimeout(400)
+  const openLinks = page.getByRole('link', { name: /^Open$/ })
+  check('every row offers a way into its response', (await openLinks.count()) >= 5)
+  check(
+    '🚩 and it is an ANCHOR carrying the id — linkable, not a row-click handler',
+    /\/nphies\/eligibility\/ELG-\d+$/.test((await openLinks.first().getAttribute('href')) || ''),
+    (await openLinks.first().getAttribute('href')) || 'no href',
+  )
+
+  // ---- Scenario 22: ONE coverage — auto-selected, no picker ---------------
+  await page.goto(BASE + '/nphies/eligibility/ELG-1')
+  await raiseLink.waitFor({ timeout: 15000 })
+  const one = await page.locator('main').innerText()
+  check('the detail lists the coverage in full', /M-4417/.test(one) && /Comprehensive/.test(one) && /Al Dawaa Medical Services/.test(one))
+  check(
+    '🚩 one coverage costs NO click — there is no picker at all',
+    (await page.locator('main input[type="radio"]').count()) === 0,
+  )
+  check('and the raise is not held', !/Cannot raise an authorization yet/.test(one))
+  check(
+    '🚩 the seam carries BOTH ids — the eligibility and the chosen member',
+    (await raiseHref()) ===
+      '/nphies/authorizations/new?from=ELG-1&coverage=M-4417',
+    (await raiseHref()) || '',
+  )
+  check(
+    'the detail states both axes from the same shared derivation as the list',
+    /Request/.test(one) && /Verdict/.test(one) && /Complete/.test(one) && /Eligible/.test(one),
+  )
+  check(
+    'and it lists the patient it is about, read-only',
+    /Muhammad Ali Abbas/.test(one) &&
+      (await page.locator('main input[type="text"]').count()) === 0,
+  )
+
+  // ---- Scenario 23: a LONE EXPIRED coverage is still auto-selected --------
+  await page.goto(BASE + '/nphies/eligibility/ELG-3')
+  await raiseLink.waitFor({ timeout: 15000 })
+  const expired = await page.locator('main').innerText()
+  check(
+    '🚩 a lone EXPIRED coverage is auto-selected — the rule is keyed on the COUNT',
+    (await page.locator('main input[type="radio"]').count()) === 0 &&
+      !/Cannot raise an authorization yet/.test(expired),
+  )
+  check(
+    'and the Verdict column is what says it is not in force, not an empty screen',
+    /Not in force/.test(expired) && /Policy expired on 2026-06-30/.test(expired),
+  )
+  check(
+    'the seam still carries the expired policy’s member id',
+    (await raiseHref()) ===
+      '/nphies/authorizations/new?from=ELG-3&coverage=M-EXPIRED',
+  )
+
+  // ---- Scenario 24: THREE coverages — the pick is forced, no default ------
+  await page.goto(BASE + '/nphies/eligibility/ELG-2')
+  await page.getByText(/Pick the policy/).waitFor({ timeout: 15000 })
+  const three = await page.locator('main').innerText()
+  check('the detail lists EVERY coverage the patient holds', /M-1/.test(three) && /M-2/.test(three) && /M-3/.test(three))
+  const radios = page.locator('main input[type="radio"]')
+  check('two or more grows a picker', (await radios.count()) === 3)
+  check(
+    '🚩 with NO default — not the first, not the in-force one',
+    (await radios.nth(0).isChecked()) === false &&
+      (await radios.nth(1).isChecked()) === false &&
+      (await radios.nth(2).isChecked()) === false,
+  )
+  // 🚩 Asserted on the ANCHOR, not on the accessible role: the withheld act is a
+  // `role="link"` + `aria-disabled` span on purpose — a command withheld WITH a
+  // reason stays focusable so it can state it. What must not exist is a live
+  // href, which is what `a[href…]` asks about.
+  check(
+    '🚩 and the raise is BLOCKED until the agent picks — no live href anywhere',
+    (await raiseHref()) === null && /pick one of the policies above/i.test(three),
+  )
+  const withheld = page.locator('[role="link"][aria-disabled="true"]')
+  check(
+    'the withheld act states its reason on hover/focus rather than going dead',
+    /pick one of the policies/i.test((await withheld.getAttribute('title')) || ''),
+    (await withheld.getAttribute('title')) || '',
+  )
+
+  await radios.nth(1).check()
+  await page.waitForTimeout(200)
+  const picked = await page.locator('main').innerText()
+  check('picking releases the act', !/Cannot raise an authorization yet/.test(picked))
+  check(
+    '🚩 and the seam carries the member id the agent MEANT, not the first row’s',
+    (await raiseHref()) ===
+      '/nphies/authorizations/new?from=ELG-2&coverage=M-2',
+    (await raiseHref()) || '',
+  )
+  await radios.nth(2).check()
+  await page.waitForTimeout(200)
+  check(
+    'changing the pick moves the seam with it',
+    (await raiseHref()) ===
+      '/nphies/authorizations/new?from=ELG-2&coverage=M-3',
+  )
+
+  // ---- Scenario 24b: another patient opens unpicked, in a live session -----
+  //
+  // The client-side path — Back, then Open — rather than a `goto`, so the app's
+  // own router does the work an agent's clicks would. ⚠ Stated honestly: today
+  // this leaves the detail's route, so the screen remounts and the assertion
+  // cannot fail; the page ALSO stamps its pick with the response id, which is
+  // what would hold if a detail ever linked straight to another detail.
+  //
+  // The pick is moved back to the SECOND row first: the next patient holds two
+  // coverages, so an index of 2 would fall out of range and this would pass for
+  // the wrong reason whatever the screen did. Index 1 is in range on both.
+  await radios.nth(1).check()
+  await page.waitForTimeout(150)
+  await page.getByRole('link', { name: /Back to eligibility checks/ }).click()
+  await page.getByRole('button', { name: /^Search$/ }).waitFor({ timeout: 15000 })
+  await page.waitForTimeout(400)
+  await page.locator('a[href="/nphies/eligibility/ELG-0"]').first().click()
+  await page.getByText(/Pick the policy/).waitFor({ timeout: 15000 })
+  const nextPatient = await page.locator('main').innerText()
+  check(
+    'another patient’s response opens with NO policy picked, mid-session',
+    (await page.locator('main input[type="radio"]:checked').count()) === 0 &&
+      (await raiseHref()) === null &&
+      /M-5A/.test(nextPatient) &&
+      /pick one of the policies above/i.test(nextPatient),
+  )
+
+  // ---- Scenario 25: the two cases that cannot be raised at all ------------
+  await page.goto(BASE + '/nphies/eligibility/ELG-9')
+  await page.getByText(/Cannot raise an authorization yet/).waitFor({ timeout: 15000 })
+  const noMember = await page.locator('main').innerText()
+  check(
+    '🚩 a lone coverage with no member ID is selected, and still cannot be raised',
+    (await page.locator('main input[type="radio"]').count()) === 0 &&
+      /carries no member ID/i.test(noMember) &&
+      (await raiseHref()) === null,
+    noMember.replace(/\n/g, ' ').match(/Cannot raise[^.]*/)?.[0] || '',
+  )
+
+  await page.goto(BASE + '/nphies/eligibility/ELG-4')
+  await page.getByText(/Cannot raise an authorization yet/).waitFor({ timeout: 15000 })
+  const none = await page.locator('main').innerText()
+  check(
+    'no coverages at all: no picker, and the act names the fact rather than a control',
+    /no coverage for this patient/i.test(none) &&
+      (await page.locator('main input[type="radio"]').count()) === 0,
+  )
+
+  // ---- Scenario 26: the detail is a ROUTE — it survives a reload ----------
+  await page.goto(BASE + '/nphies/eligibility/ELG-2')
+  await page.getByText(/Pick the policy/).waitFor({ timeout: 15000 })
+  await page.reload()
+  await page.getByText(/Pick the policy/).waitFor({ timeout: 15000 })
+  check(
+    '🚩 a refresh lands back on the same response — a route, never a modal',
+    /M-1/.test(await page.locator('main').innerText()),
+  )
+  check(
+    'and the pick is NOT restored — no default survives a reload either',
+    (await page.locator('main input[type="radio"]:checked').count()) === 0,
+  )
+
+  // ---- Scenario 27: a response that cannot be read says so ----------------
+  scenario.detailDown = true
+  await page.goto(BASE + '/nphies/eligibility/ELG-1')
+  await page.waitForSelector('[role="alert"]', { timeout: 10000 })
+  const detailRefused = await page.locator('main').innerText()
+  check(
+    'a refused detail read surfaces the server’s own message, never "unexpected"',
+    /no longer exists/i.test(detailRefused) && !/unexpected/i.test(detailRefused),
+    detailRefused.replace(/\n/g, ' ').slice(0, 100),
+  )
+  check(
+    'and it offers no raise over a response it could not read',
+    (await raiseHref()) === null,
+  )
+  scenario.detailDown = false
+
+  // ---- Scenario 28: the gate holds on the detail too ----------------------
+  scenario.access = { canOpenNphies: false }
+  await page.goto(BASE + '/nphies/eligibility/ELG-1')
+  await page.waitForSelector('[role="alert"]', { timeout: 10000 })
+  check(
+    'no grant → the detail refuses in page, and nothing about the patient renders',
+    /No access to Nphies/.test(await page.locator('main').innerText()) &&
+      !/Muhammad Ali Abbas/.test(await page.locator('main').innerText()),
+  )
+  scenario.access = { canOpenNphies: true }
+
   // The refusal + probe-down scenarios intentionally answer 409/500, which the
   // browser logs as resource errors. Expected, not app faults.
-  const realErrors = errors.filter((e) => !/status of (403|409|500)/.test(e))
+  const realErrors = errors.filter((e) => !/status of (403|404|409|500)/.test(e))
   check('no uncaught page errors', realErrors.length === 0, realErrors.slice(0, 3).join(' | '))
 
   await browser.close()
@@ -800,3 +1104,4 @@ async function run() {
 }
 
 run()
+

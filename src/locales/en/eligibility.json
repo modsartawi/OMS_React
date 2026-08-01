@@ -81,9 +81,28 @@
     "coverages_other": "{{count}} coverages",
     "noCoverages": "The payer returned no coverages for this patient."
   },
+  "detail": {
+    "title": "Eligibility response",
+    "subtitle": "What the payer said, and every policy this patient holds. Choosing a policy is choosing which member ID an authorization is raised under.",
+    "backToList": "Back to eligibility checks",
+    "loading": "Loading the response…",
+    "checkedAt": "Checked at"
+  },
+  "raise": {
+    "action": "Raise authorization",
+    "pickPrompt": "Pick the policy to raise the authorization under.",
+    "blockers": {
+      "intro": "Cannot raise an authorization yet:",
+      "noCoverages": "the payer returned no coverage for this patient",
+      "pickCoverage": "pick one of the policies above",
+      "noMemberId": "that policy carries no member ID, and an authorization is raised under one"
+    }
+  },
   "coverage": {
     "inForce": "In force",
     "notInForce": "Not in force",
+    "noMemberId": "No member ID",
+    "pickAria": "Raise under member ID {{memberId}}, plan {{plan}}",
     "network": "Network: {{network}}",
     "plan": "Plan: {{plan}}",
     "class": "Class: {{className}}",
@@ -93,6 +112,7 @@
     "title": "Eligibility checks",
     "subtitle": "Every check run against a payer, newest first. The window below is what you are looking at — remove it to see everything.",
     "loading": "Loading checks…",
+    "open": "Open",
     "matchCount_one": "{{formatted}} check",
     "matchCount_other": "{{formatted}} checks",
     "window": {
@@ -118,6 +138,7 @@
       "reset": "Reset"
     },
     "columns": {
+      "open": "Response",
       "actionDateTime": "Checked at",
       "patient": "Patient",
       "payerCode": "Payer",
@@ -140,6 +161,8 @@
   },
   "errors": {
     "listFailed": "The eligibility checks could not be loaded.",
+    "detailTitle": "This response could not be opened",
+    "detailFailed": "The eligibility response could not be loaded.",
     "checkTitle": "The check was refused",
     "checkFailed": "The eligibility check could not be completed.",
     "remedy": {

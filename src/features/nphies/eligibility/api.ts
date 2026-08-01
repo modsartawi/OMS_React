@@ -87,4 +87,24 @@ export const eligibilityApi = {
   list(params: Record<string, unknown>): Promise<NphiesPage<EligibilityListRow>> {
     return api.get<NphiesPage<EligibilityListRow>>('Nphies/EligibilityResponses', params)
   },
+
+  /**
+   * `GET Nphies/EligibilityResponse/{id}` (§1.1 #4, §3.4) — one stored response
+   * **with every coverage the patient holds**, which the list projection does not
+   * carry.
+   *
+   * 🚩 It answers the same `EligibilityResponse` DTO the check act does, which is
+   * why the type is shared rather than copied: the detail is the check's answer
+   * read back days later, and a second model would let the two drift on exactly
+   * the fields (`coverages`, `notInForceReason`) the detail exists to show.
+   *
+   * This is what makes the eligibility → authorization seam a **route carrying an
+   * id** rather than a shared object (spec 209 §1): the form fetches the check by
+   * id, so it can be raised days later from a row on the list.
+   */
+  response(id: string): Promise<EligibilityCheckResponse> {
+    return api.get<EligibilityCheckResponse>(
+      `Nphies/EligibilityResponse/${encodeURIComponent(id)}`,
+    )
+  },
 }

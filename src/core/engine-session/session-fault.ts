@@ -17,6 +17,15 @@
  * 🚩 The rule is narrow on purpose. A busy collision is retried (`api.ts`), and
  * a guardrail refusal is a banner over the state it refused from (US63) — the
  * basket is still good and neither may throw the agent back to the start.
+ *
+ * 🚩 It travelled to `core/` beside the latest-state guard (ticket 210's open
+ * question, decided by reading rather than by symmetry): the Nphies contract
+ * names **the same two codes with the same meanings and the same three closed
+ * reasons** — `NOT_YOUR_SESSION` 403 "belongs to another agent, hard stop" and
+ * `SESSION_CLOSED` 409 `submitted | abandoned | swept`
+ * (`assets/209-nphies-contract/CONTRACT.md` §6, error taxonomy). Nothing it reads
+ * is call-centre-specific; what IS feature-specific is where a fault sends the
+ * agent, and that stays in each page. Its classification did not change.
  */
 import { apiErrorCode, ApiError } from '@/core/api'
 

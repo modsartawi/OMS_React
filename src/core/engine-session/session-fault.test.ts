@@ -5,8 +5,12 @@
  * The harm (§6.2, and the same one 127 refused auto-resume to prevent): the
  * agent abandoned order A, opened B for a new caller, and a forgotten tab still
  * showing A fires a verb. Because `transactionId` is explicit and validated, the
- * server refuses — and this module is the one place the console reads that
+ * server refuses — and this module is the one place a session screen reads that
  * refusal, so "return to the start" is one rule rather than a branch per verb.
+ *
+ * It moved to `core/` with the latest-state guard (210): both engine contracts
+ * name these two codes identically, so the reading is shared and only the
+ * destination a fault sends the agent to stays with each feature.
  */
 import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'

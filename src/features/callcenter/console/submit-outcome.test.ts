@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import callcenter from '@/locales/en/callcenter.json'
 import { SUBMIT_PLACED, SUBMIT_REPLAYED, SUBMIT_RETRY_REFUSED } from './__fixtures__/payloads'
-import { readSessionFault } from './session-fault'
+import { readSessionFault } from '@/core/engine-session/session-fault'
 import { readSubmitFailure, readSubmitResult, submitRefusalChip } from './submit-outcome'
 
 /** `submit.placed` → the phrase, or undefined if the key does not exist. */

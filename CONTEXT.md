@@ -23,6 +23,15 @@ The server-owned `sis_session` behind an HttpOnly cookie. The client `useSession
 401s are. "Signed in" means the server still honours the cookie.
 _Avoid_: login state, auth token (there is no client-held token).
 
+**Engine session**:
+A live transaction the browser drives on the Till Submission Platform — the call centre's order, and
+(spec 209) the Nphies authorization request. Every mutating **verb** returns the *whole* state; the
+client renders the latest and never an older one, which is the one rule `src/core/engine-session/`
+owns for both. A different thing entirely from **Session** above, which is the auth cookie: an engine
+session is a document being built, is identified by a `transactionId`, and ends by being submitted,
+abandoned or swept.
+_Avoid_: session (unqualified — it collides), draft (there are none; leaving abandons).
+
 **Envelope**:
 The universal SIS.Api response shape `{ statusCode, success, message, errors, data }`
 (`HttpGeneralResponse<T>`). Every server call returns one; `src/core/api.ts` unwraps `.data` and

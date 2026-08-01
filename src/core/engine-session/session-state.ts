@@ -1,10 +1,10 @@
 /**
- * The two rules that stand between the query cache and every response the
- * console receives: **is this state newer than what is on screen**, and **is it
+ * The two rules that stand between the query cache and every response an engine
+ * session receives: **is this state newer than what is on screen**, and **is it
  * a state this client can speak at all**.
  *
  * Contract law 2 makes the client a pure render-of-latest-state: every mutating
- * verb returns the whole `SessionState`, so there is no reducer and no delta
+ * verb returns the whole session state, so there is no reducer and no delta
  * protocol. What there IS, is an ordering hazard: two requests in flight, the
  * slow one lands second, and the basket goes backwards on screen. §2.1 rules it
  * out on the client side — *"the client stores the latest and never acts on an
@@ -16,8 +16,25 @@
  * at exactly the moment the first admits the session's first state. The
  * `SESSION_BUSY` backoff is deliberately NOT here: it lives in `api.ts`, where
  * the contract puts it (§6.1).
+ *
+ * 🚩 It lives in `core/` because it has a **second** engine session to serve
+ * (ticket 210, spec 209 §3): the Nphies authorization form drives its own
+ * transaction and its contract states the very same ordering rule, word for word
+ * (`assets/209-nphies-contract/CONTRACT.md` §2.1). Features may not import
+ * features, and the boundary rule's own remedy for logic shared by two of them
+ * is to lift it here. Nothing about the rule changed in the move.
  */
-import type { SessionState } from '@/core/models/callcenter'
+
+/**
+ * All this guard reads. A session state is anything the wire ORDERS by `version`
+ * and IDENTIFIES by `etag` — which is both contracts' §2.1 and is why the rule
+ * can be one module rather than one per feature. The state itself is returned
+ * unchanged and unwidened, so a caller keeps its own full projection type.
+ */
+export interface VersionedSessionState {
+  version: number
+  etag: string
+}
 
 /**
  * Decide what the cache should hold after `incoming` arrives.
@@ -49,9 +66,9 @@ import type { SessionState } from '@/core/models/callcenter'
  * transaction (`sessionKey`), so two orders can never meet inside one entry, and
  * a guard that also arbitrated identity would be two rules wearing one name.
  */
-export function applyState(
-  current: SessionState | null | undefined,
-  incoming: SessionState,
+export function applyState<S extends VersionedSessionState>(
+  current: S | null | undefined,
+  incoming: S,
   /**
    * Where `incoming` came from. A **verb**'s response is a projection built
    * alongside the act; a **read** is `getState` — the order's own account of
@@ -69,7 +86,7 @@ export function applyState(
    * still discarded below, which is the race §2.1 is actually about.
    */
   source: 'verb' | 'read' = 'verb',
-): SessionState {
+): S {
   if (!current) return incoming
   if (incoming.version > current.version) return incoming
   if (incoming.version < current.version) return current
@@ -81,10 +98,17 @@ export function applyState(
 }
 
 /**
- * The contract this client was built against
- * (`.issues/assets/136-cc-contract/CONTRACT.md`, §10 Amendments). Only the
+ * The contract this client was built against — the call centre's
+ * (`.issues/assets/136-cc-contract/CONTRACT.md`, §10 Amendments); the Nphies one
+ * is `.issues/assets/209-nphies-contract/CONTRACT.md` §9. Only the
  * **major** is load-bearing; the minor is here so a mismatch can say what it
  * expected in the words the amendment table uses.
+ *
+ * 🚩 One constant for both engine contracts, which holds only while they share a
+ * major: the Nphies contract is v1.0 and this is v1.1, so the check reads the
+ * same for both today. The day either goes to a 2.x, this becomes a per-consumer
+ * expectation — a change for the ticket that finds it, not a speculative
+ * parameter added here.
  */
 export const CLIENT_CONTRACT_VERSION = '1.1'
 

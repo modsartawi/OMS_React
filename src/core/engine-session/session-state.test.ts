@@ -3,15 +3,31 @@
  * that stands between the wire and the screen, proved at its edge.
  *
  * State in, state out. Nothing here knows how the cache calls it, and nothing
- * asserts on a React detail (spec 160's testing ruling). The fixture supplies
- * the SHAPE of a real `SessionState`; every version number below is set by the
- * test, because a fixture value is never evidence of engine behaviour
- * (CONTRACT.md §11).
+ * asserts on a React detail (spec 160's testing ruling). Every version number
+ * below is set by the test, because a fixture value is never evidence of engine
+ * behaviour (CONTRACT.md §11).
+ *
+ * 🚩 Moved here with the guard (ticket 210) and its assertions are unchanged.
+ * What did change is the fixture it builds them on: in `core/` it cannot reach
+ * the call-centre payload fixture — `core/` may not import a feature — and it
+ * has no business doing so, because the rule under test reads two fields and
+ * neither of them belongs to one feature's projection. `header.plant` below
+ * stands in for exactly what it stood in for before: a field of the state that
+ * the two candidates disagree about.
  */
 import { describe, expect, it } from 'vitest'
-import type { SessionState } from '@/core/models/callcenter'
-import { EMPTY_SESSION } from './__fixtures__/payloads'
 import { applyState, checkContractVersion, CLIENT_CONTRACT_VERSION } from './session-state'
+
+/** The minimum a state must be for this guard to rule on it, plus one field the
+ *  guard never reads — which is how a test can tell WHICH state was applied. */
+interface SessionState {
+  version: number
+  etag: string
+  replayed?: boolean
+  header?: { plant: string }
+}
+
+const EMPTY_SESSION: SessionState = { version: 0, etag: 'E0', header: { plant: '1101' } }
 
 /** The fixture at a chosen version — the only field this guard reads. */
 function at(version: number, etag = `E${version}`): SessionState {
@@ -168,25 +184,5 @@ describe('checkContractVersion', () => {
     for (const quiet of [null, undefined, '']) {
       expect(checkContractVersion(quiet)).toEqual({ ok: true })
     }
-  })
-})
-
-describe('the open fixture', () => {
-  // Shape only: an empty order is what slice 0 renders, and every field the
-  // shell reads must exist on it. Values are illustrative and asserted nowhere.
-  it('is a whole SessionState the console can render', () => {
-    expect(EMPTY_SESSION.transactionId).toBeTruthy()
-    expect(typeof EMPTY_SESSION.version).toBe('number')
-    expect(EMPTY_SESSION.status).toBe('open')
-    expect(EMPTY_SESSION.lines).toEqual([])
-    expect(EMPTY_SESSION.totals.deliveryFee).toBeDefined()
-    expect(EMPTY_SESSION.capabilities.submitBlockers.length).toBeGreaterThan(0)
-    expect(EMPTY_SESSION.capabilities.canSubmit).toBe(false)
-  })
-
-  it('carries no client-computable savings figure anywhere', () => {
-    // `wouldSave` does not exist and will not be added (§2.1). Asserted on the
-    // wire shape so a server that grew one fails a client test loudly.
-    expect(JSON.stringify(EMPTY_SESSION)).not.toContain('wouldSave')
   })
 })

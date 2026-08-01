@@ -65,8 +65,8 @@ import {
   withBusyRetry,
   type PickedSlot,
 } from './api'
-import { applyState, checkContractVersion } from './session-state'
-import { readSessionFault, type ShownSessionFault } from './session-fault'
+import { applyState, checkContractVersion } from '@/core/engine-session/session-state'
+import { readSessionFault, type ShownSessionFault } from '@/core/engine-session/session-fault'
 import {
   abandonTargetOfExisting,
   abandonTargetOfSession,

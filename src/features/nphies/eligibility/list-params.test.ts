@@ -9,17 +9,21 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
-  DEFAULT_WINDOW_DAYS,
   ELIGIBILITY_PAGE_SIZE,
   buildEligibilityListParams,
   defaultEligibilityCriteria,
+} from './list-params'
+// The window and the pager moved to `core/` when 214's list became their second
+// consumer — same module, same assertions, one copy.
+import {
+  DEFAULT_WINDOW_DAYS,
   isDefaultWindow,
   isoDate,
   lastSevenDays,
   pageCountFor,
   pagerEnablement,
   setWindowBound,
-} from './list-params'
+} from '@/core/nphies/list-window'
 
 /** A fixed "today" — the module never reads the clock, which is what makes the
  *  default window assertable at all. */

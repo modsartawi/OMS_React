@@ -126,9 +126,9 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/admin/broadcast/BroadcastComposePage')).default,
         }),
       },
-      // The Nphies area (spec 209, tickets 211 + 212). Four more routes join
-      // these under the same `/nphies/*` prefix as the wave lands; the check form
-      // is slice 0 because its endpoint is the one that already ships.
+      // The Nphies area (spec 209, tickets 211 + 212 + 213 + 214). More routes
+      // join these under the same `/nphies/*` prefix as the wave lands; the check
+      // form is slice 0 because its endpoint is the one that already ships.
       {
         // The list an agent lands on (212) — last 7 days, and the window is a
         // removable chip rather than a silent truncation.
@@ -151,6 +151,17 @@ export const router = createBrowserRouter([
         path: 'nphies/eligibility/:id',
         lazy: async () => ({
           Component: (await import('@/features/nphies/eligibility/EligibilityDetailPage')).default,
+        }),
+      },
+      {
+        // The authorizations list (214) — the screen an agent lives on between
+        // raising a request and its verdict. A SIBLING of the eligibility list
+        // rather than a child of it: it is the other half of the area, not a
+        // drill-down, and 216's detail joins it at `/nphies/authorizations/:id`.
+        path: 'nphies/authorizations',
+        lazy: async () => ({
+          Component: (await import('@/features/nphies/authorizations/AuthorizationListPage'))
+            .default,
         }),
       },
       {

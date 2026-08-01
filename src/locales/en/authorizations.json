@@ -1,0 +1,91 @@
+{
+  "menu": {
+    "authorizations": "Authorizations"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Nphies",
+    "deniedHint": "Your account does not hold the Nphies grant. Ask an administrator if you need it.",
+    "unreachableTitle": "Nphies is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "request": {
+    "cancelled": "Cancelled",
+    "failed": "Failed",
+    "pending": "Pending",
+    "complete": "Complete"
+  },
+  "verdict": {
+    "approved": "Approved",
+    "partlyApproved": "Partly approved",
+    "rejected": "Rejected",
+    "noApprovalNeeded": "No approval needed"
+  },
+  "list": {
+    "title": "Authorizations",
+    "subtitle": "Every prior authorization raised, newest first. The window below is what you are looking at — remove it to see everything.",
+    "loading": "Loading authorizations…",
+    "matchCount_one": "{{formatted}} authorization",
+    "matchCount_other": "{{formatted}} authorizations",
+    "refresh": "Refresh",
+    "loadedAt": "Loaded at {{at}}",
+    "verdictBlank": "No verdict yet — the payer has not answered.",
+    "window": {
+      "chipDefault": "Last 7 days · {{from}} → {{to}}",
+      "chip": "{{from}} → {{to}}",
+      "remove": "Remove the date window",
+      "removed": "No date window — showing every authorization on record",
+      "openStart": "the beginning",
+      "openEnd": "no end date"
+    },
+    "filters": {
+      "patientId": "Patient ID",
+      "preAuthRef": "Preauth reference",
+      "payerCode": "Payer code",
+      "providerCode": "Provider",
+      "providerOption": "{{code}} — {{license}}",
+      "allProviders": "All providers",
+      "request": "Request",
+      "anyRequest": "Any request state",
+      "verdict": "Verdict",
+      "anyVerdict": "Any verdict",
+      "fromDate": "From",
+      "toDate": "To",
+      "search": "Search",
+      "reset": "Reset"
+    },
+    "columns": {
+      "actionDateTime": "Raised at",
+      "patientId": "Patient ID",
+      "payerCode": "Payer",
+      "providerCode": "Provider",
+      "preAuthRef": "Preauth reference",
+      "request": "Request",
+      "verdict": "Verdict",
+      "markers": "Markers",
+      "failureReason": "Could not reach the payer"
+    },
+    "markers": {
+      "none": "Nothing to flag on this authorization.",
+      "payerQuery": "Payer query",
+      "payerQueryHint": "The payer has asked a question about this authorization. Answering one is not available here — open the till application to reply.",
+      "dispensed": "Dispensed",
+      "dispensedHint": "This authorization has been dispensed at a till. It has reached the end of its life."
+    },
+    "empty": {
+      "title": "No authorizations match",
+      "hint": "Nothing on record matches these filters.",
+      "hintWindowed": "Nothing matches these filters inside the date window above. Widen it or remove it to look further back."
+    },
+    "pager": {
+      "ariaLabel": "Authorization pages",
+      "previous": "Previous",
+      "next": "Next",
+      "readout": "Page {{page}} of {{pages}}"
+    }
+  },
+  "errors": {
+    "listFailed": "The authorizations could not be loaded.",
+    "providersFailed": "The provider list could not be loaded."
+  }
+}

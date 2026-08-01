@@ -8,8 +8,13 @@
  * is told, expressed as the derivation's own output.
  */
 import { describe, expect, it } from 'vitest'
-import type { EligibilityCheckResponse } from '@/core/models/nphies'
+import type { AuthListRow, EligibilityCheckResponse } from '@/core/models/nphies'
 import {
+  AUTH_VERDICTS,
+  REQUEST_STATES,
+  authRowMarkers,
+  authVerdictSeverity,
+  deriveAuthAxes,
   deriveEligibilityAxes,
   deriveStoredEligibilityAxes,
   eligibilityVerdictSeverity,
@@ -201,6 +206,197 @@ describe('the badge severities', () => {
     const outside = deriveEligibilityAxes(check({ siteEligibility: 'outside-network' }))
     expect(eligibilityVerdictSeverity(outside.verdict!)).toBe(
       eligibilityVerdictSeverity(plain.verdict!),
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Ticket 214 — the authorization side of the SAME module.
+// ---------------------------------------------------------------------------
+
+/** A completed, approved authorization — the happy fixture every case below
+ *  varies ONE field of, so the field under test is the only variable. */
+const APPROVED: Pick<
+  AuthListRow,
+  | 'cancelled'
+  | 'error'
+  | 'queued'
+  | 'claimProcessingCodes'
+  | 'adjudicationOutcome'
+  | 'needComm'
+  | 'isDispensed'
+> = {
+  cancelled: false,
+  error: false,
+  queued: false,
+  claimProcessingCodes: 'Complete',
+  adjudicationOutcome: 'approved',
+  needComm: false,
+  isDispensed: false,
+}
+
+const auth = (over: Partial<typeof APPROVED> = {}) => ({ ...APPROVED, ...over }) as AuthListRow
+
+describe('the Request axis on an authorization', () => {
+  it('reads a queued request as Pending — the exchange has not answered yet', () => {
+    expect(deriveAuthAxes(auth({ queued: true, claimProcessingCodes: 'Queued' })).request).toBe(
+      'pending',
+    )
+  })
+
+  it('🚩 reads an errored request as Failed — refused BEFORE the payer saw it', () => {
+    // §5: `Failed` has two sources — NPHIES's own validation and the service's
+    // local guards — and either way it is a form state the agent fixes in place,
+    // never a payer verdict. `Complete` + `Rejected` is the opposite.
+    const axes = deriveAuthAxes(auth({ error: true, claimProcessingCodes: 'Error' }))
+    expect(axes.request).toBe('failed')
+    expect(axes.verdict).toBeNull()
+  })
+
+  it('reads a complete request as Complete, and a partial one as Complete too', () => {
+    expect(deriveAuthAxes(auth()).request).toBe('complete')
+    // A partial answer IS an answer — `Partly approved` is a Verdict, not a
+    // half-arrived request. Reading it as Pending would offer a status check for
+    // a payer that has already replied.
+    expect(
+      deriveAuthAxes(auth({ claimProcessingCodes: 'Partial', adjudicationOutcome: 'partial' }))
+        .request,
+    ).toBe('complete')
+  })
+
+  it('🚩 lets Cancelled outrank a stored Complete', () => {
+    // A cancel happens AFTER an answer (`CancellationService` refuses anything
+    // else), so a cancelled authorization still carries
+    // `ClaimProcessingCodes = "Complete"` and an approval. Reading the outcome
+    // first would show a withdrawn request as live — and 215 offers Cancel on
+    // exactly the rows this branch removes.
+    const axes = deriveAuthAxes(auth({ cancelled: true }))
+    expect(axes.request).toBe('cancelled')
+    expect(axes.verdict).toBeNull()
+  })
+
+  it('falls back to Pending when nothing has come back yet', () => {
+    // `ProcessAddAuthRequest.cs:182-184` has the three booleans commented out, so
+    // a just-submitted row can carry no outcome at all. In flight, never failed
+    // (law 6's posture, one act earlier).
+    expect(deriveAuthAxes(auth({ claimProcessingCodes: '' })).request).toBe('pending')
+    expect(deriveAuthAxes(auth({ claimProcessingCodes: '' })).verdict).toBeNull()
+  })
+
+  it('is case- and whitespace-insensitive about the exchange’s spelling', () => {
+    expect(deriveAuthAxes(auth({ claimProcessingCodes: ' complete ' })).request).toBe('complete')
+  })
+})
+
+describe('the Verdict axis on an authorization', () => {
+  it('maps the four adjudication outcomes §5 names', () => {
+    expect(deriveAuthAxes(auth({ adjudicationOutcome: 'approved' })).verdict).toBe('approved')
+    expect(deriveAuthAxes(auth({ adjudicationOutcome: 'partial' })).verdict).toBe('partlyApproved')
+    expect(deriveAuthAxes(auth({ adjudicationOutcome: 'rejected' })).verdict).toBe('rejected')
+    expect(deriveAuthAxes(auth({ adjudicationOutcome: 'not-required' })).verdict).toBe(
+      'noApprovalNeeded',
+    )
+  })
+
+  it('is blank until the Request is Complete, whatever the row carries', () => {
+    // 🚩 The row stores `AdjudicationOutcome` whatever happened to the request, so
+    // the blank has to survive it — a request that never reached the payer has no
+    // verdict to report.
+    for (const over of [
+      { queued: true },
+      { error: true },
+      { cancelled: true },
+      { claimProcessingCodes: '' },
+    ]) {
+      expect(deriveAuthAxes(auth({ ...over, adjudicationOutcome: 'approved' })).verdict).toBeNull()
+    }
+  })
+
+  it('🚩 reads an unknown outcome as blank rather than coercing it to a nearby value', () => {
+    // Inventing `Approved` from a code we do not know is the one error on this
+    // screen that costs money.
+    expect(deriveAuthAxes(auth({ adjudicationOutcome: 'BV-00999' })).verdict).toBeNull()
+  })
+
+  it('paints partly approved as something to look at, not as a refusal', () => {
+    expect(authVerdictSeverity('approved')).toBe('ok')
+    expect(authVerdictSeverity('partlyApproved')).toBe('warn')
+    expect(authVerdictSeverity('rejected')).toBe('bad')
+    expect(authVerdictSeverity('noApprovalNeeded')).toBe('mute')
+  })
+})
+
+describe('aPayerQueryShowsOnACompletedRow', () => {
+  it('🚩 renders on a row that already has BOTH a Request state and a Verdict', () => {
+    // Which is exactly why it cannot be a value of either axis: the payer raises
+    // it asynchronously, after the answer. It is required rather than decorative
+    // — answering one is out of v1, so the authorization stalls on the web and
+    // the agent has to be able to see that the row now needs the till.
+    const row = auth({ needComm: true })
+    const axes = deriveAuthAxes(row)
+    expect(axes.request).toBe('complete')
+    expect(axes.verdict).toBe('approved')
+    expect(authRowMarkers(row).payerQuery).toBe(true)
+  })
+
+  it('renders independently of the axes on every Request state', () => {
+    for (const over of [{ queued: true }, { error: true }, { cancelled: true }, {}]) {
+      expect(authRowMarkers(auth({ ...over, needComm: true })).payerQuery).toBe(true)
+    }
+  })
+
+  it('does not appear on a row the payer has asked nothing about', () => {
+    expect(authRowMarkers(auth()).payerQuery).toBe(false)
+  })
+
+  it('carries the dispensed marker the same way — a fact from after the verdict', () => {
+    const row = auth({ isDispensed: true })
+    expect(authRowMarkers(row).dispensed).toBe(true)
+    expect(deriveAuthAxes(row).verdict).toBe('approved')
+  })
+
+  it('🚩 offers no "ready to dispense" of any kind', () => {
+    // The predicate is authoritative in the service's `Dispense()` and its
+    // `HasFollowUp` clause is absent from `AuthForListDto` (§5), so a browser copy
+    // could only lie on some rows. The reader infers it: Complete + a good verdict
+    // + no dispensed marker.
+    expect(Object.keys(authRowMarkers(auth())).sort()).toEqual(['dispensed', 'payerQuery'])
+  })
+})
+
+describe('theStatusModuleIsSharedNotCopied', () => {
+  it('derives both lists’ Request axis from ONE vocabulary and one severity map', () => {
+    // The type is the proof: `deriveAuthAxes` and `deriveEligibilityAxes` return
+    // the same `RequestState`, and the same `requestSeverity` paints both. A
+    // second module would let an authorization's "Pending" mean something other
+    // than an eligibility's.
+    const eligible = deriveEligibilityAxes(check({ outcome: 'queued' })).request
+    const authorized = deriveAuthAxes(auth({ queued: true })).request
+    expect(eligible).toBe(authorized)
+    expect(requestSeverity(eligible)).toBe(requestSeverity(authorized))
+    expect(REQUEST_STATES).toContain(authorized)
+  })
+
+  it('applies §5’s blank-until-Complete rule identically on both sides', () => {
+    expect(deriveEligibilityAxes(check({ outcome: 'queued' })).verdict).toBeNull()
+    expect(deriveAuthAxes(auth({ queued: true })).verdict).toBeNull()
+  })
+
+  it('reads the dual-meaning message field through the same one predicate', () => {
+    // `ErrorMessageShort` (auth) and `ErrorMessage` (eligibility) are the same
+    // trap in two DTOs, and one function decides when either may be rendered.
+    expect(showsFailureMessage(deriveAuthAxes(auth({ error: true })).request)).toBe(true)
+    expect(showsFailureMessage(deriveAuthAxes(auth()).request)).toBe(false)
+    expect(showsFailureMessage(deriveEligibilityAxes(check()).request)).toBe(false)
+  })
+
+  it('differs in exactly one thing: the Verdict value set', () => {
+    // Four values against three, and no member in common — which is why the
+    // verdicts are two exported vocabularies over one derivation shape rather
+    // than one union nobody could filter by.
+    expect(AUTH_VERDICTS).toHaveLength(4)
+    expect(AUTH_VERDICTS.some((v) => (['eligible', 'notInForce', 'notEligible'] as string[]).includes(v))).toBe(
+      false,
     )
   })
 })

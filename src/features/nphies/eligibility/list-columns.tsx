@@ -4,7 +4,7 @@ import { Link } from 'react-router'
 
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { EligibilityListRow } from '@/core/models/nphies'
-import { formatStamp } from './format'
+import { formatStamp } from '@/core/nphies/format'
 import {
   deriveStoredEligibilityAxes,
   eligibilityVerdictSeverity,

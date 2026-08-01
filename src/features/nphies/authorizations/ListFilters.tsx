@@ -2,32 +2,34 @@ import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
 
 import type { NphiesProvider } from '@/core/models/nphies'
-import { ELIGIBILITY_LIST_REQUEST_STATES, ELIGIBILITY_VERDICTS } from '@/core/nphies/status'
+import { AUTH_VERDICTS, REQUEST_STATES } from '@/core/nphies/status'
 import { isDefaultWindow, setWindowBound } from '@/core/nphies/list-window'
-import type { EligibilityListCriteria } from './list-params'
+import type { AuthListCriteria } from './list-params'
 
 /**
- * The eligibility list's filter panel and — the point of ticket 212 — the
- * **window chip**.
+ * The authorization list's filter panel and its **window chip** — the same shape
+ * the eligibility list opens on (212), over this list's own filter set.
  *
  * The chip is not decoration. The underlying read is an unordered bulk take, so a
  * list that quietly showed a week would read as *"that's everything"*. Rendering
  * the window as a removable pill is what lets an agent see what they are looking
  * at and widen it deliberately, and its ✕ **removes** the window rather than
- * substituting a wider one.
+ * substituting a wider one. The rule it obeys — `isDefaultWindow` — is the shared
+ * one in `@/core/nphies/list-window`, so the two lists cannot disagree about what
+ * "Last 7 days" means; only this markup and its namespace are local.
  *
- * Draft-then-apply, like the BBY inquiry toolbar: typing does not refetch, Search
- * commits. The chip is the one exception and applies immediately — it shows the
- * window that is *in force*, so a ✕ that only queued a change would be showing
- * something false until the agent pressed something else.
+ * Draft-then-apply: typing does not refetch, Search commits. The chip is the one
+ * exception and applies immediately — it shows the window that is *in force*, so
+ * a ✕ that only queued a change would be showing something false until the agent
+ * pressed something else.
  */
 interface Props {
   /** The live draft — what the panel's controls are bound to. */
-  draft: EligibilityListCriteria
+  draft: AuthListCriteria
   /** The window actually in force, which is what the chip states. */
-  appliedWindow: EligibilityListCriteria['window']
+  appliedWindow: AuthListCriteria['window']
   providers: NphiesProvider[]
-  onChange: (patch: Partial<EligibilityListCriteria>) => void
+  onChange: (patch: Partial<AuthListCriteria>) => void
   onSearch: () => void
   onReset: () => void
   /** The chip's ✕ — drops the window from the applied query at once. */
@@ -47,7 +49,7 @@ export default function ListFilters({
   onRemoveWindow,
   today,
 }: Props) {
-  const { t } = useTranslation('eligibility')
+  const { t } = useTranslation('authorizations')
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card/40 p-3">
@@ -106,6 +108,17 @@ export default function ListFilters({
             className={`w-40 ${CONTROL}`}
           />
         </Field>
+        {/* The one filter the eligibility list cannot offer: an eligibility check
+            has no preauthorization reference, because none has been raised yet. */}
+        <Field label={t('list.filters.preAuthRef')}>
+          <input
+            type="text"
+            value={draft.preAuthRef}
+            onChange={(e) => onChange({ preAuthRef: e.target.value })}
+            aria-label={t('list.filters.preAuthRef')}
+            className={`w-44 ${CONTROL}`}
+          />
+        </Field>
         <Field label={t('list.filters.payerCode')}>
           <input
             type="text"
@@ -123,13 +136,11 @@ export default function ListFilters({
             className={`w-48 ${CONTROL}`}
           >
             {/* 🚩 ALL providers is the default and the first option — the
-                opposite of the till, which is pinned to its own store. This is a
-                back-office screen and the agent is looking at the estate's work.
-                Nothing seeds this from the acting store. */}
+                opposite of the till, which is pinned to its own store. */}
             <option value="">{t('list.filters.allProviders')}</option>
             {providers.map((p) => (
               <option key={p.providerCode} value={p.providerCode}>
-                {t('form.providerOption', { code: p.providerCode, license: p.license })}
+                {t('list.filters.providerOption', { code: p.providerCode, license: p.license })}
               </option>
             ))}
           </select>
@@ -145,13 +156,11 @@ export default function ListFilters({
             className={`w-36 ${CONTROL}`}
           >
             <option value="">{t('list.filters.anyRequest')}</option>
-            {/* Two, not four. `Cancelled` because there is no cancel act on an
-                eligibility check; `Pending` because the state is not persisted at
-                all (`NEligibility` has no `Outcome` column) — see
-                `deriveStoredEligibilityAxes`. Offering either would read as
-                "there are none this week" and send the agent to widen a window
-                that cannot help. */}
-            {ELIGIBILITY_LIST_REQUEST_STATES.map((state) => (
+            {/* All FOUR, unlike the eligibility list's two: `Cancelled` is a real
+                column here (`NAuth.Cancelled`) and `Queued` /
+                `ClaimProcessingCodes` are persisted, so every value is reachable
+                on a stored row. */}
+            {REQUEST_STATES.map((state) => (
               <option key={state} value={state}>
                 {t(`request.${state}`)}
               </option>
@@ -163,10 +172,10 @@ export default function ListFilters({
             value={draft.verdict}
             onChange={(e) => onChange({ verdict: e.target.value })}
             aria-label={t('list.filters.verdict')}
-            className={`w-36 ${CONTROL}`}
+            className={`w-40 ${CONTROL}`}
           >
             <option value="">{t('list.filters.anyVerdict')}</option>
-            {ELIGIBILITY_VERDICTS.map((verdict) => (
+            {AUTH_VERDICTS.map((verdict) => (
               <option key={verdict} value={verdict}>
                 {t(`verdict.${verdict}`)}
               </option>
@@ -214,7 +223,7 @@ export default function ListFilters({
   )
 }
 
-/** Same control chrome as the check form — one height, one border, one ring. */
+/** Same control chrome as the eligibility screens — one height, one border. */
 const CONTROL =
   'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 

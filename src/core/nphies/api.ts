@@ -1,5 +1,5 @@
 import { api } from '@/core/api'
-import type { NphiesAccessResult } from '@/core/models/nphies'
+import type { NphiesAccessResult, NphiesProvider } from '@/core/models/nphies'
 
 /**
  * The Nphies area's screen-access probe (spec 209, contract §1 / §1.1 #16).
@@ -34,5 +34,30 @@ export const nphiesAccessApi = {
    */
   access(): Promise<NphiesAccessResult> {
     return api.get<NphiesAccessResult>('Nphies/Access')
+  },
+}
+
+/**
+ * The providers lookup, keyed by nothing: it is the same list for every agent
+ * (the service scopes it to distribution channel `20` server-side).
+ *
+ * It joined the probe in `core/` at ticket 214, when the authorization list
+ * became its third consumer — the check form (211) and the eligibility list (212)
+ * are the other two, and a feature may never import another feature's `api.ts`.
+ * The key is unchanged, so all three screens still share ONE cached call.
+ */
+export const PROVIDERS_KEY = ['nphies', 'providers'] as const
+
+export const nphiesLookupApi = {
+  /**
+   * `GET Nphies/Providers` (§1.1 #12) → the providers the agent may act for.
+   *
+   * 🚩 **Already filtered to unblocked upstream** (`CoreService.GetProviders`
+   * filters `IsBlocked == false`), so nothing here re-filters — and WPF's
+   * disabled-combo-holding-a-null-provider trap cannot occur, because a blocked
+   * provider is never in the list to begin with.
+   */
+  providers(): Promise<NphiesProvider[]> {
+    return api.get<NphiesProvider[]>('Nphies/Providers')
   },
 }

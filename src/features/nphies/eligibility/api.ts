@@ -22,26 +22,15 @@ import type {
   EligibilityListRow,
   LastEligibility,
   NphiesPage,
-  NphiesProvider,
 } from '@/core/models/nphies'
 
-/** The providers lookup, keyed by nothing: it is the same list for every agent
- *  (the service scopes it to distribution channel `20` server-side). */
-export const PROVIDERS_KEY = ['nphies', 'providers'] as const
+// ⚠️ The **providers lookup** is no longer here. It moved to `@/core/nphies/api`
+// at ticket 214, when the authorization list became its third consumer: a feature
+// may never import another feature's `api.ts`, and the three screens must share
+// ONE cached call rather than three. Import `PROVIDERS_KEY` / `nphiesLookupApi`
+// from `@/core/nphies/api`.
 
 export const eligibilityApi = {
-  /**
-   * `GET Nphies/Providers` (§1.1 #12) → the providers the agent may act for.
-   *
-   * 🚩 **Already filtered to unblocked upstream** (`CoreService.GetProviders`
-   * filters `IsBlocked == false`), so nothing here re-filters — and WPF's
-   * disabled-combo-holding-a-null-provider trap cannot occur, because a blocked
-   * provider is never in the list to begin with.
-   */
-  providers(): Promise<NphiesProvider[]> {
-    return api.get<NphiesProvider[]>('Nphies/Providers')
-  },
-
   /**
    * `GET Nphies/LastEligibility/{patientId}` (§1.1 #2, §3.2) — what **Fill**
    * completes a cold form from. `null` when this patient has never been checked,

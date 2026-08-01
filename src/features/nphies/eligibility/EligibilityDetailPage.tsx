@@ -10,7 +10,7 @@ import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
 import { eligibilityApi } from './api'
 import CheckResult from './CheckResult'
 import CoverageList from './CoverageList'
-import { formatStamp } from './format'
+import { formatStamp } from '@/core/nphies/format'
 import {
   coveragePickerIsShown,
   raiseAuthorizationHref,

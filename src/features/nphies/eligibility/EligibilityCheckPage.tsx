@@ -5,8 +5,13 @@ import { Loader2, Search, ShieldAlert, TriangleAlert } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
-import { PROVIDERS_KEY, eligibilityApi } from './api'
+import {
+  NPHIES_ACCESS_KEY,
+  PROVIDERS_KEY,
+  nphiesAccessApi,
+  nphiesLookupApi,
+} from '@/core/nphies/api'
+import { eligibilityApi } from './api'
 import CheckResult from './CheckResult'
 import {
   EMPTY_CHECK_DRAFT,
@@ -50,7 +55,7 @@ export default function EligibilityCheckPage() {
 
   const providers = useQuery({
     queryKey: PROVIDERS_KEY,
-    queryFn: () => eligibilityApi.providers(),
+    queryFn: () => nphiesLookupApi.providers(),
     enabled: allowed,
   })
 

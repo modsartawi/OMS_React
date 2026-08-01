@@ -206,6 +206,68 @@ export interface EligibilityListRow {
 }
 
 /**
+ * One row of `GET Nphies/AuthResponses` (§1.1 #5, §3.3) — **`AuthForListDto`**,
+ * projected to what the grid shows: identity, both axes, the two markers and the
+ * timestamps.
+ *
+ * Every field below is a property of
+ * `Features/Auth/AuthsDtos/AuthForListDto.cs` in camelCase, read 2026-08-02.
+ * Nothing is inferred and nothing is renamed to read better.
+ *
+ * 🚩 **There is no patient name on this DTO**, unlike the eligibility row. The
+ * authorization list identifies a patient by `patientId` alone, and inventing a
+ * name field would be inventing a server shape on the one ticket that warns
+ * hardest against it. Logged in `.afk/HITL-214.md`.
+ *
+ * ⚠️ Absent by choice, not by oversight: `originalId`, `result`, `rowIndex`,
+ * `responseSystem`/`responseValue`, `refResponse*`, `invoiceNo`, `userId`,
+ * `sourceCode`, `isReferenceToDocument`, `refDocumentNo` and `actionDuration` are
+ * all on the DTO and none of them is a thing this list shows. A model field the
+ * screen never reads is one a later reader has to wonder about.
+ */
+export interface AuthListRow {
+  id: string
+  /** The eligibility this authorization was raised from (§7.1's `Open` body). */
+  eligibilityId: string
+  providerCode: string
+  payerCode: string
+  patientId: string
+  /** The payer's own reference, and the list's one free-text filter (§3.3). */
+  preAuthRef: string
+  /** 🚩 Axis one's raw sources — see `AuthAxisSource` in `@/core/nphies/status`.
+   *  Never read directly by a screen: `Cancelled` outranks a stored `Complete`. */
+  claimProcessingCodes: string
+  queued: boolean
+  error: boolean
+  cancelled: boolean
+  /** Axis two's raw source: `approved` · `partial` · `rejected` · `not-required`. */
+  adjudicationOutcome: string
+  /** 🚩 **Marker, not an axis value** (§5). The payer asked a question, raised
+   *  asynchronously — answering it is out of v1, so the row stalls on the web. */
+  needComm: boolean
+  /** 🚩 **Marker, not an axis value** (§5). The row's end of life, owned by the till. */
+  isDispensed: boolean
+  dispensedTime: string
+  dispensedStore: string
+  /** When the request was raised. The list's sort key — newest first (§3.3). */
+  actionDateTime: string
+  /** When the payer's answer landed. Empty until one does. */
+  responseDateTime: string
+  serviceDate: string
+  /** 🚩 §5's dual-meaning field: a transport error OR the decoded adjudication
+   *  display, depending on branch (`ProcessAuthResponse.cs:53-65` vs `:120`).
+   *  Readable ONLY under a failure label, and only when the Request state is not
+   *  `Complete` — see `showsFailureMessage`. */
+  errorMessageShort: string
+  /** The payer's own summary. Header-level, and only on a `Complete` row. */
+  disposition: string
+  statusCode: number
+  /** Pinned to `0` by SIS.Api (§3.3) — the browser never sends it and v1 has one
+   *  claim type. Present because the row carries it. */
+  claimType: number
+}
+
+/**
  * `GET Nphies/LastEligibility/{patientId}` (§3.2) → `LastEligibilityModel` — what
  * **Fill** completes a cold form from. `null` when the patient has never been
  * checked.

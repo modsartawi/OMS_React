@@ -31,6 +31,16 @@ export type RequestState = 'cancelled' | 'failed' | 'pending' | 'complete'
 export type EligibilityVerdict = 'eligible' | 'notInForce' | 'notEligible'
 
 /**
+ * Axis two, **authorization** side (214): `Approved` · `Partly approved` ·
+ * `Rejected` · `No approval needed`, per §5.
+ *
+ * This is the whole of what differs between the two lists. Request is one
+ * vocabulary and one derivation; only the verdict's value set changes, which is
+ * why 214 reuses this module rather than growing a second one.
+ */
+export type AuthVerdict = 'approved' | 'partlyApproved' | 'rejected' | 'noApprovalNeeded'
+
+/**
  * What the NPHIES `siteEligibility` extension says about *this* site, folded into
  * the verdict inline at result time ("Eligible · outside network") rather than
  * discovered later when a button refuses.
@@ -68,6 +78,21 @@ export const ELIGIBILITY_VERDICTS: readonly EligibilityVerdict[] = [
   'eligible',
   'notInForce',
   'notEligible',
+]
+
+/**
+ * The authorization Verdict vocabulary, in §5's order.
+ *
+ * Unlike the eligibility list, the authorization list offers `REQUEST_STATES` in
+ * **full**: `Cancelled` is a real column (`NAuth.Cancelled`, set by
+ * `CancellationService`) and `Queued`/`ClaimProcessingCodes` are persisted, so all
+ * four Request values are reachable on a stored row here.
+ */
+export const AUTH_VERDICTS: readonly AuthVerdict[] = [
+  'approved',
+  'partlyApproved',
+  'rejected',
+  'noApprovalNeeded',
 ]
 
 export interface EligibilityAxes {
@@ -291,4 +316,152 @@ export function requestSeverity(request: RequestState): Severity {
 export function eligibilityVerdictSeverity(verdict: EligibilityVerdict): Severity {
   if (verdict === 'eligible') return 'ok'
   return verdict === 'notInForce' ? 'warn' : 'bad'
+}
+
+// ---------------------------------------------------------------------------
+// The authorization side (ticket 214). Same two axes, same Request vocabulary,
+// same blank-until-Complete rule — only the Verdict's value set differs, which
+// is the whole reason this module is shared rather than copied.
+// ---------------------------------------------------------------------------
+
+/**
+ * The raw fields an authorization's axes are derived from — and **the only**
+ * contract this half of the module has with its callers.
+ *
+ * Every name is a property of `AuthForListDto`
+ * (`Features/Auth/AuthsDtos/AuthForListDto.cs`, read 2026-08-02) in camelCase.
+ * A structural subset rather than the row model, for the eligibility side's
+ * reason: 216's detail is a different projection of the same record
+ * (`AuthHeaderDto`, which carries the same five), and the axes must come out
+ * identical from both.
+ */
+export interface AuthAxisSource {
+  /** `NAuth.Cancelled` — set by `CancellationService` after a successful cancel. */
+  cancelled: boolean
+  /** `NAuth.Error` — `claimResponse.Outcome == ClaimProcessingCodes.Error`. */
+  error: boolean
+  /** `NAuth.Queued` — `claimResponse.Outcome == ClaimProcessingCodes.Queued`. */
+  queued: boolean
+  /** The FHIR outcome as stored: `Queued` · `Error` · `Complete` · `Partial`. */
+  claimProcessingCodes?: string | null
+  /** `approved` · `partial` · `rejected` · `not-required`, from the NPHIES
+   *  adjudication-outcome extension. */
+  adjudicationOutcome?: string | null
+}
+
+export interface AuthAxes {
+  request: RequestState
+  /** **Blank until `request` is `complete`** (§5) — a request that never reached
+   *  the payer has no verdict to report. */
+  verdict: AuthVerdict | null
+}
+
+/**
+ * Axis one for an authorization, from the four sources §5 names.
+ *
+ * The order is precedence, not preference:
+ *
+ * - **`Cancelled` first.** A cancel happens *after* an answer
+ *   (`CancellationService` refuses anything else), so a cancelled authorization
+ *   still carries `ClaimProcessingCodes = "Complete"` and an approval. Reading the
+ *   outcome first would show a withdrawn request as live — and 215 offers Cancel
+ *   on exactly the rows this branch is what removes.
+ * - **`Error` next.** 🚩 §5: `Failed` means the request was refused *before the
+ *   payer saw it*, by NPHIES's own validation or by the service's local guards.
+ *   It is a form state the agent fixes in place, never a payer verdict.
+ * - **`Queued` next** — the exchange is holding the question, and the service's
+ *   own worker will pick the answer up within 15 seconds.
+ * - **Then the stored outcome**, for a row whose booleans were never written
+ *   (`ProcessAddAuthRequest.cs:182-184` has them commented out, so a
+ *   just-submitted row can carry the code alone).
+ *
+ * The no-outcome default is `pending`, matching the eligibility side and law 6's
+ * posture: a request we have no answer for is in flight, never failed. Unlike an
+ * eligibility, `ClaimProcessingCodes` **is** a persisted column
+ * (`NAuthMap.cs:36`), so a stored authorization row needs no second entry point —
+ * one derivation reads a list row and a detail alike.
+ */
+function authRequestState(row: AuthAxisSource): RequestState {
+  if (row.cancelled === true) return 'cancelled'
+  if (row.error === true) return 'failed'
+  if (row.queued === true) return 'pending'
+  switch (code(row.claimProcessingCodes)) {
+    case 'queued':
+      return 'pending'
+    case 'error':
+      return 'failed'
+    case 'complete':
+    case 'partial':
+      // A partial answer IS an answer — `Partly approved` is a Verdict, not a
+      // half-arrived request. Reading it as `pending` would offer a status check
+      // for a payer that has already replied.
+      return 'complete'
+    default:
+      return 'pending'
+  }
+}
+
+/** The NPHIES adjudication-outcome codes, as the extension spells them. */
+const AUTH_VERDICTS_BY_CODE: Record<string, AuthVerdict> = {
+  approved: 'approved',
+  partial: 'partlyApproved',
+  rejected: 'rejected',
+  'not-required': 'noApprovalNeeded',
+  notrequired: 'noApprovalNeeded',
+}
+
+/**
+ * Both axes of one authorization (§5). The Verdict is **blank until Complete**,
+ * enforced here rather than at the render site for the eligibility side's reason:
+ * the row carries `AdjudicationOutcome` whatever happened to the request.
+ *
+ * An unrecognised outcome on a `Complete` row also reads blank rather than being
+ * coerced to a nearby value — inventing `Approved` from a code we do not know is
+ * the one error on this screen that costs money.
+ */
+export function deriveAuthAxes(row: AuthAxisSource): AuthAxes {
+  const request = authRequestState(row)
+  if (request !== 'complete') return { request, verdict: null }
+  return { request, verdict: AUTH_VERDICTS_BY_CODE[code(row.adjudicationOutcome)] ?? null }
+}
+
+/**
+ * The two **row markers** (§5) — neither of them an axis value, and that is the
+ * point.
+ *
+ * - **`needComm`, the payer query.** The payer raises it asynchronously, so it can
+ *   land on an authorization that already has both a Request state and a Verdict
+ *   — which is exactly why it cannot be a value of either. It is **required, not
+ *   decorative**: answering a payer query is out of v1, so such an authorization
+ *   *stalls on the web* and the agent must be able to see that the row now needs
+ *   the till application.
+ * - **`isDispensed`.** The row's end of life, owned by the till and true only
+ *   after a verdict.
+ *
+ * 🚩 There is deliberately **no `readyToDispense`**. The real predicate lives in
+ * the service's `Dispense()` and its `HasFollowUp` clause is absent from
+ * `AuthForListDto`, so a browser copy could only lie on some rows. The reader
+ * infers it from what is already visible: `Complete`, a good verdict, no
+ * dispensed marker.
+ */
+export interface AuthRowMarkers {
+  payerQuery: boolean
+  dispensed: boolean
+}
+
+export function authRowMarkers(row: { needComm: boolean; isDispensed: boolean }): AuthRowMarkers {
+  return { payerQuery: row.needComm === true, dispensed: row.isDispensed === true }
+}
+
+/**
+ * Authorization verdict → severity, for the one badge in the app.
+ *
+ * `partlyApproved` is `warn`: something on the request was refused and the agent
+ * has to look, but it is not the flat no `rejected` is. `noApprovalNeeded` is
+ * `mute` — a neutral resting position, not a win and not a loss.
+ */
+export function authVerdictSeverity(verdict: AuthVerdict): Severity {
+  if (verdict === 'approved') return 'ok'
+  if (verdict === 'partlyApproved') return 'warn'
+  return verdict === 'rejected' ? 'bad' : 'mute'
 }

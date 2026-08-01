@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, Calculator, ClipboardCheck, Download, FileText, Headset, HeartPulse, KeyRound, LifeBuoy, ListChecks, Search, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
+import { Activity, Box, Calculator, ClipboardCheck, Download, FileCheck2, FileText, Headset, HeartPulse, KeyRound, LifeBuoy, ListChecks, Search, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -190,7 +190,12 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'eligibility:menu.list',
         icon: ListChecks,
         routerLink: '/nphies/eligibility',
-        activePrefix: '/nphies',
+        // Its own subtree, NOT the whole area: the authorizations leaf (214) is a
+        // sibling under `/nphies`, and an area-wide prefix here would leave the
+        // eligibility leaf lit while an agent stands on the authorizations list.
+        // The eligibility DETAIL routes (213, `/nphies/eligibility/:id`) are what
+        // this prefix is for.
+        activePrefix: '/nphies/eligibility',
         // Both leaves share the ONE probe on the ONE key — §1 gives the whole
         // area a single grant, so a gated area costs one network call.
         // FAILS CLOSED — see `@/core/nphies/api`. What is behind these leaves
@@ -207,7 +212,23 @@ export const MENU: ShellMenuItem[] = [
         icon: ClipboardCheck,
         routerLink: '/nphies/eligibility/new',
         // No `activePrefix`: its own exact route. The list leaf above owns the
-        // area prefix now that there is more than one screen under it.
+        // eligibility subtree now that there is more than one screen under it.
+        access: accessProbe({
+          key: NPHIES_ACCESS_KEY,
+          run: () => nphiesAccessApi.access(),
+          visible: (r) => r.canOpenNphies === true,
+        }),
+      },
+      {
+        // The area's second feature (ticket 214) — the list an agent watches an
+        // authorization on. Its own namespace, and the SAME one probe on the SAME
+        // one key: §1 gives the whole area a single grant.
+        labelKey: 'authorizations:menu.authorizations',
+        icon: FileCheck2,
+        routerLink: '/nphies/authorizations',
+        // Its own subtree, so 216's detail keeps this leaf lit and not the
+        // eligibility one.
+        activePrefix: '/nphies/authorizations',
         access: accessProbe({
           key: NPHIES_ACCESS_KEY,
           run: () => nphiesAccessApi.access(),

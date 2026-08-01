@@ -364,7 +364,8 @@ foreach ($t in $Tickets) {
     # terminating error below SKIPS an assignment rather than nulling it - without this the
     # verdict could fall through to the previous ticket's value and pass a broken round.
     $lastLine = ''
-    $marker   = ''
+    $sawDone  = $false
+    $sawBlock = $false
     $hitlDoc  = ".afk\HITL-$t.md"
 
     $baseSha = (git rev-parse HEAD).Trim()
@@ -442,7 +443,9 @@ Follow this protocol strictly:
      decide.
    - STOP: do not complete the ticket, do not commit, leave the working tree in a clean
      understandable state, and end your final message with the exact line: AFK-BLOCKED
-10. On success, end your final message with the exact line: AFK-DONE
+10. On success, the VERY LAST line of your final message must be exactly: AFK-DONE
+    Nothing after it - no closing thought, no note for the next slice, no sign-off. Write whatever
+    summary you like ABOVE it, then that line alone.
 11. Do not push and do not open a PR. Committing is allowed only if the /implement skill itself
     says to commit.
 "@
@@ -462,28 +465,32 @@ Follow this protocol strictly:
 
     $r.ResultText | Out-File ".afk\session-$t.log" -Encoding utf8
 
-    # Marker check anchored on the LAST non-empty line (a string, so -match is a real boolean;
-    # never test a string[] this way - arrays FILTER and a non-empty array is truthy).
+    # Marker scan over the WHOLE result text, anchored per line - NOT just the last line. A session
+    # that finishes its slice correctly and then adds one line of helpful prose after the marker is
+    # a clean success, and a last-line-only test reads it as a failure and costs the whole rest of
+    # the wave. -match on a single string is a real boolean; never test a string[] this way - arrays
+    # FILTER and a non-empty array is truthy.
     $lastLine = ($r.ResultText -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 1)
     if ($lastLine) { $lastLine = $lastLine.Trim() } else { $lastLine = '' }
-    $marker = $lastLine -replace '[*`_\s]', ''
+    $sawBlock = ([string]$r.ResultText) -match '(?m)^\s*[*`_]*AFK-BLOCKED[*`_]*\s*$'
+    $sawDone  = ([string]$r.ResultText) -match '(?m)^\s*[*`_]*AFK-DONE[*`_]*\s*$'
 
-    if ($marker -eq 'AFK-BLOCKED') { Say "=== /implement $t BLOCKED - see $hitlDoc - stopping loop ===" "Yellow"; exit 2 }
-    if ($marker -ne 'AFK-DONE') {
-        Say "=== /implement $t ended WITHOUT the AFK-DONE marker (last line: '$lastLine') - inspect .afk\session-$t.log - stopping loop ===" "Yellow"
-        exit 3
-    }
+    # AFK-BLOCKED is the one marker that still stops the loop on its own: the session is telling us
+    # it deliberately did NOT finish, and the checks below would only confirm that more slowly.
+    if ($sawBlock) { Say "=== /implement $t BLOCKED - see $hitlDoc - stopping loop ===" "Yellow"; exit 2 }
 
-    # Trust the marker only as far as the tracker and git agree with it.
+    # EVIDENCE OUTRANKS THE MARKER. git and the tracker are what actually happened; AFK-DONE is only
+    # the session's claim about it. So the objective checks run FIRST and are the real gate - a
+    # missing marker on an otherwise-clean slice WARNS and the wave carries on.
     $ticketFile = Get-ChildItem ".issues\$t-*.md" | Select-Object -First 1
     $nowHead = (Get-Content $ticketFile.FullName -TotalCount 8) -join "`n"
     if ($nowHead -notmatch '(?m)^status:\s*done') {
-        Say "=== /implement $t said AFK-DONE but the ticket is not 'status: done' - inspect before trusting - stopping loop ===" "Yellow"
+        Say "=== /implement $t ended but the ticket is not 'status: done' (marker seen: $sawDone) - inspect .afk\session-$t.log - stopping loop ===" "Yellow"
         exit 3
     }
     $headSha = (git rev-parse HEAD).Trim()
     if ($headSha -eq $baseSha) {
-        Say "=== /implement $t said AFK-DONE but HEAD did not move - nothing was committed - stopping loop ===" "Yellow"
+        Say "=== /implement $t ended but HEAD did not move - nothing was committed (marker seen: $sawDone) - stopping loop ===" "Yellow"
         exit 3
     }
     # A session can commit and STILL leave files behind (a new i18n key never staged, a drive file
@@ -502,6 +509,12 @@ Follow this protocol strictly:
     if ($strayUntracked) {
         Say "    NOTE: untracked files exist after $t - check none of them belong to the slice (a new feature folder, an i18n bundle, a drive script):" "DarkYellow"
         $strayUntracked | Write-Host
+    }
+
+    # Every objective check above passed, so the slice landed whole whatever the session said last.
+    # Name the missing marker so morning triage can see it, then carry on - this is a note, not a gate.
+    if (-not $sawDone) {
+        Say "    NOTE: $t never printed the AFK-DONE marker (last line: '$lastLine'), but the ticket is 'status: done', HEAD moved and the tree is clean - continuing on the evidence." "DarkYellow"
     }
 
     Say ("=== /implement $t DONE - " + ((git log --oneline "$baseSha..HEAD" | Measure-Object).Count) + " commit(s), tree clean ===") "Green"

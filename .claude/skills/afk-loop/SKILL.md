@@ -5,7 +5,7 @@ description: Generate a project-root PowerShell runner that drives /implement + 
 
 The user points at a set of related tickets; this skill writes **one PowerShell file at the project root** that runs them unattended, one after another, each in a fresh `claude -p` session.
 
-The harness itself is finished and proven — it lives verbatim in `assets/runner-template.ps1` and you copy it, you do not re-derive it. Every line of it exists because an earlier loop failed that way: the file-redirected stdin (a session can never block on input), the stall watchdog and 60-second heartbeat (a quiet terminal is never ambiguous), `WaitForExit` before reading `ExitCode` (a `-PassThru` object hands back a null exit code that reads as failure), the `AFK-DONE` marker cross-checked against ticket status *and* a moved HEAD *and* a clean tree.
+The harness itself is finished and proven — it lives verbatim in `assets/runner-template.ps1` and you copy it, you do not re-derive it. Every line of it exists because an earlier loop failed that way: the file-redirected stdin (a session can never block on input), the stall watchdog and 60-second heartbeat (a quiet terminal is never ambiguous), `WaitForExit` before reading `ExitCode` (a `-PassThru` object hands back a null exit code that reads as failure), the completion test resting on ticket status *and* a moved HEAD *and* a clean tree, with the `AFK-DONE` marker only advisory on top of them (it was once the gate, and a session that finished its slice perfectly and then added one friendly closing line cost the eleven tickets behind it).
 
 **Your real work is the briefing** — the `WAVE_FACTS` block inside the AFK system prompt. At 3am there is nobody to ask, so anything a human would have said out loud during the wave has to already be in that block. A generated runner with a thin briefing runs fine and produces work you throw away.
 
@@ -105,7 +105,7 @@ An effort chartered here often produces tickets for **both** systems: the screen
 | 0 | wave complete (or `-DryRun` / `-SmokeTest` passed) |
 | 1 | pre-flight failed — ticket status, blocking ticket, missing `node_modules`, or a dirty tree |
 | 2 | a session logged `AFK-BLOCKED` — read `.afk\HITL-<t>.md` |
-| 3 | ended without `AFK-DONE`, or the marker disagreed with the ticket/HEAD |
+| 3 | the ticket is not `status: done`, or HEAD did not move — nothing landed |
 | 4 | no `result` event — inspect `.afk\session-<t>.jsonl` |
 | 5 | the session returned `is_error` |
 | 6 | stall watchdog killed the tree |

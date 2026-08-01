@@ -268,6 +268,136 @@ export interface AuthListRow {
 }
 
 /**
+ * The envelope the five **lookups** answer with (§1.1 rows 11–15, §3.8).
+ *
+ * 🚩 The list is wrapped because law 10 puts `contractVersion` on the **payload
+ * model** and a bare JSON array has nowhere to hang it — SIS.Api's own
+ * `NphiesLookupResponse<T>` (`Modules/Nphies/Services/Models/Lookups/`, read
+ * 2026-08-02), whose doc comment logs the same wrapping as a wanted §3.8
+ * clarification. The client reads `items` when it is there and a bare array when
+ * it is not, in **one** place (`unwrapLookup` in `@/core/nphies/api`), so the day
+ * §3.8 freezes the shape it is a one-line edit rather than a sweep — and so a
+ * screen built before the freeze does not silently render an empty picker.
+ */
+export interface NphiesLookup<TRow> {
+  contractVersion?: string
+  items: TRow[]
+}
+
+/**
+ * One row of `GET Nphies/CodeSystem?valueSet=…` (§1.1 #13, §3.8) — the Nphies
+ * service's own `CodeSystemDto`.
+ *
+ * ⚠️ `blocked` really is a **string** upstream, not a boolean; it is carried as
+ * declared, because a lookup that "fixes" a type is no longer a passthrough.
+ *
+ * The value set is the caller's. 215 reads `TaskReasonCode` (the cancellation
+ * reasons); 218's per-line picker reads `SelectionReason` from the same door.
+ */
+export interface NphiesCodeSystemEntry {
+  code: string
+  display: string
+  blocked: string
+  valueSetName: string
+}
+
+/**
+ * `POST Nphies/StatusCheck` (§1.1 #7, §3.6) — the body is `{ reference }`, and
+ * `reference` is the **authorization id**: `CancellationService.cs:108` matches it
+ * as `c.Id == requestModel.Reference`, and the status check's own leg does the
+ * same. It is not the preauth reference the payer quotes.
+ */
+export interface AuthStatusCheckRequest {
+  reference: string
+}
+
+/**
+ * What a status check answers — the upstream's `StatusCheckResponse` forwarded
+ * whole.
+ *
+ * 🚩 **`success: false` here is NOT a failure.** The upstream sets it only when
+ * the exchange's task came back `Completed` (`StatusCheckService.cs:155`), so a
+ * check on an authorization the payer is still working answers `success: false`
+ * with a `status` — which is the ordinary answer of the act's own use case, a row
+ * that has waited too long. It is **data** (§6 kind 1) and it renders. Reading it
+ * as an error would report the normal path as a fault.
+ */
+export interface AuthStatusCheckResult {
+  /** 🚩 Law 10's field, present on every response of the web door. It is read for
+   *  display-free purposes only: 211 settled that the client neither sends nor
+   *  *checks* a contract version until §8 says how. */
+  contractVersion?: string
+  id: string
+  reference: string
+  providerCode: string
+  payerCode: string
+  patientId: string
+  actionDateTime: string
+  errorMessage: string
+  outputType: string
+  /** The exchange task's own status — the value that makes the act worth offering. */
+  status: string
+  disposition: string
+  adjudicationOutcome: string
+  success: boolean
+  statusCode: number
+}
+
+/**
+ * `POST Nphies/Retry` (§1.1 #8, §3.6). The upstream body is
+ * `{ referenceId, referenceType, storeCode, staffId }` and **the browser owns
+ * exactly one of the four** (law 7 / §1.3): SIS.Api pins `referenceType` to
+ * `"Auth"` (v1 has one claim type) and stamps `staffId` from `GetUserAction()` and
+ * `storeCode` from the session's acting store. Sending them would be the browser
+ * asserting an identity, so they are absent from this type rather than
+ * present-and-ignored.
+ */
+export interface AuthRetryRequest {
+  referenceId: string
+}
+
+/**
+ * What a retry answers: a flag and a string.
+ *
+ * The retry's real product is not in this body — `ProcessPendingAuth` has by then
+ * rewritten the authorization itself, so the **list is re-read** to see what
+ * changed.
+ */
+export interface AuthRetryResult {
+  contractVersion?: string
+  success: boolean
+  errorMessage: string
+}
+
+/**
+ * `POST Nphies/Cancellation` (§1.1 #9, §3.6). The upstream body is
+ * `{ reference, reasonCode, claimType, nullify, staffId, providerCode }`; the two
+ * server-owned fields are absent for the retry's reason — SIS.Api pins `claimType`
+ * to `0` and stamps `staffId`.
+ *
+ * `nullify` is the client's and is always sent **false**: the upstream throws
+ * `"Nullify operation is not supported"` (`CancellationService.cs:101`), and
+ * SIS.Api forwards the flag as asked rather than downgrading it, so a `true` here
+ * would be a refusal by construction.
+ *
+ * `providerCode` is §1.3's one exception — operator input, passed through
+ * unvalidated — and is the row's own, because `CancellationService.cs:109` narrows
+ * the lookup by it.
+ */
+export interface AuthCancellationRequest {
+  reference: string
+  /** A `TaskReasonCode` code from `GET Nphies/CodeSystem` — the agent's chosen
+   *  reason, which reaches NPHIES as the cancel task's `reasonCode` coding. */
+  reasonCode: string
+  nullify: boolean
+  providerCode: string
+}
+
+/** What a cancellation answers — the same shape as a status check, upstream's
+ *  `CancellationResponse`. */
+export type AuthCancellationResult = AuthStatusCheckResult
+
+/**
  * `GET Nphies/LastEligibility/{patientId}` (§3.2) → `LastEligibilityModel` — what
  * **Fill** completes a cold form from. `null` when the patient has never been
  * checked.

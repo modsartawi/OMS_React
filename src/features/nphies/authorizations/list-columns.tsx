@@ -4,6 +4,8 @@ import { MessageCircleQuestion, PackageCheck } from 'lucide-react'
 
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { AuthListRow } from '@/core/models/nphies'
+import RowActs from './RowActs'
+import type { AuthAct } from './row-acts'
 import { formatStamp } from '@/core/nphies/format'
 import {
   authRowMarkers,
@@ -44,7 +46,18 @@ export const AUTH_LIST_DEFAULT_COL_DEF: ColDef<AuthListRow> = {
   cellDataType: false,
 }
 
-export function buildAuthListColumns(t: TFunction): ColDef<AuthListRow>[] {
+/**
+ * Where a fired act goes (ticket 215).
+ *
+ * 🚩 It must be a **stable** reference for the life of the screen, and nothing
+ * else about the acts may travel through the column definitions: AG Grid rebuilds
+ * every cell when `columnDefs` changes identity, which throws keyboard focus to
+ * the document body mid-act. The in-flight state is rendered above the grid for
+ * exactly that reason.
+ */
+export type AuthListOnAct = (act: AuthAct, row: AuthListRow) => void
+
+export function buildAuthListColumns(t: TFunction, onAct: AuthListOnAct): ColDef<AuthListRow>[] {
   return [
     {
       headerName: t('list.columns.actionDateTime'),
@@ -162,6 +175,20 @@ export function buildAuthListColumns(t: TFunction): ColDef<AuthListRow>[] {
       minWidth: 200,
       valueGetter: (p) =>
         p.data && showsFailureMessage(deriveAuthAxes(p.data).request) ? p.data.errorMessageShort : '',
+    },
+    {
+      // 🚩 The acts (215), state-driven and each withheld one carrying its reason.
+      // Last, and pinned to the end of the row: they are what an agent does about
+      // what the columns before them say, and reading comes before acting.
+      headerName: t('list.columns.acts'),
+      colId: 'acts',
+      // Wide enough for all four buttons and their gaps at the widest label the
+      // namespace carries — a clipped act is an act an agent cannot read.
+      width: 470,
+      // No flex: the four acts are a fixed set, so the column is a fixed width
+      // and the failure reason beside it is what absorbs the remaining space.
+      cellRenderer: (p: ICellRendererParams<AuthListRow>) =>
+        p.data ? <RowActs row={p.data} t={t} onAct={onAct} /> : null,
     },
   ]
 }

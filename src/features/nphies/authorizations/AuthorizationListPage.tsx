@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useCallback, useMemo, useRef, useState } from 'react'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
+import { toast } from 'sonner'
 import { Loader2, PackageSearch, RefreshCw, ShieldAlert } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
@@ -23,10 +24,13 @@ import {
 import { formatClock } from '@/core/nphies/format'
 import { pageCountFor } from '@/core/nphies/list-window'
 import ListPager from '@/core/nphies/ListPager'
+import type { AuthListRow } from '@/core/models/nphies'
 import { authorizationsApi } from './api'
 import { buildAuthListParams, defaultAuthCriteria, type AuthListCriteria } from './list-params'
 import { AUTH_LIST_DEFAULT_COL_DEF, buildAuthListColumns } from './list-columns'
 import ListFilters from './ListFilters'
+import CancelDialog from './CancelDialog'
+import type { AuthAct } from './row-acts'
 
 /**
  * The authorizations list (ticket 214, spec 209 §6 stories 66–70 and 76) — the
@@ -113,7 +117,136 @@ export default function AuthorizationListPage() {
   }, [])
   const goToPage = useCallback((page: number) => setCriteria((c) => ({ ...c, page })), [])
 
-  const columns = useMemo(() => buildAuthListColumns(t), [t])
+  // ---- the row's acts (ticket 215) ----------------------------------------
+  //
+  // Which acts a row offers is `row-acts`'; what happens when one fires is here.
+  // The server stays authoritative throughout: a refusal that arrives anyway is a
+  // BUSINESS OUTCOME with the server's own message (§6 kind 2), never a crash and
+  // never a generic "unexpected" — `apiErrorMessage` passes the sentence through
+  // as data, because a guardrail refusal is designed, not exceptional.
+  const queryClient = useQueryClient()
+  /** The act in flight, and the row it is on. One at a time: these acts change
+   *  what the exchange holds, and a second click while the first is unanswered is
+   *  a second ask. */
+  const [acting, setActing] = useState<{ id: string; act: AuthAct } | null>(null)
+  const [cancelRow, setCancelRow] = useState<AuthListRow | null>(null)
+
+  /** Every act rewrites the authorization server-side, so the rows are re-read
+   *  rather than patched in place — the answer is the server's, not a guess about
+   *  what the act did. */
+  const rereadRows = useCallback(
+    () => void queryClient.invalidateQueries({ queryKey: ['nphies', 'authorizations', 'list'] }),
+    [queryClient],
+  )
+  const actFailed = useCallback(
+    (err: unknown) => {
+      const title = t('acts.results.refused')
+      toast.error(title, { description: apiErrorMessage(err, title) })
+    },
+    [t],
+  )
+
+  const statusCheck = useMutation({
+    mutationFn: (row: AuthListRow) => authorizationsApi.statusCheck(row.id),
+    onSuccess: (result) => {
+      // 🚩 `success: false` is NOT a failure here. The upstream sets it only when
+      // the exchange's task came back `Completed`, so "still working on it" is the
+      // ordinary answer of the very case this act exists for — a row that has
+      // waited too long. It renders as data; reading it as an error would report
+      // the normal path as a fault.
+      const detail = result.status || t('acts.results.statusUnknown')
+      if (result.success) toast.success(t('acts.results.statusChecked'), { description: detail })
+      else toast.info(t('acts.results.statusChecked'), { description: detail })
+    },
+    onError: actFailed,
+    onSettled: () => {
+      setActing(null)
+      rereadRows()
+    },
+  })
+
+  const retry = useMutation({
+    mutationFn: (row: AuthListRow) => authorizationsApi.retry(row.id),
+    onSuccess: (result) => {
+      // The retry's real product is not in this body — `ProcessPendingAuth` has by
+      // then rewritten the authorization, which is what the re-read below shows.
+      if (result.success) toast.success(t('acts.results.retried'))
+      else
+        toast.warning(t('acts.results.retriedNoAnswer'), {
+          description: result.errorMessage || undefined,
+        })
+    },
+    onError: actFailed,
+    onSettled: () => {
+      setActing(null)
+      rereadRows()
+    },
+  })
+
+  const cancel = useMutation({
+    mutationFn: ({ row, reasonCode }: { row: AuthListRow; reasonCode: string }) =>
+      authorizationsApi.cancel({
+        reference: row.id,
+        reasonCode,
+        // Always false: the upstream throws "Nullify operation is not supported"
+        // and SIS.Api forwards the flag as asked rather than downgrading it.
+        nullify: false,
+        // §1.3's one exception — operator input, and the row's own, because the
+        // service narrows its lookup by it.
+        providerCode: row.providerCode,
+      }),
+    onSuccess: (result) => {
+      if (result.success) toast.success(t('acts.results.cancelled'))
+      else
+        toast.warning(t('acts.results.cancelNotConfirmed'), {
+          description: result.status || undefined,
+        })
+      setCancelRow(null)
+    },
+    // 🚩 No toast on this one. A refused cancellation arrives while the dialog is
+    // still open, and `@/core/ui/Modal` uses `showModal()` — the dialog and its
+    // backdrop sit in the browser's TOP LAYER, above any toaster mounted in the
+    // ordinary DOM whatever its z-index. The server's own sentence would be
+    // painted under a 50% black scrim and unclickable. It renders INSIDE the
+    // dialog instead, next to the control that raised it, and the dialog stays
+    // open so the agent can read it, change the reason, or keep the
+    // authorization.
+    onSettled: () => {
+      setActing(null)
+      rereadRows()
+    },
+  })
+
+  // 🚩 Read through a ref, not through the closure. `onAct` has to be STABLE —
+  // it reaches the grid inside the column definitions, and AG Grid rebuilds every
+  // cell when those change identity, which throws keyboard focus to the document
+  // body the moment an agent presses one of these buttons. TanStack's mutation
+  // objects are new on every render, so a `useCallback` over them is not stable.
+  const live = useRef({ acting, statusCheck, retry })
+  live.current = { acting, statusCheck, retry }
+
+  const onAct = useCallback((act: AuthAct, row: AuthListRow) => {
+    const { acting: inFlight, statusCheck: check, retry: again } = live.current
+    // A second act while one is unanswered is a second ask, and on this screen an
+    // ask reaches the national exchange. The banner above the grid is what says
+    // so — a silently ignored click would teach nothing.
+    if (inFlight) return
+    if (act === 'statusCheck') {
+      setActing({ id: row.id, act })
+      check.mutate(row)
+    } else if (act === 'retry') {
+      setActing({ id: row.id, act })
+      again.mutate(row)
+    } else if (act === 'cancel') {
+      // The one act that asks a question first: a cancellation carries a reason
+      // code all the way to NPHIES, and it is terminal.
+      setCancelRow(row)
+    }
+    // `openRefusal` is never available yet — 221 wires it, and `row-acts` says so
+    // on the button itself rather than letting a click fall silently through.
+  }, [])
+
+  const columns = useMemo(() => buildAuthListColumns(t, onAct), [t, onAct])
 
   if (access.isPending) {
     return (
@@ -166,6 +299,10 @@ export default function AuthorizationListPage() {
   // clicked. `dataUpdatedAt` is 0 before the first answer, which `formatClock`
   // renders blank rather than as the epoch.
   const loadedAt = formatClock(list.dataUpdatedAt)
+  // The row an act is running on, so the banner names it the way an agent does —
+  // by the reference they are quoted on the phone, and by the id only when the
+  // payer has not issued one yet.
+  const actingRow = acting ? rows.find((r) => r.id === acting.id) : undefined
 
   return (
     <section className="flex h-full w-full flex-col gap-4">
@@ -195,6 +332,26 @@ export default function AuthorizationListPage() {
       )}
       {list.isError && (
         <ErrorBanner message={apiErrorMessage(list.error, t('errors.listFailed'))} className="p-3" />
+      )}
+
+      {/* 🚩 The act in flight, ABOVE the grid rather than inside the cell that
+          fired it — a busy flag in the cell would have to travel through the
+          column definitions, and a changed `columnDefs` makes AG Grid rebuild
+          every cell and drop keyboard focus mid-act. Here it survives the
+          re-render, it is announced (`role="status"`), and it is also the answer
+          to why a second act does nothing: one ask at a time, because each of
+          these reaches the national exchange. */}
+      {acting && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 p-2 text-xs"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          {t('acts.inFlight', {
+            act: t(`acts.${acting.act}`),
+            reference: actingRow?.preAuthRef || acting.id,
+          })}
+        </div>
       )}
 
       {list.isPending ? (
@@ -289,6 +446,28 @@ export default function AuthorizationListPage() {
           )}
         </>
       )}
+
+      {/* The cancel act's confirmation and its reason (215). Mounted at the page
+          so it survives the grid re-rendering under it. */}
+      <CancelDialog
+        row={cancelRow}
+        busy={cancel.isPending}
+        // The refusal renders in the dialog, over the top-layer problem above.
+        error={cancel.error}
+        onClose={() => {
+          if (cancel.isPending) return
+          cancel.reset()
+          setCancelRow(null)
+        }}
+        onConfirm={(reasonCode) => {
+          // `acting` too, not just this mutation: opening the dialog does not
+          // claim the screen, so an act could have been started on another row
+          // while the reason was being chosen.
+          if (!cancelRow || cancel.isPending || acting) return
+          setActing({ id: cancelRow.id, act: 'cancel' })
+          cancel.mutate({ row: cancelRow, reasonCode })
+        }}
+      />
     </section>
   )
 }

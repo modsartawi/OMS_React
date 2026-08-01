@@ -211,10 +211,27 @@ function authList(q) {
   }
 }
 
+// The cancellation reasons (ticket 215). `GET Nphies/CodeSystem?valueSet=TaskReasonCode`
+// — `ValueSetConstants.TaskReasonCode`, the value set behind the cancel task's `reasonCode`
+// coding (`CancellationTaskEntry.cs:77`). `blocked` is a STRING upstream, not a boolean, and
+// one row is blocked precisely so the client's filter is exercised.
+const TASK_REASONS = {
+  contractVersion: '1.0',
+  items: [
+    { code: 'WI', display: 'Wrong information', blocked: 'false', valueSetName: 'TaskReasonCode' },
+    { code: 'DUPL', display: 'Duplicate request', blocked: 'false', valueSetName: 'TaskReasonCode' },
+    { code: 'RETIRED', display: 'Retired reason', blocked: 'true', valueSetName: 'TaskReasonCode' },
+  ],
+}
+
 // Scenario state, mutated between steps.
 let scenario = { access: { canOpenNphies: true } }
 let lastListQuery = null
 let listCalls = 0
+// The three acts (215): the last body each received, so the drive asserts what LEFT the
+// browser and not merely that something was clicked. Law 7's fields are absences, and an
+// absence is only assertable against the body itself.
+let lastAct = { statusCheck: null, retry: null, cancel: null }
 
 async function run() {
   const browser = await chromium.launch()
@@ -222,7 +239,7 @@ async function run() {
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
   // ⚠ `Failed to load resource: … 409/500` is Chromium narrating the refusals this
-  // drive DELIBERATELY serves (scenarios 12 and 14). Counting them as defects
+  // drive DELIBERATELY serves (scenarios 16, 17, 18 and 20). Counting them as defects
   // would make the taxonomy's own happy path look like a crash.
   page.on(
     'console',
@@ -241,7 +258,61 @@ async function run() {
         return route.fulfill(envelope(null, { status: 500, success: false, message: 'down' }))
       return route.fulfill(envelope(scenario.access))
     }
-    if (path === 'Nphies/Providers') return route.fulfill(envelope(PROVIDERS))
+    // 🚩 The lookups answer `{ contractVersion, items }` — SIS.Api's own
+    // `NphiesLookupResponse<T>`, because law 10 puts the contract version on the payload
+    // model and a bare array has nowhere to hang it. This drive serves the WRAPPED shape
+    // (the eligibility drives still serve the bare array), so both readings of §3.8's
+    // unfrozen envelope are exercised somewhere.
+    if (path === 'Nphies/Providers')
+      return route.fulfill(envelope({ contractVersion: '1.0', items: PROVIDERS }))
+    if (path === 'Nphies/CodeSystem') {
+      const valueSet = new URLSearchParams(url.split('?')[1] || '').get('valueSet')
+      // A value set the client did not ask for must not answer the reasons — the query
+      // param is the whole of what distinguishes 215's read from 218's.
+      return route.fulfill(
+        envelope(valueSet === 'TaskReasonCode' ? TASK_REASONS : { contractVersion: '1.0', items: [] }),
+      )
+    }
+    if (path === 'Nphies/StatusCheck' || path === 'Nphies/Retry' || path === 'Nphies/Cancellation') {
+      const body = JSON.parse(route.request().postData() || '{}')
+      if (path === 'Nphies/StatusCheck') lastAct.statusCheck = body
+      if (path === 'Nphies/Retry') lastAct.retry = body
+      if (path === 'Nphies/Cancellation') lastAct.cancel = body
+      // §6 kind 2: a guardrail refusal is a non-2xx carrying the envelope, a server-supplied
+      // human message and a code. `AUTH_ALREADY_DISPENSED` is the one both retry and cancel
+      // raise, and the row believing otherwise is exactly the case the ticket describes.
+      if (scenario.actRefused)
+        return route.fulfill(
+          envelope(null, {
+            status: 409,
+            success: false,
+            message: 'This authorization has already been dispensed and can no longer be changed.',
+            errors: [{ errorCode: 'AUTH_ALREADY_DISPENSED', errorMessage: 'dispensed' }],
+          }),
+        )
+      if (path === 'Nphies/Retry')
+        return route.fulfill(envelope({ contractVersion: '1.0', success: true, errorMessage: '' }))
+      // 🚩 A status check on a request the payer is STILL working answers `success:false`
+      // with a status — the ordinary answer of this act's own use case, and DATA.
+      return route.fulfill(
+        envelope({
+          contractVersion: '1.0',
+          id: 'ACT-1',
+          reference: body.reference || '',
+          providerCode: 'P001',
+          payerCode: 'PAY-9',
+          patientId: '0000000008',
+          actionDateTime: DAYS_AGO(0),
+          errorMessage: '',
+          outputType: '',
+          status: path === 'Nphies/Cancellation' ? 'Completed' : 'in-progress',
+          disposition: '',
+          adjudicationOutcome: '',
+          success: path === 'Nphies/Cancellation',
+          statusCode: 200,
+        }),
+      )
+    }
     if (path === 'Nphies/AuthResponses') {
       lastListQuery = new URLSearchParams(url.split('?')[1] || '')
       listCalls += 1
@@ -601,7 +672,244 @@ async function run() {
     /No authorizations match/.test(empty) && /inside the date window above/.test(empty),
   )
 
-  // ---- Scenario 12: a refused read surfaces the server's own message -------
+  // ---- Scenario 12: a row offers ONLY the acts its state permits (215) -----
+  await page.getByLabel('Patient ID', { exact: true }).fill('')
+  await page.getByRole('button', { name: /^Reset$/ }).click()
+  await page.waitForTimeout(700)
+
+  /** One act button on the row carrying `patient`. The accessible name is the act's
+   *  label followed by its own reason, which is how a withheld act states itself. */
+  const actButton = (patient, act) =>
+    page.locator('.ag-row', { hasText: patient }).first().getByRole('button', { name: act })
+  const actState = async (patient, act) => {
+    const button = actButton(patient, act)
+    return {
+      offered: (await button.getAttribute('aria-disabled')) !== 'true',
+      reason: (await button.getAttribute('title')) || '',
+    }
+  }
+
+  const pendingCheck = await actState('0000000008', /^Status check/)
+  const pendingRetry = await actState('0000000008', /^Retry/)
+  const pendingCancel = await actState('0000000008', /^Cancel/)
+  check(
+    'a PENDING row offers a status check and a retry',
+    pendingCheck.offered && pendingRetry.offered,
+    `check=${pendingCheck.offered} retry=${pendingRetry.offered}`,
+  )
+  check(
+    'and withholds Cancel there, saying there is no approval to withdraw yet',
+    !pendingCancel.offered && /no approval to withdraw/i.test(pendingCancel.reason),
+    pendingCancel.reason,
+  )
+
+  const completeCancel = await actState('0000000003', /^Cancel/)
+  const completeRetry = await actState('0000000003', /^Retry/)
+  check('a COMPLETE, undispensed row offers Cancel', completeCancel.offered)
+  check(
+    'and withholds Retry there — the payer has already answered',
+    !completeRetry.offered && /already answered/i.test(completeRetry.reason),
+    completeRetry.reason,
+  )
+
+  const dispensedCancel = await actState('0000000005', /^Cancel/)
+  const dispensedRetry = await actState('0000000005', /^Retry/)
+  check(
+    '🚩 a DISPENSED row offers nothing — both cancel and retry are withheld',
+    !dispensedCancel.offered && !dispensedRetry.offered,
+  )
+  check(
+    'and both say WHY: the till has dispensed it',
+    /dispensed at a till/i.test(dispensedCancel.reason) &&
+      /dispensed at a till/i.test(dispensedRetry.reason),
+    dispensedCancel.reason,
+  )
+
+  const failedRetry = await actState('0000000009', /^Retry/)
+  check(
+    '🚩 THE CORRECTION OF RECORD: a FAILED row does NOT offer Retry',
+    !failedRetry.offered,
+    failedRetry.reason,
+  )
+  check(
+    'and its reason names the payload, not the state — asking again would be refused the same way',
+    /refused the same way/i.test(failedRetry.reason),
+    failedRetry.reason,
+  )
+  const failedReopen = await actState('0000000009', /^Open the refusal/)
+  check(
+    '🚩 the refusal’s own act is RENDERED and inert, and it says it is not wired yet',
+    !failedReopen.offered && /not available here yet/i.test(failedReopen.reason),
+    failedReopen.reason,
+  )
+  const cancelledRetry = await actState('0000000010', /^Retry/)
+  check(
+    'a CANCELLED row offers nothing, and says it was already cancelled',
+    !cancelledRetry.offered && /already been cancelled/i.test(cancelledRetry.reason),
+    cancelledRetry.reason,
+  )
+
+  // 🚩 The blanket rule, over every act on every row on screen: no act is ever merely
+  // absent and none is ever merely greyed.
+  const allActs = await page.locator('.ag-row button[title]').all()
+  let unexplained = 0
+  let withheldSeen = 0
+  for (const button of allActs) {
+    if ((await button.getAttribute('aria-disabled')) !== 'true') continue
+    withheldSeen += 1
+    if (((await button.getAttribute('title')) || '').trim().length < 10) unexplained += 1
+  }
+  check(
+    '🚩 EVERY withheld act on the page carries its own reason',
+    withheldSeen > 0 && unexplained === 0,
+    `${withheldSeen} withheld, ${unexplained} unexplained`,
+  )
+  check(
+    'and every row names all four acts, whatever its state',
+    (await page.locator('.ag-row', { hasText: '0000000010' }).first().locator('button').count()) === 4,
+  )
+
+  // ---- Scenario 13: the status check fires, and "still working" is DATA ----
+  await actButton('0000000008', /^Status check/).click()
+  await page.waitForTimeout(900)
+  check(
+    'the status check posts the AUTHORIZATION ID as `reference`',
+    lastAct.statusCheck && lastAct.statusCheck.reference === 'AUTH-6',
+    JSON.stringify(lastAct.statusCheck),
+  )
+  check(
+    '🚩 and nothing else — law 7: SIS.Api stamps identity, the browser never sends it',
+    lastAct.statusCheck && Object.keys(lastAct.statusCheck).join(',') === 'reference',
+    JSON.stringify(lastAct.statusCheck),
+  )
+  const afterCheck = await page.locator('body').innerText()
+  check(
+    '🚩 a still-working answer (success:false) RENDERS as the exchange’s status, not as an error',
+    /in-progress/.test(afterCheck) && (await page.locator('[role="alert"]').count()) === 0,
+    (afterCheck.match(/in-progress[^\n]*/) || [''])[0],
+  )
+  const focused = await page.evaluate(
+    () => document.activeElement?.getAttribute('aria-label') || document.activeElement?.tagName || '',
+  )
+  check(
+    '🚩 firing an act does NOT throw keyboard focus off the button that fired it',
+    // A busy flag inside the cell would travel through `columnDefs`, and AG Grid rebuilds
+    // every cell when those change identity — focus lands on <body> and a keyboard user
+    // loses their place mid-act. The in-flight state lives ABOVE the grid for exactly this
+    // reason, and this assertion is what holds that decision in place.
+    /Status check/.test(focused),
+    focused,
+  )
+
+  // ---- Scenario 14: the retry sends the ONE field the browser owns ---------
+  await actButton('0000000008', /^Retry/).click()
+  await page.waitForTimeout(900)
+  check(
+    'the retry posts `referenceId`, and ONLY that',
+    lastAct.retry && Object.keys(lastAct.retry).join(',') === 'referenceId' &&
+      lastAct.retry.referenceId === 'AUTH-6',
+    JSON.stringify(lastAct.retry),
+  )
+  check(
+    '🚩 no referenceType, staffId or storeCode leaves the browser — all three are the server’s',
+    lastAct.retry &&
+      !('referenceType' in lastAct.retry) &&
+      !('staffId' in lastAct.retry) &&
+      !('storeCode' in lastAct.retry),
+    JSON.stringify(lastAct.retry),
+  )
+
+  // ---- Scenario 15: the cancellation asks for its reason, then sends it ----
+  await actButton('0000000003', /^Cancel/).click()
+  await page.waitForTimeout(700)
+  check('the cancel act opens a confirmation first — it is terminal', await page.locator('dialog').isVisible())
+  const confirm = page.getByRole('button', { name: /^Cancel the authorization$/ })
+  check(
+    '🚩 the confirm is withheld until a reason is chosen — the code reaches the payer',
+    (await confirm.getAttribute('aria-disabled')) === 'true',
+  )
+  const reasonOptions = await page.locator('dialog select option').allInnerTexts()
+  check(
+    '🚩 the reasons come from the CodeSystem lookup, not from a list typed into the client',
+    reasonOptions.some((o) => /Wrong information/.test(o)) &&
+      reasonOptions.some((o) => /Duplicate request/.test(o)),
+    reasonOptions.join(' | '),
+  )
+  check(
+    'and a blocked code is not offered — NPHIES no longer accepts it',
+    !reasonOptions.some((o) => /Retired reason/.test(o)),
+    reasonOptions.join(' | '),
+  )
+  await page.locator('dialog select').selectOption('WI')
+  await confirm.click()
+  await page.waitForTimeout(900)
+  check(
+    'the cancellation posts the reference, the chosen reason and the row’s provider',
+    lastAct.cancel &&
+      lastAct.cancel.reference === 'AUTH-1' &&
+      lastAct.cancel.reasonCode === 'WI' &&
+      lastAct.cancel.providerCode === 'P001',
+    JSON.stringify(lastAct.cancel),
+  )
+  check(
+    '🚩 nullify is sent FALSE, and neither claimType nor staffId is sent at all',
+    lastAct.cancel &&
+      lastAct.cancel.nullify === false &&
+      !('claimType' in lastAct.cancel) &&
+      !('staffId' in lastAct.cancel),
+    JSON.stringify(lastAct.cancel),
+  )
+  check('and the dialog closes on the answer', (await page.locator('dialog').count()) === 0)
+
+  // ---- Scenario 16: a REFUSED cancellation is readable where it happened --
+  // 🚩 The one refusal a toast cannot deliver: the modal is a native `showModal()`
+  // dialog, so it and its backdrop sit in the browser's TOP LAYER and a toast raised
+  // behind it is painted under the scrim and unclickable. `AUTH_ALREADY_DISPENSED` is
+  // precisely the code this act meets in the field.
+  scenario.actRefused = true
+  await actButton('0000000004', /^Cancel/).click()
+  await page.waitForTimeout(600)
+  await page.locator('dialog select').selectOption('DUPL')
+  await page.getByRole('button', { name: /^Cancel the authorization$/ }).click()
+  await page.waitForTimeout(1200)
+  check(
+    'a refused cancellation leaves the dialog OPEN rather than closing on a failure',
+    (await page.locator('dialog').count()) === 1,
+  )
+  check(
+    '🚩 and the server’s own message renders INSIDE the dialog, not behind it',
+    /already been dispensed and can no longer be changed/.test(
+      await page.locator('dialog').innerText(),
+    ),
+    (await page.locator('dialog').innerText()).replace(/\n/g, ' ').slice(0, 110),
+  )
+  check(
+    'the reason picker is still there, so the agent can change it or keep the authorization',
+    (await page.locator('dialog select').count()) === 1 &&
+      (await page.getByRole('button', { name: /^Keep it$/ }).count()) === 1,
+  )
+  await page.getByRole('button', { name: /^Keep it$/ }).click()
+  await page.waitForTimeout(500)
+  check('and Keep it closes it without cancelling anything', (await page.locator('dialog').count()) === 0)
+
+  // ---- Scenario 17: an act refusal is a BUSINESS OUTCOME, never a crash ---
+  await actButton('0000000008', /^Status check/).click()
+  await page.waitForTimeout(1200)
+  const refusedAct = await page.locator('body').innerText()
+  check(
+    '🚩 a server refusal renders the server’s OWN message, never "unexpected"',
+    /already been dispensed and can no longer be changed/.test(refusedAct) &&
+      !/unexpected/i.test(refusedAct),
+    (refusedAct.match(/already been dispensed[^\n]*/) || [''])[0],
+  )
+  check(
+    'and the screen is still standing — the rows, the filters and the acts are all there',
+    (await page.getByRole('button', { name: /^Search$/ }).count()) === 1 &&
+      (await page.locator('.ag-row').count()) > 0,
+  )
+  scenario.actRefused = false
+
+  // ---- Scenario 18: a refused read surfaces the server's own message -------
   scenario.listDown = true
   // A DIFFERENT id, deliberately: an identical query is an identical cache key,
   // so re-pressing Search over the same criteria would serve the cached answer
@@ -617,7 +925,7 @@ async function run() {
   )
   scenario.listDown = false
 
-  // ---- Scenario 13: no grant → leaf hidden, in-page backstop --------------
+  // ---- Scenario 19: no grant → leaf hidden, in-page backstop --------------
   scenario.access = { canOpenNphies: false }
   await page.goto(LIST_URL)
   await page.waitForSelector('[role="alert"]', { timeout: 15000 })
@@ -629,8 +937,8 @@ async function run() {
     (await page.getByRole('link', { name: /^Authorizations$/ }).count()) === 0,
   )
 
-  // ---- Scenario 14: an errored probe FAILS CLOSED -------------------------
-  // 🚩 The grant goes back to TRUE first. Without it scenario 13's
+  // ---- Scenario 20: an errored probe FAILS CLOSED -------------------------
+  // 🚩 The grant goes back to TRUE first. Without it scenario 19's
   // `canOpenNphies:false` is still in force and both assertions below would pass
   // with the 500 branch deleted — the path this scenario exists for, untested.
   scenario.access = { canOpenNphies: true }

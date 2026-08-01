@@ -63,7 +63,8 @@
       "request": "Request",
       "verdict": "Verdict",
       "markers": "Markers",
-      "failureReason": "Could not reach the payer"
+      "failureReason": "Could not reach the payer",
+      "acts": "Acts"
     },
     "markers": {
       "none": "Nothing to flag on this authorization.",
@@ -84,8 +85,53 @@
       "readout": "Page {{page}} of {{pages}}"
     }
   },
+  "acts": {
+    "statusCheck": "Status check",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "openRefusal": "Open the refusal",
+    "incomplete": "Some acts could not be listed for this authorization.",
+    "ariaLabel": "{{act}} — {{reason}}",
+    "inFlight": "Asking the exchange: {{act}} on {{reference}}. No other act can be started until this one answers.",
+    "hint": {
+      "statusCheck": "Ask the exchange where this request has got to. The service already polls every 15 seconds — press this when a request has waited longer than it should.",
+      "retry": "Ask again with the same request, and take the newer answer.",
+      "cancel": "Withdraw this authorization with the payer. This cannot be undone.",
+      "openRefusal": "Open what the exchange refused, and build the request again."
+    },
+    "withheld": {
+      "alreadyAnswered": "The payer has already answered this request — there is nothing left to chase or re-ask.",
+      "neverAccepted": "The exchange refused this request before the payer saw it, so asking again with the same details would be refused the same way. Fix the request instead.",
+      "notAnswered": "Nothing has come back from the payer yet, so there is no approval to withdraw.",
+      "dispensed": "This authorization has been dispensed at a till. The service refuses both a retry and a cancellation once it has.",
+      "cancelled": "This authorization has already been cancelled.",
+      "notRefused": "This request was not refused, so there is no refusal to open.",
+      "reopenNotWiredYet": "Reopening a refused request is not available here yet. Use the till application until it is."
+    },
+    "results": {
+      "statusChecked": "The exchange answered the status check.",
+      "statusUnknown": "The exchange did not state a status.",
+      "retried": "The request was asked again.",
+      "retriedNoAnswer": "The retry did not come back with an answer.",
+      "cancelled": "The authorization was cancelled.",
+      "cancelNotConfirmed": "The cancellation was not confirmed by the payer.",
+      "refused": "The act was refused."
+    }
+  },
+  "cancel": {
+    "title": "Cancel this authorization",
+    "body": "Authorization {{reference}} will be withdrawn with the payer. This cannot be undone.",
+    "reason": "Reason",
+    "chooseReason": "Choose a reason…",
+    "noReasons": "No cancellation reasons came back, so this authorization cannot be cancelled here. Try again in a moment.",
+    "reasonRequired": "Choose a reason first — it is sent to the payer with the cancellation.",
+    "confirmHint": "Send the cancellation to the payer.",
+    "confirm": "Cancel the authorization",
+    "back": "Keep it"
+  },
   "errors": {
     "listFailed": "The authorizations could not be loaded.",
-    "providersFailed": "The provider list could not be loaded."
+    "providersFailed": "The provider list could not be loaded.",
+    "reasonsFailed": "The cancellation reasons could not be loaded."
   }
 }

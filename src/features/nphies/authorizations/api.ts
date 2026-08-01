@@ -16,7 +16,14 @@
  * — the same code-complete / runtime-blocked posture 211–213 shipped under.
  */
 import { api } from '@/core/api'
-import type { AuthListRow, NphiesPage } from '@/core/models/nphies'
+import type {
+  AuthCancellationRequest,
+  AuthCancellationResult,
+  AuthListRow,
+  AuthRetryResult,
+  AuthStatusCheckResult,
+  NphiesPage,
+} from '@/core/models/nphies'
 
 export const authorizationsApi = {
   /**
@@ -34,5 +41,50 @@ export const authorizationsApi = {
    */
   list(params: Record<string, unknown>): Promise<NphiesPage<AuthListRow>> {
     return api.get<NphiesPage<AuthListRow>>('Nphies/AuthResponses', params)
+  },
+
+  /**
+   * `POST Nphies/StatusCheck` (§1.1 #7, §3.6) — the manual escalation for a
+   * `Pending` row that has waited too long.
+   *
+   * 🚩 It is **not a poll**. The service's own `PollRequestWorker` sweeps every 15
+   * seconds, so a pending authorization becomes complete on its own; this act is
+   * what an agent presses when it has not. Nothing on this screen sets a
+   * `refetchInterval`.
+   *
+   * `reference` is the authorization **id** — `CancellationService.cs:108` matches
+   * it as `c.Id`, not as the payer's preauth reference.
+   */
+  statusCheck(reference: string): Promise<AuthStatusCheckResult> {
+    return api.post<AuthStatusCheckResult>('Nphies/StatusCheck', { reference })
+  },
+
+  /**
+   * `POST Nphies/Retry` (§1.1 #8, §3.6) — re-POST the stored request payload
+   * verbatim and take the newer answer.
+   *
+   * 🚩 **Offered on `Pending` only** (`row-acts.ts` carries the correction), and
+   * 🚩 **`referenceId` is the only field the browser sends**: `referenceType`,
+   * `staffId` and `storeCode` are the server's (law 7 / §1.3), pinned and stamped
+   * from the session. A body that carried them would be the browser asserting an
+   * identity — SIS.Api overwrites them, and sending them anyway would say this
+   * client believes otherwise.
+   */
+  retry(referenceId: string): Promise<AuthRetryResult> {
+    return api.post<AuthRetryResult>('Nphies/Retry', { referenceId })
+  },
+
+  /**
+   * `POST Nphies/Cancellation` (§1.1 #9, §3.6) — withdraw a completed,
+   * undispensed authorization.
+   *
+   * `claimType` and `staffId` are absent for the retry's reason. What is left is
+   * genuinely the agent's: the row's `reference` and `providerCode`, the chosen
+   * `reasonCode`, and `nullify`, which is always `false` — the upstream refuses a
+   * nullify outright and SIS.Api forwards the flag as asked rather than quietly
+   * downgrading it to an ordinary cancellation.
+   */
+  cancel(body: AuthCancellationRequest): Promise<AuthCancellationResult> {
+    return api.post<AuthCancellationResult>('Nphies/Cancellation', body)
   },
 }

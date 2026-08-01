@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>196 / 202 — Nphies attachments (prototype)</title>
+<style>
+:root{
+  --background:#f4f7fa; --foreground:#19232e; --card:#fff; --card-2:#fafbfc;
+  --muted:#eef2f6; --muted-foreground:#586674; --ink-3:#8593a1;
+  --border:#e3e9f0; --border-strong:#cbd6e2; --divider:#edf1f5;
+  --input:#cbd6e2; --primary:#2f63a6; --primary-050:#e9eff7; --primary-border:#c6d6ec;
+  --primary-800:#27538c; --success:#1e874b; --success-050:#e7f3ec; --success-border:#bfe0cd;
+  --success-800:#155f36; --attention:#b4791f; --attention-050:#f8f0de;
+  --attention-border:#e7d3a3; --attention-800:#7c5410; --danger:#c23b41;
+  --danger-050:#fbecec; --danger-border:#e7bfc1; --danger-800:#8e2a2f;
+  --radius:0.625rem;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);
+  font:14px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;font-weight:600}
+code,.mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:.85em}
+
+/* ---- prototype chrome (NOT part of the design) ---- */
+.proto-bar{position:sticky;top:0;z-index:20;background:#202a34;color:#fff;
+  padding:10px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.proto-bar b{font-weight:600;font-size:13px}
+.proto-bar .note{color:#a9b6c4;font-size:12px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{background:#2c3846;color:#cdd7e1;border:1px solid #3a4756;
+  padding:5px 10px;border-radius:999px;cursor:pointer;font:inherit;font-size:12px}
+.tabs button[aria-selected=true]{background:#fff;color:#19232e;border-color:#fff}
+.screen{display:none;padding:20px;max-width:1080px;margin:0 auto}
+.screen.on{display:block}
+.why{background:var(--primary-050);border:1px solid var(--primary-border);
+  border-inline-start:3px solid var(--primary);border-radius:var(--radius);
+  padding:10px 14px;margin-bottom:16px;font-size:13px;color:var(--primary-800)}
+
+/* ---- app furniture ---- */
+.route{font-size:12px;color:var(--ink-3);margin-bottom:6px}
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;
+  gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.pagehead h2{font-size:20px}
+.card{background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);margin-bottom:16px}
+.card>header{padding:10px 14px;border-bottom:1px solid var(--divider);
+  font-weight:600;font-size:13px;display:flex;justify-content:space-between;
+  align-items:center;gap:10px}
+.card>.body{padding:14px}
+label.f>span{display:block;font-size:12px;color:var(--muted-foreground);margin-bottom:4px}
+label.f>span .req{color:var(--danger)}
+.inp{width:100%;padding:7px 10px;border:1px solid var(--input);border-radius:8px;
+  background:#fff;font:inherit;font-size:13px}
+.btn{padding:7px 13px;border-radius:999px;border:1px solid var(--border-strong);
+  background:var(--card);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.sm{padding:4px 10px;font-size:12px}
+.btn.dgr{background:var(--card);border-color:var(--danger-border);color:var(--danger-800)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:end}
+.hint{font-size:12px;color:var(--ink-3)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;
+  font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.p-ok{background:var(--success-050);color:var(--success-800);border-color:var(--success-border)}
+.p-warn{background:var(--attention-050);color:var(--attention-800);border-color:var(--attention-border)}
+.p-bad{background:var(--danger-050);color:var(--danger-800);border-color:var(--danger-border)}
+.p-neu{background:var(--muted);color:var(--muted-foreground);border-color:var(--border-strong)}
+.banner{border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:13px;border:1px solid}
+.b-bad{background:var(--danger-050);border-color:var(--danger-border);color:var(--danger-800)}
+.b-warn{background:var(--attention-050);border-color:var(--attention-border);color:var(--attention-800)}
+.b-ok{background:var(--success-050);border-color:var(--success-border);color:var(--success-800)}
+
+/* ---- the attachment block itself ---- */
+.addrow{display:grid;grid-template-columns:minmax(180px,240px) auto 1fr;gap:10px;
+  align-items:end;padding:12px;background:var(--muted);border-radius:10px}
+.att{display:grid;grid-template-columns:56px 1fr auto;gap:12px;align-items:center;
+  padding:10px 12px;border:1px solid var(--border);border-radius:10px;
+  background:var(--card-2);margin-top:10px}
+.thumb{width:56px;height:56px;border-radius:8px;border:1px solid var(--border-strong);
+  background:#fff;object-fit:cover;display:block;cursor:zoom-in}
+.thumb.pdf{display:flex;align-items:center;justify-content:center;font-size:11px;
+  font-weight:600;color:var(--danger-800);background:var(--danger-050);
+  border-color:var(--danger-border);cursor:pointer}
+.att .meta{min-width:0}
+.att .t{font-weight:600;font-size:13px}
+.att .s{font-size:12px;color:var(--muted-foreground);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.att .acts{display:flex;gap:6px}
+.empty{border:1px dashed var(--border-strong);border-radius:10px;padding:18px;
+  text-align:center;color:var(--ink-3);font-size:13px;margin-top:10px}
+.tot{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px;
+  padding-top:10px;border-top:1px solid var(--divider);font-size:12px;
+  color:var(--muted-foreground)}
+.meter{flex:1;min-width:140px;height:6px;border-radius:999px;background:var(--muted);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--success);transition:width .2s}
+.meter.warn i{background:var(--attention)} .meter.bad i{background:var(--danger)}
+
+/* lightbox */
+.lb{position:fixed;inset:0;background:rgba(25,35,46,.72);display:none;
+  align-items:center;justify-content:center;z-index:40;padding:24px}
+.lb.on{display:flex}
+.lb .box{background:#fff;border-radius:var(--radius);max-width:900px;width:100%;
+  max-height:100%;display:flex;flex-direction:column;overflow:hidden}
+.lb header{padding:10px 14px;border-bottom:1px solid var(--divider);
+  display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:13px}
+.lb .pane{padding:14px;overflow:auto;background:var(--muted);text-align:center}
+.lb img{max-width:100%;border-radius:8px;background:#fff}
+.lb iframe{width:100%;height:70vh;border:0;border-radius:8px;background:#fff}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:start;font-weight:600;font-size:12px;color:var(--muted-foreground);
+  padding:8px 10px;border-bottom:1px solid var(--border-strong)}
+td{padding:8px 10px;border-bottom:1px solid var(--divider);vertical-align:top}
+ul.tight{margin:6px 0 0;padding-inline-start:18px} ul.tight li{margin:3px 0}
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <b>196 / 202 — Attachments in a browser</b>
+  <div class="tabs" id="tabs">
+    <button aria-selected="true" data-t="form">Auth form — the block</button>
+    <button aria-selected="false" data-t="detail">Detail — what was sent</button>
+    <button aria-selected="false" data-t="rules">The rules</button>
+  </div>
+  <span class="note">Working prototype — pick a real file; the downscale and the base64 size are real.</span>
+</div>
+
+<!-- ========================= FORM ========================= -->
+<section class="screen on" id="s-form">
+  <div class="route">/nphies/authorizations/new?from=ELG-88214</div>
+  <div class="pagehead">
+    <h2>New authorization</h2>
+    <div class="bar"><button class="btn">Clinical edit</button><button class="btn pri" id="submitBtn" disabled>Submit</button></div>
+  </div>
+
+  <div class="why">
+    <b>Why this shape.</b> The type dropdown is gone — the file's own MIME says image or PDF, so
+    WPF's "pick a type, then get a filter" becomes "pick a file". The title becomes a
+    <b>fixed select</b>. Images are <b>downscaled and re-encoded to JPEG</b> in the browser, which
+    also makes the service's hardcoded <code>image/jpeg</code> content type true instead of a lie.
+  </div>
+
+  <div class="banner b-bad" id="mandatory">
+    <b>At least one attachment is required.</b> NPHIES refuses a prior authorization with none
+    (<code>GeneralValidation()</code>, <code>NphiesAuthRequestController.cs:1319</code>) — so this
+    is a form state, not a submit-time surprise.
+  </div>
+
+  <div class="card">
+    <header>
+      <span>Attachments <span class="pill p-bad" id="cntPill">none</span></span>
+      <span class="hint">JPEG · PNG · PDF</span>
+    </header>
+    <div class="body">
+      <div class="addrow">
+        <label class="f"><span>Document <span class="req">*</span></span>
+          <select class="inp" id="title">
+            <option value="Id">National ID / Iqama</option>
+            <option value="Prescription">Prescription</option>
+            <option value="Medical report">Medical report</option>
+            <option value="Lab result">Lab result</option>
+            <option value="Radiology report">Radiology report</option>
+            <option value="Insurance card">Insurance card</option>
+            <option value="Referral letter">Referral letter</option>
+          </select>
+        </label>
+        <div>
+          <button class="btn pri" id="pick">Choose file…</button>
+          <input type="file" id="file" accept="image/jpeg,image/png,application/pdf" hidden>
+        </div>
+        <div class="hint" id="pickHint">The same title may be used twice — two prescriptions are two
+          prescriptions. <code>Sequence</code> already distinguishes the rows on the wire.</div>
+      </div>
+
+      <div id="list"></div>
+      <div class="empty" id="empty">Nothing attached yet.</div>
+
+      <div class="tot">
+        <span>Request payload</span>
+        <span class="mono" id="totText">0 KB</span>
+        <span class="meter" id="meter"><i style="width:0"></i></span>
+        <span id="totNote">of a ~28.6 MB per-hop default ceiling</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <header>What actually goes on the wire</header>
+    <div class="body">
+      <pre class="mono" id="wire" style="margin:0;white-space:pre-wrap;font-size:12px;color:var(--muted-foreground)">"supportingInfos": []</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= DETAIL ========================= -->
+<section class="screen" id="s-detail">
+  <div class="route">/nphies/authorizations/AUT-44190</div>
+  <div class="pagehead"><h2>Authorization AUT-44190</h2>
+    <div class="bar"><span class="pill p-ok">Complete</span><span class="pill p-warn">Partial</span></div></div>
+
+  <div class="why">
+    <b>Free, and it needs no endpoint.</b> <code>AuthSupportingInfoDto.Attachment</code> is mapped
+    straight through (<code>AuthMapper.cs:28</code>), so <code>auth/AuthResponse/{id}</code> already
+    returns the base64. An agent chasing a rejection can see what the payer was actually sent —
+    without opening WPF.
+  </div>
+
+  <div class="card">
+    <header><span>Attachments <span class="pill p-neu">3</span></span><span class="hint">as submitted, 2026-07-28 11:04</span></header>
+    <div class="body">
+      <div class="att">
+        <div class="thumb pdf" onclick="alert('opens the PDF in the viewer')">PDF</div>
+        <div class="meta"><div class="t">Prescription</div>
+          <div class="s mono">application/pdf · 412 KB</div></div>
+        <div class="acts"><button class="btn sm">Open</button></div>
+      </div>
+      <div class="att">
+        <div class="thumb" style="background:linear-gradient(135deg,#dfe7f0,#c6d6ec)"></div>
+        <div class="meta"><div class="t">National ID / Iqama</div>
+          <div class="s mono">image/jpeg · 188 KB</div></div>
+        <div class="acts"><button class="btn sm">Open</button></div>
+      </div>
+      <div class="att">
+        <div class="thumb" style="background:linear-gradient(135deg,#e7f0f2,#bfe0cd)"></div>
+        <div class="meta"><div class="t">Medical report</div>
+          <div class="s mono">image/jpeg · 240 KB</div></div>
+        <div class="acts"><button class="btn sm">Open</button></div>
+      </div>
+      <div class="tot"><span>Detail response carried</span><span class="mono">840 KB of base64</span>
+        <span>— the cost of showing them is zero; the cost of <i>fetching</i> them is not.</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= RULES ========================= -->
+<section class="screen" id="s-rules">
+  <div class="why"><b>The rulings this prototype encodes</b>, each traced to source or to the
+    requester. Reject any of them and the block above changes.</div>
+  <div class="card"><div class="body" style="padding:0">
+  <table>
+    <thead><tr><th style="width:170px">Ruling</th><th>What and why</th></tr></thead>
+    <tbody>
+      <tr><td><b>File picker only</b></td>
+        <td>No camera capture. Both audiences already have the file on disk — back-office scans it,
+          the call-centre agent receives it before they can attach it. Camera is a v1+ item if agents ask.</td></tr>
+      <tr><td><b>No type dropdown</b></td>
+        <td>WPF makes you pick <code>image</code>/<code>pdf</code> to get a file filter
+          (<code>:1141-1154</code>). The browser reads the MIME and derives <code>AttachmentType</code>.
+          One control disappears — the same dissolution 199/200/203 kept finding.</td></tr>
+      <tr><td><b>Downscale + JPEG</b></td>
+        <td>Images canvas-downscaled to max 2000px edge at q0.85, then base64. WPF re-encodes in the
+          <i>original</i> format (<code>NphiesHelpers.cs:15</code>) so a 6 MB phone photo goes to the
+          exchange whole. Side effect: PNG becomes real JPEG, so
+          <code>ContentType = "image/jpeg"</code> (<code>Extensions.cs:725</code>) stops lying.</td></tr>
+      <tr><td><b>PDF untouched, capped</b></td>
+        <td>Nothing to downscale. Refused over 5 MB with a "re-scan smaller" message, at the picker.</td></tr>
+      <tr><td><b>Fixed title select</b></td>
+        <td>Seven values, no free text. WPF's free-text default <code>"Id"</code> reaches the payer
+          verbatim; a typo is a data-quality defect at a national exchange. The value sent stays the
+          English string (<code>"Id"</code> keeps WPF's wire value).</td></tr>
+      <tr><td><b>Duplicates allowed</b></td>
+        <td>Two prescriptions are two prescriptions. <code>Sequence</code> already makes each
+          supporting-info row distinct (<code>AuthService.cs:332</code>), so nothing downstream
+          collides — unlike 208's duplicate <i>item</i>, which really does.</td></tr>
+      <tr><td><b>Preview + remove</b></td>
+        <td>Thumbnail from the same data URL that will be sent — WPF's separate
+          <code>NphiesImageViewerController</code> window becomes an inline lightbox.</td></tr>
+      <tr><td><b>Detail shows them</b></td>
+        <td>Thumbnails, click to open, read-only. No new endpoint, no server change.</td></tr>
+      <tr><td><b>No size cap exists</b></td>
+        <td>No <code>MaxRequestBodySize</code>, no <code>RequestSizeLimit</code>, no
+          <code>maxAllowedContentLength</code> in NphiesService or SIS.Api; the DB column is
+          <code>Length(4002)</code> = <code>NVARCHAR(MAX)</code>. The ~28.6 MB shown is the
+          <i>un-configured default</i>, not a decision anyone took. NPHIES's own limit is unverified.</td></tr>
+    </tbody>
+  </table>
+  </div></div>
+</section>
+
+<div class="lb" id="lb"><div class="box">
+  <header><span id="lbTitle">Attachment</span><button class="btn sm" onclick="closeLb()">Close</button></header>
+  <div class="pane" id="lbPane"></div>
+</div></div>
+
+<script>
+const MAX_EDGE = 2000, JPEG_Q = 0.85, PDF_CAP = 5*1024*1024, CEIL = 28.6*1024*1024;
+const items = [];
+
+document.getElementById('tabs').onclick = e => {
+  const b = e.target.closest('button'); if(!b) return;
+  [...document.querySelectorAll('#tabs button')].forEach(x=>x.setAttribute('aria-selected', x===b));
+  ['form','detail','rules'].forEach(t=>document.getElementById('s-'+t).classList.toggle('on', t===b.dataset.t));
+};
+
+const $ = s => document.querySelector(s);
+$('#pick').onclick = () => $('#file').click();
+$('#file').onchange = async e => {
+  const f = e.target.files[0]; e.target.value=''; if(!f) return;
+  const title = $('#title').value, titleText = $('#title').selectedOptions[0].textContent;
+  let out;
+  if (f.type === 'application/pdf') {
+    if (f.size > PDF_CAP) { alert('This PDF is ' + kb(f.size) + '. The limit is 5 MB — please re-scan it at a lower resolution.'); return; }
+    out = { type:'pdf', mime:'application/pdf', dataUrl: await readDataUrl(f), origin:f.size };
+  } else {
+    out = await downscale(f);
+  }
+  const b64 = out.dataUrl.split(',')[1];
+  items.push({ title, titleText, name:f.name, type:out.type, mime:out.mime,
+               dataUrl:out.dataUrl, origin:out.origin, bytes:b64.length });
+  render();
+};
+
+function readDataUrl(f){ return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(f);}); }
+
+async function downscale(f){
+  const url = await readDataUrl(f);
+  const img = await new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.src=url;});
+  const scale = Math.min(1, MAX_EDGE/Math.max(img.width,img.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  return { type:'image', mime:'image/jpeg', dataUrl:c.toDataURL('image/jpeg',JPEG_Q),
+           origin:f.size, dims:c.width+'×'+c.height, was:img.width+'×'+img.height };
+}
+
+function kb(n){ return !n ? '0 KB'
+  : n>=1024*1024 ? (n/1048576).toFixed(1)+' MB' : Math.max(1,Math.round(n/1024))+' KB'; }
+
+function render(){
+  const list = $('#list'); list.innerHTML='';
+  items.forEach((it,i)=>{
+    const el = document.createElement('div'); el.className='att';
+    const thumb = it.type==='pdf'
+      ? `<div class="thumb pdf" data-i="${i}">PDF</div>`
+      : `<img class="thumb" src="${it.dataUrl}" data-i="${i}" alt="">`;
+    el.innerHTML = thumb +
+      `<div class="meta"><div class="t">${it.titleText}</div>
+         <div class="s mono">${it.name} · ${kb(it.origin)} → ${kb(it.bytes)} base64</div></div>
+       <div class="acts"><button class="btn sm" data-v="${i}">View</button>
+         <button class="btn sm dgr" data-r="${i}">Remove</button></div>`;
+    list.appendChild(el);
+  });
+  list.onclick = e => {
+    const t = e.target;
+    if (t.dataset.r !== undefined) { items.splice(+t.dataset.r,1); render(); }
+    else if (t.dataset.v !== undefined || t.dataset.i !== undefined)
+      openLb(items[+(t.dataset.v ?? t.dataset.i)]);
+  };
+  const total = items.reduce((s,i)=>s+i.bytes,0);
+  $('#empty').style.display = items.length ? 'none' : 'block';
+  $('#totText').textContent = kb(total);
+  const pct = Math.min(100, total/CEIL*100);
+  const m = $('#meter'); m.className = 'meter' + (pct>75?' bad':pct>40?' warn':'');
+  m.firstElementChild.style.width = (items.length ? Math.max(pct,1) : 0)+'%';
+  $('#cntPill').textContent = items.length ? items.length + (items.length>1?' files':' file') : 'none';
+  $('#cntPill').className = 'pill ' + (items.length ? 'p-ok' : 'p-bad');
+  $('#mandatory').style.display = items.length ? 'none' : 'block';
+  $('#submitBtn').disabled = !items.length;
+  $('#wire').textContent = '"supportingInfos": ' + JSON.stringify(
+    items.map((it,n)=>({ sequence:n+1, category:'attachment', attachmentTitle:it.title,
+      attachmentType:it.type, attachment:'<base64, '+kb(it.bytes)+'>' })), null, 2);
+}
+
+function openLb(it){
+  $('#lbTitle').textContent = it.titleText + ' — ' + it.name;
+  $('#lbPane').innerHTML = it.type==='pdf'
+    ? `<iframe src="${it.dataUrl}"></iframe>` : `<img src="${it.dataUrl}" alt="">`;
+  $('#lb').classList.add('on');
+}
+function closeLb(){ $('#lb').classList.remove('on'); $('#lbPane').innerHTML=''; }
+$('#lb').onclick = e => { if(e.target.id==='lb') closeLb(); };
+render();
+</script>
+</body>
+</html>

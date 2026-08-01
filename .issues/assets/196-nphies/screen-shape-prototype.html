@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>196 / 203 — Nphies screen shape (prototype)</title>
+<style>
+:root{
+  --background:#f4f7fa; --foreground:#19232e; --card:#fff; --card-2:#fafbfc;
+  --muted:#eef2f6; --muted-foreground:#586674; --ink-3:#8593a1;
+  --accent:#e4eaf1; --border:#e3e9f0; --border-strong:#cbd6e2; --divider:#edf1f5;
+  --input:#cbd6e2; --primary:#2f63a6; --primary-050:#e9eff7; --primary-border:#c6d6ec;
+  --primary-800:#27538c; --success:#1e874b; --success-050:#e7f3ec; --success-border:#bfe0cd;
+  --success-800:#155f36; --attention:#b4791f; --attention-050:#f8f0de;
+  --attention-border:#e7d3a3; --attention-800:#7c5410; --danger:#c23b41;
+  --danger-050:#fbecec; --danger-border:#e7bfc1; --danger-800:#8e2a2f;
+  --prescription:#0b7c8c; --prescription-050:#e3f0f2; --prescription-800:#085c68;
+  --radius:0.625rem;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--background);color:var(--foreground);
+  font:14px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;font-weight:600}
+code,.mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:.85em}
+
+/* ---- prototype chrome (NOT part of the design) ---- */
+.proto-bar{position:sticky;top:0;z-index:20;background:#202a34;color:#fff;
+  padding:10px 16px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.proto-bar b{font-weight:600;font-size:13px;letter-spacing:.01em}
+.proto-bar .note{color:#a9b6c4;font-size:12px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tabs button{background:#2c3846;color:#cdd7e1;border:1px solid #3a4756;
+  padding:5px 10px;border-radius:999px;cursor:pointer;font:inherit;font-size:12px}
+.tabs button[aria-selected=true]{background:#fff;color:#19232e;border-color:#fff}
+.screen{display:none;padding:20px;max-width:1180px;margin:0 auto}
+.screen.on{display:block}
+.why{background:var(--primary-050);border:1px solid var(--primary-border);
+  border-inline-start:3px solid var(--primary);border-radius:var(--radius);
+  padding:10px 14px;margin-bottom:16px;font-size:13px;color:var(--primary-800)}
+.why b{color:var(--primary-800)}
+
+/* ---- app furniture ---- */
+.route{font-size:12px;color:var(--ink-3);margin-bottom:6px}
+.pagehead{display:flex;align-items:flex-end;justify-content:space-between;
+  gap:16px;margin-bottom:14px;flex-wrap:wrap}
+.pagehead h2{font-size:20px}
+.card{background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);margin-bottom:16px}
+.card>header{padding:10px 14px;border-bottom:1px solid var(--divider);
+  font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.card>.body{padding:14px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label.f{display:block}
+label.f>span{display:block;font-size:12px;color:var(--muted-foreground);margin-bottom:4px}
+label.f>span .req{color:var(--danger)}
+.inp{width:100%;padding:7px 10px;border:1px solid var(--input);border-radius:8px;
+  background:#fff;font:inherit;font-size:13px}
+.inp[disabled]{background:var(--muted);color:var(--muted-foreground)}
+.ro{padding:7px 10px;border:1px dashed var(--border-strong);border-radius:8px;
+  background:var(--card-2);font-size:13px;color:var(--foreground)}
+.btn{padding:7px 13px;border-radius:999px;border:1px solid var(--border-strong);
+  background:var(--card);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.dgr{background:var(--card);border-color:var(--danger-border);color:var(--danger-800)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.hint{font-size:12px;color:var(--ink-3)}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:start;font-weight:600;font-size:12px;color:var(--muted-foreground);
+  padding:8px 10px;border-bottom:1px solid var(--border-strong);white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--divider);vertical-align:middle}
+tbody tr.sel{background:var(--primary-050)}
+.num{text-align:end;font-variant-numeric:tabular-nums}
+
+.pill{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;
+  font-size:12px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.p-ok{background:var(--success-050);color:var(--success-800);border-color:var(--success-border)}
+.p-warn{background:var(--attention-050);color:var(--attention-800);border-color:var(--attention-border)}
+.p-bad{background:var(--danger-050);color:var(--danger-800);border-color:var(--danger-border)}
+.p-neu{background:var(--muted);color:var(--muted-foreground);border-color:var(--border-strong)}
+.p-inf{background:var(--primary-050);color:var(--primary-800);border-color:var(--primary-border)}
+.marker{display:inline-flex;align-items:center;gap:4px;font-size:11px;
+  color:var(--prescription-800);background:var(--prescription-050);
+  border:1px solid var(--prescription);border-radius:999px;padding:1px 7px}
+.dash{color:var(--ink-3)}
+
+.chips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+  border:1px solid var(--primary-border);background:var(--primary-050);
+  color:var(--primary-800);font-size:12px}
+.chip .x{cursor:pointer;opacity:.6}
+.chip.add{background:var(--card);border-color:var(--border-strong);color:var(--muted-foreground);border-style:dashed}
+
+.banner{border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;font-size:13px;
+  border:1px solid}
+.b-bad{background:var(--danger-050);border-color:var(--danger-border);color:var(--danger-800)}
+.b-warn{background:var(--attention-050);border-color:var(--attention-border);color:var(--attention-800)}
+.b-ok{background:var(--success-050);border-color:var(--success-border);color:var(--success-800)}
+.banner ul{margin:8px 0 0;padding-inline-start:20px}
+.banner li{margin:3px 0}
+
+.cov{border:1px solid var(--border);border-radius:10px;padding:10px 12px;
+  display:flex;gap:12px;align-items:flex-start;background:var(--card-2);margin-bottom:8px}
+.cov.pick{border-color:var(--primary);background:var(--primary-050)}
+.cov dl{margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+  gap:6px 14px;flex:1}
+.cov dt{font-size:11px;color:var(--ink-3)}
+.cov dd{margin:0;font-size:13px}
+
+.subrow{display:grid;grid-template-columns:150px 1fr 90px auto;gap:8px;align-items:end;
+  padding:10px;background:var(--muted);border-radius:10px;margin-bottom:10px}
+.ta{position:relative}
+.menu{position:absolute;inset-inline:0;top:calc(100% + 4px);background:#fff;
+  border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 24px rgba(25,35,46,.12);
+  z-index:5;overflow:hidden}
+.menu div{padding:7px 10px;font-size:13px;border-bottom:1px solid var(--divider)}
+.menu div:last-child{border-bottom:0}
+.menu div.hl{background:var(--primary-050)}
+
+.modal{border:1px solid var(--border-strong);border-radius:14px;background:#fff;
+  box-shadow:0 18px 50px rgba(25,35,46,.18);max-width:560px;margin:0 auto}
+.modal header{padding:14px 16px;border-bottom:1px solid var(--divider);font-weight:600}
+.modal .body{padding:16px}
+.modal footer{padding:12px 16px;border-top:1px solid var(--divider);display:flex;
+  justify-content:flex-end;gap:8px}
+.scrim{background:rgba(25,35,46,.35);padding:32px 16px;border-radius:var(--radius)}
+.totals{display:flex;gap:22px;justify-content:flex-end;padding:10px 14px;
+  border-top:1px solid var(--border-strong);font-size:13px}
+.totals b{font-variant-numeric:tabular-nums}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--primary-border);
+  border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite;
+  vertical-align:-1px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.legend{font-size:12px;color:var(--muted-foreground);margin-top:6px}
+</style>
+</head>
+<body>
+
+<div class="proto-bar">
+  <b>196 / 203 — Nphies screen shape</b>
+  <span class="note">rough prototype · react to the arrangement, not the pixels</span>
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<!-- ================= 1. ELIGIBILITY LIST ================= -->
+<section class="screen on" id="s1">
+  <div class="why"><b>Two lists, not four modals.</b> This is the entry point an agent lands on.
+    The date window is a <i>removable chip</i>, not an invisible default — it exists because the
+    service's list call is <code>Take(20000)</code> with no ordering (198), and a silently
+    truncated list would read as "that's everything".</div>
+
+  <div class="route">/nphies/eligibility</div>
+  <div class="pagehead">
+    <h2>Eligibility checks</h2>
+    <div class="bar">
+      <span class="hint">loaded 14:32:07</span>
+      <button class="btn">↻ Refresh</button>
+      <button class="btn pri">New check</button>
+    </div>
+  </div>
+
+  <div class="chips">
+    <span class="chip">Last 7 days <span class="x">✕</span></span>
+    <span class="chip">Provider: all <span class="x">✕</span></span>
+    <span class="chip add">+ patient id</span>
+    <span class="chip add">+ payer</span>
+    <span class="chip add">+ status</span>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr>
+        <th>Checked</th><th>Purpose</th><th>Payer</th><th>Provider</th>
+        <th>Patient id</th><th>Patient</th><th>Request</th><th>Verdict</th><th></th>
+      </tr></thead>
+      <tbody>
+        <tr class="sel">
+          <td class="mono">30 Jul 14:21</td><td>Benefits</td><td>BUPA</td><td class="mono">P-0031</td>
+          <td class="mono">1012345678</td><td>Ahmed A. Al-Harbi</td>
+          <td><span class="pill p-neu">Complete</span></td>
+          <td><span class="pill p-ok">Eligible</span></td>
+          <td><button class="btn">Open</button></td>
+        </tr>
+        <tr>
+          <td class="mono">30 Jul 11:04</td><td>Validation</td><td>TAWUNIYA</td><td class="mono">P-0031</td>
+          <td class="mono">2044556677</td><td>Sara M. Otaibi</td>
+          <td><span class="pill p-neu">Complete</span></td>
+          <td><span class="pill p-warn">Not in force</span></td>
+          <td><button class="btn">Open</button></td>
+        </tr>
+        <tr>
+          <td class="mono">29 Jul 16:58</td><td>Benefits</td><td>MEDGULF</td><td class="mono">P-0104</td>
+          <td class="mono">1099887766</td><td>Khalid R. Zahrani</td>
+          <td><span class="pill p-bad">Failed</span></td>
+          <td class="dash">—</td>
+          <td><button class="btn">Open</button></td>
+        </tr>
+        <tr>
+          <td class="mono">29 Jul 09:12</td><td>Benefits</td><td>BUPA</td><td class="mono">P-0031</td>
+          <td class="mono">1055443322</td><td>Nouf S. Qahtani</td>
+          <td><span class="pill p-neu">Complete</span></td>
+          <td><span class="pill p-bad">Not eligible</span></td>
+          <td><button class="btn">Open</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="totals"><span class="hint">247 checks · newest first · page 1 of 5</span></div>
+  </div>
+  <p class="legend"><b>Two status columns</b> (201): <b>Request</b> = did we get an answer ·
+    <b>Verdict</b> = what they said, blank until Complete.</p>
+</section>
+
+<!-- ================= 2. ELIGIBILITY FORM ================= -->
+<section class="screen" id="s2">
+  <div class="why"><b>The check form and its answer on one page.</b> WPF opened this as a modal over
+    the list and grew the response inside it; here it is a route, so a half-filled check survives a
+    refresh and can be linked to. <b>Provider is the only place a provider is ever picked</b> (200):
+    no default, no memory, submit blocked until chosen.</div>
+
+  <div class="route">/nphies/eligibility/new</div>
+  <div class="pagehead"><h2>New eligibility check</h2>
+    <div class="bar"><button class="btn">Cancel</button>
+      <button class="btn pri">Check eligibility</button></div></div>
+
+  <div class="card">
+    <header>Request</header>
+    <div class="body">
+      <div class="grid3" style="margin-bottom:12px">
+        <label class="f"><span>Provider <span class="req">*</span></span>
+          <select class="inp"><option>— choose a provider —</option><option>P-0031 · Al-Dawaa Olaya</option></select></label>
+        <label class="f"><span>Payer <span class="req">*</span></span>
+          <select class="inp"><option>BUPA</option><option>TAWUNIYA</option></select></label>
+        <label class="f"><span>Purpose</span>
+          <select class="inp"><option>Benefits</option><option>Validation</option></select></label>
+      </div>
+      <div class="grid3" style="margin-bottom:12px">
+        <label class="f"><span>Id type</span><select class="inp"><option>National ID</option><option>Iqama</option></select></label>
+        <label class="f"><span>Patient id <span class="req">*</span></span>
+          <div style="display:flex;gap:6px"><input class="inp mono" value="1012345678">
+            <button class="btn" title="Prefill from this patient's last check">Fill</button></div></label>
+        <label class="f"><span>Member id</span><input class="inp mono" value="M-77-88421"></label>
+      </div>
+      <div class="grid2" style="margin-bottom:12px">
+        <label class="f"><span>Patient name</span><input class="inp" value="Ahmed A. Al-Harbi"></label>
+        <label class="f"><span>Birth date</span><input class="inp" value="1984-03-11"></label>
+      </div>
+      <div class="grid3" style="margin-bottom:12px">
+        <label class="f"><span>Gender</span><select class="inp"><option>Male</option><option>Female</option></select></label>
+        <label class="f"><span>Marital status</span><select class="inp"><option>Married</option></select></label>
+        <label class="f"><span>Occupation</span><select class="inp"><option>Employed</option></select></label>
+      </div>
+      <div class="bar">
+        <label><input type="checkbox"> Transfer (referral)</label>
+        <label style="margin-inline-start:14px"><input type="checkbox"> Newborn</label>
+        <label style="margin-inline-start:14px"><input type="checkbox"> Exception prescription</label>
+      </div>
+      <p class="legend"><b>Fill</b> replaces WPF's "check with reference" (199): it works from a cold
+        form, not only from a selected row.</p>
+    </div>
+  </div>
+
+  <div class="banner b-ok"><b>Eligible.</b> Disposition: <i>Coverage is active for the requested
+    period.</i> · Site eligibility: <i>Eligible</i></div>
+
+  <div class="card">
+    <header>Coverages <span class="hint">2 returned — pick one to raise an authorization</span></header>
+    <div class="body">
+      <div class="cov pick">
+        <input type="radio" name="cov" checked style="margin-top:4px">
+        <dl>
+          <dt>Member id</dt><dd class="mono">M-77-88421</dd>
+          <dt>In force</dt><dd><span class="pill p-ok">Yes</span></dd>
+          <dt>Network</dt><dd>VIP</dd>
+          <dt>Plan (policy)</dt><dd>BUPA-GOLD-2026</dd>
+          <dt>Class</dt><dd>A</dd>
+          <dt>Policy holder</dt><dd>ARAMCO</dd>
+        </dl>
+      </div>
+      <div class="cov">
+        <input type="radio" name="cov" style="margin-top:4px">
+        <dl>
+          <dt>Member id</dt><dd class="mono">M-77-99010</dd>
+          <dt>In force</dt><dd><span class="pill p-warn">No</span></dd>
+          <dt>Network</dt><dd>Standard</dd>
+          <dt>Plan (policy)</dt><dd>BUPA-SILVER-2025</dd>
+          <dt>Class</dt><dd>C</dd>
+          <dt>Policy holder</dt><dd>ARAMCO</dd>
+        </dl>
+      </div>
+      <p class="legend">One coverage auto-selects silently; two or more force an explicit pick with
+        no default (201).</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <header>Benefits</header>
+    <div class="body">
+      <table>
+        <thead><tr><th>Code</th><th>Value</th><th>Currency</th><th>Type</th></tr></thead>
+        <tbody>
+          <tr><td>Annual limit</td><td class="num">500,000.00</td><td>SAR</td><td>money</td></tr>
+          <tr><td>Pharmacy copay</td><td class="num">20</td><td>—</td><td>percent</td></tr>
+          <tr><td>Deductible G1</td><td class="num">50.00</td><td>SAR</td><td>money</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bar" style="justify-content:flex-end">
+    <button class="btn pri">Raise authorization →</button>
+  </div>
+  <p class="legend" style="text-align:end">Navigates to
+    <code>/nphies/authorizations/new?from=8842&amp;coverage=M-77-88421</code> — the seam is a route
+    transition carrying an id, so it works equally from a check run just now and one picked off the
+    list next Tuesday.</p>
+</section>
+
+<!-- ================= 3. AUTH FORM ================= -->
+<section class="screen" id="s3">
+  <div class="why"><b>One scrolling form, no modal chain.</b> The patient block is inherited
+    read-only from the referenced eligibility — v1 is <code>WithReferenceToEligibility</code> only
+    (199), so there is nothing to type and nothing to mistype. The item grid is the piece WPF never
+    had: it read the live POS basket instead.</div>
+
+  <div class="route">/nphies/authorizations/new?from=8842&amp;coverage=M-77-88421</div>
+  <div class="pagehead"><h2>New authorization</h2>
+    <div class="bar"><button class="btn">Cancel</button>
+      <button class="btn pri">Validate &amp; submit</button></div></div>
+
+  <div class="card">
+    <header>Patient
+      <span class="pill p-inf">inherited from eligibility 8842 · 30 Jul 14:21</span></header>
+    <div class="body">
+      <div class="grid3" style="margin-bottom:10px">
+        <label class="f"><span>Patient id</span><div class="ro mono">1012345678</div></label>
+        <label class="f"><span>Member id</span><div class="ro mono">M-77-88421</div></label>
+        <label class="f"><span>Patient name</span><div class="ro">Ahmed A. Al-Harbi</div></label>
+      </div>
+      <div class="grid3" style="margin-bottom:10px">
+        <label class="f"><span>Payer</span><div class="ro">BUPA</div></label>
+        <label class="f"><span>Provider</span><div class="ro mono">P-0031 · Al-Dawaa Olaya</div></label>
+        <label class="f"><span>Policy</span><div class="ro">BUPA-GOLD-2026 · A · VIP</div></label>
+      </div>
+      <div class="grid3">
+        <label class="f"><span>Gender</span><div class="ro">Male</div></label>
+        <label class="f"><span>Birth date</span><div class="ro">1984-03-11</div></label>
+        <label class="f"><span>Policy period</span><div class="ro">2026-01-01 → 2026-12-31</div></label>
+      </div>
+      <p class="legend">Every field here is a <i>displayed value</i>, not a disabled control — a
+        disabled combo holding null is exactly the WPF trap 200 removed.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <header>Deductible rates
+      <span class="pill p-inf">from coverage M-77-88421 — known before any item exists</span></header>
+    <div class="body">
+      <div class="grid3">
+        <label class="f"><span>G1 · generic (cat 66)</span><div class="ro">10% · cap 100.00</div></label>
+        <label class="f"><span>G2 · brand (cat 57)</span><div class="ro">20% · cap 300.00</div></label>
+        <label class="f"><span>G3 · policy copay</span><div class="ro">20% · cap 500.00</div></label>
+      </div>
+      <p class="legend"><code>UpdateDeductible(coverage, request)</code> never touches the items —
+        it writes these header buckets off the coverage. They arrive with the
+        <code>?from=</code> seam, not with the picker, and they are what make each line's
+        deductible below <i>explainable</i> instead of merely displayed.
+        <b>The caps bind across the request</b> (hence <code>DeductibleG1/2/3Paid</code>), so adding
+        or re-quantifying one line can move the money on another — whether that means a per-line or
+        a whole-basket pricing call is <b>205</b>'s contract question, not a layout one.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <header>Encounter</header>
+    <div class="body">
+      <div class="grid3" style="margin-bottom:12px">
+        <label class="f"><span>Service date</span><input class="inp" value="2026-07-31"></label>
+        <label class="f"><span>Visit reason</span><select class="inp"><option>New visit</option><option>Follow-up visit</option></select></label>
+        <label class="f"><span>Days supply</span><input class="inp" value="30"></label>
+      </div>
+      <div class="grid2">
+        <label class="f"><span>Prescription ref</span><input class="inp mono" value="RX-2026-118842"></label>
+        <label class="f"><span>Chief complaint</span><input class="inp" value="Hypertension follow-up"></label>
+      </div>
+      <div class="bar" style="margin-top:12px">
+        <label><input type="checkbox"> Exception prescription
+          <span class="hint">— one item group for the whole request (199)</span></label>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <header>Diagnoses <span class="hint">one principal is mandatory and unique</span></header>
+    <div class="body">
+      <div class="subrow">
+        <label class="f"><span>Type</span><select class="inp"><option>Principal</option><option>Secondary</option><option>Admitting</option></select></label>
+        <label class="f ta"><span>ICD-10</span><input class="inp" value="C50" placeholder="search code or description…">
+          <div class="menu">
+            <div class="hl"><b class="mono">C50.9</b> — Malignant neoplasm of breast, unspecified</div>
+            <div><b class="mono">C50.1</b> — Malignant neoplasm of central portion of breast</div>
+            <div><b class="mono">C50.4</b> — Malignant neoplasm of upper-outer quadrant of breast</div>
+          </div></label>
+        <div></div>
+        <button class="btn pri">Add</button>
+      </div>
+      <table>
+        <thead><tr><th style="width:40px"></th><th>Type</th><th>Code</th><th>Description</th><th></th></tr></thead>
+        <tbody>
+          <tr><td><input type="radio" name="prin" checked title="principal"></td>
+            <td>Principal</td><td class="mono">C50.9</td>
+            <td>Malignant neoplasm of breast, unspecified</td>
+            <td><button class="btn">Remove</button></td></tr>
+          <tr><td><input type="radio" name="prin" title="principal"></td>
+            <td>Secondary</td><td class="mono">I10</td>
+            <td>Essential (primary) hypertension</td>
+            <td><button class="btn">Remove</button></td></tr>
+        </tbody>
+      </table>
+      <p class="legend">The <b>principal</b> is a radio in the row, not a fourth dropdown value —
+        uniqueness is then structural rather than validated after the fact.</p>
+
+      <div style="margin-top:14px;padding:12px;border:1px solid var(--attention-border);
+        background:var(--attention-050);border-radius:10px">
+        <div style="font-weight:600;color:var(--attention-800);margin-bottom:8px">
+          Morphology required — the principal diagnosis is a neoplasm</div>
+        <div class="grid2">
+          <label class="f"><span>Morphology code <span class="req">*</span></span>
+            <input class="inp mono" value="M8500/3" placeholder="search morphology…"></label>
+          <label class="f"><span>&nbsp;</span><div class="ro">Infiltrating duct carcinoma, NOS</div></label>
+        </div>
+        <p class="legend" style="color:var(--attention-800)">This block does not exist at all unless
+          the principal is a cancer diagnosis — it appears and disappears with the radio above,
+          replacing <code>GeneralValidation</code>'s post-hoc refusal at line 1285.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <header>Items <span class="hint">each line prices as it lands</span></header>
+    <div class="body" style="padding-bottom:0">
+      <div class="ta" style="margin-bottom:10px">
+        <input class="inp" value="augment" placeholder="search item by name or code…">
+        <div class="menu">
+          <div class="hl"><b class="mono">104882</b> — AUGMENTIN 1G TAB 14s <span class="hint">· 48.00</span></div>
+          <div><b class="mono">104883</b> — AUGMENTIN 625MG TAB 21s <span class="hint">· 36.50</span></div>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Item</th><th class="num">Qty</th><th class="num">Unit</th>
+          <th class="num">Net</th><th class="num">Deductible</th><th class="num">Patient share</th>
+          <th class="num">Payer max</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><b class="mono">100221</b> PANADOL 500MG TAB 20s</td>
+            <td class="num">2</td><td class="num">12.00</td><td class="num">24.00</td>
+            <td class="num">2.40</td><td class="num">2.40</td><td class="num">21.60</td>
+            <td><button class="btn">Remove</button></td></tr>
+          <tr><td>2</td><td><b class="mono">104882</b> AUGMENTIN 1G TAB 14s</td>
+            <td class="num">1</td><td class="num">48.00</td><td class="num">48.00</td>
+            <td colspan="3" class="hint"><span class="spin"></span> pricing…</td>
+            <td><button class="btn">Remove</button></td></tr>
+        </tbody>
+      </table>
+      <div class="totals">
+        <span>Net <b>72.00</b></span><span>Deductible <b>2.40</b></span>
+        <span>Patient share <b>2.40</b></span><span>Payer max <b>21.60</b></span>
+      </div>
+    </div>
+  </div>
+  <p class="legend">Money comes from the pricing engine's insurance pass, never from the browser
+    (197). A line that has not come back yet says so; submit waits for all of them.</p>
+</section>
+
+<!-- ================= 4. SUBMIT GATES ================= -->
+<section class="screen" id="s4">
+  <div class="why"><b>Submit is not fire-and-forget.</b> Two gates sit in the path, and neither is a
+    toast: a clinical-edit <i>warning</i> asks, and a NPHIES <i>validation failure</i> keeps the agent
+    in the form with the reasons attached — because <code>Failed</code> means the exchange refused
+    the request before the payer ever saw it, and the fix is in this form.</div>
+
+  <h3 style="margin-bottom:8px">A · clinical edit returns <code>W</code> — ask, then continue</h3>
+  <div class="scrim" style="margin-bottom:24px">
+    <div class="modal">
+      <header>Clinical edit warning</header>
+      <div class="body">
+        <p style="margin-top:0">The clinical-edit service raised 2 warnings for this request.</p>
+        <ul style="padding-inline-start:20px;margin:0">
+          <li><b>Duplicate therapy</b> — AUGMENTIN 1G overlaps an antibiotic dispensed 2026-07-24.</li>
+          <li><b>Days supply</b> — 30 days exceeds the usual 14 for this item.</li>
+        </ul>
+        <p class="hint" style="margin-bottom:0">Submitting anyway is allowed and is recorded against
+          your user.</p>
+      </div>
+      <footer><button class="btn">Back to the form</button>
+        <button class="btn pri">Submit anyway</button></footer>
+    </div>
+  </div>
+  <p class="legend" style="margin-bottom:26px">A <code>F</code> (fatal) restriction uses the same
+    surface with the confirm button removed — one dialog, two shapes.</p>
+
+  <h3 style="margin-bottom:8px">B · NPHIES refuses the request — <code>Failed</code>, and fixable here</h3>
+  <div class="route">/nphies/authorizations/new?from=8842 <span class="hint">— still on the form</span></div>
+  <div class="banner b-bad">
+    <b>Not submitted.</b> NPHIES rejected the request before it reached BUPA. Fix the two problems
+    below and submit again.
+    <ul>
+      <li><b>Diagnosis / gender conflict</b> — <code class="mono">C50.9</code> (breast neoplasm) is
+        not valid for a male patient.</li>
+      <li><b>Missing principal diagnosis type</b> — a principal diagnosis is required.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <header>Diagnoses <span class="pill p-bad">2 problems</span></header>
+    <div class="body">
+      <table>
+        <thead><tr><th style="width:40px"></th><th>Type</th><th>Code</th><th>Description</th><th></th></tr></thead>
+        <tbody>
+          <tr style="background:var(--danger-050)">
+            <td><input type="radio" name="prin2" checked></td><td>Principal</td>
+            <td class="mono">C50.9</td>
+            <td>Malignant neoplasm of breast, unspecified
+              <div style="color:var(--danger-800);font-size:12px">✕ not valid for a male patient</div></td>
+            <td><button class="btn">Remove</button></td></tr>
+        </tbody>
+      </table>
+      <p class="legend">The refusal is attached to the row that caused it, not left as a sentence in
+        a message box. This is the whole reason <code>Failed</code> is a <i>form</i> state and not
+        only a list state.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5. AUTH LIST ================= -->
+<section class="screen" id="s5">
+  <div class="why"><b>Acts follow the row's Request state</b> — and the corrected mapping is
+    <code>Pending ⇒ Retry</code>, not <code>Failed ⇒ Retry</code>. <code>RetryAuth</code>
+    (<code>AuthService.cs:1155</code>) re-POSTs the stored request JSON verbatim and re-processes
+    the answer: it means "ask again, take the newer answer". A <code>Failed</code> row was never
+    accepted, so its remedy is a corrected request, and a <code>Rejected</code> verdict is the
+    payer's final word — a new authorization, not a retry.</div>
+
+  <div class="route">/nphies/authorizations</div>
+  <div class="pagehead">
+    <h2>Authorizations</h2>
+    <div class="bar"><span class="hint">loaded 14:32:07</span>
+      <button class="btn">↻ Refresh</button></div>
+  </div>
+
+  <div class="chips">
+    <span class="chip">Last 7 days <span class="x">✕</span></span>
+    <span class="chip">Provider: all <span class="x">✕</span></span>
+    <span class="chip add">+ patient id</span>
+    <span class="chip add">+ preauth ref</span>
+    <span class="chip add">+ payer</span>
+    <span class="chip add">+ request state</span>
+    <span class="chip add">+ verdict</span>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr>
+        <th>Requested</th><th>PreAuth ref</th><th>Payer</th><th>Patient</th>
+        <th>Request</th><th>Verdict</th><th>Markers</th><th>Acts</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td class="mono">31 Jul 09:41</td><td class="mono">—</td><td>BUPA</td><td class="mono">1012345678</td>
+          <td><span class="pill p-inf">Pending</span></td><td class="dash">—</td><td></td>
+          <td class="bar"><button class="btn">Status check</button><button class="btn">Retry</button>
+            <button class="btn" disabled title="A pending request has nothing to cancel yet">Cancel</button></td>
+        </tr>
+        <tr>
+          <td class="mono">31 Jul 08:03</td><td class="mono">PA-88213</td><td>BUPA</td><td class="mono">1055443322</td>
+          <td><span class="pill p-neu">Complete</span></td>
+          <td><span class="pill p-ok">Approved</span></td>
+          <td></td>
+          <td class="bar"><button class="btn" disabled title="This request already has an answer">Status check</button>
+            <button class="btn" disabled title="Only a pending request can be re-sent">Retry</button>
+            <button class="btn dgr">Cancel</button></td>
+        </tr>
+        <tr>
+          <td class="mono">30 Jul 17:22</td><td class="mono">PA-88190</td><td>TAWUNIYA</td><td class="mono">2044556677</td>
+          <td><span class="pill p-neu">Complete</span></td>
+          <td><span class="pill p-warn">Partly approved</span></td>
+          <td><span class="marker">payer query</span></td>
+          <td class="bar"><button class="btn" disabled>Status check</button>
+            <button class="btn" disabled>Retry</button><button class="btn dgr">Cancel</button></td>
+        </tr>
+        <tr>
+          <td class="mono">30 Jul 12:10</td><td class="mono">PA-88104</td><td>MEDGULF</td><td class="mono">1099887766</td>
+          <td><span class="pill p-neu">Complete</span></td>
+          <td><span class="pill p-ok">Approved</span></td>
+          <td><span class="marker">dispensed</span></td>
+          <td class="bar"><button class="btn" disabled>Status check</button>
+            <button class="btn" disabled>Retry</button>
+            <button class="btn" disabled title="A dispensed authorization cannot be cancelled">Cancel</button></td>
+        </tr>
+        <tr>
+          <td class="mono">30 Jul 10:55</td><td class="mono">—</td><td>BUPA</td><td class="mono">1033221100</td>
+          <td><span class="pill p-bad">Failed</span></td><td class="dash">—</td><td></td>
+          <td class="bar"><button class="btn">Open the refusal</button></td>
+        </tr>
+        <tr>
+          <td class="mono">29 Jul 15:30</td><td class="mono">PA-87990</td><td>BUPA</td><td class="mono">1077889900</td>
+          <td><span class="pill p-neu">Cancelled</span></td><td class="dash">—</td><td></td>
+          <td class="hint">—</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="totals"><span class="hint">247 authorizations · newest first · page 1 of 5</span></div>
+  </div>
+
+  <p class="legend"><b>A disabled act carries its reason on hover</b>, so the row teaches the
+    vocabulary instead of the agent learning it by refusal. The service stays authoritative: a
+    refusal that arrives anyway is rendered as a business outcome, not a crash.</p>
+  <p class="legend"><b>No browser polling.</b> The Nphies service's own <code>PollRequestWorker</code>
+    already pulls payer answers every 15 s server-side, so a <code>Pending</code> row resolves
+    itself — but this screen only shows it on <b>Refresh</b>, with the load time stated.</p>
+</section>
+
+<!-- ================= 6. AUTH DETAIL ================= -->
+<section class="screen" id="s6">
+  <div class="why"><b>There is no separate rejection screen</b> (201). The ordinary detail always
+    carries the per-line verdict block, which is what makes a <i>partial</i> approval — the case the
+    brief forgets — readable without a second surface.</div>
+
+  <div class="route">/nphies/authorizations/PA-88190</div>
+  <div class="pagehead"><h2>Authorization PA-88190</h2>
+    <div class="bar">
+      <span class="pill p-neu">Complete</span>
+      <span class="pill p-warn">Partly approved</span>
+      <span class="marker">payer query</span>
+      <button class="btn dgr">Cancel authorization</button>
+    </div></div>
+
+  <div class="banner b-warn">
+    <b>Disposition:</b> Partially approved — see item decisions.<br>
+    <b>Process note:</b> Item 2 exceeds the plan's monthly quantity limit for this class.
+  </div>
+
+  <div class="card">
+    <header>Payer decision per item</header>
+    <table>
+      <thead><tr><th>#</th><th>Item</th><th class="num">Requested</th><th class="num">Approved</th>
+        <th class="num">Rejected</th><th>Verdict</th><th>Reason</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><b class="mono">100221</b> PANADOL 500MG TAB 20s</td>
+          <td class="num">2</td><td class="num">2</td><td class="num">0</td>
+          <td><span class="pill p-ok">Approved</span></td><td class="dash">—</td></tr>
+        <tr><td>2</td><td><b class="mono">104882</b> AUGMENTIN 1G TAB 14s</td>
+          <td class="num">3</td><td class="num">1</td><td class="num">2</td>
+          <td><span class="pill p-warn">Partly approved</span></td>
+          <td>Quantity exceeds monthly benefit limit</td></tr>
+        <tr><td>3</td><td><b class="mono">109921</b> VITAMIN D3 50000IU CAP 8s</td>
+          <td class="num">1</td><td class="num">0</td><td class="num">1</td>
+          <td><span class="pill p-bad">Rejected</span></td>
+          <td>Not covered under this policy class</td></tr>
+      </tbody>
+    </table>
+    <div class="totals"><span class="hint">reason text is decoded by the service
+      (<code>BenefitReason</code>) — the browser never maps a code</span></div>
+  </div>
+
+  <div class="card">
+    <header>Request as sent</header>
+    <div class="body">
+      <div class="grid3" style="margin-bottom:10px">
+        <label class="f"><span>Patient</span><div class="ro">Sara M. Otaibi · <span class="mono">2044556677</span></div></label>
+        <label class="f"><span>Payer / provider</span><div class="ro">TAWUNIYA · <span class="mono">P-0031</span></div></label>
+        <label class="f"><span>From eligibility</span><div class="ro"><a href="#">8791 · 30 Jul 16:40</a></div></label>
+      </div>
+      <div class="grid3">
+        <label class="f"><span>Service date</span><div class="ro">2026-07-30</div></label>
+        <label class="f"><span>Principal diagnosis</span><div class="ro"><span class="mono">I10</span> Essential hypertension</div></label>
+        <label class="f"><span>Days supply</span><div class="ro">30</div></label>
+      </div>
+      <p class="legend">A payer query (<code>NeedComm</code>) is shown honestly and goes no further:
+        answering the payer stays on WPF in v1, by explicit ruling (199).</p>
+    </div>
+  </div>
+</section>
+
+<script>
+const screens=[["s1","Eligibility list"],["s2","Eligibility form"],["s3","Auth form"],
+  ["s4","Submit gates"],["s5","Auth list"],["s6","Auth detail"]];
+const tabs=document.getElementById("tabs");
+screens.forEach(([id,label],i)=>{
+  const b=document.createElement("button");
+  b.textContent=(i+1)+". "+label;
+  b.setAttribute("aria-selected", i===0);
+  b.onclick=()=>{
+    document.querySelectorAll(".screen").forEach(s=>s.classList.remove("on"));
+    document.getElementById(id).classList.add("on");
+    [...tabs.children].forEach(c=>c.setAttribute("aria-selected", c===b));
+    window.scrollTo(0,0);
+  };
+  tabs.appendChild(b);
+});
+</script>
+</body>
+</html>

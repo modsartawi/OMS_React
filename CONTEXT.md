@@ -188,6 +188,40 @@ submit.
 _Avoid_: attached request (a *caller* is attached; a request is linked), parent order, reference
 document.
 
+**Request state** (of a Nphies act):
+Whether we got an answer from the payer at all — one of `Cancelled` · `Failed` · `Pending` ·
+`Complete`, derived from `Cancelled` / `Error` / `Queued` / `ClaimProcessingCodes`. It is the first
+of the **two** axes every eligibility check and authorization carries, and it is deliberately
+separate from the **Verdict**: `Failed` means *we could not ask*, which is a different kind of bad
+news from *they said no*. A `Failed` act reads its detail text from `ErrorMessageShort` under a
+failure label; a `Complete` one never renders that field at all (it doubles as the adjudication
+display, so reading it in both branches would conflate the two axes).
+_Avoid_: status (the screen has two axes and "status" names neither), error (`Failed` is a
+transport/processing outcome, and a payer refusal is not an error).
+
+**Verdict** (of a Nphies act):
+What the payer said — the second axis, **blank until the Request state is `Complete`**. On an
+authorization: `Approved` · `Partly approved` · `Rejected` · `No approval needed` (from
+`AdjudicationOutcome`). On an eligibility check: `Eligible` · `Not in force` · `Not eligible`, with
+site eligibility qualifying it inline at result time ("Eligible · outside network"). The reason
+behind a bad verdict is display text the Nphies service has already decoded: `BenefitReason` per
+authorization line, `NotInForceReason` on an eligibility, plus the header's `Disposition` and
+`ProcessNote`. **No verdict asserts dispensability** — the real predicate lives in the Nphies
+service's `Dispense()` and includes a follow-up clause the list cannot see; a reader infers
+readiness from `Complete` + a good verdict + no dispensed marker.
+_Avoid_: outcome (`Outcome`/`ClaimProcessingCodes` is the *Request* axis), approval status,
+"ready to dispense" (nothing on the web claims that).
+
+**Payer query** (`NeedComm`):
+The payer has asked the provider a question about an authorization, and until it is answered the
+authorization is not concluded. It is a **marker on the row, not a status**: the payer raises it
+asynchronously, so it can land on an authorization that already has a Request state and a Verdict.
+Answering it is out of v1 scope — such an authorization **stalls on the web** and is finished in
+WPF, which is exactly why the marker has to be visible. Its sibling marker is **dispensed**
+(`IsDispensed`), the row's end of life, owned by the till.
+_Avoid_: communication (the noun names the message thread, not the state), pending (that is a
+Request state, and a queried authorization is usually already `Complete`).
+
 **Skipped line** (of a link):
 A line on the linked request that the copy did **not** put on the order, reported per line rather
 than silently dropped. Two kinds, and they are different rows: **refused** (not sellable at the

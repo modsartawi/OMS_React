@@ -52,12 +52,20 @@ describe('the Request axis', () => {
     expect(deriveEligibilityAxes(check({ outcome: 'partial' })).request).toBe('complete')
   })
 
-  it('falls back to success when the outcome is absent', () => {
-    // The service leaves `Outcome` unset on a transport failure it caught itself
-    // (the blanket catch at AuthService.cs:743's eligibility twin), so `success`
-    // is the only evidence left.
-    expect(deriveEligibilityAxes(check({ outcome: '', success: false })).request).toBe('failed')
+  it('falls back to Pending when the outcome is absent and nothing failed', () => {
     expect(deriveEligibilityAxes(check({ outcome: '', success: true })).request).toBe('pending')
+  })
+
+  it('🚩 reads success:false as Failed even when the outcome says complete', () => {
+    // The trap the ordering exists for: `EligibilityService` fills `Outcome` at
+    // the top of `FillResponse` (:670) and the exchange's own validation errors
+    // throw a few lines later (:682), where the catch sets `Success = false`
+    // (:293). Reading the outcome first would render a refusal as a verdict.
+    const axes = deriveEligibilityAxes(
+      check({ outcome: 'complete', success: false, errorMessage: 'BV-00123: invalid member id' }),
+    )
+    expect(axes.request).toBe('failed')
+    expect(axes.verdict).toBeNull()
   })
 
   it('is case- and whitespace-insensitive about the exchange’s spelling', () => {

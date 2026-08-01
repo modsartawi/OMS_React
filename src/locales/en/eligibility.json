@@ -8,11 +8,15 @@
   "access": {
     "checking": "Checking your access…",
     "deniedTitle": "No access to Nphies",
-    "deniedHint": "Your account does not hold the Nphies grant. Ask an administrator if you need it."
+    "deniedHint": "Your account does not hold the Nphies grant. Ask an administrator if you need it.",
+    "unreachableTitle": "Nphies is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
   },
   "form": {
     "provider": "Provider",
     "providerUnchosen": "Choose a provider…",
+    "providerOption": "{{code}} — {{license}}",
+    "unchosen": "Choose…",
     "payer": "Payer code",
     "patientId": "Patient ID",
     "patientIdType": "ID type",
@@ -33,7 +37,11 @@
     "separator": " · ",
     "provider": "choose the provider you are acting for",
     "patientId": "enter a patient ID",
-    "payer": "enter a payer code"
+    "payer": "enter a payer code",
+    "patientIdType": "choose the ID type",
+    "patientName": "enter the patient's name",
+    "patientGender": "choose the patient's gender",
+    "patientBirthDate": "enter the date of birth"
   },
   "idType": {
     "NI": "National ID",
@@ -64,6 +72,7 @@
     "request": "Request",
     "verdict": "Verdict",
     "verdictBlank": "No verdict yet — the payer has not answered.",
+    "verdictJoin": " · ",
     "failureLabel": "Could not reach the payer",
     "notInForceReason": "Why the policy is not in force",
     "disposition": "Payer's summary",
@@ -82,7 +91,11 @@
   "errors": {
     "checkTitle": "The check was refused",
     "checkFailed": "The eligibility check could not be completed.",
-    "code": "Code: {{code}}",
+    "remedy": {
+      "provider": "That provider is not configured at the exchange. Choose a different one, or ask for it to be set up.",
+      "payer": "That payer code is not configured at the exchange. Check the code, or ask for it to be set up.",
+      "notGranted": "Your account no longer holds the Nphies grant. Ask an administrator."
+    },
     "providersFailed": "The provider list could not be loaded.",
     "fillFailed": "That patient's last check could not be loaded."
   }

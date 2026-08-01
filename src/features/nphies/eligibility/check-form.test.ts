@@ -62,13 +62,25 @@ describe('submitIsBlockedUntilAProviderIsChosen', () => {
     expect(checkBlockers({ ...READY, providerCode: '   ' })).toContain('provider')
   })
 
-  it('also blocks on the two fields the request cannot be built without', () => {
+  it('also blocks on every field the request cannot be built without', () => {
     // Not design, arithmetic: `EligibilityRequest` has no patient and no payer to
     // ask about, and the service throws "Payer doesn't configured!" on an empty
     // one. Blocking on the form is this spec's posture — the block is visible
     // where the agent is, rather than arriving as a refusal from the exchange.
     expect(checkBlockers({ ...READY, patientId: '' })).toContain('patientId')
     expect(checkBlockers({ ...READY, payerCode: '' })).toContain('payer')
+    expect(checkBlockers({ ...READY, patientName: '' })).toContain('patientName')
+    expect(checkBlockers({ ...READY, patientBirthDate: '' })).toContain('patientBirthDate')
+  })
+
+  it('🚩 invents no identity: an untouched gender or ID type blocks rather than defaulting', () => {
+    // Both reach a national exchange inside the FHIR Patient. A form that
+    // shipped `male` because it sorted first would be wrong silently, on the one
+    // screen whose whole point is that nothing is a mode nobody chose.
+    expect(EMPTY_CHECK_DRAFT.patientGender).toBe('')
+    expect(EMPTY_CHECK_DRAFT.patientIdType).toBe('')
+    expect(checkBlockers(EMPTY_CHECK_DRAFT)).toContain('patientGender')
+    expect(checkBlockers(EMPTY_CHECK_DRAFT)).toContain('patientIdType')
   })
 })
 
@@ -88,6 +100,18 @@ describe('Fill, from a patient id alone', () => {
     expect(fillFromLastEligibility(EMPTY_CHECK_DRAFT, LAST).patientBirthDate).toBe('2010-08-21')
   })
 
+  it('🚩 leaves the date BLANK rather than half-parsed when it is not ISO', () => {
+    // A native date input renders an unparseable value as empty. A blind slice
+    // would leave the agent looking at a blank field while the draft held a
+    // non-blank string — which clears the blocker and posts a malformed date.
+    const filled = fillFromLastEligibility(EMPTY_CHECK_DRAFT, {
+      ...LAST,
+      patientBirthDate: '21/08/2010 00:00:00',
+    })
+    expect(filled.patientBirthDate).toBe('')
+    expect(checkBlockers(filled)).toContain('patientBirthDate')
+  })
+
   it('🚩 does NOT choose a provider, even though the last check names one', () => {
     // The provider is a free per-act pick with no memory (ticket 211 / contract
     // §3.1). Filling it from the last check IS memory of the last pick, and it
@@ -99,6 +123,31 @@ describe('Fill, from a patient id alone', () => {
 
   it('keeps a provider the agent had already chosen', () => {
     expect(fillFromLastEligibility(READY, LAST).providerCode).toBe('P001')
+  })
+
+  it('🚩 fills, and never clears what the agent already typed', () => {
+    // The stored record is patchy — `Occupation` and `MaritalStatus` are
+    // nullable and usually empty — so a Fill that copied the blanks over would
+    // punish the case it exists to serve: press Fill, find little there, keep
+    // going by hand.
+    const typed: CheckDraft = {
+      ...READY,
+      occupation: 'engineer',
+      maritalStatus: 'M',
+      memberId: 'M-TYPED',
+    }
+    const sparse: LastEligibility = {
+      ...LAST,
+      occupation: '',
+      maritalStatus: '',
+      memberId: '',
+      patientName: '',
+    }
+    const filled = fillFromLastEligibility(typed, sparse)
+    expect(filled.occupation).toBe('engineer')
+    expect(filled.maritalStatus).toBe('M')
+    expect(filled.memberId).toBe('M-TYPED')
+    expect(filled.patientName).toBe('Muhammad Ali Abbas')
   })
 })
 

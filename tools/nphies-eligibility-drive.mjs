@@ -139,8 +139,12 @@ async function run() {
       return route.fulfill(envelope(scenario.access))
     }
     if (path === 'Nphies/Providers') return route.fulfill(envelope(PROVIDERS))
-    if (path.startsWith('Nphies/LastEligibility/'))
+    if (path.startsWith('Nphies/LastEligibility/')) {
+      // `fillDelayMs` holds the answer back so the stale-response race is
+      // reachable from a drive at all.
+      if (scenario.fillDelayMs) await new Promise((r) => setTimeout(r, scenario.fillDelayMs))
       return route.fulfill(envelope(scenario.lastEligibility))
+    }
     if (path === 'Nphies/CheckEligibility') {
       lastCheckBody = JSON.parse(route.request().postData() || '{}')
       if (scenario.refusal)
@@ -176,8 +180,21 @@ async function run() {
     options.join(' | '),
   )
 
+  check(
+    '🚩 gender and ID type open UNCHOSEN too — no invented identity',
+    (await page.getByLabel('Gender').inputValue()) === '' &&
+      (await page.getByLabel('ID type').inputValue()) === '',
+  )
+
   const submit = page.getByRole('button', { name: /^Check eligibility$/ })
-  check('submit is BLOCKED with no provider chosen', await submit.isDisabled())
+  // Withheld with `aria-disabled` so it stays focusable and can state its reason
+  // (core/ui/Button's rule); the form's onSubmit is the enforcement.
+  const blocked = async () => (await submit.getAttribute('aria-disabled')) === 'true'
+  check('submit is BLOCKED with no provider chosen', await blocked())
+  check(
+    'the withheld submit states its reason on hover/focus',
+    /choose the provider/i.test((await submit.getAttribute('title')) || ''),
+  )
   const blockerText = await page.locator('[role="status"]').first().innerText().catch(() => '')
   check(
     'the blocker names the provider as the thing to do',
@@ -200,15 +217,20 @@ async function run() {
     (await page.getByLabel('Date of birth').inputValue()) === '2010-08-21',
   )
   check(
+    'Fill completes the identity fields that would otherwise block',
+    (await page.getByLabel('ID type').inputValue()) === 'PRC' &&
+      (await page.getByLabel('Gender').inputValue()) === 'male',
+  )
+  check(
     '🚩 Fill does NOT choose a provider, though the last check names one',
     (await provider.inputValue()) === '',
   )
-  check('submit is STILL blocked after Fill', await submit.isDisabled())
+  check('submit is STILL blocked after Fill', await blocked())
 
   // ---- Scenario 3: choosing a provider unblocks submit ----
   await provider.selectOption('P001')
   await page.waitForTimeout(150)
-  check('choosing a provider unblocks submit', !(await submit.isDisabled()))
+  check('choosing a provider unblocks submit', !(await blocked()))
   check(
     'the blocker banner is gone',
     !/choose the provider/i.test(await page.locator('main').innerText()),
@@ -294,10 +316,15 @@ async function run() {
   // ---- Scenario 7: Pending — waiting is the normal path to a verdict ----
   scenario.response = RESPONSE({ outcome: 'queued', success: true, isEligible: false })
   await submit.click()
-  await page.waitForTimeout(500)
+  // Wait for the badge itself, not a timeout: a `split('Verdict')` over a page
+  // that never rendered the result would pass this vacuously.
+  await page.locator('main span.rounded-full', { hasText: /^Pending$/ }).waitFor({ timeout: 10000 })
   const pending = await page.locator('main').innerText()
   check('a queued check renders Pending', /Pending/.test(pending))
-  check('with a blank verdict', !/Eligible|Not eligible/.test(pending.split('Verdict')[1] || ''))
+  check(
+    'with a blank verdict',
+    pending.includes('Verdict') && !/Eligible|Not eligible/.test(pending.split('Verdict')[1] || ''),
+  )
 
   // ---- Scenario 8: a guardrail refusal explains itself from its code ----
   scenario.refusal = true
@@ -310,10 +337,29 @@ async function run() {
     refusal.replace(/\n/g, ' ').slice(0, 90),
   )
   check(
-    'and its machine code is shown',
-    /PROVIDER_NOT_CONFIGURED/.test(await page.locator('main').innerText()),
+    'and the CODE drives a remedy naming the control, rather than being printed at the agent',
+    /not configured at the exchange/i.test(await page.locator('main').innerText()) &&
+      !/PROVIDER_NOT_CONFIGURED/.test(await page.locator('main').innerText()),
   )
   scenario.refusal = false
+
+  // ---- Scenario 8b: the outcome/success trap — a refusal is NOT a verdict ----
+  // `Outcome` is filled before the exchange's validation errors throw, so a
+  // refused check can arrive saying `complete` with `success:false`.
+  scenario.response = RESPONSE({
+    outcome: 'complete',
+    success: false,
+    isEligible: true,
+    errorMessage: 'BV-00123: invalid member id',
+  })
+  await submit.click()
+  await page.getByText(/Could not reach the payer/).waitFor({ timeout: 10000 })
+  const trap = await page.locator('main').innerText()
+  check(
+    '🚩 outcome:complete + success:false renders Failed, never a payer verdict',
+    /Failed/.test(trap) && !/Eligible/.test(trap.split('Verdict')[1] || ''),
+    (trap.match(/Verdict[\s\S]{0,40}/) || [''])[0].replace(/\n/g, ' '),
+  )
 
   // ---- Scenario 9: no grant → leaf hidden, in-page backstop ----
   scenario.access = { canOpenNphies: false }
@@ -328,18 +374,63 @@ async function run() {
   )
 
   // ---- Scenario 10: an errored probe FAILS CLOSED ----
+  // 🚩 The grant goes back to TRUE first. Without it scenario 9's
+  // `canOpenNphies:false` is still in force and both assertions below would pass
+  // with the 500 branch deleted — the path this scenario exists for, untested.
+  scenario.access = { canOpenNphies: true }
   scenario.accessDown = true
   await page.goto(URL)
   await page.waitForSelector('[role="alert"]', { timeout: 10000 })
+  const probeDown = await page.locator('main').innerText()
   check(
-    '🚩 an ERRORED probe fails closed — denied card, not the form',
-    /No access to Nphies/.test(await page.locator('main').innerText()),
+    '🚩 an ERRORED probe fails closed — the screen stays shut',
+    (await page.getByLabel('Patient ID').count()) === 0,
+  )
+  check(
+    'and it says UNAVAILABLE, not "you lack the grant" — a retry, not an administrator',
+    /Nphies is unavailable/.test(probeDown) && !/does not hold the Nphies grant/.test(probeDown),
+    probeDown.replace(/\n/g, ' ').slice(0, 90),
   )
   check(
     'an errored probe hides the nav leaf too',
     (await page.getByRole('link', { name: /Check eligibility/i }).count()) === 0,
   )
   scenario.accessDown = false
+
+  // ---- Scenario 11: a slow Fill must not overwrite a corrected patient id ----
+  scenario.access = { canOpenNphies: true }
+  scenario.response = RESPONSE()
+  await page.goto(URL)
+  await page.getByLabel('Patient ID', { exact: true }).waitFor({ timeout: 15000 })
+  scenario.fillDelayMs = 900
+  await page.getByLabel('Patient ID', { exact: true }).fill('1111111111')
+  await page.getByRole('button', { name: /^Fill$/ }).click()
+  // The agent spots the typo while the read is still in flight.
+  await page.waitForTimeout(150)
+  await page.getByLabel('Patient ID', { exact: true }).fill('2222222222')
+  await page.waitForTimeout(1400)
+  check(
+    '🚩 a Fill answer for an id the agent has since corrected is DISCARDED',
+    (await page.getByLabel('Patient ID', { exact: true }).inputValue()) === '2222222222' &&
+      (await page.getByLabel('Patient name').inputValue()) === '',
+    `id=${await page.getByLabel('Patient ID', { exact: true }).inputValue()} name=${await page.getByLabel('Patient name').inputValue()}`,
+  )
+  scenario.fillDelayMs = 0
+
+  // ---- Scenario 12: the previous answer is dropped when the form changes ----
+  await page.getByLabel('Patient ID', { exact: true }).fill('0000000003')
+  await page.getByRole('button', { name: /^Fill$/ }).click()
+  await page.waitForTimeout(400)
+  await page.getByLabel('Provider', { exact: true }).selectOption('P001')
+  await page.getByRole('button', { name: /^Check eligibility$/ }).click()
+  await page.getByText(/^Verdict$/).waitFor({ timeout: 10000 })
+  check('a result renders for the patient that was asked about', /Verdict/.test(await page.locator('main').innerText()))
+  await page.getByLabel('Patient ID', { exact: true }).fill('0000000009')
+  await page.waitForTimeout(200)
+  check(
+    '🚩 editing the form drops the previous answer — no verdict under another patient’s name',
+    !/Verdict/.test(await page.locator('main').innerText()),
+  )
 
   // The refusal + probe-down scenarios intentionally answer 409/500, which the
   // browser logs as resource errors. Expected, not app faults.

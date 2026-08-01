@@ -103,6 +103,55 @@ rather than revealing it"), and what is behind the leaf talks to a national exch
 probes exist only where a read-only screen outran its endpoint.
 **Revisit if:** never, on this area.
 
+## Q: Law 10 says every response carries `contractVersion`. This one does not. Add it?
+
+**Decision taken:** **no** — nothing is sent, nothing is checked, and the gap is logged here
+instead. `checkContractVersion` (shipped by 210) stays unused until a response actually carries one.
+**Why:** the contract disagrees with itself here and it is not this slice's to resolve. Law 10 and
+§8 say every response carries `contractVersion` and the client hard-stops on a major mismatch — but
+§1.1 and §3.1 make `checkEligibility` a **passthrough** whose response is "`EligibilityResponse`
+verbatim", and that DTO (read from the service's source) has no such property. §8's own wording
+scopes the check to "the first response of **a session**", and a check is not a session. Adding a
+field would be inventing a server shape; enforcing a check would hard-stop the screen on every real
+response the endpoint can currently produce. **This is the gap the runner's instruction describes: a
+HITL entry naming it, not a licence to make it up.**
+**Revisit if:** BackOffice 912 stamps `contractVersion` onto the passthrough envelopes (then the
+model gains the field and the page calls `checkContractVersion` on the first response), or §8 is
+amended to say passthrough acts are exempt.
+
+## Q: Does the check result render the coverages and the disposition, or is that 213's?
+
+**Decision taken:** render both, read-only. **Nothing selects a coverage** — that stays 213's.
+**Why:** both arrive on this very response (§3.1: "Response is `EligibilityHeaderResponse` +
+`EligibilityCoverageResponse[]`"), and §5 names `Disposition` as one of the three places the payer's
+own words live on a `Complete` act. A result that hid the coverages would read as though the patient
+holds no policy at all. The line drawn is *display vs choice*: 213 owns the auto-select-one /
+force-a-pick rule and the member id it commits to.
+**Revisit if:** 213 wants the whole coverage block to move onto the detail route, in which case this
+is deleted rather than adapted.
+
+## Q: A `Pending` act renders its message under "could not reach the payer". Is that right?
+
+**Decision taken:** yes — kept, per the contract, and pinned with a comment so it is not "fixed".
+**Why:** §5 is explicit: "`Failed` / `Pending` → render under a **failure** label ('could not reach
+the payer')" and "`Complete` → **never render it at all**". A review flagged it against `CONTEXT.md`'s
+gloss that `Failed` means *we could not ask* — the glossary is right about `Failed` and the contract
+is still the authority on which branch may read the field, because the point of the rule is that the
+field's *meaning* changes on `Complete` and nowhere else.
+**Revisit if:** the contract is amended to give `Pending` its own label.
+
+## Q: Post-review — the blocker list grew and the identity defaults went away. Why?
+
+**Decision taken:** `patientIdType` and `patientGender` open **unchosen** (not `PRC`/`male`), and
+name, ID type, gender and date of birth join the blockers.
+**Why:** the first cut defaulted them for convenience, which meant an agent who never touched the
+gender control still shipped `male` to a national exchange — the same class of quiet wrong the
+provider's no-default rule exists to prevent, and `PatientBirthDate` is a non-nullable `DateTime`
+that would have gone out as `""`. The blockers are still arithmetic rather than invention: every one
+of them is a field `EligibilityRequest` cannot be built without.
+**Revisit if:** the exchange turns out to accept a partial patient (it does not — the FHIR Patient
+carries all four).
+
 ## Q: Where does the access probe live?
 
 **Decision taken:** `src/core/nphies/api.ts`, exporting `NPHIES_ACCESS_KEY` + `nphiesAccessApi`.

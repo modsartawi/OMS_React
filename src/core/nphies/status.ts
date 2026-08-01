@@ -66,6 +66,15 @@ const code = (raw: string | null | undefined): string => (raw ?? '').trim().toLo
  * asked of the fields that exist.
  */
 function eligibilityRequestState(response: EligibilityCheckResponse): RequestState {
+  // 🚩 `success: false` outranks whatever `outcome` says, and this order is load
+  // bearing. `EligibilityService` sets `Success = true` on exactly one line —
+  // after a fully processed response (`:277`) — and `false` only in its catch
+  // (`:293`). But `Outcome` is filled at the TOP of `FillResponse` (`:670`) and
+  // the exchange's own validation errors throw a few lines later (`:682`), so a
+  // refused check really can arrive carrying `outcome: 'complete'` with
+  // `success: false`. Reading the outcome first would render the exchange's
+  // refusal as a payer verdict — law 5's two kinds of bad news, collapsed.
+  if (response.success === false) return 'failed'
   switch (code(response.outcome)) {
     case 'queued':
       return 'pending'
@@ -78,10 +87,9 @@ function eligibilityRequestState(response: EligibilityCheckResponse): RequestSta
       // for a payer that has already replied.
       return 'complete'
     default:
-      // No outcome at all: the service caught something before the exchange
-      // answered. `success` is the only evidence left, and a request still in
+      // No outcome and no failure: nothing has come back yet. A request still in
       // flight is `pending`, never `failed` (law 6's posture, one act earlier).
-      return response.success ? 'pending' : 'failed'
+      return 'pending'
   }
 }
 

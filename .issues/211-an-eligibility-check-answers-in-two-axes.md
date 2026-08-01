@@ -57,14 +57,16 @@ centrally) · nav (new top-level group + access probe) · test
 - [x] the nav leaf is hidden for an agent without the grant and present with it; the check submits
       and renders both axes · flow (Playwright, new `tools/nphies-eligibility-drive.mjs`) —
       RTL is not installed, so screen behaviour is verified by driving the app plus `typecheck`
-      → **33/33 green**, ten scenarios: no-default provider, blocked submit, Fill on a cold form,
+      → **41/41 green**, twelve scenarios: no-default provider, blocked submit, Fill on a cold form,
       Complete+Eligible·outside-network, not-in-force with its reason, Failed with a blank verdict
       and the message under a failure label, Pending, a `PROVIDER_NOT_CONFIGURED` business refusal,
-      no-grant (leaf hidden + backstop) and an **errored probe failing closed**. It also asserts the
+      no-grant (leaf hidden + backstop), an **errored probe failing closed** and saying *unavailable*
+      rather than *you lack the grant*, a slow **Fill answer for a since-corrected patient id being
+      discarded**, and the previous answer being dropped when the form changes. It also asserts the
       body on the wire carries no server-stamped identity and no claim/request type.
       ⚠ Against **mocked** `Nphies/*` envelopes — SIS.Api is down and all four server dependencies
       are unbuilt (BackOffice 912–922, in flight). Every stubbed field name is read from CONTRACT.md
-      or the Nphies service's own DTOs. `npm test` 845 green (53 files), `typecheck`, `lint`
+      or the Nphies service's own DTOs. `npm test` 849 green (53 files), `typecheck`, `lint`
       (boundaries · contrast · palette) and `build` all clean.
 
 ## Boundaries
@@ -122,3 +124,32 @@ four of them matter to the next slices:
 
 Also landed, because the code that uses them landed: **eligibility check** and **provider** (with
 its explicit not-a-**store** clause) in `CONTEXT.md`, per spec 209 §13.
+
+### One gap left open on purpose
+
+**Law 10's `contractVersion` is neither sent nor checked, and 210's `checkContractVersion` is still
+unused.** The contract disagrees with itself here: law 10 and §8 say every response carries it and a
+major mismatch is a client hard stop, but §1.1/§3.1 make `checkEligibility` a **passthrough** whose
+response is "`EligibilityResponse` verbatim" — and that DTO has no such property. §8 also scopes the
+check to "the first response of **a session**", and a check is not a session. Adding the field would
+invent a server shape; enforcing the check would hard-stop the screen on every response the endpoint
+can currently produce. **A §8-additive revision should say whether passthrough acts carry it**;
+217 is the first ticket that genuinely needs the answer, because a session state does carry one.
+
+### Post-review corrections
+
+Both reviews ran (`/standards-review` two-axis, plus an independent correctness pass) and eight
+findings were applied before this commit. Worth carrying forward:
+
+- 🚩 **`success:false` outranks `outcome`.** `EligibilityService` sets `Success = true` on exactly
+  one line (`:277`, after a fully processed response) and `false` only in its catch (`:293`) — but
+  `Outcome` is filled at the *top* of `FillResponse` (`:670`) and the exchange's own validation
+  errors throw a few lines later (`:682`). So a refused check really can arrive saying
+  `outcome: 'complete'` with `success: false`, and reading the outcome first would render a refusal
+  as a payer verdict. 214 must carry the equivalent ordering on the auth side.
+- **A Fill answer is checked against the id it asked about** before it is applied; otherwise an
+  agent who corrects a typo mid-read gets the first patient's identity written over the correction.
+- **Editing the form drops the previous answer** — a verdict must never sit under another patient's
+  name — and `isPending` is guarded in `onSubmit`, not only on the button, because Enter submits.
+- **Identity is never defaulted.** `patientIdType` and `patientGender` open unchosen and, with name
+  and date of birth, join the blockers: an untouched control still reaches a national exchange.

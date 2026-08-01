@@ -5,17 +5,9 @@ import { Loader2, Search, ShieldAlert, TriangleAlert } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import StatusBadge from '@/core/ui/StatusBadge'
 import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
-import {
-  deriveEligibilityAxes,
-  eligibilityVerdictSeverity,
-  requestSeverity,
-  showsFailureMessage,
-  verdictCellKeys,
-} from '@/core/nphies/status'
-import type { EligibilityCheckResponse } from '@/core/models/nphies'
 import { PROVIDERS_KEY, eligibilityApi } from './api'
+import CheckResult from './CheckResult'
 import {
   EMPTY_CHECK_DRAFT,
   checkBlockers,
@@ -63,23 +55,45 @@ export default function EligibilityCheckPage() {
   })
 
   const [draft, setDraft] = useState<CheckDraft>(EMPTY_CHECK_DRAFT)
-  const patch = (next: Partial<CheckDraft>) => setDraft((d) => ({ ...d, ...next }))
 
   const blockers = useMemo(() => checkBlockers(draft), [draft])
-
-  // Fill — a deliberate press, never a side effect of typing an id. A patient
-  // with no previous check answers `null`, which is an ordinary outcome and says
-  // so rather than reading as a failure.
-  const fill = useMutation({
-    mutationFn: () => eligibilityApi.lastEligibility(draft.patientId.trim()),
-    onSuccess: (last) => {
-      if (last) setDraft((d) => fillFromLastEligibility(d, last))
-    },
-  })
+  // One sentence, read twice: in the banner and as the withheld Submit's own
+  // reason on hover/focus. Built here so the two can never drift apart.
+  const blockerSentence = blockers.map((b) => t(`blockers.${b}`)).join(t('blockers.separator'))
 
   const check = useMutation({
     mutationFn: () => eligibilityApi.check(toCheckRequest(draft)),
   })
+
+  // Fill — a deliberate press, never a side effect of typing an id. A patient
+  // with no previous check answers `null`, which is an ordinary outcome and says
+  // so rather than reading as a failure.
+  //
+  // 🚩 The id it asked about travels with the request and is checked again when
+  // the answer lands. Without that, an agent who spots a typo and corrects the id
+  // while the first read is in flight gets the FIRST patient's name, gender, date
+  // of birth and member id written over their correction — and that identity is
+  // what would reach the national exchange, under an id they believe they fixed.
+  const fill = useMutation({
+    mutationFn: (patientId: string) => eligibilityApi.lastEligibility(patientId),
+    onSuccess: (last, askedAbout) => {
+      if (!last) return
+      setDraft((d) => (d.patientId.trim() === askedAbout ? fillFromLastEligibility(d, last) : d))
+    },
+  })
+
+  /**
+   * Every edit to the form, and the one place the previous answer is dropped.
+   *
+   * A result belongs to the identity it was asked about. Leaving it on screen
+   * while the agent types the next patient's id would leave one patient's verdict
+   * sitting under another patient's name — the single worst misreading this
+   * screen could offer.
+   */
+  const patch = (next: Partial<CheckDraft>) => {
+    check.reset()
+    setDraft((d) => ({ ...d, ...next }))
+  }
 
   if (access.isPending) {
     return (
@@ -95,14 +109,26 @@ export default function EligibilityCheckPage() {
   if (!allowed) {
     // The in-page backstop behind the hidden nav leaf: a direct URL refuses
     // cleanly rather than landing on a screen whose every call would fail.
+    //
+    // 🚩 An UNREACHABLE probe fails closed exactly like a refused one — but it
+    // says something different. Both hide the screen; only one of them is the
+    // agent's grant. Telling someone whose probe 500'd that they lack a
+    // permission sends them to an administrator for a problem a retry fixes.
+    const unreachable = access.isError
     return (
       <div
         className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
         role="alert"
       >
         <ShieldAlert className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-        <div className="text-base font-semibold tracking-tight">{t('access.deniedTitle')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">{t('access.deniedHint')}</p>
+        <div className="text-base font-semibold tracking-tight">
+          {unreachable ? t('access.unreachableTitle') : t('access.deniedTitle')}
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {unreachable
+            ? apiErrorMessage(access.error, t('access.unreachableHint'))
+            : t('access.deniedHint')}
+        </p>
       </div>
     )
   }
@@ -120,7 +146,11 @@ export default function EligibilityCheckPage() {
         className="flex flex-col gap-4 rounded-lg border border-border/60 bg-card/40 p-4"
         onSubmit={(e) => {
           e.preventDefault()
-          if (blockers.length === 0) check.mutate()
+          // 🚩 `isPending` is guarded HERE, not only on the button: Enter inside
+          // any text input submits the form, and a second act while the first is
+          // in flight is a second real request at a national exchange — two
+          // records for one question the agent asked once.
+          if (blockers.length === 0 && !check.isPending) check.mutate()
         }}
       >
         {/* Who we are asking as, and who we are asking. */}
@@ -130,14 +160,14 @@ export default function EligibilityCheckPage() {
               value={draft.providerCode}
               onChange={(e) => patch({ providerCode: e.target.value })}
               aria-label={t('form.provider')}
-              className="h-9 w-56 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className={`w-56 ${CONTROL}`}
             >
               {/* No default and no memory: the empty option is the state the form
                   opens in and the one the gate below refuses to submit from. */}
               <option value="">{t('form.providerUnchosen')}</option>
               {(providers.data ?? []).map((p) => (
                 <option key={p.providerCode} value={p.providerCode}>
-                  {p.providerCode} — {p.license}
+                  {t('form.providerOption', { code: p.providerCode, license: p.license })}
                 </option>
               ))}
             </select>
@@ -148,7 +178,7 @@ export default function EligibilityCheckPage() {
               value={draft.payerCode}
               onChange={(e) => patch({ payerCode: e.target.value })}
               aria-label={t('form.payer')}
-              className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className={`w-40 ${CONTROL}`}
             />
           </Field>
         </div>
@@ -169,11 +199,11 @@ export default function EligibilityCheckPage() {
                 value={draft.patientId}
                 onChange={(e) => patch({ patientId: e.target.value })}
                 aria-label={t('form.patientId')}
-                className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+                className={`w-44 ${CONTROL}`}
               />
               <button
                 type="button"
-                onClick={() => fill.mutate()}
+                onClick={() => fill.mutate(draft.patientId.trim())}
                 disabled={draft.patientId.trim() === '' || fill.isPending}
                 className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -191,8 +221,11 @@ export default function EligibilityCheckPage() {
               value={draft.patientIdType}
               onChange={(e) => patch({ patientIdType: e.target.value })}
               aria-label={t('form.patientIdType')}
-              className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className={`w-44 ${CONTROL}`}
             >
+              {/* Unchosen, like the provider: an ID type nobody picked still
+                  reaches the exchange inside the FHIR Patient. */}
+              <option value="">{t('form.unchosen')}</option>
               <option value="NI">{t('idType.NI')}</option>
               <option value="PRC">{t('idType.PRC')}</option>
               <option value="PN">{t('idType.PN')}</option>
@@ -205,7 +238,7 @@ export default function EligibilityCheckPage() {
               value={draft.patientName}
               onChange={(e) => patch({ patientName: e.target.value })}
               aria-label={t('form.patientName')}
-              className="h-9 w-64 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className={`w-64 ${CONTROL}`}
             />
           </Field>
           <Field label={t('form.patientGender')}>
@@ -213,8 +246,9 @@ export default function EligibilityCheckPage() {
               value={draft.patientGender}
               onChange={(e) => patch({ patientGender: e.target.value })}
               aria-label={t('form.patientGender')}
-              className="h-9 w-32 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className={`w-32 ${CONTROL}`}
             >
+              <option value="">{t('form.unchosen')}</option>
               <option value="male">{t('gender.male')}</option>
               <option value="female">{t('gender.female')}</option>
             </select>
@@ -225,7 +259,7 @@ export default function EligibilityCheckPage() {
               value={draft.patientBirthDate}
               onChange={(e) => patch({ patientBirthDate: e.target.value })}
               aria-label={t('form.patientBirthDate')}
-              className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className={`w-44 ${CONTROL}`}
             />
           </Field>
           <Field label={t('form.memberId')}>
@@ -234,7 +268,7 @@ export default function EligibilityCheckPage() {
               value={draft.memberId}
               onChange={(e) => patch({ memberId: e.target.value })}
               aria-label={t('form.memberId')}
-              className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className={`w-40 ${CONTROL}`}
             />
           </Field>
         </div>
@@ -246,7 +280,7 @@ export default function EligibilityCheckPage() {
               value={draft.occupation}
               onChange={(e) => patch({ occupation: e.target.value })}
               aria-label={t('form.occupation')}
-              className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className={`w-40 ${CONTROL}`}
             />
           </Field>
           <Field label={t('form.maritalStatus')}>
@@ -255,7 +289,7 @@ export default function EligibilityCheckPage() {
               value={draft.maritalStatus}
               onChange={(e) => patch({ maritalStatus: e.target.value })}
               aria-label={t('form.maritalStatus')}
-              className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+              className={`w-40 ${CONTROL}`}
             />
           </Field>
           <label className="flex select-none items-center gap-1.5 pb-2 text-xs font-medium text-muted-foreground">
@@ -299,17 +333,23 @@ export default function EligibilityCheckPage() {
           >
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <span>
-              {t('blockers.intro')}{' '}
-              {blockers.map((b) => t(`blockers.${b}`)).join(t('blockers.separator'))}
+              {t('blockers.intro')} {blockerSentence}
             </span>
           </div>
         )}
 
         <div>
+          {/* 🚩 `aria-disabled`, not `disabled`, while the gate holds — a command
+              withheld WITH a reason must stay focusable to be able to state it
+              (`@/core/ui/Button`'s own note). The form's `onSubmit` is the
+              enforcement; this is only how it reads. `disabled` is honest for
+              the in-flight case, where the reason is visible as a spinner. */}
           <button
             type="submit"
-            disabled={blockers.length > 0 || check.isPending}
-            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-disabled={blockers.length > 0}
+            disabled={check.isPending}
+            title={blockers.length > 0 ? blockerSentence : undefined}
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-primary"
           >
             {check.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
             {t('form.submit')}
@@ -322,22 +362,47 @@ export default function EligibilityCheckPage() {
           failure reads as "unexpected". A payer saying no never lands here — it
           is a 200 and renders below as the answer it is. */}
       {check.isError && (
-        <ErrorBanner
-          title={t('errors.checkTitle')}
-          message={apiErrorMessage(check.error, t('errors.checkFailed'))}
-          className="p-3"
-        />
-      )}
-      {check.isError && apiErrorCode(check.error) && (
-        <p className="text-xs text-muted-foreground">
-          {t('errors.code', { code: apiErrorCode(check.error) })}
-        </p>
+        <>
+          <ErrorBanner
+            title={t('errors.checkTitle')}
+            message={apiErrorMessage(check.error, t('errors.checkFailed'))}
+            className="p-3"
+          />
+          {/* The code is what the client BRANCHES on (api-envelope rule), not
+              something to show an agent: each of §6's reachable refusals names
+              the control that fixes it. The server's own sentence stays above as
+              the message — it is data, and it says what happened. */}
+          {remedyKey(apiErrorCode(check.error)) && (
+            <p className="text-sm text-muted-foreground">{t(remedyKey(apiErrorCode(check.error))!)}</p>
+          )}
+        </>
       )}
 
       {check.data && <CheckResult response={check.data} />}
     </section>
   )
 }
+
+/**
+ * A refusal's machine code → the remedy key that names the control to fix
+ * (contract §6: `apiErrorCode()` is how the client branches). Only the codes
+ * this act can actually answer with are here; an unlisted code renders the
+ * server's message alone rather than an invented instruction.
+ */
+const REMEDY_KEYS: Record<string, string> = {
+  PROVIDER_NOT_CONFIGURED: 'errors.remedy.provider',
+  PAYER_NOT_CONFIGURED: 'errors.remedy.payer',
+  NPHIES_NOT_GRANTED: 'errors.remedy.notGranted',
+}
+const remedyKey = (code: string | null) => (code ? (REMEDY_KEYS[code] ?? null) : null)
+
+/**
+ * The control chrome, spelled once. Every input and select on this form is the
+ * same height, border and focus ring and differs only in width — so the string
+ * lives here rather than eight times, where one edit would drift.
+ */
+const CONTROL =
+  'h-9 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none'
 
 /** A labelled control. One shape for every field on the form. */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -349,105 +414,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-/**
- * The answer, in two axes.
- *
- * 🚩 The Verdict is ONE cell. Site eligibility is rendered inside the same badge
- * as the verdict it qualifies — "Eligible · outside network" — because an agent
- * who reads a verdict and learns about the network later has learned it too late
- * (§3.1). The keys come from `verdictCellKeys`, so the decision about what that
- * cell contains is not made here.
- */
-function CheckResult({ response }: { response: EligibilityCheckResponse }) {
-  const { t } = useTranslation('eligibility')
-  const axes = deriveEligibilityAxes(response)
-  const cell = verdictCellKeys(axes)
-
-  return (
-    <section className="flex flex-col gap-4 rounded-lg border border-border/60 bg-card p-4">
-      <div className="flex flex-wrap items-center gap-6">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">{t('result.request')}</span>
-          <StatusBadge sev={requestSeverity(axes.request)}>
-            {t(`request.${axes.request}`)}
-          </StatusBadge>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">{t('result.verdict')}</span>
-          {axes.verdict ? (
-            <StatusBadge sev={eligibilityVerdictSeverity(axes.verdict)}>
-              {cell.map((key) => t(key)).join(' · ')}
-            </StatusBadge>
-          ) : (
-            // Blank until Complete — the honest rendering of "nothing to report
-            // yet", and never an implied refusal.
-            <span className="text-sm text-muted-foreground" aria-label={t('result.verdictBlank')}>
-              —
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* The dual-meaning field, read in exactly one branch and labelled for it. */}
-      {showsFailureMessage(axes.request) && response.errorMessage && (
-        <div>
-          <div className="text-xs font-medium text-muted-foreground">{t('result.failureLabel')}</div>
-          <p className="text-sm text-foreground">{response.errorMessage}</p>
-        </div>
-      )}
-
-      {axes.verdict === 'notInForce' && response.notInForceReason && (
-        <div>
-          <div className="text-xs font-medium text-muted-foreground">
-            {t('result.notInForceReason')}
-          </div>
-          <p className="text-sm text-foreground">{response.notInForceReason}</p>
-        </div>
-      )}
-
-      {axes.request === 'complete' && response.disposition && (
-        <div>
-          <div className="text-xs font-medium text-muted-foreground">{t('result.disposition')}</div>
-          <p className="text-sm text-foreground">{response.disposition}</p>
-        </div>
-      )}
-
-      {/* Every policy the patient holds. Choosing between them is 213's ticket;
-          here they are simply listed under the answer they belong to. */}
-      <div>
-        <div className="text-xs font-medium text-muted-foreground">
-          {t('result.coverages', { count: response.coverages?.length ?? 0 })}
-        </div>
-        {(response.coverages ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('result.noCoverages')}</p>
-        ) : (
-          <ul className="mt-2 flex flex-col gap-2">
-            {response.coverages.map((c) => (
-              <li
-                key={c.id || c.memberId}
-                className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border/60 p-2 text-sm"
-              >
-                <span className="font-medium">{c.memberId}</span>
-                <StatusBadge sev={c.inForce ? 'ok' : 'mute'}>
-                  {c.inForce ? t('coverage.inForce') : t('coverage.notInForce')}
-                </StatusBadge>
-                <span className="text-muted-foreground">
-                  {t('coverage.network', { network: c.network })}
-                </span>
-                <span className="text-muted-foreground">
-                  {t('coverage.plan', { plan: c.coveragePlan })}
-                </span>
-                <span className="text-muted-foreground">
-                  {t('coverage.class', { className: c.coverageClass })}
-                </span>
-                <span className="text-muted-foreground">
-                  {t('coverage.policyHolder', { policyHolder: c.policyHolderName })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
-  )
-}

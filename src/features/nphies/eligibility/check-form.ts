@@ -42,9 +42,13 @@ export const EMPTY_CHECK_DRAFT: CheckDraft = {
   providerCode: '',
   payerCode: '',
   patientId: '',
-  patientIdType: 'PRC',
+  // 🚩 Unchosen, not defaulted. An identity field the agent never touched must
+  // not be invented for them: `patientGender` reaches a national exchange inside
+  // the FHIR Patient, and shipping `male` because it sorted first is the quiet
+  // kind of wrong this screen exists to remove.
+  patientIdType: '',
   patientName: '',
-  patientGender: 'male',
+  patientGender: '',
   patientBirthDate: '',
   memberId: '',
   transfer: false,
@@ -66,7 +70,14 @@ export const EMPTY_CHECK_DRAFT: CheckDraft = {
 const ELIGIBILITY_PURPOSE = 'benefits'
 
 /** Why submit is held. Each one names a control the agent can see. */
-export type CheckBlocker = 'provider' | 'patientId' | 'payer'
+export type CheckBlocker =
+  | 'provider'
+  | 'patientId'
+  | 'payer'
+  | 'patientIdType'
+  | 'patientName'
+  | 'patientGender'
+  | 'patientBirthDate'
 
 const blank = (value: string) => value.trim() === ''
 
@@ -75,19 +86,41 @@ const blank = (value: string) => value.trim() === ''
  *
  * The **provider** blocker is the designed one (ticket 211): the block is
  * visible on the form rather than arriving as `PROVIDER_NOT_CONFIGURED` from a
- * national exchange. The other two are arithmetic — there is no request to build
- * without a patient to ask about or a payer to ask.
+ * national exchange. The rest are arithmetic — `EligibilityRequest` has no
+ * request to build without them, `PatientBirthDate` is a **non-nullable
+ * `DateTime`** so an empty one is a 400 rather than a question, and the service
+ * throws `"Payer doesn't configured!"` on an empty payer.
+ *
+ * 🚩 They are blockers rather than defaults for the same reason the provider is:
+ * an identity field nobody chose still reaches a national exchange. Stating the
+ * requirement where the agent is standing is this spec's whole posture — "a
+ * required field appears with its cause" — and it is what lets the form open on
+ * genuinely empty identity controls.
  */
 export function checkBlockers(draft: CheckDraft): CheckBlocker[] {
   const blockers: CheckBlocker[] = []
   if (blank(draft.providerCode)) blockers.push('provider')
   if (blank(draft.patientId)) blockers.push('patientId')
   if (blank(draft.payerCode)) blockers.push('payer')
+  if (blank(draft.patientIdType)) blockers.push('patientIdType')
+  if (blank(draft.patientName)) blockers.push('patientName')
+  if (blank(draft.patientGender)) blockers.push('patientGender')
+  if (blank(draft.patientBirthDate)) blockers.push('patientBirthDate')
   return blockers
 }
 
-/** `2010-08-21T00:00:00` → `2010-08-21`; anything else is passed through. */
-const asDate = (value: string) => (value ? value.slice(0, 10) : '')
+/**
+ * `2010-08-21T00:00:00` → `2010-08-21`, and **anything that is not an ISO date
+ * becomes `''`**.
+ *
+ * 🚩 Validating rather than slicing is the point. A native date input silently
+ * renders an unparseable value as empty, so a blind `slice(0, 10)` over an
+ * unexpected serialization (`2010-8-21T…`, a locale format) would leave the agent
+ * looking at a blank date field while the draft held a non-blank string — which
+ * clears the blocker and posts a malformed `DateTime` to the exchange. Blank
+ * keeps the field and its blocker agreeing with each other.
+ */
+const asDate = (value: string) => (/^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '')
 
 /**
  * **Fill** — the identity block completed from that patient's last check
@@ -99,21 +132,31 @@ const asDate = (value: string) => (value ? value.slice(0, 10) : '')
  * and copying it would be precisely the memory-of-the-last-pick §3.1 forbids —
  * an agent would submit under a provider the form chose for them. Whatever they
  * had already chosen survives untouched.
+ *
+ * 🚩 It **fills, and never clears**. Every text field falls back to what the
+ * agent had already typed, because the stored record is patchy — `Occupation`
+ * and `MaritalStatus` are nullable and usually empty — and a Fill that blanked a
+ * name the agent had just typed would punish the very case it exists to serve
+ * (press Fill, find out there is no previous check, keep going by hand). The two
+ * flags are the last check's own facts and do replace.
  */
 export function fillFromLastEligibility(draft: CheckDraft, last: LastEligibility): CheckDraft {
+  const fill = (incoming: string | null | undefined, current: string) =>
+    incoming && incoming.trim() !== '' ? incoming : current
+
   return {
     ...draft,
-    payerCode: last.payerCode ?? '',
-    patientId: last.patientId ?? draft.patientId,
-    patientIdType: last.patientIdType || draft.patientIdType,
-    patientName: last.patientName ?? '',
-    patientGender: last.patientGender || draft.patientGender,
-    patientBirthDate: asDate(last.patientBirthDate ?? ''),
-    memberId: last.memberId ?? '',
+    payerCode: fill(last.payerCode, draft.payerCode),
+    patientId: fill(last.patientId, draft.patientId),
+    patientIdType: fill(last.patientIdType, draft.patientIdType),
+    patientName: fill(last.patientName, draft.patientName),
+    patientGender: fill(last.patientGender, draft.patientGender),
+    patientBirthDate: fill(asDate(last.patientBirthDate ?? ''), draft.patientBirthDate),
+    memberId: fill(last.memberId, draft.memberId),
     transfer: last.transfer === true,
     newborn: last.newborn === true,
-    occupation: last.occupation ?? '',
-    maritalStatus: last.maritalStatus ?? '',
+    occupation: fill(last.occupation, draft.occupation),
+    maritalStatus: fill(last.maritalStatus, draft.maritalStatus),
   }
 }
 

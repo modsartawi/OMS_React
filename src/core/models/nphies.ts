@@ -32,12 +32,6 @@ export interface NphiesProvider {
   license: string
 }
 
-/** NPHIES patient identifier types — `NphiesTypes/PatientIdType.cs`, verbatim. */
-export type PatientIdType = 'NI' | 'PRC' | 'PN' | 'Other'
-
-/** `NphiesTypes/GenderType.cs`, verbatim. The exchange's spelling is lowercase. */
-export type PatientGender = 'male' | 'female'
-
 /**
  * `POST Nphies/CheckEligibility` body (§3.1) — `EligibilityRequest` verbatim.
  *
@@ -54,7 +48,9 @@ export interface EligibilityCheckRequest {
   providerCode: string
   payerCode: string
   patientId: string
+  /** `NI` · `PRC` (Iqama) · `PN` · `Other` — `NphiesTypes/PatientIdType.cs`. */
   patientIdType: string
+  /** `male` · `female`, lowercase — `NphiesTypes/GenderType.cs`. */
   patientGender: string
   patientName: string
   /** ISO `yyyy-MM-dd`. The DTO's type is a non-nullable `DateTime`. */

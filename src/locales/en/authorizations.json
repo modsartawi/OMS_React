@@ -315,10 +315,49 @@
     },
     "submit": {
       "action": "Submit",
+      "checking": "Checking the diagnoses for restrictions…",
+      "working": "Submitting — {{seconds}}s of a {{window}}s window. Keep this page open.",
+      "willCheckFirst": "Submitting runs the clinical-edit check first, then sends the request to the exchange. It can take up to 100 seconds.",
       "blockers": {
+        "intro_one": "{{count}} thing is holding this request:",
+        "intro_other": "{{count}} things are holding this request:",
+        "noItems": "Nothing is on the request. Add at least one item above.",
         "noPrincipal": "No diagnosis is marked principal, and the exchange requires exactly one.",
         "morphologyMissing": "The principal diagnosis needs a morphology code — choose one above.",
-        "noAttachment": "Nothing is attached, and a prior authorization is refused without at least one document."
+        "noAttachment": "Nothing is attached, and a prior authorization is refused without at least one document.",
+        "noCoverage": "No coverage was chosen, and the request needs the policy it is raised under.",
+        "noProvider": "No provider came across from the eligibility, and the exchange needs one.",
+        "server": "The request is being held by the service ({{code}}). Refresh to see whether it still is."
+      },
+      "clinicalEdit": {
+        "warningTitle": "The clinical-edit check found something",
+        "warningDetail": "These are warnings. You may go back and change the request, or submit it as it stands.",
+        "fatalTitle": "The clinical-edit check refuses this request",
+        "fatalDetail": "These restrictions cannot be overridden. Change the request and try again.",
+        "backToForm": "Back to the form",
+        "submitAnyway": "Submit anyway"
+      },
+      "lodged": {
+        "title": "The authorization was lodged",
+        "detail": "The exchange accepted it as {{preAuthRef}}. This request is now closed.",
+        "openDetail": "Open the authorization"
+      },
+      "refused": {
+        "title": "The request was refused before the payer saw it",
+        "detail_one": "{{count}} reason came back. Fix it here and submit again — nothing was sent to the payer.",
+        "detail_other": "{{count}} reasons came back. Fix them here and submit again — nothing was sent to the payer.",
+        "onTheRows": "The rest are on the rows that caused them."
+      },
+      "blocked": {
+        "title": "The request was not sent",
+        "detail": "The service refused the submission. Change the request and try again."
+      },
+      "inFlight": {
+        "title": "The submission is still in flight",
+        "detail": "The {{seconds}}-second window elapsed with no answer. The request may already have reached the payer.",
+        "neverResubmit": "Do not raise this authorization again. Check its status instead.",
+        "find": "It will be the most recent request for patient {{patientId}}.",
+        "statusCheck": "Open the authorizations list"
       }
     },
     "lines": {

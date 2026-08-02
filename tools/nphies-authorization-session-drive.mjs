@@ -17,6 +17,18 @@
 //   🚩 a voided line is KEPT, not removed (law 2);
 //   🚩 a stale state never replaces a newer one — `core/`s guard, in the browser (§2.1).
 //
+// Extended by 218 (the five money inputs), 219 (diagnoses and attachments) and
+// 220 (submit as a GATED PATH — scenarios 31–37), whose four assertions are the
+// ones that would cost a request at a national exchange:
+//   🚩 every blocker NAMES ITSELF, client's and server's in one list;
+//   🚩 the clinical-edit gate is ONE surface in TWO shapes — the fatal one is the
+//      warning one with the confirm button REMOVED, not disabled;
+//   🚩 a refused submit keeps the agent ON THE FORM, each reason on the row that
+//      caused it, and the header-only case still explains itself;
+//   🚩 A TIMEOUT IS IN FLIGHT, NEVER FAILED — the offered act is a status check
+//      and Submit is gone, because a second authorization for a request that
+//      already reached the payer is the worst thing this screen can produce.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/nphies-authorization-session-drive.mjs
 import { createRequire } from 'node:module'
@@ -124,6 +136,20 @@ let scenario = {
   staleRead: false,
   /** Refuse every session verb with §6's `SESSION_CLOSED`, reason `swept`. */
   sessionClosed: false,
+  // ---- 220 -----------------------------------------------------------------
+  /**
+   * §2's own `submitBlockers`. 🚩 **Empty by default, and that is the honest
+   * stub**: the mandatory attachment is a CLIENT form state (§3.5) because
+   * attachments only exist inside the submit body, so the engine genuinely cannot
+   * know whether one is held. A server that listed `NO_ATTACHMENTS` on every
+   * projection would be asserting something it has no way to see.
+   */
+  serverBlockers: [],
+  /** What `ClinicalEditValidate` finds — `clear` · `warning` · `fatal` (§3.7). */
+  clinicalEdit: 'clear',
+  /** What `Submit` answers — §7.3's three outcomes, plus the two that are not
+   *  outcomes at all: a guardrail refusal and a dead wire. */
+  submit: 'accepted',
 }
 
 const calls = {
@@ -139,6 +165,8 @@ const calls = {
   state: 0,
   diagnoses: [],
   morphs: [],
+  clinicalEdit: [],
+  submit: [],
 }
 
 /** The stubbed engine's one transaction. */
@@ -166,7 +194,7 @@ const projection = () => ({
   // makes it possible to tell a 300 cap from a 500 cap with 200 already spent.
   insurance: tx.insurance,
   lines: tx.lines,
-  submitBlockers: [{ code: 'NO_ATTACHMENTS', message: 'Attach the prescription before submitting.' }],
+  submitBlockers: scenario.serverBlockers,
   replayed: false,
 })
 
@@ -490,6 +518,96 @@ async function run() {
       save()
       return route.fulfill(envelope(projection()))
     }
+    // ---- 220's gate and the act itself ------------------------------------
+    // 🚩 The clinical-edit check is a PASSTHROUGH (§1.1 #10), so the body and the
+    // answer are the service's own `ClinicalEditRequest` / `ClinicalEditResult`
+    // (`ClinicalEditValidator.cs:285,299`) — and the answer is a list of findings
+    // each typed `F` or `W`, never a boolean.
+    if (path === 'Nphies/ClinicalEditValidate') {
+      const sent = body()
+      calls.clinicalEdit.push(sent)
+      const findings =
+        scenario.clinicalEdit === 'warning'
+          ? [
+              {
+                restrictionType: 'W',
+                message:
+                  'Patient age code (238) does not fall within the allowed code range (201-217) for diagnosis J45.9 : Asthma, unspecified.',
+              },
+            ]
+          : scenario.clinicalEdit === 'fatal'
+            ? [
+                {
+                  restrictionType: 'F',
+                  message:
+                    'The diagnosis J45.9 : Asthma, unspecified is not accepted as a Principal diagnosis.',
+                },
+                {
+                  restrictionType: 'W',
+                  message: 'Diagnosis J45.9 is subject to rare disease restrictions.',
+                },
+              ]
+            : []
+      return route.fulfill(envelope({ contractVersion: '1.0', findings }))
+    }
+    if (path === 'Nphies/Session/Submit') {
+      const sent = body()
+      calls.submit.push(sent)
+      // 🚩 A dead wire on THIS leg. Not an envelope, not a code — the case law 6
+      // exists for, where nobody can say whether the payer saw the request.
+      if (scenario.submit === 'transportFail')
+        return route.fulfill({ status: 502, contentType: 'text/plain', body: 'Bad gateway' })
+      if (scenario.submit === 'duplicate')
+        return route.fulfill(
+          refusal(
+            409,
+            'DUPLICATE_SUBMISSION',
+            'A submission for this patient is already being processed. Wait for it to finish.',
+          ),
+        )
+      if (scenario.submit === 'inFlight')
+        return route.fulfill(envelope({ outcome: 'inFlight', authId: null }))
+      if (scenario.submit === 'refusedLines')
+        return route.fulfill(
+          envelope({
+            outcome: 'refused',
+            authId: 'AUTH-78',
+            reasons: [
+              {
+                lineId: tx.lines[0] ? tx.lines[0].lineId : null,
+                message: 'Quantity 2 exceeds the plan maximum of 1 for this item.',
+              },
+              {
+                lineId: tx.lines[2] ? tx.lines[2].lineId : null,
+                message: 'This item is not covered under the member’s plan.',
+              },
+            ],
+          }),
+        )
+      // 🚩 The header-only refusal — the service's own guards throw BEFORE the
+      // lines are built (§3.9), so not one reason has a row to attach to.
+      if (scenario.submit === 'refusedHeader')
+        return route.fulfill(
+          envelope({
+            outcome: 'refused',
+            authId: 'AUTH-79',
+            reasons: [
+              { lineId: null, message: 'Provider P001 is not configured at the exchange.' },
+              { lineId: null, message: 'Item 100009 has no Nphies category.' },
+            ],
+          }),
+        )
+      tx.status = 'submitted'
+      save()
+      return route.fulfill(
+        envelope({
+          outcome: 'submitted',
+          authId: 'AUTH-77',
+          preAuthRef: 'PA-2026-77',
+          state: projection(),
+        }),
+      )
+    }
     if (path === 'Nphies/Session/Abandon') {
       calls.abandon.push(body())
       if (tx) tx.status = 'abandoned'
@@ -500,6 +618,47 @@ async function run() {
 
     if (path === 'Nphies/AuthResponses')
       return route.fulfill(envelope({ rows: [], total: 0, page: 1, pageSize: 50 }))
+    // 220's accepted submit LANDS on the authorization it created, so the detail
+    // has to answer — the thinnest `AuthHeaderDto` that renders (216's own drive
+    // is where the detail itself is asserted).
+    if (path.startsWith('Nphies/AuthResponse/'))
+      return route.fulfill(
+        envelope({
+          contractVersion: '1.0',
+          id: path.split('/')[2],
+          eligibilityId: ELIGIBILITY_ID,
+          memberId: MEMBER_ID,
+          providerCode: REFERENCE.providerCode,
+          payerCode: REFERENCE.payerCode,
+          patientId: REFERENCE.patientId,
+          patientIdType: 'NI',
+          patientName: REFERENCE.patientName,
+          patientGender: 'male',
+          patientBirthDate: REFERENCE.patientBirthDate,
+          preAuthRef: 'PA-2026-77',
+          claimProcessingCodes: 'Queued',
+          queued: true,
+          error: false,
+          cancelled: false,
+          adjudicationOutcome: '',
+          needComm: false,
+          actionDateTime: '2026-08-02T09:20:00',
+          responseDateTime: '',
+          serviceDate: '2026-08-02',
+          errorMessageShort: '',
+          disposition: '',
+          processNote: '',
+          statusCode: 200,
+          claimType: 0,
+          diagnosis: 'J45.9',
+          policyNumber: REFERENCE.policyNumber,
+          policyHolder: REFERENCE.policyHolder,
+          prescriptionRef: '',
+          exceptionPrescription: false,
+          authLines: [],
+          authSupportingInfos: [],
+        }),
+      )
     if (path === 'Nphies/Providers') return route.fulfill(envelope({ contractVersion: '1.0', items: [] }))
     // 🚩 The two lookups are SEARCHES, not catalogues: an empty query answers
     // nothing at all, exactly as `CoreService.GetDiagnosesAsync` does.
@@ -1484,6 +1643,290 @@ async function run() {
   check(
     '🚩 and with the last one gone the form is blocked again — it is a STATE, not a one-time check',
     (await submitButton().isDisabled()) && /At least one attachment is required/.test(await text()),
+  )
+
+  // =========================================================================
+  // Ticket 220 — submit as a GATED PATH, and the three outcomes of pressing it.
+  // The session from 218/219 is still live: four lines, two diagnoses, a plain
+  // principal, and nothing attached (scenario 30 removed the last row).
+  // =========================================================================
+
+  // ---- Scenario 31: 🚩 every blocker names ITSELF -------------------------
+  const blockerList = () => page.locator('main [role=status] ul li')
+  check(
+    '🚩 the blockers are a LIST, counted — not one message box naming whichever condition was hit first',
+    /1 thing is holding this request/.test(await text()) && (await blockerList().count()) >= 1,
+    ((await text()).match(/\d+ things? (is|are) holding[^\n]*/) || [''])[0],
+  )
+  check(
+    'and the one that holds names itself in words',
+    /Nothing is attached/.test(await text()),
+  )
+  // A server-stated blocker renders in the SERVER's words (§6 kind 2), beside
+  // the client's — one list, whoever the rule belongs to.
+  scenario.serverBlockers = [
+    { code: 'PROVIDER_NOT_CONFIGURED', message: 'Provider P001 is not configured at the exchange.' },
+  ]
+  await page.getByRole('button', { name: /^Refresh$/ }).click()
+  await page.waitForTimeout(500)
+  check(
+    '🚩 the SERVER’s own submitBlockers join the same list, in its words',
+    /Provider P001 is not configured at the exchange\./.test(await text()) &&
+      /2 things are holding this request/.test(await text()),
+    ((await text()).match(/\d+ things? (is|are) holding[^\n]*/) || [''])[0],
+  )
+  check('and Submit is unavailable while any of them holds', await submitButton().isDisabled())
+  scenario.serverBlockers = []
+
+  await fileInput().setInputFiles({
+    name: 'prescription.jpg',
+    mimeType: 'image/jpeg',
+    buffer: photoBytes,
+  })
+  await page.getByRole('button', { name: /^Refresh$/ }).click()
+  await page.waitForTimeout(1200)
+  check(
+    'with every blocker cleared the act is offered, and it says what pressing it will do',
+    !(await submitButton().isDisabled()) &&
+      /clinical-edit check first/.test(await text()),
+  )
+
+  // ---- Scenario 32: 🚩 the clinical-edit gate — the WARNING shape ----------
+  scenario.clinicalEdit = 'warning'
+  const submitsBefore = calls.submit.length
+  await submitButton().click()
+  await page.waitForTimeout(700)
+  const gatePanel = () => page.getByRole('group', { name: /clinical-edit check/i })
+  check(
+    '🚩 the check runs BEFORE the request goes — and it is asked with the diagnoses, not the basket',
+    calls.clinicalEdit.length === 1 &&
+      Array.isArray(calls.clinicalEdit[0].diagnoses) &&
+      calls.clinicalEdit[0].diagnoses.length === 2 &&
+      calls.clinicalEdit[0].patientGender === 'male' &&
+      !('lines' in calls.clinicalEdit[0]) &&
+      !('attachments' in calls.clinicalEdit[0]),
+    JSON.stringify(calls.clinicalEdit[0]),
+  )
+  check('the warning shape lists what it found', /does not fall within the allowed code range/.test(await text()))
+  check(
+    '🚩 and it offers BOTH acts — Back to the form, and Submit anyway',
+    (await gatePanel().getByRole('button', { name: /Back to the form/ }).count()) === 1 &&
+      (await gatePanel().getByRole('button', { name: /Submit anyway/ }).count()) === 1,
+  )
+  check(
+    '🚩 nothing has been submitted yet — the gate is a gate, not a notification',
+    calls.submit.length === submitsBefore,
+  )
+  check('the gate is INLINE — still no modal anywhere in this flow', (await page.locator('dialog').count()) === 0)
+  await gatePanel().getByRole('button', { name: /Back to the form/ }).click()
+  await page.waitForTimeout(300)
+  check(
+    'Back to the form dismisses it and sends nothing',
+    (await gatePanel().count()) === 0 && calls.submit.length === submitsBefore,
+  )
+
+  // ---- Scenario 33: 🚩 the FATAL shape — the same surface, one button less --
+  scenario.clinicalEdit = 'fatal'
+  await submitButton().click()
+  await page.waitForTimeout(700)
+  check(
+    'the fatal shape lists what it found, exactly as the warning does',
+    /is not accepted as a Principal diagnosis/.test(await text()) &&
+      /subject to rare disease restrictions/.test(await text()),
+  )
+  check(
+    '🚩 ONE F among warnings makes the whole gate fatal — and every finding is still listed',
+    (await gatePanel().locator('li').count()) === 2,
+    `${await gatePanel().locator('li').count()} findings`,
+  )
+  check(
+    '🚩 THE CONFIRM BUTTON IS REMOVED — a fatal restriction is not overridable, and is not merely disabled',
+    (await gatePanel().getByRole('button', { name: /Submit anyway/ }).count()) === 0 &&
+      (await gatePanel().getByRole('button', { name: /Back to the form/ }).count()) === 1,
+  )
+  check(
+    'and nothing reached the exchange',
+    calls.submit.length === submitsBefore,
+  )
+  await gatePanel().getByRole('button', { name: /Back to the form/ }).click()
+  await page.waitForTimeout(300)
+
+  // ---- Scenario 34: 🚩 a REFUSED submit keeps the agent ON THE FORM --------
+  scenario.clinicalEdit = 'clear'
+  scenario.submit = 'refusedLines'
+  await submitButton().click()
+  await page.waitForTimeout(1200)
+  check(
+    'a clear check falls straight through to the submission — the ordinary case costs no click',
+    calls.submit.length === submitsBefore + 1,
+    JSON.stringify(Object.keys(calls.submit[calls.submit.length - 1] || {})),
+  )
+  const submitted = calls.submit[calls.submit.length - 1] || {}
+  check(
+    '🚩 the submit body carries the transaction, a requestId and the ATTACHMENTS — no lines, no amounts (law 2)',
+    typeof submitted.transactionId === 'string' &&
+      typeof submitted.requestId === 'string' &&
+      Array.isArray(submitted.attachments) &&
+      submitted.attachments.length === 1 &&
+      !('lines' in submitted) &&
+      !('items' in submitted) &&
+      !('total' in submitted),
+    JSON.stringify(Object.keys(submitted)),
+  )
+  check(
+    'and the attachment rides as §3.5 defines it — sequence, title, contentType, base64',
+    submitted.attachments[0].sequence === 1 &&
+      submitted.attachments[0].title === 'Prescription' &&
+      submitted.attachments[0].contentType === 'image/jpeg' &&
+      typeof submitted.attachments[0].attachment === 'string' &&
+      !submitted.attachments[0].attachment.startsWith('data:'),
+    JSON.stringify({ ...submitted.attachments[0], attachment: '…' }),
+  )
+  check(
+    '🚩 THE AGENT STAYS ON THE FORM — a Failed is a form state, not an error page',
+    (await page.getByRole('heading', { name: /New authorization/ }).count()) === 1 &&
+      (await rows().count()) === 4 &&
+      /refused before the payer saw it/.test(await text()),
+  )
+  check(
+    '🚩 and each reason is on the ROW that caused it',
+    /Quantity 2 exceeds the plan maximum/.test(await rows().nth(0).innerText()) &&
+      /not covered under the member/.test(await rows().nth(2).innerText()) &&
+      !/exceeds the plan maximum/.test(await rows().nth(1).innerText()),
+    (await rows().nth(0).innerText()).replace(/\n/g, ' | '),
+  )
+  check(
+    'Submit is still there — the refusal is fixable HERE and sending again is the point',
+    (await submitButton().count()) === 1 && !(await submitButton().isDisabled()),
+  )
+
+  // ---- Scenario 35: 🚩 the HEADER-ONLY refusal ----------------------------
+  scenario.submit = 'refusedHeader'
+  await submitButton().click()
+  await page.waitForTimeout(1200)
+  check(
+    '🚩 a request that failed BEFORE any line was built still explains itself',
+    /Provider P001 is not configured at the exchange\./.test(await text()) &&
+      /Item 100009 has no Nphies category\./.test(await text()),
+  )
+  check(
+    'and no row is annotated, because no row caused it',
+    !/is not configured/.test(await linesTable().innerText()),
+  )
+
+  // ---- Scenario 36: a guardrail refusal is NOT a transport failure --------
+  // §6 kind 2, and the third leg of the taxonomy: the upstream holds a lock on
+  // `Auth_{ClaimType}{PatientId}`, so a second submission for the same patient
+  // collides BEFORE the exchange. The request never went, so the agent may fix
+  // and send again — the exact opposite of the timeout's rule below.
+  scenario.submit = 'duplicate'
+  await submitButton().click()
+  await page.waitForTimeout(1200)
+  check(
+    '🚩 a business refusal explains itself IN THE SERVICE’S WORDS, and is not reported as in flight',
+    /A submission for this patient is already being processed/.test(await text()) &&
+      !/still in flight/.test(await text()),
+    ((await text()).match(/The request was not sent[\s\S]{0,120}/) || [''])[0].replace(/\n/g, ' | '),
+  )
+  check(
+    'and Submit stays available — nothing reached the payer, so sending again is legitimate',
+    (await submitButton().count()) === 1 && !(await submitButton().isDisabled()),
+  )
+
+  // ---- Scenario 37: 🚩 A TIMEOUT IS IN FLIGHT, NEVER FAILED ---------------
+  scenario.submit = 'transportFail'
+  const submitsBeforeTimeout = calls.submit.length
+  await submitButton().click()
+  await page.waitForTimeout(1400)
+  check(
+    '🚩 a dead wire on the submit leg reads as IN FLIGHT — never as a failure',
+    /still in flight/.test(await text()) && !/could not/i.test(await text()),
+    ((await text()).match(/.*still in flight.*/) || [''])[0],
+  )
+  check(
+    '🚩 it says NOT to raise it again, in words',
+    /Do not raise this authorization again/.test(await text()),
+  )
+  check(
+    '🚩 THE OFFERED ACT IS A STATUS CHECK, and Submit is GONE — not disabled, gone',
+    (await page.getByRole('link', { name: /Open the authorizations list/ }).count()) === 1 &&
+      (await submitButton().count()) === 0,
+  )
+  check(
+    'and it names the patient in words rather than promising a filter the list does not apply',
+    /most recent request for patient 0000000003/.test(await text()),
+    ((await text()).match(/It will be the most recent[^\n]*/) || [''])[0],
+  )
+  check(
+    'and no second submission was sent, by any path',
+    calls.submit.length === submitsBeforeTimeout + 1,
+  )
+  check(
+    'the whole form is frozen behind it — no verb may change a request that may be at the payer',
+    (await itemBox().isDisabled()) && (await qtyOf(0).isDisabled()),
+  )
+
+  // 🚩 THE ONE THAT WOULD HAVE COST A REQUEST: following the offered act must not
+  // raise a leave warning, and must ABANDON NOTHING. A transaction that may
+  // already be with the exchange is the one thing this form must never void.
+  const abandonsBeforeInFlightExit = calls.abandon.length
+  await page.getByRole('link', { name: /Open the authorizations list/ }).click()
+  await page.waitForTimeout(900)
+  check(
+    '🚩 leaving an IN-FLIGHT request neither warns nor ABANDONS — it may already be at the payer',
+    calls.abandon.length === abandonsBeforeInFlightExit &&
+      !/Leaving discards this request/.test(await text()) &&
+      page.url().endsWith('/nphies/authorizations'),
+    page.url().replace(BASE, ''),
+  )
+
+  // ---- Scenario 38: an ACCEPTED submit lands on the authorization ----------
+  // A fresh session, because the in-flight lock is permanent by design.
+  await page.goto(FORM_URL)
+  await page.getByRole('heading', { name: /New authorization/ }).waitFor({ timeout: 20000 })
+  await page.waitForTimeout(500)
+  await itemBox().fill('100001')
+  await addQtyBox().fill('1')
+  await page.getByRole('button', { name: /^Add$/ }).click()
+  await page.waitForTimeout(400)
+  await dxSearch().fill('J45')
+  await page.waitForTimeout(600)
+  await dxMatch().selectOption('J45.9')
+  await addDiagnosis().click()
+  await page.waitForTimeout(500)
+  await fileInput().setInputFiles({
+    name: 'prescription.jpg',
+    mimeType: 'image/jpeg',
+    buffer: photoBytes,
+  })
+  await page.waitForTimeout(1200)
+  check(
+    'a fresh request is not carrying the last one’s refusal',
+    !/refused before the payer saw it/.test(await text()) && !/still in flight/.test(await text()),
+  )
+  scenario.submit = 'accepted'
+  const abandonsBeforeLodging = calls.abandon.length
+  await submitButton().click()
+  await page.waitForTimeout(1800)
+  check(
+    '🚩 an accepted submit LODGES — the transaction is closed by the state it answered with',
+    calls.submit.length > 0 && /PA-2026-77/.test(await text()),
+    ((await text()).match(/PA-2026-77[^\n]*/) || [''])[0],
+  )
+  check(
+    '🚩 and THE AGENT LANDS ON THE AUTHORIZATION IT CREATED — not on a form with a link on it',
+    page.url().endsWith('/nphies/authorizations/AUTH-77'),
+    page.url().replace(BASE, ''),
+  )
+  check(
+    'the detail is what is on screen — the form is behind them',
+    (await page.getByRole('heading', { name: /^Authorization$/ }).count()) === 1 &&
+      (await submitButton().count()) === 0,
+  )
+  check(
+    '🚩 and landing on it abandoned NOTHING — a lodged request is not litter to sweep',
+    calls.abandon.length === abandonsBeforeLodging,
+    `${calls.abandon.length} abandons in the whole drive`,
   )
 
   check('no uncaught page errors anywhere in the drive', errors.length === 0, errors.slice(0, 3).join(' | '))

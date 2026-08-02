@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Trash2 } from 'lucide-react'
+import { Loader2, Trash2, TriangleAlert } from 'lucide-react'
 
 import { formatAmount } from '@/core/nphies/format'
 import type { NphiesCodeSystemEntry } from '@/core/models/nphies'
@@ -42,6 +42,7 @@ export default function RequestLines({
   onDaysSupply,
   onSelectionReason,
   selectionReasons,
+  refusalsByLine,
   busyLineId,
   disabled,
 }: {
@@ -60,6 +61,16 @@ export default function RequestLines({
    *  into the client**: a value set written out here is exactly the guessed shape
    *  spec 209 warns against. */
   selectionReasons: NphiesCodeSystemEntry[]
+  /**
+   * 🚩 **Why the exchange refused this row**, by `lineId` (ticket 220, §7.3).
+   *
+   * A `Failed` submission is a *form state*: the agent stays here and fixes it,
+   * so the reason belongs on the row that caused it rather than in a banner that
+   * names a line number. Reasons that name no row — the header-only case, where
+   * the service's guards threw before a single line was built — are the page's to
+   * render, not this grid's.
+   */
+  refusalsByLine: Record<string, string[]>
   /** The line a verb is in flight for. Stated on the row rather than as a global
    *  spinner, because the agent needs to know WHICH line is working. */
   busyLineId: string | null
@@ -112,6 +123,10 @@ export default function RequestLines({
               key={line.lineId}
               className={
                 'border-b border-border/40 last:border-b-0 ' +
+                // A refused row is tinted as well as annotated: on a long
+                // request the agent needs to find the rows to fix before they
+                // read why.
+                ((refusalsByLine[line.lineId] ?? []).length > 0 ? 'bg-danger-050 ' : '') +
                 (line.voided ? 'text-muted-foreground line-through' : '')
               }
             >
@@ -125,6 +140,20 @@ export default function RequestLines({
                       {t('form.lines.voided')}
                     </span>
                   )}
+                  {/* 🚩 The payer's own refusal reasons, on the row that caused
+                      them — server-supplied words, passed through as data. This
+                      is the whole of what makes a `Failed` fixable in place
+                      instead of a message box naming a line number. */}
+                  {(refusalsByLine[line.lineId] ?? []).map((reason, index) => (
+                    <span
+                      key={index}
+                      role="alert"
+                      className="mt-1 flex items-start gap-1 text-[0.6875rem] text-danger-800 no-underline"
+                    >
+                      <TriangleAlert className="mt-px h-3 w-3 shrink-0" aria-hidden />
+                      {reason}
+                    </span>
+                  ))}
                 </div>
               </Td>
               <Td>

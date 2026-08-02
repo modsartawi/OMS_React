@@ -25,10 +25,14 @@ import type {
   AuthStatusCheckResult,
   NphiesAbandonResult,
   NphiesAuthSessionState,
+  NphiesClinicalEditRequest,
+  NphiesClinicalEditResult,
   NphiesOpenResult,
   NphiesPage,
   NphiesSessionDiagnosis,
   NphiesSessionInsurance,
+  NphiesSubmitAttachment,
+  NphiesSubmitResult,
 } from '@/core/models/nphies'
 
 export const authorizationsApi = {
@@ -116,6 +120,31 @@ export const authorizationsApi = {
   cancel(body: AuthCancellationRequest): Promise<AuthCancellationResult> {
     return api.post<AuthCancellationResult>('Nphies/Cancellation', body)
   },
+
+  /**
+   * `POST Nphies/ClinicalEditValidate` (§1.1 #10, §3.7) — ticket 220. A
+   * passthrough to `Auth/ClinicalEditValidate`, so the body and the answer are
+   * the service's own `ClinicalEditRequest` / `ClinicalEditResult`
+   * (`Features/ClinicalEditValidator.cs:285,299`, read 2026-08-02).
+   *
+   * 🚩 **It is a SUBMIT-time gate, not a dispense-time one** (§3.7, spec §8).
+   * WPF runs the same check when the pharmacist dispenses; the web runs it
+   * immediately before the exchange sees the request, which is the only place
+   * this audience can act on what it finds.
+   *
+   * 🚩 **It carries no money and no basket.** The check is about the patient and
+   * the diagnoses — age and gender restrictions per code, and whether a principal
+   * was named — so `clinicalEditRequestFrom` assembles it from the session
+   * state's `reference` and `header` and nothing else leaves the browser (law 1).
+   *
+   * ⚠️ The validator **throws** rather than reporting a finding for two inputs:
+   * an empty diagnosis list and a code it cannot resolve (`:47`, `:73`). The
+   * first is unreachable — `noPrincipal` blocks Submit before this call — and the
+   * second arrives as an ordinary business refusal that says so in words.
+   */
+  clinicalEditValidate(request: NphiesClinicalEditRequest): Promise<NphiesClinicalEditResult> {
+    return api.post<NphiesClinicalEditResult>('Nphies/ClinicalEditValidate', request)
+  },
 }
 
 /**
@@ -127,12 +156,11 @@ export const authorizationsApi = {
  * the client renders the latest state it is allowed to render, and which one that
  * is comes from `@/core/engine-session/session-state` (§2.1).
  *
- * 🚩 **Ten of the eleven verbs are here.** 217 brought six; 218 added the three
- * insurance verbs that carry the agent's five inputs; 219 adds `setHeader`, which
- * is where the diagnoses and the exception-prescription flag reach the request.
- * Only `submit` is still absent, and deliberately so — it belongs to 220, and a
- * verb declared before the screen that presses it is a shape nobody has checked
- * against a live door.
+ * 🚩 **All eleven verbs are here.** 217 brought six; 218 added the three
+ * insurance verbs that carry the agent's five inputs; 219 added `setHeader`,
+ * where the diagnoses and the exception-prescription flag reach the request; and
+ * 220 closes the table with `submit`, the one act on this door that reaches a
+ * national exchange.
  *
  * ⚠️ **None of these endpoints exists yet.** They are the largest and riskiest
  * server term in the effort (8–12 days, a *parallel* build: the call-centre engine
@@ -413,6 +441,48 @@ export const authSessionApi = {
    * owes the agent a landing. An abandon with no follow-on leaves them holding
    * nothing.
    */
+  /**
+   * `POST Nphies/Session/Submit` → §7.3's `SubmitResult` — ticket 220, and the
+   * one act on this door that reaches a national exchange.
+   *
+   * 🚩 **It takes the transaction id and the attachments, and NOTHING else**
+   * (§3.5). No document, no lines, no amounts: the upstream `AuthRequest` is
+   * built server-side from engine state, because the audit trail must show what
+   * the engine landed against what the agent changed (law 2). A body that carried
+   * the basket would be the "assemble a payload and POST it" path this whole form
+   * exists to not be.
+   *
+   * 🚩 **The attachments ride HERE**, as base64, because they are not a verb and
+   * there is no upload endpoint (§1.2). Images have already been downscaled in
+   * the browser (219), which is what keeps a synchronous submit honest.
+   *
+   * 🚩 **Synchronous at 100 s** (§1). The answer is one of three (§7.3) and
+   * **none of them is "failed"**: `submitted` lodges, `refused` is a `Failed` the
+   * agent fixes on the form, and `inFlight` means the window elapsed with the
+   * request possibly already at the payer — whose only permitted response is a
+   * status check (law 6). ⚠️ A transport failure on this leg reads as `inFlight`
+   * too; `readSubmitFailure` in `./submit-gate` is where that is decided, and it
+   * is the reason no caller of this function may retry it.
+   *
+   * Refuses `SUBMIT_BLOCKED` (a `submitBlockers` entry still holds),
+   * `CLINICAL_EDIT_FATAL` (an `F` finding — not overridable) and
+   * `DUPLICATE_SUBMISSION` (the upstream holds a lock on
+   * `Auth_{ClaimType}{PatientId}`, so two submissions for the **same patient id**
+   * back to back collide before reaching the exchange) — every one a business
+   * outcome the form states, never a crash.
+   */
+  submit(
+    transactionId: string,
+    requestId: string,
+    attachments: NphiesSubmitAttachment[],
+  ): Promise<NphiesSubmitResult> {
+    return api.post<NphiesSubmitResult>('Nphies/Session/Submit', {
+      transactionId,
+      requestId,
+      attachments,
+    })
+  },
+
   abandon(transactionId: string, requestId: string): Promise<NphiesAbandonResult> {
     return api.post<NphiesAbandonResult>('Nphies/Session/Abandon', { transactionId, requestId })
   },

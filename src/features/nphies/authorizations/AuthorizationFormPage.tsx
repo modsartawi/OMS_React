@@ -25,19 +25,26 @@ import type {
   NphiesSessionDiagnosis,
   NphiesSessionInsurance,
 } from '@/core/models/nphies'
-import { authSessionApi } from './api'
+import { authSessionApi, authorizationsApi } from './api'
 import AddItemRow from './AddItemRow'
 import Attachments from './Attachments'
 import DeductibleTerms from './DeductibleTerms'
 import Diagnoses from './Diagnoses'
 import RequestLines from './RequestLines'
-import { attachmentBlockers, type PreparedAttachment } from './attachment-prepare'
+import SubmitAct from './SubmitAct'
+import { toSubmitAttachments, type PreparedAttachment } from './attachment-prepare'
+import { diagnosesChanged, lookupRowFor, principalDiagnosis } from './diagnosis-form'
 import {
-  diagnosesChanged,
-  diagnosisBlockers,
-  lookupRowFor,
-  principalDiagnosis,
-} from './diagnosis-form'
+  clinicalEditGate,
+  clinicalEditRequestFrom,
+  placeRefusals,
+  readSubmitFailure,
+  readSubmitResult,
+  submitBlockers,
+  submitIsLocked,
+  type ClinicalEditGate,
+  type SubmitLanding,
+} from './submit-gate'
 import {
   admitSessionState,
   leavingDiscardsWork,
@@ -151,6 +158,26 @@ export default function AuthorizationFormPage() {
    * of them, and a refresh of the state must not clear what the agent attached.
    */
   const [attachments, setAttachments] = useState<PreparedAttachment[]>([])
+  /**
+   * 🚩 **Submit is a gated path, not a button** (ticket 220). Four pieces of
+   * state, and each is a rule rather than a spinner:
+   *
+   * - `gate` — what the clinical-edit check found. It is asked **before** every
+   *   submission (§3.7) and is one surface in two shapes.
+   * - `landing` — where the submission left the agent (§7.3). 🚩 An `inFlight`
+   *   landing **locks Submit forever**: the request may already be with the
+   *   payer, and a second authorization for it is the worst outcome this screen
+   *   can produce (law 6).
+   * - `refusals` — a `Failed`'s reasons, placed on the rows that caused them.
+   *   The agent stays on the form; this is what they fix from.
+   * - `submitStartedAt` — so the wait is *visibly* working for its full 100 s
+   *   window (story 63).
+   */
+  const [gate, setGate] = useState<ClinicalEditGate | null>(null)
+  const [checking, setChecking] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [landing, setLanding] = useState<SubmitLanding | null>(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [refusal, setRefusal] = useState<AddItemRefusal | null>(null)
   const [refusalDetail, setRefusalDetail] = useState<string | null>(null)
   const [leaving, setLeaving] = useState(false)
@@ -231,8 +258,26 @@ export default function AuthorizationFormPage() {
     return useStoreLock.getState().hold()
   }, [sessionIsOpen])
 
+  /**
+   * 🚩 **The request is no longer this form's to change** — it has been lodged,
+   * or the submit window elapsed with it possibly already at the payer (law 6).
+   *
+   * It is a separate fact from `sessionIsOpen` and that is the whole point: on an
+   * `inFlight` landing the server never answered, so the local state still says
+   * `open`. Every act this page offers — the verbs, the leave warning and above
+   * all `Abandon` — has to read THIS, or the screen tells the agent it cannot
+   * account for their request and then offers to void it.
+   */
+  const locked = submitIsLocked(landing)
+  /** Nothing may be sent while the submit leg is open either: SIS.Api is at that
+   *  moment building the upstream request from engine state, and a verb landing
+   *  mid-flight would change what is being submitted. */
+  const frozen = !sessionIsOpen || locked || submitting || checking
+
   // ---- Leaving ------------------------------------------------------------
-  const discardsWork = leavingDiscardsWork(state)
+  // 🚩 A locked request is NOT work to discard. Warning about it would invite
+  // precisely the act that must never happen.
+  const discardsWork = leavingDiscardsWork(state) && !locked
 
   // A closed tab is the one exit this page cannot mediate. The browser's own
   // prompt is what stands there; the server sweeps whatever escapes it (law 9).
@@ -260,14 +305,22 @@ export default function AuthorizationFormPage() {
    * that redirect would put a "leaving discards this request" warning in front of
    * an agent who has already been logged out, over a request no later verb could
    * save anyway.
+   *
+   * 🚩 **A locked request is exempt too, and for a graver reason.** After an
+   * `inFlight` submission the transaction is still locally `open`, so without
+   * this clause the one act the screen offers — go and check its status — would
+   * be intercepted and answered with a *Discard* button, for a request that may
+   * already be at the payer. Leaving simply proceeds: no warning, and above all
+   * no `Abandon`.
    */
   const blocker = useBlocker(
     useCallback(
       ({ currentLocation, nextLocation }) =>
         sessionIsOpen &&
+        !locked &&
         nextLocation.pathname !== '/login' &&
         currentLocation.pathname !== nextLocation.pathname,
-      [sessionIsOpen],
+      [sessionIsOpen, locked],
     ),
   )
 
@@ -399,20 +452,22 @@ export default function AuthorizationFormPage() {
     : false
 
   /**
-   * 🚩 **Submit is a form state, not a submit-time throw.** Two of the blockers
-   * spec 209 names are this slice's — no principal diagnosis, morphology required
-   * and unset — and the third, no attachment, is the one the exchange refuses
-   * outright (`GeneralValidation()`). Each names itself, so the agent reads what
-   * is missing instead of hunting for it.
-   *
-   * ⚠️ The other blockers — no items, coverage unpicked, provider unpicked — and
-   * the act itself belong to 220, which is where they arrive together with the
-   * clinical-edit gate. This list is deliberately only what 219 owns.
+   * 🚩 **Submit is a form state, not a submit-time throw**, and every reason it
+   * is unavailable comes from **one module** (`./submit-gate`) rather than being
+   * assembled here — no items, no attachment, no principal diagnosis, morphology
+   * required and unset, coverage unpicked, provider unpicked, plus whatever the
+   * server's own `submitBlockers` says. Each names itself, so the agent reads
+   * what is missing instead of meeting it one refusal at a time.
    */
-  const submitBlockers = [
-    ...diagnosisBlockers(diagnoses, needsMorph),
-    ...attachmentBlockers(attachments),
-  ]
+  const submitHolds = submitBlockers({ state, attachments, needsMorph })
+
+  /** 🚩 A `Failed`'s reasons, placed. Nothing is dropped: a reason naming no line
+   *  — or one this request does not hold — lands on the header, which is the
+   *  header-only case where the service's guards threw before the lines existed. */
+  const refusals = placeRefusals(
+    landing?.kind === 'refused' ? landing.reasons : [],
+    state?.lines ?? [],
+  )
 
   async function add(itemNumber: string, qty: number) {
     // 🚩 The refusal at the moment of adding (§2.3). It is a forward statement of
@@ -511,6 +566,11 @@ export default function AuthorizationFormPage() {
     exceptionPrescription?: boolean
   }) {
     setHeaderBusy(true)
+    // 🚩 A gate raised against the OLD diagnoses is no longer an answer about
+    // this request — the clinical-edit check reads the diagnoses and nothing
+    // else, so changing them retires its verdict. Leaving it up would let
+    // *Submit anyway* confirm a check that was never made.
+    setGate(null)
     try {
       await runVerb((transactionId, requestId) =>
         authSessionApi.setHeader(transactionId, requestId, header),
@@ -519,6 +579,103 @@ export default function AuthorizationFormPage() {
       setVerbError(error)
     } finally {
       setHeaderBusy(false)
+    }
+  }
+
+  /**
+   * **The clinical-edit check, then the submission** (§3.7 → §3.5).
+   *
+   * 🚩 The check runs **before** the request goes, every time, because it is a
+   * *submit*-time gate and not a dispense-time one. A clear answer falls straight
+   * through to the submission — the ordinary case costs the agent nothing. A
+   * warning or a fatal raises the gate and stops here; the agent either goes back
+   * to the form or, on a warning only, confirms.
+   */
+  async function beginSubmit() {
+    const live = stateRef.current
+    if (!live || locked) return
+    setLanding(null)
+    setVerbError(null)
+    setChecking(true)
+    let decided: ClinicalEditGate | null = null
+    try {
+      const result = await authorizationsApi.clinicalEditValidate(clinicalEditRequestFrom(live))
+      decided = clinicalEditGate(result.findings ?? [])
+      setGate(decided)
+    } catch (error) {
+      // ⚠️ A check that could not run is NOT a licence to submit unchecked, and
+      // it is not an in-flight submission either — nothing has been sent. It is
+      // an ordinary failure the agent may retry.
+      setVerbError(error)
+    } finally {
+      setChecking(false)
+    }
+    // Outside the check's own `finally`, so the two waits never overlap: an agent
+    // watching "checking the diagnoses" for ninety seconds of a submission is
+    // being told the wrong thing about what is happening.
+    if (decided?.shape === 'clear') await sendSubmit()
+  }
+
+  /**
+   * The submission itself — `Nphies/Session/Submit`, synchronous at 100 s.
+   *
+   * 🚩 **Its three outcomes, and none of them is "failed"** (§7.3). Lodged lands
+   * on the detail; refused keeps the agent HERE with the reasons on the rows that
+   * caused them; in-flight offers a status check and nothing else. A transport
+   * failure on this leg is read as in-flight too — `readSubmitFailure` owns that
+   * ruling, and it is why there is no retry anywhere near this function.
+   */
+  async function sendSubmit() {
+    const live = stateRef.current
+    if (!live || locked) return
+    setGate(null)
+    setSubmitting(true)
+    setElapsedSeconds(0)
+    const started = Date.now()
+    // The wait says how long it has been waiting. A still screen for ninety
+    // seconds is what makes an agent give up on a submission that is still going.
+    const tick = window.setInterval(
+      () => setElapsedSeconds(Math.round((Date.now() - started) / 1000)),
+      1000,
+    )
+    try {
+      const result = await authSessionApi.submit(
+        live.transactionId,
+        newRequestId(),
+        toSubmitAttachments(attachments),
+      )
+      const next = readSubmitResult(result)
+      setLanding(next)
+      // A lodged submission answers the whole closed state like every other verb
+      // (law 3), so the form follows it into `submitted` rather than being told
+      // separately that it is over.
+      if (result.outcome === 'submitted') {
+        receive(result.state, 'verb')
+        // 🚩 **The agent LANDS on the authorization** (§7.3, story 22's tempo):
+        // the request is no longer theirs to edit and what they came for is what
+        // the payer now says about it. Safe by construction — the transaction is
+        // `submitted`, so the leave interception is inert and nothing is
+        // abandoned on the way out.
+        void navigate(`/nphies/authorizations/${encodeURIComponent(result.authId)}`)
+      }
+    } catch (error) {
+      const dead = readSessionFault(error)
+      if (dead) {
+        setFault({
+          ...dead,
+          message: apiErrorMessage(
+            error,
+            t(dead.kind === 'closed' ? 'form.fault.closedHint' : 'form.fault.notYoursHint'),
+          ),
+        })
+        stateRef.current = null
+        setState(null)
+        return
+      }
+      setLanding(readSubmitFailure(error))
+    } finally {
+      window.clearInterval(tick)
+      setSubmitting(false)
     }
   }
 
@@ -571,8 +728,18 @@ export default function AuthorizationFormPage() {
   }
 
   const reference = state?.reference
+  // 🚩 `submitting` and `checking` are in here: while the submit leg is open
+  // SIS.Api is building the upstream request from engine state, and a verb that
+  // landed mid-flight would change what is being submitted.
   const busy =
-    adding || busyLineId !== null || leaving || refreshing || repricing || headerBusy
+    adding ||
+    busyLineId !== null ||
+    leaving ||
+    refreshing ||
+    repricing ||
+    headerBusy ||
+    submitting ||
+    checking
 
   return (
     <section className="flex w-full flex-col gap-4">
@@ -730,7 +897,7 @@ export default function AuthorizationFormPage() {
             insurance={state.insurance}
             onCommit={(next) => void setInsurance(next)}
             busy={repricing}
-            disabled={!sessionIsOpen || adding || busyLineId !== null || leaving}
+            disabled={frozen || adding || busyLineId !== null || leaving}
           />
 
           {/* 🚩 The diagnoses that justify the request, with principal as a radio
@@ -747,7 +914,7 @@ export default function AuthorizationFormPage() {
             }}
             onExceptionPrescription={(next) => void setHeader({ exceptionPrescription: next })}
             busy={headerBusy}
-            disabled={!sessionIsOpen || leaving}
+            disabled={frozen || leaving}
           />
 
           <section className="flex flex-col gap-3">
@@ -774,7 +941,7 @@ export default function AuthorizationFormPage() {
               busy={adding}
               refusal={refusal}
               refusalDetail={refusalDetail}
-              disabled={!sessionIsOpen || busyLineId !== null || leaving}
+              disabled={frozen || busyLineId !== null || leaving}
             />
 
             <RequestLines
@@ -785,8 +952,9 @@ export default function AuthorizationFormPage() {
               onDaysSupply={(lineId, days) => void setDaysSupply(lineId, days)}
               onSelectionReason={(lineId, code) => void setSelectionReason(lineId, code)}
               selectionReasons={selectionReasons.data ?? []}
+              refusalsByLine={refusals.byLine}
               busyLineId={busyLineId}
-              disabled={!sessionIsOpen || adding || leaving || repricing}
+              disabled={frozen || adding || leaving || repricing}
             />
 
             {/* 🚩 Which cells are yours, said once, where the grid is. Everything
@@ -808,40 +976,28 @@ export default function AuthorizationFormPage() {
             attachments={attachments}
             onAdd={(attachment) => setAttachments((held) => [...held, attachment])}
             onRemove={(id) => setAttachments((held) => held.filter((row) => row.id !== id))}
-            disabled={!sessionIsOpen || leaving}
+            disabled={frozen || leaving}
           />
 
-          {/* 🚩 Submit is unavailable while a blocker holds, and each blocker says
-              why — a form state rather than an exception after everything else
-              has been filled in. The act itself, the clinical-edit gate and the
-              remaining blockers are 220's. */}
-          <section className="flex flex-col gap-2">
-            {submitBlockers.length > 0 && (
-              <ul className="flex flex-col gap-1 text-xs text-attention-800" role="status">
-                {submitBlockers.map((blocker) => (
-                  <li key={blocker} className="flex items-start gap-2">
-                    <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-                    <span>{t(`form.submit.blockers.${blocker}`)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <div>
-              {/* ⚠️ **No `onClick` yet, and deliberately.** 219 owns the *gate* —
-                  which blockers hold and what they say — and 220 owns the act:
-                  the clinical-edit check, the 100 s submission and its three
-                  outcomes. Wiring a partial submit here would put a request on a
-                  national exchange without the gate that is supposed to precede
-                  it. Logged in `.afk/HITL-219.md`. */}
-              <Button
-                type="button"
-                variant="primary"
-                disabled={!sessionIsOpen || busy || submitBlockers.length > 0}
-              >
-                {t('form.submit.action')}
-              </Button>
-            </div>
-          </section>
+          {/* 🚩 **Submit as a gated path** — every reason it is unavailable, the
+              clinical-edit check in its two shapes, the wait, and the three
+              outcomes. A refusal keeps the agent right here; a timeout says in
+              flight and offers a status check, never a second submission. */}
+          <SubmitAct
+            blockers={submitHolds}
+            gate={gate}
+            landing={landing}
+            submitting={submitting}
+            elapsedSeconds={elapsedSeconds}
+            checking={checking}
+            headerReasons={refusals.header}
+            refusalCount={refusals.total}
+            patientId={reference.patientId}
+            disabled={frozen || busy}
+            onSubmit={() => void beginSubmit()}
+            onConfirm={() => void sendSubmit()}
+            onBackToForm={() => setGate(null)}
+          />
 
           <div>
             {/* Leaving deliberately, through the same interception every other

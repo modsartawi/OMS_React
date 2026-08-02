@@ -825,6 +825,116 @@ export interface NphiesAbandonResult {
 }
 
 /**
+ * ---------------------------------------------------------------------------
+ * The **clinical-edit gate** (§1.1 #10, §3.7) and **submit** (§3.5, §7.3) —
+ * ticket 220.
+ * ---------------------------------------------------------------------------
+ */
+
+/** One diagnosis as the clinical-edit check reads it — the service's own
+ *  `ClinicalEditDiagnosis`. Two fields, and neither is the description: the
+ *  validator looks the code up itself. */
+export interface NphiesClinicalEditDiagnosis {
+  diagnosisCode: string
+  diagnosisType: string
+}
+
+/**
+ * `POST Nphies/ClinicalEditValidate` body (§1.1 #10) — the service's
+ * `ClinicalEditRequest` (`Features/ClinicalEditValidator.cs:285`, read
+ * 2026-08-02), camel-cased by the envelope like every other passthrough.
+ *
+ * 🚩 **Four fields, and not one of them is money.** The check is about the
+ * *patient and the diagnoses*: age and gender restrictions on each code, and
+ * whether a principal was named at all. The basket is not part of it, which is
+ * why this body is assembled from the session state's `reference` and `header`
+ * and carries no line, no amount and no attachment (law 1).
+ */
+export interface NphiesClinicalEditRequest {
+  serviceDate: string
+  patientBirthDate: string
+  patientGender: string
+  diagnoses: NphiesClinicalEditDiagnosis[]
+}
+
+/**
+ * One restriction the check found — the service's `ClinicalEditFinding`
+ * (`:303`): a **restriction type** and a **message**, and nothing else.
+ *
+ * 🚩 `restrictionType` is `ClinicalEditRestrictionTypeConstants` — `"F"` fatal,
+ * `"W"` warning (`:319`). It is a **string, not a closed pair**, and
+ * deliberately so: the service fills it straight from `RareRestrictionType` /
+ * `GenderRestrictionType` / `AgeRestrictionType`, which are raw columns on
+ * `NDiagnosis`, so a third value is a database edit away. What the client does
+ * with an unrecognised one is `submit-gate`'s ruling, not a type's.
+ *
+ * `message` is the service's own sentence — server-supplied text, passed through
+ * as data with no i18n key (`.claude/rules/i18n-zero-literal.md`).
+ */
+export interface NphiesClinicalEditFinding {
+  restrictionType: string
+  message: string
+}
+
+/** What the clinical-edit check answers — the service's `ClinicalEditResult`
+ *  (`:299`). An empty `findings` is the clear case, and it is the *ordinary*
+ *  one. */
+export interface NphiesClinicalEditResult {
+  contractVersion?: string
+  findings: NphiesClinicalEditFinding[]
+}
+
+/**
+ * One reason a submission was refused (§7.3's `refused`).
+ *
+ * 🚩 **`lineId: null` is a header-level reason**, and it is the header-only case
+ * §3.9 describes: the service's own guards — unknown item, item with no Nphies
+ * category, unconfigured provider or payer, an over-long prescription reference —
+ * throw **before the lines are built**, so there is no row for the reason to
+ * attach to. A client that dropped the unattachable ones would hide precisely the
+ * refusals that are hardest to recover from.
+ */
+export interface NphiesSubmitRefusalReason {
+  lineId: string | null
+  message: string
+}
+
+/**
+ * `POST Nphies/Session/Submit` → §7.3's three outcomes, as a discriminated union
+ * so a screen cannot read one branch's field off another's answer.
+ *
+ * 🚩 **`inFlight` is NOT a failure** (law 6). The 100 s window elapsed and the
+ * request may well have reached the payer, so the client's only permitted
+ * response is to offer a status check. There is no `failed` member of this union
+ * and no code path anywhere in this feature that resubmits.
+ *
+ * 🚩 **`refused` is a `Failed`, and it is a FORM state.** The request was refused
+ * before the payer saw it and is fixable by the agent, here — which is why the
+ * reasons carry a `lineId` at all.
+ */
+export type NphiesSubmitResult =
+  | {
+      contractVersion?: string
+      outcome: 'submitted'
+      authId: string
+      preAuthRef: string
+      /** `status: "submitted"` — the transaction is closed and the form is done. */
+      state: NphiesAuthSessionState
+    }
+  | {
+      contractVersion?: string
+      outcome: 'refused'
+      authId: string
+      reasons: NphiesSubmitRefusalReason[]
+    }
+  | {
+      contractVersion?: string
+      outcome: 'inFlight'
+      /** Always `null` — nothing came back to name (§7.3). */
+      authId: null
+    }
+
+/**
  * `GET Nphies/LastEligibility/{patientId}` (§3.2) → `LastEligibilityModel` — what
  * **Fill** completes a cold form from. `null` when the patient has never been
  * checked.

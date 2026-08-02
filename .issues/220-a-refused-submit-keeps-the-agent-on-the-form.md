@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 209
 blocked-by: 218, 219
 ---
@@ -44,16 +44,35 @@ test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `everyBlockerNamesItself` — the module returns each unmet condition with its own message; an
-      unnamed blocker fails the test · pure
-- [ ] `aFatalRestrictionCannotBeOverriddenAndAWarningCan` — the same surface, one button's
-      difference · pure
-- [ ] `aTimeoutIsReportedAsInFlightNotFailed` — and the offered next act is status check, never
-      resubmit · pure
-- [ ] `refusalReasonsLandOnTheRowsThatCausedThem` — including the header-only case, where the
-      request failed before any line was built · pure
-- [ ] both gate shapes render, a refused submit keeps the agent on the form with reasons attached ·
-      flow (Playwright, extend `tools/nphies-authorization-session-drive.mjs`)
+Red-green at `src/features/nphies/authorizations/submit-gate.test.ts` (vitest, **27 cases across
+the four suites**, written before the module and run red first). ⚠️ **Code-complete,
+runtime-blocked:** SIS.Api's Nphies door does not exist yet — none of these endpoints is live — so
+the flow bullet drives the real app in Chromium against a **stubbed engine** built from the frozen
+contract's own shapes, the posture 211–219 shipped under.
+
+- [x] `everyBlockerNamesItself` — the module returns each unmet condition with its own message; an
+      unnamed blocker fails the test · pure — 8 cases, including a server blocker with an empty
+      `message` (named through a key quoting its code, never the bare code as English) and the
+      de-dupe of a server code the client already owns
+- [x] `aFatalRestrictionCannotBeOverriddenAndAWarningCan` — the same surface, one button's
+      difference · pure — 6 cases, including one `F` among warnings and the "fatal is exactly `F`"
+      rule the service itself applies
+- [x] `aTimeoutIsReportedAsInFlightNotFailed` — and the offered next act is status check, never
+      resubmit · pure — 7 cases; `SubmitNextAct` has no resubmit member, and `submitIsLocked` is
+      true forever after an in-flight landing
+- [x] `refusalReasonsLandOnTheRowsThatCausedThem` — including the header-only case, where the
+      request failed before any line was built · pure — 6 cases; a reason naming a line the request
+      does not hold falls back to the header rather than vanishing
+- [x] both gate shapes render, a refused submit keeps the agent on the form with reasons attached ·
+      flow (Playwright, `tools/nphies-authorization-session-drive.mjs` scenarios 31–38) —
+      **159/159 checks green**, including: blockers listed and counted with the server's own joining
+      them; the warning shape's two buttons and the fatal shape's one; a refusal keeping the agent
+      on the form with each reason on its row; the header-only refusal; a business refusal that is
+      not in flight; a dead wire read as in flight with Submit **gone** and no abandon on the way
+      out; and an accepted submit landing on the authorization it created.
+
+Gates: `npm run typecheck` clean · `npm run lint` clean (boundaries · contrast · palette) ·
+`npx vitest run` **1055/1055 across 63 files** · `npm run build` clean.
 
 ## Boundaries
 

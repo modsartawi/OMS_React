@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type {
+  AuthDetail,
   AuthRequestJournal,
   NphiesAuthSessionLine,
 } from '@/core/models/nphies'
@@ -15,6 +16,7 @@ import {
   SESSION_VERBS,
   decodeDiagnoses,
   replayPlan,
+  replayPlanFromDetail,
   replayReport,
   replayVerbs,
   type ReplayOutcome,
@@ -114,6 +116,7 @@ const LINE = (over: Partial<NphiesAuthSessionLine> = {}): NphiesAuthSessionLine 
 })
 
 const OUTCOME = (over: Partial<ReplayOutcome> = {}): ReplayOutcome => ({
+  sequence: 1,
   itemNumber: '100001',
   addRefusal: null,
   capRefusal: null,
@@ -142,9 +145,9 @@ describe('everyLineThatDidNotComeBackIsReported', () => {
   )
   const outcomes = [
     // 🚩 The blocked one: the door refused the scan, in the service's own words.
-    OUTCOME({ itemNumber: '100001', addRefusal: 'Item 100001 has no Nphies category.' }),
-    OUTCOME({ itemNumber: '100002' }),
-    OUTCOME({ itemNumber: '100003' }),
+    OUTCOME({ sequence: 1, itemNumber: '100001', addRefusal: 'Item 100001 has no Nphies category.' }),
+    OUTCOME({ sequence: 2, itemNumber: '100002' }),
+    OUTCOME({ sequence: 3, itemNumber: '100003' }),
   ]
   // The repriced one landed at a new extended price; the third never appeared.
   const lines = [
@@ -209,6 +212,31 @@ describe('everyLineThatDidNotComeBackIsReported', () => {
     // agent re-attaches, and is told to rather than meeting a blocker with no
     // explanation.
     expect(kinds(replayReport(plan, lines, outcomes))).toContain('attachmentsNotReplayed')
+  })
+
+  it('🚩 attributes a duplicate refusal to the LINE that caused it, not to its twin', () => {
+    // A *refused* request can legitimately hold the same item twice: WPF refused
+    // duplicates at submit, so a request that never got that far can carry two —
+    // and this contract moves the refusal forward to the scan (§2.3), so the
+    // second add is refused. Matching outcomes by item number would pin the
+    // refusal on line 1 and report line 2 as a quantity that changed.
+    const twins = replayPlan(
+      'AUTH-78',
+      JOURNAL({
+        items: [ITEM({ sequence: 1 }), ITEM({ sequence: 2, quantity: 3 })],
+        supportingInfos: [],
+      }),
+    )
+    const report = replayReport(
+      twins,
+      [LINE()],
+      [
+        OUTCOME({ sequence: 1 }),
+        OUTCOME({ sequence: 2, addRefusal: 'That item is already on this request.' }),
+      ],
+    )
+    expect(report).toHaveLength(1)
+    expect(report[0]).toMatchObject({ kind: 'refused', sequence: 2 })
   })
 
   it('names an override that could not be re-applied', () => {
@@ -279,6 +307,137 @@ describe('aHeaderOnlyRefusalStillPrefills', () => {
     expect(plan2.diagnoses).toEqual([])
     expect(plan2.gaps).toContain('diagnosisUnreadable')
   })
+
+  it('does NOT call a legitimately repeated diagnosis unreadable', () => {
+    // The service `.Distinct()`s its own rows, so the same diagnosis twice is one
+    // diagnosis — not a row nobody could parse. Inferring the gap by subtracting
+    // the decoded count from the row count would mislabel exactly this.
+    const plan2 = replayPlan(
+      'AUTH-79',
+      JOURNAL({ diagnosis: 'principal|J45.9,principal|J45.9', supportingInfos: [] }),
+    )
+    expect(plan2.diagnoses).toHaveLength(1)
+    expect(plan2.gaps).not.toContain('diagnosisUnreadable')
+  })
+
+  it('names a reason for visit it cannot carry across', () => {
+    // §1.2 has it on `setHeader` and no screen in this wave edits one, so the form
+    // has no control that could show it back. Named rather than dropped.
+    const plan2 = replayPlan(
+      'AUTH-79',
+      JOURNAL({ reasonForVisit: 'Follow-up', supportingInfos: [] }),
+    )
+    expect(plan2.gaps).toContain('reasonForVisitNotReplayed')
+  })
+})
+
+describe('theResponseByIdIsTheFreeFallback', () => {
+  /**
+   * 🚩 §3.9: "The response-by-id remains the free fallback for rows the web did
+   * not raise." An authorization raised at a till never went through the
+   * orchestration that writes the journal, so there is no row — and the detail
+   * 216 already reads is what prefills instead, at no new endpoint.
+   */
+  const DETAIL = (over: Partial<AuthDetail> = {}): AuthDetail => ({
+    id: 'AUTH-TILL-1',
+    eligibilityId: 'ELG-9',
+    memberId: 'MEM-9',
+    providerCode: 'P001',
+    payerCode: 'PAY-9',
+    patientId: '0000000003',
+    patientIdType: 'NI',
+    patientName: 'Ahmad Ali',
+    patientGender: 'male',
+    patientBirthDate: '1988-04-02',
+    preAuthRef: '',
+    claimProcessingCodes: 'Error',
+    queued: false,
+    error: true,
+    cancelled: false,
+    adjudicationOutcome: '',
+    needComm: false,
+    actionDateTime: '2026-07-30T11:02:00',
+    responseDateTime: '',
+    serviceDate: '2026-07-30',
+    errorMessageShort: '',
+    disposition: '',
+    processNote: '',
+    statusCode: 400,
+    claimType: 0,
+    diagnosis: 'principal|J45.9',
+    policyNumber: 'POL-77',
+    policyHolder: 'ACME INSURANCE',
+    prescriptionRef: '',
+    exceptionPrescription: false,
+    deductibleG1: 25,
+    deductibleG1Max: 400,
+    deductibleG1Paid: 50,
+    deductibleG2: 30,
+    deductibleG2Max: 500,
+    deductibleG2Paid: 200,
+    deductibleG3: 100,
+    deductibleG3Max: 0,
+    deductibleG3Paid: 0,
+    authLines: [
+      {
+        id: 'AL1',
+        sequence: 1,
+        itemNumber: '100001',
+        itemDescription: 'PANADOL 500MG TAB',
+        quantity: 2,
+        unitPrice: 25,
+        extendedPrice: 50,
+        amount: 50,
+        netAmount: 50,
+        vat: 7.5,
+        discountPercentage: 0,
+        discountAmount: 0,
+        actualPatientShare: 10,
+        adjudicationOutcome: '',
+        approvedQuantity: 0,
+        rejected: 0,
+        eligible: 0,
+        copay: 0,
+        benefit: 0,
+        benefitReason: '',
+        serviceDate: '2026-07-30',
+        daysSupply: 30,
+        selectionReason: '',
+        deductibleG: 10,
+        deductibleGroupName: 'Generic',
+        diagnosis: 'principal|J45.9',
+      },
+    ],
+    authSupportingInfos: [],
+    ...over,
+  })
+
+  it('prefills the identity, the terms and the lines from the response', () => {
+    const plan = replayPlanFromDetail('AUTH-TILL-1', DETAIL())
+    expect(plan.source).toBe('response')
+    expect(plan.eligibilityId).toBe('ELG-9')
+    expect(plan.memberId).toBe('MEM-9')
+    expect(plan.insurance.g1).toEqual({ rate: 25, max: 400, paid: 50 })
+    expect(plan.items.map((i) => i.itemNumber)).toEqual(['100001'])
+  })
+
+  it('🚩 REPORTS the per-line cap the response cannot carry, and invents none', () => {
+    // §3.4's known gap: `MaxCoverage` is on `NAuthLine` and absent from
+    // `AuthLineDto`. The ticket's instruction is exact — report it if it happens,
+    // do not work around it — so the cap is 0, no `updateLineInsurance` is sent,
+    // and the agent is told rather than left believing an override survived.
+    const plan = replayPlanFromDetail('AUTH-TILL-1', DETAIL())
+    expect(plan.items[0].maxCoverage).toBe(0)
+    expect(plan.gaps).toContain('capNotRecorded')
+    expect(replayVerbs(plan)).not.toContain('updateLineInsurance')
+    expect(kinds(replayReport(plan, [], []))).toContain('capNotRecorded')
+  })
+
+  it('is the same plan shape, so the replay and the report do not branch on it', () => {
+    // One `ReplayPlan`, two sources. A second plan type would mean a second
+    // replay path, and the report would have to be written twice.
+    expect(replayVerbs(replayPlanFromDetail('AUTH-TILL-1', DETAIL()))[0]).toBe('open')
+  })
 })
 
 describe('theReplayIsANewRequestNotAResumedOne', () => {
@@ -297,7 +456,7 @@ describe('theReplayIsANewRequestNotAResumedOne', () => {
     for (const verb of replayVerbs(plan)) expect(SESSION_VERBS).toContain(verb)
   })
 
-  it('replays through the setters the form already drives', () => {
+  it('replays through the setters the form already drives, then settles', () => {
     expect(replayVerbs(plan)).toEqual([
       'open',
       'setInsurance',
@@ -305,6 +464,9 @@ describe('theReplayIsANewRequestNotAResumedOne', () => {
       'addItem',
       'updateLineInsurance',
       'updateLineMeta',
+      // The settling read: lines land pending and the engine prices them after,
+      // so the report is taken from a state that has finished.
+      'state',
     ])
   })
 

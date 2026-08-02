@@ -25,7 +25,10 @@
  * the service's own guards threw before the lines were built.
  */
 
+import { formatAmount } from '@/core/nphies/format'
 import type {
+  AuthDetail,
+  AuthDetailLine,
   AuthJournalItem,
   AuthRequestJournal,
   NphiesAuthSessionLine,
@@ -37,8 +40,9 @@ const text = (raw: string | null | undefined) => (raw ?? '').trim()
 const number = (raw: number | null | undefined) => (typeof raw === 'number' && Number.isFinite(raw) ? raw : 0)
 /** Two item numbers are the same item — the same trimmed, case-folded comparison
  *  `auth-session` uses, because an item number is a machine code and a replay that
- *  matched it more loosely would report a line as missing that is on the request. */
-const sameItem = (a: string, b: string) => text(a).toUpperCase() === text(b).toUpperCase()
+ *  matched it more loosely would report a line as missing that is on the request.
+ *  Exported so the page's own line lookup cannot drift from the report's. */
+export const sameItem = (a: string, b: string) => text(a).toUpperCase() === text(b).toUpperCase()
 
 /** §3.9's `morphology` supporting-info category — `ClaimInformationCategoryConstants`. */
 const MORPHOLOGY_CATEGORY = 'morphology'
@@ -72,12 +76,28 @@ const PRINCIPAL = 'principal'
  * `morphology` and whose **`code`** is the morph code (`Extensions.cs:705-710`).
  */
 export function decodeDiagnoses(raw: string, morphology: string): NphiesSessionDiagnosis[] {
+  return readDiagnoses(raw, morphology).diagnoses
+}
+
+/**
+ * The same parse, plus **how many rows it could not read**.
+ *
+ * 🚩 Counted here rather than inferred from `rows.length - diagnoses.length` at
+ * the call site: the service `.Distinct()`s its own rows, so a legitimately
+ * repeated diagnosis is *not* an unreadable one, and a subtraction would report
+ * the honest duplicate as a row nobody could parse.
+ */
+export function readDiagnoses(
+  raw: string,
+  morphology: string,
+): { diagnoses: NphiesSessionDiagnosis[]; unreadable: number } {
   const rows = text(raw)
     .split(',')
     .map((row) => row.trim())
     .filter((row) => row !== '')
   const seen = new Set<string>()
-  const decoded: NphiesSessionDiagnosis[] = []
+  const diagnoses: NphiesSessionDiagnosis[] = []
+  let unreadable = 0
   for (const row of rows) {
     const columns = row
       .split('|')
@@ -85,19 +105,24 @@ export function decodeDiagnoses(raw: string, morphology: string): NphiesSessionD
       .filter((column) => column !== '')
     // A row that is not a `type|code` pair is not a diagnosis this client can
     // name. Dropping it silently would be the exact defect this module exists to
-    // prevent, so it is left out of the plan and `planGaps` reports it.
-    if (columns.length < 2) continue
+    // prevent, so it is left out of the plan and reported as a gap.
+    if (columns.length < 2) {
+      unreadable += 1
+      continue
+    }
     const [type, code] = columns
+    // The service's own `.Distinct()`, and not a gap: the same diagnosis twice is
+    // one diagnosis, upstream and here.
     if (seen.has(code.toUpperCase())) continue
     seen.add(code.toUpperCase())
-    decoded.push({ code, type, description: '', morphology: '' })
+    diagnoses.push({ code, type, description: '', morphology: '' })
   }
   const morph = text(morphology)
   if (morph !== '') {
-    const principal = decoded.find((diagnosis) => text(diagnosis.type).toLowerCase() === PRINCIPAL)
+    const principal = diagnoses.find((diagnosis) => text(diagnosis.type).toLowerCase() === PRINCIPAL)
     if (principal) principal.morphology = morph
   }
-  return decoded
+  return { diagnoses, unreadable }
 }
 
 /** One line the replay will ask for, and what it looked like when it was sent. */
@@ -133,6 +158,16 @@ export type ReplayGap =
   | 'noLinesRecorded'
   /** A `Diagnosis` row that was not a `type|code` pair. */
   | 'diagnosisUnreadable'
+  /** 🚩 §3.4's known gap, and it is only reachable on the **fallback** source:
+   *  `MaxCoverage` is on `NAuthLine` and **absent from `AuthLineDto`**, so a
+   *  prefill sourced from the response-by-id loses that one override. The ticket's
+   *  instruction is exactly this — *report it if it happens; do not work around
+   *  it*. It cannot occur on the journal path, which carries the field. */
+  | 'capNotRecorded'
+  /** The reason for visit was on the submitted request and is not replayed: §1.2
+   *  carries it on `setHeader` and no screen in this wave edits one, so the form
+   *  has no control that could show it back. Named rather than dropped. */
+  | 'reasonForVisitNotReplayed'
 
 /**
  * What a reopen replays, derived from the journal row and nothing else.
@@ -146,6 +181,10 @@ export type ReplayGap =
 export interface ReplayPlan {
   /** Provenance only. The authorization being replayed **from**. */
   sourceAuthId: string
+  /** 🚩 Which of §3.9's two sources this plan came out of. `journal` is the write-
+   *  ahead row and is complete; `response` is the **free fallback** for a row the
+   *  web did not raise, and is the one with the per-line cap gap. */
+  source: 'journal' | 'response'
   /** §7.1's `Open` body, whole: the same eligibility and the same chosen coverage. */
   eligibilityId: string
   memberId: string
@@ -177,19 +216,17 @@ export function replayPlan(sourceAuthId: string, journal: AuthRequestJournal): R
   ).length
   const items = (journal.items ?? []).map(itemOf).sort((a, b) => a.sequence - b.sequence)
 
-  const diagnoses = decodeDiagnoses(journal.diagnosis, morphology)
-  const readableRows = text(journal.diagnosis)
-    .split(',')
-    .map((row) => row.trim())
-    .filter((row) => row !== '').length
+  const { diagnoses, unreadable } = readDiagnoses(journal.diagnosis, morphology)
 
   const gaps: ReplayGap[] = []
   if (items.length === 0) gaps.push('noLinesRecorded')
   if (attachments > 0) gaps.push('attachmentsNotReplayed')
-  if (readableRows > diagnoses.length) gaps.push('diagnosisUnreadable')
+  if (unreadable > 0) gaps.push('diagnosisUnreadable')
+  if (text(journal.reasonForVisit) !== '') gaps.push('reasonForVisitNotReplayed')
 
   return {
     sourceAuthId: text(sourceAuthId),
+    source: 'journal',
     eligibilityId: text(journal.eligibilityId),
     memberId: text(journal.memberId),
     insurance: {
@@ -230,6 +267,87 @@ function itemOf(item: AuthJournalItem): ReplayItem {
   }
 }
 
+/**
+ * **The free fallback** (§3.9: "The response-by-id remains the free fallback for
+ * rows the web did not raise").
+ *
+ * An authorization raised at a till has no write-ahead journal row — the journal
+ * is written by the orchestration the *web* submits through — so the journal read
+ * answers `AUTH_NOT_FOUND` and this is what prefills instead. It costs nothing:
+ * `GET Nphies/AuthResponse/{id}` is the read 216 already makes, and
+ * `AuthHeaderDto` eagerly fetches its lines.
+ *
+ * 🚩 **It has one known gap and the plan CARRIES it rather than papering over
+ * it**: `MaxCoverage` is on `NAuthLine` and **absent from `AuthLineDto`** (§3.4),
+ * so a per-line cap the agent set at the till is not in this response and cannot
+ * be replayed. The ticket's instruction is exact — *report it if it happens; do
+ * not work around it* — so `capNotRecorded` is a gap on every plan built here,
+ * and no cap is invented for any line.
+ */
+export function replayPlanFromDetail(sourceAuthId: string, detail: AuthDetail): ReplayPlan {
+  const infos = detail.authSupportingInfos ?? []
+  const morphology =
+    infos.find((info) => text(info.category).toLowerCase() === MORPHOLOGY_CATEGORY)?.code ?? ''
+  const attachments = infos.filter(
+    (info) => text(info.category).toLowerCase() === ATTACHMENT_CATEGORY,
+  ).length
+  const items = (detail.authLines ?? [])
+    .map(itemFromDetailLine)
+    .sort((a, b) => a.sequence - b.sequence)
+
+  const { diagnoses, unreadable } = readDiagnoses(detail.diagnosis, morphology)
+
+  const gaps: ReplayGap[] = ['capNotRecorded']
+  if (items.length === 0) gaps.push('noLinesRecorded')
+  if (attachments > 0) gaps.push('attachmentsNotReplayed')
+  if (unreadable > 0) gaps.push('diagnosisUnreadable')
+
+  return {
+    sourceAuthId: text(sourceAuthId),
+    source: 'response',
+    eligibilityId: text(detail.eligibilityId),
+    memberId: text(detail.memberId),
+    insurance: {
+      g1: {
+        rate: number(detail.deductibleG1),
+        max: number(detail.deductibleG1Max),
+        paid: number(detail.deductibleG1Paid),
+      },
+      g2: {
+        rate: number(detail.deductibleG2),
+        max: number(detail.deductibleG2Max),
+        paid: number(detail.deductibleG2Paid),
+      },
+      g3: {
+        rate: number(detail.deductibleG3),
+        max: number(detail.deductibleG3Max),
+        paid: number(detail.deductibleG3Paid),
+      },
+    },
+    diagnoses,
+    exceptionPrescription: detail.exceptionPrescription === true,
+    items,
+    gaps,
+  }
+}
+
+function itemFromDetailLine(line: AuthDetailLine): ReplayItem {
+  return {
+    sequence: number(line.sequence),
+    itemNumber: text(line.itemNumber),
+    quantity: number(line.quantity),
+    unitPrice: number(line.unitPrice),
+    extendedPrice: number(line.extendedPrice),
+    deductibleGroupName: text(line.deductibleGroupName),
+    // 🚩 Zero, and it is NOT "no cap was set" — it is "this response cannot say".
+    // `capNotRecorded` is what says so; a plan that guessed a number here would be
+    // the client asserting an override the agent never made.
+    maxCoverage: 0,
+    daysSupply: number(line.daysSupply),
+    selectionReason: text(line.selectionReason),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 2 · The verbs a replay uses — all of them ones that already exist
 // ---------------------------------------------------------------------------
@@ -263,16 +381,34 @@ export const SESSION_VERBS: readonly string[] = [
  */
 export function replayVerbs(plan: ReplayPlan): string[] {
   const verbs = ['open', 'setInsurance']
-  if (plan.diagnoses.length > 0 || plan.exceptionPrescription) verbs.push('setHeader')
+  if (replaysHeader(plan)) verbs.push('setHeader')
   for (const item of plan.items) {
     verbs.push('addItem')
-    // A cap of 0 is not sent at all — the engine ignores `<= 0` (§4) and the
-    // client refuses to send one anywhere else either.
-    if (item.maxCoverage > 0) verbs.push('updateLineInsurance')
-    if (item.daysSupply > 0 || item.selectionReason !== '') verbs.push('updateLineMeta')
+    if (replaysCap(item)) verbs.push('updateLineInsurance')
+    if (replaysMeta(item)) verbs.push('updateLineMeta')
   }
+  // 🚩 The settling read. Lines land **pending** and the engine prices them after
+  // (spec story 27), so the report is taken from a state that has finished — a
+  // comparison made before it could say nothing about the money, which is the one
+  // thing a reopen most has to be able to say.
+  verbs.push('state')
   return verbs
 }
+
+/** Whether the plan has any header material to send. 🚩 Read by BOTH
+ *  `replayVerbs` and the page that sends the verbs, so the test asserts the
+ *  decision the form actually makes rather than a second model of it. */
+export const replaysHeader = (plan: ReplayPlan) =>
+  plan.diagnoses.length > 0 || plan.exceptionPrescription
+
+/** ⚠️ A cap of 0 is never re-sent: the engine ignores `<= 0` (§4), so asking for
+ *  one would be asking for something that cannot take effect — and on the
+ *  fallback source a 0 means *the response could not say*, not *no cap*. */
+export const replaysCap = (item: ReplayItem) => item.maxCoverage > 0
+
+/** The two non-money agent fields of `updateLineMeta`. */
+export const replaysMeta = (item: ReplayItem) =>
+  item.daysSupply > 0 || item.selectionReason !== ''
 
 // ---------------------------------------------------------------------------
 // 3 · The report — what did not come back
@@ -281,6 +417,14 @@ export function replayVerbs(plan: ReplayPlan): string[] {
 /** What actually happened to one planned item, recorded as the replay ran. The
  *  messages are the **server's own** (§6 kind 2), passed through as data. */
 export interface ReplayOutcome {
+  /** 🚩 **The journalled line's own sequence, and what the report matches on** —
+   *  not the item number. A *refused* request can legitimately hold the same item
+   *  twice: WPF refused duplicates at submit, so a request that never got that far
+   *  can carry two of them, and this contract moves the refusal forward to the
+   *  scan (§2.3). Matching by item number would attribute the second line's
+   *  duplicate refusal to the first line and report the second as a quantity that
+   *  changed. */
+  sequence: number
   itemNumber: string
   /** The door's sentence when the add was refused — an item since blocked, one
    *  with no Nphies category, one that no longer prices at the plant. `null` when
@@ -301,6 +445,9 @@ export interface ReplayOutcome {
  * which is the server's own and is passed through.
  */
 export type ReplayFindingKind =
+  /** 🚩 Every `ReplayGap` is a finding kind too, by construction rather than by a
+   *  second list — one report, and a gap added later cannot be forgotten here. */
+  | ReplayGap
   /** The door refused the scan. The commonest and most important one. */
   | 'refused'
   /** The add answered and no live line for it came back — a state that disagrees
@@ -320,10 +467,6 @@ export type ReplayFindingKind =
    *  can be said about this line's money. Said out loud rather than read as "the
    *  same", which is what a silent restore would amount to. */
   | 'notPricedYet'
-  /** A `ReplayGap`, surfaced in the same list so the agent reads one report. */
-  | 'attachmentsNotReplayed'
-  | 'noLinesRecorded'
-  | 'diagnosisUnreadable'
 
 export interface ReplayFinding {
   kind: ReplayFindingKind
@@ -351,9 +494,10 @@ const finding = (
   ...over,
 })
 
-/** Money as the report quotes it — two places, the way every amount on this
- *  screen is already rendered. */
-const amount = (value: number) => value.toFixed(2)
+/** Money as the report quotes it — `core/nphies/format`'s, the one this whole
+ *  area renders amounts through. A second `toFixed` here is how two figures in
+ *  one sentence come to be formatted two ways. */
+const amount = formatAmount
 
 /**
  * **Everything that did not come back the way it went out.**
@@ -377,7 +521,7 @@ export function replayReport(
   const live = (lines ?? []).filter((line) => !line.voided)
 
   for (const item of plan.items) {
-    const outcome = (outcomes ?? []).find((row) => sameItem(row.itemNumber, item.itemNumber))
+    const outcome = (outcomes ?? []).find((row) => row.sequence === item.sequence)
     const at = { itemNumber: item.itemNumber, sequence: item.sequence }
 
     if (outcome?.addRefusal) {
@@ -445,11 +589,4 @@ export function replayReport(
 
   for (const gap of plan.gaps) findings.push(finding(gap))
   return findings
-}
-
-/** Whether the replay produced a request the agent can trust is the one they
- *  meant to resend. `false` is not a failure — it is the report being worth
- *  reading. */
-export function replayIsClean(findings: ReplayFinding[]): boolean {
-  return findings.length === 0
 }

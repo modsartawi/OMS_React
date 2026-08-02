@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useBlocker, useNavigate, useSearchParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, Loader2, RefreshCw, ShieldAlert, TriangleAlert } from 'lucide-react'
 
-import { apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { useSession } from '@/core/session'
@@ -35,7 +35,12 @@ import RequestLines from './RequestLines'
 import SubmitAct from './SubmitAct'
 import {
   replayPlan,
+  replayPlanFromDetail,
   replayReport,
+  replaysCap,
+  replaysHeader,
+  replaysMeta,
+  sameItem,
   type ReplayFinding,
   type ReplayOutcome,
   type ReplayPlan,
@@ -144,7 +149,32 @@ export default function AuthorizationFormPage() {
     gcTime: Infinity,
     retry: false,
   })
-  const plan = journal.data ? replayPlan(copyOf, journal.data) : null
+  /**
+   * 🚩 **The free fallback** (§3.9: "The response-by-id remains the free fallback
+   * for rows the web did not raise").
+   *
+   * An authorization raised at a till never went through the orchestration that
+   * writes the journal, so the read above answers `AUTH_NOT_FOUND` — and *only*
+   * that code, because a transport failure means the journal may well exist and
+   * prefilling from the thinner source would silently drop the agent's per-line
+   * caps for no reason. It costs no new endpoint: this is 216's own read.
+   */
+  const journalMissing = journal.isError && apiErrorCode(journal.error) === 'AUTH_NOT_FOUND'
+  const fallback = useQuery({
+    queryKey: ['nphies', 'authorizations', 'response', copyOf],
+    queryFn: () => authorizationsApi.detail(copyOf),
+    enabled: allowed && copyOf !== '' && journalMissing,
+    staleTime: Infinity,
+    retry: false,
+  })
+
+  // Memoized: the replay effect keys off this, and a fresh object every render
+  // would have it re-evaluate on every keystroke on the form below.
+  const plan = useMemo(() => {
+    if (journal.data) return replayPlan(copyOf, journal.data)
+    if (fallback.data) return replayPlanFromDetail(copyOf, fallback.data)
+    return null
+  }, [copyOf, journal.data, fallback.data])
 
   // 🚩 On a reopen the two ids are the JOURNAL's, not the URL's. A replay is
   // raised against the same eligibility and the same chosen coverage as the
@@ -527,7 +557,10 @@ export default function AuthorizationFormPage() {
         await runVerb((transactionId, requestId) =>
           authSessionApi.setInsurance(transactionId, requestId, plan.insurance),
         )
-        if (plan.diagnoses.length > 0 || plan.exceptionPrescription) {
+        // 🚩 The same predicates `replayVerbs` states, so the test that holds
+        // "no new session verb" is asserting the decision this loop actually
+        // makes rather than a second model of it.
+        if (replaysHeader(plan)) {
           await runVerb((transactionId, requestId) =>
             authSessionApi.setHeader(transactionId, requestId, {
               diagnoses: plan.diagnoses,
@@ -537,6 +570,10 @@ export default function AuthorizationFormPage() {
         }
         for (const item of plan.items) {
           const outcome: ReplayOutcome = {
+            // Keyed by the journalled line's sequence, not its item number: a
+            // refused request can hold the same item twice, and the duplicate
+            // refusal belongs to the line that caused it.
+            sequence: item.sequence,
             itemNumber: item.itemNumber,
             addRefusal: null,
             capRefusal: null,
@@ -554,14 +591,10 @@ export default function AuthorizationFormPage() {
           // The line the engine just landed, read off the state the verb answered
           // with — its `lineId` is the engine's and there is no way to guess one.
           const landed = (stateRef.current?.lines ?? []).find(
-            (line) =>
-              !line.voided &&
-              line.itemNumber.trim().toUpperCase() === item.itemNumber.toUpperCase(),
+            (line) => !line.voided && sameItem(line.itemNumber, item.itemNumber),
           )
           if (!landed) continue
-          // A cap of 0 is not re-sent at all: the engine ignores `<= 0` (§4), so
-          // sending one would be asking for something that cannot take effect.
-          if (item.maxCoverage > 0) {
+          if (replaysCap(item)) {
             try {
               await runVerb((transactionId, requestId) =>
                 authSessionApi.updateLineInsurance(
@@ -575,10 +608,10 @@ export default function AuthorizationFormPage() {
               outcome.capRefusal = refusalOf(error)
             }
           }
-          const meta: { daysSupply?: number; selectionReason?: string } = {}
-          if (item.daysSupply > 0) meta.daysSupply = item.daysSupply
-          if (item.selectionReason !== '') meta.selectionReason = item.selectionReason
-          if (Object.keys(meta).length > 0) {
+          if (replaysMeta(item)) {
+            const meta: { daysSupply?: number; selectionReason?: string } = {}
+            if (item.daysSupply > 0) meta.daysSupply = item.daysSupply
+            if (item.selectionReason !== '') meta.selectionReason = item.selectionReason
             try {
               await runVerb((transactionId, requestId) =>
                 authSessionApi.updateLineMeta(transactionId, requestId, landed.lineId, meta),
@@ -1046,12 +1079,21 @@ export default function AuthorizationFormPage() {
       {copyOf !== '' && (
         <ReplayReport
           sourceAuthId={copyOf}
-          // The journal read and the verbs it drives are one wait as far as the
+          // The two reads and the verbs they drive are one wait as far as the
           // agent is concerned: the request is being rebuilt either way.
-          replaying={replaying || journal.isFetching}
+          replaying={replaying || journal.isFetching || fallback.isFetching}
           done={replayDone}
           findings={replayFindings}
-          error={journal.isError ? apiErrorMessage(journal.error, t('form.replay.unreadable')) : null}
+          // 🚩 A missing journal row is NOT an error — it is the fallback's cue
+          // (§3.9). Only a prefill that ran out of sources is one.
+          error={
+            (journalMissing ? fallback.isError : journal.isError)
+              ? apiErrorMessage(
+                  journalMissing ? fallback.error : journal.error,
+                  t('form.replay.unreadable'),
+                )
+              : null
+          }
         />
       )}
 

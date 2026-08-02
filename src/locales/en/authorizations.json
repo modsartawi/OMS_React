@@ -206,6 +206,8 @@
         "capNotApplied": "The max coverage of {{was}} on item {{itemNumber}} could not be set again.",
         "metaNotApplied": "The days supply or selection reason on item {{itemNumber}} could not be set again.",
         "notPricedYet": "Item {{itemNumber}} has not finished pricing, so nothing can be said yet about what it costs. Refresh the request to see.",
+        "capNotRecorded": "This request was rebuilt from the payer response rather than from what was submitted, because nothing was journalled for it. The response does not record the per-line max coverage, so any cap that was set is not on these lines — set it again if it mattered.",
+        "reasonForVisitNotReplayed": "The reason for visit was on the refused request and is not carried across. Nothing on this page holds one.",
         "attachmentsNotReplayed": "The attachments were not carried across. Attach them again — the exchange refuses a request without at least one.",
         "noLinesRecorded": "The refused request had no lines recorded, because it failed before they were built. Everything else came across; add the items again.",
         "diagnosisUnreadable": "A diagnosis on the refused request could not be read back. Check the diagnoses below against the refused authorization."

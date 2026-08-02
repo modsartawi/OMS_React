@@ -377,8 +377,7 @@ export interface AuthDetailLine {
  * one without inventing a field the endpoint does not answer with, so it does not
  * (`.afk/HITL-216.md`).
  *
- * ⚠️ Declared narrower than the DTO on purpose. Its nine `deductibleG*` header
- * money fields, `preAuthStart`/`preAuthEnd`, `responseSystem`/`responseValue`,
+ * ⚠️ Declared narrower than the DTO on purpose. `preAuthStart`/`preAuthEnd`, `responseSystem`/`responseValue`,
  * `offline*`, `rowIndex`, `result`, `actionDuration`, `commRequest`/
  * `commResponse`, `originalId`, `isReferral`, `internalCustomerId`,
  * `hidpReference`, `newborn*`, `isMaternity`, `occupation`, `maritalStatus`,
@@ -438,6 +437,25 @@ export interface AuthDetail {
   policyHolder: string
   prescriptionRef: string
   exceptionPrescription: boolean
+  /**
+   * §4's nine header money fields — `DeductibleG1/G1Max/G1Paid` through `G3`,
+   * verbatim from `AuthHeaderDto.cs:102-113` (read 2026-08-02).
+   *
+   * 🚩 **Not rendered by the detail — read by 221's FALLBACK prefill.** The
+   * response-by-id is the free prefill source for an authorization the web did
+   * not raise, and therefore has no journal row (§3.9); without these the agent's
+   * own corrected deductible terms would be the part that vanished, which is a
+   * direct hit on law 2.
+   */
+  deductibleG1: number
+  deductibleG1Max: number
+  deductibleG1Paid: number
+  deductibleG2: number
+  deductibleG2Max: number
+  deductibleG2Paid: number
+  deductibleG3: number
+  deductibleG3Max: number
+  deductibleG3Paid: number
   authLines: AuthDetailLine[]
   authSupportingInfos: AuthSupportingInfo[]
 }
@@ -1040,6 +1058,10 @@ export interface AuthJournalSupportingInfo {
  * the server's to stamp anyway.
  */
 export interface AuthRequestJournal {
+  /** 🚩 Law 10's field, on every response of the web door — the same declaration
+   *  `AuthDetail` carries for the same reason. It is not a property of
+   *  `AuthRequest`: the envelope's payload model is where §8 puts it, and the
+   *  client neither sends nor *checks* it until §8 says how. */
   contractVersion?: string
   /** 🚩 The two ids `Open` takes (§7.1), and the reason a reopen needs no other
    *  read: the fresh session is bound to the same eligibility and the same

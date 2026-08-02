@@ -285,8 +285,16 @@ let scenario = {
    *  outcomes at all: a guardrail refusal and a dead wire. */
   submit: 'accepted',
   // ---- 221 -----------------------------------------------------------------
-  /** What the journal read answers — `full` · `headerOnly` (the refusal that
-   *  threw before its lines were built) · `missing` (no journal row at all). */
+  /**
+   * What the journal read answers:
+   *   `full`       — the whole submitted request;
+   *   `headerOnly` — the refusal that threw before its lines were built;
+   *   `missing`    — 🚩 `AUTH_NOT_FOUND`: a row the WEB DID NOT RAISE, so nothing
+   *                  was journalled and §3.9's **free fallback** (the response by
+   *                  id) is what prefills;
+   *   `down`       — a transport failure, where the row may well exist and the
+   *                  thinner source must NOT be silently substituted for it.
+   */
   journal: 'full',
   /** Serve the list a refused row, so the reopen affordance has one to sit on. */
   listHasFailedRow: true,
@@ -791,6 +799,10 @@ async function run() {
         return route.fulfill(
           refusal(404, 'AUTH_NOT_FOUND', 'No submission was recorded for that authorization.'),
         )
+      // A dead wire, not an envelope: the journal row may well exist, so falling
+      // back to the thinner source here would silently drop the per-line caps.
+      if (scenario.journal === 'down')
+        return route.fulfill({ status: 502, contentType: 'text/plain', body: 'Bad gateway' })
       return route.fulfill(
         envelope(journalRow(scenario.journal === 'headerOnly' ? [] : JOURNAL_ITEMS)),
       )
@@ -827,12 +839,56 @@ async function run() {
           processNote: '',
           statusCode: 200,
           claimType: 0,
-          diagnosis: 'J45.9',
+          // 🚩 The header's `type|code` encoding, on this source too.
+          diagnosis: 'principal|J45.9',
           policyNumber: REFERENCE.policyNumber,
           policyHolder: REFERENCE.policyHolder,
           prescriptionRef: '',
           exceptionPrescription: false,
-          authLines: [],
+          // §4's nine, on `AuthHeaderDto:102-113`. Nothing in 216 renders one;
+          // 221's FALLBACK prefill reads them, so a till-raised request does not
+          // lose the agent's corrected terms.
+          deductibleG1: 25,
+          deductibleG1Max: 400,
+          deductibleG1Paid: 50,
+          deductibleG2: 30,
+          deductibleG2Max: 500,
+          deductibleG2Paid: 200,
+          deductibleG3: 100,
+          deductibleG3Max: 0,
+          deductibleG3Paid: 0,
+          // 🚩 `AuthLineDto` — note there is NO `maxCoverage` on it. That is §3.4's
+          // known gap and it is exactly what the fallback has to report.
+          authLines: [
+            {
+              id: 'AL1',
+              sequence: 1,
+              itemNumber: '100001',
+              itemDescription: CATALOGUE['100001'].description,
+              quantity: 2,
+              unitPrice: 25,
+              extendedPrice: 50,
+              amount: 50,
+              netAmount: 50,
+              vat: 7.5,
+              discountPercentage: 0,
+              discountAmount: 0,
+              actualPatientShare: 10,
+              adjudicationOutcome: '',
+              approvedQuantity: 0,
+              rejected: 0,
+              eligible: 0,
+              copay: 0,
+              benefit: 0,
+              benefitReason: '',
+              serviceDate: '2026-07-30',
+              daysSupply: 45,
+              selectionReason: '',
+              deductibleG: 10,
+              deductibleGroupName: 'Generic',
+              diagnosis: 'principal|J45.9',
+            },
+          ],
           authSupportingInfos: [],
         }),
       )
@@ -2262,19 +2318,57 @@ async function run() {
     (await term('Group 1', 'rate').inputValue()) + ' / ' + (await term('Group 1', 'paid outside').inputValue()),
   )
 
-  // ---- Scenario 43: a journal that cannot be read says so ------------------
+  // ---- Scenario 43: 🚩 the FREE FALLBACK, for a row the web did not raise ---
+  // A request raised at a till never went through the orchestration that writes
+  // the journal, so there is no row — and the response by id, which 216 already
+  // reads, is what prefills instead. It has one known gap and must SAY so.
   scenario.journal = 'missing'
-  const opensBeforeMissing = calls.open.length
+  const capsBeforeFallback = calls.updateLineInsurance.length
+  await page.goto(`${BASE}/nphies/authorizations/new?copyOf=${FAILED_AUTH_ID}`)
+  await page.getByRole('heading', { name: /New authorization/ }).waitFor({ timeout: 20000 })
+  await page.waitForTimeout(2200)
+  const fell = await text()
+  check(
+    '🚩 no journal row is NOT an error — the response by id prefills instead (§3.9)',
+    (await rows().count()) === 1 && !/cannot be reopened/.test(fell),
+    `${await rows().count()} rows`,
+  )
+  check(
+    'and the agents corrected terms still come across, off the same response',
+    (await term('Group 1', 'rate').inputValue()) === '25' &&
+      (await term('Group 1', 'paid outside').inputValue()) === '50',
+  )
+  check(
+    '🚩 THE KNOWN GAP IS REPORTED, not worked around — the response cannot carry a per-line cap',
+    /does not record the per-line max coverage/.test(fell),
+    (fell.match(/rebuilt from the payer response[^\n]*/) || [''])[0],
+  )
+  check(
+    '🚩 and NO cap was invented for any line — not even a zero, which the engine would ignore anyway',
+    calls.updateLineInsurance.length === capsBeforeFallback,
+    `${calls.updateLineInsurance.length - capsBeforeFallback} cap verbs sent`,
+  )
+  check(
+    'the days supply the response DOES carry is replayed',
+    (calls.updateLineMeta[calls.updateLineMeta.length - 1] || {}).daysSupply === 45,
+    JSON.stringify(calls.updateLineMeta[calls.updateLineMeta.length - 1] || {}),
+  )
+
+  // ---- Scenario 43b: a journal read that DIED is not a licence to fall back --
+  scenario.journal = 'down'
+  const opensBeforeDown = calls.open.length
   await page.goto(`${BASE}/nphies/authorizations/new?copyOf=${FAILED_AUTH_ID}`)
   await page.waitForSelector('[role="alert"]', { timeout: 15000 })
-  await page.waitForTimeout(400)
+  await page.waitForTimeout(600)
   const unreadable = await text()
   check(
-    '🚩 a journal that cannot be read is a refusal in words, and NO transaction is opened',
-    /cannot be reopened/.test(unreadable) &&
-      /No submission was recorded/.test(unreadable) &&
-      calls.open.length === opensBeforeMissing,
-    (unreadable.match(/No submission was recorded[^\n]*/) || [''])[0],
+    '🚩 a DEAD WIRE on the journal read is a refusal in words, and NO transaction is opened',
+    /cannot be reopened/.test(unreadable) && calls.open.length === opensBeforeDown,
+    (unreadable.match(/This refusal cannot be reopened[^\n]*/) || [''])[0],
+  )
+  check(
+    '🚩 and it does NOT silently prefill from the thinner source — the row may well exist',
+    (await rows().count()) === 0,
   )
   check(
     'and it does not also claim the link was half-addressed — that would be a second, wrong story',

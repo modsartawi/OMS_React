@@ -49,11 +49,13 @@ i18n · test
 - [x] `theReplayIsANewRequestNotAResumedOne` — a fresh session is opened; nothing reuses the
       terminal one · pure (same file; `replayVerbs` is asserted against §1.2's eleven)
 - [x] a failed row reopens, replays, reports a refused item, and can be resubmitted · flow
-      (`tools/nphies-authorization-session-drive.mjs` scenarios 39–44, **186/186 green** against a
+      (`tools/nphies-authorization-session-drive.mjs` scenarios 39–44, **192/192 green** against a
       stubbed engine — SIS.Api is down and nothing on this door is built)
 
-Also run: `npm test` 1075 green (20 new) · `npm run typecheck` · `npm run lint` (all three gates) ·
-`npm run build` clean.
+Also run: `npm test` 1081 green (26 new) · `npm run typecheck` · `npm run lint` (all three gates) ·
+`npm run build` clean. Review pass (`/code-review` self-pass + `/standards-review` on both axes) in
+`.afk/REVIEW-221.md` — it is what built the **free fallback** (§3.9's response-by-id, for rows the
+web did not raise, with §3.4's per-line-cap gap reported rather than worked around).
 
 ⚠ The drive was **already red at HEAD** on scenario 27 — `getByRole('checkbox').check()` races a
 controlled checkbox whose state only flips when `setHeader` answers. Verified red before this

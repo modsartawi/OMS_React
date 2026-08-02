@@ -49,6 +49,17 @@ const LINE = (over: Partial<AuthDetailLine> = {}): AuthDetailLine => ({
  *  carries, which is the whole reason `deriveAuthAxes` reads both. */
 const DETAIL = (over: Partial<AuthDetail> = {}): AuthDetail => ({
   contractVersion: '1.0',
+  // §4's nine header money fields. Nothing in 216 renders one — they are here
+  // because 221's fallback prefill reads them off this same response.
+  deductibleG1: 0,
+  deductibleG1Max: 0,
+  deductibleG1Paid: 0,
+  deductibleG2: 0,
+  deductibleG2Max: 0,
+  deductibleG2Paid: 0,
+  deductibleG3: 0,
+  deductibleG3Max: 0,
+  deductibleG3Paid: 0,
   id: 'AUTH-1',
   eligibilityId: 'ELG-1',
   memberId: 'M-1',

@@ -573,6 +573,196 @@ export interface AuthCancellationRequest {
 export type AuthCancellationResult = AuthStatusCheckResult
 
 /**
+ * ---------------------------------------------------------------------------
+ * The **engine session** (§1.2's eleven verbs, §2's projection) — ticket 217.
+ *
+ * 🚩 The authorization is an engine document (law 2): a web-raised authorization
+ * is a real `NphiesAuth` transaction on the Till Submission Platform, driven verb
+ * by verb, because the audit trail must show *what the engine landed versus what
+ * the agent changed*. There is no "assemble a payload and POST it" shape anywhere
+ * below, and adding one would defeat the reason the screen exists.
+ *
+ * 🚩 **Every mutating verb answers the WHOLE state** (law 3), so there is exactly
+ * one projection type and no delta, patch or partial anywhere in this block.
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * Who the request is about and under whose policy — §2's `reference` block.
+ *
+ * 🚩 **Fetched from the eligibility at `Open`, read-only forever.** It is why the
+ * form does not read the eligibility itself: the server does it once, inside the
+ * verb that binds it to the transaction, and a second client-side read could
+ * disagree with what the engine actually bound.
+ *
+ * `memberId` **IS the policy choice** — 213's seam carries it because §7.1's
+ * `Open` takes it and there is no coverage id in the request.
+ */
+export interface NphiesSessionReference {
+  eligibilityId: string
+  memberId: string
+  patientId: string
+  patientName: string
+  patientGender: string
+  patientBirthDate: string
+  patientIdType: string
+  payerCode: string
+  /** 🚩 **Inherited, never re-picked** (spec 209 story 25): the check and the
+   *  authorization can then never disagree about who is asking. */
+  providerCode: string
+  policyNumber: string
+  policyStartDate: string
+  policyEndDate: string
+  policyHolder: string
+}
+
+/** One diagnosis on the header (§2). 219 is the ticket that captures them; 217
+ *  carries the shape because the projection does. */
+export interface NphiesSessionDiagnosis {
+  code: string
+  /** `principal` and its siblings — exactly one principal is 219's structural rule. */
+  type: string
+  description: string
+  morphology: string
+}
+
+/** The header the whole request is stamped from (§2, §4's `ServiceDate` /
+ *  `Diagnosis` rows). Editable at 219; rendered read-only here. */
+export interface NphiesSessionHeader {
+  serviceDate: string
+  diagnoses: NphiesSessionDiagnosis[]
+  exceptionPrescription: boolean
+  daysSupplyDefault: number
+  reasonForVisit: string
+}
+
+/** One deductible group's terms — §2's `insurance.g1|g2|g3`, and §4's nine header
+ *  money fields seen from the projection's side. 218's inputs, not 217's. */
+export interface NphiesDeductibleGroup {
+  rate: number
+  max: number
+  /** Paid outside — the field a stored cap alone cannot distinguish (§4). */
+  paid: number
+}
+
+export interface NphiesSessionInsurance {
+  g1: NphiesDeductibleGroup
+  g2: NphiesDeductibleGroup
+  g3: NphiesDeductibleGroup
+}
+
+/**
+ * One line of the live request — §2's `lines[]`, whose ownership is §4's
+ * nineteen-field table.
+ *
+ * 🚩 **Money is one-way.** `unitPrice` through `actualPatientShare` are the
+ * engine's and are display-only (law 1); nothing in this repo sums, totals or
+ * derives one of them. The agent's five inputs arrive at 218.
+ */
+export interface NphiesAuthSessionLine {
+  lineId: string
+  sequence: number
+  /** 🚩 **A voided line is KEPT, not removed** (§1.2's verb table, spec story 31):
+   *  the audit trail is the whole point, and "added then voided" is exactly what a
+   *  payload of survivors cannot record. */
+  voided: boolean
+  itemNumber: string
+  itemDescription: string
+  /** Agent — `changeQty` (§4). */
+  quantity: number
+  unitPrice: number
+  extendedPrice: number
+  amount: number
+  netAmount: number
+  vat: number
+  discountPercentage: number
+  discountAmount: number
+  /** The only per-line money the payer adjudicates (§4). */
+  actualPatientShare: number
+  /** Engine, ours only — read back by the dispensing till, never sent to NPHIES. */
+  deductibleG: number
+  /** **IS `InsuranceItemCategory`** — `Generic` · `Brand` · `Brand-IR` · `NonMed`
+   *  (§4), *not* the G1/G2/G3 bucket it reads like. */
+  deductibleGroupName: string
+  /** Engine default, agent-overridable at 218. ⚠️ A `MaxPayerShare` of 0 will not
+   *  apply — SIS.Pos ignores `<= 0` — which the cell says at 218. */
+  maxCoverage: number
+  /** Agent — `updateLineMeta`, validated 1–100 at the cell (218). */
+  daysSupply: number
+  selectionReason: string
+  /** `false` on `Generic` lines ONLY (§2). 218's rule; carried here because the
+   *  projection carries it. */
+  selectionReasonEditable: boolean
+  /** 🚩 What makes a line **price in place** (spec story 27). The engine says so;
+   *  the browser never guesses that a price is on its way. Declared as §2's closed
+   *  pair rather than a bare string, so a misspelt comparison fails the build
+   *  rather than silently rendering every line as settled. */
+  pricing: 'settled' | 'pending'
+}
+
+/** One reason submit is still held (§2). 218–219 fill the list; 217 renders
+ *  whatever the server says without inventing an entry. */
+export interface NphiesSubmitBlocker {
+  code: string
+  message: string
+}
+
+/**
+ * **The projection the whole form renders** — §2, whole.
+ *
+ * `version` ORDERS states and `etag` IDENTIFIES one; which of two states may be
+ * rendered is `@/core/engine-session/session-state`'s single rule (§2.1), shared
+ * with the call-centre console and never re-implemented per feature.
+ */
+export interface NphiesAuthSessionState {
+  /** Law 10's field. A **major** mismatch is a client hard stop before any state
+   *  is admitted — `checkContractVersion`, in the same `core/` module. */
+  contractVersion?: string
+  /** The engine ULID, 26 chars. */
+  transactionId: string
+  version: number
+  etag: string
+  /** §2's three, closed. The form reads `open` in four places and a fourth value
+   *  arriving would be a §8 revision, not something to guess at. */
+  status: 'open' | 'submitted' | 'abandoned'
+  /** 🚩 **The acting store as the pricing plant** (law 8) — bound once at `Open`
+   *  and immutable for the life of the transaction. Invisible in the NPHIES
+   *  payload and decisive in every amount in it, which is why the screen may not
+   *  offer a store switch mid-request. */
+  plant: string
+  reference: NphiesSessionReference
+  header: NphiesSessionHeader
+  insurance: NphiesSessionInsurance
+  lines: NphiesAuthSessionLine[]
+  submitBlockers: NphiesSubmitBlocker[]
+  /** `true` when a retried `requestId` was not re-applied (§2). */
+  replayed: boolean
+}
+
+/**
+ * `POST Nphies/Session/Open` → §7.1.
+ *
+ * 🚩 **There is no `refusedExisting`**, unlike the call-centre door: drafts are
+ * not resumable (law 9), so a second `Open` simply opens a second transaction and
+ * the first is abandoned or swept. Shift-less, per the call-centre device
+ * precedent.
+ */
+export interface NphiesOpenResult {
+  outcome: 'opened'
+  state: NphiesAuthSessionState
+}
+
+/**
+ * `POST Nphies/Session/Abandon` → §7.2. **No state comes back** — the
+ * transaction is VOIDED and there is nothing left to render, which is why the
+ * caller owes the agent a landing.
+ */
+export interface NphiesAbandonResult {
+  outcome: 'abandoned'
+  transactionId: string
+}
+
+/**
  * `GET Nphies/LastEligibility/{patientId}` (§3.2) → `LastEligibilityModel` — what
  * **Fill** completes a cold form from. `null` when the patient has never been
  * checked.

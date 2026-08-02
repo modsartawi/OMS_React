@@ -177,6 +177,92 @@
       "untitled": "Untitled"
     }
   },
+  "form": {
+    "backToList": "Back to authorizations",
+    "title": "New authorization",
+    "subtitle": "Everything you do here is recorded on a live request. Leaving discards it — there is nothing to come back to.",
+    "opening": "Opening the request…",
+    "refresh": "Refresh",
+    "plant": "Priced at store {{plant}}, bound when this request opened and fixed for its life.",
+    "replayed": "This request was already open — your last attempt reached the server, so it was picked up rather than raised a second time.",
+    "identity": {
+      "patientName": "Patient",
+      "patientId": "Patient ID",
+      "payer": "Payer",
+      "provider": "Provider",
+      "memberId": "Member ID",
+      "policyNumber": "Policy",
+      "policyHolder": "Policy holder",
+      "serviceDate": "Service date"
+    },
+    "add": {
+      "itemNumber": "Item number",
+      "itemNumberPlaceholder": "Type or scan an item number",
+      "quantity": "Quantity",
+      "action": "Add",
+      "adding": "Adding…",
+      "refusal": {
+        "duplicate": "Item {{itemNumber}} is already on this request, on line {{sequence}}. Change that line's quantity instead of adding it again.",
+        "blank": "Type an item number to add.",
+        "qty": "Ask for a whole quantity of one or more."
+      }
+    },
+    "lines": {
+      "title_one": "{{count}} item on the request",
+      "title_other": "{{count}} items on the request",
+      "empty": "Nothing on the request yet. Add the first item above.",
+      "sequence": "#",
+      "item": "Item",
+      "quantity": "Quantity",
+      "quantityFor": "Quantity for {{item}}",
+      "unitPrice": "Unit price",
+      "extendedPrice": "Extended",
+      "discount": "Discount",
+      "netAmount": "Net",
+      "vat": "VAT",
+      "patientShare": "Patient share",
+      "group": "Group",
+      "acts": "Acts",
+      "void": "Void",
+      "voidHint": "Take this line off the request. It stays on the record as withdrawn.",
+      "voided": "Voided",
+      "pricing": "Pricing…",
+      "moneyIsTheEngines": "Every amount above is the pricing engine's and is shown as it was calculated. Only the quantity is yours on this screen."
+    },
+    "leave": {
+      "warning": "Leaving discards this request. Nothing is saved and there is no draft to come back to.",
+      "discard": "Leave and discard",
+      "discarding": "Discarding…",
+      "stay": "Stay on the request",
+      "action": "Leave"
+    },
+    "blockers": {
+      "intro": "This request cannot be opened:",
+      "separator": " ",
+      "noEligibility": "It was not opened from an eligibility check, so there is nothing to raise it against.",
+      "noCoverage": "No policy was chosen, and an authorization is raised under one member ID.",
+      "noActingStore": "Your acting store is not resolved yet, and it is what prices this request."
+    },
+    "fault": {
+      "closedTitle": "This request is no longer open",
+      "closedHint": "It has been submitted, abandoned or swept, so nothing more can be added to it.",
+      "notYoursTitle": "This request belongs to someone else",
+      "notYoursHint": "Another agent is working this transaction. Start your own from the eligibility.",
+      "backToList": "Back to authorizations"
+    },
+    "hardStop": {
+      "title": "This screen is out of date",
+      "detail": "The server answered with contract version {{received}} and this portal speaks {{expected}}. Ask for the portal to be updated rather than working against a version it cannot read.",
+      "noVersion": "none"
+    },
+    "errors": {
+      "openTitle": "The request could not be opened",
+      "openFailed": "The request could not be opened.",
+      "openRetry": "Try again",
+      "verbTitle": "That did not go through",
+      "verbFailed": "The request was not changed."
+    }
+  },
   "errors": {
     "detailTitle": "This authorization could not be opened",
     "detailFailed": "The authorization could not be loaded.",

@@ -23,6 +23,7 @@
   },
   "storeSwitcher": {
     "ariaLabel": "Acting store",
+    "lockedByEngineSession": "This store prices the authorization you have open, so it cannot change until you leave that request.",
     "changed": {
       "title": "Store changed",
       "detail": "Now acting as store {{storeCode}}."

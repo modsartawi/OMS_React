@@ -161,8 +161,6 @@ export const prereqKey = (transactionId: string, offerId: string) =>
  */
 export const MY_SOURCES_KEY = ['callcenter', 'documentSources'] as const
 
-const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ' // Crockford base32
-
 /**
  * A client-minted ULID for one user action (§4 / law 3). Timestamp-prefixed so
  * ids sort by mint order, which is what makes a server-side ledger of the last
@@ -173,18 +171,14 @@ const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ' // Crockford base32
  * rule rather than a convention, so it does not live at a call site: `store-move.ts`
  * mints a rebind's id once and carries it through the confirm and the
  * re-preview, and is the only module here that calls this function for one.
+ *
+ * 🚩 **The function itself moved to `@/core/engine-session/request-id` at ticket
+ * 217**, when the Nphies authorization form became the second engine session and
+ * needed the same rule — features may not import features. It is re-exported here
+ * rather than re-spelled, so every call site in this console is untouched and
+ * there is still exactly one implementation.
  */
-export function newRequestId(): string {
-  let time = Date.now()
-  const chars: string[] = new Array(26)
-  for (let i = 9; i >= 0; i--) {
-    chars[i] = ULID_ALPHABET[time % 32]
-    time = Math.floor(time / 32)
-  }
-  const random = crypto.getRandomValues(new Uint8Array(16))
-  for (let i = 0; i < 16; i++) chars[10 + i] = ULID_ALPHABET[random[i] % 32]
-  return chars.join('')
-}
+export { newRequestId } from '@/core/engine-session/request-id'
 
 /**
  * The window `setSlot` is told about, as v1.2 (§10) added it — the id plus four

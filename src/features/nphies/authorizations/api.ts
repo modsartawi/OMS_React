@@ -23,6 +23,9 @@ import type {
   AuthListRow,
   AuthRetryResult,
   AuthStatusCheckResult,
+  NphiesAbandonResult,
+  NphiesAuthSessionState,
+  NphiesOpenResult,
   NphiesPage,
 } from '@/core/models/nphies'
 
@@ -110,5 +113,164 @@ export const authorizationsApi = {
    */
   cancel(body: AuthCancellationRequest): Promise<AuthCancellationResult> {
     return api.post<AuthCancellationResult>('Nphies/Cancellation', body)
+  },
+}
+
+/**
+ * The **engine session** verbs (contract §1.2) — ticket 217's half of the table.
+ *
+ * All `POST` under `Nphies/Session/*` except the read, all carrying
+ * `{ transactionId, requestId }`, and **every mutating one answers the whole
+ * `NphiesAuthSessionState`** (law 3). There is no delta protocol and no reducer:
+ * the client renders the latest state it is allowed to render, and which one that
+ * is comes from `@/core/engine-session/session-state` (§2.1).
+ *
+ * 🚩 **Six of the eleven verbs are here.** `setHeader`, `setInsurance`,
+ * `updateLineInsurance`, `updateLineMeta` and `submit` belong to 218–220 and are
+ * deliberately absent — a verb declared before the screen that presses it is a
+ * shape nobody has checked against a live door.
+ *
+ * ⚠️ **None of these endpoints exists yet.** They are the largest and riskiest
+ * server term in the effort (8–12 days, a *parallel* build: the call-centre engine
+ * services are document-type-aware but call-centre-**bound**). Until they land the
+ * form is verified against stubbed envelopes
+ * (`tools/nphies-authorization-session-drive.mjs`) built from the contract's own
+ * shapes — the code-complete / runtime-blocked posture 211–216 shipped under.
+ */
+export const authSessionApi = {
+  /**
+   * `POST Nphies/Session/Open` → §7.1's `OpenResult`. Opens a real `NphiesAuth`
+   * transaction: from this moment everything the agent does is on one transaction
+   * the server owns, and there is no save verb because **the transaction IS the
+   * draft** (law 9).
+   *
+   * 🚩 It takes the eligibility id and the chosen member id and **nothing else**
+   * — 213's seam, verbatim. The patient, payer, policy and provider come back in
+   * the state's `reference`, fetched server-side from that eligibility, which is
+   * why this form never reads the eligibility itself: one read, inside the verb
+   * that binds it, so a second client-side one cannot disagree with what the
+   * engine bound.
+   *
+   * 🚩 **The plant is not on this body.** The acting store is bound from the
+   * agent's own session server-side (law 8 / law 7); a browser-supplied plant
+   * would be the client naming the one value that decides every amount.
+   *
+   * 🚩 **Shift-less**, per the call-centre device precedent — a browser has no
+   * shift and nothing reads one before submission. And unlike the call-centre
+   * door there is **no `refusedExisting`**: a second `Open` opens a second
+   * transaction, because nothing here is resumable.
+   */
+  open(requestId: string, eligibilityId: string, memberId: string): Promise<NphiesOpenResult> {
+    return api.post<NphiesOpenResult>('Nphies/Session/Open', {
+      requestId,
+      eligibilityId,
+      memberId,
+    })
+  },
+
+  /**
+   * `GET Nphies/Session/State?transactionId=` — **refresh, recovery and reload
+   * only** (law 3). Never a way to "sync": a mutating verb has already returned
+   * the whole state, and asking again after one would be the client admitting it
+   * did not believe the answer.
+   *
+   * A pure read, so it carries no `requestId`: there is no act for a ledger to
+   * absorb.
+   */
+  state(transactionId: string): Promise<NphiesAuthSessionState> {
+    return api.get<NphiesAuthSessionState>('Nphies/Session/State', { transactionId })
+  },
+
+  /**
+   * `POST Nphies/Session/AddItem` → the whole state (law 3).
+   *
+   * 🚩 **It sends an item number and a quantity, and never a price** (law 1). What
+   * the line costs is decided by pricing at the plant and comes back in the
+   * projection — including `pricing: 'pending'` while it is still being decided,
+   * which is what lets the row **price in place** instead of appearing blank.
+   *
+   * Refuses `ITEM_ALREADY_ON_REQUEST` (409) — §2.3's rule, moved forward from
+   * WPF's submit-time `ValidateDuplicateItems` so the agent fixes it while looking
+   * at it, with the **quantity control named as the remedy**. Also
+   * `ITEM_NOT_FOUND`, `ITEM_NO_NPHIES_CATEGORY`, `NO_PRICE_AT_PLANT`,
+   * `ZERO_EXTENDED_PRICE` and `QTY_INVALID` — every one of them a business
+   * outcome the row states, never a crash.
+   */
+  addItem(
+    transactionId: string,
+    requestId: string,
+    itemNumber: string,
+    qty: number,
+  ): Promise<NphiesAuthSessionState> {
+    return api.post<NphiesAuthSessionState>('Nphies/Session/AddItem', {
+      transactionId,
+      requestId,
+      itemNumber,
+      qty,
+    })
+  },
+
+  /**
+   * `POST Nphies/Session/ChangeQty` → the whole state (law 3).
+   *
+   * 🚩 It sends a **new quantity**, never a delta: the engine owns what the line
+   * holds, and a delta applied to a line that moved under the agent would be a
+   * quantity nobody chose. It re-prices, which is why the whole state comes back.
+   *
+   * Refuses `QTY_INVALID` (zero, negative, or beyond the cap — the cap is the
+   * engine's and is never re-implemented here) and `LINE_NOT_FOUND`, which on this
+   * verb is nearly always a screen that has fallen behind.
+   */
+  changeQty(
+    transactionId: string,
+    requestId: string,
+    lineId: string,
+    newQty: number,
+  ): Promise<NphiesAuthSessionState> {
+    return api.post<NphiesAuthSessionState>('Nphies/Session/ChangeQty', {
+      transactionId,
+      requestId,
+      lineId,
+      newQty,
+    })
+  },
+
+  /**
+   * `POST Nphies/Session/VoidLine` → the whole state (law 3).
+   *
+   * 🚩 **The line is kept, not removed.** That is the whole reason the form is a
+   * session: the audit trail must show what the engine landed against what the
+   * agent changed, and "added then voided" is exactly what a payload of survivors
+   * cannot record. The projection returns it with `voided: true` and the grid
+   * draws it.
+   *
+   * Refuses `LINE_NOT_FOUND`.
+   */
+  voidLine(
+    transactionId: string,
+    requestId: string,
+    lineId: string,
+  ): Promise<NphiesAuthSessionState> {
+    return api.post<NphiesAuthSessionState>('Nphies/Session/VoidLine', {
+      transactionId,
+      requestId,
+      lineId,
+    })
+  },
+
+  /**
+   * `POST Nphies/Session/Abandon` → §7.2's `AbandonResult`. The transaction is
+   * VOIDED.
+   *
+   * 🚩 **Leaving abandons, and there are no drafts** (law 9). Nothing is
+   * resumable and a crashed tab is swept server-side, which is precisely why the
+   * form warns before navigating away: leaving genuinely discards the request.
+   *
+   * 🚩 **No state comes back** — there is nothing left to render — so the caller
+   * owes the agent a landing. An abandon with no follow-on leaves them holding
+   * nothing.
+   */
+  abandon(transactionId: string, requestId: string): Promise<NphiesAbandonResult> {
+    return api.post<NphiesAbandonResult>('Nphies/Session/Abandon', { transactionId, requestId })
   },
 }

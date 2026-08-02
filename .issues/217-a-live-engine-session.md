@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 209
 blocked-by: 210, 213
 ---
@@ -60,14 +60,22 @@ guard, add/qty/void, duplicate refusal) · component/route
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `aStaleStateNeverReplacesANewerOne` — the `core/` guard is genuinely in the path: an
+- [x] `aStaleStateNeverReplacesANewerOne` — the `core/` guard is genuinely in the path: an
       out-of-order response is discarded rather than rendered · pure
-- [ ] `addingAnItemAlreadyOnTheRequestIsRefusedWithTheRemedy` — the refusal names the quantity
-      control · pure
-- [ ] `aVoidedLineIsKeptNotRemoved` — the projection retains it, because the audit trail is the whole
-      point · pure
-- [ ] open → add → refuse a duplicate → change quantity → void → leave with a warning · flow
-      (Playwright, new `tools/nphies-authorization-session-drive.mjs`)
+      (`src/features/nphies/authorizations/auth-session.test.ts`, 6 cases including
+      equal-version-different-etag and the contract-major hard stop)
+- [x] `addingAnItemAlreadyOnTheRequestIsRefusedWithTheRemedy` — the refusal names the quantity
+      control · pure (9 cases, including the door's own `ITEM_ALREADY_ON_REQUEST` read into the same
+      shape, and a **voided line not blocking its own item**)
+- [x] `aVoidedLineIsKeptNotRemoved` — the projection retains it, because the audit trail is the whole
+      point · pure (5 cases)
+- [x] open → add → refuse a duplicate → change quantity → void → leave with a warning · flow
+      (Playwright, new `tools/nphies-authorization-session-drive.mjs`) — **61/61** against stubbed
+      envelopes, SIS.Api down and all six verbs unbuilt
+
+Plus two pure suites the ticket did not name and the build wanted:
+`leavingAPartBuiltRequestDiscardsIt` (a voided-only request still counts as work; an empty one does
+not) and `theSessionWillNotOpenUntilThePlantIsResolved` (law 8, before the first item).
 
 ## Boundaries
 
@@ -97,3 +105,45 @@ warned that leaving discards the request — drive green.
 
 - [210](210-core-owns-the-latest-state-guard.md) — the session client imports the guard from `core/`.
 - [213](213-two-coverages-force-a-pick.md) — the seam and the chosen member id.
+
+## What landed
+
+`/nphies/authorizations/new?from=&coverage=` — 213's seam, its other end. The form **opens a real
+transaction on mount and abandons it on the way out**: `Open` → `AddItem` → `ChangeQty` → `VoidLine`
+→ `Abandon`, plus `State` for the read. Six of the eleven verbs; the other five are 218–220's, and a
+verb declared before the screen that presses it is a shape nobody has checked.
+
+🚩 **The eligibility is not fetched here.** §2 says `reference` is fetched from it *at `Open`*, so
+the identity arrives inside the state — which also settles the boundary question, since the
+eligibility read belongs to the other feature and features may not import features.
+
+🚩 **The duplicate is refused twice over, and reads identically both times.** `refuseAdd` states it
+forward with no round trip and names the **quantity control**; `readAddRefusal` turns the door's own
+`ITEM_ALREADY_ON_REQUEST` into the same shape for a screen that has fallen behind. A **voided line
+does not block its own item** — the remedy would otherwise point at a line that is no longer on the
+request.
+
+🚩 **A voided line is drawn, struck through and inert.** The heading counts what the payer is being
+asked for, which is not what is on the screen.
+
+🚩 **Leaving is intercepted whenever a transaction is open** — warned inline (no modal anywhere in
+this flow) when there are lines, abandoned silently when there are none, because an OPEN transaction
+left for the sweeper is the litter this design retired. `beforeunload` covers the closed tab; the
+login bounce is exempt, because 401 is `core/api`'s and never feature code's.
+
+🚩 **The session will not open until the plant is resolved** (law 8) and the shell's store switcher
+is held still while it is open — a `core/engine-session/store-lock` hold, since `features/auth` may
+read `core/`. ⚠️ `StoreSwitcher` is currently mounted nowhere, so that half is a latent guard.
+
+Two more graduations to `core/`, both for 210's reason: **`newRequestId`** (re-exported from the
+console's `api.ts`, so no call site moved) and the first real use of **`session-fault`** —
+`SESSION_CLOSED` / `NOT_YOUR_SESSION` stop the form and clear the state rather than banner over a
+request that is gone. **`SESSION_BUSY`'s bounded auto-retry is deliberately deferred** to the ticket
+that adds concurrent verbs.
+
+**Contract gap named:** §1.2 says item search "reuses the existing item lookup" and names no route;
+the only one this repo has is another feature's, behind another grant. So the add-row is an
+**item-number field, not a typeahead**, and an unknown number is the door's `ITEM_NOT_FOUND`.
+
+980 tests green (27 new), drive **61/61**, the three earlier drives re-run unchanged (121/121 ·
+108/108 · call-centre 508/508), lint + build clean · eleven decisions in `.afk/HITL-217.md`.

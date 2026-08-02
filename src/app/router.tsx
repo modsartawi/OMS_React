@@ -165,6 +165,19 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        // The authorization form (217) — the effort's core, and a **session**
+        // rather than a form: it opens a real engine transaction on mount and
+        // abandons it on the way out. Addressed by the eligibility it is raised
+        // from and the coverage that was chosen (`?from=&coverage=`, 213's seam),
+        // so it can be reached days after the check. Static, so it precedes the
+        // dynamic `:id` below — react-router ranks it first either way.
+        path: 'nphies/authorizations/new',
+        lazy: async () => ({
+          Component: (await import('@/features/nphies/authorizations/AuthorizationFormPage'))
+            .default,
+        }),
+      },
+      {
         // One authorization as its own page (216) — a ROUTE, not a modal, so it
         // survives a refresh and can be linked to, and it is opened from the
         // list's own Open column. It is where the payer's per-line reasons and

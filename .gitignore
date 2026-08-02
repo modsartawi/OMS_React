@@ -36,3 +36,8 @@ tools/.channel-shots/
 
 # Ua-users scale drive screenshots (tools/ua-users-scale-drive.mjs) — same deal
 tools/.ua-scale-shots/
+
+# AFK review reports (.afk/REVIEW-<ticket>.md) — written fresh by each wave's round-B
+# reviewer, so a tracked one reads as "the reviewer edited the tree" and stops the loop.
+# The HITL decision logs beside them ARE committed on purpose.
+.afk/REVIEW-*.md

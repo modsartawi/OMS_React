@@ -126,6 +126,140 @@ const REFERENCE = {
   policyHolder: 'ACME INSURANCE',
 }
 
+/**
+ * 221 — 🚩 **the write-ahead journal row** (§3.9), which is the whole of what a
+ * reopen is prefilled from. The shape is the Nphies service's own `AuthRequest`
+ * (`Features/Auth/Dtos/AuthRequest.cs`), because that is literally what
+ * `IntegrationAttemptLog.StartAsync` serialized into `PosIntegrationAttempt.RequestJson`
+ * before the payer was called — not a friendlier reopen DTO.
+ *
+ * It is built to make the replay's three interesting cases observable at once:
+ *   · 100001 comes back exactly as it went out;
+ *   · 100002 was submitted at 20.00 and the plant now prices it at 12.50 — REPRICED;
+ *   · 100009 is no longer an item at all — REFUSED at the scan.
+ */
+const JOURNAL_ITEM = (over) => ({
+  sequence: 1,
+  itemNumber: '100001',
+  quantity: 2,
+  unitPrice: 25,
+  extendedPrice: 50,
+  amount: 50,
+  netAmount: 50,
+  vat: 7.5,
+  discountPercentage: 0,
+  discountAmount: 0,
+  actualPatientShare: 10,
+  deductibleG: 10,
+  deductibleGroupName: 'Generic',
+  maxCoverage: 0,
+  daysSupply: 30,
+  selectionReason: '',
+  serviceDate: '2026-07-30',
+  diagnosis: 'principal|J45.9',
+  ...over,
+})
+
+const JOURNAL_ITEMS = [
+  JOURNAL_ITEM({}),
+  JOURNAL_ITEM({
+    sequence: 2,
+    itemNumber: '100002',
+    quantity: 1,
+    // Submitted at 20.00; the plant prices it at 12.50 today.
+    unitPrice: 20,
+    extendedPrice: 20,
+    deductibleGroupName: 'Brand',
+    maxCoverage: 15,
+    daysSupply: 60,
+    selectionReason: 'patient-request',
+  }),
+  // An item that has since gone. The door answers `ITEM_NOT_FOUND`, and that
+  // refusal is THE information the agent needs — not a failure of the replay.
+  JOURNAL_ITEM({ sequence: 3, itemNumber: '100009', quantity: 1, deductibleGroupName: 'NonMed' }),
+]
+
+const FAILED_AUTH_ID = 'AUTH-REFUSED-1'
+
+const journalRow = (items) => ({
+  contractVersion: '1.0',
+  // 🚩 The two ids `Open` takes. A reopen is raised against the SAME eligibility
+  // and the same chosen coverage as the request it replays.
+  eligibilityId: ELIGIBILITY_ID,
+  memberId: MEMBER_ID,
+  providerCode: REFERENCE.providerCode,
+  payerCode: REFERENCE.payerCode,
+  patientId: REFERENCE.patientId,
+  patientIdType: 'NI',
+  patientName: REFERENCE.patientName,
+  patientGender: 'male',
+  patientBirthDate: REFERENCE.patientBirthDate,
+  serviceDate: '2026-07-30',
+  prescriptionRef: '',
+  // 🚩 `type|code` joined by `,` — `NphiesDiagnosis.GetDiagnosisList`'s own
+  // encoding, which §3.4 makes the client's to parse back.
+  diagnosis: 'principal|J45.9',
+  exceptionPrescription: false,
+  reasonForVisit: '',
+  policyNumber: REFERENCE.policyNumber,
+  policyHolder: REFERENCE.policyHolder,
+  claimType: 0,
+  // §4's nine header money fields, deliberately NOT the coverage's defaults — the
+  // agent had corrected them, and a replay that lost the correction would be a
+  // silent restore of something they did not send.
+  deductibleG1: 25,
+  deductibleG1Max: 400,
+  deductibleG1Paid: 50,
+  deductibleG2: 30,
+  deductibleG2Max: 500,
+  deductibleG2Paid: 200,
+  deductibleG3: 100,
+  deductibleG3Max: 0,
+  deductibleG3Paid: 0,
+  items,
+  // §3.5's attachments really do ride inside the journal row — and are NOT
+  // replayed, because the row records `image`/`pdf` rather than a MIME type.
+  supportingInfos: [
+    {
+      sequence: 1,
+      category: 'attachment',
+      code: '',
+      attachment: 'aGVsbG8=',
+      valueString: '',
+      attachmentType: 'image',
+      attachmentTitle: 'Prescription',
+      display: '',
+    },
+  ],
+})
+
+/** One refused row on the list, so the reopen affordance has something to be on.
+ *  🚩 It is only visible because the list sends `showAll=true` (§3.3). */
+const FAILED_ROW = {
+  id: FAILED_AUTH_ID,
+  eligibilityId: ELIGIBILITY_ID,
+  providerCode: REFERENCE.providerCode,
+  payerCode: REFERENCE.payerCode,
+  patientId: REFERENCE.patientId,
+  preAuthRef: '',
+  claimProcessingCodes: 'Error',
+  queued: false,
+  error: true,
+  cancelled: false,
+  adjudicationOutcome: '',
+  needComm: false,
+  isDispensed: false,
+  dispensedTime: '',
+  dispensedStore: '',
+  actionDateTime: '2026-07-30T11:02:00',
+  responseDateTime: '',
+  serviceDate: '2026-07-30',
+  errorMessageShort: 'Item 100009 has no Nphies category.',
+  disposition: '',
+  statusCode: 400,
+  claimType: 0,
+}
+
 let scenario = {
   access: { canOpenNphies: true },
   accessDown: false,
@@ -150,6 +284,12 @@ let scenario = {
   /** What `Submit` answers — §7.3's three outcomes, plus the two that are not
    *  outcomes at all: a guardrail refusal and a dead wire. */
   submit: 'accepted',
+  // ---- 221 -----------------------------------------------------------------
+  /** What the journal read answers — `full` · `headerOnly` (the refusal that
+   *  threw before its lines were built) · `missing` (no journal row at all). */
+  journal: 'full',
+  /** Serve the list a refused row, so the reopen affordance has one to sit on. */
+  listHasFailedRow: true,
 }
 
 const calls = {
@@ -167,7 +307,27 @@ const calls = {
   morphs: [],
   clinicalEdit: [],
   submit: [],
+  journal: [],
+  /** 🚩 Every `Nphies/Session/*` path the browser asks for, whatever it is. The
+   *  reopen's structural rule — **no new session verb** — is only checkable
+   *  against the whole set, not against the verbs the stub happens to know. */
+  sessionPaths: [],
 }
+
+/** §1.2's table, verbatim. A path outside it is a verb this contract does not have. */
+const SESSION_VERB_PATHS = [
+  'Nphies/Session/Open',
+  'Nphies/Session/State',
+  'Nphies/Session/AddItem',
+  'Nphies/Session/ChangeQty',
+  'Nphies/Session/VoidLine',
+  'Nphies/Session/SetHeader',
+  'Nphies/Session/SetInsurance',
+  'Nphies/Session/UpdateLineInsurance',
+  'Nphies/Session/UpdateLineMeta',
+  'Nphies/Session/Submit',
+  'Nphies/Session/Abandon',
+]
 
 /** The stubbed engine's one transaction. */
 let tx = null
@@ -298,6 +458,7 @@ async function run() {
     const path = url.split('/api/')[1].split('?')[0]
     const query = new URLSearchParams(url.split('?')[1] || '')
     const body = () => JSON.parse(route.request().postData() || '{}')
+    if (path.startsWith('Nphies/Session/')) calls.sessionPaths.push(path)
 
     if (path === 'Auth/Me')
       return route.fulfill(
@@ -616,8 +777,24 @@ async function run() {
       )
     }
 
-    if (path === 'Nphies/AuthResponses')
-      return route.fulfill(envelope({ rows: [], total: 0, page: 1, pageSize: 50 }))
+    if (path === 'Nphies/AuthResponses') {
+      const rows = scenario.listHasFailedRow ? [FAILED_ROW] : []
+      return route.fulfill(envelope({ rows, total: rows.length, page: 1, pageSize: 50 }))
+    }
+    // ---- 221's one server dependency: the write-ahead journal row (§3.9) -----
+    // SIS.Api-internal, no upstream call. It is the ONLY source that covers a
+    // header-only refusal, because the service's own guards throw before the
+    // lines are built.
+    if (path.startsWith('Nphies/AuthRequestJournal/')) {
+      calls.journal.push(decodeURIComponent(path.split('/')[2]))
+      if (scenario.journal === 'missing')
+        return route.fulfill(
+          refusal(404, 'AUTH_NOT_FOUND', 'No submission was recorded for that authorization.'),
+        )
+      return route.fulfill(
+        envelope(journalRow(scenario.journal === 'headerOnly' ? [] : JOURNAL_ITEMS)),
+      )
+    }
     // 220's accepted submit LANDS on the authorization it created, so the detail
     // has to answer — the thinnest `AuthHeaderDto` that renders (216's own drive
     // is where the detail itself is asserted).
@@ -1512,8 +1689,12 @@ async function run() {
   )
 
   // ---- Scenario 27: the exception prescription is one checkbox -------------
-  await page.getByRole('checkbox').first().check()
-  await page.waitForTimeout(450)
+  // `.click()`, not `.check()`. The box is CONTROLLED by the engine's state, so it
+  // does not flip until `setHeader` answers — and Playwright's `check()` asserts
+  // the new state before the round trip lands and gives up. What is being verified
+  // is the verb, which is what the assertion below reads.
+  await page.getByRole('checkbox').first().click()
+  await page.waitForTimeout(700)
   check(
     '🚩 exception prescription is a CHECKBOX, sent alone on setHeader',
     lastHeader().exceptionPrescription === true && !('diagnoses' in lastHeader()),
@@ -1927,6 +2108,210 @@ async function run() {
     '🚩 and landing on it abandoned NOTHING — a lodged request is not litter to sweep',
     calls.abandon.length === abandonsBeforeLodging,
     `${calls.abandon.length} abandons in the whole drive`,
+  )
+
+  // =========================================================================
+  // Ticket 221 — a refused request REOPENS, REPLAYS, and REPORTS what did not
+  // come back. The whole value of the feature is the third of those: a silent
+  // restore would be worse than no reopen at all, because the agent would press
+  // Submit believing they were resending the same request.
+  // =========================================================================
+
+  // ---- Scenario 39: the affordance is on the refused row, and only there ----
+  await page.goto(`${BASE}/nphies/authorizations`)
+  await page.getByRole('button', { name: /Open the refusal/ }).first().waitFor({ timeout: 20000 })
+  const reopenButton = page.getByRole('button', { name: /Open the refusal/ }).first()
+  check(
+    '🚩 a FAILED row offers Open the refusal — live, not withheld with a reason',
+    (await reopenButton.getAttribute('aria-disabled')) !== 'true',
+    String(await reopenButton.getAttribute('aria-disabled')),
+  )
+  check(
+    'and the row it sits on is only visible because the list asks for refused rows (§3.3)',
+    /Failed/.test(await main().innerText()),
+  )
+
+  const opensBeforeReopen = calls.open.length
+  await reopenButton.click()
+  await page.getByRole('heading', { name: /New authorization/ }).waitFor({ timeout: 20000 })
+  check(
+    '🚩 it reaches the EXISTING form route with the source authorization named in the URL',
+    page.url().includes(`copyOf=${FAILED_AUTH_ID}`) &&
+      !page.url().includes('from=') &&
+      !page.url().includes('coverage='),
+    page.url().replace(BASE, ''),
+  )
+
+  // ---- Scenario 40: 🚩 a REPLAY, not a restore -----------------------------
+  await page.waitForTimeout(2500)
+  check(
+    'the prefill source is the write-ahead journal row, read once by authorization id',
+    calls.journal.length === 1 && calls.journal[0] === FAILED_AUTH_ID,
+    JSON.stringify(calls.journal),
+  )
+  check(
+    '🚩 A FRESH SESSION IS OPENED — nothing resumes the terminal transaction (law 9)',
+    calls.open.length === opensBeforeReopen + 1,
+    `${calls.open.length - opensBeforeReopen} opens`,
+  )
+  const reopenOpen = calls.open[calls.open.length - 1] || {}
+  check(
+    '🚩 and it opens on the JOURNALs two ids, not on anything the URL carried',
+    reopenOpen.eligibilityId === ELIGIBILITY_ID && reopenOpen.memberId === MEMBER_ID,
+    JSON.stringify(reopenOpen),
+  )
+  check(
+    '🚩 NO NEW SESSION VERB — every path the reopen asked for is one §1.2 already had',
+    calls.sessionPaths.every((p) => SESSION_VERB_PATHS.includes(p)),
+    [...new Set(calls.sessionPaths.filter((p) => !SESSION_VERB_PATHS.includes(p)))].join(' | '),
+  )
+  const replayedInsurance = calls.setInsurance[calls.setInsurance.length - 1] || {}
+  check(
+    '🚩 the agents corrected deductible terms come back — including paid-outside (§4)',
+    replayedInsurance.g1 &&
+      replayedInsurance.g1.rate === 25 &&
+      replayedInsurance.g1.max === 400 &&
+      replayedInsurance.g1.paid === 50,
+    JSON.stringify(replayedInsurance.g1 || {}),
+  )
+  const replayedHeader = calls.setHeader[calls.setHeader.length - 1] || {}
+  check(
+    '🚩 and the diagnoses, decoded from the `type|code` string they round-trip in (§3.4)',
+    Array.isArray(replayedHeader.diagnoses) &&
+      replayedHeader.diagnoses.length === 1 &&
+      replayedHeader.diagnoses[0].code === 'J45.9' &&
+      replayedHeader.diagnoses[0].type === 'principal',
+    JSON.stringify(replayedHeader.diagnoses || []),
+  )
+  check(
+    'every journalled line is asked for again — including the one that will be refused',
+    calls.addItem.slice(-3).map((a) => a.itemNumber).join(',') === '100001,100002,100009',
+    JSON.stringify(calls.addItem.slice(-3).map((a) => a.itemNumber)),
+  )
+  check(
+    'the per-line cap the response DTO cannot carry is re-applied from the journal',
+    (calls.updateLineInsurance[calls.updateLineInsurance.length - 1] || {}).maxPayerShare === 15,
+    JSON.stringify(calls.updateLineInsurance[calls.updateLineInsurance.length - 1] || {}),
+  )
+  const replayedMeta = calls.updateLineMeta[calls.updateLineMeta.length - 1] || {}
+  check(
+    'and so are the days supply and the selection reason',
+    replayedMeta.daysSupply === 60 && replayedMeta.selectionReason === 'patient-request',
+    JSON.stringify(replayedMeta),
+  )
+  check(
+    'the request that came back holds the two items that survived',
+    (await rows().count()) === 2,
+    `${await rows().count()} rows`,
+  )
+
+  // ---- Scenario 41: 🚩 IT DOES NOT PRETEND TO BE SILENT --------------------
+  const report = await text()
+  check(
+    '🚩 the screen SAYS this is not the request that was refused',
+    /did not come back the way/.test(report) &&
+      /not identical to the one that was refused/.test(report),
+    (report.match(/\d+ things? did not come back[^\n]*/) || [''])[0],
+  )
+  check(
+    '🚩 the item the door REFUSED is named, in the servers own words (§6 kind 2)',
+    /Item 100009 was refused when it was added back/.test(report) &&
+      /No item with that number exists/.test(report),
+    (report.match(/Item 100009[^\n]*/) || [''])[0],
+  )
+  check(
+    '🚩 the item that REPRICED is named, with BOTH figures',
+    /Item 100002 priced at 12\.50 now and was submitted at 20\.00/.test(report),
+    (report.match(/Item 100002[^\n]*/) || [''])[0],
+  )
+  check(
+    '🚩 and the attachments are reported as NOT carried across — Submit is refused without one',
+    /attachments were not carried across/.test(report),
+  )
+  check(
+    'the line that came back exactly as it went out is not reported at all',
+    !/Item 100001/.test(report),
+  )
+  check('🚩 the report is INLINE — still no modal anywhere in this flow', (await page.locator('dialog').count()) === 0)
+
+  // ---- Scenario 42: 🚩 a HEADER-ONLY refusal still prefills ----------------
+  // The service's own guards throw BEFORE the lines are built, so the ordinary
+  // response-by-id has nothing to prefill from. The journal was committed before
+  // the payer was called, so it still has everything but the lines.
+  scenario.journal = 'headerOnly'
+  const addsBeforeHeaderOnly = calls.addItem.length
+  await page.goto(`${BASE}/nphies/authorizations/new?copyOf=${FAILED_AUTH_ID}`)
+  await page.getByRole('heading', { name: /New authorization/ }).waitFor({ timeout: 20000 })
+  await page.waitForTimeout(2000)
+  const headerOnly = await text()
+  check(
+    '🚩 a refusal that recorded NO LINES still opens a request, and says why it is empty',
+    /no lines recorded/.test(headerOnly) && (await rows().count()) === 0,
+    (headerOnly.match(/The refused request had no lines[^\n]*/) || [''])[0],
+  )
+  check(
+    'and nothing was scanned, because there was nothing to scan',
+    calls.addItem.length === addsBeforeHeaderOnly,
+  )
+  check(
+    '🚩 but the terms, the policy and the diagnoses DID come across',
+    (await term('Group 1', 'rate').inputValue()) === '25' &&
+      (await term('Group 1', 'paid outside').inputValue()) === '50' &&
+      /J45\.9/.test(headerOnly) &&
+      new RegExp(MEMBER_ID).test(headerOnly),
+    (await term('Group 1', 'rate').inputValue()) + ' / ' + (await term('Group 1', 'paid outside').inputValue()),
+  )
+
+  // ---- Scenario 43: a journal that cannot be read says so ------------------
+  scenario.journal = 'missing'
+  const opensBeforeMissing = calls.open.length
+  await page.goto(`${BASE}/nphies/authorizations/new?copyOf=${FAILED_AUTH_ID}`)
+  await page.waitForSelector('[role="alert"]', { timeout: 15000 })
+  await page.waitForTimeout(400)
+  const unreadable = await text()
+  check(
+    '🚩 a journal that cannot be read is a refusal in words, and NO transaction is opened',
+    /cannot be reopened/.test(unreadable) &&
+      /No submission was recorded/.test(unreadable) &&
+      calls.open.length === opensBeforeMissing,
+    (unreadable.match(/No submission was recorded[^\n]*/) || [''])[0],
+  )
+  check(
+    'and it does not also claim the link was half-addressed — that would be a second, wrong story',
+    !/not opened from an eligibility check/.test(unreadable),
+  )
+  scenario.journal = 'full'
+
+  // ---- Scenario 44: 🚩 the replayed request CAN BE CORRECTED AND SUBMITTED --
+  await page.goto(`${BASE}/nphies/authorizations/new?copyOf=${FAILED_AUTH_ID}`)
+  await page.getByRole('heading', { name: /New authorization/ }).waitFor({ timeout: 20000 })
+  await page.waitForTimeout(2500)
+  // The one thing the replay deliberately did not carry across.
+  await fileInput().setInputFiles({
+    name: 'prescription.jpg',
+    mimeType: 'image/jpeg',
+    buffer: photoBytes,
+  })
+  await page.waitForTimeout(1200)
+  check(
+    'the form is live again once the replay has finished — the agent may correct it',
+    !(await itemBox().isDisabled()) && (await submitButton().count()) === 1,
+  )
+  scenario.submit = 'accepted'
+  scenario.clinicalEdit = 'clear'
+  const submitsBeforeReplaySubmit = calls.submit.length
+  await submitButton().click()
+  await page.waitForTimeout(2000)
+  check(
+    '🚩 and the REPLAYED request submits — a reopen ends in a new authorization, not a dead end',
+    calls.submit.length === submitsBeforeReplaySubmit + 1 &&
+      page.url().endsWith('/nphies/authorizations/AUTH-77'),
+    page.url().replace(BASE, ''),
+  )
+  check(
+    '🚩 the payer is answering a NEW authorization — the refused one was never touched',
+    !calls.sessionPaths.some((p) => p.includes(FAILED_AUTH_ID)) &&
+      JSON.stringify(calls.submit[calls.submit.length - 1] || {}).indexOf(FAILED_AUTH_ID) === -1,
   )
 
   check('no uncaught page errors anywhere in the drive', errors.length === 0, errors.slice(0, 3).join(' | '))

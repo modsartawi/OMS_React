@@ -107,8 +107,7 @@
       "notAnswered": "Nothing has come back from the payer yet, so there is no approval to withdraw.",
       "dispensed": "This authorization has been dispensed at a till. The service refuses both a retry and a cancellation once it has.",
       "cancelled": "This authorization has already been cancelled.",
-      "notRefused": "This request was not refused, so there is no refusal to open.",
-      "reopenNotWiredYet": "Reopening a refused request is not available here yet. Use the till application until it is."
+      "notRefused": "This request was not refused, so there is no refusal to open."
     },
     "results": {
       "statusChecked": "The exchange answered the status check.",
@@ -151,6 +150,7 @@
     "verdict": "Verdict",
     "failureLabel": "Could not reach the payer",
     "failureHint": "This request was refused before the payer saw it, so there is no verdict to read. Fix the request and raise it again.",
+    "reopenHint": "This opens a new request built from what was actually submitted, and tells you anything that did not come back the same way. This authorization is not changed.",
     "disposition": "The payer's summary",
     "processNote": "The payer's note",
     "lines": {
@@ -185,6 +185,32 @@
     "refresh": "Refresh",
     "plant": "Priced at store {{plant}}, bound when this request opened and fixed for its life.",
     "replayed": "This request was already open — your last attempt reached the server, so it was picked up rather than raised a second time.",
+    "replay": {
+      "working": "Rebuilding this request from what was submitted on {{authId}}…",
+      "clean": "Rebuilt from what was submitted on {{authId}}. Every line came back exactly as it went out.",
+      "title_one": "{{count}} thing did not come back the way it went out on {{authId}}:",
+      "title_other": "{{count}} things did not come back the way they went out on {{authId}}:",
+      "detail": "This is a new request, and it is not identical to the one that was refused. Check what changed before you submit it.",
+      "correctHere": "Correct it here — everything on this page is yours to change.",
+      "openSource": "Open the refused authorization",
+      "refused": "The item was refused and no reason was given.",
+      "unreadable": "What was submitted could not be read back.",
+      "unreadableTitle": "This refusal cannot be reopened",
+      "unreadableHint": "Nothing was rebuilt, so nothing on this page came from the refused request. Raise a new authorization from the eligibility instead.",
+      "findings": {
+        "refused": "Item {{itemNumber}} was refused when it was added back.",
+        "missing": "Item {{itemNumber}} did not come back onto the request at all.",
+        "repriced": "Item {{itemNumber}} priced at {{now}} now and was submitted at {{was}}.",
+        "recategorised": "Item {{itemNumber}} is in category {{now}} now and was submitted in {{was}}.",
+        "quantityDiffers": "Item {{itemNumber}} came back with a quantity of {{now}} and was submitted with {{was}}.",
+        "capNotApplied": "The max coverage of {{was}} on item {{itemNumber}} could not be set again.",
+        "metaNotApplied": "The days supply or selection reason on item {{itemNumber}} could not be set again.",
+        "notPricedYet": "Item {{itemNumber}} has not finished pricing, so nothing can be said yet about what it costs. Refresh the request to see.",
+        "attachmentsNotReplayed": "The attachments were not carried across. Attach them again — the exchange refuses a request without at least one.",
+        "noLinesRecorded": "The refused request had no lines recorded, because it failed before they were built. Everything else came across; add the items again.",
+        "diagnosisUnreadable": "A diagnosis on the refused request could not be read back. Check the diagnoses below against the refused authorization."
+      }
+    },
     "identity": {
       "patientName": "Patient",
       "patientId": "Patient ID",

@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
+  FileSearch,
   FileText,
   Loader2,
   MessageCircleQuestion,
@@ -224,6 +225,25 @@ export default function AuthorizationDetailPage() {
                 </div>
                 <p className="text-sm text-foreground">{failure}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{t('detail.failureHint')}</p>
+              </div>
+            )}
+
+            {/* 🚩 The refusal's own act, where the agent reads the refusal
+                (ticket 221). The list offers it too, but this detail is what they
+                open *before* deciding to reopen — sending them back to the grid to
+                find the row again would be the screen forgetting why they came.
+                It reaches the same form route as the row's act: a REPLAY of what
+                was submitted, into a genuinely new request. */}
+            {axes.request === 'failed' && (
+              <div>
+                <Link
+                  to={`/nphies/authorizations/new?copyOf=${encodeURIComponent(response.id)}`}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border px-3 text-xs font-medium hover:bg-accent"
+                >
+                  <FileSearch className="h-3.5 w-3.5" aria-hidden />
+                  {t('acts.openRefusal')}
+                </Link>
+                <p className="mt-1 text-xs text-muted-foreground">{t('detail.reopenHint')}</p>
               </div>
             )}
 

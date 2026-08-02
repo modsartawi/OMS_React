@@ -13,7 +13,7 @@
  * | `Pending` | Status check · **Retry** |
  * | `Complete`, not dispensed | Cancel |
  * | `Complete`, dispensed | — |
- * | `Failed` | Open the refusal (rendered here, **wired in 221**) |
+ * | `Failed` | **Open the refusal** — reopen and replay (221) |
  * | `Cancelled` | — |
  *
  * 🚩 **Retry belongs to `Pending`, not to `Failed`** — the correction of record
@@ -45,7 +45,8 @@ import { authRowMarkers, deriveAuthAxes, type AuthAxisSource } from '@/core/nphi
 /**
  * The four acts a row can name — the three of §3.6 plus the refusal's own, which
  * this ticket renders and [221](../../../../.issues/221-reopening-replays-and-reports.md)
- * wires.
+ * wired: it reaches the form route as `?copyOf=<authId>` and replays the stored
+ * request there.
  */
 export type AuthAct = 'statusCheck' | 'retry' | 'cancel' | 'openRefusal'
 
@@ -72,8 +73,6 @@ export const AUTH_ACTS: readonly AuthAct[] = ['statusCheck', 'retry', 'cancel', 
  *   cancellation (`AUTH_ALREADY_DISPENSED`).
  * - `cancelled` — the request was already withdrawn.
  * - `notRefused` — this row is not a refusal, so there is no refusal to open.
- * - `reopenNotWiredYet` — the refusal's act exists here so the table is complete;
- *   221 makes it live. Present and inert, and it **says so**.
  */
 export type WithheldReason =
   | 'alreadyAnswered'
@@ -82,7 +81,6 @@ export type WithheldReason =
   | 'dispensed'
   | 'cancelled'
   | 'notRefused'
-  | 'reopenNotWiredYet'
 
 export interface RowAct {
   act: AuthAct
@@ -150,7 +148,10 @@ export function authRowActs(row: AuthActSource): RowAct[] {
         withheld('statusCheck', 'neverAccepted'),
         withheld('retry', 'neverAccepted'),
         withheld('cancel', 'notAnswered'),
-        withheld('openRefusal', 'reopenNotWiredYet'),
+        // 🚩 The one act a `Failed` row has, and the only state that offers it: a
+        // request the exchange never accepted is fixable, and the way back to it
+        // is a REPLAY of what was submitted rather than retyping the basket (221).
+        offered('openRefusal'),
       ]
     case 'cancelled':
       return [

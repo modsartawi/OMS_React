@@ -30,8 +30,16 @@ import AddItemRow from './AddItemRow'
 import Attachments from './Attachments'
 import DeductibleTerms from './DeductibleTerms'
 import Diagnoses from './Diagnoses'
+import ReplayReport from './ReplayReport'
 import RequestLines from './RequestLines'
 import SubmitAct from './SubmitAct'
+import {
+  replayPlan,
+  replayReport,
+  type ReplayFinding,
+  type ReplayOutcome,
+  type ReplayPlan,
+} from './replay'
 import { toSubmitAttachments, type PreparedAttachment } from './attachment-prepare'
 import { diagnosesChanged, lookupRowFor, principalDiagnosis } from './diagnosis-form'
 import {
@@ -94,8 +102,19 @@ export default function AuthorizationFormPage() {
   // 213's seam, verbatim: `?from=<eligId>&coverage=<memberId>`. A route carrying
   // two ids rather than a shared object, which is what lets an authorization be
   // raised days after the check it references.
-  const eligibilityId = (params.get('from') ?? '').trim()
-  const memberId = (params.get('coverage') ?? '').trim()
+  const fromParam = (params.get('from') ?? '').trim()
+  const coverageParam = (params.get('coverage') ?? '').trim()
+  /**
+   * 🚩 **The reopen seam** (ticket 221, spec 209 §1) — `?copyOf=<authId>`.
+   *
+   * It rides the *existing* form route rather than a draft route, because there
+   * is no draft: a reopen opens a **fresh session** and replays the stored
+   * request through verbs that already exist (§3.9). The URL names the
+   * authorization being replayed **from**, and nothing else — the eligibility and
+   * the chosen coverage come out of the journal row, so a reopen cannot disagree
+   * with what was actually submitted about which policy it was raised under.
+   */
+  const copyOf = (params.get('copyOf') ?? '').trim()
   const actingStore = useSession((s) => s.currentStoreCode)
 
   const access = useQuery({
@@ -103,6 +122,36 @@ export default function AuthorizationFormPage() {
     queryFn: () => nphiesAccessApi.access(),
   })
   const allowed = access.data?.canOpenNphies === true
+
+  /**
+   * The **write-ahead journal row** — the whole of what a reopen is prefilled
+   * from (§3.9).
+   *
+   * 🚩 It is read rather than the ordinary `AuthResponse/{id}` because it is the
+   * only source that covers a **header-only** refusal: the service's own guards
+   * throw before the lines are built, leaving a response with nothing to prefill
+   * from. It also still carries the per-line cap, which `AuthLineDto` does not.
+   *
+   * Cached for the life of the page: it is a record of something that has already
+   * happened, so it cannot change under the replay, and a refetch mid-replay would
+   * be a second opinion about what was submitted.
+   */
+  const journal = useQuery({
+    queryKey: ['nphies', 'authRequestJournal', copyOf] as const,
+    queryFn: () => authorizationsApi.requestJournal(copyOf),
+    enabled: allowed && copyOf !== '',
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+  })
+  const plan = journal.data ? replayPlan(copyOf, journal.data) : null
+
+  // 🚩 On a reopen the two ids are the JOURNAL's, not the URL's. A replay is
+  // raised against the same eligibility and the same chosen coverage as the
+  // request it replays, and a URL that also carried them could disagree with what
+  // was submitted.
+  const eligibilityId = copyOf !== '' ? (plan?.eligibilityId ?? '') : fromParam
+  const memberId = copyOf !== '' ? (plan?.memberId ?? '') : coverageParam
 
   /**
    * The per-line selection reasons — `GET Nphies/CodeSystem?valueSet=SelectionReason`
@@ -182,6 +231,19 @@ export default function AuthorizationFormPage() {
   const [refusalDetail, setRefusalDetail] = useState<string | null>(null)
   const [leaving, setLeaving] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  /**
+   * 🚩 **The replay, and above all its report** (ticket 221). The verbs are the
+   * easy half; `findings` is the half that makes a reopen safe to have — an item
+   * may since have been blocked, repriced or have lost its Nphies category, and a
+   * silent restore would hand the agent a request quietly different from the one
+   * they believe they are resending.
+   */
+  const [replaying, setReplaying] = useState(false)
+  const [replayDone, setReplayDone] = useState(false)
+  const [replayFindings, setReplayFindings] = useState<ReplayFinding[]>([])
+  /** One replay per page life. The plan is a record of something that already
+   *  happened, so re-running it could only raise the same lines twice. */
+  const replayRan = useRef(false)
 
   // The live state, readable from callbacks that were created before it arrived —
   // the verbs need the transaction id and the current lines, and a stale closure
@@ -209,8 +271,14 @@ export default function AuthorizationFormPage() {
     setState(admitted.state)
   }, [])
 
-  const blockers = openBlockers(eligibilityId, memberId, actingStore)
-  const canOpen = allowed && blockers.length === 0 && hardStop === null
+  // 🚩 A reopen whose journal has not answered yet has no ids TO be missing, so
+  // it states nothing about them. Without this the screen would announce "it was
+  // not opened from an eligibility check" for as long as the read takes, and again
+  // for good if the read fails — over the top of the banner that says what
+  // actually went wrong.
+  const awaitingJournal = copyOf !== '' && plan === null
+  const blockers = awaitingJournal ? [] : openBlockers(eligibilityId, memberId, actingStore)
+  const canOpen = allowed && !awaitingJournal && blockers.length === 0 && hardStop === null
 
   // ---- Open ---------------------------------------------------------------
   /**
@@ -271,8 +339,11 @@ export default function AuthorizationFormPage() {
   const locked = submitIsLocked(landing)
   /** Nothing may be sent while the submit leg is open either: SIS.Api is at that
    *  moment building the upstream request from engine state, and a verb landing
-   *  mid-flight would change what is being submitted. */
-  const frozen = !sessionIsOpen || locked || submitting || checking
+   *  mid-flight would change what is being submitted. `replaying` is in here for
+   *  the near-identical reason: a line typed into a request that is still being
+   *  rebuilt would land in the middle of the replay and be reported as a
+   *  difference from it. */
+  const frozen = !sessionIsOpen || locked || submitting || checking || replaying
 
   // ---- Leaving ------------------------------------------------------------
   // 🚩 A locked request is NOT work to discard. Warning about it would invite
@@ -424,6 +495,121 @@ export default function AuthorizationFormPage() {
     },
     [runVerb],
   )
+
+  /**
+   * **The replay** (ticket 221, §3.9) — the journalled request, sent again through
+   * the verbs this form already drives.
+   *
+   * 🚩 **A replay, not a restore.** There is no restore verb and this adds none:
+   * the deductible terms go through `SetInsurance`, the diagnoses and the
+   * exception-prescription flag through `SetHeader`, each line through `AddItem`,
+   * and the two per-line overrides through `UpdateLineInsurance` and
+   * `UpdateLineMeta` — the same six verbs an agent's own clicks send.
+   *
+   * 🚩 **Every refusal on the way is caught and KEPT, not swallowed.** An item
+   * that has since been blocked, lost its Nphies category or stopped pricing at
+   * the plant answers a business refusal (§6 kind 2), and the door's own sentence
+   * is what the report shows. The replay carries on to the next line rather than
+   * stopping: an agent needs the whole picture of what changed, not the first
+   * thing that did.
+   *
+   * 🚩 It ends with a `State` read, because the lines land **pending** and the
+   * engine prices them after (story 27). A report taken before that settles could
+   * say nothing about the money — which is the one thing a reopen most has to be
+   * able to say.
+   */
+  const runReplay = useCallback(
+    async (plan: ReplayPlan) => {
+      setReplaying(true)
+      const outcomes: ReplayOutcome[] = []
+      const refusalOf = (error: unknown) => apiErrorMessage(error, t('form.replay.refused'))
+      try {
+        await runVerb((transactionId, requestId) =>
+          authSessionApi.setInsurance(transactionId, requestId, plan.insurance),
+        )
+        if (plan.diagnoses.length > 0 || plan.exceptionPrescription) {
+          await runVerb((transactionId, requestId) =>
+            authSessionApi.setHeader(transactionId, requestId, {
+              diagnoses: plan.diagnoses,
+              exceptionPrescription: plan.exceptionPrescription,
+            }),
+          )
+        }
+        for (const item of plan.items) {
+          const outcome: ReplayOutcome = {
+            itemNumber: item.itemNumber,
+            addRefusal: null,
+            capRefusal: null,
+            metaRefusal: null,
+          }
+          outcomes.push(outcome)
+          try {
+            await runVerb((transactionId, requestId) =>
+              authSessionApi.addItem(transactionId, requestId, item.itemNumber, item.quantity),
+            )
+          } catch (error) {
+            outcome.addRefusal = refusalOf(error)
+            continue
+          }
+          // The line the engine just landed, read off the state the verb answered
+          // with — its `lineId` is the engine's and there is no way to guess one.
+          const landed = (stateRef.current?.lines ?? []).find(
+            (line) =>
+              !line.voided &&
+              line.itemNumber.trim().toUpperCase() === item.itemNumber.toUpperCase(),
+          )
+          if (!landed) continue
+          // A cap of 0 is not re-sent at all: the engine ignores `<= 0` (§4), so
+          // sending one would be asking for something that cannot take effect.
+          if (item.maxCoverage > 0) {
+            try {
+              await runVerb((transactionId, requestId) =>
+                authSessionApi.updateLineInsurance(
+                  transactionId,
+                  requestId,
+                  landed.lineId,
+                  item.maxCoverage,
+                ),
+              )
+            } catch (error) {
+              outcome.capRefusal = refusalOf(error)
+            }
+          }
+          const meta: { daysSupply?: number; selectionReason?: string } = {}
+          if (item.daysSupply > 0) meta.daysSupply = item.daysSupply
+          if (item.selectionReason !== '') meta.selectionReason = item.selectionReason
+          if (Object.keys(meta).length > 0) {
+            try {
+              await runVerb((transactionId, requestId) =>
+                authSessionApi.updateLineMeta(transactionId, requestId, landed.lineId, meta),
+              )
+            } catch (error) {
+              outcome.metaRefusal = refusalOf(error)
+            }
+          }
+        }
+        const live = stateRef.current
+        if (live) receive(await authSessionApi.state(live.transactionId), 'read')
+      } catch (error) {
+        // A header verb that failed, or a transaction that died under the replay.
+        // The banner says so; the report below still lists what was reached, which
+        // is more than a blank form would.
+        setVerbError(error)
+      } finally {
+        setReplayFindings(replayReport(plan, stateRef.current?.lines ?? [], outcomes))
+        setReplaying(false)
+        setReplayDone(true)
+      }
+    },
+    [receive, runVerb, t],
+  )
+
+  // The replay begins the moment the fresh transaction exists, and exactly once.
+  useEffect(() => {
+    if (!plan || !state || replayRan.current) return
+    replayRan.current = true
+    void runReplay(plan)
+  }, [plan, state, runReplay])
 
   const lines = projectSessionLines(state)
   const diagnoses = state?.header.diagnoses ?? []
@@ -739,7 +925,8 @@ export default function AuthorizationFormPage() {
     repricing ||
     headerBusy ||
     submitting ||
-    checking
+    checking ||
+    replaying
 
   return (
     <section className="flex w-full flex-col gap-4">
@@ -849,6 +1036,23 @@ export default function AuthorizationFormPage() {
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           {t('form.opening')}
         </div>
+      )}
+
+      {/* 🚩 The reopen's report, ABOVE the request it describes and outside the
+          block that needs a state — a journal that could not be read has to say
+          so on a page that never opened a transaction. It is the whole reason a
+          reopen is safe: what is on screen below may not be the request that was
+          refused, and every place it differs is named. */}
+      {copyOf !== '' && (
+        <ReplayReport
+          sourceAuthId={copyOf}
+          // The journal read and the verbs it drives are one wait as far as the
+          // agent is concerned: the request is being rebuilt either way.
+          replaying={replaying || journal.isFetching}
+          done={replayDone}
+          findings={replayFindings}
+          error={journal.isError ? apiErrorMessage(journal.error, t('form.replay.unreadable')) : null}
+        />
       )}
 
       {state && reference && (

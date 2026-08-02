@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
 import { toast } from 'sonner'
@@ -56,6 +57,7 @@ import type { AuthAct } from './row-acts'
  */
 export default function AuthorizationListPage() {
   const { t } = useTranslation('authorizations')
+  const navigate = useNavigate()
 
   // The area's ONE probe, on the key the nav leaves and every Nphies screen share
   // → one network call for the whole area. Fails closed: pending and errored both
@@ -222,11 +224,11 @@ export default function AuthorizationListPage() {
   // cell when those change identity, which throws keyboard focus to the document
   // body the moment an agent presses one of these buttons. TanStack's mutation
   // objects are new on every render, so a `useCallback` over them is not stable.
-  const live = useRef({ acting, statusCheck, retry })
-  live.current = { acting, statusCheck, retry }
+  const live = useRef({ acting, statusCheck, retry, navigate })
+  live.current = { acting, statusCheck, retry, navigate }
 
   const onAct = useCallback((act: AuthAct, row: AuthListRow) => {
-    const { acting: inFlight, statusCheck: check, retry: again } = live.current
+    const { acting: inFlight, statusCheck: check, retry: again, navigate: go } = live.current
     // A second act while one is unanswered is a second ask, and on this screen an
     // ask reaches the national exchange. The banner above the grid is what says
     // so — a silently ignored click would teach nothing.
@@ -241,9 +243,15 @@ export default function AuthorizationListPage() {
       // The one act that asks a question first: a cancellation carries a reason
       // code all the way to NPHIES, and it is terminal.
       setCancelRow(row)
+    } else if (act === 'openRefusal') {
+      // 🚩 The only act here that is not an ask of the exchange — it is a
+      // NAVIGATION. Reopening raises nothing: it reaches the existing form route
+      // with the source authorization named in the URL (spec 209 §1's
+      // `?copyOf=<authId>`), and the form opens a FRESH session and replays the
+      // journalled request through verbs that already exist. Nothing about this
+      // row changes, so there is no re-read and no `acting` claim over the grid.
+      void go(`/nphies/authorizations/new?copyOf=${encodeURIComponent(row.id)}`)
     }
-    // `openRefusal` is never available yet — 221 wires it, and `row-acts` says so
-    // on the button itself rather than letting a click fall silently through.
   }, [])
 
   const columns = useMemo(() => buildAuthListColumns(t, onAct), [t, onAct])

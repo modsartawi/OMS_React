@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 209
 blocked-by: 220, 216
 ---
@@ -41,14 +41,24 @@ i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `everyLineThatDidNotComeBackIsReported` — a blocked item, a repriced one and a missing one are
+- [x] `everyLineThatDidNotComeBackIsReported` — a blocked item, a repriced one and a missing one are
       each named; the test fails if any is silently dropped · pure
-- [ ] `aHeaderOnlyRefusalStillPrefills` — the case where the request failed before its lines existed ·
-      pure
-- [ ] `theReplayIsANewRequestNotAResumedOne` — a fresh session is opened; nothing reuses the
-      terminal one · pure
-- [ ] a failed row reopens, replays, reports a refused item, and can be resubmitted · flow
-      (Playwright, extend `tools/nphies-authorization-session-drive.mjs`)
+      (`src/features/nphies/authorizations/replay.test.ts`)
+- [x] `aHeaderOnlyRefusalStillPrefills` — the case where the request failed before its lines existed ·
+      pure (same file)
+- [x] `theReplayIsANewRequestNotAResumedOne` — a fresh session is opened; nothing reuses the
+      terminal one · pure (same file; `replayVerbs` is asserted against §1.2's eleven)
+- [x] a failed row reopens, replays, reports a refused item, and can be resubmitted · flow
+      (`tools/nphies-authorization-session-drive.mjs` scenarios 39–44, **186/186 green** against a
+      stubbed engine — SIS.Api is down and nothing on this door is built)
+
+Also run: `npm test` 1075 green (20 new) · `npm run typecheck` · `npm run lint` (all three gates) ·
+`npm run build` clean.
+
+⚠ The drive was **already red at HEAD** on scenario 27 — `getByRole('checkbox').check()` races a
+controlled checkbox whose state only flips when `setHeader` answers. Verified red before this
+ticket's work and fixed as a one-line harness change (`.click()` + wait); the assertion that reads
+the verb's body is unchanged. Logged in `.afk/HITL-221.md`.
 
 ## Boundaries
 

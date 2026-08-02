@@ -21,6 +21,7 @@ import type {
   AuthCancellationResult,
   AuthDetail,
   AuthListRow,
+  AuthRequestJournal,
   AuthRetryResult,
   AuthStatusCheckResult,
   NphiesAbandonResult,
@@ -144,6 +145,35 @@ export const authorizationsApi = {
    */
   clinicalEditValidate(request: NphiesClinicalEditRequest): Promise<NphiesClinicalEditResult> {
     return api.post<NphiesClinicalEditResult>('Nphies/ClinicalEditValidate', request)
+  },
+
+  /**
+   * `GET Nphies/AuthRequestJournal/{authId}` (§3.9) — ticket 221, and the whole
+   * of this slice's server dependency: **one read, no new storage and no
+   * Nphies-service change**.
+   *
+   * 🚩 It is SIS.Api-internal — there is no upstream call behind it. It reads
+   * `PosIntegrationAttempt.RequestJson` where `SubmissionReference == authId`,
+   * which `IntegrationAttemptLog.StartAsync` wrote on a **fresh connection,
+   * committed before the payer was called**. That is why it survives a refusal, a
+   * rejection and a transport failure alike, and why it is the only source that
+   * can prefill a **header-only** refusal — one where the service's own guards
+   * threw before the lines existed, leaving `AuthResponse/{id}` with nothing to
+   * prefill from.
+   *
+   * 🚩 **The answer is the service's own `AuthRequest`, not a reopen DTO.** A
+   * friendlier envelope invented client-side would fail silently on exactly the
+   * fields it guessed; the journal holds what was submitted, and what was
+   * submitted is that shape.
+   *
+   * ⚠️ It is a heavy read for the same reason the detail is: §3.5's attachments
+   * ride inside the stored payload, so the row carries every attached megabyte.
+   *
+   * An unknown id is a **business outcome** — `AUTH_NOT_FOUND` (§6 kind 2), the
+   * same code the detail answers with — never a crash.
+   */
+  requestJournal(authId: string): Promise<AuthRequestJournal> {
+    return api.get<AuthRequestJournal>(`Nphies/AuthRequestJournal/${encodeURIComponent(authId)}`)
   },
 }
 

@@ -935,6 +935,153 @@ export type NphiesSubmitResult =
     }
 
 /**
+ * ---------------------------------------------------------------------------
+ * The **write-ahead journal row** (§3.9) — ticket 221's one server dependency,
+ * and the whole of what a reopen is prefilled from.
+ * ---------------------------------------------------------------------------
+ *
+ * `GET Nphies/AuthRequestJournal/{authId}` reads `PosIntegrationAttempt.RequestJson`
+ * where `SubmissionReference == authId`. `IntegrationAttemptLog.StartAsync` writes
+ * it on a **fresh connection, committed before the payer is called**, so it
+ * survives a refusal, a rejection and a transport failure alike — and it is the
+ * only source that covers a **header-only** refusal, where the service's own
+ * guards threw before the lines were built. **No new table, column or write.**
+ *
+ * 🚩 **The shape is the Nphies service's own `AuthRequest`**
+ * (`Features/Auth/Dtos/AuthRequest.cs`, read 2026-08-02), camel-cased by the
+ * envelope like every other passthrough — because that is literally what was
+ * serialized into the column. It is not a friendlier reopen DTO: the contract
+ * names the source and not a projection of it, and a projection invented here
+ * would fail silently on exactly the fields it guessed. Logged as a §8 gap in
+ * `.afk/HITL-221.md`.
+ */
+
+/**
+ * One line of the journalled request — `AuthItemRequest` as the service defines
+ * it (§4's nineteen-field ownership table, the same DTO seen from the stored
+ * side).
+ *
+ * 🚩 **`maxCoverage` IS here**, unlike `AuthDetailLine`. That is the whole reason
+ * §3.9 makes the journal the prefill source rather than the ordinary
+ * response-by-id: `MaxCoverage` is on `NAuthLine` and **absent from
+ * `AuthLineDto`**, so a replay sourced from the fallback drops that one override
+ * (§3.4's known gap, priced and not taken).
+ *
+ * ⚠️ `factor` is on the DTO and is deliberately absent here: §1.3 omits it on the
+ * way out because the service recomputes it unconditionally, so it is not a thing
+ * a replay can carry across either.
+ */
+export interface AuthJournalItem {
+  sequence: number
+  itemNumber: string
+  quantity: number
+  /** Engine money, kept ONLY to compare against what the replay prices at (law 1
+   *  — nothing here is ever sent). */
+  unitPrice: number
+  extendedPrice: number
+  amount: number
+  netAmount: number
+  vat: number
+  discountPercentage: number
+  discountAmount: number
+  actualPatientShare: number
+  deductibleG: number
+  /** IS `InsuranceItemCategory` (§4) — an item that has since lost it is one of
+   *  the things a replay has to report rather than quietly drop. */
+  deductibleGroupName: string
+  /** Agent — `updateLineInsurance`. The override the fallback path cannot carry. */
+  maxCoverage: number
+  /** Agent — `updateLineMeta`. */
+  daysSupply: number
+  selectionReason: string
+  serviceDate: string
+  /** The header's `type|code` list, stamped down onto the line (§4). */
+  diagnosis: string
+}
+
+/**
+ * One supporting info of the journalled request — `AuthSupportingInfoRequest`
+ * (read 2026-08-02). The same nine fields as the response-side
+ * `AuthSupportingInfo` minus its `id`, which the *request* DTO does not carry.
+ *
+ * 🚩 **The morphology code rides in `code`**, on the row whose `category` is
+ * `morphology` — `Extensions.cs:705-710` reads `nInfo.Code` against the
+ * `Morphology` value set. Not in `valueString`, and not derived from anything.
+ */
+export interface AuthJournalSupportingInfo {
+  sequence: number
+  /** `attachment` · `days-supply` · `reason-for-visit` · `morphology`. */
+  category: string
+  code: string
+  /** Base64 — §3.5's attachments really do ride inside the journal row, because
+   *  the column is `StringMaxType`. */
+  attachment: string
+  valueString: string
+  valueBoolean?: boolean | null
+  valueDecimal?: number | null
+  /** ⚠️ `image` | `pdf`, not a MIME type — the same trap `AuthSupportingInfo`
+   *  carries. */
+  attachmentType: string
+  attachmentTitle: string
+  display: string
+}
+
+/**
+ * The journalled request, whole — `AuthRequest` (read 2026-08-02).
+ *
+ * ⚠️ Declared narrower than the DTO on purpose, as everything else in this file
+ * is. `originalProviderCode`, `authRef`, `invoiceNo`, `episode`,
+ * `claimRequestType`, the three `offline*` fields, `refResponse*`,
+ * `hidpReference`, `isReferral`/`referralDisplay`, `preAuthRef`/`preAuthStart`/
+ * `preAuthEnd`, `userId`, `sourceCode`, `newborn`/`newbornWeight`,
+ * `isReferenceToDocument`/`refDocumentNo`, `occupation`, `maritalStatus` and
+ * `isMaternity` are all on the wire and none of them is a thing a replay can
+ * act on: there is no verb that carries one (§1.2), and law 7 makes half of them
+ * the server's to stamp anyway.
+ */
+export interface AuthRequestJournal {
+  contractVersion?: string
+  /** 🚩 The two ids `Open` takes (§7.1), and the reason a reopen needs no other
+   *  read: the fresh session is bound to the same eligibility and the same
+   *  chosen coverage as the request being replayed. */
+  eligibilityId: string
+  memberId: string
+  providerCode: string
+  payerCode: string
+  patientId: string
+  patientIdType: string
+  patientName: string
+  patientGender: string
+  patientBirthDate: string
+  serviceDate: string
+  prescriptionRef: string
+  /** 🚩 `type|code` rows joined by `,` — `NphiesDiagnosis.GetDiagnosisList` is the
+   *  parser on the service's own side, and §3.4 says the client owns parsing this
+   *  encoding back because `NAuthDiagnosis` is dead code upstream. */
+  diagnosis: string
+  exceptionPrescription: boolean
+  reasonForVisit: string
+  policyNumber: string
+  policyHolder: string
+  claimType: number
+  /** §4's nine header money fields, as `AuthRequest` names them. */
+  deductibleG1: number
+  deductibleG1Max: number
+  deductibleG1Paid: number
+  deductibleG2: number
+  deductibleG2Max: number
+  deductibleG2Paid: number
+  deductibleG3: number
+  deductibleG3Max: number
+  deductibleG3Paid: number
+  /** 🚩 **Empty on a header-only refusal** — the guards at `AuthService.cs:402`,
+   *  `:514`, `:576`, `:581` and `:219` throw before the lines are built at
+   *  `:562`. That case is precisely why the journal is the prefill source. */
+  items: AuthJournalItem[]
+  supportingInfos: AuthJournalSupportingInfo[]
+}
+
+/**
  * `GET Nphies/LastEligibility/{patientId}` (§3.2) → `LastEligibilityModel` — what
  * **Fill** completes a cold form from. `null` when the patient has never been
  * checked.

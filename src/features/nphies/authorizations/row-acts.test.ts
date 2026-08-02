@@ -97,12 +97,12 @@ describe('everyWithheldActCarriesItsReason', () => {
     expect(reasonFor(COMPLETE, 'retry')).toBe('alreadyAnswered')
   })
 
-  it('renders the Failed row’s own act, inert and SAYING it is not wired yet', () => {
-    // The table is complete here and the affordance lands in 221. A live-looking
-    // button that does nothing is worse than one disabled with a reason.
+  it('🚩 offers the Failed row’s own act — and offers it NOWHERE else (221)', () => {
+    // A request the exchange never accepted is the one thing on this list that is
+    // still fixable, and the way back to it is a replay of what was submitted.
     const reopen = authRowActs(FAILED).find((a) => a.act === 'openRefusal')
-    expect(reopen?.available).toBe(false)
-    expect(reopen?.reason).toBe('reopenNotWiredYet')
+    expect(reopen?.available).toBe(true)
+    expect(reopen?.reason).toBeNull()
 
     // And on every other state it is withheld for the OTHER reason: there is no
     // refusal to open.

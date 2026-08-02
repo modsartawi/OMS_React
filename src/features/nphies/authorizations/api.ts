@@ -27,6 +27,7 @@ import type {
   NphiesAuthSessionState,
   NphiesOpenResult,
   NphiesPage,
+  NphiesSessionDiagnosis,
   NphiesSessionInsurance,
 } from '@/core/models/nphies'
 
@@ -126,10 +127,12 @@ export const authorizationsApi = {
  * the client renders the latest state it is allowed to render, and which one that
  * is comes from `@/core/engine-session/session-state` (§2.1).
  *
- * 🚩 **Nine of the eleven verbs are here.** 217 brought six; 218 adds the three
- * insurance verbs that carry the agent's five inputs. `setHeader` and `submit`
- * belong to 219–220 and are deliberately absent — a verb declared before the
- * screen that presses it is a shape nobody has checked against a live door.
+ * 🚩 **Ten of the eleven verbs are here.** 217 brought six; 218 added the three
+ * insurance verbs that carry the agent's five inputs; 219 adds `setHeader`, which
+ * is where the diagnoses and the exception-prescription flag reach the request.
+ * Only `submit` is still absent, and deliberately so — it belongs to 220, and a
+ * verb declared before the screen that presses it is a shape nobody has checked
+ * against a live door.
  *
  * ⚠️ **None of these endpoints exists yet.** They are the largest and riskiest
  * server term in the effort (8–12 days, a *parallel* build: the call-centre engine
@@ -360,6 +363,41 @@ export const authSessionApi = {
       requestId,
       lineId,
       ...meta,
+    })
+  },
+
+  /**
+   * `POST Nphies/Session/SetHeader` → the whole state (law 3) — ticket 219.
+   *
+   * The request's **supporting material that is not a file**: the diagnoses that
+   * justify it and the exception-prescription flag that groups it. §1.2's body is
+   * five optional fields, so — unlike `setInsurance`, whose three groups must
+   * travel together — a caller may send **only what it changed**, and this
+   * signature keeps that: the diagnoses row does not restate a service date it
+   * has no control over.
+   *
+   * 🚩 **The diagnoses go whole, as a list.** There is no add-one or remove-one
+   * verb: the header carries an array and the client sends the array it means,
+   * which is what makes "exactly one is principal" a property of what was sent
+   * rather than of the order two verbs happened to land in.
+   *
+   * 🚩 **`morphology` rides ON the diagnosis** (§2's shape), not as a fourth
+   * field — it exists only while the principal diagnosis is one the service marks
+   * `isNeedMorph`, and it is cleared from any row that stops being principal.
+   *
+   * ⚠️ `serviceDate`, `daysSupplyDefault` and `reasonForVisit` are on the body in
+   * §1.2 and are deliberately not exposed here: no screen in this wave edits one,
+   * and a parameter nobody passes is a shape nobody has checked.
+   */
+  setHeader(
+    transactionId: string,
+    requestId: string,
+    header: { diagnoses?: NphiesSessionDiagnosis[]; exceptionPrescription?: boolean },
+  ): Promise<NphiesAuthSessionState> {
+    return api.post<NphiesAuthSessionState>('Nphies/Session/SetHeader', {
+      transactionId,
+      requestId,
+      ...header,
     })
   },
 

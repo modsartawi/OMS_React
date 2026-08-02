@@ -2,7 +2,9 @@ import { api } from '@/core/api'
 import type {
   NphiesAccessResult,
   NphiesCodeSystemEntry,
+  NphiesDiagnosisLookup,
   NphiesLookup,
+  NphiesMorphLookup,
   NphiesProvider,
 } from '@/core/models/nphies'
 
@@ -123,4 +125,43 @@ export const nphiesLookupApi = {
       ),
     )
   },
+
+  /**
+   * `GET Nphies/Diagnoses?query=…` (§1.1 #14) — the diagnosis code lookup the
+   * request form's diagnosis row searches against (ticket 219).
+   *
+   * 🚩 **It is a search, not a catalogue.** `CoreService.GetDiagnosesAsync`
+   * answers `[]` for an empty query and `Take(500)` otherwise, so the caller
+   * types and this door answers; nothing here fetches "all diagnoses" and
+   * nothing caches one.
+   *
+   * 🚩 The row it answers carries **`isNeedMorph`**, which is the *service's own*
+   * statement that a diagnosis requires a morphology. That flag — not a code
+   * range spelled into the browser — is what makes the morphology field appear
+   * with its cause (story 44).
+   */
+  async diagnoses(query: string): Promise<NphiesDiagnosisLookup[]> {
+    return unwrapLookup(
+      await api.get<NphiesLookup<NphiesDiagnosisLookup> | NphiesDiagnosisLookup[]>(
+        'Nphies/Diagnoses',
+        { query },
+      ),
+    )
+  },
+
+  /** `GET Nphies/Morphs?query=…` (§1.1 #15) — the morphology codes, searched the
+   *  same way and read only while a neoplasm principal is on the request. */
+  async morphs(query: string): Promise<NphiesMorphLookup[]> {
+    return unwrapLookup(
+      await api.get<NphiesLookup<NphiesMorphLookup> | NphiesMorphLookup[]>('Nphies/Morphs', {
+        query,
+      }),
+    )
+  },
 }
+
+/** One cache entry per typed query — the two search doors above are read on every
+ *  keystroke the debounce lets through, and a shared key would make the answers
+ *  overwrite each other. */
+export const diagnosesKey = (query: string) => ['nphies', 'diagnoses', query] as const
+export const morphsKey = (query: string) => ['nphies', 'morphs', query] as const

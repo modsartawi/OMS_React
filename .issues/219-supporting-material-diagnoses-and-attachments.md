@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 209
 blocked-by: 217
 ---
@@ -59,16 +59,31 @@ component/route (both sub-forms on the existing form) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `morphologyExistsOnlyWhileThePrincipalIsANeoplasm` — it appears with the radio and disappears
+- [x] `morphologyExistsOnlyWhileThePrincipalIsANeoplasm` — it appears with the radio and disappears
       with it, rather than being validated at submit · pure
-- [ ] `choosingAPrincipalDeselectsTheOther` — uniqueness is structural, not asserted · pure
-- [ ] `theAttachmentTypeIsDerivedFromTheFile` — no dropdown, and a PDF over the cap is refused at the
-      picker · pure
-- [ ] `theSameTitleTwiceIsAllowed` — stated as an assertion so it is not "fixed" into a refusal by
-      analogy with duplicate items · pure
-- [ ] a large image is downscaled, Submit stays disabled until one attachment exists, the lightbox
-      shows what will be sent · flow (Playwright, extend
-      `tools/nphies-authorization-session-drive.mjs`)
+      (`src/features/nphies/authorizations/diagnosis-form.test.ts`, 6 cases — including that the
+      morphology **value** leaves with the field, and that "a neoplasm" is read off the service's
+      own `isNeedMorph` for the **exact** code, never off a sibling the search brought back)
+- [x] `choosingAPrincipalDeselectsTheOther` — uniqueness is structural, not asserted · pure
+      (same file, 7 cases — the demoted row is kept as a `secondary`, and `principal` is asserted
+      **absent** from the type dropdown's values)
+- [x] `theAttachmentTypeIsDerivedFromTheFile` — no dropdown, and a PDF over the cap is refused at the
+      picker · pure (`src/features/nphies/authorizations/attachment-prepare.test.ts`, 7 cases —
+      a PNG derives `image/jpeg` too, an image is not size-capped because the downscale is what
+      makes it small, and an untypeable file is a refusal rather than a guess)
+- [x] `theSameTitleTwiceIsAllowed` — stated as an assertion so it is not "fixed" into a refusal by
+      analogy with duplicate items · pure (same file — two `Prescription` rows survive and
+      `sequence` is what distinguishes them; the body carries §3.5's four fields and no file name)
+- [x] a large image is downscaled, Submit stays disabled until one attachment exists, the lightbox
+      shows what will be sent · flow (`tools/nphies-authorization-session-drive.mjs`, scenarios
+      24–30, **122/122**) — a real 4000×3000 JPEG made in the page goes 3.0 MB → 679 KB, the
+      lightbox's `src` is asserted **identical** to the row's thumbnail and to a `data:image/jpeg`
+      URL, the oversized PDF is refused at the picker, and Submit goes disabled → enabled →
+      disabled again as the last attachment is removed
+
+**Tier note:** React Testing Library is still not installed (spec 083's ruling), so the two
+sub-forms are verified by driving the real app against a stubbed engine — the `setHeader` bodies are
+asserted from the captured POSTs, not from a component's props.
 
 ## Boundaries
 
@@ -91,3 +106,26 @@ PDF is refused at the picker, and Submit is disabled while there are no attachme
 ## Blocked by
 
 [217](217-a-live-engine-session.md) — both sub-forms live on the request form.
+
+## What landed
+
+`setHeader` (contract §1.2), the two lookups (§1.1 #14/#15), two pure modules — `diagnosis-form.ts`
+and `attachment-prepare.ts` — the browser-only `attachment-file.ts` (FileReader + canvas, no
+library), and two components on the existing form. **Ten of the eleven session verbs are now wired;
+only `submit` is left, and it is [220](220-a-refused-submit-keeps-the-agent-on-the-form.md)'s.**
+
+Three rulings worth carrying forward:
+
+- **"A neoplasm" is `isNeedMorph` on the diagnosis lookup row**, fetched for the principal's own
+  code — the service's own per-code column, not an ICD range spelled into the browser, which would
+  disagree with the exchange's table silently and only for the codes nobody tested.
+- **Submit's gate is here; Submit's act is 220's.** The button renders disabled while any of this
+  slice's three blockers holds and each names itself. It has no handler: §3.5 puts
+  `clinicalEditValidate` before the submission, and wiring a partial one would send a request to a
+  national exchange without the gate that is supposed to precede it.
+- **The attachments are page state, never the projection.** The engine has never heard of them
+  (§1.2: "not verbs, deliberately"), so a `State` read must not clear what the agent attached.
+
+Twelve decisions in `.afk/HITL-219.md`, including the two lookups' shapes (read from the service's
+`DiagnosisModel` / `MorphModel`, since §1.1 says only "lookup") and the diagnosis type values (read
+from `DiagnosisTypes.cs` rather than guessed at a value set the contract does not name for it).

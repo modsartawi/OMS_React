@@ -15,15 +15,29 @@ import {
   NPHIES_ACCESS_KEY,
   SELECTION_REASON_VALUE_SET,
   codeSystemKey,
+  diagnosesKey,
   nphiesAccessApi,
   nphiesLookupApi,
 } from '@/core/nphies/api'
 import { formatStamp } from '@/core/nphies/format'
-import type { NphiesAuthSessionState, NphiesSessionInsurance } from '@/core/models/nphies'
+import type {
+  NphiesAuthSessionState,
+  NphiesSessionDiagnosis,
+  NphiesSessionInsurance,
+} from '@/core/models/nphies'
 import { authSessionApi } from './api'
 import AddItemRow from './AddItemRow'
+import Attachments from './Attachments'
 import DeductibleTerms from './DeductibleTerms'
+import Diagnoses from './Diagnoses'
 import RequestLines from './RequestLines'
+import { attachmentBlockers, type PreparedAttachment } from './attachment-prepare'
+import {
+  diagnosesChanged,
+  diagnosisBlockers,
+  lookupRowFor,
+  principalDiagnosis,
+} from './diagnosis-form'
 import {
   admitSessionState,
   leavingDiscardsWork,
@@ -125,6 +139,18 @@ export default function AuthorizationFormPage() {
   /** A `setInsurance` in flight. The block says it is re-pricing rather than the
    *  grid going quietly still — one rate edit re-prices every line (story 39). */
   const [repricing, setRepricing] = useState(false)
+  /** A `setHeader` in flight — the diagnoses or the exception-prescription flag. */
+  const [headerBusy, setHeaderBusy] = useState(false)
+  /**
+   * 🚩 **The attachments live here, on the form, and are sent by `submit`** —
+   * they are not a verb and there is no upload endpoint (§1.2 / §3.5). They ride
+   * as base64 inside the submit body, so until 220 presses that verb they are
+   * held in page state, prepared and previewable, and go nowhere.
+   *
+   * That is also why they are not in the projection: the engine has never heard
+   * of them, and a refresh of the state must not clear what the agent attached.
+   */
+  const [attachments, setAttachments] = useState<PreparedAttachment[]>([])
   const [refusal, setRefusal] = useState<AddItemRefusal | null>(null)
   const [refusalDetail, setRefusalDetail] = useState<string | null>(null)
   const [leaving, setLeaving] = useState(false)
@@ -347,6 +373,46 @@ export default function AuthorizationFormPage() {
   )
 
   const lines = projectSessionLines(state)
+  const diagnoses = state?.header.diagnoses ?? []
+  const principal = principalDiagnosis(diagnoses)
+
+  /**
+   * 🚩 **Whether the principal diagnosis is a neoplasm is the service's answer.**
+   * `isNeedMorph` is a column on `NDiagnosis`, so the flag is fetched for the
+   * principal's own code rather than derived from an ICD range spelled into the
+   * browser — a range here would disagree with the table the exchange validates
+   * against, and it would disagree silently.
+   *
+   * It is read on the page rather than inside the diagnoses block because the
+   * submit gate asks the same question, and two components asking it separately
+   * is how a banner and a field come to disagree. The key is the shared
+   * `diagnosesKey`, so this and the picker's own search are one cache.
+   */
+  const principalLookup = useQuery({
+    queryKey: diagnosesKey(principal?.code ?? ''),
+    queryFn: () => nphiesLookupApi.diagnoses(principal?.code ?? ''),
+    enabled: allowed && (principal?.code ?? '') !== '',
+    staleTime: 5 * 60 * 1000,
+  })
+  const needsMorph = principal
+    ? lookupRowFor(principalLookup.data, principal.code)?.isNeedMorph
+    : false
+
+  /**
+   * 🚩 **Submit is a form state, not a submit-time throw.** Two of the blockers
+   * spec 209 names are this slice's — no principal diagnosis, morphology required
+   * and unset — and the third, no attachment, is the one the exchange refuses
+   * outright (`GeneralValidation()`). Each names itself, so the agent reads what
+   * is missing instead of hunting for it.
+   *
+   * ⚠️ The other blockers — no items, coverage unpicked, provider unpicked — and
+   * the act itself belong to 220, which is where they arrive together with the
+   * clinical-edit gate. This list is deliberately only what 219 owns.
+   */
+  const submitBlockers = [
+    ...diagnosisBlockers(diagnoses, needsMorph),
+    ...attachmentBlockers(attachments),
+  ]
 
   async function add(itemNumber: string, qty: number) {
     // 🚩 The refusal at the moment of adding (§2.3). It is a forward statement of
@@ -433,6 +499,29 @@ export default function AuthorizationFormPage() {
     }
   }
 
+  /**
+   * The header's supporting material — `setHeader` (ticket 219).
+   *
+   * 🚩 **Only what changed is sent.** §1.2's body is five optional fields, unlike
+   * `setInsurance`'s three groups that must travel together, so the diagnoses row
+   * never restates a service date it has no control over.
+   */
+  async function setHeader(header: {
+    diagnoses?: NphiesSessionDiagnosis[]
+    exceptionPrescription?: boolean
+  }) {
+    setHeaderBusy(true)
+    try {
+      await runVerb((transactionId, requestId) =>
+        authSessionApi.setHeader(transactionId, requestId, header),
+      )
+    } catch (error) {
+      setVerbError(error)
+    } finally {
+      setHeaderBusy(false)
+    }
+  }
+
   /** `State` is refresh, recovery and reload only (law 3) — never a way to
    *  "sync" after a verb, which has already answered with the whole state. */
   async function refresh() {
@@ -482,7 +571,8 @@ export default function AuthorizationFormPage() {
   }
 
   const reference = state?.reference
-  const busy = adding || busyLineId !== null || leaving || refreshing || repricing
+  const busy =
+    adding || busyLineId !== null || leaving || refreshing || repricing || headerBusy
 
   return (
     <section className="flex w-full flex-col gap-4">
@@ -643,6 +733,23 @@ export default function AuthorizationFormPage() {
             disabled={!sessionIsOpen || adding || busyLineId !== null || leaving}
           />
 
+          {/* 🚩 The diagnoses that justify the request, with principal as a radio
+              and morphology appearing with its cause. */}
+          <Diagnoses
+            diagnoses={diagnoses}
+            exceptionPrescription={state.header.exceptionPrescription}
+            needsMorph={needsMorph}
+            onCommit={(next) => {
+              // An idle re-pick sends nothing — every verb re-answers the whole
+              // state, and a write that changed nothing is a write in the trail.
+              if (!diagnosesChanged(diagnoses, next)) return
+              void setHeader({ diagnoses: next })
+            }}
+            onExceptionPrescription={(next) => void setHeader({ exceptionPrescription: next })}
+            busy={headerBusy}
+            disabled={!sessionIsOpen || leaving}
+          />
+
           <section className="flex flex-col gap-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-sm font-semibold tracking-tight">
@@ -692,6 +799,48 @@ export default function AuthorizationFormPage() {
                 {apiErrorMessage(selectionReasons.error, t('errors.selectionReasonsFailed'))}
               </p>
             )}
+          </section>
+
+          {/* 🚩 The files that evidence the request. They are prepared in the
+              browser — downscaled, base64'd — and held here until `submit`
+              carries them; there is no upload endpoint and no verb. */}
+          <Attachments
+            attachments={attachments}
+            onAdd={(attachment) => setAttachments((held) => [...held, attachment])}
+            onRemove={(id) => setAttachments((held) => held.filter((row) => row.id !== id))}
+            disabled={!sessionIsOpen || leaving}
+          />
+
+          {/* 🚩 Submit is unavailable while a blocker holds, and each blocker says
+              why — a form state rather than an exception after everything else
+              has been filled in. The act itself, the clinical-edit gate and the
+              remaining blockers are 220's. */}
+          <section className="flex flex-col gap-2">
+            {submitBlockers.length > 0 && (
+              <ul className="flex flex-col gap-1 text-xs text-attention-800" role="status">
+                {submitBlockers.map((blocker) => (
+                  <li key={blocker} className="flex items-start gap-2">
+                    <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <span>{t(`form.submit.blockers.${blocker}`)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div>
+              {/* ⚠️ **No `onClick` yet, and deliberately.** 219 owns the *gate* —
+                  which blockers hold and what they say — and 220 owns the act:
+                  the clinical-edit check, the 100 s submission and its three
+                  outcomes. Wiring a partial submit here would put a request on a
+                  national exchange without the gate that is supposed to precede
+                  it. Logged in `.afk/HITL-219.md`. */}
+              <Button
+                type="button"
+                variant="primary"
+                disabled={!sessionIsOpen || busy || submitBlockers.length > 0}
+              >
+                {t('form.submit.action')}
+              </Button>
+            </div>
           </section>
 
           <div>

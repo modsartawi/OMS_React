@@ -237,6 +237,90 @@
         "rateOutOfRange": "{{group}}: a rate is a percentage between 0 and 100."
       }
     },
+    "diagnoses": {
+      "title": "Diagnoses",
+      "tableLabel": "Diagnoses",
+      "hint": "Search the code list and add what justifies this request. Exactly one diagnosis is the principal one — choosing it here is what makes it so.",
+      "saving": "Saving the diagnoses…",
+      "search": "Search",
+      "searchPlaceholder": "Type a code or part of a description",
+      "match": "Diagnosis",
+      "matchOption": "{{code}} — {{description}}",
+      "chooseMatch": "Choose a diagnosis…",
+      "typeToSearch": "Type at least two characters",
+      "searching": "Searching…",
+      "noMatches": "Nothing matches that",
+      "type": "Type",
+      "types": {
+        "principal": "Principal",
+        "secondary": "Secondary",
+        "differential": "Differential"
+      },
+      "add": "Add diagnosis",
+      "code": "Code",
+      "description": "Description",
+      "principal": "Principal",
+      "principalFor": "Make {{code}} the principal diagnosis",
+      "acts": "Acts",
+      "remove": "Remove",
+      "empty": "No diagnoses on this request yet. Add the one that justifies it — the first is the principal.",
+      "refusal": {
+        "blank": "Choose a diagnosis from the list first.",
+        "duplicate": "That diagnosis is already on this request."
+      },
+      "morphology": {
+        "because": "A morphology is required because {{code}} — {{description}} is a diagnosis the exchange asks one for.",
+        "search": "Search morphologies",
+        "searchPlaceholder": "Type a morphology code or description",
+        "label": "Morphology",
+        "option": "{{code}} — {{description}}",
+        "none": "Choose a morphology…"
+      },
+      "exceptionPrescription": "Exception prescription.",
+      "exceptionPrescriptionHint": "This request takes one item group for all of its items."
+    },
+    "attachments": {
+      "title_one": "{{count}} attachment",
+      "title_other": "{{count}} attachments",
+      "accepts": "JPEG · PNG · PDF",
+      "mandatory": "At least one attachment is required. The exchange refuses a prior authorization without one, so Submit stays unavailable until you attach the prescription or report that evidences this request.",
+      "document": "Document",
+      "titles": {
+        "Id": "National ID / Iqama",
+        "Prescription": "Prescription",
+        "Medical report": "Medical report",
+        "Lab result": "Lab result",
+        "Radiology report": "Radiology report",
+        "Insurance card": "Insurance card",
+        "Referral letter": "Referral letter"
+      },
+      "choose": "Choose a file…",
+      "preparing": "Preparing…",
+      "duplicatesAllowed": "The same document type may be used twice — two prescriptions are two prescriptions. Photos are shrunk before they are sent; PDFs go as they are, up to 5 MB.",
+      "pdfBadge": "PDF",
+      "sizes": "{{fileName}} · {{from}} → {{to}} sent",
+      "payload": "This request will carry {{size}} of attachments.",
+      "view": "View",
+      "remove": "Remove",
+      "close": "Close",
+      "previewHeading": "{{title}} — {{fileName}}",
+      "previewLabel": "Preview of {{fileName}}, exactly as it will be sent",
+      "kilobytes": "{{value}} KB",
+      "megabytes": "{{value}} MB",
+      "refusal": {
+        "pdfTooLarge": "That PDF is {{size}} and the limit is {{cap}}. Re-scan it at a lower resolution and attach it again.",
+        "unsupportedType": "Attach a JPEG, a PNG or a PDF — the exchange takes nothing else.",
+        "unreadable": "That file could not be read. Try another copy of it."
+      }
+    },
+    "submit": {
+      "action": "Submit",
+      "blockers": {
+        "noPrincipal": "No diagnosis is marked principal, and the exchange requires exactly one.",
+        "morphologyMissing": "The principal diagnosis needs a morphology code — choose one above.",
+        "noAttachment": "Nothing is attached, and a prior authorization is refused without at least one document."
+      }
+    },
     "lines": {
       "title_one": "{{count}} item on the request",
       "title_other": "{{count}} items on the request",
@@ -319,6 +403,8 @@
     "listFailed": "The authorizations could not be loaded.",
     "providersFailed": "The provider list could not be loaded.",
     "selectionReasonsFailed": "The selection reasons could not be loaded, so that picker is empty. Everything else on the request still works.",
+    "diagnosesFailed": "The diagnosis codes could not be searched. Try again in a moment.",
+    "morphsFailed": "The morphology codes could not be searched. Try again in a moment.",
     "reasonsFailed": "The cancellation reasons could not be loaded."
   }
 }

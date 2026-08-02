@@ -61,6 +61,34 @@ const CATALOGUE = {
   100004: { description: 'ELASTIC BANDAGE 10CM', unitPrice: 40, group: 'NonMed', bucket: 'g1' },
 }
 
+/**
+ * The diagnosis code lookup, as `GET Nphies/Diagnoses?query=` answers it (§1.1 #14) —
+ * the service's own `DiagnosisModel`, including 🚩 **`IsNeedMorph`**, which is what the
+ * service means by "this diagnosis is a neoplasm". The client derives it from nothing:
+ * a code range spelled into the browser would disagree with this table silently.
+ * The door searches `code StartsWith(query) || description Contains(query)`.
+ */
+const DIAGNOSES = [
+  { diagnosisCode: 'C50.9', diagnosisDescription: 'Malignant neoplasm of breast, unspecified', isNeedMorph: true, isUnacceptedAsPrincipal: false },
+  { diagnosisCode: 'C50.1', diagnosisDescription: 'Malignant neoplasm of central portion of breast', isNeedMorph: true, isUnacceptedAsPrincipal: false },
+  { diagnosisCode: 'J45.9', diagnosisDescription: 'Asthma, unspecified', isNeedMorph: false, isUnacceptedAsPrincipal: false },
+  { diagnosisCode: 'E11.9', diagnosisDescription: 'Type 2 diabetes mellitus without complications', isNeedMorph: false, isUnacceptedAsPrincipal: false },
+].map((row) => ({
+  genderRestriction: '',
+  genderRestrictionType: '',
+  ageLow: '',
+  ageHigh: '',
+  ageRestrictionType: '',
+  rareRestrictionType: '',
+  ...row,
+}))
+
+/** The morphology codes — `GET Nphies/Morphs?query=` (§1.1 #15). */
+const MORPHS = [
+  { morphCode: 'M8140/3', morphDescription: 'Adenocarcinoma, NOS' },
+  { morphCode: 'M8500/3', morphDescription: 'Infiltrating duct carcinoma, NOS' },
+]
+
 /** The selection reasons, as `GET Nphies/CodeSystem?valueSet=SelectionReason`
  *  answers them (§3.8). The client spells none of these itself. */
 const SELECTION_REASONS = [
@@ -105,9 +133,12 @@ const calls = {
   voidLine: [],
   abandon: [],
   setInsurance: [],
+  setHeader: [],
   updateLineInsurance: [],
   updateLineMeta: [],
   state: 0,
+  diagnoses: [],
+  morphs: [],
 }
 
 /** The stubbed engine's one transaction. */
@@ -127,13 +158,9 @@ const projection = () => ({
   // 🚩 The acting store, bound at Open and never accepted from a body (law 8 / law 7).
   plant: tx.plant,
   reference: REFERENCE,
-  header: {
-    serviceDate: '2026-08-02',
-    diagnoses: [],
-    exceptionPrescription: false,
-    daysSupplyDefault: 30,
-    reasonForVisit: '',
-  },
+  // 🚩 The header the diagnoses and the exception-prescription flag live on —
+  // the engine's, answered whole like everything else (law 3).
+  header: tx.header,
   // 🚩 The agent's header inputs, inherited from the coverage and then
   // correctable — including `paid`, which only persists because §4's new column
   // makes it possible to tell a 300 cap from a 500 cap with 200 already spent.
@@ -325,6 +352,13 @@ async function run() {
         lines: [],
         sequence: 0,
         daysSupplyDefault: 30,
+        header: {
+          serviceDate: '2026-08-02',
+          diagnoses: [],
+          exceptionPrescription: false,
+          daysSupplyDefault: 30,
+          reasonForVisit: '',
+        },
         // Inherited from the coverage at Open, then the agent's to correct.
         insurance: {
           g1: { rate: 20, max: 500, paid: 0 },
@@ -444,6 +478,18 @@ async function run() {
       save()
       return route.fulfill(envelope(projection()))
     }
+    // ---- 219's header verb ------------------------------------------------
+    // 🚩 §1.2's five optional fields: a caller sends only what it changed, and the
+    // engine answers the whole state like every other verb.
+    if (path === 'Nphies/Session/SetHeader') {
+      const sent = body()
+      calls.setHeader.push(sent)
+      if (sent.diagnoses !== undefined) tx.header.diagnoses = sent.diagnoses
+      if (sent.exceptionPrescription !== undefined)
+        tx.header.exceptionPrescription = sent.exceptionPrescription
+      save()
+      return route.fulfill(envelope(projection()))
+    }
     if (path === 'Nphies/Session/Abandon') {
       calls.abandon.push(body())
       if (tx) tx.status = 'abandoned'
@@ -455,6 +501,40 @@ async function run() {
     if (path === 'Nphies/AuthResponses')
       return route.fulfill(envelope({ rows: [], total: 0, page: 1, pageSize: 50 }))
     if (path === 'Nphies/Providers') return route.fulfill(envelope({ contractVersion: '1.0', items: [] }))
+    // 🚩 The two lookups are SEARCHES, not catalogues: an empty query answers
+    // nothing at all, exactly as `CoreService.GetDiagnosesAsync` does.
+    if (path === 'Nphies/Diagnoses') {
+      const q = (query.get('query') || '').trim()
+      calls.diagnoses.push(q)
+      return route.fulfill(
+        envelope({
+          contractVersion: '1.0',
+          items: q
+            ? DIAGNOSES.filter(
+                (d) =>
+                  d.diagnosisCode.toUpperCase().startsWith(q.toUpperCase()) ||
+                  d.diagnosisDescription.toLowerCase().includes(q.toLowerCase()),
+              )
+            : [],
+        }),
+      )
+    }
+    if (path === 'Nphies/Morphs') {
+      const q = (query.get('query') || '').trim()
+      calls.morphs.push(q)
+      return route.fulfill(
+        envelope({
+          contractVersion: '1.0',
+          items: q
+            ? MORPHS.filter(
+                (m) =>
+                  m.morphCode.toUpperCase().startsWith(q.toUpperCase()) ||
+                  m.morphDescription.toLowerCase().includes(q.toLowerCase()),
+              )
+            : [],
+        }),
+      )
+    }
     if (path === 'Nphies/CodeSystem')
       return route.fulfill(
         envelope({
@@ -468,7 +548,9 @@ async function run() {
 
   const main = () => page.locator('main')
   const text = () => main().innerText()
-  const addForm = () => page.locator('main form').first()
+  // The item add-row, addressed by the field only it has — the form now shares the
+  // page with the diagnosis row, and "the first form in main" would be that one.
+  const addForm = () => page.locator('main form').filter({ has: page.getByLabel('Item number') })
   const itemBox = () => addForm().locator('input').first()
   const addQtyBox = () => addForm().locator('input[type="number"]').first()
   // The form holds two tables now — the lines and the header deductible block —
@@ -537,13 +619,17 @@ async function run() {
   )
   const controls = await page.locator('main input, main select, main textarea').count()
   check(
-    '🚩 identity renders as VALUES, not disabled controls — on an empty request the only inputs are the add-row s two and the deductible block s nine',
-    controls === 11,
+    '🚩 identity renders as VALUES, not disabled controls — on an empty request the only inputs are the add-row s two, the deductible block s nine, the diagnosis row s four and the attachment row s two',
+    controls === 17,
     `${controls} controls`,
   )
   check(
+    'and the identity block itself holds not one control',
+    (await page.locator('main dl input, main dl select').count()) === 0,
+  )
+  check(
     '🚩 the provider is INHERITED, not re-pickable — there is no provider control at all',
-    (await page.locator('main select').count()) === 0,
+    (await page.getByLabel(/provider/i).count()) === 0,
   )
   check(
     '🚩 the header deductible block is EDITABLE — three groups of rate, cap and paid-outside (stories 38 · 40)',
@@ -1166,6 +1252,238 @@ async function run() {
   check(
     'and no modal opened anywhere in any of this',
     (await page.locator('dialog').count()) === 0,
+  )
+
+  // =========================================================================
+  // Ticket 219 — the supporting material: the diagnoses that justify the request
+  // and the files that evidence it. Both replace a validation with a control.
+  // =========================================================================
+  const dxTable = () => page.getByRole('table', { name: 'Diagnoses' })
+  const dxRows = () => dxTable().locator('tbody tr')
+  const dxSearch = () => page.getByLabel('Search', { exact: true })
+  const dxMatch = () => page.getByLabel('Diagnosis', { exact: true })
+  const addDiagnosis = () => page.getByRole('button', { name: /Add diagnosis/ })
+  const lastHeader = () => calls.setHeader[calls.setHeader.length - 1] || {}
+
+  // ---- Scenario 24: a diagnosis is added from a compact row, against a lookup
+  await dxSearch().fill('C50')
+  await page.waitForTimeout(600)
+  const dxOptions = await dxMatch().locator('option').allInnerTexts()
+  check(
+    '🚩 the diagnosis picker SEARCHES the code lookup — the client holds no catalogue',
+    dxOptions.some((o) => /C50\.9/.test(o)) && calls.diagnoses.includes('C50'),
+    dxOptions.join(' / '),
+  )
+  await dxMatch().selectOption('C50.9')
+  await addDiagnosis().click()
+  await page.waitForTimeout(450)
+  check('adding a diagnosis puts a row on the request', (await dxRows().count()) === 1)
+  const firstHeader = lastHeader()
+  check(
+    '🚩 it goes on setHeader as the DIAGNOSES LIST WHOLE — there is no add-one verb (§1.2)',
+    Array.isArray(firstHeader.diagnoses) &&
+      firstHeader.diagnoses.length === 1 &&
+      firstHeader.diagnoses[0].code === 'C50.9' &&
+      firstHeader.diagnoses[0].description.length > 0 &&
+      !('serviceDate' in firstHeader) &&
+      !('daysSupplyDefault' in firstHeader),
+    JSON.stringify(firstHeader),
+  )
+  check(
+    'the first diagnosis is the principal by construction — a request needs exactly one',
+    firstHeader.diagnoses[0].type === 'principal' &&
+      (await dxRows().first().locator('input[type=radio]').isChecked()),
+  )
+
+  // ---- Scenario 25: 🚩 choosing a principal DESELECTS the other -------------
+  await dxSearch().fill('J45')
+  await page.waitForTimeout(600)
+  await dxMatch().selectOption('J45.9')
+  await addDiagnosis().click()
+  await page.waitForTimeout(450)
+  check('a second diagnosis is an ordinary row', (await dxRows().count()) === 2)
+  check(
+    'and it is NOT principal — the radio is how the principal moves',
+    lastHeader().diagnoses[1].type === 'secondary',
+    JSON.stringify(lastHeader().diagnoses),
+  )
+  check(
+    '🚩 exactly one radio is checked — uniqueness is STRUCTURAL, not validated at submit',
+    (await dxTable().locator('input[type=radio]:checked').count()) === 1,
+  )
+
+  // ---- Scenario 26: 🚩 morphology appears WITH ITS CAUSE, and leaves with it
+  check(
+    '🚩 a neoplasm principal makes the morphology field EXIST, and it says why',
+    /A morphology is required because C50\.9/.test(await text()),
+    ((await text()).match(/A morphology is required[^\n]*/) || [''])[0],
+  )
+  check(
+    'and the requirement is a named blocker on Submit rather than a refusal after it',
+    /needs a morphology code/.test(await text()),
+  )
+  await page.getByLabel('Search morphologies').fill('M81')
+  await page.waitForTimeout(600)
+  await page.getByLabel('Morphology', { exact: true }).selectOption('M8140/3')
+  await page.waitForTimeout(450)
+  check(
+    'the morphology rides ON the principal diagnosis (§2s shape), not as a fourth field',
+    lastHeader().diagnoses[0].morphology === 'M8140/3' &&
+      lastHeader().diagnoses[1].morphology === '',
+    JSON.stringify(lastHeader().diagnoses),
+  )
+  // Move the radio to a diagnosis the service does not ask a morphology for.
+  await dxRows().nth(1).locator('input[type=radio]').click()
+  await page.waitForTimeout(500)
+  check(
+    '🚩 moving the principal to a plain diagnosis makes the morphology field DISAPPEAR',
+    !/A morphology is required/.test(await text()) &&
+      (await page.getByLabel('Morphology', { exact: true }).count()) === 0,
+  )
+  check(
+    'and the morphology goes with it — nothing rides along on a row with no reason to carry one',
+    lastHeader().diagnoses.every((d) => d.morphology === ''),
+    JSON.stringify(lastHeader().diagnoses),
+  )
+  check(
+    'exactly one principal, still — the row that lost it is kept as a secondary',
+    lastHeader().diagnoses.filter((d) => d.type === 'principal').length === 1 &&
+      lastHeader().diagnoses[0].type === 'secondary',
+    JSON.stringify(lastHeader().diagnoses.map((d) => [d.code, d.type])),
+  )
+
+  // ---- Scenario 27: the exception prescription is one checkbox -------------
+  await page.getByRole('checkbox').first().check()
+  await page.waitForTimeout(450)
+  check(
+    '🚩 exception prescription is a CHECKBOX, sent alone on setHeader',
+    lastHeader().exceptionPrescription === true && !('diagnoses' in lastHeader()),
+    JSON.stringify(lastHeader()),
+  )
+
+  // ---- Scenario 28: 🚩 at least one attachment is a FORM STATE -------------
+  const submitButton = () => page.getByRole('button', { name: /^Submit$/ })
+  check(
+    '🚩 Submit is DISABLED while nothing is attached, and a banner says so',
+    (await submitButton().isDisabled()) && /At least one attachment is required/.test(await text()),
+  )
+  check(
+    'and the blocker names itself rather than leaving the agent to hunt',
+    /Nothing is attached/.test(await text()),
+    ((await text()).match(/Nothing is attached[^\n]*/) || [''])[0],
+  )
+
+  const fileInput = () => page.locator('main input[type=file]')
+  // A PDF over the 5 MB cap — refused AT THE PICKER, before the request is built.
+  await fileInput().setInputFiles({
+    name: 'scan.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.alloc(6 * 1024 * 1024, 0x20),
+  })
+  await page.waitForTimeout(600)
+  check(
+    '🚩 a PDF over 5 MB is REFUSED AT THE PICKER, with a re-scan message',
+    /Re-scan it at a lower resolution/.test(await text()) &&
+      (await page.locator('main ul li img, main ul li').filter({ hasText: /sent/ }).count()) === 0,
+    ((await text()).match(/That PDF is[^\n]*/) || [''])[0],
+  )
+  check('and Submit is still unavailable', await submitButton().isDisabled())
+
+  // A 4000×3000 photograph, made in the page so the bytes are a real JPEG.
+  const bigPhoto = await page.evaluate(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 4000
+    canvas.height = 3000
+    const context = canvas.getContext('2d')
+    const gradient = context.createLinearGradient(0, 0, 4000, 3000)
+    gradient.addColorStop(0, '#ff0000')
+    gradient.addColorStop(1, '#0000ff')
+    context.fillStyle = gradient
+    context.fillRect(0, 0, 4000, 3000)
+    for (let x = 0; x < 4000; x += 6) {
+      context.fillStyle = x % 12 === 0 ? '#00ff00' : '#ffffff'
+      context.fillRect(x, 0, 3, 3000)
+    }
+    return canvas.toDataURL('image/jpeg', 0.98).split(',')[1]
+  })
+  const photoBytes = Buffer.from(bigPhoto, 'base64')
+  await fileInput().setInputFiles({
+    name: 'prescription.jpg',
+    mimeType: 'image/jpeg',
+    buffer: photoBytes,
+  })
+  await page.waitForTimeout(1200)
+  const attachmentRow = () => page.locator('main ul li').filter({ hasText: /sent/ })
+  check('the photo is attached as one row', (await attachmentRow().count()) === 1)
+  const sizes = ((await attachmentRow().first().innerText()).match(
+    /([\d.]+) (KB|MB) → ([\d.]+) (KB|MB) sent/,
+  ) || [])
+  const asBytes = (value, unit) => Number(value) * (unit === 'MB' ? 1024 * 1024 : 1024)
+  check(
+    '🚩 a large photograph is DOWNSCALED in the browser before it is attached',
+    sizes.length === 5 && asBytes(sizes[3], sizes[4]) < asBytes(sizes[1], sizes[2]) / 4,
+    sizes[0] || (await attachmentRow().first().innerText()).replace(/\n/g, ' | '),
+  )
+  check(
+    'and Submit becomes available the moment one attachment exists',
+    !(await submitButton().isDisabled()) && !/At least one attachment is required/.test(await text()),
+  )
+  check(
+    '🚩 there is NO type dropdown — the file s own MIME derives it, and only the document is picked',
+    (await page.getByLabel('Document').locator('option').count()) === 7 &&
+      (await page.getByLabel('Document').inputValue()) === 'Prescription',
+  )
+
+  // ---- Scenario 29: the lightbox shows exactly what will be sent -----------
+  const thumbSrc = await attachmentRow().first().locator('img').getAttribute('src')
+  await attachmentRow().first().getByRole('button', { name: /^View$/ }).click()
+  await page.waitForTimeout(300)
+  const lightbox = page.getByRole('group', { name: /Preview of prescription\.jpg/ })
+  const lightboxSrc = await lightbox.locator('img').getAttribute('src')
+  check(
+    '🚩 the preview reads the SAME data URL that will be sent — not a re-render of the original file',
+    lightboxSrc === thumbSrc && String(lightboxSrc).startsWith('data:image/jpeg;base64,'),
+    String(lightboxSrc).slice(0, 32),
+  )
+  check(
+    '🚩 and the downscale made it a JPEG, whatever it arrived as — the services hardcoded content type stops lying',
+    String(lightboxSrc).startsWith('data:image/jpeg;base64,'),
+  )
+  check(
+    'the lightbox is INLINE — still no modal anywhere in this flow',
+    (await page.locator('dialog').count()) === 0,
+  )
+  await lightbox.getByRole('button', { name: /^Close$/ }).click()
+  await page.waitForTimeout(200)
+
+  // ---- Scenario 30: 🚩 the same title twice is ALLOWED ---------------------
+  await fileInput().setInputFiles({
+    name: 'prescription-2.jpg',
+    mimeType: 'image/jpeg',
+    buffer: photoBytes,
+  })
+  await page.waitForTimeout(1200)
+  const titles = await page.locator('main ul li').filter({ hasText: /sent/ }).allInnerTexts()
+  check(
+    '🚩 TWO PRESCRIPTIONS ARE TWO PRESCRIPTIONS — a duplicate title is not refused the way a duplicate item is',
+    titles.length === 2 && titles.every((row) => /Prescription/.test(row)),
+    titles.map((row) => row.split('\n')[0]).join(' / '),
+  )
+  check(
+    'and nothing was sent by attaching one — attachments ride on submit, they are not a verb',
+    calls.setHeader.filter((call) => 'attachments' in call).length === 0 &&
+      (await page.evaluate(() => true)),
+  )
+
+  // Removal is per row, and the mandatory state comes back with the last one.
+  await page.locator('main ul li').filter({ hasText: /sent/ }).first().getByRole('button', { name: /^Remove$/ }).click()
+  await page.waitForTimeout(300)
+  check('an attachment is removed per row', (await attachmentRow().count()) === 1)
+  await page.locator('main ul li').filter({ hasText: /sent/ }).first().getByRole('button', { name: /^Remove$/ }).click()
+  await page.waitForTimeout(300)
+  check(
+    '🚩 and with the last one gone the form is blocked again — it is a STATE, not a one-time check',
+    (await submitButton().isDisabled()) && /At least one attachment is required/.test(await text()),
   )
 
   check('no uncaught page errors anywhere in the drive', errors.length === 0, errors.slice(0, 3).join(' | '))

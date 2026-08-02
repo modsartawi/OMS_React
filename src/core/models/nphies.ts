@@ -477,6 +477,68 @@ export interface NphiesCodeSystemEntry {
 }
 
 /**
+ * One row of `GET Nphies/Diagnoses?query=…` (§1.1 #14) — the Nphies service's own
+ * `DiagnosisModel` (`Features/Core/Dtos/DiagnosisModel.cs`, read 2026-08-02),
+ * camel-cased by the envelope like every other passthrough.
+ *
+ * 🚩 **`isNeedMorph` is the authority on the morphology field.** Spec 209 story
+ * 44 says the field appears "only when the principal diagnosis is a neoplasm",
+ * and *this flag is what the service means by that* — it is a column on
+ * `NDiagnosis`, set per code. The client derives nothing from the code string: an
+ * ICD range spelled into the browser would be a guessed shape that disagrees with
+ * the database the exchange is validated against.
+ *
+ * ⚠️ **The door is a SEARCH, not a list.** `CoreService.GetDiagnosesAsync`
+ * answers `[]` for an empty query and otherwise `Take(500)` of
+ * `code StartsWith(query) || description Contains(query)`. So the picker types to
+ * search; there is no whole-catalogue read to cache.
+ *
+ * `isUnacceptedAsPrincipal` and the four restriction fields are declared because
+ * they are on the wire — the clinical-edit gate (220) is what reads them.
+ */
+export interface NphiesDiagnosisLookup {
+  diagnosisCode: string
+  diagnosisDescription: string
+  genderRestriction: string
+  genderRestrictionType: string
+  ageLow: string
+  ageHigh: string
+  ageRestrictionType: string
+  rareRestrictionType: string
+  /** 🚩 This diagnosis requires a morphology code — the neoplasm rule, as the
+   *  service itself holds it. */
+  isNeedMorph: boolean
+  isUnacceptedAsPrincipal: boolean
+}
+
+/** One row of `GET Nphies/Morphs?query=…` (§1.1 #15) — the service's `MorphModel`.
+ *  A search on the same terms as the diagnoses door: empty query, empty answer. */
+export interface NphiesMorphLookup {
+  morphCode: string
+  morphDescription: string
+}
+
+/**
+ * One attachment as `submit` carries it — §3.5's body, verbatim:
+ * `{ sequence, title, contentType, attachment }`.
+ *
+ * 🚩 **Attachments are not a verb and not an upload.** They ride inside the
+ * submit body as base64 (§1.2: "not verbs, deliberately"), which is why this type
+ * lives beside the session models and there is no endpoint anywhere for it.
+ *
+ * `title` is §3.5's closed seven-value list, `contentType` is derived from the
+ * file's own MIME, and `sequence` is what distinguishes two rows carrying the
+ * same title — the deliberate opposite of the duplicate-item refusal.
+ */
+export interface NphiesSubmitAttachment {
+  sequence: number
+  title: string
+  contentType: string
+  /** Base64, with no `data:` prefix. */
+  attachment: string
+}
+
+/**
  * `POST Nphies/StatusCheck` (§1.1 #7, §3.6) — the body is `{ reference }`, and
  * `reference` is the **authorization id**: `CancellationService.cs:108` matches it
  * as `c.Id == requestModel.Reference`, and the status check's own leg does the

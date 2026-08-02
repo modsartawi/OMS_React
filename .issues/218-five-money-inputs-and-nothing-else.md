@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 209
 blocked-by: 217
 ---
@@ -51,15 +51,21 @@ block and the grid's editable cells) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `onlyFiveInputsAreEditable` — the module's editability map admits exactly the five (plus
+- [x] `onlyFiveInputsAreEditable` — the module's editability map admits exactly the five (plus
       Selection Reason) and refuses every derived field · pure
-- [ ] `daysSupplyOutsideOneToOneHundredCannotBeEntered` — rejected at the cell, so no sweep exists
+      (`src/features/nphies/authorizations/line-rules.test.ts`)
+- [x] `daysSupplyOutsideOneToOneHundredCannotBeEntered` — rejected at the cell, so no sweep exists
       anywhere · pure
-- [ ] `selectionReasonIsDisabledOnGenericLinesOnly` — enabled on every other category, including the
+- [x] `selectionReasonIsDisabledOnGenericLinesOnly` — enabled on every other category, including the
       ones that look like they should be excluded · pure
-- [ ] `aZeroCapWarnsRatherThanSilentlyDoingNothing` · pure
-- [ ] editing a rate re-prices every line; editing a cap re-buckets siblings · flow (Playwright,
-      extend `tools/nphies-authorization-session-drive.mjs`)
+- [x] `aZeroCapWarnsRatherThanSilentlyDoingNothing` · pure
+- [x] editing a rate re-prices every line; editing a cap re-buckets siblings · flow (Playwright,
+      `tools/nphies-authorization-session-drive.mjs`, **92/92**)
+
+**Verified:** 1002 vitest tests green (22 new) · session drive 92/92 against stubbed envelopes
+(SIS.Api down, all three verbs unbuilt) · the two earlier Nphies drives re-run 121/121 and 108/108 ·
+`npm run typecheck`, `npm run lint` and `npm run build` clean. Twelve decisions in
+`.afk/HITL-218.md`.
 
 ## Boundaries
 

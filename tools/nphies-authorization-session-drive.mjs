@@ -48,11 +48,26 @@ const refusal = (status, code, message) =>
 // ---------------------------------------------------------------------------
 // The catalogue the stubbed engine prices from. Not an endpoint — §1.2 keeps item search
 // off this door — just what the door knows how to put on a request.
+// `group` is `InsuranceItemCategory` — the same value the projection calls
+// `deductibleGroupName` (§4) — and `bucket` is the G1/G2/G3 pool it resolves to
+// server-side (`ResolveDeductibleGroupForLine`). They are deliberately different
+// things: the category reads like the bucket and is not it.
 const CATALOGUE = {
-  100001: { description: 'PANADOL 500MG TAB', unitPrice: 25, group: 'Generic' },
-  100002: { description: 'AMOXICILLIN 500MG CAP', unitPrice: 12.5, group: 'Brand' },
-  100003: { description: 'VENTOLIN INHALER', unitPrice: 31, group: 'Brand-IR' },
+  100001: { description: 'PANADOL 500MG TAB', unitPrice: 25, group: 'Generic', bucket: 'g1' },
+  100002: { description: 'AMOXICILLIN 500MG CAP', unitPrice: 12.5, group: 'Brand', bucket: 'g2' },
+  100003: { description: 'VENTOLIN INHALER', unitPrice: 31, group: 'Brand-IR', bucket: 'g3' },
+  // A NonMed sibling in G1, so a cap edit on one line can be seen re-bucketing
+  // the other — per-group caps share a pool.
+  100004: { description: 'ELASTIC BANDAGE 10CM', unitPrice: 40, group: 'NonMed', bucket: 'g1' },
 }
+
+/** The selection reasons, as `GET Nphies/CodeSystem?valueSet=SelectionReason`
+ *  answers them (§3.8). The client spells none of these itself. */
+const SELECTION_REASONS = [
+  { code: 'innovative-noGeneric', display: 'No generic alternative', blocked: 'false', valueSetName: 'SelectionReason' },
+  { code: 'patient-request', display: 'Patient request', blocked: 'false', valueSetName: 'SelectionReason' },
+  { code: 'retired-reason', display: 'Retired reason', blocked: 'true', valueSetName: 'SelectionReason' },
+]
 
 // §2's `reference` — fetched from the eligibility at Open, read-only forever.
 const REFERENCE = {
@@ -83,7 +98,17 @@ let scenario = {
   sessionClosed: false,
 }
 
-const calls = { open: [], addItem: [], changeQty: [], voidLine: [], abandon: [], state: 0 }
+const calls = {
+  open: [],
+  addItem: [],
+  changeQty: [],
+  voidLine: [],
+  abandon: [],
+  setInsurance: [],
+  updateLineInsurance: [],
+  updateLineMeta: [],
+  state: 0,
+}
 
 /** The stubbed engine's one transaction. */
 let tx = null
@@ -109,11 +134,10 @@ const projection = () => ({
     daysSupplyDefault: 30,
     reasonForVisit: '',
   },
-  insurance: {
-    g1: { rate: 20, max: 500, paid: 0 },
-    g2: { rate: 30, max: 500, paid: 200 },
-    g3: { rate: 100, max: 0, paid: 0 },
-  },
+  // 🚩 The agent's header inputs, inherited from the coverage and then
+  // correctable — including `paid`, which only persists because §4's new column
+  // makes it possible to tell a 300 cap from a 500 cap with 200 already spent.
+  insurance: tx.insurance,
   lines: tx.lines,
   submitBlockers: [{ code: 'NO_ATTACHMENTS', message: 'Attach the prescription before submitting.' }],
   replayed: false,
@@ -142,29 +166,62 @@ function landLine(itemNumber, qty) {
     deductibleG: 0,
     deductibleGroupName: item.group,
     maxCoverage: 0,
-    daysSupply: 30,
+    // The header default, stamped onto the line as it lands (story 35).
+    daysSupply: tx.daysSupplyDefault,
     selectionReason: '',
+    // 🚩 `false` on Generic lines ONLY (§2) — NonMed and Brand-IR both offer it.
     selectionReasonEditable: item.group !== 'Generic',
     pricing: 'pending',
   })
 }
 
-/** The engine finishing its pricing run. Every amount below is the SERVER's; the browser
- *  computes none of them and the drive asserts the rendered figures against these. */
+const money = (n) => Number(n.toFixed(2))
+
+/**
+ * The engine finishing its pricing run. Every amount below is the SERVER's; the browser
+ * computes none of them and the drive asserts the rendered figures against these.
+ *
+ * 🚩 It re-prices **every** line from the header terms, because that is what
+ * `UpdateDeductible` does — it never touches `request.Items`, so one rate edit
+ * moves every amount on the request (story 39). And the per-group cap is a
+ * **pool** the lines of that bucket share, so a cap on one line changes what is
+ * left for its siblings — which is the second thing this stub exists to make
+ * observable.
+ */
 function priceLines() {
+  const pool = {}
+  for (const key of ['g1', 'g2', 'g3']) {
+    const group = tx.insurance[key]
+    // A group cap of 0 is "no cap" on the header — unlike a LINE cap of 0, which
+    // the engine ignores and the client refuses to send (§4).
+    pool[key] = group.max > 0 ? Math.max(0, group.max - group.paid) : Infinity
+  }
   for (const line of tx.lines) {
-    const unitPrice = CATALOGUE[line.itemNumber].unitPrice
-    const extended = Number((unitPrice * line.quantity).toFixed(2))
-    line.unitPrice = unitPrice
+    const item = CATALOGUE[line.itemNumber]
+    const extended = money(item.unitPrice * line.quantity)
+    line.unitPrice = item.unitPrice
     line.extendedPrice = extended
     line.amount = extended
     line.discountPercentage = 0
     line.discountAmount = 0
     line.netAmount = extended
-    line.vat = Number((extended * 0.15).toFixed(2))
-    line.actualPatientShare = Number((extended * 0.2).toFixed(2))
-    line.deductibleG = line.actualPatientShare
+    line.vat = money(extended * 0.15)
     line.pricing = 'settled'
+    if (line.voided) {
+      line.actualPatientShare = 0
+      line.deductibleG = 0
+      continue
+    }
+    const rate = tx.insurance[item.bucket].rate
+    // What the payer would carry, then what the line's own cap allows, then what
+    // is left in the group's pool. Whatever the payer does not carry is the
+    // patient's — the only per-line money the payer adjudicates.
+    let payer = money(extended * (1 - rate / 100))
+    if (line.maxCoverage > 0) payer = Math.min(payer, line.maxCoverage)
+    payer = Math.min(payer, pool[item.bucket])
+    pool[item.bucket] = pool[item.bucket] === Infinity ? Infinity : money(pool[item.bucket] - payer)
+    line.actualPatientShare = money(extended - payer)
+    line.deductibleG = line.actualPatientShare
   }
 }
 
@@ -267,6 +324,13 @@ async function run() {
         plant: scenario.actingStore,
         lines: [],
         sequence: 0,
+        daysSupplyDefault: 30,
+        // Inherited from the coverage at Open, then the agent's to correct.
+        insurance: {
+          g1: { rate: 20, max: 500, paid: 0 },
+          g2: { rate: 30, max: 500, paid: 200 },
+          g3: { rate: 100, max: 0, paid: 0 },
+        },
       }
       return route.fulfill(envelope({ outcome: 'opened', state: projection() }))
     }
@@ -341,6 +405,45 @@ async function run() {
       save()
       return route.fulfill(envelope(projection()))
     }
+    // ---- 218's three insurance verbs -------------------------------------
+    if (path === 'Nphies/Session/SetInsurance') {
+      const sent = body()
+      calls.setInsurance.push(sent)
+      tx.insurance = { g1: sent.g1, g2: sent.g2, g3: sent.g3 }
+      // 🚩 One rate edit re-prices the WHOLE request through the engine.
+      priceLines()
+      save()
+      return route.fulfill(envelope(projection()))
+    }
+    if (path === 'Nphies/Session/UpdateLineInsurance') {
+      const sent = body()
+      calls.updateLineInsurance.push(sent)
+      const line = tx.lines.find((l) => l.lineId === sent.lineId)
+      if (!line) return route.fulfill(refusal(404, 'LINE_NOT_FOUND', 'That line is gone.'))
+      line.maxCoverage = sent.maxPayerShare
+      // The cap is a pool the group's lines share, so this re-prices siblings too.
+      priceLines()
+      save()
+      return route.fulfill(envelope(projection()))
+    }
+    if (path === 'Nphies/Session/UpdateLineMeta') {
+      const sent = body()
+      calls.updateLineMeta.push(sent)
+      const line = tx.lines.find((l) => l.lineId === sent.lineId)
+      if (!line) return route.fulfill(refusal(404, 'LINE_NOT_FOUND', 'That line is gone.'))
+      if (sent.daysSupply !== undefined) {
+        // The door's own backstop (§2.3). The cell is the rule; this is what
+        // stops a screen that got past it. The drive proves nothing ever asks.
+        if (!Number.isInteger(sent.daysSupply) || sent.daysSupply < 1 || sent.daysSupply > 100)
+          return route.fulfill(
+            refusal(400, 'DAYS_SUPPLY_INVALID', 'Days supply must be between 1 and 100.'),
+          )
+        line.daysSupply = sent.daysSupply
+      }
+      if (sent.selectionReason !== undefined) line.selectionReason = sent.selectionReason
+      save()
+      return route.fulfill(envelope(projection()))
+    }
     if (path === 'Nphies/Session/Abandon') {
       calls.abandon.push(body())
       if (tx) tx.status = 'abandoned'
@@ -352,6 +455,13 @@ async function run() {
     if (path === 'Nphies/AuthResponses')
       return route.fulfill(envelope({ rows: [], total: 0, page: 1, pageSize: 50 }))
     if (path === 'Nphies/Providers') return route.fulfill(envelope({ contractVersion: '1.0', items: [] }))
+    if (path === 'Nphies/CodeSystem')
+      return route.fulfill(
+        envelope({
+          contractVersion: '1.0',
+          items: query.get('valueSet') === 'SelectionReason' ? SELECTION_REASONS : [],
+        }),
+      )
     // Any other probe → benign empty success so no other leaf crashes.
     return route.fulfill(envelope({}))
   })
@@ -361,7 +471,23 @@ async function run() {
   const addForm = () => page.locator('main form').first()
   const itemBox = () => addForm().locator('input').first()
   const addQtyBox = () => addForm().locator('input[type="number"]').first()
-  const rows = () => page.locator('main table tbody tr')
+  // The form holds two tables now — the lines and the header deductible block —
+  // so the rows are addressed by the grid's own accessible name rather than by
+  // "the table in main", which would sweep three insurance rows in with them.
+  const linesTable = () => page.getByRole('table', { name: 'Request lines' })
+  const rows = () => linesTable().locator('tbody tr')
+  const termsTable = () => page.getByRole('table', { name: 'Deductible terms' })
+  const term = (group, field) => termsTable().getByLabel(`${group} ${field}`)
+  /** The quantity cell of a row — the FIRST number input on it, now that a row
+   *  also carries a max coverage and a days supply. */
+  const qtyOf = (index) => rows().nth(index).locator('input[type="number"]').first()
+  const capOf = (index) => rows().nth(index).locator('input[type="number"]').nth(1)
+  const daysOf = (index) => rows().nth(index).locator('input[type="number"]').nth(2)
+  /** The patient share cell — column 9 of the grid, and the only per-line money
+   *  the payer adjudicates. Read by column so an assertion about re-pricing is
+   *  about that figure and not about any number that happens to be on the row. */
+  const patientShareOf = async (index) =>
+    (await rows().nth(index).locator('td').nth(8).innerText()).trim()
 
   // ---- Scenario 1: the seam — an agent reaches the form FROM an eligibility --
   await page.goto(`${BASE}/nphies/eligibility/${ELIGIBILITY_ID}`)
@@ -411,13 +537,21 @@ async function run() {
   )
   const controls = await page.locator('main input, main select, main textarea').count()
   check(
-    '🚩 identity renders as VALUES, not disabled controls — the only inputs on the page are the add-row s two',
-    controls === 2,
+    '🚩 identity renders as VALUES, not disabled controls — on an empty request the only inputs are the add-row s two and the deductible block s nine',
+    controls === 11,
     `${controls} controls`,
   )
   check(
     '🚩 the provider is INHERITED, not re-pickable — there is no provider control at all',
     (await page.locator('main select').count()) === 0,
+  )
+  check(
+    '🚩 the header deductible block is EDITABLE — three groups of rate, cap and paid-outside (stories 38 · 40)',
+    (await termsTable().locator('input').count()) === 9 &&
+      (await term('Group 2', 'rate').inputValue()) === '30' &&
+      (await term('Group 2', 'cap').inputValue()) === '500' &&
+      (await term('Group 2', 'paid outside').inputValue()) === '200',
+    `${await termsTable().locator('input').count()} boxes`,
   )
   check(
     'the acting store is stated as the pricing plant, bound for the life of the request',
@@ -553,7 +687,7 @@ async function run() {
   await page.waitForTimeout(400)
   check('a second, different item is an ordinary add', (await rows().count()) === 2)
 
-  const qtyCell = page.locator('main table tbody tr').first().locator('input[type="number"]')
+  const qtyCell = qtyOf(0)
   await qtyCell.fill('5')
   await qtyCell.press('Enter')
   await page.waitForTimeout(400)
@@ -577,7 +711,7 @@ async function run() {
 
   // ---- Scenario 9: 🚩 a voided line is KEPT, not removed -------------------
   const rowsBefore = await rows().count()
-  await page.locator('main table tbody tr').nth(1).getByRole('button', { name: /^Void$/ }).click()
+  await rows().nth(1).getByRole('button', { name: /^Void$/ }).click()
   await page.waitForTimeout(400)
   check('voiding sends the line id and nothing else the engine owns', calls.voidLine.length === 1)
   check(
@@ -585,11 +719,11 @@ async function run() {
     (await rows().count()) === rowsBefore,
     `${await rows().count()} rows`,
   )
-  const voidedRow = await page.locator('main table tbody tr').nth(1).innerText()
+  const voidedRow = await rows().nth(1).innerText()
   check('and it says what it is', /Voided/.test(voidedRow), voidedRow.replace(/\n/g, ' | '))
   check(
     'a voided line offers no further acts — there is no un-void verb',
-    (await page.locator('main table tbody tr').nth(1).getByRole('button', { name: /^Void$/ }).count()) === 0,
+    (await rows().nth(1).getByRole('button', { name: /^Void$/ }).count()) === 0,
   )
   check(
     'the heading counts what the payer is being asked for, not what is on the screen',
@@ -624,8 +758,8 @@ async function run() {
   // the same for every verb — ticket 210 moved it precisely because this contract
   // names the same two codes with the same three reasons.
   scenario.sessionClosed = true
-  await page.locator('main table tbody tr').first().locator('input[type="number"]').fill('9')
-  await page.locator('main table tbody tr').first().locator('input[type="number"]').press('Enter')
+  await qtyOf(0).fill('9')
+  await qtyOf(0).press('Enter')
   await page.waitForTimeout(500)
   const closed = await text()
   check(
@@ -800,6 +934,239 @@ async function run() {
     /Nphies is unavailable/.test(await text()) && !/does not hold the Nphies grant/.test(await text()),
   )
   scenario.accessDown = false
+
+  // =========================================================================
+  // Ticket 218 — the agent's FIVE money inputs, and nothing else editable.
+  // A fresh request with four lines, one per insurance category, so every rule
+  // below is asserted against the category it actually applies to.
+  // =========================================================================
+  await page.goto(FORM_URL)
+  await page.getByRole('heading', { name: /New authorization/ }).waitFor({ timeout: 20000 })
+  await page.waitForTimeout(400)
+  for (const [itemNumber, qty] of [
+    ['100001', '2'], // Generic, G1
+    ['100004', '1'], // NonMed, G1 — the sibling that shares G1's pool
+    ['100002', '2'], // Brand, G2
+    ['100003', '1'], // Brand-IR, G3 — the one the service overwrites at submit
+  ]) {
+    await itemBox().fill(itemNumber)
+    await addQtyBox().fill(qty)
+    await page.getByRole('button', { name: /^Add$/ }).click()
+    await page.waitForTimeout(350)
+  }
+  await page.getByRole('button', { name: /^Refresh$/ }).click()
+  await page.waitForTimeout(400)
+  check('four lines, one per insurance category', (await rows().count()) === 4, `${await rows().count()} rows`)
+
+  // ---- Scenario 18: exactly five inputs, and every other money read-only ---
+  check(
+    '🚩 a line offers THREE inputs — quantity, max coverage, days supply — and no more',
+    (await rows().first().locator('input').count()) === 3,
+    `${await rows().first().locator('input').count()} inputs on line 1`,
+  )
+  check(
+    '🚩 unit price, extended, discount, net, VAT, patient share, deductible and group are VALUES, not controls (story 32)',
+    await (async () => {
+      const cells = rows().first().locator('td')
+      // Columns 4–11: everything the engine owns, between the quantity and the
+      // agent's three cells. Not one of them may hold an input.
+      for (let column = 3; column <= 10; column += 1) {
+        if ((await cells.nth(column).locator('input, select, textarea').count()) > 0) return false
+      }
+      return true
+    })(),
+  )
+  check(
+    'and there is no item swap, price override or discount override anywhere on the page',
+    (await page.locator('main button').filter({ hasText: /price|discount|replace|swap/i }).count()) === 0,
+  )
+
+  // ---- Scenario 19: 🚩 a rate edit re-prices the request through the ENGINE
+  const beforeRate = [await patientShareOf(0), await patientShareOf(1), await patientShareOf(2)]
+  await term('Group 1', 'rate').fill('40')
+  await term('Group 1', 'rate').press('Enter')
+  await page.waitForTimeout(500)
+  const afterRate = [await patientShareOf(0), await patientShareOf(1), await patientShareOf(2)]
+  check(
+    '🚩 ONE rate edit re-prices EVERY line that rate touches (story 39)',
+    afterRate[0] !== beforeRate[0] && afterRate[1] !== beforeRate[1],
+    `${beforeRate.join(' / ')} → ${afterRate.join(' / ')}`,
+  )
+  check(
+    'and the lines it does not touch are left exactly as the engine had them',
+    afterRate[2] === beforeRate[2],
+    `G2 line: ${beforeRate[2]} → ${afterRate[2]}`,
+  )
+  check(
+    'one edit is ONE verb — not one per box, and not one per line',
+    calls.setInsurance.length === 1,
+    `${calls.setInsurance.length} calls`,
+  )
+  const insuranceBody = calls.setInsurance[0] || {}
+  check(
+    '🚩 setInsurance carries all three groups, each with rate, cap and PAID-OUTSIDE (§1.2)',
+    insuranceBody.g1?.rate === 40 &&
+      insuranceBody.g1?.max === 500 &&
+      insuranceBody.g2?.paid === 200 &&
+      insuranceBody.g3?.rate === 100,
+    JSON.stringify(insuranceBody),
+  )
+  check(
+    '🚩 and NO amount, line or total — the browser computes none of the money (law 1)',
+    !('lines' in insuranceBody) &&
+      !('total' in insuranceBody) &&
+      !('actualPatientShare' in insuranceBody) &&
+      Object.keys(insuranceBody).sort().join(',') === 'g1,g2,g3,requestId,transactionId',
+    Object.keys(insuranceBody).join(','),
+  )
+
+  // ---- Scenario 20: paid-outside is an input, and it is PERSISTED ---------
+  await term('Group 2', 'paid outside').fill('250')
+  await term('Group 2', 'paid outside').press('Enter')
+  await page.waitForTimeout(500)
+  check(
+    '🚩 paid-outside reaches the request, so a 500 cap with 250 spent is not stored as a 250 cap (story 41)',
+    (calls.setInsurance[1] || {}).g2?.paid === 250 && (calls.setInsurance[1] || {}).g2?.max === 500,
+    JSON.stringify((calls.setInsurance[1] || {}).g2 || {}),
+  )
+  check(
+    'and it comes back from the engine, not from what was typed',
+    (await term('Group 2', 'paid outside').inputValue()) === '250',
+  )
+  const idleCalls = calls.setInsurance.length
+  await term('Group 3', 'rate').click()
+  await term('Group 1', 'cap').click()
+  await page.waitForTimeout(300)
+  check(
+    'a blur that changed nothing sends no verb — an idle tab-through is not an edit',
+    calls.setInsurance.length === idleCalls,
+  )
+  await term('Group 1', 'rate').fill('130')
+  await term('Group 1', 'rate').press('Enter')
+  await page.waitForTimeout(300)
+  check(
+    'a rate outside 0–100 is refused at the box and never sent',
+    /percentage between 0 and 100/.test(await text()) && calls.setInsurance.length === idleCalls,
+  )
+  await term('Group 1', 'rate').fill('40')
+  // Narrow G1's cap so the pool actually binds — which is what makes a per-line
+  // cap visibly re-bucket its sibling.
+  await term('Group 1', 'cap').fill('40')
+  await term('Group 1', 'cap').press('Enter')
+  await page.waitForTimeout(500)
+
+  // ---- Scenario 21: 🚩 a cap of ZERO warns rather than silently doing nothing
+  const capCallsBefore = calls.updateLineInsurance.length
+  // Cleared and typed, the way an agent enters a number over one — `fill` alone
+  // on an identical value is not a keystroke and would not be one for a person
+  // either.
+  await capOf(0).fill('')
+  await capOf(0).type('0')
+  await capOf(0).press('Enter')
+  await page.waitForTimeout(350)
+  check(
+    '🚩 a MAX COVERAGE of zero WARNS — the engine ignores `<= 0`, so accepting it would quietly do nothing',
+    /cap of zero will not apply/.test(await text()),
+    (await text()).match(/A cap of zero[^\n]*/)?.[0] || '',
+  )
+  check(
+    'and nothing is sent — a value that would not apply never reaches the door',
+    calls.updateLineInsurance.length === capCallsBefore,
+  )
+  const siblingBefore = await patientShareOf(1)
+  await capOf(0).fill('5')
+  await capOf(0).press('Enter')
+  await page.waitForTimeout(500)
+  check(
+    'a real cap is sent as the payer-share cap, on the line it was typed on',
+    (calls.updateLineInsurance[0] || {}).maxPayerShare === 5 &&
+      (calls.updateLineInsurance[0] || {}).lineId === 'L1',
+    JSON.stringify(calls.updateLineInsurance[0] || {}),
+  )
+  check(
+    '🚩 and it RE-BUCKETS THE SIBLING — per-group caps share a pool, so the other G1 line re-prices too',
+    (await patientShareOf(1)) !== siblingBefore,
+    `line 2 patient share ${siblingBefore} → ${await patientShareOf(1)}`,
+  )
+
+  // ---- Scenario 22: 🚩 days supply, validated 1–100 AT THE CELL -----------
+  check(
+    'the header default is stamped onto each line as it lands (story 35)',
+    (await daysOf(0).inputValue()) === '30' && (await daysOf(2).inputValue()) === '30',
+  )
+  const metaBefore = calls.updateLineMeta.length
+  await daysOf(0).fill('120')
+  await daysOf(0).press('Enter')
+  await page.waitForTimeout(350)
+  check(
+    '🚩 a days supply outside 1–100 is REFUSED AT THE CELL, so an out-of-range value can never exist',
+    /between 1 and 100/.test(await text()),
+    (await text()).match(/Days supply must[^\n]*/)?.[0] || '',
+  )
+  check(
+    '🚩 and nothing is sent — there is no submit-time sweep to reset it later (story 36)',
+    calls.updateLineMeta.length === metaBefore,
+  )
+  await daysOf(0).fill('0')
+  await daysOf(0).press('Enter')
+  await page.waitForTimeout(300)
+  check(
+    'zero is out of range too — the range is 1–100, not 0–100',
+    /between 1 and 100/.test(await text()) && calls.updateLineMeta.length === metaBefore,
+  )
+  await daysOf(0).fill('60')
+  await daysOf(0).press('Enter')
+  await page.waitForTimeout(450)
+  check(
+    'a value inside the range is sent, alone, on updateLineMeta',
+    (calls.updateLineMeta[0] || {}).daysSupply === 60 &&
+      !('selectionReason' in (calls.updateLineMeta[0] || {})),
+    JSON.stringify(calls.updateLineMeta[0] || {}),
+  )
+  check('and the cell keeps what the engine came back with', (await daysOf(0).inputValue()) === '60')
+
+  // ---- Scenario 23: 🚩 Selection Reason — disabled on GENERIC lines only --
+  check(
+    '🚩 a Generic line offers NO selection reason picker, and says why',
+    (await rows().first().locator('select').count()) === 0 &&
+      /Not on a generic item/.test(await rows().first().innerText()),
+    (await rows().first().innerText()).replace(/\n/g, ' | ').slice(0, 120),
+  )
+  check(
+    '🚩 every other category DOES offer it — including NonMed, which looks like it should be excluded',
+    (await rows().nth(1).locator('select').count()) === 1 &&
+      (await rows().nth(2).locator('select').count()) === 1 &&
+      (await rows().nth(3).locator('select').count()) === 1,
+  )
+  check(
+    'and Brand-IR keeps its picker even though the service overwrites the value at submit — the quirk is reproduced, not fixed',
+    (await rows().nth(3).locator('select').isDisabled()) === false,
+  )
+  const reasonOptions = await rows().nth(1).locator('select option').allInnerTexts()
+  check(
+    'the reasons are FETCHED from the code system, not spelled into the client (§3.8)',
+    reasonOptions.includes('No generic alternative') && reasonOptions.includes('Patient request'),
+    reasonOptions.join(' / '),
+  )
+  check(
+    'and a blocked code is not offered — NPHIES no longer accepts it',
+    !reasonOptions.includes('Retired reason'),
+    reasonOptions.join(' / '),
+  )
+  await rows().nth(1).locator('select').selectOption('patient-request')
+  await page.waitForTimeout(450)
+  const reasonCall = calls.updateLineMeta[calls.updateLineMeta.length - 1] || {}
+  check(
+    'picking one sends the CODE alone, on the line it was picked for',
+    reasonCall.selectionReason === 'patient-request' &&
+      reasonCall.lineId === 'L2' &&
+      !('daysSupply' in reasonCall),
+    JSON.stringify(reasonCall),
+  )
+  check(
+    'and no modal opened anywhere in any of this',
+    (await page.locator('dialog').count()) === 0,
+  )
 
   check('no uncaught page errors anywhere in the drive', errors.length === 0, errors.slice(0, 3).join(' | '))
 

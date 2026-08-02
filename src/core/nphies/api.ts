@@ -79,6 +79,14 @@ function unwrapLookup<TRow>(answer: NphiesLookup<TRow> | TRow[]): TRow[] {
  *  cancel dialog would offer no reason at all. */
 export const TASK_REASON_CODE_VALUE_SET = 'TaskReasonCode'
 
+/** The value set of the per-line selection reasons
+ *  (`ValueSetConstants.SelectionReason`, contract §3.8: "`codeSystem` carries the
+ *  selection reasons"), which reach NPHIES as the line's
+ *  `extension-pharmacist-Selection-Reason`. Named for the cancellation reasons'
+ *  own reason: a typo would fetch an empty list and the picker would offer
+ *  nothing, with no error to say why. */
+export const SELECTION_REASON_VALUE_SET = 'SelectionReason'
+
 /** One cache entry per value set — the selection reasons (218) and the
  *  cancellation reasons (215) are different reads of the same endpoint. */
 export const codeSystemKey = (valueSet: string) => ['nphies', 'codeSystem', valueSet] as const

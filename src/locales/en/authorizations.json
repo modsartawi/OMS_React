@@ -207,9 +207,40 @@
         "qty": "Ask for a whole quantity of one or more."
       }
     },
+    "insurance": {
+      "title": "Deductible terms",
+      "tableLabel": "Deductible terms",
+      "hint": "Inherited from the coverage. Correct a rate, its cap or what has already been paid elsewhere — one change re-prices every line through the engine.",
+      "repricing": "Re-pricing the request…",
+      "group": "Group",
+      "rate": "Rate %",
+      "max": "Cap",
+      "paid": "Paid outside",
+      "groups": {
+        "g1": "Group 1",
+        "g2": "Group 2",
+        "g3": "Group 3"
+      },
+      "fields": {
+        "rate": "rate",
+        "max": "cap",
+        "paid": "paid outside"
+      },
+      "boxLabel": {
+        "rate": "{{group}} rate, percent",
+        "max": "{{group}} cap",
+        "paid": "{{group}} paid outside"
+      },
+      "refusal": {
+        "notANumber": "{{group}}: type an amount in the {{field}} — a blank box is not zero.",
+        "negative": "{{group}}: the {{field}} cannot be negative.",
+        "rateOutOfRange": "{{group}}: a rate is a percentage between 0 and 100."
+      }
+    },
     "lines": {
       "title_one": "{{count}} item on the request",
       "title_other": "{{count}} items on the request",
+      "tableLabel": "Request lines",
       "empty": "Nothing on the request yet. Add the first item above.",
       "sequence": "#",
       "item": "Item",
@@ -221,13 +252,32 @@
       "netAmount": "Net",
       "vat": "VAT",
       "patientShare": "Patient share",
+      "deductible": "Deductible",
       "group": "Group",
+      "maxCoverage": "Max coverage",
+      "maxCoverageFor": "Max coverage for {{item}}",
+      "daysSupply": "Days supply",
+      "daysSupplyFor": "Days supply for {{item}}",
+      "selectionReason": "Selection reason",
+      "selectionReasonFor": "Selection reason for {{item}}",
+      "selectionReasonNone": "None",
+      "selectionReasonGeneric": "A generic item carries no selection reason — this is the rule the till has always applied.",
+      "selectionReasonGenericShort": "Not on a generic item",
+      "capRefusal": {
+        "notANumber": "Type an amount — a blank cap is not the same as no cap.",
+        "negative": "A cap cannot be negative.",
+        "zeroWillNotApply": "A cap of zero will not apply — the engine ignores it. Leave it as it was, or enter the amount you mean."
+      },
+      "daysSupplyRefusal": {
+        "notWhole": "Days supply is a whole number of days.",
+        "outOfRange": "Days supply must be between {{min}} and {{max}}."
+      },
       "acts": "Acts",
       "void": "Void",
       "voidHint": "Take this line off the request. It stays on the record as withdrawn.",
       "voided": "Voided",
       "pricing": "Pricing…",
-      "moneyIsTheEngines": "Every amount above is the pricing engine's and is shown as it was calculated. Only the quantity is yours on this screen."
+      "moneyIsTheEngines": "Every amount to the left of Max coverage is the pricing engine's, shown as it was calculated. Yours on this grid are the quantity, the max coverage, the days supply and the selection reason."
     },
     "leave": {
       "warning": "Leaving discards this request. Nothing is saved and there is no draft to come back to.",
@@ -268,6 +318,7 @@
     "detailFailed": "The authorization could not be loaded.",
     "listFailed": "The authorizations could not be loaded.",
     "providersFailed": "The provider list could not be loaded.",
+    "selectionReasonsFailed": "The selection reasons could not be loaded, so that picker is empty. Everything else on the request still works.",
     "reasonsFailed": "The cancellation reasons could not be loaded."
   }
 }

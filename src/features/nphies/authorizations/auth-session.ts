@@ -203,6 +203,20 @@ export interface SessionLineView {
   discountAmount: number
   actualPatientShare: number
   deductibleGroupName: string
+  /** 🚩 The engine's calculated deductible — **read-only** (§2.2), and the reason
+   *  Max Coverage is an input at all: the cap is set so this stays *derived*
+   *  rather than hand-set (ticket 218, story 34). */
+  deductibleG: number
+  /** Agent — `updateLineInsurance`. ⚠️ A cap of 0 will not apply; the cell says so
+   *  rather than accepting it (`maxCoverageEntry` in `./line-rules`). */
+  maxCoverage: number
+  /** Agent — `updateLineMeta`, validated 1–100 at the cell. */
+  daysSupply: number
+  /** Agent — `updateLineMeta`. Derived by the engine first, overridable after. */
+  selectionReason: string
+  /** 🚩 `false` on Generic lines ONLY (§2) — exactly the rule the till applies,
+   *  no broader. Read through `selectionReasonEnabled`. */
+  selectionReasonEditable: boolean
   /** 🚩 The line is still being priced by the engine — what makes it **price in
    *  place** (story 27) rather than appear with blank money. The server says so;
    *  the browser never guesses it. */
@@ -242,6 +256,11 @@ export function projectSessionLines(
       discountAmount: line.discountAmount,
       actualPatientShare: line.actualPatientShare,
       deductibleGroupName: line.deductibleGroupName,
+      deductibleG: line.deductibleG,
+      maxCoverage: line.maxCoverage,
+      daysSupply: line.daysSupply,
+      selectionReason: line.selectionReason,
+      selectionReasonEditable: line.selectionReasonEditable,
       pricingPending: line.pricing === 'pending',
       editable: !line.voided,
     }))

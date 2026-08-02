@@ -3,15 +3,27 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Trash2 } from 'lucide-react'
 
 import { formatAmount } from '@/core/nphies/format'
+import type { NphiesCodeSystemEntry } from '@/core/models/nphies'
 import type { SessionLineView } from './auth-session'
+import {
+  DAYS_SUPPLY_MAX,
+  DAYS_SUPPLY_MIN,
+  daysSupplyEntry,
+  maxCoverageEntry,
+  selectionReasonEnabled,
+  type CellVerdict,
+} from './line-rules'
 
 /**
- * The request's lines (ticket 217, spec 209 stories 27 · 29 · 30 · 31 · 32).
+ * The request's lines (tickets 217 · 218, spec 209 stories 27 · 29–37).
  *
- * 🚩 **Money is read-only here, and that is the correct intermediate state rather
- * than a gap.** The agent's five inputs land at 218; law 1 makes the amounts the
- * engine's either way, so nothing on this grid is an input except the quantity —
- * the one field §4 already assigns to the agent through a verb that exists.
+ * 🚩 **Three of the agent's five inputs are on this grid** — quantity, Max
+ * Coverage and Days Supply — plus Selection Reason, which is a code and not an
+ * amount. Everything else in a row is the engine's and is drawn as a **value**:
+ * unit price, extended, discount, net, VAT, patient share, the calculated
+ * deductible and the deductible group. *The agent corrects the insurance terms,
+ * never the merchandise or its price* — there is no item swap and no price or
+ * discount override, here or in the contract (§2.2).
  *
  * 🚩 **A voided line is drawn, not dropped.** The audit trail is the whole reason
  * the form drives an engine transaction, so the row stays, struck through and
@@ -26,6 +38,10 @@ export default function RequestLines({
   lines,
   onChangeQty,
   onVoid,
+  onMaxCoverage,
+  onDaysSupply,
+  onSelectionReason,
+  selectionReasons,
   busyLineId,
   disabled,
 }: {
@@ -33,6 +49,17 @@ export default function RequestLines({
   /** A new quantity, never a delta — the engine owns what the line holds. */
   onChangeQty: (lineId: string, quantity: number) => void
   onVoid: (lineId: string) => void
+  /** The payer-share cap — `updateLineInsurance`. It can re-bucket sibling lines,
+   *  because per-group caps share a pool. */
+  onMaxCoverage: (lineId: string, maxPayerShare: number) => void
+  /** `updateLineMeta`, validated 1–100 before it ever gets here. */
+  onDaysSupply: (lineId: string, daysSupply: number) => void
+  /** `updateLineMeta`. The code reaches NPHIES verbatim. */
+  onSelectionReason: (lineId: string, selectionReason: string) => void
+  /** `GET Nphies/CodeSystem?valueSet=SelectionReason` — **fetched, never spelled
+   *  into the client**: a value set written out here is exactly the guessed shape
+   *  spec 209 warns against. */
+  selectionReasons: NphiesCodeSystemEntry[]
   /** The line a verb is in flight for. Stated on the row rather than as a global
    *  spinner, because the agent needs to know WHICH line is working. */
   busyLineId: string | null
@@ -50,7 +77,13 @@ export default function RequestLines({
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border/60">
-      <table className="w-full min-w-[60rem] border-collapse text-sm">
+      {/* Named, because the form now holds two tables — this one and the header
+          deductible block — and a screen reader landing in either deserves to
+          know which. */}
+      <table
+        aria-label={t('form.lines.tableLabel')}
+        className="w-full min-w-[84rem] border-collapse text-sm"
+      >
         <thead>
           <tr className="border-b border-border/60 bg-card/60 text-xs font-medium text-muted-foreground">
             <Th className="w-10 text-end">{t('form.lines.sequence')}</Th>
@@ -62,7 +95,14 @@ export default function RequestLines({
             <Th className="text-end">{t('form.lines.netAmount')}</Th>
             <Th className="text-end">{t('form.lines.vat')}</Th>
             <Th className="text-end">{t('form.lines.patientShare')}</Th>
+            <Th className="text-end">{t('form.lines.deductible')}</Th>
             <Th>{t('form.lines.group')}</Th>
+            {/* The three agent cells, kept together and after the engine's
+                columns, so the boundary between what is derived and what is
+                yours is a place on the row rather than a thing to remember. */}
+            <Th className="w-32">{t('form.lines.maxCoverage')}</Th>
+            <Th className="w-28">{t('form.lines.daysSupply')}</Th>
+            <Th className="w-44">{t('form.lines.selectionReason')}</Th>
             <Th className="w-24">{t('form.lines.acts')}</Th>
           </tr>
         </thead>
@@ -107,7 +147,45 @@ export default function RequestLines({
               <Money value={line.netAmount} pending={line.pricingPending} />
               <Money value={line.vat} pending={line.pricingPending} />
               <Money value={line.actualPatientShare} pending={line.pricingPending} />
+              <Money value={line.deductibleG} pending={line.pricingPending} />
               <Td className="text-xs">{line.deductibleGroupName}</Td>
+              <Td>
+                {line.editable ? (
+                  <MaxCoverageCell
+                    value={line.maxCoverage}
+                    disabled={disabled || busyLineId === line.lineId}
+                    onCommit={(cap) => onMaxCoverage(line.lineId, cap)}
+                    label={t('form.lines.maxCoverageFor', { item: line.itemDescription })}
+                  />
+                ) : (
+                  <span className="tabular-nums">{formatAmount(line.maxCoverage)}</span>
+                )}
+              </Td>
+              <Td>
+                {line.editable ? (
+                  <DaysSupplyCell
+                    value={line.daysSupply}
+                    disabled={disabled || busyLineId === line.lineId}
+                    onCommit={(days) => onDaysSupply(line.lineId, days)}
+                    label={t('form.lines.daysSupplyFor', { item: line.itemDescription })}
+                  />
+                ) : (
+                  <span className="tabular-nums">{line.daysSupply}</span>
+                )}
+              </Td>
+              <Td>
+                <SelectionReasonCell
+                  value={line.selectionReason}
+                  /* 🚩 Disabled on generic lines ONLY — the till's own rule, no
+                     broader. A voided line offers nothing at all. */
+                  enabled={line.editable && selectionReasonEnabled(line)}
+                  generic={!selectionReasonEnabled(line)}
+                  disabled={disabled || busyLineId === line.lineId}
+                  options={selectionReasons}
+                  onCommit={(code) => onSelectionReason(line.lineId, code)}
+                  label={t('form.lines.selectionReasonFor', { item: line.itemDescription })}
+                />
+              </Td>
               <Td>
                 {line.editable && (
                   <button
@@ -214,6 +292,249 @@ function QuantityCell({
       }}
       className="h-7 w-20 rounded-md border border-input bg-background px-2 text-sm tabular-nums text-foreground disabled:opacity-50"
     />
+  )
+}
+
+/**
+ * **Max Coverage** — the engine's `MaxPayerShare`, agent-overridable (§4).
+ *
+ * 🚩 **A cap of zero will not apply**, so the cell says so instead of accepting
+ * it. SIS.Pos ignores `<= 0` in `UpdateLineInsuranceInternalAsync`: a zero would
+ * be typed, accepted, stored and silently do nothing, which is worse than either
+ * taking effect or being refused. This is an inherited asymmetry carried
+ * deliberately, not a bug fixed here.
+ *
+ * Setting it writes the payer-share cap so the **deductible stays derived** rather
+ * than hand-set (story 34), and it can re-bucket sibling lines — per-group caps
+ * share a pool — which is why the whole state comes back and the grid redraws.
+ */
+function MaxCoverageCell({
+  value,
+  disabled,
+  onCommit,
+  label,
+}: {
+  value: number
+  disabled: boolean
+  onCommit: (cap: number) => void
+  label: string
+}) {
+  const { t } = useTranslation('authorizations')
+  const [draft, setDraft] = useState(String(value))
+  const [refusal, setRefusal] = useState<string | null>(null)
+  /** Whether the agent has actually typed in this cell since the engine last
+   *  answered — what separates *asking for a zero cap* from an untouched cell
+   *  holding the engine's own default of zero. */
+  const [typed, setTyped] = useState(false)
+
+  // The engine's answer is the truth, exactly as on the quantity cell.
+  useEffect(() => {
+    setDraft(String(value))
+    setRefusal(null)
+    setTyped(false)
+  }, [value])
+
+  function commit() {
+    const verdict: CellVerdict<'notANumber' | 'negative' | 'zeroWillNotApply'> = maxCoverageEntry(
+      draft,
+      value,
+      typed,
+    )
+    if (verdict.kind === 'refused') {
+      setRefusal(t(`form.lines.capRefusal.${verdict.reason}`))
+      return
+    }
+    setRefusal(null)
+    if (verdict.kind === 'send') onCommit(verdict.value)
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <input
+        type="number"
+        min={0}
+        step="any"
+        value={draft}
+        aria-label={label}
+        aria-invalid={refusal !== null}
+        disabled={disabled}
+        onChange={(e) => {
+          setDraft(e.target.value)
+          setTyped(true)
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          }
+        }}
+        className={
+          'h-7 w-24 rounded-md border bg-background px-2 text-sm tabular-nums text-foreground disabled:opacity-50 ' +
+          (refusal ? 'border-danger-border' : 'border-input')
+        }
+      />
+      {refusal && (
+        <span role="alert" className="text-[0.6875rem] text-attention-800 no-underline">
+          {refusal}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/**
+ * **Days Supply**, validated **1–100 at the cell** (§2.3, story 36).
+ *
+ * 🚩 An out-of-range value is refused here, which is what makes it impossible for
+ * one to exist. WPF swept them at submit — silently resetting to the header
+ * default and then listing what it had changed in a warning dialog — and that
+ * sweep and its dialog are **deleted, not ported**. There is no submit-time
+ * reconciliation anywhere in this feature to find.
+ *
+ * The header default stamps each line as it lands (story 35), so the usual case
+ * needs no per-line work at all.
+ */
+function DaysSupplyCell({
+  value,
+  disabled,
+  onCommit,
+  label,
+}: {
+  value: number
+  disabled: boolean
+  onCommit: (days: number) => void
+  label: string
+}) {
+  const { t } = useTranslation('authorizations')
+  const [draft, setDraft] = useState(String(value))
+  const [refusal, setRefusal] = useState<string | null>(null)
+
+  useEffect(() => {
+    setDraft(String(value))
+    setRefusal(null)
+  }, [value])
+
+  function commit() {
+    const verdict = daysSupplyEntry(draft, value)
+    if (verdict.kind === 'refused') {
+      setRefusal(
+        t(`form.lines.daysSupplyRefusal.${verdict.reason}`, {
+          min: DAYS_SUPPLY_MIN,
+          max: DAYS_SUPPLY_MAX,
+        }),
+      )
+      return
+    }
+    setRefusal(null)
+    if (verdict.kind === 'send') onCommit(verdict.value)
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <input
+        type="number"
+        min={DAYS_SUPPLY_MIN}
+        max={DAYS_SUPPLY_MAX}
+        step={1}
+        value={draft}
+        aria-label={label}
+        aria-invalid={refusal !== null}
+        disabled={disabled}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          }
+        }}
+        className={
+          'h-7 w-20 rounded-md border bg-background px-2 text-sm tabular-nums text-foreground disabled:opacity-50 ' +
+          (refusal ? 'border-danger-border' : 'border-input')
+        }
+      />
+      {refusal && (
+        <span role="alert" className="text-[0.6875rem] text-attention-800 no-underline">
+          {refusal}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/**
+ * **Selection Reason** — a code, not an amount, and the only picker on the row.
+ *
+ * 🚩 **Disabled on generic lines only** (story 37), which is exactly the rule the
+ * till applies and no broader: `NonMed` looks like it should be excluded and is
+ * not. A disabled cell says *why* rather than sitting there greyed out, because a
+ * control with no explanation is the trap this port exists to remove (story 24).
+ *
+ * ⚠️ **A quirk carried deliberately, not fixed.** On a `Brand-IR` line the agent
+ * may pick a reason and the Nphies service **overwrites it at submit** with
+ * `"innovative-noGeneric"`, and blanks the field entirely for items flagged
+ * `RemoveSelectionReason` (`AuthService.cs:418-421`). The old screen behaves
+ * identically. Reproduce it — someone who "fixed" it by hiding the picker would
+ * change what reaches the payer.
+ */
+function SelectionReasonCell({
+  value,
+  enabled,
+  generic,
+  disabled,
+  options,
+  onCommit,
+  label,
+}: {
+  value: string
+  enabled: boolean
+  generic: boolean
+  disabled: boolean
+  options: NphiesCodeSystemEntry[]
+  onCommit: (code: string) => void
+  label: string
+}) {
+  const { t } = useTranslation('authorizations')
+
+  if (!enabled) {
+    return (
+      <span
+        className="text-xs text-muted-foreground"
+        title={generic ? t('form.lines.selectionReasonGeneric') : undefined}
+      >
+        {value || (generic ? t('form.lines.selectionReasonGenericShort') : '')}
+      </span>
+    )
+  }
+
+  return (
+    <select
+      value={value}
+      aria-label={label}
+      disabled={disabled || options.length === 0}
+      onChange={(e) => onCommit(e.target.value)}
+      className="h-7 w-40 rounded-md border border-input bg-background px-1.5 text-xs text-foreground disabled:opacity-50"
+    >
+      {/* The engine derives one; an empty value is a real state and stays
+          selectable, because clearing a reason is the agent's to do. */}
+      <option value="">{t('form.lines.selectionReasonNone')}</option>
+      {/* ⚠ `Blocked` is a string upstream, not a boolean — carried as declared.
+          A blocked code is one NPHIES no longer accepts, so it is not offered,
+          unless the line already carries it (what was sent is what is shown). */}
+      {options
+        .filter((r) => !r.blocked || r.blocked.toLowerCase() === 'false' || r.code === value)
+        .map((r) => (
+          <option key={r.code} value={r.code}>
+            {r.display || r.code}
+          </option>
+        ))}
+      {/* A code the lookup does not carry is still what the line holds. Dropping
+          it would silently reset the request's own value to blank. */}
+      {value !== '' && !options.some((r) => r.code === value) && (
+        <option value={value}>{value}</option>
+      )}
+    </select>
   )
 }
 

@@ -27,6 +27,7 @@ import type {
   NphiesAuthSessionState,
   NphiesOpenResult,
   NphiesPage,
+  NphiesSessionInsurance,
 } from '@/core/models/nphies'
 
 export const authorizationsApi = {
@@ -125,10 +126,10 @@ export const authorizationsApi = {
  * the client renders the latest state it is allowed to render, and which one that
  * is comes from `@/core/engine-session/session-state` (§2.1).
  *
- * 🚩 **Six of the eleven verbs are here.** `setHeader`, `setInsurance`,
- * `updateLineInsurance`, `updateLineMeta` and `submit` belong to 218–220 and are
- * deliberately absent — a verb declared before the screen that presses it is a
- * shape nobody has checked against a live door.
+ * 🚩 **Nine of the eleven verbs are here.** 217 brought six; 218 adds the three
+ * insurance verbs that carry the agent's five inputs. `setHeader` and `submit`
+ * belong to 219–220 and are deliberately absent — a verb declared before the
+ * screen that presses it is a shape nobody has checked against a live door.
  *
  * ⚠️ **None of these endpoints exists yet.** They are the largest and riskiest
  * server term in the effort (8–12 days, a *parallel* build: the call-centre engine
@@ -255,6 +256,110 @@ export const authSessionApi = {
       transactionId,
       requestId,
       lineId,
+    })
+  },
+
+  /**
+   * `POST Nphies/Session/SetInsurance` → the whole state (law 3) — ticket 218.
+   *
+   * 🚩 **The header block, whole**: `{ g1, g2, g3 }`, each `{ rate, max, paid }`
+   * (§1.2). Nine header money fields — `DeductibleG1/G1Max/G1Paid` through `G3`
+   * on `AuthRequest` (§4) — all agent-editable, all inherited from the coverage
+   * first, and all sent together, because a partial body would leave the server
+   * deciding what the untouched groups now hold.
+   *
+   * 🚩 **One rate edit re-prices the whole basket.** `UpdateDeductible` never
+   * touches `request.Items`, so the line amounts stay *derived* rather than
+   * half hand-set (story 39) — which is why this verb answers the whole state and
+   * the grid redraws from it rather than patching the row that was edited.
+   *
+   * 🚩 **`paid` is persisted**, in a new `PaidAmount DECIMAL(18,2)` column on
+   * `PosTransactionDeductibleGroup` (§4). Without it a stored cap of 300 cannot
+   * be told from a 500 cap with 200 already spent — and the agent's input is
+   * precisely the part that would vanish. That is a direct hit on law 2, which is
+   * why the schema column is in this slice's server dependency rather than
+   * deferred.
+   */
+  setInsurance(
+    transactionId: string,
+    requestId: string,
+    insurance: NphiesSessionInsurance,
+  ): Promise<NphiesAuthSessionState> {
+    return api.post<NphiesAuthSessionState>('Nphies/Session/SetInsurance', {
+      transactionId,
+      requestId,
+      g1: insurance.g1,
+      g2: insurance.g2,
+      g3: insurance.g3,
+    })
+  },
+
+  /**
+   * `POST Nphies/Session/UpdateLineInsurance` → the whole state (law 3) —
+   * ticket 218.
+   *
+   * 🚩 **The verb runs on every scan server-side**, not only on an agent
+   * override: the category → G1/G2/G3 assignment is `ResolveDeductibleGroupForLine`
+   * and fires as each line lands (§1.2). It is exposed here because the agent may
+   * *also* override the cap — and the override can **re-bucket sibling lines**,
+   * since per-group caps share a pool. That is the second reason the answer is
+   * the whole state and not the edited row.
+   *
+   * ⚠️ **A `maxPayerShare` of 0 will not apply** — SIS.Pos ignores `<= 0`, so the
+   * till's `AllowZero = true` semantics silently do nothing under the new engine
+   * (§4). The client refuses to send one and says so at the cell
+   * (`maxCoverageEntry` in `./line-rules`); this signature carries no special case
+   * for it, because a zero that reached here would already be a bug upstream of
+   * the wire.
+   */
+  updateLineInsurance(
+    transactionId: string,
+    requestId: string,
+    lineId: string,
+    maxPayerShare: number,
+  ): Promise<NphiesAuthSessionState> {
+    return api.post<NphiesAuthSessionState>('Nphies/Session/UpdateLineInsurance', {
+      transactionId,
+      requestId,
+      lineId,
+      maxPayerShare,
+    })
+  },
+
+  /**
+   * `POST Nphies/Session/UpdateLineMeta` → the whole state (law 3) — ticket 218.
+   *
+   * The line's two non-money agent fields: **days supply** and **selection
+   * reason**, both optional so one may be set without restating the other (§1.2).
+   *
+   * 🚩 **Days supply is validated 1–100 at the cell** and refused by this verb
+   * server-side as `DAYS_SUPPLY_INVALID` (§2.3). The cell is the rule and the door
+   * is the backstop — WPF's submit-time sweep, which silently reset out-of-range
+   * values to the header default and then listed them in a dialog, is **deleted
+   * rather than ported**.
+   *
+   * ⚠️ **A quirk carried deliberately, not fixed:** on a `Brand-IR` line the agent
+   * may pick a selection reason and the Nphies service **overwrites it at submit**
+   * with `"innovative-noGeneric"`, and blanks the field entirely when
+   * `nItem.RemoveSelectionReason` (`AuthService.cs:418-421`). The old screen
+   * behaves identically. Reproduce it — someone who "fixed" it would change what
+   * reaches the payer.
+   *
+   * **Audit note:** these two persist their **final value only**, which the owner
+   * has accepted. There is no change-tracking for them and none is to be built;
+   * the money is what is recorded before-and-after.
+   */
+  updateLineMeta(
+    transactionId: string,
+    requestId: string,
+    lineId: string,
+    meta: { daysSupply?: number; selectionReason?: string },
+  ): Promise<NphiesAuthSessionState> {
+    return api.post<NphiesAuthSessionState>('Nphies/Session/UpdateLineMeta', {
+      transactionId,
+      requestId,
+      lineId,
+      ...meta,
     })
   },
 

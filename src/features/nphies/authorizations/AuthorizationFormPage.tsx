@@ -11,11 +11,18 @@ import { useSession } from '@/core/session'
 import { useStoreLock } from '@/core/engine-session/store-lock'
 import { newRequestId } from '@/core/engine-session/request-id'
 import { readSessionFault, type ShownSessionFault } from '@/core/engine-session/session-fault'
-import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
+import {
+  NPHIES_ACCESS_KEY,
+  SELECTION_REASON_VALUE_SET,
+  codeSystemKey,
+  nphiesAccessApi,
+  nphiesLookupApi,
+} from '@/core/nphies/api'
 import { formatStamp } from '@/core/nphies/format'
-import type { NphiesAuthSessionState } from '@/core/models/nphies'
+import type { NphiesAuthSessionState, NphiesSessionInsurance } from '@/core/models/nphies'
 import { authSessionApi } from './api'
 import AddItemRow from './AddItemRow'
+import DeductibleTerms from './DeductibleTerms'
 import RequestLines from './RequestLines'
 import {
   admitSessionState,
@@ -76,6 +83,23 @@ export default function AuthorizationFormPage() {
   })
   const allowed = access.data?.canOpenNphies === true
 
+  /**
+   * The per-line selection reasons — `GET Nphies/CodeSystem?valueSet=SelectionReason`
+   * (§3.8: "`codeSystem` carries the selection reasons").
+   *
+   * 🚩 **Fetched, never spelled into the client.** The chosen code reaches NPHIES
+   * verbatim as the line's `extension-pharmacist-Selection-Reason`, and a value
+   * set written out here is exactly the guessed shape spec 209 warns against. It
+   * shares its cache entry with 215's cancellation reasons' door, keyed by value
+   * set, so the two reads of one endpoint never collide.
+   */
+  const selectionReasons = useQuery({
+    queryKey: codeSystemKey(SELECTION_REASON_VALUE_SET),
+    queryFn: () => nphiesLookupApi.codeSystem(SELECTION_REASON_VALUE_SET),
+    enabled: allowed,
+    staleTime: 5 * 60 * 1000,
+  })
+
   const [state, setState] = useState<NphiesAuthSessionState | null>(null)
   /** A contract major this client cannot speak (law 10). The form refuses to run
    *  rather than mis-render money at a national exchange. */
@@ -98,6 +122,9 @@ export default function AuthorizationFormPage() {
   const [fault, setFault] = useState<ShownSessionFault | null>(null)
   const [adding, setAdding] = useState(false)
   const [busyLineId, setBusyLineId] = useState<string | null>(null)
+  /** A `setInsurance` in flight. The block says it is re-pricing rather than the
+   *  grid going quietly still — one rate edit re-prices every line (story 39). */
+  const [repricing, setRepricing] = useState(false)
   const [refusal, setRefusal] = useState<AddItemRefusal | null>(null)
   const [refusalDetail, setRefusalDetail] = useState<string | null>(null)
   const [leaving, setLeaving] = useState(false)
@@ -361,6 +388,51 @@ export default function AuthorizationFormPage() {
       authSessionApi.voidLine(transactionId, requestId, lineId),
     )
 
+  /**
+   * The line's payer-share cap — `updateLineInsurance`.
+   *
+   * 🚩 It can **re-bucket sibling lines**, because per-group caps share a pool,
+   * so the answer is the whole state like every other verb and the grid redraws
+   * from it. Nothing patches the edited row.
+   */
+  const setMaxCoverage = (lineId: string, maxPayerShare: number) =>
+    runLineVerb(lineId, (transactionId, requestId) =>
+      authSessionApi.updateLineInsurance(transactionId, requestId, lineId, maxPayerShare),
+    )
+
+  /** Days supply — already 1–100 by the time it reaches here (`line-rules`). */
+  const setDaysSupply = (lineId: string, daysSupply: number) =>
+    runLineVerb(lineId, (transactionId, requestId) =>
+      authSessionApi.updateLineMeta(transactionId, requestId, lineId, { daysSupply }),
+    )
+
+  /** The selection reason — a code, sent alone so a days-supply value is not
+   *  restated on a verb that is not about it. */
+  const setSelectionReason = (lineId: string, selectionReason: string) =>
+    runLineVerb(lineId, (transactionId, requestId) =>
+      authSessionApi.updateLineMeta(transactionId, requestId, lineId, { selectionReason }),
+    )
+
+  /**
+   * The header deductible block — `setInsurance`, all three groups together.
+   *
+   * 🚩 **One edit re-prices the whole request through the engine**, which is the
+   * point: the line amounts stay derived rather than half hand-set (story 39).
+   * The browser recomputes nothing.
+   */
+  async function setInsurance(next: NphiesSessionInsurance) {
+    setRepricing(true)
+    try {
+      await runVerb((transactionId, requestId) =>
+        authSessionApi.setInsurance(transactionId, requestId, next),
+      )
+    } catch (error) {
+      setVerbError(error)
+    } finally {
+      setRepricing(false)
+    }
+  }
+
   /** `State` is refresh, recovery and reload only (law 3) — never a way to
    *  "sync" after a verb, which has already answered with the whole state. */
   async function refresh() {
@@ -410,7 +482,7 @@ export default function AuthorizationFormPage() {
   }
 
   const reference = state?.reference
-  const busy = adding || busyLineId !== null || leaving || refreshing
+  const busy = adding || busyLineId !== null || leaving || refreshing || repricing
 
   return (
     <section className="flex w-full flex-col gap-4">
@@ -560,6 +632,17 @@ export default function AuthorizationFormPage() {
             </p>
           )}
 
+          {/* 🚩 Two of the agent's five inputs, above the lines they price:
+              the group rates with their caps, and paid-outside. Inherited from
+              the coverage and then correctable — and one edit re-prices every
+              line through the engine, so the amounts below stay derived. */}
+          <DeductibleTerms
+            insurance={state.insurance}
+            onCommit={(next) => void setInsurance(next)}
+            busy={repricing}
+            disabled={!sessionIsOpen || adding || busyLineId !== null || leaving}
+          />
+
           <section className="flex flex-col gap-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-sm font-semibold tracking-tight">
@@ -591,14 +674,24 @@ export default function AuthorizationFormPage() {
               lines={lines}
               onChangeQty={(lineId, quantity) => void changeQty(lineId, quantity)}
               onVoid={(lineId) => void voidLine(lineId)}
+              onMaxCoverage={(lineId, cap) => void setMaxCoverage(lineId, cap)}
+              onDaysSupply={(lineId, days) => void setDaysSupply(lineId, days)}
+              onSelectionReason={(lineId, code) => void setSelectionReason(lineId, code)}
+              selectionReasons={selectionReasons.data ?? []}
               busyLineId={busyLineId}
-              disabled={!sessionIsOpen || adding || leaving}
+              disabled={!sessionIsOpen || adding || leaving || repricing}
             />
 
-            {/* The money columns render and are not editable until 218. Read-only
-                is the correct intermediate state, not a gap — and saying so beats
-                an agent wondering which cells they are allowed to touch. */}
+            {/* 🚩 Which cells are yours, said once, where the grid is. Everything
+                else in a row is the engine's and is drawn as a value — the agent
+                corrects the insurance terms, never the merchandise or its price. */}
             <p className="text-xs text-muted-foreground">{t('form.lines.moneyIsTheEngines')}</p>
+
+            {selectionReasons.isError && (
+              <p className="text-xs text-muted-foreground">
+                {apiErrorMessage(selectionReasons.error, t('errors.selectionReasonsFailed'))}
+              </p>
+            )}
           </section>
 
           <div>

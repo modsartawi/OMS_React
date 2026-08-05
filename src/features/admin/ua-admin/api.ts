@@ -9,14 +9,16 @@ import type {
   UaSessionModel,
 } from '@/core/models/ua-user'
 
-import { PAGE_SIZE, skipForPage } from './pager'
+import { skipForPage } from '@/core/ui/pager'
+
+import { PAGE_SIZE } from './page-size'
 
 const BASE = 'UaAdminWeb'
 const encode = (segment: string) => encodeURIComponent(segment)
 
 // The people reads offset-page: both endpoints already bind `skip` and clamp
 // only `take` (research 140), so paging cost zero server change (ticket 148).
-const pageArgs = (page: number) => ({ skip: skipForPage(page), take: PAGE_SIZE })
+const pageArgs = (page: number) => ({ skip: skipForPage(page, PAGE_SIZE), take: PAGE_SIZE })
 
 // The per-person audit tab keeps its own single 50-row read — paging it was
 // ruled out of scope (spec 147).

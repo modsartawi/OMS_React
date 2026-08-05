@@ -9,6 +9,12 @@
     "logout": "Logout",
     "retry": "Retry"
   },
+  "pager": {
+    "previous": "Previous",
+    "next": "Next",
+    "readout": "Page {{page}} of {{pages}}",
+    "ariaLabel": "Result pages"
+  },
   "confirm": {
     "yes": "Yes",
     "no": "No"

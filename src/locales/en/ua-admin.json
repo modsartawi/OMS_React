@@ -41,12 +41,6 @@
     "noResults": "No people match this query.",
     "never": "never"
   },
-  "pager": {
-    "previous": "Previous",
-    "next": "Next",
-    "readout": "Page {{page}} of {{pages}}",
-    "ariaLabel": "Result pages"
-  },
   "export": {
     "button": "Export CSV",
     "confirmTitle": "Export {{formatted}} person?",

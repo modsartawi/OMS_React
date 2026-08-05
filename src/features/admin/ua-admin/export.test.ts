@@ -16,7 +16,7 @@ import {
   estimateWalkSeconds,
   needsConfirm,
 } from './export'
-import { PAGE_SIZE } from './pager'
+import { PAGE_SIZE } from './page-size'
 
 const person = (employeeId: string): UaEmployeeGridRow => ({
   employeeId,
@@ -47,6 +47,16 @@ function estate(total: number): (page: number) => Promise<UaEmployeeSearchResult
     return pageOf(all.slice(start, start + PAGE_SIZE), total, total > start + PAGE_SIZE)
   }
 }
+
+describe('PAGE_SIZE', () => {
+  it('is still 50 — the walk and the grid page in the same steps', () => {
+    // Pinned here because the arithmetic that used to assert it graduated to
+    // `@/core/ui/pager` and is deliberately size-agnostic now (ticket 232).
+    // Ua Users must stay observably unchanged: 50 a page, as it has been since
+    // ticket 143.
+    expect(PAGE_SIZE).toBe(50)
+  })
+})
 
 describe('theWalkStopsAndDedupes', () => {
   it('walks from page 1 in the pager’s own steps until isCapped goes false', async () => {

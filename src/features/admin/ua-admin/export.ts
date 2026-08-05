@@ -13,7 +13,9 @@
 // who is *missing*. The `ApiError` propagates to the caller; nothing is written.
 
 import type { UaEmployeeGridRow, UaEmployeeSearchResult } from '@/core/models/ua-user'
-import { pageCountFromTotalMatches } from './pager'
+import { pageCountFromTotalMatches } from '@/core/ui/pager'
+
+import { PAGE_SIZE } from './page-size'
 
 /**
  * A hard stop on the loop. 120 pages is the whole ~6,000-identity estate, so 200
@@ -56,7 +58,7 @@ const SECONDS_PER_PAGE = 0.375
  * estimate it is — "about 45 seconds", never "about 47".
  */
 export function estimateWalkSeconds(totalMatches: number): number {
-  const seconds = pageCountFromTotalMatches(totalMatches) * SECONDS_PER_PAGE
+  const seconds = pageCountFromTotalMatches(totalMatches, PAGE_SIZE) * SECONDS_PER_PAGE
   return Math.max(5, Math.round(seconds / 5) * 5)
 }
 

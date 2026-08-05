@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 231
 blocked-by: —
 ---
@@ -52,12 +52,48 @@ model/api · **store/logic** (the pure pager arithmetic) · **component** (`core
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `pager` — page size is a parameter: 25 and 50 produce different `skip`, page counts and
-      "renders at all" answers from the same match count · **pure**
-- [ ] `pager` — Next comes from `isCapped` when that is what the caller knows, and from
-      `page < pageCount` when a real total is; an empty result is one page, never zero · **pure**
-- [ ] Ua Users unchanged — drive `/admin/ua-users` past page 1 and back: same 50 a page, same
-      labels, Next dead on the last page · **flow (drive)** · verify via typecheck + drive
+- [x] `pager` — page size is a parameter: 25 and 50 produce different `skip`, page counts and
+      "renders at all" answers from the same match count · **pure** ·
+      `src/core/ui/pager.test.ts`, describe *page size is a parameter*
+- [x] `pager` — Next comes from `isCapped` when that is what the caller knows, and from
+      `page < pageCount` when a real total is; an empty result is one page, never zero · **pure** ·
+      `src/core/ui/pager.test.ts`, the two *pagerButtonEnablement* describes (20 cases, all green)
+- [x] Ua Users unchanged — drive `/admin/ua-users` past page 1 and back: same 50 a page, same
+      labels, Next dead on the last page · **flow (drive)** · verify via typecheck + drive ·
+      `node tools/ua-users-scale-drive.mjs` re-run after the move: **83/85**, every pager assertion
+      green (Page 1 of 120, skip=50/take=50 on page 2, Previous dead on page 1, Next dead on the
+      last page, Previous returns). The two failures are a **pre-existing** stale expectation — the
+      drive asserts a report card reads "Activation done" where `ua-admin.json` has long said
+      "Authenticator active"; unrelated to the pager and untouched here.
+
+## Answer
+
+The component and its arithmetic live at `src/core/ui/GridPager.tsx` and `src/core/ui/pager.ts`
+(`core/ui` is where the repo's shared presentational primitives already are — `ErrorBanner`,
+`StatusBadge`, `Modal`). All four drifts are closed:
+
+1. **Boundary** — `features/loy/*` can now import it; `npm run lint` green (377 files, boundaries
+   clean).
+2. **Page size** — every function takes `pageSize`. Ua Users' own 50 stayed with Ua Users, in a new
+   one-constant `features/admin/ua-admin/page-size.ts`, and is pinned by a test in `export.test.ts`
+   so the "observably unchanged" promise fails loudly rather than silently.
+3. **Next has two derivations**, per the ticket's `PagerBounds` union — `isCapped` when that is all a
+   read knows, `page < pageCount` when the count is real. Both survive; neither guesses the other.
+   The component's props carry the same choice as a discriminated union (`{isCapped: boolean}` |
+   `{isCapped?: never}`), so a caller holding a `boolean | undefined` is a compile error rather than
+   a silent fall onto the wrong path.
+4. **Namespace** — `pager.*` moved `ua-admin.json` → `common.json`, byte-identical strings, and the
+   component reads `useTranslation('common')`.
+
+Consumers repointed: `UaAdminUsersPage`, `api.ts`, `export.ts`, `export.test.ts`.
+
+🚩 **Nothing was driven against a live SIS.Api** (spec 231's standing rule). The drive runs against
+its own stubbed envelope, as it always has. `npm run build` green.
+
+**Follow-up worth minting, out of scope here:** `core/` now holds two pagers — this one and
+`core/nphies/ListPager.tsx` + `list-window.ts`, whose `pagerEnablement`/`pageCountFor` overlap the
+next-from-total path added here. They also disagree about i18n (labels-as-props vs `common`).
+Consolidation is one small step away.
 
 ## Boundaries
 

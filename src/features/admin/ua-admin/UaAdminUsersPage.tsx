@@ -19,8 +19,10 @@ import {
   needsConfirm,
 } from './export'
 import { uaAdminApi } from './api'
-import { clampToLastPageWhenCurrentPageEmpties, showsPager } from './pager'
-import GridPager from './GridPager'
+import GridPager from '@/core/ui/GridPager'
+import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'
+
+import { PAGE_SIZE } from './page-size'
 import StatusPill from './StatusPill'
 import ChannelPill from './ChannelPill'
 import UserDetailPane from './UserDetailPane'
@@ -99,6 +101,7 @@ export default function UaAdminUsersPage() {
       page: settledPage,
       rowCount: settledRows,
       totalMatches: settledTotal,
+      pageSize: PAGE_SIZE,
     })
     if (clamped !== settledPage) goToPage(clamped)
   }, [settledPage, settledRows, settledTotal])
@@ -415,10 +418,11 @@ export default function UaAdminUsersPage() {
 
           {/* The footer exists only past the first page. `query` is non-null
               whenever `list.data` is, so `query.page` is safe here. */}
-          {query !== null && list.data && !list.isError && showsPager(list.data.totalMatches) && (
+          {query !== null && list.data && !list.isError && showsPager(list.data.totalMatches, PAGE_SIZE) && (
             <div className="mt-auto">
               <GridPager
                 page={query.page}
+                pageSize={PAGE_SIZE}
                 totalMatches={list.data.totalMatches}
                 isCapped={list.data.isCapped}
                 busy={refreshing}

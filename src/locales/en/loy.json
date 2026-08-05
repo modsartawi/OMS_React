@@ -1,0 +1,26 @@
+{
+  "search": {
+    "label": "Look up a loyalty member",
+    "placeholder": "Mobile number or Loy ID",
+    "submit": "Look up",
+    "hint": "A mobile number or a Loy ID — either one resolves the member.",
+    "searched": "Searched",
+    "change": "Change",
+    "cancel": "Cancel",
+    "newLookup": "New lookup",
+    "noMatch": "No member matches {{typed}}",
+    "noMatchHint": "Neither a mobile number nor a Loy ID matched. Check the number and try again.",
+    "archived": "Member {{key}} is archived.",
+    "failed": "The lookup could not be completed."
+  },
+  "member": {
+    "loyId": "Loy ID",
+    "mobile": "Mobile",
+    "joined": "Joined",
+    "updated": "Updated",
+    "unnamed": "No name on file",
+    "absent": "—",
+    "loading": "Loading member…",
+    "loadFailed": "This member could not be loaded."
+  }
+}

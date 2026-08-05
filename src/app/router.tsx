@@ -189,6 +189,27 @@ export const router = createBrowserRouter([
             .default,
         }),
       },
+      // The Loyalty area (spec 231, ticket 233) — two routes, ONE component and
+      // two states of it: the centred field, and a resolved member with the
+      // field collapsed into a bar (227, variant B).
+      //
+      // 🚩 The URL holds the LoyId, never what was typed, so a refresh re-reads
+      // by key and does not replay the resolution cascade — that runs on submit
+      // only. There is no menu item yet: the screen is reachable by URL alone
+      // until 234 adds the nav item WITH its access probe, so it never exists in
+      // the nav ungated.
+      {
+        path: 'loy/members',
+        lazy: async () => ({
+          Component: (await import('@/features/loy/member/MemberLookupPage')).default,
+        }),
+      },
+      {
+        path: 'loy/members/:loyId',
+        lazy: async () => ({
+          Component: (await import('@/features/loy/member/MemberLookupPage')).default,
+        }),
+      },
       {
         path: 'pricing/simulation',
         lazy: async () => ({

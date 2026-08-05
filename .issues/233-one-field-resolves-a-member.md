@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 231
 blocked-by: —
 ---
@@ -78,11 +78,11 @@ its probe.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `resolve-member` — blank is a no-op; `+966 55 500 0111` compacts to `966555000111`; a mobile
+- [x] `resolve-member` — blank is a no-op; `+966 55 500 0111` compacts to `966555000111`; a mobile
       hit takes one call; `LOY-00100` retries as a Loy ID; a double miss returns `noMatch` carrying
       the typed text; 🚩 **a 403, a 500 and a network failure each propagate and never read as
       no-match**; `LOY-00101` returns the archived guard · **pure**
-- [ ] `tools/loy-member-drive.mjs` (new) — the empty field, a resolved member with the bar collapsed,
+- [x] `tools/loy-member-drive.mjs` (new) — the empty field, a resolved member with the bar collapsed,
       Change reopening pre-filled, New lookup returning, the double-miss sentence, and a cold load of
       `/loy/members/:loyId` showing the bar with the LoyId · **flow (drive, stubbed envelopes)**
 
@@ -115,3 +115,66 @@ the closing note.
 ## Blocked by
 
 None — can start immediately.
+
+## Answer
+
+Built 2026-08-06. The spine is thin and whole: `core/models/loy.ts` → `features/loy/member/api.ts`
+→ `resolve-member.ts` (pure) → `MemberLookupPage.tsx` on two routes → the `loy` namespace
+registered in `core/i18n.ts`.
+
+**What landed**
+
+- **`resolve-member.ts`** — `compact` and the cascade, pure by construction: the two reads arrive as
+  an argument (`MemberReads`), so the rule is provable with no network, no fetch stub and no module
+  mock. 12 vitest cases, and the ones that matter are the refusals: a bare 403, a 500, a network
+  failure and a non-`LOY-00100` business code each **propagate on the first call and never reach the
+  second**, so a shut door can never read as "no member matches". `LOY-00101` returns the archived
+  guard; a double miss carries the **typed** text, not the compacted key.
+- **`apiErrorKind(err)` added to `core/api.ts`**, mirroring `apiErrorCode`. The cascade condition has
+  to name the taxonomy arm, and a feature spelling `err instanceof ApiError && err.kind === …`
+  re-implements `core/`'s taxonomy at each call site.
+- **`core/models/loy.ts`** carries spec §6's split as two types — `LoyMemberPayload` (wire,
+  `blockedReason`) and `LoyMember` (domain, `blockedReasonCode`) — mapped at the api boundary, so
+  235's chips cannot read the action row's description as the member's code. The engine machinery
+  (`profile`, `accrualFactor`, `redemptionFactor`, `exchangeRate`, `pointsExpireSoonDays`,
+  `profileUpdated`) is absent from the model: it is drawn nowhere, and a model field is an invitation
+  to draw it.
+- **The screen** — one component, two states. The bar carries the searched key only; the header
+  carries the name once. A resolve seeds the query cache so the member is on screen the instant the
+  navigation lands, while the route's own read stays the data source (no freshness policy invented
+  here — that would silently bind 235–238).
+
+**Three judgement calls, all logged in `.afk/HITL-233.md`**
+
+1. 🚩 **The hint no longer publishes the cascade.** 227's prototype drew *"Mobile first, then Loy ID
+   — one field decides nothing, the server does."*; both review axes flagged it against spec 231's
+   story 3 (*"the screen's internal ordering is invisible to me"*), and its second clause is wrong
+   besides — the **client** sequences the two calls, not the server. It now reads *"A mobile number
+   or a Loy ID — either one resolves the member."*, which is what the field takes rather than what it
+   does with it.
+2. **Change grew a Cancel.** Reopening the field hides the bar, and the bar owns New lookup — so
+   without it the only ways out of a reopened field were a successful lookup or the browser. The
+   member stays on screen throughout either way.
+3. The double miss keeps 227's second sentence (*"Neither a mobile number nor a Loy ID matched…"*) —
+   the prototype drew it, and "one neutral sentence" in the spec is about no toast and no red.
+
+**Proof**
+
+- `resolve-member.test.ts` — 12 pure cases green; the full suite is 1106 across 65 files.
+- `tools/loy-member-drive.mjs` — **34/34**, against stubbed `LoyWeb/*` envelopes: the empty field, a
+  blank submit making zero calls, a mobile resolving in **one** call on the compacted key, a Loy ID
+  cascading in **two**, the bar with the key as typed, Change pre-filled + Cancel, New lookup, the
+  double-miss sentence with the box unrewritten and no banner, a **bare 403 that does not cascade and
+  does not read as no-match**, and a cold load of `/loy/members/100001293` reading by key alone.
+- `npm run typecheck`, `npm run lint` (all three gates) and `npm run build` green.
+
+🚩 **Nothing was driven against a live SIS.Api.** The `LoyWeb/*` door does not exist — it is
+BackOffice 977–979 on a parallel track — so every envelope in the drive is a stub built from
+[223's field inventory](assets/223-loy-reads-field-inventory.RESEARCH.md), per spec 231's standing
+verification rule.
+
+**Left for the wave, deliberately:** no menu item and no access probe (234), no chips / points block
+/ disclosure (235), no tabs (236–238). Two notes for whoever takes them: the `loy` namespace is
+registered but holds only `search.*` and `member.*`; and the loyalty vocabulary (*member*, *Loy ID*,
+*tier*, *blocked reason*, *member type*, *action*) is still absent from `CONTEXT.md`, which spec 231
+asks `/domain-modeling` to fix as the build makes the terms concrete.

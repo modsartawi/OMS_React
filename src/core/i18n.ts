@@ -17,6 +17,10 @@ import broadcast from '@/locales/en/broadcast.json'
 import callcenter from '@/locales/en/callcenter.json'
 import eligibility from '@/locales/en/eligibility.json'
 import authorizations from '@/locales/en/authorizations.json'
+// 🚩 `loy`, not `member` — a DELIBERATE deviation from "namespace == feature
+// name" (spec 231, ticket 233). The feature is `member` under the new `loy`
+// area, and `member` is too generic a name for a global namespace.
+import loy from '@/locales/en/loy.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -24,7 +28,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy'],
   resources: {
     en: {
       common,
@@ -44,6 +48,7 @@ i18n.use(initReactI18next).init({
       callcenter,
       eligibility,
       authorizations,
+      loy,
     },
   },
   interpolation: { escapeValue: false },

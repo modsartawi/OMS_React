@@ -53,6 +53,22 @@ export function apiErrorCode(err: unknown): string | null {
   return err instanceof ApiError ? (err.details[0]?.errorCode ?? null) : null
 }
 
+/**
+ * Which arm of the taxonomy a failure is, or `null` when it is not an `ApiError`
+ * at all (a bug in feature code, say — which is emphatically not a business
+ * outcome).
+ *
+ * The companion to `apiErrorCode`, and the reason it exists is the same: a
+ * feature that branches on `err instanceof ApiError && err.kind === …` is
+ * re-implementing the taxonomy at each call site. A rule like the Loy
+ * resolution cascade — "only a BUSINESS `LOY-00100` retries; auth, server and
+ * network show themselves and stop" — has to name the kind, and it must name it
+ * the same way everywhere.
+ */
+export function apiErrorKind(err: unknown): ApiErrorKind | null {
+  return err instanceof ApiError ? err.kind : null
+}
+
 // API base is environment-driven (428/435). Dev talks to the `/api` Vite proxy
 // (stripped to root before SIS.Api); prod is same-origin under IIS with SIS.Api's
 // endpoints at the root, so the base is `/`. `VITE_API_BASE` overrides both if ops

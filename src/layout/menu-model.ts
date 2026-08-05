@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, Calculator, ClipboardCheck, Download, FileCheck2, FileText, Headset, HeartPulse, KeyRound, LifeBuoy, ListChecks, Search, Send, ShieldCheck, Tags, Ticket, UserCog } from 'lucide-react'
+import { Activity, Box, Calculator, ClipboardCheck, Download, FileCheck2, FileText, Gem, Headset, HeartPulse, KeyRound, LifeBuoy, ListChecks, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -18,6 +18,11 @@ import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
 // gives the whole area ONE grant, so the leaf and every screen in both
 // `features/nphies/*` features share this single probe.
 import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
+// The Loy probe stays with its feature (ticket 234): `features/loy/member` is its
+// only consumer today — the leaf below and that screen's own guard — which is the
+// `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
+// the OMS and Nphies probes into `@/core/`. `layout` may import a feature.
+import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi } from '@/features/loy/member/api'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -172,6 +177,35 @@ export const MENU: ShellMenuItem[] = [
           key: CALLCENTER_ACCESS_KEY,
           run: () => callCenterApi.access(),
           visible: (r) => r.canOpenConsole === true,
+        }),
+      },
+    ],
+  },
+  {
+    // Its own top-level group (spec 231 §1, ticket 234): `/loy/*` is a new URL
+    // prefix and a new nav group, which is exactly the condition under which
+    // feature-structure says a new area folder appears. Same shape as the
+    // call-centre group above.
+    labelKey: 'loy:menu.loyalty',
+    icon: Gem,
+    items: [
+      {
+        labelKey: 'loy:menu.members',
+        icon: UserSearch,
+        routerLink: '/loy/members',
+        // The whole subtree: a resolved member lives at `/loy/members/:loyId`,
+        // and the leaf stays lit while the agent stands on one.
+        activePrefix: '/loy/members',
+        // The SAME key + call + predicate as MemberLookupPage's own guard → one
+        // network call, and a nav and a screen that can never disagree.
+        // 🚩 FAILS CLOSED — see `features/loy/member/api`. What is behind this
+        // leaf is a customer-PII lookup, so a pending, errored or malformed
+        // probe hides it rather than revealing it (224: the bonus-buy
+        // unknown ⇒ shown precedent explicitly does not transfer here).
+        access: accessProbe({
+          key: LOY_ACCESS_KEY,
+          run: () => loyAccessApi.access(),
+          visible: canOpenLoyMember,
         }),
       },
     ],

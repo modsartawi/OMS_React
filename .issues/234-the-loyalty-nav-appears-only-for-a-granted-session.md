@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 231
 blocked-by: 233
 ---
@@ -34,11 +34,20 @@ the page guard) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] the probe's predicate — a granted answer shows the item; a denied answer, a thrown error, and
-      a malformed answer each hide it · **pure**
-- [ ] `tools/loy-member-drive.mjs` (extended) — granted: the Loyalty group appears and the item
+- [x] the probe's predicate — a granted answer shows the item; a denied answer, a thrown error, and
+      a malformed answer each hide it · **pure** — `src/features/loy/member/access.test.ts`
+      (`canOpenLoyMember`: `=== true` and nothing looser, so `'true'`, `1`, `{}`, `null` and a
+      wrong-named flag are all denials) + `src/layout/menu-loy.test.ts`, which reads the **real**
+      `MENU` and drives `resolveMenu` — granted shows the group, and denied / errored / malformed /
+      pending each drop the group *and its only child*, so no empty "Loyalty" header is left
+      offering a screen that cannot be opened. It also pins that the leaf's probe key **is** the
+      exported `LOY_ACCESS_KEY` object the screen guard uses
+- [x] `tools/loy-member-drive.mjs` (extended) — granted: the Loyalty group appears and the item
       routes; denied: the group is absent **and** a typed deep link to `/loy/members` lands on the
-      denied backstop · **flow (drive, stubbed envelopes)**
+      denied backstop · **flow (drive, stubbed envelopes)** — **47/47**, scenarios 10–13: granted
+      (group appears, item routes, **one** probe call shared by nav and screen), denied, a probe
+      that **throws** (500), and a **bare 403**. Each of the three refusals also asserts the member
+      read never fires on the way to the backstop
 
 ## Boundaries
 
@@ -56,6 +65,48 @@ link into the denied backstop; a probe that throws behaves exactly like a denial
 and `npm run lint` green.
 
 🚩 Nothing driven against a live SIS.Api.
+
+## Answer
+
+Landed. `GET LoyWeb/Access` → `LoyAccessResult { canOpenLoyMember }` (`core/models/loy.ts`), called
+from `features/loy/member/api.ts` with **no 404-tolerant catch** — 224 ruled the bonus-buy
+*unknown ⇒ shown* precedent does not transfer to a PII surface, and failing closed here is the
+absence of a catch rather than code. The probe stays **with its feature** rather than graduating to
+`@/core/`: its two consumers are both this feature's, which is the `uaAdminApi` /
+`sessionMonitorApi` shape (the OMS and Nphies probes moved to `core/` only when a *second feature*
+needed them, which a feature may never import). One exported `LOY_ACCESS_KEY`, one exported
+predicate `canOpenLoyMember`, used verbatim by both the `accessProbe` in `layout/menu-model.ts` and
+the in-page guard in `MemberLookupPage` — sharing the *predicate* as well as the key is what makes
+"nav and screen can never disagree" structural instead of a convention.
+
+New top-level **Loyalty** group (`Gem`) with **Member lookup** (`UserSearch`) at `/loy/members`,
+`activePrefix` covering `/loy/members/:loyId` so the leaf stays lit on a member.
+
+Three things the build settled that the ticket did not spell out:
+
+- 🚩 **The guard needs `staleTime: Infinity` and `retry: false`** — the shell's own two options for
+  every nav probe. Without them the drive measured **two** calls on the shared key (the menu filled
+  it, the screen's mount refetched it), which is precisely the one-probe-one-call invariant this
+  ticket rests on. The drive now asserts `accessCalls === 1` across nav → click → screen.
+- 🚩 **A bare 403 is a refusal, not an outage.** The backstop distinguishes *unreachable* (retry)
+  from *denied* (ask an administrator), and 224 says an ungranted portal call — or a route that
+  forgot `.AllowCookieSession()` — comes back as a bare **403**, which `core/api` classifies as
+  `unknown`, not `auth`. Left unbranched it would have told an agent to "try again in a moment"
+  at a permanently shut door, so the guard reads `statusCode === 403` as the administrator
+  sentence. Both still deny; only the sentence differs.
+- The member read is gated on the probe as well as the param (`enabled: !!loyId && allowed`), so an
+  ungranted deep link to `/loy/members/:loyId` does not fire a PII read on its way to the backstop.
+
+Reviewed on both axes: standards found no hard violation (the backstop card is the third hand-rolled
+copy of the Nphies one — a `core/ui` candidate, logged, not taken here); spec found the ticket
+delivered. Two review notes were applied: the predicate's signature now admits `null | undefined`
+honestly instead of laundering the proof cases through a cast, and the 403 branch above.
+
+`npm run typecheck`, `npm run lint`, `npm test` (1113 cases) and `npm run build` green.
+Copy and shape calls logged in `.afk/HITL-234.md`.
+
+🚩 Nothing driven against a live SIS.Api — the `LoyWeb` door is BackOffice 977–979, and 979 (the
+probe) is what this slice consumes.
 
 ## Blocked by
 

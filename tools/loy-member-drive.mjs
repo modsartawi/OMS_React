@@ -21,6 +21,14 @@
 //   7. 🚩 a bare 403 says THAT and never "no member matches", and never cascades;
 //   8. a cold load of `/loy/members/:loyId` shows the bar with the LoyId.
 //
+// And ticket 234's (scenarios 10–12 below):
+//  10. granted — the Loyalty group appears in the nav and its item routes to the
+//      screen, on ONE shared probe call;
+//  11. 🚩 denied — the group is absent AND a typed deep link to `/loy/members`
+//      lands on the denied backstop, not on the lookup field;
+//  12. 🚩 a probe that THROWS behaves exactly like a denial (fail-closed), and
+//      the member read never fires on the way to the backstop.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-drive.mjs
 import { createRequire } from 'node:module'
@@ -89,8 +97,15 @@ const LOYID_KEY = '100001293'
 
 // Scenario state, mutated between steps, and the call log the "one call" /
 // "two calls" assertions read.
-let scenario = { doorShut: false }
+//
+// `access` is ticket 234's axis: `granted` | `denied` | `throws`. The last one is
+// the case the whole ticket exists for — a probe that errors must be
+// indistinguishable from a refusal, never "probably fine".
+let scenario = { doorShut: false, access: 'granted' }
+// The member reads only. The probe is logged apart so the "one call" / "two
+// calls" cascade assertions keep meaning what they said before the gate existed.
 let calls = []
+let accessCalls = 0
 
 async function run() {
   const browser = await chromium.launch()
@@ -111,6 +126,19 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
+
+    // The area's ONE probe (234). Not grant-gated server-side — it must be able
+    // to answer a session that holds nothing — so a denial is a 200 saying no,
+    // while `throws` is the transport falling over on the way.
+    if (path === 'LoyWeb/Access') {
+      accessCalls += 1
+      if (scenario.access === 'throws') return route.fulfill({ status: 500, body: 'boom' })
+      // 🚩 A BARE 403 — no envelope, no code: what a portal call to a route
+      // missing `.AllowCookieSession()`, or refused by the grant filter, comes
+      // back as (224). A refusal, not an outage.
+      if (scenario.access === 'refused') return route.fulfill({ status: 403, body: 'Forbidden' })
+      return route.fulfill(envelope({ canOpenLoyMember: scenario.access === 'granted' }))
+    }
 
     if (path.startsWith('LoyWeb/MemberByMobile/')) {
       const key = decodeURIComponent(path.split('LoyWeb/MemberByMobile/')[1] || '')
@@ -287,6 +315,95 @@ async function run() {
   )
   check('the bar falls back to the LoyId with no navigation state',
     /Searched/.test(coldBody) && /100001293/.test(coldBody))
+
+  // ---- Scenario 10: granted — the nav offers the screen (234) -------------
+  // Every OTHER leaf's probe answers `{}` from the catch-all above, so a
+  // fail-closed shell leaves exactly one group standing: this one.
+  // Counted from this load onwards: every earlier `goto` legitimately re-probed,
+  // and what is being asserted is one call per PAGE LIFE shared by two consumers.
+  accessCalls = 0
+  await page.goto(BASE + '/')
+  // Scoped to the sidebar: the home page lists the same destinations as cards, and
+  // what this ticket gates is the NAV.
+  const sidebar = page.locator('#layout-sidebar')
+  const loyaltyGroup = sidebar.getByRole('button', { name: /^Loyalty$/ })
+  await loyaltyGroup.waitFor({ timeout: 15000 })
+  check('granted: the Loyalty group appears in the nav', (await loyaltyGroup.count()) === 1)
+  await loyaltyGroup.click()
+  const memberLeaf = sidebar.getByRole('link', { name: /Member lookup/ })
+  await memberLeaf.waitFor({ timeout: 5000 })
+  await memberLeaf.click()
+  await page.waitForURL(/\/loy\/members$/, { timeout: 10000 })
+  await lookUp.waitFor({ timeout: 10000 })
+  check('the item routes to the lookup screen', /\/loy\/members$/.test(page.url()), page.url())
+  check(
+    'the nav and the screen share ONE probe call, not one each',
+    accessCalls === 1,
+    `accessCalls=${accessCalls}`,
+  )
+
+  // ---- Scenario 11: 🚩 denied — hidden AND backstopped --------------------
+  scenario.access = 'denied'
+  calls = []
+  await page.goto(BASE + '/loy/members')
+  await page.getByRole('alert').first().waitFor({ timeout: 15000 })
+  const deniedBody = await page.textContent('body')
+  check(
+    '🚩 denied: a typed deep link lands on the DENIED BACKSTOP, not the field',
+    /No access to Loyalty/.test(deniedBody) &&
+      (await page.getByLabel('Look up a loyalty member', { exact: true }).count()) === 0,
+  )
+  check('the backstop names the grant, not a failure', /administrator/.test(deniedBody))
+  check(
+    '🚩 denied: the Loyalty group is absent from the nav',
+    (await sidebar.getByRole('button', { name: /^Loyalty$/ }).count()) === 0,
+  )
+  check(
+    '🚩 an ungranted deep link never fires the member read',
+    calls.length === 0,
+    calls.join(', '),
+  )
+
+  // ---- Scenario 12: 🚩 a probe that THROWS is a denial --------------------
+  scenario.access = 'throws'
+  calls = []
+  await page.goto(BASE + '/loy/members/100001293')
+  await page.getByRole('alert').first().waitFor({ timeout: 15000 })
+  const thrownBody = await page.textContent('body')
+  check(
+    '🚩 a thrown probe FAILS CLOSED — the screen is denied, not opened',
+    (await page.getByLabel('Look up a loyalty member', { exact: true }).count()) === 0 &&
+      !/Nouf Al-Harbi/.test(thrownBody),
+  )
+  check(
+    'and says the access could not be checked rather than claiming a refusal',
+    /unavailable|could not be checked|500/.test(thrownBody),
+  )
+  check(
+    '🚩 the Loyalty group is absent for a thrown probe too',
+    (await sidebar.getByRole('button', { name: /^Loyalty$/ }).count()) === 0,
+  )
+  check(
+    '🚩 a thrown probe never fires the member read either',
+    calls.length === 0,
+    calls.join(', '),
+  )
+  // ---- Scenario 13: 🚩 a bare 403 reads as a REFUSAL, not an outage --------
+  scenario.access = 'refused'
+  calls = []
+  await page.goto(BASE + '/loy/members')
+  await page.getByRole('alert').first().waitFor({ timeout: 15000 })
+  const refusedBody = await page.textContent('body')
+  check(
+    '🚩 a bare 403 denies with the ADMINISTRATOR sentence, not "try again in a moment"',
+    /No access to Loyalty/.test(refusedBody) && !/Try again in a moment/.test(refusedBody),
+  )
+  check(
+    'a 403 hides the group and never fires the member read either',
+    (await sidebar.getByRole('button', { name: /^Loyalty$/ }).count()) === 0 && calls.length === 0,
+    calls.join(', '),
+  )
+  scenario.access = 'granted'
 
   check('no page errors anywhere in the drive', errors.length === 0, errors.join(' | '))
 

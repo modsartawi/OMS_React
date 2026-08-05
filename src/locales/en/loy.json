@@ -1,4 +1,15 @@
 {
+  "menu": {
+    "loyalty": "Loyalty",
+    "members": "Member lookup"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to Loyalty",
+    "deniedHint": "Your account does not hold the loyalty member grant. Ask an administrator if you need it.",
+    "unreachableTitle": "Loyalty is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
   "search": {
     "label": "Look up a loyalty member",
     "placeholder": "Mobile number or Loy ID",

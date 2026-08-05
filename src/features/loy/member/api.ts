@@ -20,8 +20,44 @@
  * key. Omitting it yields `SAR` at rate `1` (223 §1).
  */
 import { api } from '@/core/api'
-import type { LoyMember, LoyMemberPayload } from '@/core/models/loy'
+import type { LoyAccessResult, LoyMember, LoyMemberPayload } from '@/core/models/loy'
 import type { MemberReads } from './resolve-member'
+
+/**
+ * The ONE cache key the Loyalty nav leaf and this screen's own in-page guard
+ * share, so a gated area costs one network call and not one per consumer
+ * (ticket 234). Exported rather than re-spelled at each site: a typo in a string
+ * literal would not fail a build, it would silently split the cache entry and
+ * let the nav and the screen disagree about whether the session is allowed in.
+ */
+export const LOY_ACCESS_KEY = ['loy', 'access'] as const
+
+/**
+ * Whether a probe answer admits the session. The predicate is a named export
+ * because it is the ticket's pure Proof: `=== true` and nothing looser, so a
+ * malformed answer (`{}`, `null`, a string `"true"`) is a denial and not an
+ * accident of truthiness.
+ */
+export const canOpenLoyMember = (r: LoyAccessResult | null | undefined): boolean =>
+  r?.canOpenLoyMember === true
+
+export const loyAccessApi = {
+  /**
+   * `GET LoyWeb/Access` → `{ canOpenLoyMember }`.
+   *
+   * ⚠️ **Fails closed, and that is the point of ticket 234** — no 404-tolerant
+   * catch, unlike the `Notifications/Access` and `Bby/Access` probes which
+   * degrade to allowed while their endpoints are unbuilt. 224 ruled the
+   * bonus-buy precedent (*unknown ⇒ shown*) does not transfer here: this screen
+   * is a customer-PII surface, so an unseeded grant, a missing table or an
+   * engine fault hides the nav item and denies the screen. The shell already
+   * treats a pending or errored probe as hidden, so failing closed is the
+   * *absence* of a catch rather than code.
+   */
+  access(): Promise<LoyAccessResult> {
+    return api.get<LoyAccessResult>('LoyWeb/Access')
+  },
+}
 
 /**
  * The one field the wire and the domain disagree about. `blockedReason` is the

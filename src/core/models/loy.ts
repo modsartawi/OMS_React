@@ -18,6 +18,20 @@
  * nowhere (spec 231 §5), and a model field is an invitation to draw it.
  */
 
+/**
+ * `GET LoyWeb/Access` — the area's screen-access probe (spec 231 §11), and the
+ * one route on the door that is not a read. Cookie-only and deliberately **not**
+ * grant-gated: it must be able to answer a session that holds nothing.
+ *
+ * 🚩 It reads the same `ILoyMemberScreenGate` object the route filter reads, so
+ * the probe and the gate cannot disagree — and it **fails closed** on the client
+ * side (ticket 234): a missing flag, a malformed answer, an unseeded grant or a
+ * thrown error all read as denied. `=== true`, never truthiness.
+ */
+export interface LoyAccessResult {
+  canOpenLoyMember: boolean
+}
+
 /** The member payload as the wire carries it — `LoyMemberModel`, verbatim. */
 export interface LoyMemberPayload {
   loyId: string

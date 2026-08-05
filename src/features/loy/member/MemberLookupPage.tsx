@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { Loader2, Search } from 'lucide-react'
+import { Loader2, Search, ShieldAlert } from 'lucide-react'
 
-import { apiErrorMessage } from '@/core/api'
+import { ApiError, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { formatShortDate } from '@/core/util/date-format'
-import { loyApi, memberKey } from './api'
+import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi, loyApi, memberKey } from './api'
 import { resolveMember } from './resolve-member'
 
 /**
@@ -31,8 +31,14 @@ import { resolveMember } from './resolve-member'
  * (224/225), and it is the only thing provable while the `LoyWeb` door is
  * unbuilt.
  *
- * No menu item yet — the route is reachable by URL only, so the screen never
- * exists in the nav ungated; ticket 234 adds the item *with* its access probe.
+ * The screen guards itself on the area's ONE probe (ticket 234), on the key the
+ * Loyalty nav leaf uses — one network call, and a nav and a screen that can never
+ * disagree. 🚩 It **fails closed**: pending, denied, malformed and errored all
+ * draw something other than the field, because what is behind this route is a
+ * customer-PII lookup and a deep link by an ungranted session must land on the
+ * denied backstop rather than on the surface. Show/hide is hygiene only — the
+ * server grant on every `LoyWeb/*` read stays authoritative.
+ *
  * The header here is identity alone; the chips, the points block and the three
  * tabs are 235–238.
  */
@@ -42,6 +48,21 @@ export default function MemberLookupPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
+
+  // The area's ONE probe, on the key the nav leaf shares → one network call for
+  // the whole area. Fails closed: pending, denied and errored all draw something
+  // other than the lookup field.
+  const access = useQuery({
+    queryKey: LOY_ACCESS_KEY,
+    queryFn: () => loyAccessApi.access(),
+    // The same two options the shell gives every nav probe, so the leaf and this
+    // guard are ONE call and not two: without `staleTime` the screen's mount
+    // would refetch the key the menu had just filled, and without `retry: false`
+    // a denial-by-outage would take three round trips to say so.
+    staleTime: Infinity,
+    retry: false,
+  })
+  const allowed = access.isSuccess && canOpenLoyMember(access.data)
 
   // What the bar says it searched: the typed key from navigation state, falling
   // back to the LoyId on a cold load of the URL (227 decision 3).
@@ -55,7 +76,9 @@ export default function MemberLookupPage() {
   const member = useQuery({
     queryKey: memberKey(loyId ?? ''),
     queryFn: () => loyApi.byLoyId(loyId as string),
-    enabled: !!loyId,
+    // 🚩 Gated on the probe as well as the param: a deep link by an ungranted
+    // session must not fire the member read on its way to the backstop.
+    enabled: !!loyId && allowed,
   })
 
   const lookup = useMutation({
@@ -183,6 +206,48 @@ export default function MemberLookupPage() {
       )}
     </>
   )
+
+  if (access.isPending) {
+    return (
+      <div
+        className="flex min-h-[60vh] items-center justify-center gap-2 text-sm text-muted-foreground"
+        role="status"
+      >
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        {t('access.checking')}
+      </div>
+    )
+  }
+  if (!allowed) {
+    // The in-page backstop behind the hidden nav leaf — where a typed deep link
+    // lands. It distinguishes the two reasons an agent can be here: an
+    // unreachable probe is a retry, a refused one is an administrator. Both
+    // deny, which is the fail-closed rule; only the sentence differs.
+    //
+    // 🚩 A **403 is a refusal, not an outage** — it is exactly what a portal call
+    // to a route without `.AllowCookieSession()`, or behind a grant filter that
+    // said no, comes back as (224), and it is the likeliest real failure here
+    // while the door is young. "Try again in a moment" against a permanently shut
+    // door invites a retry loop; the administrator sentence is the true one.
+    const refused = access.error instanceof ApiError && access.error.statusCode === 403
+    const unreachable = access.isError && !refused
+    return (
+      <div
+        className="mx-auto mt-16 max-w-md rounded-lg border border-border/60 bg-card p-6 text-center"
+        role="alert"
+      >
+        <ShieldAlert className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
+        <div className="text-base font-semibold tracking-tight">
+          {unreachable ? t('access.unreachableTitle') : t('access.deniedTitle')}
+        </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {unreachable
+            ? apiErrorMessage(access.error, t('access.unreachableHint'))
+            : t('access.deniedHint')}
+        </p>
+      </div>
+    )
+  }
 
   if (!loyId) {
     return (

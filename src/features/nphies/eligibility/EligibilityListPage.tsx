@@ -166,7 +166,18 @@ export default function EligibilityListPage() {
   const total = answered?.page.total ?? 0
   const shownPage = answered?.page.page ?? criteria.page
   const shownPageSize = answered?.page.pageSize
-  const shownWindow = answered?.criteria.window ?? null
+  // 🚩 THREE states, not two. `?? null` here would collapse "not answered yet"
+  // into "the agent removed the window" — so for the ~10 s a cold read takes
+  // against real data (and for as long as an error stands), the chip asserted
+  // "no date window, showing every check on record" while the request it had just
+  // sent carried a seven-day one. That is the exact "that's everything" lie this
+  // ticket exists to prevent, told by the screen itself, and no stubbed drive can
+  // see it because a stub answers instantly. Found driving live, 2026-08-02.
+  //
+  // With an answer, the window is the ANSWER's — that is the keepPreviousData
+  // pairing rule above, and it still holds. Without one, it is what we ASKED for,
+  // which is the only honest thing to say about rows that do not exist yet.
+  const shownWindow = answered ? answered.criteria.window : criteria.window
   // Dim-and-disable rather than blank whenever rows are showing and a read is in
   // flight — the spinner then means FIRST load again.
   const refreshing = list.isFetching && answered !== undefined

@@ -23,6 +23,9 @@
   },
   "storeSwitcher": {
     "ariaLabel": "Acting store",
+    "label": "Acting store",
+    "unchosen": "Choose a store…",
+    "unset": "No acting store — pick one before raising an authorization.",
     "lockedByEngineSession": "This store prices the authorization you have open, so it cannot change until you leave that request.",
     "changed": {
       "title": "Store changed",

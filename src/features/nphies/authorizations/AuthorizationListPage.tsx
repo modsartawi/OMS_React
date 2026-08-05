@@ -300,7 +300,13 @@ export default function AuthorizationListPage() {
   const total = answered?.page.total ?? 0
   const shownPage = answered?.page.page ?? criteria.page
   const shownPageSize = answered?.page.pageSize
-  const shownWindow = answered?.criteria.window ?? null
+  // 🚩 THREE states, not two — the same defect the eligibility list carried, and
+  // for the same reason (this screen inherited its shape). `?? null` reads "not
+  // answered yet" as "the agent removed the window", so a cold read spends its
+  // whole duration claiming to show every authorization on record while asking
+  // for seven days of them. With an answer, the window is the ANSWER's; without
+  // one, it is what we asked for. See the note on the eligibility list.
+  const shownWindow = answered ? answered.criteria.window : criteria.window
   const refreshing = list.isFetching && answered !== undefined
   const pages = pageCountFor(total, shownPageSize)
   // The instant the rows on screen came back — not the instant the agent last

@@ -21,8 +21,10 @@ import type {
   EligibilityCheckResponse,
   EligibilityListRow,
   LastEligibility,
+  LastEligibilityAnswer,
   NphiesPage,
 } from '@/core/models/nphies'
+import { unwrapLastEligibility } from './check-form'
 
 // ⚠️ The **providers lookup** is no longer here. It moved to `@/core/nphies/api`
 // at ticket 214, when the authorization list became its third consumer: a feature
@@ -40,9 +42,14 @@ export const eligibilityApi = {
    * `NewWithRefCommand` rather than deferring it, so it must work from the id an
    * agent was given on the phone.
    */
-  lastEligibility(patientId: string): Promise<LastEligibility | null> {
-    return api.get<LastEligibility | null>(
-      `Nphies/LastEligibility/${encodeURIComponent(patientId)}`,
+  async lastEligibility(patientId: string): Promise<LastEligibility | null> {
+    // 🚩 SIS.Api wraps the record under `eligibility` while §1.1 row 2 promises it
+    // bare. Both shapes are unwrapped in `unwrapLastEligibility`, which is also
+    // what turns "no previous check" into a real `null` the form can report.
+    return unwrapLastEligibility(
+      await api.get<LastEligibility | LastEligibilityAnswer | null>(
+        `Nphies/LastEligibility/${encodeURIComponent(patientId)}`,
+      ),
     )
   },
 

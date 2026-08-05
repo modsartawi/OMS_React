@@ -18,7 +18,10 @@
     "providerUnchosen": "Choose a provider…",
     "providerOption": "{{code}} — {{license}}",
     "unchosen": "Choose…",
-    "payer": "Payer code",
+    "unstated": "Not stated",
+    "payer": "Payer",
+    "payerUnchosen": "Choose a payer…",
+    "payerOption": "{{name}} — {{code}}",
     "patientId": "Patient ID",
     "patientIdType": "ID type",
     "patientName": "Patient name",
@@ -38,7 +41,7 @@
     "separator": " · ",
     "provider": "choose the provider you are acting for",
     "patientId": "enter a patient ID",
-    "payer": "enter a payer code",
+    "payer": "choose the payer you are asking",
     "patientIdType": "choose the ID type",
     "patientName": "enter the patient's name",
     "patientGender": "choose the patient's gender",
@@ -171,6 +174,8 @@
       "notGranted": "Your account no longer holds the Nphies grant. Ask an administrator."
     },
     "providersFailed": "The provider list could not be loaded.",
+    "payersFailed": "The payer list could not be loaded.",
+    "codeListsFailed": "The occupation and marital status lists could not be loaded, so both are empty. Leave them unstated, or retry in a moment.",
     "fillFailed": "That patient's last check could not be loaded."
   }
 }

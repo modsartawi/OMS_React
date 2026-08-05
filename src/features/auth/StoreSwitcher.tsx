@@ -76,6 +76,13 @@ export default function StoreSwitcher() {
       onChange={(e) => void pick(e.target.value)}
       className="mt-1 h-7 w-full rounded-md border border-input bg-background px-2 text-xs disabled:opacity-60"
     >
+      {/* 🚩 UNSET IS A STATE, and a select cannot show it without an option to
+          land on: with `value=""` and no match, the browser renders the FIRST
+          option, so a user with no acting store reads "1000 · Yanbu" as theirs —
+          and then meets "your acting store is not resolved yet" on the Nphies
+          form with a store apparently already chosen. Seen live on 2026-08-02,
+          where `Auth/Me` answered `currentStoreCode: ""`. */}
+      {!currentStoreCode && <option value="">{t('storeSwitcher.unchosen')}</option>}
       {/* The session's store may not be in the list (or the list may still be loading). */}
       {currentStoreCode && !options.some((o) => o.code === currentStoreCode) && (
         <option value={currentStoreCode}>{currentStoreCode}</option>

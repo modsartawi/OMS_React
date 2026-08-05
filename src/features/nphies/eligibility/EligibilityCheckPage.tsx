@@ -6,8 +6,12 @@ import { Loader2, Search, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
+  MARITAL_STATUS_VALUE_SET,
   NPHIES_ACCESS_KEY,
+  OCCUPATION_VALUE_SET,
+  PAYERS_KEY,
   PROVIDERS_KEY,
+  codeSystemKey,
   nphiesAccessApi,
   nphiesLookupApi,
 } from '@/core/nphies/api'
@@ -56,6 +60,27 @@ export default function EligibilityCheckPage() {
   const providers = useQuery({
     queryKey: PROVIDERS_KEY,
     queryFn: () => nphiesLookupApi.providers(),
+    enabled: allowed,
+  })
+
+  // 🚩 The three coded identity fields, each read from the door that owns its
+  // value set rather than typed. Every one of them reaches the national exchange
+  // inside the FHIR Patient or the request header, where an unrecognised value is
+  // refused by NPHIES — so a free-text box here buys a round trip to find out the
+  // agent guessed wrong. `payerCode` additionally decides WHICH payer is asked.
+  const payers = useQuery({
+    queryKey: PAYERS_KEY,
+    queryFn: () => nphiesLookupApi.payers(),
+    enabled: allowed,
+  })
+  const occupations = useQuery({
+    queryKey: codeSystemKey(OCCUPATION_VALUE_SET),
+    queryFn: () => nphiesLookupApi.codeSystem(OCCUPATION_VALUE_SET),
+    enabled: allowed,
+  })
+  const maritalStatuses = useQuery({
+    queryKey: codeSystemKey(MARITAL_STATUS_VALUE_SET),
+    queryFn: () => nphiesLookupApi.codeSystem(MARITAL_STATUS_VALUE_SET),
     enabled: allowed,
   })
 
@@ -178,13 +203,22 @@ export default function EligibilityCheckPage() {
             </select>
           </Field>
           <Field label={t('form.payer')}>
-            <input
-              type="text"
+            <select
               value={draft.payerCode}
               onChange={(e) => patch({ payerCode: e.target.value })}
               aria-label={t('form.payer')}
-              className={`w-40 ${CONTROL}`}
-            />
+              className={`w-56 ${CONTROL}`}
+            >
+              {/* Unchosen like the provider, and refused by the same gate. The
+                  option carries the payer's NAME and submits its CODE — §3.1 puts
+                  `PayerCode` on the wire, and the two are different strings. */}
+              <option value="">{t('form.payerUnchosen')}</option>
+              {(payers.data ?? []).map((p) => (
+                <option key={p.payerCode} value={p.payerCode}>
+                  {t('form.payerOption', { name: p.payerName, code: p.payerCode })}
+                </option>
+              ))}
+            </select>
           </Field>
         </div>
 
@@ -193,6 +227,18 @@ export default function EligibilityCheckPage() {
             message={apiErrorMessage(providers.error, t('errors.providersFailed'))}
             className="p-3"
           />
+        )}
+        {payers.isError && (
+          <ErrorBanner
+            message={apiErrorMessage(payers.error, t('errors.payersFailed'))}
+            className="p-3"
+          />
+        )}
+        {/* A coded list that failed to load leaves an EMPTY picker, which reads as
+            "there are no occupations" rather than "we could not ask". Both
+            optional fields share one line: the two reads are the same door. */}
+        {(occupations.isError || maritalStatuses.isError) && (
+          <ErrorBanner message={t('errors.codeListsFailed')} className="p-3" />
         )}
 
         {/* The identity block — typed once, or completed by Fill from the last check. */}
@@ -280,22 +326,38 @@ export default function EligibilityCheckPage() {
 
         <div className="flex flex-wrap items-end gap-4">
           <Field label={t('form.occupation')}>
-            <input
-              type="text"
+            <select
               value={draft.occupation}
               onChange={(e) => patch({ occupation: e.target.value })}
               aria-label={t('form.occupation')}
-              className={`w-40 ${CONTROL}`}
-            />
+              className={`w-48 ${CONTROL}`}
+            >
+              {/* Optional, unlike the provider — `Occupation` and `MaritalStatus`
+                  are nullable upstream and usually empty (see
+                  `fillFromLastEligibility`), so "not stated" is a real answer and
+                  the gate does not ask for either. */}
+              <option value="">{t('form.unstated')}</option>
+              {(occupations.data ?? []).map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.display}
+                </option>
+              ))}
+            </select>
           </Field>
           <Field label={t('form.maritalStatus')}>
-            <input
-              type="text"
+            <select
               value={draft.maritalStatus}
               onChange={(e) => patch({ maritalStatus: e.target.value })}
               aria-label={t('form.maritalStatus')}
-              className={`w-40 ${CONTROL}`}
-            />
+              className={`w-48 ${CONTROL}`}
+            >
+              <option value="">{t('form.unstated')}</option>
+              {(maritalStatuses.data ?? []).map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.display}
+                </option>
+              ))}
+            </select>
           </Field>
           <label className="flex select-none items-center gap-1.5 pb-2 text-xs font-medium text-muted-foreground">
             <input

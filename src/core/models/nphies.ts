@@ -33,6 +33,37 @@ export interface NphiesProvider {
 }
 
 /**
+ * `GET Nphies/Payers` (§1.1 #11) → `PayerDto`, the fifteen fields SIS.Api's own
+ * contract test pins (`NphiesLookupContractTests.cs:78-83`).
+ *
+ * 🚩 Unlike the provider row, this one HAS a display name, and `payerCode` is a
+ * name-ish string rather than a number (`BUPA`, `Arabian Shield`) — so the option
+ * shows `payerName` and submits `payerCode`, and the two must never be swapped:
+ * `PayerCode` is what §3.1 puts on the wire.
+ *
+ * The rest of the row is carried as declared rather than trimmed to what this
+ * screen renders — a lookup that drops fields is no longer a passthrough, and
+ * `directDispense` / `directAuth` are what a later slice would branch on.
+ */
+export interface NphiesPayer {
+  payerCode: string
+  payerId: string
+  license: string
+  payerName: string
+  internalCustomerId: string | null
+  directDispense: boolean
+  directAuth: boolean
+  vatNumber: string | null
+  city: string | null
+  address1: string | null
+  address2: string | null
+  address3: string | null
+  customerName: string | null
+  customerName2: string | null
+  distributionChannel: string | null
+}
+
+/**
  * `POST Nphies/CheckEligibility` body (§3.1) — `EligibilityRequest` verbatim.
  *
  * 🚩 `hidpReference` is **always null** (§3.1: HIDP is out of scope) and is
@@ -1122,4 +1153,25 @@ export interface LastEligibility {
   occupation: string
   maritalStatus: string
   memberId: string
+}
+
+/**
+ * What `GET Nphies/LastEligibility/{patientId}` actually puts in the envelope's
+ * `data` — SIS.Api's `NphiesLastEligibilityResponse`, which **wraps** the record
+ * under `eligibility` (`NphiesEndpoints.cs:168`, whose own doc comment makes the
+ * wrapper normative: "a patient with no previous check answers `eligibility:
+ * null`").
+ *
+ * 🚩 §1.1 row 2 says `→ LastEligibilityModel`, i.e. the bare record, so the
+ * contract and the door disagree — the same §3.8 wrapping question the five
+ * lookups already carry. Read live against SIS.Api on 2026-08-02: it wraps.
+ *
+ * Reading only the bare shape is what shipped, and it fails in the worst way —
+ * `data` is a truthy object whose every field is `undefined`, so Fill overwrites
+ * nothing, reports nothing, and looks like a dead button. Both shapes are read in
+ * ONE place (`unwrapLastEligibility`), so the day §3.8 freezes one this is a
+ * single-line edit.
+ */
+export interface LastEligibilityAnswer {
+  eligibility: LastEligibility | null
 }

@@ -7,7 +7,11 @@
  * testable without React Testing Library (spec 209's tier-1 ruling).
  */
 
-import type { EligibilityCheckRequest, LastEligibility } from '@/core/models/nphies'
+import type {
+  EligibilityCheckRequest,
+  LastEligibility,
+  LastEligibilityAnswer,
+} from '@/core/models/nphies'
 
 /**
  * What the agent has typed so far. Every field is a string or a boolean because
@@ -121,6 +125,31 @@ export function checkBlockers(draft: CheckDraft): CheckBlocker[] {
  * keeps the field and its blocker agreeing with each other.
  */
 const asDate = (value: string) => (/^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : '')
+
+/**
+ * What Fill's read actually answered, whichever shape the door used.
+ *
+ * 🚩 SIS.Api wraps: the envelope's `data` is `{ eligibility }`
+ * (`NphiesEndpoints.cs:168`), while §1.1 row 2 promises the bare
+ * `LastEligibilityModel`. Both are read here, once — see `LastEligibilityAnswer`
+ * for why reading only the bare one fails silently rather than loudly.
+ *
+ * A patient with no previous check is `null` **or** `{ eligibility: null }`, and
+ * both must arrive at the same `null`: that is the ordinary answer the form
+ * reports as "no previous check", and it is distinguishable from a fill that
+ * happened only because this returns `null` rather than an empty object.
+ */
+export function unwrapLastEligibility(
+  answer: LastEligibility | LastEligibilityAnswer | null | undefined,
+): LastEligibility | null {
+  if (!answer) return null
+  // The wrapper is identified by its OWN key, not by the absence of a record's
+  // key — an unknown third shape must read as "no previous check" rather than as
+  // a record whose every field is undefined, which is the exact failure this
+  // function exists to end.
+  if ('eligibility' in answer) return answer.eligibility ?? null
+  return answer
+}
 
 /**
  * **Fill** — the identity block completed from that patient's last check

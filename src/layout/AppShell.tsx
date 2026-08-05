@@ -9,6 +9,7 @@ import { useSession } from '@/core/session'
 import { signOut } from '@/core/auth/sign-out'
 import { buildTag } from '@/core/build-info'
 import BrandMark from '@/core/ui/BrandMark'
+import StoreSwitcher from '@/features/auth/StoreSwitcher'
 import NotificationBell from './notifications/NotificationBell'
 
 const MOBILE_QUERY = '(max-width: 991px)'
@@ -132,6 +133,25 @@ function AccountPopup() {
               <div className="truncate text-sm font-medium">{name}</div>
               <div className="truncate text-xs text-muted-foreground">{session.userId}</div>
             </div>
+          </div>
+          {/* 🚩 The acting store IS the pricing plant (Nphies contract law 8), and
+              it is bound immutably when an authorization session opens. Without
+              this control the Nphies form's "your acting store is not resolved
+              yet" blocker is a DEAD END — it names the problem and offers nowhere
+              to fix it, which is exactly what a live `Auth/Me` returning
+              `currentStoreCode: ""` produced on 2026-08-02. `layout` → a feature
+              is an allowed import, and `.claude/rules/feature-structure.md` names
+              this very one. */}
+          <div className="mt-1 border-b border-border px-2 pb-2">
+            <div className="text-xs font-medium text-muted-foreground">
+              {t('storeSwitcher.label')}
+            </div>
+            <StoreSwitcher />
+            {!session.currentStoreCode && (
+              <p className="mt-1 text-[0.6875rem] leading-snug text-muted-foreground">
+                {t('storeSwitcher.unset')}
+              </p>
+            )}
           </div>
           <button
             type="button"

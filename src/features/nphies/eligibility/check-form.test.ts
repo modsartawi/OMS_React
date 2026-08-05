@@ -13,6 +13,7 @@ import {
   EMPTY_CHECK_DRAFT,
   checkBlockers,
   fillFromLastEligibility,
+  unwrapLastEligibility,
   toCheckRequest,
   type CheckDraft,
 } from './check-form'
@@ -81,6 +82,38 @@ describe('submitIsBlockedUntilAProviderIsChosen', () => {
     expect(EMPTY_CHECK_DRAFT.patientIdType).toBe('')
     expect(checkBlockers(EMPTY_CHECK_DRAFT)).toContain('patientGender')
     expect(checkBlockers(EMPTY_CHECK_DRAFT)).toContain('patientIdType')
+  })
+})
+
+describe('🚩 Fill reads the shape the door actually answers with', () => {
+  // Found by driving the real SIS.Api on 2026-08-02, not by a stub: the door
+  // answers `{ eligibility }` (`NphiesEndpoints.cs:168`) while §1.1 row 2 promises
+  // the bare record. The client read only the bare one, so `data` was a truthy
+  // object of undefined fields — every `fill()` fell back to what the agent had
+  // typed, nothing changed, and `data !== null` suppressed the "no previous
+  // check" line too. A dead button that reported nothing, on a 200.
+  it('unwraps SIS.Api’s `{ eligibility }` wrapper', () => {
+    expect(unwrapLastEligibility({ eligibility: LAST })).toEqual(LAST)
+  })
+
+  it('reads the bare record the contract promises', () => {
+    expect(unwrapLastEligibility(LAST)).toEqual(LAST)
+  })
+
+  it('turns every no-previous-check shape into ONE null the form can report', () => {
+    // `null`, the wrapper holding null, and an absent body must all reach the
+    // same answer — that null is what raises "no previous check for that patient".
+    expect(unwrapLastEligibility(null)).toBeNull()
+    expect(unwrapLastEligibility({ eligibility: null })).toBeNull()
+    expect(unwrapLastEligibility(undefined)).toBeNull()
+  })
+
+  it('🚩 fills for real once unwrapped — the end-to-end shape of the live bug', () => {
+    const answered = unwrapLastEligibility({ eligibility: LAST })
+    expect(answered).not.toBeNull()
+    expect(fillFromLastEligibility(EMPTY_CHECK_DRAFT, answered!).patientName).toBe(
+      'Muhammad Ali Abbas',
+    )
   })
 })
 

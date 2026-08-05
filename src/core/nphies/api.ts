@@ -5,6 +5,7 @@ import type {
   NphiesDiagnosisLookup,
   NphiesLookup,
   NphiesMorphLookup,
+  NphiesPayer,
   NphiesProvider,
 } from '@/core/models/nphies'
 
@@ -55,6 +56,10 @@ export const nphiesAccessApi = {
  */
 export const PROVIDERS_KEY = ['nphies', 'providers'] as const
 
+/** The payers lookup's own key, keyed by nothing for the reason the providers key
+ *  is — one list for every agent, so one cached call for every screen. */
+export const PAYERS_KEY = ['nphies', 'payers'] as const
+
 /**
  * The lookups' rows, however the door wraps them.
  *
@@ -89,11 +94,36 @@ export const TASK_REASON_CODE_VALUE_SET = 'TaskReasonCode'
  *  nothing, with no error to say why. */
 export const SELECTION_REASON_VALUE_SET = 'SelectionReason'
 
+/** The patient's occupation, which reaches NPHIES as the FHIR Patient's
+ *  `extension-occupation` coding against
+ *  `http://nphies.sa/terminology/CodeSystem/occupation`
+ *  (`PatientEntry.cs:32-34`). A coded field, never free text: a value the code
+ *  system does not contain is refused by the exchange, not by this screen. */
+export const OCCUPATION_VALUE_SET = 'Occupation'
+
+/** The patient's marital status, which reaches NPHIES as the FHIR Patient's
+ *  `maritalStatus` coding against `…/v3-MaritalStatus` (`PatientEntry.cs:95-101`).
+ *  Coded for the same reason as the occupation above — and the codes are single
+ *  letters (`D`, `L`, `M`, `S`, `U`), which nobody types correctly by hand. */
+export const MARITAL_STATUS_VALUE_SET = 'MaritalStatus'
+
 /** One cache entry per value set — the selection reasons (218) and the
  *  cancellation reasons (215) are different reads of the same endpoint. */
 export const codeSystemKey = (valueSet: string) => ['nphies', 'codeSystem', valueSet] as const
 
 export const nphiesLookupApi = {
+  /**
+   * `GET Nphies/Payers` (§1.1 #11) → the payers a check or a request may be
+   * addressed to.
+   *
+   * Keyed by nothing, like the providers lookup: the service scopes it to
+   * distribution channel `20` server-side, so every agent sees the same list and
+   * every screen that needs it shares ONE cached call.
+   */
+  async payers(): Promise<NphiesPayer[]> {
+    return unwrapLookup(await api.get<NphiesLookup<NphiesPayer> | NphiesPayer[]>('Nphies/Payers'))
+  },
+
   /**
    * `GET Nphies/Providers` (§1.1 #12) → the providers the agent may act for.
    *

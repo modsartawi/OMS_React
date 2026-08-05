@@ -1,0 +1,952 @@
+<meta charset="utf-8">
+<title>227 — The shape of the member screen</title>
+
+<style>
+  /* ===== The shipped POS design system (082), lifted verbatim from src/app/global.css,
+     scoped twice so both themes can be drawn side by side. Same block as 101/102/104/105. ===== */
+  .tl {
+    --background: #f4f7fa; --foreground: #19232e;
+    --card: #ffffff; --card-2: #fafbfc;
+    --muted: #eef2f6; --muted-foreground: #586674; --ink-3: #8593a1;
+    --accent: #e4eaf1;
+    --border: #e3e9f0; --border-strong: #cbd6e2; --divider: #edf1f5; --input: #cbd6e2;
+    --ring: #2f63a6;
+    --primary: #2f63a6; --primary-050: #e9eff7; --primary-border: #c6d6ec;
+    --primary-800: #27538c; --primary-foreground: #ffffff;
+    --success: #1e874b; --success-050: #e7f3ec; --success-border: #bfe0cd; --success-800: #155f36;
+    --attention: #b4791f; --attention-050: #f8f0de; --attention-border: #e7d3a3; --attention-800: #7c5410;
+    --danger: #c23b41; --danger-050: #fbecec; --danger-border: #e7bfc1; --danger-800: #8e2a2f;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  .td {
+    --background: #121c27; --foreground: #ecf0f3;
+    --card: #1c2631; --card-2: #17212c;
+    --muted: #27313a; --muted-foreground: #98a6b4; --ink-3: #76828e;
+    --accent: #323c46;
+    --border: #2e3742; --border-strong: #3b4755; --divider: #28313b; --input: #3b4755;
+    --ring: #6ba0e8;
+    --primary: #6ba0e8; --primary-050: #22344b; --primary-border: #364c68;
+    --primary-800: #b5d0f5; --primary-foreground: #121c27;
+    --success: #55b577; --success-050: #1e3a27; --success-border: #2e543a; --success-800: #abdcb8;
+    --attention: #e4a249; --attention-050: #422f15; --attention-border: #5f4522; --attention-800: #f6cc9a;
+    --danger: #df6768; --danger-050: #4c2625; --danger-border: #6f3837; --danger-800: #eeb3b0;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  :root { color-scheme: light dark; }
+  body.tl { color-scheme: light; }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--background); color: var(--foreground);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px; line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---- page chrome ---- */
+  .page { max-width: 1340px; margin: 0 auto; padding: 28px 20px 90px; }
+  .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-size: 22px; font-weight: 650; letter-spacing: -.015em; margin: 4px 0 0; text-wrap: balance; }
+  .lede { max-width: 78ch; color: var(--muted-foreground); margin: 10px 0 0; }
+  .lede code, .caption code, .foot code, .step .sub code, .note code {
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    font-size: .88em; background: var(--muted); padding: 1px 5px; border-radius: 4px;
+  }
+
+  /* ---- switchers ---- */
+  .controls { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
+  .switch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; border: 0; }
+  .switch > .sl { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); min-width: 84px; }
+  .switch label {
+    display: inline-flex; align-items: baseline; gap: 7px;
+    border: 1px solid var(--input); border-radius: 999px;
+    padding: 6px 14px; cursor: pointer; user-select: none;
+    background: var(--card); font-size: 12.5px; font-weight: 500;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .switch label:hover { background: var(--accent); }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch label:has(input:checked) { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+  .switch label:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+  /* ---- variant / theme visibility ---- */
+  body:has(#v-a:checked) .var:not(.a),
+  body:has(#v-b:checked) .var:not(.b),
+  body:has(#v-c:checked) .var:not(.c) { display: none; }
+  body:has(#t-light:checked) .theme-dark, body:has(#t-dark:checked) .theme-light { display: none; }
+  .pair { display: grid; gap: 16px; }
+  body:has(#t-both:checked) .pair { grid-template-columns: 1fr 1fr; }
+  body:has(#t-both:checked) .device { zoom: .62; }
+
+  /* ---- variant heading + caption ---- */
+  .var { margin-top: 34px; }
+  .vhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+  .vhead .vk { font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--primary); }
+  .vhead h2 { font-size: 18px; font-weight: 650; letter-spacing: -.015em; margin: 0; }
+  .caption {
+    margin: 12px 0 0; padding: 12px 14px;
+    border: 1px solid var(--border); border-inline-start: 3px solid var(--primary);
+    border-radius: 6px; background: var(--card-2);
+    max-width: 96ch; color: var(--muted-foreground); font-size: 13px;
+  }
+  .caption b { color: var(--foreground); font-weight: 600; }
+  .caption .tradeoff { display: block; margin-top: 7px; }
+  .caption .tradeoff .k { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); margin-inline-end: 6px; }
+
+  /* ---- step rail ---- */
+  .steps { margin-top: 18px; display: flex; flex-direction: column; gap: 22px; }
+  .step .sh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 7px; }
+  .step .n { font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .step .t { font-size: 13.5px; font-weight: 650; letter-spacing: -.01em; }
+  .step .sub { font-size: 12px; color: var(--muted-foreground); }
+
+  /* ---- the device shell ---- */
+  .device {
+    border: 1px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--background); color: var(--foreground);
+    overflow: hidden; box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 8px 24px rgb(0 0 0 / .05);
+  }
+  .device-bar { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--brand-panel); color: var(--brand-panel-foreground); }
+  .device-bar .dot { width: 8px; height: 8px; border-radius: 999px; background: rgb(255 255 255 / .3); }
+  .device-bar .name { font-size: 11px; font-weight: 600; letter-spacing: .04em; opacity: .85; }
+  .device-bar .px { margin-inline-start: auto; font-size: 10.5px; font-family: ui-monospace, Consolas, monospace; opacity: .6; }
+  .stage { padding: 14px 16px 18px; container-type: inline-size; container-name: work; }
+  .crumb { font-size: 11px; color: var(--ink-3); letter-spacing: .04em; margin-bottom: 10px; }
+  .crumb b { color: var(--muted-foreground); font-weight: 600; }
+
+  /* ===== search vocabulary ===== */
+  .searchcard {
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--card);
+    padding: 16px;
+  }
+  .searchcard.hero { padding: 30px 20px; text-align: center; }
+  .searchcard.hero .sf { margin-inline: auto; }
+  .sf-lab { font-size: 12px; font-weight: 600; color: var(--muted-foreground); margin-bottom: 6px; }
+  .sf { display: flex; gap: 8px; align-items: center; max-width: 460px; }
+  .sf input {
+    flex: 1 1 auto; min-width: 0; height: 36px; padding: 0 12px;
+    border: 1px solid var(--input); border-radius: 8px;
+    background: var(--card-2); color: var(--foreground);
+    font: inherit; font-size: 13.5px; font-variant-numeric: tabular-nums;
+  }
+  .sf input::placeholder { color: var(--ink-3); }
+  .sf input:focus { outline: 2px solid var(--ring); outline-offset: 1px; }
+  .hint { font-size: 11.5px; color: var(--ink-3); margin-top: 8px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 36px;
+    padding: 0 16px; border-radius: 999px; font-size: 13px; font-weight: 550;
+    border: 1px solid var(--input); background: var(--card); color: var(--foreground);
+    cursor: pointer; white-space: nowrap;
+  }
+  .btn:hover { background: var(--accent); }
+  .btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+  .btn.sm { height: 28px; padding: 0 12px; font-size: 12px; }
+  .btn.quiet { border-color: transparent; background: none; color: var(--primary); font-weight: 600; }
+  .btn.quiet:hover { background: var(--primary-050); }
+
+  .empty {
+    margin-top: 14px; padding: 26px 16px; text-align: center;
+    border: 1px dashed var(--border-strong); border-radius: var(--radius);
+    color: var(--muted-foreground); font-size: 13px; background: var(--card-2);
+  }
+  .empty .big { display: block; font-size: 14px; font-weight: 600; color: var(--foreground); margin-bottom: 4px; }
+
+  /* ===== the identity bar (variant B / C) ===== */
+  .idbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--card-2);
+  }
+  .idbar .who { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .idbar .who .nm { font-size: 14px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .idbar .keychip {
+    display: inline-flex; align-items: baseline; gap: 6px;
+    border-radius: 999px; padding: 3px 10px; font-size: 12px;
+    background: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .idbar .keychip .ck { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .idbar .tail { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
+
+  /* ===== the member header ===== */
+  .member { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); overflow: hidden; }
+  .mhead { display: flex; flex-wrap: wrap; gap: 14px 24px; padding: 14px 16px; align-items: flex-start; }
+  .mhead .who { min-width: 0; flex: 1 1 260px; }
+  .mhead .nm { font-size: 19px; font-weight: 650; letter-spacing: -.02em; margin: 0; }
+  .mhead .keys { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 5px; font-size: 12.5px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .mhead .keys .k { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-inline-end: 5px; }
+  .mhead .keys .v { color: var(--foreground); font-weight: 550; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .chip {
+    display: inline-flex; align-items: baseline; gap: 5px;
+    border-radius: 999px; padding: 3px 10px; font-size: 11.5px; font-weight: 600;
+    border: 1px solid var(--border-strong); background: var(--muted); color: var(--foreground);
+    white-space: nowrap;
+  }
+  .chip.tier { background: var(--attention-050); border-color: var(--attention-border); color: var(--attention-800); }
+  .chip.blocked { background: var(--danger-050); border-color: var(--danger-border); color: var(--danger-800); }
+  .chip.type { background: var(--muted); border-color: var(--border-strong); color: var(--muted-foreground); }
+  .chip .raw { font-family: ui-monospace, Consolas, monospace; font-size: 10px; opacity: .7; }
+
+  /* the points block — the headline number */
+  .points { display: flex; flex-wrap: wrap; gap: 6px 26px; align-items: baseline; }
+  .pt { min-width: 0; }
+  .pt .k { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+  .pt .v { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .pt.big .v { font-size: 27px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; }
+  .pt .u { font-size: 11px; font-weight: 600; color: var(--muted-foreground); margin-inline-start: 4px; }
+  .pt .s { display: block; font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+  .pt.warn .v { color: var(--attention-800); }
+
+  /* the fuller panel, behind a disclosure */
+  .disclose {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: none; border: 0; padding: 4px 0; cursor: pointer;
+    font-size: 12.5px; font-weight: 600; color: var(--primary);
+  }
+  .disclose .tw { color: var(--ink-3); }
+  .details {
+    border-top: 1px solid var(--divider); padding: 12px 16px 14px; background: var(--card-2);
+    display: grid; gap: 10px 22px; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  }
+  .details .f .k { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+  .details .f .v { font-size: 13px; font-variant-numeric: tabular-nums; }
+  .details .f .v.dim { color: var(--ink-3); }
+  .details .f .v .raw { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+  .discloserow { padding: 0 16px 12px; border-top: 1px solid var(--divider); padding-top: 8px; }
+
+  /* ===== tabs ===== */
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); padding: 0 16px; overflow-x: auto; }
+  .tabs button {
+    background: none; border: 0; border-bottom: 2px solid transparent;
+    padding: 9px 12px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 550;
+    color: var(--muted-foreground); white-space: nowrap;
+  }
+  .tabs button:hover { color: var(--foreground); }
+  .tabs button[aria-selected="true"] { color: var(--primary); border-bottom-color: var(--primary); font-weight: 650; }
+  .tabs .cnt { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; margin-inline-start: 5px; }
+  .tabbody { padding: 12px 16px 14px; }
+  .capline {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px;
+    font-size: 12px; color: var(--muted-foreground); margin-bottom: 8px;
+  }
+  .capline .warn { color: var(--attention-800); font-weight: 600; }
+  .capline .tools { margin-inline-start: auto; display: flex; gap: 6px; }
+
+  /* ===== grid ===== */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th {
+    text-align: start; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-3); padding: 0 8px 6px; border-bottom: 1px solid var(--border-strong); white-space: nowrap;
+  }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--divider); vertical-align: baseline; }
+  tbody tr:hover { background: var(--card-2); }
+  .end { text-align: end; }
+  .n { font-variant-numeric: tabular-nums; }
+  .hl { font-weight: 600; }
+  .dim { color: var(--muted-foreground); }
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+  .neg { color: var(--foreground); }
+  .trunc { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
+
+  .note {
+    margin-top: 10px; padding: 9px 12px; font-size: 12px;
+    border: 1px solid var(--border); border-radius: 6px; background: var(--card-2);
+    color: var(--muted-foreground);
+  }
+  .note b { color: var(--foreground); font-weight: 600; }
+
+  /* ===== variant C — the lookup rail ===== */
+  .split { display: grid; gap: 12px; align-items: start; grid-template-columns: 1fr; }
+  @container work (min-width: 900px) {
+    .split { grid-template-columns: minmax(230px, 264px) minmax(0, 1fr); }
+  }
+  .rail { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 12px; }
+  .rail h3 { margin: 0 0 8px; font-size: 12px; font-weight: 650; }
+  .rail .sf { max-width: none; flex-wrap: wrap; }
+  .rail .sf input { flex: 1 1 100%; }
+  .rail .sf .btn { flex: 1 1 auto; justify-content: center; }
+  .recent { margin-top: 14px; border-top: 1px solid var(--divider); padding-top: 10px; }
+  .recent .rk { font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+  .recent ul { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .recent a {
+    display: block; padding: 5px 8px; border-radius: 6px; text-decoration: none;
+    color: var(--foreground); font-size: 12.5px;
+  }
+  .recent a:hover { background: var(--accent); }
+  .recent a.on { background: var(--primary-050); color: var(--primary-800); font-weight: 600; }
+  .recent a .m { display: block; font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+  /* sticky demo */
+  .scrollbox { max-height: 300px; overflow: auto; border-top: 1px solid var(--divider); }
+  .stickyhead { position: sticky; top: 0; z-index: 2; background: var(--card); }
+  .scrollbox table { }
+  .scrollbox thead th { position: sticky; top: 0; background: var(--card); z-index: 1; }
+
+  .foot { margin-top: 44px; border-top: 1px solid var(--border); padding-top: 16px; color: var(--muted-foreground); font-size: 13px; max-width: 92ch; }
+  .foot h2 { font-size: 15px; font-weight: 650; color: var(--foreground); margin: 0 0 8px; }
+  .foot ul { margin: 6px 0 0; padding-inline-start: 20px; }
+  .foot li { margin-bottom: 5px; }
+  .foot b { color: var(--foreground); font-weight: 600; }
+</style>
+
+<body class="tl">
+<div class="page">
+
+  <p class="eyebrow">Map 222 · ticket 227 · prototype · throwaway</p>
+  <h1>The shape of the member screen</h1>
+  <p class="lede">
+    Three ways the same screen can go from <b>one field on an empty page</b> to <b>a dense member
+    view</b>. Same data in all three (225's resolve rule, 226's three column sets, 229's code rule,
+    230's two chips) — what differs is where the search goes once it has done its job, and how much
+    of the member the header carries. Mock data; no server. Not a port of WPF IC.
+  </p>
+
+  <div class="controls">
+    <fieldset class="switch">
+      <span class="sl">Variant</span>
+      <label><input type="radio" name="v" id="v-all" checked> All three</label>
+      <label><input type="radio" name="v" id="v-a"> A · Field stays</label>
+      <label><input type="radio" name="v" id="v-b"> B · Collapses to a bar</label>
+      <label><input type="radio" name="v" id="v-c"> C · Lookup rail</label>
+    </fieldset>
+    <fieldset class="switch">
+      <span class="sl">Theme</span>
+      <label><input type="radio" name="t" id="t-light" checked> Light</label>
+      <label><input type="radio" name="t" id="t-dark"> Dark</label>
+      <label><input type="radio" name="t" id="t-both"> Both</label>
+    </fieldset>
+  </div>
+
+  <!-- ==================================================================== A ==== -->
+  <section class="var a">
+    <div class="vhead"><span class="vk">VARIANT A</span><h2>The field stays put; the member unfurls beneath it</h2></div>
+    <p class="caption">
+      The search card is <b>permanent furniture</b> at the top of the page and never moves. A found
+      member renders below it; a second lookup is just typing again in the same box, which replaces
+      what is below. The box always shows what was typed last.
+      <span class="tradeoff"><span class="k">Costs</span> ~86 px of vertical space above a screen
+        whose whole job is scanning long grids, and the member's name is never the first thing on the page.</span>
+      <span class="tradeoff"><span class="k">Buys</span> one mental model, zero transitions to
+        design, and the answer to "what did I search?" is always on screen. Simplest thing that
+        could work — which is this map's standing preference.</span>
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="sh"><span class="n">Step 1</span><span class="t">Nothing looked up yet</span>
+          <span class="sub">explicit submit, blank is silent (225)</span></div>
+        <div class="pair">
+          <div class="theme-light tl"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="searchcard">
+                <div class="sf-lab">Mobile number or Loy ID</div>
+                <div class="sf">
+                  <input placeholder="0555000111 or 100001293" value="">
+                  <button class="btn primary">Look up</button>
+                </div>
+                <p class="hint">One field — the portal tries the mobile first, then the Loy ID.</p>
+              </div>
+              <div class="empty"><span class="big">No member looked up yet</span>
+                Enter a mobile number or a Loy ID above.</div>
+            </div>
+          </div></div>
+          <div class="theme-dark td"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="searchcard">
+                <div class="sf-lab">Mobile number or Loy ID</div>
+                <div class="sf">
+                  <input placeholder="0555000111 or 100001293" value="">
+                  <button class="btn primary">Look up</button>
+                </div>
+                <p class="hint">One field — the portal tries the mobile first, then the Loy ID.</p>
+              </div>
+              <div class="empty"><span class="big">No member looked up yet</span>
+                Enter a mobile number or a Loy ID above.</div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="sh"><span class="n">Step 2</span><span class="t">A member resolved</span>
+          <span class="sub">header above, three tabs below; Activities is the landing tab</span></div>
+        <div class="pair">
+          <div class="theme-light tl"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="searchcard" style="margin-bottom:12px">
+                <div class="sf">
+                  <input value="0555000111">
+                  <button class="btn primary">Look up</button>
+                  <button class="btn">Clear</button>
+                </div>
+              </div>
+
+              <div class="member">
+                <div class="mhead">
+                  <div class="who">
+                    <p class="nm">Nouf Al-Harbi</p>
+                    <div class="keys">
+                      <span><span class="k">Loy ID</span><span class="v">100001293</span></span>
+                      <span><span class="k">Mobile</span><span class="v">966555000111</span></span>
+                      <span><span class="k">Joined</span><span class="v">14 Mar 2021</span></span>
+                    </div>
+                    <div class="chips">
+                      <span class="chip tier">Gold</span>
+                    </div>
+                  </div>
+                  <div class="points">
+                    <div class="pt big"><span class="k">Points balance</span><span class="v">12,480<span class="u">pts</span></span><span class="s">≈ 561 SAR</span></div>
+                    <div class="pt"><span class="k">Pending</span><span class="v">320</span></div>
+                    <div class="pt warn"><span class="k">Expiring</span><span class="v">1,200</span><span class="s">within 30 days</span></div>
+                    <div class="pt"><span class="k">Tier points</span><span class="v">8,940</span></div>
+                  </div>
+                </div>
+                <div class="discloserow">
+                  <button class="disclose"><span class="tw">›</span> More member details</button>
+                </div>
+
+                <div class="tabs">
+                  <button aria-selected="true">Activities</button>
+                  <button>Sales</button>
+                  <button>Actions <span class="cnt">312</span></button>
+                </div>
+                <div class="tabbody">
+                  <div class="capline">
+                    <span>Most recent 100 activities.</span>
+                    <span class="warn">There may be older activities than these.</span>
+                    <span class="tools"><button class="btn sm">Filter</button></span>
+                  </div>
+                  <table>
+                    <thead><tr>
+                      <th>Date</th><th>Activity</th><th class="end">Points</th><th>Status</th><th>Expires</th><th>Reference</th>
+                    </tr></thead>
+                    <tbody>
+                      <tr><td class="n">02 Aug 2026</td><td>Purchase accrual</td><td class="end n hl">+240</td><td>Active</td><td class="n">02 Aug 2027</td><td class="mono dim">TRX-8841203</td></tr>
+                      <tr><td class="n">28 Jul 2026</td><td>Redemption</td><td class="end n hl">−2,000</td><td>Active</td><td class="dim">—</td><td class="mono dim">TRX-8830117</td></tr>
+                      <tr><td class="n">21 Jul 2026</td><td>Purchase accrual</td><td class="end n hl">+86</td><td>Active</td><td class="n">21 Jul 2027</td><td class="mono dim">TRX-8811994</td></tr>
+                      <tr><td class="n">19 Jul 2026</td><td>Points expiry</td><td class="end n hl">−340</td><td>Expired</td><td class="dim">—</td><td class="dim">—</td></tr>
+                      <tr><td class="n">11 Jul 2026</td><td>Manual adjustment</td><td class="end n hl">+500</td><td>Active</td><td class="n">11 Jul 2027</td><td class="mono dim">ADJ-00412</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p class="note"><b>Second lookup:</b> type over the box and submit — the member below is
+                replaced in place. Nothing to close, nothing to go "back" to.</p>
+            </div>
+          </div></div>
+          <div class="theme-dark td"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="searchcard" style="margin-bottom:12px">
+                <div class="sf">
+                  <input value="0555000111">
+                  <button class="btn primary">Look up</button>
+                  <button class="btn">Clear</button>
+                </div>
+              </div>
+              <div class="member">
+                <div class="mhead">
+                  <div class="who">
+                    <p class="nm">Nouf Al-Harbi</p>
+                    <div class="keys">
+                      <span><span class="k">Loy ID</span><span class="v">100001293</span></span>
+                      <span><span class="k">Mobile</span><span class="v">966555000111</span></span>
+                      <span><span class="k">Joined</span><span class="v">14 Mar 2021</span></span>
+                    </div>
+                    <div class="chips"><span class="chip tier">Gold</span></div>
+                  </div>
+                  <div class="points">
+                    <div class="pt big"><span class="k">Points balance</span><span class="v">12,480<span class="u">pts</span></span><span class="s">≈ 561 SAR</span></div>
+                    <div class="pt"><span class="k">Pending</span><span class="v">320</span></div>
+                    <div class="pt warn"><span class="k">Expiring</span><span class="v">1,200</span><span class="s">within 30 days</span></div>
+                    <div class="pt"><span class="k">Tier points</span><span class="v">8,940</span></div>
+                  </div>
+                </div>
+                <div class="discloserow"><button class="disclose"><span class="tw">›</span> More member details</button></div>
+                <div class="tabs">
+                  <button aria-selected="true">Activities</button><button>Sales</button><button>Actions <span class="cnt">312</span></button>
+                </div>
+                <div class="tabbody">
+                  <div class="capline"><span>Most recent 100 activities.</span><span class="warn">There may be older activities than these.</span></div>
+                  <table>
+                    <thead><tr><th>Date</th><th>Activity</th><th class="end">Points</th><th>Status</th><th>Expires</th><th>Reference</th></tr></thead>
+                    <tbody>
+                      <tr><td class="n">02 Aug 2026</td><td>Purchase accrual</td><td class="end n hl">+240</td><td>Active</td><td class="n">02 Aug 2027</td><td class="mono dim">TRX-8841203</td></tr>
+                      <tr><td class="n">28 Jul 2026</td><td>Redemption</td><td class="end n hl">−2,000</td><td>Active</td><td class="dim">—</td><td class="mono dim">TRX-8830117</td></tr>
+                      <tr><td class="n">21 Jul 2026</td><td>Purchase accrual</td><td class="end n hl">+86</td><td>Active</td><td class="n">21 Jul 2027</td><td class="mono dim">TRX-8811994</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== B ==== -->
+  <section class="var b">
+    <div class="vhead"><span class="vk">VARIANT B</span><h2>The field collapses into an identity bar</h2>
+      <span class="chip" style="background:var(--success-050);border-color:var(--success-border);color:var(--success-800)">TAKEN</span></div>
+    <p class="caption">
+      <b>Chosen 2026-08-06</b>, with two amendments applied below: the bar carries <b>the searched
+      key only</b> — the name lives in exactly one place, the header — and the resolved member lives
+      at <code>/loy/members/:loyId</code> with the open tab as a query param, so <b>Change</b> reopens
+      the field in place and <b>New lookup</b> navigates to <code>/loy/members</code>.
+      <br><br>
+      The call-centre chip-bar move. Before a lookup the field is the page — a hero, centred, nothing
+      else competing. Once a member resolves the field <b>collapses into a slim bar</b> carrying the
+      key that resolved them and a <b>Change</b> affordance; the member view owns the rest of the
+      screen. Clicking Change expands the bar back into the field, pre-filled.
+      <span class="tradeoff"><span class="k">Costs</span> a state to design and explain, and the
+        typed value is one click away rather than on screen.</span>
+      <span class="tradeoff"><span class="k">Buys</span> ~40 px back for the grids, an empty state
+        that reads as an invitation rather than a form, and it matches a shape the portal already
+        uses — the console's settled-and-collapsed chip.</span>
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="sh"><span class="n">Step 1</span><span class="t">The field is the page</span>
+          <span class="sub">no member, no chrome competing with it</span></div>
+        <div class="pair">
+          <div class="theme-light tl"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="searchcard hero">
+                <div class="sf-lab">Look up a loyalty member</div>
+                <div class="sf">
+                  <input placeholder="Mobile number or Loy ID">
+                  <button class="btn primary">Look up</button>
+                </div>
+                <p class="hint">Mobile first, then Loy ID — one field decides nothing, the server does.</p>
+              </div>
+            </div>
+          </div></div>
+          <div class="theme-dark td"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="searchcard hero">
+                <div class="sf-lab">Look up a loyalty member</div>
+                <div class="sf">
+                  <input placeholder="Mobile number or Loy ID">
+                  <button class="btn primary">Look up</button>
+                </div>
+                <p class="hint">Mobile first, then Loy ID — one field decides nothing, the server does.</p>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="sh"><span class="n">Step 2</span><span class="t">Resolved — the bar, then the member</span>
+          <span class="sub">the details panel is drawn open here so both halves of the header can be judged</span></div>
+        <div class="pair">
+          <div class="theme-light tl"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="idbar" style="margin-bottom:12px">
+                <span class="keychip"><span class="ck">Searched</span>0555000111</span>
+                <div class="tail">
+                  <button class="btn sm">Change</button>
+                  <button class="btn sm">New lookup</button>
+                </div>
+              </div>
+
+              <div class="member">
+                <div class="mhead">
+                  <div class="who">
+                    <p class="nm">Nouf Al-Harbi</p>
+                    <div class="keys">
+                      <span><span class="k">Loy ID</span><span class="v">100001293</span></span>
+                      <span><span class="k">Mobile</span><span class="v">966555000111</span></span>
+                      <span><span class="k">Joined</span><span class="v">14 Mar 2021</span></span>
+                      <span><span class="k">Updated</span><span class="v">31 Jul 2026</span></span>
+                    </div>
+                    <div class="chips">
+                      <span class="chip tier">Gold</span>
+                      <span class="chip blocked">Blocked · Mobile moved to another account</span>
+                    </div>
+                  </div>
+                  <div class="points">
+                    <div class="pt big"><span class="k">Points balance</span><span class="v">12,480<span class="u">pts</span></span><span class="s">≈ 561 SAR</span></div>
+                    <div class="pt"><span class="k">Pending</span><span class="v">320</span></div>
+                    <div class="pt warn"><span class="k">Expiring</span><span class="v">1,200</span><span class="s">within 30 days</span></div>
+                    <div class="pt"><span class="k">Tier points</span><span class="v">8,940</span></div>
+                  </div>
+                </div>
+                <div class="details">
+                  <div class="f"><span class="k">Email</span><span class="v">nouf.h@example.com</span></div>
+                  <div class="f"><span class="k">Birth date</span><span class="v">08 Nov 1990</span></div>
+                  <div class="f"><span class="k">Gender code</span><span class="v"><span class="raw">F</span></span></div>
+                  <div class="f"><span class="k">National ID</span><span class="v n">1098443217</span></div>
+                  <div class="f"><span class="k">Nationality code</span><span class="v"><span class="raw">SA</span></span></div>
+                  <div class="f"><span class="k">City code</span><span class="v"><span class="raw">RUH</span></span></div>
+                  <div class="f"><span class="k">Preferred language</span><span class="v"><span class="raw">AR</span></span></div>
+                  <div class="f"><span class="k">Insurance company</span><span class="v dim">—</span></div>
+                </div>
+                <div class="discloserow"><button class="disclose"><span class="tw">⌄</span> Hide member details</button></div>
+
+                <div class="tabs">
+                  <button aria-selected="true">Activities</button>
+                  <button>Sales</button>
+                  <button>Actions <span class="cnt">312</span></button>
+                </div>
+                <div class="tabbody">
+                  <div class="capline"><span>Most recent 100 activities.</span>
+                    <span class="warn">There may be older activities than these.</span>
+                    <span class="tools"><button class="btn sm">Filter</button></span></div>
+                  <table>
+                    <thead><tr><th>Date</th><th>Activity</th><th class="end">Points</th><th>Status</th><th>Expires</th><th>Reference</th></tr></thead>
+                    <tbody>
+                      <tr><td class="n">02 Aug 2026</td><td>Purchase accrual</td><td class="end n hl">+240</td><td>Active</td><td class="n">02 Aug 2027</td><td class="mono dim">TRX-8841203</td></tr>
+                      <tr><td class="n">28 Jul 2026</td><td>Redemption</td><td class="end n hl">−2,000</td><td>Active</td><td class="dim">—</td><td class="mono dim">TRX-8830117</td></tr>
+                      <tr><td class="n">21 Jul 2026</td><td>Purchase accrual</td><td class="end n hl">+86</td><td>Active</td><td class="n">21 Jul 2027</td><td class="mono dim">TRX-8811994</td></tr>
+                      <tr><td class="n">19 Jul 2026</td><td>Points expiry</td><td class="end n hl">−340</td><td>Expired</td><td class="dim">—</td><td class="dim">—</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p class="note"><b>Drawn here:</b> a member who is <b>blocked</b> (230's second chip,
+                reason decoded from <code>CM</code>) and the details panel open. An ordinary member
+                shows the tier chip alone and the panel shut.</p>
+            </div>
+          </div></div>
+          <div class="theme-dark td"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="idbar" style="margin-bottom:12px">
+                <span class="keychip"><span class="ck">Searched</span>0555000111</span>
+                <div class="tail"><button class="btn sm">Change</button><button class="btn sm">New lookup</button></div>
+              </div>
+              <div class="member">
+                <div class="mhead">
+                  <div class="who">
+                    <p class="nm">Nouf Al-Harbi</p>
+                    <div class="keys">
+                      <span><span class="k">Loy ID</span><span class="v">100001293</span></span>
+                      <span><span class="k">Mobile</span><span class="v">966555000111</span></span>
+                      <span><span class="k">Joined</span><span class="v">14 Mar 2021</span></span>
+                    </div>
+                    <div class="chips">
+                      <span class="chip tier">Gold</span>
+                      <span class="chip blocked">Blocked · Mobile moved to another account</span>
+                    </div>
+                  </div>
+                  <div class="points">
+                    <div class="pt big"><span class="k">Points balance</span><span class="v">12,480<span class="u">pts</span></span><span class="s">≈ 561 SAR</span></div>
+                    <div class="pt"><span class="k">Pending</span><span class="v">320</span></div>
+                    <div class="pt warn"><span class="k">Expiring</span><span class="v">1,200</span><span class="s">within 30 days</span></div>
+                  </div>
+                </div>
+                <div class="details">
+                  <div class="f"><span class="k">Email</span><span class="v">nouf.h@example.com</span></div>
+                  <div class="f"><span class="k">Birth date</span><span class="v">08 Nov 1990</span></div>
+                  <div class="f"><span class="k">Gender code</span><span class="v"><span class="raw">F</span></span></div>
+                  <div class="f"><span class="k">National ID</span><span class="v n">1098443217</span></div>
+                  <div class="f"><span class="k">City code</span><span class="v"><span class="raw">RUH</span></span></div>
+                  <div class="f"><span class="k">Insurance company</span><span class="v dim">—</span></div>
+                </div>
+                <div class="discloserow"><button class="disclose"><span class="tw">⌄</span> Hide member details</button></div>
+                <div class="tabs"><button aria-selected="true">Activities</button><button>Sales</button><button>Actions <span class="cnt">312</span></button></div>
+                <div class="tabbody">
+                  <div class="capline"><span>Most recent 100 activities.</span><span class="warn">There may be older activities than these.</span></div>
+                  <table>
+                    <thead><tr><th>Date</th><th>Activity</th><th class="end">Points</th><th>Status</th><th>Expires</th><th>Reference</th></tr></thead>
+                    <tbody>
+                      <tr><td class="n">02 Aug 2026</td><td>Purchase accrual</td><td class="end n hl">+240</td><td>Active</td><td class="n">02 Aug 2027</td><td class="mono dim">TRX-8841203</td></tr>
+                      <tr><td class="n">28 Jul 2026</td><td>Redemption</td><td class="end n hl">−2,000</td><td>Active</td><td class="dim">—</td><td class="mono dim">TRX-8830117</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="sh"><span class="n">Step 3</span><span class="t">No member matched</span>
+          <span class="sub">225: a double miss is one neutral client sentence, and the box is never rewritten</span></div>
+        <div class="pair">
+          <div class="theme-light tl"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="searchcard hero">
+                <div class="sf-lab">Look up a loyalty member</div>
+                <div class="sf"><input value="0555000999"><button class="btn primary">Look up</button></div>
+                <div class="empty" style="max-width:520px;margin-inline:auto">
+                  <span class="big">No member matches 0555000999</span>
+                  Neither a mobile number nor a Loy ID matched. Check the number and try again.
+                </div>
+              </div>
+              <p class="note">The bar never appears — there is no identity to collapse into. A
+                <b>403, timeout or server error aborts instead</b> and shows itself; only a real miss
+                reads like this (225).</p>
+            </div>
+          </div></div>
+          <div class="theme-dark td"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="searchcard hero">
+                <div class="sf-lab">Look up a loyalty member</div>
+                <div class="sf"><input value="0555000999"><button class="btn primary">Look up</button></div>
+                <div class="empty" style="max-width:520px;margin-inline:auto">
+                  <span class="big">No member matches 0555000999</span>
+                  Neither a mobile number nor a Loy ID matched. Check the number and try again.
+                </div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================================== C ==== -->
+  <section class="var c">
+    <div class="vhead"><span class="vk">VARIANT C</span><h2>A lookup rail beside the member</h2></div>
+    <p class="caption">
+      The search never leaves and never collapses — it lives in a <b>narrow rail</b> down the start
+      edge, with the members looked up this session listed under it. The member view takes the whole
+      remaining width. A second lookup is one field away without displacing anything, and going
+      <b>back</b> to the previous member is one click.
+      <span class="tradeoff"><span class="k">Costs</span> ~250 px of width on a screen whose Sales
+        tab already wants eight columns, a session-recents list nobody asked for, and it stacks the
+        rail above the member below ~900 px.</span>
+      <span class="tradeoff"><span class="k">Buys</span> the only variant where comparing two
+        members is cheap — which is what a call actually looks like. Furthest from phase 1's
+        "read-only, and simple" preference.</span>
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="sh"><span class="n">Step 2</span><span class="t">Resolved, with a second member already in the rail</span>
+          <span class="sub">Sales tab shown — the widest of the three column sets, so the width cost is honest</span></div>
+        <div class="pair">
+          <div class="theme-light tl"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="split">
+                <aside class="rail">
+                  <h3>Look up a member</h3>
+                  <div class="sf">
+                    <input placeholder="Mobile or Loy ID">
+                    <button class="btn primary">Look up</button>
+                  </div>
+                  <div class="recent">
+                    <span class="rk">This session</span>
+                    <ul>
+                      <li><a class="on" href="#">Nouf Al-Harbi<span class="m">100001293</span></a></li>
+                      <li><a href="#">Faisal Al-Otaibi<span class="m">100044817</span></a></li>
+                      <li><a href="#">Maha Al-Qahtani<span class="m">100019552</span></a></li>
+                    </ul>
+                  </div>
+                </aside>
+
+                <div class="member">
+                  <div class="mhead">
+                    <div class="who">
+                      <p class="nm">Nouf Al-Harbi</p>
+                      <div class="keys">
+                        <span><span class="k">Loy ID</span><span class="v">100001293</span></span>
+                        <span><span class="k">Mobile</span><span class="v">966555000111</span></span>
+                        <span><span class="k">Joined</span><span class="v">14 Mar 2021</span></span>
+                      </div>
+                      <div class="chips">
+                        <span class="chip tier">Gold</span>
+                        <span class="chip type">Archived</span>
+                      </div>
+                    </div>
+                    <div class="points">
+                      <div class="pt big"><span class="k">Points balance</span><span class="v">12,480<span class="u">pts</span></span><span class="s">≈ 561 SAR</span></div>
+                      <div class="pt"><span class="k">Pending</span><span class="v">320</span></div>
+                      <div class="pt warn"><span class="k">Expiring</span><span class="v">1,200</span><span class="s">within 30 days</span></div>
+                    </div>
+                  </div>
+                  <div class="discloserow"><button class="disclose"><span class="tw">›</span> More member details</button></div>
+
+                  <div class="tabs">
+                    <button>Activities</button>
+                    <button aria-selected="true">Sales</button>
+                    <button>Actions <span class="cnt">312</span></button>
+                  </div>
+                  <div class="tabbody">
+                    <div class="capline"><span>Most recent 500 sale lines.</span>
+                      <span class="tools"><button class="btn sm">Filter</button></span></div>
+                    <div class="scrollbox">
+                      <table>
+                        <thead><tr>
+                          <th>Date</th><th>Receipt</th><th>Store</th><th>Item no.</th><th>Item</th>
+                          <th class="end">Qty</th><th class="end">Unit price</th><th class="end">Amount</th>
+                        </tr></thead>
+                        <tbody>
+                          <tr><td class="n">02 Aug 2026</td><td class="mono">8841203</td><td>1042 · Olaya</td><td class="mono">300114</td><td><span class="trunc hl">Panadol Extra 500mg — 24 tab</span></td><td class="end n">2</td><td class="end n">14.50</td><td class="end n">29.00</td></tr>
+                          <tr><td class="n">02 Aug 2026</td><td class="mono">8841203</td><td>1042 · Olaya</td><td class="mono">411902</td><td><span class="trunc hl">CeraVe Moisturising Cream 454g</span></td><td class="end n">1</td><td class="end n">98.00</td><td class="end n">98.00</td></tr>
+                          <tr><td class="n">28 Jul 2026</td><td class="mono">8830117</td><td>1042 · Olaya</td><td class="mono">300114</td><td><span class="trunc hl">Panadol Extra 500mg — 24 tab</span></td><td class="end n">−1</td><td class="end n">14.50</td><td class="end n">−14.50</td></tr>
+                          <tr><td class="n">21 Jul 2026</td><td class="mono">8811994</td><td>2210 · Tahlia</td><td class="mono">520771</td><td><span class="trunc hl">Vitamin D3 5000 IU — 60 cap</span></td><td class="end n">3</td><td class="end n">42.00</td><td class="end n">126.00</td></tr>
+                          <tr><td class="n">14 Jul 2026</td><td class="mono">8790442</td><td>2210 · Tahlia</td><td class="mono">118330</td><td><span class="trunc hl">Baby wipes sensitive 72s</span></td><td class="end n">4</td><td class="end n">11.75</td><td class="end n">47.00</td></tr>
+                          <tr><td class="n">09 Jul 2026</td><td class="mono">8771208</td><td>1042 · Olaya</td><td class="mono">600231</td><td><span class="trunc hl">Omron blood pressure monitor</span></td><td class="end n">1</td><td class="end n">289.00</td><td class="end n">289.00</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="note"><b>Drawn here:</b> an <b>archived</b> member (230's first chip — the
+                door maps <code>MemberType</code> through so the screen can say so), the return line
+                with its signed <code>Qty</code>/<code>Amount</code> against an unsigned unit price
+                (226), and the header <b>scrolling away</b> while the grid scrolls in its own box.</p>
+            </div>
+          </div></div>
+          <div class="theme-dark td"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="crumb">Loyalty <b>›</b> Member</div>
+              <div class="split">
+                <aside class="rail">
+                  <h3>Look up a member</h3>
+                  <div class="sf"><input placeholder="Mobile or Loy ID"><button class="btn primary">Look up</button></div>
+                  <div class="recent">
+                    <span class="rk">This session</span>
+                    <ul>
+                      <li><a class="on" href="#">Nouf Al-Harbi<span class="m">100001293</span></a></li>
+                      <li><a href="#">Faisal Al-Otaibi<span class="m">100044817</span></a></li>
+                      <li><a href="#">Maha Al-Qahtani<span class="m">100019552</span></a></li>
+                    </ul>
+                  </div>
+                </aside>
+                <div class="member">
+                  <div class="mhead">
+                    <div class="who">
+                      <p class="nm">Nouf Al-Harbi</p>
+                      <div class="keys">
+                        <span><span class="k">Loy ID</span><span class="v">100001293</span></span>
+                        <span><span class="k">Mobile</span><span class="v">966555000111</span></span>
+                      </div>
+                      <div class="chips"><span class="chip tier">Gold</span><span class="chip type">Archived</span></div>
+                    </div>
+                    <div class="points">
+                      <div class="pt big"><span class="k">Points balance</span><span class="v">12,480<span class="u">pts</span></span><span class="s">≈ 561 SAR</span></div>
+                      <div class="pt"><span class="k">Pending</span><span class="v">320</span></div>
+                      <div class="pt warn"><span class="k">Expiring</span><span class="v">1,200</span><span class="s">within 30 days</span></div>
+                    </div>
+                  </div>
+                  <div class="discloserow"><button class="disclose"><span class="tw">›</span> More member details</button></div>
+                  <div class="tabs"><button>Activities</button><button aria-selected="true">Sales</button><button>Actions <span class="cnt">312</span></button></div>
+                  <div class="tabbody">
+                    <div class="capline"><span>Most recent 500 sale lines.</span></div>
+                    <div class="scrollbox">
+                      <table>
+                        <thead><tr><th>Date</th><th>Receipt</th><th>Store</th><th>Item no.</th><th>Item</th><th class="end">Qty</th><th class="end">Unit price</th><th class="end">Amount</th></tr></thead>
+                        <tbody>
+                          <tr><td class="n">02 Aug 2026</td><td class="mono">8841203</td><td>1042 · Olaya</td><td class="mono">300114</td><td><span class="trunc hl">Panadol Extra 500mg — 24 tab</span></td><td class="end n">2</td><td class="end n">14.50</td><td class="end n">29.00</td></tr>
+                          <tr><td class="n">28 Jul 2026</td><td class="mono">8830117</td><td>1042 · Olaya</td><td class="mono">300114</td><td><span class="trunc hl">Panadol Extra 500mg — 24 tab</span></td><td class="end n">−1</td><td class="end n">14.50</td><td class="end n">−14.50</td></tr>
+                          <tr><td class="n">21 Jul 2026</td><td class="mono">8811994</td><td>2210 · Tahlia</td><td class="mono">520771</td><td><span class="trunc hl">Vitamin D3 5000 IU — 60 cap</span></td><td class="end n">3</td><td class="end n">42.00</td><td class="end n">126.00</td></tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="sh"><span class="n">Also</span><span class="t">The Actions tab — the one truly paged read</span>
+          <span class="sub">real total, 25 a page, no sort or filter (226)</span></div>
+        <div class="pair">
+          <div class="theme-light tl"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="member">
+                <div class="tabs"><button>Activities</button><button>Sales</button><button aria-selected="true">Actions <span class="cnt">312</span></button></div>
+                <div class="tabbody">
+                  <div class="capline"><span>312 actions.</span><span class="tools"><span class="dim">1–25 of 312</span><button class="btn sm">‹</button><button class="btn sm">›</button></span></div>
+                  <table>
+                    <thead><tr><th>When</th><th>Action</th><th>Sub-action</th><th>Details</th><th>Details 2</th><th>By</th><th>Branch</th></tr></thead>
+                    <tbody>
+                      <tr><td class="n">02 Aug 2026 14:22</td><td class="hl">Block</td><td>Mobile moved to another account</td><td><span class="trunc">Mobile reassigned to 100044817</span></td><td class="dim">—</td><td>a.saleh</td><td>1042</td></tr>
+                      <tr><td class="n">28 Jul 2026 09:05</td><td class="hl">Redeem</td><td>Points redemption</td><td>2,000 pts · 90.00 SAR</td><td class="mono dim">TRX-8830117</td><td>pos</td><td>1042</td></tr>
+                      <tr><td class="n">11 Jul 2026 11:48</td><td class="hl">Adjust points</td><td>Goodwill</td><td>+500 pts</td><td><span class="trunc">Complaint CMP-2211</span></td><td>m.khalid</td><td>—</td></tr>
+                      <tr><td class="n">03 May 2026 16:31</td><td class="hl">Tier change</td><td class="mono dim">TIERUP</td><td>Silver → Gold</td><td class="dim">—</td><td>system</td><td>—</td></tr>
+                    </tbody>
+                  </table>
+                  <p class="note">Row 4's sub-action fell back to its <b>raw code</b> — a
+                    LEFT-JOIN miss, drawn on purpose (226/229). The whole member snapshot the report
+                    repeats on every row is <b>dropped</b>.</p>
+                </div>
+              </div>
+            </div>
+          </div></div>
+          <div class="theme-dark td"><div class="device"><div class="device-bar"><span class="dot"></span><span class="name">al-dawaa BackOffice — Loyalty · Member</span><span class="px">1280</span></div>
+            <div class="stage">
+              <div class="member">
+                <div class="tabs"><button>Activities</button><button>Sales</button><button aria-selected="true">Actions <span class="cnt">312</span></button></div>
+                <div class="tabbody">
+                  <div class="capline"><span>312 actions.</span><span class="tools"><span class="dim">1–25 of 312</span></span></div>
+                  <table>
+                    <thead><tr><th>When</th><th>Action</th><th>Sub-action</th><th>Details</th><th>Details 2</th><th>By</th><th>Branch</th></tr></thead>
+                    <tbody>
+                      <tr><td class="n">02 Aug 2026 14:22</td><td class="hl">Block</td><td>Mobile moved to another account</td><td><span class="trunc">Mobile reassigned to 100044817</span></td><td class="dim">—</td><td>a.saleh</td><td>1042</td></tr>
+                      <tr><td class="n">28 Jul 2026 09:05</td><td class="hl">Redeem</td><td>Points redemption</td><td>2,000 pts · 90.00 SAR</td><td class="mono dim">TRX-8830117</td><td>pos</td><td>1042</td></tr>
+                      <tr><td class="n">03 May 2026 16:31</td><td class="hl">Tier change</td><td class="mono dim">TIERUP</td><td>Silver → Gold</td><td class="dim">—</td><td>system</td><td>—</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <h2>What the three variants agree on — and what is still open</h2>
+    <p>Held constant across all three, so a choice between them does not re-open a settled decision:</p>
+    <ul>
+      <li><b>The header is not a tab.</b> Identity + tier + the points block sit above the tab strip in
+        every variant; the long tail of member fields (email, birth date, gender/nationality/city
+        codes, national ID, language, insurance) lives behind <b>one disclosure</b>, shut by default.</li>
+      <li><b>Points balance is the headline number</b> — the only 27 px figure on the screen, with the
+        SAR equivalent as its own subline, and pending / expiring / tier points beside it at label size.</li>
+      <li><b>Activities is the landing tab</b>; Sales and Actions are peers, not secondary. Only the
+        Actions tab carries a count, because it is the only read with a real total (226).</li>
+      <li><b>Codes are labelled as codes</b> — "City code", "Gender code" (229) — and the raw value is
+        shown in mono so it reads as a key, not a word.</li>
+      <li><b>Chips are additive and rare</b>: tier always, member-type when not <code>M</code>,
+        blocked when there is a reason. An ordinary Gold member shows one chip.</li>
+      <li><b>The header scrolls away.</b> None of the three pins it; a long grid gets the whole viewport
+        and the grid's own header is what sticks.</li>
+    </ul>
+    <p><b>Settled on the back of choosing B:</b></p>
+    <ul>
+      <li><b>The member is in the URL</b> — <code>/loy/members/:loyId</code>, open tab as a query
+        param (<code>?tab=sales</code>). A lookup navigates, a refresh re-reads by LoyId, a link works
+        for a colleague, and <code>/loy/members</code> bare is the empty field. This closes the map's
+        <i>URL shape and deep-linking</i> fog item. Note the consequence: the URL holds the
+        <b>LoyId</b>, not what was typed, so a refresh after a mobile lookup re-reads by key and does
+        not replay 225's two-call cascade.</li>
+      <li><b>The bar carries the key, not the member</b> — the name is in the header and nowhere else.</li>
+      <li><b>"This session" is not a concept.</b> Recents were C's alone and go with it; nothing on the
+        screen remembers the previous member.</li>
+    </ul>
+    <p style="margin-top:14px;color:var(--ink-3);font-size:12px">
+      Throwaway. Mock data, no server, no live SIS.Api call — per this map's verification standard.
+      Palette lifted verbatim from <code>src/app/global.css</code>; logical properties throughout.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

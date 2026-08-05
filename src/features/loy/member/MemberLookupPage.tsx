@@ -6,8 +6,8 @@ import { Loader2, Search, ShieldAlert } from 'lucide-react'
 
 import { ApiError, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import { formatShortDate } from '@/core/util/date-format'
 import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi, loyApi, memberKey } from './api'
+import MemberHeader from './MemberHeader'
 import { resolveMember } from './resolve-member'
 
 /**
@@ -39,8 +39,8 @@ import { resolveMember } from './resolve-member'
  * denied backstop rather than on the surface. Show/hide is hygiene only — the
  * server grant on every `LoyWeb/*` read stays authoritative.
  *
- * The header here is identity alone; the chips, the points block and the three
- * tabs are 235–238.
+ * The member itself is `MemberHeader` (ticket 235) — identity, the chips, the
+ * points block and the disclosure. The three tabs beneath it are 236–238.
  */
 export default function MemberLookupPage() {
   const { t } = useTranslation('loy')
@@ -310,23 +310,10 @@ export default function MemberLookupPage() {
           className="p-3"
         />
       )}
-      {member.data && (
-        <div className="rounded-lg border border-border/60 bg-card/40 p-4">
-          {/* Identity, once. The header is not a tab and it is not sticky — it
-              scrolls away so a long grid gets the viewport (227 #4). */}
-          <h1 className="text-xl font-semibold tracking-tight">
-            {member.data.fullName || t('member.unnamed')}
-          </h1>
-          <dl className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            <KeyValue label={t('member.loyId')} value={member.data.loyId} />
-            {/* 🚩 The stored mobile, which IS the normalised key — the screen
-                shows the server's value here rather than rewriting the box. */}
-            <KeyValue label={t('member.mobile')} value={member.data.mobile} />
-            <KeyValue label={t('member.joined')} value={formatShortDate(member.data.joinDate)} />
-            <KeyValue label={t('member.updated')} value={formatShortDate(member.data.lastUpdate)} />
-          </dl>
-        </div>
-      )}
+      {/* The header is not a tab and it is not sticky — it scrolls away so a
+          long grid gets the viewport (227 #4). What it says lives in
+          `member-header.ts` / `codes.ts`, both pure and both under vitest. */}
+      {member.data && <MemberHeader member={member.data} />}
     </section>
   )
 }
@@ -336,17 +323,3 @@ const FIELD_ID = 'loy-member-lookup'
 /** The bar's two affordances are the same button in two words. */
 const BAR_BUTTON =
   'inline-flex h-8 items-center rounded-full border border-border/60 px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted'
-
-/** One labelled fact on the identity line. An absent value renders as absent
- *  rather than as an empty gap the eye reads as a missing label. */
-function KeyValue({ label, value }: { label: string; value: string | null }) {
-  const { t } = useTranslation('loy')
-  return (
-    <div className="flex items-baseline gap-1.5">
-      <dt className="text-xs uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className={value ? 'text-foreground' : 'text-muted-foreground'}>
-        {value || t('member.absent')}
-      </dd>
-    </div>
-  )
-}

@@ -29,6 +29,16 @@
 //  12. 🚩 a probe that THROWS behaves exactly like a denial (fail-closed), and
 //      the member read never fires on the way to the backstop.
 //
+// And ticket 235's (scenarios 14–19):
+//  14. 🚩 an ordinary member wears the tier chip and NO status chip;
+//  15. 🚩 the member-details disclosure starts SHUT, opens, and shuts again;
+//  16. blocked / archived / archived-and-blocked wear one, one and three chips —
+//      additively, with no precedence rule between them;
+//  17. 🚩 an unknown tier and an unseeded blocked reason render as bare codes,
+//      never as a raw `loy:tier.X`;
+//  18. Expiring is tinted only when it is non-zero;
+//  19. 🚩 an unset `0001-01-01` birth date renders as absent, not as a date.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-drive.mjs
 import { createRequire } from 'node:module'
@@ -101,7 +111,10 @@ const LOYID_KEY = '100001293'
 // `access` is ticket 234's axis: `granted` | `denied` | `throws`. The last one is
 // the case the whole ticket exists for — a probe that errors must be
 // indistinguishable from a refusal, never "probably fine".
-let scenario = { doorShut: false, access: 'granted' }
+// `memberOver` is ticket 235's axis: the fields the header derives its chips and
+// its points block from, overridden per scenario so one stubbed member can be an
+// ordinary one, an archived one, a blocked one or all of them at once.
+let scenario = { doorShut: false, access: 'granted', memberOver: {} }
 // The member reads only. The probe is logged apart so the "one call" / "two
 // calls" cascade assertions keep meaning what they said before the gate existed.
 let calls = []
@@ -146,14 +159,14 @@ async function run() {
       // 🚩 An ungranted portal call gets a BARE 403 — no envelope, no code (224).
       // This is the case the whole cascade rule exists for.
       if (scenario.doorShut) return route.fulfill({ status: 403, body: 'Forbidden' })
-      if (key === MOBILE_KEY) return route.fulfill(envelope(MEMBER))
+      if (key === MOBILE_KEY) return route.fulfill(envelope({ ...MEMBER, ...scenario.memberOver }))
       return route.fulfill(notFound(`Customer with ${key} doesn't exists`))
     }
     if (path.startsWith('LoyWeb/Member/')) {
       const key = decodeURIComponent(path.split('LoyWeb/Member/')[1] || '')
       calls.push(`byLoyId:${key}`)
       if (scenario.doorShut) return route.fulfill({ status: 403, body: 'Forbidden' })
-      if (key === LOYID_KEY) return route.fulfill(envelope(MEMBER))
+      if (key === LOYID_KEY) return route.fulfill(envelope({ ...MEMBER, ...scenario.memberOver }))
       return route.fulfill(notFound(`Customer ${key} doesn't exists`))
     }
 
@@ -404,6 +417,135 @@ async function run() {
     calls.join(', '),
   )
   scenario.access = 'granted'
+
+  // ---- Ticket 235: the member header ------------------------------------
+  // A fresh `goto` per variant, deliberately: the member lives in one TanStack
+  // cache entry keyed by LoyId, so a reload is how the stub's next variant is
+  // actually read rather than served from the last one.
+  const showMember = async (over) => {
+    scenario.memberOver = over
+    await page.goto(BASE + '/loy/members/100001293')
+    await page.getByText('Nouf Al-Harbi').waitFor({ timeout: 10000 })
+    return page.textContent('body')
+  }
+  const statusChips = /Archived|Non-loyalty|Family|Blocked/
+
+  // ---- Scenario 14: an ordinary member wears ONE chip ---------------------
+  const ordinary = await showMember({})
+  check('the tier chip decodes G to its word', /Gold/.test(ordinary))
+  check(
+    '🚩 an ordinary member shows NO status chip — silence is the Active state',
+    !statusChips.test(ordinary),
+  )
+  check(
+    'the points block states the balance, its SAR equivalent and the three label-size figures',
+    /12,480/.test(ordinary) &&
+      /561\.00 SAR/.test(ordinary) &&
+      /320/.test(ordinary) &&
+      /1,200/.test(ordinary) &&
+      /8,940/.test(ordinary) &&
+      /within 30 days/.test(ordinary),
+  )
+  check(
+    '🚩 engine machinery is drawn nowhere',
+    !/W\|D|Accrual|Redemption|Exchange rate/i.test(ordinary),
+  )
+
+  // ---- Scenario 15: the disclosure starts shut ---------------------------
+  check(
+    '🚩 the disclosure starts SHUT — a screen opened forty times a day is not forty screens of PII',
+    !/nouf\.h@example\.com/.test(ordinary) && !/National ID/.test(ordinary),
+  )
+  const disclose = page.getByRole('button', { name: /More member details/ })
+  check('and it offers itself', (await disclose.count()) === 1)
+  await disclose.click()
+  await page.getByText('nouf.h@example.com').waitFor({ timeout: 5000 })
+  const opened = await page.textContent('body')
+  check(
+    'opening it shows the long tail — email, birth date, national ID, insurance company',
+    /nouf\.h@example\.com/.test(opened) &&
+      /08 Nov 1990/.test(opened) &&
+      /1098443217/.test(opened) &&
+      /Insurance company/.test(opened),
+  )
+  check(
+    '🚩 a passed-through code is labelled AS a code, never as a name',
+    // The label may not promise a name the screen does not have: "City code"
+    // over `RUH`, never "City" (229 clause 5).
+    /Gender code/.test(opened) && /Nationality code/.test(opened) && /City code/.test(opened),
+  )
+  await page.getByRole('button', { name: /Hide member details/ }).click()
+  await page.waitForTimeout(200)
+  check('and it shuts again', !/nouf\.h@example\.com/.test(await page.textContent('body')))
+
+  // ---- Scenario 16: blocked, archived, and both --------------------------
+  const blocked = await showMember({ blockedReason: 'CM' })
+  check(
+    'a blocked member says so IN WORDS, decoded from CM',
+    /Blocked · Mobile moved to another account/.test(blocked),
+  )
+  check('and keeps its tier chip beside it', /Gold/.test(blocked))
+
+  const archived = await showMember({ memberType: 'A' })
+  check('an archived member carries the type chip', /Archived/.test(archived))
+  check('🚩 and no blocked chip — the two facts are independent', !/Blocked/.test(archived))
+
+  const both = await showMember({ memberType: 'A', blockedReason: 'IA' })
+  check(
+    '🚩 archived AND blocked shows THREE chips — neither fact hides behind the other',
+    /Gold/.test(both) && /Archived/.test(both) && /Blocked · Inactive/.test(both),
+  )
+
+  const family = await showMember({ memberType: 'F' })
+  check('a family member carries its own type chip', /Family/.test(family))
+
+  // ---- Scenario 17: 🚩 an unknown code renders BARE -----------------------
+  const unknown = await showMember({ tier: 'X', blockedReason: 'XZ' })
+  check(
+    '🚩 an unknown tier renders as its bare code, never as a raw translation key',
+    (await page.getByText('X', { exact: true }).count()) === 1 &&
+      !/loy:tier|tier\.gold/.test(unknown),
+  )
+  check(
+    '🚩 an unseeded blocked reason degrades to the code too',
+    /Blocked · XZ/.test(unknown) && !/blockedReason\./.test(unknown),
+  )
+
+  // ---- Scenario 18: expiring is tinted only when non-zero ----------------
+  const expiringValue = page.locator('xpath=//span[text()="Expiring"]/following-sibling::span[1]')
+  const pendingValue = page.locator('xpath=//span[text()="Pending"]/following-sibling::span[1]')
+  const inkOf = (loc) => loc.evaluate((el) => getComputedStyle(el).color)
+
+  await showMember({})
+  const tintedExpiring = await inkOf(expiringValue)
+  const neutralPending = await inkOf(pendingValue)
+  check(
+    '1,200 points expiring is tinted — it is the one figure that carries a colour',
+    tintedExpiring !== neutralPending,
+    `${tintedExpiring} vs ${neutralPending}`,
+  )
+
+  await showMember({ pointsExpireSoon: 0 })
+  const quietExpiring = await inkOf(expiringValue)
+  check(
+    '🚩 nothing expiring is QUIET — the tint would stop meaning anything otherwise',
+    quietExpiring === (await inkOf(pendingValue)),
+    `${quietExpiring} vs ${neutralPending}`,
+  )
+
+  // ---- Scenario 19: 🚩 the 0001-01-01 birth date is not a fact ------------
+  await showMember({ birthDate: '0001-01-01T00:00:00' })
+  await page.getByRole('button', { name: /More member details/ }).click()
+  // Read the field's OWN value, not the page text: the LoyId `100001293` happens
+  // to contain `0001`, so a body-wide regex would be asserting nothing.
+  const birthValue = page.locator('xpath=//dt[text()="Birth date"]/following-sibling::dd[1]')
+  await birthValue.waitFor({ timeout: 5000 })
+  check(
+    '🚩 an unset birth date renders as absent, never as 0001-01-01',
+    (await birthValue.textContent()) === '—',
+    await birthValue.textContent(),
+  )
+  scenario.memberOver = {}
 
   check('no page errors anywhere in the drive', errors.length === 0, errors.join(' | '))
 

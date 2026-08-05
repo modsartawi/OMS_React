@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 231
 blocked-by: 233
 ---
@@ -67,14 +67,20 @@ model · **logic** (`codes`, header derivation — both pure) · **component** �
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `codes` — `S`/`G`/`P`, `A`/`P`/`N`/`E`, `CM`/`IA` each map to a key; 🚩 an unknown value returns
+- [x] `codes` — `S`/`G`/`P`, `A`/`P`/`N`/`E`, `CM`/`IA` each map to a key; 🚩 an unknown value returns
       `null` so the caller renders the **bare code**, never a raw `loy:tier.X`; gender is never
-      mapped · **pure**
-- [ ] `member-header` — chip derivation: none for an ordinary member, type chip iff
+      mapped · **pure** — `src/features/loy/member/codes.test.ts`, 11 cases. Gender's absence is
+      asserted as an absence (no export matches `/gender|nationality|city|store/`), because the
+      pressure to add `{ M: …, F: … }` is exactly what 229 clause 3 refused
+- [x] `member-header` — chip derivation: none for an ordinary member, type chip iff
       `memberType !== 'M'`, blocked chip iff `blockedReasonCode` set, both independently; the
-      `0001-01-01` birth date is suppressed **via the existing `isBlankDate`** · **pure**
-- [ ] `tools/loy-member-drive.mjs` (extended) — an ordinary member (one chip), a blocked member, an
+      `0001-01-01` birth date is suppressed **via the existing `isBlankDate`** · **pure** —
+      `src/features/loy/member/member-header.test.ts`, 11 cases, 230's four rows as four tests
+- [x] `tools/loy-member-drive.mjs` (extended) — an ordinary member (one chip), a blocked member, an
       archived member, an archived-and-blocked member, the disclosure opening and shutting · **flow**
+      — scenarios 14–19, **67/67 green**, plus a family member, the bare-code degrade for an unknown
+      tier and an unseeded `XZ`, the expiring tint measured as a computed colour (tinted at 1,200,
+      identical to Pending at 0) and the `0001-01-01` birth date read off its own `<dd>`
 
 ## Boundaries
 
@@ -93,3 +99,36 @@ starts shut.
 ## Blocked by
 
 [233](233-one-field-resolves-a-member.md) — the header needs a resolved member to render.
+
+## Answer
+
+Landed 2026-08-06. Slice 0's inline identity block became `features/loy/member/MemberHeader.tsx`, a
+thin renderer over **two pure modules** — `codes.ts` (four closed sets → keys, unknown → `null`) and
+`member-header.ts` (`memberChips`, `memberBirthDate`). Both are under vitest; nothing that decides
+what the header *says* lives in JSX, which is the only posture that is provable while RTL is
+unbootstrapped and the `LoyWeb` door does not exist.
+
+Four things the build settled:
+
+- 🚩 **A fourth closed set earned a map: `memberType`.** The ticket's table omits it, but the chips
+  need the words *Archived* / *Non-loyalty* / *Family* and 230 names `LoyMemberTypeConstants` closing
+  all four values — which is 229's test, passed. Passing it through would have put a raw `A` in a
+  chip whose entire job is to say *archived* in words. It degrades like every other map.
+- **A chip is suppressed when its field is absent, not drawn empty.** `tier` is nullable like every
+  string on the model, and `memberType` arrives only because 230's amendment maps it through — a
+  door shipping without that line must not produce a chip that says nothing. Pinned by a test.
+- **The chips reuse `core/ui/StatusBadge`** rather than a fourth hand-rolled pill: the module hands
+  the renderer a `Severity` (`warn` tier · `mute` type · `bad` blocked), so no call site can invent a
+  colour and the contrast gate covers the pair automatically.
+- 🚩 **Two drive assertions were asserting nothing until they were tightened.** A body-wide
+  `!/0001/` passes trivially — the stubbed LoyId `100001293` *contains* `0001` — and `\bX\b` for a
+  bare tier fails on a `textContent` with no word boundaries. Both now read the element they mean:
+  the birth date's own `<dd>`, and the chip by exact text.
+
+Typecheck, lint (all three gates), `npm test` **1135/1135** and `npm run build` green;
+`tools/loy-member-drive.mjs` **67/67**. Copy and shape calls logged in `.afk/HITL-235.md` (the money
+subline uses the app's single 2dp `formatMoney`, `561.00 SAR`, rather than the prototype's mock `561`
+— 237's currency-aware formatter is where that would change).
+
+🚩 Nothing driven against a live SIS.Api — the stub is 223's field inventory, and BackOffice 977–979
+is the door.

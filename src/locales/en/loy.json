@@ -32,6 +32,51 @@
     "unnamed": "No name on file",
     "absent": "—",
     "loading": "Loading member…",
-    "loadFailed": "This member could not be loaded."
+    "loadFailed": "This member could not be loaded.",
+    "points": {
+      "balance": "Points balance",
+      "unit": "pts",
+      "amount": "≈ {{amount}} {{currency}}",
+      "pending": "Pending",
+      "expiring": "Expiring",
+      "expiringWithin": "within 30 days",
+      "tierPoints": "Tier points"
+    },
+    "details": {
+      "show": "More member details",
+      "hide": "Hide member details",
+      "email": "Email",
+      "birthDate": "Birth date",
+      "genderCode": "Gender code",
+      "nationalId": "National ID",
+      "nationalityCode": "Nationality code",
+      "cityCode": "City code",
+      "preferredLanguage": "Preferred language",
+      "insuranceCompany": "Insurance company"
+    }
+  },
+  "chip": {
+    "blocked": "Blocked · {{reason}}"
+  },
+  "tier": {
+    "silver": "Silver",
+    "gold": "Gold",
+    "platinum": "Platinum"
+  },
+  "memberType": {
+    "member": "Member",
+    "nonLoyalty": "Non-loyalty",
+    "archived": "Archived",
+    "family": "Family"
+  },
+  "blockedReason": {
+    "mobileMoved": "Mobile moved to another account",
+    "inactive": "Inactive"
+  },
+  "activityStatus": {
+    "added": "Added",
+    "posted": "Posted",
+    "pending": "Pending",
+    "error": "Error"
   }
 }

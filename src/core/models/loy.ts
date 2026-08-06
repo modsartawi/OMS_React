@@ -118,3 +118,56 @@ export interface LoyActivityRow {
   points: number
   referenceNumber: string | null
 }
+
+/**
+ * One row of `GET LoyWeb/Reports/LoyaltySales/{loyId}` — `LoyaltySalesLine`,
+ * narrowed to the eight-and-a-bit fields the Sales tab draws (223 §3, columns
+ * settled by 226 §4).
+ *
+ * 🚩 **A row is one sales LINE — one item on one receipt**, not one transaction.
+ * A five-item basket is five rows sharing a `trxNumber`.
+ *
+ * 🚩 **`qty` and `amount` are signed on a return; `unitPrice` is not.** A return
+ * line reads `-1.00 · 12.00 · -12.00`. That is the receipt, and the tab matches
+ * it rather than tidying it.
+ *
+ * 🚩 **`trxDate` is a date, not a stamp.** `TrxTime` is a separate column the
+ * report does not select, so rendering `HH:mm` would print a fabricated `00:00`
+ * on every row. Corollary: lines within one day tie and their relative order is
+ * undefined.
+ *
+ * 🚩 **`currency` is per-row plant master data** (SAP `WAERS`), not a screen
+ * constant — Bahrain BHD stores are live, and the column is nullable so old rows
+ * can be empty. Money on this tab formats through the feature's own
+ * `formatMoneyIn`, never the app's fixed-2dp `formatMoney`.
+ *
+ * **Dropped, deliberately** (226 §4): `trxTypeNumber` / `documentTypeNumber` —
+ * the raw twins of the enum-name strings — and `trxType` / `docType` themselves.
+ * The signed qty and amount already mark a return, the channel (Insurance,
+ * Wasfaty, CallCenter, ECommerce…) is not what an agent opens this tab for, and
+ * both are emitted with `Enum.ToString()`, so an undefined value serialises as
+ * the number as a string — neither is a closed union in TypeScript.
+ *
+ * Two source caveats to expect in the data, neither a bug to chase: the SQL has
+ * **no `LineType` filter**, so non-item lines (discount, donation) can appear as
+ * rows; and the **`INNER JOIN Item`** means a line whose item no longer exists
+ * vanishes silently.
+ */
+export interface LoySalesRow {
+  /** Bare store code — the report joins no store name. */
+  storeCode: string | null
+  /** The receipt number, repeated across the lines of one basket. */
+  trxNumber: string | null
+  /** Date-only in practice — see the note above. */
+  trxDate: string
+  itemNumber: string | null
+  /** Joined from `Item.Description`. The row's headline: "what did they buy". */
+  itemDescription: string | null
+  /** 🚩 Unsigned even on a return. */
+  unitPrice: number
+  /** `QuantityValue` — signed on a return. */
+  qty: number
+  /** `AmountValue`, the line NET value column (not gross) — signed on a return. */
+  amount: number
+  currency: string | null
+}

@@ -55,6 +55,17 @@
 //  26. an empty member shows the Activities sentence, never a shared "No data",
 //      and never the failure banner.
 //
+// And ticket 237's (scenarios 27–30):
+//  27. Sales fetches only when OPENED; the eight columns; a date-only Date with
+//      no fabricated 00:00; one basket as several lines under one receipt;
+//      🚩 a return reading `-1.00 · 12.00 · -12.00`; 🚩 NO Currency column on the
+//      SAR-only member; and 🚩 no total row anywhere;
+//  28. 🚩 a mixed-currency window grows the Currency column, draws BHD at THREE
+//      decimals, and leaves the SAR lines beside it at two;
+//  29. the at-cap warning fires at exactly 500 and not at 499;
+//  30. an empty tab speaks in SALES' own words, and the timed-out report fails
+//      inside its tab with a Retry that refetches only that tab.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-drive.mjs
 import { createRequire } from 'node:module'
@@ -172,6 +183,76 @@ const activityRows = (n) =>
     referenceNumber: `TRX-${800000 - i}`,
   }))
 
+// `LoyaltySalesLine` rows as the report hands them over (223 §3), narrowed to the
+// fields the tab draws. 🚩 A row is one sales LINE — the first two share a
+// receipt number because they are two items in one basket, which is the grain
+// the tab must not roll up. 🚩 `qty` and `amount` are signed on a return and
+// `unitPrice` is NOT — the stub carries the receipt's own shape, so the drive is
+// asserting a rendering and not a client-side sign derivation that does not
+// exist.
+const SALES_ROWS = [
+  {
+    storeCode: '1001',
+    trxNumber: 'R-88412',
+    trxDate: '2026-07-30T00:00:00',
+    itemNumber: '300221',
+    itemDescription: 'Panadol Extra 24 tab',
+    unitPrice: 12,
+    qty: 2,
+    amount: 24,
+    currency: 'SAR',
+  },
+  {
+    storeCode: '1001',
+    trxNumber: 'R-88412',
+    trxDate: '2026-07-30T00:00:00',
+    itemNumber: '300984',
+    itemDescription: 'Vitamin D3 1000IU',
+    unitPrice: 45.5,
+    qty: 1,
+    amount: 45.5,
+    currency: 'SAR',
+  },
+  {
+    // 🚩 The return line. It must read `-1.00 · 12.00 · -12.00` — signed qty and
+    // amount against an UNSIGNED unit price. That is the receipt.
+    storeCode: '1001',
+    trxNumber: 'R-88377',
+    trxDate: '2026-07-22T00:00:00',
+    itemNumber: '300221',
+    itemDescription: 'Panadol Extra 24 tab',
+    unitPrice: 12,
+    qty: -1,
+    amount: -12,
+    currency: 'SAR',
+  },
+]
+
+// The same member, having also shopped in Bahrain. 🚩 BHD is the footprint's only
+// 3-decimal currency and its stores are live, so this window is what makes the
+// Currency column appear AND what proves 3dp is not 2dp with a label.
+const MIXED_SALES_ROWS = [
+  ...SALES_ROWS,
+  {
+    storeCode: '9101',
+    trxNumber: 'R-70115',
+    trxDate: '2026-06-18T00:00:00',
+    itemNumber: '300221',
+    itemDescription: 'Panadol Extra 24 tab',
+    unitPrice: 4.275,
+    qty: 2,
+    amount: 8.55,
+    currency: 'BHD',
+  },
+]
+
+/** A filler sales window of exactly `n` lines, for the 500-line at-cap caption. */
+const salesRows = (n) =>
+  Array.from({ length: n }, (_, i) => ({
+    ...SALES_ROWS[0],
+    trxNumber: `R-${700000 + i}`,
+  }))
+
 // Scenario state, mutated between steps, and the call log the "one call" /
 // "two calls" assertions read.
 //
@@ -185,7 +266,16 @@ const activityRows = (n) =>
 // string `throws` for the raw-500-with-no-envelope that a timed-out report
 // actually produces (`ExecuteAsync` rethrows anything that is not a
 // `DomainException`) — the failure the tab's Retry exists for.
-let scenario = { doorShut: false, access: 'granted', memberOver: {}, activities: ACTIVITY_ROWS }
+// `sales` is ticket 237's axis, and it carries the same `throws` case — on this
+// tab it is not a hypothetical: a 500-line scan of `RetailTrxDetail` timing out
+// on a heavy member is the failure the scoped Retry was argued for.
+let scenario = {
+  doorShut: false,
+  access: 'granted',
+  memberOver: {},
+  activities: ACTIVITY_ROWS,
+  sales: SALES_ROWS,
+}
 // The member reads only. The probe is logged apart so the "one call" / "two
 // calls" cascade assertions keep meaning what they said before the gate existed,
 // and the report calls are logged apart again so "a tab fetches only when it is
@@ -193,6 +283,7 @@ let scenario = { doorShut: false, access: 'granted', memberOver: {}, activities:
 let calls = []
 let accessCalls = 0
 let activityCalls = []
+let salesCalls = []
 
 async function run() {
   const browser = await chromium.launch()
@@ -246,6 +337,15 @@ async function run() {
       // member actually returns, and the case the scoped Retry is for.
       if (scenario.activities === 'throws') return route.fulfill({ status: 500, body: 'boom' })
       return route.fulfill(envelope(scenario.activities))
+    }
+    // The Sales tab's read (237). Same raw SQL with no existence check, and the
+    // same raw-500-with-no-envelope failure — except here that failure is the
+    // LIKELY one, because this is the query that scans 500 lines.
+    if (path.startsWith('LoyWeb/Reports/LoyaltySales/')) {
+      const key = decodeURIComponent(path.split('LoyWeb/Reports/LoyaltySales/')[1] || '')
+      salesCalls.push(key)
+      if (scenario.sales === 'throws') return route.fulfill({ status: 500, body: 'boom' })
+      return route.fulfill(envelope(scenario.sales))
     }
 
     if (path.startsWith('LoyWeb/Member/')) {
@@ -690,7 +790,7 @@ async function run() {
   // ---- Scenario 21: 🚩 a tab fetches only when it is OPENED ---------------
   activityCalls = []
   await page.goto(BASE + '/loy/members/100001293?tab=sales')
-  await page.getByText('This tab is not available yet.').waitFor({ timeout: 10000 })
+  await page.getByText('Vitamin D3 1000IU').first().waitFor({ timeout: 10000 })
   check(
     '🚩 a cold load on another tab makes NO activities call at all',
     activityCalls.length === 0,
@@ -884,6 +984,199 @@ async function run() {
     /Most recent 100 activities\./.test(emptyBody),
   )
   scenario.activities = ACTIVITY_ROWS
+
+  // ---- Ticket 237: the Sales tab ------------------------------------------
+
+  // ---- Scenario 27: Sales fetches on OPEN, and the SAR-only member ---------
+  salesCalls = []
+  await page.goto(BASE + '/loy/members/100001293')
+  await page.getByText('Purchase accrual').first().waitFor({ timeout: 10000 })
+  check(
+    '🚩 landing on Activities makes NO sales call — the 500-line scan is not paid for unasked',
+    salesCalls.length === 0,
+    salesCalls.join(', '),
+  )
+  await tab(/^Sales$/).click()
+  await page.getByText('Vitamin D3 1000IU').first().waitFor({ timeout: 10000 })
+  check(
+    'opening Sales is what fetches it — exactly one call',
+    salesCalls.join(', ') === '100001293',
+    salesCalls.join(', '),
+  )
+  const salesBody = await page.textContent('body')
+  check(
+    'the eight columns are the eight 226 settled',
+    /Date/.test(salesBody) &&
+      /Receipt/.test(salesBody) &&
+      /Store code/.test(salesBody) &&
+      /Item no\./.test(salesBody) &&
+      /\bItem\b/.test(salesBody) &&
+      /Qty/.test(salesBody) &&
+      /Unit price/.test(salesBody) &&
+      /Amount/.test(salesBody),
+  )
+  check(
+    '🚩 the SAR-only member spends NO width on a Currency column',
+    (await page.locator('.ag-header-cell[col-id="currency"]').count()) === 0,
+  )
+  check(
+    '🚩 the channel columns 226 struck are drawn nowhere',
+    !/Trx type/i.test(salesBody) && !/Doc type/i.test(salesBody),
+  )
+  check(
+    '🚩 the caption names the ceiling and three lines warn about nothing',
+    /Most recent 500 sales lines\./.test(salesBody) &&
+      !/There may be older lines not shown/.test(salesBody),
+  )
+  check(
+    '🚩 a bare row count is shown NOWHERE on a capped tab',
+    !/\b3 sales\b/i.test(salesBody) && !/showing 3\b/i.test(salesBody),
+  )
+  check(
+    '🚩 the date is DATE-ONLY — TrxTime is not selected, so a clock would be fabricated',
+    (await cellText(0, 'trxDate')) === '30 Jul 2026' && !/\b00:00\b/.test(salesBody),
+    await cellText(0, 'trxDate'),
+  )
+  check(
+    'one basket is several lines sharing one receipt — the grain is not rolled up',
+    (await cellText(0, 'trxNumber')) === 'R-88412' &&
+      (await cellText(1, 'trxNumber')) === 'R-88412' &&
+      (await cellText(0, 'itemNumber')) !== (await cellText(1, 'itemNumber')),
+  )
+  check(
+    'Item is the headline — "what did they buy" is one column',
+    (await cellText(1, 'item')) === 'Vitamin D3 1000IU',
+    await cellText(1, 'item'),
+  )
+  check(
+    '🚩 a return reads like the receipt: -1.00 · 12.00 · -12.00',
+    (await cellText(2, 'qty')) === '-1.00' &&
+      (await cellText(2, 'unitPrice')) === '12.00' &&
+      (await cellText(2, 'amount')) === '-12.00',
+    `${await cellText(2, 'qty')} · ${await cellText(2, 'unitPrice')} · ${await cellText(2, 'amount')}`,
+  )
+  check(
+    '🚩 a sale volunteers no plus — only the return carries a sign',
+    (await cellText(0, 'qty')) === '2.00' && (await cellText(0, 'amount')) === '24.00',
+    `${await cellText(0, 'qty')} · ${await cellText(0, 'amount')}`,
+  )
+  check(
+    '🚩 nothing is summed — the report selects no exchange rate, so no total row exists',
+    (await page.locator('.ag-floating-bottom .ag-row').count()) === 0,
+  )
+  // Sort is on for the same reason as Activities: the whole window is held.
+  await page.locator('.ag-header-cell[col-id="amount"]').click()
+  await page.waitForTimeout(200)
+  check(
+    'the whole 500-line window is held, so Amount really sorts',
+    (await cellText(0, 'amount')) === '-12.00',
+    await cellText(0, 'amount'),
+  )
+
+  // ---- Scenario 28: 🚩 the Bahrain member, and three decimals -------------
+  scenario.sales = MIXED_SALES_ROWS
+  await page.goto(BASE + '/loy/members/100001293?tab=sales')
+  await page.locator('.ag-header-cell[col-id="currency"]').waitFor({ timeout: 10000 })
+  check(
+    '🚩 more than one distinct currency in the window grows the Currency column',
+    (await page.locator('.ag-header-cell[col-id="currency"]').count()) === 1,
+  )
+  check(
+    'and it states the row currency rather than implying it',
+    (await cellText(3, 'currency')) === 'BHD' && (await cellText(0, 'currency')) === 'SAR',
+    `${await cellText(0, 'currency')} / ${await cellText(3, 'currency')}`,
+  )
+  check(
+    '🚩 a BHD line draws THREE decimals — the dinar is not a riyal with another label',
+    (await cellText(3, 'unitPrice')) === '4.275' && (await cellText(3, 'amount')) === '8.550',
+    `${await cellText(3, 'unitPrice')} · ${await cellText(3, 'amount')}`,
+  )
+  check(
+    '🚩 and the SAR lines beside it still draw two — money formats per ITS OWN row',
+    (await cellText(0, 'unitPrice')) === '12.00' && (await cellText(1, 'amount')) === '45.50',
+    `${await cellText(0, 'unitPrice')} · ${await cellText(1, 'amount')}`,
+  )
+
+  // ---- Scenario 29: 🚩 at exactly 500, the warning fires ------------------
+  scenario.sales = salesRows(499)
+  await page.goto(BASE + '/loy/members/100001293?tab=sales')
+  await page.getByText('Most recent 500 sales lines.').waitFor({ timeout: 15000 })
+  check(
+    'a 499-line member states the ceiling and nothing more',
+    !/There may be older lines not shown/.test(await page.textContent('body')),
+  )
+  scenario.sales = salesRows(500)
+  await page.goto(BASE + '/loy/members/100001293?tab=sales')
+  await page.getByText('There may be older lines not shown.').waitFor({ timeout: 15000 })
+  check(
+    '🚩 a member at exactly the cap gets BOTH — silence would be the false negative that matters',
+    /Most recent 500 sales lines\./.test(await page.textContent('body')),
+  )
+
+  // ---- Scenario 30: the empty and the failed tab, in Sales' own words ------
+  scenario.sales = []
+  await page.goto(BASE + '/loy/members/100001293?tab=sales')
+  await page.getByText('No sales lines for this member.').waitFor({ timeout: 10000 })
+  const emptySales = await page.textContent('body')
+  check(
+    '🚩 an empty Sales tab says SALES were absent — never a shared "No data", never Activities\' sentence',
+    !/No data/.test(emptySales) && !/No loyalty activity/.test(emptySales),
+  )
+  check(
+    '🚩 an empty tab is not a failure — no banner, no Retry',
+    (await page.getByRole('button', { name: /^Retry$/ }).count()) === 0 &&
+      !/could not be read/.test(emptySales),
+  )
+  check(
+    'and the ceiling is still stated — the caption describes the query, not the answer',
+    /Most recent 500 sales lines\./.test(emptySales),
+  )
+
+  scenario.sales = 'throws'
+  calls = []
+  activityCalls = []
+  await page.goto(BASE + '/loy/members/100001293?tab=sales')
+  await page.getByRole('button', { name: /^Retry$/ }).waitFor({ timeout: 15000 })
+  const failedSales = await page.textContent('body')
+  check(
+    '🚩 the timed-out report fails INSIDE its tab — the member header survives it',
+    /Nouf Al-Harbi/.test(failedSales) && /12,480/.test(failedSales),
+  )
+  check(
+    'the failure names WHICH read broke, and carries the server sentence too',
+    /The sales lines could not be read\./.test(failedSales) &&
+      /unexpected error/i.test(failedSales) &&
+      (await page.getByRole('alert').count()) >= 1,
+  )
+  check(
+    '🚩 empty and failed are never conflated — the empty sentence is absent here',
+    !/No sales lines for this member/.test(failedSales),
+  )
+  check(
+    '🚩 no toast — the state is already fully visible in the tab being looked at',
+    (await page.locator('[data-sonner-toast]').count()) === 0,
+  )
+  check(
+    'the other two tabs are untouched and still reachable',
+    (await page.getByRole('tab').count()) === 3,
+  )
+
+  // The Retry refetches THAT TAB and nothing else — the whole reason it is here.
+  scenario.sales = SALES_ROWS
+  salesCalls = []
+  const memberCallsBeforeSalesRetry = calls.length
+  await page.getByRole('button', { name: /^Retry$/ }).click()
+  await page.getByText('Vitamin D3 1000IU').first().waitFor({ timeout: 10000 })
+  check(
+    'Retry refetches the tab — a SQL timeout on a heavy member is transient',
+    salesCalls.length >= 1,
+    salesCalls.join(', '),
+  )
+  check(
+    '🚩 and ONLY that tab — neither the member nor Activities is re-read',
+    calls.length === memberCallsBeforeSalesRetry && activityCalls.length === 0,
+    `${calls.length} vs ${memberCallsBeforeSalesRetry}, activities ${activityCalls.length}`,
+  )
 
   check('no page errors anywhere in the drive', errors.length === 0, errors.join(' | '))
 

@@ -25,6 +25,7 @@ import type {
   LoyActivityRow,
   LoyMember,
   LoyMemberPayload,
+  LoySalesRow,
 } from '@/core/models/loy'
 import type { MemberReads } from './resolve-member'
 
@@ -110,6 +111,9 @@ export const loyApi: MemberReads = {
  *  fetched again while that member is on screen (ticket 236). */
 export const activitiesKey = (loyId: string) => ['loy', 'activities', loyId] as const
 
+/** The Sales tab's cache key — per member, same rule (ticket 237). */
+export const salesKey = (loyId: string) => ['loy', 'sales', loyId] as const
+
 export const loyReportsApi = {
   /**
    * `GET LoyWeb/Reports/LastActivities/{loyId}` — the Activities tab's read.
@@ -131,6 +135,28 @@ export const loyReportsApi = {
   async activities(loyId: string): Promise<LoyActivityRow[]> {
     const rows = await api.get<LoyActivityRow[] | null>(
       `LoyWeb/Reports/LastActivities/${encodeURIComponent(loyId)}`,
+    )
+    return rows ?? []
+  },
+
+  /**
+   * `GET LoyWeb/Reports/LoyaltySales/{loyId}` — the Sales tab's read (ticket
+   * 237). `TOP (500)`, `ORDER BY TrxDate DESC`, one row per sales **line**.
+   *
+   * 🚩 **No existence check here either** — raw SQL keyed on `LoyId`, so a
+   * member with no purchases and a member who does not exist both answer
+   * `200 []`. By the time this fires the member has already resolved, so an
+   * empty answer is a fact about the member and never a refusal.
+   *
+   * 🚩 **This is the tab that earned the scoped Retry.** Its likeliest real
+   * failure is a **SQL timeout on a heavy member** — 500 lines over
+   * `RetailTrxDetail` — which arrives as a **raw 500 with no envelope**, because
+   * `ExecuteAsync` rethrows anything that is not a `DomainException`. Transient,
+   * and often fine on a second attempt.
+   */
+  async sales(loyId: string): Promise<LoySalesRow[]> {
+    const rows = await api.get<LoySalesRow[] | null>(
+      `LoyWeb/Reports/LoyaltySales/${encodeURIComponent(loyId)}`,
     )
     return rows ?? []
   },

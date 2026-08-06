@@ -81,7 +81,21 @@
     },
     "sales": {
       "caption": "Most recent {{cap}} sales lines.",
-      "atCap": "There may be older lines not shown."
+      "atCap": "There may be older lines not shown.",
+      "loading": "Loading sales lines…",
+      "empty": "No sales lines for this member.",
+      "failed": "The sales lines could not be read.",
+      "columns": {
+        "date": "Date",
+        "receipt": "Receipt",
+        "store": "Store code",
+        "itemNumber": "Item no.",
+        "item": "Item",
+        "qty": "Qty",
+        "unitPrice": "Unit price",
+        "amount": "Amount",
+        "currency": "Currency"
+      }
     },
     "actions": {
       "caption": "{{total}} actions."

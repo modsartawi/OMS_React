@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 231
 blocked-by: 233
 ---
@@ -63,12 +63,66 @@ model · **api** (`LoyWeb/Reports/LastActivities/{loyId}`) · **logic** (`tab-vo
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `tab-volume` — the caption names the ceiling; the at-cap warning fires at exactly the cap and
-      not below; a bare row count is never produced · **pure**
-- [ ] `tools/loy-member-drive.mjs` (extended) — Activities loads on landing; a second tab does **not**
+- [x] `tab-volume` — the caption names the ceiling; the at-cap warning fires at exactly the cap and
+      not below; a bare row count is never produced · **pure** — `src/features/loy/member/tab-volume.test.ts`,
+      11 cases. The bare-count rule is asserted structurally (`Object.values(v)` never contains the
+      row count; the returned keys are exactly `captionKey` / `cap` / `warningKey`), so the module
+      cannot start leaking a count through a new field.
+- [x] `tools/loy-member-drive.mjs` (extended) — Activities loads on landing; a second tab does **not**
       fetch until opened; a 40-row member shows the caption without the warning and a 100-row member
       shows both; a stubbed failure shows the inline banner with a Retry that refetches only that
-      tab; an empty member shows the Activities sentence; `?tab=` survives a reload · **flow**
+      tab; an empty member shows the Activities sentence; `?tab=` survives a reload · **flow** —
+      scenarios 20–26, **105/105 green** (was 67/67 before this ticket).
+
+## Answer
+
+Landed: `tab-volume.ts` (+ suite), `activity-columns.ts`, `ActivitiesTab.tsx`, `MemberTabs.tsx`,
+`LoyActivityRow` on `core/models/loy.ts`, `loyReportsApi.activities` + `activitiesKey` on the
+feature's `api.ts`, and the `tabs.*` block in `loy.json`. No registration point moved — the area,
+the namespace, the routes and the menu item all landed with 233/234.
+
+Six things the build settled or is worth carrying forward:
+
+- 🚩 **Lazy is structural, not a flag.** Only the open tab's panel is mounted, so only its query
+  exists. The drive proves it the only way that means anything: a cold `/loy/members/:loyId?tab=sales`
+  makes **zero** `LastActivities` calls, and opening Activities makes exactly one.
+- **`staleTime: Infinity` on the tab query**, so leaving a tab and coming back does not re-read a
+  window that cannot have moved — "cached per member" in the ticket's words. Without it TanStack's
+  default `staleTime: 0` refetches on every remount.
+- **Tab switching REPLACES the history entry.** A tab is a question about a member already on
+  screen, not a place; pushing would put three entries between the agent and the field, against
+  227 #3's promise that Back from a member lands on the field. `?tab=` is still in the URL, so the
+  link and reload promises are untouched.
+- 🚩 **The failure banner needed BOTH sentences.** `apiErrorMessage` on a raw 500 yields the generic
+  `common:errors.server` line, because a crash carries no envelope to say anything better — and on a
+  screen with three tabs that leaves the agent not knowing *which* broke. So the banner's **title**
+  is this tab's own sentence ("The loyalty activity could not be read.") and its **message** is the
+  server's through `apiErrorMessage`. The ticket's expectation that "the fallback string is what the
+  agent reads there" was half right: the fallback is not reached, but the sentence it carries still
+  has to be on screen.
+- **The strip renders all three peers** with Sales and Actions saying "This tab is not available
+  yet." and making no call. Growing the strip slice by slice would have changed `resolveTab`'s
+  unknown-value fallback mid-wave — `?tab=sales` meaning Activities today and Sales tomorrow — which
+  is the deep-link behaviour this ticket exists to fix. Logged in `.afk/HITL-236.md` with four other
+  calls.
+- 🚩 **One 235 drive assertion was over-broad and is now narrower**: "engine machinery is drawn
+  nowhere" matched the bare word `Redemption`, which since this ticket is a thing that *happened to
+  the member* in the Activities grid. It now matches the machinery's **labels** (`Accrual factor`,
+  `Redemption factor`, `Exchange rate`, `W|D`) — a factor always arrives labelled. Also fixed a
+  latent flake in 233's scenario 7: `fill` returns before React's controlled value settles after a
+  navigation, so the drive now waits for the box to hold what it typed.
+
+`countedVolume` (Actions' real total) is built and tested here rather than in 238, because spec 231's
+testing table assigns `tab-volume` all three tabs and the counted shape is the **contrast** that
+makes the capped rule legible — a capped tab may never say a row count, a counted one must say a
+total.
+
+Gates: `npm run typecheck`, `npm run lint` (three gates), `npm run build`, `npm test`
+(1146 pure cases, 70 files) and `tools/loy-member-drive.mjs` **105/105**, all green.
+
+🚩 **Nothing was driven against a live SIS.Api** — the `LoyWeb/Reports/LastActivities/{loyId}` door
+is BackOffice 978 and does not exist. Every envelope in the drive is stubbed from 223's field
+inventory.
 
 ## Boundaries
 

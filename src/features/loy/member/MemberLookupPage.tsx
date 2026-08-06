@@ -8,6 +8,7 @@ import { ApiError, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi, loyApi, memberKey } from './api'
 import MemberHeader from './MemberHeader'
+import MemberTabs from './MemberTabs'
 import { resolveMember } from './resolve-member'
 
 /**
@@ -313,7 +314,16 @@ export default function MemberLookupPage() {
       {/* The header is not a tab and it is not sticky — it scrolls away so a
           long grid gets the viewport (227 #4). What it says lives in
           `member-header.ts` / `codes.ts`, both pure and both under vitest. */}
-      {member.data && <MemberHeader member={member.data} />}
+      {member.data && (
+        <>
+          <MemberHeader member={member.data} />
+          {/* The three tabs (236–238), under the member and never above it: they
+              are questions about someone who is already identified. The shell
+              mounts only the open tab, which is what makes "a tab fetches when it
+              is opened" structural rather than a policy. */}
+          <MemberTabs loyId={member.data.loyId} />
+        </>
+      )}
     </section>
   )
 }

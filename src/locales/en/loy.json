@@ -55,6 +55,38 @@
       "insuranceCompany": "Insurance company"
     }
   },
+  "tabs": {
+    "ariaLabel": "Member reports",
+    "label": {
+      "activities": "Activities",
+      "sales": "Sales",
+      "actions": "Actions"
+    },
+    "notYet": "This tab is not available yet.",
+    "retry": "Retry",
+    "activities": {
+      "caption": "Most recent {{cap}} activities.",
+      "atCap": "There may be older activity not shown.",
+      "loading": "Loading activities…",
+      "empty": "No loyalty activity for this member.",
+      "failed": "The loyalty activity could not be read.",
+      "columns": {
+        "date": "Date",
+        "activity": "Activity",
+        "points": "Points",
+        "status": "Status",
+        "expires": "Expires",
+        "reference": "Reference"
+      }
+    },
+    "sales": {
+      "caption": "Most recent {{cap}} sales lines.",
+      "atCap": "There may be older lines not shown."
+    },
+    "actions": {
+      "caption": "{{total}} actions."
+    }
+  },
   "chip": {
     "blocked": "Blocked · {{reason}}"
   },

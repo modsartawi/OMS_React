@@ -39,6 +39,22 @@
 //  18. Expiring is tinted only when it is non-zero;
 //  19. 🚩 an unset `0001-01-01` birth date renders as absent, not as a date.
 //
+// And ticket 236's (scenarios 20–26):
+//  20. Activities is the landing tab and fetches ON LANDING — one call, and the
+//      caption names the ceiling with no warning below the cap;
+//  21. 🚩 a tab fetches only when OPENED — a cold `?tab=sales` makes NO
+//      LastActivities call at all, and opening Activities makes exactly one;
+//  22. `?tab=` survives a reload, and an unknown value falls back to Activities;
+//  23. the six columns, signed 2dp points, a blank Expires on a debit, a decoded
+//      status and a bare code for an unseeded one — and 🚩 no colour on the sign
+//      and 🚩 no total row anywhere;
+//  24. a member at exactly the cap shows the caption AND the at-cap warning, and
+//      🚩 a bare row count is shown nowhere;
+//  25. a failed tab fails INSIDE the tab — header and strip intact, no toast —
+//      with a Retry that refetches only that tab;
+//  26. an empty member shows the Activities sentence, never a shared "No data",
+//      and never the failure banner.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-drive.mjs
 import { createRequire } from 'node:module'
@@ -105,6 +121,57 @@ const MEMBER = {
 const MOBILE_KEY = '966555000111'
 const LOYID_KEY = '100001293'
 
+/** The lookup field's DOM id, as `MemberLookupPage` sets it. */
+const FIELD_ID = 'loy-member-lookup'
+
+// `LastActivityModel` rows as the report hands them over (223 §2), narrowed to
+// the fields the tab draws. 🚩 `points` arrives ALREADY SIGNED — the stub is not
+// negating anything the client then re-derives, because `AddActivity` negates
+// `SpendPoints` in place server-side and there is no client-side debit table.
+const ACTIVITY_ROWS = [
+  {
+    activityId: '900003',
+    activityType: 'ACRL',
+    description: 'Purchase accrual',
+    activityDateTime: '2026-08-02T14:35:00',
+    activityStatus: 'P',
+    expiryDate: '2027-08-02T00:00:00',
+    points: 240.25,
+    referenceNumber: 'TRX-8841203',
+  },
+  {
+    // A debit: signed negative, and the server's own rule blanks its expiry.
+    activityId: '900002',
+    activityType: 'RDEM',
+    description: 'Redemption',
+    activityDateTime: '2026-07-28T09:04:00',
+    activityStatus: 'N',
+    expiryDate: '2027-07-28T00:00:00',
+    points: -450.5,
+    referenceNumber: 'TRX-8830117',
+  },
+  {
+    // 🚩 An unseeded status code — it must render BARE, never as a raw
+    // `loy:activityStatus.Z`.
+    activityId: '900001',
+    activityType: 'ADJC',
+    description: 'Manual adjustment',
+    activityDateTime: '2026-07-11T16:20:00',
+    activityStatus: 'Z',
+    expiryDate: '0001-01-01T00:00:00',
+    points: 500,
+    referenceNumber: 'ADJ-00412',
+  },
+]
+
+/** A filler row set of exactly `n` rows, for the below-cap / at-cap captions. */
+const activityRows = (n) =>
+  Array.from({ length: n }, (_, i) => ({
+    ...ACTIVITY_ROWS[0],
+    activityId: String(800000 - i),
+    referenceNumber: `TRX-${800000 - i}`,
+  }))
+
 // Scenario state, mutated between steps, and the call log the "one call" /
 // "two calls" assertions read.
 //
@@ -114,11 +181,18 @@ const LOYID_KEY = '100001293'
 // `memberOver` is ticket 235's axis: the fields the header derives its chips and
 // its points block from, overridden per scenario so one stubbed member can be an
 // ordinary one, an archived one, a blocked one or all of them at once.
-let scenario = { doorShut: false, access: 'granted', memberOver: {} }
+// `activities` is ticket 236's axis: the rows the report answers with, or the
+// string `throws` for the raw-500-with-no-envelope that a timed-out report
+// actually produces (`ExecuteAsync` rethrows anything that is not a
+// `DomainException`) — the failure the tab's Retry exists for.
+let scenario = { doorShut: false, access: 'granted', memberOver: {}, activities: ACTIVITY_ROWS }
 // The member reads only. The probe is logged apart so the "one call" / "two
-// calls" cascade assertions keep meaning what they said before the gate existed.
+// calls" cascade assertions keep meaning what they said before the gate existed,
+// and the report calls are logged apart again so "a tab fetches only when it is
+// opened" is counted and not inferred.
 let calls = []
 let accessCalls = 0
+let activityCalls = []
 
 async function run() {
   const browser = await chromium.launch()
@@ -162,6 +236,18 @@ async function run() {
       if (key === MOBILE_KEY) return route.fulfill(envelope({ ...MEMBER, ...scenario.memberOver }))
       return route.fulfill(notFound(`Customer with ${key} doesn't exists`))
     }
+    // The Activities tab's read (236). 🚩 No existence check server-side — a
+    // member with no history and a member who does not exist both answer
+    // `200 []`, which is why the tab's empty state is a fact and not a refusal.
+    if (path.startsWith('LoyWeb/Reports/LastActivities/')) {
+      const key = decodeURIComponent(path.split('LoyWeb/Reports/LastActivities/')[1] || '')
+      activityCalls.push(key)
+      // 🚩 A RAW 500 with no envelope — what a report that timed out on a heavy
+      // member actually returns, and the case the scoped Retry is for.
+      if (scenario.activities === 'throws') return route.fulfill({ status: 500, body: 'boom' })
+      return route.fulfill(envelope(scenario.activities))
+    }
+
     if (path.startsWith('LoyWeb/Member/')) {
       const key = decodeURIComponent(path.split('LoyWeb/Member/')[1] || '')
       calls.push(`byLoyId:${key}`)
@@ -176,6 +262,21 @@ async function run() {
 
   const field = page.getByLabel('Look up a loyalty member', { exact: true })
   const lookUp = page.getByRole('button', { name: /^Look up$/ })
+
+  // Fill the box and wait for the CONTROLLED value to settle before submitting.
+  // Playwright's `fill` returns as soon as the DOM input is set, which on a field
+  // that React has just re-mounted (after a navigation) can land before the
+  // component's own state does — and React then writes its state back over the
+  // typed text. Every assertion about what was searched depends on the box
+  // holding what the drive typed, so the wait is part of typing here.
+  const type = async (text) => {
+    await field.fill(text)
+    await page.waitForFunction(
+      ([id, want]) => document.getElementById(id)?.value === want,
+      [FIELD_ID, text],
+      { timeout: 5000 },
+    )
+  }
 
   // ---- Scenario 1: the field is the page ---------------------------------
   await page.goto(BASE + '/loy/members')
@@ -212,7 +313,7 @@ async function run() {
 
   // ---- Scenario 3: a mobile resolves in ONE call -------------------------
   calls = []
-  await field.fill('+966 55 500 0111')
+  await type('+966 55 500 0111')
   await lookUp.click()
   await page.waitForURL(/\/loy\/members\/100001293$/, { timeout: 10000 })
   check(
@@ -259,7 +360,7 @@ async function run() {
 
   // ---- Scenario 5: a Loy ID cascades, invisibly --------------------------
   calls = []
-  await field.fill('100001293')
+  await type('100001293')
   await lookUp.click()
   await page.waitForTimeout(600)
   check(
@@ -281,7 +382,7 @@ async function run() {
 
   // ---- Scenario 7: a double miss is a neutral sentence -------------------
   calls = []
-  await field.fill('0555000999')
+  await type('0555000999')
   await lookUp.click()
   await page.waitForTimeout(600)
   const missBody = await page.textContent('body')
@@ -301,7 +402,7 @@ async function run() {
   // ---- Scenario 8: 🚩 a shut door says THAT ------------------------------
   scenario.doorShut = true
   calls = []
-  await field.fill('0555000111')
+  await type('0555000111')
   await lookUp.click()
   await page.waitForTimeout(600)
   const shutBody = await page.textContent('body')
@@ -448,7 +549,11 @@ async function run() {
   )
   check(
     '🚩 engine machinery is drawn nowhere',
-    !/W\|D|Accrual|Redemption|Exchange rate/i.test(ordinary),
+    // 🚩 The machinery is named by its LABELS, not by the bare words: since 236
+    // the Activities tab below the header renders the server's own English for an
+    // activity type, and "Redemption" is a thing that HAPPENED to the member. The
+    // factors are what must never appear, and a factor always arrives labelled.
+    !/W\|D|Accrual factor|Redemption factor|Exchange rate|expire soon days/i.test(ordinary),
   )
 
   // ---- Scenario 15: the disclosure starts shut ---------------------------
@@ -546,6 +651,239 @@ async function run() {
     await birthValue.textContent(),
   )
   scenario.memberOver = {}
+
+  // ---- Ticket 236: the tab shell and the Activities tab -------------------
+  const tab = (name) => page.getByRole('tab', { name })
+  const cell = (rowIndex, colId) =>
+    page.locator(`.ag-row[row-index="${rowIndex}"] .ag-cell[col-id="${colId}"]`).first()
+  const cellText = async (rowIndex, colId) => (await cell(rowIndex, colId).textContent()).trim()
+
+  // ---- Scenario 20: Activities is the landing tab, and it fetches ---------
+  activityCalls = []
+  await page.goto(BASE + '/loy/members/100001293')
+  await page.getByText('Purchase accrual').first().waitFor({ timeout: 10000 })
+  check(
+    'Activities is the tab an agent lands on, and it fetches ON LANDING — one call',
+    activityCalls.join(', ') === '100001293',
+    activityCalls.join(', '),
+  )
+  check('the strip offers all three peers', (await page.getByRole('tab').count()) === 3)
+  check(
+    'Activities is the selected tab with no ?tab= at all',
+    (await tab(/^Activities$/).getAttribute('aria-selected')) === 'true',
+  )
+  const landed = await page.textContent('body')
+  check('🚩 the caption names the ceiling', /Most recent 100 activities\./.test(landed))
+  check(
+    '🚩 below the cap it stays quiet — three rows warn about nothing',
+    !/There may be older activity not shown/.test(landed),
+  )
+  check(
+    '🚩 a bare row count is shown NOWHERE — a count reads as completeness',
+    !/\b3 activities\b/.test(landed) && !/showing 3\b/i.test(landed),
+  )
+  check(
+    '🚩 the member header and the bar are untouched by the tab below them',
+    /Nouf Al-Harbi/.test(landed) && /Searched/.test(landed),
+  )
+
+  // ---- Scenario 21: 🚩 a tab fetches only when it is OPENED ---------------
+  activityCalls = []
+  await page.goto(BASE + '/loy/members/100001293?tab=sales')
+  await page.getByText('This tab is not available yet.').waitFor({ timeout: 10000 })
+  check(
+    '🚩 a cold load on another tab makes NO activities call at all',
+    activityCalls.length === 0,
+    activityCalls.join(', '),
+  )
+  check(
+    'the named tab is the selected one',
+    (await tab(/^Sales$/).getAttribute('aria-selected')) === 'true',
+  )
+  check(
+    'and the member above it resolved anyway — only the TAB is lazy',
+    /Nouf Al-Harbi/.test(await page.textContent('body')),
+  )
+  await tab(/^Activities$/).click()
+  await page.getByText('Purchase accrual').first().waitFor({ timeout: 10000 })
+  check(
+    '🚩 opening the tab is what fetches it — exactly one call, then',
+    activityCalls.join(', ') === '100001293',
+    activityCalls.join(', '),
+  )
+  check('the URL follows the open tab', /\?tab=activities$/.test(page.url()), page.url())
+  // Back to Sales and forward again: the window is already held, so it is not
+  // re-read. A read-only screen has nothing to be stale about.
+  await tab(/^Sales$/).click()
+  await tab(/^Activities$/).click()
+  await page.getByText('Purchase accrual').first().waitFor({ timeout: 5000 })
+  check(
+    'a tab already read is not re-read on the way back — cached per member',
+    activityCalls.length === 1,
+    activityCalls.join(', '),
+  )
+
+  // ---- Scenario 22: ?tab= survives a reload, junk falls back --------------
+  await page.goto(BASE + '/loy/members/100001293?tab=actions')
+  await page.getByText('This tab is not available yet.').waitFor({ timeout: 10000 })
+  await page.reload()
+  await page.getByText('This tab is not available yet.').waitFor({ timeout: 10000 })
+  check(
+    '🚩 ?tab= survives a reload — a link lands where it meant to',
+    (await tab(/^Actions$/).getAttribute('aria-selected')) === 'true',
+  )
+  activityCalls = []
+  await page.goto(BASE + '/loy/members/100001293?tab=purchases')
+  await page.getByText('Purchase accrual').first().waitFor({ timeout: 10000 })
+  check(
+    '🚩 an unknown ?tab= falls back to Activities rather than erroring',
+    (await tab(/^Activities$/).getAttribute('aria-selected')) === 'true',
+  )
+
+  // ---- Scenario 23: the six columns, and what the Points column may say ---
+  const rowsBody = await page.textContent('body')
+  check(
+    'the six columns are the six 226 settled',
+    /Date/.test(rowsBody) &&
+      /Activity/.test(rowsBody) &&
+      /Points/.test(rowsBody) &&
+      /Status/.test(rowsBody) &&
+      /Expires/.test(rowsBody) &&
+      /Reference/.test(rowsBody),
+  )
+  check(
+    '🚩 points arrive already signed and draw to exactly two decimals',
+    /\+240\.25/.test(rowsBody) && /-450\.50/.test(rowsBody) && /\+500\.00/.test(rowsBody),
+  )
+  check(
+    "🚩 Expires is blank on a debit — the server's own rule, points <= 0",
+    (await cellText(1, 'expires')) === '',
+    await cellText(1, 'expires'),
+  )
+  check(
+    '🚩 and blank on a 0001-01-01 sentinel too',
+    (await cellText(2, 'expires')) === '',
+    await cellText(2, 'expires'),
+  )
+  check('a credit keeps its expiry date', (await cellText(0, 'expires')) !== '')
+  check(
+    'a closed status code decodes to its word',
+    (await cellText(1, 'status')) === 'Pending',
+    await cellText(1, 'status'),
+  )
+  check(
+    '🚩 an unseeded status renders BARE, never as a raw translation key',
+    (await cellText(2, 'status')) === 'Z' && !/activityStatus\./.test(rowsBody),
+    await cellText(2, 'status'),
+  )
+  const inkAt = (loc) => loc.evaluate((el) => getComputedStyle(el).color)
+  check(
+    '🚩 the sign is NEVER coloured — the Activity column already names the direction',
+    (await inkAt(cell(0, 'points'))) === (await inkAt(cell(1, 'points'))),
+    `${await inkAt(cell(0, 'points'))} vs ${await inkAt(cell(1, 'points'))}`,
+  )
+  check(
+    '🚩 no total row anywhere — a sum of server-rounded rows would not equal the balance',
+    (await page.locator('.ag-floating-bottom .ag-row').count()) === 0,
+  )
+  // 🚩 Sort is ON here, unlike the Nphies lists: the entire window is already in
+  // the browser and the caption says which window it is, so sorting reorders the
+  // RESULT and not a page. Driven rather than asserted from a colDef.
+  await page.locator('.ag-header-cell[col-id="points"]').click()
+  await page.waitForTimeout(200)
+  check(
+    'the whole window is held, so the Points column really sorts',
+    (await cellText(0, 'points')) === '-450.50',
+    await cellText(0, 'points'),
+  )
+
+  // ---- Scenario 24: 🚩 at exactly the cap, the warning fires --------------
+  scenario.activities = activityRows(40)
+  await page.goto(BASE + '/loy/members/100001293')
+  await page.getByText('Most recent 100 activities.').waitFor({ timeout: 10000 })
+  const below = await page.textContent('body')
+  check(
+    'a 40-row member states the ceiling and nothing more',
+    /Most recent 100 activities\./.test(below) &&
+      !/There may be older activity not shown/.test(below),
+  )
+  check('🚩 and its row count is nowhere on screen', !/\b40 activities\b/.test(below))
+
+  scenario.activities = activityRows(100)
+  await page.goto(BASE + '/loy/members/100001293')
+  await page.getByText('There may be older activity not shown.').waitFor({ timeout: 10000 })
+  check(
+    '🚩 a member at exactly the cap gets BOTH — silence would be the false negative that matters',
+    /Most recent 100 activities\./.test(await page.textContent('body')),
+  )
+
+  // ---- Scenario 25: 🚩 a failed tab fails INSIDE the tab ------------------
+  scenario.activities = 'throws'
+  calls = []
+  await page.goto(BASE + '/loy/members/100001293')
+  await page.getByRole('button', { name: /^Retry$/ }).waitFor({ timeout: 15000 })
+  const failedBody = await page.textContent('body')
+  check(
+    '🚩 the member header survives a failed tab — one slow report does not cost the member',
+    /Nouf Al-Harbi/.test(failedBody) && /12,480/.test(failedBody),
+  )
+  check(
+    'the other two tabs are untouched and still reachable',
+    (await page.getByRole('tab').count()) === 3,
+  )
+  check(
+    'the failure names WHICH tab could not be read, and carries the server sentence too',
+    // A raw 500 carries no envelope, so the server half is the generic sentence —
+    // which is exactly why the tab's own title has to say what was absent.
+    /could not be read/.test(failedBody) &&
+      /unexpected error/i.test(failedBody) &&
+      (await page.getByRole('alert').count()) >= 1,
+  )
+  check(
+    '🚩 empty and failed are never conflated — the empty sentence is absent here',
+    !/No loyalty activity for this member/.test(failedBody),
+  )
+  check(
+    '🚩 no toast — the state is already fully visible in the tab being looked at',
+    (await page.locator('[data-sonner-toast]').count()) === 0,
+  )
+
+  // The Retry refetches THAT TAB and nothing else.
+  scenario.activities = ACTIVITY_ROWS
+  activityCalls = []
+  const memberCallsBeforeRetry = calls.length
+  await page.getByRole('button', { name: /^Retry$/ }).click()
+  await page.getByText('Purchase accrual').first().waitFor({ timeout: 10000 })
+  check(
+    'Retry refetches the tab — the likeliest failure is transient and often fine on a second attempt',
+    activityCalls.length >= 1,
+    activityCalls.join(', '),
+  )
+  check(
+    '🚩 and ONLY that tab — the member is not re-read',
+    calls.length === memberCallsBeforeRetry,
+    `${calls.length} vs ${memberCallsBeforeRetry}`,
+  )
+
+  // ---- Scenario 26: an empty member speaks in its own words ---------------
+  scenario.activities = []
+  await page.goto(BASE + '/loy/members/100001293')
+  await page.getByText('No loyalty activity for this member.').waitFor({ timeout: 10000 })
+  const emptyBody = await page.textContent('body')
+  check(
+    '🚩 an empty tab says what was ABSENT, in this tab\'s own words — never a shared "No data"',
+    /No loyalty activity for this member\./.test(emptyBody) && !/No data/.test(emptyBody),
+  )
+  check(
+    '🚩 an empty tab is not a failure — no banner, no Retry',
+    (await page.getByRole('button', { name: /^Retry$/ }).count()) === 0 &&
+      !/could not be read/.test(emptyBody),
+  )
+  check(
+    'and the ceiling is still stated — the caption describes the query, not the answer',
+    /Most recent 100 activities\./.test(emptyBody),
+  )
+  scenario.activities = ACTIVITY_ROWS
 
   check('no page errors anywhere in the drive', errors.length === 0, errors.join(' | '))
 

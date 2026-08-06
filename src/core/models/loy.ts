@@ -80,3 +80,41 @@ export interface LoyMember extends Omit<LoyMemberPayload, 'blockedReason'> {
    *  Null or empty ⇒ the member is not blocked. */
   blockedReasonCode: string | null
 }
+
+/**
+ * One row of `GET LoyWeb/Reports/LastActivities/{loyId}` — `LastActivityModel`,
+ * narrowed to the six fields the Activities tab draws plus the key it is sorted
+ * by (223 §2, columns settled by 226 §2).
+ *
+ * 🚩 **`points` arrives already signed.** `LoyActivityService.AddActivity`
+ * negates `SpendPoints` in place for a debit, so `-450` reaches the browser as
+ * `-450` — there is no client-side debit/credit table and none is needed. It is
+ * also already `Round()`ed to 2 dp away-from-zero by the endpoint, which is
+ * exactly why 🚩 **no client-side total is ever drawn**: a sum of rounded rows
+ * will not equal the header's `pointsBalance`.
+ *
+ * **Dropped, deliberately** (226 §2): the whole points-engine machinery
+ * (`pointsAmount`, `salesAmount`, `spendPointsFactor`, `pointsAmountInCurrency`,
+ * `currency`) — that is *how* the engine computed the points, not *what
+ * happened* — plus `relatedActivityId`, `refLoyId`, `effectiveTime`, `branchId`,
+ * `tierPoints`, and the pre-formatted `*String` WPF conveniences.
+ */
+export interface LoyActivityRow {
+  /** The key and the sort — `ORDER BY ActivityId DESC` is **insertion order, not
+   *  date order**, so a backdated posting sorts by when it was written. Carried
+   *  as the row identity, drawn in no column. */
+  activityId: string
+  /** The type CODE (`ACRL`, `RDEM`, …). Not drawn — `description` is the
+   *  server's own English for it, joined from `LoyActivityType`. */
+  activityType: string | null
+  description: string | null
+  activityDateTime: string
+  /** `A`/`P`/`N`/`E`, closed by `LoyActivityStatusConstants` — decoded through
+   *  `codes.ts`, which degrades an unseeded value to the bare code. */
+  activityStatus: string | null
+  /** A sentinel date when there is nothing to expire; the server's own rule is
+   *  that expiry is meaningless when `points <= 0`. Both guards are the tab's. */
+  expiryDate: string
+  points: number
+  referenceNumber: string | null
+}

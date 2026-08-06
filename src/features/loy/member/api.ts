@@ -20,7 +20,12 @@
  * key. Omitting it yields `SAR` at rate `1` (223 §1).
  */
 import { api } from '@/core/api'
-import type { LoyAccessResult, LoyMember, LoyMemberPayload } from '@/core/models/loy'
+import type {
+  LoyAccessResult,
+  LoyActivityRow,
+  LoyMember,
+  LoyMemberPayload,
+} from '@/core/models/loy'
 import type { MemberReads } from './resolve-member'
 
 /**
@@ -98,5 +103,35 @@ export const loyApi: MemberReads = {
    */
   async byLoyId(key: string): Promise<LoyMember> {
     return toMember(await api.get<LoyMemberPayload>(`LoyWeb/Member/${encodeURIComponent(key)}`))
+  },
+}
+
+/** The Activities tab's cache key — per member, so a tab fetched once is not
+ *  fetched again while that member is on screen (ticket 236). */
+export const activitiesKey = (loyId: string) => ['loy', 'activities', loyId] as const
+
+export const loyReportsApi = {
+  /**
+   * `GET LoyWeb/Reports/LastActivities/{loyId}` — the Activities tab's read.
+   *
+   * 🚩 **It has no existence check.** The underlying report is raw SQL keyed on
+   * `LoyId`, so a member with no history and a member who does not exist both
+   * answer `200 []`. That is not a problem here — by the time a tab fetches, the
+   * member call has already resolved someone — and it is why an empty tab and a
+   * failed tab are never conflated (226 §8).
+   *
+   * 🚩 The realistic failure is a **raw 500 with no envelope**: `ExecuteAsync`
+   * rethrows anything that is not a `DomainException`. That is what earns the
+   * tab its Retry, and why the fallback string is what an agent actually reads
+   * there rather than a server sentence.
+   *
+   * `?? []` guards the one shape the envelope permits and the tab cannot render:
+   * a `success: true` with a null `data`.
+   */
+  async activities(loyId: string): Promise<LoyActivityRow[]> {
+    const rows = await api.get<LoyActivityRow[] | null>(
+      `LoyWeb/Reports/LastActivities/${encodeURIComponent(loyId)}`,
+    )
+    return rows ?? []
   },
 }

@@ -9,6 +9,8 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi, loyApi, memberKey } from './api'
 import MemberHeader from './MemberHeader'
 import MemberTabs from './MemberTabs'
+import RecentSearches from './RecentSearches'
+import { pushRecent, readRecents, saveRecents } from './recent-searches'
 import { resolveMember } from './resolve-member'
 
 /**
@@ -74,6 +76,12 @@ export default function MemberLookupPage() {
   // underneath, because a one-digit correction is not a reason to lose them.
   const [editing, setEditing] = useState(false)
 
+  // The recent-search chips (239). Read ONCE per mount rather than on every
+  // render — `sessionStorage` is synchronous and this renders on every keystroke
+  // in the field. The state is the render source from then on; storage is written
+  // beside it, so the bar updates without a re-read.
+  const [recents, setRecents] = useState(readRecents)
+
   const member = useQuery({
     queryKey: memberKey(loyId ?? ''),
     queryFn: () => loyApi.byLoyId(loyId as string),
@@ -92,6 +100,13 @@ export default function MemberLookupPage() {
       // background — it is the screen's data source and no freshness policy is
       // invented here — but nothing the agent sees waits for it.
       queryClient.setQueryData(memberKey(resolution.member.loyId), resolution.member)
+      // 🚩 Remembered HERE, inside the `kind === 'member'` branch, so only a search
+      // that found somebody earns a chip: a miss, a refusal and an outage all
+      // return above this line. The bar is a list of people looked at, never of
+      // numbers mistyped (239 decision 4).
+      const next = pushRecent(recents, text)
+      setRecents(next)
+      saveRecents(next)
       setEditing(false)
       navigate(`/loy/members/${encodeURIComponent(resolution.member.loyId)}`, {
         state: { typed: text },
@@ -106,6 +121,17 @@ export default function MemberLookupPage() {
     // typing (225 ruling 7). A blank submit reaches `resolveMember` and is a
     // no-op there: silence is the answer, not a message.
     if (!lookup.isPending) lookup.mutate(typed)
+  }
+
+  // A chip is the field, pressed. It fills the box and submits through the SAME
+  // mutation a typed submit uses — one search path, so the cascade, the miss
+  // sentence and the failure banner cannot drift between the two ways in. It
+  // deliberately does NOT navigate straight to a stored LoyId: a chip whose member
+  // has since gone would land on a member-read error instead of the familiar "no
+  // member matches" (239 decision 3).
+  const pickRecent = (key: string) => {
+    setTyped(key)
+    if (!lookup.isPending) lookup.mutate(key)
   }
 
   const newLookup = () => {
@@ -255,6 +281,12 @@ export default function MemberLookupPage() {
       <section className="flex w-full flex-col gap-4">
         <div className="mx-auto mt-12 flex w-full max-w-2xl flex-col gap-4 rounded-lg border border-border/60 bg-card/40 px-5 py-8">
           {field}
+          {/* 🚩 The chips live on the EMPTY state and nowhere else (239): here
+              there is nothing else on screen and they are the fastest way back to
+              a member from this morning. A resolved member's identity bar stays
+              SEARCHED · Change · New lookup — 227 argued that bar down to three
+              things and a fourth would be furniture on the screen it kept clear. */}
+          <RecentSearches keys={recents} onPick={pickRecent} disabled={lookup.isPending} />
           {outcome}
         </div>
       </section>

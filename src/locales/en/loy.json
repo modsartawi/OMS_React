@@ -10,6 +10,10 @@
     "unreachableTitle": "Loyalty is unavailable",
     "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
   },
+  "recent": {
+    "label": "Recent",
+    "ariaLabel": "Recent searches"
+  },
   "search": {
     "label": "Look up a loyalty member",
     "placeholder": "Mobile number or Loy ID",

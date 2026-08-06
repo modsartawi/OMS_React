@@ -620,6 +620,60 @@ async function run() {
   check('🚩 the box is never rewritten', (await field.inputValue()) === '0555000999')
   check('a miss does not navigate', /\/loy\/members$/.test(page.url()), page.url())
 
+  // ---- Scenario 7b: the last five members you FOUND (239) -----------------
+  // Two hits so far — '+966 55 500 0111' (scenario 3) and '100001293'
+  // (scenario 5) — and one miss, '0555000999', immediately above.
+  const chipNames = async () =>
+    (await page.locator('ul[aria-label="Recent searches"] button').allTextContents()).map((s) =>
+      s.trim(),
+    )
+  check(
+    'the two searches that FOUND someone are chips, newest first',
+    JSON.stringify(await chipNames()) === JSON.stringify(['100001293', '+966 55 500 0111']),
+    JSON.stringify(await chipNames()),
+  )
+  check(
+    '🚩 the miss left NO chip — the bar is people you looked at, not numbers you mistyped',
+    !(await chipNames()).includes('0555000999'),
+    JSON.stringify(await chipNames()),
+  )
+
+  // 🚩 sessionStorage, not component state: a reload must keep them. (That it is
+  // not localStorage is asserted below, where it can be seen rather than assumed.)
+  await page.reload()
+  await field.waitFor({ timeout: 10000 })
+  check(
+    '🚩 a reload keeps the bar — the chips are in sessionStorage, not in a component',
+    JSON.stringify(await chipNames()) === JSON.stringify(['100001293', '+966 55 500 0111']),
+    JSON.stringify(await chipNames()),
+  )
+  check(
+    '🚩 and NOT in localStorage — a loyalty key must not outlive the tab on a shared workstation',
+    (await page.evaluate(() =>
+      Object.keys(window.localStorage).some((k) => k.toLowerCase().includes('recent')),
+    )) === false,
+  )
+
+  calls = []
+  await page.locator('ul[aria-label="Recent searches"] button', { hasText: '100001293' }).click()
+  await page.waitForURL(/\/loy\/members\/100001293$/, { timeout: 10000 })
+  check(
+    '🚩 a chip runs the ORDINARY search — the same cascade, not a shortcut to the LoyId route',
+    calls.join(', ') === 'byMobile:100001293, byLoyId:100001293',
+    calls.join(', '),
+  )
+  await page.getByText('Nouf Al-Harbi').waitFor({ timeout: 10000 })
+  check('and the member resolves from it', /Nouf Al-Harbi/.test(await page.textContent('body')))
+
+  await page.getByRole('button', { name: /^New lookup$/ }).click()
+  await page.waitForURL(/\/loy\/members$/, { timeout: 5000 })
+  await page.locator('ul[aria-label="Recent searches"]').waitFor({ timeout: 10000 })
+  check(
+    'searching a key again moves it to the front instead of growing a second chip',
+    JSON.stringify(await chipNames()) === JSON.stringify(['100001293', '+966 55 500 0111']),
+    JSON.stringify(await chipNames()),
+  )
+
   // ---- Scenario 8: 🚩 a shut door says THAT ------------------------------
   scenario.doorShut = true
   calls = []

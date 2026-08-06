@@ -144,3 +144,12 @@ drive shows the below-cap / at-cap / empty / failed-with-Retry states.
 ## Blocked by
 
 [233](233-one-field-resolves-a-member.md) — a tab needs a resolved member to hang off.
+
+## Post-review fix (2026-08-06)
+
+`.afk/REVIEW-236.md` finding SP1, confirmed and fixed: the **Expires** column formatted inside its
+`valueGetter`, so the column's *value* was `"02 Aug 2027"` and this sortable tab ordered it
+lexically — `"01 Jan 2028"` first — and filtered on `"Aug"`. The getter now yields the ISO value
+(with both blanking rules intact) and `formatShortDate` moved to a `valueFormatter`, the shape the
+Date column already had. Pinned by a new pure suite, `activity-columns.test.ts` (6 cases): the drive
+reads rendered `cellText` and is blind to this, which is why the assertion is here.

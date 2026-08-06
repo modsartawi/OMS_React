@@ -56,7 +56,14 @@ using the graduated pure arithmetic) · component · i18n · test
       member-snapshot field reaches a column · **pure** — `action-columns.test.ts`, 9 cases
 - [x] `tools/loy-member-drive.mjs` (extended) — a 312-action member states its real total and pages
       Prev/Next at 25; a 4-action member grows no pager; the tab offers no sort or filter · **flow** —
-      scenarios 31–35, **173/173** green (was 135/135)
+      scenarios 31–35, plus 33c below · **175/175** green (was 135/135)
+- [x] 🚩 **a page number does not outlive the member it was a page of** — the review pass found the
+      stranding state reachable from the other side: React Router keeps the same element across a
+      `:loyId` change, so `ActionsTab`'s page survived into the next member and page 3 of a
+      four-action member is an empty grid with no pager. Fixed with `key={loyId}` on the tab shell
+      (`MemberLookupPage.tsx`) · **flow** — scenario 33c, which drives the one navigation that
+      reaches it (browser Back between two members whose Actions tab was open) and fails without
+      the key
 
 ## Boundaries
 
@@ -129,3 +136,25 @@ makes the LoyId-less call unrepresentable at the door. Proof is typecheck + lint
 cases + the drive against stubbed envelopes built from 223's field inventory. One drive flake seen
 twice under CPU contention (233's scenario 9 double-reading the member on a cold load) did not
 reproduce on a quiet machine; left alone rather than re-timed on a guess.
+
+## Post-review fix (2026-08-06)
+
+`.afk/REVIEW-238.md` finding 1, confirmed and fixed: `<MemberTabs>` mounted without a `key`, so
+`ActionsTab`'s `useState(1)` carried across a member change. The reviewer's stated trigger (the
+*Change* button) does **not** reach it — Change drops `?tab=` and the shell lands on Activities,
+which remounts the tab — but browser **Back** between two members whose Actions tab was open does,
+and that is what scenario 33c drives. Verified both ways: with the key, 175/175; with it removed,
+33c reads `page=3` of the four-action member.
+
+Findings 2 and 3 from the same report, both fixed with it:
+
+- **The empty sentence now belongs to the page it is on.** `tabs.actions.emptyPage` (*"No actions on
+  this page."*) is chosen above page 1; `tabs.actions.empty` stays the member's own sentence. The old
+  string under a caption reading *"312 actions."* contradicted the line directly above it — and
+  scenario 33b was *asserting* that contradiction, so the drive assertion is corrected too, plus one
+  that pins the member sentence is absent there.
+- **The caption is plural-aware.** `caption_one` / `caption_other`, selected by a `count` param while
+  `total` still carries the grouped number the sentence prints. A one-action member read
+  *"1 actions."* Driven with a trail of one.
+
+Drive now **177/177**.

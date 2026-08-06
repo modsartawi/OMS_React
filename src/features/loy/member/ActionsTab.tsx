@@ -77,7 +77,11 @@ export default function ActionsTab({ loyId }: { loyId: string }) {
           would be inventing the very thing this tab does not have. */}
       {volume && (
         <p className="text-xs text-muted-foreground">
-          {t(volume.captionKey, { total: volume.total.toLocaleString() })}
+          {/* Two params, one number: `count` is what i18next selects the plural
+              form with, `total` is what the sentence prints — grouped, which a
+              raw `count` would not be. A member with one action reads "1
+              action.", not "1 actions." */}
+          {t(volume.captionKey, { count: volume.total, total: volume.total.toLocaleString() })}
         </p>
       )}
 
@@ -119,7 +123,13 @@ export default function ActionsTab({ loyId }: { loyId: string }) {
         >
           {rows.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">
-              {t('tabs.actions.empty')}
+              {/* 🚩 Two empties, because they are two different facts. On page 1
+                  the member has no actions; on an inner page the MEMBER has
+                  plenty — the caption above says how many — and it is this page
+                  that came back empty. Saying "no actions recorded for this
+                  member" under a caption reading "312 actions." is a sentence
+                  that contradicts the line above it. */}
+              {t(page > 1 ? 'tabs.actions.emptyPage' : 'tabs.actions.empty')}
             </p>
           ) : (
             <div className="h-[26rem]">

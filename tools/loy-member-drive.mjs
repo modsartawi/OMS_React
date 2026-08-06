@@ -145,6 +145,20 @@ const MEMBER = {
 const MOBILE_KEY = '966555000111'
 const LOYID_KEY = '100001293'
 
+// A SECOND member, by LoyId only. He exists for one assertion (scenario 33c):
+// two members are the only way to drive what a member change does to a tab's own
+// state, and one stubbed member cannot change into anybody.
+const LOYID_KEY_2 = '100002468'
+const MEMBER_2 = {
+  ...MEMBER,
+  loyId: LOYID_KEY_2,
+  mobile: '966555000222',
+  fullName: 'Faisal Al-Otaibi',
+  gender: 'M',
+  email: 'faisal.o@example.com',
+  nationalId: '1044556677',
+}
+
 /** The lookup field's DOM id, as `MemberLookupPage` sets it. */
 const FIELD_ID = 'loy-member-lookup'
 
@@ -434,7 +448,13 @@ async function run() {
         pageSize: query.get('pageSize'),
       })
       if (scenario.actions === 'throws') return route.fulfill({ status: 500, body: 'boom' })
-      const total = scenario.actions.total
+      // `second` is the OTHER member's trail size, so one scenario can hold two
+      // members of very different volumes — which is what makes "page 3 of A
+      // must not survive into B" drivable at all.
+      const total =
+        query.get('loyId') === LOYID_KEY_2 && scenario.actions.second !== undefined
+          ? scenario.actions.second
+          : scenario.actions.total
       const page = Number(query.get('page') || 1)
       const first = (page - 1) * 25
       // `blankPage` is the stranding case: a page inside a real total that comes
@@ -453,6 +473,7 @@ async function run() {
       calls.push(`byLoyId:${key}`)
       if (scenario.doorShut) return route.fulfill({ status: 403, body: 'Forbidden' })
       if (key === LOYID_KEY) return route.fulfill(envelope({ ...MEMBER, ...scenario.memberOver }))
+      if (key === LOYID_KEY_2) return route.fulfill(envelope(MEMBER_2))
       return route.fulfill(notFound(`Customer ${key} doesn't exists`))
     }
 
@@ -1386,12 +1407,27 @@ async function run() {
     (await page.locator('.ag-header-cell-menu-button, .ag-floating-filter').count()) === 0,
   )
 
+  // A trail of one. The caption is a sentence before it is a number, and the
+  // en bundle carries both forms rather than the `1 actions.` a single
+  // interpolation would print.
+  scenario.actions = { total: 1 }
+  await page.goto(BASE + '/loy/members/100001293?tab=actions')
+  await page.getByText('1 action.').waitFor({ timeout: 10000 })
+  check(
+    'a member with ONE action reads "1 action." — the caption is a sentence, not a template',
+    !(await page.textContent('body')).includes('1 actions.'),
+  )
+
   // ---- Scenario 33b: 🚩 an empty page keeps its way back -------------------
   scenario.actions = { total: 312, blankPage: 2 }
   await page.goto(BASE + '/loy/members/100001293?tab=actions')
   await page.getByText('312 actions.').waitFor({ timeout: 10000 })
   await page.getByRole('button', { name: /^Next$/ }).click()
-  await page.getByText('No actions recorded for this member.').waitFor({ timeout: 10000 })
+  await page.getByText('No actions on this page.').waitFor({ timeout: 10000 })
+  check(
+    '🚩 the empty sentence is about the PAGE, not the member — "no actions recorded for this member" under a caption reading "312 actions." contradicts the line above it',
+    !(await page.textContent('body')).includes('No actions recorded for this member.'),
+  )
   check(
     '🚩 a page that comes back empty inside a real total KEEPS its pager — no rows to read and no way back is the one stranding state',
     (await page.locator('#loy-tab-panel nav').count()) === 1 &&
@@ -1404,6 +1440,47 @@ async function run() {
       await page.getByText('Page 1 of 13').waitFor({ timeout: 10000 })
       return page.textContent('body')
     })()).includes('Member update'),
+  )
+
+  // ---- Scenario 33c: 🚩 a page number does not follow the agent to another member ----
+  // The stranding state 33b guards against by keeping the pager, reached the
+  // other way: a page number that outlives the member it was a page OF. Only a
+  // navigation that keeps `?tab=actions` across a `:loyId` change can do it —
+  // Change drops the tab and lands on Activities, so the reachable path is the
+  // browser's own Back between two members whose Actions tab was open. React
+  // Router keeps the same element across a param change, so without a key on the
+  // tab shell `ActionsTab`'s `useState(1)` simply carries over.
+  scenario.actions = { total: 4, second: 312 }
+  await page.goto(BASE + '/loy/members/100001293?tab=actions')
+  await page.getByText('4 actions.').waitFor({ timeout: 10000 })
+  await page.getByRole('button', { name: /^Change$/ }).click()
+  await type(LOYID_KEY_2)
+  await lookUp.click()
+  await page.getByText('Faisal Al-Otaibi').waitFor({ timeout: 10000 })
+  await page.getByRole('tab', { name: 'Actions' }).click()
+  await page.getByText('312 actions.').waitFor({ timeout: 10000 })
+  await page.getByRole('button', { name: /^Next$/ }).click()
+  await page.getByText('Page 2 of 13').waitFor({ timeout: 10000 })
+  await page.getByRole('button', { name: /^Next$/ }).click()
+  await page.getByText('Page 3 of 13').waitFor({ timeout: 10000 })
+
+  actionCalls = []
+  await page.goBack()
+  await page.getByText('Nouf Al-Harbi').waitFor({ timeout: 10000 })
+  await page.getByText('4 actions.').waitFor({ timeout: 10000 })
+  check(
+    '🚩 no page but the first is ever asked of him — page 3 belonged to the other member, and asking for it here is an empty page with no pager to leave by',
+    // An empty log is the PASS this assertion wants most: page 1 of this member
+    // is already in the cache from the top of the scenario, so a remounted tab
+    // asks nothing at all. What must not appear is a read of any other page.
+    actionCalls.every((c) => c.loyId === LOYID_KEY && c.page === '1'),
+    JSON.stringify(actionCalls),
+  )
+  check(
+    'and his four actions are on screen, not an empty tab',
+    (await rowCount()) === 4 &&
+      !(await page.textContent('body')).includes('No actions recorded for this member.'),
+    String(await rowCount()),
   )
 
   scenario.actions = { total: 4 }

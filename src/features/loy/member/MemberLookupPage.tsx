@@ -321,7 +321,17 @@ export default function MemberLookupPage() {
               are questions about someone who is already identified. The shell
               mounts only the open tab, which is what makes "a tab fetches when it
               is opened" structural rather than a policy. */}
-          <MemberTabs loyId={member.data.loyId} />
+          {/* 🚩 Keyed on the member, because React Router keeps the SAME element
+              across a `:loyId` change — so without this key a tab's own state
+              outlives the member it was state about. Actions is where that bites:
+              its page number is a page OF someone, and page 3 carried onto a
+              member with four actions is an empty grid with no pager to leave by,
+              the one stranding state 238 exists to prevent. (Change cannot reach
+              it — it drops `?tab=` and lands on Activities — but browser Back
+              between two members whose Actions tab was open does, driven as
+              scenario 33c.) The key makes leaving a member a remount, which is
+              what every tab's state already assumes it is. */}
+          <MemberTabs key={member.data.loyId} loyId={member.data.loyId} />
         </>
       )}
     </section>

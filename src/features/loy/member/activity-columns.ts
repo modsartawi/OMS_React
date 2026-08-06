@@ -88,8 +88,14 @@ export function buildActivityColumns(t: TFunction): ColDef<LoyActivityRow>[] {
       // debit (`LastActivityModel.ExpiryDateString` returns empty when
       // `Points <= 0`), and an unset date arrives as the `0001-01-01` sentinel,
       // which `formatShortDate` already blanks through `isBlankDate`.
-      valueGetter: (p) =>
-        !p.data || p.data.points <= 0 ? '' : formatShortDate(p.data.expiryDate),
+      //
+      // 🚩 The getter yields the **ISO value**, never the display string: this
+      // column sorts and filters, and `"01 Jan 2028"` sorts before
+      // `"02 Aug 2027"` lexically. Formatting belongs in the formatter, exactly
+      // as the Date column above does it.
+      valueGetter: (p) => (!p.data || p.data.points <= 0 ? null : p.data.expiryDate),
+      valueFormatter: (p: ValueFormatterParams<LoyActivityRow, string | null>) =>
+        p.value ? formatShortDate(p.value) : '',
     },
     {
       // The till receipt / source document, as plain selectable text — see the

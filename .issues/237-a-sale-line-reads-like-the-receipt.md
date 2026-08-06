@@ -61,14 +61,14 @@ currency-aware money formatter, both pure) · component · i18n · test
 
 - [x] money — SAR renders 2dp, **BHD renders 3dp**, a null currency degrades without throwing, and
       `formatMoney`'s existing 2dp callers are untouched · **pure** —
-      `src/features/loy/member/money.test.ts`, 17 cases. The last clause is asserted by reaching
+      `src/features/loy/member/money.test.ts`, 15 cases. The last clause is asserted by reaching
       across to `@/core/util/number-format` in this same suite: the decision is as much *do not
       widen the app's formatter* as it is *format per currency*, and a suite that only looked at the
       new module could be satisfied by editing the old one. `formatMoney.length === 1` pins that it
       still takes no currency argument.
 - [x] `sales-columns` — the Currency column appears iff the rows hold more than one distinct
       currency; a return row renders signed qty and amount against an **unsigned** unit price ·
-      **pure** — `src/features/loy/member/sales-columns.test.ts`, 18 cases, asserted through the
+      **pure** — `src/features/loy/member/sales-columns.test.ts`, 20 cases, asserted through the
       columns' own `valueFormatter`s (where every decision here lives) rather than a rendered grid.
 - [x] `tools/loy-member-drive.mjs` (extended) — a SAR-only member (no Currency column), a mixed-currency
       member (column present, BHD at 3dp), a return line, and the at-cap warning at 500 · **flow** —
@@ -138,3 +138,10 @@ BHD member with it at three decimals, and a return line reading `-1.00 · 12.00 
 
 [236](236-activities-fetches-when-opened-and-states-its-ceiling.md) — the tab shell, the ceiling
 caption and the per-tab failure surface are established there.
+
+## Post-review correction (2026-08-06)
+
+`.afk/REVIEW-237.md`: the Proof box stated stale case counts — `money.test.ts` **15**, not 17, and
+`sales-columns.test.ts` **20**, not 18 (35 total, which is what the sum always said). Corrected
+above. On a wave where every integration proof is blocked, the Proof box has nothing to lean on but
+its own accuracy, so this is worth the edit rather than a shrug.

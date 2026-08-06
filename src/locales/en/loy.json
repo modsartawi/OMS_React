@@ -97,9 +97,11 @@
       }
     },
     "actions": {
-      "caption": "{{total}} actions.",
+      "caption_one": "{{total}} action.",
+      "caption_other": "{{total}} actions.",
       "loading": "Loading actions…",
       "empty": "No actions recorded for this member.",
+      "emptyPage": "No actions on this page.",
       "failed": "The member actions could not be read.",
       "columns": {
         "when": "When",

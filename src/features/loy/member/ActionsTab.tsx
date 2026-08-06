@@ -65,7 +65,8 @@ export default function ActionsTab({ loyId }: { loyId: string }) {
 
   const columns = useMemo(() => buildActionColumns(t), [t])
   const rows = actions.data?.records ?? []
-  const volume = actions.data ? countedVolume(actions.data.recordsCount) : null
+  const total = actions.data?.recordsCount ?? 0
+  const volume = actions.data ? countedVolume(total) : null
 
   return (
     <div className="flex flex-col gap-2">
@@ -110,30 +111,44 @@ export default function ActionsTab({ loyId }: { loyId: string }) {
             {t('tabs.retry')}
           </button>
         </ErrorBanner>
-      ) : rows.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted-foreground">{t('tabs.actions.empty')}</p>
       ) : (
-        <div className="overflow-hidden rounded-md border border-border/60">
-          <div className="h-[26rem]">
-            <AgGridReact<(typeof rows)[number]>
-              theme={omsGridTheme}
-              rowData={rows}
-              columnDefs={columns}
-              defaultColDef={ACTION_DEFAULT_COL_DEF}
-              rowHeight={OMS_GRID_ROW_HEIGHT}
-              headerHeight={OMS_GRID_HEADER_HEIGHT}
-              animateRows={false}
-              {...omsGridDirection}
-            />
-          </div>
-          {/* 🚩 A one-page result grows no pager. Next is arithmetic on the real
-              total here — `isCapped` is omitted, which is the compiler-checked
-              way of saying this caller holds a count and not a flag (232). */}
-          {actions.data && showsPager(actions.data.recordsCount, LOY_ACTIONS_PAGE_SIZE) && (
+        <div
+          className={
+            rows.length === 0 ? '' : 'overflow-hidden rounded-md border border-border/60'
+          }
+        >
+          {rows.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              {t('tabs.actions.empty')}
+            </p>
+          ) : (
+            <div className="h-[26rem]">
+              <AgGridReact<(typeof rows)[number]>
+                theme={omsGridTheme}
+                rowData={rows}
+                columnDefs={columns}
+                defaultColDef={ACTION_DEFAULT_COL_DEF}
+                rowHeight={OMS_GRID_ROW_HEIGHT}
+                headerHeight={OMS_GRID_HEADER_HEIGHT}
+                animateRows={false}
+                {...omsGridDirection}
+              />
+            </div>
+          )}
+          {/* 🚩 A one-page result grows no pager — the house rule, and most
+              members. Next is arithmetic on the real total here: `isCapped` is
+              omitted, which is the compiler-checked way of saying this caller
+              holds a count and not a flag (232).
+              🚩 It is drawn beside an EMPTY page too, deliberately. A page whose
+              rows came back empty above page 1 is the one state where hiding the
+              footer would strand an agent: no rows to read and no Previous to
+              leave by. The empty sentence is a fact about the page; the way back
+              is not the page's to remove. */}
+          {showsPager(total, LOY_ACTIONS_PAGE_SIZE) && (
             <GridPager
               page={page}
               pageSize={LOY_ACTIONS_PAGE_SIZE}
-              totalMatches={actions.data.recordsCount}
+              totalMatches={total}
               busy={actions.isFetching}
               onPage={setPage}
             />

@@ -437,7 +437,11 @@ async function run() {
       const total = scenario.actions.total
       const page = Number(query.get('page') || 1)
       const first = (page - 1) * 25
-      const rows = Array.from({ length: Math.max(0, Math.min(25, total - first)) }, (_, i) =>
+      // `blankPage` is the stranding case: a page inside a real total that comes
+      // back with no rows. Contrived, but it is the one state where hiding the
+      // footer would leave an agent with nothing to read and no way back.
+      const length = scenario.actions.blankPage === page ? 0 : Math.max(0, Math.min(25, total - first))
+      const rows = Array.from({ length }, (_, i) =>
         // Row one of page one is the unresolved-code row; the rest resolve.
         first + i === 0 ? unresolvedRow : actionRow(5000 - (first + i)),
       )
@@ -1381,6 +1385,30 @@ async function run() {
     '🚩 and no filter, for the same reason',
     (await page.locator('.ag-header-cell-menu-button, .ag-floating-filter').count()) === 0,
   )
+
+  // ---- Scenario 33b: 🚩 an empty page keeps its way back -------------------
+  scenario.actions = { total: 312, blankPage: 2 }
+  await page.goto(BASE + '/loy/members/100001293?tab=actions')
+  await page.getByText('312 actions.').waitFor({ timeout: 10000 })
+  await page.getByRole('button', { name: /^Next$/ }).click()
+  await page.getByText('No actions recorded for this member.').waitFor({ timeout: 10000 })
+  check(
+    '🚩 a page that comes back empty inside a real total KEEPS its pager — no rows to read and no way back is the one stranding state',
+    (await page.locator('#loy-tab-panel nav').count()) === 1 &&
+      (await page.getByRole('button', { name: /^Previous$/ }).isEnabled()),
+  )
+  check(
+    'and the way back works',
+    (await (async () => {
+      await page.getByRole('button', { name: /^Previous$/ }).click()
+      await page.getByText('Page 1 of 13').waitFor({ timeout: 10000 })
+      return page.textContent('body')
+    })()).includes('Member update'),
+  )
+
+  scenario.actions = { total: 4 }
+  await page.goto(BASE + '/loy/members/100001293?tab=actions')
+  await page.getByText('4 actions.').waitFor({ timeout: 10000 })
 
   // ---- Scenario 34: the row — a raw code, and no PII ----------------------
   const actionCell = async (rowIndex, colId) =>

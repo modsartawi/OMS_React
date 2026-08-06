@@ -153,6 +153,25 @@ export interface LoyActivityRow {
  * rows; and the **`INNER JOIN Item`** means a line whose item no longer exists
  * vanishes silently.
  */
+export interface LoySalesRow {
+  /** Bare store code — the report joins no store name. */
+  storeCode: string | null
+  /** The receipt number, repeated across the lines of one basket. */
+  trxNumber: string | null
+  /** Date-only in practice — see the note above. */
+  trxDate: string
+  itemNumber: string | null
+  /** Joined from `Item.Description`. The row's headline: "what did they buy". */
+  itemDescription: string | null
+  /** 🚩 Unsigned even on a return. */
+  unitPrice: number
+  /** `QuantityValue` — signed on a return. */
+  qty: number
+  /** `AmountValue`, the line NET value column (not gross) — signed on a return. */
+  amount: number
+  currency: string | null
+}
+
 /**
  * One row of `GET LoyWeb/Reports/LoyMemberActions` — `LoyMemberActionModel`,
  * narrowed to the seven fields the Actions tab draws plus the key it is sorted
@@ -218,23 +237,4 @@ export interface LoyMemberActionsPage {
   totalPages: number
   /** The real total across all pages. */
   recordsCount: number
-}
-
-export interface LoySalesRow {
-  /** Bare store code — the report joins no store name. */
-  storeCode: string | null
-  /** The receipt number, repeated across the lines of one basket. */
-  trxNumber: string | null
-  /** Date-only in practice — see the note above. */
-  trxDate: string
-  itemNumber: string | null
-  /** Joined from `Item.Description`. The row's headline: "what did they buy". */
-  itemDescription: string | null
-  /** 🚩 Unsigned even on a return. */
-  unitPrice: number
-  /** `QuantityValue` — signed on a return. */
-  qty: number
-  /** `AmountValue`, the line NET value column (not gross) — signed on a return. */
-  amount: number
-  currency: string | null
 }

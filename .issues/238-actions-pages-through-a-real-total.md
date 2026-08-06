@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 231
 blocked-by: 236, 232
 ---
@@ -48,12 +48,15 @@ using the graduated pure arithmetic) · component · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] the request — 🚩 `LoyId` is present on **every** call including page 2+; the page size asked
-      for is 25, not the pager's other caller's 50 · **pure**
-- [ ] the row — an unknown main/sub action code renders as the **raw code**, never an empty cell; no
-      member-snapshot field reaches a column · **pure**
-- [ ] `tools/loy-member-drive.mjs` (extended) — a 312-action member states its real total and pages
-      Prev/Next at 25; a 4-action member grows no pager; the tab offers no sort or filter · **flow**
+- [x] the request — 🚩 `LoyId` is present on **every** call including page 2+; the page size asked
+      for is 25, not the pager's other caller's 50 · **pure** — `actions-request.test.ts`, 7 cases,
+      asserting the **URL that leaves the browser** rather than a params object (the layer that could
+      lose the parameter sits between the two)
+- [x] the row — an unknown main/sub action code renders as the **raw code**, never an empty cell; no
+      member-snapshot field reaches a column · **pure** — `action-columns.test.ts`, 9 cases
+- [x] `tools/loy-member-drive.mjs` (extended) — a 312-action member states its real total and pages
+      Prev/Next at 25; a 4-action member grows no pager; the tab offers no sort or filter · **flow** —
+      scenarios 31–35, **173/173** green (was 135/135)
 
 ## Boundaries
 
@@ -77,3 +80,52 @@ shows a real total, 25 a page, no pager on a one-page member, and no sort or fil
 
 [236](236-activities-fetches-when-opened-and-states-its-ceiling.md) — the tab shell.
 [232](232-the-pager-graduates-to-core.md) — the pager cannot be imported from a feature.
+
+## Answer
+
+Built 2026-08-06. `features/loy/member/{action-columns.ts,ActionsTab.tsx}`, `LoyMemberActionRow` +
+`LoyMemberActionsPage` in `core/models/loy.ts`, `actionsQuery`/`actionsKey`/`LOY_ACTIONS_PAGE_SIZE`
++ `loyReportsApi.actions` in the feature's `api.ts`, the `tabs.actions.*` block in `loy.json`, and
+the third branch in `MemberTabs.tsx` (which retires 236's `tabs.notYet` placeholder — deleted with
+its key). No registration point moved; the area, namespace, routes and menu all landed with 233–234.
+
+🚩 **The `LoyId` guard is a throw, not a convention.** The ticket asked that the client send the
+LoyId anyway; the build found the sharper version of the same problem: `core/api`'s `buildQuery`
+**drops an empty string**, so an accidental `''` would not fail loudly — it would silently become the
+bare `LoyMemberActions` call that answers the first 25 actions of the whole estate. `actionsQuery`
+therefore throws before the call rather than trusting the caller, and the suite pins that `fetch` is
+never reached. Belt, braces, and a third thing.
+
+🚩 **The paging path really is the total-bearing one.** `isCapped` is *omitted* at the `GridPager`
+call site, which is 232's compiler-checked way of saying this caller holds a count and not a flag —
+so Next is `page < pageCount` and goes inert on the last page by arithmetic. Driven, not asserted
+from a prop: 312 walks to *Page 1 of 13*, and a 30-action member's page 2 is the 5-row remainder.
+
+🚩 **An empty page keeps its pager.** Raised by the spec review: the first cut hid the footer
+whenever `rows.length === 0`, which is right on a member with no actions and wrong on a page inside a
+real total — no rows to read *and* no Previous to leave by is the one stranding state this tab can
+produce. The empty sentence is a fact about the page; the way back is not the page's to remove.
+`clampToLastPageWhenCurrentPageEmpties` was considered and not used: it is a *post-mutation* rule and
+nothing on this read-only screen removes a row.
+
+**Page lives in component state, not in the URL.** Spec 231 §4 puts exactly two things in the address
+— the LoyId and the open tab — and gives the reason: a link should land on the right *question*, and
+page 3 of an audit trail is not a question anyone sends a colleague. Logged with three other calls in
+`.afk/HITL-238.md`.
+
+**The caption appears only once the read answers**, which is a deliberate, logged deviation from spec
+§9's "loading, with the volume caption already visible": the capped tabs' caption describes the
+*query* and is knowable in advance, while this one **is** the answer. There is no honest total to
+state before the server sends one.
+
+Noted, not taken: the loading / error+Retry / empty scaffolding is now its **third** hand-rolled copy
+across the three tabs (only the three sentence keys differ) — a `core/ui` tab-state wrapper is the
+obvious extraction, but it would rewrite two landed tickets' files and belongs to a hardening pass.
+Same posture as 234's backstop-card note.
+
+🚩 Nothing driven against a live SIS.Api — the read is BackOffice
+[978](../../../Work/DMSCO/BackOffice/.issues/978-loyweb-the-four-member-reads.md), whose constraint 3
+makes the LoyId-less call unrepresentable at the door. Proof is typecheck + lint + build + 1197 pure
+cases + the drive against stubbed envelopes built from 223's field inventory. One drive flake seen
+twice under CPU contention (233's scenario 9 double-reading the member on a cold load) did not
+reproduce on a quiet machine; left alone rather than re-timed on a guess.

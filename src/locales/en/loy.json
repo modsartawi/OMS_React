@@ -62,7 +62,6 @@
       "sales": "Sales",
       "actions": "Actions"
     },
-    "notYet": "This tab is not available yet.",
     "retry": "Retry",
     "activities": {
       "caption": "Most recent {{cap}} activities.",
@@ -98,7 +97,19 @@
       }
     },
     "actions": {
-      "caption": "{{total}} actions."
+      "caption": "{{total}} actions.",
+      "loading": "Loading actions…",
+      "empty": "No actions recorded for this member.",
+      "failed": "The member actions could not be read.",
+      "columns": {
+        "when": "When",
+        "action": "Action",
+        "subAction": "Sub-action",
+        "details": "Details",
+        "details2": "Details 2",
+        "by": "By",
+        "branch": "Branch code"
+      }
     }
   },
   "chip": {

@@ -153,6 +153,73 @@ export interface LoyActivityRow {
  * rows; and the **`INNER JOIN Item`** means a line whose item no longer exists
  * vanishes silently.
  */
+/**
+ * One row of `GET LoyWeb/Reports/LoyMemberActions` — `LoyMemberActionModel`,
+ * narrowed to the seven fields the Actions tab draws plus the key it is sorted
+ * by (223 §4, columns settled by 226 §5).
+ *
+ * 🚩 **The entire member snapshot is absent, and that is the point.** The wire
+ * row is denormalised with `mobile`, `fullName`, `email`, `gender`, `cityName`,
+ * `profileUpdated`, `insuranceCompany`, `blockedReason` and `joinedDate` — the
+ * member already on screen in the header, repeated 25 times a page, putting PII
+ * in a grid for no reading benefit. The type does not carry them, so no column
+ * can accidentally reach one.
+ *
+ * 🚩 **`blockedReason` is the second half of the trap the model layer exists to
+ * close.** On this payload it is the already-joined English **description**; on
+ * `LoyMemberPayload` it is the **code**, under the same name. No shared type
+ * spans the two, and dropping the field here means the confusion has nowhere to
+ * happen (spec 231 §6).
+ *
+ * **Both description fields are LEFT JOINs** and go null on an unknown code —
+ * each falls back to its raw code at the column, never to an empty cell.
+ */
+export interface LoyMemberActionRow {
+  /** The key and the sort — `ORDER BY ActionNo DESC`. Carried as the row
+   *  identity, drawn in no column (226 §9: no row links anywhere). */
+  actionNo: string
+  /** The action CODE. Not drawn on its own — it is what the description column
+   *  falls back to when the LEFT JOIN found no English for it. */
+  mainActionType: string | null
+  mainActionDescription: string | null
+  subActionType: string | null
+  subActionDescription: string | null
+  actionDateTime: string
+  /** Free-form and **untyped** — what changed, in whatever shape the writing
+   *  code chose. Rendered verbatim; the screen makes no claim about it. */
+  actionData: string | null
+  /** The second free-form slot. 🚩 **Shown** — the user's ruling over the
+   *  recommendation to drop it: nothing is hidden from the agent, even where the
+   *  field is undocumented and empty on most rows. */
+  actionData2: string | null
+  /** **Who did it** — the back-office operator. The point of an audit tab. */
+  userId: string | null
+  /** A bare code; the report joins no branch name and the door carries no
+   *  lookup (229). */
+  branchId: string | null
+}
+
+/**
+ * The paged envelope `LoyMemberActionReportResult` carries **inside** the
+ * universal envelope's `data` (223 §4).
+ *
+ * 🚩 **This is the only one of the three reads that tells the truth about
+ * volume.** `recordsCount` is a real `COUNT(*)`, not a window — which is why the
+ * Actions tab states a total where the other two state a ceiling, and why its
+ * Next button is arithmetic rather than a flag (`pagerButtonEnablement`'s
+ * total-bearing path, ticket 232).
+ */
+export interface LoyMemberActionsPage {
+  records: LoyMemberActionRow[] | null
+  currentPage: number
+  pageSize: number
+  /** Rows in **this** page. */
+  pageRecordsCount: number
+  totalPages: number
+  /** The real total across all pages. */
+  recordsCount: number
+}
+
 export interface LoySalesRow {
   /** Bare store code — the report joins no store name. */
   storeCode: string | null

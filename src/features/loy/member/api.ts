@@ -24,6 +24,7 @@ import type {
   LoyAccessResult,
   LoyActivityRow,
   LoyMember,
+  LoyMemberActionsPage,
   LoyMemberPayload,
   LoySalesRow,
 } from '@/core/models/loy'
@@ -114,6 +115,49 @@ export const activitiesKey = (loyId: string) => ['loy', 'activities', loyId] as 
 /** The Sales tab's cache key — per member, same rule (ticket 237). */
 export const salesKey = (loyId: string) => ['loy', 'sales', loyId] as const
 
+/**
+ * The Actions tab's cache key — per member **and per page**, because this is the
+ * one tab that pages: page 2 is a different read, not a filtered view of page 1
+ * (ticket 238).
+ */
+export const actionsKey = (loyId: string, page: number) =>
+  ['loy', 'actions', loyId, page] as const
+
+/**
+ * Rows a page on the Actions tab — **25, the server's own default**, and
+ * deliberately not the 50 Ua Users walks. The pager takes its size as a
+ * parameter precisely so the two callers can differ (ticket 232).
+ */
+export const LOY_ACTIONS_PAGE_SIZE = 25
+
+/**
+ * The query string one page of actions is asked for — the pure half of this
+ * read, and the ticket's own Proof seam.
+ *
+ * 🚩 **`loyId` is always sent, and a blank one is a throw rather than a call.**
+ * A bare `LoyMemberActions` returns the first 25 actions of the **whole estate**,
+ * newest first, across all members — a silent cross-member data leak, *not* an
+ * error (223 §4). Two things make that unrepresentable here rather than merely
+ * unlikely: the door refuses a call without a `LoyId` (BackOffice constraint 3),
+ * and this guard stops the client ever making one. The guard is not paranoia
+ * about the caller — `buildQuery` **drops an empty string**, so an accidental
+ * `''` would not fail loudly, it would silently become the estate-wide call.
+ *
+ * The 401 rule is untouched: this throws a plain client-side `Error` for a bug in
+ * the caller, never an `ApiError` shaped like a server outcome.
+ */
+export function actionsQuery(loyId: string, page: number): Record<string, unknown> {
+  if (!loyId.trim()) throw new Error('LoyMemberActions requires a loyId')
+  return {
+    loyId: loyId.trim(),
+    // The report coerces a page `<= 0` to 1 itself; the client sends a sane one
+    // anyway so the page the pager thinks it is on and the page the server reads
+    // are the same number.
+    page: Math.max(1, Math.floor(page)),
+    pageSize: LOY_ACTIONS_PAGE_SIZE,
+  }
+}
+
 export const loyReportsApi = {
   /**
    * `GET LoyWeb/Reports/LastActivities/{loyId}` — the Activities tab's read.
@@ -159,5 +203,27 @@ export const loyReportsApi = {
       `LoyWeb/Reports/LoyaltySales/${encodeURIComponent(loyId)}`,
     )
     return rows ?? []
+  },
+
+  /**
+   * `GET LoyWeb/Reports/LoyMemberActions?loyId=&page=&pageSize=` — the Actions
+   * tab's read (ticket 238), and the **only** one of the three that is genuinely
+   * paged: `OFFSET/FETCH` on `ORDER BY ActionNo DESC` plus a second `COUNT(*)`
+   * for a real `recordsCount`.
+   *
+   * 🚩 The `loyId` guard lives in `actionsQuery` and fires **before** the call,
+   * so the estate-wide read cannot be made from here even by mistake.
+   *
+   * A member with no actions is `200` with an empty `records` — a fact about the
+   * member, never a refusal — so the empty state is the tab's own sentence and
+   * not an error. `?? []` guards the one shape the envelope permits and the grid
+   * cannot render.
+   */
+  async actions(loyId: string, page: number): Promise<LoyMemberActionsPage> {
+    const result = await api.get<LoyMemberActionsPage>(
+      'LoyWeb/Reports/LoyMemberActions',
+      actionsQuery(loyId, page),
+    )
+    return { ...result, records: result.records ?? [] }
   },
 }

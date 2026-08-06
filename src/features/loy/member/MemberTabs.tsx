@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
+import ActionsTab from './ActionsTab'
 import ActivitiesTab from './ActivitiesTab'
 import SalesTab from './SalesTab'
 import { MEMBER_TABS, resolveTab, type MemberTab } from './tab-volume'
@@ -68,16 +69,16 @@ export default function MemberTabs({ loyId }: { loyId: string }) {
       </div>
 
       <div role="tabpanel" id={TAB_PANEL_ID} aria-labelledby={`loy-tab-${open}`} className="p-3">
-        {/* Mount-when-open IS the lazy fetch. The one unbuilt panel says so
-            plainly rather than drawing an empty grid that would read as "this
-            member has nothing" — empty and absent are never conflated on this
-            screen, and that holds for a tab that does not exist yet too. */}
+        {/* Mount-when-open IS the lazy fetch, and it is also how each tab's page
+            state is scoped: Actions' page number lives inside the panel, so
+            leaving the tab and coming back reopens at page 1 rather than at a
+            page an agent no longer remembers choosing. */}
         {open === 'activities' ? (
           <ActivitiesTab loyId={loyId} />
         ) : open === 'sales' ? (
           <SalesTab loyId={loyId} />
         ) : (
-          <p className="py-8 text-center text-sm text-muted-foreground">{t('tabs.notYet')}</p>
+          <ActionsTab loyId={loyId} />
         )}
       </div>
     </div>

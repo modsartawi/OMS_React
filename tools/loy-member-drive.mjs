@@ -66,6 +66,19 @@
 //  30. an empty tab speaks in SALES' own words, and the timed-out report fails
 //      inside its tab with a Retry that refetches only that tab.
 //
+// And ticket 238's (scenarios 31–35):
+//  31. 🚩 the LoyId is on EVERY actions call including page 2 and 3, and the page
+//      size asked for is 25 — not the pager's other caller's 50;
+//  32. a 312-action member states its REAL total ("312 actions.", no ceiling and
+//      no at-cap hedging) and pages Prev/Next 25 at a time;
+//  33. 🚩 a 4-action member grows NO pager, and 🚩 the tab offers no sort and no
+//      filter — the one tab where their absence is the decision;
+//  34. 🚩 an unresolved main/sub action code renders as the RAW code, and 🚩 no
+//      member-snapshot field (name, mobile, email, city, blocked reason) reaches
+//      a column;
+//  35. an empty tab speaks in ACTIONS' own words, and a failed one fails inside
+//      its tab with a Retry that refetches only that tab.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-drive.mjs
 import { createRequire } from 'node:module'
@@ -253,6 +266,58 @@ const salesRows = (n) =>
     trxNumber: `R-${700000 + i}`,
   }))
 
+// `LoyMemberActionModel` rows as the report hands them over (223 §4). 🚩 The stub
+// carries the member snapshot the wire really does denormalise onto every row —
+// `mobile`, `fullName`, `email`, `cityName`, `blockedReason`, `joinedDate` — so
+// that "no member-snapshot field reaches a column" is asserted against a payload
+// that actually contains one, and not against a stub that quietly agrees.
+// 🚩 `blockedReason` here is the joined DESCRIPTION, unlike the member payload's
+// code under the same name: the trap the model layer names apart.
+const actionRow = (n) => ({
+  actionNo: String(n),
+  loyId: LOYID_KEY,
+  mainActionType: 'MUPD',
+  mainActionDescription: 'Member update',
+  subActionType: 'CHMB',
+  subActionDescription: 'Change mobile',
+  actionDateTime: '2026-07-30T11:04:00',
+  actionData: '0555000111 → 0555000222',
+  actionData2: 'web',
+  userId: 'msartawi',
+  branchId: '1001',
+  staffId: '4417',
+  mobile: '966555000111',
+  fullName: 'Nouf Al-Harbi',
+  email: 'nouf.h@example.com',
+  gender: 'F',
+  cityName: 'Riyadh',
+  profileUpdated: true,
+  insuranceCompany: 'Bupa',
+  blockedReason: 'Mobile moved to another account',
+  joinedDate: '2021-03-14T00:00:00',
+})
+
+// 🚩 The first row of page one carries NEITHER description — both joins are LEFT
+// JOINs and go null on a code that is in the data but not in its type table. It
+// must render `SNUP` / `USTP`, never two empty cells.
+const unresolvedRow = {
+  ...actionRow(4471),
+  mainActionType: 'SNUP',
+  mainActionDescription: null,
+  subActionType: 'USTP',
+  subActionDescription: null,
+}
+
+/** One page of `n` rows out of a `total`-row audit trail. */
+const actionsPage = (rows, page, total) => ({
+  records: rows,
+  currentPage: page,
+  pageSize: 25,
+  pageRecordsCount: rows.length,
+  totalPages: Math.max(1, Math.ceil(total / 25)),
+  recordsCount: total,
+})
+
 // Scenario state, mutated between steps, and the call log the "one call" /
 // "two calls" assertions read.
 //
@@ -269,12 +334,17 @@ const salesRows = (n) =>
 // `sales` is ticket 237's axis, and it carries the same `throws` case — on this
 // tab it is not a hypothetical: a 500-line scan of `RetailTrxDetail` timing out
 // on a heavy member is the failure the scoped Retry was argued for.
+// `actions` is ticket 238's axis, and it is a TOTAL rather than a row set: this
+// is the one read that pages, so the stub serves the slice the client asked for
+// out of a trail of that size — which is the only way "312 actions, 25 a page"
+// can be driven rather than asserted.
 let scenario = {
   doorShut: false,
   access: 'granted',
   memberOver: {},
   activities: ACTIVITY_ROWS,
   sales: SALES_ROWS,
+  actions: { total: 312 },
 }
 // The member reads only. The probe is logged apart so the "one call" / "two
 // calls" cascade assertions keep meaning what they said before the gate existed,
@@ -284,6 +354,10 @@ let calls = []
 let accessCalls = 0
 let activityCalls = []
 let salesCalls = []
+// 🚩 The actions log keeps the whole QUERY, not just the key: the constraint this
+// tab exists under is that `loyId` is on every call including page 2, and a log
+// of keys could not tell the difference between that and the estate-wide read.
+let actionCalls = []
 
 async function run() {
   const browser = await chromium.launch()
@@ -346,6 +420,28 @@ async function run() {
       salesCalls.push(key)
       if (scenario.sales === 'throws') return route.fulfill({ status: 500, body: 'boom' })
       return route.fulfill(envelope(scenario.sales))
+    }
+
+    // The Actions tab's read (238) — the only PAGED one, and the only one with a
+    // real `recordsCount`. 🚩 Called without a `LoyId` the real report answers
+    // the first 25 actions of the whole estate; the stub logs the query verbatim
+    // so the drive can see that the client never makes that call.
+    if (path === 'LoyWeb/Reports/LoyMemberActions') {
+      const query = new URL(url).searchParams
+      actionCalls.push({
+        loyId: query.get('loyId'),
+        page: query.get('page'),
+        pageSize: query.get('pageSize'),
+      })
+      if (scenario.actions === 'throws') return route.fulfill({ status: 500, body: 'boom' })
+      const total = scenario.actions.total
+      const page = Number(query.get('page') || 1)
+      const first = (page - 1) * 25
+      const rows = Array.from({ length: Math.max(0, Math.min(25, total - first)) }, (_, i) =>
+        // Row one of page one is the unresolved-code row; the rest resolve.
+        first + i === 0 ? unresolvedRow : actionRow(5000 - (first + i)),
+      )
+      return route.fulfill(envelope(actionsPage(rows, page, total)))
     }
 
     if (path.startsWith('LoyWeb/Member/')) {
@@ -825,9 +921,9 @@ async function run() {
 
   // ---- Scenario 22: ?tab= survives a reload, junk falls back --------------
   await page.goto(BASE + '/loy/members/100001293?tab=actions')
-  await page.getByText('This tab is not available yet.').waitFor({ timeout: 10000 })
+  await page.getByText('312 actions.').waitFor({ timeout: 10000 })
   await page.reload()
-  await page.getByText('This tab is not available yet.').waitFor({ timeout: 10000 })
+  await page.getByText('312 actions.').waitFor({ timeout: 10000 })
   check(
     '🚩 ?tab= survives a reload — a link lands where it meant to',
     (await tab(/^Actions$/).getAttribute('aria-selected')) === 'true',
@@ -1176,6 +1272,219 @@ async function run() {
     '🚩 and ONLY that tab — neither the member nor Activities is re-read',
     calls.length === memberCallsBeforeSalesRetry && activityCalls.length === 0,
     `${calls.length} vs ${memberCallsBeforeSalesRetry}, activities ${activityCalls.length}`,
+  )
+
+  // ---- Ticket 238: the Actions tab ---------------------------------------
+
+  // ---- Scenario 31: 🚩 the LoyId is on EVERY call, and the size is 25 ------
+  scenario.sales = SALES_ROWS
+  scenario.actions = { total: 312 }
+  actionCalls = []
+  await page.goto(BASE + '/loy/members/100001293')
+  await page.getByText('Purchase accrual').first().waitFor({ timeout: 10000 })
+  check(
+    '🚩 landing on Activities makes NO actions call — the audit read is not paid for unasked',
+    actionCalls.length === 0,
+    JSON.stringify(actionCalls),
+  )
+  await tab(/^Actions$/).click()
+  await page.getByText('312 actions.').waitFor({ timeout: 10000 })
+  check(
+    'opening Actions is what fetches it — exactly one call',
+    actionCalls.length === 1,
+    JSON.stringify(actionCalls),
+  )
+  check(
+    '🚩 and it carries the LoyId — a bare call would answer the whole estate',
+    actionCalls[0].loyId === LOYID_KEY,
+    JSON.stringify(actionCalls[0]),
+  )
+  check(
+    "🚩 it asks for 25 a page — the server's own default, not the pager's other caller's 50",
+    actionCalls[0].pageSize === '25',
+    JSON.stringify(actionCalls[0]),
+  )
+
+  // ---- Scenario 32: a real total, and Prev/Next 25 at a time --------------
+  const actionsBody = await page.textContent('body')
+  check(
+    '🚩 the caption states the REAL total, with no ceiling and no hedging',
+    /312 actions\./.test(actionsBody) &&
+      !/Most recent/.test(actionsBody) &&
+      !/there may be older/i.test(actionsBody),
+  )
+  check(
+    'the seven columns are the seven 226 settled',
+    /When/.test(actionsBody) &&
+      /Action/.test(actionsBody) &&
+      /Sub-action/.test(actionsBody) &&
+      /Details/.test(actionsBody) &&
+      /Details 2/.test(actionsBody) &&
+      /\bBy\b/.test(actionsBody) &&
+      /Branch code/.test(actionsBody),
+  )
+  // 🚩 Read from the grid's own `aria-rowcount` (rows + the header row), not by
+  // counting DOM rows: AG Grid virtualizes, so a 25-row page only ever renders
+  // the dozen that fit and a DOM count would be measuring the viewport height.
+  const rowCount = async () =>
+    Number(await page.locator('[aria-rowcount]').first().getAttribute('aria-rowcount')) - 1
+  check('a page is 25 rows', (await rowCount()) === 25, String(await rowCount()))
+  const previous = page.getByRole('button', { name: /^Previous$/ })
+  const next = page.getByRole('button', { name: /^Next$/ })
+  check('the pager reads Page 1 of 13 — 312 walked 25 at a time', /Page 1 of 13/.test(actionsBody))
+  check('Previous is inert on page 1 — there is nowhere back to', await previous.isDisabled())
+  check('🚩 Next is live, driven by the real total and not by a capped flag', await next.isEnabled())
+
+  await next.click()
+  await page.getByText('Page 2 of 13').waitFor({ timeout: 10000 })
+  check(
+    '🚩 page 2 carries the LoyId too — paging is where it would be dropped',
+    actionCalls.length === 2 && actionCalls[1].loyId === LOYID_KEY && actionCalls[1].page === '2',
+    JSON.stringify(actionCalls[1]),
+  )
+  check('page 2 is a full page too', (await rowCount()) === 25, String(await rowCount()))
+  check('and Previous wakes up', await previous.isEnabled())
+
+  // The last page: Next goes inert on arithmetic, not on a flag nobody sent.
+  await page.getByRole('button', { name: /^Previous$/ }).click()
+  await page.getByText('Page 1 of 13').waitFor({ timeout: 10000 })
+  check('Previous walks back', /Page 1 of 13/.test(await page.textContent('body')))
+
+  scenario.actions = { total: 30 }
+  await page.goto(BASE + '/loy/members/100001293?tab=actions')
+  await page.getByText('30 actions.').waitFor({ timeout: 10000 })
+  await page.getByRole('button', { name: /^Next$/ }).click()
+  await page.getByText('Page 2 of 2').waitFor({ timeout: 10000 })
+  check(
+    '🚩 on the last page Next goes inert — arithmetic on a real total, not a guess',
+    await page.getByRole('button', { name: /^Next$/ }).isDisabled(),
+  )
+  check('and the short last page is the remainder', (await rowCount()) === 5, String(await rowCount()))
+
+  // ---- Scenario 33: 🚩 a one-page member grows no pager, and no sort -------
+  scenario.actions = { total: 4 }
+  await page.goto(BASE + '/loy/members/100001293?tab=actions')
+  await page.getByText('4 actions.').waitFor({ timeout: 10000 })
+  check(
+    '🚩 a 4-action member grows NO pager — the house rule, and most members',
+    (await page.getByRole('button', { name: /^Next$/ }).count()) === 0 &&
+      // Scoped to the tab panel: the shell's own sidebar is a `nav` too, and
+      // what must be absent is the FOOTER.
+      (await page.locator('#loy-tab-panel nav').count()) === 0,
+  )
+  check('and still states its real total', /4 actions\./.test(await page.textContent('body')))
+  check(
+    '🚩 the tab offers no sort — a sort over page 3 of N reorders a page, not a result',
+    (await page.locator('.ag-header-cell.ag-header-cell-sortable').count()) === 0,
+  )
+  check(
+    '🚩 and no filter, for the same reason',
+    (await page.locator('.ag-header-cell-menu-button, .ag-floating-filter').count()) === 0,
+  )
+
+  // ---- Scenario 34: the row — a raw code, and no PII ----------------------
+  const actionCell = async (rowIndex, colId) =>
+    (await page.locator(`.ag-row[row-index="${rowIndex}"] .ag-cell[col-id="${colId}"]`).first().textContent()).trim()
+  check(
+    '🚩 an unresolved main action renders its RAW code, never an empty cell',
+    (await actionCell(0, 'action')) === 'SNUP',
+    await actionCell(0, 'action'),
+  )
+  check(
+    '🚩 and so does an unresolved sub-action',
+    (await actionCell(0, 'subAction')) === 'USTP',
+    await actionCell(0, 'subAction'),
+  )
+  check(
+    'a resolved code shows the server’s own English',
+    (await actionCell(1, 'action')) === 'Member update' &&
+      (await actionCell(1, 'subAction')) === 'Change mobile',
+    `${await actionCell(1, 'action')} / ${await actionCell(1, 'subAction')}`,
+  )
+  check(
+    'By answers "who did this to my account", and the free-form slots are both shown',
+    (await actionCell(0, 'userId')) === 'msartawi' &&
+      (await actionCell(0, 'actionData')).includes('0555000222') &&
+      (await actionCell(0, 'actionData2')) === 'web',
+  )
+  const grid = await page.locator('.ag-root-wrapper').first().textContent()
+  check(
+    '🚩 NOT ONE member-snapshot field reaches the grid — the member is the header, not 25 rows of PII',
+    !/Nouf Al-Harbi/.test(grid) &&
+      !/nouf\.h@example\.com/.test(grid) &&
+      !/966555000111/.test(grid) &&
+      !/Riyadh/.test(grid) &&
+      !/Bupa/.test(grid) &&
+      !/Mobile moved to another account/.test(grid),
+    grid.slice(0, 200),
+  )
+  check(
+    'and the member is still whole in the header above it',
+    /Nouf Al-Harbi/.test(await page.textContent('body')),
+  )
+
+  // ---- Scenario 35: empty and failed, in ACTIONS' own words ---------------
+  scenario.actions = { total: 0 }
+  await page.goto(BASE + '/loy/members/100001293?tab=actions')
+  await page.getByText('No actions recorded for this member.').waitFor({ timeout: 10000 })
+  const emptyActions = await page.textContent('body')
+  check(
+    '🚩 an empty tab says ACTIONS were absent — never a shared "No data", never another tab\'s sentence',
+    !/No data/.test(emptyActions) &&
+      !/No sales lines/.test(emptyActions) &&
+      !/No loyalty activity/.test(emptyActions),
+  )
+  check(
+    '🚩 an empty tab is not a failure — no banner, no Retry, and no pager',
+    (await page.getByRole('button', { name: /^Retry$/ }).count()) === 0 &&
+      (await page.getByRole('button', { name: /^Next$/ }).count()) === 0 &&
+      !/could not be read/.test(emptyActions),
+  )
+  check(
+    'and the real total is still stated — zero is a count, not a missing one',
+    /0 actions\./.test(emptyActions),
+  )
+
+  scenario.actions = 'throws'
+  calls = []
+  activityCalls = []
+  await page.goto(BASE + '/loy/members/100001293?tab=actions')
+  await page.getByRole('button', { name: /^Retry$/ }).waitFor({ timeout: 15000 })
+  const failedActions = await page.textContent('body')
+  check(
+    '🚩 a failed audit read fails INSIDE its tab — the member header survives it',
+    /Nouf Al-Harbi/.test(failedActions) && /12,480/.test(failedActions),
+  )
+  check(
+    'the failure names WHICH read broke, and carries the server sentence too',
+    /The member actions could not be read\./.test(failedActions) &&
+      /unexpected error/i.test(failedActions) &&
+      (await page.getByRole('alert').count()) >= 1,
+  )
+  check(
+    '🚩 no caption is invented for a read that never answered — a total it does not have',
+    !/actions\./.test(failedActions.replace(/The member actions could not be read\./, '')),
+  )
+  check(
+    '🚩 no toast — the state is already fully visible in the tab being looked at',
+    (await page.locator('[data-sonner-toast]').count()) === 0,
+  )
+  check('the other two tabs are untouched and still reachable', (await page.getByRole('tab').count()) === 3)
+
+  scenario.actions = { total: 312 }
+  actionCalls = []
+  const memberCallsBeforeActionsRetry = calls.length
+  await page.getByRole('button', { name: /^Retry$/ }).click()
+  await page.getByText('312 actions.').waitFor({ timeout: 10000 })
+  check(
+    'Retry refetches the tab',
+    actionCalls.length >= 1,
+    JSON.stringify(actionCalls),
+  )
+  check(
+    '🚩 and ONLY that tab — neither the member nor another tab is re-read',
+    calls.length === memberCallsBeforeActionsRetry && activityCalls.length === 0,
+    `${calls.length} vs ${memberCallsBeforeActionsRetry}, activities ${activityCalls.length}`,
   )
 
   check('no page errors anywhere in the drive', errors.length === 0, errors.join(' | '))

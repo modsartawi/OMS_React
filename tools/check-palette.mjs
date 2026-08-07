@@ -35,6 +35,16 @@ const COLOUR_SOURCES = new Map([
     'src/assets/Al-Dawaa-Pharmacies-01.svg',
     'the al-dawaa mark — brand gold and navy live only here (ticket 087)',
   ],
+  // The سند قبض facsimile (wayfinder 246, map 240). Same shape of permission as
+  // the brand mark: the form's #C00000 red, #EDEDF2 cell fill and #8A8A8A rule
+  // ARE the paper document, reproduced from CollectionVoucherControl.xaml's own
+  // brushes — they are not themed surfaces and must never follow a token. This
+  // widens map 240's documented exception list (i18n-zero-literal,
+  // logical-tailwind) to a third gate; the shipped facsimiles inherit it.
+  ...['VariantA', 'VariantB', 'VariantC', 'VoucherPrototypePage'].map((f) => [
+    `src/features/oms/collection/__prototype__/voucher/${f}.tsx`,
+    'paper facsimile — the WPF voucher brushes; the form IS the colour (map 240)',
+  ]),
 ])
 
 // Sites where a literal is deliberate and must NOT be tokenised. Each carries its reason inline so

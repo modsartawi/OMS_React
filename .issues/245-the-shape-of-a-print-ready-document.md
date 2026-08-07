@@ -74,3 +74,26 @@ The mock in
 first sketch of the shape — note that nothing on it is a number, a `Date`, or a currency code, and
 that `shiftDayName` is pinned server-side because `ar-SA` is a Hijri culture. Strip the four dead
 fields listed above from it and it is close to the contract.
+
+**From 247 (2026-08-07) — and now the ACR half.**
+
+The ACR's print-ready model is `AcrFormBuilder`'s output with three edits, all from the sign-off:
+
+- **`OperatorId` → `PharmacistId`** — the column is `رقم الصيدلي`, the closer *is* the pharmacist.
+- **`DepositNumber`, `DepositStatus` and `DepositText` all leave.** Not just the two unbound fields
+  242 §8-O7 asked about: the sign-off removed `اجمالي ايداع المحصل` from `ملخص التحصيل` too, so the
+  summary carries one row (`اجمالي الايرادات` = the grand total) and the ACR says nothing about
+  banking. `CashTotalText` still earns its place — it is the `الاجمالي` band's cash column.
+- **One new field: the Hijri `الموافق` date**, pre-formatted server-side (`dd/MM/yyyy` Umm al-Qura)
+  like every other string on the form, for the same reason `shiftDayName` is: the calendar is a
+  .NET culture question, not a JS one.
+
+Unchanged: `MatchText` is a real per-row output, and `AcrNumberText` now renders under the label
+`رقم التجميعي`. `Notes` should arrive **in Arabic** (§8-O5): `Z report missing` is our literal, not
+the server's data, so the fix is in the builder.
+
+Two shape notes the mock in
+[`acr-mock.ts`](../src/features/oms/collection/__prototype__/acr/acr-mock.ts) makes concrete:
+nothing on it is a number or a `Date`, and **pagination is part of the contract** — the endpoint
+hands over pages (or `rowsPerPage` plus the arithmetic), because the browser choosing its own page
+breaks is exactly what 241 ruled out.

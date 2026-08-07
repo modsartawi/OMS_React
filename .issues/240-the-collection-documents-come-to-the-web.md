@@ -98,6 +98,22 @@ facsimiles + print), and a smaller backend wave in
   form. Two things left open: the pad's **horizontal** logo lockup exists in neither repo (one
   decision shared with 247/O8), and 241's stamp-and-fills check has still never met a printer.
 
+- [The ACR form, across its pages](247-the-acr-form-across-its-pages.md) — **breaker gate 2 passed,
+  so the breaker is clear on both documents.** Signed off on variant C of the
+  [prototype](../src/features/oms/collection/__prototype__/acr/) (three readings × four paging
+  scenarios, on 241's geometry): 246's rule survives contact with a *reshape* — the WPF's
+  `تاريخ اليوم`, the closer's id over a signature column, dynamic rows and the page stamp all stay;
+  `الموافق` and the pad's left/right placement of `ملخص التحصيل` come back; the three difference
+  rows, `سبب الفرق` and both instruction blocks stay dropped. **Three amendments, all reaching 245:**
+  `رقم المشغل` → **`رقم الصيدلي`** (the field is `pharmacistId`), `نموذج رقم ( )` →
+  **`رقم التجميعي`**, and **every deposit mark removed** — meta *and* summary — which answers
+  §8-O7 OUT and takes `DepositText` with it. **Pagination holds**: the break is arithmetic
+  (`paginate(rows, 22)`), the header repeats, the sequence runs unbroken, and the worst case — one
+  row alone on the last page under the whole summary block — is legible. Two findings for the
+  builder: a negative figure needs an **LTR island** (242 §1.1's list was one short; the WPF has the
+  same bug), and **O8's logo is now the last unfinished mark on either document** — it needs an
+  asset from the brand side, not a decision on this map.
+
 ## Not yet specified
 
 - **Deposit Inquiry and Collection Attempts in detail.** 243 settled the document question —

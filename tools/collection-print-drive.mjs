@@ -1,7 +1,7 @@
-// Collection documents print drive (ticket 251) — drives the REAL app in Chromium against the
-// CHECKED-IN fixtures, because SIS.Api's CollectionWeb door doesn't exist yet (BackOffice 1090;
-// ticket 259 is the wave-joining event). This is the wave's DOCUMENTS drive — ticket 252's ACR
-// EXTENDS this file rather than starting a third. The screens have their own: collection-drive.mjs.
+// Collection documents print drive (tickets 251 + 252) — drives the REAL app in Chromium against
+// the CHECKED-IN fixtures, because SIS.Api's CollectionWeb door doesn't exist yet (BackOffice 1090;
+// ticket 259 is the wave-joining event). This is the wave's DOCUMENTS drive — both documents live
+// here rather than in a drive each. The screens have their own: collection-drive.mjs.
 //
 // Verifies ticket 251's flow Proof bullet, on `/collection/receipt/:collectionReceiptId`:
 //   1. the sheet renders with NO AppShell chrome — the body IS the document (241);
@@ -13,6 +13,18 @@
 //   6. NO خصم فائض content and NO POSTED banner anywhere in the DOM — both are rulings, and both
 //      are provable only by absence;
 //   7. a stale link renders "this document no longer exists", never a blank A4 sheet.
+//
+// And ticket 252's, on `/collection/acr/:acrId` — where the whole question is PAGING, because the
+// ACR is the document that runs off the end of a sheet:
+//   8. the four paging scenarios the 247 sign-off judged: 47 rows → 3 sheets with the header on
+//      each, the م sequence 1→47 unbroken, and the summary on the last sheet only; 25 rows → a
+//      short last page; 23 rows → ONE row alone beneath the whole summary block; 0 rows → the idle
+//      ACR still prints its one page, totals `0.00`, summary present;
+//   9. a NEGATIVE cash figure paints `-412.50` and not `412.50-` — a bug the WPF has and the
+//      fidelity inventory's list of LTR islands missed;
+//  10. a still-OPEN ACR renders a BLANK تاريخ التحصيل, not the string `''` and not a placeholder;
+//  11. ملخص التحصيل prints on the LEFT with the signature on the RIGHT — the pad's sides, which
+//      the WPF swapped — and it carries exactly ONE row, every deposit mark having left the model.
 //
 // What it CANNOT prove is the paper: the browser's header/footer stamp and whether every grey fill
 // actually prints are hardware questions on real Chrome and real Edge — ticket 260, deliberately a
@@ -28,6 +40,7 @@ const { chromium } = require('playwright')
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 const receipt = (id) => `${BASE}/collection/receipt/${id}`
+const acr = (id) => `${BASE}/collection/acr/${id}`
 
 // 210mm / 297mm at the CSS reference 96dpi. The assertion is on the mm geometry, not on a pixel
 // count someone once measured.
@@ -69,9 +82,16 @@ async function run() {
     return route.fulfill(envelope({}))
   })
 
-  const sheets = page.locator('.cv-sheet')
+  // `.print-sheet` is the A4 block BOTH documents land on — extracted at 252, because the ACR
+  // lands on the same sheet at the same scale and a second copy of that geometry would be a
+  // second answer to a settled question.
+  const sheets = page.locator('.print-sheet')
   const goto = async (id) => {
     await page.goto(receipt(id))
+    await page.waitForLoadState('networkidle')
+  }
+  const gotoAcr = async (id) => {
+    await page.goto(acr(id))
     await page.waitForLoadState('networkidle')
   }
 
@@ -101,7 +121,7 @@ async function run() {
     (await page.locator('head style[data-print-page="a4"]').count()) === 1,
   )
 
-  const doc = page.locator('.cv-doc').first()
+  const doc = page.locator('.print-doc').first()
   const docStyle = await doc.evaluate((el) => {
     const s = getComputedStyle(el)
     return { laidOut: el.offsetWidth, painted: el.getBoundingClientRect().width, direction: s.direction, font: s.fontFamily }
@@ -286,6 +306,251 @@ async function run() {
     'leaving the print route takes its `@page { margin: 0 }` with it — an ordinary screen must not print edge-to-edge for the rest of the session',
     (await page.locator('head style[data-print-page="a4"]').count()) === 0,
   )
+
+  // ═══ the ACR (ticket 252) ═══════════════════════════════════════════════════════════════════
+  //
+  // The receipt is one sheet and the ACR is three, so everything below is really one question:
+  // does the SERVER's page break survive contact with a browser, unhelped by the client?
+
+  const acrSheets = page.locator('.print-sheet')
+  const seqCells = page.locator('.acr-c0:not(.acr-th)')
+  const summary = page.locator('.acr-summary')
+
+  // ---- 11. 47 rows over three sheets ----
+  await gotoAcr('three-pages')
+  check('acr 47 rows → THREE A4 sheets', (await acrSheets.count()) === 3, `${await acrSheets.count()}`)
+  check('acr → the body IS the document here too', (await page.locator('main').count()) === 0)
+
+  const heads = await page.locator('.acr-tr').first().locator('.acr-th').allInnerTexts()
+  check(
+    'acr → eleven columns, م first (column 0 is the RTL row’s leading cell)',
+    heads.length === 11 && heads[0] === 'م' && heads[9] === 'رقم الصيدلي',
+    `${heads.length} cols: ${heads.slice(0, 2).join(',')} … ${heads[9]}`,
+  )
+  // The header must repeat on EVERY page — each printed side is a whole reading of the form.
+  const headRows = await Promise.all(
+    (await acrSheets.all()).map(async (s) => (await s.locator('.acr-th').allInnerTexts()).slice(0, 11).join('|')),
+  )
+  check(
+    'acr → the header row repeats on all three sheets, identically',
+    headRows.length === 3 && new Set(headRows).size === 1 && headRows[0].startsWith('م|'),
+  )
+  const stampTexts = await page.locator('.acr-stamp').allInnerTexts()
+  check(
+    'acr → stamped صفحة 1 / 3, 2 / 3, 3 / 3 — the pad was one sheet, this prints three',
+    stampTexts.join(' ') === 'صفحة 1 / 3 صفحة 2 / 3 صفحة 3 / 3',
+    stampTexts.join(' | '),
+  )
+  // Deliberately NOT an LTR island, and measured rather than assumed: `2 / 3` sits after an Arabic
+  // word, so its digits resolve to AN and the neutrals between them to the paragraph direction —
+  // which paints صفحة, then 2, then 3 leading right-to-left. That is the correct reading order in
+  // the document's own direction, and it is what the WPF and the 247 sign-off show. Isolating it
+  // would flip the pair against both. If this assertion ever fires, the ruling is what needs
+  // revisiting, not the markup.
+  const stampOrder = await page.locator('.acr-stamp').nth(1).evaluate((el) => {
+    const range = window.document.createRange()
+    const [word, value] = el.childNodes
+    const at = (node, from, to) => {
+      range.setStart(node, from)
+      range.setEnd(node, to)
+      return range.getBoundingClientRect().x
+    }
+    return { word: at(word, 0, word.length), index: at(value, 0, 1), count: at(value, 4, 5) }
+  })
+  check(
+    'acr → and the stamp PAINTS right-to-left: صفحة, then 2, then 3 — the form’s own reading order',
+    stampOrder.word > stampOrder.index && stampOrder.index > stampOrder.count,
+    `صفحة@${stampOrder.word.toFixed(0)} 2@${stampOrder.index.toFixed(0)} 3@${stampOrder.count.toFixed(0)}`,
+  )
+
+  // The client never counts: `seqText` is read off the row, which is the only reason it can run
+  // unbroken THROUGH a page break.
+  const seqs = await seqCells.allInnerTexts()
+  const expectedSeqs = Array.from({ length: 47 }, (_, i) => String(i + 1))
+  check(
+    'acr → the م sequence runs 1→47 UNBROKEN across the three sheets',
+    seqs.length === 47 && seqs.every((s, i) => s.trim() === expectedSeqs[i]),
+    `${seqs.length} rows, ${seqs[0]}…${seqs[seqs.length - 1]}`,
+  )
+  const rowsPerSheet = await Promise.all(
+    (await acrSheets.all()).map(async (s) => await s.locator('.acr-c0:not(.acr-th)').count()),
+  )
+  check(
+    'acr → the SERVER’s break, 22 / 22 / 3 — the client applies no rowsPerPage of its own',
+    rowsPerSheet.join('/') === '22/22/3',
+    rowsPerSheet.join('/'),
+  )
+  check('acr → ملخص التحصيل appears exactly ONCE', (await summary.count()) === 1)
+  check(
+    'acr → and it is on the LAST sheet, with the الاجمالي band beside it',
+    (await acrSheets.nth(2).locator('.acr-summary').count()) === 1 &&
+      (await acrSheets.nth(0).locator('.acr-summary').count()) === 0 &&
+      (await page.locator('.acr-total-label').count()) === 1,
+  )
+  // 247's amendment 3: every deposit mark left the model, meta AND summary, so ملخص التحصيل is
+  // left holding a single row. Provable only by absence.
+  check(
+    'acr → the summary box carries exactly ONE row, اجمالي الايرادات',
+    (await summary.locator('.acr-summary-label').count()) === 1 &&
+      (await summary.locator('.acr-summary-label').innerText()).trim() === 'اجمالي الايرادات',
+  )
+  const acrBody = await page.locator('body').innerText()
+  check(
+    'acr → NO deposit mark anywhere: no رقم الإيداع, no اجمالي ايداع المحصل',
+    !acrBody.includes('الإيداع') && !acrBody.includes('ايداع'),
+  )
+  check(
+    'acr → and no نموذج رقم: the serial prints under رقم التجميعي (247’s amendment 2)',
+    acrBody.includes('رقم التجميعي') && !acrBody.includes('نموذج رقم'),
+  )
+  check('acr → الموافق restored beside the Gregorian date', acrBody.includes('الموافق'))
+  // A porting artifact the XAML carries and HTML collapses — kept deliberately.
+  check(
+    'acr → the meta labels keep their trailing space (white-space: pre)',
+    (await page
+      .locator('.acr-meta-label')
+      .first()
+      .evaluate((el) => getComputedStyle(el).whiteSpace)) === 'pre',
+  )
+  check(
+    'acr → the header cells are grey-filled, and marked to survive the printer',
+    (await page.locator('.acr-th').first().evaluate((el) => getComputedStyle(el).printColorAdjust)) === 'exact',
+  )
+  // `anywhere` shears مطابقة الكاش والشبكة into four lines with a lone ة; WPF's TextWrapping="Wrap"
+  // breaks at word boundaries.
+  check(
+    'acr → cells wrap on word boundaries (break-word), never `anywhere`',
+    (await page.locator('.acr-td').first().evaluate((el) => getComputedStyle(el).overflowWrap)) === 'break-word',
+  )
+
+  // ---- 12. the negative figure — the bug the WPF has and the inventory missed ----
+  const shortfall = page.locator('.acr-money.acr-mark').first()
+  check(
+    'acr → the shortfall row’s cash reads -412.50 in the DOM',
+    (await shortfall.innerText()).trim() === '-412.50',
+    (await shortfall.innerText()).trim(),
+  )
+  // Reading the text back cannot catch this: the DOM order is fine and the PAINTED order is not.
+  // Under the RTL paragraph the minus is bidi-neutral and prints AFTER the digits — `412.50-`.
+  const minus = await shortfall.evaluate((el) => {
+    const range = window.document.createRange()
+    const text = el.querySelector('bdi')?.firstChild ?? el.firstChild
+    const at = (from, to) => {
+      range.setStart(text, from)
+      range.setEnd(text, to)
+      return range.getBoundingClientRect().x
+    }
+    return { sign: at(0, 1), digits: at(1, 7), isolated: !!el.querySelector('bdi[dir="ltr"]') }
+  })
+  check('acr → the money cell is an LTR island', minus.isolated)
+  check(
+    'acr → and the minus PAINTS on the LEFT — -412.50, never 412.50-',
+    minus.sign < minus.digits,
+    `sign@${minus.sign.toFixed(0)} digits@${minus.digits.toFixed(0)}`,
+  )
+  check(
+    'acr → a shortfall carries the mismatch-red warning style',
+    (await shortfall.evaluate((el) => getComputedStyle(el).color)) === 'rgb(176, 0, 32)',
+  )
+  // Tri-state, and the blank state is a state: a reconciled row carries no mark at all.
+  const marks = await page.locator('.acr-c7:not(.acr-th)').allInnerTexts()
+  check(
+    'acr → the مطابقة flag in all three states: blank, ✗, and ؟',
+    marks.filter((m) => m.trim() === '✗').length === 1 &&
+      marks.filter((m) => m.trim() === '؟').length === 1 &&
+      marks.filter((m) => m.trim() === '').length === 45,
+    `✗:${marks.filter((m) => m.trim() === '✗').length} ؟:${marks.filter((m) => m.trim() === '؟').length}`,
+  )
+  check(
+    'acr → the unsynced Z row says so in Arabic — 242 §8-O5 fixed in the builder, not passed through',
+    acrBody.includes('تقرير Z غير مُرحّل') && !/Z report missing/i.test(acrBody),
+  )
+
+  // ---- 13. 23 rows — the ugly break the sign-off looked hardest at ----
+  await gotoAcr('boundary')
+  check('acr 23 rows → TWO sheets', (await acrSheets.count()) === 2)
+  const lastSheet = acrSheets.nth(1)
+  check(
+    'acr 23 rows → ONE row alone on the last sheet, beneath the whole summary block',
+    (await lastSheet.locator('.acr-c0:not(.acr-th)').count()) === 1 &&
+      (await lastSheet.locator('.acr-summary').count()) === 1,
+  )
+  // Legible means it fits: a summary pushed off the bottom of A4 is silently truncated on paper.
+  const lastBox = await lastSheet.boundingBox()
+  const summaryBox = await lastSheet.locator('.acr-summary').boundingBox()
+  const signBox = await lastSheet.locator('.acr-sign').boundingBox()
+  check(
+    'acr 23 rows → and the whole summary block still fits inside the sheet',
+    summaryBox.y + summaryBox.height <= lastBox.y + lastBox.height,
+    `summary ends @${(summaryBox.y + summaryBox.height).toFixed(0)}, sheet @${(lastBox.y + lastBox.height).toFixed(0)}`,
+  )
+  // Back to the pad's sides — the WPF swapped the two for no stated reason.
+  check(
+    'acr → ملخص التحصيل on the LEFT, the signature on the RIGHT (the pad’s sides)',
+    summaryBox.x < signBox.x,
+    `summary@${summaryBox.x.toFixed(0)} signature@${signBox.x.toFixed(0)}`,
+  )
+  const signLine = await lastSheet.locator('.acr-sign-line').innerText()
+  check('acr → the wet-signature line is ALWAYS empty', signLine.trim() === '')
+
+  // ---- 14. 25 rows, still OPEN — a short last page and a blank collection date ----
+  await gotoAcr('open')
+  check('acr 25 rows → TWO sheets, the last one short', (await acrSheets.count()) === 2)
+  check(
+    'acr 25 rows → 22 then 3',
+    (
+      await Promise.all(
+        (await acrSheets.all()).map(async (s) => await s.locator('.acr-c0:not(.acr-th)').count()),
+      )
+    ).join('/') === '22/3',
+  )
+  // `closedAtText` is '' while the ACR is still OPEN — and '' renders BLANK, with no `||` fallback
+  // that could put an invented mark on a printed record.
+  const closedAt = page.locator('.acr-meta--last .acr-meta-cell').first()
+  const closedAtText = (await closedAt.innerText()).trim()
+  check(
+    'acr OPEN → تاريخ التحصيل is BLANK — not the string, not a placeholder, not a dash',
+    closedAtText === 'تاريخ التحصيل:' && !/\d/.test(closedAtText),
+    JSON.stringify(closedAtText),
+  )
+  check(
+    'acr OPEN → and the ACR still says it is مفتوح',
+    (await page.locator('.acr-meta--last .acr-meta-cell').nth(2).innerText()).includes('مفتوح'),
+  )
+
+  // ---- 15. 0 rows — the idle ACR still prints one page ----
+  await gotoAcr('empty')
+  check('acr 0 rows → still ONE A4 sheet', (await acrSheets.count()) === 1)
+  check('acr 0 rows → and no data rows at all', (await seqCells.count()) === 0)
+  check(
+    'acr 0 rows → but the header, the totals and the summary are all present',
+    (await page.locator('.acr-th').count()) >= 13 && (await summary.count()) === 1,
+  )
+  const idleTotals = await page.locator('.acr-total-label ~ .acr-money').allInnerTexts()
+  check(
+    'acr 0 rows → the totals print 0.00, never blank',
+    idleTotals.length === 3 && idleTotals.every((v) => v.trim() === '0.00'),
+    idleTotals.join(' '),
+  )
+
+  // ---- 16. a stale ACR link is the same sentence the receipt gives ----
+  await gotoAcr('no-such-acr')
+  check('acr stale link → renders no A4 sheet at all', (await acrSheets.count()) === 0)
+  check(
+    'acr stale link → says so, rather than printing a convincing blank',
+    (await page.locator('body').innerText()).includes('no longer exists'),
+  )
+
+  // ---- 17. the sheets that actually come out of the printer ----
+  for (const [id, expected] of [
+    ['three-pages', 3],
+    ['boundary', 2],
+    ['empty', 1],
+  ]) {
+    await gotoAcr(id)
+    const pages = pdfPageCount(await page.pdf({ preferCSSPageSize: true, printBackground: true }))
+    check(`acr ${id} → the PDF is exactly ${expected} sheet(s), with no blank tail`, pages === expected, `${pages}`)
+  }
 
   check('no uncaught page errors', errors.length === 0, errors.slice(0, 3).join(' | '))
 

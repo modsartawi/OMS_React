@@ -15,61 +15,15 @@
  * LTR islands. Print behaviour follows ticket 241's research.
  */
 
-/* The `@page { size: A4; margin: 0 }` rule this document needs is NOT here: an
- * imported stylesheet is never unloaded, and `@page` is global, so it would set
- * every other screen's print margins to zero for the rest of the session. It is
- * mounted and unmounted by the route instead — see `print-page-rule.ts`.
- *
- * One A4 block per model page. The server paginates (245 §3); the browser never
- * chooses a break. The break goes BEFORE each sheet after the first rather than
- * after each sheet: a trailing `break-after` prints a blank sheet, and
- * `:last-child` cannot be trusted to suppress it — the sheets are not the only
- * children of `#root` (the app's toaster renders a sibling section). */
-.cv-sheet {
-  width: 210mm;
-  height: 297mm;
-  box-sizing: border-box;
-  /* The WPF's own page padding, kept deliberately even though it is under the
-   * ~10mm many lasers leave unprintable: matching WPF is what makes the two
-   * sheets one document, and whether the frame survives is 260's paper test. */
-  padding: 24px;
-  background: #fff;
-  display: flex;
-  justify-content: center;
-  overflow: hidden;
-  /* Never on <body> — Chrome and Edge print no body background even with
-   * print-color-adjust: exact, which applies to descendants only (241). */
-  print-color-adjust: exact;
-  -webkit-print-color-adjust: exact;
-}
-
-.cv-sheet + .cv-sheet {
-  break-before: page;
-  page-break-before: always;
-}
-
-/* WPF's own shrink-to-fit: min(1.0, (pageWidth − 48) / 780) ≈ 0.956 on A4
- * portrait. The paper original already prints at ~96%; this is not a defect to
- * chase to 100%. */
+/* The A4 sheet, the 780px document box, the 0.956 shrink-to-fit and the page
+ * break all moved to `print-sheet.css` at ticket 252 — the ACR lands on the same
+ * sheet, and a second copy of that geometry is the "second answer" 252 was told
+ * not to invent. What is left here is this document's own: the type it is set in
+ * and the padding its XAML gives it. */
 .cv-doc {
-  width: 780px;
-  /* Not negotiable by the flex parent: the document is 780px and THEN scaled. Left shrinkable it
-   * would be squeezed to the A4 content box (745.7px) and scaled again on top of that. */
-  flex: 0 0 auto;
-  box-sizing: border-box;
-  transform: scale(0.956);
-  transform-origin: top center;
-  background: #fff;
-  color: #1a1a1a;
-  /* No webfont: Tahoma is a Windows system font with Arabic coverage and these
-   * users are on Windows Chrome/Edge (241's fold-in). */
-  font-family: Tahoma, sans-serif;
   font-size: 12px;
   line-height: 1.35;
-  direction: rtl;
-  border: 1px solid #8a8a8a;
   padding: 16px 24px;
-  align-self: flex-start;
 }
 
 /* ── the bilingual company header ─────────────────────────────────────── */

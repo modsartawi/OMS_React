@@ -36,17 +36,28 @@ const COLOUR_SOURCES = new Map([
     'the al-dawaa mark — brand gold and navy live only here (ticket 087)',
   ],
   // The printed facsimiles (spec 249's documented three-rule exception, established by ticket
-  // 251; the ACR's own files join at 252). These are not screens: they reproduce a paper form
+  // 251 and extended to the ACR by 252). These are not screens: they reproduce a paper form
   // the WPF also prints, and the
   // form's own ink — the `#C00000` of the خصم فائض rule, the `#EDEDF2` digit-cell fill, the
-  // `#8A8A8A` dot leaders — IS the document. A token would make the web sheet drift from the
+  // `#8A8A8A` dot leaders, the `#B00020` of the ACR's mismatch mark — IS the document. A token
+  // would make the web sheet drift from the
   // paper one the moment a theme moved, which is the one thing these files exist to prevent.
   // They are also theme-independent by construction: a document prints on white paper in black
   // ink, in either theme. NOT a precedent for a screen — the chrome around these documents
-  // (`ReceiptPrintPage`) holds no exception at all.
+  // (`ReceiptPrintPage`, `AcrPrintPage`, `PrintMiss`) holds no exception at all, and neither do
+  // the documents' own components: every colour on both sheets lives in a stylesheet below, so a
+  // colour creeping into the markup still trips the gate.
+  [
+    'src/features/collection/inquiry/print-sheet.css',
+    'the A4 sheet both documents land on — paper white, the form’s frame (tickets 251/252)',
+  ],
   [
     'src/features/collection/inquiry/collection-voucher.css',
     'the سند قبض facsimile — the paper form’s own ink (ticket 251)',
+  ],
+  [
+    'src/features/collection/inquiry/collection-acr.css',
+    'the ACR facsimile — the paper form’s own ink, mismatch red included (ticket 252)',
   ],
 ])
 

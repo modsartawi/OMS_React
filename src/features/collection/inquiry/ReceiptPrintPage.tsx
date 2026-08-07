@@ -1,7 +1,6 @@
 import { useParams } from 'react-router'
-import { useTranslation } from 'react-i18next'
-import { FileX2 } from 'lucide-react'
 import CollectionVoucher from './CollectionVoucher'
+import PrintMiss from './PrintMiss'
 import { usePrintPageA4 } from './print-page-rule'
 import { findVoucherFixture } from './voucher-fixture'
 
@@ -22,7 +21,6 @@ import { findVoucherFixture } from './voucher-fixture'
  * the miss branch below is already the shape `CollectionReceiptNotFound` needs.
  */
 export default function ReceiptPrintPage() {
-  const { t } = useTranslation('collection')
   const { collectionReceiptId } = useParams()
   // Route-scoped, deliberately: an `@page` rule in an imported stylesheet is
   // global and never unloaded. See `print-page-rule.ts`.
@@ -32,16 +30,9 @@ export default function ReceiptPrintPage() {
   const voucher = findVoucherFixture(collectionReceiptId)
 
   // Never a blank A4 sheet — a blank sheet prints as convincingly as a real one
-  // (spec 249, story 91).
-  if (!voucher || voucher.pages.length === 0) {
-    return (
-      <div className="mx-auto mt-16 max-w-md p-6 text-center" role="alert">
-        <FileX2 className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
-        <div className="text-base font-semibold tracking-tight">{t('document.missingTitle')}</div>
-        <p className="mt-2 text-sm text-muted-foreground">{t('document.missingHint')}</p>
-      </div>
-    )
-  }
+  // (spec 249, story 91). The sentence moved to `PrintMiss` at ticket 252, which
+  // renders the same one for a stale ACR link.
+  if (!voucher || voucher.pages.length === 0) return <PrintMiss />
 
   // One A4 block per SERVER-paginated page. The client never chunks anything:
   // a multi-shift receipt arrives as several pages already stamped -1 / -2.

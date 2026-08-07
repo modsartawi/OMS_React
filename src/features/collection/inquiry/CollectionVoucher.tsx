@@ -18,141 +18,140 @@
  * chunking. If a string is missing the answer is a server change.
  */
 import Ltr from '@/core/ui/Ltr'
+import PrintSheet from './PrintSheet'
 import type { AmountParts, VoucherPage } from './voucher-fixture'
 import logoUrl from './logo-aldawaa.png'
 import './collection-voucher.css'
 
 export default function CollectionVoucher({ page }: { page: VoucherPage }) {
   return (
-    <div className="cv-sheet">
-      <div className="cv-doc">
-        {/* 246 — NO POSTED banner. `No.` IS the posted state: a receipt that took
-            a number is posted, so a green band restating it is chrome the paper
-            never had. `isPosted` left the contract with it (245 §3). */}
+    <PrintSheet docClassName="cv-doc">
+      {/* 246 — NO POSTED banner. `No.` IS the posted state: a receipt that took
+          a number is posted, so a green band restating it is chrome the paper
+          never had. `isPosted` left the contract with it (245 §3). */}
 
-        <div className="cv-head">
-          <div className="cv-head-block">
-            <div className="cv-head-name">صيدليات الدواء</div>
-            {/* Arabic-Indic digits, and they are STATIC header text — never a
-                value. Every value on this form is Western-digit (§7). */}
-            <div>س.ت : ٢٠٥١٠١٤٩٤٠/٠٠٢</div>
-            <div>هاتف : ٩٢٠٠٠٠٨٣٨</div>
-            <div>حي الروابي طريق الملك فهد - ابراج اسمنت الشرقية</div>
-            <div>ص.ب ٤٣٢٦ الخبر ٣١٩٥٢</div>
-            <div>المملكة العربية السعودية</div>
-          </div>
-
-          {/* 🚩 INTERIM (251/252 open question): the WPF's STACKED al-dawaa mark.
-              The paper pad carries a horizontal lockup with `care for life /
-              نهتم بالحياة` and the ACR's paper original prints DMSCO — neither
-              asset exists in either repo, and this is a file to obtain from the
-              brand side, not a decision to take here. Alt is empty on purpose:
-              the mark is decorative inside a document that names the company in
-              two scripts on the line beside it. */}
-          <img className="cv-logo" src={logoUrl} alt="" />
-
-          <div className="cv-head-block cv-head-en">
-            <div className="cv-head-en-name">Al-Dawaa Pharmacies</div>
-            <div>C. R. : 2051014940/002</div>
-            <div>Tel. : 920000838</div>
-            {/* Wraps. Held on one line it runs into the logo, which is worse
-                than the extra line the WPF already lives with. */}
-            <div>Al Rawabi District, King Fahd Road, Eastern Cement Towers.</div>
-            <div>P.O. Box 4326 Al-Khobar 31952</div>
-            <div>Kingdom of Saudi Arabia</div>
-          </div>
+      <div className="cv-head">
+        <div className="cv-head-block">
+          <div className="cv-head-name">صيدليات الدواء</div>
+          {/* Arabic-Indic digits, and they are STATIC header text — never a
+              value. Every value on this form is Western-digit (§7). */}
+          <div>س.ت : ٢٠٥١٠١٤٩٤٠/٠٠٢</div>
+          <div>هاتف : ٩٢٠٠٠٠٨٣٨</div>
+          <div>حي الروابي طريق الملك فهد - ابراج اسمنت الشرقية</div>
+          <div>ص.ب ٤٣٢٦ الخبر ٣١٩٥٢</div>
+          <div>المملكة العربية السعودية</div>
         </div>
 
-        <div className="cv-overage">
-          {/* ALWAYS EMPTY, exactly as the pad prints it: red label, ruled box,
-              nothing inside. 246 answered 242 §8-O4 by deletion — neither
-              `varianceText` nor `matchedMarkText` reaches the browser, so there
-              is nothing here to bind and nothing to conditionally render. */}
-          <div className="cv-overage-box">
-            <span className="cv-overage-label">خصم فائض : </span>
-          </div>
-        </div>
+        {/* 🚩 INTERIM (251/252 open question): the WPF's STACKED al-dawaa mark.
+            The paper pad carries a horizontal lockup with `care for life /
+            نهتم بالحياة` and the ACR's paper original prints DMSCO — neither
+            asset exists in either repo, and this is a file to obtain from the
+            brand side, not a decision to take here. Alt is empty on purpose:
+            the mark is decorative inside a document that names the company in
+            two scripts on the line beside it. */}
+        <img className="cv-logo" src={logoUrl} alt="" />
 
-        <div className="cv-title-band">
-          <div className="cv-band-side cv-band-side--store">
-            <div className="cv-stamp">
-              <span>Store.&nbsp;</span>
-              <span>{page.storeCode}</span>
-            </div>
-          </div>
-
-          <div className="cv-title-col">
-            <div className="cv-title">سـنـد قـبـض</div>
-            <div className="cv-subtitle">RECEIPT VOUCHER</div>
-            <div className="cv-amount cv-amount--grand">
-              <div className="cv-amount-col">
-                <div className="cv-amount-cap">
-                  <b>S.R.</b>
-                  <span>&nbsp;&nbsp;ريال</span>
-                </div>
-                <div className="cv-cell cv-cell--whole-grand">{page.grand.whole}</div>
-              </div>
-              <div className="cv-amount-col">
-                <div className="cv-amount-cap">
-                  <b>H.</b>
-                  <span>&nbsp;&nbsp;هـ</span>
-                </div>
-                <div className="cv-cell cv-cell--minor-grand">{page.grand.minor}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="cv-band-side cv-band-side--no">
-            <div className="cv-stamp">
-              <span>No.&nbsp;</span>
-              <span>{page.noText}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="cv-row cv-row--date">
-          <div className="cv-inline-row">
-            <span className="cv-label">التاريخ&nbsp;</span>
-            {/* 🚩 An LTR ISLAND, and the WPF is wrong here. `2026-08-06 21:14`
-                mixes digits with a space, so the bidi algorithm treats the two
-                halves as weak runs and the RTL paragraph orders them
-                right-to-left — the sheet prints `21:14 2026-08-06`. Every other
-                value on this form is already isolated (the money cells and the
-                two stamps sit in `direction: ltr` islands, and `2026-08-06`
-                alone has no space to break on); this one was the gap. */}
-            <div className="cv-line cv-line--date">
-              <Ltr>{page.collectedAtText}</Ltr>
-            </div>
-            <span className="cv-label">&nbsp;Date</span>
-          </div>
-        </div>
-
-        <div className="cv-row">
-          <span className="cv-label">استلمت أنا/&nbsp;</span>
-          <div className="cv-line cv-line--name">{page.collectorName}</div>
-          <span className="cv-label cv-label--en">&nbsp;Receiver Name /</span>
-        </div>
-
-        <MoneyRow parts={page.cash} arabic="نقدا - مبلغ وقدره " words={page.cashWords} english=" Cash - The Sum of" />
-        <MoneyRow parts={page.card} arabic="شبكة - مبلغ وقدره " words={page.cardWords} english=" Bank - The Sum of" />
-
-        <div className="cv-row cv-row--day">
-          <span className="cv-label">وذلك عن يوم&nbsp;</span>
-          <div className="cv-line cv-line--grow">{page.shiftDayName}</div>
-          <span className="cv-label">&nbsp;بتاريخ / Date&nbsp;</span>
-          <div className="cv-line cv-line--grow">{page.shiftDayText}</div>
-          <span className="cv-label">&nbsp;This For Day of</span>
-        </div>
-
-        {/* `Receiver` and `Pharmacist` RESTORED — they are on the pad, and the
-            XAML comments them out for no stated reason. */}
-        <div className="cv-names">
-          <NameBlock name={page.collectorName} english="Receiver" id={page.collectorId} nameLabel="اسم المحصل : " />
-          <div className="cv-names-gap" />
-          <NameBlock name={page.pharmacistName} english="Pharmacist" id={page.pharmacistId} nameLabel="اسم الصيدلي : " />
+        <div className="cv-head-block cv-head-en">
+          <div className="cv-head-en-name">Al-Dawaa Pharmacies</div>
+          <div>C. R. : 2051014940/002</div>
+          <div>Tel. : 920000838</div>
+          {/* Wraps. Held on one line it runs into the logo, which is worse
+              than the extra line the WPF already lives with. */}
+          <div>Al Rawabi District, King Fahd Road, Eastern Cement Towers.</div>
+          <div>P.O. Box 4326 Al-Khobar 31952</div>
+          <div>Kingdom of Saudi Arabia</div>
         </div>
       </div>
-    </div>
+
+      <div className="cv-overage">
+        {/* ALWAYS EMPTY, exactly as the pad prints it: red label, ruled box,
+            nothing inside. 246 answered 242 §8-O4 by deletion — neither
+            `varianceText` nor `matchedMarkText` reaches the browser, so there
+            is nothing here to bind and nothing to conditionally render. */}
+        <div className="cv-overage-box">
+          <span className="cv-overage-label">خصم فائض : </span>
+        </div>
+      </div>
+
+      <div className="cv-title-band">
+        <div className="cv-band-side cv-band-side--store">
+          <div className="cv-stamp">
+            <span>Store.&nbsp;</span>
+            <span>{page.storeCode}</span>
+          </div>
+        </div>
+
+        <div className="cv-title-col">
+          <div className="cv-title">سـنـد قـبـض</div>
+          <div className="cv-subtitle">RECEIPT VOUCHER</div>
+          <div className="cv-amount cv-amount--grand">
+            <div className="cv-amount-col">
+              <div className="cv-amount-cap">
+                <b>S.R.</b>
+                <span>&nbsp;&nbsp;ريال</span>
+              </div>
+              <div className="cv-cell cv-cell--whole-grand">{page.grand.whole}</div>
+            </div>
+            <div className="cv-amount-col">
+              <div className="cv-amount-cap">
+                <b>H.</b>
+                <span>&nbsp;&nbsp;هـ</span>
+              </div>
+              <div className="cv-cell cv-cell--minor-grand">{page.grand.minor}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="cv-band-side cv-band-side--no">
+          <div className="cv-stamp">
+            <span>No.&nbsp;</span>
+            <span>{page.noText}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="cv-row cv-row--date">
+        <div className="cv-inline-row">
+          <span className="cv-label">التاريخ&nbsp;</span>
+          {/* 🚩 An LTR ISLAND, and the WPF is wrong here. `2026-08-06 21:14`
+              mixes digits with a space, so the bidi algorithm treats the two
+              halves as weak runs and the RTL paragraph orders them
+              right-to-left — the sheet prints `21:14 2026-08-06`. Every other
+              value on this form is already isolated (the money cells and the
+              two stamps sit in `direction: ltr` islands, and `2026-08-06`
+              alone has no space to break on); this one was the gap. */}
+          <div className="cv-line cv-line--date">
+            <Ltr>{page.collectedAtText}</Ltr>
+          </div>
+          <span className="cv-label">&nbsp;Date</span>
+        </div>
+      </div>
+
+      <div className="cv-row">
+        <span className="cv-label">استلمت أنا/&nbsp;</span>
+        <div className="cv-line cv-line--name">{page.collectorName}</div>
+        <span className="cv-label cv-label--en">&nbsp;Receiver Name /</span>
+      </div>
+
+      <MoneyRow parts={page.cash} arabic="نقدا - مبلغ وقدره " words={page.cashWords} english=" Cash - The Sum of" />
+      <MoneyRow parts={page.card} arabic="شبكة - مبلغ وقدره " words={page.cardWords} english=" Bank - The Sum of" />
+
+      <div className="cv-row cv-row--day">
+        <span className="cv-label">وذلك عن يوم&nbsp;</span>
+        <div className="cv-line cv-line--grow">{page.shiftDayName}</div>
+        <span className="cv-label">&nbsp;بتاريخ / Date&nbsp;</span>
+        <div className="cv-line cv-line--grow">{page.shiftDayText}</div>
+        <span className="cv-label">&nbsp;This For Day of</span>
+      </div>
+
+      {/* `Receiver` and `Pharmacist` RESTORED — they are on the pad, and the
+          XAML comments them out for no stated reason. */}
+      <div className="cv-names">
+        <NameBlock name={page.collectorName} english="Receiver" id={page.collectorId} nameLabel="اسم المحصل : " />
+        <div className="cv-names-gap" />
+        <NameBlock name={page.pharmacistName} english="Pharmacist" id={page.pharmacistId} nameLabel="اسم الصيدلي : " />
+      </div>
+    </PrintSheet>
   )
 }
 

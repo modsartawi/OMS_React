@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 249
 blocked-by: 251
 ---
@@ -95,21 +95,69 @@ fixture (model) · component · route · print stylesheet · lint-gate config ·
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `tools/collection-print-drive.mjs` extended — the fixture's **four paging scenarios**, each
+- [x] `tools/collection-print-drive.mjs` extended — the fixture's **four paging scenarios**, each
       asserted: **47 rows** → 3 pages, header repeated on each, `م` running 1→47 unbroken, summary on
       page 3 only; **25 rows** → a short last page; **23 rows** → ⚠ the worst case, **one row alone on
       the last page beneath the whole summary block**, which must stay legible and put the summary
       where the paper puts it; **0 rows** → the idle ACR still prints its one page with totals `0.00`
       and the summary present · flow (Playwright)
-- [ ] `tools/collection-print-drive.mjs` — a **negative** cash figure renders `-412.50` and not
+- [x] `tools/collection-print-drive.mjs` — a **negative** cash figure renders `-412.50` and not
       `412.50-`, asserted on the rendered text, since this is a bug the WPF has and the inventory
       missed · flow (Playwright)
-- [ ] `tools/collection-print-drive.mjs` — an ACR with `closedAtText: ''` renders a **blank**
+- [x] `tools/collection-print-drive.mjs` — an ACR with `closedAtText: ''` renders a **blank**
       `تاريخ التحصيل` rather than the string `''` or a placeholder · flow (Playwright)
-- [ ] `npm run lint` passes with the ACR facsimile files added to `COLOUR_SOURCES` — ⚠ verified
-      load-bearing: without the exclusion the four files trip **22** violations · flow (lint gate)
+- [x] `npm run lint` passes with the ACR facsimile files added to `COLOUR_SOURCES` — ⚠ verified
+      load-bearing · flow (lint gate)
 
 Again no renderer unit tests — nothing here is computed client-side.
+
+**Drive 82/82** (251's 41 receipt assertions unchanged, 41 new ACR ones), `typecheck` clean, `npm test`
+78 files / 1224 tests clean, `lint` clean on all three gates, `build` clean.
+
+**Outstanding, and not this ticket's:** the **logo lockup** — an asset from the brand side, not a
+decision (open question below, BackOffice 1088); and **260's paper proof**, which needs a printer and
+a human's eye on real Chrome *and* real Edge.
+
+## What building it taught
+
+**The negative figure is the only real bidi bug on this form, and the page stamp is not one.**
+`صفحة 2 / 3` looks like the same trap — digits with spaces in an RTL paragraph — so it was measured
+rather than reasoned about: the sheet paints `صفحة` at x=64, `2` at x=59, `3` at x=44, right to left,
+which is the correct reading order in the document's own direction. Left unisolated, as the WPF and
+variant C render it, and the painted order is now **asserted** in the drive so that "fixing" it fires
+a failure and forces the ruling to be re-opened rather than silently reversed. The negative figure is
+a different animal — there the minus lands on the wrong side of its own number, which is wrong in any
+reading order — and it carries both an LTR island and a painted-position assertion.
+
+**The load-bearing count is 15, not the 22 this ticket predicted.** That number came from the
+prototype's four files (three variants plus a host page). The shipped slice has two facsimile
+stylesheets: removing them from `COLOUR_SOURCES` trips 11 (`collection-acr.css`) + 4
+(`print-sheet.css`) = 15. Measured by removing each entry and re-running the gate. The **components**
+take no exclusion, deliberately, so a colour creeping into markup still trips.
+
+**The sheet became a shared primitive.** 251 shipped `.cv-sheet` / `.cv-doc` as the voucher's own
+classes, and this ticket was told to reuse them rather than invent a second answer — so the A4 block,
+the 780px document box, the 0.956 shrink-to-fit and the break-before rule moved to `PrintSheet.tsx` +
+`print-sheet.css`. Each document's stylesheet keeps only what genuinely differs: its type size and
+its inner padding, each transcribed from its own XAML. The miss state went the same way
+(`PrintMiss.tsx`) — 245 §7 gives the two documents different envelope codes but deliberately the same
+sentence to the same reader.
+
+**The fixture was generated, not typed.** Two rules meet on a 51-row Arabic fixture: never retype
+Arabic, and the client cannot format. The signed-off prototype mock was recovered from
+`prototype/247-acr-form`, run once at authoring time by a throwaway generator, and its output
+serialized into `acr-fixture.ts` as plain literals — so every Arabic string and every figure is the
+byte the sign-off looked at, and no `toFixed`, no chunker and no running total survives into the
+browser. Each page's rows are a named literal array; nothing is sliced, because a slice **is**
+chunking. Verified afterwards that all 28 Arabic runs in the new component and stylesheet appear
+verbatim in the recovered prototype, the inventory, or a wave ticket.
+
+**Two review notes deliberately not taken**, both written up in `.afk/HITL-252.md`: the print routes
+stay session-guarded with no `ScreenGate` (this ticket rules "route outside the AppShell, as 251";
+`CollectionWeb/Access` has a boolean per SCREEN and none for a document; and at 259 the door refuses
+server-side, which is where a document's access answer belongs) — and the shortfall reddens the cash
+**figure**, not the row, because 247's ruling and the variant C a human signed off side by side with
+the paper are both narrower than spec 249's story 77.
 
 ## Boundaries
 

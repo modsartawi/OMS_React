@@ -47,8 +47,14 @@ export default function ReceiptPrintPage() {
   // a multi-shift receipt arrives as several pages already stamped -1 / -2.
   return (
     <>
-      {voucher.pages.map((page) => (
-        <CollectionVoucher key={page.noText} page={page} />
+      {/* Keyed by POSITION, not by `noText`: page order is contractual (the
+          shift's OpenedAt ascending) and the list never reorders or filters, so
+          the index is stable — while `noText` is a server string that 245 §3
+          records as historically DUPLICATED across a multi-shift receipt's
+          pages, which is the bug the `-1`/`-2` suffix exists to fix. If it ever
+          reaches the browser unfixed, a keyed-by-value list collides silently. */}
+      {voucher.pages.map((page, index) => (
+        <CollectionVoucher key={index} page={page} />
       ))}
     </>
   )

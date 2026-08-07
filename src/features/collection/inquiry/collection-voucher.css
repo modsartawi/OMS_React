@@ -319,7 +319,7 @@
   margin-top: 6px;
 }
 
-.cv-name-row {
+.cv-inline-row {
   display: flex;
   align-items: flex-end;
 }

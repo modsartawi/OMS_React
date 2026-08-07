@@ -111,7 +111,7 @@ export default function CollectionVoucher({ page }: { page: VoucherPage }) {
         </div>
 
         <div className="cv-row cv-row--date">
-          <div className="cv-name-row">
+          <div className="cv-inline-row">
             <span className="cv-label">التاريخ&nbsp;</span>
             {/* 🚩 An LTR ISLAND, and the WPF is wrong here. `2026-08-06 21:14`
                 mixes digits with a space, so the bidi algorithm treats the two
@@ -196,7 +196,7 @@ function NameBlock({
 }) {
   return (
     <div className="cv-name-block">
-      <div className="cv-name-row">
+      <div className="cv-inline-row">
         <span className="cv-label">{nameLabel}</span>
         <div className="cv-line cv-line--name">{name}</div>
         <span className="cv-label cv-label--en">&nbsp;{english}</span>

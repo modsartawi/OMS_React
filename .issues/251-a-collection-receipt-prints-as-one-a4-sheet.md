@@ -179,6 +179,25 @@ this feature's `api.ts` when 259 wires the door.
    `<section>`). Now `break-before` on every sheet *after* the first. Found by the built-in
    `/code-review`, which printed real PDFs; the drive now counts PDF pages so it cannot come back.
 
+**Reviewed** — `/code-review` (which found fault 3 by printing real PDFs) and `/standards-review`,
+both green on their own axes. Four notes taken and applied: the pages are keyed by **position**, not
+by `noText` (a server string 245 §3 records as historically duplicated across a multi-shift
+receipt's pages — the exact bug the `-1`/`-2` suffix fixes, and a keyed-by-value list collides
+silently if it ever arrives unfixed); the scenarios' prototype-era `label` / `proves` fields became
+**comments** (the switcher that read them off the model no longer exists, and they were shipping
+prose to users); `cv-name-row` became `cv-inline-row`, since the date row is not a name; and one
+stale comment about which edge the money island sits on.
+
+Two notes deliberately **not** taken. Spec 249 Tier 2 asks the fixtures for "a negative figure for
+the LTR island" — §7.1 pins the *split* of `-3.25 SAR → -3 | 25`, but **no pinned tafqeet exists for
+a negative amount**, and both of the receipt's money rows carry an amount-in-words line, so the
+scenario cannot be built without inventing Arabic. The receipt's cells are LTR islands by
+construction, so a `-3` paints minus-left there regardless; the figure that genuinely needs the
+assertion is [252](252-an-acr-form-prints-across-its-pages.md)'s variance column, which carries no
+words. And story 57's "sizes to the value's own length" is implemented as `min-width` + auto growth
+rather than a computed width: the floor is the WPF's own `MinWidth`, which is the fidelity mark, and
+what the ruling forbids — a **currency lookup** — is absent either way.
+
 Drive **41/41** (`tools/collection-print-drive.mjs`, which 252 EXTENDS rather than starting a third
 file). `typecheck`, `lint` (all three gates, 4 documented exclusions) and `build` green; `npm test`
 unchanged at 78 files / 1224 tests — no unit test for the renderer, deliberately, per §0.

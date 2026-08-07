@@ -82,28 +82,29 @@ const BASE: VoucherPage = {
 /**
  * A fixture case, keyed by the id that stands in for `:collectionReceiptId`
  * until the door lands: `/collection/receipt/posted` renders the first one.
+ *
+ * What each case proves is a COMMENT, not a field: the prototype's switcher read
+ * `label`/`proves` off the model, and carrying them into shipped code would ship
+ * a screenful of prose to every user for a switcher that no longer exists.
  */
 export type VoucherScenario = {
   key: string
-  label: string
-  /** What this case puts in front of a reader. */
-  proves: string
   document: VoucherDocument
 }
 
 export const VOUCHER_SCENARIOS: VoucherScenario[] = [
   {
+    // The everyday receipt, one shift: the خصم فائض box shows its red label and
+    // nothing else (a hand-fill slot), and there is no POSTED banner because
+    // taking a number IS the posted state.
     key: 'posted',
-    label: 'The everyday receipt · one shift',
-    proves:
-      'The ordinary HQ sheet. The خصم فائض box shows its red label and nothing else — it is a hand-fill slot, and there is no POSTED banner because No. IS the posted state.',
     document: { pages: [BASE] },
   },
   {
+    // One receipt covering two shifts prints TWO A4 blocks, stamped -1 and -2:
+    // MarkPosted runs over the whole page set (245 §3), and page order is
+    // contractual (the shift's OpenedAt ascending), not cosmetic.
     key: 'multishift',
-    label: 'Multi-shift receipt · two sheets',
-    proves:
-      'One receipt covering two shifts prints TWO A4 blocks, stamped 0000000005-1 and 0000000005-2 — MarkPosted runs over the whole page set (245 §3), and page order is contractual (the shift OpenedAt ascending), not cosmetic.',
     document: {
       pages: [
         // Both sheets carry BASE's amounts deliberately: every money string here
@@ -117,10 +118,10 @@ export const VOUCHER_SCENARIOS: VoucherScenario[] = [
     },
   },
   {
+    // A 3-decimal currency: the minor cells carry three digits and the tafqeet
+    // switches nouns. The cell sizes to the VALUE — the client holds no currency
+    // lookup — and must not clip `005`.
     key: 'bhd',
-    label: '3-decimal currency (BHD)',
-    proves:
-      'Minor cells widen to three digits and the tafqeet switches nouns (دينار/فلس). The cell sizes to minor.length — the client holds no currency lookup — and must not clip `005`.',
     document: {
       pages: [
         {
@@ -136,10 +137,10 @@ export const VOUCHER_SCENARIOS: VoucherScenario[] = [
     },
   },
   {
+    // Zero takings: the money boxes print 0 / 00, never blank — while a missing
+    // pharmacist renders an EMPTY fill-line of natural width, never a 0 and
+    // never a collapsed run.
     key: 'zero',
-    label: 'Zero takings · empty pharmacist',
-    proves:
-      'Money boxes print 0 / 00 — never blank. A missing name renders an EMPTY fill-line of natural width, never a 0 and never collapsed.',
     document: {
       pages: [
         {

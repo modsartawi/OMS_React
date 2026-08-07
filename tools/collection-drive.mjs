@@ -65,9 +65,53 @@ const ALL = {
   canOpenAttempts: true,
 }
 
+// ---- ticket 254: the Cash Collections rows ----
+// A stubbed CollectionWeb/Collections envelope, for the same reason Access is
+// stubbed: the door is BackOffice 1090's and ticket 259 is the wave-joining event.
+const pad = (n) => String(n).padStart(2, '0')
+const todayIso = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+/** `count` rows, all SAR unless told otherwise. Row 0 carries a NULL variance —
+ *  the "blank, not 0.00" proof — and row 1 a negative one. */
+function makeRows(count, { currency = 'SAR' } = {}) {
+  return Array.from({ length: count }, (_, i) => ({
+    collectionReceiptId: `01J0COLLECT${String(i).padStart(16, '0')}`,
+    collectionReceiptNo: 91000 + i,
+    storeId: String(1001 + (i % 7)),
+    storeName: `Al Dawaa Store ${1001 + (i % 7)}`,
+    collectorOperatorId: String(4470 + (i % 3)),
+    collectorName: `Collector ${4470 + (i % 3)}`,
+    closerOperatorId: String(7780 + (i % 5)),
+    closerName: `Pharmacist ${7780 + (i % 5)}`,
+    openedAt: `${todayIso()}T07:00:00`,
+    closedAt: `${todayIso()}T15:04:00`,
+    collectedAt: `${todayIso()}T15:40:00`,
+    salesDate: i === 2 ? '0001-01-01T00:00:00' : `${todayIso()}T00:00:00`,
+    systemCash: 12480.5 + i,
+    countedCash: 12475 + i,
+    variance: i === 0 ? null : i === 1 ? -5.5 : 0,
+    varianceReasonCode: i === 1 ? 'SHORT' : '',
+    varianceReasonText: i === 1 ? 'Counted short at close' : '',
+    openingFloat: 500,
+    countedCashNet: 11975 + i,
+    retainedFloat: 500,
+    netCollected: 11975 + i,
+    cardTotal: 8310.25 + i,
+    cardTransactionCount: 96,
+    zReportIds: `Z-${88121 + i}`,
+    currencyKey: currency,
+  }))
+}
+
 // scenario state, mutated between reloads
 let scenario = { accessBody: ALL, access403: false }
 let accessCalls = 0
+let collectionsRows = makeRows(347)
+/** The query string of the LAST CollectionWeb/Collections request — this is how
+ *  the drive proves that Search/Reset promoted the draft, and that a keystroke
+ *  did not. */
+let lastCollectionsQuery = ''
+let collectionsCalls = 0
 
 async function run() {
   const browser = await chromium.launch()
@@ -96,6 +140,11 @@ async function run() {
           envelope(null, { status: 500, success: false, message: 'Server error' }),
         )
       return route.fulfill(envelope(scenario.accessBody))
+    }
+    if (path === 'CollectionWeb/Collections') {
+      collectionsCalls++
+      lastCollectionsQuery = url.includes('?') ? url.slice(url.indexOf('?') + 1) : ''
+      return route.fulfill(envelope(collectionsRows))
     }
     // Any other probe/endpoint → benign empty success so no other leaf crashes.
     return route.fulfill(envelope({}))
@@ -194,6 +243,173 @@ async function run() {
     unreachable.includes('unavailable') && !unreachable.includes(DENIED),
     unreachable.replace(/\n/g, ' ').slice(0, 90),
   )
+
+  // ================= ticket 254 — Cash Collections opens on today =================
+  scenario = { accessBody: ALL, access403: false, access500: false }
+  const TODAY = todayIso()
+
+  // ---- it lands ALREADY POPULATED, with no click ----
+  collectionsRows = makeRows(347)
+  collectionsCalls = 0
+  lastCollectionsQuery = ''
+  await page.goto(BASE + ROUTES.collections)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+
+  const q = () => new URLSearchParams(lastCollectionsQuery)
+  check('254 — the screen queries on MOUNT (no Load button to press)', collectionsCalls === 1, `${collectionsCalls} calls`)
+  check(
+    '254 — and it queries TODAY, as a pair',
+    q().get('FromDate') === TODAY && q().get('ToDate') === TODAY,
+    lastCollectionsQuery,
+  )
+  check('254 — the WPF Limit box is gone; 2,000 rides as a system cap', q().get('Limit') === '2000')
+  check(
+    '254 — an unset store/collector is DROPPED, not sent as an empty string',
+    !lastCollectionsQuery.includes('StoreId') && !lastCollectionsQuery.includes('CollectorOperatorId'),
+    lastCollectionsQuery,
+  )
+  check('254 — rows are on screen without a click', (await page.locator('.ag-row').count()) > 0)
+
+  // ---- the floating per-column filter row is VISIBLE ON ARRIVAL ----
+  check(
+    '254 — the floating filter row is visible on arrival (inverting BBY’s default)',
+    (await page.locator('.ag-floating-filter').count()) > 0,
+    `${await page.locator('.ag-floating-filter').count()} floating filters`,
+  )
+
+  // ---- client paging at 50 over the WHOLE result ----
+  const summary = await page.locator('.ag-paging-row-summary-panel').innerText()
+  check('254 — the grid pages at 50 with the whole 347 present', /1 to 50 of 347/.test(summary), summary)
+  await page.locator('.ag-paging-button[data-ref="btNext"]').click()
+  const summary2 = await page.locator('.ag-paging-row-summary-panel').innerText()
+  check('254 — Next walks the SAME fetched result, with no second request', /51 to 100 of 347/.test(summary2) && collectionsCalls === 1, `${summary2} · ${collectionsCalls} calls`)
+  await page.locator('.ag-paging-button[data-ref="btFirst"]').click()
+
+  // ---- the filter row narrows the WHOLE result, not the visible page ----
+  const floatingFilter = (colId) =>
+    page.locator(`.ag-header-row .ag-floating-filter[col-id="${colId}"] input`)
+  // AG Grid debounces a floating filter's keystrokes (500ms) before applying it.
+  const filterBy = async (colId, text) => {
+    await floatingFilter(colId).fill(text)
+    await page.waitForTimeout(900)
+    const summary = await page.locator('.ag-paging-row-summary-panel').innerText()
+    return { summary, total: Number(/of (\d+)/.exec(summary)?.[1] ?? -1) }
+  }
+  const byStore = await filterBy('storeId', '1003')
+  check(
+    '254 — a per-column filter narrows all 347, not the 50 on screen',
+    byStore.total > 0 && byStore.total < 347,
+    byStore.summary,
+  )
+  await filterBy('storeId', '')
+
+  // …and a date column filters on what the CELL shows, not on the raw ISO value.
+  const byShownDate = await filterBy('collectedAt', `${TODAY} 15:40`)
+  check('254 — typing the date the CELL shows matches', byShownDate.total === 347, byShownDate.summary)
+  const byRawIso = await filterBy('collectedAt', `${TODAY}T15:40`)
+  check(
+    '254 — …and the raw ISO value, which is NOT on screen, matches nothing',
+    byRawIso.total === 0,
+    byRawIso.summary,
+  )
+  await filterBy('collectedAt', '')
+
+  // ---- money: currency in the HEADER, right-aligned, blank ≠ 0.00 ----
+  const headerText = async () => (await page.locator('.ag-header-row').first().innerText()).replace(/\n/g, ' | ')
+  const headers = await headerText()
+  check('254 — the currency is stated ONCE, in the money header', headers.includes('Net Collected (SAR)'), headers.slice(0, 160))
+  const netCell = page.locator('.ag-row[row-index="0"] [col-id="netCollected"]')
+  check('254 — money is grouped to the currency’s decimals', (await netCell.innerText()).trim() === '11,975.00', await netCell.innerText())
+  check('254 — and right-aligned', (await netCell.getAttribute('class')).includes('text-end'))
+  const varianceCell = page.locator('.ag-row[row-index="0"] [col-id="variance"]')
+  check('254 — a MISSING figure renders blank, not 0.00', (await varianceCell.innerText()).trim() === '', JSON.stringify(await varianceCell.innerText()))
+  const zeroVariance = page.locator('.ag-row[row-index="2"] [col-id="variance"]')
+  check('254 — …and a real zero still reads 0.00', (await zeroVariance.innerText()).trim() === '0.00', await zeroVariance.innerText())
+
+  // ---- the More-columns toggle reveals the forensic tail ----
+  check('254 — the forensic tail is folded away on arrival', !headers.includes('Z Reports'))
+  await page.getByRole('button', { name: 'More columns' }).click()
+  // ⚠️ AG Grid virtualizes headers horizontally, so "is it there" has to be asked
+  // by scrolling: read the header cells at both ends and union them.
+  const allHeaders = async () => {
+    const seen = new Set()
+    for (const left of [0, 4000]) {
+      await page.locator('.ag-body-horizontal-scroll-viewport').evaluate((el, x) => {
+        el.scrollLeft = x
+      }, left)
+      await page.waitForTimeout(200)
+      for (const text of await page.locator('.ag-header-row').first().locator('.ag-header-cell-text').allInnerTexts())
+        seen.add(text.trim())
+    }
+    return [...seen]
+  }
+  const opened = (await allHeaders()).join(' | ')
+  check('254 — More columns reveals the tail (Z Reports, Closer, Currency)', opened.includes('Z Reports') && opened.includes('Closer') && opened.includes('Currency'), opened.slice(0, 260))
+  check('254 — and nothing was dropped to make room', opened.includes('Receipt No#') && opened.includes('Net Collected (SAR)'))
+  await page.getByRole('button', { name: 'More columns' }).click()
+
+  // ---- the filter-row toggle reclaims the height ----
+  await page.getByRole('button', { name: 'Filter row' }).click()
+  check('254 — the filter row toggles off to reclaim the height', (await page.locator('.ag-floating-filter').count()) === 0)
+  await page.getByRole('button', { name: 'Filter row' }).click()
+
+  // ---- the criteria DRAFT: typing does not query; Search does ----
+  const callsBeforeTyping = collectionsCalls
+  await page.getByPlaceholder('Store code').fill('1003')
+  await page.waitForTimeout(300)
+  check('254 — typing a store code fires NO query (a draft is not a search)', collectionsCalls === callsBeforeTyping, `${collectionsCalls} vs ${callsBeforeTyping}`)
+  check('254 — …and NO chip either: the grid is still showing today', (await page.getByText('Filtered').count()) === 0)
+
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check('254 — Search promotes the draft', collectionsCalls === callsBeforeTyping + 1 && q().get('StoreId') === '1003', lastCollectionsQuery)
+  check('254 — …and NOW the chip lights: the grid really is filtered', (await page.getByText('Filtered').count()) > 0)
+
+  // ---- Reset returns the landing state ----
+  await page.getByRole('button', { name: 'Reset' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '254 — Reset returns to today with everything else cleared',
+    q().get('FromDate') === TODAY && q().get('ToDate') === TODAY && !lastCollectionsQuery.includes('StoreId'),
+    lastCollectionsQuery,
+  )
+  check('254 — and the Filtered chip goes with it', (await page.getByText('Filtered').count()) === 0)
+
+  // ---- the cap banner: reached, not merely large ----
+  const CAP_TEXT = /reached the 2,000-row system cap/
+  collectionsRows = makeRows(1999)
+  await page.goto(BASE + ROUTES.collections)
+  await page.waitForLoadState('networkidle')
+  check('254 — 1,999 rows is merely large: NO banner', !CAP_TEXT.test(await mainText()))
+
+  collectionsRows = makeRows(2000)
+  await page.goto(BASE + ROUTES.collections)
+  await page.waitForLoadState('networkidle')
+  check('254 — 2,000 rows REACHED the cap: the amber banner fires', CAP_TEXT.test(await mainText()))
+
+  // ---- an empty day says so, rather than looking broken ----
+  collectionsRows = []
+  await page.goto(BASE + ROUTES.collections)
+  await page.waitForLoadState('networkidle')
+  const emptyText = await mainText()
+  check('254 — an empty period reads as empty, not as an error', emptyText.includes('No collections in this period') && !CAP_TEXT.test(emptyText))
+
+  // ---- a mixed-currency result states the currency per row instead ----
+  collectionsRows = [...makeRows(3), ...makeRows(2, { currency: 'BHD' })]
+  await page.goto(BASE + ROUTES.collections)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  const mixedHeaders = await headerText()
+  check(
+    '254 — a mixed result drops the header code and promotes the Currency column',
+    !mixedHeaders.includes('Net Collected (SAR)') && mixedHeaders.includes('Currency'),
+    mixedHeaders.slice(0, 200),
+  )
+  const bhdCell = page.locator('.ag-row[row-index="4"] [col-id="netCollected"]')
+  check('254 — and each figure keeps ITS row’s decimals (BHD draws three)', (await bhdCell.innerText()).trim() === '11,976.000', await bhdCell.innerText())
+
+  collectionsRows = makeRows(347)
 
   // Scenarios 4 and 5 intentionally 403/500 CollectionWeb/Access, which the browser logs
   // as a resource-load failure — expected, not an app fault. Filter them out.

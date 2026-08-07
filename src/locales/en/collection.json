@@ -22,7 +22,59 @@
   },
   "collections": {
     "title": "Cash Collections",
-    "subtitle": "Cash collected per store and shift, chain-wide."
+    "subtitle": "Cash collected per store and shift, chain-wide.",
+    "loading": "Loading today's collections…",
+    "capReached": "This result reached the {{limit}}-row system cap, so some collections may be missing. Narrow the dates, the store or the collector to be sure you are seeing all of them.",
+    "moneyHeader": "{{label}} ({{currency}})",
+    "search": {
+      "from": "From",
+      "to": "To",
+      "store": "Store",
+      "storePlaceholder": "Store code",
+      "collector": "Collector",
+      "collectorPlaceholder": "Operator id",
+      "search": "Search",
+      "reset": "Reset",
+      "filtered": "Filtered",
+      "clearFilter": "Clear the filter and go back to today"
+    },
+    "toolbar": {
+      "filterRow": "Filter row",
+      "moreColumns": "More columns"
+    },
+    "empty": {
+      "title": "No collections in this period",
+      "hint": "Nothing has been collected for these dates yet. Widen the period, or clear the store and collector."
+    },
+    "errors": {
+      "loadFailed": "Today's collections could not be loaded."
+    },
+    "columns": {
+      "collectionReceiptNo": "Receipt No#",
+      "storeId": "Store",
+      "storeName": "Store Name",
+      "collectorName": "Collector",
+      "collectedAt": "Collected",
+      "netCollected": "Net Collected",
+      "variance": "Variance",
+      "cardTotal": "Card Total",
+      "varianceReasonCode": "Reason",
+      "openedAt": "Opened",
+      "closedAt": "Closed",
+      "systemCash": "System Cash",
+      "countedCash": "Counted Cash",
+      "openingFloat": "Float",
+      "countedCashNet": "Counted (Net)",
+      "cardTransactionCount": "Card Slips",
+      "varianceReasonText": "Reason Detail",
+      "collectorOperatorId": "Collector Id",
+      "zReportIds": "Z Reports",
+      "retainedFloat": "Retained Float",
+      "closerOperatorId": "Closer Id",
+      "closerName": "Closer",
+      "salesDate": "Sales Date",
+      "currencyKey": "Currency"
+    }
   },
   "acrs": {
     "title": "ACRs",

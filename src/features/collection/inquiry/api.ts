@@ -18,7 +18,7 @@
  * own slices (254–257).
  */
 import { api } from '@/core/api'
-import type { CollectionAccessResult } from '@/core/models/collection'
+import type { CollectionAccessResult, CollectionInquiryRow } from '@/core/models/collection'
 
 /**
  * The ONE cache key the four Collections nav leaves and all four screens' own
@@ -66,5 +66,24 @@ export const collectionApi = {
    */
   access(): Promise<CollectionAccessResult> {
     return api.get<CollectionAccessResult>('CollectionWeb/Access')
+  },
+
+  /**
+   * `GET CollectionWeb/Collections` → the Cash Collections grid's rows (ticket
+   * 254), grant-gated on `CollectionInquiry`.
+   *
+   * `params` arrives already built by the pure `buildCollectionsParams`, which
+   * owns the PascalCase names `[AsParameters] CollectionInquiryOptions` binds and
+   * the dropping of empty filters. This function deliberately adds nothing: a
+   * second place that could decide what goes on the wire is a second place the
+   * decision can drift.
+   *
+   * ⚠️ **The whole matched result, not a page.** `Limit` rides in `params` as a
+   * system cap; the browser pages what comes back at 50 a time, which is what
+   * keeps sort, per-column filter and 258's export operating over every matched
+   * row (244 §3).
+   */
+  collections(params: Record<string, unknown>): Promise<CollectionInquiryRow[]> {
+    return api.get<CollectionInquiryRow[]>('CollectionWeb/Collections', params)
   },
 }

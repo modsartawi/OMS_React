@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, ShieldAlert } from 'lucide-react'
@@ -26,10 +27,15 @@ export default function ScreenGate({
   can,
   title,
   subtitle,
+  children,
 }: {
   can: (r: CollectionAccessResult | null | undefined) => boolean
   title: string
   subtitle: string
+  /** The screen's body. Absent on a screen whose own slice has not landed yet —
+   *  253 left the three shells saying so, and each of 254–256 replaces its own
+   *  placeholder with the real thing in the change that builds it. */
+  children?: ReactNode
 }) {
   const { t } = useTranslation('collection')
   const access = useQuery({
@@ -87,10 +93,10 @@ export default function ScreenGate({
         <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
       </header>
-      {/* The body each of 254–257 fills. It takes no `children` prop yet — one
-          would be an abstraction with no caller, and the slice that needs it can
-          add it in the same change that uses it. */}
-      <p className="text-sm text-muted-foreground">{t('shell.comingSoon')}</p>
+      {/* The body each of 254–256 fills — the `children` prop 254 added in the
+          change that first had a caller for it. A screen with no body yet still
+          says so rather than rendering a bare header. */}
+      {children ?? <p className="text-sm text-muted-foreground">{t('shell.comingSoon')}</p>}
     </section>
   )
 }

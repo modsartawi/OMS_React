@@ -1,6 +1,10 @@
 /**
- * The currency-aware money formatter the Sales tab needs, and that the app does
- * not have (ticket 237).
+ * The currency-aware money formatter, born in the Loy member screen's Sales tab
+ * (ticket 237) and moved up to `core/` at ticket 250 — a **prefactor**, landed
+ * one slice ahead of the second consumer that licenses it, because a feature may
+ * not import a feature and the collection screens are about to want it (the
+ * actual second call site arrives with ticket 254). A pure move: not one line of
+ * behaviour changed, and its suite came along with no assertion edited.
  *
  * 🚩 **This is deliberately not `core/util/number-format`'s `formatMoney`, and
  * `formatMoney` is deliberately not widened.** That function is documented as
@@ -10,10 +14,11 @@
  * there would put a decision on hundreds of call sites that none of them has to
  * make.
  *
- * So this lives **inside the feature**, per
- * [feature-structure](../../../../.claude/rules/feature-structure.md): one
- * consumer today, and it graduates up to `core/` the day a second one wants it.
- * Called out here so a reviewer reads it as the rule working, not as a duplicate.
+ * It began **inside the feature**, per
+ * [feature-structure](../../.claude/rules/feature-structure.md) — one consumer,
+ * so no shared layer — and it moved up here on the eve of a second one wanting
+ * it, which is that rule's own escalation path rather than an exception to it.
+ * Called out so a reviewer reads it as the rule working, not as a duplicate.
  *
  * Why the Sales tab needs it at all: `RetailTrxDetail.Currency` is **per-row
  * plant master data** (SAP `WAERS`), not a screen-level constant. **Bahrain

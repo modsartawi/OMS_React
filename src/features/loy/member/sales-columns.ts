@@ -2,8 +2,8 @@ import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
 import type { LoySalesRow } from '@/core/models/loy'
+import { formatMoneyIn } from '@/core/money'
 import { formatShortDate } from '@/core/util/date-format'
-import { formatMoneyIn } from './money'
 
 /**
  * The Sales tab's eight columns, plus a conditional ninth (ticket 237, settled
@@ -22,7 +22,7 @@ import { formatMoneyIn } from './money'
  *   return line reads `-1.00 · 12.00 · -12.00`. Matching the receipt beats
  *   tidying it, so no column forces or strips a sign.
  * - 🚩 **Money is multi-currency.** Each figure formats per **its own row's**
- *   currency through the feature's `formatMoneyIn` — 2 dp for SAR, 3 for BHD.
+ *   currency through `@/core/money`'s `formatMoneyIn` — 2 dp for SAR, 3 for BHD.
  *   The app's `formatMoney` is fixed at 2 dp and stays that way.
  *
  * 🚩 **Nothing on this tab is summed, and nothing may be** — the report selects

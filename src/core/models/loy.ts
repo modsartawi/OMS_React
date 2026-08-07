@@ -138,7 +138,7 @@ export interface LoyActivityRow {
  *
  * 🚩 **`currency` is per-row plant master data** (SAP `WAERS`), not a screen
  * constant — Bahrain BHD stores are live, and the column is nullable so old rows
- * can be empty. Money on this tab formats through the feature's own
+ * can be empty. Money on this tab formats through `@/core/money`'s
  * `formatMoneyIn`, never the app's fixed-2dp `formatMoney`.
  *
  * **Dropped, deliberately** (226 §4): `trxTypeNumber` / `documentTypeNumber` —

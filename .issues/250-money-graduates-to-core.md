@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 249
 blocked-by: —
 ---
@@ -32,11 +32,17 @@ model/logic only — no route, no i18n, no component.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `money.test.ts` moves with the module and stays green **unchanged** — it is the regression net
+- [x] `money.test.ts` moves with the module and stays green **unchanged** — it is the regression net
       for the move, and the fact that not one assertion needs editing is the evidence the move was
       behaviour-preserving · pure
-- [ ] `npm run lint` passes the import-boundaries gate — no `features/loy/*` import survives in any
+      → `git` reports **similarity index 100%** on `features/loy/member/money.test.ts → core/money.test.ts`:
+      not one byte edited, not even the `from './money'` import, which still resolves from the new
+      home. 15 tests green (`npx vitest run src/core/money.test.ts`); the whole suite is
+      **1224/1224 across 78 files**.
+- [x] `npm run lint` passes the import-boundaries gate — no `features/loy/*` import survives in any
       consumer, and nothing under `core/` imports a feature · flow (lint gate)
+      → `✓ import boundaries clean (416 files checked)`, all three gates green. `sales-columns.ts` is
+      the module's only call site and now reads `@/core/money`.
 
 ## Boundaries
 
@@ -53,3 +59,23 @@ member screen still renders sales and action money unchanged.
 ## Blocked by
 
 None — can start immediately.
+
+## What landed
+
+`git mv` of both files to `src/core/money.ts` + `src/core/money.test.ts`, the one import in
+`features/loy/member/sales-columns.ts` re-pointed at `@/core/money`, and three stale prose pointers
+repaired (the module header's rule link re-depthed, and the two comments in `sales-columns.ts` and
+`core/models/loy.ts` that called it "the feature's own `formatMoneyIn`"). **The executable diff of
+`money.ts` is empty** — every hunk in it is doc comment.
+
+`npm run typecheck`, `npm test` (1224/1224), `npm run lint` (3/3 gates) and `npm run build` are all
+clean. The Boundaries clause — *"the Loy member screen must still render its money identically
+afterwards — verify by driving it"* — was discharged with `tools/loy-member-drive.mjs` against a
+vite server on :5199: **184/184 passed**, including the Sales-tab money scenarios (SAR at 2 dp, BHD
+at 3, a return line keeping its own sign, a missing figure blank rather than `0.00`).
+
+The header's rationale now reads the move as a **prefactor** landed one slice ahead of the consumer
+that licenses it, naming [254](254-cash-collections-opens-on-today.md) as where the second call site
+actually arrives — the earlier wording claimed a second consumer the tree does not yet contain.
+Placement question (`core/money.ts` as the ticket writes it, vs `core/util/money.ts` beside its 2-dp
+twin) logged in `.afk/HITL-250.md`; the ticket's own address won.

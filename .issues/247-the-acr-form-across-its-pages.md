@@ -2,7 +2,7 @@
 type: wayfinder-ticket
 wayfinder: prototype
 map: 240
-status: open
+status: claimed
 blocked-by: 242, 246
 ---
 

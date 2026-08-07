@@ -35,6 +35,18 @@ const COLOUR_SOURCES = new Map([
     'src/assets/Al-Dawaa-Pharmacies-01.svg',
     'the al-dawaa mark — brand gold and navy live only here (ticket 087)',
   ],
+  // The ACR facsimile (wayfinder 247, map 240). Same shape of permission as the
+  // brand mark and as 246's سند قبض: the form's #EDEDF2 header fill, #8A8A8A
+  // rule and #B00020 mismatch mark ARE the paper document, reproduced from
+  // AcrFormControl.xaml's own FormInk/FormLine/FormHead brushes. A token would
+  // make them follow the app's theme, which is the one thing a facsimile of a
+  // printed form must never do. Whole files, because these files ARE the colour.
+  ...[
+    'VariantA.tsx',
+    'VariantB.tsx',
+    'VariantC.tsx',
+    'AcrPrototypePage.tsx',
+  ].map((f) => [`src/features/oms/collection/__prototype__/acr/${f}`, 'the ACR facsimile — the paper form’s own ink']),
 ])
 
 // Sites where a literal is deliberate and must NOT be tokenised. Each carries its reason inline so

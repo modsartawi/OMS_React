@@ -57,6 +57,17 @@ export const router = createBrowserRouter([
       Component: (await import('@/features/callcenter/console/__prototype__/CouponSignupPrototypePage')).default,
     }),
   },
+  // PROTOTYPE — throwaway (wayfinder ticket 247, map 240 breaker gate 2). The
+  // ACR facsimile, paginated. Top-level and OUTSIDE ProtectedLayout for the same
+  // reason ticket 246's voucher route is: 241 settled that each document gets a
+  // dedicated PRINT route whose entire body IS the document — no AppShell, no
+  // nav, nothing `@media print` would then have to hide.
+  {
+    path: '/prototype/acr-form',
+    lazy: async () => ({
+      Component: (await import('@/features/oms/collection/__prototype__/acr/AcrPrototypePage')).default,
+    }),
+  },
   // The call-center console (ticket 162). Under the SAME auth guard as every
   // other screen — session, theme and the 401 path are unchanged — but OUTSIDE
   // AppShell: the console renders its own full-viewport three-column layout

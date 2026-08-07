@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 249
 blocked-by: —
 ---
@@ -90,16 +90,22 @@ fixture (model) · component · route · print stylesheet · lint-gate config ·
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `tools/collection-print-drive.mjs` — a new drive: navigate `/collection/receipt/:id` against the
+- [x] `tools/collection-print-drive.mjs` — a new drive: navigate `/collection/receipt/:id` against the
       fixture and assert the sheet renders with **no AppShell chrome**, one 210×297mm block per page,
       a multi-shift receipt producing **two** blocks stamped `-1` and `-2`, the `S.R.`/`H.` cells
       resolving **left-to-right** inside the RTL parent, an empty `pharmacistName` rendering an empty
       fill-line rather than `0`, and **no `خصم فائض` content and no POSTED banner anywhere in the
       DOM** · flow (Playwright)
-- [ ] `npm run lint` passes with the facsimile added to `check-palette.mjs`'s `COLOUR_SOURCES` —
+- [x] `npm run lint` passes with the facsimile added to `check-palette.mjs`'s `COLOUR_SOURCES` —
       and **verify the exclusion is load-bearing** by removing it once and seeing the gate fire, so a
       later reader neither deletes it as noise nor widens it by precedent · flow (lint gate)
-- [ ] `npm run typecheck` clean against the `VoucherPage` contract types · pure
+- [x] `npm run typecheck` clean against the `VoucherPage` contract types · pure
+
+**Outstanding, and not this ticket's to close** — the paper proof is [260](260-both-documents-print-on-real-paper.md):
+whether `@page { margin: 0 }` actually suppresses the browser's header/footer stamp, and whether
+every grey fill and red rule survives a real laser, on real Chrome *and* real Edge. The drive gets as
+close as a machine can — it prints the route to PDF and counts the sheets — but a printer is not a
+headless renderer. The **logo lockup** is also still open (see below).
 
 No unit test for the renderer, deliberately: [245 §0](245-the-shape-of-a-print-ready-document.md)
 makes the client **unable** to compute any displayed value, so there is no logic to assert. A test
@@ -126,6 +132,57 @@ fixture; Ctrl-P in Chrome produces one clean A4 sheet per page with no browser h
 every grey fill printing; the multi-shift fixture prints two correctly-stamped sheets; the drive is
 green; `typecheck` and `lint` are clean.
 
+## As built
+
+`src/features/collection/inquiry/` — the same folder 253's four Pages live in, per its *As built*
+note: `check-boundaries.mjs` classifies `features/<a>/<b>` as feature id `a/b`, so a
+`features/collection/documents/` would be a **different feature** to the gate and could not import
+this feature's `api.ts` when 259 wires the door.
+
+- `voucher-fixture.ts` — `AmountParts` / `VoucherPage` / `VoucherDocument` **verbatim from 245 §3**,
+  plus four scenarios keyed by the id that stands in for `:collectionReceiptId`: `posted`,
+  `multishift`, `bhd`, `zero`. The prototype's `over` / `short` / `matched` scenarios died with the
+  fields they bound (246 deleted every reconciliation field), and `unposted` died with 245 §6c — the
+  `—` is unreachable on the web, so the drive asserts its **absence** instead, which is stronger.
+  🚩 Both multi-shift pages carry BASE's amounts: every money string here is a §7.1/§7.5 **pinned
+  pair**, and a second pair would put a figure on the page whose tafqeet nobody has computed.
+- `CollectionVoucher.tsx` + `collection-voucher.css` — the sheet, **rewritten** from Variant C's
+  rulings, not promoted: class names against a stylesheet rather than inline `CSSProperties`, the
+  contract type rather than a hard-coded model.
+- `ReceiptPrintPage.tsx` — chrome, and it holds **no exception**: `t()`, tokens, logical utilities.
+  Renders one `CollectionVoucher` per server-paginated page and the "no longer exists" state on a
+  stale link — never a blank A4 sheet.
+- `print-page-rule.ts` — 🚩 `@page { size: A4; margin: 0 }` is mounted **by the route** and removed
+  on unmount. It cannot live in the stylesheet: `@page` is global and an imported CSS chunk is never
+  unloaded, so one visit to a receipt would print every other screen edge-to-edge for the rest of the
+  session. 252 calls the same hook.
+- One `COLOUR_SOURCES` entry (the CSS only — the component's single hex was in a comment and was
+  reworded away, so a literal creeping into the *markup* still trips the gate). Verified
+  load-bearing: removed once, the gate fires with **12 violations**, all in that file.
+- Assets: `logo-aldawaa.png` into the feature; the paper scan into
+  [`assets/246-paper-collection-receipt.jpg`](assets/246-paper-collection-receipt.jpg) beside 242's
+  ACR original.
+
+**Three things the build found that no amount of reading would have.**
+
+1. 🚩 **`collectedAtText` needed an LTR island the WPF does not have.** `2026-08-06 21:14` mixes
+   digits with a space, so bidi paints the halves right-to-left and the sheet printed
+   `21:14 2026-08-06`. Caught by *looking at a screenshot* — the DOM order is fine. Wrapped in
+   `core/ui/Ltr`; the drive now measures the painted x of both halves, because reading the text back
+   cannot see it. 252's ticket already flags the ACR's negative figure as the same class of bug; this
+   is a second one the fidelity inventory's list of required islands also missed.
+2. **The document was being squeezed to 745.7px** before it was scaled — `.cv-doc` is a flex child of
+   the A4 block and shrank to its content box, so the 0.956 scale applied on top of an already-short
+   width. `flex: 0 0 auto`. The drive asserts `offsetWidth === 780` *and* the painted 745.7.
+3. **A `break-after` on the last sheet printed a trailing blank page**, and `:last-child` did not
+   suppress it — the sheets are not the only children of `#root` (the app's toaster renders a sibling
+   `<section>`). Now `break-before` on every sheet *after* the first. Found by the built-in
+   `/code-review`, which printed real PDFs; the drive now counts PDF pages so it cannot come back.
+
+Drive **41/41** (`tools/collection-print-drive.mjs`, which 252 EXTENDS rather than starting a third
+file). `typecheck`, `lint` (all three gates, 4 documented exclusions) and `build` green; `npm test`
+unchanged at 78 files / 1224 tests — no unit test for the renderer, deliberately, per §0.
+
 ## Blocked by
 
 None — can start immediately.
@@ -139,3 +196,13 @@ None — can start immediately.
   ticket 1088 records for the WPF side — and raise the request with the brand side. One decision
   covering both documents ([252](252-an-acr-form-prints-across-its-pages.md) carries the same
   question). It blocks nothing structurally, but neither facsimile is truly finished until it lands.
+
+  **Still open as built.** The stacked mark ships, marked with a 🚩 at the render site; the asset
+  request is a human's to raise.
+
+- **The print route carries no `CollectionWeb/Access` backstop**, unlike the four inquiry screens.
+  Deliberate here — 251's boundary is *no API*, so the probe would be the slice's only network call,
+  and `ScreenGate` renders a titled `<section>` inside a body that must be only the document. The
+  real boundary is the endpoint's grant filter. **[259](259-the-screens-call-the-real-door.md)
+  decides** whether a refused `Receipt/{id}` should read as the gate's sentence rather than the
+  document-missing one.

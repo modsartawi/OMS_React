@@ -16,6 +16,10 @@
   "shell": {
     "comingSoon": "This screen is not built yet."
   },
+  "document": {
+    "missingTitle": "This document no longer exists",
+    "missingHint": "The receipt or form this link points at could not be found. It may have been reversed, or the link may be out of date."
+  },
   "collections": {
     "title": "Cash Collections",
     "subtitle": "Cash collected per store and shift, chain-wide."

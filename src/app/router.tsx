@@ -74,6 +74,23 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  // The collection receipt's print route (spec 249, ticket 251). Top-level and
+  // OUTSIDE the AppShell subtree below on purpose: a print page's entire body IS
+  // the document (241), so there is no nav, no shell and nothing hidden behind
+  // `@media print` to keep off the paper. `chromeless` keeps the session guard —
+  // the chrome is what differs, never the auth. The ACR joins it at 252.
+  {
+    path: '/collection/receipt/:collectionReceiptId',
+    element: <ProtectedLayout chromeless />,
+    children: [
+      {
+        index: true,
+        lazy: async () => ({
+          Component: (await import('@/features/collection/inquiry/ReceiptPrintPage')).default,
+        }),
+      },
+    ],
+  },
   {
     path: '/',
     Component: ProtectedLayout,

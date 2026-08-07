@@ -27,13 +27,26 @@ import { join, sep } from 'node:path'
 const SRC = 'src'
 const toPosix = (p) => p.split(sep).join('/')
 
-// The two files where a colour literal is the correct thing to write. Both are excluded whole,
-// not line by line, because that is the shape of the permission: these files ARE the colour.
+// The files where a colour literal is the correct thing to write. Each is excluded whole, not line
+// by line, because that is the shape of the permission: these files ARE the colour.
 const COLOUR_SOURCES = new Map([
   ['src/app/global.css', 'the token table — the single place a colour value is authored'],
   [
     'src/assets/Al-Dawaa-Pharmacies-01.svg',
     'the al-dawaa mark — brand gold and navy live only here (ticket 087)',
+  ],
+  // The printed facsimiles (spec 249's documented three-rule exception, established by ticket
+  // 251; the ACR's own files join at 252). These are not screens: they reproduce a paper form
+  // the WPF also prints, and the
+  // form's own ink — the `#C00000` of the خصم فائض rule, the `#EDEDF2` digit-cell fill, the
+  // `#8A8A8A` dot leaders — IS the document. A token would make the web sheet drift from the
+  // paper one the moment a theme moved, which is the one thing these files exist to prevent.
+  // They are also theme-independent by construction: a document prints on white paper in black
+  // ink, in either theme. NOT a precedent for a screen — the chrome around these documents
+  // (`ReceiptPrintPage`) holds no exception at all.
+  [
+    'src/features/collection/inquiry/collection-voucher.css',
+    'the سند قبض facsimile — the paper form’s own ink (ticket 251)',
   ],
 ])
 

@@ -1,0 +1,325 @@
+/* The سند قبض facsimile — geometry and ink.
+ *
+ * ⚠ DOCUMENTED EXCEPTION (spec 249, ticket 251). This file and its component are
+ * a paper facsimile, not a screen, and they hold a THREE-RULE exemption the rest
+ * of the app does not:
+ *   · i18n-zero-literal — the Arabic IS the form, not UI copy to translate.
+ *   · logical-tailwind  — the geometry is PHYSICAL and mirrors nothing. `left`
+ *     here means the left of a printed sheet, in every locale.
+ *   · the colour-literal gate — `#C00000` IS the form. The file carries a
+ *     whole-file entry in `tools/check-palette.mjs`'s COLOUR_SOURCES.
+ * Screen chrome AROUND the document obeys every rule, unexceptionally.
+ *
+ * The measurements are the WPF's (`CollectionVoucherControl.xaml`), transcribed
+ * in §1–§3 of the fidelity inventory — 780px fixed width, Tahoma, RTL flow with
+ * LTR islands. Print behaviour follows ticket 241's research.
+ */
+
+/* The `@page { size: A4; margin: 0 }` rule this document needs is NOT here: an
+ * imported stylesheet is never unloaded, and `@page` is global, so it would set
+ * every other screen's print margins to zero for the rest of the session. It is
+ * mounted and unmounted by the route instead — see `print-page-rule.ts`.
+ *
+ * One A4 block per model page. The server paginates (245 §3); the browser never
+ * chooses a break. The break goes BEFORE each sheet after the first rather than
+ * after each sheet: a trailing `break-after` prints a blank sheet, and
+ * `:last-child` cannot be trusted to suppress it — the sheets are not the only
+ * children of `#root` (the app's toaster renders a sibling section). */
+.cv-sheet {
+  width: 210mm;
+  height: 297mm;
+  box-sizing: border-box;
+  /* The WPF's own page padding, kept deliberately even though it is under the
+   * ~10mm many lasers leave unprintable: matching WPF is what makes the two
+   * sheets one document, and whether the frame survives is 260's paper test. */
+  padding: 24px;
+  background: #fff;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  /* Never on <body> — Chrome and Edge print no body background even with
+   * print-color-adjust: exact, which applies to descendants only (241). */
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.cv-sheet + .cv-sheet {
+  break-before: page;
+  page-break-before: always;
+}
+
+/* WPF's own shrink-to-fit: min(1.0, (pageWidth − 48) / 780) ≈ 0.956 on A4
+ * portrait. The paper original already prints at ~96%; this is not a defect to
+ * chase to 100%. */
+.cv-doc {
+  width: 780px;
+  /* Not negotiable by the flex parent: the document is 780px and THEN scaled. Left shrinkable it
+   * would be squeezed to the A4 content box (745.7px) and scaled again on top of that. */
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  transform: scale(0.956);
+  transform-origin: top center;
+  background: #fff;
+  color: #1a1a1a;
+  /* No webfont: Tahoma is a Windows system font with Arabic coverage and these
+   * users are on Windows Chrome/Edge (241's fold-in). */
+  font-family: Tahoma, sans-serif;
+  font-size: 12px;
+  line-height: 1.35;
+  direction: rtl;
+  border: 1px solid #8a8a8a;
+  padding: 16px 24px;
+  align-self: flex-start;
+}
+
+/* ── the bilingual company header ─────────────────────────────────────── */
+
+.cv-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.cv-head-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.cv-head-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* LTR-forced so the mark never mirrors inside the RTL parent. */
+.cv-logo {
+  direction: ltr;
+  height: 80px;
+  margin: 0 5px;
+  object-fit: contain;
+}
+
+/* Uniformly bold, `P.O. Box …` included — the XAML's lone non-bold line is a
+ * slip. The address WRAPS rather than colliding with the logo. */
+.cv-head-en {
+  direction: ltr;
+  text-align: left;
+  font-weight: 700;
+}
+
+.cv-head-en-name {
+  font-size: 16px;
+}
+
+/* ── the خصم فائض box ─────────────────────────────────────────────────── */
+
+/* On the RIGHT (the pad's side, not the XAML's) and ALWAYS EMPTY — a hand-fill
+ * slot, not an output field. Nothing is bound into it, by ruling. */
+.cv-overage {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.cv-overage-box {
+  min-width: 220px;
+  min-height: 34px;
+  border: 1px solid #c00000;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+}
+
+.cv-overage-label {
+  color: #c00000;
+  font-weight: 700;
+}
+
+/* ── the title band ───────────────────────────────────────────────────── */
+
+.cv-title-band {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+/* `Store.` hard right and `No.` hard left, dropped onto the RECEIPT VOUCHER
+ * line — the pad's placement, not the XAML's tucked-against-centre one. Under
+ * RTL, flex-start is the outer RIGHT edge. */
+.cv-band-side {
+  flex: 1;
+  display: flex;
+}
+
+.cv-band-side--store {
+  justify-content: flex-start;
+}
+
+.cv-band-side--no {
+  justify-content: flex-end;
+}
+
+.cv-stamp {
+  direction: ltr;
+  display: flex;
+  color: #c00000;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 20px;
+}
+
+.cv-title-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.cv-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.cv-subtitle {
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+/* ── the S.R. | H. digit cells ────────────────────────────────────────── */
+
+/* An LTR island inside the RTL parent so S.R. stays LEFT of H. */
+.cv-amount {
+  direction: ltr;
+  display: flex;
+}
+
+.cv-amount--grand {
+  margin-top: 6px;
+}
+
+/* The money island of a cash/bank row sits at the RTL row's leading edge — the
+ * sheet's right, where the paper original prints it. */
+.cv-amount--row {
+  align-self: flex-end;
+  margin-left: 8px;
+}
+
+.cv-amount-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.cv-amount-col + .cv-amount-col {
+  margin-left: 6px;
+}
+
+.cv-amount-cap {
+  text-align: center;
+}
+
+.cv-cell {
+  background: #ededf2;
+  border: 1px solid #1a1a1a;
+  padding: 2px 6px;
+  font-weight: 700;
+  text-align: center;
+  direction: ltr;
+  box-sizing: border-box;
+  /* The grey fill must survive the printer. */
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.cv-cell--whole-grand {
+  min-width: 88px;
+}
+
+.cv-cell--minor-grand {
+  min-width: 44px;
+}
+
+.cv-cell--whole-row {
+  min-width: 70px;
+}
+
+/* The minor cell sizes to the VALUE's own length (2 for SAR, 3 for BHD) — the
+ * client holds no currency lookup, so `min-width` must not clip `005`. */
+.cv-cell--minor-row {
+  min-width: 40px;
+  margin-left: 2px;
+}
+
+/* ── fill-lines and rows ──────────────────────────────────────────────── */
+
+.cv-row {
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+
+.cv-row--date {
+  justify-content: flex-start;
+  margin-bottom: 10px;
+}
+
+.cv-row--day {
+  margin-bottom: 18px;
+}
+
+/* Dot leaders — the pad's own texture, not the WPF's solid rules. An empty
+ * value leaves an EMPTY fill-line of its natural width, never a 0 and never a
+ * collapsed run, which is why the min-height is here and not on the text. */
+.cv-line {
+  border-bottom: 1px dotted #8a8a8a;
+  padding: 0 6px 1px;
+  text-align: center;
+  min-height: 17px;
+}
+
+.cv-line--grow {
+  flex: 1;
+}
+
+.cv-line--date {
+  min-width: 140px;
+}
+
+.cv-line--name {
+  flex: 1;
+  font-weight: 700;
+}
+
+.cv-label {
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.cv-label--en {
+  direction: ltr;
+}
+
+/* ── the two name blocks ──────────────────────────────────────────────── */
+
+.cv-names {
+  display: flex;
+}
+
+.cv-name-block {
+  flex: 1;
+}
+
+.cv-names-gap {
+  width: 24px;
+  flex: 0 0 24px;
+}
+
+.cv-name-id {
+  display: flex;
+  align-items: flex-end;
+  margin-top: 6px;
+}
+
+.cv-name-row {
+  display: flex;
+  align-items: flex-end;
+}

@@ -1,6 +1,6 @@
 ---
 type: wayfinder-map
-status: open
+status: done
 ---
 
 # 240 — The collection documents come to the web
@@ -114,14 +114,69 @@ facsimiles + print), and a smaller backend wave in
   same bug), and **O8's logo is now the last unfinished mark on either document** — it needs an
   asset from the brand side, not a decision on this map.
 
+- [Four inquiry screens in our clothes](244-four-inquiry-screens-in-our-clothes.md) — all four
+  screens settled as **one feature in a new top-level area**, `src/features/collection/` at
+  `/collection/*` under a **Collections** menu group (finance, not OMS — following how
+  `callcenter`/`loy`/`nphies` each minted a group), templated on **BBY Inquiry's shape, copied not
+  extracted**, with the `246`/`247` prototypes moving there. Four rulings carry weight downstream:
+  the WPF's **`Limit` box is deleted** — scope is HQ-wide and a day is hundreds of rows, so the web
+  asks for ~2,000 and pages 50 at a time **in the browser**, keeping sort/filter/export over the
+  whole set and sparing four endpoints an `OFFSET/COUNT` change; screens **open auto-loaded on
+  today**; the ACR drill-down is `?acr=` on Cash Collections with a chip that **disables the other
+  filters**, because the server treats `AcrId` as exclusive; and documents open **in a new tab at
+  their own URL**, which is free for the ACR (`Acr/Report?acrId=`) but needs 245's by-number lookup
+  for the receipt. Also: **`money.ts` graduates from Loy to `@/core`** (second consumer, as
+  `pager.ts` did), the floating-filter row is **on** by default (inverting BBY, matching every WPF
+  grid), columns lead with identity+money and fold a forensic tail behind a toggle, Deposit renders
+  its lines and per-collector balances **stacked in place**, and permissions are the **four existing
+  WPF grants** behind one `Collection/Access` probe — supervisor vs accountant is grant *assignment*,
+  neither is store-scoped. Unblocks 248, and hands it the finding that the WPF grids export **XLSX**.
+
+- [The shape of a print-ready document](245-the-shape-of-a-print-ready-document.md) — the contract
+  is written, field-by-field, for `/to-spec` to lift verbatim. **One door, not five**: a single
+  `CollectionWebEndpoints.cs` (tag `CollectionWeb`) carries all seven routes with the four WPF grants
+  enforced per-route, following `SdDocumentWeb`'s one-tag-several-gates shape and 244's single
+  `Access` probe. **The wire carries strings and nothing else** — no `decimal`, no `DateTime`, no
+  `currencyCode` — so the client is *unable* to format rather than merely asked not to; every
+  unrendered field (`storeName`, `variance`, `hasShiftReport`, `createdAtText`) leaves with them.
+  Both documents hand over **pages**: the ACR as a hoisted `form` + `pages[]` (243's caveat — a naive
+  `List<AcrFormPage>` repeats the header and all rows once per page), and the receipt likewise,
+  because a multi-shift receipt is genuinely multi-page. **Three findings became server work**: the
+  receipt has no identity on the wire today, so `CollectionReceiptId` joins the projection, model and
+  options and becomes the URL key (`SequentialNumber` is minted *per store*, so `No.` cannot do it);
+  the HQ path's `MarkPosted(oneItemList, …)` mints **duplicate `No.`s** on a multi-shift receipt, so
+  the door must stamp the page set as a set, ordered `OpenedAt` ascending; and `shiftDayName` +
+  247's new `hijriText` must be **pinned formatters with pinned tests** (`ar-SA` / explicit
+  `UmmAlQuraCalendar`) because net8.0 is not WPF's globalization stack and the failure mode is a
+  silent English `Thursday`. A miss is an **envelope refusal** (`AcrNotFound` reused,
+  `CollectionReceiptNotFound` minted), never a bare 404 and never a blank sheet — but **empty is not a
+  miss**. And the frontend **starts against a mock**: the two prototype fixtures graduate into the
+  feature, with three boundaries written down and the first live call named as its own verification.
+
+- [Whether the web owes a spreadsheet](248-whether-the-web-owes-a-spreadsheet.md) — **split, and the
+  map is done.** The two XLSX exports turned out to be different objects: the grid one is a *base
+  class* (`ExportToXlsx` sits in `InquiryController`/`ListController`, inherited by ~40 screens,
+  exporting `TextExportMode.Text` so its money isn't even summable), while `AcrFormExcelWriter` is
+  bespoke — and already writes `رقم المشغل`, `نموذج رقم` and both deposit rows that 247 renamed and
+  deleted, making it this map's drift argument *already realised*. So the ACR form's Excel is **ruled
+  out of scope** (a third rendering, 241's exact reasoning) and 245's strings-only wire survives
+  untouched. The four grids **do** owe one — the accountant reconciles it — as **client-side CSV**,
+  which needs **zero backend work** (244 already holds all ~2,000 rows in the browser, so no walk,
+  unlike ua-admin's 120-page one) and no dependency (AG Grid *Community* has no `exportDataAsExcel`).
+  The writer's non-obvious rule: **two escaping rules split by column** — money leaves as a bare
+  unformatted number (`ua-admin`'s `="…"` habit would make the cell text and silently `SUM` to zero),
+  receipt/ACR/store ids keep the wrapper because the workbook keys on them. All columns ship
+  including 244's folded forensic tail, which is why AG Grid's own WYSIWYG `exportDataAsCsv` can't be
+  the implementation.
+
 ## Not yet specified
 
-- **Deposit Inquiry and Collection Attempts in detail.** 243 settled the document question —
-  **neither carries one**; Deposit has attachment URLs and a `{ Rows, Balances }` shape instead of a
-  bare list, and Collection Attempts is one flat list with six filters. What remains dim is each
-  grid's columns and filters, whether Deposit's per-collector balance summary earns its own surface
-  on the screen, and whether the two justify their own tickets or ride along with 244 — reachable
-  only once the screen shape is settled.
+<!-- empty: no fog is left toward the destination; every ticket on this map is resolved -->
+
+*(The one patch here — Deposit Inquiry and Collection Attempts in detail — was **answered**, not
+graduated, by [Four inquiry screens in our clothes](244-four-inquiry-screens-in-our-clothes.md):
+both grids' columns and filters are settled, Deposit's balance summary earns its own stacked
+surface, and neither screen justifies a ticket of its own.)*
 
 ## Out of scope
 
@@ -131,3 +186,11 @@ facsimiles + print), and a smaller backend wave in
   rendering beside it, it does not unify them.
 - **Write actions** — `Acr/Create`, `Acr/Close`, collecting a shift, reopening. The web is an
   inquiry surface; the acting stays in POS/WPF.
+
+- **An Excel rendering of the ACR *document*** (the WPF's `AcrFormExcelWriter` — the 13 columns,
+  totals row and ملخص التحصيل block written as a worksheet). A web twin would be a **third**
+  rendering to keep in sync with the WPF writer and the React facsimile — 241's exact argument
+  against a server PDF — and the WPF writer has already fallen three marks behind 247. Print the
+  form, export the grid; the ACR Inquiry grid's rows *are* the form's rows. Returns only as its own
+  effort. Ruled out by
+  [Whether the web owes a spreadsheet](248-whether-the-web-owes-a-spreadsheet.md).

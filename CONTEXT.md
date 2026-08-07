@@ -250,6 +250,38 @@ WPF, which is exactly why the marker has to be visible. Its sibling marker is **
 _Avoid_: communication (the noun names the message thread, not the state), pending (that is a
 Request state, and a queried authorization is usually already `Complete`).
 
+**Collection**:
+One **collection receipt** (سند قبض) — the cash and card totals a **collector** took from a store
+against its closed shift(s), identified by a `CollectionReceiptNo` and covering one or more
+Z-reports. Its cash chain is `SystemCash` (what the till says) → `CountedCash` (what was counted) →
+minus the `OpeningFloat` that stays in the drawer → `CountedCashNet` / `NetCollected` (what actually
+left the store), with `Variance` (عجز/فائض) and its reason code standing between the first two.
+The receipt *is* the document: printing it renders the same سند قبض the till posts.
+_Avoid_: pickup, cash drop, deposit (a deposit is the **bank** end, several ACRs later).
+
+**ACR** (accumulated collection receipt):
+The collector's container — نموذج متابعة المبيعات النقدية ومبيعات الشبكة — linking many
+**collections** under one `AcrNumber`, `OPEN` until closed, then claimed by a **deposit**. Its
+printable form is the second of this effort's two documents. Filtering collections by `AcrId` is an
+**exclusive** scope: the server drops store, collector and period entirely, so "this ACR's
+collections" always means *all* of them.
+_Avoid_: batch, bundle, collection group.
+
+**Deposit**:
+The banking of one or more ACRs — `POSTED` or `VOID`, carrying a bank, the **calculated** total
+against the **real (banked)** amount, and slip **attachments** that are URLs the mobile backend
+hosts (the API never takes or serves bytes). Each claimed ACR line holds both a frozen
+`NetCollectedAtDeposit` and a live `NetCollectedNow`; a gap between them is **drift**, and finding
+it is what the accountant opens the screen for. Has **no printable document**.
+_Avoid_: banking, remittance, settlement.
+
+**Collection attempt**:
+A visit that collected **nothing** — a collector logged at the till who they visited, when, which
+store/shift/business day, and why not (manager absent, cash not complete, other). The shift stays
+`PENDING` and collectable: an attempt is **liability evidence, not a collection**, which is why it
+is immutable and carries no row action anywhere it is shown.
+_Avoid_: failed collection (nothing was collected, so there is no collection to have failed), visit.
+
 **Skipped line** (of a link):
 A line on the linked request that the copy did **not** put on the order, reported per line rather
 than silently dropped. Two kinds, and they are different rows: **refused** (not sellable at the

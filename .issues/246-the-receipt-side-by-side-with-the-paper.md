@@ -53,7 +53,21 @@ perfect."* Breaker gate 1 is passed for the receipt.
 
 **The prototype:** `src/features/oms/collection/__prototype__/voucher/` — three readings on
 `/prototype/collection-voucher?variant=A|B|C&state=…`, the paper scan pinned beside them, on 241's
-print geometry. Throwaway; it goes to the prototype branch, not into main.
+print geometry.
+
+**Throwaway, and captured off main** — `.claude/skills/prototype` step 6. The full variant set is
+the primary source behind this sign-off and lives on branch
+**`prototype/246-collection-voucher`** (`f0bb4bf`), which also carries the route entry and the
+`check-palette.mjs` exclusion. Main keeps only the decision — this ticket. To look at it again:
+
+```
+git checkout prototype/246-collection-voucher
+npx vite --port 5199    # → /prototype/collection-voucher?variant=C
+```
+
+The build wave **rewrites** the winner rather than promoting it: variant C was written under
+prototype constraints (inline styles standing in for the XAML setters, no i18n, hard-coded model,
+zero tests). What it settles is every mark's ruling, not its implementation.
 
 ### What C settled
 

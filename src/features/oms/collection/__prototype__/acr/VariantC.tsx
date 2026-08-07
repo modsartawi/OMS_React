@@ -1,6 +1,8 @@
 /* PROTOTYPE — throwaway. Wayfinder ticket 247 (map 240).
  *
- * VARIANT C — "the web's reading." The recommendation.
+ * VARIANT C — "the web's reading." SIGNED OFF, with three amendments (marked at
+ * their sites below): `رقم المشغل` → `رقم الصيدلي`, `نموذج رقم ( )` →
+ * `رقم التجميعي`, and every deposit mark removed.
  *
  * The same rule ticket 246 settled the receipt with, applied to a document that
  * is a RESHAPE rather than a facsimile (242 §6.2), so it has far more departures
@@ -34,9 +36,10 @@
  *     · O6 `IsShortfall` earns its warning style: a negative cash figure prints
  *       in the same `#B00020` the mismatch mark uses. It is built, documented,
  *       and bound by nobody today.
- *     · O7 `رقم الإيداع` + `الحالة` of the deposit join meta row 2. The ACR's
- *       banking fate is precisely what a supervisor opens this screen to ask,
- *       and both fields are already on the model.
+ *     · O7 OUT — and the sign-off took `اجمالي ايداع المحصل` with it. The ACR
+ *       states what was COLLECTED; where the money went afterwards belongs to
+ *       the deposit's own document. `DepositNumber`, `DepositStatus` and
+ *       `DepositText` all leave 245's model.
  *     · O8 UNRESOLVED — this renders al-dawaa, as the WPF does. See the ticket:
  *       which mark, and in which lockup, is one decision shared with the receipt.
  */
@@ -65,7 +68,10 @@ const HEADERS = [
   'رقم سند القبض',
   'مطابقة الكاش والشبكة',
   'اسم الصيدلي',
-  'رقم المشغل',
+  // SIGNED OFF 247 — `رقم المشغل` is the WPF's name for the closer's StaffID.
+  // The closer IS the pharmacist, so the column says so and pairs with the name
+  // beside it. 245's model field is `pharmacistId`, not `operatorId`.
+  'رقم الصيدلي',
   'ملاحظات',
 ]
 
@@ -173,20 +179,25 @@ function Page({
       <div style={{ display: 'flex', marginBottom: 2 }}>
         <Meta label="عن يوم: " value={m.acrDateText} />
         <Meta label="الموافق: " value={m.hijriText} />
+        {/* SIGNED OFF 247 — `نموذج رقم ( )` becomes `رقم التجميعي`: the field is
+            the ACR's own serial, not a form-stock number. The pad's parentheses
+            go with it — they bracket a blank a collector wrote into, and this is
+            printed. */}
         <div style={{ flex: 1, display: 'flex' }}>
-          <span style={metaLabel}>نموذج رقم ( </span>
+          <span style={metaLabel}>رقم التجميعي: </span>
           <span style={{ fontWeight: 700 }}>{m.acrNumberText}</span>
-          <span style={metaLabel}> )</span>
         </div>
         <Meta label="المنطقة: " value={m.areas} />
       </div>
 
-      {/* Meta row 2 — with the deposit's fate, which the WPF built and never bound. */}
+      {/* Meta row 2. SIGNED OFF 247 — NO deposit mark: `رقم الإيداع` is gone from
+          here and `اجمالي ايداع المحصل` from the summary below. 242 §8-O7 is
+          answered OUT, and wider than it was asked: the ACR states what was
+          COLLECTED; where the money then went is the deposit's own document. */}
       <div style={{ display: 'flex', marginBottom: 8 }}>
         <Meta label="تاريخ التحصيل: " value={m.closedAtText} />
         <Meta label="الوصف: " value={m.label} />
         <Meta label="الحالة: " value={m.status} />
-        <Meta label="رقم الإيداع: " value={m.depositNumberText || m.depositStatus} />
       </div>
 
       <div style={{ display: 'flex' }}>
@@ -255,7 +266,6 @@ function Page({
             <div style={{ flex: `0 0 340px` }}>
               <div style={{ ...headCell(0), flex: 'none' }}>ملخص التحصيل</div>
               <SummaryRow label="اجمالي الايرادات" value={m.revenuesText} />
-              <SummaryRow label="اجمالي ايداع المحصل" value={m.depositText} bold />
             </div>
           </div>
         </>

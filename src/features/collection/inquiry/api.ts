@@ -1,0 +1,70 @@
+/**
+ * The Collections feature's server calls (spec 249).
+ *
+ * Every one goes through `@/core/api` (`.claude/rules/api-envelope.md`): the
+ * envelope, the error taxonomy and 401 are that module's, and 401 in particular
+ * is never caught here.
+ *
+ * ⚠️ **The door does not exist yet.** `CollectionWeb/*` is a BackOffice
+ * dependency built on a parallel track (1090: one file, one tag, four grant
+ * gates). Until it lands, every route here answers a browser **403** — issue
+ * 802 inverted `ApiKeyEndpointFilter`'s cookie branch to default-deny — so this
+ * feature is verified against envelopes stubbed at Playwright
+ * (`tools/collection-drive.mjs`), the same code-complete / runtime-blocked
+ * posture the Nphies and Loy waves shipped under. 🚩 Nothing here has been driven
+ * against a live SIS.Api; ticket 259 is that event.
+ *
+ * The four inquiry reads and the two document reads join this file with their
+ * own slices (254–257).
+ */
+import { api } from '@/core/api'
+import type { CollectionAccessResult } from '@/core/models/collection'
+
+/**
+ * The ONE cache key the four Collections nav leaves and all four screens' own
+ * in-page guards share, so a gated area costs **one** network call and not one
+ * per consumer. Exported rather than re-spelled at each site: a typo in a string
+ * literal would not fail a build, it would silently split the cache entry and
+ * let the nav and a screen disagree about whether the session is allowed in.
+ */
+export const COLLECTION_ACCESS_KEY = ['collection', 'access'] as const
+
+/**
+ * The probe's four predicates, one per screen (244 §10).
+ *
+ * `=== true` and nothing looser, so a malformed answer (`{}`, `null`, a string
+ * `"true"`) is a denial and not an accident of truthiness. They are named
+ * exports because they are this ticket's pure Proof, and because the nav leaf
+ * and the screen guard must read the *same* predicate rather than two spellings
+ * of it.
+ *
+ * 🚩 They are **independent**. A session granted only `DepositInquiry` sees one
+ * item, not three that would bounce it — a ragged group is the correct answer,
+ * and it is what makes the menu honest about what the server will actually
+ * serve.
+ */
+type Access = CollectionAccessResult | null | undefined
+
+export const canOpenCollections = (r: Access): boolean => r?.canOpenCollections === true
+export const canOpenAcrs = (r: Access): boolean => r?.canOpenAcrs === true
+export const canOpenDeposits = (r: Access): boolean => r?.canOpenDeposits === true
+export const canOpenAttempts = (r: Access): boolean => r?.canOpenAttempts === true
+
+export const collectionApi = {
+  /**
+   * `GET CollectionWeb/Access` → the four booleans. Cookie-gated and
+   * deliberately **not** grant-gated: it must be able to answer a session that
+   * holds nothing.
+   *
+   * ⚠️ **Fails closed.** No 404-tolerant catch, unlike the `Notifications/Access`
+   * and `Bby/Access` probes which degrade to *allowed* while their endpoints are
+   * unbuilt. These four screens are the chain's cash, and 253 asks for exactly
+   * this: an unknown or failed probe hides the group rather than offering a
+   * screen the server will refuse. The shell already treats a pending or errored
+   * probe as hidden, so failing closed is the *absence* of a catch rather than
+   * code.
+   */
+  access(): Promise<CollectionAccessResult> {
+    return api.get<CollectionAccessResult>('CollectionWeb/Access')
+  },
+}

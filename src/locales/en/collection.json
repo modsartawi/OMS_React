@@ -1,0 +1,35 @@
+{
+  "menu": {
+    "collections": "Collections",
+    "cashCollections": "Cash Collections",
+    "acrs": "ACRs",
+    "deposits": "Deposits",
+    "attempts": "Collection Attempts"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to this screen",
+    "deniedHint": "Your account does not hold the grant for this collection screen. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "shell": {
+    "comingSoon": "This screen is not built yet."
+  },
+  "collections": {
+    "title": "Cash Collections",
+    "subtitle": "Cash collected per store and shift, chain-wide."
+  },
+  "acrs": {
+    "title": "ACRs",
+    "subtitle": "Accumulated collection receipts and the collections behind them."
+  },
+  "deposits": {
+    "title": "Deposits",
+    "subtitle": "Bank deposits, the ACRs they claim, and the per-collector balances."
+  },
+  "attempts": {
+    "title": "Collection Attempts",
+    "subtitle": "Visits that collected nothing, and the reason given."
+  }
+}

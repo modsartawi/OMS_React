@@ -21,6 +21,10 @@ import authorizations from '@/locales/en/authorizations.json'
 // name" (spec 231, ticket 233). The feature is `member` under the new `loy`
 // area, and `member` is too generic a name for a global namespace.
 import loy from '@/locales/en/loy.json'
+// The Collections area's ONE namespace (spec 249, ticket 253) — one feature, four
+// screens and both documents share it, so every later slice ADDS keys here rather
+// than minting a second namespace or re-registering this one.
+import collection from '@/locales/en/collection.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -28,7 +32,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection'],
   resources: {
     en: {
       common,
@@ -49,6 +53,7 @@ i18n.use(initReactI18next).init({
       eligibility,
       authorizations,
       loy,
+      collection,
     },
   },
   interpolation: { escapeValue: false },

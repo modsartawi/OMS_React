@@ -210,6 +210,42 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/loy/member/MemberLookupPage')).default,
         }),
       },
+      // The Collections area (spec 249, ticket 253) — a new top-level area at
+      // `/collection/*`, one feature behind ONE `CollectionWeb/Access` probe.
+      // Four routes now; the two document routes
+      // (`/collection/receipt/:collectionReceiptId`, `/collection/acr/:acrId`)
+      // join under this same prefix with 251 and 252 — but OUTSIDE this
+      // ProtectedLayout subtree, because a print page's entire body is the
+      // document and the app chrome would print with it.
+      //
+      // 🚩 Each Page carries its OWN in-page guard on the SAME probe key the nav
+      // leaf reads. The nav merely hides; a hand-typed URL is refused by the
+      // screen's backstop here and, once the door lands, by the endpoint's grant
+      // filter — which is the real boundary.
+      {
+        path: 'collection/collections',
+        lazy: async () => ({
+          Component: (await import('@/features/collection/inquiry/CashCollectionsPage')).default,
+        }),
+      },
+      {
+        path: 'collection/acrs',
+        lazy: async () => ({
+          Component: (await import('@/features/collection/inquiry/AcrsPage')).default,
+        }),
+      },
+      {
+        path: 'collection/deposits',
+        lazy: async () => ({
+          Component: (await import('@/features/collection/inquiry/DepositsPage')).default,
+        }),
+      },
+      {
+        path: 'collection/attempts',
+        lazy: async () => ({
+          Component: (await import('@/features/collection/inquiry/CollectionAttemptsPage')).default,
+        }),
+      },
       {
         path: 'pricing/simulation',
         lazy: async () => ({

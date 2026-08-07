@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Box, Calculator, ClipboardCheck, Download, FileCheck2, FileText, Gem, Headset, HeartPulse, KeyRound, LifeBuoy, ListChecks, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch } from 'lucide-react'
+import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileCheck2, FileSpreadsheet, FileText, Gem, Headset, HeartPulse, History, KeyRound, Landmark, LifeBuoy, ListChecks, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -23,6 +23,18 @@ import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
 // `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
 // the OMS and Nphies probes into `@/core/`. `layout` may import a feature.
 import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi } from '@/features/loy/member/api'
+// The Collections probe stays with its feature for the Loy reason (ticket 253):
+// `features/collection/inquiry` is its only consumer — the four leaves below and
+// the four screens' own guards. `layout` may import a feature.
+import {
+  canOpenAcrs,
+  canOpenAttempts,
+  canOpenCollections,
+  canOpenDeposits,
+  COLLECTION_ACCESS_KEY,
+  collectionApi,
+} from '@/features/collection/inquiry/api'
+import type { CollectionAccessResult } from '@/core/models/collection'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
 // labelKey is an i18n key (zero-literal rule).
@@ -73,6 +85,25 @@ export function accessProbe<T>(p: {
 }): AccessProbe {
   return p as AccessProbe
 }
+
+/**
+ * The Collections area's four leaves share ONE probe on ONE key (244 §10): the
+ * menu needs all four booleans at once, and four probes would be four round
+ * trips to draw one group. Spelling the key and the call once here rather than
+ * four times removes three chances to typo the very constant `collection/api`
+ * exports to stop the nav and a screen splitting the cache entry.
+ *
+ * Each leaf still passes its OWN predicate, so a session granted only Deposits
+ * gets a RAGGED group — one item, rather than three that would bounce it.
+ *
+ * 🚩 FAILS CLOSED — see `features/collection/inquiry/api`. A pending, errored or
+ * malformed probe hides the leaf; the `Bby/Access` unknown ⇒ shown precedent
+ * does not transfer to the chain's cash. 🚩 And it only HIDES: the endpoint's
+ * grant filter is the real boundary, which is why each Page carries its own
+ * in-page backstop too.
+ */
+const collectionProbe = (visible: (r: CollectionAccessResult) => boolean): AccessProbe =>
+  accessProbe({ key: COLLECTION_ACCESS_KEY, run: () => collectionApi.access(), visible })
 
 export const MENU: ShellMenuItem[] = [
   {
@@ -268,6 +299,45 @@ export const MENU: ShellMenuItem[] = [
           run: () => nphiesAccessApi.access(),
           visible: (r) => r.canOpenNphies === true,
         }),
+      },
+    ],
+  },
+  {
+    // Its own top-level group (spec 249, ticket 253): `/collection/*` is a new
+    // URL prefix and a new nav group, which is exactly when a new area folder
+    // appears. NOT under OMS — this is a finance surface (collection supervisor,
+    // accountant), and four items would have made the OMS group five items of
+    // two unrelated kinds. Same shape as the call-centre and Loyalty groups.
+    labelKey: 'collection:menu.collections',
+    icon: Wallet,
+    items: [
+      {
+        labelKey: 'collection:menu.cashCollections',
+        icon: Banknote,
+        routerLink: '/collection/collections',
+        activePrefix: '/collection/collections',
+        access: collectionProbe(canOpenCollections),
+      },
+      {
+        labelKey: 'collection:menu.acrs',
+        icon: FileSpreadsheet,
+        routerLink: '/collection/acrs',
+        activePrefix: '/collection/acrs',
+        access: collectionProbe(canOpenAcrs),
+      },
+      {
+        labelKey: 'collection:menu.deposits',
+        icon: Landmark,
+        routerLink: '/collection/deposits',
+        activePrefix: '/collection/deposits',
+        access: collectionProbe(canOpenDeposits),
+      },
+      {
+        labelKey: 'collection:menu.attempts',
+        icon: History,
+        routerLink: '/collection/attempts',
+        activePrefix: '/collection/attempts',
+        access: collectionProbe(canOpenAttempts),
       },
     ],
   },

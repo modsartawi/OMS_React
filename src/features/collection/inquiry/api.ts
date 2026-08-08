@@ -23,6 +23,7 @@ import type {
   CollectionAccessResult,
   CollectionAttemptRow,
   CollectionInquiryRow,
+  DepositInquiryResult,
 } from '@/core/models/collection'
 
 /**
@@ -108,6 +109,35 @@ export const collectionApi = {
    */
   acrs(params: Record<string, unknown>): Promise<AcrInquiryRow[]> {
     return api.get<AcrInquiryRow[]>('CollectionWeb/Acrs', params)
+  },
+
+  /**
+   * `GET CollectionWeb/Deposits` → the Deposits screen's **whole** payload
+   * (ticket 256), grant-gated on `DepositInquiry`.
+   *
+   * 🚩 **Not a bare list.** `{ rows, balances }`, each row carrying its own
+   * `lines` and `attachments` — so the grid, the stacked detail region and the
+   * per-collector balances panel all come out of **one** request. There is
+   * deliberately no second call for the detail: a deposit whose banked total no
+   * longer matches its claimed ACRs is what the accountant opens this screen to
+   * find, and drift behind a fetch is drift taken on faith.
+   *
+   * ⚠️ **The hardest door of the four.** `Deposit/Inquiry` rides
+   * `CollectorEndpointFilter`, which demands an api-key *plus* a `Mobile`-channel
+   * Bearer session and explicitly rejects a browser-minted token — it has no
+   * cookie branch to mark, so this needs a genuinely new door rather than an
+   * `.AllowCookieSession()` marker (BackOffice 1090).
+   *
+   * `params` arrives already built by the pure `buildDepositsParams`, which owns
+   * the PascalCase names, the dropping of empty filters, and the rule that a
+   * Status of `All` sends nothing. This function deliberately adds nothing: a
+   * second place that could decide what goes on the wire is a second place the
+   * decision can drift. ⚠️ One of those params, `DepositNumber`, is a filter
+   * `DepositInquiryOptions` does not have yet — logged as a BackOffice 1090
+   * dependency in `.afk/HITL-256.md` rather than worked around client-side.
+   */
+  deposits(params: Record<string, unknown>): Promise<DepositInquiryResult> {
+    return api.get<DepositInquiryResult>('CollectionWeb/Deposits', params)
   },
 
   /**

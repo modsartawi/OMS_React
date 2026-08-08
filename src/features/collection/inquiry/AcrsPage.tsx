@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
-import { Columns3, Filter, TriangleAlert } from 'lucide-react'
+import { Columns3, Filter } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
@@ -24,7 +24,7 @@ import {
 import AcrsToolbar from './AcrsToolbar'
 import { canOpenAcrs, collectionApi } from './api'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
-import { EmptyState, ListShimmer, ToggleChip } from './GridStates'
+import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
 import ScreenGate from './ScreenGate'
 
 /**
@@ -142,13 +142,7 @@ function AcrsBody() {
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on
           a result that REACHED the cap, never on one that is merely large. */}
       {capReached && (
-        <div
-          role="status"
-          className="flex items-start gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-[0.8125rem] text-attention-800"
-        >
-          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          <span>{t('acrs.capReached', { limit: GRID_LIMIT.toLocaleString('en-US') })}</span>
-        </div>
+        <CapBanner message={t('acrs.capReached', { limit: GRID_LIMIT.toLocaleString('en-US') })} />
       )}
 
       {list.isError && (

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { PackageSearch } from 'lucide-react'
+import { PackageSearch, TriangleAlert } from 'lucide-react'
 
 /**
  * The small presentational pieces every Collections grid wears (ticket 255).
@@ -66,6 +66,30 @@ export function ToggleChip({
       {icon}
       {label}
     </button>
+  )
+}
+
+/**
+ * The amber banner that fires when a result actually **reached** the system cap —
+ * the one case where rows really are missing, said out loud.
+ *
+ * It joined this module at its **third** caller (254, 255, now 256), which is the
+ * escalation path this file's own header describes: a banner is not a screen
+ * *shape*, so 244 §1's copied-not-extracted ruling does not reach it, and three
+ * hand-copies of the same amber chrome would drift in spacing and wording rather
+ * than in structure. Each Page still owns its own sentence — the wording names
+ * which filters to narrow, and those differ per screen — and its own decision
+ * about *when* to draw it; only the chrome lives here.
+ */
+export function CapBanner({ message }: { message: string }) {
+  return (
+    <div
+      role="status"
+      className="flex items-start gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-[0.8125rem] text-attention-800"
+    >
+      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <span>{message}</span>
+    </div>
   )
 }
 

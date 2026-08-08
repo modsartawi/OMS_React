@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
-import { Columns3, Filter, TriangleAlert } from 'lucide-react'
+import { Columns3, Filter } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
@@ -27,7 +27,7 @@ import {
 import CollectionsToolbar from './CollectionsToolbar'
 // These two were declared at the foot of this file at 254 and moved to their own
 // module at 255, when they acquired a second and third caller (see `GridStates`).
-import { EmptyState, ListShimmer, ToggleChip } from './GridStates'
+import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
 import ScreenGate from './ScreenGate'
 
 /**
@@ -150,17 +150,15 @@ function CollectionsBody() {
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on
           a result that REACHED the cap, never on one that is merely large. */}
+      {/* Grouped — `2,000`, not `2000`. i18next interpolates a raw number as
+          digits, and an ungrouped figure on the one screen whose whole point is
+          grouped money reads as a different kind of number. */}
       {capReached && (
-        <div
-          role="status"
-          className="flex items-start gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-[0.8125rem] text-attention-800"
-        >
-          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-          {/* Grouped — `2,000`, not `2000`. i18next interpolates a raw number as
-              digits, and an ungrouped figure on the one screen whose whole point
-              is grouped money reads as a different kind of number. */}
-          <span>{t('collections.capReached', { limit: COLLECTIONS_LIMIT.toLocaleString('en-US') })}</span>
-        </div>
+        <CapBanner
+          message={t('collections.capReached', {
+            limit: COLLECTIONS_LIMIT.toLocaleString('en-US'),
+          })}
+        />
       )}
 
       {list.isError && (

@@ -150,6 +150,144 @@ export interface AcrInquiryRow {
 }
 
 /**
+ * `GET CollectionWeb/Deposits` — **one claimed ACR inside a deposit** (ticket
+ * 256). `DepositInquiryLineModel` verbatim
+ * (`Sartawi.Retail.Data/Modules/Pos/Services/Models/Deposit/DepositModel.cs`),
+ * camel-cased by the serializer.
+ *
+ * 🚩 **This is the screen's whole reason to exist.** `netCollectedAtDeposit` is
+ * what the collector banked, frozen at create; `netCollectedNow` is what the ACR
+ * holds today. ACR_LINKED stamping is deliberately left un-gated after a deposit
+ * — collection traceability outranks deposit immutability — so a late-syncing
+ * collection can raise an ACR's live total *after* its cash was handed to the
+ * bank. The gap is the **drift**, and finance decides what to do about it.
+ *
+ * ⚠️ `drift` and `hasDrift` are **on the wire**: they are get-only C# properties
+ * and the serializer emits them. The client reads them and never re-derives them
+ * — see `deposit-drift.ts` for why subtracting two IEEE doubles here would
+ * manufacture drift on a deposit that balances exactly.
+ */
+export interface DepositInquiryLine {
+  /** ULID of the claimed ACR. */
+  acrId: string
+  acrNumber: number
+  /** Frozen at create — what was banked. */
+  netCollectedAtDeposit: number
+  /** Live Σ over the ACR's linked receipts — what it holds now. */
+  netCollectedNow: number
+  /** `netCollectedNow − netCollectedAtDeposit`, **derived server-side**. */
+  drift: number
+  /** `drift != 0`, **derived server-side**. */
+  hasDrift: boolean
+}
+
+/**
+ * `GET CollectionWeb/Deposits` — one slip attached to a deposit (ticket 256).
+ * `DepositAttachmentModel` verbatim.
+ *
+ * ⚠️ **`url` is a file the mobile backend hosts.** SIS.Api never takes or serves
+ * bytes, which is why these render as ordinary links opening in a new tab — that
+ * is all the WPF's `Open Slip(s)` ever did — and never through a viewer.
+ */
+export interface DepositAttachment {
+  attachmentId: string
+  url: string
+  fileName: string
+  createdAt: string
+}
+
+/**
+ * `GET CollectionWeb/Deposits` — one row of the Deposits grid (ticket 256).
+ * `DepositInquiryRowModel` verbatim.
+ *
+ * 🚩 **The row is not flat**: it carries its own `lines` and `attachments`, which
+ * is what makes Deposits the one screen in the suite that is not a bare list, and
+ * what makes the stacked detail region cost **no second fetch**.
+ *
+ * 🚩 **No `currencyKey`** — the deposit aggregate does not carry one, exactly as
+ * `AcrInquiryRow` does not. The money columns therefore draw at the default two
+ * decimals with no code in the header; the client cannot state a currency that is
+ * not on the wire. Logged as a server change in `.afk/HITL-256.md`.
+ *
+ * ⚠️ `voidedAt` is a non-nullable `DateTime`, so a POSTED deposit arrives at the
+ * `0001-01-01` sentinel rather than as `null` — it renders blank, the same
+ * sentinel `closedAt` carries on the ACR row.
+ */
+export interface DepositInquiryRow {
+  /** ULID, the deposit's PK. There is **no deposit document** to open with it. */
+  depositId: string
+  depositNumber: number
+  collectorOperatorId: string
+  collectorName: string
+  bankCode: string
+  bankName: string
+  /** `'POSTED'` or `'VOID'`. */
+  status: string
+  /** The bank-visit day — what the From/To window applies to. */
+  depositedAt: string
+  createdAt: string
+  /** Σ `NetCollectedAtDeposit` over the claimed ACRs, computed server-side. */
+  calculatedAmount: number
+  /** What the bank actually took. */
+  realAmount: number
+  /**
+   * `realAmount − calculatedAmount` (the column's own SQL comment), so a
+   * **negative** figure is a shortfall: the bank took less than the claimed ACRs
+   * accounted for. A reason is mandatory whenever it is non-zero.
+   *
+   * 🚩 **It is the opposite sign to `DepositCollectorBalance.outstanding`**, which
+   * is Σ(calculated − real). Both are real server fields and neither is wrong;
+   * reading one as the other flips a shortfall into an overage. Nothing here
+   * derives either — they are rendered as they arrive.
+   */
+  diffAmount: number
+  reasonCode: string
+  noteText: string
+  /** `''` unless voided. */
+  voidedBy: string
+  /** `0001-01-01` unless voided. */
+  voidedAt: string
+  voidReason: string
+  lines: DepositInquiryLine[]
+  attachments: DepositAttachment[]
+}
+
+/**
+ * `GET CollectionWeb/Deposits` — one collector's outstanding balance (ticket 256).
+ * `DepositCollectorBalanceModel` verbatim.
+ *
+ * ⚠️ **POSTED only.** `outstanding` is Σ(calculated − real) over POSTED deposits:
+ * positive means the collector accumulated more than they have banked so far
+ * (they still owe the bank a trip); negative means they banked more than their
+ * ACRs accounted for (last trip's shortfall has now landed). VOID deposits are
+ * excluded — they never moved money — and the panel says so on its face, because
+ * a balance table that silently ignored a row class would read as wrong rather
+ * than as scoped.
+ */
+export interface DepositCollectorBalance {
+  collectorOperatorId: string
+  collectorName: string
+  depositCount: number
+  totalCalculated: number
+  totalReal: number
+  outstanding: number
+}
+
+/**
+ * `GET CollectionWeb/Deposits` — the whole response (ticket 256).
+ * `DepositInquiryResultModel` verbatim.
+ *
+ * 🚩 **Not a bare list**, unlike the other three screens: the grid rows and the
+ * per-collector balance summary arrive **together**, so neither the detail region
+ * nor the balances panel costs a request. A second call for either would be the
+ * one thing this shape exists to prevent.
+ */
+export interface DepositInquiryResult {
+  rows: DepositInquiryRow[]
+  balances: DepositCollectorBalance[]
+}
+
+/**
  * `GET CollectionWeb/Attempts` — one row of the Collection Attempts grid (ticket
  * 255). This is `CollectionAttemptInquiryModel` verbatim
  * (`Sartawi.Retail.Data/Modules/Pos/Services/Models/CollectionAttempt/`).

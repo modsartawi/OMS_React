@@ -151,6 +151,95 @@ function makeAttemptRows(count) {
   }))
 }
 
+// ---- ticket 256: the Deposits payload ----
+// ⚠️ Stubbed for the same reason, but this is the HARDEST door of the four:
+// Deposit/Inquiry rides CollectorEndpointFilter, which demands an api-key PLUS a
+// Mobile-channel Bearer session and has no cookie branch at all — so it needs a
+// genuinely new door (BackOffice 1090), not an .AllowCookieSession() marker.
+//
+// 🚩 The one response that is NOT a bare list: `{ rows, balances }`, each row
+// carrying its own `lines` and `attachments`. That shape is what makes the
+// stacked detail region and the balances panel cost no fetch, and the drive
+// asserts exactly that by counting requests across a selection change.
+
+/** `count` deposit rows. Odd-indexed rows carry a DRIFTED claimed ACR — the
+ *  screen's whole reason to exist — and every row carries two slips. Row 0 is
+ *  deliberately CLEAN so that selecting row 1 is what makes a flag appear. */
+function makeDepositRows(count) {
+  return Array.from({ length: count }, (_, i) => {
+    const drifted = i % 2 === 1
+    const banked = 143910.75 + i
+    return {
+      depositId: `01J0DEPOSIT${String(i).padStart(15, '0')}`,
+      depositNumber: 5500 + i,
+      collectorOperatorId: String(4470 + (i % 3)),
+      collectorName: `Collector ${4470 + (i % 3)}`,
+      bankCode: i % 2 ? 'ANB' : 'RJHI',
+      bankName: i % 2 ? 'Arab National Bank' : 'Al Rajhi Bank',
+      status: i % 7 === 6 ? 'VOID' : 'POSTED',
+      depositedAt: `${todayIso()}T11:20:00`,
+      createdAt: `${todayIso()}T11:22:00`,
+      calculatedAmount: banked,
+      realAmount: banked,
+      diffAmount: 0,
+      reasonCode: '',
+      noteText: '',
+      voidedBy: i % 7 === 6 ? 'msartawi' : '',
+      // The .NET sentinel on a deposit that was never voided — blank, not year 1.
+      voidedAt: i % 7 === 6 ? `${todayIso()}T18:00:00` : '0001-01-01T00:00:00',
+      voidReason: i % 7 === 6 ? 'Banked twice' : '',
+      lines: [
+        {
+          acrId: `01J0ACR${String(i * 2).padStart(20, '0')}`,
+          acrNumber: 40 + i * 2,
+          netCollectedAtDeposit: banked,
+          netCollectedNow: banked,
+          // ⚠️ drift/hasDrift are get-only C# properties: they are ON THE WIRE,
+          // computed in decimal. The client reads them and never subtracts.
+          drift: 0,
+          hasDrift: false,
+        },
+        {
+          acrId: `01J0ACR${String(i * 2 + 1).padStart(20, '0')}`,
+          acrNumber: 41 + i * 2,
+          netCollectedAtDeposit: 1234.1,
+          netCollectedNow: drifted ? 1634.1 : 1234.1,
+          drift: drifted ? 400 : 0,
+          hasDrift: drifted,
+        },
+      ],
+      attachments: [
+        {
+          attachmentId: `01J0SLIP${String(i).padStart(18, '0')}`,
+          url: `https://slips.example.test/deposit-${5500 + i}-a.jpg`,
+          fileName: `slip-${5500 + i}-a.jpg`,
+          createdAt: `${todayIso()}T11:23:00`,
+        },
+        {
+          attachmentId: `01J0SLIPB${String(i).padStart(17, '0')}`,
+          url: `https://slips.example.test/deposit-${5500 + i}-b.jpg`,
+          fileName: `slip-${5500 + i}-b.jpg`,
+          createdAt: `${todayIso()}T11:24:00`,
+        },
+      ],
+    }
+  })
+}
+
+/** The per-collector balance summary that rides in the SAME response. */
+function makeBalances() {
+  return [4470, 4471, 4472].map((id, i) => ({
+    collectorOperatorId: String(id),
+    collectorName: `Collector ${id}`,
+    depositCount: 4 + i,
+    totalCalculated: 143910.75 + i,
+    totalReal: 143510.75 + i,
+    // Positive: still owes the bank a trip. Row 2 is negative — last trip's
+    // shortfall has since landed — and the sign stays the row's own.
+    outstanding: i === 2 ? -412.5 : 400,
+  }))
+}
+
 // scenario state, mutated between reloads
 let scenario = { accessBody: ALL, access403: false }
 let accessCalls = 0
@@ -161,6 +250,10 @@ let lastAcrsQuery = ''
 let acrsCalls = 0
 let lastAttemptsQuery = ''
 let attemptsCalls = 0
+let depositRows = makeDepositRows(163)
+let depositBalances = makeBalances()
+let lastDepositsQuery = ''
+let depositsCalls = 0
 /** The query string of the LAST CollectionWeb/Collections request — this is how
  *  the drive proves that Search/Reset promoted the draft, and that a keystroke
  *  did not. */
@@ -204,6 +297,11 @@ async function run() {
       acrsCalls++
       lastAcrsQuery = url.includes('?') ? url.slice(url.indexOf('?') + 1) : ''
       return route.fulfill(envelope(acrRows))
+    }
+    if (path === 'CollectionWeb/Deposits') {
+      depositsCalls++
+      lastDepositsQuery = url.includes('?') ? url.slice(url.indexOf('?') + 1) : ''
+      return route.fulfill(envelope({ rows: depositRows, balances: depositBalances }))
     }
     if (path === 'CollectionWeb/Attempts') {
       attemptsCalls++
@@ -766,6 +864,311 @@ async function run() {
   await page.waitForLoadState('networkidle')
   check('255 — an empty period reads as empty, not as an error', (await mainText()).includes('No attempts in this period'))
   attemptRows = makeAttemptRows(174)
+
+  // ============ ticket 256 — Deposits shows its lines and balances in place ============
+  // The same landing/paging/toggle/filter-row proof as 254, plus the three things
+  // that are this screen's own: a detail region that FOLLOWS THE SELECTED ROW out
+  // of the response already in the browser, the drift flag on a claimed ACR that
+  // moved after banking, and the collapsible POSTED-only balances panel.
+
+  depositRows = makeDepositRows(163)
+  depositBalances = makeBalances()
+  depositsCalls = 0
+  lastDepositsQuery = ''
+  await page.goto(BASE + ROUTES.deposits)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+
+  const qd = () => new URLSearchParams(lastDepositsQuery)
+  check('256 — Deposits queries on MOUNT (no Load button to press)', depositsCalls === 1, `${depositsCalls} calls`)
+  check(
+    '256 — …and it queries TODAY, as a pair, at the system cap',
+    qd().get('FromDate') === TODAY && qd().get('ToDate') === TODAY && qd().get('Limit') === '2000',
+    lastDepositsQuery,
+  )
+  check(
+    '256 — an unset number/collector/bank is DROPPED, not sent as an empty string',
+    !lastDepositsQuery.includes('DepositNumber') &&
+      !lastDepositsQuery.includes('CollectorOperatorId') &&
+      !lastDepositsQuery.includes('BankCode'),
+    lastDepositsQuery,
+  )
+  check(
+    '256 — Status = All sends NOTHING: no Status param at all',
+    !lastDepositsQuery.includes('Status'),
+    lastDepositsQuery,
+  )
+  check(
+    '256 — the floating filter row is visible on arrival (inverting BBY’s default)',
+    (await page.locator('.ag-floating-filter').count()) > 0,
+  )
+
+  const depositSummary = await page.locator('.ag-paging-row-summary-panel').innerText()
+  check('256 — Deposits pages at 50 with the whole 163 present', /1 to 50 of 163/.test(depositSummary), depositSummary)
+  await page.locator('.ag-paging-button[data-ref="btNext"]').click()
+  const depositSummary2 = await page.locator('.ag-paging-row-summary-panel').innerText()
+  check(
+    '256 — Next walks the SAME fetched result, with no second request',
+    /51 to 100 of 163/.test(depositSummary2) && depositsCalls === 1,
+    `${depositSummary2} · ${depositsCalls} calls`,
+  )
+  await page.locator('.ag-paging-button[data-ref="btFirst"]').click()
+
+  // ---- the two stacked regions are BOTH on screen, out of the ONE response ----
+  const detail = page.locator('[data-region="deposit-detail"]')
+  check('256 — the detail region is STACKED IN PLACE, not behind a modal', (await detail.count()) > 0)
+  check('256 — …and no dialog was opened to show it', (await page.locator('[role="dialog"]').count()) === 0)
+  check(
+    '256 — the balances panel is on screen too, still on ONE request',
+    (await page.getByRole('button', { name: /Collector balances/ }).count()) === 1 && depositsCalls === 1,
+    `${depositsCalls} calls`,
+  )
+
+  // ---- the region FOLLOWS the selected row, and selection costs NO fetch ----
+  const detailText = async () => detail.innerText()
+  check(
+    '256 — it opens on the first deposit rather than on an empty panel',
+    (await detailText()).includes('Deposit 5500'),
+    (await detailText()).replace(/\n/g, ' ').slice(0, 90),
+  )
+  // 🚩 …and that row is REALLY selected, not merely described. A region that
+  // defaulted to rows[0] without selecting it would show the grid highlighting
+  // nothing while the panel named a deposit — two surfaces disagreeing.
+  check(
+    '256 — …and the grid really has that row SELECTED, so the two agree',
+    (await page.locator('.ag-row-selected').count()) > 0 &&
+      (await page.locator('.ag-row[row-index="0"]').first().getAttribute('class')).includes(
+        'ag-row-selected',
+      ),
+  )
+  // Row 0's claimed ACRs both still match what was banked — no flag.
+  check(
+    '256 — a deposit whose claimed ACRs still match renders NO drift flag',
+    (await page.locator('[data-drift="true"]').count()) === 0,
+  )
+
+  const callsBeforeSelect = depositsCalls
+  await page.locator('.ag-row[row-index="1"] [col-id="collectorName"]').click()
+  await page.waitForTimeout(400)
+  check(
+    '256 — selecting a row MOVES the detail region to it',
+    (await detailText()).includes('Deposit 5501'),
+    (await detailText()).replace(/\n/g, ' ').slice(0, 90),
+  )
+  // 🚩 THE ASSERTION THE WHOLE `{ rows, balances }` SHAPE EXISTS FOR. `lines` and
+  // `attachments` ride on the row, so following the selection is a re-render.
+  check(
+    '256 — …with NO second network call: the lines were already in the browser',
+    depositsCalls === callsBeforeSelect,
+    `${depositsCalls} vs ${callsBeforeSelect}`,
+  )
+  check(
+    '256 — a claimed ACR that moved after banking renders its DRIFT FLAG',
+    (await page.locator('[data-drift="true"]').count()) === 1,
+    `${await page.locator('[data-drift="true"]').count()} flagged lines`,
+  )
+  check(
+    '256 — …and the flag carries the SERVER’s own drift figure, not a subtraction',
+    (await page.locator('[data-drift="true"]').innerText()).includes('400.00'),
+    (await page.locator('[data-drift="true"]').innerText()).replace(/\n/g, ' '),
+  )
+  check(
+    '256 — the line that still matches is NOT flagged alongside it',
+    (await page.locator('[data-drift="false"]').count()) === 1,
+  )
+
+  // ---- deselecting is HONOURED, not swallowed ----
+  // CTRL-click deselects in AG Grid. Pinning the region to the last selection
+  // would leave it describing a row the grid shows as unselected; it says
+  // "select a deposit" instead, which is true.
+  await page
+    .locator('.ag-row[row-index="1"] [col-id="collectorName"]')
+    .click({ modifiers: ['Control'] })
+  await page.waitForTimeout(300)
+  check(
+    '256 — CTRL-clicking the selected row deselects it, and the region says so',
+    (await page.locator('.ag-row-selected').count()) === 0 &&
+      (await detailText()).includes('Select a deposit'),
+    (await detailText()).replace(/\n/g, ' ').slice(0, 90),
+  )
+  await page.locator('.ag-row[row-index="1"] [col-id="collectorName"]').click()
+  await page.waitForTimeout(300)
+  check(
+    '256 — …and picking it again brings the region back, still with no request',
+    (await detailText()).includes('Deposit 5501') && depositsCalls === callsBeforeSelect,
+    `${depositsCalls} calls`,
+  )
+
+  // ---- the slips are ordinary links opening in a new tab ----
+  const slip = page.getByRole('link', { name: 'slip-5501-a.jpg' })
+  check('256 — each slip is an ordinary link', (await slip.count()) === 1)
+  check('256 — …opening in a NEW TAB', (await slip.getAttribute('target')) === '_blank')
+  check(
+    '256 — …and it cannot reach back through window.opener',
+    (await slip.getAttribute('rel')).includes('noopener'),
+    await slip.getAttribute('rel'),
+  )
+
+  // ---- the balances panel: labelled POSTED only, collapses and reopens ----
+  const balancesToggle = page.getByRole('button', { name: /Collector balances/ })
+  check(
+    '256 — the balances panel says POSTED only on its face',
+    (await balancesToggle.innerText()).includes('POSTED only'),
+    (await balancesToggle.innerText()).replace(/\n/g, ' '),
+  )
+  check('256 — it is open on arrival', (await balancesToggle.getAttribute('aria-expanded')) === 'true')
+  check(
+    '256 — …showing a row per collector, out of the SAME response',
+    (await mainText()).includes('Collector 4471') && depositsCalls === callsBeforeSelect,
+  )
+  const outstandingText = await mainText()
+  check(
+    '256 — a negative outstanding keeps its own sign (last trip’s shortfall has landed)',
+    outstandingText.includes('-412.50'),
+  )
+  await balancesToggle.click()
+  await page.waitForTimeout(200)
+  check(
+    '256 — it COLLAPSES to reclaim the height',
+    (await balancesToggle.getAttribute('aria-expanded')) === 'false' &&
+      !(await mainText()).includes('Outstanding'),
+  )
+  await balancesToggle.click()
+  await page.waitForTimeout(200)
+  check(
+    '256 — …and REOPENS, still without a request',
+    (await balancesToggle.getAttribute('aria-expanded')) === 'true' &&
+      (await mainText()).includes('Outstanding') &&
+      depositsCalls === callsBeforeSelect,
+    `${depositsCalls} calls`,
+  )
+
+  // ---- money, the sentinels, and the forensic tail ----
+  const depositHeaders = await headerText()
+  check(
+    '256 — money states NO currency in the header (the deposit row carries none)',
+    depositHeaders.includes('Calculated') && !depositHeaders.includes('Calculated ('),
+    depositHeaders.slice(0, 200),
+  )
+  const bankedCell = page.locator('.ag-row[row-index="0"] [col-id="realAmount"]')
+  check(
+    '256 — …and still groups to two decimals, right-aligned',
+    (await bankedCell.innerText()).trim() === '143,910.75' &&
+      (await bankedCell.getAttribute('class')).includes('text-end'),
+    await bankedCell.innerText(),
+  )
+  check('256 — the Deposits forensic tail is folded away on arrival', !depositHeaders.includes('Void Reason'))
+  await page.getByRole('button', { name: 'More columns' }).click()
+  const depositOpened = (await allHeaders()).join(' | ')
+  check(
+    '256 — More columns reveals the tail (Created, Bank Code, Note, the void trail)',
+    ['Created', 'Bank Code', 'Note', 'Voided By', 'Voided', 'Void Reason'].every((h) =>
+      depositOpened.includes(h),
+    ),
+    depositOpened.slice(0, 300),
+  )
+  check(
+    '256 — and nothing was dropped to make room',
+    depositOpened.includes('Deposit No#') && depositOpened.includes('Banked'),
+  )
+  // Row 0 was never voided: Voided is BLANK, not the .NET year-1 sentinel.
+  const voidedCell = page.locator('.ag-row[row-index="0"] [col-id="voidedAt"]')
+  check(
+    '256 — a deposit that was never voided shows a blank Voided, not 0001-01-01',
+    (await voidedCell.innerText()).trim() === '',
+    JSON.stringify(await voidedCell.innerText()),
+  )
+  await page.getByRole('button', { name: 'More columns' }).click()
+
+  // ⚠️ THE DELIBERATE ABSENCE, a second time and for a different reason than
+  // Attempts': Deposit Inquiry has no printable document at all, so there is no
+  // row action for 257 to add later.
+  check(
+    '256 — Deposits exposes NO row action: no button inside any grid row',
+    (await page.locator('.ag-center-cols-container .ag-row button').count()) === 0,
+  )
+
+  // ---- the criteria DRAFT: typing does not query; Search does ----
+  const callsBeforeBank = depositsCalls
+  await page.getByPlaceholder('Bank code').fill('ANB')
+  await page.waitForTimeout(300)
+  check(
+    '256 — typing a bank code fires NO query (a draft is not a search)',
+    depositsCalls === callsBeforeBank,
+    `${depositsCalls} vs ${callsBeforeBank}`,
+  )
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check('256 — Search promotes it under BankCode', qd().get('BankCode') === 'ANB', lastDepositsQuery)
+  check('256 — …and the Filtered chip lights', (await page.getByText('Filtered').count()) > 0)
+
+  // ---- the segmented Status control drives a REAL re-query ----
+  const depositStatus = (name) => page.getByRole('radio', { name, exact: true })
+  check('256 — the Status control offers exactly three states', (await page.getByRole('radio').count()) === 3)
+  await depositStatus('Posted').click()
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '256 — POSTED travels as the server’s own string',
+    qd().get('Status') === 'POSTED',
+    lastDepositsQuery,
+  )
+  await depositStatus('Void').click()
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check('256 — VOID re-queries too', qd().get('Status') === 'VOID', lastDepositsQuery)
+  await depositStatus('All').click()
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '256 — going back to All REMOVES the param rather than sending "All"',
+    !lastDepositsQuery.includes('Status'),
+    lastDepositsQuery,
+  )
+
+  // ---- the Deposit No# box, and Reset ----
+  await page.getByPlaceholder('Number').fill('5501')
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '256 — the Deposit No# travels as DepositNumber, never as DepositId (the ULID)',
+    qd().get('DepositNumber') === '5501' && !lastDepositsQuery.includes('DepositId'),
+    lastDepositsQuery,
+  )
+  await page.getByRole('button', { name: 'Reset' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '256 — Reset returns to today with the number, bank and status cleared',
+    qd().get('FromDate') === TODAY &&
+      !lastDepositsQuery.includes('DepositNumber') &&
+      !lastDepositsQuery.includes('BankCode') &&
+      !lastDepositsQuery.includes('Status'),
+    lastDepositsQuery,
+  )
+  check('256 — and the Filtered chip goes with it', (await page.getByText('Filtered').count()) === 0)
+
+  // ---- the cap banner: reached, not merely large ----
+  depositRows = makeDepositRows(1999)
+  await page.goto(BASE + ROUTES.deposits)
+  await page.waitForLoadState('networkidle')
+  check('256 — 1,999 deposits is merely large: NO banner', !CAP_TEXT.test(await mainText()))
+  depositRows = makeDepositRows(2000)
+  await page.goto(BASE + ROUTES.deposits)
+  await page.waitForLoadState('networkidle')
+  check('256 — 2,000 deposits REACHED the cap: the amber banner fires', CAP_TEXT.test(await mainText()))
+
+  // ---- an empty day says so, and takes both regions with it ----
+  depositRows = []
+  depositBalances = []
+  await page.goto(BASE + ROUTES.deposits)
+  await page.waitForLoadState('networkidle')
+  const emptyDeposits = await mainText()
+  check(
+    '256 — an empty period reads as empty, not as an error',
+    emptyDeposits.includes('No deposits in this period') && !CAP_TEXT.test(emptyDeposits),
+  )
+  depositRows = makeDepositRows(163)
+  depositBalances = makeBalances()
 
   // Scenarios 4 and 5 intentionally 403/500 CollectionWeb/Access, which the browser logs
   // as a resource-load failure — expected, not an app fault. Filter them out.

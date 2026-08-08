@@ -32,7 +32,9 @@ import {
 } from './deposit-criteria'
 import DepositDetail from './DepositDetail'
 import DepositsToolbar from './DepositsToolbar'
-import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
+import { DEPOSITS_CSV_COLUMNS } from './csv'
+import { useCsvExport } from './use-csv-export'
+import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
 import ScreenGate from './ScreenGate'
 
 /**
@@ -187,6 +189,11 @@ function DepositsBody() {
   const isFiltered = !isLandingQuery(appliedParams, today)
   const capReached = isCapReached(rows.length, GRID_LIMIT)
 
+  // ---- the export (ticket 258) ----
+  // The button's whole plumbing, shared by the four grids. This Page still
+  // says WHICH screen it is and which columns the file holds.
+  const csvExport = useCsvExport('deposits', DEPOSITS_CSV_COLUMNS)
+
   return (
     <>
       <DepositsToolbar
@@ -210,6 +217,7 @@ function DepositsBody() {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
+        <ExportButton {...csvExport.buttonProps} />
       </div>
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on
@@ -245,6 +253,7 @@ function DepositsBody() {
               rowSelection={DEPOSIT_ROW_SELECTION}
               onSelectionChanged={onSelectionChanged}
               onRowDataUpdated={onRowDataUpdated}
+              {...csvExport.gridProps}
               // Client-side paging over the WHOLE matched result. Community's own,
               // so sort and the per-column filter row apply to the result set and
               // the pager follows them.

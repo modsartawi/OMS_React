@@ -19,6 +19,7 @@
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/collection-drive.mjs
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -1399,6 +1400,268 @@ async function run() {
     scopedEmpty.replace(/\n/g, ' ').slice(0, 120),
   )
   collectionsRows = makeRows(347)
+
+  // ============================================================================
+  // ticket 258 — the export writes a file the accountant can SUMS
+  // ============================================================================
+  // ⚠️ The two escaping rules are split BY COLUMN, and getting it wrong looks
+  // completely right: a money column wrapped in `="…"` is TEXT, and `SUM` over it
+  // silently reads zero. So this section reads the downloaded bytes back and
+  // asserts the classes separately.
+  //
+  // The other half of the ticket is that the file is the view the accountant
+  // BUILT — filtered, sorted, and carrying the folded columns even with the
+  // More-columns toggle OFF. That is why the grid is filtered and sorted first.
+
+  await page.goto(BASE + ROUTES.collections)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+
+  check('258 — an Export button sits beside the two toggles', (await page.getByRole('button', { name: 'Export' }).count()) === 1)
+
+  // ---- filter to one store, then sort by the money column, descending ----
+  // Store `1003` is every 7th mock row → 50 of the 347.
+  const exportFiltered = await filterBy('storeId', '1003')
+  check('258 — the grid is narrowed to one store before exporting', exportFiltered.total === 50, exportFiltered.summary)
+  // The label, not the cell: `.ag-header-cell[col-id=…]` also matches the floating
+  // filter row's cell, and only the header row sorts.
+  const netHeader = page.locator('.ag-header-cell[col-id="netCollected"] .ag-header-cell-label')
+  await netHeader.click()
+  await page.waitForTimeout(200)
+  await netHeader.click() // second click = descending
+  await page.waitForTimeout(400)
+
+  const [csvDownload] = await Promise.all([
+    page.waitForEvent('download', { timeout: 20000 }),
+    page.getByRole('button', { name: 'Export' }).click(),
+  ])
+
+  const exportName = csvDownload.suggestedFilename()
+  check(
+    '258 — the file is named for the SCREEN and the day, with no time in it',
+    exportName === `collection-collections-${TODAY}.csv`,
+    exportName,
+  )
+
+  const csv = readFileSync(await csvDownload.path(), 'utf8')
+  // The BOM is what makes the Arabic names render on an Excel double-click; the
+  // `sep=,` line is because Excel's double-click path uses the OS list separator
+  // — `;` in an Arabic locale — rather than the comma.
+  check('258 — it opens in columns in any locale (BOM + sep=)', csv.startsWith('﻿sep=,'), JSON.stringify(csv.slice(0, 12)))
+
+  /** Split one CSV line into cells, respecting the RFC-4180 quoting. */
+  const splitRow = (line) => {
+    const cells = []
+    let current = ''
+    let quoted = false
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i]
+      if (ch === '"' && quoted && line[i + 1] === '"') { current += '""'; i++ }
+      else if (ch === '"') { quoted = !quoted; current += ch }
+      else if (ch === ',' && !quoted) { cells.push(current); current = '' }
+      else current += ch
+    }
+    cells.push(current)
+    return cells
+  }
+  const csvLines = csv.replace(/^﻿/, '').split('\r\n').filter((l) => l !== '')
+  const csvHeader = splitRow(csvLines[1])
+  const csvBody = csvLines.slice(2).map(splitRow)
+  const col = (name) => csvHeader.indexOf(name)
+  /** One cell as EXCEL reads it — the transport quoting undone. */
+  const at = (row, name) => {
+    const raw = row[col(name)] ?? ''
+    return raw.startsWith('"') && raw.endsWith('"') && raw.length > 1
+      ? raw.slice(1, -1).replace(/""/g, '"')
+      : raw
+  }
+
+  // ---- every column ships, toggle or no toggle ----
+  // 🚩 The More-columns toggle is OFF right now — the forensic tail is not even in
+  // the grid. The file is the ROW unpacked, not the grid screenshotted.
+  check(
+    '258 — the folded columns are in the file with the toggle OFF',
+    col('Retained Float') >= 0 && col('Currency') >= 0 && col('Z Reports') >= 0 && col('Sales Date') >= 0,
+    csvHeader.join('|').slice(0, 200),
+  )
+  check(
+    '258 — …and the default columns are all there too (24 in all)',
+    csvHeader.length === 24 && col('Receipt No#') >= 0 && col('Net Collected') >= 0,
+    `${csvHeader.length} headers`,
+  )
+  // ⚠️ The screen's money header is `Net Collected (SAR)`; the file's is bare and
+  // Currency rides as its own column. A header whose shape changed with the result
+  // would make two exports of the same column disagree.
+  check('258 — the money header is BARE, and Currency is its own column', col('Net Collected (SAR)') === -1 && at(csvBody[0], 'Currency') === 'SAR')
+
+  // ---- only the filtered rows, in the sorted order ----
+  check('258 — the file holds ONLY the filtered rows (50 of 347), not the page and not the lot', csvBody.length === 50, `${csvBody.length} rows`)
+  check(
+    '258 — …all of them the store that was filtered to',
+    csvBody.every((r) => at(r, 'Store') === '="1003"'),
+    at(csvBody[0], 'Store'),
+  )
+  const netValues = csvBody.map((r) => Number(at(r, 'Net Collected')))
+  check(
+    '258 — …in the DESCENDING order the header click put them in',
+    netValues.every((v, i) => i === 0 || netValues[i - 1] >= v),
+    `${netValues[0]} … ${netValues[netValues.length - 1]}`,
+  )
+
+  // ---- the money rule: bare, and therefore summable ----
+  // ⚠️ THE assertion the whole ticket exists for.
+  const moneyCols = ['Net Collected', 'Card Total', 'System Cash', 'Counted Cash', 'Float', 'Counted (Net)', 'Retained Float']
+  const badMoney = []
+  for (const row of csvBody)
+    for (const name of moneyCols) {
+      const cell = at(row, name)
+      if (cell !== '' && !/^-?\d+(\.\d+)?$/.test(cell)) badMoney.push(`${name}=${cell}`)
+    }
+  check(
+    '258 — every money cell is a BARE number: no separator, no symbol, no ="…" wrapper',
+    badMoney.length === 0,
+    badMoney.slice(0, 3).join(' | '),
+  )
+  check(
+    '258 — …and a real amount really is in there (not a column of blanks)',
+    Number(at(csvBody[0], 'Net Collected')) > 0,
+    at(csvBody[0], 'Net Collected'),
+  )
+
+  // ---- the identity rule: wrapped, and therefore unmangled ----
+  check(
+    '258 — the receipt number keeps the ="…" wrapper the workbook keys on',
+    /^="\d+"$/.test(at(csvBody[0], 'Receipt No#')),
+    at(csvBody[0], 'Receipt No#'),
+  )
+  check(
+    '258 — …and so does the collector id',
+    /^="\d+"$/.test(at(csvBody[0], 'Collector Id')),
+    at(csvBody[0], 'Collector Id'),
+  )
+
+  // ---- dates are ISO text, and the .NET sentinel is blank ----
+  check(
+    '258 — a datetime column is raw ISO text, seconds and all',
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(at(csvBody[0], 'Collected')),
+    at(csvBody[0], 'Collected'),
+  )
+  check(
+    '258 — a day-only column is yyyy-MM-dd',
+    /^\d{4}-\d{2}-\d{2}$/.test(at(csvBody[0], 'Sales Date')),
+    at(csvBody[0], 'Sales Date'),
+  )
+
+  // ---- a view filtered down to NOTHING offers no file ----
+  // ⚠️ The button tracks what the FILE would hold, not what the query returned:
+  // the export writes the rows after the filter, so a grid narrowed to nothing
+  // must not hand back a headers-only CSV under the day's name.
+  const emptyFilter = await filterBy('storeId', 'no-such-store')
+  check('258 — a filter that matches nothing empties the grid', emptyFilter.total === 0, emptyFilter.summary)
+  check(
+    '258 — …and the Export button goes DISABLED rather than writing a headers-only file',
+    await page.getByRole('button', { name: 'Export' }).isDisabled(),
+  )
+  await filterBy('storeId', '')
+  check(
+    '258 — …and comes back live when the filter does',
+    await page.getByRole('button', { name: 'Export' }).isEnabled(),
+  )
+
+  // ---- Arabic survives the round trip ----
+  // 🚩 Copied from `voucher-fixture.ts`, never retyped: a retyped Arabic string
+  // looks right and is silently wrong, and no gate in this repo catches it.
+  const ARABIC_NAME = 'عبدالله بن ناصر القحطاني'
+  collectionsRows = makeRows(20).map((r) => ({ ...r, collectorName: ARABIC_NAME }))
+  await page.goto(BASE + ROUTES.collections)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  const [arabicDownload] = await Promise.all([
+    page.waitForEvent('download', { timeout: 20000 }),
+    page.getByRole('button', { name: 'Export' }).click(),
+  ])
+  const arabicCsv = readFileSync(await arabicDownload.path(), 'utf8')
+  check('258 — an Arabic collector name round-trips intact', arabicCsv.includes(ARABIC_NAME))
+  collectionsRows = makeRows(347)
+
+  // ---- the other three screens export too, on the same two rules ----
+  // ⚠️ **One writer, four screens** — so what each of these proves is that the
+  // screen passed its OWN column definitions: the header count, the money columns
+  // left bare and the identity columns wrapped are per-screen facts, and the two
+  // that carry no money at all (Attempts) or no currency (ACRs, Deposits) are the
+  // cases a writer designed against Cash Collections alone would get wrong.
+  const OTHERS = [
+    {
+      key: 'acrs',
+      route: ROUTES.acrs,
+      headers: 15,
+      // The folded tail, present with the More-columns toggle OFF.
+      folded: ['Created', 'Deposit No#', 'Deposit Id'],
+      money: ['Net Collected', 'Card Total'],
+      identity: 'ACR No#',
+    },
+    {
+      key: 'deposits',
+      route: ROUTES.deposits,
+      headers: 16,
+      folded: ['Created', 'Bank Code', 'Voided By', 'Void Reason'],
+      money: ['Calculated', 'Banked', 'Difference'],
+      identity: 'Deposit No#',
+    },
+    {
+      key: 'attempts',
+      route: ROUTES.attempts,
+      headers: 9,
+      folded: ['Reason Detail', 'Business Date', 'Shift Id', 'Collector Id'],
+      // 🚩 None. An attempt collected nothing — that is what makes it an attempt.
+      money: [],
+      identity: 'Store Code',
+    },
+  ]
+  for (const screen of OTHERS) {
+    await page.goto(BASE + screen.route)
+    await page.waitForLoadState('networkidle')
+    await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+    const [d] = await Promise.all([
+      page.waitForEvent('download', { timeout: 20000 }),
+      page.getByRole('button', { name: 'Export' }).click(),
+    ])
+    check(`258 — ${screen.key} exports its own file`, d.suggestedFilename() === `collection-${screen.key}-${TODAY}.csv`, d.suggestedFilename())
+
+    const raw = readFileSync(await d.path(), 'utf8')
+    check(`258 — ${screen.key}: BOM + sep line`, raw.startsWith('﻿sep=,\r\n'))
+    const rawLines = raw.replace(/^﻿/, '').split('\r\n').filter((l) => l !== '')
+    const head = splitRow(rawLines[1])
+    const body = rawLines.slice(2).map(splitRow)
+    const cellIn = (row, name) => {
+      const cellRaw = row[head.indexOf(name)] ?? ''
+      return cellRaw.startsWith('"') && cellRaw.endsWith('"') && cellRaw.length > 1
+        ? cellRaw.slice(1, -1).replace(/""/g, '"')
+        : cellRaw
+    }
+    check(
+      `258 — ${screen.key}: every column ships with the toggle OFF (${screen.headers})`,
+      head.length === screen.headers && screen.folded.every((h) => head.includes(h)),
+      head.join('|').slice(0, 200),
+    )
+    check(`258 — ${screen.key}: the file holds rows, not just a header`, body.length > 0, `${body.length} rows`)
+    const offenders = []
+    for (const row of body)
+      for (const name of screen.money) {
+        const value = cellIn(row, name)
+        if (value !== '' && !/^-?\d+(\.\d+)?$/.test(value)) offenders.push(`${name}=${value}`)
+      }
+    check(
+      `258 — ${screen.key}: every money cell is BARE and summable (${screen.money.length} columns)`,
+      offenders.length === 0,
+      offenders.slice(0, 3).join(' | '),
+    )
+    check(
+      `258 — ${screen.key}: ${screen.identity} keeps the ="…" wrapper`,
+      /^="[^"]+"$/.test(cellIn(body[0], screen.identity)),
+      cellIn(body[0], screen.identity),
+    )
+  }
 
   // Scenarios 4 and 5 intentionally 403/500 CollectionWeb/Access, which the browser logs
   // as a resource-load failure — expected, not an app fault. Filter them out.

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 249
 blocked-by: 255, 256
 ---
@@ -60,15 +60,30 @@ logic (writer) · component (button) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `csv.test.ts` — the **two-rule split**, asserted per column class: a money cell is a bare
+- [x] `csv.test.ts` — the **two-rule split**, asserted per column class: a money cell is a bare
       summable number with no separator/symbol/wrapper; a receipt no. keeps its `="…"` wrapper and a
       leading zero survives; a note beginning `=` is inert; a value containing a comma or a newline
       stays one row; **every column appears regardless of the toggle state**; the file name carries
       the screen and the date · pure (prior art: `features/admin/ua-admin/csv.test.ts`)
-- [ ] `csv.test.ts` — Arabic store and pharmacist names round-trip intact · pure
-- [ ] `tools/collection-drive.mjs` extended — export from a **filtered and sorted** grid, read the
+      — **31 tests green.** ⚠️ The "never wraps a money column" guard asserts the **decoded** cell,
+      not a substring search for `="`: the writer emits the RFC-4180 form `"=""1234.5"""`, so a
+      scan for the bare `="1` could never fire. A companion test mis-declares `netCollected` as
+      `identity` and proves the guard catches it — a vacuous headline guard is how this slice's
+      one silent failure would ship green.
+- [x] `csv.test.ts` — Arabic store and pharmacist names round-trip intact · pure. 🚩 Every Arabic
+      string is **copied** from `voucher-fixture.ts` / `acr-fixture.ts`, never retyped.
+- [x] `tools/collection-drive.mjs` extended — export from a **filtered and sorted** grid, read the
       downloaded file back, and assert it contains **only** the filtered rows **in the sorted order**,
-      with the folded columns present · flow (Playwright)
+      with the folded columns present · flow (Playwright). **218/218.** Cash Collections is filtered
+      to one store (50 of 347) and sorted descending by Net Collected before the click; the file is
+      then parsed and asserted column by column. The other three screens each export their own file
+      and are asserted on the same two rules — including ⚠️ **Attempts, whose money-column count is
+      zero**, which is the case a writer designed against Cash Collections alone would get wrong.
+      A grid filtered to **nothing** is asserted to disable the button rather than write a
+      headers-only file.
+      🚩 Still against **stubbed `CollectionWeb/*` envelopes** — the door is BackOffice 1090 and
+      ticket 259 is the wave-joining event. This slice makes no server call of its own, so nothing
+      here is waiting on it.
 
 ## Boundaries
 
@@ -114,3 +129,23 @@ rather than the Arabic locale's `;`.
    shape, fed by `api.forEachNodeAfterFilterAndSort` so the filter/sort guarantee is preserved.
 
 Either way the Proof above is unchanged — it asserts the **file**, not the mechanism.
+
+### ✅ Settled: **option 2**, the bespoke writer — but the premise above was wrong
+
+Two corrections, both verified against the installed bundle and recorded in `.afk/HITL-258.md`:
+
+1. ⚠️ **ag-grid-community 36.0.1 *does* emit a BOM.** `CsvCreator.export` packages the file as
+   `new Blob(["﻿", data], { type: "text/plain" })`, and there is no `suppressBom` because
+   there is nothing to suppress. So "never emits a BOM" is stale — and the suggested
+   `prependContent: '﻿' + 'sep=,'` would have written a **double** BOM.
+2. 🚩 **What actually rules `exportDataAsCsv` out is narrower and harder.** 254–256 implement the
+   **More columns** toggle by *rebuilding* `columnDefs`, not by setting `hide` — the forensic tail
+   columns do not exist in the grid at all while the toggle is off. `allColumns: true` exports the
+   grid's *hidden* columns; it cannot export a column that was never defined. So this ticket's
+   hardest line — *"every column ships, regardless of the More-columns toggle"* — is unreachable
+   through AG Grid without rewriting three shipped slices. A pure writer is also what makes the
+   `csv.test.ts` Proof possible at all: AG Grid's serializer needs a live grid and a DOM.
+
+**As built:** the columns are read from each screen's own `DEFAULT_FIELDS` + `MORE_FIELDS`, so the
+union is true **by construction** rather than by vigilance, and the per-screen kind map is typed
+over exactly those fields — a new wire field fails typecheck until someone says what class it is.

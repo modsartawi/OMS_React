@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { PackageSearch, TriangleAlert } from 'lucide-react'
+import { Download, PackageSearch, TriangleAlert } from 'lucide-react'
 
 /**
  * The small presentational pieces every Collections grid wears (ticket 255).
@@ -33,6 +33,18 @@ export function ListShimmer({ label }: { label: string }) {
 }
 
 /**
+ * The pill every control above a Collections grid wears — shape, spacing and type
+ * only, no colour. Shared so the toggles and the Export button cannot drift apart
+ * in padding while claiming to read as one cluster; each control still says its
+ * own border and text colour, because that is where they legitimately differ.
+ */
+const PILL =
+  'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors'
+
+/** The resting colours: a control that is not doing anything right now. */
+const PILL_IDLE = 'border-border/60 text-muted-foreground hover:bg-muted'
+
+/**
  * One of the two pill toggles that sit above every Collections grid — **More
  * columns** and **Filter row**.
  *
@@ -57,13 +69,46 @@ export function ToggleChip({
       type="button"
       onClick={onToggle}
       aria-pressed={pressed}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-        pressed
-          ? 'border-primary/40 bg-primary/10 text-primary'
-          : 'border-border/60 text-muted-foreground hover:bg-muted'
-      }`}
+      className={`${PILL} ${pressed ? 'border-primary/40 bg-primary/10 text-primary' : PILL_IDLE}`}
     >
       {icon}
+      {label}
+    </button>
+  )
+}
+
+/**
+ * The **Export** button that sits beside the two toggles on every Collections grid
+ * (ticket 258).
+ *
+ * ⚠️ Not a `ToggleChip` with a different icon: it is an **action**, not a state,
+ * and `aria-pressed` on a button that downloads a file would tell a screen reader
+ * the export is currently on. It wears the same pill so the row reads as one
+ * cluster, and it is disabled — rather than hidden — while there is nothing to
+ * write, so the control does not appear and vanish under the pointer between
+ * searches.
+ *
+ * It joined this module at its **fourth** caller, which is the escalation path this
+ * file's header describes; 244 §1's copied-not-extracted ruling is about the
+ * screen's *shape*, not about a pill.
+ */
+export function ExportButton({
+  label,
+  onExport,
+  disabled,
+}: {
+  label: string
+  onExport: () => void
+  disabled: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onExport}
+      disabled={disabled}
+      className={`${PILL} ${PILL_IDLE} disabled:pointer-events-none disabled:opacity-50`}
+    >
+      <Download className="h-3.5 w-3.5" aria-hidden />
       {label}
     </button>
   )

@@ -33,10 +33,12 @@ import {
   type CollectionsCriteria,
 } from './collections-criteria'
 import CollectionsToolbar from './CollectionsToolbar'
+import { COLLECTIONS_CSV_COLUMNS } from './csv'
+import { useCsvExport } from './use-csv-export'
 import { buildReceiptActionColumn } from './RowActions'
 // These two were declared at the foot of this file at 254 and moved to their own
 // module at 255, when they acquired a second and third caller (see `GridStates`).
-import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
+import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
 import ScreenGate from './ScreenGate'
 
 /**
@@ -170,6 +172,11 @@ function CollectionsBody() {
   const isFiltered = !isLandingQuery(buildCollectionsParams(appliedCriteria), today)
   const capReached = isCapReached(rows.length, COLLECTIONS_LIMIT)
 
+  // ---- the export (ticket 258) ----
+  // The button's whole plumbing, shared by the four grids. This Page still
+  // says WHICH screen it is and which columns the file holds.
+  const csvExport = useCsvExport('collections', COLLECTIONS_CSV_COLUMNS)
+
   return (
     <>
       <CollectionsToolbar
@@ -197,6 +204,7 @@ function CollectionsBody() {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
+        <ExportButton {...csvExport.buttonProps} />
       </div>
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on
@@ -242,6 +250,7 @@ function CollectionsBody() {
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
+            {...csvExport.gridProps}
             // Client-side paging over the WHOLE matched result. Community's own,
             // not a bespoke pager: sort and the per-column filter row apply to the
             // result set and the pager follows them, which is the entire reason

@@ -41,7 +41,8 @@
     },
     "toolbar": {
       "filterRow": "Filter row",
-      "moreColumns": "More columns"
+      "moreColumns": "More columns",
+      "export": "Export"
     },
     "empty": {
       "title": "No collections in this period",
@@ -117,7 +118,8 @@
     },
     "toolbar": {
       "filterRow": "Filter row",
-      "moreColumns": "More columns"
+      "moreColumns": "More columns",
+      "export": "Export"
     },
     "empty": {
       "title": "No ACRs in this period",
@@ -171,7 +173,8 @@
     },
     "toolbar": {
       "filterRow": "Filter row",
-      "moreColumns": "More columns"
+      "moreColumns": "More columns",
+      "export": "Export"
     },
     "empty": {
       "title": "No deposits in this period",
@@ -251,7 +254,8 @@
     },
     "toolbar": {
       "filterRow": "Filter row",
-      "moreColumns": "More columns"
+      "moreColumns": "More columns",
+      "export": "Export"
     },
     "empty": {
       "title": "No attempts in this period",

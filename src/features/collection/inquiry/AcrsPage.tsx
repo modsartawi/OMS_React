@@ -24,7 +24,9 @@ import {
 import AcrsToolbar from './AcrsToolbar'
 import { canOpenAcrs, canOpenCollections, collectionAccessQuery, collectionApi } from './api'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
-import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
+import { ACRS_CSV_COLUMNS } from './csv'
+import { useCsvExport } from './use-csv-export'
+import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
 import { buildAcrActionsColumn } from './RowActions'
 import ScreenGate from './ScreenGate'
 
@@ -133,6 +135,11 @@ function AcrsBody() {
   const isFiltered = !isLandingQuery(appliedParams, today)
   const capReached = isCapReached(rows.length, GRID_LIMIT)
 
+  // ---- the export (ticket 258) ----
+  // The button's whole plumbing, shared by the four grids. This Page still
+  // says WHICH screen it is and which columns the file holds.
+  const csvExport = useCsvExport('acrs', ACRS_CSV_COLUMNS)
+
   return (
     <>
       <AcrsToolbar
@@ -156,6 +163,7 @@ function AcrsBody() {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
+        <ExportButton {...csvExport.buttonProps} />
       </div>
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on
@@ -185,6 +193,7 @@ function AcrsBody() {
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
+            {...csvExport.gridProps}
             // Client-side paging over the WHOLE matched result. Community's own,
             // so sort and the per-column filter row apply to the result set and
             // the pager follows them.

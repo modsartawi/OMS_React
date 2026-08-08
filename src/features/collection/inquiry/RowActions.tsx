@@ -72,7 +72,8 @@ function NewTabLink({ href, label }: { href: string | null; label: string }) {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer" className={LINK_CLASS}>
       {label}
-      <ChevronRight className="h-3 w-3" aria-hidden />
+      {/* Chevrons are logical: rtl:rotate-180 mirrors "onward" with the text direction. */}
+      <ChevronRight className="h-3 w-3 rtl:rotate-180" aria-hidden />
     </a>
   )
 }
@@ -121,7 +122,8 @@ export function buildAcrActionsColumn(t: TFunction, canOpenCollections: boolean)
           {collections && (
             <Link to={collections} className={LINK_CLASS}>
               {t('acrs.actions.collections')}
-              <ChevronRight className="h-3 w-3" aria-hidden />
+              {/* Chevrons are logical: rtl:rotate-180 mirrors "onward" with the text direction. */}
+              <ChevronRight className="h-3 w-3 rtl:rotate-180" aria-hidden />
             </Link>
           )}
         </span>

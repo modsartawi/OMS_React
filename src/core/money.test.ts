@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { formatMoney } from '@/core/util/number-format'
-import { CURRENCY_DECIMALS, currencyDecimals, formatMoneyIn } from './money'
+import { CURRENCY_DECIMALS, currencyDecimals, distinctCurrencies, formatMoneyIn } from './money'
 
 /**
  * Ticket 237's first pure Proof bullet: **SAR renders 2dp, BHD renders 3dp, a
@@ -83,6 +83,41 @@ describe('formatMoneyIn', () => {
     expect(formatMoneyIn(undefined, 'SAR')).toBe('')
     expect(formatMoneyIn(Number.NaN, 'SAR')).toBe('')
     expect(formatMoneyIn(Number.POSITIVE_INFINITY, 'SAR')).toBe('')
+  })
+})
+
+/**
+ * The rule two features wrote independently, graduated here at 254's review.
+ * Both feature wrappers keep their own suites — those prove the *projection*
+ * (which wire field carries the code), which is the only part still local.
+ */
+describe('distinctCurrencies', () => {
+  const code = (currency: string | null | undefined) => ({ currency })
+  const codes = (...cs: (string | null | undefined)[]) => distinctCurrencies(cs.map(code), (r) => r.currency)
+
+  it('sees one currency in a result that only ever held riyals', () => {
+    expect(codes('SAR', 'SAR', 'SAR')).toEqual(['SAR'])
+  })
+
+  it('sees two once Bahrain is in the result', () => {
+    expect(codes('SAR', 'BHD').sort()).toEqual(['BHD', 'SAR'])
+  })
+
+  it('🚩 does not count an absent currency as a second one — nullable means unknown, not another currency', () => {
+    expect(codes('SAR', null, undefined, '  ')).toEqual(['SAR'])
+  })
+
+  it('reads one currency written two ways as one currency', () => {
+    expect(codes('sar', 'SAR', ' Sar ')).toEqual(['SAR'])
+  })
+
+  it('sees nothing in an empty result', () => {
+    expect(codes()).toEqual([])
+  })
+
+  it('takes the code from wherever the caller says it lives', () => {
+    const rows = [{ currencyKey: 'BHD' }, { currencyKey: 'sar' }]
+    expect(distinctCurrencies(rows, (r) => r.currencyKey).sort()).toEqual(['BHD', 'SAR'])
   })
 })
 

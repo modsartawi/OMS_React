@@ -42,6 +42,46 @@ export const CURRENCY_DECIMALS: Record<string, number> = { BHD: 3 }
 const DEFAULT_DECIMALS = 2
 
 /**
+ * The distinct currencies a set of rows actually holds, upper-cased.
+ *
+ * 🚩 **An empty currency is not a currency.** The column is nullable in every
+ * source that feeds this, so an old row genuinely arrives without one — and
+ * counting that absence as a second currency is the defect this guards: it grows
+ * the Loy member's Currency column for a pure-SAR member with one ancient line,
+ * and it strips the header code off a pure-SAR collections day for the same
+ * reason (244 §7).
+ *
+ * The estate is KSA **and** Bahrain and both are live, so a result genuinely can
+ * mix — which is why the answer is derived from the rows on screen rather than
+ * from the member, the store or the day. None of those has a currency; their
+ * lines do.
+ *
+ * `pick` exists because the wire spells the field differently per contract
+ * (`RetailTrxDetail.Currency` vs `CollectionInquiry.CurrencyKey`); the rule
+ * about what counts as a currency is the shared part, and it is the part that
+ * was getting copied.
+ *
+ * Born twice independently — `salesCurrencies` in the Loy member screen (237)
+ * and `resultCurrencies` in the collection screens (254), arrived at separately
+ * for the same reason — and graduated here on that second consumer, which is
+ * [feature-structure](../../.claude/rules/feature-structure.md)'s own escalation
+ * path rather than an exception to it. A feature may not import a feature, so
+ * before this the only lawful options were "copy it" or "move it up"; this is
+ * the move.
+ */
+export function distinctCurrencies<T>(
+  rows: readonly T[],
+  pick: (row: T) => string | null | undefined,
+): string[] {
+  const seen = new Set<string>()
+  for (const row of rows) {
+    const code = pick(row)?.trim().toUpperCase()
+    if (code) seen.add(code)
+  }
+  return [...seen]
+}
+
+/**
  * How many decimals one currency code draws.
  *
  * 🚩 **An absent code degrades to 2 rather than throwing.** `Currency` is

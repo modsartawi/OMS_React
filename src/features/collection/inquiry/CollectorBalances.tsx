@@ -44,7 +44,9 @@ export default function CollectorBalances({
           {open ? (
             <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
           ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+            /* Collapsed points along the text direction: rtl:rotate-180. Open (ChevronDown)
+               points at the content and is direction-independent, so it takes no variant. */
+            <ChevronRight className="h-4 w-4 text-muted-foreground rtl:rotate-180" aria-hidden />
           )}
           {t('deposits.balances.title')}
           {/* The scope, on the panel's face rather than in a tooltip. */}

@@ -118,11 +118,12 @@ export function ExportButton({
  * The amber banner that fires when a result actually **reached** the system cap —
  * the one case where rows really are missing, said out loud.
  *
- * It joined this module at its **third** caller (254, 255, now 256), which is the
- * escalation path this file's own header describes: a banner is not a screen
- * *shape*, so 244 §1's copied-not-extracted ruling does not reach it, and three
- * hand-copies of the same amber chrome would drift in spacing and wording rather
- * than in structure. Each Page still owns its own sentence — the wording names
+ * It joined this module at its **fourth** caller — `CashCollectionsPage` (254),
+ * `AcrsPage` and `CollectionAttemptsPage` (255, two at once), `DepositsPage`
+ * (256) — which is the escalation path this file's own header describes: a
+ * banner is not a screen *shape*, so 244 §1's copied-not-extracted ruling does
+ * not reach it, and four hand-copies of the same amber chrome would drift in
+ * spacing and wording rather than in structure. Each Page still owns its own sentence — the wording names
  * which filters to narrow, and those differ per screen — and its own decision
  * about *when* to draw it; only the chrome lives here.
  */

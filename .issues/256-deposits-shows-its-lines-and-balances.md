@@ -58,10 +58,10 @@ api (mocked) · logic (criteria, selection, drift) · component · route · i18n
 - [x] `tools/collection-drive.mjs` extended — selecting a row moves the detail region to it **with no
       second network call** (assert the request count); the balances panel collapses and reopens and
       is labelled *POSTED only*; a slip link carries `target=_blank`; a drifted line renders its flag ·
-      flow (Playwright) *(153/153 green; the deposits section adds 41 checks)*
+      flow (Playwright) *(148/148 green; the deposits section adds 49 checks)*
 - [x] `deposit-columns.test.ts` — added beyond the named Proof, matching 254/255: the forensic tail
       **hides nothing**, and the three withheld fields (`depositId` plus the two lists) are argued
-      rather than skipped · pure *(22 tests)*
+      rather than skipped · pure *(18 tests)*
 
 ## Boundaries
 

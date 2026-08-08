@@ -72,8 +72,19 @@ const ALL = {
 const pad = (n) => String(n).padStart(2, '0')
 const todayIso = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 
-/** `count` rows, all SAR unless told otherwise. Row 0 carries a NULL variance —
- *  the "blank, not 0.00" proof — and row 1 a negative one. */
+/** `count` rows, all SAR unless told otherwise.
+ *
+ *  Variance carries the three meanings the screen must tell apart, pinned to the
+ *  first three rows because 254's assertions locate them by row index: row 0 NULL
+ *  (the "blank, not 0.00" proof), row 1 negative, row 2 a real zero.
+ *
+ *  🚩 Every row FROM 3 ON carries a real signed figure, and that is load-bearing
+ *  rather than decorative: the CSV export filters to store 1003 (`i % 7 === 2`,
+ *  so rows 9, 16, 23 …), and while the whole tail was `0` every Variance cell in
+ *  the exported file was blank or zero — which let 258's money sweep pass over a
+ *  `Variance` mis-declared as `identity`, since the sweep skips empty cells and
+ *  identity writes a bare 0 as blank. A signed column with substance is what
+ *  gives that assertion teeth. */
 function makeRows(count, { currency = 'SAR' } = {}) {
   return Array.from({ length: count }, (_, i) => ({
     collectionReceiptId: `01J0COLLECT${String(i).padStart(16, '0')}`,
@@ -90,7 +101,7 @@ function makeRows(count, { currency = 'SAR' } = {}) {
     salesDate: i === 2 ? '0001-01-01T00:00:00' : `${todayIso()}T00:00:00`,
     systemCash: 12480.5 + i,
     countedCash: 12475 + i,
-    variance: i === 0 ? null : i === 1 ? -5.5 : 0,
+    variance: i === 0 ? null : i === 1 ? -5.5 : i === 2 ? 0 : i % 2 === 0 ? 4.25 : -3.75,
     varianceReasonCode: i === 1 ? 'SHORT' : '',
     varianceReasonText: i === 1 ? 'Counted short at close' : '',
     openingFloat: 500,
@@ -1510,7 +1521,26 @@ async function run() {
 
   // ---- the money rule: bare, and therefore summable ----
   // ⚠️ THE assertion the whole ticket exists for.
-  const moneyCols = ['Net Collected', 'Card Total', 'System Cash', 'Counted Cash', 'Float', 'Counted (Net)', 'Retained Float']
+  //
+  // 🚩 DERIVED BY SUBTRACTION, not hand-listed. `csv.test.ts` gets its list from
+  // `columns.filter(c => c.kind === 'money')`; the drive cannot import the TS module, so it
+  // takes the file's own header row and removes the columns that are declared NOT money.
+  // The point is the direction of the default: a column added to the screen tomorrow lands
+  // in this sweep and must prove itself bare, rather than being silently skipped. The
+  // hand-typed list this replaces had exactly that failure — it omitted `Variance`, the one
+  // signed column on the screen and the one an accountant reconciles a shortfall on, so a
+  // `Variance` mis-declared as `identity` would have passed the drive.
+  const NON_MONEY = new Set([
+    'Receipt No#', 'Store', 'Store Name', 'Collector', 'Collected', 'Reason',
+    'Opened', 'Closed', 'Card Slips', 'Reason Detail', 'Collector Id', 'Z Reports',
+    'Closer Id', 'Closer', 'Sales Date', 'Currency',
+  ])
+  const moneyCols = csvHeader.filter((h) => !NON_MONEY.has(h))
+  check(
+    '258 — the money sweep covers every money column, Variance included (derived, not hand-listed)',
+    moneyCols.length === 8 && moneyCols.includes('Variance'),
+    `${moneyCols.length}: ${moneyCols.join(', ')}`,
+  )
   const badMoney = []
   for (const row of csvBody)
     for (const name of moneyCols) {
@@ -1526,6 +1556,18 @@ async function run() {
     '258 — …and a real amount really is in there (not a column of blanks)',
     Number(at(csvBody[0], 'Net Collected')) > 0,
     at(csvBody[0], 'Net Collected'),
+  )
+  // 🚩 The sweep above SKIPS empty cells, so a money column that is blank all the way
+  // down proves nothing — which is exactly how `Variance` slipped through. Assert the
+  // signed column has substance, and that its minus survives as a bare `-` rather than
+  // as a wrapper or a parenthesis.
+  const variances = csvBody.map((r) => at(r, 'Variance')).filter((v) => v !== '')
+  check(
+    '258 — Variance is a column with substance, negatives included, not blanks',
+    variances.length === csvBody.length &&
+      variances.some((v) => Number(v) < 0) &&
+      variances.every((v) => /^-?\d+(\.\d+)?$/.test(v)),
+    `${variances.length}/${csvBody.length} filled · e.g. ${variances.slice(0, 3).join(', ')}`,
   )
 
   // ---- the identity rule: wrapped, and therefore unmangled ----

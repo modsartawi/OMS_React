@@ -2,7 +2,7 @@ import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
 import type { CollectionInquiryRow } from '@/core/models/collection'
-import { formatMoneyIn } from '@/core/money'
+import { distinctCurrencies, formatMoneyIn } from '@/core/money'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 
 /**
@@ -97,21 +97,16 @@ export const MONEY_FIELDS = [
 const MONEY = new Set<string>(MONEY_FIELDS)
 
 /**
- * The distinct currencies a result actually holds, upper-cased.
+ * The distinct currencies a result actually holds, upper-cased — the condition
+ * 244 §7 attaches to per-cell currency.
  *
- * The estate is HQ-wide across KSA **and** Bahrain, so a result genuinely can mix
- * — which is the condition 244 §7 attaches to per-cell currency. An empty
- * `currencyKey` is not a currency: counting it as one would strip the header code
- * off a pure-SAR day because of a single old row. (The `loy/member/sales-columns`
- * precedent, arrived at independently for the same reason.)
+ * The rule itself (and the 🚩 about a blank currency not being a second one)
+ * lives in `@/core/money`: this screen and the Loy member screen wrote it
+ * independently, and it graduated up on that second consumer. All that is
+ * feature-local is which field on the wire carries the code.
  */
 export function resultCurrencies(rows: readonly CollectionInquiryRow[]): string[] {
-  const seen = new Set<string>()
-  for (const row of rows) {
-    const code = row.currencyKey?.trim().toUpperCase()
-    if (code) seen.add(code)
-  }
-  return [...seen]
+  return distinctCurrencies(rows, (row) => row.currencyKey)
 }
 
 /** Default per-column behaviour. `floatingFilter` is the WPF's `ShowAutoFilterRow`

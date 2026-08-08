@@ -2,7 +2,7 @@ import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
 import type { LoySalesRow } from '@/core/models/loy'
-import { formatMoneyIn } from '@/core/money'
+import { distinctCurrencies, formatMoneyIn } from '@/core/money'
 import { formatShortDate } from '@/core/util/date-format'
 
 /**
@@ -49,19 +49,13 @@ export const SALES_DEFAULT_COL_DEF: ColDef<LoySalesRow> = {
 /**
  * The distinct currencies a fetched window actually holds, upper-cased.
  *
- * 🚩 **An empty currency is not a currency.** The column is nullable in source,
- * so an old row can arrive without one — and counting that absence as a second
- * currency would grow the Currency column on a pure-SAR member who happens to
- * have one ancient line, which is exactly the width the conditional column
- * exists to save.
+ * The rule (and the 🚩 about a blank currency not being a second one) lives in
+ * `@/core/money`: this screen and the collection screens wrote it independently,
+ * and it graduated up on that second consumer at ticket 254's review. All that
+ * is feature-local is which field on the wire carries the code.
  */
 export function salesCurrencies(rows: readonly LoySalesRow[]): string[] {
-  const seen = new Set<string>()
-  for (const row of rows) {
-    const code = row.currency?.trim().toUpperCase()
-    if (code) seen.add(code)
-  }
-  return [...seen]
+  return distinctCurrencies(rows, (row) => row.currency)
 }
 
 /**

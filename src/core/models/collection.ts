@@ -1,11 +1,11 @@
 /**
  * Collections area models (spec 249).
  *
- * Only the access probe lives here today — the four grids' row models and the two
- * documents' print-ready contracts arrive with their own slices. The rule that
- * governs everything that joins this file later is spec 249's §0: **the client
- * cannot format**, so a money field on a document contract is a pre-formatted
- * `string` and never a `number`.
+ * The whole area's wire vocabulary: the access probe, the four grids' row models,
+ * and — since ticket 259 joined the two waves — the two documents' print-ready
+ * contracts. The rule governing all of it is spec 249's §0: **the client cannot
+ * format**, so a money field on a document contract is a pre-formatted `string`
+ * and never a `number`.
  */
 
 /**
@@ -318,4 +318,192 @@ export interface CollectionAttemptRow {
   reasonCode: string
   /** Free-text detail, mandatory for `OTHER`. */
   reasonText: string
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * The two print-ready documents.
+ *
+ * They lived in `voucher-fixture.ts` / `acr-fixture.ts` until ticket 259, which
+ * is the slice that made them WIRE types rather than the shape of a checked-in
+ * mock — and `api-envelope` puts wire models here. The fixtures now import them
+ * and hold only their scenarios, which is the honest division: this file says
+ * what `CollectionWeb/Receipt/{id}` and `CollectionWeb/AcrForm/{acrId}` return,
+ * those files say what four of each look like.
+ *
+ * 🔑 EVERY string on both contracts is pre-formatted server-side, and that is
+ * the whole point: nothing here is a number, a `Date` or a currency code, so the
+ * client has nothing to call `toFixed` on and a missing string is a SERVER
+ * change, never a client one. 259 is where that boundary is under the most
+ * pressure — live data reveals gaps the fixtures papered over — so it is spelled
+ * out on the types themselves rather than only in the ticket.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/** A receipt money box, split into its two printed cells. */
+export interface VoucherAmountParts {
+  /** Whole units. Carries the sign on a negative: `-3.25` → `-3`. §7.1 */
+  whole: string
+  /** Minor units, left-padded to the currency's dp: `0.5 SAR` → `50`. §7.1 */
+  minor: string
+}
+
+/** One A4 sheet. A receipt covering several shifts returns several of these. */
+export interface VoucherPage {
+  /** 10-digit zero-padded, + `-{n}` on a multi-shift receipt. §7.2 */
+  noText: string
+  storeCode: string
+  /** `yyyy-MM-dd HH:mm`. §7.6 */
+  collectedAtText: string
+  collectorName: string
+  collectorId: string
+  /** `''` is legal — renders an empty fill-line, never a `0`. */
+  pharmacistName: string
+  /** `''` is legal. */
+  pharmacistId: string
+  grand: VoucherAmountParts
+  cash: VoucherAmountParts
+  card: VoucherAmountParts
+  /** `فقط … لا غير`. §7.5 */
+  cashWords: string
+  cardWords: string
+  /**
+   * Weekday name under ar-SA — a Hijri culture, so PINNED server-side. §7.6
+   *
+   * ⚠️ 259's third live check lives on this field. If globalization degraded on
+   * net8.0 under IIS, the failure is **not a crash**: it is `Thursday` quietly
+   * appearing on an Arabic form. Nothing in the type system can catch that, so
+   * it is a thing to LOOK at against live data.
+   */
+  shiftDayName: string
+  /** `yyyy-MM-dd`. §7.6 */
+  shiftDayText: string
+}
+
+/**
+ * What `CollectionWeb/Receipt/{collectionReceiptId}` returns (245 §3).
+ *
+ * ⚠️ Deliberately absent, per 246's sign-off: `isPosted` — the green POSTED
+ * banner is gone, `No.` IS the posted state; `varianceText` and `matchedMarkText`
+ * — the `خصم فائض` box is a hand-fill slot that is ALWAYS empty; and
+ * `currencyCode` — the minor cell sizes to `minor.length`, never to a lookup. The
+ * receipt carries no reconciliation data at all.
+ *
+ * 🚩 A miss is an envelope refusal carrying `CollectionReceiptNotFound`, never a
+ * document with zero pages — but the print route checks for both, because a
+ * zero-page document would render a body with nothing in it, which is the same
+ * lie told more quietly.
+ */
+export interface VoucherDocument {
+  /** Page order is the server's — the shift's `OpenedAt` ascending, which is what
+   *  decides which shift is `-1` on a multi-shift receipt. */
+  pages: VoucherPage[]
+}
+
+/** One row of the ACR's table — one collected shift, numbered by the server. */
+export interface AcrRow {
+  /** 1-based and CONTINUOUS across pages — the server numbers them, not the page. */
+  seqText: string
+  storeCode: string
+  /** `dd/MM/yyyy`, PER ROW — a catch-up ACR carries more than one sales day (§7.7). */
+  salesDateText: string
+  /** `F{dp}` invariant: no thousands separator, no currency symbol (§7.7). */
+  cashText: string
+  cardText: string
+  totalText: string
+  /** NOT zero-padded, unlike the receipt's own `No.` */
+  receiptNoText: string
+  /**
+   * Tri-state (242 §5): `''` reconciled · `'✗'` a real whole-riyal diff · `'؟'`
+   * the Z mirror never synced.
+   *
+   * ⚠️ The union is NARROWER than the wire, where `MatchText` is a bare `string`.
+   * Kept deliberately: it is the contract the builder is tested against, and it
+   * documents the three states a reader has to know. TypeScript cannot police it
+   * at runtime, so the renderer prints whatever arrives rather than switching on
+   * the union — a fourth mark would print, not vanish.
+   */
+  matchText: '' | '✗' | '؟'
+  pharmacistName: string
+  /** 247's amendment 1: the WPF's `OperatorId` — the closer IS the pharmacist. */
+  pharmacistId: string
+  /** Arabic, authored by the server (245 §6a). `''` when there is nothing to say. */
+  notes: string
+  /** 242 §8-O6 answered IN — a negative hand-in prints in the mismatch red. */
+  isShortfall: boolean
+}
+
+/** One printed A4 side. The SERVER decides where the rows break. */
+export interface AcrPage {
+  /**
+   * 1-based. `pageIndex`/`pageCount` are 245 §4 contract fields and are carried
+   * VERBATIM — the renderer reads neither, because the stamp it would build out
+   * of them is already `pageText`, formatted server-side like every other string
+   * on this form. Dropping them to "the fields the client happens to use" is how
+   * a fixture drifts from the contract and the screen fails the day the endpoint
+   * lands.
+   */
+  pageIndex: number
+  pageCount: number
+  /** `"2 / 3"` — spaces around the slash, stamped after صفحة. */
+  pageText: string
+  /** Last page only: the الاجمالي band, ملخص التحصيل and the signature strip. */
+  showSummary: boolean
+  rows: AcrRow[]
+}
+
+/** Hoisted out of the pages: every page references the SAME form (243's caveat). */
+export interface AcrForm {
+  /** عن يوم — `dd/MM/yyyy`. */
+  acrDateText: string
+  /**
+   * الموافق — `dd/MM/yyyy` Umm al-Qura. 247 restored it; the WPF dropped it by
+   * omission.
+   *
+   * ⚠️ The ACR's half of 259's culture check, and the one that fails silently: a
+   * degraded globalization stack answers with a GREGORIAN date here, which looks
+   * entirely plausible beside الموافق and is wrong by eighteen years.
+   */
+  hijriText: string
+  /** Rendered under رقم التجميعي (247's amendment 2), not نموذج رقم ( ). */
+  acrNumberText: string
+  areas: string
+  /** تاريخ التحصيل — `''` while the ACR is still OPEN, and it renders BLANK. */
+  closedAtText: string
+  /** الوصف. */
+  label: string
+  /** الحالة — a server string, rendered as data. */
+  status: string
+  collectorName: string
+  collectorId: string
+  cashTotalText: string
+  cardTotalText: string
+  grandTotalText: string
+  /** ملخص التحصيل's ONE remaining row, اجمالي الايرادات. */
+  revenuesText: string
+}
+
+/**
+ * What `CollectionWeb/AcrForm/{acrId}` returns (245 §4).
+ *
+ * ⚠️ Deliberately absent, per 247's sign-off: `depositNumberText`, `depositStatus`
+ * and `depositText` — every deposit mark, meta AND summary (242 §8-O7 answered
+ * OUT, wider than it was asked), which is why ملخص التحصيل is left holding a
+ * single row. Also gone (245 §5): `storeName`, `variance`, `hasShiftReport`,
+ * `createdAtText`, `currencyCode`.
+ *
+ * ⚠️ **Empty is not a miss.** An ACR with no linked collections is a 200 with ONE
+ * page and `rows: []` — a real document that prints, totals `0.00`, summary
+ * present. Only an unknown id refuses, with `AcrNotFound`. Getting this backwards
+ * turns an idle ACR into an error screen.
+ */
+export interface AcrDocument {
+  form: AcrForm
+  /**
+   * ⚠️ DOCUMENTATION OF THE BREAK RULE, and nothing else. It mirrors
+   * `AcrFormBuilder.Paginate(form, 22)` so the web and the WPF sheet break in the
+   * same place — but the CLIENT NEVER APPLIES IT. `pages` arrives already split;
+   * grep this feature for chunking logic and there is none to find.
+   */
+  rowsPerPage: number
+  /** Never empty: an idle ACR is ONE page with `rows: []` (245 §7). */
+  pages: AcrPage[]
 }

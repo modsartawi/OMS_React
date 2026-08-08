@@ -1,13 +1,12 @@
-/* The print-ready collection receipt (سند قبض) — the contract of spec 249 /
- * ticket 245 §3, plus the checked-in fixture the facsimile renders until the
- * `CollectionWeb/Receipt/{collectionReceiptId}` door lands (ticket 259).
- * Graduated out of `__prototype__/voucher/voucher-mock.ts` (ticket 246).
+/* Four collection receipts (سند قبض), as TEST DATA. Graduated out of
+ * `__prototype__/voucher/voucher-mock.ts` (ticket 246).
  *
- * EVERY string here is pre-formatted, and that is the whole point: the builders
- * live server-side and React renders strings, so the WPF and the web cannot
- * drift. Nothing on this type is a number, a `Date` or a currency code — so the
- * client has nothing to call `toFixed` on, and a missing string is a SERVER
- * change, never a client one.
+ * ⚠ **These are no longer what the screen renders.** Ticket 259 put
+ * `CollectionWeb/Receipt/{collectionReceiptId}` behind the print route, and the
+ * CONTRACT these scenarios are typed against moved with it, to
+ * `@/core/models/collection`. What is left here is four documents the drives
+ * serve over a stubbed wire — which is exactly what a fixture was always for,
+ * now that it is no longer standing in for a door.
  *
  * The values are not invented. Every split and every amount-in-words below is a
  * value PINNED BY A TEST in `Tests\Data.Tests\` (`CollectionVoucherFormatTests`,
@@ -15,50 +14,10 @@
  * wrong-looking string on screen is a rendering fault, never a made-up datum.
  * The SHAPES are contractual; the values are not (spec 249, story 98): live data
  * carries longer names, a 3dp minor cell, and legitimately empty pharmacists.
- *
- * ⚠ Deliberately absent, per 246's sign-off (245 §3): `isPosted` — the green
- * POSTED banner is gone, `No.` IS the posted state; `varianceText` and
- * `matchedMarkText` — the `خصم فائض` box is a hand-fill slot that is ALWAYS
- * empty; and `currencyCode` — the minor cell sizes to `minor.length`, never to a
- * lookup. The receipt carries no reconciliation data at all.
+ * 259 confirmed that against the real door rather than assuming it.
  */
 
-export type AmountParts = {
-  /** Whole units. Carries the sign on a negative: `-3.25` → `-3`. §7.1 */
-  whole: string
-  /** Minor units, left-padded to the currency's dp: `0.5 SAR` → `50`. §7.1 */
-  minor: string
-}
-
-/** One A4 sheet. A receipt covering several shifts returns several of these. */
-export type VoucherPage = {
-  /** 10-digit zero-padded, + `-{n}` on a multi-shift receipt. §7.2 */
-  noText: string
-  storeCode: string
-  /** `yyyy-MM-dd HH:mm`. §7.6 */
-  collectedAtText: string
-  collectorName: string
-  collectorId: string
-  /** `''` is legal — renders an empty fill-line, never a `0`. */
-  pharmacistName: string
-  /** `''` is legal. */
-  pharmacistId: string
-  grand: AmountParts
-  cash: AmountParts
-  card: AmountParts
-  /** `فقط … لا غير`. §7.5 */
-  cashWords: string
-  cardWords: string
-  /** Weekday name under ar-SA — a Hijri culture, so PINNED server-side. §7.6 */
-  shiftDayName: string
-  /** `yyyy-MM-dd`. §7.6 */
-  shiftDayText: string
-}
-
-/** What `CollectionWeb/Receipt/{collectionReceiptId}` returns (245 §3). */
-export type VoucherDocument = {
-  pages: VoucherPage[]
-}
+import type { VoucherDocument, VoucherPage } from '@/core/models/collection'
 
 const BASE: VoucherPage = {
   noText: '0000000005',
@@ -157,8 +116,3 @@ export const VOUCHER_SCENARIOS: VoucherScenario[] = [
     },
   },
 ]
-
-/** The fixture stand-in for the lookup ticket 259 replaces with the real door. */
-export function findVoucherFixture(collectionReceiptId: string | undefined): VoucherDocument | null {
-  return VOUCHER_SCENARIOS.find((s) => s.key === collectionReceiptId)?.document ?? null
-}

@@ -19,7 +19,7 @@
  */
 import Ltr from '@/core/ui/Ltr'
 import PrintSheet from './PrintSheet'
-import type { AmountParts, VoucherPage } from './voucher-fixture'
+import type { VoucherAmountParts, VoucherPage } from '@/core/models/collection'
 import logoUrl from './logo-aldawaa.png'
 import './collection-voucher.css'
 
@@ -161,7 +161,7 @@ function MoneyRow({
   words,
   english,
 }: {
-  parts: AmountParts
+  parts: VoucherAmountParts
   arabic: string
   words: string
   english: string

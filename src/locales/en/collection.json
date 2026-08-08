@@ -18,7 +18,11 @@
   },
   "document": {
     "missingTitle": "This document no longer exists",
-    "missingHint": "The receipt or form this link points at could not be found. It may have been reversed, or the link may be out of date."
+    "missingHint": "The receipt or form this link points at could not be found. It may have been reversed, or the link may be out of date.",
+    "loading": "Fetching the document…",
+    "failedTitle": "This document could not be fetched",
+    "failedHint": "Nothing is known about whether it exists — this is not the same as it being gone. Try again in a moment.",
+    "failedFallback": "The server did not say why."
   },
   "collections": {
     "title": "Cash Collections",

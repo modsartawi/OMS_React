@@ -279,6 +279,9 @@ async function run() {
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
 
+  // Populated once the app is up — see below; the handler closes over the binding, not the value.
+  let DOCS = { receipts: {}, acrs: {} }
+
   await page.route('**/api/**', async (route) => {
     const url = route.request().url()
     const path = url.split('/api/')[1].split('?')[0]
@@ -299,6 +302,30 @@ async function run() {
           envelope(null, { status: 500, success: false, message: 'Server error' }),
         )
       return route.fulfill(envelope(scenario.accessBody))
+    }
+    // The two DOCUMENT doors (ticket 259). This is the screens drive, so it does not assert
+    // anything about how a document looks — collection-print-drive.mjs owns that. What it does
+    // assert is that a row action's href RESOLVES to a rendering document rather than to the miss
+    // backstop, and since 259 that costs a real call. Served from the app's own fixture modules,
+    // loaded through the dev server (`loadDocumentFixtures`), so there is no second transcription.
+    const receiptId = path.startsWith('CollectionWeb/Receipt/')
+      ? decodeURIComponent(path.slice('CollectionWeb/Receipt/'.length))
+      : null
+    const acrFormId = path.startsWith('CollectionWeb/AcrForm/')
+      ? decodeURIComponent(path.slice('CollectionWeb/AcrForm/'.length))
+      : null
+    if (receiptId !== null || acrFormId !== null) {
+      const doc = receiptId !== null ? DOCS.receipts[receiptId] : DOCS.acrs[acrFormId]
+      if (doc) return route.fulfill(envelope(doc))
+      const code = receiptId !== null ? 'CollectionReceiptNotFound' : 'AcrNotFound'
+      return route.fulfill(
+        envelope(null, {
+          status: 404,
+          success: false,
+          message: 'No such document.',
+          errors: [{ errorCode: code, internalErrorCode: '', errorMessage: 'No such document.' }],
+        }),
+      )
     }
     if (path === 'CollectionWeb/Collections') {
       collectionsCalls++
@@ -322,6 +349,21 @@ async function run() {
     }
     // Any other probe/endpoint → benign empty success so no other leaf crashes.
     return route.fulfill(envelope({}))
+  })
+
+  // The four receipts and four ACRs, read out of the app's OWN fixture modules rather than copied
+  // in here: they are TypeScript, this drive is plain node, and vite is already serving `/src/**.ts`
+  // as a transformed ES module. One transcription, and it is the one the tests pin.
+  scenario = { accessBody: ALL, access403: false }
+  await page.goto(BASE + '/login')
+  await page.waitForLoadState('networkidle')
+  DOCS = await page.evaluate(async () => {
+    const [v, a] = await Promise.all([
+      import('/src/features/collection/inquiry/voucher-fixture.ts'),
+      import('/src/features/collection/inquiry/acr-fixture.ts'),
+    ])
+    const byKey = (scenarios) => Object.fromEntries(scenarios.map((s) => [s.key, s.document]))
+    return { receipts: byKey(v.VOUCHER_SCENARIOS), acrs: byKey(a.ACR_SCENARIOS) }
   })
 
   const sidebarLinks = async () =>

@@ -58,18 +58,24 @@ api · logic (error branching) · component (miss state) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `tools/collection-drive.mjs` and `tools/collection-print-drive.mjs` run **green against a live
-      SIS.Api**, not the fixtures — all four screens load, both documents render, the access probe
-      drives the menu · flow (Playwright)
-- [ ] A **hand-typed unknown** `acrId` and `collectionReceiptId` each render the "no longer exists"
-      state — ⚠ assert the sheet is **not blank**, since that is the failure mode that ships silently ·
-      flow (Playwright)
-- [ ] An ACR with **no linked collections** renders one page with no rows and totals `0.00` — a
-      success, not a refusal · flow (Playwright)
-- [ ] A **real multi-shift receipt** prints its pages stamped `-1`/`-2` in `OpenedAt` order · manual,
-      recorded in the ticket
-- [ ] `shiftDayName` and `hijriText` render **Arabic**, not `Thursday` and not a Gregorian date ·
-      manual, recorded in the ticket
+- [x] All four screens load and both documents render **against a live SIS.Api**, with the access
+      probe driving the menu · manual, recorded below. ⚠ **Amended:** the two drives were NOT
+      repointed at live, and the amendment is a ruling rather than a shortcut — see *As built*.
+      They now serve the fixtures **as envelopes over the intercepted route**, so every assertion
+      runs *through* the api layer, the query and the outcome branch instead of past them
+      · flow (Playwright) *(220/220 + 92/92)*
+- [x] A **hand-typed unknown** `acrId` and `collectionReceiptId` each render the "no longer exists"
+      state — ⚠ the sheet is **not blank** · flow (Playwright) **and** live, both routes
+- [x] An ACR with **no linked collections** renders one page with no rows and totals `0.00` — a
+      success, not a refusal · flow (Playwright), asserted as *no `[role=alert]` anywhere*.
+      ⚠ **Not reproducible live**: the estate holds one ACR and it has a collection. The wire-level
+      proof is what exists, and it is named here rather than implied
+- [ ] A **real multi-shift receipt** prints its pages stamped `-1`/`-2` in `OpenedAt` order · manual.
+      🚩 **OUTSTANDING, and blocked on DATA, not on code** — the live estate holds two receipts and
+      both cover one shift (`0000000001`, `0000000002`, neither suffixed). This is the one line of
+      *Done when* that does not hold; the ticket stays open for it
+- [x] `shiftDayName` and `hijriText` render **Arabic**, not `Thursday` and not a Gregorian date ·
+      manual, recorded below — and both confirmed on live data
 
 ## Boundaries
 
@@ -100,8 +106,101 @@ shift order; both culture-formatted strings arrive in Arabic; the drives are gre
 - [258](258-the-export-writes-a-summable-file.md) — likewise.
 - The backend wave, in `C:\Work\DMSCO\BackOffice\.issues\` (1089–1093).
 
+## As built
+
+**The wave joined on 2026-08-08**, against SIS.Api on `:5111` with the frontend's `/api` proxy and a
+real cookie session — the open question below, answered by the user running both halves locally.
+
+`print-outcome.ts` · `print-outcome.test.ts` (16 pure) · `collectionApi.receipt`/`.acrForm` ·
+`PrintPending` + `PrintFailure` beside `PrintMiss`. The two document contracts **graduated to
+`@/core/models/collection`**: they became wire types here, and `api-envelope` puts wire models there.
+The fixtures kept their scenarios and lost their `find*Fixture` lookups.
+
+**🚩 The decision worth arguing with: `miss` and `failure` are different states.** The ticket asked
+for a refusal state and the fixture era had exactly one — "this document no longer exists". That
+sentence is a claim about the DOCUMENT. Saying it because SIS.Api was restarting tells an accountant
+their receipt was reversed and sends them looking for a reversal that never happened. So the branch is
+on the **envelope code and nothing else**: each route owns exactly one (`CollectionReceiptNotFound` /
+`AcrNotFound`), and the drive asserts the ACR route refuses to read the *receipt's* code as its own
+stale link. Everything else — a 403 from a missing cookie marker, a 500, an unreachable host — draws
+`PrintFailure`, which says the fetch failed and that **nothing is known about whether it exists**.
+
+**⚠ The drives were NOT repointed at live, deliberately.** The Proof line asked for it; running them
+that way would have deleted most of their value. Their assertions are about FIDELITY — that `-412.50`
+paints with the minus on the left, that a 3-digit `005` minor cell is not clipped, that 47 rows break
+22/22/3, that an empty pharmacist draws a fill-line and not a `0`. **The live estate contains none of
+those cases**, so a live drive would assert them vacuously and go green while proving nothing. The
+fixtures instead moved onto the wire, which is a strictly better drive than the one that existed, and
+the live proof is the walk recorded below. Both fixture sets are loaded **from the app's own modules
+through the dev server** rather than transcribed into the tools — a second copy of a 47-row ACR would
+drift silently, since both copies would stay internally consistent.
+
+**Hardened beyond the ticket, and found by a drive rather than by reasoning:** `printOutcome` reaches
+`data.pages.length`, and a body without `pages` threw — the screens drive's catch-all empty envelope
+produced exactly that, and a throw on a print route renders the router's error boundary. The type
+could not help, because the type is a claim *about the server*. Now `Array.isArray`, and pinned.
+
+### What live data showed that no fixture could
+
+1. **`shiftDayName` and `hijriText` arrived Arabic — the check that fails silently, and it passed.**
+   Receipt `…SPYMR1` stamps **الجمعة** for `2026-07-31` and `…QB5` stamps **الأحد** for `2026-08-02`;
+   both are the correct weekday, and being *different* is what rules out a constant. The ACR stamps
+   **الموافق: 19/02/1448** for `02/08/2026` — a real Umm al-Qura date, not the plausible-looking
+   Gregorian one a degraded globalization stack would have printed. net8.0/IIS resolves `ar-SA`.
+2. **A still-OPEN ACR really does carry `closedAtText: ''`** — تاريخ التحصيل prints blank on live data,
+   with no invented dash. The fixture predicted it; the estate confirmed it.
+3. 🚩 **الحالة prints `OPEN`, an English machine token, on an Arabic paper form — and that is
+   CORRECT.** `AcrFormBuilder` does `Status = report.Acr.Status ?? ""`, the same property the WPF
+   binds, so both sheets print `OPEN`. **The fixture is the thing that was wrong**: it says `مفتوح` /
+   `مغلق`, prettier than anything the server has ever sent. Left unchanged rather than quietly
+   corrected — it is a 247-signed-off artifact, and the drive asserts on it. ⚠ **[260](260-both-documents-print-on-real-paper.md)
+   must not read this as a defect at the side-by-side**: the WPF original will say `OPEN` too.
+4. 🚩 **THE FINDING OF THIS TICKET: every name on both documents prints as a bare id.** اسم المحصل,
+   اسم الصيدلي and the ACR's اسم الصيدلي column all read `14419`. The client is faithful — the id is
+   what arrives on the wire — and the standing boundary applies without argument: **a string missing
+   on the wire is a server change, never a client one.** No `toFixed` of names.
+
+   The cause is a **stale master**, and it was confirmed against the dev database rather than
+   reasoned about. Every projection resolves through the OLD `Staff` table:
+
+   ```sql
+   COALESCE((SELECT TOP 1 st.Name1 FROM Staff st WHERE st.StaffID = <operatorId>), <operatorId>)
+   ```
+
+   `SELECT * FROM Staff WHERE StaffID = '14419'` returns **no row at all**, so the `COALESCE` falls to
+   its second arm and the id echoes. The operators now live in **`UaEmployee`** — `EmployeeId` →
+   `DisplayName`, **4161 rows, all 4161 named**, and `EmployeeId = '14419'` is `Mohamed Sartawi`,
+   `IsActive = 1`. ⚠ It is in the **same `POS_Server` database** (`UaEmployee JOIN Staff` runs and
+   matches 4157 of 4161), so this is a lookup swap, not a cross-database problem.
+
+   **Six call sites, all in `Sartawi.Retail.Data` — a BackOffice change this repo may read and must
+   not make:**
+
+   | File | What it feeds |
+   |---|---|
+   | `Pos/Services/PosCollectionInquiryService.cs` — `CollectorName` | Cash Collections grid **and the receipt's اسم المحصل** |
+   | `Pos/Services/PosCollectionInquiryService.cs` — `CloserName` | **the receipt's اسم الصيدلي block** |
+   | `Pos/Services/Acr/AcrInquiryService.cs` — `CollectorName` (×2) | ACRs grid **and the ACR form header** |
+   | `Pos/Services/Acr/AcrInquiryService.cs` — `CloserName` | **the ACR form's اسم الصيدلي column** |
+   | `Pos/Services/Deposit/DepositInquiryService.cs` — `CollectorName` (×2) | Deposits grid + balances |
+   | `Pos/Services/PosCollectionAttemptInquiryService.cs` — `CollectorName` | Collection Attempts grid |
+
+   ⚠ **Keep the fallback arm.** The id-echo is what stops a blank name on a printed record; what
+   changes is which master is asked first. And ⚠ **this reaches 260**: a side-by-side against the WPF
+   original will show the SAME id on both sheets, because the WPF binds the same projection — so it is
+   a wave defect, not a web one, and 260 must not be failed for it.
+5. **`Attempts` answered 200, not the refusal its day-one note predicts** — this session is ADMIN. The
+   note stands for everyone else until an admin binds `CollectionAttempts` in Authz Admin.
+
+### Still open
+
+The **multi-shift receipt** stamp. It is the only unticked Proof line and the only clause of *Done
+when* that does not hold. It needs a receipt covering two shifts to exist; ⚠ do not close this ticket
+by reasoning about the code, because the ordering contract (`OpenedAt` ascending deciding which shift
+is `-1`) is precisely the thing the fixture asserts and cannot prove.
+
 ## Open questions
 
-- **Where does the frontend point at a deployed SIS.Api carrying the new door?** Dev proxies `/api` to
-  `:5111`; whoever runs this ticket needs the backend wave running locally or on a shared box, and a
-  session holding the four grants. Settle this before starting rather than discovering it mid-ticket.
+- ~~**Where does the frontend point at a deployed SIS.Api carrying the new door?**~~ Answered: the
+  backend wave running locally on `:5111` behind the dev proxy, with a browser cookie session holding
+  the four grants. Recorded because the next person to run a live check needs the same two halves up.

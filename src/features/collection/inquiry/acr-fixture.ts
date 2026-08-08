@@ -1,103 +1,20 @@
-/* The print-ready ACR — نموذج متابعة المبيعات النقدية ومبيعات الشبكة بالصيدليات — as
- * spec 249 / ticket 245 §4 shapes it, plus the checked-in fixture the facsimile
- * renders until the `CollectionWeb/AcrForm/{acrId}` door lands (ticket 259).
- * Graduated out of `__prototype__/acr/acr-mock.ts` (ticket 247).
+/* Four ACRs — نموذج متابعة المبيعات النقدية ومبيعات الشبكة بالصيدليات — as TEST
+ * DATA, chosen for their PAGING: 47 rows over three sheets, 25, the ugly 23, and
+ * the idle one. Graduated out of `__prototype__/acr/acr-mock.ts` (ticket 247).
  *
- * 🔑 EVERY string here is pre-formatted server-side, and that is the whole point:
- * nothing on this type is a number, a `Date` or a currency code, so the client has
- * nothing to call `toFixed` on and a missing string is a SERVER change, never a
- * client one. The prototype mock this fixture graduates from DID compute its
- * figures — `toFixed`, a `paginate()` chunker, running totals. None of that
- * survived: the values below were produced by running that mock once at authoring
- * time and serializing the result, so the sheet a reviewer sees is the sheet the
- * 247 sign-off saw, down to the byte, with no arithmetic left in the browser.
+ * ⚠ **These are no longer what the screen renders.** Ticket 259 put
+ * `CollectionWeb/AcrForm/{acrId}` behind the print route, and the CONTRACT they
+ * are typed against moved with it, to `@/core/models/collection`. What is left
+ * here is four documents the drives serve over a stubbed wire.
  *
- * ⚠ Deliberately absent, per 247's sign-off (245 §4): `depositNumberText`,
- * `depositStatus` and `depositText` — every deposit mark, meta AND summary
- * (242 §8-O7 answered OUT, wider than it was asked), which is why ملخص التحصيل is
- * left holding a single row. Also gone (245 §5): `storeName`, `variance`,
- * `hasShiftReport`, `createdAtText`, `currencyCode`.
+ * 🔑 The prototype mock this fixture graduates from DID compute its figures —
+ * `toFixed`, a `paginate()` chunker, running totals. None of that survived: the
+ * values below were produced by running that mock once at authoring time and
+ * serializing the result, so the sheet a reviewer sees is the sheet the 247
+ * sign-off saw, down to the byte, with no arithmetic left in the browser.
  */
 
-export type AcrRow = {
-  /** 1-based and CONTINUOUS across pages — the server numbers them, not the page. */
-  seqText: string
-  storeCode: string
-  /** `dd/MM/yyyy`, PER ROW — a catch-up ACR carries more than one sales day (§7.7). */
-  salesDateText: string
-  /** `F{dp}` invariant: no thousands separator, no currency symbol (§7.7). */
-  cashText: string
-  cardText: string
-  totalText: string
-  /** NOT zero-padded, unlike the receipt's own `No.` */
-  receiptNoText: string
-  /** Tri-state (242 §5): `''` reconciled · `'✗'` a real whole-riyal diff · `'؟'` the Z mirror never synced. */
-  matchText: '' | '✗' | '؟'
-  pharmacistName: string
-  /** 247's amendment 1: the WPF's `OperatorId` — the closer IS the pharmacist. */
-  pharmacistId: string
-  /** Arabic, authored by the server (245 §6a). `''` when there is nothing to say. */
-  notes: string
-  /** 242 §8-O6 answered IN — a negative hand-in prints in the mismatch red. */
-  isShortfall: boolean
-}
-
-/** One printed A4 side. The SERVER decides where the rows break. */
-export type AcrPage = {
-  /**
-   * 1-based. `pageIndex`/`pageCount` are 245 §4 contract fields and are carried
-   * VERBATIM — the renderer reads neither, because the stamp it would build out
-   * of them is already `pageText`, formatted server-side like every other string
-   * on this form. Dropping them to "the fields the client happens to use" is how
-   * a fixture drifts from the contract and the screen fails the day the endpoint
-   * lands.
-   */
-  pageIndex: number
-  pageCount: number
-  /** `"2 / 3"` — spaces around the slash, stamped after صفحة. */
-  pageText: string
-  /** Last page only: the الاجمالي band, ملخص التحصيل and the signature strip. */
-  showSummary: boolean
-  rows: AcrRow[]
-}
-
-/** Hoisted out of the pages: every page references the SAME form (243's caveat). */
-export type AcrForm = {
-  /** عن يوم — `dd/MM/yyyy`. */
-  acrDateText: string
-  /** الموافق — `dd/MM/yyyy` Umm al-Qura. 247 restored it; the WPF dropped it by omission. */
-  hijriText: string
-  /** Rendered under رقم التجميعي (247's amendment 2), not نموذج رقم ( ). */
-  acrNumberText: string
-  areas: string
-  /** تاريخ التحصيل — `''` while the ACR is still OPEN, and it renders BLANK. */
-  closedAtText: string
-  /** الوصف. */
-  label: string
-  /** الحالة — a server string, rendered as data. */
-  status: string
-  collectorName: string
-  collectorId: string
-  cashTotalText: string
-  cardTotalText: string
-  grandTotalText: string
-  /** ملخص التحصيل's ONE remaining row, اجمالي الايرادات. */
-  revenuesText: string
-}
-
-/** What `CollectionWeb/AcrForm/{acrId}` returns (245 §4). */
-export type AcrDocument = {
-  form: AcrForm
-  /**
-   * ⚠ DOCUMENTATION OF THE BREAK RULE, and nothing else. It mirrors
-   * `AcrFormBuilder.Paginate(form, 22)` so the web and the WPF sheet break in the
-   * same place — but the CLIENT NEVER APPLIES IT. `pages` arrives already split;
-   * grep this feature for chunking logic and there is none to find.
-   */
-  rowsPerPage: number
-  /** Never empty: an idle ACR is ONE page with `rows: []` (245 §7). */
-  pages: AcrPage[]
-}
+import type { AcrDocument, AcrRow } from '@/core/models/collection'
 
 const ROWS_PER_PAGE = 22
 
@@ -297,8 +214,3 @@ export const ACR_SCENARIOS: AcrScenario[] = [
     },
   },
 ]
-
-/** The fixture stand-in for the lookup ticket 259 replaces with the real door. */
-export function findAcrFixture(acrId: string | undefined): AcrDocument | null {
-  return ACR_SCENARIOS.find((s) => s.key === acrId)?.document ?? null
-}

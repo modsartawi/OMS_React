@@ -5,26 +5,48 @@
  * envelope, the error taxonomy and 401 are that module's, and 401 in particular
  * is never caught here.
  *
- * ⚠️ **The door does not exist yet.** `CollectionWeb/*` is a BackOffice
- * dependency built on a parallel track (1090: one file, one tag, four grant
- * gates). Until it lands, every route here answers a browser **403** — issue
- * 802 inverted `ApiKeyEndpointFilter`'s cookie branch to default-deny — so this
- * feature is verified against envelopes stubbed at Playwright
- * (`tools/collection-drive.mjs`), the same code-complete / runtime-blocked
- * posture the Nphies and Loy waves shipped under. 🚩 Nothing here has been driven
- * against a live SIS.Api; ticket 259 is that event.
+ * **The door is real** as of ticket 259. `CollectionWeb/*` is BackOffice 1089–1093
+ * (one file, one tag, four grant gates, plus the two document builders), and every
+ * route below has now been answered by a live SIS.Api rather than by a Playwright
+ * stub. Two things about the wave that shipped before it are worth keeping in
+ * mind here, because both are still true:
  *
- * The four inquiry reads and the two document reads join this file with their
- * own slices (254–257).
+ * - ⚠️ **A 403 means the cookie marker, not the grant.** Issue 802 inverted
+ *   `ApiKeyEndpointFilter`'s cookie branch to default-deny, so an unmarked route
+ *   answers a browser 403 — deliberately a 403 and not a 401, so a missed marker
+ *   breaks ONE screen instead of logging the whole tab out.
+ * - ⚠️ **`Attempts` refuses most sessions on day one.** `CollectionAttempts` never
+ *   had a legacy WPF seed (that screen rode ADMIN's bypass), so no migrated grant
+ *   carries a holder until an admin binds it in Authz Admin. A refusal there is
+ *   configuration, not a defect.
  */
 import { api } from '@/core/api'
 import type {
+  AcrDocument,
   AcrInquiryRow,
   CollectionAccessResult,
   CollectionAttemptRow,
   CollectionInquiryRow,
   DepositInquiryResult,
+  VoucherDocument,
 } from '@/core/models/collection'
+
+/**
+ * The two refusal codes the print routes branch on (245 §7), spelled once.
+ *
+ * 🚩 They are **envelope codes, not HTTP statuses** — `EndpointHelpers.ExecuteAsync`
+ * answers a miss with `success: false` and one of these in `errors[0].errorCode`,
+ * which `core/api` turns into a `business` `ApiError`. Branching on the status
+ * instead would be branching on the transport.
+ *
+ * ⚠️ `AcrNotFound` is **reused** from the ACR family rather than given a document
+ * twin: there is no second code for the same fact. `CollectionReceiptNotFound` is
+ * the one new code the wave added, and it covers an unknown id *and* a lookup that
+ * matched zero rows — indistinguishable over an inquiry, and the same sentence to
+ * the reader either way.
+ */
+export const RECEIPT_NOT_FOUND = 'CollectionReceiptNotFound'
+export const ACR_NOT_FOUND = 'AcrNotFound'
 
 /**
  * The ONE cache key the four Collections nav leaves and all four screens' own
@@ -170,5 +192,49 @@ export const collectionApi = {
    */
   attempts(params: Record<string, unknown>): Promise<CollectionAttemptRow[]> {
     return api.get<CollectionAttemptRow[]>('CollectionWeb/Attempts', params)
+  },
+
+  /**
+   * `GET CollectionWeb/Receipt/{collectionReceiptId}` → the print-ready سند قبض,
+   * `{ pages }`, one page per collected shift (ticket 259).
+   *
+   * Behind the **Cash Collections** grant, not a grant of its own: the document is
+   * that screen's row action, so a session that may not open the grid may not print
+   * its receipts either.
+   *
+   * 🚩 **The whole page set in one call, and the order is the server's** — the
+   * shift's `OpenedAt` ascending. That is not a detail: fetching the pages together
+   * is what puts the `-1` / `-2` suffix back on a multi-shift receipt, whose
+   * `noText` the WPF historically DUPLICATED across pages.
+   *
+   * The id is a ULID and rides as a **path segment**, `encodeURIComponent`'d like
+   * the `LoyWeb/Member/{loyId}` precedent — a hand-typed id reaches here as
+   * whatever the user pasted into the URL bar, and it must not be able to shift the
+   * path it lands on.
+   */
+  receipt(collectionReceiptId: string): Promise<VoucherDocument> {
+    return api.get<VoucherDocument>(
+      `CollectionWeb/Receipt/${encodeURIComponent(collectionReceiptId)}`,
+    )
+  },
+
+  /**
+   * `GET CollectionWeb/AcrForm/{acrId}` → the print-ready ACR,
+   * `{ form, rowsPerPage, pages }` (ticket 259). Behind the **ACRs** grant, on the
+   * same reasoning as the receipt.
+   *
+   * ⚠️ **Empty is not a miss.** An ACR with no linked collections answers 200 with
+   * ONE page and `rows: []` — `Paginate`'s own behaviour, and a real document that
+   * prints with totals `0.00` and its summary present. Only an unknown id refuses,
+   * with `AcrNotFound`. Reading the empty case as a refusal would turn an idle ACR
+   * into an error screen, which is why the print route branches on the CODE and
+   * never on the row count.
+   *
+   * 🚩 `form` is **hoisted out of the pages** rather than repeated on each: every
+   * page references one form carrying the whole row list, so a naive page list
+   * would ship the rows once per page.
+   */
+  acrForm(acrId: string): Promise<AcrDocument> {
+    return api.get<AcrDocument>(`CollectionWeb/AcrForm/${encodeURIComponent(acrId)}`)
   },
 }

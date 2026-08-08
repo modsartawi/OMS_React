@@ -1,7 +1,19 @@
-// Collection documents print drive (tickets 251 + 252) — drives the REAL app in Chromium against
-// the CHECKED-IN fixtures, because SIS.Api's CollectionWeb door doesn't exist yet (BackOffice 1090;
-// ticket 259 is the wave-joining event). This is the wave's DOCUMENTS drive — both documents live
-// here rather than in a drive each. The screens have their own: collection-drive.mjs.
+// Collection documents print drive (tickets 251 + 252 + 259) — drives the REAL app in Chromium.
+// This is the wave's DOCUMENTS drive; both documents live here rather than in a drive each. The
+// screens have their own: collection-drive.mjs.
+//
+// ⚠ Ticket 259 changed what this drive stubs, not what it asserts. The print routes used to read a
+// checked-in fixture with no network involved; they now call
+// `CollectionWeb/{Receipt,AcrForm}/{id}`, so the SAME four scenarios are served here as ENVELOPES
+// over the intercepted route. That is a strictly better drive: every assertion below now runs
+// through the api layer, the query, and the four-way outcome branch, instead of past them.
+//
+// 🚩 And the fixtures are loaded from the dev server rather than copied into this file — see
+// `loadFixtures`. A second transcription of a 47-row ACR would drift from the one the tests pin,
+// and it would drift silently, because both copies would still be internally consistent.
+//
+// 259 also added the three assertions the fixture era could not make at all: an unknown id is a
+// MISS, a server fault is a FAILURE and says something different, and neither prints a sheet.
 //
 // Verifies ticket 251's flow Proof bullet, on `/collection/receipt/:collectionReceiptId`:
 //   1. the sheet renders with NO AppShell chrome — the body IS the document (241);
@@ -60,16 +72,64 @@ const envelope = (data, { status = 200, success = true, message = '', errors = [
   body: JSON.stringify({ statusCode: status, success, message, errors, data }),
 })
 
+// A refusal the way `EndpointHelpers.ExecuteAsync` builds one: a non-2xx that still carries the
+// envelope, with the machine code in `errors[0].errorCode`. `core/api` turns this into a business
+// `ApiError`, which is what `printOutcome` branches on — so getting the SHAPE right here is what
+// makes the miss/failure assertions below mean anything.
+const refusal = (code, message) =>
+  envelope(null, { status: 404, success: false, message, errors: [{ errorCode: code, internalErrorCode: '', errorMessage: message }] })
+
 // Chromium writes one `/Type /Page` object per printed sheet. Counting them beats adding a PDF
 // dependency to a manual-run tool for one number.
 const pdfPageCount = (buffer) => (buffer.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length
+
+/**
+ * The four receipts and four ACRs, read out of the app's own fixture modules.
+ *
+ * They are TypeScript and this drive is plain node, so they come through the dev server that is
+ * already running: vite serves `/src/**.ts` as a transformed ES module, the page imports it, and
+ * the result is structured-cloned back here. One source of truth, and it is the same one
+ * `acr-fixture.ts` hands to vitest.
+ */
+async function loadFixtures(page) {
+  const fixtures = await page.evaluate(async () => {
+    const [v, a] = await Promise.all([
+      import('/src/features/collection/inquiry/voucher-fixture.ts'),
+      import('/src/features/collection/inquiry/acr-fixture.ts'),
+    ])
+    const byKey = (scenarios) => Object.fromEntries(scenarios.map((s) => [s.key, s.document]))
+    return { receipts: byKey(v.VOUCHER_SCENARIOS), acrs: byKey(a.ACR_SCENARIOS) }
+  })
+  const counts = [Object.keys(fixtures.receipts).length, Object.keys(fixtures.acrs).length]
+  if (counts[0] !== 4 || counts[1] !== 4)
+    throw new Error(`fixture load returned ${counts.join('/')} scenarios, expected 4/4`)
+  return fixtures
+}
 
 async function run() {
   const browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 1600, height: 1200 } })
   const errors = []
+  // `pageerror` is a real JS exception and is never filtered.
   page.on('pageerror', (e) => errors.push(String(e)))
-  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  page.on('console', (m) => {
+    if (m.type() !== 'error') return
+    // ⚠ Since 259 a REFUSED document is a deliberate part of this drive — the miss, the cross-code
+    // case and the injected 500. Chromium logs every non-2xx as a console resource error, so those
+    // three would otherwise fail the no-errors check for doing exactly what they were asked to do.
+    // Filtered by URL rather than by message, so an unexpected 404 anywhere ELSE still counts.
+    if (/CollectionWeb\/(Receipt|AcrForm)\//.test(m.location()?.url ?? '')) return
+    errors.push(m.text())
+  })
+
+  // Populated after the first navigation — the modules are served by the app, so the app has to be
+  // up first. The route handler closes over the binding, not the value.
+  let FIXTURES = { receipts: {}, acrs: {} }
+  // Set by a test that wants the NEXT document call to fail in a way that is not a miss.
+  let faultNext = null
+  // Every document path the app asked for, in order. The whole of 259 is "these routes now call a
+  // door", and the only way to assert that is to watch the door.
+  const documentCalls = []
 
   await page.route('**/api/**', async (route) => {
     const path = route.request().url().split('/api/')[1].split('?')[0]
@@ -77,8 +137,34 @@ async function run() {
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
       )
-    // The print route makes NO call of its own at 251 — the fixture is checked in. Anything else
-    // that fires is benign-empty so nothing crashes around it.
+
+    // The two document doors (259). The id is a PATH SEGMENT and arrives url-encoded, so decode it
+    // before the lookup — otherwise every scenario key would still match and the encoding would go
+    // untested.
+    const receiptId = path.startsWith('CollectionWeb/Receipt/')
+      ? decodeURIComponent(path.slice('CollectionWeb/Receipt/'.length))
+      : null
+    const acrId = path.startsWith('CollectionWeb/AcrForm/')
+      ? decodeURIComponent(path.slice('CollectionWeb/AcrForm/'.length))
+      : null
+
+    if (receiptId !== null || acrId !== null) {
+      // The RAW path, before decoding — the encoding assertion needs to see what actually went on
+      // the wire, not what the lookup made of it.
+      documentCalls.push(path)
+      if (faultNext) {
+        const fault = faultNext
+        faultNext = null
+        return route.fulfill(fault)
+      }
+      const doc = receiptId !== null ? FIXTURES.receipts[receiptId] : FIXTURES.acrs[acrId]
+      if (doc) return route.fulfill(envelope(doc))
+      return receiptId !== null
+        ? route.fulfill(refusal('CollectionReceiptNotFound', 'No such collection receipt.'))
+        : route.fulfill(refusal('AcrNotFound', 'No such ACR.'))
+    }
+
+    // Anything else that fires is benign-empty so nothing crashes around it.
     return route.fulfill(envelope({}))
   })
 
@@ -86,14 +172,27 @@ async function run() {
   // lands on the same sheet at the same scale and a second copy of that geometry would be a
   // second answer to a settled question.
   const sheets = page.locator('.print-sheet')
+  // ⚠ Since 259 the route FETCHES, so "loaded" is no longer "rendered": wait until the outcome
+  // branch has actually drawn one of its three settled states. `[role=alert]` is the miss and the
+  // failure; the PENDING state is `role=status` and deliberately NOT in this list, or every
+  // assertion below would race it.
+  const settle = async () => {
+    await page.waitForLoadState('networkidle')
+    await page.waitForSelector('.print-sheet, [role="alert"]', { state: 'attached' })
+  }
   const goto = async (id) => {
     await page.goto(receipt(id))
-    await page.waitForLoadState('networkidle')
+    await settle()
   }
   const gotoAcr = async (id) => {
     await page.goto(acr(id))
-    await page.waitForLoadState('networkidle')
+    await settle()
   }
+
+  // The app has to be up before it can serve its own fixture modules.
+  await page.goto(BASE + '/login')
+  await page.waitForLoadState('networkidle')
+  FIXTURES = await loadFixtures(page)
 
   // ---- 1. the everyday receipt: one sheet, and no app chrome around it ----
   await goto('posted')
@@ -272,6 +371,47 @@ async function run() {
     missText.includes('no longer exists'),
     missText.replace(/\n/g, ' ').slice(0, 80),
   )
+  // 259: the miss is now the SERVER's answer, not a fixture lookup that came up empty. It has to
+  // have gone and asked.
+  check(
+    '259 — and it asked the door before saying so: CollectionReceiptNotFound came off the wire',
+    documentCalls.includes('CollectionWeb/Receipt/no-such-receipt'),
+    documentCalls.slice(-1)[0],
+  )
+
+  // ---- 7b. THE 259 DISTINCTION: a fault is not a miss ----
+  //
+  // The failure mode this guards is a sentence, not a crash. Folding a 500 into "this document no
+  // longer exists" tells an accountant their receipt was reversed because SIS.Api was restarting,
+  // and sends them looking for a reversal that never happened. Both states are non-blank; what
+  // separates them is which true thing they say.
+  faultNext = envelope(null, { status: 500, success: false, message: 'Internal Server Error' })
+  await goto('posted')
+  const faultText = await page.locator('body').innerText()
+  check('a server fault → still renders no A4 sheet — never a blank one either', (await sheets.count()) === 0)
+  check(
+    '259 — a server fault does NOT claim the document is gone',
+    !faultText.includes('no longer exists'),
+    faultText.replace(/\n/g, ' ').slice(0, 80),
+  )
+  check(
+    '259 — it says the fetch failed, and that nothing is known about whether it exists',
+    faultText.includes('could not be fetched') && faultText.includes('not the same as it being gone'),
+    faultText.replace(/\n/g, ' ').slice(0, 100),
+  )
+  check('259 — the fault state is announced, not silent', (await page.locator('[role="alert"]').count()) === 1)
+
+  // ---- 7c. the id is a path segment, and it is encoded ----
+  //
+  // A hand-typed id reaches the route as whatever was pasted into the URL bar. `posted/../Acrs`
+  // must not be able to walk the path it lands on.
+  await goto(encodeURIComponent('a/b?c=1'))
+  check(
+    '259 — a url-hostile id is encoded into ONE path segment, never allowed to reshape the path',
+    documentCalls.slice(-1)[0] === 'CollectionWeb/Receipt/a%2Fb%3Fc%3D1',
+    documentCalls.slice(-1)[0],
+  )
+  check('259 — and it lands on the miss, not on some other screen', (await page.locator('[role="alert"]').count()) === 1)
 
   // ---- 8. the same document under print media ----
   await page.emulateMedia({ media: 'print' })
@@ -532,6 +672,14 @@ async function run() {
     idleTotals.length === 3 && idleTotals.every((v) => v.trim() === '0.00'),
     idleTotals.join(' '),
   )
+  // 259's other direction, and the one that would fail QUIETLY: an idle ACR is a 200 with one page
+  // and `rows: []`. Reading it as a refusal — because the rows are empty, or because the outcome
+  // branch checked a row count instead of an envelope code — turns a real document into an error
+  // screen, and nobody would notice until an accountant printed a quiet week.
+  check(
+    '259 — an EMPTY ACR is a success off the wire, not a refusal: no alert anywhere on the page',
+    (await page.locator('[role="alert"]').count()) === 0,
+  )
 
   // ---- 16. a stale ACR link is the same sentence the receipt gives ----
   await gotoAcr('no-such-acr')
@@ -539,6 +687,22 @@ async function run() {
   check(
     'acr stale link → says so, rather than printing a convincing blank',
     (await page.locator('body').innerText()).includes('no longer exists'),
+  )
+  check(
+    '259 — off the ACR door, reusing AcrNotFound: there is no second code for the same fact',
+    documentCalls.includes('CollectionWeb/AcrForm/no-such-acr'),
+    documentCalls.slice(-1)[0],
+  )
+  // The receipt route owns CollectionReceiptNotFound and the ACR route owns AcrNotFound. If either
+  // accepted the other's code, a refusal from the wrong family would read as a stale link — so the
+  // ACR route is handed the RECEIPT's code and must call it a failure, not a miss.
+  faultNext = refusal('CollectionReceiptNotFound', 'No such collection receipt.')
+  await gotoAcr('three-pages')
+  const crossText = await page.locator('body').innerText()
+  check(
+    '259 — the ACR route does NOT read the receipt’s not-found code as its own stale link',
+    !crossText.includes('no longer exists') && crossText.includes('could not be fetched'),
+    crossText.replace(/\n/g, ' ').slice(0, 80),
   )
 
   // ---- 17. the sheets that actually come out of the printer ----

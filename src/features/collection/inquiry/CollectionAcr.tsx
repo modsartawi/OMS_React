@@ -30,7 +30,7 @@
 import type { ReactNode } from 'react'
 import Ltr from '@/core/ui/Ltr'
 import PrintSheet from './PrintSheet'
-import type { AcrForm, AcrPage, AcrRow } from './acr-fixture'
+import type { AcrForm, AcrPage, AcrRow } from '@/core/models/collection'
 import logoUrl from './logo-aldawaa.png'
 import './collection-acr.css'
 

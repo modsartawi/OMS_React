@@ -190,9 +190,18 @@ could not help, because the type is a claim *about the server*. Now `Array.isArr
    `Staff` would blank 2858 historical operators: one silent defect traded for a larger one, on
    *records*, where it would be least noticed. `UaEmployee` first, `Staff` second, the id last.
 
-   Filed as **BackOffice 1095** — *A collector has a name again, on paper and in every grid* — drafted
-   in full (eight exact call sites, the measured counts, the two rulings, six Proof lines) and handed
-   over rather than written into that repo, which this one may read and must not edit.
+   Filed as **BackOffice 1095** — *A collector has a name again, on paper and in every grid* — eight
+   exact call sites, the measured counts, the two rulings, six Proof lines.
+
+   🚩 **And a second ticket the first one uncovered: BackOffice 1096**, *Which master owns an
+   operator's name, and what `Staff` keeps*. Asked to widen the change so POS depends on `UaEmployee`
+   generally, the survey said **it cannot be done as stated**: `Staff` carries `Password`,
+   `IsSupervisor`, `PolicyID`/`RetailPolicy`, `NameOnReceipt` and a composite `(Client, StaffID)` key,
+   and `UaEmployee` has an equivalent for **none** of them — it is the till's identity-and-authorization
+   record, not a directory, and only the NAME is common across 194 usages. Both tables also come off the
+   **same nightly SAP HANA run**, so the drift is two keys off one feed rather than old-versus-new.
+   1096 is a ruling before a code change; 1095 does not wait for it, because eight name-only lookups
+   are safe under every answer 1096 can reach.
 
    ⚠ **This reaches [260](260-both-documents-print-on-real-paper.md)**: the WPF original will print the
    SAME id on the same line, because it binds the same projection. It is a wave defect, not a web one,

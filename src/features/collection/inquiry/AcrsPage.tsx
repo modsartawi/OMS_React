@@ -22,9 +22,10 @@ import {
   type AcrsCriteria,
 } from './acr-criteria'
 import AcrsToolbar from './AcrsToolbar'
-import { canOpenAcrs, collectionApi } from './api'
+import { canOpenAcrs, canOpenCollections, collectionAccessQuery, collectionApi } from './api'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
+import { buildAcrActionsColumn } from './RowActions'
 import ScreenGate from './ScreenGate'
 
 /**
@@ -48,8 +49,9 @@ import ScreenGate from './ScreenGate'
  * 2. **No currency anywhere.** `AcrInquiryRow` carries no `currencyKey`, so the
  *    money headers state no code. See `acr-columns.ts`.
  *
- * ⚠️ **No row action yet** — `Collections ▸` and `Form ▸` are ticket 257's, and
- * they land on this Page rather than being anticipated here.
+ * Ticket 257 added the row's two ways out: `Form ▸` opens the printable ACR in a
+ * **new tab**, `Collections ▸` walks to Cash Collections scoped to that ACR in the
+ * **same** tab. Both are addresses rather than overlays — see `RowActions.tsx`.
  */
 export default function AcrsPage() {
   const { t } = useTranslation('collection')
@@ -85,6 +87,12 @@ function AcrsBody() {
     queryFn: () => collectionApi.acrs(appliedParams),
   })
 
+  // The SAME probe `ScreenGate` above already resolved — one key, ONE set of
+  // options, one call, and react-query hands this second reader the cached
+  // answer. It is here for the `Collections ▸` action only (257): this screen's
+  // own admission is the gate's.
+  const access = useQuery(collectionAccessQuery())
+
   const onChange = useCallback(
     (patch: Partial<AcrsCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
     [],
@@ -106,7 +114,18 @@ function AcrsBody() {
   const defaultColDef = useMemo(() => buildAcrsDefaultColDef(showFilters), [showFilters])
 
   const rows = useMemo(() => list.data ?? [], [list.data])
-  const columns = useMemo(() => buildAcrsColumns(t, showMore), [t, showMore])
+  // The two actions lead, composed here rather than folded into `buildAcrsColumns`:
+  // an action is not a wire field, and the field lists carry a completeness proof
+  // that 258's export writes from (see `RowActions`).
+  //
+  // ⚠️ `Collections ▸` is withheld from a session that cannot open Cash
+  // Collections. The four grants are independent, so this is an ordinary ragged
+  // session rather than a hypothesis — and it reads the SAME cached probe the gate
+  // above already resolved, so it costs no second call.
+  const columns = useMemo(
+    () => [buildAcrActionsColumn(t, canOpenCollections(access.data)), ...buildAcrsColumns(t, showMore)],
+    [t, access.data, showMore],
+  )
 
   // "Filtered" is about the ISSUED query, not the draft: the chip's job is to say
   // that the grid is no longer showing today, and the grid shows the result of the

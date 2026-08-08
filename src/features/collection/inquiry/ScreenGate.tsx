@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, ShieldAlert } from 'lucide-react'
 import { ApiError, apiErrorMessage } from '@/core/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
-import { COLLECTION_ACCESS_KEY, collectionApi } from './api'
+import { collectionAccessQuery } from './api'
 
 /**
  * The in-page backstop every Collections screen stands behind (ticket 253).
@@ -38,12 +38,7 @@ export default function ScreenGate({
   children?: ReactNode
 }) {
   const { t } = useTranslation('collection')
-  const access = useQuery({
-    queryKey: COLLECTION_ACCESS_KEY,
-    queryFn: () => collectionApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  })
+  const access = useQuery(collectionAccessQuery())
 
   if (access.isPending) {
     return (

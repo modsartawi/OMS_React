@@ -1170,6 +1170,236 @@ async function run() {
   depositRows = makeDepositRows(163)
   depositBalances = makeBalances()
 
+  // ============ ticket 257 — a row opens its document, and an ACR its collections ============
+  // The seam where the four screens meet the two documents. Three claims:
+  //   1. Receipt ▸ and Form ▸ are ADDRESSES in a NEW TAB — the grid keeps its
+  //      search, scroll and selection, and a document can be pasted into a ticket;
+  //   2. Collections ▸ walks to Cash Collections scoped to that ACR in the SAME
+  //      tab, and the scoped query carries AcrId and OMITS store/collector/period;
+  //   3. the chip overrides and DISABLES the four inputs, survives a reload, and
+  //      clears back to the ordinary today screen.
+
+  // 🚩 Row 0 of each grid is given a FIXTURE KEY as its id, so that following the
+  // link actually renders a document rather than the (correct, but uninteresting)
+  // "this document no longer exists" backstop. Row 1's receipt id is blanked on
+  // purpose: `CollectionReceiptId` is a server change still in flight (BackOffice
+  // 1089), so an empty one is a real arrival and must draw NO link at all.
+  collectionsRows = makeRows(347)
+  collectionsRows[0].collectionReceiptId = 'posted'
+  collectionsRows[1].collectionReceiptId = ''
+  acrRows = makeAcrRows(213)
+  acrRows[0].acrId = 'three-pages'
+
+  await page.goto(BASE + ROUTES.collections)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+
+  const receiptLink = page.locator('.ag-row[row-index="0"] [col-id="actions"] a')
+  check('257 — Cash Collections draws a row action', (await receiptLink.count()) === 1)
+  check(
+    '257 — Receipt ▸ addresses the document by its ULID',
+    (await receiptLink.getAttribute('href')) === '/collection/receipt/posted',
+    await receiptLink.getAttribute('href'),
+  )
+  check(
+    '257 — …in a NEW TAB, so the grid keeps its search, scroll and selection',
+    (await receiptLink.getAttribute('target')) === '_blank',
+    await receiptLink.getAttribute('target'),
+  )
+  check(
+    '257 — …and it cannot reach back through window.opener',
+    (await receiptLink.getAttribute('rel')).includes('noopener'),
+    await receiptLink.getAttribute('rel'),
+  )
+  check(
+    '257 — a row with NO receipt id draws no link at all (1089 is still in flight)',
+    (await page.locator('.ag-row[row-index="1"] [col-id="actions"] a').count()) === 0,
+  )
+
+  // The address really resolves — a link that 404s is a broken action, not a link.
+  await page.goto(BASE + '/collection/receipt/posted')
+  await page.waitForLoadState('networkidle')
+  check(
+    '257 — Receipt ▸ resolves to a RENDERING document, not to the miss backstop',
+    (await page.locator('.print-sheet').count()) === 1,
+    `${await page.locator('.print-sheet').count()} sheets`,
+  )
+
+  // ---- the ACRs grid's two actions ----
+  await page.goto(BASE + ROUTES.acrs)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+
+  const acrActions = page.locator('.ag-row[row-index="0"] [col-id="actions"] a')
+  check('257 — an ACR row offers exactly TWO ways out', (await acrActions.count()) === 2)
+  const formLink = acrActions.first()
+  const collectionsLink = acrActions.nth(1)
+  check(
+    '257 — Form ▸ addresses the ACR document, in a NEW TAB',
+    (await formLink.getAttribute('href')) === '/collection/acr/three-pages' &&
+      (await formLink.getAttribute('target')) === '_blank',
+    `${await formLink.getAttribute('href')} · ${await formLink.getAttribute('target')}`,
+  )
+  check(
+    '257 — Collections ▸ carries the ACR as a query param — one SHAREABLE URL',
+    (await collectionsLink.getAttribute('href')) === '/collection/collections?acr=three-pages',
+    await collectionsLink.getAttribute('href'),
+  )
+  check(
+    '257 — …and it stays in the SAME tab (a drill-down is not a document)',
+    (await collectionsLink.getAttribute('target')) === null,
+    await collectionsLink.getAttribute('target'),
+  )
+
+  // ⚠️ A RAGGED SESSION is an ordinary one: the four grants are independent, so an
+  // account that can read ACRs and not Cash Collections exists. It keeps Form ▸
+  // and is not offered a drill-down that would walk it into a denial screen.
+  scenario = { accessBody: { ...NONE, canOpenAcrs: true }, access403: false, access500: false }
+  await page.goto(BASE + ROUTES.acrs)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  const raggedActions = page.locator('.ag-row[row-index="0"] [col-id="actions"] a')
+  check(
+    '257 — an ACR-only session keeps Form ▸ but is NOT offered Collections ▸',
+    (await raggedActions.count()) === 1 &&
+      (await raggedActions.first().getAttribute('href')) === '/collection/acr/three-pages',
+    `${await raggedActions.count()} actions`,
+  )
+  scenario = { accessBody: ALL, access403: false, access500: false }
+
+  await page.goto(BASE + '/collection/acr/three-pages')
+  await page.waitForLoadState('networkidle')
+  check(
+    '257 — Form ▸ resolves to a RENDERING document across its pages',
+    (await page.locator('.print-sheet').count()) === 3,
+    `${await page.locator('.print-sheet').count()} sheets`,
+  )
+
+  // ---- Collections ▸ : the drill-down, clicked for real ----
+  await page.goto(BASE + ROUTES.acrs)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  collectionsCalls = 0
+  lastCollectionsQuery = ''
+  await page.locator('.ag-row[row-index="0"] [col-id="actions"] a').nth(1).click()
+  // ⚠️ It is a ROUTER navigation, not a document load: there is no load event to
+  // wait on, and the ACRs grid's own rows are still on screen while it happens.
+  // Waiting on the URL is what makes this assertion about the drill-down rather
+  // than about a race.
+  await page.waitForURL('**/collection/collections?acr=three-pages', { timeout: 5000 })
+  // …and then on a control only THIS screen has: the ACRs grid's rows are still
+  // mounted while the lazy route loads, so `.ag-row` would resolve against the
+  // screen we are leaving.
+  await page.getByPlaceholder('Store code').waitFor({ timeout: 5000 })
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+
+  check(
+    '257 — Collections ▸ lands on Cash Collections, scoped, in the same tab',
+    page.url().endsWith('/collection/collections?acr=three-pages'),
+    page.url(),
+  )
+  // ⚠️ THE ASSERTION THE WHOLE CHIP EXISTS FOR. `AcrId` is an EXCLUSIVE filter:
+  // the door ignores store, collector and period entirely when one is set, so
+  // sending them would leave a query string that reads as a period filter.
+  check(
+    '257 — the scoped query carries AcrId and the cap…',
+    q().get('AcrId') === 'three-pages' && q().get('Limit') === '2000',
+    lastCollectionsQuery,
+  )
+  check(
+    '257 — …and OMITS store, collector and the period entirely',
+    !lastCollectionsQuery.includes('StoreId') &&
+      !lastCollectionsQuery.includes('CollectorOperatorId') &&
+      !lastCollectionsQuery.includes('FromDate') &&
+      !lastCollectionsQuery.includes('ToDate'),
+    lastCollectionsQuery,
+  )
+
+  const chip = page.getByText('three-pages')
+  check('257 — a chip NAMES the ACR the view is scoped to', (await chip.count()) === 1)
+  check(
+    '257 — …and it REPLACES the Filtered chip rather than sitting beside it',
+    (await page.getByText('Filtered').count()) === 0,
+  )
+
+  // The disabling is HONESTY, not decoration: a live date input over a scoped
+  // result would let a supervisor set a range that silently does nothing.
+  const dateInputs = page.locator('form input[type="date"]')
+  check(
+    '257 — the chip DISABLES From and To',
+    (await dateInputs.nth(0).isDisabled()) && (await dateInputs.nth(1).isDisabled()),
+  )
+  check(
+    '257 — …and Store and Collector',
+    (await page.getByPlaceholder('Store code').isDisabled()) &&
+      (await page.getByPlaceholder('Operator id').isDisabled()),
+  )
+  check(
+    '257 — …and Search, since there is nothing left to promote',
+    await page.getByRole('button', { name: 'Search' }).isDisabled(),
+  )
+  // ⚠️ OVERRIDDEN, not merely locked. A greyed box still reading today's date over
+  // a grid scoped to an ACR that spans weeks would say "this period was applied and
+  // then frozen" — the exact misreading the disabling exists to prevent.
+  check(
+    '257 — …and every overridden input shows NOTHING, not a frozen value',
+    (await dateInputs.nth(0).inputValue()) === '' &&
+      (await dateInputs.nth(1).inputValue()) === '' &&
+      (await page.getByPlaceholder('Store code').inputValue()) === '',
+    `${await dateInputs.nth(0).inputValue()} · ${await dateInputs.nth(1).inputValue()}`,
+  )
+
+  // ---- the URL really is the scope: a reload reproduces the view ----
+  collectionsCalls = 0
+  await page.reload()
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  check(
+    '257 — a RELOAD reproduces the scoped view (the URL is the only state there is)',
+    q().get('AcrId') === 'three-pages' && (await page.getByText('three-pages').count()) === 1,
+    `${lastCollectionsQuery} · ${page.url()}`,
+  )
+
+  // ---- clearing the chip: the param goes, and today comes back ----
+  await page.getByRole('button', { name: 'Clear the ACR and go back to today' }).click()
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  // The re-query rides a re-render rather than a page load, so wait on the REQUEST
+  // rather than on the URL — otherwise this asserts against the scoped query that
+  // has not been replaced yet.
+  for (let i = 0; i < 30 && lastCollectionsQuery.includes('AcrId'); i++)
+    await page.waitForTimeout(100)
+  check(
+    '257 — clearing the chip DROPS the param from the URL',
+    !page.url().includes('acr='),
+    page.url(),
+  )
+  check(
+    '257 — …and restores the ordinary today-filtered query',
+    q().get('FromDate') === TODAY && q().get('ToDate') === TODAY && !lastCollectionsQuery.includes('AcrId'),
+    lastCollectionsQuery,
+  )
+  check('257 — …with the chip gone', (await page.getByText('three-pages').count()) === 0)
+  check(
+    '257 — …and the four inputs live again',
+    !(await dateInputs.nth(0).isDisabled()) &&
+      !(await page.getByPlaceholder('Store code').isDisabled()) &&
+      !(await page.getByRole('button', { name: 'Search' }).isDisabled()),
+  )
+
+  // ---- a hand-typed scope with no collections behind it reads as such ----
+  collectionsRows = []
+  await page.goto(BASE + ROUTES.collections + '?acr=three-pages')
+  await page.waitForLoadState('networkidle')
+  const scopedEmpty = await mainText()
+  check(
+    '257 — an ACR with nothing under it says SO, not "no collections in this period"',
+    scopedEmpty.includes('No collections under this ACR'),
+    scopedEmpty.replace(/\n/g, ' ').slice(0, 120),
+  )
+  collectionsRows = makeRows(347)
+
   // Scenarios 4 and 5 intentionally 403/500 CollectionWeb/Access, which the browser logs
   // as a resource-load failure — expected, not an app fault. Filter them out.
   const realErrors = errors.filter((e) => !/status of (403|500)/.test(e))

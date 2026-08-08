@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
+import { isAcrScoped } from './acr-scope'
 import type { CollectionsCriteria } from './collections-criteria'
 
 /**
@@ -18,6 +19,12 @@ import type { CollectionsCriteria } from './collections-criteria'
  * The dates are `yyyy-MM-dd` throughout — the criteria shape, the native input's
  * value and the endpoint's `DateTime?` binding all agree, so there is no
  * conversion at this edge (unlike BBY, whose wire shape is `yyyyMMdd`).
+ *
+ * ⚠️ **The `?acr=` chip overrides and disables all four inputs** (ticket 257), and
+ * the disabling is honesty rather than decoration: the server treats `AcrId` as an
+ * **exclusive** filter and ignores store, collector and period entirely when one
+ * is set. A live date input over a scoped result would let a supervisor set a
+ * range that silently does nothing, and then read the answer as if it had applied.
  */
 export interface CollectionsToolbarProps {
   criteria: CollectionsCriteria
@@ -26,7 +33,27 @@ export interface CollectionsToolbarProps {
   onReset: () => void
   /** True when the applied query is anything other than the today-landing one. */
   isFiltered: boolean
+  /** The ACR this view is scoped to, or `''` for the ordinary screen (257). */
+  scopedAcrId: string
+  /** Drop the `?acr=` param and return to the ordinary today-filtered screen. */
+  onClearScope: () => void
 }
+
+/** What an overridden control looks like: visibly out of play, and unfocusable —
+ *  `disabled` is what makes the honesty real rather than only visual. */
+const DISABLED_CLASS = 'disabled:cursor-not-allowed disabled:opacity-50'
+
+/**
+ * What an overridden input SHOWS: nothing.
+ *
+ * ⚠️ **Overridden, not merely locked.** A greyed-out box still reading
+ * `2026-08-08 → 2026-08-08` over a grid scoped to an ACR that spans three weeks
+ * says "this period was applied and then frozen", which is the exact misreading
+ * the disabling exists to prevent — the door discarded it. Empty is the true
+ * account. The criteria themselves are untouched underneath, which is what lets
+ * clearing the chip put them straight back.
+ */
+const overridden = (scoped: boolean, value: string) => (scoped ? '' : value)
 
 export default function CollectionsToolbar({
   criteria,
@@ -34,8 +61,11 @@ export default function CollectionsToolbar({
   onSearch,
   onReset,
   isFiltered,
+  scopedAcrId,
+  onClearScope,
 }: CollectionsToolbarProps) {
   const { t } = useTranslation('collection')
+  const scoped = isAcrScoped(scopedAcrId)
 
   return (
     <form
@@ -53,9 +83,10 @@ export default function CollectionsToolbar({
         <input
           type="date"
           required
-          value={criteria.fromDate}
+          disabled={scoped}
+          value={overridden(scoped, criteria.fromDate)}
           onChange={(e) => onChange({ fromDate: e.target.value })}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className={`h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
         />
       </label>
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
@@ -63,9 +94,10 @@ export default function CollectionsToolbar({
         <input
           type="date"
           required
-          value={criteria.toDate}
+          disabled={scoped}
+          value={overridden(scoped, criteria.toDate)}
           onChange={(e) => onChange({ toDate: e.target.value })}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className={`h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
         />
       </label>
 
@@ -78,27 +110,33 @@ export default function CollectionsToolbar({
         <input
           type="text"
           inputMode="numeric"
-          value={criteria.storeId}
+          disabled={scoped}
+          value={overridden(scoped, criteria.storeId)}
           onChange={(e) => onChange({ storeId: e.target.value })}
           placeholder={t('collections.search.storePlaceholder')}
-          className="h-9 w-36 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className={`h-9 w-36 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
         />
       </label>
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
         {t('collections.search.collector')}
         <input
           type="text"
-          value={criteria.collectorOperatorId}
+          disabled={scoped}
+          value={overridden(scoped, criteria.collectorOperatorId)}
           onChange={(e) => onChange({ collectorOperatorId: e.target.value })}
           placeholder={t('collections.search.collectorPlaceholder')}
-          className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
+          className={`h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
         />
       </label>
 
       <div className="flex items-center gap-2">
+        {/* Search goes with them. With all four criteria overridden there is
+            nothing left to promote, and a button that re-issues the identical
+            scoped query would be the same lie the live inputs would tell. */}
         <button
           type="submit"
-          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          disabled={scoped}
+          className={`inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 ${DISABLED_CLASS}`}
         >
           <Search className="h-3.5 w-3.5" aria-hidden />
           {t('collections.search.search')}
@@ -113,9 +151,29 @@ export default function CollectionsToolbar({
         </button>
       </div>
 
+      {/* The `?acr=` chip (ticket 257). It names the ACR the view is scoped to and
+          its ✕ drops the param — the one way back to the ordinary screen. It
+          REPLACES the Filtered chip rather than sitting beside it: two chips over
+          one grid would be two different accounts of why it is narrowed, and the
+          scope is the true one. */}
+      {scoped && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
+          {t('collections.acrScope.label')}
+          <span className="font-mono text-[11px]">{scopedAcrId}</span>
+          <button
+            type="button"
+            onClick={onClearScope}
+            aria-label={t('collections.acrScope.clear')}
+            className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-primary/20"
+          >
+            <X className="h-3 w-3" aria-hidden />
+          </button>
+        </span>
+      )}
+
       {/* The chip says the screen is no longer showing today. Dismissing it is
           Reset — one way back to the landing state, not two. */}
-      {isFiltered && (
+      {!scoped && isFiltered && (
         <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 py-1 pe-1 ps-3 text-xs font-medium text-primary">
           {t('collections.search.filtered')}
           <button

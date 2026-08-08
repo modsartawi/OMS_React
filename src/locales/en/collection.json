@@ -25,6 +25,7 @@
     "subtitle": "Cash collected per store and shift, chain-wide.",
     "loading": "Loading today's collections…",
     "capReached": "This result reached the {{limit}}-row system cap, so some collections may be missing. Narrow the dates, the store or the collector to be sure you are seeing all of them.",
+    "capReachedScoped": "This ACR reached the {{limit}}-row system cap, so some of its collections may be missing.",
     "moneyHeader": "{{label}} ({{currency}})",
     "search": {
       "from": "From",
@@ -44,7 +45,17 @@
     },
     "empty": {
       "title": "No collections in this period",
-      "hint": "Nothing has been collected for these dates yet. Widen the period, or clear the store and collector."
+      "hint": "Nothing has been collected for these dates yet. Widen the period, or clear the store and collector.",
+      "scopedTitle": "No collections under this ACR",
+      "scopedHint": "Nothing has been accumulated into this ACR yet. Clear the ACR to go back to today's collections."
+    },
+    "acrScope": {
+      "label": "ACR",
+      "clear": "Clear the ACR and go back to today"
+    },
+    "actions": {
+      "header": "Open",
+      "receipt": "Receipt"
     },
     "errors": {
       "loadFailed": "Today's collections could not be loaded."
@@ -81,6 +92,11 @@
     "subtitle": "Accumulated collection receipts and the collections behind them.",
     "loading": "Loading today's ACRs…",
     "capReached": "This result reached the {{limit}}-row system cap, so some ACRs may be missing. Narrow the dates, the collector or the status to be sure you are seeing all of them.",
+    "actions": {
+      "header": "Open",
+      "form": "Form",
+      "collections": "Collections"
+    },
     "search": {
       "from": "From",
       "to": "To",

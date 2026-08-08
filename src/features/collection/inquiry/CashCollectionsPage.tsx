@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
 import { Columns3, Filter } from 'lucide-react'
 
@@ -14,6 +15,13 @@ import {
   omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
+import {
+  ACR_SCOPE_PARAM,
+  collectionsParamsFor,
+  isAcrScoped,
+  readAcrScope,
+  withoutAcrScope,
+} from './acr-scope'
 import { canOpenCollections, collectionApi } from './api'
 import { GRID_PAGE_SIZE, isCapReached } from './cap'
 import { buildCollectionsColumns, buildCollectionsDefaultColDef } from './collections-columns'
@@ -25,6 +33,7 @@ import {
   type CollectionsCriteria,
 } from './collections-criteria'
 import CollectionsToolbar from './CollectionsToolbar'
+import { buildReceiptActionColumn } from './RowActions'
 // These two were declared at the foot of this file at 254 and moved to their own
 // module at 255, when they acquired a second and third caller (see `GridStates`).
 import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
@@ -84,21 +93,42 @@ function CollectionsBody() {
   // actually been issued. Only Search/Reset promote one to the other — which is
   // what makes a half-typed store code unable to fire a request.
   const [criteria, setCriteria] = useState<CollectionsCriteria>(() => landingCriteria(today))
-  const [appliedParams, setAppliedParams] = useState<Record<string, unknown>>(() =>
-    buildCollectionsParams(landingCriteria(today)),
+  // 🚩 The APPLIED criteria, not the applied params: ticket 257 needs both branches
+  // of the query built from one place (`collectionsParamsFor`), and a scope that
+  // arrives has to leave the criteria it overrides untouched so that clearing it
+  // restores them intact rather than re-deriving them.
+  const [appliedCriteria, setAppliedCriteria] = useState<CollectionsCriteria>(() =>
+    landingCriteria(today),
+  )
+
+  // ---- the `?acr=` drill-down (ticket 257) ----
+  // 🚩 The URL is the scope's ONLY home — there is no `scopedAcr` state beside it.
+  // That is what makes the view a shareable address: a reload, a paste into a
+  // ticket and the Back button all reproduce it, and a copy could not drift from
+  // it because there is no copy.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const scopedAcrId = readAcrScope(searchParams)
+  const scoped = isAcrScoped(scopedAcrId)
+
+  // ⚠️ The scoped query carries `AcrId` and the cap and NOTHING else — the door
+  // treats `AcrId` as an exclusive filter (see `acr-scope.ts`), which is why the
+  // four inputs it overrides are disabled rather than merely ignored.
+  const queryParams = useMemo(
+    () => collectionsParamsFor(scopedAcrId, appliedCriteria),
+    [scopedAcrId, appliedCriteria],
   )
 
   // The landing query IS the mount query — no `enabled`, no "click Load".
   const list = useQuery({
-    queryKey: ['collection', 'collections', appliedParams],
-    queryFn: () => collectionApi.collections(appliedParams),
+    queryKey: ['collection', 'collections', queryParams],
+    queryFn: () => collectionApi.collections(queryParams),
   })
 
   const onChange = useCallback(
     (patch: Partial<CollectionsCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
     [],
   )
-  const onSearch = useCallback(() => setAppliedParams(buildCollectionsParams(criteria)), [criteria])
+  const onSearch = useCallback(() => setAppliedCriteria(criteria), [criteria])
   const onReset = useCallback(() => {
     // Reset re-reads the clock: a screen left open overnight resets to the day
     // the supervisor is actually looking at, not the day they opened it.
@@ -106,8 +136,19 @@ function CollectionsBody() {
     const landing = landingCriteria(now)
     setToday(now)
     setCriteria(landing)
-    setAppliedParams(buildCollectionsParams(landing))
-  }, [])
+    setAppliedCriteria(landing)
+    // ⚠️ Reset drops the ACR scope too, and `replace` keeps it out of the Back
+    // stack. A Reset that left `?acr=` standing would restore criteria the door
+    // still ignores — the toolbar saying today over a grid still showing one ACR.
+    //
+    // 🚩 Only when there is one to drop: an unscoped screen's Reset is a state
+    // change, and issuing a navigation for it would put a history entry (and a
+    // router re-render) behind a button that did not move the address.
+    if (searchParams.has(ACR_SCOPE_PARAM))
+      setSearchParams(withoutAcrScope(searchParams), { replace: true })
+    // `searchParams` is read here rather than closed over stale: react-router hands
+    // back a new instance on every navigation, so it belongs in the deps.
+  }, [searchParams, setSearchParams])
 
   // The per-column filter row (the WPF's `ShowAutoFilterRow`) — ON by default.
   const [showFilters, setShowFilters] = useState(true)
@@ -115,12 +156,18 @@ function CollectionsBody() {
   const defaultColDef = useMemo(() => buildCollectionsDefaultColDef(showFilters), [showFilters])
 
   const rows = useMemo(() => list.data ?? [], [list.data])
-  const columns = useMemo(() => buildCollectionsColumns(t, rows, showMore), [t, rows, showMore])
+  // The action column leads, and is composed here rather than folded into
+  // `buildCollectionsColumns`: an action is not a wire field, and the field lists
+  // carry a completeness proof that 258's export writes from (see `RowActions`).
+  const columns = useMemo(
+    () => [buildReceiptActionColumn(t), ...buildCollectionsColumns(t, rows, showMore)],
+    [t, rows, showMore],
+  )
 
   // "Filtered" is about the ISSUED query, not the draft: the chip's job is to say
   // that the grid is no longer showing today, and the grid shows the result of the
   // last Search. Reset is its ✕.
-  const isFiltered = !isLandingQuery(appliedParams, today)
+  const isFiltered = !isLandingQuery(buildCollectionsParams(appliedCriteria), today)
   const capReached = isCapReached(rows.length, COLLECTIONS_LIMIT)
 
   return (
@@ -131,6 +178,10 @@ function CollectionsBody() {
         onSearch={onSearch}
         onReset={onReset}
         isFiltered={isFiltered}
+        scopedAcrId={scopedAcrId}
+        // The chip's ✕ is Reset: it drops the param AND restores today, so there
+        // is one way back to the ordinary screen rather than two that differ.
+        onClearScope={onReset}
       />
 
       <div className="flex flex-wrap items-center justify-end gap-2">
@@ -155,7 +206,10 @@ function CollectionsBody() {
           grouped money reads as a different kind of number. */}
       {capReached && (
         <CapBanner
-          message={t('collections.capReached', {
+          // ⚠️ …and under a scope it must not name the four controls the chip has
+          // disabled. "Narrow the dates or the store" is advice a scoped screen
+          // cannot take and the door would ignore anyway.
+          message={t(scoped ? 'collections.capReachedScoped' : 'collections.capReached', {
             limit: COLLECTIONS_LIMIT.toLocaleString('en-US'),
           })}
         />
@@ -171,7 +225,13 @@ function CollectionsBody() {
       {list.isPending ? (
         <ListShimmer label={t('collections.loading')} />
       ) : rows.length === 0 && !list.isError ? (
-        <EmptyState title={t('collections.empty.title')} hint={t('collections.empty.hint')} />
+        // ⚠️ A scoped view that comes back empty is an ACR with no collections
+        // behind it, not an empty period — and the ordinary hint ("widen the
+        // period, clear the store") names four controls the chip has disabled.
+        <EmptyState
+          title={scoped ? t('collections.empty.scopedTitle') : t('collections.empty.title')}
+          hint={scoped ? t('collections.empty.scopedHint') : t('collections.empty.hint')}
+        />
       ) : rows.length > 0 ? (
         <div className="min-h-[24rem] flex-1">
           <AgGridReact<(typeof rows)[number]>

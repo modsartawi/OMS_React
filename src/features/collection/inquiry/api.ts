@@ -36,6 +36,27 @@ import type {
 export const COLLECTION_ACCESS_KEY = ['collection', 'access'] as const
 
 /**
+ * …and the ONE set of options every reader of that key passes.
+ *
+ * 🚩 The key alone was not enough once a second reader appeared (ticket 257's
+ * `Collections ▸` gate, beside `ScreenGate`'s own): react-query merges the options
+ * of concurrent observers, so a screen that quietly dropped `retry: false` would
+ * make a **refused** probe retry under a gate whose whole ruling is to fail closed
+ * on the first no. The options travel with the key, spelled once.
+ *
+ * `staleTime: Infinity` because a grant does not change inside a page life;
+ * `retry: false` because a 403 is an answer and not an outage.
+ */
+export function collectionAccessQuery() {
+  return {
+    queryKey: COLLECTION_ACCESS_KEY,
+    queryFn: () => collectionApi.access(),
+    staleTime: Infinity,
+    retry: false,
+  } as const
+}
+
+/**
  * The probe's four predicates, one per screen (244 §10).
  *
  * `=== true` and nothing looser, so a malformed answer (`{}`, `null`, a string

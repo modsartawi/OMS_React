@@ -185,10 +185,18 @@ could not help, because the type is a claim *about the server*. Now `Array.isArr
    | `Pos/Services/Deposit/DepositInquiryService.cs` — `CollectorName` (×2) | Deposits grid + balances |
    | `Pos/Services/PosCollectionAttemptInquiryService.cs` — `CollectorName` | Collection Attempts grid |
 
-   ⚠ **Keep the fallback arm.** The id-echo is what stops a blank name on a printed record; what
-   changes is which master is asked first. And ⚠ **this reaches 260**: a side-by-side against the WPF
-   original will show the SAME id on both sheets, because the WPF binds the same projection — so it is
-   a wave defect, not a web one, and 260 must not be failed for it.
+   ⚠ **And it is three arms, not a swap** — the thing a find-and-replace would get wrong. **3030**
+   `Staff` ids are absent from `UaEmployee`, and **2858 of them carry a real name there**, so dropping
+   `Staff` would blank 2858 historical operators: one silent defect traded for a larger one, on
+   *records*, where it would be least noticed. `UaEmployee` first, `Staff` second, the id last.
+
+   Filed as **BackOffice 1095** — *A collector has a name again, on paper and in every grid* — drafted
+   in full (eight exact call sites, the measured counts, the two rulings, six Proof lines) and handed
+   over rather than written into that repo, which this one may read and must not edit.
+
+   ⚠ **This reaches [260](260-both-documents-print-on-real-paper.md)**: the WPF original will print the
+   SAME id on the same line, because it binds the same projection. It is a wave defect, not a web one,
+   260 must not be failed for it — and printing before 1095 lands means printing twice.
 5. **`Attempts` answered 200, not the refusal its day-one note predicts** — this session is ADMIN. The
    note stands for everyone else until an admin binds `CollectionAttempts` in Authz Admin.
 

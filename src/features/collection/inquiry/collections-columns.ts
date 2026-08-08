@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next'
 
 import type { CollectionInquiryRow } from '@/core/models/collection'
 import { formatMoneyIn } from '@/core/money'
-import { formatDateTime, isBlankDate, toIsoDate } from '@/core/util/date-format'
+import { formatDateTime, formatDay } from '@/core/util/date-format'
 
 /**
  * The Cash Collections grid's columns (ticket 254), and the shape 255 and 256
@@ -129,14 +129,6 @@ export function buildCollectionsDefaultColDef(showFilters: boolean): ColDef<Coll
   }
 }
 
-/** A day-only value that is blank when the server sent its unset sentinel —
- *  `salesDate` really is `0001-01-01` on pre-shift-day rows. */
-function dayText(value: string | null | undefined): string {
-  if (!value) return ''
-  const date = new Date(value)
-  return isBlankDate(date) ? '' : toIsoDate(date)
-}
-
 /**
  * Build the visible columns.
  *
@@ -229,8 +221,8 @@ function column(
         field,
         colId: field,
         width: 120,
-        valueFormatter: (p: ValueFormatterParams<CollectionInquiryRow, string>) => dayText(p.value),
-        filterValueGetter: (p) => dayText(p.data?.salesDate),
+        valueFormatter: (p: ValueFormatterParams<CollectionInquiryRow, string>) => formatDay(p.value),
+        filterValueGetter: (p) => formatDay(p.data?.salesDate),
       }
     case 'cardTransactionCount':
       return {

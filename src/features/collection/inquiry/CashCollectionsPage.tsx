@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
-import { Columns3, Filter, PackageSearch, TriangleAlert } from 'lucide-react'
+import { Columns3, Filter, TriangleAlert } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
@@ -25,6 +25,9 @@ import {
   type CollectionsCriteria,
 } from './collections-criteria'
 import CollectionsToolbar from './CollectionsToolbar'
+// These two were declared at the foot of this file at 254 and moved to their own
+// module at 255, when they acquired a second and third caller (see `GridStates`).
+import { EmptyState, ListShimmer, ToggleChip } from './GridStates'
 import ScreenGate from './ScreenGate'
 
 /**
@@ -131,32 +134,18 @@ function CollectionsBody() {
       />
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => setShowMore((v) => !v)}
-          aria-pressed={showMore}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-            showMore
-              ? 'border-primary/40 bg-primary/10 text-primary'
-              : 'border-border/60 text-muted-foreground hover:bg-muted'
-          }`}
-        >
-          <Columns3 className="h-3.5 w-3.5" aria-hidden />
-          {t('collections.toolbar.moreColumns')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowFilters((v) => !v)}
-          aria-pressed={showFilters}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-            showFilters
-              ? 'border-primary/40 bg-primary/10 text-primary'
-              : 'border-border/60 text-muted-foreground hover:bg-muted'
-          }`}
-        >
-          <Filter className="h-3.5 w-3.5" aria-hidden />
-          {t('collections.toolbar.filterRow')}
-        </button>
+        <ToggleChip
+          icon={<Columns3 className="h-3.5 w-3.5" aria-hidden />}
+          label={t('collections.toolbar.moreColumns')}
+          pressed={showMore}
+          onToggle={() => setShowMore((v) => !v)}
+        />
+        <ToggleChip
+          icon={<Filter className="h-3.5 w-3.5" aria-hidden />}
+          label={t('collections.toolbar.filterRow')}
+          pressed={showFilters}
+          onToggle={() => setShowFilters((v) => !v)}
+        />
       </div>
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on
@@ -207,29 +196,5 @@ function CollectionsBody() {
         </div>
       ) : null}
     </>
-  )
-}
-
-/** Busy shimmer: a few pulsing placeholder rows, so a screen that loads on mount
- *  reads as loading rather than as empty. */
-function ListShimmer({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col gap-2" role="status" aria-label={label}>
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="h-8 animate-pulse rounded-md bg-muted" />
-      ))}
-    </div>
-  )
-}
-
-/** No-results state — distinct from loading, and expected at 9am, when today has
- *  barely begun and yesterday is one date edit away. */
-function EmptyState({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div className="mx-auto mt-12 flex max-w-sm flex-col items-center gap-2 text-center">
-      <PackageSearch className="h-8 w-8 text-muted-foreground" aria-hidden />
-      <div className="text-base font-semibold tracking-tight">{title}</div>
-      <p className="text-sm text-muted-foreground">{hint}</p>
-    </div>
   )
 }

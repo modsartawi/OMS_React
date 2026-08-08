@@ -16,6 +16,7 @@
  * designed before the four screens exist to prove it (spec 249, 244 §1).
  */
 import { toIsoDate } from '@/core/util/date-format'
+import { GRID_LIMIT } from './cap'
 
 /**
  * The toolbar draft. All strings so the fields map 1:1 onto their inputs; the two
@@ -42,8 +43,13 @@ export interface CollectionsCriteria {
  * keeps sort, per-column filter and export operating over the whole result set
  * (244 §3). It is surfaced only by the amber banner in `cap.ts`, and only when a
  * result actually reached it.
+ *
+ * 🚩 An **alias** of `cap.ts`'s `GRID_LIMIT` since ticket 255, not a literal of
+ * its own: the number the query asks for and the number the banner measures the
+ * answer against have to be one number on all four screens, or the banner is
+ * measuring a cap the door never applied.
  */
-export const COLLECTIONS_LIMIT = 2000
+export const COLLECTIONS_LIMIT = GRID_LIMIT
 
 /**
  * The state the screen opens on: **today, on both ends, nothing else set**.

@@ -28,6 +28,20 @@
 export const GRID_PAGE_SIZE = 50
 
 /**
+ * The system cap all four screens ask for, and the whole of what became of the
+ * WPF's `Limit` box (244 §3).
+ *
+ * 🚩 **One constant, not one per screen.** The number the query asks for and the
+ * number `isCapReached` measures the answer against have to be the same number,
+ * or the banner is measuring one cap and the door is applying another — at which
+ * point it either cries wolf or stays silent on a truncated result, both of which
+ * are the failure this module exists to prevent. It lives here rather than in a
+ * screen's criteria module for exactly that reason; `COLLECTIONS_LIMIT`,
+ * `ACRS_LIMIT` and `ATTEMPTS_LIMIT` are all aliases of it.
+ */
+export const GRID_LIMIT = 2000
+
+/**
  * Did this result actually **reach** the cap?
  *
  * 🚩 **Reached, not merely large.** A banner that fired at "nearly 2,000" would be

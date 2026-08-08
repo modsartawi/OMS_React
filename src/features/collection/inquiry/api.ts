@@ -18,7 +18,12 @@
  * own slices (254–257).
  */
 import { api } from '@/core/api'
-import type { CollectionAccessResult, CollectionInquiryRow } from '@/core/models/collection'
+import type {
+  AcrInquiryRow,
+  CollectionAccessResult,
+  CollectionAttemptRow,
+  CollectionInquiryRow,
+} from '@/core/models/collection'
 
 /**
  * The ONE cache key the four Collections nav leaves and all four screens' own
@@ -85,5 +90,34 @@ export const collectionApi = {
    */
   collections(params: Record<string, unknown>): Promise<CollectionInquiryRow[]> {
     return api.get<CollectionInquiryRow[]>('CollectionWeb/Collections', params)
+  },
+
+  /**
+   * `GET CollectionWeb/Acrs` → the ACRs grid's rows (ticket 255), grant-gated on
+   * `AcrInquiry`.
+   *
+   * `params` arrives already built by the pure `buildAcrsParams`, which owns the
+   * PascalCase names, the dropping of empty filters, and the rule that a Status
+   * of `All` sends nothing. This function deliberately adds nothing: a second
+   * place that could decide what goes on the wire is a second place the decision
+   * can drift.
+   *
+   * ⚠️ One of those params, `AcrNumber`, is a filter `AcrInquiryOptions` does not
+   * have yet — logged as a BackOffice 1090 dependency in `.afk/HITL-255.md`
+   * rather than worked around client-side.
+   */
+  acrs(params: Record<string, unknown>): Promise<AcrInquiryRow[]> {
+    return api.get<AcrInquiryRow[]>('CollectionWeb/Acrs', params)
+  },
+
+  /**
+   * `GET CollectionWeb/Attempts` → the Collection Attempts grid's rows (ticket
+   * 255), grant-gated on `CollectionAttempts`.
+   *
+   * The one read in this file that owes the backend nothing: every filter it
+   * sends already exists on `CollectionAttemptInquiryOptions`.
+   */
+  attempts(params: Record<string, unknown>): Promise<CollectionAttemptRow[]> {
+    return api.get<CollectionAttemptRow[]>('CollectionWeb/Attempts', params)
   },
 }

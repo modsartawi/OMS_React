@@ -26,6 +26,29 @@ export function formatDateTime(value: string | null | undefined): string {
 }
 
 /**
+ * Format an ISO **day-only** value as `yyyy-MM-dd` — the form a business date
+ * wears in a grid cell.
+ *
+ * The day-shaped twin of `formatDateTime`, and it exists for the same reason:
+ * the API's unset `DateTime` is `0001-01-01`, and it is a **legitimate value on
+ * real rows** (a collection's `salesDate` on a pre-shift-day receipt, an ACR's
+ * `closedAt` while it is still OPEN, an attempt's `businessDay`). It renders
+ * blank rather than as a year-1 date.
+ *
+ * 🚩 Born inside `collections-columns.ts` at ticket 254 and hoisted here at 255,
+ * when the ACR and Attempts grids became its second and third callers — a helper
+ * three feature files had copied byte-for-byte is the escalation this module is
+ * for, and it is deliberately not part of the "copied, not extracted" screen
+ * shape (244 §1), which is about the gate/toolbar/grid skeleton rather than about
+ * date formatting.
+ */
+export function formatDay(value: string | null | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  return isBlankDate(date) ? '' : toIsoDate(date)
+}
+
+/**
  * Format a Date as a local `yyyy-MM-dd` calendar date for the FromDate/ToDate
  * query params. Local parts (not `toISOString`) — the estate is single-timezone
  * local time and a UTC round-trip would shift the day (no-utc-time rule).

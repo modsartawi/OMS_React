@@ -78,7 +78,55 @@
   },
   "acrs": {
     "title": "ACRs",
-    "subtitle": "Accumulated collection receipts and the collections behind them."
+    "subtitle": "Accumulated collection receipts and the collections behind them.",
+    "loading": "Loading today's ACRs…",
+    "capReached": "This result reached the {{limit}}-row system cap, so some ACRs may be missing. Narrow the dates, the collector or the status to be sure you are seeing all of them.",
+    "search": {
+      "from": "From",
+      "to": "To",
+      "acrNumber": "ACR No#",
+      "acrNumberPlaceholder": "Number",
+      "collector": "Collector",
+      "collectorPlaceholder": "Operator id",
+      "status": "Status",
+      "statuses": {
+        "ALL": "All",
+        "OPEN": "Open",
+        "CLOSED": "Closed"
+      },
+      "search": "Search",
+      "reset": "Reset",
+      "filtered": "Filtered",
+      "clearFilter": "Clear the filter and go back to today"
+    },
+    "toolbar": {
+      "filterRow": "Filter row",
+      "moreColumns": "More columns"
+    },
+    "empty": {
+      "title": "No ACRs in this period",
+      "hint": "No collection run was opened for these dates. Widen the period, or clear the collector and the status."
+    },
+    "errors": {
+      "loadFailed": "Today's ACRs could not be loaded."
+    },
+    "columns": {
+      "acrNumber": "ACR No#",
+      "label": "Label",
+      "collectorName": "Collector",
+      "acrDate": "ACR Date",
+      "status": "Status",
+      "linkedCollectionCount": "Collections",
+      "netCollectedTotal": "Net Collected",
+      "cardTotalSum": "Card Total",
+      "createdAt": "Created",
+      "closedAt": "Closed",
+      "cardTransactionCountSum": "Card Slips",
+      "collectorOperatorId": "Collector Id",
+      "depositNumber": "Deposit No#",
+      "depositStatus": "Deposit Status",
+      "depositId": "Deposit Id"
+    }
   },
   "deposits": {
     "title": "Deposits",
@@ -86,6 +134,44 @@
   },
   "attempts": {
     "title": "Collection Attempts",
-    "subtitle": "Visits that collected nothing, and the reason given."
+    "subtitle": "Visits that collected nothing, and the reason given.",
+    "loading": "Loading today's attempts…",
+    "capReached": "This result reached the {{limit}}-row system cap, so some attempts may be missing. Narrow the dates, the store, the collector or the reason to be sure you are seeing all of them.",
+    "search": {
+      "from": "From",
+      "to": "To",
+      "store": "Store",
+      "storePlaceholder": "Store code",
+      "collector": "Collector",
+      "collectorPlaceholder": "Staff id",
+      "reason": "Reason code",
+      "reasonPlaceholder": "Reason code",
+      "search": "Search",
+      "reset": "Reset",
+      "filtered": "Filtered",
+      "clearFilter": "Clear the filter and go back to today"
+    },
+    "toolbar": {
+      "filterRow": "Filter row",
+      "moreColumns": "More columns"
+    },
+    "empty": {
+      "title": "No attempts in this period",
+      "hint": "Every visit in these dates collected something. Widen the period, or clear the store, collector and reason."
+    },
+    "errors": {
+      "loadFailed": "Today's collection attempts could not be loaded."
+    },
+    "columns": {
+      "attemptTime": "Attempt Time",
+      "storeCode": "Store Code",
+      "storeName": "Store",
+      "collectorName": "Collector",
+      "reasonCode": "Reason",
+      "reasonText": "Reason Detail",
+      "businessDay": "Business Date",
+      "shiftId": "Shift Id",
+      "collectorStaffId": "Collector Id"
+    }
   }
 }

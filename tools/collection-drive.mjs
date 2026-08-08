@@ -103,10 +103,64 @@ function makeRows(count, { currency = 'SAR' } = {}) {
   }))
 }
 
+// ---- ticket 255: the ACR and Collection Attempt rows ----
+// Stubbed for the same reason: CollectionWeb/Acrs and CollectionWeb/Attempts are
+// BackOffice 1090's doors and ticket 259 is the wave-joining event.
+
+/** `count` ACR rows. Row 0 is a still-OPEN ACR — `closedAt` at the .NET sentinel,
+ *  `depositNumber` 0 — which is the "blank, not 0001-01-01 / not 0" proof. Row 1
+ *  carries a NULL card total (blank, not 0.00) and row 2 a real zero. */
+function makeAcrRows(count) {
+  return Array.from({ length: count }, (_, i) => {
+    const open = i === 0
+    return {
+      acrId: `01J0ACR${String(i).padStart(20, '0')}`,
+      acrNumber: 40 + i,
+      label: `Riyadh run ${40 + i}`,
+      collectorOperatorId: String(4470 + (i % 3)),
+      collectorName: `Collector ${4470 + (i % 3)}`,
+      acrDate: `${todayIso()}T00:00:00`,
+      status: open ? 'OPEN' : 'CLOSED',
+      createdAt: `${todayIso()}T08:15:00`,
+      closedAt: open ? '0001-01-01T00:00:00' : `${todayIso()}T19:32:00`,
+      linkedCollectionCount: i === 2 ? 0 : 12,
+      netCollectedTotal: 143910.75 + i,
+      cardTotalSum: i === 1 ? null : i === 2 ? 0 : 99120.5 + i,
+      cardTransactionCountSum: 812,
+      depositId: open ? '' : `01J0DEPOSIT${String(i).padStart(15, '0')}`,
+      depositNumber: open ? 0 : 5500 + i,
+      depositStatus: open ? '' : 'POSTED',
+    }
+  })
+}
+
+/** `count` collection-attempt rows. Nothing here is money — an attempt collected
+ *  nothing, which is what makes it an attempt. */
+function makeAttemptRows(count) {
+  return Array.from({ length: count }, (_, i) => ({
+    attemptId: `01J0ATTEMPT${String(i).padStart(16, '0')}`,
+    collectorStaffId: String(4470 + (i % 3)),
+    collectorName: `Collector ${4470 + (i % 3)}`,
+    storeCode: String(1001 + (i % 7)),
+    storeName: `Al Dawaa Store ${1001 + (i % 7)}`,
+    shiftId: `01J0SHIFT${String(i).padStart(18, '0')}`,
+    businessDay: `${todayIso()}T00:00:00`,
+    attemptTime: `${todayIso()}T09:12:00`,
+    reasonCode: i % 2 ? 'STORE_CLOSED' : 'NO_CASH',
+    reasonText: i % 2 ? 'Branch shut for maintenance' : '',
+  }))
+}
+
 // scenario state, mutated between reloads
 let scenario = { accessBody: ALL, access403: false }
 let accessCalls = 0
 let collectionsRows = makeRows(347)
+let acrRows = makeAcrRows(213)
+let attemptRows = makeAttemptRows(174)
+let lastAcrsQuery = ''
+let acrsCalls = 0
+let lastAttemptsQuery = ''
+let attemptsCalls = 0
 /** The query string of the LAST CollectionWeb/Collections request — this is how
  *  the drive proves that Search/Reset promoted the draft, and that a keystroke
  *  did not. */
@@ -145,6 +199,16 @@ async function run() {
       collectionsCalls++
       lastCollectionsQuery = url.includes('?') ? url.slice(url.indexOf('?') + 1) : ''
       return route.fulfill(envelope(collectionsRows))
+    }
+    if (path === 'CollectionWeb/Acrs') {
+      acrsCalls++
+      lastAcrsQuery = url.includes('?') ? url.slice(url.indexOf('?') + 1) : ''
+      return route.fulfill(envelope(acrRows))
+    }
+    if (path === 'CollectionWeb/Attempts') {
+      attemptsCalls++
+      lastAttemptsQuery = url.includes('?') ? url.slice(url.indexOf('?') + 1) : ''
+      return route.fulfill(envelope(attemptRows))
     }
     // Any other probe/endpoint → benign empty success so no other leaf crashes.
     return route.fulfill(envelope({}))
@@ -410,6 +474,298 @@ async function run() {
   check('254 — and each figure keeps ITS row’s decimals (BHD draws three)', (await bhdCell.innerText()).trim() === '11,976.000', await bhdCell.innerText())
 
   collectionsRows = makeRows(347)
+
+  // ============ ticket 255 — ACRs and Attempts on the same template ============
+  // The same landing/paging/toggle/filter-row proof as 254, plus the two things
+  // that are these screens' own: the segmented Status control, and the deliberate
+  // ABSENCE of a row action on Collection Attempts.
+
+  // ---- ACRs: it lands ALREADY POPULATED, with no click ----
+  acrsCalls = 0
+  lastAcrsQuery = ''
+  await page.goto(BASE + ROUTES.acrs)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+
+  const qa = () => new URLSearchParams(lastAcrsQuery)
+  check('255 — ACRs queries on MOUNT (no Load button to press)', acrsCalls === 1, `${acrsCalls} calls`)
+  check(
+    '255 — …and it queries TODAY, as a pair, at the system cap',
+    qa().get('FromDate') === TODAY && qa().get('ToDate') === TODAY && qa().get('Limit') === '2000',
+    lastAcrsQuery,
+  )
+  check(
+    '255 — an unset ACR No#/collector is DROPPED, not sent as an empty string',
+    !lastAcrsQuery.includes('AcrNumber') && !lastAcrsQuery.includes('CollectorOperatorId'),
+    lastAcrsQuery,
+  )
+  // The headline: All is the CLIENT's word for "no filter" and never travels.
+  check(
+    '255 — Status = All sends NOTHING: no Status param at all',
+    !lastAcrsQuery.includes('Status'),
+    lastAcrsQuery,
+  )
+  check('255 — ACR rows are on screen without a click', (await page.locator('.ag-row').count()) > 0)
+  check(
+    '255 — the floating filter row is visible on arrival (inverting BBY’s default)',
+    (await page.locator('.ag-floating-filter').count()) > 0,
+  )
+
+  // ---- client paging at 50 over the WHOLE result ----
+  const acrSummary = await page.locator('.ag-paging-row-summary-panel').innerText()
+  check('255 — ACRs pages at 50 with the whole 213 present', /1 to 50 of 213/.test(acrSummary), acrSummary)
+  await page.locator('.ag-paging-button[data-ref="btNext"]').click()
+  const acrSummary2 = await page.locator('.ag-paging-row-summary-panel').innerText()
+  check(
+    '255 — Next walks the SAME fetched result, with no second request',
+    /51 to 100 of 213/.test(acrSummary2) && acrsCalls === 1,
+    `${acrSummary2} · ${acrsCalls} calls`,
+  )
+  await page.locator('.ag-paging-button[data-ref="btFirst"]').click()
+
+  // ---- the per-column filter row narrows the WHOLE result ----
+  const byCollector = await filterBy('collectorName', 'Collector 4471')
+  check(
+    '255 — a per-column filter narrows all 213, not the 50 on screen',
+    byCollector.total > 0 && byCollector.total < 213,
+    byCollector.summary,
+  )
+  await filterBy('collectorName', '')
+
+  // ---- the sentinels: a still-OPEN ACR shows blanks, not 0001-01-01 and not 0 ----
+  const acrHeaders = await headerText()
+  check(
+    '255 — money states NO currency in the header (the ACR row carries none)',
+    acrHeaders.includes('Net Collected') && !acrHeaders.includes('Net Collected ('),
+    acrHeaders.slice(0, 200),
+  )
+  const acrCash = page.locator('.ag-row[row-index="0"] [col-id="netCollectedTotal"]')
+  check(
+    '255 — …and still groups to two decimals',
+    (await acrCash.innerText()).trim() === '143,910.75',
+    await acrCash.innerText(),
+  )
+  const acrNullCard = page.locator('.ag-row[row-index="1"] [col-id="cardTotalSum"]')
+  check(
+    '255 — a MISSING figure renders blank, not 0.00',
+    (await acrNullCard.innerText()).trim() === '',
+    JSON.stringify(await acrNullCard.innerText()),
+  )
+  const acrZeroCard = page.locator('.ag-row[row-index="2"] [col-id="cardTotalSum"]')
+  check(
+    '255 — …and a real zero still reads 0.00',
+    (await acrZeroCard.innerText()).trim() === '0.00',
+    await acrZeroCard.innerText(),
+  )
+
+  // ---- the More-columns toggle reveals the forensic tail ----
+  check('255 — the ACR forensic tail is folded away on arrival', !acrHeaders.includes('Deposit No#'))
+  await page.getByRole('button', { name: 'More columns' }).click()
+  const acrOpened = (await allHeaders()).join(' | ')
+  check(
+    '255 — More columns reveals the ACR tail (Created, Deposit No#, Deposit Id)',
+    acrOpened.includes('Created') && acrOpened.includes('Deposit No#') && acrOpened.includes('Deposit Id'),
+    acrOpened.slice(0, 260),
+  )
+  check('255 — and nothing was dropped to make room', acrOpened.includes('ACR No#') && acrOpened.includes('Net Collected'))
+
+  // Row 0 is the still-OPEN ACR: Closed and Deposit No# are BLANK, not sentinels.
+  const openClosed = page.locator('.ag-row[row-index="0"] [col-id="closedAt"]')
+  check(
+    '255 — a still-OPEN ACR shows a blank Closed, not 0001-01-01',
+    (await openClosed.innerText()).trim() === '',
+    JSON.stringify(await openClosed.innerText()),
+  )
+  const openDeposit = page.locator('.ag-row[row-index="0"] [col-id="depositNumber"]')
+  check(
+    '255 — an unbanked ACR shows a blank Deposit No#, not 0',
+    (await openDeposit.innerText()).trim() === '',
+    JSON.stringify(await openDeposit.innerText()),
+  )
+  await page.getByRole('button', { name: 'More columns' }).click()
+
+  // ---- the segmented Status control drives a REAL re-query ----
+  const statusButton = (name) => page.getByRole('radio', { name, exact: true })
+  check('255 — the Status control offers exactly three states', (await page.getByRole('radio').count()) === 3)
+  check('255 — and it lands on All', (await statusButton('All').getAttribute('aria-checked')) === 'true')
+
+  const callsBeforeStatus = acrsCalls
+  await statusButton('Open').click()
+  await page.waitForTimeout(300)
+  check(
+    '255 — choosing a status is a DRAFT edit: it fires no query on its own',
+    acrsCalls === callsBeforeStatus,
+    `${acrsCalls} vs ${callsBeforeStatus}`,
+  )
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '255 — Search promotes it, and OPEN travels as the server’s own string',
+    acrsCalls === callsBeforeStatus + 1 && qa().get('Status') === 'OPEN',
+    lastAcrsQuery,
+  )
+  check('255 — …and the Filtered chip lights', (await page.getByText('Filtered').count()) > 0)
+
+  await statusButton('Closed').click()
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check('255 — CLOSED re-queries too', qa().get('Status') === 'CLOSED', lastAcrsQuery)
+
+  await statusButton('All').click()
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '255 — going back to All REMOVES the param rather than sending "All"',
+    !lastAcrsQuery.includes('Status'),
+    lastAcrsQuery,
+  )
+
+  // ---- the ACR No# box, and Reset ----
+  await page.getByPlaceholder('Number').fill('41')
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '255 — the ACR No# travels as AcrNumber, never as AcrId (which is the ULID)',
+    qa().get('AcrNumber') === '41' && !lastAcrsQuery.includes('AcrId'),
+    lastAcrsQuery,
+  )
+  await page.getByRole('button', { name: 'Reset' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '255 — Reset returns to today with the status and the number cleared',
+    qa().get('FromDate') === TODAY && !lastAcrsQuery.includes('AcrNumber') && !lastAcrsQuery.includes('Status'),
+    lastAcrsQuery,
+  )
+  check('255 — and the Filtered chip goes with it', (await page.getByText('Filtered').count()) === 0)
+
+  // ---- the ACR cap banner: reached, not merely large ----
+  acrRows = makeAcrRows(1999)
+  await page.goto(BASE + ROUTES.acrs)
+  await page.waitForLoadState('networkidle')
+  check('255 — 1,999 ACRs is merely large: NO banner', !/reached the 2,000-row system cap/.test(await mainText()))
+  acrRows = makeAcrRows(2000)
+  await page.goto(BASE + ROUTES.acrs)
+  await page.waitForLoadState('networkidle')
+  check('255 — 2,000 ACRs REACHED the cap: the amber banner fires', /reached the 2,000-row system cap/.test(await mainText()))
+
+  acrRows = []
+  await page.goto(BASE + ROUTES.acrs)
+  await page.waitForLoadState('networkidle')
+  check('255 — an empty period reads as empty, not as an error', (await mainText()).includes('No ACRs in this period'))
+  acrRows = makeAcrRows(213)
+
+  // ---- Collection Attempts: the same template, minus the row action ----
+  attemptsCalls = 0
+  lastAttemptsQuery = ''
+  await page.goto(BASE + ROUTES.attempts)
+  await page.waitForLoadState('networkidle')
+  await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+
+  const qt = () => new URLSearchParams(lastAttemptsQuery)
+  check('255 — Attempts queries on MOUNT', attemptsCalls === 1, `${attemptsCalls} calls`)
+  check(
+    '255 — …and it queries TODAY, as a pair, at the system cap',
+    qt().get('FromDate') === TODAY && qt().get('ToDate') === TODAY && qt().get('Limit') === '2000',
+    lastAttemptsQuery,
+  )
+  check(
+    '255 — an unset store/collector/reason is DROPPED, not sent empty',
+    !lastAttemptsQuery.includes('StoreCode') &&
+      !lastAttemptsQuery.includes('CollectorStaffId') &&
+      !lastAttemptsQuery.includes('ReasonCode'),
+    lastAttemptsQuery,
+  )
+  check(
+    '255 — the floating filter row is visible on arrival',
+    (await page.locator('.ag-floating-filter').count()) > 0,
+  )
+
+  const attemptSummary = await page.locator('.ag-paging-row-summary-panel').innerText()
+  check('255 — Attempts pages at 50 with the whole 174 present', /1 to 50 of 174/.test(attemptSummary), attemptSummary)
+  await page.locator('.ag-paging-button[data-ref="btNext"]').click()
+  const attemptSummary2 = await page.locator('.ag-paging-row-summary-panel').innerText()
+  check(
+    '255 — Next walks the SAME fetched result, with no second request',
+    /51 to 100 of 174/.test(attemptSummary2) && attemptsCalls === 1,
+    `${attemptSummary2} · ${attemptsCalls} calls`,
+  )
+  await page.locator('.ag-paging-button[data-ref="btFirst"]').click()
+
+  const byStoreCode = await filterBy('storeCode', '1003')
+  check(
+    '255 — a per-column filter narrows all 174, not the 50 on screen',
+    byStoreCode.total > 0 && byStoreCode.total < 174,
+    byStoreCode.summary,
+  )
+  await filterBy('storeCode', '')
+
+  const attemptHeaders = await headerText()
+  check('255 — the Attempts forensic tail is folded away on arrival', !attemptHeaders.includes('Shift Id'))
+  await page.getByRole('button', { name: 'More columns' }).click()
+  const attemptOpened = (await allHeaders()).join(' | ')
+  check(
+    '255 — More columns reveals the tail (Reason Detail, Business Date, Shift Id, Collector Id)',
+    ['Reason Detail', 'Business Date', 'Shift Id', 'Collector Id'].every((h) => attemptOpened.includes(h)),
+    attemptOpened.slice(0, 260),
+  )
+  check('255 — and nothing was dropped to make room', attemptOpened.includes('Attempt Time') && attemptOpened.includes('Store Code'))
+  await page.getByRole('button', { name: 'More columns' }).click()
+
+  // ⚠️ THE DELIBERATE ABSENCE. An attempt is immutable evidence, not a voucher —
+  // the WPF withholds a row action on purpose and so does this screen. Asserted
+  // rather than assumed, because "we forgot" and "we decided not to" look
+  // identical in a screenshot.
+  check(
+    '255 — Collection Attempts exposes NO row action: no button inside any row',
+    (await page.locator('.ag-center-cols-container .ag-row button').count()) === 0,
+  )
+  check(
+    '255 — …and no action column either',
+    (await page.locator('[col-id="actions"]').count()) === 0,
+  )
+  const urlBeforeRowClick = page.url()
+  await page.locator('.ag-row[row-index="0"] [col-id="storeCode"]').click()
+  await page.waitForTimeout(400)
+  check(
+    '255 — …and clicking a row goes nowhere, opens nothing',
+    page.url() === urlBeforeRowClick && (await page.locator('[role="dialog"]').count()) === 0,
+    page.url(),
+  )
+
+  // ---- the reason filter, Search/Reset, and the cap ----
+  const callsBeforeReason = attemptsCalls
+  await page.getByPlaceholder('Reason code').fill('OTHER')
+  await page.waitForTimeout(300)
+  check(
+    '255 — typing a reason code fires NO query (a draft is not a search)',
+    attemptsCalls === callsBeforeReason,
+    `${attemptsCalls} vs ${callsBeforeReason}`,
+  )
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '255 — Search promotes it under the endpoint’s own ReasonCode name',
+    qt().get('ReasonCode') === 'OTHER',
+    lastAttemptsQuery,
+  )
+  check('255 — …and the Filtered chip lights', (await page.getByText('Filtered').count()) > 0)
+  await page.getByRole('button', { name: 'Reset' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '255 — Reset returns to today with the reason cleared',
+    qt().get('FromDate') === TODAY && !lastAttemptsQuery.includes('ReasonCode'),
+    lastAttemptsQuery,
+  )
+
+  attemptRows = makeAttemptRows(2000)
+  await page.goto(BASE + ROUTES.attempts)
+  await page.waitForLoadState('networkidle')
+  check('255 — 2,000 attempts REACHED the cap: the amber banner fires', /reached the 2,000-row system cap/.test(await mainText()))
+  attemptRows = []
+  await page.goto(BASE + ROUTES.attempts)
+  await page.waitForLoadState('networkidle')
+  check('255 — an empty period reads as empty, not as an error', (await mainText()).includes('No attempts in this period'))
+  attemptRows = makeAttemptRows(174)
 
   // Scenarios 4 and 5 intentionally 403/500 CollectionWeb/Access, which the browser logs
   // as a resource-load failure — expected, not an app fault. Filter them out.

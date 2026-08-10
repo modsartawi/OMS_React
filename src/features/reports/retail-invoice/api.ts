@@ -12,11 +12,15 @@
  * choice about a two-process manual setup and not a statement that anything here
  * is unbuilt.
  *
- * Only `Access` lives here today. `Search` (264) and `Download` (265) join it in
- * their own slices.
+ * `Access` (263) and `Search` (264) live here today. `Download` (265) joins them
+ * in its own slice.
  */
 import { api } from '@/core/api'
-import type { RetailInvoiceAccessResult } from '@/core/models/retail-invoice'
+import type {
+  InvoiceSearchResult,
+  RetailInvoiceAccessResult,
+} from '@/core/models/retail-invoice'
+import type { InvoiceSearchQuery } from './invoice-criteria'
 
 /**
  * The ONE cache key the Reports nav leaf and the screen's own in-page guard
@@ -78,5 +82,28 @@ export const retailInvoiceApi = {
    */
   access(): Promise<RetailInvoiceAccessResult> {
     return api.get<RetailInvoiceAccessResult>('RetailInvoice/Access')
+  },
+
+  /**
+   * `GET RetailInvoice/Search?trxNumber=…[&storeCode=…]` → the candidate list
+   * (contract §1, ticket 264).
+   *
+   * The params are built by `invoice-criteria.ts`, which cannot produce a blank
+   * `trxNumber` — so `400 TRX_NUMBER_REQUIRED` stays the server's defence rather
+   * than a state this screen can reach.
+   *
+   * 🚩 **No matches is a `200` with `rows: []`, never a 404**, and a single match
+   * is still a **one-row list** rather than a redirect or an automatic download:
+   * the client parses exactly one success shape (contract D14, re-confirmed at
+   * 988). ⚠️ And the list is **unfiltered** — cash clearances, training and
+   * suspended sales come back with everything else, deliberately (owner ruling,
+   * 988), which is why `trxType`/`trxStatus` are columns.
+   *
+   * ⚠️ Grant-gated server-side, and a refusal here is a **bare 403 with no body
+   * at all** — no envelope, no `errorCode` — so the screen branches on
+   * `statusCode === 403`, not on a code. The access probe only hides the menu.
+   */
+  search(params: InvoiceSearchQuery): Promise<InvoiceSearchResult> {
+    return api.get<InvoiceSearchResult>('RetailInvoice/Search', params)
   },
 }

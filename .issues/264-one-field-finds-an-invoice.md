@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 261
 blocked-by: 263
 ---
@@ -98,19 +98,60 @@ download anything.
 
 ## Proof
 
-- [ ] `npm test` — `invoice-criteria.ts`: draft→query promotion, trimming, empty `storeCode` dropped
+- [x] `npm test` — `invoice-criteria.ts`: draft→query promotion, trimming, empty `storeCode` dropped
       (not `''`), the local required-field refusal, and Reset returning the landing state.
-- [ ] `npm test` — `invoice-columns.ts`: the enum prettifier over a known code, and 🔑 **over an
+      — 20 assertions in `invoice-criteria.test.ts`. 🚩 The refusal has exactly **one** reading:
+      `buildInvoiceSearchParams` returns `null` for a blank number, and a `canSearch` predicate
+      beside it was written and then **deleted** at review (a second reading of the same rule that
+      nothing called). `sameQuery` joined it for the retry arm below.
+- [x] `npm test` — `invoice-columns.ts`: the enum prettifier over a known code, and 🔑 **over an
       unknown code arriving as a number** — assert it renders as that number, not blank. Money via
       `@/core/money` including a 3 dp currency; a count not going through it.
-- [ ] `npm run typecheck` proves the fixtures against the pasted contract types — break one field's
+      — 16 assertions. The prettifier is tested against the **real `reports.json` bundle** (not a
+      key-echoing stub), so the arm proves both the fallback and that the keys exist; `'37'` and
+      `'742'` render as themselves at the helper **and** at the cell. `itemLinesCount` has no
+      `valueFormatter` at all, which is the assertion. `formatMoneyIn(1.5, 'BHD') === '1.500'` pins
+      that the amount goes through the currency-aware formatter — ⚠️ the wire carries **no
+      currency**, so an amount draws 2 dp today; logged in `.afk/HITL-264.md` for 266's §6.2 check.
+- [x] `npm run typecheck` proves the fixtures against the pasted contract types — break one field's
       type once and confirm typecheck fails (the fixture-drift guard).
-- [ ] `tools/invoice-drive.mjs` **extended** (not replaced), asserting all four states: landing ≠
+      — **Done, and it fails.** `itemLinesCount: 3` → `'3'` in `invoice-columns.test.ts`'s `ROW`
+      gave `error TS2322: Type 'string' is not assignable to type 'number'` at line 45; restored,
+      clean. Contract §2 is pasted verbatim as **one block** (`InvoiceCandidate`,
+      `InvoiceSearchResult`, `RetailInvoiceKey`) — field for field, doc comments included.
+- [x] `tools/invoice-drive.mjs` **extended** (not replaced), asserting all four states: landing ≠
       empty-result, `rows: []` reads as a successful "no invoice", a one-row result renders as a
       **list**, and a bare 403 reads as a refusal.
-- [ ] Drive asserts `trxType`/`trxStatus` are **visible without any toggle**, and that a
+      — **47/47**, up from 263's 19/19, scenarios 6–14 added to the same file. The bare 403 is
+      stubbed with **no body at all** (not through the `envelope()` helper), which is the arm's
+      whole point. 263's "no search box and no grid yet" check **inverted** rather than being
+      deleted — the toolbar is now asserted present, the grid still absent.
+- [x] Drive asserts `trxType`/`trxStatus` are **visible without any toggle**, and that a
       `CashClearance` row appears in the list at all (the search filters nothing).
-- [ ] `npm run lint` clean — no user-visible literal, no physical Tailwind utility.
+      — both, plus an unknown `documentType` of `'37'` rendering as `37` in the cell, no floating
+      filter, no pager (⚠️ `:visible` — AG Grid always renders a hidden paging panel), no export.
+- [x] `npm run lint` clean — no user-visible literal, no physical Tailwind utility.
+      — **475 boundaries** / 117 contrast pairs / 480 colour files with the same **4** documented
+      exclusions (no fifth). `npm test` 96 files / **1516 tests**; `npm run build` ✓.
+
+### Two `/code-review` findings, fixed in this slice
+
+- **A failed search could not be repeated.** The query key IS the params, so pressing Search again
+  on the same number was answered from cache — and with `retry:false` here and
+  `refetchOnWindowFocus:false` app-wide, a transient 500 left a live-looking dead button. Now
+  `sameQuery(params, appliedParams)` → `refetch()`. Driven.
+- **Emptying the number and searching left the previous rows on screen**, under a message saying
+  there was nothing to search — and 265 is about to hang a Download on those rows. The local
+  refusal now clears the issued query too. Driven.
+
+### One argued departure — 13 columns, not 14
+
+`trxTime` is **rendered inside the joined `Date / time` cell** rather than in a column of its own:
+spec 261 §Columns, its wireframe and the wave's own runner all say the two raw fields are "joined
+for display through `@/core/util/date-format`", and drawing the time twice was the only way to
+satisfy both readings literally. All **14 wire fields are still rendered** —
+`COLUMN_FIELDS ∪ JOINED_FIELDS ∪ NON_COLUMN_FIELDS === the wire row` is a test — and the join is a
+**string** join (`joinDayAndTime`), never a `Date`. Recorded in `.afk/HITL-264.md` §1.
 
 ## Boundaries
 

@@ -126,6 +126,28 @@ export function formatLogDateTime(value: string | null | undefined): string {
   )
 }
 
+/**
+ * Join a raw day and a raw time-of-day into one cell — `2026-08-04 14:22:13`.
+ *
+ * 🚩 **No `Date` is constructed, and that is the whole point.** The retail
+ * invoice rail sends `trxDate` (`yyyy-MM-dd`) and `trxTime` (`HH:mm:ss`) as two
+ * unformatted strings by estate convention (spec 261 / contract §6.1), and the
+ * pair already sorts lexically. Reconstructing an instant to render or compare
+ * against is how a client starts formatting — the drift the convention exists to
+ * prevent — so this is a string join and nothing more. Every other function in
+ * this module parses an ISO *instant*; this one deliberately does not, which is
+ * why it is spelled out rather than routed through `formatDateTime`.
+ *
+ * Either side missing degrades to the other alone, and both missing to blank: a
+ * receipt with no time is still a receipt with a date.
+ */
+export function joinDayAndTime(
+  day: string | null | undefined,
+  time: string | null | undefined,
+): string {
+  return [day?.trim(), time?.trim()].filter(Boolean).join(' ')
+}
+
 /** Parse a `yyyy-MM-dd` input value into a local Date; blank/invalid → null. */
 export function fromIsoDate(value: string | null | undefined): Date | null {
   if (!value) return null

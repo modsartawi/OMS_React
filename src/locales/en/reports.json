@@ -16,6 +16,64 @@
     "landing": {
       "title": "Nothing to show yet",
       "hint": "Enter a transaction number to find the invoice behind it."
+    },
+    "search": {
+      "trxNumber": "Transaction number",
+      "trxNumberPlaceholder": "e.g. 00114600051234",
+      "storeCode": "Store code",
+      "storeCodePlaceholder": "Optional",
+      "submit": "Search",
+      "reset": "Reset",
+      "required": "Enter a transaction number to search."
+    },
+    "loading": "Looking for that invoice…",
+    "empty": {
+      "title": "No invoice carries that number",
+      "hint": "Check the transaction number on the receipt, and clear the store code if you set one."
+    },
+    "capReached": "More than 50 invoices matched this number. A full transaction number should match one — check the number before trusting this list.",
+    "errors": {
+      "deniedTitle": "No access to invoices",
+      "deniedHint": "Your account does not hold the grant for invoices. Ask an administrator if you need it.",
+      "searchFailed": "That search could not be completed."
+    },
+    "columns": {
+      "storeCode": "Store",
+      "storeName": "Store name",
+      "machineCode": "Till",
+      "trxNumber": "Transaction number",
+      "receiptNumber": "Receipt",
+      "trxDateTime": "Date / time",
+      "trxType": "Type",
+      "trxStatus": "Status",
+      "documentType": "Document",
+      "amount": "Amount",
+      "itemLinesCount": "Lines",
+      "customerId": "Customer ID",
+      "customerName": "Customer"
+    },
+    "enums": {
+      "trxType": {
+        "Sales": "Sales",
+        "Return": "Return",
+        "CashClearance": "Cash clearance"
+      },
+      "trxStatus": {
+        "None": "None",
+        "Closed": "Closed",
+        "Training": "Training",
+        "Suspended": "Suspended",
+        "Posted": "Posted",
+        "ToBePrinted": "To be printed",
+        "LongSuspend": "Long suspend",
+        "Order": "Order"
+      },
+      "documentType": {
+        "Cash": "Cash",
+        "Credit": "Credit",
+        "Insurance": "Insurance",
+        "ECommerce": "E-commerce"
+      }
     }
   }
 }

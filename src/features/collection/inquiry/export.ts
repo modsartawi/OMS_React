@@ -12,6 +12,8 @@
 
 import type { GridApi } from 'ag-grid-community'
 
+import { downloadCsv } from '@/core/util/download-file'
+
 import {
   buildCollectionCsv,
   collectionCsvFileName,
@@ -55,27 +57,4 @@ export function exportGridToCsv<Row>(
 ): void {
   const contents = buildCollectionCsv(rowsForExport(api), columns, header)
   downloadCsv(collectionCsvFileName(screen, now), contents)
-}
-
-/**
- * Hand a finished CSV string to the browser as a download. Kept out of `csv.ts` so
- * the writer stays testable without a DOM. The anchor is parked in the document
- * and the object URL released a tick after the click — a synchronous revoke is
- * fine in Chrome but can abort the download elsewhere.
- *
- * 🚩 A near-copy of `ua-admin/export.ts`'s own `downloadCsv`, and copied rather
- * than imported **because a feature may not import a feature**
- * (`.claude/rules/feature-structure.md`). It graduates to `@/core` with the rest of
- * the CSV primitives when a third consumer lands, not before.
- */
-export function downloadCsv(fileName: string, contents: string): void {
-  const url = URL.createObjectURL(new Blob([contents], { type: 'text/csv;charset=utf-8' }))
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = fileName
-  anchor.style.display = 'none'
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 0)
 }

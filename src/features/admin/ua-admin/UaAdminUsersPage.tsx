@@ -14,10 +14,10 @@ import {
   ExportCancelledError,
   ExportRunawayError,
   collectAllRows,
-  downloadCsv,
   estimateWalkSeconds,
   needsConfirm,
 } from './export'
+import { downloadCsv } from '@/core/util/download-file'
 import { uaAdminApi } from './api'
 import GridPager from '@/core/ui/GridPager'
 import { clampToLastPageWhenCurrentPageEmpties, showsPager } from '@/core/ui/pager'

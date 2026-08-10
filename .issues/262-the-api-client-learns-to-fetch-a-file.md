@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 261
 blocked-by:
 ---
@@ -111,20 +111,42 @@ which is the other reason it goes first and alone.
 
 ## Proof
 
-- [ ] `npm test` — new pure tests for `Content-Disposition` parsing: both forms present (prefer
+- [x] `npm test` — new pure tests for `Content-Disposition` parsing: both forms present (prefer
       `filename*`), only plain, quoted, unquoted, **a `;` inside the quotes**, percent-encoded UTF-8,
-      header absent → `null`.
-- [ ] `npm test` — `apiErrorAttemptId` reads a top-level `attemptId`, and returns `null` for an
-      envelope without one and for a non-`ApiError` value.
-- [ ] `npm test` — the graduated `download-file` tests pass **unedited** at their new path.
-- [ ] `api.blob` returns the blob on 2xx and throws the **same** `ApiError` shape as `api.get` on
+      header absent → `null`. — `src/core/util/content-disposition.test.ts`, 11 cases.
+      **Mutation-checked**: replacing the quote-aware walk with `header.split(';')` fails exactly one
+      test — *"does not split on a ; INSIDE the quoted value"* (it reads `Invoice` and drops
+      ` final.pdf`), and nothing else. The gate is load-bearing; reverted.
+- [x] `npm test` — `apiErrorAttemptId` reads a top-level `attemptId`, and returns `null` for an
+      envelope without one and for a non-`ApiError` value. — `src/core/api.test.ts`, and it is read
+      off the envelope's top level, so an `errors[]`-digging reader would find nothing.
+- [x] `npm test` — the graduated `download-file` tests pass **unedited** at their new path.
+      ⚠ **Neither feature copy had any test to move**: the DOM half was deliberately parked outside
+      the pure CSV writers their suites cover (`ua-admin/export.test.ts` covers `collectAllRows` /
+      `needsConfirm` / `estimateWalkSeconds` only). So `src/core/util/download-file.test.ts` is
+      written *at* the new path instead, pinning the two things the move could lose — the anchor is
+      parked in the document before the click, and the revoke is **deferred**, not synchronous. Its
+      docblock says so. (Logged in `.afk/HITL-262.md`.)
+- [x] `api.blob` returns the blob on 2xx and throws the **same** `ApiError` shape as `api.get` on
       400 / coded refusal / 5xx — asserted against a stubbed `fetch`, including that a **bare 403
       with no body** yields `status: 403` and a `null` code (the case the screen must branch on).
-- [ ] `npm run typecheck`, `npm run lint`, `npm run build` all clean.
-- [ ] `git grep 'createObjectURL'` finds it in **`core/util/download-file.ts` only** — the two
-      feature copies are gone, not orphaned.
-- [ ] The existing CSV exports in `ua-admin` and `collection` still write a file: run
+      — 8 cases in `src/core/api.test.ts`, including 503-vs-504 kept apart with their codes and
+      `attemptId` on the 504 only, and that the call carries `credentials: 'same-origin'` +
+      `X-Web-Client: '1'`.
+- [x] `npm run typecheck`, `npm run lint`, `npm run build` all clean. — typecheck clean; `npm test`
+      93 files / 1473 tests; lint all three gates (465 boundaries, 117 contrast pairs, 470 colour
+      files with the same 4 documented exclusions — no fifth); build ✓.
+- [x] `git grep 'createObjectURL'` finds it in **`core/util/download-file.ts` only** — the two
+      feature copies are gone, not orphaned. — confirmed (`--untracked`, since the new file is not
+      yet in the index): `core/util/download-file.ts` + its own test, nothing under `features/`.
+- [x] The existing CSV exports in `ua-admin` and `collection` still write a file: run
       `tools/collection-drive.mjs` and confirm its export assertions are unchanged and green.
+      — **220/220**, every 258 export assertion green (all four screens' files, the BOM + `sep=`
+      line, the `="…"` wrappers, the Arabic collector name). `tools/ua-users-scale-drive.mjs` was run
+      too, since `ua-admin` is the other shipped feature touched: the whole-estate walk still writes
+      one 6,002-line file. It reports 83/85 — the two failures both assert the label "Activation
+      done", which the app renamed to "Authenticator active" at commit `8e5eca4`; **pre-existing
+      drive staleness in another feature, not this change** (logged in `.afk/HITL-262.md`).
 
 ## Boundaries
 

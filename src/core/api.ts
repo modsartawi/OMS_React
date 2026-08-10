@@ -2,6 +2,7 @@ import { toast } from 'sonner'
 import i18n from '@/core/i18n'
 import { navigateTo, currentPath } from '@/core/nav'
 import { useSession } from '@/core/session'
+import { filenameFromDisposition } from '@/core/util/content-disposition'
 
 // Universal SIS.Api envelope (PRD §2.2)
 export interface GeneralErrorResponse {
@@ -15,6 +16,25 @@ interface HttpGeneralResponse<T> {
   message: string
   errors: GeneralErrorResponse[]
   data: T
+  /**
+   * The render rail's support handle (ticket 262) — the row id in the HQ
+   * `ReportRenderAttempt` log, present on a 422/504 (the render was attempted and
+   * journalled) and absent when nothing was attempted.
+   *
+   * 🚩 A **top-level sibling** of `message`/`errors`, not an entry inside
+   * `errors[]`. It lives on the shared envelope rather than in the feature that
+   * reads it because it is SIS.Api's field, not one screen's — and there is no
+   * separate audit table, so it is the only thing a user can quote in a support
+   * conversation.
+   */
+  attemptId?: string
+}
+
+/** A file fetched through `api.blob` — the body, and the name the server gave it. */
+export interface FileResponse {
+  blob: Blob
+  /** From `Content-Disposition`. Null when the header is absent or unparseable. */
+  filename: string | null
 }
 
 export type ApiErrorKind = 'auth' | 'business' | 'server' | 'network' | 'unknown'
@@ -37,6 +57,12 @@ export class ApiError extends Error {
      * feature's to know, and `core/` must not learn one feature's codes.
      */
     public data: unknown = null,
+    /**
+     * The envelope's top-level `attemptId` when the refusal carried one, else
+     * null. Read it with `apiErrorAttemptId` rather than reaching in — the
+     * companion reader to `apiErrorCode`/`apiErrorKind`, for the same reason.
+     */
+    public attemptId: string | null = null,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -51,6 +77,22 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
  *  SYSTEM_ROLE, IN_USE, DUPLICATE_NAME), or null when the error carries none. */
 export function apiErrorCode(err: unknown): string | null {
   return err instanceof ApiError ? (err.details[0]?.errorCode ?? null) : null
+}
+
+/**
+ * The render attempt this failure was journalled under (SIS.Api's `attemptId`),
+ * or null when the failure carried none — and on the render rail it is carried on
+ * a 422 and a 504 only, because those are the statuses where a render was
+ * actually attempted. Null too for any value that is not an `ApiError` at all.
+ *
+ * The reader does not police which statuses may carry one: it reports whatever
+ * the envelope held, on whatever arm it arrived.
+ *
+ * It is the only support handle a user can quote: every render attempt writes one
+ * row in the HQ `ReportRenderAttempt` log, and there is no separate audit.
+ */
+export function apiErrorAttemptId(err: unknown): string | null {
+  return err instanceof ApiError ? err.attemptId : null
 }
 
 /**
@@ -104,7 +146,19 @@ function handle401(requestPath: string): ApiError {
   return new ApiError('auth', message, 401)
 }
 
-async function request<T>(path: string, init: RequestInit): Promise<T> {
+/**
+ * The wire half every call shares: `BASE` + the leading-slash-stripped path,
+ * `credentials: 'same-origin'`, the `X-Web-Client` CSRF header the cookie branch
+ * of SIS.Api's `ApiKeyEndpointFilter` requires on **every** cookie-authenticated
+ * request, and the 401 redirect.
+ *
+ * ⚠ `same-origin`, not `include`: vite proxies `/api` → SIS.Api and prod is
+ * same-origin under IIS, so every call already *is* same-origin.
+ *
+ * Extracted at ticket 262 so `api.blob` reaches the same door as `request`
+ * rather than hand-rolling a `fetch` beside it (`api-envelope`).
+ */
+async function send(path: string, init: RequestInit): Promise<Response> {
   const cleanPath = path.replace(/^\//, '')
   let res: Response
   try {
@@ -122,21 +176,56 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   }
 
   if (res.status === 401) throw handle401(cleanPath)
+  return res
+}
 
-  let body: HttpGeneralResponse<T> | null = null
+/** The envelope a non-2xx carried, or null when the body was not JSON at all. */
+async function readEnvelope<T>(res: Response): Promise<HttpGeneralResponse<T> | null> {
   try {
-    body = (await res.json()) as HttpGeneralResponse<T>
+    return (await res.json()) as HttpGeneralResponse<T>
   } catch {
-    /* non-JSON body — fall through to status mapping */
+    /* non-JSON body — the caller falls through to status mapping */
+    return null
   }
+}
 
+/**
+ * The refusal an envelope with `success:false` describes — one construction, used
+ * everywhere one is built (ticket 262), so the message fallback, the code list,
+ * the refusal's own `data` and its `attemptId` cannot start disagreeing between
+ * the three paths that reach it.
+ *
+ * `statusCode` is the caller's because the two paths differ on it by a hair the
+ * refactor must not flatten: the ok-path takes the envelope's own `statusCode`
+ * verbatim, the failure paths fall back to the response's when it is absent.
+ */
+function businessFromEnvelope<T>(body: HttpGeneralResponse<T>, statusCode: number): ApiError {
+  return new ApiError(
+    'business',
+    body.message || i18n.t('common:errors.notSuccessful'),
+    statusCode,
+    body.errors ?? [],
+    body.data ?? null,
+    body.attemptId ?? null,
+  )
+}
+
+/**
+ * The failure tail, shared by `request` and `requestBlob` (ticket 262): a non-2xx
+ * response plus whatever envelope it carried, mapped to the one `ApiError` the
+ * whole app branches on. Extracted rather than copied — the 400 arm, the
+ * coded-refusal arm and the `>= 500` arm have to behave identically on both
+ * paths, because the download's error table is mostly the same table.
+ */
+function failureFromEnvelope<T>(res: Response, body: HttpGeneralResponse<T> | null): ApiError {
   if (res.status === 400)
-    throw new ApiError(
+    return new ApiError(
       'business',
       body?.message || i18n.t('common:errors.rejected'),
       400,
       body?.errors ?? [],
       body?.data ?? null,
+      body?.attemptId ?? null,
     )
   // A non-2xx that still carries the SIS.Api envelope with success=false is a mapped
   // business outcome — the AuthzAdminWeb family answers guard denials (403), unknown
@@ -151,31 +240,76 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
   // into "something unexpected happened". The error CODE is what admits a 5xx
   // here: a genuine crash carries no `errorCode` and still reads as a server
   // fault below, exactly as it did before.
-  if (!res.ok) {
-    const coded = body?.success === false && !!body.errors?.[0]?.errorCode
-    if (body && body.success === false && (res.status < 500 || coded))
-      throw new ApiError(
-        'business',
-        body.message || i18n.t('common:errors.notSuccessful'),
-        body.statusCode || res.status,
-        body.errors ?? [],
-        body.data ?? null,
-      )
-    if (res.status >= 500) throw new ApiError('server', i18n.t('common:errors.server'), res.status)
-    throw new ApiError('unknown', i18n.t('common:errors.unexpected', { status: res.status }), res.status)
-  }
+  const coded = body?.success === false && !!body.errors?.[0]?.errorCode
+  if (body && body.success === false && (res.status < 500 || coded))
+    return businessFromEnvelope(body, body.statusCode || res.status)
+  if (res.status >= 500)
+    return new ApiError(
+      'server',
+      i18n.t('common:errors.server'),
+      res.status,
+      [],
+      null,
+      body?.attemptId ?? null,
+    )
+  return new ApiError(
+    'unknown',
+    i18n.t('common:errors.unexpected', { status: res.status }),
+    res.status,
+    [],
+    null,
+    body?.attemptId ?? null,
+  )
+}
+
+async function request<T>(path: string, init: RequestInit): Promise<T> {
+  const res = await send(path, init)
+  const body = await readEnvelope<T>(res)
+
+  if (!res.ok) throw failureFromEnvelope(res, body)
+
   if (body === null)
     throw new ApiError('unknown', i18n.t('common:errors.unexpected', { status: res.status }), res.status)
 
-  if (!body.success)
-    throw new ApiError(
-      'business',
-      body.message || i18n.t('common:errors.notSuccessful'),
-      body.statusCode,
-      body.errors ?? [],
-      body.data ?? null,
-    )
+  if (!body.success) throw businessFromEnvelope(body, body.statusCode)
   return body.data
+}
+
+/**
+ * A file off the same door (ticket 262).
+ *
+ * 🔑 **Success and failure read different body types off the same response.** A
+ * 2xx is the raw bytes — `application/pdf`, not an envelope, so `res.json()`
+ * would throw — while every failure *is* enveloped and goes through the shared
+ * `failureFromEnvelope`, producing the identical `ApiError` a `api.get` would
+ * have produced at that status.
+ *
+ * This exists because `request<T>` always calls `res.json()`, so there is no way
+ * to reach a file through it — and because a browser navigation (`<a href>`,
+ * `window.open`) cannot send the `X-Web-Client` header the cookie branch
+ * requires, so a plain download link answers 401.
+ */
+async function requestBlob(path: string): Promise<FileResponse> {
+  const res = await send(path, { method: 'GET' })
+
+  if (!res.ok) throw failureFromEnvelope(res, await readEnvelope<unknown>(res))
+
+  // 🚩 A 2xx that came back as JSON is a refusal wearing a success status — the
+  // estate's envelope answers some business outcomes with `200 success:false`,
+  // and `request` has always mapped that (below). Without this the envelope would
+  // be saved to disk as the "PDF", which fails silently and much later. Keyed on
+  // the content type rather than on sniffing the bytes, so it can never fire on
+  // an actual `application/pdf`.
+  if (res.headers.get('Content-Type')?.includes('json')) {
+    const body = await readEnvelope<unknown>(res)
+    if (body && !body.success) throw businessFromEnvelope(body, body.statusCode || res.status)
+    throw new ApiError('unknown', i18n.t('common:errors.unexpected', { status: res.status }), res.status)
+  }
+
+  return {
+    blob: await res.blob(),
+    filename: filenameFromDisposition(res.headers.get('Content-Disposition')),
+  }
 }
 
 /** Query params: null/undefined/'' entries are dropped entirely (PRD §5.2). */
@@ -197,6 +331,13 @@ export const api = {
   // presence heartbeat write. Kept optional so every existing caller is untouched.
   get<T>(path: string, params?: Record<string, unknown>, headers?: Record<string, string>): Promise<T> {
     return request<T>(path + buildQuery(params), { method: 'GET', headers })
+  },
+  // A file rather than an envelope — the same base, credentials, CSRF header and
+  // 401 redirect as `get`, but the 2xx body is read with `res.blob()` and the
+  // name comes off `Content-Disposition`. GET-only: the rail's downloads are
+  // GETs, and a body-bearing binary request is a shape to add when one exists.
+  blob(path: string, params?: Record<string, unknown>): Promise<FileResponse> {
+    return requestBlob(path + buildQuery(params))
   },
   post<T>(path: string, body: unknown): Promise<T> {
     return request<T>(path, { method: 'POST', body: JSON.stringify(body) })

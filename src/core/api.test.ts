@@ -13,7 +13,7 @@
  * mid-call.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, api, apiErrorCode } from './api'
+import { ApiError, api, apiErrorAttemptId, apiErrorCode } from './api'
 
 /** One `fetch` answer — the SIS.Api envelope verbatim, at whatever status. */
 const answer = (status: number, body: unknown) =>
@@ -74,5 +74,135 @@ describe('a non-2xx carrying the envelope', () => {
       expect(err.kind, `status ${status}`).toBe('business')
       expect(apiErrorCode(err)).toBe('SOME_RULE')
     }
+  })
+})
+
+/**
+ * `attemptId` — the render rail's support handle (ticket 262). A **top-level
+ * sibling** of `message`/`errors`, so a reader that dug through `errors[]` would
+ * find nothing; present on 422/504 and absent everywhere else.
+ */
+describe('apiErrorAttemptId', () => {
+  it('reads the envelope-level attemptId off a refusal that carried one', async () => {
+    const err = await failing(422, { ...envelope(422, 'RENDER_FAILED'), attemptId: '01J8ZC9K3M7Q' })
+    expect(apiErrorAttemptId(err)).toBe('01J8ZC9K3M7Q')
+  })
+
+  it('is null for a refusal without one, and for a value that is not an ApiError', async () => {
+    expect(apiErrorAttemptId(await failing(503, envelope(503, 'RENDERER_UNAVAILABLE')))).toBeNull()
+    expect(apiErrorAttemptId(new Error('a plain bug'))).toBeNull()
+    expect(apiErrorAttemptId(null)).toBeNull()
+  })
+})
+
+/**
+ * `api.blob` — the binary door (ticket 262). Its whole subject is that **success
+ * and failure read different body types off the same response**: a 2xx is raw
+ * bytes, and every failure is the envelope `api.get` already maps.
+ */
+describe('api.blob', () => {
+  /** One `fetch` answer carrying a file rather than an envelope. */
+  const fileAnswer = (blob: Blob, disposition: string | null) =>
+    vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      headers: new Headers(disposition ? { 'Content-Disposition': disposition } : {}),
+      blob: async () => blob,
+      json: async () => {
+        throw new SyntaxError('the body is a PDF, not JSON')
+      },
+    } as unknown as Response)
+
+  it('returns the bytes and the server-given name on a 2xx', async () => {
+    const pdf = new Blob(['%PDF-1.4'], { type: 'application/pdf' })
+    const fetchStub = fileAnswer(pdf, 'attachment; filename="Invoice-P001-01-00114600051234.pdf"')
+    vi.stubGlobal('fetch', fetchStub)
+
+    const file = await api.blob('RetailInvoice/Download', {
+      storeCode: 'P001',
+      machineCode: '01',
+      trxNumber: '00114600051234',
+    })
+
+    expect(file.blob).toBe(pdf)
+    expect(file.filename).toBe('Invoice-P001-01-00114600051234.pdf')
+    // The same door as `get`: query params on the URL, the CSRF header the cookie
+    // branch requires, and same-origin credentials.
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('RetailInvoice/Download?storeCode=P001&machineCode=01&trxNumber=00114600051234')
+    expect(init.credentials).toBe('same-origin')
+    expect((init.headers as Record<string, string>)['X-Web-Client']).toBe('1')
+  })
+
+  it('leaves the filename null when the response names none', async () => {
+    vi.stubGlobal('fetch', fileAnswer(new Blob(['%PDF-1.4']), null))
+    expect((await api.blob('RetailInvoice/Download')).filename).toBeNull()
+  })
+
+  // A refusal wearing a success status — the estate answers some business outcomes
+  // with `200 success:false`, and saving THAT to disk as the "PDF" is a failure
+  // nobody sees until they open the file.
+  it('refuses a 2xx that came back as a JSON envelope rather than bytes', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        status: 200,
+        ok: true,
+        headers: new Headers({ 'Content-Type': 'application/json; charset=utf-8' }),
+        json: async () => ({ ...envelope(200, 'RENDER_FAILED'), attemptId: '01J8ZE' }),
+        blob: async () => new Blob(['{"success":false}']),
+      } as unknown as Response),
+    )
+
+    const err = await api.blob('RetailInvoice/Download').catch((e: unknown) => e as ApiError)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(apiErrorCode(err)).toBe('RENDER_FAILED')
+    expect(apiErrorAttemptId(err)).toBe('01J8ZE')
+  })
+
+  const failingBlob = async (status: number, body: unknown): Promise<ApiError> => {
+    vi.stubGlobal('fetch', answer(status, body))
+    try {
+      await api.blob('RetailInvoice/Download')
+    } catch (err) {
+      return err as ApiError
+    }
+    throw new Error('expected a throw')
+  }
+
+  it('throws the same ApiError shape as api.get on a coded refusal', async () => {
+    const err = await failingBlob(422, { ...envelope(422, 'RENDER_FAILED'), attemptId: '01J8ZC9K3M7Q' })
+    expect(err.kind).toBe('business')
+    expect(apiErrorCode(err)).toBe('RENDER_FAILED')
+    expect(err.statusCode).toBe(422)
+    expect(apiErrorAttemptId(err)).toBe('01J8ZC9K3M7Q')
+  })
+
+  it('keeps 503 and 504 apart, both as their own coded refusals', async () => {
+    const unavailable = await failingBlob(503, envelope(503, 'RENDERER_UNAVAILABLE'))
+    const timeout = await failingBlob(504, { ...envelope(504, 'RENDER_TIMEOUT'), attemptId: '01J8ZD' })
+    expect(apiErrorCode(unavailable)).toBe('RENDERER_UNAVAILABLE')
+    expect(apiErrorCode(timeout)).toBe('RENDER_TIMEOUT')
+    expect(apiErrorAttemptId(unavailable)).toBeNull()
+    expect(apiErrorAttemptId(timeout)).toBe('01J8ZD')
+  })
+
+  it('is a business outcome at 400, exactly as api.get is', async () => {
+    const err = await failingBlob(400, envelope(400, 'INVALID_KEY'))
+    expect(err.kind).toBe('business')
+    expect(apiErrorCode(err)).toBe('INVALID_KEY')
+  })
+
+  it('is a server fault on an uncoded 5xx', async () => {
+    expect((await failingBlob(500, envelope(500, null))).kind).toBe('server')
+  })
+
+  // 🚩 The case the invoice screen has to branch on: the grant refusal on this
+  // rail is a BARE 403 — no envelope, no errorCode — so the code is null and only
+  // the status says what happened.
+  it('surfaces a bare 403 with no body at all as status 403 and a null code', async () => {
+    const err = await failingBlob(403, 'not json at all')
+    expect(err.statusCode).toBe(403)
+    expect(apiErrorCode(err)).toBeNull()
   })
 })

@@ -25,6 +25,13 @@ import loy from '@/locales/en/loy.json'
 // screens and both documents share it, so every later slice ADDS keys here rather
 // than minting a second namespace or re-registering this one.
 import collection from '@/locales/en/collection.json'
+// 🚩 `reports`, not `retail-invoice` — the AREA's name rather than the feature's,
+// and the one deliberate departure from "namespace == feature name" in this wave
+// (spec 261, ticket 263). The second report screen JOINS this namespace instead of
+// minting another, so every later slice ADDS keys to `reports.json` and must not
+// re-register it here. An unregistered namespace renders raw keys to users and no
+// gate catches it, which is why this registration lands in the area's first slice.
+import reports from '@/locales/en/reports.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -32,7 +39,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'reports'],
   resources: {
     en: {
       common,
@@ -54,6 +61,7 @@ i18n.use(initReactI18next).init({
       authorizations,
       loy,
       collection,
+      reports,
     },
   },
   interpolation: { escapeValue: false },

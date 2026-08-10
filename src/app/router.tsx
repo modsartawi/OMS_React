@@ -275,6 +275,22 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/collection/inquiry/CollectionAttemptsPage')).default,
         }),
       },
+      // The Reports area (spec 261, ticket 263) — a new top-level area at
+      // `/reports/*`, one feature behind ONE `RetailInvoice/Access` probe. The
+      // area is the point as much as the screen is: the render rail was designed
+      // reusable (1042 D1), so the folder that will hold the second report screen
+      // is worth creating with the first.
+      //
+      // 🚩 The Page carries its OWN in-page guard on the SAME probe key the nav
+      // leaf reads. The nav merely hides; a hand-typed URL is refused by the
+      // screen's backstop here and by the endpoint's grant filter — a bare 403
+      // with no body at all, which is the real boundary.
+      {
+        path: 'reports/invoice',
+        lazy: async () => ({
+          Component: (await import('@/features/reports/retail-invoice/RetailInvoicePage')).default,
+        }),
+      },
       {
         path: 'pricing/simulation',
         lazy: async () => ({

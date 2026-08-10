@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileCheck2, FileSpreadsheet, FileText, Gem, Headset, HeartPulse, History, KeyRound, Landmark, LifeBuoy, ListChecks, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FileSpreadsheet, FileText, Gem, Headset, HeartPulse, History, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -34,6 +34,10 @@ import {
   COLLECTION_ACCESS_KEY,
   collectionApi,
 } from '@/features/collection/inquiry/api'
+// The Retail Invoice probe stays with its feature for the Loy/Collections reason
+// (ticket 263): `features/reports/retail-invoice` is its only consumer — the leaf
+// below and that screen's own gate. `layout` may import a feature.
+import { canOpenRetailInvoice, RETAIL_INVOICE_ACCESS_KEY, retailInvoiceApi } from '@/features/reports/retail-invoice/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
@@ -338,6 +342,41 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/collection/attempts',
         activePrefix: '/collection/attempts',
         access: collectionProbe(canOpenAttempts),
+      },
+    ],
+  },
+  {
+    // Its own top-level group (spec 261, ticket 263): `/reports/*` is a new URL
+    // prefix and a new nav group, which is exactly when a new area folder appears
+    // — and it is the worked example `feature-structure` itself gives. NOT under
+    // `oms/` (an invoice receipt is a store/finance artefact, not a delivery
+    // document) and not under `pricing/` (nothing here prices anything). Same
+    // shape as the call-centre, Loyalty and Collections groups.
+    labelKey: 'reports:menu.reports',
+    icon: FileBarChart,
+    items: [
+      {
+        labelKey: 'reports:menu.invoices',
+        icon: Receipt,
+        routerLink: '/reports/invoice',
+        activePrefix: '/reports/invoice',
+        // The SAME key + call + predicate as the screen's own gate → one network
+        // call, and a nav and a screen that can never disagree.
+        //
+        // 🚩 FAILS CLOSED — see `features/reports/retail-invoice/api`. What is
+        // behind this leaf reaches every retail transaction in the estate behind
+        // ONE grant (988 D16), so a pending, errored or malformed probe hides it
+        // rather than revealing it. The `Bby/Access` unknown ⇒ shown precedent
+        // does not transfer: that door was unbuilt, this one is live.
+        //
+        // 🚩 And it only HIDES. `Search`/`Download` re-check the grant and refuse
+        // with a bare 403 carrying no body — that filter is the boundary, which
+        // is why the Page carries its own in-page backstop too.
+        access: accessProbe({
+          key: RETAIL_INVOICE_ACCESS_KEY,
+          run: () => retailInvoiceApi.access(),
+          visible: canOpenRetailInvoice,
+        }),
       },
     ],
   },

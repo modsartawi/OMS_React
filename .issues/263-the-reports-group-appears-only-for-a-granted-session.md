@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 261
 blocked-by:
 ---
@@ -81,19 +81,40 @@ against a stubbed probe.
 
 ## Proof
 
-- [ ] `npm run typecheck`, `npm run lint` (all three gates), `npm run build` clean. Lint matters
+- [x] `npm run typecheck`, `npm run lint` (all three gates), `npm run build` clean. Lint matters
       especially here — `check-boundaries.mjs` is what catches a mis-shaped area folder.
-- [ ] New `tools/invoice-drive.mjs` (nearest prior art `tools/bby-inquiry-drive.mjs`), vite on
+      — typecheck clean; `npm test` 94 files / 1480 tests (up from 93/1473: `menu-reports.test.ts`
+      adds 7); lint **470 boundaries** / 117 contrast pairs / 475 colour files with the same 4
+      documented exclusions — **no fifth**; build ✓. The boundaries gate reads
+      `features/reports/retail-invoice/` as ONE feature, which is the 253 trap avoided.
+- [x] New `tools/invoice-drive.mjs` (nearest prior art `tools/bby-inquiry-drive.mjs`), vite on
       **:5199**, killed after. **264–266 EXTEND this file, not start a second one.** It asserts:
       - `screenAllowed: true` → the **Reports** group and its **Invoices** entry are visible.
       - `screenAllowed: false` → **no Reports group at all** in the menu.
       - Navigating straight to `/reports/invoice` unauthorized shows the **no-access message**, not
         an empty screen and not a generic error.
       - The probe is called **once** per visit.
-- [ ] `git grep 'reports:'` — every user-visible string on the new screen goes through `t()` with a
-      `reports:` key that exists in the bundle.
-- [ ] Confirm the namespace registration is load-bearing: remove it once, see raw keys render, put it
-      back.
+      — **19/19 passed**, all four arms plus: the leaf's `href`, the landing state (and that there
+      is no search box and no grid yet), a **403 on the probe itself** reading as a refusal rather
+      than "try again in a moment" and **not being retried** (1 call), and a 500 reading as the
+      *other* sentence — unavailable, a retry.
+      ⚠ Run on **:5201** via the drive's existing `DRIVE_PORT` override, not :5199: PID 33320 has
+      held 127.0.0.1:5199 since **2026-08-08 06:29** — an orphaned `vite --port 5199` from the
+      collection wave's AFK run, not this session's to kill. The server this session started **was**
+      killed after. Logged in `.afk/HITL-263.md`.
+- [x] `git grep 'reports:'` — every user-visible string on the new screen goes through `t()` with a
+      `reports:` key that exists in the bundle. — the two `labelKey`s in `menu-model.ts` carry the
+      `reports:` prefix; the feature's own calls are `useTranslation('reports')` + bare keys, the
+      collection shape. All 11 keys used resolve against `reports.json`, checked key by key, and
+      the drive asserts **no key-shaped text reaches the page** at all.
+- [x] Confirm the namespace registration is load-bearing: remove it once, see raw keys render, put it
+      back. — **Done, and it changed the check.** With `reports` removed from `resources`, the screen
+      rendered `invoice.title` / `invoice.subtitle` / `invoice.landing.title` / `invoice.landing.hint`
+      and the nav rendered `menu.invoices`; the drive went **8/19**. 🚩 The tell is the **key path,
+      not the `reports:` prefix** — i18next's missing-key fallback DROPS the namespace, so the
+      drive's original `/reports:/` assertion would have passed on a screen showing raw keys. It now
+      matches the path, and was re-broken to confirm that specific check fails. Registration restored;
+      19/19 again.
 
 ## Boundaries
 

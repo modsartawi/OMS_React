@@ -1,0 +1,21 @@
+{
+  "menu": {
+    "reports": "Reports",
+    "invoices": "Invoices"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to invoices",
+    "deniedHint": "Your account does not hold the grant for invoices. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "invoice": {
+    "title": "Invoices",
+    "subtitle": "Find a till receipt by its transaction number, and download it as a PDF.",
+    "landing": {
+      "title": "Nothing to show yet",
+      "hint": "Enter a transaction number to find the invoice behind it."
+    }
+  }
+}

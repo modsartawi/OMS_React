@@ -306,8 +306,22 @@ async function requestBlob(path: string): Promise<FileResponse> {
     throw new ApiError('unknown', i18n.t('common:errors.unexpected', { status: res.status }), res.status)
   }
 
+  // ⚠ Guarded, because `res.blob()` CAN reject — a connection dropped mid-body,
+  // a proxy that closed early — and an unguarded one escapes this module as a
+  // raw `TypeError`, which is the one shape no caller branches on: it is not an
+  // `ApiError`, so `apiErrorMessage`/`apiErrorCode`/`apiErrorKind` all decline it
+  // and a screen shows its most generic sentence for the most retryable failure
+  // there is. A truncated download is a network fault and says so. (Raised
+  // against 262 at ticket 263's review, closed here by its first real consumer.)
+  let blob: Blob
+  try {
+    blob = await res.blob()
+  } catch {
+    throw new ApiError('network', i18n.t('common:errors.network'), 0)
+  }
+
   return {
-    blob: await res.blob(),
+    blob,
     filename: filenameFromDisposition(res.headers.get('Content-Disposition')),
   }
 }

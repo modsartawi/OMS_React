@@ -12,13 +12,15 @@
  * choice about a two-process manual setup and not a statement that anything here
  * is unbuilt.
  *
- * `Access` (263) and `Search` (264) live here today. `Download` (265) joins them
- * in its own slice.
+ * All three routes live here now: `Access` (263), `Search` (264) and `Download`
+ * (265) — the last through 262's binary door, because the envelope client cannot
+ * fetch a non-JSON body.
  */
-import { api } from '@/core/api'
+import { api, type FileResponse } from '@/core/api'
 import type {
   InvoiceSearchResult,
   RetailInvoiceAccessResult,
+  RetailInvoiceKey,
 } from '@/core/models/retail-invoice'
 import type { InvoiceSearchQuery } from './invoice-criteria'
 
@@ -105,5 +107,44 @@ export const retailInvoiceApi = {
    */
   search(params: InvoiceSearchQuery): Promise<InvoiceSearchResult> {
     return api.get<InvoiceSearchResult>('RetailInvoice/Search', params)
+  },
+
+  /**
+   * `GET RetailInvoice/Download?storeCode=…&machineCode=…&trxNumber=…` → the PDF
+   * itself (contract §1, ticket 265).
+   *
+   * 🔑 **Through `api.blob`, and it could not be anything else.** `request<T>`
+   * always calls `res.json()`, so a raw `application/pdf` body reaches it as an
+   * `ApiError('unknown')` — that is the reason 262 exists. And a plain `<a href>`
+   * or `window.open` cannot work either: the cookie branch of SIS.Api's
+   * `ApiKeyEndpointFilter` requires the `X-Web-Client` CSRF header on every
+   * cookie-authenticated request and a browser navigation cannot send one, so a
+   * download link answers 401 (contract §5).
+   *
+   * 🔑 **The key is THREE parts, spelled out one by one.** `RetailTrx`'s primary
+   * key is four — `Client` + `StoreCode` + `MachineCode` + `TrxNumber` — but
+   * `Client` is a fixed `'000'` estate-wide and slated for removal (owner ruling,
+   * 988), so it is not a request parameter, not a response field and not on the
+   * wire. ⚠️ **Do not add a fourth part.** The three are named individually
+   * rather than spread, so a row object handed in whole cannot put an extra
+   * field on the query string.
+   *
+   * ⚠️ **Identity is never sent.** SIS.Api reads the user from the session row
+   * and passes it to the renderer as `requestedBy` for the journal;
+   * `staffid`/`storecode` headers are ignored on the cookie path. There is no
+   * "who" parameter to add, and every attempt is journalled server-side in the HQ
+   * `ReportRenderAttempt` table — **there is no separate audit, so the client
+   * adds no logging of its own.**
+   *
+   * The key is built from a clicked row, never from user input: a missing part is
+   * a `400 INVALID_KEY`, which means the row was malformed — a client bug rather
+   * than a message for a user.
+   */
+  download(key: RetailInvoiceKey): Promise<FileResponse> {
+    return api.blob('RetailInvoice/Download', {
+      storeCode: key.storeCode,
+      machineCode: key.machineCode,
+      trxNumber: key.trxNumber,
+    })
   },
 }

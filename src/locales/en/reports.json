@@ -37,6 +37,40 @@
       "deniedHint": "Your account does not hold the grant for invoices. Ask an administrator if you need it.",
       "searchFailed": "That search could not be completed."
     },
+    "download": {
+      "header": "Receipt",
+      "action": "Download",
+      "actionAria": "Download the receipt for transaction {{trxNumber}}",
+      "pending": "Preparing…",
+      "confirm": {
+        "title": "This is not a customer receipt",
+        "body": "Transaction {{trxNumber}} is a {{trxType}} with the status {{trxStatus}}, not an ordinary sale or return.",
+        "hint": "The till holds cash clearances, training receipts and parked sales alongside real ones. This document may not be produced as a receipt.",
+        "unknownValue": "(not stated)",
+        "cancel": "Cancel",
+        "submit": "Download anyway"
+      },
+      "failure": {
+        "title": "The receipt was not downloaded",
+        "close": "Close",
+        "retry": "Try again",
+        "attemptId": "Support reference",
+        "copy": "Copy",
+        "copied": "Copied",
+        "quote": "Quote this reference to support — it identifies this attempt in the render log."
+      },
+      "errors": {
+        "invalidKey": "This row is incomplete, so the receipt could not be requested. Report it if it happens again.",
+        "denied": "You don't have access to invoices.",
+        "notFound": "That invoice no longer exists.",
+        "renderFailed": "This document can't be produced as a receipt. Trying again will not help.",
+        "unavailable": "The receipt service is unavailable. Try again shortly.",
+        "timeout": "The receipt took too long to produce. Try once more — if it happens again, report it with the reference below.",
+        "network": "The receipt service could not be reached. Check your connection and try again.",
+        "session": "Your session has ended. Sign in again to download the receipt.",
+        "generic": "The receipt could not be produced."
+      }
+    },
     "columns": {
       "storeCode": "Store",
       "storeName": "Store name",

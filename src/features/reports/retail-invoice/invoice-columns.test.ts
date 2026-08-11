@@ -13,6 +13,7 @@ import {
   buildInvoiceColumns,
   buildInvoiceDefaultColDef,
   enumLabel,
+  needsDownloadConfirm,
 } from './invoice-columns'
 
 // Ticket 264's columns Proof: the enum prettifier over a known code and 🔑 over an
@@ -211,5 +212,69 @@ describe('the date and the time', () => {
     const later = render('trxDate') as string
     const nextDay = render('trxDate', { ...ROW, trxDate: '2026-08-05', trxTime: '00:01:00' }) as string
     expect([later, nextDay, earlier].sort()).toEqual([earlier, later, nextDay])
+  })
+})
+
+/**
+ * Ticket 265's confirm Proof.
+ *
+ * 🚩 The predicate exists because the search returns rows that **cannot be
+ * rendered**, unfiltered and unflagged, by owner ruling (988): cash clearances,
+ * training receipts, suspended sales. Downloading one is a `422 RENDER_FAILED` a
+ * user could not have predicted, and the sanctioned mitigation — the only place
+ * the client may act on renderability at all — is to **ask**, not to filter, not
+ * to disable, not to derive a `renderable` flag.
+ *
+ * ⚠️ And it must stay silent on the normal path: a confirm on every `Sales` row
+ * would train people to click through it, which costs the dialog the one thing it
+ * is for.
+ */
+describe('needsDownloadConfirm', () => {
+  it('a closed Sales receipt downloads with NO confirm', () => {
+    expect(needsDownloadConfirm(ROW)).toBe(false)
+  })
+
+  it('a closed Return downloads with no confirm either', () => {
+    expect(needsDownloadConfirm({ ...ROW, trxType: 'Return', trxTypeCode: 110 })).toBe(false)
+  })
+
+  it('a Posted sale is a settled receipt too', () => {
+    expect(needsDownloadConfirm({ ...ROW, trxStatus: 'Posted', trxStatusCode: 4 })).toBe(false)
+  })
+
+  it('🚩 a CashClearance confirms — it is not a customer receipt at all', () => {
+    expect(
+      needsDownloadConfirm({ ...ROW, trxType: 'CashClearance', trxTypeCode: 700 }),
+    ).toBe(true)
+  })
+
+  it('🚩 a TRAINING receipt confirms, however ordinary its type is', () => {
+    // The row a type-only check waves through: `Sales`, and not a real sale.
+    expect(needsDownloadConfirm({ ...ROW, trxStatus: 'Training', trxStatusCode: 2 })).toBe(true)
+  })
+
+  it('🚩 a SUSPENDED (parked, unfinished) sale confirms', () => {
+    expect(needsDownloadConfirm({ ...ROW, trxStatus: 'Suspended', trxStatusCode: 3 })).toBe(true)
+    expect(needsDownloadConfirm({ ...ROW, trxStatus: 'LongSuspend', trxStatusCode: 6 })).toBe(true)
+  })
+
+  it('🔑 an UNKNOWN numeric trxType confirms — unknown is not "normal"', () => {
+    // The enum lists are open and the server sends the NUMBER as the name when no
+    // member carries the stored code. Treating an unrecognised value as ordinary
+    // would silence the dialog on exactly the rows nobody has seen before.
+    expect(needsDownloadConfirm({ ...ROW, trxType: '37', trxTypeCode: 37 })).toBe(true)
+  })
+
+  it('an unknown numeric trxStatus confirms for the same reason', () => {
+    expect(needsDownloadConfirm({ ...ROW, trxStatus: '19', trxStatusCode: 19 })).toBe(true)
+  })
+
+  it('a blank or missing type/status confirms rather than assuming the best', () => {
+    expect(needsDownloadConfirm({ ...ROW, trxType: '', trxStatus: '' })).toBe(true)
+    expect(needsDownloadConfirm({})).toBe(true)
+  })
+
+  it('tolerates the padding a wire string can carry', () => {
+    expect(needsDownloadConfirm({ trxType: ' Sales ', trxStatus: ' Closed ' })).toBe(false)
   })
 })

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
@@ -6,8 +6,9 @@ import { FileSearch, PackageSearch, TriangleAlert } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
-import { ApiError, apiErrorMessage } from '@/core/api'
+import { ApiError, apiErrorAttemptId, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import { saveBlob } from '@/core/util/download-file'
 import {
   OMS_GRID_HEADER_HEIGHT,
   OMS_GRID_ROW_HEIGHT,
@@ -18,7 +19,18 @@ import type { InvoiceCandidate } from '@/core/models/retail-invoice'
 import { canOpenRetailInvoice, retailInvoiceApi } from './api'
 import ScreenGate from './ScreenGate'
 import SearchToolbar from './SearchToolbar'
-import { buildInvoiceColumns, buildInvoiceDefaultColDef } from './invoice-columns'
+import {
+  buildDownloadActionColumn,
+  fallbackFileName,
+  invoiceRowKey,
+} from './DownloadAction'
+import { DownloadConfirmDialog, DownloadFailureDialog } from './DownloadDialogs'
+import { downloadFailure, type DownloadOutcome } from './download-outcome'
+import {
+  buildInvoiceColumns,
+  buildInvoiceDefaultColDef,
+  needsDownloadConfirm,
+} from './invoice-columns'
 import {
   buildInvoiceSearchParams,
   landingCriteria,
@@ -50,7 +62,52 @@ import {
  * envelope, no `errorCode` — so `apiErrorCode(err)` is `null` and the generic
  * fallback message is all there is. This screen branches on
  * `statusCode === 403`. An empty grid there would be a lie.
+ *
+ * **265 hangs the download on the row** — the point of the whole effort. Four
+ * states again, and again two of them are easy to merge and must not be: a
+ * confirm (this row is not a customer receipt), a pending render (1.5–3 s warm,
+ * and ⚠️ **the page must not navigate**), and a failure whose sentence comes from
+ * contract §4 — where 🔑 **503 and 504 are different answers**.
  */
+
+/**
+ * Where a download has got to, for the ONE row a user is downloading.
+ *
+ * 🚩 Deliberately one state and not a map keyed by row: a render is a deliberate,
+ * 1.5–3 s act on a list that essentially always holds one row (the transaction
+ * number is near-unique by construction), and a per-row map would be machinery
+ * for a concurrency nobody is asking for. The rest of the screen stays usable
+ * throughout regardless — this state disables one button, nothing else.
+ *
+ * ⚠️ Plain state rather than a react-query mutation, and `attempts` is why: the
+ * retry rule is 504's "**once**, then it is an incident", which has to count the
+ * attempts a *user* made. Nothing here ever retries by itself — SIS.Api has
+ * already retried the internal call twice by the time a 503 arrives.
+ */
+type DownloadState =
+  | { phase: 'idle' }
+  | { phase: 'confirm'; row: InvoiceCandidate }
+  | { phase: 'pending'; row: InvoiceCandidate }
+  | {
+      phase: 'failed'
+      row: InvoiceCandidate
+      /**
+       * 🚩 **Consecutive failures of THIS kind**, not attempts made overall — and
+       * the difference is the whole of 504's "retry once". A row that hit two
+       * recycling hosts (503, 503) and then a hung render has made three
+       * attempts, but it has timed out **once**, and the timeout is entitled to
+       * its one more go. Counting them together would withdraw the button on the
+       * first timeout a user ever saw.
+       */
+      attempts: number
+      outcome: DownloadOutcome
+      attemptId: string | null
+    }
+
+/** What a retry carries forward: the failure it is retrying, and how many times
+ *  that same failure has now happened in a row. */
+type PreviousFailure = { outcome: DownloadOutcome; attempts: number }
+
 export default function RetailInvoicePage() {
   const { t } = useTranslation('reports')
 
@@ -118,8 +175,86 @@ export default function RetailInvoicePage() {
     setInvalid(false)
   }, [])
 
-  const columns = useMemo(() => buildInvoiceColumns(t), [t])
+  // ---- 265: the download ----------------------------------------------------
+  const [download, setDownload] = useState<DownloadState>({ phase: 'idle' })
+  /** Which download owns the state. See `start`. */
+  const runId = useRef(0)
+
+  /**
+   * Fetch the PDF and save it. ⚠️ **No navigation**: the bytes come back through
+   * 262's `api.blob` (a browser navigation cannot send the `X-Web-Client` CSRF
+   * header the cookie branch requires, so a plain `<a href>` answers 401) and go
+   * to disk through `@/core/util/download-file`'s `saveBlob`. Nothing here opens
+   * a tab, an `<iframe>` or an embedded viewer — a preview is a decision nobody
+   * has taken.
+   */
+  const start = useCallback(async (row: InvoiceCandidate, previous: PreviousFailure | null) => {
+    // ⚠️ Only the pending row's own button is disabled — the rest of the screen
+    // stays usable, which means a user CAN start a second row while the first is
+    // rendering. This token is what stops the slower of the two from writing its
+    // answer over the faster one's dialog: the newest request owns the state, and
+    // an overtaken one lands silently.
+    const id = ++runId.current
+    setDownload({ phase: 'pending', row })
+    try {
+      // 🔑 The key is built from the CLICKED ROW, never from user input, and it
+      // is three parts — `api.download` names them one by one so a fourth cannot
+      // arrive by accident.
+      const { blob, filename } = await retailInvoiceApi.download(row)
+      // `Content-Disposition` is the filename authority; the contract's shape is
+      // the fallback only.
+      //
+      // 🚩 Saved even when this request has been overtaken. The bytes arrived and
+      // the user asked for them; throwing away a rendered PDF because they
+      // clicked a second row would be the one outcome nobody wants, and every
+      // attempt is journalled server-side either way.
+      saveBlob(filename ?? fallbackFileName(row), blob)
+      if (runId.current === id) setDownload({ phase: 'idle' })
+    } catch (err) {
+      if (runId.current !== id) return
+      const outcome = downloadFailure(err)
+      setDownload({
+        phase: 'failed',
+        row,
+        // Consecutive failures of the SAME kind. A different sentence is a
+        // different problem and starts its own count.
+        attempts:
+          previous && previous.outcome.messageKey === outcome.messageKey
+            ? previous.attempts + 1
+            : 1,
+        outcome,
+        // 262's reader. Present on 422/504, where a render was attempted and
+        // journalled; null everywhere else.
+        attemptId: apiErrorAttemptId(err),
+      })
+    }
+  }, [])
+
+  const onDownload = useCallback(
+    (row: InvoiceCandidate) => {
+      // 🚩 Confirm, don't prevent. The row stays in the list and the action stays
+      // enabled — asking is the only thing the client may do about a row that
+      // cannot be rendered (owner ruling, 988).
+      if (needsDownloadConfirm(row)) setDownload({ phase: 'confirm', row })
+      else void start(row, null)
+    },
+    [start],
+  )
+
+  const closeDownload = useCallback(() => setDownload({ phase: 'idle' }), [])
+
+  const pendingKey = download.phase === 'pending' ? invoiceRowKey(download.row) : null
+  /** The failure the dialog is about, read once rather than narrowed at each prop. */
+  const failure = download.phase === 'failed' ? download : null
+
   const defaultColDef = useMemo(() => buildInvoiceDefaultColDef(), [])
+  // The action column is rebuilt when the pending row changes so the button it
+  // draws is never a frame behind the request it fired. The data columns depend
+  // on `t` alone, exactly as they did at 264.
+  const columns = useMemo(
+    () => [...buildInvoiceColumns(t), buildDownloadActionColumn(t, { pendingKey, onDownload })],
+    [t, pendingKey, onDownload],
+  )
 
   const rows: InvoiceCandidate[] = search.data?.rows ?? []
   // ⚠️ A bare 403 carries no body, so there is no code to read — the status is
@@ -202,6 +337,32 @@ export default function RetailInvoicePage() {
           />
         </div>
       )}
+
+      {/* 🚩 The confirm names what the row actually is — a cash clearance, a
+          training receipt, a parked sale — and then lets the user through. It
+          never fires on `Sales`/`Return`. */}
+      <DownloadConfirmDialog
+        row={download.phase === 'confirm' ? download.row : null}
+        t={t}
+        onCancel={closeDownload}
+        onConfirm={() => {
+          if (download.phase === 'confirm') void start(download.row, null)
+        }}
+      />
+
+      <DownloadFailureDialog
+        outcome={failure?.outcome ?? null}
+        attemptId={failure?.attemptId ?? null}
+        attempts={failure?.attempts ?? 0}
+        t={t}
+        onClose={closeDownload}
+        onRetry={() => {
+          // The retry BUTTON, carrying the failure it is retrying: a 503 offers
+          // it for as long as the user wants, a 504 offers exactly one more.
+          if (failure)
+            void start(failure.row, { outcome: failure.outcome, attempts: failure.attempts })
+        }}
+      />
     </ScreenGate>
   )
 }

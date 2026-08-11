@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 261
 blocked-by: 262, 264
 ---
@@ -104,13 +104,26 @@ The effort's whole purpose, end to end on fixtures: click a row, get a PDF.
 
 ## Proof
 
-- [ ] `npm test` — `download-outcome.ts` over **every row of the table above**, with 🔑 **an explicit
+- [x] `npm test` — `download-outcome.ts` over **every row of the table above**, with 🔑 **an explicit
       assertion that 503 and 504 map to different sentences and different retry-ability**.
-- [ ] `npm test` — `expectsAttemptId` is true for 422/504 and false for 400/401/403/404/503.
-- [ ] `npm test` — the confirm predicate: `Sales`/`Return` → no confirm; `CashClearance`, a training
+      — 44 assertions in `download-outcome.test.ts`. 🚩 `retry` is a **tri-state**
+      (`'none' | 'again' | 'once'`), not a boolean: the table gives 503 "yes" and 504 "yes, once",
+      and a boolean would make the two identical on the one axis the ticket says must differ.
+      `canRetry(outcome, attempts)` turns it into a drawn button, so a **second** 504 withdraws it.
+- [x] `npm test` — `expectsAttemptId` is true for 422/504 and false for 400/401/403/404/503.
+      — asserted per arm. ⚠️ It gates the *"quote this reference"* sentence, **not the id itself**:
+      the id renders wherever the envelope carried one (hiding a real one would be the screen
+      overruling the server), but it is only a row in `ReportRenderAttempt` where a render was
+      actually attempted.
+- [x] `npm test` — the confirm predicate: `Sales`/`Return` → no confirm; `CashClearance`, a training
       status and a suspended status → confirm. Include an **unknown numeric `trxType`** → confirm
       (unknown is not "normal").
-- [ ] `tools/invoice-drive.mjs` **extended**, asserting against stubbed responses:
+      — `needsDownloadConfirm` in `invoice-columns.ts`. 🚩 It reads **both** `trxType` and
+      `trxStatus`, which is wider than this ticket's prose and is the one judgement call of the
+      slice: training and suspended rows arrive with an ordinary `Sales` type, so a type-only
+      predicate cannot close this very Proof box. Unknown numerics in **either** field, and a blank
+      one, confirm. Logged with its revisit condition in `.afk/HITL-265.md`.
+- [x] `tools/invoice-drive.mjs` **extended**, asserting against stubbed responses:
       - a success **triggers a file save and does not navigate**;
       - the filename comes from `Content-Disposition`, and the fallback is used when the header is
         absent;
@@ -119,9 +132,38 @@ The effort's whole purpose, end to end on fixtures: click a row, get a PDF.
       - a bare 403 reads as a refusal, not a generic error;
       - the confirm fires on a `CashClearance` row and **not** on a `Sales` row;
       - the pending state appears and clears.
-- [ ] `npm run typecheck`, `npm run lint`, `npm run build` clean.
-- [ ] `git grep` finds **no** `createObjectURL` and no hand-rolled `fetch` in this feature — the blob
+      — **79/79**, up from 264's 47/47, in the same file. Every bullet above is its own assertion,
+      plus: the confirm **names what the row actually is**, Cancel requests nothing, "Download
+      anyway" goes through (confirm, do not prevent), the unrenderable row is **in** the list with
+      its action **enabled**, the client issues exactly **1** request on a 503 (no automatic retry),
+      and a 503-then-504 sequence still gives the timeout its one go.
+      ⚠️ Run on **5200**, not 5199: something outside this repo holds 5199. `DRIVE_PORT` covers it.
+- [x] `npm run typecheck`, `npm run lint`, `npm run build` clean.
+      — typecheck clean; `npm test` **97 files / 1551 tests**; lint **479** boundaries / 117
+      contrast pairs / 484 colour files with the same **4** documented exclusions (no fifth);
+      build ✓.
+- [x] `git grep` finds **no** `createObjectURL` and no hand-rolled `fetch` in this feature — the blob
       goes through `api.blob` and the save through `@/core/util/download-file`.
+      — `createObjectURL` matches `core/util/download-file.ts` and its test **and nothing else**;
+      the only `fetch(`-shaped hit under `features/reports/` is TanStack Query's `refetch()`.
+
+### One `/code-review` finding, fixed in `core/` rather than here
+
+**`res.blob()` can reject.** 262's `requestBlob` awaited it unguarded, so a connection dropped
+mid-body — the single most likely failure of a 250 KB download over a slow link — escaped `core/`
+as a raw `TypeError`. That is the one shape no caller branches on: it is not an `ApiError`, so
+`apiErrorMessage`/`apiErrorCode`/`apiErrorKind` all decline it and the screen shows its most generic
+sentence for the **most retryable** failure there is. Now `kind: 'network'`, like every other
+transport fault in the module. Raised against 262 at 263's review and closed here by its first real
+consumer, which is where it could actually be reasoned about.
+
+⚠️ **How this slice landed.** The unattended session that built it was cut off by a transport error
+(`Connection closed mid-response`) after 29 minutes, immediately after the `core/api.ts` edit above
+and **before it could commit**. Nothing was lost — the work was all in the working tree — but the
+four gates, the build and the 79-assertion drive were re-run over the final state before this commit
+rather than trusted from the interrupted session's own log, and the round-B standards review ran
+afterwards against this commit. The runner stopped the wave at that point by design (exit 5), so
+**266 was not reached** — and it was excluded from the run anyway.
 
 ## Boundaries
 

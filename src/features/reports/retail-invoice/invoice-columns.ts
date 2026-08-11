@@ -100,6 +100,58 @@ export const ENUM_FIELDS = ['trxType', 'trxStatus', 'documentType'] as const
 const ENUMS = new Set<string>(ENUM_FIELDS)
 
 /**
+ * The two `trxType` values that are a customer receipt (ticket 265).
+ *
+ * ⚠️ **Enum NAMES, not labels** — the C# identifiers exactly as the wire sends
+ * them (contract §2). Matched, never read, so they need no `t()`.
+ */
+const RECEIPT_TRX_TYPES = ['Sales', 'Return'] as const
+
+/**
+ * …and the two `trxStatus` values a finished receipt carries.
+ *
+ * 🚩 **A settled transaction, not merely a sale.** `RetailTrx` also holds
+ * **training** receipts and **suspended** (parked, unfinished) sales, and those
+ * are not customer receipts however ordinary their `trxType` is — a training
+ * `Sales` row is exactly the case a type-only check would wave through.
+ */
+const RECEIPT_TRX_STATUSES = ['Closed', 'Posted'] as const
+
+const RECEIPT_TYPES = new Set<string>(RECEIPT_TRX_TYPES)
+const RECEIPT_STATUSES = new Set<string>(RECEIPT_TRX_STATUSES)
+
+/**
+ * Does downloading this row deserve a confirm step first? (ticket 265)
+ *
+ * 🚩 **This is the ONE place the client may act on renderability, and it acts by
+ * asking rather than by preventing.** The search returns rows that cannot be
+ * rendered — cash clearances (`trxTypeCode: 700`), training receipts, suspended
+ * sales — unfiltered and unflagged, and that is an **owner ruling** (988) rather
+ * than a gap. Downloading one is a `422 RENDER_FAILED` the user could not have
+ * predicted, so the sanctioned mitigation is a confirm naming what the row
+ * actually is.
+ *
+ * ⚠️ **Not a filter, not a disabled action, and not a derived `renderable`
+ * flag.** All three were considered and refused: the rows are meant to be
+ * visible, and a server flag is only on the table if the confirm fails in
+ * practice. And the confirm must NOT fire on the normal path — a confirm on every
+ * `Sales` row would train people to click through it, which costs the dialog the
+ * only thing it is for.
+ *
+ * 🔑 **Unknown is not normal.** The enum lists are open — `RetailDocumentType`
+ * has 18+ members and grows, and when no C# member carries a stored code the
+ * server sends **the number as the name** — so a `trxType` of `"37"` is a real
+ * arrival. It is matched against the receipt list and fails, which asks. Treating
+ * an unrecognised value as ordinary would silence the dialog on exactly the rows
+ * nobody has seen before.
+ */
+export function needsDownloadConfirm(row: Partial<InvoiceCandidate>): boolean {
+  const type = (row.trxType ?? '').trim()
+  const status = (row.trxStatus ?? '').trim()
+  return !RECEIPT_TYPES.has(type) || !RECEIPT_STATUSES.has(status)
+}
+
+/**
  * 🚩 **The wire row carries no currency**, so an amount draws the footprint's
  * default 2 decimals.
  *

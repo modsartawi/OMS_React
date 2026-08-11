@@ -37,6 +37,20 @@
 //  12. emptying the number and searching clears the stale rows, not just the field.
 //  13. Reset returns the screen to the landing state.
 //
+// Ticket 265 — a row downloads its receipt (scenarios 15–23 below):
+//  15. a success triggers a FILE SAVE and the page does NOT navigate, with the
+//      filename taken from `Content-Disposition`.
+//  16. …and the contract's fallback name is used when the header is absent.
+//  17. the confirm fires on a `CashClearance` row and NOT on a `Sales` row —
+//      Cancel issues nothing, "Download anyway" goes through.
+//  18. 503 shows its own sentence WITH a retry button, and NO attemptId.
+//  19. 504 does NOT show the same sentence as 503.
+//  20. 422 surfaces a COPYABLE attemptId and offers no retry.
+//  21. a bare 403 (no body at all) reads as a refusal, not a generic error.
+//  22. the pending state appears while the render runs and clears afterwards.
+//  23. "retry once" is once — a second 504 withdraws the button — and the count
+//      is consecutive failures of THAT kind, so a 503 first does not consume it.
+//
 // Playwright is borrowed from the Angular prototype (as in screen1-smoke.mjs) —
 // it is NOT a dependency of this repo.
 //
@@ -55,10 +69,16 @@ const check = (name, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
 }
 
-const envelope = (data, { status = 200, success = true, message = '', errors = [] } = {}) => ({
+const envelope = (
+  data,
+  { status = 200, success = true, message = '', errors = [], attemptId } = {},
+) => ({
   status,
   contentType: 'application/json',
-  body: JSON.stringify({ statusCode: status, success, message, errors, data }),
+  // ⚠️ `attemptId` is a TOP-LEVEL sibling of `message`/`errors`, not an entry
+  // inside `errors[]` (contract §4). Spelled that way here so the stub cannot
+  // quietly agree with a client that read it from the wrong place.
+  body: JSON.stringify({ statusCode: status, success, message, errors, data, ...(attemptId ? { attemptId } : {}) }),
 })
 
 // Scenario state, mutated between reloads. `accessBody` is the probe's 200 answer;
@@ -79,6 +99,26 @@ let searchBody = { rows: [], capReached: false }
 // Every `RetailInvoice/Search` query string seen, in order — so the drive can
 // assert what was NOT sent (a blank number, an empty storeCode) as well as what was.
 let searchQueries = []
+
+// ---- 265: the Download stub -------------------------------------------------
+// 🔑 Success and failure are DIFFERENT BODY TYPES off the same route: a 2xx is
+// raw `application/pdf` bytes, every failure is the JSON envelope. That branch is
+// what 262 built and what this exercises end to end.
+//
+// `downloadStatus` 200 answers the bytes; anything else is a failure at that
+// status, with `downloadCode` as the envelope's `errorCode` and `downloadAttempt`
+// as the top-level `attemptId`. `downloadDelayMs` holds the response so the
+// pending state can be caught in flight. `downloadDisposition` null omits the
+// header entirely, which is the fallback-filename arm.
+let downloadStatus = 200
+let downloadCode = null
+let downloadAttempt = null
+let downloadDelayMs = 0
+let downloadDisposition = 'attachment; filename="Invoice-P001-01-00114600051234.pdf"'
+// Every `RetailInvoice/Download` query string seen, in order — so the drive can
+// assert what went on the wire (three key parts, and 🔑 NO fourth `client` part,
+// no `staffid`, no `storecode`) and that nothing retried by itself.
+let downloadQueries = []
 
 /** One candidate row, contract §1's own body, overridable per scenario. */
 const candidate = (over = {}) => ({
@@ -139,6 +179,34 @@ async function run() {
           envelope(null, { status: searchStatus, success: false, message: 'Search failed.' }),
         )
       return route.fulfill(envelope(searchBody))
+    }
+    if (path === 'RetailInvoice/Download') {
+      downloadQueries.push(url.split('?')[1] || '')
+      if (downloadDelayMs) await new Promise((r) => setTimeout(r, downloadDelayMs))
+      // 🚩 A bare 403 again: no envelope, no errorCode, no body at all.
+      if (downloadStatus === 403) return route.fulfill({ status: 403, body: '' })
+      if (downloadStatus !== 200)
+        return route.fulfill(
+          envelope(null, {
+            status: downloadStatus,
+            success: false,
+            message: 'The document could not be rendered.',
+            errors: downloadCode
+              ? [{ errorCode: downloadCode, internalErrorCode: '', errorMessage: 'render' }]
+              : [],
+            attemptId: downloadAttempt,
+          }),
+        )
+      // The success body is the PDF RAW — not base64, not wrapped in an envelope.
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        headers: {
+          ...(downloadDisposition ? { 'Content-Disposition': downloadDisposition } : {}),
+          'X-Render-Attempt-Id': '01J8ZC9K3M7Q',
+        },
+        body: Buffer.from('%PDF-1.4\n% a receipt\n%%EOF\n'),
+      })
     }
     // Any other probe/endpoint → benign empty success so no other leaf crashes.
     return route.fulfill(envelope({}))
@@ -543,9 +611,322 @@ async function run() {
   )
   searchStatus = 200
 
-  // The denied/refused scenarios intentionally answer 403/500, which the browser
-  // logs as a resource-load failure — expected, not an app fault.
-  const realErrors = errors.filter((e) => !/status of (403|500)/.test(e))
+  // ==========================================================================
+  // Ticket 265 — a row downloads its receipt. The point of the whole effort.
+  // ==========================================================================
+
+  /** The row's own Download button, named by its transaction number. */
+  const downloadButton = (trxNumber) =>
+    page.getByRole('button', {
+      name: new RegExp(`Download the receipt for transaction ${trxNumber}`),
+    })
+
+  /**
+   * Click a row's Download and wait for whatever it produces — the file save, or
+   * the dialog that says why there is none.
+   *
+   * ⚠️ The download event is awaited alongside the click rather than after it: a
+   * save fires as soon as the bytes land, and Playwright drops an event nobody
+   * was listening for.
+   */
+  const clickDownload = async (trxNumber) => {
+    const save = page.waitForEvent('download', { timeout: 8000 }).catch(() => null)
+    await downloadButton(trxNumber).click()
+    return save
+  }
+
+  /** Put exactly one row on screen, with the fields a scenario needs. */
+  const rowOnScreen = async (over) => {
+    searchBody = { rows: [candidate(over)], capReached: false }
+    downloadQueries = []
+    await searchFor(over.trxNumber)
+    await waitForRows()
+  }
+
+  // ---- Scenario 15: a Sales row downloads, and nothing navigates ----------
+  downloadStatus = 200
+  downloadDisposition = 'attachment; filename="Invoice-P001-01-00114600051234.pdf"'
+  await rowOnScreen({ trxNumber: '00114600051240' })
+  const urlBefore = page.url()
+  const saved = await clickDownload('00114600051240')
+  check(
+    '🚩 a Sales row DOWNLOADS — a file save was triggered',
+    saved !== null,
+    saved ? saved.suggestedFilename() : 'no download event',
+  )
+  check(
+    '🚩 …and the page did NOT navigate',
+    page.url() === urlBefore,
+    `${urlBefore} → ${page.url()}`,
+  )
+  check(
+    '🚩 the filename comes from Content-Disposition',
+    saved?.suggestedFilename() === 'Invoice-P001-01-00114600051234.pdf',
+    saved?.suggestedFilename() ?? 'none',
+  )
+  check(
+    '🚩 no confirm on a Sales row — a confirm on the normal path trains people to click through it',
+    (await page.getByRole('button', { name: /Download anyway/i }).count()) === 0,
+  )
+  check(
+    '🔑 the key on the wire is THREE parts and there is no fourth',
+    downloadQueries.length === 1 &&
+      downloadQueries[0].includes('storeCode=P001') &&
+      downloadQueries[0].includes('machineCode=01') &&
+      downloadQueries[0].includes('trxNumber=00114600051240') &&
+      downloadQueries[0].split('&').length === 3 &&
+      !/(^|&)client=/i.test(downloadQueries[0]),
+    downloadQueries.join(' | '),
+  )
+  check(
+    '⚠️ identity is never sent — no staffid parameter',
+    !/staffid/i.test(downloadQueries[0] ?? ''),
+    downloadQueries.join(' | '),
+  )
+  check(
+    'the successful download said nothing — no error dialog',
+    (await page.getByRole('button', { name: /^Try again$/ }).count()) === 0,
+  )
+
+  // ---- Scenario 16: no Content-Disposition → the contract's fallback name --
+  downloadDisposition = null
+  await rowOnScreen({ trxNumber: '00114600051241' })
+  const fallbackSaved = await clickDownload('00114600051241')
+  check(
+    '🚩 the fallback filename is used when the header is absent',
+    fallbackSaved?.suggestedFilename() === 'Invoice-P001-01-00114600051241.pdf',
+    fallbackSaved?.suggestedFilename() ?? 'no download event',
+  )
+  downloadDisposition = 'attachment; filename="Invoice-P001-01-00114600051234.pdf"'
+
+  // ---- Scenario 17: the confirm on an unrenderable row ---------------------
+  // 🚩 Owner ruling (988): the row is NOT filtered out and the action is NOT
+  // disabled. The sanctioned mitigation is to ASK.
+  await rowOnScreen({
+    trxNumber: '00114600051242',
+    trxType: 'CashClearance',
+    trxTypeCode: 700,
+    trxStatus: 'Suspended',
+    trxStatusCode: 3,
+  })
+  check(
+    '🚩 the unrenderable row is IN the list with its action ENABLED',
+    (await downloadButton('00114600051242').count()) === 1 &&
+      (await downloadButton('00114600051242').isEnabled()),
+  )
+  await downloadButton('00114600051242').click()
+  const confirmText = await page.locator('dialog').innerText()
+  check(
+    '🚩 a CashClearance row CONFIRMS first',
+    /not a customer receipt/i.test(confirmText),
+    confirmText.replace(/\n/g, ' ').slice(0, 160),
+  )
+  check(
+    'the confirm NAMES what the row actually is',
+    /Cash clearance/i.test(confirmText) && /Suspended/i.test(confirmText),
+    confirmText.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    '🚩 …and nothing has been requested yet',
+    downloadQueries.length === 0,
+    downloadQueries.join(' | '),
+  )
+  await page.getByRole('button', { name: /^Cancel$/ }).click()
+  check(
+    'Cancel closes the confirm and still requests nothing',
+    (await page.locator('dialog').count()) === 0 && downloadQueries.length === 0,
+    downloadQueries.join(' | '),
+  )
+  const confirmedSave = page.waitForEvent('download', { timeout: 8000 }).catch(() => null)
+  await downloadButton('00114600051242').click()
+  await page.getByRole('button', { name: /Download anyway/i }).click()
+  check(
+    '🚩 "Download anyway" goes through — confirm, do not prevent',
+    (await confirmedSave) !== null && downloadQueries.length === 1,
+    downloadQueries.join(' | '),
+  )
+
+  // ---- Scenario 18: 503 RENDERER_UNAVAILABLE ------------------------------
+  downloadStatus = 503
+  downloadCode = 'RENDERER_UNAVAILABLE'
+  downloadAttempt = null
+  await rowOnScreen({ trxNumber: '00114600051243' })
+  await clickDownload('00114600051243')
+  await page.waitForSelector('dialog', { timeout: 8000 }).catch(() => {})
+  const text503 = await page.locator('dialog').innerText()
+  check(
+    '503 says the receipt SERVICE is unavailable, shortly',
+    /receipt service is unavailable/i.test(text503),
+    text503.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    '🔑 503 offers a RETRY button',
+    (await page.getByRole('button', { name: /^Try again$/ }).count()) === 1,
+  )
+  check(
+    '🚩 503 shows NO support reference — nothing was attempted, so nothing was journalled',
+    (await page.getByTestId('attempt-id').count()) === 0,
+    text503.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    '⚠️ the client added no automatic retry of its own — SIS.Api already tried three times',
+    downloadQueries.length === 1,
+    `${downloadQueries.length} request(s)`,
+  )
+  await page.getByRole('button', { name: /^Close$/ }).click()
+
+  // ---- Scenario 19: 504 RENDER_TIMEOUT is a DIFFERENT sentence ------------
+  downloadStatus = 504
+  downloadCode = 'RENDER_TIMEOUT'
+  downloadAttempt = '01J8ZC9K3M7QTIMEOUT'
+  await rowOnScreen({ trxNumber: '00114600051244' })
+  await clickDownload('00114600051244')
+  await page.waitForSelector('dialog', { timeout: 8000 }).catch(() => {})
+  const text504 = await page.locator('dialog').innerText()
+  check(
+    '🔑 504 does NOT say what 503 said — a hung render is not a recycling host',
+    /took too long/i.test(text504) && !/receipt service is unavailable/i.test(text504),
+    text504.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    '🔑 …and neither collapsed into the generic server sentence',
+    !/could not be produced\.$/i.test(text504.trim()) && !/unexpected/i.test(text504),
+    text504.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    '504 carries an attemptId — the render WAS attempted and journalled',
+    (await page.getByTestId('attempt-id').innerText()) === '01J8ZC9K3M7QTIMEOUT',
+  )
+  await page.getByRole('button', { name: /^Close$/ }).click()
+
+  // ---- Scenario 20: 422 RENDER_FAILED, with a copyable attemptId ----------
+  downloadStatus = 422
+  downloadCode = 'RENDER_FAILED'
+  downloadAttempt = '01J8ZC9K3M7QFAILED'
+  await rowOnScreen({ trxNumber: '00114600051245' })
+  await clickDownload('00114600051245')
+  await page.waitForSelector('dialog', { timeout: 8000 }).catch(() => {})
+  const text422 = await page.locator('dialog').innerText()
+  check(
+    '422 says the document cannot be produced as a receipt',
+    /can't be produced as a receipt/i.test(text422),
+    text422.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    '🔑 422 offers NO retry — retrying genuinely will not help',
+    (await page.getByRole('button', { name: /^Try again$/ }).count()) === 0,
+  )
+  check(
+    '🚩 422 surfaces the attemptId, and it is COPYABLE',
+    (await page.getByTestId('attempt-id').innerText()) === '01J8ZC9K3M7QFAILED' &&
+      (await page.getByRole('button', { name: /^Copy$/ }).count()) === 1,
+    text422.replace(/\n/g, ' ').slice(0, 200),
+  )
+  await page.getByRole('button', { name: /^Close$/ }).click()
+
+  // ---- Scenario 21: a bare 403 on Download --------------------------------
+  // ⚠️ No envelope, no errorCode — `apiErrorCode` is null and the generic
+  // fallback message is all `apiErrorMessage` would give. The screen branches on
+  // the STATUS, and a refusal must read as one.
+  downloadStatus = 403
+  downloadCode = null
+  downloadAttempt = null
+  await rowOnScreen({ trxNumber: '00114600051246' })
+  await clickDownload('00114600051246')
+  await page.waitForSelector('dialog', { timeout: 8000 }).catch(() => {})
+  const text403 = await page.locator('dialog').innerText()
+  check(
+    "🚩 a bare 403 reads as a REFUSAL — \"you don't have access\"",
+    /don't have access to invoices/i.test(text403),
+    text403.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    '🚩 …and NOT as a generic failure or a retryable outage',
+    !/unexpected/i.test(text403) &&
+      !/could not be produced\b/i.test(text403) &&
+      (await page.getByRole('button', { name: /^Try again$/ }).count()) === 0,
+    text403.replace(/\n/g, ' ').slice(0, 200),
+  )
+  await page.getByRole('button', { name: /^Close$/ }).click()
+
+  // ---- Scenario 22: the pending state appears, and clears ------------------
+  // A warm render is 1.5–3 s and more after a host recycle, so the row's action
+  // has to say it is working — and the rest of the screen stays usable.
+  downloadStatus = 200
+  downloadDelayMs = 1500
+  await rowOnScreen({ trxNumber: '00114600051247' })
+  const pendingSave = page.waitForEvent('download', { timeout: 12000 }).catch(() => null)
+  await downloadButton('00114600051247').click()
+  const pendingSeen = await page
+    .getByRole('button', { name: /Download the receipt for transaction 00114600051247/ })
+    .filter({ hasText: /Preparing/ })
+    .waitFor({ timeout: 5000 })
+    .then(() => true)
+    .catch(() => false)
+  check('🚩 the pending state APPEARS while the render runs', pendingSeen)
+  check(
+    'the search toolbar stays usable while it runs',
+    await page.getByPlaceholder(/00114600051234/).isEnabled(),
+  )
+  await pendingSave
+  const cleared = await page
+    .getByRole('button', { name: /Download the receipt for transaction 00114600051247/ })
+    .filter({ hasText: /^Download$/ })
+    .waitFor({ timeout: 5000 })
+    .then(() => true)
+    .catch(() => false)
+  check('🚩 …and CLEARS when the file arrives', cleared)
+  downloadDelayMs = 0
+
+  // ---- Scenario 23: "retry once" is once, and it counts the RIGHT thing -----
+  // 🔑 504's advice is "retry once; if it recurs, it is an incident", so the
+  // second timeout must withdraw the button and leave the attemptId as the thing
+  // to quote. ⚠️ And the count is CONSECUTIVE FAILURES OF THIS KIND: a row that
+  // hit a recycling host first has not used up its timeout's one go.
+  downloadStatus = 503
+  downloadCode = 'RENDERER_UNAVAILABLE'
+  downloadAttempt = null
+  await rowOnScreen({ trxNumber: '00114600051248' })
+  await clickDownload('00114600051248')
+  await page.waitForSelector('dialog', { timeout: 8000 }).catch(() => {})
+  downloadStatus = 504
+  downloadCode = 'RENDER_TIMEOUT'
+  downloadAttempt = '01J8ZC9K3M7QONCE'
+  await page.getByRole('button', { name: /^Try again$/ }).click()
+  await page.waitForFunction(() => /took too long/i.test(document.body.innerText), null, {
+    timeout: 8000,
+  })
+  check(
+    '🚩 a 503 then a 504 — the timeout still gets its one go',
+    (await page.getByRole('button', { name: /^Try again$/ }).count()) === 1,
+    (await page.locator('dialog').innerText()).replace(/\n/g, ' ').slice(0, 160),
+  )
+  await page.getByRole('button', { name: /^Try again$/ }).click()
+  await page.waitForFunction(
+    () => !document.querySelector('dialog')?.innerText.includes('Try again'),
+    null,
+    { timeout: 8000 },
+  )
+  const secondTimeout = await page.locator('dialog').innerText()
+  check(
+    '🔑 a SECOND timeout withdraws the button — a recurrence is an incident, not a wait',
+    (await page.getByRole('button', { name: /^Try again$/ }).count()) === 0 &&
+      /took too long/i.test(secondTimeout),
+    secondTimeout.replace(/\n/g, ' ').slice(0, 160),
+  )
+  check(
+    '…and leaves the attemptId as the thing to quote',
+    (await page.getByTestId('attempt-id').innerText()) === '01J8ZC9K3M7QONCE',
+  )
+  await page.getByRole('button', { name: /^Close$/ }).click()
+  downloadStatus = 200
+  downloadCode = null
+  downloadAttempt = null
+
+  // The denied/refused scenarios and the whole of 265's error table intentionally
+  // answer non-2xx, which the browser logs as a resource-load failure — expected,
+  // not an app fault.
+  const realErrors = errors.filter((e) => !/status of (403|422|500|503|504)/.test(e))
   check('no uncaught page errors', realErrors.length === 0, realErrors.slice(0, 3).join(' | '))
 
   await browser.close()

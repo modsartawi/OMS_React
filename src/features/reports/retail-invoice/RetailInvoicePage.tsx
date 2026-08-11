@@ -19,11 +19,8 @@ import type { InvoiceCandidate } from '@/core/models/retail-invoice'
 import { canOpenRetailInvoice, retailInvoiceApi } from './api'
 import ScreenGate from './ScreenGate'
 import SearchToolbar from './SearchToolbar'
-import {
-  buildDownloadActionColumn,
-  fallbackFileName,
-  invoiceRowKey,
-} from './DownloadAction'
+import { buildDownloadActionColumn } from './DownloadAction'
+import { fallbackFileName, invoiceRowKey } from './invoice-key'
 import { DownloadConfirmDialog, DownloadFailureDialog } from './DownloadDialogs'
 import { downloadFailure, type DownloadOutcome } from './download-outcome'
 import {

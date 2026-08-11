@@ -157,6 +157,19 @@ sentence for the **most retryable** failure there is. Now `kind: 'network'`, lik
 transport fault in the module. Raised against 262 at 263's review and closed here by its first real
 consumer, which is where it could actually be reasoned about.
 
+### The one standards-review finding, applied
+
+The independent round-B review (`.afk/REVIEW-265.md`, **MINOR** — 0 SERIOUS on either axis) found
+`invoiceRowKey` and `fallbackFileName` **pure, exported and untested inside a `.tsx`**, while every
+other pure piece of the slice is tested to the row. They moved to `invoice-key.ts` with 6 assertions
+— they are facts about the *row*, not about the button, and this repo has no React Testing Library
+by ruling precisely because the pure modules are where regression is silent. Gates re-run after the
+move: 98 files / **1557 tests**, lint 481 boundaries, build ✓, drive still **79/79**.
+
+The review's other three notes (a flattened key string, `TFunction` drilled into two dialogs, the
+Page's `runId` overtake token) were left alone: shape preferences on a slice both axes called
+faithful, and cheaper to weigh awake than to churn overnight.
+
 ⚠️ **How this slice landed.** The unattended session that built it was cut off by a transport error
 (`Connection closed mid-response`) after 29 minutes, immediately after the `core/api.ts` edit above
 and **before it could commit**. Nothing was lost — the work was all in the working tree — but the

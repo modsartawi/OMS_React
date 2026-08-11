@@ -2,7 +2,9 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 import { Download, Loader2 } from 'lucide-react'
 
-import type { InvoiceCandidate, RetailInvoiceKey } from '@/core/models/retail-invoice'
+import type { InvoiceCandidate } from '@/core/models/retail-invoice'
+
+import { invoiceRowKey } from './invoice-key'
 
 /**
  * The row action that puts the invoice PDF on the user's disk — the point of the
@@ -28,29 +30,6 @@ import type { InvoiceCandidate, RetailInvoiceKey } from '@/core/models/retail-in
 export interface DownloadActionState {
   pendingKey: string | null
   onDownload: (row: InvoiceCandidate) => void
-}
-
-/**
- * The identity of a row **as a download**, and the one place it is spelled.
- *
- * 🔑 Three parts, because the wire key is three parts (contract §3) — the same
- * three the request sends. Used to tell "this row is rendering" from "some other
- * row is", so the rest of the grid stays usable while one PDF is on its way.
- */
-export function invoiceRowKey(row: RetailInvoiceKey): string {
-  return `${row.storeCode}/${row.machineCode}/${row.trxNumber}`
-}
-
-/**
- * The default filename, used **only** when the response carried no
- * `Content-Disposition` (contract §5's own fallback shape).
- *
- * ⚠️ `Content-Disposition` is the filename authority. This deliberately carries
- * **no date** (contract §6.5) and renaming after the save is out of scope — a
- * filename is not user-visible copy and is not localized.
- */
-export function fallbackFileName(row: RetailInvoiceKey): string {
-  return `Invoice-${row.storeCode}-${row.machineCode}-${row.trxNumber}.pdf`
 }
 
 /**

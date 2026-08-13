@@ -104,6 +104,20 @@ export function buildLedgerColumns(t: TFunction): ColDef<SettlementLedgerRow>[] 
       minWidth: 220,
     },
     {
+      // 🔑 273's handle, on the row that carries it. An entry posted singly has an
+      // empty one and reads as *posted singly* rather than as a blank cell — the
+      // same rule this feature applies to an undocumented consumption, and the
+      // reason a batch is findable at all: a reader who has an entry can get to the
+      // file that posted it, and from there withdraw the whole thing.
+      headerName: t('ledger.columns.batchId'),
+      field: 'batchId',
+      colId: 'batchId',
+      width: 150,
+      cellClass: 'font-mono text-[12px]',
+      valueFormatter: (p: ValueFormatterParams<SettlementLedgerRow, string>) =>
+        p.value || t('ledger.columns.postedSingly'),
+    },
+    {
       headerName: t('account.columns.postedAt'),
       field: 'postedAt',
       colId: 'postedAt',

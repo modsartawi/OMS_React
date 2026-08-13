@@ -13,6 +13,7 @@ import { SETTLEMENT_LEDGER } from './fleet-fixture'
 import {
   EMPTY_LEDGER_CRITERIA,
   buildLedgerParams,
+  criteriaForBatch,
   criteriaForEntryNumber,
   hasLedgerCriteria,
   readLedgerCriteria,
@@ -36,6 +37,7 @@ describe('filter-first', () => {
       storeId: '',
       entryKind: '',
       status: 'OPEN',
+      batchId: '',
     })
   })
 
@@ -53,7 +55,13 @@ describe('filter-first', () => {
 
 describe('the ledger’s filter is an ADDRESS', () => {
   it('round-trips through a URL, and keeps `branch` clear of `?store=`', () => {
-    const criteria = { entryNumber: '143', storeId: '0455', entryKind: 'SHORTAGE', status: 'OPEN' } as const
+    const criteria = {
+      entryNumber: '143',
+      storeId: '0455',
+      entryKind: 'SHORTAGE',
+      status: 'OPEN',
+      batchId: '',
+    } as const
     const url = writeLedgerCriteria(new URLSearchParams('scope=all'), criteria)
 
     // 🚩 `branch`, never `store` — `?store=` already means *open this account*, and
@@ -66,7 +74,7 @@ describe('the ledger’s filter is an ADDRESS', () => {
 
   it('leaves no trace of a cleared filter in the address', () => {
     const url = writeLedgerCriteria(
-      new URLSearchParams('entryNumber=143&branch=0455&kind=SHORTAGE&status=OPEN'),
+      new URLSearchParams('entryNumber=143&branch=0455&kind=SHORTAGE&status=OPEN&batch=01J9B'),
       EMPTY_LEDGER_CRITERIA,
     )
     expect(url.toString()).toBe('')
@@ -78,5 +86,30 @@ describe('the ledger’s filter is an ADDRESS', () => {
     )
     // …and reads a lower-cased one, because an address gets typed by humans.
     expect(readLedgerCriteria(new URLSearchParams('status=open')).status).toBe('OPEN')
+  })
+})
+
+/**
+ * **The batch's handle** — ticket 273's criterion on the same lookup.
+ *
+ * 🔑 An uploaded month is reachable an hour later because every entry carries its
+ * `batchId`, so the estate-wide lookup answers *"which entries did that file
+ * post"* without a door of its own. The withdrawal view (`?batch=`) asks exactly
+ * this question.
+ */
+describe('the batch is a criterion, not a second lifecycle', () => {
+  it('turns a batch id into one criterion and no others', () => {
+    expect(criteriaForBatch(' 01J9BATCHCLEAN ')).toEqual({
+      ...EMPTY_LEDGER_CRITERIA,
+      batchId: '01J9BATCHCLEAN',
+    })
+    expect(hasLedgerCriteria(criteriaForBatch('01J9BATCHCLEAN'))).toBe(true)
+  })
+
+  it('rides on the wire and round-trips through the address as `batch`', () => {
+    expect(buildLedgerParams(criteriaForBatch('01J9BATCHCLEAN')).batchId).toBe('01J9BATCHCLEAN')
+    const url = writeLedgerCriteria(new URLSearchParams(), criteriaForBatch('01J9BATCHCLEAN'))
+    expect(url.get('batch')).toBe('01J9BATCHCLEAN')
+    expect(readLedgerCriteria(url)).toEqual(criteriaForBatch('01J9BATCHCLEAN'))
   })
 })

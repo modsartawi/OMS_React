@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 267
 blocked-by: 271
 ---
@@ -70,16 +70,28 @@ A month's audit is posted in one act, and withdrawn in one act if finance sent t
 
 ## Proof
 
-- [ ] An `.xlsx` and a `.csv` of the same rows preview identically.
-- [ ] Every preview row shows the **branch name**, not just the code; an unresolvable code is a hard
-      error and **blocks the whole file**.
-- [ ] The commit button carries the **total in words**, and it matches the sum of the previewed rows.
-- [ ] Unit test: the preview partition — hard errors block, duplicate warnings do not.
-- [ ] A duplicate-kind row warns on its row and commits.
-- [ ] Re-uploading the same file surfaces the *posted N minutes ago* banner and still allows the post.
-- [ ] Editing the sheet between preview and commit is **refused** on the hash.
-- [ ] Cancel-as-a-unit withdraws a batch and **names the rows a till had already consumed**.
-- [ ] `typecheck` + `lint` green; the drive walks upload → preview → commit.
+- [x] An `.xlsx` and a `.csv` of the same rows preview identically. — `settlement-drive`, *"an .xlsx
+      and a .csv of the same rows preview IDENTICALLY"*: same row count, same commit label.
+- [x] Every preview row shows the **branch name**, not just the code; an unresolvable code is a hard
+      error and **blocks the whole file**. — the drive's three checks on `august-bad.csv`, plus
+      `bulk.test.ts` *"blocks the whole file on one unresolvable code"* and *"blocks an unnamed row
+      the server did not complain about"* (the client's own backstop).
+- [x] The commit button carries the **total in words**, and it matches the sum of the previewed rows.
+      — the label *is* the sentence (`bulk.review.commitWithTotal`), folded from the rows by
+      `bulkTotals`; drive-checked, and pinned by `bulkTotals`' own tests.
+- [x] Unit test: the preview partition — hard errors block, duplicate warnings do not. —
+      `bulk.test.ts`, 22 tests.
+- [x] A duplicate-kind row warns on its row and commits. — drive, on `august-dup.csv`.
+- [x] Re-uploading the same file surfaces the *posted N minutes ago* banner and still allows the post.
+      — drive, two checks.
+- [x] Editing the sheet between preview and commit is **refused** on the hash. — drive, on the
+      server's `HASH_MISMATCH`; the refusal is a business `ApiError`, and the commit button stands
+      down while the notice is up (272's press-refuse-press ruling).
+- [x] Cancel-as-a-unit withdraws a batch and **names the rows a till had already consumed** — both
+      of them: the row a till reached *before* the withdrawal was drawn (named, never attempted) and
+      the one that lost its race *mid-loop* (named, with the remaining it came back with).
+- [x] `typecheck` + `lint` green; the drive walks upload → preview → commit. — **177/177**, 1760
+      vitest tests, `npm run build` green.
 
 ## Boundaries
 
@@ -97,6 +109,30 @@ behind a total read back in words, and the resulting batch can be withdrawn as o
 ## Blocked by
 
 [271](271-one-entry-posts-and-reads-itself-back.md).
+
+## Built
+
+**Two calls over one multipart upload, and `@/core/api` grew the door for it.** `api.upload` is
+`post` with a `FormData` body — same base, credentials, CSRF header, 401 and error taxonomy — and
+the one thing it does differently is **say nothing about Content-Type**, so the browser's own
+`multipart/form-data; boundary=…` survives. Pinned by three tests in `src/core/api.test.ts`, because
+a hand-set JSON content type there is a failure that looks like an empty file.
+
+🔑 **The guard is at both levels the ticket demands.** The preview grid resolves every code to a
+branch name (an unnamed row is a hard error even if the server reported none — `bulk.ts`'s own
+backstop), and the file's total rides **in words on the commit button**, folded per currency from
+the previewed rows rather than read off D8's scalar, which is cross-checked and cannot describe a
+mixed file. 271's guard was lifted, not multiplied: there is no per-row read-back.
+
+**Cancel-as-a-unit is a loop over 272's `Settlement/Cancel`, not a new door** — and the batch is an
+**address** (`?view=batch&batch=`), reachable an hour and a reload after the commit, because the
+`batchId` became a criterion of 270's ledger (one input, one column) rather than a *list my batches*
+door nobody asked for. The withdrawal reports three groups and rolls nothing back: withdrawn, the
+rows a till got to first (named, with the server's words and the new remaining), and the calls that
+never completed — whose entries are *unknown*, not decided.
+
+⚠️ **Wire extensions**, all logged in `.afk/HITL-273.md` for 274: the two bulk bodies and results,
+and a `batchId` criterion on `Settlement/Ledger`. Route strings stay 274's to confirm.
 
 ## Open questions
 

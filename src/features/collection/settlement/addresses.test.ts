@@ -9,10 +9,12 @@
  */
 import { describe, expect, it } from 'vitest'
 import {
+  batchSearch,
   branchSearch,
   doorSearch,
   isLedgerView,
   ledgerSearch,
+  readBatchView,
   readQuery,
   readStore,
   scopeSearch,
@@ -93,5 +95,27 @@ describe('reading the address', () => {
     expect(writeQuery(params('scope=all'), 'Nakheel').toString()).toBe('scope=all&q=Nakheel')
     expect(writeQuery(params('scope=all&q=Nakheel'), '').toString()).toBe('scope=all')
     expect(readQuery(params('q=Nakheel'))).toBe('Nakheel')
+  })
+})
+
+/**
+ * The withdrawal view (273) — `?view=batch&batch=<id>`.
+ *
+ * 🚩 The batch is reachable an hour and a reload later because it is an **address**,
+ * not state inside the dialog that committed it.
+ */
+describe('the batch withdrawal is an address', () => {
+  it('keeps the scope and drops what led here', () => {
+    const from = new URLSearchParams('scope=all&view=ledger&batch=01J9B&q=0142')
+    expect(batchSearch(from, '01J9BATCHCLEAN')).toBe('?scope=all&view=batch&batch=01J9BATCHCLEAN')
+  })
+
+  // ⚠️ `view=` decides which screen draws — the ledger filtered TO a batch is a
+  // lookup, not an act.
+  it('is not opened by a bare ?batch= left over from a ledger filter', () => {
+    expect(readBatchView(new URLSearchParams('view=ledger&batch=01J9B'))).toBe('')
+    expect(readBatchView(new URLSearchParams('batch=01J9B'))).toBe('')
+    expect(readBatchView(new URLSearchParams('view=batch&batch= 01J9B '))).toBe('01J9B')
+    expect(readBatchView(new URLSearchParams('view=batch'))).toBe('')
   })
 })

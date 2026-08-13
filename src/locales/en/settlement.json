@@ -94,15 +94,19 @@
     "criteria": {
       "entryNumber": "Entry #",
       "storeId": "Branch",
+      "batchId": "Uploaded batch",
       "entryKind": "Kind",
       "status": "Status",
       "any": "Any",
       "search": "Search",
       "clear": "Clear"
     },
+    "withdrawBatch": "Withdraw this whole batch — all {{count}} entries, in one act",
     "columns": {
       "store": "Branch",
-      "storeName": "Branch name"
+      "storeName": "Branch name",
+      "batchId": "Uploaded batch",
+      "postedSingly": "posted singly"
     }
   },
   "account": {
@@ -336,6 +340,105 @@
     },
     "errors": {
       "failed": "The entry could not be posted."
+    }
+  },
+  "bulk": {
+    "open": "Upload a month's audit",
+    "title": "Upload a month's audit",
+    "cancel": "Cancel",
+    "kind": {
+      "legend": "What every row in this file does",
+      "oneKindPerFile": "One kind per file. The sheet has no kind column — a file mixing the two would make the total below a net figure a typo could hide inside."
+    },
+    "file": {
+      "label": "The sheet finance produced",
+      "hint": "An .xlsx or a .csv. Columns are read by their names, so a re-ordered sheet still posts.",
+      "chosen": "{{name}} is ready to preview.",
+      "reading": "Sending the file and reading it back…",
+      "preview": "Preview this file",
+      "serverParses": "Nothing is read here — the file goes up as it is and every figure below comes back from the server's own reading of it."
+    },
+    "columns": {
+      "row": "Row",
+      "store": "Branch",
+      "storeName": "Branch name",
+      "amount": "Amount",
+      "reason": "Reason the branch reads"
+    },
+    "review": {
+      "summary": "{{rows}} rows, all of them {{kind}}.",
+      "back": "Choose another file",
+      "replay": "A file with these same {{rows}} rows was posted {{minutes}} minutes ago by {{by}}. This can still be posted — a genuine second month is a real file — but check it is not the same one twice.",
+      "blocked": "Nothing in this file can be posted until {{count}} of these are fixed in the sheet. Fix them, save, and upload it again.",
+      "rowError": "Row {{row}} — {{message}}",
+      "rowErrorColumn": "Row {{row}}, column {{column}} — {{message}}",
+      "fileError": "The file itself — {{message}}",
+      "fileErrorColumn": "The file itself, column {{column}} — {{message}}",
+      "unresolved": "Row {{row}} — no branch has the code {{code}}, so this row cannot be posted onto anything.",
+      "noBranch": "No branch has this code",
+      "warned": "{{count}} rows carry a warning. They post: a branch that already carries an open entry of this kind can genuinely owe a second one, and this door is never stricter than the single form.",
+      "disagree": "The server's own total for this file is {{server}}, and the rows below add up to {{rows}}. The rows are what will be posted. Read both before committing.",
+      "totalFigure": "{{count}} entries · {{amount}} {{currency}}",
+      "noCurrency": "{{count}} of these rows came back without a currency, so the figure above is read at two decimals. Open one of those branches before committing.",
+      "totalHint": "The figure above is the sum of the {{count}} rows in the grid — read the sentence, not the digits.",
+      "commit": "Post all {{count}} entries",
+      "commitWithTotal": "Post {{count}} entries · {{words}}",
+      "commitBlocked": "Fix the sheet before posting",
+      "refusedHint": "The file on disk is not the one that was previewed. Preview it again to see what changed before anything is posted.",
+      "previewAgain": "Preview the file again"
+    },
+    "done": {
+      "toast": "{{count}} entries are posted.",
+      "posted": "{{count}} entries are posted.",
+      "replayed": "This exact file had already been committed, so nothing was doubled — these are the entries it posted the first time.",
+      "numbers": "Entry numbers: {{numbers}}",
+      "immutable": "These amounts cannot be changed. Each can be cancelled while nothing has been taken against it, or its remainder written off once a till has taken part of it — and the whole batch can be withdrawn as one act.",
+      "withdraw": "Withdraw this whole batch",
+      "close": "Done"
+    },
+    "errors": {
+      "previewFailed": "The file could not be read.",
+      "commitRefused": "This file was not posted. It no longer matches the one that was previewed.",
+      "commitFailed": "This file was not posted, and the server did not say why. Preview it again before trying anything else."
+    }
+  },
+  "batch": {
+    "title": "Withdraw an uploaded batch",
+    "loading": "Reading what this batch posted…",
+    "empty": "No entry carries this batch. Either it was never posted, or the id is not one this ledger knows.",
+    "errors": {
+      "loadFailed": "This batch's entries could not be read."
+    },
+    "groups": {
+      "cancellable": "Will be withdrawn ({{count}})",
+      "skipped": "Will not be withdrawn ({{count}})"
+    },
+    "skipped": {
+      "consumed": "A till has taken all of this one.",
+      "cancelled": "Already cancelled — an entry is not corrected twice.",
+      "written-off": "Its remainder was already written off.",
+      "partly-consumed": "A till has taken part of this one; {{remaining}} is left. It cannot be withdrawn, and writing off the rest is a separate decision on its own entry."
+    },
+    "row": {
+      "entry": "entry {{number}}"
+    },
+    "act": {
+      "summary": "{{count}} of this batch's {{total}} entries can be withdrawn.",
+      "notRetroVoided": "What a till has already taken is untouched by this: a receipt in a collector's hands is never retro-voided, and an entry a till reached first keeps its remainder until someone writes it off on its own account.",
+      "reasonLabel": "Why (every withdrawn entry's audit reads this)",
+      "reasonHint": "Up to {{max}} characters. It is filed against each entry this act withdraws — \"finance sent the wrong file\" is the sentence this box is for.",
+      "commit": "Withdraw {{count}} entries",
+      "working": "Withdrawing…"
+    },
+    "outcome": {
+      "summary": "{{count}} entries were withdrawn.",
+      "refused": "A till got to these first ({{count}})",
+      "refusedRow": "Not withdrawn — {{remaining}} is what it now has left. {{reason}}",
+      "refusedRowUnstated": "Not withdrawn — {{remaining}} is what it now has left, and the server did not say why.",
+      "refusedUnstated": "The server refused this one without saying why.",
+      "failed": "These could not be reached ({{count}})",
+      "failedRow": "The request did not complete, so this entry's state is unknown. Open it before deciding.",
+      "withdrawn": "Withdrawn ({{count}})"
     }
   },
   "figures": {

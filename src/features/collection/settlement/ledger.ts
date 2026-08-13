@@ -25,6 +25,17 @@ export type LedgerCriteria = {
   storeId: string
   entryKind: '' | SettlementEntryKind
   status: '' | SettlementEntryStatus
+  /**
+   * The **batch's handle** — ticket 273's criterion, and the whole of how an
+   * uploaded month is reachable an hour later.
+   *
+   * 🔑 A batch is *"a handle and a provenance fact, never a second lifecycle"*: an
+   * entry already carries its `batchId` on D8's contract, so the batch needs no
+   * door of its own. This is the estate-wide lookup that already answers *"find
+   * this entry, whichever branch it is on"*, asked one field wider — and a *list my
+   * batches* door would be a second lifecycle in all but name.
+   */
+  batchId: string
 }
 
 export const EMPTY_LEDGER_CRITERIA: LedgerCriteria = {
@@ -32,6 +43,7 @@ export const EMPTY_LEDGER_CRITERIA: LedgerCriteria = {
   storeId: '',
   entryKind: '',
   status: '',
+  batchId: '',
 }
 
 /**
@@ -58,6 +70,7 @@ export function buildLedgerParams(criteria: LedgerCriteria): Record<string, unkn
     storeId: criteria.storeId.trim(),
     entryKind: criteria.entryKind,
     status: criteria.status,
+    batchId: criteria.batchId.trim(),
   }
 }
 
@@ -72,7 +85,7 @@ export function buildLedgerParams(criteria: LedgerCriteria): Record<string, unkn
  * ⚠️ **`branch`, not `store`.** `?store=` already means *open this branch's
  * account*; reusing it here would make one address mean two screens.
  */
-export const LEDGER_PARAMS = ['entryNumber', 'branch', 'kind', 'status'] as const
+export const LEDGER_PARAMS = ['entryNumber', 'branch', 'kind', 'status', 'batch'] as const
 
 const KINDS: readonly string[] = ['SHORTAGE', 'SURPLUS']
 const STATUSES: readonly string[] = ['OPEN', 'CONSUMED', 'CANCELLED', 'CLOSED_OUT']
@@ -88,6 +101,7 @@ export function readLedgerCriteria(params: URLSearchParams): LedgerCriteria {
     storeId: (params.get('branch') ?? '').trim(),
     entryKind: KINDS.includes(kind) ? (kind as LedgerCriteria['entryKind']) : '',
     status: STATUSES.includes(status) ? (status as LedgerCriteria['status']) : '',
+    batchId: (params.get('batch') ?? '').trim(),
   }
 }
 
@@ -103,6 +117,7 @@ export function writeLedgerCriteria(
     ['branch', criteria.storeId.trim()],
     ['kind', criteria.entryKind],
     ['status', criteria.status],
+    ['batch', criteria.batchId.trim()],
   ]
   for (const [key, value] of pairs) {
     if (value) next.set(key, value)
@@ -115,4 +130,10 @@ export function writeLedgerCriteria(
  *  ledger when the query is an entry number. */
 export function criteriaForEntryNumber(entryNumber: number): LedgerCriteria {
   return { ...EMPTY_LEDGER_CRITERIA, entryNumber: String(entryNumber) }
+}
+
+/** …and the criteria that find **one uploaded batch**, whichever branches it
+ *  landed on — what the withdrawal view (273) asks the ledger for. */
+export function criteriaForBatch(batchId: string): LedgerCriteria {
+  return { ...EMPTY_LEDGER_CRITERIA, batchId: batchId.trim() }
 }

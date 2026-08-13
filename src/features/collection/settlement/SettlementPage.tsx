@@ -5,10 +5,12 @@ import type { SettlementScope } from '@/core/models/settlement'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenSettlement } from './api'
+import BatchWithdraw from './BatchWithdraw'
 import BranchAccount from './BranchAccount'
 import {
   doorSearch,
   isLedgerView,
+  readBatchView,
   readEntryNumber,
   readStore,
   scopeSearch,
@@ -55,12 +57,13 @@ export default function SettlementPage() {
 }
 
 /**
- * The screen's body — **three views on one address**: the door, one branch's
- * account, and the cross-estate ledger.
+ * The screen's body — **four views on one address**: the door, one branch's
+ * account, the cross-estate ledger, and 273's batch withdrawal.
  *
- * 🚩 **The URL is the only home of all four pieces of state.** `?store=` opens an
+ * 🚩 **The URL is the only home of every piece of state.** `?store=` opens an
  * account (269, the `?acr=` idiom 257 established), `?q=` holds a search, `?scope=`
- * the scope and `?view=ledger` the support view. Nothing is mirrored into component
+ * the scope, `?view=ledger` the support view and `?view=batch&batch=` an uploaded
+ * batch's withdrawal (273). Nothing is mirrored into component
  * state beside them, so a reload, a paste into a ticket and the Back button all
  * reproduce what the accountant was looking at — and no copy can drift from the
  * URL, because there is no copy.
@@ -79,6 +82,10 @@ function SettlementBody() {
   const storeId = readStore(searchParams)
   const scope = readScope(searchParams.get(SCOPE_PARAM))
   const isLedger = isLedgerView(searchParams)
+  // 273's fourth view: one uploaded batch, withdrawn as one act. It is an address
+  // rather than dialog state, so *"finance sent the wrong file"* is still one repair
+  // an hour and a reload after the commit.
+  const batchId = readBatchView(searchParams)
 
   return (
     <>
@@ -86,14 +93,16 @@ function SettlementBody() {
           else. A branch's account is the same account whoever is assigned to it, and
           a scope control above one would imply the position on screen depended on
           who was looking. */}
-      {!storeId && !isLedger && (
+      {!storeId && !isLedger && !batchId && (
         <ScopeControl scope={scope} onScope={(next) => navigate(scopeSearch(searchParams, next))} />
       )}
 
-      {(storeId || isLedger) && <BackToDoor searchParams={searchParams} />}
+      {(storeId || isLedger || batchId) && <BackToDoor searchParams={searchParams} />}
 
       {storeId ? (
         <BranchAccount storeId={storeId} entryNumber={readEntryNumber(searchParams)} />
+      ) : batchId ? (
+        <BatchWithdraw batchId={batchId} />
       ) : isLedger ? (
         <CrossEstateLedger />
       ) : (

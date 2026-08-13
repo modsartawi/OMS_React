@@ -38,6 +38,22 @@ export const STORE_PARAM = 'store'
 export const ENTRY_PARAM = 'entry'
 /** Which view the door is showing. Only `ledger` means anything. */
 export const VIEW_PARAM = 'view'
+/**
+ * Which uploaded batch a view is about — the ledger's `batch` criterion
+ * (`ledger.ts` owns that key) **and** the id the withdrawal view reads.
+ *
+ * 🚩 **The withdrawal is a view, addressed like every other** — `?view=batch&
+ * batch=<id>` — rather than state inside the upload dialog. *"Finance sent the
+ * wrong file"* is a discovery made an hour and a reload later, so a withdrawal
+ * reachable only from the dialog that committed would be a repair you had to keep a
+ * tab open for.
+ *
+ * ⚠️ **`view=` is what tells the two apart, not the key.** `?view=ledger&batch=…`
+ * is a *lookup filtered to a batch*; `?view=batch&batch=…` is the *withdrawal* of
+ * one. Reusing the key is deliberate — one word for one thing — and the view
+ * parameter is the only thing that may decide which screen draws.
+ */
+export const BATCH_PARAM = 'batch'
 /** The search box's query. */
 export const QUERY_PARAM = 'q'
 
@@ -137,6 +153,30 @@ export function scopeSearch(params: URLSearchParams, scope: SettlementScope): st
  *  beside the link that writes it. */
 export function isLedgerView(params: URLSearchParams): boolean {
   return params.get(VIEW_PARAM) === 'ledger'
+}
+
+/**
+ * The withdrawal view for one uploaded batch (273) — keeping the scope and
+ * dropping everything that led here, like every other address on this screen.
+ */
+export function batchSearch(params: URLSearchParams, batchId: string): string {
+  const next = keepOnly(params)
+  next.set(VIEW_PARAM, 'batch')
+  next.set(BATCH_PARAM, batchId)
+  return render(next)
+}
+
+/**
+ * The batch the URL is asking to withdraw, or `''`.
+ *
+ * ⚠️ **Both halves are required.** A bare `?batch=…` left over from a ledger filter
+ * must not open the withdrawal screen — the view parameter is what decides which
+ * screen draws, and a hand-edited address missing it lands on the door rather than
+ * on an act.
+ */
+export function readBatchView(params: URLSearchParams): string {
+  if (params.get(VIEW_PARAM) !== 'batch') return ''
+  return (params.get(BATCH_PARAM) ?? '').trim()
 }
 
 /** The branch the URL names, or `''`. Trimmed, so `?store=` with nothing after it —

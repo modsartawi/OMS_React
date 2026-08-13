@@ -167,7 +167,15 @@ async function send(path: string, init: RequestInit): Promise<Response> {
       credentials: 'same-origin',
       headers: {
         'X-Web-Client': '1',
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        // ⚠ A `FormData` body is deliberately left WITHOUT a Content-Type (ticket
+        // 273). The browser generates `multipart/form-data; boundary=…` for it, and
+        // a hand-set `application/json` here replaces that header wholesale —
+        // boundary and all — so the server receives a body it cannot split into
+        // parts and parses no file at all. The one shape where saying nothing is
+        // the correct thing to say.
+        ...(init.body && !(init.body instanceof FormData)
+          ? { 'Content-Type': 'application/json' }
+          : {}),
         ...init.headers,
       },
     })
@@ -355,6 +363,25 @@ export const api = {
   },
   post<T>(path: string, body: unknown): Promise<T> {
     return request<T>(path, { method: 'POST', body: JSON.stringify(body) })
+  },
+  /**
+   * A **multipart** POST — bytes the user picked, plus whatever scalar fields ride
+   * beside them (ticket 273, spec 267 D8's two bulk doors).
+   *
+   * 🔑 It is `post` with a different body type and **nothing else**: the same base,
+   * credentials, `X-Web-Client` header and 401 redirect through `send`, and the same
+   * envelope unwrap and error taxonomy through `request`. That is the whole reason
+   * it lives here rather than as a `fetch` beside the feature that uploads
+   * (`.claude/rules/api-envelope.md`) — a hand-rolled one would answer a refused
+   * upload with a bare `Response` on a screen whose every other refusal is an
+   * `ApiError` carrying the server's words.
+   *
+   * ⚠ The caller builds the `FormData` and names the parts, because part names are
+   * one endpoint's contract and `core/` must not learn one feature's. What `core/`
+   * owns is that the Content-Type is left to the browser — see `send`.
+   */
+  upload<T>(path: string, form: FormData): Promise<T> {
+    return request<T>(path, { method: 'POST', body: form })
   },
   put<T>(path: string, body: unknown): Promise<T> {
     return request<T>(path, { method: 'PUT', body: JSON.stringify(body) })

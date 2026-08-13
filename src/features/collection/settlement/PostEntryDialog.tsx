@@ -15,6 +15,10 @@ import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
 import { amountInWords, type AmountWords } from './amount-words'
 import { settlementApi } from './api'
+// 🔑 The in-words sentence is SHARED with 273's upload, which reads the same guard
+// back over a whole file's total. One definition, so the two cannot drift on a
+// plural or a currency noun — see `in-words.ts`.
+import { inWordsSentence } from './in-words'
 import { ACCOUNT_LIMIT, isCapReached } from './cap'
 import {
   parseAmount,
@@ -27,10 +31,6 @@ import ReasonField from './ReasonField'
 
 /** The two kinds, in the order the toggle draws them. */
 const KINDS: readonly SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS']
-
-/** Which currencies this app has words for. Anything else reads its ISO code as the
- *  noun (*"fifty thousand KWD"*) rather than borrowing a riyal's — logged for 274. */
-const WORDED_CURRENCIES = new Set(['SAR', 'BHD'])
 
 /**
  * **Posting** — one entry onto one branch's ledger (ticket 271, spec 267 D4), and
@@ -698,41 +698,3 @@ function PostedPanel({
   )
 }
 
-/**
- * The amount in words, with the currency's own nouns — *fifty thousand riyals and
- * fifty-seven halalas*.
- *
- * The **number** words are `amount-words.ts`'s (pure, tested); the **nouns** are the
- * namespace's, because they are user-visible text and the i18n rule admits no
- * exception for a word that happens to be domain vocabulary. Their plural forms are
- * i18next's `_one`/`_other`, so *one riyal* is not *1 riyals* on the one screen where
- * a sentence is the guard.
- *
- * ⚠️ A currency this app has no nouns for reads its **ISO code** as the noun rather
- * than borrowing a riyal's. The footprint is KSA + Bahrain (`CURRENCY_DECIMALS`
- * says so in one line); a third currency arrives here visibly, and until it does the
- * fallback is honest instead of wrong.
- */
-function inWordsSentence(
-  t: (key: string, options?: Record<string, unknown>) => string,
-  words: AmountWords,
-  currencyKey: string,
-): string {
-  const code = (currencyKey || '').toUpperCase()
-  const bank = WORDED_CURRENCIES.has(code) ? code : 'other'
-  const major = t(`post.words.${bank}.major`, {
-    count: words.majorValue,
-    words: words.majorWords,
-    currency: code,
-  })
-  if (words.minorValue === 0) return major
-
-  const minor = t(`post.words.${bank}.minor`, {
-    count: words.minorValue,
-    words: words.minorWords,
-    currency: code,
-  })
-  // A sub-unit amount with no whole units reads as itself — *fifty halalas*, not
-  // *zero riyals and fifty halalas*.
-  return words.majorValue === 0 ? minor : t('post.words.join', { major, minor })
-}

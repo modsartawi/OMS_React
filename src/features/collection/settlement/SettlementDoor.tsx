@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { RefreshCw, Search, TriangleAlert, Wallet } from 'lucide-react'
+import { RefreshCw, Search, TriangleAlert, Upload, Wallet } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { apiErrorMessage } from '@/core/api'
@@ -22,6 +22,7 @@ import {
 } from './addresses'
 import { settlementApi } from './api'
 import { AccountShimmer } from './AccountStates'
+import BulkUploadDialog from './BulkUploadDialog'
 import { criteriaForEntryNumber } from './ledger'
 import PostEntryDialog from './PostEntryDialog'
 import RepairDialog from './RepairDialog'
@@ -102,6 +103,9 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
   /** 271's posting form. It opens with **no branch seeded** from here: the door is
    *  the estate, and the branch is typed into the form itself (D4). */
   const [posting, setPosting] = useState(false)
+  /** 273's second door — a month's audit, uploaded. It seeds nothing from here
+   *  either: the kind is the FILE's and the branches are the sheet's. */
+  const [uploading, setUploading] = useState(false)
 
   // *"There is no entry 9999"* is an answer about a query, so it dies with the
   // query. Left standing, it would sit under the results of the NEXT search and read
@@ -191,6 +195,17 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
         >
           {t('post.open')}
         </Button>
+        {/* 🚩 **Beside the single form, never instead of it** (D7). Forty shortages
+            must not cost forty forms; one shortage must not cost a spreadsheet. */}
+        <Button
+          type="button"
+          variant="outlined"
+          onClick={() => setUploading(true)}
+          data-testid="bulk-open"
+        >
+          <Upload className="h-3.5 w-3.5" aria-hidden />
+          {t('bulk.open')}
+        </Button>
       </form>
 
       {fleet.isError && (
@@ -240,6 +255,8 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
       />
 
       <PostEntryDialog open={posting} onClose={() => setPosting(false)} />
+
+      <BulkUploadDialog open={uploading} onClose={() => setUploading(false)} />
     </div>
   )
 }

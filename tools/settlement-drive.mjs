@@ -105,6 +105,37 @@ const RACE_ENTRY = '01J9SETL0142A'
  *  screen must offer NOTHING rather than the same button again. */
 const REFUSE_ENTRY = '01J9SETL0207B'
 
+/** Ticket 273's two bulk doors. The four preview payloads come out of the app's own
+ *  `bulk-fixture.ts` (one transcription, shared with `bulk.test.ts`); which one a
+ *  file gets is decided by its NAME, because this stub parses no spreadsheets
+ *  either. */
+let BULK = {}
+/** Every preview this stub has minted, by the `batchId` it minted — so the commit
+ *  can be answered against the file that was actually previewed. */
+const PREVIEWS = {}
+/** The file contents already committed. A second preview of one of them is what
+ *  raises the *posted N minutes ago* banner — the content hash, warning and never
+ *  refusing. */
+const COMMITTED = new Set()
+let previewCalls = []
+let commitCalls = []
+let batchSeq = 0
+/** 🔑 The entry of a committed batch whose cancel LOSES the race — a till consumes
+ *  part of it a millisecond before the batch withdrawal reaches it. It is how the
+ *  drive proves the ticket's *"reporting which rows a till already consumed"*. */
+let BATCH_RACE_ENTRY = ''
+/** …and the one a till had ALREADY partly consumed before the withdrawal was even
+ *  drawn, which the plan must name without ever attempting. */
+let BATCH_PRECONSUMED_ENTRY = ''
+
+/** One multipart part, off the raw body. This stub reads the upload the same way
+ *  the server will — by part NAME, never by position. */
+const part = (raw, name) => {
+  const m = raw.match(new RegExp(`name="${name}"[^]*?\r\n\r\n([^]*?)\r\n--`))
+  return m ? m[1] : ''
+}
+const uploadedName = (raw) => (raw.match(/filename="([^"]*)"/) || [])[1] || ''
+
 /** One entry across the six branches, with the account it belongs to — the stub
  *  writes through to the fixture so a refetch agrees with the answer it just gave. */
 function findEntry(settlementEntryId) {
@@ -161,12 +192,16 @@ async function run() {
       const storeId = url.searchParams.get('storeId') || ''
       const entryKind = url.searchParams.get('entryKind') || ''
       const status = url.searchParams.get('status') || ''
+      // 273's criterion: an uploaded month is reachable an hour later because every
+      // entry it posted carries its `batchId`.
+      const batchId = url.searchParams.get('batchId') || ''
       const rows = LEDGER.filter(
         (r) =>
           (!entryNumber || String(r.entryNumber) === entryNumber) &&
           (!storeId || r.storeId === storeId) &&
           (!entryKind || r.entryKind === entryKind) &&
-          (!status || r.status === status),
+          (!status || r.status === status) &&
+          (!batchId || r.batchId === batchId),
       ).slice(0, Number(url.searchParams.get('limit') || 500))
       return route.fulfill(envelope(rows))
     }
@@ -218,6 +253,33 @@ async function run() {
     if (path === 'Settlement/Cancel') {
       const body = route.request().postDataJSON() || {}
       cancelCalls.push(body)
+      // ---- ticket 273: the same door, reached in a loop across a BatchId ----
+      // 🔑 Cancel-as-a-unit is 272's mechanism applied per row, so it arrives HERE
+      // and not at a bulk door — there is no bulk door. One row of the batch loses
+      // its race on purpose: a till consumed part of it a millisecond earlier, and
+      // the withdrawal must NAME it rather than count it.
+      const batchRow = LEDGER.find(
+        (r) => r.settlementEntryId === body.settlementEntryId && r.batchId,
+      )
+      if (batchRow) {
+        if (batchRow.settlementEntryId === BATCH_RACE_ENTRY) {
+          batchRow.remainingAmount = 300
+          return route.fulfill(
+            envelope({
+              accepted: false,
+              refusalReason: 'A till consumed part of this entry.',
+              remainingAmount: 300,
+            }),
+          )
+        }
+        batchRow.status = 'CANCELLED'
+        batchRow.closedByStaffId = '30117'
+        batchRow.closedAt = '2026-08-13T10:05:00'
+        batchRow.closedReason = body.reason
+        return route.fulfill(
+          envelope({ accepted: true, refusalReason: '', remainingAmount: batchRow.amount }),
+        )
+      }
       const found = findEntry(body.settlementEntryId)
       if (body.settlementEntryId === RACE_ENTRY) {
         // A till consumed 150 of the 500 a millisecond before this call landed. The
@@ -304,6 +366,98 @@ async function run() {
       }
       return route.fulfill(envelope({ accepted: true, noOp: false, remainingAfter: 450, refusalReason: '' }))
     }
+    // ---- ticket 273: the second posting door ----
+    // 🚩 **The stub parses nothing either.** Which preview a file gets is decided by
+    // its NAME, exactly as the client decides nothing about its contents: spec 267
+    // D7 puts all parsing on the server, and a drive that parsed a CSV in node would
+    // be proving a code path this app deliberately does not have.
+    if (path === 'Settlement/Bulk/Preview') {
+      const raw = route.request().postData() || ''
+      const name = uploadedName(raw)
+      const content = part(raw, 'file')
+      const entryKind = part(raw, 'entryKind')
+      previewCalls.push({ name, entryKind, bytes: content.length })
+
+      const base = name.includes('bad')
+        ? BULK.BAD_ROW_PREVIEW
+        : name.includes('header')
+          ? BULK.BAD_HEADER_PREVIEW
+          : name.includes('dup')
+            ? BULK.DUPLICATE_PREVIEW
+            : COMMITTED.has(content)
+              ? // 🔑 The content hash WARNS and never refuses: the same rows going up
+                // a second time is a real thing finance does, and refusing would make
+                // a genuine repeat unpostable.
+                BULK.REPLAY_PREVIEW
+              : BULK.CLEAN_PREVIEW
+
+      const batchId = `01J9BATCH${++batchSeq}`
+      PREVIEWS[batchId] = { name, content, preview: base }
+      return route.fulfill(envelope({ ...base, batchId, entryKind: entryKind || base.entryKind }))
+    }
+    if (path === 'Settlement/Bulk/Commit') {
+      const raw = route.request().postData() || ''
+      const batchId = part(raw, 'batchId')
+      const content = part(raw, 'file')
+      commitCalls.push({ batchId, name: uploadedName(raw), entryKind: part(raw, 'entryKind') })
+      const previewed = PREVIEWS[batchId]
+      if (!previewed)
+        return route.fulfill(
+          envelope(null, { status: 409, success: false, message: 'No such batch.' }),
+        )
+
+      // 🔑 **The sheet changed between review and commit.** The client cannot detect
+      // that and must not try — it never read the file — so the server refuses on the
+      // hash, as a BUSINESS refusal carrying a code rather than a 200 with a flag.
+      // ⚠️ A drive cannot rewrite a file under a live `File` handle mid-run, so the
+      // edit is expressed by NAME: `august-edited.csv` previews and then refuses.
+      if (previewed.name.includes('edited') || content !== previewed.content)
+        return route.fulfill(
+          envelope(null, {
+            status: 409,
+            success: false,
+            message: 'This sheet has changed since it was previewed.',
+            errors: [{ errorCode: 'HASH_MISMATCH', internalErrorCode: '', errorMessage: '' }],
+          }),
+        )
+
+      const rows = previewed.preview.rows
+      const entryNumbers = []
+      for (const row of rows) {
+        const entryNumber = nextEntryNumber++
+        entryNumbers.push(entryNumber)
+        LEDGER.push({
+          settlementEntryId: `01J9SETLBULK${entryNumber}`,
+          entryNumber,
+          storeId: row.storeId,
+          storeName: row.storeName,
+          currencyKey: row.currencyKey,
+          entryKind: previewed.preview.entryKind,
+          amount: row.amount,
+          remainingAmount: row.amount,
+          reason: row.reason,
+          status: 'OPEN',
+          batchId,
+          postedByStaffId: '30117',
+          postedByName: 'ضحى العتيبي / Duha Al-Otaibi',
+          postedAt: '2026-08-13T09:45:00',
+          closedByStaffId: '',
+          closedAt: '',
+          closedReason: '',
+        })
+      }
+      // The THIRD row is one a till reached first, before the withdrawal was even
+      // drawn — the plan must name it and never attempt it…
+      const preconsumed = LEDGER.find((r) => r.entryNumber === entryNumbers[2])
+      if (preconsumed) {
+        preconsumed.remainingAmount = preconsumed.amount - 100
+        BATCH_PRECONSUMED_ENTRY = preconsumed.settlementEntryId
+      }
+      // …and the SECOND is the one whose cancel loses its race mid-loop.
+      BATCH_RACE_ENTRY = `01J9SETLBULK${entryNumbers[1]}`
+      COMMITTED.add(content)
+      return route.fulfill(envelope({ posted: rows.length, replayed: false, entryNumbers }))
+    }
     if (path === 'Auth/Me')
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
@@ -381,6 +535,19 @@ async function run() {
   FLEET = estate.fleet
   WORKLIST = estate.worklist
   LEDGER = estate.ledger
+  // …and 273's four preview payloads, from the module `bulk.test.ts` asserts
+  // against: a clean month, one with an unresolvable code, one with a duplicate
+  // warning, and the same file coming back a second time.
+  BULK = await page.evaluate(async () => {
+    const m = await import('/src/features/collection/settlement/bulk-fixture.ts')
+    return {
+      CLEAN_PREVIEW: m.CLEAN_PREVIEW,
+      BAD_ROW_PREVIEW: m.BAD_ROW_PREVIEW,
+      BAD_HEADER_PREVIEW: m.BAD_HEADER_PREVIEW,
+      DUPLICATE_PREVIEW: m.DUPLICATE_PREVIEW,
+      REPLAY_PREVIEW: m.REPLAY_PREVIEW,
+    }
+  })
   // The oldest orphan is the one whose document arrives mid-click.
   NOOP_CONSUMPTION = [...WORKLIST.orphans].sort((a, b) => b.ageDays - a.ageDays)[0]
     .settlementConsumptionId
@@ -580,8 +747,15 @@ async function run() {
   const search = async (q) => {
     await page.locator('[data-testid="settlement-search"]').fill(q)
     // The box writes the query into the URL, so the ranked list is a re-render away
-    // rather than a request away — a short settle, not a network wait.
-    await page.waitForTimeout(150)
+    // rather than a request away. ⚠️ Waited for by its OWN subject — the address —
+    // rather than by a fixed 150 ms, which went red at random on 272's runs and is
+    // the reason a proof tool stops being believed.
+    await page
+      .waitForFunction((want) => new URLSearchParams(location.search).get('q') === want, q, {
+        timeout: 4000,
+      })
+      .catch(() => {})
+    await page.waitForTimeout(60)
     return page.locator('[data-region="search-results"]').innerText().catch(() => '')
   }
   /** Wait for a region to actually be on screen. A client-side navigation resolves
@@ -1223,6 +1397,271 @@ async function run() {
   check(
     '🚩 272’s keys are all registered — no raw t() key on either pane',
     !/settlement:|\bcorrection\.|\baudit\./.test((await correctionText()) + (await auditText())),
+  )
+
+  // ═══ Ticket 273 — a month's audit uploads, previews and commits ═══════════════
+  //
+  // 🔑 The second posting door, beside 271's single form, which is untouched. Every
+  // check below is about one of the ticket's two guards — the preview grid's
+  // resolved BRANCH NAME per row, and the file's total IN WORDS at the commit — or
+  // about the all-or-nothing rule that decides whether the button is there at all.
+  //
+  // ⚠️ The sheets are bytes, not spreadsheets: nothing on either side of this drive
+  // parses one (spec 267 D7 puts all parsing on the server), so a file's NAME is
+  // what picks the preview the stub answers with.
+  const sheet = (name, body) => ({
+    name,
+    mimeType: name.endsWith('.xlsx')
+      ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      : 'text/csv',
+    buffer: Buffer.from(body),
+  })
+  const CSV_ROWS = 'store,amount,reason\n0142,500,july\n0207,1250.50,july\n0331,4300,july\n0455,120000,july\n0688,2650,july\n'
+
+  const openUpload = async () => {
+    scenario = { accessBody: ALL, access403: false, access500: false }
+    await page.goto(BASE + ROUTE)
+    await page.waitForLoadState('networkidle')
+    await page.locator('[data-testid="bulk-open"]').click()
+    return appears('[data-region="bulk-upload"]')
+  }
+  const upload = async (file) => {
+    await page.locator('[data-testid="bulk-file"]').setInputFiles(file)
+    await page.locator('[data-testid="bulk-preview"]').click()
+    await appears('[data-testid="bulk-rows"], [data-testid="bulk-blockers"]')
+    await page.waitForTimeout(80)
+    return page.locator('[data-region="bulk-upload"]').innerText()
+  }
+  const uploadText = async () => page.locator('[data-region="bulk-upload"]').innerText()
+  const previewRows = async () => page.locator('[data-testid="bulk-rows"] tbody tr').count()
+  const commitLabel = async () => page.locator('[data-testid="bulk-commit"]').innerText()
+  const commitBlocked = async () =>
+    (await page.locator('[data-testid="bulk-commit"]').getAttribute('aria-disabled')) === 'true'
+
+  check('273 → the upload door sits BESIDE the single form, not instead of it', await openUpload(), '')
+  check(
+    '273 → the kind is chosen for the WHOLE FILE, and the sheet carries no kind column',
+    (await uploadText()).includes('One kind per file') &&
+      (await page.locator('[data-region="bulk-kind"] button').count()) === 2,
+  )
+
+  // ---- the ordinary month ----
+  let bulkText = await upload(sheet('august.csv', CSV_ROWS))
+  const csvRows = await previewRows()
+  const csvLabel = await commitLabel()
+  check('🔑 every previewed row shows its BRANCH NAME, resolved from the code', csvRows === 5 && bulkText.includes('Al-Rawdah') && bulkText.includes('Qurtubah') && !bulkText.includes('No branch has this code'), `${csvRows} rows`)
+  check(
+    '🔑 the commit carries the file’s total IN WORDS, and it is the sum of the rows',
+    (await page.locator('[data-testid="bulk-total-words"]').innerText()).includes(
+      'one hundred twenty-eight thousand seven hundred riyals and fifty halalas',
+    ) && bulkText.includes('128,700.50'),
+    await page.locator('[data-testid="bulk-total-words"]').innerText(),
+  )
+  check(
+    '🔑 …and the guard is ON THE BUTTON, in words — not merely on the screen',
+    csvLabel.includes('5') &&
+      csvLabel.includes('one hundred twenty-eight thousand seven hundred riyals and fifty halalas'),
+    csvLabel,
+  )
+  check(
+    '⚠️ …and NOT once per row — the in-words guard does not survive multiplication',
+    (await page.locator('[data-testid="bulk-total-words"]').count()) === 1,
+  )
+
+  // ---- the same rows as an .xlsx ----
+  await page.locator('[data-testid="bulk-back"]').click()
+  await page.waitForTimeout(80)
+  bulkText = await upload(sheet('august.xlsx', CSV_ROWS + ' xlsx'))
+  check(
+    '🔑 an .xlsx and a .csv of the same rows preview IDENTICALLY',
+    (await previewRows()) === csvRows && (await commitLabel()) === csvLabel,
+    `${await previewRows()} rows · ${await commitLabel()}`,
+  )
+  check(
+    '…and the client uploaded BYTES — it read neither file',
+    previewCalls.length === 2 &&
+      previewCalls.every((c) => c.entryKind === 'SHORTAGE' && c.bytes > 0),
+    JSON.stringify(previewCalls.map((c) => c.name)),
+  )
+
+  // ---- one unresolvable code stops the whole file ----
+  await page.locator('[data-testid="bulk-back"]').click()
+  await page.waitForTimeout(80)
+  bulkText = await upload(sheet('august-bad.csv', CSV_ROWS.replace('0331', '9999')))
+  check(
+    '🔑 an unresolvable code is a HARD ERROR and blocks the WHOLE file',
+    (await commitBlocked()) &&
+      (await commitLabel()).includes('Fix the sheet') &&
+      bulkText.includes('branch has the code 9999'),
+    (await commitLabel()) + ' · ' + String(await commitBlocked()),
+  )
+  check(
+    '⚠️ …while the good rows are still shown — finance fixes the sheet against them',
+    (await previewRows()) === 5 &&
+      (await page.locator('[data-testid="bulk-rows"] tr[data-unresolved="true"]').count()) === 1,
+  )
+  check(
+    '🚩 …and the bad row is named IN WORDS, not left as a blank cell',
+    bulkText.includes('No branch has this code'),
+  )
+
+  // ---- a sheet missing a required header ----
+  // ⚠️ The ticket's own open question: a missing required header must refuse NAMING
+  // WHAT IT EXPECTED. The column travels on the blocker and is rendered.
+  await page.locator('[data-testid="bulk-back"]').click()
+  await page.waitForTimeout(80)
+  bulkText = await upload(sheet('august-header.csv', 'store,reason\n0142,july\n'))
+  check(
+    '⚠️ a missing required header refuses the FILE, naming the column it expected',
+    (await commitBlocked()) &&
+      bulkText.includes('The file itself, column amount') &&
+      (await previewRows().catch(() => 0)) === 0,
+    bulkText.replace(/\n/g, ' ').slice(0, 120),
+  )
+
+  // ---- a duplicate warns on its row and commits ----
+  await page.locator('[data-testid="bulk-back"]').click()
+  await page.waitForTimeout(80)
+  bulkText = await upload(sheet('august-dup.csv', CSV_ROWS + '# dup\n'))
+  check(
+    '🔑 a duplicate-kind row WARNS on its own row and still commits',
+    !(await commitBlocked()) &&
+      (await page.locator('[data-testid="bulk-rows"] tr[data-warned="true"]').count()) === 1 &&
+      bulkText.includes('already carries an open shortage'),
+    String(await commitBlocked()),
+  )
+  check(
+    '🚩 …and the screen says WHY it is not a refusal — never stricter than the single form',
+    bulkText.includes('never stricter than the single form'),
+  )
+
+  // ---- upload → preview → commit ----
+  await page.locator('[data-testid="bulk-back"]').click()
+  await page.waitForTimeout(80)
+  await upload(sheet('august.csv', CSV_ROWS))
+  commitCalls = []
+  await page.locator('[data-testid="bulk-commit"]').click()
+  await appears('[data-region="bulk-done"]')
+  const doneText = await page.locator('[data-region="bulk-done"]').innerText()
+  const BATCH = await page.locator('[data-region="bulk-done"]').getAttribute('data-batch')
+  check(
+    '🔑 the drive walks upload → preview → commit, and the COMMIT RE-SENDS THE FILE',
+    commitCalls.length === 1 &&
+      commitCalls[0].name === 'august.csv' &&
+      commitCalls[0].batchId === BATCH &&
+      doneText.includes('5 entries are posted'),
+    JSON.stringify(commitCalls[0] ?? {}),
+  )
+  check(
+    '…and the confirmation carries the entry numbers and a way to withdraw the batch',
+    doneText.includes('Entry numbers') &&
+      (await page.locator('[data-testid="bulk-done-withdraw"]').count()) === 1,
+  )
+
+  // ---- the same file, a second time ----
+  await page.locator('[data-testid="bulk-close"]').click()
+  await openUpload()
+  bulkText = await upload(sheet('august.csv', CSV_ROWS))
+  check(
+    '🔑 re-uploading the same file surfaces the *posted N minutes ago* banner…',
+    (await page.locator('[data-testid="bulk-replay"]').count()) === 1 &&
+      bulkText.includes('4 minutes ago') &&
+      bulkText.includes('ضحى'),
+    (await page.locator('[data-testid="bulk-replay"]').innerText().catch(() => '')).slice(0, 90),
+  )
+  check(
+    '🔑 …and STILL ALLOWS the post — a hash warns, it never refuses',
+    !(await commitBlocked()),
+  )
+
+  // ---- the sheet edited between review and commit ----
+  await page.locator('[data-testid="bulk-back"]').click()
+  await page.waitForTimeout(80)
+  await upload(sheet('august-edited.csv', CSV_ROWS))
+  await page.locator('[data-testid="bulk-commit"]').click()
+  await appears('[data-testid="bulk-refusal"]')
+  check(
+    '🔑 editing the sheet between preview and commit is REFUSED on the hash',
+    (await page.locator('[data-region="bulk-done"]').count()) === 0 &&
+      (await page.locator('[data-testid="bulk-refusal"]').innerText()).includes('has changed'),
+    await page.locator('[data-testid="bulk-refusal"]').innerText(),
+  )
+  check(
+    '⚠️ …and the refusal offers the way through: preview it again',
+    (await page.locator('[data-testid="bulk-again"]').count()) === 1,
+  )
+  // 🚩 272's ruling, applied to this door: a refused act is not re-offered
+  // unchanged, or it becomes a button someone presses in a loop.
+  check(
+    '🚩 …and the commit button is GONE while the refusal stands',
+    (await page.locator('[data-testid="bulk-commit"]').count()) === 0 &&
+      (await page.locator('[data-testid="bulk-again-footer"]').count()) === 1,
+  )
+  check(
+    '🚩 273’s keys are all registered — no raw t() key on the upload door',
+    !/settlement:|\bbulk\./.test(await uploadText()),
+  )
+
+  // ---- cancel as a unit ----
+  // 🚩 The batch is an ADDRESS, so *"finance sent the wrong file"* is still one
+  // repair an hour and a reload after the commit — this navigation is the proof.
+  await page.goto(`${BASE}${ROUTE}?view=batch&batch=${BATCH}`)
+  await appears('[data-region="batch-withdraw"]')
+  await page.waitForTimeout(120)
+  let batchText = await page.locator('[data-region="batch-withdraw"]').innerText()
+  check(
+    '273 → a batch is reachable by ADDRESS alone, an hour and a reload later',
+    batchText.includes('Withdraw an uploaded batch') &&
+      (await page.locator('[data-testid="batch-cancellable"] li').count()) === 4,
+    `${await page.locator('[data-testid="batch-cancellable"] li').count()} withdrawable`,
+  )
+  check(
+    '🔑 …and the row a till had already partly consumed is NAMED, never attempted',
+    (await page.locator('[data-testid="batch-skipped"] li').count()) === 1 &&
+      (await page.locator('[data-testid="batch-skipped"]').innerText()).includes(
+        'A till has taken part of this one',
+      ),
+    (await page.locator('[data-testid="batch-skipped"]').innerText()).replace(/\n/g, ' '),
+  )
+  cancelCalls = []
+  await page.locator('[data-testid="batch-reason"]').fill('Finance sent the wrong file for July.')
+  await page.locator('[data-testid="batch-commit"]').click()
+  await appears('[data-region="batch-outcome"]')
+  await page.waitForTimeout(150)
+  batchText = await page.locator('[data-region="batch-outcome"]').innerText()
+  check(
+    '🔑 cancel-as-a-unit is a LOOP over 272’s own door — one call per open entry',
+    cancelCalls.length === 4 &&
+      cancelCalls.every((c) => c.reason === 'Finance sent the wrong file for July.'),
+    `${cancelCalls.length} cancels`,
+  )
+  check(
+    '🔑 …and the rows a till got to FIRST are named, with the remaining they came back with',
+    (await page.locator('[data-testid="batch-refused"] li').count()) === 1 &&
+      batchText.includes('A till consumed part of this entry.') &&
+      batchText.includes('300.00'),
+    batchText.replace(/\n/g, ' ').slice(0, 140),
+  )
+  check(
+    '🚩 …and a partly-withdrawn batch is not an ERROR — 3 withdrawn, 1 reported',
+    batchText.includes('3 entries were withdrawn') &&
+      !(await page.locator('body').innerText()).includes('could not be sent'),
+    batchText.replace(/\n/g, ' ').slice(0, 90),
+  )
+  check(
+    '🚩 273’s keys are all registered — no raw t() key on the withdrawal',
+    !/settlement:|\bbatch\./.test(batchText),
+  )
+
+  // ---- and the batch as a LEDGER criterion: how it is found in the first place ----
+  await page.goto(`${BASE}${ROUTE}?view=ledger&batch=${BATCH}`)
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(150)
+  check(
+    '273 → the ledger finds a batch’s entries, and offers the withdrawal from there',
+    (await page.locator('[data-testid="ledger-withdraw-batch"]').count()) === 1 &&
+      (await page.locator('[data-testid="ledger-batch"]').inputValue()) === BATCH,
+    await page.locator('[data-testid="ledger-batch"]').inputValue(),
   )
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))

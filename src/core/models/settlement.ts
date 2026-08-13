@@ -369,3 +369,131 @@ export type SettlementRepairResult = {
   remainingAfter: number
   refusalReason: string
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * The second posting door — ticket 273's half of the contract (spec 267 D7/D8).
+ *
+ * A month's audit **already ends in a spreadsheet**, so the input shape is found
+ * rather than invented. Two calls ride over the same multipart upload: preview
+ * parses and returns, and **commit re-sends the file**. There is no staging table
+ * and no client-held row state — what commits is the file, not a JSON array the
+ * browser assembled and could have diverged from.
+ *
+ * ⚠️ **Every shape below is an extension of D8**, which gives the two doors a body
+ * and the names of their result's arrays and no field list. They are transcribed
+ * here and logged in `.afk/HITL-273.md` for 274 to settle against a live SIS.Api —
+ * D8's own instruction is to treat its table as *the shape*.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * One parsed row of the sheet, as the server resolved it.
+ *
+ * 🔑 **`storeName` is the guard.** The preview grid's whole claim is that every row
+ * shows its store code **resolved to a branch name** — it is what catches the one
+ * error a number-only review cannot, *the right amount posted onto the wrong
+ * branch*. A blank name is therefore a hard error on this screen (`bulk.ts`), not a
+ * cosmetic gap.
+ *
+ * ⚠️ There is **no kind column**: one kind per file, chosen with 271's toggle at the
+ * *file* level (D7). A mixed file would make the in-words total a **net** figure a
+ * typo could hide inside.
+ */
+export type SettlementBulkRow = {
+  /** The sheet's own row number, so *"fix row 12"* is actionable in the workbook
+   *  the accountant still has open. Headers are read **by name**, so this is a
+   *  position in the file and never a position in a schema. */
+  rowNumber: number
+  storeId: string
+  /** `''` = the code resolved to no branch. See the type's docblock. */
+  storeName: string
+  /** ISO code — the row's own, per D10: a Bahraini branch's fils are not rounded
+   *  away because the rest of the file is Saudi. */
+  currencyKey: string
+  amount: number
+  /** Free text ≤200 the branch reads verbatim, exactly as the single form's. */
+  reason: string
+}
+
+/**
+ * One reason nothing in this file may commit.
+ *
+ * 🔑 **Hard errors are all-or-nothing** (D7), deliberately stricter than the
+ * assignment seed's insert-all-blind precedent — *a seed row is inert and a posted
+ * entry is money someone will be asked for*. The preview enumerates the bad rows,
+ * finance fixes the sheet and re-uploads.
+ */
+export type SettlementBulkError = {
+  /** `0` = the **file's** fault rather than a row's — a missing required header,
+   *  which must refuse naming what it expected (the ticket's open question). */
+  rowNumber: number
+  /** Which column, when the fault is a column's. `''` otherwise. */
+  column: string
+  /** The server's own words, passed through as data. */
+  message: string
+}
+
+/**
+ * One reason to look twice at a row that **still commits**.
+ *
+ * 🚩 The batch must **never be stricter than the single form** (D7): a branch
+ * already carrying an open entry of the same kind is flagged on its row and posts
+ * anyway, or a real second shortage months apart becomes unpostable by file.
+ */
+export type SettlementBulkWarning = {
+  rowNumber: number
+  message: string
+}
+
+/**
+ * *"A file with these 47 rows was posted 4 minutes ago by ضحى."*
+ *
+ * 🔑 **The content hash warns and never refuses** (D7). Refusing would make a
+ * genuinely identical repeat — the same shortage found at the same branches a month
+ * later — unpostable.
+ *
+ * ⚠️ `minutesAgo` is the **server's** subtraction, not this screen's, on the rule
+ * `SettlementOrphanRow.ageDays` already set at 270: the clock is the server's, and a
+ * pure module that read `Date.now()` would change its answer overnight.
+ */
+export type SettlementBulkReplay = {
+  postedByName: string
+  postedAt: string
+  minutesAgo: number
+  rowCount: number
+}
+
+/** What `Settlement/Bulk/Preview` answers for one uploaded file. */
+export type SettlementBulkPreview = {
+  /** Minted at preview and handed back at commit. A **handle and a provenance
+   *  fact** — never a second lifecycle (D7). */
+  batchId: string
+  /** The hash of the bytes that were previewed. The commit re-sends the file and
+   *  the server compares; a mismatch means the sheet changed between review and
+   *  commit and it refuses. Held here so the screen can say which file it read. */
+  contentHash: string
+  /** Echoed back, because the kind is the FILE's and the screen must be able to
+   *  show that what it reviewed is what it chose. */
+  entryKind: SettlementEntryKind
+  rows: SettlementBulkRow[]
+  errors: SettlementBulkError[]
+  warnings: SettlementBulkWarning[]
+  /** The server's own sum. ⚠️ Used as a **cross-check**, never as the read-back:
+   *  the in-words total is folded from the rows, per currency (`bulk.ts`). */
+  total: number
+  replay: SettlementBulkReplay | null
+}
+
+/**
+ * What `Settlement/Bulk/Commit` answers.
+ *
+ * ⚠️ **`replayed` is a boolean** — *this exact batch was already committed, nothing
+ * was doubled, and these are the same entry numbers*. It is the answer to a second
+ * tab pressing commit twice; under an all-or-nothing commit a partial replay cannot
+ * exist, so a count would have nothing to count. Logged for 274.
+ */
+export type SettlementBulkCommitResult = {
+  posted: number
+  replayed: boolean
+  /** The handles finance and the branches settle by on the phone. */
+  entryNumbers: number[]
+}

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, useSearchParams } from 'react-router'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { AgGridReact } from 'ag-grid-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
@@ -17,7 +17,7 @@ import {
   omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
-import { branchSearch } from './addresses'
+import { batchSearch, branchSearch } from './addresses'
 import { AccountCapBanner, AccountShimmer } from './AccountStates'
 import { settlementApi } from './api'
 import { GRID_PAGE_SIZE, LEDGER_LIMIT, isCapReached } from './cap'
@@ -118,6 +118,17 @@ export default function CrossEstateLedger() {
             <option value="SURPLUS">{t('account.kind.SURPLUS')}</option>
           </select>
         </Field>
+        {/* 🔑 273's batch handle. An uploaded month is reachable an hour later
+            because every entry carries its `batchId` — the lookup answers *"which
+            entries did that file post"* without a door of its own. */}
+        <Field label={t('ledger.criteria.batchId')}>
+          <input
+            value={draft.batchId}
+            onChange={(e) => set({ batchId: e.target.value })}
+            data-testid="ledger-batch"
+            className="h-8 w-40 rounded-md border border-border bg-card px-2 text-sm outline-none focus:border-primary/60"
+          />
+        </Field>
         <Field label={t('ledger.criteria.status')}>
           <select
             value={draft.status}
@@ -146,6 +157,20 @@ export default function CrossEstateLedger() {
           {t('ledger.criteria.clear')}
         </Button>
       </form>
+
+      {/* …and once a batch IS the filter, the act it licenses is one link away:
+          withdrawing the whole file is 273's own repair for *finance sent the wrong
+          one*. It is offered on the criterion, not on a row — a batch is withdrawn
+          as a unit or not at all. */}
+      {criteria.batchId && rows.length > 0 && (
+        <Link
+          to={batchSearch(searchParams, criteria.batchId)}
+          data-testid="ledger-withdraw-batch"
+          className="w-fit text-xs font-medium text-primary underline-offset-2 hover:underline"
+        >
+          {t('ledger.withdrawBatch', { count: rows.length })}
+        </Link>
+      )}
 
       {ledger.isError && (
         <ErrorBanner

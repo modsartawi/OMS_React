@@ -24,6 +24,8 @@ import { api } from '@/core/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type {
   SettlementAccount,
+  SettlementBulkCommitResult,
+  SettlementBulkPreview,
   SettlementCancelResult,
   SettlementCloseOutResult,
   SettlementEntryKind,
@@ -227,5 +229,62 @@ export const settlementApi = {
       settlementConsumptionId,
       reason,
     })
+  },
+
+  /**
+   * `POST Settlement/Bulk/Preview` (multipart) → the month's audit, parsed and
+   * resolved (ticket 273, spec 267 D7/D8). **The first half of the second posting
+   * door**, beside 271's single form, which is untouched.
+   *
+   * 🔑 **The client uploads bytes and parses nothing.** XLSX and CSV alike go up as
+   * they came off disk; there is no spreadsheet library on this side and the ticket
+   * forbids adding one. What comes back is the server's reading of the file —
+   * every row with its store code **resolved to a branch name**, the errors that
+   * block it, the warnings that do not, a `batchId` and a content hash.
+   *
+   * ⚠️ It goes through `api.upload`, which is `@/core/api`'s multipart door added
+   * by this ticket — not a `fetch` beside it (`.claude/rules/api-envelope.md`), and
+   * for the concrete reason that a refused upload has to arrive as the same
+   * `ApiError` every other refusal on this screen does.
+   *
+   * ⚠️ The route string and the part names are **274's to confirm**, as with every
+   * door here.
+   */
+  bulkPreview(file: File, entryKind: SettlementEntryKind): Promise<SettlementBulkPreview> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    // 🔑 The kind is the FILE's, chosen with 271's toggle before the upload — there
+    // is no kind column, because a mixed file makes the total in words a **net**
+    // figure a typo can hide inside (D7).
+    form.append('entryKind', entryKind)
+    return api.upload<SettlementBulkPreview>('Settlement/Bulk/Preview', form)
+  },
+
+  /**
+   * `POST Settlement/Bulk/Commit` (multipart) → the same file, posted.
+   *
+   * 🔑 **The FILE is re-sent, not the rows.** There is no staging table and no
+   * client-held row state (D7): what commits is the bytes the accountant reviewed,
+   * never a JSON array the browser assembled and could have diverged from. The
+   * server re-hashes what arrives and compares it with what it previewed, so a
+   * **sheet edited between review and commit is refused** — which is a refusal this
+   * client could not make, because it never read the file.
+   *
+   * ⚠️ That refusal is a **business `ApiError`**, not a 200 with a flag: D8 gives
+   * this answer no `accepted` field to carry one on, and a request describing a file
+   * the server no longer holds is a refusal to act rather than an outcome of acting.
+   * Cancel and repair are 200s for the opposite reason. Logged in `.afk/HITL-273.md`
+   * for 274.
+   */
+  bulkCommit(
+    file: File,
+    batchId: string,
+    entryKind: SettlementEntryKind,
+  ): Promise<SettlementBulkCommitResult> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    form.append('batchId', batchId)
+    form.append('entryKind', entryKind)
+    return api.upload<SettlementBulkCommitResult>('Settlement/Bulk/Commit', form)
   },
 }

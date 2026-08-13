@@ -22,6 +22,7 @@ describe('landingCriteria', () => {
       toDate: '2026-08-08',
       storeId: '',
       collectorOperatorId: '',
+      servedBy: { kind: '', id: '' },
     })
   })
 
@@ -84,6 +85,7 @@ describe('buildCollectionsParams', () => {
       toDate: '2026-08-08',
       storeId: '1001',
       collectorOperatorId: '',
+      servedBy: { kind: 'ACCOUNTANT', id: '4466' },
     }
     expect(buildCollectionsParams(draft)).toEqual(buildCollectionsParams({ ...draft }))
   })
@@ -122,6 +124,7 @@ describe('Reset', () => {
       toDate: '2026-08-08',
       storeId: '',
       collectorOperatorId: '',
+      servedBy: { kind: '', id: '' },
     })
     expect(isLandingQuery(buildCollectionsParams(landingCriteria(TODAY)), TODAY)).toBe(true)
   })

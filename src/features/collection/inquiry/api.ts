@@ -30,6 +30,7 @@ import type {
   DepositInquiryResult,
   VoucherDocument,
 } from '@/core/models/collection'
+import type { AssignmentOptions } from './served-by'
 
 /**
  * The two refusal codes the print routes branch on (245 §7), spelled once.
@@ -134,6 +135,27 @@ export const collectionApi = {
    */
   collections(params: Record<string, unknown>): Promise<CollectionInquiryRow[]> {
     return api.get<CollectionInquiryRow[]>('CollectionWeb/Collections', params)
+  },
+
+  /**
+   * `GET CollectionWeb/AssignmentOptions` → the shared *Served by* picker's three
+   * groups (BackOffice tracer 1163).
+   *
+   * ⚠️ **Cookie-gated and deliberately NOT grant-gated**, the same posture as
+   * `Access` above — and for a structural reason rather than a lax one. ONE payload
+   * fills the picker on all four screens, but the four screens hold four
+   * *independent* grants: gating it on any one of them would leave a session holding
+   * only `DepositInquiry` looking at an empty picker on the very screen it is
+   * entitled to open. The rows behind the filter stay locked; every grid is still
+   * its own grant's.
+   *
+   * 🚩 **Names come from the roster's own `DisplayName` and nowhere else.** None of
+   * the 8 accountants exists in `Staff` / `UaEmployee` / `UaUser`, so there is no
+   * master to resolve them against — which is also why this is one server-side read
+   * rather than a join across two databases.
+   */
+  assignmentOptions(): Promise<AssignmentOptions> {
+    return api.get<AssignmentOptions>('CollectionWeb/AssignmentOptions')
   },
 
   /**

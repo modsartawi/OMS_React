@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
 import { isAcrScoped } from './acr-scope'
 import type { CollectionsCriteria } from './collections-criteria'
+import ServedByPicker from './ServedByPicker'
+import { NO_SERVED_BY } from './served-by'
 
 /**
  * Cash Collections' filter strip (ticket 254) — From · To · Store · Collector,
@@ -128,6 +130,22 @@ export default function CollectionsToolbar({
           className={`h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
         />
       </label>
+
+      {/* The shared *Served by* control (BackOffice tracer 1163).
+          ⚠️ It sits BESIDE the collector box, it does not replace it: that box is
+          *who actually collected*, this is *who is assigned to the branch*, and a
+          stand-in covering somebody's route is exactly when the two diverge. They
+          AND — and they AND **even to nothing**, both filters visibly live, because
+          a filter that silently un-sets another is how a grid ends up showing rows
+          the toolbar says it excluded.
+          It is disabled under the `?acr=` chip with the rest, for that chip's own
+          reason: the server discards the toolbar entirely when an ACR is scoped. */}
+      <ServedByPicker
+        screen="collections"
+        value={scoped ? NO_SERVED_BY : criteria.servedBy}
+        onChange={(servedBy) => onChange({ servedBy })}
+        disabled={scoped}
+      />
 
       <div className="flex items-center gap-2">
         {/* Search goes with them. With all four criteria overridden there is

@@ -92,12 +92,13 @@ describe('the scope round-trips through the URL', () => {
 })
 
 describe('the four criteria the chip overrides and disables', () => {
-  it('is From, To, Store and Collector — the toolbar’s whole set', () => {
+  it('is From, To, Store, Collector and Served by — the toolbar’s whole set', () => {
     expect([...SCOPE_DISABLED_FIELDS]).toEqual([
       'fromDate',
       'toDate',
       'storeId',
       'collectorOperatorId',
+      'servedBy',
     ])
   })
 
@@ -121,6 +122,7 @@ describe('the query the scoped screen issues', () => {
     toDate: '2026-07-31',
     storeId: '1003',
     collectorOperatorId: '4472',
+    servedBy: { kind: 'ACCOUNTANT', id: '4466' },
   }
 
   it('carries the ACR and the system cap, and NOTHING else', () => {
@@ -133,7 +135,16 @@ describe('the query the scoped screen issues', () => {
     // that reads as a period filter to whoever debugs the door next.
     const params = collectionsParamsFor(ACR, FILTERED)
     expect(params).toEqual({ Limit: 2000, AcrId: ACR })
-    for (const key of ['FromDate', 'ToDate', 'StoreId', 'CollectorOperatorId'])
+    for (const key of [
+      'FromDate',
+      'ToDate',
+      'StoreId',
+      'CollectorOperatorId',
+      // The scope discards the assigned-to filter with the rest (BackOffice 1163):
+      // the door ignores it under an AcrId exactly as it ignores the other four.
+      'ServedByKind',
+      'ServedById',
+    ])
       expect(params).not.toHaveProperty(key)
   })
 
@@ -148,6 +159,8 @@ describe('the query the scoped screen issues', () => {
       ToDate: '2026-07-31',
       StoreId: '1003',
       CollectorOperatorId: '4472',
+      ServedByKind: 'ACCOUNTANT',
+      ServedById: '4466',
     })
   })
 

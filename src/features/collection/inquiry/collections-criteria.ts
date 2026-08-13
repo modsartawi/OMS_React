@@ -17,6 +17,11 @@
  */
 import { toIsoDate } from '@/core/util/date-format'
 import { GRID_LIMIT } from './cap'
+import {
+  NO_SERVED_BY,
+  buildServedByParams,
+  type ServedBySelection,
+} from './served-by'
 
 /**
  * The toolbar draft. All strings so the fields map 1:1 onto their inputs; the two
@@ -31,7 +36,24 @@ export interface CollectionsCriteria {
   fromDate: string
   toDate: string
   storeId: string
+  /**
+   * ⚠️ **"Collected by", not "Served by"** — and it survives the arrival of the new
+   * control rather than being replaced by it (BackOffice 1163). This is the
+   * endpoint's shipped `CollectorOperatorId`: *who actually collected*. The new
+   * control beside it asks *who is assigned to the branch*. They are two different
+   * questions and a stand-in covering somebody's route is exactly when they
+   * diverge, so both boxes stay and they **AND**.
+   */
   collectorOperatorId: string
+  /**
+   * The shared *Served by* selection (BackOffice spec 1162). On this screen it
+   * reads as *who is ASSIGNED to the receipt's branch*.
+   *
+   * Nothing picked is the landing state, and `buildServedByParams` then sends
+   * neither key — so the query is byte-for-byte the one this screen sent before
+   * the control existed.
+   */
+  servedBy: ServedBySelection
 }
 
 /**
@@ -65,7 +87,13 @@ export const COLLECTIONS_LIMIT = GRID_LIMIT
  */
 export function landingCriteria(today: Date): CollectionsCriteria {
   const day = toIsoDate(today)
-  return { fromDate: day, toDate: day, storeId: '', collectorOperatorId: '' }
+  return {
+    fromDate: day,
+    toDate: day,
+    storeId: '',
+    collectorOperatorId: '',
+    servedBy: NO_SERVED_BY,
+  }
 }
 
 /**
@@ -121,5 +149,11 @@ export function buildCollectionsParams(
   }
   put('StoreId', criteria.storeId)
   put('CollectorOperatorId', criteria.collectorOperatorId)
+  // 🚩 The scope ANDs with the store filter, EVEN TO NOTHING, and both chips stay
+  // lit. A store outside the selected person's branches must return an honest empty
+  // grid — a filter that silently un-sets another is how a grid ends up showing rows
+  // the toolbar says it excluded. (The `?acr=` drill-down is the one case where the
+  // toolbar is switched off entirely; the server discards this one too there.)
+  Object.assign(params, buildServedByParams(criteria.servedBy))
   return params
 }

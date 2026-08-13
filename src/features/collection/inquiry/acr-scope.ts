@@ -98,19 +98,26 @@ export function withoutAcrScope(search: string | URLSearchParams): URLSearchPara
 }
 
 /**
- * The four criteria the chip **overrides and disables**.
+ * The criteria the chip **overrides and disables** — all of them.
  *
  * ⚠️ **The disabling is honesty, not decoration.** The server treats `AcrId` as an
  * *exclusive* filter: `PosCollectionInquiryService` ignores store, collector and
  * period entirely when one is set. Leaving those inputs live would let a
  * supervisor set a date range that silently does nothing, and then read the
  * result as if the range had applied.
+ *
+ * 🚩 `servedBy` joined the list when the shared control landed (BackOffice 1163),
+ * and the door discards it under a scope exactly like the other four. Note this is
+ * NOT the same ruling as *Served by* ANDing with the store filter: that is about two
+ * live toolbar filters, and this is the one case where the toolbar is switched off
+ * entirely.
  */
 export const SCOPE_DISABLED_FIELDS = [
   'fromDate',
   'toDate',
   'storeId',
   'collectorOperatorId',
+  'servedBy',
 ] as const satisfies readonly (keyof CollectionsCriteria)[]
 
 /**

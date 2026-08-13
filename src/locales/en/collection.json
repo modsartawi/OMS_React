@@ -16,6 +16,18 @@
   "shell": {
     "comingSoon": "This screen is not built yet."
   },
+  "servedBy": {
+    "label": "Served by",
+    "all": "Everyone",
+    "loading": "Loading people…",
+    "unassigned": "Unassigned",
+    "unassignedHint": "Branches nobody is assigned to",
+    "groups": {
+      "ACCOUNTANT": "Accountants",
+      "COLLECTOR": "Collectors",
+      "SUPERVISOR": "Supervisors"
+    }
+  },
   "document": {
     "missingTitle": "This document no longer exists",
     "missingHint": "The receipt or form this link points at could not be found. It may have been reversed, or the link may be out of date.",

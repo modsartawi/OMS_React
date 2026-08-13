@@ -90,6 +90,10 @@ let LEDGER = []
  *  changed nothing) rather than an error. */
 let NOOP_CONSUMPTION = ''
 let repairCalls = []
+/** Ticket 271's write: every body the posting form sent, and the numbers the stub
+ *  minted for them. An entry number is the handle finance settles by on the phone. */
+let postCalls = []
+let nextEntryNumber = 900
 
 async function run() {
   const browser = await chromium.launch()
@@ -145,6 +149,45 @@ async function run() {
           (!status || r.status === status),
       ).slice(0, Number(url.searchParams.get('limit') || 500))
       return route.fulfill(envelope(rows))
+    }
+    // ---- ticket 271: posting one entry ----
+    // 🔑 **The server rounds, and this stub rounds the same way** — to what the
+    // branch can physically count (2 decimals at a SAR branch, 3 at a BHD one). The
+    // answer carries the ROUNDED figure, which is what the screen's confirmation must
+    // read back: the whole point of D4 is that the words an accountant approved and
+    // the figure in the ledger cannot disagree. A stub that echoed the request would
+    // have made that unprovable.
+    if (path === 'Settlement/Post') {
+      const body = route.request().postDataJSON() || {}
+      postCalls.push(body)
+      const account = ACCOUNTS[body.storeId]
+      const decimals = account?.currencyKey === 'BHD' ? 3 : 2
+      const factor = 10 ** decimals
+      const amount = Math.round(Number(body.amount) * factor) / factor
+      const entryNumber = nextEntryNumber++
+      const settlementEntryId = `01J9SETLPOST${entryNumber}`
+      if (account)
+        account.entries = [
+          ...account.entries,
+          {
+            settlementEntryId,
+            entryNumber,
+            storeId: body.storeId,
+            entryKind: body.entryKind,
+            amount,
+            remainingAmount: amount,
+            reason: body.reason,
+            status: 'OPEN',
+            batchId: '',
+            postedByStaffId: '30117',
+            postedByName: 'هدى القحطاني / Huda Al-Qahtani',
+            postedAt: '2026-08-13T09:00:00',
+            closedByStaffId: '',
+            closedAt: '',
+            closedReason: '',
+          },
+        ]
+      return route.fulfill(envelope({ entryNumber, settlementEntryId, amount }))
     }
     if (path === 'Settlement/Repair') {
       const body = route.request().postDataJSON() || {}
@@ -632,6 +675,208 @@ async function run() {
   // ---- and the namespace, again, over 270's new copy ----
   text = await openDoor()
   check('🚩 270’s keys are all registered — no raw t() key on screen', !/settlement:|\bworklist\.|\bsearch\.|\bledger\.|\brepair\./.test(text))
+
+  // ═══ Ticket 271 — one entry posts, and the screen reads it back in words ══════
+  //
+  // The two guards this ticket turns on are both *review* guards, not refusals: the
+  // amount read back in words, and the branch's standing open position of the same
+  // kind. Neither can be proven by a typecheck — they are sentences on a screen, and
+  // the only way to know they say the right thing is to type a figure and read them.
+  const dialogText = async () => page.locator('dialog').innerText()
+  const openPost = async () => {
+    await page.locator('[data-testid="post-open"]').click()
+    await appears('[data-region="post-entry"]')
+  }
+  const typeBranch = async (q) => {
+    await page.locator('[data-testid="post-branch"]').fill(q)
+    await page.waitForTimeout(150)
+  }
+  const typeAmount = async (v) => {
+    await page.locator('[data-testid="post-amount"]').fill(v)
+    await page.waitForTimeout(80)
+  }
+  const reviewBlocked = async () =>
+    (await page.locator('[data-testid="post-review"]').getAttribute('aria-disabled')) === 'true'
+  const wordsText = async () => page.locator('[data-testid="post-amount-words"]').innerText()
+
+  // ---- the form itself: one form, one toggle, and the toggle states a consequence ----
+  await openDoor()
+  await openPost()
+  text = await dialogText()
+  check(
+    '🔑 271 → ONE form with a kind toggle, never two forms',
+    (await page.locator('dialog').count()) === 1 && (await page.locator('dialog [data-kind]').count()) === 2,
+  )
+  check(
+    '🔑 the toggle states the CONSEQUENCE, not the word',
+    text.includes('The branch must hand this money over') && text.includes('The branch may keep this money back'),
+  )
+  check('271 → …with the domain words beside them, in both scripts (D9)', text.includes('عجز') && text.includes('فائض'))
+  check('🚩 the branch is TYPED — there is no 1394-option dropdown', (await page.locator('dialog select, dialog [role="combobox"]').count()) === 0)
+
+  // ---- the branch must resolve to EXACTLY ONE match ----
+  await typeAmount('500')
+  await page.locator('[data-testid="post-reason"]').fill('Monthly audit, May delivery difference.')
+  await typeBranch('Pharmacy')
+  check(
+    '🔑 a branch that resolves to MORE THAN ONE match cannot be posted against',
+    (await reviewBlocked()) && (await page.locator('[data-testid="post-branch-ambiguous"]').count()) === 1,
+  )
+  await typeBranch('zzzzzz')
+  check(
+    '🔑 …and neither can one that resolves to NONE',
+    (await reviewBlocked()) && (await page.locator('[data-testid="post-branch-none"]').count()) === 1,
+  )
+
+  // ---- a surplus, posted from the door ----
+  await typeBranch('0331')
+  check(
+    '271 → a typed code resolves to exactly one branch, named and with its currency',
+    (await page.locator('[data-testid="post-branch-resolved"]').getAttribute('data-store')) === '0331' &&
+      (await page.locator('[data-testid="post-branch-resolved"]').innerText()).includes('Al-Nakheel'),
+  )
+  check('271 → …and the form is postable once it has one', !(await reviewBlocked()))
+  await page.locator('dialog [data-kind="SURPLUS"]').click()
+  await typeAmount('1,234.5')
+  check(
+    '271 → the read-back groups the figure and words it',
+    (await wordsText()).includes('1,234.50') && (await wordsText()).includes('one thousand two hundred thirty-four riyals and fifty halalas'),
+  )
+  postCalls = []
+  await page.locator('[data-testid="post-review"]').click()
+  await page.locator('[data-testid="post-commit"]').click()
+  await appears('[data-region="post-done"]')
+  check(
+    '🔑 a SURPLUS lands on the branch with the right kind and a minted entry number',
+    postCalls.length === 1 &&
+      postCalls[0].entryKind === 'SURPLUS' &&
+      postCalls[0].storeId === '0331' &&
+      postCalls[0].amount === 1234.5 &&
+      (await page.locator('[data-region="post-done"]').getAttribute('data-entry')) === '900',
+    JSON.stringify(postCalls[0] ?? {}),
+  )
+  check('271 → …and the number is on screen, because that is what the phone call quotes', (await dialogText()).includes('Entry 900 is posted'))
+  await page.locator('[data-testid="post-close"]').click()
+
+  // ---- a shortage, from the account, over the standing-position guard ----
+  await openAccount('0142')
+  await openPost()
+  check(
+    '271 → opened from an account, the branch arrives already resolved',
+    (await page.locator('[data-testid="post-branch-resolved"]').getAttribute('data-store')) === '0142',
+  )
+  // The rest of the form first, so every "…and it still commits" check below is
+  // about the guard under test and not about an empty box two fields away.
+  const ARABIC_REASON = 'عجز مكتشف في جرد أغسطس — يُسلَّم للمحصّل'
+  await typeAmount('500')
+  await page.locator('[data-testid="post-reason"]').fill(ARABIC_REASON)
+  await page.waitForTimeout(80)
+  const standing = async () => page.locator('[data-testid="post-standing"]').innerText()
+  check(
+    '🔑 the standing open position of the SAME KIND is named BEFORE the review step',
+    (await standing()).includes('575.50') &&
+      (await standing()).includes('Entry 143') &&
+      (await standing()).includes('Entry 128') &&
+      (await page.locator('[data-standing-entry]').count()) === 2,
+    (await standing()).replace(/\n/g, ' '),
+  )
+  check('🚩 …and it warns rather than refusing — the duplicate is permitted by design', (await standing()).includes('Posting another is allowed') && !(await reviewBlocked()))
+  await page.locator('dialog [data-kind="SURPLUS"]').click()
+  check(
+    '🚩 the two kinds are never netted — the surplus side stands alone',
+    (await standing()).includes('120.00') && (await standing()).includes('Entry 151') && (await page.locator('[data-standing-entry]').count()) === 1,
+  )
+  await page.locator('dialog [data-kind="SHORTAGE"]').click()
+
+  // 🔑 The Proof bullet: type a fractional amount at a 2-decimal branch and watch it.
+  await typeAmount('50000.567')
+  check(
+    '🔑 the in-words read-back shows the ROUNDED figure for a 2-decimal branch',
+    (await wordsText()).includes('50,000.57') && (await wordsText()).includes('fifty thousand riyals and fifty-seven halalas'),
+    (await wordsText()).replace(/\n/g, ' '),
+  )
+  // ⚠️ …and the one figure that is refused is refused for a reason that is not a
+  // cap: 0.004 at a SAR branch is zero to the branch, and an entry no till could
+  // consume. The BHD branch below takes the same figure happily.
+  await typeAmount('0.004')
+  check(
+    '⚠️ a figure below the branch’s smallest countable unit is refused, and says why',
+    (await reviewBlocked()) && (await page.locator('[data-testid="post-amount-too-small"]').count()) === 1,
+  )
+  // 🚩 …and no cap anywhere: a legitimately large entry reviews and commits like any
+  // other. The guard is the sentence, not a threshold.
+  await typeAmount('9000000')
+  check(
+    '🚩 there is NO numeric cap — a nine-million entry reviews like any other',
+    !(await reviewBlocked()) && (await wordsText()).includes('nine million riyals'),
+  )
+  await typeAmount('50000.567')
+
+  check(
+    '271 → the reason renders VERBATIM in what-the-branch-will-see, including Arabic',
+    (await page.locator('[data-testid="post-reason-preview"]').innerText()).trim() === ARABIC_REASON,
+  )
+
+  await page.locator('[data-testid="post-review"]').click()
+  await appears('[data-region="post-review"]')
+  check(
+    '🔑 the review step reads the amount back grouped AND in words',
+    (await page.locator('[data-testid="post-review-figure"]').innerText()).includes('50,000.57') &&
+      (await page.locator('[data-testid="post-review-words"]').innerText()).includes('fifty thousand riyals and fifty-seven halalas'),
+  )
+  check(
+    '⚠️ the commit NAMES the immutability — chosen, not discovered',
+    (await page.locator('[data-testid="post-immutability"]').innerText()).includes('cannot be changed'),
+  )
+  check('271 → …and the branch’s own words are still on screen at the commit', (await page.locator('[data-testid="post-review-reason"]').innerText()).trim() === ARABIC_REASON)
+
+  postCalls = []
+  await page.locator('[data-testid="post-commit"]').click()
+  await appears('[data-region="post-done"]')
+  check(
+    '🔑 a SHORTAGE lands with the right kind, and the client rounded NOTHING on the way',
+    postCalls.length === 1 && postCalls[0].entryKind === 'SHORTAGE' && postCalls[0].amount === 50000.567 && postCalls[0].reason === ARABIC_REASON,
+    JSON.stringify(postCalls[0] ?? {}),
+  )
+  const posted = await page.locator('[data-region="post-done"]').getAttribute('data-entry')
+  check(
+    '🔑 the confirmation shows the entry NUMBER and the amount the SERVER stored',
+    (await dialogText()).includes(`Entry ${posted} is posted`) && (await dialogText()).includes('50,000.57'),
+  )
+  await page.locator('[data-testid="post-close"]').click()
+  await page.waitForTimeout(500)
+  check(
+    '🔑 …and the account refreshes underneath it — the new entry is on the branch',
+    (await mainText()).includes(posted) && (await page.locator(`.ag-row[row-id="01J9SETLPOST${posted}"]`).count()) === 1,
+    `entry ${posted}`,
+  )
+
+  // ---- a BHD branch keeps its fils, in the words as well as in the figures ----
+  await openAccount('0688')
+  await openPost()
+  await typeAmount('95.5')
+  check(
+    '🔑 a BHD branch reads back FULL FILS — three decimals in the figure and in the words',
+    (await wordsText()).includes('95.500') && (await wordsText()).includes('ninety-five dinars and five hundred fils'),
+    (await wordsText()).replace(/\n/g, ' '),
+  )
+  check('🚩 …and the currency it will be counted in is named on the resolved branch', (await page.locator('[data-testid="post-branch-resolved"]').innerText()).includes('BHD'))
+  await page.locator('[data-testid="post-reason"]').fill('August stocktake difference.')
+  await page.locator('[data-testid="post-review"]').click()
+  postCalls = []
+  await page.locator('[data-testid="post-commit"]').click()
+  await appears('[data-region="post-done"]')
+  check(
+    '🔑 …and the BHD entry lands at three decimals, the server’s own figure read back',
+    postCalls[0]?.amount === 95.5 && (await dialogText()).includes('95.500'),
+  )
+  await page.locator('[data-testid="post-close"]').click()
+
+  // ---- and the namespace, again, over 271's new copy ----
+  await openDoor()
+  await openPost()
+  check('🚩 271’s keys are all registered — no raw t() key in the form', !/settlement:|\bpost\.|\bwords\./.test(await dialogText()))
+  await page.keyboard.press('Escape')
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))
 

@@ -26,7 +26,9 @@ import { accountHeadline, projectAccount, type AccountEntryRow } from './account
 import { settlementApi } from './api'
 import { ACCOUNT_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
+import Button from '@/core/ui/Button'
 import EntryJournal from './EntryJournal'
+import PostEntryDialog from './PostEntryDialog'
 
 /**
  * **The destination** — one branch's whole position, and the history behind every
@@ -64,6 +66,10 @@ export default function BranchAccount({
   // entry's own.
   const [openEntryId, setOpenEntryId] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(true)
+  /** 271's posting form, **seeded with the branch already on screen**. The seed goes
+   *  into the form's typed box and resolves through the same rule as anything typed
+   *  — it is a saved keystroke, not a bypass of the one-match guard. */
+  const [posting, setPosting] = useState(false)
 
   const rows = useMemo(
     () => (account.data ? projectAccount(account.data) : []),
@@ -88,18 +94,23 @@ export default function BranchAccount({
 
   const capReached = isCapReached(rows.length, ACCOUNT_LIMIT)
 
-  if (account.isPending) return <AccountShimmer label={t('account.loading')} />
-
-  if (account.isError)
-    return (
-      <ErrorBanner
-        message={apiErrorMessage(account.error, t('account.errors.loadFailed'))}
-        className="p-3"
-      />
-    )
-
-  return (
-    <div className="flex flex-col gap-4" data-region="branch-account" data-store={storeId}>
+  // 🚩 **The three states are a BODY, not three returns, so the posting form below
+  // has exactly one render site.** It was briefly mounted twice — once beside the
+  // error banner, once inside the account — which React reconciles as an unmount and
+  // a remount the moment the query flips to error, and the form's own open-effect
+  // then clears the confirmation. That flip is precisely the moment it matters: a
+  // successful post invalidates this very query, so a refetch that fails a second
+  // later would destroy the new entry's NUMBER — the one thing an accountant needs
+  // off this screen — through a failure that happened after the money was posted.
+  const body = account.isPending ? (
+    <AccountShimmer label={t('account.loading')} />
+  ) : account.isError ? (
+    <ErrorBanner
+      message={apiErrorMessage(account.error, t('account.errors.loadFailed'))}
+      className="p-3"
+    />
+  ) : (
+    <>
       <AccountHeadline
         // ⚠️ `?? the id we asked for` rather than a bare deref: react-query narrows
         // `data` to non-nullable once the query has settled, but the ENVELOPE can
@@ -113,6 +124,12 @@ export default function BranchAccount({
       />
 
       <div className="flex flex-wrap items-center justify-end gap-2">
+        {/* The account is where an accountant already is when a branch calls, so
+            posting is reachable from here as well as from the door — and the entry
+            lands on the grid below without leaving the screen. */}
+        <Button variant="primary" onClick={() => setPosting(true)} data-testid="post-open">
+          {t('post.openForBranch')}
+        </Button>
         <ToggleChip
           icon={<Filter className="h-3.5 w-3.5" aria-hidden />}
           label={t('account.toolbar.filterRow')}
@@ -190,6 +207,21 @@ export default function BranchAccount({
           <EntryJournal row={openRow} currencyKey={currencyKey} />
         </>
       )}
+
+    </>
+  )
+
+  return (
+    <div className="flex flex-col gap-4" data-region="branch-account" data-store={storeId}>
+      {body}
+      {/* Outside every state on purpose: the first entry a branch ever gets is posted
+          from a screen that says it has none, and a confirmation must outlive a read
+          that failed after the write succeeded. */}
+      <PostEntryDialog
+        open={posting}
+        seedStoreId={account.data?.storeId || storeId}
+        onClose={() => setPosting(false)}
+      />
     </div>
   )
 }

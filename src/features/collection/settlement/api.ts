@@ -5,10 +5,12 @@
  * envelope, the error taxonomy and 401 are that module's, and 401 in particular is
  * never caught here.
  *
- * 268 landed the surface — the screen's reading of its grant. **269 adds the first
- * door that reads the ledger: one branch's account.** The fleet, post, cancel,
- * close-out, repair and the two bulk doors (spec 267 D8) arrive with 270–273; the
- * joining ticket 274 settles every route string against a live SIS.Api.
+ * 268 landed the surface — the screen's reading of its grant. 269 added the first
+ * door that reads the ledger (one branch's account), 270 the three the door needs
+ * plus the repair. **271 adds the first door that writes into the ledger:
+ * `Settlement/Post`.** Cancel, close-out and the two bulk doors (spec 267 D8)
+ * arrive with 272–273; the joining ticket 274 settles every route string against a
+ * live SIS.Api.
  *
  * ⚠️ **There is no `Settlement/Access` probe and there must not be one.** The
  * settlement account is a **fifth grant on the Collections probe** (spec 267 D1),
@@ -22,8 +24,10 @@ import { api } from '@/core/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type {
   SettlementAccount,
+  SettlementEntryKind,
   SettlementFleetRow,
   SettlementLedgerRow,
+  SettlementPostResult,
   SettlementRepairResult,
   SettlementWorklistResult,
 } from '@/core/models/settlement'
@@ -139,9 +143,37 @@ export const settlementApi = {
   },
 
   /**
+   * `POST Settlement/Post` → one entry onto one branch's ledger (spec 267 D8),
+   * **the screen's first real write into the account** and the moment a slip
+   * becomes money a branch manager is asked to hand over.
+   *
+   * 🔑 **Four fields, and no fifth.** There is no approval flag, no threshold and
+   * no second permission on this body — whoever can open the screen can post (the
+   * ticket's own boundary, and spec 267's *Out of Scope*: approval limits are
+   * deliberately unsettled, so any number invented here would be invented). The
+   * typo guard is the review step the form draws before it calls this, not
+   * anything on the wire.
+   *
+   * ⚠️ **The amount goes up as typed and comes back as stored.** The server rounds
+   * to what the branch can physically count (D4) and answers with the **rounded**
+   * figure — which the confirmation reads back rather than echoing the form. The
+   * client rounds nothing: a second rounding rule on this side is exactly how the
+   * words an accountant approved and the ledger's own figure start to disagree.
+   *
+   * ⚠️ Route string and casing are 274's to confirm, as with every door here.
+   */
+  post(input: {
+    storeId: string
+    entryKind: SettlementEntryKind
+    amount: number
+    reason: string
+  }): Promise<SettlementPostResult> {
+    return api.post<SettlementPostResult>('Settlement/Post', input)
+  },
+
+  /**
    * `POST Settlement/Repair` → puts an orphan consumption's money back on its
-   * entry. **The only write on this screen** (the ticket's own boundary — posting
-   * is 271's, correction 272's).
+   * entry. **270's only write** (posting is this ticket's, correction 272's).
    *
    * 🔑 **A no-op is a 200, not a failure.** The server's guard is inside its
    * UPDATE and is predicated on the consumption still having no document, so a

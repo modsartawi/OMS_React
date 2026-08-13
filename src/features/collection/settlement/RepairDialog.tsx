@@ -10,10 +10,10 @@ import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
 import { formatDateTime } from '@/core/util/date-format'
 import { settlementApi } from './api'
-
 /** What a reason may carry — the same 200 the posted entry's reason takes (D4), so
- *  an accountant never learns two limits for two boxes on one screen. */
-const REASON_MAX = 200
+ *  an accountant never learns two limits for two boxes on one screen. It is one
+ *  constant in `posting.ts` because two that must agree eventually will not. */
+import { REASON_MAX } from './posting'
 
 /**
  * **Repair** — the wrong-money lane's action, and 🚩 **the only write on this

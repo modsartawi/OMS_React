@@ -298,6 +298,26 @@ export type SettlementLedgerRow = SettlementEntry & {
 }
 
 /**
+ * What `Settlement/Post` answers — ticket 271's write, and D8's shape unchanged.
+ *
+ * 🔑 **`amount` is the amount the SERVER rounded and stored**, not the figure that
+ * was typed. Amounts are posted in what the branch can physically count — whole
+ * units at a 2-decimal branch, three decimals at a 3-decimal one — and the server
+ * owns that rounding (D4). The confirmation therefore reads this field back rather
+ * than echoing the form, which is what makes it impossible for the words an
+ * accountant approved and the figure in the ledger to disagree.
+ *
+ * `entryNumber` is **the handle finance and the branch settle by on the phone** —
+ * the one human-quotable id, and the reason the success surface is a number rather
+ * than a tick.
+ */
+export type SettlementPostResult = {
+  settlementEntryId: string
+  entryNumber: number
+  amount: number
+}
+
+/**
  * What `Settlement/Repair` answers.
  *
  * 🔑 **`noOp` is not a failure.** The server's repair is predicated on the

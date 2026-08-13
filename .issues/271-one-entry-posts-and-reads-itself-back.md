@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 267
 blocked-by: 269
 ---
@@ -57,16 +57,29 @@ previously a table nobody could write to.
 
 ## Proof
 
-- [ ] Posting a shortage and a surplus each land on the branch's account with the right kind and a
-      minted entry number.
-- [ ] Unit test: **amount-in-words**, including grouping, the rounded figure, and both currencies.
-- [ ] The standing-position warning fires on a branch that already carries an open entry of the same
-      kind, and **commits anyway** when the accountant proceeds.
-- [ ] A branch that resolves to more than one match, or to none, cannot be posted against.
-- [ ] The in-words read-back shows the **rounded** amount for a 2-decimal branch (type a fractional
-      amount and watch it), and full fils for a BHD branch.
-- [ ] The reason renders verbatim in the "what the branch will see" preview, including Arabic.
-- [ ] `typecheck` + `lint` green; the drive walks post → account.
+- [x] Posting a shortage and a surplus each land on the branch's account with the right kind and a
+      minted entry number. — `settlement-drive`: a SURPLUS of 1,234.50 on 0331 from the door and a
+      SHORTAGE of 50,000.567 on 0142 from its own account, each asserted on the posted **body**
+      (`entryKind`, `storeId`, `amount`, `reason`) and on the minted number on screen.
+- [x] Unit test: **amount-in-words**, including grouping, the rounded figure, and both currencies. —
+      `amount-words.test.ts`, 15 cases: grouping, en-US style, both currencies, the rounded figure,
+      and the IEEE-754 split (`50000.57` is fifty-**seven** halalas, not fifty-six).
+- [x] The standing-position warning fires on a branch that already carries an open entry of the same
+      kind, and **commits anyway** when the accountant proceeds. — 0142 names entries 128 and 143
+      with 575.50 total; the commit path is unblocked and the drive walks it through.
+      `posting.test.ts` pins the rule, including that the two kinds are never netted.
+- [x] A branch that resolves to more than one match, or to none, cannot be posted against. —
+      `posting.test.ts` (*Pharmacy* → `many`, `zzzz` → `none`, an exact code collapses ambiguity)
+      and the drive, which asserts Review is refused in both states.
+- [x] The in-words read-back shows the **rounded** amount for a 2-decimal branch (type a fractional
+      amount and watch it), and full fils for a BHD branch. — `50000.567` at 0142 reads
+      *50,000.57 · fifty thousand riyals and fifty-seven halalas*; `95.5` at 0688 reads
+      *95.500 · ninety-five dinars and five hundred fils*.
+- [x] The reason renders verbatim in the "what the branch will see" preview, including Arabic. —
+      the drive types `عجز مكتشف في جرد أغسطس — يُسلَّم للمحصّل` and asserts the preview and the
+      review step are byte-identical to it.
+- [x] `typecheck` + `lint` green; the drive walks post → account. — 1,688 tests (39 new),
+      `settlement-drive` **117/117** (extended from 88), all three lint gates clean.
 
 ## Boundaries
 

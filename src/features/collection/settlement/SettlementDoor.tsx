@@ -23,6 +23,7 @@ import {
 import { settlementApi } from './api'
 import { AccountShimmer } from './AccountStates'
 import { criteriaForEntryNumber } from './ledger'
+import PostEntryDialog from './PostEntryDialog'
 import RepairDialog from './RepairDialog'
 import { resolveScope } from './scope'
 import { resolveSubmit, searchBranches, type BranchSearchResult } from './search'
@@ -98,6 +99,9 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
   /** What an entry-number search found, once it has been asked. `null` = not asked. */
   const [entryMiss, setEntryMiss] = useState<string | null>(null)
   const [repairing, setRepairing] = useState<SettlementOrphanRow | null>(null)
+  /** 271's posting form. It opens with **no branch seeded** from here: the door is
+   *  the estate, and the branch is typed into the form itself (D4). */
+  const [posting, setPosting] = useState(false)
 
   // *"There is no entry 9999"* is an answer about a query, so it dies with the
   // query. Left standing, it would sit under the results of the NEXT search and read
@@ -176,6 +180,17 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
             {t('search.clear')}
           </Button>
         )}
+        {/* 🚩 Posting sits beside the search rather than behind a branch, because an
+            accountant arrives with a figure and a branch code, not with a screen they
+            have already navigated to. The form types its own branch (D4). */}
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => setPosting(true)}
+          data-testid="post-open"
+        >
+          {t('post.open')}
+        </Button>
       </form>
 
       {fleet.isError && (
@@ -223,6 +238,8 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
           refresh()
         }}
       />
+
+      <PostEntryDialog open={posting} onClose={() => setPosting(false)} />
     </div>
   )
 }

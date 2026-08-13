@@ -199,16 +199,38 @@ export function assignmentCounts(branches: readonly AssignmentBranch[]): Assignm
 }
 
 /**
+ * What one save settled, as `POST CollectionWeb/Assignment/SetStore` answers it.
+ *
+ * ⚠️ **The pairing, not a branches-list row.** A save moves the two slots and the
+ * stamp; the branch's name, city and area are the `Store` master's and cannot change
+ * here, so the server does not restate them with nothing in them and the screen keeps
+ * them from the row it already has.
+ */
+export interface AssignmentPairing {
+  storeCode: string
+  accountantId: string
+  collectorId: string
+  updatedBy: string
+  updatedAt: string
+}
+
+/**
  * The body of one per-row save — `POST CollectionWeb/Assignment/SetStore`.
  *
  * 🔑 **It carries no actor.** Attribution is stamped server-side from the cookie
  * session, so the browser cannot say who made a change to master data.
  *
- * ⚠️ **A slot is sent only when it CHANGED.** An absent slot means "leave it
- * alone" and a blank one means "clear it" (the dropdown's *nobody*, which has to
- * stay sayable) — so sending both every time would let filling a missing collector
- * silently re-write an accountant somebody else set between the page load and the
- * save.
+ * ⚠️ **A slot is sent only when it differs from what the SERVER holds.** An absent
+ * slot means "leave it alone" and a blank one means "clear it" (the dropdown's
+ * *nobody*, which has to stay sayable) — so sending both every time would let
+ * filling a missing collector silently re-write an accountant somebody else set
+ * between the page load and the save.
+ *
+ * 🚩 The baseline is the **server's** row rather than the last thing the user
+ * touched, and that is the right one after a REFUSED save: the rejected slot is
+ * still an unsaved intent of theirs, so the next save carries it again instead of
+ * stranding it on screen forever. Nothing is ever re-sent that the server already
+ * agrees with.
  */
 export interface SaveAssignmentBody {
   storeCode: string

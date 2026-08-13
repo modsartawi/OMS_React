@@ -229,6 +229,30 @@ describe('the per-row save body', () => {
     expect(Object.keys(body)).toEqual(['storeCode', 'collectorId'])
   })
 
+  it('🚩 after a REFUSED save, the next save carries the rejected slot again', () => {
+    // The baseline is the SERVER's row, not the last thing the user touched. So if
+    // the accountant was refused (nothing staged server-side, the edit still on
+    // screen) and the user then picks a collector, the next save carries BOTH —
+    // which is right: the rejected slot is still an unsaved intent of theirs, and
+    // diffing against the edited row instead would strand it on screen forever.
+    const server = branch({ storeCode: 'P075' })
+    const refused = { ...server, accountantId: '4466' }
+
+    expect(buildSaveBody(server, { ...refused, collectorId: '8725' })).toEqual({
+      storeCode: 'P075',
+      accountantId: '4466',
+      collectorId: '8725',
+    })
+
+    // And nothing the server already agrees with is ever re-sent: once the
+    // accountant HAS landed, the collector save is the collector alone.
+    const settled = { ...server, accountantId: '4466' }
+    expect(buildSaveBody(settled, { ...settled, collectorId: '8725' })).toEqual({
+      storeCode: 'P075',
+      collectorId: '8725',
+    })
+  })
+
   it('knows an untouched row from a changed one', () => {
     const original = branch({ storeCode: 'P075', accountantId: '4466' })
 

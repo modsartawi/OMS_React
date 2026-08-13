@@ -30,7 +30,7 @@ import type {
   DepositInquiryResult,
   VoucherDocument,
 } from '@/core/models/collection'
-import type { AssignmentBranch, SaveAssignmentBody } from './assignment'
+import type { AssignmentBranch, AssignmentPairing, SaveAssignmentBody } from './assignment'
 import type { AssignmentOptions } from './served-by'
 
 /**
@@ -222,7 +222,8 @@ export const collectionApi = {
 
   /**
    * `POST CollectionWeb/Assignment/SetStore` → save ONE branch's pairing, and get
-   * back what the server now holds.
+   * back the pairing the server now holds (⚠️ the two slots and the stamp — NOT a
+   * branches-list row, whose name/city/area this call cannot move).
    *
    * 🔑 **The body carries no actor.** Attribution is stamped server-side from the
    * cookie session, so a browser cannot attribute a reassignment to somebody else
@@ -236,8 +237,8 @@ export const collectionApi = {
    * the screen can keep the row and its unsaved edit on screen and let the user
    * fix it.
    */
-  saveAssignment(body: SaveAssignmentBody): Promise<AssignmentBranch> {
-    return api.post<AssignmentBranch>('CollectionWeb/Assignment/SetStore', body)
+  saveAssignment(body: SaveAssignmentBody): Promise<AssignmentPairing> {
+    return api.post<AssignmentPairing>('CollectionWeb/Assignment/SetStore', body)
   },
 
   /**

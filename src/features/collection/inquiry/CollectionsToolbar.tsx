@@ -6,8 +6,14 @@ import ServedByPicker from './ServedByPicker'
 import { NO_SERVED_BY } from './served-by'
 
 /**
- * Cash Collections' filter strip (ticket 254) — From · To · Store · Collector,
- * and the template 255 and 256 copy.
+ * Cash Collections' filter strip (ticket 254) — From · To · Store · Collected by ·
+ * Served by, and the template 255 and 256 copy.
+ *
+ * 🚩 **Three filters, and they all AND** (BackOffice 1166). *Served by* resolves to
+ * a set of branches, Store names one, "Collected by" names a person off the
+ * document itself — and no control here silently un-sets another, even when the
+ * combination can only return nothing. A filter that quietly clears its neighbour
+ * is how a grid ends up showing rows the toolbar says it excluded.
  *
  * It renders a **draft** and nothing else: every edit patches the criteria the
  * Page holds, and only Search promotes that draft to a query. So a half-typed
@@ -103,7 +109,7 @@ export default function CollectionsToolbar({
         />
       </label>
 
-      {/* Store and collector are the endpoint's own two code filters. Free-text
+      {/* Store and "Collected by" are the endpoint's own two code filters. Free-text
           codes, not pickers: neither the door nor this wave carries a store or
           staff list, and inventing one would be a screen's worth of work to
           narrow a result the per-column filter row already narrows. */}
@@ -119,14 +125,22 @@ export default function CollectionsToolbar({
           className={`h-9 w-36 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
         />
       </label>
+      {/* 🚩 **"Collected by", not "Collector"** (BackOffice 1166). Same box, same
+          `CollectorOperatorId` parameter, same free-text behaviour — the label is
+          the whole change, and it is what stops the two people-filters on this one
+          toolbar reading as duplicates of each other. This one asks *who actually
+          turned up and took the cash*, off the receipt's own column; *Served by*
+          beside it asks *who is assigned to the branch*. A stand-in covering
+          somebody's route is exactly when the two disagree, which is why both
+          survive rather than one replacing the other. */}
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('collections.search.collector')}
+        {t('collections.search.collectedBy')}
         <input
           type="text"
           disabled={scoped}
           value={overridden(scoped, criteria.collectorOperatorId)}
           onChange={(e) => onChange({ collectorOperatorId: e.target.value })}
-          placeholder={t('collections.search.collectorPlaceholder')}
+          placeholder={t('collections.search.collectedByPlaceholder')}
           className={`h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
         />
       </label>

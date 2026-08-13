@@ -43,7 +43,7 @@
     "title": "Cash Collections",
     "subtitle": "Cash collected per store and shift, chain-wide.",
     "loading": "Loading today's collections…",
-    "capReached": "This result reached the {{limit}}-row system cap, so some collections may be missing. Narrow the dates, the store or the collector to be sure you are seeing all of them.",
+    "capReached": "This result reached the {{limit}}-row system cap, so some collections may be missing. Narrow the dates, the store, who collected or who serves the branch to be sure you are seeing all of them.",
     "capReachedScoped": "This ACR reached the {{limit}}-row system cap, so some of its collections may be missing.",
     "moneyHeader": "{{label}} ({{currency}})",
     "search": {
@@ -51,8 +51,8 @@
       "to": "To",
       "store": "Store",
       "storePlaceholder": "Store code",
-      "collector": "Collector",
-      "collectorPlaceholder": "Operator id",
+      "collectedBy": "Collected by",
+      "collectedByPlaceholder": "Operator id",
       "search": "Search",
       "reset": "Reset",
       "filtered": "Filtered",
@@ -65,7 +65,7 @@
     },
     "empty": {
       "title": "No collections in this period",
-      "hint": "Nothing has been collected for these dates yet. Widen the period, or clear the store and collector.",
+      "hint": "Nothing has been collected for these dates yet. Widen the period, or clear the store, \"Collected by\" and \"Served by\" — they all narrow together.",
       "scopedTitle": "No collections under this ACR",
       "scopedHint": "Nothing has been accumulated into this ACR yet. Clear the ACR to go back to today's collections."
     },

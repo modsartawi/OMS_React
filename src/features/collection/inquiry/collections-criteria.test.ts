@@ -225,3 +225,138 @@ describe('the landing chip accounts for the default scope', () => {
     })
   })
 })
+
+// BackOffice 1166 — the three filters on this one toolbar narrow TOGETHER.
+//
+// 🚩 The `AcrId` drill-down is the screen's own precedent for the opposite
+// behaviour: an exact filter that clears everything else. It is deliberately NOT
+// followed by the toolbar's own controls. A control that silently un-sets another
+// one while the user is looking elsewhere is how a grid ends up showing rows the
+// toolbar says it excluded — and the query object is where that would happen, so
+// this is where it is pinned.
+describe('no filter clears another', () => {
+  // The landing dates, so a change to TODAY stays one edit — plus the toolbar's
+  // other two filters, filled in.
+  const base: CollectionsCriteria = {
+    ...landingCriteria(TODAY),
+    storeId: '1103',
+    collectorOperatorId: '7787',
+  }
+
+  it('setting Served by leaves StoreId in the query untouched', () => {
+    expect(
+      buildCollectionsParams({ ...base, servedBy: { kind: 'ACCOUNTANT', id: '4466' } }),
+    ).toEqual({
+      FromDate: '2026-08-08',
+      ToDate: '2026-08-08',
+      StoreId: '1103',
+      CollectorOperatorId: '7787',
+      ServedByKind: 'ACCOUNTANT',
+      ServedById: '4466',
+      Limit: COLLECTIONS_LIMIT,
+    })
+  })
+
+  it('setting the store leaves the Served by pair untouched — and vice versa', () => {
+    const scopedOnly = buildCollectionsParams({
+      ...base,
+      storeId: '',
+      collectorOperatorId: '',
+      servedBy: { kind: 'ACCOUNTANT', id: '4466' },
+    })
+    const withStore = buildCollectionsParams({
+      ...base,
+      collectorOperatorId: '',
+      servedBy: { kind: 'ACCOUNTANT', id: '4466' },
+    })
+
+    // Adding the store ADDS a key. It does not remove the pair, and it does not
+    // change what the pair says.
+    expect(withStore).toEqual({ ...scopedOnly, StoreId: '1103' })
+  })
+
+  it('holds even for a contradictory pair — the empty grid is the honest answer', () => {
+    // A store outside the selected person's branches. The client's job is to send
+    // both filters and let the server return nothing; suppressing one of them here
+    // would be the toolbar describing a query the door never ran.
+    const contradiction = buildCollectionsParams({
+      ...base,
+      storeId: '9999',
+      collectorOperatorId: '',
+      servedBy: { kind: 'ACCOUNTANT', id: '4466' },
+    })
+    expect(contradiction).toEqual({
+      FromDate: '2026-08-08',
+      ToDate: '2026-08-08',
+      StoreId: '9999',
+      ServedByKind: 'ACCOUNTANT',
+      ServedById: '4466',
+      Limit: COLLECTIONS_LIMIT,
+    })
+
+    // …and the grid above it is not the landing one, so the Filtered chip is lit
+    // over the empty result rather than the screen looking like an ordinary quiet
+    // day. Both filters applied, and the screen saying so.
+    expect(isLandingQuery(contradiction, TODAY)).toBe(false)
+  })
+
+  it('"Collected by" and *Served by* are two independent keys on one query', () => {
+    // The two people-filters. They are different questions — assigned to, versus
+    // who actually turned up — so neither one may stand in for the other, and the
+    // relabel (1166) is what stops them reading as duplicates on screen.
+    const params = buildCollectionsParams({
+      ...base,
+      storeId: '',
+      servedBy: { kind: 'COLLECTOR', id: '4454' },
+    })
+    expect(params.CollectorOperatorId).toBe('7787')
+    expect(params.ServedById).toBe('4454')
+  })
+})
+
+// The touched-row trap's inquiry-side cousin (BackOffice 1166): the toolbar owns a
+// draft and this module owns the query, and only Search/Reset promote one to the
+// other. The new control joins that split rather than being an exception to it.
+describe('a half-chosen Served by does not fire', () => {
+  it('picking a scope in the toolbar leaves the applied query untouched', () => {
+    const applied = buildCollectionsParams(landingCriteria(TODAY))
+    const halfChosen: CollectionsCriteria = {
+      ...landingCriteria(TODAY),
+      servedBy: { kind: 'ACCOUNTANT', id: '4466' },
+    }
+
+    // Exactly the shape of the half-typed store above: the draft has moved, the
+    // applied query has not, and only Search closes the gap.
+    expect(applied).not.toEqual(buildCollectionsParams(halfChosen))
+    expect(applied).toEqual({
+      FromDate: '2026-08-08',
+      ToDate: '2026-08-08',
+      Limit: COLLECTIONS_LIMIT,
+    })
+    expect(buildCollectionsParams(halfChosen)).toEqual({
+      FromDate: '2026-08-08',
+      ToDate: '2026-08-08',
+      ServedByKind: 'ACCOUNTANT',
+      ServedById: '4466',
+      Limit: COLLECTIONS_LIMIT,
+    })
+  })
+
+  it('a Kind with no id yet sends NEITHER key — a request the server would refuse', () => {
+    // 🚩 The genuinely half-chosen state: a Kind and no person. The server answers
+    // that combination with a 400, so the builder drops it rather than constructing
+    // a request it knows will be refused — and the rest of the toolbar still
+    // travels, because a mid-selection scope must not take the other filters down
+    // with it.
+    const params = buildCollectionsParams({
+      fromDate: '2026-08-08',
+      toDate: '2026-08-08',
+      storeId: '1103',
+      collectorOperatorId: '',
+      servedBy: { kind: 'ACCOUNTANT', id: '' },
+    })
+    expect(params).not.toHaveProperty('ServedByKind')
+    expect(params).not.toHaveProperty('ServedById')
+    expect(params.StoreId).toBe('1103')
+  })
+})

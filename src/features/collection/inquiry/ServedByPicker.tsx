@@ -1,12 +1,18 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { assignmentOptionsQuery } from './api'
 import {
   NO_SERVED_BY,
   SERVED_BY_KINDS,
+  SERVED_BY_SCREENS,
   defaultSelection,
+  parseServedByText,
   resolvedKinds,
+  servedByEntries,
   servedByGroups,
+  servedByText,
+  type ServedByEntry,
   type ServedByKind,
   type ServedByScreen,
   type ServedBySelection,
@@ -49,6 +55,7 @@ export default function ServedByPicker({
   disabled = false,
 }: ServedByPickerProps) {
   const { t } = useTranslation('collection')
+  const contract = SERVED_BY_SCREENS[screen]
 
   // The one shared key+options (in `api.ts`, beside the access probe's), so a user
   // moving between the four screens costs one request and not four — and so the
@@ -59,7 +66,7 @@ export default function ServedByPicker({
   // The per-screen contract decides which groups belong here; the screen's own
   // resolved list then drops any Kind its READING cannot answer yet. Both are data —
   // which is why 1164 turned three Kinds on without touching this component, and why
-  // 1167/1168 will turn on the collected-by arms the same way.
+  // 1167 turned the collected-by arms on the same way — by editing one array.
   const resolved = resolvedKinds(screen)
   const groups = servedByGroups(screen, data).filter((group) => resolved.includes(group.kind))
   const offersUnassigned = resolved.includes(SERVED_BY_KINDS.unassigned)
@@ -72,6 +79,19 @@ export default function ServedByPicker({
   // screen's reading, so a screen whose arms are unbuilt never offers it.
   const mine = defaultSelection(screen, data)
   const mineName = (data?.defaultScope?.displayName ?? '').trim()
+
+  // 🚩 **The two collected-by screens get a COMBOBOX** (BackOffice 1167) — the same
+  // control, offering the same groups, but over a text box that accepts an id
+  // matching nothing in it. Not a nicety: the roster holds 8 collectors while a
+  // shipped ACR carries *whoever collected*, so a strict picker would make an id
+  // plainly visible in the grid un-typeable in the filter beside it.
+  //
+  // It is a branch inside this component rather than a second component, because
+  // "one control, learned once" is the whole of D7 and two files is how two screens
+  // start disagreeing about what one control means.
+  if (contract.freeText) {
+    return <ServedByCombo screen={screen} value={value} onChange={onChange} disabled={disabled} />
+  }
 
   return (
     <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
@@ -137,4 +157,92 @@ export default function ServedByPicker({
       </select>
     </label>
   )
+}
+
+/**
+ * The collected-by screens' rendering of the same control: a native combobox —
+ * `<input list>` over a `<datalist>` — instead of a `<select>`.
+ *
+ * 🔑 **Why native rather than a custom dropdown.** The whole requirement is "offers
+ * the roster's groups *and* accepts a typed id that matches nothing in it", which is
+ * the definition of `<input list>`. It also keeps the keyboard, the screen-reader
+ * announcement and the RTL text direction the platform's rather than ours.
+ *
+ * ⚠️ **The cost, accepted: a datalist has no groups.** So the Kind rides in the
+ * suggestion's own text — a supervisor is offered as *"X's team"* — and
+ * `parseServedByText` maps the text back to the pair. That is why `label` is built
+ * here (it needs the translator) and matched there (it must stay pure).
+ *
+ * 🚩 **The commit is on blur/Enter, not per keystroke.** A half-typed id is not a
+ * filter; the toolbar's draft/query split already says a partial box must not fire
+ * a query, and committing per keystroke would put `ServedByKind=COLLECTOR&ServedById=1`
+ * into the draft on the way to `16138`.
+ */
+function ServedByCombo({ screen, value, onChange, disabled }: ServedByPickerProps) {
+  const { t } = useTranslation('collection')
+  const { data, isPending } = useQuery(assignmentOptionsQuery())
+
+  const entries = servedByEntries(screen, data, (entry) => labelFor(entry, t))
+  // The text the box shows is derived from the SELECTION, so what the user picked
+  // and what the query carries cannot drift apart. `draft` is the keystroke buffer
+  // in between, and it is dropped the moment the selection changes underneath it.
+  const [draft, setDraft] = useState<string | null>(null)
+  const shown = draft ?? servedByText(value, entries)
+
+  const commit = (text: string) => {
+    setDraft(null)
+    onChange(parseServedByText(screen, text, entries))
+  }
+
+  const listId = `served-by-${screen}`
+
+  return (
+    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      {t('servedBy.label')}
+      <input
+        type="text"
+        role="combobox"
+        list={listId}
+        disabled={disabled}
+        value={shown}
+        placeholder={isPending ? t('servedBy.loading') : t('servedBy.collected.placeholder')}
+        title={t('servedBy.collected.hint')}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={(e) => commit(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') commit((e.target as HTMLInputElement).value)
+        }}
+        className="h-9 w-56 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+      />
+      <datalist id={listId}>
+        {entries.map((entry) => (
+          <option key={`${entry.kind}:${entry.id}`} value={entry.label} />
+        ))}
+      </datalist>
+    </label>
+  )
+}
+
+/**
+ * One suggestion's visible text — and, because a datalist option's value IS its
+ * text, the thing `parseServedByText` matches on.
+ *
+ * ⚠️ The Kind has to be legible from the text alone, since there are no groups to
+ * carry it: a supervisor reads as *"X's team"* and never as a bare name, or picking
+ * a person who both collects and supervises would be two identical-looking lines.
+ */
+function labelFor(
+  entry: Omit<ServedByEntry, 'label'>,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+): string {
+  if (entry.kind === SERVED_BY_KINDS.unassigned) return t('servedBy.collected.unassigned')
+  if (entry.kind === SERVED_BY_KINDS.mine) {
+    return entry.name === ''
+      ? t('servedBy.collected.mineNoName')
+      : t('servedBy.collected.mine', { name: entry.name })
+  }
+  if (entry.kind === SERVED_BY_KINDS.supervisor) {
+    return t('servedBy.supervisorEntry', { name: entry.name || entry.id })
+  }
+  return entry.name || entry.id
 }

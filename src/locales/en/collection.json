@@ -25,6 +25,14 @@
     "mine": "My branches — {{name}}",
     "mineNoName": "My branches",
     "mineHint": "The branches you serve, and your team's",
+    "supervisorEntry": "{{name}}'s team",
+    "collected": {
+      "placeholder": "Everyone",
+      "hint": "Pick a collector or a team — or type any collector id, including one not on the roster",
+      "mine": "My collections — {{name}}",
+      "mineNoName": "My collections",
+      "unassigned": "Collected by someone off the roster"
+    },
     "groups": {
       "ACCOUNTANT": "Accountants",
       "COLLECTOR": "Collectors",
@@ -111,7 +119,7 @@
     "title": "ACRs",
     "subtitle": "Accumulated collection receipts and the collections behind them.",
     "loading": "Loading today's ACRs…",
-    "capReached": "This result reached the {{limit}}-row system cap, so some ACRs may be missing. Narrow the dates, the collector or the status to be sure you are seeing all of them.",
+    "capReached": "This result reached the {{limit}}-row system cap, so some ACRs may be missing. Narrow the dates, who collected or the status to be sure you are seeing all of them.",
     "actions": {
       "header": "Open",
       "form": "Form",
@@ -122,8 +130,6 @@
       "to": "To",
       "acrNumber": "ACR No#",
       "acrNumberPlaceholder": "Number",
-      "collector": "Collector",
-      "collectorPlaceholder": "Operator id",
       "status": "Status",
       "statuses": {
         "ALL": "All",
@@ -142,7 +148,7 @@
     },
     "empty": {
       "title": "No ACRs in this period",
-      "hint": "No collection run was opened for these dates. Widen the period, or clear the collector and the status."
+      "hint": "No collection run was opened for these dates. Widen the period, or clear \"Served by\" and the status."
     },
     "errors": {
       "loadFailed": "Today's ACRs could not be loaded."

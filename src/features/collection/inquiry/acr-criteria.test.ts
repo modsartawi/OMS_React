@@ -22,9 +22,42 @@ describe('landingCriteria', () => {
       fromDate: '2026-08-08',
       toDate: '2026-08-08',
       acrNumber: '',
-      collectorOperatorId: '',
+      // Nothing picked — the estate. A caller the roster does not know, or a payload
+      // that never arrived, opens exactly as this screen did before the control
+      // existed (BackOffice 1167).
+      servedBy: { kind: '', id: '' },
       status: 'ALL',
     })
+  })
+
+  // 🚩 Default-to-mine reaches THIS screen only for a caller it can scope: a
+  // collector's own rounds are real rows, an accountant's are provably none. See
+  // `served-by.test.ts` for the full ruling; this pins that the landing carries it.
+  it('opens a collector on their own collections, and an accountant on the estate', () => {
+    const collector = { defaultScope: { kind: 'MINE' as const, staffId: '7787', role: 'COLLECTOR', displayName: 'مصلح' } }
+    const accountant = { defaultScope: { kind: 'MINE' as const, staffId: '4466', role: 'ACCOUNTANT', displayName: 'ضحى' } }
+
+    expect(landingCriteria(TODAY, collector).servedBy).toEqual({ kind: 'MINE', id: '7787' })
+    expect(buildAcrsParams(landingCriteria(TODAY, collector))).toMatchObject({
+      ServedByKind: 'MINE',
+      ServedById: '7787',
+    })
+
+    expect(landingCriteria(TODAY, accountant).servedBy).toEqual({ kind: '', id: '' })
+    expect(buildAcrsParams(landingCriteria(TODAY, accountant))).not.toHaveProperty('ServedByKind')
+  })
+
+  // …and the chip is measured against the landing the screen ACTUALLY opened on,
+  // scope and all — otherwise it would be lit on mount for every collector, over a
+  // grid showing exactly what the screen chose to show them.
+  it('does not call a scoped landing "filtered"', () => {
+    const collector = { defaultScope: { kind: 'MINE' as const, staffId: '7787', role: 'COLLECTOR', displayName: 'مصلح' } }
+    const landed = buildAcrsParams(landingCriteria(TODAY, collector))
+
+    expect(isLandingQuery(landed, TODAY, collector)).toBe(true)
+    // Against an UNSCOPED landing the very same query is filtered, which is what
+    // makes the options argument load-bearing rather than decorative.
+    expect(isLandingQuery(landed, TODAY)).toBe(false)
   })
 
   it('is a local calendar day, so a Riyadh evening does not land on tomorrow', () => {
@@ -80,11 +113,20 @@ describe('buildAcrsParams', () => {
     expect(params).not.toHaveProperty('AcrId')
   })
 
-  it('drops an empty collector rather than sending it as an empty string', () => {
-    expect(buildAcrsParams({ collectorOperatorId: '  ' })).not.toHaveProperty(
+  // ⚠️ The free-text `collectorOperatorId` box was REPLACED by the shared *Served
+  // by* combobox in BackOffice 1167 — same column, same predicate, one control. The
+  // empty-box case it used to pin now belongs to `buildServedByParams`, and the
+  // typed-id case is pinned in `served-by.test.ts` as *a typed id travels as the
+  // COLLECTOR kind*. This screen no longer sends `CollectorOperatorId` at all.
+  it('no longer sends CollectorOperatorId from the toolbar — Served by asks that question now', () => {
+    expect(buildAcrsParams({ servedBy: { kind: 'COLLECTOR', id: '4472' } })).toEqual({
+      ServedByKind: 'COLLECTOR',
+      ServedById: '4472',
+      Limit: GRID_LIMIT,
+    })
+    expect(buildAcrsParams({ servedBy: { kind: '', id: '' } })).not.toHaveProperty(
       'CollectorOperatorId',
     )
-    expect(buildAcrsParams({ collectorOperatorId: ' 4472 ' }).CollectorOperatorId).toBe('4472')
   })
 
   it('sends the dates as a PAIR or not at all — half-open is unbounded, not narrow', () => {
@@ -110,7 +152,7 @@ describe('buildAcrsParams', () => {
       fromDate: '2026-08-01',
       toDate: '2026-08-08',
       acrNumber: '41',
-      collectorOperatorId: '4472',
+      servedBy: { kind: 'COLLECTOR', id: '4472' },
       status: 'CLOSED',
     }
     expect(buildAcrsParams(draft)).toEqual(buildAcrsParams({ ...draft }))

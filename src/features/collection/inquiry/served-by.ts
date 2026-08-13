@@ -49,6 +49,25 @@ export const SERVED_BY_KINDS = {
 
 export type ServedByKind = (typeof SERVED_BY_KINDS)[keyof typeof SERVED_BY_KINDS]
 
+/**
+ * What a person does **for branches**, as `PosCollectionStaff.Role` spells it.
+ *
+ * ⚠️ **A Role is not a Kind**, even where the two strings coincide: a Kind is a
+ * question the caller asks, a Role is a fact about a person. The server keeps them
+ * as separate constants for exactly this reason (`CollectionRoles` beside
+ * `ServedByKinds`), and comparing a Role against a Kind constant here would read as
+ * though they were interchangeable — which they are not.
+ *
+ * 🚩 **Blank is a legitimate Role** — the *pure supervisor*, who supervises people
+ * and serves no branch at all. There is deliberately no `SUPERVISOR` value: you are
+ * a supervisor iff somebody names you in `SupervisorId` (spec D2), not by holding a
+ * role that says so.
+ */
+export const COLLECTION_ROLES = {
+  accountant: 'ACCOUNTANT',
+  collector: 'COLLECTOR',
+} as const
+
 /** A pickable person, as `CollectionWeb/AssignmentOptions` returns them. */
 export interface AssignmentPerson {
   staffId: string
@@ -69,6 +88,21 @@ export interface AssignmentPerson {
 export interface ServedByDefaultScope {
   kind: ServedByKind
   staffId: string
+  /**
+   * The caller's own Role on the finance roster — `'ACCOUNTANT'`, `'COLLECTOR'`,
+   * or **blank** for the pure supervisor (and for somebody who is only *named* as
+   * a supervisor, with no roster row of their own).
+   *
+   * 🔑 **It is what decides whether a collected-by screen lands scoped at all**
+   * (BackOffice 1167). ACRs and Deposits record who *collected*, and an accountant
+   * never collects — landing them on their own scope there would open an EMPTY
+   * grid under a control claiming to show their work. They open on the estate
+   * instead, which is spec D9's "no referent ⇒ unfiltered".
+   *
+   * Optional so an older payload (or a fixture written before 1167) simply lands
+   * everybody, which is the behaviour those screens had.
+   */
+  role?: string
   /** The roster's own `DisplayName` — the only place these people's names live. */
   displayName: string
 }
@@ -185,8 +219,17 @@ export const RESOLVED_KINDS_BY_READING: Record<ServedByReading, ServedByKind[]> 
   ],
   // ⚠️ ACCOUNTANT is absent here permanently, not pending: a document records who
   // COLLECTED and an accountant never collects, so the server refuses it by design
-  // (spec D10). The other three are pending 1167/1168.
-  collector: [],
+  // (spec D10) — offering it would be offering a filter that errors when used.
+  //
+  // The other four arrived with BackOffice 1167, which built them against the ACR's
+  // own `CollectorOperatorId` and joined nothing at all. 1168 mounts the very same
+  // list on Deposits, which is why this is data and not a branch.
+  collector: [
+    SERVED_BY_KINDS.collector,
+    SERVED_BY_KINDS.supervisor,
+    SERVED_BY_KINDS.unassigned,
+    SERVED_BY_KINDS.mine,
+  ],
 }
 
 /** The Kinds a given screen may offer — its reading's list, spelled once. */
@@ -228,9 +271,13 @@ export function servedByGroups(
  * - the payload has not arrived yet, or the sink was unreachable — an unscoped
  *   landing is the safe failure here, because a scope the user cannot see is worse
  *   than none;
- * - the screen's **reading cannot answer the Kind** — the two collected-by screens,
- *   whose arms are 1167's and 1168's. Landing them on a pick the server refuses
- *   would break the screen on mount.
+ * - the screen's **reading cannot answer the Kind** — a pick the server refuses
+ *   would break the screen on mount;
+ * - 🚩 the caller's **role has no referent on this screen's reading** — an
+ *   accountant on ACRs or Deposits (BackOffice 1167). They never collect, so their
+ *   own scope over a collected-by document is provably empty, and an empty grid
+ *   under a control claiming their work is worse than the estate under a control
+ *   claiming nothing.
  */
 export function defaultSelection(
   screen: ServedByScreen,
@@ -242,8 +289,160 @@ export function defaultSelection(
   const kind = (scope.kind ?? '') as ServedByKind
   const id = (scope.staffId ?? '').trim()
   if (id === '' || !resolvedKinds(screen).includes(kind)) return NO_SERVED_BY
+  if (!hasReferent(scope.role, SERVED_BY_SCREENS[screen].reading)) return NO_SERVED_BY
 
   return { kind, id }
+}
+
+/**
+ * Does a caller with this roster Role have anything to land on, on this reading?
+ *
+ * Spec D8 gives the two collected-by screens default-to-mine "only for
+ * collector/supervisor callers", and this is that sentence. A **blank** role
+ * passes — that is the pure supervisor, and the person merely named as somebody's
+ * supervisor, both of whom have reports whose collections are real rows.
+ *
+ * ⚠️ Read as *"is not an accountant"* rather than as *"is a collector"*, so a role
+ * this client has never heard of lands rather than silently opening on the estate.
+ * The only role with a provably empty answer here is the one the server also
+ * refuses outright.
+ *
+ * ⚠️ It compares against `COLLECTION_ROLES`, never `SERVED_BY_KINDS`: the two
+ * strings coincide today, but a Role and a Kind are different things and the server
+ * keeps them as separate constants too.
+ */
+export function hasReferent(role: string | undefined, reading: ServedByReading): boolean {
+  if (reading === 'assignment') return true
+  return (role ?? '').trim().toUpperCase() !== COLLECTION_ROLES.accountant
+}
+
+/**
+ * One line of the **combobox** the two collected-by screens carry (BackOffice
+ * 1167) — a pickable thing with the exact pair it stands for.
+ *
+ * The assignment screens use a strict `<select>` whose option values already carry
+ * the pair. A combobox cannot: its control is a text box, so the only thing that
+ * comes back out of it is a *string*. These entries are what that string is matched
+ * against, and `label` is therefore the datalist's own value rather than a caption
+ * beside it.
+ *
+ * `name` is the raw `displayName`, kept separate so the component can compose the
+ * label (and translate the two group suffixes) without this module importing i18n.
+ */
+export interface ServedByEntry {
+  kind: ServedByKind
+  id: string
+  name: string
+  label: string
+}
+
+/**
+ * The pickable entries for a screen, in the order they should be offered: the
+ * caller's own scope first, then collectors, then supervisors, then *Unassigned*.
+ *
+ * `labelFor` composes the visible text — the component passes a translator in, so
+ * this stays the pure module `acr-criteria.test.ts`'s seam expects.
+ *
+ * ⚠️ A person who both collects and supervises appears **twice**, exactly as in the
+ * strict picker: two Kinds are two different questions, and only the entry the user
+ * actually clicked says which one they asked.
+ */
+export function servedByEntries(
+  screen: ServedByScreen,
+  options: Partial<AssignmentOptions> | undefined,
+  labelFor: (entry: Omit<ServedByEntry, 'label'>) => string,
+): ServedByEntry[] {
+  const resolved = resolvedKinds(screen)
+  const entries: Array<Omit<ServedByEntry, 'label'>> = []
+
+  const mine = defaultSelection(screen, options)
+  if (mine.kind !== '') {
+    entries.push({
+      kind: mine.kind,
+      id: mine.id,
+      name: (options?.defaultScope?.displayName ?? '').trim(),
+    })
+  }
+
+  for (const group of servedByGroups(screen, options)) {
+    if (!resolved.includes(group.kind)) continue
+    for (const person of group.people) {
+      entries.push({ kind: group.kind, id: person.staffId, name: person.displayName })
+    }
+  }
+
+  // Names nobody, so it carries no id — and it sits last, because it is a question
+  // about the documents rather than a person to pick.
+  if (resolved.includes(SERVED_BY_KINDS.unassigned)) {
+    entries.push({ kind: SERVED_BY_KINDS.unassigned, id: '', name: '' })
+  }
+
+  return entries.map((entry) => ({ ...entry, label: labelFor(entry) }))
+}
+
+/**
+ * Turn what the user actually typed (or clicked) into a selection.
+ *
+ * 🔑 **A typed id that matches NOTHING still works, and travels as `COLLECTOR`.**
+ * This is the reason the control on these two screens is a combobox rather than the
+ * strict picker its siblings use: the roster holds 8 collectors while a shipped ACR
+ * carries *whoever collected*, so a strict picker would make an id plainly visible
+ * in the grid **un-typeable in the filter**. The predicate `COLLECTOR` builds is
+ * byte-identical to the equality the free-text box has always sent, so nothing about
+ * the answer changes — only where the user types it.
+ *
+ * ⚠️ On a screen whose contract says `freeText: false`, unmatched text is **dropped**
+ * rather than guessed at: those screens read *assigned to*, where an id off the
+ * roster is by definition assigned to nobody and would return a confidently empty
+ * grid.
+ *
+ * Empty text is "nothing picked" — the estate.
+ */
+export function parseServedByText(
+  screen: ServedByScreen,
+  text: string,
+  entries: ServedByEntry[],
+): ServedBySelection {
+  const raw = (text ?? '').trim()
+  if (raw === '') return NO_SERVED_BY
+
+  // A label first — that is what clicking a datalist suggestion puts in the box, and
+  // the label is the only thing that says WHICH question was asked of a person who
+  // appears twice.
+  const clicked = entries.find((entry) => entry.label === raw)
+  if (clicked) return { kind: clicked.kind, id: clicked.id }
+
+  // 🚩 **A BARE ID IS ALWAYS `COLLECTOR` HERE — even a roster member's, even the
+  // caller's own.** The ticket's promise is that a typed id is *byte-identical to
+  // today's predicate*, and today's free-text box only ever asked
+  // `CollectorOperatorId = <what you typed>`. Resolving a typed id against the entry
+  // list instead would silently answer a DIFFERENT question for two people: the
+  // caller's own id would match the `MINE` entry at the head of the list and return
+  // their rounds *plus every report's*, and a pure supervisor's id would match the
+  // supervisor entry, whose predicate **excludes that very person** — so an id
+  // plainly visible in the grid would come back with its own rows missing.
+  if (SERVED_BY_SCREENS[screen].freeText) return { kind: SERVED_BY_KINDS.collector, id: raw }
+
+  // The strict screens never reach this function from their `<select>`; if text does
+  // arrive, only a known person is honoured, because an id off the roster is by
+  // definition assigned to nobody and guessing would return a confidently empty grid.
+  const known = entries.find((entry) => entry.id !== '' && entry.id === raw)
+  return known ? { kind: known.kind, id: known.id } : NO_SERVED_BY
+}
+
+/**
+ * The text the box should show for a selection — the inverse of the parse, so the
+ * control redisplays what the user chose rather than a second rendering of it.
+ *
+ * An off-roster typed id has no entry and shows as itself, which is exactly what
+ * was typed.
+ */
+export function servedByText(selection: ServedBySelection, entries: ServedByEntry[]): string {
+  if (selection.kind === '') return ''
+  const matched = entries.find(
+    (entry) => entry.kind === selection.kind && entry.id === selection.id,
+  )
+  return matched ? matched.label : selection.id
 }
 
 /**

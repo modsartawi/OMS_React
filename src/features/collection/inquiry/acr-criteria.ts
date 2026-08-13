@@ -20,6 +20,12 @@
  */
 import { toIsoDate } from '@/core/util/date-format'
 import { GRID_LIMIT } from './cap'
+import {
+  buildServedByParams,
+  defaultSelection,
+  type AssignmentOptions,
+  type ServedBySelection,
+} from './served-by'
 
 /**
  * The three states the segmented Status control can be in.
@@ -46,7 +52,22 @@ export interface AcrsCriteria {
   fromDate: string
   toDate: string
   acrNumber: string
-  collectorOperatorId: string
+  /**
+   * The shared *Served by* selection (BackOffice spec 1162 D8, built by 1167) —
+   * **this screen's collector filter**, and the box it replaces.
+   *
+   * 🔑 On the ACRs list *Served by* joins nothing at all: it reads the ACR's own
+   * `CollectorOperatorId`, because that is what the document in front of the user
+   * records (*who collected*, not *who is assigned*). An ACR spans a whole round
+   * and carries no store, so there is no branch to look an assignment up by.
+   *
+   * ⚠️ **It replaced `collectorOperatorId` on the toolbar, and that parameter is
+   * NOT dead.** The server still binds it for the ACR drill-downs, the mobile
+   * collector path and the shipped end-to-end tests — this screen simply stopped
+   * being one of its callers. A typed id here travels as `ServedByKind=COLLECTOR`,
+   * whose predicate is byte-identical to the one that box always sent.
+   */
+  servedBy: ServedBySelection
   status: AcrStatusFilter
 }
 
@@ -59,9 +80,24 @@ export interface AcrsCriteria {
  * catch-up ACR raised today for last Thursday's collections answers to last
  * Thursday here.
  */
-export function landingCriteria(today: Date): AcrsCriteria {
+export function landingCriteria(
+  today: Date,
+  options?: Partial<AssignmentOptions>,
+): AcrsCriteria {
   const day = toIsoDate(today)
-  return { fromDate: day, toDate: day, acrNumber: '', collectorOperatorId: '', status: 'ALL' }
+  return {
+    fromDate: day,
+    toDate: day,
+    acrNumber: '',
+    // 🚩 **Default-to-mine, but only for a caller this screen can scope** (spec D8;
+    // BackOffice 1167). `defaultSelection` drops the landing for an ACCOUNTANT
+    // caller, because an accountant never collects and their own scope over a
+    // collected-by document is provably empty — they open on the estate instead.
+    // `options` is passed in rather than read here so this stays pure and the
+    // landing is testable rather than only observable.
+    servedBy: defaultSelection('acrs', options),
+    status: 'ALL',
+  }
 }
 
 /**
@@ -71,8 +107,16 @@ export function landingCriteria(today: Date): AcrsCriteria {
  * sentence is about what the grid is showing, and the grid shows the result of
  * the last Search.
  */
-export function isLandingQuery(params: Record<string, unknown>, today: Date): boolean {
-  const landing = buildAcrsParams(landingCriteria(today))
+export function isLandingQuery(
+  params: Record<string, unknown>,
+  today: Date,
+  options?: Partial<AssignmentOptions>,
+): boolean {
+  // 🚩 Measured against the landing the screen ACTUALLY opened on, scope and all
+  // (1165's ruling, inherited here). Against an unscoped landing the chip would be
+  // lit on mount for every collector, over a grid showing exactly what the screen
+  // chose to show them — and its ✕ (Reset) would put the same scope straight back.
+  const landing = buildAcrsParams(landingCriteria(today, options))
   const keys = Object.keys(landing)
   if (Object.keys(params).length !== keys.length) return false
   return keys.every((key) => params[key] === landing[key])
@@ -116,7 +160,12 @@ export function buildAcrsParams(criteria: Partial<AcrsCriteria> = {}): Record<st
     put('ToDate', criteria.toDate)
   }
   put('AcrNumber', criteria.acrNumber)
-  put('CollectorOperatorId', criteria.collectorOperatorId)
+  // 🚩 **`CollectorOperatorId` is no longer sent from this toolbar** (BackOffice
+  // 1167): *Served by* asks the same question of the same column, through the one
+  // shared resolver all four screens share, and two toolbar boxes meaning the same
+  // thing is how one control starts meaning two. The server parameter stays — its
+  // drill-downs and the mobile path still pass it — this screen just stopped.
+  Object.assign(params, buildServedByParams(criteria.servedBy))
   if (criteria.status === 'OPEN' || criteria.status === 'CLOSED') params.Status = criteria.status
   return params
 }

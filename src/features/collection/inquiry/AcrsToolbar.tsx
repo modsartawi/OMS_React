@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
 import { ACR_STATUSES, type AcrStatusFilter, type AcrsCriteria } from './acr-criteria'
+import ServedByPicker from './ServedByPicker'
 
 /**
  * ACRs' filter strip (ticket 255) — From · To · ACR No# · Collector · Status.
@@ -81,16 +82,22 @@ export default function AcrsToolbar({
           className="h-9 w-32 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('acrs.search.collector')}
-        <input
-          type="text"
-          value={criteria.collectorOperatorId}
-          onChange={(e) => onChange({ collectorOperatorId: e.target.value })}
-          placeholder={t('acrs.search.collectorPlaceholder')}
-          className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-        />
-      </label>
+      {/* 🚩 **The collector box, as the shared control** (BackOffice 1167). It is a
+          replacement rather than an addition: on this screen *Served by* IS the
+          collector filter — same column, same predicate for a plain pick — so
+          keeping the free-text box beside it would be two boxes asking one
+          question. It stays a **combobox** for the same reason it exists: a shipped
+          ACR carries whoever collected, and an id off the roster must remain
+          typeable.
+
+          ⚠️ Contrast Cash Collections, where the shipped box SURVIVES and is
+          relabelled "Collected by" (1166) — there the two controls genuinely ask
+          different questions (assigned-to vs collected-by) and both stay lit. */}
+      <ServedByPicker
+        screen="acrs"
+        value={criteria.servedBy}
+        onChange={(servedBy) => onChange({ servedBy })}
+      />
 
       {/* The WPF's radio group, as a segmented control. `radiogroup`/`radio` roles
           rather than buttons, because that is what it IS — one of three, exactly

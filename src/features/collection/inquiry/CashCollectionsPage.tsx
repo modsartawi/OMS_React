@@ -22,6 +22,8 @@ import {
   readAcrScope,
   withoutAcrScope,
 } from './acr-scope'
+import ScreenGate from '@/core/ui/ScreenGate'
+import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenCollections, collectionApi } from './api'
 import { GRID_PAGE_SIZE, isCapReached } from './cap'
 import { buildCollectionsColumns, buildCollectionsDefaultColDef } from './collections-columns'
@@ -39,7 +41,6 @@ import { buildReceiptActionColumn } from './RowActions'
 // These two were declared at the foot of this file at 254 and moved to their own
 // module at 255, when they acquired a second and third caller (see `GridStates`).
 import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
-import ScreenGate from './ScreenGate'
 
 /**
  * Cash Collections (`/collection/collections`) — the first real screen of the
@@ -66,7 +67,9 @@ export default function CashCollectionsPage() {
   const { t } = useTranslation('collection')
   return (
     <ScreenGate
+      query={collectionAccessQuery()}
       can={canOpenCollections}
+      ns="collection"
       title={t('collections.title')}
       subtitle={t('collections.subtitle')}
     >

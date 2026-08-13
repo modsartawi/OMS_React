@@ -275,6 +275,18 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/collection/inquiry/CollectionAttemptsPage')).default,
         }),
       },
+      // The accountant's settlement account (spec 267, ticket 268) — the area's
+      // FIFTH route and its SECOND feature. Not a new area: same nav group, same
+      // `/collection/*` prefix, same one `CollectionWeb/Access` probe, a fifth
+      // grant on it (D1). Its own feature folder because it is its own screen with
+      // its own doors — which is what pushed the shared probe up into
+      // `@/core/collection/api`, a feature being unable to import a feature.
+      {
+        path: 'collection/settlement',
+        lazy: async () => ({
+          Component: (await import('@/features/collection/settlement/SettlementPage')).default,
+        }),
+      },
       // The Reports area (spec 261, ticket 263) — a new top-level area at
       // `/reports/*`, one feature behind ONE `RetailInvoice/Access` probe. The
       // area is the point as much as the screen is: the render rail was designed

@@ -22,6 +22,12 @@ const NONE: CollectionAccessResult = {
   canOpenAcrs: false,
   canOpenDeposits: false,
   canOpenAttempts: false,
+  // The fifth grant (268). It belongs to a screen in ANOTHER feature, so its own
+  // predicate is pinned in `features/collection/settlement/access.test.ts` and
+  // cannot be imported here — a feature may not import a feature, tests included.
+  // It appears in this fixture only so the answer these four read is the whole
+  // shape the door returns.
+  canOpenSettlement: false,
 }
 
 const PREDICATES = [
@@ -45,6 +51,15 @@ describe('the Collection probe predicates', () => {
       for (const [otherFlag, other] of PREDICATES) {
         expect(other(answer)).toBe(otherFlag === flag)
       }
+    }
+  })
+
+  it('🚩 the FIFTH grant admits none of these four (268)', () => {
+    // A session granted only the settlement account opens the settlement account
+    // and nothing else. The four inquiries and the accountant's screen are five
+    // independent grants on one probe, not a tier.
+    for (const [, can] of PREDICATES) {
+      expect(can({ ...NONE, canOpenSettlement: true })).toBe(false)
     }
   })
 

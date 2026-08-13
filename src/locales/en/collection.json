@@ -13,9 +13,6 @@
     "unreachableTitle": "This screen is unavailable",
     "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
   },
-  "shell": {
-    "comingSoon": "This screen is not built yet."
-  },
   "document": {
     "missingTitle": "This document no longer exists",
     "missingHint": "The receipt or form this link points at could not be found. It may have been reversed, or the link may be out of date.",

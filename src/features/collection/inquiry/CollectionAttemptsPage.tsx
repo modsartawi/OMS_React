@@ -14,6 +14,8 @@ import {
   omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
+import ScreenGate from '@/core/ui/ScreenGate'
+import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenAttempts, collectionApi } from './api'
 import { buildAttemptsColumns, buildAttemptsDefaultColDef } from './attempts-columns'
 import {
@@ -27,7 +29,6 @@ import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { ATTEMPTS_CSV_COLUMNS } from './csv'
 import { useCsvExport } from './use-csv-export'
 import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
-import ScreenGate from './ScreenGate'
 
 /**
  * Collection Attempts (`/collection/attempts`) — the smallest screen in the suite
@@ -53,7 +54,9 @@ export default function CollectionAttemptsPage() {
   const { t } = useTranslation('collection')
   return (
     <ScreenGate
+      query={collectionAccessQuery()}
       can={canOpenAttempts}
+      ns="collection"
       title={t('attempts.title')}
       subtitle={t('attempts.subtitle')}
     >

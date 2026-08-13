@@ -10,10 +10,11 @@
 
 /**
  * `GET CollectionWeb/Access` — the whole area's probe (spec 249 §"Getting in",
- * 244 §10). **One call, four booleans**: the menu needs all four at once to draw
- * one group, and four probes would be four round trips to answer one question.
+ * 244 §10). **One call, one boolean per screen**: the menu needs them all at once
+ * to draw one group, and a probe each would be a round trip each to answer one
+ * question.
  *
- * The four flags map 1:1 onto the four existing WPF `ControllerID` grants —
+ * The first four flags map 1:1 onto the four existing WPF `ControllerID` grants —
  * `CollectionInquiry`, `AcrInquiry`, `DepositInquiry`, `CollectionAttempts` —
  * reused unchanged, so a WPF user's current rights carry to the web and no new
  * permission is designed or seeded. Supervisor versus accountant is which of
@@ -34,6 +35,24 @@ export interface CollectionAccessResult {
   canOpenAcrs: boolean
   canOpenDeposits: boolean
   canOpenAttempts: boolean
+  /**
+   * The **fifth grant** the settlement account rides on (spec 267 D1, ticket 268).
+   * Not a new probe and not a new area: the accountant's screen is a fifth item in
+   * the same nav group under the same `/collection/*` prefix, so it is a fifth
+   * boolean on the same one call.
+   *
+   * ⚠️ **The door does not answer it yet** — BackOffice spec 1173 owns the flag,
+   * and ticket 274 is the wave-joining event. Until it lands the field arrives
+   * `undefined`, `canOpenSettlement` reads that as a denial (`=== true`, nothing
+   * looser), and the leaf and the route stay shut. That is the correct posture for
+   * an unbuilt grant and it is why 268 needs no feature flag: the grant IS the
+   * off-switch (D1), and today it is off.
+   *
+   * 🚩 Declared **required** rather than optional on purpose. The contract owes
+   * five booleans; an optional field would let a screen read a missing grant as an
+   * acceptable shape and quietly grow a `?? true` somewhere.
+   */
+  canOpenSettlement: boolean
 }
 
 /**

@@ -1,0 +1,25 @@
+{
+  "menu": {
+    "settlement": "Settlement Account"
+  },
+  "title": "Settlement account",
+  "subtitle": "What a branch owes back (shortage · عجز) or may keep (surplus · فائض), and what a till has already taken against it.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to this screen",
+    "deniedHint": "Your account does not hold the grant for the settlement account. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "scope": {
+    "label": "Which branches",
+    "mine": "My branches",
+    "unassigned": "Unassigned",
+    "all": "All branches",
+    "inert": "Not active yet"
+  },
+  "shell": {
+    "title": "Nothing to show yet",
+    "hint": "The search box and the worklist land on this screen next. Nothing here reads the ledger yet."
+  }
+}

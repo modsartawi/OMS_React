@@ -32,6 +32,12 @@ import collection from '@/locales/en/collection.json'
 // re-register it here. An unregistered namespace renders raw keys to users and no
 // gate catches it, which is why this registration lands in the area's first slice.
 import reports from '@/locales/en/reports.json'
+// 🚩 `settlement`, and NOT the `collection` namespace above (spec 267, ticket 268).
+// The accountant's screen shares the Collections area, its URL prefix and its access
+// probe, but it is its OWN feature — so "namespace == feature name" applies plainly
+// here, and 269–273 add their keys to `settlement.json`. Sharing `collection.json`
+// would put a second feature's growth inside a namespace the inquiry feature owns.
+import settlement from '@/locales/en/settlement.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -39,7 +45,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'reports'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports'],
   resources: {
     en: {
       common,
@@ -61,6 +67,7 @@ i18n.use(initReactI18next).init({
       authorizations,
       loy,
       collection,
+      settlement,
       reports,
     },
   },

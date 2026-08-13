@@ -20,6 +20,8 @@ import {
   omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
+import ScreenGate from '@/core/ui/ScreenGate'
+import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenDeposits, collectionApi } from './api'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import CollectorBalances from './CollectorBalances'
@@ -35,7 +37,6 @@ import DepositsToolbar from './DepositsToolbar'
 import { DEPOSITS_CSV_COLUMNS } from './csv'
 import { useCsvExport } from './use-csv-export'
 import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
-import ScreenGate from './ScreenGate'
 
 /**
  * Deposits (`/collection/deposits`) — the accountant's screen, and **the one in
@@ -71,7 +72,13 @@ import ScreenGate from './ScreenGate'
 export default function DepositsPage() {
   const { t } = useTranslation('collection')
   return (
-    <ScreenGate can={canOpenDeposits} title={t('deposits.title')} subtitle={t('deposits.subtitle')}>
+    <ScreenGate
+      query={collectionAccessQuery()}
+      can={canOpenDeposits}
+      ns="collection"
+      title={t('deposits.title')}
+      subtitle={t('deposits.subtitle')}
+    >
       {/* A child component, not inlined markup: its query must not run for a
           session the gate is about to refuse, and an element that is never
           rendered is never mounted. */}

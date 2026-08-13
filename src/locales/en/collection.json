@@ -175,14 +175,12 @@
     "title": "Deposits",
     "subtitle": "Bank deposits, the ACRs they claim, and the per-collector balances.",
     "loading": "Loading today's deposits…",
-    "capReached": "This result reached the {{limit}}-row system cap, so some deposits may be missing. Narrow the dates, the collector, the bank or the status to be sure you are seeing all of them.",
+    "capReached": "This result reached the {{limit}}-row system cap, so some deposits may be missing. Narrow the dates, who banked, the bank or the status to be sure you are seeing all of them.",
     "search": {
       "from": "From",
       "to": "To",
       "depositNumber": "Deposit No#",
       "depositNumberPlaceholder": "Number",
-      "collector": "Collector",
-      "collectorPlaceholder": "Operator id",
       "bank": "Bank",
       "bankPlaceholder": "Bank code",
       "status": "Status",
@@ -203,7 +201,7 @@
     },
     "empty": {
       "title": "No deposits in this period",
-      "hint": "Nothing was banked on these dates. Widen the period, or clear the collector, bank and status."
+      "hint": "Nothing was banked on these dates. Widen the period, or clear \"Served by\", the bank and the status."
     },
     "errors": {
       "loadFailed": "Today's deposits could not be loaded."

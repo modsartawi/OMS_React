@@ -5,6 +5,7 @@ import {
   type DepositStatusFilter,
   type DepositsCriteria,
 } from './deposit-criteria'
+import ServedByPicker from './ServedByPicker'
 
 /**
  * Deposits' filter strip (ticket 256) — From · To · Deposit No# · Collector ·
@@ -87,16 +88,21 @@ export default function DepositsToolbar({
           className="h-9 w-32 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('deposits.search.collector')}
-        <input
-          type="text"
-          value={criteria.collectorOperatorId}
-          onChange={(e) => onChange({ collectorOperatorId: e.target.value })}
-          placeholder={t('deposits.search.collectorPlaceholder')}
-          className="h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-        />
-      </label>
+      {/* 🚩 **The collector box, as the shared control** (BackOffice 1168) — the same
+          replacement the ACRs toolbar made in 1167, and for the same reason: on this
+          screen *Served by* IS the collector filter, same column and same predicate
+          for a plain pick, so keeping the free-text box beside it would be two boxes
+          asking one question. It stays a **combobox** because a shipped deposit
+          carries whoever banked it, and an id off the roster must remain typeable.
+
+          ⚠️ Contrast Cash Collections, where the shipped box SURVIVES and is
+          relabelled "Collected by" (1166) — there the two controls genuinely ask
+          different questions (assigned-to vs collected-by) and both stay lit. */}
+      <ServedByPicker
+        screen="deposits"
+        value={criteria.servedBy}
+        onChange={(servedBy) => onChange({ servedBy })}
+      />
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
         {t('deposits.search.bank')}
         <input

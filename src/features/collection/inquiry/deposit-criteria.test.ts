@@ -22,10 +22,46 @@ describe('landingCriteria', () => {
       fromDate: '2026-08-08',
       toDate: '2026-08-08',
       depositNumber: '',
-      collectorOperatorId: '',
+      // Nothing picked — the estate. A caller the roster does not know, or a payload
+      // that never arrived, opens exactly as this screen did before the control
+      // existed (BackOffice 1168).
+      servedBy: { kind: '', id: '' },
       bankCode: '',
       status: 'ALL',
     })
+  })
+
+  // 🚩 Default-to-mine reaches THIS screen only for a caller it can scope, exactly
+  // as on the ACRs list (1167) — and that is not a coincidence to keep in step by
+  // hand: a deposit's collector IS its ACRs' collector, so the two screens are
+  // answering one question. See `served-by.test.ts` for the full ruling.
+  it('opens a collector on their own deposits, and an accountant on the estate', () => {
+    const collector = { defaultScope: { kind: 'MINE' as const, staffId: '7787', role: 'COLLECTOR', displayName: 'مصلح' } }
+    const accountant = { defaultScope: { kind: 'MINE' as const, staffId: '4466', role: 'ACCOUNTANT', displayName: 'ضحى' } }
+
+    expect(landingCriteria(TODAY, collector).servedBy).toEqual({ kind: 'MINE', id: '7787' })
+    expect(buildDepositsParams(landingCriteria(TODAY, collector))).toMatchObject({
+      ServedByKind: 'MINE',
+      ServedById: '7787',
+    })
+
+    expect(landingCriteria(TODAY, accountant).servedBy).toEqual({ kind: '', id: '' })
+    expect(buildDepositsParams(landingCriteria(TODAY, accountant))).not.toHaveProperty(
+      'ServedByKind',
+    )
+  })
+
+  // …and the chip is measured against the landing the screen ACTUALLY opened on,
+  // scope and all — otherwise it would be lit on mount for every collector, over a
+  // grid showing exactly what the screen chose to show them.
+  it('does not call a scoped landing "filtered"', () => {
+    const collector = { defaultScope: { kind: 'MINE' as const, staffId: '7787', role: 'COLLECTOR', displayName: 'مصلح' } }
+    const landed = buildDepositsParams(landingCriteria(TODAY, collector))
+
+    expect(isLandingQuery(landed, TODAY, collector)).toBe(true)
+    // Against an UNSCOPED landing the very same query is filtered, which is what
+    // makes the options argument load-bearing rather than decorative.
+    expect(isLandingQuery(landed, TODAY)).toBe(false)
   })
 
   it('is a local calendar day, so a Riyadh evening does not land on tomorrow', () => {
@@ -90,11 +126,20 @@ describe('buildDepositsParams', () => {
     expect(params).not.toHaveProperty('DepositId')
   })
 
-  it('drops an empty collector rather than sending it as an empty string', () => {
-    expect(buildDepositsParams({ collectorOperatorId: '  ' })).not.toHaveProperty(
+  // ⚠️ The free-text `collectorOperatorId` box was REPLACED by the shared *Served
+  // by* combobox in BackOffice 1168 — same column, same predicate, one control, the
+  // same swap the ACRs toolbar made in 1167. The empty-box case it used to pin now
+  // belongs to `buildServedByParams`, and the typed-id case is pinned in
+  // `served-by.test.ts`. This screen no longer sends `CollectorOperatorId` at all.
+  it('no longer sends CollectorOperatorId from the toolbar — Served by asks that question now', () => {
+    expect(buildDepositsParams({ servedBy: { kind: 'COLLECTOR', id: '4472' } })).toEqual({
+      ServedByKind: 'COLLECTOR',
+      ServedById: '4472',
+      Limit: GRID_LIMIT,
+    })
+    expect(buildDepositsParams({ servedBy: { kind: '', id: '' } })).not.toHaveProperty(
       'CollectorOperatorId',
     )
-    expect(buildDepositsParams({ collectorOperatorId: ' 4472 ' }).CollectorOperatorId).toBe('4472')
   })
 
   it('sends the dates as a PAIR or not at all — half-open is unbounded, not narrow', () => {
@@ -128,7 +173,7 @@ describe('buildDepositsParams', () => {
       fromDate: '2026-08-01',
       toDate: '2026-08-08',
       depositNumber: '5501',
-      collectorOperatorId: '4472',
+      servedBy: { kind: 'COLLECTOR', id: '4472' },
       bankCode: 'ANB',
       status: 'VOID',
     }
@@ -136,7 +181,8 @@ describe('buildDepositsParams', () => {
       FromDate: '2026-08-01',
       ToDate: '2026-08-08',
       DepositNumber: '5501',
-      CollectorOperatorId: '4472',
+      ServedByKind: 'COLLECTOR',
+      ServedById: '4472',
       BankCode: 'ANB',
       Status: 'VOID',
       Limit: GRID_LIMIT,
@@ -148,7 +194,7 @@ describe('buildDepositsParams', () => {
       fromDate: '2026-08-01',
       toDate: '2026-08-08',
       depositNumber: '5501',
-      collectorOperatorId: '4472',
+      servedBy: { kind: 'COLLECTOR', id: '4472' },
       bankCode: 'ANB',
       status: 'POSTED',
     }

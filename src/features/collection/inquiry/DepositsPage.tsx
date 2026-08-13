@@ -20,7 +20,8 @@ import {
   omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
-import { canOpenDeposits, collectionApi } from './api'
+import { assignmentOptionsQuery, canOpenDeposits, collectionApi } from './api'
+import type { AssignmentOptions } from './served-by'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import CollectorBalances from './CollectorBalances'
 import { buildDepositsColumns, buildDepositsDefaultColDef } from './deposit-columns'
@@ -75,9 +76,36 @@ export default function DepositsPage() {
       {/* A child component, not inlined markup: its query must not run for a
           session the gate is about to refuse, and an element that is never
           rendered is never mounted. */}
-      <DepositsBody />
+      <DepositsScope />
     </ScreenGate>
   )
+}
+
+/**
+ * **Default-to-mine** (BackOffice 1165, reaching this screen with 1168): a collector
+ * or a supervisor opens Deposits already scoped to what they and their team banked.
+ * An **accountant** opens it on the estate — they never collect and never bank, so
+ * there is nothing here their own scope could hold.
+ *
+ * 🚩 **The body is not mounted until the roster answer has settled**, for 1165's
+ * reason: the landing scope is the *initial state* of both the draft and the applied
+ * query, and mounting first would fire the estate-wide query and then a second one,
+ * flashing every collector's deposits at a user whose screen is supposed to open on
+ * their own.
+ *
+ * A failed or empty answer lands **unscoped** — the scope is a finding aid, never a
+ * permission, and an unreachable roster must not lock anybody out of a screen they
+ * are allowed to open.
+ */
+function DepositsScope() {
+  const { t } = useTranslation('collection')
+  const options = useQuery(assignmentOptionsQuery())
+
+  // The picker in the toolbar reads this same cache entry, so the pair costs one
+  // request rather than one each.
+  if (options.isPending) return <ListShimmer label={t('deposits.loading')} />
+
+  return <DepositsBody options={options.data} />
 }
 
 /**
@@ -90,7 +118,7 @@ const DEPOSIT_ROW_SELECTION: RowSelectionOptions<DepositInquiryRow> = {
   enableClickSelection: true,
 }
 
-function DepositsBody() {
+function DepositsBody({ options }: { options?: AssignmentOptions }) {
   const { t } = useTranslation('collection')
 
   // Today, read at mount and again on Reset — never on render, so a screen left
@@ -99,9 +127,9 @@ function DepositsBody() {
 
   // `criteria` is the live toolbar draft; `appliedParams` is the query that has
   // actually been issued. Only Search/Reset promote one to the other.
-  const [criteria, setCriteria] = useState<DepositsCriteria>(() => landingCriteria(today))
+  const [criteria, setCriteria] = useState<DepositsCriteria>(() => landingCriteria(today, options))
   const [appliedParams, setAppliedParams] = useState<Record<string, unknown>>(() =>
-    buildDepositsParams(landingCriteria(today)),
+    buildDepositsParams(landingCriteria(today, options)),
   )
 
   // The landing query IS the mount query — no `enabled`, no "click Load". ONE
@@ -121,11 +149,13 @@ function DepositsBody() {
     // Reset re-reads the clock: a screen left open overnight resets to the day
     // the accountant is actually looking at, not the day they opened it.
     const now = new Date()
-    const landing = landingCriteria(now)
+    // Reset restores the landing SCOPE too, not "no scope" — it is the state the
+    // screen opened on, and the chip's ✕ is this button.
+    const landing = landingCriteria(now, options)
     setToday(now)
     setCriteria(landing)
     setAppliedParams(buildDepositsParams(landing))
-  }, [])
+  }, [options])
 
   // The per-column filter row (the WPF's `ShowAutoFilterRow`) — ON by default.
   const [showFilters, setShowFilters] = useState(true)
@@ -186,7 +216,7 @@ function DepositsBody() {
   // "Filtered" is about the ISSUED query, not the draft: the chip's job is to say
   // that the grid is no longer showing today, and the grid shows the result of the
   // last Search. Reset is its ✕.
-  const isFiltered = !isLandingQuery(appliedParams, today)
+  const isFiltered = !isLandingQuery(appliedParams, today, options)
   const capReached = isCapReached(rows.length, GRID_LIMIT)
 
   // ---- the export (ticket 258) ----

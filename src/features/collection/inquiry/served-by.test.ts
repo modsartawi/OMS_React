@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   NO_SERVED_BY,
   SERVED_BY_KINDS,
+  SERVED_BY_SCREENS,
   buildServedByParams,
   defaultSelection,
   readServedBySelection,
@@ -367,5 +368,48 @@ describe('the combobox on the collected-by screens', () => {
     expect(buildServedByParams(parseServedByText('acrs', 'Off the roster', entries()))).toEqual({
       ServedByKind: 'UNASSIGNED',
     })
+  })
+
+  // 🔑 **BackOffice 1168 — Deposits is the ACRs list, control-for-control.** The
+  // ticket's claim is that mounting the collector reading on the fourth screen adds
+  // NO second meaning, and this is where that is measured rather than asserted in a
+  // comment: one per-screen table, two entries, and everything the control offers
+  // and parses comes out identical for one payload.
+  //
+  // ⚠️ It is not a tautology about a shared module. The table could perfectly well
+  // have given Deposits its own reading, its own `freeText`, or its own Kind list —
+  // 1166 did exactly that for Cash Collections, whose free-text box SURVIVED beside
+  // the control because there the two genuinely ask different questions. What makes
+  // these two the same is a fact about the DOCUMENTS: a deposit records the
+  // depositor, and its candidate ACRs are gathered by that very id, so "collected
+  // by" and "deposited by" cannot diverge.
+  //
+  // 🚩 A `toEqual` over both tables, not a spot-check of one field: a later slice
+  // adding a third key to the contract would otherwise pass this test while quietly
+  // splitting the two screens on that key.
+  it('renders the same groups, kinds and entries as the ACRs list', () => {
+    expect(SERVED_BY_SCREENS.deposits).toEqual(SERVED_BY_SCREENS.acrs)
+    expect(SERVED_BY_SCREENS.deposits.reading).toBe('collector')
+
+    expect(resolvedKinds('deposits')).toEqual(resolvedKinds('acrs'))
+    expect(servedByGroups('deposits', ROSTER)).toEqual(servedByGroups('acrs', ROSTER))
+    expect(servedByEntries('deposits', ROSTER, label)).toEqual(entries())
+
+    // …down to what a typed id and a clicked suggestion each become — the two
+    // routes into a selection, both answering the same way on either screen.
+    const depositEntries = servedByEntries('deposits', ROSTER, label)
+    expect(parseServedByText('deposits', '99999', depositEntries)).toEqual(
+      parseServedByText('acrs', '99999', entries()),
+    )
+    expect(parseServedByText('deposits', "فهد's team", depositEntries)).toEqual({
+      kind: 'SUPERVISOR',
+      id: '8725',
+    })
+
+    // The mutation-catcher: Cash Collections reads the SAME payload differently, so
+    // "identical" above is a ruling this test can watch being made rather than a
+    // property every screen trivially shares.
+    expect(SERVED_BY_SCREENS.collections).not.toEqual(SERVED_BY_SCREENS.deposits)
+    expect(servedByEntries('collections', ROSTER, label)).not.toEqual(depositEntries)
   })
 })

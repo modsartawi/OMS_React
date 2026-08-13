@@ -78,6 +78,8 @@ const FOUR_FLAGS = {
 
 let scenario = { accessBody: ALL, access403: false, access500: false }
 let accessCalls = 0
+/** The six hostile branches, filled from `settlement-fixture.ts` once the app is up. */
+let ACCOUNTS = {}
 
 async function run() {
   const browser = await chromium.launch()
@@ -97,7 +99,23 @@ async function run() {
   )
 
   await page.route('**/api/**', async (route) => {
+    const url = new URL(route.request().url())
     const path = route.request().url().split('/api/')[1].split('?')[0]
+    // ---- ticket 269: one branch's account ----
+    // Served from the app's OWN fixture module (loaded below), never from a copy
+    // pasted in here: the six hostile branches are one set of bytes, shared with the
+    // vitest suite. ⚠️ Spec 267 §Testing Decisions forbids repointing this at live —
+    // the live estate does not contain an orphan consumption or a CLOSED_OUT beside
+    // a CANCELLED on demand, so a live drive would assert them vacuously.
+    if (path === 'Settlement/Account') {
+      const storeId = url.searchParams.get('storeId') || ''
+      const account = ACCOUNTS[storeId]
+      if (!account)
+        return route.fulfill(
+          envelope(null, { status: 404, success: false, message: 'No such branch' }),
+        )
+      return route.fulfill(envelope(account))
+    }
     if (path === 'Auth/Me')
       return route.fulfill(
         envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }),
@@ -157,6 +175,15 @@ async function run() {
   await page.goto(BASE + '/login')
   await page.waitForLoadState('networkidle')
 
+  // The six branches, read out of the app's OWN fixture module rather than copied in
+  // here: it is TypeScript, this drive is plain node, and vite is already serving
+  // `/src/**.ts` as a transformed ES module. One transcription, and it is the one
+  // `account-projection.test.ts` pins. (`collection-drive.mjs` does the same.)
+  ACCOUNTS = await page.evaluate(async () => {
+    const m = await import('/src/features/collection/settlement/settlement-fixture.ts')
+    return m.SETTLEMENT_ACCOUNTS
+  })
+
   // ---- Scenario 1: granted ----
   let text = await open(ALL)
   check('granted → the screen renders its header', text.includes(TITLE) && !text.includes(DENIED), text.replace(/\n/g, ' ').slice(0, 90))
@@ -201,6 +228,136 @@ async function run() {
   text = await open(NONE, { access500: true })
   check('a 500 reads as UNREACHABLE — try again, not see an administrator', text.includes(UNREACHABLE) && !text.includes(DENIED))
   check('a 500 → the leaf is hidden too', (await leafCount()) === 0)
+
+  // ═══ Ticket 269 — a branch's account is the destination ═══════════════════════
+  //
+  // Every check below is against one of the **six hostile branches** the prototype
+  // chose because each broke a layout that looked fine on the easy case. There is
+  // deliberately no happy-path branch in this section.
+  const openAccount = async (code) => {
+    scenario = { accessBody: ALL, access403: false, access500: false }
+    await page.goto(`${BASE}${ROUTE}?store=${code}`)
+    await page.waitForLoadState('networkidle')
+    return mainText()
+  }
+  const journalText = async () => page.locator('[data-region="entry-journal"]').innerText()
+  const selectEntry = async (entryId) => {
+    await page.locator(`.ag-row[row-id="${entryId}"]`).first().click()
+    await page.waitForTimeout(50)
+    return journalText()
+  }
+
+  // ---- 0142: both kinds open at once ----
+  text = await openAccount('0142')
+  check(
+    '0142 → the headline names the branch and the money it owes',
+    text.includes('Al-Rawdah Pharmacy') && text.includes('455.50') && text.includes('this branch owes head office'),
+  )
+  check(
+    '0142 → BOTH magnitudes render beside the net, never the net alone',
+    text.includes('575.50') && text.includes('120.00'),
+  )
+  check(
+    '⚠️ the headline says it is not settleable',
+    text.includes('never settled') || text.includes('never cancel each other out'),
+  )
+  check('0142 → all three entries render', text.includes('143') && text.includes('151') && text.includes('128'))
+  check('0142 → the kinds carry their Arabic beside the English (D9)', text.includes('عجز') && text.includes('فائض'))
+
+  // ---- 0331: the ORPHAN (rule 1) ----
+  text = await openAccount('0331')
+  let journal = await selectEntry('01J9SETL0331A')
+  check(
+    '🔑 rule 1 — the undocumented consumption is NAMED IN WORDS, not a blank cell',
+    journal.includes('No document — the close never completed'),
+  )
+  check(
+    '🔑 …and the row is marked as such in the DOM, not only by colour',
+    (await page.locator('[data-region="entry-journal"] tr[data-orphan="true"]').count()) === 1,
+  )
+  check('0331 → the orphan still shows what it left behind', journal.includes('300.00'))
+  check(
+    '🔑 …and the ENTRY row flags it too — an orphan is findable without opening every entry',
+    (await page.locator('.ag-row[row-id="01J9SETL0331A"] [col-id="journalCount"]').first().innerText()).includes('no document'),
+  )
+  check(
+    '🚩 the grid selects its first row for itself — the journal is highlighted, not merely shown',
+    (await page.locator('.ag-row-selected').count()) === 1,
+  )
+
+  // ---- 0455: the REVERSAL (rule 2) ----
+  text = await openAccount('0455')
+  journal = await selectEntry('01J9SETL0455A')
+  check('0455 → all four journal rows render', (await page.locator('[data-region="entry-journal"] tbody tr').count()) === 4)
+  check(
+    '🔑 rule 2 — the REVERSE row reads as a RESTORATION, never as another spend',
+    journal.includes('Given back') && journal.includes('Void of SR-0455-0012'),
+  )
+  check(
+    '🔑 …and exactly ONE row is flagged a restoration',
+    (await page.locator('[data-region="entry-journal"] tr[data-restoration="true"]').count()) === 1,
+  )
+  check(
+    '🚩 the restoration RAISES the remainder — the tell a spend never shows',
+    (
+      await page.locator('[data-region="entry-journal"] tr[data-restoration="true"] td').nth(2).innerText()
+    ).includes('600.00'),
+  )
+  check('0455 → no orphan on a fully documented entry', (await page.locator('[data-region="entry-journal"] tr[data-orphan="true"]').count()) === 0)
+
+  // ---- 0207: consumed to zero last night ----
+  text = await openAccount('0207')
+  journal = await selectEntry('01J9SETL0207A')
+  check('0207 → the consumed entry reads as consumed BY A TILL', text.includes('Consumed by a till'))
+  check('0207 → both of last night’s closes are in the journal', journal.includes('Z-51120') && journal.includes('Z-51204'))
+  check('0207 → only the open shortage counts towards the position', text.includes('1,240.00'))
+
+  // ---- 0512: square ----
+  text = await openAccount('0512')
+  check('0512 → a branch with history only reads as SQUARE', text.includes('square with head office'))
+  // ⚠️ Square is not empty. A layout that only ever renders branches with a balance
+  // has not been asked what it does with the ~220 that have none.
+  check('0512 → …and its grid is NOT empty — the history is still there', text.includes('119') && text.includes('Consumed by a till'))
+  check('0512 → its one closed entry still has its journal', (await selectEntry('01J9SETL0512A')).includes('SR-0512-0004'))
+
+  // ---- 0688: the two correction states, and the BHD branch ----
+  text = await openAccount('0688')
+  check('0688 → the CLOSED_OUT entry reads as WRITTEN OFF, not as consumed', text.includes('Remainder written off'))
+  journal = await selectEntry('01J9SETL0688A')
+  check(
+    '🚩 …its zero remaining had no consumption behind it — the write-off is named',
+    journal.includes('written off') && journal.includes('400.000'),
+  )
+  check(
+    '🚩 …and the journal below it is UNCHANGED — one row, the till’s own',
+    (await page.locator('[data-region="entry-journal"] tbody tr').count()) === 1,
+  )
+  journal = await selectEntry('01J9SETL0688B')
+  check('0688 → the CANCELLED entry has an EMPTY journal', journal.includes('Nothing was ever taken'))
+  // 🚩 The wire still carries `remainingAmount: 180` on a CANCELLED entry — the
+  // cancel closes the row without zeroing the figure. Drawing it under a Remaining
+  // header would say the branch owes 180.000 it does not owe. The Amount column
+  // still shows 180.000, and correctly: that IS what was posted.
+  const cancelledCells = async (colId) =>
+    page.locator(`.ag-row[row-id="01J9SETL0688B"] [col-id="${colId}"]`).first().innerText()
+  check('🚩 …and draws NO remaining, though the wire still carries 180', (await cancelledCells('remainingAmount')).trim() === '—')
+  check('🚩 …while its Amount still says what was actually posted', (await cancelledCells('amount')).includes('180.000'))
+  check(
+    '🔑 0688 is BHD → money renders at THREE decimals',
+    text.includes('95.250') && text.includes('640.000'),
+  )
+  check(
+    '🔑 …while the five SAR branches render at TWO — the same figure, read differently',
+    (await openAccount('0142')).includes('75.50'),
+  )
+
+  // ---- the shell, and the boundary ----
+  settlementCalls = 0
+  await page.goto(BASE + ROUTE)
+  await page.waitForLoadState('networkidle')
+  text = await mainText()
+  check('no branch named → the shell stands, and NO account is fetched', text.includes('Nothing to show yet') && settlementCalls === 0, `${settlementCalls} calls`)
+  check('🚩 269 grows NO branch picker to test itself', (await page.locator('main select, main [role="combobox"]').count()) === 0)
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))
 

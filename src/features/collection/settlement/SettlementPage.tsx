@@ -1,18 +1,21 @@
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router'
 import { Landmark } from 'lucide-react'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenSettlement } from './api'
+import BranchAccount from './BranchAccount'
 
 /**
  * Settlement account (`/collection/settlement`) — the accountant's screen, spec
  * 267. **268 lands the surface**: the area's fifth route, its namespace, its menu
  * leaf and its gate. It fetches nothing.
  *
- * What arrives on top of it, in order: 270 makes the door real (the search box and
- * the triaged worklist, and the scope control below stops being inert), 269 makes
- * the branch account the destination, 271 posts an entry, 272 corrects one and
- * draws the audit column, 273 uploads a month's audit sheet.
+ * **269 added the destination** — `?store=` opens one branch's account (see
+ * `BranchAccount`). What arrives on top of it: 270 makes the door real (the search
+ * box and the triaged worklist, and the scope control below stops being inert), 271
+ * posts an entry, 272 corrects one and draws the audit column, 273 uploads a month's
+ * audit sheet.
  *
  * 🚩 **The grant is the only off-switch** (D1). There is no feature flag here and
  * there must not be one — the menu leaf and this gate read the same
@@ -35,18 +38,53 @@ export default function SettlementPage() {
       title={t('title')}
       subtitle={t('subtitle')}
     >
+      <SettlementBody />
+    </ScreenGate>
+  )
+}
+
+/**
+ * The screen's body — the shell until a branch is named, the branch account once one
+ * is.
+ *
+ * 🚩 **`?store=` is where a branch comes from, and the URL is its only home.** The
+ * same idiom `?acr=` established on `CashCollectionsPage` (257): no `selectedStore`
+ * state beside it, so a reload, a paste into a ticket and the Back button all
+ * reproduce the view, and a copy could not drift from it because there is no copy.
+ *
+ * ⚠️ **269 must not grow a branch picker to test itself** (the ticket's own
+ * Boundaries). Reaching a branch is 270's job — its search hit and its worklist rows
+ * become ordinary links to this param — and until then the drive and a pasted
+ * address are how an account is opened. That is the whole of why there is no
+ * dropdown here, and adding one would be building 270 badly a slice early.
+ *
+ * A child component rather than inlined markup: `BranchAccount` holds the query, and
+ * an element that is never rendered is never mounted — so a session the gate is
+ * about to refuse issues no account call.
+ */
+function SettlementBody() {
+  const { t } = useTranslation('settlement')
+  const [searchParams] = useSearchParams()
+  const storeId = searchParams.get('store')?.trim() || ''
+
+  return (
+    <>
       <ScopeControl />
 
-      {/* The shell's body. Deliberately NOT an "empty result" — nothing has been
-          asked of the server, because nothing on this screen calls it yet. The
-          sentence says which slice fills this space rather than implying the
-          estate holds no settlement entries. */}
-      <div className="mx-auto mt-12 flex max-w-sm flex-col items-center gap-2 text-center">
-        <Landmark className="h-8 w-8 text-muted-foreground" aria-hidden />
-        <div className="text-base font-semibold tracking-tight">{t('shell.title')}</div>
-        <p className="text-sm text-muted-foreground">{t('shell.hint')}</p>
-      </div>
-    </ScreenGate>
+      {storeId ? (
+        <BranchAccount storeId={storeId} />
+      ) : (
+        // The shell's body, unchanged from 268 apart from its sentence. Deliberately
+        // NOT an "empty result": nothing has been asked of the server, so the words
+        // say which slice fills this space rather than implying the estate holds no
+        // settlement entries.
+        <div className="mx-auto mt-12 flex max-w-sm flex-col items-center gap-2 text-center">
+          <Landmark className="h-8 w-8 text-muted-foreground" aria-hidden />
+          <div className="text-base font-semibold tracking-tight">{t('shell.title')}</div>
+          <p className="text-sm text-muted-foreground">{t('shell.hint')}</p>
+        </div>
+      )}
+    </>
   )
 }
 

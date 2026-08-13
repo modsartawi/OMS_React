@@ -20,6 +20,80 @@
   },
   "shell": {
     "title": "Nothing to show yet",
-    "hint": "The search box and the worklist land on this screen next. Nothing here reads the ledger yet."
+    "hint": "The search box and the worklist land on this screen next. Until then a branch's account opens from its own address."
+  },
+  "account": {
+    "loading": "Loading this branch's account…",
+    "empty": "No settlement entry has ever been posted against this branch. That is the ordinary state for most of the estate, not a failed lookup.",
+    "capReached": "This branch has more entries than the {{limit}} shown. The oldest are missing from this page.",
+    "errors": {
+      "loadFailed": "This branch's account could not be loaded."
+    },
+    "toolbar": {
+      "filterRow": "Filter row"
+    },
+    "position": {
+      "owes": "this branch owes head office",
+      "keeps": "this branch may keep back",
+      "square": "square with head office"
+    },
+    "headline": {
+      "shortage": "Shortage owed",
+      "surplus": "Surplus kept back",
+      "openCount": "Entries open",
+      "notActionable": "The position is shown, never settled. A till consumes one entry, of one kind, through one document — a shortage and a surplus never cancel each other out."
+    },
+    "kind": {
+      "SHORTAGE": "Shortage · عجز",
+      "SURPLUS": "Surplus · فائض"
+    },
+    "status": {
+      "OPEN": "Open",
+      "CONSUMED": "Consumed by a till",
+      "CANCELLED": "Cancelled",
+      "CLOSED_OUT": "Remainder written off"
+    },
+    "columns": {
+      "entryNumber": "Entry",
+      "entryKind": "Kind",
+      "amount": "Amount",
+      "remainingAmount": "Remaining",
+      "reason": "Reason the branch reads",
+      "status": "Status",
+      "postedByName": "Posted by",
+      "postedAt": "Posted at",
+      "journalCount": "Journal",
+      "journalWithOrphan": "{{count}} · one has no document"
+    },
+    "journal": {
+      "title": "What a till has taken against this entry",
+      "forEntry": "Entry {{number}} · {{kind}} · {{amount}} posted",
+      "noSelection": "Pick an entry above to read its journal.",
+      "empty": "No till has taken anything against this entry yet.",
+      "emptyCancelled": "Nothing was ever taken against this entry — which is why it could be cancelled outright rather than written off.",
+      "none": "Untouched",
+      "writtenOff": "{{amount}} of the remainder was written off by {{by}} on {{at}}. The journal below is unchanged by that — a write-off touches no consumption.",
+      "operator": "Operator {{id}}",
+      "kind": {
+        "CONSUME": "Taken",
+        "REVERSE": "Given back"
+      },
+      "columns": {
+        "what": "What happened",
+        "amount": "Amount",
+        "left": "Left on the entry",
+        "document": "What spent it",
+        "day": "Business day",
+        "who": "Who, and when"
+      },
+      "document": {
+        "receipt": "Settlement receipt {{number}}",
+        "shiftClose": "Shift close {{day}} · {{number}}",
+        "reversal": "Void of {{number}}",
+        "reversalUnnumbered": "Void of a settlement receipt",
+        "orphan": "No document — the close never completed",
+        "orphanHint": "The receipt number is stamped on after the fact, so a blank one means the close is either seconds old or it timed out and gave up. If it stays blank, this is money the branch handed over against a document that will never exist."
+      }
+    }
   }
 }

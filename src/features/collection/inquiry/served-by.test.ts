@@ -4,6 +4,7 @@ import {
   SERVED_BY_KINDS,
   buildServedByParams,
   readServedBySelection,
+  resolvedKinds,
   servedByGroups,
   type AssignmentOptions,
 } from './served-by'
@@ -80,8 +81,53 @@ describe('servedByGroups', () => {
     expect(servedByGroups('collections', withSupervisor).map((g) => g.kind)).toContain('SUPERVISOR')
   })
 
+  // 🚩 BackOffice 1164's `SupervisorsGroupIsAbsentUntilSomebodyIsNamed`. Turning the
+  // SUPERVISOR Kind on server-side does NOT put a Supervisors heading on anybody's
+  // toolbar: a supervisor is not a role, you are one iff somebody names you, and the
+  // shipped extract's supervisor columns are entirely blank. So the group stays
+  // absent on today's seed for every screen that offers it — and appears by itself,
+  // with no deploy, the afternoon finance names the first one.
+  it('keeps the Supervisors group absent until somebody is named as one', () => {
+    const shippedSeed: AssignmentOptions = { ...OPTIONS, supervisors: [] }
+
+    for (const screen of ['collections', 'settlement'] as const) {
+      expect(servedByGroups(screen, shippedSeed).map((g) => g.kind)).not.toContain('SUPERVISOR')
+    }
+
+    // The moment one exists, nothing else has to change.
+    const named: AssignmentOptions = {
+      ...OPTIONS,
+      supervisors: [{ staffId: '6420', displayName: 'عادل' }],
+    }
+    expect(servedByGroups('collections', named).map((g) => g.kind)).toContain('SUPERVISOR')
+  })
+
   it('renders nothing at all before the payload arrives', () => {
     expect(servedByGroups('collections', undefined)).toEqual([])
+  })
+})
+
+// BackOffice 1164 — the other three arms resolve, so the picker may offer them.
+describe('resolvedKinds', () => {
+  // The invariant, restated for the slice that changed the answer: a Kind is offered
+  // iff the server can answer it on THAT SCREEN'S READING. Offering one it refuses is
+  // a filter that errors when used.
+  it('offers all four Kinds on the assignment-reading screens', () => {
+    expect(resolvedKinds('collections')).toEqual([
+      'ACCOUNTANT',
+      'COLLECTOR',
+      'SUPERVISOR',
+      'UNASSIGNED',
+    ])
+    expect(resolvedKinds('settlement')).toEqual(resolvedKinds('collections'))
+  })
+
+  // ⚠️ The collected-by arms are 1167's (ACRs) and 1168's (Deposits) and the server
+  // still 500s on them. This is what stops mounting the shared picker on those
+  // toolbars from silently offering three picks that error.
+  it('offers nothing yet on the two collected-by screens', () => {
+    expect(resolvedKinds('acrs')).toEqual([])
+    expect(resolvedKinds('deposits')).toEqual([])
   })
 })
 

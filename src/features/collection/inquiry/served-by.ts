@@ -122,15 +122,39 @@ export interface ServedByGroup {
 }
 
 /**
- * The Kinds the **server can resolve today**.
+ * The Kinds the **server can resolve today**, on the `assignment` reading.
  *
- * ⚠️ The tracer (BackOffice 1163) ships the `ACCOUNTANT` arm only; 1164 fills the
- * other three in and this list becomes all four. It exists so that flipping them on
- * is editing ONE array rather than hunting through a control four screens bind to —
- * and so that until then the picker cannot offer a Kind whose pick the resolver
- * refuses, which would be a filter that errors when used.
+ * ⚠️ **All four, since BackOffice 1164.** The tracer (1163) shipped `ACCOUNTANT`
+ * alone and this list existed so that turning the rest on would be editing ONE array
+ * rather than hunting through a control four screens bind to — which is exactly what
+ * 1164 did. The invariant it protects is unchanged and still load-bearing: the picker
+ * must never offer a Kind whose pick the resolver refuses, which would be a filter
+ * that errors when used.
+ *
+ * 🚩 **It is keyed by READING, not global**, because the two readings are built on
+ * different tickets: the collected-by arms (`COLLECTOR`, `SUPERVISOR`, `UNASSIGNED`
+ * against the document's own column) are 1167's and 1168's, and the server answers
+ * them with a 500 until then. A single flat array would let mounting this picker on
+ * the ACRs toolbar silently offer three picks that error — the exact failure the list
+ * exists to prevent, arriving by a route the tracer could not see.
  */
-export const RESOLVED_KINDS: ServedByKind[] = [SERVED_BY_KINDS.accountant]
+export const RESOLVED_KINDS_BY_READING: Record<ServedByReading, ServedByKind[]> = {
+  assignment: [
+    SERVED_BY_KINDS.accountant,
+    SERVED_BY_KINDS.collector,
+    SERVED_BY_KINDS.supervisor,
+    SERVED_BY_KINDS.unassigned,
+  ],
+  // ⚠️ ACCOUNTANT is absent here permanently, not pending: a document records who
+  // COLLECTED and an accountant never collects, so the server refuses it by design
+  // (spec D10). The other three are pending 1167/1168.
+  collector: [],
+}
+
+/** The Kinds a given screen may offer — its reading's list, spelled once. */
+export function resolvedKinds(screen: ServedByScreen): ServedByKind[] {
+  return RESOLVED_KINDS_BY_READING[SERVED_BY_SCREENS[screen].reading]
+}
 
 export function servedByGroups(
   screen: ServedByScreen,

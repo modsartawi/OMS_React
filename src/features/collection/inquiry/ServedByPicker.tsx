@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { collectionApi } from './api'
 import {
   NO_SERVED_BY,
-  RESOLVED_KINDS,
+  SERVED_BY_KINDS,
+  resolvedKinds,
   servedByGroups,
   type ServedByKind,
   type ServedByScreen,
@@ -66,12 +67,13 @@ export default function ServedByPicker({
     retry: false,
   })
 
-  // The per-screen contract decides which groups belong here; RESOLVED_KINDS then
-  // drops any the server cannot answer yet. Both are data, so 1164 turning the other
-  // three Kinds on is a one-line edit rather than a change to this component.
-  const groups = servedByGroups(screen, data).filter((group) =>
-    RESOLVED_KINDS.includes(group.kind),
-  )
+  // The per-screen contract decides which groups belong here; the screen's own
+  // resolved list then drops any Kind its READING cannot answer yet. Both are data —
+  // which is why 1164 turned three Kinds on without touching this component, and why
+  // 1167/1168 will turn on the collected-by arms the same way.
+  const resolved = resolvedKinds(screen)
+  const groups = servedByGroups(screen, data).filter((group) => resolved.includes(group.kind))
+  const offersUnassigned = resolved.includes(SERVED_BY_KINDS.unassigned)
   const selected = value.kind === '' ? '' : `${value.kind}${SEP}${value.id}`
 
   return (
@@ -107,13 +109,20 @@ export default function ServedByPicker({
           </optgroup>
         ))}
 
-        {/* ⚠️ NO *Unassigned* ENTRY YET, and no Collectors or Supervisors selection
-            that the server can answer either: the tracer resolves the ACCOUNTANT
-            Kind only, and BackOffice 1164 fills the other three arms in. Offering a
-            Kind the resolver refuses would be a picker that 500s on a pick — worse
-            than one that does not offer it yet. What ships here is the shape, so
-            1164 fills arms in rather than rewriting a control four screens have
-            already bound to. */}
+        {/* 🚩 *Unassigned* sits OUTSIDE the groups and LAST, because it names nobody:
+            it is a question about branches, not a person to pick. On this screen it
+            means "either slot empty, or no pairing row at all" — the ~1255 branches
+            the finance sheet never covered. Keeping the gap pickable is the whole
+            reason it does not silently vanish from every scoped view.
+
+            Its value carries the SEP with an empty id, so the split above yields
+            { kind: 'UNASSIGNED', id: '' } — the exact pair buildServedByParams turns
+            into a lone ServedByKind. */}
+        {offersUnassigned && (
+          <option value={`${SERVED_BY_KINDS.unassigned}${SEP}`} title={t('servedBy.unassignedHint')}>
+            {t('servedBy.unassigned')}
+          </option>
+        )}
       </select>
     </label>
   )

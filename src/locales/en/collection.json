@@ -4,7 +4,8 @@
     "cashCollections": "Cash Collections",
     "acrs": "ACRs",
     "deposits": "Deposits",
-    "attempts": "Collection Attempts"
+    "attempts": "Collection Attempts",
+    "assignment": "Collection Assignment"
   },
   "access": {
     "checking": "Checking your access…",
@@ -297,6 +298,47 @@
       "businessDay": "Business Date",
       "shiftId": "Shift Id",
       "collectorStaffId": "Collector Id"
+    }
+  },
+  "assignment": {
+    "title": "Collection Assignment",
+    "subtitle": "Who serves each branch: the accountant who handles its money and the collector who visits it.",
+    "loading": "Loading the estate…",
+    "counts": "{{total}} branches · {{assigned}} assigned · {{half}} half assigned · {{nobody}} with nobody",
+    "search": {
+      "label": "Find a branch",
+      "placeholder": "Code, name, city, area or a person",
+      "status": "Show",
+      "reset": "Reset"
+    },
+    "status": {
+      "all": "All branches",
+      "gap": "With a gap",
+      "assigned": "Fully assigned",
+      "noAccountant": "No accountant",
+      "noCollector": "No collector",
+      "nobody": "Nobody"
+    },
+    "columns": {
+      "storeCode": "Store Code",
+      "storeName": "Branch",
+      "city": "City",
+      "area": "Area",
+      "accountant": "Accountant",
+      "collector": "Collector",
+      "status": "Status",
+      "updatedBy": "Changed By"
+    },
+    "nobodyOption": "— nobody —",
+    "saving": "Saving…",
+    "unsaved": "Unsaved",
+    "empty": {
+      "title": "No branch matches",
+      "hint": "Clear the search, or switch Show back to all branches."
+    },
+    "errors": {
+      "loadFailed": "The branches could not be loaded.",
+      "saveFailed": "{{store}} was not saved, and nothing was changed."
     }
   }
 }

@@ -28,6 +28,7 @@ import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi } from '@/features/loy/m
 // the four screens' own guards. `layout` may import a feature.
 import {
   canOpenAcrs,
+  canOpenAssignment,
   canOpenAttempts,
   canOpenCollections,
   canOpenDeposits,
@@ -342,6 +343,21 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/collection/attempts',
         activePrefix: '/collection/attempts',
         access: collectionProbe(canOpenAttempts),
+      },
+      {
+        // The area's one WRITE screen (BackOffice 1169) — who serves each branch,
+        // which is what the four grids above filter by.
+        //
+        // 🚩 Its probe reads `canOpenAssignment` and nothing else. The grant
+        // behind it is genuinely new rather than a WPF ControllerID reused, and
+        // it binds NOBODY on day one: the item stays hidden for everyone until an
+        // administrator assigns COLLECTION_ASSIGNMENT in Authz Admin. A ragged
+        // group is the honest answer, exactly as for the four reads.
+        labelKey: 'collection:menu.assignment',
+        icon: ClipboardCheck,
+        routerLink: '/collection/assignment',
+        activePrefix: '/collection/assignment',
+        access: collectionProbe(canOpenAssignment),
       },
     ],
   },

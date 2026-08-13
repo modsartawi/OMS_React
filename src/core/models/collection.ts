@@ -34,6 +34,26 @@ export interface CollectionAccessResult {
   canOpenAcrs: boolean
   canOpenDeposits: boolean
   canOpenAttempts: boolean
+  /**
+   * **Collection Assignment** (BackOffice 1169) — the fifth flag, and the only
+   * one that is not a read.
+   *
+   * 🚩 **Its grant is genuinely new, and it is never OR-ed with the four above.**
+   * The others reuse WPF `ControllerID`s a finance user may already hold;
+   * `CollectionAssignment` is web-only and gates the screen that REWRITES the
+   * pairing all four of those grids filter by, so holding a read grant must never
+   * light it.
+   *
+   * ⚠️ **False for everybody on day one.** The seed mints the grant and binds
+   * nobody, so the item simply does not appear until an administrator assigns
+   * `COLLECTION_ASSIGNMENT` in Authz Admin. That is the staged rollout, not a
+   * defect — the same situation `CollectionAttempts` shipped in.
+   *
+   * Optional so a SIS.Api released ahead of this slice answers the four it knows
+   * and the fifth item stays hidden, rather than the whole probe reading as
+   * malformed and hiding the area.
+   */
+  canOpenAssignment?: boolean
 }
 
 /**

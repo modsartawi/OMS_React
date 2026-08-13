@@ -30,6 +30,7 @@ import type {
   DepositInquiryResult,
   VoucherDocument,
 } from '@/core/models/collection'
+import type { AssignmentBranch, SaveAssignmentBody } from './assignment'
 import type { AssignmentOptions } from './served-by'
 
 /**
@@ -123,6 +124,17 @@ export const canOpenAcrs = (r: Access): boolean => r?.canOpenAcrs === true
 export const canOpenDeposits = (r: Access): boolean => r?.canOpenDeposits === true
 export const canOpenAttempts = (r: Access): boolean => r?.canOpenAttempts === true
 
+/**
+ * The fifth predicate (BackOffice 1169) — the Collection Assignment admin screen.
+ *
+ * 🚩 **Reads its OWN flag and nothing else.** Assigning branches is a different
+ * privilege from reading collection lists: a session holding all four inquiry
+ * grants must still not see this item, because the screen behind it rewrites the
+ * master data those four grids filter by. `=== true` for the same reason as its
+ * siblings, and because an older SIS.Api simply omits the field.
+ */
+export const canOpenAssignment = (r: Access): boolean => r?.canOpenAssignment === true
+
 export const collectionApi = {
   /**
    * `GET CollectionWeb/Access` → the four booleans. Cookie-gated and
@@ -185,6 +197,47 @@ export const collectionApi = {
    */
   assignmentOptions(): Promise<AssignmentOptions> {
     return api.get<AssignmentOptions>('CollectionWeb/AssignmentOptions')
+  },
+
+  /**
+   * `GET CollectionWeb/Assignment/Branches` → the Collection Assignment screen's
+   * rows (BackOffice 1169), grant-gated on `CollectionAssignment` — its own grant,
+   * never an inquiry's.
+   *
+   * 🔑 **Every open branch, not the assigned ones.** `Store LEFT JOIN
+   * PosCollectionAssignment`: ~1394 rows of which ~1255 carry a gap, because the
+   * gap is the work. It takes no parameters at all — the screen filters, searches
+   * and pages over the one payload client-side, and opens on **everything,
+   * unfiltered**, which is deliberately not the default-to-mine the four inquiry
+   * screens land on.
+   *
+   * ⚠️ **No name columns.** The two people are ids; their names come from the
+   * roster `assignmentOptions()` already fetched — the same list the two dropdowns
+   * are built from, so the screen has one name source instead of two that can
+   * disagree.
+   */
+  assignmentBranches(): Promise<AssignmentBranch[]> {
+    return api.get<AssignmentBranch[]>('CollectionWeb/Assignment/Branches')
+  },
+
+  /**
+   * `POST CollectionWeb/Assignment/SetStore` → save ONE branch's pairing, and get
+   * back what the server now holds.
+   *
+   * 🔑 **The body carries no actor.** Attribution is stamped server-side from the
+   * cookie session, so a browser cannot attribute a reassignment to somebody else
+   * — the `CouponsAdminWebService` shape.
+   *
+   * 🚩 **Per-row, never a batch.** A batch holds state the server does not, and a
+   * partial failure has to say which of forty rows landed; this says which branch
+   * failed by being about one branch. A refusal (unknown branch, an id off the
+   * roster, or one filed under the other Role) comes back as a `business`
+   * `ApiError` and **stages nothing** — the branch is left exactly as it was, so
+   * the screen can keep the row and its unsaved edit on screen and let the user
+   * fix it.
+   */
+  saveAssignment(body: SaveAssignmentBody): Promise<AssignmentBranch> {
+    return api.post<AssignmentBranch>('CollectionWeb/Assignment/SetStore', body)
   },
 
   /**

@@ -275,6 +275,16 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/collection/inquiry/CollectionAttemptsPage')).default,
         }),
       },
+      // The area's one WRITE screen (BackOffice 1169): who serves each branch.
+      // Behind its OWN grant — reading a collection list never implies rewriting
+      // the master data those lists filter by — and, like the four above, behind
+      // its own in-page backstop on the same probe key the nav leaf reads.
+      {
+        path: 'collection/assignment',
+        lazy: async () => ({
+          Component: (await import('@/features/collection/inquiry/CollectionAssignmentPage')).default,
+        }),
+      },
       // The Reports area (spec 261, ticket 263) — a new top-level area at
       // `/reports/*`, one feature behind ONE `RetailInvoice/Access` probe. The
       // area is the point as much as the screen is: the render rail was designed

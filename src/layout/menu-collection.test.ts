@@ -30,12 +30,14 @@ const ALL = {
   canOpenAcrs: true,
   canOpenDeposits: true,
   canOpenAttempts: true,
+  canOpenAssignment: true,
 }
 const NONE = {
   canOpenCollections: false,
   canOpenAcrs: false,
   canOpenDeposits: false,
   canOpenAttempts: false,
+  canOpenAssignment: false,
 }
 
 /** One probe answer, repeated once per gated leaf — they all read the SAME call. */
@@ -54,7 +56,7 @@ const pending: ProbeState[] = gatedLeaves([collections!]).map(() => ({
 }))
 
 describe('the Collections nav group', () => {
-  it('exists, with all four leaves gated behind the ONE shared key', () => {
+  it('exists, with all five leaves gated behind the ONE shared key', () => {
     expect(collections).toBeDefined()
     const leaves = gatedLeaves([collections!])
     expect(leaves.map((l) => l.routerLink)).toEqual([
@@ -62,6 +64,7 @@ describe('the Collections nav group', () => {
       '/collection/acrs',
       '/collection/deposits',
       '/collection/attempts',
+      '/collection/assignment',
     ])
     // ONE call for the whole area: every leaf's probe key is the SAME exported
     // constant the four screens' own guards read. That identity is what makes a
@@ -70,13 +73,14 @@ describe('the Collections nav group', () => {
     for (const leaf of leaves) expect(leaf.access!.key).toBe(COLLECTION_ACCESS_KEY)
   })
 
-  it('all four granted → four items under one Collections group', () => {
+  it('all five granted → five items under one Collections group', () => {
     expect(labels(resolveMenu([collections!], probed(ALL)).items)).toEqual([
       'collection:menu.collections',
       'collection:menu.cashCollections',
       'collection:menu.acrs',
       'collection:menu.deposits',
       'collection:menu.attempts',
+      'collection:menu.assignment',
     ])
   })
 
@@ -103,6 +107,28 @@ describe('the Collections nav group', () => {
       'collection:menu.cashCollections',
       'collection:menu.attempts',
     ])
+
+    // 🚩 BackOffice 1169's own version of the rule, and the one with teeth: a
+    // session holding ALL FOUR read grants still does not see Collection
+    // Assignment. Reading a collection list never implies rewriting the master
+    // data those lists filter by, and the grant behind that screen is its own.
+    expect(
+      labels(
+        resolveMenu([collections!], probed({ ...ALL, canOpenAssignment: false })).items,
+      ),
+    ).toEqual([
+      'collection:menu.collections',
+      'collection:menu.cashCollections',
+      'collection:menu.acrs',
+      'collection:menu.deposits',
+      'collection:menu.attempts',
+    ])
+
+    // …and the converse: bound to COLLECTION_ASSIGNMENT alone, they get that one
+    // item and no grid.
+    expect(
+      labels(resolveMenu([collections!], probed({ ...NONE, canOpenAssignment: true })).items),
+    ).toEqual(['collection:menu.collections', 'collection:menu.assignment'])
   })
 
   it('🚩 none granted → NO group at all, not an empty one', () => {
@@ -117,7 +143,13 @@ describe('the Collections nav group', () => {
       pending,
       probed({}),
       probed(null),
-      probed({ canOpenCollections: 'true', canOpenAcrs: 1, canOpenDeposits: {}, canOpenAttempts: [] }),
+      probed({
+        canOpenCollections: 'true',
+        canOpenAcrs: 1,
+        canOpenDeposits: {},
+        canOpenAttempts: [],
+        canOpenAssignment: 'yes',
+      }),
       // The shape a different door might answer — a single flag for the area.
       probed({ canOpen: true }),
     ]) {

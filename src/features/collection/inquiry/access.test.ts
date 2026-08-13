@@ -15,13 +15,20 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { CollectionAccessResult } from '@/core/models/collection'
-import { canOpenAcrs, canOpenAttempts, canOpenCollections, canOpenDeposits } from './api'
+import {
+  canOpenAcrs,
+  canOpenAssignment,
+  canOpenAttempts,
+  canOpenCollections,
+  canOpenDeposits,
+} from './api'
 
 const NONE: CollectionAccessResult = {
   canOpenCollections: false,
   canOpenAcrs: false,
   canOpenDeposits: false,
   canOpenAttempts: false,
+  canOpenAssignment: false,
 }
 
 const PREDICATES = [
@@ -29,6 +36,10 @@ const PREDICATES = [
   ['canOpenAcrs', canOpenAcrs],
   ['canOpenDeposits', canOpenDeposits],
   ['canOpenAttempts', canOpenAttempts],
+  // 1169's fifth door, in the same matrix as the four reads — because the one
+  // thing that must never happen is a read grant lighting the screen that
+  // rewrites what those reads filter by.
+  ['canOpenAssignment', canOpenAssignment],
 ] as const
 
 describe('the Collection probe predicates', () => {

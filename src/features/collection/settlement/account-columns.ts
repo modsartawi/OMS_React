@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import { formatMoneyIn } from '@/core/money'
 import { formatDateTime } from '@/core/util/date-format'
 import type { AccountEntryRow } from './account-projection'
+import { entryKindLabel, entryStatusLabel, remainingCell } from './entry-cells'
 
 /**
  * The branch account's entries grid (ticket 269) — 254's column shape applied to a
@@ -56,9 +57,9 @@ export function buildAccountColumns(
       // they are what the branch's own till screen says; a second locale would be
       // the wrong tool for a word this app needs in one language at a time.
       valueFormatter: (p: ValueFormatterParams<AccountEntryRow, string>) =>
-        p.value ? t(`account.kind.${p.value}`) : '',
+        entryKindLabel(t, p.value),
       // The filter row has to match what is on screen, not the wire's enum.
-      filterValueGetter: (p) => (p.data ? t(`account.kind.${p.data.entryKind}`) : ''),
+      filterValueGetter: (p) => entryKindLabel(t, p.data?.entryKind),
     },
     {
       headerName: t('account.columns.amount'),
@@ -82,7 +83,7 @@ export function buildAccountColumns(
       filter: 'agNumberColumnFilter',
       cellClass: 'text-end tabular-nums',
       valueFormatter: (p: ValueFormatterParams<AccountEntryRow, number | null>) =>
-        p.value === null || p.value === undefined ? '—' : money(p.value),
+        remainingCell(p.data, p.value, currencyKey),
     },
     {
       // Free text the BRANCH reads verbatim at a till — server data, so it passes
@@ -103,8 +104,8 @@ export function buildAccountColumns(
       // different fact about where the money went, and the one the branch will ask
       // about. The row's own dimming (see `BranchAccount`) is the second half.
       valueFormatter: (p: ValueFormatterParams<AccountEntryRow, string>) =>
-        p.value ? t(`account.status.${p.value}`) : '',
-      filterValueGetter: (p) => (p.data ? t(`account.status.${p.data.status}`) : ''),
+        entryStatusLabel(t, p.value),
+      filterValueGetter: (p) => entryStatusLabel(t, p.data?.status),
     },
     {
       headerName: t('account.columns.postedByName'),

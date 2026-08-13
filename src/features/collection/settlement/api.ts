@@ -20,8 +20,16 @@
  */
 import { api } from '@/core/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
-import type { SettlementAccount } from '@/core/models/settlement'
-import { ACCOUNT_LIMIT } from './cap'
+import type {
+  SettlementAccount,
+  SettlementFleetRow,
+  SettlementLedgerRow,
+  SettlementRepairResult,
+  SettlementWorklistResult,
+} from '@/core/models/settlement'
+import { ACCOUNT_LIMIT, LEDGER_LIMIT } from './cap'
+import type { LedgerCriteria } from './ledger'
+import { buildLedgerParams } from './ledger'
 
 /**
  * The settlement account's predicate — this screen's own reading of the fifth flag.
@@ -65,5 +73,87 @@ export const settlementApi = {
    */
   account(storeId: string): Promise<SettlementAccount> {
     return api.get<SettlementAccount>('Settlement/Account', { storeId, limit: ACCOUNT_LIMIT })
+  },
+
+  /**
+   * `GET Settlement/Fleet?scope=all` → one aggregated row per store (spec 267 D8).
+   *
+   * 🔑 **`scope=all`, always — and that is not the scope control being ignored.**
+   * The control's three states are honoured in `scope.ts`, over the answer, for a
+   * reason D2 makes load-bearing: *wrong money and cash waiting are always
+   * estate-wide whatever the scope says*, and the search must **rank** rather than
+   * refuse. A client that re-fetched per scope would either have to issue two
+   * calls per change (one scoped, one estate-wide) or quietly lose the 1255
+   * unassigned branches from the lanes — which is the exact failure the carve-out
+   * exists to prevent.
+   *
+   * The parameter is still sent rather than omitted, because it is the contract's
+   * and `all` is a real value on it. ⚠️ 274 confirms the string; if the door turns
+   * out to want the scoping done server-side, the change is one call becoming two,
+   * with the estate-wide one still feeding the lanes.
+   *
+   * The estate is 1394 rows of eleven scalars — a single answer a browser sorts,
+   * filters and ranks without noticing. 🚩 **Nothing caches or denormalises it**
+   * (the ticket's own boundary): it is a query per page life, and the per-store
+   * balance table this design refused twice stays refused.
+   */
+  fleet(): Promise<SettlementFleetRow[]> {
+    return api.get<SettlementFleetRow[]>('Settlement/Fleet', { scope: 'all' })
+  },
+
+  /**
+   * `GET Settlement/Worklist` → the two enumerated lanes (a 270 extension of D8,
+   * logged in `.afk/HITL-270.md`).
+   *
+   * 🔑 **It takes no parameters, and the absence is the design.** D8's `FleetRow`
+   * can say a branch *has* an orphan; it cannot say which consumption, for how
+   * much, or how old — and `Settlement/Repair` is keyed by a
+   * `settlementConsumptionId`. A lane that could only point at a branch would send
+   * the accountant hunting through an account for the row.
+   *
+   * A door with no scope to pass cannot be narrowed by accident, which is the
+   * carve-out (D2) enforced by shape rather than by a comment.
+   */
+  worklist(): Promise<SettlementWorklistResult> {
+    return api.get<SettlementWorklistResult>('Settlement/Worklist')
+  },
+
+  /**
+   * `GET Settlement/Ledger` → the flat cross-estate ledger (a 270 extension of
+   * D8, logged).
+   *
+   * **Filter-first and capped**, like the four inquiries: the criteria the reader
+   * typed go on the wire, `LEDGER_LIMIT` bounds the answer, and the banner fires
+   * when it bites. ⚠️ It is explicitly **not the account** — it can only assert a
+   * total nobody owes and nobody consumes (D2), so its figures render as report
+   * figures and the position stays on 269's account.
+   *
+   * It is also how an **entry number** is resolved to a branch: *"entry 143,
+   * whichever branch it is on"* is this door with one criterion.
+   */
+  ledger(criteria: LedgerCriteria): Promise<SettlementLedgerRow[]> {
+    return api.get<SettlementLedgerRow[]>('Settlement/Ledger', {
+      ...buildLedgerParams(criteria),
+      limit: LEDGER_LIMIT,
+    })
+  },
+
+  /**
+   * `POST Settlement/Repair` → puts an orphan consumption's money back on its
+   * entry. **The only write on this screen** (the ticket's own boundary — posting
+   * is 271's, correction 272's).
+   *
+   * 🔑 **A no-op is a 200, not a failure.** The server's guard is inside its
+   * UPDATE and is predicated on the consumption still having no document, so a
+   * late Z arriving mid-click means there was never anything to repair. That comes
+   * back as `noOp: true` and the screen says so plainly. Likewise a refusal is
+   * `accepted: false` with a reason — nothing here throws on a business outcome,
+   * and `@/core/api` owns the ones that are genuinely errors.
+   */
+  repair(settlementConsumptionId: string, reason: string): Promise<SettlementRepairResult> {
+    return api.post<SettlementRepairResult>('Settlement/Repair', {
+      settlementConsumptionId,
+      reason,
+    })
   },
 }

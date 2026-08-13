@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { AgGridReact } from 'ag-grid-react'
+import type { IRowNode } from 'ag-grid-community'
 import { Filter } from 'lucide-react'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
@@ -40,7 +41,16 @@ import EntryJournal from './EntryJournal'
  * query must not run for a session the gate is about to refuse, and an element that
  * is never rendered is never mounted.
  */
-export default function BranchAccount({ storeId }: { storeId: string }) {
+export default function BranchAccount({
+  storeId,
+  entryNumber = null,
+}: {
+  storeId: string
+  /** 🔑 The entry the DOOR sent the reader for (270) — *"entry 143, whichever branch
+   *  it is on"*, spec 267 story 3. `null` when the reader asked for the branch
+   *  itself, which is 269's own landing: the grid's first displayed row. */
+  entryNumber?: number | null
+}) {
   const { t } = useTranslation('settlement')
 
   const account = useQuery({
@@ -150,9 +160,22 @@ export default function BranchAccount({ storeId }: { storeId: string }) {
               // journal below arrives populated. `getDisplayedRowAtIndex` rather than
               // `rows[0]`: after a sort or a filter those are different entries, and
               // the highlighted one is the one the reader will believe.
+              // …and the grid opens on the entry the door named, falling back to its
+              // first DISPLAYED row. `getDisplayedRowAtIndex` rather than `rows[0]`:
+              // after a sort or a filter those are different entries, and the
+              // highlighted one is the one the reader will believe.
               onRowDataUpdated={(e) => {
-                if (e.api.getSelectedNodes().length === 0)
-                  e.api.getDisplayedRowAtIndex(0)?.setSelected(true)
+                if (e.api.getSelectedNodes().length > 0) return
+                // 🔑 The named entry wins, and it is ensured visible — an account
+                // with 200 entries would otherwise select a row three pages down and
+                // look, to the reader, exactly like a screen that ignored them.
+                const named = entryNumber === null ? null : findEntryNode(e.api, entryNumber)
+                if (named) {
+                  named.setSelected(true)
+                  if (named.rowIndex !== null) e.api.ensureIndexVisible(named.rowIndex)
+                  return
+                }
+                e.api.getDisplayedRowAtIndex(0)?.setSelected(true)
               }}
               // Paging like the neighbours: 50 a page, in the browser, over the whole
               // account — so sort and the per-column filter row see every entry
@@ -169,6 +192,22 @@ export default function BranchAccount({ storeId }: { storeId: string }) {
       )}
     </div>
   )
+}
+
+/**
+ * The row for one entry number, or `null` when this branch's account does not hold
+ * it — a pasted address can name an entry that was moved or never existed, and the
+ * account then lands where it always does rather than on nothing.
+ */
+function findEntryNode(
+  api: { forEachNode: (fn: (node: IRowNode<AccountEntryRow>) => void) => void },
+  entryNumber: number,
+): IRowNode<AccountEntryRow> | null {
+  let found: IRowNode<AccountEntryRow> | null = null
+  api.forEachNode((node) => {
+    if (!found && node.data?.entryNumber === entryNumber) found = node
+  })
+  return found
 }
 
 /**

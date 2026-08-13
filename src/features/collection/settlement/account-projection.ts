@@ -1,3 +1,4 @@
+import { roundMoney } from '@/core/money'
 import type {
   SettlementAccount,
   SettlementConsumption,
@@ -29,14 +30,16 @@ import type {
 
 /**
  * Settlement money is `DECIMAL(18,3)` on the server (D10 — the GCC has 3-decimal
- * currencies), so sums are rounded back to three places.
+ * currencies), so sums are rounded back to three places before they are compared or
+ * displayed.
  *
- * Not cosmetic: `0.1 + 0.2` is `0.30000000000000004` in IEEE-754, and a headline
- * built by adding a branch's open remainders would otherwise carry that tail into
- * the `=== 0` comparison that decides whether a branch reads as **square**. A
- * branch that is exactly level would then read as owing a millionth of a halala.
+ * 🚩 It lived here as a local `round3` until 270 wrote the third copy of it, and it
+ * **graduated to `@/core/money`** on the trigger this repo uses for exactly that —
+ * the escalation path in `feature-structure`, and the road `ScreenGate` and
+ * `distinctCurrencies` each took. The argument for it (an IEEE-754 tail deciding
+ * whether a branch reads as *square*) travelled with it and is on `MONEY_SCALE`.
  */
-const round3 = (n: number): number => Math.round(n * 1000) / 1000
+const round3 = roundMoney
 
 /** Which way a branch's signed position points. `square` is a real answer and is
  *  worded as one — the fixture's 0512 exists to prove a layout renders it. */

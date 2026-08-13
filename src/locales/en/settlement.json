@@ -15,12 +15,95 @@
     "label": "Which branches",
     "mine": "My branches",
     "unassigned": "Unassigned",
-    "all": "All branches",
-    "inert": "Not active yet"
+    "all": "All branches"
   },
-  "shell": {
-    "title": "Nothing to show yet",
-    "hint": "The search box and the worklist land on this screen next. Until then a branch's account opens from its own address."
+  "search": {
+    "label": "Find a branch or an entry",
+    "placeholder": "Branch code, name in either script, city, or entry #",
+    "submit": "Search",
+    "clear": "Clear",
+    "showing": "Showing {{shown}} of {{total}} branches",
+    "empty": "No branch matches that. Try a code, part of a name in either script, or a city.",
+    "noEntry": "There is no entry {{number}} anywhere in the estate.",
+    "lookupFailed": "That entry number could not be looked up.",
+    "openCount": "{{count}} open",
+    "assignment": {
+      "mine": "Yours",
+      "unassigned": "Assigned to nobody",
+      "other": "Another accountant's"
+    }
+  },
+  "door": {
+    "loading": "Loading the estate…",
+    "back": "Back to the worklist",
+    "errors": {
+      "fleetFailed": "The estate could not be loaded, so search and the ageing count are unavailable.",
+      "worklistFailed": "The worklist could not be loaded."
+    },
+    "estate": {
+      "figure": "{{currency}} · {{branches}} branches hold {{entries}} open entries: {{shortage}} of shortage, {{surplus}} of surplus."
+    }
+  },
+  "worklist": {
+    "title": "What needs a human",
+    "estateWide": "Wrong money and waiting cash are shown for the whole estate, whichever branches are scoped.",
+    "refresh": "Refresh",
+    "nothing": "Nothing needs a human right now. No consumption is missing its document and no prepared receipt is waiting.",
+    "wrongMoney": {
+      "title": "Wrong money ({{count}})",
+      "hint": "A till took money against an entry and the document behind it never arrived.",
+      "row": "entry {{entry}} · no document after {{days}} days",
+      "repair": "Repair"
+    },
+    "cashWaiting": {
+      "title": "Cash waiting ({{count}})",
+      "hint": "The branch prepared a settlement receipt and no collector has taken it. They never expire.",
+      "row": "receipt {{number}} · prepared {{days}} days ago"
+    },
+    "ageing": {
+      "title": "Ageing",
+      "summary": "{{count}} entries have been open longer than {{days}} days, across {{branches}} branches — counted for the branches you have scoped.",
+      "openLedger": "Browse open entries"
+    }
+  },
+  "repair": {
+    "title": "Repair this consumption",
+    "summary": "{{amount}} was taken from entry {{entry}} at {{store}} {{storeName}}, and the document behind it has not arrived in {{days}} days. Repairing puts the amount back on the entry.",
+    "consumedAt": "Taken at {{at}}.",
+    "raceHint": "If a document has arrived since this list was drawn, the repair does nothing at all — which is the right outcome, and you will be told.",
+    "reasonLabel": "Why (the audit reads this)",
+    "reasonHint": "Up to 200 characters. This is kept beside the repair in the branch's history.",
+    "confirm": "Repair",
+    "cancel": "Cancel",
+    "done": "{{amount}} is back on the entry at {{store}}.",
+    "noOp": "A document arrived for this consumption — nothing to repair.",
+    "refused": "The server would not repair this consumption.",
+    "failed": "The repair could not be sent."
+  },
+  "ledger": {
+    "title": "Every entry, across the estate",
+    "notTheAccount": "A lookup, not an account — find an entry whichever branch it is on, then open that branch.",
+    "loading": "Searching the ledger…",
+    "filterFirst": "Type an entry number, a branch code, or pick a kind or status. The estate is too big to open on nothing.",
+    "empty": "No entry matches those criteria.",
+    "capReached": "This search came back with {{limit}} entries, which is the most the server will send. Narrow it to be sure you are seeing everything.",
+    "figure": "{{currency}} · {{rows}} entries found, {{open}} still open: {{shortage}} of shortage, {{surplus}} of surplus.",
+    "errors": {
+      "loadFailed": "The ledger could not be searched."
+    },
+    "criteria": {
+      "entryNumber": "Entry #",
+      "storeId": "Branch",
+      "entryKind": "Kind",
+      "status": "Status",
+      "any": "Any",
+      "search": "Search",
+      "clear": "Clear"
+    },
+    "columns": {
+      "store": "Branch",
+      "storeName": "Branch name"
+    }
   },
   "account": {
     "loading": "Loading this branch's account…",
@@ -95,5 +178,8 @@
         "orphanHint": "The receipt number is stamped on after the fact, so a blank one means the close is either seconds old or it timed out and gave up. If it stays blank, this is money the branch handed over against a document that will never exist."
       }
     }
+  },
+  "figures": {
+    "notActionable": "A report figure. Nobody owes the estate's total and no till can consume it — a position belongs to one branch, on its own account."
   }
 }

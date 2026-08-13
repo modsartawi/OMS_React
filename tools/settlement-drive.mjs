@@ -80,6 +80,16 @@ let scenario = { accessBody: ALL, access403: false, access500: false }
 let accessCalls = 0
 /** The six hostile branches, filled from `settlement-fixture.ts` once the app is up. */
 let ACCOUNTS = {}
+/** Ticket 270's estate: 1394 fleet rows, the two enumerated lanes, the flat ledger —
+ *  all three read out of `fleet-fixture.ts`, the module the vitest suites pin. */
+let FLEET = []
+let WORKLIST = { orphans: [], uncollected: [], ageingThresholdDays: 30 }
+let LEDGER = []
+/** The consumption whose document arrives MID-CLICK — the OLDEST orphan, picked
+ *  once the fixture is loaded. Repairing it must come back a no-op (a 200 that
+ *  changed nothing) rather than an error. */
+let NOOP_CONSUMPTION = ''
+let repairCalls = []
 
 async function run() {
   const browser = await chromium.launch()
@@ -115,6 +125,44 @@ async function run() {
           envelope(null, { status: 404, success: false, message: 'No such branch' }),
         )
       return route.fulfill(envelope(account))
+    }
+    // ---- ticket 270: the door ----
+    // The fleet is served ESTATE-WIDE whatever the scope asks for, which is what the
+    // client sends (`scope=all`) — the scope is applied on the client so that the two
+    // enumerated lanes stay estate-wide under every scope. See `scope.ts`.
+    if (path === 'Settlement/Fleet') return route.fulfill(envelope(FLEET))
+    if (path === 'Settlement/Worklist') return route.fulfill(envelope(WORKLIST))
+    if (path === 'Settlement/Ledger') {
+      const entryNumber = url.searchParams.get('entryNumber') || ''
+      const storeId = url.searchParams.get('storeId') || ''
+      const entryKind = url.searchParams.get('entryKind') || ''
+      const status = url.searchParams.get('status') || ''
+      const rows = LEDGER.filter(
+        (r) =>
+          (!entryNumber || String(r.entryNumber) === entryNumber) &&
+          (!storeId || r.storeId === storeId) &&
+          (!entryKind || r.entryKind === entryKind) &&
+          (!status || r.status === status),
+      ).slice(0, Number(url.searchParams.get('limit') || 500))
+      return route.fulfill(envelope(rows))
+    }
+    if (path === 'Settlement/Repair') {
+      const body = route.request().postDataJSON() || {}
+      repairCalls.push(body)
+      // 🔑 The race, lost: a document arrived for this consumption between the list
+      // being drawn and the button being pressed. The server's guard is inside its
+      // UPDATE, so nothing happened — and it is a 200, not a failure.
+      if (body.settlementConsumptionId === NOOP_CONSUMPTION)
+        return route.fulfill(envelope({ accepted: false, noOp: true, remainingAfter: 0, refusalReason: '' }))
+      // …and the ordinary repair: the money goes back on the entry, and the lane it
+      // came from no longer holds it.
+      WORKLIST = {
+        ...WORKLIST,
+        orphans: WORKLIST.orphans.filter(
+          (o) => o.settlementConsumptionId !== body.settlementConsumptionId,
+        ),
+      }
+      return route.fulfill(envelope({ accepted: true, noOp: false, remainingAfter: 450, refusalReason: '' }))
     }
     if (path === 'Auth/Me')
       return route.fulfill(
@@ -183,13 +231,28 @@ async function run() {
     const m = await import('/src/features/collection/settlement/settlement-fixture.ts')
     return m.SETTLEMENT_ACCOUNTS
   })
+  // …and 270's estate, from the module the vitest suites assert against: 1394
+  // branches, 1255 of them assigned to nobody, four orphan consumptions and 140
+  // ageing entries of which 47 are in scope.
+  const estate = await page.evaluate(async () => {
+    const m = await import('/src/features/collection/settlement/fleet-fixture.ts')
+    return { fleet: m.SETTLEMENT_FLEET, worklist: m.SETTLEMENT_WORKLIST, ledger: m.SETTLEMENT_LEDGER }
+  })
+  FLEET = estate.fleet
+  WORKLIST = estate.worklist
+  LEDGER = estate.ledger
+  // The oldest orphan is the one whose document arrives mid-click.
+  NOOP_CONSUMPTION = [...WORKLIST.orphans].sort((a, b) => b.ageDays - a.ageDays)[0]
+    .settlementConsumptionId
 
   // ---- Scenario 1: granted ----
   let text = await open(ALL)
   check('granted → the screen renders its header', text.includes(TITLE) && !text.includes(DENIED), text.replace(/\n/g, ' ').slice(0, 90))
-  check('granted → the inert scope control renders all three states', ['My branches', 'Unassigned', 'All branches'].every((s) => text.includes(s)))
-  check('granted → the scope control is INERT (270 wires it)', (await page.locator(`[role="group"] button[aria-disabled="true"]`).count()) === 3)
-  check('granted → the shell states there is nothing here yet', text.includes('Nothing to show yet'))
+  check('granted → the scope control renders all three states', ['My branches', 'Unassigned', 'All branches'].every((s) => text.includes(s)))
+  // 🚩 268 rendered this control INERT and said so; 270 wired it, so the assertion
+  // is now the opposite one: three live buttons, one of them pressed.
+  check('granted → the scope control is LIVE (270 wired it)', (await page.locator('[data-region="settlement-scope"] button[aria-disabled="true"]').count()) === 0 && (await page.locator('[data-region="settlement-scope"] button[aria-pressed="true"]').count()) === 1)
+  check('granted → the door renders its worklist', text.includes('What needs a human'))
   check('granted → the Collections group renders', (await groupCount()) === 1)
   check('granted → the Settlement leaf is the FIFTH item', (await leafCount()) === 1 && (await inquiryLeaves()) === 4)
   check('🚩 the namespace is REGISTERED — no raw t() key on screen', !/settlement:|\bshell\.|\bscope\./.test(text + (await page.locator('nav').innerText())))
@@ -198,10 +261,15 @@ async function run() {
   // so react-query dedupes them into a single request per page life. The fifth grant
   // must not have cost a sixth round trip.
   accessCalls = 0
+  settlementCalls = 0
   await page.goto(BASE + ROUTE)
   await page.waitForLoadState('networkidle')
   check('the five leaves + the screen gate cost ONE CollectionWeb/Access call', accessCalls === 1, `${accessCalls} calls`)
-  check('🚩 268 fetches NOTHING — no Settlement/* call at all', settlementCalls === 0, `${settlementCalls} calls`)
+  // 🚩 The door costs exactly TWO calls: the fleet and the worklist. No account, and
+  // no ledger — the ledger is filter-first and the account is a destination, so
+  // neither is fetched by arriving. (268 asserted zero here; the door is the slice
+  // that spends.)
+  check('🚩 the door fetches the fleet and the worklist, and nothing else', settlementCalls === 2, `${settlementCalls} calls`)
 
   // ---- Scenario 2: ungranted ----
   text = await open(NONE)
@@ -351,13 +419,219 @@ async function run() {
     (await openAccount('0142')).includes('75.50'),
   )
 
-  // ---- the shell, and the boundary ----
-  settlementCalls = 0
+  // ---- the door, and the account's boundary ----
   await page.goto(BASE + ROUTE)
   await page.waitForLoadState('networkidle')
-  text = await mainText()
-  check('no branch named → the shell stands, and NO account is fetched', text.includes('Nothing to show yet') && settlementCalls === 0, `${settlementCalls} calls`)
-  check('🚩 269 grows NO branch picker to test itself', (await page.locator('main select, main [role="combobox"]').count()) === 0)
+  check('no branch named → the DOOR stands, not the account', (await page.locator('[data-region="settlement-door"]').count()) === 1 && (await page.locator('[data-region="branch-account"]').count()) === 0)
+  check('🚩 the door is a SEARCH BOX, never a dropdown of 1394 branches', (await page.locator('[data-region="settlement-door"] select, [data-region="settlement-door"] [role="combobox"]').count()) === 0 && (await page.locator('[data-testid="settlement-search"]').count()) === 1)
+
+  // ═══ Ticket 270 — the door searches, and triages what needs a human ═══════════
+  //
+  // Every check below is against the ESTATE fixture — 1394 branches, 1255 of them
+  // assigned to nobody. That size is the point: 269's six branches cannot prove a
+  // door whose every claim is about what happens at scale.
+  const openDoor = async (scope = '') => {
+    scenario = { accessBody: ALL, access403: false, access500: false }
+    await page.goto(`${BASE}${ROUTE}${scope ? `?scope=${scope}` : ''}`)
+    await page.waitForLoadState('networkidle')
+    return mainText()
+  }
+  const laneRows = async (lane) => page.locator(`[data-lane="${lane}"] li`).count()
+  const search = async (q) => {
+    await page.locator('[data-testid="settlement-search"]').fill(q)
+    // The box writes the query into the URL, so the ranked list is a re-render away
+    // rather than a request away — a short settle, not a network wait.
+    await page.waitForTimeout(150)
+    return page.locator('[data-region="search-results"]').innerText().catch(() => '')
+  }
+  /** Wait for a region to actually be on screen. A client-side navigation resolves
+   *  `networkidle` before React has mounted what it navigated to, so every check
+   *  that follows one waits for its own subject rather than for the network. */
+  const appears = async (selector, timeout = 8000) =>
+    page
+      .waitForSelector(selector, { timeout })
+      .then(() => true)
+      .catch(() => false)
+
+  // ---- the three lanes, triaged by what they cost ----
+  text = await openDoor()
+  check('270 → the door opens on MY BRANCHES', (await page.locator('[data-region="settlement-scope"] button[aria-pressed="true"]').innerText()).includes('My branches'))
+  check(
+    '🔑 wrong money is ENUMERATED IN FULL — one row per orphan consumption',
+    (await laneRows('wrong-money')) === WORKLIST.orphans.length,
+    `${await laneRows('wrong-money')} rows`,
+  )
+  check('270 → cash waiting is enumerated too, and shows an AGE', (await laneRows('cash-waiting')) === WORKLIST.uncollected.length && /prepared \d+ days ago/.test(text))
+  check(
+    '🔑 the ageing lane is a COUNT and a way through — never a card each',
+    (await laneRows('ageing')) === 0 &&
+      (await page.locator('[data-lane="ageing"]').innerText()).includes('47 entries') &&
+      (await page.locator('[data-testid="open-ledger"]').count()) === 1,
+    await page.locator('[data-lane="ageing"]').innerText(),
+  )
+  check('270 → the lanes are ordered wrong money → cash waiting → ageing', text.indexOf('Wrong money') < text.indexOf('Cash waiting') && text.indexOf('Cash waiting') < text.indexOf('Ageing'))
+
+  // ---- 🔑 THE CARVE-OUT: the load-bearing part of this ticket ----
+  // 0331 is UNASSIGNED in the fixture, deliberately. Its orphan consumption must be
+  // on this screen under scope = mine; its ageing entries must not be counted.
+  check(
+    '🔑 an UNASSIGNED branch’s wrong money is on screen under scope = MINE',
+    (await page.locator('[data-lane="wrong-money"] li').filter({ hasText: '0331' }).count()) === 1,
+  )
+  const ageingText = async () => page.locator('[data-lane="ageing"]').innerText()
+  const mineAgeing = await ageingText()
+  await page.locator('[data-region="settlement-scope"] button[data-scope="all"]').click()
+  await page.waitForTimeout(120)
+  check(
+    '🔑 …while its AGEING entries only appear once the scope widens (47 → 140)',
+    mineAgeing.includes('47 entries') && (await ageingText()).includes('140 entries'),
+    `${mineAgeing.replace(/\n/g, ' ')} → ${(await ageingText()).replace(/\n/g, ' ')}`,
+  )
+  check(
+    '🔑 …and the two enumerated lanes did NOT move when the scope did',
+    (await laneRows('wrong-money')) === WORKLIST.orphans.length && (await laneRows('cash-waiting')) === WORKLIST.uncollected.length,
+  )
+  check('270 → widening is one click and is never locked', page.url().includes('scope=all'))
+  check('⚠️ the screen says the two lanes are estate-wide, rather than leaving it to be inferred', (await mainText()).includes('whole estate'))
+
+  // ---- the search: four keys, one box ----
+  text = await openDoor()
+  check('🔑 search finds a branch by CODE', (await search('0331')).includes('Al-Nakheel'))
+  check('🔑 search finds the same branch by name in ARABIC', (await search('النخيل')).includes('0331'))
+  check('🔑 …and by name in ENGLISH', (await search('Al-Nakheel')).includes('0331'))
+  check('🔑 search finds a branch by CITY', (await search('Muharraq')).includes('0688'))
+  await search('0331')
+  check(
+    '🔑 the scope RANKS and never refuses — an unassigned branch is still found under MINE',
+    (await page.locator('[data-hit="0331"][data-in-scope="false"]').count()) === 1,
+  )
+  await search('Pharmacy')
+  check('270 → a broad query is capped and says how many matched', /Showing 20 of \d{3,}/.test(await page.locator('[data-region="search-results"]').innerText()))
+  check('270 → a query that matches nothing says so', (await search('zzzz')) === '' && (await mainText()).includes('No branch matches that'))
+
+  // ---- a search hit is an ADDRESS: it lands on 269's account ----
+  await search('0142')
+  await page.locator('[data-hit="0142"]').click()
+  await appears('[data-region="branch-account"]')
+  check('270 → a search hit opens the BRANCH ACCOUNT 269 built', (await page.locator('[data-region="branch-account"]').count()) === 1 && page.url().includes('store=0142'), page.url())
+
+  // ---- an entry number jumps STRAIGHT to that entry's branch ----
+  await openDoor()
+  await search('143')
+  await page.keyboard.press('Enter')
+  await appears('[data-region="branch-account"]')
+  check(
+    '🔑 “entry 143” lands on the account of the branch it is on, whichever that is',
+    page.url().includes('store=0142') && (await page.locator('[data-region="branch-account"]').count()) === 1,
+    page.url(),
+  )
+  // 🔑 …and on the ENTRY, not merely the branch (story 3). The account's grid
+  // selects its own first displayed row, which after a sort is a different entry —
+  // so the door names the one it sent the reader for, and the journal opens under it.
+  check(
+    '🔑 …and opens on entry 143 itself, with its journal underneath',
+    (await page.locator('[data-region="entry-journal"]').getAttribute('data-entry')) === '143' &&
+      (await page.locator('.ag-row-selected [col-id="entryNumber"]').innerText()).trim() === '143',
+    await page.locator('[data-region="entry-journal"]').getAttribute('data-entry'),
+  )
+  await openDoor()
+  await search('9999')
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(400)
+  check('270 → an entry number that matches nothing says so, and does not navigate', (await mainText()).includes('no entry 9999') && !page.url().includes('store='), page.url())
+  // 🔑 A code that is ALSO an entry number goes to the BRANCH. Store codes are four
+  // digits and entry numbers are unpadded ints, so the estate genuinely holds both
+  // readings of the same string — and taking someone who typed their own branch's
+  // code to a different branch's account is the worst thing this box could do.
+  const collision = FLEET.find(
+    (r) => /^[1-9]\d*$/.test(r.storeId) && LEDGER.some((e) => String(e.entryNumber) === r.storeId),
+  )
+  await openDoor()
+  await search(collision.storeId)
+  await page.keyboard.press('Enter')
+  await appears('[data-region="branch-account"]')
+  check(
+    '🔑 an EXACT branch code beats an entry number of the same digits',
+    page.url().includes(`store=${collision.storeId}`),
+    `${collision.storeId} → ${page.url()}`,
+  )
+
+  // ---- Repair: the only write on this screen ----
+  text = await openDoor()
+  const orphanRows = () => page.locator('[data-lane="wrong-money"] li')
+  const before = await orphanRows().count()
+  await orphanRows().filter({ hasText: '0331' }).locator('button').click()
+  check('270 → Repair opens a dialog naming the branch, the entry and the age', (await page.locator('dialog').innerText()).includes('0331'))
+  await page.locator('[data-testid="repair-reason"]').fill('Close timed out on 2026-08-12; Z never written.')
+  await page.locator('[data-testid="repair-confirm"]').click()
+  await page.waitForTimeout(400)
+  check('270 → the repair posts a consumption id and the reason typed', repairCalls.length === 1 && repairCalls[0].settlementConsumptionId === '01J9SCON0331A1' && repairCalls[0].reason.startsWith('Close timed out'))
+  check('270 → …the lane refreshes and the repaired row is gone', (await orphanRows().count()) === before - 1, `${before} → ${await orphanRows().count()}`)
+  check('270 → …and the toast says the money is back on the entry', (await page.locator('body').innerText()).includes('is back on the entry'))
+
+  // 🔑 The no-op: a document arrived mid-click. It must read as nothing to do, NOT
+  // as a failure — the row stays, and the sentence is the ticket's own.
+  const noopRow = orphanRows().filter({ hasText: WORKLIST.orphans.find((o) => o.settlementConsumptionId === NOOP_CONSUMPTION)?.storeId ?? '—' })
+  const noopBefore = await orphanRows().count()
+  await noopRow.first().locator('button').click()
+  await page.locator('[data-testid="repair-reason"]').fill('Sweep found no document.')
+  await page.locator('[data-testid="repair-confirm"]').click()
+  await page.waitForTimeout(400)
+  check(
+    '🔑 a repair whose document arrived mid-click reads as “nothing to repair”, not an error',
+    (await page.locator('body').innerText()).includes('A document arrived for this consumption — nothing to repair'),
+  )
+  check('🔑 …and it is NOT an error surface — the row simply stays', (await orphanRows().count()) === noopBefore && !(await mainText()).toLowerCase().includes('could not be sent'))
+
+  // ---- the address survives a round trip ----
+  // 🚩 A widened scope is a decision the reader made; walking into a branch and back
+  // must not quietly undo it, or the ageing count falls 140 → 47 with nothing on
+  // screen to explain why.
+  await openDoor('all')
+  await search('0142')
+  await page.locator('[data-hit="0142"]').click()
+  await appears('[data-region="branch-account"]')
+  await page.locator('main a[href*="scope=all"]').first().click()
+  await appears('[data-lane="ageing"]')
+  check(
+    '🚩 coming back from a branch keeps the widened scope (140, not 47)',
+    (await page.locator('[data-lane="ageing"]').innerText()).includes('140 entries') && !page.url().includes('store='),
+    page.url(),
+  )
+
+  // ---- the flat cross-estate ledger ----
+  await openDoor()
+  await page.locator('[data-testid="open-ledger"]').click()
+  await appears('[data-region="cross-estate-ledger"] .ag-row')
+  check('270 → the ageing lane’s way through opens the LEDGER, seeded with open entries', (await page.locator('[data-region="cross-estate-ledger"]').count()) === 1 && (await page.locator('.ag-row').count()) > 0, `${page.url()} · ${await page.locator('.ag-row').count()} rows`)
+  check('⚠️ the ledger says it is NOT the account', (await mainText()).includes('A lookup, not an account'), page.url())
+  check('270 → its totals are a REPORT figure, per currency, never netted', /SAR · \d+ entries found/.test(await page.locator('[data-region="ledger-figures"]').innerText()) && (await page.locator('[data-region="ledger-figures"]').innerText()).includes('A report figure'))
+  await page.locator('[data-testid="ledger-status"]').selectOption('')
+  await page.locator('[data-testid="ledger-entry-number"]').fill('143')
+  await page.locator('[data-region="cross-estate-ledger"] button[type="submit"]').click()
+  await page.waitForTimeout(600)
+  check('🔑 the ledger finds ONE entry across the whole estate', (await page.locator('.ag-row').count()) === 1, `${await page.locator('.ag-row').count()} rows`)
+  await page.locator('.ag-row').first().click()
+  await appears('[data-region="branch-account"]')
+  check('270 → …and the row is a way through to that branch’s account', page.url().includes('store=0142') && (await page.locator('[data-region="branch-account"]').count()) === 1)
+  // 🚩 …and the ledger's own filter is an address too: pressing Back out of the
+  // account a row opened brings the same search back, rather than a blank form and a
+  // fresh estate-wide query.
+  await page.goBack()
+  await appears('[data-region="cross-estate-ledger"] .ag-row')
+  check(
+    '🚩 Back out of an account restores the ledger’s own filter',
+    (await page.locator('[data-testid="ledger-entry-number"]').inputValue()) === '143' && (await page.locator('.ag-row').count()) === 1,
+    page.url(),
+  )
+
+  await page.goto(`${BASE}${ROUTE}?view=ledger`)
+  await appears('[data-region="cross-estate-ledger"]')
+  check('🔑 the ledger is FILTER-FIRST — it does not open on the estate', (await mainText()).includes('too big to open on nothing') && (await page.locator('.ag-row').count()) === 0)
+
+  // ---- and the namespace, again, over 270's new copy ----
+  text = await openDoor()
+  check('🚩 270’s keys are all registered — no raw t() key on screen', !/settlement:|\bworklist\.|\bsearch\.|\bledger\.|\brepair\./.test(text))
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))
 

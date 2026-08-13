@@ -148,3 +148,167 @@ export type SettlementAccount = {
    *  them by `settlementEntryId` once rather than scanning per row. */
   consumptions: SettlementConsumption[]
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * The door — ticket 270's half of the contract.
+ *
+ * Everything below serves the front page: the search, the scope control and the
+ * triaged worklist. ⚠️ **Three of these shapes are extensions of spec 267 D8**,
+ * made here and logged in `.afk/HITL-270.md` for 274 to settle against a live
+ * SIS.Api — D8's own instruction is to treat its table as *the shape*.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The scope control's three states (D2), and the value the fleet door's `scope`
+ * parameter takes.
+ *
+ * 🔑 **It ranks and it counts; it never refuses.** Widening is one click and is
+ * never locked, because the scope is a convenience and not a permission — a
+ * branch outside the scope is still findable, still openable, and its wrong money
+ * is still on this screen.
+ */
+export type SettlementScope = 'mine' | 'unassigned' | 'all'
+
+/**
+ * Where one branch sits in the assignment (map 1153), **as the server resolved it
+ * for this session**.
+ *
+ * ⚠️ Three values against the scope's three states, and the mismatch is the
+ * point: `mine` is the union of the accountant's own branches and their
+ * one-level reports (D2), `unassigned` is the 1255 nobody owns, and `other` is a
+ * colleague's — reachable through *all*, and through any search, but never
+ * counted as mine.
+ *
+ * 🚩 **Resolving "mine" is the server's job and must stay there.** The union of
+ * own-plus-reports is a query over the assignment tables; a client that tried to
+ * recompute it would be re-implementing an org chart it cannot see.
+ */
+export type SettlementAssignment = 'mine' | 'unassigned' | 'other'
+
+/**
+ * One aggregated row per store — D8's `FleetRow`, **plus the four fields the door
+ * cannot be built without** (all four in `.afk/HITL-270.md`):
+ *
+ * | added | why it could not wait |
+ * |---|---|
+ * | `city` | the search resolves *branch code, name in either script, **city**, or entry number* (D2). Three of the four are on D8's row; the fourth was not |
+ * | `assignment` | the scope has to rank and count **on the client**, because the two estate-wide lanes must not be re-fetched per scope. See `scope.ts` |
+ * | `ageingCount` | the ageing lane is *a count and a way through* whose threshold is **the server's** (the ticket forbids inventing one here) — so the server must send the count it computed |
+ * | `currencyKey` | D10: every figure at the **branch's own** precision. `SettlementAccount` needed the same field for the same reason at 269 |
+ *
+ * 🚩 **Aggregated, never a projection of entries** — D8 says so on the type. One
+ * row per store at 1394 stores; the entries behind them are the account's
+ * (`Settlement/Account`) and the ledger's, never this door's.
+ */
+export type SettlementFleetRow = {
+  storeId: string
+  /** Both scripts in one string, as `SettlementAccount.storeName` carries them. */
+  storeName: string
+  /** ADDED — the search's fourth key. */
+  city: string
+  /** ADDED — the server's own resolution of this session's assignment. */
+  assignment: SettlementAssignment
+  /** ADDED — ISO code, per D10. */
+  currencyKey: string
+  openCount: number
+  shortageTotal: number
+  surplusTotal: number
+  /** `shortageTotal − surplusTotal`, **server-side**. Displayed, never consumed. */
+  signedPosition: number
+  movedSinceCutoff: number
+  hasOrphan: boolean
+  hasUncollectedReceipt: boolean
+  /** ADDED — entries open longer than the server's own threshold. */
+  ageingCount: number
+}
+
+/**
+ * One **wrong money** row: a consumption a till wrote with no document behind it,
+ * past the server's grace period (1146 → 1148's sweep).
+ *
+ * 🔑 It is a *consumption*, not a branch — which is exactly why D8's aggregated
+ * `hasOrphan` boolean cannot carry this lane. Repair is predicated on a
+ * `settlementConsumptionId`, and a lane that could only say *"0331 has one
+ * somewhere"* would send the accountant hunting through an account for it.
+ *
+ * ⚠️ **`ageDays` is the server's**, not a subtraction this screen performs. The
+ * grace period is the server's rule, the clock is the server's, and a pure module
+ * that read `Date.now()` would be a module whose tests changed answer overnight.
+ */
+export type SettlementOrphanRow = {
+  settlementConsumptionId: string
+  settlementEntryId: string
+  entryNumber: number
+  storeId: string
+  storeName: string
+  currencyKey: string
+  amount: number
+  ageDays: number
+  consumedAt: string
+}
+
+/**
+ * One **cash waiting** row: a settlement receipt the branch prepared and no
+ * collector has taken.
+ *
+ * They never expire and are never auto-voided, so **age is the only thing this
+ * screen owes** (D2) — there is no status to render and nothing to act on here.
+ */
+export type SettlementUncollectedRow = {
+  documentId: string
+  documentNumber: string
+  storeId: string
+  storeName: string
+  currencyKey: string
+  amount: number
+  ageDays: number
+  preparedAt: string
+}
+
+/**
+ * What the worklist door answers — **the two enumerated lanes, and nothing else**.
+ *
+ * 🔑 **It takes no `scope` parameter, and that absence is the carve-out made
+ * structural.** D2's asymmetry — wrong money and cash waiting are *always*
+ * estate-wide whatever the control says — is the first thing someone "tidying the
+ * scope handling" would break. A door with no scope to pass cannot be narrowed by
+ * accident; narrowing it would have to be a deliberate change to the contract,
+ * which is a thing a reviewer sees.
+ *
+ * `ageingThresholdDays` rides along so the ageing lane can say *how long* is long
+ * without this screen inventing the number (the ticket's own boundary).
+ */
+export type SettlementWorklistResult = {
+  orphans: SettlementOrphanRow[]
+  uncollected: SettlementUncollectedRow[]
+  ageingThresholdDays: number
+}
+
+/**
+ * One row of the **flat cross-estate ledger** — an entry, plus the two fields a
+ * row torn out of its branch needs to be readable.
+ *
+ * ⚠️ **This is not the account** (D2). It answers *"find entry 143, whichever
+ * branch it is on"* and then hands the reader to 269's account, which is the only
+ * view that can state a position.
+ */
+export type SettlementLedgerRow = SettlementEntry & {
+  storeName: string
+  currencyKey: string
+}
+
+/**
+ * What `Settlement/Repair` answers.
+ *
+ * 🔑 **`noOp` is not a failure.** The server's repair is predicated on the
+ * consumption still having no document, so a late Z arriving mid-click loses the
+ * race and nothing happens — which is the right outcome and must read as one. A
+ * refusal (`accepted: false`) is likewise a **200 carrying a reason**, never an
+ * error, exactly as the till's own consume is (D8).
+ */
+export type SettlementRepairResult = {
+  accepted: boolean
+  noOp: boolean
+  remainingAfter: number
+  refusalReason: string
+}

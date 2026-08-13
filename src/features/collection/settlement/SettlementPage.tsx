@@ -1,10 +1,21 @@
 import { useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router'
-import { Landmark } from 'lucide-react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
+import { ArrowLeft } from 'lucide-react'
+import type { SettlementScope } from '@/core/models/settlement'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenSettlement } from './api'
 import BranchAccount from './BranchAccount'
+import {
+  doorSearch,
+  isLedgerView,
+  readEntryNumber,
+  readStore,
+  scopeSearch,
+} from './addresses'
+import CrossEstateLedger from './CrossEstateLedger'
+import { SCOPE_PARAM, readScope } from './scope'
+import SettlementDoor from './SettlementDoor'
 
 /**
  * Settlement account (`/collection/settlement`) — the accountant's screen, spec
@@ -12,10 +23,10 @@ import BranchAccount from './BranchAccount'
  * leaf and its gate. It fetches nothing.
  *
  * **269 added the destination** — `?store=` opens one branch's account (see
- * `BranchAccount`). What arrives on top of it: 270 makes the door real (the search
- * box and the triaged worklist, and the scope control below stops being inert), 271
- * posts an entry, 272 corrects one and draws the audit column, 273 uploads a month's
- * audit sheet.
+ * `BranchAccount`). **270 made the door real**: the search box, the triaged worklist
+ * and the cross-estate ledger, with the scope control below no longer inert. What
+ * arrives on top: 271 posts an entry, 272 corrects one and draws the audit column,
+ * 273 uploads a month's audit sheet.
  *
  * 🚩 **The grant is the only off-switch** (D1). There is no feature flag here and
  * there must not be one — the menu leaf and this gate read the same
@@ -44,100 +55,130 @@ export default function SettlementPage() {
 }
 
 /**
- * The screen's body — the shell until a branch is named, the branch account once one
- * is.
+ * The screen's body — **three views on one address**: the door, one branch's
+ * account, and the cross-estate ledger.
  *
- * 🚩 **`?store=` is where a branch comes from, and the URL is its only home.** The
- * same idiom `?acr=` established on `CashCollectionsPage` (257): no `selectedStore`
- * state beside it, so a reload, a paste into a ticket and the Back button all
- * reproduce the view, and a copy could not drift from it because there is no copy.
+ * 🚩 **The URL is the only home of all four pieces of state.** `?store=` opens an
+ * account (269, the `?acr=` idiom 257 established), `?q=` holds a search, `?scope=`
+ * the scope and `?view=ledger` the support view. Nothing is mirrored into component
+ * state beside them, so a reload, a paste into a ticket and the Back button all
+ * reproduce what the accountant was looking at — and no copy can drift from the
+ * URL, because there is no copy.
  *
- * ⚠️ **269 must not grow a branch picker to test itself** (the ticket's own
- * Boundaries). Reaching a branch is 270's job — its search hit and its worklist rows
- * become ordinary links to this param — and until then the drive and a pasted
- * address are how an account is opened. That is the whole of why there is no
- * dropdown here, and adding one would be building 270 badly a slice early.
+ * Which is what makes 270 *a door onto an address* rather than a rewiring of 269: a
+ * search hit and a worklist row are ordinary links to `?store=`.
  *
- * A child component rather than inlined markup: `BranchAccount` holds the query, and
- * an element that is never rendered is never mounted — so a session the gate is
- * about to refuse issues no account call.
+ * Each view is a child component rather than inlined markup, for the reason 254
+ * gives: each holds its own query, and an element that is never rendered is never
+ * mounted — so a session the gate is about to refuse issues no call at all, and the
+ * fleet is not fetched while an account is on screen.
  */
 function SettlementBody() {
-  const { t } = useTranslation('settlement')
   const [searchParams] = useSearchParams()
-  const storeId = searchParams.get('store')?.trim() || ''
+  const navigate = useNavigate()
+  const storeId = readStore(searchParams)
+  const scope = readScope(searchParams.get(SCOPE_PARAM))
+  const isLedger = isLedgerView(searchParams)
 
   return (
     <>
-      <ScopeControl />
+      {/* ⚠️ The scope belongs to the DOOR, so it is drawn with the door and nowhere
+          else. A branch's account is the same account whoever is assigned to it, and
+          a scope control above one would imply the position on screen depended on
+          who was looking. */}
+      {!storeId && !isLedger && (
+        <ScopeControl scope={scope} onScope={(next) => navigate(scopeSearch(searchParams, next))} />
+      )}
+
+      {(storeId || isLedger) && <BackToDoor searchParams={searchParams} />}
 
       {storeId ? (
-        <BranchAccount storeId={storeId} />
+        <BranchAccount storeId={storeId} entryNumber={readEntryNumber(searchParams)} />
+      ) : isLedger ? (
+        <CrossEstateLedger />
       ) : (
-        // The shell's body, unchanged from 268 apart from its sentence. Deliberately
-        // NOT an "empty result": nothing has been asked of the server, so the words
-        // say which slice fills this space rather than implying the estate holds no
-        // settlement entries.
-        <div className="mx-auto mt-12 flex max-w-sm flex-col items-center gap-2 text-center">
-          <Landmark className="h-8 w-8 text-muted-foreground" aria-hidden />
-          <div className="text-base font-semibold tracking-tight">{t('shell.title')}</div>
-          <p className="text-sm text-muted-foreground">{t('shell.hint')}</p>
-        </div>
+        <SettlementDoor scope={scope} />
       )}
     </>
   )
 }
 
 /**
- * The scope control — **rendered, and inert until 270** (this ticket's own words).
+ * The way back to the door from either destination.
  *
- * Three states and their order are spec 267 D2's: **mine** (the default, and shown
- * selected here so the shell states the default rather than leaving it to be
- * inferred), **unassigned**, **all**. It is a convenience and 🚩 **never a
- * permission** — widening to the whole estate is one click and is never locked,
- * which is why nothing here is styled as a privilege.
- *
- * ⚠️ And when 270 wires it, the asymmetry D2 calls "the first thing to break if
- * someone tidies the scope handling" comes with it: **wrong money and cash waiting
- * are always estate-wide whatever this control says.** Only the ageing count and
- * the search ranking honour it.
- *
- * `aria-disabled` rather than `disabled`, per `core/ui/Button`: a control that is
- * unavailable *with a reason* stays focusable so a screen reader can reach the
- * reason. `aria-describedby` is what carries it.
+ * 🚩 **It drops what took the reader away and keeps the scope.** A bare `to="."`
+ * throws the whole query string away, which would quietly reset a widened
+ * `?scope=all` to *mine* — an accountant who deliberately widened to the estate,
+ * opened a branch and came back would find the ageing count had fallen from 140 to
+ * 47 with nothing on screen to explain it.
  */
-function ScopeControl() {
+function BackToDoor({ searchParams }: { searchParams: URLSearchParams }) {
   const { t } = useTranslation('settlement')
-  const SCOPES = [
-    { key: 'mine', selected: true },
-    { key: 'unassigned', selected: false },
-    { key: 'all', selected: false },
-  ] as const
+
+  return (
+    <Link
+      to={doorSearch(searchParams)}
+      className="inline-flex w-fit items-center gap-1.5 text-xs font-medium text-muted-foreground hover:underline"
+    >
+      <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+      {t('door.back')}
+    </Link>
+  )
+}
+
+/**
+ * The scope control — **live as of 270**, and the one control on this screen whose
+ * misreading would be expensive.
+ *
+ * Three states and their order are spec 267 D2's: **mine** (the default),
+ * **unassigned**, **all**. It is a convenience and 🚩 **never a permission** —
+ * widening to the whole estate is one click and is never locked, which is why
+ * nothing here is styled as a privilege and why nothing about it can be disabled.
+ *
+ * 🔑 **What it does NOT touch is the load-bearing half.** Wrong money and cash
+ * waiting are estate-wide whatever this control says (`worklist.ts`); the search
+ * *ranks* by it and never refuses a branch outside it (`search.ts`). Only the
+ * ageing count and that ranking honour it — which is why the worklist says so on
+ * its own face rather than leaving a reader to infer it from an empty lane.
+ *
+ * ⚠️ And a session with **no staff row** stays on *mine* while the screen behaves
+ * as *all* (`scope.ts`): the pressed state below is what the accountant chose, not
+ * what the resolution did with it, and the screen deliberately does not announce
+ * the difference as an error.
+ */
+function ScopeControl({
+  scope,
+  onScope,
+}: {
+  scope: SettlementScope
+  onScope: (next: SettlementScope) => void
+}) {
+  const { t } = useTranslation('settlement')
+  const SCOPES: SettlementScope[] = ['mine', 'unassigned', 'all']
 
   return (
     <div className="flex items-center justify-end gap-2">
-      <span id="settlement-scope-inert" className="text-xs text-muted-foreground">
-        {t('scope.inert')}
-      </span>
       <div
         role="group"
         aria-label={t('scope.label')}
-        aria-describedby="settlement-scope-inert"
+        data-region="settlement-scope"
         className="inline-flex items-center gap-1 rounded-full border border-border bg-card p-0.5"
       >
-        {SCOPES.map((s) => (
+        {SCOPES.map((key) => (
           <button
-            key={s.key}
+            key={key}
             type="button"
-            aria-disabled
-            aria-pressed={s.selected}
+            onClick={() => onScope(key)}
+            aria-pressed={scope === key}
+            data-scope={key}
             className={
-              'h-6 rounded-full px-3 text-xs font-medium aria-disabled:cursor-not-allowed ' +
-              'aria-disabled:opacity-50 ' +
-              (s.selected ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')
+              'h-6 rounded-full px-3 text-xs font-medium transition-colors ' +
+              (scope === key
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted')
             }
           >
-            {t(`scope.${s.key}`)}
+            {t(`scope.${key}`)}
           </button>
         ))}
       </div>

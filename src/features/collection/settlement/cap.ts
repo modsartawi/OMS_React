@@ -41,6 +41,18 @@ export const GRID_PAGE_SIZE = 50
 export const ACCOUNT_LIMIT = 500
 
 /**
+ * The cross-estate ledger's cap (ticket 270).
+ *
+ * The same 500 the account door applies, and deliberately the same number rather
+ * than a larger one: the ledger is a **lookup**, not a report. Its whole job is
+ * *"find entry 143, whichever branch it is on"*, and a reader who has to page
+ * through 2,000 rows to find one entry has been handed the estate again — which
+ * is the design the door exists to refuse. The filter row is the way through, and
+ * the banner says when the cap bit.
+ */
+export const LEDGER_LIMIT = 500
+
+/**
  * Did this account actually **reach** the cap?
  *
  * **Reached, not merely large** — a banner that fired at "nearly 500" would be a

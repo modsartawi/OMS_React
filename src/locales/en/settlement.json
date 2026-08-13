@@ -25,7 +25,7 @@
   "account": {
     "loading": "Loading this branch's account…",
     "empty": "No settlement entry has ever been posted against this branch. That is the ordinary state for most of the estate, not a failed lookup.",
-    "capReached": "This branch has more entries than the {{limit}} shown. The oldest are missing from this page.",
+    "capReached": "This account came back with {{limit}} entries, which is the most the server will send. There may be more that are not shown here.",
     "errors": {
       "loadFailed": "This branch's account could not be loaded."
     },

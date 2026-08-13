@@ -83,6 +83,41 @@ links, and a pasted address reproduces the view.
 than a mode of this one. The projection and the components are unaffected either way; only the Page's
 three lines of param reading move.
 
+## Q: D8 lists the account door as `GET Settlement/Account?storeId=…` and nothing else, but D3 says the door applies a 500-row `TOP`. Does the client name that limit on the wire?
+
+**Decision taken:** yes — `settlementApi.account()` sends `{ storeId, limit: ACCOUNT_LIMIT }`, and
+`ACCOUNT_LIMIT` is the same constant `isCapReached` measures the answer against.
+
+**Why:** the banner and the door have to agree about one number or the banner is measuring one cap
+while the server applies another — at which point it either cries wolf or stays silent on a truncated
+branch, which is the failure `cap.ts` exists to prevent. `buildQuery` drops the param harmlessly if
+the door does not read it, so the cost of being wrong here is zero and the cost of being silent is a
+phone call about an entry that never arrived.
+
+**Revisit if:** 274 finds the door rejects unknown params, or names it something other than `limit`
+(the four collection inquiries spell it `Limit`) — a one-word change either way.
+
+## Q: `CONTEXT.md`'s **Store** entry says *"Identified by `storeCode`. Avoid: branch, site, location"*, yet spec 267 and this ticket say "branch" throughout — including in the copy the accountant reads. Which vocabulary wins?
+
+**Decision taken:** **the spec's**, for this feature only. The component is `BranchAccount`, and the
+user-visible sentences say *"this branch owes head office"*. Nothing was renamed to `store`.
+
+**Why:** spec 267 is a later, ratified document that uses "branch" as the accountant's own noun in
+every one of its 35 user stories, and D9 rules that this screen speaks the branch's language — the
+till screen the branch manager reads at 23:00 says *branch*, not *store*. Renaming the screen's copy
+to match a glossary entry written for a different concern would make the two halves of one feature
+disagree in front of a user. The **wire** vocabulary is untouched: every identifier that crosses the
+API boundary is `storeId`/`storeCode`, exactly as the glossary requires.
+
+⚠️ **This is a real conflict and not a resolved one.** `CONTEXT.md` also has no entry at all for
+*settlement entry*, *consumption*, *journal*, *orphan*, *shortage* or *surplus*, and currently lists
+"settlement" only as a word to **avoid** under **Deposit**. That is a `/domain-modeling` job for the
+wave, not a rename this ticket should make unilaterally.
+
+**Revisit if:** `/domain-modeling` rules for "store" across the settlement feature too. Then it is a
+mechanical rename of one component, one prop and six i18n values — and it should be done in one act
+across 269–273 rather than drifting in slice by slice.
+
 ## Q: This ticket builds against fixtures. Do the components read the fixture directly, or the real door?
 
 **Decision taken:** the components read the **real door** through `settlementApi.account()`, and the

@@ -3,6 +3,7 @@ import {
   NO_SERVED_BY,
   SERVED_BY_KINDS,
   buildServedByParams,
+  defaultSelection,
   readServedBySelection,
   resolvedKinds,
   servedByGroups,
@@ -112,12 +113,15 @@ describe('resolvedKinds', () => {
   // The invariant, restated for the slice that changed the answer: a Kind is offered
   // iff the server can answer it on THAT SCREEN'S READING. Offering one it refuses is
   // a filter that errors when used.
-  it('offers all four Kinds on the assignment-reading screens', () => {
+  // ⚠️ FIVE since 1165: MINE — the landing scope — joined the list, because a screen
+  // may only LAND ON a Kind its reading can answer, exactly as it may only offer one.
+  it('offers all the assignment-reading Kinds on those screens', () => {
     expect(resolvedKinds('collections')).toEqual([
       'ACCOUNTANT',
       'COLLECTOR',
       'SUPERVISOR',
       'UNASSIGNED',
+      'MINE',
     ])
     expect(resolvedKinds('settlement')).toEqual(resolvedKinds('collections'))
   })
@@ -128,6 +132,47 @@ describe('resolvedKinds', () => {
   it('offers nothing yet on the two collected-by screens', () => {
     expect(resolvedKinds('acrs')).toEqual([])
     expect(resolvedKinds('deposits')).toEqual([])
+  })
+})
+
+// BackOffice 1165 — default-to-mine, the client half.
+describe('defaultSelection', () => {
+  const scoped: AssignmentOptions = {
+    ...OPTIONS,
+    defaultScope: { kind: 'MINE', staffId: '4466', displayName: 'ضحى' },
+  }
+
+  it('opens the assignment-reading screens on the caller’s own scope', () => {
+    expect(defaultSelection('collections', scoped)).toEqual({ kind: 'MINE', id: '4466' })
+    expect(defaultSelection('settlement', scoped)).toEqual({ kind: 'MINE', id: '4466' })
+  })
+
+  // 🚩 The three ways it is "nothing picked", all of them the estate and none an
+  // error. A caller on no roster row is the ~7,600 case; a missing payload is an
+  // unreachable sink; and a scope the SERVER cannot yet answer on this screen's
+  // reading would break the screen on mount rather than merely being ignored.
+  it('lands unfiltered when the caller is on no roster row', () => {
+    expect(defaultSelection('collections', { ...OPTIONS, defaultScope: null })).toEqual(
+      NO_SERVED_BY,
+    )
+    expect(defaultSelection('collections', OPTIONS)).toEqual(NO_SERVED_BY)
+  })
+
+  it('lands unfiltered before the payload arrives, or when it never does', () => {
+    expect(defaultSelection('collections', undefined)).toEqual(NO_SERVED_BY)
+  })
+
+  it('lands unfiltered on a screen whose reading cannot answer the Kind yet', () => {
+    expect(defaultSelection('acrs', scoped)).toEqual(NO_SERVED_BY)
+    expect(defaultSelection('deposits', scoped)).toEqual(NO_SERVED_BY)
+  })
+
+  it('ignores a scope with no id rather than sending a pick the server refuses', () => {
+    const blank: AssignmentOptions = {
+      ...OPTIONS,
+      defaultScope: { kind: 'MINE', staffId: '  ', displayName: '' },
+    }
+    expect(defaultSelection('collections', blank)).toEqual(NO_SERVED_BY)
   })
 })
 

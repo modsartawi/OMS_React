@@ -6,6 +6,7 @@ import {
   landingCriteria,
   type CollectionsCriteria,
 } from './collections-criteria'
+import type { AssignmentOptions } from './served-by'
 
 // Ticket 254's criteria Proof. What is asserted is what the wire and the operator
 // can observe — the params object, and which draft counts as the landing state —
@@ -148,5 +149,79 @@ describe('the "filtered" chip reads the ISSUED query, not the draft', () => {
 
   it('a query missing the date pair entirely is not it either', () => {
     expect(applied({})).toBe(false)
+  })
+})
+
+// BackOffice 1165 — `LandingChipAccountsForTheDefaultScope`.
+//
+// A finance user's screen opens ALREADY SCOPED to their own branches and their
+// reports'. Everything the chip does then has to be measured against THAT landing
+// rather than against an unscoped one — otherwise the chip is lit on mount over a
+// grid showing precisely what the screen chose to show, and its ✕ (Reset) puts the
+// same scope straight back.
+describe('the landing chip accounts for the default scope', () => {
+  // The caller is on the roster, so the door hands back a landing scope: the union
+  // of their own branches and their one-level reports'.
+  const SCOPED: Partial<AssignmentOptions> = {
+    accountants: [{ staffId: '4466', displayName: 'ضحى' }],
+    collectors: [],
+    supervisors: [],
+    defaultScope: { kind: 'MINE', staffId: '4466', displayName: 'ضحى' },
+  }
+
+  it('opens on the caller’s own scope, and sends it as an ordinary pick', () => {
+    expect(landingCriteria(TODAY, SCOPED).servedBy).toEqual({ kind: 'MINE', id: '4466' })
+
+    // 🚩 The scope reaches the door as the SAME pair any hand-made pick uses —
+    // there is no hidden landing parameter, which is what keeps the toolbar's
+    // displayed scope and the query's scope one thing.
+    expect(buildCollectionsParams(landingCriteria(TODAY, SCOPED))).toEqual({
+      FromDate: '2026-08-08',
+      ToDate: '2026-08-08',
+      Limit: COLLECTIONS_LIMIT,
+      ServedByKind: 'MINE',
+      ServedById: '4466',
+    })
+  })
+
+  it('reads a scoped landing query as UNFILTERED — the chip stays dark on mount', () => {
+    const landing = buildCollectionsParams(landingCriteria(TODAY, SCOPED))
+    expect(isLandingQuery(landing, TODAY, SCOPED)).toBe(true)
+
+    // …and the same query IS filtered for a caller who has no default scope, which
+    // is what proves the comparison moved with the caller rather than being widened
+    // to ignore the pair.
+    expect(isLandingQuery(landing, TODAY)).toBe(false)
+  })
+
+  it('counts WIDENING as filtered — including widening all the way to everyone', () => {
+    const widened = buildCollectionsParams({
+      ...landingCriteria(TODAY, SCOPED),
+      servedBy: { kind: 'ACCOUNTANT', id: '6420' },
+    })
+    expect(isLandingQuery(widened, TODAY, SCOPED)).toBe(false)
+
+    const everyone = buildCollectionsParams({
+      ...landingCriteria(TODAY, SCOPED),
+      servedBy: { kind: '', id: '' },
+    })
+    expect(isLandingQuery(everyone, TODAY, SCOPED)).toBe(false)
+  })
+
+  // The ~7,600 case: no roster row, no default scope, and the screen behaves
+  // byte-for-byte as it did before this control existed.
+  it('lands unfiltered for a caller the roster does not know', () => {
+    const noRosterRow: Partial<AssignmentOptions> = {
+      accountants: [],
+      collectors: [],
+      supervisors: [],
+      defaultScope: null,
+    }
+    expect(landingCriteria(TODAY, noRosterRow).servedBy).toEqual({ kind: '', id: '' })
+    expect(buildCollectionsParams(landingCriteria(TODAY, noRosterRow))).toEqual({
+      FromDate: '2026-08-08',
+      ToDate: '2026-08-08',
+      Limit: COLLECTIONS_LIMIT,
+    })
   })
 })

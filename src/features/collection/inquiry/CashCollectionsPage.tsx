@@ -22,7 +22,7 @@ import {
   readAcrScope,
   withoutAcrScope,
 } from './acr-scope'
-import { canOpenCollections, collectionApi } from './api'
+import { assignmentOptionsQuery, canOpenCollections, collectionApi } from './api'
 import { GRID_PAGE_SIZE, isCapReached } from './cap'
 import { buildCollectionsColumns, buildCollectionsDefaultColDef } from './collections-columns'
 import {
@@ -32,6 +32,7 @@ import {
   landingCriteria,
   type CollectionsCriteria,
 } from './collections-criteria'
+import type { AssignmentOptions } from './served-by'
 import CollectionsToolbar from './CollectionsToolbar'
 import { COLLECTIONS_CSV_COLUMNS } from './csv'
 import { useCsvExport } from './use-csv-export'
@@ -73,12 +74,38 @@ export default function CashCollectionsPage() {
       {/* A child component, not inlined markup: its query must not run for a
           session the gate is about to refuse, and an element that is never
           rendered is never mounted. */}
-      <CollectionsBody />
+      <CollectionsScope />
     </ScreenGate>
   )
 }
 
-function CollectionsBody() {
+/**
+ * **Default-to-mine** (BackOffice 1165): the screen opens already scoped to the
+ * caller's own branches and their reports'.
+ *
+ * 🚩 **The body is not mounted until the roster answer has settled**, and that is
+ * the whole reason this component exists. The landing scope is the *initial state*
+ * of the toolbar draft and of the applied query — mounting first and applying the
+ * scope afterwards would fire the estate-wide query, then a second one, and flash
+ * 1394 branches' rows at a user whose screen is supposed to open on twelve.
+ *
+ * A failed or empty answer is **not** a failure of this screen: `data` is then
+ * undefined, `landingCriteria` picks no scope, and the screen opens on the estate
+ * exactly as it did before the control existed. The scope is a finding aid, never a
+ * permission, so an unreachable roster must never lock anybody out of anything.
+ */
+function CollectionsScope() {
+  const { t } = useTranslation('collection')
+  const options = useQuery(assignmentOptionsQuery())
+
+  // The picker beside it reads this same cache entry, so this costs one request
+  // for the pair rather than one each.
+  if (options.isPending) return <ListShimmer label={t('collections.loading')} />
+
+  return <CollectionsBody options={options.data} />
+}
+
+function CollectionsBody({ options }: { options?: AssignmentOptions }) {
   const { t } = useTranslation('collection')
 
   // Today, read at mount and again on Reset — never on render. A screen left open
@@ -94,13 +121,15 @@ function CollectionsBody() {
   // `criteria` is the live toolbar draft; `appliedParams` is the query that has
   // actually been issued. Only Search/Reset promote one to the other — which is
   // what makes a half-typed store code unable to fire a request.
-  const [criteria, setCriteria] = useState<CollectionsCriteria>(() => landingCriteria(today))
+  const [criteria, setCriteria] = useState<CollectionsCriteria>(() =>
+    landingCriteria(today, options),
+  )
   // 🚩 The APPLIED criteria, not the applied params: ticket 257 needs both branches
   // of the query built from one place (`collectionsParamsFor`), and a scope that
   // arrives has to leave the criteria it overrides untouched so that clearing it
   // restores them intact rather than re-deriving them.
   const [appliedCriteria, setAppliedCriteria] = useState<CollectionsCriteria>(() =>
-    landingCriteria(today),
+    landingCriteria(today, options),
   )
 
   // ---- the `?acr=` drill-down (ticket 257) ----
@@ -135,7 +164,11 @@ function CollectionsBody() {
     // Reset re-reads the clock: a screen left open overnight resets to the day
     // the supervisor is actually looking at, not the day they opened it.
     const now = new Date()
-    const landing = landingCriteria(now)
+    // ⚠️ Reset restores the LANDING scope, not "no scope": the ✕ on the Filtered
+    // chip must put the screen back exactly where it opened, and for a finance user
+    // that is their own branches. Widening to everyone stays available — it is one
+    // pick in the control, which is never locked.
+    const landing = landingCriteria(now, options)
     setToday(now)
     setCriteria(landing)
     setAppliedCriteria(landing)
@@ -149,8 +182,11 @@ function CollectionsBody() {
     if (searchParams.has(ACR_SCOPE_PARAM))
       setSearchParams(withoutAcrScope(searchParams), { replace: true })
     // `searchParams` is read here rather than closed over stale: react-router hands
-    // back a new instance on every navigation, so it belongs in the deps.
-  }, [searchParams, setSearchParams])
+    // back a new instance on every navigation, so it belongs in the deps — and
+    // `options` for the same reason, since Reset rebuilds the landing scope from it.
+    // (It is a `staleTime: Infinity` cache entry settled before this component
+    // mounted, so it does not churn this callback.)
+  }, [options, searchParams, setSearchParams])
 
   // The per-column filter row (the WPF's `ShowAutoFilterRow`) — ON by default.
   const [showFilters, setShowFilters] = useState(true)
@@ -169,7 +205,11 @@ function CollectionsBody() {
   // "Filtered" is about the ISSUED query, not the draft: the chip's job is to say
   // that the grid is no longer showing today, and the grid shows the result of the
   // last Search. Reset is its ✕.
-  const isFiltered = !isLandingQuery(buildCollectionsParams(appliedCriteria), today)
+  // 🚩 …and the landing query it is measured against CARRIES THE DEFAULT SCOPE
+  // (1165). Compared with an unscoped landing, the chip would be lit on mount for
+  // every finance user, over a grid showing exactly what the screen chose to show
+  // them — the chip saying the opposite of the truth.
+  const isFiltered = !isLandingQuery(buildCollectionsParams(appliedCriteria), today, options)
   const capReached = isCapReached(rows.length, COLLECTIONS_LIMIT)
 
   // ---- the export (ticket 258) ----

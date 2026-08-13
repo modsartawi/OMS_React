@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { collectionApi } from './api'
+import { assignmentOptionsQuery } from './api'
 import {
   NO_SERVED_BY,
   SERVED_BY_KINDS,
+  defaultSelection,
   resolvedKinds,
   servedByGroups,
   type ServedByKind,
@@ -37,14 +38,6 @@ export interface ServedByPickerProps {
   disabled?: boolean
 }
 
-/**
- * The one cache key every screen's picker shares, so a user moving between the four
- * screens costs one request and not four. Spelled once for the same reason
- * `COLLECTION_ACCESS_KEY` is: a typo in a literal would not fail a build, it would
- * silently split the cache entry.
- */
-export const ASSIGNMENT_OPTIONS_KEY = ['collection', 'assignment-options'] as const
-
 /** The separator between the Kind and the id in an <option> value. Staff ids are
  *  numeric and Kinds are upper-case words, so a colon cannot appear in either. */
 const SEP = ':'
@@ -57,15 +50,11 @@ export default function ServedByPicker({
 }: ServedByPickerProps) {
   const { t } = useTranslation('collection')
 
-  const { data, isPending } = useQuery({
-    queryKey: ASSIGNMENT_OPTIONS_KEY,
-    queryFn: () => collectionApi.assignmentOptions(),
-    // The roster does not change inside a page life, and an unreachable sink is the
-    // same failure class the grid beside it already shows on a read: the picker is
-    // simply empty. No retry storm over a filter.
-    staleTime: Infinity,
-    retry: false,
-  })
+  // The one shared key+options (in `api.ts`, beside the access probe's), so a user
+  // moving between the four screens costs one request and not four — and so the
+  // page that lands on `defaultScope` reads the very same cache entry this picker
+  // renders from, rather than a second copy that could disagree with it.
+  const { data, isPending } = useQuery(assignmentOptionsQuery())
 
   // The per-screen contract decides which groups belong here; the screen's own
   // resolved list then drops any Kind its READING cannot answer yet. Both are data —
@@ -75,6 +64,14 @@ export default function ServedByPicker({
   const groups = servedByGroups(screen, data).filter((group) => resolved.includes(group.kind))
   const offersUnassigned = resolved.includes(SERVED_BY_KINDS.unassigned)
   const selected = value.kind === '' ? '' : `${value.kind}${SEP}${value.id}`
+
+  // The caller's own landing scope (1165) — their branches AND their reports'. It is
+  // rendered as a first-class option, above everything else, because the screen
+  // OPENS on it: a selection the control could not display would be a grid claiming
+  // a scope with a blank filter box beside it. `defaultSelection` re-checks the
+  // screen's reading, so a screen whose arms are unbuilt never offers it.
+  const mine = defaultSelection(screen, data)
+  const mineName = (data?.defaultScope?.displayName ?? '').trim()
 
   return (
     <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
@@ -98,6 +95,20 @@ export default function ServedByPicker({
             finding aid, never a permission. Anyone who can open this screen may look
             at any branch, and the widen control is never locked. */}
         <option value="">{isPending ? t('servedBy.loading') : t('servedBy.all')}</option>
+
+        {/* 🚩 The landing scope, FIRST and outside the groups — it is a question
+            about the person looking, not one of the roster's people to pick. It sits
+            beside "Everyone" rather than replacing it: widening is always one click
+            and never refused, because this is a finding aid and not a permission. */}
+        {mine.kind !== '' && (
+          <option value={`${mine.kind}${SEP}${mine.id}`} title={t('servedBy.mineHint')}>
+            {/* ⚠️ Name-less when the caller is on no roster row of their own — somebody's
+                supervisor and nothing else. The roster's `DisplayName` is the only place
+                these people's names live, so there is nothing to fall back to, and a bare
+                staff id in the caption ("My branches — 15493") reads as a bug. */}
+            {mineName === '' ? t('servedBy.mineNoName') : t('servedBy.mine', { name: mineName })}
+          </option>
+        )}
 
         {groups.map((group) => (
           <optgroup key={group.kind} label={t(`servedBy.groups.${group.kind}`)}>

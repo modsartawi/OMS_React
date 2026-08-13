@@ -80,6 +80,29 @@ export function collectionAccessQuery() {
 }
 
 /**
+ * The ONE cache key and options the *Served by* picker and every screen that lands
+ * on its `defaultScope` share (BackOffice 1163 for the picker, 1165 for the
+ * landing), on `collectionAccessQuery`'s shape and for its reasons: react-query
+ * merges concurrent observers' options, so the key and its options travel together
+ * rather than being re-spelled per consumer.
+ *
+ * `staleTime: Infinity` because the roster does not change inside a page life;
+ * `retry: false` because an unreachable sink is the same failure class the grid
+ * beside it already shows on a read — the picker is simply empty and the screen
+ * lands unscoped. No retry storm over a filter.
+ */
+export const ASSIGNMENT_OPTIONS_KEY = ['collection', 'assignment-options'] as const
+
+export function assignmentOptionsQuery() {
+  return {
+    queryKey: ASSIGNMENT_OPTIONS_KEY,
+    queryFn: () => collectionApi.assignmentOptions(),
+    staleTime: Infinity,
+    retry: false,
+  } as const
+}
+
+/**
  * The probe's four predicates, one per screen (244 §10).
  *
  * `=== true` and nothing looser, so a malformed answer (`{}`, `null`, a string
@@ -153,6 +176,12 @@ export const collectionApi = {
    * the 8 accountants exists in `Staff` / `UaEmployee` / `UaUser`, so there is no
    * master to resolve them against — which is also why this is one server-side read
    * rather than a join across two databases.
+   *
+   * 🚩 **The payload also carries `defaultScope`** — who the CALLER is on that
+   * roster, and therefore the scope the screen opens on (BackOffice 1165). It is a
+   * default selection for the control, never a filter this door applied: the screen
+   * lands the picker on it and sends the ordinary pair, and `null` (no roster row)
+   * means the screen opens on the estate exactly as it did before.
    */
   assignmentOptions(): Promise<AssignmentOptions> {
     return api.get<AssignmentOptions>('CollectionWeb/AssignmentOptions')

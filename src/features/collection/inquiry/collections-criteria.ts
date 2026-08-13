@@ -18,8 +18,9 @@
 import { toIsoDate } from '@/core/util/date-format'
 import { GRID_LIMIT } from './cap'
 import {
-  NO_SERVED_BY,
   buildServedByParams,
+  defaultSelection,
+  type AssignmentOptions,
   type ServedBySelection,
 } from './served-by'
 
@@ -85,14 +86,23 @@ export const COLLECTIONS_LIMIT = GRID_LIMIT
  * Known cost, accepted: at 9am today is nearly empty, and yesterday's closures are
  * one date edit away.
  */
-export function landingCriteria(today: Date): CollectionsCriteria {
+export function landingCriteria(
+  today: Date,
+  options?: Partial<AssignmentOptions>,
+): CollectionsCriteria {
   const day = toIsoDate(today)
   return {
     fromDate: day,
     toDate: day,
     storeId: '',
     collectorOperatorId: '',
-    servedBy: NO_SERVED_BY,
+    // 🚩 **Default-to-mine** (BackOffice 1165). The screen opens already scoped to
+    // the caller's own branches and their reports' — and `options` is passed rather
+    // than read here, so this stays pure and the landing state is testable rather
+    // than only observable. Undefined (the payload has not arrived, the sink was
+    // unreachable, or the caller is on no roster row) lands on the estate, which is
+    // exactly how this screen behaved before the control existed.
+    servedBy: defaultSelection('collections', options),
   }
 }
 
@@ -107,8 +117,17 @@ export function landingCriteria(today: Date): CollectionsCriteria {
  * saying the opposite of the truth. (BBY Inquiry compares the applied query to its
  * own default for the same reason.)
  */
-export function isLandingQuery(params: Record<string, unknown>, today: Date): boolean {
-  const landing = buildCollectionsParams(landingCriteria(today))
+export function isLandingQuery(
+  params: Record<string, unknown>,
+  today: Date,
+  options?: Partial<AssignmentOptions>,
+): boolean {
+  // 🚩 The landing query now CARRIES A SCOPE for most finance users (1165), so the
+  // comparison has to be made against the same default the screen actually opened
+  // on — the caller's, not "no scope". Measured against an unscoped landing, the
+  // chip would light on mount for every scoped user and its ✕ (Reset) would put
+  // the scope straight back, which is the chip saying the opposite of the truth.
+  const landing = buildCollectionsParams(landingCriteria(today, options))
   const keys = Object.keys(landing)
   if (Object.keys(params).length !== keys.length) return false
   return keys.every((key) => params[key] === landing[key])

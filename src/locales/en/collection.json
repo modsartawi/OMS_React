@@ -22,6 +22,9 @@
     "loading": "Loading people…",
     "unassigned": "Unassigned",
     "unassignedHint": "Branches nobody is assigned to",
+    "mine": "My branches — {{name}}",
+    "mineNoName": "My branches",
+    "mineHint": "The branches you serve, and your team's",
     "groups": {
       "ACCOUNTANT": "Accountants",
       "COLLECTOR": "Collectors",

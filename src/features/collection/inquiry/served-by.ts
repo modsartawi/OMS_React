@@ -32,6 +32,19 @@ export const SERVED_BY_KINDS = {
   collector: 'COLLECTOR',
   supervisor: 'SUPERVISOR',
   unassigned: 'UNASSIGNED',
+  /**
+   * The landing scope (BackOffice 1165) — a person's **own** branches *plus* their
+   * one-level reports', on both sides of the pairing.
+   *
+   * ⚠️ **Not `SUPERVISOR`.** That Kind deliberately excludes self ("whose team is
+   * this" is a different question from "whose branches are these"), so landing a
+   * supervisor who also serves branches on it would silently drop their own.
+   *
+   * 🚩 It takes an id like every other Kind. Whose "mine" is being asked about is
+   * the user's choice, not the cookie's — which is exactly what keeps the landing
+   * scope a **default** rather than a boundary.
+   */
+  mine: 'MINE',
 } as const
 
 export type ServedByKind = (typeof SERVED_BY_KINDS)[keyof typeof SERVED_BY_KINDS]
@@ -42,11 +55,31 @@ export interface AssignmentPerson {
   displayName: string
 }
 
-/** The endpoint's whole payload: three groups, always all three. */
+/**
+ * The caller's own landing scope, as the endpoint resolves it from the finance
+ * roster — or `null` for the ~7,600 users with no roster row, who open on the
+ * estate exactly as they do today.
+ *
+ * 🚩 **It is a default SELECTION, not a filter the server applied.** The screen
+ * lands the control on it and then sends the ordinary `ServedByKind`/`ServedById`
+ * pair like any other pick, so the toolbar always shows the scope the query
+ * actually carries — and widening away from it is one click the server never
+ * refuses. It is emphatically **not** an authorization boundary (spec D9).
+ */
+export interface ServedByDefaultScope {
+  kind: ServedByKind
+  staffId: string
+  /** The roster's own `DisplayName` — the only place these people's names live. */
+  displayName: string
+}
+
+/** The endpoint's whole payload: three groups, always all three, plus the caller's
+ *  own landing scope (`null` when they are on no roster row). */
 export interface AssignmentOptions {
   accountants: AssignmentPerson[]
   collectors: AssignmentPerson[]
   supervisors: AssignmentPerson[]
+  defaultScope?: ServedByDefaultScope | null
 }
 
 /**
@@ -144,6 +177,11 @@ export const RESOLVED_KINDS_BY_READING: Record<ServedByReading, ServedByKind[]> 
     SERVED_BY_KINDS.collector,
     SERVED_BY_KINDS.supervisor,
     SERVED_BY_KINDS.unassigned,
+    // 1165's landing scope. It is in this list for the same reason as the rest — a
+    // screen may only offer, or LAND ON, a Kind its reading can answer — which is
+    // what makes `defaultSelection` fall back to the estate on the two collected-by
+    // screens rather than landing them on a pick the server still 500s.
+    SERVED_BY_KINDS.mine,
   ],
   // ⚠️ ACCOUNTANT is absent here permanently, not pending: a document records who
   // COLLECTED and an accountant never collects, so the server refuses it by design
@@ -170,6 +208,42 @@ export function servedByGroups(
   groups.push({ kind: SERVED_BY_KINDS.supervisor, people: options?.supervisors ?? [] })
 
   return groups.filter((group) => group.people.length > 0)
+}
+
+/**
+ * **Default-to-mine** (BackOffice 1165): the selection a screen should OPEN on.
+ *
+ * A finance user opens Cash Collections and the grid is already scoped to them,
+ * with the control showing why and one click away from widening. The scope itself
+ * is the server's union — the caller's own branches plus their one-level reports'
+ * — which is the only reading where a **pure supervisor** (serving nothing,
+ * supervising three) does not open an unfiltered 1394-row screen.
+ *
+ * Three ways it comes back as "nothing picked", all of them the estate and none of
+ * them an error:
+ *
+ * - the caller is on **no roster row** (the ~7,600 case — the roster covers 16
+ *   people out of finance, and everyone else must see the estate exactly as they
+ *   do today);
+ * - the payload has not arrived yet, or the sink was unreachable — an unscoped
+ *   landing is the safe failure here, because a scope the user cannot see is worse
+ *   than none;
+ * - the screen's **reading cannot answer the Kind** — the two collected-by screens,
+ *   whose arms are 1167's and 1168's. Landing them on a pick the server refuses
+ *   would break the screen on mount.
+ */
+export function defaultSelection(
+  screen: ServedByScreen,
+  options: Partial<AssignmentOptions> | undefined,
+): ServedBySelection {
+  const scope = options?.defaultScope
+  if (!scope) return NO_SERVED_BY
+
+  const kind = (scope.kind ?? '') as ServedByKind
+  const id = (scope.staffId ?? '').trim()
+  if (id === '' || !resolvedKinds(screen).includes(kind)) return NO_SERVED_BY
+
+  return { kind, id }
 }
 
 /**

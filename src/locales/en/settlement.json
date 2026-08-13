@@ -179,6 +179,65 @@
       }
     }
   },
+  "correction": {
+    "title": "Correcting a mistake",
+    "forEntry": "Entry {{number}}",
+    "noAmend": "Changing the amount is not offered at all. Once posted, an entry is either withdrawn whole while nothing has been taken against it, or its remainder written off once a till has taken part of it.",
+    "journalUntouched": "Neither act touches what a till has already taken — the journal below is unchanged by a write-off, and a receipt already in a collector's hands is never retro-voided.",
+    "reasonLabel": "Why (the audit reads this)",
+    "reasonHint": "Up to {{max}} characters. It is kept beside the correction in this branch's history, and read by whoever asks about this entry months from now.",
+    "back": "Back",
+    "dismiss": "Read it — show me what I can do",
+    "cancel": {
+      "why": "Nothing has been taken against entry {{number}}, so all {{amount}} of it can be withdrawn as though it never happened.",
+      "button": "Cancel this entry",
+      "commit": "Cancel entry {{number}}"
+    },
+    "writeOff": {
+      "why": "A till has already taken part of entry {{number}} — {{remaining}} of {{amount}} is left. It cannot be cancelled, because what a till took is on a document the branch already acted on. The remainder can be written off instead.",
+      "button": "Write off the remaining {{remaining}}",
+      "commit": "Write off {{remaining}}"
+    },
+    "none": {
+      "consumed": "A till has taken all of this entry. There is nothing left to cancel or write off — it is finished, and its journal below says where the money went.",
+      "cancelled": "This entry was cancelled. Nothing had been taken against it, so it was withdrawn as though it never happened, and it is not corrected twice.",
+      "written-off": "This entry's remainder was already written off. What a till took before that is unchanged, and an entry is not corrected twice.",
+      "nothing-left": "This entry has nothing left on it, so there is nothing to cancel or to write off."
+    },
+    "raced": {
+      "partlyConsumed": "A till consumed part of this entry while this was open — {{remaining}} is left, not {{amount}}. It can no longer be cancelled as though it never happened. Write off the rest instead?",
+      "nothingLeft": "A till consumed all of entry {{number}} while this was open. There is nothing left to cancel or to write off — the entry is finished, and the journal below shows what took it.",
+      "refused": "The server would not cancel this entry, and its remaining has not changed. Read the journal below before deciding what to do next.",
+      "closeOutRefused": "The remainder was not written off. The server says {{remaining}} is what this entry now has left — read the journal below before deciding what to do next.",
+      "closeOutUnstated": "The remainder was not written off, and the server did not say what this entry now has left. Read the journal below before deciding what to do next."
+    },
+    "done": {
+      "cancelled": "Entry {{number}} is cancelled.",
+      "writtenOff": "Entry {{number}}'s remainder is written off. What a till already took is unchanged."
+    },
+    "errors": {
+      "cancelFailed": "The cancellation could not be sent.",
+      "closeOutFailed": "The write-off could not be sent."
+    }
+  },
+  "audit": {
+    "title": "Everything that has happened to this entry",
+    "forEntry": "Entry {{number}}",
+    "localTime": "Times are the branch's own local clock, as the server wrote them — nothing on this pane is converted, and nothing is read from the administration audit, whose times are UTC.",
+    "left": "{{amount}} left on the entry",
+    "kind": {
+      "posted": "Posted",
+      "consumed": "Taken by a till",
+      "restored": "Given back",
+      "cancelled": "Cancelled",
+      "written-off": "Remainder written off"
+    },
+    "where": {
+      "store": "from branch {{store}}",
+      "person": "by {{name}}",
+      "staff": "by staff {{id}}"
+    }
+  },
   "post": {
     "open": "Post an entry",
     "openForBranch": "Post an entry on this branch",

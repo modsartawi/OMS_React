@@ -318,6 +318,43 @@ export type SettlementPostResult = {
 }
 
 /**
+ * What `Settlement/Cancel` answers — ticket 272's first correction, and D8's shape
+ * unchanged.
+ *
+ * 🔑 **`accepted: false` is a 200, and it is the case this contract exists for.**
+ * The server's `remaining == amount` predicate sits *inside* its UPDATE, so a till
+ * that consumed a millisecond earlier wins the race — and the honest report is not
+ * an error but a **new remaining**, on which the write-off is offered instead.
+ * Rendering that as a failure would teach an accountant to distrust a screen that is
+ * working exactly as designed (spec 267 D5).
+ *
+ * ⚠️ `remainingAmount` is therefore **the server's own figure at the moment of the
+ * refusal**, not the one the screen was drawn with. It is the only trustworthy
+ * number on the screen once a race has been lost, and `correction.ts` recomputes
+ * the whole affordance from it rather than patching the old one.
+ */
+export type SettlementCancelResult = {
+  accepted: boolean
+  /** The server's words for why, passed through as data. `''` when accepted. */
+  refusalReason: string
+  remainingAmount: number
+}
+
+/**
+ * What `Settlement/CloseOut` answers — the write-off, D8's shape unchanged.
+ *
+ * ⚠️ **D8 gives it two fields and no `refusalReason`**, unlike cancel and repair.
+ * That asymmetry is transcribed rather than tidied: inventing a third field here
+ * would be this screen assuming a wire it has not seen. A refused close-out
+ * therefore reads through the namespace's own sentence, and the gap is logged in
+ * `.afk/HITL-272.md` for 274 to settle against a live SIS.Api.
+ */
+export type SettlementCloseOutResult = {
+  accepted: boolean
+  remainingAmount: number
+}
+
+/**
  * What `Settlement/Repair` answers.
  *
  * 🔑 **`noOp` is not a failure.** The server's repair is predicated on the

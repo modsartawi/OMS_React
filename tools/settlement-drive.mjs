@@ -94,6 +94,26 @@ let repairCalls = []
  *  minted for them. An entry number is the handle finance settles by on the phone. */
 let postCalls = []
 let nextEntryNumber = 900
+/** Ticket 272's two corrections, and 🔑 **the entry whose cancel LOSES the race**:
+ *  0142/143 is untouched on the fixture, so the screen offers *Cancel* — and a till
+ *  consumes 150 of it a millisecond before the button lands. */
+let cancelCalls = []
+let closeOutCalls = []
+const RACE_ENTRY = '01J9SETL0142A'
+/** …and the entry whose cancel is refused for a reason that is **not** this race:
+ *  the remaining does not move, so there is nothing to write off instead and the
+ *  screen must offer NOTHING rather than the same button again. */
+const REFUSE_ENTRY = '01J9SETL0207B'
+
+/** One entry across the six branches, with the account it belongs to — the stub
+ *  writes through to the fixture so a refetch agrees with the answer it just gave. */
+function findEntry(settlementEntryId) {
+  for (const account of Object.values(ACCOUNTS)) {
+    const entry = account.entries.find((e) => e.settlementEntryId === settlementEntryId)
+    if (entry) return { account, entry }
+  }
+  return null
+}
 
 async function run() {
   const browser = await chromium.launch()
@@ -188,6 +208,83 @@ async function run() {
           },
         ]
       return route.fulfill(envelope({ entryNumber, settlementEntryId, amount }))
+    }
+    // ---- ticket 272: the two corrections ----
+    // 🔑 **A refusal is a 200 with a true remaining, never an error**, exactly as
+    // the till's own consume is (D8). The stub therefore has to be able to LOSE the
+    // race on demand — the live estate cannot be asked to consume an entry between a
+    // list being drawn and a button being pressed, which is precisely why spec 267
+    // forbids repointing this drive at live.
+    if (path === 'Settlement/Cancel') {
+      const body = route.request().postDataJSON() || {}
+      cancelCalls.push(body)
+      const found = findEntry(body.settlementEntryId)
+      if (body.settlementEntryId === RACE_ENTRY) {
+        // A till consumed 150 of the 500 a millisecond before this call landed. The
+        // fixture moves with the refusal, so the refetch underneath agrees with the
+        // figure the refusal carried — a stub that refused without moving would let
+        // a screen that ignored the answer still look right.
+        if (found && found.entry.remainingAmount === found.entry.amount) {
+          found.entry.remainingAmount = 350
+          found.account.consumptions.push({
+            settlementConsumptionId: '01J9SCON0142A9',
+            settlementEntryId: RACE_ENTRY,
+            consumptionKind: 'CONSUME',
+            storeId: '0142',
+            amount: 150,
+            remainingAfter: 350,
+            documentType: 'SPECIAL_RECEIPT',
+            documentId: 'SR01420021',
+            documentNumber: 'SR-0142-0021',
+            businessDay: '2026-08-13',
+            consumedByOperatorId: '41207',
+            consumedAt: '2026-08-13T08:58:00',
+          })
+        }
+        return route.fulfill(
+          envelope({
+            accepted: false,
+            refusalReason: 'A till consumed part of this entry.',
+            remainingAmount: 350,
+          }),
+        )
+      }
+      // A refusal whose remaining did NOT move — not this race, and not an act the
+      // screen may offer again unchanged.
+      if (body.settlementEntryId === REFUSE_ENTRY)
+        return route.fulfill(
+          envelope({
+            accepted: false,
+            refusalReason: 'This entry belongs to a batch that is being cancelled.',
+            remainingAmount: found?.entry.remainingAmount ?? 0,
+          }),
+        )
+      if (found) {
+        found.entry.status = 'CANCELLED'
+        found.entry.closedByStaffId = '30117'
+        found.entry.closedAt = '2026-08-13T09:20:00'
+        found.entry.closedReason = body.reason
+      }
+      return route.fulfill(
+        envelope({ accepted: true, refusalReason: '', remainingAmount: found?.entry.amount ?? 0 }),
+      )
+    }
+    if (path === 'Settlement/CloseOut') {
+      const body = route.request().postDataJSON() || {}
+      closeOutCalls.push(body)
+      const found = findEntry(body.settlementEntryId)
+      const forgiven = found?.entry.remainingAmount ?? 0
+      if (found) {
+        // 🚩 The write-off touches NO consumption — the journal array is not
+        // read here, let alone written. That is the property the screen shows by
+        // leaving the journal on screen under the act.
+        found.entry.status = 'CLOSED_OUT'
+        found.entry.remainingAmount = 0
+        found.entry.closedByStaffId = '30117'
+        found.entry.closedAt = '2026-08-13T09:25:00'
+        found.entry.closedReason = body.reason
+      }
+      return route.fulfill(envelope({ accepted: true, remainingAmount: forgiven }))
     }
     if (path === 'Settlement/Repair') {
       const body = route.request().postDataJSON() || {}
@@ -877,6 +974,256 @@ async function run() {
   await openPost()
   check('🚩 271’s keys are all registered — no raw t() key in the form', !/settlement:|\bpost\.|\bwords\./.test(await dialogText()))
   await page.keyboard.press('Escape')
+
+  // ═══ Ticket 272 — one button corrects, and the audit reads as one column of time ═
+  //
+  // 🔑 The whole ticket is *which single affordance an entry shows*, and every check
+  // below is therefore paired: the button that must be there, and the one that must
+  // NOT be beside it. A menu offering both is the failure this slice exists to make
+  // impossible.
+  const correctionRegion = () => page.locator('[data-region="entry-correction"]')
+  const correctionKind = async () => correctionRegion().getAttribute('data-correction')
+  const actButtons = async () => page.locator('[data-testid="correction-act"]').count()
+  const actKind = async () => page.locator('[data-testid="correction-act"]').getAttribute('data-act')
+  const correctionText = async () => correctionRegion().innerText()
+  const journalRows = async () => page.locator('[data-region="entry-journal"] tbody tr').count()
+  const auditFacts = async () => page.locator('[data-region="entry-audit"] li').all()
+  const auditKinds = async () =>
+    Promise.all((await auditFacts()).map((li) => li.getAttribute('data-fact')))
+  const auditText = async () => page.locator('[data-region="entry-audit"]').innerText()
+
+  // ---- an untouched entry offers ONLY Cancel ----
+  await openAccount('0688')
+  await selectEntry('01J9SETL0688C') // 95.250 of 95.250 — nothing taken
+  check(
+    '🔑 272 → an untouched entry offers ONLY Cancel',
+    (await correctionKind()) === 'cancel' &&
+      (await actButtons()) === 1 &&
+      (await actKind()) === 'cancel' &&
+      !(await correctionText()).includes('Write off'),
+    await correctionKind(),
+  )
+  check(
+    '272 → …and says WHY it can be withdrawn whole, in the branch’s own currency',
+    (await correctionText()).includes('95.250') && (await correctionText()).includes('as though it never happened'),
+  )
+  check(
+    '⚠️ “changing the amount is not offered at all”, said out loud beside the button',
+    (await page.locator('[data-testid="correction-no-amend"]').innerText()).includes(
+      'Changing the amount is not offered at all',
+    ),
+  )
+
+  // ---- a partly consumed entry offers ONLY the write-off ----
+  await openAccount('0142')
+  await selectEntry('01J9SETL0142B') // 120.00 of 320.00 — a till took 200
+  check(
+    '🔑 272 → a partly consumed entry offers ONLY the write-off, with the remaining on it',
+    (await correctionKind()) === 'write-off' &&
+      (await actButtons()) === 1 &&
+      (await actKind()) === 'write-off' &&
+      (await page.locator('[data-testid="correction-act"]').innerText()).includes('Write off the remaining 120.00') &&
+      !(await correctionText()).includes('Cancel this entry'),
+    await page.locator('[data-testid="correction-act"]').innerText(),
+  )
+  check(
+    '🔑 …with the reason it cannot be cancelled BESIDE it — an answer, not a missing button',
+    (await page.locator('[data-testid="correction-why"]').innerText()).includes('cannot be cancelled') &&
+      (await page.locator('[data-testid="correction-why"]').innerText()).includes('120.00 of 320.00'),
+  )
+
+  // ---- 🔑 the journal stays on screen UNDER the act ----
+  const journalBefore = await journalRows()
+  await page.locator('[data-testid="correction-act"]').click()
+  await appears('[data-testid="correction-reason"]')
+  check(
+    '🔑 the journal is VISIBLE DURING the correction — the act is a panel above it, not a modal',
+    (await page.locator('[data-region="entry-journal"]').isVisible()) &&
+      (await journalRows()) === journalBefore &&
+      (await page.locator('dialog').count()) === 0,
+  )
+  await page.locator('[data-testid="correction-reason"]').fill('Finance wrote the rest off — August settlement.')
+  await page.locator('[data-testid="correction-commit"]').click()
+  await page.waitForTimeout(600)
+  check(
+    '272 → the write-off posts the entry id and the reason typed',
+    closeOutCalls.length === 1 &&
+      closeOutCalls[0].settlementEntryId === '01J9SETL0142B' &&
+      closeOutCalls[0].reason.startsWith('Finance wrote the rest off'),
+    JSON.stringify(closeOutCalls[0] ?? {}),
+  )
+  check(
+    '🔑 …and the journal is UNCHANGED after it — a write-off touches no consumption',
+    (await journalRows()) === journalBefore,
+    `${journalBefore} → ${await journalRows()}`,
+  )
+  check(
+    '272 → …the entry now reads as written off, and offers no correction at all',
+    (await mainText()).includes('Remainder written off') && (await actButtons()) === 0,
+  )
+
+  // ---- a CANCELLED and a CLOSED_OUT entry offer NOTHING ----
+  await openAccount('0688')
+  await selectEntry('01J9SETL0688B') // CANCELLED
+  check(
+    '🔑 a CANCELLED entry offers NO correction button at all',
+    (await correctionKind()) === 'none' &&
+      (await actButtons()) === 0 &&
+      (await page.locator('[data-testid="correction-none"]').innerText()).includes('was cancelled'),
+  )
+  await selectEntry('01J9SETL0688A') // CLOSED_OUT
+  check(
+    '🔑 a CLOSED_OUT entry offers NO correction button either',
+    (await correctionKind()) === 'none' &&
+      (await actButtons()) === 0 &&
+      (await page.locator('[data-testid="correction-none"]').innerText()).includes('already written off'),
+  )
+  check(
+    '⚠️ …and the no-amend sentence is on the stateless states too',
+    (await correctionText()).includes('Changing the amount is not offered at all'),
+  )
+  await openAccount('0207')
+  await selectEntry('01J9SETL0207A') // CONSUMED
+  check(
+    '272 → a CONSUMED entry offers none either — a till took all of it',
+    (await correctionKind()) === 'none' && (await actButtons()) === 0,
+  )
+
+  // ---- 🔑 THE RACE: the load-bearing bullet of this ticket ----
+  // 0142/143 is untouched, so the screen offers Cancel — and the stub has a till
+  // consuming 150 of it a millisecond earlier. The refusal is a 200.
+  await openAccount('0142')
+  await selectEntry('01J9SETL0142A')
+  check('🔑 the raced entry starts by offering Cancel', (await actKind()) === 'cancel')
+  cancelCalls = []
+  await page.locator('[data-testid="correction-act"]').click()
+  await page.locator('[data-testid="correction-reason"]').fill('Posted onto the wrong branch.')
+  await page.locator('[data-testid="correction-commit"]').click()
+  await appears('[data-testid="correction-race"]')
+  check(
+    '🔑 a cancel that LOST the race renders the recovery with the NEW remaining',
+    (await page.locator('[data-testid="correction-race"]').innerText()).includes('A till consumed part of this entry') &&
+      (await page.locator('[data-testid="correction-race"]').innerText()).includes('350.00'),
+    (await page.locator('[data-testid="correction-race"]').innerText()).replace(/\n/g, ' '),
+  )
+  check(
+    '🔑 …and it is NEVER an error toast — nothing on screen says the act failed',
+    !(await page.locator('body').innerText()).includes('could not be sent') &&
+      (await page.locator('[data-testid="correction-race"]').count()) === 1,
+  )
+  check(
+    '🔑 …and the write-off is now IN REACH, in place of the cancel',
+    (await actKind()) === 'write-off' &&
+      (await actButtons()) === 1 &&
+      (await page.locator('[data-testid="correction-act"]').innerText()).includes('350.00'),
+    await page.locator('[data-testid="correction-act"]').innerText(),
+  )
+  closeOutCalls = []
+  await page.locator('[data-testid="correction-act"]').click()
+  // 🔑 The words go with the ACT, not with the entry: "posted onto the wrong branch"
+  // is why someone wanted to CANCEL, and filing it against the write-off that
+  // actually happened would put a reason nobody chose into the branch's history.
+  check(
+    '🔑 …with an EMPTY reason box — the cancel’s words do not ride into the write-off',
+    (await page.locator('[data-testid="correction-reason"]').inputValue()) === '',
+    await page.locator('[data-testid="correction-reason"]').inputValue(),
+  )
+  await page.locator('[data-testid="correction-reason"]').fill('A till took part of it first; writing the rest off.')
+  await page.locator('[data-testid="correction-commit"]').click()
+  await page.waitForTimeout(600)
+  check(
+    '🔑 …and the write-off COMPLETES from there',
+    closeOutCalls.length === 1 &&
+      closeOutCalls[0].settlementEntryId === RACE_ENTRY &&
+      (await mainText()).includes('Remainder written off'),
+    JSON.stringify(closeOutCalls[0] ?? {}),
+  )
+
+  // 🚩 …and the OTHER refusal: one whose remaining did not move. There is nothing
+  // to write off instead, so the screen must offer NOTHING — re-drawing the same
+  // Cancel button under a notice saying it was refused is the press-refuse-press
+  // loop `correction.ts` forbids.
+  await openAccount('0207')
+  await selectEntry('01J9SETL0207B')
+  await page.locator('[data-testid="correction-act"]').click()
+  await page.locator('[data-testid="correction-reason"]').fill('Withdrawing — posted in error.')
+  await page.locator('[data-testid="correction-commit"]').click()
+  await appears('[data-testid="correction-race"]')
+  check(
+    '🚩 a refusal that did NOT move the remaining offers no button at all',
+    (await actButtons()) === 0 &&
+      (await correctionKind()) === 'none' &&
+      (await page.locator('[data-testid="correction-race"]').innerText()).includes(
+        'belongs to a batch',
+      ),
+    await correctionText(),
+  )
+  check(
+    '🚩 …and it is still not an error surface — the server’s own words, on a notice',
+    !(await page.locator('body').innerText()).includes('could not be sent') &&
+      !(await correctionText()).includes('Cancel this entry'),
+  )
+  // 🚩 …and there is a way BACK. Refusing to re-offer the act is right; stranding
+  // the accountant on an entry that is still OPEN and still correctable is not.
+  await page.locator('[data-testid="correction-dismiss"]').click()
+  await page.waitForTimeout(120)
+  check(
+    '🚩 …and dismissing the notice brings the affordance back — refused is not stranded',
+    (await actButtons()) === 1 &&
+      (await actKind()) === 'cancel' &&
+      (await page.locator('[data-testid="correction-race"]').count()) === 0,
+    await correctionKind(),
+  )
+
+  // ---- the audit pane: one ordered column of local-time facts ----
+  await openAccount('0455')
+  await selectEntry('01J9SETL0455A')
+  check(
+    '🔑 the audit pane orders posting, consumption and void by their own local times',
+    JSON.stringify(await auditKinds()) ===
+      JSON.stringify(['posted', 'consumed', 'consumed', 'restored', 'consumed']),
+    JSON.stringify(await auditKinds()),
+  )
+  check(
+    '🔑 …renders the STORE CODE for a consumption and the POSTER’S NAME for a posting',
+    (await auditText()).includes('from branch 0455') && (await auditText()).includes('by هدى القحطاني / Huda Al-Qahtani'),
+  )
+  check(
+    '🔑 …and a REVERSE reads as a RESTORATION here too, consistent with the journal',
+    (await page.locator('[data-region="entry-audit"] li[data-fact="restored"]').count()) === 1 &&
+      (await page.locator('[data-region="entry-audit"] li[data-fact="restored"]').innerText()).includes('Given back'),
+  )
+  check(
+    '⚠️ …and the pane names WHICH CLOCK, because nothing on screen otherwise could',
+    (await auditText()).includes("branch's own local clock") && (await auditText()).includes('UTC'),
+  )
+  check(
+    '⚠️ …with no address and no IP anywhere on it — a desk is not a person',
+    !/\d{1,3}(\.\d{1,3}){3}/.test(await auditText()),
+  )
+  await openAccount('0688')
+  await selectEntry('01J9SETL0688A')
+  check(
+    '🔑 a correction is a fact in the same column — the write-off AFTER the consumption it left standing',
+    JSON.stringify(await auditKinds()) === JSON.stringify(['posted', 'consumed', 'written-off']),
+    JSON.stringify(await auditKinds()),
+  )
+  check(
+    '272 → …with the closer’s staff id and the branch’s own reason, verbatim',
+    (await auditText()).includes('by staff 30117') && (await auditText()).includes('أُسقط الباقي'),
+  )
+  await openAccount('0331')
+  await selectEntry('01J9SETL0331A')
+  check(
+    '🔑 an undocumented consumption is named IN WORDS on the audit row too, not only in the journal',
+    (await auditText()).includes('No document — the close never completed'),
+  )
+
+  // ---- and the namespace, again, over 272's new copy ----
+  check(
+    '🚩 272’s keys are all registered — no raw t() key on either pane',
+    !/settlement:|\bcorrection\.|\baudit\./.test((await correctionText()) + (await auditText())),
+  )
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))
 

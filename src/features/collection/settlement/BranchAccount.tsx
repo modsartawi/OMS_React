@@ -27,6 +27,8 @@ import { settlementApi } from './api'
 import { ACCOUNT_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
 import Button from '@/core/ui/Button'
+import EntryAudit from './EntryAudit'
+import EntryCorrection from './EntryCorrection'
 import EntryJournal from './EntryJournal'
 import PostEntryDialog from './PostEntryDialog'
 
@@ -204,7 +206,14 @@ export default function BranchAccount({
             />
           </div>
 
+          {/* 🚩 The order of these three is the ticket's argument, not a layout
+              preference: the act, then the journal it does not touch, then the whole
+              history. 272 puts the correction ABOVE the journal so that *what a
+              write-off leaves alone* is on screen underneath the button while the
+              act is being performed — shown rather than asserted. */}
+          <EntryCorrection row={openRow} currencyKey={currencyKey} />
           <EntryJournal row={openRow} currencyKey={currencyKey} />
+          <EntryAudit row={openRow} currencyKey={currencyKey} />
         </>
       )}
 

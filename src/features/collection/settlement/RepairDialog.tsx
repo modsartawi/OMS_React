@@ -10,10 +10,10 @@ import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
 import { formatDateTime } from '@/core/util/date-format'
 import { settlementApi } from './api'
-/** What a reason may carry — the same 200 the posted entry's reason takes (D4), so
- *  an accountant never learns two limits for two boxes on one screen. It is one
- *  constant in `posting.ts` because two that must agree eventually will not. */
-import { REASON_MAX } from './posting'
+/** 🚩 The box itself, shared since 272 extracted it at its third copy — which is
+ *  also where the 200-character limit lives (`posting.ts`'s `REASON_MAX`, D4), so
+ *  an accountant never learns two limits for two boxes on one screen. */
+import ReasonField from './ReasonField'
 
 /**
  * **Repair** — the wrong-money lane's action, and 🚩 **the only write on this
@@ -116,22 +116,19 @@ export default function RepairDialog({
             all — which is the correct outcome and not a failed repair. */}
         <p className="text-xs text-muted-foreground">{t('repair.raceHint')}</p>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium">{t('repair.reasonLabel')}</span>
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            maxLength={REASON_MAX}
-            rows={3}
-            data-testid="repair-reason"
-            className="rounded-md border border-border bg-card p-2 text-sm outline-none focus:border-primary/60"
-          />
-          {/* The reason is required because the repair is an audit act — 272's pane
-              renders it in the branch's column of time, and *"repaired, no reason
-              given"* is a row that will be read months later by someone who was not
-              here. */}
-          <span className="text-xs text-muted-foreground">{t('repair.reasonHint')}</span>
-        </label>
+        {/* The reason is required because the repair is an audit act — 272's pane
+            renders it in the branch's column of time, and *"repaired, no reason
+            given"* is a row that will be read months later by someone who was not
+            here. 🚩 The control is `ReasonField`'s since 272 extracted it at its
+            third copy; this one gained `dir="auto"` in the move, which it should
+            have had all along (these reasons are routinely Arabic). */}
+        <ReasonField
+          value={reason}
+          onValue={setReason}
+          label={t('repair.reasonLabel')}
+          hint={t('repair.reasonHint')}
+          testId="repair-reason"
+        />
       </div>
     </Modal>
   )

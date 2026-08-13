@@ -23,6 +23,7 @@ import {
   standingPosition,
   type BranchResolution,
 } from './posting'
+import ReasonField from './ReasonField'
 
 /** The two kinds, in the order the toggle draws them. */
 const KINDS: readonly SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS']
@@ -259,7 +260,7 @@ export default function PostEntryDialog({
               currencyKey={currencyKey}
               hasBranch={!!branch}
             />
-            <ReasonField value={reason} onValue={setReason} />
+            <PostReasonField value={reason} onValue={setReason} />
           </>
         )}
       </div>
@@ -555,26 +556,18 @@ function AmountField({
  * The preview is `dir="auto"` because the reason is routinely Arabic and a
  * right-to-left sentence rendered left-to-right is a different sentence to read.
  */
-function ReasonField({ value, onValue }: { value: string; onValue: (next: string) => void }) {
+function PostReasonField({ value, onValue }: { value: string; onValue: (next: string) => void }) {
   const { t } = useTranslation('settlement')
 
   return (
     <div className="flex flex-col gap-2" data-region="post-reason">
-      <label className="flex flex-col gap-1">
-        <span className="text-xs font-medium">{t('post.reason.label')}</span>
-        <textarea
-          value={value}
-          onChange={(e) => onValue(e.target.value)}
-          maxLength={REASON_MAX}
-          rows={3}
-          dir="auto"
-          data-testid="post-reason"
-          className="rounded-md border border-border bg-card p-2 text-sm outline-none focus:border-primary/60"
-        />
-        <span className="text-xs text-muted-foreground">
-          {t('post.reason.hint', { max: REASON_MAX, used: value.length })}
-        </span>
-      </label>
+      <ReasonField
+        value={value}
+        onValue={onValue}
+        label={t('post.reason.label')}
+        hint={t('post.reason.hint', { max: REASON_MAX, used: value.length })}
+        testId="post-reason"
+      />
 
       <div className="rounded-lg border border-border/60 bg-card/40 p-3">
         <p className="text-xs font-medium text-muted-foreground">{t('post.reason.previewLabel')}</p>

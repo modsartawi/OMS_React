@@ -7,10 +7,10 @@
  *
  * 268 landed the surface — the screen's reading of its grant. 269 added the first
  * door that reads the ledger (one branch's account), 270 the three the door needs
- * plus the repair. **271 adds the first door that writes into the ledger:
- * `Settlement/Post`.** Cancel, close-out and the two bulk doors (spec 267 D8)
- * arrive with 272–273; the joining ticket 274 settles every route string against a
- * live SIS.Api.
+ * plus the repair. 271 added the first door that writes into the ledger
+ * (`Settlement/Post`), and **272 adds the two that correct it: `Settlement/Cancel`
+ * and `Settlement/CloseOut`.** The two bulk doors (spec 267 D7) arrive with 273;
+ * the joining ticket 274 settles every route string against a live SIS.Api.
  *
  * ⚠️ **There is no `Settlement/Access` probe and there must not be one.** The
  * settlement account is a **fifth grant on the Collections probe** (spec 267 D1),
@@ -24,6 +24,8 @@ import { api } from '@/core/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type {
   SettlementAccount,
+  SettlementCancelResult,
+  SettlementCloseOutResult,
   SettlementEntryKind,
   SettlementFleetRow,
   SettlementLedgerRow,
@@ -169,6 +171,44 @@ export const settlementApi = {
     reason: string
   }): Promise<SettlementPostResult> {
     return api.post<SettlementPostResult>('Settlement/Post', input)
+  },
+
+  /**
+   * `POST Settlement/Cancel` → withdraws an entry **as though it never happened**
+   * (ticket 272, spec 267 D5). Only lawful while nothing has been taken against it.
+   *
+   * 🔑 **A refusal is a 200, and it is the case this door is designed around.** The
+   * server's `remaining == amount` predicate sits *inside* its UPDATE, so a till
+   * that consumed a millisecond earlier wins — and what comes back is
+   * `accepted: false` with the **true remaining**, on which the screen offers the
+   * write-off instead. Nothing here throws on that: rendering a lost race as a
+   * failure teaches an accountant to distrust a screen that is working correctly.
+   *
+   * ⚠️ The screen decides *which* button from `correction.ts`, but this call is the
+   * only authority — the client's reading can be right at render time and stale by
+   * the time the button is pressed. That is why the refusal carries a figure rather
+   * than only a sentence.
+   */
+  cancel(settlementEntryId: string, reason: string): Promise<SettlementCancelResult> {
+    return api.post<SettlementCancelResult>('Settlement/Cancel', { settlementEntryId, reason })
+  },
+
+  /**
+   * `POST Settlement/CloseOut` → forgives the **remainder** of a partly consumed
+   * entry (ticket 272, spec 267 D5).
+   *
+   * 🚩 **It touches no consumption, and that is the load-bearing property.** A
+   * receipt already in a collector's hands is never retro-voided, so the journal
+   * under the act is unchanged by it — which the screen shows rather than asserts by
+   * leaving the journal on screen beneath the button.
+   *
+   * ⚠️ D8 gives the answer two fields and no `refusalReason` (unlike cancel and
+   * repair). The asymmetry is transcribed rather than tidied, and a refused
+   * close-out reads through the namespace's own sentence — logged in
+   * `.afk/HITL-272.md` for 274.
+   */
+  closeOut(settlementEntryId: string, reason: string): Promise<SettlementCloseOutResult> {
+    return api.post<SettlementCloseOutResult>('Settlement/CloseOut', { settlementEntryId, reason })
   },
 
   /**

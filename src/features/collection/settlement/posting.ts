@@ -50,6 +50,19 @@ export const REASON_MAX = 200
  * branch — and the failure is invisible, because *"no such branch"* is a legitimate
  * answer it already gives.
  *
+ * 🚩 **…and `scope=all` is still not the estate, which is the finding this module
+ * ended up producing.** The fleet's four UNION branches all drive off
+ * `PosSettlementEntry` / `PosSettlementConsumption`; `Store` reaches in only as a
+ * correlated name lookup. So *all* means **every branch with settlement activity**,
+ * not every branch — and on a migrated-but-unused database it is the empty set, so
+ * no branch can be typed, so the first entry can never be posted. Nothing here can
+ * fix that: the picker needs the `Store` master (`Closed = 0`), and no door under
+ * this screen's grant serves it. Asked for as **§5** of
+ * `.afk/BACKOFFICE-TICKET-DRAFT-settlement-reads.md` (`Settlement/Branches`), and
+ * deliberately NOT worked around by borrowing `CollectionWeb/Assignment/Branches` —
+ * that one rides the assignment **write** grant, which spec 1162 D13 ruled is never
+ * OR-ed with a read.
+ *
  * The reason has not changed: an accountant covering a colleague, or posting a
  * month's audit onto the 1255 branches assigned to nobody, must not find the branch
  * they typed missing or ranked below one they did not mean. **The worst outcome this

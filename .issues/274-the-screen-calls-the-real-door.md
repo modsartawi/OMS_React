@@ -110,6 +110,24 @@ Two ways to unblock the live pass, in order of preference:
 2. Run BackOffice's §4 seed once it exists, then bind `msartawi` in Authz Admin — and **unbind again**
    before closing, per the Boundaries.
 
+### ⚠️ Blocked again one step later: the first entry cannot be posted
+
+Getting through the grant is not enough. The post form's branch picker resolves what is typed
+against `Settlement/Fleet`, and the fleet is **not an estate list** — its four UNION branches all
+drive off `PosSettlementEntry` / `PosSettlementConsumption`, with `Store` reaching in only as a
+correlated name lookup. So on a migrated-but-unused database it answers **empty for every scope**,
+the branch box finds nothing, and the only door that could create the first settlement row is the
+one that cannot be reached without one.
+
+The picker needs the `Store` master (`WHERE Closed = 0`), which is what `CollectionWeb/Assignment/
+Branches` already returns — but under the assignment **write** grant, and spec 1162 D13 ruled that
+one is never OR-ed with a read. So it is a door of its own: **§5 of the BackOffice draft**
+(`Settlement/Branches`). Recorded, not worked around, per this ticket's own Boundaries.
+
+⚠️ Note the asymmetry that makes it a defect rather than a preference: the **bulk** lane resolves
+store names straight off `Store` (`ResolveStoreNamesAsync`), so a spreadsheet can post to a branch
+the single form cannot reach.
+
 ### Deliberately NOT part of this ticket's proof
 
 ⚠ **Do not repoint `tools/settlement-drive.mjs` at live.** Its assertions are about behaviour on

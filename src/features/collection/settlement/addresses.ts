@@ -56,6 +56,28 @@ export const BATCH_PARAM = 'batch'
 /** The search box's query. */
 export const QUERY_PARAM = 'q'
 
+/* ── the ledger's own criteria keys ───────────────────────────────────────────
+ * ⚠️ Named here because this module's claim is that the screen's URL grammar is
+ * spelled ONCE — but READ and written by `ledger.ts`, which owns what they mean and
+ * which values are legal. The dependency runs one way (`ledger.ts` → here) so the
+ * two never cycle.
+ *
+ * 🚩 The ledger reuses `?store=` and `?entry=` rather than minting `lstore=` /
+ * `lentry=`, on the ruling `BATCH_PARAM` already states: **one word for one thing,
+ * and `view=` is the only thing that may decide which screen draws.** `?store=0142`
+ * is *that branch* on both views; what differs is which view is reading it. Which is
+ * why `SettlementBody` consults the view BEFORE the branch — see the comment there. */
+
+/** SHORTAGE | SURPLUS. */
+export const KIND_PARAM = 'kind'
+/** OPEN | CONSUMED | CANCELLED | CLOSED_OUT. */
+export const STATUS_PARAM = 'status'
+/** `YYYY-MM-DD`, inclusive. */
+export const FROM_PARAM = 'from'
+/** `YYYY-MM-DD`. ⚠️ The whole of that day — the server compares against the next
+ *  midnight, exclusively. */
+export const TO_PARAM = 'to'
+
 /**
  * The reader's own state — carried by every link.
  *
@@ -114,11 +136,15 @@ export function doorSearch(params: URLSearchParams): string {
   return render(keepOnly(params))
 }
 
-/* ⚠️ **`ledgerSearch` stood here until ticket 274 and is gone**, with the ledger
- * view it addressed: there is no `Settlement/Ledger` door
- * (`.afk/FINDINGS-274.md` §B1). The ageing lane that used it as its *way through*
- * is gone too, and for a different reason — spec 1173 rules entry staleness fog
- * (§B3). Two things pointing at each other, neither of which had a server.
+/* ⚠️ **`ledgerSearch` stood here until ticket 274, and it now lives in `ledger.ts`**
+ * — beside the criteria it writes, rather than split from them.
+ *
+ * 274 deleted it because there was no `Settlement/Ledger` door
+ * (`.afk/FINDINGS-274.md` §B1), which was the right call at the time: an address for
+ * a view with no server behind it. BackOffice 1199 §3 built the door, so the view
+ * came back — and the ageing lane that also used to point here did **not**, because
+ * its reason was different and still holds (spec 1173 rules entry staleness fog,
+ * §B3). Two things pointed at each other; only one of them had an answer available.
  */
 
 /**

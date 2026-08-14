@@ -286,21 +286,87 @@ export type SettlementOrphanRow = {
   documentNumber: string
 }
 
-/* ⚠️ **Three types stood here until 274 and are deliberately gone**, each because
- * the door behind it does not exist (`.afk/FINDINGS-274.md`):
+/* ⚠️ **Two types stood here until 274 and are deliberately gone**, each because the
+ * door behind it does not exist (`.afk/FINDINGS-274.md`):
  *
  * - `SettlementUncollectedRow` — the cash-waiting lane (§B2). The fleet row carries
  *   `hasUncollectedReceipt`, a flag; nothing enumerates the receipts behind it.
  * - `SettlementWorklistResult` — the two-lane worklist (§B2/§B3). What exists is
  *   `Settlement/Orphans`, one lane, typed as `SettlementOrphanRow[]` above.
- * - `SettlementLedgerRow` — the cross-estate ledger (§B1). BackOffice spec 1173 D13
- *   specifies six doors and this is not among them.
  *
  * 🚩 They are not commented out and not kept "for later". A type whose door does not
  * exist is a claim about a server that never agreed to it, which is the exact defect
  * 274 was written to find — and the fixtures that fed them were the reason it stayed
  * invisible for five tickets.
+ *
+ * ✅ **`SettlementLedgerRow` was the third, and it is BACK — as a door.** §B1 was
+ * right that D13 specified six doors and the ledger was not among them; the answer
+ * was to build the seventh (BackOffice 1199 §3), not to fake it. See below.
  */
+
+/**
+ * One entry **anywhere in the estate** — `Settlement/Ledger`.
+ *
+ * 🔑 **The door exists to resolve the number 1173 mints and never resolves.** The
+ * spec calls `entryNumber` *"the handle finance and the branch settle by on the
+ * phone"* — and `Settlement/Account` cannot look one up, because it takes the
+ * `storeId` the caller is ringing up to **ask for**. So *"entry 143 — which branch
+ * is that?"* was the one question the minted number invites and nothing could answer.
+ * The number is unique estate-wide (`UX_SettlementEntry_Number`), so the answer is
+ * exactly one row.
+ *
+ * 🚩 **It is `SettlementEntry` plus two fields, by intersection rather than by
+ * restatement** — the server subclasses its own account row for the same reason. An
+ * entry is one thing; two hand-maintained shapes of it drift, and the drift shows up
+ * as a blank cell with nothing failing anywhere.
+ */
+export type SettlementLedgerRow = SettlementEntry & {
+  /** Resolved at read time off the `Store` master, the code echoing back when there
+   *  is no master row. 🔑 **The answer, not decoration** — a code only half-answers
+   *  the question the phone handle asks. */
+  storeName: string
+  /**
+   * 🔑 **Per row, because this list crosses currencies** — and the reason nothing on
+   * this view totals a column.
+   *
+   * The estate is KSA **and** Bahrain. A cross-branch ledger holds riyals and dinars
+   * in one column, so a Σ over it adds the two and is wrong in both; and D15 makes an
+   * entry's granularity depend on this field, so drawing both at one precision is
+   * wrong for one of them. This is the field the account and fleet rows still lack
+   * (BackOffice 1199 §1) — here it arrives because the door was built after the
+   * finding rather than before it.
+   */
+  currencyKey: string
+}
+
+/**
+ * What the ledger is being asked about — every field optional **individually**, and
+ * ⚠️ **at least one required**.
+ *
+ * 🚩 The server refuses a bare call (`SettlementLedgerCriterionRequired`) rather than
+ * capping one, and the reason is worth carrying on the client too: an unfiltered
+ * ledger is bounded only by the row cap, so it would answer *"the newest 500 entries
+ * in the estate"* while **looking like** the ledger. A cap is honest when it
+ * truncates an answer; it is not honest when it makes one.
+ *
+ * ⚠️ `status: 'OPEN'` alone satisfies it, and that is the ordinary estate-wide call —
+ * the refusal is aimed at the empty question, never at breadth.
+ */
+export type SettlementLedgerCriteria = {
+  /** The phone handle. A **one-row** answer whatever else is asked. */
+  entryNumber?: number
+  storeId?: string
+  entryKind?: SettlementEntryKind
+  status?: SettlementEntryStatus
+  /** One uploaded batch — *"everything finance sent in that file"* (273's `batchId`). */
+  batchId?: string
+  /** `YYYY-MM-DD`. Inclusive. */
+  postedFrom?: string
+  /** `YYYY-MM-DD`. ⚠️ **The whole of that day** — the server compares against the
+   *  next midnight, exclusively, so a reader who types today does not get an empty
+   *  answer because the entries were posted at 14:00. */
+  postedTo?: string
+}
 
 /**
  * What `Settlement/Post` answers — ticket 271's write, and D8's shape unchanged.

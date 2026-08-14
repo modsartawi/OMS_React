@@ -105,6 +105,18 @@ let fleetScopes = []
 /** Every limit `Settlement/Branches` was asked for - the door defaults to 500 and the
  *  estate is 1394, the same truncation 274 found on the fleet. */
 let branchCalls = []
+/** KEY The cross-estate ledger (BackOffice 1199 §3), built from the SAME entries the
+ *  account door serves - so "entry 143 lands on the right branch" is a claim the drive
+ *  can actually check rather than a stub agreeing with itself. Each row carries the
+ *  branch's name and its own currencyKey, which is what makes a KSA+Bahrain result
+ *  honest and is why nothing on that view totals a column. */
+let LEDGER = []
+/** The footprint's 3-decimal branches. 0688 is Al-Muharraq — Bahraini, and the fixture's
+ *  reason for existing (D10: `95.250` is not `95.25`). */
+const BHD_BRANCHES = new Set(['0688'])
+/** Every criteria set the ledger door was asked for - including the ones it REFUSED,
+ *  so "the screen never issues the empty question" is visible here. */
+let ledgerCalls = []
 /** The consumption whose document arrives MID-CLICK — the OLDEST orphan, picked
  *  once the fixture is loaded. Repairing it must come back a no-op (a 200 that
  *  changed nothing) rather than an error. */
@@ -234,6 +246,48 @@ async function run() {
     }
     // The one enumerated lane. Estate-wide, always, and it takes no scope at all.
     if (path === 'Settlement/Orphans') return route.fulfill(envelope(ORPHANS))
+    // KEY **The cross-estate lookup** (BackOffice 1199 §3) - the door that resolves an
+    // entry NUMBER to the branch it is on, which `Settlement/Account` cannot because it
+    // takes the storeId the caller is ringing up to ask for.
+    //
+    // WARNING **The stub REFUSES an unfiltered call, exactly as the door does.** This is
+    // the one place a stub being more generous than its server would hide a real defect:
+    // an unfiltered ledger is bounded only by the cap, so it answers "the newest 500
+    // entries in the estate" while looking like the ledger. A client that stopped
+    // guarding would silently start asking for that - so it fails here instead.
+    if (path === 'Settlement/Ledger') {
+      const q = (k) => (url.searchParams.get(k) || '').trim()
+      const entryNumber = q('entryNumber')
+      const asked = ['entryNumber', 'storeId', 'entryKind', 'status', 'batchId', 'postedFrom', 'postedTo']
+        .some((k) => q(k) !== '')
+      ledgerCalls.push(Object.fromEntries([...url.searchParams].filter(([k]) => k !== 'limit')))
+      if (!asked)
+        return route.fulfill(
+          envelope(null, {
+            status: 400,
+            success: false,
+            message: 'At least one ledger criterion is required.',
+            errors: ['SettlementLedgerCriterionRequired'],
+          }),
+        )
+      const limit = Number(url.searchParams.get('limit') || 500)
+      const rows = LEDGER.filter(
+        (r) =>
+          (entryNumber === '' || String(r.entryNumber) === entryNumber) &&
+          (q('storeId') === '' || r.storeId === q('storeId')) &&
+          (q('entryKind') === '' || r.entryKind === q('entryKind')) &&
+          (q('status') === '' || r.status === q('status')) &&
+          (q('batchId') === '' || r.batchId === q('batchId')) &&
+          (q('postedFrom') === '' || r.postedAt.slice(0, 10) >= q('postedFrom')) &&
+          // WARNING A bare date means the WHOLE of that day - the server compares against
+          // the next midnight, exclusively. Comparing the date part is the same rule.
+          (q('postedTo') === '' || r.postedAt.slice(0, 10) <= q('postedTo')),
+      )
+      // Newest first, and a TOTAL order because the entry number is unique estate-wide.
+      return route.fulfill(
+        envelope([...rows].sort((a, b) => b.entryNumber - a.entryNumber).slice(0, limit)),
+      )
+    }
     // ---- ticket 271: posting one entry ----
     // 🔑 **The server rounds, and this stub rounds the same way** — to what the
     // branch can physically count (2 decimals at a SAR branch, 3 at a BHD one). The
@@ -651,6 +705,27 @@ async function run() {
     const m = await import('/src/features/collection/settlement/settlement-fixture.ts')
     return m.SETTLEMENT_ACCOUNTS
   })
+  // KEY The ledger is the SAME entries, flattened across branches and labelled with the
+  // two things a cross-branch list needs that a one-branch account gets from its
+  // heading: the store's NAME and its own CURRENCY. Derived rather than transcribed, so
+  // "entry 143 lands on the right branch" is checked against the account the screen
+  // would then open - a hand-written second copy could agree with the wrong branch and
+  // the drive would pass.
+  LEDGER = Object.values(ACCOUNTS).flatMap((account) =>
+    account.entries.map((e) => ({
+      ...e,
+      storeName: account.storeName,
+      // WARNING The BHD branch is what makes the mixed-currency column real. A stub that
+      // gave every row SAR would let the Currency column stay hidden and the per-row
+      // precision go unproven - which is the defect D10 exists to forbid.
+      //
+      // Resolved from the STORE CODE rather than off the account fixture, because 274
+      // removed `currencyKey` from those accounts - the account door does not send one
+      // (B6) and the ledger door does. 0688 is Al-Muharraq, the footprint's only
+      // 3-decimal branch. The stub plays the server, and the server reads Plants.
+      currencyKey: BHD_BRANCHES.has(account.storeId) ? 'BHD' : 'SAR',
+    })),
+  )
   // …and 270's estate, from the module the vitest suites assert against: 1394
   // branches, 1255 of them assigned to nobody, four orphan consumptions and 140
   // ageing entries of which 47 are in scope.
@@ -1895,6 +1970,202 @@ async function run() {
   check(
     '🚩 273’s keys are all registered — no raw t() key on the withdrawal',
     !/settlement:|\bbatch\./.test(batchText),
+  )
+
+  // ---- the cross-estate ledger (BackOffice 1199 §3) ----
+  //
+  // KEY **The question the spec's own design invited and nothing could answer.** 1173
+  // mints `entryNumber` and calls it the handle finance and the branch settle by on the
+  // phone; `Settlement/Account` takes the storeId the caller is ringing up to ASK for.
+  // Ticket 270 built this view against a door that did not exist and 274 deleted it
+  // rather than fake it (B1) - so every check below is on a path that has never once
+  // been exercised against a server-shaped answer.
+  // WARNING It waits for the view to SETTLE - a row, the prompt or the empty sentence -
+  // rather than for a duration. The grid mounts before its rows land, so a bare timeout
+  // made the first read of a column race the render: it passed, then failed, then
+  // passed, which is a check nobody can trust.
+  const openLedger = async (search) => {
+    scenario = { accessBody: ALL, access403: false, access500: false }
+    await page.goto(`${BASE}${ROUTE}?view=ledger${search}`)
+    await page.waitForLoadState('networkidle')
+    await page
+      .locator(
+        '[data-region="settlement-ledger"] .ag-row, [data-testid="ledger-prompt"], [data-testid="ledger-empty"]',
+      )
+      .first()
+      .waitFor({ timeout: 8000 })
+    return page.locator('[data-region="settlement-ledger"]').innerText()
+  }
+  const ledgerRows = () => page.locator('[data-region="settlement-ledger"] .ag-row').count()
+
+  // The way IN, from the door — a button beside the search box, because the two answer
+  // different questions: that box finds a BRANCH, this finds an ENTRY.
+  await openDoor()
+  ledgerCalls = []
+  await page.locator('[data-testid="ledger-open"]').click()
+  await page.waitForLoadState('networkidle')
+  // WARNING Wait for a ROW, not for a duration. The grid mounts before its rows land, so
+  // a bare timeout made the first read of the branch column race the render — it passed,
+  // then failed, then passed, which is a check nobody can trust.
+  await appears('[data-region="settlement-ledger"] .ag-row')
+  let ledgerText = await page.locator('[data-region="settlement-ledger"]').innerText()
+  check(
+    '🔑 1199 → the door opens the ledger on EVERYTHING STILL OPEN, which is the question asked',
+    new URL(page.url()).searchParams.get('view') === 'ledger' &&
+      new URL(page.url()).searchParams.get('status') === 'OPEN' &&
+      ledgerCalls.length === 1 &&
+      ledgerCalls[0].status === 'OPEN',
+    `${page.url().split('?')[1] ?? ''} · ${JSON.stringify(ledgerCalls[0] ?? {})}`,
+  )
+  const ledgerCol = (colId) =>
+    page.locator(`[data-region="settlement-ledger"] .ag-row [col-id="${colId}"]`).allInnerTexts()
+  let branchCodes = await ledgerCol('storeId')
+  check(
+    '🔑 …and it answers with OPEN entries from MORE THAN ONE branch — which is the whole point',
+    (await ledgerRows()) > 1 && new Set(branchCodes).size > 1,
+    `${await ledgerRows()} rows · ${JSON.stringify(branchCodes)}`,
+  )
+  // WARNING Read off the STATUS CELLS, not the region's text: the chip bar names all four
+  // statuses by design, so a text scan would find the word "Cancelled" on a screen that
+  // is correctly showing none.
+  check(
+    '⚠️ …and NOTHING here is closed — a status chip that let a CANCELLED row through would lie about what is owed',
+    (await ledgerCol('status')).every((s) => s.includes('Open')),
+    JSON.stringify(await ledgerCol('status')),
+  )
+
+  // 🔑 THE HEADLINE: a bare number, and the branch comes back NAMED.
+  ledgerCalls = []
+  ledgerText = await openLedger('&entry=143')
+  check(
+    '🔑 1199 → an entry number alone resolves to ONE row, and it names the branch',
+    (await ledgerRows()) === 1 &&
+      ledgerText.includes('0142') &&
+      ledgerText.includes('Al-Rawdah'),
+    ledgerText.replace(/\n/g, ' ').slice(0, 140),
+  )
+  check(
+    '…and the criterion went ON THE WIRE as an entryNumber, not as a client-side filter',
+    ledgerCalls.length === 1 && ledgerCalls[0].entryNumber === '143',
+    JSON.stringify(ledgerCalls[0] ?? {}),
+  )
+  // 🚩 And it is a way THROUGH: the ledger says which branch, the account is where an
+  // entry is acted on — with its journal in front of you, which is the correction this
+  // screen must not make easy from a list.
+  await page.locator('[data-region="settlement-ledger"] .ag-row').first().click()
+  await page.waitForLoadState('networkidle')
+  await appears('[data-region="entry-journal"]')
+  check(
+    '🔑 …and clicking the row lands on THAT branch’s account, opened on THAT entry',
+    new URL(page.url()).searchParams.get('store') === '0142' &&
+      new URL(page.url()).searchParams.get('entry') === '143' &&
+      (await page.locator('[data-region="entry-journal"]').count()) === 1,
+    page.url().split('?')[1] ?? '',
+  )
+
+  // WARNING **THE EMPTY QUESTION IS NEVER ASKED.** The door refuses it with a 400, and a
+  // screen that issued it anyway would show an error banner for arriving on a blank
+  // lookup. This is the check that keeps `hasCriterion` honest.
+  ledgerCalls = []
+  ledgerText = await openLedger('')
+  check(
+    '🚩 1199 → an unfiltered ledger issues NO REQUEST and prompts instead of erroring',
+    ledgerCalls.length === 0 &&
+      (await page.locator('[data-testid="ledger-prompt"]').count()) === 1 &&
+      !ledgerText.includes('could not'),
+    ledgerText.replace(/\n/g, ' ').slice(0, 120),
+  )
+
+  // WARNING The two views share the `?store=` key on purpose — `view=` is the only thing
+  // that may decide which screen draws. A body that checked the branch first would
+  // silently open the ACCOUNT here, answering a different question with nothing on
+  // screen to say so.
+  ledgerText = await openLedger('&store=0688')
+  check(
+    '🔑 1199 → `view=ledger&store=…` draws the LEDGER, not that branch’s account',
+    (await page.locator('[data-region="settlement-ledger"]').count()) === 1 &&
+      (await page.locator('[data-region="entry-journal"]').count()) === 0,
+  )
+  check(
+    '…and the branch criterion is shown as a removable pill, so a reader can see what narrowed it',
+    (await page.locator('[data-testid="ledger-branch-pill"]').count()) === 1,
+  )
+  // 🔑 D10, on the one view where the currency genuinely varies row by row. 0688 is
+  // Bahraini: `95.250` is three real digits of money, and drawing it at two loses a
+  // fils silently.
+  check(
+    '🔑 1199 → a BHD branch’s figures keep their third decimal on the ledger',
+    /\d\.\d{3}\b/.test(ledgerText),
+    ledgerText.replace(/\n/g, ' ').slice(0, 140),
+  )
+
+  // A pure-SAR answer hides the Currency column (244 §7); an answer holding both shows
+  // it, because two figures at different precisions are not comparable without it.
+  const currencyCells = async () =>
+    page.locator('[data-region="settlement-ledger"] .ag-row [col-id="currencyKey"]').count()
+  check(
+    '⚠️ …and a single-currency result does NOT draw a Currency column of noise',
+    (await currencyCells()) === 0,
+  )
+  await openLedger('&status=OPEN')
+  check(
+    '🔑 …while a result that MIXES riyals and dinars draws it, because they are not comparable',
+    (await currencyCells()) > 0,
+  )
+  // 🚩 …and still totals nothing. A Σ over that column adds dinars to riyals.
+  check(
+    '🚩 …and the ledger states NO total, on a column that spans two currencies',
+    !(await page.locator('[data-region="settlement-ledger"]').innerText()).includes('Total'),
+  )
+
+  // A chip narrows, and pressing the active one clears it — a filter with no way off is
+  // a filter a reader has to reload the page to escape.
+  ledgerCalls = []
+  await page.locator('[data-region="ledger-kind"] button[data-chip="SURPLUS"]').click()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(120)
+  check(
+    '1199 → a kind chip narrows the question, keeping the status already asked',
+    new URL(page.url()).searchParams.get('kind') === 'SURPLUS' &&
+      new URL(page.url()).searchParams.get('status') === 'OPEN' &&
+      ledgerCalls.at(-1)?.entryKind === 'SURPLUS',
+    JSON.stringify(ledgerCalls.at(-1) ?? {}),
+  )
+  await page.locator('[data-region="ledger-kind"] button[data-chip="SURPLUS"]').click()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(120)
+  check(
+    '🚩 …and pressing the ACTIVE chip clears it, rather than trapping the reader in a filter',
+    new URL(page.url()).searchParams.get('kind') === null,
+    page.url().split('?')[1] ?? '',
+  )
+
+  // An entry number that matches nothing is a real answer to a real question — usually a
+  // mistyped digit — and must not read as a failure.
+  ledgerText = await openLedger('&entry=999999')
+  check(
+    '⚠️ 1199 → an entry number that matches nothing says so, and is not worded as an error',
+    (await page.locator('[data-testid="ledger-empty"]').count()) === 1 &&
+      !ledgerText.includes('could not'),
+    ledgerText.replace(/\n/g, ' ').slice(0, 120),
+  )
+
+  // 🚩 A hand-edited address DEGRADES: the unreadable criterion drops, the readable ones
+  // stand, and the reader lands on a screen rather than on a banner.
+  ledgerCalls = []
+  ledgerText = await openLedger('&status=OPENISH&entry=143')
+  check(
+    '🚩 1199 → an unreadable criterion in a pasted URL is DROPPED, not sent and not thrown on',
+    ledgerCalls.length === 1 &&
+      ledgerCalls[0].status === undefined &&
+      ledgerCalls[0].entryNumber === '143' &&
+      (await ledgerRows()) === 1,
+    JSON.stringify(ledgerCalls[0] ?? {}),
+  )
+
+  check(
+    '🚩 1199’s keys are all registered — no raw t() key on the ledger',
+    !/settlement:|\bledger\./.test(await page.locator('[data-region="settlement-ledger"]').innerText()),
   )
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))

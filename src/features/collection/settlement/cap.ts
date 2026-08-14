@@ -50,10 +50,22 @@ export const ACCOUNT_LIMIT = 500
  * *"no such branch"* is a legitimate answer — so the truncation would read as a
  * typo. `isCapReached` watches it here too.
  *
- * ⚠️ `LEDGER_LIMIT` stood here until 274 and is gone with `Settlement/Ledger`, the
- * door that never existed.
  */
 export const BRANCH_LIMIT = 2000
+
+/**
+ * The ledger's cap (`Settlement/Ledger`) — ✅ **the door came back, and so did this**.
+ *
+ * 500, the server's own default named rather than inherited (`ACCOUNT_LIMIT`'s rule).
+ * 🔑 **Deliberately NOT raised to the branch and fleet doors' 2,000**, and the
+ * difference is the point: those two answer a *population* — the estate — where a cap
+ * below it truncates a complete answer. This one answers a *question*, and the
+ * question is always filtered (the door refuses an unfiltered call outright). A
+ * ledger result that reaches 500 is a question too broad to read, not an estate too
+ * big to fit — and the honest response is the banner telling the accountant to narrow
+ * it, not a number quietly chosen so the banner never fires.
+ */
+export const LEDGER_LIMIT = 500
 
 /**
  * The fleet door's cap — ✅ **found live by 274, and it is the one number on this

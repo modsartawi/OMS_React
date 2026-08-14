@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { RefreshCw, Search, TriangleAlert, Upload } from 'lucide-react'
+import { ListTree, RefreshCw, Search, TriangleAlert, Upload } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
 import { formatDateTime } from '@/core/util/date-format'
@@ -22,6 +22,7 @@ import PostEntryDialog from './PostEntryDialog'
 import RepairDialog from './RepairDialog'
 import { resolveSubmit, searchBranches, type BranchSearchResult } from './search'
 import { estateFigures } from './figures'
+import { ledgerSearch } from './ledger'
 import { buildWorklist } from './worklist'
 
 /**
@@ -169,6 +170,23 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
         >
           <Upload className="h-3.5 w-3.5" aria-hidden />
           {t('bulk.open')}
+        </Button>
+        {/* 🔑 **The way to the cross-estate lookup** (BackOffice 1199 §3). It belongs
+            beside the box rather than inside it because the two searches answer
+            different questions: this box finds a BRANCH, the ledger finds an ENTRY —
+            which is exactly the meaning 274 had to remove from here when it found the
+            door missing (a bare number went to a ledger that did not exist, and
+            returned silence). It lands on `status=OPEN` rather than on an empty
+            prompt: *"what is still owed out there"* is the question an accountant
+            arriving here has, and it is a criterion, so the door will answer it. */}
+        <Button
+          type="button"
+          variant="outlined"
+          onClick={() => navigate(ledgerSearch(searchParams, { status: 'OPEN' }))}
+          data-testid="ledger-open"
+        >
+          <ListTree className="h-3.5 w-3.5" aria-hidden />
+          {t('ledger.open')}
         </Button>
       </form>
 

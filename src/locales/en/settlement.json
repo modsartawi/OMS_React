@@ -18,12 +18,12 @@
     "all": "All branches"
   },
   "search": {
-    "label": "Find a branch or an entry",
-    "placeholder": "Branch code, name in either script, city, or entry #",
+    "label": "Find a branch",
+    "placeholder": "Branch code, or name in either script",
     "submit": "Search",
     "clear": "Clear",
     "showing": "Showing {{shown}} of {{total}} branches",
-    "empty": "No branch matches that. Try a code, part of a name in either script, or a city.",
+    "empty": "No branch matches that. Try a code, or part of a name in either script.",
     "openCount": "{{count}} open"
   },
   "door": {
@@ -388,5 +388,39 @@
   },
   "figures": {
     "notActionable": "A report figure. Nobody owes the estate's total and no till can consume it — a position belongs to one branch, on its own account."
+  },
+  "ledger": {
+    "open": "Entries across the estate",
+    "title": "Entries across the estate",
+    "subtitle": "Look up an entry by its number, or list what a branch, a kind or a date range holds. No position is stated here — an entry is acted on from its own branch's account.",
+    "prompt": "Ask for something: an entry number, or a kind, a status or a date range below. There is no unfiltered list, because a capped one would look like the whole ledger.",
+    "loading": "Looking up…",
+    "empty": "Nothing matches that. Check the entry number — the handle a branch quotes is the one minted at posting, not the branch code.",
+    "showing": "{{count}} entries. Open one to act on it.",
+    "capReached": "This reached {{limit}} entries, so there may be more. Narrow it by branch, kind, status or date.",
+    "allOpen": "Everything still open",
+    "entry": {
+      "label": "Entry number",
+      "placeholder": "Entry number — the handle a branch quotes on the phone",
+      "submit": "Look up"
+    },
+    "columns": {
+      "storeId": "Branch",
+      "storeName": "Branch name",
+      "currencyKey": "Currency"
+    },
+    "filters": {
+      "kind": "Kind",
+      "status": "Status",
+      "from": "Posted from",
+      "to": "Posted to",
+      "clear": "Clear all",
+      "branch": "Branch {{storeId}}",
+      "batch": "Batch {{batchId}}",
+      "remove": "Remove {{criterion}}"
+    },
+    "errors": {
+      "lookupFailed": "The lookup could not be completed."
+    }
   }
 }

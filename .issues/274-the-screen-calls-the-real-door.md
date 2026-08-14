@@ -75,8 +75,12 @@ The feature's first real user: an accountant posts a figure a till can consume.
 - [ ] A **hash mismatch** refused for real (edit the sheet between preview and commit).
 - [ ] The estate-wide carve-out confirmed on real data (above).
 - [ ] 🔑 **The fleet aggregate's timing measured at estate scale and written into this ticket.**
-- [x] `typecheck` + `lint` green — plus `vitest` (1805 tests, 115 files) and
-      `tools/settlement-drive.mjs` (**164/164**), both reworked to the narrowed contract.
+- [x] `typecheck` + `lint` + `build` green — plus `vitest` (**1828 tests, 116 files**) and
+      `tools/settlement-drive.mjs` (**189/189**), both reworked to the narrowed contract and then
+      widened again by the two doors this ticket ended up building.
+- [x] 🔑 **Two doors built server-side and proven against the live database** —
+      `Settlement/Branches` and `Settlement/Ledger` (BackOffice draft 1199 §5 and §3), each with an
+      end-to-end test on real data. ⚠️ Uncommitted in that repo, by this ticket's own boundary.
 
 ### ⚠️ Blocked: the grant was never seeded
 
@@ -142,6 +146,60 @@ serves both screens — two copies is how a branch findable at the door becomes 
 `city` returns as D2's third search key (ranked last: a city narrows, a name addresses). Drive
 **171/171**, with the fixture carrying three branches nothing has ever been posted to — without them
 the two sets are identical and the original bug passes green, which is how it survived five tickets.
+
+### ✅ Settled: the estate's open entries can be seen (`Settlement/Ledger`)
+
+⚠️ **The read-only boundary was lifted a second time** — *"go ahead and build `Settlement/Ledger`
+the same way"* — after the owner asked the question the screen could not answer: **"the main screen
+doesn't show the settlements that open, how to view it from where?"** It is likewise **not
+committed** in BackOffice; the change sits in that working tree for draft **1199 §3**.
+
+🔑 **The front page was right, and it was still an unanswerable screen.** The door is a search box
+plus one triaged lane, deliberately: 270's own finding is that an untriaged *needs you* list went
+from 3 cards at six branches to ~140 at estate scale, of which 131 were merely ageing — so an open
+entry is not, by itself, work. What was missing was not a lane on the front page but the **other
+question**: *what is still owed out there*, and *entry 143 — which branch is that?* 1173 mints
+`entryNumber` and calls it the handle finance and the branch settle by on the phone, then gives no
+door that resolves one, because `Settlement/Account` takes the `storeId` the caller is ringing up to
+**ask for**. 270 built a ledger view against a door that did not exist; 274 deleted it (§B1) rather
+than fake it; this builds the door and the view comes back against a server.
+
+The door: `GET Settlement/Ledger?entryNumber=&storeId=&entryKind=&status=&batchId=&postedFrom=
+&postedTo=&limit=`, settlement-gated like its neighbours, answering entries **with no consumptions,
+no position and no aggregate**.
+
+🚩 **It refuses the empty question, and that is the one refusal on the read doors.** Every other read
+here is bounded by a question — one branch, the orphan predicate, the open estate. An unfiltered
+ledger is bounded only by the cap, so it would answer *"the newest 500 entries in the estate"* while
+**looking like** the ledger, and a reader who scrolled to the bottom would carry away a wrong number
+with nothing on screen to say so. A cap is honest when it truncates an answer; it is not honest when
+it makes one. ⚠️ `status=OPEN` alone satisfies it — that is the one-click *everything still open* the
+owner was asking for, and it is what the door's new button lands on.
+
+⚠️ **Rows carry `currencyKey`, so nothing totals them.** The estate is KSA **and** Bahrain; a Σ over
+a cross-branch money column adds dinars to riyals and is wrong in both. This is §1's ask arriving
+free on one door — `SettlementMasterReads`' chunked plural reads answer a 500-row page's distinct
+branches in two round trips, not a thousand — and it does **not** close §1, which is still owed on
+the account and fleet reads.
+
+Proven against the live database: `Ledger_ResolvesAnEntryNumberToItsBranch_AndRefusesAnUnfilteredCall`
+asserts a bare entry number returns exactly one row naming its branch, that a cancelled entry is
+excluded from `status=OPEN`, that the two branches come back in **two different currencies**, that a
+bare `postedTo` covers the whole of its own day, and both refusals. **12/12 settlement E2E, 135/135
+settlement Data.Tests.**
+
+Client: `ledger.ts` (the module 274 deleted, rebuilt against a real contract), `LedgerView` at
+`?view=ledger`, `ledger-columns.ts` sharing `entry-cells.ts` with the account grid — the module whose
+docblock already said it existed for *"the branch account's grid and the cross-estate ledger's"*.
+🔑 The view is consulted **before** `?store=`, because the two share that key by the ruling
+`addresses.ts` already states (*one word for one thing, and `view=` decides which screen draws*) — a
+body checking the branch first would silently open one account for `?view=ledger&store=0142`.
+**18 new vitest cases, drive 189/189.**
+
+⚠️ **One defect fixed in passing:** the door's search box still advertised *"city, or entry #"* in its
+placeholder and label. 274 removed both meanings from that box — the entry-number lookup went to the
+ledger that did not exist, and the fleet row carries no city — but left the copy behind, so the box
+promised two searches it does not do. It now says what it searches.
 
 ### ⚠️ How it was found (the defect, for the record)
 

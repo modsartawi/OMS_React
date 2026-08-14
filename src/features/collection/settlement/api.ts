@@ -33,12 +33,14 @@ import type {
   SettlementCloseOutResult,
   SettlementEntryKind,
   SettlementFleetRow,
+  SettlementLedgerCriteria,
+  SettlementLedgerRow,
   SettlementOrphanRow,
   SettlementPostResult,
   SettlementRepairResult,
   SettlementScope,
 } from '@/core/models/settlement'
-import { ACCOUNT_LIMIT, BRANCH_LIMIT, FLEET_LIMIT, WORKLIST_LIMIT } from './cap'
+import { ACCOUNT_LIMIT, BRANCH_LIMIT, FLEET_LIMIT, LEDGER_LIMIT, WORKLIST_LIMIT } from './cap'
 
 /**
  * The settlement account's predicate — this screen's own reading of the fifth flag.
@@ -168,15 +170,38 @@ export const settlementApi = {
     return api.get<SettlementOrphanRow[]>('Settlement/Orphans', { limit: WORKLIST_LIMIT })
   },
 
-  /* ⚠️ **`ledger()` stood here until 274 and is gone**: there is no
-   * `Settlement/Ledger`. BackOffice spec 1173 D13 specifies six doors and a
-   * cross-estate lookup is not among them — 270 posted it as a D8 extension and it
-   * was never built, because it was never asked for (`.afk/FINDINGS-274.md` §B1).
+  /**
+   * `GET Settlement/Ledger?…` → entries **across the estate**, filtered
+   * (BackOffice 1199 §3).
    *
-   * 🔑 The one thing on this screen that genuinely needed it — withdrawing a batch —
-   * does not any more: `bulkCancel` below is the server's own door for it, and it
-   * replaces the ledger-fetch-then-loop 273 built. Resolving a bare entry number to
-   * its branch has no substitute and is the §B1 ask. */
+   * 🔑 **The door that resolves the number the spec mints and never resolved.**
+   * BackOffice 1173 calls `entryNumber` *"the handle finance and the branch settle by
+   * on the phone"* and then left no way to look one up: `Settlement/Account` takes
+   * the `storeId` the caller is ringing up to **ask for**, so an accountant had to
+   * already know the branch to find the entry whose whole purpose is to be quoted
+   * without one. 274 recorded that as §B1 and deleted 270's unbacked view; this is
+   * the door being built rather than the view being faked.
+   *
+   * ⚠️ **At least one criterion, or the server refuses** — a bare call is a 400
+   * (`SettlementLedgerCriterionRequired`), not an unfiltered dump. `hasCriterion` in
+   * `ledger.ts` mirrors the rule so the screen never issues the call it knows will be
+   * refused; the server's refusal remains the authority, because a client-side guard
+   * that drifts is a screen that quietly stops asking.
+   *
+   * 🚩 **No total comes back, and none is computed here.** Rows carry a per-branch
+   * `currencyKey` because the estate is KSA **and** Bahrain — a Σ over that column
+   * adds dinars to riyals and is wrong in both, which is the same refusal
+   * `figures.ts` already makes on the front page.
+   *
+   * `undefined` criteria are dropped by `buildQuery` (`.claude/rules/api-envelope.md`)
+   * — no pre-filtering here.
+   */
+  ledger(criteria: SettlementLedgerCriteria): Promise<SettlementLedgerRow[]> {
+    return api.get<SettlementLedgerRow[]>('Settlement/Ledger', {
+      ...criteria,
+      limit: LEDGER_LIMIT,
+    })
+  },
 
   /**
    * `POST Settlement/Post` → one entry onto one branch's ledger (spec 267 D8),

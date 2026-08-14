@@ -14,6 +14,8 @@ import {
   readStore,
   scopeSearch,
 } from './addresses'
+import { isLedgerView } from './ledger'
+import LedgerView from './LedgerView'
 import { SCOPE_PARAM, readScope } from './scope'
 import SettlementDoor from './SettlementDoor'
 
@@ -83,20 +85,33 @@ function SettlementBody() {
   // rather than dialog state, so *"finance sent the wrong file"* is still one repair
   // an hour and a reload after the commit.
   const batchId = readBatchView(searchParams)
+  // ✅ The cross-estate lookup, back with its door (BackOffice 1199 §3).
+  const ledger = isLedgerView(searchParams)
+
+  const away = ledger || storeId !== '' || batchId !== ''
 
   return (
     <>
       {/* ⚠️ The scope belongs to the DOOR, so it is drawn with the door and nowhere
           else. A branch's account is the same account whoever is assigned to it, and
           a scope control above one would imply the position on screen depended on
-          who was looking. */}
-      {!storeId && !batchId && (
+          who was looking. The ledger takes no scope AT ALL — the door does not
+          accept one — so a control above it would be a lie about what it filtered. */}
+      {!away && (
         <ScopeControl scope={scope} onScope={(next) => navigate(scopeSearch(searchParams, next))} />
       )}
 
-      {(storeId || batchId) && <BackToDoor searchParams={searchParams} />}
+      {away && <BackToDoor searchParams={searchParams} />}
 
-      {storeId ? (
+      {/* 🔑 **The view is consulted BEFORE the branch, and the order is load-bearing.**
+          The ledger and the account share the `?store=` key on purpose — one word for
+          one thing, and `view=` is the only thing that may decide which screen draws
+          (`addresses.ts`). A body that checked `storeId` first would silently open one
+          branch's ACCOUNT for `?view=ledger&store=0142`: a different screen, answering
+          a different question, with nothing on it to say the ledger had been asked for. */}
+      {ledger ? (
+        <LedgerView />
+      ) : storeId ? (
         <BranchAccount storeId={storeId} entryNumber={readEntryNumber(searchParams)} />
       ) : batchId ? (
         <BatchWithdraw batchId={batchId} />

@@ -27,7 +27,7 @@ import {
   standingPosition,
   type BranchResolution,
 } from './posting'
-import ReasonField from './ReasonField'
+import ReasonField, { invalidateSettlement } from './ReasonField'
 
 /** The two kinds, in the order the toggle draws them. */
 const KINDS: readonly SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS']
@@ -154,18 +154,12 @@ export default function PostEntryDialog({
     onSuccess: (result) => {
       setPosted(result)
       toast.success(t('post.done.toast', { number: result?.entryNumber ?? '' }))
-      // 🚩 The account refreshes, and so do the door's two lists: a posted entry
-      // changes the branch's open count and its ageing, and a stale door would
-      // invite the accountant to post the same figure again.
-      void queryClient.invalidateQueries({
-        queryKey: ['settlement', 'account', branch!.storeId],
-      })
-      void queryClient.invalidateQueries({ queryKey: ['settlement', 'fleet'] })
-      void queryClient.invalidateQueries({ queryKey: ['settlement', 'ledger'] })
-      // …including the worklist, which is a SEPARATE door from the fleet (270): the
-      // door's ageing lane is drawn from both, so invalidating only the fleet would
-      // leave the lane counting an estate that no longer matches the one beside it.
-      void queryClient.invalidateQueries({ queryKey: ['settlement', 'worklist'] })
+      // 🚩 The account refreshes, and so do the door's lists: a posted entry changes
+      // the branch's open count and its ageing, and a stale door would invite the
+      // accountant to post the same figure again. Which keys that means is the shared
+      // helper's to know — this is the third writer, and it must not carry its own
+      // reading of the set.
+      invalidateSettlement(queryClient, branch!.storeId)
     },
     onError: (error) => toast.error(apiErrorMessage(error, t('post.errors.failed'))),
   })

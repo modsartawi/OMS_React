@@ -49,6 +49,11 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  * every state including the ones with no button, because the absence of an amend is
  * otherwise indistinguishable from an oversight.
  */
+/** What a correction is sent WITH — the entry it is about and the words filed
+ *  against it, both captured at the press rather than read back from whatever the
+ *  grid is showing when the server answers. */
+type CorrectionVars = { row: AccountEntryRow; reason: string }
+
 export default function EntryCorrection({
   row,
   currencyKey,
@@ -89,13 +94,26 @@ export default function EntryCorrection({
   // again — which is also what turns this panel's affordance into *none*) plus the
   // door's three lists. One shared call, so the feature's three writers cannot drift
   // apart on which lists go stale.
-  const refreshAccount = () => invalidateSettlement(queryClient, row?.storeId ?? '')
+  const refreshAccount = (of: AccountEntryRow) => invalidateSettlement(queryClient, of.storeId)
+
+  // ⚠️ **The entry and its words travel WITH the request.** TanStack calls the most
+  // recently registered `onSuccess`, so a `row` read from the enclosing render is the
+  // row selected when the answer LANDS, not the one the act was sent for — and a
+  // selection change inside one request's latency is all it takes. That would toast
+  // another entry's number, refresh another branch's account, and size a write-off
+  // offer from a race this entry never ran. Passing the row as the mutation's
+  // variable is what makes the invariant above structural rather than hopeful.
+  const stillOn = (of: AccountEntryRow) => of.settlementEntryId === entryId
 
   const cancelEntry = useMutation({
-    mutationFn: () => settlementApi.cancel(row!.settlementEntryId, reason.trim()),
-    onSuccess: (result) => {
+    mutationFn: (v: CorrectionVars) => settlementApi.cancel(v.row.settlementEntryId, v.reason),
+    onSuccess: (result, v) => {
+      // Always: the act happened, so the branch it happened to is stale whether or
+      // not the accountant is still looking at it.
+      refreshAccount(v.row)
       if (result?.accepted) {
-        toast.success(t('correction.done.cancelled', { number: row!.entryNumber }))
+        toast.success(t('correction.done.cancelled', { number: v.row.entryNumber }))
+        if (!stillOn(v.row)) return
         setAct(null)
         setReason('')
         // ⚠️ Every notice is cleared on a settled act, not only when the selection
@@ -104,13 +122,18 @@ export default function EntryCorrection({
         // top.
         setRaced(null)
         setCloseOutRefused(null)
-        refreshAccount()
         return
       }
       // 🔑 The race, lost — and it is not a failure. The same rule that chose the
       // button runs again over the server's newer truth, and whatever it offers is
       // what this panel now shows.
-      setRaced(afterRefusedCancel(row!, result))
+      //
+      // ⚠️ …but only while this is still the entry on screen. A notice drawn under
+      // another entry's header is a sentence about the wrong money; the refetch above
+      // already carries the truth, so re-selecting the entry recomputes the affordance
+      // from the account rather than from a stranded notice.
+      if (!stillOn(v.row)) return
+      setRaced(afterRefusedCancel(v.row, result))
       setCloseOutRefused(null)
       setAct(null)
       // 🔑 **The words go with the act, not with the entry.** *"Posted onto the wrong
@@ -119,14 +142,14 @@ export default function EntryCorrection({
       // write-off would file a reason nobody chose against the act that actually
       // happened — on the one field whose whole purpose is to be read months later.
       setReason('')
-      refreshAccount()
     },
     onError: (error) => toast.error(apiErrorMessage(error, t('correction.errors.cancelFailed'))),
   })
 
   const closeOut = useMutation({
-    mutationFn: () => settlementApi.closeOut(row!.settlementEntryId, reason.trim()),
-    onSuccess: (result) => {
+    mutationFn: (v: CorrectionVars) => settlementApi.closeOut(v.row.settlementEntryId, v.reason),
+    onSuccess: (result, v) => {
+      refreshAccount(v.row)
       if (result?.accepted) {
         // ⚠️ **The toast names no figure, and that is deliberate.** D8 gives this
         // answer one number called `remainingAmount`, and on a *successful*
@@ -136,22 +159,22 @@ export default function EntryCorrection({
         // written off"* on a server that meant the second. The figure is on screen
         // a moment later anyway — the refetched audit pane draws `writtenOff`,
         // which is a number 269 already reads back unambiguously. Logged for 274.
-        toast.success(t('correction.done.writtenOff', { number: row!.entryNumber }))
+        toast.success(t('correction.done.writtenOff', { number: v.row.entryNumber }))
+        if (!stillOn(v.row)) return
         setAct(null)
         setReason('')
         setRaced(null)
         setCloseOutRefused(null)
-        refreshAccount()
         return
       }
       // A refusal is still a 200 (D8) — and here `remainingAmount` is unambiguous:
       // nothing was forgiven, so the only thing it can mean is what the entry has
       // left.
+      if (!stillOn(v.row)) return
       setCloseOutRefused(afterRefusedCloseOut(result))
       setRaced(null)
       setAct(null)
       setReason('')
-      refreshAccount()
     },
     onError: (error) => toast.error(apiErrorMessage(error, t('correction.errors.closeOutFailed'))),
   })
@@ -303,7 +326,13 @@ export default function EntryCorrection({
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="danger"
-                  onClick={() => canCommit && (act === 'cancel' ? cancelEntry : closeOut).mutate()}
+                  onClick={() =>
+                    canCommit &&
+                    (act === 'cancel' ? cancelEntry : closeOut).mutate({
+                      row,
+                      reason: reason.trim(),
+                    })
+                  }
                   aria-disabled={!canCommit || undefined}
                   data-testid="correction-commit"
                 >

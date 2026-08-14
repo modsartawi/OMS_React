@@ -178,13 +178,21 @@ export const collectionApi = {
    * `GET CollectionWeb/AssignmentOptions` → the shared *Served by* picker's three
    * groups (BackOffice tracer 1163).
    *
-   * ⚠️ **Cookie-gated and deliberately NOT grant-gated**, the same posture as
-   * `Access` above — and for a structural reason rather than a lax one. ONE payload
-   * fills the picker on all four screens, but the four screens hold four
-   * *independent* grants: gating it on any one of them would leave a session holding
-   * only `DepositInquiry` looking at an empty picker on the very screen it is
-   * entitled to open. The rows behind the filter stay locked; every grid is still
-   * its own grant's.
+   * ⚠️ **Gated on ANY of the five collection grants, never a specific one**
+   * (BackOffice 1196). ONE payload fills the picker on all four inquiry screens
+   * and the assignment screen's two dropdowns, but those screens hold *independent*
+   * grants: gating it on any one of them would leave a session holding only
+   * `DepositInquiry` looking at an empty picker on the very screen it is entitled
+   * to open, and asking per screen would defeat the one cacheable response the
+   * shared control is built on. So the door asks *"may you open any collection
+   * screen"* — one payload, one cache key, no `?screen=`.
+   *
+   * 🚩 **The client sends nothing that could split that cache.** No screen hint, no
+   * grant hint, no params at all: a session holding one grant and a session holding
+   * five fetch the same URL and share one entry. It was **ungated** until 1196, so
+   * any signed-in session — including one that can open no collection screen —
+   * received the finance roster; a session with no grant now gets a bare 403 and
+   * the picker is simply empty, the same shape as an unreachable sink.
    *
    * 🚩 **Names come from the roster's own `DisplayName` and nowhere else.** None of
    * the 8 accountants exists in `Staff` / `UaEmployee` / `UaUser`, so there is no

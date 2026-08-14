@@ -14,9 +14,6 @@
     "unreachableTitle": "This screen is unavailable",
     "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
   },
-  "shell": {
-    "comingSoon": "This screen is not built yet."
-  },
   "servedBy": {
     "label": "Served by",
     "all": "Everyone",

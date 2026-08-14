@@ -22,14 +22,15 @@ import {
   type AcrsCriteria,
 } from './acr-criteria'
 import AcrsToolbar from './AcrsToolbar'
-import { assignmentOptionsQuery, canOpenAcrs, canOpenCollections, collectionAccessQuery, collectionApi } from './api'
+import ScreenGate from '@/core/ui/ScreenGate'
+import { collectionAccessQuery } from '@/core/collection/api'
+import { assignmentOptionsQuery, canOpenAcrs, canOpenCollections, collectionApi } from './api'
 import type { AssignmentOptions } from './served-by'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { ACRS_CSV_COLUMNS } from './csv'
 import { useCsvExport } from './use-csv-export'
 import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
 import { buildAcrActionsColumn } from './RowActions'
-import ScreenGate from './ScreenGate'
 
 /**
  * ACRs (`/collection/acrs`) — the accumulated collection receipts list (ticket
@@ -59,7 +60,13 @@ import ScreenGate from './ScreenGate'
 export default function AcrsPage() {
   const { t } = useTranslation('collection')
   return (
-    <ScreenGate can={canOpenAcrs} title={t('acrs.title')} subtitle={t('acrs.subtitle')}>
+    <ScreenGate
+      query={collectionAccessQuery()}
+      can={canOpenAcrs}
+      ns="collection"
+      title={t('acrs.title')}
+      subtitle={t('acrs.subtitle')}
+    >
       {/* A child component, not inlined markup: its query must not run for a
           session the gate is about to refuse, and an element that is never
           rendered is never mounted. */}

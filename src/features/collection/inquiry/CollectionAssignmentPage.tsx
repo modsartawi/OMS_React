@@ -14,6 +14,7 @@ import {
   omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
+import { collectionAccessQuery } from '@/core/collection/api'
 import { ASSIGNMENT_OPTIONS_KEY, canOpenAssignment, collectionApi } from './api'
 import {
   ASSIGNMENT_LANDING,
@@ -57,7 +58,7 @@ import {
 } from './bulk'
 import { GRID_PAGE_SIZE } from './cap'
 import { EmptyState, ListShimmer } from './GridStates'
-import ScreenGate from './ScreenGate'
+import ScreenGate from '@/core/ui/ScreenGate'
 import type { AssignmentPerson } from './served-by'
 
 /**
@@ -86,13 +87,19 @@ import type { AssignmentPerson } from './served-by'
  * an honest `touched` set, which is why an edit is dropped on SUCCESS and kept on
  * failure.
  *
- * ⚠️ **Copied shape, not extracted** (244 §1), like the four screens beside it.
+ * ⚠️ **The gate is the SHARED one** (`@/core/ui/ScreenGate`), not the copied shape
+ * 244 §1 allowed. Ticket 268 graduated it when the settlement account became a
+ * second feature needing it — so the `query` (the options, not just the key) and
+ * the `ns` this screen's five `access.*` sentences live in are passed in, rather
+ * than being baked into a feature-local copy.
  */
 export default function CollectionAssignmentPage() {
   const { t } = useTranslation('collection')
   return (
     <ScreenGate
+      query={collectionAccessQuery()}
       can={canOpenAssignment}
+      ns="collection"
       title={t('assignment.title')}
       subtitle={t('assignment.subtitle')}
     >

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FileSpreadsheet, FileText, Gem, Headset, HeartPulse, History, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FileSpreadsheet, FileText, Gem, Headset, HeartPulse, History, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -23,18 +23,21 @@ import { NPHIES_ACCESS_KEY, nphiesAccessApi } from '@/core/nphies/api'
 // `uaAdminApi` / `sessionMonitorApi` shape, not the two-feature one that pushed
 // the OMS and Nphies probes into `@/core/`. `layout` may import a feature.
 import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi } from '@/features/loy/member/api'
-// The Collections probe stays with its feature for the Loy reason (ticket 253):
-// `features/collection/inquiry` is its only consumer — the four leaves below and
-// the four screens' own guards. `layout` may import a feature.
+// The Collections probe moved to `@/core/` at ticket 268, for the OMS/Nphies reason
+// rather than the Loy one: `features/collection/settlement` is now a SECOND consumer
+// beside `features/collection/inquiry`, and a feature may not import another
+// feature's api. Only the shared half moved — each screen's own predicate still
+// travels with the screen, which is why the imports below come from three places
+// and should stay that way.
+import { COLLECTION_ACCESS_KEY, collectionAccessApi } from '@/core/collection/api'
 import {
   canOpenAcrs,
   canOpenAssignment,
   canOpenAttempts,
   canOpenCollections,
   canOpenDeposits,
-  COLLECTION_ACCESS_KEY,
-  collectionApi,
 } from '@/features/collection/inquiry/api'
+import { canOpenSettlement } from '@/features/collection/settlement/api'
 // The Retail Invoice probe stays with its feature for the Loy/Collections reason
 // (ticket 263): `features/reports/retail-invoice` is its only consumer — the leaf
 // below and that screen's own gate. `layout` may import a feature.
@@ -92,11 +95,12 @@ export function accessProbe<T>(p: {
 }
 
 /**
- * The Collections area's four leaves share ONE probe on ONE key (244 §10): the
- * menu needs all four booleans at once, and four probes would be four round
- * trips to draw one group. Spelling the key and the call once here rather than
- * four times removes three chances to typo the very constant `collection/api`
- * exports to stop the nav and a screen splitting the cache entry.
+ * The Collections area's leaves share ONE probe on ONE key (244 §10, and a fifth
+ * grant on it since ticket 268): the menu needs every boolean at once, and a probe
+ * each would be a round trip each to draw one group. Spelling the key and the call
+ * once here rather than five times removes four chances to typo the very constant
+ * `@/core/collection/api` exports to stop the nav and a screen splitting the cache
+ * entry.
  *
  * Each leaf still passes its OWN predicate, so a session granted only Deposits
  * gets a RAGGED group — one item, rather than three that would bounce it.
@@ -108,7 +112,7 @@ export function accessProbe<T>(p: {
  * in-page backstop too.
  */
 const collectionProbe = (visible: (r: CollectionAccessResult) => boolean): AccessProbe =>
-  accessProbe({ key: COLLECTION_ACCESS_KEY, run: () => collectionApi.access(), visible })
+  accessProbe({ key: COLLECTION_ACCESS_KEY, run: () => collectionAccessApi.access(), visible })
 
 export const MENU: ShellMenuItem[] = [
   {
@@ -358,6 +362,26 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/collection/assignment',
         activePrefix: '/collection/assignment',
         access: collectionProbe(canOpenAssignment),
+      },
+      {
+        // The accountant's settlement account (spec 267 D1, ticket 268) — a further
+        // leaf in this group rather than a group of its own, because neither a new
+        // nav group nor a new URL prefix appears. Its label comes from its own
+        // `settlement` namespace; the group header above stays `collection`'s.
+        //
+        // 🚩 It shares the ONE key with the leaves above, so the settlement grant
+        // costs no extra round trip — and it reads `canOpenSettlement`, the same
+        // predicate the screen's own gate reads.
+        //
+        // ⚠️ The server does not answer that flag yet (BackOffice spec 1173; ticket
+        // 274 joins the waves), so this leaf is currently hidden for every session.
+        // That is the fail-closed rule working, not a bug: a grant that does not
+        // exist is a grant nobody holds.
+        labelKey: 'settlement:menu.settlement',
+        icon: Scale,
+        routerLink: '/collection/settlement',
+        activePrefix: '/collection/settlement',
+        access: collectionProbe(canOpenSettlement),
       },
     ],
   },

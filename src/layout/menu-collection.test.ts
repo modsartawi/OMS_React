@@ -14,7 +14,7 @@
  * server will refuse.
  */
 import { describe, expect, it } from 'vitest'
-import { COLLECTION_ACCESS_KEY } from '@/features/collection/inquiry/api'
+import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import { MENU, type ShellMenuItem } from './menu-model'
 import { resolveMenu, type ProbeState } from './useVisibleMenu'
 
@@ -31,6 +31,7 @@ const ALL = {
   canOpenDeposits: true,
   canOpenAttempts: true,
   canOpenAssignment: true,
+  canOpenSettlement: true,
 }
 const NONE = {
   canOpenCollections: false,
@@ -38,6 +39,7 @@ const NONE = {
   canOpenDeposits: false,
   canOpenAttempts: false,
   canOpenAssignment: false,
+  canOpenSettlement: false,
 }
 
 /** One probe answer, repeated once per gated leaf — they all read the SAME call. */
@@ -65,6 +67,10 @@ describe('the Collections nav group', () => {
       '/collection/deposits',
       '/collection/attempts',
       '/collection/assignment',
+      // The fifth leaf (ticket 268) — the accountant's settlement account, a
+      // SECOND feature under this one group and one prefix rather than an area of
+      // its own, and therefore a fifth grant on this same probe.
+      '/collection/settlement',
     ])
     // ONE call for the whole area: every leaf's probe key is the SAME exported
     // constant the four screens' own guards read. That identity is what makes a
@@ -81,6 +87,10 @@ describe('the Collections nav group', () => {
       'collection:menu.deposits',
       'collection:menu.attempts',
       'collection:menu.assignment',
+      // 🚩 Its own namespace, not `collection`'s: the settlement account is its own
+      // feature and its keys live in `settlement.json`. A leaf whose namespace was
+      // never registered renders this raw key to a user.
+      'settlement:menu.settlement',
     ])
   })
 
@@ -95,6 +105,14 @@ describe('the Collections nav group', () => {
     expect(
       labels(resolveMenu([collections!], probed({ ...NONE, canOpenAcrs: true })).items),
     ).toEqual(['collection:menu.collections', 'collection:menu.acrs'])
+
+    // 🚩 And the fifth grant is as independent as the other four: an accountant
+    // granted ONLY the settlement account gets that one leaf — not the four
+    // inquiries the server would refuse them. The reverse is pinned in each
+    // feature's own access test.
+    expect(
+      labels(resolveMenu([collections!], probed({ ...NONE, canOpenSettlement: true })).items),
+    ).toEqual(['collection:menu.collections', 'settlement:menu.settlement'])
 
     // Two grants, and they are the two that were granted — not the first two.
     expect(
@@ -112,9 +130,15 @@ describe('the Collections nav group', () => {
     // session holding ALL FOUR read grants still does not see Collection
     // Assignment. Reading a collection list never implies rewriting the master
     // data those lists filter by, and the grant behind that screen is its own.
+    //
+    // Settlement is held out too, so this assertion is about the ONE grant it
+    // names. Its own independence is 268's test, next door.
     expect(
       labels(
-        resolveMenu([collections!], probed({ ...ALL, canOpenAssignment: false })).items,
+        resolveMenu(
+          [collections!],
+          probed({ ...ALL, canOpenAssignment: false, canOpenSettlement: false }),
+        ).items,
       ),
     ).toEqual([
       'collection:menu.collections',
@@ -149,12 +173,41 @@ describe('the Collections nav group', () => {
         canOpenDeposits: {},
         canOpenAttempts: [],
         canOpenAssignment: 'yes',
+        canOpenSettlement: 'yes',
       }),
       // The shape a different door might answer — a single flag for the area.
       probed({ canOpen: true }),
     ]) {
       expect(resolveMenu([collections!], states).items).toEqual([])
     }
+  })
+
+  it('🚩 the FOUR-boolean answer the live door returns today hides ONLY the fifth leaf', () => {
+    // Every flag this group's first four leaves need, and `canOpenSettlement`
+    // simply absent — which is what `CollectionWeb/Access` actually returns until
+    // BackOffice spec 1173 ships the flag (ticket 274 joins the waves). The
+    // settlement leaf is the one that vanishes: a probe answering the older shape
+    // must not take the four working screens down with it, and must not leak the
+    // fifth.
+    expect(
+      labels(
+        resolveMenu(
+          [collections!],
+          probed({
+            canOpenCollections: true,
+            canOpenAcrs: true,
+            canOpenDeposits: true,
+            canOpenAttempts: true,
+          }),
+        ).items,
+      ),
+    ).toEqual([
+      'collection:menu.collections',
+      'collection:menu.cashCollections',
+      'collection:menu.acrs',
+      'collection:menu.deposits',
+      'collection:menu.attempts',
+    ])
   })
 
   it('reports an errored probe as SETTLED — failing closed must not hang the menu', () => {

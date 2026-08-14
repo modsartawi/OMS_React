@@ -16,8 +16,8 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import type { InvoiceCandidate } from '@/core/models/retail-invoice'
-import { canOpenRetailInvoice, retailInvoiceApi } from './api'
-import ScreenGate from './ScreenGate'
+import ScreenGate from '@/core/ui/ScreenGate'
+import { canOpenRetailInvoice, retailInvoiceAccessQuery, retailInvoiceApi } from './api'
 import SearchToolbar from './SearchToolbar'
 import { buildDownloadActionColumn } from './DownloadAction'
 import { fallbackFileName, invoiceRowKey } from './invoice-key'
@@ -260,7 +260,9 @@ export default function RetailInvoicePage() {
 
   return (
     <ScreenGate
+      query={retailInvoiceAccessQuery()}
       can={canOpenRetailInvoice}
+      ns="reports"
       title={t('invoice.title')}
       subtitle={t('invoice.subtitle')}
     >

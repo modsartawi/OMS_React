@@ -206,3 +206,71 @@ describe('api.blob', () => {
     expect(apiErrorCode(err)).toBeNull()
   })
 })
+
+/**
+ * `api.upload` — the multipart door (ticket 273, spec 267 D8's bulk preview and
+ * commit). Its subject is the one thing that cannot be asserted from a feature and
+ * fails silently when it is wrong: **a `FormData` body must reach `fetch` with no
+ * Content-Type header at all**, so the browser can generate
+ * `multipart/form-data; boundary=…` for it.
+ *
+ * A hand-set `application/json` there does not merely mislabel the body — it
+ * replaces the generated header, boundary and all, and the server then splits the
+ * upload into no parts and reports an empty file. Everything else is `api.post`.
+ */
+describe('api.upload', () => {
+  const ok = <T,>(data: T) =>
+    vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      json: async () => ({ statusCode: 200, success: true, message: '', errors: [], data }),
+    } as unknown as Response)
+
+  const form = () => {
+    const f = new FormData()
+    f.append('file', new Blob(['store,amount\n0142,500'], { type: 'text/csv' }), 'august.csv')
+    f.append('entryKind', 'SHORTAGE')
+    return f
+  }
+
+  it('sends the FormData verbatim and lets the BROWSER set the Content-Type', async () => {
+    const fetchStub = ok({ batchId: '01J9BATCH', posted: 47 })
+    vi.stubGlobal('fetch', fetchStub)
+
+    const body = form()
+    const data = await api.upload<{ batchId: string; posted: number }>('Settlement/Bulk/Preview', body)
+
+    expect(data).toEqual({ batchId: '01J9BATCH', posted: 47 })
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('Settlement/Bulk/Preview')
+    expect(init.method).toBe('POST')
+    // 🔑 The body is the FormData itself — not stringified, not copied.
+    expect(init.body).toBe(body)
+    const headers = init.headers as Record<string, string>
+    expect(headers['Content-Type']).toBeUndefined()
+    // …and the rest of the door is unchanged: the CSRF header the cookie branch
+    // requires, and same-origin credentials.
+    expect(headers['X-Web-Client']).toBe('1')
+    expect(init.credentials).toBe('same-origin')
+  })
+
+  it('still sets application/json for an ordinary JSON post', async () => {
+    const fetchStub = ok({ accepted: true })
+    vi.stubGlobal('fetch', fetchStub)
+    await api.post('Settlement/Cancel', { settlementEntryId: '01J9', reason: 'why' })
+    const [, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    expect((init.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+  })
+
+  it('maps a refused upload through the same taxonomy as every other call', async () => {
+    vi.stubGlobal('fetch', answer(409, envelope(409, 'HASH_MISMATCH', 'The sheet changed.')))
+    const err = await api
+      .upload('Settlement/Bulk/Commit', form())
+      .catch((e: unknown) => e as ApiError)
+
+    expect(err).toBeInstanceOf(ApiError)
+    expect((err as ApiError).kind).toBe('business')
+    expect(apiErrorCode(err)).toBe('HASH_MISMATCH')
+    expect((err as ApiError).message).toBe('The sheet changed.')
+  })
+})

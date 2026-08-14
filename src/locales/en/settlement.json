@@ -1,0 +1,447 @@
+{
+  "menu": {
+    "settlement": "Settlement Account"
+  },
+  "title": "Settlement account",
+  "subtitle": "What a branch owes back (shortage · عجز) or may keep (surplus · فائض), and what a till has already taken against it.",
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to this screen",
+    "deniedHint": "Your account does not hold the grant for the settlement account. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "scope": {
+    "label": "Which branches",
+    "mine": "My branches",
+    "unassigned": "Unassigned",
+    "all": "All branches"
+  },
+  "search": {
+    "label": "Find a branch or an entry",
+    "placeholder": "Branch code, name in either script, city, or entry #",
+    "submit": "Search",
+    "clear": "Clear",
+    "showing": "Showing {{shown}} of {{total}} branches",
+    "empty": "No branch matches that. Try a code, part of a name in either script, or a city.",
+    "noEntry": "There is no entry {{number}} anywhere in the estate.",
+    "lookupFailed": "That entry number could not be looked up.",
+    "openCount": "{{count}} open",
+    "assignment": {
+      "mine": "Yours",
+      "unassigned": "Assigned to nobody",
+      "other": "Another accountant's"
+    }
+  },
+  "door": {
+    "loading": "Loading the estate…",
+    "back": "Back to the worklist",
+    "errors": {
+      "fleetFailed": "The estate could not be loaded, so search and the ageing count are unavailable.",
+      "worklistFailed": "The worklist could not be loaded."
+    },
+    "estate": {
+      "figure": "{{currency}} · {{branches}} branches hold {{entries}} open entries: {{shortage}} of shortage, {{surplus}} of surplus."
+    }
+  },
+  "worklist": {
+    "title": "What needs a human",
+    "estateWide": "Wrong money and waiting cash are shown for the whole estate, whichever branches are scoped.",
+    "refresh": "Refresh",
+    "nothing": "Nothing needs a human right now. No consumption is missing its document and no prepared receipt is waiting.",
+    "wrongMoney": {
+      "title": "Wrong money ({{count}})",
+      "hint": "A till took money against an entry and the document behind it never arrived.",
+      "row": "entry {{entry}} · no document after {{days}} days",
+      "repair": "Repair"
+    },
+    "cashWaiting": {
+      "title": "Cash waiting ({{count}})",
+      "hint": "The branch prepared a settlement receipt and no collector has taken it. They never expire.",
+      "row": "receipt {{number}} · prepared {{days}} days ago"
+    },
+    "ageing": {
+      "title": "Ageing",
+      "summary": "{{count}} entries have been open longer than {{days}} days, across {{branches}} branches — counted for the branches you have scoped.",
+      "openLedger": "Browse open entries"
+    }
+  },
+  "repair": {
+    "title": "Repair this consumption",
+    "summary": "{{amount}} was taken from entry {{entry}} at {{store}} {{storeName}}, and the document behind it has not arrived in {{days}} days. Repairing puts the amount back on the entry.",
+    "consumedAt": "Taken at {{at}}.",
+    "raceHint": "If a document has arrived since this list was drawn, the repair does nothing at all — which is the right outcome, and you will be told.",
+    "reasonLabel": "Why (the audit reads this)",
+    "reasonHint": "Up to 200 characters. This is kept beside the repair in the branch's history.",
+    "confirm": "Repair",
+    "cancel": "Cancel",
+    "done": "{{amount}} is back on the entry at {{store}}.",
+    "noOp": "A document arrived for this consumption — nothing to repair.",
+    "refused": "The server would not repair this consumption.",
+    "failed": "The repair could not be sent."
+  },
+  "ledger": {
+    "title": "Every entry, across the estate",
+    "notTheAccount": "A lookup, not an account — find an entry whichever branch it is on, then open that branch.",
+    "loading": "Searching the ledger…",
+    "filterFirst": "Type an entry number, a branch code, or pick a kind or status. The estate is too big to open on nothing.",
+    "empty": "No entry matches those criteria.",
+    "capReached": "This search came back with {{limit}} entries, which is the most the server will send. Narrow it to be sure you are seeing everything.",
+    "figure": "{{currency}} · {{rows}} entries found, {{open}} still open: {{shortage}} of shortage, {{surplus}} of surplus.",
+    "errors": {
+      "loadFailed": "The ledger could not be searched."
+    },
+    "criteria": {
+      "entryNumber": "Entry #",
+      "storeId": "Branch",
+      "batchId": "Uploaded batch",
+      "entryKind": "Kind",
+      "status": "Status",
+      "any": "Any",
+      "search": "Search",
+      "clear": "Clear"
+    },
+    "withdrawBatch": "Withdraw this whole batch — all {{count}} entries, in one act",
+    "columns": {
+      "store": "Branch",
+      "storeName": "Branch name",
+      "batchId": "Uploaded batch",
+      "postedSingly": "posted singly"
+    }
+  },
+  "account": {
+    "loading": "Loading this branch's account…",
+    "empty": "No settlement entry has ever been posted against this branch. That is the ordinary state for most of the estate, not a failed lookup.",
+    "capReached": "This account came back with {{limit}} entries, which is the most the server will send. There may be more that are not shown here.",
+    "errors": {
+      "loadFailed": "This branch's account could not be loaded."
+    },
+    "toolbar": {
+      "filterRow": "Filter row"
+    },
+    "position": {
+      "owes": "this branch owes head office",
+      "keeps": "this branch may keep back",
+      "square": "square with head office"
+    },
+    "headline": {
+      "shortage": "Shortage owed",
+      "surplus": "Surplus kept back",
+      "openCount": "Entries open",
+      "notActionable": "The position is shown, never settled. A till consumes one entry, of one kind, through one document — a shortage and a surplus never cancel each other out."
+    },
+    "kind": {
+      "SHORTAGE": "Shortage · عجز",
+      "SURPLUS": "Surplus · فائض"
+    },
+    "status": {
+      "OPEN": "Open",
+      "CONSUMED": "Consumed by a till",
+      "CANCELLED": "Cancelled",
+      "CLOSED_OUT": "Remainder written off"
+    },
+    "columns": {
+      "entryNumber": "Entry",
+      "entryKind": "Kind",
+      "amount": "Amount",
+      "remainingAmount": "Remaining",
+      "reason": "Reason the branch reads",
+      "status": "Status",
+      "postedByName": "Posted by",
+      "postedAt": "Posted at",
+      "journalCount": "Journal",
+      "journalWithOrphan": "{{count}} · one has no document"
+    },
+    "journal": {
+      "title": "What a till has taken against this entry",
+      "forEntry": "Entry {{number}} · {{kind}} · {{amount}} posted",
+      "noSelection": "Pick an entry above to read its journal.",
+      "empty": "No till has taken anything against this entry yet.",
+      "emptyCancelled": "Nothing was ever taken against this entry — which is why it could be cancelled outright rather than written off.",
+      "none": "Untouched",
+      "writtenOff": "{{amount}} of the remainder was written off by {{by}} on {{at}}. The journal below is unchanged by that — a write-off touches no consumption.",
+      "operator": "Operator {{id}}",
+      "kind": {
+        "CONSUME": "Taken",
+        "REVERSE": "Given back"
+      },
+      "columns": {
+        "what": "What happened",
+        "amount": "Amount",
+        "left": "Left on the entry",
+        "document": "What spent it",
+        "day": "Business day",
+        "who": "Who, and when"
+      },
+      "document": {
+        "receipt": "Settlement receipt {{number}}",
+        "shiftClose": "Shift close {{day}} · {{number}}",
+        "reversal": "Void of {{number}}",
+        "reversalUnnumbered": "Void of a settlement receipt",
+        "orphan": "No document — the close never completed",
+        "orphanHint": "The receipt number is stamped on after the fact, so a blank one means the close is either seconds old or it timed out and gave up. If it stays blank, this is money the branch handed over against a document that will never exist."
+      }
+    }
+  },
+  "correction": {
+    "title": "Correcting a mistake",
+    "forEntry": "Entry {{number}}",
+    "noAmend": "Changing the amount is not offered at all. Once posted, an entry is either withdrawn whole while nothing has been taken against it, or its remainder written off once a till has taken part of it.",
+    "journalUntouched": "Neither act touches what a till has already taken — the journal below is unchanged by a write-off, and a receipt already in a collector's hands is never retro-voided.",
+    "reasonLabel": "Why (the audit reads this)",
+    "reasonHint": "Up to {{max}} characters. It is kept beside the correction in this branch's history, and read by whoever asks about this entry months from now.",
+    "back": "Back",
+    "dismiss": "Read it — show me what I can do",
+    "cancel": {
+      "why": "Nothing has been taken against entry {{number}}, so all {{amount}} of it can be withdrawn as though it never happened.",
+      "button": "Cancel this entry",
+      "commit": "Cancel entry {{number}}"
+    },
+    "writeOff": {
+      "why": "A till has already taken part of entry {{number}} — {{remaining}} of {{amount}} is left. It cannot be cancelled, because what a till took is on a document the branch already acted on. The remainder can be written off instead.",
+      "button": "Write off the remaining {{remaining}}",
+      "commit": "Write off {{remaining}}"
+    },
+    "none": {
+      "consumed": "A till has taken all of this entry. There is nothing left to cancel or write off — it is finished, and its journal below says where the money went.",
+      "cancelled": "This entry was cancelled. Nothing had been taken against it, so it was withdrawn as though it never happened, and it is not corrected twice.",
+      "written-off": "This entry's remainder was already written off. What a till took before that is unchanged, and an entry is not corrected twice.",
+      "nothing-left": "This entry has nothing left on it, so there is nothing to cancel or to write off."
+    },
+    "raced": {
+      "partlyConsumed": "A till consumed part of this entry while this was open — {{remaining}} is left, not {{amount}}. It can no longer be cancelled as though it never happened. Write off the rest instead?",
+      "nothingLeft": "A till consumed all of entry {{number}} while this was open. There is nothing left to cancel or to write off — the entry is finished, and the journal below shows what took it.",
+      "refused": "The server would not cancel this entry, and its remaining has not changed. Read the journal below before deciding what to do next.",
+      "closeOutRefused": "The remainder was not written off. The server says {{remaining}} is what this entry now has left — read the journal below before deciding what to do next.",
+      "closeOutUnstated": "The remainder was not written off, and the server did not say what this entry now has left. Read the journal below before deciding what to do next."
+    },
+    "done": {
+      "cancelled": "Entry {{number}} is cancelled.",
+      "writtenOff": "Entry {{number}}'s remainder is written off. What a till already took is unchanged."
+    },
+    "errors": {
+      "cancelFailed": "The cancellation could not be sent.",
+      "closeOutFailed": "The write-off could not be sent."
+    }
+  },
+  "audit": {
+    "title": "Everything that has happened to this entry",
+    "forEntry": "Entry {{number}}",
+    "localTime": "Times are the branch's own local clock, as the server wrote them — nothing on this pane is converted, and nothing is read from the administration audit, whose times are UTC.",
+    "left": "{{amount}} left on the entry",
+    "kind": {
+      "posted": "Posted",
+      "consumed": "Taken by a till",
+      "restored": "Given back",
+      "cancelled": "Cancelled",
+      "written-off": "Remainder written off"
+    },
+    "where": {
+      "store": "from branch {{store}}",
+      "person": "by {{name}}",
+      "staff": "by staff {{id}}"
+    }
+  },
+  "post": {
+    "open": "Post an entry",
+    "openForBranch": "Post an entry on this branch",
+    "title": "Post a settlement entry",
+    "cancel": "Cancel",
+    "kind": {
+      "legend": "What this entry does",
+      "SHORTAGE": {
+        "consequence": "The branch must hand this money over"
+      },
+      "SURPLUS": {
+        "consequence": "The branch may keep this money back"
+      }
+    },
+    "branch": {
+      "label": "Which branch",
+      "placeholder": "Code, name in either script, or city — e.g. 0142, الروضة, Al-Rawdah, Riyadh",
+      "loading": "Loading the estate…",
+      "unavailable": "The estate could not be loaded, so no branch can be resolved and nothing can be posted. Try again in a moment.",
+      "ambiguous": "{{count}} branches match that. Nothing can be posted until exactly one does — pick one, or type the branch code.",
+      "none": "No branch matches that. Nothing can be posted until exactly one does."
+    },
+    "standing": {
+      "loading": "Reading what this branch already carries…",
+      "unknown": "This branch's account could not be read, so what it already carries is unknown. Open the account before you commit.",
+      "capped": "This branch's account came back at the server's row limit, so what it already carries cannot be read in full here. Open the account before you commit.",
+      "clear": {
+        "SHORTAGE": "This branch carries no open shortage today.",
+        "SURPLUS": "This branch carries no open surplus today."
+      },
+      "warning": {
+        "SHORTAGE_one": "This branch already owes {{total}} on an open shortage.",
+        "SHORTAGE_other": "This branch already owes {{total}} across {{count}} open shortages.",
+        "SURPLUS_one": "This branch may already keep back {{total}} on an open surplus.",
+        "SURPLUS_other": "This branch may already keep back {{total}} across {{count}} open surpluses."
+      },
+      "entry": "Entry {{number}} · {{remaining}} remaining · posted {{posted}}",
+      "permitted": "Posting another is allowed, and sometimes right — a genuine second one months later is a real entry. Check only that this is not the same one twice."
+    },
+    "amount": {
+      "label": "Amount",
+      "hint": "Type an amount greater than zero. A grouping comma is fine.",
+      "tooSmall": "This branch counts to {{decimals}} decimals in {{currency}}, so that figure is zero to it. Nothing that small can be handed over or taken by a till.",
+      "needsBranch": "Name a branch first — the amount is counted in that branch's own currency.",
+      "readBack": "{{grouped}} {{currency}} · {{words}}"
+    },
+    "reason": {
+      "label": "Why (the branch reads this at the till)",
+      "hint": "{{used}} of {{max}} characters. It is kept with the entry and read verbatim by the branch.",
+      "previewLabel": "What the branch will see",
+      "previewEmpty": "Nothing yet — a branch manager reading this at 23:00 has only these words to go on."
+    },
+    "form": {
+      "review": "Review"
+    },
+    "review": {
+      "back": "Back",
+      "commit": "Post this entry",
+      "consequence": {
+        "SHORTAGE": "{{store}} {{storeName}} must hand this money over.",
+        "SURPLUS": "{{store}} {{storeName}} may keep this money back."
+      },
+      "immutable": "Once posted, this amount cannot be changed. It can only be cancelled while nothing has been taken against it, or its remainder written off once a till has taken part of it."
+    },
+    "words": {
+      "join": "{{major}} and {{minor}}",
+      "SAR": {
+        "major_one": "{{words}} riyal",
+        "major_other": "{{words}} riyals",
+        "minor_one": "{{words}} halala",
+        "minor_other": "{{words}} halalas"
+      },
+      "BHD": {
+        "major_one": "{{words}} dinar",
+        "major_other": "{{words}} dinars",
+        "minor_one": "{{words}} fils",
+        "minor_other": "{{words}} fils"
+      },
+      "other": {
+        "major_one": "{{words}} {{currency}}",
+        "major_other": "{{words}} {{currency}}",
+        "minor_one": "{{words}} hundredth of a {{currency}}",
+        "minor_other": "{{words}} hundredths of a {{currency}}"
+      }
+    },
+    "done": {
+      "number": "Entry {{number}} is posted.",
+      "toast": "Entry {{number}} is posted.",
+      "summary": {
+        "SHORTAGE": "{{store}} {{storeName}} must hand over {{amount}} {{currency}}.",
+        "SURPLUS": "{{store}} {{storeName}} may keep back {{amount}} {{currency}}."
+      },
+      "adjusted": "The server stored {{stored}} {{currency}}, not the {{reviewed}} that was reviewed. The figure above is the one on the ledger and the one the branch will be asked for.",
+      "immutable": "Quote this number to the branch. The amount cannot be changed from here — it can only be cancelled while untouched, or its remainder written off once a till has taken part of it.",
+      "close": "Done"
+    },
+    "errors": {
+      "failed": "The entry could not be posted."
+    }
+  },
+  "bulk": {
+    "open": "Upload a month's audit",
+    "title": "Upload a month's audit",
+    "cancel": "Cancel",
+    "kind": {
+      "legend": "What every row in this file does",
+      "oneKindPerFile": "One kind per file. The sheet has no kind column — a file mixing the two would make the total below a net figure a typo could hide inside."
+    },
+    "file": {
+      "label": "The sheet finance produced",
+      "hint": "An .xlsx or a .csv. Columns are read by their names, so a re-ordered sheet still posts.",
+      "chosen": "{{name}} is ready to preview.",
+      "reading": "Sending the file and reading it back…",
+      "preview": "Preview this file",
+      "serverParses": "Nothing is read here — the file goes up as it is and every figure below comes back from the server's own reading of it."
+    },
+    "columns": {
+      "row": "Row",
+      "store": "Branch",
+      "storeName": "Branch name",
+      "amount": "Amount",
+      "reason": "Reason the branch reads"
+    },
+    "review": {
+      "summary": "{{rows}} rows, all of them {{kind}}.",
+      "back": "Choose another file",
+      "replay": "A file with these same {{rows}} rows was posted {{minutes}} minutes ago by {{by}}. This can still be posted — a genuine second month is a real file — but check it is not the same one twice.",
+      "blocked": "Nothing in this file can be posted until {{count}} of these are fixed in the sheet. Fix them, save, and upload it again.",
+      "rowError": "Row {{row}} — {{message}}",
+      "rowErrorColumn": "Row {{row}}, column {{column}} — {{message}}",
+      "fileError": "The file itself — {{message}}",
+      "fileErrorColumn": "The file itself, column {{column}} — {{message}}",
+      "unresolved": "Row {{row}} — no branch has the code {{code}}, so this row cannot be posted onto anything.",
+      "noBranch": "No branch has this code",
+      "warned": "{{count}} rows carry a warning. They post: a branch that already carries an open entry of this kind can genuinely owe a second one, and this door is never stricter than the single form.",
+      "disagree": "The server's own total for this file is {{server}}, and the rows below add up to {{rows}}. The rows are what will be posted. Read both before committing.",
+      "totalFigure": "{{count}} entries · {{amount}} {{currency}}",
+      "noCurrency": "{{count}} of these rows came back without a currency, so the figure above is read at two decimals. Open one of those branches before committing.",
+      "totalHint": "The figure above is the sum of the {{count}} rows in the grid — read the sentence, not the digits.",
+      "commit": "Post all {{count}} entries",
+      "commitWithTotal": "Post {{count}} entries · {{words}}",
+      "commitBlocked": "Fix the sheet before posting",
+      "refusedHint": "The file on disk is not the one that was previewed. Preview it again to see what changed before anything is posted.",
+      "previewAgain": "Preview the file again"
+    },
+    "done": {
+      "toast": "{{count}} entries are posted.",
+      "posted": "{{count}} entries are posted.",
+      "replayed": "This exact file had already been committed, so nothing was doubled — these are the entries it posted the first time.",
+      "numbers": "Entry numbers: {{numbers}}",
+      "immutable": "These amounts cannot be changed. Each can be cancelled while nothing has been taken against it, or its remainder written off once a till has taken part of it — and the whole batch can be withdrawn as one act.",
+      "withdraw": "Withdraw this whole batch",
+      "close": "Done"
+    },
+    "errors": {
+      "previewFailed": "The file could not be read.",
+      "commitRefused": "This file was not posted. It no longer matches the one that was previewed.",
+      "commitFailed": "This file was not posted, and the server did not say why. Preview it again before trying anything else."
+    }
+  },
+  "batch": {
+    "title": "Withdraw an uploaded batch",
+    "loading": "Reading what this batch posted…",
+    "empty": "No entry carries this batch. Either it was never posted, or the id is not one this ledger knows.",
+    "errors": {
+      "loadFailed": "This batch's entries could not be read."
+    },
+    "groups": {
+      "cancellable": "Will be withdrawn ({{count}})",
+      "skipped": "Will not be withdrawn ({{count}})"
+    },
+    "skipped": {
+      "consumed": "A till has taken all of this one.",
+      "cancelled": "Already cancelled — an entry is not corrected twice.",
+      "written-off": "Its remainder was already written off.",
+      "partly-consumed": "A till has taken part of this one; {{remaining}} is left. It cannot be withdrawn, and writing off the rest is a separate decision on its own entry."
+    },
+    "row": {
+      "entry": "entry {{number}}"
+    },
+    "act": {
+      "summary": "{{count}} of this batch's {{total}} entries can be withdrawn.",
+      "notRetroVoided": "What a till has already taken is untouched by this: a receipt in a collector's hands is never retro-voided, and an entry a till reached first keeps its remainder until someone writes it off on its own account.",
+      "reasonLabel": "Why (every withdrawn entry's audit reads this)",
+      "reasonHint": "Up to {{max}} characters. It is filed against each entry this act withdraws — \"finance sent the wrong file\" is the sentence this box is for.",
+      "commit": "Withdraw {{count}} entries",
+      "working": "Withdrawing…"
+    },
+    "outcome": {
+      "summary": "{{count}} entries were withdrawn.",
+      "refused": "A till got to these first ({{count}})",
+      "refusedRow": "Not withdrawn — {{remaining}} is what it now has left. {{reason}}",
+      "refusedRowUnstated": "Not withdrawn — {{remaining}} is what it now has left, and the server did not say why.",
+      "refusedUnstated": "The server refused this one without saying why.",
+      "failed": "These could not be reached ({{count}})",
+      "failedRow": "The request did not complete, so this entry's state is unknown. Open it before deciding.",
+      "withdrawn": "Withdrawn ({{count}})"
+    }
+  },
+  "figures": {
+    "notActionable": "A report figure. Nobody owes the estate's total and no till can consume it — a position belongs to one branch, on its own account."
+  }
+}

@@ -53,41 +53,16 @@ export const RECEIPT_NOT_FOUND = 'CollectionReceiptNotFound'
 export const ACR_NOT_FOUND = 'AcrNotFound'
 
 /**
- * The ONE cache key the four Collections nav leaves and all four screens' own
- * in-page guards share, so a gated area costs **one** network call and not one
- * per consumer. Exported rather than re-spelled at each site: a typo in a string
- * literal would not fail a build, it would silently split the cache entry and
- * let the nav and a screen disagree about whether the session is allowed in.
- */
-export const COLLECTION_ACCESS_KEY = ['collection', 'access'] as const
-
-/**
- * …and the ONE set of options every reader of that key passes.
- *
- * 🚩 The key alone was not enough once a second reader appeared (ticket 257's
- * `Collections ▸` gate, beside `ScreenGate`'s own): react-query merges the options
- * of concurrent observers, so a screen that quietly dropped `retry: false` would
- * make a **refused** probe retry under a gate whose whole ruling is to fail closed
- * on the first no. The options travel with the key, spelled once.
- *
- * `staleTime: Infinity` because a grant does not change inside a page life;
- * `retry: false` because a 403 is an answer and not an outage.
- */
-export function collectionAccessQuery() {
-  return {
-    queryKey: COLLECTION_ACCESS_KEY,
-    queryFn: () => collectionApi.access(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
-
-/**
  * The ONE cache key and options the *Served by* picker and every screen that lands
  * on its `defaultScope` share (BackOffice 1163 for the picker, 1165 for the
  * landing), on `collectionAccessQuery`'s shape and for its reasons: react-query
  * merges concurrent observers' options, so the key and its options travel together
  * rather than being re-spelled per consumer.
+ *
+ * 🚩 Unlike that one it stays **here**, in the feature: the picker's roster is the
+ * inquiry screens' own, and 268's graduation moved only what a second feature had
+ * to read. A shared layer is where two features meet, not where one feature's
+ * helpers go to look important.
  *
  * `staleTime: Infinity` because the roster does not change inside a page life;
  * `retry: false` because an unreachable sink is the same failure class the grid
@@ -106,7 +81,7 @@ export function assignmentOptionsQuery() {
 }
 
 /**
- * The probe's four predicates, one per screen (244 §10).
+ * The probe's predicates, one per screen of THIS feature (244 §10).
  *
  * `=== true` and nothing looser, so a malformed answer (`{}`, `null`, a string
  * `"true"`) is a denial and not an accident of truthiness. They are named
@@ -117,7 +92,13 @@ export function assignmentOptionsQuery() {
  * 🚩 They are **independent**. A session granted only `DepositInquiry` sees one
  * item, not three that would bounce it — a ragged group is the correct answer,
  * and it is what makes the menu honest about what the server will actually
- * serve.
+ * serve. The settlement account's own predicate lives with ITS screen, in
+ * `features/collection/settlement/api` — same reason, fifth grant (268).
+ *
+ * ⚠️ The key, the query options and the `Access` call itself are NOT here any
+ * more: ticket 268 graduated them to `@/core/collection/api` when the settlement
+ * feature became the probe's second consumer, because a feature may not import
+ * another feature's api. What stays here is what this feature owns.
  */
 type Access = CollectionAccessResult | null | undefined
 
@@ -138,23 +119,6 @@ export const canOpenAttempts = (r: Access): boolean => r?.canOpenAttempts === tr
 export const canOpenAssignment = (r: Access): boolean => r?.canOpenAssignment === true
 
 export const collectionApi = {
-  /**
-   * `GET CollectionWeb/Access` → the four booleans. Cookie-gated and
-   * deliberately **not** grant-gated: it must be able to answer a session that
-   * holds nothing.
-   *
-   * ⚠️ **Fails closed.** No 404-tolerant catch, unlike the `Notifications/Access`
-   * and `Bby/Access` probes which degrade to *allowed* while their endpoints are
-   * unbuilt. These four screens are the chain's cash, and 253 asks for exactly
-   * this: an unknown or failed probe hides the group rather than offering a
-   * screen the server will refuse. The shell already treats a pending or errored
-   * probe as hidden, so failing closed is the *absence* of a catch rather than
-   * code.
-   */
-  access(): Promise<CollectionAccessResult> {
-    return api.get<CollectionAccessResult>('CollectionWeb/Access')
-  },
-
   /**
    * `GET CollectionWeb/Collections` → the Cash Collections grid's rows (ticket
    * 254), grant-gated on `CollectionInquiry`.

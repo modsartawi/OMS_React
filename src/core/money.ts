@@ -95,6 +95,31 @@ export function currencyDecimals(currency: string | null | undefined): number {
 }
 
 /**
+ * The scale money is **held** at, as against drawn at.
+ *
+ * The GCC has 3-decimal currencies, so the settlement ledger's own columns are
+ * `DECIMAL(18,3)` server-side (spec 267 D10) and every figure this app adds up is
+ * rounded back to three places before it is compared or displayed.
+ *
+ * 🚩 Not cosmetic, and not the same decision as `currencyDecimals`: `0.1 + 0.2` is
+ * `0.30000000000000004` in IEEE-754, so a total built by summing a branch's open
+ * remainders carries that tail into the `=== 0` comparison that decides whether the
+ * branch reads as **square**. A branch that is exactly level would otherwise read as
+ * owing a millionth of a halala.
+ *
+ * Born in `features/collection/settlement/account-projection.ts` (269) and graduated
+ * here at its **third** copy (270's two report-figure folds) — the escalation path
+ * [feature-structure](../../.claude/rules/feature-structure.md) sets, and the same
+ * trigger `ScreenGate` and `distinctCurrencies` each took.
+ */
+export const MONEY_SCALE = 1000
+
+/** One figure at the scale money is held at — three decimals. See `MONEY_SCALE`. */
+export function roundMoney(value: number): number {
+  return Math.round(value * MONEY_SCALE) / MONEY_SCALE
+}
+
+/**
  * The locale the figures are drawn in. Pinned rather than left to the runtime:
  * the app is en-only and a grouped figure that changed separator with the
  * browser's locale would make two agents read the same line differently.

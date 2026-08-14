@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { formatMoneyIn } from '@/core/money'
 import { formatDateTime } from '@/core/util/date-format'
+import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
 import { auditColumn, type AuditFact, type AuditWhere } from './audit'
 
@@ -87,7 +87,7 @@ function Fact({ fact, currencyKey }: { fact: AuditFact; currencyKey: string }) {
       <span className="tabular-nums text-muted-foreground">{formatDateTime(fact.at)}</span>{' '}
       <b>{t(`audit.kind.${fact.kind}`)}</b>
       {fact.amount !== null && (
-        <span className="tabular-nums"> {formatMoneyIn(fact.amount, currencyKey)}</span>
+        <span className="tabular-nums"> {settlementMoney(fact.amount, currencyKey)}</span>
       )}{' '}
       <Where where={fact.where} />
       {fact.remainingAfter !== null && (
@@ -95,7 +95,7 @@ function Fact({ fact, currencyKey }: { fact: AuditFact; currencyKey: string }) {
         // never a subtraction (269's rule 3).
         <span className="text-muted-foreground">
           {' '}
-          · {t('audit.left', { amount: formatMoneyIn(fact.remainingAfter, currencyKey) })}
+          · {t('audit.left', { amount: settlementMoney(fact.remainingAfter, currencyKey) })}
         </span>
       )}
       {/* 🔑 269's rule 1, carried into this pane by the SAME description the journal

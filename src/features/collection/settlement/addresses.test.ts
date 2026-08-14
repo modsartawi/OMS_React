@@ -12,8 +12,6 @@ import {
   batchSearch,
   branchSearch,
   doorSearch,
-  isLedgerView,
-  ledgerSearch,
   readBatchView,
   readQuery,
   readStore,
@@ -30,31 +28,17 @@ describe('🚩 every link keeps the scope', () => {
 
   it('carries it back out to the door, and drops what took the reader away', () => {
     expect(doorSearch(params('scope=all&store=0142'))).toBe('?scope=all')
-    expect(doorSearch(params('scope=unassigned&view=ledger&entryNumber=143'))).toBe(
+    expect(doorSearch(params('scope=unassigned&view=batch&batch=01J9B'))).toBe(
       '?scope=unassigned',
     )
   })
 
-  it('carries it into the ledger, with the ageing lane’s seed', () => {
-    // The seed is typed criteria, written by the module that owns the keys - so a
-    // branch seed lands on `branch=` and could not be hand-spelled as `store=`.
-    const seeded = new URLSearchParams(
-      ledgerSearch(params('scope=all'), { status: 'OPEN' }).slice(1),
-    )
-    expect(seeded.get('scope')).toBe('all')
-    expect(seeded.get('view')).toBe('ledger')
-    expect(seeded.get('status')).toBe('OPEN')
-    expect(
-      new URLSearchParams(ledgerSearch(params(''), { storeId: '0455' }).slice(1)).get('branch'),
-    ).toBe('0455')
-  })
-
   it('moves the scope without disturbing the view', () => {
     const widened = new URLSearchParams(
-      scopeSearch(params('view=ledger&status=OPEN'), 'all').slice(1),
+      scopeSearch(params('view=batch&batch=01J9B'), 'all').slice(1),
     )
-    expect(widened.get('view')).toBe('ledger')
-    expect(widened.get('status')).toBe('OPEN')
+    expect(widened.get('view')).toBe('batch')
+    expect(widened.get('batch')).toBe('01J9B')
     expect(widened.get('scope')).toBe('all')
     // ...and the default is the ABSENCE of the parameter.
     expect(scopeSearch(params('scope=all'), 'mine')).toBe('.')
@@ -68,8 +52,8 @@ describe('🚩 every link keeps the scope', () => {
 })
 
 describe('…and drops everything that belongs to the view it left', () => {
-  it('drops the search, the ledger filter and the view flag', () => {
-    const busy = params('scope=all&q=Nakheel&view=ledger&entryNumber=143&branch=0455&status=OPEN')
+  it('drops the search, the leftover filters and the view flag', () => {
+    const busy = params('scope=all&q=Nakheel&view=batch&batch=01J9B&branch=0455&status=OPEN')
     const next = new URLSearchParams(branchSearch(busy, '0142').slice(1))
     for (const key of ['q', 'view', 'entryNumber', 'branch', 'kind', 'status'])
       expect(next.get(key)).toBeNull()
@@ -83,12 +67,6 @@ describe('reading the address', () => {
     expect(readStore(params('store=0142'))).toBe('0142')
     expect(readStore(params('store=  '))).toBe('')
     expect(readStore(params(''))).toBe('')
-  })
-
-  it('knows the ledger view by its own name', () => {
-    expect(isLedgerView(params('view=ledger'))).toBe(true)
-    expect(isLedgerView(params('view=something'))).toBe(false)
-    expect(isLedgerView(params(''))).toBe(false)
   })
 
   it('writes a query, and REMOVES it rather than leaving ?q= behind', () => {
@@ -106,7 +84,7 @@ describe('reading the address', () => {
  */
 describe('the batch withdrawal is an address', () => {
   it('keeps the scope and drops what led here', () => {
-    const from = new URLSearchParams('scope=all&view=ledger&batch=01J9B&q=0142')
+    const from = new URLSearchParams('scope=all&view=other&batch=01J9B&q=0142')
     expect(batchSearch(from, '01J9BATCHCLEAN')).toBe('?scope=all&view=batch&batch=01J9BATCHCLEAN')
   })
 

@@ -39,6 +39,13 @@ import type {
  * branch that proves `95.250` renders as `95.250` rather than being silently
  * rounded to `95.25`, which is a misquoted figure to the branch manager reading it.
  * The other five are SAR and draw at two.
+ *
+ * ⚠️ **274 removed `currencyKey` from these accounts, because the door does not send
+ * one** (`.afk/FINDINGS-274.md` §B6) — and that makes 0688 MORE important, not less.
+ * Its three-decimal figures are now the live check on
+ * `formatMoneyOfUnknownCurrency`: with no currency to read, the renderer must still
+ * show `95.250` intact rather than falling back to two decimals and rounding a fils
+ * away. The branch that proved D10 with a currency now proves it without one.
  */
 
 const HUDA = { staffId: '30117', name: 'هدى القحطاني / Huda Al-Qahtani' }
@@ -73,7 +80,6 @@ function consumption(o: Partial<SettlementConsumption> & Pick<SettlementConsumpt
 const ACCOUNT_0142: SettlementAccount = {
   storeId: '0142',
   storeName: 'صيدلية الروضة / Al-Rawdah Pharmacy',
-  currencyKey: 'SAR',
   entries: [
     entry({
       settlementEntryId: '01J9SETL0142A', entryNumber: 143, storeId: '0142',
@@ -109,7 +115,6 @@ const ACCOUNT_0142: SettlementAccount = {
 const ACCOUNT_0207: SettlementAccount = {
   storeId: '0207',
   storeName: 'صيدلية الخالدية / Al-Khalidiyah Pharmacy',
-  currencyKey: 'SAR',
   entries: [
     entry({
       settlementEntryId: '01J9SETL0207A', entryNumber: 149, storeId: '0207',
@@ -149,7 +154,6 @@ const ACCOUNT_0207: SettlementAccount = {
 const ACCOUNT_0331: SettlementAccount = {
   storeId: '0331',
   storeName: 'صيدلية النخيل / Al-Nakheel Pharmacy',
-  currencyKey: 'SAR',
   entries: [
     entry({
       settlementEntryId: '01J9SETL0331A', entryNumber: 137, storeId: '0331',
@@ -179,7 +183,6 @@ const ACCOUNT_0331: SettlementAccount = {
 const ACCOUNT_0455: SettlementAccount = {
   storeId: '0455',
   storeName: 'صيدلية السلامة / Al-Salamah Pharmacy',
-  currencyKey: 'SAR',
   entries: [
     entry({
       settlementEntryId: '01J9SETL0455A', entryNumber: 141, storeId: '0455',
@@ -222,7 +225,6 @@ const ACCOUNT_0455: SettlementAccount = {
 const ACCOUNT_0512: SettlementAccount = {
   storeId: '0512',
   storeName: 'صيدلية قرطبة / Qurtubah Pharmacy',
-  currencyKey: 'SAR',
   entries: [
     entry({
       settlementEntryId: '01J9SETL0512A', entryNumber: 119, storeId: '0512',
@@ -257,7 +259,6 @@ const ACCOUNT_0512: SettlementAccount = {
 const ACCOUNT_0688: SettlementAccount = {
   storeId: '0688',
   storeName: 'صيدلية المحرق / Al-Muharraq Pharmacy',
-  currencyKey: 'BHD',
   entries: [
     entry({
       settlementEntryId: '01J9SETL0688A', entryNumber: 133, storeId: '0688',

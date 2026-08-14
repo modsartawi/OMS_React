@@ -62,7 +62,9 @@ The feature's first real user: an accountant posts a figure a till can consume.
 ## Proof
 
 - [ ] The grant proven in **both** directions — unseeded: no menu item, route refused; seeded: the
-      screen works.
+      screen works. **HALF DONE, live:** unseeded is proven — `CollectionWeb/Access` answers
+      `canOpenSettlement: false` and `Settlement/Fleet` answers a bare **403** from
+      `SettlementGrantEndpointFilter`. The seeded direction is blocked (see below).
 - [ ] A **real entry posted** against a real branch, visible on its account with a minted number.
 - [ ] That entry **cancelled** live, and a second one **written off** after a consumption exists
       against it (a till close or a hand-inserted consumption row).
@@ -73,7 +75,24 @@ The feature's first real user: an accountant posts a figure a till can consume.
 - [ ] A **hash mismatch** refused for real (edit the sheet between preview and commit).
 - [ ] The estate-wide carve-out confirmed on real data (above).
 - [ ] 🔑 **The fleet aggregate's timing measured at estate scale and written into this ticket.**
-- [ ] `typecheck` + `lint` green.
+- [x] `typecheck` + `lint` green — plus `vitest` (1805 tests, 115 files) and
+      `tools/settlement-drive.mjs` (**164/164**), both reworked to the narrowed contract.
+
+### ⚠️ Blocked: the grant was never seeded
+
+Everything above the line is **contract work done against the source of a running SIS.Api**; nothing
+below it has been driven, because `canOpenSettlement` stayed `false` for the whole session and
+`msartawi` cannot self-serve it (`AuthzAdminWeb/Access` → `screenAllowed: false`). The ticket stays
+**open** on those bullets.
+
+Two notes for whoever picks it up:
+
+- ⚠️ **A cookie session alone answers 401, not 403.** The api-key filter's cookie branch requires the
+  CSRF header (`X-Web-Client`, `CookieAuthOptions.RequiredHeader`) before it will even look at the
+  grant. `@/core/api` sends it; `curl` does not. A missing header looks exactly like an expired
+  session.
+- The grant to seed is the fifth under the Collections key:
+  `BackOfficeScreen[CONTROLLER=SettlementAccount, COMMAND=03]`.
 
 ### Deliberately NOT part of this ticket's proof
 
@@ -106,10 +125,68 @@ timing is written down.
 Server side: BackOffice spec 1173's endpoints and migration 081 — **not yet built** at the time this
 ticket was written.
 
+## What the joining event actually found
+
+Full write-up: **`.afk/FINDINGS-274.md`**. The hand-off to BackOffice is drafted at
+**`.afk/BACKOFFICE-TICKET-DRAFT-settlement-reads.md`** (this repo is read-only in that tracker).
+
+🔑 **The headline: the routes were right and the SHAPES were not — and the shapes were mostly ours.**
+Spec 1173 D13 specifies six doors and bulk; BackOffice built exactly that, and 1185 went further by
+adding `Settlement/Orphans`. Every "missing" field was added on the oms-react side across 269–273,
+each logged in a `.afk/HITL-*.md` as *"an extension of D8, for 274 to settle"* — and never negotiated
+with 1173. **This ticket settled them by removing them.**
+
+### Fixed in the client (the client was wrong)
+
+- 🚩 **The fleet door's default `TOP` is 500 and the estate is 1394.** `fleet()` sent no `limit`, so
+  the front page would have rendered **894 branches missing** as *the estate*, with no banner —
+  nothing in the answer says it was cut. `FLEET_LIMIT = 2000`. The worst thing found here.
+- `Settlement/Worklist` does not exist; `Settlement/Orphans` does. Repointed.
+- The repair answer's `remainingAfter` is **`remainingAmount`** on the wire — the one *misnamed*
+  field. It read `undefined`.
+- Cancel and close-out share one server type, so the close-out DOES carry `refusalReason` and
+  `status`. `.afk/HITL-272.md`'s logged gap is closed by widening.
+- 🔑 **The client mints the `batchId`, and it must be a ULID** — the server derives the batch's entry
+  ids from it, so two ids sharing their last 21 characters would silently replay. Reused
+  `newRequestId()`.
+- Commit must echo `contentHash`, and **a hash mismatch is a 200 with `accepted: false`**, not an
+  `ApiError`. 273 had it backwards; a client reading `posted` without `accepted` would have reported
+  a refused commit as a success.
+- ✅ **`Settlement/Bulk/Cancel` exists** and replaces ~150 lines of client-side loop — which had also
+  stood on `Settlement/Ledger`, so that path had never worked against a real server.
+- The scope goes on the wire; the estate-wide carve-out is OR'd into the server's own predicate.
+  ⚠️ `PostEntryDialog` therefore fetches `fleet('all')` under its own key — posting must never be
+  scoped, and after this change that is the caller's guarantee to keep.
+
+### Narrowed to D13 (recorded for BackOffice, never faked)
+
+`CrossEstateLedger`, the cash-waiting lane, the ageing lane, `assignment` ranking, `city` search and
+the entry-number lookup are **gone, not stubbed**. Of the six gaps behind them, the draft asks for
+**three**: `currencyKey` on the reads (§B6 — 1173 contradicting itself, and the only one that is
+money), `Settlement/Uncollected` (§B2 — a lane 1173's own text assumes), and `Settlement/Ledger`
+(§B1 — 1173 mints a phone-quotable handle and gives nobody a way to resolve it). ⚠️ The ageing lane is
+**not** asked for: 1173 rules entry staleness *fog*.
+
+### The money consequence, handled
+
+With no `currencyKey` anywhere on the reads, the screen cannot draw at the branch's own precision
+(D10). It does **not** guess: `formatMoneyOfUnknownCurrency` renders minimum 2 / maximum 3 decimals,
+and `amountInWords` words at the ledger's own three — because wording a Bahraini `95.505` at two
+would read it back as *95.51*, get it approved, and store `95.505`: **the words and the ledger
+disagreeing**, which is what D4's read-back exists to prevent. Residual cost, stated rather than
+discovered later: a *trailing* zero cannot be restored (`95.250` and `95.25` are one float), and the
+smallest-unit refusal softens to the ledger's scale, leaving `SettlementAmountRoundsToZero` to the
+server that knows.
+
+🚩 **The regression test this whole ticket earns:** `worklist.test.ts` now asserts the **fixture emits
+exactly D13's fields**. A fixture richer than the wire is why five tickets shipped against fields no
+server ever sent.
+
 ## Open questions
 
-~~The route literals (D8)~~ — **settled by the server**, see below. The fleet timing is still this
-ticket's to settle.
+~~The route literals (D8)~~ — **settled by the server**, and confirmed correct.
+🔑 **The fleet timing at estate scale is still unsettled**, and now needs the grant before it can be:
+the door is 403 without it. See the blocked Proof above.
 
 ## The route literals — SETTLED (BackOffice ticket 1185, 2026-08-14)
 

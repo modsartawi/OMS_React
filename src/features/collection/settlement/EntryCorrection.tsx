@@ -5,8 +5,8 @@ import { toast } from 'sonner'
 import { TriangleAlert } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import { formatMoneyIn } from '@/core/money'
 import Button from '@/core/ui/Button'
+import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
 import { settlementApi } from './api'
 import {
@@ -202,7 +202,7 @@ export default function EntryCorrection({
     (raced !== null && raced.kind !== 'partly-consumed') || closeOutRefused !== null
   const busy = cancelEntry.isPending || closeOut.isPending
   const canCommit = reason.trim().length > 0 && !busy
-  const money = (v: number | null | undefined) => formatMoneyIn(v, currencyKey)
+  const money = (v: number | null | undefined) => settlementMoney(v, currencyKey)
 
   return (
     <section

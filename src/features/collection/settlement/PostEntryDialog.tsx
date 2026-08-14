@@ -5,7 +5,6 @@ import { toast } from 'sonner'
 import { TriangleAlert } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import { formatMoneyIn } from '@/core/money'
 import type {
   SettlementEntryKind,
   SettlementFleetRow,
@@ -13,6 +12,7 @@ import type {
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
+import { settlementMoney } from './money-display'
 import { amountInWords, type AmountWords } from './amount-words'
 import { settlementApi } from './api'
 // 🔑 The in-words sentence is SHARED with 273's upload, which reads the same guard
@@ -103,11 +103,17 @@ export default function PostEntryDialog({
     setPosted(null)
   }, [open, seedStoreId])
 
-  // The estate, for resolving the typed branch. Same query key as the door's, so
-  // opening this from an account costs a request only if the door never ran.
+  // 🔑 **THE ESTATE, and never the door's scoped answer** — `posting.ts` spells out
+  // why: an accountant covering a colleague, or posting a month's audit onto the
+  // 1255 branches assigned to nobody, must not find the branch they typed missing.
+  // Before 274 the door fetched `scope=all` and this shared its cache entry; the
+  // scope now goes on the wire, so this asks for the estate explicitly and under its
+  // own key. ⚠️ Passing the door's rows in here would silently make a real branch
+  // unpostable — and *"no such branch"* is an answer this form already gives, so the
+  // failure would look like a typo.
   const fleet = useQuery({
-    queryKey: ['settlement', 'fleet'],
-    queryFn: () => settlementApi.fleet(),
+    queryKey: ['settlement', 'fleet', 'all'],
+    queryFn: () => settlementApi.fleet('all'),
     staleTime: 60_000,
     enabled: open,
   })
@@ -117,7 +123,9 @@ export default function PostEntryDialog({
     [fleet.data, branchQuery],
   )
   const branch = resolution.kind === 'one' ? resolution.row : null
-  const currencyKey = branch?.currencyKey ?? ''
+  // ⚠️ Empty today — the fleet row carries no currency (274 §B6). See
+  // `money-display.ts`; the day it does, this reads it off the branch again.
+  const currencyKey = ''
 
   // The resolved branch's account — read for ONE reason: the standing position of
   // the kind about to be posted. Same query key as `BranchAccount`'s, so posting
@@ -365,10 +373,11 @@ function BranchField({
         >
           <span className="font-mono text-muted-foreground">{resolution.row.storeId}</span>
           <span className="font-medium">{resolution.row.storeName}</span>
-          <span className="text-muted-foreground">{resolution.row.city}</span>
-          {/* The currency the amount will be counted in, named rather than implied:
-              a BHD branch takes three decimals and a SAR branch two (D10). */}
-          <span className="text-muted-foreground">{resolution.row.currencyKey}</span>
+          {/* ⚠️ The city and the currency stood here until 274 and are not on the
+              fleet row (§B5, §B6). The currency in particular was *named rather than
+              implied* on purpose — a BHD branch takes three decimals and a SAR branch
+              two (D10) — so its absence is why the amount is read back from what the
+              SERVER stored rather than from what was typed, two steps down. */}
         </span>
       )}
 
@@ -460,7 +469,7 @@ function StandingPosition({
         <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
         {t(`post.standing.warning.${kind}`, {
           count: standing.entries.length,
-          total: formatMoneyIn(standing.total, currencyKey),
+          total: settlementMoney(standing.total, currencyKey),
         })}
       </p>
       <ul className="flex flex-col gap-0.5 text-xs">
@@ -468,7 +477,7 @@ function StandingPosition({
           <li key={e.settlementEntryId} data-standing-entry={e.entryNumber} className="tabular-nums">
             {t('post.standing.entry', {
               number: e.entryNumber,
-              remaining: formatMoneyIn(e.remainingAmount, currencyKey),
+              remaining: settlementMoney(e.remainingAmount, currencyKey),
               posted: e.postedAt.slice(0, 10),
             })}
           </li>
@@ -654,7 +663,10 @@ function PostedPanel({
   reviewed: number
 }) {
   const { t } = useTranslation('settlement')
-  const currencyKey = branch?.currencyKey ?? ''
+  // ⚠️ Unknown, per 274 §B6 — which makes the read-back below MORE load-bearing, not
+  // less: the server's own rounded figure is the only statement of the branch's
+  // precision this screen still gets.
+  const currencyKey = ''
   const stored = amountInWords(result?.amount, currencyKey)
   // 🔑 **If the server's figure is not the one that was reviewed, the screen says
   // so.** The client rounds nothing on the way out (the typed amount goes up
@@ -682,7 +694,7 @@ function PostedPanel({
         <p className="text-xs text-attention-800" data-testid="post-done-adjusted">
           {t('post.done.adjusted', {
             stored: stored.grouped,
-            reviewed: formatMoneyIn(reviewed, currencyKey),
+            reviewed: settlementMoney(reviewed, currencyKey),
             currency: currencyKey,
           })}
         </p>

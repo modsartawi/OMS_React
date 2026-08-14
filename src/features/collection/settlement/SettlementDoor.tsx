@@ -1,32 +1,21 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { RefreshCw, Search, TriangleAlert, Upload, Wallet } from 'lucide-react'
-import { toast } from 'sonner'
+import { RefreshCw, Search, TriangleAlert, Upload } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import { formatMoneyIn } from '@/core/money'
-import type {
-  SettlementOrphanRow,
-  SettlementScope,
-  SettlementUncollectedRow,
-} from '@/core/models/settlement'
+import { formatDateTime } from '@/core/util/date-format'
+import type { SettlementOrphanRow, SettlementScope } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import {
-  branchSearch,
-  ledgerSearch,
-  readQuery,
-  writeQuery,
-} from './addresses'
+import { branchSearch, readQuery, writeQuery } from './addresses'
+import { settlementMoney } from './money-display'
 import { settlementApi } from './api'
 import { AccountShimmer } from './AccountStates'
 import BulkUploadDialog from './BulkUploadDialog'
-import { criteriaForEntryNumber } from './ledger'
 import PostEntryDialog from './PostEntryDialog'
 import RepairDialog from './RepairDialog'
-import { resolveScope } from './scope'
 import { resolveSubmit, searchBranches, type BranchSearchResult } from './search'
 import { estateFigures } from './figures'
 import { buildWorklist } from './worklist'
@@ -75,30 +64,28 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
   // re-fetch 1394 rows three times to show numbers that had not changed. A minute is
   // short enough that a refetch after real work is still automatic, and long enough
   // that navigation is not a query.
+  //
+  // 🔑 **274: the scope is IN the key, because it is now on the wire.** 270 fetched
+  // the estate once and narrowed it here; the door resolves *mine* from the session
+  // against the assignment tables, so each scope is a different answer and must be a
+  // different cache entry.
   const fleet = useQuery({
-    queryKey: ['settlement', 'fleet'],
-    queryFn: () => settlementApi.fleet(),
+    queryKey: ['settlement', 'fleet', scope],
+    queryFn: () => settlementApi.fleet(scope),
     staleTime: 60_000,
   })
-  const worklist = useQuery({
-    queryKey: ['settlement', 'worklist'],
-    queryFn: () => settlementApi.worklist(),
+  // ⚠️ The wrong-money lane, and no longer *the worklist*: `Settlement/Orphans` is
+  // one lane. Cash-waiting has no door and ageing has no rule (274 §B2, §B3).
+  const orphans = useQuery({
+    queryKey: ['settlement', 'orphans'],
+    queryFn: () => settlementApi.orphans(),
     staleTime: 60_000,
   })
 
-  const resolution = useMemo(() => resolveScope(scope, fleet.data), [scope, fleet.data])
-  const results = useMemo(
-    () => searchBranches(fleet.data, query, resolution),
-    [fleet.data, query, resolution],
-  )
-  const lanes = useMemo(
-    () => buildWorklist(worklist.data, fleet.data, resolution),
-    [worklist.data, fleet.data, resolution],
-  )
+  const results = useMemo(() => searchBranches(fleet.data, query), [fleet.data, query])
+  const lanes = useMemo(() => buildWorklist(orphans.data), [orphans.data])
   const figures = useMemo(() => estateFigures(fleet.data), [fleet.data])
 
-  /** What an entry-number search found, once it has been asked. `null` = not asked. */
-  const [entryMiss, setEntryMiss] = useState<string | null>(null)
   const [repairing, setRepairing] = useState<SettlementOrphanRow | null>(null)
   /** 271's posting form. It opens with **no branch seeded** from here: the door is
    *  the estate, and the branch is typed into the form itself (D4). */
@@ -107,55 +94,28 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
    *  either: the kind is the FILE's and the branches are the sheet's. */
   const [uploading, setUploading] = useState(false)
 
-  // *"There is no entry 9999"* is an answer about a query, so it dies with the
-  // query. Left standing, it would sit under the results of the NEXT search and read
-  // as a statement about that one.
-  useEffect(() => setEntryMiss(null), [query])
-
   /**
-   * Submit — an address, an entry number, or nothing at all.
+   * Submit — an address, or nothing at all.
    *
-   * 🔑 Which of the three a query is, is decided in `resolveSubmit` and not here:
-   * an **exact branch code wins over an entry number**, because `1001` is both a
-   * real code and a real entry number and taking someone who typed their own
-   * branch's code to a different branch's account is the worst thing this box could
-   * do. An entry number then **jumps straight to that entry's branch account** (the
-   * ticket's own words), and one that matches nothing says so — *"no entry 9999"* is
-   * the answer to the question that was asked.
+   * ⚠️ **274 removed the second meaning: an entry number.** 270's box jumped
+   * straight to *"entry 143, whichever branch it is on"* through the cross-estate
+   * ledger, and that door does not exist (§B1) — `Settlement/Account` cannot serve
+   * it, because it needs the `storeId` the caller is asking for. So a bare number
+   * now matches only as a branch code, and the box's own placeholder says what it
+   * searches rather than letting a real entry number return silence.
+   *
+   * 🔑 The exact-code rule survives in `resolveSubmit` and matters for the same
+   * reason it always did: `1001` is both a real branch code and a real entry number.
    */
-  const onSubmit = async (e: React.FormEvent) => {
+  const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setEntryMiss(null)
-    const intent = resolveSubmit(fleet.data, query, resolution)
-
-    if (intent.kind === 'branch') {
-      navigate(branchSearch(searchParams, intent.storeId))
-      return
-    }
-    if (intent.kind !== 'entry') return
-
-    const criteria = criteriaForEntryNumber(intent.entryNumber)
-    try {
-      const rows = await queryClient.fetchQuery({
-        queryKey: ['settlement', 'ledger', criteria],
-        queryFn: () => settlementApi.ledger(criteria),
-      })
-      const hit = rows?.[0]
-      // 🔑 The ledger is how an entry number becomes a branch — it is the only door
-      // that knows which branch entry 143 is on.
-      if (hit) navigate(branchSearch(searchParams, hit.storeId, hit.entryNumber))
-      else setEntryMiss(t('search.noEntry', { number: intent.entryNumber }))
-    } catch (error) {
-      // ⚠️ Caught, because this is the one query on the screen with no component
-      // rendering its state: an unhandled rejection here would leave the accountant
-      // pressing Enter at a box that silently did nothing.
-      toast.error(apiErrorMessage(error, t('search.lookupFailed')))
-    }
+    const intent = resolveSubmit(fleet.data, query)
+    if (intent.kind === 'branch') navigate(branchSearch(searchParams, intent.storeId))
   }
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['settlement', 'fleet'] })
-    void queryClient.invalidateQueries({ queryKey: ['settlement', 'worklist'] })
+    void queryClient.invalidateQueries({ queryKey: ['settlement', 'orphans'] })
   }
 
   return (
@@ -214,28 +174,27 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
           className="p-3"
         />
       )}
-      {entryMiss && <p className="text-sm text-muted-foreground">{entryMiss}</p>}
 
-      {fleet.isPending || (!query && worklist.isPending) ? (
+      {fleet.isPending || (!query && orphans.isPending) ? (
         <AccountShimmer label={t('door.loading')} />
       ) : query ? (
         <SearchResults results={results} params={searchParams} />
       ) : (
         <>
-          {worklist.isError ? (
+          {orphans.isError ? (
             // 🚩 The banner REPLACES the lanes rather than sitting above them. An
             // empty worklist renders the sentence *"nothing needs a human"* — which
             // would be a false statement about orphan money if the door that knows
             // had just failed to answer. A screen may say it does not know; it may
             // not say there is nothing wrong because it could not ask.
             <ErrorBanner
-              message={apiErrorMessage(worklist.error, t('door.errors.worklistFailed'))}
+              message={apiErrorMessage(orphans.error, t('door.errors.worklistFailed'))}
               className="p-3"
             />
           ) : (
             <Worklist
               lanes={lanes}
-              busy={worklist.isFetching || fleet.isFetching}
+              busy={orphans.isFetching || fleet.isFetching}
               params={searchParams}
               onRefresh={refresh}
               onRepair={setRepairing}
@@ -293,20 +252,18 @@ function SearchResults({
       <ul className="divide-y divide-border/60 rounded-lg border border-border/60 bg-card/40">
         {hits.map((hit) => (
           <li key={hit.row.storeId}>
+            {/* ⚠️ The city and the in-scope marker stood here until 274. Neither
+                `city` nor `assignment` is on the live fleet row (§B4, §B5), so the
+                hit shows what the row actually carries. The marker's PURPOSE — the
+                scope ranks and never refuses — is now enforced by the server, which
+                OR's the estate-wide carve-out into every scoped predicate. */}
             <Link
               to={branchSearch(params, hit.row.storeId)}
               data-hit={hit.row.storeId}
-              data-in-scope={hit.inScope ? 'true' : 'false'}
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-sm hover:bg-muted"
             >
               <span className="font-mono text-[12px] text-muted-foreground">{hit.row.storeId}</span>
               <span className="font-medium">{hit.row.storeName}</span>
-              <span className="text-xs text-muted-foreground">{hit.row.city}</span>
-              {!hit.inScope && (
-                <span className="text-xs text-muted-foreground">
-                  {t(`search.assignment.${hit.row.assignment}`)}
-                </span>
-              )}
               <span className="ms-auto text-xs text-muted-foreground tabular-nums">
                 {t('search.openCount', { count: hit.row.openCount })}
               </span>
@@ -382,17 +339,14 @@ function Worklist({
               data-orphan={row.settlementConsumptionId}
               className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-sm"
             >
-              <BranchLink
-                params={params}
-                storeId={row.storeId}
-                storeName={row.storeName}
-                // The orphan lane knows which entry the money came off, so the row
-                // lands the reader on it rather than on the branch's top entry.
-                entryNumber={row.entryNumber}
-              />
-              <span className="tabular-nums">{formatMoneyIn(row.amount, row.currencyKey)}</span>
+              {/* ⚠️ **The branch is a CODE and the entry is unnamed** — 274 §B2.
+                  `Settlement/Orphans` answers a consumption row: no `storeName`, no
+                  `entryNumber`, no `ageDays`. The link still lands on the branch's
+                  account, which is headed by its full name and holds the entry. */}
+              <BranchLink params={params} storeId={row.storeId} storeName={row.storeId} />
+              <span className="tabular-nums">{settlementMoney(row.amount, '')}</span>
               <span className="text-muted-foreground">
-                {t('worklist.wrongMoney.row', { entry: row.entryNumber, days: row.ageDays })}
+                {t('worklist.wrongMoney.row', { at: formatDateTime(row.consumedAt) })}
               </span>
               <Button variant="secondary" className="ms-auto" onClick={() => onRepair(row)}>
                 {t('worklist.wrongMoney.repair')}
@@ -402,68 +356,25 @@ function Worklist({
         </Lane>
       )}
 
-      {/* ── Cash waiting ─────────────────────────────────────────────────────
-          They never expire and are never auto-voided, so AGE is the only thing
-          this lane owes — there is nothing to act on here and no button. */}
-      {lanes.cashWaiting.length > 0 && (
-        <Lane
-          tone="quiet"
-          icon={<Wallet className="h-4 w-4 shrink-0" aria-hidden />}
-          lane="cash-waiting"
-          title={t('worklist.cashWaiting.title', { count: lanes.cashWaiting.length })}
-          hint={t('worklist.cashWaiting.hint')}
-        >
-          {lanes.cashWaiting.map((row: SettlementUncollectedRow) => (
-            <li
-              key={row.documentId}
-              data-receipt={row.documentId}
-              className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-sm"
-            >
-              <BranchLink params={params} storeId={row.storeId} storeName={row.storeName} />
-              <span className="tabular-nums">{formatMoneyIn(row.amount, row.currencyKey)}</span>
-              <span className="text-muted-foreground">
-                {t('worklist.cashWaiting.row', {
-                  number: row.documentNumber,
-                  days: row.ageDays,
-                })}
-              </span>
-            </li>
-          ))}
-        </Lane>
-      )}
+      {/* ── Cash waiting, and ageing ─────────────────────────────────────────
+          ⚠️ **Two lanes stood here until ticket 274 and are gone.** Neither had a
+          server behind it, and each is gone for a different reason:
 
-      {/* ── Ageing ───────────────────────────────────────────────────────────
-          🔑 A count and a way through, **never a card each**. There is no row array
-          on `lanes.ageing` to render one from — see `worklist.ts`.
+          - **cash waiting** — receipts a branch prepared and no collector took.
+            There is no door that enumerates them (§B2): the fleet row carries
+            `hasUncollectedReceipt`, a FLAG, and the same argument that won
+            `Settlement/Orphans` its own door applies unchanged — a lane that can
+            only say *"0331 has one somewhere"* sends the accountant hunting. The
+            lane is spec 1173's own expectation ("it ages visibly on the
+            accountant's cash-waiting lane"), so this one is an ask, not a mistake.
+          - **ageing** — a count and a way through. ⚠️ Spec 1173 rules entry
+            staleness **fog** and declines to set a threshold (§B3), so there is no
+            rule to count against. 270 was right to refuse to invent one; the honest
+            end of that refusal is no lane rather than a lane counting to nothing.
 
-          ⚠️ The count is **scoped and thresholded**; the way through is the ledger
-          filtered to *open entries*, which is neither. The link says what it does
-          (*browse open entries*) and the count says what it counted, because the
-          ledger has no ageing predicate to seed — the threshold is the server's and
-          this ticket may not invent one. Logged for 274 in `.afk/HITL-270.md`. */}
-      {lanes.ageing.count > 0 && (
-        <div
-          data-lane="ageing"
-          data-ageing-count={lanes.ageing.count}
-          className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-lg border border-border/60 bg-card/40 p-3 text-sm"
-        >
-          <span className="font-medium">{t('worklist.ageing.title')}</span>
-          <span className="text-muted-foreground">
-            {t('worklist.ageing.summary', {
-              count: lanes.ageing.count,
-              days: lanes.ageing.thresholdDays,
-              branches: lanes.ageing.branchCount,
-            })}
-          </span>
-          <Link
-            to={ledgerSearch(params, { status: 'OPEN' })}
-            data-testid="open-ledger"
-            className="ms-auto text-xs font-medium text-primary underline-offset-2 hover:underline"
-          >
-            {t('worklist.ageing.openLedger')}
-          </Link>
-        </div>
-      )}
+          🚩 Neither is commented out or stubbed. A lane rendering zeros would read as
+          *there is no waiting cash*, which is a claim about money this screen cannot
+          make. */}
     </section>
   )
 }
@@ -533,26 +444,25 @@ function BranchLink({
 /**
  * The estate headline — 🚩 **a report figure, and not actionable** (D2).
  *
- * Per currency, and the two magnitudes apart: an estate-wide net would be a number
- * nobody owes and nobody consumes.
+ * ⚠️ **274 took the money out of it.** 270 drew two magnitudes per currency; the
+ * fleet row carries no `currencyKey` (§B6) and the estate is KSA **and** Bahrain,
+ * so there is no honest cross-branch total left to state — folding them together
+ * adds dinars to riyals and is wrong in both. What remains is counts, which no
+ * currency can corrupt, and which still answer what the headline is for: *is the
+ * estate quiet, or is there a lot out there?* See `figures.ts`.
  */
 function EstateFigures({ figures }: { figures: ReturnType<typeof estateFigures> }) {
   const { t } = useTranslation('settlement')
-  if (figures.length === 0) return null
+  if (figures.branchCount === 0) return null
 
   return (
     <section data-region="estate-figures" className="flex flex-col gap-1 text-xs text-muted-foreground">
-      {figures.map((f) => (
-        <p key={f.currencyKey} className="tabular-nums">
-          {t('door.estate.figure', {
-            currency: f.currencyKey,
-            branches: f.branchCount,
-            entries: f.openCount,
-            shortage: formatMoneyIn(f.shortageTotal, f.currencyKey),
-            surplus: formatMoneyIn(f.surplusTotal, f.currencyKey),
-          })}
-        </p>
-      ))}
+      <p className="tabular-nums">
+        {t('door.estate.figure', {
+          branches: figures.branchCount,
+          entries: figures.openCount,
+        })}
+      </p>
       <p>{t('figures.notActionable')}</p>
     </section>
   )

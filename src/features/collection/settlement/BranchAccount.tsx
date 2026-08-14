@@ -8,7 +8,6 @@ import { Filter } from 'lucide-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import { formatMoneyIn } from '@/core/money'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
@@ -22,6 +21,7 @@ import {
   buildAccountColumns,
   buildAccountDefaultColDef,
 } from './account-columns'
+import { settlementMoney } from './money-display'
 import { accountHeadline, projectAccount, type AccountEntryRow } from './account-projection'
 import { settlementApi } from './api'
 import { ACCOUNT_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
@@ -77,7 +77,11 @@ export default function BranchAccount({
     () => (account.data ? projectAccount(account.data) : []),
     [account.data],
   )
-  const currencyKey = account.data?.currencyKey ?? ''
+  // ⚠️ **Empty today, and passed through anyway** — the account door carries no
+  // `currencyKey` (274 §B6). `settlementMoney` renders an unknown currency without
+  // rounding a fils away; the day the door sends a code, this line is the only one
+  // that changes. See `money-display.ts`.
+  const currencyKey = ''
   const headline = useMemo(
     () => accountHeadline(account.data?.entries ?? []),
     [account.data],
@@ -276,7 +280,7 @@ function AccountHeadline({
   headline: ReturnType<typeof accountHeadline>
 }) {
   const { t } = useTranslation('settlement')
-  const money = (v: number) => formatMoneyIn(v, currencyKey)
+  const money = (v: number) => settlementMoney(v, currencyKey)
 
   return (
     <section

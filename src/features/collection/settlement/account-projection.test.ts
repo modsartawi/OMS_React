@@ -13,6 +13,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { formatMoneyIn } from '@/core/money'
+import { settlementMoney } from './money-display'
 import { formatDateTime } from '@/core/util/date-format'
 import {
   accountHeadline,
@@ -42,13 +43,14 @@ describe('the fixture itself', () => {
     ])
   })
 
-  it('🔑 carries one BHD branch — the only way 3 decimals get exercised at all', () => {
-    // If someone "tidies" 0688 to SAR, the Proof bullet about a Bahraini branch's
-    // fils becomes unfalsifiable and every figure on the screen still looks fine.
-    expect(account('0688').currencyKey).toBe('BHD')
-    expect(
-      Object.values(SETTLEMENT_ACCOUNTS).filter((a) => a.currencyKey === 'SAR'),
-    ).toHaveLength(5)
+  it('🔑 carries one branch whose figures hold three decimals — 0688, the Bahraini one', () => {
+    // ⚠️ 274 removed `currencyKey` from the account (the door does not send one),
+    // so the branch is now identified by the thing that actually matters: it is the
+    // only one carrying figures a 2-decimal renderer would round. If someone
+    // "tidies" 0688's amounts to whole riyals, the Proof bullet about a Bahraini
+    // branch's fils becomes unfalsifiable and every figure still looks fine.
+    const threeDecimal = (v: number) => Math.round(v * 1000) % 10 !== 0 || v % 1 !== 0
+    expect(account('0688').entries.some((e) => threeDecimal(e.amount))).toBe(true)
   })
 })
 
@@ -295,23 +297,48 @@ describe('the grid’s landing order', () => {
   })
 })
 
-describe('🔑 money renders at the BRANCH’s precision, through @/core/money', () => {
-  it('draws a Bahraini branch at THREE decimals — the fils D10 exists for', () => {
-    const bhd = account('0688')
-    expect(formatMoneyIn(row('0688', 152).amount, bhd.currencyKey)).toBe('95.250')
-    expect(formatMoneyIn(row('0688', 133).writtenOff, bhd.currencyKey)).toBe('400.000')
+describe('🔑 money survives a contract that forgot to say which currency it is in', () => {
+  // ⚠️ **The rule D10 states cannot be obeyed as written, and this is the fallback.**
+  // 274 found no read door carries `currencyKey` (`.afk/FINDINGS-274.md` §B6), so the
+  // screen cannot draw *at the branch's own precision*. What it can do — and what
+  // `settlementMoney` does — is refuse to ROUND: minimum two decimals, maximum three,
+  // which is the scale the ledger's own columns hold.
+  //
+  // These are the regression tests for that workaround. They should be deleted, and
+  // the per-currency ones above them restored, the day the reads carry a code.
+  it('🚩 keeps a third decimal that carries VALUE, with no currency to read', () => {
+    // The whole finding in one assertion: a Bahraini figure of 95.255 rendered at two
+    // decimals is 95.26 — **a fils invented by rounding** — and nothing on the wire
+    // says this branch has fils at all.
+    expect(settlementMoney(95.255, '')).toBe('95.255')
+    expect(formatMoneyIn(95.255, '')).toBe('95.26') // …what it would otherwise have been
   })
 
-  it('draws the five SAR branches at two, and groups the thousands', () => {
-    const sar = account('0207')
-    expect(formatMoneyIn(row('0207', 155).amount, sar.currencyKey)).toBe('1,240.00')
-    expect(formatMoneyIn(row('0142', 128).amount, account('0142').currencyKey)).toBe('75.50')
+  it('⚠️ cannot restore a TRAILING zero, and that is the residual cost of §B6', () => {
+    // 🚩 Worth stating plainly rather than discovering later: `95.250` and `95.25`
+    // are the same IEEE-754 number, so *"BHD draws at three decimals"* is a display
+    // convention this screen can no longer honour — only the currency code carries
+    // it. What is preserved is every digit that means money; what is lost is a zero
+    // that means none. The account's own figures are the ordinary case:
+    expect(settlementMoney(row('0688', 152).amount, '')).toBe('95.25')
+    expect(settlementMoney(row('0688', 133).writtenOff, '')).toBe('400.00')
+    // …and with the code the door does not send, they read as Bahrain expects.
+    expect(settlementMoney(row('0688', 152).amount, 'BHD')).toBe('95.250')
   })
 
-  it('⚠️ the SAME figure reads differently per branch — which is the whole point', () => {
-    // 95.25 at two decimals is a Bahraini branch's fils rounded away. A screen that
-    // formatted everything at 2 would look correct on five branches out of six.
-    expect(formatMoneyIn(95.25, 'BHD')).toBe('95.250')
+  it('leaves the ordinary SAR case exactly as it was, and groups the thousands', () => {
+    // The common case must not regress to please the rare one — a riyal figure still
+    // reads at two decimals, because it has no third to show.
+    expect(settlementMoney(row('0207', 155).amount, '')).toBe('1,240.00')
+    expect(settlementMoney(row('0142', 128).amount, '')).toBe('75.50')
+  })
+
+  it('honours a currency the moment one is passed — the day §B6 lands', () => {
+    // `settlementMoney` is not a replacement for the per-currency rule; it is what
+    // stands in for it while the field is missing. Given a code it defers to
+    // `formatMoneyIn`, so restoring the contract restores the behaviour.
+    expect(settlementMoney(95.25, 'BHD')).toBe('95.250')
+    expect(settlementMoney(95.25, 'SAR')).toBe('95.25')
     expect(formatMoneyIn(95.25, 'SAR')).toBe('95.25')
   })
 })

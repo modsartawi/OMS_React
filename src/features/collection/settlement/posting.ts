@@ -4,7 +4,6 @@ import type {
   SettlementEntryKind,
   SettlementFleetRow,
 } from '@/core/models/settlement'
-import type { ScopeResolution } from './scope'
 import { MatchRank, searchBranches } from './search'
 
 /**
@@ -35,21 +34,27 @@ export const AMBIGUOUS_PREVIEW = 6
 export const REASON_MAX = 200
 
 /**
- * 🔑 **The posting box is never scoped, and this constant is that rule made
- * explicit.**
+ * 🔑 **THE POSTING BOX IS NEVER SCOPED — and after ticket 274 that is the CALLER's
+ * job to guarantee, not this module's.**
  *
- * The door's search ranks by the scope control (D2). Posting has no scope control
- * and must not inherit one: an accountant covering a colleague, or posting a month's
- * audit onto the 1255 branches assigned to nobody, would otherwise find the branch
- * they typed ranked below one they did not mean — and the worst outcome this screen
- * can produce is the right amount on the wrong branch.
+ * 270 enforced it here, with a hardcoded `ScopeResolution` of *all* handed to
+ * `searchBranches`, because the scope was a client-side ranking over one estate-wide
+ * answer. 274 moved the scope onto the wire (`Settlement/Fleet?scope=…`), which
+ * silently moved this rule too: **the rows this function is given are now whatever
+ * the door returned**, and under `scope=mine` that is a subset of the estate.
+ *
+ * ⚠️ So the guarantee is now structural and lives one layer up: `PostEntryDialog`
+ * resolves branches against an **estate-wide** fleet query of its own
+ * (`settlementApi.fleet('all')`), never the door's scoped one. If it ever passes the
+ * scoped rows in, this function will happily answer *"no such branch"* for a real
+ * branch — and the failure is invisible, because *"no such branch"* is a legitimate
+ * answer it already gives.
+ *
+ * The reason has not changed: an accountant covering a colleague, or posting a
+ * month's audit onto the 1255 branches assigned to nobody, must not find the branch
+ * they typed missing or ranked below one they did not mean. **The worst outcome this
+ * screen can produce is the right amount on the wrong branch.**
  */
-const EVERY_BRANCH: ScopeResolution = {
-  scope: 'all',
-  effective: 'all',
-  unfiltered: false,
-  hasAssignment: true,
-}
 
 /**
  * What a typed branch resolved to.
@@ -66,9 +71,9 @@ export type BranchResolution =
   | { kind: 'none' }
 
 /**
- * The typed branch, resolved — **code, name in either script, or city**, exactly the
- * four keys the door's own box takes, through the same ranking module so a branch
- * findable at the door is postable here.
+ * The typed branch, resolved — **code or name in either script**, the same keys the
+ * door's own box takes, through the same ranking module so a branch findable at the
+ * door is postable here. (274 removed city from both, together: §B5.)
  *
  * 🔑 **An exact code collapses an otherwise ambiguous query, and it has to.** `0142`
  * is a prefix of nothing in a four-digit estate, but a *name* fragment routinely
@@ -83,7 +88,7 @@ export function resolveBranch(
 ): BranchResolution {
   if (!query.trim()) return { kind: 'empty' }
 
-  const result = searchBranches(rows, query, EVERY_BRANCH, AMBIGUOUS_PREVIEW)
+  const result = searchBranches(rows, query, AMBIGUOUS_PREVIEW)
   if (result.total === 0) return { kind: 'none' }
 
   // Read off the hit's own rank rather than re-folding the string here, so there is

@@ -53,6 +53,33 @@ export const ACCOUNT_LIMIT = 500
 export const LEDGER_LIMIT = 500
 
 /**
+ * The fleet door's cap — ✅ **found live by 274, and it is the one number on this
+ * screen that had to change.**
+ *
+ * 🔑 **The door's own default `TOP` is 500, and the estate is 1394 branches.** A
+ * fleet call that named no limit would have returned 500 rows of 1394 and rendered
+ * them as *the estate* — 894 branches, and every figure on the front page, silently
+ * missing. Nothing in the answer says it was cut: the door returns rows, not a
+ * total. It was invisible until it was measured.
+ *
+ * 2,000 clears today's 1394 with room for the estate to grow, and sits far under
+ * the server's own `MaxLimit` of 20,000 — which is where a genuinely runaway ask
+ * would be refused. `isCapReached` still watches it: if this ever bites, the estate
+ * has outgrown the number and the banner says so rather than the screen lying.
+ */
+export const FLEET_LIMIT = 2000
+
+/**
+ * The wrong-money lane's cap (`Settlement/Orphans`).
+ *
+ * The server's own default, named rather than inherited — the same rule
+ * `ACCOUNT_LIMIT` follows. 🚩 An orphan is a rare event (a till whose close timed
+ * out), so 500 is a ceiling this lane should never approach; if it does, the sweep
+ * behind it has stopped running and the banner is the first place that shows.
+ */
+export const WORKLIST_LIMIT = 500
+
+/**
  * Did this account actually **reach** the cap?
  *
  * **Reached, not merely large** — a banner that fired at "nearly 500" would be a

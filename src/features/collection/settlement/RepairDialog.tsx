@@ -4,11 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { apiErrorMessage } from '@/core/api'
-import { formatMoneyIn } from '@/core/money'
 import type { SettlementOrphanRow } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
 import { formatDateTime } from '@/core/util/date-format'
+import { settlementMoney } from './money-display'
 import { settlementApi } from './api'
 /** 🚩 The box itself, shared since 272 extracted it at its third copy — which is
  *  also where the 200-character limit lives (`posting.ts`'s `REASON_MAX`, D4), so
@@ -60,7 +60,10 @@ export default function RepairDialog({
       } else if (result?.accepted) {
         toast.success(
           t('repair.done', {
-            amount: formatMoneyIn(row?.amount, row?.currencyKey),
+            // 🔑 **The server's own restored figure, not the lane row's.** 274 found
+            // the repair answers `amount` — what actually went back onto the entry —
+            // which is the honest thing to read back after an act.
+            amount: settlementMoney(result.amount, ''),
             store: row?.storeId ?? '',
           }),
         )
@@ -100,12 +103,15 @@ export default function RepairDialog({
     >
       <div className="flex flex-col gap-3 text-sm">
         <p>
+          {/* ⚠️ **Four of this sentence's six facts were not on the wire.** 270 named
+              the branch, its entry number and an age in days; `Settlement/Orphans`
+              answers a consumption row and none of those (274 §B2). What is left is
+              what the lane can actually act on — the money and the branch code — and
+              the timestamp below carries the age at better resolution than a day
+              count did. */}
           {t('repair.summary', {
-            amount: formatMoneyIn(row.amount, row.currencyKey),
+            amount: settlementMoney(row.amount, ''),
             store: row.storeId,
-            storeName: row.storeName,
-            entry: row.entryNumber,
-            days: row.ageDays,
           })}
         </p>
         <p className="text-xs text-muted-foreground">

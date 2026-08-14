@@ -123,26 +123,20 @@ export type SettlementConsumption = {
 /**
  * What `Settlement/Account` answers for one branch.
  *
- * ⚠️ **The three scalar fields are an extension of spec 267 D8's table, made by
- * ticket 269 and logged in `.afk/HITL-269.md`.** D8 lists the account door as
- * answering `{ entries, consumptions }` and nothing else — but D10 requires every
- * figure to render at **the branch's own currency precision** (3 decimals for BHD,
- * 2 for SAR), and there is no currency anywhere else on this contract. Deriving one
- * from the store code would be a rule nobody wrote down; defaulting to SAR is
- * exactly the silent rounding D10 exists to forbid. `storeName` rides along for the
- * same reason at one remove: 270 reaches this view from a search hit that already
- * knows the branch, but a pasted address does not, and an account headed by a bare
- * code is a screen you cannot check you are on.
+ * ✅ **274, live: `storeId` and `storeName` are real; `currencyKey` is not.** 269
+ * added all three to D8's `{ entries, consumptions }` and logged them in
+ * `.afk/HITL-269.md`. The live door sends the two identity fields — so a branch
+ * reached by a pasted URL still has a name on the page, which was 269's argument for
+ * them — and sends no currency.
  *
- * D8's own instruction is to *"treat this table as the shape, and settle the strings
- * against SIS.Api in the joining ticket"* — so this is 274's to confirm, not a
- * divergence to reconcile later.
+ * ⚠️ That absence is the money hole recorded at `.afk/FINDINGS-274.md` §B6, and it
+ * is **not** worked around by guessing: figures on this screen render through
+ * `formatMoneyOfUnknownCurrency`, which shows what is stored and rounds nothing
+ * away. 269's reasoning about D10 was right and is why the workaround exists at all.
  */
 export type SettlementAccount = {
   storeId: string
   storeName: string
-  /** ISO code — `SAR`, `BHD`. Drives `formatMoneyIn` for every figure on the screen. */
-  currencyKey: string
   entries: SettlementEntry[]
   /** **Flat, across every entry**, exactly as D8 has it — the projection indexes
    *  them by `settlementEntryId` once rather than scanning per row. */
@@ -170,46 +164,30 @@ export type SettlementAccount = {
 export type SettlementScope = 'mine' | 'unassigned' | 'all'
 
 /**
- * Where one branch sits in the assignment (map 1153), **as the server resolved it
- * for this session**.
+ * One aggregated row per store — **BackOffice spec 1173 D13's fleet row, exactly**.
  *
- * ⚠️ Three values against the scope's three states, and the mismatch is the
- * point: `mine` is the union of the accountant's own branches and their
- * one-level reports (D2), `unassigned` is the 1255 nobody owns, and `other` is a
- * colleague's — reachable through *all*, and through any search, but never
- * counted as mine.
+ * ✅ **274 narrowed this back to the contract.** 270 added four fields to D8's row
+ * (`city`, `assignment`, `ageingCount`, `currencyKey`) and logged them in
+ * `.afk/HITL-270.md` for the joining ticket to settle. Settled: the live door sends
+ * none of them, because D13 — the contract BackOffice actually built — never listed
+ * them. They are recorded in `.afk/FINDINGS-274.md` §B3–§B6 as decisions for the two
+ * specs to make, not as fields to fake here. What each one cost:
  *
- * 🚩 **Resolving "mine" is the server's job and must stay there.** The union of
- * own-plus-reports is a query over the assignment tables; a client that tried to
- * recompute it would be re-implementing an org chart it cannot see.
- */
-export type SettlementAssignment = 'mine' | 'unassigned' | 'other'
-
-/**
- * One aggregated row per store — D8's `FleetRow`, **plus the four fields the door
- * cannot be built without** (all four in `.afk/HITL-270.md`):
- *
- * | added | why it could not wait |
+ * | dropped | what went with it |
  * |---|---|
- * | `city` | the search resolves *branch code, name in either script, **city**, or entry number* (D2). Three of the four are on D8's row; the fourth was not |
- * | `assignment` | the scope has to rank and count **on the client**, because the two estate-wide lanes must not be re-fetched per scope. See `scope.ts` |
- * | `ageingCount` | the ageing lane is *a count and a way through* whose threshold is **the server's** (the ticket forbids inventing one here) — so the server must send the count it computed |
- * | `currencyKey` | D10: every figure at the **branch's own** precision. `SettlementAccount` needed the same field for the same reason at 269 |
+ * | `city` | the search's fourth key (§B5). Code, name and entry number still resolve |
+ * | `assignment` | the client-side scope **ranking** (§B4). The scope itself moved to the server, where it always belonged |
+ * | `ageingCount` | the ageing lane, **removed outright** (§B3) — spec 1173 rules entry staleness *fog*, so there is no threshold to count against |
+ * | `currencyKey` | per-branch money precision (§B6). See `formatMoneyOfUnknownCurrency` |
  *
- * 🚩 **Aggregated, never a projection of entries** — D8 says so on the type. One
+ * 🚩 **Aggregated, never a projection of entries** — D13 says so on the type. One
  * row per store at 1394 stores; the entries behind them are the account's
- * (`Settlement/Account`) and the ledger's, never this door's.
+ * (`Settlement/Account`), never this door's.
  */
 export type SettlementFleetRow = {
   storeId: string
   /** Both scripts in one string, as `SettlementAccount.storeName` carries them. */
   storeName: string
-  /** ADDED — the search's fourth key. */
-  city: string
-  /** ADDED — the server's own resolution of this session's assignment. */
-  assignment: SettlementAssignment
-  /** ADDED — ISO code, per D10. */
-  currencyKey: string
   openCount: number
   shortageTotal: number
   surplusTotal: number
@@ -217,9 +195,9 @@ export type SettlementFleetRow = {
   signedPosition: number
   movedSinceCutoff: number
   hasOrphan: boolean
+  /** ⚠️ A **flag**, and there is no door that enumerates the set behind it — which
+   *  is why the cash-waiting lane is not on this screen (`FINDINGS-274.md` §B2). */
   hasUncollectedReceipt: boolean
-  /** ADDED — entries open longer than the server's own threshold. */
-  ageingCount: number
 }
 
 /**
@@ -231,71 +209,51 @@ export type SettlementFleetRow = {
  * `settlementConsumptionId`, and a lane that could only say *"0331 has one
  * somewhere"* would send the accountant hunting through an account for it.
  *
- * ⚠️ **`ageDays` is the server's**, not a subtraction this screen performs. The
- * grace period is the server's rule, the clock is the server's, and a pure module
- * that read `Date.now()` would be a module whose tests changed answer overnight.
+ * ⚠️ **274, live: this is a `SettlementConsumption`, and only that.**
+ * `Settlement/Orphans` answers the estate's orphan consumptions with the SAME
+ * projection the account door uses for its journal — deliberately narrow, because
+ * the door is a seek over a filtered index and the four fields 270 asked for would
+ * each turn it into a lookup per row. So `entryNumber`, `storeName`, `currencyKey`
+ * and `ageDays` are **not on this wire** and are recorded for BackOffice rather
+ * than faked here: `ageDays` in particular must stay the server's subtraction (the
+ * clock is the server's), and a client that computed it would be inventing the
+ * grace period the ticket forbids inventing.
+ *
+ * The fields the projection DOES cover are the ones the lane cannot act without:
+ * `settlementConsumptionId` is what Repair posts, and `amount` is the money.
  */
 export type SettlementOrphanRow = {
   settlementConsumptionId: string
   settlementEntryId: string
-  entryNumber: number
   storeId: string
-  storeName: string
-  currencyKey: string
   amount: number
-  ageDays: number
+  /** Local wall clock, as every timestamp on this contract is. The lane orders on
+   *  it — oldest first — which is `ageDays`' job done by the only field there is. */
   consumedAt: string
-}
-
-/**
- * One **cash waiting** row: a settlement receipt the branch prepared and no
- * collector has taken.
- *
- * They never expire and are never auto-voided, so **age is the only thing this
- * screen owes** (D2) — there is no status to render and nothing to act on here.
- */
-export type SettlementUncollectedRow = {
+  /** Always `CONSUME`: a `REVERSE` names a document that did not happen and is
+   *  never itself an orphan (the door's own predicate). */
+  consumptionKind: SettlementConsumptionKind
+  documentType: SettlementDocumentType
+  /** Always `''` — being blank is what MAKES these rows orphans. */
   documentId: string
   documentNumber: string
-  storeId: string
-  storeName: string
-  currencyKey: string
-  amount: number
-  ageDays: number
-  preparedAt: string
 }
 
-/**
- * What the worklist door answers — **the two enumerated lanes, and nothing else**.
+/* ⚠️ **Three types stood here until 274 and are deliberately gone**, each because
+ * the door behind it does not exist (`.afk/FINDINGS-274.md`):
  *
- * 🔑 **It takes no `scope` parameter, and that absence is the carve-out made
- * structural.** D2's asymmetry — wrong money and cash waiting are *always*
- * estate-wide whatever the control says — is the first thing someone "tidying the
- * scope handling" would break. A door with no scope to pass cannot be narrowed by
- * accident; narrowing it would have to be a deliberate change to the contract,
- * which is a thing a reviewer sees.
+ * - `SettlementUncollectedRow` — the cash-waiting lane (§B2). The fleet row carries
+ *   `hasUncollectedReceipt`, a flag; nothing enumerates the receipts behind it.
+ * - `SettlementWorklistResult` — the two-lane worklist (§B2/§B3). What exists is
+ *   `Settlement/Orphans`, one lane, typed as `SettlementOrphanRow[]` above.
+ * - `SettlementLedgerRow` — the cross-estate ledger (§B1). BackOffice spec 1173 D13
+ *   specifies six doors and this is not among them.
  *
- * `ageingThresholdDays` rides along so the ageing lane can say *how long* is long
- * without this screen inventing the number (the ticket's own boundary).
+ * 🚩 They are not commented out and not kept "for later". A type whose door does not
+ * exist is a claim about a server that never agreed to it, which is the exact defect
+ * 274 was written to find — and the fixtures that fed them were the reason it stayed
+ * invisible for five tickets.
  */
-export type SettlementWorklistResult = {
-  orphans: SettlementOrphanRow[]
-  uncollected: SettlementUncollectedRow[]
-  ageingThresholdDays: number
-}
-
-/**
- * One row of the **flat cross-estate ledger** — an entry, plus the two fields a
- * row torn out of its branch needs to be readable.
- *
- * ⚠️ **This is not the account** (D2). It answers *"find entry 143, whichever
- * branch it is on"* and then hands the reader to 269's account, which is the only
- * view that can state a position.
- */
-export type SettlementLedgerRow = SettlementEntry & {
-  storeName: string
-  currencyKey: string
-}
 
 /**
  * What `Settlement/Post` answers — ticket 271's write, and D8's shape unchanged.
@@ -338,20 +296,28 @@ export type SettlementCancelResult = {
   /** The server's words for why, passed through as data. `''` when accepted. */
   refusalReason: string
   remainingAmount: number
+  /** ✅ 274, live: the entry's status **after** the act — `CANCELLED` when accepted,
+   *  and the unchanged status when the race was lost. `SettlementEntryActApiResponse`
+   *  carries it on both doors; the screen no longer has to infer it from `accepted`. */
+  status: SettlementEntryStatus
 }
 
 /**
  * What `Settlement/CloseOut` answers — the write-off, D8's shape unchanged.
  *
- * ⚠️ **D8 gives it two fields and no `refusalReason`**, unlike cancel and repair.
- * That asymmetry is transcribed rather than tidied: inventing a third field here
- * would be this screen assuming a wire it has not seen. A refused close-out
- * therefore reads through the namespace's own sentence, and the gap is logged in
- * `.afk/HITL-272.md` for 274 to settle against a live SIS.Api.
+ * ✅ **274 settled the asymmetry D8 described: there isn't one.** Cancel and
+ * close-out share ONE server type (`SettlementEntryActApiResponse`), so the
+ * close-out answers `refusalReason` and `status` too. 272's transcribed two-field
+ * shape was the narrower guess of the two, and `.afk/HITL-272.md`'s open question
+ * is closed by widening it — a refused close-out now reads the server's own reason
+ * rather than the namespace's generic sentence.
  */
 export type SettlementCloseOutResult = {
   accepted: boolean
   remainingAmount: number
+  /** `''` when accepted. See the type's docblock — this field is 274's, not D8's. */
+  refusalReason: string
+  status: SettlementEntryStatus
 }
 
 /**
@@ -362,11 +328,25 @@ export type SettlementCloseOutResult = {
  * race and nothing happens — which is the right outcome and must read as one. A
  * refusal (`accepted: false`) is likewise a **200 carrying a reason**, never an
  * error, exactly as the till's own consume is (D8).
+ *
+ * ⚠️ **`remainingAmount`, not `remainingAfter`.** 270 transcribed the consumption
+ * row's field name onto this answer; the wire calls it `remainingAmount`
+ * (`SettlementRepairApiResponse`), so the old spelling read `undefined` and would
+ * have reached a money formatter the first time anything rendered it. Settled live
+ * by 274 — the one field on this contract that was misnamed rather than missing.
  */
 export type SettlementRepairResult = {
   accepted: boolean
   noOp: boolean
-  remainingAfter: number
+  /** The entry the money went back onto. `''` on a no-op. */
+  settlementEntryId: string
+  /** The **compensating** `REVERSE` row the repair wrote — not the orphan it
+   *  repaired. `''` on a no-op or a refusal. */
+  settlementConsumptionId: string
+  /** What was put back. `0` on a no-op — the server's figure, not the lane row's. */
+  amount: number
+  /** What the entry carries **after** the restoration. */
+  remainingAmount: number
   refusalReason: string
 }
 
@@ -403,13 +383,25 @@ export type SettlementBulkRow = {
    *  the accountant still has open. Headers are read **by name**, so this is a
    *  position in the file and never a position in a schema. */
   rowNumber: number
-  storeId: string
+  /** ⚠️ **`storeCode`, not `storeId`** — settled live by 274. It is the code as the
+   *  SHEET spelled it, echoed back whether or not it resolved, which is why the
+   *  server names it after the file's column rather than after a branch it may not
+   *  have found. Every other door on this contract says `storeId`; this one row type
+   *  is the exception, and it is the server's own spelling. */
+  storeCode: string
   /** `''` = the code resolved to no branch. See the type's docblock. */
   storeName: string
   /** ISO code — the row's own, per D10: a Bahraini branch's fils are not rounded
    *  away because the rest of the file is Saudi. */
   currencyKey: string
+  /** 🔑 The **rounded** amount — what would be posted, at the branch's own
+   *  granularity (D15). This is the figure the read-back folds. */
   amount: number
+  /** ✅ 274, live: the figure as the SHEET held it, before the server rounded it.
+   *  D8 did not know about this field. It is what lets the preview show *"you typed
+   *  150.750, this branch posts 151"* instead of silently changing a number finance
+   *  will later reconcile against their own file. */
+  fileAmount: number
   /** Free text ≤200 the branch reads verbatim, exactly as the single form's. */
   reason: string
 }
@@ -422,15 +414,30 @@ export type SettlementBulkRow = {
  * entry is money someone will be asked for*. The preview enumerates the bad rows,
  * finance fixes the sheet and re-uploads.
  */
-export type SettlementBulkError = {
+export type SettlementBulkIssue = {
   /** `0` = the **file's** fault rather than a row's — a missing required header,
    *  which must refuse naming what it expected (the ticket's open question). */
   rowNumber: number
-  /** Which column, when the fault is a column's. `''` otherwise. */
-  column: string
+  /** ✅ 274, live: the row's store code, so an issue can name the branch it is
+   *  about without the reader cross-referencing the grid. `''` on a file fault. */
+  storeCode: string
+  /** ⚠️ **`code`, not `column`** — settled live by 274. 273 guessed the fault would
+   *  be located by COLUMN; the server locates it by **machine code**
+   *  (`SettlementBulkFileParser`'s own vocabulary), which is a thing a client may
+   *  branch on rather than a hint about where to look in a spreadsheet. */
+  code: string
   /** The server's own words, passed through as data. */
   message: string
 }
+
+/**
+ * ✅ **274, live: errors and warnings are ONE server type**
+ * (`SettlementBulkIssueModel`), not two. 273 modelled them separately because D8
+ * names two arrays — but the arrays differ in what they MEAN (all-or-nothing vs
+ * look-twice), never in their shape. The aliases are kept so the call sites still
+ * read as the two different decisions they are.
+ */
+export type SettlementBulkError = SettlementBulkIssue
 
 /**
  * One reason to look twice at a row that **still commits**.
@@ -439,28 +446,7 @@ export type SettlementBulkError = {
  * already carrying an open entry of the same kind is flagged on its row and posts
  * anyway, or a real second shortage months apart becomes unpostable by file.
  */
-export type SettlementBulkWarning = {
-  rowNumber: number
-  message: string
-}
-
-/**
- * *"A file with these 47 rows was posted 4 minutes ago by ضحى."*
- *
- * 🔑 **The content hash warns and never refuses** (D7). Refusing would make a
- * genuinely identical repeat — the same shortage found at the same branches a month
- * later — unpostable.
- *
- * ⚠️ `minutesAgo` is the **server's** subtraction, not this screen's, on the rule
- * `SettlementOrphanRow.ageDays` already set at 270: the clock is the server's, and a
- * pure module that read `Date.now()` would change its answer overnight.
- */
-export type SettlementBulkReplay = {
-  postedByName: string
-  postedAt: string
-  minutesAgo: number
-  rowCount: number
-}
+export type SettlementBulkWarning = SettlementBulkIssue
 
 /** What `Settlement/Bulk/Preview` answers for one uploaded file. */
 export type SettlementBulkPreview = {
@@ -476,11 +462,25 @@ export type SettlementBulkPreview = {
   entryKind: SettlementEntryKind
   rows: SettlementBulkRow[]
   errors: SettlementBulkError[]
+  /**
+   * ⚠️ **A warning at `rowNumber: 0` is about the FILE, not a row** — and that is
+   * where the replay notice lives. 273 modelled *"a file with these 47 rows was
+   * posted 4 minutes ago by ضحى"* as its own `replay` object; the server sends it
+   * as a file-level warning carrying that exact sentence
+   * (`SettlementBulkIssueCodes.RecentIdenticalBatch`). Settled live by 274 — the
+   * capability is D7's, the shape is the server's.
+   */
   warnings: SettlementBulkWarning[]
+  /** How many rows the server read out of the sheet. */
+  rowCount: number
+  /** ✅ 274, live: **the server's own verdict** on whether this file may post
+   *  (`Errors.Count == 0`). ⚠️ `bulk.ts` still computes its own, because it adds one
+   *  client-side blocker the server cannot make — an unresolved branch name — and a
+   *  commit is licensed by what the accountant could READ, not only by what parsed. */
+  canCommit: boolean
   /** The server's own sum. ⚠️ Used as a **cross-check**, never as the read-back:
    *  the in-words total is folded from the rows, per currency (`bulk.ts`). */
   total: number
-  replay: SettlementBulkReplay | null
 }
 
 /**
@@ -489,11 +489,66 @@ export type SettlementBulkPreview = {
  * ⚠️ **`replayed` is a boolean** — *this exact batch was already committed, nothing
  * was doubled, and these are the same entry numbers*. It is the answer to a second
  * tab pressing commit twice; under an all-or-nothing commit a partial replay cannot
- * exist, so a count would have nothing to count. Logged for 274.
+ * exist, so a count would have nothing to count. ✅ Confirmed live by 274.
+ *
+ * 🔑 **274 settled the refusal, and 273 had it backwards.** A sheet edited between
+ * review and commit does **not** arrive as a business `ApiError`: it is a **200
+ * carrying `accepted: false`** and a `refusalReason`, exactly like cancel and
+ * repair. The only non-200 on this door is a MALFORMED upload — no file, too large,
+ * an unsupported extension, or bytes that yield no rows — which is a 400 through the
+ * envelope. So the screen reads `accepted` and never infers success from the absence
+ * of a throw.
  */
 export type SettlementBulkCommitResult = {
+  batchId: string
+  /** 🔑 `false` = nothing was posted. See the type's docblock. */
+  accepted: boolean
+  /** The server's own words — a hash mismatch, or a row that stopped being postable
+   *  between preview and commit. `''` when accepted. */
+  refusalReason: string
   posted: number
   replayed: boolean
   /** The handles finance and the branches settle by on the phone. */
   entryNumbers: number[]
+  /** Why it refused, per row, when the refusal was a row's. */
+  errors: SettlementBulkError[]
+  warnings: SettlementBulkWarning[]
+}
+
+/**
+ * What `Settlement/Bulk/Cancel` answers — ✅ **a door 273 did not know existed**,
+ * found live by 274 (BackOffice ticket 1186).
+ *
+ * 🔑 **It replaces a client-side loop.** 273 withdrew a batch by fetching the
+ * cross-estate ledger for a `batchId` and calling `Settlement/Cancel` once per row
+ * — N round trips whose partial failure the browser had to summarise itself. The
+ * server does the same loop over 1185's per-entry cancel and reports each row's
+ * outcome, so the batch is one request and one answer.
+ *
+ * ⚠️ **A batch is a handle, never a second lifecycle** (D7) — this is the per-entry
+ * cancel applied across a `BatchId`, so a row a till already consumed is *refused
+ * and named*, never written off as a side effect of sharing a batch.
+ */
+export type SettlementBulkCancelResult = {
+  batchId: string
+  /** Every entry the batch minted. */
+  total: number
+  cancelled: number
+  /** 🔑 Named, not merely counted — see `rows`. */
+  refused: number
+  rows: SettlementBulkCancelRow[]
+}
+
+/** One entry of a withdrawn batch, and what became of it. */
+export type SettlementBulkCancelRow = {
+  settlementEntryId: string
+  entryNumber: number
+  storeId: string
+  amount: number
+  accepted: boolean
+  /** The server's own words. `''` when accepted. */
+  refusalReason: string
+  /** The true remaining at the moment of the refusal — 272's rule, per row. */
+  remainingAmount: number
+  status: SettlementEntryStatus
 }

@@ -21,23 +21,23 @@
  * (`.claude/rules/feature-structure.md`).
  */
 import { api } from '@/core/api'
+import { newRequestId } from '@/core/engine-session/request-id'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type {
   SettlementAccount,
+  SettlementBulkCancelResult,
   SettlementBulkCommitResult,
   SettlementBulkPreview,
   SettlementCancelResult,
   SettlementCloseOutResult,
   SettlementEntryKind,
   SettlementFleetRow,
-  SettlementLedgerRow,
+  SettlementOrphanRow,
   SettlementPostResult,
   SettlementRepairResult,
-  SettlementWorklistResult,
+  SettlementScope,
 } from '@/core/models/settlement'
-import { ACCOUNT_LIMIT, LEDGER_LIMIT } from './cap'
-import type { LedgerCriteria } from './ledger'
-import { buildLedgerParams } from './ledger'
+import { ACCOUNT_LIMIT, FLEET_LIMIT, WORKLIST_LIMIT } from './cap'
 
 /**
  * The settlement account's predicate — this screen's own reading of the fifth flag.
@@ -84,67 +84,68 @@ export const settlementApi = {
   },
 
   /**
-   * `GET Settlement/Fleet?scope=all` → one aggregated row per store (spec 267 D8).
+   * `GET Settlement/Fleet?scope=…` → one aggregated row per store (spec 267 D8).
    *
-   * 🔑 **`scope=all`, always — and that is not the scope control being ignored.**
-   * The control's three states are honoured in `scope.ts`, over the answer, for a
-   * reason D2 makes load-bearing: *wrong money and cash waiting are always
-   * estate-wide whatever the scope says*, and the search must **rank** rather than
-   * refuse. A client that re-fetched per scope would either have to issue two
-   * calls per change (one scoped, one estate-wide) or quietly lose the 1255
-   * unassigned branches from the lanes — which is the exact failure the carve-out
-   * exists to prevent.
+   * 🔑 **274, live: the scope is the SERVER's, and the carve-out comes with it.**
+   * 270 sent `scope=all` always and ranked the answer on a client-side `assignment`
+   * field, on the reasoning that a scoped fetch would lose the 1255 unassigned
+   * branches from the two estate-wide lanes. The live door does not have that
+   * failure mode: `AlwaysVisible` (`f.OrphanCount > 0 OR f.UncollectedCount > 0`)
+   * is OR'd **into every scoped predicate**, so a branch carrying wrong money or
+   * waiting cash rows whatever the scope says — one query, carve-out included. And
+   * *mine* is resolved from the SESSION against the assignment tables, which is a
+   * union over an org chart no client can see.
    *
-   * The parameter is still sent rather than omitted, because it is the contract's
-   * and `all` is a real value on it. ⚠️ 274 confirms the string; if the door turns
-   * out to want the scoping done server-side, the change is one call becoming two,
-   * with the estate-wide one still feeding the lanes.
+   * ⚠️ **What that costs is the ranking, and it is recorded rather than faked.**
+   * The row carries no `assignment`, so the screen can no longer say *which* rows
+   * are mine and which are carved in — see `.afk/FINDINGS-274.md` §2. An accountant
+   * with no staff row opens unfiltered (the server's own rule), never empty.
    *
-   * The estate is 1394 rows of eleven scalars — a single answer a browser sorts,
+   * The estate is 1394 rows of nine scalars — a single answer a browser sorts,
    * filters and ranks without noticing. 🚩 **Nothing caches or denormalises it**
    * (the ticket's own boundary): it is a query per page life, and the per-store
-   * balance table this design refused twice stays refused.
+   * balance table this design refused twice stays refused. 274 measured the door at
+   * estate scale before letting that stand — the number is in the ticket.
    */
-  fleet(): Promise<SettlementFleetRow[]> {
-    return api.get<SettlementFleetRow[]>('Settlement/Fleet', { scope: 'all' })
+  fleet(scope: SettlementScope): Promise<SettlementFleetRow[]> {
+    // ⚠️ `limit` is NOT optional in practice — the door's own default is 500 and the
+    // estate is 1394. See `FLEET_LIMIT`.
+    return api.get<SettlementFleetRow[]>('Settlement/Fleet', { scope, limit: FLEET_LIMIT })
   },
 
   /**
-   * `GET Settlement/Worklist` → the two enumerated lanes (a 270 extension of D8,
-   * logged in `.afk/HITL-270.md`).
+   * `GET Settlement/Orphans` → the **wrong money** lane, enumerated (BackOffice
+   * ticket 1185).
    *
-   * 🔑 **It takes no parameters, and the absence is the design.** D8's `FleetRow`
-   * can say a branch *has* an orphan; it cannot say which consumption, for how
-   * much, or how old — and `Settlement/Repair` is keyed by a
-   * `settlementConsumptionId`. A lane that could only point at a branch would send
-   * the accountant hunting through an account for the row.
+   * 🔑 **274 found the door 270 asked for, under a different name and half the
+   * size.** 270 posted a `Settlement/Worklist` answering BOTH enumerated lanes plus
+   * an ageing threshold; what exists is this one, answering orphan consumptions
+   * only. The *cash waiting* lane and the ageing threshold have **no door at all**
+   * — recorded in `.afk/FINDINGS-274.md` §3/§4 rather than fabricated here.
    *
-   * A door with no scope to pass cannot be narrowed by accident, which is the
-   * carve-out (D2) enforced by shape rather than by a comment.
+   * 🔑 **It takes no scope, and the absence is still the design.** D8's `FleetRow`
+   * can say a branch *has* an orphan; it cannot say which consumption or for how
+   * much — and `Settlement/Repair` is keyed by a `settlementConsumptionId`. A door
+   * with no scope to pass cannot be narrowed by accident, which is the carve-out
+   * (D2) enforced by shape rather than by a comment.
+   *
+   * ⚠️ The rows are `SettlementConsumption`s: no `entryNumber`, no `storeName`, no
+   * `currencyKey`, no `ageDays`. The lane orders on `consumedAt` — the server's own
+   * clock, which is what `ageDays` was for.
    */
-  worklist(): Promise<SettlementWorklistResult> {
-    return api.get<SettlementWorklistResult>('Settlement/Worklist')
+  orphans(): Promise<SettlementOrphanRow[]> {
+    return api.get<SettlementOrphanRow[]>('Settlement/Orphans', { limit: WORKLIST_LIMIT })
   },
 
-  /**
-   * `GET Settlement/Ledger` → the flat cross-estate ledger (a 270 extension of
-   * D8, logged).
+  /* ⚠️ **`ledger()` stood here until 274 and is gone**: there is no
+   * `Settlement/Ledger`. BackOffice spec 1173 D13 specifies six doors and a
+   * cross-estate lookup is not among them — 270 posted it as a D8 extension and it
+   * was never built, because it was never asked for (`.afk/FINDINGS-274.md` §B1).
    *
-   * **Filter-first and capped**, like the four inquiries: the criteria the reader
-   * typed go on the wire, `LEDGER_LIMIT` bounds the answer, and the banner fires
-   * when it bites. ⚠️ It is explicitly **not the account** — it can only assert a
-   * total nobody owes and nobody consumes (D2), so its figures render as report
-   * figures and the position stays on 269's account.
-   *
-   * It is also how an **entry number** is resolved to a branch: *"entry 143,
-   * whichever branch it is on"* is this door with one criterion.
-   */
-  ledger(criteria: LedgerCriteria): Promise<SettlementLedgerRow[]> {
-    return api.get<SettlementLedgerRow[]>('Settlement/Ledger', {
-      ...buildLedgerParams(criteria),
-      limit: LEDGER_LIMIT,
-    })
-  },
+   * 🔑 The one thing on this screen that genuinely needed it — withdrawing a batch —
+   * does not any more: `bulkCancel` below is the server's own door for it, and it
+   * replaces the ledger-fetch-then-loop 273 built. Resolving a bare entry number to
+   * its branch has no substitute and is the §B1 ask. */
 
   /**
    * `POST Settlement/Post` → one entry onto one branch's ledger (spec 267 D8),
@@ -247,8 +248,19 @@ export const settlementApi = {
    * for the concrete reason that a refused upload has to arrive as the same
    * `ApiError` every other refusal on this screen does.
    *
-   * ⚠️ The route string and the part names are **274's to confirm**, as with every
-   * door here.
+   * 🔑 **274, live: the CLIENT mints the batch id, and it must be a ULID.** 273 had
+   * the server minting it at preview and handing it back. The real door takes
+   * `batchId` as a required form field and refuses anything that is not 26
+   * characters of Crockford base-32 (`SettlementBulkBatchIdInvalid`, a 400) — for a
+   * concrete reason the server spells out: the batch's **entry ids are derived from
+   * it** by replacing its first five characters, so two batch ids sharing their last
+   * 21 would mint the same entry ids and the second file would silently replay the
+   * first, posting nothing while telling the accountant their month is filed.
+   *
+   * `newRequestId` is that ULID — `@/core/engine-session/request-id`, the same
+   * minter the engine verbs use, reused rather than re-spelled. It is minted **per
+   * preview**: one file reviewed is one batch, and re-previewing after fixing the
+   * sheet is a new one.
    */
   bulkPreview(file: File, entryKind: SettlementEntryKind): Promise<SettlementBulkPreview> {
     const form = new FormData()
@@ -257,6 +269,7 @@ export const settlementApi = {
     // is no kind column, because a mixed file makes the total in words a **net**
     // figure a typo can hide inside (D7).
     form.append('entryKind', entryKind)
+    form.append('batchId', newRequestId())
     return api.upload<SettlementBulkPreview>('Settlement/Bulk/Preview', form)
   },
 
@@ -270,21 +283,55 @@ export const settlementApi = {
    * **sheet edited between review and commit is refused** — which is a refusal this
    * client could not make, because it never read the file.
    *
-   * ⚠️ That refusal is a **business `ApiError`**, not a 200 with a flag: D8 gives
-   * this answer no `accepted` field to carry one on, and a request describing a file
-   * the server no longer holds is a refusal to act rather than an outcome of acting.
-   * Cancel and repair are 200s for the opposite reason. Logged in `.afk/HITL-273.md`
-   * for 274.
+   * 🔑 **274 settled it the other way, and 273 had it backwards.** The refusal is a
+   * **200 carrying `accepted: false`** and a `refusalReason` — the same shape cancel
+   * and repair use, and for the same reason: the server DECIDED, and a decision is
+   * not a crash. `.afk/HITL-273.md`'s reasoning (*"a request describing a file the
+   * server no longer holds is a refusal to act"*) was sound and simply not what the
+   * door does. The only non-200 here is a malformed upload — no file, over 10 MB, an
+   * extension outside the allow-list, or bytes that yield no rows — which is a 400
+   * through the envelope, because a file that cannot be read is not a decision about
+   * money.
+   *
+   * ⚠️ **`contentHash` is the client's to echo**, from the preview it is committing.
+   * 273 sent only the file and left the server to remember what it had previewed;
+   * the door takes the hash as a form field and compares it against the file it just
+   * re-parsed. Omitting it refuses every commit.
    */
   bulkCommit(
     file: File,
     batchId: string,
     entryKind: SettlementEntryKind,
+    contentHash: string,
   ): Promise<SettlementBulkCommitResult> {
     const form = new FormData()
     form.append('file', file, file.name)
     form.append('batchId', batchId)
     form.append('entryKind', entryKind)
+    form.append('contentHash', contentHash)
     return api.upload<SettlementBulkCommitResult>('Settlement/Bulk/Commit', form)
+  },
+
+  /**
+   * `POST Settlement/Bulk/Cancel` → withdraws **every entry of a batch, as a unit**
+   * (BackOffice ticket 1186).
+   *
+   * 🔑 **274 found this door, and it replaces a loop.** 273 withdrew a batch from
+   * the browser: fetch the cross-estate ledger filtered to a `batchId`, decide per
+   * row which were still cancellable, then call `Settlement/Cancel` once per row and
+   * summarise what came back. That was N round trips, a partial-failure story the
+   * client had to tell itself, and — as 274 also found — it stood on
+   * `Settlement/Ledger`, a door that does not exist.
+   *
+   * ⚠️ **It is a loop over the per-entry cancel, not a second lifecycle** (D7): a
+   * row a till already consumed is **refused and named** in `rows`, never written
+   * off as a side effect of sharing a batch with forty others. The write-off stays a
+   * separate act with its own reason — which is exactly the ruling `bulk.ts`'s
+   * `planBatchWithdraw` made, now made by the server that owns the money.
+   *
+   * A partly-withdrawn batch is not an error and nothing rolls back.
+   */
+  bulkCancel(batchId: string, reason: string): Promise<SettlementBulkCancelResult> {
+    return api.post<SettlementBulkCancelResult>('Settlement/Bulk/Cancel', { batchId, reason })
   },
 }

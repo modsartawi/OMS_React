@@ -17,9 +17,6 @@ const branch = (
   o: Partial<SettlementFleetRow> & Pick<SettlementFleetRow, 'storeId'>,
 ): SettlementFleetRow => ({
   storeName: `${o.storeId} Pharmacy`,
-  city: 'Riyadh',
-  assignment: 'unassigned',
-  currencyKey: 'SAR',
   openCount: 0,
   shortageTotal: 0,
   surplusTotal: 0,
@@ -27,14 +24,13 @@ const branch = (
   movedSinceCutoff: 0,
   hasOrphan: false,
   hasUncollectedReceipt: false,
-  ageingCount: 0,
   ...o,
 })
 
 const ROWS: SettlementFleetRow[] = [
-  branch({ storeId: '0142', storeName: 'صيدلية الروضة / Al-Rawdah Pharmacy', city: 'Riyadh' }),
-  branch({ storeId: '0331', storeName: 'صيدلية النخيل / Al-Nakheel Pharmacy', city: 'Jeddah' }),
-  branch({ storeId: '0688', storeName: 'صيدلية المحرق / Al-Muharraq Pharmacy', city: 'Muharraq', currencyKey: 'BHD' }),
+  branch({ storeId: '0142', storeName: 'صيدلية الروضة / Al-Rawdah Pharmacy' }),
+  branch({ storeId: '0331', storeName: 'صيدلية النخيل / Al-Nakheel Pharmacy' }),
+  branch({ storeId: '0688', storeName: 'صيدلية المحرق / Al-Muharraq Pharmacy' }),
 ]
 
 describe('resolveBranch — exactly one match, or nothing is posted', () => {
@@ -72,13 +68,20 @@ describe('resolveBranch — exactly one match, or nothing is posted', () => {
     expect(resolveBranch(null, '0142')).toEqual({ kind: 'none' })
   })
 
-  it('🚩 is never scoped — an unassigned branch is as postable as an assigned one', () => {
-    // 1255 of the estate's 1394 branches are assigned to nobody. A posting box that
-    // inherited the door's scope ranking could not reach most of the estate.
-    const unassigned = SETTLEMENT_FLEET.find((r) => r.assignment === 'unassigned')!
-    expect(resolveBranch(SETTLEMENT_FLEET, unassigned.storeId)).toMatchObject({
+  it('🚩 reaches every branch it is GIVEN — the scoping guarantee is the caller’s', () => {
+    // 1255 of the estate's 1394 branches are assigned to nobody, so a posting box
+    // that could not reach them could not post most of the estate.
+    //
+    // ⚠️ **274 moved where this is enforced.** 270 handed `searchBranches` a
+    // hardcoded scope of *all*; the scope is now a query parameter, so what this
+    // function can reach is decided by WHICH FLEET ANSWER the caller passes in.
+    // `PostEntryDialog` therefore fetches `fleet('all')` under its own cache key —
+    // if it ever passes the door's scoped rows, a real branch becomes unpostable and
+    // the failure looks exactly like a typo. See `posting.ts`'s docblock.
+    const anyBranch = SETTLEMENT_FLEET[SETTLEMENT_FLEET.length - 1]
+    expect(resolveBranch(SETTLEMENT_FLEET, anyBranch.storeId)).toMatchObject({
       kind: 'one',
-      row: { storeId: unassigned.storeId },
+      row: { storeId: anyBranch.storeId },
     })
   })
 

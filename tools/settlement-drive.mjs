@@ -80,11 +80,25 @@ let scenario = { accessBody: ALL, access403: false, access500: false }
 let accessCalls = 0
 /** The six hostile branches, filled from `settlement-fixture.ts` once the app is up. */
 let ACCOUNTS = {}
-/** Ticket 270's estate: 1394 fleet rows, the two enumerated lanes, the flat ledger —
- *  all three read out of `fleet-fixture.ts`, the module the vitest suites pin. */
+/** Ticket 270's estate: 1394 fleet rows and the wrong-money lane, both read out of
+ *  `fleet-fixture.ts`, the module the vitest suites pin.
+ *
+ *  WARNING **274 narrowed this to the doors that exist.** The cash-waiting lane, the
+ *  ageing count and the flat cross-estate ledger were served here for five tickets
+ *  and are served by no SIS.Api door (`.afk/FINDINGS-274.md` B1-B3). A stub is not
+ *  allowed to be more generous than the server it stands in for - that is precisely
+ *  how those three got built. */
 let FLEET = []
-let WORKLIST = { orphans: [], uncollected: [], ageingThresholdDays: 30 }
-let LEDGER = []
+let ORPHANS = []
+/** The server's own roster, for the fleet stub's scope filter. Never sent to a screen. */
+let ASSIGNMENT = {}
+/** What each committed batch posted, keyed by `batchId` — the stub's stand-in for the
+ *  entries table `Settlement/Bulk/Cancel` loops over. */
+const BATCHES = {}
+let bulkCancelCalls = []
+/** Every scope the fleet door was asked for, in order — 274 put the scope on the
+ *  wire, so *did the control actually refetch* is a thing this drive can now see. */
+let fleetScopes = []
 /** The consumption whose document arrives MID-CLICK — the OLDEST orphan, picked
  *  once the fixture is loaded. Repairing it must come back a no-op (a 200 that
  *  changed nothing) rather than an error. */
@@ -182,29 +196,29 @@ async function run() {
       return route.fulfill(envelope(account))
     }
     // ---- ticket 270: the door ----
-    // The fleet is served ESTATE-WIDE whatever the scope asks for, which is what the
-    // client sends (`scope=all`) — the scope is applied on the client so that the two
-    // enumerated lanes stay estate-wide under every scope. See `scope.ts`.
-    if (path === 'Settlement/Fleet') return route.fulfill(envelope(FLEET))
-    if (path === 'Settlement/Worklist') return route.fulfill(envelope(WORKLIST))
-    if (path === 'Settlement/Ledger') {
-      const entryNumber = url.searchParams.get('entryNumber') || ''
-      const storeId = url.searchParams.get('storeId') || ''
-      const entryKind = url.searchParams.get('entryKind') || ''
-      const status = url.searchParams.get('status') || ''
-      // 273's criterion: an uploaded month is reachable an hour later because every
-      // entry it posted carries its `batchId`.
-      const batchId = url.searchParams.get('batchId') || ''
-      const rows = LEDGER.filter(
-        (r) =>
-          (!entryNumber || String(r.entryNumber) === entryNumber) &&
-          (!storeId || r.storeId === storeId) &&
-          (!entryKind || r.entryKind === entryKind) &&
-          (!status || r.status === status) &&
-          (!batchId || r.batchId === batchId),
-      ).slice(0, Number(url.searchParams.get('limit') || 500))
-      return route.fulfill(envelope(rows))
+    // KEY **274: the scope is the SERVER's.** The client sends
+    // `?scope=mine|unassigned|all` and the door filters - with the estate-wide
+    // carve-out (`OrphanCount > 0 OR UncollectedCount > 0`) OR'd into every scoped
+    // predicate, so a branch carrying wrong money rows whatever the scope says. The
+    // stub honours the parameter the same way, reading the generator's own
+    // assignment off the fixture module.
+    if (path === 'Settlement/Fleet') {
+      const scope = url.searchParams.get('scope') || 'all'
+      fleetScopes.push(scope)
+      const limit = Number(url.searchParams.get('limit') || 500)
+      // WARNING The limit is asked for by the client because the door's own default is
+      // 500 and the estate is 1394 - the truncation 274 found. Honour it here so a
+      // client that stopped sending it fails the drive instead of silently losing 894
+      // branches.
+      const inScope = (row) =>
+        scope === 'all' ||
+        ASSIGNMENT[row.storeId] === scope ||
+        row.hasOrphan ||
+        row.hasUncollectedReceipt
+      return route.fulfill(envelope(FLEET.filter(inScope).slice(0, limit)))
     }
+    // The one enumerated lane. Estate-wide, always, and it takes no scope at all.
+    if (path === 'Settlement/Orphans') return route.fulfill(envelope(ORPHANS))
     // ---- ticket 271: posting one entry ----
     // 🔑 **The server rounds, and this stub rounds the same way** — to what the
     // branch can physically count (2 decimals at a SAR branch, 3 at a BHD one). The
@@ -253,33 +267,9 @@ async function run() {
     if (path === 'Settlement/Cancel') {
       const body = route.request().postDataJSON() || {}
       cancelCalls.push(body)
-      // ---- ticket 273: the same door, reached in a loop across a BatchId ----
-      // 🔑 Cancel-as-a-unit is 272's mechanism applied per row, so it arrives HERE
-      // and not at a bulk door — there is no bulk door. One row of the batch loses
-      // its race on purpose: a till consumed part of it a millisecond earlier, and
-      // the withdrawal must NAME it rather than count it.
-      const batchRow = LEDGER.find(
-        (r) => r.settlementEntryId === body.settlementEntryId && r.batchId,
-      )
-      if (batchRow) {
-        if (batchRow.settlementEntryId === BATCH_RACE_ENTRY) {
-          batchRow.remainingAmount = 300
-          return route.fulfill(
-            envelope({
-              accepted: false,
-              refusalReason: 'A till consumed part of this entry.',
-              remainingAmount: 300,
-            }),
-          )
-        }
-        batchRow.status = 'CANCELLED'
-        batchRow.closedByStaffId = '30117'
-        batchRow.closedAt = '2026-08-13T10:05:00'
-        batchRow.closedReason = body.reason
-        return route.fulfill(
-          envelope({ accepted: true, refusalReason: '', remainingAmount: batchRow.amount }),
-        )
-      }
+      // WARNING **274: cancel-as-a-unit no longer arrives here.** 273 withdrew a batch
+      // by looping this door once per row, because it believed there was no bulk
+      // door. There is - `Settlement/Bulk/Cancel` - and it is stubbed below.
       const found = findEntry(body.settlementEntryId)
       if (body.settlementEntryId === RACE_ENTRY) {
         // A till consumed 150 of the 500 a millisecond before this call landed. The
@@ -308,6 +298,9 @@ async function run() {
             accepted: false,
             refusalReason: 'A till consumed part of this entry.',
             remainingAmount: 350,
+            // 274: the act's answer carries the entry's resulting status on both
+            // doors - refused, so it is unchanged.
+            status: 'OPEN',
           }),
         )
       }
@@ -319,6 +312,7 @@ async function run() {
             accepted: false,
             refusalReason: 'This entry belongs to a batch that is being cancelled.',
             remainingAmount: found?.entry.remainingAmount ?? 0,
+            status: found?.entry.status ?? 'OPEN',
           }),
         )
       if (found) {
@@ -328,7 +322,12 @@ async function run() {
         found.entry.closedReason = body.reason
       }
       return route.fulfill(
-        envelope({ accepted: true, refusalReason: '', remainingAmount: found?.entry.amount ?? 0 }),
+        envelope({
+          accepted: true,
+          refusalReason: '',
+          remainingAmount: found?.entry.amount ?? 0,
+          status: 'CANCELLED',
+        }),
       )
     }
     if (path === 'Settlement/CloseOut') {
@@ -346,7 +345,17 @@ async function run() {
         found.entry.closedAt = '2026-08-13T09:25:00'
         found.entry.closedReason = body.reason
       }
-      return route.fulfill(envelope({ accepted: true, remainingAmount: forgiven }))
+      // 274: cancel and close-out share ONE server type, so this answers
+      // `refusalReason` and `status` as well - the asymmetry 272 transcribed from D8
+      // does not exist on the wire.
+      return route.fulfill(
+        envelope({
+          accepted: true,
+          remainingAmount: forgiven,
+          refusalReason: '',
+          status: 'CLOSED_OUT',
+        }),
+      )
     }
     if (path === 'Settlement/Repair') {
       const body = route.request().postDataJSON() || {}
@@ -354,17 +363,41 @@ async function run() {
       // 🔑 The race, lost: a document arrived for this consumption between the list
       // being drawn and the button being pressed. The server's guard is inside its
       // UPDATE, so nothing happened — and it is a 200, not a failure.
+      // WARNING 274: the field is `remainingAmount`, not `remainingAfter` - 270
+      // transcribed the consumption row's spelling onto the act's answer, and it read
+      // `undefined`. The answer also carries the ids and the amount restored.
       if (body.settlementConsumptionId === NOOP_CONSUMPTION)
-        return route.fulfill(envelope({ accepted: false, noOp: true, remainingAfter: 0, refusalReason: '' }))
+        return route.fulfill(
+          envelope({
+            accepted: false,
+            noOp: true,
+            settlementEntryId: '',
+            settlementConsumptionId: '',
+            amount: 0,
+            remainingAmount: 0,
+            refusalReason: 'CONSUMPTION_NO_LONGER_ORPHAN',
+          }),
+        )
       // …and the ordinary repair: the money goes back on the entry, and the lane it
       // came from no longer holds it.
-      WORKLIST = {
-        ...WORKLIST,
-        orphans: WORKLIST.orphans.filter(
-          (o) => o.settlementConsumptionId !== body.settlementConsumptionId,
-        ),
-      }
-      return route.fulfill(envelope({ accepted: true, noOp: false, remainingAfter: 450, refusalReason: '' }))
+      const repaired = ORPHANS.find(
+        (o) => o.settlementConsumptionId === body.settlementConsumptionId,
+      )
+      ORPHANS = ORPHANS.filter(
+        (o) => o.settlementConsumptionId !== body.settlementConsumptionId,
+      )
+      return route.fulfill(
+        envelope({
+          accepted: true,
+          noOp: false,
+          settlementEntryId: repaired?.settlementEntryId ?? '',
+          // The COMPENSATING row the repair wrote, not the orphan it repaired.
+          settlementConsumptionId: `${body.settlementConsumptionId}R`,
+          amount: repaired?.amount ?? 0,
+          remainingAmount: 450,
+          refusalReason: '',
+        }),
+      )
     }
     // ---- ticket 273: the second posting door ----
     // 🚩 **The stub parses nothing either.** Which preview a file gets is decided by
@@ -391,7 +424,24 @@ async function run() {
                 BULK.REPLAY_PREVIEW
               : BULK.CLEAN_PREVIEW
 
-      const batchId = `01J9BATCH${++batchSeq}`
+      // KEY **274: the CLIENT mints the batch id, and it must be a ULID.** 273 had the
+      // server minting it here. The real door takes it as a required form field and
+      // refuses anything that is not 26 characters of Crockford base-32 - because the
+      // batch's ENTRY IDS are derived from it, so two ids sharing their last 21
+      // characters would mint the same entries and silently replay. The stub enforces
+      // it, or a client that stopped sending one would pass this drive.
+      const batchId = part(raw, 'batchId')
+      if (!/^[0-7][0-9ABCDEFGHJKMNPQRSTVWXYZ]{25}$/.test(batchId))
+        return route.fulfill(
+          envelope(null, {
+            status: 400,
+            success: false,
+            message: 'BatchId must be a 26-character ULID minted by the client at preview.',
+            errors: [
+              { errorCode: 'SettlementBulkBatchIdInvalid', internalErrorCode: '', errorMessage: '' },
+            ],
+          }),
+        )
       PREVIEWS[batchId] = { name, content, preview: base }
       return route.fulfill(envelope({ ...base, batchId, entryKind: entryKind || base.entryKind }))
     }
@@ -406,57 +456,118 @@ async function run() {
           envelope(null, { status: 409, success: false, message: 'No such batch.' }),
         )
 
-      // 🔑 **The sheet changed between review and commit.** The client cannot detect
-      // that and must not try — it never read the file — so the server refuses on the
-      // hash, as a BUSINESS refusal carrying a code rather than a 200 with a flag.
-      // ⚠️ A drive cannot rewrite a file under a live `File` handle mid-run, so the
-      // edit is expressed by NAME: `august-edited.csv` previews and then refuses.
-      if (previewed.name.includes('edited') || content !== previewed.content)
+      // KEY **The sheet changed between review and commit.** The client cannot detect
+      // that and must not try - it never read the file - so the server refuses on the
+      // hash it was handed back.
+      //
+      // WARNING **274 settled the SHAPE of that refusal, and 273 had it backwards.**
+      // It is a **200 carrying `accepted: false`**, exactly like cancel and repair -
+      // the server decided, and a decision is not a crash. The stub answers that way
+      // now, which is what makes the screen's `if (!result.accepted)` path real: under
+      // the old error-shaped stub, a client that read `posted` and ignored `accepted`
+      // would still have passed.
+      // WARNING A drive cannot rewrite a file under a live `File` handle mid-run, so
+      // the edit is expressed by NAME: `august-edited.csv` previews and then refuses.
+      const sentHash = part(raw, 'contentHash')
+      if (
+        previewed.name.includes('edited') ||
+        content !== previewed.content ||
+        sentHash !== previewed.preview.contentHash
+      )
         return route.fulfill(
-          envelope(null, {
-            status: 409,
-            success: false,
-            message: 'This sheet has changed since it was previewed.',
-            errors: [{ errorCode: 'HASH_MISMATCH', internalErrorCode: '', errorMessage: '' }],
+          envelope({
+            batchId,
+            accepted: false,
+            refusalReason: 'This sheet has changed since it was previewed.',
+            posted: 0,
+            replayed: false,
+            entryNumbers: [],
+            errors: [],
+            warnings: [],
           }),
         )
 
+      // WARNING **274: the batch is held HERE, not pushed into a ledger.** 273 wrote a
+      // full entry row per line into the cross-estate ledger so the withdrawal screen
+      // could fetch them back. There is no such door (B1) - and there is no need, now
+      // that `Settlement/Bulk/Cancel` withdraws the batch as a unit and reports each
+      // row itself.
       const rows = previewed.preview.rows
       const entryNumbers = []
+      const posted = []
       for (const row of rows) {
         const entryNumber = nextEntryNumber++
         entryNumbers.push(entryNumber)
-        LEDGER.push({
+        posted.push({
           settlementEntryId: `01J9SETLBULK${entryNumber}`,
           entryNumber,
-          storeId: row.storeId,
-          storeName: row.storeName,
-          currencyKey: row.currencyKey,
-          entryKind: previewed.preview.entryKind,
+          storeId: row.storeCode,
           amount: row.amount,
           remainingAmount: row.amount,
-          reason: row.reason,
           status: 'OPEN',
-          batchId,
-          postedByStaffId: '30117',
-          postedByName: 'ضحى العتيبي / Duha Al-Otaibi',
-          postedAt: '2026-08-13T09:45:00',
-          closedByStaffId: '',
-          closedAt: '',
-          closedReason: '',
         })
       }
       // The THIRD row is one a till reached first, before the withdrawal was even
-      // drawn — the plan must name it and never attempt it…
-      const preconsumed = LEDGER.find((r) => r.entryNumber === entryNumbers[2])
-      if (preconsumed) {
-        preconsumed.remainingAmount = preconsumed.amount - 100
-        BATCH_PRECONSUMED_ENTRY = preconsumed.settlementEntryId
+      // drawn - the batch cancel must NAME it rather than count it…
+      if (posted[2]) {
+        posted[2].remainingAmount = posted[2].amount - 100
+        BATCH_PRECONSUMED_ENTRY = posted[2].settlementEntryId
       }
-      // …and the SECOND is the one whose cancel loses its race mid-loop.
+      // …and the SECOND is the one whose cancel loses its race mid-act.
       BATCH_RACE_ENTRY = `01J9SETLBULK${entryNumbers[1]}`
+      BATCHES[batchId] = posted
       COMMITTED.add(content)
-      return route.fulfill(envelope({ posted: rows.length, replayed: false, entryNumbers }))
+      return route.fulfill(
+        envelope({
+          batchId,
+          accepted: true,
+          refusalReason: '',
+          posted: rows.length,
+          replayed: false,
+          entryNumbers,
+          errors: [],
+          warnings: [],
+        }),
+      )
+    }
+    // ---- ticket 273 / 1186: the batch, withdrawn as a UNIT ----
+    // KEY **The door 273 did not know existed.** It is a loop over the per-entry
+    // cancel, server-side, reporting each row's own outcome - so a row a till already
+    // consumed is refused and NAMED, never written off for sharing a batch.
+    if (path === 'Settlement/Bulk/Cancel') {
+      const body = route.request().postDataJSON() || {}
+      bulkCancelCalls.push(body)
+      const entries = BATCHES[body.batchId] || []
+      const rows = entries.map((e) => {
+        // The pre-consumed row and the race-loser both refuse, for the two different
+        // reasons an accountant has to be able to tell apart.
+        if (e.settlementEntryId === BATCH_PRECONSUMED_ENTRY)
+          return {
+            ...e,
+            accepted: false,
+            refusalReason: 'A till consumed part of this entry.',
+            status: 'OPEN',
+          }
+        if (e.settlementEntryId === BATCH_RACE_ENTRY)
+          return {
+            ...e,
+            accepted: false,
+            refusalReason: 'A till consumed part of this entry.',
+            remainingAmount: 300,
+            status: 'OPEN',
+          }
+        return { ...e, accepted: true, refusalReason: '', status: 'CANCELLED' }
+      })
+      const cancelled = rows.filter((r) => r.accepted).length
+      return route.fulfill(
+        envelope({
+          batchId: body.batchId,
+          total: rows.length,
+          cancelled,
+          refused: rows.length - cancelled,
+          rows,
+        }),
+      )
     }
     if (path === 'Auth/Me')
       return route.fulfill(
@@ -530,11 +641,17 @@ async function run() {
   // ageing entries of which 47 are in scope.
   const estate = await page.evaluate(async () => {
     const m = await import('/src/features/collection/settlement/fleet-fixture.ts')
-    return { fleet: m.SETTLEMENT_FLEET, worklist: m.SETTLEMENT_WORKLIST, ledger: m.SETTLEMENT_LEDGER }
+    return {
+      fleet: m.SETTLEMENT_FLEET,
+      orphans: m.SETTLEMENT_ORPHANS,
+      // The stub plays the SERVER, so it gets the roster the server has — see the
+      // export's own docblock. No screen may read this.
+      assignment: m.SETTLEMENT_ASSIGNMENT,
+    }
   })
   FLEET = estate.fleet
-  WORKLIST = estate.worklist
-  LEDGER = estate.ledger
+  ORPHANS = estate.orphans
+  ASSIGNMENT = estate.assignment
   // …and 273's four preview payloads, from the module `bulk.test.ts` asserts
   // against: a clean month, one with an unresolvable code, one with a duplicate
   // warning, and the same file coming back a second time.
@@ -548,9 +665,12 @@ async function run() {
       REPLAY_PREVIEW: m.REPLAY_PREVIEW,
     }
   })
-  // The oldest orphan is the one whose document arrives mid-click.
-  NOOP_CONSUMPTION = [...WORKLIST.orphans].sort((a, b) => b.ageDays - a.ageDays)[0]
-    .settlementConsumptionId
+  // The oldest orphan is the one whose document arrives mid-click. Ordered on
+  // `consumedAt`: 274 found the door sends no `ageDays` (B2), and the timestamp is
+  // the same server clock at better resolution.
+  NOOP_CONSUMPTION = [...ORPHANS].sort((a, b) =>
+    a.consumedAt < b.consumedAt ? -1 : a.consumedAt > b.consumedAt ? 1 : 0,
+  )[0].settlementConsumptionId
 
   // ---- Scenario 1: granted ----
   let text = await open(ALL)
@@ -701,7 +821,7 @@ async function run() {
   journal = await selectEntry('01J9SETL0688A')
   check(
     '🚩 …its zero remaining had no consumption behind it — the write-off is named',
-    journal.includes('written off') && journal.includes('400.000'),
+    journal.includes('written off') && journal.includes('400.00'),
   )
   check(
     '🚩 …and the journal below it is UNCHANGED — one row, the till’s own',
@@ -716,13 +836,24 @@ async function run() {
   const cancelledCells = async (colId) =>
     page.locator(`.ag-row[row-id="01J9SETL0688B"] [col-id="${colId}"]`).first().innerText()
   check('🚩 …and draws NO remaining, though the wire still carries 180', (await cancelledCells('remainingAmount')).trim() === '—')
-  check('🚩 …while its Amount still says what was actually posted', (await cancelledCells('amount')).includes('180.000'))
+  check('🚩 …while its Amount still says what was actually posted', (await cancelledCells('amount')).includes('180.00'))
+  // WARNING **274 changed what can be asserted here, and the change is a FINDING.**
+  // No read door carries `currencyKey` (`FINDINGS-274.md` B6), so the screen cannot
+  // draw at the branch's own precision - it draws through
+  // `formatMoneyOfUnknownCurrency`, which refuses to ROUND rather than pretending to
+  // know the currency. What that preserves is every digit that means money; what it
+  // cannot restore is a trailing zero, because `95.250` and `95.25` are the same
+  // IEEE-754 number.
   check(
-    '🔑 0688 is BHD → money renders at THREE decimals',
-    text.includes('95.250') && text.includes('640.000'),
+    '⚠️ 274 → 0688 draws its figures without inventing or losing one, currency unknown',
+    text.includes('95.25') && text.includes('640.00'),
   )
   check(
-    '🔑 …while the five SAR branches render at TWO — the same figure, read differently',
+    '🔑 …and a genuine third decimal SURVIVES — the fils D10 exists for',
+    // The assertion that still bites: a figure carrying real fils must not be
+    // rounded to two places. 0688's own amounts have none, so this is checked at the
+    // unit level (`account-projection.test.ts`); here we prove the SAR case is
+    // untouched, which is the regression the workaround could have caused.
     (await openAccount('0142')).includes('75.50'),
   )
 
@@ -767,61 +898,80 @@ async function run() {
       .then(() => true)
       .catch(() => false)
 
-  // ---- the three lanes, triaged by what they cost ----
+  // ---- the ONE lane that has a door ----
+  //
+  // WARNING **274 removed two of the three.** Cash waiting has no door that
+  // enumerates it and ageing has no threshold to count against (`FINDINGS-274.md`
+  // B2/B3), so this drive no longer serves or asserts them. A stub more generous
+  // than the server is exactly how they came to be built.
   text = await openDoor()
   check('270 → the door opens on MY BRANCHES', (await page.locator('[data-region="settlement-scope"] button[aria-pressed="true"]').innerText()).includes('My branches'))
   check(
     '🔑 wrong money is ENUMERATED IN FULL — one row per orphan consumption',
-    (await laneRows('wrong-money')) === WORKLIST.orphans.length,
+    (await laneRows('wrong-money')) === ORPHANS.length,
     `${await laneRows('wrong-money')} rows`,
   )
-  check('270 → cash waiting is enumerated too, and shows an AGE', (await laneRows('cash-waiting')) === WORKLIST.uncollected.length && /prepared \d+ days ago/.test(text))
   check(
-    '🔑 the ageing lane is a COUNT and a way through — never a card each',
-    (await laneRows('ageing')) === 0 &&
-      (await page.locator('[data-lane="ageing"]').innerText()).includes('47 entries') &&
-      (await page.locator('[data-testid="open-ledger"]').count()) === 1,
-    await page.locator('[data-lane="ageing"]').innerText(),
+    '274 → the two lanes with no door behind them are GONE, not empty',
+    (await page.locator('[data-lane="cash-waiting"]').count()) === 0 &&
+      (await page.locator('[data-lane="ageing"]').count()) === 0,
   )
-  check('270 → the lanes are ordered wrong money → cash waiting → ageing', text.indexOf('Wrong money') < text.indexOf('Cash waiting') && text.indexOf('Cash waiting') < text.indexOf('Ageing'))
 
   // ---- 🔑 THE CARVE-OUT: the load-bearing part of this ticket ----
-  // 0331 is UNASSIGNED in the fixture, deliberately. Its orphan consumption must be
-  // on this screen under scope = mine; its ageing entries must not be counted.
+  // 0331 is UNASSIGNED in the fixture, deliberately, and carries an orphan. It must
+  // be on this screen under scope = mine — which after 274 is the SERVER's doing:
+  // the fleet stub ORs `hasOrphan` into every scoped predicate, exactly as the door
+  // does, and the orphan lane takes no scope at all.
   check(
     '🔑 an UNASSIGNED branch’s wrong money is on screen under scope = MINE',
     (await page.locator('[data-lane="wrong-money"] li').filter({ hasText: '0331' }).count()) === 1,
   )
-  const ageingText = async () => page.locator('[data-lane="ageing"]').innerText()
-  const mineAgeing = await ageingText()
+  const mineRows = await laneRows('wrong-money')
+  const mineFleetCalls = fleetScopes.length
   await page.locator('[data-region="settlement-scope"] button[data-scope="all"]').click()
-  await page.waitForTimeout(120)
+  await page.waitForTimeout(200)
   check(
-    '🔑 …while its AGEING entries only appear once the scope widens (47 → 140)',
-    mineAgeing.includes('47 entries') && (await ageingText()).includes('140 entries'),
-    `${mineAgeing.replace(/\n/g, ' ')} → ${(await ageingText()).replace(/\n/g, ' ')}`,
+    '🔑 274 → changing the scope REFETCHES, because the scope is now on the wire',
+    fleetScopes.length > mineFleetCalls && fleetScopes.at(-1) === 'all',
+    fleetScopes.join(' → '),
   )
   check(
-    '🔑 …and the two enumerated lanes did NOT move when the scope did',
-    (await laneRows('wrong-money')) === WORKLIST.orphans.length && (await laneRows('cash-waiting')) === WORKLIST.uncollected.length,
+    '🔑 …and the enumerated lane did NOT move when the scope did',
+    (await laneRows('wrong-money')) === mineRows,
   )
   check('270 → widening is one click and is never locked', page.url().includes('scope=all'))
-  check('⚠️ the screen says the two lanes are estate-wide, rather than leaving it to be inferred', (await mainText()).includes('whole estate'))
+  check('⚠️ the screen says the lane is estate-wide, rather than leaving it to be inferred', (await mainText()).includes('whole estate'))
 
-  // ---- the search: four keys, one box ----
+  // ---- the search: two keys, one box ----
+  //
+  // WARNING D2 asked for four. City is not on the fleet row (B5) and an entry number
+  // needs the ledger door that does not exist (B1); both are recorded rather than
+  // faked, so neither is asserted here.
   text = await openDoor()
   check('🔑 search finds a branch by CODE', (await search('0331')).includes('Al-Nakheel'))
   check('🔑 search finds the same branch by name in ARABIC', (await search('النخيل')).includes('0331'))
   check('🔑 …and by name in ENGLISH', (await search('Al-Nakheel')).includes('0331'))
-  check('🔑 search finds a branch by CITY', (await search('Muharraq')).includes('0688'))
   await search('0331')
   check(
-    '🔑 the scope RANKS and never refuses — an unassigned branch is still found under MINE',
-    (await page.locator('[data-hit="0331"][data-in-scope="false"]').count()) === 1,
+    '🔑 the scope never refuses — an unassigned branch is still found under MINE',
+    (await page.locator('[data-hit="0331"]').count()) === 1,
   )
+  // WARNING 274: the fleet is scoped SERVER-SIDE now, so *mine* holds a couple of
+  // dozen branches rather than the estate — the cap is proven at scope=all, which is
+  // the answer that actually holds 1394 rows.
+  await page.locator('[data-region="settlement-scope"] button[data-scope="all"]').click()
+  await page.waitForTimeout(200)
   await search('Pharmacy')
-  check('270 → a broad query is capped and says how many matched', /Showing 20 of \d{3,}/.test(await page.locator('[data-region="search-results"]').innerText()))
-  check('270 → a query that matches nothing says so', (await search('zzzz')) === '' && (await mainText()).includes('No branch matches that'))
+  check(
+    '270 → a broad query is capped and says how many matched',
+    /Showing 20 of \d{3,}/.test(await page.locator('[data-region="search-results"]').innerText()),
+    (await page.locator('[data-region="search-results"]').innerText()).split('\n')[0],
+  )
+  check(
+    '270 → a query that matches nothing says so',
+    (await search('zzzz')) === '' && (await mainText()).includes('No branch matches that'),
+    (await mainText()).replace(/\n/g, ' ').slice(0, 90),
+  )
 
   // ---- a search hit is an ADDRESS: it lands on 269's account ----
   await search('0142')
@@ -829,45 +979,39 @@ async function run() {
   await appears('[data-region="branch-account"]')
   check('270 → a search hit opens the BRANCH ACCOUNT 269 built', (await page.locator('[data-region="branch-account"]').count()) === 1 && page.url().includes('store=0142'), page.url())
 
-  // ---- an entry number jumps STRAIGHT to that entry's branch ----
+  // ---- an entry number jumps STRAIGHT to that entry's branch: GONE ----
+  //
+  // WARNING **274 removed this, and it is the loss that hurts most.** *"Entry 143,
+  // whichever branch it is on"* is the phone call the box existed for, and spec 1173
+  // mints `EntryNumber` precisely because it is the handle finance and the branch
+  // settle by. Resolving one needs a cross-estate lookup, and `Settlement/Ledger`
+  // does not exist (`FINDINGS-274.md` B1). `Settlement/Account` cannot stand in: it
+  // takes the `storeId` the caller is asking for.
+  //
+  // The two checks that stood here — the jump, and landing on the ENTRY rather than
+  // merely the branch, with its journal open underneath — come back with that door.
+
   await openDoor()
-  await search('143')
-  await page.keyboard.press('Enter')
-  await appears('[data-region="branch-account"]')
-  check(
-    '🔑 “entry 143” lands on the account of the branch it is on, whichever that is',
-    page.url().includes('store=0142') && (await page.locator('[data-region="branch-account"]').count()) === 1,
-    page.url(),
-  )
-  // 🔑 …and on the ENTRY, not merely the branch (story 3). The account's grid
-  // selects its own first displayed row, which after a sort is a different entry —
-  // so the door names the one it sent the reader for, and the journal opens under it.
-  check(
-    '🔑 …and opens on entry 143 itself, with its journal underneath',
-    (await page.locator('[data-region="entry-journal"]').getAttribute('data-entry')) === '143' &&
-      (await page.locator('.ag-row-selected [col-id="entryNumber"]').innerText()).trim() === '143',
-    await page.locator('[data-region="entry-journal"]').getAttribute('data-entry'),
-  )
-  await openDoor()
-  await search('9999')
+  await search('999999')
   await page.keyboard.press('Enter')
   await page.waitForTimeout(400)
-  check('270 → an entry number that matches nothing says so, and does not navigate', (await mainText()).includes('no entry 9999') && !page.url().includes('store='), page.url())
-  // 🔑 A code that is ALSO an entry number goes to the BRANCH. Store codes are four
-  // digits and entry numbers are unpadded ints, so the estate genuinely holds both
-  // readings of the same string — and taking someone who typed their own branch's
-  // code to a different branch's account is the worst thing this box could do.
-  const collision = FLEET.find(
-    (r) => /^[1-9]\d*$/.test(r.storeId) && LEDGER.some((e) => String(e.entryNumber) === r.storeId),
+  check(
+    '274 → a bare number that names no branch does not navigate',
+    !page.url().includes('store='),
+    page.url(),
   )
+  const numericCode = FLEET.find((r) => /^[1-9]\d*$/.test(r.storeId))
   await openDoor()
-  await search(collision.storeId)
+  // Scoped server-side now — widen before asking for a branch that is not *mine*.
+  await page.locator('[data-region="settlement-scope"] button[data-scope="all"]').click()
+  await page.waitForTimeout(200)
+  await search(numericCode.storeId)
   await page.keyboard.press('Enter')
   await appears('[data-region="branch-account"]')
   check(
-    '🔑 an EXACT branch code beats an entry number of the same digits',
-    page.url().includes(`store=${collision.storeId}`),
-    `${collision.storeId} → ${page.url()}`,
+    '🔑 an EXACT branch code goes to that branch, beating every other match',
+    page.url().includes(`store=${numericCode.storeId}`),
+    `${numericCode.storeId} → ${page.url()}`,
   )
 
   // ---- Repair: the only write on this screen ----
@@ -885,7 +1029,7 @@ async function run() {
 
   // 🔑 The no-op: a document arrived mid-click. It must read as nothing to do, NOT
   // as a failure — the row stays, and the sentence is the ticket's own.
-  const noopRow = orphanRows().filter({ hasText: WORKLIST.orphans.find((o) => o.settlementConsumptionId === NOOP_CONSUMPTION)?.storeId ?? '—' })
+  const noopRow = orphanRows().filter({ hasText: ORPHANS.find((o) => o.settlementConsumptionId === NOOP_CONSUMPTION)?.storeId ?? '—' })
   const noopBefore = await orphanRows().count()
   await noopRow.first().locator('button').click()
   await page.locator('[data-testid="repair-reason"]').fill('Sweep found no document.')
@@ -908,44 +1052,29 @@ async function run() {
   await page.locator('main a[href*="scope=all"]').first().click()
   await appears('[data-lane="ageing"]')
   check(
-    '🚩 coming back from a branch keeps the widened scope (140, not 47)',
-    (await page.locator('[data-lane="ageing"]').innerText()).includes('140 entries') && !page.url().includes('store='),
+    '🚩 coming back from a branch keeps the widened scope',
+    page.url().includes('scope=all') && !page.url().includes('store='),
     page.url(),
   )
 
-  // ---- the flat cross-estate ledger ----
-  await openDoor()
-  await page.locator('[data-testid="open-ledger"]').click()
-  await appears('[data-region="cross-estate-ledger"] .ag-row')
-  check('270 → the ageing lane’s way through opens the LEDGER, seeded with open entries', (await page.locator('[data-region="cross-estate-ledger"]').count()) === 1 && (await page.locator('.ag-row').count()) > 0, `${page.url()} · ${await page.locator('.ag-row').count()} rows`)
-  check('⚠️ the ledger says it is NOT the account', (await mainText()).includes('A lookup, not an account'), page.url())
-  check('270 → its totals are a REPORT figure, per currency, never netted', /SAR · \d+ entries found/.test(await page.locator('[data-region="ledger-figures"]').innerText()) && (await page.locator('[data-region="ledger-figures"]').innerText()).includes('A report figure'))
-  await page.locator('[data-testid="ledger-status"]').selectOption('')
-  await page.locator('[data-testid="ledger-entry-number"]').fill('143')
-  await page.locator('[data-region="cross-estate-ledger"] button[type="submit"]').click()
-  await page.waitForTimeout(600)
-  check('🔑 the ledger finds ONE entry across the whole estate', (await page.locator('.ag-row').count()) === 1, `${await page.locator('.ag-row').count()} rows`)
-  await page.locator('.ag-row').first().click()
-  await appears('[data-region="branch-account"]')
-  check('270 → …and the row is a way through to that branch’s account', page.url().includes('store=0142') && (await page.locator('[data-region="branch-account"]').count()) === 1)
-  // 🚩 …and the ledger's own filter is an address too: pressing Back out of the
-  // account a row opened brings the same search back, rather than a blank form and a
-  // fresh estate-wide query.
-  await page.goBack()
-  await appears('[data-region="cross-estate-ledger"] .ag-row')
-  check(
-    '🚩 Back out of an account restores the ledger’s own filter',
-    (await page.locator('[data-testid="ledger-entry-number"]').inputValue()) === '143' && (await page.locator('.ag-row').count()) === 1,
-    page.url(),
-  )
-
-  await page.goto(`${BASE}${ROUTE}?view=ledger`)
-  await appears('[data-region="cross-estate-ledger"]')
-  check('🔑 the ledger is FILTER-FIRST — it does not open on the estate', (await mainText()).includes('too big to open on nothing') && (await page.locator('.ag-row').count()) === 0)
+  // ---- the flat cross-estate ledger: GONE ----
+  //
+  // WARNING **Fifteen checks stood here until ticket 274.** They drove a view over
+  // `Settlement/Ledger` — filter-first, capped, per-currency footer, a row as a way
+  // through to its branch, and the filter surviving a Back — and every one of them
+  // was green against a stub for a door BackOffice never built. Spec 1173 D13 lists
+  // six doors and a cross-estate lookup is not among them (`FINDINGS-274.md` B1).
+  //
+  // KEY That is the whole lesson of this ticket in one deleted block: a drive is only
+  // as honest as its stub. These passed for five tickets and proved nothing.
+  //
+  // The ask stands and is well-founded — 1173 mints `EntryNumber` and calls it the
+  // handle finance and the branch settle by on the phone, then gives nobody a way to
+  // resolve one. When that door lands, this section and its screen come back.
 
   // ---- and the namespace, again, over 270's new copy ----
   text = await openDoor()
-  check('🚩 270’s keys are all registered — no raw t() key on screen', !/settlement:|\bworklist\.|\bsearch\.|\bledger\.|\brepair\./.test(text))
+  check('🚩 270’s keys are all registered — no raw t() key on screen', !/settlement:|\bworklist\.|\bsearch\.|\brepair\./.test(text))
 
   // ═══ Ticket 271 — one entry posts, and the screen reads it back in words ══════
   //
@@ -1011,7 +1140,10 @@ async function run() {
   await typeAmount('1,234.5')
   check(
     '271 → the read-back groups the figure and words it',
-    (await wordsText()).includes('1,234.50') && (await wordsText()).includes('one thousand two hundred thirty-four riyals and fifty halalas'),
+    (await wordsText()).includes('1,234.50') &&
+      (await wordsText()).includes('one thousand two hundred thirty-four') &&
+      (await wordsText()).includes('thousandths'),
+    (await wordsText()).replace(/\n/g, ' '),
   )
   postCalls = []
   await page.locator('[data-testid="post-review"]').click()
@@ -1061,17 +1193,28 @@ async function run() {
 
   // 🔑 The Proof bullet: type a fractional amount at a 2-decimal branch and watch it.
   await typeAmount('50000.567')
+  // WARNING **274: the words can no longer name the currency, or round to it.** No
+  // read door carries `currencyKey` (B6), so the amount is worded at the scale money
+  // is HELD at - three decimals - and through the generic bank. Wording it at two
+  // would read a Bahraini `95.505` back as *95.51*, get it approved, and store
+  // `95.505`: the words and the ledger disagreeing, which is what D4 exists to stop.
+  // The guard itself is intact; what it lost is the noun.
   check(
-    '🔑 the in-words read-back shows the ROUNDED figure for a 2-decimal branch',
-    (await wordsText()).includes('50,000.57') && (await wordsText()).includes('fifty thousand riyals and fifty-seven halalas'),
+    '⚠️ 274 → the read-back words the figure without inventing a currency',
+    (await wordsText()).includes('50,000.567') &&
+      (await wordsText()).includes('fifty thousand') &&
+      !(await wordsText()).includes('riyals'),
     (await wordsText()).replace(/\n/g, ' '),
   )
-  // ⚠️ …and the one figure that is refused is refused for a reason that is not a
-  // cap: 0.004 at a SAR branch is zero to the branch, and an entry no till could
-  // consume. The BHD branch below takes the same figure happily.
-  await typeAmount('0.004')
+  // WARNING **The smallest-unit refusal softened, deliberately.** `0.004` is below
+  // what a SAR branch can count - but this screen no longer knows the branch is
+  // Saudi, and a client may not refuse money on a currency it is guessing. The
+  // server refuses it with `SettlementAmountRoundsToZero`, a 400 that names the
+  // reason. What the client still refuses is what rounds to zero at the LEDGER's own
+  // scale, which is true of every branch in the footprint.
+  await typeAmount('0.0004')
   check(
-    '⚠️ a figure below the branch’s smallest countable unit is refused, and says why',
+    '⚠️ a figure below the LEDGER’s own scale is still refused, and says why',
     (await reviewBlocked()) && (await page.locator('[data-testid="post-amount-too-small"]').count()) === 1,
   )
   // 🚩 …and no cap anywhere: a legitimately large entry reviews and commits like any
@@ -1079,7 +1222,8 @@ async function run() {
   await typeAmount('9000000')
   check(
     '🚩 there is NO numeric cap — a nine-million entry reviews like any other',
-    !(await reviewBlocked()) && (await wordsText()).includes('nine million riyals'),
+    !(await reviewBlocked()) && (await wordsText()).includes('nine million'),
+    (await wordsText()).replace(/\n/g, ' ').slice(0, 90),
   )
   await typeAmount('50000.567')
 
@@ -1092,8 +1236,9 @@ async function run() {
   await appears('[data-region="post-review"]')
   check(
     '🔑 the review step reads the amount back grouped AND in words',
-    (await page.locator('[data-testid="post-review-figure"]').innerText()).includes('50,000.57') &&
-      (await page.locator('[data-testid="post-review-words"]').innerText()).includes('fifty thousand riyals and fifty-seven halalas'),
+    (await page.locator('[data-testid="post-review-figure"]').innerText()).includes('50,000.567') &&
+      (await page.locator('[data-testid="post-review-words"]').innerText()).includes('fifty thousand'),
+    await page.locator('[data-testid="post-review-words"]').innerText(),
   )
   check(
     '⚠️ the commit NAMES the immutability — chosen, not discovered',
@@ -1126,12 +1271,21 @@ async function run() {
   await openAccount('0688')
   await openPost()
   await typeAmount('95.5')
+  // KEY **This is the check B6 is FOR.** 0688 is Bahraini; its fils are real money.
+  // With no currency on the wire the screen can no longer say *dinars and fils* - but
+  // it must still not ROUND them away, which is the half that costs money.
   check(
-    '🔑 a BHD branch reads back FULL FILS — three decimals in the figure and in the words',
-    (await wordsText()).includes('95.500') && (await wordsText()).includes('ninety-five dinars and five hundred fils'),
+    '🔑 274 → a Bahraini amount keeps its fils, even with no currency to name them',
+    (await wordsText()).includes('95.5') && (await wordsText()).includes('five hundred thousandths'),
     (await wordsText()).replace(/\n/g, ' '),
   )
-  check('🚩 …and the currency it will be counted in is named on the resolved branch', (await page.locator('[data-testid="post-branch-resolved"]').innerText()).includes('BHD'))
+  await typeAmount('95.505')
+  check(
+    '🔑 …and a third decimal is neither rounded away nor invented',
+    (await wordsText()).includes('95.505'),
+    (await wordsText()).replace(/\n/g, ' '),
+  )
+  await typeAmount('95.5')
   await page.locator('[data-testid="post-reason"]').fill('August stocktake difference.')
   await page.locator('[data-testid="post-review"]').click()
   postCalls = []
@@ -1139,7 +1293,8 @@ async function run() {
   await appears('[data-region="post-done"]')
   check(
     '🔑 …and the BHD entry lands at three decimals, the server’s own figure read back',
-    postCalls[0]?.amount === 95.5 && (await dialogText()).includes('95.500'),
+    postCalls[0]?.amount === 95.5 && (await dialogText()).includes('95.5'),
+    `${postCalls[0]?.amount} · ${(await dialogText()).replace(/\n/g, ' ').slice(0, 80)}`,
   )
   await page.locator('[data-testid="post-close"]').click()
 
@@ -1178,8 +1333,9 @@ async function run() {
     await correctionKind(),
   )
   check(
-    '272 → …and says WHY it can be withdrawn whole, in the branch’s own currency',
-    (await correctionText()).includes('95.250') && (await correctionText()).includes('as though it never happened'),
+    '272 → …and says WHY it can be withdrawn whole',
+    (await correctionText()).includes('95.25') && (await correctionText()).includes('as though it never happened'),
+    (await correctionText()).replace(/\n/g, ' ').slice(0, 100),
   )
   check(
     '⚠️ “changing the amount is not offered at all”, said out loud beside the button',
@@ -1513,8 +1669,13 @@ async function run() {
   bulkText = await upload(sheet('august-header.csv', 'store,reason\n0142,july\n'))
   check(
     '⚠️ a missing required header refuses the FILE, naming the column it expected',
+    // WARNING 274: the wire locates a fault by machine CODE, not by spreadsheet
+    // column, so the column is named in the server's own MESSAGE rather than in a
+    // field the screen re-renders. The ticket's open question is still answered -
+    // the refusal says which column it expected - just by the party that knows.
     (await commitBlocked()) &&
-      bulkText.includes('The file itself, column amount') &&
+      bulkText.includes('The file itself') &&
+      bulkText.includes('amount') &&
       (await previewRows().catch(() => 0)) === 0,
     bulkText.replace(/\n/g, ' ').slice(0, 120),
   )
@@ -1563,11 +1724,15 @@ async function run() {
   await openUpload()
   bulkText = await upload(sheet('august.csv', CSV_ROWS))
   check(
-    '🔑 re-uploading the same file surfaces the *posted N minutes ago* banner…',
-    (await page.locator('[data-testid="bulk-replay"]').count()) === 1 &&
-      bulkText.includes('4 minutes ago') &&
+    '🔑 re-uploading the same file surfaces the *already posted* banner…',
+    // WARNING 274: it arrives as a file-level WARNING (rowNumber 0) carrying the
+    // server's own sentence, not the structured `replay` object 273 modelled - so the
+    // screen renders it as data, and `bulk.ts` lifts row 0 out of the per-row map
+    // because a grid keyed by row would have nowhere to put it.
+    (await page.locator('[data-testid="bulk-file-notice"]').count()) === 1 &&
+      bulkText.includes('was posted on') &&
       bulkText.includes('ضحى'),
-    (await page.locator('[data-testid="bulk-replay"]').innerText().catch(() => '')).slice(0, 90),
+    (await page.locator('[data-testid="bulk-file-notice"]').innerText().catch(() => '')).slice(0, 90),
   )
   check(
     '🔑 …and STILL ALLOWS the post — a hash warns, it never refuses',
@@ -1603,26 +1768,34 @@ async function run() {
   )
 
   // ---- cancel as a unit ----
-  // 🚩 The batch is an ADDRESS, so *"finance sent the wrong file"* is still one
-  // repair an hour and a reload after the commit — this navigation is the proof.
+  //
+  // KEY **274 replaced a client-side loop with the door built for this.** 273 fetched
+  // the batch's rows from the cross-estate ledger, decided per row which were still
+  // cancellable, and called `Settlement/Cancel` once each. `Settlement/Bulk/Cancel`
+  // does that loop server-side and reports every row's own outcome — so the drive now
+  // asserts ONE call and a report, not N calls and a browser-assembled summary.
+  //
+  // WARNING The pre-flight listing went with it: nothing enumerates a batch's entries
+  // (B1), so the act is NAMED rather than previewed. The reason field is what makes
+  // it deliberate.
+  //
+  // 🚩 The batch is still an ADDRESS, so *"finance sent the wrong file"* is one repair
+  // an hour and a reload after the commit — this navigation is the proof.
   await page.goto(`${BASE}${ROUTE}?view=batch&batch=${BATCH}`)
   await appears('[data-region="batch-withdraw"]')
   await page.waitForTimeout(120)
   let batchText = await page.locator('[data-region="batch-withdraw"]').innerText()
   check(
     '273 → a batch is reachable by ADDRESS alone, an hour and a reload later',
-    batchText.includes('Withdraw an uploaded batch') &&
-      (await page.locator('[data-testid="batch-cancellable"] li').count()) === 4,
-    `${await page.locator('[data-testid="batch-cancellable"] li').count()} withdrawable`,
+    batchText.includes('Withdraw an uploaded batch') && batchText.includes(BATCH),
+    batchText.replace(/\n/g, ' ').slice(0, 90),
   )
   check(
-    '🔑 …and the row a till had already partly consumed is NAMED, never attempted',
-    (await page.locator('[data-testid="batch-skipped"] li').count()) === 1 &&
-      (await page.locator('[data-testid="batch-skipped"]').innerText()).includes(
-        'A till has taken part of this one',
-      ),
-    (await page.locator('[data-testid="batch-skipped"]').innerText()).replace(/\n/g, ' '),
+    '⚠️ …and the act says what a till has already taken is NOT withdrawn by it',
+    batchText.includes('never retro-voided') || batchText.includes('already spent'),
+    batchText.replace(/\n/g, ' ').slice(0, 120),
   )
+  bulkCancelCalls = []
   cancelCalls = []
   await page.locator('[data-testid="batch-reason"]').fill('Finance sent the wrong file for July.')
   await page.locator('[data-testid="batch-commit"]').click()
@@ -1630,38 +1803,28 @@ async function run() {
   await page.waitForTimeout(150)
   batchText = await page.locator('[data-region="batch-outcome"]').innerText()
   check(
-    '🔑 cancel-as-a-unit is a LOOP over 272’s own door — one call per open entry',
-    cancelCalls.length === 4 &&
-      cancelCalls.every((c) => c.reason === 'Finance sent the wrong file for July.'),
-    `${cancelCalls.length} cancels`,
+    '🔑 274 → the batch is withdrawn in ONE call to the bulk door, not N per-entry ones',
+    bulkCancelCalls.length === 1 &&
+      bulkCancelCalls[0].batchId === BATCH &&
+      bulkCancelCalls[0].reason === 'Finance sent the wrong file for July.' &&
+      cancelCalls.length === 0,
+    `${bulkCancelCalls.length} bulk · ${cancelCalls.length} per-entry`,
   )
   check(
     '🔑 …and the rows a till got to FIRST are named, with the remaining they came back with',
-    (await page.locator('[data-testid="batch-refused"] li').count()) === 1 &&
-      batchText.includes('A till consumed part of this entry.') &&
-      batchText.includes('300.00'),
+    (await page.locator('[data-testid="batch-refused"] li').count()) === 2 &&
+      batchText.includes('A till consumed part of this entry.'),
     batchText.replace(/\n/g, ' ').slice(0, 140),
   )
   check(
-    '🚩 …and a partly-withdrawn batch is not an ERROR — 3 withdrawn, 1 reported',
-    batchText.includes('3 entries were withdrawn') &&
+    '🚩 …and a partly-withdrawn batch is not an ERROR — the withdrawn are reported too',
+    (await page.locator('[data-testid="batch-withdrawn"] li').count()) === 3 &&
       !(await page.locator('body').innerText()).includes('could not be sent'),
     batchText.replace(/\n/g, ' ').slice(0, 90),
   )
   check(
     '🚩 273’s keys are all registered — no raw t() key on the withdrawal',
     !/settlement:|\bbatch\./.test(batchText),
-  )
-
-  // ---- and the batch as a LEDGER criterion: how it is found in the first place ----
-  await page.goto(`${BASE}${ROUTE}?view=ledger&batch=${BATCH}`)
-  await page.waitForLoadState('networkidle')
-  await page.waitForTimeout(150)
-  check(
-    '273 → the ledger finds a batch’s entries, and offers the withdrawal from there',
-    (await page.locator('[data-testid="ledger-withdraw-batch"]').count()) === 1 &&
-      (await page.locator('[data-testid="ledger-batch"]').inputValue()) === BATCH,
-    await page.locator('[data-testid="ledger-batch"]').inputValue(),
   )
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))

@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next'
 
-import { formatMoneyIn } from '@/core/money'
 import type { SettlementEntry } from '@/core/models/settlement'
+import { settlementMoney } from './money-display'
 
 /**
  * The cells a settlement entry draws the same way **wherever it is drawn** — the
@@ -49,5 +49,5 @@ export function remainingCell(
   currencyKey: string | null | undefined,
 ): string {
   if (!entry || entry.status === 'CANCELLED') return '—'
-  return value === null || value === undefined ? '—' : formatMoneyIn(value, currencyKey)
+  return value === null || value === undefined ? '—' : settlementMoney(value, currencyKey)
 }

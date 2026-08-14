@@ -24,14 +24,7 @@
     "clear": "Clear",
     "showing": "Showing {{shown}} of {{total}} branches",
     "empty": "No branch matches that. Try a code, part of a name in either script, or a city.",
-    "noEntry": "There is no entry {{number}} anywhere in the estate.",
-    "lookupFailed": "That entry number could not be looked up.",
-    "openCount": "{{count}} open",
-    "assignment": {
-      "mine": "Yours",
-      "unassigned": "Assigned to nobody",
-      "other": "Another accountant's"
-    }
+    "openCount": "{{count}} open"
   },
   "door": {
     "loading": "Loading the estate…",
@@ -41,7 +34,7 @@
       "worklistFailed": "The worklist could not be loaded."
     },
     "estate": {
-      "figure": "{{currency}} · {{branches}} branches hold {{entries}} open entries: {{shortage}} of shortage, {{surplus}} of surplus."
+      "figure": "{{branches}} branches carrying {{entries}} open entries."
     }
   },
   "worklist": {
@@ -52,23 +45,13 @@
     "wrongMoney": {
       "title": "Wrong money ({{count}})",
       "hint": "A till took money against an entry and the document behind it never arrived.",
-      "row": "entry {{entry}} · no document after {{days}} days",
+      "row": "consumed {{at}}, with no document behind it",
       "repair": "Repair"
-    },
-    "cashWaiting": {
-      "title": "Cash waiting ({{count}})",
-      "hint": "The branch prepared a settlement receipt and no collector has taken it. They never expire.",
-      "row": "receipt {{number}} · prepared {{days}} days ago"
-    },
-    "ageing": {
-      "title": "Ageing",
-      "summary": "{{count}} entries have been open longer than {{days}} days, across {{branches}} branches — counted for the branches you have scoped.",
-      "openLedger": "Browse open entries"
     }
   },
   "repair": {
     "title": "Repair this consumption",
-    "summary": "{{amount}} was taken from entry {{entry}} at {{store}} {{storeName}}, and the document behind it has not arrived in {{days}} days. Repairing puts the amount back on the entry.",
+    "summary": "Put {{amount}} back onto its entry at branch {{store}}.",
     "consumedAt": "Taken at {{at}}.",
     "raceHint": "If a document has arrived since this list was drawn, the repair does nothing at all — which is the right outcome, and you will be told.",
     "reasonLabel": "Why (the audit reads this)",
@@ -79,35 +62,6 @@
     "noOp": "A document arrived for this consumption — nothing to repair.",
     "refused": "The server would not repair this consumption.",
     "failed": "The repair could not be sent."
-  },
-  "ledger": {
-    "title": "Every entry, across the estate",
-    "notTheAccount": "A lookup, not an account — find an entry whichever branch it is on, then open that branch.",
-    "loading": "Searching the ledger…",
-    "filterFirst": "Type an entry number, a branch code, or pick a kind or status. The estate is too big to open on nothing.",
-    "empty": "No entry matches those criteria.",
-    "capReached": "This search came back with {{limit}} entries, which is the most the server will send. Narrow it to be sure you are seeing everything.",
-    "figure": "{{currency}} · {{rows}} entries found, {{open}} still open: {{shortage}} of shortage, {{surplus}} of surplus.",
-    "errors": {
-      "loadFailed": "The ledger could not be searched."
-    },
-    "criteria": {
-      "entryNumber": "Entry #",
-      "storeId": "Branch",
-      "batchId": "Uploaded batch",
-      "entryKind": "Kind",
-      "status": "Status",
-      "any": "Any",
-      "search": "Search",
-      "clear": "Clear"
-    },
-    "withdrawBatch": "Withdraw this whole batch — all {{count}} entries, in one act",
-    "columns": {
-      "store": "Branch",
-      "storeName": "Branch name",
-      "batchId": "Uploaded batch",
-      "postedSingly": "posted singly"
-    }
   },
   "account": {
     "loading": "Loading this branch's account…",
@@ -284,9 +238,9 @@
     "amount": {
       "label": "Amount",
       "hint": "Type an amount greater than zero. A grouping comma is fine.",
-      "tooSmall": "This branch counts to {{decimals}} decimals in {{currency}}, so that figure is zero to it. Nothing that small can be handed over or taken by a till.",
+      "tooSmall": "That figure rounds to nothing the ledger can hold, so no till could take it or hand it over.",
       "needsBranch": "Name a branch first — the amount is counted in that branch's own currency.",
-      "readBack": "{{grouped}} {{currency}} · {{words}}"
+      "readBack": "{{grouped}} · {{words}}"
     },
     "reason": {
       "label": "Why (the branch reads this at the till)",
@@ -325,6 +279,12 @@
         "major_other": "{{words}} {{currency}}",
         "minor_one": "{{words}} hundredth of a {{currency}}",
         "minor_other": "{{words}} hundredths of a {{currency}}"
+      },
+      "unknown": {
+        "major_one": "{{words}}",
+        "major_other": "{{words}}",
+        "minor_one": "{{words}} thousandth",
+        "minor_other": "{{words}} thousandths"
       }
     },
     "done": {
@@ -368,12 +328,9 @@
     "review": {
       "summary": "{{rows}} rows, all of them {{kind}}.",
       "back": "Choose another file",
-      "replay": "A file with these same {{rows}} rows was posted {{minutes}} minutes ago by {{by}}. This can still be posted — a genuine second month is a real file — but check it is not the same one twice.",
       "blocked": "Nothing in this file can be posted until {{count}} of these are fixed in the sheet. Fix them, save, and upload it again.",
       "rowError": "Row {{row}} — {{message}}",
-      "rowErrorColumn": "Row {{row}}, column {{column}} — {{message}}",
       "fileError": "The file itself — {{message}}",
-      "fileErrorColumn": "The file itself, column {{column}} — {{message}}",
       "unresolved": "Row {{row}} — no branch has the code {{code}}, so this row cannot be posted onto anything.",
       "noBranch": "No branch has this code",
       "warned": "{{count}} rows carry a warning. They post: a branch that already carries an open entry of this kind can genuinely owe a second one, and this door is never stricter than the single form.",
@@ -404,40 +361,25 @@
   },
   "batch": {
     "title": "Withdraw an uploaded batch",
-    "loading": "Reading what this batch posted…",
-    "empty": "No entry carries this batch. Either it was never posted, or the id is not one this ledger knows.",
     "errors": {
-      "loadFailed": "This batch's entries could not be read."
-    },
-    "groups": {
-      "cancellable": "Will be withdrawn ({{count}})",
-      "skipped": "Will not be withdrawn ({{count}})"
-    },
-    "skipped": {
-      "consumed": "A till has taken all of this one.",
-      "cancelled": "Already cancelled — an entry is not corrected twice.",
-      "written-off": "Its remainder was already written off.",
-      "partly-consumed": "A till has taken part of this one; {{remaining}} is left. It cannot be withdrawn, and writing off the rest is a separate decision on its own entry."
+      "withdrawFailed": "The batch could not be withdrawn."
     },
     "row": {
       "entry": "entry {{number}}"
     },
     "act": {
-      "summary": "{{count}} of this batch's {{total}} entries can be withdrawn.",
       "notRetroVoided": "What a till has already taken is untouched by this: a receipt in a collector's hands is never retro-voided, and an entry a till reached first keeps its remainder until someone writes it off on its own account.",
       "reasonLabel": "Why (every withdrawn entry's audit reads this)",
       "reasonHint": "Up to {{max}} characters. It is filed against each entry this act withdraws — \"finance sent the wrong file\" is the sentence this box is for.",
-      "commit": "Withdraw {{count}} entries",
-      "working": "Withdrawing…"
+      "working": "Withdrawing…",
+      "wholeBatch": "Withdraw every entry this batch posted. Entries a till has already spent are refused and named.",
+      "commitAll": "Withdraw the whole batch"
     },
     "outcome": {
-      "summary": "{{count}} entries were withdrawn.",
+      "summary": "{{count}} of {{total}} entries withdrawn.",
       "refused": "A till got to these first ({{count}})",
       "refusedRow": "Not withdrawn — {{remaining}} is what it now has left. {{reason}}",
       "refusedRowUnstated": "Not withdrawn — {{remaining}} is what it now has left, and the server did not say why.",
-      "refusedUnstated": "The server refused this one without saying why.",
-      "failed": "These could not be reached ({{count}})",
-      "failedRow": "The request did not complete, so this entry's state is unknown. Open it before deciding.",
       "withdrawn": "Withdrawn ({{count}})"
     }
   },

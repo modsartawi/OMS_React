@@ -31,7 +31,18 @@ export function inWordsSentence(
   currencyKey: string,
 ): string {
   const code = (currencyKey || '').toUpperCase()
-  const bank = WORDED_CURRENCIES.has(code) ? code : 'other'
+  // 🔑 **Three banks, not two, after ticket 274.**
+  //
+  // - a **worded** currency (SAR, BHD) gets its own nouns — *riyals and halalas*;
+  // - a **named but unworded** one (KWD) wears its code, at that currency's own two
+  //   or three decimals, so an unhandled currency arrives visibly;
+  // - ⚠️ **no code at all** is the third, and it is not the second. No read door
+  //   carries `currencyKey` (`.afk/FINDINGS-274.md` §B6), so `other` would render
+  //   *"…hundredths of a "* — a dangling noun, and the wrong fraction: with nothing
+  //   to read, `amountInWords` words the amount at the LEDGER's own three decimals so
+  //   a Bahraini fils is never rounded out of the read-back. `unknown` says
+  //   thousandths and names no currency, which is the whole truth available.
+  const bank = code ? (WORDED_CURRENCIES.has(code) ? code : 'other') : 'unknown'
   const major = t(`post.words.${bank}.major`, {
     count: words.majorValue,
     words: words.majorWords,

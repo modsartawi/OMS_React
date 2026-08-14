@@ -1,17 +1,18 @@
-import type {
-  SettlementAssignment,
-  SettlementFleetRow,
-  SettlementLedgerRow,
-  SettlementOrphanRow,
-  SettlementUncollectedRow,
-  SettlementWorklistResult,
-} from '@/core/models/settlement'
+import type { SettlementFleetRow, SettlementOrphanRow } from '@/core/models/settlement'
 import { accountHeadline } from './account-projection'
 import { SETTLEMENT_ACCOUNTS } from './settlement-fixture'
 
 /**
  * **The estate** — ticket 270's fixture, and the one the drive serves over the
- * fleet, worklist and ledger doors.
+ * fleet and orphan doors.
+ *
+ * ⚠️ **274 narrowed what it EMITS, not how it is built.** The generator still shapes
+ * a realistic estate — assignment, city and an ageing spread — because those are what
+ * make 1394 rows look like a fleet rather than a list. But the live fleet row carries
+ * none of them (`.afk/FINDINGS-274.md` §B3–§B6), so they stay **internal to the
+ * generator** and the fixture emits BackOffice spec 1173 D13's row and nothing more.
+ * A fixture richer than the wire is exactly how five tickets were built against
+ * fields that did not exist.
  *
  * 🔑 **Its size is the whole point, and it is the real size.** 269's six hostile
  * branches prove the *account*; they cannot prove the *door*, because every claim
@@ -133,15 +134,29 @@ function spread(target: number, count: number, rand: () => number): number[] {
   return out
 }
 
+/**
+ * A generated branch **plus the generator's own bookkeeping**.
+ *
+ * 🚩 The four extra fields are what shape a believable estate — and are exactly the
+ * four the live door does not send. They never leave this module: `SETTLEMENT_FLEET`
+ * emits `SettlementFleetRow`, which is D13's row.
+ */
+type Seed = SettlementFleetRow & {
+  city: string
+  assignment: SettlementAssignment
+  currencyKey: string
+  ageingCount: number
+}
+
+/** Internal to the generator only — see `Seed`. */
+type SettlementAssignment = 'mine' | 'unassigned' | 'other'
+
 function buildEstate(): {
-  fleet: SettlementFleetRow[]
-  ledger: SettlementLedgerRow[]
+  fleet: Seed[]
   orphans: SettlementOrphanRow[]
-  uncollected: SettlementUncollectedRow[]
 } {
   const rand = lcg(0x267270)
-  const fleet: SettlementFleetRow[] = []
-  const ledger: SettlementLedgerRow[] = []
+  const fleet: Seed[] = []
 
   // ── The six, aggregated from their own accounts ───────────────────────────
   for (const [storeId, meta] of Object.entries(HOSTILE)) {
@@ -152,7 +167,10 @@ function buildEstate(): {
       storeName: account.storeName,
       city: meta.city,
       assignment: meta.assignment,
-      currencyKey: account.currencyKey,
+      // 🚩 0688 is the estate's Bahraini branch — three decimals, and the reason
+      // §B6's missing `currencyKey` is a money finding rather than a cosmetic one.
+      // Held here for the generator only; it is stripped on the way out.
+      currencyKey: storeId === '0688' ? 'BHD' : 'SAR',
       openCount: headline.openCount,
       shortageTotal: headline.shortageTotal,
       surplusTotal: headline.surplusTotal,
@@ -162,12 +180,10 @@ function buildEstate(): {
       hasUncollectedReceipt: storeId === '0455',
       ageingCount: meta.ageing,
     })
-    for (const entry of account.entries)
-      ledger.push({ ...entry, storeName: account.storeName, currencyKey: account.currencyKey })
   }
 
   // ── …and the 1388 that make it an estate ──────────────────────────────────
-  const generated: SettlementFleetRow[] = []
+  const generated: Seed[] = []
   const taken = new Set(Object.keys(HOSTILE))
   const quota: Record<SettlementAssignment, number> = {
     mine: ESTATE_MINE - Object.values(HOSTILE).filter((h) => h.assignment === 'mine').length,
@@ -236,7 +252,7 @@ function buildEstate(): {
   const otherOpen = withOpen('other')
   const unassignedOpen = withOpen('unassigned')
   const outOfScope = AGEING_TOTAL - AGEING_IN_SCOPE - hostileAgeing('other') - hostileAgeing('unassigned')
-  const shares: [SettlementFleetRow[], number][] = [
+  const shares: [Seed[], number][] = [
     [mineOpen, AGEING_IN_SCOPE - hostileAgeing('mine')],
     [otherOpen, Math.floor(outOfScope * 0.2)],
     [unassignedOpen, outOfScope - Math.floor(outOfScope * 0.2)],
@@ -259,33 +275,16 @@ function buildEstate(): {
     }
   }
 
-  // Money and entries for every generated branch that has an open one, so the
-  // ledger is estate-scale rather than a list of six.
-  let entryNumber = 1000
+  // Money for every generated branch that has an open one, so the estate's figures
+  // are estate-scale rather than a list of six.
+  //
+  // ⚠️ 274: this used to mint a full ledger ROW per open entry, for the cross-estate
+  // ledger door. That door does not exist (§B1), so only the branch's two magnitudes
+  // are folded — which is all the fleet row ever carried anyway.
   for (const row of generated) {
     for (let i = 0; i < row.openCount; i++) {
       const kind = rand() < 0.62 ? 'SHORTAGE' : 'SURPLUS'
       const amount = Math.round((25 + rand() * 1800) * 100) / 100
-      entryNumber++
-      ledger.push({
-        settlementEntryId: `01J9GEN${row.storeId}${i}`,
-        entryNumber,
-        storeId: row.storeId,
-        entryKind: kind,
-        amount,
-        remainingAmount: amount,
-        reason: `Monthly audit difference ${row.storeId}`,
-        status: 'OPEN',
-        batchId: '',
-        postedByStaffId: '30117',
-        postedByName: SETTLEMENT_ACCOUNTS['0142'].entries[0].postedByName,
-        postedAt: `2026-0${1 + Math.floor(rand() * 7)}-1${Math.floor(rand() * 9)}T09:30:00`,
-        closedByStaffId: '',
-        closedAt: '',
-        closedReason: '',
-        storeName: row.storeName,
-        currencyKey: row.currencyKey,
-      })
       if (kind === 'SHORTAGE') row.shortageTotal += amount
       else row.surplusTotal += amount
     }
@@ -296,12 +295,17 @@ function buildEstate(): {
 
   fleet.push(...generated)
 
-  // ── The two enumerated lanes ──────────────────────────────────────────────
+  // ── The one enumerated lane ───────────────────────────────────────────────
   //
   // 🔑 FOUR orphans, at four branches, of which the first is 0331's own — the same
   // consumption the account renders in words (269's rule 1), now with a Repair
   // button beside it. Two of the four are at branches nobody is assigned to, which
   // is the carve-out's whole argument in two rows.
+  //
+  // ⚠️ 274: these are `SettlementConsumption` rows, because that is what
+  // `Settlement/Orphans` answers — no `entryNumber`, no `storeName`, no
+  // `currencyKey`, no `ageDays` (§B2). The **cash-waiting** lane that stood beside
+  // them is gone: no door enumerates it.
   const orphanBranches = [
     fleet.find((r) => r.storeId === '0331')!,
     generated.find((r) => r.assignment === 'unassigned' && r.openCount > 0)!,
@@ -313,47 +317,50 @@ function buildEstate(): {
     settlementConsumptionId:
       i === 0 ? orphanSource.settlementConsumptionId : `01J9GENORPH${row.storeId}`,
     settlementEntryId: i === 0 ? orphanSource.settlementEntryId : `01J9GEN${row.storeId}0`,
-    entryNumber: i === 0 ? SETTLEMENT_ACCOUNTS['0331'].entries[0].entryNumber : 1000 + i,
     storeId: row.storeId,
-    storeName: row.storeName,
-    currencyKey: row.currencyKey,
     amount: i === 0 ? orphanSource.amount : Math.round((300 + i * 1400) * 100) / 100,
-    ageDays: [4, 11, 2, 26][i],
     consumedAt: i === 0 ? orphanSource.consumedAt : `2026-07-2${i}T22:${40 + i}:00`,
+    consumptionKind: 'CONSUME',
+    documentType: 'SPECIAL_RECEIPT',
+    // Blank is what MAKES them orphans — the door's own predicate.
+    documentId: '',
+    documentNumber: '',
   }))
 
-  // Cash waiting: 0455's own last receipt — the branch prepared it, no collector
-  // came. They never expire and are never auto-voided, so AGE is all this lane owes.
-  const uncollectedBranches = [
-    fleet.find((r) => r.storeId === '0455')!,
-    generated.find((r) => r.assignment === 'unassigned' && r.openCount > 1)!,
-    generated.filter((r) => r.assignment === 'mine' && r.openCount > 0)[1]!,
-  ]
-  const uncollected: SettlementUncollectedRow[] = uncollectedBranches.map((row, i) => ({
-    documentId: i === 0 ? 'SR04550013' : `SR${row.storeId}0007`,
-    documentNumber: i === 0 ? 'SR-0455-0013' : `SR-${row.storeId}-0007`,
-    storeId: row.storeId,
-    storeName: row.storeName,
-    currencyKey: row.currencyKey,
-    amount: i === 0 ? 200 : Math.round((150 + i * 940) * 100) / 100,
-    ageDays: [3, 19, 8][i],
-    preparedAt: `2026-08-0${2 + i}T18:${10 + i}:00`,
-  }))
-
-  return { fleet, ledger, orphans, uncollected }
+  return { fleet, orphans }
 }
 
 const ESTATE = buildEstate()
 
-/** `GET Settlement/Fleet?scope=all` — 1394 aggregated rows, the six among them. */
-export const SETTLEMENT_FLEET: SettlementFleetRow[] = ESTATE.fleet
+/**
+ * `GET Settlement/Fleet?scope=…` — 1394 aggregated rows, the six among them.
+ *
+ * 🔑 **Narrowed to D13's row on the way out.** The generator's `city`, `assignment`,
+ * `currencyKey` and `ageingCount` are stripped here rather than never generated, so
+ * the estate keeps its realistic shape and the fixture keeps the wire's honesty.
+ */
+export const SETTLEMENT_FLEET: SettlementFleetRow[] = ESTATE.fleet.map(
+  ({ city: _city, assignment: _assignment, currencyKey: _currencyKey, ageingCount: _ageing, ...row }) => row,
+)
 
-/** `GET Settlement/Worklist` — the two enumerated lanes, estate-wide by construction. */
-export const SETTLEMENT_WORKLIST: SettlementWorklistResult = {
-  orphans: ESTATE.orphans,
-  uncollected: ESTATE.uncollected,
-  ageingThresholdDays: AGEING_THRESHOLD_DAYS,
-}
+/** `GET Settlement/Orphans` — the wrong-money lane, estate-wide by construction. */
+export const SETTLEMENT_ORPHANS: SettlementOrphanRow[] = ESTATE.orphans
 
-/** `GET Settlement/Ledger` — every entry in the estate, flat. The door filters it. */
-export const SETTLEMENT_LEDGER: SettlementLedgerRow[] = ESTATE.ledger
+/**
+ * **What the SERVER knows about each branch's assignment — not what the wire
+ * carries.**
+ *
+ * 🔑 **This exists for the drive's stub, which plays the server's part.** After 274
+ * the scope is resolved server-side (`Settlement/Fleet?scope=mine` against map 1153's
+ * assignment tables), so a stub that ignored it would let the client send any scope
+ * and never notice it was unhandled. The stub filters on this map exactly as the door
+ * filters on its own tables — carve-out included.
+ *
+ * ⚠️ **No screen may import this, and nothing does.** It is deliberately NOT on
+ * `SettlementFleetRow`: that field is §B4's finding, and a client reading assignment
+ * from a fixture would be re-creating the exact defect this ticket removed. The
+ * boundary is the same one the server keeps — it knows the roster, the browser does
+ * not.
+ */
+export const SETTLEMENT_ASSIGNMENT: Record<string, 'mine' | 'unassigned' | 'other'> =
+  Object.fromEntries(ESTATE.fleet.map((r) => [r.storeId, r.assignment]))

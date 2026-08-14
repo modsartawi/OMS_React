@@ -1,8 +1,8 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
-import { formatMoneyIn } from '@/core/money'
 import { formatDateTime } from '@/core/util/date-format'
+import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
 import { entryKindLabel, entryStatusLabel, remainingCell } from './entry-cells'
 
@@ -34,7 +34,7 @@ export function buildAccountColumns(
   t: TFunction,
   currencyKey: string,
 ): ColDef<AccountEntryRow>[] {
-  const money = (value: number | null | undefined) => formatMoneyIn(value, currencyKey)
+  const money = (value: number | null | undefined) => settlementMoney(value, currencyKey)
 
   return [
     {

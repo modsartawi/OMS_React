@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import { TriangleAlert } from 'lucide-react'
 
-import { formatMoneyIn } from '@/core/money'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
+import { settlementMoney } from './money-display'
 import type { AccountEntryRow, JournalDocument } from './account-projection'
 
 /**
@@ -48,7 +48,7 @@ export default function EntryJournal({
     )
   }
 
-  const money = (v: number | null | undefined) => formatMoneyIn(v, currencyKey)
+  const money = (v: number | null | undefined) => settlementMoney(v, currencyKey)
 
   return (
     <section

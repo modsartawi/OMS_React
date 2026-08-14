@@ -1,19 +1,35 @@
 import type { SettlementFleetRow } from '@/core/models/settlement'
-import { isInScope, type ScopeResolution } from './scope'
 
 /**
- * The door's search — **one box resolving four things** (ticket 270, spec 267 D2):
- * branch code, branch name in **either script**, city, or an entry number.
+ * The door's search — one box over **branch code and branch name in either
+ * script** (ticket 270, spec 267 D2).
+ *
+ * ⚠️ **D2 asked for four keys and 274 could only deliver two.** The other two are
+ * recorded in `.afk/FINDINGS-274.md` rather than faked:
+ *
+ * - **city** (§B5) — not on the live fleet row. BackOffice spec 1173 D13's row
+ *   never carried one; 270 added it to D8 and it was never built.
+ * - **entry number** (§B1) — needs a cross-estate lookup, and `Settlement/Ledger`
+ *   does not exist. `Settlement/Account` cannot serve it: it requires the
+ *   `storeId`, which is exactly what a caller quoting *"entry 143"* does not have.
+ *
+ * 🚩 The second is the one that hurts, because 1173 mints `EntryNumber` and calls it
+ * *the handle finance and the branch settle by on the phone*. A box that silently
+ * returned nothing for one would be worse than a box that never offered it, so the
+ * screen's own placeholder names what it searches.
  *
  * 🔑 **Nobody browses 1394 branches.** An accountant arrives with a *branch* in
  * mind (a phone call quoting an entry number) or with *work* in mind, never with a
  * list in mind — so this module ranks, and the screen renders the top of the
  * ranking rather than a scrollable estate.
  *
- * 🔑 **The scope ranks; it never refuses.** An out-of-scope branch is still a hit,
- * ranked below the in-scope ones. A search that hid a branch because it was
- * somebody else's would have turned a convenience into a permission, which D2
- * forbids in as many words.
+ * 🔑 **The scope never refuses a hit — and now it cannot.** 270 ranked in-scope
+ * branches above out-of-scope ones, reading `assignment` off each row. That field is
+ * not on the live wire (§B4), so the ranking is gone; what remains is the property
+ * it protected, which the server now enforces by construction — the search runs over
+ * whatever the fleet door returned, and a branch outside the scope is still findable
+ * the moment the control is widened. The scope was never a permission and still is
+ * not one.
  *
  * 🚩 Pure: no React, no `t()`, no network. The words, and the navigation, are the
  * component's.
@@ -23,23 +39,6 @@ import { isInScope, type ScopeResolution } from './scope'
  *  readable, few enough that the answer to a one-letter query is not the estate
  *  again — the count of everything that matched is reported beside them. */
 export const SEARCH_HIT_LIMIT = 20
-
-/**
- * An entry number, or `null` when the query is not one.
- *
- * ⚠️ **A leading zero is a store code, not an entry number**, and that single rule
- * is what keeps `0142` (a branch) apart from `142` (an entry) in a box that takes
- * both. Store codes are zero-padded four-digit strings; `SettlementEntry.
- * entryNumber` is an unpadded `int`. A query that is all digits with no leading
- * zero is looked up as an entry **as well as** ranked as a branch code — the two
- * answers are shown together and the reader picks, because a box that guessed
- * would be wrong on whichever of the two the accountant meant.
- */
-export function parseEntryNumber(query: string | null | undefined): number | null {
-  const q = (query ?? '').trim()
-  if (!/^[1-9]\d{0,8}$/.test(q)) return null
-  return Number(q)
-}
 
 /**
  * Why a branch matched, worst rank last. Exported for the tests and for the
@@ -55,8 +54,6 @@ export const MatchRank = {
   CodePrefix: 1,
   NamePrefix: 2,
   NameContains: 3,
-  CityPrefix: 4,
-  CityContains: 5,
 } as const
 
 export type MatchRank = (typeof MatchRank)[keyof typeof MatchRank]
@@ -64,8 +61,6 @@ export type MatchRank = (typeof MatchRank)[keyof typeof MatchRank]
 export type BranchHit = {
   row: SettlementFleetRow
   rank: MatchRank
-  /** 🔑 Drawn as a quiet marker, never as a filter — see the module docblock. */
-  inScope: boolean
 }
 
 export type BranchSearchResult = {
@@ -93,10 +88,6 @@ function rankOf(row: SettlementFleetRow, needle: string): MatchRank | null {
   if (name.startsWith(needle)) return MatchRank.NamePrefix
   if (name.includes(needle)) return MatchRank.NameContains
 
-  const city = fold(row.city)
-  if (city.startsWith(needle)) return MatchRank.CityPrefix
-  if (city.includes(needle)) return MatchRank.CityContains
-
   return null
 }
 
@@ -107,13 +98,12 @@ function rankOf(row: SettlementFleetRow, needle: string): MatchRank | null {
  * whole argument is that a list of 1394 branches is not a way of finding anything,
  * and the worklist is what fills the screen until something is typed.
  *
- * Ordering: match quality first, then **in-scope before out-of-scope**, then the
- * store code — total, so a re-render cannot reshuffle the list under a cursor.
+ * Ordering: match quality first, then the store code — total, so a re-render cannot
+ * reshuffle the list under a cursor.
  */
 export function searchBranches(
   rows: readonly SettlementFleetRow[] | null | undefined,
   query: string,
-  resolution: ScopeResolution,
   limit: number = SEARCH_HIT_LIMIT,
 ): BranchSearchResult {
   const needle = fold(query)
@@ -123,13 +113,12 @@ export function searchBranches(
   for (const row of rows ?? []) {
     const rank = rankOf(row, needle)
     if (rank === null) continue
-    hits.push({ row, rank, inScope: isInScope(row, resolution) })
+    hits.push({ row, rank })
   }
 
   hits.sort(
     (a, b) =>
       a.rank - b.rank ||
-      Number(b.inScope) - Number(a.inScope) ||
       (a.row.storeId < b.row.storeId ? -1 : a.row.storeId > b.row.storeId ? 1 : 0),
   )
 
@@ -137,41 +126,33 @@ export function searchBranches(
 }
 
 /**
- * What pressing Enter means — **the one place the box's ambiguity is resolved**.
+ * What pressing Enter means.
  *
- * 🔑 **An exact branch code wins over an entry number, and it has to.** Store codes
- * are four digits and entry numbers are unpadded ints, so `1001` is legitimately
- * both — a real branch code in this estate *and* a real entry number. Ranking them
- * the other way round would take an accountant who typed their own branch's code to
- * a different branch's account, which is the worst outcome this box can produce:
- * plausible, silent, and about money. (`parseEntryNumber`'s leading-zero rule
- * already separates `0142` from `142`; this separates `1001` from `1001`, which no
- * rule about the string itself could.)
+ * ⚠️ **274 removed a third meaning: an entry number.** 270's box resolved *"entry
+ * 143, whichever branch it is on"* through the cross-estate ledger, and that door
+ * does not exist (§B1). The rule that made the ambiguity safe is worth keeping in
+ * the record, because it comes straight back the day the door lands: store codes are
+ * zero-padded four-digit strings and `entryNumber` is an unpadded `int`, so `0142`
+ * is unambiguously a branch — but **`1001` is legitimately both**, a real branch code
+ * in this estate *and* a real entry number. An exact code therefore had to win, or an
+ * accountant typing their own branch's code would land on a different branch's
+ * account: plausible, silent, and about money.
  *
- * The order, and why:
+ * What is left:
  *
  * 1. **an exact code** → that branch. The accountant typed an address.
- * 2. **a bare number** → look it up as an entry. *"Entry 143, whichever branch it is
- *    on"* is the phone call this box exists for.
- * 3. **exactly one branch matched** → that branch, so Enter is never a dead key.
- * 4. otherwise → leave the ranked list on screen; the reader picks.
+ * 2. **exactly one branch matched** → that branch, so Enter is never a dead key.
+ * 3. otherwise → leave the ranked list on screen; the reader picks.
  */
-export type SubmitIntent =
-  | { kind: 'branch'; storeId: string }
-  | { kind: 'entry'; entryNumber: number }
-  | { kind: 'ranked' }
+export type SubmitIntent = { kind: 'branch'; storeId: string } | { kind: 'ranked' }
 
 export function resolveSubmit(
   rows: readonly SettlementFleetRow[] | null | undefined,
   query: string,
-  resolution: ScopeResolution,
 ): SubmitIntent {
-  const result = searchBranches(rows, query, resolution, 2)
+  const result = searchBranches(rows, query, 2)
   const exact = result.hits.find((h) => h.rank === MatchRank.CodeExact)
   if (exact) return { kind: 'branch', storeId: exact.row.storeId }
-
-  const entryNumber = parseEntryNumber(query)
-  if (entryNumber !== null) return { kind: 'entry', entryNumber }
 
   if (result.total === 1) return { kind: 'branch', storeId: result.hits[0].row.storeId }
   return { kind: 'ranked' }

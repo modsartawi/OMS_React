@@ -29,12 +29,33 @@ import type {
 
 const row = (
   rowNumber: number,
-  storeId: string,
+  storeCode: string,
   storeName: string,
   amount: number,
   reason: string,
   currencyKey = 'SAR',
-): SettlementBulkRow => ({ rowNumber, storeId, storeName, currencyKey, amount, reason })
+): SettlementBulkRow => ({
+  rowNumber,
+  // ⚠️ 274: the wire calls it `storeCode` — the code as the SHEET spelled it, echoed
+  // back whether or not it resolved. Every other door on this contract says
+  // `storeId`; this one row type is the server's own exception.
+  storeCode,
+  storeName,
+  currencyKey,
+  amount,
+  // ✅ 274: the pre-rounding figure. Equal to `amount` on a file that needed no
+  // rounding, which is every row here except where a case says otherwise.
+  fileAmount: amount,
+  reason,
+})
+
+/** One server issue — errors and warnings share a shape (274: `SettlementBulkIssueModel`). */
+const issue = (rowNumber: number, storeCode: string, code: string, message: string) => ({
+  rowNumber,
+  storeCode,
+  code,
+  message,
+})
 
 /** The ordinary month: five branches, one kind, one currency, nothing wrong. */
 export const CLEAN_ROWS: SettlementBulkRow[] = [
@@ -54,8 +75,9 @@ export const CLEAN_PREVIEW: SettlementBulkPreview = {
   rows: CLEAN_ROWS,
   errors: [],
   warnings: [],
+  rowCount: CLEAN_ROWS.length,
+  canCommit: true,
   total: CLEAN_TOTAL,
-  replay: null,
 }
 
 /**
@@ -75,12 +97,11 @@ export const BAD_ROW_PREVIEW: SettlementBulkPreview = {
     row(4, '9999', '', 3000, 'عجز جرد شهر يوليو'),
     ...CLEAN_ROWS.slice(3),
   ],
-  errors: [
-    { rowNumber: 4, column: 'storeId', message: 'No branch has the code 9999.' },
-  ],
+  errors: [issue(4, '9999', 'StoreNotFound', 'No branch has the code 9999.')],
   warnings: [],
+  rowCount: 5,
+  canCommit: false,
   total: 126_450.5,
-  replay: null,
 }
 
 /** A file whose header row is missing a required column — the file's own fault,
@@ -92,15 +113,17 @@ export const BAD_HEADER_PREVIEW: SettlementBulkPreview = {
   entryKind: 'SHORTAGE',
   rows: [],
   errors: [
-    {
-      rowNumber: 0,
-      column: 'amount',
-      message: 'The sheet has no "amount" column. Expected: store, amount, reason.',
-    },
+    issue(
+      0,
+      '',
+      'MissingColumn',
+      'The sheet has no "amount" column. Expected: store, amount, reason.',
+    ),
   ],
   warnings: [],
+  rowCount: 0,
+  canCommit: false,
   total: 0,
-  replay: null,
 }
 
 /**
@@ -115,25 +138,37 @@ export const DUPLICATE_PREVIEW: SettlementBulkPreview = {
   rows: CLEAN_ROWS,
   errors: [],
   warnings: [
-    {
-      rowNumber: 2,
-      message: 'This branch already carries an open shortage of 500.00 (entry 143).',
-    },
+    issue(
+      2,
+      '0142',
+      'DuplicateOpenEntry',
+      'This branch already carries an open shortage of 500.00 (entry 143).',
+    ),
   ],
+  rowCount: CLEAN_ROWS.length,
+  canCommit: true,
   total: CLEAN_TOTAL,
-  replay: null,
 }
 
-/** The same file, uploaded twice — the content hash **warns and never refuses**. */
+/**
+ * The same file, uploaded twice — the content hash **warns and never refuses**.
+ *
+ * ⚠️ **274: the notice is a warning at `rowNumber: 0`**, carrying the server's own
+ * sentence, not the structured `replay` object 273 modelled. Row 0 is the FILE's, so
+ * a grid rendering warnings per row would drop it — which is why `bulk.ts` lifts it
+ * into `fileNotices`.
+ */
 export const REPLAY_PREVIEW: SettlementBulkPreview = {
   ...CLEAN_PREVIEW,
   batchId: '01J9BATCHREPLAY',
-  replay: {
-    postedByName: 'ضحى العتيبي / Duha Al-Otaibi',
-    postedAt: '2026-08-13T09:41:00',
-    minutesAgo: 4,
-    rowCount: CLEAN_ROWS.length,
-  },
+  warnings: [
+    issue(
+      0,
+      '',
+      'RecentIdenticalBatch',
+      `A file with these ${CLEAN_ROWS.length} rows was posted on 2026-08-13 09:41 by ضحى العتيبي / Duha Al-Otaibi.`,
+    ),
+  ],
 }
 
 /** Riyals and dinars in one file: D8's scalar `total` describes nothing, so the
@@ -148,6 +183,7 @@ export const MIXED_PREVIEW: SettlementBulkPreview = {
   ],
   errors: [],
   warnings: [],
+  rowCount: 2,
+  canCommit: true,
   total: 595.25,
-  replay: null,
 }

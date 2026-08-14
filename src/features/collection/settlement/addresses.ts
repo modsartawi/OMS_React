@@ -1,5 +1,4 @@
 import type { SettlementScope } from '@/core/models/settlement'
-import { EMPTY_LEDGER_CRITERIA, writeLedgerCriteria, type LedgerCriteria } from './ledger'
 import { DEFAULT_SCOPE, SCOPE_PARAM } from './scope'
 
 /**
@@ -115,24 +114,12 @@ export function doorSearch(params: URLSearchParams): string {
   return render(keepOnly(params))
 }
 
-/**
- * The cross-estate ledger, optionally **seeded with criteria** — the ageing lane's
- * *way through* opens it on open entries.
- *
- * The seed is a `LedgerCriteria`, not a bag of strings, and it is written by
- * `ledger.ts`'s own `writeLedgerCriteria`: that module owns which URL key each
- * criterion lives in (`branch`, not `store`), and a link that hand-spelled one would
- * be one more site to edit when a key is renamed - and the only one the compiler
- * could not catch.
+/* ⚠️ **`ledgerSearch` stood here until ticket 274 and is gone**, with the ledger
+ * view it addressed: there is no `Settlement/Ledger` door
+ * (`.afk/FINDINGS-274.md` §B1). The ageing lane that used it as its *way through*
+ * is gone too, and for a different reason — spec 1173 rules entry staleness fog
+ * (§B3). Two things pointing at each other, neither of which had a server.
  */
-export function ledgerSearch(
-  params: URLSearchParams,
-  seed: Partial<LedgerCriteria> = {},
-): string {
-  const next = writeLedgerCriteria(keepOnly(params), { ...EMPTY_LEDGER_CRITERIA, ...seed })
-  next.set(VIEW_PARAM, 'ledger')
-  return render(next)
-}
 
 /**
  * The same view at another scope - what the scope control navigates to.
@@ -147,12 +134,6 @@ export function scopeSearch(params: URLSearchParams, scope: SettlementScope): st
   if (scope === DEFAULT_SCOPE) next.delete(SCOPE_PARAM)
   else next.set(SCOPE_PARAM, scope)
   return render(next)
-}
-
-/** Is the URL asking for the ledger? Spelled here so the string `'ledger'` lives
- *  beside the link that writes it. */
-export function isLedgerView(params: URLSearchParams): boolean {
-  return params.get(VIEW_PARAM) === 'ledger'
 }
 
 /**

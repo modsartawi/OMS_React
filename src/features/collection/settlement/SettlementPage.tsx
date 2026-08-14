@@ -9,13 +9,11 @@ import BatchWithdraw from './BatchWithdraw'
 import BranchAccount from './BranchAccount'
 import {
   doorSearch,
-  isLedgerView,
   readBatchView,
   readEntryNumber,
   readStore,
   scopeSearch,
 } from './addresses'
-import CrossEstateLedger from './CrossEstateLedger'
 import { SCOPE_PARAM, readScope } from './scope'
 import SettlementDoor from './SettlementDoor'
 
@@ -81,7 +79,6 @@ function SettlementBody() {
   const navigate = useNavigate()
   const storeId = readStore(searchParams)
   const scope = readScope(searchParams.get(SCOPE_PARAM))
-  const isLedger = isLedgerView(searchParams)
   // 273's fourth view: one uploaded batch, withdrawn as one act. It is an address
   // rather than dialog state, so *"finance sent the wrong file"* is still one repair
   // an hour and a reload after the commit.
@@ -93,18 +90,16 @@ function SettlementBody() {
           else. A branch's account is the same account whoever is assigned to it, and
           a scope control above one would imply the position on screen depended on
           who was looking. */}
-      {!storeId && !isLedger && !batchId && (
+      {!storeId && !batchId && (
         <ScopeControl scope={scope} onScope={(next) => navigate(scopeSearch(searchParams, next))} />
       )}
 
-      {(storeId || isLedger || batchId) && <BackToDoor searchParams={searchParams} />}
+      {(storeId || batchId) && <BackToDoor searchParams={searchParams} />}
 
       {storeId ? (
         <BranchAccount storeId={storeId} entryNumber={readEntryNumber(searchParams)} />
       ) : batchId ? (
         <BatchWithdraw batchId={batchId} />
-      ) : isLedger ? (
-        <CrossEstateLedger />
       ) : (
         <SettlementDoor scope={scope} />
       )}

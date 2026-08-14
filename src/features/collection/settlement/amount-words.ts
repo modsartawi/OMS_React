@@ -1,4 +1,5 @@
-import { currencyDecimals, formatMoneyIn } from '@/core/money'
+import { currencyDecimals } from '@/core/money'
+import { settlementMoney } from './money-display'
 
 /**
  * **The amount, read back in words** — 🔑 the typo guard ticket 271 turns on, and the
@@ -112,7 +113,27 @@ export function amountInWords(
   value: number | null | undefined,
   currency: string | null | undefined,
 ): AmountWords {
-  const decimals = currencyDecimals(currency)
+  // 🔑 **274: with no currency, word the amount at the scale money is HELD at.**
+  // `currencyDecimals('')` answers 2, which is right for a row that merely omitted a
+  // code — and **wrong** here, where no read door carries one at all
+  // (`.afk/FINDINGS-274.md` §B6). At two decimals a Bahraini `95.505` would be read
+  // back to the accountant as *95.51*, they would approve it, and the server would
+  // store `95.505`: **the words and the ledger disagreeing**, which is the exact
+  // failure D4's read-back exists to make impossible.
+  //
+  // Three is the ledger's own column scale (`DECIMAL(18,3)`), so nothing is rounded
+  // away from any branch in the footprint. The cost is a SAR amount worded as
+  // thousandths — ugly, and honest. `in-words.ts` falls back to its generic bank for
+  // the same reason: with no code there is no *riyals and halalas* to name.
+  //
+  // ⚠️ It also softens the smallest-unit refusal, deliberately: `0.004` is below what
+  // a SAR branch can count, but this screen no longer knows the branch is Saudi, and
+  // a client may not refuse money on a currency it is guessing. The server refuses it
+  // with `SettlementAmountRoundsToZero` — a 400 that names the reason — and the form
+  // surfaces that. Better a refusal from the party that knows than a confident one
+  // from the party that does not.
+  const code = (currency ?? '').trim()
+  const decimals = code ? currencyDecimals(code) : 3
   const factor = 10 ** decimals
   const safe = typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
   const units = Math.round(safe * factor)
@@ -122,7 +143,7 @@ export function amountInWords(
 
   return {
     value: rounded,
-    grouped: formatMoneyIn(rounded, currency),
+    grouped: settlementMoney(rounded, currency),
     majorValue,
     majorWords: numberToWords(majorValue),
     minorValue,

@@ -149,3 +149,42 @@ export function formatMoneyIn(
     maximumFractionDigits: digits,
   })
 }
+
+/**
+ * One money figure whose **currency is genuinely not known** — grouped, at least
+ * two decimals, and never more than the scale money is held at.
+ *
+ * 🔑 **This is not a default; it is the refusal to guess one.** `formatMoneyIn`
+ * falls back to two decimals when it is handed no currency, which is right for a
+ * row that simply omitted a code it would have shared with its neighbours. It is
+ * **wrong** where the currency is unavailable *by contract*: the settlement
+ * account's reads carry no `currencyKey` (ticket 274 §B6 — BackOffice spec 1173
+ * makes an entry's granularity depend on `Plant.CurrencyKey` at the write and does
+ * not project it onto the reads), and a Bahraini branch's three-decimal entry
+ * rendered at two decimals **loses a fils to rounding, silently**. That is exactly
+ * the failure spec 267 D10 exists to forbid.
+ *
+ * So: minimum 2, maximum 3. A SAR figure reads `151.00` exactly as it always did —
+ * the common case is untouched — and a BHD figure reads `150.755` instead of
+ * `150.76`. Nothing is invented and nothing is destroyed; the trailing digit
+ * appears only when the stored figure actually has one.
+ *
+ * ⚠️ **What it cannot do is restore a trailing zero.** `95.250` and `95.25` are the
+ * same IEEE-754 number, so *"BHD draws at three decimals"* is a display convention
+ * only the currency code carries. This function preserves every digit that means
+ * money and loses the zero that means none — the residual cost of the gap, stated
+ * here so it is not rediscovered as a bug.
+ *
+ * 🚩 **Delete this the day the reads carry a currency.** It is a workaround for a
+ * contract gap, marked as one, and `formatMoneyIn` is the right function in every
+ * other case in this codebase.
+ */
+export function formatMoneyOfUnknownCurrency(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return ''
+  return value.toLocaleString(LOCALE, {
+    minimumFractionDigits: DEFAULT_DECIMALS,
+    // Three is the scale the ledger's own columns hold (`DECIMAL(18,3)`, D10), so
+    // this cannot show a digit the server did not store.
+    maximumFractionDigits: 3,
+  })
+}

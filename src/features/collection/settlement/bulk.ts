@@ -3,8 +3,6 @@ import type {
   SettlementBulkError,
   SettlementBulkPreview,
   SettlementBulkRow,
-  SettlementCancelResult,
-  SettlementLedgerRow,
 } from '@/core/models/settlement'
 
 /**
@@ -40,12 +38,19 @@ import type {
  */
 export type BulkBlocker = SettlementBulkError & {
   source: 'server' | 'unresolved'
-  /** The store code that resolved to nothing — set only on an `unresolved`
-   *  blocker. ⚠️ It is its own field rather than borrowed `message`, which is typed
-   *  *the server's own words*: a code sitting in that slot reads as a server
-   *  sentence to the next caller who renders it generically. */
-  storeId?: string
 }
+
+/**
+ * The `code` an `unresolved` blocker carries.
+ *
+ * ⚠️ **It is this screen's own vocabulary, not the server's**, and it is spelled
+ * unmistakably so nobody mistakes it for one of `SettlementBulkIssueCodes`. 274
+ * settled that the wire locates a fault by **machine code** rather than by
+ * spreadsheet column (`SettlementBulkIssueModel.code`), which gave the client
+ * blocker a natural slot — the store code it could not resolve rides in `storeCode`
+ * beside it, exactly as the server's own issues do.
+ */
+export const UNRESOLVED_BRANCH_CODE = 'CLIENT_UNRESOLVED_BRANCH'
 
 /** One currency's share of the file. The read-back is per currency, never a sum
  *  across them — a riyal added to a dinar is a figure wrong in both. */
@@ -66,6 +71,19 @@ export type BulkReview = {
   warningsByRow: Record<number, string[]>
   /** How many rows carry at least one warning — the count the commit step states. */
   warnedRows: number
+  /**
+   * ✅ 274: the warnings that are about the **file** rather than a row — the
+   * server's `rowNumber: 0` issues, in its own words.
+   *
+   * 🔑 **This is where the replay notice lives.** 273 modelled *"a file with these
+   * 47 rows was posted 4 minutes ago by ضحى"* as a structured `replay` object; the
+   * door sends that exact sentence as a file-level warning
+   * (`SettlementBulkIssueCodes.RecentIdenticalBatch`). Pulled out here because a
+   * grid that renders warnings per row would drop row 0 on the floor — there is no
+   * row 0 to hang it on, and the notice is the one that says *somebody may have
+   * already posted this month*.
+   */
+  fileNotices: string[]
   totals: BulkTotal[]
   /** 🔑 Hard errors block; warnings never do. An empty file cannot commit either —
    *  there is nothing to post, and a commit of nothing is a batch handle minted
@@ -116,12 +134,12 @@ export function reviewBulk(preview: SettlementBulkPreview | null | undefined): B
     .filter((r) => !(r.storeName ?? '').trim() && !named.has(r.rowNumber))
     .map((r) => ({
       rowNumber: r.rowNumber,
-      column: 'storeId',
+      code: UNRESOLVED_BRANCH_CODE,
+      storeCode: r.storeCode,
       // No server words to pass through — this refusal is the screen's own, and it
       // says so by leaving the server's slot empty.
       message: '',
       source: 'unresolved' as const,
-      storeId: r.storeId,
     }))
 
   // The file's own faults first — a missing header is why every row below it looks
@@ -145,7 +163,11 @@ export function reviewBulk(preview: SettlementBulkPreview | null | undefined): B
     rows,
     blockers,
     warningsByRow,
-    warnedRows: Object.keys(warningsByRow).length,
+    // ⚠️ Row 0 is the file's, so it is not one of the *rows* that carry a warning —
+    // counting it there would report "1 row to look twice at" on a file whose every
+    // row is clean.
+    warnedRows: Object.keys(warningsByRow).filter((r) => Number(r) !== 0).length,
+    fileNotices: warningsByRow[0] ?? [],
     totals,
     canCommit: blockers.length === 0 && rows.length > 0 && counted === rows.length,
     disagreement: compareToServerTotal(totals, preview?.total),
@@ -203,141 +225,28 @@ function compareToServerTotal(
 /* ── cancel as a unit ─────────────────────────────────────────────────────── */
 
 /**
- * Why one entry of a batch is not going to be cancelled by this act.
+ * ⚠️ **Four exports stood here until ticket 274 and are gone**: `planBatchWithdraw`,
+ * `summariseBatchWithdraw`, and the `BatchPlan` / `BatchAttempt` / `BatchOutcome`
+ * shapes around them.
  *
- * ⚠️ They are distinguished rather than collapsed into *"skipped"*, because each is
- * a different answer to the branch that phones about it: a till spent it, an
- * accountant already withdrew it, or an accountant already forgave its remainder.
+ * 🔑 **They were a client-side re-implementation of a server door.** 273 withdrew a
+ * batch by fetching the cross-estate ledger filtered to a `batchId`, deciding per row
+ * which entries were still cancellable, calling `Settlement/Cancel` once per row, and
+ * summarising the partial failure itself. `Settlement/Bulk/Cancel` (BackOffice ticket
+ * 1186) does exactly that — the same loop over 1185's per-entry cancel — and answers
+ * `{ batchId, total, cancelled, refused, rows[] }` with each row's own
+ * `accepted` / `refusalReason` / `remainingAmount` / `status`.
+ *
+ * One request replaces N, and the partial-failure story is told by the party that
+ * knows it. The rulings the deleted code encoded are all still enforced, one layer
+ * down:
+ *
+ * - **a batch is a handle, never a second lifecycle** — a row a till already consumed
+ *   is refused and *named*, never written off for sharing a batch with forty others;
+ * - **a partly-withdrawn batch is not an error** and nothing rolls back;
+ * - **untouched is tested at the scale money is held at**, inside the guarded UPDATE
+ *   rather than by a client comparing two rounded decimals.
+ *
+ * 🚩 It also stood on `Settlement/Ledger`, which 274 found does not exist — so this
+ * path had never worked against a real server and could not have.
  */
-export type BatchSkipReason = 'consumed' | 'cancelled' | 'written-off' | 'partly-consumed'
-
-export type BatchPlan = {
-  /** The entries a cancel will actually be attempted on — `OPEN` and untouched,
-   *  which is 272's own `cancel` affordance applied per row. */
-  cancellable: SettlementLedgerRow[]
-  /** …and the rest, each with the reason it is not in the first list. 🔑 These are
-   *  **named, not counted**: *"reporting which rows a till already consumed"* is the
-   *  ticket's own requirement, and a number is not a report. */
-  skipped: { row: SettlementLedgerRow; because: BatchSkipReason }[]
-}
-
-/**
- * What a batch withdrawal can attempt, before it attempts anything.
- *
- * 🔑 **It is 272's per-entry decision applied across a `BatchId`, and nothing
- * more** — the ticket says so in as many words: *a loop over 272's mechanism, not a
- * new one*. An entry a till has partly consumed is **not** written off here: the
- * write-off is a separate act with a separate reason, and forgiving a remainder
- * because it happened to share a batch with forty other rows is not what *"finance
- * sent the wrong file"* asks for.
- *
- * ⚠️ Untouched is tested at the scale money is **held** at, the same call 272 made:
- * a BHD entry consumed by one fils is a partly-consumed entry, and rounding that
- * away at the branch's display precision would attempt a cancel the server refuses.
- */
-export function planBatchWithdraw(
-  rows: readonly SettlementLedgerRow[] | null | undefined,
-): BatchPlan {
-  const cancellable: SettlementLedgerRow[] = []
-  const skipped: BatchPlan['skipped'] = []
-
-  for (const row of rows ?? []) {
-    switch (row.status) {
-      case 'CONSUMED':
-        skipped.push({ row, because: 'consumed' })
-        continue
-      case 'CANCELLED':
-        skipped.push({ row, because: 'cancelled' })
-        continue
-      case 'CLOSED_OUT':
-        skipped.push({ row, because: 'written-off' })
-        continue
-      case 'OPEN':
-        break
-    }
-    if (roundMoney(row.remainingAmount) === roundMoney(row.amount)) cancellable.push(row)
-    else skipped.push({ row, because: 'partly-consumed' })
-  }
-
-  return { cancellable, skipped }
-}
-
-/** One attempted cancel, and what came back. */
-export type BatchAttempt = {
-  row: SettlementLedgerRow
-  result: Pick<SettlementCancelResult, 'accepted' | 'refusalReason' | 'remainingAmount'> | null
-  /**
-   * ⚠️ **A refusal that arrived as an error rather than as a 200** — a guardrail
-   * denial the envelope carried with `success:false`, whose message is the server's
-   * own words. It is reported **with the refusals**, not with the unknowns: the
-   * server decided, and `api-envelope` forbids flattening a decision into a generic
-   * "something went wrong". The caller does the classification, because what an
-   * `ApiError` *is* belongs to `@/core/api` and this module is pure.
-   */
-  refusedBecause?: string
-  /** Set when the call itself failed — a transport fault, not a refusal. The
-   *  entry's state is then genuinely **unknown**. */
-  failed?: boolean
-}
-
-export type BatchOutcome = {
-  withdrawn: SettlementLedgerRow[]
-  /** 🔑 **The rows a till got to first**, each with the server's own words and the
-   *  remaining it came back with. Named, in the batch's own order. */
-  refused: { row: SettlementLedgerRow; reason: string; remaining: number }[]
-  /** Calls that did not complete at all. Distinguished from a refusal because the
-   *  entry's state is *unknown*, not decided — and telling an accountant an entry
-   *  survived when the request merely timed out would be a lie about money. */
-  failed: SettlementLedgerRow[]
-}
-
-/**
- * What the loop actually did.
- *
- * 🚩 **A partly-withdrawn batch is not an error**, and nothing here rolls back. A
- * cancel that lost its race is 272's designed outcome — a 200 carrying the true
- * remaining — and re-posting the rows that succeeded for the sake of a tidy result
- * would put money back onto branches to make a report look neat.
- */
-export function summariseBatchWithdraw(attempts: readonly BatchAttempt[]): BatchOutcome {
-  const outcome: BatchOutcome = { withdrawn: [], refused: [], failed: [] }
-
-  for (const attempt of attempts) {
-    // ⚠️ **A refusal that arrived as an error is still a refusal.** The server
-    // decided and said why; reporting it as *"the request did not complete, so this
-    // entry's state is unknown"* would flatten a decision into a shrug, which is
-    // the exact thing `api-envelope` forbids. Its remaining is the entry's last
-    // known one — the refusal carried no newer figure.
-    if (attempt.refusedBecause) {
-      outcome.refused.push({
-        row: attempt.row,
-        reason: attempt.refusedBecause,
-        remaining: roundMoney(attempt.row.remainingAmount),
-      })
-      continue
-    }
-    if (attempt.failed || !attempt.result) {
-      outcome.failed.push(attempt.row)
-      continue
-    }
-    if (attempt.result.accepted) {
-      outcome.withdrawn.push(attempt.row)
-      continue
-    }
-    const returned = attempt.result.remainingAmount
-    outcome.refused.push({
-      row: attempt.row,
-      reason: attempt.result.refusalReason ?? '',
-      // The server's own figure at the moment of the refusal — the only trustworthy
-      // number once a race has been lost (272's rule). A refusal that carried none
-      // reports the entry's last known remaining rather than inventing one.
-      remaining: roundMoney(
-        typeof returned === 'number' && Number.isFinite(returned)
-          ? returned
-          : attempt.row.remainingAmount,
-      ),
-    })
-  }
-
-  return outcome
-}

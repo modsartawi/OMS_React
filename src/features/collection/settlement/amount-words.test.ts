@@ -139,8 +139,16 @@ describe('amountInWords — what is not an amount', () => {
     expect(amountInWords(0.004, 'BHD').minorValue).toBe(4)
   })
 
-  it('degrades an unknown currency to two decimals, as the money module does', () => {
-    expect(amountInWords(10.006, '').decimals).toBe(2)
+  it('🔑 words an UNKNOWN currency at three decimals — the scale money is held at', () => {
+    // ⚠️ **The opposite of what 271 asserted, and 274 is why.** No read door carries
+    // `currencyKey` (`.afk/FINDINGS-274.md` §B6). At two decimals a Bahraini `95.505`
+    // would be read back as *95.51*, approved, and stored as `95.505` — the words and
+    // the ledger disagreeing, which is the failure D4's read-back exists to prevent.
+    expect(amountInWords(10.006, '').decimals).toBe(3)
+    expect(amountInWords(95.505, '').grouped).toBe('95.505')
+    expect(amountInWords(95.505, '').minorValue).toBe(505)
+    // …and a named currency still rules, so nothing regresses the day §B6 lands.
     expect(amountInWords(10.006, 'KWD').grouped).toBe('10.01')
+    expect(amountInWords(10.006, 'KWD').decimals).toBe(2)
   })
 })

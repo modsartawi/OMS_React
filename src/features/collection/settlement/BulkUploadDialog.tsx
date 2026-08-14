@@ -5,8 +5,7 @@ import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { FileSpreadsheet, TriangleAlert } from 'lucide-react'
 
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
-import { formatMoneyIn } from '@/core/money'
+import { apiErrorMessage } from '@/core/api'
 import type {
   SettlementBulkCommitResult,
   SettlementBulkPreview,
@@ -14,6 +13,7 @@ import type {
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
+import { settlementMoney } from './money-display'
 import { batchSearch } from './addresses'
 import { amountInWords } from './amount-words'
 import { settlementApi } from './api'
@@ -28,10 +28,10 @@ const KINDS: readonly SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS']
  *  handing the door a PDF and waiting for a round trip to be told. */
 const ACCEPT = '.xlsx,.csv'
 
-/** The server's code for *the bytes you are committing are not the bytes you
- *  previewed*. ⚠️ 274's to confirm — until it does, an uncoded refusal reads
- *  through the smaller sentence rather than through this one. */
-const HASH_MISMATCH = 'HASH_MISMATCH'
+/* ⚠️ **`HASH_MISMATCH` stood here until 274 and is gone.** 273 expected the
+ * changed-sheet refusal to arrive as an envelope error code; the door answers a 200
+ * with `accepted: false` and its own `refusalReason`, which the commit handler reads
+ * directly. There is no code to match on because there is no error to match it in. */
 
 /**
  * **The second posting door** — a month's audit, uploaded (ticket 273, spec 267
@@ -105,37 +105,39 @@ export default function BulkUploadDialog({
   })
 
   const commitCall = useMutation({
-    mutationFn: () => settlementApi.bulkCommit(file!, preview!.batchId, kind),
+    mutationFn: () =>
+      settlementApi.bulkCommit(file!, preview!.batchId, kind, preview!.contentHash),
     onSuccess: (result) => {
+      // 🔑 **274: a refusal arrives HERE, on a 200, not in `onError`.** 273 modelled
+      // the changed-sheet case as a business `ApiError`; the door answers
+      // `accepted: false` with its own `refusalReason`, exactly as cancel and repair
+      // do — the server decided, and a decision is not a crash. Reading `posted`
+      // without reading `accepted` would report a refused commit as a successful one.
+      if (!result?.accepted) {
+        setRefusal(result?.refusalReason || t('bulk.errors.commitRefused'))
+        return
+      }
+
       setCommitted(result)
       toast.success(t('bulk.done.toast', { count: result?.posted ?? 0 }))
       // The same fan-out one posted entry causes (271), for the same reason: a
       // month's audit changes every one of these, and a stale door would invite the
       // accountant to post the file again.
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'fleet'] })
-      void queryClient.invalidateQueries({ queryKey: ['settlement', 'worklist'] })
-      void queryClient.invalidateQueries({ queryKey: ['settlement', 'ledger'] })
+      void queryClient.invalidateQueries({ queryKey: ['settlement', 'orphans'] })
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'account'] })
     },
-    // ⚠️ **A refused commit is a business outcome, not a crash.** The one this door
-    // is designed around is the hash mismatch — the sheet changed between review and
-    // commit — and its answer is *preview it again*, not a toast that disappears.
+    // ⚠️ **What is left here is a MALFORMED call, not a decision about money** — no
+    // file, over 10 MB, an extension outside the allow-list, or bytes that yield no
+    // rows. Those are 400s through the envelope.
     //
-    // 🚩 **The fallback sentence must not assert the hash.** This client never read
-    // the file, so *"it no longer matches the one that was previewed"* is a thing it
-    // cannot know — and a 500, a timeout or a dropped connection would have said it
-    // anyway. The claim is made only when the server's own CODE makes it; every
-    // other failure says the honest, smaller thing. (269's cap banner made the same
-    // correction: a screen may not assert what it can only infer.)
-    onError: (error) =>
-      setRefusal(
-        apiErrorMessage(
-          error,
-          apiErrorCode(error) === HASH_MISMATCH
-            ? t('bulk.errors.commitRefused')
-            : t('bulk.errors.commitFailed'),
-        ),
-      ),
+    // 🚩 **The sentence must not assert the hash.** This client never read the file,
+    // so *"it no longer matches the one that was previewed"* is a thing it cannot
+    // know — and a 500, a timeout or a dropped connection would have said it anyway.
+    // That claim now belongs to the refusal path above, where the SERVER makes it.
+    // (269's cap banner made the same correction: a screen may not assert what it
+    // can only infer.)
+    onError: (error) => setRefusal(apiErrorMessage(error, t('bulk.errors.commitFailed'))),
   })
 
   /** Back to the file step, keeping the kind: a refused or reconsidered file is
@@ -334,19 +336,22 @@ function PreviewStep({
       </p>
 
       {/* 🔑 The content hash **warns and never refuses** — refusing would make a
-          genuinely identical repeat unpostable. */}
-      {preview.replay && (
+          genuinely identical repeat unpostable.
+
+          ⚠️ 274: the replay notice is a file-level WARNING carrying the server's own
+          sentence, not the structured `replay` object 273 modelled. So it renders as
+          data, unlocalised, exactly as every other server sentence on this screen
+          does — and any other file-level warning the parser grows lands here too,
+          rather than vanishing for want of a row to sit on. */}
+      {review.fileNotices.map((notice, i) => (
         <p
-          data-testid="bulk-replay"
+          key={i}
+          data-testid="bulk-file-notice"
           className="rounded-lg border border-attention-border bg-attention-050 p-3 text-xs text-attention-800"
         >
-          {t('bulk.review.replay', {
-            rows: preview.replay.rowCount,
-            minutes: preview.replay.minutesAgo,
-            by: preview.replay.postedByName,
-          })}
+          {notice}
         </p>
-      )}
+      ))}
 
       {refusal && (
         <div
@@ -380,21 +385,19 @@ function PreviewStep({
           </p>
           <ul className="flex flex-col gap-0.5 text-xs">
             {review.blockers.map((b, i) => (
-              <li key={`${b.rowNumber}-${b.column}-${i}`} data-blocker-row={b.rowNumber}>
-                {/* ⚠️ The COLUMN is named when the server named one — the ticket's
-                    own open question is that *"a missing required header must refuse
-                    naming what it expected"*, and a field carried but never rendered
-                    is a field that will quietly stop being sent. */}
+              <li key={`${b.rowNumber}-${b.code}-${i}`} data-blocker-row={b.rowNumber}>
+                {/* ⚠️ 274 replaced the guessed `column` with the server's own machine
+                    `code`, which is not a sentence and is not shown — the server's
+                    `message` already reads as one, and a code beside it would be
+                    noise to an accountant fixing a spreadsheet. The ticket's open
+                    question — *"a missing required header must refuse naming what it
+                    expected"* — is answered by that message, which names it. */}
                 {b.source === 'unresolved'
-                  ? t('bulk.review.unresolved', { row: b.rowNumber, code: b.storeId })
+                  ? t('bulk.review.unresolved', { row: b.rowNumber, code: b.storeCode })
                   : b.rowNumber === 0
-                    ? t(b.column ? 'bulk.review.fileErrorColumn' : 'bulk.review.fileError', {
-                        column: b.column,
-                        message: b.message,
-                      })
-                    : t(b.column ? 'bulk.review.rowErrorColumn' : 'bulk.review.rowError', {
+                    ? t('bulk.review.fileError', { message: b.message })
+                    : t('bulk.review.rowError', {
                         row: b.rowNumber,
-                        column: b.column,
                         message: b.message,
                       })}
               </li>
@@ -409,8 +412,8 @@ function PreviewStep({
               panel rendering its two sums through a second money path is the one
               place a difference could be an artefact of the rendering. */}
           {t('bulk.review.disagree', {
-            server: formatMoneyIn(review.disagreement.server, review.totals[0]?.currencyKey),
-            rows: formatMoneyIn(review.disagreement.rows, review.totals[0]?.currencyKey),
+            server: settlementMoney(review.disagreement.server, review.totals[0]?.currencyKey),
+            rows: settlementMoney(review.disagreement.rows, review.totals[0]?.currencyKey),
           })}
         </p>
       )}
@@ -439,7 +442,7 @@ function PreviewStep({
                   className={unresolved || warnings.length ? 'bg-attention-050' : undefined}
                 >
                   <td className="px-2 py-1.5 tabular-nums text-muted-foreground">{row.rowNumber}</td>
-                  <td className="px-2 py-1.5 font-mono">{row.storeId}</td>
+                  <td className="px-2 py-1.5 font-mono">{row.storeCode}</td>
                   {/* 🔑 The resolved NAME — the whole reason this grid exists. An
                       unresolvable code says so in words rather than leaving a blank
                       cell to skim past. */}
@@ -449,7 +452,7 @@ function PreviewStep({
                     )}
                   </td>
                   <td className="px-2 py-1.5 text-end tabular-nums">
-                    {formatMoneyIn(row.amount, row.currencyKey)} {row.currencyKey}
+                    {settlementMoney(row.amount, row.currencyKey)} {row.currencyKey}
                   </td>
                   <td className="px-2 py-1.5" dir="auto">
                     {row.reason}
@@ -586,7 +589,7 @@ function CommittedPanel({
         <p key={total.currencyKey} className="text-sm tabular-nums">
           {t('bulk.review.totalFigure', {
             count: total.rowCount,
-            amount: formatMoneyIn(total.total, total.currencyKey),
+            amount: settlementMoney(total.total, total.currencyKey),
             currency: total.currencyKey,
           })}
         </p>

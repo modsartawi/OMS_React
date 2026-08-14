@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SettlementLedgerRow } from '@/core/models/settlement'
-import {
-  bulkTotals,
-  planBatchWithdraw,
-  reviewBulk,
-  summariseBatchWithdraw,
-  type BatchAttempt,
-} from './bulk'
+import { bulkTotals, reviewBulk, UNRESOLVED_BRANCH_CODE } from './bulk'
 import {
   BAD_HEADER_PREVIEW,
   BAD_ROW_PREVIEW,
@@ -61,10 +54,18 @@ describe('reviewBulk — the partition', () => {
     }
     const review = reviewBulk(silent)
     expect(review.canCommit).toBe(false)
-    // ⚠️ The code rides in its OWN field: `message` is typed *the server's own
-    // words*, and this refusal is the screen's.
+    // ⚠️ The store code rides in `storeCode` and the reason in `code` — the same two
+    // fields the server's own issues use (274). `message` stays EMPTY, because it is
+    // typed *the server's own words* and this refusal is the screen's: a sentence
+    // there would read as the server's to the next caller who renders it generically.
     expect(review.blockers).toEqual([
-      { rowNumber: 4, column: 'storeId', message: '', source: 'unresolved', storeId: '9999' },
+      {
+        rowNumber: 4,
+        code: UNRESOLVED_BRANCH_CODE,
+        storeCode: '9999',
+        message: '',
+        source: 'unresolved',
+      },
     ])
   })
 
@@ -81,16 +82,30 @@ describe('reviewBulk — the partition', () => {
   })
 
   it('reads a replayed file as commitable — the content hash warns, never refuses', () => {
+    // 274: the replay notice arrives as a file-level WARNING (rowNumber 0) carrying
+    // the server's own sentence, not the structured `replay` object 273 modelled.
     const review = reviewBulk(REPLAY_PREVIEW)
     expect(review.canCommit).toBe(true)
-    expect(REPLAY_PREVIEW.replay?.minutesAgo).toBe(4)
+    expect(review.fileNotices).toHaveLength(1)
+    expect(review.fileNotices[0]).toContain('was posted on')
+  })
+
+  it('lifts a row-0 warning out of the per-row map, so no grid can drop it', () => {
+    // The defect this guards: a preview grid renders warnings BY ROW, and there is
+    // no row 0 to hang one on. Left in `warningsByRow` alone, the replay notice —
+    // *somebody may already have posted this month* — would render nowhere.
+    const review = reviewBulk(REPLAY_PREVIEW)
+    expect(review.warnedRows).toBe(0)
+    expect(review.fileNotices.length).toBeGreaterThan(0)
   })
 
   it('puts the file’s own fault first and refuses a file with no rows', () => {
     const review = reviewBulk(BAD_HEADER_PREVIEW)
     expect(review.canCommit).toBe(false)
     expect(review.blockers[0].rowNumber).toBe(0)
-    expect(review.blockers[0].column).toBe('amount')
+    // 274: the wire locates a fault by machine CODE, not by spreadsheet column.
+    expect(review.blockers[0].code).toBe('MissingColumn')
+    expect(review.blockers[0].message).toContain('amount')
   })
 
   it('refuses an empty file and an absent answer alike, without throwing', () => {
@@ -103,9 +118,14 @@ describe('reviewBulk — the partition', () => {
     const review = reviewBulk({
       ...CLEAN_PREVIEW,
       errors: [
-        { rowNumber: 6, column: 'amount', message: 'Not a number.' },
-        { rowNumber: 0, column: 'reason', message: 'The sheet has no "reason" column.' },
-        { rowNumber: 3, column: 'amount', message: 'Negative.' },
+        { rowNumber: 6, storeCode: '0688', code: 'AmountNotNumeric', message: 'Not a number.' },
+        {
+          rowNumber: 0,
+          storeCode: '',
+          code: 'MissingColumn',
+          message: 'The sheet has no "reason" column.',
+        },
+        { rowNumber: 3, storeCode: '0207', code: 'AmountNegative', message: 'Negative.' },
       ],
     })
     expect(review.blockers.map((b) => b.rowNumber)).toEqual([0, 3, 6])
@@ -178,128 +198,26 @@ describe('reviewBulk — the server’s scalar total, cross-checked', () => {
   })
 })
 
-/* ── cancel as a unit ─────────────────────────────────────────────────────── */
-
-const entry = (
-  entryNumber: number,
-  status: SettlementLedgerRow['status'],
-  amount: number,
-  remainingAmount: number,
-): SettlementLedgerRow => ({
-  settlementEntryId: `01J9BATCHE${entryNumber}`,
-  entryNumber,
-  storeId: `0${entryNumber}`,
-  storeName: `Branch ${entryNumber}`,
-  currencyKey: 'SAR',
-  entryKind: 'SHORTAGE',
-  amount,
-  remainingAmount,
-  reason: 'عجز جرد شهر يوليو',
-  status,
-  batchId: '01J9BATCHCLEAN',
-  postedByStaffId: '30117',
-  postedByName: 'ضحى العتيبي / Duha Al-Otaibi',
-  postedAt: '2026-08-13T09:41:00',
-  closedByStaffId: '',
-  closedAt: '',
-  closedReason: '',
-})
-
-describe('planBatchWithdraw — 272’s decision, across a batch', () => {
-  it('attempts only the untouched entries, and names every row it will not', () => {
-    const plan = planBatchWithdraw([
-      entry(901, 'OPEN', 500, 500),
-      entry(902, 'OPEN', 1250.5, 900), // a till took part of it
-      entry(903, 'CONSUMED', 4300, 0),
-      entry(904, 'CANCELLED', 120_000, 120_000),
-      entry(905, 'CLOSED_OUT', 2650, 0),
-    ])
-
-    expect(plan.cancellable.map((r) => r.entryNumber)).toEqual([901])
-    expect(plan.skipped.map((s) => [s.row.entryNumber, s.because])).toEqual([
-      [902, 'partly-consumed'],
-      [903, 'consumed'],
-      [904, 'cancelled'],
-      [905, 'written-off'],
-    ])
-  })
-
-  // ⚠️ 272's ruling, unchanged: a BHD entry consumed by one fils is partly consumed,
-  // and rounding that away at the branch's display precision would attempt a cancel
-  // the server refuses.
-  it('tests untouched at the scale money is HELD at', () => {
-    const fils = { ...entry(906, 'OPEN', 95.25, 95.249), currencyKey: 'BHD' }
-    expect(planBatchWithdraw([fils]).cancellable).toEqual([])
-    expect(planBatchWithdraw([fils]).skipped[0].because).toBe('partly-consumed')
-  })
-
-  it('plans nothing from nothing', () => {
-    expect(planBatchWithdraw(null)).toEqual({ cancellable: [], skipped: [] })
-  })
-})
-
-describe('summariseBatchWithdraw — a partly-withdrawn batch is not an error', () => {
-  // 🔑 The ticket's own requirement: report which rows a till already consumed and
-  // therefore could not be cancelled — NAMED, not counted.
-  it('separates what was withdrawn from what a till got to first', () => {
-    const withdrawn = entry(901, 'OPEN', 500, 500)
-    const raced = entry(902, 'OPEN', 1250.5, 1250.5)
-    const attempts: BatchAttempt[] = [
-      { row: withdrawn, result: { accepted: true, refusalReason: '', remainingAmount: 500 } },
-      {
-        row: raced,
-        result: {
-          accepted: false,
-          refusalReason: 'A till consumed part of this entry.',
-          remainingAmount: 900,
-        },
-      },
-    ]
-
-    const outcome = summariseBatchWithdraw(attempts)
-    expect(outcome.withdrawn.map((r) => r.entryNumber)).toEqual([901])
-    expect(outcome.refused).toEqual([
-      { row: raced, reason: 'A till consumed part of this entry.', remaining: 900 },
-    ])
-    expect(outcome.failed).toEqual([])
-  })
-
-  it('reports the entry’s last known remaining when a refusal carried no figure', () => {
-    const raced = entry(902, 'OPEN', 1250.5, 1250.5)
-    const outcome = summariseBatchWithdraw([
-      {
-        row: raced,
-        result: {
-          accepted: false,
-          refusalReason: 'No.',
-          remainingAmount: Number.NaN,
-        },
-      },
-    ])
-    expect(outcome.refused[0].remaining).toBe(1250.5)
-  })
-
-  // 🔑 Raised by `/standards-review`: a BUSINESS refusal that arrives as an error
-  // (the envelope saying no) is still a refusal, and `api-envelope` forbids
-  // flattening the server's words into *"the state is unknown"*.
-  it('reports a refusal that arrived as an ERROR with the refusals, named', () => {
-    const row = entry(904, 'OPEN', 120_000, 120_000)
-    const outcome = summariseBatchWithdraw([
-      { row, result: null, refusedBecause: 'This entry belongs to a batch being cancelled.' },
-    ])
-    expect(outcome.refused).toEqual([
-      { row, reason: 'This entry belongs to a batch being cancelled.', remaining: 120_000 },
-    ])
-    expect(outcome.failed).toEqual([])
-  })
-
-  // A call that never completed leaves the entry's state UNKNOWN, not decided —
-  // reporting it as surviving would be a lie about money.
-  it('keeps a transport failure apart from a refusal', () => {
-    const row = entry(903, 'OPEN', 4300, 4300)
-    const outcome = summariseBatchWithdraw([{ row, result: null, failed: true }])
-    expect(outcome.failed.map((r) => r.entryNumber)).toEqual([903])
-    expect(outcome.refused).toEqual([])
-    expect(outcome.withdrawn).toEqual([])
-  })
-})
+/**
+ * ⚠️ **Two describe blocks stood here until ticket 274** — `planBatchWithdraw`
+ * and `summariseBatchWithdraw`, ~90 lines asserting which entries of a batch a cancel
+ * would attempt, and how a partly-withdrawn batch reports itself.
+ *
+ * 🔑 They tested a client-side re-implementation of a server door.
+ * `Settlement/Bulk/Cancel` (BackOffice ticket 1186) runs that same loop over the
+ * per-entry cancel and answers a row per entry with its own `accepted`,
+ * `refusalReason`, `remainingAmount` and `status`. The rulings the deleted code
+ * encoded are all still enforced, one layer down where the money is:
+ *
+ * - a batch is a handle, never a second lifecycle — a consumed row is refused and
+ *   NAMED, never written off for sharing a batch;
+ * - a partly-withdrawn batch is not an error and nothing rolls back;
+ * - untouched is tested inside the guarded UPDATE, not by comparing two rounded
+ *   decimals in a browser.
+ *
+ * ⚠️ The old path also stood on `Settlement/Ledger`, which does not exist (§B1) —
+ * so these tests were green against a fixture for a door no server would have
+ * answered. That is the failure mode this whole ticket exists to correct, and it is
+ * why the replacement is asserted against the live door in 274's Proof rather than
+ * re-mocked here.
+ */

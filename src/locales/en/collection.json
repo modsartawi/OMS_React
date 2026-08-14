@@ -338,7 +338,34 @@
     },
     "errors": {
       "loadFailed": "The branches could not be loaded.",
-      "saveFailed": "{{store}} was not saved, and nothing was changed."
+      "saveFailed": "{{store}} was not saved, and nothing was changed.",
+      "rosterFailed": "The collection roster could not be loaded, so the dropdowns are empty.",
+      "personFailed": "The person was not saved, and nothing was changed."
+    },
+    "tabs": {
+      "branches": "Branches",
+      "people": "People"
+    },
+    "people": {
+      "search": "Find a person",
+      "searchPlaceholder": "Staff id, name or supervisor",
+      "counts": "{{total}} people · {{supervisors}} of them supervise somebody",
+      "staffId": "Staff Id",
+      "displayName": "Name",
+      "role": "Role",
+      "roleNone": "Supervises only",
+      "supervisor": "Supervisor",
+      "isSupervisor": "Supervises",
+      "isActive": "Active",
+      "add": "Add person",
+      "update": "Save person",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "empty": {
+        "title": "No person matches",
+        "hint": "Clear the search, or add the person with the form above."
+      },
+      "required": "{{field}} is required."
     }
   }
 }

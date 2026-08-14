@@ -31,6 +31,7 @@ import type {
   VoucherDocument,
 } from '@/core/models/collection'
 import type { AssignmentBranch, AssignmentPairing, SaveAssignmentBody } from './assignment'
+import type { RosterPerson, SavePersonBody } from './people'
 import type { AssignmentOptions } from './served-by'
 
 /**
@@ -239,6 +240,46 @@ export const collectionApi = {
    */
   saveAssignment(body: SaveAssignmentBody): Promise<AssignmentPairing> {
     return api.post<AssignmentPairing>('CollectionWeb/Assignment/SetStore', body)
+  },
+
+  /**
+   * `GET CollectionWeb/Assignment/People` → the whole collection roster
+   * (BackOffice 1170), behind the **same** `CollectionAssignment` grant as the
+   * Branches tab and no other: the roster is the master data behind the pairing, so
+   * somebody who may not reassign a branch may not invent the person to reassign it
+   * to either.
+   *
+   * 🔑 **It is a FULL roster, and it is add-person-first.** None of the 8
+   * accountants exists in `Staff` / `UaEmployee` / `UaUser` (BackOffice 1157), so
+   * this is the only place a person's name lives — and the only place a new hire
+   * can be created before being assigned anywhere.
+   *
+   * ⚠️ **Not the same payload as `assignmentOptions()`.** That one is the
+   * *picker's* shape — `{ staffId, displayName }` grouped three ways — cached
+   * across four inquiry screens. This is the maintenance shape, and it carries
+   * `role`, `supervisorId` and `isActive` because this screen writes them.
+   */
+  assignmentPeople(): Promise<RosterPerson[]> {
+    return api.get<RosterPerson[]>('CollectionWeb/Assignment/People')
+  },
+
+  /**
+   * `POST CollectionWeb/Assignment/SetPerson` → create or update ONE person, and
+   * get back the roster row the server now holds.
+   *
+   * 🔑 **The body carries no actor**, exactly like `saveAssignment`:
+   * attribution on master data is stamped server-side from the cookie session.
+   *
+   * 🚩 **Naming a `supervisorId` here is what makes the Supervisors group
+   * appear** in the shared *Served by* control on four screens — the group is
+   * `DISTINCT supervisorId` resolved back through the roster, so it fills the moment
+   * it has a member, with no deploy. And the field is **unfiltered by `Role`**:
+   * anyone may supervise anyone, because supervising is not a role. ⚠️ The two
+   * *assignment* slots still filter by `Role`; the server refuses a mismatch there
+   * and refuses an off-roster or self supervisor here.
+   */
+  savePerson(body: SavePersonBody): Promise<RosterPerson> {
+    return api.post<RosterPerson>('CollectionWeb/Assignment/SetPerson', body)
   },
 
   /**

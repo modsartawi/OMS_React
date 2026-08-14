@@ -14,7 +14,7 @@ import {
   omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
-import { assignmentOptionsQuery, canOpenAssignment, collectionApi } from './api'
+import { ASSIGNMENT_OPTIONS_KEY, canOpenAssignment, collectionApi } from './api'
 import {
   ASSIGNMENT_LANDING,
   assignmentCounts,
@@ -26,6 +26,21 @@ import {
   type AssignmentFilter,
   type AssignmentStatusFilter,
 } from './assignment'
+import {
+  PICKABLE_ROLES,
+  blankPerson,
+  matchesPersonSearch,
+  personFormError,
+  personToBody,
+  roleLabelKey,
+  rosterNameOf,
+  slotPeople,
+  supervisorIds,
+  supervisorOptions,
+  type RosterPerson,
+  type SavePersonBody,
+  type Slot,
+} from './people'
 import { GRID_PAGE_SIZE } from './cap'
 import { EmptyState, ListShimmer } from './GridStates'
 import ScreenGate from './ScreenGate'
@@ -33,26 +48,29 @@ import type { AssignmentPerson } from './served-by'
 
 /**
  * Collection Assignment (`/collection/assignment`) — BackOffice spec 1162 D11,
- * ticket 1169. The one screen in this area that WRITES.
+ * tickets 1169 (Branches) and 1170 (People). The one screen in this area that
+ * WRITES.
  *
- * It lists **all 1394 open branches**, not the 139 finance's spreadsheet covers,
- * because the gap is the work: ~1255 branches have nobody, and a screen listing
- * the assignment table could not reach the majority of its own subject.
+ * **Two tabs, and the order between them is the design.** Branches lists all 1394
+ * open branches — not the 139 finance's spreadsheet covers, because the gap is the
+ * work — and People maintains the roster those branches are assigned FROM.
+ *
+ * 🔑 **People is a tab rather than a pane because the roster is add-person-first.**
+ * None of the 8 accountants exists in `Staff`, `UaEmployee` or `UaUser` (BackOffice
+ * 1157), so `PosCollectionStaff` is the only place their names live: a new hire
+ * must be creatable here before they can be assigned anywhere, and the story the
+ * ticket is named for is both happening in one afternoon.
  *
  * ⚠️ **It opens on everything, unfiltered** — deliberately not the default-to-mine
  * the four inquiry screens land on. Its user maintains the estate rather than
  * finding their own work.
  *
- * 🔑 **The one behaviour to preserve above all: a touched row stays on screen
- * until it is saved.** Under *With a gap* — the filter the 1255 actually get
- * closed from — filling a slot makes the row stop matching, and it would vanish
- * mid-edit with the edit unsaved. The rule lives in `visibleBranches`; this Page
- * only has to keep an honest `touched` set, which is why an edit is dropped on
- * SUCCESS and kept on failure.
- *
- * The estate arrives in one payload and the screen searches, filters and pages
- * over it client-side — 1394 rows is one read, and a server round trip per
- * keystroke over a 1394-row master would be slower than the filter it replaces.
+ * 🔑 **The one behaviour to preserve above all: a touched row stays on screen until
+ * it is saved.** Under *With a gap* — the filter the 1255 actually get closed from
+ * — filling a slot makes the row stop matching, and it would vanish mid-edit with
+ * the edit unsaved. The rule lives in `visibleBranches`; this Page only has to keep
+ * an honest `touched` set, which is why an edit is dropped on SUCCESS and kept on
+ * failure.
  *
  * ⚠️ **Copied shape, not extracted** (244 §1), like the four screens beside it.
  */
@@ -71,10 +89,70 @@ export default function CollectionAssignmentPage() {
   )
 }
 
-/** The two slots, so the save path is written once rather than per column. */
-type Slot = 'accountantId' | 'collectorId'
+/** The roster query key, shared by both tabs — ONE fetch, and the People tab's save
+ *  writes into it, which is what makes a new hire show up in the Branches tab's
+ *  dropdowns without a refetch or a second name source. */
+const ROSTER_KEY = ['collection', 'assignment', 'people'] as const
+
+type Tab = 'branches' | 'people'
 
 function AssignmentBody() {
+  const { t } = useTranslation('collection')
+  const [tab, setTab] = useState<Tab>('branches')
+
+  // 🔑 THE ROSTER IS FETCHED ONCE FOR THE WHOLE SCREEN, by both tabs, and it is the
+  // screen's ONE name source. The Branches tab deliberately does NOT read the four
+  // inquiry screens' `AssignmentOptions` payload: that one is pre-grouped for a
+  // picker and carries no `role` or `supervisorId`, so this screen would have had
+  // two roster copies that could disagree — and a person added on the People tab
+  // would not have appeared in the Branches tab's dropdowns until the other cache
+  // entry happened to refetch.
+  const roster = useQuery({
+    queryKey: ROSTER_KEY,
+    queryFn: () => collectionApi.assignmentPeople(),
+  })
+
+  const people = useMemo(() => roster.data ?? [], [roster.data])
+
+  return (
+    <>
+      <div className="flex gap-1 border-b border-border/60" role="tablist">
+        {(['branches', 'people'] as const).map((name) => (
+          <button
+            key={name}
+            type="button"
+            role="tab"
+            aria-selected={tab === name}
+            onClick={() => setTab(name)}
+            className={
+              'rounded-t-md px-4 py-2 text-sm ' +
+              (tab === name
+                ? 'border border-b-0 border-border/60 bg-background font-medium'
+                : 'text-muted-foreground hover:text-foreground')
+            }
+          >
+            {t('assignment.tabs.' + name)}
+          </button>
+        ))}
+      </div>
+
+      {roster.isError && (
+        <ErrorBanner
+          message={apiErrorMessage(roster.error, t('assignment.errors.rosterFailed'))}
+          className="p-3"
+        />
+      )}
+
+      {tab === 'branches' ? <BranchesTab people={people} /> : <PeopleTab people={people} />}
+    </>
+  )
+}
+
+// =============================================================================
+// Branches — 1169
+// =============================================================================
+
+function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
   const { t } = useTranslation('collection')
   const queryClient = useQueryClient()
 
@@ -85,25 +163,17 @@ function AssignmentBody() {
     queryFn: () => collectionApi.assignmentBranches(),
   })
 
-  // The roster — the SAME payload and the SAME cache key the *Served by* picker
-  // on the four inquiry screens uses. The two dropdowns are built from it, and
-  // so is every name this screen shows: there are no name columns on a row.
-  const roster = useQuery(assignmentOptionsQuery())
-
+  // 🚩 Each slot is filtered to ITS OWN Role — a collector cannot be offered for the
+  // accountant slot, and the pure manager (blank Role) is offered for neither,
+  // because somebody who does nothing for branches must not be assignable to one.
+  // ⚠️ This is emphatically NOT the rule the People tab's supervisor field follows.
   const accountants = useMemo<AssignmentPerson[]>(
-    () => roster.data?.accountants ?? [],
-    [roster.data],
+    () => slotPeople(people, 'accountantId'),
+    [people],
   )
-  const collectors = useMemo<AssignmentPerson[]>(() => roster.data?.collectors ?? [], [roster.data])
+  const collectors = useMemo<AssignmentPerson[]>(() => slotPeople(people, 'collectorId'), [people])
 
-  const nameOf = useMemo(() => {
-    const names = new Map<string, string>()
-    for (const person of [...accountants, ...collectors]) names.set(person.staffId, person.displayName)
-    // An id with no roster row echoes itself rather than rendering blank — a
-    // person who was removed from the roster after being assigned is still a
-    // legible id rather than an empty cell.
-    return (staffId: string) => names.get(staffId) ?? staffId
-  }, [accountants, collectors])
+  const nameOf = useMemo(() => rosterNameOf(people), [people])
 
   // ---- the filter (client-side over the one payload) ----
   const [filter, setFilter] = useState<AssignmentFilter>(ASSIGNMENT_LANDING)
@@ -381,5 +451,259 @@ function SlotSelect({
         </option>
       ))}
     </select>
+  )
+}
+
+// =============================================================================
+// People — 1170
+// =============================================================================
+
+/**
+ * The roster tab: a form over a list, rather than an editable grid.
+ *
+ * 🔑 **Add-person-first is the whole point of the tab.** A person created here is
+ * in the Branches tab's dropdowns immediately — the save writes into the SAME
+ * cache entry both tabs read — which is the ticket's story: a new hire is recorded
+ * and assigned in one afternoon.
+ *
+ * 🚩 **The supervisor field offers the whole roster** and the two slot dropdowns on
+ * the other tab do not. The two rules are opposite and live one import away from
+ * each other in `people.ts`, where they can be read together.
+ */
+function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
+  const { t } = useTranslation('collection')
+  const queryClient = useQueryClient()
+
+  const [search, setSearch] = useState('')
+  const [form, setForm] = useState<SavePersonBody>(blankPerson)
+  // Blank while adding; the person's id while editing an existing row — which is
+  // also what disables the id field, since StaffId is the primary key.
+  const [editing, setEditing] = useState('')
+  const [failure, setFailure] = useState('')
+
+  const nameOf = useMemo(() => rosterNameOf(people), [people])
+  const supervisors = useMemo(() => supervisorIds(people), [people])
+  const offeredSupervisors = useMemo(
+    () => supervisorOptions(people, form.staffId),
+    [people, form.staffId],
+  )
+
+  const visible = useMemo(
+    () => people.filter((person) => matchesPersonSearch(person, search, nameOf)),
+    [people, search, nameOf],
+  )
+
+  const save = useMutation({
+    mutationFn: (body: SavePersonBody) => collectionApi.savePerson(body),
+    onSuccess: (saved) => {
+      // Settle the shared roster on what the SERVER wrote. Both tabs read this
+      // entry, so the new person is in the Branches tab's dropdown the moment this
+      // returns — no refetch, and no second copy that could disagree.
+      queryClient.setQueryData<RosterPerson[]>(ROSTER_KEY, (current) => {
+        const rest = (current ?? []).filter((p) => p.staffId !== saved.staffId)
+        return [...rest, saved].sort((a, b) => a.displayName.localeCompare(b.displayName))
+      })
+
+      // 🔑 AND THE PICKER ON THE OTHER FOUR SCREENS. This is the ticket's *Done
+      // when* — "naming a supervisor here is what makes the group show up in the
+      // Served by control on four screens" — and without this line it would be
+      // true only after a hard reload: `assignmentOptionsQuery` is deliberately
+      // `staleTime: Infinity` (a roster does not change inside a page life), which
+      // is exactly right for the four readers and exactly wrong for the ONE writer
+      // that can change it. So the writer invalidates, rather than the four
+      // readers each going stale on a timer.
+      void queryClient.invalidateQueries({ queryKey: ASSIGNMENT_OPTIONS_KEY })
+
+      setForm(blankPerson())
+      setEditing('')
+      setFailure('')
+    },
+    onError: (error) => {
+      // ⚠️ The form STAYS filled. A refused save stages nothing server-side — every
+      // check runs before the write context opens — so the only copy of the
+      // administrator's intent is the one on screen.
+      setFailure(apiErrorMessage(error, t('assignment.errors.personFailed')))
+    },
+  })
+
+  const invalid = personFormError(form)
+
+  return (
+    <>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">{t('assignment.people.search')}</span>
+          <input
+            className="h-9 w-72 rounded-md border border-border/60 bg-background px-3 text-sm"
+            value={search}
+            placeholder={t('assignment.people.searchPlaceholder')}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </label>
+        <div className="ms-auto text-sm text-muted-foreground">
+          {t('assignment.people.counts', { total: people.length, supervisors: supervisors.size })}
+        </div>
+      </div>
+
+      {/* ---- the form: add, or edit the row that was clicked ---- */}
+      <div className="flex flex-wrap items-end gap-3 rounded-md border border-border/60 p-3">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">{t('assignment.people.staffId')}</span>
+          <input
+            className="h-9 w-36 rounded-md border border-border/60 bg-background px-3 text-sm disabled:opacity-60"
+            value={form.staffId}
+            // The primary key. Renaming a person is a save; re-keying one would be a
+            // second row with the first still assigned to branches.
+            disabled={editing !== ''}
+            onChange={(e) => setForm((f) => ({ ...f, staffId: e.target.value }))}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">{t('assignment.people.displayName')}</span>
+          <input
+            className="h-9 w-64 rounded-md border border-border/60 bg-background px-3 text-sm"
+            value={form.displayName}
+            onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">{t('assignment.people.role')}</span>
+          <select
+            className="h-9 rounded-md border border-border/60 bg-background px-2 text-sm"
+            value={form.role}
+            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+          >
+            {/* 🔑 Blank is a legitimate Role, not an empty choice: the pure manager
+                who supervises people and serves no branch at all. */}
+            <option value="">{t('assignment.people.roleNone')}</option>
+            {PICKABLE_ROLES.map((role) => (
+              <option key={role} value={role}>
+                {t(roleLabelKey(role))}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">{t('assignment.people.supervisor')}</span>
+          {/* 🚩 THE WHOLE ROSTER, unfiltered by Role. Anyone may supervise anyone,
+              because supervising is not a role — and naming somebody here is what
+              makes the Supervisors group appear in the Served by control on four
+              screens. */}
+          <select
+            className="h-9 w-56 rounded-md border border-border/60 bg-background px-2 text-sm"
+            value={form.supervisorId}
+            onChange={(e) => setForm((f) => ({ ...f, supervisorId: e.target.value }))}
+          >
+            <option value="">{t('assignment.nobodyOption')}</option>
+            {offeredSupervisors.map((person) => (
+              <option key={person.staffId} value={person.staffId}>
+                {person.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-center gap-2 pb-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.isActive}
+            onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+          />
+          <span className="text-muted-foreground">{t('assignment.people.isActive')}</span>
+        </label>
+
+        <button
+          type="button"
+          className="h-9 rounded-md border border-border/60 px-4 text-sm font-medium disabled:opacity-50"
+          disabled={invalid !== null || save.isPending}
+          onClick={() => save.mutate(form)}
+        >
+          {editing === '' ? t('assignment.people.add') : t('assignment.people.update')}
+        </button>
+
+        {/* Which field is missing, not merely THAT one is — a disabled button with
+            no reason beside it is the same dead end on a two-field form as on a
+            twenty-field one. */}
+        {invalid !== null && (
+          <span className="pb-2 text-sm text-muted-foreground">
+            {t('assignment.people.required', { field: t('assignment.people.' + invalid) })}
+          </span>
+        )}
+
+        {editing !== '' && (
+          <button
+            type="button"
+            className="h-9 rounded-md px-3 text-sm text-muted-foreground"
+            onClick={() => {
+              setForm(blankPerson())
+              setEditing('')
+              setFailure('')
+            }}
+          >
+            {t('assignment.people.cancel')}
+          </button>
+        )}
+      </div>
+
+      {failure !== '' && <ErrorBanner message={failure} className="p-3" />}
+
+      {visible.length === 0 ? (
+        <EmptyState
+          title={t('assignment.people.empty.title')}
+          hint={t('assignment.people.empty.hint')}
+        />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-start text-muted-foreground">
+              <tr>
+                <th className="p-2 text-start">{t('assignment.people.staffId')}</th>
+                <th className="p-2 text-start">{t('assignment.people.displayName')}</th>
+                <th className="p-2 text-start">{t('assignment.people.role')}</th>
+                <th className="p-2 text-start">{t('assignment.people.supervisor')}</th>
+                <th className="p-2 text-start">{t('assignment.people.isSupervisor')}</th>
+                <th className="p-2 text-start">{t('assignment.people.isActive')}</th>
+                <th className="p-2 text-start">{t('assignment.columns.updatedBy')}</th>
+                <th className="p-2" />
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((person) => (
+                <tr key={person.staffId} className="border-t border-border/40">
+                  <td className="p-2">{person.staffId}</td>
+                  <td className="p-2">{person.displayName}</td>
+                  <td className="p-2">{t(roleLabelKey(person.role))}</td>
+                  <td className="p-2">
+                    {person.supervisorId === '' ? '—' : nameOf(person.supervisorId)}
+                  </td>
+                  {/* 🔑 A supervisor is not a Role: this column is "somebody names
+                      you", which is a different fact from the one beside it — and a
+                      person can legitimately be both. */}
+                  <td className="p-2">{supervisors.has(person.staffId) ? '✓' : ''}</td>
+                  <td className="p-2">{person.isActive ? '✓' : ''}</td>
+                  <td className="p-2">{person.updatedBy}</td>
+                  <td className="p-2 text-end">
+                    <button
+                      type="button"
+                      className="rounded border border-border/60 px-2 py-1 text-xs"
+                      onClick={() => {
+                        setForm(personToBody(person))
+                        setEditing(person.staffId)
+                        setFailure('')
+                      }}
+                    >
+                      {t('assignment.people.edit')}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   )
 }

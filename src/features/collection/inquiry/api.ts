@@ -31,6 +31,7 @@ import type {
   VoucherDocument,
 } from '@/core/models/collection'
 import type { AssignmentBranch, AssignmentPairing, SaveAssignmentBody } from './assignment'
+import type { BulkAssignmentBody, BulkPreview, BulkResult } from './bulk'
 import type { RosterPerson, SavePersonBody } from './people'
 import type { AssignmentOptions } from './served-by'
 
@@ -240,6 +241,44 @@ export const collectionApi = {
    */
   saveAssignment(body: SaveAssignmentBody): Promise<AssignmentPairing> {
     return api.post<AssignmentPairing>('CollectionWeb/Assignment/SetStore', body)
+  },
+
+  /**
+   * `POST CollectionWeb/Assignment/BulkPreview` → what the bulk confirmation
+   * dialog states for a target set (BackOffice 1171): `{ targeted, alreadyServed,
+   * unknownStoreCodes }`, written nowhere.
+   *
+   * 🔑 **`alreadyServed` is the whole guard, and it is the SERVER's number.** Over
+   * an unfiltered estate the same button that fills 300 gaps would otherwise
+   * rewrite the 139 pairings finance already decided, silently. Counting it here
+   * would count what this client happens to hold — a page-load snapshot on the
+   * tick-rows flow, and on the paste flow a set the grid may never have shown.
+   *
+   * ⚠️ A **POST that reads**: its input is the target set — up to the whole
+   * 1394-branch estate — which does not fit a query string, and it is the SAME body
+   * the apply takes, which is what stops the dialog and the write from being about
+   * two different selections.
+   */
+  bulkAssignmentPreview(body: BulkAssignmentBody): Promise<BulkPreview> {
+    return api.post<BulkPreview>('CollectionWeb/Assignment/BulkPreview', body)
+  },
+
+  /**
+   * `POST CollectionWeb/Assignment/BulkSetStores` → apply one person to a whole
+   * target set, and get back the branches that landed.
+   *
+   * 🔑 **The body carries no actor**, exactly like `saveAssignment`. 🚩 And it is an
+   * explicit separate operation, not a loop over the per-row save: one transaction,
+   * one stamp, and `appliedStoreCodes` naming what moved — which is how the grid
+   * settles 300 rows on what the server actually wrote.
+   *
+   * ⚠️ **Exactly one slot travels**, so a bulk collector hand-over leaves every
+   * branch's accountant as finance set it. Unknown codes come back **named**, and
+   * do not fail the apply: one transposed digit must not throw away the forty
+   * branches pasted beside it.
+   */
+  bulkAssignment(body: BulkAssignmentBody): Promise<BulkResult> {
+    return api.post<BulkResult>('CollectionWeb/Assignment/BulkSetStores', body)
   },
 
   /**

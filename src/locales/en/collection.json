@@ -346,6 +346,49 @@
       "branches": "Branches",
       "people": "People"
     },
+    "bulk": {
+      "heading": "Assign many branches at once",
+      "target": "Apply to",
+      "targets": {
+        "ticked": "The {{count}} ticked rows",
+        "filter": "Everything matching the filter ({{count}})",
+        "pasted": "A pasted list of store codes"
+      },
+      "pastePlaceholder": "P075, P076 — one per line, or comma separated",
+      "slot": "Slot",
+      "slots": {
+        "accountantId": "Accountant",
+        "collectorId": "Collector"
+      },
+      "person": "Assign",
+      "review": "Review…",
+      "selectPage": "Tick this page",
+      "selectMatching": "Tick everything matching",
+      "clearTicks": "Clear ticks",
+      "ticked": "{{count}} ticked",
+      "pinned": "{{count}} branches were just changed and are held on screen.",
+      "unpin": "Done",
+      "confirm": {
+        "title": "Assign {{count}} branches?",
+        "slotLine": "{{slot}} → {{person}}",
+        "alreadyServedNone": "None of them has anybody in that slot today.",
+        "alreadyServed_one": "1 of them already has somebody in that slot, and will be overwritten.",
+        "alreadyServed_other": "{{count}} of them already have somebody in that slot, and will be overwritten.",
+        "unknown_one": "1 pasted code matches no open branch and will be skipped: {{codes}}",
+        "unknown_other": "{{count}} pasted codes match no open branch and will be skipped: {{codes}}",
+        "nothing": "Nothing in this selection is an open branch, so there is nothing to apply.",
+        "apply": "Apply",
+        "cancel": "Cancel"
+      },
+      "applied_one": "1 branch assigned.",
+      "applied_other": "{{count}} branches assigned.",
+      "skipped_one": "1 code matched no open branch: {{codes}}",
+      "skipped_other": "{{count}} codes matched no open branch: {{codes}}",
+      "errors": {
+        "previewFailed": "The selection could not be checked, so nothing was applied.",
+        "applyFailed": "The bulk assignment failed, and nothing was changed."
+      }
+    },
     "people": {
       "search": "Find a person",
       "searchPlaceholder": "Staff id, name or supervisor",

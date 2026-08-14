@@ -41,6 +41,20 @@ import {
   type SavePersonBody,
   type Slot,
 } from './people'
+import {
+  applyBulkResult,
+  buildBulkBody,
+  buildConfirmation,
+  bulkPins,
+  isApplicable,
+  keepVisible,
+  pageCodes,
+  selectionFromFilter,
+  selectionFromPaste,
+  selectionFromTicks,
+  type BulkConfirmation,
+  type BulkFlow,
+} from './bulk'
 import { GRID_PAGE_SIZE } from './cap'
 import { EmptyState, ListShimmer } from './GridStates'
 import ScreenGate from './ScreenGate'
@@ -198,12 +212,55 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
     [serverRows, edits],
   )
 
+  // ---- the three bulk flows (1171) ----
+  //
+  // 🔑 Three gestures, ONE selection type and ONE dialog. Everything below is about
+  // arriving at a list of store codes; the moment it exists, the flow it came from
+  // stops mattering to anything but the dialog's wording.
+  const [flow, setFlow] = useState<BulkFlow>('ticked')
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set())
+  const [pasted, setPasted] = useState('')
+  const [bulkSlot, setBulkSlot] = useState<Slot>('collectorId')
+  const [bulkStaffId, setBulkStaffId] = useState('')
+  const [confirmation, setConfirmation] = useState<BulkConfirmation | null>(null)
+  const [bulkError, setBulkError] = useState('')
+  const [bulkNotice, setBulkNotice] = useState('')
+  // 🚩 The rows a bulk apply just changed, held on screen whatever the filter says —
+  // 1169's touched-row rule at set scale. ⚠️ A SEPARATE set from `edits`: those are
+  // unsaved and leave on success, these ARE saved and are pinned so that a
+  // set-sized change is legible instead of the grid emptying in one frame. Cleared
+  // by the user's next gesture, never by the server.
+  const [pins, setPins] = useState<ReadonlySet<string>>(() => new Set())
+  const [pageIndex, setPageIndex] = useState(0)
+
   const touched = useMemo(() => new Set(Object.keys(edits)), [edits])
   const visible = useMemo(
-    () => visibleBranches(rows, filter, nameOf, touched),
-    [rows, filter, nameOf, touched],
+    () => visibleBranches(rows, filter, nameOf, keepVisible(touched, pins)),
+    [rows, filter, nameOf, touched, pins],
   )
   const counts = useMemo(() => assignmentCounts(rows), [rows])
+
+  // The filter flow is built over the WHOLE payload, never over the page the grid
+  // drew: the screen holds all ~1394 branches and pages client-side, so "everything
+  // matching" has to mean the 1255 and not the 50 on screen.
+  //
+  // ⚠️ And over the SERVER's rows rather than `rows`, which carries unsaved edits on
+  // top of them. A branch whose gap is filled only by an in-flight or refused edit
+  // still has that gap in the sink — dropping it out of *With a gap* here would make
+  // the membership of the set and the server's count of that set two different
+  // questions, which is the one thing this flow must not do.
+  const matching = useMemo(
+    () => selectionFromFilter(serverRows, filter, nameOf),
+    [serverRows, filter, nameOf],
+  )
+
+  const selection = useMemo(() => {
+    if (flow === 'pasted') return selectionFromPaste(pasted)
+    if (flow === 'ticked') return selectionFromTicks(ticked)
+    return matching
+  }, [flow, pasted, ticked, matching])
+
+  const bulkPeople = bulkSlot === 'accountantId' ? accountants : collectors
 
   const save = useMutation({
     mutationFn: (body: Parameters<typeof collectionApi.saveAssignment>[0]) =>
@@ -268,8 +325,83 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
     [branchesKey, queryClient, save, serverRows, t],
   )
 
+  // ---- the bulk calls ----
+  //
+  // Two of them, and the SAME body goes to both — which is what stops the number in
+  // the dialog and the number the write is about from being two different questions.
+  const preview = useMutation({
+    mutationFn: () => collectionApi.bulkAssignmentPreview(buildBulkBody(selection, bulkSlot, bulkStaffId)),
+    onSuccess: (result) => {
+      setBulkError('')
+      setBulkNotice('')
+      setConfirmation(buildConfirmation(selection, bulkSlot, bulkStaffId, result))
+    },
+    onError: (error) =>
+      setBulkError(apiErrorMessage(error, t('assignment.bulk.errors.previewFailed'))),
+  })
+
+  const applyBulk = useMutation({
+    mutationFn: () => collectionApi.bulkAssignment(buildBulkBody(selection, bulkSlot, bulkStaffId)),
+    onSuccess: (result) => {
+      // Settle the grid on what the SERVER wrote — the applied set, the applied slot
+      // and nothing else — then hold those rows on screen.
+      queryClient.setQueryData<AssignmentBranch[]>(branchesKey, (current) =>
+        applyBulkResult(current ?? [], result, bulkSlot, bulkStaffId),
+      )
+      // ⚠️ The pins ACCUMULATE across applies. Replacing them would make the rows a
+      // first bulk apply changed vanish the moment a second one runs — which is the
+      // very disappearance this pin exists to prevent, arriving one gesture later.
+      setPins((current) => keepVisible(current, bulkPins(result)))
+      setTicked(new Set())
+      setConfirmation(null)
+      setBulkError('')
+      setBulkNotice(
+        t('assignment.bulk.applied', { count: result.applied }) +
+          (result.unknownStoreCodes.length > 0
+            ? ' ' +
+              t('assignment.bulk.skipped', {
+                count: result.unknownStoreCodes.length,
+                codes: result.unknownStoreCodes.join(', '),
+              })
+            : ''),
+      )
+    },
+    onError: (error) => {
+      // ⚠️ The dialog stays open with the selection intact: a refused bulk apply
+      // stages nothing server-side, so the administrator's intent is still only on
+      // screen — exactly as a refused per-row save leaves its edit in the row.
+      setBulkError(apiErrorMessage(error, t('assignment.bulk.errors.applyFailed')))
+    },
+  })
+
+  const toggleTick = useCallback((storeCode: string) => {
+    setTicked((current) => {
+      const next = new Set(current)
+      if (!next.delete(storeCode)) next.add(storeCode)
+      return next
+    })
+  }, [])
+
   const columns = useMemo<ColDef<AssignmentBranch>[]>(
     () => [
+      {
+        colId: 'tick',
+        headerName: '',
+        width: 44,
+        sortable: false,
+        // Ticking rows is the second of the three flows — and select-page /
+        // select-all-matching are the same thing by the time they reach the
+        // selection, so they are two buttons over this one column rather than two
+        // more modes.
+        cellRenderer: (p: ICellRendererParams<AssignmentBranch>) => (
+          <input
+            type="checkbox"
+            aria-label={p.data!.storeCode}
+            checked={ticked.has(p.data!.storeCode)}
+            onChange={() => toggleTick(p.data!.storeCode)}
+          />
+        ),
+      },
       { field: 'storeCode', headerName: t('assignment.columns.storeCode'), width: 130 },
       { field: 'storeName', headerName: t('assignment.columns.storeName'), flex: 1, minWidth: 200 },
       { field: 'city', headerName: t('assignment.columns.city'), width: 140 },
@@ -321,7 +453,7 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
       },
       { field: 'updatedBy', headerName: t('assignment.columns.updatedBy'), width: 140 },
     ],
-    [accountants, collectors, onSlotChange, saving, t],
+    [accountants, collectors, onSlotChange, saving, t, ticked, toggleTick],
   )
 
   const failed = Object.entries(failures)
@@ -370,6 +502,152 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
         </div>
       </div>
 
+      {/* ---- the three bulk flows, in one bar (1171) ----
+           Assigning 1255 unserved branches one row at a time is not a screen, it is
+           a week. The three targets are three ways of arriving at a set — and they
+           all end at the same dialog below. */}
+      <div className="flex flex-wrap items-end gap-3 rounded-md border border-border/60 p-3">
+        <span className="pb-2 text-sm font-medium">{t('assignment.bulk.heading')}</span>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">{t('assignment.bulk.target')}</span>
+          <select
+            className="h-9 rounded-md border border-border/60 bg-background px-2 text-sm"
+            value={flow}
+            onChange={(e) => setFlow(e.target.value as BulkFlow)}
+          >
+            <option value="ticked">
+              {t('assignment.bulk.targets.ticked', { count: ticked.size })}
+            </option>
+            <option value="filter">
+              {t('assignment.bulk.targets.filter', { count: matching.storeCodes.length })}
+            </option>
+            <option value="pasted">{t('assignment.bulk.targets.pasted')}</option>
+          </select>
+        </label>
+
+        {flow === 'pasted' && (
+          <textarea
+            className="h-16 w-72 rounded-md border border-border/60 bg-background px-3 py-1 text-sm"
+            value={pasted}
+            placeholder={t('assignment.bulk.pastePlaceholder')}
+            onChange={(e) => setPasted(e.target.value)}
+          />
+        )}
+
+        {flow === 'ticked' && (
+          <div className="flex items-center gap-2 pb-1 text-sm">
+            <button
+              type="button"
+              className="h-9 rounded-md border border-border/60 px-3"
+              onClick={() => setTicked(new Set(pageCodes(visible, pageIndex, GRID_PAGE_SIZE)))}
+            >
+              {t('assignment.bulk.selectPage')}
+            </button>
+            <button
+              type="button"
+              className="h-9 rounded-md border border-border/60 px-3"
+              onClick={() => setTicked(new Set(matching.storeCodes))}
+            >
+              {t('assignment.bulk.selectMatching')}
+            </button>
+            <button
+              type="button"
+              className="h-9 rounded-md px-2 text-muted-foreground"
+              onClick={() => setTicked(new Set())}
+            >
+              {t('assignment.bulk.clearTicks')}
+            </button>
+          </div>
+        )}
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">{t('assignment.bulk.slot')}</span>
+          {/* ⚠️ ONE slot travels. Applying collectors to a city leaves every branch's
+              accountant exactly as finance set it, branch by branch. */}
+          <select
+            className="h-9 rounded-md border border-border/60 bg-background px-2 text-sm"
+            value={bulkSlot}
+            onChange={(e) => {
+              setBulkSlot(e.target.value as Slot)
+              // The person picker is filtered to the slot's Role, so the previous
+              // pick is not offered by the new one.
+              setBulkStaffId('')
+            }}
+          >
+            {(['accountantId', 'collectorId'] as const).map((slot) => (
+              <option key={slot} value={slot}>
+                {t('assignment.bulk.slots.' + slot)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-muted-foreground">{t('assignment.bulk.person')}</span>
+          <select
+            className="h-9 w-56 rounded-md border border-border/60 bg-background px-2 text-sm"
+            value={bulkStaffId}
+            onChange={(e) => setBulkStaffId(e.target.value)}
+          >
+            <option value="">{t('assignment.nobodyOption')}</option>
+            {bulkPeople.map((person) => (
+              <option key={person.staffId} value={person.staffId}>
+                {person.displayName}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {/* 🔑 It says *Review*, not *Apply*: the button opens the confirmation, and
+            the confirmation is the guard. */}
+        <button
+          type="button"
+          className="h-9 rounded-md border border-border/60 px-4 text-sm font-medium disabled:opacity-50"
+          disabled={selection.storeCodes.length === 0 || preview.isPending}
+          onClick={() => preview.mutate()}
+        >
+          {t('assignment.bulk.review')}
+        </button>
+      </div>
+
+      {bulkError !== '' && <ErrorBanner message={bulkError} className="p-3" />}
+
+      {bulkNotice !== '' && (
+        <div className="flex items-center gap-3 rounded-md border border-border/60 p-3 text-sm">
+          <span>{bulkNotice}</span>
+          {pins.size > 0 && (
+            <>
+              <span className="text-muted-foreground">
+                {t('assignment.bulk.pinned', { count: pins.size })}
+              </span>
+              {/* Releasing the pin is the user's gesture — the rows leave the filter
+                  when they say so, not when the server answers. */}
+              <button
+                type="button"
+                className="ms-auto h-8 rounded-md border border-border/60 px-3"
+                onClick={() => {
+                  setPins(new Set())
+                  setBulkNotice('')
+                }}
+              >
+                {t('assignment.bulk.unpin')}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {confirmation !== null && (
+        <BulkConfirmDialog
+          confirmation={confirmation}
+          personName={nameOf(confirmation.staffId) || t('assignment.nobodyOption')}
+          busy={applyBulk.isPending}
+          onCancel={() => setConfirmation(null)}
+          onApply={() => applyBulk.mutate()}
+        />
+      )}
+
       {list.isError && (
         <ErrorBanner
           message={apiErrorMessage(list.error, t('assignment.errors.loadFailed'))}
@@ -400,11 +678,103 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
             pagination
             paginationPageSize={GRID_PAGE_SIZE}
             paginationPageSizeSelector={false}
+            onPaginationChanged={(e) => setPageIndex(e.api.paginationGetCurrentPage())}
             {...omsGridDirection}
           />
         </div>
       )}
     </>
+  )
+}
+
+/**
+ * 🔑 **THE ONE CONFIRMATION ALL THREE FLOWS END AT**, and the reason the bulk
+ * button says *Review*.
+ *
+ * It always states **both** numbers. "300 branches" alone is the sentence an
+ * administrator agrees to without reading; over an unfiltered estate the same button
+ * that fills 300 gaps would otherwise rewrite the 139 pairings finance already
+ * decided, silently, and nothing on screen would have said so.
+ *
+ * ⚠️ Both numbers are the **server's**, measured over the actual target set — not
+ * counted from the rows this grid happens to hold, which on the paste flow it may
+ * never have shown at all.
+ */
+function BulkConfirmDialog({
+  confirmation,
+  personName,
+  busy,
+  onCancel,
+  onApply,
+}: {
+  confirmation: BulkConfirmation
+  personName: string
+  busy: boolean
+  onCancel: () => void
+  onApply: () => void
+}) {
+  const { t } = useTranslation('collection')
+  const applicable = isApplicable(confirmation)
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="rounded-md border border-border/60 bg-background p-4"
+    >
+      <p className="font-medium">
+        {t('assignment.bulk.confirm.title', { count: confirmation.targeted })}
+      </p>
+
+      <p className="mt-1 text-sm text-muted-foreground">
+        {t('assignment.bulk.confirm.slotLine', {
+          slot: t('assignment.bulk.slots.' + confirmation.slot),
+          person: personName,
+        })}
+      </p>
+
+      {/* The guard itself. The zero case is its own key rather than a `_zero`
+          plural: English has no zero plural rule, so a `_zero` suffix would resolve
+          through the "other" branch on the one count that most needs its own
+          sentence. */}
+      <p className="mt-2 text-sm">
+        {confirmation.alreadyServed === 0
+          ? t('assignment.bulk.confirm.alreadyServedNone')
+          : t('assignment.bulk.confirm.alreadyServed', { count: confirmation.alreadyServed })}
+      </p>
+
+      {/* 🚩 Unknown codes are NAMED. A typo in a list arriving by email must be
+          visible, or the branch it was meant for stays unserved with nothing on
+          screen saying so. */}
+      {confirmation.unknown.length > 0 && (
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t('assignment.bulk.confirm.unknown', {
+            count: confirmation.unknown.length,
+            codes: confirmation.unknown.join(', '),
+          })}
+        </p>
+      )}
+
+      {!applicable && <p className="mt-2 text-sm">{t('assignment.bulk.confirm.nothing')}</p>}
+
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          className="h-9 rounded-md border border-border/60 px-4 text-sm font-medium disabled:opacity-50"
+          disabled={!applicable || busy}
+          onClick={onApply}
+        >
+          {t('assignment.bulk.confirm.apply')}
+        </button>
+        <button
+          type="button"
+          className="h-9 rounded-md px-3 text-sm text-muted-foreground"
+          onClick={onCancel}
+        >
+          {t('assignment.bulk.confirm.cancel')}
+        </button>
+      </div>
+    </div>
   )
 }
 

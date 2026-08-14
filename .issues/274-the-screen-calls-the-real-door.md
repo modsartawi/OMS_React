@@ -94,6 +94,22 @@ Two notes for whoever picks it up:
 - The grant to seed is the fifth under the Collections key:
   `BackOfficeScreen[CONTROLLER=SettlementAccount, COMMAND=03]`.
 
+🚩 **…and it cannot be bound by hand, because it was never minted.** `AuthzAdminWeb/Grants` is a
+**catalogue** of existing `UaAuthorization` rows (`GetBindableGrantCatalogAsync`) and there is no
+mint endpoint in `AuthzAdminWebEndpoints`; a grep for `SettlementAccount` across every `*.sql` in
+BackOffice returns nothing, while every sibling screen ships a `Seed-<Screen>-Screen-Authorization.sql`.
+So 1185's own instruction — *"nobody holds this grant until an admin binds it by hand in Authz
+Admin"* — has nothing to bind. Written up as **§4** of the BackOffice draft.
+
+Two ways to unblock the live pass, in order of preference:
+
+1. **Log in as a holder of ADMIN's `*/*` wildcard.** `CollectionScreenGate.CheckAsync` is a plain
+   engine `Check`, so the wildcard resolves `[SettlementAccount,03]` with no settlement row in
+   existence. This is 1185's stated break-glass, it needs no DDL, and it leaves **no permanent grant
+   holder** behind — which this ticket's Boundaries require.
+2. Run BackOffice's §4 seed once it exists, then bind `msartawi` in Authz Admin — and **unbind again**
+   before closing, per the Boundaries.
+
 ### Deliberately NOT part of this ticket's proof
 
 ⚠ **Do not repoint `tools/settlement-drive.mjs` at live.** Its assertions are about behaviour on

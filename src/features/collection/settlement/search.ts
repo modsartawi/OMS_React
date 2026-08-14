@@ -1,4 +1,23 @@
-import type { SettlementFleetRow } from '@/core/models/settlement'
+/**
+ * 🔑 **What this module needs of a row, and nothing more.** Two shapes are ranked
+ * through it now — the door's `SettlementFleetRow` and the posting form's
+ * `SettlementBranch` (274 / BackOffice 1199) — and they are not the same payload:
+ * one aggregates branches with settlement activity, the other is the open estate off
+ * the `Store` master. Two copies of this function is how a branch findable at the
+ * door becomes unpostable at the form, silently, because *"no such branch"* is an
+ * answer both give legitimately.
+ *
+ * Generic rather than a union, so `hits[].row` keeps the caller's own row type and
+ * the component rendering a hit still sees every field it has.
+ */
+export type BranchLike = {
+  storeId: string
+  storeName: string
+  /** Only the branch master carries one — see `MatchRank.CityContains`. */
+  city?: string
+  /** Only the branch master carries one — see `searchBranches`'s ordering. */
+  isMine?: boolean
+}
 
 /**
  * The door's search — one box over **branch code and branch name in either
@@ -54,17 +73,24 @@ export const MatchRank = {
   CodePrefix: 1,
   NamePrefix: 2,
   NameContains: 3,
+  /**
+   * 🔑 **D2's third key, restored by 274** — and ranked last, because a city matches
+   * a hundred branches where a name matches a handful. A row with no `city` (the
+   * fleet row has never carried one) can never reach this rank, so the door's search
+   * behaves exactly as before and only the posting form gains the key.
+   */
+  CityContains: 4,
 } as const
 
 export type MatchRank = (typeof MatchRank)[keyof typeof MatchRank]
 
-export type BranchHit = {
-  row: SettlementFleetRow
+export type BranchHit<T extends BranchLike = BranchLike> = {
+  row: T
   rank: MatchRank
 }
 
-export type BranchSearchResult = {
-  hits: BranchHit[]
+export type BranchSearchResult<T extends BranchLike = BranchLike> = {
+  hits: BranchHit<T>[]
   /** Everything that matched, before the display cap — so *"20 of 63"* is sayable. */
   total: number
 }
@@ -79,7 +105,7 @@ export type BranchSearchResult = {
  */
 const fold = (value: string | null | undefined): string => (value ?? '').trim().toLowerCase()
 
-function rankOf(row: SettlementFleetRow, needle: string): MatchRank | null {
+function rankOf(row: BranchLike, needle: string): MatchRank | null {
   const code = fold(row.storeId)
   if (code === needle) return MatchRank.CodeExact
   if (code.startsWith(needle)) return MatchRank.CodePrefix
@@ -87,6 +113,10 @@ function rankOf(row: SettlementFleetRow, needle: string): MatchRank | null {
   const name = fold(row.storeName)
   if (name.startsWith(needle)) return MatchRank.NamePrefix
   if (name.includes(needle)) return MatchRank.NameContains
+
+  // ⚠️ `includes` and not `startsWith`: a city is typed to narrow a search, never to
+  // address one branch.
+  if (fold(row.city).includes(needle)) return MatchRank.CityContains
 
   return null
 }
@@ -101,24 +131,34 @@ function rankOf(row: SettlementFleetRow, needle: string): MatchRank | null {
  * Ordering: match quality first, then the store code — total, so a re-render cannot
  * reshuffle the list under a cursor.
  */
-export function searchBranches(
-  rows: readonly SettlementFleetRow[] | null | undefined,
+export function searchBranches<T extends BranchLike>(
+  rows: readonly T[] | null | undefined,
   query: string,
   limit: number = SEARCH_HIT_LIMIT,
-): BranchSearchResult {
+): BranchSearchResult<T> {
   const needle = fold(query)
   if (!needle) return { hits: [], total: 0 }
 
-  const hits: BranchHit[] = []
+  const hits: BranchHit<T>[] = []
   for (const row of rows ?? []) {
     const rank = rankOf(row, needle)
     if (rank === null) continue
     hits.push({ row, rank })
   }
 
+  // 🔑 **Match quality first, then WHOSE branch it is, then the code.** The pairing
+  // master ranks this list and never filters it (274): an accountant's own branches
+  // surface first, and everybody else's stay one keystroke away rather than one
+  // permission away. ⚠️ `isMine` is the SERVER's reading of *mine* — own branches ∪
+  // one-level reports' — so this ordering and the front page's scope agree about
+  // whose money it is. Rows without the field (the fleet's) rank flat, as before.
+  //
+  // The code breaks every remaining tie, so the order is total and a re-render
+  // cannot reshuffle the list under a cursor.
   hits.sort(
     (a, b) =>
       a.rank - b.rank ||
+      Number(b.row.isMine ?? false) - Number(a.row.isMine ?? false) ||
       (a.row.storeId < b.row.storeId ? -1 : a.row.storeId > b.row.storeId ? 1 : 0),
   )
 
@@ -147,7 +187,7 @@ export function searchBranches(
 export type SubmitIntent = { kind: 'branch'; storeId: string } | { kind: 'ranked' }
 
 export function resolveSubmit(
-  rows: readonly SettlementFleetRow[] | null | undefined,
+  rows: readonly BranchLike[] | null | undefined,
   query: string,
 ): SubmitIntent {
   const result = searchBranches(rows, query, 2)

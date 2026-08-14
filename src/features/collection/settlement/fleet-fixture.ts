@@ -1,4 +1,8 @@
-import type { SettlementFleetRow, SettlementOrphanRow } from '@/core/models/settlement'
+import type {
+  SettlementBranch,
+  SettlementFleetRow,
+  SettlementOrphanRow,
+} from '@/core/models/settlement'
 import { accountHeadline } from './account-projection'
 import { SETTLEMENT_ACCOUNTS } from './settlement-fixture'
 
@@ -364,3 +368,81 @@ export const SETTLEMENT_ORPHANS: SettlementOrphanRow[] = ESTATE.orphans
  */
 export const SETTLEMENT_ASSIGNMENT: Record<string, 'mine' | 'unassigned' | 'other'> =
   Object.fromEntries(ESTATE.fleet.map((r) => [r.storeId, r.assignment]))
+
+/**
+ * `GET Settlement/Branches` — **the open estate**, off the `Store` master
+ * (BackOffice 1199).
+ *
+ * 🔑 **The whole point is that this is NOT `SETTLEMENT_FLEET` narrowed.** The fleet
+ * is *branches with settlement activity*; this is *branches that exist and are
+ * trading*, and on a database where nothing has been posted the first is empty while
+ * the second is the estate. That difference is what made the first entry unpostable
+ * (ticket 274) — so a fixture that derived one from the other would hide exactly the
+ * bug this door was minted for.
+ *
+ * The generator happens to build a row per open branch already, which is why it can
+ * carry `city` here: `city` was never absent from the estate, only from the fleet's
+ * *wire*. `servedBy` and `isMine` come off the same roster the stub filters scope
+ * with — the server resolves both, and both are ordering inputs rather than filters.
+ */
+/** The two roster names the estate has, for the branches that have one. */
+const SERVED_BY: Record<'mine' | 'other', string> = {
+  mine: 'ضحى المحاسبة',
+  other: 'محاسب آخر',
+}
+
+/**
+ * 🔑 **Branches nothing has ever been posted to — and the reason this fixture is not
+ * just the fleet re-mapped.**
+ *
+ * They appear on `Settlement/Branches` and on **no** settlement door at all: no
+ * account, no fleet row, no orphan. That is the ordinary case in an estate of 1394
+ * where settlement is new, and it is precisely the case ticket 274 could not post to,
+ * because the picker resolved against the fleet. A fixture whose two sets were
+ * identical would let that bug pass a green drive — which is how it survived five
+ * tickets in the first place.
+ *
+ * ⚠️ Deliberately three: one of the accountant's own, one somebody else's, one paired
+ * to nobody — so *ranked first*, *named*, and *blank* are each reachable on a branch
+ * with no history to lean on.
+ */
+const QUIET_BRANCHES: SettlementBranch[] = [
+  {
+    storeId: '9001',
+    storeName: 'صيدلية الياسمين / Al-Yasmin Pharmacy',
+    city: 'Riyadh',
+    area: 'Riyadh',
+    servedBy: SERVED_BY.mine,
+    isMine: true,
+  },
+  {
+    storeId: '9002',
+    storeName: 'صيدلية الواحة / Al-Waha Pharmacy',
+    city: 'Jeddah',
+    area: 'Jeddah',
+    servedBy: SERVED_BY.other,
+    isMine: false,
+  },
+  {
+    storeId: '9003',
+    storeName: 'صيدلية النرجس / Al-Narjis Pharmacy',
+    city: 'Dammam',
+    area: 'Dammam',
+    servedBy: '',
+    isMine: false,
+  },
+]
+
+export const SETTLEMENT_BRANCHES: SettlementBranch[] = [
+  ...ESTATE.fleet.map((row) => ({
+    storeId: row.storeId,
+    storeName: row.storeName,
+    city: row.city,
+    area: row.city,
+    // ⚠️ A branch paired to nobody says so — 1255 of 1394, the ordinary state of this
+    // estate. Blank, never a placeholder name.
+    servedBy: row.assignment === 'unassigned' ? '' : SERVED_BY[row.assignment],
+    isMine: row.assignment === 'mine',
+  })),
+  ...QUIET_BRANCHES,
+]

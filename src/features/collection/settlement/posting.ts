@@ -1,10 +1,6 @@
 import { roundMoney } from '@/core/money'
-import type {
-  SettlementEntry,
-  SettlementEntryKind,
-  SettlementFleetRow,
-} from '@/core/models/settlement'
-import { MatchRank, searchBranches } from './search'
+import type { SettlementEntry, SettlementEntryKind } from '@/core/models/settlement'
+import { type BranchLike, MatchRank, searchBranches } from './search'
 
 /**
  * **The posting form's rules** — the two guards ticket 271 requires, as pure
@@ -50,18 +46,17 @@ export const REASON_MAX = 200
  * branch — and the failure is invisible, because *"no such branch"* is a legitimate
  * answer it already gives.
  *
- * 🚩 **…and `scope=all` is still not the estate, which is the finding this module
- * ended up producing.** The fleet's four UNION branches all drive off
+ * 🚩 **…and `scope=all` was never the estate either, which is the finding this
+ * module ended up producing.** The fleet's four UNION branches all drive off
  * `PosSettlementEntry` / `PosSettlementConsumption`; `Store` reaches in only as a
- * correlated name lookup. So *all* means **every branch with settlement activity**,
- * not every branch — and on a migrated-but-unused database it is the empty set, so
- * no branch can be typed, so the first entry can never be posted. Nothing here can
- * fix that: the picker needs the `Store` master (`Closed = 0`), and no door under
- * this screen's grant serves it. Asked for as **§5** of
- * `.afk/BACKOFFICE-TICKET-DRAFT-settlement-reads.md` (`Settlement/Branches`), and
- * deliberately NOT worked around by borrowing `CollectionWeb/Assignment/Branches` —
- * that one rides the assignment **write** grant, which spec 1162 D13 ruled is never
- * OR-ed with a read.
+ * correlated name lookup. So *all* means **every branch with settlement activity** —
+ * and on a migrated-but-unused database that is the empty set, so no branch could be
+ * typed and the first entry could never be posted.
+ *
+ * ✅ **Settled by a door rather than a workaround:** `Settlement/Branches`
+ * (BackOffice 1199) answers the open `Store` master, and the form resolves against
+ * that. So this function's rows are now the ESTATE by construction — not a scope
+ * that happens to be wide. What it must still never be handed is the fleet.
  *
  * The reason has not changed: an accountant covering a colleague, or posting a
  * month's audit onto the 1255 branches assigned to nobody, must not find the branch
@@ -77,10 +72,10 @@ export const REASON_MAX = 200
  * thousand-option dropdown never picks the wrong branch for me"*. `many` is not a
  * near-miss to be broken by ranking; it is the form refusing to guess.
  */
-export type BranchResolution =
+export type BranchResolution<T extends BranchLike = BranchLike> =
   | { kind: 'empty' }
-  | { kind: 'one'; row: SettlementFleetRow }
-  | { kind: 'many'; matches: SettlementFleetRow[]; total: number }
+  | { kind: 'one'; row: T }
+  | { kind: 'many'; matches: T[]; total: number }
   | { kind: 'none' }
 
 /**
@@ -95,10 +90,10 @@ export type BranchResolution =
  * this module's, because *"resolved to exactly one match"* is a posting constraint
  * and not a way of ordering a list.
  */
-export function resolveBranch(
-  rows: readonly SettlementFleetRow[] | null | undefined,
+export function resolveBranch<T extends BranchLike>(
+  rows: readonly T[] | null | undefined,
   query: string,
-): BranchResolution {
+): BranchResolution<T> {
   if (!query.trim()) return { kind: 'empty' }
 
   const result = searchBranches(rows, query, AMBIGUOUS_PREVIEW)

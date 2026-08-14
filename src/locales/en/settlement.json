@@ -211,6 +211,9 @@
       }
     },
     "branch": {
+      "servedByYou": "Served by you",
+      "servedBy": "Served by {{name}}",
+      "servedByNobody": "Served by nobody yet",
       "label": "Which branch",
       "placeholder": "Code, name in either script, or city — e.g. 0142, الروضة, Al-Rawdah, Riyadh",
       "loading": "Loading the estate…",

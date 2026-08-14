@@ -89,6 +89,9 @@ let ACCOUNTS = {}
  *  allowed to be more generous than the server it stands in for - that is precisely
  *  how those three got built. */
 let FLEET = []
+/** KEY The OPEN ESTATE off the Store master - a genuinely different set from FLEET,
+ *  which holds only the branches carrying settlement rows. See the stub. */
+let BRANCHES = []
 let ORPHANS = []
 /** The server's own roster, for the fleet stub's scope filter. Never sent to a screen. */
 let ASSIGNMENT = {}
@@ -99,6 +102,9 @@ let bulkCancelCalls = []
 /** Every scope the fleet door was asked for, in order — 274 put the scope on the
  *  wire, so *did the control actually refetch* is a thing this drive can now see. */
 let fleetScopes = []
+/** Every limit `Settlement/Branches` was asked for - the door defaults to 500 and the
+ *  estate is 1394, the same truncation 274 found on the fleet. */
+let branchCalls = []
 /** The consumption whose document arrives MID-CLICK — the OLDEST orphan, picked
  *  once the fixture is loaded. Repairing it must come back a no-op (a 200 that
  *  changed nothing) rather than an error. */
@@ -216,6 +222,15 @@ async function run() {
         row.hasOrphan ||
         row.hasUncollectedReceipt
       return route.fulfill(envelope(FLEET.filter(inScope).slice(0, limit)))
+    }
+    // KEY **The picker's address book, and it is NOT the fleet** (BackOffice 1199).
+    // The fleet is *branches with settlement activity*; this is the open Store master.
+    // The stub keeps them genuinely different sets - see BRANCHES_ONLY below - so a
+    // client that went back to resolving a typed branch against the fleet fails here
+    // instead of silently losing every branch nobody has posted to yet.
+    if (path === 'Settlement/Branches') {
+      branchCalls.push(Number(url.searchParams.get('limit') || 500))
+      return route.fulfill(envelope(BRANCHES.slice(0, Number(url.searchParams.get('limit') || 500))))
     }
     // The one enumerated lane. Estate-wide, always, and it takes no scope at all.
     if (path === 'Settlement/Orphans') return route.fulfill(envelope(ORPHANS))
@@ -643,6 +658,7 @@ async function run() {
     const m = await import('/src/features/collection/settlement/fleet-fixture.ts')
     return {
       fleet: m.SETTLEMENT_FLEET,
+      branches: m.SETTLEMENT_BRANCHES,
       orphans: m.SETTLEMENT_ORPHANS,
       // The stub plays the SERVER, so it gets the roster the server has — see the
       // export's own docblock. No screen may read this.
@@ -650,6 +666,7 @@ async function run() {
     }
   })
   FLEET = estate.fleet
+  BRANCHES = estate.branches
   ORPHANS = estate.orphans
   ASSIGNMENT = estate.assignment
   // …and 273's four preview payloads, from the module `bulk.test.ts` asserts
@@ -1136,6 +1153,59 @@ async function run() {
       (await page.locator('[data-testid="post-branch-resolved"]').innerText()).includes('Al-Nakheel'),
   )
   check('271 → …and the form is postable once it has one', !(await reviewBlocked()))
+
+  // ---- KEY 274/1199: THE PICKER SEARCHES THE ESTATE, NOT THE LEDGER ----
+  //
+  // The bug this door was minted for. The form resolved a typed branch against
+  // `Settlement/Fleet`, whose every UNION branch drives off the settlement tables -
+  // so it could only ever name a branch that ALREADY had settlement rows. On a
+  // migrated-but-unused database it named none at all, and the only door that mints
+  // the first row could not be reached without one. 9001/9002/9003 exist in the
+  // Store master and on no settlement door whatsoever: if the picker ever goes back
+  // to the fleet, these four checks are what turn red.
+  await typeBranch('9001')
+  check(
+    '🔑 274 → a branch NOTHING has ever been posted to is postable',
+    (await page.locator('[data-testid="post-branch-resolved"]').getAttribute('data-store')) === '9001' &&
+      !(await reviewBlocked()),
+    (await page.locator('[data-testid="post-branch-resolved"]').innerText()).replace(/\n/g, ' '),
+  )
+  check(
+    '🔑 …and it is NOT on the fleet, which is what makes that check mean something',
+    !FLEET.some((r) => r.storeId === '9001') && BRANCHES.some((b) => b.storeId === '9001'),
+  )
+  check(
+    '🚩 …asked for with a limit the estate FITS IN — the door defaults to 500 of 1394',
+    branchCalls.length > 0 && branchCalls.every((n) => n >= 1394),
+    `limits asked: ${[...new Set(branchCalls)].join(', ')}`,
+  )
+  // The pairing master LABELS this list. It never filters it - so a branch served by
+  // somebody else resolves and posts, and says whose it is while doing so.
+  check(
+    '🔑 274 → the accountant’s OWN branch is marked as theirs',
+    (await page.locator('[data-testid="post-branch-served-by"]').innerText()).includes('Served by you'),
+  )
+  await typeBranch('9002')
+  check(
+    '🚩 …and somebody ELSE’s branch is NAMED and still postable — the pairing ranks, it never gates',
+    (await page.locator('[data-testid="post-branch-served-by"]').innerText()).includes('محاسب آخر') &&
+      !(await reviewBlocked()),
+    (await page.locator('[data-testid="post-branch-served-by"]').innerText()).replace(/\n/g, ' '),
+  )
+  await typeBranch('9003')
+  check(
+    '⚠️ …and a branch paired to NOBODY says so plainly, rather than looking unloaded',
+    (await page.locator('[data-testid="post-branch-served-by"]').innerText()).includes('nobody') &&
+      !(await reviewBlocked()),
+  )
+  // The city: D2's third search key, which the fleet row has never carried.
+  await typeBranch('Dammam')
+  check(
+    '🔑 274 → a branch is findable by its CITY, the key the fleet row cannot carry',
+    (await page.locator('[data-testid="post-branch-resolved"]').count()) === 1 ||
+      (await page.locator('[data-testid="post-branch-ambiguous"]').count()) === 1,
+  )
+  await typeBranch('0331')
   await page.locator('dialog [data-kind="SURPLUS"]').click()
   await typeAmount('1,234.5')
   check(

@@ -6,7 +6,11 @@ import { RefreshCw, Search, TriangleAlert, Upload } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
 import { formatDateTime } from '@/core/util/date-format'
-import type { SettlementOrphanRow, SettlementScope } from '@/core/models/settlement'
+import type {
+  SettlementFleetRow,
+  SettlementOrphanRow,
+  SettlementScope,
+} from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { branchSearch, readQuery, writeQuery } from './addresses'
@@ -231,7 +235,11 @@ function SearchResults({
   results,
   params,
 }: {
-  results: BranchSearchResult
+  // ⚠️ The concrete row type, not the bare `BranchSearchResult`: `searchBranches` is
+  // generic over anything with a code and a name (the picker ranks the `Store` master
+  // through it too), and a default-parameterised annotation here would erase the
+  // fleet's own fields — `openCount` among them — back to the shared minimum.
+  results: BranchSearchResult<SettlementFleetRow>
   params: URLSearchParams
 }) {
   const { t } = useTranslation('settlement')

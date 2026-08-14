@@ -25,6 +25,7 @@ import { newRequestId } from '@/core/engine-session/request-id'
 import type { CollectionAccessResult } from '@/core/models/collection'
 import type {
   SettlementAccount,
+  SettlementBranch,
   SettlementBulkCancelResult,
   SettlementBulkCommitResult,
   SettlementBulkPreview,
@@ -37,7 +38,7 @@ import type {
   SettlementRepairResult,
   SettlementScope,
 } from '@/core/models/settlement'
-import { ACCOUNT_LIMIT, FLEET_LIMIT, WORKLIST_LIMIT } from './cap'
+import { ACCOUNT_LIMIT, BRANCH_LIMIT, FLEET_LIMIT, WORKLIST_LIMIT } from './cap'
 
 /**
  * The settlement account's predicate — this screen's own reading of the fifth flag.
@@ -111,6 +112,36 @@ export const settlementApi = {
     // ⚠️ `limit` is NOT optional in practice — the door's own default is 500 and the
     // estate is 1394. See `FLEET_LIMIT`.
     return api.get<SettlementFleetRow[]>('Settlement/Fleet', { scope, limit: FLEET_LIMIT })
+  },
+
+  /**
+   * `GET Settlement/Branches` → every **open** branch off the `Store` master
+   * (BackOffice 1199) — the posting form's address book.
+   *
+   * 🔑 **This exists because the fleet is not the estate, and 274 found out the
+   * expensive way.** The picker resolved what an accountant typed against
+   * `fleet('all')`, on the reasonable-looking assumption that *all* meant the
+   * estate. It does not: every branch of the fleet door's UNION drives off
+   * `PosSettlementEntry` / `PosSettlementConsumption`, so *all* means **every branch
+   * with settlement activity** — and on a migrated-but-unused database that is the
+   * empty set. The branch box found nothing, for every query, and the only door that
+   * mints a settlement row could not be reached without one already existing.
+   * Nothing could go first.
+   *
+   * ⚠️ **Not `CollectionWeb/Assignment/Branches`, which returns the same payload.**
+   * That route rides the assignment **write** grant, and BackOffice spec 1162 D13
+   * minted it as a fifth grant precisely so it would never be OR-ed with a read.
+   * Needing it to name a branch would mean an accountant must hold the authority to
+   * reassign the estate before they may post — the widening that ruling refused. So
+   * this is a settlement-gated door over the same master.
+   *
+   * 🚩 **No search parameter, deliberately.** ~1394 narrow rows is one answer the
+   * browser ranks itself (`search.ts`), the way the fleet already is. A server-side
+   * match would be a round trip per keystroke *and* a second ranking to keep in step
+   * with the one the screen owns.
+   */
+  branches(): Promise<SettlementBranch[]> {
+    return api.get<SettlementBranch[]>('Settlement/Branches', { limit: BRANCH_LIMIT })
   },
 
   /**

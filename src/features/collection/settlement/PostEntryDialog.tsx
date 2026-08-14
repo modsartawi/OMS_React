@@ -7,7 +7,7 @@ import { TriangleAlert } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import type {
   SettlementEntryKind,
-  SettlementFleetRow,
+  SettlementBranch,
   SettlementPostResult,
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
@@ -103,24 +103,28 @@ export default function PostEntryDialog({
     setPosted(null)
   }, [open, seedStoreId])
 
-  // 🔑 **THE ESTATE, and never the door's scoped answer** — `posting.ts` spells out
-  // why: an accountant covering a colleague, or posting a month's audit onto the
-  // 1255 branches assigned to nobody, must not find the branch they typed missing.
-  // Before 274 the door fetched `scope=all` and this shared its cache entry; the
-  // scope now goes on the wire, so this asks for the estate explicitly and under its
-  // own key. ⚠️ Passing the door's rows in here would silently make a real branch
-  // unpostable — and *"no such branch"* is an answer this form already gives, so the
-  // failure would look like a typo.
-  const fleet = useQuery({
-    queryKey: ['settlement', 'fleet', 'all'],
-    queryFn: () => settlementApi.fleet('all'),
+  // 🔑 **THE ESTATE — the `Store` master, and never the fleet.** This asked the fleet
+  // for `scope=all` until 274 drove it live and found that *all* is not the estate:
+  // every branch of that door's query drives off the settlement tables, so it answers
+  // *branches with settlement activity*, and on a database where nothing has been
+  // posted it answers **nothing at all**. The branch box found no branch for any
+  // query, and the only door that mints a settlement row was unreachable without one
+  // already existing.
+  //
+  // `Settlement/Branches` (BackOffice 1199) is the fix: every OPEN branch off the
+  // master, whoever the caller is. ⚠️ Handing the fleet's rows to `resolveBranch`
+  // would silently make a real branch unpostable — and *"no such branch"* is an
+  // answer this form gives legitimately, so the failure reads as a typo.
+  const branches = useQuery({
+    queryKey: ['settlement', 'branches'],
+    queryFn: () => settlementApi.branches(),
     staleTime: 60_000,
     enabled: open,
   })
 
   const resolution = useMemo(
-    () => resolveBranch(fleet.data, branchQuery),
-    [fleet.data, branchQuery],
+    () => resolveBranch(branches.data, branchQuery),
+    [branches.data, branchQuery],
   )
   const branch = resolution.kind === 'one' ? resolution.row : null
   // ⚠️ Empty today — the fleet row carries no currency (274 §B6). See
@@ -234,8 +238,8 @@ export default function PostEntryDialog({
               query={branchQuery}
               onQuery={setBranchQuery}
               resolution={resolution}
-              loading={fleet.isPending}
-              failed={fleet.isError}
+              loading={branches.isPending}
+              failed={branches.isError}
               onPick={(row) => setBranchQuery(row.storeId)}
             />
             {/* ⚠️ The standing position is drawn HERE — before the review step, as
@@ -333,10 +337,10 @@ function BranchField({
 }: {
   query: string
   onQuery: (next: string) => void
-  resolution: BranchResolution
+  resolution: BranchResolution<SettlementBranch>
   loading: boolean
   failed: boolean
-  onPick: (row: SettlementFleetRow) => void
+  onPick: (row: SettlementBranch) => void
 }) {
   const { t } = useTranslation('settlement')
   // 🚩 **Nothing is said about a typed branch until the estate has arrived.**
@@ -373,11 +377,32 @@ function BranchField({
         >
           <span className="font-mono text-muted-foreground">{resolution.row.storeId}</span>
           <span className="font-medium">{resolution.row.storeName}</span>
-          {/* ⚠️ The city and the currency stood here until 274 and are not on the
-              fleet row (§B5, §B6). The currency in particular was *named rather than
-              implied* on purpose — a BHD branch takes three decimals and a SAR branch
-              two (D10) — so its absence is why the amount is read back from what the
-              SERVER stored rather than from what was typed, two steps down. */}
+          {resolution.row.city && (
+            <span className="text-muted-foreground">{resolution.row.city}</span>
+          )}
+          {/* 🔑 **WHO SERVES THIS BRANCH.** The pairing master ranks and labels this
+              picker and never filters it (274): every open branch stays postable, and
+              naming the holder is what makes posting to somebody else's a VISIBLE act
+              rather than a silent one. A branch paired to nobody — 1255 of 1394 — says
+              so plainly rather than looking like a loading state. */}
+          <span
+            data-testid="post-branch-served-by"
+            className={
+              resolution.row.isMine
+                ? 'rounded-full bg-primary/10 px-2 py-0.5 text-primary'
+                : 'text-muted-foreground'
+            }
+          >
+            {resolution.row.isMine
+              ? t('post.branch.servedByYou')
+              : resolution.row.servedBy
+                ? t('post.branch.servedBy', { name: resolution.row.servedBy })
+                : t('post.branch.servedByNobody')}
+          </span>
+          {/* ⚠️ The currency stood here until 274 and is not on the wire (§B6). It was
+              *named rather than implied* on purpose — a BHD branch takes three decimals
+              and a SAR branch two (D10) — so its absence is why the amount is read back
+              from what the SERVER stored rather than from what was typed. */}
         </span>
       )}
 
@@ -599,7 +624,7 @@ function ReviewStep({
   reason,
   currencyKey,
 }: {
-  branch: SettlementFleetRow
+  branch: SettlementBranch
   kind: SettlementEntryKind
   words: AmountWords
   reason: string
@@ -656,7 +681,7 @@ function PostedPanel({
   reviewed,
 }: {
   result: SettlementPostResult
-  branch: SettlementFleetRow | null
+  branch: SettlementBranch | null
   kind: SettlementEntryKind
   /** The figure the accountant approved on the review step, at the branch's own
    *  precision — kept only to be compared with what came back. */

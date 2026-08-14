@@ -41,16 +41,19 @@ export const GRID_PAGE_SIZE = 50
 export const ACCOUNT_LIMIT = 500
 
 /**
- * The cross-estate ledger's cap (ticket 270).
+ * The branch picker's cap — every **open** branch off the `Store` master
+ * (`Settlement/Branches`).
  *
- * The same 500 the account door applies, and deliberately the same number rather
- * than a larger one: the ledger is a **lookup**, not a report. Its whole job is
- * *"find entry 143, whichever branch it is on"*, and a reader who has to page
- * through 2,000 rows to find one entry has been handed the estate again — which
- * is the design the door exists to refuse. The filter row is the way through, and
- * the banner says when the cap bit.
+ * 🔑 **The same 2,000 as the fleet, and for the same reason it must not be the
+ * server's 500.** This door answers the estate, not a filtered slice of it: at 1394
+ * open branches a 500-row `TOP` would leave 894 of them un-typeable in a form whose
+ * *"no such branch"* is a legitimate answer — so the truncation would read as a
+ * typo. `isCapReached` watches it here too.
+ *
+ * ⚠️ `LEDGER_LIMIT` stood here until 274 and is gone with `Settlement/Ledger`, the
+ * door that never existed.
  */
-export const LEDGER_LIMIT = 500
+export const BRANCH_LIMIT = 2000
 
 /**
  * The fleet door's cap — ✅ **found live by 274, and it is the one number on this

@@ -123,3 +123,58 @@ describe('🔑 what Enter means', () => {
     expect(submit('')).toEqual({ kind: 'ranked' })
   })
 })
+
+/**
+ * 🔑 **The branch master's two extra keys** — ticket 274 / BackOffice 1199.
+ *
+ * The picker searches `Settlement/Branches` (the open `Store` master) rather than
+ * the fleet, because the fleet is *branches with settlement activity* and is empty
+ * on a database where nothing has been posted. That row carries two things the fleet
+ * never has: a `city`, and the server's own reading of **whose branch this is**.
+ */
+describe('🔑 the branch master ranks by city and by whose branch it is', () => {
+  const BRANCHES = [
+    { storeId: '0900', storeName: 'Zahra Pharmacy', city: 'Jeddah', isMine: false },
+    { storeId: '0901', storeName: 'Yasmin Pharmacy', city: 'Riyadh', isMine: true },
+    { storeId: '0902', storeName: 'Wadi Pharmacy', city: 'Jeddah', isMine: true },
+  ]
+
+  it('finds a branch by its CITY — D2’s third key, which the fleet row never carried', () => {
+    const result = searchBranches(BRANCHES, 'riyadh')
+    expect(result.hits.map((h) => h.row.storeId)).toEqual(['0901'])
+    expect(result.hits[0].rank).toBe(MatchRank.CityContains)
+  })
+
+  it('ranks a city match LAST — a city narrows a search, a name addresses one', () => {
+    // 'wadi' is a name on 0902; if a city ever outranked a name, typing a branch's
+    // own name would surface every branch in some city above it.
+    const named = searchBranches(BRANCHES, 'wadi')
+    expect(named.hits[0].row.storeId).toBe('0902')
+    expect(named.hits[0].rank).toBe(MatchRank.NamePrefix)
+  })
+
+  it('🚩 puts the accountant’s OWN branches first — and still returns everybody else’s', () => {
+    // The whole ruling in one assertion: the pairing master RANKS this list and does
+    // not GATE it. 1255 of 1394 branches are paired to nobody, so a filter here would
+    // make their shortages unpostable by anyone — while the bulk lane, which resolves
+    // names straight off the same master, would keep reaching them.
+    const result = searchBranches(BRANCHES, 'pharmacy')
+    expect(result.hits.map((h) => h.row.storeId)).toEqual(['0901', '0902', '0900'])
+    expect(result.total).toBe(3)
+  })
+
+  it('breaks a tie by store code, so a re-render cannot reshuffle the list', () => {
+    const mine = searchBranches(BRANCHES, 'pharmacy').hits.filter((h) => h.row.isMine)
+    expect(mine.map((h) => h.row.storeId)).toEqual(['0901', '0902'])
+  })
+
+  it('⚠️ leaves a row WITHOUT the two fields ranking exactly as before', () => {
+    // The door still searches the fleet, whose rows carry neither — so the same
+    // function must not reorder that screen or invent a rank it cannot reach.
+    const fleetHits = searchBranches(SETTLEMENT_FLEET, 'Pharmacy')
+    expect(fleetHits.hits.every((h) => h.rank !== MatchRank.CityContains)).toBe(true)
+    expect(fleetHits.hits.map((h) => h.row.storeId)).toEqual(
+      [...fleetHits.hits.map((h) => h.row.storeId)].sort(),
+    )
+  })
+})

@@ -184,6 +184,53 @@ export type SettlementScope = 'mine' | 'unassigned' | 'all'
  * row per store at 1394 stores; the entries behind them are the account's
  * (`Settlement/Account`), never this door's.
  */
+/**
+ * One **open branch** off the `Store` master — `Settlement/Branches`, the posting
+ * form's address book.
+ *
+ * 🔑 **The estate, which the fleet is not.** Every branch of the fleet door's query
+ * drives off the settlement tables, so `SettlementFleetRow[]` is *"branches with
+ * settlement activity"* — right for the front page, and on a database where nothing
+ * has been posted yet it is **empty**. A picker resolving a typed branch against it
+ * could therefore never name the first branch to post to: the only door that mints a
+ * settlement row was unreachable without one already existing. Found live by 274 and
+ * fixed on the server (BackOffice 1199); this type is that door's answer.
+ *
+ * ⚠️ `Closed = 0` server-side — a shut branch has no till to consume an entry, so
+ * money posted against one can only ever be written off.
+ */
+export type SettlementBranch = {
+  /** The branch code. Named `storeId` on the wire like every other settlement
+   *  payload, though the master column is `Store.StoreCode`. */
+  storeId: string
+  /** Both scripts in one string, as `SettlementAccount.storeName` carries them. */
+  storeName: string
+  /** 🔑 D2's third search key, back — the fleet row has never carried one. */
+  city: string
+  area: string
+  /**
+   * 🔑 **Who serves this branch** — the assigned accountant's display name, or `''`
+   * for the ~1255 branches paired to nobody.
+   *
+   * The pairing master **ranks and labels** this list; it does not gate it. Naming
+   * the holder is what makes posting to somebody else's branch a visible act instead
+   * of a silent one — the guarantee that replaces refusing it, and it costs no
+   * branch its reachability.
+   */
+  servedBy: string
+  /**
+   * Whether the **session** serves this branch — own branches ∪ one-level reports',
+   * the same reading of *mine* the fleet's `scope` gives, resolved server-side.
+   *
+   * ⚠️ An **ordering input, never a permission**. Gating on it was considered and
+   * refused: 1255 of 1394 branches are paired to nobody, so a filter here would make
+   * their shortages unpostable by anyone while the bulk lane kept reaching them —
+   * and BackOffice 1173 already ruled the boundary is the screen grant, not the
+   * store.
+   */
+  isMine: boolean
+}
+
 export type SettlementFleetRow = {
   storeId: string
   /** Both scripts in one string, as `SettlementAccount.storeName` carries them. */

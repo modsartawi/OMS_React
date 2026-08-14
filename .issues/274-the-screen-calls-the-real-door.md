@@ -110,7 +110,40 @@ Two ways to unblock the live pass, in order of preference:
 2. Run BackOffice's §4 seed once it exists, then bind `msartawi` in Authz Admin — and **unbind again**
    before closing, per the Boundaries.
 
-### ⚠️ Blocked again one step later: the first entry cannot be posted
+### ✅ Settled: the first entry can be posted (`Settlement/Branches`)
+
+⚠️ **This ticket's read-only boundary on BackOffice was lifted by the owner** — *"go ahead and add
+the `Settlement/Branches` endpoint in BackOffice"* — so the door below was built there rather than
+only asked for. It is **not committed** in that repo; the change is left in its working tree for its
+own tracker to carry (draft **1199**).
+
+The picker now reads `Settlement/Branches`: every **open** branch off the `Store` master
+(`Closed = 0`), settlement-gated, with the pairing master LEFT JOINed for two labels — `servedBy`
+and an `isMine` resolved from the session.
+
+🔑 **The pairing ranks and labels; it never gates.** The owner asked whether the collection-assignment
+master should decide *which* branches an accountant may post to. It should not, and the reason is
+this spec's own: 1255 of 1394 branches are paired to nobody, so a filter would make their shortages
+unpostable **by anyone** until somebody edits that master — while the bulk lane, which resolves names
+straight off `Store`, would keep reaching them. That is the same one-door-reaches-further asymmetry
+this fix removes. What the pairing buys instead is *visibility*: your own branches rank first, and a
+branch somebody else holds is **named** when it resolves, so posting outside your set is a deliberate
+act rather than a silent one. 1173 already ruled the boundary — *"the boundary is the screen grant,
+not the store"* — and changing that is a spec decision, not an implementation one.
+
+Proven where it counts: an **end-to-end test against the live database**
+(`Branches_ReturnsTheOpenEstate_LabelledByThePairing_AndNeverFilteredByIt`) asserts the picker
+returns a branch the fleet does not, which is the defect itself, plus the closed-branch exclusion and
+all three label states. 20/20 settlement E2E green, 135/135 settlement unit, 3296 Data.Tests
+(3 pre-existing failures elsewhere, unrelated and confirmed by stashing).
+
+Client: `searchBranches` is generic over `{storeId, storeName, city?, isMine?}` so **one** ranking
+serves both screens — two copies is how a branch findable at the door becomes unpostable at the form.
+`city` returns as D2's third search key (ranked last: a city narrows, a name addresses). Drive
+**171/171**, with the fixture carrying three branches nothing has ever been posted to — without them
+the two sets are identical and the original bug passes green, which is how it survived five tickets.
+
+### ⚠️ How it was found (the defect, for the record)
 
 Getting through the grant is not enough. The post form's branch picker resolves what is typed
 against `Settlement/Fleet`, and the fleet is **not an estate list** — its four UNION branches all
@@ -121,8 +154,8 @@ one that cannot be reached without one.
 
 The picker needs the `Store` master (`WHERE Closed = 0`), which is what `CollectionWeb/Assignment/
 Branches` already returns — but under the assignment **write** grant, and spec 1162 D13 ruled that
-one is never OR-ed with a read. So it is a door of its own: **§5 of the BackOffice draft**
-(`Settlement/Branches`). Recorded, not worked around, per this ticket's own Boundaries.
+one is never OR-ed with a read. So it is a door of its own, which is why the fix above is a new
+endpoint rather than a reuse of that one.
 
 ⚠️ Note the asymmetry that makes it a defect rather than a preference: the **bulk** lane resolves
 store names straight off `Store` (`ResolveStoreNamesAsync`), so a spreadsheet can post to a branch

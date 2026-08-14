@@ -417,6 +417,30 @@ export interface VoucherPage {
   shiftDayName: string
   /** `yyyy-MM-dd`. §7.6 */
   shiftDayText: string
+  /**
+   * The SURPLUS this day's close spent, kept back by the branch out of this very
+   * drawer — the one thing that ever fills the `خصم فائض` box (spec 1173 D9/D10).
+   * Unsigned, at the branch's own precision (`200.00` SAR · `15.500` BHD).
+   *
+   * ⚠️ `''` on an ordinary day, which is every shipped receipt: the box stays the
+   * hand-fill slot 246 signed off. A `0.00` printed into it is a figure the
+   * collector did not write and the branch does not owe.
+   *
+   * 🚩 **Already subtracted from `cash`.** This string NAMES the deduction; it
+   * never asks the renderer to apply it. Subtracting it from the cash box takes
+   * the surplus off the collector twice.
+   */
+  surplusAmountText: string
+  /**
+   * `رقم القيد / Entry No. 143` — the handle the branch and finance settle by on
+   * the phone, which is why the number is on the paper and the accountant's
+   * free-text reason never is.
+   *
+   * ⚠️ Can be `''` while {@link surplusAmountText} is not (a reprint whose entry
+   * number was never stamped). Render the amount alone; `Entry No. 0` is not a
+   * number anybody can ring up about.
+   */
+  surplusEntryText: string
 }
 
 /**
@@ -424,9 +448,16 @@ export interface VoucherPage {
  *
  * ⚠️ Deliberately absent, per 246's sign-off: `isPosted` — the green POSTED
  * banner is gone, `No.` IS the posted state; `varianceText` and `matchedMarkText`
- * — the `خصم فائض` box is a hand-fill slot that is ALWAYS empty; and
+ * — the `خصم فائض` box is a hand-fill slot, not an output field; and
  * `currencyCode` — the minor cell sizes to `minor.length`, never to a lookup. The
- * receipt carries no reconciliation data at all.
+ * receipt carries no RECONCILIATION data at all.
+ *
+ * ⚠️ That last sentence is the one to read carefully now: spec 1173's
+ * `surplusAmountText` / `surplusEntryText` do fill that box, and they are NOT the
+ * exception to 246 they look like. A variance is a reconciliation — the drawer
+ * against what the system expected, which the collector settles by hand. A spent
+ * surplus is not: it is money that LEFT the hand-over, already out of `cash`, and
+ * a collector holding less than the drawer held needs the document to say why.
  *
  * 🚩 A miss is an envelope refusal carrying `CollectionReceiptNotFound`, never a
  * document with zero pages — but the print route checks for both, because a
@@ -446,23 +477,42 @@ export interface AcrRow {
   storeCode: string
   /** `dd/MM/yyyy`, PER ROW — a catch-up ACR carries more than one sales day (§7.7). */
   salesDateText: string
-  /** `F{dp}` invariant: no thousands separator, no currency symbol (§7.7). */
+  /**
+   * `F{dp}` invariant: no thousands separator, no currency symbol (§7.7).
+   *
+   * ⚠️ GROSS cash SALES since BackOffice 1183 — what the drawer sold, NOT what the
+   * collector was handed. A day the branch kept a surplus back reads its full sales
+   * here and the smaller hand-over in {@link netCollectedText}; the two differ by
+   * {@link settlementText}. Before 1183 this cell carried the hand-over, which
+   * understated a deducted pharmacy's cash sales by the deduction.
+   *
+   * `'—'` on a settlement row — see {@link isSettlement}.
+   */
   cashText: string
   cardText: string
   totalText: string
+  /**
+   * تسويات — ⚠️ **SIGNED, with an explicit `+` on a positive**: a surplus this day
+   * kept back is NEGATIVE, a settlement receipt's whole amount is POSITIVE. The sign
+   * is the entire distinction between the two — one column, not two.
+   *
+   * `'—'` when the row carries no settlement at all: a `0.00` here would claim a
+   * settlement of nothing happened.
+   */
+  settlementText: string
+  /**
+   * المستلم — what the collector was actually handed for this row, on BOTH kinds of
+   * row. ⚠️ Byte-identical to what {@link cashText} carried before 1183.
+   */
+  netCollectedText: string
+  /**
+   * 🔑 **This row is a settlement document, not a trading day.** Structural: the four
+   * day-shaped cells (`salesDateText`, `cashText`, `cardText`, `totalText`) already
+   * arrive as `'—'`, so a client ignoring this flag still renders the sheet correctly.
+   */
+  isSettlement: boolean
   /** NOT zero-padded, unlike the receipt's own `No.` */
   receiptNoText: string
-  /**
-   * Tri-state (242 §5): `''` reconciled · `'✗'` a real whole-riyal diff · `'؟'`
-   * the Z mirror never synced.
-   *
-   * ⚠️ The union is NARROWER than the wire, where `MatchText` is a bare `string`.
-   * Kept deliberately: it is the contract the builder is tested against, and it
-   * documents the three states a reader has to know. TypeScript cannot police it
-   * at runtime, so the renderer prints whatever arrives rather than switching on
-   * the union — a fourth mark would print, not vanish.
-   */
-  matchText: '' | '✗' | '؟'
   pharmacistName: string
   /** 247's amendment 1: the WPF's `OperatorId` — the closer IS the pharmacist. */
   pharmacistId: string
@@ -518,7 +568,25 @@ export interface AcrForm {
   cashTotalText: string
   cardTotalText: string
   grandTotalText: string
-  /** ملخص التحصيل's ONE remaining row, اجمالي الايرادات. */
+  /**
+   * الاجمالي's تسويات cell, and ملخص التحصيل's صافي التسويات line — the same string in
+   * both places. ⚠️ SIGNED, with an explicit `+` on a positive: it is the figure that
+   * reconciles {@link cashTotalText} to {@link bankedTotalText} (7,300 + 300 =
+   * 7,600), so its direction is its content.
+   */
+  settlementTotalText: string
+  /**
+   * ملخص التحصيل's المبلغ المطلوب ايداعه — the counted cash LESS the surplus the branch
+   * kept back (Σ NetCollected), i.e. what this collection owes the bank.
+   *
+   * ⚠️ **The wire field is `bankedTotalText`** — the server keeps the ACR aggregate's
+   * own name (shared with the inquiry grid and its SQL alias) while the PAPER states an
+   * obligation, because the collector reads it before banking anything. Renaming it
+   * here would be this client inventing a second name for one figure.
+   */
+  bankedTotalText: string
+  /** ملخص التحصيل's first line, اجمالي الايرادات. ⚠️ Sales-only — cash + card, and
+   *  settlement never enters it. */
   revenuesText: string
 }
 
@@ -527,9 +595,15 @@ export interface AcrForm {
  *
  * ⚠️ Deliberately absent, per 247's sign-off: `depositNumberText`, `depositStatus`
  * and `depositText` — every deposit mark, meta AND summary (242 §8-O7 answered
- * OUT, wider than it was asked), which is why ملخص التحصيل is left holding a
- * single row. Also gone (245 §5): `storeName`, `variance`, `hasShiftReport`,
- * `createdAtText`, `currencyCode`.
+ * OUT, wider than it was asked). Also gone (245 §5): `storeName`, `variance`,
+ * `hasShiftReport`, `createdAtText`, `currencyCode`.
+ *
+ * ⚠️ And `matchText` — the مطابقة الكاش والشبكة tri-state — left the server contract
+ * on 2026-08-15 with the column itself (BackOffice sign-off on the 1183 sheet). The
+ * collector settles nothing on this paper; the one fact that mark carried, a Z mirror
+ * that never synced, still arrives in {@link AcrRow.notes} as words. ملخص التحصيل,
+ * meanwhile, went the other way and now holds THREE lines — 1183 put صافي التسويات
+ * and المبلغ المطلوب ايداعه beneath اجمالي الايرادات.
  *
  * ⚠️ **Empty is not a miss.** An ACR with no linked collections is a 200 with ONE
  * page and `rows: []` — a real document that prints, totals `0.00`, summary

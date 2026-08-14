@@ -49,8 +49,9 @@ it departed by accident or omission, go back to the pad.*
   inventory's §1.1 list of required LTR islands was one short.
 - A shortfall row carries the **mismatch-red warning style**.
 - **Last page only**: the `الاجمالي` band, the `ملخص التحصيل` box and the collector name/id with the
-  empty wet-signature line. **`ملخص التحصيل` on the left, signature on the right** — the pad's sides;
-  the WPF swapped them for no stated reason.
+  empty wet-signature line. **`ملخص التحصيل` on the right, signature on the left** — the WPF's sides
+  (owner ruling 2026-08-15, reversing this ticket's original "back to the pad": the WPF's swap was
+  deliberate enough that the collectors read it that way every day).
 - `ملخص التحصيل` carries **one row, `اجمالي الايرادات`**. Every deposit mark is gone, meta *and*
   summary: the ACR states what was collected; where the money went afterwards is the deposit's own
   document.

@@ -12,9 +12,16 @@
  * Screen chrome AROUND the document — `PrintMiss` — obeys every rule.
  *
  * The measurements are the WPF's (`AcrFormControl.xaml`), transcribed in §4 of
- * `assets/242-fidelity-inventory.RESEARCH.md`. Eleven columns at fixed pixel
- * widths that sum to exactly the document's content box: 26 + 58 + 68 + 66 + 66 +
- * 70 + 56 + 44 + 108 + 62 + 114 = 738 = 780 − 2×20 padding − 2×1 border.
+ * `assets/242-fidelity-inventory.RESEARCH.md`. TWELVE columns at fixed pixel
+ * widths that sum to exactly the document's content box: 24 + 52 + 60 + 62 + 58 +
+ * 62 + 58 + 62 + 46 + 90 + 52 + 112 = 738 = 780 − 2×20 padding − 2×1 border.
+ *
+ * ⚠ The eleven-column set here used to be a RE-PROPORTIONED transcription (26 / 58
+ * / 68 …) that summed to the same 738 by different numbers. It is now the WPF's own
+ * column widths, cell for cell, because BackOffice 1183 added تسويات and المستلم and
+ * the 2026-08-15 sign-off removed مطابقة — re-deriving a second set of proportions
+ * across that change is how two sheets of the same form stop lining up. `.acr-c11`
+ * takes the WPF's `*` column as `flex: 1` and so absorbs any rounding.
  *
  * ⚠ The ACR is a RESHAPE, not a facsimile (242 §6.2), so "matches the WPF" and
  * "matches the paper" are different tests. Ticket 247 sorted every departure by
@@ -113,8 +120,10 @@
   justify-content: center;
   text-align: center;
   font-size: 10px;
-  /* NOT `anywhere`: that shears مطابقة الكاش والشبكة into four lines with a lone
-   * ة on the last. WPF's `TextWrapping="Wrap"` breaks at word boundaries. */
+  /* NOT `anywhere`: that shears a long head like مبيعات الشبكة mid-word, with a
+   * lone ة left on the next line. WPF's `TextWrapping="Wrap"` breaks at word
+   * boundaries. (The head that first proved it, مطابقة الكاش والشبكة, is gone —
+   * the rule is not.) */
   overflow-wrap: break-word;
   border-inline-end: 1px solid #8a8a8a;
   border-bottom: 1px solid #8a8a8a;
@@ -146,8 +155,9 @@
   font-weight: 700;
 }
 
-/* The tri-state مطابقة flag, and a shortfall row's cash figure: both carry the
- * form's mismatch red (242 §8-O6, answered IN by 247). */
+/* A shortfall row's cash figure — the form's mismatch red (242 §8-O6, answered IN
+ * by 247). ⚠ It used to dress the tri-state مطابقة flag too; that column left the
+ * form on 2026-08-15 and this is now the ONE thing red means on the sheet. */
 .acr-mark {
   font-weight: 700;
   color: #b00020;
@@ -158,23 +168,25 @@
   font-size: 9px;
 }
 
-.acr-c0 { flex: 0 0 26px; }
-.acr-c1 { flex: 0 0 58px; }
-.acr-c2 { flex: 0 0 68px; }
-.acr-c3 { flex: 0 0 66px; }
-.acr-c4 { flex: 0 0 66px; }
-.acr-c5 { flex: 0 0 70px; }
-.acr-c6 { flex: 0 0 56px; }
-.acr-c7 { flex: 0 0 44px; }
-.acr-c8 { flex: 0 0 108px; }
-.acr-c9 { flex: 0 0 62px; }
-.acr-c10 { flex: 0 0 114px; }
+.acr-c0 { flex: 0 0 24px; }   /* م */
+.acr-c1 { flex: 0 0 52px; }   /* رقم الصيدلية */
+.acr-c2 { flex: 0 0 60px; }   /* تاريخ اليوم */
+.acr-c3 { flex: 0 0 62px; }   /* المبيعات النقدية — GROSS since 1183 */
+.acr-c4 { flex: 0 0 58px; }   /* مبيعات الشبكة */
+.acr-c5 { flex: 0 0 62px; }   /* إجمالي المبيعات */
+.acr-c6 { flex: 0 0 58px; }   /* تسويات — signed */
+.acr-c7 { flex: 0 0 62px; }   /* المستلم */
+.acr-c8 { flex: 0 0 46px; }   /* رقم سند القبض */
+.acr-c9 { flex: 0 0 90px; }   /* اسم الصيدلي */
+.acr-c10 { flex: 0 0 52px; }  /* رقم الصيدلي */
+.acr-c11 { flex: 1; }         /* ملاحظات — the WPF's `*` column */
 
 /* ── the الاجمالي band · last page only ───────────────────────────────── */
 
-/* 152 = columns 0–2, so the three money totals land under columns 3–5. */
+/* 136 = columns 0–2 (24 + 52 + 60), so the five money totals land under columns
+ * 3–7 — cash, card, grand, تسويات and المستلم, each under the column it totals. */
 .acr-total-label {
-  flex: 0 0 152px;
+  flex: 0 0 136px;
   border-top: none;
 }
 
@@ -185,9 +197,12 @@
 
 /* ── ملخص التحصيل + the signature · last page only ────────────────────── */
 
-/* Restored to the PAD's sides: signature right, summary left. Under RTL the
- * first child is the right, so the signature block is written first. The WPF
- * swapped the two for no stated reason (247). */
+/* ⚠ THE WPF'S SIDES: ملخص التحصيل right, signature left — 340 / 20 / * , which is
+ * `AcrFormControl.xaml`'s own footer grid. Under RTL the first child is the right,
+ * so `.acr-summary` is written first and `.acr-sign` takes the `*`. 247 had read
+ * the WPF's swap as accidental and restored the pad's sides (summary left); the
+ * owner reversed that on 2026-08-15 with both sheets in front of them — the POS
+ * form is the one collectors already read, so this one follows it. */
 .acr-foot {
   display: flex;
   margin-top: 12px;

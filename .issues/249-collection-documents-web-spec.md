@@ -251,8 +251,11 @@ The work splits into **two waves that run in parallel**:
 77. As a reader, I want a shortfall row to carry the **mismatch-red warning style**.
 78. As a reader, I want the **last page only** to carry the `الاجمالي` band, the `ملخص التحصيل` box and
     the collector name/id with the wet-signature line.
-79. As a reader, I want `ملخص التحصيل` **on the left and the signature on the right**, as the pad has
-    them — the WPF swapped the two for no stated reason.
+79. As a reader, I want `ملخص التحصيل` **on the right and the signature on the left** — the WPF's
+    sides. ⚠ **Amended 2026-08-15 (owner).** This story asked for the *pad's* sides (summary left),
+    reading the WPF's arrangement as an unexplained swap. Shown the two sheets side by side the
+    owner ruled the other way: the POS form is the one collectors already read, so a web sheet that
+    mirrors it is the defect, however faithful it is to the pad. The figures did not move.
 80. As a reader, I want `ملخص التحصيل` to carry **one row, `اجمالي الايرادات`** — every deposit mark is
     gone from this form, because the ACR states what was *collected*; where the money went afterwards
     is the deposit's own document.

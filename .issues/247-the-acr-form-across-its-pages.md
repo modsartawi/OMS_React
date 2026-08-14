@@ -84,7 +84,7 @@ to §8-O9's dropped furniture, the split is —
 | three difference rows + `سبب الفرق` | **Keep dropped** — the only paper furniture the WPF dropped for a *stated* reason (the difference lives on the Z record). |
 | `تعليمات عامه` / `خطوات مراجعة الصيدلي` | **Keep dropped.** Standing procedure for a pad being filled in, not for a record being read. |
 | `الموافق` (Hijri companion date) | **Restored.** Dropped by omission; the server can compute Umm al-Qura (242 §7.6 already pins the culture), so it costs one model field, not a hand-fill. |
-| `ملخص التحصيل` left / signature right | **Restored to the pad's sides.** The WPF swapped the two for no stated reason. |
+| `ملخص التحصيل` left / signature right | ~~**Restored to the pad's sides.** The WPF swapped the two for no stated reason.~~ **REVERSED 2026-08-15 (owner).** `ملخص التحصيل` goes on the **RIGHT**, signature on the left — the WPF's sides. The swap was not accidental after all; the collectors read the POS sheet, so the web one follows it. |
 | `صفحة n / m` stamp | **Keep the WPF's.** The pad was one sheet; this prints three. |
 
 And the loose ends: **O5** the notes column speaks Arabic (`تقرير Z غير مُرحّل`) — the literal is

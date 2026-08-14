@@ -36,6 +36,10 @@ const BASE: VoucherPage = {
   cardWords: 'فقط ثلاثة آلاف و ثلاثمائة و ثلاثة و ثلاثون ريالا لا غير',
   shiftDayName: 'الخميس',
   shiftDayText: '2026-08-06',
+  // Empty on the everyday receipt, which is the point: the خصم فائض box is a
+  // hand-fill slot until a close spends a surplus (spec 1173 D9/D10).
+  surplusAmountText: '',
+  surplusEntryText: '',
 }
 
 /**
@@ -93,6 +97,37 @@ export const VOUCHER_SCENARIOS: VoucherScenario[] = [
           cardWords: 'فقط ديناران لا غير',
         },
       ],
+    },
+  },
+  {
+    // Spec 1173 D9/D10 — a close that SPENT A SURPLUS: the only case where the
+    // خصم فائض box is not a blank slot. The cash figure is the one the branch
+    // actually handed over, already net of the 200 — the amount below NAMES the
+    // deduction, it does not ask the sheet to apply it.
+    //
+    // ⚠ The money strings are BASE's, deliberately: every split and every
+    // tafqeet on this fixture is a value pinned by a test in `Tests\Data.Tests\`,
+    // and inventing a second pair would put an amount-in-words on the page that
+    // nobody has ever computed. What this case is ABOUT is the box.
+    key: 'surplus',
+    document: {
+      pages: [
+        {
+          ...BASE,
+          surplusAmountText: '200.00',
+          surplusEntryText: 'رقم القيد / Entry No. 143',
+        },
+      ],
+    },
+  },
+  {
+    // Spec 1173 — the same close on a receipt whose entry number was never
+    // stamped (a reprint off an older row). The amount stands ALONE: the box must
+    // not print a blank second line, and `Entry No. 0` is not a number anybody
+    // can ring the accountant about.
+    key: 'surplus-unnumbered',
+    document: {
+      pages: [{ ...BASE, surplusAmountText: '200.00', surplusEntryText: '' }],
     },
   },
   {

@@ -22,8 +22,10 @@
 //      client never chunks);
 //   4. the S.R. | H. digit cells resolve LEFT-TO-RIGHT inside the RTL parent;
 //   5. an empty pharmacistName renders an EMPTY fill-line rather than a 0;
-//   6. NO خصم فائض content and NO POSTED banner anywhere in the DOM — both are rulings, and both
-//      are provable only by absence;
+//   6. NO variance content in the خصم فائض box and NO POSTED banner anywhere in the DOM — both are
+//      rulings, and both are provable only by absence. ⚠ Spec 1173 gave that box its ONE occupant,
+//      a spent SURPLUS, so §6b drives the two cases that fill it and then re-measures the empty
+//      box: the ruling is that an ordinary receipt is untouched, not that the slot stays blank;
 //   7. a stale link renders "this document no longer exists", never a blank A4 sheet.
 //
 // And ticket 252's, on `/collection/acr/:acrId` — where the whole question is PAGING, because the
@@ -35,8 +37,13 @@
 //   9. a NEGATIVE cash figure paints `-412.50` and not `412.50-` — a bug the WPF has and the
 //      fidelity inventory's list of LTR islands missed;
 //  10. a still-OPEN ACR renders a BLANK تاريخ التحصيل, not the string `''` and not a placeholder;
-//  11. ملخص التحصيل prints on the LEFT with the signature on the RIGHT — the pad's sides, which
-//      the WPF swapped — and it carries exactly ONE row, every deposit mark having left the model.
+//  11. ملخص التحصيل prints on the RIGHT with the signature on the LEFT — the WPF's sides (owner
+//      ruling 2026-08-15, reversing 247's back-to-the-pad) — and it carries THREE rows:
+//      اجمالي الايرادات, صافي التسويات and المبلغ
+//      المطلوب ايداعه. BackOffice 1183 put the last two back beside the revenue line; the
+//      collector-DEPOSIT marks 247 removed are still gone, which is a different absence.
+//  11b. and the sheet is TWELVE columns wide — 1183's تسويات + المستلم in, and مطابقة الكاش
+//      والشبكة OUT (BackOffice owner sign-off, 2026-08-15), field and all.
 //
 // What it CANNOT prove is the paper: the browser's header/footer stamp and whether every grey fill
 // actually prints are hardware questions on real Chrome and real Edge — ticket 260, deliberately a
@@ -100,9 +107,10 @@ async function loadFixtures(page) {
     const byKey = (scenarios) => Object.fromEntries(scenarios.map((s) => [s.key, s.document]))
     return { receipts: byKey(v.VOUCHER_SCENARIOS), acrs: byKey(a.ACR_SCENARIOS) }
   })
+  // 6 receipts since spec 1173 added the two surplus cases (§12 below); 4 ACRs, unchanged.
   const counts = [Object.keys(fixtures.receipts).length, Object.keys(fixtures.acrs).length]
-  if (counts[0] !== 4 || counts[1] !== 4)
-    throw new Error(`fixture load returned ${counts.join('/')} scenarios, expected 4/4`)
+  if (counts[0] !== 6 || counts[1] !== 4)
+    throw new Error(`fixture load returned ${counts.join('/')} scenarios, expected 6/4`)
   return fixtures
 }
 
@@ -296,7 +304,7 @@ async function run() {
   const bodyText = await page.locator('body').innerText()
   const overage = (await page.locator('.cv-overage-box').innerText()).trim()
   check(
-    'the خصم فائض box is ALWAYS EMPTY — its red label and nothing else',
+    'the خصم فائض box on an ORDINARY receipt is empty — its red label and nothing else',
     overage === 'خصم فائض :',
     JSON.stringify(overage),
   )
@@ -360,6 +368,50 @@ async function run() {
     'bhd → and it is not clipped',
     await minor3.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
     `${minor3Box.width.toFixed(0)}px`,
+  )
+
+  // ---- 6b. spec 1173 D9/D10: the ONE thing that ever fills the خصم فائض box ----
+  //
+  // The box's own height is the assertion that matters. §3 above proves it empty on an ordinary
+  // receipt; what would break the paper is filling it in a way that GROWS it on every other
+  // receipt too — an empty line renders as a line box, and the whole title band below would move.
+  const overageBox = page.locator('.cv-overage-box')
+  const emptyBoxHeight = (await overageBox.boundingBox()).height
+
+  await goto('surplus')
+  const filled = (await overageBox.innerText()).replace(/\s+/g, ' ').trim()
+  check(
+    'surplus → the box carries the amount kept back, after its own label',
+    filled.startsWith('خصم فائض :') && filled.includes('200.00'),
+    JSON.stringify(filled),
+  )
+  check(
+    'surplus → and NAMES the entry the branch settles by on the phone',
+    filled.includes('143'),
+    JSON.stringify(filled),
+  )
+  check(
+    'surplus → the amount reads 200.00 and not 00.200 — no space in it to break on',
+    (await page.locator('.cv-overage-amount').innerText()).trim() === '200.00',
+  )
+  check(
+    'surplus → the cash box still reads the NET figure the server sent (never re-subtracted here)',
+    (await page.locator('.cv-cell--whole-row').first().innerText()).trim() === '10000',
+  )
+
+  await goto('surplus-unnumbered')
+  const unnumbered = (await overageBox.innerText()).replace(/\s+/g, ' ').trim()
+  check(
+    'a surplus with no stamped entry → the amount stands ALONE, no blank second line',
+    unnumbered.includes('200.00') && (await page.locator('.cv-overage-entry').count()) === 0,
+    JSON.stringify(unnumbered),
+  )
+
+  await goto('posted')
+  check(
+    '🔑 and an ordinary receipt’s box is UNCHANGED in height — the slot 246 signed off',
+    Math.abs((await overageBox.boundingBox()).height - emptyBoxHeight) < 0.5,
+    `${emptyBoxHeight.toFixed(1)}px`,
   )
 
   // ---- 7. a stale link is a sentence, never a blank sheet ----
@@ -462,14 +514,22 @@ async function run() {
   check('acr → the body IS the document here too', (await page.locator('main').count()) === 0)
 
   const heads = await page.locator('.acr-tr').first().locator('.acr-th').allInnerTexts()
+  // TWELVE since BackOffice 1183 added تسويات + المستلم and the 2026-08-15 sign-off
+  // removed مطابقة الكاش والشبكة. Both are the SERVER's shape, asserted here because a
+  // column that lost its field renders as an empty cell rather than as a failure.
   check(
-    'acr → eleven columns, م first (column 0 is the RTL row’s leading cell)',
-    heads.length === 11 && heads[0] === 'م' && heads[9] === 'رقم الصيدلي',
-    `${heads.length} cols: ${heads.slice(0, 2).join(',')} … ${heads[9]}`,
+    'acr → twelve columns, م first (column 0 is the RTL row’s leading cell)',
+    heads.length === 12 && heads[0] === 'م' && heads[10] === 'رقم الصيدلي',
+    `${heads.length} cols: ${heads.slice(0, 2).join(',')} … ${heads[10]}`,
+  )
+  check(
+    'acr → تسويات and المستلم are on the sheet, and مطابقة is NOT',
+    heads[6] === 'تسويات' && heads[7] === 'المستلم' && !heads.some((h) => h.includes('مطابقة')),
+    heads.join('|'),
   )
   // The header must repeat on EVERY page — each printed side is a whole reading of the form.
   const headRows = await Promise.all(
-    (await acrSheets.all()).map(async (s) => (await s.locator('.acr-th').allInnerTexts()).slice(0, 11).join('|')),
+    (await acrSheets.all()).map(async (s) => (await s.locator('.acr-th').allInnerTexts()).slice(0, 12).join('|')),
   )
   check(
     'acr → the header row repeats on all three sheets, identically',
@@ -527,17 +587,21 @@ async function run() {
       (await acrSheets.nth(0).locator('.acr-summary').count()) === 0 &&
       (await page.locator('.acr-total-label').count()) === 1,
   )
-  // 247's amendment 3: every deposit mark left the model, meta AND summary, so ملخص التحصيل is
-  // left holding a single row. Provable only by absence.
+  // 247's amendment 3 left ملخص التحصيل holding a single row; BackOffice 1183 put two
+  // back, of a different order — صافي التسويات and المبلغ المطلوب ايداعه explain how the
+  // revenue above becomes the cash the collector carries. Still no DEPOSIT mark.
   check(
-    'acr → the summary box carries exactly ONE row, اجمالي الايرادات',
-    (await summary.locator('.acr-summary-label').count()) === 1 &&
-      (await summary.locator('.acr-summary-label').innerText()).trim() === 'اجمالي الايرادات',
+    'acr → the summary box carries THREE rows, revenue first',
+    (await summary.locator('.acr-summary-label').count()) === 3 &&
+      (await summary.locator('.acr-summary-label').first().innerText()).trim() === 'اجمالي الايرادات',
   )
   const acrBody = await page.locator('body').innerText()
+  // ⚠ NOT "no ايداع anywhere" any more: the summary line renamed on 2026-08-15 contains
+  // that very word. What 247 removed is the DEPOSIT DOCUMENT's marks, and those are what
+  // this names — a collection that states what it owes the bank is not a deposit backlink.
   check(
     'acr → NO deposit mark anywhere: no رقم الإيداع, no اجمالي ايداع المحصل',
-    !acrBody.includes('الإيداع') && !acrBody.includes('ايداع'),
+    !acrBody.includes('الإيداع') && !acrBody.includes('اجمالي ايداع المحصل'),
   )
   check(
     'acr → and no نموذج رقم: the serial prints under رقم التجميعي (247’s amendment 2)',
@@ -556,8 +620,9 @@ async function run() {
     'acr → the header cells are grey-filled, and marked to survive the printer',
     (await page.locator('.acr-th').first().evaluate((el) => getComputedStyle(el).printColorAdjust)) === 'exact',
   )
-  // `anywhere` shears مطابقة الكاش والشبكة into four lines with a lone ة; WPF's TextWrapping="Wrap"
-  // breaks at word boundaries.
+  // `anywhere` shears a long head mid-word, leaving a lone ة on the next line; WPF's
+  // TextWrapping="Wrap" breaks at word boundaries. (مطابقة الكاش والشبكة first proved
+  // it and is gone; the rule is not.)
   check(
     'acr → cells wrap on word boundaries (break-word), never `anywhere`',
     (await page.locator('.acr-td').first().evaluate((el) => getComputedStyle(el).overflowWrap)) === 'break-word',
@@ -592,18 +657,65 @@ async function run() {
     'acr → a shortfall carries the mismatch-red warning style',
     (await shortfall.evaluate((el) => getComputedStyle(el).color)) === 'rgb(176, 0, 32)',
   )
-  // Tri-state, and the blank state is a state: a reconciled row carries no mark at all.
-  const marks = await page.locator('.acr-c7:not(.acr-th)').allInnerTexts()
+  // ⚠ مطابقة is GONE (2026-08-15) — head, cells, and the marks it printed. Proved by
+  // ABSENCE over the whole document, because a stale column lays out perfectly.
   check(
-    'acr → the مطابقة flag in all three states: blank, ✗, and ؟',
-    marks.filter((m) => m.trim() === '✗').length === 1 &&
-      marks.filter((m) => m.trim() === '؟').length === 1 &&
-      marks.filter((m) => m.trim() === '').length === 45,
-    `✗:${marks.filter((m) => m.trim() === '✗').length} ؟:${marks.filter((m) => m.trim() === '؟').length}`,
+    'acr → not one مطابقة mark anywhere on the document',
+    !acrBody.includes('مطابقة') && !acrBody.includes('✗') && !acrBody.includes('؟'),
+  )
+
+  // تسويات (column 6) is SIGNED and dashes where a row has none; المستلم (column 7) is
+  // real on BOTH kinds of row — which is what makes the totals line up down the page.
+  // ⚠ Scoped to DATA rows. The الاجمالي band now carries its own c6/c7 cells (the
+  // تسويات net and the deposit due), so a bare `.acr-c7` locator counts 48 on a
+  // 47-row form and the miscount reads as a rendering bug that is not there.
+  const dataRows = page.locator('.acr-tr:has(> .acr-c0:not(.acr-th))')
+  const tasweyat = await dataRows.locator('.acr-c6').allInnerTexts()
+  const received = await dataRows.locator('.acr-c7').allInnerTexts()
+  check(
+    'acr → تسويات: a surplus kept back is −, a settlement receipt is +, the rest dash',
+    tasweyat.filter((m) => m.trim() === '-200.00').length === 1 &&
+      tasweyat.filter((m) => m.trim() === '+500.00').length === 1 &&
+      tasweyat.filter((m) => m.trim() === '—').length === 45,
+    `-:${tasweyat.filter((m) => m.trim() === '-200.00').length} +:${tasweyat.filter((m) => m.trim() === '+500.00').length}`,
+  )
+  check(
+    'acr → المستلم fills on every row, INCLUDING the settlement one',
+    received.length === 47 && received.every((m) => m.trim() !== '' && m.trim() !== '—'),
+    `${received.length} filled, settlement=${received[46]?.trim()}`,
+  )
+  // 🔑 The settlement row: no sales day, no cash, no card, no total — four em dashes.
+  // Never 0.00, which in المبيعات النقدية states that the branch traded nothing.
+  const settlementRow = dataRows.last()
+  const settlementCells = await Promise.all(
+    [2, 3, 4, 5].map(async (c) => (await settlementRow.locator(`.acr-c${c}`).innerText()).trim()),
+  )
+  check(
+    'acr → the settlement row dashes every day-shaped cell, and prints no 0.00',
+    settlementCells.every((t) => t === '—'),
+    settlementCells.join('|'),
   )
   check(
     'acr → the unsynced Z row says so in Arabic — 242 §8-O5 fixed in the builder, not passed through',
     acrBody.includes('تقرير Z غير مُرحّل') && !/Z report missing/i.test(acrBody),
+  )
+  // ⚠ And it now carries that fact ALONE: the ؟ it used to pair with left with مطابقة,
+  // which is the whole reason removing the column lost no information.
+
+  // ---- ملخص التحصيل: THREE lines since 1183, and the last one renamed on 2026-08-15 ----
+  const summaryText = (await page.locator('.acr-summary').last().innerText()).trim()
+  check(
+    'acr → ملخص التحصيل reads revenue, then settlements, then what must be deposited',
+    summaryText.includes('اجمالي الايرادات') &&
+      summaryText.includes('صافي التسويات') &&
+      summaryText.includes('المبلغ المطلوب ايداعه') &&
+      !summaryText.includes('المودع بالبنك'),
+    summaryText.replace(/\s+/g, ' '),
+  )
+  check(
+    'acr → and the identity holds on the sheet: 200832.75 + 300.00 = 201132.75',
+    summaryText.includes('473672.75') && summaryText.includes('+300.00') && summaryText.includes('201132.75'),
+    summaryText.replace(/\s+/g, ' '),
   )
 
   // ---- 13. 23 rows — the ugly break the sign-off looked hardest at ----
@@ -624,10 +736,11 @@ async function run() {
     summaryBox.y + summaryBox.height <= lastBox.y + lastBox.height,
     `summary ends @${(summaryBox.y + summaryBox.height).toFixed(0)}, sheet @${(lastBox.y + lastBox.height).toFixed(0)}`,
   )
-  // Back to the pad's sides — the WPF swapped the two for no stated reason.
+  // ⚠ The WPF's sides, not the pad's — owner ruling 2026-08-15, reversing 247. The two
+  // sheets are read side by side, so the web one takes the POS form's geometry.
   check(
-    'acr → ملخص التحصيل on the LEFT, the signature on the RIGHT (the pad’s sides)',
-    summaryBox.x < signBox.x,
+    'acr → ملخص التحصيل on the RIGHT, the signature on the LEFT (the WPF’s sides)',
+    summaryBox.x > signBox.x,
     `summary@${summaryBox.x.toFixed(0)} signature@${signBox.x.toFixed(0)}`,
   )
   const signLine = await lastSheet.locator('.acr-sign-line').innerText()
@@ -668,8 +781,9 @@ async function run() {
   )
   const idleTotals = await page.locator('.acr-total-label ~ .acr-money').allInnerTexts()
   check(
+    // FIVE since 1183 — cash, card, grand, and the تسويات / المستلم pair beside them.
     'acr 0 rows → the totals print 0.00, never blank',
-    idleTotals.length === 3 && idleTotals.every((v) => v.trim() === '0.00'),
+    idleTotals.length === 5 && idleTotals.every((v) => v.trim() === '0.00'),
     idleTotals.join(' '),
   )
   // 259's other direction, and the one that would fail QUIETLY: an idle ACR is a 200 with one page

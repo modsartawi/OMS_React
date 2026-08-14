@@ -64,12 +64,34 @@ export default function CollectionVoucher({ page }: { page: VoucherPage }) {
       </div>
 
       <div className="cv-overage">
-        {/* ALWAYS EMPTY, exactly as the pad prints it: red label, ruled box,
+        {/* A HAND-FILL SLOT, exactly as the pad prints it: red label, ruled box,
             nothing inside. 246 answered 242 §8-O4 by deletion — neither
-            `varianceText` nor `matchedMarkText` reaches the browser, so there
-            is nothing here to bind and nothing to conditionally render. */}
+            `varianceText` nor `matchedMarkText` reaches the browser, so there is
+            no reconciliation figure here to bind.
+
+            ⚠ ONE OCCUPANT, AND ONLY WHEN THERE IS ONE (spec 1173 D9/D10). A close
+            that spent a SURPLUS puts the amount and the entry number in the slot,
+            because the collector is walking out with less cash than the drawer
+            held and the paper has to say by how much and against which entry. On
+            every other receipt both strings are `''` and NOTHING renders — not an
+            empty line, which would grow the box and push the sheet below it down.
+            The label itself never moves: it is on the blank pad, so it is part of
+            this form and not a value the server sends. */}
         <div className="cv-overage-box">
           <span className="cv-overage-label">خصم فائض : </span>
+          {page.surplusAmountText && (
+            <span className="cv-overage-fill">
+              {/* ⚠ NOT wrapped in `<Ltr>`, deliberately. A value breaks only when
+                  it contains a SPACE and begins or ends with a digit; `240.70` is
+                  on `Ltr`'s own measured-safe list and `200.00` is the same
+                  shape. The date beside it is isolated because `2026-08-06 21:14`
+                  has a space — this does not. */}
+              <span className="cv-overage-amount">{page.surplusAmountText}</span>
+              {page.surplusEntryText && (
+                <span className="cv-overage-entry">{page.surplusEntryText}</span>
+              )}
+            </span>
+          )}
         </div>
       </div>
 

@@ -34,17 +34,29 @@ import type { AcrForm, AcrPage, AcrRow } from '@/core/models/collection'
 import logoUrl from './logo-aldawaa.png'
 import './collection-acr.css'
 
-/* The eleven columns, in the RTL order they print — column 0 is the sheet's
- * right. Widths live in `collection-acr.css`. */
+/* The twelve columns, in the RTL order they print — column 0 is the sheet's
+ * right. Widths live in `collection-acr.css`.
+ *
+ * BackOffice 1183 added تسويات and المستلم after إجمالي المبيعات, and the
+ * 2026-08-15 owner sign-off on that sheet removed مطابقة الكاش والشبكة outright —
+ * so this list went 11 → 13 → 12. Both moves are the SERVER's: `matchText` left
+ * the contract with the column, so it cannot be re-added here by accident. */
 const HEADERS = [
   'م',
   'رقم الصيدلية',
   'تاريخ اليوم',
+  // GROSS cash sales since 1183 — what the drawer sold, not what was handed over.
   'المبيعات النقدية',
   'مبيعات الشبكة',
   'إجمالي المبيعات',
+  // ONE SIGNED column over both kinds: a surplus kept back is negative, a
+  // settlement receipt positive. Two columns were rejected — the sign is the
+  // whole distinction.
+  'تسويات',
+  // What the collector was actually handed — the number المبيعات النقدية carried
+  // before 1183 re-based it to gross.
+  'المستلم',
   'رقم سند القبض',
-  'مطابقة الكاش والشبكة',
   'اسم الصيدلي',
   // 247's amendment 1 — the WPF calls this `رقم المشغل`, the operator's id. The
   // closer IS the pharmacist, so the column says so and pairs with the name
@@ -127,10 +139,11 @@ export default function CollectionAcr({ form, page }: { form: AcrForm; page: Acr
       {/* Last page only. Earlier pages simply end after their last data row. */}
       {page.showSummary && (
         <>
-          {/* The label cell spans columns 0–2 (26 + 58 + 68 = 152px), so the three
+          {/* The label cell spans columns 0–2 (24 + 52 + 60 = 136px), so the five
               totals below carry the SAME column numbers as the data rows above
               them and line up under المبيعات النقدية / مبيعات الشبكة / إجمالي
-              المبيعات. Change a width in `collection-acr.css` and both move. */}
+              المبيعات / تسويات / المستلم. Change a width in `collection-acr.css`
+              and both move. */}
           <div className="acr-tr">
             <div className="acr-td acr-th acr-td--first acr-total-label">الاجمالي</div>
             <Cell col={3} className="acr-money acr-td--bold">
@@ -142,15 +155,62 @@ export default function CollectionAcr({ form, page }: { form: AcrForm; page: Acr
             <Cell col={5} className="acr-money acr-td--bold">
               <Ltr>{form.grandTotalText}</Ltr>
             </Cell>
+            {/* The first SIGNED money on this form — the LTR island is what keeps a
+                leading − or + on the LEFT of its digits under the RTL sheet. */}
+            <Cell col={6} className="acr-money acr-td--bold">
+              <Ltr>{form.settlementTotalText}</Ltr>
+            </Cell>
+            <Cell col={7} className="acr-money acr-td--bold">
+              <Ltr>{form.bankedTotalText}</Ltr>
+            </Cell>
             {/* The WPF's filler — it keeps the run's borders closed. */}
             <div className="acr-td acr-total-filler">&nbsp;</div>
           </div>
 
-          {/* Back to the pad's sides: ملخص التحصيل on the left, the signature on
-              the right. The WPF swapped the two for no stated reason. Under RTL
-              the first child is the sheet's right, so the signature is written
-              first here and prints on the right. */}
+          {/* ⚠ THE WPF'S SIDES, not the pad's: ملخص التحصيل on the RIGHT, the
+              signature on the LEFT. 247 read the WPF's swap as accidental and went
+              back to the pad; the owner ruled the other way on 2026-08-15 looking at
+              the two sheets side by side — the POS form is the one the collectors
+              already read, so the web one follows it. Under RTL the first child is
+              the sheet's right, so the summary is written FIRST here. */}
           <div className="acr-foot">
+            {/* THREE rows since 1183, and they read downward as an explanation of
+                how the revenue above becomes the cash the collector carries:
+                  اجمالي الايرادات      ⚠ MEANING UNCHANGED — sales-only, cash + card,
+                                       and settlement never enters it;
+                  صافي التسويات         the signed net of the تسويات column;
+                  المبلغ المطلوب ايداعه  the counted cash LESS the surplus the branch
+                                       kept back — what this collection owes the bank.
+                ⚠ That last line read `المبلغ المودع بالبنك` until the 2026-08-15
+                sign-off: the collector holds this sheet BEFORE banking anything, so
+                the paper states an obligation rather than a completed deposit. The
+                FIGURE did not move, and neither did the wire field (`bankedTotalText`).
+                Every collector-DEPOSIT mark is still gone (247's amendment 3) — this
+                line says what this ACR owes, not where an earlier one was banked. */}
+            <div className="acr-summary">
+              <div className="acr-td acr-th acr-summary-title">ملخص التحصيل</div>
+              <div className="acr-tr">
+                <div className="acr-td acr-summary-label">اجمالي الايرادات</div>
+                <div className="acr-td acr-summary-value acr-money">
+                  <Ltr>{form.revenuesText}</Ltr>
+                </div>
+              </div>
+              <div className="acr-tr">
+                <div className="acr-td acr-summary-label">صافي التسويات</div>
+                <div className="acr-td acr-summary-value acr-money">
+                  <Ltr>{form.settlementTotalText}</Ltr>
+                </div>
+              </div>
+              <div className="acr-tr">
+                <div className="acr-td acr-summary-label">المبلغ المطلوب ايداعه</div>
+                <div className="acr-td acr-summary-value acr-money">
+                  <Ltr>{form.bankedTotalText}</Ltr>
+                </div>
+              </div>
+            </div>
+
+            <div className="acr-foot-gap" />
+
             <div className="acr-sign">
               {/* `الأسم` with the hamza — the XAML's spelling, kept. */}
               <div className="acr-sign-name">
@@ -164,20 +224,6 @@ export default function CollectionAcr({ form, page }: { form: AcrForm; page: Acr
                 <span className="acr-meta-label">التوقيع: </span>
                 {/* ALWAYS EMPTY — a wet signature is never printed. */}
                 <span className="acr-sign-line">&nbsp;</span>
-              </div>
-            </div>
-
-            <div className="acr-foot-gap" />
-
-            {/* ONE row. Every deposit mark is gone (247's amendment 3), which is
-                why `اجمالي ايداع المحصل` is not below it. */}
-            <div className="acr-summary">
-              <div className="acr-td acr-th acr-summary-title">ملخص التحصيل</div>
-              <div className="acr-tr">
-                <div className="acr-td acr-summary-label">اجمالي الايرادات</div>
-                <div className="acr-td acr-summary-value acr-money">
-                  <Ltr>{form.revenuesText}</Ltr>
-                </div>
               </div>
             </div>
           </div>
@@ -214,17 +260,24 @@ function Row({ row }: { row: AcrRow }) {
       <Cell col={5} className="acr-money acr-td--bold">
         <Ltr>{row.totalText}</Ltr>
       </Cell>
-      <Cell col={6}>{row.receiptNoText}</Cell>
-      {/* Tri-state, and `''` is a state: a reconciled row carries no mark at all. */}
-      <Cell col={7} className="acr-mark">
-        {row.matchText}
+      {/* تسويات — SIGNED, and the `—` on a row with no settlement is the server's
+          string too. An LTR island like every money cell, which is what keeps the
+          leading − or + on the left of its digits rather than trailing them. */}
+      <Cell col={6} className="acr-money">
+        <Ltr>{row.settlementText}</Ltr>
       </Cell>
-      <Cell col={8}>{row.pharmacistName}</Cell>
-      <Cell col={9}>{row.pharmacistId}</Cell>
+      {/* المستلم — always a real figure, on BOTH kinds of row, and the only reason
+          the totals line up down the page. */}
+      <Cell col={7} className="acr-money">
+        <Ltr>{row.netCollectedText}</Ltr>
+      </Cell>
+      <Cell col={8}>{row.receiptNoText}</Cell>
+      <Cell col={9}>{row.pharmacistName}</Cell>
+      <Cell col={10}>{row.pharmacistId}</Cell>
       {/* 242 §8-O5 — the note speaks the form's own language. The English
           `Z report missing` was OUR literal, so 245 §6a moved the fix into
           `AcrFormBuilder`; nothing is translated here. */}
-      <Cell col={10} className="acr-notes">
+      <Cell col={11} className="acr-notes">
         {row.notes}
       </Cell>
     </div>

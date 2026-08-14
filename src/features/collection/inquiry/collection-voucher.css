@@ -68,8 +68,15 @@
 
 /* ── the خصم فائض box ─────────────────────────────────────────────────── */
 
-/* On the RIGHT (the pad's side, not the XAML's) and ALWAYS EMPTY — a hand-fill
- * slot, not an output field. Nothing is bound into it, by ruling. */
+/* On the RIGHT (the pad's side, not the XAML's) and a HAND-FILL slot, not an
+ * output field: no reconciliation figure is bound into it, by ruling.
+ *
+ * ⚠ Its ONE occupant is a spent SURPLUS (spec 1173 D9/D10), and the rules below
+ * are what keep that from touching an ordinary receipt: the box keeps its own
+ * min-height and the fill is `flex-direction: column` INSIDE it, so an unfilled
+ * slot measures exactly what it always did — the component renders nothing at
+ * all when the strings are `''`, rather than an empty line that would grow the
+ * box and push the title band down. */
 .cv-overage {
   display: flex;
   margin-bottom: 10px;
@@ -85,6 +92,25 @@
 }
 
 .cv-overage-label {
+  color: #c00000;
+  font-weight: 700;
+}
+
+.cv-overage-fill {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The amount reads at the label's own weight but a size up — it is the figure a
+ * collector reconciles a cash bag against, and the WPF sets it at 14 for the
+ * same reason. */
+.cv-overage-amount {
+  color: #c00000;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.cv-overage-entry {
   color: #c00000;
   font-weight: 700;
 }

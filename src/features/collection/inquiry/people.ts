@@ -74,13 +74,28 @@ export interface SavePersonBody {
   role: string
   supervisorId: string
   isActive: boolean
+  /**
+   * 🚩 **"I am ADDING somebody, not editing them."** The one field here that is a
+   * statement of intent rather than a value, and the screen is the only thing that
+   * knows it — the server cannot tell an add from an edit, so a blind upsert would
+   * let a staff id typed one digit wrong silently REPLACE the colleague who owns
+   * it. There is no history on that table and it is the only place the name lives.
+   *
+   * ⚠️ It is not trusted, it is checked: the server refuses `isNew` against an id
+   * that already exists (`PersonAlreadyExists`). Same posture as the two assignment
+   * slots — the client picks from a dropdown and the server verifies the pick.
+   */
+  isNew: boolean
 }
 
-/** A blank new-person form. `isActive` starts true: a person is added to be used. */
+/** A blank new-person form. `isActive` starts true (a person is added to be used)
+ *  and `isNew` starts true, because a blank form is an add. */
 export function blankPerson(): SavePersonBody {
-  return { staffId: '', displayName: '', role: '', supervisorId: '', isActive: true }
+  return { staffId: '', displayName: '', role: '', supervisorId: '', isActive: true, isNew: true }
 }
 
+/** An existing person, loaded into the form for editing — `isNew: false`, which is
+ *  what lets the save overwrite them. */
 export function personToBody(person: RosterPerson): SavePersonBody {
   return {
     staffId: person.staffId,
@@ -88,6 +103,7 @@ export function personToBody(person: RosterPerson): SavePersonBody {
     role: person.role ?? '',
     supervisorId: person.supervisorId ?? '',
     isActive: person.isActive,
+    isNew: false,
   }
 }
 

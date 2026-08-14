@@ -10,7 +10,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   matchesPersonSearch,
+  blankPerson,
   personFormError,
+  personToBody,
   roleLabelKey,
   rosterNameOf,
   slotPeople,
@@ -163,6 +165,28 @@ describe('a Role reads as a caption in ONE place', () => {
   })
 })
 
+describe('adding somebody is not the same operation as editing them', () => {
+  it('🚩 a blank form is an ADD and a loaded person is an EDIT', () => {
+    // The server cannot tell the two apart, so the screen — which can, because it
+    // disables the id field while editing — says which it is. A staff id typed one
+    // digit wrong would otherwise silently replace the colleague who owns it, with
+    // no history on that table and no other copy of the name.
+    expect(blankPerson().isNew).toBe(true)
+    expect(personToBody(ACCOUNTANT).isNew).toBe(false)
+
+    // …and an edit carries the person's current values, so an untouched field is
+    // re-sent as itself rather than blanked by the whole-form save.
+    expect(personToBody({ ...ACCOUNTANT, supervisorId: MANAGER.staffId })).toEqual({
+      staffId: ACCOUNTANT.staffId,
+      displayName: 'ضحى',
+      role: 'ACCOUNTANT',
+      supervisorId: MANAGER.staffId,
+      isActive: true,
+      isNew: false,
+    })
+  })
+})
+
 describe('the add-person form', () => {
   it('refuses a nameless person before the round trip, because this row is the only name source', () => {
     expect(personFormError({ ...blank(), staffId: '', displayName: 'x' })).toBe('staffId')
@@ -175,5 +199,5 @@ describe('the add-person form', () => {
 })
 
 function blank() {
-  return { staffId: '', displayName: '', role: '', supervisorId: '', isActive: true }
+  return { staffId: '', displayName: '', role: '', supervisorId: '', isActive: true, isNew: true }
 }

@@ -35,12 +35,20 @@ import type {
   SettlementFleetRow,
   SettlementLedgerCriteria,
   SettlementLedgerRow,
+  SettlementOpenLaneRow,
   SettlementOrphanRow,
   SettlementPostResult,
   SettlementRepairResult,
   SettlementScope,
 } from '@/core/models/settlement'
-import { ACCOUNT_LIMIT, BRANCH_LIMIT, FLEET_LIMIT, LEDGER_LIMIT, WORKLIST_LIMIT } from './cap'
+import {
+  ACCOUNT_LIMIT,
+  BRANCH_LIMIT,
+  FLEET_LIMIT,
+  LEDGER_LIMIT,
+  OPEN_LANE_LIMIT,
+  WORKLIST_LIMIT,
+} from './cap'
 
 /**
  * The settlement account's predicate — this screen's own reading of the fifth flag.
@@ -200,6 +208,45 @@ export const settlementApi = {
     return api.get<SettlementLedgerRow[]>('Settlement/Ledger', {
       ...criteria,
       limit: LEDGER_LIMIT,
+    })
+  },
+
+  /**
+   * `GET Settlement/Ledger?status=OPEN&sort=age&limit=2000` → the **open settlements
+   * lane** (spec 282 D5, ticket 285).
+   *
+   * 🔑 **Not a new door, and that was the decision.** `status = 'OPEN'` is a
+   * column-equals-constant rather than a money predicate, so the one-spelling
+   * discipline that justifies `Settlement/Orphans` having a door of its own does not
+   * apply here — the ledger already takes this exact question. What §6 adds is
+   * additive and does not move a shipped caller: `sort=age` is a new value, and the
+   * door's `EntryNumber DESC` default is untouched.
+   *
+   * 🚩 **One call feeds BOTH entry tabs**, split by `entryKind` in `open-lane.ts`.
+   * Two calls would be two answers, and the moment they were fetched a second apart
+   * the two tab counts, the cap banner and 288's front-page signpost could disagree
+   * about the same estate — with nothing on screen to say which was lying.
+   *
+   * ⚠️ **`sort=age` is sent regardless of whether §6 is built.** An unrecognised sort
+   * is the server's to ignore, and the alternative — sniffing the answer and asking
+   * again — would issue two calls to discover a fact the door already knows.
+   * `servedBy`, `isMine` and `ageDays` are optional on the wire for the same reason
+   * (`SettlementOpenLaneRow`), and their absence degrades the screen rather than
+   * failing it.
+   *
+   * ⚠️ **The door's refusal of an unfiltered call is satisfied by `status=OPEN`** —
+   * so unlike the Ledger view there is no *ask me something first* state here, and a
+   * `SettlementLedgerCriterionRequired` reaching this screen is a real failure to
+   * surface by message, never a prompt.
+   */
+  openLane(): Promise<SettlementOpenLaneRow[]> {
+    return api.get<SettlementOpenLaneRow[]>('Settlement/Ledger', {
+      status: 'OPEN',
+      // 🔑 `PostedAt ASC, EntryNumber ASC` — **total**, which is the property the
+      // door's existing `EntryNumber DESC` was chosen to protect. A partial order
+      // over a capped answer would let a refetch reshuffle which rows the cap kept.
+      sort: 'age',
+      limit: OPEN_LANE_LIMIT,
     })
   },
 

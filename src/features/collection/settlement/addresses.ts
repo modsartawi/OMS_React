@@ -78,6 +78,20 @@ export const ENTRY_PARAM = 'entry'
 export const BATCH_PARAM = 'batch'
 /** The search box's query. */
 export const QUERY_PARAM = 'q'
+/**
+ * Which tab the open settlements lane is on — `owing | owed` (spec 282 D3, ticket
+ * 285; `cash` joins them with 286).
+ *
+ * ⚠️ **Named here, read and written by `open-lane.ts`** — the same split
+ * `LEDGER_PARAMS` already has one section down: this module's claim is that the
+ * screen's URL grammar is spelled ONCE, while what the values *mean* and which of
+ * them are legal belongs to the view. The dependency runs one way (`open-lane.ts` →
+ * here) so the two never cycle.
+ *
+ * 🚩 A parameter and not a segment, by D3's dividing rule: a path names *which
+ * screen*, and all three tabs are one screen looking at one answer.
+ */
+export const TAB_PARAM = 'tab'
 
 /* ── the ledger's own criteria keys ───────────────────────────────────────────
  * ⚠️ Named here because this module's claim is that the screen's URL grammar is
@@ -177,11 +191,19 @@ export function doorSearch(params: URLSearchParams): string {
 /**
  * The open settlements lane (spec 282), keeping the scope like every address here.
  *
- * The lane's own `?tab=owing|owed|cash` is 285's and is *not* spelled yet — a tab is
- * what the screen is looking at, so it will arrive as a parameter on this path.
+ * ⚠️ **The tab is optional and its DEFAULT is the absence of the parameter** —
+ * `scopeSearch`'s rule, so `/collection/settlement/open` and `?tab=owing` are one
+ * address rather than two spellings of one. The caller (`open-lane.ts`) is what
+ * decides which value is the default; this only refuses to write an empty one.
+ *
+ * 🚩 Everything else is dropped, as with every builder here — a lane linked to from
+ * the front page's signpost (288) arrives showing the estate, not carrying whatever
+ * question the door was last asked.
  */
-export function openSearch(params: URLSearchParams): string {
-  return at(OPEN_PATH, keepOnly(params))
+export function openSearch(params: URLSearchParams, tab?: string): string {
+  const next = keepOnly(params)
+  if (tab) next.set(TAB_PARAM, tab)
+  return at(OPEN_PATH, next)
 }
 
 /* ⚠️ **`ledgerSearch` stood here until ticket 274, and it now lives in `ledger.ts`**

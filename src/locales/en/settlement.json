@@ -426,5 +426,64 @@
     "errors": {
       "lookupFailed": "The lookup could not be completed."
     }
+  },
+  "open": {
+    "title": "Open settlements",
+    "subtitle": "Every entry the estate still has open, oldest first. How long one has been open is stated here as a fact — nothing on this screen decides when an entry is late.",
+    "loading": "Loading the estate’s open entries…",
+    "capReached": "This reached {{limit}} entries, so there may be more. The oldest are first, so anything missing is newer than what is here.",
+    "unranked": "The server did not say which of these branches are yours, so this is one list, oldest first.",
+    "tabs": {
+      "owing": "Owing",
+      "owed": "Owed",
+      "noCount": "—"
+    },
+    "filters": {
+      "mineOnly": "Mine only"
+    },
+    "sections": {
+      "mine": "Yours",
+      "theirs": "Everyone else's",
+      "all": "Open entries"
+    },
+    "signpost": {
+      "oldest": "oldest is {{oldest}}",
+      "olderThanYours": "oldest is {{oldest}} — older than anything of yours ({{yours}})"
+    },
+    "age": {
+      "today": "today",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "posted": "posted {{date}}"
+    },
+    "row": {
+      "ofAmount": "of {{amount}}",
+      "nobodyAssigned": "Nobody assigned"
+    },
+    "columns": {
+      "entryNumber": "Entry",
+      "branch": "Branch",
+      "age": "Age",
+      "remaining": "Still open",
+      "servedBy": "Served by"
+    },
+    "empty": {
+      "owing": {
+        "title": "Nothing owing.",
+        "hint": "No branch is holding money for head office."
+      },
+      "owed": {
+        "title": "Nothing owed.",
+        "hint": "Head office owes no branch a surplus back."
+      }
+    },
+    "filtered": {
+      "title": "Nothing matches these filters.",
+      "hint": "Clear a filter to see the rest of the estate.",
+      "clear": "Show the whole estate"
+    },
+    "errors": {
+      "laneFailed": "This list could not be read, so nothing can be said about what the estate has open. This is not “nothing to do” — try again, and tell head office if it keeps happening."
+    }
   }
 }

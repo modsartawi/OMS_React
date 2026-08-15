@@ -124,6 +124,17 @@ const BHD_BRANCHES = new Set(['0688'])
 /** Every criteria set the ledger door was asked for - including the ones it REFUSED,
  *  so "the screen never issues the empty question" is visible here. */
 let ledgerCalls = []
+/** KEY **Ticket 285's OPEN SETTLEMENTS LANE**, over the SAME door (spec 282 D5) — the
+ *  estate's open entries, oldest first, one call feeding both entry tabs. Read out of
+ *  `open-lane-fixture.ts`, which builds them off the same 1394 branches the fleet and
+ *  the picker use, so no two doors here can disagree about who serves a branch. */
+let OPEN_LANE = []
+/** Every lane call, so *switching tabs must not refetch* is a thing this drive sees. */
+let laneCalls = []
+/** Strip the three fields server dependency §6 has NOT built, so the drive can reach
+ *  the degraded rendering — one unsectioned list, deriving nothing. */
+const withoutSix = (rows) =>
+  rows.map(({ servedBy: _s, isMine: _m, ageDays: _a, ...row }) => row)
 /** The consumption whose document arrives MID-CLICK — the OLDEST orphan, picked
  *  once the fixture is loaded. Repairing it must come back a no-op (a 200 that
  *  changed nothing) rather than an error. */
@@ -268,6 +279,39 @@ async function run() {
       const asked = ['entryNumber', 'storeId', 'entryKind', 'status', 'batchId', 'postedFrom', 'postedTo']
         .some((k) => q(k) !== '')
       ledgerCalls.push(Object.fromEntries([...url.searchParams].filter(([k]) => k !== 'limit')))
+      // ---- ticket 285: the OPEN SETTLEMENTS LANE, over this same door ----
+      // KEY `sort=age` is the LANE's own addition (spec 282 D5) and the only thing
+      // that tells the two callers apart: the Ledger view never sends it and the
+      // door's `EntryNumber DESC` default is untouched for every shipped caller. So
+      // the stub splits on the same field the server does, rather than on a cap
+      // constant it would then be coupled to.
+      if (q('sort') === 'age') {
+        laneCalls.push(Object.fromEntries([...url.searchParams]))
+        // WARNING The refusal a lane has to survive. `status=OPEN` satisfies the door's
+        // criterion rule, so seeing this means something real broke - and the screen
+        // must draw it as a REFUSAL with em-dashed counts, never as "nothing to do".
+        if (scenario.laneRefuses)
+          return route.fulfill(
+            envelope(null, {
+              status: 400,
+              success: false,
+              message: 'At least one ledger criterion is required.',
+              errors: ['SettlementLedgerCriterionRequired'],
+            }),
+          )
+        const laneLimit = Number(url.searchParams.get('limit') || 500)
+        let lane = OPEN_LANE.filter((r) => q('status') === '' || r.status === q('status'))
+        // WARNING **The door as it stands TODAY** - server dependency §6 is not built, so
+        // the three ranking fields are absent from the live answer. A stub that could
+        // only serve the built version would leave the degraded rendering unproven,
+        // which is precisely the state most likely to be broken by a later change and
+        // least likely to be noticed.
+        if (scenario.laneBare) lane = withoutSix(lane)
+        // KEY Nobody's own branches - an accountant with no staff row, and the only way
+        // to reach *emptied by my own filter* on an estate where 25 branches are mine.
+        if (scenario.laneNoneMine) lane = lane.map((r) => ({ ...r, isMine: false }))
+        return route.fulfill(envelope(lane.slice(0, laneLimit)))
+      }
       if (!asked)
         return route.fulfill(
           envelope(null, {
@@ -751,6 +795,12 @@ async function run() {
       // export's own docblock. No screen may read this.
       assignment: m.SETTLEMENT_ASSIGNMENT,
     }
+  })
+  // …and 285's estate-scale OPEN POSITION: one open entry per branch, oldest first,
+  // tie-broken by entry number. Same module the lane's vitest suite is built beside.
+  OPEN_LANE = await page.evaluate(async () => {
+    const m = await import('/src/features/collection/settlement/open-lane-fixture.ts')
+    return m.SETTLEMENT_OPEN_LANE
   })
   FLEET = estate.fleet
   BRANCHES = estate.branches
@@ -2479,6 +2529,251 @@ async function run() {
     (await page.locator(`[data-section-card] a[href="${ROUTE}"]`).count()) === 1 &&
       (await page.locator('[data-section-card] a[href^="' + ROUTE + '/"]').count()) === 0,
     `${await page.locator(`[data-section-card] a[href="${ROUTE}"]`).count()} card links`,
+  )
+
+  /* ══════════════════════════════════════════════════════════════════════════════
+   * Ticket 285 — THE ESTATE'S OPEN ENTRIES, OLDEST FIRST, YOURS ABOVE EVERYONE
+   * ELSE'S (spec 282's tracer bullet).
+   *
+   * KEY Driven at ESTATE SCALE and for one reason: every claim this screen makes is
+   * about what happens when there are ~1,400 open entries and 1,255 of the branches
+   * behind them belong to nobody. Six hostile branches cannot prove that ranking your
+   * own first pushes the estate's oldest entry below the fold, nor that the signpost
+   * is the only thing on screen that says so.
+   *
+   * WARNING The two DEGRADED renderings are driven too — the door refusing, and the
+   * §6 fields absent — because they are the states most likely to be broken by a
+   * later change and least likely to be noticed by anyone reading a healthy screen.
+   * ══════════════════════════════════════════════════════════════════════════════ */
+
+  // What the fixture actually holds, computed HERE rather than hardcoded: a number
+  // typed into a drive is a number that stops being true the day the fixture moves.
+  const owingAll = OPEN_LANE.filter((r) => r.entryKind === 'SHORTAGE')
+  const owedAll = OPEN_LANE.filter((r) => r.entryKind === 'SURPLUS')
+  const owingMine = owingAll.filter((r) => r.isMine)
+  const owingTheirs = owingAll.filter((r) => !r.isMine)
+  const group = (n) => n.toLocaleString('en-US')
+
+  /** One section's count pill, and the entry number at the top of its grid. */
+  const sectionCount = async (which) => {
+    const pill = page.locator(`[data-testid="open-section-count-${which}"]`)
+    return (await pill.count()) ? (await pill.innerText()).trim() : '(absent)'
+  }
+  const topEntry = async (which) => {
+    const cell = page.locator(
+      `[data-region="open-section-${which}"] .ag-row[row-index="0"] [col-id="entryNumber"]`,
+    )
+    return (await cell.count()) ? (await cell.first().innerText()).trim() : '(no row)'
+  }
+  const tabCount = async (key) =>
+    (await page.locator(`[data-testid="open-count-${key}"]`).innerText()).trim()
+  const openLane = async (address = OPEN_ROUTE) => {
+    await page.goto(BASE + address)
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(250)
+    return mainText()
+  }
+
+  scenario = { ...scenario, laneRefuses: false, laneBare: false, laneNoneMine: false }
+  laneCalls = []
+  let lane = await openLane()
+
+  check('285 → the lane draws its own screen at /open', (await drawn()).open)
+  check(
+    '285 → …asking the ledger ONCE, with the lane’s own question',
+    laneCalls.length === 1 &&
+      laneCalls[0].status === 'OPEN' &&
+      laneCalls[0].sort === 'age' &&
+      laneCalls[0].limit === '2000',
+    JSON.stringify(laneCalls[0] || {}),
+  )
+  check(
+    '🚩 285 → both tab counts come out of the ONE answer and agree with the estate',
+    (await tabCount('owing')) === group(owingAll.length) &&
+      (await tabCount('owed')) === group(owedAll.length),
+    `owing ${await tabCount('owing')} / owed ${await tabCount('owed')} vs ${owingAll.length}/${owedAll.length}`,
+  )
+  check(
+    '🚩 285 → Owing draws BOTH sections — yours above, the estate below, neither hidden',
+    (await sectionCount('mine')) === group(owingMine.length) &&
+      (await sectionCount('theirs')) === group(owingTheirs.length),
+    `mine ${await sectionCount('mine')} / theirs ${await sectionCount('theirs')}`,
+  )
+  check(
+    '285 → each section opens on its OWN oldest row (the server’s order, not re-sorted)',
+    (await topEntry('mine')) === String(owingMine[0].entryNumber) &&
+      (await topEntry('theirs')) === String(owingTheirs[0].entryNumber),
+    `mine ${await topEntry('mine')} / theirs ${await topEntry('theirs')}`,
+  )
+
+  // 🚩 THE POINT OF THE TICKET. Without this line the estate's oldest entry sits far
+  // below the fold and the carve-out that kept unassigned money in the answer is
+  // undone by the arrangement.
+  const signpost = await page.locator('[data-testid="open-signpost-theirs"]').innerText()
+  const older = owingTheirs[0].ageDays > owingMine[0].ageDays
+  check(
+    '🚩 285 → the signpost states the estate’s oldest, and CLAIMS the comparison only when true',
+    older
+      ? /older than anything of yours/.test(signpost) &&
+        signpost.includes(String(owingTheirs[0].ageDays)) &&
+        signpost.includes(String(owingMine[0].ageDays))
+      : !/older than anything of yours/.test(signpost) &&
+        signpost.includes(String(owingTheirs[0].ageDays)),
+    `${signpost.trim()} — theirs ${owingTheirs[0].ageDays}d vs yours ${owingMine[0].ageDays}d`,
+  )
+
+  // 🚩 NOTHING COLOURS THE AGE. The domain has not ruled when an entry is late, and a
+  // colour is a ruling — so no attention/destructive token may reach these rows.
+  const laneHtml = await page.locator('[data-region="settlement-open"]').innerHTML()
+  check(
+    '🚩 285 → no colour, badge or “overdue” anywhere on the age',
+    !/attention|destructive|danger|overdue/i.test(laneHtml),
+    (laneHtml.match(/attention|destructive|danger|overdue/i) || []).join(),
+  )
+  check(
+    '🚩 285 → the namespace RENDERS — no raw `settlement:open.*` on screen',
+    !/settlement:open/.test(lane),
+  )
+
+  // The second tab is an ADDRESS, and switching to it re-reads the one answer rather
+  // than fetching a second estate the two counts could then disagree about.
+  laneCalls = []
+  await page.getByRole('tab', { name: /^Owed/ }).click()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(250)
+  check(
+    '285 → Owed is an address (`?tab=owed`) and draws SURPLUS only',
+    new URL(page.url()).search === '?tab=owed' &&
+      (await sectionCount('mine')) === group(owedAll.filter((r) => r.isMine).length) &&
+      (await sectionCount('theirs')) === group(owedAll.filter((r) => !r.isMine).length),
+    `${page.url().replace(BASE, '')} · mine ${await sectionCount('mine')}`,
+  )
+  check(
+    '🔑 285 → …and switching tabs costs NO second call — one answer, two readings',
+    laneCalls.length === 0,
+    `${laneCalls.length} calls`,
+  )
+
+  // A pasted `?tab=` opens on that tab; an unreadable one lands on Owing rather than
+  // on a blank screen (the rule every reader in this feature follows).
+  await openLane(`${OPEN_ROUTE}?tab=nonsense`)
+  check(
+    '285 → a hand-edited `?tab=` lands on Owing rather than on nothing',
+    (await page.getByRole('tab', { name: /^Owing/ }).getAttribute('aria-selected')) === 'true',
+  )
+
+  // …and the SCOPE rides every link on this screen, as it has since 270.
+  await openLane(`${OPEN_ROUTE}?scope=all`)
+  await page.getByRole('tab', { name: /^Owed/ }).click()
+  await page.waitForTimeout(250)
+  check(
+    '285 → the scope survives a tab switch',
+    new URL(page.url()).searchParams.get('scope') === 'all',
+    page.url().replace(BASE, ''),
+  )
+
+  // MINE ONLY narrows the list and drops the estate's section — a filter, not a lens
+  // on a different answer.
+  await openLane()
+  await page.getByRole('button', { name: 'Mine only' }).click()
+  await page.waitForTimeout(250)
+  check(
+    '285 → “Mine only” narrows to yours and drops the estate’s section',
+    (await sectionCount('mine')) === group(owingMine.length) &&
+      (await page.locator('[data-region="open-section-theirs"]').count()) === 0 &&
+      // 🚩 …while the TAB still counts the estate. The filter narrows what is drawn,
+      // never what is claimed to exist.
+      (await tabCount('owing')) === group(owingAll.length),
+    `mine ${await sectionCount('mine')} · owing tab ${await tabCount('owing')}`,
+  )
+
+  // 🚩 …and a list emptied BY THAT CHIP says so. An accountant with no branches of
+  // their own must never read "Nothing owing" off a screen they narrowed themselves.
+  scenario = { ...scenario, laneNoneMine: true }
+  await openLane()
+  await page.getByRole('button', { name: 'Mine only' }).click()
+  await page.waitForTimeout(250)
+  lane = await mainText()
+  check(
+    '🚩 285 → emptied by MY OWN filter is a distinct sentence, never “Nothing owing”',
+    (await page.locator('[data-testid="open-filtered"]').count()) === 1 &&
+      (await page.locator('[data-testid="open-empty"]').count()) === 0 &&
+      !/Nothing owing/.test(lane),
+    lane.replace(/\n/g, ' ').slice(0, 110),
+  )
+  // …and the way out is named rather than left to be rediscovered.
+  await page.getByRole('button', { name: 'Show the whole estate' }).click()
+  await page.waitForTimeout(250)
+  check(
+    '285 → …and clearing it brings the estate back',
+    (await page.locator('[data-region="open-section-theirs"]').count()) === 1,
+  )
+  scenario = { ...scenario, laneNoneMine: false }
+
+  // 🚩 THE FAILED DOOR. The one rendering that, drawn wrong, tells an accountant to
+  // go home: a refusal must never read as an estate with nothing outstanding.
+  scenario = { ...scenario, laneRefuses: true }
+  lane = await openLane()
+  // WARNING The query retries once (`main.tsx`), so `networkidle` can settle while the
+  // second attempt is still in flight — wait for the refusal itself rather than for
+  // the network, or this asserts against a screen that is still loading.
+  await page.waitForSelector('[data-region="settlement-open"] [role="alert"]', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(200)
+  lane = await mainText()
+  check(
+    '🚩 285 → a refused read says so, in the server’s own words',
+    /criterion is required/i.test(lane) &&
+      (await page.locator('[data-testid="open-empty"]').count()) === 0 &&
+      !/Nothing owing/.test(lane),
+    lane.replace(/\n/g, ' ').slice(0, 130),
+  )
+  check(
+    '🚩 285 → …and BOTH tab counts render an em-dash, never a fabricated 0',
+    (await tabCount('owing')) === '—' && (await tabCount('owed')) === '—',
+    `${await tabCount('owing')} / ${await tabCount('owed')}`,
+  )
+  scenario = { ...scenario, laneRefuses: false }
+
+  // 🚩 THE DOOR AS IT STANDS TODAY (server dependency §6 unbuilt): no `servedBy`, no
+  // `isMine`, no `ageDays`. One unsectioned oldest-first list, and NOTHING derived —
+  // no client clock stands in for the age and no guess stands in for the ranking.
+  scenario = { ...scenario, laneBare: true }
+  lane = await openLane()
+  check(
+    '🚩 285 → without §6 the lane draws ONE unsectioned list and says why',
+    (await page.locator('[data-region="open-section-all"]').count()) === 1 &&
+      (await page.locator('[data-region="open-section-mine"]').count()) === 0 &&
+      (await page.locator('[data-testid="open-unranked"]').count()) === 1 &&
+      (await sectionCount('all')) === group(owingAll.length),
+    `all ${await sectionCount('all')}`,
+  )
+  check(
+    '🚩 285 → …offering no “Mine only” chip and asserting nobody is assigned to anything',
+    (await page.getByRole('button', { name: 'Mine only' }).count()) === 0 &&
+      !/Nobody assigned/.test(lane) &&
+      !/\d+ days/.test(lane),
+    lane.replace(/\n/g, ' ').slice(0, 110),
+  )
+  check(
+    '285 → …and the counts are still real, because only the RANKING was missing',
+    (await tabCount('owing')) === group(owingAll.length),
+    await tabCount('owing'),
+  )
+  scenario = { ...scenario, laneBare: false }
+
+  // 🔑 Understanding an entry is one click from chasing it: a row opens the branch's
+  // ACCOUNT on that exact entry (269's `?store=&entry=` idiom).
+  await openLane()
+  await page.locator('[data-region="open-section-mine"] .ag-row[row-index="0"]').first().click()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(200)
+  check(
+    '🔑 285 → a row lands on its branch’s account, ON the entry it named',
+    new URL(page.url()).pathname === ROUTE &&
+      new URL(page.url()).searchParams.get('store') === owingMine[0].storeId &&
+      new URL(page.url()).searchParams.get('entry') === String(owingMine[0].entryNumber) &&
+      (await drawn()).account,
+    page.url().replace(BASE, ''),
   )
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))

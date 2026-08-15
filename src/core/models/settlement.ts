@@ -340,6 +340,54 @@ export type SettlementLedgerRow = SettlementEntry & {
 }
 
 /**
+ * One row of the **open settlements lane** — `/collection/settlement/open`, spec 282
+ * D5. The same `Settlement/Ledger` door, asked `status=OPEN&sort=age`, answering the
+ * ledger row plus the three things a *follow-up* list needs that a *lookup* does not.
+ *
+ * 🚩 **All three additions are optional on the wire, and that is not defensive
+ * typing — it is the build order.** The ledger extension is server dependency §6 of
+ * `.afk/BACKOFFICE-TICKET-DRAFT-settlement-reads.md` and is **not built**: against
+ * today's door `status=OPEN&limit=2000` already returns the rows, and these three
+ * arrive with nothing in them. So the lane ships now and renders one unsectioned
+ * oldest-first list until they do.
+ *
+ * ⚠️ **What the screen must never do is derive them.** No client-side clock stands in
+ * for `ageDays` (the sort is the server's, and a browser left open all night would
+ * disagree with it — story 7), and no guessed ranking stands in for `isMine` (the
+ * pairing is a union over an org chart no client can see). Absent means *not said*,
+ * and the screen says less rather than inventing more.
+ */
+export type SettlementOpenLaneRow = SettlementLedgerRow & {
+  /**
+   * The assigned accountant's display name, or `''` for the ~1255 branches paired to
+   * nobody — `SettlementBranch.servedBy`'s field, on the lane's row.
+   *
+   * 🔑 **It labels and it ranks; it never filters.** A row it cannot name says
+   * *nobody assigned* in words, because an empty cell reads as missing data about a
+   * branch rather than as a true fact about the estate.
+   */
+  servedBy?: string
+  /**
+   * Whether the **session** serves this branch, resolved server-side against the
+   * assignment tables.
+   *
+   * ⚠️ **An ordering input, never a permission** — the same ruling
+   * `SettlementBranch.isMine` carries. It decides which of the two sections a row
+   * lands in, and 1,255 branches answering `false` stay on the screen underneath.
+   */
+  isMine?: boolean
+  /**
+   * `DATEDIFF(day, PostedAt, <server now>)` — **the server subtracts, the client owns
+   * no clock** (spec 282 D5, ticket 276).
+   *
+   * 🚩 Counted from when the entry was **posted** and not from its last consumption,
+   * so a branch paying one riyal a week cannot keep an old debt looking young
+   * (story 4). `0` is a real value and renders as *today* rather than as *0 days*.
+   */
+  ageDays?: number
+}
+
+/**
  * What the ledger is being asked about — every field optional **individually**, and
  * ⚠️ **at least one required**.
  *

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 282
 blocked-by: 283
 ---
@@ -67,16 +67,40 @@ screen + its columns at `/collection/settlement/open`) · i18n · test (pure + d
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `lane: entries split by kind, each section oldest-first and totally ordered` — SHORTAGE and
+- [x] `lane: entries split by kind, each section oldest-first and totally ordered` — SHORTAGE and
       SURPLUS separate, the server's order preserved, ties broken by entry number · **pure**
-- [ ] `lane: the signpost claims the comparison only when it is true` — states the second section's
+      (`open-lane.test.ts`) — the tie is a fixture case (two rows at 140 days, one mine and one
+      not), so *the projection never re-sorts* is asserted rather than assumed
+- [x] `lane: the signpost claims the comparison only when it is true` — states the second section's
       oldest; adds *"older than anything of yours"* only when it is, and omits the clause otherwise ·
-      **pure**
-- [ ] `lane: empty, emptied-by-filter and failed are three different answers` — the assertion that
-      stops a failed door rendering as good news · **pure**
-- [ ] Drive `tools/settlement-drive.mjs` against an estate-scale fixture: both tabs render both
+      **pure** — five cases, including 🚩 **the tie**: equal is *not* older, so the clause drops
+- [x] `lane: empty, emptied-by-filter and failed are three different answers` — the assertion that
+      stops a failed door rendering as good news · **pure** — plus *a door that answered nothing at
+      all is empty, not failed*, and the counts staying the **estate's** under a filter
+- [x] Drive `tools/settlement-drive.mjs` against an estate-scale fixture: both tabs render both
       sections with counts, the *mine only* chip narrows and its empty state is distinct, and a
-      stubbed refusal draws the failure with **—** in the counts · **flow (Playwright)**
+      stubbed refusal draws the failure with **—** in the counts · **flow (Playwright)** —
+      **245/245 PASS**; the new section also drives the tab as an address (`?tab=owed`, a
+      hand-edited one landing on Owing, the scope surviving the switch), 🔑 **switching tabs
+      costing no second call**, a row landing on its branch's account *on the entry it named*,
+      **no colour/badge/overdue anywhere on the age**, and the **§6-absent** rendering — one
+      unsectioned list, no chip, no derived age, and counts that are still real
+
+**Also run:** `npm run typecheck` clean · `npm test` 1877/1877 (118 files) · `npm run lint`
+(boundaries, contrast, colour literals) clean · `npm run build` green.
+
+**One defect the drive found that reasoning had not:** the tab counts rendered **`0`** while the
+read was in flight. Every argument the ticket makes about a failed door drawing `—` applies
+unchanged to a pending one — *"Owing 0"* under a shimmer is the estate looking settled for as long
+as the door takes to answer — so the pending case now renders the same em-dash, and the count
+resolves *into* a number rather than out of one.
+
+**Seven decisions taken unattended, all logged in `.afk/HITL-285.md`.** The load-bearing ones: two
+tabs and no placeholder third (286 owns Cash waiting and its door); `?tab=`'s key lives in
+`addresses.ts` and its vocabulary in `open-lane.ts`, the split `ledger.ts` already has; the *mine
+only* chip is component state, because story 39 names the scope and the tab and nothing else; and
+the prototype's two money `<td>`s (the second with a blank header) became **one** *Still open*
+column drawing the figure with `of X` beside it — same arrangement, no header-less column.
 
 ## Boundaries
 

@@ -68,6 +68,31 @@ export const BRANCH_LIMIT = 2000
 export const LEDGER_LIMIT = 500
 
 /**
+ * The **open settlements lane**'s cap (spec 282 D9, ticket 285) — one call at
+ * `Settlement/Ledger?status=OPEN&sort=age`, feeding both entry tabs.
+ *
+ * 🔑 **2,000, and `LEDGER_LIMIT` stays 500 — the difference is this docblock's own
+ * rule applied rather than a second opinion about the same door.** The two callers
+ * ask different *kinds* of question of one endpoint:
+ *
+ * | caller | question | what reaching the cap means |
+ * |---|---|---|
+ * | the Ledger view | a **question** — always filtered, often to one row | it was too broad to read; narrow it |
+ * | this lane | a **population** — the estate's open entries, 1394 at 274's seeded scale | a complete answer was truncated |
+ *
+ * A 500 here would answer *"the 500 oldest open entries"* while looking like the
+ * estate's position — and because the order is oldest-first, the rows it dropped
+ * would be the newest ones, so nothing on screen would look wrong. Same reasoning as
+ * `BRANCH_LIMIT` and `FLEET_LIMIT`, which answer the estate for the same reason and
+ * carry the same number.
+ *
+ * 🚩 **One call, one cap, one banner.** Both tabs are split out of this single
+ * answer, so `isCapReached` is measured against the whole of it — which is what stops
+ * *Owing* claiming completeness while *Owed* was the half that got cut.
+ */
+export const OPEN_LANE_LIMIT = 2000
+
+/**
  * The fleet door's cap — ✅ **found live by 274, and it is the one number on this
  * screen that had to change.**
  *

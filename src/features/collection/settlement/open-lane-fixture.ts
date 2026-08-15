@@ -65,6 +65,24 @@ function postedDaysAgo(ageDays: number, hour: number, minute: number): string {
   return `${day.toISOString().slice(0, 10)}T${pad(hour)}:${pad(minute)}:00`
 }
 
+/** What an accountant actually writes in a day-book — short, internal, and about what
+ *  was **said** rather than about what the ledger holds. ⚠️ Not one of them is a
+ *  judgement about lateness: the domain has not ruled when an entry is late, and a
+ *  fixture that put *"overdue"* in a note would be smuggling one in. */
+const CHASE_NOTES = [
+  'promised Sunday',
+  'rang, no answer',
+  'manager on leave until the 20th',
+  'says the deposit slip is with the bank',
+  'left a message with the pharmacist',
+  'collector to pass on Wednesday',
+  'disputes the amount — sending the Z report',
+]
+
+/** Who left the note. The estate's own roster — the same names `fleet-fixture.ts`
+ *  serves, so nothing here mints a person the rest of the wave has not heard of. */
+const CHASERS = ['Ayed Al-Qahtani', 'Mohamed Sartawi', 'Faisal Al-Otaibi', 'Noura Al-Harbi']
+
 function buildOpenLane(): SettlementOpenLaneRow[] {
   const rand = lcg(0x282285)
   const rows: SettlementOpenLaneRow[] = []
@@ -106,6 +124,42 @@ function buildOpenLane(): SettlementOpenLaneRow[] {
       isMine: branch.isMine,
       ageDays,
     })
+  }
+
+  // ── ticket 287: the newest note per branch, as the read projection sends it ──
+  //
+  // 🔑 **Keyed by BRANCH and written onto every row of it**, which is what the server's
+  // `OUTER APPLY … WHERE h.StoreId = e.StoreId` does — and what makes the ticket's own
+  // claim drivable: one phone call about four open shortages leaves four rows saying
+  // the same thing.
+  //
+  // 🚩 **~22% chased, and `null` — not absent — for the rest.** The tri-state is the
+  // whole ticket: a fixture that omitted the field on unchased branches would serve
+  // *"the chase door is not built"* on the same answer as *"nobody has rung them"*, and
+  // the two renderings this exists to keep apart would be one. The absent case is
+  // reached by the drive stripping the field, which is the honest way round.
+  const chaseRand = lcg(0x282287)
+  const byBranch = new Map<string, SettlementOpenLaneRow[]>()
+  for (const r of rows) byBranch.set(r.storeId, [...(byBranch.get(r.storeId) ?? []), r])
+
+  for (const [, branchRows] of byBranch) {
+    if (chaseRand() >= 0.22) {
+      for (const r of branchRows) r.lastChase = null
+      continue
+    }
+    const about = branchRows[Math.floor(chaseRand() * branchRows.length)]
+    // ⚠️ Never before the branch's oldest open entry was posted — a note that rendered
+    // above the entry it is beside, dated before it existed, is exactly the sort of
+    // thing a drive should not have to reason around.
+    const oldest = Math.max(...branchRows.map((r) => r.ageDays ?? 0))
+    const daysAgo = Math.min(1 + Math.floor(chaseRand() * 8), oldest)
+    const lastChase = {
+      note: CHASE_NOTES[Math.floor(chaseRand() * CHASE_NOTES.length)],
+      chasedByName: CHASERS[Math.floor(chaseRand() * CHASERS.length)],
+      chasedAt: postedDaysAgo(daysAgo, 10 + Math.floor(chaseRand() * 7), Math.floor(chaseRand() * 60)),
+      entryNumber: about.entryNumber,
+    }
+    for (const r of branchRows) r.lastChase = lastChase
   }
 
   // 🔑 **The door's order, and the drive's whole subject: oldest first, tie-broken by
@@ -180,6 +234,11 @@ function buildUncollected(): SettlementUncollectedRow[] {
       currencyKey: entry.currencyKey,
       preparedAt: postedDaysAgo(ageDays, 8 + Math.floor(rand() * 10), Math.floor(rand() * 60)),
       ageDays,
+      // 🔑 **The branch's own note, the same one its entries carry** (ticket 287) — one
+      // table, one act, and the read projection is per branch whichever door asked. A
+      // second roll here would let one screen say a branch had been rung and the tab
+      // beside it say nobody had.
+      lastChase: entry.lastChase ?? null,
     })
   }
 

@@ -1,9 +1,20 @@
 import type { ColDef, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
-import type { SettlementOpenLaneRow, SettlementUncollectedRow } from '@/core/models/settlement'
+import type {
+  SettlementLastChase,
+  SettlementOpenLaneRow,
+  SettlementUncollectedRow,
+} from '@/core/models/settlement'
 import { formatDay } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
+import {
+  chaseCell,
+  chaseTargetForEntry,
+  chaseTargetForReceipt,
+  type ChaseCell,
+  type ChaseTarget,
+} from './open-lane'
 
 /**
  * The open settlements lane's columns (ticket 285) — **a row you can say out loud**.
@@ -31,8 +42,18 @@ import { settlementMoney } from './money-display'
  */
 export function buildOpenColumns(
   t: TFunction,
-  /** Did the answer carry `servedBy`? See the module docblock. */
-  named: boolean,
+  {
+    named,
+    chased,
+    onChase,
+  }: {
+    /** Did the answer carry `servedBy`? See the module docblock. */
+    named: boolean
+    /** Did the answer carry a `lastChase` at all (ticket 287)? Absent means the column
+     *  is not drawn — see `chaseColumn`. */
+    chased: boolean
+    onChase: (target: ChaseTarget) => void
+  },
 ): ColDef<SettlementOpenLaneRow>[] {
   return [
     {
@@ -137,6 +158,10 @@ export function buildOpenColumns(
           <span className="italic text-muted-foreground">{t('open.row.nobodyAssigned')}</span>
         ),
     },
+    // Last, because it is what the accountant writes rather than what they read out —
+    // the spoken sentence ends at *served by Ayed*, and this is the note beside the
+    // phone.
+    ...chaseColumn<SettlementOpenLaneRow>(t, chased, (row) => onChase(chaseTargetForEntry(row))),
   ]
 }
 
@@ -168,7 +193,13 @@ export function buildOpenColumns(
  * ⚠️ No `named` flag, unlike the entry tabs: §2 is a whole door and either answers
  * with its fields or does not answer at all (spec 282, ticket 286's boundary).
  */
-export function buildCashColumns(t: TFunction): ColDef<SettlementUncollectedRow>[] {
+export function buildCashColumns(
+  t: TFunction,
+  {
+    chased,
+    onChase,
+  }: { chased: boolean; onChase: (target: ChaseTarget) => void },
+): ColDef<SettlementUncollectedRow>[] {
   return [
     {
       // 🔑 **The same handle the other two tabs quote** — the receipt is identified on
@@ -244,7 +275,105 @@ export function buildCashColumns(t: TFunction): ColDef<SettlementUncollectedRow>
           <span className="italic text-muted-foreground">{t('open.row.nobodyAssigned')}</span>
         ),
     },
+    // 🔑 **A fourth substitution would have been wrong here.** The chase column is
+    // byte-for-byte the entry tabs' — same table, same act, and the only thing that
+    // differs is who was on the other end of the phone, which the column beside it
+    // already says (contract 278 §1).
+    ...chaseColumn<SettlementUncollectedRow>(t, chased, (row) =>
+      onChase(chaseTargetForReceipt(row)),
+    ),
   ]
+}
+
+/* ── the chase note's column (ticket 287) ─────────────────────────────────────── */
+
+/**
+ * ***Last chased*, and the button that adds to it** — one column, both lanes.
+ *
+ * 🚩 **An empty array when the answer never mentioned a chase, and that is the
+ * ticket.** Not a hidden column, not a blank cell: the field is absent because server
+ * dependency §7 is unbuilt, and a column drawn over it could only ever say *never
+ * chased* — 1,394 times, confidently, and wrongly. Drawing nothing is silence; drawing
+ * *never chased* is a false statement about the estate.
+ *
+ * 🔑 **The cell takes a `ChaseCell` and cannot produce a blank** — `unavailable` never
+ * reaches it (the column is not built), `never` is a named state in words, and a note
+ * renders over the name of whoever left it. That is 269's rule 1 one layer up.
+ *
+ * ⚠️ **The button stops the click from reaching the row.** Every row on this lane is a
+ * way into the branch's account; *record a chase* is the one thing on it that is not,
+ * because the point of the dialog is that a session of twenty calls does not become
+ * twenty navigations.
+ */
+function chaseColumn<Row extends { lastChase?: SettlementLastChase | null }>(
+  t: TFunction,
+  chased: boolean,
+  onChase: (row: Row) => void,
+): ColDef<Row>[] {
+  if (!chased) return []
+
+  return [
+    {
+      headerName: t('open.columns.lastChase'),
+      // ⚠️ No `field`: the cell is a CASE rather than a value, so the getter below is
+      // the only honest reading of it.
+      colId: 'lastChase',
+      width: 240,
+      // Sorted and filtered on what is READ — the note itself, with *never chased* as
+      // its own sortable text rather than as a hole the sort drops to the bottom.
+      filterValueGetter: (p) => chaseWords(t, chaseCell(p.data ?? {})),
+      valueGetter: (p) => chaseWords(t, chaseCell(p.data ?? {})),
+      cellRenderer: (p: ICellRendererParams<Row>) => {
+        if (!p.data) return null
+        const cell = chaseCell(p.data)
+        return (
+          <span className="flex items-center justify-between gap-2">
+            {cell.kind === 'chased' ? (
+              <span className="flex flex-col justify-center leading-tight">
+                <span>{t('open.chase.line', { date: formatDay(cell.at), note: cell.note })}</span>
+                <span className="text-[11px] text-muted-foreground">{cell.by}</span>
+              </span>
+            ) : (
+              // 🚩 A named state, in words — never an empty cell, which reads as
+              // missing data about the branch rather than as a true fact about it.
+              <span className="italic text-muted-foreground">{t('open.row.neverChased')}</span>
+            )}
+            <button
+              type="button"
+              /**
+               * 🚩 **The marker the row's own click handler looks for, and it is load-
+               * bearing.** `stopPropagation` in here does NOT stop the navigation: AG
+               * Grid listens on the row element, which is closer to the target than
+               * React's delegated root listener, so the grid has already navigated by
+               * the time this handler runs. Driven, not reasoned about — the first
+               * drive of this button landed on the branch account.
+               */
+              data-row-action="chase"
+              data-testid="open-chase-button"
+              onClick={() => onChase(p.data!)}
+              className="shrink-0 rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+            >
+              {t('open.row.recordChase')}
+            </button>
+          </span>
+        )
+      },
+    },
+  ]
+}
+
+/**
+ * The cell as text — what the sort, the filter and any export read.
+ *
+ * ⚠️ **Interpolated, not concatenated**, because a reader sees this: it is what the
+ * column's filter matches against and what a copied cell yields, so `note + ' ' + by`
+ * would be a user-visible sentence assembled in code (`i18n-zero-literal`).
+ * `unavailable` cannot occur in a drawn column and answers the empty string rather than
+ * inventing a sentence about a door that is not there.
+ */
+function chaseWords(t: TFunction, cell: ChaseCell): string {
+  if (cell.kind === 'chased') return t('open.chase.cell', { note: cell.note, by: cell.by })
+  return cell.kind === 'never' ? t('open.row.neverChased') : ''
 }
 
 /* ── what the two tabs share, spelled once ────────────────────────────────────── */

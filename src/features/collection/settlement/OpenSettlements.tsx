@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useCallback, useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
-import { UserCheck } from 'lucide-react'
+import { PhoneOff, UserCheck } from 'lucide-react'
 import { AgGridReact } from 'ag-grid-react'
 import type { ColDef } from 'ag-grid-community'
 
@@ -15,19 +15,29 @@ import {
   omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
+import type {
+  SettlementChase,
+  SettlementOpenLaneRow,
+  SettlementUncollectedRow,
+} from '@/core/models/settlement'
 import { branchSearch } from './addresses'
 import { settlementApi } from './api'
 import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
 import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT } from './cap'
+import ChaseDialog from './ChaseDialog'
 import { buildCashColumns, buildOpenColumns, ageWords, cashRowId, openRowId } from './open-columns'
 import {
+  applyChase,
   buildCashLane,
   buildOpenLane,
+  CASH_LANE_KEY,
   DEFAULT_OPEN_TAB,
   isEntryTab,
+  OPEN_LANE_KEY,
   OPEN_LANE_TABS,
   openTabSearch,
   readOpenTab,
+  type ChaseTarget,
   type OpenLane,
   type OpenLaneRowFacts,
   type OpenLaneSection,
@@ -90,11 +100,17 @@ export default function OpenSettlements() {
    * view's own parameter does not ride to the next screen.
    */
   const [mineOnly, setMineOnly] = useState(false)
+  /** *Never chased* — component state for the same reason, and hidden entirely when
+   *  the answer carries no chase field at all (ticket 287). */
+  const [neverChasedOnly, setNeverChasedOnly] = useState(false)
+  /** Which row's dialog is open, as the branch and subject the note will belong to. */
+  const [chasing, setChasing] = useState<ChaseTarget | null>(null)
+  const queryClient = useQueryClient()
 
   const lane = useQuery({
     // 🔑 ONE key for the whole screen — both tabs are two readings of one answer, so
     // switching tabs must not refetch and cannot produce two estates.
-    queryKey: ['settlement', 'open-lane'],
+    queryKey: OPEN_LANE_KEY,
     queryFn: () => settlementApi.openLane(),
     // The minute this feature's other reads use: an accountant opening four branches
     // out of this list and coming back between calls must not re-run the query.
@@ -114,7 +130,7 @@ export default function OpenSettlements() {
    * does.
    */
   const cash = useQuery({
-    queryKey: ['settlement', 'cash-lane'],
+    queryKey: CASH_LANE_KEY,
     queryFn: () => settlementApi.uncollected(),
     staleTime: 60_000,
   })
@@ -128,15 +144,62 @@ export default function OpenSettlements() {
         // The counts are the same whichever tab is drawn; only the view is a tab's.
         tab: isEntryTab(tab) ? tab : DEFAULT_OPEN_TAB,
         mineOnly,
+        neverChasedOnly,
       }),
-    [lane.data, lane.isError, tab, mineOnly],
+    [lane.data, lane.isError, tab, mineOnly, neverChasedOnly],
   )
   const cashBuilt = useMemo(
-    () => buildCashLane({ rows: cash.data, failed: cash.isError, mineOnly }),
-    [cash.data, cash.isError, mineOnly],
+    () => buildCashLane({ rows: cash.data, failed: cash.isError, mineOnly, neverChasedOnly }),
+    [cash.data, cash.isError, mineOnly, neverChasedOnly],
   )
-  const columns = useMemo(() => buildOpenColumns(t, built.named), [t, built.named])
-  const cashColumns = useMemo(() => buildCashColumns(t), [t])
+  const columns = useMemo(
+    () => buildOpenColumns(t, { named: built.named, chased: built.chased, onChase: setChasing }),
+    [t, built.named, built.chased],
+  )
+  const cashColumns = useMemo(
+    () => buildCashColumns(t, { chased: cashBuilt.chased, onChase: setChasing }),
+    [t, cashBuilt.chased],
+  )
+  /** Is the chase door answering on the tab being drawn? Drives the column (through the
+   *  builders above) and the chip — asked per tab, because §7 is a dependency each door
+   *  waits on separately. */
+  const chaseKnown = onCash ? cashBuilt.chased : built.chased
+
+  /** ⚠️ **Both of them**, because the reader is told *"clear a filter to see the rest
+   *  of the estate"* and one button that cleared one of two would leave them reading
+   *  the same sentence again with nothing obvious changed. */
+  const clearFilters = () => {
+    setMineOnly(false)
+    setNeverChasedOnly(false)
+  }
+
+  /**
+   * **The accepted note, onto the answer already on screen** — so the row changes
+   * without a reload.
+   *
+   * 🔑 **Written into the cache rather than invalidated**, and the choice is the
+   * ticket's own premise: an accountant makes twenty calls out of this list, and
+   * invalidating would re-read 2,000 entries after each one — the navigation cost this
+   * dialog exists to remove, moved onto the network. What is written is the SERVER's
+   * chase, which is exactly what a refetch would have returned, laid onto every row of
+   * that branch because that is what a note belongs to.
+   *
+   * ⚠️ Both lanes, because one call can be about a branch that appears on both — an
+   * entry it still owes and a receipt nobody has fetched.
+   */
+  const onChased = useCallback(
+    (chase: SettlementChase) => {
+      queryClient.setQueryData<SettlementOpenLaneRow[]>(
+        OPEN_LANE_KEY,
+        (rows) => rows && applyChase(rows, chase),
+      )
+      queryClient.setQueryData<SettlementUncollectedRow[]>(
+        CASH_LANE_KEY,
+        (rows) => rows && applyChase(rows, chase),
+      )
+    },
+    [queryClient],
+  )
   /**
    * 🚩 **Can this screen claim its own arrangement?** `sort=age` and `ageDays` are one
    * server dependency (§6): a door sending no ages is a door that ignored the sort and
@@ -190,14 +253,28 @@ export default function OpenSettlements() {
       {/* ⚠️ …and not over a shimmer either: the entry tabs' `ranked` is false until
           rows arrive, so gating the cash tab on the error alone would put a chip above
           a list that is not there yet. */}
-      {(onCash ? !cash.isError && !cash.isPending : built.ranked) && (
+      {/* 🚩 …and *Never chased* is offered on exactly the same terms, for the same
+          reason one layer up: a filter over a fact the screen does not have is a lie
+          about what it filtered. Server dependency §7 is unbuilt, so today this chip
+          is absent — not disabled, and not a filter that empties the list. */}
+      {((onCash ? !cash.isError && !cash.isPending : built.ranked) || chaseKnown) && (
         <div className="flex flex-wrap items-center gap-2">
-          <ToggleChip
-            icon={<UserCheck className="h-3.5 w-3.5" aria-hidden />}
-            label={t('open.filters.mineOnly')}
-            pressed={mineOnly}
-            onToggle={() => setMineOnly((v) => !v)}
-          />
+          {(onCash ? !cash.isError && !cash.isPending : built.ranked) && (
+            <ToggleChip
+              icon={<UserCheck className="h-3.5 w-3.5" aria-hidden />}
+              label={t('open.filters.mineOnly')}
+              pressed={mineOnly}
+              onToggle={() => setMineOnly((v) => !v)}
+            />
+          )}
+          {chaseKnown && (
+            <ToggleChip
+              icon={<PhoneOff className="h-3.5 w-3.5" aria-hidden />}
+              label={t('open.filters.neverChased')}
+              pressed={neverChasedOnly}
+              onToggle={() => setNeverChasedOnly((v) => !v)}
+            />
+          )}
         </div>
       )}
 
@@ -234,7 +311,7 @@ export default function OpenSettlements() {
             getRowId={cashRowId}
             error={cash.error}
             failedMessage={t('open.errors.cashFailed')}
-            onClearFilter={() => setMineOnly(false)}
+            onClearFilter={clearFilters}
             onRow={(row) => navigate(branchSearch(searchParams, row.storeId, row.entryNumber))}
           />
         )
@@ -249,10 +326,15 @@ export default function OpenSettlements() {
           unranked={!built.ranked}
           error={lane.error}
           failedMessage={t('open.errors.laneFailed')}
-          onClearFilter={() => setMineOnly(false)}
+          onClearFilter={clearFilters}
           onRow={(row) => navigate(branchSearch(searchParams, row.storeId, row.entryNumber))}
         />
       )}
+
+      {/* 🔑 **Opened from a row and closed back onto it** — the list is never left,
+          which is the whole reason the act is a dialog. What comes back is the note the
+          server wrote, laid onto every row of that branch. */}
+      <ChaseDialog target={chasing} onClose={() => setChasing(null)} onChased={onChased} />
     </section>
   )
 }
@@ -484,7 +566,17 @@ function Section<Row extends OpenLaneRowFacts>({
           // click from *chasing* it, and the account is where it can be acted on. A
           // waiting receipt quotes an entry number too, so the third tab lands the
           // same way.
-          onRowClicked={(e) => e.data && onRow(e.data)}
+          // ⚠️ **…except where the row carries an act of its own.** 287's *Record a
+          // chase* button sits in a cell, and a React `stopPropagation` inside it comes
+          // too late — AG Grid's listener is on the row, nearer the target than React's
+          // delegated one, so the account had already been navigated to by the time the
+          // button's handler ran. The row is what owns this click, so the row is where
+          // the exception is made.
+          onRowClicked={(e) =>
+            e.data &&
+            !(e.event?.target instanceof Element && e.event.target.closest('[data-row-action]')) &&
+            onRow(e.data)
+          }
           rowSelection={{ mode: 'singleRow', checkboxes: false, enableClickSelection: true }}
           {...omsGridDirection}
         />

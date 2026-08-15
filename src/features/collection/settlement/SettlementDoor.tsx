@@ -25,6 +25,7 @@ import { estateFigures } from './figures'
 import { ledgerSearch } from './ledger'
 import {
   OPEN_LANE_ENTRY_TABS,
+  OPEN_LANE_KEY,
   openTabSearch,
   tallyOpenLane,
   type OpenLaneTally,
@@ -100,7 +101,7 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
    * means clicking through to the lane costs nothing — the answer is already cached.
    */
   const openLane = useQuery({
-    queryKey: ['settlement', 'open-lane'],
+    queryKey: OPEN_LANE_KEY,
     queryFn: () => settlementApi.openLane(),
     staleTime: 60_000,
   })
@@ -149,7 +150,7 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
     // ⚠️ The signpost is on this screen, so *Refresh* has to mean it too — a button
     // that re-read two of the three counted things on a page would leave the third
     // stating a position up to a minute old beside two that had just been re-asked.
-    void queryClient.invalidateQueries({ queryKey: ['settlement', 'open-lane'] })
+    void queryClient.invalidateQueries({ queryKey: OPEN_LANE_KEY })
   }
 
   return (

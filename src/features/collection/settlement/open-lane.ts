@@ -1,5 +1,8 @@
 import type {
+  SettlementChase,
+  SettlementChaseSubject,
   SettlementEntryKind,
+  SettlementLastChase,
   SettlementOpenLaneRow,
   SettlementUncollectedRow,
 } from '@/core/models/settlement'
@@ -40,6 +43,23 @@ import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT, isCapReached } from './cap'
  * hide it anyway. That line looks decorative to a later reader; it is the only thing
  * on the screen that says the estate holds something worse than anything of yours.
  */
+
+/* ── the two answers, spelled once ────────────────────────────────────────────── */
+
+/**
+ * **The lane's TanStack keys, in one place** — read by the screen and the front page's
+ * signpost, invalidated by every settlement write, and written into by an accepted
+ * chase note.
+ *
+ * 🚩 **Extracted because a mis-spelled key fails silently and looks like staleness.**
+ * `['settlement','worklist']` was invalidated for four tickets after 274 renamed the
+ * query it meant, so every post, cancel and close-out left a lane serving cache for a
+ * minute — found by 288's `/code-review`, not by anything failing. This one is now
+ * spelled seven times across six files; ticket 287 made it eight by writing into it,
+ * which is where a constant stops being ceremony.
+ */
+export const OPEN_LANE_KEY = ['settlement', 'open-lane']
+export const CASH_LANE_KEY = ['settlement', 'cash-lane']
 
 /* ── which tab, as an address ─────────────────────────────────────────────────── */
 
@@ -156,6 +176,11 @@ export type OpenLaneRowFacts = {
   isMine?: boolean
   servedBy?: string
   ageDays?: number
+  /** ⚠️ **A tri-state, and the arrangement reads it as one** — see `chaseCell`. It is
+   *  a fact both lanes share for the same reason the three above are: an entry and a
+   *  receipt disagree about what the call is *about*, and agree completely about
+   *  whether anyone has made one. */
+  lastChase?: SettlementLastChase | null
 }
 
 export type OpenLaneSection<Row extends OpenLaneRowFacts = SettlementOpenLaneRow> = {
@@ -307,6 +332,18 @@ export type OpenLane = {
    * page is the worse lie. What changes is the sentence beside it.
    */
   aged: boolean
+  /**
+   * Did the wire mention a **chase** at all (ticket 287)?
+   *
+   * 🚩 Drives the *Last chased* column and the *never chased* chip, and drives them
+   * **off the answer rather than off a row**: a filter over a fact the screen does not
+   * have is a lie about what it filtered, and a column drawn over an absent field could
+   * only ever say *never chased* — 1,394 times, confidently, and wrongly.
+   *
+   * ⚠️ `true` as soon as ONE row carries the field, including when every row carries
+   * `null`. A door that answered *nobody has chased any of these* has answered.
+   */
+  chased: boolean
   view: OpenLaneView
 }
 
@@ -317,9 +354,24 @@ export type OpenLaneInput = {
   failed: boolean
   tab: OpenLaneEntryTab
   mineOnly: boolean
+  /**
+   * *Never chased* (ticket 287).
+   *
+   * ⚠️ **Optional, unlike `mineOnly`** — 285's and 286's own suites describe answers
+   * from a door that has never heard of a chase, where the filter is not a thing the
+   * screen can offer. Absent is the same as `false`, which is what a chip nobody has
+   * pressed means.
+   */
+  neverChasedOnly?: boolean
 }
 
-export function buildOpenLane({ rows, failed, tab, mineOnly }: OpenLaneInput): OpenLane {
+export function buildOpenLane({
+  rows,
+  failed,
+  tab,
+  mineOnly,
+  neverChasedOnly = false,
+}: OpenLaneInput): OpenLane {
   // ⚠️ First, and before anything is counted. A failed read has no rows to be honest
   // about, and every number it could report would be invented.
   const { counts, capReached } = tallyOpenLane({ rows, failed })
@@ -330,6 +382,7 @@ export function buildOpenLane({ rows, failed, tab, mineOnly }: OpenLaneInput): O
       ranked: false,
       named: false,
       aged: false,
+      chased: false,
       view: { kind: 'failed' },
     }
   }
@@ -343,11 +396,12 @@ export function buildOpenLane({ rows, failed, tab, mineOnly }: OpenLaneInput): O
     counts,
     capReached,
     ...said,
-    view: arrange(
-      answer.filter((r) => r.entryKind === TAB_KIND[tab]),
+    view: arrange(answer.filter((r) => r.entryKind === TAB_KIND[tab]), {
       mineOnly,
-      said.ranked,
-    ),
+      neverChasedOnly,
+      ranked: said.ranked,
+      chased: said.chased,
+    }),
   }
 }
 
@@ -366,6 +420,11 @@ export function buildOpenLane({ rows, failed, tab, mineOnly }: OpenLaneInput): O
  * door that already ships, so its three fields are absent today and the screen must
  * degrade around them. §2 is a whole door: there is no half-answer to degrade into —
  * either the receipts arrive with everything on them, or the tab draws its refusal.
+ *
+ * ⚠️ **`chased` is the exception, and it is not an inconsistency.** The chase table is
+ * server dependency **§7** — a *third* dependency, which this door and the ledger wait
+ * on independently — so a receipts door built before it answers everything above and no
+ * `lastChase`. That is a half-answer about a different question.
  */
 export type CashLane = {
   /** How many receipts are waiting, **before any filter**. `null` = not known, drawn
@@ -374,6 +433,8 @@ export type CashLane = {
   /** Measured against `CASH_LANE_LIMIT` — 500, the rare-event cap, and NOT the entry
    *  lane's 2,000. See `cap.ts`. */
   capReached: boolean
+  /** Did this door mention a chase? See the type's own note — §7, not §2. */
+  chased: boolean
   view: OpenLaneView<SettlementUncollectedRow>
 }
 
@@ -383,6 +444,8 @@ export type CashLaneInput = {
   /** ⚠️ Its OWN failure — the entry tabs are unaffected, and vice versa. */
   failed: boolean
   mineOnly: boolean
+  /** *Never chased* — optional for the reason `OpenLaneInput`'s is. */
+  neverChasedOnly?: boolean
 }
 
 /** How big the third job is. Split out for the same reason `tallyOpenLane` is: the tab
@@ -411,13 +474,156 @@ export function tallyCashLane({
  * money, and they are two different phone calls — one to the branch manager, one to
  * the collector. The two lanes never even meet in this module.
  */
-export function buildCashLane({ rows, failed, mineOnly }: CashLaneInput): CashLane {
+export function buildCashLane({
+  rows,
+  failed,
+  mineOnly,
+  neverChasedOnly = false,
+}: CashLaneInput): CashLane {
   const tally = tallyCashLane({ rows, failed })
-  if (failed) return { ...tally, view: { kind: 'failed' } }
+  if (failed) return { ...tally, chased: false, view: { kind: 'failed' } }
 
+  const answer = rows ?? []
   // Every row of this door carries `isMine`, so the arrangement is always the ranked
-  // one — there is no §6-shaped absence to degrade around here.
-  return { ...tally, view: arrange((rows ?? []).slice(), mineOnly, true) }
+  // one — there is no §6-shaped absence to degrade around here. The chase field is a
+  // different dependency and is asked about, exactly as the entry lane asks.
+  const chased = answer.some((r) => r.lastChase !== undefined)
+  return {
+    ...tally,
+    chased,
+    view: arrange(answer.slice(), { mineOnly, neverChasedOnly, ranked: true, chased }),
+  }
+}
+
+/* ── the chase note (ticket 287) ──────────────────────────────────────────────── */
+
+/**
+ * **What a row's *Last chased* cell is** — and 🚩 **the whole of ticket 287 is keeping
+ * these three apart.**
+ *
+ * | case | the wire said | the screen draws |
+ * |---|---|---|
+ * | `unavailable` | nothing at all (`undefined`) | **no column, and no chip** |
+ * | `never` | `null` | *Never chased* — a named state |
+ * | `chased` | a note | the note, over who left it |
+ *
+ * ⚠️ **Collapsing `unavailable` into `never` would state, confidently, that nobody has
+ * chased any of 1,394 branches** — the same class of error as a failed read drawn as
+ * *"nothing needs a human"*. This is 269's rule 1 applied one layer up: the renderer is
+ * handed a **case**, and there is no case that renders a blank cell.
+ */
+export type ChaseCell =
+  | { kind: 'unavailable' }
+  | { kind: 'never' }
+  | { kind: 'chased'; at: string; by: string; note: string }
+
+/**
+ * One row's case.
+ *
+ * ⚠️ **`undefined` and `null` are distinguished by hand rather than by `??`**, because
+ * that is the entire distinction. `row.lastChase ?? { kind: 'never' }` would compile,
+ * pass a casual reading, and quietly make the false statement above.
+ */
+export function chaseCell(row: Pick<OpenLaneRowFacts, 'lastChase'>): ChaseCell {
+  if (row.lastChase === undefined) return { kind: 'unavailable' }
+  if (row.lastChase === null) return { kind: 'never' }
+  const { chasedAt, chasedByName, note } = row.lastChase
+  return { kind: 'chased', at: chasedAt, by: chasedByName, note }
+}
+
+/** The longest note the door will accept — `PosSettlementChase.Note` is
+ *  `varchar(400)` (contract 278). ⚠️ **Not `REASON_MAX`**: over-length is one of this
+ *  door's four refusals, so the box has to stop where the server does rather than where
+ *  a *reason* box does. */
+export const CHASE_NOTE_MAX = 400
+
+/**
+ * **Who the dialog is about** — assembled from a row, so the dialog never re-reads the
+ * grid and the two lanes hand it the same shape.
+ *
+ * 🔑 **A note belongs to the BRANCH** (`storeId`), and `subject`/`subjectId` only say
+ * what the call happened to be about. One phone call covering four open shortages is
+ * one note that shows on all four rows — which is why `applyChase` rewrites by branch
+ * and not by row.
+ */
+export type ChaseTarget = {
+  storeId: string
+  storeName: string
+  /** Who to ring — the branch's accountant on an entry row, the **collector** on a
+   *  waiting receipt. `''` or absent is a branch paired to nobody, which the dialog
+   *  says in words. */
+  servedBy?: string
+  /** The handle quoted on the phone, denormalised onto the note at write time. */
+  entryNumber: number
+  subject: SettlementChaseSubject
+  subjectId: string
+  /** What was last said before dialling. */
+  last: ChaseCell
+}
+
+/** An entry row's target — `Subject = ENTRY`, named by the entry's own id. */
+export function chaseTargetForEntry(row: SettlementOpenLaneRow): ChaseTarget {
+  return {
+    storeId: row.storeId,
+    storeName: row.storeName,
+    servedBy: row.servedBy,
+    entryNumber: row.entryNumber,
+    subject: 'ENTRY',
+    subjectId: row.settlementEntryId,
+    last: chaseCell(row),
+  }
+}
+
+/**
+ * A waiting receipt's target — `Subject = RECEIPT`.
+ *
+ * ⚠️ **`subjectId` is the special-receipt document, which head office has no row
+ * for** — that table is store-side until collection (ticket 277). It is carried as a
+ * **label and never joined**, and contract 278 says so in as many words so that no
+ * later ticket puts a foreign key on it.
+ */
+export function chaseTargetForReceipt(row: SettlementUncollectedRow): ChaseTarget {
+  return {
+    storeId: row.storeId,
+    storeName: row.storeName,
+    servedBy: row.servedBy,
+    entryNumber: row.entryNumber,
+    subject: 'RECEIPT',
+    subjectId: row.documentId,
+    last: chaseCell(row),
+  }
+}
+
+/**
+ * **The accepted note, laid onto the answer already on screen** — so the row changes
+ * without a reload and without re-reading 2,000 entries after every phone call.
+ *
+ * 🔑 **Every row of that branch, not the row it was recorded from.** A note belongs to
+ * the branch, and the server's own read projection is *newest note per branch* — so
+ * one call about four open shortages must leave four rows saying the same thing, which
+ * is exactly what a refetch would return.
+ *
+ * ⚠️ **Written from the SERVER's `chase`**, never from the text that was typed: the
+ * stamp is `DateTime.Now` on head office's clock and the name is resolved at write
+ * time. A browser filling either in would put a note on screen three hours before the
+ * call that produced it.
+ *
+ * ⚠️ **An answer that never carried the field is returned untouched**, identity and
+ * all. Writing a note onto rows the door said nothing about would MINT the column — and
+ * with it *never chased* against every other branch in the estate, off the back of one
+ * accepted write.
+ */
+export function applyChase<Row extends OpenLaneRowFacts & { storeId: string }>(
+  rows: readonly Row[] | undefined,
+  chase: SettlementChase,
+): Row[] {
+  if (!rows) return []
+  if (!rows.some((r) => r.lastChase !== undefined)) return rows as Row[]
+
+  const { note, chasedByName, chasedAt, entryNumber } = chase
+  return rows.map((r) =>
+    r.storeId === chase.storeId ? { ...r, lastChase: { note, chasedByName, chasedAt, entryNumber } } : r,
+  )
 }
 
 /* ── the arrangement, shared by all three tabs ────────────────────────────────── */
@@ -427,12 +633,15 @@ export function buildCashLane({ rows, failed, mineOnly }: CashLaneInput): CashLa
  *  absence costs. */
 function whatTheWireSaid(answer: readonly OpenLaneRowFacts[]): Pick<
   OpenLane,
-  'ranked' | 'named' | 'aged'
+  'ranked' | 'named' | 'aged' | 'chased'
 > {
   return {
     ranked: answer.some((r) => r.isMine !== undefined),
     named: answer.some((r) => r.servedBy !== undefined),
     aged: answer.some((r) => r.ageDays !== undefined),
+    // ⚠️ `!== undefined` and not truthiness: `null` is the door ANSWERING that nobody
+    // has chased this branch, which is the case the column exists to draw.
+    chased: answer.some((r) => r.lastChase !== undefined),
   }
 }
 
@@ -446,8 +655,12 @@ function whatTheWireSaid(answer: readonly OpenLaneRowFacts[]): Pick<
  */
 function arrange<Row extends OpenLaneRowFacts>(
   laneRows: Row[],
-  mineOnly: boolean,
-  ranked: boolean,
+  {
+    mineOnly,
+    neverChasedOnly,
+    ranked,
+    chased,
+  }: { mineOnly: boolean; neverChasedOnly: boolean; ranked: boolean; chased: boolean },
 ): OpenLaneView<Row> {
   if (laneRows.length === 0) return { kind: 'empty' }
 
@@ -462,7 +675,16 @@ function arrange<Row extends OpenLaneRowFacts>(
   // to Owing against a door that sends no ranking, and read *"nothing matches these
   // filters"* with no chip on screen to clear. A filter over a field nobody sent is
   // not a filter.
-  const kept = mineOnly && ranked ? laneRows.filter((r) => r.isMine === true) : laneRows
+  //
+  // ⚠️ **`neverChasedOnly` follows the same rule against `chased`, and for the same
+  // reason** — §7 is a third dependency, so a door can rank a row it has nothing to
+  // say about chasing. `=== null` and not falsy: an absent field is *not said*, never
+  // *never chased*.
+  const kept = laneRows.filter(
+    (r) =>
+      (!mineOnly || !ranked || r.isMine === true) &&
+      (!neverChasedOnly || !chased || r.lastChase === null),
+  )
 
   // ⚠️ **Before the sections, and it is not the same answer as `empty`.** The reader
   // narrowed this themselves and the way out is the chip they pressed.

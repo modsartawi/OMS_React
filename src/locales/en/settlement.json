@@ -452,7 +452,8 @@
       "noCount": "—"
     },
     "filters": {
-      "mineOnly": "Mine only"
+      "mineOnly": "Mine only",
+      "neverChased": "Never chased"
     },
     "sections": {
       "mine": "Yours",
@@ -472,7 +473,9 @@
     },
     "row": {
       "ofAmount": "of {{amount}}",
-      "nobodyAssigned": "Nobody assigned"
+      "nobodyAssigned": "Nobody assigned",
+      "neverChased": "Never chased",
+      "recordChase": "Record a chase"
     },
     "columns": {
       "entryNumber": "Entry",
@@ -481,7 +484,25 @@
       "remaining": "Still open",
       "amount": "Amount",
       "servedBy": "Served by",
-      "collector": "Collector"
+      "collector": "Collector",
+      "lastChase": "Last chased"
+    },
+    "chase": {
+      "title": "Record a chase",
+      "line": "{{date}} · {{note}}",
+      "about": "About entry {{entryNumber}} · ring {{servedBy}}",
+      "aboutUnassigned": "About entry {{entryNumber}} · nobody is assigned to this branch",
+      "aboutOnly": "About entry {{entryNumber}}",
+      "cell": "{{note}} — {{by}}",
+      "lastLabel": "Last chase",
+      "never": "Nobody has chased this branch.",
+      "noteLabel": "What was said",
+      "internalHint": "Internal — the branch never reads this. Notes cannot be edited or deleted; add another to correct one.",
+      "cancel": "Cancel",
+      "save": "Save note",
+      "done": "Chase recorded against {{store}}.",
+      "refused": "That note was not recorded.",
+      "failed": "The note could not be saved."
     },
     "empty": {
       "owing": {

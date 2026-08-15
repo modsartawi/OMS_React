@@ -30,6 +30,8 @@ import type {
   SettlementBulkCommitResult,
   SettlementBulkPreview,
   SettlementCancelResult,
+  SettlementChaseResult,
+  SettlementChaseSubject,
   SettlementCloseOutResult,
   SettlementEntryKind,
   SettlementFleetRow,
@@ -283,6 +285,48 @@ export const settlementApi = {
     return api.get<SettlementUncollectedRow[]>('Settlement/Uncollected', {
       limit: CASH_LANE_LIMIT,
     })
+  },
+
+  /**
+   * `POST Settlement/Chase` → records that somebody **rang a branch** (spec 282 D7,
+   * contract 278) — ticket 287, and the only write this screen has that moves no money.
+   *
+   * 🔑 **A note belongs to the BRANCH and optionally names what the call was about.**
+   * One phone call covering four open shortages is one note that shows on all four
+   * rows — not the same sentence typed four times, and not one note plus three rows
+   * still reading *never chased*. `subject` (`BRANCH | ENTRY | RECEIPT`) is what gives
+   * *"they promised to pay entry 143 on Sunday"* somewhere precise to live.
+   *
+   * 🚩 **Append-only: the door has exactly one verb.** No edit, no delete, no
+   * supersede, no `isActive` — a typo is corrected by adding another note, which is
+   * what a person does in a paper day-book. There is nothing here to call for the
+   * other three because there is nothing there to call.
+   *
+   * ⚠️ **Refusals arrive as a 200 with `accepted: false`** — unknown branch, blank
+   * note, a note over 400 characters, an unrecognised subject. This screen's
+   * established idiom (cancel, close-out, repair, bulk commit), and nothing here
+   * throws on one: no money moves, so there is no guard to lose.
+   *
+   * ⚠️ **The grant is the EXISTING settlement screen grant** and no new one is minted
+   * or probed — an accountant who may post an entry against a branch must not be unable
+   * to record that they rang it.
+   *
+   * ⚠️ **Server dependency §7 of `.afk/BACKOFFICE-TICKET-DRAFT-settlement-reads.md` is
+   * NOT built** — the wave's only new table. So this door refuses today, the read lanes
+   * send no `lastChase`, and the column and the chip are absent rather than empty
+   * (`chaseCell`). 285 and 286 ship as complete read-only lanes without any of it.
+   */
+  chase(input: {
+    storeId: string
+    subject: SettlementChaseSubject
+    /** `SettlementEntryId` · `SettlementDocumentId` · `''`. */
+    subjectId: string
+    /** The quotable handle, denormalised onto the note at write time — `0` when the
+     *  note is about the branch and nothing narrower. */
+    entryNumber: number
+    note: string
+  }): Promise<SettlementChaseResult> {
+    return api.post<SettlementChaseResult>('Settlement/Chase', input)
   },
 
   /**

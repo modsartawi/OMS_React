@@ -143,6 +143,13 @@ let cashCalls = []
  *  the degraded rendering — one unsectioned list, deriving nothing. */
 const withoutSix = (rows) =>
   rows.map(({ servedBy: _s, isMine: _m, ageDays: _a, ...row }) => row)
+/** KEY Strip the ONE field server dependency §7 has not built - the chase table is the
+ *  wave's only new table and today NEITHER read door sends `lastChase`. This is the
+ *  rendering ticket 287 exists to protect: the column and the chip must be ABSENT, not
+ *  a column full of "Never chased" claiming 1,394 branches nobody has rung. */
+const withoutChase = (rows) => rows.map(({ lastChase: _c, ...row }) => row)
+/** Every chase the door was asked to write, and the notes it accepted per branch. */
+let chaseCalls = []
 /** The consumption whose document arrives MID-CLICK — the OLDEST orphan, picked
  *  once the fixture is loaded. Repairing it must come back a no-op (a 200 that
  *  changed nothing) rather than an error. */
@@ -288,9 +295,8 @@ async function run() {
         )
       // The estate that has collected everything - good news, and its own sentence.
       if (scenario.cashEmpty) return route.fulfill(envelope([]))
-      return route.fulfill(
-        envelope(UNCOLLECTED.slice(0, Number(url.searchParams.get('limit') || 500))),
-      )
+      const waiting = UNCOLLECTED.slice(0, Number(url.searchParams.get('limit') || 500))
+      return route.fulfill(envelope(scenario.chaseAbsent ? withoutChase(waiting) : waiting))
     }
     // KEY **The cross-estate lookup** (BackOffice 1199 §3) - the door that resolves an
     // entry NUMBER to the branch it is on, which `Settlement/Account` cannot because it
@@ -338,6 +344,11 @@ async function run() {
         // KEY Nobody's own branches - an accountant with no staff row, and the only way
         // to reach *emptied by my own filter* on an estate where 25 branches are mine.
         if (scenario.laneNoneMine) lane = lane.map((r) => ({ ...r, isMine: false }))
+        // WARNING **The chase table is a THIRD dependency (§7) and is not built either**,
+        // so a door can rank a row it has nothing to say about chasing. Stripped
+        // separately from §6 for exactly that reason - collapsing the two switches would
+        // make the two degradations untestable apart.
+        if (scenario.chaseAbsent) lane = withoutChase(lane)
         return route.fulfill(envelope(lane.slice(0, laneLimit)))
       }
       if (!asked)
@@ -502,6 +513,45 @@ async function run() {
           remainingAmount: forgiven,
           refusalReason: '',
           status: 'CLOSED_OUT',
+        }),
+      )
+    }
+    // ---- ticket 287: the chase note's write door (server dependency §7) ----
+    // KEY A note belongs to the BRANCH and optionally names what the call was about, so
+    // the answer echoes the row that was written - name, stamp and all. The client lays
+    // THAT onto every row of the branch, which is what the server's own
+    // newest-note-per-branch projection would return on a refetch.
+    //
+    // WARNING A refusal is a 200 carrying `accepted:false` (unknown branch, blank note,
+    // over-length, unrecognised subject) - this screen's idiom, and never an error.
+    if (path === 'Settlement/Chase') {
+      const body = route.request().postDataJSON() || {}
+      chaseCalls.push(body)
+      if (scenario.chaseRefuses)
+        return route.fulfill(
+          envelope({
+            accepted: false,
+            chase: null,
+            refusalReason: 'That branch is closed — the note was not recorded.',
+          }),
+        )
+      return route.fulfill(
+        envelope({
+          accepted: true,
+          chase: {
+            chaseId: `01J9CHASE${chaseCalls.length}`,
+            storeId: body.storeId,
+            subject: body.subject,
+            subjectId: body.subjectId,
+            entryNumber: body.entryNumber,
+            note: body.note,
+            // KEY The SERVER's name and the SERVER's stamp - the client must render
+            // these rather than what it typed, or a note appears three hours before the
+            // call that produced it.
+            chasedByStaffId: '30117',
+            chasedByName: 'Huda Al-Qahtani',
+            chasedAt: '2026-08-15T16:42:00',
+          },
         }),
       )
     }
@@ -2491,7 +2541,10 @@ async function run() {
   await page.waitForLoadState('networkidle')
   await nodeLink().click()
   await page.waitForLoadState('networkidle')
-  await page.waitForTimeout(150)
+  // WARNING Wait for the DESTINATION rather than for a fixed 150ms: this navigation
+  // unmounts a screen holding ~1,400 rows, and a timeout tuned on a quiet machine
+  // fails on a busy one while proving nothing about the nav.
+  await page.waitForSelector('[data-region="settlement-door"]', { timeout: 10000 }).catch(() => {})
   at = await drawn()
   check(
     '🚩 284 → clicking the NODE itself navigates to the Overview',
@@ -2818,7 +2871,9 @@ async function run() {
   await openLane()
   await page.locator('[data-region="open-section-mine"] .ag-row[row-index="0"]').first().click()
   await page.waitForLoadState('networkidle')
-  await page.waitForTimeout(200)
+  // WARNING The account is what this asserts, so WAIT for it - leaving the lane means
+  // tearing down two grids over ~1,400 rows, which a fixed 200ms does not always cover.
+  await page.waitForSelector('[data-region="branch-account"]', { timeout: 10000 }).catch(() => {})
   check(
     '🔑 285 → a row lands on its branch’s account, ON the entry it named',
     new URL(page.url()).pathname === ROUTE &&
@@ -3022,6 +3077,247 @@ async function run() {
     `cash ${await tabCount('cash')} · owing ${await tabCount('owing')}`,
   )
   scenario = { ...scenario, laneRefuses: false }
+
+  /* ══════════════════════════════════════════════════════════════════════════════
+   * Ticket 287 — CHASING A BRANCH IS RECORDED FROM THE ROW, AND ITS ABSENCE IS NOT A
+   * CLAIM.
+   *
+   * KEY The tri-state is the whole slice: `undefined` hides the column AND the chip,
+   * `null` says *Never chased* in words, and a note renders the note. Collapsing the
+   * first two would state, confidently, that nobody has chased any of 1,394 branches.
+   *
+   * WARNING The chase table is server dependency §7 - the wave's only new table, and
+   * NOT built. So the absent rendering is the one that ships today, and it is driven
+   * here for exactly that reason.
+   * ══════════════════════════════════════════════════════════════════════════════ */
+
+  /** One section's chase cell, as a reader sees it. */
+  const chaseCellAt = async (which, index) => {
+    const cell = page.locator(
+      `[data-region="open-section-${which}"] .ag-row[row-index="${index}"] [col-id="lastChase"]`,
+    )
+    return (await cell.count()) ? (await cell.first().innerText()).trim() : '(no column)'
+  }
+
+  scenario = { ...scenario, laneRefuses: false, laneBare: false, chaseAbsent: false, chaseRefuses: false }
+  chaseCalls = []
+  lane = await openLane()
+
+  // The first row of YOUR section that nobody has rung - the case the column exists to
+  // name, picked out of the fixture rather than assumed.
+  const neverAt = owingMine.findIndex((r) => r.lastChase === null)
+  const chasedAtIdx = owingMine.findIndex((r) => r.lastChase)
+  check(
+    '287 → the lane draws a Last chased column when the answer carries one',
+    (await headers('mine')).includes('Last chased'),
+    (await headers('mine')).join(' · '),
+  )
+  check(
+    '🚩 287 → …and its three cases are three RENDERINGS: a note, and a named never-chased',
+    /Never chased/.test(await chaseCellAt('mine', neverAt)) &&
+      (await chaseCellAt('mine', chasedAtIdx)).includes(owingMine[chasedAtIdx].lastChase.note) &&
+      (await chaseCellAt('mine', chasedAtIdx)).includes(owingMine[chasedAtIdx].lastChase.chasedByName),
+    `never[${neverAt}] "${await chaseCellAt('mine', neverAt)}" · chased[${chasedAtIdx}] "${(await chaseCellAt('mine', chasedAtIdx)).replace(/\n/g, ' ')}"`,
+  )
+
+  // 🚩 THE FILTER over a fact the screen HAS: it narrows to the branches nobody has
+  // spoken to, and the tab still counts the estate behind it.
+  const owingMineNever = owingMine.filter((r) => r.lastChase === null)
+  await page.getByRole('button', { name: 'Never chased' }).click()
+  await page.waitForTimeout(250)
+  check(
+    '287 → “Never chased” narrows to the branches nobody has rung, and the tab still counts the estate',
+    (await sectionCount('mine')) === group(owingMineNever.length) &&
+      (await tabCount('owing')) === group(owingAll.length) &&
+      (await page.getByRole('button', { name: 'Never chased' }).getAttribute('aria-pressed')) ===
+        'true',
+    `mine ${await sectionCount('mine')} vs ${owingMineNever.length} · owing tab ${await tabCount('owing')}`,
+  )
+  await page.getByRole('button', { name: 'Never chased' }).click()
+  await page.waitForTimeout(250)
+
+  // 🔑 THE ACT, from the row and without leaving the list.
+  laneCalls = []
+  await page
+    .locator(`[data-region="open-section-mine"] .ag-row[row-index="${neverAt}"] [col-id="lastChase"] button`)
+    .click()
+  await page.waitForTimeout(200)
+  const chaseBranch = owingMine[neverAt]
+  const chaseText = (await dialogText()).replace(/\n/g, ' ')
+  check(
+    '🔑 287 → the row opens a dialog rather than navigating — the list is never left',
+    new URL(page.url()).pathname === OPEN_ROUTE &&
+      (await page.locator('dialog').count()) === 1 &&
+      chaseText.includes(chaseBranch.storeName) &&
+      chaseText.includes(`About entry ${chaseBranch.entryNumber}`),
+    `${page.url().replace(BASE, '')} · ${chaseText.slice(0, 110)}`,
+  )
+  check(
+    '🚩 287 → …saying the note is INTERNAL and cannot be edited, where it is typed',
+    /Internal — the branch never reads this/.test(chaseText) &&
+      /cannot be edited or deleted/.test(chaseText) &&
+      // …and what was last said, which here is nobody having said anything.
+      /Nobody has chased this branch/.test(chaseText),
+    chaseText.slice(0, 160),
+  )
+
+  await page.locator('[data-testid="chase-note"]').fill('promised to pay on Sunday')
+  await page.locator('[data-testid="chase-save"]').click()
+  await page.waitForTimeout(350)
+  check(
+    '287 → the note is posted against the BRANCH, naming the entry it was about',
+    chaseCalls.length === 1 &&
+      chaseCalls[0].storeId === chaseBranch.storeId &&
+      chaseCalls[0].subject === 'ENTRY' &&
+      chaseCalls[0].subjectId === chaseBranch.settlementEntryId &&
+      chaseCalls[0].entryNumber === chaseBranch.entryNumber &&
+      chaseCalls[0].note === 'promised to pay on Sunday',
+    JSON.stringify(chaseCalls[0] || {}),
+  )
+  check(
+    '🔑 287 → …and the row changes from “Never chased” to the note WITHOUT a reload',
+    !/Never chased/.test(await chaseCellAt('mine', neverAt)) &&
+      (await chaseCellAt('mine', neverAt)).includes('promised to pay on Sunday') &&
+      // 🚩 The SERVER's name, not the browser's idea of who is logged in.
+      (await chaseCellAt('mine', neverAt)).includes('Huda Al-Qahtani') &&
+      (await page.locator('dialog').count()) === 0 &&
+      laneCalls.length === 0,
+    `"${(await chaseCellAt('mine', neverAt)).replace(/\n/g, ' ')}" · ${laneCalls.length} refetches`,
+  )
+  // …and the projection re-ran over the written answer rather than over a memory of
+  // it: the branch just chased is no longer one nobody has rung.
+  await page.getByRole('button', { name: 'Never chased' }).click()
+  await page.waitForTimeout(250)
+  const narrowedAfterChase = await sectionCount('mine')
+  check(
+    '287 → …and the never-chased filter no longer counts it, off the same written answer',
+    narrowedAfterChase === group(owingMineNever.length - 1),
+    `${narrowedAfterChase} vs ${owingMineNever.length - 1}`,
+  )
+  await page.getByRole('button', { name: 'Never chased' }).click()
+  await page.waitForTimeout(200)
+
+  // 🚩 A REFUSAL IS A 200, AND IT COSTS THE ACCOUNTANT NOTHING. The message is the
+  // server's, the row is untouched, and what was typed is still in the box — a refusal
+  // that threw the note away would cost them the call they just had.
+  scenario = { ...scenario, chaseRefuses: true }
+  lane = await openLane()
+  await page
+    .locator(`[data-region="open-section-mine"] .ag-row[row-index="${neverAt}"] [col-id="lastChase"] button`)
+    .click()
+  await page.waitForTimeout(200)
+  await page.locator('[data-testid="chase-note"]').fill('left a message')
+  await page.locator('[data-testid="chase-save"]').click()
+  await page.waitForTimeout(400)
+  check(
+    '🚩 287 → a refused note says so in the server’s words, and leaves the row unchanged',
+    /branch is closed/i.test(await page.locator('body').innerText()) &&
+      /Never chased/.test(await chaseCellAt('mine', neverAt)) &&
+      // …and the dialog is still open with the sentence still in it.
+      (await page.locator('dialog').count()) === 1 &&
+      (await page.locator('[data-testid="chase-note"]').inputValue()) === 'left a message',
+    `"${(await chaseCellAt('mine', neverAt)).replace(/\n/g, ' ')}"`,
+  )
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  scenario = { ...scenario, chaseRefuses: false }
+
+  // 🚩 THE RENDERING THAT SHIPS TODAY: §7 unbuilt, so no door mentions a chase. NO
+  // column, NO chip and NO button — never a column of "Never chased" claiming 1,394
+  // branches nobody has rung.
+  scenario = { ...scenario, chaseAbsent: true }
+  lane = await openLane()
+  check(
+    '🚩 287 → with §7 absent the column is not drawn at all — and nothing says “Never chased”',
+    !(await headers('mine')).includes('Last chased') &&
+      !/Never chased/.test(lane) &&
+      (await page.locator('[data-testid="open-chase-button"]').count()) === 0,
+    (await headers('mine')).join(' · '),
+  )
+  check(
+    '🚩 287 → …and the chip goes with it: a filter over a fact the screen lacks is a lie',
+    (await page.getByRole('button', { name: 'Never chased' }).count()) === 0 &&
+      // …while *Mine only* is untouched: §6 and §7 are different dependencies.
+      (await page.getByRole('button', { name: 'Mine only' }).count()) === 1,
+  )
+  cash = await openLane(CASH_ROUTE)
+  check(
+    '287 → …on the cash tab too, which waits on §7 separately from its own §2',
+    !(await headers('mine')).includes('Last chased') &&
+      (await page.getByRole('button', { name: 'Never chased' }).count()) === 0 &&
+      !/Never chased/.test(cash),
+    (await headers('mine')).join(' · '),
+  )
+  scenario = { ...scenario, chaseAbsent: false }
+
+  // WARNING **The two dependencies are independent, and the dialog must not fill one
+  // in from the other's silence.** §6 absent means the door never said who serves this
+  // branch - so *"nobody is assigned to this branch"* would be this ticket's own
+  // mistake made about the neighbouring field. Found by `/standards-review`.
+  scenario = { ...scenario, laneBare: true }
+  await openLane()
+  await page
+    .locator('[data-region="open-section-all"] .ag-row[row-index="0"] [col-id="lastChase"] button')
+    .click()
+  await page.waitForTimeout(200)
+  const bareAbout = (await page.locator('[data-testid="chase-about"]').innerText()).trim()
+  check(
+    '🚩 287 → with §6 absent the dialog says nothing about who to ring, rather than “nobody is assigned”',
+    /^About entry \d+$/.test(bareAbout),
+    bareAbout,
+  )
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  scenario = { ...scenario, laneBare: false }
+
+  // 🔑 SAME TABLE, SAME ACT, A DIFFERENT PERSON ON THE PHONE. From a waiting receipt
+  // the subject is the RECEIPT — and the name beside it is the collector's.
+  chaseCalls = []
+  cash = await openLane(CASH_ROUTE)
+  const receiptTarget = cashMine.find((r) => r.lastChase === null) ?? cashMine[0]
+  const receiptAt = cashMine.indexOf(receiptTarget)
+  await page
+    .locator(`[data-region="open-section-mine"] .ag-row[row-index="${receiptAt}"] [col-id="lastChase"] button`)
+    .click()
+  await page.waitForTimeout(200)
+  await page.locator('[data-testid="chase-note"]').fill('collector passes Wednesday')
+  await page.locator('[data-testid="chase-save"]').click()
+  await page.waitForTimeout(350)
+  check(
+    '🔑 287 → a chase from a waiting receipt names the RECEIPT, not the entry',
+    chaseCalls.length === 1 &&
+      chaseCalls[0].subject === 'RECEIPT' &&
+      chaseCalls[0].subjectId === receiptTarget.documentId &&
+      // …and still quotes the same handle every other tab uses.
+      chaseCalls[0].entryNumber === receiptTarget.entryNumber &&
+      chaseCalls[0].storeId === receiptTarget.storeId &&
+      (await chaseCellAt('mine', receiptAt)).includes('collector passes Wednesday'),
+    JSON.stringify(chaseCalls[0] || {}),
+  )
+  check(
+    '287 → the namespace RENDERS — no raw `settlement:open.chase.*` on screen',
+    !/settlement:open/.test(await mainText()),
+  )
+
+  // WARNING **One way out, and it clears BOTH chips.** The reader is told *"clear a
+  // filter to see the rest of the estate"*, so a button that released one of two would
+  // leave them reading the same sentence with nothing visibly changed. Found by
+  // `/code-review`: the entry tabs' branch still cleared only *Mine only*.
+  scenario = { ...scenario, laneNoneMine: true }
+  await openLane()
+  await page.getByRole('button', { name: 'Never chased' }).click()
+  await page.getByRole('button', { name: 'Mine only' }).click()
+  await page.waitForTimeout(250)
+  const bothPressed = (await page.locator('button[aria-pressed="true"]').count()) === 2
+  await page.getByRole('button', { name: 'Show the whole estate' }).click()
+  await page.waitForTimeout(250)
+  check(
+    '🚩 287 → “Show the whole estate” releases BOTH chips, not just the one it knew about',
+    bothPressed &&
+      (await page.locator('button[aria-pressed="true"]').count()) === 0 &&
+      (await page.locator('[data-region="open-section-theirs"]').count()) === 1 &&
+      (await page.locator('[data-testid="open-filtered"]').count()) === 0,
+    `${bothPressed ? 'both pressed' : 'NOT both pressed'} → ${await page.locator('button[aria-pressed="true"]').count()} still pressed`,
+  )
+  scenario = { ...scenario, laneNoneMine: false }
 
   /* ══════════════════════════════════════════════════════════════════════════════
    * Ticket 288 — THE FRONT PAGE COUNTS THE WORK AND LINKS TO IT.

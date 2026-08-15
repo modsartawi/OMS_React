@@ -10,6 +10,7 @@ import type { SettlementBulkCancelResult, SettlementBulkCancelRow } from '@/core
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { branchSearch } from './addresses'
+import { OPEN_LANE_KEY } from './open-lane'
 import { settlementApi } from './api'
 import { REASON_MAX } from './posting'
 import ReasonField from './ReasonField'
@@ -63,7 +64,7 @@ export default function BatchWithdraw({ batchId }: { batchId: string }) {
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'fleet'] })
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'orphans'] })
       // 285: every entry this batch posted has just left the estate's open position.
-      void queryClient.invalidateQueries({ queryKey: ['settlement', 'open-lane'] })
+      void queryClient.invalidateQueries({ queryKey: OPEN_LANE_KEY })
     },
     // 🚩 A refused ROW is not an error — it arrives inside a 200 and is reported
     // below by name. `onError` is only for the call itself failing, which leaves the

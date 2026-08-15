@@ -1,3 +1,4 @@
+import { OPEN_LANE_KEY } from './open-lane'
 import { REASON_MAX } from './posting'
 
 /**
@@ -31,12 +32,23 @@ export default function ReasonField({
   onValue,
   label,
   hint,
+  maxLength = REASON_MAX,
   testId,
 }: {
   value: string
   onValue: (next: string) => void
   label: string
   hint: string
+  /**
+   * ⚠️ **The one shared thing that is allowed to differ, and only because a SERVER
+   * says so** (ticket 287). The three reason boxes all stop at `REASON_MAX` and must
+   * keep doing so — that is the "an accountant never learns two limits" argument above.
+   * A chase note is not a reason: it is a different column on a different table with
+   * its own `varchar(400)`, and truncating it at 200 would be a client-side rule the
+   * server never made, cutting an accountant's memo in half for no reason they could
+   * see.
+   */
+  maxLength?: number
   /** The drive addresses these boxes by name; each caller keeps its own. */
   testId: string
 }) {
@@ -46,7 +58,7 @@ export default function ReasonField({
       <textarea
         value={value}
         onChange={(e) => onValue(e.target.value)}
-        maxLength={REASON_MAX}
+        maxLength={maxLength}
         rows={3}
         dir="auto"
         data-testid={testId}
@@ -87,5 +99,5 @@ export function invalidateSettlement(
   // cancel and close-out left the wrong-money lane serving cache for up to a minute.
   // Found by 288's `/code-review`; the two bulk writers already say `orphans`.
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'orphans'] })
-  void queryClient.invalidateQueries({ queryKey: ['settlement', 'open-lane'] })
+  void queryClient.invalidateQueries({ queryKey: OPEN_LANE_KEY })
 }

@@ -389,6 +389,17 @@ export type SettlementOpenLaneRow = SettlementLedgerRow & {
    * (story 4). `0` is a real value and renders as *today* rather than as *0 days*.
    */
   ageDays?: number
+  /**
+   * The **newest note on this branch** (ticket 287), riding on the row so no cell
+   * fetches anything — one `OUTER APPLY` on a page that is already capped, rather than
+   * a query per row whose answer could arrive out of step with the rows it labels.
+   *
+   * 🚩 **Optional for a THIRD reason, orthogonal to the two above.** The chase table
+   * and its write door are server dependency **§7** — the wave's only new table — and
+   * a door built without it simply does not send this field. `undefined` and `null`
+   * are different answers; see `SettlementLastChase`.
+   */
+  lastChase?: SettlementLastChase | null
 }
 
 /**
@@ -460,6 +471,118 @@ export type SettlementUncollectedRow = {
   /** `DATEDIFF(day, PreparedAt, <server now>)` — **the server subtracts, the client
    *  owns no clock** (spec 282 D5). `0` renders as *today*. */
   ageDays: number
+  /**
+   * The newest note on this branch (ticket 287) — ⚠️ **the one optional field on this
+   * contract, and it does not break the rule above.**
+   *
+   * That rule is about §2: a *whole door* either answers with its fields or does not
+   * answer at all, so nothing here may be optional "just in case". The chase table is
+   * server dependency **§7** — a different dependency, which this door and the ledger
+   * both wait on independently. A receipts door built before the chase table sends
+   * every field above and not this one, which is exactly what `undefined` means.
+   *
+   * 🔑 **Same table, same act, different person on the phone** (contract 278 §1): a
+   * chase about a waiting receipt is a call to the **collector** rather than the branch
+   * manager, and that difference is already carried by `servedBy`. It is not a
+   * difference in what a chase *is*, so it is `Subject = RECEIPT` and not a second
+   * table.
+   */
+  lastChase?: SettlementLastChase | null
+}
+
+/* ── the chase note (ticket 287, spec 282 D7, contract 278) ──────────────────── */
+
+/**
+ * What a chase note was **about** — `PosSettlementChase.Subject`.
+ *
+ * 🔑 **A note always belongs to a BRANCH**; the subject only says what the call
+ * happened to be about. One phone call covering four open shortages is **one** note,
+ * not the same sentence typed four times — and *"they promised to pay entry 143 on
+ * Sunday"* still has somewhere precise to live.
+ *
+ * ⚠️ `RECEIPT` names a `SettlementDocumentId` head office **has no row for** — the
+ * special-receipt document table is store-side until collection (ticket 277). It is
+ * carried as a **label and never joined**, and no later ticket may put a foreign key
+ * on it.
+ */
+export type SettlementChaseSubject = 'BRANCH' | 'ENTRY' | 'RECEIPT'
+
+/**
+ * The newest chase note on a branch, as it rides on a lane row.
+ *
+ * 🚩 **The whole field is a TRI-STATE on the wire and the three cases must never
+ * collapse** (contract 278 §2, spec 282 D7):
+ *
+ * | wire | means | the lane draws |
+ * |---|---|---|
+ * | **absent** (`undefined`) | the chase door is not built or not deployed | **no *Last chased* column at all** |
+ * | `null` | the door answered, and nobody has chased this branch | *Never chased* — a named state |
+ * | an object | the newest note | *"12 Aug · promised Sunday"* over the caller's name |
+ *
+ * ⚠️ Rendering *never chased* against every row because the door is missing would be
+ * a confident false statement about 1,394 branches — the same class of error as a
+ * failed read drawn as *"nothing needs a human"*. `open-lane.ts` returns the **case**
+ * (`ChaseCell`); no renderer here may reach for the raw field.
+ */
+export type SettlementLastChase = {
+  /** The note itself — ⚠️ **internal**, written by an accountant for colleagues. Every
+   *  other free text on this screen (an entry's `reason`, a cancellation's) is quoted
+   *  back to the branch verbatim; this one is never shown to one. */
+  note: string
+  /** Resolved at write time, following `postedByName` / `preparedByName`: a name
+   *  stored beside the act cannot go stale against a staff master that changes
+   *  underneath the history. */
+  chasedByName: string
+  /** ⚠️ **Local wall clock** (`DateTime.Now`), matching every timestamp it is rendered
+   *  beside — `postedAt`, `consumedAt`, `preparedAt`. A UTC stamp would render a note
+   *  three hours before the call that produced it, on the row of the entry it is
+   *  about (contract 278 §4; ticket 272 paid for this once already). */
+  chasedAt: string
+  /** The quotable handle the note was about, denormalised at write time — `0` when the
+   *  note was about the branch and nothing narrower. Carried so the read never joins
+   *  the entry table to draw a note. */
+  entryNumber: number
+}
+
+/**
+ * One chase note, as `Settlement/Chase` echoes it back — `PosSettlementChase`.
+ *
+ * 🚩 **Append-only: no edit, no delete, no supersede, no `isActive`.** A typo is
+ * corrected by adding another note, which is what a person does in a paper day-book
+ * and what an accountant reading a history expects to see. The door has exactly one
+ * verb, and this type carries no field that could imply a second.
+ */
+export type SettlementChase = SettlementLastChase & {
+  /** ULID — sorts by mint time, this repo's idiom. */
+  chaseId: string
+  storeId: string
+  subject: SettlementChaseSubject
+  /** `SettlementEntryId` · `SettlementDocumentId` · `''`. See `SettlementChaseSubject`. */
+  subjectId: string
+  chasedByStaffId: string
+}
+
+/**
+ * What `POST Settlement/Chase` answers.
+ *
+ * 🔑 **A refusal is a 200 carrying `accepted: false`** — this screen's established
+ * idiom, shared with cancel, close-out, repair and bulk commit. Unknown branch, blank
+ * note, a note over 400 characters and an unrecognised subject are **decisions**, not
+ * crashes; nothing here throws on one, and `@/core/api` still owns the errors that
+ * genuinely are.
+ *
+ * ⚠️ **`refusalReason` is not in contract 278's `{ accepted, chase }`** and is read
+ * only if the door sends it — the same asymmetry `SettlementCloseOutResult` carries
+ * and for the same reason: the contract is transcribed rather than tidied, and the
+ * namespace's own sentence stands underneath when the server says nothing.
+ */
+export type SettlementChaseResult = {
+  accepted: boolean
+  /** 🔑 **What was actually written**, with the server's stamp and the server's name on
+   *  it. The row is updated from THIS and never from the text that was typed or a
+   *  clock the browser owns. `null` on a refusal. */
+  chase: SettlementChase | null
+  refusalReason?: string
 }
 
 /**

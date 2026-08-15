@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import type { SettlementOpenLaneRow, SettlementUncollectedRow } from '@/core/models/settlement'
+import type {
+  SettlementChase,
+  SettlementLastChase,
+  SettlementOpenLaneRow,
+  SettlementUncollectedRow,
+} from '@/core/models/settlement'
 import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT } from './cap'
 import { LANE_TODAY, SETTLEMENT_OPEN_LANE, SETTLEMENT_UNCOLLECTED } from './open-lane-fixture'
 import {
+  applyChase,
   buildCashLane,
   buildOpenLane,
+  chaseCell,
+  chaseTargetForEntry,
+  chaseTargetForReceipt,
   DEFAULT_OPEN_TAB,
   openTabSearch,
   readOpenTab,
@@ -43,6 +52,9 @@ function row(o: {
   storeId?: string
   amount?: number
   remaining?: number
+  /** ⚠️ Three cases, and `undefined` is one of them — omitting the key is the wire
+   *  **not carrying the field**, which is a different answer from `null`. */
+  lastChase?: SettlementLastChase | null
 }): SettlementOpenLaneRow {
   const amount = o.amount ?? 100
   return {
@@ -66,7 +78,13 @@ function row(o: {
     ...(o.servedBy !== undefined ? { servedBy: o.servedBy } : {}),
     ...(o.isMine !== undefined ? { isMine: o.isMine } : {}),
     ...(o.ageDays !== undefined ? { ageDays: o.ageDays } : {}),
+    ...('lastChase' in o ? { lastChase: o.lastChase } : {}),
   }
+}
+
+/** A note the server wrote, with the server's own stamp and name on it. */
+function chased(note: string, entryNumber = 0): SettlementLastChase {
+  return { note, chasedByName: 'Ayed Al-Qahtani', chasedAt: '2026-08-13T10:04:00', entryNumber }
 }
 
 const numbers = (rows: readonly SettlementOpenLaneRow[]) => rows.map((r) => r.entryNumber)
@@ -380,6 +398,7 @@ function receipt(o: {
   storeId?: string
   amount?: number
   preparedAt?: string
+  lastChase?: SettlementLastChase | null
 }): SettlementUncollectedRow {
   return {
     settlementConsumptionId: `C${o.entryNumber}`,
@@ -394,6 +413,7 @@ function receipt(o: {
     currencyKey: 'SAR',
     preparedAt: o.preparedAt ?? '2026-08-01T09:20:00',
     ageDays: o.ageDays,
+    ...('lastChase' in o ? { lastChase: o.lastChase } : {}),
   }
 }
 
@@ -557,3 +577,267 @@ describe('lane: the same entry may appear owing and waiting', () => {
     )
   })
 })
+
+/* ── ticket 287: the chase note's tri-state ───────────────────────────────────── */
+
+describe('lane: an absent chase field is not a claim that nobody was chased', () => {
+  it('answers three different cases for the three things the wire can say', () => {
+    // 🚩 The whole ticket, in one assertion. `undefined` is *the door is not built*,
+    // `null` is *the door answered and nobody has rung this branch*, and an object is
+    // the note. Collapsing the first two would state, confidently, that nobody has
+    // chased any of 1,394 branches.
+    expect(chaseCell({})).toEqual({ kind: 'unavailable' })
+    expect(chaseCell({ lastChase: null })).toEqual({ kind: 'never' })
+    expect(chaseCell({ lastChase: chased('promised Sunday', 143) })).toEqual({
+      kind: 'chased',
+      at: '2026-08-13T10:04:00',
+      by: 'Ayed Al-Qahtani',
+      note: 'promised Sunday',
+    })
+  })
+
+  it('hides the column outright when the answer never mentioned a chase', () => {
+    // 285's and 286's own rows, untouched: §7 is a dependency of its own and both
+    // doors answer without it today.
+    expect(lane().chased).toBe(false)
+    expect(
+      buildCashLane({
+        rows: [receipt({ entryNumber: 9, ageDays: 2 })],
+        failed: false,
+        mineOnly: false,
+      }).chased,
+    ).toBe(false)
+  })
+
+  it('draws the column as soon as the answer mentions one — even if nobody has been chased', () => {
+    // ⚠️ A door that answers `null` for every branch has still ANSWERED. The column is
+    // drawn and says *never chased*, which is a true statement about those branches;
+    // drawing nothing would lose a fact the server took the trouble to send.
+    const answered = [
+      row({ entryNumber: 11, ageDays: 162, isMine: false, lastChase: null }),
+      row({ entryNumber: 20, ageDays: 140, isMine: true, lastChase: null }),
+    ]
+    const built = buildOpenLane({ rows: answered, failed: false, tab: 'owing', mineOnly: false })
+
+    expect(built.chased).toBe(true)
+    expect(drawn(built.view).map((r) => chaseCell(r).kind)).toEqual(['never', 'never'])
+  })
+
+  it('carries the note through to the row that shows it, with the server’s name and stamp', () => {
+    const built = buildOpenLane({
+      rows: [
+        row({
+          entryNumber: 11,
+          ageDays: 162,
+          isMine: true,
+          lastChase: chased('promised Sunday', 11),
+        }),
+        row({ entryNumber: 20, ageDays: 140, isMine: true, lastChase: null }),
+      ],
+      failed: false,
+      tab: 'owing',
+      mineOnly: false,
+    })
+
+    expect(drawn(built.view).map((r) => chaseCell(r).kind)).toEqual(['chased', 'never'])
+  })
+
+  it('reads both answered cases off the estate, with one note per BRANCH', () => {
+    // 🔑 At estate scale, because the claim is about branches rather than rows: a note
+    // belongs to a branch, so a branch with four open entries shows the same sentence
+    // four times and never *never chased* on three of them.
+    const cells = SETTLEMENT_OPEN_LANE.map((r) => chaseCell(r).kind)
+    expect(cells).toContain('never')
+    expect(cells).toContain('chased')
+    expect(cells).not.toContain('unavailable')
+
+    for (const branch of new Set(SETTLEMENT_OPEN_LANE.map((r) => r.storeId))) {
+      const notes = new Set(
+        SETTLEMENT_OPEN_LANE.filter((r) => r.storeId === branch).map((r) =>
+          JSON.stringify(r.lastChase),
+        ),
+      )
+      expect(notes.size).toBe(1)
+    }
+
+    // …and the receipts door tells the same story about the same branch: one table,
+    // one act, whichever tab is asking.
+    for (const receiptRow of SETTLEMENT_UNCOLLECTED) {
+      const entryRow = SETTLEMENT_OPEN_LANE.find((r) => r.storeId === receiptRow.storeId)!
+      expect(receiptRow.lastChase).toEqual(entryRow.lastChase)
+    }
+  })
+
+  it('says nothing about chases on a failed read — there is no answer to read a case out of', () => {
+    // The refusal is answered first, as it is for every other flag on this lane: a
+    // door that did not answer did not answer about chases either.
+    expect(buildOpenLane({ rows: undefined, failed: true, tab: 'owing', mineOnly: false }).chased)
+      .toBe(false)
+    expect(buildCashLane({ rows: undefined, failed: true, mineOnly: false }).chased).toBe(false)
+  })
+})
+
+describe('lane: the never-chased filter is offered only when the answer knows', () => {
+  const answered = [
+    row({ entryNumber: 11, ageDays: 162, isMine: false, lastChase: null }),
+    row({ entryNumber: 12, ageDays: 159, isMine: true, lastChase: chased('rang, no answer') }),
+    row({ entryNumber: 20, ageDays: 140, isMine: true, lastChase: null }),
+  ]
+
+  it('narrows to the branches nobody has spoken to, in the server’s order', () => {
+    const built = buildOpenLane({
+      rows: answered,
+      failed: false,
+      tab: 'owing',
+      mineOnly: false,
+      neverChasedOnly: true,
+    })
+
+    // Yours first, then the estate's — the arrangement is untouched by the filter,
+    // which narrows the sections rather than replacing them.
+    expect(drawn(built.view).map((r) => r.entryNumber)).toEqual([20, 11])
+    // 🚩 …while the TAB still counts the estate. A filter narrows what is drawn, never
+    // what is claimed to exist.
+    expect(built.counts.owing).toBe(3)
+  })
+
+  it('is IGNORED by a tab whose answer never mentioned a chase, rather than emptying it', () => {
+    // ⚠️ The chip is one piece of state across three tabs while *whether it can be
+    // offered* is a per-tab fact — the same defect `/code-review` found on *Mine only*
+    // in 286. A reader pressing it on a chase-aware tab and switching to one the door
+    // answered without would otherwise read *"nothing matches these filters"* with no
+    // chip on screen to clear.
+    const built = buildOpenLane({
+      rows: SERVER_ORDER,
+      failed: false,
+      tab: 'owing',
+      mineOnly: false,
+      neverChasedOnly: true,
+    })
+
+    expect(built.chased).toBe(false)
+    // Every SHORTAGE of the answer, arranged as ever — yours (20, 31) above the
+    // estate's (11, 21) — and not one row dropped by a filter over a fact nobody sent.
+    expect(drawn(built.view).map((r) => r.entryNumber)).toEqual([20, 31, 11, 21])
+  })
+
+  it('empties by MY OWN filter rather than by the estate having nothing owing', () => {
+    const built = buildOpenLane({
+      rows: [row({ entryNumber: 12, ageDays: 159, isMine: true, lastChase: chased('rang') })],
+      failed: false,
+      tab: 'owing',
+      mineOnly: false,
+      neverChasedOnly: true,
+    })
+
+    expect(built.view.kind).toBe('filtered')
+  })
+
+  it('applies on the cash tab too — same table, same act, a different person on the phone', () => {
+    const built = buildCashLane({
+      rows: [
+        receipt({ entryNumber: 900, ageDays: 12, isMine: true, lastChase: null }),
+        receipt({
+          entryNumber: 901,
+          ageDays: 6,
+          isMine: true,
+          lastChase: chased('collector passes Wednesday'),
+        }),
+      ],
+      failed: false,
+      mineOnly: false,
+      neverChasedOnly: true,
+    })
+
+    expect(built.chased).toBe(true)
+    expect(drawn(built.view).map((r) => r.entryNumber)).toEqual([900])
+  })
+
+  it('composes with “mine only” — two narrowings of one list, not two lists', () => {
+    const built = buildOpenLane({
+      rows: answered,
+      failed: false,
+      tab: 'owing',
+      mineOnly: true,
+      neverChasedOnly: true,
+    })
+
+    expect(drawn(built.view).map((r) => r.entryNumber)).toEqual([20])
+  })
+})
+
+describe('lane: a chase names the branch it belongs to, and what the call was about', () => {
+  it('names the ENTRY from an entry row and the RECEIPT from a waiting one', () => {
+    // 🔑 A note belongs to the BRANCH either way — `storeId` rides on both — and the
+    // subject only says what the call happened to be about.
+    expect(
+      chaseTargetForEntry(row({ entryNumber: 1611, ageDays: 159, storeId: '0611', servedBy: 'Ayed' })),
+    ).toMatchObject({
+      storeId: '0611',
+      subject: 'ENTRY',
+      subjectId: 'E1611',
+      entryNumber: 1611,
+      servedBy: 'Ayed',
+    })
+
+    expect(chaseTargetForReceipt(receipt({ entryNumber: 1611, ageDays: 6, storeId: '0611' }))).toMatchObject({
+      storeId: '0611',
+      subject: 'RECEIPT',
+      // ⚠️ The special-receipt document head office has no row for — carried as a
+      // LABEL and never joined (contract 278 §1).
+      subjectId: 'SR-1611',
+      entryNumber: 1611,
+    })
+  })
+
+  it('carries the newest note along, so the dialog shows what was last said before dialling', () => {
+    expect(
+      chaseTargetForEntry(
+        row({ entryNumber: 1611, ageDays: 159, lastChase: chased('promised Sunday', 1611) }),
+      ).last,
+    ).toEqual({
+      kind: 'chased',
+      at: '2026-08-13T10:04:00',
+      by: 'Ayed Al-Qahtani',
+      note: 'promised Sunday',
+    })
+  })
+})
+
+describe('lane: a note the server accepted lands on every row of that branch', () => {
+  const written: SettlementChase = {
+    chaseId: '01J9CHASE',
+    storeId: '0611',
+    subject: 'ENTRY',
+    subjectId: 'E11',
+    chasedByStaffId: '30117',
+    ...chased('promised Sunday', 11),
+  }
+
+  it('rewrites the branch’s rows from the SERVER’s chase, and leaves other branches alone', () => {
+    // 🔑 One phone call about four open entries is ONE note — so the row the
+    // accountant chased from is not the only one that changes.
+    const rows = [
+      row({ entryNumber: 11, ageDays: 162, storeId: '0611', lastChase: null }),
+      row({ entryNumber: 12, ageDays: 159, storeId: '0611', lastChase: null }),
+      row({ entryNumber: 13, ageDays: 140, storeId: '0142', lastChase: null }),
+    ]
+
+    const after = applyChase(rows, written)
+    expect(after.map((r) => chaseCell(r).kind)).toEqual(['chased', 'chased', 'never'])
+    // ⚠️ **The SERVER's stamp and the SERVER's name**, never the text that was typed
+    // or a clock the browser owns.
+    expect(after[0].lastChase).toEqual(chased('promised Sunday', 11))
+  })
+
+  it('leaves an answer that never carried the field exactly as it was', () => {
+    // ⚠️ Writing a note onto rows the door said nothing about would MINT the column —
+    // the screen would start drawing *never chased* for 1,393 other branches off the
+    // back of one accepted write.
+    const rows = [row({ entryNumber: 11, ageDays: 162, storeId: '0611' })]
+
+    expect(applyChase(rows, written)).toBe(rows)
+    expect(applyChase(rows, written)[0].lastChase).toBeUndefined()
+  })
+})
+

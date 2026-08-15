@@ -39,6 +39,13 @@
     },
     "estate": {
       "figure": "{{branches}} branches carrying {{entries}} open entries."
+    },
+    "signpost": {
+      "title": "Still open across the estate",
+      "hint": "Entries nobody has settled yet, oldest first. Open the list to work down it.",
+      "failed": "The estate’s open position could not be read, so these counts are unknown: {{detail}} This is not “nothing to chase” — try again, and tell head office if it keeps happening.",
+      "failedNoReason": "the door gave no reason.",
+      "capped": "This reached {{limit}} entries, so there may be more open than these counts say."
     }
   },
   "worklist": {

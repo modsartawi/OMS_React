@@ -846,11 +846,15 @@ async function run() {
   await page.goto(BASE + ROUTE)
   await page.waitForLoadState('networkidle')
   check('the five leaves + the screen gate cost ONE CollectionWeb/Access call', accessCalls === 1, `${accessCalls} calls`)
-  // 🚩 The door costs exactly TWO calls: the fleet and the worklist. No account, and
-  // no ledger — the ledger is filter-first and the account is a destination, so
-  // neither is fetched by arriving. (268 asserted zero here; the door is the slice
-  // that spends.)
-  check('🚩 the door fetches the fleet and the worklist, and nothing else', settlementCalls === 2, `${settlementCalls} calls`)
+  // 🚩 The door costs exactly THREE calls: the fleet, the worklist and — since 288 —
+  // the open lane behind the signpost's counts. No account, and no ledger LOOKUP: the
+  // ledger is filter-first and the account is a destination, so neither is fetched by
+  // arriving. (268 asserted zero here; the door is the slice that spends.)
+  //
+  // KEY The third one is the LANE's own call, key and all, rather than a count door of
+  // its own — which is spec 282 D5's whole argument: one answer, so the front page and
+  // the tab strip cannot disagree, and clicking through costs nothing.
+  check('🚩 the door fetches the fleet, the worklist and the signpost’s one lane call', settlementCalls === 3, `${settlementCalls} calls`)
 
   // ---- Scenario 2: ungranted ----
   text = await open(NONE)
@@ -2791,6 +2795,125 @@ async function run() {
       (await drawn()).account,
     page.url().replace(BASE, ''),
   )
+
+  /* ══════════════════════════════════════════════════════════════════════════════
+   * Ticket 288 — THE FRONT PAGE COUNTS THE WORK AND LINKS TO IT.
+   *
+   * KEY The signpost is what makes the lane discoverable from the screen an accountant
+   * already opens - and its counts come out of the SAME call the lane makes, so the
+   * front page and the tab strip can never disagree about one estate.
+   *
+   * WARNING The failed read is the case this section exists for: a refusal must draw
+   * em-dashes and say so, never `0` and never "nothing needs you". That exact mistake
+   * was one of ticket 270's own review findings, on this very surface.
+   * ══════════════════════════════════════════════════════════════════════════════ */
+
+  const signpostCount = async (tab) => {
+    const pill = page.locator(`[data-testid="signpost-count-${tab}"]`)
+    return (await pill.count()) ? (await pill.innerText()).trim() : '(absent)'
+  }
+  const doorAt = async (address = ROUTE) => {
+    await page.goto(BASE + address)
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(250)
+    return mainText()
+  }
+
+  scenario = { ...scenario, laneRefuses: false }
+  let door = await doorAt()
+
+  check(
+    '288 → the door carries a signpost through to the open settlements lane',
+    (await page.locator('[data-region="open-signpost"]').count()) === 1 &&
+      (await page.locator('[data-signpost="owing"]').count()) === 1 &&
+      (await page.locator('[data-signpost="owed"]').count()) === 1,
+  )
+  check(
+    '🚩 288 → …counting ROWS off the one answer, and agreeing with the lane’s own tabs',
+    (await signpostCount('owing')) === group(owingAll.length) &&
+      (await signpostCount('owed')) === group(owedAll.length),
+    `owing ${await signpostCount('owing')} / owed ${await signpostCount('owed')} vs ${owingAll.length}/${owedAll.length}`,
+  )
+  check(
+    '288 → …and 286’s cash-waiting count is ABSENT rather than a fabricated zero',
+    (await page.locator('[data-signpost="cash"]').count()) === 0,
+  )
+  check(
+    '288 → the namespace RENDERS — no raw `settlement:door.signpost.*` on screen',
+    !/settlement:door/.test(door),
+  )
+
+  // Each link lands on its OWN tab, and the scope the reader chose rides along.
+  await page.locator('[data-signpost="owed"]').click()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(250)
+  check(
+    '288 → the Owed link lands on the lane’s Owed tab, showing the number it promised',
+    new URL(page.url()).pathname === OPEN_ROUTE &&
+      new URL(page.url()).searchParams.get('tab') === 'owed' &&
+      (await page.getByRole('tab', { name: /^Owed/ }).getAttribute('aria-selected')) === 'true' &&
+      (await tabCount('owed')) === group(owedAll.length),
+    `${page.url().replace(BASE, '')} · tab count ${await tabCount('owed')}`,
+  )
+
+  // …and the scope the reader chose rides through BOTH links — asserted on each of
+  // them rather than on one, because they are two calls to one builder and a drive
+  // that only drove the default tab would prove nothing about the other.
+  await doorAt(`${ROUTE}?scope=all`)
+  await page.locator('[data-signpost="owing"]').click()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(250)
+  check(
+    '🚩 288 → the scope rides through the Owing link, and the default tab is its ABSENCE',
+    new URL(page.url()).pathname === OPEN_ROUTE &&
+      new URL(page.url()).searchParams.get('scope') === 'all' &&
+      new URL(page.url()).searchParams.get('tab') === null &&
+      (await page.getByRole('tab', { name: /^Owing/ }).getAttribute('aria-selected')) === 'true',
+    page.url().replace(BASE, ''),
+  )
+
+  await doorAt(`${ROUTE}?scope=all&q=rawdah`)
+  // ⚠️ The search box is open, so the signpost is one screen state down — clear it the
+  // way a reader would rather than reaching for an address.
+  await page.getByRole('button', { name: 'Clear' }).click()
+  await page.waitForTimeout(250)
+  await page.locator('[data-signpost="owed"]').click()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(250)
+  check(
+    '🚩 288 → …and the Owed link carries the scope AND its tab, dropping the query that led here',
+    new URL(page.url()).pathname === OPEN_ROUTE &&
+      new URL(page.url()).searchParams.get('scope') === 'all' &&
+      new URL(page.url()).searchParams.get('tab') === 'owed' &&
+      new URL(page.url()).searchParams.get('q') === null,
+    page.url().replace(BASE, ''),
+  )
+
+  // 🚩 THE FAILED READ. Em-dashes and a sentence, never zeroes and never silence.
+  scenario = { ...scenario, laneRefuses: true }
+  await doorAt()
+  await page
+    .waitForSelector('[data-region="open-signpost"] [role="alert"]', { timeout: 15000 })
+    .catch(() => {})
+  await page.waitForTimeout(200)
+  door = await mainText()
+  check(
+    '🚩 288 → a refused read draws em-dashes in BOTH counts, never a 0',
+    (await signpostCount('owing')) === '—' && (await signpostCount('owed')) === '—',
+    `${await signpostCount('owing')} / ${await signpostCount('owed')}`,
+  )
+  check(
+    '🚩 288 → …and says the read failed, in the server’s own words',
+    (await page.locator('[data-region="open-signpost"] [role="alert"]').count()) === 1 &&
+      /criterion is required/i.test(door) &&
+      /counts are unknown/i.test(door),
+    door.replace(/\n/g, ' ').slice(0, 160),
+  )
+  check(
+    '🚩 288 → …while the WRONG-MONEY triage beside it is untouched by the lane’s refusal',
+    (await page.locator('[data-lane="wrong-money"]').count()) === 1,
+  )
+  scenario = { ...scenario, laneRefuses: false }
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))
 

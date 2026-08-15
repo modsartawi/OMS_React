@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 282
 blocked-by: 285
 ---
@@ -36,11 +36,41 @@ logic (the counts off the existing lane query) · component (the signpost on the
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `door: the signpost counts rows, and says nothing it cannot count` — counts per tab from one
+- [x] `door: the signpost counts rows, and says nothing it cannot count` — counts per tab from one
       answer; a failed read yields the failure case rather than zeroes · **pure**
-- [ ] Drive `tools/settlement-drive.mjs`: the signpost renders its three counts, each link lands on
+      (`open-lane.test.ts`, six cases) — the counts are asserted **equal to the lane's own**
+      (`tallyOpenLane` is the one function both surfaces read, and `buildOpenLane` now delegates to
+      it), plus *counts are rows not branches* (four shortages on one branch is four), *a door that
+      answered nothing is not a door that failed*, and the cap making the count a **floor**
+- [x] Drive `tools/settlement-drive.mjs`: the signpost renders its counts, each link lands on
       its tab with the scope preserved, and a stubbed refusal shows em-dashes plus the failure
-      sentence · **flow (Playwright)**
+      sentence · **flow (Playwright)** — **256/256 PASS**, at estate scale (1,012 owing / 385 owed
+      off the same fixture the lane draws). Also driven: the cash count **absent** rather than a
+      fabricated zero; **both** links carrying the scope, the Owed one carrying its tab and the
+      Owing one spelling its default as an absence, both dropping the search query that led there;
+      and the wrong-money triage beside the signpost untouched by the lane's refusal
+
+**Also run:** `npm run typecheck` clean · `npm test` 1883/1883 (118 files) · `npm run lint`
+(boundaries, contrast, colour literals) clean · `npm run build` green.
+
+**Nine decisions taken unattended, logged in `.afk/HITL-288.md`.** The load-bearing ones: **two
+links, not three** — *Boundaries* beats *Done when* while 286 is unbuilt, and a third would point
+at `?tab=cash`, which lands on Owing and therefore lies about where it goes; the counts come from
+**the lane's own query, key and all**, so clicking through costs no second call and the two
+surfaces cannot disagree; the door's *Refresh* now invalidates the lane too; a read **in flight**
+draws the same em-dash as a failed one but says nothing (285's own finding, applied here before the
+drive could find it again); and the server's refusal is **interpolated into** this screen's
+sentence rather than replacing it, because *"at least one ledger criterion is required"* alone says
+nothing about what the em-dashes beside it mean.
+
+**Reviews in `.afk/REVIEW-288.md`.** `/code-review` (high) found two; one real and fixed here —
+`invalidateSettlement` was invalidating **`['settlement','worklist']`, a key nothing registers**
+(270's spelling, renamed to `orphans` by 274 everywhere but this line), so every post, cancel and
+close-out left the wrong-money lane serving cache for up to a minute. `/standards-review`: **no
+hard standards violation**; both axes independently found the signpost **re-spelling
+`openTabSearch` inline**, which put this screen's URL grammar in two places and left the new pure
+test asserting a builder the component did not call — fixed, and the drive now proves the scope
+and the tab through **both** links.
 
 ## Boundaries
 

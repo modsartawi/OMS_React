@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { SettlementOpenLaneRow } from '@/core/models/settlement'
 import { OPEN_LANE_LIMIT } from './cap'
-import { buildOpenLane, DEFAULT_OPEN_TAB, openTabSearch, readOpenTab } from './open-lane'
+import {
+  buildOpenLane,
+  DEFAULT_OPEN_TAB,
+  openTabSearch,
+  readOpenTab,
+  tallyOpenLane,
+} from './open-lane'
 
 /**
  * **The open settlements lane's projection** (ticket 285, spec 282 D8).
@@ -269,6 +275,62 @@ describe('the cap describes the ONE answer both tabs came out of', () => {
 
   it('stays quiet under the limit', () => {
     expect(lane().capReached).toBe(false)
+  })
+})
+
+/**
+ * **Ticket 288 — the front page's signpost.**
+ *
+ * 🔑 The assertions are about what a reader of the DOOR notices: how big each job is,
+ * and what the screen says when it does not know. The load-bearing one is the last:
+ * a failed read must yield the failure case rather than zeroes, because *"Owing 0"* on
+ * the front page is the estate looking settled to somebody about to go home.
+ */
+describe('the signpost counts rows, and says nothing it cannot count', () => {
+  it('counts each tab off the SAME answer the lane draws', () => {
+    const tally = tallyOpenLane({ rows: SERVER_ORDER, failed: false })
+    expect(tally.counts).toEqual({ owing: 4, owed: 2 })
+    expect(tally.failed).toBe(false)
+    // 🚩 The signpost and the tab strip are one function over one answer, so the front
+    // page and the lane cannot disagree about the same estate.
+    expect(tally.counts).toEqual(lane().counts)
+  })
+
+  it('counts ROWS, not branches — a branch with four shortages is four calls', () => {
+    const fourOnOneBranch = [11, 12, 13, 14].map((entryNumber) =>
+      row({ entryNumber, ageDays: 100, storeId: '0611' }),
+    )
+    expect(tallyOpenLane({ rows: fourOnOneBranch, failed: false }).counts.owing).toBe(4)
+  })
+
+  it('says nothing at all when the read FAILED — em-dashes, never zeroes', () => {
+    const tally = tallyOpenLane({ rows: undefined, failed: true })
+    expect(tally.failed).toBe(true)
+    // ⚠️ `null` is *not known*; `0` would be this screen fabricating a number, and it
+    // reads as "nothing needs you".
+    expect(tally.counts).toEqual({ owing: null, owed: null })
+    expect(tally.capReached).toBe(false)
+  })
+
+  it('distinguishes a door that answered NOTHING from one that failed', () => {
+    const tally = tallyOpenLane({ rows: [], failed: false })
+    expect(tally.failed).toBe(false)
+    expect(tally.counts).toEqual({ owing: 0, owed: 0 })
+  })
+
+  it('says the count is a floor when the answer reached the cap', () => {
+    const many = Array.from({ length: OPEN_LANE_LIMIT }, (_, i) => row({ entryNumber: i + 1 }))
+    expect(tallyOpenLane({ rows: many, failed: false }).capReached).toBe(true)
+    expect(tallyOpenLane({ rows: SERVER_ORDER, failed: false }).capReached).toBe(false)
+  })
+
+  it('links to each tab keeping the scope and dropping what led here', () => {
+    const from = new URLSearchParams('scope=all&q=rawdah&store=0142')
+    // 🚩 The builder the signpost's two links actually call — the SAME one the lane's
+    // tab strip navigates with, so the front page cannot spell the default tab one way
+    // and the lane another.
+    expect(openTabSearch(from, 'owing')).toBe('/collection/settlement/open?scope=all')
+    expect(openTabSearch(from, 'owed')).toBe('/collection/settlement/open?scope=all&tab=owed')
   })
 })
 

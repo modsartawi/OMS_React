@@ -64,10 +64,10 @@ export default function ReasonField({
  * 🚩 Extracted at its third copy too (post, cancel, close-out). The set is not
  * obvious and each member earns its place: the **account** because the entry's own
  * status and remaining changed; the **fleet** and the **ledger** because a branch's
- * open count and its ageing did; and the **worklist** because it is a *separate
- * door* from the fleet (270) whose ageing lane is drawn from both — invalidating
- * only the fleet would leave the lane counting an estate that no longer matches the
- * one beside it. And the **open lane** (285), because an entry cancelled or written
+ * open count did; and the **orphans** lane because it is a *separate door* from the
+ * fleet (270) — invalidating only the fleet would leave the wrong-money lane drawn
+ * from an estate that no longer matches the one beside it. And the **open lane**
+ * (285), because an entry cancelled or written
  * off has left the estate's open position — a lane that kept listing it would send an
  * accountant to ring a branch about money nobody is owed any more.
  *
@@ -81,6 +81,11 @@ export function invalidateSettlement(
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'account', storeId] })
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'fleet'] })
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'ledger'] })
-  void queryClient.invalidateQueries({ queryKey: ['settlement', 'worklist'] })
+  // ⚠️ **`['settlement','worklist']` stood here and matched NOTHING** — 270 named the
+  // door `Settlement/Worklist`, 274 found it live as `Settlement/Orphans` and renamed
+  // the query key, and this line kept invalidating the old spelling. So every post,
+  // cancel and close-out left the wrong-money lane serving cache for up to a minute.
+  // Found by 288's `/code-review`; the two bulk writers already say `orphans`.
+  void queryClient.invalidateQueries({ queryKey: ['settlement', 'orphans'] })
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'open-lane'] })
 }

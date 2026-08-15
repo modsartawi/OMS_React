@@ -141,15 +141,78 @@ export type OpenLaneView =
   | { kind: 'filtered' }
   | { kind: 'rows'; sections: OpenLaneSection[] }
 
+/**
+ * How big each job is — **from the whole answer, before any filter**, so a tab
+ * narrowed to nothing still says how much is out there.
+ *
+ * ⚠️ `null` means *not known*, and every renderer draws an em-dash for it. A `0` on a
+ * failed read is the screen fabricating a number, and it reads as *nothing needs you*.
+ */
+export type OpenLaneCounts = Record<OpenLaneTab, number | null>
+
+/**
+ * **What the front page's signpost says** (ticket 288) — and what the lane's own tab
+ * strip says, because it is the same function over the same answer.
+ *
+ * 🔑 **One call, one count, and therefore nothing to disagree about.** The signpost on
+ * the door and the counts on the lane's tabs are two renderings of
+ * `Settlement/Ledger?status=OPEN&sort=age` — the same TanStack key, the same
+ * projection, the same numbers. Two counts of one estate, fetched a second apart, is
+ * exactly the situation where an accountant has to work out which one is lying.
+ *
+ * 🚩 **Counts are ROWS.** Not money (`figures.ts` refuses to total across currencies
+ * while `currencyKey` is missing from these reads — spec 282 D12) and not branches (a
+ * branch with four shortages is four phone calls).
+ *
+ * ⚠️ **`capReached` is carried rather than folded into the numbers**, because at the
+ * cap the count is a floor and not a total. Saying *2,000* flat would be the one thing
+ * this screen is not allowed to do: state a number it cannot stand behind.
+ *
+ * *Cash waiting* is deliberately absent until 286 builds its door — the ticket's own
+ * boundary. A third count of `0` would say *every prepared receipt has been collected*
+ * about a door nobody has called.
+ */
+export type OpenLaneTally = {
+  counts: OpenLaneCounts
+  /** ⚠️ The read failed — the counts are unknown AND the reader is told why. Distinct
+   *  from a read still in flight, which is also unknown but says nothing. */
+  failed: boolean
+  /** Measured against the ONE answer both tabs came out of (`OPEN_LANE_LIMIT`). */
+  capReached: boolean
+}
+
+/**
+ * The tally of one `Settlement/Ledger?status=OPEN` answer.
+ *
+ * 🚩 **The failed case is answered first and returns `null`s**, which is the whole
+ * point of the function: a refused read has nothing to count, and every number it
+ * could report would be invented. That exact mistake — a failed read drawn as `0` —
+ * was one of ticket 270's own `/code-review` findings, on this very surface.
+ */
+export function tallyOpenLane({
+  rows,
+  failed,
+}: Pick<OpenLaneInput, 'rows' | 'failed'>): OpenLaneTally {
+  if (failed) return { counts: { owing: null, owed: null }, failed: true, capReached: false }
+
+  const answer = rows ?? []
+  return {
+    // 🔑 One answer, split — never two calls. See `settlementApi.openLane`.
+    counts: {
+      owing: answer.filter((r) => r.entryKind === TAB_KIND.owing).length,
+      owed: answer.filter((r) => r.entryKind === TAB_KIND.owed).length,
+    },
+    failed: false,
+    // Measured on the WHOLE answer: a per-tab measurement would never fire, because
+    // the cap truncated the answer the two tabs share.
+    capReached: isCapReached(answer.length, OPEN_LANE_LIMIT),
+  }
+}
+
 export type OpenLane = {
-  /**
-   * How big each job is — **from the whole answer, before any filter**, so a tab
-   * narrowed to nothing still says how much is out there.
-   *
-   * ⚠️ `null` means *not known*, and the renderer draws an em-dash. A `0` on a failed
-   * read is the screen fabricating a number, and it reads as *nothing needs you*.
-   */
-  counts: Record<OpenLaneTab, number | null>
+  /** The estate's position, before any filter — `tallyOpenLane`'s, so the lane's tabs
+   *  and the door's signpost cannot say two different things. */
+  counts: OpenLaneCounts
   /** Measured against the ONE answer both tabs came out of (`OPEN_LANE_LIMIT`). */
   capReached: boolean
   /**
@@ -200,10 +263,11 @@ export type OpenLaneInput = {
 export function buildOpenLane({ rows, failed, tab, mineOnly }: OpenLaneInput): OpenLane {
   // ⚠️ First, and before anything is counted. A failed read has no rows to be honest
   // about, and every number it could report would be invented.
+  const { counts, capReached } = tallyOpenLane({ rows, failed })
   if (failed) {
     return {
-      counts: { owing: null, owed: null },
-      capReached: false,
+      counts,
+      capReached,
       ranked: false,
       named: false,
       aged: false,
@@ -212,16 +276,8 @@ export function buildOpenLane({ rows, failed, tab, mineOnly }: OpenLaneInput): O
   }
 
   const answer = rows ?? []
+  const laneRows = answer.filter((r) => r.entryKind === TAB_KIND[tab])
 
-  // 🔑 One answer, split — never two calls. See `settlementApi.openLane`.
-  const byTab = {
-    owing: answer.filter((r) => r.entryKind === TAB_KIND.owing),
-    owed: answer.filter((r) => r.entryKind === TAB_KIND.owed),
-  }
-  const counts = { owing: byTab.owing.length, owed: byTab.owed.length }
-  // Measured on the WHOLE answer: a per-tab measurement would never fire, because
-  // the cap truncated the answer the two tabs share.
-  const capReached = isCapReached(answer.length, OPEN_LANE_LIMIT)
   // Asked of the answer rather than of the tab, so the chip does not appear and
   // disappear as the reader switches between two halves of one read.
   const ranked = answer.some((r) => r.isMine !== undefined)
@@ -229,7 +285,6 @@ export function buildOpenLane({ rows, failed, tab, mineOnly }: OpenLaneInput): O
   const aged = answer.some((r) => r.ageDays !== undefined)
 
   const base = { counts, capReached, ranked, named, aged }
-  const laneRows = byTab[tab]
 
   if (laneRows.length === 0) return { ...base, view: { kind: 'empty' } }
 

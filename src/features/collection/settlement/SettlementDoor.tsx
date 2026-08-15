@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { ListTree, RefreshCw, Search, TriangleAlert, Upload } from 'lucide-react'
+import { ArrowRight, ListTree, RefreshCw, Search, TriangleAlert, Upload } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
 import { formatDateTime } from '@/core/util/date-format'
@@ -17,11 +17,13 @@ import { branchSearch, readQuery, uploadSearch, writeQuery } from './addresses'
 import { settlementMoney } from './money-display'
 import { settlementApi } from './api'
 import { AccountShimmer } from './AccountStates'
+import { OPEN_LANE_LIMIT } from './cap'
 import PostEntryDialog from './PostEntryDialog'
 import RepairDialog from './RepairDialog'
 import { resolveSubmit, searchBranches, type BranchSearchResult } from './search'
 import { estateFigures } from './figures'
 import { ledgerSearch } from './ledger'
+import { OPEN_LANE_TABS, openTabSearch, tallyOpenLane, type OpenLaneTally } from './open-lane'
 import { buildWorklist } from './worklist'
 
 /**
@@ -85,10 +87,26 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
     queryFn: () => settlementApi.orphans(),
     staleTime: 60_000,
   })
+  /**
+   * 🔑 **288's signpost — and it is the LANE's query, key and all** (`OpenSettlements`
+   * uses the same one). Not a second call and not a count endpoint: the spec's whole
+   * argument for one call (D5) is that the front page's numbers and the lane's tab
+   * counts describe one answer and therefore cannot disagree. Sharing the key also
+   * means clicking through to the lane costs nothing — the answer is already cached.
+   */
+  const openLane = useQuery({
+    queryKey: ['settlement', 'open-lane'],
+    queryFn: () => settlementApi.openLane(),
+    staleTime: 60_000,
+  })
 
   const results = useMemo(() => searchBranches(fleet.data, query), [fleet.data, query])
   const lanes = useMemo(() => buildWorklist(orphans.data), [orphans.data])
   const figures = useMemo(() => estateFigures(fleet.data), [fleet.data])
+  const tally = useMemo(
+    () => tallyOpenLane({ rows: openLane.data, failed: openLane.isError }),
+    [openLane.data, openLane.isError],
+  )
 
   const [repairing, setRepairing] = useState<SettlementOrphanRow | null>(null)
   /** 271's posting form. It opens with **no branch seeded** from here: the door is
@@ -123,6 +141,10 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['settlement', 'fleet'] })
     void queryClient.invalidateQueries({ queryKey: ['settlement', 'orphans'] })
+    // ⚠️ The signpost is on this screen, so *Refresh* has to mean it too — a button
+    // that re-read two of the three counted things on a page would leave the third
+    // stating a position up to a minute old beside two that had just been re-asked.
+    void queryClient.invalidateQueries({ queryKey: ['settlement', 'open-lane'] })
   }
 
   return (
@@ -224,6 +246,19 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
               onRepair={setRepairing}
             />
           )}
+          {/* 🚩 **Under the triage and above the estate's headline**, which is the order
+              this screen has always been in: wrong money is rare and every row of it is
+              money handed over against a document that will never exist, so it stays
+              first. This is the bigger, slower job — and it is a POINTER to it rather
+              than the job itself (288: ~140 cards at estate scale buried the four that
+              were actually wrong, and that finding is what keeps the lane on its own
+              screen). */}
+          <OpenSignpost
+            tally={tally}
+            pending={openLane.isPending}
+            error={openLane.error}
+            params={searchParams}
+          />
           <EstateFigures figures={figures} />
         </>
       )}
@@ -464,6 +499,110 @@ function BranchLink({
       <span className="font-mono text-[12px] text-muted-foreground">{storeId}</span>
       <span className="font-medium">{storeName}</span>
     </Link>
+  )
+}
+
+/**
+ * **The counted signpost through to the open settlements lane** (ticket 288).
+ *
+ * 🔑 **What makes the work discoverable from the screen an accountant already opens.**
+ * Until this line existed, a branch that posted a shortage in March and has paid
+ * nothing appeared on no screen at all until somebody typed its code.
+ *
+ * 🚩 **It says how big the job is and points at it — it does not become the job.** The
+ * front page stays a glance: the prototype's untriaged list ran to ~140 cards at estate
+ * scale, of which 131 were merely ageing, and the four that were actually *wrong* sank
+ * into them. Chasing is a work session and lives on its own screen.
+ *
+ * ⚠️ **A failed read draws an em-dash and says the read failed.** Never `0`, and never
+ * *nothing needs you* — that exact mistake was one of ticket 270's `/code-review`
+ * findings, on this surface. A read still in flight draws the same em-dash and says
+ * nothing at all: the count resolves *into* a number rather than out of one.
+ *
+ * *Cash waiting* joins the two entry counts when 286 builds its door. It is absent
+ * rather than zero until then — the ticket's own boundary, and the same rule the
+ * lane's tab strip follows.
+ */
+function OpenSignpost({
+  tally,
+  pending,
+  error,
+  params,
+}: {
+  tally: OpenLaneTally
+  pending: boolean
+  error: unknown
+  params: URLSearchParams
+}) {
+  const { t } = useTranslation('settlement')
+
+  return (
+    <section
+      data-region="open-signpost"
+      className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card/40 p-3"
+    >
+      <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="text-sm font-semibold tracking-tight">{t('door.signpost.title')}</h2>
+        <p className="text-xs text-muted-foreground">{t('door.signpost.hint')}</p>
+      </header>
+
+      <ul className="flex flex-wrap gap-2">
+        {OPEN_LANE_TABS.map((tab) => (
+          <li key={tab}>
+            {/* 🔑 **The lane's own builder, not a second spelling of it.** The tab is
+                the address (`?tab=owed`) and the scope rides along — but *which value
+                is the default, and therefore written as an absence* is `open-lane.ts`'s
+                to decide (`addresses.ts` says so in as many words). A signpost that
+                re-derived it here would be the second place this screen's URL grammar
+                was spelled, and the first one to drift the day a third tab lands. */}
+            <Link
+              to={openTabSearch(params, tab)}
+              data-signpost={tab}
+              className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm hover:border-primary/60 hover:bg-muted"
+            >
+              <span>{t(`open.tabs.${tab}`)}</span>
+              {/* ⚠️ Reads the SAME key the lane's own tab strip reads for an unknown
+                  count, so the two surfaces cannot spell *not known* two ways. */}
+              <span
+                data-testid={`signpost-count-${tab}`}
+                className="rounded-full bg-muted px-2 py-0.5 text-xs tabular-nums text-muted-foreground"
+              >
+                {pending || tally.counts[tab] === null
+                  ? t('open.tabs.noCount')
+                  : tally.counts[tab].toLocaleString('en-US')}
+              </span>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+            </Link>
+          </li>
+        ))}
+      </ul>
+
+      {/* ⚠️ **The refusal INSIDE this screen's own sentence, not instead of it.** The
+          server's words are the ones to quote to head office — but on their own
+          (*"at least one ledger criterion is required"*) they say nothing about what
+          the em-dashes beside them mean. Interpolated rather than concatenated, so the
+          Arabic retrofit stays a data change.
+
+          The banner sits beside the links rather than replacing them: the lane is
+          still worth opening, and the reader is owed the reason the numbers are gone. */}
+      {tally.failed && (
+        <ErrorBanner
+          message={t('door.signpost.failed', {
+            detail: apiErrorMessage(error, t('door.signpost.failedNoReason')),
+          })}
+          className="p-2 text-xs"
+        />
+      )}
+
+      {/* 🚩 At the cap a count is a FLOOR, not a total. Printing *2,000* flat here
+          would be the one thing this signpost may not do — state a number it cannot
+          stand behind. */}
+      {tally.capReached && (
+        <p className="text-xs text-muted-foreground" data-testid="signpost-capped">
+          {t('door.signpost.capped', { limit: OPEN_LANE_LIMIT.toLocaleString('en-US') })}
+        </p>
+      )}
+    </section>
   )
 }
 

@@ -418,8 +418,21 @@ export interface VoucherPage {
   /** `yyyy-MM-dd`. §7.6 */
   shiftDayText: string
   /**
+   * The red box's own caption, ready to print, trailing `' : '` and all —
+   * `خصم فائض : ` on a day, `تسوية عجز : ` on a SETTLEMENT receipt (owner ruling,
+   * 2026-08-15).
+   *
+   * ⚠️ It used to be a literal in `CollectionVoucher.tsx`, on the grounds that
+   * the caption is printed on the blank pad. That is still true of a day's
+   * caption — but the page's KIND changes it now, and the WPF sheet switches it
+   * off one getter, so it arrives from the server rather than being re-derived
+   * here. One box, one word, one source.
+   */
+  deductionLabelText: string
+  /**
    * The SURPLUS this day's close spent, kept back by the branch out of this very
    * drawer — the one thing that ever fills the `خصم فائض` box (spec 1173 D9/D10).
+   * `''` on a settlement receipt, which spends no surplus.
    * Unsigned, at the branch's own precision (`200.00` SAR · `15.500` BHD).
    *
    * ⚠️ `''` on an ordinary day, which is every shipped receipt: the box stays the
@@ -436,11 +449,15 @@ export interface VoucherPage {
    * the phone, which is why the number is on the paper and the accountant's
    * free-text reason never is.
    *
+   * ⚠️ **Either kind of entry**, which is why it is not called `surplusEntryText`
+   * any more (owner ruling, 2026-08-15): a surplus the close spent on a day, or
+   * the SHORTAGE a settlement receipt itself is. The server picks; this renders.
+   *
    * ⚠️ Can be `''` while {@link surplusAmountText} is not (a reprint whose entry
    * number was never stamped). Render the amount alone; `Entry No. 0` is not a
    * number anybody can ring up about.
    */
-  surplusEntryText: string
+  deductionEntryText: string
 }
 
 /**
@@ -453,7 +470,7 @@ export interface VoucherPage {
  * receipt carries no RECONCILIATION data at all.
  *
  * ⚠️ That last sentence is the one to read carefully now: spec 1173's
- * `surplusAmountText` / `surplusEntryText` do fill that box, and they are NOT the
+ * `surplusAmountText` / `deductionEntryText` do fill that box, and they are NOT the
  * exception to 246 they look like. A variance is a reconciliation — the drawer
  * against what the system expected, which the collector settles by hand. A spent
  * surplus is not: it is money that LEFT the hand-over, already out of `cash`, and

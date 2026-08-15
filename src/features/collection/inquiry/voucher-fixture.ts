@@ -38,8 +38,9 @@ const BASE: VoucherPage = {
   shiftDayText: '2026-08-06',
   // Empty on the everyday receipt, which is the point: the خصم فائض box is a
   // hand-fill slot until a close spends a surplus (spec 1173 D9/D10).
+  deductionLabelText: 'خصم فائض : ',
   surplusAmountText: '',
-  surplusEntryText: '',
+  deductionEntryText: '',
 }
 
 /**
@@ -115,7 +116,7 @@ export const VOUCHER_SCENARIOS: VoucherScenario[] = [
         {
           ...BASE,
           surplusAmountText: '200.00',
-          surplusEntryText: 'رقم القيد / Entry No. 143',
+          deductionEntryText: 'رقم القيد / Entry No. 143',
         },
       ],
     },
@@ -127,7 +128,31 @@ export const VOUCHER_SCENARIOS: VoucherScenario[] = [
     // can ring the accountant about.
     key: 'surplus-unnumbered',
     document: {
-      pages: [{ ...BASE, surplusAmountText: '200.00', surplusEntryText: '' }],
+      pages: [{ ...BASE, surplusAmountText: '200.00', deductionEntryText: '' }],
+    },
+  },
+  {
+    // A SHORTAGE SETTLEMENT receipt (1181, amended by owner ruling 2026-08-15):
+    // the SAME box, relabelled `تسوية عجز` and naming the entry — there is no
+    // second block beside it and no amount in it, because a settlement receipt
+    // spends no surplus. The شبكة cells dash: a `0.00` there would state that
+    // this branch took no card money on a day, and there was no day.
+    //
+    // ⚠ The cash pair and its tafqeet are BASE's, for the reason the surplus
+    // case states: this fixture never invents an amount-in-words. What this case
+    // is ABOUT is the box.
+    key: 'settlement',
+    document: {
+      pages: [
+        {
+          ...BASE,
+          card: { whole: '—', minor: '—' },
+          cardWords: '—',
+          deductionLabelText: 'تسوية عجز : ',
+          surplusAmountText: '',
+          deductionEntryText: 'رقم القيد / Entry No. 143',
+        },
+      ],
     },
   },
   {

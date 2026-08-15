@@ -96,9 +96,21 @@
   font-weight: 700;
 }
 
+/* The box's two lines: caption (+ the amount, when there is one) over the entry
+ * number. The column wrapper is ALWAYS drawn now — the caption lives inside it,
+ * because on a settlement receipt the entry line sits under the caption with no
+ * amount between them (owner ruling, 2026-08-15). An unfilled slot still
+ * measures what it always did: both occupants render nothing at all when their
+ * strings are `''`, so the column is one line high and the box falls back on its
+ * own min-height. */
 .cv-overage-fill {
   display: flex;
   flex-direction: column;
+}
+
+.cv-overage-head {
+  display: flex;
+  align-items: center;
 }
 
 /* The amount reads at the label's own weight but a size up — it is the figure a

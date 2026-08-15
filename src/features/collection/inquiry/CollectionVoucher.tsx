@@ -75,23 +75,34 @@ export default function CollectionVoucher({ page }: { page: VoucherPage }) {
             held and the paper has to say by how much and against which entry. On
             every other receipt both strings are `''` and NOTHING renders — not an
             empty line, which would grow the box and push the sheet below it down.
-            The label itself never moves: it is on the blank pad, so it is part of
-            this form and not a value the server sends. */}
+
+            🔑 AND IT IS THE SETTLEMENT BLOCK TOO (owner ruling, 2026-08-15). A
+            SHORTAGE settlement receipt does not get a second box beside this one:
+            the SAME box is relabelled `تسوية عجز` and names the entry. Which is
+            why the label is a VALUE now (`deductionLabelText`) rather than the
+            pad literal it used to be — the WPF sheet switches it off one getter,
+            and a caption re-derived here would be the second place the two sheets
+            could disagree. */}
         <div className="cv-overage-box">
-          <span className="cv-overage-label">خصم فائض : </span>
-          {page.surplusAmountText && (
-            <span className="cv-overage-fill">
+          <span className="cv-overage-fill">
+            <span className="cv-overage-head">
+              <span className="cv-overage-label">{page.deductionLabelText}</span>
               {/* ⚠ NOT wrapped in `<Ltr>`, deliberately. A value breaks only when
                   it contains a SPACE and begins or ends with a digit; `240.70` is
                   on `Ltr`'s own measured-safe list and `200.00` is the same
                   shape. The date beside it is isolated because `2026-08-06 21:14`
                   has a space — this does not. */}
-              <span className="cv-overage-amount">{page.surplusAmountText}</span>
-              {page.surplusEntryText && (
-                <span className="cv-overage-entry">{page.surplusEntryText}</span>
+              {page.surplusAmountText && (
+                <span className="cv-overage-amount">{page.surplusAmountText}</span>
               )}
             </span>
-          )}
+            {/* Its OWN line under the caption, exactly as the WPF box stacks it —
+                and on a settlement receipt it is the only occupant, under a
+                caption that already says what the number settles. */}
+            {page.deductionEntryText && (
+              <span className="cv-overage-entry">{page.deductionEntryText}</span>
+            )}
+          </span>
         </div>
       </div>
 

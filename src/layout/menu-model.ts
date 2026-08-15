@@ -52,6 +52,18 @@ export interface ShellMenuItem {
   routerLink?: string
   /** Keeps the leaf highlighted + group expanded while a drill-down under this prefix is open. */
   activePrefix?: string
+  /**
+   * Match the path EXACTLY — no prefix match (ticket 284, spec 282 D2).
+   *
+   * 🚩 Only a leaf whose path is a **prefix of its own siblings'** needs this, and
+   * today that is exactly one: the settlement Overview at `/collection/settlement`,
+   * sitting above `/open`, `/ledger` and `/upload`. Without it that leaf claims all
+   * four screens, so two leaves highlight at once — permanently, on three of the
+   * four. `activePrefix` is the opposite request (claim MORE than my own path) and
+   * the two are never both wanted; `exact` wins if someone sets both, and matches
+   * this item's own `routerLink`.
+   */
+  exact?: boolean
   items?: ShellMenuItem[]
   /**
    * Optional permission-aware show/hide gate (issue 429, web-platform foundation).
@@ -364,24 +376,52 @@ export const MENU: ShellMenuItem[] = [
         access: collectionProbe(canOpenAssignment),
       },
       {
-        // The accountant's settlement account (spec 267 D1, ticket 268) — a further
-        // leaf in this group rather than a group of its own, because neither a new
-        // nav group nor a new URL prefix appears. Its label comes from its own
-        // `settlement` namespace; the group header above stays `collection`'s.
+        // The accountant's settlement account (spec 267 D1, ticket 268) — and since
+        // ticket 284 a NODE with four children rather than a leaf.
+        //
+        // ⚠️ 268 ruled this "a further leaf in this group rather than a group of its
+        // own, because neither a new nav group nor a new URL prefix appears." That
+        // ruling is overturned here, and the rule behind it is not: ticket 283 gave
+        // the screen's four views four PATHS under `/collection/settlement/*`, so a
+        // URL prefix now DOES appear — and the same rule that made it a leaf makes
+        // it a node. It is still not a nav GROUP of its own: the header above stays
+        // `collection`'s, and this node sits inside it as the fifth item.
         //
         // 🚩 It shares the ONE key with the leaves above, so the settlement grant
         // costs no extra round trip — and it reads `canOpenSettlement`, the same
-        // predicate the screen's own gate reads.
+        // predicate all four screens' shared gate reads. The gate stays on the NODE
+        // rather than being copied onto each child: one grant opens all four views,
+        // and `filterMenu` already drops a node the session cannot open along with
+        // everything under it.
         //
         // ⚠️ The server does not answer that flag yet (BackOffice spec 1173; ticket
-        // 274 joins the waves), so this leaf is currently hidden for every session.
+        // 274 joins the waves), so this node is currently hidden for every session.
         // That is the fail-closed rule working, not a bug: a grant that does not
         // exist is a grant nobody holds.
         labelKey: 'settlement:menu.settlement',
         icon: Scale,
+        // Both a label and a destination: clicking the node's own row goes to the
+        // Overview, so a row that looks clickable is clickable.
         routerLink: '/collection/settlement',
+        // 🚩 The whole subtree, so the Collections group above stays expanded on all
+        // four screens. The node's own row is never drawn from `isActive` — it takes
+        // its emphasis from having an active child, so the group says "you are
+        // somewhere in here" rather than competing with the leaf that says where.
         activePrefix: '/collection/settlement',
         access: collectionProbe(canOpenSettlement),
+        items: [
+          {
+            // 🚩 The ONE leaf that sets `exact`. Its path is a prefix of the three
+            // below it, so without it the Overview reads as selected while the
+            // accountant is standing on the ledger.
+            labelKey: 'settlement:menu.overview',
+            routerLink: '/collection/settlement',
+            exact: true,
+          },
+          { labelKey: 'settlement:menu.open', routerLink: '/collection/settlement/open' },
+          { labelKey: 'settlement:menu.ledger', routerLink: '/collection/settlement/ledger' },
+          { labelKey: 'settlement:menu.upload', routerLink: '/collection/settlement/upload' },
+        ],
       },
     ],
   },
@@ -499,9 +539,24 @@ export const MENU: ShellMenuItem[] = [
   },
 ]
 
-/** URL match: exact, or startsWith(prefix + '/'); query/hash already stripped by caller. */
+/**
+ * URL match: exact, or startsWith(prefix + '/'); query/hash already stripped by caller.
+ *
+ * 🚩 `exact` (ticket 284) turns the prefix half off, for a leaf whose path is a prefix
+ * of its siblings'. It reads `routerLink` and ignores `activePrefix` — the two fields
+ * are opposite requests (*claim more than my path* / *claim only my path*), so an item
+ * carrying both gets the narrow answer rather than a prefix compared exactly, which
+ * would highlight it on a path it does not link to.
+ *
+ * ⚠️ A trailing slash is stripped first. `/collection/settlement/` is the same screen
+ * as `/collection/settlement` to the router and to `isOverviewPath`, and a nav that
+ * highlighted nothing on an address the reader can type is a worse answer than the
+ * one character it disagrees about.
+ */
 export function isActive(item: ShellMenuItem, pathname: string): boolean {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  if (item.exact) return !!item.routerLink && path === item.routerLink
   const target = item.activePrefix ?? item.routerLink
   if (!target) return false
-  return pathname === target || pathname.startsWith(target + '/')
+  return path === target || path.startsWith(target + '/')
 }

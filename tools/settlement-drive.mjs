@@ -672,6 +672,11 @@ async function run() {
     )
       return route.fulfill(envelope([]))
     if (path === 'CollectionWeb/Deposits') return route.fulfill(envelope({ rows: [], balances: [] }))
+    // 284's blast-radius check needs a SECOND, ordinary two-level group in another
+    // area to compare the settlement node against. ⚠️ Off unless the scenario asks,
+    // so no earlier scenario's nav silently changes shape under it.
+    if (path === 'RetailInvoice/Access')
+      return route.fulfill(envelope(scenario.reportsGranted ? { screenAllowed: true } : {}))
     // Any other probe/endpoint → benign empty success so no other leaf crashes.
     // ⚠️ 268 fetches NOTHING of its own, and that is a thing this drive asserts
     // rather than merely tolerates — see the Settlement/* counter below.
@@ -2296,6 +2301,184 @@ async function run() {
     '🚩 283 → Back after a redirect does NOT bounce — the reader leaves the screen',
     new URL(page.url()).pathname === ROUTE && new URL(page.url()).search === '',
     page.url().replace(BASE, ''),
+  )
+
+  // ---- 284: Settlement Account expands into its four screens ------------------
+  //
+  // KEY The nav grows exactly ONE level, and highlights exactly ONE leaf. The bug
+  // this section exists for is silent and permanent: the Overview's path is a PREFIX
+  // of its three siblings', so a plain prefix match lights two leaves at once on
+  // three of the four screens — the reader learns to stop trusting the highlight.
+  scenario = { accessBody: ALL, access403: false, access500: false }
+
+  /** The node's own row — a link beside a chevron, not a bare button. */
+  const nodeLink = () => page.getByRole('link', { name: LEAF, exact: true })
+  /** Its four children, only in the DOM while the node is expanded. */
+  const subLeaves = () => page.locator('[data-region="menu-subgroup"] a')
+  const subLeafNames = async () => (await subLeaves().allInnerTexts()).map((s) => s.trim())
+  /** Which sub-leaves the shell is calling the current screen. */
+  const litSubLeaves = async () =>
+    (await page.locator('[data-region="menu-subgroup"] a[aria-current="page"]').allInnerTexts())
+      .map((s) => s.trim())
+
+  await page.goto(BASE + ROUTE)
+  await page.waitForLoadState('networkidle')
+  check('284 → Settlement Account is still ONE row in the Collections group', (await leafCount()) === 1)
+  check(
+    '284 → …and it now expands into its four screens',
+    (await subLeafNames()).join(' · ') === 'Overview · Open settlements · Ledger · Bulk upload',
+    (await subLeafNames()).join(' · '),
+  )
+  check(
+    '🚩 284 → the four keys RENDER — no raw `settlement:menu.*` in the nav',
+    !/settlement:menu/.test(await page.locator('nav').innerText()),
+  )
+
+  // 🚩 The whole ticket, in one loop: stand on each of the four screens and count
+  // what the nav says you are on. Two is the failure; zero is the other failure.
+  for (const [address, label] of [
+    [ROUTE, 'Overview'],
+    [OPEN_ROUTE, 'Open settlements'],
+    [LEDGER_ROUTE, 'Ledger'],
+    [UPLOAD_ROUTE, 'Bulk upload'],
+  ]) {
+    await page.goto(BASE + address)
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(150)
+    const lit = await litSubLeaves()
+    check(
+      `🚩 284 → on ${address} the nav highlights EXACTLY “${label}”`,
+      lit.length === 1 && lit[0] === label,
+      lit.join(' + ') || '(nothing)',
+    )
+    // …and the node auto-expanded around the leaf that says where you are, on all
+    // four — a collapsed node would hide the answer.
+    check(
+      `284 → the node is expanded on ${address}`,
+      (await subLeaves().count()) === 4,
+    )
+  }
+
+  // 🚩 …and the whole NAV claims one current page, not two. The node's row points at
+  // the same address as its Overview child, so this is the one screen where a second
+  // claim could hide — the same two-things-highlighted bug, restated to a screen
+  // reader, where nobody looking at the sidebar would ever see it.
+  await page.goto(BASE + ROUTE)
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 284 → on the Overview exactly ONE nav link is aria-current, not the node AND its child',
+    (await page.locator('nav a[aria-current="page"]').count()) === 1,
+    (await page.locator('nav a[aria-current="page"]').allInnerTexts()).join(' + '),
+  )
+
+  // Each leaf ROUTES: clicked from the door, it draws its own screen. ⚠️ Always
+  // FROM the door — `/upload` draws 273's dialog over the shell, and a modal that
+  // eats the click is not the failure this loop is looking for.
+  for (const [label, expected, region] of [
+    ['Open settlements', OPEN_ROUTE, 'open'],
+    ['Ledger', LEDGER_ROUTE, 'ledger'],
+    ['Bulk upload', UPLOAD_ROUTE, 'upload'],
+    ['Overview', ROUTE, 'door'],
+  ]) {
+    await page.goto(BASE + (label === 'Overview' ? OPEN_ROUTE : ROUTE))
+    await page.waitForLoadState('networkidle')
+    // Let the shell settle before clicking: the access probe resolving re-renders
+    // the whole nav, and a click landing on the node React just replaced is a flake,
+    // not a routing bug.
+    await page.waitForTimeout(200)
+    await page.getByRole('link', { name: label, exact: true }).click()
+    await page.waitForURL(BASE + expected, { timeout: 5000 }).catch(() => {})
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(150)
+    at = await drawn()
+    check(
+      `284 → clicking “${label}” routes to ${expected} and draws it`,
+      new URL(page.url()).pathname === expected && at[region],
+      `${page.url().replace(BASE, '')} ${JSON.stringify(at)}`,
+    )
+  }
+
+  // 🚩 A row that looks clickable IS clickable: the node is both a label and a
+  // destination, so its own row goes to the Overview.
+  await page.goto(BASE + LEDGER_ROUTE)
+  await page.waitForLoadState('networkidle')
+  await nodeLink().click()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(150)
+  at = await drawn()
+  check(
+    '🚩 284 → clicking the NODE itself navigates to the Overview',
+    new URL(page.url()).pathname === ROUTE && at.door && !at.ledger,
+    page.url().replace(BASE, ''),
+  )
+
+  // …and the chevron beside it expands WITHOUT navigating — the two halves of the
+  // row do different things, which is the whole reason it is a link plus a button.
+  const chevron = page.getByRole('button', { name: `Expand or collapse ${LEAF}` })
+  check('284 → the chevron is a control of its own, labelled', (await chevron.count()) === 1)
+  await chevron.click()
+  await page.waitForTimeout(100)
+  check(
+    '284 → the chevron COLLAPSES the node without leaving the screen',
+    (await subLeaves().count()) === 0 && new URL(page.url()).pathname === ROUTE,
+    page.url().replace(BASE, ''),
+  )
+  await chevron.click()
+  await page.waitForTimeout(100)
+  check('284 → …and expands it again', (await subLeaves().count()) === 4)
+
+  // 🚩 BLAST RADIUS. This is a change to the shell every nav group renders through,
+  // so an ordinary two-level group must be visually and behaviourally untouched: no
+  // sub-group, and the plain prefix highlight it has always had.
+  await page.goto(BASE + '/collection/deposits')
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 284 → an ordinary two-level group draws NO sub-group',
+    (await page.locator('[data-region="menu-subgroup"]').count()) === 0,
+  )
+  check(
+    '🚩 284 → …its four inquiry leaves are all still there',
+    (await inquiryLeaves()) === 4,
+    `${await inquiryLeaves()} links`,
+  )
+  check(
+    '🚩 284 → …and exactly one of them is highlighted, as before',
+    (await page.locator('nav a[aria-current="page"]').allInnerTexts())
+      .map((s) => s.trim())
+      .join(' + ') === 'Deposits',
+    (await page.locator('nav a[aria-current="page"]').allInnerTexts()).join(' + '),
+  )
+
+  // …and a group in a DIFFERENT area, because "every nav group" is what the blast
+  // radius is. Reports is the one-leaf group — a shape the sub-group dispatch would
+  // break differently from a four-leaf one.
+  scenario = { ...scenario, reportsGranted: true }
+  await page.goto(BASE + '/reports/invoice')
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 284 → the Reports group is untouched — one leaf, lit, and no sub-group',
+    (await page.locator('[data-region="menu-subgroup"]').count()) === 0 &&
+      (await page.locator('nav a[aria-current="page"]').allInnerTexts())
+        .map((s) => s.trim())
+        .join(' + ') === 'Invoices',
+    (await page.locator('nav a[aria-current="page"]').allInnerTexts()).join(' + '),
+  )
+  scenario = { ...scenario, reportsGranted: false }
+
+  // 🚩 The OTHER consumer of `MENU` (`app/HomePage.tsx`), which renders each group's
+  // children as a flat list of cards and does NOT dispatch on `items`. A node is
+  // still one card pointing at its Overview — not four, and not a broken link.
+  await page.goto(BASE + '/')
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 284 → the home page still lists Settlement Account ONCE, linking to the Overview',
+    (await page.locator(`[data-section-card] a[href="${ROUTE}"]`).count()) === 1 &&
+      (await page.locator('[data-section-card] a[href^="' + ROUTE + '/"]').count()) === 0,
+    `${await page.locator(`[data-section-card] a[href="${ROUTE}"]`).count()} card links`,
   )
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))

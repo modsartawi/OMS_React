@@ -1,6 +1,10 @@
 {
   "menu": {
-    "settlement": "Settlement Account"
+    "settlement": "Settlement Account",
+    "overview": "Overview",
+    "open": "Open settlements",
+    "ledger": "Ledger",
+    "upload": "Bulk upload"
   },
   "title": "Settlement account",
   "subtitle": "What a branch owes back (shortage · عجز) or may keep (surplus · فائض), and what a till has already taken against it.",

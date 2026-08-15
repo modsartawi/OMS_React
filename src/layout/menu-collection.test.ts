@@ -42,6 +42,20 @@ const NONE = {
   canOpenSettlement: false,
 }
 
+/**
+ * The settlement item, flattened: since ticket 284 it is a **node** with four
+ * children (283's four paths), so every `labels()` expectation below carries five
+ * entries where it once carried one. The grant did not move — it is still ONE probe
+ * on the node, which is why nothing about the ragged-group rules changes.
+ */
+const SETTLEMENT_NODE = [
+  'settlement:menu.settlement',
+  'settlement:menu.overview',
+  'settlement:menu.open',
+  'settlement:menu.ledger',
+  'settlement:menu.upload',
+]
+
 /** One probe answer, repeated once per gated leaf — they all read the SAME call. */
 const probed = (data: unknown): ProbeState[] =>
   gatedLeaves([collections!]).map(() => ({ isPending: false, isSuccess: true, data }))
@@ -89,8 +103,9 @@ describe('the Collections nav group', () => {
       'collection:menu.assignment',
       // 🚩 Its own namespace, not `collection`'s: the settlement account is its own
       // feature and its keys live in `settlement.json`. A leaf whose namespace was
-      // never registered renders this raw key to a user.
-      'settlement:menu.settlement',
+      // never registered renders this raw key to a user — and since 284 that is five
+      // keys, the node plus its four screens.
+      ...SETTLEMENT_NODE,
     ])
   })
 
@@ -112,7 +127,7 @@ describe('the Collections nav group', () => {
     // feature's own access test.
     expect(
       labels(resolveMenu([collections!], probed({ ...NONE, canOpenSettlement: true })).items),
-    ).toEqual(['collection:menu.collections', 'settlement:menu.settlement'])
+    ).toEqual(['collection:menu.collections', ...SETTLEMENT_NODE])
 
     // Two grants, and they are the two that were granted — not the first two.
     expect(

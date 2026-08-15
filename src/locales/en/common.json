@@ -21,6 +21,7 @@
   },
   "topbar": {
     "toggleMenu": "Toggle menu",
+    "toggleSection": "Expand or collapse {{label}}",
     "darkMode": "Toggle dark mode",
     "account": "Account menu"
   },

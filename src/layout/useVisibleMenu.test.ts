@@ -91,6 +91,66 @@ describe('resolveMenu — items', () => {
     expect(r.settled).toBe(true)
   })
 
+  it('🚩 a NESTED node whose children all hide disappears with them', () => {
+    // Ticket 284 added one more level to the nav (Settlement Account → its four
+    // screens). The permission machinery needed NO change for it — `collectGated`
+    // and `filterMenu` already recurse, so the drop-an-empty-group rule holds at any
+    // depth. This test is what keeps that true: the failure it stops is an expander
+    // left standing over nothing, one click from an empty panel.
+    const nested: ShellMenuItem[] = [
+      {
+        labelKey: 'g',
+        items: [
+          { labelKey: 'l.plain', routerLink: '/plain' },
+          {
+            labelKey: 'n',
+            routerLink: '/n',
+            items: [
+              { labelKey: 'n.a', routerLink: '/n/a', access: probe(true) },
+              { labelKey: 'n.b', routerLink: '/n/b', access: probe(true) },
+            ],
+          },
+        ],
+      },
+    ]
+    // Both children denied → the node goes too, not just its leaves.
+    expect(labels(resolveMenu(nested, [errored, errored]).items)).toEqual(['g', 'l.plain'])
+    // One granted → the node survives, carrying exactly that child.
+    expect(labels(resolveMenu(nested, [ok, errored]).items)).toEqual(['g', 'l.plain', 'n', 'n.a'])
+    // Both granted → the whole subtree.
+    expect(labels(resolveMenu(nested, [ok, ok]).items)).toEqual([
+      'g',
+      'l.plain',
+      'n',
+      'n.a',
+      'n.b',
+    ])
+  })
+
+  it('🚩 a gated node takes its ungated children with it — the settlement shape', () => {
+    // How `MENU` actually carries the settlement account: ONE grant on the node, four
+    // ungated children. A denied node must not leave four leaves behind, and the
+    // group above must not be left holding an empty header.
+    const gatedNode: ShellMenuItem[] = [
+      {
+        labelKey: 'g',
+        items: [
+          {
+            labelKey: 'n',
+            routerLink: '/n',
+            access: probe(true),
+            items: [
+              { labelKey: 'n.a', routerLink: '/n' },
+              { labelKey: 'n.b', routerLink: '/n/b' },
+            ],
+          },
+        ],
+      },
+    ]
+    expect(labels(resolveMenu(gatedNode, [ok]).items)).toEqual(['g', 'n', 'n.a', 'n.b'])
+    expect(resolveMenu(gatedNode, [errored]).items).toEqual([])
+  })
+
   it('reports an EMPTY menu as settled — the empty-state case ticket 124 exists for', () => {
     const allGated: ShellMenuItem[] = [
       { labelKey: 'g', items: [{ labelKey: 'l', routerLink: '/l', access: probe(true) }] },

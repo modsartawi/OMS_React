@@ -96,3 +96,28 @@ a change to all four screens made at 3am for one of them.
 **Revisit if:** an accountant reports losing their place walking down the Owed list — at which
 point the right fix is a *where you came from* affordance on the account, designed once for the
 ledger and the lane together.
+
+## Q (from `/standards-review`, spec axis): the prototype says *"oldest first"* when you have no branches of your own; the build said nothing at all.
+
+**Decision taken:** The section's own oldest is **always** stated when there is an age; only the
+*"older than anything of yours"* clause needs a section of yours. So a reader assigned nothing
+sees *oldest is 162 days* rather than a bare header.
+**Why:** Story 18 asks the header to *"tell me its oldest entry"*, full stop — it is a fact about
+the section, not a comparison. The prototype's `'oldest first'` in that branch is a weaker
+sentence than the story asks for, and *"claimed only when true"* was always about the comparison,
+never about the fact. 1,255 of 1,394 branches are assigned to nobody, so *"the reader has no
+section of their own"* is not an edge case on this estate.
+**Revisit if:** the owner reads the prototype's `'oldest first'` as deliberate copy rather than as
+a placeholder, in which case the wording changes and the projection does not.
+
+## Q (from `/standards-review`, spec axis): `ageWords` lives in the columns module but the page's signpost calls it.
+
+**Decision taken:** Left there. No `open-words.ts` minted for one function, and the page keeps
+importing it.
+**Why:** The sharing is the point rather than an accident — the header says *"oldest is 162 days"*
+about a row the grid draws as *"162 days"*, and two spellings of that phrase would let the
+signpost and the cell disagree about the same entry. Moving it to the page would invert the
+dependency (a columns module importing a component file); a file of its own is a file for ten
+lines. It is `t`-taking, so `open-lane.ts` — which is pure and holds no `t()` — cannot have it.
+**Revisit if:** a third caller appears (286's *prepared* age is the likely one), which is the
+repo's own graduate-on-the-third-copy rubric.

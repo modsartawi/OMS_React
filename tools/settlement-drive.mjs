@@ -2691,6 +2691,18 @@ async function run() {
   // their own must never read "Nothing owing" off a screen they narrowed themselves.
   scenario = { ...scenario, laneNoneMine: true }
   await openLane()
+  // 🔑 …and BEFORE the chip: an accountant assigned no branches sees the estate's
+  // whole list under *Everyone else's*, whose header must still say how old its
+  // oldest is (story 18). Only the COMPARISON needs a section of yours.
+  check(
+    '🔑 285 → with no branches of your own the signpost still states the estate’s oldest',
+    (await page.locator('[data-region="open-section-mine"]').count()) === 0 &&
+      /oldest is/.test(await page.locator('[data-testid="open-signpost-theirs"]').innerText()) &&
+      !/older than anything of yours/.test(
+        await page.locator('[data-testid="open-signpost-theirs"]').innerText(),
+      ),
+    (await page.locator('[data-testid="open-signpost-theirs"]').innerText()).trim(),
+  )
   await page.getByRole('button', { name: 'Mine only' }).click()
   await page.waitForTimeout(250)
   lane = await mainText()

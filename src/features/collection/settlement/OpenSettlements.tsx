@@ -97,10 +97,16 @@ export default function OpenSettlements() {
    * server dependency (§6): a door sending no ages is a door that ignored the sort and
    * answered `EntryNumber DESC`, so *oldest first* — and the cap banner's *"anything
    * missing is newer than what is here"* — would be a claim about rows that are not in
-   * that order. Asked only of an answer that HAS rows, so a pending read and an empty
-   * estate are not made to look degraded.
+   * that order.
+   *
+   * ⚠️ Asked of **the answer**, not of the view — the subtitle stands above every one
+   * of them, so keying it to `rows` left *nothing owing* and *nothing matches these
+   * filters* still asserting the order this flag exists to stop claiming. What it is
+   * guarding against is only the two cases where there is nothing to be wrong about:
+   * a read still in flight, and an estate with nothing open.
    */
-  const unordered = built.view.kind === 'rows' && !built.aged
+  const answered = (built.counts.owing ?? 0) + (built.counts.owed ?? 0) > 0
+  const unordered = answered && !built.aged
 
   return (
     <section className="flex flex-col gap-4" data-region="settlement-open">

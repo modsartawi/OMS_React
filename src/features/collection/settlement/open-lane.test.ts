@@ -184,13 +184,17 @@ describe('the signpost claims the comparison only when it is true', () => {
     ).toEqual({ kind: 'oldest', oldestAgeDays: 90 })
   })
 
-  it('says nothing at all when there is no section of yours to compare against', () => {
+  it('still states the section’s own oldest when there is nothing of yours to compare against', () => {
+    // 🔑 Story 18 asks the header to tell me its oldest entry — which is true whether
+    // or not the reader is assigned a branch. Only the COMPARISON needs a section of
+    // yours; an accountant assigned nothing must not read the estate's whole list
+    // under a header that says nothing about it.
     expect(
       signpostOf([
         row({ entryNumber: 1, ageDays: 162, isMine: false }),
         row({ entryNumber: 2, ageDays: 40, isMine: false }),
       ]),
-    ).toEqual({ kind: 'silent' })
+    ).toEqual({ kind: 'oldest', oldestAgeDays: 162 })
   })
 
   it('says nothing when the server sent ranking but no ages', () => {

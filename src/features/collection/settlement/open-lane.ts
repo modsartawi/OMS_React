@@ -271,6 +271,13 @@ function section(
 /**
  * What the second section's header says about what is inside it.
  *
+ * 🔑 **Two sentences, and only the second one is a comparison.** Story 18 asks the
+ * header to *tell me its oldest entry* — which is true of the section whether or not
+ * the reader has one of their own — and only the *"older than anything of yours"*
+ * clause depends on there being something to compare against. Collapsing the two
+ * would mean an accountant assigned no branches reads the estate's entire list under
+ * a header that says nothing at all about it.
+ *
  * ⚠️ **Strictly greater than**, so a tie drops the clause: an entry of the estate's
  * that is exactly as old as your worst one is not *older than anything of yours*, and
  * a comparison that rounded in its own favour is the kind a reader stops trusting.
@@ -280,11 +287,12 @@ function signpost(
   theirs: readonly SettlementOpenLaneRow[],
 ): OpenLaneSignpost {
   const oldest = theirs[0]?.ageDays
-  // No age on the wire, or no section of yours to compare against — either way there
-  // is no true sentence to say, so nothing is said.
-  if (oldest === undefined || mine.length === 0) return { kind: 'silent' }
+  // No age on the wire — there is no fact to state and none is invented.
+  if (oldest === undefined) return { kind: 'silent' }
 
   const yours = mine[0]?.ageDays
+  // ⚠️ `mine` empty means there is nothing to compare against, NOT that there is
+  // nothing to say: the section's own oldest is still stated.
   return yours !== undefined && oldest > yours
     ? { kind: 'olderThanYours', oldestAgeDays: oldest, yoursOldestAgeDays: yours }
     : { kind: 'oldest', oldestAgeDays: oldest }

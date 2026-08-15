@@ -80,7 +80,7 @@ screen + its columns at `/collection/settlement/open`) · i18n · test (pure + d
 - [x] Drive `tools/settlement-drive.mjs` against an estate-scale fixture: both tabs render both
       sections with counts, the *mine only* chip narrows and its empty state is distinct, and a
       stubbed refusal draws the failure with **—** in the counts · **flow (Playwright)** —
-      **245/245 PASS**; the new section also drives the tab as an address (`?tab=owed`, a
+      **246/246 PASS**; the new section also drives the tab as an address (`?tab=owed`, a
       hand-edited one landing on Owing, the scope surviving the switch), 🔑 **switching tabs
       costing no second call**, a row landing on its branch's account *on the entry it named*,
       **no colour/badge/overdue anywhere on the age**, and the **§6-absent** rendering — one
@@ -108,7 +108,21 @@ the other two: the branch account keeping the tab is answered by Back and by `KE
 keep-list (logged); and `NavLink end` vs `isActive` on a trailing slash does **not** drift —
 React Router's own `matchPath` tolerates it, checked rather than assumed.
 
-**Eight decisions taken unattended, all logged in `.afk/HITL-285.md`.** The load-bearing ones: two
+**`/standards-review` — Standards: no hard violation** against any of the four documented rules
+(api-envelope, feature-structure, i18n-zero-literal, logical-tailwind), four judgement calls
+recorded. **Spec: high fidelity, two real defects, both fixed here.** The signpost went *silent*
+when the reader had no branches of their own — but story 18 asks the header to *"tell me its
+oldest entry"*, which is a **fact about the section** and not a comparison, and on an estate where
+1,255 of 1,394 branches are assigned to nobody that is not an edge case; only the *"older than
+anything of yours"* clause now needs a section of yours, and the drive proves it. And `unordered`
+was keyed to the **view** rather than to the **answer**, so *nothing owing* and *nothing matches
+these filters* still asserted *oldest first* against a door that sent no ages — the exact claim
+`aged` was added to stop. Left as logged decisions: the branch account's *back* going to the
+Overview rather than to the lane (shared chrome across all four screens, and Back already
+reproduces the tab), and `ageWords` being shared out of the columns module (the header and the
+cell must not spell the same age two ways).
+
+**Ten decisions taken unattended, all logged in `.afk/HITL-285.md`.** The load-bearing ones: two
 tabs and no placeholder third (286 owns Cash waiting and its door); `?tab=`'s key lives in
 `addresses.ts` and its vocabulary in `open-lane.ts`, the split `ledger.ts` already has; the *mine
 only* chip is component state, because story 39 names the scope and the tab and nothing else; and

@@ -95,7 +95,20 @@ unchanged to a pending one — *"Owing 0"* under a shimmer is the estate looking
 as the door takes to answer — so the pending case now renders the same em-dash, and the count
 resolves *into* a number rather than out of one.
 
-**Seven decisions taken unattended, all logged in `.afk/HITL-285.md`.** The load-bearing ones: two
+**`/code-review` (high) raised four; two were real and are fixed in this ticket.** The **open
+lane went stale after every settlement write** — none of the three writers' invalidation lists
+knew about it, so an entry cancelled a moment earlier stayed on the lane for a minute, inviting a
+phone call about money nobody is owed; `invalidateSettlement` and the two bulk writers now name
+it. And the screen **claimed an order it could not always have**: `sort=age` is half of the same
+unbuilt §6 dependency as `ageDays`, so against today's door the answer is `EntryNumber DESC` while
+the subtitle said *oldest first* and the cap banner said *"anything missing is newer than what is
+here"* — which, past 2,000 rows, would be dropping exactly the entries the screen exists for. A
+third `aged` flag joins `ranked` and `named`, and both sentences change rather than the order. Of
+the other two: the branch account keeping the tab is answered by Back and by `KEPT` staying a
+keep-list (logged); and `NavLink end` vs `isActive` on a trailing slash does **not** drift —
+React Router's own `matchPath` tolerates it, checked rather than assumed.
+
+**Eight decisions taken unattended, all logged in `.afk/HITL-285.md`.** The load-bearing ones: two
 tabs and no placeholder third (286 owns Cash waiting and its door); `?tab=`'s key lives in
 `addresses.ts` and its vocabulary in `open-lane.ts`, the split `ledger.ts` already has; the *mine
 only* chip is component state, because story 39 names the scope and the tab and nothing else; and

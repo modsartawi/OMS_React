@@ -126,6 +126,9 @@ export default function BulkUploadDialog({
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'fleet'] })
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'orphans'] })
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'account'] })
+      // 285: a month's audit is a month of new OPEN entries, and the lane is where
+      // they are chased from.
+      void queryClient.invalidateQueries({ queryKey: ['settlement', 'open-lane'] })
     },
     // ⚠️ **What is left here is a MALFORMED call, not a decision about money** — no
     // file, over 10 MB, an extension outside the allow-list, or bytes that yield no

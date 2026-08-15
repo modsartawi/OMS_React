@@ -53,9 +53,11 @@ import {
  *
  * ⚠️ **The lane ships ahead of its server.** Server dependency §6 (the ledger
  * extension) is not built, so `servedBy` / `isMine` / `ageDays` may all be absent —
- * in which case this draws one unsectioned oldest-first list and **derives nothing**.
- * No client clock stands in for the age, and no guess stands in for the ranking.
- * `open-lane.ts` owns that decision; this file only draws its answer.
+ * in which case this draws one unsectioned list **in the order it arrived** and
+ * **derives nothing**. No client clock stands in for the age and no guess for the
+ * ranking; and because the sort is half of that same dependency, the screen also stops
+ * claiming *oldest first* (`aged`) rather than describing an arrangement the rows do
+ * not have. `open-lane.ts` owns those decisions; this file only draws its answer.
  *
  * This slice is the two entry tabs. *Cash waiting* is 286's (it needs a door of its
  * own), and the chase note and its column are 287's.
@@ -90,12 +92,23 @@ export default function OpenSettlements() {
     [lane.data, lane.isError, tab, mineOnly],
   )
   const columns = useMemo(() => buildOpenColumns(t, built.named), [t, built.named])
+  /**
+   * 🚩 **Can this screen claim its own arrangement?** `sort=age` and `ageDays` are one
+   * server dependency (§6): a door sending no ages is a door that ignored the sort and
+   * answered `EntryNumber DESC`, so *oldest first* — and the cap banner's *"anything
+   * missing is newer than what is here"* — would be a claim about rows that are not in
+   * that order. Asked only of an answer that HAS rows, so a pending read and an empty
+   * estate are not made to look degraded.
+   */
+  const unordered = built.view.kind === 'rows' && !built.aged
 
   return (
     <section className="flex flex-col gap-4" data-region="settlement-open">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 className="text-base font-semibold tracking-tight">{t('open.title')}</h2>
-        <p className="text-xs text-muted-foreground">{t('open.subtitle')}</p>
+        <p className="text-xs text-muted-foreground">
+          {t(unordered ? 'open.subtitleUnordered' : 'open.subtitle')}
+        </p>
       </header>
 
       {/* ⚠️ **Unknown while the read is in flight, and that is the same rule the
@@ -128,7 +141,9 @@ export default function OpenSettlements() {
           and nothing else on screen would look wrong. */}
       {built.capReached && (
         <AccountCapBanner
-          message={t('open.capReached', { limit: OPEN_LANE_LIMIT.toLocaleString('en-US') })}
+          message={t(unordered ? 'open.capReachedUnordered' : 'open.capReached', {
+            limit: OPEN_LANE_LIMIT.toLocaleString('en-US'),
+          })}
         />
       )}
 

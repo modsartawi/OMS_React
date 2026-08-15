@@ -2751,7 +2751,11 @@ async function run() {
     '🚩 285 → …offering no “Mine only” chip and asserting nobody is assigned to anything',
     (await page.getByRole('button', { name: 'Mine only' }).count()) === 0 &&
       !/Nobody assigned/.test(lane) &&
-      !/\d+ days/.test(lane),
+      !/\d+ days/.test(lane) &&
+      // 🚩 …and no longer claiming *oldest first* in its own subtitle: the sort is
+      // half of the same server dependency as the age.
+      /It is not sending ages yet/.test(lane) &&
+      !/oldest first/.test(lane),
     lane.replace(/\n/g, ' ').slice(0, 110),
   )
   check(

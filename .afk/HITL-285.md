@@ -52,11 +52,16 @@ which a per-section paginator would undo. `autoHeight` was refused: 1,000 rows i
 
 ## Q: What does the screen draw when the server sends no `servedBy`/`isMine`/`ageDays` (§6 unbuilt)?
 
-**Decision taken:** One **unsectioned** oldest-first list under its own header, no *mine only*
-chip, no age fact — the posted date alone in the Age column.
+**Decision taken:** One **unsectioned** list under its own header, in the order it arrived, no
+*mine only* chip, no *Served by* column, no age fact — the posted date alone in the Age column —
+and (after `/code-review`) **no claim of *oldest first*** in the subtitle or the cap banner.
 **Why:** The ticket's Boundaries say the fields are optional on the wire and the screen
 *"derives nothing"*. A single section headed *Everyone else's* would assert the estate holds
-nothing of yours; a client-side age would invent the clock the whole spec moved to the server.
+nothing of yours; a client-side age would invent the clock the whole spec moved to the server;
+*Served by* could only draw *nobody assigned* on 1,394 rows. And `sort=age` is **half of the same
+dependency** as `ageDays` — a door sending no ages answered its own `EntryNumber DESC`, so
+*"anything missing is newer than what is here"* would describe an arrangement the rows do not
+have. Hence `aged` on the projection, beside `ranked` and `named`.
 **Revisit if:** §6 ships, at which point this path is dead code worth deleting rather than keeping.
 
 ## Q: The drive's estate-scale fixture has to date its rows from *some* today.
@@ -77,3 +82,17 @@ estate-scale open-lane fixture; without it, the six hostile branches' entries as
 order is unchanged for every shipped caller), so the stub is split on the same field the server
 is. Splitting on `limit` would have coupled the stub to a cap constant.
 **Revisit if:** the ledger view ever offers an age sort of its own.
+
+## Q (from `/code-review`): the branch account has no way back to the lane, keeping the tab.
+
+**Decision taken:** Left as it is. Back restores it; no *back to the lane* link is added, and
+`tab` does **not** join `addresses.ts`'s `KEPT` list.
+**Why:** Story 39's mechanism is that the tab and the scope are both **addresses** — which is
+exactly why 283 moved the views to paths — so the browser's own Back reproduces the view. The two
+alternatives both cost more than they fix: putting `tab` in `KEPT` leaks the lane's own parameter
+onto every address on the screen, which that list exists to prevent; and a *back to the lane* link
+means teaching `SettlementPage`'s shared `BackToDoor` chrome where the reader came from, which is
+a change to all four screens made at 3am for one of them.
+**Revisit if:** an accountant reports losing their place walking down the Owed list — at which
+point the right fix is a *where you came from* affordance on the account, designed once for the
+ledger and the lane together.

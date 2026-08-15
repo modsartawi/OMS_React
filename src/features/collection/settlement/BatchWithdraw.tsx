@@ -62,6 +62,8 @@ export default function BatchWithdraw({ batchId }: { batchId: string }) {
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'account'] })
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'fleet'] })
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'orphans'] })
+      // 285: every entry this batch posted has just left the estate's open position.
+      void queryClient.invalidateQueries({ queryKey: ['settlement', 'open-lane'] })
     },
     // 🚩 A refused ROW is not an error — it arrives inside a 200 and is reported
     // below by name. `onError` is only for the call itself failing, which leaves the

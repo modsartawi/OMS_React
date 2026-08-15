@@ -430,9 +430,11 @@
   "open": {
     "title": "Open settlements",
     "subtitle": "Every entry the estate still has open, oldest first. How long one has been open is stated here as a fact — nothing on this screen decides when an entry is late.",
+    "subtitleUnordered": "Every entry the estate still has open, in the order the server sent them. It is not sending ages yet, so nothing here says how long one has been open — or which of them is the oldest.",
     "loading": "Loading the estate’s open entries…",
     "capReached": "This reached {{limit}} entries, so there may be more. The oldest are first, so anything missing is newer than what is here.",
-    "unranked": "The server did not say which of these branches are yours, so this is one list, oldest first.",
+    "capReachedUnordered": "This reached {{limit}} entries, so there may be more. Ages are not being sent yet, so there is nothing to say about which ones are missing.",
+    "unranked": "The server did not say which of these branches are yours, or how long each has been open, so this is one list in the order it arrived.",
     "tabs": {
       "owing": "Owing",
       "owed": "Owed",

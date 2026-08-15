@@ -128,6 +128,10 @@ describe('the lane splits one answer into two tabs', () => {
     // would be a confident false statement about the estate's pairing, where drawing
     // nothing is merely silence.
     expect(built.named).toBe(false)
+    // 🚩 …and the screen must stop claiming *oldest first*: `sort=age` is half of the
+    // same dependency, so a door sending no ages answered its own default order.
+    expect(built.aged).toBe(false)
+    expect(lane().aged).toBe(true)
     expect(lane().named).toBe(false)
     expect(
       buildOpenLane({

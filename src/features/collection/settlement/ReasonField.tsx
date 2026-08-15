@@ -58,7 +58,7 @@ export default function ReasonField({
 }
 
 /**
- * The four query keys a settlement **write** must invalidate — one call, so the
+ * The five query keys a settlement **write** must invalidate — one call, so the
  * three writers cannot drift apart on which lists go stale.
  *
  * 🚩 Extracted at its third copy too (post, cancel, close-out). The set is not
@@ -67,7 +67,9 @@ export default function ReasonField({
  * open count and its ageing did; and the **worklist** because it is a *separate
  * door* from the fleet (270) whose ageing lane is drawn from both — invalidating
  * only the fleet would leave the lane counting an estate that no longer matches the
- * one beside it.
+ * one beside it. And the **open lane** (285), because an entry cancelled or written
+ * off has left the estate's open position — a lane that kept listing it would send an
+ * accountant to ring a branch about money nobody is owed any more.
  *
  * ⚠️ A stale door is not cosmetic here: it invites the accountant to post or correct
  * the same figure a second time.
@@ -80,4 +82,5 @@ export function invalidateSettlement(
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'fleet'] })
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'ledger'] })
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'worklist'] })
+  void queryClient.invalidateQueries({ queryKey: ['settlement', 'open-lane'] })
 }

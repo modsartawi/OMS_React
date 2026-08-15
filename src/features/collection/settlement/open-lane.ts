@@ -169,6 +169,22 @@ export type OpenLane = {
    * pairing, where drawing no column at all is merely silence. The renderer omits it.
    */
   named: boolean
+  /**
+   * Did the wire carry **ages** — and therefore, is the answer actually in the order
+   * this screen claims?
+   *
+   * 🚩 **The order and the age are one fact, not two.** `sort=age` is part of the same
+   * unbuilt server dependency (§6): a door that sends no `ageDays` is also a door that
+   * ignored the sort and answered its default `EntryNumber DESC`. So a screen saying
+   * *oldest first* — in its subtitle, and above all in its cap banner's *"anything
+   * missing is newer than what is here"* — would be asserting an arrangement the rows
+   * do not have, and at 2,000 rows the cap would be dropping exactly the entries the
+   * lane exists for while the banner said otherwise.
+   *
+   * ⚠️ The answer is still drawn in the order it arrived, because re-sorting a capped
+   * page is the worse lie. What changes is the sentence beside it.
+   */
+  aged: boolean
   view: OpenLaneView
 }
 
@@ -190,6 +206,7 @@ export function buildOpenLane({ rows, failed, tab, mineOnly }: OpenLaneInput): O
       capReached: false,
       ranked: false,
       named: false,
+      aged: false,
       view: { kind: 'failed' },
     }
   }
@@ -209,8 +226,9 @@ export function buildOpenLane({ rows, failed, tab, mineOnly }: OpenLaneInput): O
   // disappear as the reader switches between two halves of one read.
   const ranked = answer.some((r) => r.isMine !== undefined)
   const named = answer.some((r) => r.servedBy !== undefined)
+  const aged = answer.some((r) => r.ageDays !== undefined)
 
-  const base = { counts, capReached, ranked, named }
+  const base = { counts, capReached, ranked, named, aged }
   const laneRows = byTab[tab]
 
   if (laneRows.length === 0) return { ...base, view: { kind: 'empty' } }

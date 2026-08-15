@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 267
 blocked-by: 270, 272, 273
 ---
@@ -61,33 +61,71 @@ The feature's first real user: an accountant posts a figure a till can consume.
 
 ## Proof
 
-- [ ] The grant proven in **both** directions — unseeded: no menu item, route refused; seeded: the
-      screen works. **HALF DONE, live:** unseeded is proven — `CollectionWeb/Access` answers
-      `canOpenSettlement: false` and `Settlement/Fleet` answers a bare **403** from
-      `SettlementGrantEndpointFilter`. The seeded direction is blocked (see below).
-- [ ] A **real entry posted** against a real branch, visible on its account with a minted number.
-- [ ] That entry **cancelled** live, and a second one **written off** after a consumption exists
-      against it (a till close or a hand-inserted consumption row).
-- [ ] A cancel that **loses the race** observed live if it can be arranged; otherwise the refusal
-      path is exercised against a real `accepted: false`.
-- [ ] A real **`.xlsx` uploaded**, previewed with resolved branch names, and committed — then the
-      batch withdrawn as a unit.
-- [ ] A **hash mismatch** refused for real (edit the sheet between preview and commit).
-- [ ] The estate-wide carve-out confirmed on real data (above).
-- [ ] 🔑 **The fleet aggregate's timing measured at estate scale and written into this ticket.**
+- [x] The grant proven in **both** directions — unseeded: `msartawi` gets `canOpenSettlement: false`,
+      no menu item, and a bare **403** from `SettlementGrantEndpointFilter`; seeded-equivalent: a
+      session holding the `*/*` wildcard sees the menu item and the screen works. ⚠️ **The
+      break-glass account is `14419`, not `ADMIN`** — `ADMIN` is a shared account and web sign-in
+      refuses it by design (`WEBAUTH-90030`). **No permanent grant holder was left behind:** nothing
+      was seeded, nothing was bound, and the `SettlementAccount` grant still does not exist as a row.
+- [x] A **real entry posted** against a real branch, visible on its account with a minted number —
+      entry **3** on branch 1002 (`123.456` stored as **123**, D15's whole-unit SAR rounding), and
+      entry **1406** posted **from the screen** onto branch **1257**, a branch the fleet had never
+      heard of. `0.3` refused **400 `SettlementAmountRoundsToZero`**, not an `accepted:false`.
+- [x] That entry **cancelled** live, and a second **written off** after a consumption exists against
+      it — the write-off was driven **through the correction pane** on P001 entry 2, against a real
+      till consumption of 26.00 of 35.00 on a `SHIFT_CLOSE` document; the audit-as-time grew its
+      third row.
+- [x] The refusal path exercised against a real `accepted: false` — a re-cancel and a re-close-out
+      both answer **200 / `accepted:false` / `ENTRY_NOT_OPEN`** carrying `status`, and the screen
+      renders the recovery. (A genuine lost race could not be arranged; this is the same shape.)
+- [x] A real **`.xlsx` uploaded**, previewed with resolved Arabic branch names, rounded amounts and
+      both warning codes, committed (entries 6–8) — then the batch **withdrawn as a unit**
+      (`Settlement/Bulk/Cancel`, 3/3 and, at scale, 1394/1394 with `refused: 0`).
+- [x] A **hash mismatch** refused for real — the sheet was edited between preview and commit and
+      re-sent under the reviewed hash: **200, `accepted:false`, `HASH_MISMATCH`**. A5's ULID rule
+      confirmed twice (a 25-char id and one containing `L` both **400**), and the committed ids came
+      back as `B` + ordinal + `batchId[5..]`, which is *why* it must be a ULID.
+- [ ] The estate-wide carve-out confirmed on real data. ⚠️ **Not judgeable on this sink, and the
+      reason is data, not code** — of 1394 assignment rows **zero** have both slots filled (139
+      accountant-only, 2 collector-only), so `unassigned` is correctly the whole estate; and the
+      session's staff id has no `PosCollectionStaff` row, so `mine` correctly opens unfiltered.
+      `Settlement/Orphans` is empty for the same reason (see below). Prerequisite 3, now measured
+      rather than assumed.
+- [x] 🔑 **The fleet aggregate's timing measured at estate scale** — with **1394 open entries across
+      all 1394 branches**: `Settlement/Fleet?scope=all&limit=2000` in **38–76 ms** for a 295 KB body
+      (`mine` 45 ms, `unassigned` 72 ms, `Branches` 53–75 ms, `Account` 77 ms). ✅ **The design's
+      claim holds: no spinner budget, no index change, and above all no client cache.** The bulk
+      *writes* are the slow calls — preview 712 ms, commit 9.4 s, batch-cancel 12.4 s at 1394 rows
+      (~7–9 ms/row), which no month's audit will ever reach.
 - [x] `typecheck` + `lint` + `build` green — plus `vitest` (**1828 tests, 116 files**) and
       `tools/settlement-drive.mjs` (**189/189**), both reworked to the narrowed contract and then
-      widened again by the two doors this ticket ended up building.
+      widened again by the two doors this ticket ended up building. Re-run green after the live pass;
+      **the live pass changed no client code**, which is itself the finding: the contract work in
+      §A/§B was right.
+- [ ] ⚠️ **The orphan lane and `Settlement/Repair` were never exercised** — an orphan is a `CONSUME`
+      still at `DocumentId = ''` **past 72 hours** (`OrphanGraceHours`, a `const`), and the sink's
+      only two consumptions are hours old and both carry documents, so `Settlement/Orphans` answers
+      `[]` honestly. Manufacturing one needs the till's api-key `SettlementAccount/Consume` door (a
+      cookie there is a 403 by default-deny) or a backdated row. **A3's `remainingAmount` rename is
+      therefore still read off the server's type, not off a response.**
 - [x] 🔑 **Two doors built server-side and proven against the live database** —
       `Settlement/Branches` and `Settlement/Ledger` (BackOffice draft 1199 §5 and §3), each with an
       end-to-end test on real data. ⚠️ Uncommitted in that repo, by this ticket's own boundary.
 
-### ⚠️ Blocked: the grant was never seeded
+### ✅ Unblocked, 2026-08-15 — and it was the wildcard, not a seed
 
-Everything above the line is **contract work done against the source of a running SIS.Api**; nothing
-below it has been driven, because `canOpenSettlement` stayed `false` for the whole session and
-`msartawi` cannot self-serve it (`AuthzAdminWeb/Access` → `screenAllowed: false`). The ticket stays
-**open** on those bullets.
+The grant **still does not exist**, and it did not have to. `CollectionScreenGate.CheckAsync` is a
+plain engine `Check`, so `BackOfficeAdminAll` (`CONTROLLER=*`, `COMMAND=*`) resolves
+`[SettlementAccount,03]` with no settlement row in existence — unblock path 1, exactly as written
+below, needing no DDL and leaving no permanent grant holder.
+
+🚩 **The one correction to that path: the account is `14419`, not `ADMIN`.** `ADMIN` holds
+`ADMIN_ROLE` and therefore the wildcard, but it is a **shared** account and web sign-in refuses it
+outright (`WEBAUTH-90030`) before the grant is ever consulted. The wildcard's usable members on this
+sink are `14419` ("14419 (full admin)") and `ADMOP1`.
+
+Full live write-up: **`.afk/FINDINGS-274.md` §C**. What follows in this section is the history that
+led there, kept because §4 of the BackOffice draft — the grant that was never minted — is still owed.
 
 Two notes for whoever picks it up:
 
@@ -310,8 +348,20 @@ server ever sent.
 ## Open questions
 
 ~~The route literals (D8)~~ — **settled by the server**, and confirmed correct.
-🔑 **The fleet timing at estate scale is still unsettled**, and now needs the grant before it can be:
-the door is 403 without it. See the blocked Proof above.
+~~The fleet timing at estate scale~~ — 🔑 **settled: 38–76 ms for the whole 1394-branch estate.** No
+cache, no index, no shape change. See Proof and `.afk/FINDINGS-274.md` §C1.
+
+**What remains open, and neither is client work:**
+
+1. **The orphan lane has never been seen with a row in it** (Proof above) — it needs a consumption
+   backdated past the 72-hour grace, or a till driving `SettlementAccount/Consume` for real.
+2. **Scoping and the estate-wide carve-out cannot be judged** until an assignment row exists with
+   **both** slots filled; today the sink has none, so `unassigned` is correctly the whole estate.
+
+🚩 And one narrowed ask now sitting in the BackOffice draft: **`currencyKey` on
+`Settlement/Branches`**. The post form resolves its branch through that door *before* an amount is
+typed, so without it the in-words read-back words a SAR figure at three decimals and only corrects
+itself after the post returns. `Ledger` and `Bulk/Preview` already carry the field.
 
 ## The route literals — SETTLED (BackOffice ticket 1185, 2026-08-14)
 

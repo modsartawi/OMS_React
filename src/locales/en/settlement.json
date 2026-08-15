@@ -438,13 +438,17 @@
     "title": "Open settlements",
     "subtitle": "Every entry the estate still has open, oldest first. How long one has been open is stated here as a fact — nothing on this screen decides when an entry is late.",
     "subtitleUnordered": "Every entry the estate still has open, in the order the server sent them. It is not sending ages yet, so nothing here says how long one has been open — or which of them is the oldest.",
+    "subtitleCash": "Every special receipt a branch has prepared and nobody has collected, oldest first. How long one has been waiting is stated here as a fact — nothing on this screen decides when a receipt is late.",
     "loading": "Loading the estate’s open entries…",
+    "loadingCash": "Loading the receipts nobody has collected…",
     "capReached": "This reached {{limit}} entries, so there may be more. The oldest are first, so anything missing is newer than what is here.",
     "capReachedUnordered": "This reached {{limit}} entries, so there may be more. Ages are not being sent yet, so there is nothing to say about which ones are missing.",
+    "capReachedCash": "This reached {{limit}} waiting receipts, so there may be more. That is far more than collection normally leaves behind — tell head office, and expect this list to be incomplete.",
     "unranked": "The server did not say which of these branches are yours, or how long each has been open, so this is one list in the order it arrived.",
     "tabs": {
       "owing": "Owing",
       "owed": "Owed",
+      "cash": "Cash waiting",
       "noCount": "—"
     },
     "filters": {
@@ -463,7 +467,8 @@
       "today": "today",
       "days_one": "{{count}} day",
       "days_other": "{{count}} days",
-      "posted": "posted {{date}}"
+      "posted": "posted {{date}}",
+      "prepared": "prepared {{date}}"
     },
     "row": {
       "ofAmount": "of {{amount}}",
@@ -474,7 +479,9 @@
       "branch": "Branch",
       "age": "Age",
       "remaining": "Still open",
-      "servedBy": "Served by"
+      "amount": "Amount",
+      "servedBy": "Served by",
+      "collector": "Collector"
     },
     "empty": {
       "owing": {
@@ -484,6 +491,10 @@
       "owed": {
         "title": "Nothing owed.",
         "hint": "Head office owes no branch a surplus back."
+      },
+      "cash": {
+        "title": "No cash waiting.",
+        "hint": "Every prepared receipt has been collected."
       }
     },
     "filtered": {
@@ -492,7 +503,8 @@
       "clear": "Show the whole estate"
     },
     "errors": {
-      "laneFailed": "This list could not be read, so nothing can be said about what the estate has open. This is not “nothing to do” — try again, and tell head office if it keeps happening."
+      "laneFailed": "This list could not be read, so nothing can be said about what the estate has open. This is not “nothing to do” — try again, and tell head office if it keeps happening.",
+      "cashFailed": "The waiting receipts could not be read, so nothing can be said about what is sitting uncollected. This is not “everything has been collected” — try again, and tell head office if it keeps happening."
     }
   }
 }

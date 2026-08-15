@@ -1,6 +1,10 @@
-import type { SettlementEntryKind, SettlementOpenLaneRow } from '@/core/models/settlement'
+import type {
+  SettlementEntryKind,
+  SettlementOpenLaneRow,
+  SettlementUncollectedRow,
+} from '@/core/models/settlement'
 import { TAB_PARAM, openSearch } from './addresses'
-import { OPEN_LANE_LIMIT, isCapReached } from './cap'
+import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT, isCapReached } from './cap'
 
 /**
  * **The open settlements lane's projection** — everything the screen at
@@ -40,25 +44,51 @@ import { OPEN_LANE_LIMIT, isCapReached } from './cap'
 /* ── which tab, as an address ─────────────────────────────────────────────────── */
 
 /**
- * The lane's tabs — *Owing* (SHORTAGE) and *Owed* (SURPLUS).
+ * The lane's three tabs — *Owing* (SHORTAGE), *Owed* (SURPLUS) and *Cash waiting*
+ * (286's prepared-but-uncollected receipts).
  *
- * 🚩 **Two tabs rather than a kind column**, because they are the same age fact
- * pointing in opposite directions: *the branch owes head office* is one list an
- * accountant works top to bottom, and money the estate owes outward is a different
- * phone call to a different person. `cash` — 286's prepared-but-uncollected receipts,
- * over a door that is not built — joins them here when it has something to answer.
+ * 🚩 **Owing and Owed are two tabs rather than a kind column**, because they are the
+ * same age fact pointing in opposite directions: *the branch owes head office* is one
+ * list an accountant works top to bottom, and money the estate owes outward is a
+ * different phone call to a different person.
+ *
+ * 🚩 **And Cash waiting is a third tab rather than a filter over them**, for a
+ * stronger version of the same reason: a receipt nobody has collected is a **visit
+ * that did not happen**, so the call goes to the collector rather than to the branch
+ * manager. It also comes off a different door, which is why its count is not
+ * `tallyOpenLane`'s to give.
  */
-export const OPEN_LANE_TABS = ['owing', 'owed'] as const
+export const OPEN_LANE_TABS = ['owing', 'owed', 'cash'] as const
 export type OpenLaneTab = (typeof OPEN_LANE_TABS)[number]
 
-/** Owing first: it is the larger job and the one the estate loses money on. */
-export const DEFAULT_OPEN_TAB: OpenLaneTab = 'owing'
+/**
+ * The two tabs that are **entries** — the pair one `Settlement/Ledger` answer feeds.
+ *
+ * 🔑 Named separately from `OpenLaneTab` because the split is the whole reason the
+ * two counts cannot disagree: they come out of ONE call, and a `Record<OpenLaneTab,…>`
+ * over the tally would have invited a third count fabricated from the same answer —
+ * which knows nothing at all about receipts.
+ */
+export const OPEN_LANE_ENTRY_TABS = ['owing', 'owed'] as const
+export type OpenLaneEntryTab = (typeof OPEN_LANE_ENTRY_TABS)[number]
 
-/** Which kind each tab is asking about. The direction lives on `entryKind`, never on
- *  a sign — `amount` is always a positive magnitude (the contract's own rule). */
-const TAB_KIND: Record<OpenLaneTab, SettlementEntryKind> = {
+/** Owing first: it is the larger job and the one the estate loses money on. ⚠️ Typed
+ *  as an ENTRY tab, so a screen falling back to it always has a kind to ask about. */
+export const DEFAULT_OPEN_TAB: OpenLaneEntryTab = 'owing'
+
+/** Which kind each entry tab is asking about. The direction lives on `entryKind`,
+ *  never on a sign — `amount` is always a positive magnitude (the contract's own
+ *  rule). ⚠️ *Cash waiting* has no entry kind of its own: a waiting receipt carries
+ *  the kind of the entry it was prepared against, and the tab lists both. */
+const TAB_KIND: Record<OpenLaneEntryTab, SettlementEntryKind> = {
   owing: 'SHORTAGE',
   owed: 'SURPLUS',
+}
+
+/** Is this tab one the ledger answer feeds? The screen asks before handing a tab to
+ *  `buildOpenLane`, which has nothing to say about receipts. */
+export function isEntryTab(tab: OpenLaneTab): tab is OpenLaneEntryTab {
+  return tab !== 'cash'
 }
 
 /**
@@ -66,9 +96,7 @@ const TAB_KIND: Record<OpenLaneTab, SettlementEntryKind> = {
  *
  * ⚠️ **An unreadable value lands on Owing rather than on an error** — the rule
  * `readCriteria` and `readEntryNumber` both follow one module over: *a hand-edited
- * address should land on a screen, not on a broken one*. Which also covers
- * `?tab=cash` today: it is a value this build has no view for, so it reads as
- * unknown and the reader gets the default rather than a blank tab.
+ * address should land on a screen, not on a broken one*.
  */
 export function readOpenTab(params: URLSearchParams): OpenLaneTab {
   const raw = (params.get(TAB_PARAM) ?? '').trim().toLowerCase()
@@ -113,10 +141,27 @@ export type OpenLaneSignpost =
  */
 export type OpenLaneSectionWhich = 'mine' | 'theirs' | 'all'
 
-export type OpenLaneSection = {
+/**
+ * The three facts the arrangement is made of, and the only ones it reads.
+ *
+ * 🔑 **This is what lets *Cash waiting* reuse the sectioning rather than copy it.** An
+ * entry and a prepared receipt disagree about almost everything — what the money means,
+ * what the date is counted from, who the name in the row belongs to — and agree about
+ * exactly this: whether the reader serves the branch, whether anyone is named, and how
+ * old it is. The substitutions the third tab makes are all in the columns (ticket
+ * 286); the arrangement is one implementation, so the two tabs cannot drift into
+ * sectioning the estate two different ways.
+ */
+export type OpenLaneRowFacts = {
+  isMine?: boolean
+  servedBy?: string
+  ageDays?: number
+}
+
+export type OpenLaneSection<Row extends OpenLaneRowFacts = SettlementOpenLaneRow> = {
   which: OpenLaneSectionWhich
   /** In the server's order, untouched. See the module docblock. */
-  rows: SettlementOpenLaneRow[]
+  rows: Row[]
   /** 🚩 Read off the FIRST row rather than folded over the section — the server
    *  ordered it oldest-first, so a `Math.max` here would be a second opinion about
    *  the same fact, and the two could disagree on a row the cap truncated. `null`
@@ -135,11 +180,11 @@ export type OpenLaneSection = {
  * is the reader's own doing, and *this could not be read* is neither. Collapsing any
  * two of them draws a server refusal as an estate with nothing outstanding.
  */
-export type OpenLaneView =
+export type OpenLaneView<Row extends OpenLaneRowFacts = SettlementOpenLaneRow> =
   | { kind: 'failed' }
   | { kind: 'empty' }
   | { kind: 'filtered' }
-  | { kind: 'rows'; sections: OpenLaneSection[] }
+  | { kind: 'rows'; sections: OpenLaneSection<Row>[] }
 
 /**
  * How big each job is — **from the whole answer, before any filter**, so a tab
@@ -148,7 +193,17 @@ export type OpenLaneView =
  * ⚠️ `null` means *not known*, and every renderer draws an em-dash for it. A `0` on a
  * failed read is the screen fabricating a number, and it reads as *nothing needs you*.
  */
-export type OpenLaneCounts = Record<OpenLaneTab, number | null>
+export type OpenLaneCounts = Record<OpenLaneEntryTab, number | null>
+
+/**
+ * What the tab strip draws — the two entry counts **and** the cash one, which comes
+ * off a different door.
+ *
+ * 🔑 Assembled at the screen rather than by either builder, because that is what it
+ * honestly is: two answers, each able to be unknown on its own. A single builder
+ * returning all three would have to wait for both doors to say anything about either.
+ */
+export type OpenLaneTabCounts = Record<OpenLaneTab, number | null>
 
 /**
  * **What the front page's signpost says** (ticket 288) — and what the lane's own tab
@@ -168,9 +223,13 @@ export type OpenLaneCounts = Record<OpenLaneTab, number | null>
  * cap the count is a floor and not a total. Saying *2,000* flat would be the one thing
  * this screen is not allowed to do: state a number it cannot stand behind.
  *
- * *Cash waiting* is deliberately absent until 286 builds its door — the ticket's own
- * boundary. A third count of `0` would say *every prepared receipt has been collected*
- * about a door nobody has called.
+ * ⚠️ **There is no *Cash waiting* count here, and 286 building that tab did not add
+ * one.** This function counts ONE `Settlement/Ledger` answer; a receipt nobody has
+ * collected is a row of `Settlement/Uncollected`, a different door with a different
+ * cap and its own failure. A third number folded in here would either be fabricated
+ * from an answer that knows nothing about receipts, or would quietly make every caller
+ * of this tally — including the front page's signpost — wait on a second call. The
+ * lane's tab strip composes the third count beside these two; see `tallyCashLane`.
  */
 export type OpenLaneTally = {
   counts: OpenLaneCounts
@@ -256,7 +315,7 @@ export type OpenLaneInput = {
   rows: readonly SettlementOpenLaneRow[] | null | undefined
   /** The door refused or could not be reached. ⚠️ Distinct from an empty answer. */
   failed: boolean
-  tab: OpenLaneTab
+  tab: OpenLaneEntryTab
   mineOnly: boolean
 }
 
@@ -276,50 +335,159 @@ export function buildOpenLane({ rows, failed, tab, mineOnly }: OpenLaneInput): O
   }
 
   const answer = rows ?? []
-  const laneRows = answer.filter((r) => r.entryKind === TAB_KIND[tab])
-
   // Asked of the answer rather than of the tab, so the chip does not appear and
   // disappear as the reader switches between two halves of one read.
-  const ranked = answer.some((r) => r.isMine !== undefined)
-  const named = answer.some((r) => r.servedBy !== undefined)
-  const aged = answer.some((r) => r.ageDays !== undefined)
+  const said = whatTheWireSaid(answer)
 
-  const base = { counts, capReached, ranked, named, aged }
+  return {
+    counts,
+    capReached,
+    ...said,
+    view: arrange(
+      answer.filter((r) => r.entryKind === TAB_KIND[tab]),
+      mineOnly,
+      said.ranked,
+    ),
+  }
+}
 
-  if (laneRows.length === 0) return { ...base, view: { kind: 'empty' } }
+/* ── cash waiting ─────────────────────────────────────────────────────────────── */
+
+/**
+ * **What the third tab is looking at** (ticket 286) — the estate's prepared receipts
+ * nobody has collected, `Settlement/Uncollected`.
+ *
+ * 🔑 **One count, its own door, its own cap, its own failure.** It is deliberately not
+ * folded into `OpenLaneTally`: the two entry tabs are two readings of ONE ledger
+ * answer and must agree, while this is a second answer that can fail on its own — and
+ * when it does, its tab shows an em-dash while the other two still count.
+ *
+ * ⚠️ **No `ranked` / `named` / `aged` flags.** They exist above because §6 extends a
+ * door that already ships, so its three fields are absent today and the screen must
+ * degrade around them. §2 is a whole door: there is no half-answer to degrade into —
+ * either the receipts arrive with everything on them, or the tab draws its refusal.
+ */
+export type CashLane = {
+  /** How many receipts are waiting, **before any filter**. `null` = not known, drawn
+   *  as an em-dash by every renderer — never `0`, which reads as *all collected*. */
+  count: number | null
+  /** Measured against `CASH_LANE_LIMIT` — 500, the rare-event cap, and NOT the entry
+   *  lane's 2,000. See `cap.ts`. */
+  capReached: boolean
+  view: OpenLaneView<SettlementUncollectedRow>
+}
+
+export type CashLaneInput = {
+  /** The one `Settlement/Uncollected` answer. */
+  rows: readonly SettlementUncollectedRow[] | null | undefined
+  /** ⚠️ Its OWN failure — the entry tabs are unaffected, and vice versa. */
+  failed: boolean
+  mineOnly: boolean
+}
+
+/** How big the third job is. Split out for the same reason `tallyOpenLane` is: the tab
+ *  strip needs the number whichever tab is being drawn. */
+export function tallyCashLane({
+  rows,
+  failed,
+}: Pick<CashLaneInput, 'rows' | 'failed'>): Pick<CashLane, 'count' | 'capReached'> {
+  if (failed) return { count: null, capReached: false }
+  const answer = rows ?? []
+  return { count: answer.length, capReached: isCapReached(answer.length, CASH_LANE_LIMIT) }
+}
+
+/**
+ * The cash waiting tab, arranged exactly as the other two are.
+ *
+ * 🚩 **The same `arrange` and therefore the same five states** — yours above everyone
+ * else's, the signpost claimed only when true, *empty ≠ emptied-by-filter ≠ failed*.
+ * 286 substitutes three things and nothing else (the age says *prepared*, the money is
+ * the receipt's whole amount, the name is the **collector**), and all three are the
+ * columns' business rather than the arrangement's.
+ *
+ * ⚠️ **Nothing deduplicates against the Owing tab, deliberately.** A partly-consumed
+ * entry belongs on both: *"the branch still owes 40"* and *"a receipt for 60 is
+ * prepared and nobody has been to fetch it"* are two true sentences about the same
+ * money, and they are two different phone calls — one to the branch manager, one to
+ * the collector. The two lanes never even meet in this module.
+ */
+export function buildCashLane({ rows, failed, mineOnly }: CashLaneInput): CashLane {
+  const tally = tallyCashLane({ rows, failed })
+  if (failed) return { ...tally, view: { kind: 'failed' } }
+
+  // Every row of this door carries `isMine`, so the arrangement is always the ranked
+  // one — there is no §6-shaped absence to degrade around here.
+  return { ...tally, view: arrange((rows ?? []).slice(), mineOnly, true) }
+}
+
+/* ── the arrangement, shared by all three tabs ────────────────────────────────── */
+
+/** What the wire actually said about these rows — the three flags a renderer needs to
+ *  know what it may and may not claim. See `OpenLane`'s own fields for what each
+ *  absence costs. */
+function whatTheWireSaid(answer: readonly OpenLaneRowFacts[]): Pick<
+  OpenLane,
+  'ranked' | 'named' | 'aged'
+> {
+  return {
+    ranked: answer.some((r) => r.isMine !== undefined),
+    named: answer.some((r) => r.servedBy !== undefined),
+    aged: answer.some((r) => r.ageDays !== undefined),
+  }
+}
+
+/**
+ * One tab's rows, sectioned — *Yours* above *Everyone else's*, or one list when the
+ * wire said nothing about who serves a branch.
+ *
+ * 🚩 **Generic over the row, and that is the point of it.** The entry lane and the
+ * cash lane hold different things and are arranged identically; two copies of this
+ * would be two chances for one of them to start hiding the estate.
+ */
+function arrange<Row extends OpenLaneRowFacts>(
+  laneRows: Row[],
+  mineOnly: boolean,
+  ranked: boolean,
+): OpenLaneView<Row> {
+  if (laneRows.length === 0) return { kind: 'empty' }
 
   // 🚩 `=== true` and nothing looser: `undefined` is *not said*, and a filter that
   // treated it as a denial would be indistinguishable from one that treated it as a
-  // claim. When nothing was said the chip is not offered (`ranked`), so this only
-  // narrows a list the server actually labelled.
-  const kept = mineOnly ? laneRows.filter((r) => r.isMine === true) : laneRows
+  // claim.
+  //
+  // ⚠️ **And a tab the wire did not rank ignores the chip rather than emptying** — the
+  // filter is one piece of state across three tabs, but *whether it can be offered* is
+  // a per-tab fact: the receipts door always sends `isMine` while the entry tabs wait
+  // on §6 for it. Without this, a reader could press the chip on Cash waiting, switch
+  // to Owing against a door that sends no ranking, and read *"nothing matches these
+  // filters"* with no chip on screen to clear. A filter over a field nobody sent is
+  // not a filter.
+  const kept = mineOnly && ranked ? laneRows.filter((r) => r.isMine === true) : laneRows
 
   // ⚠️ **Before the sections, and it is not the same answer as `empty`.** The reader
   // narrowed this themselves and the way out is the chip they pressed.
-  if (kept.length === 0) return { ...base, view: { kind: 'filtered' } }
+  if (kept.length === 0) return { kind: 'filtered' }
 
-  if (!ranked) {
-    return { ...base, view: { kind: 'rows', sections: [section('all', kept, { kind: 'silent' })] } }
-  }
+  if (!ranked) return { kind: 'rows', sections: [section('all', kept, { kind: 'silent' })] }
 
   const mine = kept.filter((r) => r.isMine === true)
   const theirs = kept.filter((r) => r.isMine !== true)
 
-  const sections: OpenLaneSection[] = []
+  const sections: OpenLaneSection<Row>[] = []
   // An empty section is drawn as nothing at all rather than as a header over a void —
   // *"Yours · 0"* above the estate's list is a sentence about the reader that the
   // estate's own list already tells.
   if (mine.length) sections.push(section('mine', mine, { kind: 'silent' }))
   if (theirs.length) sections.push(section('theirs', theirs, signpost(mine, theirs)))
 
-  return { ...base, view: { kind: 'rows', sections } }
+  return { kind: 'rows', sections }
 }
 
-function section(
+function section<Row extends OpenLaneRowFacts>(
   which: OpenLaneSectionWhich,
-  rows: SettlementOpenLaneRow[],
+  rows: Row[],
   signpost: OpenLaneSignpost,
-): OpenLaneSection {
+): OpenLaneSection<Row> {
   return { which, rows, oldestAgeDays: rows[0]?.ageDays ?? null, signpost }
 }
 
@@ -338,8 +506,8 @@ function section(
  * a comparison that rounded in its own favour is the kind a reader stops trusting.
  */
 function signpost(
-  mine: readonly SettlementOpenLaneRow[],
-  theirs: readonly SettlementOpenLaneRow[],
+  mine: readonly OpenLaneRowFacts[],
+  theirs: readonly OpenLaneRowFacts[],
 ): OpenLaneSignpost {
   const oldest = theirs[0]?.ageDays
   // No age on the wire — there is no fact to state and none is invented.

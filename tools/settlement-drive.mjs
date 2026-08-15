@@ -131,6 +131,14 @@ let ledgerCalls = []
 let OPEN_LANE = []
 /** Every lane call, so *switching tabs must not refetch* is a thing this drive sees. */
 let laneCalls = []
+/** KEY **Ticket 286's CASH WAITING lane** (spec 282 D6) — the prepared special
+ *  receipts nobody has collected, off a door of their OWN (`Settlement/Uncollected`).
+ *  Minted against the open lane's real entries, which is what makes *a partly-consumed
+ *  entry appears on Owing AND here* a thing this drive can see rather than assert. */
+let UNCOLLECTED = []
+/** Every uncollected call, so *it takes no scope and asks for its own 500* is
+ *  checked rather than assumed. */
+let cashCalls = []
 /** Strip the three fields server dependency §6 has NOT built, so the drive can reach
  *  the degraded rendering — one unsectioned list, deriving nothing. */
 const withoutSix = (rows) =>
@@ -264,6 +272,26 @@ async function run() {
     }
     // The one enumerated lane. Estate-wide, always, and it takes no scope at all.
     if (path === 'Settlement/Orphans') return route.fulfill(envelope(ORPHANS))
+    // ---- ticket 286: the SECOND enumerated lane — prepared receipts nobody took ----
+    // KEY Estate-wide, no scope, mirroring Orphans: 1255 of 1394 branches are paired to
+    // nobody, and a receipt ageing on a shelf in one of them is exactly the money a
+    // scoped call would drop. The rows carry `isMine`, which RANKS and never filters.
+    //
+    // WARNING **Server dependency §2 is not built** - the shape is settled (ticket 277,
+    // against the server source and a live database) and served here as a stand-in for
+    // a known contract, exactly as 269's screens were before 274 joined them.
+    if (path === 'Settlement/Uncollected') {
+      cashCalls.push(Object.fromEntries([...url.searchParams]))
+      if (scenario.cashRefuses)
+        return route.fulfill(
+          envelope(null, { status: 500, success: false, message: 'Uncollected read failed.' }),
+        )
+      // The estate that has collected everything - good news, and its own sentence.
+      if (scenario.cashEmpty) return route.fulfill(envelope([]))
+      return route.fulfill(
+        envelope(UNCOLLECTED.slice(0, Number(url.searchParams.get('limit') || 500))),
+      )
+    }
     // KEY **The cross-estate lookup** (BackOffice 1199 §3) - the door that resolves an
     // entry NUMBER to the branch it is on, which `Settlement/Account` cannot because it
     // takes the storeId the caller is ringing up to ask for.
@@ -798,10 +826,14 @@ async function run() {
   })
   // …and 285's estate-scale OPEN POSITION: one open entry per branch, oldest first,
   // tie-broken by entry number. Same module the lane's vitest suite is built beside.
-  OPEN_LANE = await page.evaluate(async () => {
+  // …and 286's waiting receipts, out of the same module — minted against those very
+  // entries, so the overlap the ticket forbids deduplicating is real in the fixture.
+  const laneFixture = await page.evaluate(async () => {
     const m = await import('/src/features/collection/settlement/open-lane-fixture.ts')
-    return m.SETTLEMENT_OPEN_LANE
+    return { lane: m.SETTLEMENT_OPEN_LANE, uncollected: m.SETTLEMENT_UNCOLLECTED }
   })
+  OPEN_LANE = laneFixture.lane
+  UNCOLLECTED = laneFixture.uncollected
   FLEET = estate.fleet
   BRANCHES = estate.branches
   ORPHANS = estate.orphans
@@ -2795,6 +2827,201 @@ async function run() {
       (await drawn()).account,
     page.url().replace(BASE, ''),
   )
+
+  /* ══════════════════════════════════════════════════════════════════════════════
+   * Ticket 286 — CASH WAITING: a prepared receipt nobody collected shows how long it
+   * has waited.
+   *
+   * KEY The third tab reuses 285's arrangement with THREE substitutions and nothing
+   * else: the age says *prepared*, the money is the receipt's whole amount, and the
+   * name column is the COLLECTOR - because a waiting receipt is a visit that did not
+   * happen, which is a different failure and a different phone call.
+   *
+   * WARNING Its door is its own, so its FAILURE is its own: a refused receipts read
+   * must em-dash its own count and leave the other two counting.
+   * ══════════════════════════════════════════════════════════════════════════════ */
+
+  const CASH_ROUTE = `${OPEN_ROUTE}?tab=cash`
+  const cashMine = UNCOLLECTED.filter((r) => r.isMine)
+  const cashTheirs = UNCOLLECTED.filter((r) => !r.isMine)
+  /** The header row of a section's grid, as a reader sees it. */
+  const headers = async (which) =>
+    (
+      await page.locator(`[data-region="open-section-${which}"] .ag-header-cell-text`).allInnerTexts()
+    ).map((s) => s.trim())
+
+  scenario = { ...scenario, laneRefuses: false, cashRefuses: false, cashEmpty: false }
+  cashCalls = []
+  let cash = await openLane(CASH_ROUTE)
+
+  check(
+    '286 → `?tab=cash` opens the third tab, and the strip counts what is waiting',
+    (await page.getByRole('tab', { name: /^Cash waiting/ }).getAttribute('aria-selected')) ===
+      'true' && (await tabCount('cash')) === group(UNCOLLECTED.length),
+    `${await tabCount('cash')} vs ${UNCOLLECTED.length}`,
+  )
+  check(
+    '286 → …off a door of its OWN, estate-wide, asking for the rare-event 500',
+    cashCalls.length === 1 && cashCalls[0].limit === '500' && cashCalls[0].scope === undefined,
+    JSON.stringify(cashCalls[0] || {}),
+  )
+  check(
+    '🚩 286 → the receipts are sectioned and ordered exactly as the entry tabs are',
+    (await sectionCount('mine')) === group(cashMine.length) &&
+      (await sectionCount('theirs')) === group(cashTheirs.length) &&
+      (await topEntry('mine')) === String(cashMine[0].entryNumber) &&
+      (await topEntry('theirs')) === String(cashTheirs[0].entryNumber),
+    `mine ${await sectionCount('mine')}/${await topEntry('mine')} · theirs ${await sectionCount('theirs')}/${await topEntry('theirs')}`,
+  )
+
+  // 🚩 THE THREE SUBSTITUTIONS, read off the screen a reader sees.
+  const cashHeaders = await headers('mine')
+  check(
+    '🚩 286 → the money column is the receipt’s AMOUNT — no “still open”, no “of …”',
+    cashHeaders.includes('Amount') &&
+      !cashHeaders.includes('Still open') &&
+      !/\bof [\d,]/.test(cash),
+    cashHeaders.join(' · '),
+  )
+  check(
+    '🔑 286 → the name column is the COLLECTOR, where an entry names who serves the branch',
+    cashHeaders.includes('Collector') && !cashHeaders.includes('Served by'),
+    cashHeaders.join(' · '),
+  )
+  check(
+    '🚩 286 → the age is counted from PREPARED, and says so under every row',
+    /prepared \d/.test(cash) && !/posted \d/.test(cash) && /\d+ days|today/.test(cash),
+    cash.replace(/\n/g, ' ').slice(0, 140),
+  )
+  check(
+    '🚩 286 → …and nothing colours it here either — no badge, no “overdue”',
+    !/attention|destructive|danger|overdue/i.test(
+      await page.locator('[data-region="settlement-open"]').innerHTML(),
+    ),
+  )
+  check(
+    '286 → the namespace RENDERS — no raw `settlement:open.*` on the third tab',
+    !/settlement:open/.test(cash),
+  )
+
+  // ⚠️ **A partly-consumed entry belongs on Owing AND here**, and nothing may
+  // reconcile the two. The fixture mints every receipt against a real open entry, so
+  // the two tabs are looking at the same entries from two directions — and both must
+  // still count their own answer in full.
+  const cashTop = await topEntry('mine')
+  await page.getByRole('tab', { name: /^Owing/ }).click()
+  await page.waitForTimeout(250)
+  check(
+    '🚩 286 → the same entry may be owing AND waiting — neither tab loses a row to the other',
+    (await tabCount('owing')) === group(owingAll.length) &&
+      (await tabCount('cash')) === group(UNCOLLECTED.length) &&
+      UNCOLLECTED.some((r) => String(r.entryNumber) === cashTop) &&
+      owingAll.some((r) => String(r.entryNumber) === cashTop),
+    `entry ${cashTop} · owing ${await tabCount('owing')} · cash ${await tabCount('cash')}`,
+  )
+
+  // WARNING **A filter carried between tabs must never empty one with no chip to
+  // clear.** The chip is one piece of state across three tabs; the receipts door always
+  // ranks its rows while the entry tabs wait on §6 for it. Found by `/code-review`.
+  scenario = { ...scenario, laneBare: true }
+  await openLane(CASH_ROUTE)
+  await page.getByRole('button', { name: 'Mine only' }).click()
+  await page.waitForTimeout(250)
+  await page.getByRole('tab', { name: /^Owing/ }).click()
+  await page.waitForTimeout(250)
+  check(
+    '🚩 286 → “Mine only” pressed on Cash does not empty an UNRANKED Owing behind it',
+    (await page.locator('[data-testid="open-filtered"]').count()) === 0 &&
+      (await page.locator('[data-region="open-section-all"]').count()) === 1 &&
+      (await page.getByRole('button', { name: 'Mine only' }).count()) === 0,
+    (await mainText()).replace(/\n/g, ' ').slice(-120),
+  )
+  scenario = { ...scenario, laneBare: false }
+
+  // WARNING **The three tabs share column ids, and AG Grid keeps sort and filter state
+  // across a `columnDefs` swap** — so a grid reused between tabs would let a filter set
+  // while chasing shortages silently empty the receipts list while its count still
+  // claimed 37 rows. Each tab mounts its own. Found by `/code-review`.
+  await openLane()
+  const ageHeader = (which) =>
+    page.locator(`[data-region="open-section-${which}"] .ag-header-cell[col-id="ageDays"]`).first()
+  // Sort Owing's own grid by age ASCENDING — the exact opposite of the arrangement the
+  // screen exists for, so a grid carried over to the receipts would show it.
+  await ageHeader('mine').click()
+  await page.waitForTimeout(200)
+  const sortedOwing = await ageHeader('mine').getAttribute('aria-sort')
+  await page.getByRole('tab', { name: /^Cash waiting/ }).click()
+  await page.waitForTimeout(300)
+  check(
+    '🚩 286 → the third tab draws its OWN grid — no sort carried over from Owing',
+    sortedOwing === 'ascending' &&
+      (await sectionCount('mine')) === group(cashMine.length) &&
+      (await topEntry('mine')) === String(cashMine[0].entryNumber) &&
+      (await ageHeader('mine').getAttribute('aria-sort')) !== 'ascending',
+    `owing ${sortedOwing} → cash ${await ageHeader('mine').getAttribute('aria-sort')} · top ${await topEntry('mine')}`,
+  )
+
+  // 🚩 GOOD NEWS IN ITS OWN WORDS. Three different empty outcomes, three sentences —
+  // *no cash waiting* must never borrow *nothing owing*.
+  scenario = { ...scenario, cashEmpty: true }
+  cash = await openLane(CASH_ROUTE)
+  check(
+    '🚩 286 → an empty shelf is its OWN sentence, distinct from both entry tabs’',
+    /No cash waiting/.test(cash) &&
+      /Every prepared receipt has been collected/.test(cash) &&
+      !/Nothing owing|Nothing owed/.test(cash) &&
+      (await page.locator('[data-testid="open-empty"]').count()) === 1,
+    cash.replace(/\n/g, ' ').slice(0, 140),
+  )
+  check(
+    '286 → …and it is a real ZERO, not an unknown: the count says 0 rather than an em-dash',
+    (await tabCount('cash')) === '0',
+    await tabCount('cash'),
+  )
+  scenario = { ...scenario, cashEmpty: false }
+
+  // 🚩 A REFUSED RECEIPTS DOOR. Its own failure, its own sentence — and, because it is
+  // a second door, the two entry tabs are untouched by it.
+  scenario = { ...scenario, cashRefuses: true }
+  cash = await openLane(CASH_ROUTE)
+  await page
+    .waitForSelector('[data-region="settlement-open"] [role="alert"]', { timeout: 15000 })
+    .catch(() => {})
+  await page.waitForTimeout(200)
+  cash = await mainText()
+  // WARNING The words are the SERVER's when it sent any (285's `apiErrorMessage` rule,
+  // unchanged here) - so what this asserts is the rendering: a refusal is DRAWN, and
+  // neither of the two good-news states is. `open.errors.cashFailed` is the fallback
+  // beneath it, for a door that failed without saying anything.
+  check(
+    '🚩 286 → a refused receipts read says so — never “everything has been collected”',
+    (await page.locator('[data-region="settlement-open"] [role="alert"]').count()) === 1 &&
+      !/No cash waiting|Every prepared receipt has been collected/.test(cash) &&
+      (await page.locator('[data-testid="open-empty"]').count()) === 0 &&
+      (await page.locator('[data-region="open-section-mine"]').count()) === 0,
+    cash.replace(/\n/g, ' ').slice(-160),
+  )
+  check(
+    '🔑 286 → …and it em-dashes ITS count only: the two entry tabs still count the estate',
+    (await tabCount('cash')) === '—' &&
+      (await tabCount('owing')) === group(owingAll.length) &&
+      (await tabCount('owed')) === group(owedAll.length),
+    `cash ${await tabCount('cash')} · owing ${await tabCount('owing')} · owed ${await tabCount('owed')}`,
+  )
+  scenario = { ...scenario, cashRefuses: false }
+
+  // …and the converse: the LEDGER refusing must not take the receipts’ count with it.
+  scenario = { ...scenario, laneRefuses: true }
+  cash = await openLane(CASH_ROUTE)
+  await page.waitForTimeout(300)
+  check(
+    '🔑 286 → …and a refused LEDGER leaves the receipts counted and drawn',
+    (await tabCount('cash')) === group(UNCOLLECTED.length) &&
+      (await tabCount('owing')) === '—' &&
+      (await page.locator('[data-region="open-section-mine"]').count()) === 1,
+    `cash ${await tabCount('cash')} · owing ${await tabCount('owing')}`,
+  )
+  scenario = { ...scenario, laneRefuses: false }
 
   /* ══════════════════════════════════════════════════════════════════════════════
    * Ticket 288 — THE FRONT PAGE COUNTS THE WORK AND LINKS TO IT.

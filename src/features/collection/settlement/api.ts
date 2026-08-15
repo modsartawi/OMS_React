@@ -40,10 +40,12 @@ import type {
   SettlementPostResult,
   SettlementRepairResult,
   SettlementScope,
+  SettlementUncollectedRow,
 } from '@/core/models/settlement'
 import {
   ACCOUNT_LIMIT,
   BRANCH_LIMIT,
+  CASH_LANE_LIMIT,
   FLEET_LIMIT,
   LEDGER_LIMIT,
   OPEN_LANE_LIMIT,
@@ -247,6 +249,39 @@ export const settlementApi = {
       // over a capped answer would let a refetch reshuffle which rows the cap kept.
       sort: 'age',
       limit: OPEN_LANE_LIMIT,
+    })
+  },
+
+  /**
+   * `GET Settlement/Uncollected?limit=500` → every **prepared special receipt the
+   * estate has not collected** (spec 282 D6, ticket 286) — the cash waiting tab.
+   *
+   * 🔑 **A door of its own, unlike the lane above, and the difference is what the
+   * question is made of.** `status=OPEN` is a column-equals-constant the ledger
+   * already takes; *a receipt prepared and not collected* is a **predicate over the
+   * consumption journal** — the same one the fleet door already runs as an aggregate
+   * to light `hasUncollectedReceipt`. One spelling of a money predicate, server-side,
+   * is the discipline that justified `Settlement/Orphans` having a door of its own,
+   * and it justifies this one for the same reason. Enumerating it costs 38–76 ms at
+   * estate scale, measured (spec 282 *Further Notes*) — cheaper than the flag it
+   * replaces.
+   *
+   * 🚩 **No scope parameter, and the absence is the design** — `Settlement/Orphans`'s
+   * ruling, unchanged: a door with no scope to pass cannot be narrowed by accident.
+   * 1,255 of 1,394 branches are paired to nobody, and a receipt ageing on a shelf in
+   * one of them is exactly the money a scoped call would drop. The rows carry
+   * `isMine`, which **ranks** them and never filters them.
+   *
+   * ⚠️ **Server dependency §2 of `.afk/BACKOFFICE-TICKET-DRAFT-settlement-reads.md` is
+   * NOT built**, so this door refuses today and the tab draws that refusal. It is
+   * whole-or-nothing — there is no half-answer to degrade into, which is why
+   * `SettlementUncollectedRow` makes none of its fields optional where the lane's
+   * three §6 additions are. The shape is settled against the server source and a live
+   * database (ticket 277), and driven against a fixture served over this same call.
+   */
+  uncollected(): Promise<SettlementUncollectedRow[]> {
+    return api.get<SettlementUncollectedRow[]>('Settlement/Uncollected', {
+      limit: CASH_LANE_LIMIT,
     })
   },
 

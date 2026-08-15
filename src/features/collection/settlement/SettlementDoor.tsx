@@ -23,7 +23,12 @@ import RepairDialog from './RepairDialog'
 import { resolveSubmit, searchBranches, type BranchSearchResult } from './search'
 import { estateFigures } from './figures'
 import { ledgerSearch } from './ledger'
-import { OPEN_LANE_TABS, openTabSearch, tallyOpenLane, type OpenLaneTally } from './open-lane'
+import {
+  OPEN_LANE_ENTRY_TABS,
+  openTabSearch,
+  tallyOpenLane,
+  type OpenLaneTally,
+} from './open-lane'
 import { buildWorklist } from './worklist'
 
 /**
@@ -547,7 +552,14 @@ function OpenSignpost({
       </header>
 
       <ul className="flex flex-wrap gap-2">
-        {OPEN_LANE_TABS.map((tab) => (
+        {/* ⚠️ **The two ENTRY tabs, and 286 building the third did not add a link
+            here.** This signpost is one reading of the ledger answer it already holds
+            (288); *Cash waiting* is a second door with its own cap and its own
+            failure, so counting it on the front page would mean this screen fetching
+            the receipts too — a call the reader has not asked for, on the screen they
+            open first. Spec 282 story 46 asks the front page to agree with **the two
+            entry tabs**; the third is counted where it is fetched, on the lane. */}
+        {OPEN_LANE_ENTRY_TABS.map((tab) => (
           <li key={tab}>
             {/* 🔑 **The lane's own builder, not a second spelling of it.** The tab is
                 the address (`?tab=owed`) and the scope rides along — but *which value

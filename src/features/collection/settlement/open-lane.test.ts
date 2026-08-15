@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import type { SettlementOpenLaneRow } from '@/core/models/settlement'
-import { OPEN_LANE_LIMIT } from './cap'
+import type { SettlementOpenLaneRow, SettlementUncollectedRow } from '@/core/models/settlement'
+import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT } from './cap'
+import { LANE_TODAY, SETTLEMENT_OPEN_LANE, SETTLEMENT_UNCOLLECTED } from './open-lane-fixture'
 import {
+  buildCashLane,
   buildOpenLane,
   DEFAULT_OPEN_TAB,
   openTabSearch,
   readOpenTab,
+  tallyCashLane,
   tallyOpenLane,
 } from './open-lane'
 
@@ -342,15 +345,215 @@ describe('the tab is an address', () => {
     expect(readOpenTab(new URLSearchParams('tab=OWED'))).toBe('owed')
     expect(readOpenTab(new URLSearchParams('tab='))).toBe(DEFAULT_OPEN_TAB)
     expect(readOpenTab(new URLSearchParams('tab=nonsense'))).toBe(DEFAULT_OPEN_TAB)
-    // 286's tab — reserved on the wire, not yet a view. It must not resolve to Owing
-    // silently once that slice lands, so it is read here as unknown today.
-    expect(readOpenTab(new URLSearchParams('tab=cash'))).toBe(DEFAULT_OPEN_TAB)
+    // ✅ 286 built the third tab, so `?tab=cash` is now a view rather than an unknown
+    // value falling back to Owing — the address an accountant pasted last week opens
+    // the list it names.
+    expect(readOpenTab(new URLSearchParams('tab=cash'))).toBe('cash')
+    expect(readOpenTab(new URLSearchParams('tab=CASH'))).toBe('cash')
   })
 
   it('keeps the scope, drops what led here, and spells the default as absence', () => {
     const from = new URLSearchParams('scope=all&store=0142&q=rawdah')
     expect(openTabSearch(from, 'owed')).toBe('/collection/settlement/open?scope=all&tab=owed')
     expect(openTabSearch(from, 'owing')).toBe('/collection/settlement/open?scope=all')
+    expect(openTabSearch(from, 'cash')).toBe('/collection/settlement/open?scope=all&tab=cash')
     expect(openTabSearch(new URLSearchParams(''), 'owing')).toBe('/collection/settlement/open')
+  })
+})
+
+/* ══════════════════════════════════════════════════════════════════════════════
+ * Ticket 286 — CASH WAITING: a prepared receipt nobody collected.
+ *
+ * 🔑 The tab reuses 285's arrangement with **three substitutions and nothing else**,
+ * so what is worth asserting here is exactly those three and the one rule they create:
+ * that a waiting receipt and an unpaid entry are two sentences about the same money
+ * and **must both survive**.
+ * ══════════════════════════════════════════════════════════════════════════════ */
+
+/** One `Settlement/Uncollected` row. ⚠️ There is no `remainingAmount` to give it —
+ *  that is the point of the second Proof bullet, and the type is what enforces it. */
+function receipt(o: {
+  entryNumber: number
+  ageDays: number
+  isMine?: boolean
+  servedBy?: string
+  storeId?: string
+  amount?: number
+  preparedAt?: string
+}): SettlementUncollectedRow {
+  return {
+    settlementConsumptionId: `C${o.entryNumber}`,
+    documentId: `SR-${o.entryNumber}`,
+    storeId: o.storeId ?? '0142',
+    storeName: 'Al-Rawdah Pharmacy',
+    servedBy: o.servedBy ?? '',
+    isMine: o.isMine ?? false,
+    entryNumber: o.entryNumber,
+    entryKind: 'SHORTAGE',
+    amount: o.amount ?? 60,
+    currencyKey: 'SAR',
+    preparedAt: o.preparedAt ?? '2026-08-01T09:20:00',
+    ageDays: o.ageDays,
+  }
+}
+
+/** Which rows a view drew, flattened across its sections and in the drawn order. */
+function drawn<Row>(view: { kind: string; sections?: { rows: Row[] }[] }): Row[] {
+  return (view.sections ?? []).flatMap((s) => s.rows)
+}
+
+describe('lane: a waiting receipt reads its age from prepared, and carries no remaining', () => {
+  it('states the receipt’s own age, counted from when it was prepared', () => {
+    // 🔑 The fixture derives `preparedAt` FROM `ageDays`, the direction the server
+    // subtracts in — so agreeing with the frozen `LANE_TODAY` is the same assertion an
+    // accountant makes when they read the number and the date on one row (story 5).
+    const midnight = (iso: string) => Date.parse(`${iso.slice(0, 10)}T00:00:00Z`)
+    const today = Date.parse(`${LANE_TODAY}T00:00:00Z`)
+
+    for (const r of SETTLEMENT_UNCOLLECTED) {
+      expect(Math.round((today - midnight(r.preparedAt)) / 86_400_000)).toBe(r.ageDays)
+    }
+
+    // ⚠️ …and it is the RECEIPT's age, not the entry's. A tab that read `postedAt`
+    // would answer *"how long has the branch owed this"* under a header that says
+    // *prepared*, which is a different question with the same shape.
+    const entries = new Map(SETTLEMENT_OPEN_LANE.map((e) => [e.entryNumber, e]))
+    const differs = SETTLEMENT_UNCOLLECTED.filter(
+      (r) => entries.get(r.entryNumber)?.ageDays !== r.ageDays,
+    )
+    expect(differs.length).toBeGreaterThan(SETTLEMENT_UNCOLLECTED.length / 2)
+  })
+
+  it('carries the receipt’s whole amount and no remaining figure at all', () => {
+    const lane = buildCashLane({ rows: SETTLEMENT_UNCOLLECTED, failed: false, mineOnly: false })
+    const rows = drawn(lane.view)
+    expect(rows.length).toBe(SETTLEMENT_UNCOLLECTED.length)
+
+    for (const r of rows) {
+      expect(r.amount).toBeGreaterThan(0)
+      // 🚩 A receipt is collected or it is not: there is no partial state, so there is
+      // nothing for a *still open* figure to mean and no second number beside it. The
+      // wire agrees, and this is the assertion that keeps it agreeing.
+      expect('remainingAmount' in r).toBe(false)
+    }
+  })
+
+  it('names the collector, or says nobody is assigned in words — never a blank claim', () => {
+    const lane = buildCashLane({
+      rows: [receipt({ entryNumber: 1, ageDays: 9, servedBy: 'Ayed', isMine: true }), receipt({ entryNumber: 2, ageDays: 3 })],
+      failed: false,
+      mineOnly: false,
+    })
+    // The projection hands the name through as it arrived — `''` is a real answer the
+    // row renders as *nobody assigned*, and it is never turned into a placeholder here.
+    expect(drawn(lane.view).map((r) => r.servedBy)).toEqual(['Ayed', ''])
+  })
+
+  it('sections, filters and states exactly as the entry tabs do', () => {
+    const rows = [
+      receipt({ entryNumber: 1, ageDays: 30, isMine: false }),
+      receipt({ entryNumber: 2, ageDays: 12, isMine: true }),
+      receipt({ entryNumber: 3, ageDays: 4, isMine: false }),
+    ]
+    const lane = buildCashLane({ rows, failed: false, mineOnly: false })
+    expect(lane.view.kind).toBe('rows')
+    if (lane.view.kind !== 'rows') throw new Error('unreachable')
+    expect(lane.view.sections.map((s) => s.which)).toEqual(['mine', 'theirs'])
+    // The server's order inside each section, untouched — 30 before 4.
+    expect(lane.view.sections[1].rows.map((r) => r.entryNumber)).toEqual([1, 3])
+    // …and the signpost claims the comparison because it IS true (30 > 12).
+    expect(lane.view.sections[1].signpost).toEqual({
+      kind: 'olderThanYours',
+      oldestAgeDays: 30,
+      yoursOldestAgeDays: 12,
+    })
+
+    // 🚩 **The three that must never collapse into each other**, on this tab too: a
+    // shelf with nothing on it is good news, a list I narrowed myself is my own doing,
+    // and a door that refused is neither.
+    expect(buildCashLane({ rows: [], failed: false, mineOnly: false }).view.kind).toBe('empty')
+    expect(buildCashLane({ rows, failed: false, mineOnly: true }).view.kind).toBe('rows')
+    expect(
+      buildCashLane({ rows: [rows[0]], failed: false, mineOnly: true }).view.kind,
+    ).toBe('filtered')
+    expect(buildCashLane({ rows: undefined, failed: true, mineOnly: false }).view.kind).toBe(
+      'failed',
+    )
+  })
+
+  it('a tab the wire did not rank IGNORES the chip rather than emptying under it', () => {
+    // The chip is one piece of state across three tabs, but the receipts door always
+    // sends `isMine` while the entry tabs wait on §6 for it. Pressed on Cash waiting
+    // and carried to an unranked Owing, a filter that still applied would draw
+    // *"nothing matches these filters"* with no chip on screen to clear.
+    const unranked = [row({ entryNumber: 1, ageDays: 20 }), row({ entryNumber: 2, ageDays: 3 })]
+    const lane = buildOpenLane({ rows: unranked, failed: false, tab: 'owing', mineOnly: true })
+
+    expect(lane.ranked).toBe(false)
+    expect(lane.view.kind).toBe('rows')
+    expect(drawn(lane.view).map((r) => r.entryNumber)).toEqual([1, 2])
+  })
+
+  it('counts on its own terms — unknown when refused, and capped at 500 rather than 2,000', () => {
+    // ⚠️ `null`, never `0`: *"Cash waiting 0"* off a refused door says every prepared
+    // receipt has been collected, which is the one thing this tab may not say.
+    expect(tallyCashLane({ rows: undefined, failed: true })).toEqual({
+      count: null,
+      capReached: false,
+    })
+    expect(tallyCashLane({ rows: SETTLEMENT_UNCOLLECTED, failed: false }).count).toBe(
+      SETTLEMENT_UNCOLLECTED.length,
+    )
+    // 🔑 The rare-event cap, and the lane's population cap, are different numbers about
+    // different questions — so the two banners can never be about the same answer.
+    const many = Array.from({ length: CASH_LANE_LIMIT }, (_, i) =>
+      receipt({ entryNumber: i + 1, ageDays: 1 }),
+    )
+    expect(tallyCashLane({ rows: many, failed: false }).capReached).toBe(true)
+    expect(CASH_LANE_LIMIT).toBeLessThan(OPEN_LANE_LIMIT)
+  })
+})
+
+describe('lane: the same entry may appear owing and waiting', () => {
+  it('keeps both rows — two true sentences about one entry, and two phone calls', () => {
+    // A partly-consumed entry: the branch still owes the remainder AND a receipt for
+    // part of it is prepared and uncollected.
+    const entry = row({ entryNumber: 1611, ageDays: 159, amount: 100, remaining: 40, isMine: true })
+    const waiting = receipt({ entryNumber: 1611, ageDays: 6, amount: 60, isMine: true })
+
+    const owing = buildOpenLane({ rows: [entry], failed: false, tab: 'owing', mineOnly: false })
+    const cash = buildCashLane({ rows: [waiting], failed: false, mineOnly: false })
+
+    expect(drawn(owing.view).map((r) => r.entryNumber)).toEqual([1611])
+    expect(drawn(cash.view).map((r) => r.entryNumber)).toEqual([1611])
+    // 🚩 …and they say **different** things about it: what is still open versus what is
+    // waiting to be fetched, on two different clocks. Reconciling them into one row
+    // would lose one of the two calls.
+    expect(drawn(owing.view)[0].remainingAmount).toBe(40)
+    expect(drawn(cash.view)[0].amount).toBe(60)
+    expect(drawn(owing.view)[0].ageDays).not.toBe(drawn(cash.view)[0].ageDays)
+  })
+
+  it('does not deduplicate at estate scale either — every shared entry survives on both', () => {
+    // The fixture mints each receipt against a real open entry, so the overlap is the
+    // ordinary case rather than a contrived one.
+    const openNumbers = new Set(SETTLEMENT_OPEN_LANE.map((e) => e.entryNumber))
+    const shared = SETTLEMENT_UNCOLLECTED.filter((r) => openNumbers.has(r.entryNumber))
+    expect(shared.length).toBe(SETTLEMENT_UNCOLLECTED.length)
+
+    const cash = buildCashLane({ rows: SETTLEMENT_UNCOLLECTED, failed: false, mineOnly: false })
+    expect(drawn(cash.view).length).toBe(SETTLEMENT_UNCOLLECTED.length)
+
+    // …and the entry lane is untouched by any of it: the two doors never meet, and the
+    // Owing count is still the estate's own.
+    const owing = buildOpenLane({
+      rows: SETTLEMENT_OPEN_LANE,
+      failed: false,
+      tab: 'owing',
+      mineOnly: false,
+    })
+    expect(owing.counts.owing).toBe(
+      SETTLEMENT_OPEN_LANE.filter((e) => e.entryKind === 'SHORTAGE').length,
+    )
   })
 })

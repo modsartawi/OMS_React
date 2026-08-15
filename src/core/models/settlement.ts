@@ -302,6 +302,10 @@ export type SettlementOrphanRow = {
  * ✅ **`SettlementLedgerRow` was the third, and it is BACK — as a door.** §B1 was
  * right that D13 specified six doors and the ledger was not among them; the answer
  * was to build the seventh (BackOffice 1199 §3), not to fake it. See below.
+ *
+ * ✅ **And `SettlementUncollectedRow` is back too, for the same reason and no other**
+ * — spec 282 D6 designed the door that enumerates the flag, against the server source
+ * and a live database (ticket 277). See it below the ledger rows.
  */
 
 /**
@@ -385,6 +389,77 @@ export type SettlementOpenLaneRow = SettlementLedgerRow & {
    * (story 4). `0` is a real value and renders as *today* rather than as *0 days*.
    */
   ageDays?: number
+}
+
+/**
+ * One **prepared special receipt nobody has collected** — `Settlement/Uncollected`,
+ * the cash-waiting lane's row (spec 282 D6, ticket 286).
+ *
+ * 🔑 **It is a CONSUMPTION, not an entry** — which is why it is a row of its own and
+ * not a `status` on the lane above. The fleet door can only say *"0331 has one
+ * somewhere"* (`hasUncollectedReceipt`, a flag), which sends the accountant hunting
+ * through a branch's account for it; this enumerates the receipts behind the flag,
+ * exactly as `Settlement/Orphans` enumerates the wrong money behind `hasOrphan`.
+ *
+ * 🚩 **A waiting receipt is a VISIT THAT DID NOT HAPPEN** — a different failure and a
+ * different phone call from an unpaid shortage, which is why it is its own tab rather
+ * than a kind filter over the entry lane. ⚠️ And a partly-consumed entry can
+ * legitimately appear on **both** Owing and here: *"the branch still owes 40"* and
+ * *"a receipt for 60 is prepared and nobody has been to fetch it"* are two true
+ * sentences about the same money, and nothing may deduplicate them.
+ *
+ * ⚠️ **Nothing here is optional, unlike `SettlementOpenLaneRow`'s three additions —
+ * and the asymmetry is the build order rather than a style.** §6 extends a door that
+ * already ships, so its new fields arrive one day and are absent today. §2 is a
+ * **whole door**: until it is built there is no answer at all (the lane draws its
+ * refusal), and when it is built it answers this shape. A field made optional "just in
+ * case" would be the client agreeing in advance to a contract nobody proposed.
+ */
+export type SettlementUncollectedRow = {
+  /** What the receipt IS, and the handle any later act on it would take — the same
+   *  id `Settlement/Repair` keys the orphan lane by. */
+  settlementConsumptionId: string
+  /** The special receipt document. Present, and being present is what tells this
+   *  apart from an orphan, whose `documentId` is blank by definition. */
+  documentId: string
+  storeId: string
+  /** Both scripts in one string, as every store name on this contract carries them. */
+  storeName: string
+  /**
+   * 🔑 **The collector** — the person whose visit did not happen, not the branch
+   * manager and not the accountant who posted the entry. `''` for a receipt with
+   * nobody named, which the row says **in words** rather than leaving blank.
+   */
+  servedBy: string
+  /** Whether the **session** serves this branch — an ordering input, never a
+   *  permission (`SettlementOpenLaneRow.isMine`'s ruling, unchanged). */
+  isMine: boolean
+  /** 🔑 **The same handle the other two tabs quote**, joined off the entry — so the
+   *  accountant identifies it on the phone the same way whichever tab they are on. */
+  entryNumber: number
+  entryKind: SettlementEntryKind
+  /**
+   * The receipt's **whole** amount, and there is no `remainingAmount` beside it.
+   *
+   * 🚩 A receipt is collected or it is not: there is no partial state to show, so no
+   * *still open* and no *of X*. Drawing the entry's remaining here would answer a
+   * different question with this row's number.
+   */
+  amount: number
+  /** Per row, because the estate is KSA **and** Bahrain — free on this door because
+   *  it was designed after the finding (spec 282 D12). */
+  currencyKey: string
+  /**
+   * When the receipt was **written** — the CONSUME row's own timestamp.
+   *
+   * 🔑 **The consume happens at PREPARE**, so this is the moment the receipt started
+   * waiting, on head office's own clock (ticket 277). Not the entry's `postedAt`:
+   * *"how long has this been waiting"* has to mean what it says.
+   */
+  preparedAt: string
+  /** `DATEDIFF(day, PreparedAt, <server now>)` — **the server subtracts, the client
+   *  owns no clock** (spec 282 D5). `0` renders as *today*. */
+  ageDays: number
 }
 
 /**

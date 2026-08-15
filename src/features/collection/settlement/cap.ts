@@ -93,6 +93,25 @@ export const LEDGER_LIMIT = 500
 export const OPEN_LANE_LIMIT = 2000
 
 /**
+ * The **cash waiting** lane's cap (spec 282 D9, ticket 286) — one call at
+ * `Settlement/Uncollected`, feeding the lane's third tab.
+ *
+ * 🔑 **500, the orphan lane's number and NOT `OPEN_LANE_LIMIT`'s 2,000** — the same
+ * question `OPEN_LANE_LIMIT` answers, asked of a different lane and answered the other
+ * way. A prepared receipt nobody has collected is a **rare event** (a collector's
+ * round that did not happen), not a population: at 500 of them the estate has stopped
+ * collecting cash altogether, and the banner saying so is the first place that would
+ * show. The lane above answers the estate's whole open position, where 500 would
+ * truncate a complete answer in silence.
+ *
+ * 🚩 Named rather than inheriting `WORKLIST_LIMIT`, on this file's own rule: one
+ * constant per door, asked for by the query **and** measured against the answer. Two
+ * doors sharing a constant is how one of them silently gets the other's cap the day it
+ * changes.
+ */
+export const CASH_LANE_LIMIT = 500
+
+/**
  * The fleet door's cap — ✅ **found live by 274, and it is the one number on this
  * screen that had to change.**
  *

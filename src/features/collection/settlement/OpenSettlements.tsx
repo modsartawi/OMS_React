@@ -4,11 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
 import { UserCheck } from 'lucide-react'
 import { AgGridReact } from 'ag-grid-react'
+import type { ColDef } from 'ag-grid-community'
 
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
-import type { SettlementOpenLaneRow } from '@/core/models/settlement'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
@@ -18,16 +18,22 @@ import {
 import { branchSearch } from './addresses'
 import { settlementApi } from './api'
 import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
-import { OPEN_LANE_LIMIT } from './cap'
-import { buildOpenColumns, ageWords, openRowId } from './open-columns'
+import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT } from './cap'
+import { buildCashColumns, buildOpenColumns, ageWords, cashRowId, openRowId } from './open-columns'
 import {
+  buildCashLane,
   buildOpenLane,
+  DEFAULT_OPEN_TAB,
+  isEntryTab,
   OPEN_LANE_TABS,
   openTabSearch,
   readOpenTab,
   type OpenLane,
+  type OpenLaneRowFacts,
   type OpenLaneSection,
   type OpenLaneTab,
+  type OpenLaneTabCounts,
+  type OpenLaneView,
 } from './open-lane'
 
 /**
@@ -59,8 +65,16 @@ import {
  * claiming *oldest first* (`aged`) rather than describing an arrangement the rows do
  * not have. `open-lane.ts` owns those decisions; this file only draws its answer.
  *
- * This slice is the two entry tabs. *Cash waiting* is 286's (it needs a door of its
- * own), and the chase note and its column are 287's.
+ * 🔑 **The third tab is a SECOND door** (286): *Cash waiting* enumerates the prepared
+ * receipts nobody has collected, off `Settlement/Uncollected` — a different call, a
+ * different cap (500, a rare event rather than a population) and a **failure of its
+ * own**, which is why its count can be an em-dash while the other two still count. The
+ * arrangement is identical and shared; what changes is three things and nothing else —
+ * the age says *prepared*, the money is the receipt's whole amount, and the name
+ * column is the **collector**, because a waiting receipt is a visit that did not
+ * happen.
+ *
+ * The chase note and its column are 287's.
  */
 export default function OpenSettlements() {
   const { t } = useTranslation('settlement')
@@ -87,11 +101,42 @@ export default function OpenSettlements() {
     staleTime: 60_000,
   })
 
+  /**
+   * The third tab's own door (spec 282 D6) — **a second call, and deliberately not
+   * folded into the one above.** A receipt nobody has collected is a row of the
+   * consumption journal, not an entry: it has its own predicate, its own 500-row cap
+   * and its own failure. One call answering both would mean either tab's refusal
+   * taking the other's numbers down with it.
+   *
+   * ⚠️ **Fetched whichever tab is showing**, because the tab strip carries its count —
+   * *Cash waiting* with no number beside it would be a job whose size you have to
+   * open it to learn. It is estate-wide and takes no scope, as `Settlement/Orphans`
+   * does.
+   */
+  const cash = useQuery({
+    queryKey: ['settlement', 'cash-lane'],
+    queryFn: () => settlementApi.uncollected(),
+    staleTime: 60_000,
+  })
+  const onCash = !isEntryTab(tab)
+
   const built = useMemo(
-    () => buildOpenLane({ rows: lane.data, failed: lane.isError, tab, mineOnly }),
+    () =>
+      buildOpenLane({
+        rows: lane.data,
+        failed: lane.isError,
+        // The counts are the same whichever tab is drawn; only the view is a tab's.
+        tab: isEntryTab(tab) ? tab : DEFAULT_OPEN_TAB,
+        mineOnly,
+      }),
     [lane.data, lane.isError, tab, mineOnly],
   )
+  const cashBuilt = useMemo(
+    () => buildCashLane({ rows: cash.data, failed: cash.isError, mineOnly }),
+    [cash.data, cash.isError, mineOnly],
+  )
   const columns = useMemo(() => buildOpenColumns(t, built.named), [t, built.named])
+  const cashColumns = useMemo(() => buildCashColumns(t), [t])
   /**
    * 🚩 **Can this screen claim its own arrangement?** `sort=age` and `ageDays` are one
    * server dependency (§6): a door sending no ages is a door that ignored the sort and
@@ -112,25 +157,40 @@ export default function OpenSettlements() {
     <section className="flex flex-col gap-4" data-region="settlement-open">
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 className="text-base font-semibold tracking-tight">{t('open.title')}</h2>
+        {/* 🚩 The cash tab says what IT is looking at: *"every entry the estate still
+            has open"* is not true of a shelf of prepared receipts, and its own age is
+            counted from a different event. `unordered` is an entry-tab condition only
+            — §6 is the ledger's dependency, and this door either answers whole or
+            refuses. */}
         <p className="text-xs text-muted-foreground">
-          {t(unordered ? 'open.subtitleUnordered' : 'open.subtitle')}
+          {t(onCash ? 'open.subtitleCash' : unordered ? 'open.subtitleUnordered' : 'open.subtitle')}
         </p>
       </header>
 
       {/* ⚠️ **Unknown while the read is in flight, and that is the same rule the
           failed case follows** — `0` is a number this screen has not been told, and
           *"Owing 0"* under a shimmer is the estate looking settled for as long as the
-          door takes to answer. The em-dash resolves into a count, never out of one. */}
+          door takes to answer. The em-dash resolves into a count, never out of one.
+
+          🔑 The third count comes from the third door and is unknown on its own terms:
+          one lane refusing must not em-dash the other's numbers. */}
       <Tabs
         tab={tab}
-        counts={lane.isPending ? UNKNOWN_COUNTS : built.counts}
+        counts={{
+          ...(lane.isPending ? UNKNOWN_COUNTS : built.counts),
+          cash: cash.isPending ? null : cashBuilt.count,
+        }}
         onTab={(next) => navigate(openTabSearch(searchParams, next))}
       />
 
       {/* ⚠️ Offered only when the wire actually labelled the rows. A chip over a field
           nobody sent could only ever empty the list, which would read as *you have
-          nothing* rather than as *the server did not say*. */}
-      {built.ranked && (
+          nothing* rather than as *the server did not say*. (On the cash tab the door
+          always labels them — §2 is whole or nothing.) */}
+      {/* ⚠️ …and not over a shimmer either: the entry tabs' `ranked` is false until
+          rows arrive, so gating the cash tab on the error alone would put a chip above
+          a list that is not there yet. */}
+      {(onCash ? !cash.isError && !cash.isPending : built.ranked) && (
         <div className="flex flex-wrap items-center gap-2">
           <ToggleChip
             icon={<UserCheck className="h-3.5 w-3.5" aria-hidden />}
@@ -145,7 +205,7 @@ export default function OpenSettlements() {
           POPULATION, so reaching the cap means a complete answer was truncated — and
           because the order is oldest-first, the rows it dropped are the newest ones
           and nothing else on screen would look wrong. */}
-      {built.capReached && (
+      {!onCash && built.capReached && (
         <AccountCapBanner
           message={t(unordered ? 'open.capReachedUnordered' : 'open.capReached', {
             limit: OPEN_LANE_LIMIT.toLocaleString('en-US'),
@@ -153,14 +213,42 @@ export default function OpenSettlements() {
         />
       )}
 
-      {lane.isPending ? (
+      {/* 🚩 **A different cap and a different sentence** — 500 here, because a waiting
+          receipt is a rare event rather than a population. Reaching it does not mean
+          the estate is bigger than the page; it means collection has stopped, which is
+          news of its own (`cap.ts`). */}
+      {onCash && cashBuilt.capReached && (
+        <AccountCapBanner
+          message={t('open.capReachedCash', { limit: CASH_LANE_LIMIT.toLocaleString('en-US') })}
+        />
+      )}
+
+      {onCash ? (
+        cash.isPending ? (
+          <AccountShimmer label={t('open.loadingCash')} />
+        ) : (
+          <LaneBody
+            view={cashBuilt.view}
+            tab={tab}
+            columns={cashColumns}
+            getRowId={cashRowId}
+            error={cash.error}
+            failedMessage={t('open.errors.cashFailed')}
+            onClearFilter={() => setMineOnly(false)}
+            onRow={(row) => navigate(branchSearch(searchParams, row.storeId, row.entryNumber))}
+          />
+        )
+      ) : lane.isPending ? (
         <AccountShimmer label={t('open.loading')} />
       ) : (
         <LaneBody
-          lane={built}
+          view={built.view}
           tab={tab}
           columns={columns}
+          getRowId={openRowId}
+          unranked={!built.ranked}
           error={lane.error}
+          failedMessage={t('open.errors.laneFailed')}
           onClearFilter={() => setMineOnly(false)}
           onRow={(row) => navigate(branchSearch(searchParams, row.storeId, row.entryNumber))}
         />
@@ -188,7 +276,7 @@ function Tabs({
   onTab,
 }: {
   tab: OpenLaneTab
-  counts: OpenLane['counts']
+  counts: OpenLaneTabCounts
   onTab: (next: OpenLaneTab) => void
 }) {
   const { t } = useTranslation('settlement')
@@ -229,43 +317,59 @@ function Tabs({
   )
 }
 
-/** The five states, in the order a reader meets them. */
-function LaneBody({
-  lane,
+/**
+ * The five states, in the order a reader meets them.
+ *
+ * 🚩 **Generic over the row, and one implementation for all three tabs** (286). The
+ * five states are the vocabulary the whole screen is read in — *empty* is good news,
+ * *emptied by my own filter* is the reader's doing, *failed* is neither — and a second
+ * copy of this for the third tab would be the place one of those three quietly
+ * collapsed into another. What each tab supplies is its own words and its own columns.
+ */
+function LaneBody<Row extends OpenLaneRowFacts & { storeId: string; entryNumber: number }>({
+  view,
   tab,
   columns,
+  getRowId,
+  unranked = false,
   error,
+  failedMessage,
   onClearFilter,
   onRow,
 }: {
-  lane: OpenLane
+  view: OpenLaneView<Row>
   tab: OpenLaneTab
-  columns: ReturnType<typeof buildOpenColumns>
+  columns: ColDef<Row>[]
+  getRowId: (p: { data: Row }) => string
+  /** Only the entry tabs can be unranked — §6 is the ledger's dependency. */
+  unranked?: boolean
   error: unknown
+  /** ⚠️ Per door: a refused ledger and a refused receipt door are two different
+   *  sentences, because the reader can act on one of them and not the other. */
+  failedMessage: string
   onClearFilter: () => void
-  onRow: (row: SettlementOpenLaneRow) => void
+  onRow: (row: Row) => void
 }) {
   const { t } = useTranslation('settlement')
 
-  if (lane.view.kind === 'failed') {
+  if (view.kind === 'failed') {
     // ⚠️ **The refusal, by its own message.** The door refuses an unfiltered call with
     // `SettlementLedgerCriterionRequired` — which `status=OPEN` satisfies, so seeing
     // it here means something real changed. Swallowing it into a generic sentence
     // would lose the one word that says what to tell head office.
-    return (
-      <ErrorBanner message={apiErrorMessage(error, t('open.errors.laneFailed'))} className="p-3" />
-    )
+    return <ErrorBanner message={apiErrorMessage(error, failedMessage)} className="p-3" />
   }
 
-  if (lane.view.kind === 'empty') {
-    // 🚩 Worded per tab: *nothing owing* and *nothing owed* are two different pieces
-    // of good news, and one generic sentence would make neither of them legible.
+  if (view.kind === 'empty') {
+    // 🚩 Worded per tab: *nothing owing*, *nothing owed* and *no cash waiting* are
+    // three different pieces of good news, and one generic sentence would make none of
+    // them legible.
     return (
       <Nothing title={t(`open.empty.${tab}.title`)} hint={t(`open.empty.${tab}.hint`)} testId="open-empty" />
     )
   }
 
-  if (lane.view.kind === 'filtered') {
+  if (view.kind === 'filtered') {
     // ⚠️ **Never *nothing owing*.** The reader narrowed this themselves, and the way
     // out is named rather than left to be rediscovered.
     return (
@@ -290,13 +394,27 @@ function LaneBody({
     <div className="flex flex-col gap-5">
       {/* Said once, above both sections: the server did not label these rows, so this
           is one list rather than the arrangement the screen is designed around. */}
-      {!lane.ranked && (
+      {unranked && (
         <p className="text-xs text-muted-foreground" data-testid="open-unranked">
           {t('open.unranked')}
         </p>
       )}
-      {lane.view.sections.map((section) => (
-        <Section key={section.which} section={section} columns={columns} onRow={onRow} />
+      {view.sections.map((section) => (
+        <Section
+          /**
+           * ⚠️ **Keyed by the TAB as well as the section**, so switching tabs mounts a
+           * fresh grid. AG Grid keeps a column's sort and filter state across a
+           * `columnDefs` swap, and the three tabs share column ids (`ageDays`,
+           * `servedBy`, …) — so an *age > 100* filter set while chasing shortages
+           * would silently empty the receipts list while its count still claimed 37
+           * rows. Different lists, different grids.
+           */
+          key={`${tab}-${section.which}`}
+          section={section}
+          columns={columns}
+          getRowId={getRowId}
+          onRow={onRow}
+        />
       ))}
     </div>
   )
@@ -311,14 +429,16 @@ function LaneBody({
  * page away, so a per-section paginator would undo it; and 1,000 rows of `autoHeight`
  * is 1,000 rows in the DOM. Ten rows tall, and it scrolls the lot.
  */
-function Section({
+function Section<Row extends OpenLaneRowFacts>({
   section,
   columns,
+  getRowId,
   onRow,
 }: {
-  section: OpenLaneSection
-  columns: ReturnType<typeof buildOpenColumns>
-  onRow: (row: SettlementOpenLaneRow) => void
+  section: OpenLaneSection<Row>
+  columns: ColDef<Row>[]
+  getRowId: (p: { data: Row }) => string
+  onRow: (row: Row) => void
 }) {
   const { t } = useTranslation('settlement')
 
@@ -345,7 +465,7 @@ function Section({
       </div>
 
       <div style={{ height }}>
-        <AgGridReact<SettlementOpenLaneRow>
+        <AgGridReact<Row>
           theme={omsGridTheme}
           rowData={section.rows}
           columnDefs={columns}
@@ -356,10 +476,14 @@ function Section({
           rowHeight={LANE_ROW_HEIGHT}
           headerHeight={OMS_GRID_HEADER_HEIGHT}
           animateRows={false}
-          getRowId={openRowId}
+          // ⚠️ The row's own id and never the index — the entry's on two tabs, the
+          // CONSUMPTION's on the third (one entry can have more than one receipt).
+          getRowId={getRowId}
           // 🔑 Every row is a way into the branch's ACCOUNT, landing on this exact
           // entry (269's `?store=&entry=` idiom): *understanding* an entry is one
-          // click from *chasing* it, and the account is where it can be acted on.
+          // click from *chasing* it, and the account is where it can be acted on. A
+          // waiting receipt quotes an entry number too, so the third tab lands the
+          // same way.
           onRowClicked={(e) => e.data && onRow(e.data)}
           rowSelection={{ mode: 'singleRow', checkboxes: false, enableClickSelection: true }}
           {...omsGridDirection}
@@ -384,7 +508,7 @@ const LANE_ROW_HEIGHT = 44
  * it is true. Interpolated, never concatenated, so the Arabic retrofit stays a data
  * change.
  */
-function Signpost({ section }: { section: OpenLaneSection }) {
+function Signpost({ section }: { section: OpenLaneSection<OpenLaneRowFacts> }) {
   const { t } = useTranslation('settlement')
   const { signpost } = section
 

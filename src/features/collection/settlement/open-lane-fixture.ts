@@ -1,4 +1,4 @@
-import type { SettlementOpenLaneRow } from '@/core/models/settlement'
+import type { SettlementOpenLaneRow, SettlementUncollectedRow } from '@/core/models/settlement'
 import { SETTLEMENT_BRANCHES } from './fleet-fixture'
 
 /**
@@ -119,3 +119,75 @@ function buildOpenLane(): SettlementOpenLaneRow[] {
 /** `GET Settlement/Ledger?status=OPEN&sort=age` — the estate's open entries, in the
  *  server's order. */
 export const SETTLEMENT_OPEN_LANE: SettlementOpenLaneRow[] = buildOpenLane()
+
+/* ── cash waiting: the receipts nobody collected (ticket 286) ─────────────────── */
+
+/**
+ * **The estate's uncollected special receipts** — what the drive serves over
+ * `Settlement/Uncollected`.
+ *
+ * 🚩 **37 of them against 1,394 open entries, and the ratio is the claim.** A prepared
+ * receipt nobody has fetched is a **rare event** — a collector's round that did not
+ * happen — which is why its cap is 500 and not the lane's 2,000 (`cap.ts`). A fixture
+ * that made it a population would quietly justify the wrong cap.
+ *
+ * 🔑 **Every receipt is minted against a REAL open entry from the lane above**, which
+ * is how the ticket's second claim becomes drivable rather than asserted: a
+ * partly-consumed entry appears on **Owing and here at once**, and nothing may
+ * deduplicate them. Two true sentences about the same money — *"the branch still owes
+ * 40"* and *"a receipt for 60 is prepared and nobody has been to fetch it"* — going to
+ * two different people.
+ *
+ * ⚠️ **The ages are the RECEIPT's, counted from `preparedAt`, and they are short.** A
+ * receipt waits days or weeks; an unpaid shortage waits months. Deriving these from
+ * the entry's own age would have made the third tab a copy of the first with a
+ * different header, and the substitution this ticket exists for would be unproven.
+ *
+ * ⚠️ `servedBy` is the door's own field and reads as the **collector** here. The
+ * fixture has no second roster to draw one from — the estate's assignment is the only
+ * one that exists — so it carries the branch's, blank included. What it proves is the
+ * rendering (a name, or *nobody assigned* in words), not the identity behind it.
+ */
+function buildUncollected(): SettlementUncollectedRow[] {
+  const rand = lcg(0x282286)
+  const rows: SettlementUncollectedRow[] = []
+
+  // Spread across the lane rather than taken off its head: the oldest ENTRIES are not
+  // the ones whose receipts are oldest, and a fixture that sampled the top would have
+  // the two tabs agreeing about their order by accident.
+  for (let i = 0; i < SETTLEMENT_OPEN_LANE.length && rows.length < 37; i += 37) {
+    const entry = SETTLEMENT_OPEN_LANE[i]
+    // 🚩 Skewed short (`^1.6` over 40 days), because that is what a waiting receipt
+    // is: a visit that did not happen recently, not a debt nobody has chased since
+    // March.
+    const ageDays = Math.floor(Math.pow(rand(), 1.6) * 40)
+    rows.push({
+      settlementConsumptionId: `01J9CASH${entry.storeId}${entry.entryNumber}`,
+      // Present — and being present is what tells a prepared receipt from an orphan,
+      // whose `documentId` is blank by definition.
+      documentId: `SR-${entry.entryNumber}`,
+      storeId: entry.storeId,
+      storeName: entry.storeName,
+      servedBy: entry.servedBy ?? '',
+      isMine: entry.isMine ?? false,
+      // 🔑 The same handle the other two tabs quote — joined off the entry, exactly as
+      // the door does it.
+      entryNumber: entry.entryNumber,
+      entryKind: entry.entryKind,
+      // ⚠️ The receipt's WHOLE amount and never the entry's remaining: a receipt is
+      // collected or it is not.
+      amount: Math.round((20 + rand() * 900) * 1000) / 1000,
+      currencyKey: entry.currencyKey,
+      preparedAt: postedDaysAgo(ageDays, 8 + Math.floor(rand() * 10), Math.floor(rand() * 60)),
+      ageDays,
+    })
+  }
+
+  // The door's order, and the same total one the lane uses: oldest first, tie-broken
+  // by entry number so a refetch cannot reshuffle the page under the reader.
+  return rows.sort((a, b) => b.ageDays - a.ageDays || a.entryNumber - b.entryNumber)
+}
+
+/** `GET Settlement/Uncollected` — the estate's waiting receipts, in the server's
+ *  order. */
+export const SETTLEMENT_UNCOLLECTED: SettlementUncollectedRow[] = buildUncollected()

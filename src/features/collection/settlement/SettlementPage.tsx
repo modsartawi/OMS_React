@@ -1,23 +1,18 @@
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, Navigate, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { ArrowLeft } from 'lucide-react'
 import type { SettlementScope } from '@/core/models/settlement'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { collectionAccessQuery } from '@/core/collection/api'
 import { canOpenSettlement } from './api'
-import BatchWithdraw from './BatchWithdraw'
-import BranchAccount from './BranchAccount'
 import {
   doorSearch,
-  readBatchView,
-  readEntryNumber,
+  isOverviewPath,
+  legacyViewRedirect,
   readStore,
   scopeSearch,
 } from './addresses'
-import { isLedgerView } from './ledger'
-import LedgerView from './LedgerView'
 import { SCOPE_PARAM, readScope } from './scope'
-import SettlementDoor from './SettlementDoor'
 
 /**
  * Settlement account (`/collection/settlement`) — the accountant's screen, spec
@@ -42,6 +37,18 @@ import SettlementDoor from './SettlementDoor'
  */
 export default function SettlementPage() {
   const { t } = useTranslation('settlement')
+  const [searchParams] = useSearchParams()
+  const { pathname } = useLocation()
+
+  // ⚠️ **Compatibility shim (2026-08-15, ticket 283) — NOT live grammar**, and it runs
+  // *before anything renders*, ahead of the gate. Yesterday's `?view=ledger` and
+  // `?view=batch&batch=…` are in tickets and incident notes; a reader holding one is
+  // asking for the ledger or a withdrawal, and answering them with THIS screen's
+  // access refusal — the posture for every real session until the fifth grant ships —
+  // would tell them the wrong screen was shut. `replace`, so Back does not bounce off
+  // the address they came from.
+  const legacy = legacyViewRedirect(pathname, searchParams)
+  if (legacy) return <Navigate to={legacy} replace />
 
   return (
     <ScreenGate
@@ -57,38 +64,40 @@ export default function SettlementPage() {
 }
 
 /**
- * The screen's body — **four views on one address**: the door, one branch's
- * account, the cross-estate ledger, and 273's batch withdrawal.
+ * The screen's body — **the four screens' shared chrome, and the route that says
+ * which one is drawing** (283).
  *
- * 🚩 **The URL is the only home of every piece of state.** `?store=` opens an
- * account (269, the `?acr=` idiom 257 established), `?q=` holds a search, `?scope=`
- * the scope, `?view=ledger` the support view and `?view=batch&batch=` an uploaded
- * batch's withdrawal (273). Nothing is mirrored into component
- * state beside them, so a reload, a paste into a ticket and the Back button all
- * reproduce what the accountant was looking at — and no copy can drift from the
- * URL, because there is no copy.
+ * 🚩 **The URL is the only home of every piece of state.** The *path* names which of
+ * the four screens is on — Overview, the open lane, the ledger, the upload — and a
+ * parameter names what that screen is looking at: `?store=`/`?entry=` open one
+ * branch's account on the Overview (269, the `?acr=` idiom 257 established), `?q=`
+ * holds a search, `?scope=` the scope, `?batch=` the batch the upload path is
+ * withdrawing (273). Nothing is mirrored into component state beside them, so a
+ * reload, a paste into a ticket and the Back button all reproduce what the accountant
+ * was looking at — and no copy can drift from the URL, because there is no copy.
  *
  * Which is what makes 270 *a door onto an address* rather than a rewiring of 269: a
  * search hit and a worklist row are ordinary links to `?store=`.
  *
- * Each view is a child component rather than inlined markup, for the reason 254
- * gives: each holds its own query, and an element that is never rendered is never
- * mounted — so a session the gate is about to refuse issues no call at all, and the
- * fleet is not fetched while an account is on screen.
+ * ⚠️ **Each screen is a routed CHILD rather than a branch of a ternary** — and the
+ * reason is the one 254 gives, which routing keeps rather than replaces: each holds
+ * its own query, and a child that is not matched is not mounted, so a session the
+ * gate is about to refuse issues no call at all and the fleet is not fetched while an
+ * account is on screen. What routing adds is that the *ordering trap* is gone: the
+ * ledger and the account shared `?store=` and the old body had to consult `view=`
+ * first or silently draw the wrong screen. A path cannot be consulted second.
  */
 function SettlementBody() {
   const [searchParams] = useSearchParams()
+  const { pathname } = useLocation()
   const navigate = useNavigate()
   const storeId = readStore(searchParams)
   const scope = readScope(searchParams.get(SCOPE_PARAM))
-  // 273's fourth view: one uploaded batch, withdrawn as one act. It is an address
-  // rather than dialog state, so *"finance sent the wrong file"* is still one repair
-  // an hour and a reload after the commit.
-  const batchId = readBatchView(searchParams)
-  // ✅ The cross-estate lookup, back with its door (BackOffice 1199 §3).
-  const ledger = isLedgerView(searchParams)
 
-  const away = ledger || storeId !== '' || batchId !== ''
+  // The Overview is the only screen with two faces: the door, and one branch's
+  // account. Everything else — the lane, the ledger, the upload — is *away* by being
+  // somewhere else entirely.
+  const away = !isOverviewPath(pathname) || storeId !== ''
 
   return (
     <>
@@ -98,26 +107,15 @@ function SettlementBody() {
           who was looking. The ledger takes no scope AT ALL — the door does not
           accept one — so a control above it would be a lie about what it filtered. */}
       {!away && (
-        <ScopeControl scope={scope} onScope={(next) => navigate(scopeSearch(searchParams, next))} />
+        <ScopeControl
+          scope={scope}
+          onScope={(next) => navigate(scopeSearch(searchParams, next, pathname))}
+        />
       )}
 
       {away && <BackToDoor searchParams={searchParams} />}
 
-      {/* 🔑 **The view is consulted BEFORE the branch, and the order is load-bearing.**
-          The ledger and the account share the `?store=` key on purpose — one word for
-          one thing, and `view=` is the only thing that may decide which screen draws
-          (`addresses.ts`). A body that checked `storeId` first would silently open one
-          branch's ACCOUNT for `?view=ledger&store=0142`: a different screen, answering
-          a different question, with nothing on it to say the ledger had been asked for. */}
-      {ledger ? (
-        <LedgerView />
-      ) : storeId ? (
-        <BranchAccount storeId={storeId} entryNumber={readEntryNumber(searchParams)} />
-      ) : batchId ? (
-        <BatchWithdraw batchId={batchId} />
-      ) : (
-        <SettlementDoor scope={scope} />
-      )}
+      <Outlet />
     </>
   )
 }

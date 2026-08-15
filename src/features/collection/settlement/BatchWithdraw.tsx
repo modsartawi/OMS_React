@@ -16,7 +16,8 @@ import ReasonField from './ReasonField'
 
 /**
  * **Cancel as a unit** — a posted batch withdrawn in one act (ticket 273, spec 267
- * D7), reached at `?view=batch&batch=<id>`.
+ * D7), reached at `/collection/settlement/upload?batch=<id>` (283 — until then it was
+ * `?view=batch&batch=<id>`, and those addresses still redirect here).
  *
  * 🔑 **274 replaced the loop with the door that was always meant to do this.** 273
  * built this screen as N round trips from the browser: fetch the cross-estate ledger

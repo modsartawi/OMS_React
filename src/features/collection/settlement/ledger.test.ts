@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import { LEDGER_PATH } from './addresses'
 import {
   hasCriterion,
-  isLedgerView,
   LEDGER_STATUSES,
   ledgerKey,
   ledgerSearch,
@@ -14,9 +14,9 @@ import {
  *
  * 🔑 The assertions worth having here are the ones a component test could not make
  * and a typecheck cannot see: that a hand-edited address DEGRADES rather than breaks,
- * that the empty question is recognised as empty, and that `view=ledger` is what
- * decides the screen — the last of which is a real defect if it regresses, because
- * the ledger and the branch account share the `?store=` key.
+ * that the empty question is recognised as empty, and that the builder always names
+ * its own **path** (283) — the last of which is a real defect if it regresses,
+ * because the ledger and the branch account share the `?store=` key.
  */
 
 const params = (search: string) => new URLSearchParams(search)
@@ -114,16 +114,20 @@ describe('readCriteria', () => {
 })
 
 describe('ledgerSearch', () => {
+  /** The address as a router would read it — 283 made these builders return
+   *  `path?search`, so a test that treated the answer as a query string alone would
+   *  be reading the pathname as its first key. */
+  const address = (built: string) => new URL(built, 'http://x')
+
   it('keeps the scope and drops everything else', () => {
     // 🚩 Widening to the estate is a decision the reader made; walking into a lookup
     // must not quietly undo it. And a search that took them here has done its job.
-    const search = ledgerSearch(params('scope=all&q=riyadh&store=0999'), { status: 'OPEN' })
+    const url = address(ledgerSearch(params('scope=all&q=riyadh&store=0999'), { status: 'OPEN' }))
 
-    expect(search).toContain('scope=all')
-    expect(search).toContain('view=ledger')
-    expect(search).toContain('status=OPEN')
-    expect(search).not.toContain('q=')
-    expect(search).not.toContain('store=0999')
+    expect(url.searchParams.get('scope')).toBe('all')
+    expect(url.searchParams.get('status')).toBe('OPEN')
+    expect(url.searchParams.get('q')).toBeNull()
+    expect(url.searchParams.get('store')).toBeNull()
   })
 
   it('omits an empty criterion rather than leaving a bare key behind', () => {
@@ -144,25 +148,24 @@ describe('ledgerSearch', () => {
       postedTo: '2026-08-14',
     }
 
-    expect(readCriteria(params(ledgerSearch(params(''), criteria)))).toEqual(criteria)
+    expect(readCriteria(address(ledgerSearch(params(''), criteria)).searchParams)).toEqual(criteria)
   })
 
-  it('always names the view, so the address cannot land on the wrong screen', () => {
-    // 🔑 The ledger and the branch account share `?store=`; `view=` is the only thing
-    // that tells them apart. A criteria-only address would open the ACCOUNT.
-    const search = ledgerSearch(params(''), { storeId: '0142' })
-
-    expect(isLedgerView(params(search))).toBe(true)
+  /**
+   * 🔑 **283: the PATH is what says which screen, and the builder always names it.**
+   *
+   * The ledger and the branch account share `?store=` on purpose — one word for one
+   * thing — so before 283 a criteria-only address opened the ACCOUNT, and `view=` was
+   * the only thing standing between the two. The path is that thing now, and it
+   * cannot be left off by a caller assembling criteria.
+   */
+  it('always names its own screen, so the address cannot land on the branch account', () => {
+    expect(address(ledgerSearch(params(''), { storeId: '0142' })).pathname).toBe(LEDGER_PATH)
+    expect(address(ledgerSearch(params(''), {})).pathname).toBe(LEDGER_PATH)
   })
-})
 
-describe('isLedgerView', () => {
-  it('is the view parameter and nothing else', () => {
-    expect(isLedgerView(params('view=ledger&store=0142'))).toBe(true)
-    // ⚠️ `?view=batch&batch=…` is 273's withdrawal, a different screen on a shared key.
-    expect(isLedgerView(params('view=batch&batch=01J8'))).toBe(false)
-    expect(isLedgerView(params('store=0142&entry=143'))).toBe(false)
-    expect(isLedgerView(params(''))).toBe(false)
+  it('carries no query string at all when it is asking nothing', () => {
+    expect(ledgerSearch(params(''), {})).toBe(LEDGER_PATH)
   })
 })
 

@@ -8,10 +8,11 @@ import {
   ENTRY_PARAM,
   FROM_PARAM,
   KIND_PARAM,
+  LEDGER_PATH,
   STATUS_PARAM,
   STORE_PARAM,
   TO_PARAM,
-  VIEW_PARAM,
+  settlementAddress,
 } from './addresses'
 import { SCOPE_PARAM } from './scope'
 
@@ -124,7 +125,11 @@ export function readCriteria(params: URLSearchParams): SettlementLedgerCriteria 
 }
 
 /**
- * The ledger view's address, carrying one set of criteria.
+ * The ledger screen's address, carrying one set of criteria.
+ *
+ * ⚠️ **A PATH since 283** (`/collection/settlement/ledger`) rather than
+ * `?view=ledger` — a path segment names which screen, a parameter names what that
+ * screen is looking at, and the ledger's criteria are the second of those.
  *
  * 🚩 **It keeps the scope and drops everything else**, the rule every address on this
  * screen follows (`addresses.ts`): widening to the estate is a decision the reader
@@ -144,8 +149,6 @@ export function ledgerSearch(
   const scope = params.get(SCOPE_PARAM)
   if (scope) next.set(SCOPE_PARAM, scope)
 
-  next.set(VIEW_PARAM, 'ledger')
-
   if (criteria.entryNumber !== undefined) next.set(ENTRY_PARAM, String(criteria.entryNumber))
   if (criteria.storeId) next.set(STORE_PARAM, criteria.storeId)
   if (criteria.entryKind) next.set(KIND_PARAM, criteria.entryKind)
@@ -154,22 +157,21 @@ export function ledgerSearch(
   if (criteria.postedFrom) next.set(FROM_PARAM, criteria.postedFrom)
   if (criteria.postedTo) next.set(TO_PARAM, criteria.postedTo)
 
-  return `?${next.toString()}`
+  // ⚠️ Rendered by `addresses.ts`'s own helper rather than re-spelled here — that
+  // module's claim is that this screen's URL grammar is spelled ONCE, and a second
+  // `path + '?' + search` would be the first crack in it.
+  return settlementAddress(LEDGER_PATH, next)
 }
 
-/**
- * Is the URL asking for the ledger?
+/* ⚠️ **`isLedgerView` stood here until ticket 283 and is gone.** It read
+ * `view=ledger`, and its whole job was to be consulted BEFORE `?store=`: the ledger
+ * and a branch's account shared the `store` key (*one word for one thing*), so a body
+ * that checked the branch first would silently open one branch's ACCOUNT for
+ * `?view=ledger&store=0142` — a different screen answering a different question.
  *
- * ⚠️ **`view=ledger` is the whole test, and it must be consulted BEFORE `?store=`.**
- * The two views share the `store` key on purpose (*one word for one thing*), so the
- * view parameter is the only thing that may decide which screen draws — a body that
- * checked the branch first would silently open one branch's account for
- * `?view=ledger&store=0142`, which is a different screen answering a different
- * question.
- */
-export function isLedgerView(params: URLSearchParams): boolean {
-  return params.get(VIEW_PARAM) === 'ledger'
-}
+ * The route answers that now. `/collection/settlement/ledger?store=0142` is the
+ * ledger because of where it is, not because of what it carries, so the ordering trap
+ * cannot be re-entered by a later reader rearranging a chain of ternaries. */
 
 /**
  * A key for the query cache — the criteria, in a fixed order.

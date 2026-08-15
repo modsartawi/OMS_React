@@ -14,7 +14,7 @@ import type {
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
 import { settlementMoney } from './money-display'
-import { batchSearch } from './addresses'
+import { uploadSearch } from './addresses'
 import { amountInWords } from './amount-words'
 import { settlementApi } from './api'
 import { reviewBulk, type BulkReview, type BulkTotal } from './bulk'
@@ -604,7 +604,7 @@ function CommittedPanel({
           one repair an hour and a reload later. */}
       {batchId && (
         <Link
-          to={batchSearch(searchParams, batchId)}
+          to={uploadSearch(searchParams, batchId)}
           data-testid="bulk-done-withdraw"
           className="text-xs font-medium text-primary underline-offset-2 hover:underline"
         >

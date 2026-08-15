@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 282
 blocked-by: —
 ---
@@ -56,14 +56,26 @@ view predicate) · component (`SettlementPage` body → routed children) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `addresses: every link keeps the scope and drops what led here, now across paths` — the four
+- [x] `addresses: every link keeps the scope and drops what led here, now across paths` — the four
       builders return path+search, `?scope=` survives each, everything else is dropped · **pure**
-- [ ] `addresses: every legacy view address redirects to its path` — table-driven over
+      (`addresses.test.ts`, *the four screens are addresses*)
+- [x] `addresses: every legacy view address redirects to its path` — table-driven over
       `?view=ledger`, `?view=ledger&store=&batch=`, `?view=batch&batch=`, and the hand-edited
-      half-addresses (`?view=batch` with no batch, `?batch=` with no view) · **pure**
-- [ ] Drive `tools/settlement-drive.mjs`: each of the four paths renders its own view, a legacy
+      half-addresses (`?view=batch` with no batch, `?batch=` with no view) · **pure** — 13 rows,
+      plus a case proving no redirect ever lands on an address that redirects again
+- [x] Drive `tools/settlement-drive.mjs`: each of the four paths renders its own view, a legacy
       `?view=ledger` lands on `/ledger` with its criteria intact, and `?store=0142` still opens the
-      branch account · **flow (Playwright)**
+      branch account · **flow (Playwright)** — **199/199 PASS**; the new section also drives
+      `/upload?batch=`, the truncated `?view=batch`, and Back-after-redirect not bouncing
+
+**Also run:** `npm run typecheck` clean · `npm test` 1845/1845 · `npm run lint` (boundaries,
+contrast, colour literals) clean · `npm run build` green.
+
+**Two decisions taken unattended** (`.afk/HITL-283.md`): `/upload` with no batch draws 273's upload
+dialog and the door's button navigates there rather than holding it in `useState` — the path had to
+draw *something* before 284 points a leaf at it, and no new copy was allowed; and a truncated
+`?view=batch` with no id stays on the door, exactly where it landed before, rather than handing a
+half-pasted withdrawal link a form for posting a month of entries.
 
 ## Boundaries
 

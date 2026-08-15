@@ -13,11 +13,10 @@ import type {
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import { branchSearch, readQuery, writeQuery } from './addresses'
+import { branchSearch, readQuery, uploadSearch, writeQuery } from './addresses'
 import { settlementMoney } from './money-display'
 import { settlementApi } from './api'
 import { AccountShimmer } from './AccountStates'
-import BulkUploadDialog from './BulkUploadDialog'
 import PostEntryDialog from './PostEntryDialog'
 import RepairDialog from './RepairDialog'
 import { resolveSubmit, searchBranches, type BranchSearchResult } from './search'
@@ -95,9 +94,12 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
   /** 271's posting form. It opens with **no branch seeded** from here: the door is
    *  the estate, and the branch is typed into the form itself (D4). */
   const [posting, setPosting] = useState(false)
-  /** 273's second door — a month's audit, uploaded. It seeds nothing from here
-   *  either: the kind is the FILE's and the branches are the sheet's. */
-  const [uploading, setUploading] = useState(false)
+  /* ⚠️ **273's upload used to open from here as dialog state, and 283 moved it to an
+   * address** (`/collection/settlement/upload`). It seeds nothing either way — the
+   * kind is the FILE's and the branches are the sheet's — so nothing was lost by
+   * making it a screen, and what is gained is one spelling: the nav leaf 284 adds and
+   * this button reach the upload the same way, and a reader who reloaded mid-upload
+   * is still on the upload. */
 
   /**
    * Submit — an address, or nothing at all.
@@ -165,7 +167,7 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
         <Button
           type="button"
           variant="outlined"
-          onClick={() => setUploading(true)}
+          onClick={() => navigate(uploadSearch(searchParams))}
           data-testid="bulk-open"
         >
           <Upload className="h-3.5 w-3.5" aria-hidden />
@@ -236,8 +238,6 @@ export default function SettlementDoor({ scope }: { scope: SettlementScope }) {
       />
 
       <PostEntryDialog open={posting} onClose={() => setPosting(false)} />
-
-      <BulkUploadDialog open={uploading} onClose={() => setUploading(false)} />
     </div>
   )
 }

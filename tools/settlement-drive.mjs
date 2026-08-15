@@ -1,6 +1,8 @@
 // Settlement account drive (spec 267, ticket 268) — drives the REAL app in Chromium
 // against a MOCKED CollectionWeb/Access envelope. This is the wave's screens drive;
-// 269–273 EXTEND this file rather than starting a second one.
+// 269–274 and spec 282's slices (283 onwards) EXTEND this file rather than starting a
+// second one — its last section is 283's: the four views as PATHS, and the
+// compatibility shim that keeps yesterday's `?view=` links landing.
 //
 // ⚠️ The envelope is stubbed for a reason that is not going away soon: the fifth
 // grant `canOpenSettlement` does not exist on the live door (BackOffice spec 1173,
@@ -37,6 +39,11 @@ const { chromium } = require('playwright')
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 
 const ROUTE = '/collection/settlement'
+// 283 — the other three screens under the same prefix. The Overview keeps the bare
+// prefix, so every 269-era `?store=` address in this file is untouched.
+const OPEN_ROUTE = `${ROUTE}/open`
+const LEDGER_ROUTE = `${ROUTE}/ledger`
+const UPLOAD_ROUTE = `${ROUTE}/upload`
 const TITLE = 'Settlement account'
 const LEAF = 'Settlement Account'
 const DENIED = 'No access to this screen'
@@ -1926,7 +1933,7 @@ async function run() {
   //
   // 🚩 The batch is still an ADDRESS, so *"finance sent the wrong file"* is one repair
   // an hour and a reload after the commit — this navigation is the proof.
-  await page.goto(`${BASE}${ROUTE}?view=batch&batch=${BATCH}`)
+  await page.goto(`${BASE}${UPLOAD_ROUTE}?batch=${BATCH}`)
   await appears('[data-region="batch-withdraw"]')
   await page.waitForTimeout(120)
   let batchText = await page.locator('[data-region="batch-withdraw"]').innerText()
@@ -1986,7 +1993,10 @@ async function run() {
   // passed, which is a check nobody can trust.
   const openLedger = async (search) => {
     scenario = { accessBody: ALL, access403: false, access500: false }
-    await page.goto(`${BASE}${ROUTE}?view=ledger${search}`)
+    // 283: the ledger is a PATH. Its criteria stay parameters — they are a question,
+    // which is what a query string is for.
+    const criteria = search.replace(/^&/, '')
+    await page.goto(`${BASE}${LEDGER_ROUTE}${criteria ? `?${criteria}` : ''}`)
     await page.waitForLoadState('networkidle')
     await page
       .locator(
@@ -2011,11 +2021,13 @@ async function run() {
   let ledgerText = await page.locator('[data-region="settlement-ledger"]').innerText()
   check(
     '🔑 1199 → the door opens the ledger on EVERYTHING STILL OPEN, which is the question asked',
-    new URL(page.url()).searchParams.get('view') === 'ledger' &&
+    // 283: the door's button navigates to the ledger's own PATH, carrying the one
+    // question an accountant arriving here has as a criterion.
+    new URL(page.url()).pathname === LEDGER_ROUTE &&
       new URL(page.url()).searchParams.get('status') === 'OPEN' &&
       ledgerCalls.length === 1 &&
       ledgerCalls[0].status === 'OPEN',
-    `${page.url().split('?')[1] ?? ''} · ${JSON.stringify(ledgerCalls[0] ?? {})}`,
+    `${page.url().replace(BASE, '')} · ${JSON.stringify(ledgerCalls[0] ?? {})}`,
   )
   const ledgerCol = (colId) =>
     page.locator(`[data-region="settlement-ledger"] .ag-row [col-id="${colId}"]`).allInnerTexts()
@@ -2076,13 +2088,13 @@ async function run() {
     ledgerText.replace(/\n/g, ' ').slice(0, 120),
   )
 
-  // WARNING The two views share the `?store=` key on purpose — `view=` is the only thing
-  // that may decide which screen draws. A body that checked the branch first would
-  // silently open the ACCOUNT here, answering a different question with nothing on
-  // screen to say so.
+  // WARNING The two screens share the `?store=` key on purpose — until 283 the `view=`
+  // parameter was the only thing that could decide which one drew, and a body that
+  // checked the branch first would silently open the ACCOUNT here. The PATH decides
+  // now, which is the same assertion made against a mechanism that cannot be reordered.
   ledgerText = await openLedger('&store=0688')
   check(
-    '🔑 1199 → `view=ledger&store=…` draws the LEDGER, not that branch’s account',
+    '🔑 1199 → `/ledger?store=…` draws the LEDGER, not that branch’s account',
     (await page.locator('[data-region="settlement-ledger"]').count()) === 1 &&
       (await page.locator('[data-region="entry-journal"]').count()) === 0,
   )
@@ -2166,6 +2178,124 @@ async function run() {
   check(
     '🚩 1199’s keys are all registered — no raw t() key on the ledger',
     !/settlement:|\bledger\./.test(await page.locator('[data-region="settlement-ledger"]').innerText()),
+  )
+
+  // ---- 283: the four views answer to paths, and yesterday's links still land ----
+  //
+  // KEY **A path segment names WHICH screen; a parameter names what that screen is
+  // looking at** (spec 282 D3). The four checks below are the whole of that rule: each
+  // address draws its own screen and nobody else's — which the old `?view=` grammar
+  // could state but could not enforce, because a chain of ternaries can be reordered
+  // and a route cannot.
+  scenario = { accessBody: ALL, access403: false, access500: false }
+
+  /** What is on screen, named by the region each of the four screens owns. */
+  const drawn = async () => {
+    const at = async (region) => (await page.locator(`[data-region="${region}"]`).count()) > 0
+    return {
+      door: await at('settlement-door'),
+      account: await at('branch-account'),
+      open: await at('settlement-open'),
+      ledger: await at('settlement-ledger'),
+      upload: await at('bulk-upload'),
+      withdraw: await at('batch-withdraw'),
+    }
+  }
+  const visit = async (address) => {
+    await page.goto(BASE + address)
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(150)
+    return drawn()
+  }
+
+  let at = await visit(ROUTE)
+  check(
+    '283 → the Overview draws the door, and only the door',
+    at.door && !at.open && !at.ledger && !at.upload,
+    JSON.stringify(at),
+  )
+  at = await visit(OPEN_ROUTE)
+  check(
+    '283 → /open draws the open-settlements shell (285 fills it), not the door',
+    at.open && !at.door && !at.ledger && !at.upload,
+    JSON.stringify(at),
+  )
+  at = await visit(`${LEDGER_ROUTE}?status=OPEN`)
+  check(
+    '283 → /ledger draws the cross-estate lookup',
+    at.ledger && !at.door && !at.open,
+    JSON.stringify(at),
+  )
+  at = await visit(UPLOAD_ROUTE)
+  check(
+    '283 → /upload draws the bulk upload',
+    at.upload && !at.door && !at.ledger,
+    JSON.stringify(at),
+  )
+  at = await visit(`${UPLOAD_ROUTE}?batch=${BATCH}`)
+  check(
+    '283 → …and `?batch=` on the same path is that batch’s withdrawal — one screen, two acts',
+    at.withdraw && !at.upload,
+    JSON.stringify(at),
+  )
+
+  // 🚩 269's addresses are the most-pasted on this screen and 283 moved NONE of them:
+  // a branch's account is where you land, not a nav destination, so it stayed a
+  // parameter on the Overview.
+  at = await visit(`${ROUTE}?store=0142&entry=143`)
+  check(
+    '🚩 283 → a 269-era `?store=` address still opens the branch account, with no redirect',
+    at.account && new URL(page.url()).pathname === ROUTE,
+    page.url().replace(BASE, ''),
+  )
+
+  // WARNING The compatibility shim (2026-08-15). What it protects is an accountant
+  // reading *page not found* off a link they pasted into an incident, with a branch on
+  // the phone — so the redirect carries the QUESTION through, not just the screen.
+  at = await visit(`${ROUTE}?view=ledger&status=OPEN&store=0688`)
+  let landed = new URL(page.url())
+  check(
+    '⚠️ 283 → a legacy `?view=ledger` address lands on /ledger with its criteria intact',
+    at.ledger &&
+      landed.pathname === LEDGER_ROUTE &&
+      landed.searchParams.get('status') === 'OPEN' &&
+      landed.searchParams.get('store') === '0688' &&
+      landed.searchParams.get('view') === null,
+    page.url().replace(BASE, ''),
+  )
+  at = await visit(`${ROUTE}?view=batch&batch=${BATCH}`)
+  landed = new URL(page.url())
+  check(
+    '⚠️ 283 → and 273’s shareable `?view=batch` address lands on the same withdrawal',
+    at.withdraw &&
+      landed.pathname === UPLOAD_ROUTE &&
+      landed.searchParams.get('batch') === BATCH,
+    page.url().replace(BASE, ''),
+  )
+  // 🚩 …and the half-address a reader hand-edited stays on the door, exactly where it
+  // landed before 283. A truncated WITHDRAWAL link must not hand somebody a form for
+  // posting a month of entries — the opposite act.
+  at = await visit(`${ROUTE}?view=batch`)
+  check(
+    '🚩 283 → a truncated `?view=batch` lands on the door, not on a posting form',
+    at.door && !at.upload && new URL(page.url()).pathname === ROUTE,
+    page.url().replace(BASE, ''),
+  )
+
+  // 🚩 `replace`, so Back returns to where the reader came FROM rather than bouncing
+  // off the address that redirected — the failure that makes a shim worse than none.
+  await page.goto(`${BASE}${ROUTE}`)
+  await page.waitForLoadState('networkidle')
+  await page.goto(`${BASE}${ROUTE}?view=ledger&status=OPEN`)
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(150)
+  await page.goBack()
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 283 → Back after a redirect does NOT bounce — the reader leaves the screen',
+    new URL(page.url()).pathname === ROUTE && new URL(page.url()).search === '',
+    page.url().replace(BASE, ''),
   )
 
   check('no page errors', errors.length === 0, errors.slice(0, 2).join(' | '))

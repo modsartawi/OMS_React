@@ -291,11 +291,58 @@ export const router = createBrowserRouter([
       // grant on it (D1). Its own feature folder because it is its own screen with
       // its own doors — which is what pushed the shared probe up into
       // `@/core/collection/api`, a feature being unable to import a feature.
+      //
+      // 🔑 **FOUR screens under one prefix since ticket 283**, and the parent is the
+      // gate plus the shared chrome. A path segment names *which* screen; a parameter
+      // names what that screen is looking at (spec 282 D3) — which is why `?store=`
+      // and `?entry=` are NOT routes: a branch's account is where you land from a
+      // hit, a row or a phone call, not a nav destination. Every 269-era address
+      // therefore still works, untouched.
+      //
+      // The children are lazy in their own right, so the ledger's grid is not in the
+      // chunk a reader downloads to look at the door — and an unmatched child is not
+      // mounted, so it issues no call (254's rule, kept).
+      //
+      // ⚠️ The pre-283 `?view=` addresses are redirected by `SettlementPage` rather
+      // than by a route: the shim reads a parameter, and a route matches a path.
       {
         path: 'collection/settlement',
         lazy: async () => ({
           Component: (await import('@/features/collection/settlement/SettlementPage')).default,
         }),
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('@/features/collection/settlement/SettlementOverview'))
+                .default,
+            }),
+          },
+          {
+            // The ageing lane (spec 282). An empty shell until 285 draws it — the
+            // address exists first so the nav (284) points at a screen rather than
+            // at a 404, and so the lane is built once rather than addressed twice.
+            path: 'open',
+            lazy: async () => ({
+              Component: (await import('@/features/collection/settlement/OpenSettlements')).default,
+            }),
+          },
+          {
+            path: 'ledger',
+            lazy: async () => ({
+              Component: (await import('@/features/collection/settlement/LedgerView')).default,
+            }),
+          },
+          {
+            // The month's audit, uploaded — and with `?batch=`, that batch's
+            // withdrawal. One screen, because *"finance sent the wrong file"* is
+            // answered where the file was sent from.
+            path: 'upload',
+            lazy: async () => ({
+              Component: (await import('@/features/collection/settlement/UploadView')).default,
+            }),
+          },
+        ],
       },
       // The Reports area (spec 261, ticket 263) — a new top-level area at
       // `/reports/*`, one feature behind ONE `RetailInvoice/Access` probe. The

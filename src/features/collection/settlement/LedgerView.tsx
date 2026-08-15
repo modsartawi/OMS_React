@@ -39,8 +39,9 @@ import {
 import { buildLedgerColumns, ledgerRowClass, ledgerRowId } from './ledger-columns'
 
 /**
- * **The cross-estate lookup** — `?view=ledger`, over `Settlement/Ledger`
- * (BackOffice 1199 §3).
+ * **The cross-estate lookup** — `/collection/settlement/ledger`, over
+ * `Settlement/Ledger` (BackOffice 1199 §3). A screen of its own since 283; its six
+ * criteria stay parameters, because they are the *question* it is asking.
  *
  * 🔑 **The question this screen could not answer until now.** BackOffice spec 1173
  * mints `entryNumber` and calls it *"the handle finance and the branch settle by on

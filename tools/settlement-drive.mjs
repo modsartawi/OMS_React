@@ -1894,6 +1894,38 @@ async function run() {
       (await page.locator('[data-region="bulk-kind"] button').count()) === 2,
   )
 
+  // ---- the blank sheet, offered before anything is built ----
+  // 🔑 The format is stated BEFORE the upload, not discovered as a parse error on a
+  // month's audit that has already been assembled the wrong way.
+  check(
+    '→ the sheet’s three columns are named on the door, in the server’s own spelling',
+    (await page.locator('[data-region="bulk-template"] [data-column]').count()) === 3 &&
+      (await page.locator('[data-region="bulk-template"]').innerText()).includes('StoreCode'),
+    await page.locator('[data-region="bulk-template"]').innerText(),
+  )
+  const templateDownload = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('[data-testid="bulk-template-download"]').click(),
+  ]).then(([d]) => d)
+  const templateBody = await templateDownload
+    .createReadStream()
+    .then((s) => new Promise((res) => {
+      let out = ''
+      s.on('data', (c) => (out += c))
+      s.on('end', () => res(out))
+    }))
+  check(
+    '🔑 → the blank sheet downloads with the header row the door reads by name',
+    templateDownload.suggestedFilename().endsWith('.csv') &&
+      templateBody.startsWith('StoreCode,Amount,Reason'),
+    `${templateDownload.suggestedFilename()} · ${templateBody.split('\r\n')[0]}`,
+  )
+  check(
+    '🚩 → …and its example rows name no branch, so the template itself cannot post money',
+    /EXAMPLE/.test(templateBody) && !/^\d{4},/m.test(templateBody),
+    templateBody.split('\r\n')[1],
+  )
+
   // ---- the ordinary month ----
   let bulkText = await upload(sheet('august.csv', CSV_ROWS))
   const csvRows = await previewRows()

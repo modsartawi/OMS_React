@@ -3,9 +3,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
-import { FileSpreadsheet, TriangleAlert } from 'lucide-react'
+import { Download, FileSpreadsheet, TriangleAlert } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
+import { downloadCsv } from '@/core/util/download-file'
 import type {
   SettlementBulkCommitResult,
   SettlementBulkPreview,
@@ -19,6 +20,11 @@ import { OPEN_LANE_KEY } from './open-lane'
 import { amountInWords } from './amount-words'
 import { settlementApi } from './api'
 import { reviewBulk, type BulkReview, type BulkTotal } from './bulk'
+import {
+  BULK_TEMPLATE_COLUMNS,
+  BULK_TEMPLATE_FILENAME,
+  bulkTemplateCsv,
+} from './bulk-template'
 import { inWordsSentence } from './in-words'
 
 /** The two kinds, in the order the toggle draws them — 271's order, because it is
@@ -280,6 +286,8 @@ function FileStep({
         <p className="text-xs text-muted-foreground">{t('bulk.kind.oneKindPerFile')}</p>
       </fieldset>
 
+      <TemplateOffer />
+
       <label className="flex flex-col gap-1" data-region="bulk-file">
         <span className="text-xs font-medium">{t('bulk.file.label')}</span>
         <input
@@ -303,6 +311,55 @@ function FileStep({
           sheet is fine while a missing column is not. */}
       <p className="text-xs text-muted-foreground">{t('bulk.file.serverParses')}</p>
     </>
+  )
+}
+
+/**
+ * **What the sheet has to look like, and a blank one to start from.**
+ *
+ * 🔑 **Stated BEFORE the upload, not discovered after it.** The only thing this
+ * screen could otherwise tell an accountant about the format is a parse error on a
+ * file they already built — and a month's audit rebuilt because a column was called
+ * `Branch` is an afternoon. The three columns are named here in the same words the
+ * door reads them by.
+ *
+ * ⚠️ **The columns are shown as machine names, unlocalised, and that is not a
+ * zero-literal violation** — `StoreCode` is a header the server matches on, in the
+ * same class as an endpoint path or a machine code. Localising it would tell the
+ * accountant to type a word the parser refuses. The sentences *around* them are
+ * keys, as always.
+ */
+function TemplateOffer() {
+  const { t } = useTranslation('settlement')
+
+  return (
+    <section
+      className="flex flex-col items-start gap-2 rounded-lg border border-border bg-muted/40 p-3"
+      data-region="bulk-template"
+    >
+      <p className="text-xs font-medium">{t('bulk.template.title')}</p>
+      <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+        {BULK_TEMPLATE_COLUMNS.map((column) => (
+          <li key={column} data-column={column}>
+            <span className="font-mono text-foreground">{column}</span>
+            {' — '}
+            {t(`bulk.template.columns.${column}`)}
+          </li>
+        ))}
+      </ul>
+      <Button
+        variant="secondary"
+        // 🚩 A button, not a link: the file is written here and now from
+        // `bulkTemplateCsv()`, so there is no URL to point an `<a>` at — and an
+        // anchor with a `#` href would be a control lying about being a destination.
+        onClick={() => downloadCsv(BULK_TEMPLATE_FILENAME, bulkTemplateCsv())}
+        data-testid="bulk-template-download"
+      >
+        <Download className="h-3.5 w-3.5" aria-hidden />
+        {t('bulk.template.download')}
+      </Button>
+      <p className="text-xs text-muted-foreground">{t('bulk.template.hint')}</p>
+    </section>
   )
 }
 

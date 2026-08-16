@@ -332,6 +332,16 @@
       "preview": "Preview this file",
       "serverParses": "Nothing is read here — the file goes up as it is and every figure below comes back from the server's own reading of it."
     },
+    "template": {
+      "title": "What the sheet has to contain",
+      "columns": {
+        "StoreCode": "the branch's code, exactly as it is spelled on the branch",
+        "Amount": "a plain number — no thousands separator and no currency symbol",
+        "Reason": "up to 200 characters the branch reads word for word"
+      },
+      "download": "Download a blank sheet",
+      "hint": "Opens in Excel. Keep the first row of column names, replace the two EXAMPLE rows with the month's own, and save as .xlsx or .csv. The example rows name no branch, so a sheet uploaded with them still in it is refused rather than posted."
+    },
     "columns": {
       "row": "Row",
       "store": "Branch",

@@ -401,15 +401,18 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             {/*
               The action bar's grammar (083 D-10, ticket 094): three labelled
               clusters in order of increasing consequence, then the unlabelled
-              terminal pair. Gating is evidence-only — `closeStatus` and
-              `deliveryDocumentType` are the only two fields live data proves a
+              terminal pair. Gating is evidence-only — `closeStatus` and the
+              server's own `canReturn` are the only fields live data proves a
               contradiction on; the server remains the authority on everything
-              else and says so in its `400`.
+              else and says so in its `400`. `lines` is handed in for the return
+              command's REASON split alone (spec 289 D2), never for its gate.
             */}
             <CommandPanel
               context={{
                 closeStatus: document.status?.closeStatus,
-                deliveryDocumentType: document.deliveryDocumentType,
+                documentCategory: document.documentCategory,
+                canReturn: document.canReturn,
+                lines: document.lines,
                 busy: commandBusy,
               }}
               onCommand={onCommand}

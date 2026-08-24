@@ -128,6 +128,15 @@ export interface SdDocumentLineModel {
   selectedQtyUom: string
   selectedNetAmount: number
   selectedInstructions: string
+  /**
+   * How much of this line earlier returns have already taken back.
+   *
+   * ⚠ **Additive, optional, and not on the wire yet** — BackOffice spec 1283
+   * §2b. Absent reads as *nothing returned*, which makes the whole line
+   * remaining; the return command itself fails closed on `canReturn`, so an
+   * absent field can never enable anything.
+   */
+  returnedQuantity?: number
   hasPickingFees: boolean
   pickingFees: number
 }
@@ -182,11 +191,20 @@ export interface SdDocumentHeaderModel {
   entryUser: string
   documentDate: string
   documentCategory: string // coded — 'D' Delivery; drives the Update/Reschedule endpoint
+  /**
+   * Whether a bonded return may be created against this delivery: a delivery,
+   * on the Starlinks bonded rail, with something left to return — the server
+   * folds all three into one flag (BackOffice spec 1283 §2b).
+   *
+   * ⚠ **Additive, optional, and not on the wire yet.** Absent must read as
+   * **not returnable**: the command fails closed, never open.
+   */
+  canReturn?: boolean
   documentType: string // coded
   documentTypeDescription: string
   documentSource: string // coded
   documentSourceDescription: string
-  deliveryDocumentType: string // coded — 'BB' = BeyondBorder
+  deliveryDocumentType: string // coded — the delivery rail; NOT the return gate (see canReturn)
   deliveryDocumentTypeDescription: string
   documentReason: string // coded
   netTotal: number

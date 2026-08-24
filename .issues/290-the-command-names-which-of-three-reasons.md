@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 289
 blocked-by: —
 ---
@@ -49,16 +49,16 @@ deleted) · test (pure vitest + the existing action-bar drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `returnableLines` — remaining per line is `quantity − returnedQuantity`; a fully-returned line is **omitted** from the rows and counted in the hidden tally; an untouched line reports its full delivered quantity · pure
-- [ ] `returnableLines handles a non-trivial history` — a line carrying two earlier partial returns projects to a remainder that differs from delivered, from zero, **and** from the last return's quantity · pure
-- [ ] `returnableLines treats a missing returnedQuantity as nothing returned` — an absent field is not `NaN` · pure
-- [ ] `commandBar disables Return on an order with the open-the-delivery reason` · pure
-- [ ] `commandBar disables Return on a delivery whose store is not on the rail` — `canReturn` false with lines still remaining · pure
-- [ ] `commandBar disables Return on an exhausted delivery` — `canReturn` false and the projection empty · pure
-- [ ] `commandBar enables Return only when canReturn is true` · pure
-- [ ] `commandBar fails closed on a payload with no canReturn` — the five captured live documents all disable Return · pure
-- [ ] `commandBar disabled follows canReturn alone` — a `canReturn: true` delivery stays **enabled** even where the derived reason would have said *exhausted* · pure
-- [ ] `document-actions-drive.mjs` item 6 — rewritten from the `BB` gate to the three reasons, each read on hover **and** on focus · flow (Playwright)
+- [x] `returnableLines` — remaining per line is `quantity − returnedQuantity`; a fully-returned line is **omitted** from the rows and counted in the hidden tally; an untouched line reports its full delivered quantity · pure
+- [x] `returnableLines handles a non-trivial history` — a line carrying two earlier partial returns projects to a remainder that differs from delivered, from zero, **and** from the last return's quantity · pure
+- [x] `returnableLines treats a missing returnedQuantity as nothing returned` — an absent field is not `NaN` · pure
+- [x] `commandBar disables Return on an order with the open-the-delivery reason` · pure
+- [x] `commandBar disables Return on a delivery whose store is not on the rail` — `canReturn` false with lines still remaining · pure
+- [x] `commandBar disables Return on an exhausted delivery` — `canReturn` false and the projection empty · pure
+- [x] `commandBar enables Return only when canReturn is true` · pure
+- [x] `commandBar fails closed on a payload with no canReturn` — the five captured live documents all disable Return · pure
+- [x] `commandBar disabled follows canReturn alone` — a `canReturn: true` delivery stays **enabled** even where the derived reason would have said *exhausted* · pure
+- [x] `document-actions-drive.mjs` item 6 — rewritten from the `BB` gate to the three reasons, each read on hover **and** on focus · flow (Playwright)
 
 ## Boundaries
 
@@ -74,6 +74,27 @@ deleted) · test (pure vitest + the existing action-bar drive)
   fully returned) and `fully-returned-lines`. ⚠ **Their shapes are contractual; their values are
   not.**
 - No dialog, no new route, no network call. The command still does nothing when pressed.
+
+## What was built
+
+`return-order.ts` is born carrying the line projection; the `'BB'` gate and
+`command.disabled.beyondBorderOnly` are gone; the model gained `canReturn` and
+`returnedQuantity`, both optional and both failing closed; the two fixtures land in
+`__fixtures__/return-lines.ts`, leaving the five captures untouched as the fail-closed proof.
+
+Two rulings the build made, both logged in `.afk/HITL-290.md`:
+
+- **`canReturn` is asked FIRST and alone**, and the three causes then choose the reason string. The
+  tables list the category first, but delivery `9000000003` is opened *as a delivery* while carrying
+  `documentCategory: 'T'` — a category pre-check would refuse a return the server had allowed and
+  tell the operator to open the delivery they are already reading. D2's own "`disabled` comes from
+  `canReturn` and nothing else" is the tie-breaker.
+- **Exhaustion must be proven**, not merely projected: `rows.length === 0 && hiddenCount > 0`. A
+  delivery with no lines at all falls to the store reason, because *everything has already been
+  returned* is a false statement about a document with nothing on it. Tooltip-only either way.
+
+`grep -r "BZ02\|'BB'" src/` finds nothing. The two `BZ02` hits left in `document-band-drive.mjs` and
+`document-cards-drive.mjs` are assertions on a captured store code — data, not the deleted rule.
 
 ## Done when
 

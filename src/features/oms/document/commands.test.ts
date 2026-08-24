@@ -1,15 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { commandBar, type CommandBar, type CommandContext } from './commands'
+import { returnableLines } from './return-order'
 import type { CommandKind } from './actions'
+import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import { DOCUMENT_NUMBERS, PAYLOADS, type CapturedDocumentNo } from './__fixtures__/payloads'
+import { DELIVERY_WITH_REMAINING, FULLY_RETURNED_LINES } from './__fixtures__/return-lines'
 import documentEn from '@/locales/en/document.json'
 
 /**
  * The real `document` namespace, resolved the way `t('command.…')` does — same
  * helper as `rail.test.ts` and `items.test.ts`, and for the same reason: a key
  * deleted from the shipped JSON fails here instead of rendering raw to an
- * operator. The two disabled reasons are the whole point of this suite, so they
- * are asserted as the shipped English, never as a key.
+ * operator. The disabled reasons are the whole point of this suite, so they are
+ * asserted as the shipped English, never as a key.
  */
 const t = (key: string, options?: Record<string, unknown>): string => {
   const value = key
@@ -25,7 +28,9 @@ function barFor(documentNo: CapturedDocumentNo, busy = false): CommandBar {
   return commandBar(
     {
       closeStatus: doc.status?.closeStatus,
-      deliveryDocumentType: doc.deliveryDocumentType,
+      documentCategory: doc.documentCategory,
+      canReturn: doc.canReturn,
+      lines: doc.lines,
       busy,
     },
     t,
@@ -43,7 +48,31 @@ function find(bar: CommandBar, kind: CommandKind) {
   return hit
 }
 
-const AT_REST: CommandContext = { closeStatus: '', deliveryDocumentType: 'DL', busy: false }
+const AT_REST: CommandContext = {
+  closeStatus: '',
+  documentCategory: 'D',
+  canReturn: false,
+  lines: [],
+  busy: false,
+}
+
+/** The bar for one of the two return fixtures, with any field overridden. */
+function returnBar(
+  document: SdDocumentHeaderModel,
+  overrides: Partial<CommandContext> = {},
+): CommandBar {
+  return commandBar(
+    {
+      closeStatus: document.status?.closeStatus,
+      documentCategory: document.documentCategory,
+      canReturn: document.canReturn,
+      lines: document.lines,
+      busy: false,
+      ...overrides,
+    },
+    t,
+  )
+}
 
 describe('commandGating', () => {
   it('offers all eight commands on every captured document — nothing is ever hidden', () => {
@@ -123,23 +152,93 @@ describe('commandGating', () => {
     }
   })
 
-  it('disables Return Document with its reason on anything but a BeyondBorder delivery', () => {
-    // No capture is `BB`: three are `DL`, one `DLR`, and the eRx order carries
-    // `null`. The gate must hold on all four shapes.
+  it('disables Return Document on an order — the reason names the way out', () => {
+    // `2000000551` is the eRx capture: `documentCategory: 'X'`, not a delivery.
+    expect(PAYLOADS['2000000551'].documentCategory).not.toBe('D')
+    expect(find(barFor('2000000551'), 'return-document')).toEqual({
+      kind: 'return-document',
+      disabled: true,
+      reason: 'Open the delivery to return it.',
+    })
+  })
+
+  it('disables Return Document on a delivery whose store is not on the rail', () => {
+    // `canReturn` false with lines still remaining: the cause the screen splits
+    // out as the store rule, because exhaustion is ruled out by the projection.
+    const bar = returnBar(DELIVERY_WITH_REMAINING, { canReturn: false })
+    expect(find(bar, 'return-document')).toEqual({
+      kind: 'return-document',
+      disabled: true,
+      reason: 'Only bonded deliveries handled by Starlinks can be returned here.',
+    })
+  })
+
+  it('disables Return Document on an exhausted delivery, and says so', () => {
+    // Same `canReturn: false`, different derived cause: nothing projects.
+    const bar = returnBar(FULLY_RETURNED_LINES)
+    expect(find(bar, 'return-document')).toEqual({
+      kind: 'return-document',
+      disabled: true,
+      reason: 'Everything on this delivery has already been returned.',
+    })
+  })
+
+  it('enables Return Document only when canReturn is true', () => {
+    const bar = returnBar(DELIVERY_WITH_REMAINING)
+    expect(DELIVERY_WITH_REMAINING.canReturn).toBe(true)
+    expect(find(bar, 'return-document')).toEqual({
+      kind: 'return-document',
+      disabled: false,
+      reason: null,
+    })
+  })
+
+  it('fails closed on a payload with no canReturn at all', () => {
+    // The five captures predate BackOffice spec 1283 §2b and carry neither
+    // field. Absent must read as NOT returnable — never as enabled.
     for (const documentNo of DOCUMENT_NUMBERS) {
-      expect(find(barFor(documentNo), 'return-document')).toEqual({
-        kind: 'return-document',
-        disabled: true,
-        reason: 'Only a BeyondBorder delivery can be returned.',
-      })
+      expect(PAYLOADS[documentNo].canReturn).toBeUndefined()
+      expect(find(barFor(documentNo), 'return-document').disabled).toBe(true)
+    }
+    for (const canReturn of [undefined, null, false] as const) {
+      expect(find(returnBar(DELIVERY_WITH_REMAINING, { canReturn }), 'return-document').disabled)
+        .toBe(true)
     }
   })
 
-  it('and enables it on a BeyondBorder delivery, whatever the code’s case or padding', () => {
-    for (const type of ['BB', 'bb', ' BB ']) {
-      const bar = commandBar({ ...AT_REST, deliveryDocumentType: type }, t)
-      expect(find(bar, 'return-document').disabled).toBe(false)
-    }
+  it('gives the store reason, not the exhausted one, when there are no lines to project', () => {
+    // Nothing projected proves nothing was returned — exhaustion has to be
+    // shown by lines that WERE. Tooltip-only either way.
+    const bar = returnBar(DELIVERY_WITH_REMAINING, { canReturn: false, lines: [] })
+    expect(find(bar, 'return-document').reason).toBe(
+      'Only bonded deliveries handled by Starlinks can be returned here.',
+    )
+  })
+
+  it('follows canReturn ALONE — even on a delivery-return category', () => {
+    // `9000000003` is opened AS a delivery but carries `documentCategory: 'T'`.
+    // If the server says a return may be created, the category must not refuse
+    // it and tell the operator to open the delivery they are already on.
+    const doc = PAYLOADS['9000000003']
+    expect(doc.documentCategory).not.toBe('D')
+    const bar = returnBar({ ...doc, canReturn: true })
+    expect(find(bar, 'return-document')).toEqual({
+      kind: 'return-document',
+      disabled: false,
+      reason: null,
+    })
+  })
+
+  it('follows canReturn ALONE — the derived split is a reason, never a gate', () => {
+    // An exhausted projection the server nonetheless says yes to: the button
+    // stays takeable. A wrong split can only ever mislabel a tooltip.
+    const bar = returnBar(FULLY_RETURNED_LINES, { canReturn: true })
+    expect(returnableLines(FULLY_RETURNED_LINES.lines).rows).toEqual([])
+    expect(find(bar, 'return-document')).toEqual({
+      kind: 'return-document',
+      disabled: false,
+      reason: null,
+    })
   })
 
   it('disables everything while busy, and explains none of it', () => {
@@ -170,7 +269,10 @@ describe('commandGating', () => {
   })
 
   it('survives a document with no status block at all', () => {
-    const bar = commandBar({ closeStatus: null, deliveryDocumentType: null, busy: false }, t)
+    const bar = commandBar(
+      { closeStatus: null, documentCategory: null, canReturn: null, lines: null, busy: false },
+      t,
+    )
     expect(find(bar, 'request-close').disabled).toBe(false)
     expect(find(bar, 'return-document').disabled).toBe(true)
   })

@@ -100,7 +100,9 @@
     },
     "disabled": {
       "requestOpen": "A cancellation request is already open for this document.",
-      "beyondBorderOnly": "Only a BeyondBorder delivery can be returned."
+      "returnNeedsDelivery": "Open the delivery to return it.",
+      "returnStarlinksOnly": "Only bonded deliveries handled by Starlinks can be returned here.",
+      "returnNothingLeft": "Everything on this delivery has already been returned."
     }
   },
   "actions": {

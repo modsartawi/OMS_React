@@ -87,7 +87,8 @@ were **right** — the guess this ticket existed to catch was a correct guess. T
 the computed remainder; deriving it here off the same base is conforming, and 1283 §2b now says so
 in as many words.
 
-🔑 **The spec was still wrong, and was corrected first.** §2b genuinely never named either field —
+🔑 **The spec was still wrong, and was corrected before this repo's text changed.** §2b genuinely
+never named either field —
 that gap was real, and it outlived the implementation. 1283 §2b now carries both names, their kinds,
 the delivered base (`Quantity`, not `ConfirmedQuantity`/`BaseQuantity`), and ⚠ the rule that
 **`RemainingReturnableQuantity` can be NEGATIVE, so a screen hides on `<= 0`, never on `== 0`** —
@@ -95,6 +96,12 @@ the delivered base (`Quantity`, not `ConfirmedQuantity`/`BaseQuantity`), and ⚠
 line's returns onto another's. This repo already hid on `<= 0` and already had the over-returned
 case under test; the comments claiming the field "does not exist on the wire yet" were stale and are
 now accurate, and the over-return test says why it is a documented shape rather than a hypothetical.
+
+⚠ **In authoring order, not commit order** — the §2b amendment was written before a line of this
+repo was edited, but it was committed 18 seconds *after* (`69af890` at 22:07:36, BackOffice
+`3552572` at 22:07:54), because the two repos were committed back-to-back at the end. The rule the
+ticket sets is about which text is *corrected* first and that was honoured; had there been real
+drift, the two commits should also have landed in that order, and next time they will.
 
 ⚠ **What this does NOT confirm**: the JSON casing on the wire, and that the computed property
 actually serializes. Source is the owner, but it is not the wire — that stays for the live walk.

@@ -66,7 +66,9 @@ describe('returnableLines', () => {
       const lines = PAYLOADS[documentNo].lines
       // These captures predate 1283 §2b and carry no `returnedQuantity` at all,
       // which is exactly the fail-closed shape worth pinning: the field is
-      // additive, and an order view leaves it unstamped even now that it ships.
+      // additive, so an OLDER wire simply omits it. (A current non-delivery view
+      // is the different case — it sends a real `0`, not an absence.) Both must
+      // read as *nothing returned*, and neither may produce `NaN`.
       expect(lines.every((l) => l.returnedQuantity === undefined)).toBe(true)
       for (const row of returnableLines(lines).rows) {
         expect(Number.isNaN(row.returned)).toBe(false)

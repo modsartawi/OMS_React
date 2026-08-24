@@ -133,9 +133,11 @@ export interface SdDocumentLineModel {
    *
    * BackOffice spec 1283 §2b — **name confirmed 2026-08-24** against the owning
    * `SdDocumentLineModel`: the direction is *returned-so-far*, and the client
-   * subtracts. The server also computes `RemainingReturnableQuantity` on the
-   * same model; deriving it here from the same base is conforming, and is what
-   * `returnableLines` does.
+   * subtracts. Per that same §2b the server also computes a
+   * `remainingReturnableQuantity` beside it; this repo does not read it, and
+   * deriving the remainder here off the same base is what §2b calls conforming
+   * — see `returnableLines`. ⚠ Nothing in THIS repo can check either claim: the
+   * owner is the sibling BackOffice repo, and 1283 §2b is the citation.
    *
    * ⚠ **Additive and optional.** Stamped only by the *delivery* load path — an
    * order view leaves it zero, which correctly reads as the whole line

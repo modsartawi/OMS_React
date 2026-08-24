@@ -23,7 +23,12 @@
 //      under RTL and none under LTR; Refresh `↻` and `⚡` carry none in either;
 //   5. the selected-row accent bar rides `::before` on the row's START side in
 //      both directions, and NO `box-shadow` carries it (shadow offsets are
-//      physical and have no logical form).
+//      physical and have no logical form);
+//   6. the RETURN DIALOG mirrors (ticket 295) — its `me-auto` gate sentence,
+//      `text-end` value cell and `text-start` header cells report the same
+//      LOGICAL geometry in both directions, so a physical twin (`mr-auto`,
+//      `text-right`, `text-left`) fails the `rtl` half while leaving the `ltr`
+//      half byte-identical.
 //
 // The ticket's sixth item — `border-start-start-radius: 0` on the work-area
 // frame — has NO counterpart in this build and so is asserted nowhere: the
@@ -336,11 +341,21 @@ async function run() {
   //
   // Ticket 295's RTL pass. The dialog is the wave's one new surface, and it is
   // built almost entirely out of logical utilities that have never been measured
-  // under a direction flip: `text-start`/`text-end` on the lines table, `me-auto`
-  // on the gate sentence, `ms-auto` inside the fees rows. Each of those has a
-  // physical twin that looks identical in LTR and pins to the WRONG edge in RTL,
-  // which is exactly the class of fault a class-name grep cannot see — so this
-  // measures rendered geometry, as the sections above do.
+  // under a direction flip. Three are asserted here, and each was chosen because
+  // it has a PHYSICAL TWIN that looks identical in LTR and lands on the wrong
+  // edge in RTL — the class of fault a class-name grep cannot see:
+  //
+  //   `me-auto`    on the gate sentence     (twin: `mr-auto`)
+  //   `text-end`   on the line value cell   (twin: `text-right`)
+  //   `text-start` on the line header cells (twin: `text-left`)
+  //
+  // ⚠ A utility with NO physical twin is not worth an assertion here: the
+  // select-all column's `w-9` is direction-neutral, and "the first cell sits at
+  // the start" follows from table layout under `dir` rather than from anything
+  // this screen chose. Asserting it would read as coverage while being unable to
+  // fail for the stated reason. The fees table is likewise unasserted — on
+  // capture `8000000121` every `condCategory` comes back blank (ticket 293's
+  // recorded drift), so that document offers no fee rows to measure at all.
   //
   // Pinning is asserted as a LOGICAL gap, so a correctly-mirrored element reports
   // the SAME numbers in both directions and the two checks read as one fact.
@@ -348,22 +363,12 @@ async function run() {
   // one direction, which is the mistake the 080 audit made twice.
   //
   // ⚠ **Mutation-checked** on build (2026-08-24), because an RTL assertion that
-  // cannot fail is worse than none: swapping the money cell to `text-right` and
-  // the gate to `mr-auto` leaves BOTH `ltr` checks passing byte-identically and
-  // fails exactly the two `rtl` ones. That asymmetry is the whole hazard — a
-  // physical utility is invisible in the direction we develop in.
-  // ⚠ `startGap` is LOGICAL: under RTL the start edge IS the right edge, so the
-  // physical gaps swap. Measuring `left - left` in both directions is the same
-  // physical-thinking mistake the assertions are here to catch, and it reports a
-  // correctly-mirrored element as a failure.
-  const PIN = (el, box, dir) => {
-    const a = el.getBoundingClientRect()
-    const b = box.getBoundingClientRect()
-    const left = a.left - b.left
-    const right = b.right - a.right
-    return dir === 'rtl' ? { startGap: right, endGap: left } : { startGap: left, endGap: right }
-  }
-
+  // cannot fail is worse than none. Swapping each utility to its physical twin
+  // (`mr-auto`, `text-right`, `text-left`) leaves the `ltr` check passing
+  // BYTE-IDENTICALLY and fails only the `rtl` one. That asymmetry is the whole
+  // hazard — a physical utility is invisible in the direction we develop in —
+  // and it is also the bar each check must clear: a check that fails in both
+  // directions is measuring its own selector, not the layout.
   for (const dir of ['ltr', 'rtl']) {
     await setDir(dir)
     // `getByRole('button', { name })` would match the disabled-reason tooltip
@@ -382,35 +387,50 @@ async function run() {
     await dialog.locator('input[aria-label="Select all lines"]').check()
     await page.waitForTimeout(120)
 
-    const geometry = await dialog.evaluate((root, [PIN_SRC, dir]) => {
-      const PIN_FN = eval(`(${PIN_SRC})`)
-      const gate = root.querySelector('[data-return-gate]')
-      const money = root.querySelector('[data-return-value]')
-      const firstHead = root.querySelector('thead th')
+    const geometry = await dialog.evaluate((root, dir) => {
+      // ⚠ `startGap` is LOGICAL: under RTL the start edge IS the right edge, so
+      // the physical gaps swap. Measuring `left - left` in both directions is
+      // the same physical-thinking mistake these assertions exist to catch, and
+      // it reports a correctly-mirrored element as a failure.
+      const pin = (rect, box) => {
+        const b = box.getBoundingClientRect()
+        const left = rect.left - b.left
+        const right = b.right - rect.right
+        return dir === 'rtl' ? { startGap: right, endGap: left } : { startGap: left, endGap: right }
+      }
+      // Where the GLYPHS landed, not where the box is: `text-start`/`text-end`
+      // move text inside a cell that keeps its own rect either way, so a range
+      // over the element would report the one thing these utilities never touch.
+      const glyphs = (el) => {
+        const walker = el.ownerDocument.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+        let node = null
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.data.trim()) node = n
+        if (!node) return null
+        const range = el.ownerDocument.createRange()
+        range.setStart(node, node.data.search(/\S/))
+        range.setEnd(node, node.data.replace(/\s+$/, '').length)
+        return pin(range.getBoundingClientRect(), el)
+      }
+
       const out = {}
       // The gate sentence rides `me-auto` inside a `justify-end` footer, so it
       // is pushed to the footer's START in BOTH directions.
-      if (gate) out.gate = PIN_FN(gate, gate.parentElement, dir)
-      // A money cell is `text-end`: its glyphs hug the cell's END edge either
-      // way. Measured off the TEXT NODE, not `selectNodeContents` on the cell —
-      // a range over an element box reports the element, not where the glyphs
-      // actually landed inside it, which is the only thing `text-end` moves.
-      if (money) {
-        const walker = money.ownerDocument.createTreeWalker(money, NodeFilter.SHOW_TEXT)
-        let node = null
-        for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.data.trim()) node = n
-        if (node) {
-          const range = money.ownerDocument.createRange()
-          range.setStart(node, node.data.search(/\S/))
-          range.setEnd(node, node.data.replace(/\s+$/, '').length)
-          out.money = PIN_FN({ getBoundingClientRect: () => range.getBoundingClientRect() }, money, dir)
-        }
-      }
-      // The select-all checkbox column is the table's FIRST cell, so it must
-      // render at the table's START edge — the flip a physical `w-9` would miss.
-      if (firstHead) out.head = PIN_FN(firstHead, firstHead.closest('table'), dir)
+      const gate = root.querySelector('[data-return-gate]')
+      if (gate) out.gate = pin(gate.getBoundingClientRect(), gate.parentElement)
+      // A ticked line's value cell is `text-end`: its glyphs hug the cell's END.
+      const money = root.querySelector('[data-return-value]')
+      if (money) out.money = glyphs(money)
+      // A line-table header is `text-start`: its glyphs hug the cell's START.
+      // ⚠ Selected STRUCTURALLY — the first header carrying text, the lines
+      // table's line-number column. Selecting it by computed `text-align: start`
+      // would let the SELECTOR do the assertion: a `text-left` swap would match
+      // nothing and the check would fail in BOTH directions, including the LTR
+      // one where that swap is genuinely invisible. The mutation must fail the
+      // `rtl` half only, or it is not measuring the hazard.
+      const head = [...root.querySelectorAll('thead th')].find((th) => th.textContent.trim())
+      if (head) out.head = glyphs(head)
       return out
-    }, [PIN.toString(), dir])
+    }, dir)
 
     // A pinned edge is tight (a few px of padding); the opposite edge is slack.
     const pinned = (m) => m && m.startGap < m.endGap
@@ -425,7 +445,7 @@ async function run() {
       `start=${geometry.money?.startGap?.toFixed(1)} end=${geometry.money?.endGap?.toFixed(1)}`,
     )
     check(
-      `${dir}: the select column leads at the table's START`,
+      `${dir}: a line header hugs its cell's START (text-start, not text-left)`,
       pinned(geometry.head),
       `start=${geometry.head?.startGap?.toFixed(1)} end=${geometry.head?.endGap?.toFixed(1)}`,
     )

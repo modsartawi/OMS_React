@@ -5,7 +5,7 @@ import { Loader2, Minus, Plus, Undo2 } from 'lucide-react'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorKind, apiErrorMessage } from '@/core/api'
 import { notify } from '@/core/services/notify'
 import { mintRequestId } from '@/core/util/request-id'
 import { formatMoney } from '@/core/util/number-format'
@@ -16,6 +16,7 @@ import NoteField from './NoteField'
 import {
   buildCreateReturnRequest,
   clampReturnQuantity,
+  pickedFeeTypes,
   pickupAddressFrom,
   refundableFees,
   returnableLines,
@@ -136,11 +137,23 @@ export default function ReturnDialog({
    */
   const [requestId, setRequestId] = useState('')
   /**
-   * The server's refusal, **kept after its toast has gone**. A refusal the
-   * operator can act on must not cost them the form, and a sentence that
-   * vanished four seconds ago is one they cannot act on.
+   * The failure, **kept after its toast has gone**. A refusal the operator can
+   * act on must not cost them the form, and a sentence that vanished four
+   * seconds ago is one they cannot act on.
+   *
+   * ⚠ `refused` separates the two things a failure can mean, because the banner
+   * must not assert a fact the client does not have. A **guardrail refusal**
+   * (`kind: 'business'`) is the server saying *no return was created*. A network
+   * drop or a `500` is the browser saying *I do not know* — and that is exactly
+   * the lost-response case the idempotency key exists for, where a return may
+   * well exist. Titling that one *The return was not created* would be a claim,
+   * not a report.
    */
-  const [refusal, setRefusal] = useState<{ message: string; code: string | null } | null>(null)
+  const [refusal, setRefusal] = useState<{
+    message: string
+    code: string | null
+    refused: boolean
+  } | null>(null)
 
   const collecting = reason === 'RTRF'
 
@@ -156,13 +169,12 @@ export default function ReturnDialog({
   // rate. The grid renders what it is handed and sums nothing.
   const fees = useMemo(() => refundableFees(document.conditions), [document.conditions])
 
-  // The ticked fees, counted off the PROJECTION — a tick left behind by a fee
-  // the grid no longer offers is stale state, and the summary must count what
-  // would actually post.
-  const pickedFees = fees.filter((fee) => feePicks[fee.condType] === true)
+  // The summary counts what the REQUEST would carry, through the same function
+  // that builds it — so the bar can never say *1 fee* while the body names none.
+  const pickedFeeCount = pickedFeeTypes(fees, feePicks).length
   const gate = useMemo(
-    () => submitGate(rows.map(stateOf), reason, pickedFees.length),
-    [rows, lineState, reason, pickedFees.length],
+    () => submitGate(rows.map(stateOf), reason, pickedFeeCount),
+    [rows, lineState, reason, pickedFeeCount],
   )
 
   /**
@@ -196,11 +208,13 @@ export default function ReturnDialog({
       // them build detail — hard-coding one here is how this repo drifts from a
       // policy that moves. 401 is not ours either: `handle401` has already
       // cleared the session and redirected.
+      const refused = apiErrorKind(err) === 'business'
       const fallback = t('returnDocument.refused.fallback')
-      setRefusal({ message: apiErrorMessage(err, fallback), code: apiErrorCode(err) })
+      const title = refused ? t('returnDocument.refused.title') : t('returnDocument.failed.title')
+      setRefusal({ message: apiErrorMessage(err, fallback), code: apiErrorCode(err), refused })
       // `apiError` rather than a bare `error`: it reads the same sentence the
       // banner shows, and it clears the repeating auth/network toasts first.
-      notify.apiError(t('returnDocument.refused.title'), err, fallback)
+      notify.apiError(title, err, fallback)
     },
     onSettled: () => {
       inFlight.current = false
@@ -372,10 +386,28 @@ export default function ReturnDialog({
       */}
       {refusal && (
         <div className="mb-3" data-return-refusal>
-          <ErrorBanner className="p-2.5" title={t('returnDocument.refused.title')} message={refusal.message}>
+          <ErrorBanner
+            className="p-2.5"
+            title={
+              refusal.refused
+                ? t('returnDocument.refused.title')
+                : t('returnDocument.failed.title')
+            }
+            message={refusal.message}
+          >
             {refusal.code && (
               <p className="mt-0.5 font-mono text-[0.6875rem]" data-return-refusal-code>
                 {refusal.code}
+              </p>
+            )}
+            {/*
+              Only on the DO-NOT-KNOW arm, and it is the useful half of D7: the
+              key is kept across retries, so pressing Create return again cannot
+              produce a second return — it replays onto the first if one exists.
+            */}
+            {!refusal.refused && (
+              <p className="mt-0.5" data-return-retry-safe>
+                {t('returnDocument.failed.retrySafe')}
               </p>
             )}
           </ErrorBanner>

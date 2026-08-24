@@ -221,6 +221,10 @@
     "refused": {
       "title": "The return was not created",
       "fallback": "The server refused the return without saying why."
+    },
+    "failed": {
+      "title": "The return may not have been created",
+      "retrySafe": "Try again — this attempt keeps the same request key, so it cannot create a second return."
     }
   },
   "tabs": {

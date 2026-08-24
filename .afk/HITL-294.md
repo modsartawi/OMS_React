@@ -93,3 +93,35 @@ ticket in the wave is how two sessions disagree. Neither is a defect in this dif
 **Revisit if:** ⚠ **295, before the first live call.** Finding (2) now has a payload consequence — a
 `districtCode` posted with `cityCode: ''` is a collection the courier cannot route — so it should be
 triaged there rather than carried further.
+
+## Q: /standards-review found the refusal banner renders for EVERY failure kind, so a dropped connection is titled *The return was not created* — a claim the client cannot make.
+**Decision taken:** Fixed. The failure state carries `refused` (true only for
+`apiErrorKind(err) === 'business'`). A guardrail refusal keeps the old title; anything else — network,
+`500`, unknown — reads **"The return may not have been created"** plus one line saying a retry is
+safe *because the request key is kept*. New drive section 27b aborts the connection and asserts both.
+**Why:** D8 scopes the banner to a **refusal**, and stories 46/47 are precisely about the lost
+response — where a return may well exist. This is also the one place the idempotency key can be
+explained to the operator at the moment it matters.
+**Revisit if:** the door starts refusing with a `500` that carries an `errorCode` — `core/api` already
+classifies that as `business`, so it would correctly read as a refusal.
+
+## Q: /standards-review: story 49 wants the machine code *beside* the sentence; it renders directly under it.
+**Decision taken:** Left as is — the code is its own quotable element inside the banner, immediately
+under the sentence.
+**Why:** the only ways to put it literally on the same line are to widen `core/ui/ErrorBanner`'s
+`message` to a `ReactNode` (a shared-UI change for a cosmetic, on a ticket that says no new component)
+or to concatenate the code into the sentence (which loses the selector the drive quotes it by).
+**Revisit if:** an operator reads the mono line as something other than the code — then the banner
+wants a small labelled chip, and that is a `core/ui` change worth making deliberately.
+
+## Q: /standards-review: the picked-fee predicate lived in both the dialog and the builder.
+**Decision taken:** Extracted `pickedFeeTypes(fees, feePicks)` in `return-order.ts`; the submit bar
+now counts through the same function the request is built from.
+**Why:** two copies of *which fees post* is how the bar comes to say *1 fee* while the body names none.
+
+## Q: /standards-review also flagged the test-only `Envelope<T>` re-declaration (now in ~4 test files) and `ReturnDialog.tsx` at ~750 lines.
+**Decision taken:** Neither changed here. Exporting `HttpGeneralResponse` from `core/api.ts` to retire
+all four copies is a core change touching three other features' tests; the panel extraction was
+already deferred once (`.afk/HITL-293.md`) and re-cutting it in the wave's last ticket helps nobody.
+**Why:** both are repo-wide tidies, not defects, and neither is this ticket's.
+**Revisit if:** a fifth test copies the envelope shape, or a sixth panel lands in the dialog.

@@ -140,3 +140,19 @@ carries.
   `districtCode` with a blank `cityCode`, which this ticket makes concrete — that pair now **posts**.
   Worth triaging before [295](295-the-screen-calls-the-real-door.md). Full log in `.afk/HITL-294.md`.
 
+### Reviews
+
+- **`/code-review` (high)** — one finding in this diff, **fixed**: `crypto.randomUUID()` is undefined
+  outside a **secure context** and this app is served over plain http from IIS, so the dialog would
+  have thrown as it opened and no `requestId` would ever be minted (localhost is a secure context, so
+  no drive could catch it). Now `core/util/request-id.ts`, with three unit cases. The other two
+  findings are in landed 291/292 code and stay recorded, not re-cut.
+- **`/standards-review`** — **no hard rule violation** on the Standards axis. On the Spec axis, one
+  real finding, **fixed**: the banner rendered every failure kind as a refusal, so a dropped
+  connection was titled *The return was not created* — a claim the client cannot make, and precisely
+  the lost-response case stories 46/47 are about. A refusal (`kind: 'business'`) keeps that title;
+  anything else reads *The return may not have been created* and says a retry is safe **because the
+  request key is kept**. Drive section 27b aborts the connection and proves it. Also applied:
+  `pickedFeeTypes` now single-sources *which fees post* for both the bar and the body.
+- Final gates: `return-dialog-drive.mjs` **100/100**, 1971 pure cases, typecheck + lint + build green.
+

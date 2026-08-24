@@ -503,6 +503,21 @@ export interface CreateReturnDraft {
  * It mints nothing and reads no clock: the `requestId` arrives from the caller
  * precisely so a retry can hand back the same one.
  */
+/**
+ * Which fee TYPES a set of ticks actually carries back.
+ *
+ * Filtered through the PROJECTION rather than off the tick map: a tick left
+ * behind by a fee the grid no longer offers is stale state, not a decision. One
+ * function because the submit bar counts what the request posts — two copies of
+ * this predicate is how the bar comes to say *1 fee* while the body names none.
+ */
+export function pickedFeeTypes(
+  fees: readonly RefundableFee[],
+  feePicks: Readonly<Record<string, boolean>>,
+): string[] {
+  return fees.filter((fee) => feePicks[fee.condType] === true).map((fee) => fee.condType)
+}
+
 export function buildCreateReturnRequest(draft: CreateReturnDraft): CreateReturnRequest {
   const lines = draft.rows
     .filter((row) => draft.selections[row.lineNumber]?.picked === true)
@@ -512,10 +527,6 @@ export function buildCreateReturnRequest(draft: CreateReturnDraft): CreateReturn
       quantity: clampReturnQuantity(draft.selections[row.lineNumber]?.quantity, row.remaining),
     }))
 
-  const conditionTypes = draft.fees
-    .filter((fee) => draft.feePicks[fee.condType] === true)
-    .map((fee) => fee.condType)
-
   const note = draft.note.trim()
 
   return {
@@ -523,7 +534,7 @@ export function buildCreateReturnRequest(draft: CreateReturnDraft): CreateReturn
     refDeliveryNo: draft.refDeliveryNo,
     reason: draft.reason,
     lines,
-    conditionTypes,
+    conditionTypes: pickedFeeTypes(draft.fees, draft.feePicks),
     // Absent, not empty: `RF` books no collection, so an address on the body
     // would describe a courier visit that is never going to happen.
     ...(draft.reason === 'RF' ? {} : { shippingAddress: { ...draft.address } }),

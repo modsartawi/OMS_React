@@ -200,7 +200,7 @@ const REFUSED = {
 
 /** Every body the app posted to the create door, in order. */
 const posts = []
-/** Which answer the door gives next: 'created' | 'replay' | 'refused'. */
+/** Which answer the door gives next: 'created' | 'replay' | 'refused' | 'dropped'. */
 let createMode = 'created'
 /** How long it takes to answer — the double-click test needs a slow one. */
 let createDelay = 0
@@ -212,11 +212,12 @@ async function run() {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
-  // ⚠ The refusal section asks the door for a deliberate `400`, and Chromium logs
-  // every non-2xx response as a console error. That is the drive's own fixture
+  // ⚠ The refusal section asks the door for a deliberate `400` and the lost-response
+  // section drops the connection on purpose, and Chromium logs both as console errors. That is the drive's own fixture
   // answering as designed, not the app failing — a REAL app failure is an
   // uncaught exception or a React error, both of which still land here.
-  const expectedNoise = (text) => /Failed to load resource.*40[03]/.test(text)
+  const expectedNoise = (text) =>
+    /Failed to load resource.*(40[03]|ERR_CONNECTION_FAILED)/.test(text)
   page.on(
     'console',
     (m) => m.type() === 'error' && !expectedNoise(m.text()) && errors.push(m.text()),
@@ -239,6 +240,8 @@ async function run() {
     if (p === 'SdDocumentWeb/CreateReturn') {
       posts.push(JSON.parse(route.request().postData() || '{}'))
       if (createDelay) await new Promise((resolve) => setTimeout(resolve, createDelay))
+      // The lost response: the request left, the answer never came back.
+      if (createMode === 'dropped') return route.abort('connectionfailed')
       if (createMode === 'refused')
         return route.fulfill({
           status: 400,
@@ -995,6 +998,44 @@ async function run() {
     `${firstKey} → ${posts[2].requestId}`,
   )
   await settleToasts()
+
+  // ------------------------ 27b · a failure that is NOT a refusal says so
+  // ⚠ A guardrail refusal is the server saying *no return was created*. A
+  // network drop is the browser saying *I do not know* — and that is the very
+  // case the idempotency key exists for. The banner must not claim the first
+  // when it only has the second.
+  await settleToasts()
+  posts.length = 0
+  createMode = 'dropped'
+  await openDialog()
+  await pick(10).check()
+  await page.locator('[data-return-reason="RF"]').click()
+  await page.waitForTimeout(100)
+  await submit().click()
+  await page.waitForTimeout(600)
+  check(
+    'a dropped connection does NOT claim the return was not created',
+    (await banner().count()) === 1 &&
+      (await banner().innerText()).includes('may not have been created') &&
+      !(await banner().innerText()).includes('was not created'),
+    (await banner().innerText()).replace(/\n/g, ' '),
+  )
+  check(
+    'and it says a retry is safe, which is what the request key buys',
+    (await page.locator('[data-return-retry-safe]').innerText()).includes(
+      'cannot create a second return',
+    ),
+    (await page.locator('[data-return-retry-safe]').innerText()).trim(),
+  )
+  check(
+    'the dialog stays open with the form intact, as on any failure',
+    (await dialog().count()) === 1 && (await pick(10).isChecked()),
+  )
+  createMode = 'created'
+  await settleToasts()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.waitForTimeout(200)
+
   await openDialog()
 
   // ------------------------------------------------------------ the word `close`

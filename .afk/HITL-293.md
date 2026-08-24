@@ -69,3 +69,31 @@ Taken in one change on `spec/289-bonded-return`, each with a test that fails wit
 Gates: `typecheck` ✓ · `lint` ✓ (3/3) · `build` ✓ · vitest **1978/1978** ·
 `return-dialog-drive` **105/105** · `document-actions-drive` **46/46**.
 Still nothing driven against a live SIS.Api, and `returnedQuantity` remains 295's question.
+
+### Follow-up — `/standards-review` on the fix commit (2026-08-24)
+
+Both axes reported no hard standards violation and a clean gating verdict. Two findings were real
+and are fixed in the follow-up commit:
+
+- **Spec axis: stories 4 and 5 had become route-conditional.** Keying the first reason off
+  `openedAs` ALONE meant a delivery reached through `/oms/document/:documentNo` with
+  `canReturn: false` reported *Open the delivery to return it.*, burying the store and exhaustion
+  causes. Worse, the two `document-actions-drive` steps had been moved to the delivery route, which
+  dodged the regression instead of catching it. The rule is now **both signals**: refuse only when
+  `documentCategory` AND `openedAs` both say "not a delivery". Drive steps (b) and (c) read the two
+  causes on the DOCUMENT route again, and `commands.test.ts` pins both halves.
+- **Standards axis: dead re-export.** `export type { OpenedAs }` in `DocumentDetailsPage.tsx` had no
+  consumers and its comment described callers that do not exist. Deleted.
+- **Standards axis: `reconcilePickupDistrict` re-spelled `applyPickupDistrict`'s write-set** in its
+  identity check, so a fifth field added there would silently stop being reconciled with no test
+  failing. It now shallow-compares every field.
+
+Spec 289 D2 carries an addendum recording the two-field rule, and ticket 290's table is marked
+superseded — the spec is corrected first, which is this wave's own posture.
+
+Left as judgement calls: the effect could be a render-phase `setState` (one less paint);
+`openDelivery` duplicates `open`; drive step 6 tests two rules and repairs its own state; the
+comments say "collection" where CONTEXT.md prefers *pickup*.
+
+Gates after the follow-up: `typecheck` ✓ · `lint` ✓ (3/3) · vitest **1978/1978** ·
+`return-dialog-drive` **105/105** · `document-actions-drive` **46/46**.

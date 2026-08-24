@@ -20,7 +20,7 @@
  * whose contents shift between visits cannot be learned.
  */
 import type { SdDocumentLineModel } from '@/core/models/sd-document'
-import { type CommandKind, type OpenedAs } from './actions'
+import { isDeliveryCategory, type CommandKind, type OpenedAs } from './actions'
 import { returnableLines } from './return-order'
 
 /** The three labelled clusters, in reading order. */
@@ -71,16 +71,18 @@ export interface CommandBar {
 export interface CommandContext {
   /** `status.closeStatus` — `'R'` means a cancellation request is already open. */
   closeStatus: string | null | undefined
+  /** `documentCategory` — half of Return Document's first cause (spec 289 D2). */
+  documentCategory: string | null | undefined
   /**
-   * Whether the ROUTE opened this as a delivery — the first of Return Document's
-   * three causes.
+   * Whether the ROUTE opened this as a delivery — the OTHER half of it.
    *
-   * ⚠ **Not `documentCategory`.** Delivery `9000000003` is opened as a delivery
-   * and carries `documentCategory: 'T'`, so keying the reason off the category
-   * tells the operator to *open the delivery* they are already looking at. The
-   * route is what "you are not on a delivery" can honestly be read off (D-17/
-   * D-19); the category picks endpoints and actionTypes, and is not an answer
-   * to this question.
+   * ⚠ **Neither field answers it alone.** Delivery `9000000003` is opened as a
+   * delivery and carries `documentCategory: 'T'`, so the category alone tells
+   * the operator to *open the delivery* they are already looking at; and a
+   * plain `'D'` delivery reached through `/oms/document/:documentNo` is a
+   * delivery whatever the route says, so the route alone buries the two causes
+   * that can actually be acted on. Both must say "not a delivery" before the
+   * screen claims there is one to go and open.
    */
   openedAs: OpenedAs
   /**
@@ -155,10 +157,13 @@ export function returnBlockedBecause(ctx: CommandContext): string | null {
   // tell the operator to open the delivery they are already looking at.
   if (ctx.canReturn === true) return null
   // Everything below is a REASON STRING, in the order spec 289 D2 checks them.
-  // Read off the ROUTE, never the category: `9000000003` above is the document
-  // that makes the difference, and the category answer is the very sentence the
-  // comment warns against.
-  if (ctx.openedAs !== 'delivery') return 'command.disabled.returnNeedsDelivery'
+  // BOTH signals, and only when both refuse: the category is what spec 289 D2
+  // names, and the route is what keeps `9000000003` — category `T`, opened as a
+  // delivery — from being told to open the delivery it is already on. An order
+  // or an eRx satisfies neither and still gets the sentence that names its way
+  // out.
+  if (ctx.openedAs !== 'delivery' && !isDeliveryCategory(ctx.documentCategory))
+    return 'command.disabled.returnNeedsDelivery'
   const { rows, hiddenCount } = returnableLines(ctx.lines)
   // Exhaustion has to be PROVEN: lines that were all returned. A document whose
   // lines are absent or empty proves nothing, and falls to the store rule.

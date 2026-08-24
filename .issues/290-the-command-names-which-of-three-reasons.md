@@ -20,7 +20,7 @@ born to project the lines, and `commands.ts` stops spelling a store rule it has 
 
 | Cause | Read from | Reason shown |
 |---|---|---|
-| Not a delivery | `documentCategory` — already on the model | *Open the delivery to return it.* |
+| Not a delivery | `documentCategory` — already on the model (superseded: see the note at the end) | *Open the delivery to return it.* |
 | Not on the Starlinks bonded rail | `canReturn` false, delivery category | *Only bonded deliveries handled by Starlinks can be returned here.* |
 | Nothing left to return | `canReturn` false **and** the line projection is empty | *Everything on this delivery has already been returned.* |
 
@@ -109,3 +109,14 @@ None — can start immediately.
 
 None. The store-vs-exhausted split is ruled in spec [289](289-bonded-return-screen-spec.md) D2 and
 restated above; it is a tooltip decision, not a gate.
+
+---
+
+## Superseded, 2026-08-24 — the first reason reads two fields, not one
+
+A review after the wave found this ticket's category-only check answering *Open the delivery to
+return it.* on capture `9000000003` — opened AS a delivery, `documentCategory: 'T'` — about the
+delivery already on screen. The check now refuses only when **both** `documentCategory` and the
+route's `openedAs` say "not a delivery"; either alone gets a real document wrong. See spec 289 D2's
+addendum, which is the normative text. **Eligibility is untouched**: `canReturn` is still asked
+first and alone, and this ticket's Done-when items all still hold.

@@ -389,9 +389,10 @@ async function run() {
   )
 
   // (b) not on the rail — a delivery with lines still remaining and no
-  // `canReturn`, reached through the DELIVERY route: on the document route the
-  // honest reason is the one above, and it would mask this one.
-  await openDelivery('8000000253')
+  // `canReturn`. Read on the DOCUMENT route on purpose: a delivery payload is a
+  // delivery whichever route reached it, so this cause must not be buried under
+  // *open the delivery* by the route alone.
+  await open('8000000253')
   check(
     'a delivery the server will not take a return against names the rail',
     (await readReturnReason('wrong-store')) ===
@@ -406,7 +407,7 @@ async function run() {
     ...original,
     lines: original.lines.map((line) => ({ ...line, returnedQuantity: line.quantity })),
   }
-  await openDelivery('8000000253')
+  await open('8000000253')
   check(
     'and an exhausted delivery says THAT instead, off the same false',
     (await readReturnReason('exhausted')) ===

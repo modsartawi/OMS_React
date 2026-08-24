@@ -45,11 +45,6 @@ import RequestCloseDialog from './RequestCloseDialog'
 import NoteDialog, { type NoteCommandKind } from './NoteDialog'
 import ReturnDialog from './ReturnDialog'
 
-/** Whether this record was opened as a document or a delivery. Defined in
- * `actions.ts` beside `isDeliveryCategory`, its D-17/D-19 twin; re-exported
- * here because the route props are what most callers reach for it through. */
-export type { OpenedAs }
-
 // No `status` tab: the document's state is the pill rail under the header, and
 // its full thirteen-row breakdown is that rail's All-statuses disclosure (083 D-3).
 type TabId = 'items' | 'conditions' | 'log' | 'jobs'
@@ -422,6 +417,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             <CommandPanel
               context={{
                 closeStatus: document.status?.closeStatus,
+                documentCategory: document.documentCategory,
                 openedAs,
                 canReturn: document.canReturn,
                 lines: document.lines,

@@ -23,17 +23,16 @@ const t = (key: string, options?: Record<string, unknown>): string => {
 }
 
 /**
- * The bar for one captured document, at rest.
- *
- * `openedAs: 'document'` because these are the DOCUMENT-route captures — the
- * route is what the return reason is read off, and it is the caller's to state
- * rather than something a payload field can be made to imply.
+ * The bar for one captured document, at rest, on the DOCUMENT route — which is
+ * how these captures are reached. The route is half of the first return reason;
+ * the payload's own category is the other half, and is read off the capture.
  */
 function barFor(documentNo: CapturedDocumentNo, busy = false): CommandBar {
   const doc = PAYLOADS[documentNo]
   return commandBar(
     {
       closeStatus: doc.status?.closeStatus,
+      documentCategory: doc.documentCategory,
       openedAs: 'document',
       canReturn: doc.canReturn,
       lines: doc.lines,
@@ -56,6 +55,7 @@ function find(bar: CommandBar, kind: CommandKind) {
 
 const AT_REST: CommandContext = {
   closeStatus: '',
+  documentCategory: 'D',
   openedAs: 'delivery',
   canReturn: false,
   lines: [],
@@ -76,6 +76,7 @@ function returnBar(
   return commandBar(
     {
       closeStatus: document.status?.closeStatus,
+      documentCategory: document.documentCategory,
       openedAs: 'delivery',
       canReturn: document.canReturn,
       lines: document.lines,
@@ -267,11 +268,24 @@ describe('commandGating', () => {
     expect(reason).toBe('Only bonded deliveries handled by Starlinks can be returned here.')
   })
 
-  it('still names the way out when the route is NOT a delivery', () => {
-    // The other side of the same rule: off the document route the sentence is
-    // honest, and it must survive a payload that happens to say `D`.
-    const bar = returnBar(DELIVERY_WITH_REMAINING, { openedAs: 'document', canReturn: false })
-    expect(find(bar, 'return-document').reason).toBe('Open the delivery to return it.')
+  it('needs BOTH signals to refuse before it names the way out', () => {
+    // A delivery payload is a delivery whichever route reached it: on the
+    // document route the two causes that can be ACTED on must still be the ones
+    // shown, or stories 4 and 5 quietly become route-conditional.
+    const onDocumentRoute = returnBar(DELIVERY_WITH_REMAINING, {
+      openedAs: 'document',
+      canReturn: false,
+    })
+    expect(find(onDocumentRoute, 'return-document').reason).toBe(
+      'Only bonded deliveries handled by Starlinks can be returned here.',
+    )
+    // Neither signal says delivery — an order, and the sentence names its way out.
+    const notADelivery = returnBar(DELIVERY_WITH_REMAINING, {
+      openedAs: 'document',
+      documentCategory: 'O',
+      canReturn: false,
+    })
+    expect(find(notADelivery, 'return-document').reason).toBe('Open the delivery to return it.')
   })
 
   it('follows canReturn ALONE — the derived split is a reason, never a gate', () => {
@@ -315,7 +329,14 @@ describe('commandGating', () => {
 
   it('survives a document with no status block at all', () => {
     const bar = commandBar(
-      { closeStatus: null, openedAs: 'document', canReturn: null, lines: null, busy: false },
+      {
+        closeStatus: null,
+        documentCategory: null,
+        openedAs: 'document',
+        canReturn: null,
+        lines: null,
+        busy: false,
+      },
       t,
     )
     expect(find(bar, 'request-close').disabled).toBe(false)

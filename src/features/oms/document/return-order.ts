@@ -447,12 +447,11 @@ export function reconcilePickupDistrict(
 ): PickupAddress {
   if (!district) return address
   const applied = applyPickupDistrict(address, district)
-  const agrees =
-    applied.districtCode === address.districtCode &&
-    applied.districtName === address.districtName &&
-    applied.cityCode === address.cityCode &&
-    applied.cityName === address.cityName
-  return agrees ? address : applied
+  // Compared over EVERY field rather than the four `applyPickupDistrict`
+  // happens to write today: re-spelling its write-set here would mean a fifth
+  // field added there silently stops being reconciled, and no test would fail.
+  const keys = Object.keys(applied) as (keyof PickupAddress)[]
+  return keys.every((key) => applied[key] === address[key]) ? address : applied
 }
 
 /**

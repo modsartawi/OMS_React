@@ -205,7 +205,22 @@
       "quantityAtLeastOne": "A returned quantity must be at least 1.",
       "chooseReason": "Choose what happens to the goods.",
       "summary_one": "{{count}} line",
-      "summary_other": "{{count}} lines"
+      "summary_other": "{{count}} lines",
+      "summaryFees_one": "{{count}} fee",
+      "summaryFees_other": "{{count}} fees"
+    },
+    "submitting": "Creating…",
+    "created": {
+      "title": "Return {{documentNo}} created",
+      "next": {
+        "RTRF": "The courier will be asked to collect the goods.",
+        "RF": "Refund only — no collection is booked."
+      },
+      "replayed": "This request had already been received, so this is the same return — not a second one."
+    },
+    "refused": {
+      "title": "The return was not created",
+      "fallback": "The server refused the return without saying why."
     }
   },
   "tabs": {

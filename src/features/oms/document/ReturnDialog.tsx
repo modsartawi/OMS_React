@@ -1,13 +1,20 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Minus, Plus, Undo2 } from 'lucide-react'
+import { Loader2, Minus, Plus, Undo2 } from 'lucide-react'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
+import { notify } from '@/core/services/notify'
+import { mintRequestId } from '@/core/util/request-id'
 import { formatMoney } from '@/core/util/number-format'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
+import { documentApi } from './api'
 import PickupAddressPanel from './PickupAddressPanel'
 import NoteField from './NoteField'
 import {
+  buildCreateReturnRequest,
   clampReturnQuantity,
   pickupAddressFrom,
   refundableFees,
@@ -59,9 +66,12 @@ function pickedState(row: ReturnableLine, picked: boolean): LineState {
  * scrolling body and the pinned footer — nothing new is built in `core/ui`.
  *
  * The line grid and the submit gate landed with 291, the reason fork and its
- * address panel with 292, and the fee grid and the note with 293. Only the
- * create call itself (294) is still to come — **Create return is disabled by
- * construction until then**, because there is nothing to post yet.
+ * address panel with 292, the fee grid and the note with 293, and the create
+ * call and its three outcomes with 294.
+ *
+ * **The dialog IS the confirmation** (D8) — the same rule `ChangeStoreDialog`
+ * follows. There is no pre-confirm and `core/services/confirm` is not on this
+ * path: a screen the operator has just filled in is not confirmed twice.
  *
  * The grid is a plain table rather than an AG Grid: 1270's approved build target
  * draws it as one, every row carries interactive controls rather than values,
@@ -71,10 +81,19 @@ function pickedState(row: ReturnableLine, picked: boolean): LineState {
 export default function ReturnDialog({
   open,
   onClose,
+  onCreated,
   document,
 }: {
   open: boolean
   onClose: () => void
+  /**
+   * A return exists on the server. The page closes this dialog and **reloads**
+   * the delivery beneath it, so the screen the operator comes back to shows the
+   * newly-consumed quantities. It does NOT navigate to the created return —
+   * whether Document Details can open an `ORRT` at all is unverified, and the
+   * toast carries the number either way (D8).
+   */
+  onCreated: () => void
   document: SdDocumentHeaderModel
 }) {
   const { t } = useTranslation('document')
@@ -105,6 +124,23 @@ export default function ReturnDialog({
    * concession, the service having actually been performed.
    */
   const [feePicks, setFeePicks] = useState<Record<string, boolean>>({})
+  /**
+   * The idempotency key, **minted once per dialog OPENING and kept across
+   * retries** (D7). That is what makes the key work: a double-click, a lost
+   * response and a manual retry after a network failure all carry the same key
+   * and replay onto the same return. A fresh key per press would create a second
+   * one — precisely the failure the key exists to prevent.
+   *
+   * Cancelling and reopening mints a new one: a deliberate new attempt is a new
+   * request.
+   */
+  const [requestId, setRequestId] = useState('')
+  /**
+   * The server's refusal, **kept after its toast has gone**. A refusal the
+   * operator can act on must not cost them the form, and a sentence that
+   * vanished four seconds ago is one they cannot act on.
+   */
+  const [refusal, setRefusal] = useState<{ message: string; code: string | null } | null>(null)
 
   const collecting = reason === 'RTRF'
 
@@ -120,7 +156,94 @@ export default function ReturnDialog({
   // rate. The grid renders what it is handed and sums nothing.
   const fees = useMemo(() => refundableFees(document.conditions), [document.conditions])
 
-  const gate = useMemo(() => submitGate(rows.map(stateOf), reason), [rows, lineState, reason])
+  // The ticked fees, counted off the PROJECTION — a tick left behind by a fee
+  // the grid no longer offers is stale state, and the summary must count what
+  // would actually post.
+  const pickedFees = fees.filter((fee) => feePicks[fee.condType] === true)
+  const gate = useMemo(
+    () => submitGate(rows.map(stateOf), reason, pickedFees.length),
+    [rows, lineState, reason, pickedFees.length],
+  )
+
+  /**
+   * ⚠ **A second guard on the in-flight state, and not a redundant one.**
+   * `create.isPending` only disables the button on the next RENDER; a ref flips
+   * synchronously, so two clicks landing before React re-renders still post
+   * once. The customer is not refunded twice because of a double-click.
+   */
+  const inFlight = useRef(false)
+
+  const create = useMutation({
+    mutationFn: documentApi.createReturn,
+    onSuccess: (created, body) => {
+      // Replay is a SUCCESS, and reads as one: the same toast with one extra
+      // clause. Showing an error about a return that WAS created is the
+      // confusing half of the problem the key solves (D8).
+      notify.success(
+        t('returnDocument.created.title', { documentNo: created.documentNo }),
+        [
+          t(`returnDocument.created.next.${body.reason}`),
+          created.replayed ? t('returnDocument.created.replayed') : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
+      )
+      onCreated()
+    },
+    onError: (err: unknown) => {
+      // ⚠ The screen branches on NO code: it renders whichever sentence and
+      // code it is handed. BackOffice spec 1283 §8 mints the values and calls
+      // them build detail — hard-coding one here is how this repo drifts from a
+      // policy that moves. 401 is not ours either: `handle401` has already
+      // cleared the session and redirected.
+      const fallback = t('returnDocument.refused.fallback')
+      setRefusal({ message: apiErrorMessage(err, fallback), code: apiErrorCode(err) })
+      // `apiError` rather than a bare `error`: it reads the same sentence the
+      // banner shows, and it clears the repeating auth/network toasts first.
+      notify.apiError(t('returnDocument.refused.title'), err, fallback)
+    },
+    onSettled: () => {
+      inFlight.current = false
+    },
+  })
+
+  /**
+   * Build the body and post it. The request builder is the one place that turns
+   * this screen into a payload — and the one place a client-supplied amount
+   * could reappear, which is why it is pure and tested rather than inline here.
+   */
+  function submit() {
+    if (!gate.ok || reason === null || inFlight.current || create.isPending) return
+    inFlight.current = true
+    // The previous refusal goes when a new attempt starts: a banner about the
+    // last try, left standing beside a running one, states something untrue.
+    setRefusal(null)
+    create.mutate(
+      buildCreateReturnRequest({
+        requestId,
+        // The DELIVERY this dialog was opened on — never an order number. The
+        // command is disabled on anything that is not a delivery (290).
+        refDeliveryNo: document.documentNo,
+        reason,
+        rows,
+        selections: lineState,
+        fees,
+        feePicks,
+        address,
+        note,
+      }),
+    )
+  }
+
+  /**
+   * Every dismissal path is held shut while the request is in flight (D8), so
+   * an impatient Escape cannot leave a return being created behind a screen that
+   * says nothing about it.
+   */
+  function requestClose() {
+    if (create.isPending) return
+    onClose()
+  }
 
   const pickedCount = rows.filter((row) => stateOf(row).picked).length
   const allPicked = rows.length > 0 && pickedCount === rows.length
@@ -171,7 +294,7 @@ export default function ReturnDialog({
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={requestClose}
       title={t('returnDocument.title', { documentNo: document.documentNo })}
       width="62rem"
       onShow={() => {
@@ -182,6 +305,16 @@ export default function ReturnDialog({
         setAddress(delivered)
         setFeePicks({})
         setNote('')
+        setRefusal(null)
+        create.reset()
+        // A NEW opening is a new attempt, so it gets a new key. Within one
+        // opening the key never changes — that is what makes a retry replay
+        // onto the same return instead of creating a second one (D7).
+        // ⚠ NOT `crypto.randomUUID()`: it is undefined outside a SECURE context,
+        // and this app is served over plain http from IIS — the dialog would
+        // throw as it opened. `mintRequestId` keeps the entropy and hand-rolls
+        // only the formatting.
+        setRequestId(mintRequestId())
       }}
       footer={
         <>
@@ -199,22 +332,56 @@ export default function ReturnDialog({
             }
           >
             {t(gate.key, gate.params)}
+            {/*
+              The fee half of the summary. Two independent counts cannot plural
+              through one key, so they are two — joined here with the same `·`
+              the address summary is joined with.
+            */}
+            {gate.fees ? ' · ' + t(gate.fees.key, gate.fees.params) : ''}
           </span>
-          <Button variant="text" onClick={onClose}>
+          <Button variant="text" onClick={requestClose} disabled={create.isPending}>
             {t('dialog.cancel')}
           </Button>
           {/*
-            Disabled by construction until 294 builds the request and posts it.
-            The gate above is already live, so the bar reports the next thing to
-            do even while the button it guards cannot yet be taken.
+            The submit IS the confirmation, and it is the only one. Disabled
+            while the gate names a missing thing and while the request is in
+            flight, so impatience cannot fire it twice.
           */}
-          <Button variant="primary" disabled data-return-submit>
-            <Undo2 className="h-3.5 w-3.5" aria-hidden />
-            {t('returnDocument.submit')}
+          <Button
+            variant="primary"
+            disabled={!gate.ok || create.isPending}
+            onClick={submit}
+            data-return-submit
+          >
+            {create.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Undo2 className="h-3.5 w-3.5" aria-hidden />
+            )}
+            {create.isPending ? t('returnDocument.submitting') : t('returnDocument.submit')}
           </Button>
         </>
       }
     >
+      {/*
+        ⚠ The refusal **STAYS** — the toast beside it does not. It carries the
+        server's own sentence with the machine code beside it, so the operator
+        can still read what went wrong after the toast has gone, and can quote
+        the code when they ask someone. Every selection below it is untouched: a
+        refusal the operator can act on must not cost them the form (D8).
+      */}
+      {refusal && (
+        <div className="mb-3" data-return-refusal>
+          <ErrorBanner className="p-2.5" title={t('returnDocument.refused.title')} message={refusal.message}>
+            {refusal.code && (
+              <p className="mt-0.5 font-mono text-[0.6875rem]" data-return-refusal-code>
+                {refusal.code}
+              </p>
+            )}
+          </ErrorBanner>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2">
           <h4 className="m-0 text-[0.8125rem] font-semibold tracking-tight">

@@ -1,5 +1,7 @@
 import { api } from '@/core/api'
 import type {
+  CreatedReturnModel,
+  CreateReturnRequest,
   SdDocumentHeaderModel,
   SdDocumentLogModel,
   SdDocumentOutboxModel,
@@ -57,5 +59,16 @@ export const documentApi = {
   },
   rescheduleDelivery(body: RescheduleDocumentModel): Promise<boolean> {
     return api.post<boolean>(`${BASE}/RescheduleDelivery`, body)
+  },
+  /**
+   * Create a bonded return against a delivery (spec 289 D10).
+   *
+   * The body carries a client-minted `requestId` and **no amount of any kind**;
+   * see `buildCreateReturnRequest`, which is the only thing that builds one. A
+   * refusal arrives as the envelope this repo already renders — a guardrail
+   * refusal read through `apiErrorMessage` / `apiErrorCode`, never a crash.
+   */
+  createReturn(body: CreateReturnRequest): Promise<CreatedReturnModel> {
+    return api.post<CreatedReturnModel>(`${BASE}/CreateReturn`, body)
   },
 }

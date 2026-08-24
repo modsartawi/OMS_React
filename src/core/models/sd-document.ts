@@ -312,3 +312,80 @@ export interface SdDocumentOutboxModel {
   outboxStatus: string // 'P' Pending, 'F' Failed, 'C' Completed
   errorMessage: string
 }
+
+// ---------------------------------------------------------------------------
+// The bonded-return create door — `POST SdDocumentWeb/CreateReturn`.
+//
+// ⚠ **Provenance: BackOffice spec 1283 §2**, transcribed by spec 289 (`.issues/
+// 289-bonded-return-screen-spec.md`, *The wire, transcribed*). That spec is the
+// normative owner of every field name, every optionality and the `reason` union
+// here; this repo transcribes and does NOT get to change them. A `400` on the
+// first live call is a drift report against 1283 §2 — corrected there first,
+// and only then here.
+// ---------------------------------------------------------------------------
+
+/**
+ * One line coming back.
+ *
+ * ⚠ **No price, no discount, no VAT — by construction.** The server recomputes
+ * the money pro-rata; a client-supplied refund figure is structurally
+ * impossible rather than validated against.
+ */
+export interface CreateReturnLine {
+  lineNumber: number
+  itemNumber: string
+  quantity: number
+}
+
+/** The pickup address. Omitted under `RF`; the server ignores it there. */
+export interface CreateReturnAddress {
+  street1: string
+  street2: string
+  cityCode: string
+  cityName: string
+  districtCode: string
+  districtName: string
+  postalCode: string
+  buildingNumber: string
+  shortAddress: string
+  gpsLat: number
+  gpsLon: number
+}
+
+/**
+ * The two return reasons — `ReturnReasonPolicy`'s set, and nothing else.
+ *
+ * `RTRF` — *return and refund*: the courier collects and the refund follows the
+ * goods. `RF` — *refund only*: refunded now, nothing is collected, the customer
+ * keeps the goods.
+ */
+export type ReturnReason = 'RTRF' | 'RF'
+
+export interface CreateReturnRequest {
+  /**
+   * Client-minted idempotency key — REQUIRED, stamped into `SourceReference`.
+   * Minted once per dialog OPENING and kept across retries (spec 289 D7), so a
+   * double-click, a lost response and a manual retry all replay onto the same
+   * return rather than creating a second one.
+   */
+  requestId: string
+  /** A DELIVERY number. Never an order number. */
+  refDeliveryNo: string
+  reason: ReturnReason
+  lines: CreateReturnLine[]
+  /** WHICH delivery fees carry back — never how much. */
+  conditionTypes: string[]
+  /** Omitted under `RF`. */
+  shippingAddress?: CreateReturnAddress
+  note?: string
+}
+
+/** The slim create response. Deliberately not the header model. */
+export interface CreatedReturnModel {
+  documentNo: string
+  orderNo: string
+  documentReason: string
+  storeCode: string
+  /** `true` when this `requestId` had already created a return: the SAME one. */
+  replayed: boolean
+}

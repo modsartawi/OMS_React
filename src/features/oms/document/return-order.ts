@@ -11,6 +11,9 @@ import { describeConditionType } from '@/core/constants/oms-codes'
 import type { SdDistrictModel } from '@/core/models/lookups'
 import { districtCityName } from './change-store'
 import type {
+  CreateReturnAddress,
+  CreateReturnRequest,
+  ReturnReason,
   SdDocumentAddressModel,
   SdDocumentLineModel,
   TransactionConditionModel,
@@ -20,15 +23,17 @@ import type {
  * The two return reasons.
  *
  * **Provenance: BackOffice spec 1283 §2** (`ReturnReasonPolicy`'s set, and
- * nothing else), transcribed by spec 289. This repo does not own the union and
- * does not get to add to it.
+ * nothing else), transcribed by spec 289 and living with the rest of that §2
+ * transcription in `core/models/sd-document.ts` — re-exported here so the screen
+ * keeps reading its vocabulary off one module. This repo does not own the union
+ * and does not get to add to it.
  *
  * `RTRF` — *return and refund*: the courier collects and the refund follows the
  * goods. `RF` — *refund only*: refunded now, nothing is collected, the customer
  * keeps the goods. The second is an irreversible money movement with nothing
  * coming back, which is why the screen pre-selects **neither** (D5).
  */
-export type ReturnReason = 'RTRF' | 'RF'
+export type { ReturnReason }
 
 /** One line as the return screen offers it. */
 export interface ReturnableLine {
@@ -273,6 +278,19 @@ export interface SubmitGateOutcome {
    */
   key: SubmitGateKey
   params?: Record<string, number>
+  /**
+   * The fee half of the ready summary — *3 lines · 1 fee* (spec 289 story 41).
+   *
+   * Its OWN key and count rather than a second parameter on `summary`, because
+   * the two counts are independent and one i18n key can pluralise only one of
+   * them: *3 lines · 1 fees* is exactly the copy defect that produces. The
+   * caller joins the two, as it already joins the address summary's parts.
+   *
+   * Absent when no fee is ticked, and absent on a blocked bar: a ticked fee is
+   * not a step towards submitting, and naming it beside a complaint would read
+   * as progress the operator has not made.
+   */
+  fees?: { key: 'returnDocument.gate.summaryFees'; params: { count: number } }
 }
 
 /**
@@ -291,6 +309,7 @@ export interface SubmitGateOutcome {
 export function submitGate(
   lines: readonly ReturnLineSelection[],
   reason: ReturnReason | null,
+  feeCount = 0,
 ): SubmitGateOutcome {
   const picked = lines.filter((line) => line.picked)
   if (picked.length === 0) return { ok: false, key: 'returnDocument.gate.selectLines' }
@@ -301,7 +320,17 @@ export function submitGate(
   // nothing coming back, and a pre-selected radio is exactly how that gets
   // clicked through (D5).
   if (reason === null) return { ok: false, key: 'returnDocument.gate.chooseReason' }
-  return { ok: true, key: 'returnDocument.gate.summary', params: { count: picked.length } }
+  return {
+    ok: true,
+    key: 'returnDocument.gate.summary',
+    params: { count: picked.length },
+    // Story 41 reads *3 lines · 1 fee*. A fee is never a MISSING thing — none
+    // ticked is the ordinary case and the deliberate one — so it only ever adds
+    // to the summary, never blocks it.
+    ...(feeCount > 0
+      ? { fees: { key: 'returnDocument.gate.summaryFees' as const, params: { count: feeCount } } }
+      : {}),
+  }
 }
 
 /**
@@ -312,19 +341,7 @@ export function submitGate(
  * It is a DRAFT: edits live in the dialog and are discarded on cancel. The
  * address on the delivery is never touched — only the one that posts.
  */
-export interface PickupAddress {
-  street1: string
-  street2: string
-  cityCode: string
-  cityName: string
-  districtCode: string
-  districtName: string
-  postalCode: string
-  buildingNumber: string
-  shortAddress: string
-  gpsLat: number
-  gpsLon: number
-}
+export type PickupAddress = CreateReturnAddress
 
 /** A payload string, or `''` — never `undefined`, which uncontrols an input. */
 function textOrEmpty(value: unknown): string {
@@ -439,4 +456,77 @@ export function pickupAddressSummary(address: PickupAddress): string[] {
   const where = [address.districtName, address.cityName].map((s) => s.trim()).filter(Boolean)
   const street = [address.street1, address.buildingNumber].map((s) => s.trim()).filter(Boolean)
   return [where.join(', '), street.join(' '), address.shortAddress.trim()].filter(Boolean)
+}
+
+/**
+ * The screen, as the operator has left it — everything the request is built
+ * from, and nothing else.
+ *
+ * The rows and the fees are the PROJECTIONS, not the raw payload: a selection
+ * can only reach the wire through a row the projection admitted, so a tick left
+ * behind by a line or a fee that is no longer offered cannot ride along.
+ */
+export interface CreateReturnDraft {
+  /** Minted once per dialog OPENING and kept across retries (spec 289 D7). */
+  requestId: string
+  /** A DELIVERY number — the document the screen was opened on. */
+  refDeliveryNo: string
+  reason: ReturnReason
+  rows: readonly ReturnableLine[]
+  /** Per-line state, keyed by `lineNumber`. */
+  selections: Readonly<Record<number, ReturnLineSelection>>
+  fees: readonly RefundableFee[]
+  /** Which fees are ticked, keyed by condition TYPE. */
+  feePicks: Readonly<Record<string, boolean>>
+  address: PickupAddress
+  note: string
+}
+
+/**
+ * Screen state → the body that posts to `SdDocumentWeb/CreateReturn`.
+ *
+ * ⚠ **The single most valuable function in this wave**, because it is the one
+ * place a client-supplied amount could reappear. What it carries:
+ *
+ * - **ticked lines only**, each at its clamped quantity — the same
+ *   `[1, remaining]` range the steppers and the typed box land in, applied once
+ *   more here so a body is never built carrying a quantity the server refuses;
+ * - **ticked fee TYPES only** — which fee carries back, never how much. The rate
+ *   the grid displayed is context for the operator and stays on the screen;
+ * - **`shippingAddress` omitted entirely under `RF`**, independently of what the
+ *   address panel did, so the panel and the payload cannot disagree (D5);
+ * - a **blank note omitted** rather than sent as `''`;
+ * - ⚠ **not one field carrying an amount** — no price, discount, VAT, fee or
+ *   total, in either direction. A client-supplied refund figure is
+ *   *structurally impossible* rather than validated against.
+ *
+ * It mints nothing and reads no clock: the `requestId` arrives from the caller
+ * precisely so a retry can hand back the same one.
+ */
+export function buildCreateReturnRequest(draft: CreateReturnDraft): CreateReturnRequest {
+  const lines = draft.rows
+    .filter((row) => draft.selections[row.lineNumber]?.picked === true)
+    .map((row) => ({
+      lineNumber: row.lineNumber,
+      itemNumber: row.itemNumber,
+      quantity: clampReturnQuantity(draft.selections[row.lineNumber]?.quantity, row.remaining),
+    }))
+
+  const conditionTypes = draft.fees
+    .filter((fee) => draft.feePicks[fee.condType] === true)
+    .map((fee) => fee.condType)
+
+  const note = draft.note.trim()
+
+  return {
+    requestId: draft.requestId,
+    refDeliveryNo: draft.refDeliveryNo,
+    reason: draft.reason,
+    lines,
+    conditionTypes,
+    // Absent, not empty: `RF` books no collection, so an address on the body
+    // would describe a courier visit that is never going to happen.
+    ...(draft.reason === 'RF' ? {} : { shippingAddress: { ...draft.address } }),
+    ...(note === '' ? {} : { note }),
+  }
 }

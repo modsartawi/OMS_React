@@ -30,6 +30,14 @@
 //      once; only the header fee rows survive, at their `condAmount` rate;
 //      every fee is unticked on open and the header carries NO select-all;
 //      the note is optional — the bar reaches its ready summary with it empty.
+//  11. (294) the ready summary counts the fees too — *1 line · 1 fee*; a valid
+//      form posts ONCE and reports success with the return number and the right
+//      what-happens-next clause for each reason; the dialog closes and the
+//      delivery beneath it RELOADS while the screen stays put; the body carries
+//      ticked lines, fee types and no amount at all; a double-click posts once;
+//      a `replayed: true` answer is PLAIN success with the same number; and a
+//      refusal keeps the dialog open with the banner surviving the toast, the
+//      machine code beside the sentence and every selection intact.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/return-dialog-drive.mjs
@@ -159,12 +167,60 @@ const DISTRICTS = [
 // a delivery was addressed to. The picker must still show it as the current
 // value, and choosing it again must be a way BACK.
 
+/**
+ * The create door's three answers (ticket 294) — the two fixtures this ticket
+ * lands, mirrored from `src/features/oms/document/__fixtures__/return-create.ts`
+ * (a `.mjs` drive cannot import the TS module).
+ *
+ * ⚠ **Their SHAPES are contractual; their VALUES are not**, and ⚠ the screen
+ * branches on NO code at all — BackOffice spec 1283 §8 mints the codes and calls
+ * their values build detail.
+ */
+const CREATED = {
+  documentNo: '7000000912',
+  orderNo: '2000000551',
+  documentReason: 'RTRF',
+  storeCode: 'P001',
+  replayed: false,
+}
+const REFUSED = {
+  statusCode: 400,
+  success: false,
+  message: 'This delivery is not handled by Starlinks, so a return cannot be created here.',
+  errors: [
+    {
+      errorCode: 'RETURN_STORE_NOT_ELIGIBLE',
+      internalErrorCode: '',
+      errorMessage:
+        'This delivery is not handled by Starlinks, so a return cannot be created here.',
+    },
+  ],
+  data: null,
+}
+
+/** Every body the app posted to the create door, in order. */
+const posts = []
+/** Which answer the door gives next: 'created' | 'replay' | 'refused'. */
+let createMode = 'created'
+/** How long it takes to answer — the double-click test needs a slow one. */
+let createDelay = 0
+/** How many times the delivery was READ, so a reload can be seen. */
+let docLoads = 0
+
 async function run() {
   const browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
-  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  // ⚠ The refusal section asks the door for a deliberate `400`, and Chromium logs
+  // every non-2xx response as a console error. That is the drive's own fixture
+  // answering as designed, not the app failing — a REAL app failure is an
+  // uncaught exception or a React error, both of which still land here.
+  const expectedNoise = (text) => /Failed to load resource.*40[03]/.test(text)
+  page.on(
+    'console',
+    (m) => m.type() === 'error' && !expectedNoise(m.text()) && errors.push(m.text()),
+  )
 
   await page.route('**/api/**', async (route) => {
     const url = route.request().url()
@@ -176,7 +232,21 @@ async function run() {
     if (p === 'SdDocumentWeb/Access')
       return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
-    if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
+    if (doc) {
+      docLoads += 1
+      return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
+    }
+    if (p === 'SdDocumentWeb/CreateReturn') {
+      posts.push(JSON.parse(route.request().postData() || '{}'))
+      if (createDelay) await new Promise((resolve) => setTimeout(resolve, createDelay))
+      if (createMode === 'refused')
+        return route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify(REFUSED),
+        })
+      return route.fulfill(envelope({ ...CREATED, replayed: createMode === 'replay' }))
+    }
     if (p === 'SdDocument/Districts') return route.fulfill(envelope(DISTRICTS))
     if (/\/Outbox$/.test(p) || /\/Logs$/.test(p)) return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))
@@ -639,6 +709,293 @@ async function run() {
       (await noteBox().inputValue()) === '',
     (await gate().innerText()).trim(),
   )
+
+
+  // ================================================================ 20 · (294)
+  // The create door: the summary's fee half, then the THREE outcomes.
+  //
+  // The wire is the fixture and the app is not stubbed — every assertion below
+  // is about what the real dialog does with the answer it is given.
+  const summary = async () => (await gate().innerText()).trim()
+  check(
+    'the ready summary counts the FEES as well as the lines — 1 line · 1 fee',
+    (await summary()) === '1 line · 1 fee' &&
+      (await gate().getAttribute('data-return-gate')) === 'ok',
+    await summary(),
+  )
+  check('and Create return is now takeable — the gate names nothing missing', await submit().isEnabled())
+
+  // -------------------------------------------- 21 · success under Refund only
+  // The dialog is still on `RF` from the arrow press, with line 10 and the DFEE
+  // fee ticked — so this is the Refund-only clause.
+  const toasts = () => page.locator('[data-sonner-toast]')
+  const toastText = async () => (await toasts().first().innerText()).replace(/\n/g, ' ')
+  /**
+   * Wait for every toast to EXPIRE on its own.
+   *
+   * Deliberately not a DOM removal: sonner owns those nodes, and ripping them
+   * out from under React is a way to fail this drive for a reason the app does
+   * not have. It also makes the refusal section's assertion the real one — the
+   * banner has to survive a toast that genuinely went away.
+   */
+  const settleToasts = async () => {
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-sonner-toast]').length === 0,
+      null,
+      { timeout: 20000 },
+    )
+  }
+  const docLoadsBefore = docLoads
+  posts.length = 0
+  await submit().click()
+  await page.waitForTimeout(400)
+  check('a valid form POSTS once', posts.length === 1, String(posts.length))
+  check(
+    'and the dialog CLOSES on success',
+    (await dialog().count()) === 0,
+  )
+  check(
+    'the toast carries the new return NUMBER',
+    (await toastText()).includes('Return 7000000912 created'),
+    await toastText(),
+  )
+  check(
+    'and what happens next — refund only, no collection is booked',
+    (await toastText()).includes('Refund only') &&
+      (await toastText()).includes('no collection is booked'),
+    await toastText(),
+  )
+  check(
+    'it is a SUCCESS toast, not an error one',
+    (await toasts().first().getAttribute('data-type')) === 'success',
+    await toasts().first().getAttribute('data-type'),
+  )
+  await page.waitForTimeout(400)
+  check(
+    'the delivery beneath it RELOADS — the screen shows the newly-consumed quantities',
+    docLoads > docLoadsBefore,
+    `${docLoadsBefore} → ${docLoads}`,
+  )
+  check(
+    'and the screen STAYS PUT — it does not navigate to the created return',
+    page.url().endsWith('/oms/document/8000000253'),
+    page.url(),
+  )
+
+  // ------------------------------------------------ 22 · what the body carries
+  const body = posts[0]
+  check(
+    'the body names the delivery, the reason and the requestId',
+    body.refDeliveryNo === '8000000253' &&
+      body.reason === 'RF' &&
+      typeof body.requestId === 'string' &&
+      body.requestId.length > 0,
+    JSON.stringify({ refDeliveryNo: body.refDeliveryNo, reason: body.reason }),
+  )
+  check(
+    'ticked lines only, at their clamped quantities',
+    JSON.stringify(body.lines) === JSON.stringify([{ lineNumber: 10, itemNumber: '208713', quantity: 4 }]),
+    JSON.stringify(body.lines),
+  )
+  check(
+    'fee TYPES only — never how much',
+    JSON.stringify(body.conditionTypes) === JSON.stringify(['DFEE']),
+    JSON.stringify(body.conditionTypes),
+  )
+  check(
+    'shippingAddress is ABSENT under Refund only — the panel and the payload cannot disagree',
+    !('shippingAddress' in body),
+    JSON.stringify(Object.keys(body)),
+  )
+  check(
+    'a blank note is omitted rather than sent empty',
+    !('note' in body),
+    JSON.stringify(Object.keys(body)),
+  )
+  check(
+    'and NOT ONE field carries an amount — the whole body, walked',
+    !/price|amount|discount|vat|tax|total|charge|refund|money|cost|rate|net|gross/i.test(
+      JSON.stringify(Object.keys(body)).concat(JSON.stringify(body.lines)),
+    ),
+    JSON.stringify(body),
+  )
+
+  // ------------------------- 23 · success under Return and refund, and the address
+  await settleToasts()
+  posts.length = 0
+  await openDialog()
+  await pick(10).check()
+  await page.locator('[data-return-reason="RTRF"]').click()
+  await page.waitForTimeout(100)
+  await submit().click()
+  await page.waitForTimeout(400)
+  check(
+    'under Return and refund the toast says the courier will be asked to collect',
+    (await toastText()).includes('The courier will be asked to collect'),
+    await toastText(),
+  )
+  check(
+    'and the body carries the full address field set the carrier reads',
+    JSON.stringify(Object.keys(posts[0].shippingAddress ?? {}).sort()) ===
+      JSON.stringify(
+        [
+          'buildingNumber',
+          'cityCode',
+          'cityName',
+          'districtCode',
+          'districtName',
+          'gpsLat',
+          'gpsLon',
+          'postalCode',
+          'shortAddress',
+          'street1',
+          'street2',
+        ].sort(),
+      ),
+    JSON.stringify(Object.keys(posts[0].shippingAddress ?? {})),
+  )
+
+  // ------------------------------------------------- 24 · double-click posts ONCE
+  await settleToasts()
+  posts.length = 0
+  createDelay = 600
+  await openDialog()
+  await pick(10).check()
+  await page.locator('[data-return-reason="RF"]').click()
+  await page.waitForTimeout(100)
+  await submit().dblclick()
+  await page.waitForTimeout(150)
+  check(
+    'submit is disabled and the dialog HELD OPEN while the request is in flight',
+    (await submit().isDisabled()) && (await dialog().count()) === 1,
+  )
+  check(
+    'and Cancel cannot walk away from a return being created',
+    await page.getByRole('button', { name: 'Cancel', exact: true }).isDisabled(),
+  )
+  await page.waitForTimeout(900)
+  check(
+    'double-clicking Create return posts ONCE — the customer is not refunded twice',
+    posts.length === 1,
+    String(posts.length),
+  )
+  createDelay = 0
+
+  // ----------------------------------------------- 25 · a replay is PLAIN SUCCESS
+  await settleToasts()
+  posts.length = 0
+  createMode = 'replay'
+  await openDialog()
+  await pick(10).check()
+  await page.locator('[data-return-reason="RF"]').click()
+  await page.waitForTimeout(100)
+  await submit().click()
+  await page.waitForTimeout(400)
+  check(
+    'a replayed answer renders as PLAIN SUCCESS — no error styling',
+    (await toasts().first().getAttribute('data-type')) === 'success' &&
+      (await page.locator('[data-return-refusal]').count()) === 0,
+    await toasts().first().getAttribute('data-type'),
+  )
+  check(
+    'with the SAME return number, and one extra clause saying it had already been received',
+    (await toastText()).includes('Return 7000000912 created') &&
+      (await toastText()).includes('already been received') &&
+      (await toastText()).includes('not a second one'),
+    await toastText(),
+  )
+  check('and the dialog closes, as any success does', (await dialog().count()) === 0)
+
+  // --------------------------------------------------------- 26 · a REFUSAL
+  await settleToasts()
+  posts.length = 0
+  createMode = 'refused'
+  await openDialog()
+  await pick(10).check()
+  await pick(20).check()
+  await page.locator('[data-return-fee="DFEE"]').check()
+  await page.locator('[data-return-reason="RTRF"]').click()
+  await page.waitForTimeout(100)
+  await qty(20).fill('2')
+  await qty(20).blur()
+  await page.waitForTimeout(100)
+  await submit().click()
+  await page.waitForTimeout(400)
+  const banner = () => page.locator('[data-return-refusal]')
+  check(
+    'a refusal keeps the dialog OPEN — the form is not the price of being refused',
+    (await dialog().count()) === 1,
+  )
+  check(
+    'it toasts, AND it plants a banner inside the dialog',
+    (await toasts().first().getAttribute('data-type')) === 'error' &&
+      (await banner().count()) === 1,
+  )
+  check(
+    'the banner carries the server own sentence',
+    (await banner().innerText()).includes(
+      'This delivery is not handled by Starlinks, so a return cannot be created here.',
+    ),
+    (await banner().innerText()).replace(/\n/g, ' '),
+  )
+  check(
+    'with the machine code beside it, so it can be quoted',
+    (await page.locator('[data-return-refusal-code]').innerText()).trim() ===
+      'RETURN_STORE_NOT_ELIGIBLE',
+    (await page.locator('[data-return-refusal-code]').innerText()).trim(),
+  )
+  await settleToasts()
+  await page.waitForTimeout(100)
+  check(
+    'and the banner STAYS after the toast has gone',
+    (await toasts().count()) === 0 && (await banner().count()) === 1,
+  )
+  check(
+    'every selection is still there — two lines, their quantities, the fee and the reason',
+    (await pick(10).isChecked()) &&
+      (await pick(20).isChecked()) &&
+      (await qty(20).inputValue()) === '2' &&
+      (await page.locator('[data-return-fee="DFEE"]').isChecked()) &&
+      (await page.locator('[data-return-reason="RTRF"]').getAttribute('data-on')) === '1',
+    await qty(20).inputValue(),
+  )
+  check(
+    'and the submit bar is takeable again — a refusal the operator can act on',
+    await submit().isEnabled(),
+  )
+
+  // ------------------------------- 27 · the key is minted per OPENING, not per press
+  const firstKey = posts[0].requestId
+  await submit().click()
+  await page.waitForTimeout(400)
+  check(
+    'a RETRY carries the same requestId — it replays onto the same return, never a second one',
+    posts.length === 2 && posts[1].requestId === firstKey,
+    `${posts.map((p) => p.requestId).join(' | ')}`,
+  )
+  await settleToasts()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.waitForTimeout(200)
+  await openDialog()
+  check(
+    'and reopening starts clean — no banner from the last attempt',
+    (await banner().count()) === 0 && (await pick(10).isChecked()) === false,
+  )
+  await pick(10).check()
+  await page.locator('[data-return-reason="RF"]').click()
+  await page.waitForTimeout(100)
+  // Answered this time, so the dialog closes on its own and the next opening
+  // starts from a screen with nothing left over.
+  createMode = 'created'
+  await submit().click()
+  await page.waitForTimeout(400)
+  check(
+    'a NEW opening mints a NEW key — a deliberate new attempt is a new request',
+    posts[2].requestId !== firstKey,
+    `${firstKey} → ${posts[2].requestId}`,
+  )
+  await settleToasts()
+  await openDialog()
 
   // ------------------------------------------------------------ the word `close`
   check(

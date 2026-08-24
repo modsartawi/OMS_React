@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyPickupDistrict,
+  buildCreateReturnRequest,
   districtLabel,
   clampReturnQuantity,
   pickupAddressFrom,
@@ -17,6 +18,12 @@ import {
   FULLY_RETURNED_LINES,
 } from './__fixtures__/return-lines'
 import { DOCUMENT_NUMBERS, PAYLOADS } from './__fixtures__/payloads'
+import {
+  CREATED_RETURN,
+  DUPLICATE_REPLAY,
+  REFUSED_NOT_ELIGIBLE,
+} from './__fixtures__/return-create'
+import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
 
 describe('returnableLines', () => {
   it('reports remaining as delivered minus returned, and omits a line with nothing left', () => {
@@ -450,5 +457,214 @@ describe('refundableFees', () => {
       { condType: 'DFEE', description: 'Delivery Fees', amount: 12 },
       { condType: 'FBBD', description: 'Beyond Border Delivery Fee', amount: 25 },
     ])
+  })
+})
+
+describe('submitGate — the fee half of the summary (ticket 294)', () => {
+  const picked = (quantity: number | null) => ({ picked: true, quantity })
+
+  it('summarises the fees as well as the lines — 3 lines · 1 fee', () => {
+    // Spec 289 story 41. The two counts are INDEPENDENT, so they arrive as two
+    // keys: one i18n key cannot pluralise two numbers, and *3 lines · 1 fees* is
+    // the copy defect that produces.
+    expect(submitGate([picked(2), picked(1), picked(3)], 'RTRF', 1)).toEqual({
+      ok: true,
+      key: 'returnDocument.gate.summary',
+      params: { count: 3 },
+      fees: { key: 'returnDocument.gate.summaryFees', params: { count: 1 } },
+    })
+  })
+
+  it('says nothing about fees when none is ticked — the strip stays the lines summary', () => {
+    expect(submitGate([picked(2)], 'RF', 0).fees).toBeUndefined()
+    expect(submitGate([picked(2)], 'RF')).toEqual({
+      ok: true,
+      key: 'returnDocument.gate.summary',
+      params: { count: 1 },
+    })
+  })
+
+  it('never puts a fee count on a BLOCKED bar — one missing thing at a time', () => {
+    // A ticked fee is not a step towards submitting; naming it beside a
+    // complaint would read as progress the operator has not made.
+    for (const outcome of [
+      submitGate([{ picked: false, quantity: null }], 'RTRF', 2),
+      submitGate([picked(null)], 'RTRF', 2),
+      submitGate([picked(1)], null, 2),
+    ]) {
+      expect(outcome.ok).toBe(false)
+      expect(outcome.fees).toBeUndefined()
+    }
+  })
+})
+
+describe('buildCreateReturnRequest', () => {
+  const ROWS = returnableLines(DELIVERY_WITH_ADDRESS.lines).rows
+  const FEES = refundableFees(DELIVERY_WITH_ADDRESS.conditions)
+  const ADDRESS = pickupAddressFrom(DELIVERY_WITH_ADDRESS.shippingAddress)
+
+  /** The screen filled in the ordinary way: line 10 ticked in full, no fee. */
+  const draft = (over: Partial<Parameters<typeof buildCreateReturnRequest>[0]> = {}) =>
+    buildCreateReturnRequest({
+      requestId: 'req-0001',
+      refDeliveryNo: DELIVERY_WITH_ADDRESS.documentNo,
+      reason: 'RTRF',
+      rows: ROWS,
+      selections: { 10: { picked: true, quantity: 4 } },
+      fees: FEES,
+      feePicks: {},
+      address: ADDRESS,
+      note: '',
+      ...over,
+    })
+
+  it('carries ticked lines only, at their clamped quantities', () => {
+    const body = draft({
+      selections: {
+        10: { picked: true, quantity: 99 },
+        20: { picked: false, quantity: 4 },
+      },
+    })
+    expect(body.lines).toEqual([{ lineNumber: 10, itemNumber: '208713', quantity: 4 }])
+    // The unticked line's number rode along in state; it must not ride onto the
+    // wire, and the ticked one is capped at what is left — 4 of 4, not 99.
+    expect(body.lines.map((line) => line.lineNumber)).not.toContain(20)
+  })
+
+  it('clamps a cleared, zero or negative quantity to 1 rather than sending it', () => {
+    // The gate already blocks a cleared box, so this is the second guard: a body
+    // is never built carrying a quantity the server would refuse.
+    for (const quantity of [null, 0, -3]) {
+      expect(draft({ selections: { 10: { picked: true, quantity } } }).lines[0].quantity).toBe(1)
+    }
+  })
+
+  it('carries fee TYPES only — the rate the screen displayed is nowhere in the body', () => {
+    const body = draft({ feePicks: { DFEE: true, FBBD: false } })
+    expect(body.conditionTypes).toEqual(['DFEE'])
+    // ⚠ 12 is what the screen displayed as `DFEE`'s rate. The client names WHICH
+    // fee carries back and never HOW MUCH — the server re-reads the rate itself.
+    // Read off the fee projection rather than typed here, so a fixture whose
+    // rate changes cannot quietly stop testing anything.
+    const rate = FEES.find((fee) => fee.condType === 'DFEE')?.amount
+    expect(rate).toBe(12)
+    expect(Object.values(body).flat()).not.toContain(rate)
+    expect(body.conditionTypes).not.toContain(String(rate))
+  })
+
+  it('cannot carry a fee the projection never offered', () => {
+    // A tick left behind by a fee that is no longer on the grid is stale state,
+    // not a decision — and `conditionTypes` is the one list the server acts on.
+    expect(draft({ feePicks: { DFEE: true, GONE: true } }).conditionTypes).toEqual(['DFEE'])
+  })
+
+  it('includes the full address field set under RTRF', () => {
+    const body = draft({ reason: 'RTRF' })
+    expect(Object.keys(body.shippingAddress ?? {}).sort()).toEqual(
+      [
+        'buildingNumber',
+        'cityCode',
+        'cityName',
+        'districtCode',
+        'districtName',
+        'gpsLat',
+        'gpsLon',
+        'postalCode',
+        'shortAddress',
+        'street1',
+        'street2',
+      ].sort(),
+    )
+    expect(body.shippingAddress).toEqual(ADDRESS)
+  })
+
+  it('OMITS shippingAddress under RF — even after the address was expanded and edited', () => {
+    // The panel is absent under `RF`, but the draft it left behind is not: the
+    // builder drops it independently of what the panel did, so the two cannot
+    // disagree about what was posted (spec 289 D5).
+    const edited = { ...ADDRESS, street1: 'Somewhere Else Ave', shortAddress: 'CHANGED9999' }
+    const body = draft({ reason: 'RF', address: edited })
+    expect('shippingAddress' in body).toBe(false)
+    expect(JSON.stringify(body)).not.toContain('CHANGED9999')
+  })
+
+  it('omits a blank note, and trims the one that is typed', () => {
+    expect('note' in draft({ note: '' })).toBe(false)
+    expect('note' in draft({ note: '   ' })).toBe(false)
+    expect(draft({ note: '  damaged in transit  ' }).note).toBe('damaged in transit')
+  })
+
+  it('carries the requestId and the DELIVERY number, and names the reason', () => {
+    const body = draft({ requestId: 'abc-123', reason: 'RF' })
+    expect(body.requestId).toBe('abc-123')
+    expect(body.refDeliveryNo).toBe(DELIVERY_WITH_ADDRESS.documentNo)
+    expect(body.reason).toBe('RF')
+  })
+
+  it('puts NO amount on the wire — a whole-body walk', () => {
+    // ⚠ The one test that catches money creeping back. Not a spot check of the
+    // fields today's builder happens to set: a walk of the SERIALIZED body, so a
+    // field added later is caught by construction.
+    const body = draft({
+      selections: { 10: { picked: true, quantity: 4 }, 20: { picked: true, quantity: 3 } },
+      feePicks: { DFEE: true, FBBD: true },
+      note: 'damaged in transit',
+    })
+    const keys: string[] = []
+    const numbers: number[] = []
+    const walk = (value: unknown): void => {
+      if (Array.isArray(value)) return value.forEach(walk)
+      if (typeof value === 'number') return void numbers.push(value)
+      if (value && typeof value === 'object') {
+        for (const [key, child] of Object.entries(value)) {
+          keys.push(key)
+          walk(child)
+        }
+      }
+    }
+    walk(JSON.parse(JSON.stringify(body)))
+
+    // No key ANYWHERE names money, in either direction.
+    const money = /price|amount|discount|vat|tax|total|charge|refund|money|cost|rate|net|gross/i
+    expect(keys.filter((key) => money.test(key))).toEqual([])
+
+    // And every number in the body is accounted for: two line numbers, two
+    // quantities and the delivery's own GPS pair. Nothing else is a number here,
+    // so no figure can be a price the client chose.
+    expect([...numbers].sort((a, b) => a - b)).toEqual(
+      [10, 4, 20, 3, ADDRESS.gpsLat, ADDRESS.gpsLon].sort((a, b) => a - b),
+    )
+    // The rates the screen displayed as context stay on the screen.
+    const displayed = FEES.map((fee) => fee.amount).concat(ROWS.map((row) => row.unitPrice))
+    expect(numbers.filter((n) => displayed.includes(n))).toEqual([])
+  })
+})
+
+describe('the create door’s two answers, as fixtures (ticket 294)', () => {
+  it('reads a refusal through the standard readers — and needs no code of its own', () => {
+    // The envelope arrives as core/api's typed `ApiError`; the screen shows the
+    // server's own sentence with the code beside it. ⚠ It matches on NEITHER —
+    // BackOffice spec 1283 §8 mints the values and calls them build detail.
+    const refusal = new ApiError(
+      'business',
+      REFUSED_NOT_ELIGIBLE.message,
+      REFUSED_NOT_ELIGIBLE.statusCode,
+      REFUSED_NOT_ELIGIBLE.errors,
+    )
+    expect(REFUSED_NOT_ELIGIBLE.success).toBe(false)
+    expect(apiErrorMessage(refusal, 'unexpected')).toBe(REFUSED_NOT_ELIGIBLE.message)
+    expect(apiErrorCode(refusal)).toBe(REFUSED_NOT_ELIGIBLE.errors[0].errorCode)
+    // A sentence a human can act on, not a code dressed up as one.
+    expect(REFUSED_NOT_ELIGIBLE.message).toMatch(/\s/)
+  })
+
+  it('carries a replay as a SUCCESS — the same return, not a second one', () => {
+    expect(DUPLICATE_REPLAY.success).toBe(true)
+    expect(DUPLICATE_REPLAY.statusCode).toBe(200)
+    expect(DUPLICATE_REPLAY.data.replayed).toBe(true)
+    // The number is the whole point of reporting it: a retry that hands back a
+    // DIFFERENT one would mean a second return was created.
+    expect(DUPLICATE_REPLAY.data.documentNo).toBe(CREATED_RETURN.data.documentNo)
+    expect(CREATED_RETURN.data.replayed).toBe(false)
   })
 })

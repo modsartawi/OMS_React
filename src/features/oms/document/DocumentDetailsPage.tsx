@@ -554,6 +554,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             <ReturnDialog
               open={returnOpen}
               onClose={() => setReturnOpen(false)}
+              // The return exists. The dialog closes and the delivery beneath it
+              // reloads, so the screen the operator comes back to shows the
+              // newly-consumed quantities — and the screen STAYS PUT: the toast
+              // carries the new return number (spec 289 D8).
+              onCreated={() => {
+                setReturnOpen(false)
+                void reload()
+              }}
               document={document}
             />
             <NoteDialog

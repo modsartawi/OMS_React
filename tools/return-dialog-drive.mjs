@@ -20,7 +20,8 @@
 //      `−` is disabled at 1 and `+` at the cap, so zero is unreachable by
 //      pressing;
 //   5. typed input lands in the same `[1, remaining]` range;
-//   6. select-all ticks every VISIBLE row and leaves the hidden one out of the
+//   6. select-all ADDS every VISIBLE row not yet picked, keeps the quantity of
+//      one already picked, and leaves the hidden one out of the
 //      count;
 //   7. the submit bar states the lines sentence, then the quantity sentence, and
 //      Create return is disabled in both;
@@ -131,6 +132,26 @@ DOCUMENTS['8000000253'] = {
     shortAddress: 'RIYD2938',
     gpsLat: 24.7136,
     gpsLon: 46.6753,
+  },
+}
+
+/**
+ * A second delivery, addressed to a district the lookup DOES carry (`D77`) but
+ * carrying NO `cityCode` — the shape a code-only match is the fallback for.
+ *
+ * It exists because the delivery above is the other case: its `D12` is absent
+ * from the lookup and stays pinned. Left unreconciled this one draws a selected
+ * district beside an empty City, and posts the pair the courier cannot route on.
+ */
+DOCUMENTS['8000000254'] = {
+  ...DOCUMENTS['8000000253'],
+  documentNo: '8000000254',
+  shippingAddress: {
+    ...DOCUMENTS['8000000253'].shippingAddress,
+    districtCode: 'D77',
+    districtName: 'An-Nakheel',
+    cityCode: '',
+    cityName: '',
   },
 }
 
@@ -419,6 +440,25 @@ async function run() {
     'select-all ticks every VISIBLE row — returning a whole delivery is one click',
     (await pick(10).isChecked()) && (await pick(20).isChecked()),
   )
+  check(
+    'it ADDS the rows not yet picked, each at its own remaining quantity',
+    (await qty(20).inputValue()) === '4',
+    await qty(20).inputValue(),
+  )
+  // Line 10 is sitting at the 1 the step above stepped it to. Reaching for the
+  // header tick to add the REST of the delivery must not quietly rewrite it to
+  // 4 and post three units nobody asked to return.
+  check(
+    'and it leaves a row already picked alone — line 10 keeps the quantity typed into it',
+    (await qty(10).inputValue()) === '1',
+    await qty(10).inputValue(),
+  )
+  // Back to the whole line through the PER-ROW tick — unticking forgets the
+  // number, reticking pre-fills everything still returnable — so the value
+  // column below is read on a full line.
+  await pick(10).uncheck()
+  await pick(10).check()
+  await page.waitForTimeout(100)
   check(
     'each at its own remaining quantity',
     (await qty(10).inputValue()) === '4' && (await qty(20).inputValue()) === '4',
@@ -1036,6 +1076,40 @@ async function run() {
   await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await page.waitForTimeout(200)
 
+  await openDialog()
+
+  // ------------- 28 · a district the lookup carries, on a delivery with no city
+  await open('8000000254')
+  await openDialog()
+  await pick(10).check()
+  await reason('RTRF').click()
+  await page.waitForTimeout(100)
+  await page.locator('[data-return-address-toggle]').click()
+  await page.waitForTimeout(150)
+  check(
+    'the district matched on its code alone is shown',
+    (await page.locator('[data-return-district]').locator('option:checked').innerText()).trim() ===
+      'An-Nakheel',
+    (await page.locator('[data-return-district]').locator('option:checked').innerText()).trim(),
+  )
+  check(
+    'and the City it derives is FILLED IN — never a selected district beside an empty city',
+    (await page.locator('[data-return-city]').inputValue()) === 'Riyadh',
+    `"${await page.locator('[data-return-city]').inputValue()}"`,
+  )
+  posts.length = 0
+  await submit().click()
+  await page.waitForTimeout(1000)
+  check(
+    'so the return posts the PAIR — a `districtCode` never leaves with a blank `cityCode`',
+    posts.length === 1 &&
+      posts[0].shippingAddress.districtCode === 'D77' &&
+      posts[0].shippingAddress.cityCode === 'C01' &&
+      posts[0].shippingAddress.cityName === 'Riyadh',
+    JSON.stringify(posts[0]?.shippingAddress ?? null),
+  )
+  await settleToasts()
+  await open('8000000253')
   await openDialog()
 
   // ------------------------------------------------------------ the word `close`

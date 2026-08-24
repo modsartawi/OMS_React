@@ -424,6 +424,38 @@ export function districtLabel(district: SdDistrictModel): string {
 }
 
 /**
+ * Make the draft's district/city pair agree with the lookup row it is standing
+ * on, or hand the SAME object back when it already does.
+ *
+ * The picker matches a district on the pair and then on the code alone, so a
+ * delivery whose `cityCode` is blank or stale still shows the district the
+ * lookup carries. That match is a DISPLAY fallback, and left there it splits the
+ * screen from the payload: the operator reads a selected district beside an
+ * empty City, and the return posts a `districtCode` with `cityCode: ''` — a
+ * pair no courier can route on. Reconciling writes exactly what re-picking that
+ * same row would write, so the fallback stops being a way to submit a broken
+ * address without ever touching the control.
+ *
+ * **Identity is the signal.** An address that already agrees comes back by
+ * reference, so a caller can apply this on every render and only actually
+ * write when something moved. It never runs on the pinned delivery row
+ * (`district` is `null` there) — that row is the way back, not a mismatch.
+ */
+export function reconcilePickupDistrict(
+  address: PickupAddress,
+  district: SdDistrictModel | null | undefined,
+): PickupAddress {
+  if (!district) return address
+  const applied = applyPickupDistrict(address, district)
+  const agrees =
+    applied.districtCode === address.districtCode &&
+    applied.districtName === address.districtName &&
+    applied.cityCode === address.cityCode &&
+    applied.cityName === address.cityName
+  return agrees ? address : applied
+}
+
+/**
  * Put the delivery's own district and city back, exactly as they arrived.
  *
  * The way BACK from a correction: the picker keeps the delivery's district

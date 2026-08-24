@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, ChevronRight } from 'lucide-react'
@@ -9,6 +9,7 @@ import {
   applyPickupDistrict,
   districtLabel,
   pickupAddressSummary,
+  reconcilePickupDistrict,
   restorePickupDistrict,
   type PickupAddress,
 } from './return-order'
@@ -107,6 +108,28 @@ export default function PickupAddressPanel({
     : address.districtCode
       ? districtKey(address)
       : ''
+
+  /**
+   * A code-only match is a DISPLAY fallback, and the draft is made to agree with
+   * it as soon as the lookup lands.
+   *
+   * Without this the panel shows the matched district beside an empty City with
+   * no one-step way to fill it — the picker is already showing that row, so
+   * re-choosing it is not a change the `<select>` can even fire — and 294 posts
+   * the `districtCode` with a blank `cityCode`. The write is exactly the one
+   * re-picking the row would make, so nothing lands here that the operator
+   * could not have done by hand.
+   *
+   * `reconcilePickupDistrict` returns the same object when the pair already
+   * agrees, so the common case sets state to its own value and React bails out
+   * — the effect can run on every render without a loop. The delivery's own
+   * pinned row is never reconciled: `selected` is `null` there, and that row is
+   * the way BACK to what arrived, not a mismatch to repair.
+   */
+  useEffect(() => {
+    if (!selected) return
+    onChange((prev) => reconcilePickupDistrict(prev, selected))
+  }, [selected, onChange])
 
   /**
    * Choosing a row: a lookup district derives its city; the pinned delivery row

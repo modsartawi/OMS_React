@@ -270,10 +270,24 @@ export default function ReturnDialog({
     patch(row, pickedState(row, picked))
   }
 
-  /** Select-all covers the VISIBLE rows — the hidden ones are not selectable at all. */
+  /**
+   * Select-all covers the VISIBLE rows — the hidden ones are not selectable at all.
+   *
+   * Ticking it ADDS the rows not yet picked and leaves the ones already picked
+   * exactly as they are. Re-running `pickedState` over them would refill every
+   * box with the full remaining quantity, so an operator who had set line 1 to
+   * *2 of 5* and then reached for the header tick — the natural way to add the
+   * rest — would silently lose that 2 and post five. Unticking still forgets
+   * every number, which is the per-row rule and the only way back to empty.
+   */
   function pickAll(picked: boolean) {
-    setLineState(
-      Object.fromEntries(rows.map((row) => [row.lineNumber, pickedState(row, picked)])),
+    setLineState((prev) =>
+      Object.fromEntries(
+        rows.map((row) => {
+          const state = prev[row.lineNumber]
+          return [row.lineNumber, picked && state?.picked ? state : pickedState(row, picked)]
+        }),
+      ),
     )
   }
 

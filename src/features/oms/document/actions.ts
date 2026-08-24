@@ -39,6 +39,16 @@ export interface CommandRequest {
   note: string
 }
 
+/**
+ * Whether this record was opened as a document or a delivery — the ROUTE's
+ * answer, not the payload's.
+ *
+ * Here rather than beside the page component because it is half of the
+ * D-17/D-19 pair `isDeliveryCategory` below is the other half of, and the two
+ * are read together every time one of them is.
+ */
+export type OpenedAs = 'document' | 'delivery'
+
 /** `documentCategory` codes that matter to endpoint/action selection. */
 const DELIVERY_CATEGORY = 'D'
 const ORDER_CATEGORY = 'O'

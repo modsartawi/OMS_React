@@ -40,3 +40,32 @@ The standards axis also suggested extracting the fee table into a `FeeGrid.tsx`,
 `PickupAddressPanel`. **Decision taken:** left inline. **Why:** 294 grows this component again and an
 extraction now would be re-cut against its needs. **Revisit if:** 294 lands and `ReturnDialog.tsx` is
 still one file carrying four panels.
+
+## Triage — all three fixed (2026-08-24, after the wave)
+
+Taken in one change on `spec/289-bonded-return`, each with a test that fails without it.
+
+1. **`pickAll` no longer refills a row already picked.** Ticking the header ADDS the
+   unpicked rows and leaves every picked row's quantity alone; unticking still forgets
+   every number. `return-dialog-drive` step 6 asserted the old behaviour (`4 / 4` after
+   select-all) and now asserts the new one — line 10 keeps the `1` typed into it, then goes
+   back to a full line through the per-row tick so step 8's value column is still read on 4.
+2. **The code-only district match is reconciled into the draft.** New pure
+   `reconcilePickupDistrict(address, district)` in `return-order.ts` writes exactly what
+   re-picking that row would write, and returns the SAME object when the pair already
+   agrees — so `PickupAddressPanel`'s effect can run every render without a loop. Five unit
+   tests, plus `return-dialog-drive` step 28: a second delivery (`8000000254`) addressed to
+   `D77` with a blank `cityCode` now shows *An-Nakheel · Riyadh* and posts the pair.
+3. **The first return reason is read off the ROUTE, not `documentCategory`.**
+   `CommandContext.documentCategory` became `openedAs: OpenedAs` (the type moved to
+   `actions.ts`, beside its D-17/D-19 twin `isDeliveryCategory`, and is re-exported from
+   `DocumentDetailsPage`). `9000000003` — opened as a delivery, category `T` — now gets the
+   store reason instead of being told to open the delivery it is already on.
+   ⚠ **Gating did not change**: `disabled` still follows `canReturn` alone, checked first.
+   `document-actions-drive` reads the store and exhaustion reasons through `/oms/delivery/*`
+   now, because on `/oms/document/*` "Open the delivery to return it." is the honest answer
+   and would mask them.
+
+Gates: `typecheck` ✓ · `lint` ✓ (3/3) · `build` ✓ · vitest **1978/1978** ·
+`return-dialog-drive` **105/105** · `document-actions-drive` **46/46**.
+Still nothing driven against a live SIS.Api, and `returnedQuantity` remains 295's question.

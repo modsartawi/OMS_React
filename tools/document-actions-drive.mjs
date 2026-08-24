@@ -115,6 +115,19 @@ async function run() {
     await bar().waitFor()
     await page.waitForTimeout(150)
   }
+  /**
+   * The same screen through the DELIVERY route.
+   *
+   * Return Document's first reason is read off the route, not off
+   * `documentCategory` — so *Open the delivery to return it.* is the honest
+   * answer on `/oms/document/*` and the other two causes are only reachable
+   * from here, which is where an operator returns from.
+   */
+  const openDelivery = async (deliveryNo) => {
+    await page.goto(`${BASE}/oms/delivery/${deliveryNo}`)
+    await bar().waitFor()
+    await page.waitForTimeout(150)
+  }
 
   /** A token's value as the browser resolves it, in `rgb(…)` form. */
   const token = (name) =>
@@ -375,8 +388,10 @@ async function run() {
     (await readReturnReason('not-a-delivery')) === 'Open the delivery to return it.',
   )
 
-  // (b) not on the rail — a delivery with lines still remaining and no `canReturn`.
-  await open('8000000253')
+  // (b) not on the rail — a delivery with lines still remaining and no
+  // `canReturn`, reached through the DELIVERY route: on the document route the
+  // honest reason is the one above, and it would mask this one.
+  await openDelivery('8000000253')
   check(
     'a delivery the server will not take a return against names the rail',
     (await readReturnReason('wrong-store')) ===
@@ -391,11 +406,23 @@ async function run() {
     ...original,
     lines: original.lines.map((line) => ({ ...line, returnedQuantity: line.quantity })),
   }
-  await open('8000000253')
+  await openDelivery('8000000253')
   check(
     'and an exhausted delivery says THAT instead, off the same false',
     (await readReturnReason('exhausted')) ===
       'Everything on this delivery has already been returned.',
+  )
+
+  // (c2) the document this rule exists for: `9000000003` is opened AS a delivery
+  // and carries `documentCategory: 'T'`. Keyed off the category, its reason was
+  // *Open the delivery to return it.* — about the delivery already on screen.
+  await openDelivery('9000000003')
+  const categoryT = await readReturnReason('delivery-return category')
+  check(
+    'a T-category delivery never tells the operator to open the delivery they are looking at',
+    categoryT !== 'Open the delivery to return it.' &&
+      categoryT === 'Only bonded deliveries handled by Starlinks can be returned here.',
+    categoryT,
   )
 
   // (d) the enabled case — `canReturn: true`, and nothing else changed.

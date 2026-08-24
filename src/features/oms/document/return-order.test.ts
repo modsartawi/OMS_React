@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyPickupDistrict,
+  reconcilePickupDistrict,
   buildCreateReturnRequest,
   districtLabel,
   clampReturnQuantity,
@@ -344,6 +345,67 @@ describe('applyPickupDistrict', () => {
     const before = pickupAddressFrom(DELIVERY_WITH_ADDRESS.shippingAddress)
     expect(applyPickupDistrict(before, null)).toEqual(before)
     expect(applyPickupDistrict(before, undefined)).toEqual(before)
+  })
+})
+
+describe('reconcilePickupDistrict', () => {
+  const district: SdDistrictModel = {
+    districtCode: 'D77',
+    cityCode: 'C01',
+    cityNameAr: 'الرياض',
+    cityNameEn: 'Riyadh',
+    magentoCityEn: '',
+    magentoCityAr: '',
+    districtNameAr: 'النخيل',
+    districtNameEn: 'An-Nakheel',
+    storeCode: '1000',
+    insuranceStoreCode: '',
+    tempStoreCode: '',
+    createdOn: '',
+    createdBy: '',
+    updatedOn: '',
+    updatedBy: '',
+    latitude: 0,
+    longitude: 0,
+  }
+
+  it('fills the city a code-only match left blank — the pair the courier routes on', () => {
+    // The defect: the picker matched `D77` on its code alone because the
+    // delivery carried no `cityCode`, showed the district, and left the City box
+    // empty — and the return would have posted `districtCode` with `cityCode: ''`.
+    const stale = { ...pickupAddressFrom(null), districtCode: 'D77', districtName: 'An-Nakheel' }
+    expect(stale.cityCode).toBe('')
+    const after = reconcilePickupDistrict(stale, district)
+    expect(after.cityCode).toBe('C01')
+    expect(after.cityName).toBe('Riyadh')
+    expect(after.districtCode).toBe('D77')
+  })
+
+  it('corrects a STALE city too, not just a blank one', () => {
+    const stale = {
+      ...pickupAddressFrom(null),
+      districtCode: 'D77',
+      districtName: 'An-Nakheel',
+      cityCode: 'C99',
+      cityName: 'Somewhere Else',
+    }
+    expect(reconcilePickupDistrict(stale, district).cityCode).toBe('C01')
+  })
+
+  it('writes exactly what re-picking the same row would write, and nothing more', () => {
+    const stale = { ...pickupAddressFrom(DELIVERY_WITH_ADDRESS.shippingAddress), cityCode: '' }
+    expect(reconcilePickupDistrict(stale, district)).toEqual(applyPickupDistrict(stale, district))
+  })
+
+  it('hands the SAME object back when the pair already agrees — the caller loops on identity', () => {
+    const agreed = applyPickupDistrict(pickupAddressFrom(null), district)
+    expect(reconcilePickupDistrict(agreed, district)).toBe(agreed)
+  })
+
+  it('leaves the pinned delivery row alone — that row is the way back, not a mismatch', () => {
+    const delivered = pickupAddressFrom(DELIVERY_WITH_ADDRESS.shippingAddress)
+    expect(reconcilePickupDistrict(delivered, null)).toBe(delivered)
+    expect(reconcilePickupDistrict(delivered, undefined)).toBe(delivered)
   })
 })
 

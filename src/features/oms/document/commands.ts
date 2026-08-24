@@ -20,7 +20,7 @@
  * whose contents shift between visits cannot be learned.
  */
 import type { SdDocumentLineModel } from '@/core/models/sd-document'
-import { isDeliveryCategory, type CommandKind } from './actions'
+import { type CommandKind, type OpenedAs } from './actions'
 import { returnableLines } from './return-order'
 
 /** The three labelled clusters, in reading order. */
@@ -71,8 +71,18 @@ export interface CommandBar {
 export interface CommandContext {
   /** `status.closeStatus` — `'R'` means a cancellation request is already open. */
   closeStatus: string | null | undefined
-  /** `documentCategory` — the first of Return Document's three causes. */
-  documentCategory: string | null | undefined
+  /**
+   * Whether the ROUTE opened this as a delivery — the first of Return Document's
+   * three causes.
+   *
+   * ⚠ **Not `documentCategory`.** Delivery `9000000003` is opened as a delivery
+   * and carries `documentCategory: 'T'`, so keying the reason off the category
+   * tells the operator to *open the delivery* they are already looking at. The
+   * route is what "you are not on a delivery" can honestly be read off (D-17/
+   * D-19); the category picks endpoints and actionTypes, and is not an answer
+   * to this question.
+   */
+  openedAs: OpenedAs
   /**
    * The server's own verdict on whether a bonded return may be created here
    * (BackOffice spec 1283 §2b). **Return Document's `disabled` follows this and
@@ -145,7 +155,10 @@ export function returnBlockedBecause(ctx: CommandContext): string | null {
   // tell the operator to open the delivery they are already looking at.
   if (ctx.canReturn === true) return null
   // Everything below is a REASON STRING, in the order spec 289 D2 checks them.
-  if (!isDeliveryCategory(ctx.documentCategory)) return 'command.disabled.returnNeedsDelivery'
+  // Read off the ROUTE, never the category: `9000000003` above is the document
+  // that makes the difference, and the category answer is the very sentence the
+  // comment warns against.
+  if (ctx.openedAs !== 'delivery') return 'command.disabled.returnNeedsDelivery'
   const { rows, hiddenCount } = returnableLines(ctx.lines)
   // Exhaustion has to be PROVEN: lines that were all returned. A document whose
   // lines are absent or empty proves nothing, and falls to the store rule.

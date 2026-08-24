@@ -22,13 +22,19 @@ const t = (key: string, options?: Record<string, unknown>): string => {
   return value.replace(/{{(\w+)}}/g, (_, name: string) => String(options?.[name] ?? ''))
 }
 
-/** The bar for one captured document, at rest. */
+/**
+ * The bar for one captured document, at rest.
+ *
+ * `openedAs: 'document'` because these are the DOCUMENT-route captures — the
+ * route is what the return reason is read off, and it is the caller's to state
+ * rather than something a payload field can be made to imply.
+ */
 function barFor(documentNo: CapturedDocumentNo, busy = false): CommandBar {
   const doc = PAYLOADS[documentNo]
   return commandBar(
     {
       closeStatus: doc.status?.closeStatus,
-      documentCategory: doc.documentCategory,
+      openedAs: 'document',
       canReturn: doc.canReturn,
       lines: doc.lines,
       busy,
@@ -50,13 +56,19 @@ function find(bar: CommandBar, kind: CommandKind) {
 
 const AT_REST: CommandContext = {
   closeStatus: '',
-  documentCategory: 'D',
+  openedAs: 'delivery',
   canReturn: false,
   lines: [],
   busy: false,
 }
 
-/** The bar for one of the two return fixtures, with any field overridden. */
+/**
+ * The bar for one of the two return fixtures, with any field overridden.
+ *
+ * Opened AS a delivery: every return fixture is a delivery the operator is
+ * looking at, which is the only frame in which the other two reasons are the
+ * ones under test.
+ */
 function returnBar(
   document: SdDocumentHeaderModel,
   overrides: Partial<CommandContext> = {},
@@ -64,7 +76,7 @@ function returnBar(
   return commandBar(
     {
       closeStatus: document.status?.closeStatus,
-      documentCategory: document.documentCategory,
+      openedAs: 'delivery',
       canReturn: document.canReturn,
       lines: document.lines,
       busy: false,
@@ -153,7 +165,8 @@ describe('commandGating', () => {
   })
 
   it('disables Return Document on an order — the reason names the way out', () => {
-    // `2000000551` is the eRx capture: `documentCategory: 'X'`, not a delivery.
+    // `2000000551` is the eRx capture, reached through the DOCUMENT route:
+    // *open the delivery* is the way out precisely because there is one to open.
     expect(PAYLOADS['2000000551'].documentCategory).not.toBe('D')
     expect(find(barFor('2000000551'), 'return-document')).toEqual({
       kind: 'return-document',
@@ -241,6 +254,26 @@ describe('commandGating', () => {
     })
   })
 
+  it('never tells the operator to open the delivery they are already looking at', () => {
+    // The reason half of `9000000003`, and the defect this test exists for: the
+    // capture is opened AS a delivery and carries `documentCategory: 'T'`, so a
+    // category-keyed reason answered *Open the delivery to return it.* — about
+    // the very delivery on screen. With `canReturn` false the operator must get
+    // one of the two causes that can actually be acted on.
+    const doc = PAYLOADS['9000000003']
+    expect(doc.documentCategory).not.toBe('D')
+    const reason = find(returnBar({ ...doc, canReturn: false }), 'return-document').reason
+    expect(reason).not.toBe('Open the delivery to return it.')
+    expect(reason).toBe('Only bonded deliveries handled by Starlinks can be returned here.')
+  })
+
+  it('still names the way out when the route is NOT a delivery', () => {
+    // The other side of the same rule: off the document route the sentence is
+    // honest, and it must survive a payload that happens to say `D`.
+    const bar = returnBar(DELIVERY_WITH_REMAINING, { openedAs: 'document', canReturn: false })
+    expect(find(bar, 'return-document').reason).toBe('Open the delivery to return it.')
+  })
+
   it('follows canReturn ALONE — the derived split is a reason, never a gate', () => {
     // An exhausted projection the server nonetheless says yes to: the button
     // stays takeable. A wrong split can only ever mislabel a tooltip.
@@ -282,7 +315,7 @@ describe('commandGating', () => {
 
   it('survives a document with no status block at all', () => {
     const bar = commandBar(
-      { closeStatus: null, documentCategory: null, canReturn: null, lines: null, busy: false },
+      { closeStatus: null, openedAs: 'document', canReturn: null, lines: null, busy: false },
       t,
     )
     expect(find(bar, 'request-close').disabled).toBe(false)

@@ -109,10 +109,14 @@ function clamp(value: number, low: number, high: number): number {
  * `remaining <= 0`, never on `== 0`. §2b leaves its own subtraction
  * **deliberately unclamped** because §9's wrong-`PrecedingDocumentLine` bug can
  * pile one line's returns onto another's and push the total past what was
- * delivered. A negative is the server's honest report of a line with nothing
- * left — the clamp here folds it into the same *hidden* answer, and neither it
- * nor an over-return is a licence to offer a quantity outside what was
- * delivered.
+ * delivered. A negative **remainder** is the server's honest report of a line
+ * with nothing left, and the clamp folds it into the same *hidden* answer.
+ *
+ * ⚠ Not to be confused with a negative **`returnedQuantity`**, which behaves
+ * oppositely: it is not a shape §2b describes (the field only rises), and the
+ * clamp's upper bound leaves such a line offered at its FULL delivered quantity
+ * rather than hidden. Both ends of the clamp earn their place, and neither an
+ * over-return nor a negative is a licence to offer more than was delivered.
  *
  * **A struck line is never offered.** `deleted` lines render struck in the Items
  * grid rather than vanishing, and a line struck from the delivery is not goods a

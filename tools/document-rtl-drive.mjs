@@ -76,8 +76,11 @@ const DOC = '8000000121'
 // `canReturn` is switched on for the same reason `isExpressDelivery` is: it is
 // a BackOffice spec 1283 §2b addition that these captures predate, and without
 // it Return Document renders disabled-with-a-reason and section 6's dialog never
-// opens. The capture's single line (quantity 2, undeleted) and its one item-0
-// `DFEE` row then give the dialog both a lines table and a fees table to mirror.
+// opens. The capture's single line (quantity 2, undeleted) is what section 6
+// measures. ⚠ It contributes NO fee rows — its one item-0 `DFEE` carries a blank
+// `condCategory`, as every condition on this capture does, and `refundableFees`
+// filters on category `F` (ticket 293's recorded drift). The dialog renders
+// `data-return-fees=0`, which is why section 6 asserts nothing about fees.
 // Ticket 295.
 DOCUMENTS[DOC] = { ...DOCUMENTS[DOC], isExpressDelivery: true, canReturn: true }
 
@@ -378,8 +381,25 @@ async function run() {
       .first()
       .click()
     const dialog = page.locator('dialog[open]')
-    await dialog.waitFor({ state: 'visible', timeout: 4000 })
-    check(`${dir}: the return dialog opens`, await dialog.isVisible())
+    // ⚠ The wait must not THROW, or the check below cannot fail: a bare
+    // `waitFor` aborts the drive on a dialog that never opens, and the `check`
+    // that follows it would then only ever run in the case where it passes —
+    // reading as coverage while being unable to report the one thing it names.
+    // Reported as a failure and the direction skipped, so the remaining
+    // assertions do not cascade into noise off a dialog that isn't there.
+    const opened = await dialog
+      .waitFor({ state: 'visible', timeout: 4000 })
+      .then(() => true, () => false)
+    check(`${dir}: the return dialog opens`, opened)
+    // ⚠ Escape on the way out of the FAILURE path too. The dialog is modal, so
+    // one left open swallows the next direction's click on the command bar and
+    // the drive dies at the click rather than reporting the direction that
+    // actually broke.
+    if (!opened) {
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(150)
+      continue
+    }
 
     // Tick every line: the per-line VALUE cell renders empty until its line is
     // picked (the client never invents a total for a line nobody asked back), so

@@ -42,6 +42,7 @@ import RescheduleDialog from './RescheduleDialog'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
 import RequestCloseDialog from './RequestCloseDialog'
 import NoteDialog, { type NoteCommandKind } from './NoteDialog'
+import ReturnDialog from './ReturnDialog'
 
 /** Whether this record was opened as a document or a delivery. */
 export type OpenedAs = 'document' | 'delivery'
@@ -124,6 +125,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [changeStoreOpen, setChangeStoreOpen] = useState(false)
   const [requestCloseOpen, setRequestCloseOpen] = useState(false)
+  const [returnOpen, setReturnOpen] = useState(false)
 
   /**
    * The note-carrying command awaiting its dialog, or `null`. Since 094 there is
@@ -135,7 +137,12 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
 
   const actionBusy = actionRunning || refreshing
   const commandBusy =
-    actionBusy || rescheduleOpen || changeStoreOpen || requestCloseOpen || noteCommand !== null
+    actionBusy ||
+    rescheduleOpen ||
+    changeStoreOpen ||
+    requestCloseOpen ||
+    returnOpen ||
+    noteCommand !== null
 
   const loadLogs = useCallback(
     async (documentNo: string) => {
@@ -271,7 +278,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         setRequestCloseOpen(true)
         return
       case 'return-document':
-        notify.info(t('actions.return-document'), t('returnDocument.unavailable'))
+        // The placeholder toast is gone: the command opens the dialog that
+        // creates the return, over the delivery it is about (spec 289 D1).
+        setReturnOpen(true)
         return
     }
   }
@@ -541,6 +550,11 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               open={requestCloseOpen}
               onClose={() => setRequestCloseOpen(false)}
               onConfirmed={(reason) => void postUpdate('request-close', reason)}
+            />
+            <ReturnDialog
+              open={returnOpen}
+              onClose={() => setReturnOpen(false)}
+              document={document}
             />
             <NoteDialog
               kind={noteCommand}

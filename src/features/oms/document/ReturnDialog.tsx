@@ -1,0 +1,356 @@
+import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { Minus, Plus, Undo2 } from 'lucide-react'
+import Modal from '@/core/ui/Modal'
+import Button from '@/core/ui/Button'
+import { formatMoney } from '@/core/util/number-format'
+import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
+import {
+  clampReturnQuantity,
+  returnableLines,
+  submitGate,
+  type ReturnableLine,
+  type ReturnLineSelection,
+} from './return-order'
+
+/**
+ * One line's state while the dialog is open.
+ *
+ * `draft` is what is IN the quantity box; `quantity` is what the gate reads. They
+ * separate because a box being typed into passes through states no rule should
+ * judge — `1` on the way to `12`, and empty on the way to anything. The clamp
+ * lands on blur, exactly as 1270's build target does it, so the operator is
+ * never fighting a value that rewrites itself under the caret.
+ */
+interface LineState extends ReturnLineSelection {
+  draft: string
+}
+
+const UNPICKED: LineState = { picked: false, quantity: null, draft: '' }
+
+/**
+ * Screen 2 — the bonded return dialog (spec 289 D1, ticket 291).
+ *
+ * A return is **one decision taken about the delivery you are looking at**, so
+ * it opens OVER Document Details rather than navigating away: the identity band,
+ * status rail and summary rail stay behind it as the context the decision is
+ * checked against. `Modal` already gives the wide max-width, the internally
+ * scrolling body and the pinned footer — nothing new is built in `core/ui`.
+ *
+ * This slice carries the line grid and the first two outcomes of the submit
+ * gate. The reason fork and its address panel (292), the fee grid and the note
+ * (293) and the create call itself (294) land after it — **Create return is
+ * disabled by construction here**, because there is nothing to post yet.
+ *
+ * The grid is a plain table rather than an AG Grid: 1270's approved build target
+ * draws it as one, every row carries interactive controls rather than values,
+ * and a virtualising grid would remove from the DOM the very rows the hidden /
+ * absent distinction is about.
+ */
+export default function ReturnDialog({
+  open,
+  onClose,
+  document,
+}: {
+  open: boolean
+  onClose: () => void
+  document: SdDocumentHeaderModel
+}) {
+  const { t } = useTranslation('document')
+  const [lineState, setLineState] = useState<Record<number, LineState>>({})
+
+  // Hiding is the projection's job (D3): the grid renders exactly what it is
+  // handed, and the header states what was left out.
+  const { rows, hiddenCount, notReturnableCount } = useMemo(
+    () => returnableLines(document.lines),
+    [document.lines],
+  )
+  const stateOf = (row: ReturnableLine): LineState => lineState[row.lineNumber] ?? UNPICKED
+
+  const gate = useMemo(
+    () => submitGate(rows.map((row) => lineState[row.lineNumber] ?? UNPICKED)),
+    [rows, lineState],
+  )
+
+  const pickedCount = rows.filter((row) => stateOf(row).picked).length
+  const allPicked = rows.length > 0 && pickedCount === rows.length
+
+  const patch = (row: ReturnableLine, next: LineState) =>
+    setLineState((prev) => ({ ...prev, [row.lineNumber]: next }))
+
+  /** Ticking a line wakes its stepper and pre-fills everything still returnable. */
+  function pick(row: ReturnableLine, picked: boolean) {
+    patch(
+      row,
+      picked
+        ? { picked: true, quantity: row.remaining, draft: String(row.remaining) }
+        : { ...UNPICKED },
+    )
+  }
+
+  /** Select-all covers the VISIBLE rows — the hidden ones are not selectable at all. */
+  function pickAll(picked: boolean) {
+    setLineState(
+      Object.fromEntries(
+        rows.map((row) => [
+          row.lineNumber,
+          picked
+            ? { picked: true, quantity: row.remaining, draft: String(row.remaining) }
+            : { ...UNPICKED },
+        ]),
+      ),
+    )
+  }
+
+  /** `−` and `+`. Both ends are also DISABLED, so zero is unreachable by pressing. */
+  function step(row: ReturnableLine, delta: number) {
+    const state = stateOf(row)
+    if (!state.picked) return
+    // A CLEARED box counts as zero here, not as the cap: `+` on an empty box
+    // must step to 1 — the bottom of the range — rather than leap to everything
+    // the line has left.
+    const next = clampReturnQuantity((state.quantity ?? 0) + delta, row.remaining)
+    patch(row, { ...state, quantity: next, draft: String(next) })
+  }
+
+  /**
+   * The typed value lands in the same `[1, remaining]` range on blur — the
+   * keyboard is not a way around the stepper. A box left EMPTY stays empty and
+   * carries a `null` quantity: that is a missing thing the gate names, not
+   * something to silently repair on the operator's behalf.
+   */
+  function commitDraft(row: ReturnableLine) {
+    const state = stateOf(row)
+    if (!state.picked) return
+    if (state.draft.trim() === '') {
+      patch(row, { ...state, quantity: null })
+      return
+    }
+    const next = clampReturnQuantity(state.draft, row.remaining)
+    patch(row, { ...state, quantity: next, draft: String(next) })
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t('returnDocument.title', { documentNo: document.documentNo })}
+      width="62rem"
+      onShow={() => setLineState({})}
+      footer={
+        <>
+          {/*
+            `Modal`'s footer is `justify-end`, so the gate sentence rides on
+            `me-auto` — the build target's own arrangement. It states ONE missing
+            thing at a time, in the order the operator must act, and flips to a
+            plain summary once nothing is missing.
+          */}
+          <span
+            data-return-gate={gate.ok ? 'ok' : 'blocked'}
+            className={
+              'me-auto self-center text-[0.75rem] ' +
+              (gate.ok ? 'text-muted-foreground' : 'font-semibold text-danger-800')
+            }
+          >
+            {t(gate.key, gate.params)}
+          </span>
+          <Button variant="text" onClick={onClose}>
+            {t('dialog.cancel')}
+          </Button>
+          {/*
+            Disabled by construction until 294 builds the request and posts it.
+            The gate above is already live, so the bar reports the next thing to
+            do even while the button it guards cannot yet be taken.
+          */}
+          <Button variant="primary" disabled data-return-submit>
+            <Undo2 className="h-3.5 w-3.5" aria-hidden />
+            {t('returnDocument.submit')}
+          </Button>
+        </>
+      }
+    >
+      <div className="rounded-lg border border-border">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2">
+          <h4 className="m-0 text-[0.8125rem] font-semibold tracking-tight">
+            {t('returnDocument.lines.title')}
+          </h4>
+          {/*
+            A missing line must never be something an operator has to wonder
+            about: when the projection hid any, the header says how many.
+          */}
+          <span className="text-[0.75rem] text-muted-foreground" data-return-hidden={hiddenCount}>
+            {hiddenCount > 0
+              ? t('returnDocument.lines.hidden', { count: hiddenCount })
+              : t('returnDocument.lines.capHint')}
+          </span>
+          {/*
+            A struck line and a line delivered in no quantity left through the
+            OTHER tally, and they say something different: nothing was returned
+            off them, so they must not be counted as though it had been.
+          */}
+          {notReturnableCount > 0 && (
+            <span
+              className="text-[0.75rem] text-muted-foreground"
+              data-return-not-returnable={notReturnableCount}
+            >
+              {t('returnDocument.lines.notReturnable', { count: notReturnableCount })}
+            </span>
+          )}
+        </div>
+
+        {rows.length === 0 ? (
+          <p className="m-0 px-3 py-6 text-center text-[0.8125rem] text-muted-foreground">
+            {t('returnDocument.lines.empty')}
+          </p>
+        ) : (
+          <table className="w-full border-collapse text-[0.8125rem]">
+            <thead>
+              <tr className="border-b border-border/60 text-[0.6875rem] uppercase tracking-wide text-muted-foreground">
+                <th className="w-9 px-2 py-1.5">
+                  <input
+                    type="checkbox"
+                    checked={allPicked}
+                    ref={(el) => {
+                      if (el) el.indeterminate = pickedCount > 0 && !allPicked
+                    }}
+                    onChange={(e) => pickAll(e.target.checked)}
+                    aria-label={t('returnDocument.lines.selectAll')}
+                    data-return-select-all
+                  />
+                </th>
+                <th className="w-10 px-2 py-1.5 text-start">
+                  {t('returnDocument.lines.columns.lineNumber')}
+                </th>
+                <th className="px-2 py-1.5 text-start">
+                  {t('returnDocument.lines.columns.itemNumber')}
+                </th>
+                <th className="px-2 py-1.5 text-start">
+                  {t('returnDocument.lines.columns.itemDescription')}
+                </th>
+                <th className="w-14 px-2 py-1.5 text-start">
+                  {t('returnDocument.lines.columns.uom')}
+                </th>
+                <th className="w-36 px-2 py-1.5 text-end">
+                  {t('returnDocument.lines.columns.returnQuantity')}
+                </th>
+                <th className="w-24 px-2 py-1.5 text-end">
+                  {t('returnDocument.lines.columns.unitPrice')}
+                </th>
+                <th className="w-24 px-2 py-1.5 text-end">
+                  {t('returnDocument.lines.columns.lineValue')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const state = stateOf(row)
+                const line = document.lines?.find((l) => l.lineNumber === row.lineNumber)
+                const unitPrice = line?.unitPrice ?? 0
+                return (
+                  <tr
+                    key={row.lineNumber}
+                    className={
+                      'border-b border-border/40 last:border-b-0 ' + (state.picked ? 'bg-accent' : '')
+                    }
+                    data-return-row={row.lineNumber}
+                  >
+                    <td className="px-2 py-1.5">
+                      <input
+                        type="checkbox"
+                        checked={state.picked}
+                        onChange={(e) => pick(row, e.target.checked)}
+                        aria-label={t('returnDocument.lines.selectLine', {
+                          lineNumber: row.lineNumber,
+                        })}
+                        data-return-pick={row.lineNumber}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 tabular-nums">{row.lineNumber}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{row.itemNumber}</td>
+                    <td className="px-2 py-1.5">{row.itemDescription}</td>
+                    <td className="px-2 py-1.5">{line?.uom}</td>
+                    <td className="px-2 py-1.5">
+                      {/*
+                        Inert until the line is ticked: the screen never invites
+                        a number that will not be sent. `−` stops at 1 and `+` at
+                        the cap, so zero is unreachable by PRESSING rather than
+                        refused after the fact.
+                      */}
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          className="flex h-6 w-6 items-center justify-center rounded-md border border-border disabled:opacity-40"
+                          disabled={!state.picked || (state.quantity ?? 0) <= 1}
+                          onClick={() => step(row, -1)}
+                          aria-label={t('returnDocument.lines.decrease', {
+                            lineNumber: row.lineNumber,
+                          })}
+                          data-return-step={`${row.lineNumber}:-1`}
+                        >
+                          <Minus className="h-3 w-3" aria-hidden />
+                        </button>
+                        <input
+                          className="h-6 w-12 rounded-md border border-border bg-card px-1 text-center tabular-nums disabled:opacity-40"
+                          inputMode="numeric"
+                          disabled={!state.picked}
+                          value={state.draft}
+                          onChange={(e) => patch(row, { ...state, draft: e.target.value })}
+                          onBlur={() => commitDraft(row)}
+                          aria-label={t('returnDocument.lines.quantityLabel', {
+                            lineNumber: row.lineNumber,
+                          })}
+                          data-return-qty={row.lineNumber}
+                        />
+                        <button
+                          type="button"
+                          className="flex h-6 w-6 items-center justify-center rounded-md border border-border disabled:opacity-40"
+                          disabled={!state.picked || (state.quantity ?? 0) >= row.remaining}
+                          onClick={() => step(row, 1)}
+                          aria-label={t('returnDocument.lines.increase', {
+                            lineNumber: row.lineNumber,
+                          })}
+                          data-return-step={`${row.lineNumber}:1`}
+                        >
+                          <Plus className="h-3 w-3" aria-hidden />
+                        </button>
+                      </div>
+                      {/*
+                        Two different facts, phrased differently: a line something
+                        has already come back from reads *of N left*, an untouched
+                        one *of N delivered* — so a partial return is discovered
+                        here rather than as a 400 after submitting.
+                      */}
+                      <div
+                        className="mt-0.5 text-end text-[0.6875rem] text-muted-foreground"
+                        data-return-of={row.lineNumber}
+                      >
+                        {t(
+                          row.returned > 0
+                            ? 'returnDocument.lines.ofLeft'
+                            : 'returnDocument.lines.ofDelivered',
+                          { count: row.remaining },
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-2 py-1.5 text-end tabular-nums">{formatMoney(unitPrice)}</td>
+                    {/*
+                      Money as CONTEXT only, and there is no grand total: the
+                      server recomputes discount and VAT pro-rata, so any total
+                      this client added up would be a number it invented and an
+                      operator would quote to a customer.
+                    */}
+                    <td className="px-2 py-1.5 text-end tabular-nums" data-return-value={row.lineNumber}>
+                      {state.picked && state.quantity !== null
+                        ? formatMoney(unitPrice * state.quantity)
+                        : ''}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </Modal>
+  )
+}

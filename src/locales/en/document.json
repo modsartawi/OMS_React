@@ -132,7 +132,39 @@
     "failedDetail": "Could not {{label}}."
   },
   "returnDocument": {
-    "unavailable": "The Document Return module is not yet available in this app."
+    "title": "Return {{documentNo}}",
+    "submit": "Create return",
+    "lines": {
+      "title": "Lines to return",
+      "capHint": "Quantity is capped at what is left",
+      "hidden_one": "{{count}} line already fully returned · not shown",
+      "hidden_other": "{{count}} lines already fully returned · not shown",
+      "notReturnable_one": "{{count}} line cannot be returned · not shown",
+      "notReturnable_other": "{{count}} lines cannot be returned · not shown",
+      "empty": "Nothing on this delivery is still returnable.",
+      "selectAll": "Select all lines",
+      "selectLine": "Return line {{lineNumber}}",
+      "decrease": "One fewer on line {{lineNumber}}",
+      "increase": "One more on line {{lineNumber}}",
+      "quantityLabel": "Quantity returned on line {{lineNumber}}",
+      "ofLeft": "of {{count}} left",
+      "ofDelivered": "of {{count}} delivered",
+      "columns": {
+        "lineNumber": "#",
+        "itemNumber": "Material",
+        "itemDescription": "Description",
+        "uom": "UoM",
+        "returnQuantity": "Return qty",
+        "unitPrice": "Unit price",
+        "lineValue": "Line value"
+      }
+    },
+    "gate": {
+      "selectLines": "Select at least one line to return.",
+      "quantityAtLeastOne": "A returned quantity must be at least 1.",
+      "summary_one": "{{count}} line",
+      "summary_other": "{{count}} lines"
+    }
   },
   "tabs": {
     "ariaLabel": "Document sections",

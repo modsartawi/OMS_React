@@ -7,7 +7,23 @@
  * those do: the arithmetic is where a regression is silent, and none of it
  * needs a browser to be exercised.
  */
-import type { SdDocumentLineModel } from '@/core/models/sd-document'
+import type { SdDistrictModel } from '@/core/models/lookups'
+import { districtCityName } from './change-store'
+import type { SdDocumentAddressModel, SdDocumentLineModel } from '@/core/models/sd-document'
+
+/**
+ * The two return reasons.
+ *
+ * **Provenance: BackOffice spec 1283 §2** (`ReturnReasonPolicy`'s set, and
+ * nothing else), transcribed by spec 289. This repo does not own the union and
+ * does not get to add to it.
+ *
+ * `RTRF` — *return and refund*: the courier collects and the refund follows the
+ * goods. `RF` — *refund only*: refunded now, nothing is collected, the customer
+ * keeps the goods. The second is an irreversible money movement with nothing
+ * coming back, which is why the screen pre-selects **neither** (D5).
+ */
+export type ReturnReason = 'RTRF' | 'RF'
 
 /** One line as the return screen offers it. */
 export interface ReturnableLine {
@@ -162,6 +178,7 @@ export interface ReturnLineSelection {
 export type SubmitGateKey =
   | 'returnDocument.gate.selectLines'
   | 'returnDocument.gate.quantityAtLeastOne'
+  | 'returnDocument.gate.chooseReason'
   | 'returnDocument.gate.summary'
 
 export interface SubmitGateOutcome {
@@ -182,15 +199,160 @@ export interface SubmitGateOutcome {
  * Once nothing is missing the same strip flips to a plain summary of what is
  * selected, so it reports readiness as well as blocking it.
  *
- * ⚠ Spec 289 D3's third outcome — *choose what happens to the goods* — belongs
- * to the reason fork and lands with it (ticket 292), between the quantity
- * sentence and the summary.
+ * The third sentence — *choose what happens to the goods* — is the reason fork's
+ * (ticket 292), and it comes **last of the three**: an unchosen reason is the
+ * only one of them that stands between a filled-in screen and an irreversible
+ * refund, so it is the sentence the operator is left looking at.
  */
-export function submitGate(lines: readonly ReturnLineSelection[]): SubmitGateOutcome {
+export function submitGate(
+  lines: readonly ReturnLineSelection[],
+  reason: ReturnReason | null,
+): SubmitGateOutcome {
   const picked = lines.filter((line) => line.picked)
   if (picked.length === 0) return { ok: false, key: 'returnDocument.gate.selectLines' }
   if (picked.some((line) => !(typeof line.quantity === 'number' && line.quantity >= 1))) {
     return { ok: false, key: 'returnDocument.gate.quantityAtLeastOne' }
   }
+  // Nothing chosen is a missing thing, never a default: `RF` refunds now with
+  // nothing coming back, and a pre-selected radio is exactly how that gets
+  // clicked through (D5).
+  if (reason === null) return { ok: false, key: 'returnDocument.gate.chooseReason' }
   return { ok: true, key: 'returnDocument.gate.summary', params: { count: picked.length } }
+}
+
+/**
+ * The pickup address as it will post with the return — **exactly** the field set
+ * `CreateReturnAddress` carries (BackOffice spec 1283 §2, transcribed by spec
+ * 289), so the request builder (294) hands it over without reshaping it.
+ *
+ * It is a DRAFT: edits live in the dialog and are discarded on cancel. The
+ * address on the delivery is never touched — only the one that posts.
+ */
+export interface PickupAddress {
+  street1: string
+  street2: string
+  cityCode: string
+  cityName: string
+  districtCode: string
+  districtName: string
+  postalCode: string
+  buildingNumber: string
+  shortAddress: string
+  gpsLat: number
+  gpsLon: number
+}
+
+/** A payload string, or `''` — never `undefined`, which uncontrols an input. */
+function textOrEmpty(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+/**
+ * Seed the pickup draft from the delivery's own shipping address.
+ *
+ * It is pre-filled and right nearly always — which is why the panel opens
+ * collapsed to a one-line summary rather than as an open six-field form.
+ *
+ * **GPS is carried through unedited** (D6): there is no map picker on this
+ * screen, so the delivery's coordinates are the ones the carrier gets. A
+ * delivery with no address at all yields a blank but fully-formed draft, so
+ * every field is still editable and no input flips from controlled to
+ * uncontrolled the moment it is typed into.
+ */
+export function pickupAddressFrom(
+  address: SdDocumentAddressModel | null | undefined,
+): PickupAddress {
+  return {
+    street1: textOrEmpty(address?.street1),
+    street2: textOrEmpty(address?.street2),
+    cityCode: textOrEmpty(address?.cityCode),
+    cityName: textOrEmpty(address?.cityName),
+    districtCode: textOrEmpty(address?.districtCode),
+    districtName: textOrEmpty(address?.districtName),
+    postalCode: textOrEmpty(address?.postalCode),
+    buildingNumber: textOrEmpty(address?.buildingNumber),
+    shortAddress: textOrEmpty(address?.shortAddress),
+    gpsLat: finiteOrZero(address?.gpsLat),
+    gpsLon: finiteOrZero(address?.gpsLon),
+  }
+}
+
+/**
+ * Apply a chosen district to the draft, **deriving the city from it** the way
+ * `change-store.ts` already does (English name, falling back to Arabic).
+ *
+ * The city is derived rather than typed because the district is what the courier
+ * routes on: a district and a city that disagree is a collection that fails, and
+ * the pair only stays consistent if one of them is read-only.
+ *
+ * Nothing else moves. A district is not an address — the street, the building,
+ * the postal code, the short address and the GPS are the operator's to correct
+ * and must not be silently rewritten under a picker.
+ */
+export function applyPickupDistrict(
+  address: PickupAddress,
+  district: SdDistrictModel | null | undefined,
+): PickupAddress {
+  if (!district) return address
+  return {
+    ...address,
+    districtCode: textOrEmpty(district.districtCode),
+    districtName: districtLabel(district),
+    cityCode: textOrEmpty(district.cityCode),
+    cityName: districtCityName(district),
+  }
+}
+
+/**
+ * How a district is NAMED — English, falling back to Arabic, falling back to its
+ * own code.
+ *
+ * One function because the picker's `<option>` label and the value written into
+ * the draft must be the same string: a district labelled by its code and then
+ * applied as a blank name is a field that empties itself the moment it is
+ * chosen. The city half of the pair is `change-store.ts`'s `districtCityName`,
+ * reused rather than re-spelled (D6 — "the way `change-store.ts` already does
+ * it").
+ */
+export function districtLabel(district: SdDistrictModel): string {
+  return (
+    textOrEmpty(district.districtNameEn).trim() ||
+    textOrEmpty(district.districtNameAr).trim() ||
+    textOrEmpty(district.districtCode).trim()
+  )
+}
+
+/**
+ * Put the delivery's own district and city back, exactly as they arrived.
+ *
+ * The way BACK from a correction: the picker keeps the delivery's district
+ * visible even when the lookup does not carry it, so choosing it again has to
+ * mean something. Here rather than in the component so every write to the
+ * district/city pair lives in one module.
+ */
+export function restorePickupDistrict(
+  address: PickupAddress,
+  delivered: PickupAddress,
+): PickupAddress {
+  return {
+    ...address,
+    districtCode: delivered.districtCode,
+    districtName: delivered.districtName,
+    cityCode: delivered.cityCode,
+    cityName: delivered.cityName,
+  }
+}
+
+/**
+ * The collapsed panel's one line, as its parts: *district, city* · *street
+ * building* · *short address*. The caller joins them — this module renders
+ * nothing and knows no separator glyph.
+ *
+ * Blanks are dropped rather than left as gaps, so a half-filled address reads as
+ * a short line instead of one made of punctuation.
+ */
+export function pickupAddressSummary(address: PickupAddress): string[] {
+  const where = [address.districtName, address.cityName].map((s) => s.trim()).filter(Boolean)
+  const street = [address.street1, address.buildingNumber].map((s) => s.trim()).filter(Boolean)
+  return [where.join(', '), street.join(' '), address.shortAddress.trim()].filter(Boolean)
 }

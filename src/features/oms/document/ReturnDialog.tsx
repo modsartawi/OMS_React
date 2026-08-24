@@ -5,13 +5,20 @@ import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
 import { formatMoney } from '@/core/util/number-format'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
+import PickupAddressPanel from './PickupAddressPanel'
 import {
   clampReturnQuantity,
+  pickupAddressFrom,
   returnableLines,
   submitGate,
+  type PickupAddress,
   type ReturnableLine,
   type ReturnLineSelection,
+  type ReturnReason,
 } from './return-order'
+
+/** The two reasons, in the order the build target draws them. */
+const REASONS: ReturnReason[] = ['RTRF', 'RF']
 
 /**
  * One line's state while the dialog is open.
@@ -70,6 +77,20 @@ export default function ReturnDialog({
 }) {
   const { t } = useTranslation('document')
   const [lineState, setLineState] = useState<Record<number, LineState>>({})
+  /**
+   * **Neither reason pre-selected** (D5). `null` is the gate's third missing
+   * thing, not a state to be helpfully filled in: `RF` refunds immediately with
+   * nothing coming back, and a default radio is how that gets clicked through.
+   */
+  const [reason, setReason] = useState<ReturnReason | null>(null)
+  /** The delivery's own address — what the draft starts from and can return to. */
+  const delivered = useMemo(
+    () => pickupAddressFrom(document.shippingAddress),
+    [document.shippingAddress],
+  )
+  const [address, setAddress] = useState<PickupAddress>(delivered)
+
+  const collecting = reason === 'RTRF'
 
   // Hiding is the projection's job (D3): the grid renders exactly what it is
   // handed, and the header states what was left out.
@@ -79,7 +100,7 @@ export default function ReturnDialog({
   )
   const stateOf = (row: ReturnableLine): LineState => lineState[row.lineNumber] ?? UNPICKED
 
-  const gate = useMemo(() => submitGate(rows.map(stateOf)), [rows, lineState])
+  const gate = useMemo(() => submitGate(rows.map(stateOf), reason), [rows, lineState, reason])
 
   const pickedCount = rows.filter((row) => stateOf(row).picked).length
   const allPicked = rows.length > 0 && pickedCount === rows.length
@@ -133,7 +154,13 @@ export default function ReturnDialog({
       onClose={onClose}
       title={t('returnDocument.title', { documentNo: document.documentNo })}
       width="62rem"
-      onShow={() => setLineState({})}
+      onShow={() => {
+        // Every opening starts clean, address included: an edit made in a
+        // dialog that was cancelled is not a correction the next one inherits.
+        setLineState({})
+        setReason(null)
+        setAddress(delivered)
+      }}
       footer={
         <>
           {/*
@@ -346,6 +373,86 @@ export default function ReturnDialog({
           </table>
         )}
       </div>
+
+      {/*
+        The most consequential control on the screen. The two options are CARDS
+        carrying their consequence in the operator's language, not bare radio
+        labels: Refund Only never touches the carrier — it refunds now and the
+        customer keeps the goods — and that is a sentence, not a word.
+      */}
+      <div className="mt-3 rounded-lg border border-border p-3">
+        <h4 className="m-0 mb-2 text-[0.8125rem] font-semibold tracking-tight">
+          {t('returnDocument.reason.title')}
+        </h4>
+        <div
+          className="grid gap-2 sm:grid-cols-2"
+          role="radiogroup"
+          aria-label={t('returnDocument.reason.title')}
+          // A radiogroup is ARROWED, not tabbed through: a keyboard operator who
+          // presses → on the first card expects the second, and a `role="radio"`
+          // that ignores it is a claim the control does not honour. There are
+          // exactly two, so any arrow moves to the other one.
+          onKeyDown={(e) => {
+            if (!['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) return
+            e.preventDefault()
+            const next: ReturnReason = reason === 'RTRF' ? 'RF' : 'RTRF'
+            setReason(next)
+            // Focus follows the selection, as it does in a real radiogroup.
+            e.currentTarget
+              .querySelector<HTMLButtonElement>(`[data-return-reason="${next}"]`)
+              ?.focus()
+          }}
+        >
+          {REASONS.map((option) => {
+            const on = reason === option
+            return (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                // One tab stop for the group, as a radiogroup has: the chosen
+                // card, or — with nothing chosen yet — the first.
+                tabIndex={on || (reason === null && option === REASONS[0]) ? 0 : -1}
+                onClick={() => setReason(option)}
+                className={
+                  'flex items-start gap-2 rounded-lg border p-2.5 text-start ' +
+                  (on ? 'border-primary bg-accent' : 'border-border hover:bg-accent/50')
+                }
+                data-return-reason={option}
+                data-on={on ? 1 : 0}
+              >
+                <span
+                  className={
+                    'mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 ' +
+                    (on ? 'border-primary bg-primary' : 'border-border')
+                  }
+                  aria-hidden
+                />
+                <span>
+                  <span className="block text-[0.8125rem] font-semibold">
+                    {t(`returnDocument.reason.${option}.title`)}
+                  </span>
+                  <span className="mt-0.5 block text-[0.75rem] text-muted-foreground">
+                    {t(`returnDocument.reason.${option}.consequence`)}
+                  </span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {/*
+        ⚠ Under Refund Only this panel is ABSENT — not disabled, not greyed.
+        Nothing collects, so there is nothing to address, and removing it makes
+        the two reasons visibly different screens rather than one form with an
+        inert region. It is absent before a reason is chosen for the same reason:
+        no collection has been decided on yet.
+      */}
+      {collecting && (
+        <PickupAddressPanel delivered={delivered} address={address} onChange={setAddress} />
+      )}
     </Modal>
   )
 }

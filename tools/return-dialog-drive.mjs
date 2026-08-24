@@ -81,7 +81,57 @@ DOCUMENTS['8000000253'] = {
     // lines earlier returns took back — nothing was ever returned off it.
     line(40, '208716', 2, undefined, true),
   ],
+  // The capture's own shipping address is entirely blank, which proves nothing
+  // about carrying an address across — so this one is populated. Only the
+  // VALUES are invented; the shape is the wire's own.
+  shippingAddress: {
+    ...DELIVERY.shippingAddress,
+    cityCode: 'C01',
+    cityName: 'Riyadh',
+    districtCode: 'D12',
+    districtName: 'Al-Olaya',
+    street1: 'King Abdulaziz Rd',
+    street2: '',
+    buildingNumber: '7420',
+    postalCode: '12381',
+    shortAddress: 'RIYD2938',
+    gpsLat: 24.7136,
+    gpsLon: 46.6753,
+  },
 }
+
+/**
+ * The cached `SdDocument/Districts` lookup the picker reads — the SAME read the
+ * Change Store picker already makes. Two districts in one city and one in
+ * another, so choosing has a city to change.
+ */
+const district = (districtCode, districtNameEn, cityCode, cityNameEn) => ({
+  districtCode,
+  cityCode,
+  cityNameAr: '',
+  cityNameEn,
+  magentoCityEn: '',
+  magentoCityAr: '',
+  districtNameAr: '',
+  districtNameEn,
+  storeCode: '1000',
+  insuranceStoreCode: '',
+  tempStoreCode: '',
+  createdOn: '',
+  createdBy: '',
+  updatedOn: '',
+  updatedBy: '',
+  latitude: 0,
+  longitude: 0,
+})
+const DISTRICTS = [
+  district('D77', 'An-Nakheel', 'C01', 'Riyadh'),
+  district('D40', 'Al-Faisaliyah', 'C02', 'Jeddah'),
+]
+// ⚠ The delivery's own district (`D12`, Al-Olaya) is deliberately NOT in the
+// lookup: the live list is ~1.7k rows and nothing guarantees it carries the one
+// a delivery was addressed to. The picker must still show it as the current
+// value, and choosing it again must be a way BACK.
 
 async function run() {
   const browser = await chromium.launch()
@@ -101,6 +151,7 @@ async function run() {
       return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
+    if (p === 'SdDocument/Districts') return route.fulfill(envelope(DISTRICTS))
     if (/\/Outbox$/.test(p) || /\/Logs$/.test(p)) return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))
   })
@@ -236,10 +287,13 @@ async function run() {
   )
 
   // ---------------------------------------- 7b · then the quantity sentence
+  // With the lines answered the bar moves ON to the third sentence rather than
+  // to the summary — the reason is what is now missing (ticket 292, section 11
+  // walks the whole order and section 12 sees the summary arrive).
   check(
-    'with a line ticked and a quantity set, the bar flips to a summary of what is selected',
-    (await gate().innerText()).trim() === '1 line' &&
-      (await gate().getAttribute('data-return-gate')) === 'ok',
+    'with a line ticked and a quantity set, the bar moves on to the reason sentence',
+    (await gate().innerText()).trim() === 'Choose what happens to the goods.' &&
+      (await gate().getAttribute('data-return-gate')) === 'blocked',
     (await gate().innerText()).trim(),
   )
   await qty(10).fill('')
@@ -271,6 +325,10 @@ async function run() {
     (await qty(10).inputValue()) === '4' && (await qty(20).inputValue()) === '4',
     `${await qty(10).inputValue()} / ${await qty(20).inputValue()}`,
   )
+  // A reason is chosen here only so the SUMMARY is reachable — it is the last of
+  // the three sentences, and the count is what the summary states.
+  await page.locator('[data-return-reason="RTRF"]').click()
+  await page.waitForTimeout(100)
   check(
     'and the hidden line is left out of the count — 2 lines, not 3',
     (await gate().innerText()).trim() === '2 lines',
@@ -303,6 +361,178 @@ async function run() {
       (await qty(10).inputValue()) === '' &&
       (await gate().innerText()).trim() === 'Select at least one line to return.',
     (await gate().innerText()).trim(),
+  )
+
+  // ------------------------------ 10 · the reason: neither card pre-selected
+  const reason = (code) => page.locator(`[data-return-reason="${code}"]`)
+  const addressPanel = () => page.locator('[data-return-address-panel]')
+  const on = async (code) => (await reason(code).getAttribute('data-on')) === '1'
+  check(
+    'on open NEITHER reason card is selected — an immediate refund is never a default',
+    !(await on('RTRF')) &&
+      !(await on('RF')) &&
+      (await reason('RTRF').getAttribute('aria-checked')) === 'false' &&
+      (await reason('RF').getAttribute('aria-checked')) === 'false',
+  )
+  check(
+    'each card carries its CONSEQUENCE, not just its title',
+    (await reason('RTRF').innerText()).includes(
+      'The courier collects from the customer. The refund is issued once the goods arrive.',
+    ) &&
+      (await reason('RF').innerText()).includes(
+        'Refunded now. No collection is booked and the customer keeps the goods.',
+      ),
+    (await reason('RF').innerText()).replace(/\n/g, ' '),
+  )
+
+  // --------------------------- 11 · the reason sentence is the THIRD, and last
+  await pick(10).check()
+  await page.waitForTimeout(100)
+  check(
+    'with a line ticked and its quantity valid, the bar names the reason sentence',
+    (await gate().innerText()).trim() === 'Choose what happens to the goods.' &&
+      (await gate().getAttribute('data-return-gate')) === 'blocked',
+    (await gate().innerText()).trim(),
+  )
+  check('and Create return is still disabled', await submit().isDisabled())
+
+  // ------------------------------- 12 · the address panel appears and vanishes
+  check(
+    'before a reason is chosen there is no address panel — nothing collects yet',
+    (await addressPanel().count()) === 0,
+  )
+  await reason('RF').click()
+  await page.waitForTimeout(100)
+  check(
+    'choosing Refund only REMOVES the address panel from the DOM — not greyed, absent',
+    (await addressPanel().count()) === 0 && (await on('RF')),
+  )
+  check(
+    'and the bar flips to the summary — the third sentence is answered',
+    (await gate().innerText()).trim() === '1 line' &&
+      (await gate().getAttribute('data-return-gate')) === 'ok',
+    (await gate().innerText()).trim(),
+  )
+  await reason('RTRF').click()
+  await page.waitForTimeout(100)
+  check(
+    'choosing Return and refund brings it back',
+    (await addressPanel().count()) === 1 && (await on('RTRF')) && !(await on('RF')),
+  )
+
+  // ------------------------- 13 · the collapsed summary, then the full field set
+  const addrSummary = () => page.locator('[data-return-address-summary]')
+  const field = (name) => page.locator(`[data-return-addr="${name}"]`)
+  const SUMMARY = 'Al-Olaya, Riyadh · King Abdulaziz Rd 7420 · RIYD2938'
+  check(
+    'the address opens COLLAPSED, as one line of the delivery own address',
+    (await addrSummary().count()) === 1 &&
+      (await addrSummary().innerText()).trim() === SUMMARY &&
+      (await field('street1').count()) === 0,
+    (await addrSummary().innerText()).trim(),
+  )
+  check(
+    'and offers a Change affordance rather than an open six-field form',
+    (await page.locator('[data-return-address-toggle]').innerText()).includes('Change'),
+  )
+  await page.locator('[data-return-address-toggle]').click()
+  await page.waitForTimeout(100)
+  check(
+    'Change expands it to the whole field set the carrier reads',
+    (await page.locator('[data-return-district]').count()) === 1 &&
+      (await page.locator('[data-return-city]').count()) === 1 &&
+      (await field('street1').inputValue()) === 'King Abdulaziz Rd' &&
+      (await field('buildingNumber').inputValue()) === '7420' &&
+      (await field('postalCode').inputValue()) === '12381' &&
+      (await field('shortAddress').inputValue()) === 'RIYD2938' &&
+      (await field('street2').count()) === 1,
+  )
+  check(
+    'with the sentence saying what it decides — where the courier collects',
+    (await addressPanel().innerText()).includes(
+      'This is where the courier collects. It is pre-filled from the delivery',
+    ),
+  )
+  check(
+    'no box count and no total weight — dropped by spec 289 D9',
+    !/box|weight/i.test(await addressPanel().innerText()),
+  )
+
+  // -------------------------------- 14 · the district picker, and a derived city
+  const districtSelect = page.locator('[data-return-district]')
+  check(
+    'the district is a PICKER off the cached lookup, not free text',
+    (await districtSelect.evaluate((el) => el.tagName)) === 'SELECT' &&
+      (await districtSelect.locator('option').count()) === 3,
+    String(await districtSelect.locator('option').count()),
+  )
+  check(
+    'pre-selected on the district the delivery already carries',
+    (await districtSelect.locator('option:checked').innerText()).trim() === 'Al-Olaya',
+    (await districtSelect.locator('option:checked').innerText()).trim(),
+  )
+  await districtSelect.selectOption({ label: 'Al-Faisaliyah' })
+  await page.waitForTimeout(100)
+  check(
+    'choosing a district DERIVES the city — the two can never disagree',
+    (await page.locator('[data-return-city]').inputValue()) === 'Jeddah',
+    await page.locator('[data-return-city]').inputValue(),
+  )
+  check(
+    'and leaves the street alone — a district is not an address',
+    (await field('street1').inputValue()) === 'King Abdulaziz Rd',
+  )
+  check(
+    'the city is read-only — it is derived, not typed',
+    await page.locator('[data-return-city]').evaluate((el) => el.readOnly),
+  )
+  await districtSelect.selectOption({ label: 'Al-Olaya' })
+  await page.waitForTimeout(100)
+  check(
+    'the delivery own district is a way BACK — choosing it restores its city too',
+    (await page.locator('[data-return-city]').inputValue()) === 'Riyadh' &&
+      (await districtSelect.locator('option:checked').innerText()).trim() === 'Al-Olaya',
+    await page.locator('[data-return-city]').inputValue(),
+  )
+
+  // ---------------- 15 · cancelling discards the edit; the delivery is untouched
+  await field('street1').fill('Somewhere Else Ave')
+  // The summary rail beneath reads the delivery's SHORT address, so editing that
+  // one is what makes an accidental write-through visible on the screen behind.
+  await field('shortAddress').fill('CHANGED9999')
+  await page.waitForTimeout(100)
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.waitForTimeout(200)
+  const beneath = await page.locator('main').innerText()
+  check(
+    'the address ON THE DELIVERY is never touched — only the one that would post',
+    beneath.includes('RIYD2938') && !beneath.includes('CHANGED9999'),
+    beneath
+      .split('\n')
+      .filter((l) => /RIYD|CHANGED/.test(l))
+      .join(' | '),
+  )
+  await openDialog()
+  check(
+    'and reopening starts from the delivery again — no reason, no address panel',
+    !(await on('RTRF')) && !(await on('RF')) && (await addressPanel().count()) === 0,
+  )
+  await pick(10).check()
+  await reason('RTRF').click()
+  await page.waitForTimeout(100)
+  check(
+    'the summary is the delivery own address once more — the edit went with the cancel',
+    (await addrSummary().innerText()).trim() === SUMMARY,
+    (await addrSummary().innerText()).trim(),
+  )
+
+  // ------------------------------------- 16 · the reason group arrows, as a radiogroup does
+  await reason('RTRF').focus()
+  await page.keyboard.press('ArrowRight')
+  await page.waitForTimeout(100)
+  check(
+    'the reason cards ARROW like the radiogroup they claim to be, and the panel follows',
+    (await on('RF')) && !(await on('RTRF')) && (await addressPanel().count()) === 0,
   )
 
   // ------------------------------------------------------------ the word `close`

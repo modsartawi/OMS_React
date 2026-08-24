@@ -14,7 +14,11 @@
  *
  * Test-only, like `payloads.ts`. Nothing in the app imports this module.
  */
-import type { SdDocumentHeaderModel, SdDocumentLineModel } from '@/core/models/sd-document'
+import type {
+  SdDocumentAddressModel,
+  SdDocumentHeaderModel,
+  SdDocumentLineModel,
+} from '@/core/models/sd-document'
 import { PAYLOADS } from './payloads'
 
 const DELIVERY = PAYLOADS['8000000253']
@@ -61,4 +65,35 @@ export const FULLY_RETURNED_LINES: SdDocumentHeaderModel = {
   ...DELIVERY,
   canReturn: false,
   lines: [line(10, '208713', 4, 4), line(20, '208714', 9, 9)],
+}
+
+/**
+ * A shipping address with something in every field the carrier reads
+ * (ticket 292).
+ *
+ * ⚠ **Only the VALUES are invented.** The shape is `SdDocumentAddressModel`'s
+ * own, spread from the capture's real (and, on this delivery, entirely blank)
+ * shipping address — a bonded delivery whose address is empty is a live fact,
+ * but it proves nothing about carrying an address across, so this one is
+ * populated.
+ */
+export const PICKUP_ADDRESS: SdDocumentAddressModel = {
+  ...(DELIVERY.shippingAddress as SdDocumentAddressModel),
+  cityCode: 'C01',
+  cityName: 'Riyadh',
+  districtCode: 'D12',
+  districtName: 'Al-Olaya',
+  street1: 'King Abdulaziz Rd',
+  street2: '',
+  buildingNumber: '7420',
+  postalCode: '12381',
+  shortAddress: 'RIYD2938',
+  gpsLat: 24.7136,
+  gpsLon: 46.6753,
+}
+
+/** The same returnable delivery, with an address the pickup panel can pre-fill from. */
+export const DELIVERY_WITH_ADDRESS: SdDocumentHeaderModel = {
+  ...DELIVERY_WITH_REMAINING,
+  shippingAddress: PICKUP_ADDRESS,
 }

@@ -4,12 +4,17 @@ import { useTranslation } from 'react-i18next'
  * The note a command posts, captured inside the command's own dialog (spec 083
  * D-11, ticket 094).
  *
- * One component rather than two copies because the note is now typed in two
- * different dialogs — `NoteDialog` for the four note-carrying commands, and
- * `ChangeStoreDialog` beside the picked store — and they must stay the same
- * field: same label, same placeholder, same shape. It is the standing textarea
- * that used to sit above the action bar, moved to the two places that can now
- * say which command it belongs to.
+ * One component rather than three copies because the note is now typed in
+ * several dialogs — `NoteDialog` for the four note-carrying commands,
+ * `ChangeStoreDialog` beside the picked store, and `ReturnDialog` beneath the
+ * return's own selections. It is the standing textarea that used to sit above
+ * the action bar, moved to the places that can now say which command it belongs
+ * to.
+ *
+ * They stay the same FIELD — same shape, same chrome. What it is ASKING for may
+ * differ: the first two carry running commentary on a document and share one
+ * label and placeholder; the return's note is the return's own reason in words,
+ * which the warehouse reads on arrival, and overrides both (ticket 293).
  */
 export default function NoteField({
   id,

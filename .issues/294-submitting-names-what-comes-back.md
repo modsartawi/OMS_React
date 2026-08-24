@@ -58,6 +58,7 @@ model (the §2 request/response types, transcribed) · api (`documentApi.createR
 
 - [ ] `buildCreateReturnRequest carries ticked lines only, at their clamped quantities` · pure
 - [ ] `buildCreateReturnRequest carries fee types only` — the rate the screen displayed is nowhere in the body · pure
+- [ ] `submitGate summarises the fees as well as the lines` — spec [289](289-bonded-return-screen-spec.md) story 41 wants *3 lines · 1 fee*, and the bar reads lines only today. ⚠ **Carried forward from [293](293-the-fees-carry-back-only-when-ticked.md)**, which built the fee selection but left the gate's signature to the ticket that owns the finished submit bar (`.afk/HITL-293.md`); if this is not picked up here, the fee half of story 41 is dropped from the spec · pure
 - [ ] `buildCreateReturnRequest omits shippingAddress under RF` — even when the operator expanded and edited the address before switching reason · pure
 - [ ] `buildCreateReturnRequest includes the full address field set under RTRF` · pure
 - [ ] `buildCreateReturnRequest omits a blank note` · pure

@@ -19,3 +19,24 @@
 **Decision taken:** Added optional `label` / `placeholder` props to `NoteField` (defaults unchanged), and passed the return's own `returnDocument.note.*` copy.
 **Why:** One textarea, one set of classes; only what it asks for differs. Duplicating the markup is how two notes drift apart visually.
 **Revisit if:** the return's note grows behaviour (a required flag, a length cap) the shared field should not carry.
+
+## Findings raised by review but OUT OF 293's scope — left for triage
+Neither of the two review axes found a hard standards violation or a spec defect in 293's own diff.
+The built-in `/code-review` (high) surfaced three correctness findings, **all in code 291/292 already
+committed**, none in this diff. Recorded here rather than fixed, because re-opening a landed slice at
+the frontier is how two sessions disagree:
+
+1. `ReturnDialog.tsx` `pickAll` — clicking the indeterminate select-all after editing a line's
+   quantity silently resets that quantity to the full remaining amount (291).
+2. `PickupAddressPanel.tsx` — the code-only district fallback shows a matched district without
+   running `applyPickupDistrict`, so a delivery with a blank/stale `cityCode` renders a selected
+   district beside an empty City, with no one-step way to fill it; 294 would then post
+   `districtCode` with `cityCode: ''` (292).
+3. `commands.ts` — `documentCategory !== 'D'` yields *Open the delivery to return it.* on the capture
+   `9000000003` (`documentCategory: 'T'`, opened as a delivery) — the very message the comment above
+   the check warns against (290).
+
+The standards axis also suggested extracting the fee table into a `FeeGrid.tsx`, as 292 extracted
+`PickupAddressPanel`. **Decision taken:** left inline. **Why:** 294 grows this component again and an
+extraction now would be re-cut against its needs. **Revisit if:** 294 lands and `ReturnDialog.tsx` is
+still one file carrying four panels.

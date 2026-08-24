@@ -191,7 +191,11 @@ const DELIVERY_FEE_CATEGORY = 'F'
 export interface RefundableFee {
   /**
    * The condition type — the ONLY part of this row that ever reaches the wire
-   * (`conditionTypes`, ticket 294). It is also the row's identity on screen.
+   * (`conditionTypes`, ticket 294). It is also the row's identity on screen,
+   * and deliberately so: were a delivery ever to carry two header rows of one
+   * type, they would tick together, because the request can only name the type
+   * once and a screen offering to refund half of it would be a lie about what
+   * the server is going to do. No live capture carries such a pair.
    */
   condType: string
   /** The server-resolved description, falling back to the legacy code map. */

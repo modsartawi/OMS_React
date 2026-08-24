@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 289
 blocked-by: 292, 293
 ---
@@ -56,17 +56,18 @@ model (the §2 request/response types, transcribed) · api (`documentApi.createR
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `buildCreateReturnRequest carries ticked lines only, at their clamped quantities` · pure
-- [ ] `buildCreateReturnRequest carries fee types only` — the rate the screen displayed is nowhere in the body · pure
-- [ ] `buildCreateReturnRequest omits shippingAddress under RF` — even when the operator expanded and edited the address before switching reason · pure
-- [ ] `buildCreateReturnRequest includes the full address field set under RTRF` · pure
-- [ ] `buildCreateReturnRequest omits a blank note` · pure
-- [ ] `buildCreateReturnRequest puts no amount on the wire` — ⚠ a **whole-body** walk asserting that no key anywhere in the serialized request carries a price, discount, VAT, fee or total. The one test that catches money creeping back · pure
-- [ ] `return-dialog-drive.mjs` — a valid form posts once and reports success with the return number and the right what-happens-next clause for each reason · flow (Playwright)
-- [ ] `return-dialog-drive.mjs` — the dialog closes and the delivery beneath **reloads** · flow
-- [ ] `return-dialog-drive.mjs` — double-clicking Create Return posts **once** · flow
-- [ ] `return-dialog-drive.mjs` — a `replayed: true` answer renders as **plain success**, same number, with the already-received clause and no error styling · flow
-- [ ] `return-dialog-drive.mjs` — a refusal keeps the dialog open, the banner stays after the toast has gone, the machine code reads beside the sentence, and **every selection is still there** · flow
+- [x] `buildCreateReturnRequest carries ticked lines only, at their clamped quantities` · pure
+- [x] `buildCreateReturnRequest carries fee types only` — the rate the screen displayed is nowhere in the body · pure
+- [x] `submitGate summarises the fees as well as the lines` — spec [289](289-bonded-return-screen-spec.md) story 41 wants *3 lines · 1 fee*, and the bar reads lines only today. ⚠ **Carried forward from [293](293-the-fees-carry-back-only-when-ticked.md)**, which built the fee selection but left the gate's signature to the ticket that owns the finished submit bar (`.afk/HITL-293.md`); if this is not picked up here, the fee half of story 41 is dropped from the spec · pure
+- [x] `buildCreateReturnRequest omits shippingAddress under RF` — even when the operator expanded and edited the address before switching reason · pure
+- [x] `buildCreateReturnRequest includes the full address field set under RTRF` · pure
+- [x] `buildCreateReturnRequest omits a blank note` · pure
+- [x] `buildCreateReturnRequest puts no amount on the wire` — ⚠ a **whole-body** walk asserting that no key anywhere in the serialized request carries a price, discount, VAT, fee or total. The one test that catches money creeping back · pure
+- [x] `return-dialog-drive.mjs` — a valid form posts once and reports success with the return number and the right what-happens-next clause for each reason · flow (Playwright)
+- [x] `return-dialog-drive.mjs` — the dialog closes and the delivery beneath **reloads** · flow
+- [x] `return-dialog-drive.mjs` — double-clicking Create Return posts **once** · flow
+- [x] `return-dialog-drive.mjs` — a `replayed: true` answer renders as **plain success**, same number, with the already-received clause and no error styling · flow
+- [x] `return-dialog-drive.mjs` — a refusal keeps the dialog open, the banner stays after the toast has gone, the machine code reads beside the sentence, and **every selection is still there** · flow
 
 ## Boundaries
 
@@ -99,3 +100,59 @@ and `npm run lint` pass.
 [292](292-the-reason-decides-whether-an-address-is-asked-for.md) — the reason and the address the body
 carries.
 [293](293-the-fees-carry-back-only-when-ticked.md) — the fee types the body carries.
+
+## Proof, as built
+
+- **Pure — `return-order.test.ts`, 62 cases in this file (1976 across the suite), green.**
+  `buildCreateReturnRequest` carries ticked lines at their clamped quantities (a cleared, zero or
+  negative quantity lands at 1 rather than on the wire), fee **types** only and never a rate, omits
+  `shippingAddress` under `RF` even after the address was expanded and edited, carries the whole
+  eleven-field set under `RTRF`, and omits a blank or whitespace note. ⚠ The **whole-body walk**
+  asserts two things at once: no key anywhere matches a money word, and every NUMBER in the
+  serialized body is accounted for (two line numbers, two quantities, the delivery's GPS pair) — so
+  a figure the client invented has nowhere to hide. `submitGate` now summarises *3 lines · 1 fee*
+  through **two** keys, and never names a fee on a blocked bar.
+- **Flow — `tools/return-dialog-drive.mjs` 97/97** (`npx vite --port 5199`, then
+  `node tools/return-dialog-drive.mjs`). Sections 20–27 add: the fee half of the summary; a valid
+  form posting **once** with the right what-happens-next clause under each reason; the dialog
+  closing and the delivery beneath it **reloading** while the screen stays put; the posted body
+  asserted field by field (no `shippingAddress` under `RF`, no note, no amount); a **double-click
+  posting once** with the button disabled and Cancel held shut in flight; a `replayed: true` answer
+  rendering as a **success** toast with the same number and the already-received clause; and a
+  refusal keeping the dialog open with the banner **surviving the toast**, the machine code beside
+  the sentence and every selection intact — then a retry carrying the **same** `requestId` and a
+  reopening minting a new one.
+- `npm run typecheck`, `npm run lint` and `npm run build` green; `tools/document-actions-drive.mjs`
+  44/44 (no regression on the command bar).
+- Two fixtures landed in `__fixtures__/return-create.ts` (`REFUSED_NOT_ELIGIBLE`,
+  `DUPLICATE_REPLAY`, plus the plain `CREATED_RETURN` they are read against). ⚠ Shapes contractual,
+  values not. The five captured payloads were **not touched**.
+
+### Decisions worth carrying forward
+
+- The §2 request/response types live in **`core/models/sd-document.ts`** under one provenance block;
+  `ReturnReason` moved there and is re-exported from `return-order.ts`, and `PickupAddress` is now a
+  type **alias** of `CreateReturnAddress` — so the draft cannot drift from the wire shape.
+- The submit is guarded **twice**: `create.isPending` disables the button on the next render, and a
+  `useRef` latch flips synchronously, so two clicks in one frame still post once.
+- The refusal toast goes through `notify.apiError`, which reads the same sentence the banner shows.
+- ⚠ Still open, and **not** this ticket's code: the district fallback 292 left can pair a chosen
+  `districtCode` with a blank `cityCode`, which this ticket makes concrete — that pair now **posts**.
+  Worth triaging before [295](295-the-screen-calls-the-real-door.md). Full log in `.afk/HITL-294.md`.
+
+### Reviews
+
+- **`/code-review` (high)** — one finding in this diff, **fixed**: `crypto.randomUUID()` is undefined
+  outside a **secure context** and this app is served over plain http from IIS, so the dialog would
+  have thrown as it opened and no `requestId` would ever be minted (localhost is a secure context, so
+  no drive could catch it). Now `core/util/request-id.ts`, with three unit cases. The other two
+  findings are in landed 291/292 code and stay recorded, not re-cut.
+- **`/standards-review`** — **no hard rule violation** on the Standards axis. On the Spec axis, one
+  real finding, **fixed**: the banner rendered every failure kind as a refusal, so a dropped
+  connection was titled *The return was not created* — a claim the client cannot make, and precisely
+  the lost-response case stories 46/47 are about. A refusal (`kind: 'business'`) keeps that title;
+  anything else reads *The return may not have been created* and says a retry is safe **because the
+  request key is kept**. Drive section 27b aborts the connection and proves it. Also applied:
+  `pickedFeeTypes` now single-sources *which fees post* for both the bar and the body.
+- Final gates: `return-dialog-drive.mjs` **100/100**, 1971 pure cases, typecheck + lint + build green.
+

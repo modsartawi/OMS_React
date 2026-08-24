@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 289
 blocked-by: 290
 ---
@@ -44,17 +44,48 @@ block begins; `returnDocument.unavailable` deleted) · test (pure vitest + a new
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `clampReturnQuantity` — `[1, remaining]` for steppers and for typed input; a pasted `0`, a negative, an over-cap value and a non-numeric all land in range · pure
-- [ ] `submitGate names the lines sentence when nothing is ticked` · pure
-- [ ] `submitGate names the quantity sentence when a ticked line has a cleared quantity` — and **not** the lines sentence, proving one complaint at a time in the right order · pure
-- [ ] `submitGate returns a key and its parameters, never a sentence` — `t()` lives at the call site · pure
-- [ ] `return-dialog-drive.mjs` — pressing Return Document on a returnable delivery **opens the dialog** (and the placeholder toast is gone) · flow (Playwright)
-- [ ] `return-dialog-drive.mjs` — the fully-returned line is **absent from the DOM** and the hidden count reads in the grid header · flow
-- [ ] `return-dialog-drive.mjs` — a row that has been partly returned reads *of N left*; an untouched one reads *of N delivered* · flow
-- [ ] `return-dialog-drive.mjs` — ticking a line wakes its stepper and pre-fills the remaining quantity; `−` is disabled at 1 and `+` at the cap · flow
-- [ ] `return-dialog-drive.mjs` — select-all ticks every visible row and leaves the hidden ones out of the count · flow
-- [ ] `return-dialog-drive.mjs` — the submit bar shows the lines sentence, then the quantity sentence, and Create Return is disabled in both · flow
-- [ ] `return-dialog-drive.mjs` — the dialog claims **no grand total** · flow
+- [x] `clampReturnQuantity` — `[1, remaining]` for steppers and for typed input; a pasted `0`, a negative, an over-cap value and a non-numeric all land in range · pure
+- [x] `submitGate names the lines sentence when nothing is ticked` · pure
+- [x] `submitGate names the quantity sentence when a ticked line has a cleared quantity` — and **not** the lines sentence, proving one complaint at a time in the right order · pure
+- [x] `submitGate returns a key and its parameters, never a sentence` — `t()` lives at the call site · pure
+- [x] `return-dialog-drive.mjs` — pressing Return Document on a returnable delivery **opens the dialog** (and the placeholder toast is gone) · flow (Playwright)
+- [x] `return-dialog-drive.mjs` — the fully-returned line is **absent from the DOM** and the hidden count reads in the grid header · flow
+- [x] `return-dialog-drive.mjs` — a row that has been partly returned reads *of N left*; an untouched one reads *of N delivered* · flow
+- [x] `return-dialog-drive.mjs` — ticking a line wakes its stepper and pre-fills the remaining quantity; `−` is disabled at 1 and `+` at the cap · flow
+- [x] `return-dialog-drive.mjs` — select-all ticks every visible row and leaves the hidden ones out of the count · flow
+- [x] `return-dialog-drive.mjs` — the submit bar shows the lines sentence, then the quantity sentence, and Create Return is disabled in both · flow
+- [x] `return-dialog-drive.mjs` — the dialog claims **no grand total** · flow
+
+## What was built
+
+`ReturnDialog` is born and the `return-document` command opens it; `returnDocument.unavailable` is
+gone with the toast it explained. `return-order.ts` gained `clampReturnQuantity` and `submitGate` —
+the gate answers with a **key and its parameters**, never a sentence.
+
+Rulings the build made, all logged in `.afk/HITL-291.md`:
+
+- **A plain `<table>`, not AG Grid.** 1270's build target draws it as one, every cell is a control
+  rather than a value, and a virtualising grid would undermine the very assertion that a
+  fully-returned line is *absent from the DOM*.
+- **The clamp lands on blur**, with the box's `draft` string kept beside the gate's `quantity` —
+  clamping per keystroke rewrites the value under the caret and a two-digit number becomes
+  unreachable. A cleared box stays cleared, because the gate has to be able to name it.
+- **No truncation in the clamp.** The spec states a range and nothing else; `remaining` can be a
+  fractional pack, so rounding would make part of a returnable line unreturnable.
+- **The gate flips to the summary** once 291's two checks pass; 292 inserts *choose what happens to
+  the goods* between the quantity sentence and it. Submit is disabled by construction either way.
+
+Two review findings applied: `ReturnableLine` now carries `uom` and `unitPrice`, so the grid never
+reaches back past the projection into the raw lines (an O(n²) re-scan that a repeated `lineNumber`
+could have used to re-admit a line the projection had just excluded); and `SubmitGateOutcome.key` is
+narrowed to the three keys the gate can name, so a typo is a compile error rather than a raw key in
+the submit bar.
+
+One defect found in review and fixed here, in 290's projection: a **struck (`deleted`) line was
+being offered for return**, and a line delivered in no quantity was being counted as one earlier
+returns had taken back. `returnableLines` gained a second tally, `notReturnableCount`, so neither is
+offered and neither makes the grid header — or the command's *everything has already been returned*
+tooltip — state something that never happened.
 
 ## Boundaries
 

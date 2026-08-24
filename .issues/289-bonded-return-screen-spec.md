@@ -295,7 +295,7 @@ one, in the order they are checked:
 
 | Cause | What is read | Reason shown |
 |---|---|---|
-| Not a delivery | `documentCategory` (already on the model) | *Open the delivery to return it.* |
+| Not a delivery | `documentCategory` **and** the route's `openedAs` — see the addendum below | *Open the delivery to return it.* |
 | Not on the Starlinks bonded rail | `canReturn` false with a delivery category | *Only bonded deliveries handled by Starlinks can be returned here.* |
 | Nothing left | `canReturn` false and the visible lines project to nothing returnable | *Everything on this delivery has already been returned.* |
 
@@ -308,6 +308,23 @@ so a wrong split mislabels a tooltip and can never enable a command the server w
 
 `commands.ts` stays pure and keeps taking `t` as a parameter. **No `BZ02` and no `BB` in this repo
 after this change.**
+
+> **Addendum (2026-08-24, after tickets 290–294 landed).** The first cause reads `documentCategory`
+> **and** the route's `openedAs`, and refuses only when **both** say "not a delivery". Either field
+> alone gets a real document wrong, in opposite directions:
+>
+> - **The category alone.** Delivery `9000000003` is opened as a delivery and carries
+>   `documentCategory: 'T'`, so a category-only check answers *Open the delivery to return it.* —
+>   about the delivery already on screen. This is the same divergence D-17/D-19 names: `openedAs`
+>   picks the load endpoint, `documentCategory` picks the mutation endpoint, and neither substitutes
+>   for the other.
+> - **The route alone.** A plain `'D'` delivery reached through `/oms/document/:documentNo` is still
+>   a delivery, and a route-only check buries the store and exhaustion causes — the two an operator
+>   can actually act on — under a sentence about opening what they already have.
+>
+> **Nothing about eligibility moves.** `canReturn` is still asked first and alone, and `disabled`
+> still follows it and nothing else. This is a reason-string correction, exactly as the ⚠ above
+> describes the store/exhaustion split.
 
 ### D3 — One pure module owns every decision the screen makes
 

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 289
 blocked-by: 291
 ---
@@ -42,13 +42,13 @@ test (pure vitest + the drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `refundableFees keeps only header delivery-fee rows` — a per-line row and a non-fee category row are both dropped · pure
-- [ ] `refundableFees reads condAmount` — a fixture whose `condValue` is `0` and whose `condAmount` is the real rate projects the **rate**, which is the regression that would otherwise be silent · pure
-- [ ] `refundableFees never sums the distributed copies` — a fee present as the item-0 row plus one copy per line projects **once**, at its rate · pure
-- [ ] `refundableFees on a delivery with no fees` — an empty projection, not a crash · pure
-- [ ] `return-dialog-drive.mjs` — the fee grid renders **stacked below** the line grid, both visible at once · flow (Playwright)
-- [ ] `return-dialog-drive.mjs` — every fee is **unticked on open**, and there is **no select-all** in the fee grid's header · flow
-- [ ] `return-dialog-drive.mjs` — the note field is optional: the submit bar reaches its ready summary with the note empty · flow
+- [x] `refundableFees keeps only header delivery-fee rows` — a per-line row and a non-fee category row are both dropped · pure
+- [x] `refundableFees reads condAmount` — a fixture whose `condValue` is `0` and whose `condAmount` is the real rate projects the **rate**, which is the regression that would otherwise be silent · pure
+- [x] `refundableFees never sums the distributed copies` — a fee present as the item-0 row plus one copy per line projects **once**, at its rate · pure
+- [x] `refundableFees on a delivery with no fees` — an empty projection, not a crash · pure
+- [x] `return-dialog-drive.mjs` — the fee grid renders **stacked below** the line grid, both visible at once · flow (Playwright)
+- [x] `return-dialog-drive.mjs` — every fee is **unticked on open**, and there is **no select-all** in the fee grid's header · flow
+- [x] `return-dialog-drive.mjs` — the note field is optional: the submit bar reaches its ready summary with the note empty · flow
 
 ## Boundaries
 

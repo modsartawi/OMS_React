@@ -21,6 +21,7 @@ import {
   isDeliveryCategory,
   resolveActionType,
   type CommandKind,
+  type OpenedAs,
   type UpdateActionKind,
   type UpdateHeaderExtras,
 } from './actions'
@@ -42,9 +43,7 @@ import RescheduleDialog from './RescheduleDialog'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
 import RequestCloseDialog from './RequestCloseDialog'
 import NoteDialog, { type NoteCommandKind } from './NoteDialog'
-
-/** Whether this record was opened as a document or a delivery. */
-export type OpenedAs = 'document' | 'delivery'
+import ReturnDialog from './ReturnDialog'
 
 // No `status` tab: the document's state is the pill rail under the header, and
 // its full thirteen-row breakdown is that rail's All-statuses disclosure (083 D-3).
@@ -124,6 +123,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [changeStoreOpen, setChangeStoreOpen] = useState(false)
   const [requestCloseOpen, setRequestCloseOpen] = useState(false)
+  const [returnOpen, setReturnOpen] = useState(false)
 
   /**
    * The note-carrying command awaiting its dialog, or `null`. Since 094 there is
@@ -135,7 +135,12 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
 
   const actionBusy = actionRunning || refreshing
   const commandBusy =
-    actionBusy || rescheduleOpen || changeStoreOpen || requestCloseOpen || noteCommand !== null
+    actionBusy ||
+    rescheduleOpen ||
+    changeStoreOpen ||
+    requestCloseOpen ||
+    returnOpen ||
+    noteCommand !== null
 
   const loadLogs = useCallback(
     async (documentNo: string) => {
@@ -271,7 +276,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         setRequestCloseOpen(true)
         return
       case 'return-document':
-        notify.info(t('actions.return-document'), t('returnDocument.unavailable'))
+        // The placeholder toast is gone: the command opens the dialog that
+        // creates the return, over the delivery it is about (spec 289 D1).
+        setReturnOpen(true)
         return
     }
   }
@@ -401,15 +408,19 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             {/*
               The action bar's grammar (083 D-10, ticket 094): three labelled
               clusters in order of increasing consequence, then the unlabelled
-              terminal pair. Gating is evidence-only — `closeStatus` and
-              `deliveryDocumentType` are the only two fields live data proves a
+              terminal pair. Gating is evidence-only — `closeStatus` and the
+              server's own `canReturn` are the only fields live data proves a
               contradiction on; the server remains the authority on everything
-              else and says so in its `400`.
+              else and says so in its `400`. `lines` is handed in for the return
+              command's REASON split alone (spec 289 D2), never for its gate.
             */}
             <CommandPanel
               context={{
                 closeStatus: document.status?.closeStatus,
-                deliveryDocumentType: document.deliveryDocumentType,
+                documentCategory: document.documentCategory,
+                openedAs,
+                canReturn: document.canReturn,
+                lines: document.lines,
                 busy: commandBusy,
               }}
               onCommand={onCommand}
@@ -538,6 +549,19 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               open={requestCloseOpen}
               onClose={() => setRequestCloseOpen(false)}
               onConfirmed={(reason) => void postUpdate('request-close', reason)}
+            />
+            <ReturnDialog
+              open={returnOpen}
+              onClose={() => setReturnOpen(false)}
+              // The return exists. The dialog closes and the delivery beneath it
+              // reloads, so the screen the operator comes back to shows the
+              // newly-consumed quantities — and the screen STAYS PUT: the toast
+              // carries the new return number (spec 289 D8).
+              onCreated={() => {
+                setReturnOpen(false)
+                void reload()
+              }}
+              document={document}
             />
             <NoteDialog
               kind={noteCommand}

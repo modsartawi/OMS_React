@@ -141,17 +141,17 @@ export default function CommandPanel({
   context,
   onCommand,
 }: {
-  /** The two gated fields plus busy — documented once, on `CommandContext`. */
+  /** The gated fields plus busy — documented once, on `CommandContext`. */
   context: CommandContext
   onCommand: (kind: CommandKind) => void
 }) {
   const { t } = useTranslation('document')
-  const { closeStatus, deliveryDocumentType, busy } = context
+  const { closeStatus, documentCategory, openedAs, canReturn, lines, busy } = context
   // Memoised on the FIELDS, not on `context`: the parent builds the object
   // inline, so a reference dependency would recompute on every render.
   const bar = useMemo(
-    () => commandBar({ closeStatus, deliveryDocumentType, busy }, t),
-    [closeStatus, deliveryDocumentType, busy, t],
+    () => commandBar({ closeStatus, documentCategory, openedAs, canReturn, lines, busy }, t),
+    [closeStatus, documentCategory, openedAs, canReturn, lines, busy, t],
   )
 
   return (

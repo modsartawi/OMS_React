@@ -14,18 +14,22 @@
 //   5. `closeStatus === 'R'` disables Request Cancellation WITH a reason on
 //      hover and on focus, and leaves Withdraw Request the cluster's only
 //      takeable member;
-//   6. a non-BeyondBorder delivery disables Return Document with its reason, and
-//      a BeyondBorder one enables it;
+//   6. Return Document reads the server's `canReturn` and states WHICH of three
+//      things is wrong — not a delivery, not on the Starlinks bonded rail,
+//      nothing left to return — each on hover AND on focus, plus the enabled
+//      case (ticket 290, spec 289 D2);
 //   7. busy disables everything with NO reason;
 //   8. the standing textarea and its label are gone from the page;
 //   9. Add Note… is always enabled and its dialog's confirm stays disabled until
 //      text is typed;
 //  10. the note typed in the Change Store dialog is the note that POSTS.
 //
-// One assertion the corpus cannot show verbatim says so at its call site: no
-// capture is `deliveryDocumentType: 'BB'`, so the enabled half of that gate is
-// synthesised from a real payload — the mutation is the fixture, the rule under
-// test is the app's.
+// Two assertions the corpus cannot show verbatim say so at their call sites:
+// `canReturn` and `returnedQuantity` are BackOffice spec 1283 §2b additions no
+// capture carries, so the enabled case and the exhausted case are synthesised
+// from a real payload — the mutation is the fixture, the rule under test is the
+// app's. The captures untouched are the fail-closed proof: absent `canReturn`
+// disables Return Document on all five.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/document-actions-drive.mjs
@@ -108,6 +112,19 @@ async function run() {
   const bar = () => page.locator('section[aria-label="Actions"]')
   const open = async (documentNo) => {
     await page.goto(`${BASE}/oms/document/${documentNo}`)
+    await bar().waitFor()
+    await page.waitForTimeout(150)
+  }
+  /**
+   * The same screen through the DELIVERY route.
+   *
+   * Return Document's first reason is read off the route, not off
+   * `documentCategory` — so *Open the delivery to return it.* is the honest
+   * answer on `/oms/document/*` and the other two causes are only reachable
+   * from here, which is where an operator returns from.
+   */
+  const openDelivery = async (deliveryNo) => {
+    await page.goto(`${BASE}/oms/delivery/${deliveryNo}`)
     await bar().waitFor()
     await page.waitForTimeout(150)
   }
@@ -325,30 +342,112 @@ async function run() {
     `${withdraw.ground} h=${withdraw.height} vs h=${requestCancellation.height}`,
   )
 
-  // ---------------------------------------------------- 6 · the BeyondBorder gate
+  // ------------------------------------------ 6 · the three Return Document reasons
+  // `canReturn` is absent on every capture, and absent must read as NOT
+  // returnable — this is the fail-closed half of the gate, at no cost.
   let returnGated = true
   for (const documentNo of DOCUMENT_NUMBERS) {
     await open(documentNo)
     const b = byLabel(await readBar(), 'Return Document')
     if (!b.ariaDisabled) returnGated = false
   }
-  check('Return Document is disabled on every captured document — none is BeyondBorder', returnGated)
   check(
-    'and explains why',
-    (await page.locator('#command-reason-return-document').innerText()).trim() ===
-      'Only a BeyondBorder delivery can be returned.',
-    (await page.locator('#command-reason-return-document').innerText()).trim(),
+    'Return Document is disabled on every captured document — none carries canReturn',
+    returnGated,
   )
-  // No capture carries `deliveryDocumentType: 'BB'`; the enabled half of this
-  // gate is synthesised from a real payload rather than asserted from nothing.
-  const original = DOCUMENTS['8000000253']
-  DOCUMENTS['8000000253'] = { ...original, deliveryDocumentType: 'BB' }
-  await open('8000000253')
-  const bb = byLabel(await readBar(), 'Return Document')
+
+  const returnReason = page.locator('#command-reason-return-document')
+  const returnOpacity = () => returnReason.evaluate((el) => Number(getComputedStyle(el).opacity))
+  /** Read the reason the way an operator does: on hover, then on keyboard focus. */
+  const readReturnReason = async (what) => {
+    const button = page.getByRole('button', { name: 'Return Document' })
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(250)
+    const atRest = await returnOpacity()
+    await button.hover()
+    await page.waitForTimeout(250)
+    const onHover = await returnOpacity()
+    const text = (await returnReason.innerText()).trim()
+    await page.mouse.move(0, 0)
+    await page.waitForTimeout(250)
+    await button.focus()
+    await page.waitForTimeout(250)
+    const onFocus = await returnOpacity()
+    check(
+      `the ${what} reason is out of the way until asked for, then appears on hover AND on focus`,
+      atRest === 0 && onHover === 1 && onFocus === 1,
+      `rest=${atRest} hover=${onHover} focus=${onFocus}`,
+    )
+    return text
+  }
+
+  // (a) not a delivery — `2000000551` is the eRx capture, `documentCategory: 'X'`.
+  await open('2000000551')
   check(
-    'a BeyondBorder delivery enables it, with no reason attached',
-    bb.ariaDisabled === false && bb.nativeDisabled === false && bb.describedBy === null,
-    JSON.stringify(bb),
+    'an order says which document to open instead of naming the rule',
+    (await readReturnReason('not-a-delivery')) === 'Open the delivery to return it.',
+  )
+
+  // (b) not on the rail — a delivery with lines still remaining and no
+  // `canReturn`. Read on the DOCUMENT route on purpose: a delivery payload is a
+  // delivery whichever route reached it, so this cause must not be buried under
+  // *open the delivery* by the route alone.
+  await open('8000000253')
+  check(
+    'a delivery the server will not take a return against names the rail',
+    (await readReturnReason('wrong-store')) ===
+      'Only bonded deliveries handled by Starlinks can be returned here.',
+  )
+
+  // (c) nothing left — same `canReturn`, every line already fully returned. The
+  // screen splits the server's ONE false into these two causes off the line
+  // projection; the split is a reason string and never an eligibility decision.
+  const original = DOCUMENTS['8000000253']
+  DOCUMENTS['8000000253'] = {
+    ...original,
+    lines: original.lines.map((line) => ({ ...line, returnedQuantity: line.quantity })),
+  }
+  await open('8000000253')
+  check(
+    'and an exhausted delivery says THAT instead, off the same false',
+    (await readReturnReason('exhausted')) ===
+      'Everything on this delivery has already been returned.',
+  )
+
+  // (c2) the document this rule exists for: `9000000003` is opened AS a delivery
+  // and carries `documentCategory: 'T'`. Keyed off the category, its reason was
+  // *Open the delivery to return it.* — about the delivery already on screen.
+  await openDelivery('9000000003')
+  const categoryT = await readReturnReason('delivery-return category')
+  check(
+    'a T-category delivery never tells the operator to open the delivery they are looking at',
+    categoryT !== 'Open the delivery to return it.' &&
+      categoryT === 'Only bonded deliveries handled by Starlinks can be returned here.',
+    categoryT,
+  )
+
+  // (d) the enabled case — `canReturn: true`, and nothing else changed.
+  DOCUMENTS['8000000253'] = { ...original, canReturn: true }
+  await open('8000000253')
+  const takeable = byLabel(await readBar(), 'Return Document')
+  check(
+    'canReturn: true enables it, with no reason attached',
+    takeable.ariaDisabled === false &&
+      takeable.nativeDisabled === false &&
+      takeable.describedBy === null,
+    JSON.stringify(takeable),
+  )
+  // (e) disabled follows `canReturn` ALONE — an exhausted projection the server
+  // nonetheless says yes to stays takeable.
+  DOCUMENTS['8000000253'] = {
+    ...original,
+    canReturn: true,
+    lines: original.lines.map((line) => ({ ...line, returnedQuantity: line.quantity })),
+  }
+  await open('8000000253')
+  check(
+    'and stays enabled even where the DERIVED reason would have said exhausted',
+    byLabel(await readBar(), 'Return Document').ariaDisabled === false,
   )
   DOCUMENTS['8000000253'] = original
 

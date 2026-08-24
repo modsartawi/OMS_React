@@ -11,14 +11,17 @@
  * never decides whether a command is *offered*, `deliveryType` gates nothing,
  * and `status` is read only by the rail. So this module gates **only where live
  * data proves a contradiction** (a cancellation request already open, a
- * non-BeyondBorder delivery) and leaves everything else static. The server
- * remains the authority on legality and says so in its `400`.
+ * delivery the server will not take a return against) and leaves everything
+ * else static. The server remains the authority on legality and says so in its
+ * `400`.
  *
  * **Nothing is ever hidden.** Every command appears on every document; a
  * command that vanishes is a command an operator cannot discover, and a bar
  * whose contents shift between visits cannot be learned.
  */
-import type { CommandKind } from './actions'
+import type { SdDocumentLineModel } from '@/core/models/sd-document'
+import { isDeliveryCategory, type CommandKind, type OpenedAs } from './actions'
+import { returnableLines } from './return-order'
 
 /** The three labelled clusters, in reading order. */
 export type ClusterId = 'fulfilment' | 'cancel-request' | 'notes'
@@ -68,17 +71,38 @@ export interface CommandBar {
 export interface CommandContext {
   /** `status.closeStatus` — `'R'` means a cancellation request is already open. */
   closeStatus: string | null | undefined
-  /** Return Document is a BeyondBorder-only command. */
-  deliveryDocumentType: string | null | undefined
+  /** `documentCategory` — half of Return Document's first cause (spec 289 D2). */
+  documentCategory: string | null | undefined
+  /**
+   * Whether the ROUTE opened this as a delivery — the OTHER half of it.
+   *
+   * ⚠ **Neither field answers it alone.** Delivery `9000000003` is opened as a
+   * delivery and carries `documentCategory: 'T'`, so the category alone tells
+   * the operator to *open the delivery* they are already looking at; and a
+   * plain `'D'` delivery reached through `/oms/document/:documentNo` is a
+   * delivery whatever the route says, so the route alone buries the two causes
+   * that can actually be acted on. Both must say "not a delivery" before the
+   * screen claims there is one to go and open.
+   */
+  openedAs: OpenedAs
+  /**
+   * The server's own verdict on whether a bonded return may be created here
+   * (BackOffice spec 1283 §2b). **Return Document's `disabled` follows this and
+   * nothing else**, and an absent field reads as `false` — the field is not on
+   * the wire yet, and the command fails closed until it is.
+   */
+  canReturn: boolean | null | undefined
+  /**
+   * The delivery's lines, read ONLY to split `canReturn`'s two folded causes
+   * into two reason strings. Never an eligibility input.
+   */
+  lines: SdDocumentLineModel[] | null | undefined
   /** An action is posting, its follow-up reload is running, or a dialog is open. */
   busy: boolean
 }
 
 /** The translator, passed in. Same contract as `rail.ts`'s `TFn`. */
 type TFn = (key: string, options?: Record<string, unknown>) => string
-
-/** `deliveryDocumentType` code for BeyondBorder — the Return Document gate. */
-const BEYOND_BORDER = 'BB'
 
 /** `closeStatus` code for "cancellation requested". */
 const CANCELLATION_REQUESTED = 'R'
@@ -111,9 +135,41 @@ export function hasOpenCancellationRequest(closeStatus: string | null | undefine
   return code(closeStatus) === CANCELLATION_REQUESTED
 }
 
-/** Whether this document is a BeyondBorder delivery — the only kind that returns. */
-export function isBeyondBorder(deliveryDocumentType: string | null | undefined): boolean {
-  return code(deliveryDocumentType) === BEYOND_BORDER
+/**
+ * Why Return Document cannot be taken on this document, as an i18n KEY, or
+ * `null` when it can — the three causes of spec 289 D2, in the order they are
+ * checked.
+ *
+ * ⚠ **`canReturn` is one boolean carrying two of the three causes.** The server
+ * folds the store rule and the exhausted-lines rule together, so a `false` on a
+ * delivery does not say which. The split below is made off data the screen
+ * already holds — every line exhausted → exhaustion, otherwise → the store —
+ * and it is a *reason-string* choice, never an eligibility one: `disabled`
+ * follows `canReturn` alone, so a wrong split can only mislabel a tooltip and
+ * can never offer a command the server would refuse.
+ */
+export function returnBlockedBecause(ctx: CommandContext): string | null {
+  // `canReturn` is asked FIRST and on its own, so the eligibility answer can
+  // never come from anything the screen derived. Strictly `true`: absent,
+  // `null` and `undefined` all fail closed. Live proof this matters: delivery
+  // `9000000003` is opened as a delivery yet carries `documentCategory: 'T'`,
+  // so a category pre-check would refuse a return the server had allowed and
+  // tell the operator to open the delivery they are already looking at.
+  if (ctx.canReturn === true) return null
+  // Everything below is a REASON STRING, in the order spec 289 D2 checks them.
+  // BOTH signals, and only when both refuse: the category is what spec 289 D2
+  // names, and the route is what keeps `9000000003` — category `T`, opened as a
+  // delivery — from being told to open the delivery it is already on. An order
+  // or an eRx satisfies neither and still gets the sentence that names its way
+  // out.
+  if (ctx.openedAs !== 'delivery' && !isDeliveryCategory(ctx.documentCategory))
+    return 'command.disabled.returnNeedsDelivery'
+  const { rows, hiddenCount } = returnableLines(ctx.lines)
+  // Exhaustion has to be PROVEN: lines that were all returned. A document whose
+  // lines are absent or empty proves nothing, and falls to the store rule.
+  return rows.length === 0 && hiddenCount > 0
+    ? 'command.disabled.returnNothingLeft'
+    : 'command.disabled.returnStarlinksOnly'
 }
 
 /**
@@ -124,8 +180,9 @@ function stateReason(kind: CommandKind, ctx: CommandContext, t: TFn): string | n
   if (kind === 'request-close' && hasOpenCancellationRequest(ctx.closeStatus)) {
     return t('command.disabled.requestOpen')
   }
-  if (kind === 'return-document' && !isBeyondBorder(ctx.deliveryDocumentType)) {
-    return t('command.disabled.beyondBorderOnly')
+  if (kind === 'return-document') {
+    const blocked = returnBlockedBecause(ctx)
+    return blocked === null ? null : t(blocked)
   }
   return null
 }

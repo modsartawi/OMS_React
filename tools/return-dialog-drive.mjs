@@ -26,6 +26,10 @@
 //      Create return is disabled in both;
 //   8. the dialog claims NO grand total;
 //   9. Cancel discards everything — reopening starts clean.
+//  10. (293) the fee grid renders STACKED below the line grid, both visible at
+//      once; only the header fee rows survive, at their `condAmount` rate;
+//      every fee is unticked on open and the header carries NO select-all;
+//      the note is optional — the bar reaches its ready summary with it empty.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/return-dialog-drive.mjs
@@ -70,6 +74,17 @@ const line = (lineNumber, itemNumber, quantity, returnedQuantity, deleted = fals
   if (returnedQuantity !== undefined) l.returnedQuantity = returnedQuantity
   return l
 }
+const BASE_CONDITION = DELIVERY.conditions[0]
+const fee = (condDocumentLine, condType, conditionDescription, condCategory, condAmount, originOfCond) => ({
+  ...BASE_CONDITION,
+  condDocumentLine,
+  condType,
+  conditionDescription,
+  condCategory,
+  condAmount,
+  condValue: 0,
+  originOfCond,
+})
 DOCUMENTS['8000000253'] = {
   ...DELIVERY,
   canReturn: true,
@@ -80,6 +95,17 @@ DOCUMENTS['8000000253'] = {
     // Struck from the delivery: absent from the grid, and NOT counted among the
     // lines earlier returns took back — nothing was ever returned off it.
     line(40, '208716', 2, undefined, true),
+  ],
+  // Two header delivery fees, each with its distributed `'H'` copy on a line,
+  // plus a header row of another category. ⚠ `condValue` is left at the
+  // structural `0` the live wire sends on a header row — the money is
+  // `condAmount`, and a grid reading the wrong one shows a fee costing nothing.
+  conditions: [
+    fee(0, 'DFEE', 'Delivery Fees', 'F', 12, 'M'),
+    fee(0, 'FBBD', 'Beyond Border Delivery Fee', 'F', 25, 'M'),
+    fee(0, 'PTPA', 'PostToAccount', 'P', 0, 'M'),
+    fee(10, 'DFEE', 'Delivery Fees', 'F', 12, 'H'),
+    fee(10, 'FBBD', 'Beyond Border Delivery Fee', 'F', 25, 'H'),
   ],
   // The capture's own shipping address is entirely blank, which proves nothing
   // about carrying an address across — so this one is populated. Only the
@@ -533,6 +559,85 @@ async function run() {
   check(
     'the reason cards ARROW like the radiogroup they claim to be, and the panel follows',
     (await on('RF')) && !(await on('RTRF')) && (await addressPanel().count()) === 0,
+  )
+
+  // ------------------------------------- 17 · the fee grid, STACKED below the lines
+  const feeGrid = () => page.locator('[data-return-fees]')
+  const feeRow = (type) => page.locator(`[data-return-fee-row="${type}"]`)
+  const feePick = (type) => page.locator(`[data-return-fee="${type}"]`)
+  const feeAmount = async (type) =>
+    (await page.locator(`[data-return-fee-amount="${type}"]`).innerText()).trim()
+  check(
+    'the fee grid is STACKED below the line grid — both visible at once, neither behind a tab',
+    (await feeGrid().count()) === 1 &&
+      (await feeGrid().isVisible()) &&
+      (await row(10).isVisible()),
+    await feeGrid().getAttribute('data-return-fees'),
+  )
+  // Their vertical order, measured — a grid that renders above the lines, or in
+  // a second column, is not what D12 asked for.
+  const lineBox = await row(10).boundingBox()
+  const feeBox = await feeGrid().boundingBox()
+  check(
+    'and it sits BELOW them, not beside them',
+    feeBox.y > lineBox.y,
+    `lines y=${Math.round(lineBox.y)} · fees y=${Math.round(feeBox.y)}`,
+  )
+  check(
+    'only the HEADER fee rows are offered — the per-line copies and the payment row are not',
+    (await page.locator('[data-return-fee-row]').count()) === 2 &&
+      (await feeRow('DFEE').count()) === 1 &&
+      (await feeRow('FBBD').count()) === 1 &&
+      (await feeRow('PTPA').count()) === 0,
+    String(await page.locator('[data-return-fee-row]').count()),
+  )
+  check(
+    'each at its RATE — condAmount, never the structural zero on condValue, and never the copies summed',
+    (await feeAmount('DFEE')) === '12.00' && (await feeAmount('FBBD')) === '25.00',
+    `${await feeAmount('DFEE')} / ${await feeAmount('FBBD')}`,
+  )
+
+  // ------------------------------- 18 · unticked on open, and no select-all
+  check(
+    'every fee is UNTICKED on open — refunding one is a concession, never a default',
+    !(await feePick('DFEE').isChecked()) && !(await feePick('FBBD').isChecked()),
+  )
+  check(
+    'and there is NO select-all in the fee grid header — no one-click way past the guard',
+    (await feeGrid().locator('thead input').count()) === 0 &&
+      (await feeGrid().locator('[data-return-select-all]').count()) === 0,
+  )
+  check(
+    'the guard says why, so an empty column reads as deliberate rather than forgotten',
+    (await feeGrid().innerText()).includes(
+      'Refunding a fee is a concession — tick only what is being given back',
+    ),
+  )
+  await feePick('DFEE').check()
+  await page.waitForTimeout(100)
+  check(
+    'a fee ticks one at a time, and the other stays where it was',
+    (await feePick('DFEE').isChecked()) && !(await feePick('FBBD').isChecked()),
+  )
+
+  // ------------------------------------------- 19 · the note is OPTIONAL
+  const noteBox = () => page.locator('[data-return-note-field] textarea')
+  check(
+    'the note is one free-text field, and it is the last of them',
+    (await noteBox().count()) === 1 && (await noteBox().inputValue()) === '',
+  )
+  check(
+    'labelled as optional, and asking for the return own reason rather than for commentary',
+    (await page.locator('[data-return-note-field] label').innerText()).includes('optional') &&
+      (await noteBox().getAttribute('placeholder')) ===
+        'Why is this coming back? The warehouse reads this when the goods arrive.',
+    (await page.locator('[data-return-note-field] label').innerText()).trim(),
+  )
+  check(
+    'and the bar reaches its READY summary with the note left empty — nothing is required of it',
+    (await gate().getAttribute('data-return-gate')) === 'ok' &&
+      (await noteBox().inputValue()) === '',
+    (await gate().innerText()).trim(),
   )
 
   // ------------------------------------------------------------ the word `close`

@@ -6,9 +6,11 @@ import Button from '@/core/ui/Button'
 import { formatMoney } from '@/core/util/number-format'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import PickupAddressPanel from './PickupAddressPanel'
+import NoteField from './NoteField'
 import {
   clampReturnQuantity,
   pickupAddressFrom,
+  refundableFees,
   returnableLines,
   submitGate,
   type PickupAddress,
@@ -56,10 +58,10 @@ function pickedState(row: ReturnableLine, picked: boolean): LineState {
  * checked against. `Modal` already gives the wide max-width, the internally
  * scrolling body and the pinned footer — nothing new is built in `core/ui`.
  *
- * This slice carries the line grid and the first two outcomes of the submit
- * gate. The reason fork and its address panel (292), the fee grid and the note
- * (293) and the create call itself (294) land after it — **Create return is
- * disabled by construction here**, because there is nothing to post yet.
+ * The line grid and the submit gate landed with 291, the reason fork and its
+ * address panel with 292, and the fee grid and the note with 293. Only the
+ * create call itself (294) is still to come — **Create return is disabled by
+ * construction until then**, because there is nothing to post yet.
  *
  * The grid is a plain table rather than an AG Grid: 1270's approved build target
  * draws it as one, every row carries interactive controls rather than values,
@@ -83,12 +85,26 @@ export default function ReturnDialog({
    * nothing coming back, and a default radio is how that gets clicked through.
    */
   const [reason, setReason] = useState<ReturnReason | null>(null)
+  /**
+   * The return's own reason in words — **optional**. Requiring it manufactures
+   * the word "return" typed into a box; the structured reason above is what
+   * actually drives behaviour. It is NOT the `add-note` action's note, which is
+   * running commentary on a document.
+   */
+  const [note, setNote] = useState('')
   /** The delivery's own address — what the draft starts from and can return to. */
   const delivered = useMemo(
     () => pickupAddressFrom(document.shippingAddress),
     [document.shippingAddress],
   )
   const [address, setAddress] = useState<PickupAddress>(delivered)
+  /**
+   * Which fees carry back, keyed by the condition TYPE — the only part of a fee
+   * row that ever reaches the wire (294). **Empty on open**, and it stays that
+   * way until an operator ticks something: refunding a delivery fee is a
+   * concession, the service having actually been performed.
+   */
+  const [feePicks, setFeePicks] = useState<Record<string, boolean>>({})
 
   const collecting = reason === 'RTRF'
 
@@ -99,6 +115,10 @@ export default function ReturnDialog({
     [document.lines],
   )
   const stateOf = (row: ReturnableLine): LineState => lineState[row.lineNumber] ?? UNPICKED
+
+  // The fee projection (D3) — the header rows alone, at their `condAmount`
+  // rate. The grid renders what it is handed and sums nothing.
+  const fees = useMemo(() => refundableFees(document.conditions), [document.conditions])
 
   const gate = useMemo(() => submitGate(rows.map(stateOf), reason), [rows, lineState, reason])
 
@@ -160,6 +180,8 @@ export default function ReturnDialog({
         setLineState({})
         setReason(null)
         setAddress(delivered)
+        setFeePicks({})
+        setNote('')
       }}
       footer={
         <>
@@ -374,6 +396,91 @@ export default function ReturnDialog({
         )}
       </div>
 
+
+      {/*
+        ⚠ **Stacked below the line grid, never behind a tab** (D12). The fee grid
+        is two rows and is not a peer of the line grid; a tab here would hide a
+        SELECTION the submit is about to act on, not merely a reading — which is
+        what Document Details' own tabs hide.
+      */}
+      <div className="mt-3 rounded-lg border border-border" data-return-fees={fees.length}>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border/60 px-3 py-2">
+          <h4 className="m-0 text-[0.8125rem] font-semibold tracking-tight">
+            {t('returnDocument.fees.title')}
+          </h4>
+          {/*
+            Why nothing is ticked, said out loud — so an empty column reads as
+            the guard it is rather than as a step the operator forgot.
+          */}
+          <span className="text-[0.75rem] text-muted-foreground">
+            {t('returnDocument.fees.hint')}
+          </span>
+        </div>
+        {fees.length === 0 ? (
+          <p className="m-0 px-3 py-4 text-center text-[0.8125rem] text-muted-foreground">
+            {t('returnDocument.fees.empty')}
+          </p>
+        ) : (
+          <table className="w-full border-collapse text-[0.8125rem]">
+            <thead>
+              <tr className="border-b border-border/60 text-[0.6875rem] uppercase tracking-wide text-muted-foreground">
+                {/*
+                  ⚠ **No select-all here, deliberately** — unlike the line grid
+                  above. A tick-everything control beside a guard that exists on
+                  purpose is a one-click way through it, and every fee refunded
+                  is a service that was performed and is being given back anyway.
+                */}
+                <th className="w-9 px-2 py-1.5" />
+                <th className="px-2 py-1.5 text-start">{t('returnDocument.fees.columns.fee')}</th>
+                <th className="w-28 px-2 py-1.5 text-end">
+                  {t('returnDocument.fees.columns.amount')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {fees.map((fee) => {
+                const on = feePicks[fee.condType] === true
+                return (
+                  <tr
+                    key={fee.condType}
+                    className={
+                      'border-b border-border/40 last:border-b-0 ' + (on ? 'bg-accent' : '')
+                    }
+                    data-return-fee-row={fee.condType}
+                  >
+                    <td className="px-2 py-1.5">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={(e) =>
+                          setFeePicks((prev) => ({ ...prev, [fee.condType]: e.target.checked }))
+                        }
+                        aria-label={t('returnDocument.fees.selectFee', {
+                          description: fee.description,
+                        })}
+                        data-return-fee={fee.condType}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">{fee.description}</td>
+                    {/*
+                      The RATE, as context for the decision — `condAmount`, which
+                      the projection read for exactly this reason. It is never on
+                      the wire: 294 sends the fee's TYPE and nothing else.
+                    */}
+                    <td
+                      className="px-2 py-1.5 text-end tabular-nums"
+                      data-return-fee-amount={fee.condType}
+                    >
+                      {formatMoney(fee.amount)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {/*
         The most consequential control on the screen. The two options are CARDS
         carrying their consequence in the operator's language, not bare radio
@@ -453,6 +560,23 @@ export default function ReturnDialog({
       {collecting && (
         <PickupAddressPanel delivered={delivered} address={address} onChange={setAddress} />
       )}
+
+      {/*
+        The last field, and an OPTIONAL one: the return's own reason in words,
+        which the warehouse reads when the goods arrive. Requiring it only
+        manufactures the word "return" typed into a box — the structured reason
+        above is what drives behaviour.
+      */}
+      <div className="mt-3" data-return-note-field>
+        <NoteField
+          id="return-note"
+          value={note}
+          onChange={setNote}
+          rows={2}
+          label={t('returnDocument.note.label')}
+          placeholder={t('returnDocument.note.placeholder')}
+        />
+      </div>
     </Modal>
   )
 }

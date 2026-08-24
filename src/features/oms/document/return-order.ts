@@ -7,9 +7,14 @@
  * those do: the arithmetic is where a regression is silent, and none of it
  * needs a browser to be exercised.
  */
+import { describeConditionType } from '@/core/constants/oms-codes'
 import type { SdDistrictModel } from '@/core/models/lookups'
 import { districtCityName } from './change-store'
-import type { SdDocumentAddressModel, SdDocumentLineModel } from '@/core/models/sd-document'
+import type {
+  SdDocumentAddressModel,
+  SdDocumentLineModel,
+  TransactionConditionModel,
+} from '@/core/models/sd-document'
 
 /**
  * The two return reasons.
@@ -158,6 +163,81 @@ export function clampReturnQuantity(value: unknown, remaining: number): number {
   const typed = typeof value === 'number' ? value : Number(String(value ?? '').trim())
   if (!Number.isFinite(typed) || String(value ?? '').trim() === '') return 1
   return clamp(typed, 1, cap)
+}
+
+/**
+ * The condition CATEGORY that means *delivery fee* — the WPF's own filter,
+ * unchanged.
+ *
+ * ⚠ **A display constant in this repo, and a considered exception** (spec 289
+ * D4). The conditions list arrives whole; there is no *is a header fee* flag on
+ * the wire and BackOffice spec 1283 does not add one. This does **not** reopen
+ * 1267's refusal of a second `BZ02`: that code is a value a running program
+ * branches on to decide whether **money moves**, so a second copy diverges
+ * silently. This one decides only **which rows are drawn** — the server re-reads
+ * the rate for every type it is handed and owns the money regardless, and a
+ * wrong filter is visible on screen the instant it is wrong.
+ *
+ * ⚠ **Known gap, for the joining ticket to carry as a drift report.** On the
+ * captured payload `8000000121` the category comes back **blank on every row**,
+ * including its `DFEE` header fee — so on such a document this projection offers
+ * nothing. That is the fail-closed direction (a fee not offered is a concession
+ * not made, never money invented), and widening the filter to the `DFEE` type
+ * would be a second code branching on money. Left as spec 289 D4 wrote it.
+ */
+const DELIVERY_FEE_CATEGORY = 'F'
+
+/** One delivery fee as the return screen offers it back. */
+export interface RefundableFee {
+  /**
+   * The condition type — the ONLY part of this row that ever reaches the wire
+   * (`conditionTypes`, ticket 294). It is also the row's identity on screen.
+   */
+  condType: string
+  /** The server-resolved description, falling back to the legacy code map. */
+  description: string
+  /**
+   * ⚠ **The rate — `condAmount`, never `condValue`.** On a header row
+   * `condValue` is structurally `.000` (live: `8000000174` reads
+   * `condAmount: 12, condValue: 0`), so reading it is a **silent zero**: no
+   * exception, a green suite, and a fee that displays as costing nothing.
+   *
+   * DISPLAY only. It is context for the operator's decision and never leaves
+   * the client — the server re-reads the rate itself.
+   */
+  amount: number
+}
+
+/**
+ * Project a delivery's conditions into the delivery fees a return may carry
+ * back.
+ *
+ * Two filters, and both matter:
+ *
+ * - **`condDocumentLine === 0`** — the header row alone. One ticked fee exists
+ *   as the item-0 row *and* as one distributed (`originOfCond: 'H'`) copy per
+ *   line; taking both charges the concession twice. The copies are neither
+ *   included nor summed.
+ * - **the delivery-fee category** — so a header payment or discount row is not
+ *   offered as something refundable.
+ *
+ * Order is the wire's own: the conditions arrive in the order the pricing
+ * procedure stepped them, and re-sorting a two-row grid would only hide that.
+ */
+export function refundableFees(
+  conditions: TransactionConditionModel[] | null | undefined,
+): RefundableFee[] {
+  return (conditions ?? [])
+    .filter(
+      (condition) =>
+        condition.condDocumentLine === 0 &&
+        textOrEmpty(condition.condCategory).trim() === DELIVERY_FEE_CATEGORY,
+    )
+    .map((condition) => ({
+      condType: textOrEmpty(condition.condType).trim(),
+      description: describeConditionType(condition.condType, condition.conditionDescription),
+      amount: finiteOrZero(condition.condAmount),
+    }))
 }
 
 /**

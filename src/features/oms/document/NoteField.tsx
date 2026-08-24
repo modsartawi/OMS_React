@@ -17,6 +17,8 @@ export default function NoteField({
   onChange,
   required = false,
   rows = 3,
+  label,
+  placeholder,
 }: {
   /** Unique per dialog — only one dialog is ever open, but ids are global. */
   id: string
@@ -28,19 +30,27 @@ export default function NoteField({
    */
   required?: boolean
   rows?: number
+  /**
+   * Override the copy when the note is NOT the running commentary a command
+   * appends to a document — the bonded return's note is the return's own reason
+   * in words, which the warehouse reads at BZ02 (ticket 293). The FIELD is the
+   * same field; only what it is asking for differs.
+   */
+  label?: string
+  placeholder?: string
 }) {
   const { t } = useTranslation('document')
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs font-semibold text-muted-foreground" htmlFor={id}>
-        {required ? t('note.label') : t('note.labelOptional')}
+        {label ?? (required ? t('note.label') : t('note.labelOptional'))}
       </label>
       <textarea
         id={id}
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={t('note.placeholder')}
+        placeholder={placeholder ?? t('note.placeholder')}
         className="w-full resize-y rounded-lg border border-input bg-background px-2 py-1 text-[0.8125rem]"
       />
     </div>

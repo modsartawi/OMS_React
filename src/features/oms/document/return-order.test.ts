@@ -6,6 +6,7 @@ import {
   pickupAddressFrom,
   pickupAddressSummary,
   restorePickupDistrict,
+  refundableFees,
   returnableLines,
   submitGate,
 } from './return-order'
@@ -399,5 +400,55 @@ describe('districtLabel and restorePickupDistrict', () => {
     // The street correction survives: going back to the delivery's district is
     // not a way of undoing everything else the operator typed.
     expect(back.street1).toBe('Corrected St')
+  })
+})
+
+describe('refundableFees', () => {
+  // The projection is proved against REAL captured conditions rather than
+  // hand-written rows: every trap it exists to avoid — the structural `.000` on
+  // `condValue`, the distributed `'H'` copy, a header row of another category —
+  // is present on the wire exactly as captured.
+  const ERX = PAYLOADS['2000000551'].conditions
+  const CANCELLING = PAYLOADS['8000000174'].conditions
+
+  it('keeps only header delivery-fee rows', () => {
+    // `2000000551` carries, at item 0, a `DFEE` fee row AND a `PTPA` payment row
+    // — and at line 1 a distributed copy of each. Only the first survives.
+    expect(refundableFees(ERX).map((fee) => fee.condType)).toEqual(['DFEE'])
+  })
+
+  it('reads condAmount — the rate — and never condValue', () => {
+    // ⚠ The regression this test exists for is SILENT: on `8000000174`'s header
+    // fee row `condValue` is `0` and `condAmount` is `12`. Reading the wrong one
+    // throws nothing and displays a fee that costs the customer nothing.
+    const header = CANCELLING.find((c) => c.condDocumentLine === 0 && c.condType === 'DFEE')
+    expect(header?.condValue).toBe(0)
+    expect(refundableFees(CANCELLING).map((fee) => fee.amount)).toEqual([12])
+  })
+
+  it('never sums the distributed per-line copies', () => {
+    // The same 12 exists as the item-0 row and as one `originOfCond: 'H'` copy
+    // per line. Taking both charges the concession twice.
+    expect(CANCELLING.filter((c) => c.condType === 'DFEE')).toHaveLength(2)
+    const fees = refundableFees(CANCELLING)
+    expect(fees).toHaveLength(1)
+    expect(fees[0].amount).toBe(12)
+  })
+
+  it('names a fee by the server’s own description', () => {
+    expect(refundableFees(CANCELLING)[0].description).toBe('Delivery Fees')
+  })
+
+  it('projects nothing — and does not crash — on a delivery with no fees', () => {
+    expect(refundableFees(PAYLOADS['8000000253'].conditions)).toEqual([])
+    expect(refundableFees(null)).toEqual([])
+    expect(refundableFees(undefined)).toEqual([])
+  })
+
+  it('offers the two header fees the returnable delivery carries', () => {
+    expect(refundableFees(DELIVERY_WITH_REMAINING.conditions)).toEqual([
+      { condType: 'DFEE', description: 'Delivery Fees', amount: 12 },
+      { condType: 'FBBD', description: 'Beyond Border Delivery Fee', amount: 25 },
+    ])
   })
 })

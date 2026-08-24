@@ -18,11 +18,13 @@ import type {
   SdDocumentAddressModel,
   SdDocumentHeaderModel,
   SdDocumentLineModel,
+  TransactionConditionModel,
 } from '@/core/models/sd-document'
 import { PAYLOADS } from './payloads'
 
 const DELIVERY = PAYLOADS['8000000253']
 const BASE_LINE = DELIVERY.lines[0]
+const BASE_CONDITION = DELIVERY.conditions[0]
 
 /** One line of the real shape, with only the return arithmetic overridden. */
 function line(
@@ -45,9 +47,43 @@ function line(
 }
 
 /**
+ * One condition of the real shape (ticket 293).
+ *
+ * ⚠ **`condValue` is left at the capture's structural `0` on every header
+ * row, and the money rides on `condAmount`.** That is not a convenience of this
+ * fixture — it is what the wire does: on the live captures `8000000174` and
+ * `8000000121` the header `DFEE` row reads `condAmount: 12, condValue: 0`. A
+ * fixture that filled `condValue` in would make the silent-zero regression
+ * untestable.
+ */
+function condition(
+  condDocumentLine: number,
+  condType: string,
+  conditionDescription: string,
+  condCategory: string,
+  condAmount: number,
+  originOfCond: string,
+): TransactionConditionModel {
+  return {
+    ...BASE_CONDITION,
+    condDocumentLine,
+    condType,
+    conditionDescription,
+    condCategory,
+    condAmount,
+    condValue: 0,
+    originOfCond,
+  }
+}
+
+/**
  * A delivery with something left: one line untouched, one partly returned
  * (twice over, so its remainder is neither the delivered quantity, nor zero,
  * nor the last return's own quantity), one fully returned.
+ *
+ * Its conditions carry **two header delivery fees** — plus one distributed
+ * `'H'` copy of each, and a header row of another category, so the fee grid is
+ * fed exactly the rows the projection has to sort out.
  */
 export const DELIVERY_WITH_REMAINING: SdDocumentHeaderModel = {
   ...DELIVERY,
@@ -57,6 +93,16 @@ export const DELIVERY_WITH_REMAINING: SdDocumentHeaderModel = {
     // Delivered 9; two earlier returns of 2 then 3 have taken 5 back.
     line(20, '208714', 9, 5),
     line(30, '208715', 6, 6),
+  ],
+  conditions: [
+    condition(0, 'DFEE', 'Delivery Fees', 'F', 12, 'M'),
+    condition(0, 'FBBD', 'Beyond Border Delivery Fee', 'F', 25, 'M'),
+    // Not a fee: a header row of another category, which the projection drops.
+    condition(0, 'PTPA', 'PostToAccount', 'P', 0, 'M'),
+    // The distributed copies. Included so a projection that summed them would
+    // read 24 and 50 rather than 12 and 25.
+    condition(10, 'DFEE', 'Delivery Fees', 'F', 12, 'H'),
+    condition(10, 'FBBD', 'Beyond Border Delivery Fee', 'F', 25, 'H'),
   ],
 }
 

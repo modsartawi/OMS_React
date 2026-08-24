@@ -159,6 +159,20 @@
         "lineValue": "Line value"
       }
     },
+    "fees": {
+      "title": "Delivery fees to refund",
+      "hint": "Refunding a fee is a concession — tick only what is being given back",
+      "empty": "This delivery carries no delivery fees.",
+      "selectFee": "Refund {{description}}",
+      "columns": {
+        "fee": "Fee",
+        "amount": "Rate"
+      }
+    },
+    "note": {
+      "label": "Note (optional)",
+      "placeholder": "Why is this coming back? The warehouse reads this when the goods arrive."
+    },
     "reason": {
       "title": "What happens to the goods",
       "RTRF": {

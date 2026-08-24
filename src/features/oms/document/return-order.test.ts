@@ -18,6 +18,8 @@ describe('returnableLines', () => {
       lineNumber: 10,
       itemNumber: '208713',
       itemDescription: expect.any(String),
+      uom: expect.any(String),
+      unitPrice: expect.any(Number),
       delivered: 4,
       returned: 0,
       remaining: 4,

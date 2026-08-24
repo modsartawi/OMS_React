@@ -14,6 +14,17 @@ export interface ReturnableLine {
   lineNumber: number
   itemNumber: string
   itemDescription: string
+  uom: string
+  /**
+   * The line's own unit price, carried here so the grid never reaches back past
+   * the projection into the raw lines — the projection decides which lines
+   * exist, and a row that had to re-find itself by `lineNumber` could re-admit
+   * one the projection had just excluded.
+   *
+   * Read-only CONTEXT on screen. It is not on the wire in either direction
+   * (spec 289 D9): the server recomputes discount and VAT pro-rata.
+   */
+  unitPrice: number
   /** What was delivered — the line's `quantity`. */
   delivered: number
   /** What earlier returns have already taken back. */
@@ -101,6 +112,8 @@ export function returnableLines(
       lineNumber: line.lineNumber,
       itemNumber: line.itemNumber,
       itemDescription: line.itemDescription,
+      uom: line.uom,
+      unitPrice: finiteOrZero(line.unitPrice),
       delivered,
       returned,
       remaining,
@@ -146,9 +159,18 @@ export interface ReturnLineSelection {
  * sentence. `t()` lives at the call site (spec 289 D3), so this module stays
  * dependency-free and the copy stays in `document.json`.
  */
+export type SubmitGateKey =
+  | 'returnDocument.gate.selectLines'
+  | 'returnDocument.gate.quantityAtLeastOne'
+  | 'returnDocument.gate.summary'
+
 export interface SubmitGateOutcome {
   ok: boolean
-  key: string
+  /**
+   * Narrowed to the keys this gate can name, so a typo is a compile error
+   * rather than a raw key rendered into the submit bar.
+   */
+  key: SubmitGateKey
   params?: Record<string, number>
 }
 

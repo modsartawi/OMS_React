@@ -71,3 +71,20 @@ contract; it becomes reachable only if the returned-quantity field turns out to 
 instead — which is exactly the drift ticket 295 exists to detect, and correcting it in the
 transcription first is forbidden.
 **Revisit if:** 295's live call confirms the field's sense is inverted.
+
+## Q: D9 says `unitPrice`, `discount` and `vatAmount` are displayed read-only; the grid shows only unit price and line value.
+
+**Decision taken:** Unit price and line value only.
+**Why:** ticket 291 names exactly those two — *"Unit price and a per-line value for the quantity
+selected are shown read-only, as context"* — and 1270's build target draws exactly those eight
+columns. Spec 289 says the artifact is the picture where the two disagree.
+**Revisit if:** an operator needs the per-line discount or VAT to decide, in which case they are two
+more read-only columns and nothing else changes.
+
+## Q: Does the stepper step from the committed quantity or from what is currently in the box?
+
+**Decision taken:** From the committed quantity, as the build target does (the box's draft commits
+on blur).
+**Why:** the two only diverge while a box is mid-edit and unblurred, and reading a half-typed string
+as a number is how a stepper starts stepping from `1` on the way to `12`.
+**Revisit if:** the drive or an operator finds the stale-value step surprising in practice.

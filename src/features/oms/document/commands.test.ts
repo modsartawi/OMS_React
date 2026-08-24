@@ -215,6 +215,18 @@ describe('commandGating', () => {
     )
   })
 
+  it('gives the store reason on a delivery whose every line was STRUCK', () => {
+    // A struck line is not one earlier returns took back — nothing ever came
+    // back off it — so *everything has already been returned* would be a
+    // statement about a thing that never happened. The projection keeps the two
+    // tallies apart and this reason follows the returned one alone.
+    const struck = DELIVERY_WITH_REMAINING.lines.map((line) => ({ ...line, deleted: true }))
+    const bar = returnBar(DELIVERY_WITH_REMAINING, { canReturn: false, lines: struck })
+    expect(find(bar, 'return-document').reason).toBe(
+      'Only bonded deliveries handled by Starlinks can be returned here.',
+    )
+  })
+
   it('follows canReturn ALONE — even on a delivery-return category', () => {
     // `9000000003` is opened AS a delivery but carries `documentCategory: 'T'`.
     // If the server says a return may be created, the category must not refuse

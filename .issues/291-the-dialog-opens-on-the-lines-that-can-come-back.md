@@ -75,6 +75,12 @@ Rulings the build made, all logged in `.afk/HITL-291.md`:
 - **The gate flips to the summary** once 291's two checks pass; 292 inserts *choose what happens to
   the goods* between the quantity sentence and it. Submit is disabled by construction either way.
 
+Two review findings applied: `ReturnableLine` now carries `uom` and `unitPrice`, so the grid never
+reaches back past the projection into the raw lines (an O(n²) re-scan that a repeated `lineNumber`
+could have used to re-admit a line the projection had just excluded); and `SubmitGateOutcome.key` is
+narrowed to the three keys the gate can name, so a typo is a compile error rather than a raw key in
+the submit bar.
+
 One defect found in review and fixed here, in 290's projection: a **struck (`deleted`) line was
 being offered for return**, and a line delivered in no quantity was being counted as one earlier
 returns had taken back. `returnableLines` gained a second tally, `notReturnableCount`, so neither is

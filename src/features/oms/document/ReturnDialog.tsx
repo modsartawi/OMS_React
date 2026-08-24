@@ -29,6 +29,18 @@ interface LineState extends ReturnLineSelection {
 const UNPICKED: LineState = { picked: false, quantity: null, draft: '' }
 
 /**
+ * What a row's state becomes when it is ticked or unticked: ticking pre-fills
+ * everything still returnable, unticking forgets the number entirely. One
+ * function, because the select-all must not be able to drift from the per-row
+ * tick it stands in for.
+ */
+function pickedState(row: ReturnableLine, picked: boolean): LineState {
+  return picked
+    ? { picked: true, quantity: row.remaining, draft: String(row.remaining) }
+    : { ...UNPICKED }
+}
+
+/**
  * Screen 2 — the bonded return dialog (spec 289 D1, ticket 291).
  *
  * A return is **one decision taken about the delivery you are looking at**, so
@@ -67,10 +79,7 @@ export default function ReturnDialog({
   )
   const stateOf = (row: ReturnableLine): LineState => lineState[row.lineNumber] ?? UNPICKED
 
-  const gate = useMemo(
-    () => submitGate(rows.map((row) => lineState[row.lineNumber] ?? UNPICKED)),
-    [rows, lineState],
-  )
+  const gate = useMemo(() => submitGate(rows.map(stateOf)), [rows, lineState])
 
   const pickedCount = rows.filter((row) => stateOf(row).picked).length
   const allPicked = rows.length > 0 && pickedCount === rows.length
@@ -80,25 +89,13 @@ export default function ReturnDialog({
 
   /** Ticking a line wakes its stepper and pre-fills everything still returnable. */
   function pick(row: ReturnableLine, picked: boolean) {
-    patch(
-      row,
-      picked
-        ? { picked: true, quantity: row.remaining, draft: String(row.remaining) }
-        : { ...UNPICKED },
-    )
+    patch(row, pickedState(row, picked))
   }
 
   /** Select-all covers the VISIBLE rows — the hidden ones are not selectable at all. */
   function pickAll(picked: boolean) {
     setLineState(
-      Object.fromEntries(
-        rows.map((row) => [
-          row.lineNumber,
-          picked
-            ? { picked: true, quantity: row.remaining, draft: String(row.remaining) }
-            : { ...UNPICKED },
-        ]),
-      ),
+      Object.fromEntries(rows.map((row) => [row.lineNumber, pickedState(row, picked)])),
     )
   }
 
@@ -244,8 +241,6 @@ export default function ReturnDialog({
             <tbody>
               {rows.map((row) => {
                 const state = stateOf(row)
-                const line = document.lines?.find((l) => l.lineNumber === row.lineNumber)
-                const unitPrice = line?.unitPrice ?? 0
                 return (
                   <tr
                     key={row.lineNumber}
@@ -268,7 +263,7 @@ export default function ReturnDialog({
                     <td className="px-2 py-1.5 tabular-nums">{row.lineNumber}</td>
                     <td className="px-2 py-1.5 tabular-nums">{row.itemNumber}</td>
                     <td className="px-2 py-1.5">{row.itemDescription}</td>
-                    <td className="px-2 py-1.5">{line?.uom}</td>
+                    <td className="px-2 py-1.5">{row.uom}</td>
                     <td className="px-2 py-1.5">
                       {/*
                         Inert until the line is ticked: the screen never invites
@@ -332,7 +327,7 @@ export default function ReturnDialog({
                         )}
                       </div>
                     </td>
-                    <td className="px-2 py-1.5 text-end tabular-nums">{formatMoney(unitPrice)}</td>
+                    <td className="px-2 py-1.5 text-end tabular-nums">{formatMoney(row.unitPrice)}</td>
                     {/*
                       Money as CONTEXT only, and there is no grand total: the
                       server recomputes discount and VAT pro-rata, so any total
@@ -341,7 +336,7 @@ export default function ReturnDialog({
                     */}
                     <td className="px-2 py-1.5 text-end tabular-nums" data-return-value={row.lineNumber}>
                       {state.picked && state.quantity !== null
-                        ? formatMoney(unitPrice * state.quantity)
+                        ? formatMoney(row.unitPrice * state.quantity)
                         : ''}
                     </td>
                   </tr>

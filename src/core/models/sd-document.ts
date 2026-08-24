@@ -131,10 +131,16 @@ export interface SdDocumentLineModel {
   /**
    * How much of this line earlier returns have already taken back.
    *
-   * ⚠ **Additive, optional, and not on the wire yet** — BackOffice spec 1283
-   * §2b. Absent reads as *nothing returned*, which makes the whole line
-   * remaining; the return command itself fails closed on `canReturn`, so an
-   * absent field can never enable anything.
+   * BackOffice spec 1283 §2b — **name confirmed 2026-08-24** against the owning
+   * `SdDocumentLineModel`: the direction is *returned-so-far*, and the client
+   * subtracts. The server also computes `RemainingReturnableQuantity` on the
+   * same model; deriving it here from the same base is conforming, and is what
+   * `returnableLines` does.
+   *
+   * ⚠ **Additive and optional.** Stamped only by the *delivery* load path — an
+   * order view leaves it zero, which correctly reads as the whole line
+   * remaining. Absent likewise reads as *nothing returned*; the return command
+   * fails closed on `canReturn`, so an absent field can never enable anything.
    */
   returnedQuantity?: number
   hasPickingFees: boolean

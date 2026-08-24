@@ -64,7 +64,9 @@ describe('returnableLines', () => {
   it('treats a missing returnedQuantity as nothing returned — never NaN', () => {
     for (const documentNo of DOCUMENT_NUMBERS) {
       const lines = PAYLOADS[documentNo].lines
-      // The captures carry no `returnedQuantity` at all — the live shape today.
+      // These captures predate 1283 §2b and carry no `returnedQuantity` at all,
+      // which is exactly the fail-closed shape worth pinning: the field is
+      // additive, and an order view leaves it unstamped even now that it ships.
       expect(lines.every((l) => l.returnedQuantity === undefined)).toBe(true)
       for (const row of returnableLines(lines).rows) {
         expect(Number.isNaN(row.returned)).toBe(false)
@@ -105,11 +107,16 @@ describe('returnableLines', () => {
   })
 
   it('clamps a remainder to what was delivered, and survives a document with no lines', () => {
+    // An over-returned line is 1283 §2b's DOCUMENTED shape, not a hypothetical:
+    // the server leaves its subtraction unclamped because §9's
+    // wrong-`PrecedingDocumentLine` bug can pile one line's returns onto
+    // another's. §2b's rule is that a screen hides on `<= 0`, never on `== 0` —
+    // so this must be HIDDEN, not offered as a negative or bounced back to full.
     const overReturned = [{ ...DELIVERY_WITH_REMAINING.lines[0], quantity: 2, returnedQuantity: 5 }]
     expect(returnableLines(overReturned)).toEqual({ rows: [], hiddenCount: 1, notReturnableCount: 0 })
-    // `returnedQuantity` is still an unconfirmed 1283 §2b spelling, so a
-    // negative sign convention is a shape that could arrive. It must never
-    // project a cap ABOVE what was delivered.
+    // The opposite sign is NOT a shape §2b describes — `returnedQuantity` counts
+    // returned-so-far and only rises. Pinned defensively: it must never project a
+    // cap ABOVE what was delivered.
     const negative = [{ ...DELIVERY_WITH_REMAINING.lines[0], quantity: 4, returnedQuantity: -3 }]
     expect(returnableLines(negative).rows[0].remaining).toBe(4)
     expect(returnableLines(null)).toEqual({ rows: [], hiddenCount: 0, notReturnableCount: 0 })

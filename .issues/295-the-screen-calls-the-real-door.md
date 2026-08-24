@@ -55,14 +55,63 @@ spec 1283 in the sibling repo — first**
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `§2b field name confirmed` — the live delivery model's returned/remaining field is read and matched against the transcription; any mismatch is written into BackOffice spec 1283 §2b **before** this repo is touched · manual, against a live SIS.Api
+- [x] `§2b field name confirmed` — the live delivery model's returned/remaining field is read and matched against the transcription; any mismatch is written into BackOffice spec 1283 §2b **before** this repo is touched · manual, ⚠ **confirmed against the owning SOURCE, not a live wire** (see below)
 - [ ] `a return is created against a live BZ02 delivery` — `200`, and the toast's number is the persisted `ORRT` · flow, live
 - [ ] `the same requestId replays` — same number, `replayed: true`, exactly one `ORRT` behind it · flow, live
 - [ ] `a partial quantity consumes only what was returned` — the reopened delivery's remaining is reduced by exactly that amount · flow, live
 - [ ] `an exhausted delivery disables the command with the right reason` · flow, live
 - [ ] `a non-Starlinks bonded delivery refuses` — the banner carries the server's sentence and its code · flow, live
 - [ ] `a ticked fee credits once at its rate` — not twice, not zero · manual, against the created return
-- [ ] `the dialog mirrors under RTL` · flow (Playwright)
+- [x] `the dialog mirrors under RTL` · flow (Playwright) — `tools/document-rtl-drive.mjs` §6, **41/41**; needs no live door (the drive mocks the wire)
+
+## Progress — 2026-08-24: the two items that did not need the door
+
+The ticket stays **open**. `SIS.Api` answers nothing on `:5111` (connection refused), and BackOffice
+[1282](file:///C:/Work/DMSCO/BackOffice/.issues/1282-the-return-door-is-smoked-on-dev.md) — *the
+return door is smoked on dev* — is itself still `open`, so the live half has not been stood up by
+its own side yet. Every remaining Proof item is a live walk and none of them was faked. But two
+items turned out not to need the door, and both are done.
+
+**1. §2b's field name is confirmed — and there is NO drift.** The first job did not have to wait for
+a live call: BackOffice ticket 1277 is `done`, so the shape's **owner** is on disk. Read from
+`SdDocumentLineModel` / `SdDocumentHeaderModel` and `Sd/ReturnDoor/ReturnableQuantity.cs`:
+
+| | |
+|---|---|
+| the field | **`ReturnedQuantity`** — settable, stamped on every line by the delivery load path |
+| the direction | **returned-so-far.** The client subtracts. |
+| its twin | `RemainingReturnableQuantity`, computed `Quantity - ReturnedQuantity` |
+
+So this repo's transcribed `returnedQuantity`, and its `remaining = quantity − returnedQuantity`,
+were **right** — the guess this ticket existed to catch was a correct guess. The server also ships
+the computed remainder; deriving it here off the same base is conforming, and 1283 §2b now says so
+in as many words.
+
+🔑 **The spec was still wrong, and was corrected first.** §2b genuinely never named either field —
+that gap was real, and it outlived the implementation. 1283 §2b now carries both names, their kinds,
+the delivered base (`Quantity`, not `ConfirmedQuantity`/`BaseQuantity`), and ⚠ the rule that
+**`RemainingReturnableQuantity` can be NEGATIVE, so a screen hides on `<= 0`, never on `== 0`** —
+§2b leaves the subtraction unclamped because §9's wrong-`PrecedingDocumentLine` bug can pile one
+line's returns onto another's. This repo already hid on `<= 0` and already had the over-returned
+case under test; the comments claiming the field "does not exist on the wire yet" were stale and are
+now accurate, and the over-return test says why it is a documented shape rather than a hypothetical.
+
+⚠ **What this does NOT confirm**: the JSON casing on the wire, and that the computed property
+actually serializes. Source is the owner, but it is not the wire — that stays for the live walk.
+
+**2. The RTL pass is done and mutation-checked.** `tools/document-rtl-drive.mjs` mocks the wire, so
+it never needed the door. Section 6 opens the return dialog in both directions and measures **logical**
+gaps, so a correctly-mirrored element reports byte-identical numbers either way — which it does:
+the `me-auto` gate sentence, the `text-end` money cell, the leading select column. 🚩 Asserted
+non-vacuous by mutation: swapping the cell to `text-right` and the gate to `mr-auto` leaves **both
+`ltr` checks passing byte-identically** and fails exactly the two `rtl` ones. That asymmetry is the
+entire hazard — a physical utility is invisible in the direction we develop in. **41/41.**
+
+Gates: typecheck · lint · build green, **1978** pure cases. No app behaviour changed — the only
+source edits are comments brought into line with the confirmed contract.
+
+⚠ Still carried into the live walk, from 294: 292's district fallback can pair a chosen
+`districtCode` with a blank `cityCode`, and that now **posts**.
 
 ## Boundaries
 

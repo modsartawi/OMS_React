@@ -68,7 +68,13 @@ for (const file of readdirSync(PAYLOAD_DIR)) {
 // all five captures, so the ⚡ tag is switched on here — the same patch
 // `document-band-drive.mjs` makes, and for the same reason.
 const DOC = '8000000121'
-DOCUMENTS[DOC] = { ...DOCUMENTS[DOC], isExpressDelivery: true }
+// `canReturn` is switched on for the same reason `isExpressDelivery` is: it is
+// a BackOffice spec 1283 §2b addition that these captures predate, and without
+// it Return Document renders disabled-with-a-reason and section 6's dialog never
+// opens. The capture's single line (quantity 2, undeleted) and its one item-0
+// `DFEE` row then give the dialog both a lines table and a fees table to mirror.
+// Ticket 295.
+DOCUMENTS[DOC] = { ...DOCUMENTS[DOC], isExpressDelivery: true, canReturn: true }
 
 /**
  * Read a value's VISUAL order off character client rects: the x of its first
@@ -325,6 +331,108 @@ async function run() {
     }),
   )
   check('ltr: every isolate is an inert inline box — nothing on the screen moved', inert)
+
+  // ── 6. the return dialog mirrors ───────────────────────────────────────────
+  //
+  // Ticket 295's RTL pass. The dialog is the wave's one new surface, and it is
+  // built almost entirely out of logical utilities that have never been measured
+  // under a direction flip: `text-start`/`text-end` on the lines table, `me-auto`
+  // on the gate sentence, `ms-auto` inside the fees rows. Each of those has a
+  // physical twin that looks identical in LTR and pins to the WRONG edge in RTL,
+  // which is exactly the class of fault a class-name grep cannot see — so this
+  // measures rendered geometry, as the sections above do.
+  //
+  // Pinning is asserted as a LOGICAL gap, so a correctly-mirrored element reports
+  // the SAME numbers in both directions and the two checks read as one fact.
+  // Asserting a physical side outright would pass a physically-pinned element in
+  // one direction, which is the mistake the 080 audit made twice.
+  //
+  // ⚠ **Mutation-checked** on build (2026-08-24), because an RTL assertion that
+  // cannot fail is worse than none: swapping the money cell to `text-right` and
+  // the gate to `mr-auto` leaves BOTH `ltr` checks passing byte-identically and
+  // fails exactly the two `rtl` ones. That asymmetry is the whole hazard — a
+  // physical utility is invisible in the direction we develop in.
+  // ⚠ `startGap` is LOGICAL: under RTL the start edge IS the right edge, so the
+  // physical gaps swap. Measuring `left - left` in both directions is the same
+  // physical-thinking mistake the assertions are here to catch, and it reports a
+  // correctly-mirrored element as a failure.
+  const PIN = (el, box, dir) => {
+    const a = el.getBoundingClientRect()
+    const b = box.getBoundingClientRect()
+    const left = a.left - b.left
+    const right = b.right - a.right
+    return dir === 'rtl' ? { startGap: right, endGap: left } : { startGap: left, endGap: right }
+  }
+
+  for (const dir of ['ltr', 'rtl']) {
+    await setDir(dir)
+    // `getByRole('button', { name })` would match the disabled-reason tooltip
+    // text too; the command bar's own button is scoped by its section.
+    await page
+      .locator('[aria-label="Actions"] button', { hasText: 'Return Document' })
+      .first()
+      .click()
+    const dialog = page.locator('dialog[open]')
+    await dialog.waitFor({ state: 'visible', timeout: 4000 })
+    check(`${dir}: the return dialog opens`, await dialog.isVisible())
+
+    // Tick every line: the per-line VALUE cell renders empty until its line is
+    // picked (the client never invents a total for a line nobody asked back), so
+    // an unticked dialog has no `text-end` money to measure at all.
+    await dialog.locator('input[aria-label="Select all lines"]').check()
+    await page.waitForTimeout(120)
+
+    const geometry = await dialog.evaluate((root, [PIN_SRC, dir]) => {
+      const PIN_FN = eval(`(${PIN_SRC})`)
+      const gate = root.querySelector('[data-return-gate]')
+      const money = root.querySelector('[data-return-value]')
+      const firstHead = root.querySelector('thead th')
+      const out = {}
+      // The gate sentence rides `me-auto` inside a `justify-end` footer, so it
+      // is pushed to the footer's START in BOTH directions.
+      if (gate) out.gate = PIN_FN(gate, gate.parentElement, dir)
+      // A money cell is `text-end`: its glyphs hug the cell's END edge either
+      // way. Measured off the TEXT NODE, not `selectNodeContents` on the cell —
+      // a range over an element box reports the element, not where the glyphs
+      // actually landed inside it, which is the only thing `text-end` moves.
+      if (money) {
+        const walker = money.ownerDocument.createTreeWalker(money, NodeFilter.SHOW_TEXT)
+        let node = null
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.data.trim()) node = n
+        if (node) {
+          const range = money.ownerDocument.createRange()
+          range.setStart(node, node.data.search(/\S/))
+          range.setEnd(node, node.data.replace(/\s+$/, '').length)
+          out.money = PIN_FN({ getBoundingClientRect: () => range.getBoundingClientRect() }, money, dir)
+        }
+      }
+      // The select-all checkbox column is the table's FIRST cell, so it must
+      // render at the table's START edge — the flip a physical `w-9` would miss.
+      if (firstHead) out.head = PIN_FN(firstHead, firstHead.closest('table'), dir)
+      return out
+    }, [PIN.toString(), dir])
+
+    // A pinned edge is tight (a few px of padding); the opposite edge is slack.
+    const pinned = (m) => m && m.startGap < m.endGap
+    check(
+      `${dir}: the gate sentence pins to the footer's START (me-auto, not mr-auto)`,
+      pinned(geometry.gate),
+      `start=${geometry.gate?.startGap?.toFixed(1)} end=${geometry.gate?.endGap?.toFixed(1)}`,
+    )
+    check(
+      `${dir}: a money cell hugs its cell's END (text-end, not text-right)`,
+      geometry.money && geometry.money.endGap < geometry.money.startGap,
+      `start=${geometry.money?.startGap?.toFixed(1)} end=${geometry.money?.endGap?.toFixed(1)}`,
+    )
+    check(
+      `${dir}: the select column leads at the table's START`,
+      pinned(geometry.head),
+      `start=${geometry.head?.startGap?.toFixed(1)} end=${geometry.head?.endGap?.toFixed(1)}`,
+    )
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(150)
+  }
+  await setDir('ltr')
 
   check('no uncaught page errors', errors.length === 0, errors.slice(0, 3).join(' | '))
 

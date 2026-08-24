@@ -83,10 +83,11 @@ export interface ReturnableLineProjection {
 /**
  * A payload number, or `0`.
  *
- * ⚠ `returnedQuantity` is a BackOffice spec 1283 §2b addition that does not
- * exist on the wire yet, so it is **optional** on the model and absent on every
- * captured payload. Absent means *nothing has been returned* — never `NaN`,
- * which would poison `remaining` and every comparison downstream.
+ * ⚠ `returnedQuantity` is a BackOffice spec 1283 §2b addition that is
+ * **optional** on the model — stamped by the delivery load path, zero on an
+ * order view, and absent on every captured fixture payload. Absent means
+ * *nothing has been returned* — never `NaN`, which would poison `remaining` and
+ * every comparison downstream.
  */
 function finiteOrZero(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
@@ -104,10 +105,14 @@ function clamp(value: number, low: number, high: number): number {
  * with nothing left is **omitted from the rows and counted in the tally** —
  * hiding is the projection's job, not the grid's.
  *
- * A remainder is clamped to `[0, delivered]`. A server that reports more
- * returned than delivered — or, while the field's spelling is still a guess,
- * one that reports it negative — is a data question, and neither answer is a
- * licence to offer a quantity outside what was delivered.
+ * A remainder is clamped to `[0, delivered]`, and a line is hidden on
+ * `remaining <= 0`, never on `== 0`. §2b leaves its own subtraction
+ * **deliberately unclamped** because §9's wrong-`PrecedingDocumentLine` bug can
+ * pile one line's returns onto another's and push the total past what was
+ * delivered. A negative is the server's honest report of a line with nothing
+ * left — the clamp here folds it into the same *hidden* answer, and neither it
+ * nor an over-return is a licence to offer a quantity outside what was
+ * delivered.
  *
  * **A struck line is never offered.** `deleted` lines render struck in the Items
  * grid rather than vanishing, and a line struck from the delivery is not goods a

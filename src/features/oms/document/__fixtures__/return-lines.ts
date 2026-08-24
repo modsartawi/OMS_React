@@ -2,8 +2,10 @@
  * The two deliveries the return projection is proved against (ticket 290).
  *
  * ⚠ **Their SHAPES are contractual; their VALUES are not.** `canReturn` and
- * `returnedQuantity` are BackOffice spec 1283 §2b additions that no live payload
- * carries yet — these are the only place in this repo where they are populated,
+ * `returnedQuantity` are BackOffice spec 1283 §2b additions — spellings
+ * confirmed 2026-08-24 against the owning `SdDocumentLineModel` /
+ * `SdDocumentHeaderModel`, but carried by no *captured* payload here, so these
+ * are the only place in this repo where they are populated,
  * and the numbers on them are illustrative. The five captured payloads in
  * `payloads.ts` are deliberately left alone: carrying neither field, they are
  * the fail-closed proof.

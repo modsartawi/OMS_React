@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BO-1381 — The shape of the IDoc inspector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* 082's shipped tokens — copied verbatim from 104's prototype so every device agrees. */
+  body.tl, .device.light {
+    --background: #f4f7fa; --foreground: #19232e;
+    --card: #ffffff; --card-2: #fafbfc;
+    --muted: #eef2f6; --muted-foreground: #586674; --ink-3: #8593a1;
+    --accent: #e4eaf1;
+    --border: #e3e9f0; --border-strong: #cbd6e2; --divider: #edf1f5; --input: #cbd6e2;
+    --ring: #2f63a6;
+    --primary: #2f63a6; --primary-050: #e9eff7; --primary-border: #c6d6ec;
+    --primary-800: #27538c; --primary-foreground: #ffffff;
+    --success: #1e874b; --success-050: #e7f3ec; --success-border: #bfe0cd; --success-800: #155f36;
+    --attention: #b4791f; --attention-050: #f8f0de; --attention-border: #e7d3a3; --attention-800: #7c5410;
+    --danger: #c23b41; --danger-050: #fbecec; --danger-border: #e7bfc1; --danger-800: #8e2a2f;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  body.td, .device.dark {
+    --background: #121c27; --foreground: #ecf0f3;
+    --card: #1c2631; --card-2: #17212c;
+    --muted: #27313a; --muted-foreground: #98a6b4; --ink-3: #76828e;
+    --accent: #323c46;
+    --border: #2e3742; --border-strong: #3b4755; --divider: #28313b; --input: #3b4755;
+    --ring: #6ba0e8;
+    --primary: #6ba0e8; --primary-050: #22344b; --primary-border: #364c68;
+    --primary-800: #b5d0f5; --primary-foreground: #121c27;
+    --success: #55b577; --success-050: #1e3a27; --success-border: #2e543a; --success-800: #abdcb8;
+    --attention: #e4a249; --attention-050: #422f15; --attention-border: #5f4522; --attention-800: #f6cc9a;
+    --danger: #df6768; --danger-050: #4c2625; --danger-border: #6f3837; --danger-800: #eeb3b0;
+    --brand-panel: #202a34; --brand-panel-foreground: #ffffff;
+    --radius: 0.625rem;
+  }
+  :root { color-scheme: light dark; }
+  body.tl { color-scheme: light; }
+  body.td { color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--background); color: var(--foreground);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+  }
+  .num, .mono { font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; }
+
+  .page { max-width: 1240px; margin: 0 auto; padding: 28px 20px 72px; }
+  .eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  h1 { font-size: 22px; font-weight: 650; letter-spacing: -.015em; margin: 4px 0 0; text-wrap: balance; }
+  h2.sec { font-size: 15px; font-weight: 650; letter-spacing: -.01em; margin: 34px 0 0; }
+  .lede { max-width: 74ch; color: var(--muted-foreground); margin: 10px 0 0; }
+  .lede code, .caption code, .foot code, td code {
+    font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+    font-size: .88em; background: var(--muted); padding: 1px 5px; border-radius: 4px;
+  }
+
+  .controls { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
+  .switch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; border: 0; }
+  .switch > .sl { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); min-width: 96px; }
+  .switch label {
+    display: inline-flex; align-items: baseline; gap: 7px;
+    border: 1px solid var(--input); border-radius: 999px; padding: 6px 14px;
+    cursor: pointer; user-select: none; background: var(--card); font-size: 12.5px; font-weight: 500;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .switch label:hover { background: var(--accent); }
+  .switch input { position: absolute; opacity: 0; pointer-events: none; }
+  .switch label:has(input:checked) { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); font-weight: 600; }
+  .switch label:has(input:focus-visible) { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+  .caption {
+    margin: 16px 0 0; padding: 12px 14px;
+    border: 1px solid var(--border); border-inline-start: 3px solid var(--primary);
+    border-radius: 6px; background: var(--card-2); max-width: 92ch;
+    color: var(--muted-foreground); font-size: 13px;
+  }
+  .caption b { color: var(--foreground); font-weight: 600; }
+  .caption.warn { border-inline-start-color: var(--attention); }
+
+  .device {
+    margin-top: 18px;
+    border: 1px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--background); color: var(--foreground); overflow: hidden;
+    box-shadow: 0 1px 2px rgb(0 0 0 / .04), 0 8px 24px rgb(0 0 0 / .05);
+  }
+  .device-bar { display: flex; align-items: center; gap: 8px; padding: 7px 12px; background: var(--brand-panel); color: var(--brand-panel-foreground); }
+  .device-bar .dot { width: 8px; height: 8px; border-radius: 999px; background: rgb(255 255 255 / .3); }
+  .device-bar .name { font-size: 11px; font-weight: 600; letter-spacing: .04em; opacity: .85; }
+  .stage { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+  .frame { border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); padding: 12px; }
+  .frame > h2 { margin: 0 0 8px; font-size: 13px; font-weight: 600; letter-spacing: -.01em; display: flex; align-items: center; gap: 8px; }
+  .frame > h2 .n { font-size: 11px; font-weight: 500; color: var(--muted-foreground); }
+  .label { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted-foreground); }
+
+  /* ---- 1 · lookup ---- */
+  .lookup { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 3px; }
+  .field .label { font-size: 9.5px; }
+  .field input {
+    font: inherit; font-variant-numeric: tabular-nums; padding: 6px 10px; width: 148px;
+    border: 1px solid var(--input); border-radius: 6px; background: var(--card); color: var(--foreground);
+  }
+  .btn {
+    font: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 14px; cursor: pointer;
+    border: 1px solid var(--primary); border-radius: 6px; background: var(--primary); color: var(--primary-foreground);
+  }
+  .btn.ghost { background: var(--card); color: var(--foreground); border-color: var(--input); font-weight: 500; }
+  .btn.ghost:hover { background: var(--accent); }
+
+  /* ---- 2 · verdict strip ---- */
+  .verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .verdict .grow { flex: 1 1 20px; }
+  .verdict .what { font-size: 14.5px; font-weight: 600; letter-spacing: -.01em; }
+  .verdict .why { font-size: 12px; color: var(--muted-foreground); }
+  .chip {
+    display: inline-flex; align-items: baseline; gap: 5px; border-radius: 999px; padding: 3px 9px;
+    font-size: 12px; background: var(--muted); color: var(--foreground);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .chip .ck { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .chip.ok   { background: var(--success-050); color: var(--success-800); }
+  .chip.warn { background: var(--attention-050); color: var(--attention-800); }
+  .chip.bad  { background: var(--danger-050); color: var(--danger-800); }
+  .chip.tag {
+    font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 2px 7px;
+    background: var(--primary-050); color: var(--primary-800); border: 1px solid var(--primary-border);
+    font-family: ui-monospace, Consolas, monospace;
+  }
+  .chip.tag.unknown { background: var(--muted); color: var(--ink-3); border-color: var(--border); font-style: italic; }
+  .chip.tag.dim { background: transparent; color: var(--ink-3); border-color: var(--border); }
+
+  /* ---- 3 · the document rail ---- */
+  .rail { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .doc {
+    flex: 0 0 auto; min-width: 186px; text-align: start; cursor: pointer; font: inherit;
+    border: 1px solid var(--border); border-inline-start: 3px solid transparent;
+    border-radius: 8px; background: var(--card-2); color: var(--foreground); padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .doc:hover { background: var(--accent); }
+  .doc[aria-pressed="true"] { border-color: var(--primary-border); border-inline-start-color: var(--primary); background: var(--primary-050); }
+  .doc:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  .doc .t { display: flex; align-items: center; gap: 6px; }
+  .doc .ty { font-size: 10px; font-weight: 700; letter-spacing: .06em; font-family: ui-monospace, Consolas, monospace; }
+  .doc .rn { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .doc .sub { font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+
+  /* ---- 4 · the document pane ---- */
+  .attrs { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+  .attr { font-size: 12px; }
+  .attr .k { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); margin-inline-end: 5px; }
+  .attr .v { font-variant-numeric: tabular-nums; }
+
+  table.lines { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  table.lines th {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-3); padding: 0 6px 5px; border-bottom: 1px solid var(--border); text-align: start;
+  }
+  table.lines th.e { text-align: end; }
+  tr.line { cursor: pointer; border-inline-start: 3px solid transparent; border-bottom: 1px solid var(--divider); }
+  tr.line:hover { background: var(--accent); }
+  tr.line[aria-expanded="true"] { border-inline-start-color: var(--primary); background: var(--card-2); }
+  tr.line:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+  tr.line td { padding: 5px 6px; font-size: 13px; vertical-align: middle; }
+  tr.line td.e { text-align: end; font-variant-numeric: tabular-nums; }
+  tr.line .desc { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  tr.line .mat { font-size: 11px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .tw { display: inline-block; width: 9px; font-size: 10px; color: var(--ink-3); transition: transform .12s; }
+  tr.line[aria-expanded="true"] .tw { transform: rotate(90deg); }
+  tr.exp td { padding: 0; border-inline-start: 3px solid var(--primary); border-bottom: 1px solid var(--divider); background: color-mix(in srgb, var(--card-2) 55%, transparent); }
+  .expbody { padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
+
+  table.sub { width: 100%; border-collapse: collapse; }
+  table.sub th {
+    font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--ink-3); padding: 0 6px 4px; text-align: start; border-bottom: 1px solid var(--divider);
+  }
+  table.sub th.e { text-align: end; }
+  table.sub td { padding: 4px 6px; font-size: 12px; border-bottom: 1px solid var(--divider); }
+  table.sub tr:last-child td { border-bottom: 0; }
+  table.sub td.e { text-align: end; font-variant-numeric: tabular-nums; }
+  table.sub tr.dim td { color: var(--muted-foreground); }
+  .srcpair { display: inline-flex; align-items: center; gap: 5px; }
+  .origin {
+    font-size: 10px; font-weight: 700; font-family: ui-monospace, Consolas, monospace;
+    color: var(--ink-3); border-bottom: 1px dotted var(--ink-3); cursor: help;
+  }
+  .detailpills { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pill { font-size: 11px; background: var(--muted); border-radius: 5px; padding: 2px 7px; }
+  .pill .k { font-size: 9px; font-weight: 700; letter-spacing: .05em; color: var(--ink-3); margin-inline-end: 4px; }
+
+  .held { border: 1px solid var(--attention-border); background: var(--attention-050); color: var(--attention-800);
+          border-radius: 8px; padding: 9px 11px; font-size: 12.5px; }
+  .held b { font-weight: 700; }
+  .held .msg { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; margin-top: 3px; display: block; }
+
+  .empty { padding: 26px 18px; text-align: center; }
+  .empty .what { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+  .empty .why { font-size: 13px; color: var(--muted-foreground); margin-top: 6px; max-width: 62ch; margin-inline: auto; }
+  .empty .rule { font-size: 11px; color: var(--ink-3); margin-top: 10px; font-family: ui-monospace, Consolas, monospace; }
+
+  details.foot { margin-top: 2px; }
+  details.foot > summary { cursor: pointer; font-size: 12px; color: var(--muted-foreground); list-style: none; }
+  details.foot > summary::-webkit-details-marker { display: none; }
+  details.foot > summary::before { content: '▸ '; color: var(--ink-3); }
+  details.foot[open] > summary::before { content: '▾ '; }
+  .filterbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .fbtn {
+    font: inherit; font-size: 11px; font-weight: 600; padding: 3px 9px; cursor: pointer; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--card); color: var(--muted-foreground);
+    font-family: ui-monospace, Consolas, monospace;
+  }
+  .fbtn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+</style>
+</head>
+<body class="tl">
+<div class="page">
+
+  <p class="eyebrow">BackOffice ticket 1381 · map 1374 · prototype</p>
+  <h1>The shape of the IDoc inspector</h1>
+  <p class="lede">
+    One transaction's generated IDocs, without drowning. The hierarchy is
+    <b>transaction → N documents → N lines → N conditions</b>, with payments, FI lines, item details,
+    batch state and errors hanging off it. This device exists to settle which of those are
+    <b>screens</b>, which are <b>rows</b>, and which are <b>badges</b>. Fake data shaped by
+    BackOffice 1375; labels from 1376's dictionary. Throwaway — it does not become the feature.
+  </p>
+
+  <div class="controls">
+    <fieldset class="switch" id="sc">
+      <span class="sl">Scenario</span>
+      <label><input type="radio" name="scenario" value="ordinary" checked> Ordinary · BZ02, 2 docs</label>
+      <label><input type="radio" name="scenario" value="split"> Fat split · 5 groups</label>
+      <label><input type="radio" name="scenario" value="held"> Held document</label>
+      <label><input type="radio" name="scenario" value="legacy"> Legacy uploader</label>
+      <label><input type="radio" name="scenario" value="parked"> Parked workflow</label>
+      <label><input type="radio" name="scenario" value="gaveup"> Failed permanently</label>
+      <label><input type="radio" name="scenario" value="none"> No such transaction</label>
+    </fieldset>
+    <fieldset class="switch" id="th">
+      <span class="sl">Theme</span>
+      <label><input type="radio" name="theme" value="tl" checked> Light</label>
+      <label><input type="radio" name="theme" value="td"> Dark</label>
+    </fieldset>
+  </div>
+
+  <div class="device">
+    <div class="device-bar"><span class="dot"></span><span class="name">OMS · SAP · IDoc inspector</span></div>
+    <div class="stage" id="stage"></div>
+  </div>
+
+  <div class="caption">
+    <b>One page, two levels of navigation, and that is the whole budget.</b> A <b>document</b> is
+    chosen in the rail (selection); a <b>line</b> opens in place (disclosure). Conditions and item
+    details live inside the open line and are never a third navigation level — they are the reason
+    you opened it. This is the simulation feature's grammar
+    (<code>SimResultsGrid</code> + <code>SimLineExpansion</code>): plain fixed-layout table, twisty
+    in the position cell, expansion in a <code>colSpan</code> cell so it can never out-grow its frame.
+  </div>
+
+  <div class="caption">
+    <b>No AG Grid.</b> The nearest solved problem in this workspace — lines with conditions — is
+    where the simulation feature's <i>last</i> AG Grid was deliberately removed
+    (<code>SimLineExpansion</code>'s own comment: <i>"seven rows do not need thirty rows' worth of
+    grid chrome"</i>). The inspector's worst realistic document is ~60 lines; its typical one is 4.
+    A grid buys column resize and virtualisation nobody here needs, and costs the in-place
+    expansion this shape is built on.
+  </div>
+
+  <div class="caption warn">
+    <b>Two of this ticket's own questions were answered by 1375 before the prototype opened.</b>
+    ① <b>There is no header-conditions pane</b>, because there are no header conditions:
+    <code>IDocDocument.HeaderConditions</code> is a <code>Where("ItemNumber = 0")</code> view and
+    nothing on this rail ever writes such a row, so a pane would be permanently blank and read as a
+    bug. ② The <code>ConditionRate</code>-not-<code>ConditionValue</code> rule belongs to the
+    <i>pricing engine's</i> table, not to <code>IDocCondition</code> — 1375 says explicitly not to
+    carry it into this display code. Both are drawn as absences here, which is the only way an
+    absence gets reviewed.
+  </div>
+
+  <div class="caption">
+    <b>Provenance is one column, not two.</b> <code>SourceTag</code> is a chip on every line and
+    every condition row — it is the answer to <i>who minted this</i>, and <code>""</code> renders as
+    a dimmed <i>unknown</i>, never as <code>pos</code>. <code>ConditionSource</code> is
+    <b>not</b> a second column: 1376 established it is a near-constant <code>M</code> outside
+    <code>SourceTag = pos</code>, so given its own column it would be a wall of <code>M</code>
+    inviting the consultant to read <i>keyed by hand</i>. It rides as a small dotted-underline mark
+    beside the tag, with the explanation in its title. The filter bar filters on the tag.
+  </div>
+
+  <div class="caption">
+    <b>Download sits on the verdict strip, one button per IDoc type present</b> — per BackOffice
+    1380: one transaction, one type, one file. Never per line, never per document (a per-document
+    button would imply a per-document file, which is not what 1380 decided), and never a single
+    button (AGG and FI are two files and pretending otherwise hides that they left in two batches).
+  </div>
+
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Fake data, shaped by BackOffice 1375 §3 / §5.3 / §6 / §7.
+// ---------------------------------------------------------------------------
+const TAG_LABEL = {
+  'pos': 'POS transaction line',
+  '': 'Source unknown (pre-provenance row)',
+  'credit-load': 'Credit load enricher',
+  'hungerstn': 'HungerStation workflow',
+  'insurance': 'Insurance workflow',
+  'bonded': 'Bonded-zone workflow',
+  'commission': 'Commission enricher',
+};
+const ORIGIN_LABEL = {
+  M: 'M — minted by the app (AddManualCondition hard-stamps this)',
+  A: 'A — automatic, from a condition record',
+  H: 'H — distributed copy of a header condition',
+  B: 'B — base price',
+};
+const COND_LABEL = {
+  DCUS: 'Customer discount', DEMP: 'Employee discount', COFF: 'Commission fee',
+  CONV: 'Conversion / tax on fee', VATF: 'VAT', ZPR0: 'Base price', FBBD: 'Bonded fee',
+};
+
+function line(n, mat, desc, qty, uom, amt, tag, conds, details, opts) {
+  return Object.assign({ n, mat, desc, qty, uom, amt, tag, conds: conds || [], details: details || [] }, opts || {});
+}
+function cond(seq, type, rate, value, origin, tag, disc) {
+  return { seq, type, rate, value, origin, tag, disc: disc || '' };
+}
+
+const POS_LINES = [
+  line(1, '1000174', 'Panadol Extra 500mg tab 24s', 2, 'EA', 23.00, 'pos', [
+    cond(1, 'ZPR0', 11.50, 23.00, 'B', 'pos'),
+    cond(2, 'DCUS', -10.00, -2.30, 'M', 'credit-load', '3301'),
+    cond(3, 'VATF', 15.00, 3.11, 'A', 'pos'),
+  ], [['BATCH', 'B24A917'], ['PARTNER', '0000401288']]),
+  line(2, '1000233', 'Ventolin inhaler 100mcg', 1, 'EA', 18.40, 'pos', [
+    cond(1, 'ZPR0', 18.40, 18.40, 'B', 'pos'),
+    cond(2, 'VATF', 15.00, 2.76, 'A', 'pos'),
+  ], [['BATCH', 'V9920X']]),
+  line(3, '1000116', 'Vitamin D3 5000IU cap 60s', 1, 'EA', 42.00, '', [
+    cond(1, 'ZPR0', 42.00, 42.00, 'B', ''),
+    cond(2, 'DEMP', -5.00, -2.10, 'M', ''),
+    cond(3, 'VATF', 15.00, 5.99, 'A', ''),
+  ], [['EMPLOYEE', '20418']]),
+  line(4, '9000021', 'Delivery service fee', 1, 'EA', 12.00, 'hungerstn', [
+    cond(1, 'COFF', 6.50, 0.78, 'M', 'hungerstn', '3302'),
+    cond(2, 'CONV', 15.00, 0.12, 'M', 'hungerstn'),
+  ], [['PARTNER', 'HUNGERSTATION']]),
+];
+
+function doc(o) {
+  return Object.assign({
+    type: 'AGG', receipt: '', pharmacy: '0421', billingType: 'ZAGG', splitRatio: 1,
+    splitAmount: 0, payments: [], fi: [], lines: [], batch: null, exported: null,
+    error: null, partner: '', paymentGroup: '01',
+  }, o);
+}
+
+const AGG_DOC = doc({
+  type: 'AGG', receipt: '4211900771', splitAmount: 95.40, splitRatio: 1,
+  batch: 'K7QF2M8ZR41X9S042S_AGG', exported: '2026-08-27 03:10',
+  lines: POS_LINES,
+  payments: [
+    { seq: 1, type: 'CASH', code: '3301', amount: 45.40, card: '', auth: '' },
+    { seq: 2, type: 'CARD', code: '3302', amount: 50.00, card: 'MADA', auth: '772841' },
+  ],
+});
+const FI_DOC = doc({
+  type: 'FI', receipt: '4211900771', billingType: 'ZFI', splitAmount: 95.40,
+  batch: 'K7QF2M8ZR41X9S042S_FI', exported: '2026-08-27 03:14',
+  fi: [
+    { n: 1, gl: '410010', pc: 'PC0421', code: '1302', amount: 82.96, assign: 'TRX99881' },
+    { n: 2, gl: '221500', pc: 'PC0421', code: '1302', amount: 12.44, assign: 'VAT-OUT' },
+    { n: 3, gl: '100200', pc: 'PC0421', code: '1302', amount: -45.40, assign: 'CASH' },
+    { n: 4, gl: '100310', pc: 'PC0421', code: '1302', amount: -50.00, assign: 'MADA' },
+  ],
+});
+
+function splitDoc(i) {
+  const grp = ['01', '02', '03', '04', '05'][i];
+  const lines = [];
+  for (let k = 1; k <= 12; k++) {
+    const base = POS_LINES[(k + i) % POS_LINES.length];
+    lines.push(line(k, base.mat, base.desc, base.qty, base.uom, base.amt, base.tag, base.conds, base.details));
+  }
+  return doc({
+    type: 'AGG', receipt: '42119007' + (71 + i), paymentGroup: grp,
+    splitAmount: [412.10, 388.55, 190.20, 96.00, 44.75][i], splitRatio: [0.36, 0.34, 0.17, 0.08, 0.05][i],
+    batch: i < 4 ? 'K7QF2M8ZR41X9S042S_AGG' : null,
+    exported: i < 4 ? '2026-08-27 03:10' : null,
+    lines,
+    payments: [{ seq: 1, type: 'CARD', code: '3302', amount: [412.10, 388.55, 190.20, 96.00, 44.75][i], card: 'MADA', auth: '77284' + i }],
+  });
+}
+
+const HELD_DOC = doc({
+  type: 'AGG', receipt: '4211900772', splitAmount: 95.40,
+  batch: null, exported: null,
+  error: { type: 'IMBALANCE', msg: 'Residual 3.400 exceeds tolerance 0.010 (net 95.400, payments 92.000)' },
+  lines: POS_LINES.slice(0, 3),
+  payments: [{ seq: 1, type: 'CASH', code: '3301', amount: 92.00, card: '', auth: '' }],
+});
+
+const SCENARIOS = {
+  ordinary: {
+    trx: 'TRX99881', store: 'S042',
+    verdict: { kind: 'ok', what: 'Processed — 2 documents generated', why: 'IDocExportVersion N · entry processed cleanly on attempt 1' },
+    entry: { workflow: 'BondedZone', attempts: 1, processed: true, error: null },
+    docs: [AGG_DOC, FI_DOC],
+    post: [{ scope: 'document', type: 'FBBD', amount: 15.00, consumed: false }],
+  },
+  split: {
+    trx: 'TRX99902', store: 'S042',
+    verdict: { kind: 'ok', what: 'Processed — 5 documents generated', why: 'Split across 5 payment groups · 60 lines, 138 conditions' },
+    entry: { workflow: 'HungerStation', attempts: 1, processed: true, error: null },
+    docs: [0, 1, 2, 3, 4].map(splitDoc),
+    post: [],
+  },
+  held: {
+    trx: 'TRX99913', store: 'S042',
+    verdict: { kind: 'warn', what: 'Processed, but 1 document is held', why: 'The workflow succeeded and persisted. This document is imbalanced, so it is never batched and never retried.' },
+    entry: { workflow: 'BondedZone', attempts: 1, processed: true, error: null },
+    docs: [HELD_DOC],
+    post: [],
+    forensic: 'IDocCalculationError #48812 · captured 2026-08-27 02:58',
+  },
+  legacy: {
+    trx: 'TRX88120', store: 'S042',
+    empty: {
+      what: 'Exported by the legacy uploader — this rail never saw it.',
+      why: 'The transaction exists, but RetailTrx.IDocExportVersion is ‘L’, so Upload.cs owns it and no IDocEntry was ever minted. Nothing here is missing.',
+      rule: 'RetailTrx ‘L’/NULL · IDocEntry absent · IDocDocument absent',
+    },
+  },
+  parked: {
+    trx: 'TRX99940', store: 'S042',
+    empty: {
+      what: 'Queued for NupcoPillPack, whose workflow has not shipped yet.',
+      why: 'The entry was routed and minted, but its workflow is deliberately unregistered, so the queue skips it. This is a fifth entry state — not an error, and not “stuck”.',
+      rule: 'RetailTrx ‘N’ · IDocEntry parked · IsProcessed 0 · AttemptsCount 0',
+    },
+  },
+  gaveup: {
+    trx: 'TRX99951', store: 'S042',
+    empty: {
+      what: 'Failed permanently after 3 attempts.',
+      why: 'The workflow threw on every attempt, so nothing was persisted at all — the whole ProcessEntry transaction rolled back each time. IsProcessed is 1, which here means “gave up”, not “succeeded”.',
+      rule: 'Object reference not set to an instance of an object. (AggBillingWorkflowBase.ResolvePartner)',
+      bad: true,
+    },
+  },
+  none: {
+    trx: 'TRX00000', store: 'S042',
+    empty: {
+      what: 'No such transaction for this store.',
+      why: 'RetailTrx has no row for TRX00000 at S042. Check the store — a TrxNumber is only unique within one.',
+      rule: 'RetailTrx absent',
+    },
+  },
+};
+
+// ---------------------------------------------------------------------------
+const state = { scenario: 'ordinary', doc: 0, open: {}, filter: null };
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const money = (n) => (n < 0 ? '-' : '') + Math.abs(n).toFixed(2);
+
+function tagChip(tag) {
+  const label = TAG_LABEL[tag] !== undefined ? TAG_LABEL[tag] : tag;
+  if (tag === '') return `<span class="chip tag unknown" title="${esc(label)}">unknown</span>`;
+  return `<span class="chip tag" title="${esc(label)}">${esc(tag)}</span>`;
+}
+function srcPair(tag, origin) {
+  const o = origin
+    ? `<span class="origin" title="${esc(ORIGIN_LABEL[origin] || origin)}">${esc(origin)}</span>` : '';
+  return `<span class="srcpair">${tagChip(tag)}${o}</span>`;
+}
+
+function renderVerdict(s) {
+  const dl = [];
+  if (s.docs) {
+    const types = [...new Set(s.docs.map((d) => d.type))];
+    types.forEach((t) => dl.push(`<button class="btn ghost">Download ${t} XML</button>`));
+  }
+  const e = s.entry;
+  const chips = [];
+  if (e) {
+    chips.push(`<span class="chip"><span class="ck">workflow</span>${esc(e.workflow)}</span>`);
+    chips.push(`<span class="chip ${e.attempts === 1 ? 'ok' : 'warn'}"><span class="ck">attempt</span>${e.attempts} of 3</span>`);
+  }
+  const v = s.verdict;
+  return `
+    <div class="frame verdict">
+      <div>
+        <div class="what">${esc(v.what)}</div>
+        <div class="why">${esc(v.why)}</div>
+      </div>
+      <span class="grow"></span>
+      ${chips.join('')}
+      ${dl.join('')}
+    </div>`;
+}
+
+function renderRail(s) {
+  return `<div class="rail">${s.docs.map((d, i) => {
+    const st = d.error ? 'bad' : d.exported ? 'ok' : 'warn';
+    const stText = d.error ? 'held' : d.exported ? 'exported' : d.batch ? 'batched' : 'not batched';
+    const rows = d.type === 'FI' ? `${d.fi.length} FI lines` : `${d.lines.length} lines · ${d.payments.length} payments`;
+    return `<button class="doc" aria-pressed="${i === state.doc}" data-doc="${i}">
+      <span class="t"><span class="ty">${esc(d.type)}</span><span class="rn">${esc(d.receipt)}</span></span>
+      <span class="sub">group ${esc(d.paymentGroup)} · ${money(d.splitAmount)} · ${(d.splitRatio * 100).toFixed(0)}%</span>
+      <span class="sub">${rows}</span>
+      <span><span class="chip ${st}">${stText}</span></span>
+    </button>`;
+  }).join('')}</div>`;
+}
+
+function renderFilters(d) {
+  if (d.type === 'FI') return '';
+  const tags = [...new Set(d.lines.flatMap((l) => [l.tag, ...l.conds.map((c) => c.tag)]))];
+  return `<div class="filterbar"><span class="label">Minted by</span>
+    ${tags.map((t) => `<button class="fbtn" data-filter="${esc(t)}" aria-pressed="${state.filter === t}">${t === '' ? 'unknown' : esc(t)}</button>`).join('')}
+    ${state.filter !== null ? '<button class="fbtn" data-filter="">clear</button>' : ''}</div>`;
+}
+
+function renderExpansion(l) {
+  const conds = state.filter === null ? l.conds : l.conds.filter((c) => c.tag === state.filter);
+  return `<div class="expbody">
+    ${l.details.length ? `<div><div class="label" style="margin-bottom:4px">Item details</div>
+      <div class="detailpills">${l.details.map(([k, v]) => `<span class="pill"><span class="k">${esc(k)}</span>${esc(v)}</span>`).join('')}</div></div>` : ''}
+    <div>
+      <div class="label" style="margin-bottom:4px">Conditions <span style="color:var(--ink-3);font-weight:500">(${conds.length}${state.filter !== null ? ' of ' + l.conds.length : ''})</span></div>
+      <table class="sub">
+        <thead><tr><th style="width:36px">Seq</th><th style="width:112px">Type</th><th>Meaning</th>
+          <th class="e" style="width:78px">Rate</th><th class="e" style="width:88px">Value</th>
+          <th style="width:80px">Disc code</th><th style="width:150px">Minted by</th></tr></thead>
+        <tbody>${conds.map((c) => `<tr${c.value === 0 ? ' class="dim"' : ''}>
+          <td class="e mono">${c.seq}</td>
+          <td class="mono">${esc(c.type)}</td>
+          <td style="color:var(--muted-foreground)">${esc(COND_LABEL[c.type] || '—')}</td>
+          <td class="e">${money(c.rate)}</td>
+          <td class="e">${money(c.value)}</td>
+          <td class="mono" style="color:var(--muted-foreground)">${esc(c.disc || '·')}</td>
+          <td>${srcPair(c.tag, c.origin)}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+function renderLines(d) {
+  const shown = state.filter === null ? d.lines
+    : d.lines.filter((l) => l.tag === state.filter || l.conds.some((c) => c.tag === state.filter));
+  if (!shown.length) return `<p style="font-size:12.5px;color:var(--muted-foreground);margin:8px 0 0">No line on this document was minted by <code>${esc(state.filter)}</code>.</p>`;
+  return `<table class="lines">
+    <colgroup><col style="width:40px"><col><col style="width:78px"><col style="width:70px"><col style="width:92px"><col style="width:150px"></colgroup>
+    <thead><tr><th>#</th><th>Item</th><th class="e">Qty</th><th class="e">Cond.</th><th class="e">Amount</th><th>Minted by</th></tr></thead>
+    <tbody>${shown.map((l) => {
+      const open = !!state.open[d.receipt + '/' + l.n];
+      return `<tr class="line" tabindex="0" aria-expanded="${open}" data-line="${l.n}">
+        <td class="e mono" style="color:var(--ink-3);font-size:11px;font-weight:700"><span class="tw">&#9656;</span> ${l.n}</td>
+        <td><div class="desc">${esc(l.desc)}</div><div class="mat">${esc(l.mat)}</div></td>
+        <td class="e" style="color:var(--muted-foreground)">${l.qty} ${esc(l.uom)}</td>
+        <td class="e" style="color:var(--muted-foreground)">${l.conds.length}</td>
+        <td class="e" style="font-weight:600">${money(l.amt)}</td>
+        <td>${tagChip(l.tag)}</td></tr>
+        ${open ? `<tr class="exp"><td colspan="6">${renderExpansion(l)}</td></tr>` : ''}`;
+    }).join('')}</tbody></table>`;
+}
+
+function renderPane(s) {
+  const d = s.docs[state.doc];
+  const attrs = [
+    ['Receipt', d.receipt], ['Pharmacy', d.pharmacy], ['Billing type', d.billingType],
+    ['Payment group', d.paymentGroup], ['Split', money(d.splitAmount) + ' · ' + (d.splitRatio * 100).toFixed(0) + '%'],
+    ['Batch', d.batch || 'not batched'], ['Exported', d.exported || 'not exported'],
+  ];
+  const tail = d.type === 'FI'
+    ? `<div><div class="label" style="margin:10px 0 4px">FI lines <span style="color:var(--ink-3);font-weight:500">(no provenance — out of scope by rule)</span></div>
+       <table class="sub"><thead><tr><th style="width:36px">#</th><th style="width:90px">G/L</th><th style="width:90px">Profit ctr</th>
+         <th style="width:70px">Type</th><th>Assignment</th><th class="e" style="width:96px">Amount</th></tr></thead>
+       <tbody>${d.fi.map((f) => `<tr><td class="e mono">${f.n}</td><td class="mono">${esc(f.gl)}</td>
+         <td class="mono">${esc(f.pc)}</td><td class="mono">${esc(f.code)}</td><td>${esc(f.assign)}</td>
+         <td class="e">${money(f.amount)}</td></tr>`).join('')}</tbody></table></div>`
+    : `<div><div class="label" style="margin:10px 0 4px">Payments <span style="color:var(--ink-3);font-weight:500">(no provenance — out of scope by rule)</span></div>
+       <table class="sub"><thead><tr><th style="width:36px">Seq</th><th style="width:100px">Type</th><th style="width:70px">Code</th>
+         <th style="width:90px">Card</th><th>Authorization</th><th class="e" style="width:96px">Amount</th></tr></thead>
+       <tbody>${d.payments.map((p) => `<tr><td class="e mono">${p.seq}</td><td class="mono">${esc(p.type)}</td>
+         <td class="mono">${esc(p.code)}</td><td>${esc(p.card || '·')}</td><td class="mono">${esc(p.auth || '·')}</td>
+         <td class="e">${money(p.amount)}${p.code === '3302' ? ' <span title="DiscTypeCode 3302 blanks AMOUNT in the XML" style="color:var(--attention-800);cursor:help">&#9888;</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`;
+
+  return `<div class="frame">
+    <div class="attrs">${attrs.map(([k, v]) => `<span class="attr"><span class="k">${esc(k)}</span><span class="v">${esc(v)}</span></span>`).join('')}</div>
+    ${d.error ? `<div class="held" style="margin-top:9px"><b>Held out of batching.</b> ${esc(d.error.type)} — never retried, never exported.
+      <span class="msg">${esc(d.error.msg)}</span></div>` : ''}
+    <div style="margin-top:10px">${renderFilters(d)}</div>
+    <div style="margin-top:6px">${d.type === 'FI' ? '' : renderLines(d)}</div>
+    ${tail}
+  </div>`;
+}
+
+function renderFooter(s) {
+  const bits = [];
+  if (s.post && s.post.length) {
+    bits.push(`<details class="foot"><summary>Post-conditions (${s.post.length}) — informational</summary>
+      <div style="padding:8px 0 0"><table class="sub"><thead><tr><th style="width:100px">Scope</th><th style="width:90px">Type</th>
+      <th class="e" style="width:96px">Amount</th><th>Consumed</th></tr></thead><tbody>
+      ${s.post.map((p) => `<tr><td>${esc(p.scope)}</td><td class="mono">${esc(p.type)}</td><td class="e">${money(p.amount)}</td>
+        <td style="color:var(--muted-foreground)">no — nothing consumes these today</td></tr>`).join('')}
+      </tbody></table></div></details>`);
+  }
+  if (s.forensic) {
+    bits.push(`<details class="foot"><summary>Forensic snapshot — ${esc(s.forensic)}</summary>
+      <div style="padding:8px 0 0;font-size:12px;color:var(--muted-foreground)">
+      The full item / condition / payment breakdown captured when the imbalance was detected.
+      Optional: capture is gated, so a held document may have no snapshot at all.</div></details>`);
+  }
+  return bits.length ? `<div class="frame">${bits.join('')}</div>` : '';
+}
+
+function render() {
+  const s = SCENARIOS[state.scenario];
+  const head = `<div class="frame lookup">
+    <div class="field"><span class="label">Store</span><input value="${esc(s.store)}" readonly></div>
+    <div class="field"><span class="label">Transaction</span><input value="${esc(s.trx)}" readonly></div>
+    <button class="btn">Look up</button>
+  </div>`;
+
+  let body;
+  if (s.empty) {
+    body = `<div class="frame empty">
+      <div class="what" ${s.empty.bad ? 'style="color:var(--danger-800)"' : ''}>${esc(s.empty.what)}</div>
+      <div class="why">${esc(s.empty.why)}</div>
+      <div class="rule">${esc(s.empty.rule)}</div>
+    </div>`;
+  } else {
+    body = renderVerdict(s) + `<div class="frame" style="padding:10px">${renderRail(s)}</div>` + renderPane(s) + renderFooter(s);
+  }
+  document.getElementById('stage').innerHTML = head + body;
+}
+
+document.getElementById('sc').addEventListener('change', (e) => {
+  state.scenario = e.target.value; state.doc = 0; state.open = {}; state.filter = null; render();
+});
+document.getElementById('th').addEventListener('change', (e) => { document.body.className = e.target.value; });
+document.getElementById('stage').addEventListener('click', (e) => {
+  const d = e.target.closest('[data-doc]');
+  if (d) { state.doc = +d.dataset.doc; state.open = {}; return render(); }
+  const f = e.target.closest('[data-filter]');
+  if (f) { const v = f.dataset.filter; state.filter = (v === '' && f.textContent === 'clear') || state.filter === v ? null : v; return render(); }
+  const l = e.target.closest('[data-line]');
+  if (l) {
+    const s = SCENARIOS[state.scenario];
+    const key = s.docs[state.doc].receipt + '/' + l.dataset.line;
+    state.open[key] = !state.open[key];
+    return render();
+  }
+});
+document.getElementById('stage').addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('line')) { e.preventDefault(); e.target.click(); }
+});
+
+render();
+</script>
+</body>
+</html>

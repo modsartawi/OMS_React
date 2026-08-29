@@ -135,6 +135,106 @@
     "landing": {
       "title": "Nothing to show yet",
       "hint": "Enter a store and a transaction number to see the documents the SAP rail generated for it."
+    },
+    "loading": "Looking up that transaction…",
+    "noDocuments": {
+      "title": "No documents were generated for this transaction",
+      "hint": "The SAP rail produced nothing for this store and transaction number. Why it produced nothing is named on the transaction itself."
+    },
+    "errors": {
+      "lookupFailed": "That transaction could not be looked up."
+    },
+    "exportState": {
+      "exported": "Exported",
+      "batchedNotExported": "Batched, not exported",
+      "notBatched": "Not batched"
+    },
+    "rail": {
+      "label": "Generated documents",
+      "split": "Group {{group}} · {{amount}} · {{percent}}%",
+      "counts": "{{lines}} lines · {{payments}} payments",
+      "fiCounts": "{{fiItems}} FI lines"
+    },
+    "document": {
+      "receipt": "Receipt",
+      "pharmacy": "Pharmacy",
+      "billingType": "Billing type",
+      "paymentGroup": "Payment group",
+      "split": "Split",
+      "splitValue": "{{amount}} · {{percent}}%",
+      "idocBatch": "IDoc batch",
+      "noBatch": "In no batch",
+      "exportedAt": "Exported",
+      "exportedUndated": "Exported (no date recorded)",
+      "notExported": "Not exported"
+    },
+    "lines": {
+      "head": {
+        "pos": "#",
+        "item": "Item",
+        "qty": "Qty",
+        "conditions": "Cond.",
+        "amount": "Amount",
+        "mintedBy": "Minted by"
+      },
+      "isReturn": "Return",
+      "none": "This document carries no line items.",
+      "noneForTag": "No line on this document was minted by that source."
+    },
+    "line": {
+      "charg": "Batch (CHARG)",
+      "promotionId": "Promotion"
+    },
+    "expansion": {
+      "itemDetails": "Item details",
+      "conditions": "Conditions",
+      "conditionsCount": "({{total}})",
+      "conditionsFiltered": "({{shown}} of {{total}})",
+      "noConditions": "This line carries no conditions.",
+      "noConditionsForTag": "No condition on this line was minted by that source.",
+      "head": {
+        "seq": "Seq",
+        "type": "Type",
+        "meaning": "Meaning",
+        "rate": "Rate",
+        "value": "Value",
+        "discCode": "Disc. code",
+        "mintedBy": "Minted by"
+      },
+      "xmlBlanked": "This amount is stored on the row but written blank in the exported XML."
+    },
+    "provenance": {
+      "unknown": "unknown",
+      "unknownHint": "This row carries no source tag, so where it came from is unknown. It is not a POS line.",
+      "conditionSource": "Condition source: {{code}}",
+      "filterLabel": "Minted by",
+      "clearFilter": "Clear"
+    },
+    "payments": {
+      "title": "Payments",
+      "noProvenance": "— these rows carry no source tag at all",
+      "none": "This document carries no payments.",
+      "head": {
+        "seq": "Seq",
+        "type": "Type",
+        "code": "Code",
+        "card": "Card",
+        "authorization": "Authorization",
+        "amount": "Amount"
+      }
+    },
+    "fi": {
+      "title": "FI lines",
+      "noProvenance": "— these rows carry no source tag at all",
+      "none": "This financial document came back with no FI lines. That is worth reporting: an FI document should always carry them.",
+      "head": {
+        "number": "#",
+        "glAccount": "G/L account",
+        "profitCenter": "Profit centre",
+        "type": "Type",
+        "assignment": "Assignment",
+        "amount": "Amount"
+      }
     }
   }
 }

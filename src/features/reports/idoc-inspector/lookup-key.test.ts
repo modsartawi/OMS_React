@@ -3,6 +3,7 @@ import {
   buildLookupKey,
   landingCriteria,
   missingParts,
+  sameLookup,
   type LookupCriteria,
 } from './lookup-key'
 
@@ -114,3 +115,28 @@ describe('the draft becomes a key', () => {
   })
 })
 
+// ---- ticket 297: the re-ask rule ------------------------------------------
+describe('asking the same question twice', () => {
+  it('🚩 recognises an unchanged key, so the Page can RE-ASK instead of re-setting state', () => {
+    // The query key IS the key object, so react-query answers an identical one
+    // from cache — which after a failed lookup leaves a dead button under the
+    // error banner. The Page reads this and calls `refetch()`.
+    const first = buildLookupKey({ store: 'S042', trxNumber: '00114600051234' })
+    const again = buildLookupKey({ store: 'S042', trxNumber: '00114600051234' })
+    expect(first).not.toBeNull()
+    expect(again).not.toBeNull()
+    expect(sameLookup(first!, again!)).toBe(true)
+  })
+
+  it('compares the KEY, not the draft — surrounding space is the same question', () => {
+    const typed = buildLookupKey({ store: '  S042 ', trxNumber: ' 00114600051234' })
+    const clean = buildLookupKey({ store: 'S042', trxNumber: '00114600051234' })
+    expect(sameLookup(typed!, clean!)).toBe(true)
+  })
+
+  it('a different store or a different number is a different question', () => {
+    const base = { storeCode: 'S042', trxNumber: '00114600051234' }
+    expect(sameLookup(base, { ...base, storeCode: 'S043' })).toBe(false)
+    expect(sameLookup(base, { ...base, trxNumber: '00114600051235' })).toBe(false)
+  })
+})

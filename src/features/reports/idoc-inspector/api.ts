@@ -12,7 +12,7 @@
  * ⚠️ **Copied, not imported** — a feature may not import a feature
  * ([feature-structure](../../../../.claude/rules/feature-structure.md)).
  *
- * Ticket 296 lands the access probe alone. `Transaction` is 297's, `Download`
+ * Ticket 296 landed the access probe; **297 adds `Transaction`**. `Download`
  * (through `api.blob`, because the enveloped helper would try to unwrap raw XML)
  * is 299's, and `Metadata` is 300's.
  *
@@ -22,7 +22,11 @@
  * the fail-closed posture below is the same either way.
  */
 import { api } from '@/core/api'
-import type { IDocInspectorAccessResult } from '@/core/models/idoc-inspector'
+import type {
+  IDocInspectorAccessResult,
+  IDocInspectorTransaction,
+} from '@/core/models/idoc-inspector'
+import type { LookupKey } from './lookup-key'
 
 /**
  * The ONE cache key the Reports nav leaf and the screen's own in-page guard
@@ -92,5 +96,40 @@ export const idocInspectorApi = {
    */
   access(): Promise<IDocInspectorAccessResult> {
     return api.get<IDocInspectorAccessResult>('IDocInspector/Access')
+  },
+
+  /**
+   * `GET IDocInspector/Transaction?storeCode=…&trxNumber=…` → the verdict, an
+   * optional attention block and **the whole nested document graph**
+   * (spec 1386, BackOffice 1388).
+   *
+   * 🔑 **One call, and there is never a second.** Selecting a document in the rail
+   * or opening a line is a render, not a request: production measurement caps a
+   * transaction at five documents, 210 conditions and 515 rows, so the graph is
+   * always small enough to send whole. There is no paging at any level and no
+   * per-document route to add later — a second round-trip would buy nothing but a
+   * loading state.
+   *
+   * 🚩 **Nested, not flat, and the client must keep it that way.** The document row
+   * is the only bridge between the transaction key space (`storeCode`,
+   * `trxNumber`) and the document key space (`pharmacyId`, `receiptNumber`).
+   * Flattening the graph here would move that join into this repo — the one piece
+   * of knowledge the API exists to hold.
+   *
+   * ⚠️ **An empty result is an ANSWER, not a failure.** Every way of having nothing
+   * to show arrives as a 200 carrying a named `verdict` — never a 404, never an
+   * empty 200. The two real failures are a blank half of the key (which
+   * `buildLookupKey` makes unreachable from this client) and an unexpected fault.
+   * Ticket 298 owns the ten verdicts and their wording.
+   *
+   * The key is built by `lookup-key.ts`, which cannot produce a blank half — so
+   * `400 STORE_CODE_REQUIRED` / `TRX_NUMBER_REQUIRED` stay the server's defence
+   * rather than a state this screen can reach.
+   *
+   * ⚠️ Grant-gated server-side and independently of the access probe, which only
+   * hides the menu leaf.
+   */
+  transaction(key: LookupKey): Promise<IDocInspectorTransaction> {
+    return api.get<IDocInspectorTransaction>('IDocInspector/Transaction', key)
   },
 }

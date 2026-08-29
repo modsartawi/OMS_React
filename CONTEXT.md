@@ -324,4 +324,7 @@ The provenance stamp on an IDoc line or condition, recording which layer minted 
 ledger's own convention defaults an untagged row to POS, and applying that default on screen would let
 a provenance bug disguise itself as ordinary data. Payments and FI lines carry **no** provenance at
 all, and the screen says so rather than showing a blank column.
-_Avoid_: origin (the condition's own `conditionSource` is a different, smaller mark beside it).
+_Avoid_: **origin** as a synonym for the source tag — the tag says which LAYER minted the row, while a
+condition's own `conditionSource` (its origin: minted by hand, automatic, a distributed header copy, a
+base price) is a different and smaller mark that rides beside it. The screen's column is labelled
+*minted by*.

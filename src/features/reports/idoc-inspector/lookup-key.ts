@@ -108,9 +108,20 @@ export function missingParts(criteria: Partial<LookupCriteria> = {}): MissingPar
   }
 }
 
-// 🚩 There is deliberately no `sameLookup` here yet. The re-ask rule — pressing
-// Look up twice on unchanged criteria must RE-ASK rather than be answered from
-// the react-query cache — belongs to the slice that first hangs a query off this
-// key (297). Writing it now would be a function with no caller and no way to be
-// wrong, which is how a forward-built helper ships subtly mismatched to the
-// query it was written for.
+/**
+ * Are these the same question? — the **re-ask** rule, which arrives with the
+ * slice that first hangs a query off this key (ticket 297).
+ *
+ * 🚩 Pressing Look up twice on unchanged criteria has to **re-ask the server**.
+ * The react-query key IS the key object, so react-query would otherwise answer
+ * from cache: `retry` is off on this query and `refetchOnWindowFocus` is off
+ * app-wide, which would leave a failed lookup with a dead button under its error
+ * banner until the store or the number changed or the page reloaded. The Page
+ * reads this and calls `refetch()` instead of re-setting identical state.
+ *
+ * Compares the KEY, never the draft — `  S042 ` and `S042` are the same question
+ * and must not fire two.
+ */
+export function sameLookup(a: LookupKey, b: LookupKey): boolean {
+  return a.storeCode === b.storeCode && a.trxNumber === b.trxNumber
+}

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\1386-idoc-inspector-spec.md
 blocked-by: 296
 ---
@@ -50,14 +50,24 @@ client feature (lookup form, document rail, line table, in-place expansion) → 
 
 ## Proof
 
-- [ ] `aLookupRendersOneTabPerGeneratedIDocType`
-- [ ] `openingALineShowsItsConditionsAndItemDetailsInPlace`
-- [ ] `anEmptySourceTagRendersAsUnknownNotAsPos`
-- [ ] `paymentAndFiRowsShowNoProvenanceColumn`
-- [ ] `theExportStateBadgeDistinguishesAllThreeStates`
-- [ ] typecheck + build green
+- [x] `aLookupRendersOneTabPerGeneratedIDocType` — `document-graph.test.ts`; the rail itself in the
+      drive (one card per document, every generated type on it, and a five-way split is still one type)
+- [x] `openingALineShowsItsConditionsAndItemDetailsInPlace` — `provenance.test.ts` for WHAT it shows;
+      the drive asserts IN PLACE structurally (the expansion is a row of the same `<table>` as the line)
+- [x] `anEmptySourceTagRendersAsUnknownNotAsPos` — `provenance.test.ts` + the drive's untagged line
+- [x] `paymentAndFiRowsShowNoProvenanceColumn` — `document-graph.test.ts` asserts it at the TYPE level
+      with `@ts-expect-error`, so adding a `sourceTag` to either row breaks the build; the drive
+      asserts the rendered panes carry no such column and say so in words
+- [x] `theExportStateBadgeDistinguishesAllThreeStates` — `document-graph.test.ts` (three severities,
+      three keys, raw fallback) + the drive's three documents
+- [x] typecheck + build green — plus lint (boundaries/contrast/palette), 2044 pure cases, drive 61/61,
+      invoice drive 79/79
 
 Pure modules only.
+
+⚠️ **Nothing here has met a live SIS.Api**: BackOffice 1388 is open, so the drive stubs the envelopes
+and the payload shape is this client's reading of the spec. Decisions and their reasons are in
+`.afk/HITL-297.md`.
 
 ## Boundaries
 

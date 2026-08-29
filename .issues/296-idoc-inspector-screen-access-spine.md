@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\1386-idoc-inspector-spec.md
 blocked-by: —
 ---
@@ -33,10 +33,18 @@ client routing → nav → feature scaffold → access probe → server
 
 ## Proof
 
-- [ ] `theScreenIsHiddenFromTheNavWithoutTheGrant`
-- [ ] `theScreenGuardsItselfWhenReachedDirectly`
-- [ ] `aDeniedProbeRendersAShutDoorNotAnError`
-- [ ] typecheck + build green
+- [x] `theScreenIsHiddenFromTheNavWithoutTheGrant` — `src/features/reports/idoc-inspector/access.test.ts`,
+      plus `src/layout/menu-reports.test.ts`, which now answers the group's TWO probes separately and
+      asserts both mixed cases (one grant held, the other not).
+- [x] `theScreenGuardsItselfWhenReachedDirectly` — same file; the Page hands `ScreenGate` the very
+      predicate the nav leaf hides on, and the drive types the URL on a denied session.
+- [x] `aDeniedProbeRendersAShutDoorNotAnError` — same file (`retry: false` and `staleTime: Infinity`
+      travel with the key), and the drive proves the *sentence*: the administrator remedy, never a
+      retry, and never the invoices screen's wording.
+- [x] typecheck + build green — plus `lint` (three gates) and **2006 pure cases**.
+- [x] Driven: `tools/idoc-inspector-drive.mjs` **29/29** against stubbed `IDocInspector/*` envelopes
+      (the door, BackOffice 1387, is still open), and `tools/invoice-drive.mjs` **79/79** re-run
+      because the invoices gate's copy moved.
 
 Vitest on the **pure modules only** — no component tests. This mirrors `retail-invoice`, whose tests
 sit on its outcome, key and column helpers and nowhere else.

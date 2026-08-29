@@ -263,6 +263,11 @@ export default function RetailInvoicePage() {
       query={retailInvoiceAccessQuery()}
       can={canOpenRetailInvoice}
       ns="reports"
+      // 🚩 Its own block of the five `access.*` sentences (ticket 296). The area
+      // namespace holds TWO gated screens now, and the top-level `access.*`
+      // block was this one's copy — so it moved under this screen's own prefix
+      // rather than staying the default a third screen would silently inherit.
+      keyPrefix="invoice.access"
       title={t('invoice.title')}
       subtitle={t('invoice.subtitle')}
     >

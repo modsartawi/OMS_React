@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FileSpreadsheet, FileText, Gem, Headset, HeartPulse, History, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FileSearch, FileSpreadsheet, FileText, Gem, Headset, HeartPulse, History, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -42,6 +42,14 @@ import { canOpenSettlement } from '@/features/collection/settlement/api'
 // (ticket 263): `features/reports/retail-invoice` is its only consumer — the leaf
 // below and that screen's own gate. `layout` may import a feature.
 import { canOpenRetailInvoice, RETAIL_INVOICE_ACCESS_KEY, retailInvoiceApi } from '@/features/reports/retail-invoice/api'
+// …and the IDoc Inspector's probe likewise stays with ITS feature: a second
+// screen in the same area is not a second consumer of the same probe. Two
+// screens, two grants, two keys — see `features/reports/idoc-inspector/api`.
+import {
+  canOpenIDocInspector,
+  IDOC_INSPECTOR_ACCESS_KEY,
+  idocInspectorApi,
+} from '@/features/reports/idoc-inspector/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
@@ -456,6 +464,26 @@ export const MENU: ShellMenuItem[] = [
           key: RETAIL_INVOICE_ACCESS_KEY,
           run: () => retailInvoiceApi.access(),
           visible: canOpenRetailInvoice,
+        }),
+      },
+      {
+        // The IDoc Inspector (spec 1386, ticket 296). Same group, same URL
+        // prefix, and a SEPARATE grant — a consultant who can print a receipt
+        // has no claim on every IDoc the SAP rail ever generated, so this leaf
+        // gets its own probe rather than riding the invoices one.
+        //
+        // 🚩 FAILS CLOSED, and here for a sharper reason than usual: the door
+        // (BackOffice 1387) is not built yet. A probe that degraded to *shown*
+        // while its endpoint was missing — the `Bby/Access` precedent — would
+        // advertise a screen nobody can hold the grant for.
+        labelKey: 'reports:menu.idocInspector',
+        icon: FileSearch,
+        routerLink: '/reports/idoc-inspector',
+        activePrefix: '/reports/idoc-inspector',
+        access: accessProbe({
+          key: IDOC_INSPECTOR_ACCESS_KEY,
+          run: () => idocInspectorApi.access(),
+          visible: canOpenIDocInspector,
         }),
       },
     ],

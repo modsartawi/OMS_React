@@ -290,3 +290,38 @@ plant, no price, an engine refusal — the server's code, nothing to press) and 
 is a fraud signal and a flag nobody saw proves nothing). The link stands regardless of how many
 lines landed.
 _Avoid_: failed line, dropped item (nothing failed — the guardrails held).
+
+**IDoc**:
+The document the SAP rail generates for a till transaction and sends to SAP — one per **IDoc type**
+(an aggregated envelope, a sales-as-per-receipt envelope, an FI document, and others). Several exist
+for one transaction; at most five in production. The **IDoc Inspector** (`/reports/idoc-inspector`,
+spec 1386) is the read-only view of what the rail produced, keyed on **store + transaction number**.
+_Avoid_: SAP document, export file (the *file* is what a batch writes; the IDoc is the row).
+
+**IDoc batch**:
+A sealed unit of delivery to SAP holding many **IDocs**; **sealing** it is what makes it exportable,
+and an exported batch is the closest thing to proof SAP received something. A document in no batch is
+**not batched** (3.1% of production) and reachable only by the inspector's own loader.
+⚠️ **Nothing to do with a batch (CHARG)**, a physical lot of a material — both words appear on the
+inspector screen, the second inside item details, and the copy must keep them apart.
+_Avoid_: export batch, bundle, run.
+
+**Parked entry**:
+A queue entry whose workflow **has not shipped yet** — no handler is registered in the running
+process, so nothing is wrong and nothing will happen. 3.2% of production entries. It is one of the
+ten **verdicts** and must never read as a failure or as *still waiting*.
+_Avoid_: stuck, pending, failed.
+
+**Verdict**:
+The server's named answer to "what happened to this transaction" — one of ten machine codes, decided
+server-side so two people reading the same transaction cannot disagree. Always a **200**, never a 404
+or an empty result; the client owns the wording and the server never sends a sentence.
+_Avoid_: status, error (a verdict is an answer, including when it names nothing to show).
+
+**Source tag**:
+The provenance stamp on an IDoc line or condition, recording which layer minted it — the answer to
+*why is this fee here*. ⚠️ An **empty** tag renders as a dimmed **unknown**, never as a POS row: the
+ledger's own convention defaults an untagged row to POS, and applying that default on screen would let
+a provenance bug disguise itself as ordinary data. Payments and FI lines carry **no** provenance at
+all, and the screen says so rather than showing a blank column.
+_Avoid_: origin (the condition's own `conditionSource` is a different, smaller mark beside it).

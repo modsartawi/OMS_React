@@ -20,8 +20,8 @@ import { ApiError, apiErrorMessage } from '@/core/api'
  * broken screen when the nav never offered it. Both exist for different reasons and
  * neither substitutes for the other.
  *
- * Three things are **passed in** rather than decided here, and each for a reason
- * the copies had already settled:
+ * Four things are **passed in** rather than decided here, and each for a reason
+ * a shipped screen had already settled:
  *
  * - **`query`** — the area's own access query *options*, not just its key. The
  *   options travel together (`staleTime: Infinity`, `retry: false`) because
@@ -35,6 +35,12 @@ import { ApiError, apiErrorMessage } from '@/core/api'
  *   namespace and their sentences legitimately differ ("No access to this screen"
  *   vs "No access to invoices"); a single core namespace would flatten a sentence
  *   the reader is meant to act on. What core owns is the **shape**, not the copy.
+ * - **`keyPrefix`** — where in that namespace the five sentences live, defaulting
+ *   to `access` so every existing caller is unchanged. Added at ticket 296, when
+ *   the `reports` namespace acquired a **second** gated screen: an area namespace
+ *   holds one screen's `access.*` block, and the IDoc inspector's denial must not
+ *   tell a consultant they lack the grant for *invoices*. Two screens, two
+ *   grants, two sentences, one namespace.
  *
  * Fails closed — pending shows the checking state, and anything that is not an
  * explicit grant (a refusal, a thrown probe, a shape nobody agreed to) shows the
@@ -53,6 +59,7 @@ export default function ScreenGate<T>({
   query,
   can,
   ns,
+  keyPrefix = 'access',
   title,
   subtitle,
   children,
@@ -60,6 +67,9 @@ export default function ScreenGate<T>({
   query: AccessQuery<T>
   can: (r: T | null | undefined) => boolean
   ns: string
+  /** Which `<keyPrefix>.*` block in `ns` holds this screen's five sentences.
+   *  Defaults to `access` — the shape every caller before 296 used. */
+  keyPrefix?: string
   title: string
   subtitle: string
   /** The screen's body — **required**, which is the stricter of the two copies'
@@ -70,6 +80,10 @@ export default function ScreenGate<T>({
 }) {
   const { t } = useTranslation(ns)
   const access = useQuery(query)
+  // Built once rather than interpolated at each of the five call sites: five
+  // separate `${keyPrefix}.` concatenations is five chances to typo one and ship
+  // a raw key onto a denial screen nobody looks at until it is someone's outage.
+  const k = (key: string) => `${keyPrefix}.${key}`
 
   if (access.isPending) {
     return (
@@ -78,7 +92,7 @@ export default function ScreenGate<T>({
         role="status"
       >
         <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-        {t('access.checking')}
+        {t(k('checking'))}
       </div>
     )
   }
@@ -104,12 +118,12 @@ export default function ScreenGate<T>({
       >
         <ShieldAlert className="mx-auto mb-2 h-6 w-6 text-muted-foreground" aria-hidden />
         <div className="text-base font-semibold tracking-tight">
-          {unreachable ? t('access.unreachableTitle') : t('access.deniedTitle')}
+          {unreachable ? t(k('unreachableTitle')) : t(k('deniedTitle'))}
         </div>
         <p className="mt-2 text-sm text-muted-foreground">
           {unreachable
-            ? apiErrorMessage(access.error, t('access.unreachableHint'))
-            : t('access.deniedHint')}
+            ? apiErrorMessage(access.error, t(k('unreachableHint')))
+            : t(k('deniedHint'))}
         </p>
       </div>
     )

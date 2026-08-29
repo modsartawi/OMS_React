@@ -360,6 +360,22 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/reports/retail-invoice/RetailInvoicePage')).default,
         }),
       },
+      // The IDoc Inspector (spec 1386, ticket 296) — the Reports area's SECOND
+      // screen, and the reason that area was worth creating with the first. A
+      // keyed lookup that renders a document and serves a download, which is
+      // the retail-invoice shape; it opens no new nav group, so it opens no new
+      // area folder either.
+      //
+      // 🚩 Its OWN grant, its own probe key: sharing an area, a URL prefix and a
+      // namespace with Invoices does not mean sharing a permission. The Page
+      // carries its own in-page guard on the same probe key its nav leaf reads,
+      // and the endpoint's grant filter is the real boundary.
+      {
+        path: 'reports/idoc-inspector',
+        lazy: async () => ({
+          Component: (await import('@/features/reports/idoc-inspector/IDocInspectorPage')).default,
+        }),
+      },
       {
         path: 'pricing/simulation',
         lazy: async () => ({

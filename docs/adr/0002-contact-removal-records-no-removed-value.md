@@ -1,20 +1,27 @@
 # A contact removal records the request, never the removed value
 
-> ⚠ **SUPERSEDED IN PART — 2026-08-30, owner ruling.** This decision **no longer holds for the
-> MOBILE removal**, which now records the number it removed in the action trail's second free-form
-> slot — the *"Old Value"* column the OMS Actions tab draws, and the slot the change-mobile command
-> and the collision path already use for a number they displaced. The reason given: a removal that
-> alone left that slot blank made the heaviest act on the member door the only one whose trail row
-> could not say **which** number a member lost.
+> ⚠ **SUPERSEDED — 2026-08-30, owner ruling.** This decision **no longer holds for either contact
+> removal**. Both now record the value they took away, in the action trail's second free-form slot —
+> the *"Old Value"* column the OMS Actions tab draws, and the slot the change-mobile command and the
+> collision path already use for a value they displaced. The mobile moved first, the email the same
+> day, deliberately together so the two commands cannot drift into recording different things.
 >
-> **It still holds for the EMAIL removal**, which records the case reference alone, and the
-> undrawn third slot still carries nothing on either command. The consequences below stand as
-> written except where they turn on the mobile's absence — in particular, *"undo is not
-> self-service"* is unchanged: recording the number is not a reversal, because reattaching a mobile
-> must still re-run the collision check.
+> The reason given: a removal that alone left that slot blank made the heaviest acts on the member
+> door the only ones whose trail row could not say **which** number or address a member lost.
 >
-> Server-side amendment: BackOffice `.issues/1403-removing-a-mobile-blocks-under-a-system-reason.md`
-> (*Amendment*) and spec `.issues/1397-loyalty-member-admin-writes-spec.md`.
+> **What survives of this ADR**, and is still enforced by test:
+>
+> - **The undrawn third slot carries nothing.** A promise kept only where a client happens to render
+>   is a promise about that client, not about the record. That reasoning was right and is untouched.
+> - **Undo is not self-service.** Recording the value is not a reversal — reattaching a mobile must
+>   still re-run the collision check, because someone else may hold that number by now.
+> - **No masking.** The residual exposure this ADR was written against is now *accepted deliberately*
+>   rather than designed out. A client-side mask over server-side data survives exactly until the
+>   next export or API consumer, so it is no better an answer today than when this was written.
+> - **Removal counts still undercount**, for the reason given below.
+>
+> Server-side amendments: BackOffice `.issues/1403-…` and `.issues/1402-…` (*Amendment* in each), and
+> spec `.issues/1397-loyalty-member-admin-writes-spec.md`.
 
 Every other member command records what it displaced: changing a mobile writes the new number and
 the old one side by side onto the member's action trail. **Contact removal deliberately does not.**

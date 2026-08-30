@@ -126,3 +126,23 @@ differ. 8 decisions in `.afk/HITL-299.md`.
 [297](297-idoc-inspector-lookup-shows-documents.md)
 
 **dep:** BackOffice [1393](file:///C:/Work/DMSCO/BackOffice/.issues/1393-download-returns-one-file-with-one-bom.md)
+
+## Hardened 2026-08-30 (found on ticket 305's `/code-review high`)
+
+🚩 **A bare index into a published table is not a lookup — it is a lookup plus the whole of
+`Object.prototype`.** A server code of `constructor`, `toString`, `valueOf` or `hasOwnProperty`
+resolved to an inherited **function**: truthy, so it survived every `!entry` test and every
+`?? fallback`, and was then read for fields it does not have or handed to `t()` as a key. The screen
+would have claimed to recognise a code it had never heard of — no unknown banner, no empty state,
+`undefined` where a severity belongs, and a raw key on screen. Five tables were exposed (`VERDICTS`
+twice, `ATTENTION_BANNERS`, `EXPORT_BADGES`, `OUTCOME_KEYS`); all five now read through
+`code-table.ts`'s `published`, which is the guard `member-commands.ts` and `profile-form.ts` already
+apply by hand, written once instead of five times.
+
+⚠️ **And a verdict that never arrived is not an unrecognised one.** `banners()` raised
+`unknownVerdict` for both, so a 200 carrying documents with no `verdict` field rendered *"The server
+answered , which this screen does not know… Report the raw code"* — asking a consultant to report a
+blank. `readVerdict` already told the two apart; the banner now does too, with its own copy that
+quotes no code (pinned against the shipped locale, this feature's standing idiom).
+
+`typecheck` · `lint` · `build` green · **2163 vitest** (9 new) · IDoc drive **127/127**.

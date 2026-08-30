@@ -159,7 +159,10 @@ file**, so all five are recorded here and none patched from this session:
 - ⚠️ **MEDIUM, this diff:** the stranded-profile-edit interaction above, independently found. It
   confirms the triage rather than moving it — `StatusCommand` has had the identical effect since
   **303**, so this is three commands on one tab and not something 305 introduced.
-- **LOW ×3, the IDoc Inspector wave (296–300):** a missing verdict rendering the *unknown* banner
+**All five are now fixed** — the two MEDIUMs on 304's line and this one, and the three below on
+2026-08-30 (recorded on 297/298/299 and on `ProfileForm`):
+
+- **LOW ×3, and only two of them are the IDoc wave's:** a missing verdict rendering the *unknown* banner
   with a blank code; four bare object-literal indexes (`VERDICTS`, `EXPORT_BADGES`,
   `ATTENTION_BANNERS`, `OUTCOME_KEYS`) reachable through `Object.prototype` — the exact hazard
   `member-commands.ts` and `profile-form.ts` already guard with `Object.hasOwn`; and

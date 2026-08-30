@@ -294,3 +294,66 @@ describe('what an unrecognised code does', () => {
     expect(banners(null)).toEqual([])
   })
 })
+
+// ---------------------------------------------------------------------------
+
+describe('aNameEveryObjectInheritsIsNotAPublishedCode', () => {
+  // 🚩 The hazard `member-commands.ts` and `profile-form.ts` already guard by
+  // name: a bare index into an object literal reaches `Object.prototype`, so a
+  // server verdict of `constructor` would resolve to a FUNCTION, pass the `!entry`
+  // test as a known verdict, and render `sev: undefined`, `showsDocuments:
+  // undefined` and a raw `idocInspector.verdict.constructor.name` key on screen —
+  // with no unknown-verdict banner and no empty state to say anything is wrong.
+  const inherited = ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']
+
+  it('reads every inherited name as an UNRECOGNISED verdict, not as a known one', () => {
+    for (const code of inherited) {
+      const reading = readVerdict({ verdict: code, documents: [] } as never)
+      expect(reading.known).toBe(false)
+      expect(reading.code).toBe(code)
+      expect(reading.sev).toBe('warn')
+      expect(reading.nameKey).toBe('idocInspector.verdictUnknown.name')
+    }
+  })
+
+  it('and raises the unknown-verdict banner over a graph, as any other stranger would', () => {
+    const banner = banners({
+      verdict: 'toString',
+      documents: [{ idocType: 'INVOIC' }],
+    } as never)
+    expect(banner.map((b) => b.kind)).toContain('unknownVerdict')
+  })
+
+  it('🚩 an inherited ATTENTION code is unrecognised too — never a BannerKind of its own', () => {
+    // Unguarded, `ATTENTION_BANNERS['toString']` is a function, survives the
+    // `??`, and is handed to `t()` as the banner's copy lookup.
+    const banner = banners({
+      verdict: 'Processed',
+      documents: [{ idocType: 'INVOIC' }],
+      attention: { code: 'valueOf', exportVersion: null },
+    } as never)
+    expect(banner.map((b) => b.kind)).toContain('unknownAttention')
+    for (const b of banner) expect(typeof b.kind).toBe('string')
+  })
+})
+
+describe('aVerdictThatNeverArrivedIsNotAnUnrecognisedOne', () => {
+  it('🚩 asks nobody to report a blank code', () => {
+    // `readVerdict` already tells the two apart — that is what `verdictMissing`
+    // exists for. The banner said `unknownVerdict` for both, which renders "the
+    // server answered , which this screen does not know… Report the raw code".
+    const kinds = banners({ documents: [{ idocType: 'INVOIC' }] } as never).map((b) => b.kind)
+    expect(kinds).toContain('missingVerdict')
+    expect(kinds).not.toContain('unknownVerdict')
+    // Copy asserted against the shipped locale, this file's standing idiom: a
+    // banner whose sentence is missing renders its raw key to a consultant, and
+    // a typecheck cannot see that. And it quotes no code, because there is none.
+    expect(en.idocInspector.banner.missingVerdict.title).toBeTruthy()
+    expect(en.idocInspector.banner.missingVerdict.body).toBeTruthy()
+    expect(en.idocInspector.banner.missingVerdict.body).not.toContain('{{code}}')
+  })
+
+  it('and still says nothing twice over an EMPTY answer — the empty state is louder', () => {
+    expect(banners({ documents: [] } as never).map((b) => b.kind)).toEqual([])
+  })
+})

@@ -8,6 +8,7 @@
  */
 import type { Severity } from '@/core/ui/severity'
 import type { IDocExportState, IDocInspectorDocument } from '@/core/models/idoc-inspector'
+import { published } from './code-table'
 
 /**
  * How the export state renders: a severity and a copy key.
@@ -39,7 +40,10 @@ const EXPORT_BADGES: Record<IDocExportState, { sev: Severity; key: string }> = {
 
 export function exportBadge(state: string | null | undefined): ExportBadge {
   const raw = (state ?? '').trim()
-  const known = EXPORT_BADGES[raw as IDocExportState]
+  // 🚩 `published`, never a bare index — an inherited name is a FUNCTION, and
+  // it would render as a known state carrying an undefined severity and an
+  // undefined copy key (`code-table.ts`).
+  const known = published(EXPORT_BADGES, raw)
   return known ? { sev: known.sev, key: known.key, raw } : { sev: 'mute', key: null, raw }
 }
 

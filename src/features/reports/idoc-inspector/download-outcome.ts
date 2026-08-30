@@ -28,6 +28,7 @@
  * translates it.
  */
 import { ApiError, apiErrorCode } from '@/core/api'
+import { published } from './code-table'
 
 export interface DownloadOutcome {
   /** The `reports` key of the sentence to show when there is no server sentence
@@ -113,7 +114,9 @@ export function downloadFailure(err: unknown): DownloadOutcome {
   const code = apiErrorCode(err)
   if (code !== null)
     return {
-      messageKey: OUTCOME_KEYS[code] ?? GENERIC,
+      // 🚩 `published`, never a bare index: an inherited name would survive the
+      // `??` and be handed to `t()` as a FUNCTION (`code-table.ts`).
+      messageKey: published(OUTCOME_KEYS, code) ?? GENERIC,
       serverMessage: serverMessage(err),
       code,
     }

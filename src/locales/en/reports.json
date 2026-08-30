@@ -207,6 +207,10 @@
         "title": "Unrecognised verdict",
         "body": "The server answered {{code}}, which this screen does not know. What is shown below is everything that arrived, unchanged — but the answer to \"why does it look like this\" is not on this screen. Report the raw code."
       },
+      "missingVerdict": {
+        "title": "No verdict",
+        "body": "The server returned this transaction's documents but no verdict at all, so there is nothing here to say why it looks like this. What is shown below is everything that arrived, unchanged. Report the transaction — the answer is not on this screen."
+      },
       "unknownAttention": {
         "title": "Unrecognised finding",
         "body": "The server flagged this transaction with {{code}}, which this screen does not know. Nothing has been guessed about it. Report the raw code."

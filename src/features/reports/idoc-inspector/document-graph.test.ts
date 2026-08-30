@@ -164,3 +164,19 @@ describe('⚠️ the 3302 blanking is marked, not hidden', () => {
     expect(blankedInXml(null)).toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------
+
+describe('anInheritedNameIsNotAnExportState', () => {
+  it('🚩 renders its raw value muted, exactly as any fourth state invented server-side', () => {
+    // Unguarded, `EXPORT_BADGES['constructor']` is a function: truthy, so the
+    // badge would claim to be a KNOWN state carrying `sev: undefined` and a
+    // `key: undefined` the component would hand to `t()`.
+    for (const raw of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']) {
+      const badge = exportBadge(raw)
+      expect(badge.sev).toBe('mute')
+      expect(badge.key).toBeNull()
+      expect(badge.raw).toBe(raw)
+    }
+  })
+})

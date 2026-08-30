@@ -29,6 +29,7 @@
  */
 import type { IDocInspectorDocument, IDocInspectorTransaction } from '@/core/models/idoc-inspector'
 import type { Severity } from '@/core/ui/severity'
+import { published } from './code-table'
 
 /**
  * The banner over a full render, and there are four kinds for two reasons.
@@ -41,7 +42,15 @@ import type { Severity } from '@/core/ui/severity'
  * repositories on different release cadences, and the one thing it must not do is
  * render as an ordinary screen.
  */
-export type BannerKind = 'held' | 'disagreement' | 'unknownVerdict' | 'unknownAttention'
+export type BannerKind =
+  | 'held'
+  | 'disagreement'
+  | 'unknownVerdict'
+  /** ⚠️ A verdict that never arrived at all — its own kind, because the
+   *  unrecognised copy asks the consultant to **report the raw code** and there
+   *  is no code to report. `readVerdict` already tells the two apart. */
+  | 'missingVerdict'
+  | 'unknownAttention'
 
 interface VerdictEntry {
   /**
@@ -157,7 +166,10 @@ export function readVerdict(
   result: IDocInspectorTransaction | null | undefined,
 ): VerdictReading {
   const code = (result?.verdict ?? '').trim()
-  const entry = VERDICTS[code]
+  // 🚩 `published`, never a bare index: `VERDICTS['constructor']` is an inherited
+  // FUNCTION, and it would pass the `!entry` test below as a known verdict
+  // carrying an undefined severity and a raw key on screen (`code-table.ts`).
+  const entry = published(VERDICTS, code)
   const count = result?.documents?.length ?? 0
 
   if (!entry) {
@@ -257,7 +269,13 @@ export function banners(result: IDocInspectorTransaction | null | undefined): Ve
   // 🚩 Only over a GRAPH. With nothing to draw, `VerdictEmptyState` already says
   // this in the document area's own place — a banner above it would be the same
   // shout twice, and the empty state is the louder of the two.
-  if (!reading.known && reading.showsDocuments) push('unknownVerdict', reading.code)
+  // ⚠️ **A verdict that never arrived is not an unrecognised one**, and the two
+  // must not share a banner: "the server answered , which this screen does not
+  // know — report the raw code" asks a consultant to report a blank. Same
+  // distinction `readVerdict` draws, and the same reasoning that drops a
+  // codeless attention block below.
+  if (!reading.known && reading.showsDocuments)
+    push(reading.code === '' ? 'missingVerdict' : 'unknownVerdict', reading.code)
 
   const attention = result.attention
   const attentionCode = (attention?.code ?? '').trim()
@@ -269,7 +287,7 @@ export function banners(result: IDocInspectorTransaction | null | undefined): Ve
   if (attention && attentionCode !== '') {
     const version = attention.exportVersion
     push(
-      ATTENTION_BANNERS[attentionCode] ?? 'unknownAttention',
+      published(ATTENTION_BANNERS, attentionCode) ?? 'unknownAttention',
       attentionCode,
       // 🚩 A block that arrived is a block that was TOLD — including when what it
       // was told is a blank column. Only the absence of a block is `unstated`.
@@ -281,7 +299,7 @@ export function banners(result: IDocInspectorTransaction | null | undefined): Ve
     )
   }
 
-  const own = VERDICTS[reading.code]?.banner
+  const own = published(VERDICTS, reading.code)?.banner
   // ⚠️ Kept as a fallback rather than deleted as redundant: a
   // `ProcessedButStampedLegacy` that arrived without its attention block would
   // otherwise render as an ordinary transaction, losing the finding entirely.

@@ -104,3 +104,22 @@ describe('downloadFailure', () => {
     expect(downloadFailure(business(404, IDOC_TYPE_NOT_PRESENT, '   ')).serverMessage).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+
+describe('anInheritedNameIsNotADownloadCode', () => {
+  it('🚩 falls to the generic sentence rather than handing a function to t()', () => {
+    for (const code of ['constructor', 'toString', 'valueOf', 'hasOwnProperty', '__proto__']) {
+      const outcome = downloadFailure(
+        new ApiError('business', 'The server said so.', 400, [
+          { errorCode: code, errorMessage: '', internalErrorCode: '' },
+        ]),
+      )
+      expect(typeof outcome.messageKey).toBe('string')
+      expect(outcome.messageKey).toBe('idocInspector.download.errors.generic')
+      // The server's own sentence still speaks, as it does for any code.
+      expect(outcome.serverMessage).toBe('The server said so.')
+      expect(outcome.code).toBe(code)
+    }
+  })
+})

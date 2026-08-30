@@ -227,3 +227,23 @@ describe('aStaleFormIsRefusedRatherThanClobbering', () => {
     expect(profileRefusedField(refusal('toString'))).toBeNull()
   })
 })
+
+describe('aMemberWithNoStampIsAFormWithNoClashDetection', () => {
+  it('🚩 a blank echo on either side is never a clash — the screen does not invent one', () => {
+    // The guard the render-phase adoption in `ProfileForm` now relies on: a
+    // member the projection answered with no `lastUpdate` adopts a BLANK stamp
+    // rather than null, which is what stops the adoption looping — and a blank
+    // is exactly what this comparison already reads as "cannot tell".
+    expect(profileFormIsStale('', '2026-08-30T11:04:00')).toBe(false)
+    expect(profileFormIsStale('2026-07-31T09:12:00', '')).toBe(false)
+    expect(profileFormIsStale('', '')).toBe(false)
+  })
+
+  it('and the door stays the authority — an echo it dislikes is ITS refusal to make', () => {
+    const body = profileUpdateRequest(profileDraftOf(member()), '')
+    expect(body.lastUpdate).toBe('')
+    // The field is SENT, blank, rather than dropped: an absent key would leave
+    // the door unable to tell "no stamp" from "a client that forgot one".
+    expect(Object.keys(body)).toContain('lastUpdate')
+  })
+})

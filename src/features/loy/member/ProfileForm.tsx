@@ -58,6 +58,14 @@ import {
  *    That refusal is not an error: it says the member changed underneath you,
  *    and it offers a **reload** rather than a retry.
  */
+/**
+ * A member's last-update stamp as this form may echo it: the value itself, or a
+ * blank for a member that carries none. Blank is what `profileFormIsStale`
+ * already reads as *cannot tell*, so a member with no stamp is a form with no
+ * clash detection rather than a form that cannot save.
+ */
+const stampOf = (value: string | null | undefined): string => (value?.trim() ? value : '')
+
 export default function ProfileForm({
   member,
   onReseed,
@@ -133,9 +141,21 @@ export default function ProfileForm({
   // state derived from a prop that has just moved, and React's own answer to
   // that is to adjust it here — the extra render happens before anything is
   // painted, where an effect would paint the un-adopted state first.
-  if (awaitingStamp && !rereading) setSeed((current) => ({ ...current, lastUpdate: member.lastUpdate }))
+  //
+  // 🚩 **What is adopted is always a STRING, never the stamp verbatim.** This
+  // `setSeed` runs during render with no bail-out, and it terminates only
+  // because the adopted value stops `awaitingStamp` being true. A projection
+  // that ever answered a null or absent `lastUpdate` — the door is unwritten, so
+  // the type is a claim about a server rather than a fact — would have it adopt
+  // `null`, stay awaiting, and loop until React gave up with "maximum update
+  // depth exceeded". `stampOf` closes the quieter half too: an ABSENT stamp is
+  // `undefined`, `JSON.stringify` drops the field, and the stale-write guard
+  // silently becomes a no-op. A blank echo says *this form has no stamp* in the
+  // one spelling the guard already reads as "cannot tell".
+  if (awaitingStamp && !rereading)
+    setSeed((current) => ({ ...current, lastUpdate: stampOf(member.lastUpdate) }))
 
-  const openedOn = seed.lastUpdate ?? member.lastUpdate
+  const openedOn = seed.lastUpdate ?? stampOf(member.lastUpdate)
 
   const commandKey = memberCommandKey(member.loyId, 'profile')
 

@@ -6,7 +6,14 @@ import { Loader2, Search, ShieldAlert } from 'lucide-react'
 
 import { ApiError, apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import { canOpenLoyMember, LOY_ACCESS_KEY, loyAccessApi, loyApi, memberKey } from './api'
+import {
+  canOpenLoyMember,
+  LOY_ACCESS_KEY,
+  loyAccessApi,
+  loyApi,
+  memberAuthority,
+  memberKey,
+} from './api'
 import MemberHeader from './MemberHeader'
 import MemberTabs from './MemberTabs'
 import RecentSearches from './RecentSearches'
@@ -66,6 +73,12 @@ export default function MemberLookupPage() {
     retry: false,
   })
   const allowed = access.isSuccess && canOpenLoyMember(access.data)
+  // The other two tiers off the SAME answer (ticket 302, ADR 0001). Derived here
+  // and handed down rather than read again inside the tab: a second reader would
+  // be a second place for the shared-key options to drift, and the Profile tab
+  // must never be the reason the area costs two calls. A pending or errored probe
+  // resolves to no authority at all — the fail-closed rule, unchanged.
+  const authority = memberAuthority(access.data)
 
   // What the bar says it searched: the typed key from navigation state, falling
   // back to the LoyId on a cold load of the URL (227 decision 3).
@@ -363,7 +376,7 @@ export default function MemberLookupPage() {
               between two members whose Actions tab was open does, driven as
               scenario 33c.) The key makes leaving a member a remount, which is
               what every tab's state already assumes it is. */}
-          <MemberTabs key={member.data.loyId} loyId={member.data.loyId} />
+          <MemberTabs key={member.data.loyId} member={member.data} authority={authority} />
         </>
       )}
     </section>

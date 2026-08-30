@@ -30,6 +30,27 @@
  */
 export interface LoyAccessResult {
   canOpenLoyMember: boolean
+  /**
+   * 🚩 **The two write flags are OPTIONAL, and that is a statement about the
+   * wire rather than a convenience.** The backend half of spec 301 is unwritten,
+   * so today's door answers neither — declaring them required would let a future
+   * `access.data.canEditLoyMember` read type as `boolean` and arrive
+   * `undefined`. Optional makes the fail-closed predicates in the feature's
+   * `api.ts` the only legal way to consume them.
+   */
+  /**
+   * *May edit* — the second of spec 301's three tiers (ADR 0001). Gates the
+   * profile edit, the mobile change, block/unblock and the **email** removal.
+   * 🚩 Email removal sits here rather than behind the removal grant on purpose:
+   * an editor can blank the field through the ordinary profile command anyway,
+   * so gating it higher would be an authority that looks enforced and is not.
+   */
+  canEditLoyMember?: boolean
+  /**
+   * *May make unreachable* — the third tier, and the narrowest. Best read as
+   * *"may destroy a login"*: it guards the member's mobile, and the mobile only.
+   */
+  canRemoveLoyMemberMobile?: boolean
 }
 
 /** The member payload as the wire carries it — `LoyMemberModel`, verbatim. */

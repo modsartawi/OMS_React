@@ -1,9 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router'
 
+import type { LoyMember } from '@/core/models/loy'
 import ActionsTab from './ActionsTab'
 import ActivitiesTab from './ActivitiesTab'
+import ProfileTab from './ProfileTab'
 import SalesTab from './SalesTab'
+import type { MemberAuthority } from './api'
 import { MEMBER_TABS, resolveTab, type MemberTab } from './tab-volume'
 
 /**
@@ -25,14 +28,29 @@ import { MEMBER_TABS, resolveTab, type MemberTab } from './tab-volume'
  *   between the agent and the field they came from, and 227 #3 promised browser
  *   Back from a member lands on the field.
  *
+ * 🚩 **Profile is the exception to the fetch-when-opened rule, and it is not an
+ * exception to anything else.** It draws the member the route already resolved
+ * and the authority the page's own guard already read off the area's ONE probe —
+ * no read of its own, and 🚩 **no second reader of the probe either**: the
+ * authority arrives as a prop rather than as a fourth `useQuery` on the same key,
+ * because "one call" would then depend on three separate sites agreeing about
+ * `staleTime` (ticket 302).
+ *
  * The strip carries no counts. Only Actions has a real total, and a count on a
  * capped tab would be the completeness lie the captions exist to prevent (227 #7);
  * Actions' own total therefore lives in its caption row, with its pager.
  */
-export default function MemberTabs({ loyId }: { loyId: string }) {
+export default function MemberTabs({
+  member,
+  authority,
+}: {
+  member: LoyMember
+  authority: MemberAuthority
+}) {
   const { t } = useTranslation('loy')
   const [searchParams, setSearchParams] = useSearchParams()
   const open = resolveTab(searchParams.get('tab'))
+  const loyId = member.loyId
 
   const select = (tab: MemberTab) => {
     const next = new URLSearchParams(searchParams)
@@ -73,7 +91,9 @@ export default function MemberTabs({ loyId }: { loyId: string }) {
             state is scoped: Actions' page number lives inside the panel, so
             leaving the tab and coming back reopens at page 1 rather than at a
             page an agent no longer remembers choosing. */}
-        {open === 'activities' ? (
+        {open === 'profile' ? (
+          <ProfileTab member={member} authority={authority} />
+        ) : open === 'activities' ? (
           <ActivitiesTab loyId={loyId} />
         ) : open === 'sales' ? (
           <SalesTab loyId={loyId} />

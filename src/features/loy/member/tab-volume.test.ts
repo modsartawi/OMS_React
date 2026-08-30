@@ -37,8 +37,39 @@ describe('resolveTab', () => {
     }
   })
 
-  it('draws the three peers in the order the strip needs them', () => {
-    expect([...MEMBER_TABS]).toEqual(['activities', 'sales', 'actions'])
+  it('draws the peers in the order the strip needs them', () => {
+    expect([...MEMBER_TABS]).toEqual(['profile', 'activities', 'sales', 'actions'])
+  })
+})
+
+/**
+ * Ticket 302's pure Proof bullet. Profile arrives at the FRONT of the strip
+ * while the landing tab stays where 227 #7 put it — the failure being guarded
+ * against is the plausible, silent one: a later edit "tidying" the default to
+ * match the order, and every analyst who only reads landing on a field list
+ * instead of on the points history they came for.
+ */
+describe('profileLeadsTheStripWithoutBecomingTheLandingTab', () => {
+  it('puts Profile first', () => {
+    expect(MEMBER_TABS[0]).toBe('profile')
+  })
+
+  it('🚩 and leaves Activities as the landing tab', () => {
+    expect(DEFAULT_MEMBER_TAB).toBe('activities')
+    expect(resolveTab(null)).toBe('activities')
+    expect(resolveTab(undefined)).toBe('activities')
+  })
+
+  it('opens Profile only when a link asks for it by name', () => {
+    expect(resolveTab('profile')).toBe('profile')
+  })
+
+  it('🚩 keeps the unknown-value fallback on Activities, not on the first tab', () => {
+    // The two are now different tabs, so "falls back to the default" and "falls
+    // back to the first one drawn" have stopped being the same sentence.
+    for (const junk of ['', 'Profile', 'details', 'profile ', '../etc']) {
+      expect(resolveTab(junk)).toBe('activities')
+    }
   })
 })
 

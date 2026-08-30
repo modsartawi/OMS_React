@@ -13,13 +13,24 @@
  * the count goes in and only a boolean-shaped decision comes out.
  */
 
-/** The three peer tabs, in the order the strip draws them (227 #7). */
-export const MEMBER_TABS = ['activities', 'sales', 'actions'] as const
+/**
+ * The member's tabs, in the order the strip draws them (227 #7, extended by
+ * ticket 302).
+ *
+ * 🚩 **Profile LEADS the strip and is not the landing tab.** Those are two
+ * separate decisions and this module keeps them separate on purpose: the member
+ * is what the screen is about, so Profile reads first; but *"what happened to my
+ * points"* is the question that brings an analyst here, and that is still true
+ * for the many who only ever read (227 #7). Ordering is where the eye starts,
+ * `DEFAULT_MEMBER_TAB` is where the work starts.
+ */
+export const MEMBER_TABS = ['profile', 'activities', 'sales', 'actions'] as const
 
 export type MemberTab = (typeof MEMBER_TABS)[number]
 
 /** Activities is the tab an agent lands on — "what happened to my points" is the
- *  question that brought them here (spec 231, story 25). */
+ *  question that brought them here (spec 231, story 25). 🚩 Unchanged by ticket
+ *  302: Profile leading the strip did not make it the destination. */
 export const DEFAULT_MEMBER_TAB: MemberTab = 'activities'
 
 /**

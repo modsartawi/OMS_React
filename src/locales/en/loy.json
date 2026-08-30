@@ -62,6 +62,7 @@
   "tabs": {
     "ariaLabel": "Member reports",
     "label": {
+      "profile": "Profile",
       "activities": "Activities",
       "sales": "Sales",
       "actions": "Actions"
@@ -141,5 +142,48 @@
     "posted": "Posted",
     "pending": "Pending",
     "error": "Error"
+  },
+  "profile": {
+    "inertNote": "These commands are not connected yet.",
+    "section": {
+      "profile": "Profile",
+      "facts": "Membership",
+      "status": "Status",
+      "removal": "Contact removal"
+    },
+    "field": {
+      "fullName": "Full name",
+      "email": "Email",
+      "birthDate": "Birth date",
+      "genderCode": "Gender code",
+      "nationalityCode": "Nationality code",
+      "nationalId": "National ID",
+      "cityCode": "City code",
+      "preferredLanguage": "Preferred language",
+      "insuranceCompany": "Insurance company"
+    },
+    "fact": {
+      "loyId": "Loy ID",
+      "memberType": "Member type",
+      "mobile": "Mobile",
+      "pointsBalance": "Points balance",
+      "pendingPoints": "Pending points",
+      "tier": "Tier",
+      "tierPoints": "Tier points",
+      "joinDate": "Joined",
+      "lastUpdate": "Last update",
+      "blockedReason": "Blocked reason"
+    },
+    "save": "Save changes",
+    "discard": "Discard",
+    "status": {
+      "block": "Block member",
+      "unblock": "Unblock member",
+      "blockedAs": "Currently blocked: {{reason}}",
+      "notBlocked": "This member is not blocked."
+    },
+    "removalNote": "Removing a contact detail takes away a way of reaching this customer. It is not account deletion.",
+    "removeEmail": "Remove email",
+    "removeMobile": "Remove mobile"
   }
 }

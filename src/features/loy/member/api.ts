@@ -48,9 +48,59 @@ export const LOY_ACCESS_KEY = ['loy', 'access'] as const
 export const canOpenLoyMember = (r: LoyAccessResult | null | undefined): boolean =>
   r?.canOpenLoyMember === true
 
+/**
+ * Whether the session may **edit** the member on screen — spec 301's second tier
+ * (ADR 0001). Identical rule to the one above, and deliberately a second
+ * one-line predicate rather than a parameterised reader: the three flags are
+ * three authorities, and a shared `has(flag)` helper would make it possible to
+ * ask for a flag that does not exist and be told `false` by a typo.
+ *
+ * 🚩 `=== true` and nothing looser. A denial, an absent flag, a string `"true"`,
+ * an empty object and a probe that never answered are all *no* — being wrong
+ * here fails **open** on a customer-PII surface.
+ */
+export const canEditLoyMember = (r: LoyAccessResult | null | undefined): boolean =>
+  r?.canEditLoyMember === true
+
+/**
+ * Whether the session may **remove the member's mobile** — the third tier, and
+ * the narrowest: it destroys a login and one of the only two ways a member can
+ * be found. Same fail-closed rule.
+ */
+export const canRemoveLoyMemberMobile = (r: LoyAccessResult | null | undefined): boolean =>
+  r?.canRemoveLoyMemberMobile === true
+
+/**
+ * What one session may do on this screen, read off ONE probe answer.
+ *
+ * 🚩 **Every tier is anchored on *may look*.** A session that cannot open the
+ * screen cannot edit it either, whatever the other two flags say — an editor who
+ * cannot open the member is a matrix rather than a permission (ADR 0001), and
+ * the anchoring means a door that answers `canEdit` to a refused session still
+ * draws nothing.
+ */
+export interface MemberAuthority {
+  mayLook: boolean
+  mayEdit: boolean
+  mayRemoveMobile: boolean
+}
+
+export function memberAuthority(r: LoyAccessResult | null | undefined): MemberAuthority {
+  const mayLook = canOpenLoyMember(r)
+  return {
+    mayLook,
+    mayEdit: mayLook && canEditLoyMember(r),
+    mayRemoveMobile: mayLook && canRemoveLoyMemberMobile(r),
+  }
+}
+
 export const loyAccessApi = {
   /**
-   * `GET LoyWeb/Access` → `{ canOpenLoyMember }`.
+   * `GET LoyWeb/Access` → the area's three authority flags: `canOpenLoyMember`
+   * (spec 231) plus `canEditLoyMember` and `canRemoveLoyMemberMobile` (spec 301,
+   * ADR 0001). 🚩 **One route, one answer, one cache key** — the nav leaf, the
+   * in-page guard and the Profile tab all read this call, so the menu and the
+   * screen cannot disagree about the same session.
    *
    * ⚠️ **Fails closed, and that is the point of ticket 234** — no 404-tolerant
    * catch, unlike the `Notifications/Access` and `Bby/Access` probes which

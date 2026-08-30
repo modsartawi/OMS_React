@@ -328,3 +328,52 @@ _Avoid_: **origin** as a synonym for the source tag — the tag says which LAYER
 condition's own `conditionSource` (its origin: minted by hand, automatic, a distributed header copy, a
 base price) is a different and smaller mark that rides beside it. The screen's column is labelled
 *minted by*.
+
+**Loyalty member**:
+A customer's identity in the loyalty programme — the person a `loyId` names, carrying their profile,
+points balance, tier and history. ⚠️ Findable by **exactly two keys**: the loyalty id and the mobile
+number. Email, national ID and name are fields *on* a member, never ways *to* one — which is why
+clearing the mobile makes a member unreachable and clearing the email does not.
+_Avoid_: customer (the person, who exists whether or not they are enrolled), account, card holder.
+
+**Member command**:
+A named, single-purpose write against one loyalty member — update profile, change mobile, block,
+unblock, remove email, remove mobile. Each is invoked on its own, refuses on its own, and leaves its
+own trail; there is deliberately **no "save the form"** that writes several at once, because one
+trail entry has room for only one name and a composite write would have to lie about which change it
+was. The same word the Document Details **command families** use, and the same idea.
+_Avoid_: save, update (unqualified), action (that is the *record* a command leaves, see below).
+
+**Member update snapshot**:
+The row a member command leaves behind — a copy of the member's profile **as it stood after the
+command**, stamped with which command wrote it, who ran it and when. ⚠️ An **after-image, not a
+diff**: it says what the member became, never what changed or what the value used to be. Recovering a
+previous value means reading the *preceding* snapshot, and this trail is deliberately visible on no
+screen.
+_Avoid_: audit log, change log, history (the **member action** is the screen-visible trail; this is
+the quieter one beneath it).
+
+**Contact removal**:
+The command that clears a member's reachability at their own request — the mobile, the email, or
+both, each removable on its own. ⚠️ **Not deletion, and the copy must never imply it is**: the
+member, their name, their national ID, their points and their whole purchase history remain, and only
+the ways of reaching or finding them are taken away. Removing the **mobile** also ends the member's
+ability to sign in and blocks the account; removing the **email** ends a contact channel and nothing
+else.
+_Avoid_: erasure, account deletion, close account, GDPR/PDPL erasure, anonymisation — every one of
+them claims more than the command does.
+
+**Case reference**:
+The customer's own request, named by the agent, recorded on a contact removal so the trail says *why*
+a member was made unreachable. Free text and non-PII by convention — it is the one thing a removal
+records, since the removed values themselves are kept nowhere new.
+_Avoid_: note, comment, remark (those invite prose; this is a pointer to a request that happened
+elsewhere).
+
+**System reason**:
+A blocked-reason the system sets and an agent may not choose. It marks how a member came to be
+blocked — by a mobile collision, by inactivity, by their own removal request — as opposed to the
+ordinary reasons a person picks from a list. The distinction exists so that a state carrying a
+serious claim cannot be applied by hand to a member the claim isn't true of.
+_Avoid_: internal reason, hidden reason (it is shown wherever a member's block is shown; it is
+unselectable, not invisible).

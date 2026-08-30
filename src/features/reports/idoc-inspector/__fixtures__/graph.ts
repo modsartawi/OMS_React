@@ -31,6 +31,10 @@ export function aCondition(over: Partial<IDocInspectorCondition> = {}): IDocInsp
     conditionValue: 23,
     conditionClass: 'B',
     conditionControl: 'A',
+    // ⚠️ `false` by default and asked for explicitly: a post condition is a
+    // real, ordinary thing, but it is the tinted one — so it must never arrive on
+    // a fixture by accident and make the highlight look broken.
+    isPostCondition: false,
     // ⚠️ A REAL mapping. An empty `discTypeCode` means *no SAP mapping was found*
     // and is a defect (ticket 300), so it must be asked for explicitly rather
     // than arriving by default on every fixture condition.
@@ -52,6 +56,7 @@ export function aLine(over: Partial<IDocInspectorLine> = {}): IDocInspectorLine 
     promotionId: '',
     batchNumber: 'B24A917',
     isReturn: false,
+    isPostItem: false,
     sourceTag: 'pos',
     conditions: [aCondition()],
     itemDetails: [{ seq: 1, attributeName: 'BATCH', attributeValue: 'B24A917' }],
@@ -156,7 +161,13 @@ export function aMetadata(over: Partial<IDocInspectorMetadata> = {}): IDocInspec
         { code: 'SAPR', name: 'SalesAsPerReceipt' },
         { code: 'FI', name: 'FinancialDocument' },
       ],
-      billingType: [{ code: 'ZAGG', name: 'Aggregated' }],
+      // ⚠️ Reflected off `BillingTypeConstants`, whose members are WORDS — not the
+      // four-letter codes the rest of this screen carries. `aDocument` carries the
+      // first of these, so its label resolves.
+      billingType: [
+        { code: 'STANDARD_POS', name: 'StandardPOS' },
+        { code: 'Insurance', name: 'Insurance' },
+      ],
       workflowType: [{ code: 'ZAGG', name: 'Aggregated' }],
       paymentGroup: [{ code: '01', name: 'Cash' }],
       errorType: [

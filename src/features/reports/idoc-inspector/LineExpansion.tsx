@@ -125,7 +125,12 @@ export default function LineExpansion({
                 <tr
                   key={condition.seq}
                   data-condition={condition.seq}
-                  className={SUB_ROW}
+                  data-post-condition={condition.isPostCondition ? 'true' : undefined}
+                  // ⚠️ Tinted independently of the line above it. A post condition
+                  // on an ordinary line (a commission on a normal sale) and an
+                  // ordinary condition on a post line are both real, so neither
+                  // tint is derived from the other.
+                  className={`${SUB_ROW} ${condition.isPostCondition ? 'bg-post-050' : ''}`}
                 >
                   <td className="px-1.5 py-1 font-mono tabular-nums">{condition.seq}</td>
                   {/* The raw condition type, and beside it the condition's CLASS
@@ -139,6 +144,17 @@ export default function LineExpansion({
                       <span className="font-mono">{condition.conditionType}</span>
                       <CodeMark vocabulary="conditionClass" code={condition.conditionClass} />
                       <CodeMark vocabulary="conditionControl" code={condition.conditionControl} />
+                      {/* Same rule as the line's chip: the tint scans, this says
+                          what it means. A mark rather than a word here — the row
+                          is eight columns wide and the two beside it are marks. */}
+                      {condition.isPostCondition && (
+                        <span
+                          className="text-post-800"
+                          title={t('idocInspector.expansion.isPostConditionTitle')}
+                        >
+                          {t('idocInspector.expansion.isPostCondition')}
+                        </span>
+                      )}
                     </span>
                   </td>
                   {/* 🔑 Open master data, resolved per row by the SERVER — the one

@@ -130,20 +130,20 @@ const positives = [
   ['--primary-foreground', '--fam-cancel-request', BODY],
   // R4's whole point: each `-800` is legible on its own `-050`, in BOTH themes,
   // from ONE class string. This is what lets the sweep delete every `dark:`.
-  ...['primary', 'success', 'attention', 'danger', 'prescription'].map((f) => [
+  ...['primary', 'success', 'attention', 'danger', 'prescription', 'post'].map((f) => [
     `--${f}-800`,
     `--${f}-050`,
     BODY,
   ]),
   // D-6's bare-ink shape: `-800` directly on a page surface, no tinted ground.
-  ...['primary', 'success', 'attention', 'danger'].flatMap((f) =>
+  ...['primary', 'success', 'attention', 'danger', 'post'].flatMap((f) =>
     ['--card', '--background', '--muted'].map((s) => [`--${f}-800`, s, BODY]),
   ),
   // D-6's bare-fill shape (dot, bar, meter) — a non-text graphic, 3:1.
-  ...['primary', 'success', 'attention', 'danger', 'fam-fulfilment', 'fam-cancel-request'].map(
+  ...['primary', 'success', 'attention', 'danger', 'post', 'fam-fulfilment', 'fam-cancel-request'].map(
     (f) => [`--${f}`, '--card', UI],
   ),
-  ...['primary', 'success', 'attention', 'danger'].map((f) => [`--${f}`, '--background', UI]),
+  ...['primary', 'success', 'attention', 'danger', 'post'].map((f) => [`--${f}`, '--background', UI]),
   // The focus ring must stay visible against the surfaces it rings, including
   // the filled primary button it lands on when tabbed to (user story 14).
   ['--ring', '--background', UI],

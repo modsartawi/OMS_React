@@ -102,6 +102,13 @@ export interface IDocInspectorCondition {
   conditionValue: number
   conditionClass: string
   conditionControl: string
+  /** Was this condition **added after the original invoice** — a partner
+   *  commission and its like — rather than priced with the sale?
+   *
+   *  🔑 A fact about PROVENANCE, not a problem: a post condition is ordinary and
+   *  expected. It is tinted, never flagged, and deliberately not drawn in the
+   *  screen's attention ink, which on this screen means a defect. */
+  isPostCondition: boolean
   /** ⚠️ `"3302"` blanks the amount in the exported XML while the stored row keeps
    *  it — marked on screen rather than hidden, so the table cannot silently
    *  disagree with the file. */
@@ -129,6 +136,14 @@ export interface IDocInspectorLine {
    *  spells this one `BatchNumber` and that one `Batch`. */
   batchNumber: string
   isReturn: boolean
+  /** Was this line **added after the original invoice** rather than sold at the
+   *  till? Same reading as `IDocInspectorCondition.isPostCondition`, one level up.
+   *
+   *  ⚠️ **Independent of its conditions.** An ordinary line can carry a post
+   *  condition (a commission on a normal sale), and a post line's conditions are
+   *  not all post by construction — so the two are tinted separately and neither
+   *  is derived from the other. */
+  isPostItem: boolean
   /**
    * Who minted this line.
    *

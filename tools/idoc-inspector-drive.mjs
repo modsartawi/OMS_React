@@ -204,6 +204,9 @@ const condition = (over = {}) => ({
   discTypeCode: '3301',
   sourceTag: 'pos',
   conditionSource: 'B',
+  // ⚠️ `false` by default and asked for explicitly: a post condition is ordinary
+  // and real, but it is the TINTED one, so it must never arrive by accident.
+  isPostCondition: false,
   ...over,
 })
 const line = (over = {}) => ({
@@ -216,6 +219,7 @@ const line = (over = {}) => ({
   promotionId: '',
   batchNumber: 'B24A917',
   isReturn: false,
+  isPostItem: false,
   sourceTag: 'pos',
   conditions: [condition()],
   itemDetails: [{ seq: 1, attributeName: 'PARTNER', attributeValue: '0000401288' }],
@@ -264,6 +268,10 @@ const aggDocument = {
           seq: 2,
           conditionType: 'COFF',
           conditionTypeDescription: 'Commission fee',
+          // 🔑 A PARTNER COMMISSION — added after the original invoice, which is
+          // exactly what a post condition is. It sits on an ORDINARY line, which
+          // is the pair that proves the two tints are independent.
+          isPostCondition: true,
           sourceTag: 'hungerstn',
           conditionSource: 'M',
           conditionClass: 'D',
@@ -273,6 +281,16 @@ const aggDocument = {
           discTypeCode: '',
         }),
       ],
+    }),
+    // 🔑 A POST LINE — added after the original invoice rather than sold at the
+    // till. Its own conditions are ORDINARY, which together with the commission
+    // on line 3 proves the two tints are independent in BOTH directions.
+    line({
+      itemNumber: 4,
+      materialNumber: '9000044',
+      itemTypeCode: 'ZPOS',
+      isPostItem: true,
+      sourceTag: 'pos',
       itemDetails: [],
     }),
   ],
@@ -703,6 +721,38 @@ async function run() {
     /CHARG/i.test(expansionText),
     expansionText.replace(/\n/g, ' ').slice(0, 200),
   )
+  // ---- post items and post conditions ------------------------------------
+  // Added AFTER the original invoice (a partner commission, say). Tinted so they
+  // can be scanned, and NAMED so the tint is never the only carrier.
+  const postLine = page.locator('[data-line="4"][data-post-item="true"]')
+  check(
+    'a POST line is marked as post — and marked in WORDS, not by colour alone',
+    (await postLine.count()) === 1 && /Post/.test(await postLine.innerText()),
+    (await postLine.count()) ? (await postLine.innerText()).split('\n').join(' ') : 'no post line',
+  )
+  check(
+    '⚠️ an ORDINARY line carries no post mark — the flag is read, not assumed',
+    (await page.locator('[data-line="1"][data-post-item="true"]').count()) === 0 &&
+      !/Post/.test(await page.locator('[data-line="1"]').innerText()),
+    (await page.locator('[data-line="1"]').innerText()).split('\n').join(' ').slice(0, 120),
+  )
+  // 🔑 The independence, both ways: a POST CONDITION on an ORDINARY line.
+  await page.locator('[data-line="3"]').click()
+  await page.waitForTimeout(150)
+  check(
+    '🔑 a post CONDITION is tinted on an ordinary line — the two flags are independent',
+    (await page.locator('[data-condition="2"][data-post-condition="true"]').count()) === 1 &&
+      (await page.locator('[data-line="3"][data-post-item="true"]').count()) === 0,
+    'commission on a till-sold line',
+  )
+  check(
+    '⚠️ …and the ordinary condition beside it is NOT tinted',
+    (await page.locator('[data-condition="1"][data-post-condition="true"]').count()) === 0,
+    'seq 1 untinted',
+  )
+  await page.locator('[data-line="3"]').click()
+  await page.waitForTimeout(150)
+
   check(
     'a condition shows the BASE the rate was applied to, so the row can be checked',
     /Base/i.test(expansionText) && /200\.00/.test(expansionText),
@@ -759,7 +809,9 @@ async function run() {
   await page.waitForTimeout(120)
   check(
     'clearing the filter restores every line',
-    (await page.locator('[data-line]').count()) === 3,
+    // Four since the post line joined the stub: an ordinary line, the untagged
+    // one, the one carrying the commission, and the post line itself.
+    (await page.locator('[data-line]').count()) === 4,
     `${await page.locator('[data-line]').count()} line(s)`,
   )
   // Leave a filter ON across the document switch below — the trap is a filter

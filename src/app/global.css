@@ -140,6 +140,17 @@
   --danger-border: #e7bfc1;
   --danger-800: #8e2a2f; /* the Force-Cancel ink */
 
+  /* A POST row — an item or condition added AFTER the original invoice (a partner
+     commission, say). Violet because every other hue on the IDoc inspector is
+     already spoken for and would misread: `--attention` is that screen's DEFECT
+     ink (an unmapped disc code), `--danger` a refusal, `--success` a settled
+     state, `--primary` the selection itself. "Added later" is none of those — it
+     is a fact about provenance, not a problem. Tint / border / dot only. */
+  --post: #6b4fbb;
+  --post-050: #f0ecfa;
+  --post-border: #d2c6ee;
+  --post-800: #4a3387;
+
   /* Compatibility alias for 14 existing call sites — a rename was avoided on
      purpose. `--destructive` IS `--danger`. */
   --destructive: var(--danger);
@@ -230,6 +241,11 @@
   --danger-border: #6f3837;
   --danger-800: #eeb3b0;
 
+  --post: #a893e6; /* R2, hue held, lifted so violet reads against the steel ground */
+  --post-050: #2f2547;
+  --post-border: #493c6b;
+  --post-800: #d3c7f4;
+
   --destructive: var(--danger);
   --destructive-foreground: #121c27;
 
@@ -291,6 +307,11 @@
   --color-danger-050: var(--danger-050);
   --color-danger-border: var(--danger-border);
   --color-danger-800: var(--danger-800);
+
+  --color-post: var(--post);
+  --color-post-050: var(--post-050);
+  --color-post-border: var(--post-border);
+  --color-post-800: var(--post-800);
 
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);

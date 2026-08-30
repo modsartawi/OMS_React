@@ -263,6 +263,8 @@
         "mintedBy": "Minted by"
       },
       "isReturn": "Return",
+      "isPostItem": "Post",
+      "isPostItemTitle": "Added after the original invoice — not sold at the till.",
       "none": "This document carries no line items.",
       "noneForTag": "No line on this document was minted by that source."
     },
@@ -287,7 +289,9 @@
         "discCode": "Disc. code",
         "mintedBy": "Minted by"
       },
-      "xmlBlanked": "This amount is stored on the row but written blank in the exported XML."
+      "xmlBlanked": "This amount is stored on the row but written blank in the exported XML.",
+      "isPostCondition": "post",
+      "isPostConditionTitle": "Added after the original invoice — a partner commission, say."
     },
     "provenance": {
       "unknown": "unknown",

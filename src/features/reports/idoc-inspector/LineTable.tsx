@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronRight, Undo2 } from 'lucide-react'
+import { ChevronRight, PlusCircle, Undo2 } from 'lucide-react'
 import type { IDocInspectorLine } from '@/core/models/idoc-inspector'
 import Ltr from '@/core/ui/Ltr'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
@@ -74,13 +74,27 @@ export default function LineTable({
             <tr
               key={line.itemNumber}
               data-line={line.itemNumber}
+              data-post-item={line.isPostItem ? 'true' : undefined}
               tabIndex={0}
               role="button"
               aria-expanded={open}
               onClick={() => onToggle(line.itemNumber)}
               onKeyDown={(e) => onRowKey(e, () => onToggle(line.itemNumber))}
+              // A POST line — added after the original invoice — carries the violet
+              // ground in every state, so it stays identifiable while open and while
+              // hovered. ⚠️ The START EDGE is the open indicator's and is not shared:
+              // an open post line shows the primary edge, and the tint is what still
+              // says post. Two facts, one edge, so the edge keeps its one meaning.
               className={`h-[34px] cursor-pointer border-s-[3px] border-b border-b-divider text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring ${
-                open ? 'border-s-primary bg-card-2' : 'border-s-transparent hover:bg-accent/60'
+                open ? 'border-s-primary' : 'border-s-transparent'
+              } ${
+                line.isPostItem
+                  ? open
+                    ? 'bg-post-050'
+                    : 'bg-post-050/70 hover:bg-post-050'
+                  : open
+                    ? 'bg-card-2'
+                    : 'hover:bg-accent/60'
               }`}
             >
               <td className="px-2 align-middle text-[11px] font-bold tabular-nums text-ink-3">
@@ -115,6 +129,20 @@ export default function LineTable({
                     <span className="inline-flex items-center gap-0.5 text-attention-800">
                       <Undo2 className="h-3 w-3" aria-hidden />
                       {t('idocInspector.lines.isReturn')}
+                    </span>
+                  )}
+                  {/* 🔑 The tint is never the ONLY carrier. A colour alone cannot be
+                      read by a colour-blind consultant, does not survive a printed
+                      screenshot pasted into a SAP ticket, and cannot say WHAT it
+                      means; this chip names the fact and the title sentence explains
+                      it. The row tint is the scanning aid, not the statement. */}
+                  {line.isPostItem && (
+                    <span
+                      className="inline-flex items-center gap-0.5 text-post-800"
+                      title={t('idocInspector.lines.isPostItemTitle')}
+                    >
+                      <PlusCircle className="h-3 w-3" aria-hidden />
+                      {t('idocInspector.lines.isPostItem')}
                     </span>
                   )}
                 </div>

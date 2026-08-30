@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseRecents, pushRecent, RECENT_LIMIT } from './recent-searches'
+import { forgetRemovedMobile, parseRecents, pushRecent, RECENT_LIMIT } from './recent-searches'
 
 /**
  * Ticket 239's pure Proof: **a push moves an existing key to the front instead of
@@ -72,5 +72,63 @@ describe('parseRecents', () => {
     expect(parseRecents(JSON.stringify(['1', '2', '3', '4', '5', '6', '7']))).toHaveLength(
       RECENT_LIMIT,
     )
+  })
+})
+
+/**
+ * Ticket 307's third pure bullet.
+ *
+ * 🚩 **The chips ARE customers' mobile numbers.** They hold the key the agent
+ * typed, in `sessionStorage`, on a shared back-office workstation — so the number
+ * an agent has just been asked to remove would otherwise sit in their session as
+ * a chip that no longer resolves. Dropping it is the last half of honouring the
+ * request.
+ */
+describe('forgetRemovedMobile', () => {
+  it('🚩 drops the removed number from the bar', () => {
+    expect(forgetRemovedMobile(['966555000111', '100004411'], '966555000111')).toEqual([
+      '100004411',
+    ])
+  })
+
+  it('🚩 drops it however the agent TYPED it — the chip is keystrokes, the number is a number', () => {
+    // The bar stores what was typed, deliberately (239 decision 1), so the match
+    // has to compact both sides — the same `compact` the lookup itself uses, not
+    // a second spelling of it.
+    expect(forgetRemovedMobile(['+966 555 000-111'], '966555000111')).toEqual([])
+    expect(forgetRemovedMobile(['(966) 555000111'], '966555000111')).toEqual([])
+  })
+
+  it('leaves every other member alone', () => {
+    expect(forgetRemovedMobile(['966555000222', '966555000111'], '966555000111')).toEqual([
+      '966555000222',
+    ])
+  })
+
+  it('🚩 a member found BY LOYALTY ID has no mobile chip, and the bar is untouched', () => {
+    // Their loyalty-id chip still resolves after the removal — the member is
+    // still there, and the id is now the only handle. Dropping it would take
+    // away the one way back to them.
+    expect(forgetRemovedMobile(['100001293'], '966555000111')).toEqual(['100001293'])
+  })
+
+  it('⚠️ does NOT catch a chip typed in another dialling form — a known limit, not an oversight', () => {
+    // `0555000111` and `966555000111` are the same customer, and the browser
+    // cannot know it: normalisation belongs to the door
+    // (`LoyMobileNumbers.NormaliseTyped`), and a second spelling of that rule
+    // here is how the bar starts disagreeing with the lookup about what a chip
+    // means (decision 225 ruling 4, and `mobileChangeVerdict`'s same ruling).
+    //
+    // 🚩 This test exists so the gap is a STATED fact with a shape, rather than
+    // something a later reader assumes is handled. The chips die with the tab
+    // either way; closing it properly means the door telling us what it
+    // normalised, which is a question for map 1396.
+    expect(forgetRemovedMobile(['0555000111'], '966555000111')).toEqual(['0555000111'])
+  })
+
+  it('a member who had no number to remove changes nothing, and never throws', () => {
+    expect(forgetRemovedMobile(['100001293'], null)).toEqual(['100001293'])
+    expect(forgetRemovedMobile(['100001293'], '   ')).toEqual(['100001293'])
+    expect(forgetRemovedMobile([], '966555000111')).toEqual([])
   })
 })

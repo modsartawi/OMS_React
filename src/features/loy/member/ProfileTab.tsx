@@ -9,8 +9,8 @@ import { PROFILE_FIELDS, profileDraftOf } from './profile-form'
 import MemberFact from './MemberFact'
 import MobileCommand from './MobileCommand'
 import ProfileForm from './ProfileForm'
-import { QUIET_BUTTON } from './profile-controls'
 import RemoveEmailCommand from './RemoveEmailCommand'
+import RemoveMobileCommand from './RemoveMobileCommand'
 import StatusCommand from './StatusCommand'
 
 /**
@@ -39,14 +39,14 @@ import StatusCommand from './StatusCommand'
  * enforced server-side per route (ADR 0001); the flags decide only what is
  * *drawn*.
  *
- * ⚠️ **Only the mobile removal is still inert.** 302 owned the *visibility
- * rule* and wrote nothing; 303 wired the Status command up (`StatusCommand` —
- * block and unblock, and the write idiom the rest copy), 304 the profile itself
- * (`ProfileForm`), 305 the mobile (`MobileCommand`) and 306 the email removal
- * (`RemoveEmailCommand`). 307 (mobile removal) is still a button that does
- * nothing, and the note above the groups names **it** rather than claiming the
- * whole tab is disconnected — a note that says more than is true is how an
- * editor stops reading it.
+ * **Every command on this tab is now real.** 302 owned the *visibility rule* and
+ * wrote nothing; 303 wired the Status command up (`StatusCommand` — block and
+ * unblock, and the write idiom the rest copy), 304 the profile itself
+ * (`ProfileForm`), 305 the mobile (`MobileCommand`), 306 the email removal
+ * (`RemoveEmailCommand`) and 307 the mobile removal (`RemoveMobileCommand`).
+ * The note that used to say what was still disconnected is gone with the last
+ * inert button — a note that says more than is true is how an editor stops
+ * reading the notes.
  *
  * **Drawn nowhere:** the referral code the ticket's read-only column names —
  * `LoyMemberModel` does not carry one, so there is no field on the wire, on the
@@ -85,14 +85,6 @@ export default function ProfileTab({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* 🚩 Said only to the session that can see the one control it is still
-          true of. 306 connected the email removal, so an editor without the
-          removal grant now has nothing inert on this tab — and a note claiming
-          otherwise is how an analyst stops reading the notes. */}
-      {mayRemoveMobile && (
-        <p className="text-xs text-muted-foreground">{t('profile.inertNote')}</p>
-      )}
-
       <section className="flex flex-col gap-3">
         <Legend>{t('profile.section.profile')}</Legend>
         {/* 🚩 ONE field list, drawn twice. Both renderings map `PROFILE_FIELDS`,
@@ -111,10 +103,17 @@ export default function ProfileTab({
             // undone by an ordinary edit: the address the customer asked to have
             // taken away, restored by the analyst who took it away, silently.
             // Keying on the value makes the form re-seed exactly when the
-            // re-read lands — which is why it is the *stored* email and not a
+            // re-read lands — which is why it is the *stored* value and not a
             // counter bumped on success: the invalidation is deliberately not
             // awaited, so at the moment a removal succeeds the cache still holds
             // the old member, and a counter would re-seed from it.
+            //
+            // 🚩 The **email** and nothing else. The form holds no mobile — that
+            // is 305's own control — so a mobile removal cannot resurrect
+            // anything from here. The stale `lastUpdate` a sibling command leaves
+            // behind is a real and separate problem, recorded against 304/305 and
+            // true of every command on this tab; half-fixing it for one of them
+            // here would leave the screen with two answers to one question.
             key={`${formGeneration}:${member.email ?? ''}`}
             member={member}
             onReseed={() => setFormGeneration((generation) => generation + 1)}
@@ -206,11 +205,7 @@ export default function ProfileTab({
             {/* The third tier, and the only control behind it. Hidden entirely
                 rather than disabled — a disabled button is an invitation to ask
                 for a grant nobody meant to offer. */}
-            {mayRemoveMobile && (
-              <button type="button" disabled className={QUIET_BUTTON}>
-                {t('profile.removeMobile')}
-              </button>
-            )}
+            {mayRemoveMobile && <RemoveMobileCommand member={member} />}
           </div>
         </section>
       )}

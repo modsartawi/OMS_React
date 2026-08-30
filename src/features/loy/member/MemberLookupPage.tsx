@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -17,7 +17,7 @@ import {
 import MemberHeader from './MemberHeader'
 import MemberTabs from './MemberTabs'
 import RecentSearches from './RecentSearches'
-import { pushRecent, readRecents, saveRecents } from './recent-searches'
+import { pushRecent, readRecents, saveRecents, subscribeRecents } from './recent-searches'
 import { resolveMember } from './resolve-member'
 
 /**
@@ -95,6 +95,16 @@ export default function MemberLookupPage() {
   // beside it, so the bar updates without a re-read.
   const [recents, setRecents] = useState(readRecents)
 
+  /**
+   * 🚩 **The bar has a second writer** (ticket 307). A mobile **contact removal**
+   * drops the removed number from the store, and this component is still mounted
+   * while it happens — it owns the member route as well as the lookup one — so
+   * without this subscription the state would keep the number: it would go on
+   * rendering as a chip, and the next search would push off the stale array and
+   * write the removed customer's number back into the store.
+   */
+  useEffect(() => subscribeRecents(setRecents), [])
+
   const member = useQuery({
     queryKey: memberKey(loyId ?? ''),
     queryFn: () => loyApi.byLoyId(loyId as string),
@@ -117,7 +127,11 @@ export default function MemberLookupPage() {
       // that found somebody earns a chip: a miss, a refusal and an outage all
       // return above this line. The bar is a list of people looked at, never of
       // numbers mistyped (239 decision 4).
-      const next = pushRecent(recents, text)
+      // 🚩 Pushed onto what the STORE holds, not onto this component's copy of
+      // it. The two agree at every ordinary moment; they part exactly when
+      // something else has rewritten the bar — a removal — and the store is the
+      // copy that is right.
+      const next = pushRecent(readRecents(), text)
       setRecents(next)
       saveRecents(next)
       setEditing(false)

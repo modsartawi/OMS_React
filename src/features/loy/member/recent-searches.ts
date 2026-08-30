@@ -20,6 +20,8 @@
  * have.
  */
 
+import { compact } from './resolve-member'
+
 /** Five, not three: five twelve-digit keys sit in one row under the centred
  *  field, and three throws away the member looked at four searches ago. */
 export const RECENT_LIMIT = 5
@@ -87,4 +89,78 @@ export function saveRecents(list: readonly string[]): void {
   } catch {
     /* a bar that cannot be saved is a bar that does not appear next time */
   }
+}
+
+/**
+ * The bar after a member's mobile has been removed (ticket 307) — the chips that
+ * are **that number**, gone.
+ *
+ * 🚩 **This is the last half of honouring the request.** The chips hold the key
+ * the agent typed, in `sessionStorage`, on a shared back-office workstation — so
+ * the number a customer has just asked to have taken away would otherwise sit in
+ * the agent's session, on screen, as a chip that no longer resolves.
+ *
+ * 🚩 **A chip is keystrokes and a number is a number**, so both sides are
+ * compacted before they are compared — `+966 555 000-111` and `966555000111` are
+ * the same chip. It is `resolveMember`'s own `compact`, reused rather than
+ * re-spelled: a second spelling of that rule is how the bar starts disagreeing
+ * with the lookup about what a chip means (decision 225 ruling 4).
+ *
+ * 🚩 **A loyalty-id chip is deliberately kept.** It still resolves — the member
+ * is still there, and after this command the id is the ONLY handle anyone has on
+ * them, because the portal's search will not find them by number any more.
+ * Dropping it would take away the one way back.
+ *
+ * A member who had no number to remove leaves the bar exactly as it was.
+ */
+export function forgetRemovedMobile(
+  list: readonly string[],
+  removed: string | null | undefined,
+): string[] {
+  const gone = compact(removed?.trim() ?? '')
+  if (!gone) return [...list]
+  return list.filter((entry) => compact(entry.trim()) !== gone)
+}
+
+/**
+ * Who is currently drawing the bar. A `Set`, so a remount cannot register twice.
+ *
+ * 🚩 **This exists because the bar has two writers and one of them is not the
+ * screen that draws it.** `MemberLookupPage` owns the route that renders the
+ * chips AND the route that renders a member's tabs — it stays mounted while a
+ * **contact removal** runs — so it holds the list in `useState` seeded once at
+ * mount. Without a way to be told, a removal that only rewrote `sessionStorage`
+ * would leave that state holding the number: the chip would keep rendering, and
+ * the agent's next search would `pushRecent` off the stale array and write the
+ * removed customer's number straight back into the store. That is precisely the
+ * leak the removal exists to close, arriving one search later.
+ */
+const listeners = new Set<(list: string[]) => void>()
+
+/** Draw the bar from the store, and be told when the store changes underneath.
+ *  Returns the unsubscribe, so it drops straight into a `useEffect`. */
+export function subscribeRecents(listener: (list: string[]) => void): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+/**
+ * Drop the removed number from the bar **in the session** — the whole of the
+ * chip half of a mobile removal, in the module that owns the bar.
+ *
+ * The command calls this and nothing else: reading the store, applying the rule,
+ * writing it back and telling whoever is drawing it are four steps a caller
+ * should not have to get in the right order, and `readRecents` / `saveRecents`
+ * already swallow a storage that refuses, so this cannot throw into a write that
+ * has already committed.
+ */
+export function forgetRemovedMobileInSession(removed: string | null | undefined): void {
+  const next = forgetRemovedMobile(readRecents(), removed)
+  saveRecents(next)
+  // 🚩 The store first, the screen second — a listener that threw would
+  // otherwise leave the number in `sessionStorage`, which is the copy that
+  // outlives this render.
+  for (const listener of listeners) listener(next)
 }

@@ -144,7 +144,6 @@
     "error": "Error"
   },
   "profile": {
-    "inertNote": "The mobile removal is not connected yet.",
     "section": {
       "profile": "Profile",
       "facts": "Membership",
@@ -223,19 +222,35 @@
       "dialogTitle": "Remove this member's email address",
       "dialogNote": "This stops the member being emailed at this address. Nothing else about them changes: their name, their national ID, their sign-in, their points, their tier and their whole purchase history all stay exactly as they are, and only the email address is cleared.",
       "recordNote": "The removal records your case reference, who ran it and when. It does not record the address being removed anywhere new.",
-      "referenceLabel": "Case reference",
-      "referencePlaceholder": "e.g. CASE-4471",
-      "referenceHint": "Name the customer's request — a case or ticket number, or how it reached you. It is shown on the actions trail, so keep the customer's own details out of it.",
-      "referenceRequired": "Remove stays unavailable until a case reference is entered.",
-      "problem": {
-        "tooLong": "A case reference can be at most {{max}} characters."
-      },
       "confirm": "Remove email",
       "cancel": "Cancel",
       "removed": "The member's email address was removed.",
       "failed": "The member's email address could not be removed."
     },
-    "removeMobile": "Remove mobile",
+    "removeMobile": {
+      "action": "Remove mobile",
+      "none": "This member has no mobile number to remove.",
+      "current": "Mobile now",
+      "dialogTitle": "Remove this member's mobile number",
+      "dialogNote": "Removing the number is how a customer who has asked to be made unreachable is recorded as having asked. Read the three points below to the customer before you confirm.",
+      "consequence": {
+        "signIn": "The member will not be able to sign in. Signing in resolves by mobile number, and after this there is no number to resolve.",
+        "findable": "The member will not be findable by mobile. Only the loyalty id will reach this record, and the member has no way to give it to us over the phone unless they have kept it.",
+        "keeps": "Everything else about them stays. Their name, their national ID, their birth date, their points balance and their entire purchase history all remain, and stay readable to anyone holding the loyalty read grant."
+      },
+      "blockNote": "The member is also blocked, under a reason that records the removal as the customer’s own request. That reason cannot be chosen by hand, and it replaces any reason the member is blocked under now.",
+      "idLabel": "Retype the loyalty id",
+      "idPlaceholder": "The loyalty id, exactly",
+      "idHint": "Type this member’s loyalty id, {{loyId}}, exactly as it appears. It is asked for because the number being removed belongs to whichever member is on this screen.",
+      "idRequired": "Remove stays unavailable until the loyalty id is retyped.",
+      "problem": {
+        "idMismatch": "That is not this member's loyalty id."
+      },
+      "confirm": "Remove mobile",
+      "cancel": "Cancel",
+      "removed": "The member's mobile number was removed, and the member is blocked.",
+      "failed": "The member's mobile number could not be removed."
+    },
     "invalid": {
       "email": "That does not look like an email address.",
       "birthDate": "Enter the birth date as YYYY-MM-DD."
@@ -250,7 +265,16 @@
     "reload": "Reload the member",
     "updated": "The member's profile was updated.",
     "updateFailed": "The member's profile could not be updated.",
-    "reloadFailed": "The member could not be re-read, so nothing was replaced. Your edits are still here."
+    "reloadFailed": "The member could not be re-read, so nothing was replaced. Your edits are still here.",
+    "caseReference": {
+      "label": "Case reference",
+      "placeholder": "e.g. CASE-4471",
+      "hint": "Name the customer's request — a case or ticket number, or how it reached you. It is shown on the actions trail, so keep the customer's own details out of it.",
+      "required": "Remove stays unavailable until a case reference is entered.",
+      "problem": {
+        "tooLong": "A case reference can be at most {{max}} characters."
+      }
+    }
   },
   "command": {
     "refusal": {

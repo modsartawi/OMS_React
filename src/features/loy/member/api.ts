@@ -168,7 +168,7 @@ export const MEMBER_SCOPE_KEY = ['loy', 'member'] as const
  */
 export const memberCommandKey = (
   loyId: string,
-  command: 'status' | 'profile' | 'mobile' | 'remove-email',
+  command: 'status' | 'profile' | 'mobile' | 'remove-email' | 'remove-mobile',
 ) => ['loy', 'member-command', loyId, command] as const
 
 export const loyApi: MemberReads = {
@@ -352,6 +352,46 @@ export const loyCommandApi = {
    */
   async removeEmail(loyId: string, removal: ContactRemoval): Promise<void> {
     await api.post<unknown>(`LoyWeb/Member/${encodeURIComponent(loyId)}/RemoveEmail`, {
+      caseReference: removal.caseReference,
+    })
+  },
+
+  /**
+   * `POST LoyWeb/Member/{loyId}/RemoveMobile` — the mobile **contact removal**
+   * (ticket 307), and the command this whole wave was requested for.
+   *
+   * 🚩 **The only route gated on *may remove a mobile*** — ADR 0001's third and
+   * narrowest tier, best read as *may destroy a login*. Every other command on
+   * this screen sits under *may edit*.
+   *
+   * It clears the number **and its country code**, clears both verified marks,
+   * and **blocks the member under a system reason** — the reason 303 proved
+   * unofferable by hand, so that *"this person asked to be removed"* is a
+   * recorded state rather than an emergent side effect of an empty column. 🚩 An
+   * already-blocked member's reason is **overwritten** with it: the module's
+   * existing blank-the-mobile path preserves instead, and spec 301 departs
+   * deliberately, because inactivity and collision markers can be re-derived and
+   * this one cannot.
+   *
+   * 🚩 **The body is the case reference and nothing else** — ADR 0002, exactly as
+   * the email removal: the number is recorded nowhere new, and survives only in
+   * the *preceding* **member update snapshot**, which no portal read exposes.
+   * Recovery is a support task and not a button, and is not a simple restore
+   * anyway: reattaching a mobile has to re-run the collision check, because
+   * someone else may hold that number by now.
+   *
+   * ⚠️ **The optional email-in-the-same-command is NOT sent.** Spec 301 designs
+   * the removal so it *may* clear the email too; this client draws no control for
+   * it, so it never asks for it — an analyst who needs both runs both commands,
+   * and each is recorded as itself. Whether the door takes the flag at all is the
+   * BackOffice spec's (map 1396); this is the note to read before answering it.
+   *
+   * Refusable by name with **member does not exist**; refused for authority with
+   * a 403, which for this command reads as *you do not hold this authority* and
+   * offers no retry.
+   */
+  async removeMobile(loyId: string, removal: ContactRemoval): Promise<void> {
+    await api.post<unknown>(`LoyWeb/Member/${encodeURIComponent(loyId)}/RemoveMobile`, {
       caseReference: removal.caseReference,
     })
   },

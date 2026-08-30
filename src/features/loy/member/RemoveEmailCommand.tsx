@@ -12,11 +12,8 @@ import {
   memberActionsScopeKey,
   memberCommandKey,
 } from './api'
-import {
-  CASE_REFERENCE_MAX_LENGTH,
-  emailRemovalProblemKey,
-  emailRemovalVerdict,
-} from './contact-removal'
+import { CASE_REFERENCE_MAX_LENGTH, emailRemovalVerdict, removalProblem } from './contact-removal'
+import CaseReferenceField from './CaseReferenceField'
 import MemberCommandDialog from './MemberCommandDialog'
 import MemberFact from './MemberFact'
 import { commandRefusalText } from './member-commands'
@@ -75,7 +72,7 @@ export default function RemoveEmailCommand({ member }: { member: LoyMember }) {
   /** 🚩 The verdict IS the request — the only way to obtain a `ContactRemoval`,
    *  so the control cannot arm off a reference the precondition never saw. */
   const verdict = emailRemovalVerdict(caseReference)
-  const problemKey = emailRemovalProblemKey(verdict)
+  const problem = removalProblem(verdict)
 
   /** Nothing to remove is not a refusal — it is a fact about the member, said
    *  where the control is rather than discovered after a round trip that would
@@ -201,44 +198,16 @@ export default function RemoveEmailCommand({ member }: { member: LoyMember }) {
             go is how an analyst catches the wrong member. */}
         <MemberFact label={t('profile.removeEmail.current')} value={address} />
 
-        <div className="flex flex-col gap-1">
-          <label
-            htmlFor={REFERENCE_ID}
-            className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
-          >
-            {/* 🚩 Labelled *case reference*, never *notes*. An analyst can
-                still type a phone number into it and it will render on the
-                Actions tab; no code can prevent that, and the label is the
-                only lever the screen has. */}
-            {t('profile.removeEmail.referenceLabel')}
-          </label>
-          <input
-            id={REFERENCE_ID}
-            type="text"
-            value={caseReference}
-            disabled={busy}
-            onChange={(event) => setCaseReference(event.target.value)}
-            autoComplete="off"
-            placeholder={t('profile.removeEmail.referencePlaceholder')}
-            aria-invalid={problemKey ? true : undefined}
-            aria-describedby={`${REFERENCE_ID}-hint`}
-            className={
-              'h-8 w-full rounded-md border bg-background px-2 text-sm text-foreground focus:outline-none disabled:opacity-50 ' +
-              (problemKey
-                ? 'border-danger-border focus:border-danger-border'
-                : 'border-border/60 focus:border-primary/50')
-            }
-            data-testid="loy-case-reference"
-          />
-          <p id={`${REFERENCE_ID}-hint`} className="text-[11px] text-muted-foreground">
-            {t('profile.removeEmail.referenceHint')}
-          </p>
-          {problemKey && (
-            <p role="alert" className="text-[11px] text-danger-800">
-              {t(problemKey, { max: CASE_REFERENCE_MAX_LENGTH })}
-            </p>
-          )}
-        </div>
+        {/* The shared half of the ceremony — one field, asked for in one set of
+            words by both removals (`CaseReferenceField`). */}
+        <CaseReferenceField
+          id={REFERENCE_ID}
+          value={caseReference}
+          onChange={setCaseReference}
+          disabled={busy}
+          problem={problem ? t(problem.key, { max: CASE_REFERENCE_MAX_LENGTH }) : null}
+          testId="loy-case-reference"
+        />
 
         {/* 🚩 ADR 0002, said to the analyst rather than only to the reviewer:
             the reference is what the trail keeps, and the address is not. */}
@@ -248,9 +217,9 @@ export default function RemoveEmailCommand({ member }: { member: LoyMember }) {
 
         {/* Why the control is dead — said once, where the analyst is looking
             for the button that is not working. */}
-        {!removable && !problemKey && (
+        {!removable && !problem && (
           <p className="text-xs text-muted-foreground" role="status">
-            {t('profile.removeEmail.referenceRequired')}
+            {t('profile.caseReference.required')}
           </p>
         )}
 

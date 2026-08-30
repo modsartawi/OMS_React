@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 301
 blocked-by: 306
 ---
@@ -62,14 +62,14 @@ id; the recent-searches drop) · component (the confirmation) · i18n · test (p
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `aMobileRemovalNeedsBothAReferenceAndTheExactLoyaltyId` — a wrong id, a whitespace-padded id,
+- [x] `aMobileRemovalNeedsBothAReferenceAndTheExactLoyaltyId` — a wrong id, a whitespace-padded id,
       a case-differing id and a blank reference each leave the command unconstructable; only the
       exact pair passes · pure
-- [ ] `aMobileRemovalNamesTheMobileAndBlocksWhileAnEmailRemovalDoesNeither` — the two removal paths
+- [x] `aMobileRemovalNamesTheMobileAndBlocksWhileAnEmailRemovalDoesNeither` — the two removal paths
       produce different requests from one module, and neither carries an old value · pure
-- [ ] `removingAMobileDropsThatMembersChipFromRecentSearches` — the chip list after a removal,
+- [x] `removingAMobileDropsThatMembersChipFromRecentSearches` — the chip list after a removal,
       including the case where the member was found by loyalty id and has no mobile chip · pure
-- [ ] `theRemoverSeesTheControlAndTheEditorDoesNot` — drive both sessions; then drive a full removal
+- [x] `theRemoverSeesTheControlAndTheEditorDoesNot` — drive both sessions; then drive a full removal
       and assert the three-part warning, the block on the header, the Actions row showing the
       reference and **not** the number · flow
 
@@ -101,4 +101,32 @@ twice.
 
 ## Open questions
 
-None.
+**Raised during the build. The first is the only one that needs an owner.**
+
+1. 🚩 **The optional email-in-the-same-command was not built, and nobody has signed off the
+   consequence.** *"optionally clears the email in the same command"* appears in What to build and
+   in spec 301's table (*mobile(-and-optionally-email)*), but no Proof bullet, Spine-reach item or
+   Done-when clause covers it, so no control was drawn and the client never sends the flag. The
+   consequence: a customer asking to be fully unreachable costs **two commands, two case
+   references and two trail rows**. Whether the door takes the flag at all is map 1396's to say —
+   but whether the screen should offer it is this wave's, and it is unanswered.
+2. ⚠️ **The third confirmation sentence is said by naming what remains, never by negation.** What to
+   build quotes *"This is not account deletion"*; the Boundaries of this same ticket forbid the word
+   *delete*, and `CONTEXT.md` agrees with the Boundaries. Resolved as 306 resolved it — the
+   confirmation names the name, the national ID, the birth date, the points and the whole purchase
+   history, and the drive asserts the forbidden words are absent. If an owner wants the literal
+   negation it is one key.
+3. ⚠️ **The chip drop matches what the browser can see is the same number, and no more.** A chip
+   typed `0555000111` against a stored `966555000111` is the same customer and the client cannot
+   tell: normalisation is the door's (`LoyMobileNumbers.NormaliseTyped`) and a second spelling of it
+   here is how the two start to disagree (decision 225 ruling 4). Pinned as a test so the gap is a
+   stated fact rather than an assumption; closing it means the door returning what it normalised.
+
+## Decisions taken here, not asked for
+
+- **The 306 case-reference keys moved to a shared `profile.caseReference.*`**, and
+  `RemoveEmailCommand` moved with them. The i18n boundary named only new keys for the warning and
+  the retyped id; the reference is the same promise on both removals (ADR 0002), so one set of words
+  was worth the undeclared edit. The shared field became `CaseReferenceField`.
+- **A member with no number gets a dead control that says so** — the same call 306 made, for the
+  same reason, plus one this command has of its own: a removal of nothing would still block them.

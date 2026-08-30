@@ -76,6 +76,24 @@
 //  36. none of it reaches a reader, and a member with no address has a control
 //      that says so rather than one that writes.
 //
+// Ticket 307's flow Proof bullet - `theRemoverSeesTheControlAndTheEditorDoesNot`:
+//  37. the control is drawn ONLY for a remover - an editor and a reader see no
+//      mobile removal at all, hidden rather than disabled;
+//  38. the confirmation says the three things, the third of which is not optional
+//      (everything else about the member REMAINS), in the words CONTEXT.md
+//      permits, and it says the block before it happens;
+//  39. Remove stays dead until BOTH halves are right - the reference is asked for
+//      first, the OTHER member's id is refused as itself (the two-tabs failure),
+//      a padded id is refused too, and pressing it anyway writes nothing;
+//  40. the body is the case reference ALONE; the number and its country code go;
+//      the member is blocked under the system reason; the header moves with no
+//      reload; the CHIP is dropped from the session bar - from the STORE and
+//      from the screen the agent looks at, with nothing writing it back; and the
+//      Actions row shows the reference and never the number;
+//  41. a refusal changes nothing at all, and a 403 takes the command away;
+//  42. the control disables itself in flight - a double-click removes ONCE;
+//  43. an already-blocked member's reason is overwritten by the system reason.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-admin-drive.mjs
 import { createRequire } from 'node:module'
@@ -205,6 +223,17 @@ let removeEmailRefusal = null
 /** How long the next removal takes — the in-flight window the disable guards. */
 let removeEmailDelay = 0
 
+// ---- ticket 307: the mobile contact removal -------------------------------
+/** How many mobile removals the door has seen, and what the last one carried.
+ *  ADR 0002 is asserted against the BODY, exactly as 306's is — this is the
+ *  command whose removed value would do the most damage if it were recorded. */
+let removeMobileCalls = 0
+let removeMobileBody = null
+/** The refusal the next removal answers with, or null for success. */
+let removeMobileRefusal = null
+/** How long the next removal takes — the in-flight window the disable guards. */
+let removeMobileDelay = 0
+
 const trailRow = (type, description, data) => ({
   actionNo: String(900 + actionRows.length),
   mainActionType: type,
@@ -319,6 +348,31 @@ async function run() {
       return route.fulfill(envelope(null))
     }
 
+    // ---- ticket 307: the mobile contact removal ---------------------------
+    // Matched before the member read below, which shares the prefix.
+    if (/^LoyWeb\/Member\/[^/]+\/RemoveMobile$/.test(path)) {
+      removeMobileCalls += 1
+      removeMobileBody = route.request().postDataJSON()
+      if (removeMobileDelay) await sleep(removeMobileDelay)
+      if (removeMobileRefusal) return route.fulfill(removeMobileRefusal)
+      // The door as spec 301 designs it: the number AND its country code go, and
+      // the member is blocked under the **system reason** — overwriting whatever
+      // reason they were blocked under, which is the deliberate departure from
+      // the module's existing blank-the-mobile path.
+      memberState = {
+        ...memberState,
+        mobile: null,
+        mobileCountry: null,
+        blockedReason: 'CR',
+      }
+      // 🚩 The trail row carries the CASE REFERENCE and NOT the number.
+      actionRows = [
+        trailRow('MOB', 'Mobile removed', removeMobileBody.caseReference),
+        ...actionRows,
+      ]
+      return route.fulfill(envelope(null))
+    }
+
     // ---- ticket 303: the two writes ---------------------------------------
     // Matched BEFORE the member read below, which would otherwise swallow both
     // (they hang off the same `LoyWeb/Member/{id}` prefix).
@@ -344,6 +398,12 @@ async function run() {
       if (reasonsAnswer === 'fails') return route.fulfill({ status: 500, body: 'boom' })
       return route.fulfill(envelope(reasonsAnswer === 'empty' ? [] : BLOCKED_REASONS))
     }
+
+    // The lookup's own read (ticket 232's cascade). Stubbed so a REAL search can
+    // be driven — which is what proves the chip bar is not written back out of
+    // a stale in-memory copy after a removal.
+    if (path.startsWith('LoyWeb/MemberByMobile/'))
+      return route.fulfill(envelope(memberState ?? MEMBER))
 
     if (path.startsWith('LoyWeb/Member/')) {
       if (memberReadFails) return route.fulfill({ status: 500, body: 'boom' })
@@ -403,6 +463,10 @@ async function run() {
     removeEmailBody = null
     removeEmailRefusal = null
     removeEmailDelay = 0
+    removeMobileCalls = 0
+    removeMobileBody = null
+    removeMobileRefusal = null
+    removeMobileDelay = 0
     await page.goto(`${BASE}/loy/members/${LOYID_KEY}${tab ? `?tab=${tab}` : ''}`)
     await page.getByRole('tablist').waitFor({ timeout: 15000 })
     if (tab === 'profile') await panel.getByText('Membership').waitFor({ timeout: 10000 })
@@ -607,8 +671,22 @@ async function run() {
 
   const actionsText = async () => {
     await page.getByRole('tab', { name: 'Actions' }).click()
-    await page.waitForTimeout(400)
-    return (await panel.innerText()).toLowerCase()
+    // 🚩 Wait for the invalidated READ to LAND, not for a fixed number of
+    // milliseconds. A command invalidates the trail and the refetch races the
+    // sleep this used to take — which showed up as a false FAIL on 305's
+    // scenario, and a drive that fails one run in ten teaches its reader to
+    // re-run it rather than to believe it. `networkidle` is not enough on its
+    // own: the refetch may not have been issued yet when it is asked.
+    let text = ''
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      await page.waitForTimeout(200)
+      const now = (await panel.innerText()).toLowerCase()
+      // Two identical reads in a row, and no request in flight: the tab has
+      // settled on whatever it is going to show.
+      if (now === text && !/loading actions/.test(now)) return now
+      text = now
+    }
+    return text
   }
 
   // ---- Scenario 6: blocking asks for a reason, and CR is not on the list ---
@@ -1692,6 +1770,295 @@ async function run() {
   check(
     'and a member with no address to remove has a control that says so rather than one that writes',
     (await removeEmailButton.count()) === 1 && !(await removeEmailButton.isEnabled()),
+  )
+
+  // ==== ticket 307: the mobile contact removal ==============================
+  const removeMobileButton = page.locator('[data-testid="loy-remove-mobile"]')
+  const removeMobileConfirm = page.locator('[data-testid="loy-remove-mobile-confirm"]')
+  const mobileCaseInput = page.locator('[data-testid="loy-mobile-case-reference"]')
+  const retypedIdInput = page.locator('[data-testid="loy-retyped-loyid"]')
+
+  // ---- Scenario 37: only the remover sees it ------------------------------
+  await open('editor')
+  check(
+    '🚩 an EDITOR without the removal grant sees no mobile-removal control — hidden, not disabled',
+    (await removeMobileButton.count()) === 0 &&
+      (await panel.locator('[data-testid="loy-remove-email"]').count()) === 1,
+  )
+  await open('lookOnly')
+  check(
+    'and a look-only session sees neither removal',
+    (await removeMobileButton.count()) === 0 &&
+      (await panel.locator('[data-testid="loy-remove-email"]').count()) === 0,
+  )
+  await open('remover')
+  check(
+    '🚩 THE grant: a REMOVER sees it, inside the group set visibly apart',
+    (await removeMobileButton.count()) === 1 && (await removeMobileButton.isEnabled()),
+  )
+
+  // ---- Scenario 38: the three-part warning --------------------------------
+  // 🚩 A chip for THIS member's number is planted **and then the page is loaded
+  // again**, so the bar is in the lookup page's OWN STATE and not merely in the
+  // store. That ordering is the whole point: `MemberLookupPage` seeds `recents`
+  // once at mount and stays mounted while the member's tabs are on screen, so a
+  // removal that only rewrote `sessionStorage` would leave the number in state —
+  // rendering as a chip, and written back to the store by the next search. A
+  // chip planted AFTER the load proves none of that.
+  //
+  // It is planted the way an agent TYPES one, not in the compacted form the drop
+  // compares on.
+  await page.evaluate(() =>
+    window.sessionStorage.setItem(
+      'oms.loy.recentSearches.v1',
+      JSON.stringify(['+966 555 000-111', '100004411']),
+    ),
+  )
+  await open('remover')
+  await warmActionsCache()
+  await page.evaluate(() => {
+    window.__driveMark = 'alive'
+  })
+  await removeMobileButton.click()
+  await dialog.waitFor({ timeout: 10000 })
+  const warning = await dialog.innerText()
+  check(
+    '🚩 it says the member will not be able to SIGN IN',
+    /will not be able to sign in/i.test(warning),
+    warning.replace(/\s+/g, ' ').slice(0, 200),
+  )
+  check(
+    '🚩 and will not be FINDABLE by mobile — the loyalty id is the only way back',
+    /not be findable by mobile/i.test(warning) && /only the loyalty id/i.test(warning),
+    warning.replace(/\s+/g, ' ').slice(0, 240),
+  )
+  check(
+    '🚩 and the third, which is not optional: everything else REMAINS',
+    /everything else about them stays/i.test(warning) &&
+      /national id/i.test(warning) &&
+      /purchase history/i.test(warning) &&
+      // 🚩 And who can still READ it — the read GRANT, never "whoever holds the
+      // loyalty id". An analyst repeating that to a customer would be telling
+      // them an id is a permission (ADR 0001).
+      /read grant/i.test(warning) &&
+      !/anyone who holds the loyalty id/i.test(warning),
+    warning.replace(/\s+/g, ' ').slice(0, 300),
+  )
+  check(
+    '🚩 in the words CONTEXT.md permits — no erasure, no deletion, no anonymisation',
+    !/eras|anonymis|anonymiz|delet|close (the )?account/i.test(warning),
+    warning.replace(/\s+/g, ' ').slice(0, 240),
+  )
+  check(
+    'and the BLOCK is said before it happens, including that it replaces any reason now',
+    /also blocked/i.test(warning) && /replaces any reason/i.test(warning),
+    warning.replace(/\s+/g, ' ').slice(0, 240),
+  )
+
+  // ---- Scenario 39: THE ticket — dead until BOTH halves are right ---------
+  check(
+    '🚩 THE ticket: Remove is dead with nothing typed, and asks for the reference first',
+    (await removeMobileConfirm.getAttribute('aria-disabled')) === 'true' &&
+      /until a case reference is entered/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 200),
+  )
+  await mobileCaseInput.fill('CASE-5150')
+  await page.waitForTimeout(150)
+  check(
+    'with a reference but no id it is STILL dead, and now names the id as what is missing',
+    (await removeMobileConfirm.getAttribute('aria-disabled')) === 'true' &&
+      /until the loyalty id is retyped/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 200),
+  )
+  check(
+    '🚩 and an id not yet typed is not called WRONG — a guard that nags mid-keystroke is a guard people learn to ignore',
+    (await dialog.getByRole('alert').count()) === 0,
+  )
+  await retypedIdInput.fill('100004411')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 THE guard: the OTHER member’s id — the two-tabs failure — is refused as itself',
+    (await removeMobileConfirm.getAttribute('aria-disabled')) === 'true' &&
+      /not this member's loyalty id/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 200),
+  )
+  await retypedIdInput.fill(' 100001293')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 and a padded id is refused too — exact means exact on the one command with no undo',
+    (await removeMobileConfirm.getAttribute('aria-disabled')) === 'true',
+  )
+  await removeMobileConfirm.click({ force: true })
+  await page.waitForTimeout(300)
+  check(
+    'pressing it anyway writes NOTHING — the precondition is the guard, not the styling',
+    removeMobileCalls === 0,
+    removeMobileCalls + ' calls',
+  )
+  await retypedIdInput.fill('100001293')
+  await page.waitForTimeout(150)
+  check(
+    'and LIVE only when the reference and the exact id are both there',
+    (await removeMobileConfirm.getAttribute('aria-disabled')) === null,
+  )
+
+  // ---- Scenario 40: the write, and everything it leaves behind ------------
+  await removeMobileConfirm.click()
+  await dialog.waitFor({ state: 'detached', timeout: 15000 })
+  check(
+    '🚩 the body that left the browser is the REFERENCE ALONE — the number goes nowhere new',
+    removeMobileCalls === 1 &&
+      JSON.stringify(Object.keys(removeMobileBody)) === '["caseReference"]' &&
+      removeMobileBody.caseReference === 'CASE-5150',
+    JSON.stringify(removeMobileBody),
+  )
+  check(
+    '🚩 the number is gone from the member, and its COUNTRY CODE with it',
+    memberState.mobile == null && memberState.mobileCountry == null,
+    JSON.stringify({ mobile: memberState.mobile, country: memberState.mobileCountry }),
+  )
+  check(
+    '🚩 and the member is BLOCKED under the system reason — a recorded state, not an empty column',
+    memberState.blockedReason === 'CR',
+    String(memberState.blockedReason),
+  )
+  check(
+    'the header moves with no reload — the block shows and the number does not',
+    /blocked/i.test(await page.innerText('body')) &&
+      !/966555000111/.test(await page.innerText('body')) &&
+      (await page.evaluate(() => window.__driveMark)) === 'alive',
+    (await page.innerText('body')).replace(/\s+/g, ' ').slice(0, 160),
+  )
+  check(
+    '🚩 THE chip is gone from the session store — the removed number does not sit in the agent’s bar',
+    JSON.parse(
+      await page.evaluate(() => window.sessionStorage.getItem('oms.loy.recentSearches.v1')),
+    ).join('|') === '100004411',
+    await page.evaluate(() => window.sessionStorage.getItem('oms.loy.recentSearches.v1')),
+  )
+  const mobileRemovalTrail = await actionsText()
+  check(
+    '🚩 the Actions row shows the CASE REFERENCE',
+    /mobile removed/i.test(mobileRemovalTrail) && /case-5150/i.test(mobileRemovalTrail),
+    mobileRemovalTrail.replace(/\s+/g, ' ').slice(0, 200),
+  )
+  check(
+    '🚩 and NEVER the number — ADR 0002, on the command that most needs it',
+    !/966555000111/.test(mobileRemovalTrail) &&
+      !JSON.stringify(actionRows).includes('966555000111'),
+    mobileRemovalTrail.replace(/\s+/g, ' ').slice(0, 200),
+  )
+  await profileTab.click()
+  await panel.getByText('Membership').waitFor({ timeout: 10000 })
+  check(
+    'and with no number left the control says so rather than offering a second removal',
+    !(await removeMobileButton.isEnabled()) &&
+      /no mobile number to remove/i.test(await panel.innerText()),
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 140),
+  )
+
+  // ---- Scenario 40b: and gone from the SCREEN, and not written back -------
+  // 🚩 The store is only half of it. The lookup page holds the bar in state,
+  // seeded at mount, and React Router keeps the same element across the
+  // navigation back — so a removal that only rewrote the store would leave the
+  // customer's number rendering as a chip, and the agent's next search would
+  // push off that stale array and write it back into the store. Both halves are
+  // asserted from the screen the agent actually looks at.
+  // 🚩 Through the APP, never `page.goto`. A page load re-seeds every piece of
+  // state from the store and would prove nothing: the leak lives in the state
+  // that SURVIVES the navigation, because React Router keeps the same element.
+  await page.getByRole('button', { name: 'New lookup' }).click()
+  await page.getByRole('button', { name: 'Look up' }).waitFor({ timeout: 10000 })
+  const barText = await page.innerText('body')
+  check(
+    '🚩 the removed number is gone from the chip bar the agent SEES, not just from the store',
+    !/966\s*555\s*000[\s-]*111/.test(barText) && /100004411/.test(barText),
+    barText.replace(/\s+/g, ' ').slice(0, 200),
+  )
+  // 🚩 And the half that bites one search later: the next search pushes onto the
+  // bar, and a stale in-memory copy would carry the removed customer's number
+  // back into the store with it.
+  await page.getByRole('textbox').first().fill('100004411')
+  await page.getByRole('button', { name: 'Look up' }).click()
+  await page.waitForTimeout(800)
+  check(
+    '🚩 and the NEXT search does not write it back — the bar is pushed onto the store, not onto a stale copy',
+    JSON.parse(
+      await page.evaluate(() => window.sessionStorage.getItem('oms.loy.recentSearches.v1')),
+    ).join('|') === '100004411',
+    await page.evaluate(() => window.sessionStorage.getItem('oms.loy.recentSearches.v1')),
+  )
+
+  // ---- Scenario 41: the refusals -----------------------------------------
+  await open('remover')
+  removeMobileRefusal = removeEmailRefusalEnvelope('LOY-00100', 'That member could not be found.')
+  await removeMobileButton.click()
+  await dialog.waitFor({ timeout: 10000 })
+  await mobileCaseInput.fill('CASE-5151')
+  await retypedIdInput.fill('100001293')
+  await removeMobileConfirm.click()
+  await dialog.getByRole('alert').waitFor({ timeout: 10000 })
+  check(
+    'a member who no longer exists is named as itself, in the server’s own sentence too',
+    /this member no longer exists/i.test(await dialog.innerText()) &&
+      /could not be found/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 180),
+  )
+  check(
+    '🚩 and a refusal changed NOTHING — the number, the block and the chip are all as they were',
+    memberState.mobile === '966555000111' && memberState.blockedReason == null,
+    JSON.stringify({ mobile: memberState.mobile, blocked: memberState.blockedReason }),
+  )
+  removeMobileRefusal = { status: 403, contentType: 'application/json', body: '' }
+  await removeMobileConfirm.click()
+  await page.waitForTimeout(500)
+  check(
+    '🚩 a 403 says the AUTHORITY is gone and offers no retry — for THIS command above all',
+    /no longer holds the authority/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 180),
+  )
+  removeMobileRefusal = null
+  await removeMobileConfirm.click({ force: true })
+  await page.waitForTimeout(400)
+  check(
+    '🚩 and the command goes DEAD — a grant refusal takes the button away, not just the words',
+    (await removeMobileConfirm.getAttribute('aria-disabled')) === 'true' &&
+      removeMobileCalls === 2,
+    removeMobileCalls + ' removal calls',
+  )
+
+  // ---- Scenario 42: the in-flight guard ----------------------------------
+  await open('remover')
+  removeMobileDelay = 700
+  await removeMobileButton.click()
+  await dialog.waitFor({ timeout: 10000 })
+  await mobileCaseInput.fill('CASE-5152')
+  await retypedIdInput.fill('100001293')
+  await removeMobileConfirm.click()
+  await page.waitForTimeout(120)
+  const mobileRemovalDisabledInFlight =
+    (await removeMobileConfirm.getAttribute('aria-disabled')) === 'true'
+  await removeMobileConfirm.click({ force: true })
+  await dialog.waitFor({ state: 'detached', timeout: 15000 })
+  check('🚩 the control disables itself while the write is in flight', mobileRemovalDisabledInFlight)
+  check(
+    '🚩 and a double-click removes a mobile exactly ONCE — the client is the only guard there is',
+    removeMobileCalls === 1,
+    removeMobileCalls + ' removal calls',
+  )
+
+  // ---- Scenario 43: an already-blocked member's reason is overwritten -----
+  await open('remover', { memberOver: { blockedReason: 'IA' } })
+  await removeMobileButton.click()
+  await dialog.waitFor({ timeout: 10000 })
+  await mobileCaseInput.fill('CASE-5153')
+  await retypedIdInput.fill('100001293')
+  await removeMobileConfirm.click()
+  await dialog.waitFor({ state: 'detached', timeout: 15000 })
+  check(
+    '🚩 an already-blocked member’s reason is OVERWRITTEN — inactivity can be re-derived, "they asked" cannot',
+    memberState.blockedReason === 'CR',
+    String(memberState.blockedReason),
   )
 
   check('no page errors anywhere in the drive', errors.length === 0, errors.join(' | '))

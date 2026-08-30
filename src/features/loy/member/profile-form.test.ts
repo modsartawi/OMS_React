@@ -13,6 +13,7 @@ import {
   MEMBER_CHANGED_CODE,
   dirtyProfileFields,
   isStaleProfileRefusal,
+  PROFILE_FIELDS,
   profileDraftOf,
   profileFormIsStale,
   profileProblems,
@@ -52,7 +53,7 @@ describe('aBlankGenderAndLanguageSurviveASave', () => {
   it('🚩 a member with neither recorded validates — nothing is invented', () => {
     // The whole ticket. The till's validator would refuse this member and force
     // the analyst to make a fact about the customer up.
-    expect(profileProblems(profileDraftOf(sparse))).toEqual([])
+    expect(profileProblems(profileDraftOf(sparse), PROFILE_FIELDS.map((f) => f.key))).toEqual([])
   })
 
   it('🚩 and produces a request body carrying NEITHER — null, never an empty string', () => {
@@ -75,7 +76,7 @@ describe('aBlankGenderAndLanguageSurviveASave', () => {
 
   it('🚩 blanking a recorded gender is a legal edit too — the ruling runs both ways', () => {
     const draft = { ...profileDraftOf(member()), gender: '', preferredLanguage: '   ' }
-    expect(profileProblems(draft)).toEqual([])
+    expect(profileProblems(draft, ['gender', 'preferredLanguage'])).toEqual([])
     const body = profileUpdateRequest(draft, '2026-07-31T09:12:00')
     expect(body.gender).toBeNull()
     expect(body.preferredLanguage).toBeNull()
@@ -102,16 +103,32 @@ describe('aBlankGenderAndLanguageSurviveASave', () => {
   })
 
   it('names the field a shape check refuses, never the form', () => {
-    expect(profileProblems({ ...profileDraftOf(member()), email: 'not-an-address' })).toEqual([
-      { field: 'email', key: 'profile.invalid.email' },
-    ])
+    expect(
+      profileProblems({ ...profileDraftOf(member()), email: 'not-an-address' }, ['email']),
+    ).toEqual([{ field: 'email', key: 'profile.invalid.email' }])
     // 🚩 A blank email is not a shape failure — blanking one through the profile
     // command is explicitly permitted; *removing* it is a different command.
-    expect(profileProblems({ ...profileDraftOf(member()), email: '  ' })).toEqual([])
+    expect(profileProblems({ ...profileDraftOf(member()), email: '  ' }, ['email'])).toEqual([])
+  })
+
+  it('🚩 refuses only what the ANALYST typed — a stored value it cannot parse blocks nothing', () => {
+    // The blank-tolerance ruling, reintroduced through the one field that HAS a
+    // shape rule: a legacy member whose recorded email is `user@localhost` or
+    // `n/a` would otherwise be unsaveable outright, and an analyst fixing a
+    // misspelt name would first have to edit or BLANK a contact detail — losing
+    // a way of reaching the customer to correct something else entirely.
+    const legacy = profileDraftOf(member({ email: 'user@localhost' }))
+    expect(profileProblems(legacy, [])).toEqual([])
+    expect(profileProblems({ ...legacy, fullName: 'Nouf Al-Harbee' }, ['fullName'])).toEqual([])
+    // Touch it, and it is theirs to answer for.
+    expect(profileProblems({ ...legacy, email: 'still not one' }, ['email'])).toEqual([
+      { field: 'email', key: 'profile.invalid.email' },
+    ])
   })
 
   it('refuses a birth date that would not be sent as the day it was typed', () => {
-    const on = (birthDate: string) => profileProblems({ ...profileDraftOf(member()), birthDate })
+    const on = (birthDate: string) =>
+      profileProblems({ ...profileDraftOf(member()), birthDate }, ['birthDate'])
     // `new Date` rolls 31 February forward to March rather than refusing, so
     // parsing alone would write a different day than the analyst typed.
     expect(on('2026-02-31')).toEqual([{ field: 'birthDate', key: 'profile.invalid.birthDate' }])

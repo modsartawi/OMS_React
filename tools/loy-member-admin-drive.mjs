@@ -1123,6 +1123,38 @@ async function run() {
     (await statusButton.count()) === 0 && (await panel.locator('button').count()) === 0,
   )
 
+  // ---- Scenario 21b: a member the shape check could not save at all --------
+  // \U0001f6a9 The defect `/code-review` found on 305's pass, against 304's own ruling:
+  // the checks ran over the whole DRAFT, so a member whose STORED email the regex
+  // cannot parse was unsaveable outright — and an analyst fixing a misspelt name
+  // had to blank a contact detail first, losing a way of reaching the customer to
+  // correct something else entirely.
+  await open('editor', { memberOver: { email: 'user@localhost' } })
+  await field('fullName').fill('Nouf Al-Harbee')
+  await saveButton.click()
+  await page.waitForFunction(() => /profile was updated/i.test(document.body.innerText), null, {
+    timeout: 15000,
+  })
+  check(
+    '\U0001f6a9 a name is fixed on a member whose STORED email the regex cannot parse',
+    profileCalls === 1 && profileBody.fullName === 'Nouf Al-Harbee',
+    JSON.stringify(profileBody && profileBody.fullName),
+  )
+  check(
+    'and the untouched address went out exactly as it was stored — nothing was blanked',
+    profileBody.email === 'user@localhost',
+    JSON.stringify(profileBody && profileBody.email),
+  )
+  // Touch it, though, and it is the analyst's to answer for.
+  await field('email').fill('still not one')
+  await saveButton.click()
+  await page.waitForTimeout(400)
+  check(
+    'but a shape failure the analyst TYPED still stops the save, named against its field',
+    profileCalls === 1 && /does not look like an email/i.test(await panel.innerText()),
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 120),
+  )
+
   // ==== ticket 305: the mobile command ======================================
   const mobileInput = page.locator('[data-testid="loy-mobile-input"]')
   const mobileButton = page.locator('[data-testid="loy-mobile-command"]')

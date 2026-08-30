@@ -104,7 +104,10 @@ export default function ProfileForm({
   const [reloadFailed, setReloadFailed] = useState(false)
 
   const dirty = dirtyProfileFields(seed.values, draft)
-  const problems = profileProblems(draft)
+  // 🚩 The shape checks answer for the fields the analyst TYPED, never for the
+  // member as stored — a legacy email the regex cannot parse must not make the
+  // member unsaveable (see `profileProblems`).
+  const problems = profileProblems(draft, dirty)
 
   /**
    * 🚩 **The one window in which this form has no stamp**: between a save

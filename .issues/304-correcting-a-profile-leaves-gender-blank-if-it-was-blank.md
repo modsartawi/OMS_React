@@ -220,3 +220,27 @@ once, not to this one inventing a second answer. **It is the first thing to sett
 **Proof:** 2143 vitest (20 new, in three named suites) · admin drive **80/80** (four of them
 the code review's own regressions) ·
 `loy-member-drive` 184/184 · typecheck, lint and build green · every envelope stubbed.
+
+## Reopened and fixed (2026-08-30, found on ticket 305's `/code-review high`)
+
+🚩 **The blank-tolerance ruling had a hole, through the one field that has a shape rule.**
+`profileProblems` validated the whole **draft** rather than the fields the analyst had changed, and
+the draft is seeded from the member — so a member whose **stored** email the regex cannot parse
+(`user@localhost`, `n/a`, a legacy import) was **unsaveable outright**: the problem fired on the
+first render and `submit` short-circuited before `save.mutate`. An analyst who only wanted to fix a
+misspelt name had to edit or **blank** a contact detail first, losing a way of reaching the customer
+to correct something else entirely. That is exactly the failure this ticket exists to prevent —
+*an analyst forced to change a fact about the customer to save an unrelated one* — arriving by a
+different door than the till's mandatory gender.
+
+**Fixed:** `profileProblems(draft, dirty)` checks only the fields the analyst actually typed. An
+untouched value still goes on the wire (all nine always do — the command is a snapshot), so a stored
+value the door dislikes comes back as a **named refusal** from the door, which is the honest place
+for it. The client's job is the typo it just watched being made.
+
+Pinned by `refusesOnlyWhatTheAnalystTyped` (pure) and driven end to end: a name fixed on a member
+whose stored address is `user@localhost`, the untouched address going out **exactly as stored**, and
+a typed shape failure still stopping the save and still named against its own field.
+
+`typecheck` · `lint` · `build` green · **2154 vitest** · admin drive **109/109** ·
+`loy-member-drive` 184/184.

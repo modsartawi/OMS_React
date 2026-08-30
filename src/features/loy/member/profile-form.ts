@@ -135,7 +135,24 @@ export interface ProfileFieldProblem {
 }
 
 /**
- * What the form refuses to send, named per field.
+ * What the form refuses to send, named per field — and **only among the fields
+ * the analyst actually changed**.
+ *
+ * 🚩 **A value the analyst did not type is not theirs to answer for.** The
+ * shape checks run over `dirty` and nothing else, because a member whose
+ * **stored** email is `user@localhost` or `n/a` would otherwise be unsaveable
+ * outright: the draft is seeded from the member, the check fires on the first
+ * render, and Save short-circuits before the write. An analyst who only wanted
+ * to fix a misspelt name would have to edit or **blank** a contact detail
+ * first — losing a way of reaching the customer to correct something else
+ * entirely. That is this module's own blank-tolerance ruling reintroduced
+ * through the one field that has a shape rule, and it is the defect
+ * `/code-review` found on ticket 305's pass.
+ *
+ * An untouched value still goes on the wire — all nine always do, because the
+ * command is a snapshot — so a stored value the door dislikes comes back as a
+ * **named refusal** from the door, which is the honest place for it. The
+ * client's job is to catch the typo it just watched being made.
  *
  * 🚩 **Blank is valid on every one of the nine.** Not only on gender and
  * preferred language — the two the till makes mandatory and this screen must
@@ -152,17 +169,21 @@ export interface ProfileFieldProblem {
  * invalid nationality or city comes back as a **named refusal** from the door
  * instead (`profileRefusedField`), which is the honest place for it.
  */
-export function profileProblems(draft: ProfileDraft): ProfileFieldProblem[] {
+export function profileProblems(
+  draft: ProfileDraft,
+  dirty: readonly ProfileField[],
+): ProfileFieldProblem[] {
   const problems: ProfileFieldProblem[] = []
+  const typed = (field: ProfileField): boolean => dirty.includes(field)
 
-  const email = draft.email.trim()
+  const email = typed('email') ? draft.email.trim() : ''
   // Deliberately loose — `something@something.tld` and nothing cleverer. The
   // server's validator is the authority; this only catches the typo that would
   // otherwise cost a round trip.
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     problems.push({ field: 'email', key: 'profile.invalid.email' })
 
-  const birthDate = draft.birthDate.trim()
+  const birthDate = typed('birthDate') ? draft.birthDate.trim() : ''
   if (birthDate && !isWritableBirthDate(birthDate))
     problems.push({ field: 'birthDate', key: 'profile.invalid.birthDate' })
 

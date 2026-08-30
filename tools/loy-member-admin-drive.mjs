@@ -133,6 +133,18 @@ let commandDelay = 0
 /** How `LoyWeb/BlockedReasons` answers: `ok`, `empty`, or `fails`. */
 let reasonsAnswer = 'ok'
 
+// ---- ticket 304: the profile command --------------------------------------
+/** How many profile writes the door has seen, and the body of the last one —
+ *  the whole point of the blank-tolerance scenario is asserted against what the
+ *  browser ACTUALLY sent, not against what the form appears to hold. */
+let profileCalls = 0
+let profileBody = null
+/** The refusal the next profile save answers with, or null for success. */
+let profileRefusal = null
+/** How long the next profile save takes — the in-flight window the disable
+ *  guards, and the only double-submit protection that exists anywhere. */
+let profileDelay = 0
+
 const trailRow = (type, description, data) => ({
   actionNo: String(900 + actionRows.length),
   mainActionType: type,
@@ -175,6 +187,37 @@ async function run() {
       // no 404-tolerant catch anywhere on this path.
       if (scenario.access === 'throws') return route.fulfill({ status: 500, body: 'boom' })
       return route.fulfill(envelope(SESSIONS[scenario.access]))
+    }
+
+    // ---- ticket 304: the profile command ----------------------------------
+    // Matched before the member read below, which shares the prefix.
+    if (/^LoyWeb\/Member\/[^/]+\/Profile$/.test(path)) {
+      profileCalls += 1
+      profileBody = route.request().postDataJSON()
+      if (profileDelay) await sleep(profileDelay)
+      if (profileRefusal) return route.fulfill(profileRefusal)
+      memberState = {
+        ...memberState,
+        fullName: profileBody.fullName,
+        email: profileBody.email,
+        // The wire carries a birth date as a stamp and a sentinel for "unset" —
+        // the door writing the form's `yyyy-MM-dd` back in the shape the read
+        // hands over is what makes the round trip honest.
+        birthDate: profileBody.birthDate
+          ? `${profileBody.birthDate}T00:00:00`
+          : '0001-01-01T00:00:00',
+        gender: profileBody.gender,
+        nationality: profileBody.nationality,
+        nationalId: profileBody.nationalId,
+        cityCode: profileBody.cityCode,
+        preferredLanguage: profileBody.preferredLanguage,
+        insuranceCompany: profileBody.insuranceCompany,
+        // 🚩 The stamp MOVES on a write. It is what the stale guard is built on,
+        // so a door that answered the old one would make the guard untestable.
+        lastUpdate: '2026-08-30T11:04:00',
+      }
+      actionRows = [trailRow('UPD', 'Member updated', 'profile'), ...actionRows]
+      return route.fulfill(envelope(null))
     }
 
     // ---- ticket 303: the two writes ---------------------------------------
@@ -247,6 +290,10 @@ async function run() {
     commandRefusal = null
     commandDelay = 0
     reasonsAnswer = 'ok'
+    profileCalls = 0
+    profileBody = null
+    profileRefusal = null
+    profileDelay = 0
     await page.goto(`${BASE}/loy/members/${LOYID_KEY}${tab ? `?tab=${tab}` : ''}`)
     await page.getByRole('tablist').waitFor({ timeout: 15000 })
     if (tab === 'profile') await panel.getByText('Membership').waitFor({ timeout: 10000 })
@@ -699,7 +746,234 @@ async function run() {
     `${await page.locator('#loy-block-reason option').count()} options`,
   )
 
-  // ---- Scenario 12: a look-only session still writes nothing ---------------
+  // ======================================================================
+  // Ticket 304 — the profile command
+  // ======================================================================
+  // Flow Proof `aRefusedSaveKeepsEveryEdit`, plus the arrangement the pure
+  // module cannot reach: which control is armed, what is marked as changed, and
+  // where a refusal is drawn.
+  const saveButton = page.locator('[data-testid="loy-profile-save"]')
+  const discardButton = page.locator('[data-testid="loy-profile-discard"]')
+  const field = (name) => page.locator(`#loy-profile-${name}`)
+  const reloadButton = panel.getByRole('button', { name: /reload the member/i })
+  const refusalEnvelope = (errorCode, message) =>
+    envelope(null, {
+      status: 400,
+      success: false,
+      message,
+      errors: [{ errorCode, errorMessage: '', internalErrorCode: '' }],
+    })
+
+  // ---- Scenario 12: a sparse member is corrected without inventing a fact --
+  // 🚩 THE ticket. A member with no recorded gender and no preferred language,
+  // whose name is misspelt. The till's validator would refuse this save and make
+  // the analyst make a fact about the customer up.
+  await open('editor', { memberOver: { gender: null, preferredLanguage: null } })
+  await warmActionsCache()
+  await page.evaluate(() => {
+    window.__driveMark = 'alive'
+  })
+  check(
+    'Save and Discard are DEAD on an untouched form — a command recording no change is unwritable',
+    !(await saveButton.isEnabled()) && !(await discardButton.isEnabled()),
+  )
+  await field('fullName').fill('  Nouf Al-Harbi ')
+  check(
+    '🚩 a whitespace-only edit is not a change — Save stays dead',
+    !(await saveButton.isEnabled()) && /nothing has been changed/i.test(await panel.innerText()),
+  )
+  await field('fullName').fill('Nouf Al-Harbe')
+  const changedChips = await panel.getByText('Changed', { exact: true }).count()
+  const oneChangedSaid = /1 field changed/i.test(await panel.innerText())
+  check(
+    'a real edit arms Save and MARKS the field before anything is written',
+    (await saveButton.isEnabled()) && oneChangedSaid && changedChips === 1,
+    `${changedChips} chips, count said: ${oneChangedSaid}`,
+  )
+  await field('fullName').fill('Nouf Al-Harbi')
+  check(
+    '🚩 and a field returned to its stored value disarms it again',
+    !(await saveButton.isEnabled()),
+  )
+
+  await field('fullName').fill('Nouf Al-Harbe')
+  await saveButton.click()
+  await page.waitForFunction(() => /profile was updated/i.test(document.body.innerText), null, {
+    timeout: 15000,
+  })
+  check(
+    '🚩 a member with NO gender and NO preferred language SAVES — nothing is invented',
+    profileCalls === 1 && profileBody.gender === null && profileBody.preferredLanguage === null,
+    JSON.stringify(profileBody),
+  )
+  check(
+    '🚩 and nothing leaves the browser as an empty string — a blank is null on the wire',
+    !Object.values(profileBody).includes(''),
+  )
+  check(
+    'all nine fields go every time, plus the last-update echo the form opened on',
+    Object.keys(profileBody).length === 10 && profileBody.lastUpdate === MEMBER.lastUpdate,
+    `${Object.keys(profileBody).length} keys, echo ${profileBody.lastUpdate}`,
+  )
+  check(
+    'the header moved with NO reload, and Save went dead again',
+    (await page.evaluate(() => window.__driveMark)) === 'alive' &&
+      /Nouf Al-Harbe/.test(await page.innerText('body')) &&
+      !(await saveButton.isEnabled()),
+  )
+  check(
+    'and the Actions tab shows the update — a command that did not refresh it looks like it did not happen',
+    /member updated/i.test(await actionsText()),
+  )
+
+  // ---- Scenario 13: a shape failure is named against its field -------------
+  await open('editor')
+  await field('email').fill('not-an-address')
+  await field('fullName').fill('Nouf Al-Harbee')
+  await saveButton.click()
+  check(
+    '🚩 a shape failure names the FIELD, not the form, and sends nothing',
+    profileCalls === 0 &&
+      /does not look like an email/i.test(await panel.innerText()) &&
+      (await field('email').getAttribute('aria-invalid')) === 'true' &&
+      (await field('fullName').getAttribute('aria-invalid')) === null,
+  )
+  check(
+    '🚩 and every typed value is still exactly where the analyst left it',
+    (await field('email').inputValue()) === 'not-an-address' &&
+      (await field('fullName').inputValue()) === 'Nouf Al-Harbee',
+  )
+  await field('email').fill('nouf.new@example.com')
+  check(
+    'fixing the field clears its own wording — the complaint does not outlive the cause',
+    !/does not look like an email/i.test(await panel.innerText()) &&
+      (await field('email').getAttribute('aria-invalid')) === null,
+  )
+
+  // ---- Scenario 14: a refused save keeps every edit ------------------------
+  profileRefusal = refusalEnvelope('LOY-00107', 'City 0021 is not a known city.')
+  await field('cityCode').fill('0021')
+  await field('gender').fill('')
+  await saveButton.click()
+  await panel.getByRole('alert').waitFor({ timeout: 10000 })
+  check(
+    '🚩 a refusal speaks in the SERVER’s sentence with the screen’s wording in front',
+    /that city was not accepted/i.test(await panel.innerText()) &&
+      /is not a known city/i.test(await panel.innerText()),
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 160),
+  )
+  check(
+    'and it is marked against the field the door named',
+    (await field('cityCode').getAttribute('aria-invalid')) === 'true',
+  )
+  check(
+    '🚩 a refused save costs a retry and never the analyst’s typing — every edit survives',
+    (await field('cityCode').inputValue()) === '0021' &&
+      (await field('email').inputValue()) === 'nouf.new@example.com' &&
+      (await field('fullName').inputValue()) === 'Nouf Al-Harbee' &&
+      (await field('gender').inputValue()) === '' &&
+      (await saveButton.isEnabled()),
+  )
+  check(
+    '🚩 and clearing a recorded gender was itself a legal edit — the ruling runs both ways',
+    /4 fields changed/i.test(await panel.innerText()),
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 120),
+  )
+
+  // ---- Scenario 15: the stale-write guard ---------------------------------
+  profileRefusal = refusalEnvelope('LOY-00108', 'The member has changed since you loaded it.')
+  await field('cityCode').fill('JED')
+  await saveButton.click()
+  await panel.getByText(/changed while you had the form open/i).waitFor({ timeout: 10000 })
+  check(
+    '🚩 a stale refusal says the member CHANGED — it is not an error and offers no retry',
+    (await reloadButton.count()) === 1 &&
+      /changed while you had the form open/i.test(await panel.innerText()),
+  )
+  check(
+    'and it too keeps every edit — the reload is offered, never forced',
+    (await field('cityCode').inputValue()) === 'JED' &&
+      (await field('fullName').inputValue()) === 'Nouf Al-Harbee',
+  )
+  // The member really did move: someone else corrected the name while this form
+  // was open. The reload is the one action that recovers from the clash.
+  profileRefusal = null
+  memberState = { ...memberState, fullName: 'Nouf Al-Harbi', lastUpdate: '2026-08-30T12:00:00' }
+  await reloadButton.click()
+  await page.waitForFunction(
+    () => document.querySelector('#loy-profile-fullName')?.value === 'Nouf Al-Harbi',
+    null,
+    { timeout: 15000 },
+  )
+  check(
+    'the reload replaces the form with the member as stored NOW, and disarms Save',
+    (await field('cityCode').inputValue()) === 'RUH' &&
+      !(await saveButton.isEnabled()) &&
+      (await panel.getByText(/changed while you had the form open/i).count()) === 0,
+  )
+
+  // ---- Scenario 16: the in-flight disable is the only guard there is -------
+  await open('editor')
+  profileDelay = 700
+  await field('nationalId').fill('1098443218')
+  await saveButton.click()
+  // The disable is asserted by WAITING for it inside the in-flight window rather
+  // than by reading the DOM in the same tick as the click — React has not
+  // necessarily flushed by then, and a race would make this scenario report on
+  // the scheduler instead of on the guard.
+  const saveDisabledInFlight = await saveButton
+    .evaluate((el) => el.disabled)
+    .then((disabled) =>
+      disabled
+        ? true
+        : page
+            .waitForFunction(
+              () => document.querySelector('[data-testid="loy-profile-save"]')?.disabled === true,
+              null,
+              { timeout: 500 },
+            )
+            .then(
+              () => true,
+              () => false,
+            ),
+    )
+  await saveButton.click({ force: true })
+  await page.waitForFunction(() => /profile was updated/i.test(document.body.innerText), null, {
+    timeout: 15000,
+  })
+  check(
+    '🚩 Save disables itself in flight, and a double press writes ONE command',
+    saveDisabledInFlight && profileCalls === 1,
+    `${profileCalls} calls`,
+  )
+
+  // ---- Scenario 17: Discard, and a grant refusal --------------------------
+  await open('editor')
+  await field('gender').fill('M')
+  await field('email').fill('someone.else@example.com')
+  await discardButton.click()
+  check(
+    'Discard returns the member to as stored, and writes nothing',
+    (await field('gender').inputValue()) === 'F' &&
+      (await field('email').inputValue()) === 'nouf.h@example.com' &&
+      !(await saveButton.isEnabled()) &&
+      profileCalls === 0,
+  )
+
+  await open('editor')
+  profileRefusal = { status: 403, contentType: 'application/json', body: '' }
+  await field('fullName').fill('Nouf Al-Harbe')
+  await saveButton.click()
+  await panel.getByRole('alert').waitFor({ timeout: 10000 })
+  check(
+    '🚩 a grant refusal takes the command AWAY rather than merely apologising',
+    /no longer holds the authority/i.test(await panel.innerText()) &&
+      !(await saveButton.isEnabled()) &&
+      (await field('fullName').inputValue()) === 'Nouf Al-Harbe',
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 140),
+  )
+
+  // ---- Scenario 18: a look-only session still writes nothing ---------------
   await open('lookOnly')
   check(
     '🚩 and none of this reaches a reader — no Status control at all for look-only',

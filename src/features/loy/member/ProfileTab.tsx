@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { LoyMember } from '@/core/models/loy'
-import { isBlankDate, formatShortDate, toIsoDate } from '@/core/util/date-format'
+import { formatShortDate } from '@/core/util/date-format'
 import type { MemberAuthority } from './api'
 import { blockedReasonKey, codeWords, memberTypeKey, tierKey } from './codes'
 import { memberBirthDate } from './member-header'
-import { PRIMARY_BUTTON, QUIET_BUTTON } from './profile-controls'
+import { PROFILE_FIELDS, profileDraftOf } from './profile-form'
+import ProfileForm from './ProfileForm'
+import { QUIET_BUTTON } from './profile-controls'
 import StatusCommand from './StatusCommand'
 
 /**
@@ -34,13 +36,13 @@ import StatusCommand from './StatusCommand'
  * enforced server-side per route (ADR 0001); the flags decide only what is
  * *drawn*.
  *
- * ⚠️ **The Status command writes; the rest are still inert.** 302 owned the
- * *visibility rule* and wrote nothing, and 303 wired the first of the four
- * commands up (`StatusCommand` — block and unblock, and the write idiom 304–307
- * copy). 304 (profile save), 306 (email removal) and 307 (mobile removal) are
- * still buttons that do nothing, and the note above the groups names **them**
- * rather than claiming the whole tab is disconnected — a note that says more
- * than is true is how an editor stops reading it.
+ * ⚠️ **Two of the four commands write; the removals are still inert.** 302 owned
+ * the *visibility rule* and wrote nothing; 303 wired the Status command up
+ * (`StatusCommand` — block and unblock, and the write idiom the rest copy) and
+ * 304 the profile itself (`ProfileForm`). 306 (email removal) and 307 (mobile
+ * removal) are still buttons that do nothing, and the note above the groups
+ * names **them** rather than claiming the whole tab is disconnected — a note
+ * that says more than is true is how an editor stops reading it.
  *
  * **Drawn nowhere:** the referral code the ticket's read-only column names —
  * `LoyMemberModel` does not carry one, so there is no field on the wire, on the
@@ -58,77 +60,24 @@ export default function ProfileTab({
   const { mayEdit, mayRemoveMobile } = authority
 
   /**
-   * The nine editable-later fields as the member currently stands. 🚩 The
-   * read-only rendering reads THIS and never the draft below: the draft is
-   * frozen at mount, and a member re-read (which 303's block/unblock will
-   * trigger) would otherwise leave the field list showing pre-command values
-   * beside a header that had already moved on.
-   *
-   * 🚩 The birth date is carried as `yyyy-MM-dd` rather than as its display
-   * form: a control holds the value that will be SENT, and 304 has to parse
-   * this back to the wire. The sentinel `0001-01-01` is an unset birth date,
-   * not a fact about the customer, so it carries as blank.
+   * The nine fields as the member currently stands — what the **read-only**
+   * rendering draws. 🚩 It reads the live member and never an editing draft: a
+   * draft is frozen at mount, and a member re-read (a block, an unblock, a
+   * profile save) would otherwise leave the field list showing pre-command
+   * values beside a header that had already moved on.
    */
-  const current = {
-    fullName: member.fullName ?? '',
-    email: member.email ?? '',
-    birthDate: isoDate(member.birthDate),
-    gender: member.gender ?? '',
-    nationality: member.nationality ?? '',
-    nationalId: member.nationalId ?? '',
-    cityCode: member.cityCode ?? '',
-    preferredLanguage: member.preferredLanguage ?? '',
-    insuranceCompany: member.insuranceCompany ?? '',
-  }
+  const current = profileDraftOf(member)
 
-  // The editing session's working copy. Local and unsaved by design — 304 gives
-  // it dirty-tracking, a Save that is dead until something changed, and the
-  // stale-write guard. Nothing leaves this tab in this slice.
-  //
-  // ⚠️ **It is seeded once and never re-synced**, and the shell is keyed on the
-  // LoyId, so a background re-read of the SAME member leaves these controls on
-  // the values they were opened with while the facts beside them move. Correct
-  // for an analyst mid-edit — their typing is not something a refetch may
-  // overwrite — but it means 304's stale-write guard has to cover a draft that
-  // went stale without anyone touching it, not only two analysts racing.
-  const [draft, setDraft] = useState(current)
+  /**
+   * Bumped to start the editing session again from the member as stored —
+   * Discard, and the reload a stale form offers. The form seeds itself at mount
+   * and never re-syncs (see `ProfileForm`), so **remounting it is the only way
+   * to re-seed it**, and routing both through one counter keeps "start again
+   * from what is stored" meaning exactly one thing on this screen.
+   */
+  const [formGeneration, setFormGeneration] = useState(0)
 
   const blockedReason = codeWords(member.blockedReasonCode, blockedReasonKey, t)
-
-  /** One editable field: a control for an editor, a read fact for everyone else.
-   *  ONE definition, so the two renderings cannot drift apart. */
-  const editable = (
-    key: keyof typeof current,
-    label: string,
-    { mono }: { mono?: boolean } = {},
-  ) =>
-    mayEdit ? (
-      <Control key={key} id={`loy-profile-${key}`} label={label}>
-        <input
-          id={`loy-profile-${key}`}
-          type="text"
-          value={draft[key]}
-          onChange={(event) =>
-            setDraft((current) => ({ ...current, [key]: event.target.value }))
-          }
-          autoComplete="off"
-          className={
-            'h-8 w-full rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none ' +
-            (mono ? 'font-mono text-[13px]' : '')
-          }
-        />
-      </Control>
-    ) : (
-      // 🚩 The read-only twin shows the birth date as a DATE rather than as the
-      // wire value the control carries — the same fact, said the way each
-      // rendering needs it.
-      <Fact
-        key={key}
-        label={label}
-        value={(key === 'birthDate' ? memberBirthDate(member.birthDate) : current[key]) || null}
-        mono={mono}
-      />
-    )
 
   return (
     <div className="flex flex-col gap-5">
@@ -138,28 +87,31 @@ export default function ProfileTab({
 
       <section className="flex flex-col gap-3">
         <Legend>{t('profile.section.profile')}</Legend>
-        <div className="grid gap-x-6 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))]">
-          {editable('fullName', t('profile.field.fullName'))}
-          {editable('email', t('profile.field.email'))}
-          {editable('birthDate', t('profile.field.birthDate'))}
-          {/* 🚩 A code is labelled AS a code (229 clause 5) — the screen holds no
-              lookup for any of these four, and a label promising a name it does
-              not have is the thing that turns `0021` into a wrong city. */}
-          {editable('gender', t('profile.field.genderCode'), { mono: true })}
-          {editable('nationality', t('profile.field.nationalityCode'), { mono: true })}
-          {editable('nationalId', t('profile.field.nationalId'))}
-          {editable('cityCode', t('profile.field.cityCode'), { mono: true })}
-          {editable('preferredLanguage', t('profile.field.preferredLanguage'), { mono: true })}
-          {editable('insuranceCompany', t('profile.field.insuranceCompany'))}
-        </div>
-        {mayEdit && (
-          <div className="flex items-center gap-2">
-            <button type="button" disabled className={PRIMARY_BUTTON}>
-              {t('profile.save')}
-            </button>
-            <button type="button" disabled className={QUIET_BUTTON}>
-              {t('profile.discard')}
-            </button>
+        {/* 🚩 ONE field list, drawn twice. Both renderings map `PROFILE_FIELDS`,
+            so a field cannot exist in one and not the other — the divergence
+            spec 301 names, where a read-only view starts showing a field the
+            editable one dropped. A code is labelled AS a code (229 clause 5):
+            the screen holds no lookup for any of the four, and a label promising
+            a name it does not have is what turns `0021` into a wrong city. */}
+        {mayEdit ? (
+          <ProfileForm
+            key={formGeneration}
+            member={member}
+            onReseed={() => setFormGeneration((generation) => generation + 1)}
+          />
+        ) : (
+          <div className="grid gap-x-6 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))]">
+            {PROFILE_FIELDS.map(({ key, labelKey, mono }) => (
+              // 🚩 The read-only twin shows the birth date as a DATE rather than
+              // as the wire value the control carries — the same fact, said the
+              // way each rendering needs it.
+              <Fact
+                key={key}
+                label={t(labelKey)}
+                value={(key === 'birthDate' ? memberBirthDate(member.birthDate) : current[key]) || null}
+                mono={mono}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -240,18 +192,6 @@ export default function ProfileTab({
   )
 }
 
-/**
- * A member's birth date as a control carries it — `yyyy-MM-dd`, or blank for the
- * `0001-01-01` sentinel an unset one arrives as. The blank guard is
- * `isBlankDate`'s, the same one `formatShortDate` applies, rather than a second
- * spelling of "unset".
- */
-function isoDate(value: string | null | undefined): string {
-  if (!value) return ''
-  const date = new Date(value)
-  return isBlankDate(date) ? '' : toIsoDate(date)
-}
-
 /** Points render grouped and without invented decimals — the same rule the
  *  header states them under. */
 const points = (value: number): string =>
@@ -290,30 +230,6 @@ function Fact({
       >
         {value || t('member.absent')}
       </div>
-    </div>
-  )
-}
-
-/** One editable field, labelled the way its read-only twin is so the two
- *  renderings read as the same screen. */
-function Control({
-  id,
-  label,
-  children,
-}: {
-  id: string
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="min-w-0">
-      <label
-        htmlFor={id}
-        className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
-      >
-        {label}
-      </label>
-      {children}
     </div>
   )
 }

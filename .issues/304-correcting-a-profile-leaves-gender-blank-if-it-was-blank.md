@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 301
 blocked-by: 303
 ---
@@ -50,13 +50,13 @@ dirty set, validation verdict, request body, stale comparison) · component (the
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `aBlankGenderAndLanguageSurviveASave` — a member with neither set validates and produces a
+- [x] `aBlankGenderAndLanguageSurviveASave` — a member with neither set validates and produces a
       request body carrying neither, and a member with both set keeps them · pure
-- [ ] `onlyChangedFieldsCountAsDirtyAndAnUnchangedFormCannotSave` — including whitespace-only edits,
+- [x] `onlyChangedFieldsCountAsDirtyAndAnUnchangedFormCannotSave` — including whitespace-only edits,
       a field returned to its original value, and a blank field left blank · pure
-- [ ] `aStaleFormIsRefusedRatherThanClobbering` — the last-update echo round-trips, and a mismatch
+- [x] `aStaleFormIsRefusedRatherThanClobbering` — the last-update echo round-trips, and a mismatch
       is surfaced as *the member changed*, not as a crash · pure
-- [ ] `aRefusedSaveKeepsEveryEdit` — drive a validation refusal and a stale refusal; assert the
+- [x] `aRefusedSaveKeepsEveryEdit` — drive a validation refusal and a stale refusal; assert the
       typed values are still on the form and the failing field is named · flow
 
 ## Boundaries
@@ -101,3 +101,87 @@ edit.
 ## Open questions
 
 None.
+
+---
+
+## As built (2026-08-30)
+
+`profile-form.ts` (pure, **new**) + `profile-form.test.ts` · `ProfileForm.tsx` (**new**) ·
+`loyCommandApi.updateProfile` on `api.ts` · three refusal codes on `member-commands.ts`, which also
+grew `commandRefusalText` — the wave's ONE refusal reader, extracted from 303's copy in
+`StatusCommand` rather than spelled a second time · `ProfileTab.tsx` now draws its two renderings
+from **one field list** · new `loy` keys under `profile.*` and `command.refusal.*`.
+
+**The wire, as designed** (unbuilt — the backend half of 301 is still unwritten and unnumbered, so
+🚩 **nothing here met a live SIS.Api**): `POST LoyWeb/Member/{loyId}/Profile`, taking the nine
+fields plus a `lastUpdate` echo. `LOY-00106` (invalid nationality) · `LOY-00107` (invalid city) ·
+`LOY-00108` (member changed) are **invented and say so**, on 303's terms: an unrecognised code still
+surfaces the server's own sentence, so a wrong number costs the screen's extra wording and which
+control gets marked — never whether the analyst is told what happened. `REFUSED_FIELDS` and
+`REFUSAL_KEYS` are the two lines to reconcile when the door lands.
+
+🚩 **The ruling, and how it is pinned.** A member with no gender and no preferred language saves,
+and the body carries `null` for both. The whole rule lives in `profileProblems` — which demands a
+value on **none** of the nine, in either direction: blanking a *recorded* gender is as legal as
+leaving an absent one absent, because the ticket's failure mode is an analyst forced to make a fact
+about a customer up. Driven end-to-end against a stubbed door, and asserted on the body the browser
+**actually sent** rather than on the form.
+
+🚩 **A blank is `null` on the wire, never `""`.** This is the ticket's explicit handling of the live
+empty-string question (301 → Further Notes #2). ⚠️ **The question is NOT answered** — it cannot be
+without a live SIS.Api, which the same Boundaries forbid. The client sidesteps it instead: it states
+*not recorded* in the one spelling the column and the validator already agree about. **The
+confirmation is still owed**, and belongs to whichever ticket first meets the real door.
+
+**Only SHAPE is checked, never a value.** Two client-side checks, both guarded on a non-blank value:
+an email that is not `a@b.c`, and a birth date that would not be **sent as the day it was typed**
+(`new Date` rolls `2026-02-31` forward to March rather than refusing). Deliberately no length caps,
+no code value sets, and — after review — **no "not in the future" rule**: those are judgements about
+the customer, and spec 301 puts value rules on the door where a refusal can be **named**. An invalid
+nationality or city is marked against its own control by `profileRefusedField`, from the door's code.
+
+**The stale-write guard, in two halves.** The request echoes the stamp the form was **opened on**,
+and the door refuses with `LOY-00108` — said as *the member changed*, with a **Reload** and no retry,
+because pressing Save again would either be refused identically or succeed against a member the
+analyst has not seen. `profileFormIsStale` says the same thing **earlier**, with no round trip, for
+the case 302's note names: the draft is seeded once at mount and never re-synced, so a background
+re-read of the *same* member moves the facts beside the controls while the controls hold what they
+were opened with. 🚩 A blank stamp on either side is **not** a clash — the screen never invents the
+warning — and the client-side news never disarms Save: a door that reformatted its stamp must not be
+able to strand an analyst's edits.
+
+⚠️ **The one race the guard could have lost to itself** (found by the Spec review): the write's
+invalidation is deliberately not awaited, so for a moment after a successful save the member payload
+still carries the stamp that save superseded. A second save in that window would echo it and be
+refused as stale — the guard firing on a race with *itself*, told to the analyst as a colleague's
+edit. `awaitingStamp` holds Save dead until the read the write kicked off lands. Briefly dead is far
+cheaper than a refusal that reads as someone else's.
+
+**Everything else follows 303's idiom rather than a second one**: the in-flight disable read from
+the mutation cache (`useIsMutating` on `memberCommandKey`) so it outlives a tab switch; the
+invalidation of both the member prefix and the Actions prefix inside `mutationFn`; a 403 taking the
+command away rather than merely apologising. A refusal — shape, business, stale or grant — **clears
+nothing on the form**, which is ticket 220's standing rule and this ticket's flow Proof.
+
+**Discard and the stale reload are one mechanism**: `onReseed` remounts the form, which re-seeds
+from the member as stored. The reload **awaits** its refetch first (unlike the write's), because
+re-seeding before it landed would put the analyst back on the very copy they asked to leave.
+
+⚠️ **Two things the diff deliberately does not touch.** The email-**verified** mark is cleared
+server-side by the new handler when and only when the address changes; the screen cannot contradict
+it because `LoyMemberModel` carries **no verified field at all**, and `profile-form.ts` says so where
+a later ticket that wants to draw one will read it. And `profile.inertNote` now names the *removals*
+only — 304's controls are live, and a note that says more than is true is how an editor stops
+reading it.
+
+**Reviews.** `/code-review high` and `/standards-review` both run; standards found **no hard rule
+violation on either axis**. Acted on: the duplicated `refusal()` reader extracted to
+`member-commands.ts`; the invented future-date rule dropped; the toast reworded to name the
+**member command** rather than "save" (`CONTEXT.md` lists *save* and unqualified *update* against
+that entry); the post-save echo race closed. Left as noted: the nine fields are spelled out in
+`ProfileDraft`, `profileDraftOf` and `profileUpdateRequest` as well as in `PROFILE_FIELDS` — three
+genuinely different shapes (control strings, label list, nullable wire body), each typechecked, and
+folding them together would trade that for a cast.
+
+**Proof:** 2143 vitest (20 new, in three named suites) · admin drive **76/76** ·
+`loy-member-drive` 184/184 · typecheck, lint and build green · every envelope stubbed.

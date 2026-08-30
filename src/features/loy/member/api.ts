@@ -29,6 +29,7 @@ import type {
   LoyMemberPayload,
   LoySalesRow,
 } from '@/core/models/loy'
+import type { ProfileUpdateRequest } from './profile-form'
 import type { MemberReads } from './resolve-member'
 
 /**
@@ -233,6 +234,33 @@ export const loyCommandApi = {
   async blockedReasons(): Promise<LoyBlockedReasonPayload[]> {
     const rows = await api.get<LoyBlockedReasonPayload[] | null>('LoyWeb/BlockedReasons')
     return rows ?? []
+  },
+
+  /**
+   * `POST LoyWeb/Member/{loyId}/Profile` — the profile **member command**
+   * (ticket 304): the nine editable fields written as one snapshot.
+   *
+   * 🚩 **A NEW admin-side handler, not the till's.** The existing one's
+   * validator makes gender and preferred language **mandatory** and constructs
+   * itself inside the handler, so it cannot be swapped from outside; members are
+   * frequently sparse, and delegating verbatim would force an analyst to invent
+   * a gender to fix a name. Spec 301 rules the departure is made by **adding
+   * beside, never by editing the shared path** — editing it would change
+   * behaviour for the WPF till, POS and e-commerce callers, the exact drift the
+   * `LoyWeb` door exists to avoid.
+   *
+   * 🚩 The body carries the member's **last-update echo**, and the door refuses
+   * with `LOY-00108` when the member has moved on. That refusal is not an error:
+   * it says the member changed underneath you, and the screen offers a reload.
+   * The narrow commands carry no such token — they write one dimension and the
+   * server reads the member fresh.
+   *
+   * Refusable by name with **member does not exist**, **invalid nationality**,
+   * **invalid city** and **member changed**; refused for authority with a 403,
+   * which is a grant refusal and not an outage.
+   */
+  async updateProfile(loyId: string, body: ProfileUpdateRequest): Promise<void> {
+    await api.post<unknown>(`LoyWeb/Member/${encodeURIComponent(loyId)}/Profile`, body)
   },
 
   /**

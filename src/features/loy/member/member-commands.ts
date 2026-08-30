@@ -11,7 +11,7 @@
  * and a decision inside JSX is a decision no test can reach while React Testing
  * Library is unbootstrapped (spec 231's testing decisions).
  */
-import { apiErrorCode } from '@/core/api'
+import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { LoyBlockedReasonPayload, LoyMember } from '@/core/models/loy'
 
 /**
@@ -109,6 +109,13 @@ export function selectableBlockedReasons(
 const REFUSAL_KEYS: Record<string, string> = {
   'LOY-00100': 'command.refusal.noSuchMember',
   'LOY-00105': 'command.refusal.invalidBlockedReason',
+  // The profile command's three (ticket 304), design intent on the same terms.
+  // 🚩 `LOY-00108` is the **stale-write** refusal, and it is the one the screen
+  // treats as a fact rather than a failure: the caller pairs its wording with a
+  // reload rather than a retry (`isStaleProfileRefusal`).
+  'LOY-00106': 'command.refusal.invalidNationality',
+  'LOY-00107': 'command.refusal.invalidCity',
+  'LOY-00108': 'command.refusal.memberChanged',
 }
 
 /**
@@ -122,4 +129,37 @@ export const commandRefusalKey = (err: unknown): string | null => {
   // `constructor` or `toString` would otherwise reach through to
   // `Object.prototype`, survive the `?? null`, and be handed to `t()` as a key.
   return Object.hasOwn(REFUSAL_KEYS, code) ? REFUSAL_KEYS[code] : null
+}
+
+/**
+ * How **every** member command says a refusal: the **server's own sentence**,
+ * with the screen's wording in front for a code it knows by name — both, in
+ * that order, and never one flattened into the other
+ * (`.claude/rules/api-envelope.md`). The pair is joined through a KEY rather
+ * than by concatenation, so a locale can reorder or repunctuate it.
+ *
+ * 🚩 **A 403 is a grant refusal, not an outage**, and the only arm that offers
+ * nothing to try again: it is a fact about the session, and nothing the analyst
+ * does on this screen will change it. A **bare** 403 carries no sentence worth
+ * reading — it is what a route without the grant answers, and `apiErrorMessage`
+ * would offer only "unexpected (403)" — while a **coded** one has been refused
+ * for a named reason, and that reason is the whole content of the refusal.
+ *
+ * It lives here, taking `t` as an argument, rather than being copied into each
+ * command's component: the two on the tab sit inches apart, and one copy each
+ * would look identical today and drift the first time a refusal arm is added.
+ * 401 is untouched — `core/api.ts` owns it.
+ */
+export function commandRefusalText(
+  err: unknown,
+  fallback: string,
+  t: (key: string, params?: Record<string, unknown>) => string,
+): string {
+  const said = apiErrorMessage(err, fallback)
+  if (err instanceof ApiError && err.statusCode === 403)
+    return apiErrorCode(err)
+      ? t('command.refusal.pair', { named: t('command.refusal.grant'), said })
+      : t('command.refusal.grant')
+  const named = commandRefusalKey(err)
+  return named ? t('command.refusal.pair', { named: t(named), said }) : said
 }

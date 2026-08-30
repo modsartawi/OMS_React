@@ -144,7 +144,7 @@
     "error": "Error"
   },
   "profile": {
-    "inertNote": "The profile and contact-removal commands are not connected yet.",
+    "inertNote": "The contact-removal commands are not connected yet.",
     "section": {
       "profile": "Profile",
       "facts": "Membership",
@@ -198,14 +198,31 @@
     },
     "removalNote": "Removing a contact detail takes away a way of reaching this customer. It is not account deletion.",
     "removeEmail": "Remove email",
-    "removeMobile": "Remove mobile"
+    "removeMobile": "Remove mobile",
+    "invalid": {
+      "email": "That does not look like an email address.",
+      "birthDate": "Enter the birth date as YYYY-MM-DD."
+    },
+    "changed": "Changed",
+    "changedCount_one": "{{count}} field changed.",
+    "changedCount_other": "{{count}} fields changed.",
+    "noChanges": "Nothing has been changed yet.",
+    "fixFields": "Some fields could not be sent as typed. Each is named below.",
+    "staleTitle": "This member changed while you had the form open.",
+    "staleNote": "Your edits are still here. Reloading replaces them with the member as stored now.",
+    "reload": "Reload the member",
+    "updated": "The member's profile was updated.",
+    "updateFailed": "The member's profile could not be updated."
   },
   "command": {
     "refusal": {
       "noSuchMember": "This member no longer exists.",
       "invalidBlockedReason": "That blocked reason was not accepted.",
       "grant": "This session no longer holds the authority for that command. Ask an administrator; retrying will not help.",
-      "pair": "{{named}} {{said}}"
+      "pair": "{{named}} {{said}}",
+      "invalidNationality": "That nationality was not accepted.",
+      "invalidCity": "That city was not accepted.",
+      "memberChanged": "This member changed since you opened the form, so nothing was written."
     }
   }
 }

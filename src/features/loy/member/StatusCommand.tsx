@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Ban, Loader2, RotateCw, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
+import { ApiError, apiErrorMessage } from '@/core/api'
 import type { LoyMember } from '@/core/models/loy'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -17,7 +17,7 @@ import {
   memberCommandKey,
 } from './api'
 import { blockedReasonKey, codeWords } from './codes'
-import { commandRefusalKey, selectableBlockedReasons, statusCommand } from './member-commands'
+import { commandRefusalText, selectableBlockedReasons, statusCommand } from './member-commands'
 import { QUIET_BUTTON } from './profile-controls'
 
 /**
@@ -134,30 +134,17 @@ export default function StatusCommand({ member }: { member: LoyMember }) {
   }
 
   /**
-   * How this failure is said. A **403 is a grant refusal** — a fact about the
-   * session, not an outage — and it is the one arm that offers nothing to try
-   * again. Everything else speaks in the **server's own sentence**, with the
-   * screen's wording added in front for a code it recognises by name. Both, in
-   * that order, and never one flattened into the other.
+   * How this failure is said — the wave's ONE refusal reader
+   * (`commandRefusalText`): the server's own sentence, with the screen's
+   * wording in front for a code it knows by name, and a 403 said as the grant
+   * refusal it is. Only the fallback differs between the two commands here.
    */
-  const refusal = (error: unknown): string => {
-    const said = apiErrorMessage(
+  const refusal = (error: unknown): string =>
+    commandRefusalText(
       error,
       command === 'block' ? t('profile.status.blockFailed') : t('profile.status.unblockFailed'),
+      t,
     )
-    if (error instanceof ApiError && error.statusCode === 403)
-      // 🚩 A bare 403 carries no sentence worth reading — it is what a route
-      // without the grant answers, and `apiErrorMessage` would offer only
-      // "unexpected (403)". A CODED 403 has been refused for a named reason, and
-      // that reason is the whole content of the refusal, so it is kept.
-      return apiErrorCode(error)
-        ? t('command.refusal.pair', { named: t('command.refusal.grant'), said })
-        : t('command.refusal.grant')
-    const named = commandRefusalKey(error)
-    // Both sentences, joined through a KEY rather than by concatenation, so a
-    // locale can reorder or repunctuate the pair (i18n-zero-literal).
-    return named ? t('command.refusal.pair', { named: t(named), said }) : said
-  }
 
   /**
    * 🚩 **Read from the mutation cache, not from `run.isPending`.** The tab shell

@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import type { IDocInspectorLine } from '@/core/models/idoc-inspector'
 import { formatMoney } from '@/core/util/number-format'
+import { CodeMark, DiscTypeCode } from './CodeValue'
+import { conditionTypeMeaning } from './code-legend'
 import { blankedInXml } from './document-graph'
 import { XmlBlankedMark } from './DocumentPanes'
 import { conditionsForTag } from './provenance'
@@ -46,7 +48,9 @@ export default function LineExpansion({
   // and has nothing to do with the **IDoc batch** the document sits in. Both
   // words are on this one screen, so the label names which one this is.
   const pills: { key: string; label: string; value: string }[] = [
-    ...(line.batch ? [{ key: 'charg', label: t('idocInspector.line.charg'), value: line.batch }] : []),
+    ...(line.batchNumber
+      ? [{ key: 'charg', label: t('idocInspector.line.charg'), value: line.batchNumber }]
+      : []),
     ...(line.promotionId
       ? [{ key: 'promo', label: t('idocInspector.line.promotionId'), value: line.promotionId }]
       : []),
@@ -123,12 +127,26 @@ export default function LineExpansion({
                   className={SUB_ROW}
                 >
                   <td className="px-1.5 py-1 font-mono tabular-nums">{condition.seq}</td>
-                  {/* The raw code — 300 puts the legend's label beside it. */}
-                  <td className="px-1.5 py-1 font-mono">{condition.conditionType}</td>
-                  {/* Open master data, resolved per row by the server. Missing is
-                      the code alone; a description is never invented. */}
+                  {/* The raw condition type, and beside it the condition's CLASS
+                      and CONTROL as two dotted marks carrying the legend's names.
+                      🚩 Marks, not columns: the expansion already has seven inside
+                      a `colSpan` cell, and two more to show two near-constant
+                      letters would cost the in-place shape the screen rests on.
+                      This is the idiom 297 settled for the condition origin. */}
+                  <td className="px-1.5 py-1">
+                    <span className="inline-flex items-baseline gap-1">
+                      <span className="font-mono">{condition.conditionType}</span>
+                      <CodeMark vocabulary="conditionClass" code={condition.conditionClass} />
+                      <CodeMark vocabulary="conditionControl" code={condition.conditionControl} />
+                    </span>
+                  </td>
+                  {/* 🔑 Open master data, resolved per row by the SERVER — the one
+                      code on this screen that is not in the legend, because a
+                      pricing analyst adds a condition type without a deployment.
+                      No description ⇒ the code alone, already in the cell before
+                      this one; nothing is invented to fill this one. */}
                   <td className="px-1.5 py-1 text-muted-foreground">
-                    {condition.conditionTypeDescription ?? ''}
+                    {conditionTypeMeaning(condition.conditionTypeDescription) ?? ''}
                   </td>
                   <td className="px-1.5 py-1 text-end tabular-nums">
                     {formatMoney(condition.conditionRate)}
@@ -140,7 +158,7 @@ export default function LineExpansion({
                     )}
                   </td>
                   <td className="px-1.5 py-1 font-mono text-muted-foreground">
-                    {condition.discTypeCode}
+                    <DiscTypeCode code={condition.discTypeCode} />
                   </td>
                   <td className="px-1.5 py-1">
                     <ConditionProvenance

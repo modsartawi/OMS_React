@@ -79,7 +79,7 @@ const FI_TYPE = 'FI'
  * document's `lines` render, whatever its type.
  */
 export function documentPane(doc: IDocInspectorDocument): 'fi' | 'payments' {
-  return (doc.idocType ?? '') === FI_TYPE || doc.fiItems.length > 0 ? 'fi' : 'payments'
+  return (doc.iDocType ?? '') === FI_TYPE || doc.fiItems.length > 0 ? 'fi' : 'payments'
 }
 
 /** What the rail card counts. An FI document counts FI lines; everything else

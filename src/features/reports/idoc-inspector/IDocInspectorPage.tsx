@@ -10,6 +10,7 @@ import { canOpenIDocInspector, idocInspectorAccessQuery, idocInspectorApi } from
 import DocumentPane from './DocumentPane'
 import DocumentRail from './DocumentRail'
 import { hasDocuments, selectedIndex } from './document-graph'
+import { LegendProvider } from './LegendContext'
 import LookupToolbar from './LookupToolbar'
 import {
   buildLookupKey,
@@ -45,8 +46,10 @@ import {
  * an empty state at all). Until then this screen says only that the lookup found
  * no documents, which is true of all ten and diagnostic of none.
  *
- * The download (299) sits on the verdict strip 298 builds; the code legend (300)
- * hangs labels beside the raw codes rendered here. Neither is here yet.
+ * The download (299) sits on the verdict strip 298 builds. **The code legend
+ * (300) is here**: `LegendProvider` fetches `Metadata` once per session inside
+ * the gate, and every code below draws its label from it while still rendering
+ * itself raw.
  */
 export default function IDocInspectorPage() {
   const { t } = useTranslation('reports')
@@ -168,67 +171,69 @@ export default function IDocInspectorPage() {
       title={t('idocInspector.title')}
       subtitle={t('idocInspector.subtitle')}
     >
-      <LookupToolbar
-        criteria={criteria}
-        onChange={onChange}
-        onLookup={onLookup}
-        onReset={onReset}
-        invalid={invalid}
-      />
+      <LegendProvider>
+        <LookupToolbar
+          criteria={criteria}
+          onChange={onChange}
+          onLookup={onLookup}
+          onReset={onReset}
+          invalid={invalid}
+        />
 
-      {lookup.isError && (
-        <ErrorBanner
-          message={apiErrorMessage(lookup.error, t('idocInspector.errors.lookupFailed'))}
-          className="p-3"
-        />
-      )}
+        {lookup.isError && (
+          <ErrorBanner
+            message={apiErrorMessage(lookup.error, t('idocInspector.errors.lookupFailed'))}
+            className="p-3"
+          />
+        )}
 
-      {appliedKey === null ? (
-        // State 1 — untouched. ⚠️ NOT an empty result: nothing has been asked
-        // yet, and on this screen an empty result is a named verdict. Collapsing
-        // the two would tell a consultant their transaction is empty before they
-        // had typed it.
-        <Placeholder
-          icon={<FileSearch className="h-8 w-8 text-muted-foreground" aria-hidden />}
-          title={t('idocInspector.landing.title')}
-          hint={t('idocInspector.landing.hint')}
-        />
-      ) : lookup.isPending ? (
-        <ListShimmer label={t('idocInspector.loading')} />
-      ) : lookup.isError ? null : !hasDocuments(lookup.data) ? (
-        // State 2 — a successful answer carrying no documents. ⚠️ Ticket 298
-        // replaces this with the ten named verdicts and their copy; this slice
-        // says only what is true of all ten.
-        <Placeholder
-          icon={<PackageSearch className="h-8 w-8 text-muted-foreground" aria-hidden />}
-          title={t('idocInspector.noDocuments.title')}
-          hint={t('idocInspector.noDocuments.hint')}
-        />
-      ) : (
-        // State 3 — the graph. Rail, then pane; both render from the one answer.
-        <div className="flex flex-col gap-3">
-          <div className="rounded-lg border border-border/60 bg-card p-2.5">
-            <DocumentRail
-              documents={documents}
-              selected={selected}
-              onSelect={onSelectDocument}
-            />
+        {appliedKey === null ? (
+          // State 1 — untouched. ⚠️ NOT an empty result: nothing has been asked
+          // yet, and on this screen an empty result is a named verdict. Collapsing
+          // the two would tell a consultant their transaction is empty before they
+          // had typed it.
+          <Placeholder
+            icon={<FileSearch className="h-8 w-8 text-muted-foreground" aria-hidden />}
+            title={t('idocInspector.landing.title')}
+            hint={t('idocInspector.landing.hint')}
+          />
+        ) : lookup.isPending ? (
+          <ListShimmer label={t('idocInspector.loading')} />
+        ) : lookup.isError ? null : !hasDocuments(lookup.data) ? (
+          // State 2 — a successful answer carrying no documents. ⚠️ Ticket 298
+          // replaces this with the ten named verdicts and their copy; this slice
+          // says only what is true of all ten.
+          <Placeholder
+            icon={<PackageSearch className="h-8 w-8 text-muted-foreground" aria-hidden />}
+            title={t('idocInspector.noDocuments.title')}
+            hint={t('idocInspector.noDocuments.hint')}
+          />
+        ) : (
+          // State 3 — the graph. Rail, then pane; both render from the one answer.
+          <div className="flex flex-col gap-3">
+            <div className="rounded-lg border border-border/60 bg-card p-2.5">
+              <DocumentRail
+                documents={documents}
+                selected={selected}
+                onSelect={onSelectDocument}
+              />
+            </div>
+            {doc && (
+              <DocumentPane
+                // 🚩 Keyed by the selected document, so switching cards mounts a
+                // fresh pane rather than reconciling one document's rows onto
+                // another's.
+                key={`${doc.pharmacyId}/${doc.receiptNumber}/${selected}`}
+                doc={doc}
+                openItemNumbers={openItemNumbers}
+                filterTag={filterTag}
+                onToggleLine={onToggleLine}
+                onFilter={setFilterTag}
+              />
+            )}
           </div>
-          {doc && (
-            <DocumentPane
-              // 🚩 Keyed by the selected document, so switching cards mounts a
-              // fresh pane rather than reconciling one document's rows onto
-              // another's.
-              key={`${doc.pharmacyId}/${doc.receiptNumber}/${selected}`}
-              doc={doc}
-              openItemNumbers={openItemNumbers}
-              filterTag={filterTag}
-              onToggleLine={onToggleLine}
-              onFilter={setFilterTag}
-            />
-          )}
-        </div>
-      )}
+        )}
+      </LegendProvider>
     </ScreenGate>
   )
 }

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { IDocInspectorLine } from '@/core/models/idoc-inspector'
+import { useCodeLabel } from './CodeValue'
 import { mintedByTags, sourceTagDisplay } from './provenance'
 
 /**
@@ -31,28 +32,14 @@ export default function MintedByFilter({
       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {t('idocInspector.provenance.filterLabel')}
       </span>
-      {tags.map((tag) => {
-        const display = sourceTagDisplay(tag)
-        const active = filterTag === tag
-        return (
-          <button
-            key={tag === '' ? '__unknown__' : tag}
-            type="button"
-            // 🚩 The empty tag gets a button of its own — *unknown* is precisely
-            // what a consultant hunting a provenance bug filters for.
-            data-minted-by={tag === '' ? 'unknown' : tag}
-            aria-pressed={active}
-            onClick={() => onFilter(active ? null : tag)}
-            className={`rounded-full border px-2 py-0.5 font-mono text-[11px] font-semibold transition-colors ${
-              active
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-card text-muted-foreground hover:bg-accent/60'
-            }`}
-          >
-            {display.kind === 'unknown' ? t('idocInspector.provenance.unknown') : display.code}
-          </button>
-        )
-      })}
+      {tags.map((tag) => (
+        <TagFilterButton
+          key={tag === '' ? '__unknown__' : tag}
+          tag={tag}
+          active={filterTag === tag}
+          onFilter={onFilter}
+        />
+      ))}
       {filterTag !== null && (
         <button
           type="button"
@@ -64,5 +51,52 @@ export default function MintedByFilter({
         </button>
       )}
     </div>
+  )
+}
+
+/**
+ * One tag's button.
+ *
+ * 🚩 **A once-per-document render site of the same vocabulary the row chips draw,
+ * so it carries the same label** (ticket 300): the raw tag on the face, its
+ * legend name on hover. Without it this bar would be the one place a consultant
+ * meets a code the screen refuses to explain.
+ *
+ * A component rather than a branch inside the `map`, because the label is read
+ * through a hook and a hook cannot be called in a loop.
+ */
+function TagFilterButton({
+  tag,
+  active,
+  onFilter,
+}: {
+  tag: string
+  active: boolean
+  onFilter: (tag: string | null) => void
+}) {
+  const { t } = useTranslation('reports')
+  const display = sourceTagDisplay(tag)
+  const { label, blank } = useCodeLabel('sourceTag', tag)
+
+  return (
+    <button
+      type="button"
+      // 🚩 The empty tag gets a button of its own — *unknown* is precisely what a
+      // consultant hunting a provenance bug filters for.
+      data-minted-by={tag === '' ? 'unknown' : tag}
+      // ⚠️ The blank gets the chip's own fuller sentence, not the legend's bare
+      // name for it: an empty tag is *provenance unknown, and never `pos`*, and
+      // that is the one thing this button exists to let a consultant chase.
+      title={blank !== null ? t('idocInspector.provenance.unknownHint') : (label ?? undefined)}
+      aria-pressed={active}
+      onClick={() => onFilter(active ? null : tag)}
+      className={`rounded-full border px-2 py-0.5 font-mono text-[11px] font-semibold transition-colors ${
+        active
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-border bg-card text-muted-foreground hover:bg-accent/60'
+      }`}
+    >
+      {display.kind === 'unknown' ? t('idocInspector.provenance.unknown') : display.code}
+    </button>
   )
 }

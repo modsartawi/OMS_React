@@ -1,7 +1,8 @@
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { IDocInspectorDocument } from '@/core/models/idoc-inspector'
 import { formatDateTime } from '@/core/util/date-format'
-import { formatMoney } from '@/core/util/number-format'
+import { CodeValue } from './CodeValue'
 import { documentPane, exportBadge } from './document-graph'
 import { FiPane, PaymentsPane } from './DocumentPanes'
 import ExportStateBadge from './ExportStateBadge'
@@ -36,26 +37,24 @@ export default function DocumentPane({
   const pane = documentPane(doc)
   const shownLines = filterLines(doc.lines, filterTag)
 
-  const attributes: { key: string; label: string; value: string }[] = [
+  // ⚠️ **Three attributes 297 drew are gone** (ticket 300): the billing type, the
+  // payment group and the split. 297 modelled them from 1381's prototype data
+  // while BackOffice 1388 was still open; the spec's payload outline names none of
+  // them and the shipped `IDocInspectorDocument` carries none of them, so all
+  // three were rendering `undefined` — and two of them were the very codes this
+  // ticket was told to label. They come back the day the server ships them.
+  const attributes: { key: string; label: string; value: ReactNode }[] = [
+    {
+      // 🔑 The strip's one CODE, raw, with the legend's label beside it — the
+      // reason a consultant can read `SAPR` without a spreadsheet open beside the
+      // monitor. A `ReactNode` value rather than a second hand-drawn block, so it
+      // wears the strip's own label chrome and cannot drift a padding from it.
+      key: 'idocType',
+      label: t('idocInspector.document.idocType'),
+      value: <CodeValue vocabulary="iDocType" code={doc.iDocType} className="text-[12px]" />,
+    },
     { key: 'receipt', label: t('idocInspector.document.receipt'), value: doc.receiptNumber },
     { key: 'pharmacy', label: t('idocInspector.document.pharmacy'), value: doc.pharmacyId },
-    { key: 'billingType', label: t('idocInspector.document.billingType'), value: doc.billingType },
-    {
-      key: 'paymentGroup',
-      label: t('idocInspector.document.paymentGroup'),
-      value: doc.paymentGroupId,
-    },
-    {
-      key: 'split',
-      label: t('idocInspector.document.split'),
-      // 🚩 `splitRatio` is a FRACTION, not a percentage — the engine's billing
-      // split writes `1.000000000000` for a whole document — so it is scaled
-      // here and nowhere else.
-      value: t('idocInspector.document.splitValue', {
-        amount: formatMoney(doc.splitAmount),
-        percent: Math.round((doc.splitRatio ?? 0) * 100),
-      }),
-    },
     {
       // ⚠️ The **IDoc batch** — a unit of delivery to SAP. The `batch` inside an
       // open line is a batch (CHARG), a physical lot of a material. Two words,

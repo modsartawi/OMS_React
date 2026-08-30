@@ -19,17 +19,20 @@ describe('aLookupRendersOneTabPerGeneratedIDocType', () => {
   // every generated type on it. What is pure here is the graph it reads.
   it('gives the rail one entry per document, each carrying its own type', () => {
     const result = aTransaction({ documents: [aDocument(), anFiDocument()] })
-    expect(result.documents.map((d) => d.idocType)).toEqual(['AGG', 'FI'])
+    expect(result.documents.map((d) => d.iDocType)).toEqual(['AGG', 'FI'])
   })
 
   it('🚩 a fat split is FIVE documents of ONE type — the rail is per DOCUMENT', () => {
     // Production's worst case: one transaction split across five payment groups.
     // Five cards in the rail, and (ticket 299) still one XML file to download.
     const split = [0, 1, 2, 3, 4].map((i) =>
-      aDocument({ receiptNumber: `421190077${i}`, paymentGroupId: `0${i + 1}` }),
+      // ⚠️ Split by RECEIPT, not by payment group: the document payload carries
+      // no `paymentGroupId` — ticket 300 removed the four fields 297 guessed at
+      // and the shipped `IDocInspectorDocument` does not have.
+      aDocument({ receiptNumber: `421190077${i}` }),
     )
     expect(split).toHaveLength(5)
-    expect(new Set(split.map((d) => d.idocType)).size).toBe(1)
+    expect(new Set(split.map((d) => d.iDocType)).size).toBe(1)
   })
 
   it('knows a transaction that generated nothing from one that did', () => {
@@ -103,7 +106,7 @@ describe('the pane that hangs off a document', () => {
   it('is FI lines for an FI document and payments for everything else', () => {
     expect(documentPane(anFiDocument())).toBe('fi')
     expect(documentPane(aDocument())).toBe('payments')
-    expect(documentPane(aDocument({ idocType: 'SAPR' }))).toBe('payments')
+    expect(documentPane(aDocument({ iDocType: 'SAPR' }))).toBe('payments')
   })
 
   it('⚠️ stays the FI pane when an FI document has NO FI lines — the trap', () => {
@@ -116,7 +119,7 @@ describe('the pane that hangs off a document', () => {
   it('🚩 …and an UNFAMILIAR type carrying FI lines still gets the FI pane', () => {
     // The type is the primary reading; the array is the safety net, so a type
     // this bundle has never heard of cannot make FI lines vanish.
-    expect(documentPane(anFiDocument({ idocType: 'FI2' }))).toBe('fi')
+    expect(documentPane(anFiDocument({ iDocType: 'FI2' }))).toBe('fi')
   })
 
   it('counts what the rail card prints', () => {

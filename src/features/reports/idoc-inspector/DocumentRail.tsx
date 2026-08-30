@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { IDocInspectorDocument } from '@/core/models/idoc-inspector'
-import { formatMoney } from '@/core/util/number-format'
+import { CodeValue } from './CodeValue'
 import { documentCounts, documentPane } from './document-graph'
 import ExportStateBadge from './ExportStateBadge'
 
@@ -17,10 +17,20 @@ import ExportStateBadge from './ExportStateBadge'
  * 🚩 Selecting a card is a **render, never a request** — the whole graph arrived
  * in one call.
  *
- * The card carries the batch story: type, receipt, payment group, split and row
- * counts, plus one **export badge**. It carries no action: the download is one
- * button per IDoc type on the verdict strip (ticket 299), because a per-document
- * button would imply a per-document file, which is not what the download is.
+ * The card carries the batch story: the IDoc type **with its legend label**, the
+ * receipt, the row counts and one **export badge**. It carries no
+ * action: the download is one button per IDoc type on the verdict strip (ticket
+ * 299), because a per-document button would imply a per-document file, which is
+ * not what the download is.
+ *
+ * ⚠️ **The payment group and the split are gone** (ticket 300). 297 drew them from
+ * 1381's prototype data while BackOffice 1388 was still open; the shipped payload
+ * carries neither, so the line read `Group undefined · SAR 0.00 · 0%`. What
+ * replaced it is the IDoc type's label — the vocabulary this card actually has a
+ * code for. 🚩 The pharmacy is deliberately NOT on the card: it is the same value
+ * on every document of one transaction, so a line of it would be three identical
+ * sub-headings telling the cards apart by nothing. It is on the document strip,
+ * once, where it belongs.
  */
 export default function DocumentRail({
   documents,
@@ -56,22 +66,13 @@ export default function DocumentRail({
             }`}
           >
             <span className="flex items-center gap-1.5">
-              {/* The raw type code, never a friendly name instead of it. */}
-              <span className="font-mono text-[10px] font-bold tracking-wider">
-                {doc.idocType}
-              </span>
+              {/* 🔑 The raw type code with its label beside it — never a friendly
+                  name INSTEAD of it. This is the one card-level code the payload
+                  carries, and it is what 299 hangs a download button off. */}
+              <CodeValue vocabulary="iDocType" code={doc.iDocType} className="text-[10px]" />
               <span className="text-[12.5px] font-semibold tabular-nums">
                 {doc.receiptNumber}
               </span>
-            </span>
-            <span className="text-[11px] tabular-nums text-muted-foreground">
-              {t('idocInspector.rail.split', {
-                group: doc.paymentGroupId,
-                amount: formatMoney(doc.splitAmount),
-                // 🚩 A FRACTION, not a percentage — the billing split writes
-                // `1.000000000000` for a whole document.
-                percent: Math.round((doc.splitRatio ?? 0) * 100),
-              })}
             </span>
             <span className="text-[11px] tabular-nums text-muted-foreground">
               {isFi

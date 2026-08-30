@@ -39,6 +39,19 @@
 //  15. the minted-by filter filters the TAG only, and a filtered expansion says
 //      how many conditions the line really has.
 //
+// Ticket 300 — the codes render raw with their label as secondary text:
+//  16. 🔑 every code renders its RAW value, with the legend's label beside it or
+//      on it — the label never REPLACES the code.
+//  17. a code the legend does not carry renders alone; nothing is invented.
+//  18. ⚠️ the three empty strings render DISTINCTLY — an empty source tag is
+//      `unknown`, an empty disc-type code is a NO-MAPPING defect, and the two do
+//      not read alike.
+//  19. 🔑 `Metadata` is fetched ONCE per session and reused across lookups and
+//      document switches.
+//  20. a refused `Metadata` costs the labels and NOT the screen — every code is
+//      still there, raw.
+//  21. the condition-type description comes from the ROW, not from the legend.
+//
 // Playwright is borrowed from the Angular prototype (as in screen1-smoke.mjs) —
 // it is NOT a dependency of this repo.
 //
@@ -77,6 +90,47 @@ let accessCalls = 0
 let transactionQueries = []
 // What `Transaction` answers. 296 never issues one; 297 swaps in a graph.
 let transactionBody = { verdict: 'NoSuchTransaction', attention: null, documents: [] }
+// ---- ticket 300's legend ---------------------------------------------------
+// ⚠️ A SAMPLE of what `IDocInspector/Metadata` reflects, not a copy of the nine
+// vocabularies — the point of the route is that this repo carries no copy. The
+// three blanks come first with the server's own names for them, and `hungerstn`
+// is deliberately ABSENT so the drive can assert an unknown code renders alone.
+let metadataCalls = 0
+let metadataStatus = 200
+const METADATA = {
+  legend: {
+    sourceTag: [
+      { code: '', name: 'SourceUnknown' },
+      { code: 'pos', name: 'Pos' },
+    ],
+    conditionSource: [
+      { code: '', name: 'OriginNotSet' },
+      { code: 'M', name: 'Manual' },
+      { code: 'B', name: 'BonusBuy' },
+    ],
+    conditionClass: [
+      { code: 'B', name: 'Prices' },
+      { code: 'D', name: 'DiscountOrSurcharge' },
+    ],
+    conditionControl: [
+      { code: 'A', name: 'Adjust' },
+      { code: 'F', name: 'Fixed' },
+    ],
+    iDocType: [
+      { code: 'AGG', name: 'Aggregation' },
+      { code: 'SAPR', name: 'SalesAsPerReceipt' },
+      { code: 'FI', name: 'FinancialDocument' },
+    ],
+    billingType: [{ code: 'ZAGG', name: 'Aggregated' }],
+    workflowType: [{ code: 'ZAGG', name: 'Aggregated' }],
+    paymentGroup: [{ code: '01', name: 'Cash' }],
+    errorType: [
+      { code: '', name: 'NoError' },
+      { code: 'PRICING', name: 'PricingFailure' },
+    ],
+  },
+  registeredWorkflowTypes: ['ZAGG'],
+}
 
 // ---- ticket 297's stub graph ---------------------------------------------
 // ⚠️ Hand-shaped, not captured: BackOffice 1388 (the route that serves this) is
@@ -90,7 +144,10 @@ const condition = (over = {}) => ({
   conditionValue: 23,
   conditionClass: 'B',
   conditionControl: 'A',
-  discTypeCode: '',
+  // ⚠️ A REAL mapping by default. An empty `discTypeCode` means *no SAP mapping
+  // was found* and is a DEFECT (ticket 300), so it is asked for explicitly below
+  // rather than arriving on every condition by accident.
+  discTypeCode: '3301',
   sourceTag: 'pos',
   conditionSource: 'B',
   ...over,
@@ -103,21 +160,23 @@ const line = (over = {}) => ({
   salesUom: 'EA',
   salesAmount: 23,
   promotionId: '',
-  batch: 'B24A917',
+  batchNumber: 'B24A917',
   isReturn: false,
   sourceTag: 'pos',
   conditions: [condition()],
   itemDetails: [{ seq: 1, attributeName: 'PARTNER', attributeValue: '0000401288' }],
   ...over,
 })
+// ⚠️ Reconciled against the SHIPPED `IDocInspectorDocument` (ticket 300). The
+// property is `iDocType`, not `idocType` — SIS.Api sets no naming policy, so the
+// Web camelCase pass stops at the first uppercase run followed by a lowercase
+// letter. And there is no `billingType`, `paymentGroupId`, `splitAmount` or
+// `splitRatio`: 297 modelled those from 1381's prototype while 1388 was open, and
+// the payload carries none of them.
 const aggDocument = {
-  idocType: 'AGG',
+  iDocType: 'AGG',
   receiptNumber: '4211900771',
   pharmacyId: '0421',
-  billingType: 'ZAGG',
-  paymentGroupId: '01',
-  splitAmount: 95.4,
-  splitRatio: 1,
   exportState: 'exported',
   batch: { id: 'K7QF2M8ZR41X9S042S_AGG', exportedAt: '2026-08-27T03:10:00' },
   lines: [
@@ -145,6 +204,11 @@ const aggDocument = {
           conditionTypeDescription: 'Commission fee',
           sourceTag: 'hungerstn',
           conditionSource: 'M',
+          conditionClass: 'D',
+          conditionControl: 'F',
+          // ⚠️ The third first-class empty string: NO SAP mapping was found. A
+          // defect, and it must not read like the `unknown` chip beside it.
+          discTypeCode: '',
         }),
       ],
       itemDetails: [],
@@ -164,8 +228,7 @@ const aggDocument = {
 }
 const fiDocument = {
   ...aggDocument,
-  idocType: 'FI',
-  billingType: 'ZFI',
+  iDocType: 'FI',
   // The middle export state — sealed into a batch that has not left yet.
   exportState: 'batched-not-exported',
   // ⚠️ The .NET default, NOT null: the batch row's exported-at column is a
@@ -188,9 +251,8 @@ const fiDocument = {
 }
 const unbatchedDocument = {
   ...aggDocument,
-  idocType: 'SAPR',
+  iDocType: 'SAPR',
   receiptNumber: '4211900772',
-  paymentGroupId: '02',
   // The 3.1% both existing loaders miss.
   exportState: 'not-batched',
   batch: null,
@@ -223,6 +285,14 @@ async function run() {
         )
       return route.fulfill(envelope(scenario.accessBody))
     }
+    if (path === 'IDocInspector/Metadata') {
+      metadataCalls++
+      if (metadataStatus !== 200)
+        return route.fulfill(
+          envelope(null, { status: metadataStatus, success: false, message: 'Forbidden.' }),
+        )
+      return route.fulfill(envelope(METADATA))
+    }
     if (path === 'IDocInspector/Transaction') {
       transactionQueries.push(url.split('?')[1] || '')
       return route.fulfill(envelope(transactionBody))
@@ -235,6 +305,7 @@ async function run() {
 
   const visit = async (url) => {
     accessCalls = 0
+    metadataCalls = 0
     transactionQueries = []
     await page.goto(url)
     await page.waitForLoadState('networkidle')
@@ -669,6 +740,136 @@ async function run() {
     '…and no rail is drawn over it',
     (await page.locator('[data-document-card]').count()) === 0,
   )
+
+  // ---- Ticket 300: the codes render raw, with their label beside them -----
+  transactionBody = PROCESSED
+  metadataStatus = 200
+  await visit(URL)
+  await storeField().fill('S042')
+  await trxField().fill('00114600051234')
+  await lookUp()
+
+  check(
+    '🔑 theLegendIsFetchedOncePerSessionAndReused — ONE Metadata call for the whole visit',
+    metadataCalls === 1,
+    `${metadataCalls} call(s)`,
+  )
+
+  const railNow = await page.locator('[data-document-card]').allInnerTexts()
+  check(
+    '🔑 everyCodeRendersItsRawValue — the IDoc type shows AGG *and* its label',
+    /AGG/.test(railNow[0]) && /Aggregation/.test(railNow[0]),
+    railNow[0].replace(/\n/g, ' '),
+  )
+  check(
+    '⚠️ …and the label never REPLACES the code — a consultant pastes the code',
+    /AGG/.test(railNow[0]) &&
+      /SAPR/.test(railNow.join(' ')) &&
+      /SalesAsPerReceipt/.test(railNow.join(' ')),
+    railNow.join(' | ').replace(/\n/g, ' '),
+  )
+
+  const strip = await page.locator('main').innerText()
+  check(
+    '…the document strip carries the same code + label pair',
+    /IDoc type/i.test(strip) && /Aggregation/.test(strip),
+    strip.replace(/\n/g, ' ').slice(0, 220),
+  )
+  check(
+    '🚩 the three fields the payload does NOT carry are gone — no `undefined`, no `0%` split',
+    !/undefined/i.test(strip) && !/Billing type/i.test(strip) && !/Payment group/i.test(strip),
+    strip.replace(/\n/g, ' ').slice(0, 260),
+  )
+
+  // The three empty strings and the unknown code, side by side on one open line.
+  await page.locator('[data-line="3"]').click()
+  await page.waitForTimeout(150)
+
+  // A tag the legend does not carry — nothing is invented for it. It lives on the
+  // open line's second condition, which is why the line is opened first.
+  const knownTag = page.locator('[data-source-tag="pos"]').first()
+  const unknownToLegend = page.locator('[data-source-tag="hungerstn"]').first()
+  check(
+    'a tag the legend DOES carry gets its label',
+    (await knownTag.getAttribute('data-source-tag-label')) === 'Pos',
+    String(await knownTag.getAttribute('data-source-tag-label')),
+  )
+  check(
+    '⚠️ aCodeWithNoLabelRendersAlone — an unknown code keeps its value and invents no label',
+    (await unknownToLegend.count()) === 1 &&
+      (await unknownToLegend.getAttribute('data-source-tag-label')) === null &&
+      (await unknownToLegend.innerText()) === 'hungerstn',
+    String(await unknownToLegend.getAttribute('data-source-tag-label')),
+  )
+  const exp3 = await page.locator('[data-line-expansion="3"]').innerText()
+  check(
+    '🔑 conditionTypeDescriptionComesFromTheRowNotTheLegend — the row\'s own description renders',
+    /COFF/.test(exp3) && /Commission fee/.test(exp3),
+    exp3.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    'the condition CLASS and CONTROL ride as marks carrying the legend\'s names',
+    (await page.locator('[data-code-mark="conditionClass:D"]').count()) === 1 &&
+      (await page.locator('[data-code-mark="conditionClass:D"]').getAttribute('title')) ===
+        'DiscountOrSurcharge',
+    String(await page.locator('[data-code-mark="conditionClass:D"]').getAttribute('title')),
+  )
+  check(
+    '⚠️ theThreeMeaningsOfEmptyStringRenderDistinctly — an unmapped disc code is a NO-MAPPING defect',
+    (await page.locator('[data-disc-type="unmapped"]').count()) === 1 &&
+      /no mapping/i.test(await page.locator('[data-disc-type="unmapped"]').innerText()),
+    (await page.locator('[data-disc-type="unmapped"]').innerText()) || 'not drawn',
+  )
+  check(
+    '…and it does NOT read like the empty SOURCE TAG beside it — two blanks, two sentences',
+    (await page.locator('[data-disc-type="unmapped"]').innerText()) !==
+      (await page.locator('[data-source-tag="unknown"]').first().innerText()),
+  )
+
+  const switchBefore = metadataCalls
+  await page.locator('[data-document-card="1"]').click()
+  await page.waitForTimeout(150)
+  await lookUp()
+  // Review follow-up: the minted-by buttons are a source-tag render site too, and
+  // an unlabelled code must get no tooltip rather than one echoing itself.
+  check(
+    'the minted-by button names its tag from the legend',
+    (await page.locator('[data-minted-by="pos"]').getAttribute('title')) === 'Pos',
+    String(await page.locator('[data-minted-by="pos"]').getAttribute('title')),
+  )
+  check(
+    '⚠️ …and a tag the legend does not carry gets NO tooltip — never the code echoed back',
+    (await page.locator('[data-minted-by="hungerstn"]').getAttribute('title')) === null,
+    String(await page.locator('[data-minted-by="hungerstn"]').getAttribute('title')),
+  )
+
+  check(
+    '🔑 …and it is NOT re-fetched by a second lookup or a document switch',
+    metadataCalls === switchBefore,
+    `${metadataCalls - switchBefore} extra call(s)`,
+  )
+
+  // ---- a refused legend costs the labels and NOT the screen ---------------
+  metadataStatus = 403
+  await visit(URL)
+  await storeField().fill('S042')
+  await trxField().fill('00114600051234')
+  await lookUp()
+  // Open a line, so the assertion reaches the CONDITION codes too and not only
+  // the rail's — the legend is absent at every depth or at none.
+  await page.locator('[data-line="1"]').click()
+  await page.waitForTimeout(150)
+  const noLegend = await page.locator('main').innerText()
+  check(
+    '⚠️ a refused Metadata still renders every RAW code — labels are decoration, codes are not',
+    /AGG/.test(noLegend) && /ZPR0/.test(noLegend) && !/Aggregation/.test(noLegend),
+    noLegend.replace(/\n/g, ' ').slice(0, 220),
+  )
+  check(
+    '…and the screen is not an error and not empty',
+    (await page.locator('[data-document-card]').count()) === 3 && !/unexpected/i.test(noLegend),
+  )
+  metadataStatus = 200
 
   const graphKeys = (await page.locator('body').innerText()).match(
     /(?:^|\s)(?:reports:)?idocInspector\.[a-zA-Z.]+/,

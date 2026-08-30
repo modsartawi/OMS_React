@@ -151,17 +151,13 @@
     },
     "rail": {
       "label": "Generated documents",
-      "split": "Group {{group}} · {{amount}} · {{percent}}%",
       "counts": "{{lines}} lines · {{payments}} payments",
       "fiCounts": "{{fiItems}} FI lines"
     },
     "document": {
+      "idocType": "IDoc type",
       "receipt": "Receipt",
       "pharmacy": "Pharmacy",
-      "billingType": "Billing type",
-      "paymentGroup": "Payment group",
-      "split": "Split",
-      "splitValue": "{{amount}} · {{percent}}%",
       "idocBatch": "IDoc batch",
       "noBatch": "In no batch",
       "exportedAt": "Exported",
@@ -206,7 +202,7 @@
     "provenance": {
       "unknown": "unknown",
       "unknownHint": "This row carries no source tag, so where it came from is unknown. It is not a POS line.",
-      "conditionSource": "Condition source: {{code}}",
+      "conditionSource": "Condition source {{code}} — {{label}}",
       "filterLabel": "Minted by",
       "clearFilter": "Clear"
     },
@@ -234,6 +230,15 @@
         "type": "Type",
         "assignment": "Assignment",
         "amount": "Amount"
+      }
+    },
+    "codes": {
+      "blank": {
+        "sourceTag": "provenance unknown",
+        "conditionSource": "no origin set",
+        "errorType": "no error",
+        "discType": "no mapping",
+        "discTypeHint": "No SAP posting code was found for this condition when the document was generated. That is a defect worth reporting, not an ordinary blank."
       }
     }
   }

@@ -57,7 +57,7 @@ export type IDocExportState = 'exported' | 'batched-not-exported' | 'not-batched
 
 /** The **IDoc batch** a document was sealed into — `null` while it is in none.
  *  ⚠️ Not a batch (CHARG): that is a physical lot of a material and lives on a
- *  LINE, `IDocInspectorLine.batch`. Both words are on this one screen. */
+ *  LINE, `IDocInspectorLine.batchNumber`. Both words are on this one screen. */
 export interface IDocInspectorBatch {
   id: string
   /** When the batch left for SAP; `null` while it is sealed but unexported. */
@@ -113,8 +113,9 @@ export interface IDocInspectorLine {
   salesAmount: number
   promotionId: string
   /** ⚠️ A **batch (CHARG)** — the physical lot of this material. Nothing to do
-   *  with the **IDoc batch** on the document beside it. */
-  batch: string
+   *  with the **IDoc batch** on the document beside it, which is why the server
+   *  spells this one `BatchNumber` and that one `Batch`. */
+  batchNumber: string
   isReturn: boolean
   /**
    * Who minted this line.
@@ -164,19 +165,35 @@ export interface IDocInspectorFiItem {
  * space (`storeCode`, `trxNumber`) and the document key space (`pharmacyId`,
  * `receiptNumber`). The payload is nested precisely so this client never learns
  * there are two key spaces to join.
+ *
+ * ⚠️ **Four fields 297 modelled are NOT on this payload and have been removed**
+ * (ticket 300): `billingType`, `paymentGroupId`, `splitAmount` and `splitRatio`.
+ * 297 was written while BackOffice 1388 was still open, from 1381's prototype
+ * data rather than from a contract; the spec's own payload outline names none of
+ * the four and the shipped `IDocInspectorDocument` carries none of them — so they
+ * were about to render `undefined` and a `0%` split on every card. They come back
+ * the day the server ships them and not before, and with them the billing-type
+ * and payment-group vocabularies get a render site.
+ *
+ * 🚩 `isHeld` IS on the wire and is deliberately still absent here: it is 298's,
+ * and this file's rule is that a field lands when something first RENDERS it.
  */
 export interface IDocInspectorDocument {
-  /** `AGG` · `SAPR` · `FI` — raw, and rendered raw (ticket 300 adds the label
-   *  beside it, never instead of it). */
-  idocType: string
+  /**
+   * `AGG` · `SAPR` · `FI` — raw, and rendered raw, with the legend's label beside
+   * it and never instead of it (ticket 300).
+   *
+   * ⚠️ **`iDocType`, not `idocType`, and the difference is the whole field.** The
+   * C# property is `IDocType`; SIS.Api sets no naming policy, so minimal APIs use
+   * `JsonSerializerDefaults.Web`, whose camelCase pass stops at the first
+   * uppercase run followed by a lowercase letter — `IDocType` → `iDocType`. It is
+   * the ONLY two-leading-caps property in this whole graph, so it is the only one
+   * that drifts, and it is the key 299 groups its download buttons by. (The same
+   * policy is what gives this repo `zReportIds` for C# `ZReportIds`.)
+   */
+  iDocType: string
   receiptNumber: string
   pharmacyId: string
-  billingType: string
-  paymentGroupId: string
-  splitAmount: number
-  /** ⚠️ A **fraction**, not a percentage: the engine's billing split writes
-   *  `1.000000000000` for a whole document. The screen scales it. */
-  splitRatio: number
   exportState: IDocExportState
   batch: IDocInspectorBatch | null
   lines: IDocInspectorLine[]
@@ -214,4 +231,80 @@ export interface IDocInspectorTransaction {
   verdict: string
   attention: IDocInspectorAttention | null
   documents: IDocInspectorDocument[]
+}
+
+/* ---------------------------------------------------------------------------
+ * The code legend (ticket 300) — `GET IDocInspector/Metadata`.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * One value in one closed vocabulary.
+ *
+ * `code` is the value **as persisted** — what the column actually holds, and what
+ * a consultant pastes into a SAP ticket. `name` is the declaring C# constant's
+ * own identifier, *reflected* server-side rather than authored.
+ *
+ * 🔑 **`name` is the label, and this repo ships no alternative to it.** BackOffice
+ * 1392 put no prose on this DTO on purpose and reflects the identifier instead, so
+ * that a constant added today is readable today without either repository being
+ * edited. A per-code wording map in this bundle would be the bundled legend 300
+ * forbids, one file further down: wrong the first time a constant changes.
+ */
+export interface IDocInspectorCodeValue {
+  code: string
+  name: string
+}
+
+/**
+ * The **nine closed vocabularies**, each generated from its own C# constants
+ * class and every one of them changing only by deployment.
+ *
+ * ⚠️ **Nine, and the count is the contract.** A tenth would mean either an open
+ * vocabulary smuggled in — condition types, which are open master data and are
+ * resolved per condition row on the transaction payload — or a derived one:
+ * `discTypeCode`, `itemTypeCode` and `transTypeCode` come from a
+ * per-billing-type-configurable map, so a legend of them could disagree with the
+ * persisted row, and a stored-versus-map disagreement is a finding, not a label.
+ *
+ * 🚩 Four of the nine have **no render site on this screen today**:
+ * `billingType` and `paymentGroup` because the transaction payload carries
+ * neither field, `errorType` and `workflowType` because 298 owns the banner and
+ * the verdict strip that read them. They are modelled anyway — the shape is the
+ * server's, not this repo's to trim.
+ */
+export interface IDocInspectorLegend {
+  /** Which pipeline layer minted a row. Carries `""` — a pre-provenance row. */
+  sourceTag: IDocInspectorCodeValue[]
+  /** How the pricing engine came by a condition. Carries `""` — no origin set. */
+  conditionSource: IDocInspectorCodeValue[]
+  conditionClass: IDocInspectorCodeValue[]
+  conditionControl: IDocInspectorCodeValue[]
+  /** ⚠️ `iDocType`, for the same camelCase reason as
+   *  `IDocInspectorDocument.iDocType` — the C# property is `IDocType`. */
+  iDocType: IDocInspectorCodeValue[]
+  billingType: IDocInspectorCodeValue[]
+  workflowType: IDocInspectorCodeValue[]
+  paymentGroup: IDocInspectorCodeValue[]
+  /** Why a document was held back from batching. Carries `""` — **no error**. */
+  errorType: IDocInspectorCodeValue[]
+}
+
+/**
+ * `GET IDocInspector/Metadata` — the legend, and the workflow types this
+ * deployment has a handler registered for (spec 1386, BackOffice 1392).
+ *
+ * 🔑 **Fetched from the API precisely so it is NOT in this bundle.** oms-react is
+ * a second repository on its own release cadence; a legend compiled in here drifts
+ * from the pipeline the first time a constant changes. One route keeps the labels
+ * and the pipeline on one deployment — which is why this client never hardcodes a
+ * member of any of the nine, not even as a fallback.
+ *
+ * ⚠️ **`registeredWorkflowTypes` is legend ONLY.** The server already decided the
+ * verdict (BackOffice 1390), so the screen never derives a state from this set —
+ * two consultants reading one transaction can then never disagree because their
+ * browsers computed it differently.
+ */
+export interface IDocInspectorMetadata {
+  legend: IDocInspectorLegend
+  registeredWorkflowTypes: string[]
 }

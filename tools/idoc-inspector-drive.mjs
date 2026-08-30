@@ -66,6 +66,20 @@
 //      still there, raw.
 //  21. the condition-type description comes from the ROW, not from the legend.
 //
+// Ticket 299 — the verdict strip offers one download per IDoc type present:
+//  28. 🔑 one button per IDoc TYPE, on the VERDICT STRIP — never per line, never
+//      per document, and two documents of one type are still ONE button.
+//  29. no document ⇒ no button and no caveat.
+//  30. 🚩 an unbatched document — and a held one — still offer their download:
+//      export state changes what the consultant is told, not what they can take.
+//  31. ⚠️ the reconstruction caveat is visible beside the buttons, and never
+//      claims to be what SAP received.
+//  32. 🔑 the file arrives through the blob helper with NO navigation, under the
+//      name the server's `Content-Disposition` gave it.
+//  33. 🔑 aggregated and financial are TWO downloads yielding TWO files.
+//  34. 🔑 a failed download surfaces its BUSINESS message, not a generic error —
+//      and a BARE 403 reads as a refusal rather than as a fault.
+//
 // Playwright is borrowed from the Angular prototype (as in screen1-smoke.mjs) —
 // it is NOT a dependency of this repo.
 //
@@ -104,6 +118,23 @@ let accessCalls = 0
 let transactionQueries = []
 // What `Transaction` answers. 296 never issues one; 297 swaps in a graph.
 let transactionBody = { verdict: 'NoSuchTransaction', attention: null, documents: [] }
+// ---- ticket 299's download -------------------------------------------------
+// Every `IDocInspector/Download` query string seen, and what the route answers.
+// `downloadStatus` 200 answers the XML raw — not base64, not enveloped, which is
+// the whole reason the client reaches it through the blob helper. Anything else
+// is a failure at that status, with `downloadCode` as the envelope's `errorCode`;
+// 403 is answered BARE, with no body at all, exactly as the grant filter does.
+let downloadQueries = []
+let downloadStatus = 200
+let downloadCode = null
+// ⚠️ The server owns the filename and the client uses what it is given, so the
+// stamp here is FIXED rather than "now": a drive that let the client build the
+// name would be asserting the fallback rather than the contract. It is named per
+// TYPE because the server names it per type — which is what makes two downloads
+// two files rather than one file taken twice.
+const disposition = (idocType) =>
+  `attachment; filename="idoc_${idocType}_S042_00114600051234_20260830-1432.xml"`
+
 // ---- ticket 300's legend ---------------------------------------------------
 // ⚠️ A SAMPLE of what `IDocInspector/Metadata` reflects, not a copy of the nine
 // vocabularies — the point of the route is that this repo carries no copy. The
@@ -309,6 +340,38 @@ async function run() {
           envelope(null, { status: metadataStatus, success: false, message: 'Forbidden.' }),
         )
       return route.fulfill(envelope(METADATA))
+    }
+    if (path === 'IDocInspector/Download') {
+      const query = url.split('?')[1] || ''
+      downloadQueries.push(query)
+      // 🚩 A BARE 403: no envelope, no errorCode, no body at all — what the grant
+      // filter actually answers.
+      if (downloadStatus === 403) return route.fulfill({ status: 403, body: '' })
+      if (downloadStatus !== 200)
+        return route.fulfill(
+          envelope(null, {
+            status: downloadStatus,
+            success: false,
+            message: 'This transaction has no document of that IDoc type.',
+            errors: downloadCode
+              ? [{ errorCode: downloadCode, internalErrorCode: '', errorMessage: 'download' }]
+              : [],
+          }),
+        )
+      const idocType = new URLSearchParams(query).get('idocType') || ''
+      // ⚠️ The success body is the XML RAW — not base64, not enveloped. Its single
+      // BOM is the server's guarantee (BackOffice 1393) and is asserted there, at
+      // the byte level; what a stub can show is that the client saves the bytes
+      // it was handed, untouched.
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/xml',
+        headers: {
+          'Content-Disposition': disposition(idocType),
+          'X-IDoc-Inspector-Audit-Id': '01J8ZC9K3M7Q',
+        },
+        body: Buffer.from(`﻿<?xml version="1.0"?><${idocType}/>`, 'utf8'),
+      })
     }
     if (path === 'IDocInspector/Transaction') {
       transactionQueries.push(url.split('?')[1] || '')
@@ -1057,6 +1120,220 @@ async function run() {
     emptyWithFinding.replace(/\n/g, ' ').slice(0, 220),
   )
 
+  // ==========================================================================
+  // Ticket 299 — the verdict strip offers one download per IDoc type present.
+  // ==========================================================================
+  const downloadButton = (idocType) =>
+    page.getByRole('button', {
+      name: new RegExp(`Download the ${idocType} XML for this transaction`),
+    })
+
+  /**
+   * Click a type's Download and wait for whatever it produces — the file save, or
+   * the sentence that says why there is none.
+   *
+   * ⚠️ The download event is awaited alongside the click rather than after it: a
+   * save fires as soon as the bytes land, and Playwright drops an event nobody
+   * was listening for.
+   */
+  const clickDownload = async (idocType) => {
+    const save = page.waitForEvent('download', { timeout: 8000 }).catch(() => null)
+    await downloadButton(idocType).click()
+    const saved = await save
+    await page.waitForTimeout(150)
+    return saved
+  }
+
+  // ---- one button per TYPE present ----------------------------------------
+  downloadQueries = []
+  await askFor(PROCESSED)
+  check(
+    '🔑 one download button per IDoc TYPE present — AGG, FI and SAPR',
+    (await page.locator('[data-download-type]').count()) === 3 &&
+      (await page.locator('[data-download-type="AGG"]').count()) === 1 &&
+      (await page.locator('[data-download-type="FI"]').count()) === 1 &&
+      (await page.locator('[data-download-type="SAPR"]').count()) === 1,
+    (await page.locator('[data-download-type]').allTextContents()).join(' | '),
+  )
+  check(
+    '🚩 the buttons sit on the VERDICT STRIP — not on a card and not on a line',
+    (await page.locator('[data-verdict] [data-download-type]').count()) === 3,
+  )
+  check(
+    '🚩 no download button on a document card or inside a line',
+    (await page.locator('[data-document-card] [data-download-type]').count()) === 0,
+  )
+  check(
+    '⚠️ the reconstruction caveat is shown BESIDE the buttons, not behind a hover',
+    /rebuilt from the database rows as they stand now/i.test(
+      await page.locator('[data-download-caveat]').innerText(),
+    ),
+    await page.locator('[data-download-caveat]').innerText(),
+  )
+  check(
+    '…and it never claims to be what SAP received',
+    /not the file SAP received/i.test(await page.locator('[data-download-caveat]').innerText()),
+  )
+  check(
+    '🚩 the button carries the RAW type code, per ticket 300’s rule for the screen',
+    /AGG/.test(await page.locator('[data-download-type="AGG"]').innerText()),
+    await page.locator('[data-download-type="AGG"]').innerText(),
+  )
+
+  // ---- two documents of ONE type are still ONE download --------------------
+  await askFor({
+    verdict: 'Processed',
+    attention: null,
+    documents: [aggDocument, { ...aggDocument, receiptNumber: '4211900999' }],
+  })
+  check(
+    '🔑 two documents of the SAME type offer ONE download, not two',
+    (await page.locator('[data-download-type]').count()) === 1 &&
+      (await page.locator('[data-document-card]').count()) === 2,
+    `${await page.locator('[data-download-type]').count()} button(s)`,
+  )
+
+  // ---- an unbatched document still offers its download ---------------------
+  await askFor({ verdict: 'Processed', attention: null, documents: [unbatchedDocument] })
+  check(
+    '🚩 an UNBATCHED document still offers its download — export state changes the telling, not the taking',
+    (await page.locator('[data-download-type="SAPR"]').count()) === 1 &&
+      !(await page.locator('[data-download-type="SAPR"]').isDisabled()),
+  )
+  // …and a HELD one too. A held document is a finding, never a refusal.
+  await askFor({
+    verdict: 'ProcessedWithHeldDocuments',
+    attention: { code: 'DOCUMENTS_HELD', exportVersion: null },
+    documents: [{ ...aggDocument, isHeld: true, exportState: 'not-batched', batch: null }],
+  })
+  check(
+    '🚩 a HELD document still offers its download',
+    (await page.locator('[data-download-type="AGG"]').count()) === 1 &&
+      !(await page.locator('[data-download-type="AGG"]').isDisabled()),
+  )
+
+  // ---- no documents ⇒ no download button ----------------------------------
+  await askFor({ verdict: 'NoSuchTransaction', attention: null, documents: [] })
+  check(
+    '🔑 no download button appears when no documents exist',
+    (await page.locator('[data-download-type]').count()) === 0 &&
+      (await page.locator('[data-download-caveat]').count()) === 0,
+  )
+  // …and the strip's OWN guard, which the empty verdict above cannot reach: a
+  // graph renders, but every document carries a blank IDoc type. ⚠️ `idocType` is
+  // REQUIRED on the wire, so a button here could only ever produce
+  // `400 IDOC_TYPE_REQUIRED` — a refusal the screen would have offered itself.
+  await askFor({
+    verdict: 'Processed',
+    attention: null,
+    documents: [{ ...aggDocument, iDocType: '' }],
+  })
+  check(
+    '⚠️ a graph whose documents carry NO IDoc type offers no button and no caveat',
+    (await page.locator('[data-document-card]').count()) === 1 &&
+      (await page.locator('[data-download-type]').count()) === 0 &&
+      (await page.locator('[data-download-caveat]').count()) === 0,
+  )
+
+  // ---- the download itself -------------------------------------------------
+  await askFor(PROCESSED)
+  downloadQueries = []
+  const urlBeforeDownload = page.url()
+  const savedAgg = await clickDownload('AGG')
+  check(
+    '🔑 clicking AGG saves a file — through the blob helper, with no navigation',
+    savedAgg !== null && page.url() === urlBeforeDownload,
+    savedAgg ? savedAgg.suggestedFilename() : 'no download event',
+  )
+  check(
+    '⚠️ the FILENAME is the server’s, off Content-Disposition — the client builds none',
+    savedAgg !== null && savedAgg.suggestedFilename() === 'idoc_AGG_S042_00114600051234_20260830-1432.xml',
+    savedAgg ? savedAgg.suggestedFilename() : 'no download event',
+  )
+  check(
+    '🔑 the request carries the key AND the required idocType, and nothing else',
+    downloadQueries.length === 1 &&
+      downloadQueries[0].includes('storeCode=S042') &&
+      downloadQueries[0].includes('trxNumber=00114600051234') &&
+      downloadQueries[0].includes('idocType=AGG') &&
+      downloadQueries[0].split('&').length === 3,
+    downloadQueries.join(' | '),
+  )
+  check(
+    '🚩 the successful download said nothing — no error beside the buttons',
+    (await page.locator('[data-download-error]').count()) === 0,
+  )
+
+  // ---- two types are TWO downloads, never a bundle -------------------------
+  const savedFi = await clickDownload('FI')
+  check(
+    '🔑 aggregated and financial are TWO downloads yielding TWO files — never a bundle',
+    savedFi !== null &&
+      savedAgg !== null &&
+      savedFi.suggestedFilename() !== savedAgg.suggestedFilename() &&
+      downloadQueries.length === 2 &&
+      downloadQueries[1].includes('idocType=FI'),
+    downloadQueries.join(' | '),
+  )
+
+  // ---- a failure reads as a business message ------------------------------
+  downloadStatus = 404
+  downloadCode = 'IDOC_TYPE_NOT_PRESENT'
+  const failedSave = await clickDownload('AGG')
+  const errorFor = async (idocType) => {
+    const line = page.locator(`[data-download-error-type="${idocType}"]`)
+    return (await line.count()) === 1 ? await line.innerText() : ''
+  }
+  const failureText = await errorFor('AGG')
+  check(
+    '🔑 a failed download surfaces its BUSINESS message, not a generic error',
+    failedSave === null &&
+      /no document of that IDoc type/i.test(failureText) &&
+      !/could not be produced/i.test(failureText),
+    failureText.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    '…and it names WHICH type failed, because three buttons sit beside it',
+    /AGG/.test(failureText),
+    failureText.replace(/\n/g, ' ').slice(0, 120),
+  )
+  check(
+    '🚩 a failed download leaves the buttons live — the button IS the retry',
+    !(await page.locator('[data-download-type="AGG"]').isDisabled()),
+  )
+
+  // ⚠️ A BARE 403 carries no envelope and no code, so there is no server sentence
+  // to prefer — reading its "unexpected status" message would tell a refused user
+  // something went wrong when in fact they were told no.
+  downloadStatus = 403
+  downloadCode = null
+  await clickDownload('FI')
+  const downloadRefusedText = await errorFor('FI')
+  check(
+    '⚠️ a BARE 403 on the download reads as a refusal, not as a generic failure',
+    /don.t have access/i.test(downloadRefusedText),
+    downloadRefusedText.replace(/\n/g, ' ').slice(0, 160),
+  )
+  check(
+    '🚩 two types failing for DIFFERENT reasons both keep saying so — one slot would erase one',
+    (await page.locator('[data-download-error]').count()) === 2 &&
+      /no document of that IDoc type/i.test(await errorFor('AGG')) &&
+      /don.t have access/i.test(await errorFor('FI')),
+    `${await page.locator('[data-download-error]').count()} message(s)`,
+  )
+
+  // ---- a fresh ANSWER clears the failures ---------------------------------
+  // 🚩 Look up on the SAME key takes the refetch path — nothing unmounts — so a
+  // stale failure would otherwise sit under a graph that just came back clean.
+  downloadStatus = 200
+  downloadCode = null
+  await lookUp()
+  check(
+    '🚩 a fresh answer clears the previous download failures',
+    (await page.locator('[data-download-error]').count()) === 0 &&
+      (await page.locator('[data-download-type]').count()) === 3,
+  )
+
   // Back to the ordinary answer, so the raw-key sweep below reads a full graph.
   await askFor(PROCESSED)
 
@@ -1071,7 +1348,9 @@ async function run() {
 
   // The denied/refused scenarios answer non-2xx on purpose, which the browser
   // logs as a resource-load failure — expected, not an app fault.
-  const realErrors = errors.filter((e) => !/status of (403|500)/.test(e))
+  // …and 299's download scenarios add a deliberate 404 (a type not present) to
+  // that list.
+  const realErrors = errors.filter((e) => !/status of (403|404|500)/.test(e))
   check('no uncaught page errors', realErrors.length === 0, realErrors.slice(0, 3).join(' | '))
 
   await browser.close()

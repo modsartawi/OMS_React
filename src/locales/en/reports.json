@@ -215,6 +215,22 @@
     "errors": {
       "lookupFailed": "That transaction could not be looked up."
     },
+    "download": {
+      "xml": "XML",
+      "actionAria": "Download the {{idocType}} XML for this transaction",
+      "caveat": "This XML is rebuilt from the database rows as they stand now. It is not the file SAP received.",
+      "failed": "{{idocType}} — {{message}}",
+      "errors": {
+        "invalidKey": "That download was asked for without a complete store and transaction number. Report it if it happens again.",
+        "typeRequired": "That download was asked for without an IDoc type. Report it if it happens again.",
+        "notPresent": "This transaction has no document of that IDoc type, so there is nothing to download. Report it if it happens again — the buttons here are drawn from the documents above.",
+        "notSerialisable": "There is no serialiser for that IDoc type, so no file can be produced for it. That is worth reporting.",
+        "denied": "You don't have access to the IDoc inspector's downloads.",
+        "session": "Your session has ended, so the file could not be fetched. Sign in again.",
+        "network": "The file could not be fetched because the server could not be reached. Try again.",
+        "generic": "That file could not be produced."
+      }
+    },
     "exportState": {
       "exported": "Exported",
       "batchedNotExported": "Batched, not exported",

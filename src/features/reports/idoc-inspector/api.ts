@@ -12,9 +12,9 @@
  * ⚠️ **Copied, not imported** — a feature may not import a feature
  * ([feature-structure](../../../../.claude/rules/feature-structure.md)).
  *
- * Ticket 296 landed the access probe, 297 added `Transaction`, and **300 adds
- * `Metadata`**. `Download` — through `api.blob`, because the enveloped helper
- * would try to unwrap raw XML — is 299's.
+ * Ticket 296 landed the access probe, 297 added `Transaction`, 300 added
+ * `Metadata`, and **299 closes the set with `Download`** — through `api.blob`,
+ * because the enveloped helper would try to unwrap raw XML.
  *
  * ⚠️ **The doors are built now but nothing here has met one.** BackOffice
  * 1387–1393 are all `done`, so the shapes in `core/models/idoc-inspector` are no
@@ -24,7 +24,7 @@
  * this file has been made against a running SIS.Api, and the drive stubs every
  * one of them.
  */
-import { api } from '@/core/api'
+import { api, type FileResponse } from '@/core/api'
 import type {
   IDocInspectorAccessResult,
   IDocInspectorMetadata,
@@ -159,6 +159,48 @@ export const idocInspectorApi = {
    */
   metadata(): Promise<IDocInspectorMetadata> {
     return api.get<IDocInspectorMetadata>('IDocInspector/Metadata')
+  },
+
+  /**
+   * `GET IDocInspector/Download?storeCode=…&trxNumber=…&idocType=…` → the XML
+   * itself (spec 1386, BackOffice 1393).
+   *
+   * 🔑 **Through `api.blob`, and it could not be anything else.** `request<T>`
+   * always calls `res.json()`, so a raw `application/xml` body reaches it as an
+   * `ApiError('unknown')`. Only *failures* wear the envelope on this route — the
+   * body of a 200 is the XML raw, not base64 and not wrapped — which is the
+   * posture `RetailInvoice/Download` established and the reason the core client
+   * carries two helpers.
+   *
+   * ⚠️ **A plain link cannot do this.** The cookie branch of SIS.Api's
+   * `ApiKeyEndpointFilter` requires the `X-Web-Client` CSRF header on every
+   * cookie-authenticated request, and an `<a href>` or a `window.open` cannot
+   * send one — so a download link answers 401. That is also what makes
+   * GET-versus-POST a non-question here.
+   *
+   * ⚠️ **`idocType` is REQUIRED, and one call is one file.** Aggregated and
+   * financial are two downloads, never a bundle: all three serialisers emit the
+   * same envelope, so a mixed file would be structurally legal and semantically
+   * false, and the file handed to a SAP consultant must be the file their team
+   * expects to read. The screen offers one button per type *present*
+   * (`idocTypesPresent`), so a `404 IDOC_TYPE_NOT_PRESENT` is a client defect
+   * rather than a state a consultant can browse into — an enveloped failure, not
+   * a verdict.
+   *
+   * ⚠️ **Identity is never sent.** SIS.Api reads the user off the session row and
+   * writes it into the `IDocInspectorAudit` row itself; there is no "who"
+   * parameter to add. That audit row is the single write on this entire feature,
+   * it is the server's business, and **the client adds no logging of its own**.
+   *
+   * 🚩 The parts are named one by one rather than spread, so a wider object
+   * handed in whole cannot put an extra field on the query string.
+   */
+  download(key: LookupKey, idocType: string): Promise<FileResponse> {
+    return api.blob('IDocInspector/Download', {
+      storeCode: key.storeCode,
+      trxNumber: key.trxNumber,
+      idocType,
+    })
   },
 }
 

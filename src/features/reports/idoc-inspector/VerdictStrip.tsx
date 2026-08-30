@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PackageSearch } from 'lucide-react'
 
@@ -22,11 +23,24 @@ import type { VerdictReading } from './verdict'
  * is where the ten codes and their keys live and where they are tested. This file
  * adds the `t()` calls and the chrome.
  *
- * The download buttons (ticket 299) hang off the strip's end — one per IDoc type
- * present, which is why the strip is a row with room on its trailing edge and not
- * a paragraph.
+ * The download buttons (ticket 299) hang off the strip's end as `actions` — one
+ * per IDoc type present, which is why the strip is a row with room on its
+ * trailing edge and not a paragraph. They arrive as a NODE rather than as data:
+ * this file knows the verdict and nothing about the graph, and a strip that
+ * learned which IDoc types exist would be a second place deciding what may be
+ * downloaded.
+ *
+ * 🚩 The empty state below takes no `actions`, and that is the whole of "no
+ * download button appears when no documents exist": there is no slot to put one
+ * in.
  */
-export function VerdictStrip({ reading }: { reading: VerdictReading }) {
+export function VerdictStrip({
+  reading,
+  actions,
+}: {
+  reading: VerdictReading
+  actions?: ReactNode
+}) {
   const { t } = useTranslation('reports')
 
   return (
@@ -49,6 +63,7 @@ export function VerdictStrip({ reading }: { reading: VerdictReading }) {
         // a consultant already reads codes on this screen.
         <span className="font-mono text-[12.5px] font-bold tracking-wide">{reading.code}</span>
       )}
+      {actions}
     </div>
   )
 }

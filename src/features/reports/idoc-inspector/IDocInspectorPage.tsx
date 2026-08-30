@@ -10,6 +10,7 @@ import { canOpenIDocInspector, idocInspectorAccessQuery, idocInspectorApi } from
 import AttentionBanner from './AttentionBanner'
 import DocumentPane from './DocumentPane'
 import DocumentRail from './DocumentRail'
+import DownloadStrip from './DownloadStrip'
 import { selectedIndex } from './document-graph'
 import { LegendProvider } from './LegendContext'
 import LookupToolbar from './LookupToolbar'
@@ -221,7 +222,30 @@ export default function IDocInspectorPage() {
           // silently dropped if this list lived inside the documents branch — and
           // dropping a finding is the one thing this ticket exists to stop.
           <div className="flex flex-col gap-3">
-            {verdict.showsDocuments && <VerdictStrip reading={verdict} />}
+            {verdict.showsDocuments && (
+              <VerdictStrip
+                reading={verdict}
+                // 🔑 **The download hangs off the verdict strip and nowhere else**
+                // (ticket 299) — one button per IDoc TYPE present, never per line
+                // and never per document. `appliedKey` is non-null in this branch
+                // by construction: the query only runs once it is set.
+                actions={
+                  appliedKey && (
+                    <DownloadStrip
+                      // 🚩 Keyed on the ANSWER, so a fresh one mounts a fresh
+                      // strip. Pressing Look up on the same key takes the refetch
+                      // path — `isPending` never flips and nothing unmounts — so
+                      // without this a failure from the previous answer would sit
+                      // under a graph that has just come back clean, possibly
+                      // naming a type this answer no longer has a button for.
+                      key={lookup.dataUpdatedAt}
+                      lookupKey={appliedKey}
+                      documents={documents}
+                    />
+                  )
+                }
+              />
+            )}
             {findings.map((banner) => (
               <AttentionBanner key={banner.kind} banner={banner} />
             ))}

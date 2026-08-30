@@ -24,6 +24,24 @@
 //   7. the mobile is read-only for every session, including the remover — it
 //      changes through its own command (305), never as a profile field.
 //
+// Ticket 303's flow Proof bullet — `blockingRefreshesTheHeaderAndTheActionsTabWithoutAReload`:
+//   8. ONE Status control offers whichever command applies, and blocking asks for
+//      a reason from the server's list;
+//   9. 🚩 the **system reason** `CR` is provably ABSENT from the picker — an
+//      analyst must not be able to mark a member "removed at customer request"
+//      without removing anything;
+//  10. a block refreshes the HEADER chip and the ACTIONS tab with no reload, and
+//      the control then offers Unblock;
+//  11. 🚩 the control disables itself while in flight, and a double-click writes
+//      ONE command — there is no server-side idempotency anywhere in the module.
+//      The guard SURVIVES a tab switch, because the control does not;
+//  12. 🚩 a business refusal keeps the analyst IN the dialog with the reason still
+//      chosen, explained by name AND in the server's own sentence;
+//  13. a grant refusal (403) says the authority is gone and offers no retry —
+//      the command goes DEAD, not merely apologetic;
+//  14. an unblock clears the reason with no further input, and its refusal is said
+//      beside the control it has no dialog to keep the analyst in.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-admin-drive.mjs
 import { createRequire } from 'node:module'
@@ -87,8 +105,48 @@ const SESSIONS = {
   objectFlags: { canOpenLoyMember: true, canEditLoyMember: {}, canRemoveLoyMemberMobile: null },
 }
 
+// `GET LoyWeb/BlockedReasons` as the door is designed to answer it (ticket 303).
+// 🚩 `CR` rides the answer flagged as a **system reason** on purpose: the drive
+// asserts the CLIENT drops it, so the picker stays honest even against a door
+// that forgot to filter.
+const BLOCKED_REASONS = [
+  { code: 'CM', description: 'Mobile moved to another account', systemReason: false },
+  { code: 'IA', description: 'Inactive', systemReason: false },
+  { code: 'CR', description: 'Removed at customer request', systemReason: true },
+]
+
 let scenario = { access: 'lookOnly', memberOver: {} }
 let accessCalls = 0
+
+// ---- ticket 303: the member the COMMANDS write to -------------------------
+// The member is MUTABLE here because the whole point of the block/unblock
+// scenarios is that the screen re-reads and moves with no reload. `actionRows`
+// grows the way the trail does, so "the Actions tab reflects it" is asserted
+// against a row the command actually produced rather than against a fixture.
+let memberState = null
+let actionRows = []
+let commandCalls = { block: 0, unblock: 0 }
+/** The refusal the next command answers with, or null for success. */
+let commandRefusal = null
+/** How long the next command takes — the in-flight window the disable guards. */
+let commandDelay = 0
+/** How `LoyWeb/BlockedReasons` answers: `ok`, `empty`, or `fails`. */
+let reasonsAnswer = 'ok'
+
+const trailRow = (type, description, data) => ({
+  actionNo: String(900 + actionRows.length),
+  mainActionType: type,
+  mainActionDescription: description,
+  subActionType: null,
+  subActionDescription: null,
+  actionDateTime: '2026-08-30T11:04:00',
+  actionData: data,
+  actionData2: null,
+  userId: 'msartawi',
+  branchId: '1001',
+})
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function run() {
   const browser = await chromium.launch()
@@ -119,21 +177,48 @@ async function run() {
       return route.fulfill(envelope(SESSIONS[scenario.access]))
     }
 
-    if (path.startsWith('LoyWeb/Member/')) {
-      return route.fulfill(envelope({ ...MEMBER, ...scenario.memberOver }))
+    // ---- ticket 303: the two writes ---------------------------------------
+    // Matched BEFORE the member read below, which would otherwise swallow both
+    // (they hang off the same `LoyWeb/Member/{id}` prefix).
+    if (/^LoyWeb\/Member\/[^/]+\/(Block|Unblock)$/.test(path)) {
+      const kind = path.endsWith('/Block') ? 'block' : 'unblock'
+      commandCalls[kind] += 1
+      if (commandDelay) await sleep(commandDelay)
+      if (commandRefusal) return route.fulfill(commandRefusal)
+      if (kind === 'block') {
+        const body = route.request().postDataJSON() || {}
+        memberState = { ...memberState, blockedReason: body.blockedReason }
+        actionRows = [trailRow('BLK', 'Member blocked', body.blockedReason), ...actionRows]
+      } else {
+        memberState = { ...memberState, blockedReason: null }
+        actionRows = [trailRow('UBK', 'Member unblocked', ''), ...actionRows]
+      }
+      return route.fulfill(envelope(null))
     }
 
-    // The three report tabs are not this ticket's subject; they answer empty so
-    // nothing beside the Profile tab can fail the drive.
+    // The reasons an agent may pick. `empty` is seed data with nothing offerable;
+    // `fails` is the raw 500 the scoped Retry exists for.
+    if (path === 'LoyWeb/BlockedReasons') {
+      if (reasonsAnswer === 'fails') return route.fulfill({ status: 500, body: 'boom' })
+      return route.fulfill(envelope(reasonsAnswer === 'empty' ? [] : BLOCKED_REASONS))
+    }
+
+    if (path.startsWith('LoyWeb/Member/')) {
+      return route.fulfill(envelope(memberState ?? { ...MEMBER, ...scenario.memberOver }))
+    }
+
+    // The three report tabs are not ticket 302's subject; they answer empty so
+    // nothing beside the Profile tab can fail the drive. 303's block/unblock DO
+    // land in the Actions trail, which is what `actionRows` carries.
     if (path.startsWith('LoyWeb/Reports/LoyMemberActions'))
       return route.fulfill(
         envelope({
-          records: [],
+          records: actionRows,
           currentPage: 1,
           pageSize: 25,
-          pageRecordsCount: 0,
+          pageRecordsCount: actionRows.length,
           totalPages: 1,
-          recordsCount: 0,
+          recordsCount: actionRows.length,
         }),
       )
     if (path.startsWith('LoyWeb/Reports/')) return route.fulfill(envelope([]))
@@ -153,6 +238,15 @@ async function run() {
   const open = async (access, { tab = 'profile', memberOver = {} } = {}) => {
     scenario = { access, memberOver }
     accessCalls = 0
+    // 🚩 The member and its trail are reset per load and then MUTATED by the
+    // commands, so every 303 assertion is made against what the write actually
+    // did rather than against a fixture that agrees with the test by design.
+    memberState = { ...MEMBER, ...memberOver }
+    actionRows = []
+    commandCalls = { block: 0, unblock: 0 }
+    commandRefusal = null
+    commandDelay = 0
+    reasonsAnswer = 'ok'
     await page.goto(`${BASE}/loy/members/${LOYID_KEY}${tab ? `?tab=${tab}` : ''}`)
     await page.getByRole('tablist').waitFor({ timeout: 15000 })
     if (tab === 'profile') await panel.getByText('Membership').waitFor({ timeout: 10000 })
@@ -327,6 +421,289 @@ async function run() {
     '🚩 a probe that THREW never renders the tab — the screen denies before it draws',
     (await page.getByRole('tablist').count()) === 0 &&
       (await page.locator('#loy-tab-panel').count()) === 0,
+  )
+
+  // ======================================================================
+  // Ticket 303 — the first member command that writes
+  // ======================================================================
+  const statusButton = page.locator('[data-testid="loy-status-command"]')
+  const confirmButton = page.locator('[data-testid="loy-status-confirm"]')
+  const reasonSelect = page.locator('#loy-block-reason')
+  const dialog = page.locator('dialog')
+
+  /** Open the Actions tab and come back, so its (empty) page is CACHED. Without
+   *  this the tab would fetch on every open and "the command refreshed it" would
+   *  be proved by a remount rather than by the invalidation. */
+  const warmActionsCache = async () => {
+    await page.getByRole('tab', { name: 'Actions' }).click()
+    await panel.getByText(/no actions/i).waitFor({ timeout: 10000 })
+    await profileTab.click()
+    await panel.getByText('Membership').waitFor({ timeout: 10000 })
+  }
+
+  const actionsText = async () => {
+    await page.getByRole('tab', { name: 'Actions' }).click()
+    await page.waitForTimeout(400)
+    return (await panel.innerText()).toLowerCase()
+  }
+
+  // ---- Scenario 6: blocking asks for a reason, and CR is not on the list ---
+  await open('editor')
+  await warmActionsCache()
+  // 🚩 Stamped on the window so "without a reload" is PROVED rather than
+  // asserted: a navigation would wipe this.
+  await page.evaluate(() => {
+    window.__driveMark = 'alive'
+  })
+
+  await statusButton.click()
+  await reasonSelect.waitFor({ timeout: 10000 })
+  const options = await page.locator('#loy-block-reason option').allInnerTexts()
+  check(
+    'blocking asks for a reason, from the server’s own list',
+    options.includes('Mobile moved to another account') && options.includes('Inactive'),
+    options.join(' / '),
+  )
+  check(
+    '🚩 the SYSTEM reason is provably absent from the picker — CR cannot be chosen by hand',
+    !options.some((o) => /removed at customer request/i.test(o)) &&
+      (await page.locator('#loy-block-reason option[value="CR"]').count()) === 0,
+    options.join(' / '),
+  )
+  check(
+    'and the confirm is dead until a reason is chosen — a block always says why',
+    (await confirmButton.getAttribute('aria-disabled')) === 'true',
+  )
+
+  // ---- Scenario 7: the write, the in-flight disable, and the refresh ------
+  await reasonSelect.selectOption('CM')
+  check(
+    'choosing a reason arms the confirm',
+    (await confirmButton.getAttribute('aria-disabled')) === null,
+  )
+  commandDelay = 700
+  // 🚩 Two clicks, deliberately. There is NO server-side idempotency anywhere in
+  // the module — the correlation id is pass-through and the trail service mints
+  // its own — so a second write would produce a second member update snapshot and
+  // a second trail row. The client's disable is the only guard there is.
+  await confirmButton.click()
+  await page.waitForTimeout(120)
+  const disabledInFlight = (await confirmButton.getAttribute('aria-disabled')) === 'true'
+  await confirmButton.click({ force: true })
+  await dialog.waitFor({ state: 'detached', timeout: 15000 })
+  check('🚩 the control disables itself while the write is in flight', disabledInFlight)
+  check(
+    '🚩 and a double-click writes exactly ONE command — the client is the only guard',
+    commandCalls.block === 1,
+    `${commandCalls.block} block calls`,
+  )
+
+  check(
+    'the HEADER moves with no reload — the blocked chip appears',
+    /blocked · mobile moved to another account/i.test(await page.innerText('body')) &&
+      (await page.evaluate(() => window.__driveMark)) === 'alive',
+  )
+  check(
+    'and the ONE Status control now offers Unblock, and only Unblock',
+    (await buttonNames()).includes('unblock member') &&
+      !(await buttonNames()).includes('block member'),
+    (await buttonNames()).join(' / '),
+  )
+  check(
+    'the ACTIONS tab reflects the command too — its cached page was invalidated',
+    /member blocked/i.test(await actionsText()) &&
+      (await page.evaluate(() => window.__driveMark)) === 'alive',
+  )
+
+  // ---- Scenario 7b: the guard outlives the CONTROL --------------------------
+  // 🚩 The tab shell mounts only the open tab, so a control holding "in flight"
+  // in its own state forgets it the moment an analyst clicks Actions and comes
+  // back — and presses again. With no server-side idempotency that is a second
+  // member update snapshot and a second trail row.
+  await open('editor', { memberOver: { blockedReason: 'CM' } })
+  commandDelay = 1500
+  await statusButton.click()
+  await page.waitForTimeout(150)
+  await page.getByRole('tab', { name: 'Actions' }).click()
+  await profileTab.click()
+  await panel.getByText('Membership').waitFor({ timeout: 10000 })
+  const armedAfterRemount = await statusButton.isEnabled()
+  await statusButton.click({ force: true })
+  await page.waitForTimeout(1800)
+  check(
+    '🚩 the in-flight guard SURVIVES a tab switch — a remounted control is still dead',
+    !armedAfterRemount && commandCalls.unblock === 1,
+    `${commandCalls.unblock} unblock calls, remount armed: ${armedAfterRemount}`,
+  )
+  check(
+    'and the command still refreshed the member, though the tab it started on had unmounted',
+    !/blocked ·/i.test(await page.innerText('body')),
+  )
+
+  // ---- Scenario 8: a business refusal is explained, and keeps the analyst --
+  await open('editor')
+  await statusButton.click()
+  await reasonSelect.waitFor({ timeout: 10000 })
+  await reasonSelect.selectOption('IA')
+  commandRefusal = envelope(null, {
+    status: 400,
+    success: false,
+    message: 'Blocked reason IA is not configured for this store.',
+    errors: [{ errorCode: 'LOY-00105', errorMessage: '', internalErrorCode: '' }],
+  })
+  await confirmButton.click()
+  await dialog.getByRole('alert').waitFor({ timeout: 10000 })
+  const refusalText = await dialog.innerText()
+  check(
+    '🚩 a business refusal keeps the analyst IN the dialog, with the reason still chosen',
+    (await dialog.count()) === 1 && (await reasonSelect.inputValue()) === 'IA',
+    await reasonSelect.inputValue(),
+  )
+  check(
+    '🚩 and is explained by NAME and in the server’s own sentence — never flattened to one',
+    /that blocked reason was not accepted/i.test(refusalText) &&
+      /is not configured for this store/i.test(refusalText),
+    refusalText.replace(/\s+/g, ' ').slice(0, 160),
+  )
+  check(
+    'the member is untouched by a refusal — the header still says nothing about a block',
+    !/blocked ·/i.test(await page.innerText('body')),
+  )
+
+  // The same dialog, the same reason, once the refusal is gone: a refusal is a
+  // pause, not a dead end.
+  commandRefusal = null
+  await confirmButton.click()
+  await dialog.waitFor({ state: 'detached', timeout: 15000 })
+  check(
+    'and a retry from the same dialog goes through with the reason that was already chosen',
+    commandCalls.block === 2 && /blocked · inactive/i.test(await page.innerText('body')),
+  )
+
+  // ---- Scenario 9: a grant refusal is not an outage ------------------------
+  await open('editor')
+  await statusButton.click()
+  await reasonSelect.waitFor({ timeout: 10000 })
+  await reasonSelect.selectOption('CM')
+  commandRefusal = envelope(null, {
+    status: 403,
+    success: false,
+    message: 'Forbidden.',
+    errors: [],
+  })
+  await confirmButton.click()
+  await dialog.getByRole('alert').waitFor({ timeout: 10000 })
+  const grantText = await dialog.innerText()
+  check(
+    '🚩 a 403 says the AUTHORITY is gone and offers no retry — it is not an outage',
+    /no longer holds the authority/i.test(grantText) && /will not help/i.test(grantText),
+    grantText.replace(/\s+/g, ' ').slice(0, 160),
+  )
+  // 🚩 And offers none as an AFFORDANCE, not only in words: pressing again would
+  // be the retry loop the rule exists to prevent, so the command goes dead where
+  // it stands.
+  commandRefusal = null
+  await confirmButton.click({ force: true })
+  await page.waitForTimeout(400)
+  check(
+    '🚩 and the command goes DEAD — a grant refusal takes the button away, not just the words',
+    (await confirmButton.getAttribute('aria-disabled')) === 'true' &&
+      commandCalls.block === 1 &&
+      (await dialog.count()) === 1,
+    `${commandCalls.block} block calls`,
+  )
+
+  // ---- Scenario 10: unblocking clears the reason with no further input -----
+  await open('editor', { memberOver: { blockedReason: 'CM' } })
+  await warmActionsCache()
+  check(
+    'a blocked member opens on Unblock, and the header says why they are blocked',
+    (await buttonNames()).includes('unblock member') &&
+      /blocked · mobile moved to another account/i.test(await page.innerText('body')),
+  )
+  commandRefusal = envelope(null, {
+    status: 400,
+    success: false,
+    message: 'That member could not be found.',
+    errors: [{ errorCode: 'LOY-00100', errorMessage: '', internalErrorCode: '' }],
+  })
+  await statusButton.click()
+  await panel.getByRole('alert').waitFor({ timeout: 10000 })
+  check(
+    '🚩 an unblock has no dialog, so its refusal is said BESIDE the control',
+    (await dialog.count()) === 0 &&
+      /this member no longer exists/i.test(await panel.innerText()) &&
+      /could not be found/i.test(await panel.innerText()),
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 160),
+  )
+
+  commandRefusal = null
+  await statusButton.click()
+  await page.waitForFunction(() => !/Blocked ·/i.test(document.body.innerText), null, {
+    timeout: 15000,
+  })
+  check(
+    'unblocking clears the reason with NO further input — one press, no dialog',
+    commandCalls.unblock === 2 && (await buttonNames()).includes('block member'),
+    (await buttonNames()).join(' / '),
+  )
+  check(
+    'and the Actions tab shows the unblock too',
+    /member unblocked/i.test(await actionsText()),
+  )
+
+  // ---- Scenario 11: the two answers that are not rows ---------------------
+  await open('editor')
+  reasonsAnswer = 'empty'
+  await statusButton.click()
+  await dialog.getByText(/no blocked reason is available/i).waitFor({ timeout: 10000 })
+  check(
+    '🚩 an empty reason list renders as an empty LIST, never as a failure',
+    /no blocked reason is available/i.test(await dialog.innerText()) &&
+      (await reasonSelect.count()) === 0 &&
+      (await dialog.getByRole('alert').count()) === 0 &&
+      (await confirmButton.getAttribute('aria-disabled')) === 'true',
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 120),
+  )
+  // 🚩 And it is not a DEAD END: an empty answer is never held, so once an
+  // administrator has seeded a reason, reopening the dialog finds it — without
+  // the reload the sentence would otherwise be quietly demanding.
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  await dialog.waitFor({ state: 'detached', timeout: 10000 })
+  reasonsAnswer = 'ok'
+  await statusButton.click()
+  await reasonSelect.waitFor({ timeout: 10000 })
+  check(
+    '🚩 an empty list is never cached — reopening after a reason is seeded finds it',
+    (await page.locator('#loy-block-reason option').count()) === 3,
+    `${await page.locator('#loy-block-reason option').count()} options`,
+  )
+
+  await open('editor')
+  reasonsAnswer = 'fails'
+  await statusButton.click()
+  await dialog.getByRole('alert').waitFor({ timeout: 10000 })
+  check(
+    'a reasons read that FAILED says so and offers a scoped Retry — and blocks nothing',
+    /could not be loaded/i.test(await dialog.innerText()) &&
+      (await dialog.getByRole('button', { name: 'Retry' }).count()) === 1 &&
+      (await confirmButton.getAttribute('aria-disabled')) === 'true',
+  )
+  // The Retry is real: with the door answering again, the picker fills.
+  reasonsAnswer = 'ok'
+  await dialog.getByRole('button', { name: 'Retry' }).click()
+  await reasonSelect.waitFor({ timeout: 10000 })
+  check(
+    'and the Retry refetches only this list',
+    (await page.locator('#loy-block-reason option').count()) === 3,
+    `${await page.locator('#loy-block-reason option').count()} options`,
+  )
+
+  // ---- Scenario 12: a look-only session still writes nothing ---------------
+  await open('lookOnly')
+  check(
+    '🚩 and none of this reaches a reader — no Status control at all for look-only',
+    (await statusButton.count()) === 0 && (await panel.locator('button').count()) === 0,
   )
 
   check('no page errors anywhere in the drive', errors.length === 0, errors.join(' | '))

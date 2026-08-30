@@ -103,6 +103,30 @@ export interface LoyMember extends Omit<LoyMemberPayload, 'blockedReason'> {
 }
 
 /**
+ * One row of `GET LoyWeb/BlockedReasons` — the reasons an agent may pick when
+ * blocking a member (spec 301, ticket 303).
+ *
+ * ⚠️ **Design intent, not a shipped contract.** The backend half of spec 301 is
+ * unwritten; the door that answers this route does not exist, and the BackOffice
+ * spec that eventually owns the shape is normative over this one.
+ *
+ * 🚩 `systemReason` is the flag this wave is the **first reader of** anywhere. It
+ * exists on `LoyMemberBlockedReason` today and nothing has ever read it. It is
+ * optional because a door that filters server-side may not project it at all,
+ * and `selectableBlockedReasons` states what each answer means.
+ */
+export interface LoyBlockedReasonPayload {
+  /** The reason CODE (`CM` / `IA` / a seeded value) — what a block command sends. */
+  code: string | null
+  /** The server's own description. Null-tolerant like every other string on this
+   *  door: `LoyMemberBlockedReason` carries no nullable annotations in C#. */
+  description: string | null
+  /** True when the reason is a **system reason** — a state the module puts a
+   *  member into, never one a person may choose. */
+  systemReason?: boolean
+}
+
+/**
  * One row of `GET LoyWeb/Reports/LastActivities/{loyId}` — `LastActivityModel`,
  * narrowed to the six fields the Activities tab draws plus the key it is sorted
  * by (223 §2, columns settled by 226 §2).

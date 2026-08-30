@@ -144,7 +144,7 @@
     "error": "Error"
   },
   "profile": {
-    "inertNote": "These commands are not connected yet.",
+    "inertNote": "The profile and contact-removal commands are not connected yet.",
     "section": {
       "profile": "Profile",
       "facts": "Membership",
@@ -180,10 +180,32 @@
       "block": "Block member",
       "unblock": "Unblock member",
       "blockedAs": "Currently blocked: {{reason}}",
-      "notBlocked": "This member is not blocked."
+      "notBlocked": "This member is not blocked.",
+      "dialogTitle": "Block this member",
+      "dialogNote": "Blocking records this reason against the member. It shows on the header and in the actions trail, and it is reversible from this same control.",
+      "reasonLabel": "Reason",
+      "reasonPlaceholder": "Choose a reason",
+      "reasonsLoading": "Loading reasons…",
+      "reasonsFailed": "The reasons could not be loaded.",
+      "reasonsRetry": "Retry",
+      "reasonsEmpty": "No blocked reason is available to choose. Nothing can be blocked until one is configured.",
+      "confirm": "Block member",
+      "cancel": "Cancel",
+      "blocked": "Member blocked.",
+      "unblocked": "Member unblocked.",
+      "blockFailed": "The member could not be blocked.",
+      "unblockFailed": "The member could not be unblocked."
     },
     "removalNote": "Removing a contact detail takes away a way of reaching this customer. It is not account deletion.",
     "removeEmail": "Remove email",
     "removeMobile": "Remove mobile"
+  },
+  "command": {
+    "refusal": {
+      "noSuchMember": "This member no longer exists.",
+      "invalidBlockedReason": "That blocked reason was not accepted.",
+      "grant": "This session no longer holds the authority for that command. Ask an administrator; retrying will not help.",
+      "pair": "{{named}} {{said}}"
+    }
   }
 }

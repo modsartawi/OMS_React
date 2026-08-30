@@ -63,7 +63,13 @@ export function memberChips(member: LoyMember): MemberChip[] {
 
   // Blocked — whenever there is a reason code. Empty ⇒ not blocked, which is
   // `LoyMemberExtensions.IsBlocked` exactly.
-  if (member.blockedReasonCode) {
+  //
+  // 🚩 Trimmed, and it must stay trimmed: the code arrives from a `char`-backed
+  // column, so `'  '` is a member with no block. `statusCommand` (303) reads it
+  // the same way, and the two cannot differ — a padded value that chipped the
+  // header red while the Profile tab below said "this member is not blocked" and
+  // offered Block would be one screen telling an analyst two things.
+  if (member.blockedReasonCode?.trim()) {
     chips.push({
       kind: 'blocked',
       code: member.blockedReasonCode,

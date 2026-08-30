@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Ban, ShieldCheck } from 'lucide-react'
-
 import type { LoyMember } from '@/core/models/loy'
 import { isBlankDate, formatShortDate, toIsoDate } from '@/core/util/date-format'
 import type { MemberAuthority } from './api'
-import { blockedReasonKey, memberTypeKey, tierKey } from './codes'
+import { blockedReasonKey, codeWords, memberTypeKey, tierKey } from './codes'
 import { memberBirthDate } from './member-header'
+import { PRIMARY_BUTTON, QUIET_BUTTON } from './profile-controls'
+import StatusCommand from './StatusCommand'
 
 /**
  * The Profile tab (ticket 302, spec 301) — the whole shape of the member already
@@ -14,7 +14,8 @@ import { memberBirthDate } from './member-header'
  *
  * It issues no read of its own: the member is the one the route already
  * resolved, and the authority is the area's ONE probe answer, read from the
- * shared cache key by the tab shell above (`MemberTabs`). Nothing here writes.
+ * shared cache key by the tab shell above (`MemberTabs`). The only write it
+ * makes is the Status **member command**, which lives in its own component.
  *
  * Three renderings of one component, not three components — a divergence is how
  * a read-only view starts showing a field the editable one dropped (spec 301):
@@ -33,11 +34,13 @@ import { memberBirthDate } from './member-header'
  * enforced server-side per route (ADR 0001); the flags decide only what is
  * *drawn*.
  *
- * ⚠️ **The commands are inert in this slice.** 302 owns the *visibility rule*
- * and writes nothing; 303 (block/unblock), 304 (profile save), 306 (email
- * removal) and 307 (mobile removal) each wire one of them up. The note above the
- * groups says so, rather than leaving an editor clicking a button that silently
- * does nothing.
+ * ⚠️ **The Status command writes; the rest are still inert.** 302 owned the
+ * *visibility rule* and wrote nothing, and 303 wired the first of the four
+ * commands up (`StatusCommand` — block and unblock, and the write idiom 304–307
+ * copy). 304 (profile save), 306 (email removal) and 307 (mobile removal) are
+ * still buttons that do nothing, and the note above the groups names **them**
+ * rather than claiming the whole tab is disconnected — a note that says more
+ * than is true is how an editor stops reading it.
  *
  * **Drawn nowhere:** the referral code the ticket's read-only column names —
  * `LoyMemberModel` does not carry one, so there is no field on the wire, on the
@@ -90,12 +93,7 @@ export default function ProfileTab({
   // went stale without anyone touching it, not only two analysts racing.
   const [draft, setDraft] = useState(current)
 
-  const blocked = !!member.blockedReasonCode
-  const blockedReason = codeWords(
-    member.blockedReasonCode,
-    blockedReasonKey(member.blockedReasonCode),
-    t,
-  )
+  const blockedReason = codeWords(member.blockedReasonCode, blockedReasonKey, t)
 
   /** One editable field: a control for an editor, a read fact for everyone else.
    *  ONE definition, so the two renderings cannot drift apart. */
@@ -174,7 +172,7 @@ export default function ProfileTab({
           <Fact label={t('profile.fact.loyId')} value={member.loyId} mono />
           <Fact
             label={t('profile.fact.memberType')}
-            value={codeWords(member.memberType, memberTypeKey(member.memberType), t)}
+            value={codeWords(member.memberType, memberTypeKey, t)}
           />
           {/* 🚩 The mobile is read-only HERE even for an editor: it is the login
               credential and one of only two ways a member can be found, so it
@@ -185,7 +183,7 @@ export default function ProfileTab({
           <Fact label={t('profile.fact.pendingPoints')} value={points(member.pendingPoints)} />
           <Fact
             label={t('profile.fact.tier')}
-            value={codeWords(member.tier, tierKey(member.tier), t)}
+            value={codeWords(member.tier, tierKey, t)}
           />
           <Fact label={t('profile.fact.tierPoints')} value={points(member.tierPointsBalance)} />
           <Fact
@@ -206,21 +204,7 @@ export default function ProfileTab({
           {/* ONE control offering whichever of the two applies — a member is
               blocked or is not, and offering both would ask the analyst to read
               the member's state off a pair of buttons (303). */}
-          <div className="flex flex-wrap items-center gap-3">
-            <button type="button" disabled className={QUIET_BUTTON}>
-              {blocked ? (
-                <ShieldCheck className="me-1.5 h-3.5 w-3.5" aria-hidden />
-              ) : (
-                <Ban className="me-1.5 h-3.5 w-3.5" aria-hidden />
-              )}
-              {blocked ? t('profile.status.unblock') : t('profile.status.block')}
-            </button>
-            <span className="text-xs text-muted-foreground">
-              {blocked
-                ? t('profile.status.blockedAs', { reason: blockedReason })
-                : t('profile.status.notBlocked')}
-            </span>
-          </div>
+          <StatusCommand member={member} />
         </section>
       )}
 
@@ -266,17 +250,6 @@ function isoDate(value: string | null | undefined): string {
   if (!value) return ''
   const date = new Date(value)
   return isBlankDate(date) ? '' : toIsoDate(date)
-}
-
-/** A code's words when its set is closed in server source, and 🚩 **the bare
- *  code when it is not** — never a raw `loy:tier.X` (229 clause 4). */
-function codeWords(
-  code: string | null,
-  key: string | null,
-  t: (k: string) => string,
-): string | null {
-  if (!code) return null
-  return key ? t(key) : code
 }
 
 /** Points render grouped and without invented decimals — the same rule the
@@ -344,9 +317,3 @@ function Control({
     </div>
   )
 }
-
-const PRIMARY_BUTTON =
-  'inline-flex h-8 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50'
-
-const QUIET_BUTTON =
-  'inline-flex h-8 items-center rounded-full border border-border/60 bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50'

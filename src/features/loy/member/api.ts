@@ -23,6 +23,7 @@ import { api } from '@/core/api'
 import type {
   LoyAccessResult,
   LoyActivityRow,
+  LoyBlockedReasonPayload,
   LoyMember,
   LoyMemberActionsPage,
   LoyMemberPayload,
@@ -130,6 +131,34 @@ function toMember(payload: LoyMemberPayload): LoyMember {
  *  cache seed a resolve writes so the same member is never fetched twice. */
 export const memberKey = (loyId: string) => ['loy', 'member', loyId] as const
 
+/**
+ * Every member entry, as a **prefix** — what a **member command** invalidates.
+ *
+ * 🚩 It is deliberately not `memberKey(member.loyId)`. The route reads under the
+ * key it took from the **URL**, and a command only holds the id off the
+ * **payload**; the two agree on every ordinary path (a resolve navigates to
+ * `resolution.member.loyId`) but a hand-typed link that differs by case or
+ * padding would have the command invalidate an entry nobody is reading, and the
+ * header would silently not move — the one failure the whole refresh rule exists
+ * to prevent. The prefix cannot miss, and the cost is nil: the screen holds one
+ * member at a time, so exactly one entry is active and refetched. The rest are
+ * only marked stale, which after a write is true of them anyway.
+ */
+export const MEMBER_SCOPE_KEY = ['loy', 'member'] as const
+
+/**
+ * The mutation key one member's **member commands** run under.
+ *
+ * 🚩 It exists so the in-flight guard outlives the control that started it. The
+ * tab shell mounts only the OPEN tab, so a control that held "a write is in
+ * flight" in its own state would forget it the moment an analyst clicked Actions
+ * and came back — and, with no server-side idempotency anywhere in the module, a
+ * second press would write a second **member update snapshot** and a second trail
+ * row. The mutation cache lives on the query client, so a remounted control reads
+ * the same fact (`useIsMutating`).
+ */
+export const memberCommandKey = (loyId: string) => ['loy', 'member-command', loyId] as const
+
 export const loyApi: MemberReads = {
   /**
    * `GET LoyWeb/MemberByMobile/{typed}` — the first attempt at resolution.
@@ -158,6 +187,77 @@ export const loyApi: MemberReads = {
   },
 }
 
+/**
+ * The blocked reasons an agent may pick (ticket 303). One key for the whole
+ * area — the list is seed data shared by every member, not a fact about the one
+ * on screen, so a second member does not re-fetch it.
+ */
+export const BLOCKED_REASONS_KEY = ['loy', 'blocked-reasons'] as const
+
+/**
+ * The **member commands** (spec 301) — the writes. Every one goes through
+ * `@/core/api` like the reads, and every one can be refused as a *business*
+ * outcome that the screen explains rather than throws
+ * (`.claude/rules/api-envelope.md`).
+ *
+ * ⚠️ **None of these routes exists.** The backend half of spec 301 is unwritten
+ * and unnumbered; the shapes below are this client's design intent and the
+ * BackOffice spec that eventually owns them is normative. Everything here is
+ * verified against stubbed envelopes in `tools/loy-member-admin-drive.mjs`.
+ * 🚩 Nothing here has met a live SIS.Api.
+ *
+ * 🚩 **No correlation id is sent, and that is a decision.** Spec 301 records
+ * that the id every command carries is *pass-through only* — no dedup check
+ * exists anywhere in the module and the trail service mints its own when the
+ * caller sends none. A client-minted id would therefore buy no idempotency, only
+ * a field on a contract nobody has written yet. The guard against a double
+ * submit is the control disabling itself while in flight, and it is the only
+ * one there is.
+ *
+ * 🚩 **The acting store is never sent.** It is derived server-side from the
+ * session, because it is an audit stamp and a client that can choose it can
+ * forge it (spec 301, "Writing safely").
+ */
+export const loyCommandApi = {
+  /**
+   * `GET LoyWeb/BlockedReasons` — the reasons a **person** may choose, filtered
+   * server-side to exclude **system reasons**. `selectableBlockedReasons`
+   * filters again on the way to the picker: the door's filter is the first line
+   * and the projection is the second, because a system reason offered by hand
+   * writes an audit trail that lies (ticket 303).
+   *
+   * `?? []` guards the one shape the envelope permits and the picker cannot
+   * render: a `success: true` with a null `data`. An empty list is seed data,
+   * never a failure.
+   */
+  async blockedReasons(): Promise<LoyBlockedReasonPayload[]> {
+    const rows = await api.get<LoyBlockedReasonPayload[] | null>('LoyWeb/BlockedReasons')
+    return rows ?? []
+  },
+
+  /**
+   * `POST LoyWeb/Member/{loyId}/Block` — block the member under a reason.
+   *
+   * Refusable by name with **member does not exist** and **invalid blocked
+   * reason**; refused for authority with a 403, which is a grant refusal and not
+   * an outage. The reason code is the one the picker offered, sent verbatim.
+   */
+  async block(loyId: string, blockedReason: string): Promise<void> {
+    await api.post<unknown>(`LoyWeb/Member/${encodeURIComponent(loyId)}/Block`, {
+      blockedReason,
+    })
+  },
+
+  /**
+   * `POST LoyWeb/Member/{loyId}/Unblock` — clear the reason. It takes nothing
+   * beyond the member: unblocking is the absence of a reason, so there is no
+   * second question to ask.
+   */
+  async unblock(loyId: string): Promise<void> {
+    await api.post<unknown>(`LoyWeb/Member/${encodeURIComponent(loyId)}/Unblock`, {})
+  },
+}
+
 /** The Activities tab's cache key — per member, so a tab fetched once is not
  *  fetched again while that member is on screen (ticket 236). */
 export const activitiesKey = (loyId: string) => ['loy', 'activities', loyId] as const
@@ -172,6 +272,16 @@ export const salesKey = (loyId: string) => ['loy', 'sales', loyId] as const
  */
 export const actionsKey = (loyId: string, page: number) =>
   ['loy', 'actions', loyId, page] as const
+
+/**
+ * Every page of one member's Actions cache, as a **prefix**. This is what a
+ * member command invalidates (spec 301): the Actions tab is where a command
+ * becomes visible, and a write that does not refresh it looks like it did not
+ * happen. Exported as a key rather than left to each command to spell, so a
+ * later command cannot invalidate page 1 and leave the analyst reading page 2 of
+ * a trail that has moved on.
+ */
+export const memberActionsScopeKey = (loyId: string) => ['loy', 'actions', loyId] as const
 
 /**
  * Rows a page on the Actions tab — **25, the server's own default**, and

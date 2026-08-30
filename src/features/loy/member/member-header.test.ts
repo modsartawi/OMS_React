@@ -86,6 +86,15 @@ describe('memberChips — 230, drawn', () => {
     expect(kinds(member({ tier: '', memberType: '', blockedReasonCode: '' }))).toEqual([])
   })
 
+  it('🚩 reads a PADDED blocked reason as not blocked — the chip and the Status control agree', () => {
+    // The code arrives from a `char`-backed column, so `'  '` is a member with no
+    // block. `statusCommand` (303) reads it the same way, and the two must not
+    // differ: a red "Blocked" chip above a Profile tab saying "this member is not
+    // blocked" and offering Block is one screen telling an analyst two things.
+    expect(kinds(member({ blockedReasonCode: '  ' }))).toEqual(['tier'])
+    expect(kinds(member({ blockedReasonCode: '	' }))).toEqual(['tier'])
+  })
+
   it('gives each chip a severity, so no call site invents a colour', () => {
     const chips = memberChips(member({ memberType: 'A', blockedReasonCode: 'CM' }))
     expect(chips.map((c) => c.sev)).toEqual(['warn', 'mute', 'bad'])

@@ -15,9 +15,13 @@
  * each call site as a convention to remember instead of here, in one module a
  * vitest suite enforces.
  *
- * Pure by construction: no React, no `t`, no network. It returns **keys**, never
+ * Pure by construction: no React and no network. It returns **keys**, never
  * sentences, so the words stay in `src/locales/en/loy.json` where the rule wants
- * them.
+ * them — with one exception, `codeWords` at the foot of the file, which *applies*
+ * a key using a `t` the caller hands in. It lives here because "a code that has
+ * no words renders as itself" is this module's rule, and a second spelling of it
+ * in a component is how two places on one screen start disagreeing about what
+ * `CM` means.
  *
  * Deliberately **not** here: `gender` (🚩 looks closed, is not — `ModelMapping`
  * assigns whatever sign-up wrote, unvalidated; `GenderConst` holds the *words*,
@@ -96,3 +100,26 @@ const BLOCKED_REASON_KEYS: Record<string, string> = {
 
 export const blockedReasonKey = (code: string | null | undefined): string | null =>
   lookup(BLOCKED_REASON_KEYS, code)
+
+/**
+ * A code in words, or the bare code when its set does not close on one — 🚩
+ * never a raw `loy:tier.X` (229 clause 4), and never an invented description.
+ *
+ * The lookup is passed in rather than the key, so the trim happens **once**,
+ * here, before it: `blockedReasonCode` in particular arrives from a `char`-backed
+ * column, and a padded `'CM '` would miss every map in this file and render as a
+ * code with a trailing space.
+ *
+ * `null` for a code that is absent or blank — an absent value reads as absent,
+ * which is the caller's to draw.
+ */
+export function codeWords(
+  code: string | null | undefined,
+  lookupKey: (code: string | null | undefined) => string | null,
+  t: (key: string) => string,
+): string | null {
+  const trimmed = code?.trim() || ''
+  if (!trimmed) return null
+  const key = lookupKey(trimmed)
+  return key ? t(key) : trimmed
+}

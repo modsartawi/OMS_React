@@ -145,6 +145,27 @@ change to `MemberTabs`, not to a command; this control loses one field where the
 nine, and giving this one a store of its own would settle nothing for the form while leaving the
 screen with two answers to one question.
 
+`/code-review high` — **no defect in this ticket's own code.** It cleared the three properties the
+ticket turns on by name: the verdict's ordering (letters checked before sameness), `compact` reused
+rather than a second normalisation, and *the verdict IS the request* — the confirm cannot be armed
+off one value and send another. Five findings, and **every fixable one is in another ticket's
+file**, so all five are recorded here and none patched from this session:
+
+- 🚩 **MEDIUM, `profile-form.ts` (304):** `profileProblems` validates the whole draft rather than
+  the dirty fields, so a member whose **stored** email fails the shape check (`user@localhost`,
+  `n/a`) can never be saved at all — `submit` short-circuits before `save.mutate`. An analyst who
+  only wants to fix a misspelt name must first edit or blank a contact detail. **This is 304's own
+  ruling reintroduced through the one field that has a shape rule**, and it wants a ticket.
+- ⚠️ **MEDIUM, this diff:** the stranded-profile-edit interaction above, independently found. It
+  confirms the triage rather than moving it — `StatusCommand` has had the identical effect since
+  **303**, so this is three commands on one tab and not something 305 introduced.
+- **LOW ×3, the IDoc Inspector wave (296–300):** a missing verdict rendering the *unknown* banner
+  with a blank code; four bare object-literal indexes (`VERDICTS`, `EXPORT_BADGES`,
+  `ATTENTION_BANNERS`, `OUTCOME_KEYS`) reachable through `Object.prototype` — the exact hazard
+  `member-commands.ts` and `profile-form.ts` already guard with `Object.hasOwn`; and
+  `ProfileForm`'s render-phase `setSeed` having no bail-out if the projection ever answers a null
+  `lastUpdate` (which would also make the stale guard a silent no-op).
+
 ### Verification
 
 `typecheck` · `lint` · `build` green · **2153 vitest** (10 new) · admin drive **106/106** ·

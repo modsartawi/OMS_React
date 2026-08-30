@@ -175,8 +175,9 @@ export interface IDocInspectorFiItem {
  * the day the server ships them and not before, and with them the billing-type
  * and payment-group vocabularies get a render site.
  *
- * 🚩 `isHeld` IS on the wire and is deliberately still absent here: it is 298's,
- * and this file's rule is that a field lands when something first RENDERS it.
+ * 🚩 `isHeld` landed with ticket 298, which is the slice that draws the held
+ * marker — this file's rule that a field arrives when something first RENDERS it,
+ * kept.
  */
 export interface IDocInspectorDocument {
   /**
@@ -195,6 +196,22 @@ export interface IDocInspectorDocument {
   receiptNumber: string
   pharmacyId: string
   exportState: IDocExportState
+  /**
+   * Was this document generated and then **held back from batching** (ticket 298,
+   * BackOffice 1391)?
+   *
+   * 🔑 **The answer to "*which* one".** 1390 shipped `ProcessedWithHeldDocuments`
+   * as a verdict only and asserted the consequence out loud in its own tests: a
+   * two-document transaction was told one of them is held and not which, because a
+   * held document wears the same `not-batched` badge as an ordinary unbatched one.
+   * *Which* is a question about the graph, so it is answered on the document.
+   *
+   * ⚠️ The generator's `ErrorType` and `ErrorMessage` are deliberately **not** on
+   * the wire — those are its diagnostics in its own words, and this screen's
+   * contract is machine codes it words itself. So the banner names the finding,
+   * this flag names the document, and nothing here says *why*.
+   */
+  isHeld: boolean
   batch: IDocInspectorBatch | null
   lines: IDocInspectorLine[]
   payments: IDocInspectorPayment[]

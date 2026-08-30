@@ -4,7 +4,6 @@ import {
   documentCounts,
   documentPane,
   exportBadge,
-  hasDocuments,
   selectedIndex,
 } from './document-graph'
 import { aDocument, aLine, anFiDocument, aTransaction } from './__fixtures__/graph'
@@ -35,11 +34,10 @@ describe('aLookupRendersOneTabPerGeneratedIDocType', () => {
     expect(new Set(split.map((d) => d.iDocType)).size).toBe(1)
   })
 
-  it('knows a transaction that generated nothing from one that did', () => {
-    expect(hasDocuments(aTransaction({ verdict: 'Parked', documents: [] }))).toBe(false)
-    expect(hasDocuments(null)).toBe(false)
-    expect(hasDocuments(aTransaction())).toBe(true)
-  })
+  // 🚩 297's `hasDocuments` assertion has MOVED, not been dropped: whether a
+  // transaction draws a graph is the verdict's answer as of ticket 298, and
+  // `verdict.test.ts` asserts it there — over all ten codes rather than over the
+  // array length alone.
 })
 
 describe('theExportStateBadgeDistinguishesAllThreeStates', () => {

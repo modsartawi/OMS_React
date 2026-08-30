@@ -39,6 +39,20 @@
 //  15. the minted-by filter filters the TAG only, and a filtered expansion says
 //      how many conditions the line really has.
 //
+// Ticket 298 — every empty result names its verdict:
+//  22. 🔑 each of the SEVEN empty verdicts REPLACES the document area with its
+//      OWN named sentence — no two alike, and never a blank page.
+//  23. ⚠️ `Parked` reads as "the workflow has not shipped yet" — never as a
+//      failure, an error or something pending.
+//  24. ⚠️ `GaveUp` never reads as success, even though the underlying row has its
+//      processed flag set.
+//  25. ⚠️ held documents are NOT an empty state: the graph renders in FULL under
+//      an attention banner, and the held document is marked on its own card.
+//  26. 🔑 a legacy stamp with documents renders everything AND names the
+//      disagreement, quoting the offending column value.
+//  27. an UNKNOWN verdict code fails loudly rather than rendering blank — with a
+//      graph it still draws the graph, without one it names the raw code.
+//
 // Ticket 300 — the codes render raw with their label as secondary text:
 //  16. 🔑 every code renders its RAW value, with the legend's label beside it or
 //      on it — the label never REPLACES the code.
@@ -178,6 +192,9 @@ const aggDocument = {
   receiptNumber: '4211900771',
   pharmacyId: '0421',
   exportState: 'exported',
+  // ⚠️ `false` by default and asked for explicitly (ticket 298): a held document
+  // is a FINDING, so it must never arrive on a stub by accident.
+  isHeld: false,
   batch: { id: 'K7QF2M8ZR41X9S042S_AGG', exportedAt: '2026-08-27T03:10:00' },
   lines: [
     line(),
@@ -313,9 +330,15 @@ async function run() {
 
   const storeField = () => page.getByPlaceholder(/S042/)
   const trxField = () => page.getByPlaceholder(/00114600051234/)
+  // ⚠️ `networkidle` is not enough on its own: react-query renders the answer a
+  // tick AFTER the response settles, so reading the pane straight afterwards
+  // returns the previous verdict (or the shimmer). Without this settle every
+  // verdict assertion below passes one answer behind itself, which is a green
+  // suite over a screen showing the wrong sentence.
   const lookUp = async () => {
     await page.getByRole('button', { name: /^Look up$/ }).click()
     await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(200)
   }
 
   // ---- Scenario 1: granted ------------------------------------------------
@@ -724,16 +747,17 @@ async function run() {
   )
 
   // ---- an answer with no documents ---------------------------------------
-  // ⚠️ Ticket 298 replaces this with the ten named verdicts. What 297 asserts is
-  // only that an empty answer is never a blank page — and never the LANDING
-  // state, which on this screen means something else entirely.
+  // ⚠️ The sentence is ticket 298's — this verdict's OWN, not one placeholder
+  // standing in for ten. What 297 asserts here is the frame: an empty answer is
+  // never a blank page, and never the LANDING state, which on this screen means
+  // something else entirely.
   transactionBody = { verdict: 'Parked', attention: null, documents: [] }
   await trxField().fill('00114600059999')
   await lookUp()
   bodyText = await paneText()
   check(
     'an answer with no documents is a sentence, not a blank page',
-    /No documents were generated/i.test(bodyText) && !/Nothing to show yet/i.test(bodyText),
+    /has not shipped yet/i.test(bodyText) && !/Nothing to show yet/i.test(bodyText),
     bodyText.replace(/\n/g, ' ').slice(0, 200),
   )
   check(
@@ -870,6 +894,171 @@ async function run() {
     (await page.locator('[data-document-card]').count()) === 3 && !/unexpected/i.test(noLegend),
   )
   metadataStatus = 200
+
+  // ---- Ticket 298: the ten verdicts ---------------------------------------
+  // 🔑 A lookup that finds nothing NEVER shows a blank page. Every one of these
+  // is a 200 carrying a machine code; the wording is entirely this repo's.
+  scenario = { accessBody: { screenAllowed: true }, accessStatus: 200 }
+  await visit(URL)
+
+  // 🚩 The key is held CONSTANT across these scenarios on purpose — what changes
+  // is the server's ANSWER — so every Look up here is a re-ask of the same key,
+  // which is the path that would answer from cache if `onLookup` did not refetch.
+  const askFor = async (body) => {
+    transactionBody = body
+    await storeField().fill('S042')
+    await trxField().fill('00114600051234')
+    await lookUp()
+    return await page.locator('main').innerText()
+  }
+  const verdictBlock = () => page.locator('[data-verdict]')
+
+  const EMPTY_VERDICTS = [
+    'Parked',
+    'Queued',
+    'Retrying',
+    'GaveUp',
+    'Legacy',
+    'StampedNotEnqueued',
+    'NoSuchTransaction',
+  ]
+  const said = {}
+  for (const verdict of EMPTY_VERDICTS) {
+    await askFor({ verdict, attention: null, documents: [] })
+    const block = (await verdictBlock().count()) === 1 ? await verdictBlock().innerText() : ''
+    said[verdict] = block
+    check(
+      'eachVerdictCodeMapsToItsOwnCopy - ' + verdict + ' replaces the document area',
+      (await verdictBlock().getAttribute('data-verdict')) === verdict &&
+        block.trim().length > 40 &&
+        // The graph is GONE, not merely empty: the verdict IS the document area.
+        (await page.locator('[data-document-card]').count()) === 0,
+      block.replace(/\n/g, ' ').slice(0, 120),
+    )
+  }
+  check(
+    '🔑 …and no two of the seven say the same thing',
+    new Set(Object.values(said)).size === EMPTY_VERDICTS.length,
+    new Set(Object.values(said)).size + ' distinct of ' + EMPTY_VERDICTS.length,
+  )
+
+  check(
+    '⚠️ parkedReadsAsNotYetShippedNotAsFailure',
+    /has not shipped yet/i.test(said.Parked) && !/fail|error|pending/i.test(said.Parked),
+    said.Parked.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    '⚠️ gaveUpDoesNotReadAsSuccess - the processed flag is named, never celebrated',
+    !/\b(success|delivered|complete|finished|done|sent)\b/i.test(said.GaveUp) &&
+      /processed flag/i.test(said.GaveUp),
+    said.GaveUp.replace(/\n/g, ' ').slice(0, 220),
+  )
+
+  // ---- held documents are NOT an empty state ------------------------------
+  const heldText = await askFor({
+    verdict: 'ProcessedWithHeldDocuments',
+    attention: null,
+    documents: [
+      { ...aggDocument, exportState: 'not-batched', batch: null, isHeld: true },
+      fiDocument,
+    ],
+  })
+  check(
+    '⚠️ heldDocumentsRenderInFullUnderABanner - the graph renders, in full',
+    (await page.locator('[data-document-card]').count()) === 2,
+    (await page.locator('[data-document-card]').count()) + ' card(s)',
+  )
+  check(
+    '…under an ATTENTION banner, which is not an error banner',
+    (await page.locator('[data-attention="held"]').count()) === 1 &&
+      (await page.locator('[role="alert"]').count()) === 0,
+    heldText.replace(/\n/g, ' ').slice(0, 200),
+  )
+  check(
+    '🔑 …and WHICH document is held is marked on its card',
+    (await page.locator('[data-held]').count()) === 1 &&
+      (await page.locator('[data-held="0"]').count()) === 1,
+    (await page.locator('[data-held]').count()) + ' marked',
+  )
+
+  // ---- the tenth verdict: documents outrank the export-version column ------
+  await askFor({
+    verdict: 'ProcessedButStampedLegacy',
+    attention: { code: 'EXPORT_VERSION_DISAGREES', exportVersion: 'L' },
+    documents: [aggDocument, fiDocument, unbatchedDocument],
+  })
+  check(
+    '🔑 aLegacyStampWithDocumentsRendersEverythingAndNamesTheDisagreement',
+    (await page.locator('[data-document-card]').count()) === 3,
+    (await page.locator('[data-document-card]').count()) + ' card(s)',
+  )
+  const disagree = page.locator('[data-attention="disagreement"]')
+  const disagreeText = (await disagree.count()) ? await disagree.innerText() : 'no banner'
+  check(
+    '…and the banner names the disagreement AND quotes the offending value',
+    (await disagree.count()) === 1 && /column says L\b/.test(disagreeText),
+    disagreeText.replace(/\n/g, ' ').slice(0, 220),
+  )
+  check(
+    '⚠️ …and it diagnoses nothing and offers no repair',
+    /names the disagreement/i.test(disagreeText) &&
+      (await disagree.locator('button').count()) === 0,
+    disagreeText.replace(/\n/g, ' ').slice(-120),
+  )
+  await askFor({
+    verdict: 'ProcessedButStampedLegacy',
+    attention: { code: 'EXPORT_VERSION_DISAGREES', exportVersion: '' },
+    documents: [aggDocument],
+  })
+  check(
+    '🚩 a NULL column is quoted as EMPTY, never as an invented stamp',
+    /column is empty/i.test(await disagree.innerText()),
+    (await disagree.innerText()).replace(/\n/g, ' ').slice(0, 180),
+  )
+
+  // ---- an unrecognised code fails loudly ----------------------------------
+  const unknownEmpty = await askFor({
+    verdict: 'PartiallyReconciled',
+    attention: null,
+    documents: [],
+  })
+  check(
+    '⚠️ anUnknownVerdictCodeFailsLoudlyRatherThanRenderingBlank',
+    (await verdictBlock().getAttribute('data-verdict-known')) === 'false' &&
+      /PartiallyReconciled/.test(unknownEmpty),
+    unknownEmpty.replace(/\n/g, ' ').slice(0, 220),
+  )
+  check(
+    '…and it does NOT borrow one of the ten sentences',
+    !/has not shipped yet/i.test(unknownEmpty) && !/legacy IDoc uploader/i.test(unknownEmpty),
+    unknownEmpty.replace(/\n/g, ' ').slice(0, 200),
+  )
+  await askFor({ verdict: 'PartiallyReconciled', attention: null, documents: [aggDocument] })
+  check(
+    '🔑 an unknown verdict WITH a graph still draws the graph, under the loud banner',
+    (await page.locator('[data-document-card]').count()) === 1 &&
+      (await page.locator('[data-attention="unknownVerdict"]').count()) === 1,
+    String(await page.locator('[data-document-card]').count()),
+  )
+
+  // 🚩 A finding attached to an EMPTY verdict still renders. The banners live
+  // above the branch rather than inside the documents half, so a block the server
+  // hangs on a verdict with nothing to draw is not silently dropped — which a pure
+  // test cannot see, because it is a layout decision.
+  const emptyWithFinding = await askFor({
+    verdict: 'Legacy',
+    attention: { code: 'SOMETHING_NEW', exportVersion: null },
+    documents: [],
+  })
+  check(
+    '🚩 an attention block on an EMPTY verdict is still drawn, above the named verdict',
+    (await page.locator('[data-attention="unknownAttention"]').count()) === 1 &&
+      /legacy IDoc uploader/i.test(emptyWithFinding),
+    emptyWithFinding.replace(/\n/g, ' ').slice(0, 220),
+  )
+
+  // Back to the ordinary answer, so the raw-key sweep below reads a full graph.
+  await askFor(PROCESSED)
 
   const graphKeys = (await page.locator('body').innerText()).match(
     /(?:^|\s)(?:reports:)?idocInspector\.[a-zA-Z.]+/,

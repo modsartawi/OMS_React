@@ -61,6 +61,9 @@ export function aDocument(over: Partial<IDocInspectorDocument> = {}): IDocInspec
     receiptNumber: '4211900771',
     pharmacyId: '0421',
     exportState: 'exported',
+    // ⚠️ `false` by default and asked for explicitly: a held document is a
+    // FINDING (ticket 298), so it must never arrive on a fixture by accident.
+    isHeld: false,
     batch: { id: 'K7QF2M8ZR41X9S042S_AGG', exportedAt: '2026-08-27T03:10:00' },
     lines: [aLine()],
     payments: [

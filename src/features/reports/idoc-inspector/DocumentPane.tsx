@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { IDocInspectorDocument } from '@/core/models/idoc-inspector'
+import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import { CodeValue } from './CodeValue'
 import { documentPane, exportBadge } from './document-graph'
@@ -9,6 +10,7 @@ import ExportStateBadge from './ExportStateBadge'
 import LineTable from './LineTable'
 import MintedByFilter from './MintedByFilter'
 import { filterLines } from './provenance'
+import { isHeld } from './verdict'
 
 /**
  * The selected document: its attribute strip, its minted-by filter, its lines,
@@ -89,12 +91,16 @@ export default function DocumentPane({
             <span className="tabular-nums">{attribute.value}</span>
           </span>
         ))}
-        {/* ⚠️ There is deliberately no ERROR badge here yet. A document held out
-            of batching is a finding that renders in full under an attention
-            banner, and that whole story — banner, verdict and the fields it
-            reads — is ticket 298's; splitting it across two slices would put
-            half a finding on the screen. */}
-        <span className="ms-auto">
+        <span className="ms-auto flex items-center gap-1.5">
+          {/* 🔑 **Held, on the open document too** (ticket 298). The rail card
+              carries the same mark so a held document is findable without opening
+              each one; here it sits beside the export badge because that is where
+              the question is answered — a held document wears `not-batched` and
+              is NOT the ordinary unbatched document that badge otherwise means.
+              ⚠️ There is deliberately no reason given: the generator's error type
+              and message are not on the wire (BackOffice 1391), and inventing one
+              would be this screen diagnosing. */}
+          {isHeld(doc) && <StatusBadge sev="warn">{t('idocInspector.document.held')}</StatusBadge>}
           <ExportStateBadge state={doc.exportState} />
         </span>
       </div>

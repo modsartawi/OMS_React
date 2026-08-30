@@ -1,17 +1,20 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { FileSearch, PackageSearch } from 'lucide-react'
+import { FileSearch } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { canOpenIDocInspector, idocInspectorAccessQuery, idocInspectorApi } from './api'
+import AttentionBanner from './AttentionBanner'
 import DocumentPane from './DocumentPane'
 import DocumentRail from './DocumentRail'
-import { hasDocuments, selectedIndex } from './document-graph'
+import { selectedIndex } from './document-graph'
 import { LegendProvider } from './LegendContext'
 import LookupToolbar from './LookupToolbar'
+import { banners, readVerdict } from './verdict'
+import { VerdictEmptyState, VerdictStrip } from './VerdictStrip'
 import {
   buildLookupKey,
   landingCriteria,
@@ -39,17 +42,17 @@ import {
  * five documents, 210 conditions, 515 rows at the extreme — so there is no
  * paging at any level and no second round-trip to add.
  *
- * ⚠️ **The empty result is a placeholder in this slice.** Every "nothing to show"
- * arrives as a 200 carrying one of ten named verdicts, and **ticket 298 owns
- * their wording** — including the three that must not be softened (parked is
- * *not yet shipped*, gave-up must never read as success, held documents are not
- * an empty state at all). Until then this screen says only that the lookup found
- * no documents, which is true of all ten and diagnostic of none.
+ * 🔑 **Every "nothing to show" is a named verdict** (ticket 298). Ten codes, each
+ * with its own sentence in the locale file, and the empty state *replaces* the
+ * document area rather than leaving a blank page — a lookup that finds nothing is
+ * an answer, not a dead end. Three of the ten render a full graph instead, two of
+ * those under an attention banner: a held document and a transaction whose
+ * export-version column contradicts the documents beside it are **findings**, not
+ * absences.
  *
- * The download (299) sits on the verdict strip 298 builds. **The code legend
- * (300) is here**: `LegendProvider` fetches `Metadata` once per session inside
- * the gate, and every code below draws its label from it while still rendering
- * itself raw.
+ * The download (299) sits on the verdict strip. **The code legend (300)** is here
+ * too: `LegendProvider` fetches `Metadata` once per session inside the gate, and
+ * every code below draws its label from it while still rendering itself raw.
  */
 export default function IDocInspectorPage() {
   const { t } = useTranslation('reports')
@@ -152,6 +155,13 @@ export default function IDocInspectorPage() {
     })
   }, [])
 
+  // 🔑 **The server's verdict, read and never re-derived** (ticket 298). What is
+  // drawn — the graph or a named empty state — comes from the verdict table, not
+  // from counting the array: two consultants reading one transaction must never
+  // disagree because their browsers decided it differently.
+  const verdict = readVerdict(lookup.data)
+  const findings = banners(lookup.data)
+
   const documents = lookup.data?.documents ?? []
   const selected = selectedIndex(documents.length, wantedDocument)
   // Named `doc`, not `document`: the DOM global is a real name in this file's
@@ -199,37 +209,47 @@ export default function IDocInspectorPage() {
           />
         ) : lookup.isPending ? (
           <ListShimmer label={t('idocInspector.loading')} />
-        ) : lookup.isError ? null : !hasDocuments(lookup.data) ? (
-          // State 2 — a successful answer carrying no documents. ⚠️ Ticket 298
-          // replaces this with the ten named verdicts and their copy; this slice
-          // says only what is true of all ten.
-          <Placeholder
-            icon={<PackageSearch className="h-8 w-8 text-muted-foreground" aria-hidden />}
-            title={t('idocInspector.noDocuments.title')}
-            hint={t('idocInspector.noDocuments.hint')}
-          />
-        ) : (
-          // State 3 — the graph. Rail, then pane; both render from the one answer.
+        ) : lookup.isError ? null : (
+          // State 2 — an answer. 🔑 **The verdict is said either way**: over a
+          // graph it is a strip above the documents, and with nothing to draw the
+          // named verdict REPLACES the document area — one of ten sentences, never
+          // a blank page and never one sentence standing in for ten.
+          //
+          // ⚠️ **The findings render in BOTH shapes.** A held document and a
+          // disagreeing export-version stamp arrive over a full graph, but an
+          // attention block the server attaches to an empty verdict would be
+          // silently dropped if this list lived inside the documents branch — and
+          // dropping a finding is the one thing this ticket exists to stop.
           <div className="flex flex-col gap-3">
-            <div className="rounded-lg border border-border/60 bg-card p-2.5">
-              <DocumentRail
-                documents={documents}
-                selected={selected}
-                onSelect={onSelectDocument}
-              />
-            </div>
-            {doc && (
-              <DocumentPane
-                // 🚩 Keyed by the selected document, so switching cards mounts a
-                // fresh pane rather than reconciling one document's rows onto
-                // another's.
-                key={`${doc.pharmacyId}/${doc.receiptNumber}/${selected}`}
-                doc={doc}
-                openItemNumbers={openItemNumbers}
-                filterTag={filterTag}
-                onToggleLine={onToggleLine}
-                onFilter={setFilterTag}
-              />
+            {verdict.showsDocuments && <VerdictStrip reading={verdict} />}
+            {findings.map((banner) => (
+              <AttentionBanner key={banner.kind} banner={banner} />
+            ))}
+            {!verdict.showsDocuments ? (
+              <VerdictEmptyState reading={verdict} />
+            ) : (
+              <>
+                <div className="rounded-lg border border-border/60 bg-card p-2.5">
+                  <DocumentRail
+                    documents={documents}
+                    selected={selected}
+                    onSelect={onSelectDocument}
+                  />
+                </div>
+                {doc && (
+                  <DocumentPane
+                    // 🚩 Keyed by the selected document, so switching cards mounts
+                    // a fresh pane rather than reconciling one document's rows
+                    // onto another's.
+                    key={`${doc.pharmacyId}/${doc.receiptNumber}/${selected}`}
+                    doc={doc}
+                    openItemNumbers={openItemNumbers}
+                    filterTag={filterTag}
+                    onToggleLine={onToggleLine}
+                    onFilter={setFilterTag}
+                  />
+                )}
+              </>
             )}
           </div>
         )}
@@ -250,9 +270,12 @@ function ListShimmer({ label }: { label: string }) {
   )
 }
 
-/** The screen's two wordy states — untouched and nothing-generated — drawn the
- *  same way and saying different things. Same chrome deliberately: what
- *  distinguishes them is the sentence, not the furniture. */
+/** The landing state — nothing has been asked yet. ⚠️ Drawn in the same chrome as
+ *  the named empty result deliberately, and it is the SENTENCE that tells them
+ *  apart: "you have not asked" and "the rail produced nothing, and here is why"
+ *  are different facts, and this screen exists because the second used to look
+ *  like the first. Kept separate from `VerdictEmptyState` because a landing state
+ *  has no verdict to read — collapsing them would need a fake one. */
 function Placeholder({
   icon,
   title,

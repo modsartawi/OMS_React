@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: C:\Work\DMSCO\BackOffice\.issues\1386-idoc-inspector-spec.md
 blocked-by: 297
 ---
@@ -39,16 +39,29 @@ client feature (verdict → copy mapping, empty states, attention banner) → se
 
 ## Proof
 
-- [ ] `eachVerdictCodeMapsToItsOwnCopy` — a table-driven test over all ten codes, so an unmapped code
-      cannot ship
-- [ ] `parkedReadsAsNotYetShippedNotAsFailure`
-- [ ] `gaveUpDoesNotReadAsSuccess`
-- [ ] `heldDocumentsRenderInFullUnderABanner` — not an empty state
-- [ ] `aLegacyStampWithDocumentsRendersEverythingAndNamesTheDisagreement`
-- [ ] `anUnknownVerdictCodeFailsLoudlyRatherThanRenderingBlank`
-- [ ] typecheck + build green
+- [x] `eachVerdictCodeMapsToItsOwnCopy` — `verdict.test.ts`, table-driven over all ten codes and read
+      against the SHIPPED `reports.json`: every code has a `name` and a `sentence`, no two alike, and
+      no orphan key. The ten are spelled as literals in the test, mirroring `IDocInspectorVerdicts`,
+      so a code dropped from the module cannot pass green in both places at once
+- [x] `parkedReadsAsNotYetShippedNotAsFailure` — the phrase asserted literally, the three misreadings
+      (`fail` / `error` / `pending`) banned, and `sev: 'mute'` so nothing colours it as a fault
+- [x] `gaveUpDoesNotReadAsSuccess` — a word-bounded ban on the arrival vocabulary (`done` bounded, so
+      *abandoned* survives), the processed flag named in the copy, and `sev: 'bad'`
+- [x] `heldDocumentsRenderInFullUnderABanner` — not an empty state; and the drive proves the graph
+      renders in full with the held document marked on its own card
+- [x] `aLegacyStampWithDocumentsRendersEverythingAndNamesTheDisagreement` — the full graph, the code
+      and the offending value verbatim, across all three quote states
+- [x] `anUnknownVerdictCodeFailsLoudlyRatherThanRenderingBlank` — with a graph it still draws the
+      graph under a loud banner; without one it names the raw code in the empty state
+- [x] typecheck + build green — plus lint (boundaries/contrast/palette), 2075 pure cases, the IDoc
+      inspector drive **98/98** and the sibling invoice drive **79/79**
 
-The verdict-to-copy mapping is a pure module; test it there, not through components.
+The verdict-to-copy mapping is a pure module (`verdict.ts`); tested there, not through components.
+
+⚠️ **Nothing here has met a live SIS.Api.** BackOffice 1390 and 1391 are both `done`, so the ten codes
+and `EXPORT_VERSION_DISAGREES` are read off the shipped `IDocInspectorVerdicts` /
+`IDocInspectorAttentionCodes` rather than off a spec — but the drive still stubs every route.
+Decisions and their reasons are in `.afk/HITL-298.md`.
 
 ## Boundaries
 

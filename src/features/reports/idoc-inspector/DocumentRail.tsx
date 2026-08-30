@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import type { IDocInspectorDocument } from '@/core/models/idoc-inspector'
+import StatusBadge from '@/core/ui/StatusBadge'
 import { CodeValue } from './CodeValue'
 import { documentCounts, documentPane } from './document-graph'
 import ExportStateBadge from './ExportStateBadge'
+import { isHeld } from './verdict'
 
 /**
  * The document rail — **level one of the screen's two-level navigation budget**
@@ -82,8 +84,17 @@ export default function DocumentRail({
                     payments: counts.payments,
                   })}
             </span>
-            <span>
+            <span className="flex flex-wrap items-center gap-1">
               <ExportStateBadge state={doc.exportState} />
+              {/* 🔑 **Which document is held** (ticket 298, BackOffice 1391). The
+                  banner names the finding; this names the document. Without it a
+                  held document wears the same `not-batched` badge as an ordinary
+                  unbatched one, which is the gap 1390 asserted out loud. */}
+              {isHeld(doc) && (
+                <span data-held={index}>
+                  <StatusBadge sev="warn">{t('idocInspector.document.held')}</StatusBadge>
+                </span>
+              )}
             </span>
           </button>
         )

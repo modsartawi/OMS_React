@@ -7,11 +7,7 @@
  * verdict and add the `t()` calls.
  */
 import type { Severity } from '@/core/ui/severity'
-import type {
-  IDocExportState,
-  IDocInspectorDocument,
-  IDocInspectorTransaction,
-} from '@/core/models/idoc-inspector'
+import type { IDocExportState, IDocInspectorDocument } from '@/core/models/idoc-inspector'
 
 /**
  * How the export state renders: a severity and a copy key.
@@ -126,11 +122,11 @@ export function selectedIndex(documentCount: number, wanted: number): number {
   return wanted >= 0 && wanted < documentCount ? wanted : 0
 }
 
-/** Did the server answer with a graph to draw? The **only** question ticket 297
- *  asks of the verdict — naming the ten codes and their copy is 298's. */
-export function hasDocuments(result: IDocInspectorTransaction | null | undefined): boolean {
-  return (result?.documents?.length ?? 0) > 0
-}
+// 🚩 `hasDocuments` lived here through ticket 297 and is GONE with 298. Whether a
+// graph is drawn is now the VERDICT's answer (`readVerdict().showsDocuments`), and
+// leaving a second predicate that counted the array would be a second reading of
+// the same question — free to drift from the server's decision, which is the one
+// thing user story 29 forbids.
 
 // 🚩 There is deliberately no `idocTypesPresent` here. The DISTINCT IDoc types on
 // a transaction are what the download hangs one button off (299) — the rail is

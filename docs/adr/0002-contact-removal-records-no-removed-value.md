@@ -1,5 +1,21 @@
 # A contact removal records the request, never the removed value
 
+> ⚠ **SUPERSEDED IN PART — 2026-08-30, owner ruling.** This decision **no longer holds for the
+> MOBILE removal**, which now records the number it removed in the action trail's second free-form
+> slot — the *"Old Value"* column the OMS Actions tab draws, and the slot the change-mobile command
+> and the collision path already use for a number they displaced. The reason given: a removal that
+> alone left that slot blank made the heaviest act on the member door the only one whose trail row
+> could not say **which** number a member lost.
+>
+> **It still holds for the EMAIL removal**, which records the case reference alone, and the
+> undrawn third slot still carries nothing on either command. The consequences below stand as
+> written except where they turn on the mobile's absence — in particular, *"undo is not
+> self-service"* is unchanged: recording the number is not a reversal, because reattaching a mobile
+> must still re-run the collision check.
+>
+> Server-side amendment: BackOffice `.issues/1403-removing-a-mobile-blocks-under-a-system-reason.md`
+> (*Amendment*) and spec `.issues/1397-loyalty-member-admin-writes-spec.md`.
+
 Every other member command records what it displaced: changing a mobile writes the new number and
 the old one side by side onto the member's action trail. **Contact removal deliberately does not.**
 It records the loyalty id, who ran it, when, and the customer's case reference — and nowhere does it

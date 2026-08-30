@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { ApiError, apiErrorMessage } from '@/core/api'
+import { ApiError } from '@/core/api'
 import type { LoyMember } from '@/core/models/loy'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
@@ -192,6 +192,12 @@ export default function ProfileForm({
   const staleNow = profileFormIsStale(seed.lastUpdate, member.lastUpdate)
   const staleRefused = isStaleProfileRefusal(save.error)
 
+  /** How a refusal is said — the wave's ONE refusal reader, shared with the
+   *  Status command: the server's own sentence, the screen's wording in front
+   *  for a code it knows by name, and a 403 said as the grant refusal it is. */
+  const refusal = (error: unknown): string =>
+    commandRefusalText(error, t('profile.updateFailed'), t)
+
   /** The field a failure belongs against — a shape check's or the door's. Spec
    *  301 #17: an analyst fixes the field that caused it, not the form. */
   const problemFor = (field: ProfileField): string | null => {
@@ -199,16 +205,12 @@ export default function ProfileForm({
       const found = problems.find((problem) => problem.field === field)
       if (found) return t(found.key)
     }
-    return profileRefusedField(save.error) === field
-      ? apiErrorMessage(save.error, t('profile.updateFailed'))
-      : null
+    // 🚩 The door's refusal, said IN FULL beside the control it named — the
+    // screen's wording and the server's sentence both — and said nowhere else.
+    // A banner repeating it would have the analyst read the same refusal twice
+    // and act on it in neither place.
+    return profileRefusedField(save.error) === field ? refusal(save.error) : null
   }
-
-  /** How a refusal is said — the wave's ONE refusal reader, shared with the
-   *  Status command: the server's own sentence, the screen's wording in front
-   *  for a code it knows by name, and a 403 said as the grant refusal it is. */
-  const refusal = (error: unknown): string =>
-    commandRefusalText(error, t('profile.updateFailed'), t)
 
   const submit = () => {
     if (busy || grantRefused || dirty.length === 0) return
@@ -295,7 +297,10 @@ export default function ProfileForm({
               />
               {/* Named against the field that caused it, beside that field. */}
               {problem && (
-                <p id={`${id}-problem`} className="mt-1 text-[11px] text-danger-800">
+                // `role="alert"` because this IS the refusal now — a door-named
+                // one is drawn here and in no banner, so without it a screen
+                // reader would be told nothing at all happened.
+                <p id={`${id}-problem`} role="alert" className="mt-1 text-[11px] text-danger-800">
                   {problem}
                 </p>
               )}
@@ -330,8 +335,10 @@ export default function ProfileForm({
         </ErrorBanner>
       )}
 
-      {/* Every refusal but the stale one, which has said its piece above. */}
-      {save.isError && !staleRefused && (
+      {/* Every refusal that belongs to no ONE field: the stale one has said its
+          piece above, and a refusal the door named a field for is drawn beside
+          that field rather than twice. */}
+      {save.isError && !staleRefused && !profileRefusedField(save.error) && (
         <ErrorBanner message={refusal(save.error)} className="p-2.5" />
       )}
       {problemsShown && problems.length > 0 && (

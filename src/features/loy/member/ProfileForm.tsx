@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useIsFetching, useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -85,14 +85,15 @@ export default function ProfileForm({
    */
   const [seed, setSeed] = useState<{
     values: ProfileDraft
+    /**
+     * The stamp the echo carries. `null` for exactly one window — between a save
+     * succeeding and the re-read that save kicked off coming back — and adopted
+     * again the moment it does (see `awaitingStamp`).
+     */
     lastUpdate: string | null
-    /** The stamp a save that has already succeeded was made against, so the form
-     *  can tell a member payload that has not caught up from one that has. */
-    superseded: string | null
   }>(() => ({
     values: profileDraftOf(member),
     lastUpdate: member.lastUpdate,
-    superseded: null,
   }))
   const [draft, setDraft] = useState<ProfileDraft>(seed.values)
   /** Whether the shape checks have been shown yet. They are named on the first
@@ -100,31 +101,40 @@ export default function ProfileForm({
    *  wording — rather than complaining at an analyst who is still typing. */
   const [problemsShown, setProblemsShown] = useState(false)
   const [reloading, setReloading] = useState(false)
+  const [reloadFailed, setReloadFailed] = useState(false)
 
   const dirty = dirtyProfileFields(seed.values, draft)
   const problems = profileProblems(draft)
 
   /**
-   * The stamp the echo carries. `null` means *a save has just succeeded and the
-   * member's new stamp has not arrived yet* — the screen then follows the live
-   * member, which is the freshest thing it knows and matches the values on the
-   * form, rather than echoing a stamp it has itself made obsolete.
+   * 🚩 **The one window in which this form has no stamp**: between a save
+   * succeeding and the re-read that save kicked off coming back. The write's
+   * invalidation is deliberately not awaited, so for that moment the member
+   * payload still carries the stamp the save superseded — echoing it would have
+   * the door refuse as stale, the guard firing on a race with **itself** rather
+   * than with another analyst, and the analyst reading it as a colleague's edit.
+   * Save waits; a briefly dead Save is far cheaper.
+   *
+   * 🚩 **The wait ends when the READ ends, not when the stamp moves.** Waiting
+   * for a different stamp would strand the form for the whole session on any of
+   * three ordinary paths — a door that does not bump `lastUpdate` on a profile
+   * write, a minute-granular stamp with two saves inside one minute, or a
+   * refetch that simply failed — with Save dead and nothing on screen saying
+   * why. Whatever the re-read brings back is adopted, and if it is genuinely
+   * stale the door's own refusal is still there to say so.
    */
+  const rereading = useIsFetching({ queryKey: MEMBER_SCOPE_KEY }) > 0
+  const awaitingStamp = seed.lastUpdate === null
+
+  // Adopting the new stamp during render, rather than from an effect: this is
+  // state derived from a prop that has just moved, and React's own answer to
+  // that is to adjust it here — the extra render happens before anything is
+  // painted, where an effect would paint the un-adopted state first.
+  if (awaitingStamp && !rereading) setSeed((current) => ({ ...current, lastUpdate: member.lastUpdate }))
+
   const openedOn = seed.lastUpdate ?? member.lastUpdate
 
-  /**
-   * 🚩 The member payload has not caught up with a save this form already made:
-   * the stamp on it is the very one that save superseded. Saving again now would
-   * echo a stamp the door has already moved past and be refused as stale — the
-   * guard firing on a race with **itself** rather than with another analyst — so
-   * Save waits for the read the write kicked off. It is the one moment the
-   * invalidation's deliberate not-awaiting has to be paid for, and a briefly
-   * dead Save is a far cheaper price than a refusal that reads as a colleague's
-   * edit.
-   */
-  const awaitingStamp = seed.lastUpdate === null && member.lastUpdate === seed.superseded
-
-  const commandKey = memberCommandKey(member.loyId)
+  const commandKey = memberCommandKey(member.loyId, 'profile')
 
   const save = useMutation({
     // 🚩 Keyed, so the in-flight fact lives in the MUTATION CACHE and outlives
@@ -152,7 +162,7 @@ export default function ProfileForm({
       // undirty and Save goes dead again — and the stamp becomes unknown rather
       // than the one this very save superseded, which would otherwise make the
       // form warn that it had gone stale against itself.
-      setSeed({ values: sent, lastUpdate: null, superseded: openedOn })
+      setSeed({ values: sent, lastUpdate: null })
       setProblemsShown(false)
     },
     // No `onError`: a refusal is drawn where the analyst is standing, beside the
@@ -190,7 +200,7 @@ export default function ProfileForm({
       if (found) return t(found.key)
     }
     return profileRefusedField(save.error) === field
-      ? apiErrorMessage(save.error, t('profile.saveFailed'))
+      ? apiErrorMessage(save.error, t('profile.updateFailed'))
       : null
   }
 
@@ -215,15 +225,28 @@ export default function ProfileForm({
    * on purpose — unlike the write's invalidation, this read is the whole point
    * of the press, and re-seeding before it landed would put the analyst back on
    * the very copy they asked to leave.
+   *
+   * 🚩 **A read that failed re-seeds NOTHING.** `refetchQueries` resolves rather
+   * than rejects on a failed read, so a door that is down would otherwise have
+   * this button discard the analyst's typing, re-seed from the same stale cached
+   * member, and leave the stale banner up — the exact opposite of what it
+   * offers. The failure is said instead, and every edit stays where it is.
    */
   const reload = async () => {
     setReloading(true)
-    try {
-      await queryClient.refetchQueries({ queryKey: MEMBER_SCOPE_KEY })
-    } finally {
-      setReloading(false)
-      onReseed()
-    }
+    setReloadFailed(false)
+    await queryClient.refetchQueries({ queryKey: MEMBER_SCOPE_KEY })
+    const failed = queryClient
+      .getQueryCache()
+      .findAll({ queryKey: MEMBER_SCOPE_KEY, type: 'active' })
+      // 🚩 `state.error`, not `state.status`. A query that already holds data
+      // stays `success` when a refetch fails — it keeps the data it had — so a
+      // status test would read a failed re-read as a good one and re-seed the
+      // form from the very copy the analyst asked to leave.
+      .some((query) => query.state.error !== null)
+    setReloading(false)
+    if (failed) setReloadFailed(true)
+    else onReseed()
   }
 
   const canSave = dirty.length > 0 && !busy && !grantRefused && !awaitingStamp
@@ -303,6 +326,7 @@ export default function ProfileForm({
             )}
             {t('profile.reload')}
           </button>
+          {reloadFailed && <p className="mt-2 font-semibold">{t('profile.reloadFailed')}</p>}
         </ErrorBanner>
       )}
 

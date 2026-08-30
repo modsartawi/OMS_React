@@ -144,6 +144,8 @@ let profileRefusal = null
 /** How long the next profile save takes — the in-flight window the disable
  *  guards, and the only double-submit protection that exists anywhere. */
 let profileDelay = 0
+/** Whether the member READ fails — the door being down under a reload. */
+let memberReadFails = false
 
 const trailRow = (type, description, data) => ({
   actionNo: String(900 + actionRows.length),
@@ -247,6 +249,7 @@ async function run() {
     }
 
     if (path.startsWith('LoyWeb/Member/')) {
+      if (memberReadFails) return route.fulfill({ status: 500, body: 'boom' })
       return route.fulfill(envelope(memberState ?? { ...MEMBER, ...scenario.memberOver }))
     }
 
@@ -294,6 +297,7 @@ async function run() {
     profileBody = null
     profileRefusal = null
     profileDelay = 0
+    memberReadFails = false
     await page.goto(`${BASE}/loy/members/${LOYID_KEY}${tab ? `?tab=${tab}` : ''}`)
     await page.getByRole('tablist').waitFor({ timeout: 15000 })
     if (tab === 'profile') await panel.getByText('Membership').waitFor({ timeout: 10000 })
@@ -973,7 +977,90 @@ async function run() {
     (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 140),
   )
 
-  // ---- Scenario 18: a look-only session still writes nothing ---------------
+  // ---- Scenario 18: the guard survives the session's FIRST save -----------
+  // 🚩 The high finding `/code-review` caught. After one successful save the
+  // form had no stamp of its own again and simply followed the live member — so
+  // a colleague's edit landing afterwards raised NO stale warning, and the next
+  // save's echo matched the door and silently clobbered them. The window is one
+  // save wide, and every analyst opens the tab to make more than one correction.
+  await open('editor')
+  await field('fullName').fill('Nouf Al-Harbe')
+  await saveButton.click()
+  await page.waitForFunction(() => /profile was updated/i.test(document.body.innerText), null, {
+    timeout: 15000,
+  })
+  const firstEcho = profileBody.lastUpdate
+  // The re-read the write kicked off has landed when the header says so — which
+  // is the moment the form adopts the stamp that save earned.
+  await page.waitForFunction(() => /Nouf Al-Harbe/.test(document.body.innerText), null, {
+    timeout: 15000,
+  })
+
+  // A colleague corrects the same member. The Status command re-reads without
+  // unmounting this form — it sits on this very tab — so the facts move while
+  // the controls keep what they were opened with, which is 302's note exactly.
+  memberState = { ...memberState, fullName: 'Nouf Al-Harbi', lastUpdate: '2026-08-30T13:00:00' }
+  await statusButton.click()
+  await reasonSelect.waitFor({ timeout: 10000 })
+  await reasonSelect.selectOption('IA')
+  await confirmButton.click()
+  await panel.getByText(/changed while you had the form open/i).waitFor({ timeout: 15000 })
+  check(
+    '🚩 a colleague’s edit AFTER this session’s first save still raises the stale warning',
+    /changed while you had the form open/i.test(await panel.innerText()) &&
+      (await reloadButton.count()) === 1,
+  )
+
+  await field('nationalId').fill('1098443218')
+  await saveButton.click()
+  await page.waitForFunction(
+    () => document.querySelector('[data-testid="loy-profile-save"]')?.disabled === true,
+    null,
+    { timeout: 15000 },
+  )
+  check(
+    '🚩 and the echo is the stamp the form OWNS — the first save’s, never the colleague’s',
+    firstEcho === MEMBER.lastUpdate &&
+      profileBody.lastUpdate === '2026-08-30T11:04:00' &&
+      profileCalls === 2,
+    `first ${firstEcho} → second ${profileBody.lastUpdate}`,
+  )
+
+  // ---- Scenario 19: a reload whose read failed keeps the edits -------------
+  await open('editor')
+  profileRefusal = refusalEnvelope('LOY-00108', 'The member has changed since you loaded it.')
+  await field('fullName').fill('Nouf Al-Harbee')
+  await saveButton.click()
+  await panel.getByText(/changed while you had the form open/i).waitFor({ timeout: 10000 })
+  memberReadFails = true
+  await reloadButton.click()
+  await panel.getByText(/could not be re-read/i).waitFor({ timeout: 25000 })
+  check(
+    '🚩 a reload whose READ failed replaces nothing, says so, and keeps every edit',
+    (await field('fullName').inputValue()) === 'Nouf Al-Harbee' &&
+      /could not be re-read/i.test(await panel.innerText()),
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 140),
+  )
+
+  // ---- Scenario 20: one in-flight guard per COMMAND -----------------------
+  await open('editor')
+  profileDelay = 900
+  await field('gender').fill('M')
+  await saveButton.click()
+  await page.waitForFunction(
+    () => document.querySelector('[data-testid="loy-profile-save"]')?.disabled === true,
+    null,
+    { timeout: 5000 },
+  )
+  check(
+    '🚩 a profile save in flight leaves the Status command alone — they are unrelated writes',
+    await statusButton.isEnabled(),
+  )
+  await page.waitForFunction(() => /profile was updated/i.test(document.body.innerText), null, {
+    timeout: 15000,
+  })
+
+  // ---- Scenario 21: a look-only session still writes nothing ---------------
   await open('lookOnly')
   check(
     '🚩 and none of this reaches a reader — no Status control at all for look-only',

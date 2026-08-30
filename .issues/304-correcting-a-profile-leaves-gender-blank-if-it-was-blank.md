@@ -174,14 +174,49 @@ a later ticket that wants to draw one will read it. And `profile.inertNote` now 
 only — 304's controls are live, and a note that says more than is true is how an editor stops
 reading it.
 
-**Reviews.** `/code-review high` and `/standards-review` both run; standards found **no hard rule
-violation on either axis**. Acted on: the duplicated `refusal()` reader extracted to
-`member-commands.ts`; the invented future-date rule dropped; the toast reworded to name the
-**member command** rather than "save" (`CONTEXT.md` lists *save* and unqualified *update* against
-that entry); the post-save echo race closed. Left as noted: the nine fields are spelled out in
-`ProfileDraft`, `profileDraftOf` and `profileUpdateRequest` as well as in `PROFILE_FIELDS` — three
-genuinely different shapes (control strings, label list, nullable wire body), each typechecked, and
-folding them together would trade that for a cast.
+**Reviews.** `/standards-review` found **no hard rule violation on either axis**. Acted on: the
+duplicated `refusal()` reader extracted to `member-commands.ts` as `commandRefusalText`; the
+invented future-date rule dropped; the toast reworded to name the **member command** rather than
+"save" (`CONTEXT.md` lists *save* and unqualified *update* against that entry); and the Spec axis's
+post-save echo race closed. Left as noted: the nine fields are spelled out in `ProfileDraft`,
+`profileDraftOf` and `profileUpdateRequest` as well as in `PROFILE_FIELDS` — three genuinely
+different shapes (control strings, label list, nullable wire body), each typechecked, and folding
+them together would trade that for a cast.
 
-**Proof:** 2143 vitest (20 new, in three named suites) · admin drive **76/76** ·
+`/code-review high` then found **six defects in this ticket's code, all fixed**, and the first is
+the one worth remembering:
+
+1. 🚩 **The stale guard only protected a session's FIRST save.** `seed.lastUpdate` was set to
+   `null` on success and never set back, so from the second save on the form simply followed the
+   live member: a colleague's edit landing afterwards raised no warning, the echo matched whatever
+   the door now held, and the nine-field snapshot — seeded before their change — overwrote it
+   silently. Exactly the clobber the echo exists to prevent, on a screen where an analyst opens the
+   tab to make more than one correction. The stamp is now **adopted when the re-read lands**, in the
+   render pass rather than from an effect. Driven: a colleague's edit after a first save raises the
+   banner, and the second save's echo is the stamp the first one earned.
+2. **`t('profile.saveFailed')` survived the rename** in the per-field refusal path — a coded
+   `LOY-00106`/`LOY-00107` carrying no server sentence would have rendered the raw key under the
+   control. The exact failure the i18n rule names.
+3. ⚠️ **`awaitingStamp` could have deadlocked.** Waiting for the stamp to *change* strands the form
+   for the whole session on three ordinary paths — a door that does not bump `lastUpdate`, a
+   minute-granular stamp with two saves inside one minute, or a refetch that failed — with Save dead
+   and nothing saying why. It now waits for the **read to end** (`useIsFetching`), not for the stamp
+   to move; if what comes back is genuinely stale, the door's own refusal still says so.
+4. 🚩 **A failed reload threw the edits away.** `refetchQueries` resolves rather than rejects, so a
+   door that was down had "Reload the member" discard the typing, re-seed from the same stale cached
+   member and leave the banner up. It now re-seeds only on a read that worked — tested on
+   `state.error`, not `state.status`, because a query that already holds data stays `success` when a
+   refetch fails.
+5. **One mutation key per command, not per member.** `StatusCommand` and `ProfileForm` shared
+   `memberCommandKey(loyId)`, so a profile save spun the Block button and a block disabled all nine
+   profile controls. The key now carries the command.
+
+⚠️ **One finding is recorded and NOT fixed** — `MemberTabs` mounts only the open tab, so clicking
+Activities mid-edit unmounts the form and discards unsaved typing with no prompt. Harmless while
+302 wrote nothing; real now. Fixing it properly means somewhere for a draft to outlive its tab, and
+305–307 each add more form state to that same question — so it belongs to a slice that can answer it
+once, not to this one inventing a second answer. **It is the first thing to settle in 305.**
+
+**Proof:** 2143 vitest (20 new, in three named suites) · admin drive **80/80** (four of them
+the code review's own regressions) ·
 `loy-member-drive` 184/184 · typecheck, lint and build green · every envelope stubbed.

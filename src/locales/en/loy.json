@@ -212,7 +212,8 @@
     "staleNote": "Your edits are still here. Reloading replaces them with the member as stored now.",
     "reload": "Reload the member",
     "updated": "The member's profile was updated.",
-    "updateFailed": "The member's profile could not be updated."
+    "updateFailed": "The member's profile could not be updated.",
+    "reloadFailed": "The member could not be re-read, so nothing was replaced. Your edits are still here."
   },
   "command": {
     "refusal": {

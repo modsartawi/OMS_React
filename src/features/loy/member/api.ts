@@ -148,7 +148,7 @@ export const memberKey = (loyId: string) => ['loy', 'member', loyId] as const
 export const MEMBER_SCOPE_KEY = ['loy', 'member'] as const
 
 /**
- * The mutation key one member's **member commands** run under.
+ * The mutation key ONE of a member's **member commands** runs under.
  *
  * 🚩 It exists so the in-flight guard outlives the control that started it. The
  * tab shell mounts only the OPEN tab, so a control that held "a write is in
@@ -157,8 +157,16 @@ export const MEMBER_SCOPE_KEY = ['loy', 'member'] as const
  * second press would write a second **member update snapshot** and a second trail
  * row. The mutation cache lives on the query client, so a remounted control reads
  * the same fact (`useIsMutating`).
+ *
+ * 🚩 **Keyed per command, not per member.** The guard is against pressing the
+ * SAME command twice; the commands are unrelated writes, and one key for all of
+ * them would have a profile save spin the Block button and a block in flight
+ * disable all nine profile controls — a screen reporting a write that is not
+ * happening, on a tab where the analyst is meant to be able to read what each
+ * control is doing.
  */
-export const memberCommandKey = (loyId: string) => ['loy', 'member-command', loyId] as const
+export const memberCommandKey = (loyId: string, command: 'status' | 'profile') =>
+  ['loy', 'member-command', loyId, command] as const
 
 export const loyApi: MemberReads = {
   /**

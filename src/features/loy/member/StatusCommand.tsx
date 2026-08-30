@@ -88,7 +88,7 @@ export default function StatusCommand({ member }: { member: LoyMember }) {
   // is the one under test.
   const offered = selectableBlockedReasons(reasons.data)
 
-  const commandKey = memberCommandKey(member.loyId)
+  const commandKey = memberCommandKey(member.loyId, 'status')
 
   const run = useMutation({
     // 🚩 Keyed, so the in-flight fact lives in the MUTATION CACHE rather than in

@@ -42,6 +42,23 @@
 //  14. an unblock clears the reason with no further input, and its refusal is said
 //      beside the control it has no dialog to keep the analyst in.
 //
+// Ticket 305's flow Proof bullet — `aRefusedMobileChangeLeavesTheMemberUntouched`:
+//  22. the mobile changes through its OWN control behind its OWN confirmation —
+//      never as a field on the profile form;
+//  23. 🚩 a COLLISION refusal leaves the member untouched: the old number is still
+//      on screen, the Actions tab gained no row, and the analyst is still in the
+//      confirmation with the number they typed;
+//  24. 🚩 the three refusals are named as THEMSELVES — a collision, a no-op and a
+//      typo read as three different problems, each with the server's own sentence;
+//  25. the screen refuses what it can see for itself — the number the member
+//      already has, and anything that is not digits — before any call is made;
+//  26. a successful change moves the HEADER and the Actions tab with no reload,
+//      and the confirmation says what is TRUE about verification (no OTP is sent);
+//  27. a grant refusal (403) takes the command away rather than merely apologising;
+//  28. the control disables itself in flight — a double-click writes ONE change —
+//      and it leaves the Status command alone, because they are unrelated writes;
+//  29. none of it reaches a reader: a look-only session has no mobile control.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-admin-drive.mjs
 import { createRequire } from 'node:module'
@@ -147,6 +164,18 @@ let profileDelay = 0
 /** Whether the member READ fails — the door being down under a reload. */
 let memberReadFails = false
 
+// ---- ticket 305: the mobile command ---------------------------------------
+/** How many mobile writes the door has seen, and what the last one carried —
+ *  the number is asserted against what the browser ACTUALLY sent, because the
+ *  client compacts and the door normalises. */
+let mobileCalls = 0
+let mobileBody = null
+/** The refusal the next mobile change answers with, or null for success. */
+let mobileRefusal = null
+/** How long the next mobile change takes — the in-flight window the disable
+ *  guards, and the only double-submit protection that exists anywhere. */
+let mobileDelay = 0
+
 const trailRow = (type, description, data) => ({
   actionNo: String(900 + actionRows.length),
   mainActionType: type,
@@ -219,6 +248,21 @@ async function run() {
         lastUpdate: '2026-08-30T11:04:00',
       }
       actionRows = [trailRow('UPD', 'Member updated', 'profile'), ...actionRows]
+      return route.fulfill(envelope(null))
+    }
+
+    // ---- ticket 305: the mobile command ------------------------------------
+    // Matched before the member read below, which shares the prefix.
+    if (/^LoyWeb\/Member\/[^/]+\/Mobile$/.test(path)) {
+      mobileCalls += 1
+      mobileBody = route.request().postDataJSON()
+      if (mobileDelay) await sleep(mobileDelay)
+      // 🚩 A refusal writes NOTHING — no member change and no trail row. The
+      // delegated handler refuses a collision rather than taking the number from
+      // its current holder, so the member is never left half-edited.
+      if (mobileRefusal) return route.fulfill(mobileRefusal)
+      memberState = { ...memberState, mobile: mobileBody.mobile }
+      actionRows = [trailRow('MOB', 'Mobile changed', mobileBody.mobile), ...actionRows]
       return route.fulfill(envelope(null))
     }
 
@@ -298,6 +342,10 @@ async function run() {
     profileRefusal = null
     profileDelay = 0
     memberReadFails = false
+    mobileCalls = 0
+    mobileBody = null
+    mobileRefusal = null
+    mobileDelay = 0
     await page.goto(`${BASE}/loy/members/${LOYID_KEY}${tab ? `?tab=${tab}` : ''}`)
     await page.getByRole('tablist').waitFor({ timeout: 15000 })
     if (tab === 'profile') await panel.getByText('Membership').waitFor({ timeout: 10000 })
@@ -381,8 +429,14 @@ async function run() {
   const editorText = (await panel.innerText()).toLowerCase()
   check(
     'an editor sees the same nine fields as CONTROLS',
-    (await panel.locator('input').count()) === 9,
-    `${await panel.locator('input').count()} inputs`,
+    (await panel.locator('input[id^="loy-profile-"]').count()) === 9,
+    `${await panel.locator('input[id^="loy-profile-"]').count()} profile inputs`,
+  )
+  check(
+    '🚩 and exactly ONE control besides them — the mobile’s own (305), never a tenth field',
+    (await panel.locator('input').count()) === 10 &&
+      (await panel.locator('#loy-mobile-new').count()) === 1,
+    `${await panel.locator('input').count()} inputs in all`,
   )
   check(
     'the controls hold the member as loaded, not an empty form',
@@ -443,7 +497,9 @@ async function run() {
   )
   check(
     'and keeps everything the editor had',
-    removerText.includes('remove email') && (await panel.locator('input').count()) === 9,
+    removerText.includes('remove email') &&
+      (await panel.locator('input[id^="loy-profile-"]').count()) === 9 &&
+      (await panel.locator('#loy-mobile-new').count()) === 1,
   )
 
   // ---- Scenario 5: every loose answer is a denial --------------------------
@@ -1065,6 +1121,241 @@ async function run() {
   check(
     '🚩 and none of this reaches a reader — no Status control at all for look-only',
     (await statusButton.count()) === 0 && (await panel.locator('button').count()) === 0,
+  )
+
+  // ==== ticket 305: the mobile command ======================================
+  const mobileInput = page.locator('[data-testid="loy-mobile-input"]')
+  const mobileButton = page.locator('[data-testid="loy-mobile-command"]')
+  const mobileConfirm = page.locator('[data-testid="loy-mobile-confirm"]')
+  const mobileRefusalEnvelope = (errorCode, message) =>
+    envelope(null, {
+      status: 400,
+      success: false,
+      message,
+      errors: [{ errorCode, errorMessage: '', internalErrorCode: '' }],
+    })
+
+  // ---- Scenario 22: its own control, never a field on the form -------------
+  await open('editor')
+  check(
+    '🚩 the mobile has its OWN control and is NOT a field on the profile form',
+    (await mobileButton.count()) === 1 &&
+      (await panel.locator('#loy-profile-mobile').count()) === 0 &&
+      (await panel.locator('input').count()) === 10,
+    `${await panel.locator('input').count()} inputs`,
+  )
+  check(
+    'and the control is dead until a number is typed — nothing to confirm, nothing to say',
+    !(await mobileButton.isEnabled()) && (await panel.getByRole('alert').count()) === 0,
+  )
+
+  // ---- Scenario 23: the screen refuses what it can see for itself ----------
+  await mobileInput.fill('966555000111')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 the number the member ALREADY has is refused before any call — a no-op writes no snapshot',
+    !(await mobileButton.isEnabled()) &&
+      /already has/i.test(await panel.innerText()) &&
+      mobileCalls === 0,
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 120),
+  )
+  await mobileInput.fill('+966 555 000 111')
+  await page.waitForTimeout(150)
+  check(
+    'and said differently is still the same number — the punctuation the field tolerates is not a change',
+    !(await mobileButton.isEnabled()) && mobileCalls === 0,
+  )
+  await mobileInput.fill('96655500011X')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 a typo cannot become a credential — a number with a letter in it is refused as its OWN problem',
+    !(await mobileButton.isEnabled()) &&
+      /digits only/i.test(await panel.innerText()) &&
+      !/already has/i.test(await panel.innerText()) &&
+      mobileCalls === 0,
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 120),
+  )
+
+  // ---- Scenario 24: THE ticket — a collision leaves the member untouched ---
+  await open('editor')
+  await warmActionsCache()
+  await page.evaluate(() => {
+    window.__driveMark = 'alive'
+  })
+  mobileRefusal = mobileRefusalEnvelope(
+    'LOY-00109',
+    'Mobile 966555000222 belongs to member 100004411.',
+  )
+  await mobileInput.fill('+966 55 500-0222')
+  await mobileButton.click()
+  await dialog.waitFor({ timeout: 10000 })
+  check(
+    'the confirmation shows the change about to be made, old number and new',
+    /966555000111/.test(await dialog.innerText()) && /966555000222/.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 160),
+  )
+  check(
+    '⚠️ and says what is TRUE about verification — the number is marked verified with NO code sent',
+    /no confirmation code is sent/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 200),
+  )
+  await mobileConfirm.click()
+  await dialog.getByRole('alert').waitFor({ timeout: 10000 })
+  const collisionText = await dialog.innerText()
+  check(
+    '🚩 a COLLISION is named as itself — not as a format problem, and in the server’s own sentence too',
+    /already belongs to another member/i.test(collisionText) &&
+      /belongs to member 100004411/i.test(collisionText),
+    collisionText.replace(/\s+/g, ' ').slice(0, 200),
+  )
+  check(
+    '🚩 and the analyst is still in the confirmation, with the number they typed',
+    (await dialog.count()) === 1 && (await mobileInput.inputValue()) === '+966 55 500-0222',
+    await mobileInput.inputValue(),
+  )
+  await page.keyboard.press('Escape')
+  await dialog.waitFor({ state: 'detached', timeout: 10000 })
+  check(
+    '🚩 THE ticket: the refusal changed NOTHING — the member still carries the old number',
+    /966555000111/.test(await page.innerText('body')) &&
+      !/966555000222/.test(await panel.innerText()) &&
+      memberState.mobile === '966555000111',
+    memberState.mobile,
+  )
+  check(
+    'the Actions tab gained no row either — a refused command is not a command',
+    !/mobile changed/i.test(await actionsText()) && actionRows.length === 0,
+    `${actionRows.length} rows`,
+  )
+  await profileTab.click()
+  await panel.getByText('Membership').waitFor({ timeout: 10000 })
+
+  // ---- Scenario 25: the other two refusals, each as itself -----------------
+  // 🚩 The same-number refusal is reachable even though the screen checks for it:
+  // the stored number is normalised server-side and the typed one is not, so
+  // `0555000111` may BE this member's number and only the door can tell.
+  mobileRefusal = mobileRefusalEnvelope('LOY-00110', 'The member already uses that number.')
+  await mobileInput.fill('0555000111')
+  await mobileButton.click()
+  await mobileConfirm.click()
+  await dialog.getByRole('alert').waitFor({ timeout: 10000 })
+  check(
+    '🚩 a no-op the screen could NOT see is refused as itself by the door — the courtesy is not the authority',
+    /already this member/i.test(await dialog.innerText()) &&
+      !/another member/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 160),
+  )
+  mobileRefusal = mobileRefusalEnvelope('LOY-00111', 'Mobile 4915112345678 is not a KSA number.')
+  await mobileConfirm.click()
+  await page.waitForTimeout(500)
+  check(
+    'an invalid number is refused as a THIRD distinct problem, and nothing was written',
+    /not a valid mobile number/i.test(await dialog.innerText()) &&
+      /not a KSA number/i.test(await dialog.innerText()) &&
+      /966555000111/.test(await page.innerText('body')),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 160),
+  )
+  // The fourth code the Boundaries name. It is not this command's own — it is
+  // the observed `LOY-00100` every command on this screen shares — which is why
+  // it is worth proving HERE too.
+  mobileRefusal = mobileRefusalEnvelope('LOY-00100', 'That member could not be found.')
+  await mobileConfirm.click()
+  await page.waitForTimeout(500)
+  check(
+    'a member who no longer exists is named as itself on this command too',
+    /this member no longer exists/i.test(await dialog.innerText()) &&
+      /could not be found/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 160),
+  )
+  // An unrecognised code still speaks — in the server's own words (api-envelope).
+  mobileRefusal = mobileRefusalEnvelope('LOY-99999', 'Something nobody has named yet.')
+  await mobileConfirm.click()
+  await page.waitForTimeout(500)
+  check(
+    '🚩 and a code the screen does not know still speaks — in the SERVER’s sentence, never a generic one',
+    /something nobody has named yet/i.test(await dialog.innerText()) &&
+      !/unexpected/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 160),
+  )
+
+  // ---- Scenario 26: the write, and the refresh with no reload --------------
+  mobileRefusal = null
+  await mobileConfirm.click()
+  await dialog.waitFor({ state: 'detached', timeout: 15000 })
+  check(
+    'a retry from the same confirmation goes through with the number already typed',
+    mobileBody.mobile === '0555000111' && memberState.mobile === '0555000111',
+    `${mobileCalls} calls, sent ${JSON.stringify(mobileBody)}`,
+  )
+  check(
+    '🚩 the HEADER moves with no reload — the member signs in with the new number now',
+    /0555000111/.test(await page.innerText('body')) &&
+      (await page.evaluate(() => window.__driveMark)) === 'alive',
+  )
+  check(
+    'the ACTIONS tab reflects the command too — its cached page was invalidated',
+    /mobile changed/i.test(await actionsText()) &&
+      (await page.evaluate(() => window.__driveMark)) === 'alive',
+  )
+  await profileTab.click()
+  await panel.getByText('Membership').waitFor({ timeout: 10000 })
+  check(
+    'and the field is empty again — the change is done, so there is nothing left to send',
+    (await mobileInput.inputValue()) === '' && !(await mobileButton.isEnabled()),
+  )
+
+  // ---- Scenario 27: a grant refusal takes the command away -----------------
+  await open('editor')
+  mobileRefusal = { status: 403, contentType: 'application/json', body: '' }
+  await mobileInput.fill('966555000333')
+  await mobileButton.click()
+  await mobileConfirm.click()
+  await dialog.getByRole('alert').waitFor({ timeout: 10000 })
+  check(
+    '🚩 a 403 says the AUTHORITY is gone and offers no retry — it is not an outage',
+    /no longer holds the authority/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 160),
+  )
+  mobileRefusal = null
+  await mobileConfirm.click({ force: true })
+  await page.waitForTimeout(400)
+  check(
+    '🚩 and the command goes DEAD — a grant refusal takes the button away, not just the words',
+    (await mobileConfirm.getAttribute('aria-disabled')) === 'true' && mobileCalls === 1,
+    `${mobileCalls} mobile calls`,
+  )
+
+  // ---- Scenario 28: the in-flight guard, and who it does NOT touch ---------
+  await open('editor')
+  mobileDelay = 700
+  await mobileInput.fill('966555000444')
+  await mobileButton.click()
+  await dialog.waitFor({ timeout: 10000 })
+  // 🚩 Two clicks, deliberately — ticket 303's scenario 7, on this command.
+  // There is no server-side idempotency anywhere in the module, so a second write
+  // is a second **member update snapshot** and a second trail row.
+  await mobileConfirm.click()
+  await page.waitForTimeout(120)
+  const mobileDisabledInFlight = (await mobileConfirm.getAttribute('aria-disabled')) === 'true'
+  const statusArmedInFlight = await statusButton.isEnabled()
+  await mobileConfirm.click({ force: true })
+  await dialog.waitFor({ state: 'detached', timeout: 15000 })
+  check('🚩 the control disables itself while the write is in flight', mobileDisabledInFlight)
+  check(
+    '🚩 and a double-click writes exactly ONE mobile change — the client is the only guard there is',
+    mobileCalls === 1,
+    `${mobileCalls} mobile calls`,
+  )
+  check(
+    'and the Status command was never disabled by it — they are unrelated writes',
+    statusArmedInFlight,
+  )
+
+  // ---- Scenario 29: none of this reaches a reader --------------------------
+  await open('lookOnly')
+  check(
+    '🚩 a look-only session has no mobile control at all — the number is a fact they read',
+    (await mobileButton.count()) === 0 && (await mobileInput.count()) === 0,
   )
 
   check('no page errors anywhere in the drive', errors.length === 0, errors.join(' | '))

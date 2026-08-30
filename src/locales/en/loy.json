@@ -148,6 +148,7 @@
     "section": {
       "profile": "Profile",
       "facts": "Membership",
+      "mobile": "Mobile number",
       "status": "Status",
       "removal": "Contact removal"
     },
@@ -196,6 +197,24 @@
       "blockFailed": "The member could not be blocked.",
       "unblockFailed": "The member could not be unblocked."
     },
+    "mobile": {
+      "note": "The mobile number is how this member signs in, and one of only two ways they can be found. It changes here, on its own, and never as part of a profile save.",
+      "label": "New mobile number",
+      "change": "Change mobile",
+      "problem": {
+        "unchanged": "That is the number this member already has, so there is nothing to change.",
+        "notANumber": "A mobile number is digits only. Check what was typed."
+      },
+      "dialogTitle": "Change this member's mobile number",
+      "dialogNote": "Check the new number before confirming. It replaces the one this member has now.",
+      "now": "Now",
+      "after": "After this change",
+      "verifiedNote": "The new number is recorded as verified straight away. No confirmation code is sent to the member, so this records your word for it rather than theirs.",
+      "confirm": "Change mobile",
+      "cancel": "Cancel",
+      "changed": "The member's mobile number was changed.",
+      "failed": "The member's mobile number could not be changed."
+    },
     "removalNote": "Removing a contact detail takes away a way of reaching this customer. It is not account deletion.",
     "removeEmail": "Remove email",
     "removeMobile": "Remove mobile",
@@ -223,7 +242,10 @@
       "pair": "{{named}} {{said}}",
       "invalidNationality": "That nationality was not accepted.",
       "invalidCity": "That city was not accepted.",
-      "memberChanged": "This member changed since you opened the form, so nothing was written."
+      "memberChanged": "This member changed since you opened the form, so nothing was written.",
+      "mobileAlreadyUsed": "That number already belongs to another member, so nothing was changed. It has to be removed from that member before it can be used here.",
+      "sameMobile": "That is already this member's number, so nothing was changed.",
+      "invalidMobile": "That is not a valid mobile number, so nothing was changed."
     }
   }
 }

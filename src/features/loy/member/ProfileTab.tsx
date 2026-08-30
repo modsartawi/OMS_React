@@ -6,6 +6,8 @@ import type { MemberAuthority } from './api'
 import { blockedReasonKey, codeWords, memberTypeKey, tierKey } from './codes'
 import { memberBirthDate } from './member-header'
 import { PROFILE_FIELDS, profileDraftOf } from './profile-form'
+import MemberFact from './MemberFact'
+import MobileCommand from './MobileCommand'
 import ProfileForm from './ProfileForm'
 import { QUIET_BUTTON } from './profile-controls'
 import StatusCommand from './StatusCommand'
@@ -16,8 +18,8 @@ import StatusCommand from './StatusCommand'
  *
  * It issues no read of its own: the member is the one the route already
  * resolved, and the authority is the area's ONE probe answer, read from the
- * shared cache key by the tab shell above (`MemberTabs`). The only write it
- * makes is the Status **member command**, which lives in its own component.
+ * shared cache key by the tab shell above (`MemberTabs`). Every write it makes
+ * lives in its own component, one per **member command**.
  *
  * Three renderings of one component, not three components — a divergence is how
  * a read-only view starts showing a field the editable one dropped (spec 301):
@@ -36,11 +38,11 @@ import StatusCommand from './StatusCommand'
  * enforced server-side per route (ADR 0001); the flags decide only what is
  * *drawn*.
  *
- * ⚠️ **Two of the four commands write; the removals are still inert.** 302 owned
- * the *visibility rule* and wrote nothing; 303 wired the Status command up
- * (`StatusCommand` — block and unblock, and the write idiom the rest copy) and
- * 304 the profile itself (`ProfileForm`). 306 (email removal) and 307 (mobile
- * removal) are still buttons that do nothing, and the note above the groups
+ * ⚠️ **Only the two removals are still inert.** 302 owned the *visibility
+ * rule* and wrote nothing; 303 wired the Status command up (`StatusCommand` —
+ * block and unblock, and the write idiom the rest copy), 304 the profile itself
+ * (`ProfileForm`) and 305 the mobile (`MobileCommand`). 306 (email removal) and
+ * 307 (mobile removal) are still buttons that do nothing, and the note above the groups
  * names **them** rather than claiming the whole tab is disconnected — a note
  * that says more than is true is how an editor stops reading it.
  *
@@ -152,6 +154,16 @@ export default function ProfileTab({
 
       {mayEdit && (
         <section className="flex flex-col gap-3 border-t border-border/60 pt-4">
+          <Legend>{t('profile.section.mobile')}</Legend>
+          {/* 🚩 Its OWN control, with its own confirmation — the login
+              credential and one of only two ways a member can be found never
+              changes as a side effect of fixing a name (305). */}
+          <MobileCommand member={member} />
+        </section>
+      )}
+
+      {mayEdit && (
+        <section className="flex flex-col gap-3 border-t border-border/60 pt-4">
           <Legend>{t('profile.section.status')}</Legend>
           {/* ONE control offering whichever of the two applies — a member is
               blocked or is not, and offering both would ask the analyst to read
@@ -207,29 +219,6 @@ function Legend({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** One read-only fact. An absent value reads as absent, not as a gap. */
-function Fact({
-  label,
-  value,
-  mono,
-}: {
-  label: string
-  value: string | null
-  mono?: boolean
-}) {
-  const { t } = useTranslation('loy')
-  return (
-    <div className="min-w-0">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div
-        className={`text-sm ${value ? 'text-foreground' : 'text-muted-foreground'} ${
-          value && mono ? 'font-mono text-[13px]' : ''
-        }`}
-      >
-        {value || t('member.absent')}
-      </div>
-    </div>
-  )
-}
+/** One read-only fact — `MemberFact`, shared with the mobile command's
+ *  confirmation so the two cannot drift (305). */
+const Fact = MemberFact

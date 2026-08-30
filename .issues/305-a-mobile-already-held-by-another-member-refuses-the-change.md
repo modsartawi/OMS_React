@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 301
 blocked-by: 303
 ---
@@ -42,10 +42,10 @@ component (the control + confirmation) · i18n · test (pure + drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `eachRefusalIsNamedAsItselfRatherThanAsAFailure` — collision, same-number and invalid-number
+- [x] `eachRefusalIsNamedAsItselfRatherThanAsAFailure` — collision, same-number and invalid-number
       map to three distinct named outcomes; an unrecognised code falls back to the server's own
       sentence rather than to a generic one · pure
-- [ ] `aRefusedMobileChangeLeavesTheMemberUntouched` — drive a collision refusal; assert the member
+- [x] `aRefusedMobileChangeLeavesTheMemberUntouched` — drive a collision refusal; assert the member
       on screen still carries the old number, the Actions tab gained no row, and the analyst is
       still in the confirmation with the number they typed · flow
 
@@ -75,3 +75,78 @@ reload. `typecheck`, `lint`, vitest green.
 - ⚠️ **Owner ruling pending** (301 → Further Notes): the admin path marks a number verified with no
   OTP. Not this ticket's to change, but if the ruling lands mid-build it changes what the
   confirmation may claim.
+
+## As built (2026-08-30)
+
+**Files.** `mobile-command.ts` (pure — the verdict and its wording) + `mobile-command.test.ts`
+(10 cases) + `MobileCommand.tsx` + `loyCommandApi.changeMobile` + `memberCommandKey`'s third
+command + 16 `loy` keys. The Fact pair the confirmation draws graduated out of `ProfileTab` into
+`MemberFact.tsx` on review, so the two cannot drift.
+
+**The wire, designed not shipped:** `POST LoyWeb/Member/{loyId}/Mobile` with a bare `{ mobile }`.
+`LOY-00109` (already used) / `LOY-00110` (same as now) / `LOY-00111` (invalid) are **invented and
+say so**, on 303's and 304's terms — a wrong guess costs the screen's own wording only, because an
+unrecognised code still surfaces the server's sentence. `LOY-00100` is the observed one, inherited
+from the shared map and driven on this command too.
+
+🔑 **Three refusals, three keys, never one shared "it failed."** A collision is not a format
+problem and a no-op is not a collision; an analyst who cannot tell them apart cannot act on any of
+them. The map is `member-commands.ts`'s ONE reader — no second refusal path was added.
+
+🚩 **The verdict IS the request.** `mobileChangeVerdict` returns the exact string that goes on the
+wire, so the confirm cannot be armed off one value and send another. **Compaction is not
+normalisation** (`compact` is reused from `resolve-member`, not re-spelled): the door owns
+`LoyMobileNumbers.NormaliseTyped`. **Shape, never value** — digits only, no length rule and no
+country rule, because the column width and the number ranges live in the database and a cap
+invented here would refuse a change the door would have accepted.
+
+🚩 **The unchanged check is a COURTESY, never the authority.** The stored number is normalised
+server-side and the typed one is not, so `0555000111` may well be this member's number and the
+screen cannot tell — which is why *same mobile as now* also exists as a named refusal. Driven both
+ways: the screen catches what it can see (no call made), the door catches what it cannot.
+
+⚠️ **The confirmation says what is TRUE about verification**: the number is marked verified with no
+code sent to the member, so the record carries the analyst's word and not the customer's. The owner
+ruling (301 → Further Notes #1) did not land during the build; nothing here quietly improves the
+behaviour, and the copy is what has to change if it does.
+
+**Everything else copies 303:** `useIsMutating` on a per-command mutation key (so the guard outlives
+a tab switch), the invalidation inside `mutationFn` and deliberately unawaited, both cache prefixes,
+and a 403 taking the command away rather than merely apologising.
+
+### Reviews
+
+`/standards-review` — **no hard violation on either axis.** Standards: three findings acted on (the
+duplicated Fact/Pair extracted to `MemberFact.tsx`; `refusalText` respelled as `StatusCommand`'s
+`refusal` and moved above the return; the drive header enumerating 22–26 when it adds 22–29). One
+recorded and not acted on: the confirm-dialog shell (`busy`/`grantRefused`/`cannotConfirm`/footer)
+is now a **second verbatim copy** of `StatusCommand`'s — defensible at two, and it becomes Shotgun
+Surgery at **306/307**, where a change to the grant-refusal affordance would land in four files.
+🚩 **That extraction is the first thing to weigh in 306.**
+
+Spec: two findings acted on (the fourth named refusal `LOY-00100` now driven on this command; the
+dialog note softened — it asserted sign-in and findability semantics of an unbuilt door). Two
+recorded:
+
+1. ⚠️ **A mobile change can strand an in-progress profile edit.** The write invalidates
+   `MEMBER_SCOPE_KEY`, but `ProfileForm` holds the stamp it opened on, so an analyst who edits the
+   profile, changes the mobile and then presses Save meets `LOY-00108` — *"this member changed since
+   you opened the form"* — caused by **their own command**, worded as a colleague's edit, on the tab
+   where story 22 promised the two are separate. Reloading recovers, at the cost of the edits.
+   The stale guard is **304's**, and the honest fix is there (or in the door: whether a narrow
+   command bumps `lastUpdate` at all is a BackOffice question). Not silently patched here.
+2. ⚠️ **`mobileCountry` is nobody's yet.** The client never sends it — normalisation decides it and
+   a client that sent one would be guessing. Spec 301 rules on the column only for *removal*; what a
+   **change** does to it is a question for the BackOffice spec, recorded at the call site.
+
+**Also settled here** (304's carried-over question, pointed at this ticket by its INDEX line): the
+draft does **not** survive a tab switch, deliberately. Somewhere for a draft to outlive its tab is a
+change to `MemberTabs`, not to a command; this control loses one field where the profile form loses
+nine, and giving this one a store of its own would settle nothing for the form while leaving the
+screen with two answers to one question.
+
+### Verification
+
+`typecheck` · `lint` · `build` green · **2153 vitest** (10 new) · admin drive **106/106** ·
+`loy-member-drive` **184/184**. 🚩 **Still no live SIS.Api** — every envelope on this path is
+stubbed at Playwright, and the route does not exist.

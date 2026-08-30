@@ -116,6 +116,15 @@ const REFUSAL_KEYS: Record<string, string> = {
   'LOY-00106': 'command.refusal.invalidNationality',
   'LOY-00107': 'command.refusal.invalidCity',
   'LOY-00108': 'command.refusal.memberChanged',
+  // The mobile command's three (ticket 305), design intent on the same terms.
+  // 🚩 **Three codes, three keys, and never one shared "it failed".** A number
+  // held by another member is a COLLISION, not a format problem; the number the
+  // member already has is a no-op that must not write a **member update
+  // snapshot**; an unparseable one is a typo caught before anything is written.
+  // An analyst who cannot tell the three apart cannot act on any of them.
+  'LOY-00109': 'command.refusal.mobileAlreadyUsed',
+  'LOY-00110': 'command.refusal.sameMobile',
+  'LOY-00111': 'command.refusal.invalidMobile',
 }
 
 /**

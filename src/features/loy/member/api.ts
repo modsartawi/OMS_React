@@ -165,7 +165,7 @@ export const MEMBER_SCOPE_KEY = ['loy', 'member'] as const
  * happening, on a tab where the analyst is meant to be able to read what each
  * control is doing.
  */
-export const memberCommandKey = (loyId: string, command: 'status' | 'profile') =>
+export const memberCommandKey = (loyId: string, command: 'status' | 'profile' | 'mobile') =>
   ['loy', 'member-command', loyId, command] as const
 
 export const loyApi: MemberReads = {
@@ -269,6 +269,45 @@ export const loyCommandApi = {
    */
   async updateProfile(loyId: string, body: ProfileUpdateRequest): Promise<void> {
     await api.post<unknown>(`LoyWeb/Member/${encodeURIComponent(loyId)}/Profile`, body)
+  },
+
+  /**
+   * `POST LoyWeb/Member/{loyId}/Mobile` — the mobile **member command** (ticket
+   * 305): the member's login credential changed on its own, never as part of a
+   * profile save.
+   *
+   * 🚩 **It delegates to the existing no-OTP change handler**, which **refuses**
+   * a number already held by another member rather than taking it from its
+   * current holder — the wipe-the-other-member path exists only on the
+   * customer-driven OTP flow and is deliberately out of reach here (spec 301).
+   * A refusal therefore changes nothing at all: the member is never left
+   * half-edited.
+   *
+   * ⚠️ **It also marks the new number verified with NO OTP** — the analyst
+   * asserts verification on the customer's behalf. That is existing server
+   * behaviour, deliberately unchanged by spec 301 and flagged for an owner
+   * ruling (301 → Further Notes #1). The screen says so out loud rather than
+   * implying a confirmation that never happens; nothing here quietly improves
+   * it.
+   *
+   * The number is sent as the reads send one — compacted, not normalised
+   * (`mobileChangeVerdict`); the door owns `LoyMobileNumbers.NormaliseTyped`.
+   *
+   * ⚠️ **`mobileCountry` is the door's to derive, and this client never sends
+   * it.** The model carries the column beside the number, and normalisation is
+   * what decides it — a client that sent one would be guessing at a value the
+   * door computes anyway. Spec 301 rules on the column only for *removal*
+   * ("removing a mobile clears the country code with it"), so what a CHANGE does
+   * to it is a question for the BackOffice spec that owns these routes, and this
+   * is the note that has to be read before it is answered.
+   *
+   * Refusable by name with **member does not exist**, **mobile already used**,
+   * **same mobile as now** and **invalid mobile**; refused for authority with a
+   * 403, which is a grant refusal and not an outage. It carries no last-update
+   * echo: it writes one dimension and the server reads the member fresh.
+   */
+  async changeMobile(loyId: string, mobile: string): Promise<void> {
+    await api.post<unknown>(`LoyWeb/Member/${encodeURIComponent(loyId)}/Mobile`, { mobile })
   },
 
   /**

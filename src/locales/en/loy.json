@@ -144,7 +144,7 @@
     "error": "Error"
   },
   "profile": {
-    "inertNote": "The contact-removal commands are not connected yet.",
+    "inertNote": "The mobile removal is not connected yet.",
     "section": {
       "profile": "Profile",
       "facts": "Membership",
@@ -216,7 +216,25 @@
       "failed": "The member's mobile number could not be changed."
     },
     "removalNote": "Removing a contact detail takes away a way of reaching this customer. It is not account deletion.",
-    "removeEmail": "Remove email",
+    "removeEmail": {
+      "action": "Remove email",
+      "none": "This member has no email address to remove.",
+      "current": "Email now",
+      "dialogTitle": "Remove this member's email address",
+      "dialogNote": "This stops the member being emailed at this address. Nothing else about them changes: their name, their national ID, their sign-in, their points, their tier and their whole purchase history all stay exactly as they are, and only the email address is cleared.",
+      "recordNote": "The removal records your case reference, who ran it and when. It does not record the address being removed anywhere new.",
+      "referenceLabel": "Case reference",
+      "referencePlaceholder": "e.g. CASE-4471",
+      "referenceHint": "Name the customer's request — a case or ticket number, or how it reached you. It is shown on the actions trail, so keep the customer's own details out of it.",
+      "referenceRequired": "Remove stays unavailable until a case reference is entered.",
+      "problem": {
+        "tooLong": "A case reference can be at most {{max}} characters."
+      },
+      "confirm": "Remove email",
+      "cancel": "Cancel",
+      "removed": "The member's email address was removed.",
+      "failed": "The member's email address could not be removed."
+    },
     "removeMobile": "Remove mobile",
     "invalid": {
       "email": "That does not look like an email address.",

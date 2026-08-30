@@ -6,15 +6,13 @@ import { toast } from 'sonner'
 
 import { ApiError } from '@/core/api'
 import type { LoyMember } from '@/core/models/loy'
-import Button from '@/core/ui/Button'
-import ErrorBanner from '@/core/ui/ErrorBanner'
-import Modal from '@/core/ui/Modal'
 import {
   MEMBER_SCOPE_KEY,
   loyCommandApi,
   memberActionsScopeKey,
   memberCommandKey,
 } from './api'
+import MemberCommandDialog from './MemberCommandDialog'
 import MemberFact from './MemberFact'
 import { commandRefusalText } from './member-commands'
 import { mobileChangeVerdict, mobileProblemKey } from './mobile-command'
@@ -205,59 +203,40 @@ export default function MobileCommand({ member }: { member: LoyMember }) {
       )}
 
       {dialogOpen && (
-        <Modal
-          open
-          onClose={() => !busy && close()}
+        <MemberCommandDialog
           title={t('profile.mobile.dialogTitle')}
-          width="30rem"
-          footer={
-            <>
-              <Button
-                variant="text"
-                onClick={() => !busy && close()}
-                aria-disabled={busy || undefined}
-              >
-                {t('profile.mobile.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                data-testid="loy-mobile-confirm"
-                aria-disabled={cannotConfirm || undefined}
-                onClick={() =>
-                  !cannotConfirm && verdict.state === 'writable' && run.mutate(verdict.mobile)
-                }
-              >
-                {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-                {t('profile.mobile.confirm')}
-              </Button>
-            </>
-          }
+          busy={busy}
+          cannotConfirm={cannotConfirm}
+          confirmLabel={t('profile.mobile.confirm')}
+          cancelLabel={t('profile.mobile.cancel')}
+          confirmTestId="loy-mobile-confirm"
+          error={run.isError ? refusal(run.error) : null}
+          onClose={close}
+          onConfirm={() => verdict.state === 'writable' && run.mutate(verdict.mobile)}
         >
-          <div className="flex flex-col gap-3 text-sm">
-            <p className="text-muted-foreground">{t('profile.mobile.dialogNote')}</p>
+        <p className="text-muted-foreground">{t('profile.mobile.dialogNote')}</p>
 
-            <div className="grid gap-x-6 gap-y-2 [grid-template-columns:repeat(auto-fit,minmax(9rem,1fr))]">
-              <MemberFact label={t('profile.mobile.now')} value={member.mobile || null} mono />
-              <MemberFact
-                label={t('profile.mobile.after')}
-                value={verdict.state === 'writable' ? verdict.mobile : null}
-                mono
-              />
-            </div>
+        <div className="grid gap-x-6 gap-y-2 [grid-template-columns:repeat(auto-fit,minmax(9rem,1fr))]">
+          <MemberFact label={t('profile.mobile.now')} value={member.mobile || null} mono />
+          <MemberFact
+            label={t('profile.mobile.after')}
+            value={verdict.state === 'writable' ? verdict.mobile : null}
+            mono
+          />
+        </div>
 
-            {/* ⚠️ What is TRUE about verification on this path, said plainly. The
-                admin change marks the number verified with no code sent to the
-                customer; a dialog implying otherwise would have the analyst
-                assert something they did not do. */}
-            <p className="rounded-md border border-border/60 bg-muted/40 p-2.5 text-xs text-muted-foreground">
-              {t('profile.mobile.verifiedNote')}
-            </p>
+        {/* ⚠️ What is TRUE about verification on this path, said plainly. The
+            admin change marks the number verified with no code sent to the
+            customer; a dialog implying otherwise would have the analyst
+            assert something they did not do. */}
+        <p className="rounded-md border border-border/60 bg-muted/40 p-2.5 text-xs text-muted-foreground">
+          {t('profile.mobile.verifiedNote')}
+        </p>
 
-            {/* 🚩 A refusal keeps the analyst HERE, with the number they typed
-                (ticket 220's rule) — and it changed nothing on the member. */}
-            {run.isError && <ErrorBanner message={refusal(run.error)} className="p-2.5" />}
-          </div>
-        </Modal>
+        {/* The refusal is drawn by the shell, last in the body — it keeps the
+            analyst HERE, with the number they typed (ticket 220's rule), and
+            it changed nothing on the member. */}
+        </MemberCommandDialog>
       )}
     </div>
   )

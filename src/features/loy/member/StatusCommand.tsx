@@ -6,9 +6,7 @@ import { toast } from 'sonner'
 
 import { ApiError, apiErrorMessage } from '@/core/api'
 import type { LoyMember } from '@/core/models/loy'
-import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import Modal from '@/core/ui/Modal'
 import {
   BLOCKED_REASONS_KEY,
   loyCommandApi,
@@ -17,6 +15,7 @@ import {
   memberCommandKey,
 } from './api'
 import { blockedReasonKey, codeWords } from './codes'
+import MemberCommandDialog from './MemberCommandDialog'
 import { commandRefusalText, selectableBlockedReasons, statusCommand } from './member-commands'
 import { QUIET_BUTTON } from './profile-controls'
 
@@ -205,98 +204,81 @@ export default function StatusCommand({ member }: { member: LoyMember }) {
       {run.isError && !dialogOpen && <ErrorBanner message={refusal(run.error)} className="p-2.5" />}
 
       {dialogOpen && (
-        <Modal
-          open
-          onClose={() => !busy && close()}
+        <MemberCommandDialog
           title={t('profile.status.dialogTitle')}
-          width="30rem"
-          footer={
-            <>
-              <Button
-                variant="text"
-                onClick={() => !busy && close()}
-                aria-disabled={busy || undefined}
-              >
-                {t('profile.status.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                data-testid="loy-status-confirm"
-                aria-disabled={cannotConfirm || undefined}
-                onClick={() => !cannotConfirm && run.mutate({ kind: 'block', reason })}
-              >
-                {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-                {t('profile.status.confirm')}
-              </Button>
-            </>
-          }
+          busy={busy}
+          cannotConfirm={cannotConfirm}
+          confirmLabel={t('profile.status.confirm')}
+          cancelLabel={t('profile.status.cancel')}
+          confirmTestId="loy-status-confirm"
+          error={run.isError ? refusal(run.error) : null}
+          onClose={close}
+          onConfirm={() => run.mutate({ kind: 'block', reason })}
         >
-          <div className="flex flex-col gap-3 text-sm">
-            <p className="text-muted-foreground">{t('profile.status.dialogNote')}</p>
+        <p className="text-muted-foreground">{t('profile.status.dialogNote')}</p>
 
-            <div className="flex flex-col gap-1">
-              <label
-                htmlFor={REASON_ID}
-                className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor={REASON_ID}
+            className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
+          >
+            {t('profile.status.reasonLabel')}
+          </label>
+          {reasons.isPending ? (
+            <span
+              className="flex items-center gap-2 text-xs text-muted-foreground"
+              role="status"
+            >
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+              {t('profile.status.reasonsLoading')}
+            </span>
+          ) : reasons.isError ? (
+            <ErrorBanner
+              title={t('profile.status.reasonsFailed')}
+              message={apiErrorMessage(reasons.error, t('common:errors.server'))}
+              className="p-2.5"
+            >
+              <button
+                type="button"
+                onClick={() => reasons.refetch()}
+                disabled={reasons.isFetching}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-danger-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-danger-050 disabled:opacity-50"
               >
-                {t('profile.status.reasonLabel')}
-              </label>
-              {reasons.isPending ? (
-                <span
-                  className="flex items-center gap-2 text-xs text-muted-foreground"
-                  role="status"
-                >
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                  {t('profile.status.reasonsLoading')}
-                </span>
-              ) : reasons.isError ? (
-                <ErrorBanner
-                  title={t('profile.status.reasonsFailed')}
-                  message={apiErrorMessage(reasons.error, t('common:errors.server'))}
-                  className="p-2.5"
-                >
-                  <button
-                    type="button"
-                    onClick={() => reasons.refetch()}
-                    disabled={reasons.isFetching}
-                    className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-danger-border px-3 py-1 text-xs font-semibold transition-colors hover:bg-danger-050 disabled:opacity-50"
-                  >
-                    <RotateCw className="h-3 w-3" aria-hidden />
-                    {t('profile.status.reasonsRetry')}
-                  </button>
-                </ErrorBanner>
-              ) : offered.length === 0 ? (
-                // 🚩 An empty list renders as an empty LIST. Nothing is offerable,
-                // which is a fact about the seed data and not a failure — and the
-                // confirm stays unpressable rather than sending a blank reason.
-                <p className="text-xs text-muted-foreground" role="status">
-                  {t('profile.status.reasonsEmpty')}
-                </p>
-              ) : (
-                <select
-                  id={REASON_ID}
-                  value={reason}
-                  disabled={busy}
-                  onChange={(event) => setReason(event.target.value)}
-                  className="h-8 w-full rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:opacity-50"
-                >
-                  <option value="">{t('profile.status.reasonPlaceholder')}</option>
-                  {offered.map((option) => (
-                    <option key={option.code} value={option.code}>
-                      {/* The server's own words where it sent any, and the bare
-                          code where it did not — never an invented description. */}
-                      {option.description ?? option.code}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
+                <RotateCw className="h-3 w-3" aria-hidden />
+                {t('profile.status.reasonsRetry')}
+              </button>
+            </ErrorBanner>
+          ) : offered.length === 0 ? (
+            // 🚩 An empty list renders as an empty LIST. Nothing is offerable,
+            // which is a fact about the seed data and not a failure — and the
+            // confirm stays unpressable rather than sending a blank reason.
+            <p className="text-xs text-muted-foreground" role="status">
+              {t('profile.status.reasonsEmpty')}
+            </p>
+          ) : (
+            <select
+              id={REASON_ID}
+              value={reason}
+              disabled={busy}
+              onChange={(event) => setReason(event.target.value)}
+              className="h-8 w-full rounded-md border border-border/60 bg-background px-2 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:opacity-50"
+            >
+              <option value="">{t('profile.status.reasonPlaceholder')}</option>
+              {offered.map((option) => (
+                <option key={option.code} value={option.code}>
+                  {/* The server's own words where it sent any, and the bare
+                      code where it did not — never an invented description. */}
+                  {option.description ?? option.code}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
 
-            {/* 🚩 A refusal keeps the analyst HERE, with the reason still chosen
-                (ticket 220's rule). Nothing is cleared and nothing is closed. */}
-            {run.isError && <ErrorBanner message={refusal(run.error)} className="p-2.5" />}
-          </div>
-        </Modal>
+        {/* The refusal is drawn by the shell, last in the body — it keeps the
+            analyst HERE, with the reason still chosen (ticket 220's rule).
+            Nothing is cleared and nothing is closed. */}
+        </MemberCommandDialog>
       )}
     </div>
   )

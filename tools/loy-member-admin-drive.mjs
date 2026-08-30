@@ -59,6 +59,23 @@
 //      and it leaves the Status command alone, because they are unrelated writes;
 //  29. none of it reaches a reader: a look-only session has no mobile control.
 //
+// Ticket 306's flow Proof bullet - `theRemoveControlStaysDeadUntilAReferenceIsTyped`:
+//  30. the email removal is a real command for an editor, and its confirmation
+//      promises no more than the command does - no erasure, no deletion, no
+//      anonymisation - and it names what the customer KEEPS;
+//  31. the Remove control stays DEAD with nothing typed and DEAD on whitespace -
+//      pressing it anyway writes nothing - and comes live the moment a reference
+//      is named; an over-long one is refused as its own problem;
+//  32. the body that leaves the browser is the case reference ALONE, and the
+//      Actions row shows that reference and NOT the removed address (ADR 0002);
+//  33. the member keeps their login, their points and their unblocked state -
+//      this is a contact removal and not account deletion;
+//  34. a refusal is named as itself and keeps the analyst in the confirmation
+//      with the reference they typed; a 403 takes the command away;
+//  35. the control disables itself in flight - a double-click writes ONE removal;
+//  36. none of it reaches a reader, and a member with no address has a control
+//      that says so rather than one that writes.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/loy-member-admin-drive.mjs
 import { createRequire } from 'node:module'
@@ -176,6 +193,18 @@ let mobileRefusal = null
  *  guards, and the only double-submit protection that exists anywhere. */
 let mobileDelay = 0
 
+// ---- ticket 306: the email contact removal --------------------------------
+/** How many email removals the door has seen, and what the last one carried —
+ *  the whole of ADR 0002 is asserted against the BODY that actually left the
+ *  browser, because "the removed address is recorded nowhere new" is a property
+ *  of the request and not of anything the screen displays. */
+let removeEmailCalls = 0
+let removeEmailBody = null
+/** The refusal the next removal answers with, or null for success. */
+let removeEmailRefusal = null
+/** How long the next removal takes — the in-flight window the disable guards. */
+let removeEmailDelay = 0
+
 const trailRow = (type, description, data) => ({
   actionNo: String(900 + actionRows.length),
   mainActionType: type,
@@ -266,6 +295,30 @@ async function run() {
       return route.fulfill(envelope(null))
     }
 
+    // ---- ticket 306: the email contact removal ----------------------------
+    // Matched before the member read below, which shares the prefix.
+    if (/^LoyWeb\/Member\/[^/]+\/RemoveEmail$/.test(path)) {
+      removeEmailCalls += 1
+      removeEmailBody = route.request().postDataJSON()
+      if (removeEmailDelay) await sleep(removeEmailDelay)
+      if (removeEmailRefusal) return route.fulfill(removeEmailRefusal)
+      // 🚩 The email goes, and NOTHING else does. No block, no mobile, no
+      // points — the door stub is written this way on purpose, so "the member
+      // keeps their login and their points" is asserted against a command that
+      // could have taken them and did not.
+      memberState = { ...memberState, email: null }
+      // 🚩 The trail row carries the CASE REFERENCE in the slot the Actions tab
+      // draws, and the removed address NOWHERE (ADR 0002). The stub records what
+      // the door is specified to record, so the drive's "the address is not on
+      // the trail" check is a real assertion about the contract rather than
+      // about a fixture that happens to omit it.
+      actionRows = [
+        trailRow('UPD', 'Email removed', removeEmailBody.caseReference),
+        ...actionRows,
+      ]
+      return route.fulfill(envelope(null))
+    }
+
     // ---- ticket 303: the two writes ---------------------------------------
     // Matched BEFORE the member read below, which would otherwise swallow both
     // (they hang off the same `LoyWeb/Member/{id}` prefix).
@@ -346,6 +399,10 @@ async function run() {
     mobileBody = null
     mobileRefusal = null
     mobileDelay = 0
+    removeEmailCalls = 0
+    removeEmailBody = null
+    removeEmailRefusal = null
+    removeEmailDelay = 0
     await page.goto(`${BASE}/loy/members/${LOYID_KEY}${tab ? `?tab=${tab}` : ''}`)
     await page.getByRole('tablist').waitFor({ timeout: 15000 })
     if (tab === 'profile') await panel.getByText('Membership').waitFor({ timeout: 10000 })
@@ -1388,6 +1445,253 @@ async function run() {
   check(
     '🚩 a look-only session has no mobile control at all — the number is a fact they read',
     (await mobileButton.count()) === 0 && (await mobileInput.count()) === 0,
+  )
+
+  // ==== ticket 306: the email contact removal ===============================
+  const removeEmailButton = page.locator('[data-testid="loy-remove-email"]')
+  const removeEmailConfirm = page.locator('[data-testid="loy-remove-email-confirm"]')
+  const caseReferenceInput = page.locator('[data-testid="loy-case-reference"]')
+  const removeEmailRefusalEnvelope = (errorCode, message) =>
+    envelope(null, {
+      status: 400,
+      success: false,
+      message,
+      errors: [{ errorCode, errorMessage: '', internalErrorCode: '' }],
+    })
+
+  // ---- Scenario 30: the command, and the promise it must not make ---------
+  await open('editor')
+  await warmActionsCache()
+  await page.evaluate(() => {
+    window.__driveMark = 'alive'
+  })
+  check(
+    'the email removal is a real command for an editor, and no longer a dead button',
+    (await removeEmailButton.count()) === 1 && (await removeEmailButton.isEnabled()),
+  )
+  check(
+    '🚩 and the tab no longer claims anything is disconnected to an EDITOR — 307 is the last inert one',
+    !/not connected yet/i.test(await panel.innerText()),
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 120),
+  )
+  await removeEmailButton.click()
+  await dialog.waitFor({ timeout: 10000 })
+  const removalDialogText = await dialog.innerText()
+  check(
+    '🚩 the confirmation promises no more than the command does — no erasure, deletion or anonymisation',
+    !/eras|anonymis|anonymiz|delet|close (the )?account/i.test(removalDialogText),
+    removalDialogText.replace(/\s+/g, ' ').slice(0, 200),
+  )
+  check(
+    'it says what the customer KEEPS — sign-in, points, tier and purchase history',
+    /sign-in/i.test(removalDialogText) &&
+      /points/i.test(removalDialogText) &&
+      /history/i.test(removalDialogText),
+    removalDialogText.replace(/\s+/g, ' ').slice(0, 220),
+  )
+  check(
+    '🚩 and it says what is RECORDED — the reference, and not the address (ADR 0002)',
+    /does not record the address/i.test(removalDialogText) &&
+      /nouf\.h@example\.com/.test(removalDialogText),
+    removalDialogText.replace(/\s+/g, ' ').slice(0, 220),
+  )
+  check(
+    '🚩 the field is labelled CASE REFERENCE and never notes — the label is the only lever there is',
+    /case reference/i.test(removalDialogText) && !/\bnotes?\b/i.test(removalDialogText),
+    removalDialogText.replace(/\s+/g, ' ').slice(0, 220),
+  )
+
+  // ---- Scenario 31: THE ticket — dead until a reference is typed ----------
+  check(
+    '🚩 THE ticket: Remove is DEAD with nothing typed, and says why',
+    (await removeEmailConfirm.getAttribute('aria-disabled')) === 'true' &&
+      /until a case reference is entered/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 200),
+  )
+  await caseReferenceInput.fill('   ')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 and DEAD on whitespace — a space bar is not an accountable removal',
+    (await removeEmailConfirm.getAttribute('aria-disabled')) === 'true',
+  )
+  await removeEmailConfirm.click({ force: true })
+  await page.waitForTimeout(300)
+  check(
+    'pressing it anyway writes NOTHING — the guard is the precondition, not the styling',
+    removeEmailCalls === 0,
+    removeEmailCalls + ' calls',
+  )
+  await caseReferenceInput.fill('C'.repeat(121))
+  await page.waitForTimeout(150)
+  check(
+    'an over-long reference is refused as ITS own problem — a cap, never a format rule',
+    (await removeEmailConfirm.getAttribute('aria-disabled')) === 'true' &&
+      /at most 120 characters/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 200),
+  )
+  await caseReferenceInput.fill('  CASE-4471  ')
+  await page.waitForTimeout(150)
+  check(
+    '🚩 and LIVE the moment a reference is named — nothing else is asked for',
+    (await removeEmailConfirm.getAttribute('aria-disabled')) === null &&
+      (await dialog.locator('input').count()) === 1,
+    (await dialog.locator('input').count()) + ' inputs in the confirmation',
+  )
+
+  // ---- Scenario 32: the write, and what it leaves behind -------------------
+  await removeEmailConfirm.click()
+  await dialog.waitFor({ state: 'detached', timeout: 15000 })
+  check(
+    '🚩 the body that left the browser is the REFERENCE ALONE — trimmed, and no removed address',
+    removeEmailCalls === 1 &&
+      JSON.stringify(Object.keys(removeEmailBody)) === '["caseReference"]' &&
+      removeEmailBody.caseReference === 'CASE-4471',
+    JSON.stringify(removeEmailBody),
+  )
+  // 🚩 The EMAIL FIELD's value, not `innerText`. For an editor the address is an
+  // `<input>`, and `innerText` does not include input values — asserting the
+  // panel's text here passes whatever the field holds, which is exactly how the
+  // resurrection below stayed invisible.
+  check(
+    'the profile moves with no reload — the address is gone from the field itself',
+    (await panel.locator('#loy-profile-email').inputValue()) === '' &&
+      (await page.evaluate(() => window.__driveMark)) === 'alive',
+    await panel.locator('#loy-profile-email').inputValue(),
+  )
+  // 🚩 THE defect this scenario exists to keep closed. The profile form seeds
+  // itself once at mount and a Save sends all NINE fields, so a form opened
+  // before the removal still held the address — and the analyst's next ordinary
+  // edit would have put it straight back on the wire, ADR 0002 undone by the
+  // person who had just honoured it.
+  await panel.locator('#loy-profile-fullName').fill('Nouf Al-Harbi Jr')
+  await saveButton.click()
+  await page.waitForTimeout(500)
+  check(
+    '🚩 and the next ordinary Save does NOT resurrect it — the removed address is not on the wire',
+    profileBody?.email === null && memberState.email == null,
+    JSON.stringify({ sent: profileBody?.email, stored: memberState.email }),
+  )
+  const removalTrail = await actionsText()
+  check(
+    '🚩 THE ticket: the Actions row shows the CASE REFERENCE',
+    /email removed/i.test(removalTrail) && /case-4471/i.test(removalTrail),
+    removalTrail.replace(/\s+/g, ' ').slice(0, 200),
+  )
+  check(
+    '🚩 and NOT the removed address — ADR 0002: it is recorded nowhere new',
+    !/nouf\.h@example\.com/.test(removalTrail) &&
+      !JSON.stringify(actionRows).includes('nouf.h@example.com'),
+    removalTrail.replace(/\s+/g, ' ').slice(0, 200),
+  )
+  check(
+    '🚩 the member keeps their LOGIN and their POINTS — this is not account deletion',
+    memberState.mobile === '966555000111' &&
+      memberState.pointsBalance === 12480 &&
+      memberState.blockedReason == null &&
+      /966555000111/.test(await page.innerText('body')),
+    JSON.stringify({ mobile: memberState.mobile, blocked: memberState.blockedReason }),
+  )
+  await profileTab.click()
+  await panel.getByText('Membership').waitFor({ timeout: 10000 })
+  check(
+    'and with nothing left to remove the control goes quiet rather than offering a second removal',
+    !(await removeEmailButton.isEnabled()) &&
+      /no email address to remove/i.test(await panel.innerText()),
+    (await panel.innerText()).replace(/\s+/g, ' ').slice(0, 140),
+  )
+
+  // ---- Scenario 33: the refusals ------------------------------------------
+  await open('editor')
+  removeEmailRefusal = removeEmailRefusalEnvelope('LOY-00100', 'That member could not be found.')
+  await removeEmailButton.click()
+  await dialog.waitFor({ timeout: 10000 })
+  await caseReferenceInput.fill('CASE-9001')
+  await removeEmailConfirm.click()
+  await dialog.getByRole('alert').waitFor({ timeout: 10000 })
+  check(
+    'a member who no longer exists is named as itself, in the server’s own sentence too',
+    /this member no longer exists/i.test(await dialog.innerText()) &&
+      /could not be found/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 180),
+  )
+  check(
+    '🚩 and the analyst is still HERE, with the reference they named (ticket 220’s rule)',
+    (await dialog.count()) === 1 && (await caseReferenceInput.inputValue()) === 'CASE-9001',
+    await caseReferenceInput.inputValue(),
+  )
+  removeEmailRefusal = removeEmailRefusalEnvelope('LOY-99999', 'Something nobody has named yet.')
+  await removeEmailConfirm.click()
+  await page.waitForTimeout(500)
+  check(
+    '🚩 a code the screen does not know still speaks — in the SERVER’s sentence, never a generic one',
+    /something nobody has named yet/i.test(await dialog.innerText()) &&
+      !/unexpected/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 180),
+  )
+  check(
+    'and a refused removal changed nothing — the address is still the member’s',
+    memberState.email === 'nouf.h@example.com' && actionRows.length === 0,
+    actionRows.length + ' trail rows',
+  )
+
+  // ---- Scenario 34: a grant refusal takes the command away ----------------
+  await open('editor')
+  removeEmailRefusal = { status: 403, contentType: 'application/json', body: '' }
+  await removeEmailButton.click()
+  await dialog.waitFor({ timeout: 10000 })
+  await caseReferenceInput.fill('CASE-9002')
+  await removeEmailConfirm.click()
+  await dialog.getByRole('alert').waitFor({ timeout: 10000 })
+  check(
+    '🚩 a 403 says the AUTHORITY is gone and offers no retry — it is not an outage',
+    /no longer holds the authority/i.test(await dialog.innerText()),
+    (await dialog.innerText()).replace(/\s+/g, ' ').slice(0, 180),
+  )
+  removeEmailRefusal = null
+  await removeEmailConfirm.click({ force: true })
+  await page.waitForTimeout(400)
+  check(
+    '🚩 and the command goes DEAD — a grant refusal takes the button away, not just the words',
+    (await removeEmailConfirm.getAttribute('aria-disabled')) === 'true' && removeEmailCalls === 1,
+    removeEmailCalls + ' removal calls',
+  )
+
+  // ---- Scenario 35: the in-flight guard, and who it does NOT touch --------
+  await open('editor')
+  removeEmailDelay = 700
+  await removeEmailButton.click()
+  await dialog.waitFor({ timeout: 10000 })
+  await caseReferenceInput.fill('CASE-9003')
+  // 🚩 Two clicks, deliberately. There is no server-side idempotency anywhere in
+  // the module, so a second write is a second removal and a second trail row.
+  await removeEmailConfirm.click()
+  await page.waitForTimeout(120)
+  const removalDisabledInFlight =
+    (await removeEmailConfirm.getAttribute('aria-disabled')) === 'true'
+  const statusArmedDuringRemoval = await statusButton.isEnabled()
+  await removeEmailConfirm.click({ force: true })
+  await dialog.waitFor({ state: 'detached', timeout: 15000 })
+  check('🚩 the control disables itself while the write is in flight', removalDisabledInFlight)
+  check(
+    '🚩 and a double-click writes exactly ONE removal — the client is the only guard there is',
+    removeEmailCalls === 1,
+    removeEmailCalls + ' removal calls',
+  )
+  check(
+    'and the Status command was never disabled by it — they are unrelated writes',
+    statusArmedDuringRemoval,
+  )
+
+  // ---- Scenario 36: none of this reaches a reader -------------------------
+  await open('lookOnly')
+  check(
+    '🚩 a look-only session has no email-removal control at all',
+    (await removeEmailButton.count()) === 0,
+  )
+  await open('editor', { memberOver: { email: null } })
+  check(
+    'and a member with no address to remove has a control that says so rather than one that writes',
+    (await removeEmailButton.count()) === 1 && !(await removeEmailButton.isEnabled()),
   )
 
   check('no page errors anywhere in the drive', errors.length === 0, errors.join(' | '))

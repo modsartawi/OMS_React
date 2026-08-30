@@ -29,6 +29,7 @@ import type {
   LoyMemberPayload,
   LoySalesRow,
 } from '@/core/models/loy'
+import type { ContactRemoval } from './contact-removal'
 import type { ProfileUpdateRequest } from './profile-form'
 import type { MemberReads } from './resolve-member'
 
@@ -165,8 +166,10 @@ export const MEMBER_SCOPE_KEY = ['loy', 'member'] as const
  * happening, on a tab where the analyst is meant to be able to read what each
  * control is doing.
  */
-export const memberCommandKey = (loyId: string, command: 'status' | 'profile' | 'mobile') =>
-  ['loy', 'member-command', loyId, command] as const
+export const memberCommandKey = (
+  loyId: string,
+  command: 'status' | 'profile' | 'mobile' | 'remove-email',
+) => ['loy', 'member-command', loyId, command] as const
 
 export const loyApi: MemberReads = {
   /**
@@ -308,6 +311,49 @@ export const loyCommandApi = {
    */
   async changeMobile(loyId: string, mobile: string): Promise<void> {
     await api.post<unknown>(`LoyWeb/Member/${encodeURIComponent(loyId)}/Mobile`, { mobile })
+  },
+
+  /**
+   * `POST LoyWeb/Member/{loyId}/RemoveEmail` — the email **contact removal**
+   * (ticket 306): a customer has asked to stop being emailed, and the address is
+   * cleared because **a person asked**.
+   *
+   * 🚩 **The body is the case reference and nothing else.** No removed address
+   * rides with it, and none ever will: ADR 0002 rules that a removal records the
+   * loyalty id, the acting user, the time and the reference, and records the
+   * removed value nowhere new — the Actions tab renders free-form command data
+   * verbatim to anyone holding the read grant, so sending the old address would
+   * republish the very thing the customer asked to have taken away. The
+   * `ContactRemoval` is taken whole rather than as a bare string so the call
+   * cannot be made from a reference the precondition never saw
+   * (`contact-removal.ts`).
+   *
+   * 🚩 **The reference goes in the trail slot the Actions tab DRAWS** — the
+   * door's job, and named here because it is the half of ADR 0002 a client
+   * cannot enforce: hiding it in the slot the tab does not draw would be exactly
+   * the kind of promise the decision rejects.
+   *
+   * 🚩 **Gated on *may edit*, not on the removal grant** (ADR 0001). An editor
+   * can blank the Email field through the profile command anyway, so gating this
+   * higher would be an authority that looks enforced and is not. The corollary
+   * is stated in spec 301 and worth repeating where the call lives: **removal
+   * counts undercount**, because an ordinary profile update can end the same
+   * contact channel and records as a profile update. Anything counting removal
+   * requests reads this command's own trail and must accept a floor rather than
+   * a total.
+   *
+   * It clears the address and **nothing else** — no block, no country code, no
+   * points, no history — so the member keeps their login, their balance and
+   * their purchases. It carries no last-update echo: it writes one dimension and
+   * the server reads the member fresh.
+   *
+   * Refusable by name with **member does not exist**; refused for authority with
+   * a 403, which is a grant refusal and not an outage.
+   */
+  async removeEmail(loyId: string, removal: ContactRemoval): Promise<void> {
+    await api.post<unknown>(`LoyWeb/Member/${encodeURIComponent(loyId)}/RemoveEmail`, {
+      caseReference: removal.caseReference,
+    })
   },
 
   /**

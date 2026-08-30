@@ -10,6 +10,7 @@ import MemberFact from './MemberFact'
 import MobileCommand from './MobileCommand'
 import ProfileForm from './ProfileForm'
 import { QUIET_BUTTON } from './profile-controls'
+import RemoveEmailCommand from './RemoveEmailCommand'
 import StatusCommand from './StatusCommand'
 
 /**
@@ -38,13 +39,14 @@ import StatusCommand from './StatusCommand'
  * enforced server-side per route (ADR 0001); the flags decide only what is
  * *drawn*.
  *
- * ⚠️ **Only the two removals are still inert.** 302 owned the *visibility
+ * ⚠️ **Only the mobile removal is still inert.** 302 owned the *visibility
  * rule* and wrote nothing; 303 wired the Status command up (`StatusCommand` —
  * block and unblock, and the write idiom the rest copy), 304 the profile itself
- * (`ProfileForm`) and 305 the mobile (`MobileCommand`). 306 (email removal) and
- * 307 (mobile removal) are still buttons that do nothing, and the note above the groups
- * names **them** rather than claiming the whole tab is disconnected — a note
- * that says more than is true is how an editor stops reading it.
+ * (`ProfileForm`), 305 the mobile (`MobileCommand`) and 306 the email removal
+ * (`RemoveEmailCommand`). 307 (mobile removal) is still a button that does
+ * nothing, and the note above the groups names **it** rather than claiming the
+ * whole tab is disconnected — a note that says more than is true is how an
+ * editor stops reading it.
  *
  * **Drawn nowhere:** the referral code the ticket's read-only column names —
  * `LoyMemberModel` does not carry one, so there is no field on the wire, on the
@@ -83,7 +85,11 @@ export default function ProfileTab({
 
   return (
     <div className="flex flex-col gap-5">
-      {(mayEdit || mayRemoveMobile) && (
+      {/* 🚩 Said only to the session that can see the one control it is still
+          true of. 306 connected the email removal, so an editor without the
+          removal grant now has nothing inert on this tab — and a note claiming
+          otherwise is how an analyst stops reading the notes. */}
+      {mayRemoveMobile && (
         <p className="text-xs text-muted-foreground">{t('profile.inertNote')}</p>
       )}
 
@@ -97,7 +103,19 @@ export default function ProfileTab({
             a name it does not have is what turns `0021` into a wrong city. */}
         {mayEdit ? (
           <ProfileForm
-            key={formGeneration}
+            // 🚩 **The stored email is part of the form's identity** (ticket
+            // 306). The form seeds itself once at mount and never re-syncs, and
+            // a Save sends all nine fields — so a draft opened before a
+            // **contact removal** still holds the removed address, and the next
+            // Save would put it straight back on the wire. That is ADR 0002
+            // undone by an ordinary edit: the address the customer asked to have
+            // taken away, restored by the analyst who took it away, silently.
+            // Keying on the value makes the form re-seed exactly when the
+            // re-read lands — which is why it is the *stored* email and not a
+            // counter bumped on success: the invalidation is deliberately not
+            // awaited, so at the moment a removal succeeds the cache still holds
+            // the old member, and a counter would re-seed from it.
+            key={`${formGeneration}:${member.email ?? ''}`}
             member={member}
             onReseed={() => setFormGeneration((generation) => generation + 1)}
           />
@@ -184,11 +202,7 @@ export default function ProfileTab({
                 editor can blank the field through the profile command anyway, so
                 gating it higher would be an authority that looks enforced and is
                 not (ADR 0001). */}
-            {mayEdit && (
-              <button type="button" disabled className={QUIET_BUTTON}>
-                {t('profile.removeEmail')}
-              </button>
-            )}
+            {mayEdit && <RemoveEmailCommand member={member} />}
             {/* The third tier, and the only control behind it. Hidden entirely
                 rather than disabled — a disabled button is an invitation to ask
                 for a grant nobody meant to offer. */}

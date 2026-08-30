@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 301
 blocked-by: 303
 ---
@@ -50,12 +50,12 @@ the confirm preconditions) · component (removal control + confirmation) · i18n
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `aRemovalCannotBeConstructedWithoutACaseReference` — blank, whitespace-only and over-length
+- [x] `aRemovalCannotBeConstructedWithoutACaseReference` — blank, whitespace-only and over-length
       references are all refused by the pure precondition; prior art is `actions-request.ts`, whose
       whole job is making a dangerous call unrepresentable · pure
-- [ ] `anEmailRemovalNamesTheEmailAndNothingElse` — the request names the email field only, carries
+- [x] `anEmailRemovalNamesTheEmailAndNothingElse` — the request names the email field only, carries
       no old value, and does not block the member · pure
-- [ ] `theRemoveControlStaysDeadUntilAReferenceIsTyped` — drive the dialog: disabled with nothing,
+- [x] `theRemoveControlStaysDeadUntilAReferenceIsTyped` — drive the dialog: disabled with nothing,
       disabled with whitespace, live with a reference; and the resulting Actions row shows the
       reference and **not** the removed address · flow
 
@@ -82,4 +82,26 @@ vitest green.
 
 ## Open questions
 
-None.
+**Raised during the build, for the BackOffice half of 301 rather than for this ticket:**
+
+1. 🚩 **The case reference's length cap is the screen's own invention.** The ticket says
+   *"validated non-empty and length-capped"* and names no number; no column width for the trail's
+   free-form slot is known in this repo, and the door that would state one is unwritten. The client
+   caps at **120** and says so in the copy (*"at most 120 characters"*), so a narrower column on the
+   door would refuse, after a green control, a reference the screen had already accepted. Whichever
+   BackOffice ticket mints the removal handlers owns the real number; `CASE_REFERENCE_MAX_LENGTH` is
+   the one line to reconcile.
+
+## Decisions taken here, not asked for
+
+- **A member with no address gets a dead control that says so**, rather than a live one whose
+  removal writes a trail row claiming a customer asked for something that had already happened.
+  Nothing in 301 asks for this; nothing in 301 forbids it either, and the alternative is an
+  accountable removal of nothing.
+- **The confirmation avoids the word *deletion* entirely, including negated.** Spec 301 #42 asks the
+  copy to say the removal is *not* account deletion; this ticket's own Boundaries forbid the word.
+  Both are satisfied by naming what the customer **keeps** — name, national ID, sign-in, points,
+  tier, purchase history — which is the substance #42 is after. 307's confirmation, which the spec
+  binds more tightly, may still need the negated sentence.
+- **The confirm-dialog shell was extracted** (`MemberCommandDialog`) — 305's review deferred that
+  call to this ticket, and 306 was its third verbatim copy with 307 to come.

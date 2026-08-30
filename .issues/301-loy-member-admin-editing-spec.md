@@ -394,7 +394,8 @@ new server-side.
 ### The wire, as designed
 
 Six writes and one read are added to the existing `LoyWeb` door. **These shapes are this client's
-design intent and are not yet a shipped contract** — the BackOffice spec that owns them is normative
+design intent and are not yet a shipped contract** — the BackOffice spec that owns them (charted as
+map **1396**, see § "The backend half") is normative
 over what follows, and any drift is reconciled in that spec's favour.
 
 - Six command routes, each gated on its tier's grant, taking the loyalty id plus that command's own
@@ -406,7 +407,10 @@ over what follows, and any drift is reconciled in that spec's favour.
 
 ### The backend half
 
-Not written and not numbered at the time of this spec. It comprises: two new grants and two new
+Charted 2026-08-30 as **BackOffice wayfinder map 1396 — "The loyalty member admin door learns to
+write"** (`C:\Work\DMSCO\BackOffice\.issues\1396-loyalty-member-admin-writes-backend-map.md`),
+whose destination is the BackOffice spec that becomes normative over § "The wire, as designed"
+above. Still unwritten as a spec at the time of this amendment. It comprises: two new grants and two new
 roles seeded beside the existing screen grant; a route filter that takes its required command as a
 parameter (the estate's first — every existing web gate hard-codes *open*); the new admin-side
 profile handler; two new removal handlers; a seeded blocked-reason row carrying the **system

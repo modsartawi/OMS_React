@@ -166,7 +166,12 @@ const METADATA = {
       { code: 'SAPR', name: 'SalesAsPerReceipt' },
       { code: 'FI', name: 'FinancialDocument' },
     ],
-    billingType: [{ code: 'ZAGG', name: 'Aggregated' }],
+    // Reflected from `BillingTypeConstants` server-side, so the `name` is the C#
+    // identifier and the `code` is the persisted word.
+    billingType: [
+      { code: 'STANDARD_POS', name: 'StandardPOS' },
+      { code: 'Insurance', name: 'Insurance' },
+    ],
     workflowType: [{ code: 'ZAGG', name: 'Aggregated' }],
     paymentGroup: [{ code: '01', name: 'Cash' }],
     errorType: [
@@ -185,7 +190,11 @@ const condition = (over = {}) => ({
   seq: 1,
   conditionType: 'ZPR0',
   conditionTypeDescription: 'Base price',
+  // 🔑 Arithmetic that holds: 200.00 × 11.5% = 23.00. A stub whose three terms
+  // disagree would let a real projection bug read as ordinary.
+  conditionBaseValue: 200,
   conditionRate: 11.5,
+  conditionRateUnit: '%',
   conditionValue: 23,
   conditionClass: 'B',
   conditionControl: 'A',
@@ -215,11 +224,16 @@ const line = (over = {}) => ({
 // ⚠️ Reconciled against the SHIPPED `IDocInspectorDocument` (ticket 300). The
 // property is `iDocType`, not `idocType` — SIS.Api sets no naming policy, so the
 // Web camelCase pass stops at the first uppercase run followed by a lowercase
-// letter. And there is no `billingType`, `paymentGroupId`, `splitAmount` or
-// `splitRatio`: 297 modelled those from 1381's prototype while 1388 was open, and
-// the payload carries none of them.
+// letter. And there is no `paymentGroupId`, `splitAmount` or `splitRatio`: 297
+// modelled those from 1381's prototype while 1388 was open, and the payload
+// carries none of them. `billingType` was a fourth until the DTO and the
+// projection grew it.
 const aggDocument = {
   iDocType: 'AGG',
+  // ⚠️ A REAL `BillingTypeConstants` member. They are WORDS, not the four-letter
+  // SAP codes the rest of this screen carries — a stub spelling it `ZAGG` would
+  // pass while telling the screen a lie about the shape of the vocabulary.
+  billingType: 'STANDARD_POS',
   receiptNumber: '4211900771',
   pharmacyId: '0421',
   exportState: 'exported',
@@ -690,6 +704,16 @@ async function run() {
     expansionText.replace(/\n/g, ' ').slice(0, 200),
   )
   check(
+    'a condition shows the BASE the rate was applied to, so the row can be checked',
+    /Base/i.test(expansionText) && /200\.00/.test(expansionText),
+    expansionText.replace(/\n/g, ' ').slice(0, 260),
+  )
+  check(
+    '⚠️ …and the rate carries its UNIT beside it — `11.50` alone is percent or riyals',
+    /11\.50\s*%/.test(expansionText.replace(/\n/g, ' ')),
+    expansionText.replace(/\n/g, ' ').slice(0, 260),
+  )
+  check(
     '🚩 IN PLACE — the expansion is a row of the SAME table as the line it opened',
     await page.evaluate(() => {
       const row = document.querySelector('[data-line="1"]')
@@ -863,8 +887,15 @@ async function run() {
     strip.replace(/\n/g, ' ').slice(0, 220),
   )
   check(
-    '🚩 the three fields the payload does NOT carry are gone — no `undefined`, no `0%` split',
-    !/undefined/i.test(strip) && !/Billing type/i.test(strip) && !/Payment group/i.test(strip),
+    '🚩 the two fields the payload STILL does not carry are gone — no `undefined`, no `0%` split',
+    !/undefined/i.test(strip) && !/Payment group/i.test(strip) && !/split/i.test(strip),
+    strip.replace(/\n/g, ' ').slice(0, 260),
+  )
+  check(
+    'the billing type is on the strip, raw, with the legend’s label beside it',
+    /Billing type/i.test(strip) &&
+      /STANDARD_POS/.test(strip) &&
+      /StandardPOS/.test(strip),
     strip.replace(/\n/g, ' ').slice(0, 260),
   )
 

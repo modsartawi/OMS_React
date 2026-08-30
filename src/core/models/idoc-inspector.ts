@@ -86,7 +86,19 @@ export interface IDocInspectorCondition {
    * when no description exists: the code renders alone and is **never invented**.
    */
   conditionTypeDescription: string | null
+  /** What the rate was applied TO — the amount the engine started from. Shown
+   *  beside the rate because a rate alone cannot be checked: only base × rate
+   *  against `conditionValue` says whether the arithmetic on this row holds. */
+  conditionBaseValue: number
   conditionRate: number
+  /** The rate's unit — `"%"` for a percentage, a currency for an absolute
+   *  amount, `""` when the row carries none.
+   *
+   *  ⚠️ **A rate is unreadable without it.** `11.5` is eleven and a half percent
+   *  or eleven riyals fifty, and the two differ by orders of magnitude on the
+   *  same column. Rendered as text beside the number, never formatted as money —
+   *  it is a unit, not an amount. */
+  conditionRateUnit: string
   conditionValue: number
   conditionClass: string
   conditionControl: string
@@ -166,14 +178,16 @@ export interface IDocInspectorFiItem {
  * `receiptNumber`). The payload is nested precisely so this client never learns
  * there are two key spaces to join.
  *
- * ⚠️ **Four fields 297 modelled are NOT on this payload and have been removed**
- * (ticket 300): `billingType`, `paymentGroupId`, `splitAmount` and `splitRatio`.
+ * ⚠️ **Three of the four fields 297 modelled are still NOT on this payload**
+ * (ticket 300 removed all four): `paymentGroupId`, `splitAmount` and `splitRatio`.
  * 297 was written while BackOffice 1388 was still open, from 1381's prototype
- * data rather than from a contract; the spec's own payload outline names none of
- * the four and the shipped `IDocInspectorDocument` carries none of them — so they
- * were about to render `undefined` and a `0%` split on every card. They come back
- * the day the server ships them and not before, and with them the billing-type
- * and payment-group vocabularies get a render site.
+ * data rather than from a contract; the shipped `IDocInspectorDocument` carried
+ * none of them — so they were about to render `undefined` and a `0%` split on
+ * every card. They come back the day the server ships them and not before.
+ *
+ * 🚩 `billingType` is the one that came back: the DTO and the projection now
+ * carry it, so it is modelled and rendered again — under the same rule that
+ * removed it, not against it.
  *
  * 🚩 `isHeld` landed with ticket 298, which is the slice that draws the held
  * marker — this file's rule that a field arrives when something first RENDERS it,
@@ -195,6 +209,18 @@ export interface IDocInspectorDocument {
   iDocType: string
   receiptNumber: string
   pharmacyId: string
+  /**
+   * The billing type this document was generated under — raw, with the legend's
+   * label beside it, exactly like `iDocType`.
+   *
+   * 🚩 **The tenth vocabulary to get a render site, and the reason the derived
+   * codes are readable.** `ConditionTypeCodeMapping` is overridable PER BILLING
+   * TYPE, so an empty `discTypeCode` on a condition below means "no mapping under
+   * *this* billing type" — a sentence that cannot be completed while the billing
+   * type is off screen. That is why it belongs on the document strip and not in a
+   * details drawer.
+   */
+  billingType: string
   exportState: IDocExportState
   /**
    * Was this document generated and then **held back from batching** (ticket 298,
@@ -283,11 +309,14 @@ export interface IDocInspectorCodeValue {
  * per-billing-type-configurable map, so a legend of them could disagree with the
  * persisted row, and a stored-versus-map disagreement is a finding, not a label.
  *
- * 🚩 Four of the nine have **no render site on this screen today**:
- * `billingType` and `paymentGroup` because the transaction payload carries
- * neither field, `errorType` and `workflowType` because 298 owns the banner and
- * the verdict strip that read them. They are modelled anyway — the shape is the
+ * 🚩 Three of the nine have **no render site on this screen today**:
+ * `paymentGroup` because the transaction payload still carries no such field,
+ * `errorType` and `workflowType` because 298's banner and verdict strip read
+ * them without labelling them. They are modelled anyway — the shape is the
  * server's, not this repo's to trim.
+ *
+ * `billingType` was a fourth until the document payload grew the field it
+ * labels; it is now read by the document attribute strip.
  */
 export interface IDocInspectorLegend {
   /** Which pipeline layer minted a row. Carries `""` — a pre-provenance row. */

@@ -243,6 +243,7 @@
     },
     "document": {
       "idocType": "IDoc type",
+      "billingType": "Billing type",
       "receipt": "Receipt",
       "pharmacy": "Pharmacy",
       "idocBatch": "IDoc batch",
@@ -280,6 +281,7 @@
         "seq": "Seq",
         "type": "Type",
         "meaning": "Meaning",
+        "base": "Base",
         "rate": "Rate",
         "value": "Value",
         "discCode": "Disc. code",

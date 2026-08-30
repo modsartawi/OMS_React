@@ -23,7 +23,11 @@ export function aCondition(over: Partial<IDocInspectorCondition> = {}): IDocInsp
     seq: 1,
     conditionType: 'ZPR0',
     conditionTypeDescription: 'Base price',
+    // 🔑 Arithmetic that actually holds: 200.00 × 11.5% = 23.00. A fixture whose
+    // base, rate and value disagree would make a real projection bug look normal.
+    conditionBaseValue: 200,
     conditionRate: 11.5,
+    conditionRateUnit: '%',
     conditionValue: 23,
     conditionClass: 'B',
     conditionControl: 'A',
@@ -58,6 +62,11 @@ export function aLine(over: Partial<IDocInspectorLine> = {}): IDocInspectorLine 
 export function aDocument(over: Partial<IDocInspectorDocument> = {}): IDocInspectorDocument {
   return {
     iDocType: 'AGG',
+    // ⚠️ A real member of `BillingTypeConstants` — the values are words, not the
+    // four-letter SAP codes the rest of this screen carries (`STANDARD_POS`,
+    // `Insurance`, `Wasfaty`, …). Same rule as `discTypeCode`: the interesting
+    // cases get asked for by name rather than invented in a fixture.
+    billingType: 'STANDARD_POS',
     receiptNumber: '4211900771',
     pharmacyId: '0421',
     exportState: 'exported',

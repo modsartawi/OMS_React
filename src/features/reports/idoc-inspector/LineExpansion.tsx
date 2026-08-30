@@ -113,6 +113,7 @@ export default function LineExpansion({
                 <th className={SUB_HEAD_CELL_START}>{t('idocInspector.expansion.head.seq')}</th>
                 <th className={SUB_HEAD_CELL_START}>{t('idocInspector.expansion.head.type')}</th>
                 <th className={SUB_HEAD_CELL_START}>{t('idocInspector.expansion.head.meaning')}</th>
+                <th className={SUB_HEAD_CELL_END}>{t('idocInspector.expansion.head.base')}</th>
                 <th className={SUB_HEAD_CELL_END}>{t('idocInspector.expansion.head.rate')}</th>
                 <th className={SUB_HEAD_CELL_END}>{t('idocInspector.expansion.head.value')}</th>
                 <th className={SUB_HEAD_CELL_START}>{t('idocInspector.expansion.head.discCode')}</th>
@@ -129,7 +130,7 @@ export default function LineExpansion({
                   <td className="px-1.5 py-1 font-mono tabular-nums">{condition.seq}</td>
                   {/* The raw condition type, and beside it the condition's CLASS
                       and CONTROL as two dotted marks carrying the legend's names.
-                      🚩 Marks, not columns: the expansion already has seven inside
+                      🚩 Marks, not columns: the expansion already has nine inside
                       a `colSpan` cell, and two more to show two near-constant
                       letters would cost the in-place shape the screen rests on.
                       This is the idiom 297 settled for the condition origin. */}
@@ -148,8 +149,27 @@ export default function LineExpansion({
                   <td className="px-1.5 py-1 text-muted-foreground">
                     {conditionTypeMeaning(condition.conditionTypeDescription) ?? ''}
                   </td>
+                  {/* What the rate was applied to. 🔑 Without it the row states a
+                      result no one can check: base × rate against the value beside
+                      it is the whole arithmetic of a pricing condition, and two of
+                      the three terms were on screen. */}
                   <td className="px-1.5 py-1 text-end tabular-nums">
-                    {formatMoney(condition.conditionRate)}
+                    {formatMoney(condition.conditionBaseValue)}
+                  </td>
+                  {/* ⚠️ The unit rides WITH the rate, in the same cell, because a
+                      bare `11.5` is eleven and a half percent or eleven-fifty in
+                      currency and the two differ by orders of magnitude. It is a
+                      unit, so it is printed verbatim and never money-formatted;
+                      `""` prints nothing rather than inventing a unit. */}
+                  <td className="px-1.5 py-1 text-end tabular-nums">
+                    <span className="inline-flex items-baseline justify-end gap-1">
+                      <span>{formatMoney(condition.conditionRate)}</span>
+                      {condition.conditionRateUnit === '' ? null : (
+                        <span className="text-[10px] font-normal text-muted-foreground">
+                          {condition.conditionRateUnit}
+                        </span>
+                      )}
+                    </span>
                   </td>
                   <td className="px-1.5 py-1 text-end tabular-nums">
                     {formatMoney(condition.conditionValue)}

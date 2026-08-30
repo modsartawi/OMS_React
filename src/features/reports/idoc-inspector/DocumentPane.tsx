@@ -39,12 +39,13 @@ export default function DocumentPane({
   const pane = documentPane(doc)
   const shownLines = filterLines(doc.lines, filterTag)
 
-  // ⚠️ **Three attributes 297 drew are gone** (ticket 300): the billing type, the
-  // payment group and the split. 297 modelled them from 1381's prototype data
-  // while BackOffice 1388 was still open; the spec's payload outline names none of
-  // them and the shipped `IDocInspectorDocument` carries none of them, so all
-  // three were rendering `undefined` — and two of them were the very codes this
-  // ticket was told to label. They come back the day the server ships them.
+  // ⚠️ **Two attributes 297 drew are still gone** (ticket 300): the payment group
+  // and the split. 297 modelled them from 1381's prototype data while BackOffice
+  // 1388 was still open; the shipped `IDocInspectorDocument` carries neither, so
+  // both were rendering `undefined`. They come back the day the server ships them.
+  //
+  // 🚩 The billing type is the third that HAS come back — the DTO and the
+  // projection now carry it, so it is drawn again, with its legend label.
   const attributes: { key: string; label: string; value: ReactNode }[] = [
     {
       // 🔑 The strip's one CODE, raw, with the legend's label beside it — the
@@ -54,6 +55,16 @@ export default function DocumentPane({
       key: 'idocType',
       label: t('idocInspector.document.idocType'),
       value: <CodeValue vocabulary="iDocType" code={doc.iDocType} className="text-[12px]" />,
+    },
+    {
+      // 🚩 Beside the IDoc type deliberately: together they say which serialiser
+      // ran and under which billing configuration, and it is the billing type
+      // that decides the `ConditionTypeCodeMapping` an unmapped disc code below
+      // was looked up in. On screen the pair reads as one fact; apart, the blank
+      // disc code downstairs is unexplainable.
+      key: 'billingType',
+      label: t('idocInspector.document.billingType'),
+      value: <CodeValue vocabulary="billingType" code={doc.billingType} className="text-[12px]" />,
     },
     { key: 'receipt', label: t('idocInspector.document.receipt'), value: doc.receiptNumber },
     { key: 'pharmacy', label: t('idocInspector.document.pharmacy'), value: doc.pharmacyId },

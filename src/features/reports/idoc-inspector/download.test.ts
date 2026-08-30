@@ -5,6 +5,7 @@ import { fallbackFileName, idocTypesPresent } from './download'
 
 const doc = (over: Partial<IDocInspectorDocument> = {}): IDocInspectorDocument => ({
   iDocType: 'AGG',
+  billingType: 'STANDARD_POS',
   receiptNumber: '4211900771',
   pharmacyId: '0421',
   exportState: 'exported',

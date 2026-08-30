@@ -9,6 +9,27 @@ react 19 · vite 8 · TypeScript · react-router 8 (data mode) · TanStack Query
 tailwind 4 + shadcn tokens · react-i18next (en-only, zero-literal) · AG Grid Community · sonner ·
 lucide. Package manager is **npm** (not pnpm — see README). Path alias `@/` → `src/`.
 
+## Working in this repo
+
+**Batch exploration — budget the round trips, not the reading.** Read as much of the repo as you
+need; under-reading is a worse failure than a slow session, and nothing here caps how much you look
+at. What is capped is the number of *calls* you spend looking. One Bash call may carry many reads —
+`cat a.tsx b.tsx; sed -n '1,80p' c.ts; grep -n X d.ts` is ONE call, and it puts more context in front
+of you in a single view than four calls do, so it is usually the better read as well as the faster
+one. Batch by default; a lone single-file read is the exception. Before a third consecutive
+single-file read, batch the next ten into one call. Genuinely sequential reads are fine — when file A
+tells you which file B to open, you could not have batched them; never *guess* at B to save a call.
+
+Measured on a comparable C# wave: ~93 one-line reads per session, ~15 of every ~40 minutes of
+wall-clock, nearly all of them batchable. Exploration round trips, not builds or tests, dominate a
+long slice.
+
+**Delegate wide searches, keep judgement.** If answering a question means sweeping many files or
+guessing at naming conventions ("where is this route registered", "what else uses this hook"), spawn
+one `Explore` subagent and keep its conclusion rather than walking the tree file by file. Do not
+delegate a question you must reason over in detail — a subagent returns a summary and the raw detail
+is lost. Correctness judgements, rules compliance and diff review stay yours.
+
 ## Commands
 
 - `npm run dev` — Vite dev server on :5173, proxies `/api` → SIS.Api on :5111.

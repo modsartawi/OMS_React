@@ -403,7 +403,24 @@ Follow this protocol strictly:
      and looks perfect in English.
    - api-envelope: every server call goes through src/core/api.ts. Do not hand-roll a fetch.
    - Path alias @/ maps to src/. Do not add deep relative import chains.
-5. How to verify - a green typecheck is NOT proof a screen works:
+5. BATCH EXPLORATION - BUDGET THE ROUND TRIPS, NOT THE READING. Read as much of the repo as
+   you need; under-reading is a worse failure than a slow session, and nothing here caps how
+   much you look at. What is capped is the number of CALLS you spend looking.
+   - One Bash call may carry MANY reads. `cat a.tsx b.tsx; sed -n '1,80p' c.ts; grep -n X d.ts`
+     is ONE call, and it puts MORE context in front of you in a single view than four calls do -
+     usually the better read, not just the faster one. Batch by DEFAULT; a lone single-file read
+     is the exception.
+   - Before a third consecutive single-file read, stop and batch the next ten into one call.
+   - Genuinely sequential reads are fine: when file A tells you which file B to open, you could
+     not have batched them. Never GUESS at B just to save a call.
+   - DELEGATE WIDE SEARCHES, KEEP JUDGEMENT. If a question means sweeping many files or guessing
+     at naming conventions ("where is this route registered", "what else uses this hook"), spawn
+     ONE Explore subagent and keep its conclusion instead of walking the tree file by file. Do
+     NOT delegate a question you must reason over in detail - a subagent returns a summary and
+     the raw detail is lost. Correctness judgements, rules compliance and diff review stay yours.
+   - Measured on a comparable wave: ~93 one-line reads per session, ~15 of every ~40 minutes of
+     wall-clock, nearly all batchable. Round trips - not builds, not tests - dominate a long slice.
+6. How to verify - a green typecheck is NOT proof a screen works:
    - `npm run typecheck` is the fast inner loop; run it continuously.
    - `npm test` is vitest (node environment, src/**/*.test.ts). React Testing Library is
      deliberately NOT installed: pure modules are where regression is silent, components are thin
@@ -425,28 +442,28 @@ Follow this protocol strictly:
    - Pre-existing baseline for this wave, measured when this runner was generated -
      anything at or below this is NOT yours to fix:
 {{BASELINE_FACTS}}
-6. Proof checkboxes marked OWNER, manual-smoke, or needing a live backend are NOT yours: leave them
+7. Proof checkboxes marked OWNER, manual-smoke, or needing a live backend are NOT yours: leave them
    unchecked, list them as outstanding in the ticket, and never fake or simulate them. In this wave
    that is {{OWNER_PROOF_ITEMS}}. The ticket may still complete AFK with those open; every OTHER
    Proof box must be real, written, and green.
-7. Finish the /implement skill's own review step (built-in /code-review, then /standards-review)
+8. Finish the /implement skill's own review step (built-in /code-review, then /standards-review)
    before you close the ticket. An INDEPENDENT /standards-review runs in a separate session right
    after this one against $baseSha, and its report lands in .afk\REVIEW-$t.md - so leave the commit
    in a state you would be happy to have reviewed cold.
-8. Stage NARROWLY when you commit: your slice's files only. Do not commit .afk\ artifacts, drive
+9. Stage NARROWLY when you commit: your slice's files only. Do not commit .afk\ artifacts, drive
    screenshots, dist\, or anything you did not write for this ticket. Commit onto the CURRENT
    branch; never switch or create a branch.
-9. BLOCKER = you cannot proceed safely at all: the spec contradicts itself, a required file or
-   dependency is missing or unfetchable, the tickets are not on this branch, a slice would need a
-   new npm dependency, or any choice risks breaking unrelated shipped behavior. On a blocker:
-   - Log it to $hitlDoc under '## BLOCKER: <title>' with what you tried and what a human must
-     decide.
-   - STOP: do not complete the ticket, do not commit, leave the working tree in a clean
-     understandable state, and end your final message with the exact line: AFK-BLOCKED
-10. On success, the VERY LAST line of your final message must be exactly: AFK-DONE
+10. BLOCKER = you cannot proceed safely at all: the spec contradicts itself, a required file or
+    dependency is missing or unfetchable, the tickets are not on this branch, a slice would need a
+    new npm dependency, or any choice risks breaking unrelated shipped behavior. On a blocker:
+    - Log it to $hitlDoc under '## BLOCKER: <title>' with what you tried and what a human must
+      decide.
+    - STOP: do not complete the ticket, do not commit, leave the working tree in a clean
+      understandable state, and end your final message with the exact line: AFK-BLOCKED
+11. On success, the VERY LAST line of your final message must be exactly: AFK-DONE
     Nothing after it - no closing thought, no note for the next slice, no sign-off. Write whatever
     summary you like ABOVE it, then that line alone.
-11. Do not push and do not open a PR. Committing is allowed only if the /implement skill itself
+12. Do not push and do not open a PR. Committing is allowed only if the /implement skill itself
     says to commit.
 "@
 

@@ -310,17 +310,22 @@ export function profileFormIsStale(
  * The refusal codes the profile command recognises **by name**, and the field
  * each one belongs against.
  *
- * ⚠️ **Design intent, not observed.** The backend half of spec 301 is unwritten
- * and unnumbered, so none of these codes has been minted yet — this map and
- * `REFUSAL_KEYS` in `member-commands.ts` are the two lines to reconcile when it
- * is. A wrong guess is cheap by construction: an unrecognised refusal still
+ * 🚩 **RECONCILED AGAINST THE SHIPPED DOOR** — these were the guessed
+ * `LOY-00106` / `LOY-00107`, and both were wrong. The door reuses the module's
+ * EXISTING lookup refusals rather than minting new ones
+ * (`GetAndValidateCountryCode` and `GetAndValidateCityCode`), which is the whole
+ * reason the profile command added no code for either. This map and
+ * `REFUSAL_KEYS` in `member-commands.ts` were the two lines to reconcile; they
+ * are reconciled together.
+ *
+ * A wrong code stays cheap by construction: an unrecognised refusal still
  * surfaces the **server's own sentence** (`.claude/rules/api-envelope.md`), so
  * the only thing at stake is which control is marked, never whether the analyst
  * is told what happened.
  */
 const REFUSED_FIELDS: Record<string, ProfileField> = {
-  'LOY-00106': 'nationality',
-  'LOY-00107': 'cityCode',
+  'LOY-00003': 'nationality',
+  'LOY-00005': 'cityCode',
 }
 
 /**
@@ -337,8 +342,10 @@ export function profileRefusedField(err: unknown): ProfileField | null {
 }
 
 /** The code the door answers when the member has moved on since the form was
- *  opened. Design intent, like the two above. */
-export const MEMBER_CHANGED_CODE = 'LOY-00108'
+ *  opened: `LoyaltyErrorCodes.MemberChangedSinceLoaded`, thrown by
+ *  `LoyMemberAdminService.GuardAgainstStaleWrite` and the ONE code BackOffice
+ *  spec 1397 mints in its whole effort. Was guessed as `LOY-00108`. */
+export const MEMBER_CHANGED_CODE = 'LOY-00103'
 
 /**
  * Whether a refusal is the **stale-write** one.

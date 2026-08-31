@@ -92,39 +92,56 @@ export function selectableBlockedReasons(
 /**
  * The refusal codes this screen recognises **by name**, and the key each earns.
  *
- * 🚩 `LOY-00100` is observed — it is the miss the resolution cascade already
- * branches on. **`LOY-00105` is design intent**: the backend half of spec 301 is
- * unwritten and unnumbered, so no code for an invalid blocked reason has been
- * minted yet. This map is the single line to reconcile when it is.
+ * 🚩 **RECONCILED AGAINST THE SHIPPED DOOR** (BackOffice spec 1397, tickets
+ * 1399–1404). Every code here was previously *design intent* — a guessed
+ * `LOY-001xx` block written while the backend half was unnumbered — and every
+ * guess but `LOY-00100` was wrong. Each one below is now read off the throw site
+ * in `Sartawi.Retail.Data/Modules/Loy`.
+ *
+ * 🔑 **Why no guess could have been right.** The door mints exactly ONE new
+ * code in its whole effort — the stale write, `LOY-00103`, the next free slot
+ * after the module's `00100`/`00101`/`00102`. Every other refusal deliberately
+ * reuses a number the module already had, from wherever in the range it happens
+ * to live: `LOY-00002`, `LOY-00004`, `LOY-00429` for the mobile, `LOY-00003` /
+ * `LOY-00005` for the two lookups, `LOY-00453` for the blocked reason. So the
+ * set is not a block and never will be — a future refusal's code has to be read
+ * off `LoyaltyErrorCodes`, never predicted from the last one.
  *
  * Module-private: the one legal way to read it is `commandRefusalKey` below, so
  * a call site cannot start indexing it with a code the function would have
  * degraded safely.
  *
- * A wrong guess is cheap by construction: an unrecognised code still surfaces
+ * A wrong code stays cheap by construction: an unrecognised one still surfaces
  * the **server's own sentence** (the api-envelope rule), so the only thing at
  * stake is the screen's extra wording — never whether the analyst is told what
- * happened.
+ * happened. ⚠ For the stale write that stake is higher than for the others: an
+ * unrecognised one loses the **reload** offer, which is the only useful response
+ * to it.
  */
 const REFUSAL_KEYS: Record<string, string> = {
   'LOY-00100': 'command.refusal.noSuchMember',
-  'LOY-00105': 'command.refusal.invalidBlockedReason',
-  // The profile command's three (ticket 304), design intent on the same terms.
-  // 🚩 `LOY-00108` is the **stale-write** refusal, and it is the one the screen
-  // treats as a fact rather than a failure: the caller pairs its wording with a
-  // reload rather than a retry (`isStaleProfileRefusal`).
-  'LOY-00106': 'command.refusal.invalidNationality',
-  'LOY-00107': 'command.refusal.invalidCity',
-  'LOY-00108': 'command.refusal.memberChanged',
-  // The mobile command's three (ticket 305), design intent on the same terms.
+  // `MemberBlockedReasonNoExists` — far outside the member block, which is why
+  // it could not have been guessed (ticket 303 / BackOffice 1399).
+  'LOY-00453': 'command.refusal.invalidBlockedReason',
+  // The profile command's three (ticket 304 / BackOffice 1401). 🚩 `LOY-00103`
+  // is the **stale-write** refusal — the door's one new code — and the one the
+  // screen treats as a fact rather than a failure: the caller pairs its wording
+  // with a reload rather than a retry (`isStaleProfileRefusal`). The other two
+  // are the module's EXISTING lookup refusals, which the door reuses unchanged
+  // precisely so that no new code is minted for them.
+  'LOY-00003': 'command.refusal.invalidNationality',
+  'LOY-00005': 'command.refusal.invalidCity',
+  'LOY-00103': 'command.refusal.memberChanged',
+  // The mobile command's three (ticket 305 / BackOffice 1400), all three of them
+  // codes the module has had for years.
   // 🚩 **Three codes, three keys, and never one shared "it failed".** A number
   // held by another member is a COLLISION, not a format problem; the number the
   // member already has is a no-op that must not write a **member update
   // snapshot**; an unparseable one is a typo caught before anything is written.
   // An analyst who cannot tell the three apart cannot act on any of them.
-  'LOY-00109': 'command.refusal.mobileAlreadyUsed',
-  'LOY-00110': 'command.refusal.sameMobile',
-  'LOY-00111': 'command.refusal.invalidMobile',
+  'LOY-00002': 'command.refusal.mobileAlreadyUsed',
+  'LOY-00429': 'command.refusal.sameMobile',
+  'LOY-00004': 'command.refusal.invalidMobile',
 }
 
 /**

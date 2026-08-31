@@ -261,7 +261,7 @@ export const loyCommandApi = {
    * `LoyWeb` door exists to avoid.
    *
    * 🚩 The body carries the member's **last-update echo**, and the door refuses
-   * with `LOY-00108` when the member has moved on. That refusal is not an error:
+   * with `LOY-00103` when the member has moved on. That refusal is not an error:
    * it says the member changed underneath you, and the screen offers a reload.
    * The narrow commands carry no such token — they write one dimension and the
    * server reads the member fresh.

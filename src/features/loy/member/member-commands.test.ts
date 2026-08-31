@@ -128,9 +128,34 @@ describe('commandRefusalKey — the codes the screen recognises by name', () => 
 
   it('names the two refusals this command can meet', () => {
     expect(commandRefusalKey(refusal('LOY-00100'))).toBe('command.refusal.noSuchMember')
-    expect(commandRefusalKey(refusal('LOY-00105'))).toBe(
+    // `MemberBlockedReasonNoExists`, read off the shipped door. It sits far
+    // outside the member block the guessed code assumed, which is exactly why
+    // guessing could not have landed it.
+    expect(commandRefusalKey(refusal('LOY-00453'))).toBe(
       'command.refusal.invalidBlockedReason',
     )
+  })
+
+  it('🚩 the retired GUESSES are not recognised — the reconciliation is one-way', () => {
+    // The whole `LOY-001xx` block was invented while the backend half was
+    // unnumbered, and every one of these was wrong. Leaving them behind
+    // "just in case" would be worse than removing them: the screen would put
+    // confident wording in front of a refusal it had not actually met, and the
+    // next reader would take the block for something the server answers with.
+    //
+    // ⚠ MUTATION CHECK: restoring any retired code to `REFUSAL_KEYS` turns
+    // this red.
+    for (const retired of [
+      'LOY-00105',
+      'LOY-00106',
+      'LOY-00107',
+      'LOY-00108',
+      'LOY-00109',
+      'LOY-00110',
+      'LOY-00111',
+    ]) {
+      expect(commandRefusalKey(refusal(retired))).toBeNull()
+    }
   })
 
   it('🚩 returns null for a code it does not know — the server’s sentence still speaks', () => {

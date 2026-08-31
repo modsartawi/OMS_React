@@ -24,10 +24,14 @@ describe('eachRefusalIsNamedAsItselfRatherThanAsAFailure', () => {
     // A collision is not a format problem and a no-op is not a collision. The
     // analyst has to know which of the three problems they have, so the three
     // codes map to three distinct keys and never to one shared "it failed".
+    // The module's own long-standing codes — `MobileAlreadyExists`,
+    // `SameMobile`, `MobileFormatError` — which the door reuses rather than
+    // minting new ones. They were guessed as a tidy `00109`/`00110`/`00111`
+    // block; the real three are nowhere near each other.
     const keys = [
-      commandRefusalKey(refusal('LOY-00109')),
-      commandRefusalKey(refusal('LOY-00110')),
-      commandRefusalKey(refusal('LOY-00111')),
+      commandRefusalKey(refusal('LOY-00002')),
+      commandRefusalKey(refusal('LOY-00429')),
+      commandRefusalKey(refusal('LOY-00004')),
     ]
     expect(keys).toEqual([
       'command.refusal.mobileAlreadyUsed',
@@ -43,23 +47,24 @@ describe('eachRefusalIsNamedAsItselfRatherThanAsAFailure', () => {
     // refusal. Every key it can return is distinct.
     const all = [
       'LOY-00100',
-      'LOY-00105',
-      'LOY-00106',
-      'LOY-00107',
-      'LOY-00108',
-      'LOY-00109',
-      'LOY-00110',
-      'LOY-00111',
+      'LOY-00453',
+      'LOY-00003',
+      'LOY-00005',
+      'LOY-00103',
+      'LOY-00002',
+      'LOY-00429',
+      'LOY-00004',
     ].map((code) => commandRefusalKey(refusal(code)))
     expect(all.every((key) => key !== null)).toBe(true)
     expect(new Set(all).size).toBe(all.length)
   })
 
   it('🚩 falls back to the SERVER’s own sentence for a code it does not know', () => {
-    // The backend half of spec 301 is unwritten, so these three codes are design
-    // intent. The wrong-guess cost is the screen's extra wording and nothing
-    // else: an unrecognised refusal is still explained in the server's words
-    // rather than as a generic failure (`.claude/rules/api-envelope.md`).
+    // The three codes are now read off the shipped door, but the fallback is
+    // what kept the wrong guesses cheap for as long as they stood, and it is
+    // what will keep the NEXT unmapped refusal cheap: an unrecognised one is
+    // still explained in the server's words rather than as a generic failure
+    // (`.claude/rules/api-envelope.md`).
     const t = (key: string, params?: Record<string, unknown>) =>
       key === 'command.refusal.pair' ? `${params!.named} ${params!.said}` : key
     expect(commandRefusalKey(refusal('LOY-99999'))).toBeNull()
@@ -67,7 +72,7 @@ describe('eachRefusalIsNamedAsItselfRatherThanAsAFailure', () => {
       'the server sentence',
     )
     // And a recognised one says BOTH — the screen's wording and the server's.
-    expect(commandRefusalText(refusal('LOY-00109'), 'a generic fallback', t)).toBe(
+    expect(commandRefusalText(refusal('LOY-00002'), 'a generic fallback', t)).toBe(
       'command.refusal.mobileAlreadyUsed the server sentence',
     )
   })

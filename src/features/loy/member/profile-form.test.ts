@@ -214,8 +214,11 @@ describe('aStaleFormIsRefusedRatherThanClobbering', () => {
   })
 
   it('marks a refused field against the control that caused it', () => {
-    expect(profileRefusedField(refusal('LOY-00106'))).toBe('nationality')
-    expect(profileRefusedField(refusal('LOY-00107'))).toBe('cityCode')
+    // The module's EXISTING lookup refusals — `CountryCodeNotExists` and
+    // `CityCodeNotExists` — which the profile command reuses, which is why it
+    // mints no code of its own for either. Guessed as `00106`/`00107`.
+    expect(profileRefusedField(refusal('LOY-00003'))).toBe('nationality')
+    expect(profileRefusedField(refusal('LOY-00005'))).toBe('cityCode')
     // A refusal that belongs against no single field marks none — the server's
     // own sentence still speaks for it.
     expect(profileRefusedField(refusal('LOY-00100'))).toBeNull()

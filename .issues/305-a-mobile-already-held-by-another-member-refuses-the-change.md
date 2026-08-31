@@ -135,6 +135,20 @@ recorded:
    where story 22 promised the two are separate. Reloading recovers, at the cost of the edits.
    The stale guard is **304's**, and the honest fix is there (or in the door: whether a narrow
    command bumps `lastUpdate` at all is a BackOffice question). Not silently patched here.
+
+   ✅ **SETTLED 2026-08-31, in 304's code, after it was reported from the live form.** The owner
+   chose the client-side half: the door keeps stamping `UpdatedAt` on every narrow command, and
+   `ProfileForm` stops reading a moved stamp as a clash. `profileStampVerdict` asks *did anything
+   this form stands on move* rather than *did the stamp move* — the form owns nine fields and the
+   mobile is not among them, so a mobile change, a removal, a block or an unblock leaves a stamp to
+   be **adopted silently**, with the draft kept. A move in any of the nine is still `stale` and
+   still banners.
+   🔑 Comparing the seeded nine against the stored nine settles it for a case no
+   mutation-watching could reach: a **different** analyst who changed only the mobile is exactly as
+   harmless to a name correction, and equally deserves no banner.
+   ⚠ The adoption is not cosmetic. Without it the form kept echoing the superseded stamp and the
+   next Save met the real refusal — which, until the same day, the screen could not even recognise
+   by name: it was mapped as `LOY-00108` and the door mints `LOY-00103`.
 2. ⚠️ **`mobileCountry` is nobody's yet.** The client never sends it — normalisation decides it and
    a client that sent one would be guessing. Spec 301 rules on the column only for *removal*; what a
    **change** does to it is a question for the BackOffice spec, recorded at the call site.

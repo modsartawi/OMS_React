@@ -110,10 +110,13 @@ export default function ProfileTab({
             //
             // 🚩 The **email** and nothing else. The form holds no mobile — that
             // is 305's own control — so a mobile removal cannot resurrect
-            // anything from here. The stale `lastUpdate` a sibling command leaves
-            // behind is a real and separate problem, recorded against 304/305 and
-            // true of every command on this tab; half-fixing it for one of them
-            // here would leave the screen with two answers to one question.
+            // anything from here.
+            //
+            // The stale `lastUpdate` a sibling command used to leave behind (305's
+            // residual 1) is settled, and NOT here: the form adopts a stamp that
+            // moved with none of its nine fields behind it, so every command on
+            // this tab is covered by one rule rather than this key growing a
+            // second and a third dependency. See `profileStampVerdict`.
             key={`${formGeneration}:${member.email ?? ''}`}
             member={member}
             onReseed={() => setFormGeneration((generation) => generation + 1)}

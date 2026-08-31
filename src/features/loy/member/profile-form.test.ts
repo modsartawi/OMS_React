@@ -17,6 +17,7 @@ import {
   profileDraftOf,
   profileFormIsStale,
   profileProblems,
+  profileStampVerdict,
   profileRefusedField,
   profileUpdateRequest,
 } from './profile-form'
@@ -248,5 +249,73 @@ describe('aMemberWithNoStampIsAFormWithNoClashDetection', () => {
     // The field is SENT, blank, rather than dropped: an absent key would leave
     // the door unable to tell "no stamp" from "a client that forgot one".
     expect(Object.keys(body)).toContain('lastUpdate')
+  })
+})
+
+// ---------------------------------------------------------------------------
+
+describe('aSiblingCommandDoesNotMakeTheFormCryWolf', () => {
+  const opened = '2026-07-31T09:12:00'
+  const moved = '2026-08-30T11:04:00'
+  const seeded = profileDraftOf(member())
+
+  it('🚩 a mobile change, a block or a removal leaves the stamp to be ADOPTED', () => {
+    // The bug this exists for, reported from the live form: an analyst changes a
+    // mobile, the door bumps `UpdatedAt` for it, the member re-reads, and the
+    // profile form beside it announces that the member changed while they had it
+    // open. It did — because of them, seconds ago, on a field this form does
+    // not even draw. None of the nine moved, so the stamp is news about nothing.
+    expect(profileStampVerdict(opened, moved, seeded, seeded)).toBe('adopt')
+  })
+
+  it('🚩 and adopting is not cosmetic — without it the next Save is refused', () => {
+    // The half that makes this more than a hidden banner. `openedOn` is what the
+    // command echoes, so a form left holding the superseded stamp meets
+    // LOY-00103 on its next Save — a stale-write refusal raised against a member
+    // nobody disagreed with the analyst about. The verdict is what lets the form
+    // move its echo forward.
+    expect(profileUpdateRequest(seeded, moved).lastUpdate).toBe(moved)
+    expect(profileStampVerdict(moved, moved, seeded, seeded)).toBe('unmoved')
+  })
+
+  it('🚩 a REAL edit to one of the nine is still stale — the warning is not weakened', () => {
+    // The whole risk of this change: quieting the false alarm must not quiet the
+    // true one. One field moved in storage and the banner stands, whichever of
+    // the nine it was.
+    for (const field of PROFILE_FIELDS.map((f) => f.key)) {
+      const stored = { ...seeded, [field]: 'moved by somebody else' }
+      expect(profileStampVerdict(opened, moved, seeded, stored)).toBe('stale')
+    }
+  })
+
+  it('🔑 it is about the FIELDS, not about who moved them', () => {
+    // No mutation-watching could have answered this one: a DIFFERENT analyst who
+    // changed only the mobile is exactly as harmless to a name correction as
+    // this analyst doing it, and equally deserves no banner. Comparing the
+    // seeded nine against the stored nine covers both without the screen ever
+    // having to know whose command it was.
+    const blockedElsewhere = profileDraftOf(member())
+    expect(profileStampVerdict(opened, moved, seeded, blockedElsewhere)).toBe('adopt')
+  })
+
+  it('an unmoved stamp is unmoved whatever the fields say', () => {
+    // Ordering matters: the stamp is asked first, so a member re-read that
+    // brought back different values WITHOUT a new stamp is not this function's
+    // problem to report — it cannot happen, and inventing a verdict for it
+    // would be a warning the screen made up.
+    expect(profileStampVerdict(opened, opened, seeded, { ...seeded, cityCode: 'JED' })).toBe(
+      'unmoved',
+    )
+    expect(profileStampVerdict(null, moved, seeded, seeded)).toBe('unmoved')
+    expect(profileStampVerdict(opened, '', seeded, seeded)).toBe('unmoved')
+  })
+
+  it('⚠ a trimmed-only difference is not a moved field', () => {
+    // `dirtyProfileFields` compares trimmed, and this leans on that: a stored
+    // value that gained a space is not somebody's edit, and a form that treated
+    // it as one would put the banner back for a keystroke nobody made.
+    expect(
+      profileStampVerdict(opened, moved, seeded, { ...seeded, fullName: '  Nouf Al-Harbi ' }),
+    ).toBe('adopt')
   })
 })

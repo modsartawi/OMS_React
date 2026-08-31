@@ -22,9 +22,9 @@ import {
   dirtyProfileFields,
   isStaleProfileRefusal,
   profileDraftOf,
-  profileFormIsStale,
   profileProblems,
   profileRefusedField,
+  profileStampVerdict,
   profileUpdateRequest,
 } from './profile-form'
 
@@ -152,7 +152,26 @@ export default function ProfileForm({
   // `undefined`, `JSON.stringify` drops the field, and the stale-write guard
   // silently becomes a no-op. A blank echo says *this form has no stamp* in the
   // one spelling the guard already reads as "cannot tell".
+  /**
+   * What the member's stamp having moved means for this form — the decision
+   * itself lives in `profile-form.ts` under vitest, like every other one here.
+   */
+  const stampVerdict = profileStampVerdict(
+    seed.lastUpdate,
+    member.lastUpdate,
+    seed.values,
+    profileDraftOf(member),
+  )
+
   if (awaitingStamp && !rereading)
+    setSeed((current) => ({ ...current, lastUpdate: stampOf(member.lastUpdate) }))
+  // 🚩 The stamp moved and none of the nine fields did — a mobile change, a
+  // removal, a block, an unblock, whoever ran it. Adopt it and say nothing: the
+  // draft is untouched, and leaving the superseded stamp behind would have the
+  // analyst's next Save refused `LOY-00103` by a member nobody disagreed with
+  // them about. Terminates for the same reason the branch above does — the
+  // adopted value is exactly what the next `profileFormIsStale` compares against.
+  else if (stampVerdict === 'adopt')
     setSeed((current) => ({ ...current, lastUpdate: stampOf(member.lastUpdate) }))
 
   const openedOn = seed.lastUpdate ?? stampOf(member.lastUpdate)
@@ -208,11 +227,13 @@ export default function ProfileForm({
    *  a remount, never by pressing the same button again. */
   const grantRefused = save.error instanceof ApiError && save.error.statusCode === 403
 
-  /** The member moved while the form was open — the clash the screen can see
-   *  for itself. The server's refusal remains the authority; this is the same
-   *  news arriving earlier, and it never disarms Save: a stamp the door has
-   *  reformatted must not be able to strand an analyst's edits. */
-  const staleNow = profileFormIsStale(seed.lastUpdate, member.lastUpdate)
+  /** The member moved while the form was open, **in a field this form owns**
+   *  — the clash the screen can see for itself. The server's refusal remains the
+   *  authority; this is the same news arriving earlier, and it never disarms
+   *  Save: a stamp the door has reformatted must not be able to strand an
+   *  analyst's edits. A stamp that moved with none of the nine behind it is not
+   *  this — it was adopted above, and saying nothing is the point. */
+  const staleNow = stampVerdict === 'stale'
   const staleRefused = isStaleProfileRefusal(save.error)
 
   /** How a refusal is said — the wave's ONE refusal reader, shared with the

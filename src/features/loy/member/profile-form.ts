@@ -307,6 +307,50 @@ export function profileFormIsStale(
 }
 
 /**
+ * What a moved stamp MEANS for this form: nothing, a stamp to adopt quietly, or
+ * news the analyst has to see.
+ *
+ * 🚩 **A moved stamp is not by itself a clash**, and treating it as one is what
+ * made the screen cry wolf. The form owns NINE fields and no others: the mobile
+ * belongs to its own command, and so do the block, the unblock and both contact
+ * removals. Every one of those writes bumps the member's `UpdatedAt` server-side
+ * (`SetMemberUpdatedFields`), so an analyst who changed a mobile and then looked
+ * at the profile form was told *the member changed while you had this open*
+ * — about **their own command**, worded as a colleague's edit, on the tab where
+ * story 22 promised the two are separate.
+ *
+ * 🔑 So the question is not *did the stamp move* but *did anything this form
+ * stands on move with it*. Comparing the seeded nine against the stored nine
+ * answers it exactly, and answers it for the case no mutation-watching could:
+ * a DIFFERENT analyst who changed only the mobile is equally harmless to a
+ * name correction, and equally deserves no banner.
+ *
+ * - `unmoved` — the stamp is where the form left it.
+ * - `adopt` — it moved and none of the nine did. The caller takes the new stamp
+ *   silently and **keeps the draft**: nothing the analyst typed conflicts with
+ *   what happened, and without the adoption their next Save would carry the
+ *   superseded stamp and meet `LOY-00103` for no reason.
+ * - `stale` — it moved and so did at least one of the nine. The draft may be
+ *   standing on values somebody replaced, so the banner and its reload stand.
+ *
+ * ⚠ `adopt` is deliberately NOT conditioned on the draft being clean. The
+ * analyst's typing is preserved either way — only the stamp is replaced — and
+ * discarding edits because a colleague blocked the member would be the same
+ * false alarm arriving by a different door.
+ */
+export type ProfileStampVerdict = 'unmoved' | 'adopt' | 'stale'
+
+export function profileStampVerdict(
+  openedOn: string | null | undefined,
+  current: string | null | undefined,
+  seedValues: ProfileDraft,
+  stored: ProfileDraft,
+): ProfileStampVerdict {
+  if (!profileFormIsStale(openedOn, current)) return 'unmoved'
+  return dirtyProfileFields(seedValues, stored).length === 0 ? 'adopt' : 'stale'
+}
+
+/**
  * The refusal codes the profile command recognises **by name**, and the field
  * each one belongs against.
  *

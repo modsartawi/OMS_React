@@ -8,12 +8,18 @@ import type {
   UaReportCountsResult,
   UaSessionModel,
 } from '@/core/models/ua-user'
+import type { RoleCatalogEntry } from '@/core/models/authz-admin'
 
 import { skipForPage } from '@/core/ui/pager'
 
 import { PAGE_SIZE } from './page-size'
 
 const BASE = 'UaAdminWeb'
+// The two role doors bulk create needs live on the Authz surface. Called here,
+// not imported from `authz-admin` — features never import features; the endpoint
+// string is the only thing shared. Both are gated on the AuthzAdmin screen grant
+// server-side, so an admin without it gets a coded refusal, not a silent skip.
+const AUTHZ = 'AuthzAdminWeb'
 const encode = (segment: string) => encodeURIComponent(segment)
 
 // The people reads offset-page: both endpoints already bind `skip` and clamp
@@ -71,5 +77,14 @@ export const uaAdminApi = {
   },
   revokeSession(sessionId: string): Promise<unknown> {
     return api.post(`${BASE}/Sessions/Revoke`, { sessionId })
+  },
+
+  // ----- bulk create (External identities) --------------------------------
+  roleCatalog(): Promise<RoleCatalogEntry[]> {
+    return api.get<RoleCatalogEntry[]>(`${AUTHZ}/Roles`)
+  },
+  /** First assignment auto-creates the UaUser shell from the identity just upserted. */
+  assignRole(userId: string, roleName: string): Promise<unknown> {
+    return api.post(`${AUTHZ}/Users/AssignRole`, { userId, roleName })
   },
 }

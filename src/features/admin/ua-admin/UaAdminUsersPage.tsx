@@ -27,6 +27,7 @@ import StatusPill from './StatusPill'
 import ChannelPill from './ChannelPill'
 import UserDetailPane from './UserDetailPane'
 import NewIdentityModal from './NewIdentityModal'
+import BulkCreateModal from './BulkCreateModal'
 
 /**
  * The 1-based page is a FIELD of the query, not separate state (ticket 148). That
@@ -47,6 +48,7 @@ export default function UaAdminUsersPage() {
   const [query, setQuery] = useState<Query | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newOpen, setNewOpen] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   // A ref, not state: the running walk polls this between pages, and it must see
   // the click immediately rather than on the next render.
@@ -287,6 +289,14 @@ export default function UaAdminUsersPage() {
           {exporting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           {t('export.button')}
         </button>
+        {/* Same stance as the export: no permission check of its own. The server
+            gates the create door on UaUsers and the role doors on AuthzAdmin. */}
+        <button
+          className="inline-flex h-9 items-center rounded-full border border-input px-4 text-sm font-medium hover:bg-accent"
+          onClick={() => setBulkOpen(true)}
+        >
+          {t('bulkCreate')}
+        </button>
         <button
           className="inline-flex h-9 items-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/85"
           onClick={() => setNewOpen(true)}
@@ -443,6 +453,8 @@ export default function UaAdminUsersPage() {
           )}
         </div>
       </div>
+
+      <BulkCreateModal open={bulkOpen} onClose={() => setBulkOpen(false)} onChanged={refreshLists} />
 
       <NewIdentityModal
         open={newOpen}

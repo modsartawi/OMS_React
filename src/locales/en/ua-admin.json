@@ -13,6 +13,72 @@
     "hint": "Nothing loads until you search or open a report card — results are a server query, walked 50 rows to a page."
   },
   "newIdentity": "+ New identity",
+  "bulkCreate": "Bulk create…",
+  "bulk": {
+    "title": "Bulk create external identities",
+    "intro": "Upload a CSV with columns Employee id, Name, Email and (optionally) Role. Each person is created active, with codes sent by email and no password — their first login walks them through self-activation. An id that already exists is skipped, never changed.",
+    "saveAsHint": "In Excel: File → Save As → CSV UTF-8.",
+    "chooseFile": "Choose CSV file",
+    "fileName": "File: {{name}}",
+    "rolesFailed": "Could not load the role catalog",
+    "checking": "Checking {{done}} of {{total}} ids against existing identities…",
+    "checkFailed": "Could not check existing identities",
+    "readError": {
+      "empty": "The file has no data rows under a header row.",
+      "missingColumns": "The file is missing required columns: {{columns}}."
+    },
+    "column": {
+      "employeeId": "Employee id",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role"
+    },
+    "grid": {
+      "line": "Line",
+      "employeeId": "Employee id",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "result": "Result",
+      "noRole": "(none)"
+    },
+    "summary": "{{ready}} to create · {{exists}} already exist · {{blocked}} blocked",
+    "resultSummary": "{{created}} created · {{roleFailed}} role not assigned · {{failed}} failed · {{exists}} skipped · {{blocked}} blocked",
+    "progress": "Creating {{done}} of {{total}}…",
+    "create": "Create {{count}} identities",
+    "retryRoles": "Retry role assignment ({{count}})",
+    "download": "Download results CSV",
+    "close": "Close",
+    "reset": "Choose another file",
+    "issue": {
+      "missingId": "Employee id is empty",
+      "missingName": "Name is empty",
+      "missingEmail": "Email is empty",
+      "badEmail": "Email is not well-formed",
+      "duplicateId": "Employee id appears more than once in the file",
+      "unknownRole": "Role is not in the catalog",
+      "protectedRole": "Admin roles cannot be assigned in bulk"
+    },
+    "outcome": {
+      "ready": "Ready",
+      "blocked": "Blocked",
+      "exists": "Already exists — skipped",
+      "created": "Created",
+      "roleFailed": "Created — role not assigned",
+      "failed": "Not created"
+    },
+    "unexpected": "Unexpected error.",
+    "doneToast": "Bulk create finished",
+    "doneToastDetail": "{{created}} created, {{problems}} need attention.",
+    "csv": {
+      "employeeId": "Employee id",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "outcome": "Outcome",
+      "message": "Message"
+    }
+  },
   "cards": {
     "all": "People",
     "notSeeded": "Not seeded",

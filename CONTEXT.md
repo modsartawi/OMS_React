@@ -95,6 +95,16 @@ the Disabled card, and it does **not** partition the estate with **awaiting acti
 temp-password people sit on neither.
 _Avoid_: active user (means live *sessions* to everyone else on this screen), enrolled, onboarded.
 
+**External identity**:
+A UA identity an administrator creates for someone outside the company — a sub-contractor, such as
+an outsourced call-center agent. There is no legacy `[User_]` row behind it, so it is never
+**Seeded**: it sits outside the cutover population and appears on no rollout card except All people.
+It activates like anyone else (first login, no credential, one-time code to its delivery
+destination), but nothing on the identity itself marks it as external — the record of who was
+brought in lives outside the identity.
+_Avoid_: contractor user (a *user* is the authorization record, not the person), new identity (the
+door for staff the SAP sync missed), vendor account.
+
 **Page** (of a list read):
 A fixed 50-row window of one query's match set, asked for by `skip` and walked with Previous / Next.
 The envelope's `isCapped` reads as **"a row exists beyond *this* page"** — it is the next-page flag,

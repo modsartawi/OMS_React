@@ -30,7 +30,8 @@
 #
 # Also deliberate: no `2>&1` on a native exe (in PS 5.1 that wraps stderr in ErrorRecords
 # and sets $? false on a clean exit 0), and the giant AFK system prompt travels as a FILE,
-# never as a quoted command-line argument.
+# never as a quoted command-line argument. The child still hands it to claude as ONE native
+# arg, so it escapes every embedded double quote first (see the child runner below).
 #
 # ---------------------------------------------------------------------------------------
 # WHAT EACH ROUND DOES
@@ -158,7 +159,11 @@ param(
     [string]$WorkDir
 )
 Set-Location $WorkDir
-$sys = Get-Content $SysPromptFile -Raw
+# Escape embedded double quotes. PS 5.1 wraps a whitespace-bearing native arg in quotes but does NOT
+# escape the quotes inside it, so the prompt shatters into many argv entries and claude dies on the
+# first fragment that starts with a dash ('error: unknown option'). -SmokeTest cannot catch it: its
+# own prompt has no quotes. Reproduced 2026-09-26 on BackOffice's spec 2030 runner before this fix.
+$sys = (Get-Content $SysPromptFile -Raw) -replace '"', '\"'
 claude -p $Prompt --model $Model --output-format stream-json --verbose --dangerously-skip-permissions --append-system-prompt $sys
 exit $LASTEXITCODE
 '@ | Out-File $runnerPath -Encoding utf8

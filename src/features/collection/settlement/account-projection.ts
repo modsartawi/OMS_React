@@ -59,6 +59,13 @@ export type PositionDirection = 'owes' | 'keeps' | 'square'
  * Only **open** entries count. A cancelled entry never was, a consumed one is
  * finished, and a written-off remainder is forgiven — including any of them would
  * make the headline a history rather than a position.
+ *
+ * 🚩 **And a pending or rejected surplus is not money either** (ticket 309, BackOffice
+ * spec 1976 story 14). A `PENDING_APPROVAL` entry waits for a supervisor and no till
+ * can see it; a `REJECTED` one never will. Counting either would tell a branch manager
+ * they may keep back money no close can take. They are counted **beside** the
+ * headline, as entries and never as a figure (`pendingCount`), so the accountant can
+ * see that something is waiting without the position pretending it is live.
  */
 export type AccountHeadline = {
   /** Open `SHORTAGE` remaining — what the branch must hand over. */
@@ -70,6 +77,9 @@ export type AccountHeadline = {
   direction: PositionDirection
   /** How many entries are still open, whatever their kind. */
   openCount: number
+  /** How many surpluses **wait for a supervisor** — a count and never a figure, and in
+   *  none of the three above. `0` draws nothing. */
+  pendingCount: number
 }
 
 export function accountHeadline(
@@ -78,8 +88,13 @@ export function accountHeadline(
   let shortageTotal = 0
   let surplusTotal = 0
   let openCount = 0
+  let pendingCount = 0
 
   for (const e of entries ?? []) {
+    if (e.status === 'PENDING_APPROVAL') pendingCount++
+    // 🔑 `OPEN` and nothing else — the one line that keeps a pending or a rejected
+    // surplus out of every figure below. An exclusion list (`!== 'CANCELLED' && …`)
+    // would have let 1976's two new states straight in.
     if (e.status !== 'OPEN') continue
     openCount++
     if (e.entryKind === 'SHORTAGE') shortageTotal += e.remainingAmount
@@ -96,6 +111,7 @@ export function accountHeadline(
     signedPosition,
     direction: signedPosition > 0 ? 'owes' : signedPosition < 0 ? 'keeps' : 'square',
     openCount,
+    pendingCount,
   }
 }
 
@@ -191,8 +207,12 @@ export function journalFor(
  * accountant forgave the remainder. Collapsing the two would tell a branch its money
  * was taken by a till when in fact it was written off — a different fact about where
  * the money went, and the one the branch will ask about.
+ *
+ * `rejected` (ticket 309) is a supervisor refusing a pending surplus — it never was
+ * open, and it is final. ⚠️ A `PENDING_APPROVAL` entry has **no** closure: it has not
+ * stopped being anything yet, and `isPending` says what it is instead.
  */
-export type EntryClosure = 'consumed' | 'cancelled' | 'written-off' | null
+export type EntryClosure = 'consumed' | 'cancelled' | 'written-off' | 'rejected' | null
 
 /**
  * One row of the entries grid: the wire entry, its journal, and the three things
@@ -207,6 +227,10 @@ export type AccountEntryRow = SettlementEntry & {
   journal: JournalRow[]
   journalCount: number
   isOpen: boolean
+  /** Waiting for an accountant supervisor (ticket 309) — neither open nor closed, and
+   *  labelled rather than dimmed: it is the one row on the account somebody still has
+   *  to act on. */
+  isPending: boolean
   closure: EntryClosure
   /** Any `CONSUME` row on this entry whose document will never arrive. Rule 1,
    *  lifted to the entry so a collapsed drilldown can still flag it. */
@@ -222,6 +246,10 @@ export type AccountEntryRow = SettlementEntry & {
    * happened*. `accountHeadline` already refuses to count it; this is the same
    * refusal one column over, so the grid and the headline cannot tell a reader two
    * different things about one entry.
+   *
+   * 🚩 **The same refusal for a pending and a rejected surplus** (ticket 309): the wire
+   * carries a remaining on both, and neither is a claim on anybody — one is not live
+   * yet and the other never will be. Its figure is in the Amount column.
    */
   displayRemaining: number | null
   /**
@@ -245,8 +273,39 @@ function closureOf(entry: SettlementEntry): EntryClosure {
       return 'cancelled'
     case 'CLOSED_OUT':
       return 'written-off'
+    case 'REJECTED':
+      return 'rejected'
+    case 'PENDING_APPROVAL':
+      return null
   }
 }
+
+/**
+ * Is this entry's remaining **a claim on anybody**? Not for a cancelled entry (it never
+ * happened), a pending one (not live yet) or a rejected one (never will be) — see
+ * `displayRemaining`. Exported so the ledger's grid (`entry-cells.ts`) reads the same
+ * one spelling rather than a second list that could miss the next new status.
+ */
+export function remainingIsAClaim(status: SettlementEntry['status'] | null | undefined): boolean {
+  // 🚩 A KEEP-list, for the reason `accountHeadline` gives: an exclusion list would
+  // read the next new status as a claim by default.
+  return status === 'OPEN' || status === 'CONSUMED' || status === 'CLOSED_OUT'
+}
+
+/**
+ * Is this row **dimmed** on a grid? Only an entry that has *ended* — consumed,
+ * cancelled, written off or rejected. `OPEN` is live, and a `PENDING_APPROVAL` surplus
+ * (309) has not ended: it is the one row a supervisor still has to act on. One
+ * spelling, read by the account's grid and the ledger's.
+ */
+export function isDimmed(status: SettlementEntry['status'] | null | undefined): boolean {
+  return !!status && status !== 'OPEN' && status !== 'PENDING_APPROVAL'
+}
+
+/** Landing order: what a phone call is about, then what a supervisor still has to
+ *  decide, then the history. */
+const landingRank = (row: { isOpen: boolean; isPending: boolean }) =>
+  row.isOpen ? 0 : row.isPending ? 1 : 2
 
 /**
  * The whole grid, from the account envelope's two flat arrays.
@@ -257,8 +316,8 @@ function closureOf(entry: SettlementEntry): EntryClosure {
  * server's read model warns about, and the fixture that will find it is a branch
  * with a year of history, not one of the six.
  *
- * Landing order is **open entries first, then closed**, newest posted first inside
- * each group, tie-broken by entry number so it is total. Open entries are what a
+ * Landing order is **open entries first, then pending (309), then closed**, newest
+ * posted first inside each group, tie-broken by entry number so it is total. Open entries are what a
  * phone call is about; the closed ones are the history behind them. Every column is
  * still sortable — this is a landing order, not a constraint (`.afk/HITL-269.md`).
  */
@@ -285,9 +344,10 @@ export function projectAccount(account: SettlementAccount | null | undefined): A
       journal,
       journalCount: journal.length,
       isOpen: entry.status === 'OPEN',
+      isPending: entry.status === 'PENDING_APPROVAL',
       closure: closureOf(entry),
       hasOrphan: journal.some((r) => r.isOrphan),
-      displayRemaining: entry.status === 'CANCELLED' ? null : entry.remainingAmount,
+      displayRemaining: remainingIsAClaim(entry.status) ? entry.remainingAmount : null,
       writtenOff:
         entry.status === 'CLOSED_OUT' ? round3(last ? last.consumption.remainingAfter : entry.amount) : null,
     }
@@ -295,7 +355,7 @@ export function projectAccount(account: SettlementAccount | null | undefined): A
 
   return rows.sort(
     (a, b) =>
-      Number(b.isOpen) - Number(a.isOpen) ||
+      landingRank(a) - landingRank(b) ||
       (a.postedAt < b.postedAt ? 1 : a.postedAt > b.postedAt ? -1 : 0) ||
       b.entryNumber - a.entryNumber,
   )

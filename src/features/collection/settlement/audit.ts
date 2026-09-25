@@ -1,5 +1,6 @@
 import type { SettlementConsumption } from '@/core/models/settlement'
 import { describeDocument, type AccountEntryRow, type JournalDocument } from './account-projection'
+import { isStamped } from './approval'
 
 /**
  * **The audit pane's read model** — one entry and its consumptions projected into
@@ -51,6 +52,9 @@ export type AuditWhere =
 /**
  * What kind of fact a row is.
  *
+ * `approved` / `rejected` are an accountant supervisor's decision on a pending
+ * surplus (ticket 309) — the supervisor named by staff id, as a closer is.
+ *
  * `restored` covers both a **void** and a **repair**: 🚩 on D8's contract they are
  * the same row — a `REVERSE` consumption — and this screen has no field that tells
  * them apart. Rendering them as one honest fact (*money went back onto the entry*)
@@ -58,7 +62,14 @@ export type AuditWhere =
  * distinguishes them to a reader: a void names the receipt it undoes, a repaired
  * orphan has no document to name. Logged for 274.
  */
-export type AuditFactKind = 'posted' | 'consumed' | 'restored' | 'cancelled' | 'written-off'
+export type AuditFactKind =
+  | 'posted'
+  | 'approved'
+  | 'rejected'
+  | 'consumed'
+  | 'restored'
+  | 'cancelled'
+  | 'written-off'
 
 /** One fact in the column. Every figure on it is one the server wrote. */
 export type AuditFact = {
@@ -105,6 +116,38 @@ function entryFacts(entry: AccountEntryRow): AuditFact[] {
       document: null,
     },
   ]
+
+  // 🔑 Ticket 309: the supervisor's decision, when there was one. ⚠️ Read off the
+  // STAMP (`isStamped`), not off the status — an approved entry is `OPEN` like any
+  // other, and a year-1 default would otherwise sort a fact nobody made before the
+  // posting. A supervisor's own large surplus is approved by its poster at `postedAt`,
+  // and says so: that is the record of it never having waited.
+  if (entry.approvedByStaffId && isStamped(entry.approvedAt))
+    facts.push({
+      // `reviewed` sorts after `posted` — the tie-break for a decision stamped in the
+      // same minute as the post it decided.
+      id: `entry:${entry.settlementEntryId}:reviewed`,
+      at: entry.approvedAt,
+      kind: 'approved',
+      amount: null,
+      remainingAfter: null,
+      where: { kind: 'staff', staffId: entry.approvedByStaffId },
+      note: '',
+      document: null,
+    })
+  if (entry.status === 'REJECTED' && isStamped(entry.rejectedAt))
+    facts.push({
+      id: `entry:${entry.settlementEntryId}:reviewed`,
+      at: entry.rejectedAt,
+      kind: 'rejected',
+      amount: null,
+      remainingAfter: null,
+      where: { kind: 'staff', staffId: entry.rejectedByStaffId },
+      // The reason the accountant reads before posting a corrected entry — server
+      // text, passed through unlocalised.
+      note: entry.rejectedReason,
+      document: null,
+    })
 
   const closed = entry.status === 'CANCELLED' || entry.status === 'CLOSED_OUT'
   // ⚠️ A closed entry with no `closedAt` gets no row rather than a row at the top

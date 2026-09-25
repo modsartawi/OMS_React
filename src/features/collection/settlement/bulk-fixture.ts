@@ -47,6 +47,9 @@ const row = (
   // rounding, which is every row here except where a case says otherwise.
   fileAmount: amount,
   reason,
+  // ✅ 1978: no row of the SHORTAGE months below waits — a shortage never does.
+  // `APPROVAL_PREVIEW` is the file that marks some.
+  awaitsApproval: false,
 })
 
 /** One server issue — errors and warnings share a shape (274: `SettlementBulkIssueModel`). */

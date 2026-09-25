@@ -91,7 +91,13 @@ export default function EntryJournal({
         <p className="text-sm text-muted-foreground">
           {row.closure === 'cancelled'
             ? t('account.journal.emptyCancelled')
-            : t('account.journal.empty')}
+            : // 309: no till CAN have touched these — one is invisible to every till
+              // until approved, the other always will be.
+              row.isPending
+              ? t('account.journal.emptyPending')
+              : row.closure === 'rejected'
+                ? t('account.journal.emptyRejected')
+                : t('account.journal.empty')}
         </p>
       ) : (
         <table className="w-full text-sm">

@@ -117,6 +117,11 @@ function buildOpenLane(): SettlementOpenLaneRow[] {
       closedByStaffId: '',
       closedAt: '',
       closedReason: '',
+      approvedByStaffId: '',
+      approvedAt: '0001-01-01T00:00:00',
+      rejectedByStaffId: '',
+      rejectedAt: '0001-01-01T00:00:00',
+      rejectedReason: '',
       currencyKey: CITIES_BHD.has(branch.city) ? 'BHD' : 'SAR',
       // ⚠️ **Blank for the 1,255 branches paired to nobody**, never a placeholder
       // name — the row must be able to say *nobody assigned* in words.

@@ -16,7 +16,7 @@ import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
 import { settlementMoney } from './money-display'
 import { uploadSearch } from './addresses'
-import { OPEN_LANE_KEY } from './open-lane'
+import { OPEN_LANE_KEY, PENDING_LANE_KEY } from './open-lane'
 import { amountInWords } from './amount-words'
 import { settlementApi } from './api'
 import { reviewBulk, type BulkReview, type BulkTotal } from './bulk'
@@ -136,6 +136,9 @@ export default function BulkUploadDialog({
       // 285: a month's audit is a month of new OPEN entries, and the lane is where
       // they are chased from.
       void queryClient.invalidateQueries({ queryKey: OPEN_LANE_KEY })
+      // 309: a SURPLUS month's rows of 500 or more land PENDING — the supervisor's
+      // queue is where they appear, and it must not serve the old count for a minute.
+      void queryClient.invalidateQueries({ queryKey: PENDING_LANE_KEY })
     },
     // ⚠️ **What is left here is a MALFORMED call, not a decision about money** — no
     // file, over 10 MB, an extension outside the allow-list, or bytes that yield no
@@ -500,6 +503,7 @@ function PreviewStep({
                   data-row={row.rowNumber}
                   data-unresolved={unresolved ? 'true' : undefined}
                   data-warned={warnings.length ? 'true' : undefined}
+                  data-awaits={row.awaitsApproval === true ? 'true' : undefined}
                   className={unresolved || warnings.length ? 'bg-attention-050' : undefined}
                 >
                   <td className="px-2 py-1.5 tabular-nums text-muted-foreground">{row.rowNumber}</td>
@@ -514,6 +518,14 @@ function PreviewStep({
                   </td>
                   <td className="px-2 py-1.5 text-end tabular-nums">
                     {settlementMoney(row.amount, row.currencyKey)} {row.currencyKey}
+                    {/* 🔑 309: the SERVER's mark, on the row it is about — this row
+                        will land pending, invisible to every till until a supervisor
+                        approves it. A label, not a tint: waiting is not a fault. */}
+                    {row.awaitsApproval === true && (
+                      <span className="mt-0.5 block text-[11px] font-medium text-muted-foreground" data-testid="bulk-row-awaits">
+                        {t('bulk.review.awaitsRow')}
+                      </span>
+                    )}
                   </td>
                   <td className="px-2 py-1.5" dir="auto">
                     {row.reason}
@@ -536,6 +548,16 @@ function PreviewStep({
       {review.warnedRows > 0 && (
         <p className="text-xs text-muted-foreground" data-testid="bulk-warned">
           {t('bulk.review.warned', { count: review.warnedRows })}
+        </p>
+      )}
+
+      {/* 🚩 309: counted beside the warnings and, like them, refused a veto — waiting is
+          neither an error nor a warning (BackOffice 1978 §3), and the file commits. What
+          the accountant needs is to know which of this month's rows no branch will see
+          until a supervisor has. */}
+      {review.awaitingApproval > 0 && (
+        <p className="text-xs text-muted-foreground" data-testid="bulk-awaiting">
+          {t('bulk.review.awaiting', { count: review.awaitingApproval })}
         </p>
       )}
 

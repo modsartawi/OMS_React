@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 
 import type { SettlementLedgerRow } from '@/core/models/settlement'
 import { formatDateTime } from '@/core/util/date-format'
+import { isDimmed } from './account-projection'
 import { entryKindLabel, entryStatusLabel, remainingCell } from './entry-cells'
 import { settlementMoney } from './money-display'
 
@@ -157,7 +158,9 @@ export function ledgerRowId(p: { data: SettlementLedgerRow }): string {
 }
 
 /** A closed entry is visibly closed, dimmed rather than tinted — the account grid's
- *  rule, for the same reason: three different endings, none of them a *problem*. */
+ *  rule, for the same reason: several different endings, none of them a *problem*.
+ *  ⚠️ A pending surplus is NOT dimmed (309): it has not ended, and it is the row a
+ *  supervisor still has to act on. */
 export function ledgerRowClass(p: { data?: SettlementLedgerRow }): string | undefined {
-  return p.data && p.data.status !== 'OPEN' ? 'opacity-60' : undefined
+  return p.data && isDimmed(p.data.status) ? 'opacity-60' : undefined
 }

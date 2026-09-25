@@ -3,7 +3,7 @@ import type { TFunction } from 'i18next'
 
 import { formatDateTime } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
-import type { AccountEntryRow } from './account-projection'
+import { isDimmed, type AccountEntryRow } from './account-projection'
 import { entryKindLabel, entryStatusLabel, remainingCell } from './entry-cells'
 
 /**
@@ -184,7 +184,8 @@ export function buildAccountDefaultColDef(showFilters: boolean): ColDef<AccountE
  * still says which ending each closed one had.
  */
 export function accountRowClass(p: { data?: AccountEntryRow }): string | undefined {
-  return p.data && !p.data.isOpen ? 'opacity-60' : undefined
+  // ⚠️ Pending is not dimmed (309) — `isDimmed`, the ledger grid's own spelling.
+  return p.data && isDimmed(p.data.status) ? 'opacity-60' : undefined
 }
 
 /** The grid's row identity — a settlement entry's own id, never the row index, so

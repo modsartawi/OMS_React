@@ -8,6 +8,7 @@ import { Filter } from 'lucide-react'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
+import { collectionAccessQuery } from '@/core/collection/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
@@ -23,10 +24,11 @@ import {
 } from './account-columns'
 import { settlementMoney } from './money-display'
 import { accountHeadline, projectAccount, type AccountEntryRow } from './account-projection'
-import { settlementApi } from './api'
+import { canSuperviseSettlement, settlementApi } from './api'
 import { ACCOUNT_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
 import Button from '@/core/ui/Button'
+import EntryApproval from './EntryApproval'
 import EntryAudit from './EntryAudit'
 import EntryCorrection from './EntryCorrection'
 import EntryJournal from './EntryJournal'
@@ -61,6 +63,11 @@ export default function BranchAccount({
     queryKey: ['settlement', 'account', storeId],
     queryFn: () => settlementApi.account(storeId),
   })
+  // 309: the area's ONE probe, already in the cache — the gate above this screen read
+  // it with the same key and options, so this costs no second request. It decides
+  // whether Approve and Reject are drawn; the doors' 403 is the actual guard.
+  const access = useQuery(collectionAccessQuery())
+  const canSupervise = canSuperviseSettlement(access.data)
 
   // 🚩 The selection is an entry ID, not a row object. A refetch hands back new
   // objects, and a selection held by reference would silently drop the journal the
@@ -215,6 +222,14 @@ export default function BranchAccount({
               history. 272 puts the correction ABOVE the journal so that *what a
               write-off leaves alone* is on screen underneath the button while the
               act is being performed — shown rather than asserted. */}
+          {/* 309: a pending surplus's decision — or a rejected one's reason — sits above
+              the correction, which offers nothing on either (`correction.ts`). */}
+          <EntryApproval
+            row={openRow}
+            storeName={account.data?.storeName ?? ''}
+            currencyKey={currencyKey}
+            canSupervise={canSupervise}
+          />
           <EntryCorrection row={openRow} currencyKey={currencyKey} />
           <EntryJournal row={openRow} currencyKey={currencyKey} />
           <EntryAudit row={openRow} currencyKey={currencyKey} />
@@ -325,6 +340,15 @@ function AccountHeadline({
           <dd className="tabular-nums">{headline.openCount}</dd>
         </div>
       </dl>
+
+      {/* 🔑 309: what waits for a supervisor, BESIDE the figures and never in them — a
+          count of entries, not a sum, because none of it is money until it is
+          approved. Drawn only when there is something waiting. */}
+      {headline.pendingCount > 0 && (
+        <p className="text-sm" data-testid="account-pending-count">
+          {t('account.headline.pending', { count: headline.pendingCount })}
+        </p>
+      )}
 
       {/* ⚠️ Said out loud, because a big signed number at the top of a screen is
           exactly the thing someone eventually tries to settle in one act. */}

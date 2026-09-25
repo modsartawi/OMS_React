@@ -63,6 +63,9 @@ describe('the signed headline', () => {
       signedPosition: 455.5,
       direction: 'owes',
       openCount: 3,
+      // None of the six branches has a surplus waiting (309's cases are in
+      // `approval.test.ts`), and the count says so rather than being absent.
+      pendingCount: 0,
     })
   })
 
@@ -83,6 +86,7 @@ describe('the signed headline', () => {
       signedPosition: 0,
       direction: 'square',
       openCount: 0,
+      pendingCount: 0,
     })
   })
 

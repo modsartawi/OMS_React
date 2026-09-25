@@ -7,6 +7,7 @@ import type {
   SettlementUncollectedRow,
 } from '@/core/models/settlement'
 import { formatDay } from '@/core/util/date-format'
+import { approvalTarget, type SupervisionAct, type ApprovalTarget } from './approval'
 import { settlementMoney } from './money-display'
 import {
   chaseCell,
@@ -285,6 +286,152 @@ export function buildCashColumns(
   ]
 }
 
+/* ── awaiting approval (ticket 309) ───────────────────────────────────────────── */
+
+/**
+ * The **awaiting approval** tab's columns — the supervisor's queue.
+ *
+ * 🔑 **Story 9 is the column list**: *"the amount, the store, the accountant and the
+ * description before approving."* So the row carries the posted **amount** (a pending
+ * surplus has nothing taken from it, and no *still open* to state), the **accountant
+ * who posted it**, and the **description** the branch will read — beside the handle,
+ * the branch and the age every tab shares.
+ *
+ * 🚩 **The two buttons are drawn only for a supervisor** (`canSupervise`), and only on
+ * this tab — the only rows in the estate that are pending. Hiding them is courtesy:
+ * the doors refuse a session without the grant with a 403, and the dialog says so.
+ * An accountant reads the same queue without them (story 6).
+ *
+ * ⚠️ **No chase column** — a pending surplus is nobody's to ring about; the branch
+ * cannot use it yet.
+ */
+export function buildPendingColumns(
+  t: TFunction,
+  {
+    named,
+    canSupervise,
+    onDecide,
+  }: {
+    named: boolean
+    canSupervise: boolean
+    onDecide: (target: ApprovalTarget, act: SupervisionAct) => void
+  },
+): ColDef<SettlementOpenLaneRow>[] {
+  const columns: ColDef<SettlementOpenLaneRow>[] = [
+    { headerName: t('open.columns.entryNumber'), ...ENTRY_NUMBER_SHAPE },
+    {
+      headerName: t('open.columns.branch'),
+      ...BRANCH_SHAPE,
+      filterValueGetter: (p) => `${p.data?.storeName ?? ''} ${p.data?.storeId ?? ''}`,
+      cellRenderer: branchCell,
+    },
+    {
+      // How long it has waited, counted from the post — the server's subtraction, and
+      // silent when the door does not send it (§6), exactly as on the entry tabs.
+      headerName: t('open.columns.waiting'),
+      ...AGE_SHAPE,
+      cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow, number>) =>
+        p.data ? (
+          <span className="flex flex-col justify-center leading-tight">
+            {p.data.ageDays !== undefined && <span>{ageWords(t, p.data.ageDays)}</span>}
+            <span className="text-[11px] text-muted-foreground">
+              {t('open.age.posted', { date: formatDay(p.data.postedAt) })}
+            </span>
+          </span>
+        ) : null,
+    },
+    {
+      // 🔑 The AMOUNT being authorised, at the row's own precision — and, as on every
+      // cross-estate list, never totalled: this queue holds riyals and dinars.
+      headerName: t('open.columns.amount'),
+      field: 'amount',
+      colId: 'amount',
+      width: 150,
+      type: 'numericColumn',
+      filter: 'agNumberColumnFilter',
+      cellClass: 'text-end tabular-nums',
+      valueFormatter: (p: ValueFormatterParams<SettlementOpenLaneRow, number>) =>
+        settlementMoney(p.value, p.data?.currencyKey),
+    },
+    {
+      headerName: t('open.columns.postedBy'),
+      field: 'postedByName',
+      colId: 'postedByName',
+      width: 200,
+    },
+    {
+      // The description the branch will read at its till — server text, unlocalised,
+      // and routinely Arabic.
+      headerName: t('open.columns.reason'),
+      field: 'reason',
+      colId: 'reason',
+      flex: 1,
+      minWidth: 200,
+      cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow, string>) =>
+        p.data ? <span dir="auto">{p.data.reason}</span> : null,
+    },
+    {
+      headerName: t('open.columns.servedBy'),
+      field: 'servedBy',
+      colId: 'servedBy',
+      width: 180,
+      hide: !named,
+      filterValueGetter: (p) => p.data?.servedBy || t('open.row.nobodyAssigned'),
+      cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow, string>) =>
+        p.data?.servedBy ? (
+          <span>{p.data.servedBy}</span>
+        ) : (
+          <span className="italic text-muted-foreground">{t('open.row.nobodyAssigned')}</span>
+        ),
+    },
+  ]
+
+  if (!canSupervise) return columns
+
+  return [
+    ...columns,
+    {
+      headerName: t('open.columns.decide'),
+      colId: 'decide',
+      width: 200,
+      sortable: false,
+      filter: false,
+      cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow>) => {
+        const row = p.data
+        // ⚠️ A row the door answered as anything but pending gets no buttons — the queue
+        // filters on the row's own status, and this is the same rule one layer down.
+        if (!row || row.status !== 'PENDING_APPROVAL') return null
+        const target = approvalTarget(row, row.storeName, row.currencyKey)
+        return (
+          <span className="flex items-center gap-1.5">
+            {/* 🚩 `data-row-action` is load-bearing: the row's own click navigates to
+                the account, and AG Grid's listener is nearer the target than React's
+                (287's finding). The row handler looks for this marker. */}
+            <button
+              type="button"
+              data-row-action="approve"
+              data-testid="pending-approve"
+              onClick={() => onDecide(target, 'approve')}
+              className="shrink-0 rounded-full border border-primary/40 px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10"
+            >
+              {t('approval.approve.button')}
+            </button>
+            <button
+              type="button"
+              data-row-action="reject"
+              data-testid="pending-reject"
+              onClick={() => onDecide(target, 'reject')}
+              className={ROW_ACTION_CLASS}
+            >
+              {t('approval.reject.button')}
+            </button>
+          </span>
+        )
+      },
+    },
+  ]
+}
+
 /* ── the chase note's column (ticket 287) ─────────────────────────────────────── */
 
 /**
@@ -351,7 +498,7 @@ function chaseColumn<Row extends { lastChase?: SettlementLastChase | null }>(
               data-row-action="chase"
               data-testid="open-chase-button"
               onClick={() => onChase(p.data!)}
-              className="shrink-0 rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+              className={ROW_ACTION_CLASS}
             >
               {t('open.row.recordChase')}
             </button>
@@ -387,6 +534,11 @@ function chaseWords(t: TFunction, cell: ChaseCell): string {
  * The entry number and the branch are byte-for-byte the same on all three tabs — the
  * handle and the branch behind it do not change with what is being chased.
  */
+/** The quiet pill a row carries for an act of its own — *Record a chase* (287) and
+ *  *Reject* (309) — one spelling so the two row actions cannot drift apart. */
+const ROW_ACTION_CLASS =
+  'shrink-0 rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary'
+
 const ENTRY_NUMBER_SHAPE = {
   field: 'entryNumber',
   colId: 'entryNumber',

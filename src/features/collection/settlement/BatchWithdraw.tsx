@@ -128,7 +128,10 @@ function Outcome({
 }) {
   const { t } = useTranslation('settlement')
 
-  const refused = (outcome.rows ?? []).filter((r) => !r.accepted)
+  // 309 (BackOffice 1978 §5): a pending row of a withdrawn batch is refused too — but
+  // no till got to it, so it is not one of *"a till got to these first"*. Its own group.
+  const waiting = (outcome.rows ?? []).filter((r) => !r.accepted && r.status === 'PENDING_APPROVAL')
+  const refused = (outcome.rows ?? []).filter((r) => !r.accepted && r.status !== 'PENDING_APPROVAL')
   const withdrawn = (outcome.rows ?? []).filter((r) => r.accepted)
 
   return (
@@ -161,6 +164,22 @@ function Outcome({
                 },
               )}
             />
+          ))}
+        </Group>
+      )}
+
+      {/* 🔑 309: NOT withdrawn, and not a till's doing — these still wait for a
+          supervisor. What ends one is a Reject on its own account (where the link
+          lands), never a write-off, and the row says so rather than stating a
+          remaining nobody owes. */}
+      {waiting.length > 0 && (
+        <Group
+          testId="batch-pending"
+          tone="attention"
+          title={t('batch.outcome.pending', { count: waiting.length })}
+        >
+          {waiting.map((row) => (
+            <Row key={row.settlementEntryId} row={row} params={params} note={t('batch.outcome.pendingRow')} />
           ))}
         </Group>
       )}

@@ -19,7 +19,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import type { CollectionAccessResult } from '@/core/models/collection'
-import { canOpenSettlement } from './api'
+import { canOpenSettlement, canSuperviseSettlement } from './api'
 
 const NONE: CollectionAccessResult = {
   canOpenCollections: false,
@@ -27,6 +27,7 @@ const NONE: CollectionAccessResult = {
   canOpenDeposits: false,
   canOpenAttempts: false,
   canOpenSettlement: false,
+  canSuperviseSettlement: false,
 }
 
 describe('the settlement account predicate', () => {
@@ -53,6 +54,7 @@ describe('the settlement account predicate', () => {
         canOpenDeposits: true,
         canOpenAttempts: true,
         canOpenSettlement: false,
+        canSuperviseSettlement: false,
       }),
     ).toBe(false)
   })
@@ -84,5 +86,40 @@ describe('the settlement account predicate', () => {
     // probe can resolve to nothing at all and that is still a denial.
     expect(canOpenSettlement(null)).toBe(false)
     expect(canOpenSettlement(undefined)).toBe(false)
+  })
+})
+
+/**
+ * Ticket 309 — **settlement supervision**, a power on the screen rather than a screen
+ * (BackOffice 1977). It decides whether Approve and Reject are drawn, and nothing
+ * else: the doors answer a bare 403 without the grant whatever this says.
+ */
+describe('the settlement supervision predicate', () => {
+  it('admits its own granted flag and denies its own refusal', () => {
+    expect(canSuperviseSettlement({ ...NONE, canSuperviseSettlement: true })).toBe(true)
+    expect(canSuperviseSettlement(NONE)).toBe(false)
+  })
+
+  it('🚩 the SCREEN grant does not imply the power — an accountant is not a supervisor', () => {
+    expect(canSuperviseSettlement({ ...NONE, canOpenSettlement: true })).toBe(false)
+  })
+
+  it('…and the power does not open the screen — reaching it is still the screen grant', () => {
+    expect(canOpenSettlement({ ...NONE, canSuperviseSettlement: true })).toBe(false)
+  })
+
+  it('🚩 denies a door that does not send the flag yet, and any malformed answer', () => {
+    const withoutIt = { ...NONE, canOpenSettlement: true } as Partial<CollectionAccessResult>
+    delete withoutIt.canSuperviseSettlement
+    expect(canSuperviseSettlement(withoutIt as CollectionAccessResult)).toBe(false)
+    const malformed = [
+      { canSuperviseSettlement: 'true' },
+      { canSuperviseSettlement: 1 },
+      { canSuperviseSettlement: null },
+      {},
+    ] as unknown as CollectionAccessResult[]
+    for (const answer of malformed) expect(canSuperviseSettlement(answer)).toBe(false)
+    expect(canSuperviseSettlement(null)).toBe(false)
+    expect(canSuperviseSettlement(undefined)).toBe(false)
   })
 })

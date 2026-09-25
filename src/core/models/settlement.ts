@@ -28,16 +28,35 @@ export type SettlementEntryKind = 'SHORTAGE' | 'SURPLUS'
 /**
  * Where an entry has got to.
  *
+ * - `PENDING_APPROVAL` — a SURPLUS of 500 or more an accountant posted, **waiting for
+ *   an accountant supervisor** (BackOffice spec 1976, ticket 1977). It has its entry
+ *   number from the start and no till sees it: the open inquiry and the consume both
+ *   read `OPEN` only. The threshold is the SERVER's (`SettlementApprovalRule`) and is
+ *   never re-derived here — the row says which state it is in, and that is all.
  * - `OPEN` — posted, remaining > 0.
  * - `CONSUMED` — remaining reached 0 through consumption. Set by the server, never
  *   by a human.
  * - `CANCELLED` — withdrawn while **nothing** had been consumed (1143 A5).
  * - `CLOSED_OUT` — the remainder of a **partly** consumed entry was written off.
  *
- * ⚠️ The last two are the pair 269's Proof turns on: a `CLOSED_OUT` entry shows a
- * zero remaining that **no consumption produced**, and must not read as consumed.
+ * - `REJECTED` — a pending surplus a supervisor refused, **with a reason the
+ *   accountant reads** (ticket 1978). Final: it is never approved later, and the
+ *   accountant posts a corrected entry instead.
+ *
+ * ⚠️ `CANCELLED` / `CLOSED_OUT` are the pair 269's Proof turns on: a `CLOSED_OUT` entry
+ * shows a zero remaining that **no consumption produced**, and must not read as consumed.
+ *
+ * 🚩 **Only `OPEN` is money** (ticket 309). A pending or rejected entry is on the
+ * account so the accountant can see it, and it counts towards no headline, no total
+ * and no position — the web sums `status = OPEN` rows, exactly as the till does.
  */
-export type SettlementEntryStatus = 'OPEN' | 'CONSUMED' | 'CANCELLED' | 'CLOSED_OUT'
+export type SettlementEntryStatus =
+  | 'PENDING_APPROVAL'
+  | 'OPEN'
+  | 'CONSUMED'
+  | 'CANCELLED'
+  | 'CLOSED_OUT'
+  | 'REJECTED'
 
 /**
  * A journal row's direction.
@@ -90,6 +109,21 @@ export type SettlementEntry = {
   closedByStaffId: string
   closedAt: string
   closedReason: string
+  /**
+   * Who let a `PENDING_APPROVAL` surplus go live, and when (ticket 1977). ⚠️ **`''` and
+   * `0001-01-01T00:00:00` when nobody had to** — the server's defaults for a column
+   * that is `NOT NULL`, so an unstamped time is a year-1 date rather than an absent
+   * one (`approval.ts` reads both as *not stamped*). A supervisor's own large surplus
+   * names the poster, approved at `postedAt`.
+   */
+  approvedByStaffId: string
+  approvedAt: string
+  /** Who refused a pending surplus, when, and why (ticket 1978) — the reason is what
+   *  the accountant reads before posting a corrected entry. Server text, passed
+   *  through unlocalised. Blank / year-1 unless `status` is `REJECTED`. */
+  rejectedByStaffId: string
+  rejectedAt: string
+  rejectedReason: string
 }
 
 /**
@@ -632,6 +666,39 @@ export type SettlementPostResult = {
   settlementEntryId: string
   entryNumber: number
   amount: number
+  /**
+   * ✅ Ticket 1977: **`PENDING_APPROVAL` or `OPEN`**, decided by the server — a SURPLUS
+   * whose rounded amount is 500 or more, posted by someone without settlement
+   * supervision, waits. The confirmation says so rather than telling the accountant a
+   * branch may keep money no till can see yet.
+   */
+  status: SettlementEntryStatus
+}
+
+/**
+ * What `Settlement/Approve` and `Settlement/Reject` answer (BackOffice 1977 / 1978) —
+ * the server's `SettlementEntryActApiResponse`, the same type cancel and close-out
+ * answer with.
+ *
+ * 🔑 **A refusal is a 200 carrying `accepted: false`**, and on these two doors it has
+ * exactly one reason: `ENTRY_NOT_PENDING` — already approved (a double-click, or a
+ * second supervisor), already rejected, open from the start, closed, or no such
+ * entry. Nothing was written. `status` is then the entry's CURRENT state (`''` when
+ * there is no such entry), which is what lets the screen say *which* of those it was.
+ *
+ * ⚠️ The two doors are behind the settlement-SUPERVISION grant only. A session
+ * without it gets a **bare 403 with no body** — `@/core/api` reads that as an
+ * `ApiError` of status 403, and `approval.ts` names it.
+ */
+export type SettlementSupervisionResult = {
+  accepted: boolean
+  /** `''` when accepted; `ENTRY_NOT_PENDING` on a refusal. A machine code, not a
+   *  sentence — the screen words it (`approval.ts`). */
+  refusalReason: string
+  remainingAmount: number
+  /** `OPEN` after an approve, `REJECTED` after a reject; the current status on a
+   *  refusal, `''` if the entry does not exist. */
+  status: SettlementEntryStatus | ''
 }
 
 /**
@@ -763,6 +830,17 @@ export type SettlementBulkRow = {
   fileAmount: number
   /** Free text ≤200 the branch reads verbatim, exactly as the single form's. */
   reason: string
+  /**
+   * ✅ Ticket 1978: **this row will land `PENDING_APPROVAL`**, invisible to every till
+   * until an accountant supervisor approves it. The server decides it with the single
+   * post's own rule (a SURPLUS file, the row's rounded amount ≥ 500, a poster without
+   * supervision), so the grid's mark is the ledger's state.
+   *
+   * ⚠️ **Waiting is neither an error nor a warning** — `canCommit`, `errors` and
+   * `warnings` are unaffected and the file commits. The preview marks the row and
+   * counts them; nothing here may block on it.
+   */
+  awaitsApproval: boolean
 }
 
 /**

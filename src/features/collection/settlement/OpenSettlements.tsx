@@ -9,6 +9,7 @@ import type { ColDef } from 'ag-grid-community'
 // Side-effect import: registers the AG Grid Community modules in this lazy chunk.
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
+import { collectionAccessQuery } from '@/core/collection/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
@@ -21,19 +22,29 @@ import type {
   SettlementUncollectedRow,
 } from '@/core/models/settlement'
 import { branchSearch } from './addresses'
-import { settlementApi } from './api'
+import { canSuperviseSettlement, settlementApi } from './api'
 import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
-import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT } from './cap'
+import ApprovalDialog, { type ApprovalRequest } from './ApprovalDialog'
+import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT, PENDING_LANE_LIMIT } from './cap'
 import ChaseDialog from './ChaseDialog'
-import { buildCashColumns, buildOpenColumns, ageWords, cashRowId, openRowId } from './open-columns'
+import {
+  buildCashColumns,
+  buildOpenColumns,
+  buildPendingColumns,
+  ageWords,
+  cashRowId,
+  openRowId,
+} from './open-columns'
 import {
   applyChase,
   buildCashLane,
   buildOpenLane,
+  buildPendingLane,
   CASH_LANE_KEY,
   DEFAULT_OPEN_TAB,
   isEntryTab,
   OPEN_LANE_KEY,
+  PENDING_LANE_KEY,
   OPEN_LANE_TABS,
   openTabSearch,
   readOpenTab,
@@ -85,6 +96,13 @@ import {
  * happen.
  *
  * The chase note and its column are 287's.
+ *
+ * 🔑 **The fourth tab is the supervisor's queue** (ticket 309): *Awaiting approval*,
+ * every surplus in the estate that waits for an accountant supervisor, off the same
+ * ledger door asked `status=PENDING_APPROVAL` — a third call with its own count and
+ * its own failure. A pending surplus is not open, so it is in neither *Owing* nor
+ * *Owed* nor any count on them. Everyone with the screen reads the queue; only a
+ * session holding settlement supervision is drawn **Approve** and **Reject** on it.
  */
 export default function OpenSettlements() {
   const { t } = useTranslation('settlement')
@@ -105,6 +123,8 @@ export default function OpenSettlements() {
   const [neverChasedOnly, setNeverChasedOnly] = useState(false)
   /** Which row's dialog is open, as the branch and subject the note will belong to. */
   const [chasing, setChasing] = useState<ChaseTarget | null>(null)
+  /** 309: which pending entry the supervisor pressed Approve or Reject on. */
+  const [deciding, setDeciding] = useState<ApprovalRequest | null>(null)
   const queryClient = useQueryClient()
 
   const lane = useQuery({
@@ -134,7 +154,24 @@ export default function OpenSettlements() {
     queryFn: () => settlementApi.uncollected(),
     staleTime: 60_000,
   })
-  const onCash = !isEntryTab(tab)
+  /**
+   * 309's queue — **a third call**, for the reason the cash tab is a second: a pending
+   * surplus is not open, so folding it into the lane's answer would count it as *owed*
+   * on the tab strip and on the front page's signpost. Fetched whichever tab is
+   * showing, because the strip carries its count.
+   */
+  const pending = useQuery({
+    queryKey: PENDING_LANE_KEY,
+    queryFn: () => settlementApi.pendingLane(),
+    staleTime: 60_000,
+  })
+  /** The area's one probe, from the cache the gate filled — draws the queue's buttons. */
+  const access = useQuery(collectionAccessQuery())
+  const canSupervise = canSuperviseSettlement(access.data)
+
+  // ⚠️ Named, not `!isEntryTab(tab)`: with four tabs, *not an entry tab* is two tabs.
+  const onCash = tab === 'cash'
+  const onPending = tab === 'pending'
 
   const built = useMemo(
     () =>
@@ -152,6 +189,19 @@ export default function OpenSettlements() {
     () => buildCashLane({ rows: cash.data, failed: cash.isError, mineOnly, neverChasedOnly }),
     [cash.data, cash.isError, mineOnly, neverChasedOnly],
   )
+  const pendingBuilt = useMemo(
+    () => buildPendingLane({ rows: pending.data, failed: pending.isError, mineOnly }),
+    [pending.data, pending.isError, mineOnly],
+  )
+  const pendingColumns = useMemo(
+    () =>
+      buildPendingColumns(t, {
+        named: pendingBuilt.named,
+        canSupervise,
+        onDecide: (target, act) => setDeciding({ target, act }),
+      }),
+    [t, pendingBuilt.named, canSupervise],
+  )
   const columns = useMemo(
     () => buildOpenColumns(t, { named: built.named, chased: built.chased, onChase: setChasing }),
     [t, built.named, built.chased],
@@ -163,7 +213,14 @@ export default function OpenSettlements() {
   /** Is the chase door answering on the tab being drawn? Drives the column (through the
    *  builders above) and the chip — asked per tab, because §7 is a dependency each door
    *  waits on separately. */
-  const chaseKnown = onCash ? cashBuilt.chased : built.chased
+  const chaseKnown = onPending ? false : onCash ? cashBuilt.chased : built.chased
+  /** Can *mine only* be offered on the tab being drawn? Only where the wire ranked the
+   *  rows — and never over a shimmer or a failure. */
+  const mineKnown = onPending
+    ? !pending.isError && !pending.isPending && pendingBuilt.ranked
+    : onCash
+      ? !cash.isError && !cash.isPending
+      : built.ranked
 
   /** ⚠️ **Both of them**, because the reader is told *"clear a filter to see the rest
    *  of the estate"* and one button that cleared one of two would leave them reading
@@ -226,7 +283,19 @@ export default function OpenSettlements() {
             — §6 is the ledger's dependency, and this door either answers whole or
             refuses. */}
         <p className="text-xs text-muted-foreground">
-          {t(onCash ? 'open.subtitleCash' : unordered ? 'open.subtitleUnordered' : 'open.subtitle')}
+          {t(
+            onPending
+              ? // The queue claims *oldest first* only when the door sent ages — the
+                // entry tabs' `unordered` rule, asked of the queue's own answer.
+                (pendingBuilt.count ?? 0) > 0 && !pendingBuilt.aged
+                ? 'open.subtitlePendingUnordered'
+                : 'open.subtitlePending'
+              : onCash
+                ? 'open.subtitleCash'
+                : unordered
+                  ? 'open.subtitleUnordered'
+                  : 'open.subtitle',
+          )}
         </p>
       </header>
 
@@ -242,6 +311,7 @@ export default function OpenSettlements() {
         counts={{
           ...(lane.isPending ? UNKNOWN_COUNTS : built.counts),
           cash: cash.isPending ? null : cashBuilt.count,
+          pending: pending.isPending ? null : pendingBuilt.count,
         }}
         onTab={(next) => navigate(openTabSearch(searchParams, next))}
       />
@@ -257,9 +327,9 @@ export default function OpenSettlements() {
           reason one layer up: a filter over a fact the screen does not have is a lie
           about what it filtered. Server dependency §7 is unbuilt, so today this chip
           is absent — not disabled, and not a filter that empties the list. */}
-      {((onCash ? !cash.isError && !cash.isPending : built.ranked) || chaseKnown) && (
+      {(mineKnown || chaseKnown) && (
         <div className="flex flex-wrap items-center gap-2">
-          {(onCash ? !cash.isError && !cash.isPending : built.ranked) && (
+          {mineKnown && (
             <ToggleChip
               icon={<UserCheck className="h-3.5 w-3.5" aria-hidden />}
               label={t('open.filters.mineOnly')}
@@ -282,7 +352,7 @@ export default function OpenSettlements() {
           POPULATION, so reaching the cap means a complete answer was truncated — and
           because the order is oldest-first, the rows it dropped are the newest ones
           and nothing else on screen would look wrong. */}
-      {!onCash && built.capReached && (
+      {isEntryTab(tab) && built.capReached && (
         <AccountCapBanner
           message={t(unordered ? 'open.capReachedUnordered' : 'open.capReached', {
             limit: OPEN_LANE_LIMIT.toLocaleString('en-US'),
@@ -300,7 +370,30 @@ export default function OpenSettlements() {
         />
       )}
 
-      {onCash ? (
+      {/* 309: the queue's own cap — 500, the number at which nobody is approving at all. */}
+      {onPending && pendingBuilt.capReached && (
+        <AccountCapBanner
+          message={t('open.capReachedPending', { limit: PENDING_LANE_LIMIT.toLocaleString('en-US') })}
+        />
+      )}
+
+      {onPending ? (
+        pending.isPending ? (
+          <AccountShimmer label={t('open.loadingPending')} />
+        ) : (
+          <LaneBody
+            view={pendingBuilt.view}
+            tab={tab}
+            columns={pendingColumns}
+            getRowId={openRowId}
+            unranked={!pendingBuilt.ranked}
+            error={pending.error}
+            failedMessage={t('open.errors.pendingFailed')}
+            onClearFilter={clearFilters}
+            onRow={(row) => navigate(branchSearch(searchParams, row.storeId, row.entryNumber))}
+          />
+        )
+      ) : onCash ? (
         cash.isPending ? (
           <AccountShimmer label={t('open.loadingCash')} />
         ) : (
@@ -335,6 +428,9 @@ export default function OpenSettlements() {
           which is the whole reason the act is a dialog. What comes back is the note the
           server wrote, laid onto every row of that branch. */}
       <ChaseDialog target={chasing} onClose={() => setChasing(null)} onChased={onChased} />
+      {/* 309: opened from a queue row and closed back onto the queue, which the act's
+          own invalidation refreshes — the decided entry leaves it. */}
+      <ApprovalDialog request={deciding} onClose={() => setDeciding(null)} />
     </section>
   )
 }
@@ -423,7 +519,8 @@ function LaneBody<Row extends OpenLaneRowFacts & { storeId: string; entryNumber:
   tab: OpenLaneTab
   columns: ColDef<Row>[]
   getRowId: (p: { data: Row }) => string
-  /** Only the entry tabs can be unranked — §6 is the ledger's dependency. */
+  /** Only the ledger's tabs can be unranked — the two entry tabs and 309's queue —
+   *  because §6 is the ledger's dependency. */
   unranked?: boolean
   error: unknown
   /** ⚠️ Per door: a refused ledger and a refused receipt door are two different

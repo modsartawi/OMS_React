@@ -42,6 +42,7 @@ import type {
   SettlementPostResult,
   SettlementRepairResult,
   SettlementScope,
+  SettlementSupervisionResult,
   SettlementUncollectedRow,
 } from '@/core/models/settlement'
 import {
@@ -51,6 +52,7 @@ import {
   FLEET_LIMIT,
   LEDGER_LIMIT,
   OPEN_LANE_LIMIT,
+  PENDING_LANE_LIMIT,
   WORKLIST_LIMIT,
 } from './cap'
 
@@ -69,6 +71,22 @@ import {
  */
 export const canOpenSettlement = (r: CollectionAccessResult | null | undefined): boolean =>
   r?.canOpenSettlement === true
+
+/**
+ * **Settlement supervision** — whether this session is offered an accountant
+ * supervisor's acts (ticket 309, BackOffice 1977). Today: Approve and Reject on a
+ * pending surplus.
+ *
+ * `=== true` and nothing looser, on `canOpenSettlement`'s argument: a SIS.Api released
+ * before the flag answers without it, and absent must read as no. 🚩 It hides buttons
+ * and guards nothing — the two doors answer a bare 403 to a session without the grant
+ * whatever this said, and the screen handles that 403 (`supervisionFailure`).
+ *
+ * ⚠️ Deliberately NOT read by `canOpenSettlement`, and it opens no screen of its own:
+ * a power on a screen is not permission to reach it.
+ */
+export const canSuperviseSettlement = (r: CollectionAccessResult | null | undefined): boolean =>
+  r?.canSuperviseSettlement === true
 
 export const settlementApi = {
   /**
@@ -252,6 +270,61 @@ export const settlementApi = {
       sort: 'age',
       limit: OPEN_LANE_LIMIT,
     })
+  },
+
+  /**
+   * `GET Settlement/Ledger?status=PENDING_APPROVAL&sort=age&limit=500` → **the
+   * supervisor's queue** (ticket 309, BackOffice 1977 §3): every surplus in the estate
+   * that waits for an accountant supervisor.
+   *
+   * 🔑 **Not a new door** — the ledger accepts `PENDING_APPROVAL` as a status since 1977,
+   * the same column-equals-constant `openLane` asks with `OPEN`. **A call of its own**
+   * rather than a widening of that one, because a pending surplus is not open: folded
+   * into the open answer it would be counted as *owed* on the tab strip and the front
+   * page's signpost.
+   *
+   * ⚠️ `sort=age` for the lane's reason — oldest first, the server's order, never
+   * re-sorted here.
+   */
+  pendingLane(): Promise<SettlementOpenLaneRow[]> {
+    return api.get<SettlementOpenLaneRow[]>('Settlement/Ledger', {
+      status: 'PENDING_APPROVAL',
+      sort: 'age',
+      limit: PENDING_LANE_LIMIT,
+    })
+  },
+
+  /**
+   * `POST Settlement/Approve` → a pending surplus goes live: `PENDING_APPROVAL → OPEN`
+   * (ticket 309, BackOffice 1977), and the branch's next close can consume it.
+   *
+   * 🔑 **The body names the entry and nothing else** — the approver is the session's
+   * user, server-side. A field naming them would be a field a client could fill in.
+   *
+   * ⚠️ **A refusal is a 200** (`accepted: false`, `ENTRY_NOT_PENDING`) — a double-click
+   * or a second supervisor got there first, and nothing was written. A session without
+   * settlement supervision gets a **bare 403** (`supervisionFailure`). Neither is caught
+   * here; `@/core/api` owns the error and `approval.ts` words the outcome.
+   */
+  approve(settlementEntryId: string): Promise<SettlementSupervisionResult> {
+    return api.post<SettlementSupervisionResult>('Settlement/Approve', { settlementEntryId })
+  },
+
+  /**
+   * `POST Settlement/Reject` → a pending surplus is refused for good:
+   * `PENDING_APPROVAL → REJECTED` (ticket 309, BackOffice 1978). **Final** — the
+   * accountant posts a corrected entry; nothing approves a rejected one later.
+   *
+   * 🔑 **The reason is required**, non-blank and at most 200 characters, stored trimmed
+   * and read by the accountant who posted it. The screen stops the box at the server's
+   * limit (`REASON_MAX`) and sends it trimmed, but the server's 400s
+   * (`SettlementRejectReasonRequired`, `SettlementReasonTooLong`) remain the authority
+   * and arrive through the envelope with their own words.
+   *
+   * ⚠️ Same refusal and same 403 as `approve`.
+   */
+  reject(settlementEntryId: string, reason: string): Promise<SettlementSupervisionResult> {
+    return api.post<SettlementSupervisionResult>('Settlement/Reject', { settlementEntryId, reason })
   },
 
   /**

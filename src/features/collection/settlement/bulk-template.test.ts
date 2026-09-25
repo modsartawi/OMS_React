@@ -46,6 +46,7 @@ describe('bulkTemplateCsv', () => {
       fileAmount: Number(cells[1]),
       currencyKey: 'SAR',
       reason: cells[2],
+      awaitsApproval: false,
     }))
     const review = reviewBulk({
       batchId: 'B0000MCP5ZGRXP7ZTZ3EHRJQT3',

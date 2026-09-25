@@ -319,6 +319,13 @@ async function run() {
       // door's `EntryNumber DESC` default is untouched for every shipped caller. So
       // the stub splits on the same field the server does, rather than on a cap
       // constant it would then be coupled to.
+      //
+      // 309: the lane's FOURTH tab — *Awaiting approval* — asks the same door with
+      // `status=PENDING_APPROVAL&sort=age`. It is a different question, answered here
+      // empty (spec 267's estate predates approval), and kept out of `laneCalls` so
+      // "the open lane asks ONCE" still means the open lane. Its own behaviour is
+      // `tools/settlement-approval-drive.mjs`'s.
+      if (q('sort') === 'age' && q('status') === 'PENDING_APPROVAL') return route.fulfill(envelope([]))
       if (q('sort') === 'age') {
         laneCalls.push(Object.fromEntries([...url.searchParams]))
         // WARNING The refusal a lane has to survive. `status=OPEN` satisfies the door's

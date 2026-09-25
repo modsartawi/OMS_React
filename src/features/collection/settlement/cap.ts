@@ -112,6 +112,18 @@ export const OPEN_LANE_LIMIT = 2000
 export const CASH_LANE_LIMIT = 500
 
 /**
+ * The **awaiting approval** tab's cap (ticket 309) — one call at
+ * `Settlement/Ledger?status=PENDING_APPROVAL`, the supervisor's queue.
+ *
+ * 🔑 **500, a rare-event number like the cash lane's.** A pending surplus is one an
+ * accountant posted at 500 or more and a supervisor has not reached yet; at 500 of
+ * them nobody is approving at all, and the banner saying so is the first place that
+ * would show. It is the ledger door's own `LEDGER_LIMIT` figure, named separately on
+ * this file's rule: one constant per question, asked for **and** measured against.
+ */
+export const PENDING_LANE_LIMIT = 500
+
+/**
  * The fleet door's cap — ✅ **found live by 274, and it is the one number on this
  * screen that had to change.**
  *

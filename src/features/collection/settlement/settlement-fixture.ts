@@ -62,6 +62,13 @@ function entry(o: Partial<SettlementEntry> & Pick<SettlementEntry, 'settlementEn
     closedByStaffId: '',
     closedAt: '',
     closedReason: '',
+    // Ticket 1977/1978's five, at the server's own defaults: none of the six branches
+    // ever needed approval. ⚠️ A year-1 date, not `''` — the columns are `NOT NULL`.
+    approvedByStaffId: '',
+    approvedAt: '0001-01-01T00:00:00',
+    rejectedByStaffId: '',
+    rejectedAt: '0001-01-01T00:00:00',
+    rejectedReason: '',
     ...o,
   }
 }

@@ -1,4 +1,4 @@
-import { OPEN_LANE_KEY } from './open-lane'
+import { OPEN_LANE_KEY, PENDING_LANE_KEY } from './open-lane'
 import { REASON_MAX } from './posting'
 
 /**
@@ -70,7 +70,7 @@ export default function ReasonField({
 }
 
 /**
- * The five query keys a settlement **write** must invalidate — one call, so the
+ * The query keys a settlement **write** must invalidate — one call, so the
  * three writers cannot drift apart on which lists go stale.
  *
  * 🚩 Extracted at its third copy too (post, cancel, close-out). The set is not
@@ -79,9 +79,10 @@ export default function ReasonField({
  * open count did; and the **orphans** lane because it is a *separate door* from the
  * fleet (270) — invalidating only the fleet would leave the wrong-money lane drawn
  * from an estate that no longer matches the one beside it. And the **open lane**
- * (285), because an entry cancelled or written
- * off has left the estate's open position — a lane that kept listing it would send an
- * accountant to ring a branch about money nobody is owed any more.
+ * (285), because an entry cancelled or written off has left the estate's open
+ * position — a lane that kept listing it would send an accountant to ring a branch
+ * about money nobody is owed any more. And the **pending queue** (309), which a post
+ * can add to and a supervisor's act removes from.
  *
  * ⚠️ A stale door is not cosmetic here: it invites the accountant to post or correct
  * the same figure a second time.
@@ -100,4 +101,7 @@ export function invalidateSettlement(
   // Found by 288's `/code-review`; the two bulk writers already say `orphans`.
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'orphans'] })
   void queryClient.invalidateQueries({ queryKey: OPEN_LANE_KEY })
+  // 309: a post can mint a pending surplus, and an approve or a reject removes one —
+  // a queue that kept listing a decided entry would invite a second decision.
+  void queryClient.invalidateQueries({ queryKey: PENDING_LANE_KEY })
 }

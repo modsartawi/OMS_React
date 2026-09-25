@@ -40,17 +40,24 @@ import { SCOPE_PARAM } from './scope'
 export const LEDGER_KINDS: SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS']
 
 /**
- * The four states, **open first**.
+ * The six states, **open first**.
  *
  * Not alphabetical and not the type's declaration order by accident: `OPEN` is the
  * one an accountant asks for by itself — *"what is still owed out there"* — and the
- * other three are what a specific investigation reaches for.
+ * rest are what a specific investigation reaches for.
+ *
+ * 🔑 **Ticket 309 adds the two approval states** — the door accepts `PENDING_APPROVAL`
+ * and `REJECTED` as filters (BackOffice 1977 / 1978). Pending sits beside open because
+ * it is the other question asked on its own (*"what is waiting for a supervisor"*);
+ * rejected goes last, with the other endings.
  */
 export const LEDGER_STATUSES: SettlementEntryStatus[] = [
   'OPEN',
+  'PENDING_APPROVAL',
   'CONSUMED',
   'CANCELLED',
   'CLOSED_OUT',
+  'REJECTED',
 ]
 
 /** Which keys belong to this view. Read by nothing but the tests and the docblock in

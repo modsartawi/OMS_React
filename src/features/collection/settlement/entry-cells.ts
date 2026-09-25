@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 
 import type { SettlementEntry } from '@/core/models/settlement'
+import { remainingIsAClaim } from './account-projection'
 import { settlementMoney } from './money-display'
 
 /**
@@ -22,7 +23,9 @@ import { settlementMoney } from './money-display'
  *    typing *Cancelled* into the filter row is typing what the cell says.
  * 3. 🚩 **A `CANCELLED` entry draws no Remaining**, though the wire still carries its
  *    full figure (269's finding, 0688/147). Drawing it would claim a branch owes
- *    money the headline has already refused to count.
+ *    money the headline has already refused to count. ⚠️ Ticket 309 adds the two
+ *    approval states to the rule: a `PENDING_APPROVAL` surplus is not live yet and a
+ *    `REJECTED` one never will be, so neither remaining is a claim on anybody.
  *
  * 🚩 Pure: the words come in as `t`, the row goes in as data. No React, no network.
  */
@@ -48,6 +51,6 @@ export function remainingCell(
   value: number | null | undefined,
   currencyKey: string | null | undefined,
 ): string {
-  if (!entry || entry.status === 'CANCELLED') return '—'
+  if (!entry || !remainingIsAClaim(entry.status)) return '—'
   return value === null || value === undefined ? '—' : settlementMoney(value, currencyKey)
 }

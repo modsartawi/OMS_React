@@ -93,7 +93,9 @@
       "shortage": "Shortage owed",
       "surplus": "Surplus kept back",
       "openCount": "Entries open",
-      "notActionable": "The position is shown, never settled. A till consumes one entry, of one kind, through one document — a shortage and a surplus never cancel each other out."
+      "notActionable": "The position is shown, never settled. A till consumes one entry, of one kind, through one document — a shortage and a surplus never cancel each other out.",
+      "pending_one": "1 surplus waits for a supervisor’s approval. It is in none of the figures above, and no till can see it yet.",
+      "pending_other": "{{count}} surpluses wait for a supervisor’s approval. They are in none of the figures above, and no till can see them yet."
     },
     "kind": {
       "SHORTAGE": "Shortage · عجز",
@@ -103,7 +105,9 @@
       "OPEN": "Open",
       "CONSUMED": "Consumed by a till",
       "CANCELLED": "Cancelled",
-      "CLOSED_OUT": "Remainder written off"
+      "CLOSED_OUT": "Remainder written off",
+      "PENDING_APPROVAL": "Awaiting approval",
+      "REJECTED": "Rejected"
     },
     "columns": {
       "entryNumber": "Entry",
@@ -145,7 +149,9 @@
         "reversalUnnumbered": "Void of a settlement receipt",
         "orphan": "No document — the close never completed",
         "orphanHint": "The receipt number is stamped on after the fact, so a blank one means the close is either seconds old or it timed out and gave up. If it stays blank, this is money the branch handed over against a document that will never exist."
-      }
+      },
+      "emptyPending": "No till can see this entry until a supervisor approves it, so nothing has been taken against it.",
+      "emptyRejected": "A supervisor rejected this entry before any till could see it, so nothing was ever taken against it."
     }
   },
   "correction": {
@@ -171,7 +177,9 @@
       "consumed": "A till has taken all of this entry. There is nothing left to cancel or write off — it is finished, and its journal below says where the money went.",
       "cancelled": "This entry was cancelled. Nothing had been taken against it, so it was withdrawn as though it never happened, and it is not corrected twice.",
       "written-off": "This entry's remainder was already written off. What a till took before that is unchanged, and an entry is not corrected twice.",
-      "nothing-left": "This entry has nothing left on it, so there is nothing to cancel or to write off."
+      "nothing-left": "This entry has nothing left on it, so there is nothing to cancel or to write off.",
+      "pending": "This entry waits for a supervisor’s approval. It is not live yet, so there is nothing to cancel or write off — a supervisor approves it or rejects it.",
+      "rejected": "A supervisor rejected this entry. It never went live, so there is nothing to cancel or write off."
     },
     "raced": {
       "partlyConsumed": "A till consumed part of this entry while this was open — {{remaining}} is left, not {{amount}}. It can no longer be cancelled as though it never happened. Write off the rest instead?",
@@ -199,7 +207,9 @@
       "consumed": "Taken by a till",
       "restored": "Given back",
       "cancelled": "Cancelled",
-      "written-off": "Remainder written off"
+      "written-off": "Remainder written off",
+      "approved": "Approved",
+      "rejected": "Rejected"
     },
     "where": {
       "store": "from branch {{store}}",
@@ -310,7 +320,8 @@
       },
       "adjusted": "The server stored {{stored}} {{currency}}, not the {{reviewed}} that was reviewed. The figure above is the one on the ledger and the one the branch will be asked for.",
       "immutable": "Quote this number to the branch. The amount cannot be changed from here — it can only be cancelled while untouched, or its remainder written off once a till has taken part of it.",
-      "close": "Done"
+      "close": "Done",
+      "pending": "This surplus waits for an accountant supervisor’s approval. No till can see it, and the branch cannot keep it back, until it is approved."
     },
     "errors": {
       "failed": "The entry could not be posted."
@@ -366,7 +377,10 @@
       "commitWithTotal": "Post {{count}} entries · {{words}}",
       "commitBlocked": "Fix the sheet before posting",
       "refusedHint": "The file on disk is not the one that was previewed. Preview it again to see what changed before anything is posted.",
-      "previewAgain": "Preview the file again"
+      "previewAgain": "Preview the file again",
+      "awaitsRow": "Waits for approval",
+      "awaiting_one": "1 row will wait for a supervisor’s approval before any till sees it. It still posts with the file.",
+      "awaiting_other": "{{count}} rows will wait for a supervisor’s approval before any till sees them. They still post with the file."
     },
     "done": {
       "toast": "{{count}} entries are posted.",
@@ -404,7 +418,9 @@
       "refused": "A till got to these first ({{count}})",
       "refusedRow": "Not withdrawn — {{remaining}} is what it now has left. {{reason}}",
       "refusedRowUnstated": "Not withdrawn — {{remaining}} is what it now has left, and the server did not say why.",
-      "withdrawn": "Withdrawn ({{count}})"
+      "withdrawn": "Withdrawn ({{count}})",
+      "pending": "Still waiting for a supervisor ({{count}})",
+      "pendingRow": "Not withdrawn — no till has seen it. It waits for a supervisor, who can reject it on its account."
     }
   },
   "figures": {
@@ -459,7 +475,8 @@
       "owing": "Owing",
       "owed": "Owed",
       "cash": "Cash waiting",
-      "noCount": "—"
+      "noCount": "—",
+      "pending": "Awaiting approval"
     },
     "filters": {
       "mineOnly": "Mine only",
@@ -495,7 +512,11 @@
       "amount": "Amount",
       "servedBy": "Served by",
       "collector": "Collector",
-      "lastChase": "Last chased"
+      "lastChase": "Last chased",
+      "waiting": "Waiting",
+      "postedBy": "Posted by",
+      "reason": "Description",
+      "decide": "Decision"
     },
     "chase": {
       "title": "Record a chase",
@@ -526,6 +547,10 @@
       "cash": {
         "title": "No cash waiting.",
         "hint": "Every prepared receipt has been collected."
+      },
+      "pending": {
+        "title": "Nothing waiting for approval.",
+        "hint": "Every surplus posted has been approved or rejected."
       }
     },
     "filtered": {
@@ -535,7 +560,57 @@
     },
     "errors": {
       "laneFailed": "This list could not be read, so nothing can be said about what the estate has open. This is not “nothing to do” — try again, and tell head office if it keeps happening.",
-      "cashFailed": "The waiting receipts could not be read, so nothing can be said about what is sitting uncollected. This is not “everything has been collected” — try again, and tell head office if it keeps happening."
+      "cashFailed": "The waiting receipts could not be read, so nothing can be said about what is sitting uncollected. This is not “everything has been collected” — try again, and tell head office if it keeps happening.",
+      "pendingFailed": "The surpluses waiting for approval could not be read, so nothing can be said about what is waiting. This is not an empty queue."
+    },
+    "subtitlePending": "Every surplus in the estate that waits for an accountant supervisor, oldest first. None of them is open, and no till can see them until one is approved.",
+    "loadingPending": "Loading the surpluses waiting for approval…",
+    "capReachedPending": "Showing the first {{limit}} surpluses waiting for approval — there may be more. At this many, nobody is approving.",
+    "subtitlePendingUnordered": "Every surplus in the estate that waits for an accountant supervisor, in the order the server sent them — it is not sending their age yet. None of them is open, and no till can see them until one is approved."
+  },
+  "approval": {
+    "panel": {
+      "title": "Supervisor approval",
+      "forEntry": "Entry {{number}}",
+      "waiting": "Entry {{number}} waits for an accountant supervisor’s approval. No till can see it until then, and it is in none of this branch’s figures.",
+      "rejected": "Rejected by staff {{by}}.",
+      "rejectedAt": "Rejected by staff {{by}} on {{at}}.",
+      "noReason": "The server sent no reason.",
+      "rejectedNext": "A rejected entry cannot be approved later. If the branch is still owed a surplus, post a corrected entry."
+    },
+    "fields": {
+      "amount": "Amount",
+      "branch": "Branch",
+      "postedBy": "Posted by",
+      "reason": "Description"
+    },
+    "amountLine": "{{amount}} {{currency}} · {{kind}}",
+    "postedLine": "{{name}} · {{at}}",
+    "approve": {
+      "button": "Approve",
+      "title": "Approve entry {{number}}",
+      "explain": "Approving makes this entry open now. The branch’s next shift close can keep this amount back.",
+      "commit": "Approve entry {{number}}"
+    },
+    "reject": {
+      "button": "Reject",
+      "title": "Reject entry {{number}}",
+      "explain": "Rejecting is final. No till will ever see this entry, and the accountant who posted it reads your reason.",
+      "commit": "Reject entry {{number}}",
+      "reasonLabel": "Why it is rejected",
+      "reasonHint": "Required. The accountant reads this before posting a corrected entry. Up to {{max}} characters."
+    },
+    "cancel": "Cancel",
+    "done": {
+      "approve": "Entry {{number}} is approved and open.",
+      "reject": "Entry {{number}} is rejected."
+    },
+    "decided": "Entry {{number}} was no longer waiting — it is now {{status}}. Nothing was changed.",
+    "gone": "Entry {{number}} no longer exists. Nothing was changed.",
+    "refused": "Entry {{number}} was not changed. The server answered {{code}}.",
+    "errors": {
+      "forbidden": "You no longer hold settlement supervision, so this entry was not changed. Ask an administrator if you should.",
+      "failed": "The decision could not be sent. Nothing was changed."
     }
   }
 }

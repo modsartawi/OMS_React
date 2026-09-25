@@ -72,6 +72,16 @@ export type BulkReview = {
   /** How many rows carry at least one warning — the count the commit step states. */
   warnedRows: number
   /**
+   * ✅ Ticket 309 (BackOffice 1978 §3): how many rows **will land pending** — waiting
+   * for an accountant supervisor, invisible to every till until one approves them.
+   *
+   * 🚩 **Counted, never a blocker and never a warning.** The server decides it per row
+   * (`awaitsApproval`, the single post's own rule) and says in as many words that
+   * waiting touches neither `canCommit`, `errors` nor `warnings` — so it touches
+   * nothing here either. `=== true`: a row the server did not mark does not wait.
+   */
+  awaitingApproval: number
+  /**
    * ✅ 274: the warnings that are about the **file** rather than a row — the
    * server's `rowNumber: 0` issues, in its own words.
    *
@@ -167,6 +177,7 @@ export function reviewBulk(preview: SettlementBulkPreview | null | undefined): B
     // counting it there would report "1 row to look twice at" on a file whose every
     // row is clean.
     warnedRows: Object.keys(warningsByRow).filter((r) => Number(r) !== 0).length,
+    awaitingApproval: rows.filter((r) => r.awaitsApproval === true).length,
     fileNotices: warningsByRow[0] ?? [],
     totals,
     canCommit: blockers.length === 0 && rows.length > 0 && counted === rows.length,

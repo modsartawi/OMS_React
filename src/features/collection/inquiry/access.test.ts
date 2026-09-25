@@ -35,6 +35,8 @@ const NONE: CollectionAccessResult = {
   // It appears in this fixture only so the answer these predicates read is the
   // whole shape the door returns.
   canOpenSettlement: false,
+  // …and its supervision power (309), for the same reason.
+  canSuperviseSettlement: false,
 }
 
 const PREDICATES = [

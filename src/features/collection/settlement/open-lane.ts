@@ -7,7 +7,7 @@ import type {
   SettlementUncollectedRow,
 } from '@/core/models/settlement'
 import { TAB_PARAM, openSearch } from './addresses'
-import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT, isCapReached } from './cap'
+import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT, PENDING_LANE_LIMIT, isCapReached } from './cap'
 
 /**
  * **The open settlements lane's projection** — everything the screen at
@@ -60,12 +60,15 @@ import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT, isCapReached } from './cap'
  */
 export const OPEN_LANE_KEY = ['settlement', 'open-lane']
 export const CASH_LANE_KEY = ['settlement', 'cash-lane']
+/** Ticket 309's queue — every settlement write invalidates it too, because a post can
+ *  mint a pending surplus and an approve or reject removes one. */
+export const PENDING_LANE_KEY = ['settlement', 'pending-lane']
 
 /* ── which tab, as an address ─────────────────────────────────────────────────── */
 
 /**
- * The lane's three tabs — *Owing* (SHORTAGE), *Owed* (SURPLUS) and *Cash waiting*
- * (286's prepared-but-uncollected receipts).
+ * The lane's four tabs — *Owing* (SHORTAGE), *Owed* (SURPLUS), *Cash waiting* (286's
+ * prepared-but-uncollected receipts) and *Awaiting approval* (309).
  *
  * 🚩 **Owing and Owed are two tabs rather than a kind column**, because they are the
  * same age fact pointing in opposite directions: *the branch owes head office* is one
@@ -77,8 +80,14 @@ export const CASH_LANE_KEY = ['settlement', 'cash-lane']
  * that did not happen**, so the call goes to the collector rather than to the branch
  * manager. It also comes off a different door, which is why its count is not
  * `tallyOpenLane`'s to give.
+ *
+ * 🔑 **Awaiting approval is the fourth, and it is not an entry tab either** (ticket
+ * 309). A pending surplus is not open — no till sees it and no branch can be rung
+ * about it — so it cannot sit in *Owed* without the lane's counts claiming money that
+ * is not live. It is the supervisor's queue (spec 1976 story 8): the same ledger door
+ * asked `status=PENDING_APPROVAL`, its own call, its own count, its own failure.
  */
-export const OPEN_LANE_TABS = ['owing', 'owed', 'cash'] as const
+export const OPEN_LANE_TABS = ['owing', 'owed', 'cash', 'pending'] as const
 export type OpenLaneTab = (typeof OPEN_LANE_TABS)[number]
 
 /**
@@ -105,10 +114,11 @@ const TAB_KIND: Record<OpenLaneEntryTab, SettlementEntryKind> = {
   owed: 'SURPLUS',
 }
 
-/** Is this tab one the ledger answer feeds? The screen asks before handing a tab to
- *  `buildOpenLane`, which has nothing to say about receipts. */
+/** Is this tab one the OPEN ledger answer feeds? The screen asks before handing a tab
+ *  to `buildOpenLane`, which has nothing to say about receipts or pending surpluses.
+ *  ⚠️ Named, not `!== 'cash'`: 309's fourth tab would have slipped through a negation. */
 export function isEntryTab(tab: OpenLaneTab): tab is OpenLaneEntryTab {
-  return tab !== 'cash'
+  return tab === 'owing' || tab === 'owed'
 }
 
 /**
@@ -279,7 +289,7 @@ export function tallyOpenLane({
 }: Pick<OpenLaneInput, 'rows' | 'failed'>): OpenLaneTally {
   if (failed) return { counts: { owing: null, owed: null }, failed: true, capReached: false }
 
-  const answer = rows ?? []
+  const answer = liveRows(rows)
   return {
     // 🔑 One answer, split — never two calls. See `settlementApi.openLane`.
     counts: {
@@ -288,8 +298,9 @@ export function tallyOpenLane({
     },
     failed: false,
     // Measured on the WHOLE answer: a per-tab measurement would never fire, because
-    // the cap truncated the answer the two tabs share.
-    capReached: isCapReached(answer.length, OPEN_LANE_LIMIT),
+    // the cap truncated the answer the two tabs share. ⚠️ The door's answer, not the
+    // filtered one — it is the door's row count the cap truncated.
+    capReached: isCapReached(rows?.length ?? 0, OPEN_LANE_LIMIT),
   }
 }
 
@@ -387,7 +398,7 @@ export function buildOpenLane({
     }
   }
 
-  const answer = rows ?? []
+  const answer = liveRows(rows)
   // Asked of the answer rather than of the tab, so the chip does not appear and
   // disappear as the reader switches between two halves of one read.
   const said = whatTheWireSaid(answer)
@@ -403,6 +414,96 @@ export function buildOpenLane({
       chased: said.chased,
     }),
   }
+}
+
+/**
+ * The rows of an OPEN answer that are **actually open**.
+ *
+ * 🚩 **Ticket 309's rule, applied where the counts are made.** The lane asks the door
+ * for `status=OPEN`, so today this drops nothing — but the counts it feeds are the
+ * front page's signpost and the tab strip, and a pending or rejected surplus counted
+ * there would be a phone call about money no till can see. Filtering on the row's own
+ * `status` means a door that ever answered wider than asked cannot put one on screen
+ * as *owed*.
+ */
+function liveRows(rows: readonly SettlementOpenLaneRow[] | null | undefined): SettlementOpenLaneRow[] {
+  return (rows ?? []).filter((r) => r.status === 'OPEN')
+}
+
+/* ── awaiting approval (ticket 309) ───────────────────────────────────────────── */
+
+/**
+ * **The supervisor's queue** — the estate's pending surpluses, across every branch
+ * (BackOffice spec 1976 story 8), off `Settlement/Ledger?status=PENDING_APPROVAL`.
+ *
+ * 🔑 **Its own call, its own count, its own failure** — `CashLane`'s shape and for the
+ * same reason: the two entry tabs are two readings of ONE open answer and must agree,
+ * while this is a different question that can fail on its own. A pending surplus is
+ * not open, so it is in neither of their counts and never in any figure.
+ *
+ * ⚠️ **Everyone with the settlement grant sees the queue**; only a supervisor sees the
+ * buttons on it (the columns' business, off `canSuperviseSettlement`). An accountant
+ * reads it as *"what of mine is still waiting"* (story 6), which is the same list.
+ *
+ * ⚠️ It is the ledger door, so `servedBy` / `isMine` / `ageDays` arrive when §6 is built
+ * and not before — the arrangement degrades exactly as the entry tabs' does (`ranked`,
+ * `named`). There is no chase on this tab: a pending surplus is nobody's to ring about.
+ */
+export type PendingLane = {
+  /** `null` = not known, drawn as an em-dash — never `0`, which reads as *nothing waiting*. */
+  count: number | null
+  /** Measured against `PENDING_LANE_LIMIT`. */
+  capReached: boolean
+  ranked: boolean
+  named: boolean
+  /** Did the wire carry ages — and therefore is the queue in the order the subtitle
+   *  claims? `OpenLane.aged`'s ruling: `sort=age` and `ageDays` are one server
+   *  dependency, so a door sending no ages also ignored the sort. */
+  aged: boolean
+  view: OpenLaneView
+}
+
+export type PendingLaneInput = {
+  /** The one `Settlement/Ledger?status=PENDING_APPROVAL` answer. */
+  rows: readonly SettlementOpenLaneRow[] | null | undefined
+  /** ⚠️ Its OWN failure — the other tabs are unaffected, and vice versa. */
+  failed: boolean
+  mineOnly: boolean
+}
+
+/** How big the queue is — split out for the tab strip, as `tallyCashLane` is. */
+export function tallyPendingLane({
+  rows,
+  failed,
+}: Pick<PendingLaneInput, 'rows' | 'failed'>): Pick<PendingLane, 'count' | 'capReached'> {
+  if (failed) return { count: null, capReached: false }
+  return {
+    count: pendingRows(rows).length,
+    capReached: isCapReached(rows?.length ?? 0, PENDING_LANE_LIMIT),
+  }
+}
+
+export function buildPendingLane({ rows, failed, mineOnly }: PendingLaneInput): PendingLane {
+  const tally = tallyPendingLane({ rows, failed })
+  if (failed) return { ...tally, ranked: false, named: false, aged: false, view: { kind: 'failed' } }
+
+  const answer = pendingRows(rows)
+  const said = whatTheWireSaid(answer)
+  return {
+    ...tally,
+    ranked: said.ranked,
+    named: said.named,
+    aged: said.aged,
+    // The same arrangement as every other tab — yours above everyone else's, *empty ≠
+    // emptied-by-filter ≠ failed* — with no chase to filter on.
+    view: arrange(answer, { mineOnly, neverChasedOnly: false, ranked: said.ranked, chased: false }),
+  }
+}
+
+/** The rows of a pending answer that are **still pending** — the mirror of `liveRows`,
+ *  for the same reason: the queue's count must not include what it did not ask for. */
+function pendingRows(rows: readonly SettlementOpenLaneRow[] | null | undefined): SettlementOpenLaneRow[] {
+  return (rows ?? []).filter((r) => r.status === 'PENDING_APPROVAL')
 }
 
 /* ── cash waiting ─────────────────────────────────────────────────────────────── */

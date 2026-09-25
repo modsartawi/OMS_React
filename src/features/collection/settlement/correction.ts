@@ -39,6 +39,12 @@ export type NoCorrectionReason =
   /** `OPEN` with nothing left on it — a state the server should not produce, and
    *  which must not be met with a write-off of zero. See `correctionFor`. */
   | 'nothing-left'
+  /** `PENDING_APPROVAL` (ticket 309) — not live yet, so there is nothing to withdraw
+   *  or forgive. The supervisor's act on it is Approve or Reject (`approval.ts`), and
+   *  the server's cancel predicates on `OPEN` and would refuse it anyway. */
+  | 'pending'
+  /** `REJECTED` — a supervisor already refused it, and that is final. */
+  | 'rejected'
 
 /**
  * The one affordance an entry offers.
@@ -66,6 +72,7 @@ export type CorrectionOffer =
  * | `OPEN`, remaining < amount | **Write off the remaining** | a receipt is already in a collector's hands; it is never retro-voided |
  * | `CONSUMED` | none | a till took all of it — there is nothing left to correct |
  * | `CANCELLED` / `CLOSED_OUT` | none | already corrected once, and an entry is not corrected twice |
+ * | `PENDING_APPROVAL` / `REJECTED` | none | never live — approved or rejected, never cancelled (309) |
  *
  * ⚠️ **Equality is tested at the scale money is HELD at**, not at the branch's
  * display precision. A BHD entry of `95.250` partly consumed by `0.001` is a
@@ -90,6 +97,13 @@ export function correctionFor(
       return { kind: 'none', because: 'cancelled' }
     case 'CLOSED_OUT':
       return { kind: 'none', because: 'written-off' }
+    // 🚩 Ticket 309. Without these two a pending surplus fell through to the `OPEN`
+    // arithmetic below and offered *Cancel* — an act on money that is not live, which
+    // the server would refuse, beside the Approve a supervisor is actually there for.
+    case 'PENDING_APPROVAL':
+      return { kind: 'none', because: 'pending' }
+    case 'REJECTED':
+      return { kind: 'none', because: 'rejected' }
     case 'OPEN':
       break
   }

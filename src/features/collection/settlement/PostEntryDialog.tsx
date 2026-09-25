@@ -715,6 +715,14 @@ function PostedPanel({
         })}
       </p>
       <p className="text-sm">{inWordsSentence(t, stored, currencyKey)}</p>
+      {/* 🔑 309 (BackOffice 1977 §2): the SERVER decided this surplus waits for a
+          supervisor. The summary above says the branch may keep it back — true once it
+          is approved, and not before, so the confirmation says which. */}
+      {result?.status === 'PENDING_APPROVAL' && (
+        <p className="text-sm font-medium" data-testid="post-done-pending">
+          {t('post.done.pending')}
+        </p>
+      )}
       {adjusted && (
         <p className="text-xs text-attention-800" data-testid="post-done-adjusted">
           {t('post.done.adjusted', {

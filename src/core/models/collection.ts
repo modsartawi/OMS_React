@@ -75,6 +75,21 @@ export interface CollectionAccessResult {
    * acceptable shape and quietly grow a `?? true` somewhere.
    */
   canOpenSettlement: boolean
+  /**
+   * **Settlement supervision** (BackOffice spec 1976, ticket 1977) — not a screen but a
+   * POWER on one: whether the settlement screens offer the accountant supervisor's
+   * acts. Today that is **Approve** and **Reject** on a pending surplus (ticket 309).
+   *
+   * 🚩 **UX only, and the server says so.** `Settlement/Approve` and `Settlement/Reject`
+   * sit behind their own grant filter and answer a bare 403 to a session without it,
+   * whatever this flag said — hiding the buttons is courtesy, the 403 is the guard,
+   * and the screen handles the 403 anyway.
+   *
+   * 🚩 Required, and read `=== true` (`canSuperviseSettlement`), for the reason
+   * `canOpenSettlement` gives above: the contract owes the boolean, and an optional
+   * field is how a missing grant quietly becomes a `?? true`.
+   */
+  canSuperviseSettlement: boolean
 }
 
 /**

@@ -20,10 +20,12 @@
 import Ltr from '@/core/ui/Ltr'
 import PrintSheet from './PrintSheet'
 import type { VoucherAmountParts, VoucherPage } from '@/core/models/collection'
+import { voucherBox } from './voucher-box'
 import logoUrl from './logo-aldawaa.png'
 import './collection-voucher.css'
 
 export default function CollectionVoucher({ page }: { page: VoucherPage }) {
+  const box = voucherBox(page)
   return (
     <PrintSheet docClassName="cv-doc">
       {/* 246 — NO POSTED banner. `No.` IS the posted state: a receipt that took
@@ -72,9 +74,11 @@ export default function CollectionVoucher({ page }: { page: VoucherPage }) {
             ⚠ ONE OCCUPANT, AND ONLY WHEN THERE IS ONE (spec 1173 D9/D10). A close
             that spent a SURPLUS puts the amount and the entry number in the slot,
             because the collector is walking out with less cash than the drawer
-            held and the paper has to say by how much and against which entry. On
-            every other receipt both strings are `''` and NOTHING renders — not an
-            empty line, which would grow the box and push the sheet below it down.
+            held and the paper has to say by how much and against which entry —
+            and, since BackOffice ADR 0045, the accountant's description of it. On every
+            other receipt every string is `''` and NOTHING renders — not an empty
+            line, which would grow the box and push the sheet below it down.
+            `voucher-box.ts` is that collapse, and its test pins it.
 
             🔑 AND IT IS THE SETTLEMENT BLOCK TOO (owner ruling, 2026-08-15). A
             SHORTAGE settlement receipt does not get a second box beside this one:
@@ -86,21 +90,32 @@ export default function CollectionVoucher({ page }: { page: VoucherPage }) {
         <div className="cv-overage-box">
           <span className="cv-overage-fill">
             <span className="cv-overage-head">
-              <span className="cv-overage-label">{page.deductionLabelText}</span>
+              <span className="cv-overage-label">{box.label}</span>
               {/* ⚠ NOT wrapped in `<Ltr>`, deliberately. A value breaks only when
                   it contains a SPACE and begins or ends with a digit; `240.70` is
                   on `Ltr`'s own measured-safe list and `200.00` is the same
                   shape. The date beside it is isolated because `2026-08-06 21:14`
                   has a space — this does not. */}
-              {page.surplusAmountText && (
-                <span className="cv-overage-amount">{page.surplusAmountText}</span>
-              )}
+              {box.amount !== null && <span className="cv-overage-amount">{box.amount}</span>}
             </span>
             {/* Its OWN line under the caption, exactly as the WPF box stacks it —
                 and on a settlement receipt it is the only occupant, under a
                 caption that already says what the number settles. */}
-            {page.deductionEntryText && (
-              <span className="cv-overage-entry">{page.deductionEntryText}</span>
+            {box.entry !== null && <span className="cv-overage-entry">{box.entry}</span>}
+            {/* 🔑 The THIRD line (BackOffice 1984 / ADR 0045): the accountant's
+                description, UNDER the entry number it is attributed to — which is
+                what keeps it from reading as the branch's own words. Up to 200
+                characters, and it WRAPS inside the box; the stylesheet holds it to
+                the WPF's width so the box grows downwards, never across the sheet.
+
+                `dir="auto"`: the text is the accountant's, in either script. An
+                English-only line resolved inside this RTL sheet would move its
+                trailing full stop to the front; the paragraph takes its direction
+                from its own first letter instead. */}
+            {box.description !== null && (
+              <span className="cv-overage-desc" dir="auto">
+                {box.description}
+              </span>
             )}
           </span>
         </div>

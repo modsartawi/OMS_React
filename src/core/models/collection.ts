@@ -462,8 +462,8 @@ export interface VoucherPage {
   surplusAmountText: string
   /**
    * `رقم القيد / Entry No. 143` — the handle the branch and finance settle by on
-   * the phone, which is why the number is on the paper and the accountant's
-   * free-text reason never is.
+   * the phone. Since BackOffice ADR 0045 the accountant's description prints UNDER it as its
+   * own line ({@link deductionDescriptionText}); the number stays its own field.
    *
    * ⚠️ **Either kind of entry**, which is why it is not called `surplusEntryText`
    * any more (owner ruling, 2026-08-15): a surplus the close spent on a day, or
@@ -474,6 +474,24 @@ export interface VoucherPage {
    * number anybody can ring up about.
    */
   deductionEntryText: string
+  /**
+   * The red box's THIRD line (BackOffice 1984 / ADR 0045): the accountant's
+   * description of the entry the line above numbers — the surplus a day's close
+   * spent, or the shortage a settlement receipt settles. Verbatim, trimmed by the
+   * server, at most 200 characters, Arabic, English or both.
+   *
+   * ⚠️ Always a string, never null — `''` on an ordinary day, on an entry posted
+   * before the description was required, and on a settlement whose document has
+   * not mirrored. `''` renders NO line (the entry number stands alone), exactly as
+   * the WPF sheet collapses it. (The voucher also collapses a MISSING field,
+   * which is what a SIS.Api without 1984 sends — a deploy-order tolerance, not a
+   * contract state.)
+   *
+   * 🚩 WRAPS inside the box, never truncated, and never re-derived or formatted
+   * here. It is the accountant's text, attributed to the entry by its number —
+   * never presented as the branch's own words.
+   */
+  deductionDescriptionText: string
 }
 
 /**

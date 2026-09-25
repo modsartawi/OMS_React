@@ -41,7 +41,18 @@ const BASE: VoucherPage = {
   deductionLabelText: 'خصم فائض : ',
   surplusAmountText: '',
   deductionEntryText: '',
+  deductionDescriptionText: '',
 }
+
+/* The two DESCRIBED pages (BackOffice 1984 / ADR 0045) — both exactly 200
+ * characters, the ceiling a post accepts, because the ticket's question is
+ * whether the longest description the server can send still WRAPS inside the
+ * red box and still lands on one A4 sheet. Arabic then English, as an
+ * accountant writing to a branch does; `voucher-box.test.ts` pins the length. */
+export const SURPLUS_DESCRIPTION =
+  'فائض نقدية يوم 2 أغسطس خصم تلقائيا عند الإغلاق بعد مطابقة كشف البنك / Cash surplus of 2 Aug, deducted automatically at close after the bank statement was matched against the deposit slip ref no. 55210'
+export const SETTLEMENT_DESCRIPTION =
+  "عجز نقدية يوم 3 أغسطس، يسدد نقدا للمحصل مع إيداع اليوم التالي / Cash short on 3 Aug, to be handed to the collector in cash with the next day's deposit as agreed with the area manager on 04 August 2026"
 
 /**
  * A fixture case, keyed by the id that stands in for `:collectionReceiptId`
@@ -151,6 +162,42 @@ export const VOUCHER_SCENARIOS: VoucherScenario[] = [
           deductionLabelText: 'تسوية عجز : ',
           surplusAmountText: '',
           deductionEntryText: 'رقم القيد / Entry No. 143',
+        },
+      ],
+    },
+  },
+  {
+    // BackOffice 1984 — a day that spent a surplus, now carrying the accountant's
+    // description as the box's THIRD line, under the entry it is attributed to.
+    // `surplus` above stays description-less on purpose: it is the entry posted
+    // before the description was required, which prints the number alone.
+    key: 'surplus-described',
+    document: {
+      pages: [
+        {
+          ...BASE,
+          surplusAmountText: '200.00',
+          deductionEntryText: 'رقم القيد / Entry No. 143',
+          deductionDescriptionText: SURPLUS_DESCRIPTION,
+        },
+      ],
+    },
+  },
+  {
+    // BackOffice 1984 — the SETTLEMENT page's description: the shortage the
+    // receipt settles, copied onto the prepared document at prepare. Same box,
+    // same third line; `settlement` above is the undescribed twin.
+    key: 'settlement-described',
+    document: {
+      pages: [
+        {
+          ...BASE,
+          card: { whole: '—', minor: '—' },
+          cardWords: '—',
+          deductionLabelText: 'تسوية عجز : ',
+          surplusAmountText: '',
+          deductionEntryText: 'رقم القيد / Entry No. 144',
+          deductionDescriptionText: SETTLEMENT_DESCRIPTION,
         },
       ],
     },

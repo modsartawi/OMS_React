@@ -96,13 +96,14 @@
   font-weight: 700;
 }
 
-/* The box's two lines: caption (+ the amount, when there is one) over the entry
- * number. The column wrapper is ALWAYS drawn now — the caption lives inside it,
- * because on a settlement receipt the entry line sits under the caption with no
- * amount between them (owner ruling, 2026-08-15). An unfilled slot still
- * measures what it always did: both occupants render nothing at all when their
- * strings are `''`, so the column is one line high and the box falls back on its
- * own min-height. */
+/* The box's lines: caption (+ the amount, when there is one) over the entry
+ * number, over the accountant's description (BackOffice 1984). The column
+ * wrapper is ALWAYS drawn now — the caption lives inside it, because on a
+ * settlement receipt the entry line sits under the caption with no amount
+ * between them (owner ruling, 2026-08-15). An unfilled slot still measures what
+ * it always did: all three occupants render nothing at all when their strings
+ * are `''`, so the column is one line high and the box falls back on its own
+ * min-height. */
 .cv-overage-fill {
   display: flex;
   flex-direction: column;
@@ -125,6 +126,27 @@
 .cv-overage-entry {
   color: #c00000;
   font-weight: 700;
+}
+
+/* The box's THIRD line (BackOffice 1984 / ADR 0045): the accountant's description,
+ * under the entry number it belongs to. The WPF's own `TextBlock` — red, NOT bold,
+ * 2px under the entry, wrapping at `MaxWidth="340"` — so the box grows DOWNWARDS
+ * and stays in the sheet's right half rather than stretching across it.
+ *
+ * ⚠ Up to 200 characters, and never cut: `overflow-wrap: anywhere` breaks a run
+ * with no space in it (a reference number, a pasted code) instead of letting it
+ * push out past the box's edge — the one way a WRAP rule can still truncate.
+ *
+ * `text-align: right` is PHYSICAL on purpose (this file's exemption): the line
+ * carries `dir="auto"`, and an English-only description resolved LTR would
+ * otherwise start at the box's left while the caption and entry above it hug the
+ * right. */
+.cv-overage-desc {
+  color: #c00000;
+  margin-top: 2px;
+  max-width: 340px;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 
 /* ── the title band ───────────────────────────────────────────────────── */

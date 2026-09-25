@@ -28,6 +28,14 @@
 //      box: the ruling is that an ordinary receipt is untouched, not that the slot stays blank;
 //   7. a stale link renders "this document no longer exists", never a blank A4 sheet.
 //
+// And ticket 312's (BackOffice 1984 / ADR 0045) — the red box's THIRD line, the accountant's
+// description, under §6c:
+//   6c. it prints UNDER the entry number on both page kinds, verbatim; 200 characters WRAP inside
+//      the box (held to the WPF's 340px, in the sheet's right half), a run with no space in it
+//      wraps too, and the sheet still lands on ONE A4 page — on screen, under print media and in
+//      the PDF; a page with no description prints the entry number alone; the contract's own
+//      sample page renders as sent; and the print route's pending / refusal / 403 states hold.
+//
 // And ticket 252's, on `/collection/acr/:acrId` — where the whole question is PAGING, because the
 // ACR is the document that runs off the end of a sheet:
 //   8. the four paging scenarios the 247 sign-off judged: 47 rows → 3 sheets with the header on
@@ -105,14 +113,28 @@ async function loadFixtures(page) {
       import('/src/features/collection/inquiry/acr-fixture.ts'),
     ])
     const byKey = (scenarios) => Object.fromEntries(scenarios.map((s) => [s.key, s.document]))
-    return { receipts: byKey(v.VOUCHER_SCENARIOS), acrs: byKey(a.ACR_SCENARIOS) }
+    return {
+      receipts: byKey(v.VOUCHER_SCENARIOS),
+      acrs: byKey(a.ACR_SCENARIOS),
+      // 312: the two 200-character descriptions, so the drive compares against the SAME strings.
+      SURPLUS_DESCRIPTION: v.SURPLUS_DESCRIPTION,
+      SETTLEMENT_DESCRIPTION: v.SETTLEMENT_DESCRIPTION,
+    }
   })
-  // 6 receipts since spec 1173 added the two surplus cases (§12 below); 4 ACRs, unchanged.
+  // 9 receipts: spec 1173's two surplus cases, the settlement case (1181 — added without this
+  // count, which had gone stale at 7), and 312's two DESCRIBED pages; 4 ACRs, unchanged.
   const counts = [Object.keys(fixtures.receipts).length, Object.keys(fixtures.acrs).length]
-  if (counts[0] !== 6 || counts[1] !== 4)
-    throw new Error(`fixture load returned ${counts.join('/')} scenarios, expected 6/4`)
+  if (counts[0] !== 9 || counts[1] !== 4)
+    throw new Error(`fixture load returned ${counts.join('/')} scenarios, expected 9/4`)
   return fixtures
 }
+
+// 312: `inner` sits inside `outer` on the three edges a wrapped line can escape by. Half a pixel
+// of slack for sub-pixel layout under the 0.956 scale.
+const insideBox = (inner, outer) =>
+  inner.x >= outer.x - 0.5 &&
+  inner.x + inner.width <= outer.x + outer.width + 0.5 &&
+  inner.y + inner.height <= outer.y + outer.height + 0.5
 
 async function run() {
   const browser = await chromium.launch()
@@ -135,6 +157,9 @@ async function run() {
   let FIXTURES = { receipts: {}, acrs: {} }
   // Set by a test that wants the NEXT document call to fail in a way that is not a miss.
   let faultNext = null
+  // 312: set to a promise to HOLD the next document call until it resolves, so the pending state
+  // can be seen at all — a local stub otherwise answers before anything can look.
+  let holdNext = null
   // Every document path the app asked for, in order. The whole of 259 is "these routes now call a
   // door", and the only way to assert that is to watch the door.
   const documentCalls = []
@@ -160,6 +185,11 @@ async function run() {
       // The RAW path, before decoding — the encoding assertion needs to see what actually went on
       // the wire, not what the lookup made of it.
       documentCalls.push(path)
+      if (holdNext) {
+        const hold = holdNext
+        holdNext = null
+        await hold
+      }
       if (faultNext) {
         const fault = faultNext
         faultNext = null
@@ -407,6 +437,202 @@ async function run() {
     JSON.stringify(unnumbered),
   )
 
+  // ---- 6c. ticket 312 (BackOffice 1984 / ADR 0045): the accountant's description ----
+  //
+  // The box's THIRD line, under the entry number it is attributed to, on BOTH page kinds. What
+  // this section has to prove is the paper: 200 characters — the most a post accepts — must WRAP
+  // inside the red box, never run out of it and never be cut, and the sheet must still be one A4.
+  const desc = page.locator('.cv-overage-desc')
+  const described = async (label, expected) => {
+    check(`${label} → the description renders, once`, (await desc.count()) === 1, `${await desc.count()}`)
+    const text = await desc.innerText()
+    check(
+      `${label} → VERBATIM — all ${expected.length} characters, never cut or re-derived`,
+      text === expected,
+      `${text.length} chars`,
+    )
+    const [d, e, b, sheet, doc, names] = await Promise.all([
+      desc.boundingBox(),
+      page.locator('.cv-overage-entry').boundingBox(),
+      overageBox.boundingBox(),
+      sheets.first().boundingBox(),
+      page.locator('.print-doc').boundingBox(),
+      page.locator('.cv-names').boundingBox(),
+    ])
+    check(
+      `${label} → UNDER the entry number it belongs to, not beside it`,
+      d.y >= e.y + e.height - 0.5,
+      `entry bottom ${(e.y + e.height).toFixed(1)} · desc top ${d.y.toFixed(1)}`,
+    )
+    // One line at 12px Tahoma is ~16px before the 0.956 scale; 200 characters in 340px are several.
+    check(`${label} → it WRAPS — more than one line`, d.height > 30, `${d.height.toFixed(1)}px high`)
+    check(
+      `${label} → held to the WPF's 340px (scaled 0.956), so the box grows DOWN, not across`,
+      d.width <= 340 * 0.956 + 1,
+      `${d.width.toFixed(1)}px wide`,
+    )
+    check(
+      `${label} → INSIDE the red box on every edge`,
+      insideBox(d, b),
+      `desc ${d.x.toFixed(0)}..${(d.x + d.width).toFixed(0)} in box ${b.x.toFixed(0)}..${(b.x + b.width).toFixed(0)}`,
+    )
+    check(
+      `${label} → nothing clipped: no line runs past the text's own box`,
+      await desc.evaluate((el) => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1),
+    )
+    check(
+      `${label} → the box stays in the sheet's RIGHT half, the pad's side`,
+      b.x >= doc.x + doc.width / 2,
+      `box left ${b.x.toFixed(0)} · doc centre ${(doc.x + doc.width / 2).toFixed(0)}`,
+    )
+    check(
+      `${label} → and the whole voucher still fits its A4 sheet — the names block is not pushed off`,
+      names.y + names.height <= sheet.y + sheet.height,
+      `names bottom ${(names.y + names.height).toFixed(0)} · sheet bottom ${(sheet.y + sheet.height).toFixed(0)}`,
+    )
+    check(
+      `${label} → red, like the rest of the box, and NOT bold — the WPF's own line`,
+      await desc.evaluate((el) => {
+        const cs = getComputedStyle(el)
+        return cs.color === 'rgb(192, 0, 0)' && Number(cs.fontWeight) < 600
+      }),
+    )
+  }
+
+  await goto('surplus-described')
+  await described('surplus day, 200 chars', FIXTURES.SURPLUS_DESCRIPTION)
+  check(
+    'surplus day → the amount and the entry are still there above it',
+    (await page.locator('.cv-overage-amount').innerText()).trim() === '200.00' &&
+      (await page.locator('.cv-overage-entry').innerText()).includes('143'),
+  )
+
+  await goto('settlement-described')
+  await described('settlement page, 200 chars', FIXTURES.SETTLEMENT_DESCRIPTION)
+  check(
+    'settlement page → under its own caption and entry, with no amount',
+    (await page.locator('.cv-overage-label').innerText()).includes('تسوية عجز') &&
+      (await page.locator('.cv-overage-entry').innerText()).includes('144') &&
+      (await page.locator('.cv-overage-amount').count()) === 0,
+  )
+
+  for (const id of ['surplus', 'settlement']) {
+    await goto(id)
+    check(
+      `${id} without a description → the entry number ALONE, no blank third line`,
+      (await desc.count()) === 0 && (await page.locator('.cv-overage-entry').count()) === 1,
+    )
+  }
+
+  // A run with no space to break on — a pasted reference, a code. `max-width` alone would let it
+  // push out past the box's edge, which on paper is the same as cutting it.
+  const unbroken = ('REF' + '0123456789'.repeat(20)).slice(0, 200)
+  FIXTURES.receipts['described-unbroken'] = {
+    pages: [{ ...FIXTURES.receipts['settlement-described'].pages[0], deductionDescriptionText: unbroken }],
+  }
+  await goto('described-unbroken')
+  await described('200 chars with NO space', unbroken)
+
+  // `dir="auto"`: the accountant writes in either script. An English-only line takes its own
+  // direction (its full stop stays at its end) and still sits on the box's right like the lines
+  // above it; the Arabic-first fixtures stay RTL.
+  FIXTURES.receipts['described-english'] = {
+    pages: [
+      { ...FIXTURES.receipts['settlement-described'].pages[0], deductionDescriptionText: 'Cash short on 3 Aug.' },
+    ],
+  }
+  await goto('described-english')
+  const english = await desc.evaluate((el) => {
+    const cs = getComputedStyle(el)
+    return { direction: cs.direction, align: cs.textAlign }
+  })
+  check(
+    'an English-only description resolves LTR, and still aligns to the box’s right',
+    english.direction === 'ltr' && english.align === 'right',
+    JSON.stringify(english),
+  )
+  await goto('settlement-described')
+  check(
+    'an Arabic-first description stays RTL',
+    (await desc.evaluate((el) => getComputedStyle(el).direction)) === 'rtl',
+  )
+
+  // 🔑 The CONTRACT's own sample page (BackOffice 1984 `## Web contract`), value for value — not a
+  // fixture built to the type. If a field name drifts between the two repos, this is where it shows.
+  FIXTURES.receipts['contract-sample'] = {
+    pages: [
+      {
+        noText: '0000000052',
+        storeCode: 'P019',
+        collectedAtText: '2026-09-24 10:30',
+        collectorName: 'فهد القحطاني',
+        collectorId: 'COLL-9',
+        pharmacistName: 'سعود العتيبي',
+        pharmacistId: 'MGR-4',
+        grand: { whole: '3333', minor: '00' },
+        cash: { whole: '3333', minor: '00' },
+        card: { whole: '—', minor: '—' },
+        cashWords: 'فقط ثلاثة آلاف و ثلاثمائة و ثلاثة و ثلاثون ريالا لا غير',
+        cardWords: '—',
+        shiftDayName: '—',
+        shiftDayText: '—',
+        deductionLabelText: 'تسوية عجز : ',
+        surplusAmountText: '',
+        deductionEntryText: 'رقم القيد / Entry No. 144',
+        deductionDescriptionText: 'عجز نقدية يوم 3 أغسطس / Cash short on 3 Aug',
+      },
+    ],
+  }
+  await goto('contract-sample')
+  const sampleBox = (await overageBox.innerText())
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+  check(
+    'the contract sample → caption, entry, description — three lines, in that order',
+    sampleBox.length === 3 &&
+      sampleBox[0] === 'تسوية عجز :' &&
+      sampleBox[1] === 'رقم القيد / Entry No. 144' &&
+      sampleBox[2] === 'عجز نقدية يوم 3 أغسطس / Cash short on 3 Aug',
+    JSON.stringify(sampleBox),
+  )
+
+  // The print route's other states against the same door. The contract: `CollectionReceiptNotFound`
+  // is a 400 envelope; no Cash Collections grant is a BARE 403.
+  let release
+  holdNext = new Promise((r) => (release = r))
+  await page.goto(receipt('settlement-described'))
+  await page.waitForSelector('[role="status"]')
+  check('loading → a sentence, never a blank sheet', (await sheets.count()) === 0)
+  release()
+  await settle()
+  check('loading → then the described sheet', (await sheets.count()) === 1 && (await desc.count()) === 1)
+
+  faultNext = envelope(null, {
+    status: 400,
+    success: false,
+    message: 'Collection receipt not found.',
+    errors: [
+      { errorCode: 'CollectionReceiptNotFound', internalErrorCode: '', errorMessage: 'Collection receipt not found.' },
+    ],
+  })
+  await goto('settlement-described')
+  check(
+    'refusal → the contract’s 400 CollectionReceiptNotFound is the MISS, and prints no sheet',
+    (await sheets.count()) === 0 && (await page.locator('body').innerText()).includes('no longer exists'),
+  )
+
+  faultNext = { status: 403, contentType: 'text/plain', body: '' }
+  await goto('settlement-described')
+  const forbidden = await page.locator('body').innerText()
+  check(
+    'a bare 403 (no Cash Collections grant) → a failure, never the miss, and no sheet',
+    (await sheets.count()) === 0 &&
+      !forbidden.includes('no longer exists') &&
+      (await page.locator('[role="alert"]').count()) === 1,
+    forbidden.replace(/\n/g, ' ').slice(0, 80),
+  )
+
   await goto('posted')
   check(
     '🔑 and an ordinary receipt’s box is UNCHANGED in height — the slot 246 signed off',
@@ -466,7 +692,25 @@ async function run() {
   check('259 — and it lands on the miss, not on some other screen', (await page.locator('[role="alert"]').count()) === 1)
 
   // ---- 8. the same document under print media ----
+  // 312 first: the longest description, under print media, must still wrap inside the box and
+  // leave the voucher on its one sheet.
   await page.emulateMedia({ media: 'print' })
+  for (const id of ['surplus-described', 'settlement-described', 'described-unbroken']) {
+    await goto(id)
+    const [d, b, names, sheet] = await Promise.all([
+      desc.boundingBox(),
+      overageBox.boundingBox(),
+      page.locator('.cv-names').boundingBox(),
+      sheets.first().boundingBox(),
+    ])
+    check(
+      `${id} under @media print → the description inside the box, the voucher inside its A4`,
+      (await sheets.count()) === 1 &&
+        insideBox(d, b) &&
+        names.y + names.height <= sheet.y + sheet.height,
+      `desc ${d.width.toFixed(0)}×${d.height.toFixed(0)} · names bottom ${(names.y + names.height).toFixed(0)} / ${(sheet.y + sheet.height).toFixed(0)}`,
+    )
+  }
   await goto('multishift')
   await page.emulateMedia({ media: 'print' })
   const printBoxes = await Promise.all((await sheets.all()).map((s) => s.boundingBox()))
@@ -485,6 +729,10 @@ async function run() {
   for (const [id, expected] of [
     ['posted', 1],
     ['multishift', 2],
+    // 312: the 200-character description still prints on ONE sheet, on both page kinds.
+    ['surplus-described', 1],
+    ['settlement-described', 1],
+    ['described-unbroken', 1],
   ]) {
     await goto(id)
     const pages = pdfPageCount(await page.pdf({ preferCSSPageSize: true, printBackground: true }))

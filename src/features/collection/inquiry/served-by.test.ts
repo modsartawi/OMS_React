@@ -451,3 +451,35 @@ describe('the Attempts screen', () => {
     expect(parseServedByText('attempts', '99999', entries)).toEqual(NO_SERVED_BY)
   })
 })
+
+// 🔑 **Ticket 317 (BackOffice 1994) — Ready for collection joins the table, on the
+// ASSIGNMENT reading.** Nothing on that list has been collected yet, so "served by"
+// can only mean the store's CURRENT pairing — the contract says "exactly as on
+// Collections/Attempts", and `ACCOUNTANT` + id is the screen's accountant filter.
+describe('the Ready for collection screen', () => {
+  it('reads the assignment, offers Accountants, and takes no free text — Cash Collections’ row', () => {
+    expect(SERVED_BY_SCREENS.ready).toEqual({
+      reading: 'assignment',
+      accountants: true,
+      freeText: false,
+    })
+    expect(SERVED_BY_SCREENS.ready).toEqual(SERVED_BY_SCREENS.collections)
+    // Not the collected-by row: nobody has collected anything on this list.
+    expect(SERVED_BY_SCREENS.ready).not.toEqual(SERVED_BY_SCREENS.acrs)
+  })
+
+  it('offers every assignment-reading Kind — ACCOUNTANT, COLLECTOR, SUPERVISOR, UNASSIGNED, MINE', () => {
+    expect(resolvedKinds('ready')).toEqual(['ACCOUNTANT', 'COLLECTOR', 'SUPERVISOR', 'UNASSIGNED', 'MINE'])
+    expect(servedByGroups('ready', OPTIONS).map((g) => g.kind)).toEqual(['ACCOUNTANT', 'COLLECTOR'])
+  })
+
+  it('lands an accountant on their own branches — default-to-mine, as on Cash Collections', () => {
+    const options = {
+      ...OPTIONS,
+      defaultScope: { kind: 'MINE' as const, staffId: '4466', role: 'ACCOUNTANT', displayName: 'ضحى' },
+    }
+    expect(defaultSelection('ready', options)).toEqual({ kind: 'MINE', id: '4466' })
+    // …and a session on no roster row (a collector supervisor with none) lands on the estate.
+    expect(defaultSelection('ready', { ...OPTIONS, defaultScope: null })).toEqual(NO_SERVED_BY)
+  })
+})

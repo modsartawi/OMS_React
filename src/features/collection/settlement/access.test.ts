@@ -28,6 +28,9 @@ const NONE: CollectionAccessResult = {
   canOpenAttempts: false,
   canOpenSettlement: false,
   canSuperviseSettlement: false,
+  // Ready for collection (317) — a read grant of the OTHER feature, here only so the
+  // fixture is the whole shape the door returns.
+  canOpenReady: false,
 }
 
 describe('the settlement account predicate', () => {
@@ -55,6 +58,7 @@ describe('the settlement account predicate', () => {
         canOpenAttempts: true,
         canOpenSettlement: false,
         canSuperviseSettlement: false,
+        canOpenReady: true,
       }),
     ).toBe(false)
   })

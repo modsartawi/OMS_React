@@ -292,6 +292,20 @@ store/shift/business day, and why not (manager absent, cash not complete, other)
 is immutable and carries no row action anywhere it is shown.
 _Avoid_: failed collection (nothing was collected, so there is no collection to have failed), visit.
 
+**Ready for collection**:
+What still waits for a collector (BackOffice 1994): every **closed day** the collector has not
+taken (a shift `CLOSED` + `PENDING`, NewPos and legacy alike) and every **prepared settlement
+receipt** nobody has collected yet. A row leaves the moment it is collected or declared collected
+outside the system. Read-only — no act, no Z viewer.
+_Avoid_: queue, backlog; "receipt" alone (a **collection**'s receipt is the سند قبض — say *prepared
+settlement receipt*).
+
+**Collector supervisor**:
+The Ua role `COLLECTOR_SUPERVISOR` (BackOffice 1995): the five collection read grants — Cash
+Collections, ACRs, Deposits, Collection Attempts, Ready for collection — and no act. The web keys
+nothing off the role name; each screen reads its own flag on the one probe.
+_Avoid_: accountant supervisor (a different role, which holds settlement supervision).
+
 **Skipped line** (of a link):
 A line on the linked request that the copy did **not** put on the order, reported per line rather
 than silently dropped. Two kinds, and they are different rows: **refused** (not sellable at the

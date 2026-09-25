@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FileSearch, FileSpreadsheet, FileText, Gem, Headset, HeartPulse, History, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FileSearch, FileSpreadsheet, FileText, Gem, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -36,6 +36,7 @@ import {
   canOpenAttempts,
   canOpenCollections,
   canOpenDeposits,
+  canOpenReady,
 } from '@/features/collection/inquiry/api'
 import { canOpenSettlement } from '@/features/collection/settlement/api'
 // The Retail Invoice probe stays with its feature for the Loy/Collections reason
@@ -367,6 +368,17 @@ export const MENU: ShellMenuItem[] = [
         routerLink: '/collection/attempts',
         activePrefix: '/collection/attempts',
         access: collectionProbe(canOpenAttempts),
+      },
+      {
+        // Ready for collection (ticket 317, BackOffice 1994) — what still waits for a
+        // collector. A read, so it sits with the four reads above; its probe reads
+        // `canOpenReady` and nothing else — its own grant, bundled into the
+        // accountant roles and the collector supervisor's (1995) on its own.
+        labelKey: 'collection:menu.ready',
+        icon: Hourglass,
+        routerLink: '/collection/ready',
+        activePrefix: '/collection/ready',
+        access: collectionProbe(canOpenReady),
       },
       {
         // The area's one WRITE screen (BackOffice 1169) — who serves each branch,

@@ -21,6 +21,7 @@ import {
   canOpenAttempts,
   canOpenCollections,
   canOpenDeposits,
+  canOpenReady,
 } from './api'
 
 const NONE: CollectionAccessResult = {
@@ -37,6 +38,7 @@ const NONE: CollectionAccessResult = {
   canOpenSettlement: false,
   // …and its supervision power (309), for the same reason.
   canSuperviseSettlement: false,
+  canOpenReady: false,
 }
 
 const PREDICATES = [
@@ -48,6 +50,10 @@ const PREDICATES = [
   // thing that must never happen is a read grant lighting the screen that
   // rewrites what those reads filter by.
   ['canOpenAssignment', canOpenAssignment],
+  // Ready for collection (ticket 317, BackOffice 1994) — its own read grant, bundled
+  // into the accountant roles and the collector supervisor's on its own. In the same
+  // matrix because holding Collections must never light it, nor the reverse.
+  ['canOpenReady', canOpenReady],
 ] as const
 
 describe('the Collection probe predicates', () => {
@@ -95,5 +101,36 @@ describe('the Collection probe predicates', () => {
       expect(can(null)).toBe(false)
       expect(can(undefined)).toBe(false)
     }
+  })
+})
+
+/**
+ * BackOffice 1995 — the **collector supervisor**. No new field and no new grant: a
+ * role bundling the five read grants. The web keys nothing off a role name, so the
+ * whole of its behaviour here is these predicates reading 1995's own sample answer.
+ */
+describe('a collector supervisor (BackOffice 1995)', () => {
+  // 1995's `## Web contract` sample, verbatim.
+  const COLLECTOR_SUPERVISOR: CollectionAccessResult = {
+    canOpenCollections: true,
+    canOpenAcrs: true,
+    canOpenDeposits: true,
+    canOpenAttempts: true,
+    canOpenAssignment: false,
+    canOpenSettlement: false,
+    canSuperviseSettlement: false,
+    canOpenReady: true,
+  }
+
+  it('opens the five read screens, Ready for collection among them', () => {
+    expect(canOpenCollections(COLLECTOR_SUPERVISOR)).toBe(true)
+    expect(canOpenAcrs(COLLECTOR_SUPERVISOR)).toBe(true)
+    expect(canOpenDeposits(COLLECTOR_SUPERVISOR)).toBe(true)
+    expect(canOpenAttempts(COLLECTOR_SUPERVISOR)).toBe(true)
+    expect(canOpenReady(COLLECTOR_SUPERVISOR)).toBe(true)
+  })
+
+  it('🚩 reaches no act — the assignment screen stays shut', () => {
+    expect(canOpenAssignment(COLLECTOR_SUPERVISOR)).toBe(false)
   })
 })

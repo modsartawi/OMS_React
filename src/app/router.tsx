@@ -275,6 +275,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/collection/inquiry/CollectionAttemptsPage')).default,
         }),
       },
+      // Ready for collection (ticket 317, BackOffice 1994) — read-only, behind its OWN
+      // grant (`CollectionReady`), same prefix, same probe, same in-page backstop.
+      {
+        path: 'collection/ready',
+        lazy: async () => ({
+          Component: (await import('@/features/collection/inquiry/ReadyPage')).default,
+        }),
+      },
       // The area's one WRITE screen (BackOffice 1169): who serves each branch.
       // Behind its OWN grant — reading a collection list never implies rewriting
       // the master data those lists filter by — and, like the four above, behind

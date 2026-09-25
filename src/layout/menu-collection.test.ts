@@ -32,6 +32,7 @@ const ALL = {
   canOpenAttempts: true,
   canOpenAssignment: true,
   canOpenSettlement: true,
+  canOpenReady: true,
 }
 const NONE = {
   canOpenCollections: false,
@@ -40,6 +41,7 @@ const NONE = {
   canOpenAttempts: false,
   canOpenAssignment: false,
   canOpenSettlement: false,
+  canOpenReady: false,
 }
 
 /**
@@ -80,6 +82,9 @@ describe('the Collections nav group', () => {
       '/collection/acrs',
       '/collection/deposits',
       '/collection/attempts',
+      // Ready for collection (ticket 317) — a read, beside the four reads, on its
+      // own grant.
+      '/collection/ready',
       '/collection/assignment',
       // The fifth leaf (ticket 268) — the accountant's settlement account, a
       // SECOND feature under this one group and one prefix rather than an area of
@@ -100,6 +105,7 @@ describe('the Collections nav group', () => {
       'collection:menu.acrs',
       'collection:menu.deposits',
       'collection:menu.attempts',
+      'collection:menu.ready',
       'collection:menu.assignment',
       // 🚩 Its own namespace, not `collection`'s: the settlement account is its own
       // feature and its keys live in `settlement.json`. A leaf whose namespace was
@@ -161,6 +167,7 @@ describe('the Collections nav group', () => {
       'collection:menu.acrs',
       'collection:menu.deposits',
       'collection:menu.attempts',
+      'collection:menu.ready',
     ])
 
     // …and the converse: bound to COLLECTION_ASSIGNMENT alone, they get that one
@@ -189,6 +196,7 @@ describe('the Collections nav group', () => {
         canOpenAttempts: [],
         canOpenAssignment: 'yes',
         canOpenSettlement: 'yes',
+        canOpenReady: 'true',
       }),
       // The shape a different door might answer — a single flag for the area.
       probed({ canOpen: true }),
@@ -197,13 +205,14 @@ describe('the Collections nav group', () => {
     }
   })
 
-  it('🚩 the FOUR-boolean answer the live door returns today hides ONLY the fifth leaf', () => {
+  it('🚩 the FOUR-boolean answer an older door returns hides every leaf it does not name', () => {
     // Every flag this group's first four leaves need, and `canOpenSettlement`
     // simply absent — which is what `CollectionWeb/Access` actually returns until
     // BackOffice spec 1173 ships the flag (ticket 274 joins the waves). The
-    // settlement leaf is the one that vanishes: a probe answering the older shape
-    // must not take the four working screens down with it, and must not leak the
-    // fifth.
+    // settlement leaf vanishes, and so does Ready for collection (317), whose flag an
+    // older door does not send either: a probe answering the older shape must not
+    // take the four working screens down with it, and must not leak a leaf it never
+    // named.
     expect(
       labels(
         resolveMenu(
@@ -222,6 +231,44 @@ describe('the Collections nav group', () => {
       'collection:menu.acrs',
       'collection:menu.deposits',
       'collection:menu.attempts',
+    ])
+  })
+
+  it('🚩 Ready is its own grant — it lights one leaf, and Collections does not light it', () => {
+    expect(
+      labels(resolveMenu([collections!], probed({ ...NONE, canOpenReady: true })).items),
+    ).toEqual(['collection:menu.collections', 'collection:menu.ready'])
+    expect(
+      labels(resolveMenu([collections!], probed({ ...NONE, canOpenCollections: true })).items),
+    ).toEqual(['collection:menu.collections', 'collection:menu.cashCollections'])
+  })
+
+  it('🚩 a collector supervisor (BackOffice 1995) sees the five read screens and no act', () => {
+    // 1995's `## Web contract` sample, verbatim: five reads true, three acts false.
+    // Nothing is keyed off the role name — each leaf reads its own flag.
+    expect(
+      labels(
+        resolveMenu(
+          [collections!],
+          probed({
+            canOpenCollections: true,
+            canOpenAcrs: true,
+            canOpenDeposits: true,
+            canOpenAttempts: true,
+            canOpenAssignment: false,
+            canOpenSettlement: false,
+            canSuperviseSettlement: false,
+            canOpenReady: true,
+          }),
+        ).items,
+      ),
+    ).toEqual([
+      'collection:menu.collections',
+      'collection:menu.cashCollections',
+      'collection:menu.acrs',
+      'collection:menu.deposits',
+      'collection:menu.attempts',
+      'collection:menu.ready',
     ])
   })
 

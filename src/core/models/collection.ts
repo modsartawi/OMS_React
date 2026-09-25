@@ -91,6 +91,20 @@ export interface CollectionAccessResult {
    * field is how a missing grant quietly becomes a `?? true`.
    */
   canSuperviseSettlement: boolean
+  /**
+   * **Ready for collection** (BackOffice spec 1976, ticket 1994) — whether the
+   * session holds `BackOfficeScreen[CollectionReady,03]`, the read-only screen of
+   * closed days and prepared receipts still waiting for a collector (ticket 317).
+   *
+   * 🚩 **Its own grant, independent of every other flag.** Holding Collections does
+   * not light it, nor the reverse; the accountant roles and the collector
+   * supervisor (1995) are bound to it on their own.
+   *
+   * 🚩 Required, and read `=== true` (`canOpenReady`), for the reason
+   * `canOpenSettlement` gives above: the contract owes the boolean, and an optional
+   * field is how a missing grant quietly becomes a `?? true`.
+   */
+  canOpenReady: boolean
 }
 
 /**
@@ -433,6 +447,64 @@ export interface CollectionAttemptRow {
   reasonCode: string
   /** Free-text detail, mandatory for `OTHER`. */
   reasonText: string
+}
+
+/**
+ * The two kinds of row the Ready for collection list carries
+ * (`CollectionReadyKinds` on the server).
+ */
+export type CollectionReadyKind = 'DAY' | 'SETTLEMENT'
+
+/**
+ * `GET CollectionWeb/Ready` — one row of the Ready for collection screen (ticket
+ * 317). `CollectionReadyRowModel` verbatim, as BackOffice 1994's `## Web contract`
+ * records it and the committed model carries it: either a closed day the collector
+ * has not taken yet (`DAY`, NewPos and legacy days alike) or a settlement receipt a
+ * branch prepared against a shortage and nobody has collected yet (`SETTLEMENT`).
+ *
+ * 🚩 **A `null` is an absence, never a zero.** A receipt has no business day, no Z
+ * and nothing deducted, and a day whose Z has not reached head office has no
+ * figures yet. The grid draws a dash for each, never `0.000`.
+ *
+ * Oldest first (`readySince` ascending) — the server's order, kept.
+ */
+export interface CollectionReadyRow {
+  /** `DAY` | `SETTLEMENT`. Typed as a string: an unknown kind still renders. */
+  kind: CollectionReadyKind | string
+  storeId: string
+  /** `Store.Description`, or the code itself when the store master has no row. */
+  storeName: string
+  /** `Plants.ProfitCenter`, trimmed; `""` when none is recorded (BackOffice 1990). */
+  profitCenter: string
+  /**
+   * The store as every paper and grid prints it — `"PH-019 (P019)"`, or the code
+   * alone — formatted by the SERVER's shared formatter. Rendered as sent, never
+   * re-derived here.
+   */
+  storeText: string
+  /** `Plants.CurrencyKey`, `SAR` when no plant row — the 2dp/3dp split. */
+  currencyKey: string
+  /** The sales day. `null` on a receipt, and on a pre-049 placeholder day. */
+  businessDay: string | null
+  /** The day's row key; `""` on a receipt. */
+  shiftId: string
+  /** The Z's number; `null` on a receipt, and while the Z has not reached head office. */
+  zNumber: number | null
+  /** The prepared document's id (the row key of a receipt); `""` on a day. */
+  settlementDocumentId: string
+  /** The shortage entry's number — a receipt's handle; `0` on a day, or if the entry is gone. */
+  entryNumber: number
+  /**
+   * What the collector takes. A day: counted − opening float − surplus deducted;
+   * `null` while its Z has not reached head office. A receipt: the prepared amount.
+   */
+  cashToHandOver: number | null
+  /** The surplus the close kept back (`0` when none); `null` on a receipt, and on a day with no Z yet. */
+  surplusDeducted: number | null
+  /** Since when the row has waited: the day's close, or the receipt's prepare. */
+  readySince: string
+  /** Whole days from `readySince` to the server's local today. */
+  daysWaiting: number
 }
 
 /* ════════════════════════════════════════════════════════════════════════════

@@ -27,6 +27,7 @@ import type {
   CollectionAccessResult,
   CollectionAttemptRow,
   CollectionInquiryRow,
+  CollectionReadyRow,
   DepositInquiryResult,
   VoucherDocument,
 } from '@/core/models/collection'
@@ -117,6 +118,16 @@ export const canOpenAttempts = (r: Access): boolean => r?.canOpenAttempts === tr
  * siblings, and because an older SIS.Api simply omits the field.
  */
 export const canOpenAssignment = (r: Access): boolean => r?.canOpenAssignment === true
+
+/**
+ * **Ready for collection** (ticket 317, BackOffice 1994) — the read-only list of
+ * closed days and prepared receipts still waiting for a collector.
+ *
+ * 🚩 **Its own grant** (`CollectionReady`), never implied by the four inquiries'.
+ * `=== true` for the siblings' reason: the contract owes the boolean, and anything
+ * that is not an explicit grant is a denial.
+ */
+export const canOpenReady = (r: Access): boolean => r?.canOpenReady === true
 
 export const collectionApi = {
   /**
@@ -349,6 +360,22 @@ export const collectionApi = {
    */
   attempts(params: Record<string, unknown>): Promise<CollectionAttemptRow[]> {
     return api.get<CollectionAttemptRow[]>('CollectionWeb/Attempts', params)
+  },
+
+  /**
+   * `GET CollectionWeb/Ready` → what still waits for a collector (ticket 317,
+   * BackOffice 1994), grant-gated on `CollectionReady` — its own grant.
+   *
+   * `params` arrives already built by the pure `buildReadyParams`, which owns the
+   * PascalCase names `CollectionReadyOptions` binds and the dropping of empty
+   * filters. This function adds nothing, for the siblings' reason.
+   *
+   * ⚠️ **Nothing waiting is `200` with `[]`**, never a refusal — the only business
+   * refusals are the shared Served-by resolver's `400`s, and a session without the
+   * grant gets a bare `403`.
+   */
+  ready(params: Record<string, unknown>): Promise<CollectionReadyRow[]> {
+    return api.get<CollectionReadyRow[]>('CollectionWeb/Ready', params)
   },
 
   /**

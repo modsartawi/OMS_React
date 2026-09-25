@@ -1,9 +1,9 @@
 /**
  * The shared **Served by** control's pure half (BackOffice spec 1162, tracer 1163).
  *
- * One control lands on five screens — Cash Collections, ACRs, Deposits, the
- * settlement account's worklist and (ticket 316) Collection Attempts — and they read
- * it two different ways. This module
+ * One control lands on six screens — Cash Collections, ACRs, Deposits, the
+ * settlement account's worklist, (ticket 316) Collection Attempts and (ticket 317)
+ * Ready for collection — and they read it two different ways. This module
  * owns *which groups a screen offers* and *what a selection puts on the wire*; the
  * combobox itself is untested render glue over it.
  *
@@ -143,7 +143,7 @@ export const NO_SERVED_BY: ServedBySelection = { kind: '', id: '' }
  */
 export type ServedByReading = 'assignment' | 'collector'
 
-export type ServedByScreen = 'collections' | 'acrs' | 'deposits' | 'settlement' | 'attempts'
+export type ServedByScreen = 'collections' | 'acrs' | 'deposits' | 'settlement' | 'attempts' | 'ready'
 
 /**
  * The per-screen contract — spec 1162 D8, as one readable table.
@@ -177,6 +177,10 @@ export const SERVED_BY_SCREENS: Record<ServedByScreen, ServedByScreenContract> =
   // is the store's CURRENT pairing — Cash Collections' question, not the attempting
   // collector's, which the screen's own CollectorStaffId box already asks.
   attempts: { reading: 'assignment', accountants: true, freeText: false },
+  // 🚩 Ticket 317 (BackOffice 1994): nothing on Ready for collection has been
+  // collected yet, so *Served by* can only be the store's CURRENT pairing — the
+  // contract's "exactly as on Collections/Attempts". ACCOUNTANT is its accountant filter.
+  ready: { reading: 'assignment', accountants: true, freeText: false },
 }
 
 /**

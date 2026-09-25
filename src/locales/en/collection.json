@@ -5,6 +5,7 @@
     "acrs": "ACRs",
     "deposits": "Deposits",
     "attempts": "Collection Attempts",
+    "ready": "Ready for Collection",
     "assignment": "Collection Assignment"
   },
   "access": {
@@ -318,6 +319,57 @@
       "businessDay": "Business Date",
       "shiftId": "Shift Id",
       "collectorStaffId": "Collector Id"
+    }
+  },
+  "ready": {
+    "title": "Ready for Collection",
+    "subtitle": "Closed days and prepared settlement receipts still waiting for a collector, oldest first.",
+    "loading": "Loading what is ready for collection…",
+    "capReached": "This result reached the {{limit}}-row system cap, so some days or receipts may be missing. Narrow the business dates, the collector or \"Served by\" to be sure you are seeing all of them.",
+    "moneyHeader": "{{label}} ({{currency}})",
+    "search": {
+      "businessDateFrom": "Business date from",
+      "businessDateTo": "Business date to",
+      "collector": "Collector",
+      "collectorPlaceholder": "Staff id",
+      "search": "Search",
+      "reset": "Reset",
+      "filtered": "Filtered",
+      "clearFilter": "Clear the filter and go back to the whole list",
+      "receiptsHidden": "Prepared settlement receipts have no business date, so they are not listed while a business date is set."
+    },
+    "toolbar": {
+      "filterRow": "Filter row",
+      "moreColumns": "More columns"
+    },
+    "empty": {
+      "title": "Nothing is waiting for a collector",
+      "hint": "Every closed day and prepared receipt here has been collected. Clear the business dates, the collector and \"Served by\" to look wider."
+    },
+    "errors": {
+      "loadFailed": "The ready-for-collection list could not be loaded.",
+      "refused": "Your account is not allowed to read the ready-for-collection list. Ask an administrator if you need it."
+    },
+    "kinds": {
+      "DAY": "Closed day",
+      "SETTLEMENT": "Prepared settlement receipt"
+    },
+    "columns": {
+      "kind": "Waiting",
+      "storeText": "Profit Center (Store)",
+      "storeName": "Store Name",
+      "businessDay": "Business Date",
+      "zNumber": "Z No#",
+      "entryNumber": "Shortage Entry",
+      "cashToHandOver": "Cash to Hand Over",
+      "surplusDeducted": "Surplus Deducted",
+      "readySince": "Ready Since",
+      "daysWaiting": "Days Waiting",
+      "storeId": "Store Code",
+      "profitCenter": "Profit Center",
+      "currencyKey": "Currency",
+      "shiftId": "Shift Id",
+      "settlementDocumentId": "Settlement Document Id"
     }
   },
   "assignment": {

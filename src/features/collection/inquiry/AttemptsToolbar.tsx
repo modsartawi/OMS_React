@@ -1,10 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
 import type { AttemptsCriteria } from './attempts-criteria'
+import DateField from './DateField'
+import ServedByPicker from './ServedByPicker'
 
 /**
- * Collection Attempts' filter strip (ticket 255) — From · To · Store · Collector ·
- * Reason code.
+ * Collection Attempts' filter strip (ticket 255) — Business date from/to ·
+ * Collection date from/to · Store · Collector · Reason code · Served by (the dates
+ * and Served by are ticket 316's).
  *
  * 254's `CollectionsToolbar` plus one box; ⚠️ **copied, not extracted** (244 §1).
  * It renders a **draft** and nothing else, and only Search promotes it.
@@ -42,29 +45,30 @@ export default function AttemptsToolbar({
         onSearch()
       }}
     >
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('attempts.search.from')}
-        {/* ⚠️ `required` on BOTH ends: the dates travel as a pair. The window
-            applies to the device clock — the moment the collector stood in the
-            pharmacy — not to the business day. */}
-        <input
-          type="date"
-          required
-          value={criteria.fromDate}
-          onChange={(e) => onChange({ fromDate: e.target.value })}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('attempts.search.to')}
-        <input
-          type="date"
-          required
-          value={criteria.toDate}
-          onChange={(e) => onChange({ toDate: e.target.value })}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-        />
-      </label>
+      {/* 🚩 Two ranges, named by what they mean HERE (ticket 316, BackOffice 1993):
+          the business date is the day the collector came FOR, and the collection
+          date is the device clock — the moment they stood in the pharmacy, the
+          window this screen has always had. They AND, and no end is required. */}
+      <DateField
+        label={t('attempts.search.businessDateFrom')}
+        value={criteria.businessDateFrom}
+        onChange={(businessDateFrom) => onChange({ businessDateFrom })}
+      />
+      <DateField
+        label={t('attempts.search.businessDateTo')}
+        value={criteria.businessDateTo}
+        onChange={(businessDateTo) => onChange({ businessDateTo })}
+      />
+      <DateField
+        label={t('attempts.search.collectionDateFrom')}
+        value={criteria.collectionDateFrom}
+        onChange={(collectionDateFrom) => onChange({ collectionDateFrom })}
+      />
+      <DateField
+        label={t('attempts.search.collectionDateTo')}
+        value={criteria.collectionDateTo}
+        onChange={(collectionDateTo) => onChange({ collectionDateTo })}
+      />
 
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
         {t('attempts.search.store')}
@@ -97,6 +101,17 @@ export default function AttemptsToolbar({
           className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
         />
       </label>
+
+      {/* 🚩 **The shared control, on the ASSIGNMENT reading** (ticket 316, BackOffice
+          1993): the accountant responsible for the store, by its CURRENT pairing —
+          Cash Collections' question. It is an addition, not a replacement: the
+          Collector box above asks who CAME, this asks who is ASSIGNED, and both
+          stay lit and AND, as on Cash Collections (1166). */}
+      <ServedByPicker
+        screen="attempts"
+        value={criteria.servedBy}
+        onChange={(servedBy) => onChange({ servedBy })}
+      />
 
       <div className="flex items-center gap-2">
         <button

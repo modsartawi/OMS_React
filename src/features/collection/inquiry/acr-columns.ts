@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import { ACR_SYSTEM_CLOSER, type AcrInquiryRow } from '@/core/models/collection'
 import { formatMoneyIn } from '@/core/money'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
+import { daySpan, daySpanText } from './day-span'
 
 /**
  * The ACRs grid's columns (ticket 255) — 254's column shape, applied to the ACR
@@ -23,12 +24,19 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
  *
  * Ticket 313 (BackOffice 1987) adds who closed it, as the collector pair already
  * reads: the resolved **name** leads (`closedByName`, beside Status), and the raw
- * **id** folds into the tail (`closedBy`, beside Closed). Seventeen now.
+ * **id** folds into the tail (`closedBy`, beside Closed). Seventeen then.
+ *
+ * Ticket 316 (BackOffice 1993) adds when it was collected: the *Collection date*
+ * leads beside the *Business date* (`acrDate`) as a DERIVED column
+ * ({@link COLLECTION_DATE_COLUMN}) — the span of days from `firstCollectedAt` to
+ * `lastCollectedAt` — and the two raw instants fold into the tail, to the minute.
+ * Nineteen fields now, and twenty columns with the tail open.
  */
 
 /**
- * The eight columns the supervisor lands on: which ACR and whose, then when and
- * what state, then the money. Reading order, not the WPF's declaration order.
+ * The nine wire fields the supervisor lands on — ten columns, with the derived
+ * *Collection date* beside `acrDate`: which ACR and whose, then when and what
+ * state, then the money. Reading order, not the WPF's declaration order.
  */
 // ⚠️ `netCollectedTotal` is headed **Net Collected**, not the WPF's own
 // `Cash (Deposit)`. Every other header on this grid is the XAML caption verbatim;
@@ -36,6 +44,12 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
 // several ACRs later** and this column is Σ NetCollected — cash that left the
 // store. The same grid carries three real deposit columns, so the WPF's caption
 // would name the banking end twice, meaning two different things.
+//
+// 🚩 **Both dates are default columns** (ticket 316, BackOffice 1993): `acrDate` is
+// the *Business date* and the derived *Collection date* span sits right after it,
+// because they are the two ranges the toolbar filters on and an ACR whose
+// collections were taken days after its business date is only visible with both.
+// (The span is not in this list: it is no wire field — see COLLECTION_DATE_COLUMN.)
 //
 // `closedByName` sits beside Status and leads rather than folding into the tail:
 // a SYSTEM close is finance's "forgotten ACR" marker (BackOffice 1987), a thing a
@@ -54,12 +68,17 @@ export const DEFAULT_FIELDS = [
 
 /**
  * The forensic tail: the WPF's remaining six, then `depositId` — a wire field the
- * WPF grid never showed, folded in rather than dropped.
+ * WPF grid never showed, folded in rather than dropped. `firstCollectedAt` and
+ * `lastCollectedAt` (316) sit with the other instants: the default grid draws them
+ * only as the two ends of a span of days, and this is where their minutes are — and,
+ * through the CSV, where the file carries them under their own honest headers.
  */
 export const MORE_FIELDS = [
   'createdAt',
   'closedAt',
   'closedBy',
+  'firstCollectedAt',
+  'lastCollectedAt',
   'cardTransactionCountSum',
   'collectorOperatorId',
   'depositNumber',
@@ -149,12 +168,53 @@ export function closedByText(
   return row.closedByName ?? ''
 }
 
-/** Build the visible columns; `showMore` reveals the forensic tail. */
+/**
+ * The *Collection date* column's id (ticket 316) — a **derived** column, which is why
+ * it is not in {@link DEFAULT_FIELDS}: those lists are the wire row's own fields, and
+ * the completeness proof and the CSV both read them as such (the Deposits grid's
+ * *Business date* is built the same way).
+ *
+ * 🚩 An ACR's collection date is multi-valued — its linked collections' collected-at
+ * — so the contract draws it as the span of days from `firstCollectedAt` to
+ * `lastCollectedAt`: one date when they share a day, blank on an idle ACR.
+ */
+export const COLLECTION_DATE_COLUMN = 'collectionDate'
+
+/**
+ * What the *Collection date* cell reads: the span of days between the ACR's first
+ * and last collected-at, as the server sends them — the client derives no date, it
+ * only draws the two ends.
+ */
+function collectionDateText(t: TFunction, row: AcrInquiryRow | undefined): string {
+  return daySpanText(t, daySpan([row?.firstCollectedAt, row?.lastCollectedAt]))
+}
+
+function collectionDateColumn(t: TFunction): ColDef<AcrInquiryRow> {
+  return {
+    headerName: t(`acrs.columns.${COLLECTION_DATE_COLUMN}`),
+    colId: COLLECTION_DATE_COLUMN,
+    width: 200,
+    // A VALUE getter, not a formatter over a `field`: the span reads two fields. Sort
+    // and the floating filter both then work on the `yyyy-MM-dd` text the cell shows,
+    // which sorts by its first day.
+    valueGetter: (p) => collectionDateText(t, p.data),
+    filterValueGetter: (p) => collectionDateText(t, p.data),
+  }
+}
+
+/**
+ * Build the visible columns; `showMore` reveals the forensic tail.
+ *
+ * The derived *Collection date* goes just after `acrDate`, so the two dates read
+ * side by side, the business date first (316, 315's order).
+ */
 export function buildAcrsColumns(t: TFunction, showMore: boolean): ColDef<AcrInquiryRow>[] {
   const fields: (keyof AcrInquiryRow)[] = showMore
     ? [...DEFAULT_FIELDS, ...MORE_FIELDS]
     : [...DEFAULT_FIELDS]
-  return fields.map((field) => column(t, field))
+  return fields.flatMap((field) =>
+    field === 'acrDate' ? [column(t, field), collectionDateColumn(t)] : [column(t, field)],
+  )
 }
 
 function column(t: TFunction, field: keyof AcrInquiryRow): ColDef<AcrInquiryRow> {
@@ -200,6 +260,8 @@ function column(t: TFunction, field: keyof AcrInquiryRow): ColDef<AcrInquiryRow>
       }
     case 'createdAt':
     case 'closedAt':
+    case 'firstCollectedAt':
+    case 'lastCollectedAt':
       return {
         headerName: label,
         field,
@@ -207,7 +269,8 @@ function column(t: TFunction, field: keyof AcrInquiryRow): ColDef<AcrInquiryRow>
         width: 160,
         // ⚠️ `closedAt` is `0001-01-01` while the ACR is still OPEN — the server's
         // `DateTime` is not nullable — so a still-open ACR shows a blank Closed
-        // cell rather than a year-1 date.
+        // cell rather than a year-1 date. `firstCollectedAt`/`lastCollectedAt` are
+        // `null` on an idle ACR, which blanks the same way.
         valueFormatter: (p: ValueFormatterParams<AcrInquiryRow, string>) => formatDateTime(p.value),
         // 🚩 The floating filter has to match WHAT IS ON SCREEN: the raw value is
         // `2026-08-08T15:40:00`, so typing the `2026-08-08 15:40` the cell shows

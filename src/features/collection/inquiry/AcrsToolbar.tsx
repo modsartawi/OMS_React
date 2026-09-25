@@ -1,10 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
 import { ACR_STATUSES, type AcrStatusFilter, type AcrsCriteria } from './acr-criteria'
+import DateField from './DateField'
 import ServedByPicker from './ServedByPicker'
 
 /**
- * ACRs' filter strip (ticket 255) — From · To · ACR No# · Collector · Status.
+ * ACRs' filter strip (ticket 255) — Business date from/to · Collection date
+ * from/to (ticket 316) · ACR No# · Collector · Status.
  *
  * 254's `CollectionsToolbar` is the shape this follows; ⚠️ **copied, not
  * extracted** (244 §1). It renders a **draft** and nothing else: every edit
@@ -44,38 +46,42 @@ export default function AcrsToolbar({
         onSearch()
       }}
     >
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('acrs.search.from')}
-        {/* ⚠️ `required` on BOTH ends: the dates travel as a pair, and a half-open
-            window is not a narrower query but an unbounded one. The window applies
-            to the ACR's business date, not to when it was raised. */}
-        <input
-          type="date"
-          required
-          value={criteria.fromDate}
-          onChange={(e) => onChange({ fromDate: e.target.value })}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('acrs.search.to')}
-        <input
-          type="date"
-          required
-          value={criteria.toDate}
-          onChange={(e) => onChange({ toDate: e.target.value })}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-        />
-      </label>
+      {/* 🚩 Two ranges, named by what they mean HERE (ticket 316, BackOffice 1993):
+          the business date is the ACR's own date — the window this screen has
+          always had — and the collection date is when ANY of its collections was
+          taken. They AND, neither clears the other, and no end is required. */}
+      <DateField
+        label={t('acrs.search.businessDateFrom')}
+        value={criteria.businessDateFrom}
+        onChange={(businessDateFrom) => onChange({ businessDateFrom })}
+      />
+      <DateField
+        label={t('acrs.search.businessDateTo')}
+        value={criteria.businessDateTo}
+        onChange={(businessDateTo) => onChange({ businessDateTo })}
+      />
+      <DateField
+        label={t('acrs.search.collectionDateFrom')}
+        value={criteria.collectionDateFrom}
+        onChange={(collectionDateFrom) => onChange({ collectionDateFrom })}
+      />
+      <DateField
+        label={t('acrs.search.collectionDateTo')}
+        value={criteria.collectionDateTo}
+        onChange={(collectionDateTo) => onChange({ collectionDateTo })}
+      />
 
-      {/* The number a supervisor holds in their hand. Free text, like the store
-          and collector codes on Cash Collections — and see `acr-criteria.ts` for
-          why it travels as `AcrNumber` and never as `AcrId`. */}
+      {/* The number a supervisor holds in their hand — see `acr-criteria.ts` for
+          why it travels as `AcrNumber` and never as `AcrId`. ⚠️ `pattern` is
+          digits only: the door binds an `int`, so anything else is a 400 before
+          the handler, and the form refuses it at Search instead. */}
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
         {t('acrs.search.acrNumber')}
         <input
           type="text"
           inputMode="numeric"
+          pattern="\s*[0-9]+\s*"
+          title={t('acrs.search.acrNumberHint')}
           value={criteria.acrNumber}
           onChange={(e) => onChange({ acrNumber: e.target.value })}
           placeholder={t('acrs.search.acrNumberPlaceholder')}

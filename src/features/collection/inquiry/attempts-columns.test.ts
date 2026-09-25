@@ -40,9 +40,10 @@ describe('the two groups account for the whole wire row', () => {
     expect(new Set(covered).size).toBe(covered.length)
   })
 
-  it('draws the WPF’s NINE columns, split five and four', () => {
-    expect(DEFAULT_FIELDS.length).toBe(5)
-    expect(MORE_FIELDS.length).toBe(4)
+  it('draws the WPF’s NINE columns, split six and three', () => {
+    // Five and four until ticket 316 moved the business day onto the default grid.
+    expect(DEFAULT_FIELDS.length).toBe(6)
+    expect(MORE_FIELDS.length).toBe(3)
   })
 
   it('withholds only the attempt’s ULID — which opens nothing, deliberately', () => {
@@ -51,8 +52,11 @@ describe('the two groups account for the whole wire row', () => {
     expect([...NON_COLUMN_FIELDS]).toEqual(['attemptId'])
   })
 
-  it('leads with WHEN the collector came, then where, who and why', () => {
+  it('leads with both dates — the day they came for, then when they came — then where, who and why', () => {
+    // Ticket 316 (BackOffice 1993): Business date = businessDay, Collection date =
+    // attemptTime, both default columns, the business day first (315's order).
     expect([...DEFAULT_FIELDS]).toEqual([
+      'businessDay',
       'attemptTime',
       'storeCode',
       'storeName',
@@ -63,7 +67,7 @@ describe('the two groups account for the whole wire row', () => {
 })
 
 describe('buildAttemptsColumns', () => {
-  it('shows the default five with the toggle off', () => {
+  it('shows the default six with the toggle off', () => {
     expect(buildAttemptsColumns(t, false).map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
   })
 
@@ -100,6 +104,16 @@ describe('the two dates', () => {
     ) => string
     expect(attemptTime({ value: '2026-08-08T09:12:00', data: ROW })).toBe('2026-08-08 09:12')
     expect(businessDay({ value: '2026-08-08T00:00:00', data: ROW })).toBe('2026-08-08')
+  })
+
+  it('puts both on the default grid, with t() headers', () => {
+    const columns = buildAttemptsColumns(t, false)
+    expect(columns.find((c) => c.colId === 'businessDay')?.headerName).toBe(
+      'attempts.columns.businessDay',
+    )
+    expect(columns.find((c) => c.colId === 'attemptTime')?.headerName).toBe(
+      'attempts.columns.attemptTime',
+    )
   })
 
   it('blanks an unset sentinel rather than printing 0001-01-01', () => {

@@ -5,6 +5,7 @@ import {
   MONEY_FIELDS,
   MORE_FIELDS,
   NON_COLUMN_FIELDS,
+  COLLECTION_DATE_COLUMN,
   buildAcrsColumns,
   buildAcrsDefaultColDef,
   closedByText,
@@ -30,6 +31,9 @@ const ROW: AcrInquiryRow = {
   closedBy: '4472',
   closedByName: 'Faisal Al Otaibi',
   linkedCollectionCount: 12,
+  // Ticket 316: collected on the 5th and the 8th, for a business date of the 8th.
+  firstCollectedAt: '2026-08-05T10:15:00',
+  lastCollectedAt: '2026-08-08T15:40:00',
   netCollectedTotal: 143_910.75,
   cardTotalSum: 99_120.5,
   cardTransactionCountSum: 812,
@@ -56,9 +60,10 @@ describe('the two groups account for the whole wire row', () => {
     expect(new Set(covered).size).toBe(covered.length)
   })
 
-  it('draws SEVENTEEN columns: the WPF’s fourteen, the deposit ULID it never showed, and who closed it', () => {
-    // 15 until ticket 313 (BackOffice 1987) put the closer's name and id on the row.
-    expect(DEFAULT_FIELDS.length + MORE_FIELDS.length).toBe(17)
+  it('draws NINETEEN columns: the WPF’s fourteen, the deposit ULID, who closed it, and when it was collected', () => {
+    // 15 until ticket 313 (BackOffice 1987) put the closer's name and id on the row,
+    // 17 until ticket 316 (BackOffice 1993) put the collected-at span on it.
+    expect(DEFAULT_FIELDS.length + MORE_FIELDS.length).toBe(19)
     // "Nothing is dropped" is about the ROW, not about the WPF's column picker —
     // 254's own ruling, which folded five unshown wire fields into its tail.
     expect([...MORE_FIELDS]).toContain('depositId')
@@ -70,11 +75,12 @@ describe('the two groups account for the whole wire row', () => {
     expect([...NON_COLUMN_FIELDS]).toEqual(['acrId'])
   })
 
-  it('the default nine lead with identity, then the state and who closed it, then the money', () => {
+  it('the default nine lead with identity, then the date, then the state and who closed it, then the money', () => {
     expect([...DEFAULT_FIELDS]).toEqual([
       'acrNumber',
       'label',
       'collectorName',
+      // Ticket 316's derived Collection date column follows this one (see below).
       'acrDate',
       'status',
       'closedByName',
@@ -89,14 +95,18 @@ describe('the two groups account for the whole wire row', () => {
   })
 })
 
+// Ticket 316 puts the derived Collection date column just after the business date.
+const withSpan = (fields: readonly string[]) =>
+  fields.flatMap((f) => (f === 'acrDate' ? [f, COLLECTION_DATE_COLUMN] : [f]))
+
 describe('buildAcrsColumns', () => {
-  it('shows the default eight with the toggle off', () => {
-    expect(buildAcrsColumns(t, false).map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
+  it('shows the default nine plus the Collection date with the toggle off', () => {
+    expect(buildAcrsColumns(t, false).map((c) => c.colId)).toEqual(withSpan(DEFAULT_FIELDS))
   })
 
   it('reveals the tail with the toggle on, and folds NOTHING away doing it', () => {
     expect(buildAcrsColumns(t, true).map((c) => c.colId)).toEqual([
-      ...DEFAULT_FIELDS,
+      ...withSpan(DEFAULT_FIELDS),
       ...MORE_FIELDS,
     ])
   })
@@ -190,6 +200,63 @@ describe('the sentinels the server sends', () => {
       p: unknown,
     ) => string
     expect(deposit({ data: { ...ROW, depositNumber: 0 } })).toBe('')
+  })
+})
+
+// Ticket 316 (BackOffice 1993): Business date = acrDate (the date part);
+// Collection date = firstCollectedAt … lastCollectedAt, one date when they fall on
+// the same day, blank when null (an idle ACR) — a DERIVED column, no wire field.
+describe('the Business date and Collection date columns', () => {
+  const column = (colId: string) => buildAcrsColumns(t, true).find((c) => c.colId === colId)
+  const span = (data: AcrInquiryRow) =>
+    (column(COLLECTION_DATE_COLUMN)?.valueGetter as (p: unknown) => string)({ data })
+  const shown = (colId: string, data: AcrInquiryRow) =>
+    (column(colId)?.valueFormatter as (p: unknown) => string)({
+      value: data[colId as keyof AcrInquiryRow],
+      data,
+    })
+
+  it('are both on the DEFAULT grid, side by side, the business date first', () => {
+    const ids = buildAcrsColumns(t, false).map((c) => c.colId)
+    expect(ids.indexOf(COLLECTION_DATE_COLUMN)).toBe(ids.indexOf('acrDate') + 1)
+  })
+
+  it('head the two through t() — the Business date is the ACR date’s key', () => {
+    expect(column('acrDate')?.headerName).toBe('acrs.columns.acrDate')
+    expect(column(COLLECTION_DATE_COLUMN)?.headerName).toBe('acrs.columns.collectionDate')
+  })
+
+  it('draws the Collection date as the span of days the collections were taken on', () => {
+    expect(span(ROW)).toBe('grid.daySpan|{"from":"2026-08-05","to":"2026-08-08"}')
+  })
+
+  it('draws ONE date when the first and last collection fall on the same day', () => {
+    const sameDay = { ...ROW, firstCollectedAt: '2026-09-12T08:00:00', lastCollectedAt: '2026-09-12T23:40:00' }
+    expect(span(sameDay)).toBe('2026-09-12')
+  })
+
+  it('leaves an idle ACR’s Collection date BLANK — never unknown, never year 1', () => {
+    const idle = { ...ROW, linkedCollectionCount: 0, firstCollectedAt: null, lastCollectedAt: null }
+    expect(span(idle)).toBe('')
+    const filter = column(COLLECTION_DATE_COLUMN)?.filterValueGetter as (p: unknown) => string
+    expect(filter({ data: idle })).toBe('')
+  })
+
+  it('reads the span off the row it is given — no field of its own on the wire', () => {
+    // A value getter over two fields, so sort and the floating filter both read what
+    // the cell shows, `yyyy-MM-dd` text that sorts by its first day.
+    expect(column(COLLECTION_DATE_COLUMN)?.field).toBeUndefined()
+    const filter = column(COLLECTION_DATE_COLUMN)?.filterValueGetter as (p: unknown) => string
+    expect(filter({ data: ROW })).toBe(span(ROW))
+  })
+
+  it('keeps both raw collected-at ends, to the minute, in the tail', () => {
+    const folded = buildAcrsColumns(t, false).map((c) => c.colId)
+    expect(folded).not.toContain('firstCollectedAt')
+    expect(folded).not.toContain('lastCollectedAt')
+    expect(shown('firstCollectedAt', ROW)).toBe('2026-08-05 10:15')
+    expect(shown('lastCollectedAt', ROW)).toBe('2026-08-08 15:40')
+    expect(shown('lastCollectedAt', { ...ROW, lastCollectedAt: null })).toBe('')
   })
 })
 

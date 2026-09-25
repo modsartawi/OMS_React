@@ -1,40 +1,78 @@
 /**
  * Collection Attempts' criteria → `GET CollectionWeb/Attempts` query (ticket 255).
  *
- * The plainest of the four: **every filter the endpoint has already exists**, so
- * unlike ACRs this module invents nothing and owes the backend nothing. A
- * variation on 254's template — ⚠️ **copied, not extracted** (244 §1).
+ * The plainest of the four. A variation on 254's template — ⚠️ **copied, not
+ * extracted** (244 §1).
  *
  * Pure, and **no `new Date()`**: today arrives as an argument.
  *
- * ⚠️ The window applies to `AttemptTime`, **the device clock** — the moment the
- * collector stood in the pharmacy — not to `BusinessDay`. A visit at 00:20 that
- * belongs to the previous business day answers to the day it physically happened,
- * which is the right reading for "which stores did this collector visit, and
- * when, and find no cash".
+ * 🚩 **Two ranges, named by what they mean on THIS screen** (ticket 316, BackOffice
+ * 1993 — 1992's four-filter contract with spec 1976's per-screen meanings):
+ *
+ * - **Business date** — the attempted business day (`BusinessDay`): the day the
+ *   collector came for, never the visit time.
+ * - **Collection date** — the attempt time (`AttemptTime`), **the device clock** —
+ *   the moment the collector stood in the pharmacy. A visit at 00:20 that belongs
+ *   to the previous business day answers to the day it physically happened here,
+ *   and to the day it came for under the business range.
  */
 import { toIsoDate } from '@/core/util/date-format'
 import { GRID_LIMIT } from './cap'
+import { NO_SERVED_BY, buildServedByParams, type ServedBySelection } from './served-by'
 
 /**
- * The toolbar draft: From · To · Store · Collector · Reason code (244 §5).
+ * The toolbar draft: Business date from/to · Collection date from/to · Store ·
+ * Collector · Reason code · Served by (244 §5, ticket 316).
  *
  * All three code filters are free text, matching the WPF — its Reason box is a
  * `TextEdit`, not a picker, and neither the door nor this wave carries a reason
  * list to populate one with.
  */
 export interface AttemptsCriteria {
-  fromDate: string
-  toDate: string
+  businessDateFrom: string
+  businessDateTo: string
+  collectionDateFrom: string
+  collectionDateTo: string
   storeCode: string
+  /** The ATTEMPTING collector — this screen's collector filter, kept as shipped. */
   collectorStaffId: string
   reasonCode: string
+  /**
+   * The shared *Served by* selection (ticket 316, BackOffice 1993) — **the
+   * accountant responsible**, read as the store's CURRENT assignment exactly as on
+   * Cash Collections (`SERVED_BY_SCREENS.attempts`). No history.
+   *
+   * ⚠️ It does **not** replace `collectorStaffId`. The two ask different questions —
+   * who *came* (off the attempt itself) and who is *assigned* the store (off the
+   * pairing table) — so both stay lit and they AND, as on Cash Collections (1166).
+   */
+  servedBy: ServedBySelection
 }
 
-/** The state the screen opens on: **today, on both ends, nothing else set**. */
+/**
+ * The state the screen opens on: **attempted today, on both ends, nothing else
+ * set** — the business range open.
+ *
+ * 🚩 The attempt-time window is the one the screen has always landed on; ticket
+ * 316 renamed it on the wire and did not move it.
+ *
+ * ⚠️ **No default-to-mine.** The landing stays the estate, as it was before the
+ * control arrived: the ticket gave this screen the picker, not a landing scope, and
+ * a screen that silently opened narrower than it used to would be a change nobody
+ * asked for. The caller's own scope is one pick away in the control.
+ */
 export function landingCriteria(today: Date): AttemptsCriteria {
   const day = toIsoDate(today)
-  return { fromDate: day, toDate: day, storeCode: '', collectorStaffId: '', reasonCode: '' }
+  return {
+    businessDateFrom: '',
+    businessDateTo: '',
+    collectionDateFrom: day,
+    collectionDateTo: day,
+    storeCode: '',
+    collectorStaffId: '',
+    reasonCode: '',
+    servedBy: NO_SERVED_BY,
+  }
 }
 
 /**
@@ -62,7 +100,13 @@ export function isLandingQuery(params: Record<string, unknown>, today: Date): bo
  * in particular has to be, since `''` reads as "the reason whose code is the empty
  * string" to anyone debugging the door.
  *
- * ⚠️ **The dates travel as a PAIR or not at all** — 254's guard.
+ * 🚩 **Each date end travels on its own** (ticket 316, 315's ruling): the contract
+ * makes every end optional and an open-ended range a real question. The day goes as
+ * typed — inclusive-by-day is the server's rule, so the client adds no time part.
+ *
+ * ⚠️ **`FromDate`/`ToDate` are never sent.** The door still honours the legacy pair
+ * and intersects it with `CollectionDate*`; the contract tells the web to switch,
+ * and sending both would be one period spelt twice.
  */
 export function buildAttemptsParams(
   criteria: Partial<AttemptsCriteria> = {},
@@ -72,12 +116,14 @@ export function buildAttemptsParams(
     const trimmed = (value ?? '').trim()
     if (trimmed !== '') params[key] = trimmed
   }
-  if ((criteria.fromDate ?? '').trim() !== '' && (criteria.toDate ?? '').trim() !== '') {
-    put('FromDate', criteria.fromDate)
-    put('ToDate', criteria.toDate)
-  }
+  put('BusinessDateFrom', criteria.businessDateFrom)
+  put('BusinessDateTo', criteria.businessDateTo)
+  put('CollectionDateFrom', criteria.collectionDateFrom)
+  put('CollectionDateTo', criteria.collectionDateTo)
   put('StoreCode', criteria.storeCode)
   put('CollectorStaffId', criteria.collectorStaffId)
   put('ReasonCode', criteria.reasonCode)
+  // An empty or half-chosen selection sends neither key (`buildServedByParams`).
+  Object.assign(params, buildServedByParams(criteria.servedBy))
   return params
 }

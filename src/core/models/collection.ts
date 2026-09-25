@@ -171,6 +171,8 @@ export const ACR_SYSTEM_CLOSER = 'SYSTEM'
  * `AcrInquiryModel` verbatim (`Sartawi.Retail.Data/Modules/Pos/Services/Models/Acr/AcrModel.cs`,
  * transcribed via [243's research asset](../../../.issues/assets/243-server-read-spine.RESEARCH.md)),
  * camel-cased by the serializer, with **nothing added and nothing renamed**.
+ * `firstCollectedAt`/`lastCollectedAt` joined at ticket 316 (BackOffice 1993's Web
+ * contract), which draws them as the *Collection date* column.
  *
  * An ACR is the collector's day-bag: one collector, one business date, and the
  * receipts they linked to it. The four aggregates are the server's own sums over
@@ -201,7 +203,10 @@ export interface AcrInquiryRow {
   label: string
   collectorOperatorId: string
   collectorName: string
-  /** The collector-chosen business date the From/To window applies to. */
+  /**
+   * The collector-chosen business date — the *Business date* column, and what
+   * `BusinessDateFrom`/`To` read on this screen (BackOffice 1993).
+   */
   acrDate: string
   /** `'OPEN'` or `'CLOSED'`. */
   status: string
@@ -224,6 +229,14 @@ export interface AcrInquiryRow {
    */
   closedByName: string
   linkedCollectionCount: number
+  /**
+   * The earliest collected-at of the ACR's linked collections (BackOffice 1993,
+   * ticket 316) — with {@link lastCollectedAt}, the *Collection date* column's span.
+   * `null` on an idle ACR (no collection); a collection range never matches one.
+   */
+  firstCollectedAt: string | null
+  /** The latest collected-at of the linked collections; `null` on an idle ACR. */
+  lastCollectedAt: string | null
   /** Σ `NetCollected` over the linked receipts — what the collector banks. */
   netCollectedTotal: number
   cardTotalSum: number
@@ -258,6 +271,12 @@ export interface DepositInquiryLine {
   /** ULID of the claimed ACR. */
   acrId: string
   acrNumber: number
+  /**
+   * The ACR's business date (BackOffice 1993, ticket 316) — what the Deposits
+   * screen's `BusinessDateFrom`/`To` read, per line: a deposit banks several ACRs,
+   * so several days, and its *Business date* column is their span.
+   */
+  acrDate: string
   /** Frozen at create — what was banked. */
   netCollectedAtDeposit: number
   /** Live Σ over the ACR's linked receipts — what it holds now. */
@@ -310,7 +329,10 @@ export interface DepositInquiryRow {
   bankName: string
   /** `'POSTED'` or `'VOID'`. */
   status: string
-  /** The bank-visit day — what the From/To window applies to. */
+  /**
+   * The bank-visit day — the *Collection date* column, and what
+   * `CollectionDateFrom`/`To` read on this screen (BackOffice 1993).
+   */
   depositedAt: string
   createdAt: string
   /** Σ `NetCollectedAtDeposit` over the claimed ACRs, computed server-side. */
@@ -397,9 +419,15 @@ export interface CollectionAttemptRow {
   storeCode: string
   storeName: string
   shiftId: string
-  /** The day the collector came to collect. */
+  /**
+   * The day the collector came to collect — the *Business date* column, and what
+   * `BusinessDateFrom`/`To` read on this screen (BackOffice 1993).
+   */
   businessDay: string
-  /** The device-clock visit moment — what the From/To window applies to. */
+  /**
+   * The device-clock visit moment — the *Collection date* column, and what
+   * `CollectionDateFrom`/`To` read on this screen (BackOffice 1993).
+   */
   attemptTime: string
   /** `CollectionAttemptReasons`. */
   reasonCode: string

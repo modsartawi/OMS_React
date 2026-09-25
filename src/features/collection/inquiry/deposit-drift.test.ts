@@ -12,6 +12,7 @@ function clean(overrides: Partial<DepositInquiryLine> = {}): DepositInquiryLine 
   return {
     acrId: '01J0ACR0000000000000000001',
     acrNumber: 41,
+    acrDate: '2026-08-08T00:00:00',
     netCollectedAtDeposit: 143910.75,
     netCollectedNow: 143910.75,
     drift: 0,

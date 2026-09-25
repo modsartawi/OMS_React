@@ -1,8 +1,9 @@
 /**
  * The shared **Served by** control's pure half (BackOffice spec 1162, tracer 1163).
  *
- * One control lands on four screens — Cash Collections, ACRs, Deposits and the
- * settlement account's worklist — and they read it two different ways. This module
+ * One control lands on five screens — Cash Collections, ACRs, Deposits, the
+ * settlement account's worklist and (ticket 316) Collection Attempts — and they read
+ * it two different ways. This module
  * owns *which groups a screen offers* and *what a selection puts on the wire*; the
  * combobox itself is untested render glue over it.
  *
@@ -142,7 +143,7 @@ export const NO_SERVED_BY: ServedBySelection = { kind: '', id: '' }
  */
 export type ServedByReading = 'assignment' | 'collector'
 
-export type ServedByScreen = 'collections' | 'acrs' | 'deposits' | 'settlement'
+export type ServedByScreen = 'collections' | 'acrs' | 'deposits' | 'settlement' | 'attempts'
 
 /**
  * The per-screen contract — spec 1162 D8, as one readable table.
@@ -172,6 +173,10 @@ export const SERVED_BY_SCREENS: Record<ServedByScreen, ServedByScreenContract> =
   acrs: { reading: 'collector', accountants: false, freeText: true },
   deposits: { reading: 'collector', accountants: false, freeText: true },
   settlement: { reading: 'assignment', accountants: true, freeText: false },
+  // 🚩 Ticket 316 (BackOffice 1993): an attempt carries a store, so *Served by* here
+  // is the store's CURRENT pairing — Cash Collections' question, not the attempting
+  // collector's, which the screen's own CollectorStaffId box already asks.
+  attempts: { reading: 'assignment', accountants: true, freeText: false },
 }
 
 /**

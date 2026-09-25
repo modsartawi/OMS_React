@@ -17,10 +17,14 @@ import {
 const TODAY = new Date(2026, 7, 8) // 2026-08-08, local parts (no UTC round-trip)
 
 describe('landingCriteria', () => {
-  it('defaults From AND To to today, with Status = All', () => {
+  it('defaults the BUSINESS range to today on both ends, with Status = All', () => {
     expect(landingCriteria(TODAY)).toEqual({
-      fromDate: '2026-08-08',
-      toDate: '2026-08-08',
+      // Ticket 316: the ACR date is this screen's business date, and it is the
+      // window the screen has always landed on — only its wire name moved.
+      businessDateFrom: '2026-08-08',
+      businessDateTo: '2026-08-08',
+      collectionDateFrom: '',
+      collectionDateTo: '',
       acrNumber: '',
       // Nothing picked — the estate. A caller the roster does not know, or a payload
       // that never arrived, opens exactly as this screen did before the control
@@ -61,7 +65,7 @@ describe('landingCriteria', () => {
   })
 
   it('is a local calendar day, so a Riyadh evening does not land on tomorrow', () => {
-    expect(landingCriteria(new Date(2026, 0, 1, 23, 59)).fromDate).toBe('2026-01-01')
+    expect(landingCriteria(new Date(2026, 0, 1, 23, 59)).businessDateFrom).toBe('2026-01-01')
   })
 
   it('offers exactly the WPF’s three states, All first', () => {
@@ -92,10 +96,10 @@ describe('the segmented Status control', () => {
 })
 
 describe('buildAcrsParams', () => {
-  it('sends the landing state as the today pair plus the system cap, and nothing else', () => {
+  it('sends the landing state as today’s business range plus the system cap, and nothing else', () => {
     expect(buildAcrsParams(landingCriteria(TODAY))).toEqual({
-      FromDate: '2026-08-08',
-      ToDate: '2026-08-08',
+      BusinessDateFrom: '2026-08-08',
+      BusinessDateTo: '2026-08-08',
       Limit: GRID_LIMIT,
     })
   })
@@ -129,33 +133,127 @@ describe('buildAcrsParams', () => {
     )
   })
 
-  it('sends the dates as a PAIR or not at all — half-open is unbounded, not narrow', () => {
-    const halfOpen = buildAcrsParams({ fromDate: '2026-08-01', toDate: '' })
-    expect(halfOpen).not.toHaveProperty('FromDate')
-    expect(halfOpen).not.toHaveProperty('ToDate')
-    const otherHalf = buildAcrsParams({ fromDate: '', toDate: '2026-08-08' })
-    expect(otherHalf).not.toHaveProperty('FromDate')
-    expect(otherHalf).not.toHaveProperty('ToDate')
-    // …and a status typed alongside a broken pair still travels.
-    expect(buildAcrsParams({ fromDate: '2026-08-01', status: 'OPEN' })).toEqual({
-      Status: 'OPEN',
-      Limit: GRID_LIMIT,
-    })
-  })
-
   it('never asks for the WPF’s 200 — the cap is a system cap and it is generous', () => {
     expect(buildAcrsParams({}).Limit).toBe(2000)
   })
 
   it('is a pure function of the draft — the same draft builds the same query', () => {
     const draft: AcrsCriteria = {
-      fromDate: '2026-08-01',
-      toDate: '2026-08-08',
+      businessDateFrom: '2026-08-01',
+      businessDateTo: '2026-08-08',
+      collectionDateFrom: '2026-08-05',
+      collectionDateTo: '2026-08-09',
       acrNumber: '41',
       servedBy: { kind: 'COLLECTOR', id: '4472' },
       status: 'CLOSED',
     }
     expect(buildAcrsParams(draft)).toEqual(buildAcrsParams({ ...draft }))
+  })
+})
+
+// Ticket 316 (BackOffice 1993) — the four-filter contract on the ACR list. The
+// business range reads the ACR date; the collection range reads ANY linked
+// collection's collected-at. Each end optional, inclusive by day on the server.
+describe('the business and collection date ranges', () => {
+  it('sends both ranges under 1992’s PascalCase names — the contract’s own example', () => {
+    expect(
+      buildAcrsParams({
+        businessDateFrom: '2026-09-01',
+        businessDateTo: '2026-09-10',
+        collectionDateFrom: '2026-09-12',
+        collectionDateTo: '2026-09-12',
+      }),
+    ).toEqual({
+      BusinessDateFrom: '2026-09-01',
+      BusinessDateTo: '2026-09-10',
+      CollectionDateFrom: '2026-09-12',
+      CollectionDateTo: '2026-09-12',
+      Limit: GRID_LIMIT,
+    })
+  })
+
+  it('never sends the legacy FromDate/ToDate — the contract retires them for the web', () => {
+    // 🚩 The door still honours them and INTERSECTS them with BusinessDate*; sending
+    // both would be one window spelt twice, and a stale one would silently narrow.
+    const params = buildAcrsParams({
+      ...landingCriteria(TODAY),
+      collectionDateFrom: '2026-08-01',
+      collectionDateTo: '2026-08-08',
+    })
+    expect(params).not.toHaveProperty('FromDate')
+    expect(params).not.toHaveProperty('ToDate')
+  })
+
+  it('sends either end ALONE — an open-ended range is the contract’s, not a broken pair', () => {
+    expect(buildAcrsParams({ businessDateFrom: '2026-09-01' })).toEqual({
+      BusinessDateFrom: '2026-09-01',
+      Limit: GRID_LIMIT,
+    })
+    expect(buildAcrsParams({ collectionDateTo: '2026-09-12', status: 'OPEN' })).toEqual({
+      CollectionDateTo: '2026-09-12',
+      Status: 'OPEN',
+      Limit: GRID_LIMIT,
+    })
+  })
+
+  it('may leave the business range off entirely, to ask by collection day alone', () => {
+    expect(
+      buildAcrsParams({
+        ...landingCriteria(TODAY),
+        businessDateFrom: '',
+        businessDateTo: ' ',
+        collectionDateFrom: '2026-09-12',
+        collectionDateTo: '2026-09-12',
+      }),
+    ).toEqual({
+      CollectionDateFrom: '2026-09-12',
+      CollectionDateTo: '2026-09-12',
+      Limit: GRID_LIMIT,
+    })
+  })
+
+  it('drops empty ends rather than sending them as empty strings', () => {
+    const params = buildAcrsParams({
+      businessDateFrom: '',
+      businessDateTo: '   ',
+      collectionDateFrom: '',
+      collectionDateTo: '',
+    })
+    expect(params).toEqual({ Limit: GRID_LIMIT })
+  })
+
+  it('sends the day as typed — no time part, no widening to the next midnight', () => {
+    const params = buildAcrsParams({ collectionDateFrom: ' 2026-09-12 ', collectionDateTo: '2026-09-12' })
+    expect(params.CollectionDateFrom).toBe('2026-09-12')
+    expect(params.CollectionDateTo).toBe('2026-09-12')
+  })
+
+  it('passes a From later than its To through — the door matches nothing, honestly', () => {
+    expect(buildAcrsParams({ businessDateFrom: '2026-09-10', businessDateTo: '2026-09-01' })).toEqual({
+      BusinessDateFrom: '2026-09-10',
+      BusinessDateTo: '2026-09-01',
+      Limit: GRID_LIMIT,
+    })
+  })
+
+  it('ANDs the ranges with the ACR No#, the collector and the status — none clears another', () => {
+    expect(
+      buildAcrsParams({
+        businessDateFrom: '2026-09-01',
+        collectionDateTo: '2026-09-12',
+        acrNumber: '1207',
+        servedBy: { kind: 'COLLECTOR', id: 'COLL-9' },
+        status: 'CLOSED',
+      }),
+    ).toEqual({
+      BusinessDateFrom: '2026-09-01',
+      CollectionDateTo: '2026-09-12',
+      AcrNumber: '1207',
+      ServedByKind: 'COLLECTOR',
+      ServedById: 'COLL-9',
+      Status: 'CLOSED',
+      Limit: GRID_LIMIT,
+    })
   })
 })
 
@@ -166,16 +264,16 @@ describe('a draft that has not been promoted', () => {
       buildAcrsParams({ ...landingCriteria(TODAY), acrNumber: '4' }),
     )
     expect(applied).toEqual({
-      FromDate: '2026-08-08',
-      ToDate: '2026-08-08',
+      BusinessDateFrom: '2026-08-08',
+      BusinessDateTo: '2026-08-08',
       Limit: GRID_LIMIT,
     })
   })
 
   it('Search promoting that draft is what changes the query', () => {
     expect(buildAcrsParams({ ...landingCriteria(TODAY), acrNumber: '41' })).toEqual({
-      FromDate: '2026-08-08',
-      ToDate: '2026-08-08',
+      BusinessDateFrom: '2026-08-08',
+      BusinessDateTo: '2026-08-08',
       AcrNumber: '41',
       Limit: GRID_LIMIT,
     })
@@ -196,15 +294,19 @@ describe('the "filtered" chip reads the ISSUED query, not the draft', () => {
   })
 
   it('a widened period and a searched ACR number are not either', () => {
-    expect(applied({ ...landingCriteria(TODAY), fromDate: '2026-08-07' })).toBe(false)
+    expect(applied({ ...landingCriteria(TODAY), businessDateFrom: '2026-08-07' })).toBe(false)
     expect(applied({ ...landingCriteria(TODAY), acrNumber: '41' })).toBe(false)
+  })
+
+  it('a collection range is not the landing query — it is a filter like any other', () => {
+    expect(applied({ ...landingCriteria(TODAY), collectionDateFrom: '2026-08-08' })).toBe(false)
   })
 
   it('a whitespace-only ACR number never made it onto the wire, so it is', () => {
     expect(applied({ ...landingCriteria(TODAY), acrNumber: '  ' })).toBe(true)
   })
 
-  it('a query missing the date pair entirely is not it', () => {
+  it('a query missing the business range entirely is not it', () => {
     expect(applied({})).toBe(false)
   })
 })

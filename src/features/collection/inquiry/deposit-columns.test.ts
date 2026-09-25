@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { DepositInquiryRow } from '@/core/models/collection'
+import type { DepositInquiryLine, DepositInquiryRow } from '@/core/models/collection'
 import {
+  BUSINESS_DATE_COLUMN,
   DEFAULT_FIELDS,
   MONEY_FIELDS,
   MORE_FIELDS,
@@ -88,14 +89,23 @@ describe('the two groups account for the whole wire row', () => {
   })
 })
 
+// Ticket 316 puts the derived Business date column just before the collection date.
+const [NUMBER, ...AFTER_NUMBER] = DEFAULT_FIELDS
+
 describe('buildDepositsColumns', () => {
-  it('shows the default nine with the toggle off', () => {
-    expect(buildDepositsColumns(t, false).map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
+  it('shows the default nine plus the Business date with the toggle off', () => {
+    expect(buildDepositsColumns(t, false).map((c) => c.colId)).toEqual([
+      NUMBER,
+      BUSINESS_DATE_COLUMN,
+      ...AFTER_NUMBER,
+    ])
   })
 
   it('reveals the tail with the toggle on, and folds NOTHING away doing it', () => {
     expect(buildDepositsColumns(t, true).map((c) => c.colId)).toEqual([
-      ...DEFAULT_FIELDS,
+      NUMBER,
+      BUSINESS_DATE_COLUMN,
+      ...AFTER_NUMBER,
       ...MORE_FIELDS,
     ])
   })
@@ -168,6 +178,59 @@ describe('the sentinels the server sends', () => {
       const get = columns.find((c) => c.colId === colId)?.filterValueGetter as (p: unknown) => string
       expect(get({ data: ROW })).toBe(expected)
     }
+  })
+})
+
+// Ticket 316 (BackOffice 1993): Business date = the lines' acrDate values (min …
+// max, or one date); Collection date = depositedAt.
+describe('the Business date and Collection date columns', () => {
+  const line = (acrNumber: number, acrDate: string): DepositInquiryLine => ({
+    acrId: `01J0ACR${acrNumber}`,
+    acrNumber,
+    acrDate,
+    netCollectedAtDeposit: 100,
+    netCollectedNow: 100,
+    drift: 0,
+    hasDrift: false,
+  })
+  // The contract's own sample: ACR 1207 dated the 10th of September, 1188 the 20th of August.
+  const BANKED_TWO: DepositInquiryRow = {
+    ...ROW,
+    lines: [line(1207, '2026-09-10T00:00:00'), line(1188, '2026-08-20T00:00:00')],
+  }
+  const column = (colId: string) => buildDepositsColumns(t, false).find((c) => c.colId === colId)
+  const get = (row: DepositInquiryRow) =>
+    (column(BUSINESS_DATE_COLUMN)?.valueGetter as (p: unknown) => string)({ data: row })
+
+  it('are both on the DEFAULT grid, side by side, the business date first', () => {
+    const ids = buildDepositsColumns(t, false).map((c) => c.colId)
+    expect(ids.indexOf('depositedAt')).toBe(ids.indexOf(BUSINESS_DATE_COLUMN) + 1)
+  })
+
+  it('head the two through t()', () => {
+    expect(column(BUSINESS_DATE_COLUMN)?.headerName).toBe('deposits.columns.businessDate')
+    expect(column('depositedAt')?.headerName).toBe('deposits.columns.depositedAt')
+  })
+
+  it('draws the Business date as the span of the deposit’s ACRs’ days, whatever their order', () => {
+    expect(get(BANKED_TWO)).toBe('grid.daySpan|{"from":"2026-08-20","to":"2026-09-10"}')
+  })
+
+  it('draws ONE date when every line shares a day', () => {
+    expect(get({ ...ROW, lines: [line(1, '2026-09-10T00:00:00'), line(2, '2026-09-10T00:00:00')] })).toBe(
+      '2026-09-10',
+    )
+  })
+
+  it('leaves a deposit with no lines BLANK — never unknown', () => {
+    expect(get({ ...ROW, lines: [] })).toBe('')
+  })
+
+  it('reads the span off the row it is given — no field of its own on the wire', () => {
+    // A value getter, not a `field`: `lines` is a list, and the span is its reading.
+    expect(column(BUSINESS_DATE_COLUMN)?.field).toBeUndefined()
+    const filter = column(BUSINESS_DATE_COLUMN)?.filterValueGetter as (p: unknown) => string
+    expect(filter({ data: BANKED_TWO })).toBe(get(BANKED_TWO))
   })
 })
 

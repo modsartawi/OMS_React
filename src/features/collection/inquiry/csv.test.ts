@@ -156,6 +156,8 @@ const acr = (over: Partial<AcrInquiryRow> = {}): AcrInquiryRow => ({
   collectorName: 'عبدالله بن ناصر القحطاني',
   acrDate: '2026-08-06T00:00:00',
   status: 'OPEN',
+  firstCollectedAt: null,
+  lastCollectedAt: null,
   createdAt: '2026-08-06T08:15:00',
   closedAt: '0001-01-01T00:00:00',
   closedBy: '',
@@ -308,6 +310,21 @@ describe('the identity rule — wrapped, and therefore unmangled', () => {
     const open = buildCollectionCsv([acr()], ACRS_CSV_COLUMNS, acrsHeader)
     expect(cellOf(open, ACRS_CSV_COLUMNS, 'closedByName')).toBe('')
     expect(cellOf(open, ACRS_CSV_COLUMNS, 'closedBy')).toBe('')
+  })
+
+  it('writes the two ends of an ACR’s collected-at as raw ISO text, and an idle ACR blank (316)', () => {
+    // The grid draws one span of days; the file is the row unpacked, so each end
+    // leaves as its own sortable column, seconds and all.
+    const collected = buildCollectionCsv(
+      [acr({ firstCollectedAt: '2026-09-05T10:15:00', lastCollectedAt: '2026-09-12T23:40:00' })],
+      ACRS_CSV_COLUMNS,
+      acrsHeader,
+    )
+    expect(cellOf(collected, ACRS_CSV_COLUMNS, 'firstCollectedAt')).toBe('2026-09-05T10:15:00')
+    expect(cellOf(collected, ACRS_CSV_COLUMNS, 'lastCollectedAt')).toBe('2026-09-12T23:40:00')
+    const idle = buildCollectionCsv([acr()], ACRS_CSV_COLUMNS, acrsHeader)
+    expect(cellOf(idle, ACRS_CSV_COLUMNS, 'firstCollectedAt')).toBe('')
+    expect(cellOf(idle, ACRS_CSV_COLUMNS, 'lastCollectedAt')).toBe('')
   })
 
   it('blanks an identity that is the number zero, rather than claiming a record', () => {

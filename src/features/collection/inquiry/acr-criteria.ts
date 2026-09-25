@@ -15,8 +15,18 @@
  *
  * 1. **Status** — the WPF's `""` / `OPEN` / `CLOSED` radio group becomes a
  *    segmented control, and `All` sends **nothing**, never the literal `"All"`.
- * 2. **ACR No#** — a filter the WPF does not have and the server does not yet
- *    take. See `buildAcrsParams`.
+ * 2. **ACR No#** — a filter the WPF does not have, and which the server took at
+ *    BackOffice 1993. See `buildAcrsParams`.
+ *
+ * 🚩 **Two ranges, named by what they mean on THIS screen** (ticket 316, BackOffice
+ * 1993 — 1992's four-filter contract with spec 1976's per-screen meanings):
+ *
+ * - **Business date** — the ACR date (`AcrDate`), the collector-chosen business
+ *   date. The window this screen has always landed on.
+ * - **Collection date** — the collected-at of **ANY** linked collection: an ACR
+ *   matches when at least one of its collections was taken in the range, and then
+ *   rows once with its whole aggregate (the range picks ACRs, it never trims their
+ *   totals). An idle ACR never matches a collection range.
  */
 import { toIsoDate } from '@/core/util/date-format'
 import { GRID_LIMIT } from './cap'
@@ -42,15 +52,18 @@ export type AcrStatusFilter = 'ALL' | 'OPEN' | 'CLOSED'
 export const ACR_STATUSES = ['ALL', 'OPEN', 'CLOSED'] as const satisfies readonly AcrStatusFilter[]
 
 /**
- * The toolbar draft: From · To · ACR No# · Collector · Status (244 §5).
+ * The toolbar draft: Business date from/to · Collection date from/to · ACR No# ·
+ * Collector · Status (244 §5, ticket 316).
  *
  * All strings but the status, so each field maps 1:1 onto its input. `acrNumber`
  * is a string because it is what a text box holds — an empty box is `''`, not
  * `0`, and `0` is a real ACR number's neighbour rather than a way to say "unset".
  */
 export interface AcrsCriteria {
-  fromDate: string
-  toDate: string
+  businessDateFrom: string
+  businessDateTo: string
+  collectionDateFrom: string
+  collectionDateTo: string
   acrNumber: string
   /**
    * The shared *Served by* selection (BackOffice spec 1162 D8, built by 1167) —
@@ -72,13 +85,15 @@ export interface AcrsCriteria {
 }
 
 /**
- * The state the screen opens on: **today, on both ends, Status = All, nothing
- * else set** — the same today-defaulted landing 254 settled.
+ * The state the screen opens on: **a business date of today, on both ends,
+ * Status = All, nothing else set** — the same today-defaulted landing 254 settled,
+ * with the collection range open.
  *
  * ⚠️ The window applies to `AcrDate`, **the collector-chosen business date**, not
  * to `CreatedAt` — a grilled decision the WPF view carries a comment about. A
  * catch-up ACR raised today for last Thursday's collections answers to last
- * Thursday here.
+ * Thursday here. Ticket 316 renamed it on the wire (`BusinessDate*`); it did not
+ * move it.
  */
 export function landingCriteria(
   today: Date,
@@ -86,8 +101,10 @@ export function landingCriteria(
 ): AcrsCriteria {
   const day = toIsoDate(today)
   return {
-    fromDate: day,
-    toDate: day,
+    businessDateFrom: day,
+    businessDateTo: day,
+    collectionDateFrom: '',
+    collectionDateTo: '',
     acrNumber: '',
     // 🚩 **Default-to-mine, but only for a caller this screen can scope** (spec D8;
     // BackOffice 1167). `defaultSelection` drops the landing for an ACCOUNTANT
@@ -134,20 +151,21 @@ export function isLandingQuery(
  * the grid would go silently empty while the control said the opposite. This is
  * the assertion the Proof pins.
  *
- * 🚩 **`AcrNumber` is a filter the server does not take yet.** `AcrInquiryOptions`
- * carries `AcrId` — the ULID, an exact-row filter that ticket 257's drill-down
- * rides — and nothing keyed on the number. The WPF has no ACR No# box either; the
- * web adds one because the number is what a supervisor holds in their hand and
- * the ULID is not. `CollectionWeb/Acrs` does not exist yet (BackOffice 1090), so
- * this states the contract rather than changing a shipped door — and it is logged
- * as a server dependency in `.afk/HITL-255.md`. ⚠️ It is deliberately **not** sent
- * as `AcrId`: the server would compare a ULID column against `"41"` and hand back
- * nothing, silently. And it is deliberately not filtered client-side, which would
- * narrow only the rows that already came back — the same silent truncation this
- * wave was chartered to end.
+ * 🚩 **`AcrNumber` is the number on the paper, exact** (BackOffice 1993 gave it a
+ * server parameter; 255 sent it ahead of the door, logged in `.afk/HITL-255.md`).
+ * The WPF has no ACR No# box; the web has one because the number is what a
+ * supervisor holds in their hand and the ULID is not. ⚠️ It is deliberately **not**
+ * sent as `AcrId`: the server would compare a ULID column against `"41"` and hand
+ * back nothing, silently. It is an `int` on the server, so a non-digit box is a
+ * binding `400` — the toolbar's `pattern` stops that before Search.
  *
- * ⚠️ **The dates travel as a PAIR or not at all** — 254's guard, for 254's reason:
- * a half-open window is not a narrower query but an unbounded one.
+ * 🚩 **Each date end travels on its own** (ticket 316, 315's ruling): the contract
+ * makes every end optional and an open-ended range a real question. The day goes as
+ * typed — inclusive-by-day is the server's rule, so the client adds no time part.
+ *
+ * ⚠️ **`FromDate`/`ToDate` are never sent.** The door still honours the legacy pair
+ * on the ACR date and intersects it with `BusinessDate*`; the contract tells the web
+ * to switch, and sending both would be one window spelt twice.
  */
 export function buildAcrsParams(criteria: Partial<AcrsCriteria> = {}): Record<string, unknown> {
   const params: Record<string, unknown> = { Limit: GRID_LIMIT }
@@ -155,10 +173,10 @@ export function buildAcrsParams(criteria: Partial<AcrsCriteria> = {}): Record<st
     const trimmed = (value ?? '').trim()
     if (trimmed !== '') params[key] = trimmed
   }
-  if ((criteria.fromDate ?? '').trim() !== '' && (criteria.toDate ?? '').trim() !== '') {
-    put('FromDate', criteria.fromDate)
-    put('ToDate', criteria.toDate)
-  }
+  put('BusinessDateFrom', criteria.businessDateFrom)
+  put('BusinessDateTo', criteria.businessDateTo)
+  put('CollectionDateFrom', criteria.collectionDateFrom)
+  put('CollectionDateTo', criteria.collectionDateTo)
   put('AcrNumber', criteria.acrNumber)
   // 🚩 **`CollectorOperatorId` is no longer sent from this toolbar** (BackOffice
   // 1167): *Served by* asks the same question of the same column, through the one

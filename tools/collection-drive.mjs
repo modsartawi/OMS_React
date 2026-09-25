@@ -646,8 +646,8 @@ async function run() {
   const qa = () => new URLSearchParams(lastAcrsQuery)
   check('255 — ACRs queries on MOUNT (no Load button to press)', acrsCalls === 1, `${acrsCalls} calls`)
   check(
-    '255 — …and it queries TODAY, as a pair, at the system cap',
-    qa().get('FromDate') === TODAY && qa().get('ToDate') === TODAY && qa().get('Limit') === '2000',
+    '255 — …and it queries a business date of TODAY (the name 316 gave it), at the system cap',
+    qa().get('BusinessDateFrom') === TODAY && qa().get('BusinessDateTo') === TODAY && qa().get('Limit') === '2000',
     lastAcrsQuery,
   )
   check(
@@ -701,6 +701,12 @@ async function run() {
     (await acrCash.innerText()).trim() === '143,910.75',
     await acrCash.innerText(),
   )
+  // Scrolled first: since 316's Collection Date column, Card Total sits past the 1600px
+  // viewport, and AG Grid virtualizes it away.
+  await page.locator('.ag-body-horizontal-scroll-viewport').evaluate((el) => {
+    el.scrollLeft = 4000
+  })
+  await page.waitForTimeout(200)
   const acrNullCard = page.locator('.ag-row[row-index="1"] [col-id="cardTotalSum"]')
   check(
     '255 — a MISSING figure renders blank, not 0.00',
@@ -789,7 +795,7 @@ async function run() {
   await page.waitForLoadState('networkidle')
   check(
     '255 — Reset returns to today with the status and the number cleared',
-    qa().get('FromDate') === TODAY && !lastAcrsQuery.includes('AcrNumber') && !lastAcrsQuery.includes('Status'),
+    qa().get('BusinessDateFrom') === TODAY && !lastAcrsQuery.includes('AcrNumber') && !lastAcrsQuery.includes('Status'),
     lastAcrsQuery,
   )
   check('255 — and the Filtered chip goes with it', (await page.getByText('Filtered').count()) === 0)
@@ -820,8 +826,8 @@ async function run() {
   const qt = () => new URLSearchParams(lastAttemptsQuery)
   check('255 — Attempts queries on MOUNT', attemptsCalls === 1, `${attemptsCalls} calls`)
   check(
-    '255 — …and it queries TODAY, as a pair, at the system cap',
-    qt().get('FromDate') === TODAY && qt().get('ToDate') === TODAY && qt().get('Limit') === '2000',
+    '255 — …and it queries an attempt time of TODAY (316: the collection range), at the system cap',
+    qt().get('CollectionDateFrom') === TODAY && qt().get('CollectionDateTo') === TODAY && qt().get('Limit') === '2000',
     lastAttemptsQuery,
   )
   check(
@@ -864,7 +870,7 @@ async function run() {
     ['Reason Detail', 'Business Date', 'Shift Id', 'Collector Id'].every((h) => attemptOpened.includes(h)),
     attemptOpened.slice(0, 260),
   )
-  check('255 — and nothing was dropped to make room', attemptOpened.includes('Attempt Time') && attemptOpened.includes('Store Code'))
+  check('255 — and nothing was dropped to make room', attemptOpened.includes('Collection Date') && attemptOpened.includes('Store Code'))
   await page.getByRole('button', { name: 'More columns' }).click()
 
   // ⚠️ THE DELIBERATE ABSENCE. An attempt is immutable evidence, not a voucher —
@@ -909,7 +915,7 @@ async function run() {
   await page.waitForLoadState('networkidle')
   check(
     '255 — Reset returns to today with the reason cleared',
-    qt().get('FromDate') === TODAY && !lastAttemptsQuery.includes('ReasonCode'),
+    qt().get('CollectionDateFrom') === TODAY && !lastAttemptsQuery.includes('ReasonCode'),
     lastAttemptsQuery,
   )
 
@@ -940,8 +946,8 @@ async function run() {
   const qd = () => new URLSearchParams(lastDepositsQuery)
   check('256 — Deposits queries on MOUNT (no Load button to press)', depositsCalls === 1, `${depositsCalls} calls`)
   check(
-    '256 — …and it queries TODAY, as a pair, at the system cap',
-    qd().get('FromDate') === TODAY && qd().get('ToDate') === TODAY && qd().get('Limit') === '2000',
+    '256 — …and it queries a deposited-at of TODAY (316: the collection range), at the system cap',
+    qd().get('CollectionDateFrom') === TODAY && qd().get('CollectionDateTo') === TODAY && qd().get('Limit') === '2000',
     lastDepositsQuery,
   )
   check(
@@ -1197,7 +1203,7 @@ async function run() {
   await page.waitForLoadState('networkidle')
   check(
     '256 — Reset returns to today with the number, bank and status cleared',
-    qd().get('FromDate') === TODAY &&
+    qd().get('CollectionDateFrom') === TODAY &&
       !lastDepositsQuery.includes('DepositNumber') &&
       !lastDepositsQuery.includes('BankCode') &&
       !lastDepositsQuery.includes('Status'),
@@ -1683,10 +1689,11 @@ async function run() {
     {
       key: 'acrs',
       route: ROUTES.acrs,
-      // 17 since ticket 313 put who closed it on the row (Closed By + Closed By Id).
-      headers: 17,
+      // 17 since ticket 313 put who closed it on the row (Closed By + Closed By Id), 19
+      // since 316 put its collected-at ends on it (First + Last Collected).
+      headers: 19,
       // The folded tail, present with the More-columns toggle OFF.
-      folded: ['Created', 'Closed By Id', 'Deposit No#', 'Deposit Id'],
+      folded: ['Created', 'Closed By Id', 'First Collected', 'Last Collected', 'Deposit No#', 'Deposit Id'],
       money: ['Net Collected', 'Card Total'],
       identity: 'ACR No#',
     },

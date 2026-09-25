@@ -17,10 +17,14 @@ import {
 const TODAY = new Date(2026, 7, 8) // 2026-08-08, local parts (no UTC round-trip)
 
 describe('landingCriteria', () => {
-  it('defaults From AND To to today, with Status = All and nothing else set', () => {
+  it('defaults the COLLECTION range to today on both ends, with Status = All and nothing else set', () => {
     expect(landingCriteria(TODAY)).toEqual({
-      fromDate: '2026-08-08',
-      toDate: '2026-08-08',
+      // Ticket 316: deposited-at is this screen's collection date, and it is the
+      // window the screen has always landed on — only its wire name moved.
+      businessDateFrom: '',
+      businessDateTo: '',
+      collectionDateFrom: '2026-08-08',
+      collectionDateTo: '2026-08-08',
       depositNumber: '',
       // Nothing picked — the estate. A caller the roster does not know, or a payload
       // that never arrived, opens exactly as this screen did before the control
@@ -65,7 +69,7 @@ describe('landingCriteria', () => {
   })
 
   it('is a local calendar day, so a Riyadh evening does not land on tomorrow', () => {
-    expect(landingCriteria(new Date(2026, 0, 1, 23, 59)).fromDate).toBe('2026-01-01')
+    expect(landingCriteria(new Date(2026, 0, 1, 23, 59)).collectionDateFrom).toBe('2026-01-01')
   })
 
   it('offers exactly the WPF’s three states, All first', () => {
@@ -96,10 +100,10 @@ describe('the segmented Status control', () => {
 })
 
 describe('buildDepositsParams', () => {
-  it('sends the landing state as the today pair plus the system cap, and nothing else', () => {
+  it('sends the landing state as today’s collection range plus the system cap, and nothing else', () => {
     expect(buildDepositsParams(landingCriteria(TODAY))).toEqual({
-      FromDate: '2026-08-08',
-      ToDate: '2026-08-08',
+      CollectionDateFrom: '2026-08-08',
+      CollectionDateTo: '2026-08-08',
       Limit: GRID_LIMIT,
     })
   })
@@ -142,44 +146,26 @@ describe('buildDepositsParams', () => {
     )
   })
 
-  it('sends the dates as a PAIR or not at all — half-open is unbounded, not narrow', () => {
-    const halfOpen = buildDepositsParams({ fromDate: '2026-08-01', toDate: '' })
-    expect(halfOpen).not.toHaveProperty('FromDate')
-    expect(halfOpen).not.toHaveProperty('ToDate')
-    const otherHalf = buildDepositsParams({ fromDate: '', toDate: '2026-08-08' })
-    expect(otherHalf).not.toHaveProperty('FromDate')
-    expect(otherHalf).not.toHaveProperty('ToDate')
-    // …and a bank typed alongside a broken pair still travels.
-    expect(buildDepositsParams({ fromDate: '2026-08-01', bankCode: 'ANB' })).toEqual({
-      BankCode: 'ANB',
-      Limit: GRID_LIMIT,
-    })
-  })
-
-  it('keeps the whole date pair when both ends are set', () => {
-    expect(buildDepositsParams({ fromDate: '2026-08-01', toDate: '2026-08-08' })).toEqual({
-      FromDate: '2026-08-01',
-      ToDate: '2026-08-08',
-      Limit: GRID_LIMIT,
-    })
-  })
-
   it('never asks for the WPF’s 200 — the cap is a system cap and it is generous', () => {
     expect(buildDepositsParams({}).Limit).toBe(2000)
   })
 
-  it('carries all six filters at once when all six are set', () => {
+  it('carries every filter at once when every one is set', () => {
     const draft: DepositsCriteria = {
-      fromDate: '2026-08-01',
-      toDate: '2026-08-08',
+      businessDateFrom: '2026-07-20',
+      businessDateTo: '2026-08-07',
+      collectionDateFrom: '2026-08-01',
+      collectionDateTo: '2026-08-08',
       depositNumber: '5501',
       servedBy: { kind: 'COLLECTOR', id: '4472' },
       bankCode: 'ANB',
       status: 'VOID',
     }
     expect(buildDepositsParams(draft)).toEqual({
-      FromDate: '2026-08-01',
-      ToDate: '2026-08-08',
+      BusinessDateFrom: '2026-07-20',
+      BusinessDateTo: '2026-08-07',
+      CollectionDateFrom: '2026-08-01',
+      CollectionDateTo: '2026-08-08',
       DepositNumber: '5501',
       ServedByKind: 'COLLECTOR',
       ServedById: '4472',
@@ -191,14 +177,91 @@ describe('buildDepositsParams', () => {
 
   it('is a pure function of the draft — the same draft builds the same query', () => {
     const draft: DepositsCriteria = {
-      fromDate: '2026-08-01',
-      toDate: '2026-08-08',
+      businessDateFrom: '2026-07-20',
+      businessDateTo: '2026-08-07',
+      collectionDateFrom: '2026-08-01',
+      collectionDateTo: '2026-08-08',
       depositNumber: '5501',
       servedBy: { kind: 'COLLECTOR', id: '4472' },
       bankCode: 'ANB',
       status: 'POSTED',
     }
     expect(buildDepositsParams(draft)).toEqual(buildDepositsParams({ ...draft }))
+  })
+})
+
+// Ticket 316 (BackOffice 1993) — the four-filter contract on Deposits. The business
+// range reads the dates of ANY of the deposit's ACRs (its lines); the collection
+// range reads deposited-at. Each end optional, inclusive by day on the server.
+describe('the business and collection date ranges', () => {
+  it('sends a business range with a deposit number — the contract’s own example', () => {
+    expect(
+      buildDepositsParams({
+        businessDateFrom: '2026-09-01',
+        businessDateTo: '2026-09-30',
+        depositNumber: '5501',
+      }),
+    ).toEqual({
+      BusinessDateFrom: '2026-09-01',
+      BusinessDateTo: '2026-09-30',
+      DepositNumber: '5501',
+      Limit: GRID_LIMIT,
+    })
+  })
+
+  it('never sends the legacy FromDate/ToDate — the contract retires them for the web', () => {
+    // 🚩 The door still honours them and INTERSECTS them with CollectionDate*.
+    const params = buildDepositsParams({
+      ...landingCriteria(TODAY),
+      businessDateFrom: '2026-08-01',
+      businessDateTo: '2026-08-08',
+    })
+    expect(params).not.toHaveProperty('FromDate')
+    expect(params).not.toHaveProperty('ToDate')
+  })
+
+  it('sends either end ALONE — an open-ended range is the contract’s, not a broken pair', () => {
+    expect(buildDepositsParams({ businessDateTo: '2026-09-10' })).toEqual({
+      BusinessDateTo: '2026-09-10',
+      Limit: GRID_LIMIT,
+    })
+    expect(buildDepositsParams({ collectionDateFrom: '2026-09-21', bankCode: 'RB' })).toEqual({
+      CollectionDateFrom: '2026-09-21',
+      BankCode: 'RB',
+      Limit: GRID_LIMIT,
+    })
+  })
+
+  it('may leave the collection range off entirely, to ask by the ACRs’ days alone', () => {
+    expect(
+      buildDepositsParams({
+        ...landingCriteria(TODAY),
+        businessDateFrom: '2026-09-01',
+        businessDateTo: '2026-09-10',
+        collectionDateFrom: '',
+        collectionDateTo: '  ',
+      }),
+    ).toEqual({
+      BusinessDateFrom: '2026-09-01',
+      BusinessDateTo: '2026-09-10',
+      Limit: GRID_LIMIT,
+    })
+  })
+
+  it('sends the day as typed — no time part, no widening to the next midnight', () => {
+    const params = buildDepositsParams({ businessDateFrom: ' 2026-09-10 ', businessDateTo: '2026-09-10' })
+    expect(params.BusinessDateFrom).toBe('2026-09-10')
+    expect(params.BusinessDateTo).toBe('2026-09-10')
+  })
+
+  it('passes a From later than its To through — the door matches nothing, honestly', () => {
+    expect(
+      buildDepositsParams({ collectionDateFrom: '2026-09-21', collectionDateTo: '2026-09-01' }),
+    ).toEqual({
+      CollectionDateFrom: '2026-09-21',
+      CollectionDateTo: '2026-09-01',
+      Limit: GRID_LIMIT,
+    })
   })
 })
 
@@ -209,16 +272,16 @@ describe('a draft that has not been promoted', () => {
       buildDepositsParams({ ...landingCriteria(TODAY), depositNumber: '5' }),
     )
     expect(applied).toEqual({
-      FromDate: '2026-08-08',
-      ToDate: '2026-08-08',
+      CollectionDateFrom: '2026-08-08',
+      CollectionDateTo: '2026-08-08',
       Limit: GRID_LIMIT,
     })
   })
 
   it('Search promoting that draft is what changes the query', () => {
     expect(buildDepositsParams({ ...landingCriteria(TODAY), depositNumber: '5501' })).toEqual({
-      FromDate: '2026-08-08',
-      ToDate: '2026-08-08',
+      CollectionDateFrom: '2026-08-08',
+      CollectionDateTo: '2026-08-08',
       DepositNumber: '5501',
       Limit: GRID_LIMIT,
     })
@@ -239,7 +302,7 @@ describe('the "filtered" chip reads the ISSUED query, not the draft', () => {
   })
 
   it('a widened period, a searched number and a chosen bank are not either', () => {
-    expect(applied({ ...landingCriteria(TODAY), fromDate: '2026-08-07' })).toBe(false)
+    expect(applied({ ...landingCriteria(TODAY), collectionDateFrom: '2026-08-07' })).toBe(false)
     expect(applied({ ...landingCriteria(TODAY), depositNumber: '5501' })).toBe(false)
     expect(applied({ ...landingCriteria(TODAY), bankCode: 'ANB' })).toBe(false)
   })
@@ -248,7 +311,11 @@ describe('the "filtered" chip reads the ISSUED query, not the draft', () => {
     expect(applied({ ...landingCriteria(TODAY), bankCode: '  ' })).toBe(true)
   })
 
-  it('a query missing the date pair entirely is not it', () => {
+  it('a business range is not the landing query — it is a filter like any other', () => {
+    expect(applied({ ...landingCriteria(TODAY), businessDateTo: '2026-08-08' })).toBe(false)
+  })
+
+  it('a query missing the collection range entirely is not it', () => {
     expect(applied({})).toBe(false)
   })
 })

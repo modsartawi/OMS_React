@@ -14,6 +14,15 @@
  * Two filters are this screen's own: **Bank** and the segmented **Status**
  * (All / POSTED / VOID). Both are the WPF's, and the radio group becomes a
  * segmented control exactly as the ACR screen's did.
+ *
+ * 🚩 **Two ranges, named by what they mean on THIS screen** (ticket 316, BackOffice
+ * 1993 — 1992's four-filter contract with spec 1976's per-screen meanings):
+ *
+ * - **Business date** — the dates of **ANY** of the deposit's ACRs, read off the
+ *   deposit's own lines (so a VOID deposit, which handed its ACRs back, is still
+ *   found by the days it banked). The deposit rows once, with all its lines.
+ * - **Collection date** — deposited-at, the bank-visit day. The window this screen
+ *   has always landed on.
  */
 import { toIsoDate } from '@/core/util/date-format'
 import { GRID_LIMIT } from './cap'
@@ -44,8 +53,9 @@ export const DEPOSIT_STATUSES = [
 ] as const satisfies readonly DepositStatusFilter[]
 
 /**
- * The toolbar draft: From · To · Deposit No# · Collector · Bank · Status
- * (244 §5) — the widest filter strip of the four screens.
+ * The toolbar draft: Business date from/to · Collection date from/to · Deposit No#
+ * · Collector · Bank · Status (244 §5, ticket 316) — the widest filter strip of the
+ * four screens.
  *
  * All strings but the status, so each field maps 1:1 onto its input.
  * `depositNumber` is a string because it is what a text box holds — an empty box
@@ -53,8 +63,10 @@ export const DEPOSIT_STATUSES = [
  * to say "unset".
  */
 export interface DepositsCriteria {
-  fromDate: string
-  toDate: string
+  businessDateFrom: string
+  businessDateTo: string
+  collectionDateFrom: string
+  collectionDateTo: string
   depositNumber: string
   /**
    * The shared *Served by* selection (BackOffice spec 1162 D8, built by 1167 and
@@ -80,12 +92,14 @@ export interface DepositsCriteria {
 }
 
 /**
- * The state the screen opens on: **today, on both ends, Status = All, nothing
- * else set** — the same today-defaulted landing 254 settled.
+ * The state the screen opens on: **deposited today, on both ends, Status = All,
+ * nothing else set** — the same today-defaulted landing 254 settled, with the
+ * business range open.
  *
  * ⚠️ The window applies to `DepositedAt`, **the bank-visit day**, not to
  * `CreatedAt`: what an accountant reconciles is the day the money reached the
- * bank, not the day the collector's phone wrote the record.
+ * bank, not the day the collector's phone wrote the record. Ticket 316 renamed it
+ * on the wire (`CollectionDate*`); it did not move it.
  */
 export function landingCriteria(
   today: Date,
@@ -93,8 +107,10 @@ export function landingCriteria(
 ): DepositsCriteria {
   const day = toIsoDate(today)
   return {
-    fromDate: day,
-    toDate: day,
+    businessDateFrom: '',
+    businessDateTo: '',
+    collectionDateFrom: day,
+    collectionDateTo: day,
     depositNumber: '',
     // 🚩 **Default-to-mine, but only for a caller this screen can scope** (spec D8;
     // BackOffice 1167's ruling, inherited whole). `defaultSelection` drops the
@@ -144,19 +160,22 @@ export function isLandingQuery(
  * the assertion the Proof pins, and it is the same rule the ACR screen's
  * `OPEN`/`CLOSED` control follows.
  *
- * 🚩 **`DepositNumber` is a filter the server does not take yet.**
- * `DepositInquiryOptions` carries `DepositId` — the ULID, an exact-row filter —
- * and nothing keyed on the number. The number is what an accountant holds in their
- * hand and the ULID is not, so the web asks for it by number. `CollectionWeb/Deposits`
- * does not exist yet (BackOffice 1090), so this **states the contract** rather than
- * changing a shipped door — and it is logged as a server dependency in
- * `.afk/HITL-256.md`. ⚠️ It is deliberately **not** sent as `DepositId`: the server
- * would compare a ULID column against `"5501"` and hand back nothing, silently.
- * And it is deliberately not filtered client-side, which would narrow only the rows
- * that already came back — the same silent truncation this wave was chartered to end.
+ * 🚩 **`DepositNumber` is the number on the slip, exact** (BackOffice 1993 gave it
+ * a server parameter; 256 sent it ahead of the door, logged in `.afk/HITL-256.md`).
+ * The number is what an accountant holds in their hand and the ULID is not.
+ * ⚠️ It is deliberately **not** sent as `DepositId`: the server would compare a
+ * ULID column against `"5501"` and hand back nothing, silently. It is an `int` on
+ * the server, so a non-digit box is a binding `400` — the toolbar's `pattern` stops
+ * that before Search.
  *
- * ⚠️ **The dates travel as a PAIR or not at all** — 254's guard, for 254's reason:
- * a half-open window is not a narrower query but an unbounded one.
+ * 🚩 **Each date end travels on its own** (ticket 316, 315's ruling): the contract
+ * makes every end optional and an open-ended range a real question. The day goes as
+ * typed — inclusive-by-day is the server's rule, so the client adds no time part.
+ *
+ * ⚠️ **`FromDate`/`ToDate` are never sent.** The door still honours the legacy pair
+ * on deposited-at and intersects it with `CollectionDate*`; the contract tells the
+ * web to switch, and sending both would be one period spelt twice. The collector
+ * balances honour every one of these filters bar Status (the server's rule).
  */
 export function buildDepositsParams(
   criteria: Partial<DepositsCriteria> = {},
@@ -166,10 +185,10 @@ export function buildDepositsParams(
     const trimmed = (value ?? '').trim()
     if (trimmed !== '') params[key] = trimmed
   }
-  if ((criteria.fromDate ?? '').trim() !== '' && (criteria.toDate ?? '').trim() !== '') {
-    put('FromDate', criteria.fromDate)
-    put('ToDate', criteria.toDate)
-  }
+  put('BusinessDateFrom', criteria.businessDateFrom)
+  put('BusinessDateTo', criteria.businessDateTo)
+  put('CollectionDateFrom', criteria.collectionDateFrom)
+  put('CollectionDateTo', criteria.collectionDateTo)
   put('DepositNumber', criteria.depositNumber)
   // 🚩 **`CollectorOperatorId` is no longer sent from this toolbar** (BackOffice
   // 1168): *Served by* asks the same question of the same column, through the one

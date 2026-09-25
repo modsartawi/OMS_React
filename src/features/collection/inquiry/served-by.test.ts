@@ -413,3 +413,41 @@ describe('the combobox on the collected-by screens', () => {
     expect(servedByEntries('collections', ROSTER, label)).not.toEqual(depositEntries)
   })
 })
+
+// 🔑 **Ticket 316 (BackOffice 1993) — Attempts joins the table, on the ASSIGNMENT
+// reading.** An attempt carries a store, so "served by" means the store's CURRENT
+// accountant pairing — exactly Cash Collections' question — and never the attempting
+// collector, which the screen's own CollectorStaffId box already asks. The per-screen
+// ruling lives in this one table by design; this pins the new row.
+describe('the Attempts screen', () => {
+  it('reads the assignment, offers Accountants, and takes no free text — Cash Collections’ row', () => {
+    expect(SERVED_BY_SCREENS.attempts).toEqual({
+      reading: 'assignment',
+      accountants: true,
+      freeText: false,
+    })
+    expect(SERVED_BY_SCREENS.attempts).toEqual(SERVED_BY_SCREENS.collections)
+    // The mutation-catcher: it is NOT the collected-by row the ACRs list carries —
+    // the server answers ACCOUNTANT here and refuses it there.
+    expect(SERVED_BY_SCREENS.attempts).not.toEqual(SERVED_BY_SCREENS.acrs)
+  })
+
+  it('offers every assignment-reading Kind, ACCOUNTANT included', () => {
+    expect(resolvedKinds('attempts')).toEqual([
+      'ACCOUNTANT',
+      'COLLECTOR',
+      'SUPERVISOR',
+      'UNASSIGNED',
+      'MINE',
+    ])
+    expect(servedByGroups('attempts', OPTIONS).map((g) => g.kind)).toEqual([
+      'ACCOUNTANT',
+      'COLLECTOR',
+    ])
+  })
+
+  it('does not honour a typed id off the roster — an unassigned id is assigned to nobody', () => {
+    const entries = servedByEntries('attempts', OPTIONS, (e) => e.name || e.kind)
+    expect(parseServedByText('attempts', '99999', entries)).toEqual(NO_SERVED_BY)
+  })
+})

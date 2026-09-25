@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
 import { isAcrScoped } from './acr-scope'
 import type { CollectionsCriteria } from './collections-criteria'
+import DateField from './DateField'
 import ServedByPicker from './ServedByPicker'
 import { NO_SERVED_BY } from './served-by'
 
@@ -63,32 +64,6 @@ const DISABLED_CLASS = 'disabled:cursor-not-allowed disabled:opacity-50'
  * clearing the chip put them straight back.
  */
 const overridden = (scoped: boolean, value: string) => (scoped ? '' : value)
-
-/** One end of a date range — a native date input speaking `yyyy-MM-dd`. */
-function DateField({
-  label,
-  value,
-  disabled,
-  onChange,
-}: {
-  label: string
-  value: string
-  disabled: boolean
-  onChange: (value: string) => void
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-      {label}
-      <input
-        type="date"
-        disabled={disabled}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={`h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
-      />
-    </label>
-  )
-}
 
 export default function CollectionsToolbar({
   criteria,

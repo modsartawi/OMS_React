@@ -8,8 +8,8 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
  * The Collection Attempts grid's columns (ticket 255) — 254's column shape,
  * applied to the smallest row in the suite.
  *
- * All **nine** the WPF declares, split five/four: ⚠️ **nothing is dropped, only
- * folded**, and `attemptId` is the single argued non-column.
+ * All **nine** the WPF declares, split six/three since ticket 316: ⚠️ **nothing
+ * is dropped, only folded**, and `attemptId` is the single argued non-column.
  *
  * 🚩 **There are no money columns here at all**, and so no `MONEY_FIELDS` and no
  * `@/core/money.ts` import. A collection attempt collected nothing by definition
@@ -17,11 +17,17 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
  */
 
 /**
- * The five columns the supervisor lands on: **when** the collector came, **where**,
- * **who**, and **why** nothing was collected. Reading order — the visit moment
- * leads, because the question this screen answers is "what happened today".
+ * The six columns the supervisor lands on: **which day** the collector came for and
+ * **when** they came, **where**, **who**, and **why** nothing was collected.
+ *
+ * 🚩 **Both dates are default columns** (ticket 316, BackOffice 1993): the
+ * *Business date* (`businessDay`) and the *Collection date* (`attemptTime`) side by
+ * side, the business day first as on Cash Collections (315). They are the two
+ * ranges the toolbar filters on, and a visit at 00:20 for yesterday's day is only
+ * legible with both on screen.
  */
 export const DEFAULT_FIELDS = [
+  'businessDay',
   'attemptTime',
   'storeCode',
   'storeName',
@@ -29,10 +35,9 @@ export const DEFAULT_FIELDS = [
   'reasonCode',
 ] as const satisfies readonly (keyof CollectionAttemptRow)[]
 
-/** The forensic tail: the WPF's remaining four. */
+/** The forensic tail: the WPF's remaining three. */
 export const MORE_FIELDS = [
   'reasonText',
-  'businessDay',
   'shiftId',
   'collectorStaffId',
 ] as const satisfies readonly (keyof CollectionAttemptRow)[]

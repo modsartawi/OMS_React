@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next'
 import type { DepositInquiryRow } from '@/core/models/collection'
 import { formatMoneyIn } from '@/core/money'
 import { formatDateTime } from '@/core/util/date-format'
+import { daySpan, daySpanText } from './day-span'
 
 /**
  * The Deposits grid's columns (ticket 256) — 254's column shape, applied to the
@@ -19,6 +20,11 @@ import { formatDateTime } from '@/core/util/date-format'
  * `ColDef`s, for 254's reason: a ColDef can carry a `colId` instead of a `field`,
  * or two can share one — either would let the completeness proof pass while a
  * field went quietly unrendered.
+ *
+ * Ticket 316 (BackOffice 1993) adds the *Business date* — the one default column
+ * that is **no wire field of the row**. A deposit banks several ACRs, so it has
+ * several business days, and they live on its `lines`; the column is their span
+ * ({@link BUSINESS_DATE_COLUMN}). `depositedAt` is the *Collection date*.
  */
 
 /**
@@ -93,6 +99,19 @@ export const MONEY_FIELDS = [
 
 const MONEY = new Set<string>(MONEY_FIELDS)
 
+/**
+ * The *Business date* column's id (ticket 316) — a **derived** column, which is why
+ * it is not in {@link DEFAULT_FIELDS}: those lists are the wire row's own fields, and
+ * the completeness proof and the CSV both read them as such.
+ *
+ * 🚩 It reads the deposit's `lines[].acrDate` — the dates the business range
+ * filters on (ANY of them) — and draws their span: min … max, or one date when they
+ * share a day, blank on a deposit with no lines. The CSV leaves it out for the same
+ * reason it leaves `lines` out (256): the lines are a list, and the file is the flat
+ * row.
+ */
+export const BUSINESS_DATE_COLUMN = 'businessDate'
+
 /** Default per-column behaviour. `floatingFilter` is the WPF's `ShowAutoFilterRow`
  *  — ⚠️ **on by default here**, deliberately inverting BBY Inquiry's default
  *  (244 §6). The toggle still exists to reclaim the height. */
@@ -106,12 +125,37 @@ export function buildDepositsDefaultColDef(showFilters: boolean): ColDef<Deposit
   }
 }
 
-/** Build the visible columns; `showMore` reveals the forensic tail. */
+/**
+ * Build the visible columns; `showMore` reveals the forensic tail.
+ *
+ * The derived *Business date* goes just before `depositedAt`, so the two dates read
+ * side by side, the business date first (316, 315's order).
+ */
 export function buildDepositsColumns(t: TFunction, showMore: boolean): ColDef<DepositInquiryRow>[] {
   const fields: (keyof DepositInquiryRow)[] = showMore
     ? [...DEFAULT_FIELDS, ...MORE_FIELDS]
     : [...DEFAULT_FIELDS]
-  return fields.map((field) => column(t, field))
+  return fields.flatMap((field) =>
+    field === 'depositedAt' ? [businessDateColumn(t), column(t, field)] : [column(t, field)],
+  )
+}
+
+/** What the *Business date* cell reads: the span of the deposit's ACRs' days. */
+function businessDateText(t: TFunction, row: DepositInquiryRow | undefined): string {
+  return daySpanText(t, daySpan((row?.lines ?? []).map((line) => line.acrDate)))
+}
+
+function businessDateColumn(t: TFunction): ColDef<DepositInquiryRow> {
+  return {
+    headerName: t(`deposits.columns.${BUSINESS_DATE_COLUMN}`),
+    colId: BUSINESS_DATE_COLUMN,
+    width: 200,
+    // A VALUE getter, not a formatter over a `field`: there is no field — the span is
+    // a reading of the lines. Sort and the floating filter both then work on the
+    // `yyyy-MM-dd` text the cell shows, which sorts by its first day.
+    valueGetter: (p) => businessDateText(t, p.data),
+    filterValueGetter: (p) => businessDateText(t, p.data),
+  }
 }
 
 function column(t: TFunction, field: keyof DepositInquiryRow): ColDef<DepositInquiryRow> {

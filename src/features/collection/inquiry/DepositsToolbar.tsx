@@ -5,11 +5,13 @@ import {
   type DepositStatusFilter,
   type DepositsCriteria,
 } from './deposit-criteria'
+import DateField from './DateField'
 import ServedByPicker from './ServedByPicker'
 
 /**
- * Deposits' filter strip (ticket 256) — From · To · Deposit No# · Collector ·
- * Bank · Status. The widest of the four, and the WPF's own set.
+ * Deposits' filter strip (ticket 256) — Business date from/to · Collection date
+ * from/to (ticket 316) · Deposit No# · Collector · Bank · Status. The widest of the
+ * four, and the WPF's own set plus 316's second range.
  *
  * 254's `CollectionsToolbar` is the shape this follows; ⚠️ **copied, not
  * extracted** (244 §1). It renders a **draft** and nothing else: every edit
@@ -51,37 +53,42 @@ export default function DepositsToolbar({
         onSearch()
       }}
     >
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('deposits.search.from')}
-        {/* ⚠️ `required` on BOTH ends: the dates travel as a pair, and a half-open
-            window is not a narrower query but an unbounded one. The window applies
-            to the bank-visit day, not to when the record was written. */}
-        <input
-          type="date"
-          required
-          value={criteria.fromDate}
-          onChange={(e) => onChange({ fromDate: e.target.value })}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('deposits.search.to')}
-        <input
-          type="date"
-          required
-          value={criteria.toDate}
-          onChange={(e) => onChange({ toDate: e.target.value })}
-          className="h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none"
-        />
-      </label>
+      {/* 🚩 Two ranges, named by what they mean HERE (ticket 316, BackOffice 1993):
+          the business date is the day of ANY of the deposit's ACRs, and the
+          collection date is the bank-visit day — the window this screen has always
+          had. They AND, neither clears the other, and no end is required. */}
+      <DateField
+        label={t('deposits.search.businessDateFrom')}
+        value={criteria.businessDateFrom}
+        onChange={(businessDateFrom) => onChange({ businessDateFrom })}
+      />
+      <DateField
+        label={t('deposits.search.businessDateTo')}
+        value={criteria.businessDateTo}
+        onChange={(businessDateTo) => onChange({ businessDateTo })}
+      />
+      <DateField
+        label={t('deposits.search.collectionDateFrom')}
+        value={criteria.collectionDateFrom}
+        onChange={(collectionDateFrom) => onChange({ collectionDateFrom })}
+      />
+      <DateField
+        label={t('deposits.search.collectionDateTo')}
+        value={criteria.collectionDateTo}
+        onChange={(collectionDateTo) => onChange({ collectionDateTo })}
+      />
 
       {/* The number an accountant holds in their hand — see `deposit-criteria.ts`
-          for why it travels as `DepositNumber` and never as `DepositId`. */}
+          for why it travels as `DepositNumber` and never as `DepositId`. ⚠️
+          `pattern` is digits only: the door binds an `int`, so anything else is a
+          400 before the handler, and the form refuses it at Search instead. */}
       <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
         {t('deposits.search.depositNumber')}
         <input
           type="text"
           inputMode="numeric"
+          pattern="\s*[0-9]+\s*"
+          title={t('deposits.search.depositNumberHint')}
           value={criteria.depositNumber}
           onChange={(e) => onChange({ depositNumber: e.target.value })}
           placeholder={t('deposits.search.depositNumberPlaceholder')}

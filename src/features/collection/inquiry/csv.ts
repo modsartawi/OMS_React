@@ -310,6 +310,12 @@ export const ACRS_CSV_COLUMNS = csvColumns<AcrInquiryRow, AcrField>(
     closedAt: 'date',
     // A person's staff id, or `SYSTEM` — a key either way, so Excel keeps it verbatim.
     closedBy: 'identity',
+    // Ticket 316: the grid's *Collection date* span is a drawing of these two
+    // instants, and the file is the row unpacked — so each end leaves as raw ISO
+    // text in its own column, under its own header (the span itself is derived and
+    // is no wire field, exactly as the Deposits grid's business-date span is not).
+    firstCollectedAt: 'date',
+    lastCollectedAt: 'date',
     cardTransactionCountSum: 'count',
     collectorOperatorId: 'identity',
     depositNumber: 'identity',

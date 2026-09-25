@@ -45,6 +45,9 @@
     "failedHint": "Nothing is known about whether it exists — this is not the same as it being gone. Try again in a moment.",
     "failedFallback": "The server did not say why."
   },
+  "grid": {
+    "daySpan": "{{from}} – {{to}}"
+  },
   "collections": {
     "title": "Cash Collections",
     "subtitle": "Cash collected per store and shift, chain-wide.",
@@ -127,10 +130,13 @@
       "collections": "Collections"
     },
     "search": {
-      "from": "From",
-      "to": "To",
+      "businessDateFrom": "Business date from",
+      "businessDateTo": "Business date to",
+      "collectionDateFrom": "Collection date from",
+      "collectionDateTo": "Collection date to",
       "acrNumber": "ACR No#",
       "acrNumberPlaceholder": "Number",
+      "acrNumberHint": "Digits only — the number on the ACR",
       "status": "Status",
       "statuses": {
         "ALL": "All",
@@ -149,7 +155,7 @@
     },
     "empty": {
       "title": "No ACRs in this period",
-      "hint": "No collection run was opened for these dates. Widen the period, or clear \"Served by\" and the status."
+      "hint": "No collection run matches these dates. Widen the business or collection dates, or clear the ACR No#, \"Served by\" and the status."
     },
     "errors": {
       "loadFailed": "Today's ACRs could not be loaded."
@@ -161,7 +167,8 @@
       "acrNumber": "ACR No#",
       "label": "Label",
       "collectorName": "Collector",
-      "acrDate": "ACR Date",
+      "acrDate": "Business Date",
+      "collectionDate": "Collection Date",
       "status": "Status",
       "closedByName": "Closed By",
       "linkedCollectionCount": "Collections",
@@ -170,6 +177,8 @@
       "createdAt": "Created",
       "closedAt": "Closed",
       "closedBy": "Closed By Id",
+      "firstCollectedAt": "First Collected",
+      "lastCollectedAt": "Last Collected",
       "cardTransactionCountSum": "Card Slips",
       "collectorOperatorId": "Collector Id",
       "depositNumber": "Deposit No#",
@@ -183,10 +192,13 @@
     "loading": "Loading today's deposits…",
     "capReached": "This result reached the {{limit}}-row system cap, so some deposits may be missing. Narrow the dates, who banked, the bank or the status to be sure you are seeing all of them.",
     "search": {
-      "from": "From",
-      "to": "To",
+      "businessDateFrom": "Business date from",
+      "businessDateTo": "Business date to",
+      "collectionDateFrom": "Collection date from",
+      "collectionDateTo": "Collection date to",
       "depositNumber": "Deposit No#",
       "depositNumberPlaceholder": "Number",
+      "depositNumberHint": "Digits only — the number on the deposit slip",
       "bank": "Bank",
       "bankPlaceholder": "Bank code",
       "status": "Status",
@@ -207,7 +219,7 @@
     },
     "empty": {
       "title": "No deposits in this period",
-      "hint": "Nothing was banked on these dates. Widen the period, or clear \"Served by\", the bank and the status."
+      "hint": "Nothing banked matches these dates. Widen the business or collection dates, or clear the deposit No#, \"Served by\", the bank and the status."
     },
     "errors": {
       "loadFailed": "Today's deposits could not be loaded."
@@ -245,7 +257,8 @@
     },
     "columns": {
       "depositNumber": "Deposit No#",
-      "depositedAt": "Deposited",
+      "businessDate": "Business Date",
+      "depositedAt": "Collection Date",
       "collectorName": "Collector",
       "bankName": "Bank",
       "status": "Status",
@@ -268,8 +281,10 @@
     "loading": "Loading today's attempts…",
     "capReached": "This result reached the {{limit}}-row system cap, so some attempts may be missing. Narrow the dates, the store, the collector or the reason to be sure you are seeing all of them.",
     "search": {
-      "from": "From",
-      "to": "To",
+      "businessDateFrom": "Business date from",
+      "businessDateTo": "Business date to",
+      "collectionDateFrom": "Collection date from",
+      "collectionDateTo": "Collection date to",
       "store": "Store",
       "storePlaceholder": "Store code",
       "collector": "Collector",
@@ -288,13 +303,13 @@
     },
     "empty": {
       "title": "No attempts in this period",
-      "hint": "Every visit in these dates collected something. Widen the period, or clear the store, collector and reason."
+      "hint": "Every visit in these dates collected something. Widen the business or collection dates, or clear the store, collector, reason and \"Served by\"."
     },
     "errors": {
       "loadFailed": "Today's collection attempts could not be loaded."
     },
     "columns": {
-      "attemptTime": "Attempt Time",
+      "attemptTime": "Collection Date",
       "storeCode": "Store Code",
       "storeName": "Store",
       "collectorName": "Collector",

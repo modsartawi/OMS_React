@@ -20,8 +20,8 @@ import {
 
 /**
  * The shared **Served by** control (BackOffice spec 1162, tracer 1163) — ONE
- * component for all four collection screens, so a finance user learns one control
- * rather than four.
+ * component for all five collection screens, so a finance user learns one control
+ * rather than five.
  *
  * It is deliberately thin: which groups it offers and what a selection puts on the
  * wire both live in the pure `served-by.ts` beside it, which is where the whole
@@ -33,7 +33,7 @@ import {
  * who supervises), and only the Kind tells those two picks apart. The option values
  * below are therefore `KIND:id`, split on the way out.
  *
- * 🚩 **The options payload is fetched once and cached across all four screens** —
+ * 🚩 **The options payload is fetched once and cached across all five screens** —
  * ONE cache key, no `?screen=` parameter, because the server returns all three
  * groups and the per-screen ruling is applied here.
  */
@@ -58,7 +58,7 @@ export default function ServedByPicker({
   const contract = SERVED_BY_SCREENS[screen]
 
   // The one shared key+options (in `api.ts`, beside the access probe's), so a user
-  // moving between the four screens costs one request and not four — and so the
+  // moving between the five screens costs one request and not five — and so the
   // page that lands on `defaultScope` reads the very same cache entry this picker
   // renders from, rather than a second copy that could disagree with it.
   const { data, isPending } = useQuery(assignmentOptionsQuery())

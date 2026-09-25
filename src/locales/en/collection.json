@@ -461,6 +461,80 @@
         "applyFailed": "The bulk assignment failed, and nothing was changed."
       }
     },
+    "upload": {
+      "open": "Upload a file…",
+      "title": "Assign branches from a file",
+      "cancel": "Cancel",
+      "notice_one": "1 branch was changed from the file.",
+      "notice_other": "{{count}} branches were changed from the file.",
+      "template": {
+        "title": "The file has one branch per row, with these columns:",
+        "columns": {
+          "StoreCode": "the branch's store code",
+          "AccountantId": "the accountant's staff id",
+          "CollectorId": "the collector's staff id"
+        },
+        "blank": "A blank cell leaves that side as it is. A file cannot remove anybody from a branch — do that on the row itself.",
+        "download": "Download a blank template"
+      },
+      "file": {
+        "label": "The file",
+        "hint": "An .xlsx or .csv file, up to 10 MB and 2,000 rows. Columns are read by their names, in any order.",
+        "chosen": "Chosen: {{name}}",
+        "preview": "Preview",
+        "reading": "Reading the file…"
+      },
+      "columns": {
+        "row": "Row",
+        "outcome": "Outcome"
+      },
+      "review": {
+        "summary_one": "1 row read · changes: {{changed}} · already as the file says: {{unchanged}}",
+        "summary_other": "{{count}} rows read · changes: {{changed}} · already as the file says: {{unchanged}}",
+        "blocked_one": "1 row is refused, so nothing will be applied. Fix it in the sheet and upload the file again.",
+        "blocked_other": "{{count}} rows are refused, so nothing will be applied. Fix them in the sheet and upload the file again.",
+        "rowIssue": "Row {{row}}: {{message}}",
+        "changes": "Changes",
+        "noChange": "No change",
+        "empty": "The file has no rows to apply.",
+        "nothingToApply": "Every branch in this file already has what the file says, so there is nothing to apply.",
+        "nothingToApplyButton": "Nothing to apply",
+        "commitBlocked": "Fix the refused rows first",
+        "commit_one": "Apply to 1 branch",
+        "commit_other": "Apply to {{count}} branches",
+        "applying": "Applying…",
+        "back": "Choose another file",
+        "previewAgain": "Preview the file again"
+      },
+      "issues": {
+        "STORE_REQUIRED": "This row names a person but no branch.",
+        "UNKNOWN_STORE": "'{{store}}' is not an open branch.",
+        "REPEATED_STORE": "'{{store}}' is on an earlier row of this file too. List each branch once.",
+        "STAFF_UNKNOWN": "{{slot}} '{{staffId}}' is not on the collection roster. Add the person on the People tab first.",
+        "STAFF_INACTIVE": "{{slot}} '{{staffId}}' is inactive on the collection roster.",
+        "STAFF_WRONG_ROLE": "'{{staffId}}' cannot go in the {{slot}} column: the collection roster files them under another role."
+      },
+      "done": {
+        "applied_one": "1 branch assigned from the file.",
+        "applied_other": "{{count}} branches assigned from the file.",
+        "nothing": "Nothing needed changing: every branch already had what the file says, and nothing was re-stamped.",
+        "codes": "Changed: {{codes}}",
+        "unchanged_one": "1 row already had what the file says and was left as it was.",
+        "unchanged_other": "{{count}} rows already had what the file says and were left as they were.",
+        "close": "Close"
+      },
+      "errors": {
+        "previewFailed": "The file could not be read, so nothing was applied.",
+        "commitFailed": "The file was not applied, and nothing was changed.",
+        "commitRefused": "The file was refused, and nothing was changed. Preview it again.",
+        "hashMismatch": "This file is not the one that was previewed, so nothing was changed. Preview it again before applying it.",
+        "fileRequired": "Choose a file first.",
+        "fileTooLarge": "The file is larger than 10 MB.",
+        "fileType": "Only .xlsx and .csv files can be uploaded.",
+        "hashRequired": "The preview was lost, so nothing was changed. Preview the file again.",
+        "forbidden": "Your account is not allowed to assign branches. Ask an administrator if you need it."
+      }
+    },
     "people": {
       "search": "Find a person",
       "searchPlaceholder": "Staff id, name or supervisor",

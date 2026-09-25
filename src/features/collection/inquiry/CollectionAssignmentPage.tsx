@@ -56,6 +56,8 @@ import {
   type BulkConfirmation,
   type BulkFlow,
 } from './bulk'
+import AssignmentUploadDialog from './AssignmentUploadDialog'
+import type { AssignmentUploadCommit } from './assignment-upload'
 import { GRID_PAGE_SIZE } from './cap'
 import { EmptyState, ListShimmer } from './GridStates'
 import ScreenGate from '@/core/ui/ScreenGate'
@@ -239,6 +241,8 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
   // by the user's next gesture, never by the server.
   const [pins, setPins] = useState<ReadonlySet<string>>(() => new Set())
   const [pageIndex, setPageIndex] = useState(0)
+  // ---- the assignment file (318) ----
+  const [uploadOpen, setUploadOpen] = useState(false)
 
   const touched = useMemo(() => new Set(Object.keys(edits)), [edits])
   const visible = useMemo(
@@ -380,6 +384,22 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
       setBulkError(apiErrorMessage(error, t('assignment.bulk.errors.applyFailed')))
     },
   })
+
+  // 🔑 The file set BOTH slots on each branch it changed, and a blank cell kept what
+  // the branch held at the COMMIT — which the preview's after-values may not know. So
+  // the grid refetches the truth rather than patching itself from the preview, and
+  // the changed rows are pinned on screen exactly as a bulk apply's are.
+  const onUploadApplied = useCallback(
+    (result: AssignmentUploadCommit) => {
+      const applied = result.appliedStoreCodes ?? []
+      if (applied.length === 0) return
+      void queryClient.invalidateQueries({ queryKey: branchesKey })
+      setPins((current) => keepVisible(current, applied))
+      setBulkError('')
+      setBulkNotice(t('assignment.upload.notice', { count: result.applied }))
+    },
+    [branchesKey, queryClient, t],
+  )
 
   const toggleTick = useCallback((storeCode: string) => {
     setTicked((current) => {
@@ -616,7 +636,25 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
         >
           {t('assignment.bulk.review')}
         </button>
+
+        {/* 318: finance's own sheet, both slots per branch, previewed before it is
+            applied. A fourth way of arriving at many branches, with its own review. */}
+        <button
+          type="button"
+          className="ms-auto h-9 rounded-md border border-border/60 px-4 text-sm font-medium"
+          onClick={() => setUploadOpen(true)}
+          data-testid="assignment-upload-open"
+        >
+          {t('assignment.upload.open')}
+        </button>
       </div>
+
+      <AssignmentUploadDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        nameOf={nameOf}
+        onApplied={onUploadApplied}
+      />
 
       {bulkError !== '' && <ErrorBanner message={bulkError} className="p-3" />}
 

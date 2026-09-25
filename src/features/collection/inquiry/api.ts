@@ -32,6 +32,7 @@ import type {
   VoucherDocument,
 } from '@/core/models/collection'
 import type { AssignmentBranch, AssignmentPairing, SaveAssignmentBody } from './assignment'
+import type { AssignmentUploadCommit, AssignmentUploadPreview } from './assignment-upload'
 import type { BulkAssignmentBody, BulkPreview, BulkResult } from './bulk'
 import type { RosterPerson, SavePersonBody } from './people'
 import type { AssignmentOptions } from './served-by'
@@ -262,6 +263,44 @@ export const collectionApi = {
    */
   bulkAssignment(body: BulkAssignmentBody): Promise<BulkResult> {
     return api.post<BulkResult>('CollectionWeb/Assignment/BulkSetStores', body)
+  },
+
+  /**
+   * `POST CollectionWeb/Assignment/Upload/Preview` (multipart, one `file` part) →
+   * finance's sheet read back against the branches and the roster (ticket 318,
+   * BackOffice 1996). **Writes nothing.**
+   *
+   * 🔑 **The client uploads bytes and parses nothing** — the settlement bulk
+   * upload's shape. `.xlsx` or `.csv`, ≤ 10 MB, ≤ 2000 rows, all the server's to
+   * enforce. Bad rows come back on a 200 (`canCommit: false`, `errors[]` naming the
+   * row and cell); a file that cannot yield rows is a 400 envelope.
+   *
+   * ⚠️ Behind the EXISTING `CollectionAssignment` grant — the one this screen's gate
+   * already reads. There is no new probe flag for it.
+   */
+  assignmentUploadPreview(file: File): Promise<AssignmentUploadPreview> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    return api.upload<AssignmentUploadPreview>('CollectionWeb/Assignment/Upload/Preview', form)
+  },
+
+  /**
+   * `POST CollectionWeb/Assignment/Upload/Commit` (multipart) → the SAME file,
+   * re-sent, with the preview's `contentHash` verbatim. All or nothing.
+   *
+   * 🔑 **The file, not the rows.** The server re-parses what arrives and refuses it
+   * if its hash differs from the preview's (`HASH_MISMATCH`), then re-checks every
+   * row against the branches as they are now (`ROW_ERRORS`). Both refusals are a
+   * **200 with `accepted: false`** — read `commitOutcome`, never `applied` alone.
+   *
+   * 🚩 **Idempotent on a re-press**: the same file again writes nothing
+   * (`applied: 0`) and re-stamps nobody. The actor is the cookie session's.
+   */
+  assignmentUploadCommit(file: File, contentHash: string): Promise<AssignmentUploadCommit> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    form.append('contentHash', contentHash)
+    return api.upload<AssignmentUploadCommit>('CollectionWeb/Assignment/Upload/Commit', form)
   },
 
   /**

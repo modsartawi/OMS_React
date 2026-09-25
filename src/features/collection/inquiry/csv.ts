@@ -249,6 +249,11 @@ export const COLLECTIONS_CSV_COLUMNS = csvColumns<CollectionInquiryRow, Collecti
   {
     collectionReceiptNo: 'identity',
     storeId: 'identity',
+    // Ticket 314 (BackOffice 1990): the server's spelling of the store, as sent, and the
+    // raw profit center it is made of. Both are keys, not prose — and with no profit
+    // center recorded `storeText` IS the store code, which Excel would otherwise eat.
+    storeText: 'identity',
+    profitCenter: 'identity',
     storeName: 'text',
     collectorName: 'text',
     businessDay: 'day',
@@ -378,6 +383,11 @@ export const ATTEMPTS_CSV_COLUMNS = csvColumns<CollectionAttemptRow, AttemptFiel
   {
     attemptTime: 'date',
     storeCode: 'identity',
+    // Ticket 314 (BackOffice 1990): the server's spelling of the store, as sent, and the
+    // raw profit center it is made of. Both are keys, not prose — and with no profit
+    // center recorded `storeText` IS the store code, which Excel would otherwise eat.
+    storeText: 'identity',
+    profitCenter: 'identity',
     storeName: 'text',
     collectorName: 'text',
     reasonCode: 'text',

@@ -306,6 +306,14 @@ Collections, ACRs, Deposits, Collection Attempts, Ready for collection — and n
 nothing off the role name; each screen reads its own flag on the one probe.
 _Avoid_: accountant supervisor (a different role, which holds settlement supervision).
 
+**Profit center** (of a store):
+The finance code the Plants master records for a store (`Plants.ProfitCenter`, e.g. `PH-019`), which
+finance books by (BackOffice 1990). Every collection paper and grid shows the store as **one
+server-composed string**, `storeText`: `PH-019 (P019)` when a profit center is recorded, else the
+store code alone, never `()`. The web renders `storeText` as sent and never composes it. The raw
+`profitCenter` rides beside it for sorting and the file.
+_Avoid_: cost center; the SAP profit-center resolver (it derives what SAP receives, not this).
+
 **Skipped line** (of a link):
 A line on the linked request that the copy did **not** put on the order, reported per line rather
 than silently dropped. Two kinds, and they are different rows: **refused** (not sellable at the

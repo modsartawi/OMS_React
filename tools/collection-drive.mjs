@@ -85,12 +85,21 @@ const todayIso = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)
  *  `Variance` mis-declared as `identity`, since the sweep skips empty cells and
  *  identity writes a bare 0 as blank. A signed column with substance is what
  *  gives that assertion teeth. */
+/** BackOffice 1990's pair for a stub store — the seventh store (1007) has no profit center
+ *  recorded, and its storeText is the code alone (ticket 314). */
+function storePair(code) {
+  return code === 1007
+    ? { profitCenter: '', storeText: String(code) }
+    : { profitCenter: `PH-${code}`, storeText: `PH-${code} (${code})` }
+}
+
 function makeRows(count, { currency = 'SAR' } = {}) {
   return Array.from({ length: count }, (_, i) => ({
     collectionReceiptId: `01J0COLLECT${String(i).padStart(16, '0')}`,
     collectionReceiptNo: 91000 + i,
     storeId: String(1001 + (i % 7)),
     storeName: `Al Dawaa Store ${1001 + (i % 7)}`,
+    ...storePair(1001 + (i % 7)),
     collectorOperatorId: String(4470 + (i % 3)),
     collectorName: `Collector ${4470 + (i % 3)}`,
     closerOperatorId: String(7780 + (i % 5)),
@@ -157,6 +166,7 @@ function makeAttemptRows(count) {
     collectorName: `Collector ${4470 + (i % 3)}`,
     storeCode: String(1001 + (i % 7)),
     storeName: `Al Dawaa Store ${1001 + (i % 7)}`,
+    ...storePair(1001 + (i % 7)),
     shiftId: `01J0SHIFT${String(i).padStart(18, '0')}`,
     businessDay: `${todayIso()}T00:00:00`,
     attemptTime: `${todayIso()}T09:12:00`,
@@ -1549,8 +1559,8 @@ async function run() {
     csvHeader.join('|').slice(0, 200),
   )
   check(
-    '258 — …and the default columns are all there too (25 in all, 315 added Business Date)',
-    csvHeader.length === 25 && col('Receipt No#') >= 0 && col('Net Collected') >= 0,
+    '258 — …and the default columns are all there too (27 in all: 315 added Business Date, 314 the profit center pair)',
+    csvHeader.length === 27 && col('Receipt No#') >= 0 && col('Net Collected') >= 0,
     `${csvHeader.length} headers`,
   )
   // ⚠️ The screen's money header is `Net Collected (SAR)`; the file's is bare and
@@ -1586,7 +1596,7 @@ async function run() {
   const NON_MONEY = new Set([
     'Receipt No#', 'Store', 'Store Name', 'Collector', 'Business Date', 'Collection Date', 'Reason',
     'Opened', 'Closed', 'Card Slips', 'Reason Detail', 'Collector Id', 'Z Reports',
-    'Closer Id', 'Closer', 'Sales Date', 'Currency',
+    'Closer Id', 'Closer', 'Sales Date', 'Currency', 'Profit Center (Store)', 'Profit Center',
   ])
   const moneyCols = csvHeader.filter((h) => !NON_MONEY.has(h))
   check(
@@ -1708,8 +1718,9 @@ async function run() {
     {
       key: 'attempts',
       route: ROUTES.attempts,
-      headers: 9,
-      folded: ['Reason Detail', 'Business Date', 'Shift Id', 'Collector Id'],
+      // 11 since ticket 314: the profit center pair joined the WPF's nine.
+      headers: 11,
+      folded: ['Reason Detail', 'Business Date', 'Shift Id', 'Collector Id', 'Profit Center'],
       // 🚩 None. An attempt collected nothing — that is what makes it an attempt.
       money: [],
       identity: 'Store Code',

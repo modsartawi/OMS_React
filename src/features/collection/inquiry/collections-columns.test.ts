@@ -22,6 +22,9 @@ const ROW: CollectionInquiryRow = {
   collectionReceiptNo: 91234,
   storeId: '1001',
   storeName: 'Al Dawaa — Olaya',
+  // BackOffice 1990's pair: the raw profit center, and the server's one spelling of it.
+  profitCenter: 'PH-1001',
+  storeText: 'PH-1001 (1001)',
   collectorOperatorId: '4472',
   collectorName: 'Faisal Al Otaibi',
   closerOperatorId: '7781',
@@ -65,10 +68,12 @@ describe('the two groups account for the whole wire row', () => {
     expect(new Set(covered).size).toBe(covered.length)
   })
 
-  it('the default ten are the ticket’s ten, in reading order', () => {
+  it('the default eleven are the ticket’s ten plus the profit center, in reading order', () => {
     expect([...DEFAULT_FIELDS]).toEqual([
       'collectionReceiptNo',
       'storeId',
+      // Ticket 314: the profit center beside the store code.
+      'storeText',
       'storeName',
       'collectorName',
       // Ticket 315: both dates on the landing grid, the sales day first.
@@ -106,7 +111,7 @@ describe('the two groups account for the whole wire row', () => {
 })
 
 describe('buildCollectionsColumns', () => {
-  it('shows the default ten with the toggle off', () => {
+  it('shows the default eleven with the toggle off', () => {
     const columns = buildCollectionsColumns(t, [ROW], false)
     expect(columns.map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
   })
@@ -214,6 +219,37 @@ describe('the Business date column', () => {
     expect(format({ value: null, data: settlement })).toBe('')
     expect(filter({ data: settlement })).toBe('')
     expect(format({ value: '0001-01-01T00:00:00', data: ROW })).toBe('')
+  })
+})
+
+// Ticket 314 (BackOffice 1990): the Profit Center (Store) column renders the
+// server's `storeText` exactly as sent — `PH-019 (P019)`, or the code alone — and
+// the raw `profitCenter` folds into the tail. Nothing is composed here.
+describe('the profit center column', () => {
+  const find = (colId: string, showMore = false) =>
+    buildCollectionsColumns(t, [ROW], showMore).find((c) => c.colId === colId)
+
+  it('is on the DEFAULT grid, right after the store code', () => {
+    const ids = buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)
+    expect(ids.indexOf('storeText')).toBe(ids.indexOf('storeId') + 1)
+  })
+
+  it('reads storeText with a t() header, and no formatter of its own', () => {
+    const column = find('storeText')
+    expect(column?.field).toBe('storeText')
+    expect(column?.headerName).toBe('collections.columns.storeText')
+    // 🚩 As sent: a valueFormatter here would be the client composing the text.
+    expect(column?.valueFormatter).toBeUndefined()
+    expect(column?.valueGetter).toBeUndefined()
+  })
+
+  it('folds the raw profit center into the tail, not onto the landing grid', () => {
+    expect(MORE_FIELDS).toContain('profitCenter')
+    expect(buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)).not.toContain('profitCenter')
+    const raw = find('profitCenter', true)
+    expect(raw?.field).toBe('profitCenter')
+    expect(raw?.headerName).toBe('collections.columns.profitCenter')
+    expect(raw?.valueFormatter).toBeUndefined()
   })
 })
 

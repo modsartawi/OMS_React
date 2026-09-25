@@ -22,6 +22,8 @@ import type { VoucherDocument, VoucherPage } from '@/core/models/collection'
 const BASE: VoucherPage = {
   noText: '0000000005',
   storeCode: '1042',
+  // The Store. line as the server's one formatter spells it (BackOffice 1990).
+  storeText: 'PH-1042 (1042)',
   collectedAtText: '2026-08-06 21:14',
   collectorName: 'عبدالله بن ناصر القحطاني',
   collectorId: '30417',
@@ -102,6 +104,8 @@ export const VOUCHER_SCENARIOS: VoucherScenario[] = [
         {
           ...BASE,
           storeCode: '7301',
+          // No profit center recorded for this store: the code alone, as sent.
+          storeText: '7301',
           grand: { whole: '5', minor: '005' },
           cash: { whole: '3', minor: '005' },
           card: { whole: '2', minor: '000' },

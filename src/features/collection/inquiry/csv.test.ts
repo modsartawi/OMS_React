@@ -121,6 +121,8 @@ const collection = (over: Partial<CollectionInquiryRow> = {}): CollectionInquiry
   storeId: '1042',
   // Copied from `acr-fixture.ts` — never retyped.
   storeName: 'محمد عبدالله الشهري',
+  profitCenter: 'PH-1042',
+  storeText: 'PH-1042 (1042)',
   collectorOperatorId: '30417',
   // Copied from `voucher-fixture.ts` — never retyped.
   collectorName: 'عبدالله بن ناصر القحطاني',
@@ -201,6 +203,9 @@ const attempt = (over: Partial<CollectionAttemptRow> = {}): CollectionAttemptRow
   collectorName: 'عبدالله بن ناصر القحطاني',
   storeCode: '0104',
   storeName: 'محمد عبدالله الشهري',
+  // No profit center recorded: the server's storeText is the code alone.
+  profitCenter: '',
+  storeText: '0104',
   shiftId: '01J0SHIFT000000000000',
   businessDay: '2026-08-06T00:00:00',
   attemptTime: '2026-08-06T09:12:00',
@@ -276,6 +281,25 @@ describe('the identity rule — wrapped, and therefore unmangled', () => {
     const csv = buildCollectionCsv([attempt({ storeCode: '0104' })], ATTEMPTS_CSV_COLUMNS, attemptsHeader)
     // ⚠️ Plain quoting would NOT save it: Excel parses `"0104"` as the number 104.
     expect(cellOf(csv, ATTEMPTS_CSV_COLUMNS, 'storeCode')).toBe('="0104"')
+  })
+
+  it('writes the profit center pair as sent, wrapped — the code alone keeps its leading zero (314)', () => {
+    const withOne = write([collection()])
+    expect(cellOf(withOne, COLLECTIONS_CSV_COLUMNS, 'storeText')).toBe('="PH-1042 (1042)"')
+    expect(cellOf(withOne, COLLECTIONS_CSV_COLUMNS, 'profitCenter')).toBe('="PH-1042"')
+    // ⚠️ With no profit center the server's storeText IS the code — and a bare
+    // `0104` would reach Excel as the number 104, exactly as the store column would.
+    const none = buildCollectionCsv([attempt()], ATTEMPTS_CSV_COLUMNS, attemptsHeader)
+    expect(cellOf(none, ATTEMPTS_CSV_COLUMNS, 'storeText')).toBe('="0104"')
+    // …and an unrecorded profit center is an EMPTY cell, never `=""`.
+    expect(cellOf(none, ATTEMPTS_CSV_COLUMNS, 'profitCenter')).toBe('')
+  })
+
+  it('heads the profit center columns with the screen’s own labels (314)', () => {
+    const csv = write([collection()])
+    const header = headerCells(csv)
+    expect(header).toContain('Profit Center (Store)')
+    expect(header).toContain('Profit Center')
   })
 
   it('keeps a long receipt number out of scientific notation', () => {

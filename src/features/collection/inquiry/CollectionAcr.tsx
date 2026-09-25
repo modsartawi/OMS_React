@@ -31,6 +31,7 @@ import type { ReactNode } from 'react'
 import Ltr from '@/core/ui/Ltr'
 import PrintSheet from './PrintSheet'
 import type { AcrForm, AcrPage, AcrRow } from '@/core/models/collection'
+import { paperStoreText } from './store-text'
 import logoUrl from './logo-aldawaa.png'
 import './collection-acr.css'
 
@@ -246,7 +247,14 @@ function Row({ row }: { row: AcrRow }) {
       {/* Read, never counted: the server numbers the rows 1..n over the whole
           form, which is what keeps `م` unbroken across a page break. */}
       <Cell col={0}>{row.seqText}</Cell>
-      <Cell col={1}>{row.storeCode}</Cell>
+      {/* رقم الصيدلية: the server's `storeText` as sent — `PH-019 (P019)`, or the code
+          alone (BackOffice 1990). Never composed here (`store-text.ts`). Isolated LTR:
+          a Latin code with a space in an RTL row reads left to right as an island of
+          its own, rather than leaning on the bidi bracket-pair rule to keep `(P019)`
+          in order. In the 52px column it wraps at the space, as the WPF cell does. */}
+      <Cell col={1}>
+        <Ltr>{paperStoreText(row)}</Ltr>
+      </Cell>
       {/* Per row, and kept: a catch-up ACR carries more than one sales day, and
           the pad's single header date cannot say which row is which. */}
       <Cell col={2}>{row.salesDateText}</Cell>

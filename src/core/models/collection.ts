@@ -138,6 +138,18 @@ export interface CollectionInquiryRow {
   collectionReceiptNo: number
   storeId: string
   storeName: string
+  /**
+   * `Plants.ProfitCenter` for the row's store, trimmed; `""` when none is recorded —
+   * or while POS_Server's Plants has no such column yet (BackOffice 1990). The raw
+   * value, in the More-columns tail and the file.
+   */
+  profitCenter: string
+  /**
+   * The store as every paper and grid prints it — `"PH-019 (P019)"`, or the code
+   * alone — composed by the SERVER's one formatter (BackOffice 1990). The
+   * *Profit Center (Store)* column renders it as sent; nothing here re-derives it.
+   */
+  storeText: string
   collectorOperatorId: string
   collectorName: string
   /** The shift's closer — the pharmacist block on the receipt. */
@@ -432,6 +444,18 @@ export interface CollectionAttemptRow {
   collectorName: string
   storeCode: string
   storeName: string
+  /**
+   * `Plants.ProfitCenter` for the row's store, trimmed; `""` when none is recorded —
+   * or while POS_Server's Plants has no such column yet (BackOffice 1990). The raw
+   * value, in the More-columns tail and the file.
+   */
+  profitCenter: string
+  /**
+   * The store as every paper and grid prints it — `"PH-019 (P019)"`, or the code
+   * alone — composed by the SERVER's one formatter (BackOffice 1990). The
+   * *Profit Center (Store)* column renders it as sent; nothing here re-derives it.
+   */
+  storeText: string
   shiftId: string
   /**
    * The day the collector came to collect — the *Business date* column, and what
@@ -538,6 +562,11 @@ export interface VoucherPage {
   /** 10-digit zero-padded, + `-{n}` on a multi-shift receipt. §7.2 */
   noText: string
   storeCode: string
+  /**
+   * The **Store.** line as the voucher prints it — `"PH-019 (P019)"`, or the code
+   * alone (BackOffice 1990). Composed server-side, rendered as sent.
+   */
+  storeText: string
   /** `yyyy-MM-dd HH:mm`. §7.6 */
   collectedAtText: string
   collectorName: string
@@ -655,7 +684,13 @@ export interface VoucherDocument {
 export interface AcrRow {
   /** 1-based and CONTINUOUS across pages — the server numbers them, not the page. */
   seqText: string
+  /** The row's key. The رقم الصيدلية cell prints {@link storeText}, not this. */
   storeCode: string
+  /**
+   * رقم الصيدلية — `"PH-019 (P019)"`, or the code alone (BackOffice 1990). Composed
+   * server-side, rendered as sent.
+   */
+  storeText: string
   /** `dd/MM/yyyy`, PER ROW — a catch-up ACR carries more than one sales day (§7.7). */
   salesDateText: string
   /**

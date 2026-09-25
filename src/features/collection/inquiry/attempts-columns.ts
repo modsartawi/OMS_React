@@ -8,8 +8,9 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
  * The Collection Attempts grid's columns (ticket 255) — 254's column shape,
  * applied to the smallest row in the suite.
  *
- * All **nine** the WPF declares, split six/three since ticket 316: ⚠️ **nothing
- * is dropped, only folded**, and `attemptId` is the single argued non-column.
+ * All **nine** the WPF declares, plus ticket 314's profit center pair (BackOffice
+ * 1990), split seven/four: ⚠️ **nothing is dropped, only folded**, and `attemptId`
+ * is the single argued non-column.
  *
  * 🚩 **There are no money columns here at all**, and so no `MONEY_FIELDS` and no
  * `@/core/money.ts` import. A collection attempt collected nothing by definition
@@ -17,7 +18,7 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
  */
 
 /**
- * The six columns the supervisor lands on: **which day** the collector came for and
+ * The seven columns the supervisor lands on: **which day** the collector came for and
  * **when** they came, **where**, **who**, and **why** nothing was collected.
  *
  * 🚩 **Both dates are default columns** (ticket 316, BackOffice 1993): the
@@ -25,21 +26,26 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
  * side, the business day first as on Cash Collections (315). They are the two
  * ranges the toolbar filters on, and a visit at 00:20 for yesterday's day is only
  * legible with both on screen.
+ *
+ * 🚩 **Profit Center (Store)** sits beside the store code (ticket 314): the
+ * server's `storeText`, rendered exactly as sent.
  */
 export const DEFAULT_FIELDS = [
   'businessDay',
   'attemptTime',
   'storeCode',
+  'storeText',
   'storeName',
   'collectorName',
   'reasonCode',
 ] as const satisfies readonly (keyof CollectionAttemptRow)[]
 
-/** The forensic tail: the WPF's remaining three. */
+/** The forensic tail: the WPF's remaining three, then 314's raw profit center. */
 export const MORE_FIELDS = [
   'reasonText',
   'shiftId',
   'collectorStaffId',
+  'profitCenter',
 ] as const satisfies readonly (keyof CollectionAttemptRow)[]
 
 /**
@@ -107,6 +113,10 @@ function column(t: TFunction, field: keyof CollectionAttemptRow): ColDef<Collect
         valueFormatter: (p: ValueFormatterParams<CollectionAttemptRow, string>) => formatDay(p.value),
         filterValueGetter: (p) => formatDay(p.data?.businessDay),
       }
+    case 'storeText':
+      // As the server sent it — no valueFormatter, by ruling (BackOffice 1990).
+      // Ready's width, so the one column reads alike on the three grids.
+      return { headerName: label, field, colId: field, width: 170 }
     case 'storeName':
     case 'collectorName':
     case 'reasonText':

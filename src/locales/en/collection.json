@@ -95,6 +95,7 @@
     "columns": {
       "collectionReceiptNo": "Receipt No#",
       "storeId": "Store",
+      "storeText": "Profit Center (Store)",
       "storeName": "Store Name",
       "collectorName": "Collector",
       "businessDay": "Business Date",
@@ -117,7 +118,8 @@
       "closerOperatorId": "Closer Id",
       "closerName": "Closer",
       "salesDate": "Sales Date",
-      "currencyKey": "Currency"
+      "currencyKey": "Currency",
+      "profitCenter": "Profit Center"
     }
   },
   "acrs": {
@@ -312,13 +314,15 @@
     "columns": {
       "attemptTime": "Collection Date",
       "storeCode": "Store Code",
+      "storeText": "Profit Center (Store)",
       "storeName": "Store",
       "collectorName": "Collector",
       "reasonCode": "Reason",
       "reasonText": "Reason Detail",
       "businessDay": "Business Date",
       "shiftId": "Shift Id",
-      "collectorStaffId": "Collector Id"
+      "collectorStaffId": "Collector Id",
+      "profitCenter": "Profit Center"
     }
   },
   "ready": {

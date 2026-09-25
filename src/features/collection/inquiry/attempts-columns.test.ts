@@ -17,6 +17,9 @@ const ROW: CollectionAttemptRow = {
   collectorName: 'Faisal Al Otaibi',
   storeCode: '1001',
   storeName: 'Al Dawaa — Olaya',
+  // BackOffice 1990's pair: the raw profit center, and the server's one spelling of it.
+  profitCenter: 'PH-1001',
+  storeText: 'PH-1001 (1001)',
   shiftId: '01J0SHIFT0000000000000000001',
   businessDay: '2026-08-08T00:00:00',
   attemptTime: '2026-08-08T09:12:00',
@@ -40,10 +43,11 @@ describe('the two groups account for the whole wire row', () => {
     expect(new Set(covered).size).toBe(covered.length)
   })
 
-  it('draws the WPF’s NINE columns, split six and three', () => {
-    // Five and four until ticket 316 moved the business day onto the default grid.
-    expect(DEFAULT_FIELDS.length).toBe(6)
-    expect(MORE_FIELDS.length).toBe(3)
+  it('draws the WPF’s NINE columns and 314’s profit center pair, split seven and four', () => {
+    // Five and four until ticket 316 moved the business day onto the default grid;
+    // ticket 314 put storeText on the landing grid and profitCenter in the tail.
+    expect(DEFAULT_FIELDS.length).toBe(7)
+    expect(MORE_FIELDS.length).toBe(4)
   })
 
   it('withholds only the attempt’s ULID — which opens nothing, deliberately', () => {
@@ -59,6 +63,8 @@ describe('the two groups account for the whole wire row', () => {
       'businessDay',
       'attemptTime',
       'storeCode',
+      // Ticket 314: the profit center beside the store code.
+      'storeText',
       'storeName',
       'collectorName',
       'reasonCode',
@@ -66,8 +72,30 @@ describe('the two groups account for the whole wire row', () => {
   })
 })
 
+// Ticket 314 (BackOffice 1990): the server's `storeText` as sent, the raw
+// `profitCenter` in the tail.
+describe('the profit center column', () => {
+  it('is on the DEFAULT grid, right after the store code, reading storeText as sent', () => {
+    const columns = buildAttemptsColumns(t, false)
+    const ids = columns.map((c) => c.colId)
+    expect(ids.indexOf('storeText')).toBe(ids.indexOf('storeCode') + 1)
+    const column = columns.find((c) => c.colId === 'storeText')
+    expect(column?.field).toBe('storeText')
+    expect(column?.headerName).toBe('attempts.columns.storeText')
+    expect(column?.valueFormatter).toBeUndefined()
+    expect(column?.valueGetter).toBeUndefined()
+  })
+
+  it('folds the raw profit center into the tail', () => {
+    expect(buildAttemptsColumns(t, false).map((c) => c.colId)).not.toContain('profitCenter')
+    const raw = buildAttemptsColumns(t, true).find((c) => c.colId === 'profitCenter')
+    expect(raw?.field).toBe('profitCenter')
+    expect(raw?.headerName).toBe('attempts.columns.profitCenter')
+  })
+})
+
 describe('buildAttemptsColumns', () => {
-  it('shows the default six with the toggle off', () => {
+  it('shows the default seven with the toggle off', () => {
     expect(buildAttemptsColumns(t, false).map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
   })
 

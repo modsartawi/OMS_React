@@ -20,6 +20,7 @@
 import Ltr from '@/core/ui/Ltr'
 import PrintSheet from './PrintSheet'
 import type { VoucherAmountParts, VoucherPage } from '@/core/models/collection'
+import { paperStoreText } from './store-text'
 import { voucherBox } from './voucher-box'
 import logoUrl from './logo-aldawaa.png'
 import './collection-voucher.css'
@@ -125,7 +126,9 @@ export default function CollectionVoucher({ page }: { page: VoucherPage }) {
         <div className="cv-band-side cv-band-side--store">
           <div className="cv-stamp">
             <span>Store.&nbsp;</span>
-            <span>{page.storeCode}</span>
+            {/* The server's `storeText` as sent — `PH-019 (P019)`, or the code alone
+                (BackOffice 1990). Never composed here (`store-text.ts`). */}
+            <span>{paperStoreText(page)}</span>
           </div>
         </div>
 

@@ -25,9 +25,14 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
  */
 
 /**
- * The ten columns the supervisor lands on: who and where, then the two dates,
+ * The eleven columns the supervisor lands on: who and where, then the two dates,
  * then the money, then why it differs (244 §6). Reading order, not the WPF's
  * declaration order.
+ *
+ * 🚩 **Profit Center (Store)** sits beside the store code (ticket 314, BackOffice
+ * 1990): `storeText` — `PH-019 (P019)`, or the code alone — is the SERVER's one
+ * formatter, rendered exactly as sent. The store code keeps its own column, so the
+ * landing grid reads as it did before a profit center was recorded.
  *
  * 🚩 **Both dates are default columns** (ticket 315, BackOffice 1992): the sales
  * day and the collected-at instant sit side by side, because they are the two
@@ -39,6 +44,7 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
 export const DEFAULT_FIELDS = [
   'collectionReceiptNo',
   'storeId',
+  'storeText',
   'storeName',
   'collectorName',
   'businessDay',
@@ -72,6 +78,8 @@ export const MORE_FIELDS = [
   'closerName',
   'salesDate',
   'currencyKey',
+  // Ticket 314: the raw part `storeText` is made of — sort and export by it.
+  'profitCenter',
 ] as const satisfies readonly (keyof CollectionInquiryRow)[]
 
 /**
@@ -241,6 +249,10 @@ function column(
         filter: 'agNumberColumnFilter',
         cellClass: 'text-end tabular-nums',
       }
+    case 'storeText':
+      // As the server sent it — no valueFormatter, by ruling (BackOffice 1990).
+      // Ready's width, so the one column reads alike on the three grids.
+      return { headerName: label, field, colId: field, width: 170 }
     case 'storeName':
     case 'collectorName':
     case 'closerName':

@@ -15,9 +15,12 @@
  * else static. The server remains the authority on legality and says so in its
  * `400`.
  *
- * **Nothing is ever hidden.** Every command appears on every document; a
- * command that vanishes is a command an operator cannot discover, and a bar
- * whose contents shift between visits cannot be learned.
+ * **Nothing is ever hidden** — the bar's contents never shift between visits
+ * or documents; a command that vanishes is a command an operator cannot
+ * discover. The one command RETIRED from the bar altogether is Withdraw Request
+ * (`DCCR`/`OCCR`): a cancellation request is irreversible (owner ruling
+ * 2026-09-25, BackOffice ticket 2022 — the request itself sends a picked basket
+ * to the store's put-back list), so it is on no document, ever.
  */
 import type { SdDocumentLineModel } from '@/core/models/sd-document'
 import { isDeliveryCategory, type CommandKind, type OpenedAs } from './actions'
@@ -48,7 +51,10 @@ export interface CommandState<K extends CommandKind = CommandKind> {
   reason: string | null
 }
 
-/** One labelled cluster. Every cluster holds exactly two commands. */
+/**
+ * One labelled cluster: two commands, except Cancellation request, which holds
+ * Request Cancellation alone since Withdraw Request was retired (ticket 2022).
+ */
 export interface CommandCluster {
   id: ClusterId
   label: string
@@ -110,7 +116,9 @@ const CANCELLATION_REQUESTED = 'R'
 /** The cluster membership, in order of increasing consequence (= reading order). */
 const CLUSTERS: { id: ClusterId; commands: CommandKind[] }[] = [
   { id: 'fulfilment', commands: ['reschedule', 'change-store'] },
-  { id: 'cancel-request', commands: ['request-close', 'cancel-close-request'] },
+  // Withdraw Request ('cancel-close-request') is retired: a close request is
+  // irreversible (BackOffice ticket 2022). Its action code stays in `actions.ts`.
+  { id: 'cancel-request', commands: ['request-close'] },
   { id: 'notes', commands: ['add-note', 'return-document'] },
 ]
 
@@ -127,9 +135,9 @@ function code(value: string | null | undefined): string {
 
 /**
  * Whether a cancellation request is already open on this document. When it is,
- * **Request Cancellation** is the contradiction and its inverse **Withdraw
- * Request** becomes the cluster's only takeable member — *that is the
- * promotion*. Nothing grows, moves or changes colour.
+ * **Request Cancellation** is the contradiction and is disabled with its reason.
+ * Nothing grows, moves or changes colour — and nothing takes its place: the
+ * request is irreversible, so there is no Withdraw Request to promote (ticket 2022).
  */
 export function hasOpenCancellationRequest(closeStatus: string | null | undefined): boolean {
   return code(closeStatus) === CANCELLATION_REQUESTED

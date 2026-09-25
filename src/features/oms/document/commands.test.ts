@@ -88,13 +88,12 @@ function returnBar(
 }
 
 describe('commandGating', () => {
-  it('offers all eight commands on every captured document — nothing is ever hidden', () => {
+  it('offers the same seven commands on every captured document — nothing is ever hidden', () => {
     for (const documentNo of DOCUMENT_NUMBERS) {
       const kinds = everyCommand(barFor(documentNo)).map((c) => c.kind)
       expect(kinds.slice().sort()).toEqual(
         [
           'add-note',
-          'cancel-close-request',
           'change-store',
           'close',
           'force-close',
@@ -114,13 +113,12 @@ describe('commandGating', () => {
       'Cancellation request',
       'Notes & docs',
     ])
-    // Exactly two each, so the single-command-label case never arises.
-    for (const cluster of clusters) expect(cluster.commands).toHaveLength(2)
+    // Two each, except the cancellation cluster: Withdraw Request is retired (ticket 2022).
+    expect(clusters.map((c) => c.commands.length)).toEqual([2, 1, 2])
     expect(clusters.flatMap((c) => c.commands.map((x) => x.kind))).toEqual([
       'reschedule',
       'change-store',
       'request-close',
-      'cancel-close-request',
       'add-note',
       'return-document',
     ])
@@ -145,17 +143,11 @@ describe('commandGating', () => {
     })
   })
 
-  it('and leaves Withdraw Request enabled — the cluster promotes by subtraction', () => {
+  it('and offers no Withdraw Request — a cancellation request is irreversible (ticket 2022)', () => {
     const bar = barFor('8000000174')
-    expect(find(bar, 'cancel-close-request')).toEqual({
-      kind: 'cancel-close-request',
-      disabled: false,
-      reason: null,
-    })
+    expect(everyCommand(bar).map((c) => c.kind)).not.toContain('cancel-close-request')
     const cluster = bar.clusters.find((c) => c.id === 'cancel-request')
-    expect(cluster?.commands.filter((c) => !c.disabled).map((c) => c.kind)).toEqual([
-      'cancel-close-request',
-    ])
+    expect(cluster?.commands.filter((c) => !c.disabled)).toEqual([])
   })
 
   it('leaves Request Cancellation takeable on the four documents with no open request', () => {

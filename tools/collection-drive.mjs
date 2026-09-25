@@ -1678,9 +1678,10 @@ async function run() {
     {
       key: 'acrs',
       route: ROUTES.acrs,
-      headers: 15,
+      // 17 since ticket 313 put who closed it on the row (Closed By + Closed By Id).
+      headers: 17,
       // The folded tail, present with the More-columns toggle OFF.
-      folded: ['Created', 'Deposit No#', 'Deposit Id'],
+      folded: ['Created', 'Closed By Id', 'Deposit No#', 'Deposit Id'],
       money: ['Net Collected', 'Card Total'],
       identity: 'ACR No#',
     },

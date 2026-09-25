@@ -157,6 +157,8 @@ const acr = (over: Partial<AcrInquiryRow> = {}): AcrInquiryRow => ({
   status: 'OPEN',
   createdAt: '2026-08-06T08:15:00',
   closedAt: '0001-01-01T00:00:00',
+  closedBy: '',
+  closedByName: '',
   linkedCollectionCount: 12,
   netCollectedTotal: 143910.75,
   cardTotalSum: 99120.5,
@@ -281,6 +283,30 @@ describe('the identity rule — wrapped, and therefore unmangled', () => {
   it('wraps the ACR number the reconciliation workbook keys on', () => {
     const csv = buildCollectionCsv([acr({ acrNumber: 40 })], ACRS_CSV_COLUMNS, acrsHeader)
     expect(cellOf(csv, ACRS_CSV_COLUMNS, 'acrNumber')).toBe('="40"')
+  })
+
+  it('writes who closed an ACR RAW — SYSTEM verbatim, the marker a workbook filters on (313)', () => {
+    // The screen reads the sweep as a sentence; the file is the row unpacked, so
+    // it carries the contract's literal, in both the name and the id column.
+    const swept = buildCollectionCsv(
+      [acr({ status: 'CLOSED', closedBy: 'SYSTEM', closedByName: 'SYSTEM' })],
+      ACRS_CSV_COLUMNS,
+      acrsHeader,
+    )
+    expect(cellOf(swept, ACRS_CSV_COLUMNS, 'closedByName')).toBe('SYSTEM')
+    expect(cellOf(swept, ACRS_CSV_COLUMNS, 'closedBy')).toBe('="SYSTEM"')
+    const byHand = buildCollectionCsv(
+      [acr({ status: 'CLOSED', closedBy: '0417', closedByName: 'فهد القحطاني' })],
+      ACRS_CSV_COLUMNS,
+      acrsHeader,
+    )
+    expect(cellOf(byHand, ACRS_CSV_COLUMNS, 'closedByName')).toBe('فهد القحطاني')
+    // A staff id is a key: the leading zero survives Excel.
+    expect(cellOf(byHand, ACRS_CSV_COLUMNS, 'closedBy')).toBe('="0417"')
+    // Still OPEN: nobody closed it, and the file says nothing rather than something.
+    const open = buildCollectionCsv([acr()], ACRS_CSV_COLUMNS, acrsHeader)
+    expect(cellOf(open, ACRS_CSV_COLUMNS, 'closedByName')).toBe('')
+    expect(cellOf(open, ACRS_CSV_COLUMNS, 'closedBy')).toBe('')
   })
 
   it('blanks an identity that is the number zero, rather than claiming a record', () => {

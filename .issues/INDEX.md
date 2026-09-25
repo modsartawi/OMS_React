@@ -672,7 +672,7 @@ ticket, this wave *writes*, to a customer's login credential. Bound by ADR 0001 
 - [310](310-correction-actions-are-the-supervisors-alone.md) — Cancel, close-out and batch withdrawal are shown only to a supervisor · *(ticket · spec 308)* · **done** · blocked by: 309 (+ BackOffice 1979) · web half
 - [311](311-a-post-requires-a-description.md) — Posting an entry requires a description · *(ticket · spec 308)* · **done** · blocked by: — (+ BackOffice 1980) · web half
 - [312](312-the-voucher-red-box-carries-the-accountants-description.md) — The collection voucher's red box carries the accountant's description · *(ticket · spec 308)* · **done** · blocked by: — (+ BackOffice 1984) · web half
-- [313](313-the-acr-grid-shows-who-closed-it.md) — The ACR grid shows who closed each ACR, including SYSTEM · *(ticket · spec 308)* · **open** · blocked by: — (+ BackOffice 1987) · web half
+- [313](313-the-acr-grid-shows-who-closed-it.md) — The ACR grid shows who closed each ACR, including SYSTEM · *(ticket · spec 308)* · **done** · blocked by: — (+ BackOffice 1987) · web half
 - [314](314-papers-and-grids-show-the-profit-center.md) — The ACR form, voucher and grids show the profit center beside the store code · *(ticket · spec 308)* · **open** · blocked by: — (+ BackOffice 1990) · web half
 - [315](315-collections-takes-the-four-filters-and-shows-both-dates.md) — Collections filters by collector, accountant, business date and collection date, and shows both dates · *(ticket · spec 308)* · **open** · blocked by: — (+ BackOffice 1992) · web half
 - [316](316-acrs-deposits-and-attempts-take-the-four-filters.md) — ACRs, Deposits and Attempts take the same four filters · *(ticket · spec 308)* · **open** · blocked by: 315 (+ BackOffice 1993) · web half

@@ -1,7 +1,7 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
-import type { AcrInquiryRow } from '@/core/models/collection'
+import { ACR_SYSTEM_CLOSER, type AcrInquiryRow } from '@/core/models/collection'
 import { formatMoneyIn } from '@/core/money'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 
@@ -20,6 +20,10 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
  * the tail here rather than being dropped, for 254's reason: "nothing is dropped"
  * is a statement about the **row**, not about the WPF's column picker. Only
  * `acrId` is withheld, named with its reason.
+ *
+ * Ticket 313 (BackOffice 1987) adds who closed it, as the collector pair already
+ * reads: the resolved **name** leads (`closedByName`, beside Status), and the raw
+ * **id** folds into the tail (`closedBy`, beside Closed). Seventeen now.
  */
 
 /**
@@ -32,12 +36,17 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
 // several ACRs later** and this column is Σ NetCollected — cash that left the
 // store. The same grid carries three real deposit columns, so the WPF's caption
 // would name the banking end twice, meaning two different things.
+//
+// `closedByName` sits beside Status and leads rather than folding into the tail:
+// a SYSTEM close is finance's "forgotten ACR" marker (BackOffice 1987), a thing a
+// supervisor scans the default grid for, not a forensic detail.
 export const DEFAULT_FIELDS = [
   'acrNumber',
   'label',
   'collectorName',
   'acrDate',
   'status',
+  'closedByName',
   'linkedCollectionCount',
   'netCollectedTotal',
   'cardTotalSum',
@@ -50,6 +59,7 @@ export const DEFAULT_FIELDS = [
 export const MORE_FIELDS = [
   'createdAt',
   'closedAt',
+  'closedBy',
   'cardTransactionCountSum',
   'collectorOperatorId',
   'depositNumber',
@@ -114,6 +124,29 @@ export function buildAcrsDefaultColDef(showFilters: boolean): ColDef<AcrInquiryR
  */
 function depositNumberText(value: number | null | undefined): string {
   return typeof value === 'number' && value > 0 ? String(value) : ''
+}
+
+/**
+ * What the Closed By cell reads (ticket 313).
+ *
+ * - The 23:59 sweep's `SYSTEM` reads as a sentence — *closed automatically at end
+ *   of day* — because a bare `SYSTEM` beside a column of people's names reads as a
+ *   person called System. The match is on the RAW `closedBy`, the column the
+ *   contract defines the literal on, not on the display name.
+ * - A collector's close reads as the server's `closedByName` verbatim: their Staff
+ *   name, or their id where none resolved. The client looks nothing up.
+ * - `''` — still OPEN, or closed before anything was recorded (pre-090) — stays
+ *   BLANK. The contract says so ("render blank, not unknown"), and an invented
+ *   *Unknown* would claim a fact nobody holds.
+ */
+export function closedByText(
+  t: TFunction,
+  row: Pick<AcrInquiryRow, 'closedBy' | 'closedByName'> | undefined,
+): string {
+  if (!row) return ''
+  if (row.closedBy === ACR_SYSTEM_CLOSER) return t('acrs.closedBy.system')
+  // `?? ''`: a SIS.Api from before 1987 omits the field, and that ACR must read blank.
+  return row.closedByName ?? ''
 }
 
 /** Build the visible columns; `showMore` reveals the forensic tail. */
@@ -207,6 +240,27 @@ function column(t: TFunction, field: keyof AcrInquiryRow): ColDef<AcrInquiryRow>
     case 'label':
     case 'collectorName':
       return { headerName: label, field, colId: field, width: 180 }
+    case 'closedByName':
+      return {
+        headerName: label,
+        field,
+        colId: field,
+        width: 220,
+        // A VALUE getter, not a formatter: sort and the floating filter both work
+        // on what the cell shows, so typing "automatically" finds the swept ACRs
+        // and the sentence sorts where it reads.
+        valueGetter: (p) => closedByText(t, p.data),
+        // …and the filter ALSO answers to the literal `SYSTEM`, the marker the
+        // contract says finance filters on — without drawing it in the cell.
+        filterValueGetter: (p) =>
+          p.data?.closedBy === ACR_SYSTEM_CLOSER
+            ? `${closedByText(t, p.data)} ${ACR_SYSTEM_CLOSER}`
+            : closedByText(t, p.data),
+      }
+    case 'closedBy':
+      // The raw id — `SYSTEM` verbatim here, the marker finance filters on — kept
+      // monospaced like every other id in the tail.
+      return { headerName: label, field, colId: field, width: 140, cellClass: 'font-mono text-[12px]' }
     case 'depositId':
       return { headerName: label, field, colId: field, width: 200, cellClass: 'font-mono text-[12px]' }
     default:

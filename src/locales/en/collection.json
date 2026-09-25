@@ -151,17 +151,22 @@
     "errors": {
       "loadFailed": "Today's ACRs could not be loaded."
     },
+    "closedBy": {
+      "system": "Closed automatically at end of day"
+    },
     "columns": {
       "acrNumber": "ACR No#",
       "label": "Label",
       "collectorName": "Collector",
       "acrDate": "ACR Date",
       "status": "Status",
+      "closedByName": "Closed By",
       "linkedCollectionCount": "Collections",
       "netCollectedTotal": "Net Collected",
       "cardTotalSum": "Card Total",
       "createdAt": "Created",
       "closedAt": "Closed",
+      "closedBy": "Closed By Id",
       "cardTransactionCountSum": "Card Slips",
       "collectorOperatorId": "Collector Id",
       "depositNumber": "Deposit No#",

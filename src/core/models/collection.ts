@@ -152,6 +152,13 @@ export interface CollectionInquiryRow {
 }
 
 /**
+ * The `closedBy` a head-office sweep stamps (BackOffice 1987's `AcrClosedBy.System`):
+ * an ACR its collector forgot to close, closed at 23:59. A machine code matched
+ * against the wire, never shown as-is on the grid.
+ */
+export const ACR_SYSTEM_CLOSER = 'SYSTEM'
+
+/**
  * `GET CollectionWeb/Acrs` — one row of the ACRs grid (ticket 255). This is
  * `AcrInquiryModel` verbatim (`Sartawi.Retail.Data/Modules/Pos/Services/Models/Acr/AcrModel.cs`,
  * transcribed via [243's research asset](../../../.issues/assets/243-server-read-spine.RESEARCH.md)),
@@ -193,6 +200,21 @@ export interface AcrInquiryRow {
   createdAt: string
   /** `0001-01-01` while the ACR is still OPEN. */
   closedAt: string
+  /**
+   * Who closed it (BackOffice 1987, ticket 313) — the raw column: the owning
+   * collector's staff id on a manual close, the literal {@link ACR_SYSTEM_CLOSER}
+   * when the 23:59 head-office sweep closed it, and `''` while OPEN **and** on an
+   * ACR closed before POS_Server migration 090, when nothing was recorded. Always a
+   * string, never null.
+   */
+  closedBy: string
+  /**
+   * What the grid shows for {@link closedBy}, resolved server-side: the collector's
+   * Staff name, or the id echoed when none resolves (the `collectorName` posture);
+   * `'SYSTEM'` verbatim, never looked up as a person; `''` when `closedBy` is `''`.
+   * The client looks nothing up.
+   */
+  closedByName: string
   linkedCollectionCount: number
   /** Σ `NetCollected` over the linked receipts — what the collector banks. */
   netCollectedTotal: number
@@ -610,6 +632,13 @@ export interface AcrForm {
   areas: string
   /** تاريخ التحصيل — `''` while the ACR is still OPEN, and it renders BLANK. */
   closedAtText: string
+  /**
+   * أُغلق بواسطة (BackOffice 1987, ticket 313) — `'النظام (SYSTEM)'` when the 23:59
+   * sweep closed it, `'name  (id)'` (two spaces, the المحصل format) or the bare id
+   * when the collector did, and `''` while OPEN or when no closer was recorded.
+   * Rendered as given; never re-derived from the grid row's `closedBy`.
+   */
+  closedByText: string
   /** الوصف. */
   label: string
   /** الحالة — a server string, rendered as data. */

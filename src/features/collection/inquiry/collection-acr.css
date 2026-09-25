@@ -103,6 +103,13 @@
   font-weight: 700;
 }
 
+/* أُغلق بواسطة's `name  (id)` carries TWO spaces (BackOffice 1987's المحصل
+ * format) and HTML would collapse them. `pre-wrap` keeps them and still lets a
+ * long name wrap inside its quarter of the row rather than push the strip wide. */
+.acr-meta-value--pre {
+  white-space: pre-wrap;
+}
+
 /* ── the eleven-column table ──────────────────────────────────────────── */
 
 .acr-tr {

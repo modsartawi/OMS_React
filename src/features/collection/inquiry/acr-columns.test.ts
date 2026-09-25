@@ -7,6 +7,7 @@ import {
   NON_COLUMN_FIELDS,
   buildAcrsColumns,
   buildAcrsDefaultColDef,
+  closedByText,
 } from './acr-columns'
 
 // Ticket 255's ACR columns Proof — **the same union assertion as 254**: the
@@ -26,6 +27,8 @@ const ROW: AcrInquiryRow = {
   status: 'CLOSED',
   createdAt: '2026-08-08T08:15:00',
   closedAt: '2026-08-08T19:32:00',
+  closedBy: '4472',
+  closedByName: 'Faisal Al Otaibi',
   linkedCollectionCount: 12,
   netCollectedTotal: 143_910.75,
   cardTotalSum: 99_120.5,
@@ -53,8 +56,9 @@ describe('the two groups account for the whole wire row', () => {
     expect(new Set(covered).size).toBe(covered.length)
   })
 
-  it('draws FIFTEEN columns: the WPF’s fourteen plus the deposit ULID it never showed', () => {
-    expect(DEFAULT_FIELDS.length + MORE_FIELDS.length).toBe(15)
+  it('draws SEVENTEEN columns: the WPF’s fourteen, the deposit ULID it never showed, and who closed it', () => {
+    // 15 until ticket 313 (BackOffice 1987) put the closer's name and id on the row.
+    expect(DEFAULT_FIELDS.length + MORE_FIELDS.length).toBe(17)
     // "Nothing is dropped" is about the ROW, not about the WPF's column picker —
     // 254's own ruling, which folded five unshown wire fields into its tail.
     expect([...MORE_FIELDS]).toContain('depositId')
@@ -66,13 +70,14 @@ describe('the two groups account for the whole wire row', () => {
     expect([...NON_COLUMN_FIELDS]).toEqual(['acrId'])
   })
 
-  it('the default eight lead with identity, then the state, then the money', () => {
+  it('the default nine lead with identity, then the state and who closed it, then the money', () => {
     expect([...DEFAULT_FIELDS]).toEqual([
       'acrNumber',
       'label',
       'collectorName',
       'acrDate',
       'status',
+      'closedByName',
       'linkedCollectionCount',
       'netCollectedTotal',
       'cardTotalSum',
@@ -185,6 +190,66 @@ describe('the sentinels the server sends', () => {
       p: unknown,
     ) => string
     expect(deposit({ data: { ...ROW, depositNumber: 0 } })).toBe('')
+  })
+})
+
+describe('who closed it (ticket 313, BackOffice 1987)', () => {
+  // The contract's three closers, on its own sample's shape.
+  const SWEPT = { ...ROW, closedBy: 'SYSTEM', closedByName: 'SYSTEM' }
+  const BY_HAND = { ...ROW, closedBy: 'COLL-9', closedByName: 'فهد القحطاني' }
+  const OPEN = { ...ROW, status: 'OPEN', closedBy: '', closedByName: '' }
+
+  it('reads the 23:59 sweep as a sentence, never as a person called SYSTEM', () => {
+    expect(closedByText(t, SWEPT)).toBe('acrs.closedBy.system')
+  })
+
+  it('keys the sentence on the RAW closedBy, where the contract defines the literal', () => {
+    // A collector whose Staff name happened to be "SYSTEM" is still a person.
+    expect(closedByText(t, { closedBy: 'COLL-9', closedByName: 'SYSTEM' })).toBe('SYSTEM')
+  })
+
+  it('reads a collector’s close as the server’s name, verbatim — the client looks nothing up', () => {
+    expect(closedByText(t, BY_HAND)).toBe('فهد القحطاني')
+    // No name resolved: the server echoes the id, and the grid shows the echo.
+    expect(closedByText(t, { closedBy: 'COLL-9', closedByName: 'COLL-9' })).toBe('COLL-9')
+  })
+
+  it('leaves an OPEN ACR, and one closed before anything was recorded, BLANK — not "unknown"', () => {
+    expect(closedByText(t, OPEN)).toBe('')
+    // Pre-090: CLOSED, with nothing recorded about who.
+    expect(closedByText(t, { ...ROW, closedBy: '', closedByName: '' })).toBe('')
+    expect(closedByText(t, undefined)).toBe('')
+  })
+
+  const column = (colId: string) => buildAcrsColumns(t, true).find((c) => c.colId === colId)
+
+  it('the Closed By column sorts and filters on what it SHOWS', () => {
+    const get = column('closedByName')?.valueGetter as (p: unknown) => string
+    expect(get({ data: SWEPT })).toBe('acrs.closedBy.system')
+    expect(get({ data: BY_HAND })).toBe('فهد القحطاني')
+    expect(get({ data: OPEN })).toBe('')
+  })
+
+  it('its filter answers to what it shows AND to the contract’s SYSTEM marker', () => {
+    const filter = column('closedByName')?.filterValueGetter as (p: unknown) => string
+    expect(filter({ data: SWEPT })).toContain('acrs.closedBy.system')
+    expect(filter({ data: SWEPT })).toContain('SYSTEM')
+    // Only the sweep carries the marker — a collector's close filters on their name alone.
+    expect(filter({ data: BY_HAND })).toBe('فهد القحطاني')
+    expect(filter({ data: OPEN })).toBe('')
+  })
+
+  it('is a default column, headed through t()', () => {
+    const header = buildAcrsColumns(t, false).find((c) => c.colId === 'closedByName')?.headerName
+    expect(header).toBe('acrs.columns.closedByName')
+  })
+
+  it('keeps the raw id — SYSTEM verbatim — in the tail, where finance can filter on it', () => {
+    expect(buildAcrsColumns(t, false).some((c) => c.colId === 'closedBy')).toBe(false)
+    const raw = column('closedBy')
+    expect(raw?.field).toBe('closedBy')
+    expect(raw?.valueGetter).toBeUndefined()
+    expect(raw?.valueFormatter).toBeUndefined()
   })
 })
 

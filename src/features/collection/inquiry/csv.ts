@@ -298,11 +298,17 @@ export const ACRS_CSV_COLUMNS = csvColumns<AcrInquiryRow, AcrField>(
     collectorName: 'text',
     acrDate: 'day',
     status: 'text',
+    // ⚠️ The file writes the server's name VERBATIM — `SYSTEM` on a swept ACR, not
+    // the screen's sentence. The file is the row unpacked (ISO dates, bare money),
+    // and `SYSTEM` is the marker finance filters a workbook on (BackOffice 1987).
+    closedByName: 'text',
     linkedCollectionCount: 'count',
     netCollectedTotal: 'money',
     cardTotalSum: 'money',
     createdAt: 'date',
     closedAt: 'date',
+    // A person's staff id, or `SYSTEM` — a key either way, so Excel keeps it verbatim.
+    closedBy: 'identity',
     cardTransactionCountSum: 'count',
     collectorOperatorId: 'identity',
     depositNumber: 'identity',

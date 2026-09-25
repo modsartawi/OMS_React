@@ -117,6 +117,13 @@ export default function CollectionAcr({ form, page }: { form: AcrForm; page: Acr
         <Meta label="تاريخ التحصيل: " value={form.closedAtText} />
         <Meta label="الوصف: " value={form.label} />
         <Meta label="الحالة: " value={form.status} />
+        {/* BackOffice 1987 (ticket 313) — who closed it, the fourth cell of this
+            row exactly where the WPF sheet puts it. `closedByText` is the server's
+            whole string: `النظام (SYSTEM)` for the 23:59 sweep, `name  (id)` for
+            the collector, `''` while OPEN or when nothing was recorded — rendered
+            as given, never re-derived from a raw `closedBy`, and blank like
+            تاريخ التحصيل when empty. `keepSpaces` keeps the format's TWO spaces. */}
+        <Meta label="أُغلق بواسطة: " value={form.closedByText} keepSpaces />
       </div>
 
       {/* The header repeats on EVERY page — each printed side is a whole reading
@@ -293,11 +300,22 @@ function Cell({ col, className, children }: { col: number; className?: string; c
   return <div className={classes.join(' ')}>{children}</div>
 }
 
-function Meta({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+function Meta({
+  label,
+  value,
+  strong,
+  keepSpaces,
+}: {
+  label: string
+  value: string
+  strong?: boolean
+  keepSpaces?: boolean
+}) {
+  const classes = [strong && 'acr-meta-value--strong', keepSpaces && 'acr-meta-value--pre'].filter(Boolean)
   return (
     <div className="acr-meta-cell">
       <span className="acr-meta-label">{label}</span>
-      <span className={strong ? 'acr-meta-value--strong' : undefined}>{value}</span>
+      <span className={classes.length > 0 ? classes.join(' ') : undefined}>{value}</span>
     </div>
   )
 }

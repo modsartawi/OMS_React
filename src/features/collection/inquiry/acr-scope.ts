@@ -106,15 +106,21 @@ export function withoutAcrScope(search: string | URLSearchParams): URLSearchPara
  * supervisor set a date range that silently does nothing, and then read the
  * result as if the range had applied.
  *
+ * The four dates are ticket 315's (BackOffice 1992): the door clears the business
+ * range and the collection range under an `AcrId` exactly as it cleared the old
+ * period.
+ *
  * 🚩 `servedBy` joined the list when the shared control landed (BackOffice 1163),
- * and the door discards it under a scope exactly like the other four. Note this is
+ * and the door discards it under a scope exactly like the others. Note this is
  * NOT the same ruling as *Served by* ANDing with the store filter: that is about two
  * live toolbar filters, and this is the one case where the toolbar is switched off
  * entirely.
  */
 export const SCOPE_DISABLED_FIELDS = [
-  'fromDate',
-  'toDate',
+  'businessDateFrom',
+  'businessDateTo',
+  'collectionDateFrom',
+  'collectionDateTo',
   'storeId',
   'collectorOperatorId',
   'servedBy',
@@ -124,8 +130,8 @@ export const SCOPE_DISABLED_FIELDS = [
  * The scoped query: the ACR and the system cap, and **nothing else on the wire**.
  *
  * 🚩 The omission is the point, and it is what the test pins. Sending
- * `FromDate`/`ToDate` alongside `AcrId` would not narrow anything — the door
- * discards them — but it would leave a query string that reads as a period filter
+ * a date range alongside `AcrId` would not narrow anything — the door
+ * discards it — but it would leave a query string that reads as a period filter
  * to whoever debugs it next, and it would make the disabled inputs above look like
  * a UI quirk rather than the contract they are.
  */

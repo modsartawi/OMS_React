@@ -6,10 +6,11 @@ import ServedByPicker from './ServedByPicker'
 import { NO_SERVED_BY } from './served-by'
 
 /**
- * Cash Collections' filter strip (ticket 254) — From · To · Store · Collected by ·
- * Served by, and the template 255 and 256 copy.
+ * Cash Collections' filter strip (ticket 254) — Business date from/to · Collection
+ * date from/to · Store · Collected by · Served by, and the template 255 and 256
+ * copy (and, for the four dates, 316: ticket 315 set the shape).
  *
- * 🚩 **Three filters, and they all AND** (BackOffice 1166). *Served by* resolves to
+ * 🚩 **Every filter ANDs** (BackOffice 1166, and 1992 for the two date ranges). *Served by* resolves to
  * a set of branches, Store names one, "Collected by" names a person off the
  * document itself — and no control here silently un-sets another, even when the
  * combination can only return nothing. A filter that quietly clears its neighbour
@@ -28,7 +29,7 @@ import { NO_SERVED_BY } from './served-by'
  * value and the endpoint's `DateTime?` binding all agree, so there is no
  * conversion at this edge (unlike BBY, whose wire shape is `yyyyMMdd`).
  *
- * ⚠️ **The `?acr=` chip overrides and disables all four inputs** (ticket 257), and
+ * ⚠️ **The `?acr=` chip overrides and disables every input** (ticket 257), and
  * the disabling is honesty rather than decoration: the server treats `AcrId` as an
  * **exclusive** filter and ignores store, collector and period entirely when one
  * is set. A live date input over a scoped result would let a supervisor set a
@@ -63,6 +64,32 @@ const DISABLED_CLASS = 'disabled:cursor-not-allowed disabled:opacity-50'
  */
 const overridden = (scoped: boolean, value: string) => (scoped ? '' : value)
 
+/** One end of a date range — a native date input speaking `yyyy-MM-dd`. */
+function DateField({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string
+  value: string
+  disabled: boolean
+  onChange: (value: string) => void
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      {label}
+      <input
+        type="date"
+        disabled={disabled}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`h-9 w-40 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
+      />
+    </label>
+  )
+}
+
 export default function CollectionsToolbar({
   criteria,
   onChange,
@@ -83,31 +110,35 @@ export default function CollectionsToolbar({
         onSearch()
       }}
     >
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('collections.search.from')}
-        {/* ⚠️ `required` on BOTH ends: the dates travel as a pair, and a half-open
-            window is not a narrower query but an unbounded one. The builder drops
-            a broken pair as a backstop; this is what stops it being broken. */}
-        <input
-          type="date"
-          required
-          disabled={scoped}
-          value={overridden(scoped, criteria.fromDate)}
-          onChange={(e) => onChange({ fromDate: e.target.value })}
-          className={`h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
-        {t('collections.search.to')}
-        <input
-          type="date"
-          required
-          disabled={scoped}
-          value={overridden(scoped, criteria.toDate)}
-          onChange={(e) => onChange({ toDate: e.target.value })}
-          className={`h-9 w-44 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none ${DISABLED_CLASS}`}
-        />
-      </label>
+      {/* 🚩 Two ranges, named by what they mean (ticket 315, BackOffice 1992): the
+          SALES day and the collected-at instant. They AND, and neither clears the
+          other. ⚠️ No `required` on any end any more: the contract makes each one
+          optional (an open-ended range is a real question), and asking about sales
+          days alone means leaving the collection range empty. */}
+      <DateField
+        label={t('collections.search.businessDateFrom')}
+        value={overridden(scoped, criteria.businessDateFrom)}
+        disabled={scoped}
+        onChange={(businessDateFrom) => onChange({ businessDateFrom })}
+      />
+      <DateField
+        label={t('collections.search.businessDateTo')}
+        value={overridden(scoped, criteria.businessDateTo)}
+        disabled={scoped}
+        onChange={(businessDateTo) => onChange({ businessDateTo })}
+      />
+      <DateField
+        label={t('collections.search.collectionDateFrom')}
+        value={overridden(scoped, criteria.collectionDateFrom)}
+        disabled={scoped}
+        onChange={(collectionDateFrom) => onChange({ collectionDateFrom })}
+      />
+      <DateField
+        label={t('collections.search.collectionDateTo')}
+        value={overridden(scoped, criteria.collectionDateTo)}
+        disabled={scoped}
+        onChange={(collectionDateTo) => onChange({ collectionDateTo })}
+      />
 
       {/* Store and "Collected by" are the endpoint's own two code filters. Free-text
           codes, not pickers: neither the door nor this wave carries a store or
@@ -162,7 +193,7 @@ export default function CollectionsToolbar({
       />
 
       <div className="flex items-center gap-2">
-        {/* Search goes with them. With all four criteria overridden there is
+        {/* Search goes with them. With every criterion overridden there is
             nothing left to promote, and a button that re-issues the identical
             scoped query would be the same lie the live inputs would tell. */}
         <button

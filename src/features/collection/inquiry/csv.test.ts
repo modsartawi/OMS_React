@@ -130,6 +130,7 @@ const collection = (over: Partial<CollectionInquiryRow> = {}): CollectionInquiry
   openedAt: '2026-08-06T07:00:00',
   closedAt: '2026-08-06T15:04:00',
   collectedAt: '2026-08-06T21:14:33',
+  businessDay: '2026-08-06T00:00:00',
   salesDate: '2026-08-06T00:00:00',
   systemCash: 12480.5,
   countedCash: 12475,
@@ -393,6 +394,15 @@ describe('dates are ISO text, so they sort', () => {
   it('writes a day-only field as yyyy-MM-dd', () => {
     const csv = write([collection({ salesDate: '2026-08-06T00:00:00' })])
     expect(cellOf(csv, COLLECTIONS_CSV_COLUMNS, 'salesDate')).toBe('2026-08-06')
+  })
+
+  it('writes the business day as yyyy-MM-dd, and a null one (a settlement receipt) blank', () => {
+    // Ticket 315: the Business date column is on the default grid, so it is in the
+    // file — as the day it names, never as a time, and never as 0001-01-01.
+    const day = write([collection({ businessDay: '2026-09-02T00:00:00' })])
+    expect(cellOf(day, COLLECTIONS_CSV_COLUMNS, 'businessDay')).toBe('2026-09-02')
+    const none = write([collection({ businessDay: null })])
+    expect(cellOf(none, COLLECTIONS_CSV_COLUMNS, 'businessDay')).toBe('')
   })
 
   it('blanks the .NET 0001-01-01 sentinel rather than writing a year-1 date', () => {

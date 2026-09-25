@@ -29,6 +29,8 @@ const ROW: CollectionInquiryRow = {
   openedAt: '2026-08-08T07:00:00',
   closedAt: '2026-08-08T15:04:00',
   collectedAt: '2026-08-08T15:40:00',
+  // A day collected late: sold on the 6th, collected on the 8th.
+  businessDay: '2026-08-06T00:00:00',
   salesDate: '2026-08-08T00:00:00',
   systemCash: 12_480.5,
   countedCash: 12_475,
@@ -63,12 +65,14 @@ describe('the two groups account for the whole wire row', () => {
     expect(new Set(covered).size).toBe(covered.length)
   })
 
-  it('the default nine are the ticket’s nine, in reading order', () => {
+  it('the default ten are the ticket’s ten, in reading order', () => {
     expect([...DEFAULT_FIELDS]).toEqual([
       'collectionReceiptNo',
       'storeId',
       'storeName',
       'collectorName',
+      // Ticket 315: both dates on the landing grid, the sales day first.
+      'businessDay',
       'collectedAt',
       'netCollected',
       'variance',
@@ -102,7 +106,7 @@ describe('the two groups account for the whole wire row', () => {
 })
 
 describe('buildCollectionsColumns', () => {
-  it('shows the default nine with the toggle off', () => {
+  it('shows the default ten with the toggle off', () => {
     const columns = buildCollectionsColumns(t, [ROW], false)
     expect(columns.map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
   })
@@ -163,6 +167,7 @@ describe('buildCollectionsColumns', () => {
       ['openedAt', '2026-08-08 07:00'],
       ['closedAt', '2026-08-08 15:04'],
       ['salesDate', '2026-08-08'],
+      ['businessDay', '2026-08-06'],
     ] as const) {
       const get = columns.find((c) => c.colId === colId)?.filterValueGetter as (
         p: unknown,
@@ -176,6 +181,39 @@ describe('buildCollectionsColumns', () => {
     const format = column?.valueFormatter as (p: unknown) => string
     expect(format({ value: '0001-01-01T00:00:00', data: ROW })).toBe('')
     expect(format({ value: '2026-08-08T00:00:00', data: ROW })).toBe('2026-08-08')
+  })
+})
+
+// Ticket 315 (BackOffice 1992): the Business date column reads `businessDay`, the
+// date part only, and `null` renders blank — never 0001-01-01.
+describe('the Business date column', () => {
+  const column = () =>
+    buildCollectionsColumns(t, [ROW], false).find((c) => c.colId === 'businessDay')
+
+  it('is on the DEFAULT grid, beside the collection date — no More columns needed', () => {
+    const ids = buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)
+    expect(ids).toContain('businessDay')
+    expect(ids).toContain('collectedAt')
+    expect(ids.indexOf('collectedAt')).toBe(ids.indexOf('businessDay') + 1)
+  })
+
+  it('reads businessDay, not salesDate — the contract rules salesDate out', () => {
+    expect(column()?.field).toBe('businessDay')
+    expect(column()?.headerName).toBe('collections.columns.businessDay')
+  })
+
+  it('renders the date part only', () => {
+    const format = column()?.valueFormatter as (p: unknown) => string
+    expect(format({ value: '2026-09-02T00:00:00', data: ROW })).toBe('2026-09-02')
+  })
+
+  it('renders a null business day (a settlement receipt, a pre-049 day) blank', () => {
+    const format = column()?.valueFormatter as (p: unknown) => string
+    const filter = column()?.filterValueGetter as (p: unknown) => string
+    const settlement = { ...ROW, businessDay: null }
+    expect(format({ value: null, data: settlement })).toBe('')
+    expect(filter({ data: settlement })).toBe('')
+    expect(format({ value: '0001-01-01T00:00:00', data: ROW })).toBe('')
   })
 })
 

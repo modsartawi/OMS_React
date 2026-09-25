@@ -98,6 +98,8 @@ function makeRows(count, { currency = 'SAR' } = {}) {
     openedAt: `${todayIso()}T07:00:00`,
     closedAt: `${todayIso()}T15:04:00`,
     collectedAt: `${todayIso()}T15:40:00`,
+    // Ticket 315: the sales day. Row 2 is a settlement receipt's `null` (blank on screen).
+    businessDay: i === 2 ? null : `${todayIso()}T00:00:00`,
     salesDate: i === 2 ? '0001-01-01T00:00:00' : `${todayIso()}T00:00:00`,
     systemCash: 12480.5 + i,
     countedCash: 12475 + i,
@@ -475,8 +477,8 @@ async function run() {
   const q = () => new URLSearchParams(lastCollectionsQuery)
   check('254 — the screen queries on MOUNT (no Load button to press)', collectionsCalls === 1, `${collectionsCalls} calls`)
   check(
-    '254 — and it queries TODAY, as a pair',
-    q().get('FromDate') === TODAY && q().get('ToDate') === TODAY,
+    '254 — and it queries TODAY by collection date (315: CollectionDateFrom/To)',
+    q().get('CollectionDateFrom') === TODAY && q().get('CollectionDateTo') === TODAY,
     lastCollectionsQuery,
   )
   check('254 — the WPF Limit box is gone; 2,000 rides as a system cap', q().get('Limit') === '2000')
@@ -587,7 +589,7 @@ async function run() {
   await page.waitForLoadState('networkidle')
   check(
     '254 — Reset returns to today with everything else cleared',
-    q().get('FromDate') === TODAY && q().get('ToDate') === TODAY && !lastCollectionsQuery.includes('StoreId'),
+    q().get('CollectionDateFrom') === TODAY && q().get('CollectionDateTo') === TODAY && !lastCollectionsQuery.includes('StoreId'),
     lastCollectionsQuery,
   )
   check('254 — and the Filtered chip goes with it', (await page.getByText('Filtered').count()) === 0)
@@ -616,7 +618,9 @@ async function run() {
   await page.goto(BASE + ROUTES.collections)
   await page.waitForLoadState('networkidle')
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
-  const mixedHeaders = await headerText()
+  // Scrolled, not read off the first screen: since 315's Business Date column the promoted
+  // Currency column sits past the 1600px viewport, and AG Grid virtualizes it away.
+  const mixedHeaders = (await allHeaders()).join(' | ')
   check(
     '254 — a mixed result drops the header code and promotes the Currency column',
     !mixedHeaders.includes('Net Collected (SAR)') && mixedHeaders.includes('Currency'),
@@ -1366,7 +1370,7 @@ async function run() {
     !lastCollectionsQuery.includes('StoreId') &&
       !lastCollectionsQuery.includes('CollectorOperatorId') &&
       !lastCollectionsQuery.includes('FromDate') &&
-      !lastCollectionsQuery.includes('ToDate'),
+      !lastCollectionsQuery.includes('ToDate'),  // also covers the four 315 date names
     lastCollectionsQuery,
   )
 
@@ -1381,8 +1385,9 @@ async function run() {
   // result would let a supervisor set a range that silently does nothing.
   const dateInputs = page.locator('form input[type="date"]')
   check(
-    '257 — the chip DISABLES From and To',
-    (await dateInputs.nth(0).isDisabled()) && (await dateInputs.nth(1).isDisabled()),
+    '257 — the chip DISABLES all four date ends',
+    (await dateInputs.count()) === 4 &&
+      (await dateInputs.evaluateAll((els) => els.every((el) => el.disabled))),
   )
   check(
     '257 — …and Store and Collector',
@@ -1398,10 +1403,10 @@ async function run() {
   // then frozen" — the exact misreading the disabling exists to prevent.
   check(
     '257 — …and every overridden input shows NOTHING, not a frozen value',
-    (await dateInputs.nth(0).inputValue()) === '' &&
-      (await dateInputs.nth(1).inputValue()) === '' &&
+    // All four ends — the collection pair is the one that held today underneath.
+    (await dateInputs.evaluateAll((els) => els.every((el) => el.value === ''))) &&
       (await page.getByPlaceholder('Store code').inputValue()) === '',
-    `${await dateInputs.nth(0).inputValue()} · ${await dateInputs.nth(1).inputValue()}`,
+    (await dateInputs.evaluateAll((els) => els.map((el) => el.value))).join(' · '),
   )
 
   // ---- the URL really is the scope: a reload reproduces the view ----
@@ -1431,7 +1436,7 @@ async function run() {
   )
   check(
     '257 — …and restores the ordinary today-filtered query',
-    q().get('FromDate') === TODAY && q().get('ToDate') === TODAY && !lastCollectionsQuery.includes('AcrId'),
+    q().get('CollectionDateFrom') === TODAY && q().get('CollectionDateTo') === TODAY && !lastCollectionsQuery.includes('AcrId'),
     lastCollectionsQuery,
   )
   check('257 — …with the chip gone', (await page.getByText('three-pages').count()) === 0)
@@ -1538,8 +1543,8 @@ async function run() {
     csvHeader.join('|').slice(0, 200),
   )
   check(
-    '258 — …and the default columns are all there too (24 in all)',
-    csvHeader.length === 24 && col('Receipt No#') >= 0 && col('Net Collected') >= 0,
+    '258 — …and the default columns are all there too (25 in all, 315 added Business Date)',
+    csvHeader.length === 25 && col('Receipt No#') >= 0 && col('Net Collected') >= 0,
     `${csvHeader.length} headers`,
   )
   // ⚠️ The screen's money header is `Net Collected (SAR)`; the file's is bare and
@@ -1573,7 +1578,7 @@ async function run() {
   // signed column on the screen and the one an accountant reconciles a shortfall on, so a
   // `Variance` mis-declared as `identity` would have passed the drive.
   const NON_MONEY = new Set([
-    'Receipt No#', 'Store', 'Store Name', 'Collector', 'Collected', 'Reason',
+    'Receipt No#', 'Store', 'Store Name', 'Collector', 'Business Date', 'Collection Date', 'Reason',
     'Opened', 'Closed', 'Card Slips', 'Reason Detail', 'Collector Id', 'Z Reports',
     'Closer Id', 'Closer', 'Sales Date', 'Currency',
   ])
@@ -1627,8 +1632,8 @@ async function run() {
   // ---- dates are ISO text, and the .NET sentinel is blank ----
   check(
     '258 — a datetime column is raw ISO text, seconds and all',
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(at(csvBody[0], 'Collected')),
-    at(csvBody[0], 'Collected'),
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(at(csvBody[0], 'Collection Date')),
+    at(csvBody[0], 'Collection Date'),
   )
   check(
     '258 — a day-only column is yyyy-MM-dd',

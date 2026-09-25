@@ -99,7 +99,8 @@ export interface CollectionAccessResult {
  * (`Sartawi.Retail.Data/Modules/Pos/Services/Models/Collection/`, transcribed via
  * [243's research asset](../../../.issues/assets/243-server-read-spine.RESEARCH.md)),
  * camel-cased by the serializer and with **one addition**: `collectionReceiptId`,
- * the ULID spec 249 §1 puts on the projection.
+ * the ULID spec 249 §1 puts on the projection. `businessDay` joined at ticket 315
+ * (BackOffice 1992's Web contract), which names it as the Business date column.
  *
  * 🚩 **Unlike the two document contracts, this one carries numbers and dates.**
  * That is not a drift from 245 §0 — the "client cannot format" rule governs the
@@ -132,6 +133,13 @@ export interface CollectionInquiryRow {
   /** `null` while the shift is open. */
   closedAt: string | null
   collectedAt: string
+  /**
+   * The SALES day the row covers (`PosShift.BusinessDay`) — the *Business date*
+   * column and what `BusinessDateFrom`/`To` read (BackOffice 1992). `null` on a
+   * settlement receipt (it covers no day) and on a pre-049 trading day; the
+   * business filter excludes both, and the cell renders blank.
+   */
+  businessDay: string | null
   /** The receipt's shift-day denormal; `0001-01-01` on pre-shift-day rows. */
   salesDate: string
   systemCash: number

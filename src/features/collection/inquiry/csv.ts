@@ -235,7 +235,7 @@ type CollectionsField =
   | (typeof COLLECTIONS_MORE_FIELDS)[number]
 
 /**
- * Cash Collections, in the grid's own reading order: the nine default columns then
+ * Cash Collections, in the grid's own reading order: the ten default columns then
  * the forensic tail.
  *
  * ⚠️ `currencyKey` rides as its own column rather than as a suffix on the money
@@ -251,6 +251,7 @@ export const COLLECTIONS_CSV_COLUMNS = csvColumns<CollectionInquiryRow, Collecti
     storeId: 'identity',
     storeName: 'text',
     collectorName: 'text',
+    businessDay: 'day',
     collectedAt: 'date',
     netCollected: 'money',
     variance: 'money',

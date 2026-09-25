@@ -25,17 +25,27 @@ import {
 } from './served-by'
 
 /**
- * The toolbar draft. All strings so the fields map 1:1 onto their inputs; the two
- * dates are `yyyy-MM-dd`, which is what a native date input speaks and what the
- * endpoint's `DateTime?` binds from.
+ * The toolbar draft. All strings so the fields map 1:1 onto their inputs; the
+ * four dates are `yyyy-MM-dd`, which is what a native date input speaks and what
+ * the endpoint's `DateTime?` binds from.
  *
- * The four filters are `CollectionInquiryOptions`' own, minus `Limit` — deleted
- * as a user-facing field (244 §3) — and minus `AcrId`, which is not a filter a
- * user types but the `?acr=` drill-down ticket 257 owns.
+ * The filters are `CollectionInquiryOptions`' own, minus `Limit` — deleted as a
+ * user-facing field (244 §3) — and minus `AcrId`, which is not a filter a user
+ * types but the `?acr=` drill-down ticket 257 owns.
+ *
+ * 🚩 **Two ranges, named by what they mean** (BackOffice 1992 / spec 1976's
+ * four-filter contract, which 316 copies onto the other three screens):
+ *
+ * - **Business date** — the SALES day, the row's `businessDay`. A settlement
+ *   receipt covers no day, so any business end excludes it (the server's rule).
+ * - **Collection date** — the collected-at instant, the row's `collectedAt`. This
+ *   is the period the screen has always filtered on; only its wire name changed.
  */
 export interface CollectionsCriteria {
-  fromDate: string
-  toDate: string
+  businessDateFrom: string
+  businessDateTo: string
+  collectionDateFrom: string
+  collectionDateTo: string
   storeId: string
   /**
    * ⚠️ **"Collected by", not "Served by"** — and it survives the arrival of the new
@@ -75,11 +85,13 @@ export interface CollectionsCriteria {
 export const COLLECTIONS_LIMIT = GRID_LIMIT
 
 /**
- * The state the screen opens on: **today, on both ends, nothing else set**.
+ * The state the screen opens on: **collected today, on both ends, nothing else
+ * set** — the business range open.
  *
- * Dates travel as a pair, per the server contract — the window is applied to
- * `PosCollectionReceipt.CollectedAt` — and the pair is what makes "what has come
- * in today" answerable before anyone touches a control (244 §4).
+ * The collection range is applied to `PosCollectionReceipt.CollectedAt`, and
+ * today..today is what makes "what has come in today" answerable before anyone
+ * touches a control (244 §4). Ticket 315 renamed the pair on the wire; it did not
+ * move the landing state.
  *
  * 🚩 The WPF loads nothing until `Load` and defaults no dates. This follows its
  * own `CloseActionInquiry`/`DocumentPayment` instead, which do default to today.
@@ -92,8 +104,10 @@ export function landingCriteria(
 ): CollectionsCriteria {
   const day = toIsoDate(today)
   return {
-    fromDate: day,
-    toDate: day,
+    businessDateFrom: '',
+    businessDateTo: '',
+    collectionDateFrom: day,
+    collectionDateTo: day,
     storeId: '',
     collectorOperatorId: '',
     // 🚩 **Default-to-mine** (BackOffice 1165). The screen opens already scoped to
@@ -146,13 +160,21 @@ export function isLandingQuery(
  * is the empty string" to anyone debugging the door, and the dropping is what the
  * test pins.
  *
- * ⚠️ **The dates travel as a PAIR or not at all** — `deliveries/filter.ts`'s own
- * guard, and for a sharper reason here. A half-open window is not a narrower
- * query, it is an *unbounded* one: the service's `(@FromDate IS NULL OR …)` branch
- * would then return the chain's whole history, truncated at the 2,000 cap, under a
- * toolbar still showing one date the supervisor typed. The toolbar marks both
- * inputs `required` so the pair cannot normally be broken; this is the backstop
- * that makes the query honest if it is.
+ * 🚩 **Each date end travels on its own** (BackOffice 1992). Before 315 the one
+ * `FromDate`/`ToDate` pair travelled as a pair or not at all, because a half-open
+ * window on it was unbounded. The contract now makes every end optional and an
+ * open-ended range a real question ("sales days from the 1st on"), and asking
+ * about sales days alone means leaving the collection range off entirely — so an
+ * end is sent when it is filled and dropped when it is not, like every other
+ * filter here. An unbounded answer is still bounded by the cap and said out loud
+ * by its banner.
+ *
+ * ⚠️ **`FromDate`/`ToDate` are never sent.** The door still honours the legacy
+ * pair and intersects it with `CollectionDate*`; the contract tells the web to
+ * switch, and sending both would be one period spelt twice.
+ *
+ * The day goes as typed. Inclusive-by-day is the server's rule
+ * (`[From 00:00, (To + 1 day) 00:00)`), so the client adds no time part.
  */
 export function buildCollectionsParams(
   criteria: Partial<CollectionsCriteria> = {},
@@ -162,10 +184,10 @@ export function buildCollectionsParams(
     const trimmed = (value ?? '').trim()
     if (trimmed !== '') params[key] = trimmed
   }
-  if ((criteria.fromDate ?? '').trim() !== '' && (criteria.toDate ?? '').trim() !== '') {
-    put('FromDate', criteria.fromDate)
-    put('ToDate', criteria.toDate)
-  }
+  put('BusinessDateFrom', criteria.businessDateFrom)
+  put('BusinessDateTo', criteria.businessDateTo)
+  put('CollectionDateFrom', criteria.collectionDateFrom)
+  put('CollectionDateTo', criteria.collectionDateTo)
   put('StoreId', criteria.storeId)
   put('CollectorOperatorId', criteria.collectorOperatorId)
   // 🚩 The scope ANDs with the store filter, EVEN TO NOTHING, and both chips stay

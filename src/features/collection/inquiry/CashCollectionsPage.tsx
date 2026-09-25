@@ -56,7 +56,8 @@ import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './
  *
  * Three things it does that BBY does not, each argued rather than inherited:
  *
- * 1. **It lands loaded.** From/To default to today and the query fires on mount,
+ * 1. **It lands loaded.** The collection dates default to today (the business
+ *    range is left open, ticket 315) and the query fires on mount,
  *    so "what has come in today" is answered before anyone touches a control
  *    (244 §4).
  * 2. **It pages in the browser at 50** over the whole matched result, so sort,
@@ -146,7 +147,7 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
 
   // ⚠️ The scoped query carries `AcrId` and the cap and NOTHING else — the door
   // treats `AcrId` as an exclusive filter (see `acr-scope.ts`), which is why the
-  // four inputs it overrides are disabled rather than merely ignored.
+  // inputs it overrides (all of them) are disabled rather than merely ignored.
   const queryParams = useMemo(
     () => collectionsParamsFor(scopedAcrId, appliedCriteria),
     [scopedAcrId, appliedCriteria],

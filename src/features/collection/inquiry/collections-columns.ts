@@ -25,14 +25,23 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
  */
 
 /**
- * The nine columns the supervisor lands on: who and where, then the money, then
- * why it differs (244 §6). Reading order, not the WPF's declaration order.
+ * The ten columns the supervisor lands on: who and where, then the two dates,
+ * then the money, then why it differs (244 §6). Reading order, not the WPF's
+ * declaration order.
+ *
+ * 🚩 **Both dates are default columns** (ticket 315, BackOffice 1992): the sales
+ * day and the collected-at instant sit side by side, because they are the two
+ * ranges the toolbar filters on and a day collected late is only visible when
+ * both are on screen. `salesDate` stays in the tail — the contract rules it out
+ * as the business column (it is the receipt's voucher denormal, year-1 on a
+ * settlement row).
  */
 export const DEFAULT_FIELDS = [
   'collectionReceiptNo',
   'storeId',
   'storeName',
   'collectorName',
+  'businessDay',
   'collectedAt',
   'netCollected',
   'variance',
@@ -210,6 +219,7 @@ function column(
         // which is what keeps it chronological.
         filterValueGetter: (p) => formatDateTime(p.data?.[field]),
       }
+    case 'businessDay':
     case 'salesDate':
       return {
         headerName: label,
@@ -217,7 +227,9 @@ function column(
         colId: field,
         width: 120,
         valueFormatter: (p: ValueFormatterParams<CollectionInquiryRow, string>) => formatDay(p.value),
-        filterValueGetter: (p) => formatDay(p.data?.salesDate),
+        // The date part only; `null` (a settlement receipt, a pre-049 day) and the
+        // year-1 sentinel both render blank, never 0001-01-01.
+        filterValueGetter: (p) => formatDay(p.data?.[field]),
       }
     case 'cardTransactionCount':
       return {

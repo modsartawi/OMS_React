@@ -91,11 +91,13 @@ describe('the scope round-trips through the URL', () => {
   })
 })
 
-describe('the four criteria the chip overrides and disables', () => {
-  it('is From, To, Store, Collector and Served by — the toolbar’s whole set', () => {
+describe('the criteria the chip overrides and disables — all of them', () => {
+  it('is both date ranges, Store, Collector and Served by — the toolbar’s whole set', () => {
     expect([...SCOPE_DISABLED_FIELDS]).toEqual([
-      'fromDate',
-      'toDate',
+      'businessDateFrom',
+      'businessDateTo',
+      'collectionDateFrom',
+      'collectionDateTo',
       'storeId',
       'collectorOperatorId',
       'servedBy',
@@ -118,8 +120,10 @@ describe('the four criteria the chip overrides and disables', () => {
 
 describe('the query the scoped screen issues', () => {
   const FILTERED: CollectionsCriteria = {
-    fromDate: '2026-07-01',
-    toDate: '2026-07-31',
+    businessDateFrom: '2026-06-28',
+    businessDateTo: '2026-07-30',
+    collectionDateFrom: '2026-07-01',
+    collectionDateTo: '2026-07-31',
     storeId: '1003',
     collectorOperatorId: '4472',
     servedBy: { kind: 'ACCOUNTANT', id: '4466' },
@@ -138,10 +142,16 @@ describe('the query the scoped screen issues', () => {
     for (const key of [
       'FromDate',
       'ToDate',
+      // …and the four named dates (BackOffice 1992): the door ignores them under an
+      // AcrId exactly as it ignored the legacy pair.
+      'BusinessDateFrom',
+      'BusinessDateTo',
+      'CollectionDateFrom',
+      'CollectionDateTo',
       'StoreId',
       'CollectorOperatorId',
       // The scope discards the assigned-to filter with the rest (BackOffice 1163):
-      // the door ignores it under an AcrId exactly as it ignores the other four.
+      // the door ignores it under an AcrId exactly as it ignores the others.
       'ServedByKind',
       'ServedById',
     ])
@@ -155,8 +165,10 @@ describe('the query the scoped screen issues', () => {
   it('is the ORDINARY criteria query when there is no scope', () => {
     expect(collectionsParamsFor('', FILTERED)).toEqual({
       Limit: 2000,
-      FromDate: '2026-07-01',
-      ToDate: '2026-07-31',
+      BusinessDateFrom: '2026-06-28',
+      BusinessDateTo: '2026-07-30',
+      CollectionDateFrom: '2026-07-01',
+      CollectionDateTo: '2026-07-31',
       StoreId: '1003',
       CollectorOperatorId: '4472',
       ServedByKind: 'ACCOUNTANT',
@@ -172,6 +184,10 @@ describe('the query the scoped screen issues', () => {
     const scoped = collectionsParamsFor(ACR, landing)
     const cleared = collectionsParamsFor(readAcrScope(withoutAcrScope(`acr=${ACR}`)), landing)
     expect(scoped).toEqual({ Limit: 2000, AcrId: ACR })
-    expect(cleared).toEqual({ Limit: 2000, FromDate: '2026-08-08', ToDate: '2026-08-08' })
+    expect(cleared).toEqual({
+      Limit: 2000,
+      CollectionDateFrom: '2026-08-08',
+      CollectionDateTo: '2026-08-08',
+    })
   })
 })

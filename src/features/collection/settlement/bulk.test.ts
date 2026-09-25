@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { bulkTotals, reviewBulk, UNRESOLVED_BRANCH_CODE } from './bulk'
+import type { SettlementBulkCancelRow } from '@/core/models/settlement'
+import { bulkTotals, reviewBulk, UNRESOLVED_BRANCH_CODE, withdrawalGroups } from './bulk'
 import {
   BAD_HEADER_PREVIEW,
   BAD_ROW_PREVIEW,
@@ -221,3 +222,40 @@ describe('reviewBulk — the server’s scalar total, cross-checked', () => {
  * why the replacement is asserted against the live door in 274's Proof rather than
  * re-mocked here.
  */
+
+describe('a withdrawn batch, grouped by what each row is (310, BackOffice 1979 §3)', () => {
+  /** 1979's own three-row sample, plus a row a supervisor had already rejected. */
+  const row = (o: Partial<SettlementBulkCancelRow> & Pick<SettlementBulkCancelRow, 'entryNumber'>): SettlementBulkCancelRow => ({
+    settlementEntryId: `B${o.entryNumber}`,
+    storeId: 'P019',
+    amount: 450,
+    accepted: false,
+    refusalReason: 'ENTRY_NOT_OPEN',
+    remainingAmount: 450,
+    status: 'OPEN',
+    ...o,
+  })
+  const ROWS = [
+    row({ entryNumber: 1101, accepted: true, refusalReason: '', status: 'CANCELLED' }),
+    row({ entryNumber: 1102, refusalReason: 'REMAINING_INSUFFICIENT', amount: 120, remainingAmount: 70 }),
+    row({ entryNumber: 1103, amount: 800, remainingAmount: 800, status: 'PENDING_APPROVAL' }),
+    row({ entryNumber: 1104, amount: 700, remainingAmount: 700, status: 'REJECTED' }),
+  ]
+  const numbers = (rows: SettlementBulkCancelRow[]) => rows.map((r) => r.entryNumber)
+
+  it('puts every row in exactly one group, in the door’s order', () => {
+    const g = withdrawalGroups(ROWS)
+    expect(numbers(g.withdrawn)).toEqual([1101])
+    expect(numbers(g.refused)).toEqual([1102])
+    expect(numbers(g.waiting)).toEqual([1103])
+    expect(numbers(g.rejected)).toEqual([1104])
+  })
+
+  it('🚩 a rejected row is NOT one a till got to first — it never went live', () => {
+    expect(numbers(withdrawalGroups(ROWS).refused)).not.toContain(1104)
+  })
+
+  it('reads a missing rows array as an empty withdrawal, never a crash', () => {
+    expect(withdrawalGroups(undefined)).toEqual({ withdrawn: [], refused: [], waiting: [], rejected: [] })
+  })
+})

@@ -65,7 +65,8 @@ export default function BranchAccount({
   })
   // 309: the area's ONE probe, already in the cache — the gate above this screen read
   // it with the same key and options, so this costs no second request. It decides
-  // whether Approve and Reject are drawn; the doors' 403 is the actual guard.
+  // whether Approve and Reject (309) and Cancel / Close-out (310) are drawn; the doors'
+  // 403 is the actual guard.
   const access = useQuery(collectionAccessQuery())
   const canSupervise = canSuperviseSettlement(access.data)
 
@@ -230,7 +231,7 @@ export default function BranchAccount({
             currencyKey={currencyKey}
             canSupervise={canSupervise}
           />
-          <EntryCorrection row={openRow} currencyKey={currencyKey} />
+          <EntryCorrection row={openRow} currencyKey={currencyKey} canSupervise={canSupervise} />
           <EntryJournal row={openRow} currencyKey={currencyKey} />
           <EntryAudit row={openRow} currencyKey={currencyKey} />
         </>

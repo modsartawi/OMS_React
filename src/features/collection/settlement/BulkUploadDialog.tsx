@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { toast } from 'sonner'
 import { Download, FileSpreadsheet, TriangleAlert } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
+import { collectionAccessQuery } from '@/core/collection/api'
 import { downloadCsv } from '@/core/util/download-file'
 import type {
   SettlementBulkCommitResult,
@@ -18,7 +19,7 @@ import { settlementMoney } from './money-display'
 import { uploadSearch } from './addresses'
 import { OPEN_LANE_KEY, PENDING_LANE_KEY } from './open-lane'
 import { amountInWords } from './amount-words'
-import { settlementApi } from './api'
+import { canSuperviseSettlement, settlementApi } from './api'
 import { reviewBulk, type BulkReview, type BulkTotal } from './bulk'
 import {
   BULK_TEMPLATE_COLUMNS,
@@ -657,6 +658,10 @@ function CommittedPanel({
   const { t } = useTranslation('settlement')
   const [searchParams] = useSearchParams()
   const numbers = result?.entryNumbers ?? []
+  // 310 (BackOffice 1979): withdrawing a batch is the accountant supervisor's act. The
+  // probe is already in the cache (the gate read it with the same options).
+  const access = useQuery(collectionAccessQuery())
+  const canSupervise = canSuperviseSettlement(access.data)
 
   return (
     <section className="flex flex-col gap-2" data-region="bulk-done" data-batch={batchId}>
@@ -684,8 +689,19 @@ function CommittedPanel({
       )}
       <p className="text-xs text-muted-foreground">{t('bulk.done.immutable')}</p>
       {/* 🚩 The withdrawal is an ADDRESS, so *"finance sent the wrong file"* is still
-          one repair an hour and a reload later. */}
-      {batchId && (
+          one repair an hour and a reload later — a supervisor's (310). An accountant is
+          told who withdraws it and handed that address to pass on, as text rather than
+          a link: nothing lists batches, so the address IS how a supervisor gets there,
+          and following it themselves would only meet the door's 403. */}
+      {batchId && !canSupervise && (
+        <p className="text-xs text-muted-foreground" data-testid="bulk-done-withdraw-supervisor">
+          {t('bulk.done.withdrawSupervisor')}{' '}
+          <span className="select-all font-mono" data-testid="bulk-done-withdraw-address">
+            {window.location.origin + uploadSearch(searchParams, batchId)}
+          </span>
+        </p>
+      )}
+      {batchId && canSupervise && (
         <Link
           to={uploadSearch(searchParams, batchId)}
           data-testid="bulk-done-withdraw"

@@ -1,5 +1,6 @@
 import { distinctCurrencies, roundMoney } from '@/core/money'
 import type {
+  SettlementBulkCancelRow,
   SettlementBulkError,
   SettlementBulkPreview,
   SettlementBulkRow,
@@ -261,3 +262,35 @@ function compareToServerTotal(
  * 🚩 It also stood on `Settlement/Ledger`, which 274 found does not exist — so this
  * path had never worked against a real server and could not have.
  */
+
+/**
+ * **What a batch withdrawal came back with, grouped by what each row IS** — the
+ * door's own `rows`, never re-decided (1979 §3, 1978 §5).
+ *
+ * - `withdrawn` — accepted.
+ * - `waiting` — refused and `PENDING_APPROVAL`: no till has seen it and it stays
+ *   pending; what ends it is a supervisor's Reject on its account.
+ * - `rejected` — refused and `REJECTED`: a supervisor already refused it, so it never
+ *   went live. 🚩 **Not a till's doing, and it carries no remaining a branch holds** —
+ *   listing it under *"a till got to these first"* with its remaining would state a
+ *   figure every other surface of this feature refuses to show (309).
+ * - `refused` — every other refusal: the till got there first (`REMAINING_INSUFFICIENT`),
+ *   or the entry had already ended. Its remaining is the server's true figure.
+ */
+export type WithdrawalGroups = {
+  withdrawn: SettlementBulkCancelRow[]
+  refused: SettlementBulkCancelRow[]
+  waiting: SettlementBulkCancelRow[]
+  rejected: SettlementBulkCancelRow[]
+}
+
+export function withdrawalGroups(rows: SettlementBulkCancelRow[] | null | undefined): WithdrawalGroups {
+  const groups: WithdrawalGroups = { withdrawn: [], refused: [], waiting: [], rejected: [] }
+  for (const row of rows ?? []) {
+    if (row.accepted) groups.withdrawn.push(row)
+    else if (row.status === 'PENDING_APPROVAL') groups.waiting.push(row)
+    else if (row.status === 'REJECTED') groups.rejected.push(row)
+    else groups.refused.push(row)
+  }
+  return groups
+}

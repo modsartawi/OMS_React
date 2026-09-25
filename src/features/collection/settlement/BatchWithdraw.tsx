@@ -1,17 +1,20 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router'
 import { TriangleAlert } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
+import { COLLECTION_ACCESS_KEY, collectionAccessQuery } from '@/core/collection/api'
 import { formatMoneyOfUnknownCurrency } from '@/core/money'
 import type { SettlementBulkCancelResult, SettlementBulkCancelRow } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { branchSearch } from './addresses'
+import { withdrawalGroups } from './bulk'
 import { OPEN_LANE_KEY } from './open-lane'
-import { settlementApi } from './api'
+import { canSuperviseSettlement, settlementApi } from './api'
+import { supervisionFailure } from './approval'
 import { REASON_MAX } from './posting'
 import ReasonField from './ReasonField'
 
@@ -47,6 +50,13 @@ import ReasonField from './ReasonField'
  *   write-off is a separate act with a separate reason, and forgiving one because it
  *   shares a batch with forty other rows is not what *"finance sent the wrong file"*
  *   asks for. Each such row links to its own entry, where 272's panel offers it.
+ *
+ * 🔑 **The act is the accountant supervisor's alone** (ticket 310, BackOffice 1979):
+ * *"finance sent last month's file"* is not a back door around the rule that only a
+ * supervisor takes money back. The address still opens for an accountant — it is a
+ * link somebody may paste — but it shows the batch, says who can withdraw it, and
+ * draws no reason box and no button. The hiding is courtesy: the door answers a bare
+ * 403 regardless, and a press that meets one is named and re-reads the probe.
  */
 export default function BatchWithdraw({ batchId }: { batchId: string }) {
   const { t } = useTranslation('settlement')
@@ -55,6 +65,10 @@ export default function BatchWithdraw({ batchId }: { batchId: string }) {
 
   const [reason, setReason] = useState('')
   const [outcome, setOutcome] = useState<SettlementBulkCancelResult | null>(null)
+  // The area's ONE probe, already in the cache — the gate above this screen read it
+  // with the same key and options, so this costs no second request.
+  const access = useQuery(collectionAccessQuery())
+  const canSupervise = canSuperviseSettlement(access.data)
 
   const withdraw = useMutation({
     mutationFn: () => settlementApi.bulkCancel(batchId, reason.trim()),
@@ -69,6 +83,12 @@ export default function BatchWithdraw({ batchId }: { batchId: string }) {
     // 🚩 A refused ROW is not an error — it arrives inside a 200 and is reported
     // below by name. `onError` is only for the call itself failing, which leaves the
     // whole batch's state unknown rather than decided.
+    onError: (error) => {
+      // 310: the bare 403 — this session does not supervise (any more). Re-reading the
+      // probe is what takes the act away; the banner below names the refusal.
+      if (supervisionFailure(error) === 'forbidden')
+        void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
+    },
   })
 
   const ready = reason.trim().length > 0 && !withdraw.isPending
@@ -82,13 +102,25 @@ export default function BatchWithdraw({ batchId }: { batchId: string }) {
 
       {withdraw.isError && (
         <ErrorBanner
-          message={apiErrorMessage(withdraw.error, t('batch.errors.withdrawFailed'))}
+          message={
+            supervisionFailure(withdraw.error) === 'forbidden'
+              ? t('batch.errors.forbidden')
+              : apiErrorMessage(withdraw.error, t('batch.errors.withdrawFailed'))
+          }
           className="p-3"
         />
       )}
 
       {outcome ? (
         <Outcome outcome={outcome} params={searchParams} />
+      ) : !canSupervise ? (
+        // 🔑 310: the batch is named and its withdrawer is named — nothing to press.
+        <div
+          className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3"
+          data-testid="batch-supervisor-only"
+        >
+          <p className="text-sm">{t('batch.supervisorOnly')}</p>
+        </div>
       ) : (
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
           <p className="text-sm">{t('batch.act.wholeBatch')}</p>
@@ -129,10 +161,9 @@ function Outcome({
   const { t } = useTranslation('settlement')
 
   // 309 (BackOffice 1978 §5): a pending row of a withdrawn batch is refused too — but
-  // no till got to it, so it is not one of *"a till got to these first"*. Its own group.
-  const waiting = (outcome.rows ?? []).filter((r) => !r.accepted && r.status === 'PENDING_APPROVAL')
-  const refused = (outcome.rows ?? []).filter((r) => !r.accepted && r.status !== 'PENDING_APPROVAL')
-  const withdrawn = (outcome.rows ?? []).filter((r) => r.accepted)
+  // no till got to it, so it is not one of *"a till got to these first"*, and neither is
+  // one a supervisor already rejected (310). Each has its own group (`withdrawalGroups`).
+  const { waiting, rejected, refused, withdrawn } = withdrawalGroups(outcome.rows)
 
   return (
     <div className="flex flex-col gap-3" data-region="batch-outcome">
@@ -180,6 +211,16 @@ function Outcome({
         >
           {waiting.map((row) => (
             <Row key={row.settlementEntryId} row={row} params={params} note={t('batch.outcome.pendingRow')} />
+          ))}
+        </Group>
+      )}
+
+      {/* 310: already rejected by a supervisor — it never went live, so there is no
+          remaining to state and no till to blame. */}
+      {rejected.length > 0 && (
+        <Group testId="batch-rejected" title={t('batch.outcome.rejected', { count: rejected.length })}>
+          {rejected.map((row) => (
+            <Row key={row.settlementEntryId} row={row} params={params} note={t('batch.outcome.rejectedRow')} />
           ))}
         </Group>
       )}

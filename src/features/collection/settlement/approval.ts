@@ -175,7 +175,9 @@ export function afterSupervision(
 }
 
 /**
- * Why an Approve or a Reject threw.
+ * Why a supervisor's act threw — an Approve or a Reject, and since ticket 310
+ * (BackOffice 1979) a Cancel, a Close-out or a batch withdrawal too: all five doors
+ * sit behind the same supervision grant and refuse the same way.
  *
  * 🔑 **`forbidden` is the bare 403 the doors answer a session without settlement
  * supervision** — no body, so `@/core/api` can only call it *unexpected*. It is named

@@ -157,7 +157,7 @@
   "correction": {
     "title": "Correcting a mistake",
     "forEntry": "Entry {{number}}",
-    "noAmend": "Changing the amount is not offered at all. Once posted, an entry is either withdrawn whole while nothing has been taken against it, or its remainder written off once a till has taken part of it.",
+    "noAmend": "Changing the amount is not offered at all. Once posted, an entry is either withdrawn whole while nothing has been taken against it, or its remainder written off once a till has taken part of it — and both are an accountant supervisor's acts. A wrong entry is cancelled by a supervisor and posted again.",
     "journalUntouched": "Neither act touches what a till has already taken — the journal below is unchanged by a write-off, and a receipt already in a collector's hands is never retro-voided.",
     "reasonLabel": "Why (the audit reads this)",
     "reasonHint": "Up to {{max}} characters. It is kept beside the correction in this branch's history, and read by whoever asks about this entry months from now.",
@@ -167,6 +167,10 @@
       "why": "Nothing has been taken against entry {{number}}, so all {{amount}} of it can be withdrawn as though it never happened.",
       "button": "Cancel this entry",
       "commit": "Cancel entry {{number}}"
+    },
+    "supervisorOnly": {
+      "cancel": "Nothing has been taken against entry {{number}}, so all {{amount}} of it can still be withdrawn — but only by an accountant supervisor. If it was posted wrongly, ask one to cancel it, then post the right entry.",
+      "writeOff": "A till has already taken part of entry {{number}} — {{remaining}} of {{amount}} is left. Only an accountant supervisor can write off the remainder; ask one if it should not be kept."
     },
     "writeOff": {
       "why": "A till has already taken part of entry {{number}} — {{remaining}} of {{amount}} is left. It cannot be cancelled, because what a till took is on a document the branch already acted on. The remainder can be written off instead.",
@@ -194,7 +198,8 @@
     },
     "errors": {
       "cancelFailed": "The cancellation could not be sent.",
-      "closeOutFailed": "The write-off could not be sent."
+      "closeOutFailed": "The write-off could not be sent.",
+      "forbidden": "Only an accountant supervisor can cancel an entry or write off its remainder, and this session does not hold settlement supervision — nothing was changed."
     }
   },
   "audit": {
@@ -282,7 +287,7 @@
         "SHORTAGE": "{{store}} {{storeName}} must hand this money over.",
         "SURPLUS": "{{store}} {{storeName}} may keep this money back."
       },
-      "immutable": "Once posted, this amount cannot be changed. It can only be cancelled while nothing has been taken against it, or its remainder written off once a till has taken part of it."
+      "immutable": "Once posted, this amount cannot be changed. An accountant supervisor can only cancel it while nothing has been taken against it, or write off its remainder once a till has taken part of it."
     },
     "words": {
       "join": "{{major}} and {{minor}}",
@@ -319,7 +324,7 @@
         "SURPLUS": "{{store}} {{storeName}} may keep back {{amount}} {{currency}}."
       },
       "adjusted": "The server stored {{stored}} {{currency}}, not the {{reviewed}} that was reviewed. The figure above is the one on the ledger and the one the branch will be asked for.",
-      "immutable": "Quote this number to the branch. The amount cannot be changed from here — it can only be cancelled while untouched, or its remainder written off once a till has taken part of it.",
+      "immutable": "Quote this number to the branch. The amount cannot be changed from here — an accountant supervisor can only cancel it while untouched, or write off its remainder once a till has taken part of it.",
       "close": "Done",
       "pending": "This surplus waits for an accountant supervisor’s approval. No till can see it, and the branch cannot keep it back, until it is approved."
     },
@@ -387,8 +392,9 @@
       "posted": "{{count}} entries are posted.",
       "replayed": "This exact file had already been committed, so nothing was doubled — these are the entries it posted the first time.",
       "numbers": "Entry numbers: {{numbers}}",
-      "immutable": "These amounts cannot be changed. Each can be cancelled while nothing has been taken against it, or its remainder written off once a till has taken part of it — and the whole batch can be withdrawn as one act.",
+      "immutable": "These amounts cannot be changed. An accountant supervisor can cancel each while nothing has been taken against it, or write off its remainder once a till has taken part of it — and can withdraw the whole batch as one act.",
       "withdraw": "Withdraw this whole batch",
+      "withdrawSupervisor": "If this file was wrong, only an accountant supervisor can withdraw the batch. Send them its withdrawal address:",
       "close": "Done"
     },
     "errors": {
@@ -399,14 +405,16 @@
   },
   "batch": {
     "title": "Withdraw an uploaded batch",
+    "supervisorOnly": "Withdrawing a batch is an accountant supervisor's act, so nothing can be withdrawn from this session. If finance sent the wrong file, send this page's address to a supervisor.",
     "errors": {
-      "withdrawFailed": "The batch could not be withdrawn."
+      "withdrawFailed": "The batch could not be withdrawn.",
+      "forbidden": "Only an accountant supervisor can withdraw a batch, and this session does not hold settlement supervision — nothing was withdrawn."
     },
     "row": {
       "entry": "entry {{number}}"
     },
     "act": {
-      "notRetroVoided": "What a till has already taken is untouched by this: a receipt in a collector's hands is never retro-voided, and an entry a till reached first keeps its remainder until someone writes it off on its own account.",
+      "notRetroVoided": "What a till has already taken is untouched by this: a receipt in a collector's hands is never retro-voided, and an entry a till reached first keeps its remainder until you write it off on its own account.",
       "reasonLabel": "Why (every withdrawn entry's audit reads this)",
       "reasonHint": "Up to {{max}} characters. It is filed against each entry this act withdraws — \"finance sent the wrong file\" is the sentence this box is for.",
       "working": "Withdrawing…",
@@ -420,7 +428,9 @@
       "refusedRowUnstated": "Not withdrawn — {{remaining}} is what it now has left, and the server did not say why.",
       "withdrawn": "Withdrawn ({{count}})",
       "pending": "Still waiting for a supervisor ({{count}})",
-      "pendingRow": "Not withdrawn — no till has seen it. It waits for a supervisor, who can reject it on its account."
+      "pendingRow": "Not withdrawn — no till has seen it, and it still waits for approval. Open its account to reject it (a rejection needs a reason).",
+      "rejected": "Already rejected by a supervisor ({{count}})",
+      "rejectedRow": "Not withdrawn — a supervisor had already rejected it, so it never went live and nothing is owed on it."
     }
   },
   "figures": {

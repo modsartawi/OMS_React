@@ -16,7 +16,12 @@
 import { describe, expect, it } from 'vitest'
 
 import type { SettlementEntry } from '@/core/models/settlement'
-import { afterRefusedCancel, afterRefusedCloseOut, correctionFor } from './correction'
+import {
+  afterRefusedCancel,
+  afterRefusedCloseOut,
+  correctionFor,
+  correctionShownTo,
+} from './correction'
 import { SETTLEMENT_ACCOUNTS } from './settlement-fixture'
 
 const entryOf = (code: string, entryNumber: number): SettlementEntry => {
@@ -216,6 +221,69 @@ describe('the write-off that was refused', () => {
     expect(afterRefusedCloseOut({ remainingAmount: 0.1 + 0.2 })).toEqual({
       kind: 'refused',
       remaining: 0.3,
+    })
+  })
+})
+
+describe('🔑 the correction is the supervisor’s alone (ticket 310, BackOffice 1979)', () => {
+  // `Settlement/Cancel` and `Settlement/CloseOut` answer an accountant a bare 403. The
+  // button is hidden off `canSuperviseSettlement` as a courtesy; the 403 is the guard.
+
+  it('a supervisor is offered the act the entry decides — cancel or write-off, unchanged', () => {
+    const untouched = correctionFor(entryOf('0142', 143))
+    const partly = correctionFor(entryOf('0142', 151))
+    expect(correctionShownTo(untouched, true)).toEqual({ kind: 'cancel', amount: 500 })
+    expect(correctionShownTo(partly, true)).toEqual({ kind: 'write-off', remaining: 120 })
+  })
+
+  it('🚩 an accountant is offered NEITHER — the act is named as a supervisor’s instead', () => {
+    const untouched = correctionFor(entryOf('0142', 143))
+    const partly = correctionFor(entryOf('0142', 151))
+    const forCancel = correctionShownTo(untouched, false)
+    const forWriteOff = correctionShownTo(partly, false)
+    expect(forCancel).toEqual({ kind: 'supervisor-only', offer: { kind: 'cancel', amount: 500 } })
+    expect(forWriteOff).toEqual({
+      kind: 'supervisor-only',
+      offer: { kind: 'write-off', remaining: 120 },
+    })
+    // …and never a button kind at the top level, which is what the panel draws off.
+    for (const view of [forCancel, forWriteOff]) {
+      expect(view.kind).not.toBe('cancel')
+      expect(view.kind).not.toBe('write-off')
+    }
+  })
+
+  it('an entry that offers nothing says the same thing to both — its status is the reason', () => {
+    const consumed: Pick<SettlementEntry, 'status' | 'amount' | 'remainingAmount'> = {
+      status: 'CONSUMED',
+      amount: 200,
+      remainingAmount: 0,
+    }
+    const pending: Pick<SettlementEntry, 'status' | 'amount' | 'remainingAmount'> = {
+      status: 'PENDING_APPROVAL',
+      amount: 900,
+      remainingAmount: 900,
+    }
+    for (const entry of [consumed, pending]) {
+      const offer = correctionFor(entry)
+      expect(correctionShownTo(offer, false)).toEqual(offer)
+      expect(correctionShownTo(offer, true)).toEqual(offer)
+    }
+  })
+
+  it('a race recovery shown to a session that lost the grant is still not a button', () => {
+    // A supervisor loses a cancel race, is offered the write-off, and then the probe
+    // re-reads without supervision (a 403 invalidates it): the offer stays named, and
+    // unpressable.
+    const raced = afterRefusedCancel(entryOf('0142', 143), {
+      refusalReason: 'REMAINING_INSUFFICIENT',
+      remainingAmount: 70,
+    })
+    expect(raced.kind).toBe('partly-consumed')
+    if (raced.kind !== 'partly-consumed') return
+    expect(correctionShownTo(raced.offer, false)).toEqual({
+      kind: 'supervisor-only',
+      offer: { kind: 'write-off', remaining: 70 },
     })
   })
 })

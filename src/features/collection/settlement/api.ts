@@ -74,12 +74,13 @@ export const canOpenSettlement = (r: CollectionAccessResult | null | undefined):
 
 /**
  * **Settlement supervision** — whether this session is offered an accountant
- * supervisor's acts (ticket 309, BackOffice 1977). Today: Approve and Reject on a
- * pending surplus.
+ * supervisor's acts (ticket 309, BackOffice 1977): Approve and Reject on a pending
+ * surplus, and — since ticket 310 (BackOffice 1979) — Cancel, Close-out and a batch
+ * withdrawal, which an accountant no longer holds.
  *
  * `=== true` and nothing looser, on `canOpenSettlement`'s argument: a SIS.Api released
  * before the flag answers without it, and absent must read as no. 🚩 It hides buttons
- * and guards nothing — the two doors answer a bare 403 to a session without the grant
+ * and guards nothing — the five doors answer a bare 403 to a session without the grant
  * whatever this said, and the screen handles that 403 (`supervisionFailure`).
  *
  * ⚠️ Deliberately NOT read by `canOpenSettlement`, and it opens no screen of its own:
@@ -434,6 +435,7 @@ export const settlementApi = {
   /**
    * `POST Settlement/Cancel` → withdraws an entry **as though it never happened**
    * (ticket 272, spec 267 D5). Only lawful while nothing has been taken against it.
+   * 🚩 **A supervisor's act** (310, BackOffice 1979): an accountant gets a bare 403.
    *
    * 🔑 **A refusal is a 200, and it is the case this door is designed around.** The
    * server's `remaining == amount` predicate sits *inside* its UPDATE, so a till
@@ -453,7 +455,8 @@ export const settlementApi = {
 
   /**
    * `POST Settlement/CloseOut` → forgives the **remainder** of a partly consumed
-   * entry (ticket 272, spec 267 D5).
+   * entry (ticket 272, spec 267 D5). 🚩 **A supervisor's act** (310, BackOffice 1979):
+   * an accountant gets a bare 403.
    *
    * 🚩 **It touches no consumption, and that is the load-bearing property.** A
    * receipt already in a collector's hands is never retro-voided, so the journal
@@ -569,7 +572,9 @@ export const settlementApi = {
 
   /**
    * `POST Settlement/Bulk/Cancel` → withdraws **every entry of a batch, as a unit**
-   * (BackOffice ticket 1186).
+   * (BackOffice ticket 1186). 🚩 **A supervisor's act** (310, BackOffice 1979): an
+   * accountant gets a bare 403 — *"finance sent last month's file"* is not a back door
+   * around the rule that only a supervisor takes money back.
    *
    * 🔑 **274 found this door, and it replaces a loop.** 273 withdrew a batch from
    * the browser: fetch the cross-estate ledger filtered to a `batchId`, decide per

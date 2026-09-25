@@ -74,6 +74,10 @@ const ALL = {
   canOpenDeposits: true,
   canOpenAttempts: true,
   canOpenSettlement: true,
+  // 310 (BackOffice 1979): cancel, close-out and batch withdrawal are the accountant
+  // SUPERVISOR's, and this drive exercises all three — so its session supervises. The
+  // accountant's view of them is `tools/settlement-supervision-drive.mjs`'s.
+  canSuperviseSettlement: true,
 }
 /** What `CollectionWeb/Access` actually answers today: four flags, no fifth. */
 const FOUR_FLAGS = {

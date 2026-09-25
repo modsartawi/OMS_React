@@ -121,6 +121,35 @@ export function correctionFor(
 }
 
 /**
+ * **Who is offered the act** — ticket 310 (BackOffice 1979): cancel and close-out are
+ * the **accountant supervisor's** alone.
+ *
+ * 🔑 **The entry still decides WHICH act; the session decides only whether it is a
+ * button.** An accountant is shown `supervisor-only` carrying the very offer a
+ * supervisor would get, so the panel can still say *"nothing has been taken — a
+ * supervisor can cancel it"* or name the remainder a supervisor could write off. The
+ * one-affordance rule above survives intact: a supervisor-only view has no button at
+ * all, so it cannot be the second one.
+ *
+ * ⚠️ **Hiding is courtesy; the doors' bare 403 is the guard.** `Settlement/Cancel` and
+ * `Settlement/CloseOut` refuse a session without settlement supervision whatever this
+ * returned, and the panel names that 403 (`supervisionFailure`) rather than calling it
+ * unexpected. `canSupervise` is `canSuperviseSettlement(probe)` — read `=== true`, so a
+ * probe that did not say so is an accountant.
+ *
+ * An entry that offers nothing reads the same to both: its status is the reason, and
+ * it is not the session's.
+ */
+export type CorrectionView =
+  | CorrectionOffer
+  | { kind: 'supervisor-only'; offer: Exclude<CorrectionOffer, { kind: 'none' }> }
+
+export function correctionShownTo(offer: CorrectionOffer, canSupervise: boolean): CorrectionView {
+  if (offer.kind === 'none' || canSupervise) return offer
+  return { kind: 'supervisor-only', offer }
+}
+
+/**
  * 🔑 **What a cancel that lost its race becomes.**
  *
  * The server's predicate is inside its UPDATE, so between the screen drawing

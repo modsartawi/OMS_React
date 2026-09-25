@@ -5,14 +5,17 @@ import { toast } from 'sonner'
 import { TriangleAlert } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
+import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import Button from '@/core/ui/Button'
 import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
 import { settlementApi } from './api'
+import { supervisionFailure } from './approval'
 import {
   afterRefusedCancel,
   afterRefusedCloseOut,
   correctionFor,
+  correctionShownTo,
   type CancelRefusal,
   type CloseOutRefusal,
   type CorrectionOffer,
@@ -48,6 +51,13 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  * ⚠️ *"Changing the amount is not offered at all"* is **said out loud** here, in
  * every state including the ones with no button, because the absence of an amend is
  * otherwise indistinguishable from an oversight.
+ *
+ * 🔑 **The button is the accountant supervisor's alone** (ticket 310, BackOffice
+ * 1979). An accountant still sees the panel — which act the entry would take, and
+ * the sentence naming the supervisor who can — but no button (`correctionShownTo`).
+ * The hiding is courtesy: the doors answer a bare 403 regardless, and a press that
+ * meets one (the grant was taken away after the probe was read) is named, and
+ * re-reads the probe so the button goes.
  */
 /** What a correction is sent WITH — the entry it is about and the words filed
  *  against it, both captured at the press rather than read back from whatever the
@@ -57,9 +67,12 @@ type CorrectionVars = { row: AccountEntryRow; reason: string }
 export default function EntryCorrection({
   row,
   currencyKey,
+  canSupervise,
 }: {
   row: AccountEntryRow | null
   currencyKey: string
+  /** `canSuperviseSettlement` off the area's one probe — hides the button, guards nothing. */
+  canSupervise: boolean
 }) {
   const { t } = useTranslation('settlement')
   const queryClient = useQueryClient()
@@ -105,6 +118,20 @@ export default function EntryCorrection({
   // variable is what makes the invariant above structural rather than hopeful.
   const stillOn = (of: AccountEntryRow) => of.settlementEntryId === entryId
 
+  /** 🚩 310: a bare 403 is the doors saying this session does not supervise. The
+   *  probe is read once per page life (`staleTime: Infinity`), so re-reading it is what
+   *  takes the button away; the reason box closes with it. Anything else is
+   *  `apiErrorMessage`'s to word. */
+  const onCorrectionError = (error: unknown, fallback: string) => {
+    if (supervisionFailure(error) === 'forbidden') {
+      toast.error(t('correction.errors.forbidden'))
+      void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
+      setAct(null)
+      return
+    }
+    toast.error(apiErrorMessage(error, fallback))
+  }
+
   const cancelEntry = useMutation({
     mutationFn: (v: CorrectionVars) => settlementApi.cancel(v.row.settlementEntryId, v.reason),
     onSuccess: (result, v) => {
@@ -143,7 +170,7 @@ export default function EntryCorrection({
       // happened — on the one field whose whole purpose is to be read months later.
       setReason('')
     },
-    onError: (error) => toast.error(apiErrorMessage(error, t('correction.errors.cancelFailed'))),
+    onError: (error) => onCorrectionError(error, t('correction.errors.cancelFailed')),
   })
 
   const closeOut = useMutation({
@@ -176,7 +203,7 @@ export default function EntryCorrection({
       setAct(null)
       setReason('')
     },
-    onError: (error) => toast.error(apiErrorMessage(error, t('correction.errors.closeOutFailed'))),
+    onError: (error) => onCorrectionError(error, t('correction.errors.closeOutFailed')),
   })
 
   if (!row) return null
@@ -191,6 +218,12 @@ export default function EntryCorrection({
   // server can only refuse.
   const correction: CorrectionOffer =
     raced?.kind === 'partly-consumed' && fromRow.kind !== 'none' ? raced.offer : fromRow
+  // 🔑 310: …and whether it is a BUTTON is the session's. An accountant is shown the
+  // same act, named as the supervisor's, with nothing to press.
+  const view = correctionShownTo(correction, canSupervise)
+  /** The act a button may be drawn for — `null` for an entry that offers nothing and
+   *  for a session that does not supervise. */
+  const offered = view.kind === 'cancel' || view.kind === 'write-off' ? view : null
   // 🚩 **A refusal that did not move the remaining, and an entry a till emptied
   // mid-dialog, offer NOTHING.** Falling through to `correctionFor(row)` here would
   // re-draw the identical *Cancel this entry* button under a notice saying it cannot
@@ -208,7 +241,7 @@ export default function EntryCorrection({
     <section
       data-region="entry-correction"
       data-entry={row.entryNumber}
-      data-correction={blocked ? 'none' : correction.kind}
+      data-correction={blocked ? 'none' : view.kind}
       className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card/40 p-4"
     >
       <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -273,83 +306,101 @@ export default function EntryCorrection({
       {/* Why this entry cannot be cancelled, wherever that is the case — said
           BESIDE the button rather than instead of one, so a write-off is an answer
           rather than a missing affordance (user story 21). */}
-      {!blocked && correction.kind === 'write-off' && (
+      {!blocked && view.kind === 'write-off' && (
         <p className="text-sm text-muted-foreground" data-testid="correction-why">
           {t('correction.writeOff.why', {
             number: row.entryNumber,
-            remaining: money(correction.remaining),
+            remaining: money(view.remaining),
             amount: money(row.amount),
           })}
         </p>
       )}
-      {!blocked && correction.kind === 'cancel' && (
+      {!blocked && view.kind === 'cancel' && (
         <p className="text-sm text-muted-foreground">
-          {t('correction.cancel.why', { number: row.entryNumber, amount: money(correction.amount) })}
+          {t('correction.cancel.why', { number: row.entryNumber, amount: money(view.amount) })}
+        </p>
+      )}
+      {/* 🔑 310: the act this entry would take, named as the supervisor's — the
+          accountant's answer to a wrong entry, with nothing to press. */}
+      {!blocked && view.kind === 'supervisor-only' && (
+        <p className="text-sm text-muted-foreground" data-testid="correction-supervisor-only">
+          {view.offer.kind === 'cancel'
+            ? t('correction.supervisorOnly.cancel', {
+                number: row.entryNumber,
+                amount: money(view.offer.amount),
+              })
+            : t('correction.supervisorOnly.writeOff', {
+                number: row.entryNumber,
+                remaining: money(view.offer.remaining),
+                amount: money(row.amount),
+              })}
         </p>
       )}
       {/* ⚠️ Suppressed while a notice is up: the notice above is already the
           sentence explaining why nothing is offered, and two of them would read as
           two different reasons for one absence. */}
-      {!blocked && correction.kind === 'none' && (
+      {!blocked && view.kind === 'none' && (
         <p className="text-sm text-muted-foreground" data-testid="correction-none">
-          {t(`correction.none.${correction.because}`)}
+          {t(`correction.none.${view.because}`)}
         </p>
       )}
 
-      {act === null
-        ? !blocked &&
-          correction.kind !== 'none' && (
-            <div className="flex flex-wrap gap-2">
-              {/* 🔑 ONE button. There is no second element in this row, and the
-                  union above is what makes that structural rather than a habit. */}
-              <Button
-                variant="danger-outlined"
-                onClick={() => setAct(correction.kind === 'cancel' ? 'cancel' : 'write-off')}
-                data-testid="correction-act"
-                data-act={correction.kind}
-              >
-                {correction.kind === 'cancel'
-                  ? t('correction.cancel.button')
-                  : t('correction.writeOff.button', { remaining: money(correction.remaining) })}
-              </Button>
-            </div>
-          )
-        : (
-            <div className="flex flex-col gap-2">
-              <ReasonField
-                value={reason}
-                onValue={setReason}
-                label={t('correction.reasonLabel')}
-                hint={t('correction.reasonHint', { max: REASON_MAX })}
-                testId="correction-reason"
-              />
+      {/* ⚠️ Neither the button nor an open reason box survives the session losing
+          supervision — a 403 re-reads the probe, and `view` is then supervisor-only. */}
+      {offered &&
+        (act === null
+          ? !blocked && (
               <div className="flex flex-wrap gap-2">
+                {/* 🔑 ONE button. There is no second element in this row, and the
+                    union above is what makes that structural rather than a habit. */}
                 <Button
-                  variant="danger"
-                  onClick={() =>
-                    canCommit &&
-                    (act === 'cancel' ? cancelEntry : closeOut).mutate({
-                      row,
-                      reason: reason.trim(),
-                    })
-                  }
-                  aria-disabled={!canCommit || undefined}
-                  data-testid="correction-commit"
+                  variant="danger-outlined"
+                  onClick={() => setAct(offered.kind === 'cancel' ? 'cancel' : 'write-off')}
+                  data-testid="correction-act"
+                  data-act={offered.kind}
                 >
-                  {act === 'cancel'
-                    ? t('correction.cancel.commit', { number: row.entryNumber })
-                    : t('correction.writeOff.commit', {
-                        remaining: money(
-                          correction.kind === 'write-off' ? correction.remaining : row.remainingAmount,
-                        ),
-                      })}
-                </Button>
-                <Button variant="text" onClick={() => setAct(null)} data-testid="correction-back">
-                  {t('correction.back')}
+                  {offered.kind === 'cancel'
+                    ? t('correction.cancel.button')
+                    : t('correction.writeOff.button', { remaining: money(offered.remaining) })}
                 </Button>
               </div>
-            </div>
-          )}
+            )
+          : (
+              <div className="flex flex-col gap-2">
+                <ReasonField
+                  value={reason}
+                  onValue={setReason}
+                  label={t('correction.reasonLabel')}
+                  hint={t('correction.reasonHint', { max: REASON_MAX })}
+                  testId="correction-reason"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="danger"
+                    onClick={() =>
+                      canCommit &&
+                      (act === 'cancel' ? cancelEntry : closeOut).mutate({
+                        row,
+                        reason: reason.trim(),
+                      })
+                    }
+                    aria-disabled={!canCommit || undefined}
+                    data-testid="correction-commit"
+                  >
+                    {act === 'cancel'
+                      ? t('correction.cancel.commit', { number: row.entryNumber })
+                      : t('correction.writeOff.commit', {
+                          remaining: money(
+                            offered.kind === 'write-off' ? offered.remaining : row.remainingAmount,
+                          ),
+                        })}
+                  </Button>
+                  <Button variant="text" onClick={() => setAct(null)} data-testid="correction-back">
+                    {t('correction.back')}
+                  </Button>
+                </div>
+              </div>
+            ))}
 
       {/* ⚠️ In every state, including the ones with no button. Its absence is
           otherwise indistinguishable from an oversight — and an accountant who

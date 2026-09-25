@@ -1,3 +1,5 @@
+import { useId } from 'react'
+import { useTranslation } from 'react-i18next'
 import { OPEN_LANE_KEY, PENDING_LANE_KEY } from './open-lane'
 import { REASON_MAX } from './posting'
 
@@ -33,6 +35,8 @@ export default function ReasonField({
   label,
   hint,
   maxLength = REASON_MAX,
+  required = false,
+  error = null,
   testId,
 }: {
   value: string
@@ -49,21 +53,51 @@ export default function ReasonField({
    * see.
    */
   maxLength?: number
+  /**
+   * ✅ Ticket 311 (BackOffice 1980): the box is **marked** required — on the label, in
+   * words, and to assistive tech. Marking is all it does: *what counts as blank* is
+   * the caller's rule (`checkDescription` for the posting form), because the browser's
+   * own `required` would call a box of spaces filled.
+   */
+  required?: boolean
+  /** The caller's sentence for why the text cannot be sent as it stands, or `null`. */
+  error?: string | null
   /** The drive addresses these boxes by name; each caller keeps its own. */
   testId: string
 }) {
+  const { t } = useTranslation('settlement')
+  const errorId = useId()
+
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium">{label}</span>
+      <span className="text-xs font-medium">
+        {label}
+        {required && (
+          <span className="ms-1.5 font-normal text-muted-foreground" data-testid={`${testId}-required`}>
+            {t('reasonField.required')}
+          </span>
+        )}
+      </span>
       <textarea
         value={value}
         onChange={(e) => onValue(e.target.value)}
         maxLength={maxLength}
         rows={3}
         dir="auto"
+        aria-required={required || undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
         data-testid={testId}
-        className="rounded-md border border-border bg-card p-2 text-sm outline-none focus:border-primary/60"
+        className={
+          'rounded-md border bg-card p-2 text-sm outline-none focus:border-primary/60 ' +
+          (error ? 'border-attention-border' : 'border-border')
+        }
       />
+      {error && (
+        <span id={errorId} className="whitespace-pre-line text-xs text-attention-800" data-testid={`${testId}-error`}>
+          {error}
+        </span>
+      )}
       <span className="text-xs text-muted-foreground">{hint}</span>
     </label>
   )

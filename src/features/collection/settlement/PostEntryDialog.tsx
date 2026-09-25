@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { TriangleAlert } from 'lucide-react'
 
-import { apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type {
   SettlementEntryKind,
   SettlementBranch,
@@ -21,6 +21,7 @@ import { settlementApi } from './api'
 import { inWordsSentence } from './in-words'
 import { ACCOUNT_LIMIT, isCapReached } from './cap'
 import {
+  checkDescription,
   parseAmount,
   REASON_MAX,
   resolveBranch,
@@ -89,6 +90,12 @@ export default function PostEntryDialog({
    *  exist until the amount has been read back in words. */
   const [reviewing, setReviewing] = useState(false)
   const [posted, setPosted] = useState<SettlementPostResult | null>(null)
+  /** Review was pressed on a form that was not ready — from then on a missing
+   *  description is SAID rather than left as a button that does nothing (311). */
+  const [attempted, setAttempted] = useState(false)
+  /** The server refused this description (311) — its own sentence, held against the
+   *  text it refused, so it stands on the box until that text is changed. */
+  const [refused, setRefused] = useState<{ text: string; message: string } | null>(null)
 
   // A fresh form per opening, seeded with whatever branch the screen was on. A
   // half-typed 50,000 left over from a dialog someone dismissed is the one piece of
@@ -101,6 +108,8 @@ export default function PostEntryDialog({
     setReason('')
     setReviewing(false)
     setPosted(null)
+    setAttempted(false)
+    setRefused(null)
   }, [open, seedStoreId])
 
   // 🔑 **THE ESTATE — the `Store` master, and never the fleet.** This asked the fleet
@@ -146,14 +155,27 @@ export default function PostEntryDialog({
 
   const amount = parseAmount(amountText)
   const words = useMemo(() => amountInWords(amount, currencyKey), [amount, currencyKey])
-  const trimmedReason = reason.trim()
+  // ✅ 311 (BackOffice 1980): the description is REQUIRED — it prints on the branch's
+  // papers. Trimmed, then measured, exactly as the server reads it; the trimmed text
+  // is what goes up.
+  const description = checkDescription(reason)
   // ⚠️ **A figure below the branch's smallest countable unit is not an amount.**
   // `0.004` at a SAR branch parses, and reads back as *zero riyals* — an entry no
   // till could ever consume and nobody could hand over. The refusal is measured
   // against the same precision the read-back uses, so the sentence and the rule
   // cannot part company.
   const countable = amount !== null && words.value > 0
-  const ready = !!branch && countable && trimmedReason.length > 0
+  const ready = !!branch && countable && description.problem === null
+  // Said once there is something to say: a box of only spaces at once (it LOOKS
+  // filled), an empty one after a press on Review — never on a form just opened.
+  const descriptionError =
+    description.problem === 'too-long'
+      ? t('post.reason.tooLong', { max: REASON_MAX })
+      : description.problem === 'blank' && (attempted || reason.length > 0)
+        ? t('post.reason.required')
+        : refused && refused.text === reason
+          ? refused.message
+          : null
 
   const post = useMutation({
     mutationFn: () =>
@@ -161,7 +183,7 @@ export default function PostEntryDialog({
         storeId: branch!.storeId,
         entryKind: kind,
         amount: amount!,
-        reason: trimmedReason,
+        reason: description.text,
       }),
     onSuccess: (result) => {
       setPosted(result)
@@ -173,7 +195,19 @@ export default function PostEntryDialog({
       // reading of the set.
       invalidateSettlement(queryClient, branch!.storeId)
     },
-    onError: (error) => toast.error(apiErrorMessage(error, t('post.errors.failed'))),
+    onError: (error) => {
+      // 🔑 311: the server refused the DESCRIPTION. The fix is in the form, not on the
+      // review step — so back to the box, with the text the accountant typed still in
+      // it and the server's own sentence (English, then Arabic) standing under it.
+      const code = apiErrorCode(error)
+      if (code === 'SettlementReasonRequired' || code === 'SettlementReasonTooLong') {
+        setReviewing(false)
+        setAttempted(true)
+        setRefused({ text: reason, message: apiErrorMessage(error, t('post.reason.required')) })
+        return
+      }
+      toast.error(apiErrorMessage(error, t('post.errors.failed')))
+    },
   })
 
   if (!open) return null
@@ -210,7 +244,7 @@ export default function PostEntryDialog({
             </Button>
             <Button
               variant="primary"
-              onClick={() => ready && setReviewing(true)}
+              onClick={() => (ready ? setReviewing(true) : setAttempted(true))}
               aria-disabled={!ready || undefined}
               data-testid="post-review"
             >
@@ -228,7 +262,7 @@ export default function PostEntryDialog({
             branch={branch!}
             kind={kind}
             words={words}
-            reason={trimmedReason}
+            reason={description.text}
             currencyKey={currencyKey}
           />
         ) : (
@@ -266,7 +300,7 @@ export default function PostEntryDialog({
               currencyKey={currencyKey}
               hasBranch={!!branch}
             />
-            <PostReasonField value={reason} onValue={setReason} />
+            <PostReasonField value={reason} onValue={setReason} error={descriptionError} />
           </>
         )}
       </div>
@@ -583,8 +617,19 @@ function AmountField({
  * ⚠️ This is not a filing act: it is a message a manager reads at a till at 23:00.
  * The preview is `dir="auto"` because the reason is routinely Arabic and a
  * right-to-left sentence rendered left-to-right is a different sentence to read.
+ *
+ * ✅ 311 (BackOffice 1980): **required** — the accountant's description now prints in
+ * the red box of the branch's papers (ADR 0045), so no entry is posted without one.
  */
-function PostReasonField({ value, onValue }: { value: string; onValue: (next: string) => void }) {
+function PostReasonField({
+  value,
+  onValue,
+  error,
+}: {
+  value: string
+  onValue: (next: string) => void
+  error: string | null
+}) {
   const { t } = useTranslation('settlement')
 
   return (
@@ -594,6 +639,8 @@ function PostReasonField({ value, onValue }: { value: string; onValue: (next: st
         onValue={onValue}
         label={t('post.reason.label')}
         hint={t('post.reason.hint', { max: REASON_MAX, used: value.length })}
+        required
+        error={error}
         testId="post-reason"
       />
 

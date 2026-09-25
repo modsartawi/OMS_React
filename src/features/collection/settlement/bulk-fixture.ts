@@ -190,3 +190,25 @@ export const MIXED_PREVIEW: SettlementBulkPreview = {
   canCommit: true,
   total: 595.25,
 }
+
+/**
+ * ✅ Ticket 311 — **a row with no description**, answered exactly as BackOffice 1980
+ * §2 records it: the row still comes back in `rows[]` with `reason: ""`, and
+ * `errors[]` names it by the sheet's own row number with `REASON_REQUIRED` and the
+ * server's sentence, English then Arabic on the next line. `canCommit: false`.
+ */
+export const REASON_REQUIRED_MESSAGE =
+  "This row has no description. The description prints on the branch's papers, so every row needs one.\n" +
+  'هذا السطر بلا بيان. يُطبع البيان على أوراق الفرع، فلا بد منه في كل سطر.'
+
+export const BLANK_DESCRIPTION_PREVIEW: SettlementBulkPreview = {
+  batchId: '01J9BATCHBLANK',
+  contentHash: 'sha256:5d0e19',
+  entryKind: 'SHORTAGE',
+  rows: [CLEAN_ROWS[0], row(3, '0207', 'العليا / Al-Olaya', 1250.5, ''), ...CLEAN_ROWS.slice(2)],
+  errors: [issue(3, '0207', 'REASON_REQUIRED', REASON_REQUIRED_MESSAGE)],
+  warnings: [],
+  rowCount: CLEAN_ROWS.length,
+  canCommit: false,
+  total: CLEAN_TOTAL,
+}

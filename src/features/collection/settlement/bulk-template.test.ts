@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { BULK_TEMPLATE_COLUMNS, bulkTemplateCsv } from './bulk-template'
+import { BULK_TEMPLATE_COLUMNS, BULK_TEMPLATE_REQUIRED, bulkTemplateCsv } from './bulk-template'
 import { reviewBulk } from './bulk'
+import { checkDescription } from './posting'
 
 /**
  * **The blank sheet** — the three things about it that fail silently.
@@ -17,6 +18,22 @@ describe('bulkTemplateCsv', () => {
     const [header] = bulkTemplateCsv().split('\r\n')
     expect(header).toBe('StoreCode,Amount,Reason')
     expect(BULK_TEMPLATE_COLUMNS).toEqual(['StoreCode', 'Amount', 'Reason'])
+  })
+
+  // ✅ 311 (BackOffice 1980): the description is required on every row — the door
+  // refuses a blank one by row, and a sheet without the column on every row.
+  it('🔑 marks the description column required', () => {
+    expect(BULK_TEMPLATE_REQUIRED.has('Reason')).toBe(true)
+    // …and every other column with it: none of the three may be left out.
+    expect([...BULK_TEMPLATE_REQUIRED]).toEqual([...BULK_TEMPLATE_COLUMNS])
+  })
+
+  // 🔑 One rule for the form and the file: every example row carries a description
+  // the single post would take — a template must never teach the blank the door refuses.
+  it('gives every example row a description the door would take', () => {
+    const rows = dataRows()
+    expect(rows.length).toBeGreaterThan(0)
+    for (const cells of rows) expect(checkDescription(cells[2]).problem).toBeNull()
   })
 
   // ⚠️ A separator in an amount is two columns to a CSV parser, so the example must

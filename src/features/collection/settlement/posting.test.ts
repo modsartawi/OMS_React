@@ -11,7 +11,13 @@ import { describe, expect, it } from 'vitest'
 import type { SettlementEntry, SettlementFleetRow } from '@/core/models/settlement'
 import { SETTLEMENT_ACCOUNTS } from './settlement-fixture'
 import { SETTLEMENT_FLEET } from './fleet-fixture'
-import { parseAmount, resolveBranch, standingPosition } from './posting'
+import {
+  checkDescription,
+  parseAmount,
+  REASON_MAX,
+  resolveBranch,
+  standingPosition,
+} from './posting'
 
 const branch = (
   o: Partial<SettlementFleetRow> & Pick<SettlementFleetRow, 'storeId'>,
@@ -155,5 +161,36 @@ describe('standingPosition — the duplicate only this screen can catch', () => 
       postedAt: `2026-08-0${i + 1}T00:00:00`,
     }))
     expect(standingPosition(thirds, 'SHORTAGE').total).toBe(0.6)
+  })
+})
+
+/**
+ * **The description is required** (ticket 311, BackOffice 1980) — it prints on the
+ * branch's papers, so no entry is posted without one. The server trims, refuses a
+ * blank, and measures the 200 after the trim; the form must agree with it on all
+ * three, or it either refuses what the server takes or sends what it refuses.
+ */
+describe('checkDescription — required, trimmed, then measured', () => {
+  it('🔑 refuses an empty description and one of only spaces — the server’s SettlementReasonRequired', () => {
+    for (const blank of ['', '   ', '\t\n ', null, undefined]) {
+      expect(checkDescription(blank)).toEqual({ text: '', problem: 'blank' })
+    }
+  })
+
+  it('posts the text TRIMMED — the sentence reviewed is the one stored', () => {
+    expect(checkDescription('  عجز جرد شهر يوليو \n')).toEqual({ text: 'عجز جرد شهر يوليو', problem: null })
+  })
+
+  it('🔑 measures the 200 AFTER the trim: 200 characters padded with spaces still post', () => {
+    const exactly = 'x'.repeat(REASON_MAX)
+    expect(checkDescription(`  ${exactly}  `)).toEqual({ text: exactly, problem: null })
+  })
+
+  it('refuses 201 characters — the server’s SettlementReasonTooLong', () => {
+    expect(checkDescription('x'.repeat(REASON_MAX + 1)).problem).toBe('too-long')
+  })
+
+  it('a single character is a description', () => {
+    expect(checkDescription('.')).toEqual({ text: '.', problem: null })
   })
 })

@@ -114,7 +114,7 @@
       "entryKind": "Kind",
       "amount": "Amount",
       "remainingAmount": "Remaining",
-      "reason": "Reason the branch reads",
+      "reason": "Description the branch reads",
       "status": "Status",
       "postedByName": "Posted by",
       "postedAt": "Posted at",
@@ -222,6 +222,9 @@
       "staff": "by staff {{id}}"
     }
   },
+  "reasonField": {
+    "required": "required"
+  },
   "post": {
     "open": "Post an entry",
     "openForBranch": "Post an entry on this branch",
@@ -272,8 +275,10 @@
       "readBack": "{{grouped}} · {{words}}"
     },
     "reason": {
-      "label": "Why (the branch reads this at the till)",
-      "hint": "{{used}} of {{max}} characters. It is kept with the entry and read verbatim by the branch.",
+      "label": "Description (the branch reads this at the till)",
+      "hint": "{{used}} of {{max}} characters. It prints on the branch's papers and is read there word for word, so every entry needs one.",
+      "required": "Write a description. It prints on the branch's papers, so no entry is posted without one.",
+      "tooLong": "Shorten the description to {{max}} characters. The branch's papers hold no more.",
       "previewLabel": "What the branch will see",
       "previewEmpty": "Nothing yet — a branch manager reading this at 23:00 has only these words to go on."
     },
@@ -353,8 +358,9 @@
       "columns": {
         "StoreCode": "the branch's code, exactly as it is spelled on the branch",
         "Amount": "a plain number — no thousands separator and no currency symbol",
-        "Reason": "up to 200 characters the branch reads word for word"
+        "Reason": "the description, up to 200 characters, printed on the branch's papers and read there word for word. A row without one is refused."
       },
+      "required": "required",
       "download": "Download a blank sheet",
       "hint": "Opens in Excel. Keep the first row of column names, replace the two EXAMPLE rows with the month's own, and save as .xlsx or .csv. The example rows name no branch, so a sheet uploaded with them still in it is refused rather than posted."
     },
@@ -363,7 +369,7 @@
       "store": "Branch",
       "storeName": "Branch name",
       "amount": "Amount",
-      "reason": "Reason the branch reads"
+      "reason": "Description the branch reads"
     },
     "review": {
       "summary": "{{rows}} rows, all of them {{kind}}.",
@@ -373,6 +379,7 @@
       "fileError": "The file itself — {{message}}",
       "unresolved": "Row {{row}} — no branch has the code {{code}}, so this row cannot be posted onto anything.",
       "noBranch": "No branch has this code",
+      "noDescription": "No description",
       "warned": "{{count}} rows carry a warning. They post: a branch that already carries an open entry of this kind can genuinely owe a second one, and this door is never stricter than the single form.",
       "disagree": "The server's own total for this file is {{server}}, and the rows below add up to {{rows}}. The rows are what will be posted. Read both before committing.",
       "totalFigure": "{{count}} entries · {{amount}} {{currency}}",
@@ -400,6 +407,9 @@
     "errors": {
       "previewFailed": "The file could not be read.",
       "commitRefused": "This file was not posted. It no longer matches the one that was previewed.",
+      "rowErrors_one": "This file was not posted: the server refused 1 row, named in the grid. Fix the sheet and upload it again.",
+      "rowErrors_other": "This file was not posted: the server refused {{count}} rows, named in the grid. Fix the sheet and upload it again.",
+      "fileRefused": "This file was not posted: the server refused the file itself, as said above the grid. Fix the sheet and upload it again.",
       "commitFailed": "This file was not posted, and the server did not say why. Preview it again before trying anything else."
     }
   },

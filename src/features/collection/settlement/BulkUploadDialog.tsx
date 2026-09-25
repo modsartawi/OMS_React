@@ -20,10 +20,11 @@ import { uploadSearch } from './addresses'
 import { OPEN_LANE_KEY, PENDING_LANE_KEY } from './open-lane'
 import { amountInWords } from './amount-words'
 import { canSuperviseSettlement, settlementApi } from './api'
-import { reviewBulk, type BulkReview, type BulkTotal } from './bulk'
+import { reviewBulk, withCommitRowErrors, type BulkReview, type BulkTotal } from './bulk'
 import {
   BULK_TEMPLATE_COLUMNS,
   BULK_TEMPLATE_FILENAME,
+  BULK_TEMPLATE_REQUIRED,
   bulkTemplateCsv,
 } from './bulk-template'
 import { inWordsSentence } from './in-words'
@@ -122,6 +123,18 @@ export default function BulkUploadDialog({
       // do — the server decided, and a decision is not a crash. Reading `posted`
       // without reading `accepted` would report a refused commit as a successful one.
       if (!result?.accepted) {
+        // ✅ 311 (BackOffice 1980 §2): refused over its ROWS — `ROW_ERRORS` plus the
+        // same per-row errors a preview names. Back to the preview with those rows
+        // named on the grid, rather than a banner reading a machine code.
+        const withRows = preview && withCommitRowErrors(preview, result)
+        if (withRows) {
+          setPreview(withRows)
+          // Rows, not errors: the sentence counts exactly the rows the grid marks
+          // (one row can carry two refusals; row 0 is the file's, not a row).
+          const rows = Object.keys(reviewBulk(withRows).errorsByRow).length
+          toast.warning(rows ? t('bulk.errors.rowErrors', { count: rows }) : t('bulk.errors.fileRefused'))
+          return
+        }
         setRefusal(result?.refusalReason || t('bulk.errors.commitRefused'))
         return
       }
@@ -344,8 +357,18 @@ function TemplateOffer() {
       <p className="text-xs font-medium">{t('bulk.template.title')}</p>
       <ul className="flex flex-col gap-0.5 text-xs text-muted-foreground">
         {BULK_TEMPLATE_COLUMNS.map((column) => (
-          <li key={column} data-column={column}>
+          <li
+            key={column}
+            data-column={column}
+            data-required={BULK_TEMPLATE_REQUIRED.has(column) ? 'true' : undefined}
+          >
             <span className="font-mono text-foreground">{column}</span>
+            {/* ✅ 311: marked in words, not by an asterisk nobody is told the meaning of. */}
+            {BULK_TEMPLATE_REQUIRED.has(column) && (
+              <span className="ms-1.5 rounded-full bg-muted px-1.5 py-px text-[11px] font-medium text-foreground">
+                {t('bulk.template.required')}
+              </span>
+            )}
             {' — '}
             {t(`bulk.template.columns.${column}`)}
           </li>
@@ -497,6 +520,7 @@ function PreviewStep({
           <tbody className="divide-y divide-border/40">
             {review.rows.map((row) => {
               const warnings = review.warningsByRow[row.rowNumber] ?? []
+              const rowErrors = review.errorsByRow[row.rowNumber] ?? []
               const unresolved = !row.storeName.trim()
               return (
                 <tr
@@ -504,8 +528,11 @@ function PreviewStep({
                   data-row={row.rowNumber}
                   data-unresolved={unresolved ? 'true' : undefined}
                   data-warned={warnings.length ? 'true' : undefined}
+                  data-refused={rowErrors.length ? 'true' : undefined}
                   data-awaits={row.awaitsApproval === true ? 'true' : undefined}
-                  className={unresolved || warnings.length ? 'bg-attention-050' : undefined}
+                  className={
+                    unresolved || warnings.length || rowErrors.length ? 'bg-attention-050' : undefined
+                  }
                 >
                   <td className="px-2 py-1.5 tabular-nums text-muted-foreground">{row.rowNumber}</td>
                   <td className="px-2 py-1.5 font-mono">{row.storeCode}</td>
@@ -529,7 +556,26 @@ function PreviewStep({
                     )}
                   </td>
                   <td className="px-2 py-1.5" dir="auto">
-                    {row.reason}
+                    {/* ✅ 311: a blank description is said in words — an empty cell is
+                        the one thing a reader skims past. */}
+                    {row.reason.trim() ? (
+                      row.reason
+                    ) : (
+                      <span className="text-attention-800" data-testid="bulk-row-no-description">
+                        {t('bulk.review.noDescription')}
+                      </span>
+                    )}
+                    {/* 🔑 311: the SERVER's refusal, on the row it refuses — its own
+                        words (English then Arabic, stacked), beside the cell to fix. */}
+                    {rowErrors.map((message, i) => (
+                      <span
+                        key={`e${i}`}
+                        className="mt-0.5 block whitespace-pre-line font-medium text-attention-800"
+                        data-testid="bulk-row-error"
+                      >
+                        {message}
+                      </span>
+                    ))}
                     {warnings.map((w, i) => (
                       <span key={i} className="mt-0.5 block text-attention-800">
                         {w}

@@ -1,6 +1,7 @@
 import { distinctCurrencies, roundMoney } from '@/core/money'
 import type {
   SettlementBulkCancelRow,
+  SettlementBulkCommitResult,
   SettlementBulkError,
   SettlementBulkPreview,
   SettlementBulkRow,
@@ -70,6 +71,17 @@ export type BulkReview = {
   /** Warnings by row number, so a row can wear its own without the grid scanning
    *  a flat array per row. Rows with none are absent rather than empty. */
   warningsByRow: Record<number, string[]>
+  /**
+   * ✅ Ticket 311: the SERVER's hard errors by row number, in its own words — so a
+   * refused row wears its refusal in the grid, beside the cell it is about, and not
+   * only in the list above it. *"Row 3 has no description"* read forty rows away from
+   * row 3 is a sentence someone has to go and find the row for.
+   *
+   * Row 0 (the file's own fault) is absent: there is no row to hang it on, and the
+   * blocker list already leads with it. The client's own `unresolved` blocker is
+   * absent too — the grid already says so on that row, in its branch-name cell.
+   */
+  errorsByRow: Record<number, string[]>
   /** How many rows carry at least one warning — the count the commit step states. */
   warnedRows: number
   /**
@@ -157,6 +169,11 @@ export function reviewBulk(preview: SettlementBulkPreview | null | undefined): B
   // wrong, and a reader who fixed forty rows before reaching it fixed nothing.
   const blockers = [...fromServer, ...unresolved].sort((a, b) => a.rowNumber - b.rowNumber)
 
+  const errorsByRow: Record<number, string[]> = {}
+  for (const e of fromServer) {
+    if (e.rowNumber > 0) (errorsByRow[e.rowNumber] ??= []).push(e.message)
+  }
+
   const warningsByRow: Record<number, string[]> = {}
   for (const w of preview?.warnings ?? []) {
     ;(warningsByRow[w.rowNumber] ??= []).push(w.message)
@@ -173,6 +190,7 @@ export function reviewBulk(preview: SettlementBulkPreview | null | undefined): B
   return {
     rows,
     blockers,
+    errorsByRow,
     warningsByRow,
     // ⚠️ Row 0 is the file's, so it is not one of the *rows* that carry a warning —
     // counting it there would report "1 row to look twice at" on a file whose every
@@ -232,6 +250,37 @@ function compareToServerTotal(
   if (totals.length !== 1) return null
   const rows = totals[0].total
   return roundMoney(serverTotal) === rows ? null : { server: roundMoney(serverTotal), rows }
+}
+
+/**
+ * The code a refused commit carries when **rows** are why (BackOffice 1980 §2): the
+ * answer's `errors[]` are the same per-row issues the preview names.
+ */
+export const COMMIT_ROW_ERRORS = 'ROW_ERRORS'
+
+/**
+ * **A commit refused over its rows, folded back onto the preview** (ticket 311) —
+ * or `null` when the refusal is not that one.
+ *
+ * 🔑 The commit re-sends the previewed file, so a `ROW_ERRORS` refusal means the
+ * server now refuses rows its preview passed (the preview and the commit
+ * share one evaluation server-side, so for a blank description this is unreachable
+ * with the same bytes — but a branch closed in between is not). What the accountant
+ * needs is the preview again, **with those rows named on the grid**, not a banner
+ * that says `ROW_ERRORS`. So the answer's errors REPLACE the preview's (they are the
+ * newer reading of the same file) and `canCommit` goes false.
+ *
+ * ⚠️ A `ROW_ERRORS` with no errors is left to the caller's generic refusal: an
+ * empty list folded onto the preview would re-open a commit the server just refused.
+ */
+export function withCommitRowErrors(
+  preview: SettlementBulkPreview,
+  result: Pick<SettlementBulkCommitResult, 'accepted' | 'refusalReason' | 'errors'> | null | undefined,
+): SettlementBulkPreview | null {
+  if (!result || result.accepted || result.refusalReason !== COMMIT_ROW_ERRORS) return null
+  const errors = result.errors ?? []
+  if (errors.length === 0) return null
+  return { ...preview, errors, canCommit: false }
 }
 
 /* ── cancel as a unit ─────────────────────────────────────────────────────── */

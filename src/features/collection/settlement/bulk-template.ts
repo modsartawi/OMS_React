@@ -29,6 +29,20 @@
  *  preview grid draws. */
 export const BULK_TEMPLATE_COLUMNS = ['StoreCode', 'Amount', 'Reason'] as const
 
+/**
+ * ✅ Ticket 311 (BackOffice 1980): **every column is required on every row** — and
+ * since spec 1976 that includes the description (`Reason`), which prints on the
+ * branch's papers. The door refuses a blank one by row (`REASON_REQUIRED`), and a
+ * sheet with no `Reason` column at all is refused on every row.
+ *
+ * 🚩 The header stays `Reason`, not `Description`: it is one of the door's aliases
+ * either way, and it is the spelling proven live (274). Renaming a header the
+ * accountants' own sheets already use would be a change nobody asked for.
+ */
+export const BULK_TEMPLATE_REQUIRED: ReadonlySet<(typeof BULK_TEMPLATE_COLUMNS)[number]> = new Set(
+  BULK_TEMPLATE_COLUMNS,
+)
+
 /** The file the download offers. Dated by nothing and named by nothing the reader
  *  has to type — a name that changes per download is a second copy in the Downloads
  *  folder nobody can tell apart. */
@@ -50,6 +64,8 @@ export const BULK_TEMPLATE_FILENAME = 'settlement-audit-template.csv'
 export function bulkTemplateCsv(): string {
   const rows: readonly (readonly string[])[] = [
     BULK_TEMPLATE_COLUMNS,
+    // ⚠️ Each example carries a description: a template whose own rows were blank
+    // would teach the one thing the door refuses (311).
     ['EXAMPLE-1', '1250.00', 'Example row - replace it with the branch, the amount and the reason'],
     ['EXAMPLE-2', '75.5', 'Example row - delete every EXAMPLE row before uploading'],
   ]

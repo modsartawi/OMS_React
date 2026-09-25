@@ -30,6 +30,34 @@ export const AMBIGUOUS_PREVIEW = 6
 export const REASON_MAX = 200
 
 /**
+ * **The accountant's description, as the server will read it** (ticket 311,
+ * BackOffice 1980) — trimmed, then measured.
+ *
+ * 🔑 **Required since spec 1976**: the description prints in the red box of the
+ * branch's papers, and a blank box on a signed paper reads as a missing field. So a
+ * description that is empty or only spaces is `blank`, and the 200 is measured
+ * AFTER the trim — `SettlementAccountantService.PostAsync`'s own order, and the bulk
+ * door's reading of a row. The trimmed text is what goes up, so the sentence an
+ * accountant reviewed is the one the server stores.
+ *
+ * ⚠️ `too-long` is a backstop, not a path the box offers: `ReasonField` stops typing
+ * at `REASON_MAX`, and a box that holds at most 200 cannot trim to more. It is
+ * decided here anyway so the rule is whole in one place, and tested as such.
+ */
+export type DescriptionCheck = {
+  /** What would be posted — the text, trimmed. */
+  text: string
+  problem: 'blank' | 'too-long' | null
+}
+
+export function checkDescription(raw: string | null | undefined): DescriptionCheck {
+  const text = (raw ?? '').trim()
+  if (!text) return { text, problem: 'blank' }
+  if (text.length > REASON_MAX) return { text, problem: 'too-long' }
+  return { text, problem: null }
+}
+
+/**
  * 🔑 **THE POSTING BOX IS NEVER SCOPED — and after ticket 274 that is the CALLER's
  * job to guarantee, not this module's.**
  *

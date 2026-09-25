@@ -1,13 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import type { SettlementBulkCancelRow } from '@/core/models/settlement'
-import { bulkTotals, reviewBulk, UNRESOLVED_BRANCH_CODE, withdrawalGroups } from './bulk'
+import {
+  bulkTotals,
+  COMMIT_ROW_ERRORS,
+  reviewBulk,
+  UNRESOLVED_BRANCH_CODE,
+  withCommitRowErrors,
+  withdrawalGroups,
+} from './bulk'
 import {
   BAD_HEADER_PREVIEW,
   BAD_ROW_PREVIEW,
+  BLANK_DESCRIPTION_PREVIEW,
   CLEAN_PREVIEW,
   CLEAN_ROWS,
   DUPLICATE_PREVIEW,
   MIXED_PREVIEW,
+  REASON_REQUIRED_MESSAGE,
   REPLAY_PREVIEW,
 } from './bulk-fixture'
 
@@ -257,5 +266,78 @@ describe('a withdrawn batch, grouped by what each row is (310, BackOffice 1979 �
 
   it('reads a missing rows array as an empty withdrawal, never a crash', () => {
     expect(withdrawalGroups(undefined)).toEqual({ withdrawn: [], refused: [], waiting: [], rejected: [] })
+  })
+})
+
+/**
+ * **A row with no description** (ticket 311, BackOffice 1980 §2) — the server
+ * refuses it by row, and the screen must show that refusal AGAINST the row.
+ */
+describe('a blank description — refused by the server, shown on its row', () => {
+  it('🔑 blocks the whole file, in the server’s own words, naming the sheet’s row', () => {
+    const review = reviewBulk(BLANK_DESCRIPTION_PREVIEW)
+    expect(review.canCommit).toBe(false)
+    expect(review.blockers).toEqual([
+      { rowNumber: 3, storeCode: '0207', code: 'REASON_REQUIRED', message: REASON_REQUIRED_MESSAGE, source: 'server' },
+    ])
+  })
+
+  it('🔑 hangs the refusal on row 3 itself — and on no other row', () => {
+    const review = reviewBulk(BLANK_DESCRIPTION_PREVIEW)
+    expect(review.errorsByRow).toEqual({ 3: [REASON_REQUIRED_MESSAGE] })
+    // The row is still previewed, blank, so finance sees which one to fill in.
+    expect(review.rows.find((r) => r.rowNumber === 3)?.reason).toBe('')
+  })
+
+  it('keeps the file’s own fault (row 0) off the grid, and a clean file has no row errors', () => {
+    expect(reviewBulk(BAD_HEADER_PREVIEW).errorsByRow).toEqual({})
+    expect(reviewBulk(CLEAN_PREVIEW).errorsByRow).toEqual({})
+  })
+
+  it('does not hang the client’s own unresolved-branch blocker on the row a second time', () => {
+    // The grid already says "no branch has this code" in that row's name cell.
+    expect(reviewBulk({ ...BAD_ROW_PREVIEW, errors: [] }).errorsByRow).toEqual({})
+    // …while a SERVER error on that row is its own words, and it is hung there.
+    expect(reviewBulk(BAD_ROW_PREVIEW).errorsByRow).toEqual({ 4: ['No branch has the code 9999.'] })
+  })
+
+  it('two refusals on one row are both kept, in the server’s order', () => {
+    const review = reviewBulk({
+      ...BLANK_DESCRIPTION_PREVIEW,
+      errors: [
+        ...BLANK_DESCRIPTION_PREVIEW.errors,
+        { rowNumber: 3, storeCode: '0207', code: 'AMOUNT_ROUNDS_TO_ZERO', message: 'rounds to nothing' },
+      ],
+    })
+    expect(review.errorsByRow[3]).toEqual([REASON_REQUIRED_MESSAGE, 'rounds to nothing'])
+  })
+})
+
+describe('withCommitRowErrors — a commit refused over its rows lands back on the preview', () => {
+  const refused = {
+    accepted: false,
+    refusalReason: COMMIT_ROW_ERRORS,
+    errors: BLANK_DESCRIPTION_PREVIEW.errors,
+  }
+
+  it('🔑 folds the commit’s errors onto the preview, so the grid names the rows and nothing commits', () => {
+    const folded = withCommitRowErrors(CLEAN_PREVIEW, refused)
+    expect(folded).not.toBeNull()
+    expect(folded!.errors).toEqual(BLANK_DESCRIPTION_PREVIEW.errors)
+    expect(folded!.canCommit).toBe(false)
+    expect(folded!.batchId).toBe(CLEAN_PREVIEW.batchId)
+    const review = reviewBulk(folded)
+    expect(review.canCommit).toBe(false)
+    expect(review.errorsByRow).toEqual({ 3: [REASON_REQUIRED_MESSAGE] })
+  })
+
+  it('leaves every other answer to the caller', () => {
+    expect(withCommitRowErrors(CLEAN_PREVIEW, null)).toBeNull()
+    expect(withCommitRowErrors(CLEAN_PREVIEW, { ...refused, accepted: true })).toBeNull()
+    expect(withCommitRowErrors(CLEAN_PREVIEW, { ...refused, refusalReason: 'HASH_MISMATCH' })).toBeNull()
+  })
+
+  it('🚩 a ROW_ERRORS with no rows named is NOT folded — an empty list would re-open the commit', () => {
+    expect(withCommitRowErrors(CLEAN_PREVIEW, { ...refused, errors: [] })).toBeNull()
   })
 })

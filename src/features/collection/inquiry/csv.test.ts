@@ -147,6 +147,7 @@ const collection = (over: Partial<CollectionInquiryRow> = {}): CollectionInquiry
   cardTransactionCount: 96,
   zReportIds: 'Z-88121',
   currencyKey: 'SAR',
+  slipCount: 2,
   ...over,
 })
 

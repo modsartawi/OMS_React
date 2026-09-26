@@ -270,7 +270,23 @@ function failureFromEnvelope<T>(res: Response, body: HttpGeneralResponse<T> | nu
   )
 }
 
-async function request<T>(path: string, init: RequestInit): Promise<T> {
+/**
+ * The success envelope, whole — `data` and whatever top-level siblings the answer
+ * carried beside it (ticket 320).
+ *
+ * `S` names the siblings a caller expects, and they arrive `Partial` on purpose:
+ * this module checks `success` and nothing else, so it cannot promise a sibling is
+ * there — an older SIS.Api simply omits it. What a sibling MEANS is the reading
+ * feature's to know; `core/` never names one.
+ */
+export type ApiEnvelope<T, S extends object = Record<never, never>> = HttpGeneralResponse<T> & Partial<S>
+
+/**
+ * The one success/failure mapping every JSON call shares. `request` hands back
+ * `data`; `api.getEnvelope` hands back the envelope it came in — the same body,
+ * read the same way, so the two can never disagree about what a refusal is.
+ */
+async function requestEnvelope<T>(path: string, init: RequestInit): Promise<HttpGeneralResponse<T>> {
   const res = await send(path, init)
   const body = await readEnvelope<T>(res)
 
@@ -280,7 +296,11 @@ async function request<T>(path: string, init: RequestInit): Promise<T> {
     throw new ApiError('unknown', i18n.t('common:errors.unexpected', { status: res.status }), res.status)
 
   if (!body.success) throw businessFromEnvelope(body, body.statusCode)
-  return body.data
+  return body
+}
+
+async function request<T>(path: string, init: RequestInit): Promise<T> {
+  return (await requestEnvelope<T>(path, init)).data
 }
 
 /**
@@ -353,6 +373,25 @@ export const api = {
   // presence heartbeat write. Kept optional so every existing caller is untouched.
   get<T>(path: string, params?: Record<string, unknown>, headers?: Record<string, string>): Promise<T> {
     return request<T>(path + buildQuery(params), { method: 'GET', headers })
+  },
+  /**
+   * `get`, keeping the envelope (ticket 320): the same base, credentials,
+   * `X-Web-Client` header, 401 redirect and `ApiError` taxonomy, but the answer is
+   * the whole success body rather than `data` alone — for a door that puts a field
+   * **beside** `data` (a flag about the rows, a second list) rather than inside it.
+   *
+   * 🔑 Generic over the siblings, never aware of them: the caller names what it
+   * expects in `S` and reads it itself. A refusal still throws exactly what `get`
+   * throws — the only difference is what a success hands back.
+   */
+  getEnvelope<T, S extends object = Record<never, never>>(
+    path: string,
+    params?: Record<string, unknown>,
+    headers?: Record<string, string>,
+  ): Promise<ApiEnvelope<T, S>> {
+    return requestEnvelope<T>(path + buildQuery(params), { method: 'GET', headers }) as Promise<
+      ApiEnvelope<T, S>
+    >
   },
   // A file rather than an envelope — the same base, credentials, CSRF header and
   // 401 redirect as `get`, but the 2xx body is read with `res.blob()` and the

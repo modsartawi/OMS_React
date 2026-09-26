@@ -369,12 +369,19 @@
       "surplusDeducted": "Surplus Deducted",
       "readySince": "Ready Since",
       "daysWaiting": "Days Waiting",
+      "cardTotal": "Card Total",
       "storeId": "Store Code",
       "profitCenter": "Profit Center",
       "currencyKey": "Currency",
       "shiftId": "Shift Id",
       "settlementDocumentId": "Settlement Document Id"
     }
+  },
+  "slips": {
+    "column": "Slips",
+    "countUnknown": "Slip count unknown",
+    "noSlip": "No slip",
+    "unavailable": "Slip counts unavailable"
   },
   "assignment": {
     "title": "Collection Assignment",

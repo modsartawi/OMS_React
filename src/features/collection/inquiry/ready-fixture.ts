@@ -2,8 +2,9 @@ import type { CollectionReadyRow } from '@/core/models/collection'
 
 /**
  * Ready for collection rows (ticket 317). The first two are BackOffice 1994's
- * `## Web contract` sample **verbatim**; the rest are the hostile cases the
- * contract names but its sample does not show.
+ * `## Web contract` sample **verbatim**, plus BackOffice 2034's `cardTotal` and
+ * `slipCount` (ticket 320); the rest are the hostile cases the contracts name but
+ * their samples do not show.
  */
 
 /** 1994's DAY sample, verbatim. */
@@ -23,6 +24,9 @@ export const READY_DAY: CollectionReadyRow = {
   surplusDeducted: 250.0,
   readySince: '2026-09-20T23:05:12',
   daysWaiting: 5,
+  // BackOffice 2034's sample: the day's card total and its slip count.
+  cardTotal: 640.0,
+  slipCount: 2,
 }
 
 /** 1994's SETTLEMENT sample, verbatim. */
@@ -42,6 +46,9 @@ export const READY_RECEIPT: CollectionReadyRow = {
   surplusDeducted: null,
   readySince: '2026-09-23T10:41:00',
   daysWaiting: 2,
+  // A receipt is not a store day: no card total and no count — both unknown (2034).
+  cardTotal: null,
+  slipCount: null,
 }
 
 /** A day whose Z has not reached head office: no Z, no figures — absences, not zeros. */
@@ -54,6 +61,9 @@ export const READY_DAY_NO_Z: CollectionReadyRow = {
   surplusDeducted: null,
   readySince: '2026-09-24T22:58:00',
   daysWaiting: 1,
+  // No Z at head office: no card figure (a dash, never 0.000) — and a real 0 slips.
+  cardTotal: null,
+  slipCount: 0,
 }
 
 /** A Bahraini day with no profit center recorded: 3 decimals, the code alone as storeText. */
@@ -70,6 +80,8 @@ export const READY_DAY_BHD: CollectionReadyRow = {
   surplusDeducted: 0,
   readySince: '2026-09-21T23:30:00',
   daysWaiting: 4,
+  cardTotal: 12.345,
+  slipCount: 1,
 }
 
 /** A receipt whose shortage entry is gone (`entryNumber: 0`). */

@@ -18,7 +18,7 @@ import ScreenGate from '@/core/ui/ScreenGate'
 import { collectionAccessQuery } from '@/core/collection/api'
 import { assignmentOptionsQuery, canOpenReady, collectionApi } from './api'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
-import { CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
+import { AttentionBanner, CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
 import { buildReadyColumns, buildReadyDefaultColDef } from './ready-columns'
 import {
   buildReadyParams,
@@ -30,6 +30,7 @@ import {
 import { readyRowId } from './ready-projection'
 import ReadyToolbar from './ReadyToolbar'
 import type { AssignmentOptions } from './served-by'
+import { useSlipView } from './use-slips'
 
 /**
  * Ready for collection (`/collection/ready`, ticket 317) — every closed day the
@@ -94,20 +95,30 @@ function ReadyBody({ options }: { options?: AssignmentOptions }) {
     (patch: Partial<ReadyCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
     [],
   )
+  // ---- the slips (ticket 320, BackOffice 2034) ----
+  // The probe, the "No slip" filter and the unavailable banner (`useSlipView`).
+  const rows = useMemo(() => list.data?.rows ?? [], [list.data])
+  const slips = useSlipView(rows, list.data?.slipCountsUnavailable)
+  const { clearNoSlip } = slips
+
   const onSearch = useCallback(() => setAppliedParams(buildReadyParams(criteria)), [criteria])
   const onReset = useCallback(() => {
     // Back to the LANDING scope (the caller's own branches), not to "no scope".
     const landing = landingCriteria(options)
     setCriteria(landing)
     setAppliedParams(buildReadyParams(landing))
-  }, [options])
+    // …and the client filter with it.
+    clearNoSlip()
+  }, [options, clearNoSlip])
 
   const [showFilters, setShowFilters] = useState(true)
   const [showMore, setShowMore] = useState(false)
   const defaultColDef = useMemo(() => buildReadyDefaultColDef(showFilters), [showFilters])
 
-  const rows = useMemo(() => list.data ?? [], [list.data])
-  const columns = useMemo(() => buildReadyColumns(t, rows, showMore), [t, rows, showMore])
+  const columns = useMemo(
+    () => buildReadyColumns(t, rows, showMore, slips.showSlips),
+    [t, rows, showMore, slips.showSlips],
+  )
 
   const isFiltered = !isLandingQuery(appliedParams, options)
   const capReached = isCapReached(rows.length, GRID_LIMIT)
@@ -128,6 +139,7 @@ function ReadyBody({ options }: { options?: AssignmentOptions }) {
         onSearch={onSearch}
         onReset={onReset}
         isFiltered={isFiltered}
+        noSlip={slips.noSlip}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -156,6 +168,8 @@ function ReadyBody({ options }: { options?: AssignmentOptions }) {
       {/* ⚠️ Fires on a result that REACHED the cap, never on one merely large. */}
       {capReached && <CapBanner message={t('ready.capReached', { limit: GRID_LIMIT.toLocaleString('en-US') })} />}
 
+      {slips.unavailable && <AttentionBanner message={t('slips.unavailable')} />}
+
       {list.isError && <ErrorBanner message={errorMessage} className="p-3" />}
 
       {list.isPending ? (
@@ -166,7 +180,7 @@ function ReadyBody({ options }: { options?: AssignmentOptions }) {
         <div className="min-h-[24rem] flex-1">
           <AgGridReact<(typeof rows)[number]>
             theme={omsGridTheme}
-            rowData={rows}
+            rowData={slips.gridRows}
             columnDefs={columns}
             defaultColDef={defaultColDef}
             getRowId={(p) => readyRowId(p.data)}

@@ -4,6 +4,8 @@ import type { TFunction } from 'i18next'
 import type { CollectionInquiryRow } from '@/core/models/collection'
 import { distinctCurrencies, formatMoneyIn } from '@/core/money'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
+import { slipCountColumn } from './SlipCountColumn'
+import { withSlipColumn } from './slips'
 
 /**
  * The Cash Collections grid's columns (ticket 254), and the shape 255 and 256
@@ -83,6 +85,18 @@ export const MORE_FIELDS = [
 ] as const satisfies readonly (keyof CollectionInquiryRow)[]
 
 /**
+ * The column the slip probe gates (ticket 320, BackOffice 2034): drawn right after
+ * `cardTotal` only when `AttachmentWeb/Access` holds `CASH_CLOSE`.
+ *
+ * 🚩 Its own group rather than a member of the two above, because 258's export
+ * writes their union regardless of the toggle — and a count the session may not
+ * see must not leave in its file. The completeness proof still accounts for it.
+ * Each row's count is keyed by that row's OWN `businessDay`: the rows of one
+ * multi-shift receipt are drawn as sent, never merged or summed.
+ */
+export const SLIP_FIELDS = ['slipCount'] as const satisfies readonly (keyof CollectionInquiryRow)[]
+
+/**
  * The wire fields that are deliberately **not** columns, each with its reason.
  *
  * Exactly one today: `collectionReceiptId` is the receipt's ULID — the document
@@ -144,7 +158,8 @@ export function buildCollectionsDefaultColDef(showFilters: boolean): ColDef<Coll
 /**
  * Build the visible columns.
  *
- * `showMore` reveals the forensic tail. The currency handling is the one piece of
+ * `showMore` reveals the forensic tail; `showSlips` (the slip probe's answer,
+ * fail-closed) places the Slips column after `cardTotal`. The currency handling is the one piece of
  * conditional logic:
  *
  * - **One currency in the result** (the ordinary day) → the code goes in each
@@ -157,6 +172,7 @@ export function buildCollectionsColumns(
   t: TFunction,
   rows: readonly CollectionInquiryRow[],
   showMore: boolean,
+  showSlips = false,
 ): ColDef<CollectionInquiryRow>[] {
   const currencies = resultCurrencies(rows)
   const headerCurrency = currencies.length === 1 ? currencies[0] : ''
@@ -168,7 +184,9 @@ export function buildCollectionsColumns(
       ? [...DEFAULT_FIELDS, 'currencyKey']
       : [...DEFAULT_FIELDS]
 
-  return fields.map((field) => column(t, field, headerCurrency))
+  return withSlipColumn(fields, showSlips).map((field) =>
+    field === 'slipCount' ? slipCountColumn<CollectionInquiryRow>(t) : column(t, field, headerCurrency),
+  )
 }
 
 function column(

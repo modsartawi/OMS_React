@@ -5,6 +5,7 @@ import {
   MONEY_FIELDS,
   MORE_FIELDS,
   NON_COLUMN_FIELDS,
+  SLIP_FIELDS,
   buildReadyColumns,
   buildReadyDefaultColDef,
 } from './ready-columns'
@@ -28,13 +29,13 @@ const format = (colId: string, row: CollectionReadyRow, rows = [row]) => {
 }
 
 describe('the two groups account for the whole wire row', () => {
-  it('their union plus the argued non-columns IS the row', () => {
-    const covered = [...DEFAULT_FIELDS, ...MORE_FIELDS, ...NON_COLUMN_FIELDS]
+  it('their union plus the slip-gated column and the argued non-columns IS the row', () => {
+    const covered = [...DEFAULT_FIELDS, ...MORE_FIELDS, ...SLIP_FIELDS, ...NON_COLUMN_FIELDS]
     expect([...covered].sort()).toEqual([...WIRE_FIELDS].sort())
   })
 
   it('no field is in two places', () => {
-    const covered = [...DEFAULT_FIELDS, ...MORE_FIELDS, ...NON_COLUMN_FIELDS]
+    const covered = [...DEFAULT_FIELDS, ...MORE_FIELDS, ...SLIP_FIELDS, ...NON_COLUMN_FIELDS]
     expect(new Set(covered).size).toBe(covered.length)
   })
 
@@ -50,6 +51,8 @@ describe('the two groups account for the whole wire row', () => {
       'surplusDeducted',
       'readySince',
       'daysWaiting',
+      // Ticket 320: the day's card figure closes the set — the Slips column follows it.
+      'cardTotal',
     ])
   })
 
@@ -57,8 +60,40 @@ describe('the two groups account for the whole wire row', () => {
     expect([...NON_COLUMN_FIELDS]).toEqual([])
   })
 
-  it('exactly the two money fields are money', () => {
-    expect([...MONEY_FIELDS]).toEqual(['cashToHandOver', 'surplusDeducted'])
+  it('exactly the three money fields are money — cardTotal on its neighbours’ terms', () => {
+    expect([...MONEY_FIELDS]).toEqual(['cashToHandOver', 'surplusDeducted', 'cardTotal'])
+  })
+})
+
+describe('the Slips column (ticket 320)', () => {
+  const slips = (rows = [READY_DAY], showMore = false) => buildReadyColumns(t, rows, showMore, true)
+  const slipCell = (row: CollectionReadyRow) => {
+    const column = slips([row]).find((c) => c.colId === 'slipCount')
+    const value = (column?.valueGetter as (p: unknown) => unknown)({ data: row })
+    return (column?.valueFormatter as (p: unknown) => string)({ value, data: row })
+  }
+
+  it('is hidden unless the probe admits — the default is hidden', () => {
+    expect(buildReadyColumns(t, [READY_DAY], true).map((c) => c.colId)).not.toContain('slipCount')
+    expect(buildReadyColumns(t, [READY_DAY], true, false).map((c) => c.colId)).not.toContain('slipCount')
+  })
+
+  it('lands right after the card total, on the landing grid and with the tail open', () => {
+    expect(slips().map((c) => c.colId)).toEqual([...DEFAULT_FIELDS, 'slipCount'])
+    const withTail = slips([READY_DAY], true).map((c) => c.colId)
+    expect(withTail.indexOf('slipCount')).toBe(withTail.indexOf('cardTotal') + 1)
+  })
+
+  it('draws a count as sent, a real 0 as 0, and null as the dash', () => {
+    expect(slipCell(READY_DAY)).toBe('2')
+    expect(slipCell(READY_DAY_NO_Z)).toBe('0')
+    expect(slipCell(READY_RECEIPT)).toBe('—')
+  })
+
+  it('its header is a t() key, and it is not a link yet (the drawer is 321’s)', () => {
+    const column = slips().find((c) => c.colId === 'slipCount')
+    expect(column?.headerName).toBe('slips.column')
+    expect(column?.onCellClicked).toBeUndefined()
   })
 })
 
@@ -141,6 +176,24 @@ describe('buildReadyColumns', () => {
       expect(column?.filter).toBe('agNumberColumnFilter')
       expect(String(column?.cellClass)).toContain('text-end')
     }
+  })
+
+  it('🔑 card total: the figure to the row’s currency, and a dash for null — never 0.000', () => {
+    expect(format('cardTotal', READY_DAY)).toBe('640.00')
+    expect(format('cardTotal', READY_DAY_BHD, [READY_DAY, READY_DAY_BHD])).toBe('12.345')
+    expect(format('cardTotal', READY_RECEIPT)).toBe('—')
+    expect(format('cardTotal', READY_DAY_NO_Z)).toBe('—')
+    // A real 0 (a mirrored Z with no CARD line) is a figure, not an absence.
+    expect(format('cardTotal', { ...READY_DAY, cardTotal: 0 })).toBe('0.00')
+  })
+
+  it('card total goes in the currency header on the same terms as its neighbours', () => {
+    const single = buildReadyColumns(t, [READY_DAY], false)
+    expect(single.find((c) => c.colId === 'cardTotal')?.headerName).toBe(
+      'ready.moneyHeader|{"label":"ready.columns.cardTotal","currency":"SAR"}',
+    )
+    const mixed = buildReadyColumns(t, [READY_DAY, READY_DAY_BHD], false)
+    expect(mixed.find((c) => c.colId === 'cardTotal')?.headerName).toBe('ready.columns.cardTotal')
   })
 
   it('the floating filter row follows the toggle', () => {

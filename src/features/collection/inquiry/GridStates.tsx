@@ -128,6 +128,16 @@ export function ExportButton({
  * about *when* to draw it; only the chrome lives here.
  */
 export function CapBanner({ message }: { message: string }) {
+  return <AttentionBanner message={message} />
+}
+
+/**
+ * The amber chrome itself, for a notice that is not the cap: the "Slip counts
+ * unavailable" banner (ticket 320) says the rows are here but one column of them
+ * could not be read. Same chrome, its own sentence — `CapBanner` is this with the
+ * cap's name on it, so the two cannot drift apart in spacing.
+ */
+export function AttentionBanner({ message }: { message: string }) {
   return (
     <div
       role="status"

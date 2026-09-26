@@ -24,11 +24,13 @@ import { api } from '@/core/api'
 import type {
   AcrDocument,
   AcrInquiryRow,
+  AttachmentAccess,
   CollectionAccessResult,
   CollectionAttemptRow,
   CollectionInquiryRow,
   CollectionReadyRow,
   DepositInquiryResult,
+  SlipCountedSiblings,
   VoucherDocument,
 } from '@/core/models/collection'
 import type { AssignmentBranch, AssignmentPairing, SaveAssignmentBody } from './assignment'
@@ -36,6 +38,7 @@ import type { AssignmentUploadCommit, AssignmentUploadPreview } from './assignme
 import type { BulkAssignmentBody, BulkPreview, BulkResult } from './bulk'
 import type { RosterPerson, SavePersonBody } from './people'
 import type { AssignmentOptions } from './served-by'
+import { slipCountedRows, type SlipCountedRows } from './slips'
 
 /**
  * The two refusal codes the print routes branch on (245 §7), spelled once.
@@ -77,6 +80,31 @@ export function assignmentOptionsQuery() {
   return {
     queryKey: ASSIGNMENT_OPTIONS_KEY,
     queryFn: () => collectionApi.assignmentOptions(),
+    staleTime: Infinity,
+    retry: false,
+  } as const
+}
+
+/**
+ * The ONE cache key and options for `GET AttachmentWeb/Access` (ticket 320) — the
+ * slip probe. The Ready and Cash Collections grids read it for the column and the
+ * filter, and the drawer (321), Add (322) and Withdraw (323) read the **same**
+ * entry: one request per page life, never a second fetch or a per-component copy.
+ *
+ * Kept with `assignmentOptionsQuery`'s pattern and for its reasons: react-query
+ * merges concurrent observers' options, so the key and its options travel together.
+ * `staleTime: Infinity` because a grant does not change inside a page life;
+ * `retry: false` because a 503 `NOT_SET_UP` or a 403 is an answer, and the column
+ * stays hidden on the first no rather than after three.
+ *
+ * 🚩 Read what it answers through `canSeeSlips` (`./slips`), never by truthiness.
+ */
+export const SLIP_ACCESS_KEY = ['collection', 'slips', 'access'] as const
+
+export function slipAccessQuery() {
+  return {
+    queryKey: SLIP_ACCESS_KEY,
+    queryFn: () => collectionApi.slipAccess(),
     staleTime: Infinity,
     retry: false,
   } as const
@@ -146,8 +174,12 @@ export const collectionApi = {
    * keeps sort, per-column filter and 258's export operating over every matched
    * row (244 §3).
    */
-  collections(params: Record<string, unknown>): Promise<CollectionInquiryRow[]> {
-    return api.get<CollectionInquiryRow[]>('CollectionWeb/Collections', params)
+  collections(params: Record<string, unknown>): Promise<SlipCountedRows<CollectionInquiryRow>> {
+    // 🔑 Through `getEnvelope`, not `get` (ticket 320): `slipCountsUnavailable`
+    // rides BESIDE `data` (BackOffice 2034), and `get` would drop it.
+    return api
+      .getEnvelope<CollectionInquiryRow[], SlipCountedSiblings>('CollectionWeb/Collections', params)
+      .then(slipCountedRows)
   },
 
   /**
@@ -413,8 +445,24 @@ export const collectionApi = {
    * refusals are the shared Served-by resolver's `400`s, and a session without the
    * grant gets a bare `403`.
    */
-  ready(params: Record<string, unknown>): Promise<CollectionReadyRow[]> {
-    return api.get<CollectionReadyRow[]>('CollectionWeb/Ready', params)
+  ready(params: Record<string, unknown>): Promise<SlipCountedRows<CollectionReadyRow>> {
+    // Through `getEnvelope` for Collections' reason: the flag sits beside `data`.
+    return api
+      .getEnvelope<CollectionReadyRow[], SlipCountedSiblings>('CollectionWeb/Ready', params)
+      .then(slipCountedRows)
+  },
+
+  /**
+   * `GET AttachmentWeb/Access` → the attachment categories the session holds, and
+   * the ones it may withdraw from (BackOffice 2034, 2035). Cookie-only and **not**
+   * grant-gated; a 503 `NOT_SET_UP` until the File Server key exists.
+   *
+   * ⚠️ **Fails closed**, as `collectionAccessApi.access` does: no catch here. A
+   * refusal leaves the query without data, and `canSeeSlips(undefined)` is false.
+   * Read it through `slipAccessQuery()`, never directly.
+   */
+  slipAccess(): Promise<AttachmentAccess> {
+    return api.get<AttachmentAccess>('AttachmentWeb/Access')
   },
 
   /**

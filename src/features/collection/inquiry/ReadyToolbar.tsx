@@ -2,7 +2,9 @@ import { useTranslation } from 'react-i18next'
 import { RotateCcw, Search, X } from 'lucide-react'
 import type { ReadyCriteria } from './ready-criteria'
 import DateField from './DateField'
+import NoSlipChip from './NoSlipChip'
 import ServedByPicker from './ServedByPicker'
+import type { NoSlipToggle } from './slips'
 
 /**
  * Ready for collection's filter strip (ticket 317) — Business date from/to ·
@@ -20,9 +22,18 @@ export interface ReadyToolbarProps {
   onReset: () => void
   /** True when the applied query is anything other than the landing one. */
   isFiltered: boolean
+  /** The "No slip" toggle (ticket 320) — absent when the session may not see slips. */
+  noSlip?: NoSlipToggle
 }
 
-export default function ReadyToolbar({ criteria, onChange, onSearch, onReset, isFiltered }: ReadyToolbarProps) {
+export default function ReadyToolbar({
+  criteria,
+  onChange,
+  onSearch,
+  onReset,
+  isFiltered,
+  noSlip,
+}: ReadyToolbarProps) {
   const { t } = useTranslation('collection')
 
   return (
@@ -64,6 +75,9 @@ export default function ReadyToolbar({ criteria, onChange, onSearch, onReset, is
           the store's CURRENT pairing. ACCOUNTANT + id is this screen's accountant
           filter. It ANDs with the Collector box. */}
       <ServedByPicker screen="ready" value={criteria.servedBy} onChange={(servedBy) => onChange({ servedBy })} />
+
+      {/* "No slip" (ticket 320) — drawn only when the slip probe admits. */}
+      <NoSlipChip toggle={noSlip} />
 
       <div className="flex items-center gap-2">
         <button

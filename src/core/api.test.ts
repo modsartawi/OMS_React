@@ -274,3 +274,107 @@ describe('api.upload', () => {
     expect((err as ApiError).message).toBe('The sheet changed.')
   })
 })
+
+/**
+ * `api.getEnvelope` — `get`, keeping the envelope (ticket 320). Its subject is
+ * the two halves of that sentence: a **success** hands back the siblings that
+ * rode beside `data` (which `get` drops), and a **failure** throws exactly the
+ * `ApiError` `get` would have thrown at that status.
+ *
+ * 🔑 The sibling is named HERE, in the test, and never in `core/`: the read is
+ * generic over what sits beside `data`, and a feature says what it expects.
+ */
+describe('api.getEnvelope', () => {
+  const okBody = (body: unknown) =>
+    vi.fn().mockResolvedValue({ status: 200, ok: true, json: async () => body } as unknown as Response)
+
+  /** Collections' own answer: the row array, and a flag beside it. */
+  const counted = (slipCountsUnavailable: boolean) => ({
+    statusCode: 200,
+    success: true,
+    message: '',
+    errors: null,
+    serverTime: '2026-09-26T09:00:00',
+    data: [{ storeId: 'P019', slipCount: slipCountsUnavailable ? null : 2 }],
+    slipCountsUnavailable,
+  })
+
+  it('keeps the sibling beside data — the field `get` drops', async () => {
+    vi.stubGlobal('fetch', okBody(counted(true)))
+    const answer = await api.getEnvelope<{ slipCount: number | null }[], { slipCountsUnavailable: boolean }>(
+      'CollectionWeb/Collections',
+    )
+    expect(answer.slipCountsUnavailable).toBe(true)
+    expect(answer.data).toEqual([{ storeId: 'P019', slipCount: null }])
+
+    // …and `get` over the very same body still hands back `data` alone.
+    vi.stubGlobal('fetch', okBody(counted(true)))
+    expect(await api.get('CollectionWeb/Collections')).toEqual([{ storeId: 'P019', slipCount: null }])
+  })
+
+  it('a false sibling survives as false, and an absent one as absent — never invented', async () => {
+    vi.stubGlobal('fetch', okBody(counted(false)))
+    expect((await api.getEnvelope<unknown, { slipCountsUnavailable: boolean }>('X')).slipCountsUnavailable).toBe(false)
+
+    const { slipCountsUnavailable: _dropped, ...older } = counted(false)
+    vi.stubGlobal('fetch', okBody(older))
+    expect('slipCountsUnavailable' in (await api.getEnvelope<unknown, { slipCountsUnavailable: boolean }>('X'))).toBe(
+      false,
+    )
+  })
+
+  it('reaches the same door as get — base, query, X-Web-Client, same-origin', async () => {
+    const fetchStub = okBody(counted(false))
+    vi.stubGlobal('fetch', fetchStub)
+    await api.getEnvelope('CollectionWeb/Ready', { Limit: 2000, CollectorId: '', ServedByKind: null })
+    const [url, init] = fetchStub.mock.calls[0] as [string, RequestInit]
+    // The empty and null params are dropped exactly as `get` drops them.
+    expect(url.endsWith('CollectionWeb/Ready?Limit=2000')).toBe(true)
+    expect(init.method).toBe('GET')
+    expect((init.headers as Record<string, string>)['X-Web-Client']).toBe('1')
+    expect(init.credentials).toBe('same-origin')
+  })
+
+  const failingEnvelope = async (status: number, body: unknown): Promise<ApiError> => {
+    vi.stubGlobal('fetch', answer(status, body))
+    try {
+      await api.getEnvelope('Anything')
+    } catch (err) {
+      return err as ApiError
+    }
+    throw new Error('expected a throw')
+  }
+
+  it('throws the usual ApiError taxonomy — the same answer get gives at each status', async () => {
+    const cases: [number, unknown][] = [
+      [400, envelope(400, 'ServedByKindRequired')],
+      [403, 'not json at all'],
+      [503, envelope(503, 'NOT_SET_UP')],
+      [500, envelope(500, null)],
+      [502, 'not json at all'],
+      [200, { statusCode: 200, success: false, message: 'refused in band', errors: [], data: null }],
+    ]
+    for (const [status, body] of cases) {
+      const viaEnvelope = await failingEnvelope(status, body)
+      const viaGet = await failing(status, body)
+      expect(viaEnvelope, `status ${status}`).toBeInstanceOf(ApiError)
+      expect([viaEnvelope.kind, viaEnvelope.statusCode, apiErrorCode(viaEnvelope), viaEnvelope.message]).toEqual([
+        viaGet.kind,
+        viaGet.statusCode,
+        apiErrorCode(viaGet),
+        viaGet.message,
+      ])
+    }
+    // Spot the arms outright, so a change to BOTH readers cannot pass by agreeing.
+    expect((await failingEnvelope(503, envelope(503, 'NOT_SET_UP'))).kind).toBe('business')
+    expect((await failingEnvelope(502, 'not json at all')).kind).toBe('server')
+    const bare403 = await failingEnvelope(403, 'not json at all')
+    expect([bare403.kind, bare403.statusCode, apiErrorCode(bare403)]).toEqual(['unknown', 403, null])
+  })
+
+  it('a fetch that throws is a network failure, as on get', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+    const err = await api.getEnvelope('Anything').catch((e: unknown) => e as ApiError)
+    expect((err as ApiError).kind).toBe('network')
+  })
+})

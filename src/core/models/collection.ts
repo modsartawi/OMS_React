@@ -183,6 +183,14 @@ export interface CollectionInquiryRow {
   zReportIds: string
   /** `Plants.CurrencyKey` by store code, `SAR` when no plant row. */
   currencyKey: string
+  /**
+   * How many ECR slips head office holds for **this row's own** `businessDay`
+   * (BackOffice 2034, F4) — so the rows of one multi-shift receipt may differ, and
+   * are never merged or summed. 🔑 **`null` means UNKNOWN, never "no slip"**: a
+   * settlement receipt, a row with no business day, a session without the slip
+   * grant, and every row when the answer's `slipCountsUnavailable` is true.
+   */
+  slipCount: number | null
 }
 
 /**
@@ -529,6 +537,20 @@ export interface CollectionReadyRow {
   readySince: string
   /** Whole days from `readySince` to the server's local today. */
   daysWaiting: number
+  /**
+   * The day's confirmed card tender over the one Z the row covers — the same
+   * figure as Collections' per-shift card total for that Z (BackOffice 2034, F9).
+   * `null` on a receipt and on a day whose Z has not reached head office: an
+   * absence, drawn as a dash, never `0.000`.
+   */
+  cardTotal: number | null
+  /**
+   * How many ECR slips head office holds for this store day (BackOffice 2034, F4).
+   * 🔑 **`null` means UNKNOWN, never "no slip"**: a receipt, a row with no business
+   * day, a session without the slip grant, and every row when the answer's
+   * `slipCountsUnavailable` is true.
+   */
+  slipCount: number | null
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -844,4 +866,37 @@ export interface AcrDocument {
   rowsPerPage: number
   /** Never empty: an idle ACR is ONE page with `rows: []` (245 §7). */
   pages: AcrPage[]
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * ECR slips at the day close (spec 319, BackOffice spec 2030).
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * The siblings `GET CollectionWeb/Ready` and `GET CollectionWeb/Collections` put
+ * **beside** `data` (BackOffice 2034, `SlipCountedResponse<T>`), read through
+ * `api.getEnvelope`.
+ *
+ * `slipCountsUnavailable` is true when the slip register could not be read: every
+ * row's `slipCount` is then null and the rows still answer. The server always
+ * sends it; `api.getEnvelope` still hands it back optional, and the reader treats
+ * anything but `true` as "the counts were read".
+ */
+export interface SlipCountedSiblings {
+  slipCountsUnavailable: boolean
+}
+
+/**
+ * `GET AttachmentWeb/Access` — which attachment categories the session holds
+ * (BackOffice 2034) and which it may withdraw from (BackOffice 2035). Cookie-only,
+ * not grant-gated, and a 503 `NOT_SET_UP` until the File Server key exists.
+ *
+ * ⚠️ **For drawing only**: every AttachmentWeb route checks the grant again.
+ * Both lists are read with a strict array-membership test, never truthiness — a
+ * malformed answer (a bare string, a missing field) is a denial.
+ */
+export interface AttachmentAccess {
+  categories: string[]
+  /** The withdraw grant's categories (BackOffice 2035). Optional: an older SIS.Api omits it. */
+  withdrawCategories?: string[]
 }

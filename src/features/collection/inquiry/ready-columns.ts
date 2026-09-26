@@ -11,6 +11,8 @@ import {
   readyMoney,
   readyZNumber,
 } from './ready-projection'
+import { slipCountColumn } from './SlipCountColumn'
+import { withSlipColumn } from './slips'
 
 /**
  * The Ready for collection grid's columns (ticket 317) — the siblings' column shape
@@ -32,6 +34,10 @@ import {
  *
  * `entryNumber` sits beside `zNumber` because it is a receipt's handle as the Z is
  * a day's: without it a receipt row would carry no identity but its store.
+ *
+ * `cardTotal` (ticket 320, BackOffice 2034 F9) closes the set: the day's card
+ * figure, the one a missing or wrong ECR slip is checked against, so the Slips
+ * column lands right after it when the session may see slips.
  */
 export const DEFAULT_FIELDS = [
   'kind',
@@ -44,7 +50,16 @@ export const DEFAULT_FIELDS = [
   'surplusDeducted',
   'readySince',
   'daysWaiting',
+  'cardTotal',
 ] as const satisfies readonly (keyof CollectionReadyRow)[]
+
+/**
+ * The column the slip probe gates (ticket 320): drawn after `cardTotal` only when
+ * `AttachmentWeb/Access` holds `CASH_CLOSE`. Its own group, so the completeness
+ * proof still accounts for it without either list carrying a column the session
+ * may not see.
+ */
+export const SLIP_FIELDS = ['slipCount'] as const satisfies readonly (keyof CollectionReadyRow)[]
 
 /** The forensic tail: the raw parts `storeText` is made of, the currency, and the two row keys. */
 export const MORE_FIELDS = [
@@ -58,10 +73,14 @@ export const MORE_FIELDS = [
 /** No wire field is withheld: there is no document to open and no act on this screen. */
 export const NON_COLUMN_FIELDS = [] as const satisfies readonly (keyof CollectionReadyRow)[]
 
-/** The two money fields, drawn to the **row's own** currency's decimals (244 §7). */
+/**
+ * The money fields, drawn to the **row's own** currency's decimals (244 §7) — and
+ * `cardTotal` under the currency header on the same terms as its neighbours.
+ */
 export const MONEY_FIELDS = [
   'cashToHandOver',
   'surplusDeducted',
+  'cardTotal',
 ] as const satisfies readonly (keyof CollectionReadyRow)[]
 
 const MONEY = new Set<string>(MONEY_FIELDS)
@@ -78,7 +97,8 @@ export function buildReadyDefaultColDef(showFilters: boolean): ColDef<Collection
 }
 
 /**
- * Build the visible columns; `showMore` reveals the tail.
+ * Build the visible columns; `showMore` reveals the tail, and `showSlips` (the
+ * slip probe's answer, fail-closed) places the Slips column after `cardTotal`.
  *
  * The currency handling is Cash Collections': one currency in the result puts the
  * code in each money column's **header**; a mixed result leaves the headers bare
@@ -89,6 +109,7 @@ export function buildReadyColumns(
   t: TFunction,
   rows: readonly CollectionReadyRow[],
   showMore: boolean,
+  showSlips = false,
 ): ColDef<CollectionReadyRow>[] {
   const currencies = distinctCurrencies(rows, (row) => row.currencyKey)
   const headerCurrency = currencies.length === 1 ? currencies[0] : ''
@@ -100,7 +121,9 @@ export function buildReadyColumns(
       ? [...DEFAULT_FIELDS, 'currencyKey']
       : [...DEFAULT_FIELDS]
 
-  return fields.map((field) => column(t, field, headerCurrency))
+  return withSlipColumn(fields, showSlips).map((field) =>
+    field === 'slipCount' ? slipCountColumn<CollectionReadyRow>(t) : column(t, field, headerCurrency),
+  )
 }
 
 /** A right-aligned number column that filters as a number. */

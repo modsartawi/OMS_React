@@ -3,8 +3,10 @@ import { RotateCcw, Search, X } from 'lucide-react'
 import { isAcrScoped } from './acr-scope'
 import type { CollectionsCriteria } from './collections-criteria'
 import DateField from './DateField'
+import NoSlipChip from './NoSlipChip'
 import ServedByPicker from './ServedByPicker'
 import { NO_SERVED_BY } from './served-by'
+import type { NoSlipToggle } from './slips'
 
 /**
  * Cash Collections' filter strip (ticket 254) — Business date from/to · Collection
@@ -47,6 +49,8 @@ export interface CollectionsToolbarProps {
   scopedAcrId: string
   /** Drop the `?acr=` param and return to the ordinary today-filtered screen. */
   onClearScope: () => void
+  /** The "No slip" toggle (ticket 320) — absent when the session may not see slips. */
+  noSlip?: NoSlipToggle
 }
 
 /** What an overridden control looks like: visibly out of play, and unfocusable —
@@ -73,6 +77,7 @@ export default function CollectionsToolbar({
   isFiltered,
   scopedAcrId,
   onClearScope,
+  noSlip,
 }: CollectionsToolbarProps) {
   const { t } = useTranslation('collection')
   const scoped = isAcrScoped(scopedAcrId)
@@ -166,6 +171,10 @@ export default function CollectionsToolbar({
         onChange={(servedBy) => onChange({ servedBy })}
         disabled={scoped}
       />
+
+      {/* "No slip" (ticket 320) — drawn only when the slip probe admits. It stays live under the
+          `?acr=` scope: it narrows the rows already here and sends nothing. */}
+      <NoSlipChip toggle={noSlip} />
 
       <div className="flex items-center gap-2">
         {/* Search goes with them. With every criterion overridden there is

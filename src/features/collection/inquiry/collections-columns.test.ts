@@ -5,6 +5,7 @@ import {
   MONEY_FIELDS,
   MORE_FIELDS,
   NON_COLUMN_FIELDS,
+  SLIP_FIELDS,
   buildCollectionsColumns,
   buildCollectionsDefaultColDef,
   resultCurrencies,
@@ -48,6 +49,8 @@ const ROW: CollectionInquiryRow = {
   cardTransactionCount: 96,
   zReportIds: 'Z-88121,Z-88122',
   currencyKey: 'SAR',
+  // BackOffice 2034: the store day's slip count, keyed by THIS row's businessDay.
+  slipCount: 2,
 }
 
 const WIRE_FIELDS = Object.keys(ROW) as (keyof CollectionInquiryRow)[]
@@ -58,13 +61,13 @@ const t = ((key: string, vars?: Record<string, unknown>) =>
   vars ? `${key}|${JSON.stringify(vars)}` : key) as never
 
 describe('the two groups account for the whole wire row', () => {
-  it('their union plus the argued non-columns IS the row', () => {
-    const covered = [...DEFAULT_FIELDS, ...MORE_FIELDS, ...NON_COLUMN_FIELDS]
+  it('their union plus the slip-gated column and the argued non-columns IS the row', () => {
+    const covered = [...DEFAULT_FIELDS, ...MORE_FIELDS, ...SLIP_FIELDS, ...NON_COLUMN_FIELDS]
     expect([...covered].sort()).toEqual([...WIRE_FIELDS].sort())
   })
 
   it('no field is in two places — exactly one, not at least one', () => {
-    const covered = [...DEFAULT_FIELDS, ...MORE_FIELDS, ...NON_COLUMN_FIELDS]
+    const covered = [...DEFAULT_FIELDS, ...MORE_FIELDS, ...SLIP_FIELDS, ...NON_COLUMN_FIELDS]
     expect(new Set(covered).size).toBe(covered.length)
   })
 
@@ -287,5 +290,46 @@ describe('the floating filter row', () => {
 
   it('is off when the supervisor reclaims the height', () => {
     expect(buildCollectionsDefaultColDef(false).floatingFilter).toBe(false)
+  })
+})
+
+/**
+ * The Slips column (ticket 320, BackOffice 2034). Hidden unless the slip probe
+ * admits; each row drawn by its OWN day's count; a null is a dash, never 0.
+ */
+describe('the Slips column', () => {
+  const slipCell = (row: CollectionInquiryRow) => {
+    const column = buildCollectionsColumns(t, [row], false, true).find((c) => c.colId === 'slipCount')
+    const value = (column?.valueGetter as (p: unknown) => unknown)({ data: row })
+    return (column?.valueFormatter as (p: unknown) => string)({ value, data: row })
+  }
+
+  it('is hidden unless the probe admits — the default is hidden', () => {
+    expect(buildCollectionsColumns(t, [ROW], true).map((c) => c.colId)).not.toContain('slipCount')
+    expect(buildCollectionsColumns(t, [ROW], true, false).map((c) => c.colId)).not.toContain('slipCount')
+  })
+
+  it('lands right after the card total when admitted', () => {
+    const ids = buildCollectionsColumns(t, [ROW], false, true).map((c) => c.colId)
+    expect(ids.indexOf('slipCount')).toBe(ids.indexOf('cardTotal') + 1)
+    expect(ids.filter((id) => id !== 'slipCount')).toEqual([...DEFAULT_FIELDS])
+  })
+
+  it('draws a count as sent, a real 0 as 0, and null as the dash', () => {
+    expect(slipCell(ROW)).toBe('2')
+    expect(slipCell({ ...ROW, slipCount: 0 })).toBe('0')
+    // A settlement row is always null: a dash, never 0.
+    expect(slipCell({ ...ROW, businessDay: null, slipCount: null })).toBe('—')
+  })
+
+  it('a multi-shift receipt’s rows keep their own day’s counts — never merged or summed', () => {
+    const shift1 = { ...ROW, businessDay: '2026-08-05T00:00:00', slipCount: 0 }
+    const shift2 = { ...ROW, businessDay: '2026-08-06T00:00:00', slipCount: 3 }
+    expect([slipCell(shift1), slipCell(shift2)]).toEqual(['0', '3'])
+  })
+
+  it('leaves the existing card total alone — still the receipt’s money column', () => {
+    expect(MONEY_FIELDS).toContain('cardTotal')
+    expect(DEFAULT_FIELDS).toContain('cardTotal')
   })
 })

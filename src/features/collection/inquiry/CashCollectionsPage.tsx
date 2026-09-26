@@ -39,9 +39,10 @@ import CollectionsToolbar from './CollectionsToolbar'
 import { COLLECTIONS_CSV_COLUMNS } from './csv'
 import { useCsvExport } from './use-csv-export'
 import { buildReceiptActionColumn } from './RowActions'
+import { useSlipView } from './use-slips'
 // These two were declared at the foot of this file at 254 and moved to their own
 // module at 255, when they acquired a second and third caller (see `GridStates`).
-import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
+import { AttentionBanner, CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
 
 /**
  * Cash Collections (`/collection/collections`) — the first real screen of the
@@ -159,6 +160,12 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
     queryFn: () => collectionApi.collections(queryParams),
   })
 
+  // ---- the slips (ticket 320, BackOffice 2034) ----
+  // The probe, the "No slip" filter and the unavailable banner (`useSlipView`).
+  const rows = useMemo(() => list.data?.rows ?? [], [list.data])
+  const slips = useSlipView(rows, list.data?.slipCountsUnavailable)
+  const { clearNoSlip } = slips
+
   const onChange = useCallback(
     (patch: Partial<CollectionsCriteria>) => setCriteria((c) => ({ ...c, ...patch })),
     [],
@@ -176,6 +183,8 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
     setToday(now)
     setCriteria(landing)
     setAppliedCriteria(landing)
+    // …and the client "No slip" filter with it.
+    clearNoSlip()
     // ⚠️ Reset drops the ACR scope too, and `replace` keeps it out of the Back
     // stack. A Reset that left `?acr=` standing would restore criteria the door
     // still ignores — the toolbar saying today over a grid still showing one ACR.
@@ -190,20 +199,19 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
     // `options` for the same reason, since Reset rebuilds the landing scope from it.
     // (It is a `staleTime: Infinity` cache entry settled before this component
     // mounted, so it does not churn this callback.)
-  }, [options, searchParams, setSearchParams])
+  }, [options, searchParams, setSearchParams, clearNoSlip])
 
   // The per-column filter row (the WPF's `ShowAutoFilterRow`) — ON by default.
   const [showFilters, setShowFilters] = useState(true)
   const [showMore, setShowMore] = useState(false)
   const defaultColDef = useMemo(() => buildCollectionsDefaultColDef(showFilters), [showFilters])
 
-  const rows = useMemo(() => list.data ?? [], [list.data])
   // The action column leads, and is composed here rather than folded into
   // `buildCollectionsColumns`: an action is not a wire field, and the field lists
   // carry a completeness proof that 258's export writes from (see `RowActions`).
   const columns = useMemo(
-    () => [buildReceiptActionColumn(t), ...buildCollectionsColumns(t, rows, showMore)],
-    [t, rows, showMore],
+    () => [buildReceiptActionColumn(t), ...buildCollectionsColumns(t, rows, showMore, slips.showSlips)],
+    [t, rows, showMore, slips.showSlips],
   )
 
   // "Filtered" is about the ISSUED query, not the draft: the chip's job is to say
@@ -233,6 +241,7 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
         // The chip's ✕ is Reset: it drops the param AND restores today, so there
         // is one way back to the ordinary screen rather than two that differ.
         onClearScope={onReset}
+        noSlip={slips.noSlip}
       />
 
       <div className="flex flex-wrap items-center justify-end gap-2">
@@ -267,6 +276,8 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
         />
       )}
 
+      {slips.unavailable && <AttentionBanner message={t('slips.unavailable')} />}
+
       {list.isError && (
         <ErrorBanner
           message={apiErrorMessage(list.error, t('collections.errors.loadFailed'))}
@@ -288,7 +299,7 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
         <div className="min-h-[24rem] flex-1">
           <AgGridReact<(typeof rows)[number]>
             theme={omsGridTheme}
-            rowData={rows}
+            rowData={slips.gridRows}
             columnDefs={columns}
             defaultColDef={defaultColDef}
             rowHeight={OMS_GRID_ROW_HEIGHT}

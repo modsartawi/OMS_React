@@ -433,6 +433,31 @@
         "stored": "Stored",
         "refused": "Refused"
       }
+    },
+    "withdraw": {
+      "button": "Withdraw",
+      "buttonLabel": "Withdraw {{fileName}}",
+      "title": "Withdraw a slip",
+      "final": "A withdrawal is final. Nobody can open this slip again, and it cannot be restored. If you withdraw the wrong slip, add the file again.",
+      "reason": "Reason",
+      "reasons": {
+        "WRONG_STORE_DAY": "Wrong store or day · فرع أو يوم غير صحيح",
+        "UNREADABLE": "Unreadable · غير مقروء",
+        "DUPLICATE": "Duplicate · مكرر",
+        "NOT_ECR_SLIP": "Not an ECR slip · ليس إيصال جهاز الدفع (ECR)",
+        "OTHER": "Other · سبب آخر"
+      },
+      "note": "Note",
+      "noteRequired": "Required when the reason is Other.",
+      "noteOptional": "Optional.",
+      "noteLimit": "Only the first {{max}} characters are kept.",
+      "confirm": "Withdraw slip",
+      "sending": "Withdrawing…",
+      "cancel": "Cancel",
+      "failed": "The slip could not be withdrawn.",
+      "done": "{{fileName}} was withdrawn. It is now listed under Withdrawn.",
+      "gone": "{{fileName}} is no longer a stored slip you can withdraw. The list has been read again.",
+      "forbidden": "Your account may not withdraw slips, so Withdraw has been removed from this drawer. Ask an administrator if you need it."
     }
   },
   "assignment": {

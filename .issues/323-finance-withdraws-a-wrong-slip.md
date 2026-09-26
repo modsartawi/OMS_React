@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 319
 blocked-by: 321
 ---
@@ -56,7 +56,7 @@ does not name.
 
 ## Proof
 
-- [ ] vitest on the pure modules:
+- [x] vitest on the pure modules:
   - the withdraw predicate: true only for a `withdrawCategories` array holding `"CASH_CLOSE"`, and false for a
     missing field, an empty array, a bare string and a refused probe;
   - the reason list: five codes, in contract order, each with both labels;
@@ -64,14 +64,14 @@ does not name.
     other code is enabled with or without a note;
   - the body: exactly `{ reasonCode, note }`, with the note trimmed and capped at 200;
   - the answer mapping by status and code (200 / 400 `reasonCode` / 400 `note` / 404 / 403 / 503).
-- [ ] A drive (stubbed, no live SIS.Api) covers:
+- [x] A drive (stubbed, no live SIS.Api) covers:
   - Withdraw hidden without the withdraw grant, while Withdrawn (n) is still shown;
   - Other blocked until a note is typed;
   - a 200 moving the slip into Withdrawn (n) and clearing its preview;
   - a repeat 200 (already withdrawn) leaving the row unchanged;
   - a 400, a 404 and a 403 each shown as the contract says.
-- [ ] 320's, 321's and 322's drives unchanged.
-- [ ] `typecheck`, `lint`, `build` and `npm test` green.
+- [x] 320's, 321's and 322's drives unchanged.
+- [x] `typecheck`, `lint`, `build` and `npm test` green.
 
 ## Boundaries
 
@@ -95,3 +95,101 @@ no longer be opened, and a collector never sees the action.
 ## Open questions
 
 - None on the wire. The label wording is the owner's read, not a build question.
+
+## Comments
+
+**Done 2026-09-26 (AFK).**
+
+**Contract.** Built against BackOffice 2035's `## Web contract` (Access and Withdraw). Both 2034 and 2035 are
+`status: done` on `pricing2`. I cross-checked it against the code on `pricing2`:
+- `AttachmentWebEndpoints.cs`;
+- `AttachmentWithdrawResult.cs`;
+- `AttachmentWithdrawGrantEndpointFilter.cs` (a bare 403);
+- `AttachmentWithdrawReasons.cs`;
+- `AttachmentWithdrawRequest.cs`;
+- `AttachmentService.WithdrawAsync` (trims, then clamps to 200; a withdrawn row comes back unchanged);
+- `AttachmentMessages.cs`.
+
+**No drift.** The drive stubs exactly those shapes.
+
+**What was built.**
+- **`slip-withdraw.ts`** (pure):
+  - `canWithdrawSlips`: `withdrawCategories` holds `CASH_CLOSE` by array membership, on top of `canSeeSlips`.
+  - `WITHDRAW_REASONS`: the five codes in contract order, each with its label key.
+  - `canConfirmWithdraw`: Other needs a non-blank note.
+  - `withdrawBody` / `withdrawNote`: exactly `{ reasonCode, note }`, the note trimmed and cut to 200 without
+    splitting a surrogate pair.
+  - `withdrawAnswer`: by code. The one status read is the bodiless 403 (kind `unknown`, no code, 403).
+  - `withdrawClosesDialog` / `withdrawCanResend`.
+- **`api.ts`**:
+  - `withdrawSlip` through `api.post`.
+  - `slipContentKey`.
+  - `markSlipDayChanged`: re-read ByOwner, and mark both grid heads stale with `refetchType: 'none'`. 322's store
+    uses it now too.
+- **`SlipWithdrawDialog.tsx`** is on `core/ui/Modal`. It:
+  - names the slip (file name, till, uploaded at) and says the withdrawal is final and how to fix a mistake;
+  - offers the five reasons as radios;
+  - takes the note with `maxLength` 200 and says so;
+  - holds confirm disabled until it may be pressed, and while in flight (a ref-held press as well);
+  - cannot be dismissed while in flight, even by a repeated Escape.
+
+  A 400, a 503 `NOT_SET_UP` or a failure stays in the dialog with the server's message as sent and the input kept.
+  `NOT_SET_UP` leaves confirm disabled.
+- **`SlipDrawer.tsx`**:
+  - Withdraw sits beside Download on the previewed slip (see the HITL note on placement).
+  - **200**: the preview is dropped (its URL revoked, its bytes removed from the cache), ByOwner is re-read so the
+    slip heads Withdrawn (n), the grids are marked stale without reloading, and a line says it was withdrawn.
+  - **404**: the dialog closes, the drawer's sentence shows with the server's words under it, and ByOwner is
+    re-read.
+  - **Bare 403**: the drawer says so and the action is gone for this drawer.
+  - The drawer's `onCancel` now ignores the dialog's bubbled Escape.
+  - `TillText` moved to `SlipTillText.tsx` so the dialog names a till the same way.
+- **i18n**: `slips.withdraw.*` in `collection.json`. The five reason values are `"<English> · <Arabic>"`, byte for
+  byte from the table above (a vitest compares them). The Withdrawn list still shows the server's
+  `reasonLabel` / `reasonLabelArabic`.
+
+**Proof.**
+- **vitest**: `slip-withdraw.test.ts` has 24 tests. Each of these mutations was run once, went red, and was
+  restored:
+  - the status-keyed 403;
+  - `String.includes` membership;
+  - an untrimmed confirm rule;
+  - an untrimmed body;
+  - a resend after `NOT_SET_UP`.
+- **npm test**: 147 files / 2571 tests green.
+- **`tools/slip-withdraw-drive.mjs`**: 68/68, stubbed. It covers:
+  - hidden for no field, an empty list and a bare string, with Withdrawn (n) still shown;
+  - Other blocked until a note is typed;
+  - one request for many presses;
+  - a 200 into Withdrawn (n), with the preview cleared, its URL revoked and no grid reload;
+  - a repeat 200 leaving the first withdrawal's row;
+  - 400 `reasonCode` / `note`, 404, 403 and 503;
+  - a collected Collections row (C3);
+  - Escape closing the dialog only;
+  - no raw key and no page error.
+
+  Two drive mutations (the drawer's Escape guard, the native-close guard) each went red.
+- **Other drives**, all unmodified: `slip-count` 64/64, `slip-drawer` 63/63, `slip-add` 52/52, `ready` 44/44,
+  `collection` 220/220, `collections-filters` 44/44, `four-filters` 80/80. One `collection-drive` run failed its
+  first ACRs check ("Checking your access…", a cold Vite start). That page is untouched, and two re-runs were 220/220.
+- **Gates**: `typecheck`, `lint` (boundaries 657 files, contrast, colour literals) and `build` are green.
+
+**Review.**
+- **/code-review**: one finding, fixed. A repeated Escape in flight could force-close the dialog for good. The
+  dialog now re-shows itself, and the drive proves it.
+- **/standards-review, Standards axis**: no hard violations. Taken:
+  - `apiErrorKind`;
+  - a `WithdrawClosingAnswer` type;
+  - one `markSlipDayChanged`;
+  - the body built once;
+  - a clearer ref name;
+  - the 404's server words shown as sent.
+
+  Left: the native-close guard is local to the feature. It belongs in `core/ui/Modal` once a second modal needs it.
+- **/standards-review, Spec axis**: no defects. The row-versus-preview placement was judged acceptable, and it is
+  logged. The extras are logged in `.afk/HITL-323.md`: the read-grant conjunction, the success line, and the 404
+  marking the grids stale.
+
+**Outstanding (not AFK-able).**
+- The live walk against a real SIS.Api with the File Server key set. None is up, and every drive is stubbed.
+- The owner's read of the drafted EN+AR reason labels and every new `slips.withdraw.*` string.

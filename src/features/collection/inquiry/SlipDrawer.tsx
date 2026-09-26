@@ -1,30 +1,39 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Download, FileText, X } from 'lucide-react'
+import { Ban, Download, FileText, X } from 'lucide-react'
 
 import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
 import type { StoredSlip, WithdrawnSlip } from '@/core/models/collection'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { saveBlob } from '@/core/util/download-file'
-import { slipContentQuery, slipsByOwnerKey, slipsByOwnerQuery } from './api'
+import {
+  markSlipDayChanged,
+  slipAccessQuery,
+  slipContentKey,
+  slipContentQuery,
+  slipsByOwnerKey,
+  slipsByOwnerQuery,
+} from './api'
 import { ListShimmer } from './GridStates'
 import SlipAdd from './SlipAdd'
+import SlipTillText from './SlipTillText'
+import SlipWithdrawDialog from './SlipWithdrawDialog'
 import { slipUploadInFlight, useSlipUploads } from './slip-upload-store'
+import { canWithdrawSlips, type WithdrawClosingAnswer } from './slip-withdraw'
 import {
   slipContentFailure,
   slipPreviewKind,
   slipTill,
   wallClockText,
   type SlipDay,
-  type SlipTill,
 } from './slips'
 
 /**
  * **A store day's slips** (ticket 321, BackOffice 2034 + 2035) — the side drawer a
- * count on Ready or Cash Collections opens. It lists, previews and downloads (321)
- * and adds (322); Withdraw is 323's.
+ * count on Ready or Cash Collections opens. It lists, previews and downloads (321),
+ * adds (322) and withdraws (323).
  *
  * 🚩 **The drawer primitive is this feature's own.** The app has no shared drawer
  * or sheet, the call-center console's `ConfirmSheet` is another feature's (features
@@ -103,9 +112,11 @@ function DrawerFrame({
       ref={ref}
       aria-labelledby={titleId}
       data-region="slip-drawer"
+      // A cancel from the withdraw dialog over the drawer (323) reaches here too, since
+      // React bubbles it up the component tree. Only the drawer's own Escape closes it.
       onCancel={(e) => {
         e.preventDefault()
-        onClose()
+        if (e.target === ref.current) onClose()
       }}
       onClose={() => {
         const dialog = ref.current
@@ -142,15 +153,31 @@ function DrawerFrame({
   )
 }
 
+/**
+ * What the drawer says once a withdraw has closed its dialog (323). `serverMessage` is
+ * a 404's own words, shown as sent under the drawer's sentence; a bare 403 has none.
+ */
+type WithdrawNotice = { answer: WithdrawClosingAnswer; fileName: string; serverMessage: string | null }
+
 /** A day's body: Add above, then the list (or its loading or refusal). */
 function SlipDayBody({ day }: { day: SlipDay }) {
   const { t } = useTranslation('collection')
   const queryClient = useQueryClient()
   const list = useQuery(slipsByOwnerQuery(day.ownerKey))
+  const access = useQuery(slipAccessQuery())
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   /** The file name of a slip that answered 404 — withdrawn since the list was read. */
   const [goneName, setGoneName] = useState<string | null>(null)
+
+  // Withdraw (323): the slip whose dialog is open, what the last one came to, and
+  // whether the server refused the grant the probe claimed (a bare 403). That
+  // refusal takes the action away for this drawer. The body is keyed by the day, so
+  // another day starts from the probe again.
+  const [withdrawing, setWithdrawing] = useState<StoredSlip | null>(null)
+  const [notice, setNotice] = useState<WithdrawNotice | null>(null)
+  const [withdrawRefused, setWithdrawRefused] = useState(false)
+  const canWithdraw = canWithdrawSlips(access.data) && !withdrawRefused
 
   // A selection that is no longer in the list (re-read after a 404) previews nothing.
   const selected = list.data?.stored.find((s) => s.attachmentId === selectedId) ?? null
@@ -158,6 +185,32 @@ function SlipDayBody({ day }: { day: SlipDay }) {
   const select = (id: string) => {
     setSelectedId(id)
     setGoneName(null)
+    setNotice(null)
+  }
+
+  /**
+   * A withdraw that closed its dialog. On a 200 or a 404 the slip's preview goes
+   * (its object URL is revoked as it unmounts, and its bytes leave the cache), and
+   * ByOwner is re-read, so a 200 moves the slip under Withdrawn (n). Both grids are
+   * marked stale WITHOUT being reloaded under the user: the count drops on their next
+   * read (a 404 too, since someone else may have withdrawn it). A bare 403 takes the
+   * action away.
+   */
+  const onWithdrawSettled = (slip: StoredSlip, answer: WithdrawClosingAnswer, error: unknown) => {
+    setWithdrawing(null)
+    setGoneName(null)
+    setNotice({
+      answer,
+      fileName: slip.fileName,
+      serverMessage: answer === 'gone' ? apiErrorMessage(error, '') || null : null,
+    })
+    if (answer === 'forbidden') {
+      setWithdrawRefused(true)
+      return
+    }
+    if (selectedId === slip.attachmentId) setSelectedId(null)
+    queryClient.removeQueries({ queryKey: slipContentKey(slip.attachmentId) })
+    markSlipDayChanged(queryClient, day.ownerKey)
   }
 
   // 404: say so, drop the selection (its preview unmounts and revokes), re-read ByOwner.
@@ -173,6 +226,7 @@ function SlipDayBody({ day }: { day: SlipDay }) {
   return (
     <div className="flex flex-col gap-4">
       <SlipAdd ownerKey={day.ownerKey} />
+      {notice && <WithdrawNoticeLine notice={notice} />}
       {list.isPending ? (
         <ListShimmer label={t('slips.drawer.loading')} />
       ) : list.isError ? (
@@ -185,6 +239,52 @@ function SlipDayBody({ day }: { day: SlipDay }) {
           goneName={goneName}
           onSelect={select}
           onGone={onGone}
+          onWithdraw={canWithdraw ? setWithdrawing : undefined}
+        />
+      )}
+      {withdrawing && (
+        <SlipWithdrawDialog
+          key={withdrawing.attachmentId}
+          slip={withdrawing}
+          onClose={() => setWithdrawing(null)}
+          onSettled={(answer, error) => onWithdrawSettled(withdrawing, answer, error)}
+        />
+      )}
+    </div>
+  )
+}
+
+/** A withdraw's outcome, said in the drawer once its dialog has closed. */
+function WithdrawNoticeLine({ notice }: { notice: WithdrawNotice }) {
+  const { t } = useTranslation('collection')
+  if (notice.answer === 'withdrawn')
+    return (
+      <p
+        role="status"
+        className="rounded-lg border border-success-border bg-success-050 p-3 text-sm text-success-800"
+        data-testid="slip-withdraw-notice"
+        data-answer={notice.answer}
+      >
+        {t('slips.withdraw.done', { fileName: notice.fileName })}
+      </p>
+    )
+  return (
+    <div role="status" className="whitespace-pre-line" data-testid="slip-withdraw-notice" data-answer={notice.answer}>
+      {notice.answer === 'gone' && notice.serverMessage ? (
+        // The drawer's sentence, and the server's own words under it, as sent.
+        <ErrorBanner
+          title={t('slips.withdraw.gone', { fileName: notice.fileName })}
+          message={notice.serverMessage}
+          className="p-3"
+        />
+      ) : (
+        <ErrorBanner
+          message={
+            notice.answer === 'gone'
+              ? t('slips.withdraw.gone', { fileName: notice.fileName })
+              : t('slips.withdraw.forbidden')
+          }
+          className="p-3"
         />
       )}
     </div>
@@ -215,6 +315,7 @@ function SlipDayLists({
   goneName,
   onSelect,
   onGone,
+  onWithdraw,
 }: {
   stored: StoredSlip[]
   withdrawn: WithdrawnSlip[]
@@ -222,6 +323,8 @@ function SlipDayLists({
   goneName: string | null
   onSelect: (id: string) => void
   onGone: (slip: StoredSlip) => void
+  /** Open the withdraw dialog for a slip. Absent when this session may not withdraw (323). */
+  onWithdraw?: (slip: StoredSlip) => void
 }) {
   const { t } = useTranslation('collection')
   return (
@@ -246,7 +349,7 @@ function SlipDayLists({
 
       <section className="min-w-0" aria-label={t('slips.drawer.preview.region')} data-region="slip-preview">
         {selected ? (
-          <SlipPreview key={selected.attachmentId} slip={selected} onGone={onGone} />
+          <SlipPreview key={selected.attachmentId} slip={selected} onGone={onGone} onWithdraw={onWithdraw} />
         ) : (
           stored.length > 0 && (
             <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
@@ -257,13 +360,6 @@ function SlipDayLists({
       </section>
     </div>
   )
-}
-
-/** The till cell: the device, or "Web · <uploadedBy>" for a web upload (BackOffice 2035). */
-function TillText({ till }: { till: SlipTill }) {
-  const { t } = useTranslation('collection')
-  if (till.kind === 'device') return <span className="font-mono">{till.device}</span>
-  return <>{till.uploadedBy ? t('slips.drawer.webTill', { uploadedBy: till.uploadedBy }) : t('slips.drawer.web')}</>
 }
 
 /** The STORED slips, newest first as sent: file name, uploaded at, till. */
@@ -307,7 +403,7 @@ function SlipList({
                   {wallClockText(slip.storedAt)}
                 </td>
                 <td className="px-2 py-1.5" data-cell="till">
-                  <TillText till={slipTill(slip)} />
+                  <SlipTillText till={slipTill(slip)} />
                 </td>
               </tr>
             )
@@ -338,7 +434,7 @@ function WithdrawnList({ slips }: { slips: WithdrawnSlip[] }) {
               {slip.fileName}
             </span>
             <span className="text-muted-foreground" data-cell="till">
-              <TillText till={slipTill(slip)} />
+              <SlipTillText till={slipTill(slip)} />
             </span>
             <span data-cell="withdrawn">
               {t('slips.drawer.withdrawn.by', { by: slip.withdrawnBy, at: wallClockText(slip.withdrawnAt) })}
@@ -386,8 +482,21 @@ function useObjectUrl(blob: Blob | null): string | null {
  * - **502 `FILE_SERVER_MISSING`**: the File Server lost the file. Said plainly as
  *   not the user's fault, with the server's own words under it, and no retry.
  * - Anything else: the server's message as sent (English, then Arabic).
+ *
+ * **Withdraw** (323) sits beside Download, for the slip being looked at, whether
+ * its bytes came back or not: an unreadable or lost file is withdrawn too. It shows
+ * only when `onWithdraw` is given, which means the probe's `withdrawCategories`
+ * holds `CASH_CLOSE` and the server has not refused the grant in this drawer.
  */
-function SlipPreview({ slip, onGone }: { slip: StoredSlip; onGone: (slip: StoredSlip) => void }) {
+function SlipPreview({
+  slip,
+  onGone,
+  onWithdraw,
+}: {
+  slip: StoredSlip
+  onGone: (slip: StoredSlip) => void
+  onWithdraw?: (slip: StoredSlip) => void
+}) {
   const { t } = useTranslation('collection')
   const content = useQuery(slipContentQuery(slip.attachmentId))
   const failure = content.isError ? slipContentFailure(apiErrorCode(content.error)) : null
@@ -410,15 +519,28 @@ function SlipPreview({ slip, onGone }: { slip: StoredSlip; onGone: (slip: Stored
             {slip.fileName}
           </span>
         </p>
-        <Button
-          variant="secondary"
-          onClick={() => blob && saveBlob(slip.fileName, blob)}
-          disabled={!blob}
-          data-testid="slip-download"
-        >
-          <Download className="h-3.5 w-3.5" aria-hidden />
-          {t('slips.drawer.preview.download')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {onWithdraw && (
+            <Button
+              variant="danger-outlined"
+              onClick={() => onWithdraw(slip)}
+              aria-label={t('slips.withdraw.buttonLabel', { fileName: slip.fileName })}
+              data-testid="slip-withdraw"
+            >
+              <Ban className="h-3.5 w-3.5" aria-hidden />
+              {t('slips.withdraw.button')}
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            onClick={() => blob && saveBlob(slip.fileName, blob)}
+            disabled={!blob}
+            data-testid="slip-download"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden />
+            {t('slips.drawer.preview.download')}
+          </Button>
+        </div>
       </div>
 
       {content.isPending && <ListShimmer label={t('slips.drawer.preview.loading')} />}

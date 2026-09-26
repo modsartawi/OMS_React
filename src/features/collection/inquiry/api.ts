@@ -20,6 +20,8 @@
  *   carries a holder until an admin binds it in Authz Admin. A refusal there is
  *   configuration, not a defect.
  */
+import type { QueryClient } from '@tanstack/react-query'
+
 import { api, type FileResponse } from '@/core/api'
 import type {
   AcrDocument,
@@ -34,12 +36,14 @@ import type {
   SlipOwnerSiblings,
   StoredSlip,
   VoucherDocument,
+  WithdrawnSlip,
 } from '@/core/models/collection'
 import type { AssignmentBranch, AssignmentPairing, SaveAssignmentBody } from './assignment'
 import type { AssignmentUploadCommit, AssignmentUploadPreview } from './assignment-upload'
 import type { BulkAssignmentBody, BulkPreview, BulkResult } from './bulk'
 import type { RosterPerson, SavePersonBody } from './people'
 import type { AssignmentOptions } from './served-by'
+import type { WithdrawBody } from './slip-withdraw'
 import { STORE_DAY, slipCountedRows, slipOwnerList, type SlipCountedRows, type SlipOwnerList } from './slips'
 
 /**
@@ -147,9 +151,11 @@ export function slipsByOwnerQuery(ownerKey: string) {
  * reselection reads the door again. `retry: false`: a 404 or a 502 is an answer,
  * and a 502 `FILE_SERVER_MISSING` is not the user's fault and has no retry.
  */
+export const slipContentKey = (attachmentId: string) => ['collection', 'slips', 'content', attachmentId] as const
+
 export function slipContentQuery(attachmentId: string) {
   return {
-    queryKey: ['collection', 'slips', 'content', attachmentId] as const,
+    queryKey: slipContentKey(attachmentId),
     queryFn: () => collectionApi.slipContent(attachmentId),
     gcTime: 0,
     retry: false,
@@ -164,6 +170,17 @@ export function slipContentQuery(attachmentId: string) {
  */
 export const READY_GRID_KEY = ['collection', 'ready'] as const
 export const COLLECTIONS_GRID_KEY = ['collection', 'collections'] as const
+
+/**
+ * A store day's slips changed (an Add, 322, or a Withdraw, 323): re-read its ByOwner,
+ * and mark both grids stale WITHOUT reloading them under the user (`refetchType:
+ * 'none'`). The day's count catches up on the grid's next read.
+ */
+export function markSlipDayChanged(queryClient: QueryClient, ownerKey: string): void {
+  void queryClient.invalidateQueries({ queryKey: slipsByOwnerKey(ownerKey) })
+  void queryClient.invalidateQueries({ queryKey: READY_GRID_KEY, refetchType: 'none' })
+  void queryClient.invalidateQueries({ queryKey: COLLECTIONS_GRID_KEY, refetchType: 'none' })
+}
 
 /**
  * The probe's predicates, one per screen of THIS feature (244 §10).
@@ -560,6 +577,20 @@ export const collectionApi = {
    */
   uploadSlip(form: FormData): Promise<StoredSlip> {
     return api.upload<StoredSlip>('AttachmentWeb/Upload', form)
+  },
+
+  /**
+   * `POST AttachmentWeb/{attachmentId}/Withdraw`, body `{ reasonCode, note }` →
+   * the withdrawn slip (ticket 323, BackOffice 2035). Final: there is no restore.
+   * A slip already withdrawn answers 200 with its row unchanged.
+   *
+   * ⚠ Its refusals are coded (400 `reasonCode` / `note`, 404 `NOT_FOUND`, 503
+   * `NOT_SET_UP`) except the grant filter's 403, which has no body. Read them with
+   * `withdrawAnswer`. The id rides as a path segment, `encodeURIComponent`'d as
+   * `/Content`'s is.
+   */
+  withdrawSlip(attachmentId: string, body: WithdrawBody): Promise<WithdrawnSlip> {
+    return api.post<WithdrawnSlip>(`AttachmentWeb/${encodeURIComponent(attachmentId)}/Withdraw`, body)
   },
 
   /**

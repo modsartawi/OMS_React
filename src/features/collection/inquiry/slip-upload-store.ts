@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { QueryClient } from '@tanstack/react-query'
 
 import { mintRequestId } from '@/core/util/request-id'
-import { COLLECTIONS_GRID_KEY, READY_GRID_KEY, collectionApi, slipsByOwnerKey } from './api'
+import { collectionApi, markSlipDayChanged } from './api'
 import {
   canSendSlip,
   isRetryableUpload,
@@ -64,9 +64,7 @@ export const useSlipUploads = create<SlipUploadsState>((set, get) => {
     try {
       await collectionApi.uploadSlip(slipUploadForm(item, ownerKey))
       patch(ownerKey, clientRequestId, { status: 'stored' })
-      void queryClient.invalidateQueries({ queryKey: slipsByOwnerKey(ownerKey) })
-      void queryClient.invalidateQueries({ queryKey: READY_GRID_KEY, refetchType: 'none' })
-      void queryClient.invalidateQueries({ queryKey: COLLECTIONS_GRID_KEY, refetchType: 'none' })
+      markSlipDayChanged(queryClient, ownerKey)
     } catch (error) {
       patch(ownerKey, clientRequestId, { status: 'refused', error, retryable: isRetryableUpload(error) })
     }

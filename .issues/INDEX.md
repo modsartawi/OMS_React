@@ -678,3 +678,11 @@ ticket, this wave *writes*, to a customer's login credential. Bound by ADR 0001 
 - [316](316-acrs-deposits-and-attempts-take-the-four-filters.md) — ACRs, Deposits and Attempts take the same four filters · *(ticket · spec 308)* · **done** · blocked by: 315 (+ BackOffice 1993) · web half
 - [317](317-a-ready-for-collection-screen.md) — A Ready for collection screen lists closed uncollected days and prepared receipts · *(ticket · spec 308)* · **done** · blocked by: 315 (+ BackOffice 1994, BackOffice 1995) · web half
 - [318](318-an-assignment-file-is-uploaded-with-a-preview.md) — An assignment file is uploaded with a preview, then committed · *(ticket · spec 308)* · **done** · blocked by: — (+ BackOffice 1996) · web half
+
+## ECR slips at the day close — spec 319 (frontend half of BackOffice spec 2030)
+
+- [319](319-ecr-slips-web-half-spec.md) — ECR slips at the day close: the web half · *(spec · BackOffice 2030)* · **ready** · blocked by: — · web halves of BackOffice 2034/2035 (merged `da71a9621`); each builds against their `## Web contract`
+- [320](320-ready-and-collections-show-each-store-days-slip-count.md) — Ready and Cash Collections show each store day's slip count, and filter to "No slip" · *(ticket · spec 319)* · **open** · blocked by: — (+ BackOffice 2034, done) · web half
+- [321](321-a-days-slips-open-in-a-drawer-with-preview-and-download.md) — Clicking a count opens a drawer that lists, previews and downloads the day's slips · *(ticket · spec 319)* · **open** · blocked by: 320 (+ BackOffice 2034, 2035, done) · web half
+- [322](322-finance-adds-a-slip-from-the-drawer.md) — Finance adds a slip from the drawer, and a retry never files it twice · *(ticket · spec 319)* · **open** · blocked by: 321 (+ BackOffice 2035, done) · web half
+- [323](323-finance-withdraws-a-wrong-slip.md) — Finance withdraws a wrong slip, and it moves to Withdrawn · *(ticket · spec 319)* · **open** · blocked by: 321 (+ BackOffice 2035, done) · web half

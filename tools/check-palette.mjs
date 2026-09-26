@@ -76,6 +76,11 @@ const ALLOWED = [
     why: 'modal scrim — same intent as core/ui/Modal',
   },
   {
+    file: 'src/features/collection/inquiry/SlipDrawer.tsx',
+    match: 'bg-black/50',
+    why: 'slip drawer scrim (ticket 321) — the same native <dialog> backdrop as core/ui/Modal',
+  },
+  {
     file: 'src/layout/AppShell.tsx',
     match: 'bg-black/50',
     why: 'mobile-nav scrim — same intent as core/ui/Modal',

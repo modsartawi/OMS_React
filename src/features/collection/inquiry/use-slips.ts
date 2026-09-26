@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
 import { slipAccessQuery } from './api'
-import { canSeeSlips, isNoSlipRow, type NoSlipToggle } from './slips'
+import { canSeeSlips, isNoSlipRow, type NoSlipToggle, type SlipDay } from './slips'
 
 /** What a slip-counted grid draws from its rows and the probe (ticket 320). */
 export interface SlipView<Row> {
@@ -16,6 +16,12 @@ export interface SlipView<Row> {
   noSlip: NoSlipToggle | undefined
   /** Turn the filter off — the toolbar's Reset calls it with the rest. */
   clearNoSlip: () => void
+  /** The store day whose drawer is open (ticket 321), or null. Always null while the probe hides slips. */
+  drawerDay: SlipDay | null
+  /** Open a day's drawer — the Slips column's click. Stable, so the columns do not rebuild on it. */
+  openSlips: (day: SlipDay) => void
+  /** Close the drawer. */
+  closeSlips: () => void
 }
 
 /**
@@ -46,6 +52,11 @@ export function useSlipView<Row extends { slipCount: number | null }>(
   const clearNoSlip = useCallback(() => setPressed(false), [])
   const onToggle = useCallback(() => setPressed((v) => !v), [])
 
+  // The drawer (ticket 321): one open day per grid. Gated on the probe like the
+  // column, so a probe that stops admitting closes it with everything else.
+  const [day, setDay] = useState<SlipDay | null>(null)
+  const closeSlips = useCallback(() => setDay(null), [])
+
   return {
     showSlips,
     gridRows,
@@ -53,5 +64,8 @@ export function useSlipView<Row extends { slipCount: number | null }>(
     unavailable: showSlips && slipCountsUnavailable === true,
     noSlip: showSlips ? { pressed, onToggle } : undefined,
     clearNoSlip,
+    drawerDay: showSlips ? day : null,
+    openSlips: setDay,
+    closeSlips,
   }
 }

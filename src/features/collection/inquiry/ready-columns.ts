@@ -12,7 +12,7 @@ import {
   readyZNumber,
 } from './ready-projection'
 import { slipCountColumn } from './SlipCountColumn'
-import { withSlipColumn } from './slips'
+import { withSlipColumn, type SlipDay } from './slips'
 
 /**
  * The Ready for collection grid's columns (ticket 317) — the siblings' column shape
@@ -98,7 +98,8 @@ export function buildReadyDefaultColDef(showFilters: boolean): ColDef<Collection
 
 /**
  * Build the visible columns; `showMore` reveals the tail, and `showSlips` (the
- * slip probe's answer, fail-closed) places the Slips column after `cardTotal`.
+ * slip probe's answer, fail-closed) places the Slips column after `cardTotal`;
+ * `onOpenSlips` makes a known count open that store day's drawer (ticket 321).
  *
  * The currency handling is Cash Collections': one currency in the result puts the
  * code in each money column's **header**; a mixed result leaves the headers bare
@@ -110,6 +111,7 @@ export function buildReadyColumns(
   rows: readonly CollectionReadyRow[],
   showMore: boolean,
   showSlips = false,
+  onOpenSlips?: (day: SlipDay) => void,
 ): ColDef<CollectionReadyRow>[] {
   const currencies = distinctCurrencies(rows, (row) => row.currencyKey)
   const headerCurrency = currencies.length === 1 ? currencies[0] : ''
@@ -122,7 +124,7 @@ export function buildReadyColumns(
       : [...DEFAULT_FIELDS]
 
   return withSlipColumn(fields, showSlips).map((field) =>
-    field === 'slipCount' ? slipCountColumn<CollectionReadyRow>(t) : column(t, field, headerCurrency),
+    field === 'slipCount' ? slipCountColumn<CollectionReadyRow>(t, onOpenSlips) : column(t, field, headerCurrency),
   )
 }
 

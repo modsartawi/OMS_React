@@ -381,7 +381,42 @@
     "column": "Slips",
     "countUnknown": "Slip count unknown",
     "noSlip": "No slip",
-    "unavailable": "Slip counts unavailable"
+    "unavailable": "Slip counts unavailable",
+    "open": "Slips of {{store}} for {{day}}: {{value}}",
+    "drawer": {
+      "title": "Slips — {{store}}, {{day}}",
+      "close": "Close",
+      "loading": "Loading the day's slips…",
+      "empty": "No slip is filed for this day.",
+      "web": "Web",
+      "webTill": "Web · {{uploadedBy}}",
+      "columns": {
+        "fileName": "File name",
+        "storedAt": "Uploaded at",
+        "till": "Till"
+      },
+      "errors": {
+        "refused": "Your account is not allowed to read this day's slips. Ask an administrator if you need them.",
+        "loadFailed": "The day's slips could not be loaded."
+      },
+      "preview": {
+        "region": "Slip preview",
+        "pick": "Pick a slip to preview it.",
+        "loading": "Loading the slip…",
+        "alt": "Slip {{fileName}}",
+        "download": "Download",
+        "none": "This file type cannot be previewed here. Download it to open it.",
+        "gone": "{{fileName}} is no longer readable: it was withdrawn since the list was loaded. The list has been read again.",
+        "lost": "The file server no longer holds this file. This is not something you did, and trying again will not bring it back.",
+        "failed": "The slip could not be loaded."
+      },
+      "withdrawn": {
+        "title": "Withdrawn ({{n}})",
+        "by": "Withdrawn by {{by}} at {{at}}",
+        "reason": "Reason: {{label}} {{labelArabic}}",
+        "note": "Note: {{note}}"
+      }
+    }
   },
   "assignment": {
     "title": "Collection Assignment",

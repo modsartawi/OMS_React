@@ -30,6 +30,7 @@ import {
 import { readyRowId } from './ready-projection'
 import ReadyToolbar from './ReadyToolbar'
 import type { AssignmentOptions } from './served-by'
+import SlipDrawer from './SlipDrawer'
 import { useSlipView } from './use-slips'
 
 /**
@@ -116,8 +117,8 @@ function ReadyBody({ options }: { options?: AssignmentOptions }) {
   const defaultColDef = useMemo(() => buildReadyDefaultColDef(showFilters), [showFilters])
 
   const columns = useMemo(
-    () => buildReadyColumns(t, rows, showMore, slips.showSlips),
-    [t, rows, showMore, slips.showSlips],
+    () => buildReadyColumns(t, rows, showMore, slips.showSlips, slips.openSlips),
+    [t, rows, showMore, slips.showSlips, slips.openSlips],
   )
 
   const isFiltered = !isLandingQuery(appliedParams, options)
@@ -188,6 +189,7 @@ function ReadyBody({ options }: { options?: AssignmentOptions }) {
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
             // ⚠️ No `onRowClicked`, no action column, no `rowSelection`: read-only by design.
+            // The one control in a row is the Slips count, which opens the drawer (321).
             pagination
             paginationPageSize={GRID_PAGE_SIZE}
             paginationPageSizeSelector={false}
@@ -195,6 +197,9 @@ function ReadyBody({ options }: { options?: AssignmentOptions }) {
           />
         </div>
       ) : null}
+
+      {/* A count's store day (ticket 321). Over the grid, never a route of its own. */}
+      <SlipDrawer day={slips.drawerDay} onClose={slips.closeSlips} />
     </>
   )
 }

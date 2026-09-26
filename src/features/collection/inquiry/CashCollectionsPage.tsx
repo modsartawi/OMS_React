@@ -39,6 +39,7 @@ import CollectionsToolbar from './CollectionsToolbar'
 import { COLLECTIONS_CSV_COLUMNS } from './csv'
 import { useCsvExport } from './use-csv-export'
 import { buildReceiptActionColumn } from './RowActions'
+import SlipDrawer from './SlipDrawer'
 import { useSlipView } from './use-slips'
 // These two were declared at the foot of this file at 254 and moved to their own
 // module at 255, when they acquired a second and third caller (see `GridStates`).
@@ -210,8 +211,8 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
   // `buildCollectionsColumns`: an action is not a wire field, and the field lists
   // carry a completeness proof that 258's export writes from (see `RowActions`).
   const columns = useMemo(
-    () => [buildReceiptActionColumn(t), ...buildCollectionsColumns(t, rows, showMore, slips.showSlips)],
-    [t, rows, showMore, slips.showSlips],
+    () => [buildReceiptActionColumn(t), ...buildCollectionsColumns(t, rows, showMore, slips.showSlips, slips.openSlips)],
+    [t, rows, showMore, slips.showSlips, slips.openSlips],
   )
 
   // "Filtered" is about the ISSUED query, not the draft: the chip's job is to say
@@ -317,6 +318,9 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
           />
         </div>
       ) : null}
+
+      {/* A count's store day (ticket 321). Over the grid, never a route of its own. */}
+      <SlipDrawer day={slips.drawerDay} onClose={slips.closeSlips} />
     </>
   )
 }

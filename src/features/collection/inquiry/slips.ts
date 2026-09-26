@@ -13,7 +13,13 @@
  * and both let an unknown day read as a day with no slip.
  */
 import type { ApiEnvelope } from '@/core/api'
-import type { AttachmentAccess, SlipCountedSiblings } from '@/core/models/collection'
+import type {
+  AttachmentAccess,
+  SlipCountedSiblings,
+  SlipOwnerSiblings,
+  StoredSlip,
+  WithdrawnSlip,
+} from '@/core/models/collection'
 
 /** The attachment category of a day close's slips — the one this wave draws. */
 export const CASH_CLOSE = 'CASH_CLOSE'
@@ -112,4 +118,180 @@ export function slipCountedRows<Row>(envelope: ApiEnvelope<Row[], SlipCountedSib
     rows: Array.isArray(envelope.data) ? envelope.data : [],
     slipCountsUnavailable: envelope.slipCountsUnavailable === true,
   }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+ * The drawer (ticket 321, BackOffice 2034 + 2035): a store day's slips.
+ * ════════════════════════════════════════════════════════════════════════════ */
+
+/** The owner kind a store day's slips are filed under. A machine code, never shown. */
+export const STORE_DAY = 'STORE_DAY'
+
+/** A `yyyy-MM-dd` at the head of the string, alone or before a time part. */
+const DAY_PART = /^(\d{4}-\d{2}-\d{2})(?:$|[T ])/
+
+/**
+ * The owner key a store day's slips are filed and counted under,
+ * `<storeId>/<yyyy-MM-dd>` — the till's spelling and the server's
+ * (`AttachmentOwnerKinds.StoreDayKey`: the store trimmed, the day invariant).
+ *
+ * 🔑 **String handling only.** The day is the first ten characters of `businessDay`
+ * as the server sent it. Never `new Date(...)`, `toLocale*` or `Intl`: the wire's
+ * `2026-09-20T00:00:00` has no zone, and a `Date` reads it in the browser's zone
+ * or as UTC — a day near midnight then lands on its neighbour, and the drawer
+ * opens an owner nobody filed a slip under.
+ *
+ * `null` when there is no day (a settlement row, a pre-049 day) or no store: such a
+ * row has no owner, so it never opens the drawer. 322 and 323 call this; nothing
+ * re-spells the key.
+ */
+export function storeDayOwnerKey(
+  storeId: string | null | undefined,
+  businessDay: string | null | undefined,
+): string | null {
+  if (typeof storeId !== 'string' || typeof businessDay !== 'string') return null
+  const store = storeId.trim()
+  const day = DAY_PART.exec(businessDay.trim())
+  if (!store || !day) return null
+  return `${store}/${day[1]}`
+}
+
+/** The store day a drawer is opened on: its owner key and how its header names it. */
+export interface SlipDay {
+  ownerKey: string
+  /** The store as the grids print it (`storeText`), else its id. */
+  store: string
+  /** `yyyy-MM-dd`, the key's own date part. */
+  businessDate: string
+}
+
+/** The fields of a Ready or Collections row the drawer opens from. */
+export interface SlipDayRow {
+  storeId: string
+  storeText?: string | null
+  businessDay: string | null
+  slipCount: number | null
+}
+
+/**
+ * The day a row's count opens, or `null` when the count may not be clicked.
+ *
+ * Clickable = a **known** count (`0` included — that is where 322's Add goes) on a
+ * row with an owner. A null count is unknown and never opens anything, and a row
+ * without a `businessDay` has no owner key even if a count were somehow sent.
+ */
+export function slipDayOf(row: SlipDayRow | null | undefined): SlipDay | null {
+  if (!row || !isKnownSlipCount(row.slipCount)) return null
+  const ownerKey = storeDayOwnerKey(row.storeId, row.businessDay)
+  if (ownerKey === null) return null
+  const store = typeof row.storeText === 'string' && row.storeText.trim() ? row.storeText : row.storeId.trim()
+  return { ownerKey, store, businessDate: ownerKey.slice(ownerKey.lastIndexOf('/') + 1) }
+}
+
+/**
+ * Where a slip came from: the till's device code, or — a web upload has an empty
+ * `sourceDevice` — the web user who filed it (BackOffice 2035, which supersedes
+ * 2034's plain "Web"). The words are the drawer's `t()`; this only decides which.
+ */
+export type SlipTill = { kind: 'device'; device: string } | { kind: 'web'; uploadedBy: string }
+
+export function slipTill(item: { sourceDevice?: string | null; uploadedBy?: string | null }): SlipTill {
+  const device = typeof item.sourceDevice === 'string' ? item.sourceDevice.trim() : ''
+  if (device) return { kind: 'device', device }
+  return { kind: 'web', uploadedBy: typeof item.uploadedBy === 'string' ? item.uploadedBy : '' }
+}
+
+/** How a fetched slip is shown: an `<img>`, an `<iframe>`, or no preview (download only). */
+export type SlipPreviewKind = 'image' | 'pdf' | 'none'
+
+/**
+ * The preview for a `/Content` answer's content type — `image/jpeg` and `image/png`
+ * as an image, `application/pdf` in a frame, anything else not at all (its
+ * download still works). Parameters and case are ignored; nothing is sniffed.
+ */
+export function slipPreviewKind(contentType: string | null | undefined): SlipPreviewKind {
+  const type = (contentType ?? '').split(';')[0].trim().toLowerCase()
+  if (type === 'image/jpeg' || type === 'image/png') return 'image'
+  if (type === 'application/pdf') return 'pdf'
+  return 'none'
+}
+
+/** `yyyy-MM-ddTHH:mm[:ss]` at the head of a wall-clock stamp. */
+const WALL_CLOCK = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}(?::\d{2})?)/
+
+/**
+ * A wall-clock stamp as the drawer prints it: the server's own digits, the `T` cut
+ * to a space and any fraction of a second dropped — `2026-09-24T22:31:07.1234567`
+ * reads `2026-09-24 22:31:07`.
+ *
+ * 🔑 A string cut, never a `Date`: `storedAt` and `withdrawnAt` are local wall clock
+ * with no zone, and parsing them would shift them by the browser's offset. Anything
+ * that is not that shape is shown exactly as sent.
+ */
+export function wallClockText(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const m = WALL_CLOCK.exec(value)
+  return m ? `${m[1]} ${m[2]}` : value
+}
+
+/**
+ * The Withdrawn (n) list: newest withdrawal first, and `n` is its length.
+ *
+ * The server already sends it in that order; this holds it there by comparing the
+ * `withdrawnAt` strings — one ISO wall-clock shape, so the text order IS the time
+ * order, with no `Date` in between. A stable sort, so a tie keeps the server's order;
+ * a missing stamp sorts last. Returns a new array; a non-array is an empty list.
+ */
+export function withdrawnNewestFirst(list: unknown): WithdrawnSlip[] {
+  if (!Array.isArray(list)) return []
+  const stamp = (w: WithdrawnSlip | null | undefined) => (typeof w?.withdrawnAt === 'string' ? w.withdrawnAt : '')
+  return [...(list as WithdrawnSlip[])].sort((a, b) => {
+    const x = stamp(a)
+    const y = stamp(b)
+    return x === y ? 0 : x < y ? 1 : -1
+  })
+}
+
+/** A store day's slips as the drawer reads them. */
+export interface SlipOwnerList {
+  /** STORED slips, newest first as sent. */
+  stored: StoredSlip[]
+  /** Withdrawn slips, newest withdrawal first. */
+  withdrawn: WithdrawnSlip[]
+}
+
+/**
+ * `ByOwner`'s envelope → the two lists. `withdrawn` rides BESIDE `data`
+ * (BackOffice 2035), which is why the read keeps the envelope; an older SIS.Api
+ * omits it, and that reads as nothing withdrawn.
+ */
+export function slipOwnerList(envelope: ApiEnvelope<StoredSlip[], SlipOwnerSiblings>): SlipOwnerList {
+  return {
+    stored: Array.isArray(envelope.data) ? envelope.data : [],
+    withdrawn: withdrawnNewestFirst(envelope.withdrawn),
+  }
+}
+
+/**
+ * The two `/Content` refusal codes the drawer words itself (`AttachmentContentResult`
+ * on pricing2). Branched on the CODE, never the status: a 502 is also
+ * `FILE_SERVER_KEY_REFUSED`, which is IT's to fix, not a lost file.
+ */
+export const SLIP_NOT_FOUND = 'NOT_FOUND'
+export const SLIP_FILE_MISSING = 'FILE_SERVER_MISSING'
+
+/**
+ * What a failed `/Content` means for the drawer:
+ * - `gone`: 404 `NOT_FOUND`. The slip is no longer readable (withdrawn meanwhile):
+ *   say so and re-read `ByOwner`.
+ * - `lost`: 502 `FILE_SERVER_MISSING`. The File Server no longer holds the file. Not
+ *   the user's fault, and no retry.
+ * - `other`: anything else, shown as the server sent it.
+ */
+export type SlipContentFailure = 'gone' | 'lost' | 'other'
+
+export function slipContentFailure(code: string | null | undefined): SlipContentFailure {
+  if (code === SLIP_NOT_FOUND) return 'gone'
+  if (code === SLIP_FILE_MISSING) return 'lost'
+  return 'other'
 }

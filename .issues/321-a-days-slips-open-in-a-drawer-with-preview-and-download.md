@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 319
 blocked-by: 320
 ---
@@ -57,13 +57,13 @@ BackOffice `pricing2`. Add no field the contract does not name.
 
 ## Proof
 
-- [ ] vitest on the pure modules:
+- [x] vitest on the pure modules:
   - `storeDayOwnerKey`: an ISO `businessDay` with and without a time part gives `yyyy-MM-dd`, and no locale or
     `Date` round-trip shifts it; a date near midnight is the proof;
   - the till label: device when set, "Web · \<uploadedBy\>" when empty;
   - the preview kind by content type, image / pdf / none;
   - the withdrawn list is ordered newest withdrawal first, and n is its length.
-- [ ] A drive (stubbed, no live SIS.Api) covers:
+- [x] A drive (stubbed, no live SIS.Api) covers:
   - clicking a count on each grid, and a `0`;
   - a null not being clickable;
   - a jpeg, a png and a pdf previewing;
@@ -72,8 +72,8 @@ BackOffice `pricing2`. Add no field the contract does not name.
   - Withdrawn (n) collapsed and expanded, with no preview or download controls inside;
   - object URLs revoked on close (count `URL.revokeObjectURL` calls in the page);
   - loading, error and refusal on `ByOwner`.
-- [ ] 320's drive and the sibling drives unchanged.
-- [ ] `typecheck`, `lint`, `build` and `npm test` green.
+- [x] 320's drive and the sibling drives unchanged. (320's one forward-looking check narrowed; see Comments.)
+- [x] `typecheck`, `lint`, `build` and `npm test` green.
 
 ## Boundaries
 
@@ -101,3 +101,111 @@ leave the collection screen.
   call-center console's `ConfirmSheet` belongs to another feature and cannot be imported. Build the drawer the
   way the existing dialogs in `collection/inquiry` are built (for example, `AssignmentUploadDialog`), or move a
   shared primitive to `layout/` if `feature-structure` allows it. Record the choice.
+
+## Comments
+
+**Done 2026-09-26 (AFK).**
+
+**Contract.** Built against BackOffice 2034's and 2035's `## Web contract` (2035 wins on the till, `uploadedBy` and
+`withdrawn`). Both are `status: done` on `pricing2`. I cross-checked the contract against the code on `pricing2`:
+- `AttachmentDto.cs` (`sourceDevice`, `uploadedBy`);
+- `WithdrawnAttachmentDto.cs` and `AttachmentOwnerListResponse.cs` (`withdrawn` beside `data`);
+- `AttachmentWebEndpoints.cs`;
+- `AttachmentContentResult.cs` (404 `NOT_FOUND`; 502 `FILE_SERVER_MISSING` and `FILE_SERVER_KEY_REFUSED`; 503
+  `FILE_SERVER_UNAVAILABLE`);
+- `AttachmentOwnerKinds.StoreDayKey` (store trimmed, invariant day).
+
+There is no field drift. The stubs are exactly those shapes, and no field was invented.
+
+**Drift from this ticket's text, recorded.** "A **502** means the File Server has lost the file" is branched on the
+CODE, not the status. Only `FILE_SERVER_MISSING` says "lost". The other 502, `FILE_SERVER_KEY_REFUSED` (a rotated key,
+IT's to fix), shows the server's own bilingual message as sent. Branching on 502 would tell the accountant a file is
+gone when it is a key fault.
+
+**The drawer primitive (the open question).** `SlipDrawer.tsx` is a component in `features/collection/inquiry`,
+built the way `AssignmentUploadDialog` is. It imports only `@/core/*` and its own files. Its frame is a native
+`<dialog>` (`showModal`, Escape, backdrop click, focus given back to the count), which is `core/ui/Modal`'s contract
+pinned to the inline end at full height. Modal draws a centred box and takes no placement. It does not use
+`callcenter`'s `ConfirmSheet`, puts nothing in `layout/`, and adds no `src/components/`. The drawer's
+`backdrop:bg-black/50` scrim got one documented `ALLOWED` entry in `tools/check-palette.mjs`, on the
+`ViewManager`/`AppShell` precedent.
+
+**The core read.** It uses 320's `api.getEnvelope<StoredSlip[], SlipOwnerSiblings>` for ByOwner, and `api.blob` for
+`/Content`. `core/api.ts` is untouched.
+
+**What was built.**
+- **`slips.ts`** (pure):
+  - `storeDayOwnerKey(storeId, businessDay)` builds `<storeId>/<yyyy-MM-dd>` by regex on the string: never `Date`,
+    locale or `Intl`. It returns null with no day or no store.
+  - `slipDayOf(row)` returns null unless the count is known AND the key builds, so a null is never clickable and a
+    null `businessDay` never opens anything.
+  - `slipTill` picks the device, or the web uploader.
+  - `slipPreviewKind` returns image / pdf / none.
+  - `wallClockText` is a string cut of the T, dropping the fraction.
+  - `withdrawnNewestFirst` is a stable string sort, and `slipOwnerList` reads the envelope.
+  - `slipContentFailure` maps the codes to gone / lost / other.
+- **`api.ts`**:
+  - `slipsByOwner(ownerKey)` and `slipContent(id)`.
+  - `slipsByOwnerKey(ownerKey)` = `['collection','slips','by-owner',ownerKey]`, the ONE key 322/323 re-read, with
+    `slipsByOwnerQuery` (`retry: false`).
+  - `slipContentQuery` (`gcTime: 0`, `retry: false`), so bytes never outlive their preview.
+- **`SlipCountColumn`**: a known count (0 included) with an owner is a `<button data-slip-open>` that opens the
+  drawer. The builders take `onOpenSlips`.
+- **`useSlipView`** holds `drawerDay` / `openSlips` / `closeSlips` (null whenever the probe hides slips). Both Pages
+  render `<SlipDrawer>` over the grid.
+- **`SlipDrawer.tsx`**:
+  - the title names the store and business date;
+  - loading, error (message as sent), and refusal (bare 403, the grids' wording) on ByOwner;
+  - "No slip is filed for this day" on an empty list;
+  - the list (file name, uploaded at, till);
+  - the preview (`<img>` / `<iframe>` / none), keyed by slip, each with its own object URL revoked on unmount, so a
+    selection change or a close revokes it;
+  - Download saves the fetched blob under `fileName` through `core/util/download-file`'s `saveBlob`;
+  - 404 says so, drops the selection and re-reads ByOwner; 502 `FILE_SERVER_MISSING` gets its own title, the server's
+    words and no retry;
+  - Withdrawn (n) is a collapsed `<details>`, newest first, showing file, till, who and when, the server's
+    `reasonLabel` beside `reasonLabelArabic`, and the note. It has no controls.
+- **i18n**: `slips.open` and `slips.drawer.*` go in the one `slips` group. The till is `"Web · {{uploadedBy}}"`
+  (U+00B7 copied from this ticket), with plain "Web" only if `uploadedBy` is empty.
+
+**Proof.**
+- **vitest:** 144 files / 2518 tests, all green (+63 over 320's baseline); `slips.test.ts` has 47 cases. These cover:
+  - the owner key with and without a time part;
+  - four days near midnight (`23:59:59`, `23:30Z`, `00:00:30`, `+03:00`);
+  - a stubbed throwing `Date`;
+  - the till;
+  - the preview kind;
+  - the withdrawn order and n, ByOwner's envelope and the content-failure codes.
+- **`tools/slip-drawer-drive.mjs`: 63/63** (stubbed, no live SIS.Api). It covers:
+  - the count on both grids, and a 0, each opening its own day's key; a null not clickable;
+  - jpeg (decodes), png and pdf previews, and a text file with download only;
+  - the download under `fileName`, byte-equal, with no second fetch;
+  - 404 (said, re-read, gone from the list) and 502 (said, server words, no retry, one fetch);
+  - Withdrawn (2) collapsed, then expanded, newest first, with no controls and no content fetch;
+  - on close, 6 object URLs made and 6 revoked; Escape closes;
+  - ByOwner loading, 500, bare 403 and 503 `NOT_SET_UP`;
+  - a refused probe giving no slip button;
+  - no raw keys and no page errors.
+- **Sibling drives:** `slip-count-drive` 64/64; `ready-drive` 44/44, `collection-drive` 220/220,
+  `collections-filters-drive` 44/44 and `four-filters-drive` 80/80, all **unmodified**.
+  - ⚠ One check in 320's `slip-count-drive` was narrowed: "the count is not a link or a button *yet*" now reads "an
+    unknown (null) count is not a link or a button". That assertion was 320's placeholder for exactly what this
+    ticket builds (HITL).
+- **`typecheck`, `lint` (3 gates) and `build`:** green.
+
+**Review.**
+- **Built-in /code-review:** no findings.
+- **/standards-review, Standards:** no hard violations. Taken: the reason line is now one interpolated key, the
+  duplicated transient "gone" paragraph was removed, and the column's double `onOpen` check was simplified. Left as
+  judgement calls:
+  - the `statusCode === 403` refusal check (a bare 403 carries no code; now in four places, a core helper is a later
+    tidy-up);
+  - `slipTill`'s name;
+  - `useSlipView` owning the drawer state;
+  - the new CONTEXT terms (store day, owner key, withdrawn slip) for `/domain-modeling`.
+- **/standards-review, Spec:** no wrong behaviour. Its two gaps (the 320 drive edit, and the 502-by-code drift) are
+  recorded above and in `.afk/HITL-321.md`.
+
+**Outstanding (not AFK-able).**
+- The live walk against a real SIS.Api with the File Server key set. None is up, and every drive is stubbed.
+- The owner's read of every new string (`slips.open`, `slips.drawer.*`).

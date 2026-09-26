@@ -5,7 +5,7 @@ import type { CollectionInquiryRow } from '@/core/models/collection'
 import { distinctCurrencies, formatMoneyIn } from '@/core/money'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { slipCountColumn } from './SlipCountColumn'
-import { withSlipColumn } from './slips'
+import { withSlipColumn, type SlipDay } from './slips'
 
 /**
  * The Cash Collections grid's columns (ticket 254), and the shape 255 and 256
@@ -159,7 +159,9 @@ export function buildCollectionsDefaultColDef(showFilters: boolean): ColDef<Coll
  * Build the visible columns.
  *
  * `showMore` reveals the forensic tail; `showSlips` (the slip probe's answer,
- * fail-closed) places the Slips column after `cardTotal`. The currency handling is the one piece of
+ * fail-closed) places the Slips column after `cardTotal`, and `onOpenSlips` makes a
+ * known count open that row's own store day in the drawer (ticket 321). The currency
+ * handling is the one piece of
  * conditional logic:
  *
  * - **One currency in the result** (the ordinary day) → the code goes in each
@@ -173,6 +175,7 @@ export function buildCollectionsColumns(
   rows: readonly CollectionInquiryRow[],
   showMore: boolean,
   showSlips = false,
+  onOpenSlips?: (day: SlipDay) => void,
 ): ColDef<CollectionInquiryRow>[] {
   const currencies = resultCurrencies(rows)
   const headerCurrency = currencies.length === 1 ? currencies[0] : ''
@@ -185,7 +188,7 @@ export function buildCollectionsColumns(
       : [...DEFAULT_FIELDS]
 
   return withSlipColumn(fields, showSlips).map((field) =>
-    field === 'slipCount' ? slipCountColumn<CollectionInquiryRow>(t) : column(t, field, headerCurrency),
+    field === 'slipCount' ? slipCountColumn<CollectionInquiryRow>(t, onOpenSlips) : column(t, field, headerCurrency),
   )
 }
 

@@ -280,7 +280,9 @@ async function run() {
   check('ready — card total to the row’s currency', (await seen(readyCell(DAY, 'cardTotal'))) === '640.00')
   check('ready — a null card total is a dash, never 0.000', (await seen(readyCell(DAY_NO_Z, 'cardTotal'))) === '—' && (await seen(readyCell(RECEIPT, 'cardTotal'))) === '—')
   check('ready — a card total of 0 is a figure', (await seen(readyCell(DAY_ZERO_CARD, 'cardTotal'))) === '0.00')
-  check('ready — the count is not a link or a button yet', (await page.locator('.ag-row [col-id="slipCount"] a, .ag-row [col-id="slipCount"] button').count()) === 0)
+  // Ticket 321 made a known count a button that opens the drawer (tools/slip-drawer-drive.mjs);
+  // what stays true from 320 is that an unknown (null) count is never one.
+  check('ready — an unknown count is not a link or a button', (await readyCell(RECEIPT, 'slipCount').locator('a, button').count()) === 0)
   check('ready — no banner while the counts were read', !(await mainText()).includes(BANNER))
 
   // ---- 4. the filter ----

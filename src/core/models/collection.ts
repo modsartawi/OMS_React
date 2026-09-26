@@ -900,3 +900,64 @@ export interface AttachmentAccess {
   /** The withdraw grant's categories (BackOffice 2035). Optional: an older SIS.Api omits it. */
   withdrawCategories?: string[]
 }
+
+/**
+ * `GET AttachmentWeb/ByOwner?ownerKind=STORE_DAY&ownerKey=…` — one STORED slip of a
+ * store day (BackOffice 2034 + 2035, `AttachmentDto` on pricing2), camel-cased by the
+ * serializer, with **nothing added and nothing renamed**. `data` is these, newest
+ * first as sent.
+ *
+ * ⚠️ `storedAt` is **local wall clock with no zone**. It is drawn as sent, never
+ * parsed through `new Date(...)`, which would read it as UTC or as the browser's zone.
+ */
+export interface StoredSlip {
+  attachmentId: string
+  status: string
+  ownerKind: string
+  ownerKey: string
+  category: string
+  kind: string
+  /** The uploader's original file name — and the name a download saves under. */
+  fileName: string
+  sizeBytes: number
+  storedAt: string
+  /** The till that sent it; `''` for a web upload (BackOffice 2034). */
+  sourceDevice: string
+  /** The till's staff id, or the web user's Ua `UserId` when `sourceDevice` is empty (BackOffice 2035). */
+  uploadedBy: string
+}
+
+/**
+ * One withdrawn slip, **metadata only** (BackOffice 2035, `WithdrawnAttachmentDto`).
+ * There is no preview and no download of it: `/Content` answers 404 for a withdrawn
+ * row (C6), so `attachmentId` is a list key here, never a handle to the bytes.
+ *
+ * `reasonLabel` / `reasonLabelArabic` are the SERVER's copies of the reason, and
+ * the list draws those — never a client-side table. Both timestamps are local wall
+ * clock with no zone, like `storedAt`.
+ */
+export interface WithdrawnSlip {
+  attachmentId: string
+  category: string
+  kind: string
+  fileName: string
+  sourceDevice: string
+  uploadedBy: string
+  storedAt: string
+  withdrawnBy: string
+  withdrawnAt: string
+  reasonCode: string
+  reasonLabel: string
+  reasonLabelArabic: string
+  /** `''` when none was given. */
+  note: string
+}
+
+/**
+ * The sibling `ByOwner` puts **beside** `data` (BackOffice 2035,
+ * `AttachmentOwnerListResponse`), read through `api.getEnvelope`: the owner's
+ * withdrawn slips, newest withdrawal first.
+ */
+export interface SlipOwnerSiblings {
+  withdrawn: WithdrawnSlip[]
+}

@@ -20,7 +20,7 @@
  *   carries a holder until an admin binds it in Authz Admin. A refusal there is
  *   configuration, not a defect.
  */
-import { api } from '@/core/api'
+import { api, type FileResponse } from '@/core/api'
 import type {
   AcrDocument,
   AcrInquiryRow,
@@ -31,6 +31,8 @@ import type {
   CollectionReadyRow,
   DepositInquiryResult,
   SlipCountedSiblings,
+  SlipOwnerSiblings,
+  StoredSlip,
   VoucherDocument,
 } from '@/core/models/collection'
 import type { AssignmentBranch, AssignmentPairing, SaveAssignmentBody } from './assignment'
@@ -38,7 +40,7 @@ import type { AssignmentUploadCommit, AssignmentUploadPreview } from './assignme
 import type { BulkAssignmentBody, BulkPreview, BulkResult } from './bulk'
 import type { RosterPerson, SavePersonBody } from './people'
 import type { AssignmentOptions } from './served-by'
-import { slipCountedRows, type SlipCountedRows } from './slips'
+import { STORE_DAY, slipCountedRows, slipOwnerList, type SlipCountedRows, type SlipOwnerList } from './slips'
 
 /**
  * The two refusal codes the print routes branch on (245 §7), spelled once.
@@ -106,6 +108,50 @@ export function slipAccessQuery() {
     queryKey: SLIP_ACCESS_KEY,
     queryFn: () => collectionApi.slipAccess(),
     staleTime: Infinity,
+    retry: false,
+  } as const
+}
+
+/**
+ * The ONE cache key for a store day's slip list (ticket 321), by the owner key
+ * `storeDayOwnerKey` built. The drawer reads it; 322's Add and 323's Withdraw
+ * re-read the same entry, so nothing re-spells it.
+ *
+ * ⚠️ It shares the `['collection', 'slips']` prefix with the probe. Invalidate by
+ * THIS key, never by the prefix, or the probe re-asks too.
+ */
+export const slipsByOwnerKey = (ownerKey: string) => ['collection', 'slips', 'by-owner', ownerKey] as const
+
+/**
+ * `ByOwner`'s query options. Read fresh on every opening (the default `staleTime`
+ * of 0): a slip filed at a till a minute ago must be there.
+ *
+ * `retry: false`, as the probe: a 503 `NOT_SET_UP` or a bare 403 is an answer,
+ * and the drawer says so on the first no rather than after a retry.
+ */
+export function slipsByOwnerQuery(ownerKey: string) {
+  return {
+    queryKey: slipsByOwnerKey(ownerKey),
+    queryFn: () => collectionApi.slipsByOwner(ownerKey),
+    retry: false,
+  } as const
+}
+
+/**
+ * One slip's bytes for the drawer's preview (ticket 321), fetched once per
+ * selection. The same blob is what Download saves, so a download never fetches
+ * a second time.
+ *
+ * `gcTime: 0`: the bytes leave the cache the moment nothing previews them — a
+ * slip withdrawn meanwhile must not stay readable out of a cache, and a
+ * reselection reads the door again. `retry: false`: a 404 or a 502 is an answer,
+ * and a 502 `FILE_SERVER_MISSING` is not the user's fault and has no retry.
+ */
+export function slipContentQuery(attachmentId: string) {
+  return {
+    queryKey: ['collection', 'slips', 'content', attachmentId] as const,
+    queryFn: () => collectionApi.slipContent(attachmentId),
+    gcTime: 0,
     retry: false,
   } as const
 }
@@ -463,6 +509,35 @@ export const collectionApi = {
    */
   slipAccess(): Promise<AttachmentAccess> {
     return api.get<AttachmentAccess>('AttachmentWeb/Access')
+  },
+
+  /**
+   * `GET AttachmentWeb/ByOwner?ownerKind=STORE_DAY&ownerKey=<storeId>/<yyyy-MM-dd>`
+   * → a store day's slips (ticket 321, BackOffice 2034 + 2035): `data` is the
+   * STORED slips, newest first, and `withdrawn` rides BESIDE it.
+   *
+   * 🔑 Through `getEnvelope`, not `get`, for that sibling — the same read 320 added
+   * for `slipCountsUnavailable`. `ownerKey` is `storeDayOwnerKey`'s, never
+   * re-spelled here; `buildQuery` encodes its `/`.
+   */
+  slipsByOwner(ownerKey: string): Promise<SlipOwnerList> {
+    return api
+      .getEnvelope<StoredSlip[], SlipOwnerSiblings>('AttachmentWeb/ByOwner', { ownerKind: STORE_DAY, ownerKey })
+      .then(slipOwnerList)
+  },
+
+  /**
+   * `GET AttachmentWeb/{attachmentId}/Content` → one slip's bytes, through
+   * `api.blob` (ticket 321). The blob's `type` is the row's content type, which is
+   * what picks the preview. The route's `Content-Disposition: attachment` means
+   * nothing to a fetch.
+   *
+   * ⚠️ Every refusal is enveloped and coded: 404 `NOT_FOUND` (not a stored slip any
+   * more), 502 `FILE_SERVER_MISSING` (the File Server lost the file), and the 503s.
+   * Read them with `slipContentFailure`, by code.
+   */
+  slipContent(attachmentId: string): Promise<FileResponse> {
+    return api.blob(`AttachmentWeb/${encodeURIComponent(attachmentId)}/Content`)
   },
 
   /**

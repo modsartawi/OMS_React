@@ -416,6 +416,23 @@
         "reason": "Reason: {{label}} {{labelArabic}}",
         "note": "Note: {{note}}"
       }
+    },
+    "add": {
+      "region": "Add slips",
+      "button": "Add slip",
+      "hint": "JPG, PNG or PDF, up to 10 MB each.",
+      "busy": "A slip is still sending. The drawer can be closed once it has finished.",
+      "retry": "Retry",
+      "failed": "The slip could not be sent.",
+      "refusedType": "Not sent: only JPG, PNG or PDF files can be added.",
+      "refusedSize": "Not sent: the file is larger than 10 MB.",
+      "status": {
+        "local-refused": "Not sent",
+        "queued": "Waiting…",
+        "sending": "Sending…",
+        "stored": "Stored",
+        "refused": "Refused"
+      }
     }
   },
   "assignment": {

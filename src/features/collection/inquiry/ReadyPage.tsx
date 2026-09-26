@@ -16,7 +16,7 @@ import {
 } from '@/core/theme/ag-grid-theme'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { collectionAccessQuery } from '@/core/collection/api'
-import { assignmentOptionsQuery, canOpenReady, collectionApi } from './api'
+import { READY_GRID_KEY, assignmentOptionsQuery, canOpenReady, collectionApi } from './api'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { AttentionBanner, CapBanner, EmptyState, ListShimmer, ToggleChip } from './GridStates'
 import { buildReadyColumns, buildReadyDefaultColDef } from './ready-columns'
@@ -88,7 +88,7 @@ function ReadyBody({ options }: { options?: AssignmentOptions }) {
 
   // The landing query IS the mount query — no `enabled`, no "click Load".
   const list = useQuery({
-    queryKey: ['collection', 'ready', appliedParams],
+    queryKey: [...READY_GRID_KEY, appliedParams],
     queryFn: () => collectionApi.ready(appliedParams),
   })
 

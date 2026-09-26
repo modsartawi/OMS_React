@@ -157,6 +157,15 @@ export function slipContentQuery(attachmentId: string) {
 }
 
 /**
+ * The two slip-counted grids' cache-key heads (tickets 317 and 254): each Page's key
+ * is its head plus its applied params. Spelled once here because Add (322) and
+ * Withdraw (323) invalidate them, and a re-spelled head that drifted from the Page's
+ * would invalidate nothing, silently.
+ */
+export const READY_GRID_KEY = ['collection', 'ready'] as const
+export const COLLECTIONS_GRID_KEY = ['collection', 'collections'] as const
+
+/**
  * The probe's predicates, one per screen of THIS feature (244 §10).
  *
  * `=== true` and nothing looser, so a malformed answer (`{}`, `null`, a string
@@ -538,6 +547,19 @@ export const collectionApi = {
    */
   slipContent(attachmentId: string): Promise<FileResponse> {
     return api.blob(`AttachmentWeb/${encodeURIComponent(attachmentId)}/Content`)
+  },
+
+  /**
+   * `POST AttachmentWeb/Upload` → one slip filed from the drawer (ticket 322,
+   * BackOffice 2035), answered with the stored attachment. One request per file,
+   * through `api.upload`.
+   *
+   * ⚠ The feature builds the form (`slipUploadForm`): the part names are this
+   * door's contract, and `core/` never learns them. Every refusal is enveloped and
+   * coded, except a bare 403; read it with `isRetryableUpload`, by code.
+   */
+  uploadSlip(form: FormData): Promise<StoredSlip> {
+    return api.upload<StoredSlip>('AttachmentWeb/Upload', form)
   },
 
   /**

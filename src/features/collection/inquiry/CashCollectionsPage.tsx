@@ -24,7 +24,7 @@ import {
 } from './acr-scope'
 import ScreenGate from '@/core/ui/ScreenGate'
 import { collectionAccessQuery } from '@/core/collection/api'
-import { assignmentOptionsQuery, canOpenCollections, collectionApi } from './api'
+import { COLLECTIONS_GRID_KEY, assignmentOptionsQuery, canOpenCollections, collectionApi } from './api'
 import { GRID_PAGE_SIZE, isCapReached } from './cap'
 import { buildCollectionsColumns, buildCollectionsDefaultColDef } from './collections-columns'
 import {
@@ -157,7 +157,7 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
 
   // The landing query IS the mount query — no `enabled`, no "click Load".
   const list = useQuery({
-    queryKey: ['collection', 'collections', queryParams],
+    queryKey: [...COLLECTIONS_GRID_KEY, queryParams],
     queryFn: () => collectionApi.collections(queryParams),
   })
 

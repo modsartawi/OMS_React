@@ -10,6 +10,8 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import { saveBlob } from '@/core/util/download-file'
 import { slipContentQuery, slipsByOwnerKey, slipsByOwnerQuery } from './api'
 import { ListShimmer } from './GridStates'
+import SlipAdd from './SlipAdd'
+import { slipUploadInFlight, useSlipUploads } from './slip-upload-store'
 import {
   slipContentFailure,
   slipPreviewKind,
@@ -21,8 +23,8 @@ import {
 
 /**
  * **A store day's slips** (ticket 321, BackOffice 2034 + 2035) — the side drawer a
- * count on Ready or Cash Collections opens. Read-only here: Add is 322's, Withdraw
- * 323's.
+ * count on Ready or Cash Collections opens. It lists, previews and downloads (321)
+ * and adds (322); Withdraw is 323's.
  *
  * 🚩 **The drawer primitive is this feature's own.** The app has no shared drawer
  * or sheet, the call-center console's `ConfirmSheet` is another feature's (features
@@ -36,12 +38,28 @@ import {
  * 🔑 **Object URLs are revoked on every exit**: a new selection unmounts the old
  * preview (it is keyed by the slip) and closing unmounts the lot, and each preview
  * revokes its own URL on the way out.
+ *
+ * 🚩 **Not dismissible while a slip is sending** (322): the close button is
+ * disabled, and Escape and the backdrop do nothing. A closing drawer forgets its
+ * day's settled uploads, and keeps the ones whose `ClientRequestId` still matters.
  */
 export default function SlipDrawer({ day, onClose }: { day: SlipDay | null; onClose: () => void }) {
   const { t } = useTranslation('collection')
+  const uploads = useSlipUploads((s) => (day ? s.byOwner[day.ownerKey] : undefined))
+  const clearSettled = useSlipUploads((s) => s.clearSettled)
+  const busy = slipUploadInFlight(uploads)
   if (!day) return null
+  const close = () => {
+    if (busy) return
+    clearSettled(day.ownerKey)
+    onClose()
+  }
   return (
-    <DrawerFrame title={t('slips.drawer.title', { store: day.store, day: day.businessDate })} onClose={onClose}>
+    <DrawerFrame
+      title={t('slips.drawer.title', { store: day.store, day: day.businessDate })}
+      onClose={close}
+      busy={busy}
+    >
       {/* Keyed by the day, so a second day opens on a fresh selection. */}
       <SlipDayBody key={day.ownerKey} day={day} />
     </DrawerFrame>
@@ -53,8 +71,21 @@ export default function SlipDrawer({ day, onClose }: { day: SlipDay | null; onCl
  * and React state stays the one source of truth for open), pinned to the inline
  * end at full height. `ms-auto` rather than a physical side, so it opens on the
  * left in Arabic.
+ *
+ * `busy` holds it open: the browser may still close a modal dialog on a repeated
+ * Escape however the cancel is refused, so a native close while busy re-opens it.
  */
-function DrawerFrame({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+function DrawerFrame({
+  title,
+  onClose,
+  busy,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  busy: boolean
+  children: ReactNode
+}) {
   const { t } = useTranslation('collection')
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
@@ -76,6 +107,12 @@ function DrawerFrame({ title, onClose, children }: { title: string; onClose: () 
         e.preventDefault()
         onClose()
       }}
+      onClose={() => {
+        const dialog = ref.current
+        if (!dialog || dialog.open) return
+        if (busy) dialog.showModal()
+        else onClose()
+      }}
       // The backdrop reports the dialog itself as the target; content never does.
       onClick={(e) => {
         if (e.target === ref.current) onClose()
@@ -90,10 +127,11 @@ function DrawerFrame({ title, onClose, children }: { title: string; onClose: () 
           <button
             type="button"
             onClick={onClose}
+            disabled={busy}
             aria-label={t('slips.drawer.close')}
-            title={t('slips.drawer.close')}
+            title={busy ? t('slips.add.busy') : t('slips.drawer.close')}
             data-testid="slip-drawer-close"
-            className="rounded-full p-1 text-muted-foreground hover:bg-muted"
+            className="rounded-full p-1 text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
@@ -104,7 +142,7 @@ function DrawerFrame({ title, onClose, children }: { title: string; onClose: () 
   )
 }
 
-/** The list, the Withdrawn (n) section under it, and the preview beside them. */
+/** A day's body: Add above, then the list (or its loading or refusal). */
 function SlipDayBody({ day }: { day: SlipDay }) {
   const { t } = useTranslation('collection')
   const queryClient = useQueryClient()
@@ -132,26 +170,60 @@ function SlipDayBody({ day }: { day: SlipDay }) {
     [queryClient, day.ownerKey],
   )
 
-  if (list.isPending) return <ListShimmer label={t('slips.drawer.loading')} />
-
-  if (list.isError) {
-    // A bare 403 is the door's grant filter: the probe said yes, the door says no.
-    // Said as a refusal, as the grids say it, rather than "unexpected error (HTTP 403)".
-    const refused = list.error instanceof ApiError && list.error.statusCode === 403
-    return (
-      <div data-testid="slip-list-error">
-        <ErrorBanner
-          message={
-            refused ? t('slips.drawer.errors.refused') : apiErrorMessage(list.error, t('slips.drawer.errors.loadFailed'))
-          }
-          className="p-3"
+  return (
+    <div className="flex flex-col gap-4">
+      <SlipAdd ownerKey={day.ownerKey} />
+      {list.isPending ? (
+        <ListShimmer label={t('slips.drawer.loading')} />
+      ) : list.isError ? (
+        <SlipListError error={list.error} />
+      ) : (
+        <SlipDayLists
+          stored={list.data.stored}
+          withdrawn={list.data.withdrawn}
+          selected={selected}
+          goneName={goneName}
+          onSelect={select}
+          onGone={onGone}
         />
-      </div>
-    )
-  }
+      )}
+    </div>
+  )
+}
 
-  const { stored, withdrawn } = list.data
+/** ByOwner's refusal, said as the grids say theirs. */
+function SlipListError({ error }: { error: unknown }) {
+  const { t } = useTranslation('collection')
+  // A bare 403 is the door's grant filter: the probe said yes, the door says no.
+  // Said as a refusal, as the grids say it, rather than "unexpected error (HTTP 403)".
+  const refused = error instanceof ApiError && error.statusCode === 403
+  return (
+    <div data-testid="slip-list-error">
+      <ErrorBanner
+        message={refused ? t('slips.drawer.errors.refused') : apiErrorMessage(error, t('slips.drawer.errors.loadFailed'))}
+        className="p-3"
+      />
+    </div>
+  )
+}
 
+/** The list, the Withdrawn (n) section under it, and the preview beside them. */
+function SlipDayLists({
+  stored,
+  withdrawn,
+  selected,
+  goneName,
+  onSelect,
+  onGone,
+}: {
+  stored: StoredSlip[]
+  withdrawn: WithdrawnSlip[]
+  selected: StoredSlip | null
+  goneName: string | null
+  onSelect: (id: string) => void
+  onGone: (slip: StoredSlip) => void
+}) {
+  const { t } = useTranslation('collection')
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
       <div className="flex min-w-0 flex-col gap-4">
@@ -166,7 +238,7 @@ function SlipDayBody({ day }: { day: SlipDay }) {
             {t('slips.drawer.empty')}
           </p>
         ) : (
-          <SlipList slips={stored} selectedId={selected?.attachmentId ?? null} onSelect={select} />
+          <SlipList slips={stored} selectedId={selected?.attachmentId ?? null} onSelect={onSelect} />
         )}
 
         {withdrawn.length > 0 && <WithdrawnList slips={withdrawn} />}

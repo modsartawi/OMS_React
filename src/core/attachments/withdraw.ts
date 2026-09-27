@@ -18,6 +18,19 @@ export interface WithdrawReasonRule {
   noteRequired: boolean
 }
 
+/**
+ * One reason as the panel's picker shows it (ticket 326): the rule, and the words.
+ * The caller hands the list in as data, in the order it is to be shown:
+ * - the slip drawer resolves its five bundle keys (`label` holds English beside Arabic
+ *   in one value, so it sends no `labelArabic`);
+ * - the order tab (331) passes the server's `withdrawReasons` as sent.
+ */
+export interface WithdrawReason extends WithdrawReasonRule {
+  label: string
+  /** The server's Arabic label, shown beside `label` when there is one. */
+  labelArabic?: string
+}
+
 /** The note the server keeps: the first 200 characters (`OmsAttachment.Widths.WithdrawNote`). */
 export const WITHDRAW_NOTE_MAX = 200
 

@@ -388,11 +388,7 @@
       "close": "Close",
       "loading": "Loading the day's slips…",
       "empty": "No slip is filed for this day.",
-      "web": "Web",
-      "webTill": "Web · {{uploadedBy}}",
       "columns": {
-        "fileName": "File name",
-        "storedAt": "Uploaded at",
         "till": "Till"
       },
       "errors": {
@@ -404,42 +400,18 @@
         "pick": "Pick a slip to preview it.",
         "loading": "Loading the slip…",
         "alt": "Slip {{fileName}}",
-        "download": "Download",
-        "none": "This file type cannot be previewed here. Download it to open it.",
-        "gone": "{{fileName}} is no longer readable: it was withdrawn since the list was loaded. The list has been read again.",
-        "lost": "The file server no longer holds this file. This is not something you did, and trying again will not bring it back.",
         "failed": "The slip could not be loaded."
-      },
-      "withdrawn": {
-        "title": "Withdrawn ({{n}})",
-        "by": "Withdrawn by {{by}} at {{at}}",
-        "reason": "Reason: {{label}} {{labelArabic}}",
-        "note": "Note: {{note}}"
       }
     },
     "add": {
       "region": "Add slips",
       "button": "Add slip",
-      "hint": "JPG, PNG or PDF, up to 10 MB each.",
       "busy": "A slip is still sending. The drawer can be closed once it has finished.",
-      "retry": "Retry",
-      "failed": "The slip could not be sent.",
-      "refusedType": "Not sent: only JPG, PNG or PDF files can be added.",
-      "refusedSize": "Not sent: the file is larger than 10 MB.",
-      "status": {
-        "local-refused": "Not sent",
-        "queued": "Waiting…",
-        "sending": "Sending…",
-        "stored": "Stored",
-        "refused": "Refused"
-      }
+      "failed": "The slip could not be sent."
     },
     "withdraw": {
-      "button": "Withdraw",
-      "buttonLabel": "Withdraw {{fileName}}",
       "title": "Withdraw a slip",
       "final": "A withdrawal is final. Nobody can open this slip again, and it cannot be restored. If you withdraw the wrong slip, add the file again.",
-      "reason": "Reason",
       "reasons": {
         "WRONG_STORE_DAY": "Wrong store or day · فرع أو يوم غير صحيح",
         "UNREADABLE": "Unreadable · غير مقروء",
@@ -447,15 +419,9 @@
         "NOT_ECR_SLIP": "Not an ECR slip · ليس إيصال جهاز الدفع (ECR)",
         "OTHER": "Other · سبب آخر"
       },
-      "note": "Note",
       "noteRequired": "Required when the reason is Other.",
-      "noteOptional": "Optional.",
-      "noteLimit": "Only the first {{max}} characters are kept.",
       "confirm": "Withdraw slip",
-      "sending": "Withdrawing…",
-      "cancel": "Cancel",
       "failed": "The slip could not be withdrawn.",
-      "done": "{{fileName}} was withdrawn. It is now listed under Withdrawn.",
       "gone": "{{fileName}} is no longer a stored slip you can withdraw. The list has been read again.",
       "forbidden": "Your account may not withdraw slips, so Withdraw has been removed from this drawer. Ask an administrator if you need it."
     }

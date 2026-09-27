@@ -11,7 +11,7 @@
  * collected Collections row withdraws as readily as a Ready row.
  */
 import { holdsCategory } from '@/core/attachments/rules'
-import type { WithdrawReasonRule } from '@/core/attachments/withdraw'
+import type { WithdrawReason, WithdrawReasonRule } from '@/core/attachments/withdraw'
 import type { AttachmentAccess } from '@/core/models/collection'
 import { CASH_CLOSE, canSeeSlips } from './slips'
 
@@ -51,3 +51,17 @@ export const WITHDRAW_REASONS: readonly (WithdrawReasonRule & { code: WithdrawRe
     labelKey: `slips.withdraw.reasons.${code}`,
     noteRequired: code === WITHDRAW_OTHER,
   }))
+
+/**
+ * The slip's reasons as the shared panel takes them (ticket 326): each code with its
+ * label resolved through `translate` (the drawer's `t`), in contract order, Other
+ * needing a note. The label's one value already holds the English beside the Arabic,
+ * so there is no separate `labelArabic`.
+ *
+ * 🚩 The slip stays on this client list even though ByOwner now answers
+ * `withdrawReasons` for `STORE_DAY` too (BackOffice 2062): moving it onto the
+ * server's list is out of spec 324's scope.
+ */
+export function slipWithdrawReasons(translate: (key: string) => string): WithdrawReason[] {
+  return WITHDRAW_REASONS.map(({ code, labelKey, noteRequired }) => ({ code, label: translate(labelKey), noteRequired }))
+}

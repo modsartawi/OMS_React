@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 import { canConfirmWithdraw, needsWithdrawNote } from '@/core/attachments/withdraw'
 import type { AttachmentAccess } from '@/core/models/collection'
 import en from '@/locales/en/collection.json'
-import { WITHDRAW_REASONS, WITHDRAW_REASON_CODES, canWithdrawSlips } from './slip-withdraw'
+import { WITHDRAW_REASONS, WITHDRAW_REASON_CODES, canWithdrawSlips, slipWithdrawReasons } from './slip-withdraw'
 import { CASH_CLOSE } from './slips'
 
 const access = (a: Partial<AttachmentAccess>): AttachmentAccess => ({ categories: [CASH_CLOSE], ...a })
@@ -111,5 +111,30 @@ describe('canConfirmWithdraw — the confirm rule', () => {
     expect(canConfirmWithdraw(WITHDRAW_REASONS, undefined, '')).toBe(false)
     expect(canConfirmWithdraw(WITHDRAW_REASONS, 'WRONG', 'a note')).toBe(false)
     expect(canConfirmWithdraw(WITHDRAW_REASONS, 'other', 'a note')).toBe(false)
+  })
+})
+
+describe('slipWithdrawReasons — the slip list as the shared panel takes it (ticket 326)', () => {
+  const translate = (key: string) => String(bundle(key))
+
+  it('is the five codes in contract order, each labelled from its bundle key', () => {
+    const reasons = slipWithdrawReasons(translate)
+    expect(reasons.map((r) => r.code)).toEqual(TABLE.map(([code]) => code))
+    for (const [code, english, arabic] of TABLE) {
+      expect(reasons.find((r) => r.code === code)?.label).toBe(`${english} · ${arabic}`)
+    }
+  })
+
+  it('needs a note for Other only, and carries no separate Arabic label (it is in the value)', () => {
+    const reasons = slipWithdrawReasons(translate)
+    expect(reasons.filter((r) => r.noteRequired).map((r) => r.code)).toEqual(['OTHER'])
+    for (const reason of reasons) expect(reason).toEqual({ code: reason.code, label: reason.label, noteRequired: reason.noteRequired })
+  })
+
+  it('confirms by the same rule as the bare list', () => {
+    const reasons = slipWithdrawReasons(translate)
+    expect(canConfirmWithdraw(reasons, 'OTHER', '')).toBe(false)
+    expect(canConfirmWithdraw(reasons, 'OTHER', 'why')).toBe(true)
+    expect(canConfirmWithdraw(reasons, 'DUPLICATE', '')).toBe(true)
   })
 })

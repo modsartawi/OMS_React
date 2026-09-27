@@ -1,36 +1,16 @@
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Ban, Download, FileText, X } from 'lucide-react'
+import type { TFunction } from 'i18next'
+import { X } from 'lucide-react'
 
-import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
-import {
-  READ_ON_EVERY_OPENING,
-  attachmentAccessQuery,
-  attachmentContentKey,
-  attachmentContentQuery,
-  attachmentsByOwnerKey,
-  attachmentsByOwnerQuery,
-} from '@/core/attachments/api'
-import {
-  attachmentContentFailure,
-  attachmentPreviewKind,
-  attachmentSource,
-  wallClockText,
-} from '@/core/attachments/rules'
+import AttachmentsPanel from '@/core/attachments/AttachmentsPanel'
+import { READ_ON_EVERY_OPENING, attachmentAccessQuery } from '@/core/attachments/api'
+import type { AttachmentsPanelWords } from '@/core/attachments/panel-words'
 import { uploadInFlight, uploadsOf, useAttachmentUploads } from '@/core/attachments/upload-store'
-import type { WithdrawClosingAnswer } from '@/core/attachments/withdraw'
-import type { StoredSlip, WithdrawnSlip } from '@/core/models/collection'
-import Button from '@/core/ui/Button'
-import ErrorBanner from '@/core/ui/ErrorBanner'
-import { saveBlob } from '@/core/util/download-file'
 import { markSlipDayChanged } from './api'
-import { ListShimmer } from './GridStates'
-import SlipAdd from './SlipAdd'
-import SlipTillText from './SlipTillText'
-import SlipWithdrawDialog from './SlipWithdrawDialog'
-import { canWithdrawSlips } from './slip-withdraw'
-import { slipTarget, type SlipDay } from './slips'
+import { canWithdrawSlips, slipWithdrawReasons } from './slip-withdraw'
+import { canSeeSlips, slipTarget, type SlipDay } from './slips'
 
 /**
  * **A store day's slips** (ticket 321, BackOffice 2034 + 2035) — the side drawer a
@@ -46,9 +26,10 @@ import { slipTarget, type SlipDay } from './slips'
  * Modal itself draws a centred box and takes no placement, so the frame below is a
  * copy of its contract pinned to the inline end instead.
  *
- * 🔑 **Object URLs are revoked on every exit**: a new selection unmounts the old
- * preview (it is keyed by the slip) and closing unmounts the lot, and each preview
- * revokes its own URL on the way out.
+ * 🔑 **The body is the shared attachments panel** (`@/core/attachments/AttachmentsPanel`,
+ * ticket 326) — the list, Withdrawn (n), the preview, Add and Withdraw, which the order
+ * page's Attachments tab draws too. What stays here is the slip's: this frame, its
+ * title and in-flight guard, and the parameters `SlipDayBody` hands the panel.
  *
  * 🚩 **Not dismissible while a slip is sending** (322): the close button is
  * disabled, and Escape and the backdrop do nothing. A closing drawer forgets its
@@ -156,435 +137,52 @@ function DrawerFrame({
 }
 
 /**
- * What the drawer says once a withdraw has closed its dialog (323). `serverMessage` is
- * a 404's own words, shown as sent under the drawer's sentence; a bare 403 has none.
+ * A day's body: the shared attachments panel (`@/core/attachments`, ticket 326), with
+ * the slip's parameters — its owner and codes (`slipTarget`), a new read on every
+ * opening, its five client reasons, its own words, and the gates the grids read off
+ * the one shared probe. A change re-reads the day and marks both grids stale.
  */
-type WithdrawNotice = { answer: WithdrawClosingAnswer; fileName: string; serverMessage: string | null }
-
-/** A day's body: Add above, then the list (or its loading or refusal). */
 function SlipDayBody({ day }: { day: SlipDay }) {
   const { t } = useTranslation('collection')
   const queryClient = useQueryClient()
-  // A new read on every opening: the body mounts with the drawer, and again per day.
-  const list = useQuery(attachmentsByOwnerQuery(slipTarget(day.ownerKey), READ_ON_EVERY_OPENING))
   const access = useQuery(attachmentAccessQuery())
+  const reasons = useMemo(() => slipWithdrawReasons((key) => t(key)), [t])
+  const words = useMemo(() => slipPanelWords(t), [t])
+  return (
+    <AttachmentsPanel
+      target={slipTarget(day.ownerKey)}
+      freshness={READ_ON_EVERY_OPENING}
+      reasons={reasons}
+      words={words}
+      addOffered={canSeeSlips(access.data)}
+      withdrawOffered={canWithdrawSlips(access.data)}
+      onChanged={() => markSlipDayChanged(queryClient, day.ownerKey)}
+    />
+  )
+}
 
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  /** The file name of a slip that answered 404 — withdrawn since the list was read. */
-  const [goneName, setGoneName] = useState<string | null>(null)
-
-  // Withdraw (323): the slip whose dialog is open, what the last one came to, and
-  // whether the server refused the grant the probe claimed (a bare 403). That
-  // refusal takes the action away for this drawer. The body is keyed by the day, so
-  // another day starts from the probe again.
-  const [withdrawing, setWithdrawing] = useState<StoredSlip | null>(null)
-  const [notice, setNotice] = useState<WithdrawNotice | null>(null)
-  const [withdrawRefused, setWithdrawRefused] = useState(false)
-  const canWithdraw = canWithdrawSlips(access.data) && !withdrawRefused
-
-  // A selection that is no longer in the list (re-read after a 404) previews nothing.
-  const selected = list.data?.stored.find((s) => s.attachmentId === selectedId) ?? null
-
-  const select = (id: string) => {
-    setSelectedId(id)
-    setGoneName(null)
-    setNotice(null)
+/** The slip's words for the panel — every sentence that says "slip", "day" or "drawer". */
+function slipPanelWords(t: TFunction<'collection'>): AttachmentsPanelWords {
+  return {
+    loading: t('slips.drawer.loading'),
+    empty: t('slips.drawer.empty'),
+    listRefused: t('slips.drawer.errors.refused'),
+    listFailed: t('slips.drawer.errors.loadFailed'),
+    sourceColumn: t('slips.drawer.columns.till'),
+    previewRegion: t('slips.drawer.preview.region'),
+    noSelection: t('slips.drawer.preview.pick'),
+    previewLoading: t('slips.drawer.preview.loading'),
+    previewAlt: (fileName) => t('slips.drawer.preview.alt', { fileName }),
+    previewFailed: t('slips.drawer.preview.failed'),
+    addRegion: t('slips.add.region'),
+    addButton: t('slips.add.button'),
+    addFailed: t('slips.add.failed'),
+    withdrawTitle: t('slips.withdraw.title'),
+    withdrawFinal: t('slips.withdraw.final'),
+    withdrawNoteRequired: t('slips.withdraw.noteRequired'),
+    withdrawConfirm: t('slips.withdraw.confirm'),
+    withdrawFailed: t('slips.withdraw.failed'),
+    withdrawGone: (fileName) => t('slips.withdraw.gone', { fileName }),
+    withdrawForbidden: t('slips.withdraw.forbidden'),
   }
-
-  /**
-   * A withdraw that closed its dialog. On a 200 or a 404 the slip's preview goes
-   * (its object URL is revoked as it unmounts, and its bytes leave the cache), and
-   * ByOwner is re-read, so a 200 moves the slip under Withdrawn (n). Both grids are
-   * marked stale WITHOUT being reloaded under the user: the count drops on their next
-   * read (a 404 too, since someone else may have withdrawn it). A bare 403 takes the
-   * action away.
-   */
-  const onWithdrawSettled = (slip: StoredSlip, answer: WithdrawClosingAnswer, error: unknown) => {
-    setWithdrawing(null)
-    setGoneName(null)
-    setNotice({
-      answer,
-      fileName: slip.fileName,
-      serverMessage: answer === 'gone' ? apiErrorMessage(error, '') || null : null,
-    })
-    if (answer === 'forbidden') {
-      setWithdrawRefused(true)
-      return
-    }
-    if (selectedId === slip.attachmentId) setSelectedId(null)
-    queryClient.removeQueries({ queryKey: attachmentContentKey(slip.attachmentId) })
-    markSlipDayChanged(queryClient, day.ownerKey)
-  }
-
-  // 404: say so, drop the selection (its preview unmounts and revokes), re-read ByOwner.
-  const onGone = useCallback(
-    (slip: StoredSlip) => {
-      setGoneName(slip.fileName)
-      setSelectedId(null)
-      void queryClient.invalidateQueries({ queryKey: attachmentsByOwnerKey(slipTarget(day.ownerKey)) })
-    },
-    [queryClient, day.ownerKey],
-  )
-
-  return (
-    <div className="flex flex-col gap-4">
-      <SlipAdd ownerKey={day.ownerKey} />
-      {notice && <WithdrawNoticeLine notice={notice} />}
-      {list.isPending ? (
-        <ListShimmer label={t('slips.drawer.loading')} />
-      ) : list.isError ? (
-        <SlipListError error={list.error} />
-      ) : (
-        <SlipDayLists
-          stored={list.data.stored}
-          withdrawn={list.data.withdrawn}
-          selected={selected}
-          goneName={goneName}
-          onSelect={select}
-          onGone={onGone}
-          onWithdraw={canWithdraw ? setWithdrawing : undefined}
-        />
-      )}
-      {withdrawing && (
-        <SlipWithdrawDialog
-          key={withdrawing.attachmentId}
-          slip={withdrawing}
-          onClose={() => setWithdrawing(null)}
-          onSettled={(answer, error) => onWithdrawSettled(withdrawing, answer, error)}
-        />
-      )}
-    </div>
-  )
-}
-
-/** A withdraw's outcome, said in the drawer once its dialog has closed. */
-function WithdrawNoticeLine({ notice }: { notice: WithdrawNotice }) {
-  const { t } = useTranslation('collection')
-  if (notice.answer === 'withdrawn')
-    return (
-      <p
-        role="status"
-        className="rounded-lg border border-success-border bg-success-050 p-3 text-sm text-success-800"
-        data-testid="slip-withdraw-notice"
-        data-answer={notice.answer}
-      >
-        {t('slips.withdraw.done', { fileName: notice.fileName })}
-      </p>
-    )
-  return (
-    <div role="status" className="whitespace-pre-line" data-testid="slip-withdraw-notice" data-answer={notice.answer}>
-      {notice.answer === 'gone' && notice.serverMessage ? (
-        // The drawer's sentence, and the server's own words under it, as sent.
-        <ErrorBanner
-          title={t('slips.withdraw.gone', { fileName: notice.fileName })}
-          message={notice.serverMessage}
-          className="p-3"
-        />
-      ) : (
-        <ErrorBanner
-          message={
-            notice.answer === 'gone'
-              ? t('slips.withdraw.gone', { fileName: notice.fileName })
-              : t('slips.withdraw.forbidden')
-          }
-          className="p-3"
-        />
-      )}
-    </div>
-  )
-}
-
-/** ByOwner's refusal, said as the grids say theirs. */
-function SlipListError({ error }: { error: unknown }) {
-  const { t } = useTranslation('collection')
-  // A bare 403 is the door's grant filter: the probe said yes, the door says no.
-  // Said as a refusal, as the grids say it, rather than "unexpected error (HTTP 403)".
-  const refused = error instanceof ApiError && error.statusCode === 403
-  return (
-    <div data-testid="slip-list-error">
-      <ErrorBanner
-        message={refused ? t('slips.drawer.errors.refused') : apiErrorMessage(error, t('slips.drawer.errors.loadFailed'))}
-        className="p-3"
-      />
-    </div>
-  )
-}
-
-/** The list, the Withdrawn (n) section under it, and the preview beside them. */
-function SlipDayLists({
-  stored,
-  withdrawn,
-  selected,
-  goneName,
-  onSelect,
-  onGone,
-  onWithdraw,
-}: {
-  stored: StoredSlip[]
-  withdrawn: WithdrawnSlip[]
-  selected: StoredSlip | null
-  goneName: string | null
-  onSelect: (id: string) => void
-  onGone: (slip: StoredSlip) => void
-  /** Open the withdraw dialog for a slip. Absent when this session may not withdraw (323). */
-  onWithdraw?: (slip: StoredSlip) => void
-}) {
-  const { t } = useTranslation('collection')
-  return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-      <div className="flex min-w-0 flex-col gap-4">
-        {goneName && (
-          <div data-testid="slip-gone">
-            <ErrorBanner message={t('slips.drawer.preview.gone', { fileName: goneName })} className="p-3" />
-          </div>
-        )}
-
-        {stored.length === 0 ? (
-          <p className="rounded-lg border border-border/60 p-4 text-sm text-muted-foreground" data-testid="slip-empty">
-            {t('slips.drawer.empty')}
-          </p>
-        ) : (
-          <SlipList slips={stored} selectedId={selected?.attachmentId ?? null} onSelect={onSelect} />
-        )}
-
-        {withdrawn.length > 0 && <WithdrawnList slips={withdrawn} />}
-      </div>
-
-      <section className="min-w-0" aria-label={t('slips.drawer.preview.region')} data-region="slip-preview">
-        {selected ? (
-          <SlipPreview key={selected.attachmentId} slip={selected} onGone={onGone} onWithdraw={onWithdraw} />
-        ) : (
-          stored.length > 0 && (
-            <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              {t('slips.drawer.preview.pick')}
-            </p>
-          )
-        )}
-      </section>
-    </div>
-  )
-}
-
-/** The STORED slips, newest first as sent: file name, uploaded at, till. */
-function SlipList({
-  slips,
-  selectedId,
-  onSelect,
-}: {
-  slips: StoredSlip[]
-  selectedId: string | null
-  onSelect: (id: string) => void
-}) {
-  const { t } = useTranslation('collection')
-  return (
-    <div className="overflow-x-auto rounded-lg border border-border/60">
-      <table className="w-full text-xs" data-testid="slip-list">
-        <thead className="bg-muted/40 text-muted-foreground">
-          <tr>
-            <th className="px-2 py-1.5 text-start font-medium">{t('slips.drawer.columns.fileName')}</th>
-            <th className="px-2 py-1.5 text-start font-medium">{t('slips.drawer.columns.storedAt')}</th>
-            <th className="px-2 py-1.5 text-start font-medium">{t('slips.drawer.columns.till')}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border/40">
-          {slips.map((slip) => {
-            const current = slip.attachmentId === selectedId
-            return (
-              <tr key={slip.attachmentId} data-slip={slip.attachmentId} className={current ? 'bg-primary/10' : undefined}>
-                <td className="px-2 py-1.5">
-                  <button
-                    type="button"
-                    onClick={() => onSelect(slip.attachmentId)}
-                    aria-pressed={current}
-                    dir="auto"
-                    className="break-all text-start font-medium text-primary underline-offset-2 hover:underline"
-                  >
-                    {slip.fileName}
-                  </button>
-                </td>
-                <td className="whitespace-nowrap px-2 py-1.5 tabular-nums" data-cell="storedAt">
-                  {wallClockText(slip.storedAt)}
-                </td>
-                <td className="px-2 py-1.5" data-cell="till">
-                  <SlipTillText till={attachmentSource(slip)} />
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-/**
- * **Withdrawn (n)**, collapsed, newest withdrawal first (BackOffice 2035). Metadata
- * only: no preview and no download, since `/Content` answers 404 for a withdrawn
- * slip and nothing here holds a handle to its bytes (C6). The reason is the
- * SERVER's two labels, English beside Arabic, never a client table.
- */
-function WithdrawnList({ slips }: { slips: WithdrawnSlip[] }) {
-  const { t } = useTranslation('collection')
-  return (
-    <details className="rounded-lg border border-border/60" data-testid="slip-withdrawn">
-      <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium">
-        {t('slips.drawer.withdrawn.title', { n: slips.length })}
-      </summary>
-      <ul className="divide-y divide-border/40 border-t border-border/60 text-xs">
-        {slips.map((slip) => (
-          <li key={slip.attachmentId} className="flex flex-col gap-0.5 px-3 py-2" data-withdrawn={slip.attachmentId}>
-            <span className="break-all font-medium" dir="auto">
-              {slip.fileName}
-            </span>
-            <span className="text-muted-foreground" data-cell="till">
-              <SlipTillText till={attachmentSource(slip)} />
-            </span>
-            <span data-cell="withdrawn">
-              {t('slips.drawer.withdrawn.by', { by: slip.withdrawnBy, at: wallClockText(slip.withdrawnAt) })}
-            </span>
-            <span data-cell="reason">
-              {t('slips.drawer.withdrawn.reason', { label: slip.reasonLabel, labelArabic: slip.reasonLabelArabic })}
-            </span>
-            {slip.note && (
-              <span className="text-muted-foreground" data-cell="note" dir="auto">
-                {t('slips.drawer.withdrawn.note', { note: slip.note })}
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
-    </details>
-  )
-}
-
-/**
- * An object URL for `blob`, revoked when the blob changes and when the preview
- * unmounts. Created in an effect, so StrictMode's second pass makes a fresh URL
- * rather than drawing one its first cleanup already revoked.
- */
-function useObjectUrl(blob: Blob | null): string | null {
-  const [url, setUrl] = useState<string | null>(null)
-  useEffect(() => {
-    if (!blob) {
-      setUrl(null)
-      return
-    }
-    const next = URL.createObjectURL(blob)
-    setUrl(next)
-    return () => URL.revokeObjectURL(next)
-  }, [blob])
-  return url
-}
-
-/**
- * One selected slip: its bytes fetched once through `api.blob`, shown as an image
- * or a PDF frame, and a Download that saves that same blob under `fileName`.
- *
- * - **404 `NOT_FOUND`**: withdrawn meanwhile. The body says so, drops this preview
- *   and re-reads.
- * - **502 `FILE_SERVER_MISSING`**: the File Server lost the file. Said plainly as
- *   not the user's fault, with the server's own words under it, and no retry.
- * - Anything else: the server's message as sent (English, then Arabic).
- *
- * **Withdraw** (323) sits beside Download, for the slip being looked at, whether
- * its bytes came back or not: an unreadable or lost file is withdrawn too. It shows
- * only when `onWithdraw` is given, which means the probe's `withdrawCategories`
- * holds `CASH_CLOSE` and the server has not refused the grant in this drawer.
- */
-function SlipPreview({
-  slip,
-  onGone,
-  onWithdraw,
-}: {
-  slip: StoredSlip
-  onGone: (slip: StoredSlip) => void
-  onWithdraw?: (slip: StoredSlip) => void
-}) {
-  const { t } = useTranslation('collection')
-  const content = useQuery(attachmentContentQuery(slip.attachmentId))
-  const failure = content.isError ? attachmentContentFailure(apiErrorCode(content.error)) : null
-
-  useEffect(() => {
-    if (failure === 'gone') onGone(slip)
-  }, [failure, onGone, slip])
-
-  const blob = content.data?.blob ?? null
-  const kind = blob ? attachmentPreviewKind(blob.type) : 'none'
-  // Only a previewable blob needs a URL; Download makes its own through `saveBlob`.
-  const url = useObjectUrl(kind === 'none' ? null : blob)
-
-  return (
-    <div className="flex flex-col gap-3" data-preview-for={slip.attachmentId} data-preview-kind={blob ? kind : undefined}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex min-w-0 items-center gap-1.5 text-sm font-medium">
-          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="break-all" dir="auto">
-            {slip.fileName}
-          </span>
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {onWithdraw && (
-            <Button
-              variant="danger-outlined"
-              onClick={() => onWithdraw(slip)}
-              aria-label={t('slips.withdraw.buttonLabel', { fileName: slip.fileName })}
-              data-testid="slip-withdraw"
-            >
-              <Ban className="h-3.5 w-3.5" aria-hidden />
-              {t('slips.withdraw.button')}
-            </Button>
-          )}
-          <Button
-            variant="secondary"
-            onClick={() => blob && saveBlob(slip.fileName, blob)}
-            disabled={!blob}
-            data-testid="slip-download"
-          >
-            <Download className="h-3.5 w-3.5" aria-hidden />
-            {t('slips.drawer.preview.download')}
-          </Button>
-        </div>
-      </div>
-
-      {content.isPending && <ListShimmer label={t('slips.drawer.preview.loading')} />}
-
-      {failure === 'lost' && (
-        <div data-testid="slip-lost">
-          <ErrorBanner
-            title={t('slips.drawer.preview.lost')}
-            message={apiErrorMessage(content.error, t('slips.drawer.preview.failed'))}
-            className="p-3"
-          />
-        </div>
-      )}
-
-      {failure === 'other' && (
-        <div data-testid="slip-preview-error">
-          <ErrorBanner message={apiErrorMessage(content.error, t('slips.drawer.preview.failed'))} className="p-3" />
-        </div>
-      )}
-
-      {blob && kind === 'image' && url && (
-        <img
-          src={url}
-          alt={t('slips.drawer.preview.alt', { fileName: slip.fileName })}
-          className="max-h-[70vh] w-full rounded-lg border border-border/60 object-contain"
-        />
-      )}
-
-      {blob && kind === 'pdf' && url && (
-        <iframe
-          src={url}
-          title={t('slips.drawer.preview.alt', { fileName: slip.fileName })}
-          className="h-[70vh] w-full rounded-lg border border-border/60"
-        />
-      )}
-
-      {blob && kind === 'none' && (
-        <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground" data-testid="slip-no-preview">
-          {t('slips.drawer.preview.none')}
-        </p>
-      )}
-    </div>
-  )
 }

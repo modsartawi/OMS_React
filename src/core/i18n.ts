@@ -38,6 +38,11 @@ import reports from '@/locales/en/reports.json'
 // here, and 269–273 add their keys to `settlement.json`. Sharing `collection.json`
 // would put a second feature's growth inside a namespace the inquiry feature owns.
 import settlement from '@/locales/en/settlement.json'
+// The shared attachments panel's OWN words (spec 324, ticket 326) — the panel lives in
+// `core/attachments`, not in a feature, so its namespace is named for it rather than for a
+// feature. Only words that name no owner live here; a caller's words (the slip drawer's
+// "slip", the order tab's "prescription") stay in the caller's namespace and are passed in.
+import attachments from '@/locales/en/attachments.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -45,7 +50,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments'],
   resources: {
     en: {
       common,
@@ -69,6 +74,7 @@ i18n.use(initReactI18next).init({
       collection,
       settlement,
       reports,
+      attachments,
     },
   },
   interpolation: { escapeValue: false },

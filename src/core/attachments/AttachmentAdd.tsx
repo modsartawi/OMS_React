@@ -1,53 +1,52 @@
 import { useRef } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { RotateCw, Upload } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import { attachmentAccessQuery } from '@/core/attachments/api'
-import { ATTACHMENT_ACCEPT, type AttachmentUpload } from '@/core/attachments/upload'
-import { uploadsOf, useAttachmentUploads } from '@/core/attachments/upload-store'
 import Button from '@/core/ui/Button'
-import { markSlipDayChanged } from './api'
-import { canSeeSlips, slipTarget } from './slips'
+import type { AttachmentsPanelWords } from './panel-words'
+import { ATTACHMENT_ACCEPT, type AttachmentTarget, type AttachmentUpload } from './upload'
+import { uploadsOf, useAttachmentUploads } from './upload-store'
 
 const NO_UPLOADS: AttachmentUpload[] = []
 
 /**
- * **Add slip** (ticket 322, BackOffice 2035) — for a slip a store emailed in. Any
- * day's drawer takes it, a `0` included, and a collected Collections row as readily
- * as a Ready row (no collection cutoff, C3).
+ * **Add** (spec 319's ticket 322, BackOffice 2035; lifted into the shared panel by
+ * ticket 326) — for a file sent in by email. Pick as many files as you like (no
+ * count cap, C9): each is checked in the browser, a refused one is named with its
+ * reason and never sent, and the others go one request each.
  *
- * Shown only when the ONE shared probe's `categories` holds `CASH_CLOSE`
- * (`canSeeSlips`, the answer that shows the column). Pick as many files as you like
- * (no count cap, C9): each is checked in the browser, a refused one is named with
- * its reason and never sent, and the others go one request each.
+ * Drawn only when the caller's gate admits (the slip's: the probe's `categories`
+ * holds `CASH_CLOSE`); this component does not read the probe.
  *
- * The files live in the shared upload store (`@/core/attachments/upload-store`),
- * outside this component, so a file's `ClientRequestId` outlives the drawer. A 200
- * re-reads the day and marks both grids stale (`markSlipDayChanged`).
+ * The files live in the shared upload store (`./upload-store`), outside this
+ * component, so a file's `ClientRequestId` outlives the panel. `onStored` runs after
+ * each 200 and never on a refusal: the slip's re-reads the day and marks both grids
+ * stale (`markSlipDayChanged`).
  */
-export default function SlipAdd({ ownerKey }: { ownerKey: string }) {
-  const { t } = useTranslation('collection')
-  const access = useQuery(attachmentAccessQuery())
-  const queryClient = useQueryClient()
-  const target = slipTarget(ownerKey)
+export default function AttachmentAdd({
+  target,
+  words,
+  onStored,
+}: {
+  target: AttachmentTarget
+  words: Pick<AttachmentsPanelWords, 'addRegion' | 'addButton' | 'addFailed'>
+  onStored: () => void
+}) {
+  const { t } = useTranslation('attachments')
   const items = useAttachmentUploads((s) => uploadsOf(s, target)) ?? NO_UPLOADS
   const add = useAttachmentUploads((s) => s.add)
   const retry = useAttachmentUploads((s) => s.retry)
   const input = useRef<HTMLInputElement>(null)
-  const onStored = () => markSlipDayChanged(queryClient, ownerKey)
-
-  if (!canSeeSlips(access.data)) return null
 
   return (
-    <section className="flex flex-col gap-2" data-region="slip-add" aria-label={t('slips.add.region')}>
+    <section className="flex flex-col gap-2" data-region="slip-add" aria-label={words.addRegion}>
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" onClick={() => input.current?.click()} data-testid="slip-add">
           <Upload className="h-3.5 w-3.5" aria-hidden />
-          {t('slips.add.button')}
+          {words.addButton}
         </Button>
-        <span className="text-xs text-muted-foreground">{t('slips.add.hint')}</span>
+        <span className="text-xs text-muted-foreground">{t('add.hint')}</span>
         <input
           ref={input}
           type="file"
@@ -77,6 +76,7 @@ export default function SlipAdd({ ownerKey }: { ownerKey: string }) {
             <UploadRow
               key={item.clientRequestId}
               item={item}
+              failed={words.addFailed}
               onRetry={() => retry(target, item.clientRequestId, onStored)}
             />
           ))}
@@ -87,8 +87,8 @@ export default function SlipAdd({ ownerKey }: { ownerKey: string }) {
 }
 
 /** One picked file: its name, where it stands, and — only when it can help — Retry. */
-function UploadRow({ item, onRetry }: { item: AttachmentUpload; onRetry: () => void }) {
-  const { t } = useTranslation('collection')
+function UploadRow({ item, failed, onRetry }: { item: AttachmentUpload; failed: string; onRetry: () => void }) {
+  const { t } = useTranslation('attachments')
   return (
     <li className="flex flex-col gap-1 px-3 py-2" data-upload={item.file.name} data-status={item.status}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -96,13 +96,13 @@ function UploadRow({ item, onRetry }: { item: AttachmentUpload; onRetry: () => v
           {item.file.name}
         </span>
         <span className={statusClass(item)} data-cell="status">
-          {t(`slips.add.status.${item.status}`)}
+          {t(`add.status.${item.status}`)}
         </span>
       </div>
 
       {item.status === 'local-refused' && (
         <span className="text-danger-800" data-cell="reason">
-          {t(item.localRefusal === 'size' ? 'slips.add.refusedSize' : 'slips.add.refusedType')}
+          {item.localRefusal === 'size' ? t('add.refusedSize') : t('add.refusedType')}
         </span>
       )}
 
@@ -110,12 +110,12 @@ function UploadRow({ item, onRetry }: { item: AttachmentUpload; onRetry: () => v
         <div className="flex flex-wrap items-start justify-between gap-2">
           {/* The server's words as sent: English, then Arabic. */}
           <span className="whitespace-pre-line text-danger-800" dir="auto" data-cell="reason">
-            {apiErrorMessage(item.error, t('slips.add.failed'))}
+            {apiErrorMessage(item.error, failed)}
           </span>
           {item.retryable && (
             <Button variant="outlined" onClick={onRetry} data-testid="slip-upload-retry">
               <RotateCw className="h-3.5 w-3.5" aria-hidden />
-              {t('slips.add.retry')}
+              {t('add.retry')}
             </Button>
           )}
         </div>

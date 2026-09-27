@@ -1,0 +1,46 @@
+{
+  "source": {
+    "web": "Web",
+    "webBy": "Web · {{uploadedBy}}"
+  },
+  "columns": {
+    "fileName": "File name",
+    "storedAt": "Uploaded at"
+  },
+  "preview": {
+    "download": "Download",
+    "none": "This file type cannot be previewed here. Download it to open it.",
+    "gone": "{{fileName}} is no longer readable: it was withdrawn since the list was loaded. The list has been read again.",
+    "lost": "The file server no longer holds this file. This is not something you did, and trying again will not bring it back."
+  },
+  "withdrawn": {
+    "title": "Withdrawn ({{n}})",
+    "by": "Withdrawn by {{by}} at {{at}}",
+    "reason": "Reason: {{label}} {{labelArabic}}",
+    "note": "Note: {{note}}"
+  },
+  "add": {
+    "hint": "JPG, PNG or PDF, up to 10 MB each.",
+    "retry": "Retry",
+    "refusedType": "Not sent: only JPG, PNG or PDF files can be added.",
+    "refusedSize": "Not sent: the file is larger than 10 MB.",
+    "status": {
+      "local-refused": "Not sent",
+      "queued": "Waiting…",
+      "sending": "Sending…",
+      "stored": "Stored",
+      "refused": "Refused"
+    }
+  },
+  "withdraw": {
+    "button": "Withdraw",
+    "buttonLabel": "Withdraw {{fileName}}",
+    "reason": "Reason",
+    "note": "Note",
+    "noteOptional": "Optional.",
+    "noteLimit": "Only the first {{max}} characters are kept.",
+    "sending": "Withdrawing…",
+    "cancel": "Cancel",
+    "done": "{{fileName}} was withdrawn. It is now listed under Withdrawn."
+  }
+}

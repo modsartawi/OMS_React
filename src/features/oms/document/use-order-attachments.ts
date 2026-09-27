@@ -8,11 +8,21 @@ import {
   rereadAttachments,
 } from '@/core/attachments/api'
 import type { AttachmentTarget } from '@/core/attachments/upload'
+import type { WithdrawReason } from '@/core/attachments/withdraw'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
-import { SD_DOCUMENT, attachmentsBadgeCount, attachmentsTabGate, orderAttachmentTarget } from './attachments-tab'
+import {
+  SD_DOCUMENT,
+  attachmentsBadgeCount,
+  attachmentsTabGate,
+  canWithdrawOn,
+  orderAttachmentTarget,
+} from './attachments-tab'
 
 /** What the ByOwner observer keys on while there is no owner to list — never fetched. */
 const NO_OWNER = { ownerKind: SD_DOCUMENT, ownerKey: '' }
+
+/** No reasons: the list is not read yet, or the server sent none it could use. */
+const NO_REASONS: readonly WithdrawReason[] = []
 
 /** The Attachments tab as the page reads it. */
 export interface OrderAttachments {
@@ -22,6 +32,10 @@ export interface OrderAttachments {
   opened: boolean
   /** The badge's number, or `null` for no badge (`attachmentsBadgeCount`). */
   badge: number | null
+  /** ByOwner's `withdrawReasons`, in the order sent — none until the list is read (331). */
+  withdrawReasons: readonly WithdrawReason[]
+  /** Is Withdraw… offered (`canWithdrawOn`)? A bare 403 still takes it away, in the panel. */
+  withdrawOffered: boolean
   /** The tab was selected: latch it open (the first selection starts the one read). */
   open: () => void
   /** The page's Refresh: re-read the list, only if the tab has been opened. */
@@ -39,6 +53,9 @@ export interface OrderAttachments {
  *   panel's mount (the page keeps its tab panels mounted, hidden). The page observes it
  *   here for the badge with exactly the panel's options — `READ_ONCE_PER_VISIT`, the one
  *   constant `AttachmentsTab` passes — so the two observers share one request.
+ * - Withdraw… (331) is offered by `canWithdrawOn`: the gate, the probe's
+ *   `withdrawCategories` holding the category, and the reasons ByOwner sent beside the
+ *   list (no client list). Nothing is read for it: the reasons ride on the one read.
  * - The latch is by owner and resets on a new route number: the router may keep this
  *   page mounted from one document to another (or Back to one already opened), and
  *   coming back must not read the files without a click.
@@ -58,11 +75,14 @@ export function useOrderAttachments(document: SdDocumentHeaderModel | null, rout
   const target = attachmentsTabGate(document, access.data) ? named : null
   const opened = target !== null && openedOwner === target.ownerKey
   const list = useQuery({ ...attachmentsByOwnerQuery(target ?? NO_OWNER, READ_ONCE_PER_VISIT), enabled: opened })
+  const withdrawReasons = (opened ? list.data?.withdrawReasons : undefined) ?? NO_REASONS
 
   return {
     target,
     opened,
     badge: attachmentsBadgeCount(document?.attachmentCount, opened ? list.data?.stored : undefined),
+    withdrawReasons,
+    withdrawOffered: canWithdrawOn(document, access.data, withdrawReasons),
     open: () => {
       if (target) setOpenedOwner(target.ownerKey)
     },

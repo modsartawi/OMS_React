@@ -12,6 +12,7 @@ import {
   SD_DOCUMENT,
   attachmentsBadgeCount,
   attachmentsTabGate,
+  canWithdrawOn,
   orderAttachmentTarget,
 } from './attachments-tab'
 
@@ -101,6 +102,55 @@ describe('attachmentsBadgeCount — one number for the badge and the Files row',
   it('a loaded list counts even when the model had no count', () => {
     expect(attachmentsBadgeCount(undefined, [{}])).toBe(1)
     expect(attachmentsBadgeCount(undefined, [])).toBe(0)
+  })
+})
+
+describe('canWithdrawOn — the tab’s gate, the withdraw grant for the category, and the server’s reasons (331)', () => {
+  const WITHDRAWER = { categories: ['P2E', 'ALTIBBI'], withdrawCategories: ['P2E', 'ALTIBBI'] }
+  const REASONS = [
+    { code: 'WRONG_ORDER', label: 'Wrong order or customer', labelArabic: 'طلب أو عميل غير صحيح', noteRequired: false },
+    { code: 'OTHER', label: 'Other', labelArabic: 'سبب آخر', noteRequired: true },
+  ]
+
+  it('offers Withdraw when all three hold', () => {
+    expect(canWithdrawOn(ORDER, WITHDRAWER, REASONS)).toBe(true)
+    expect(canWithdrawOn({ ...ORDER, attachmentCategory: 'ALTIBBI' }, WITHDRAWER, REASONS)).toBe(true)
+  })
+
+  it('needs withdrawCategories to hold the category — read alone is not enough', () => {
+    expect(canWithdrawOn(ORDER, HOLDER, REASONS)).toBe(false)
+    expect(canWithdrawOn(ORDER, { categories: ['P2E'] }, REASONS)).toBe(false)
+    expect(canWithdrawOn(ORDER, { categories: ['P2E'], withdrawCategories: ['ALTIBBI'] }, REASONS)).toBe(false)
+    expect(canWithdrawOn(ORDER, { categories: ['P2E'], withdrawCategories: ['p2e'] }, REASONS)).toBe(false)
+  })
+
+  it('🔑 refuses a bare-string withdrawCategories — "P2E" must not admit P2E', () => {
+    expect(canWithdrawOn(ORDER, { categories: ['P2E'], withdrawCategories: 'P2E' }, REASONS)).toBe(false)
+    expect(canWithdrawOn(ORDER, { categories: ['P2E'], withdrawCategories: null }, REASONS)).toBe(false)
+  })
+
+  it('an ERX order never offers Withdraw — 2062 seeds withdraw grants for P2E and ALTIBBI only', () => {
+    const erx = { ...ORDER, attachmentCategory: 'ERX' }
+    expect(canWithdrawOn(erx, { categories: ['ERX'], withdrawCategories: ['P2E', 'ALTIBBI'] }, REASONS)).toBe(false)
+  })
+
+  it('needs the tab’s gate: an owner, a category, and the READ grant too', () => {
+    expect(canWithdrawOn({ attachmentCategory: 'P2E' }, WITHDRAWER, REASONS)).toBe(false)
+    expect(canWithdrawOn({ attachmentOwnerNo: '2000000551' }, WITHDRAWER, REASONS)).toBe(false)
+    expect(canWithdrawOn(null, WITHDRAWER, REASONS)).toBe(false)
+    expect(canWithdrawOn(ORDER, { categories: [], withdrawCategories: ['P2E'] }, REASONS)).toBe(false)
+    expect(canWithdrawOn(ORDER, { categories: 'P2E', withdrawCategories: ['P2E'] }, REASONS)).toBe(false)
+  })
+
+  it('a pending or refused probe offers nothing', () => {
+    expect(canWithdrawOn(ORDER, undefined, REASONS)).toBe(false)
+    expect(canWithdrawOn(ORDER, null, REASONS)).toBe(false)
+  })
+
+  it('needs a non-empty reason list — absent (an older SIS.Api, or not read yet) or empty hides it', () => {
+    expect(canWithdrawOn(ORDER, WITHDRAWER, [])).toBe(false)
+    expect(canWithdrawOn(ORDER, WITHDRAWER, undefined)).toBe(false)
+    expect(canWithdrawOn(ORDER, WITHDRAWER, null)).toBe(false)
   })
 })
 

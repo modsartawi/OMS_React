@@ -32,6 +32,13 @@
 // failed-then-retried send keeping its ClientRequestId; exactly one ByOwner re-read after a 200; a send that
 // survives a tab switch; a delivery's Add posting OwnerKey=<owner>.
 //
+// Ticket 331 adds `POST AttachmentWeb/{id}/Withdraw`, body `{ reasonCode, note }` (BackOffice 2062's Web contract;
+// AttachmentWithdrawResult.cs + AttachmentWebEndpoints.cs on pricing2), and the probe's `withdrawCategories`: Withdraw…
+// offered only with the grant for the order's category AND ByOwner's `withdrawReasons`, those reasons listed in the order
+// sent with EN·AR labels as sent, WRONG_ORDER posted, Other disabled until a note is typed, the answers by code (400 keeps
+// the input, 404 re-reads, 503 NOT_SET_UP no resend, a failure pressed again), a bare 403 removing Withdraw for the rest
+// of the visit, and the withdrawn file under Withdrawn (n) after the one re-read. Nothing else is POSTed for the ATWD line.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/order-attachments-drive.mjs
 import { createRequire } from 'node:module'
@@ -125,10 +132,13 @@ const WITHDRAWN = [
     note: 'Belongs to 2000000552',
   }),
 ]
-// 2062's SD_DOCUMENT reasons, beside `data`. 327 does not read them (331 does); they ride along so the
-// list is proven not to trip over the sibling.
+// 2062's SD_DOCUMENT reasons, beside `data`, in its picker order — the SERVER's list, stubbed here; the web holds no
+// copy. 331 lists exactly these, in this order, with these words.
 const REASONS = [
   { code: 'WRONG_ORDER', label: 'Wrong order or customer', labelArabic: 'طلب أو عميل غير صحيح', noteRequired: false },
+  { code: 'UNREADABLE', label: 'Unreadable', labelArabic: 'غير مقروء', noteRequired: false },
+  { code: 'DUPLICATE', label: 'Duplicate', labelArabic: 'مكرر', noteRequired: false },
+  { code: 'NOT_A_PRESCRIPTION', label: 'Not a prescription', labelArabic: 'ليس وصفة طبية', noteRequired: false },
   { code: 'OTHER', label: 'Other', labelArabic: 'سبب آخر', noteRequired: true },
 ]
 
@@ -155,6 +165,16 @@ let added = []
 /** Hold the next Upload's answer until `releaseUpload()` (the tab-switch-mid-send case). */
 let holdUpload = false
 let releaseUpload = () => {}
+/** What ByOwner sends as `withdrawReasons` (331): the list, left out (an older SIS.Api), or empty. */
+let reasonsMode = 'sent'
+/** Every Withdraw POST: the id in its path and its JSON body (331). */
+let withdraws = []
+/** The answers the next Withdraws get, in order; empty → a 200 that withdraws the file. */
+let withdrawAnswers = []
+/** Files a 200 withdrew, newest withdrawal first — ByOwner lists them under `withdrawn`, not `data`. */
+let withdrawnNow = []
+/** Every other non-GET request — the ATWD history line is the server's, so there must be none. */
+let otherWrites = []
 
 /**
  * A multipart body as [{ name, value | filename }], in the order sent. Read as latin1 (byte-safe), a text part's
@@ -245,19 +265,52 @@ async function run() {
       if (probe === 'forbidden') return route.fulfill({ status: 403, body: '' })
       if (probe === 'bareString') return route.fulfill(envelope({ categories: 'P2E', withdrawCategories: 'P2E' }))
       if (probe === 'otherCategory') return route.fulfill(envelope({ categories: ['ERX'], withdrawCategories: [] }))
+      // 331: the withdraw grant for both of 2062's categories; a bare-string withdraw list; an ERX reader (2062 seeds no
+      // ERX withdraw grant, so its withdrawCategories can never hold ERX).
+      if (probe === 'withdrawer') return route.fulfill(envelope({ categories: ['P2E', 'ALTIBBI'], withdrawCategories: ['P2E', 'ALTIBBI'] }))
+      if (probe === 'withdrawBareString') return route.fulfill(envelope({ categories: ['P2E', 'ALTIBBI'], withdrawCategories: 'P2E' }))
+      if (probe === 'erxReader') return route.fulfill(envelope({ categories: ['ERX', 'P2E', 'ALTIBBI'], withdrawCategories: ['P2E', 'ALTIBBI'] }))
       return route.fulfill(envelope({ categories: ['P2E', 'ALTIBBI'], withdrawCategories: [] }))
     }
     if (p === 'AttachmentWeb/ByOwner') {
       byOwnerCalls.push({ ownerKind: url.searchParams.get('ownerKind'), ownerKey: url.searchParams.get('ownerKey') })
       if (byOwner === 'readNotAudited') return route.fulfill(refusal(503, 'READ_NOT_AUDITED', NOT_AUDITED))
-      if (byOwner === 'empty') return route.fulfill(envelope([], { siblings: { withdrawn: [], withdrawReasons: REASONS } }))
+      const reasons = reasonsMode === 'absent' ? {} : { withdrawReasons: reasonsMode === 'empty' ? [] : REASONS }
+      if (byOwner === 'empty') return route.fulfill(envelope([], { siblings: { withdrawn: [], ...reasons } }))
+      const withdrawnIds = new Set(withdrawnNow.map((w) => w.attachmentId))
       return route.fulfill(
         envelope(
-          [...added, ...STORED.filter((s) => !goneIds.has(s.attachmentId))],
-          { siblings: { withdrawn: WITHDRAWN, withdrawReasons: REASONS } },
+          [...added, ...STORED.filter((s) => !goneIds.has(s.attachmentId) && !withdrawnIds.has(s.attachmentId))],
+          { siblings: { withdrawn: [...WITHDRAWN, ...withdrawnNow], ...reasons } },
         ),
       )
     }
+    const withdraw = /^AttachmentWeb\/([^/]+)\/Withdraw$/.exec(p ?? '')
+    if (withdraw && route.request().method() === 'POST') {
+      const id = decodeURIComponent(withdraw[1])
+      const body = route.request().postDataJSON()
+      withdraws.push({ id, body, contentType: route.request().headers()['content-type'] })
+      const answer = withdrawAnswers.shift()
+      if (answer) return route.fulfill(answer)
+      const file = [...added, ...STORED].find((s) => s.attachmentId === id)
+      const why = REASONS.find((r) => r.code === body.reasonCode)
+      const row = {
+        ...withdrawn(id, file.fileName, `2026-09-27T11:0${withdrawnNow.length}:00`, {
+          category: file.category,
+          sourceDevice: file.sourceDevice,
+          uploadedBy: file.uploadedBy,
+          storedAt: file.storedAt,
+          withdrawnBy: 'msartawi',
+          reasonCode: why.code,
+          reasonLabel: why.label,
+          reasonLabelArabic: why.labelArabic,
+          note: body.note,
+        }),
+      }
+      withdrawnNow = [row, ...withdrawnNow]
+      return route.fulfill(envelope(row))
+    }
+    if (route.request().method() !== 'GET' && p !== 'AttachmentWeb/Upload') otherWrites.push(`${route.request().method()} ${p}`)
     if (p === 'AttachmentWeb/Upload' && route.request().method() === 'POST') {
       const parts = formParts(route.request())
       uploads.push(parts)
@@ -348,6 +401,11 @@ async function run() {
     uploadAnswers = []
     added = []
     holdUpload = false
+    reasonsMode = 'sent'
+    withdraws = []
+    withdrawAnswers = []
+    withdrawnNow = []
+    otherWrites = []
   }
   const FULL = { attachmentOwnerNo: OWNER, attachmentCount: 3, attachmentCategory: 'P2E' }
 
@@ -460,7 +518,7 @@ async function run() {
   const jpegSrc = await img.getAttribute('src')
   check('preview — …from an object URL that decodes', jpegSrc?.startsWith('blob:') && (await img.evaluate((el) => el.complete && el.naturalWidth > 0)), jpegSrc)
   check('preview — the click fetched exactly that file, once', contentTotal() === 1 && contentCalls[JPEG.attachmentId] === 1)
-  check('327 — no Withdraw on the previewed file yet (331)', (await panel().getByTestId('slip-withdraw').count()) === 0)
+  check('331 — no Withdraw without the withdraw grant (read only: withdrawCategories [])', (await panel().getByTestId('slip-withdraw').count()) === 0)
   await shot('preview-jpeg')
 
   await pick(PNG)
@@ -827,6 +885,208 @@ async function run() {
     partValue(uploads[0], 'OwnerKey'),
   )
   check('delivery — the owner’s list is re-read once after the 200', byOwnerCalls.length === 2 && byOwnerCalls[1].ownerKey === OWNER, JSON.stringify(byOwnerCalls))
+
+  // ════════════════════ 7 · Withdraw… with the server's reasons (ticket 331) ════════════════════
+  const dialog = () => page.locator('dialog:has([data-region="slip-withdraw"])')
+  const withdrawButton = () => panel().getByTestId('slip-withdraw')
+  const confirmButton = () => dialog().getByTestId('slip-withdraw-confirm')
+  const reasonRadio = (code) => dialog().locator(`input[data-reason="${code}"]`)
+  const noteField = () => dialog().getByTestId('slip-withdraw-note')
+  const dialogGone = () => dialog().waitFor({ state: 'detached', timeout: 8000 }).catch(() => {})
+  const openWithdraw = async (s) => {
+    await pick(s)
+    await withdrawButton().click()
+    await dialog().waitFor()
+  }
+  const notice = () => panel().getByTestId('slip-withdraw-notice')
+  const WITHDRAW_400 = 'The withdrawal is not valid: check reasonCode.\nطلب السحب غير صالح: تحقق من reasonCode.'
+  const WITHDRAW_404 = 'The attachment was not found.\nلم يتم العثور على المرفق.'
+
+  reset()
+  probe = 'withdrawer'
+  fields = { [ORDER]: FULL }
+  await open(`/oms/document/${ORDER}`)
+  check('withdraw — nothing posted by the load', withdraws.length === 0 && byOwnerCalls.length === 0)
+  await selectTab()
+  await panel().locator('[data-testid="slip-list"]').waitFor()
+  await settle()
+  check('withdraw — no Withdraw before a file is picked (it sits on the preview)', (await withdrawButton().count()) === 0)
+  await pick(JPEG)
+  check('withdraw — with the grant: Withdraw beside Download on the previewed file', (await withdrawButton().isVisible()) && (await panel().getByTestId('slip-download').isVisible()))
+  check('withdraw — the button reads the panel’s "Withdraw", named for the file', (await withdrawButton().innerText()).trim() === 'Withdraw' && (await withdrawButton().getAttribute('aria-label')) === 'Withdraw rx-front.jpg')
+  check('withdraw — reading the reasons asked nothing more: one ByOwner, no probe re-ask', byOwnerCalls.length === 1 && accessCalls === 1, `${byOwnerCalls.length} / ${accessCalls}`)
+
+  await withdrawButton().click()
+  await dialog().waitFor()
+  await shot('withdraw-dialog')
+  const dialogText = await dialog().innerText()
+  check('dialog — titled with the order’s words', dialogText.includes('Withdraw a file'), dialogText.slice(0, 60))
+  const namedFile = await dialog().getByTestId('slip-withdraw-slip').innerText()
+  check('dialog — names the file, its source and when it was stored', namedFile.includes('rx-front.jpg') && namedFile.includes('P001-01') && namedFile.includes('2026-09-26 10:12:44'), namedFile.replace(/\s+/g, ' '))
+  check('dialog — says the withdrawal is final', (await dialog().getByTestId('slip-withdraw-final').innerText()).includes('A withdrawal is final.'))
+  const listed = await dialog().locator('input[data-reason]').evaluateAll((els) =>
+    els.map((el) => ({ code: el.getAttribute('data-reason'), spans: [...el.closest('label').querySelectorAll('span')].map((s) => s.textContent) })),
+  )
+  check(
+    '🔑 dialog — exactly the server’s reasons, in the order sent',
+    JSON.stringify(listed.map((r) => r.code)) === JSON.stringify(REASONS.map((r) => r.code)),
+    listed.map((r) => r.code).join(','),
+  )
+  check(
+    '🔑 dialog — each label beside its labelArabic, exactly as sent',
+    listed.every((r, i) => r.spans[0] === REASONS[i].label && r.spans[1] === REASONS[i].labelArabic),
+    JSON.stringify(listed.map((r) => r.spans)),
+  )
+  check('dialog — the Arabic label is marked Arabic', (await dialog().locator('label span[lang="ar"]').count()) === REASONS.length)
+  check('dialog — confirm is disabled until a reason is picked', await confirmButton().isDisabled())
+  check('dialog — confirm reads "Withdraw file"', (await confirmButton().innerText()).trim() === 'Withdraw file')
+
+  // ---- Other needs a note (the server's noteRequired) ----
+  await reasonRadio('OTHER').check()
+  check('Other — confirm stays disabled with no note', await confirmButton().isDisabled())
+  check('Other — the note is marked required, and says so', (await noteField().getAttribute('required')) !== null && (await dialog().innerText()).includes('Required for this reason.'))
+  await noteField().fill('   ')
+  check('Other — a blank note keeps confirm disabled', await confirmButton().isDisabled())
+  await noteField().fill('Scanned for the wrong visit')
+  check('Other — a note with something in it makes confirm live', await confirmButton().isEnabled())
+  await noteField().fill('')
+  check('Other — clearing the note disables confirm again', await confirmButton().isDisabled())
+
+  // ---- WRONG_ORDER needs none; a 400 keeps the input ----
+  const NOTE_TYPED = '  يخص الطلب 2000000552  '
+  await reasonRadio('WRONG_ORDER').check()
+  check('WRONG_ORDER — confirm is live without a note (noteRequired false)', await confirmButton().isEnabled())
+  await noteField().fill(NOTE_TYPED)
+  withdrawAnswers = [refusal(400, 'reasonCode', WITHDRAW_400)]
+  reads = byOwnerCalls.length
+  await confirmButton().click()
+  const err400 = dialog().getByTestId('slip-withdraw-error')
+  await err400.waitFor({ timeout: 8000 }).catch(() => {})
+  const err400Text = await err400.innerText().catch(() => '')
+  check('400 reasonCode — the server’s message in the dialog, English then Arabic', err400Text.includes('check reasonCode') && err400Text.includes('طلب السحب غير صالح'), err400Text)
+  check('400 reasonCode — the dialog stays, with the input kept', (await dialog().count()) === 1 && (await reasonRadio('WRONG_ORDER').isChecked()) && (await noteField().inputValue()) === NOTE_TYPED)
+  check('400 reasonCode — confirm may be pressed again, and nothing was re-read', (await confirmButton().isEnabled()) && byOwnerCalls.length === reads)
+
+  // ---- a failure: the message, and pressing again is safe ----
+  withdrawAnswers = [{ status: 500, contentType: 'text/html', body: '<html>boom</html>' }]
+  await confirmButton().click()
+  await page.waitForFunction(() => document.querySelector('[data-testid="slip-withdraw-error"]')?.getAttribute('data-answer') === 'failed', null, { timeout: 8000 }).catch(() => {})
+  check('a failure — shown in the dialog, the input kept, confirm live again', (await err400.getAttribute('data-answer').catch(() => '')) === 'failed' && (await confirmButton().isEnabled()) && (await reasonRadio('WRONG_ORDER').isChecked()))
+
+  // ---- 200: WRONG_ORDER posted, the file moves under Withdrawn (n) ----
+  const badgeBeforeWithdraw = Number(await badge().innerText())
+  const postsBefore = withdraws.length
+  await confirmButton().click()
+  await dialogGone()
+  await notice().waitFor({ timeout: 8000 }).catch(() => {})
+  await settle()
+  const posted = withdraws[postsBefore]
+  check('🔑 200 — ONE more POST, to the file’s own Withdraw route', withdraws.length === postsBefore + 1 && posted?.id === JPEG.attachmentId, JSON.stringify(withdraws.map((w) => w.id)))
+  check(
+    '🔑 200 — the body is exactly { reasonCode: "WRONG_ORDER", note } with the note trimmed',
+    JSON.stringify(Object.keys(posted?.body ?? {})) === JSON.stringify(['reasonCode', 'note']) &&
+      posted.body.reasonCode === 'WRONG_ORDER' &&
+      posted.body.note === NOTE_TYPED.trim(),
+    JSON.stringify(posted?.body),
+  )
+  check('200 — sent as JSON', /application\/json/.test(posted?.contentType ?? ''), posted?.contentType)
+  check('200 — the dialog closes', (await dialog().count()) === 0)
+  check('200 — the tab says it was withdrawn', (await notice().innerText().catch(() => '')).includes('rx-front.jpg was withdrawn'))
+  check('200 — the preview is dropped', (await panel().locator('[data-preview-for]').count()) === 0)
+  check('🔑 200 — exactly ONE ByOwner re-read', byOwnerCalls.length === reads + 1, `${byOwnerCalls.length - reads}`)
+  check('200 — the file leaves the stored list', (await listRow(JPEG).count()) === 0)
+  check('200 — the badge follows the re-read list', (await badge().innerText()) === String(badgeBeforeWithdraw - 1), `${badgeBeforeWithdraw} → ${await badge().innerText()}`)
+  const wd = panel().getByTestId('slip-withdrawn')
+  check('200 — Withdrawn (n) counts it', (await wd.locator('summary').innerText()).trim() === `Withdrawn (${WITHDRAWN.length + 1})`)
+  await wd.locator('summary').click()
+  const firstWithdrawn = wd.locator('li[data-withdrawn]').first()
+  check('200 — …newest withdrawal first: this one', (await firstWithdrawn.getAttribute('data-withdrawn')) === JPEG.attachmentId)
+  const fwText = await firstWithdrawn.innerText()
+  check('200 — …with who withdrew it and when (the wall clock as sent)', fwText.includes('Withdrawn by msartawi at 2026-09-27 11:00:00'), fwText)
+  const fwReason = await firstWithdrawn.locator('[data-cell="reason"]').innerText()
+  check('200 — …the server’s reasonLabel beside reasonLabelArabic', fwReason === 'Reason: Wrong order or customer طلب أو عميل غير صحيح', JSON.stringify(fwReason))
+  const fwNote = await firstWithdrawn.locator('[data-cell="note"]').innerText().catch(() => '')
+  check('200 — …and the note, Arabic exactly as posted', fwNote === `Note: ${NOTE_TYPED.trim()}`, JSON.stringify(fwNote))
+  check('200 — …with no preview or download', (await firstWithdrawn.locator('button, a, img, iframe').count()) === 0)
+  check('200 — nothing fetched the withdrawn file’s bytes again', contentCalls[JPEG.attachmentId] === 1, `${contentCalls[JPEG.attachmentId]}`)
+  await shot('withdraw-done')
+
+  // ---- 404: says so and re-reads ----
+  await openWithdraw(PNG)
+  await reasonRadio('DUPLICATE').check()
+  withdrawAnswers = [refusal(404, 'NOT_FOUND', WITHDRAW_404)]
+  reads = byOwnerCalls.length
+  await confirmButton().click()
+  await dialogGone()
+  await page.waitForFunction(() => document.querySelector('[data-testid="slip-withdraw-notice"]')?.getAttribute('data-answer') === 'gone', null, { timeout: 8000 }).catch(() => {})
+  await settle()
+  const goneNotice = await notice().innerText().catch(() => '')
+  check('404 NOT_FOUND — says the file is no longer one you can withdraw, with the server’s words', goneNotice.includes('emailed rx.png is no longer a stored file you can withdraw') && goneNotice.includes('لم يتم العثور على المرفق'), goneNotice)
+  check('404 NOT_FOUND — the dialog closes and ByOwner is re-read once', (await dialog().count()) === 0 && byOwnerCalls.length === reads + 1, `${byOwnerCalls.length - reads}`)
+
+  // ---- 503 NOT_SET_UP: the message, no resend ----
+  await openWithdraw(PDF)
+  await reasonRadio('UNREADABLE').check()
+  withdrawAnswers = [refusal(503, 'NOT_SET_UP', NOT_SET_UP)]
+  reads = byOwnerCalls.length
+  before = withdraws.length
+  await confirmButton().click()
+  await page.waitForFunction(() => document.querySelector('[data-testid="slip-withdraw-error"]')?.getAttribute('data-answer') === 'not-set-up', null, { timeout: 8000 }).catch(() => {})
+  const notSetUpText = await dialog().getByTestId('slip-withdraw-error').innerText().catch(() => '')
+  check('503 NOT_SET_UP — the server’s message in the dialog', notSetUpText.includes('not set up on this server') && notSetUpText.includes('مخزن المرفقات'), notSetUpText)
+  check('503 NOT_SET_UP — confirm cannot be pressed again', await confirmButton().isDisabled())
+  check('503 NOT_SET_UP — one request, nothing re-read', withdraws.length === before + 1 && byOwnerCalls.length === reads)
+  await dialog().getByTestId('slip-withdraw-cancel').click()
+  await dialogGone()
+  check('503 NOT_SET_UP — Cancel closes the dialog, Withdraw still offered', (await dialog().count()) === 0 && (await withdrawButton().isVisible()))
+
+  // ---- a bare 403: Withdraw is gone for the rest of the visit ----
+  await withdrawButton().click()
+  await dialog().waitFor()
+  await reasonRadio('NOT_A_PRESCRIPTION').check()
+  withdrawAnswers = [{ status: 403, body: '' }]
+  reads = byOwnerCalls.length
+  before = withdraws.length
+  await confirmButton().click()
+  await dialogGone()
+  await page.waitForFunction(() => document.querySelector('[data-testid="slip-withdraw-notice"]')?.getAttribute('data-answer') === 'forbidden', null, { timeout: 8000 }).catch(() => {})
+  const forbiddenText = await notice().innerText().catch(() => '')
+  check('bare 403 — says Withdraw was removed from this tab', forbiddenText.includes('Withdraw has been removed from this tab'), forbiddenText)
+  check('🔑 bare 403 — Withdraw is gone from the previewed file', (await withdrawButton().count()) === 0 && (await panel().getByTestId('slip-download').isVisible()))
+  check('bare 403 — one request, nothing re-read', withdraws.length === before + 1 && byOwnerCalls.length === reads)
+  await shot('withdraw-forbidden')
+  await pick(UNAUDITED)
+  check('bare 403 — …and from every other file', (await withdrawButton().count()) === 0)
+  await page.locator('#tab-log').click()
+  await selectTab()
+  await pick(PDF)
+  check('bare 403 — …after a tab switch', (await withdrawButton().count()) === 0)
+  await refreshButton().click()
+  await settle()
+  await pick(PDF)
+  check('bare 403 — …and after the page’s Refresh (the probe still says yes)', (await withdrawButton().count()) === 0 && accessCalls === 1)
+  check('ATWD — the web sends nothing for the order’s history line: no other write at all', otherWrites.length === 0, otherWrites.join(', '))
+  await noRawKeys('order — withdraw')
+
+  // ════════════════════ 8 · no Withdraw… without the grant, or without the server's reasons ════════════════════
+  for (const [name, probeMode, mode, docFields] of [
+    ['read only (withdrawCategories [])', 'holder', 'sent', FULL],
+    ['a bare-string withdrawCategories "P2E"', 'withdrawBareString', 'sent', FULL],
+    ['an ERX order (2062 has no ERX withdraw grant)', 'erxReader', 'sent', { ...FULL, attachmentCategory: 'ERX' }],
+    ['no withdrawReasons (an older SIS.Api)', 'withdrawer', 'absent', FULL],
+    ['an empty withdrawReasons', 'withdrawer', 'empty', FULL],
+  ]) {
+    reset()
+    probe = probeMode
+    reasonsMode = mode
+    fields = { [ORDER]: docFields }
+    await open(`/oms/document/${ORDER}`)
+    await selectTab()
+    await panel().locator('[data-testid="slip-list"]').waitFor()
+    await pick(PNG)
+    await panel().getByTestId('slip-download').waitFor()
+    check(`no Withdraw — ${name}: the file previews, and no Withdraw beside Download`, (await panel().locator('[data-region="slip-preview"] img').count()) === 1 && (await withdrawButton().count()) === 0)
+  }
 
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' || '))
 

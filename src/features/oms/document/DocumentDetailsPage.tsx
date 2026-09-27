@@ -567,6 +567,8 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                           key={attachments.target.ownerKey}
                           target={attachments.target}
                           opened={attachments.opened}
+                          withdrawReasons={attachments.withdrawReasons}
+                          withdrawOffered={attachments.withdrawOffered}
                         />
                       )}
                     </div>

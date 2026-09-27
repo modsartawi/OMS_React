@@ -10,9 +10,6 @@ import { CAPTION_MAX, type AttachmentTarget } from '@/core/attachments/upload'
 import { useAttachmentUploads } from '@/core/attachments/upload-store'
 import type { WithdrawReason } from '@/core/attachments/withdraw'
 
-/** No reasons yet: Withdraw arrives with the server's list in 331. */
-const NO_REASONS: readonly WithdrawReason[] = []
-
 /**
  * **The order's files** (spec 324, ticket 327) — the Attachments tab's body: the shared
  * attachments panel (`@/core/attachments`, the ECR-slip drawer's body) with the order's
@@ -32,9 +29,25 @@ const NO_REASONS: readonly WithdrawReason[] = []
  * - The tab's files in the upload store outlive a tab switch (this stays mounted) and
  *   a page left mid-send (the store keeps a file in flight, under its id). Leaving
  *   forgets only the settled ones, as the slip drawer's close does.
- * - Withdraw (331) is not offered yet.
+ * - **Withdraw…** (331) sits beside Download on the previewed file when `withdrawOffered`
+ *   (`canWithdrawOn`: the grant for the category, and a reason list). The reasons are
+ *   ByOwner's `withdrawReasons` as sent, `label` beside `labelArabic` — never a client
+ *   list. A 200 or a 404 re-reads the list (`onChanged`), so the file moves under
+ *   Withdrawn (n) and the badge follows; a bare 403 takes Withdraw away for the rest of
+ *   the visit (the panel holds that, and this stays mounted until the page is left).
+ *   The order's `ATWD` history line is the server's: nothing is sent for it.
  */
-export default function AttachmentsTab({ target, opened }: { target: AttachmentTarget; opened: boolean }) {
+export default function AttachmentsTab({
+  target,
+  opened,
+  withdrawReasons,
+  withdrawOffered,
+}: {
+  target: AttachmentTarget
+  opened: boolean
+  withdrawReasons: readonly WithdrawReason[]
+  withdrawOffered: boolean
+}) {
   const { t } = useTranslation('document')
   const queryClient = useQueryClient()
   const words = useMemo(() => orderPanelWords(t), [t])
@@ -47,10 +60,10 @@ export default function AttachmentsTab({ target, opened }: { target: AttachmentT
       freshness={READ_ONCE_PER_VISIT}
       enabled={opened}
       captioned
-      reasons={NO_REASONS}
+      reasons={withdrawReasons}
       words={words}
       addOffered
-      withdrawOffered={false}
+      withdrawOffered={withdrawOffered}
       onChanged={() => void rereadAttachments(queryClient, target)}
     />
   )

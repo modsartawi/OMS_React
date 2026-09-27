@@ -19,9 +19,10 @@ import {
   clampText,
   holdsCategory,
   wallClockText,
+  withdrawReasonsFrom,
   withdrawnNewestFirst,
 } from './rules'
-import { WITHDRAW_NOTE_MAX, withdrawNote } from './withdraw'
+import { WITHDRAW_NOTE_MAX, canConfirmWithdraw, withdrawNote } from './withdraw'
 
 describe('holdsCategory — array membership and nothing looser', () => {
   it('admits an array holding the exact code', () => {
@@ -223,5 +224,94 @@ describe('clampText — the ONE clamp a caption and a withdraw note share (ticke
     ]) {
       expect(withdrawNote(note), note).toBe(clampText(note, WITHDRAW_NOTE_MAX))
     }
+  })
+})
+
+describe('withdrawReasonsFrom — the server’s withdraw reasons, as sent (ticket 331)', () => {
+  /** 2062's SD_DOCUMENT list, in the order ByOwner sends it — test data, never a client table. */
+  const SENT = [
+    { code: 'WRONG_ORDER', label: 'Wrong order or customer', labelArabic: 'طلب أو عميل غير صحيح', noteRequired: false },
+    { code: 'UNREADABLE', label: 'Unreadable', labelArabic: 'غير مقروء', noteRequired: false },
+    { code: 'DUPLICATE', label: 'Duplicate', labelArabic: 'مكرر', noteRequired: false },
+    { code: 'NOT_A_PRESCRIPTION', label: 'Not a prescription', labelArabic: 'ليس وصفة طبية', noteRequired: false },
+    { code: 'OTHER', label: 'Other', labelArabic: 'سبب آخر', noteRequired: true },
+  ]
+
+  it('keeps the server’s order and its words, label beside labelArabic', () => {
+    expect(withdrawReasonsFrom(SENT)).toEqual(SENT)
+    const reversed = [...SENT].reverse()
+    expect(withdrawReasonsFrom(reversed).map((r) => r.code)).toEqual(reversed.map((r) => r.code))
+  })
+
+  it('carries only the four fields the picker reads', () => {
+    const [reason] = withdrawReasonsFrom([{ ...SENT[0], extra: 'ignored' }])
+    expect(Object.keys(reason).sort()).toEqual(['code', 'label', 'labelArabic', 'noteRequired'])
+  })
+
+  it('noteRequired is honoured by canConfirmWithdraw — the server’s flag, not the code’s name', () => {
+    const reasons = withdrawReasonsFrom(SENT)
+    expect(canConfirmWithdraw(reasons, 'OTHER', '')).toBe(false)
+    expect(canConfirmWithdraw(reasons, 'OTHER', '   ')).toBe(false)
+    expect(canConfirmWithdraw(reasons, 'OTHER', 'Belongs to 2000000552')).toBe(true)
+    expect(canConfirmWithdraw(reasons, 'WRONG_ORDER', '')).toBe(true)
+    // A server that flags another code needs a note there, and none on OTHER.
+    const flipped = withdrawReasonsFrom(SENT.map((r) => ({ ...r, noteRequired: r.code === 'DUPLICATE' })))
+    expect(canConfirmWithdraw(flipped, 'DUPLICATE', '')).toBe(false)
+    expect(canConfirmWithdraw(flipped, 'OTHER', '')).toBe(true)
+    // A code the server did not send cannot be confirmed.
+    expect(canConfirmWithdraw(reasons, 'WRONG_STORE_DAY', 'x')).toBe(false)
+  })
+
+  it('absent or empty → none (an older SIS.Api hides Withdraw)', () => {
+    expect(withdrawReasonsFrom(undefined)).toEqual([])
+    expect(withdrawReasonsFrom(null)).toEqual([])
+    expect(withdrawReasonsFrom([])).toEqual([])
+  })
+
+  it('a label with no Arabic is kept, with no labelArabic', () => {
+    expect(withdrawReasonsFrom([{ code: 'OTHER', label: 'Other', noteRequired: true }])).toEqual([
+      { code: 'OTHER', label: 'Other', noteRequired: true },
+    ])
+    expect(withdrawReasonsFrom([{ code: 'OTHER', label: 'Other', labelArabic: null, noteRequired: true }])).toEqual([
+      { code: 'OTHER', label: 'Other', noteRequired: true },
+    ])
+  })
+
+  it('malformed → none: not a list, or any reason the picker could not draw or judge', () => {
+    expect(withdrawReasonsFrom('WRONG_ORDER')).toEqual([])
+    expect(withdrawReasonsFrom({ WRONG_ORDER: SENT[0] })).toEqual([])
+    for (const bad of [
+      null,
+      'WRONG_ORDER',
+      { ...SENT[0], code: '' },
+      { ...SENT[0], code: 7 },
+      { ...SENT[0], label: '' },
+      { ...SENT[0], label: undefined },
+      { ...SENT[0], labelArabic: 7 },
+      { ...SENT[0], noteRequired: 'false' },
+      { ...SENT[0], noteRequired: undefined },
+    ]) {
+      expect(withdrawReasonsFrom([...SENT, bad]), JSON.stringify(bad)).toEqual([])
+    }
+  })
+
+  it('a code sent twice is malformed: the picker would draw one radio for two', () => {
+    expect(withdrawReasonsFrom([SENT[0], { ...SENT[0], label: 'Again' }])).toEqual([])
+  })
+})
+
+describe('attachmentOwnerList — withdrawReasons from beside data (ticket 331)', () => {
+  const envelope = (withdrawReasons: unknown): ApiEnvelope<StoredAttachment[], AttachmentOwnerSiblings> =>
+    ({ statusCode: 200, success: true, message: '', errors: [], data: [], withdrawn: [], withdrawReasons }) as never
+
+  it('carries the server’s usable list', () => {
+    const reasons = [{ code: 'OTHER', label: 'Other', labelArabic: 'سبب آخر', noteRequired: true }]
+    expect(attachmentOwnerList(envelope(reasons)).withdrawReasons).toEqual(reasons)
+  })
+
+  it('has none when the list is absent, empty or malformed', () => {
+    expect(attachmentOwnerList(envelope(undefined)).withdrawReasons).toBeUndefined()
+    expect(attachmentOwnerList(envelope([])).withdrawReasons).toBeUndefined()
+    expect(attachmentOwnerList(envelope('OTHER')).withdrawReasons).toBeUndefined()
   })
 })

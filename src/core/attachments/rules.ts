@@ -1,8 +1,8 @@
 /**
  * The attachment register's pure rules (spec 319's slip drawer, lifted by ticket 325
  * for spec 324's order page): the probe's membership test, where a file came from,
- * its preview, its stamps, the Withdrawn (n) order, ByOwner's two lists and what a
- * failed `/Content` means.
+ * its preview, its stamps, the Withdrawn (n) order, ByOwner's two lists and its
+ * withdraw reasons, and what a failed `/Content` means.
  *
  * Pure: no React, no network, no i18n. The words are the caller's `t()`; this only
  * decides which. Nothing here names an owner kind, a category or a kind — the caller
@@ -10,6 +10,7 @@
  */
 import type { ApiEnvelope } from '@/core/api'
 import type { AttachmentOwnerSiblings, StoredAttachment, WithdrawnAttachment } from '@/core/models/attachment'
+import type { WithdrawReason } from './withdraw'
 
 /**
  * Does a probe list hold `category`? **Array membership and nothing looser.**
@@ -119,20 +120,63 @@ export interface AttachmentOwnerList {
   stored: StoredAttachment[]
   /** Withdrawn files, newest withdrawal first. */
   withdrawn: WithdrawnAttachment[]
+  /**
+   * The owner kind's withdraw reasons as the server sent them (`withdrawReasonsFrom`),
+   * or absent when it sent no usable list — an older SIS.Api, an empty or a malformed
+   * one. Read by the order tab (331); the slip drawer keeps its own five.
+   */
+  withdrawReasons?: WithdrawReason[]
 }
 
 /**
- * `ByOwner`'s envelope → the two lists. `withdrawn` rides BESIDE `data`
- * (BackOffice 2035), which is why the read keeps the envelope; an older SIS.Api
- * omits it, and that reads as nothing withdrawn.
+ * `ByOwner`'s envelope → the two lists, and the reasons. `withdrawn` and
+ * `withdrawReasons` ride BESIDE `data` (BackOffice 2035, 2062), which is why the read
+ * keeps the envelope; an older SIS.Api omits them, and that reads as nothing withdrawn
+ * and no reasons.
  */
 export function attachmentOwnerList(
   envelope: ApiEnvelope<StoredAttachment[], AttachmentOwnerSiblings>,
 ): AttachmentOwnerList {
+  const withdrawReasons = withdrawReasonsFrom(envelope.withdrawReasons)
   return {
     stored: Array.isArray(envelope.data) ? envelope.data : [],
     withdrawn: withdrawnNewestFirst(envelope.withdrawn),
+    ...(withdrawReasons.length > 0 ? { withdrawReasons } : {}),
   }
+}
+
+/**
+ * ByOwner's `withdrawReasons` (BackOffice 2062) as the withdraw picker takes them:
+ * **the server's list, in the order sent**, each `{ code, label, labelArabic,
+ * noteRequired }` — the labels shown as sent, never a client table, and `noteRequired`
+ * the server's flag, never guessed from a code's name.
+ *
+ * All or nothing: absent, empty, not a list, a code sent twice, or any one reason the
+ * picker could not draw (no code, no label, a non-string Arabic label) or judge (a
+ * `noteRequired` that is not a boolean) → none, and a caller with none hides Withdraw.
+ * A half-read list could drop the one reason a user needs or let Other confirm without
+ * its note.
+ */
+export function withdrawReasonsFrom(list: unknown): WithdrawReason[] {
+  if (!Array.isArray(list)) return []
+  const reasons: WithdrawReason[] = []
+  for (const entry of list as unknown[]) {
+    const reason = withdrawReasonFrom(entry)
+    if (!reason || reasons.some((r) => r.code === reason.code)) return []
+    reasons.push(reason)
+  }
+  return reasons
+}
+
+/** One reason read strictly, or `null` when it is not one. */
+function withdrawReasonFrom(entry: unknown): WithdrawReason | null {
+  if (typeof entry !== 'object' || entry === null) return null
+  const { code, label, labelArabic, noteRequired } = entry as Record<string, unknown>
+  if (typeof code !== 'string' || !code || typeof label !== 'string' || !label) return null
+  if (typeof noteRequired !== 'boolean') return null
+  if (labelArabic === undefined || labelArabic === null) return { code, label, noteRequired }
+  if (typeof labelArabic !== 'string') return null
+  return { code, label, labelArabic, noteRequired }
 }
 
 /**

@@ -26,7 +26,8 @@
     "mineHint": "The branches you serve, and your team's",
     "supervisorEntry": "{{name}}'s team",
     "collected": {
-      "placeholder": "Everyone",
+      "typeId": "Type a collector id…",
+      "idPlaceholder": "Collector id or name",
       "hint": "Pick a collector or a team — or type any collector id, including one not on the roster",
       "mine": "My collections — {{name}}",
       "mineNoName": "My collections",

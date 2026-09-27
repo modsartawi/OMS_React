@@ -85,15 +85,16 @@ export interface AcrsCriteria {
 }
 
 /**
- * The state the screen opens on: **a business date of today, on both ends,
- * Status = All, nothing else set** — the same today-defaulted landing 254 settled,
- * with the collection range open.
+ * The state the screen opens on: **a collection date of today, on both ends,
+ * Status = All, nothing else set** — the same landing Cash Collections opens on,
+ * with the business range open.
  *
- * ⚠️ The window applies to `AcrDate`, **the collector-chosen business date**, not
- * to `CreatedAt` — a grilled decision the WPF view carries a comment about. A
- * catch-up ACR raised today for last Thursday's collections answers to last
- * Thursday here. Ticket 316 renamed it on the wire (`BusinessDate*`); it did not
- * move it.
+ * 🚩 Owner ruling 2026-09-27: finance reads ACRs and Cash Collections side by side,
+ * so both land on the same question — what was collected today. The collection
+ * range picks an ACR when ANY of its collections was taken in it (BackOffice 1993),
+ * so an ACR raised today for last Thursday's round still lands if its collections
+ * came in today. The business range (`AcrDate`, the collector-chosen business date)
+ * stays one date edit away.
  */
 export function landingCriteria(
   today: Date,
@@ -101,10 +102,10 @@ export function landingCriteria(
 ): AcrsCriteria {
   const day = toIsoDate(today)
   return {
-    businessDateFrom: day,
-    businessDateTo: day,
-    collectionDateFrom: '',
-    collectionDateTo: '',
+    businessDateFrom: '',
+    businessDateTo: '',
+    collectionDateFrom: day,
+    collectionDateTo: day,
     acrNumber: '',
     // 🚩 **Default-to-mine, but only for a caller this screen can scope** (spec D8;
     // BackOffice 1167). `defaultSelection` drops the landing for an ACCOUNTANT

@@ -48,6 +48,13 @@ export interface ServedByPickerProps {
  *  numeric and Kinds are upper-case words, so a colon cannot appear in either. */
 const SEP = ':'
 
+/** The option that swaps the dropdown for a typed id. It carries no SEP, so it can
+ *  never collide with a `KIND:id` value — nor with `''`, the estate. */
+const TYPE_ID = 'TYPE_ID'
+
+const FIELD_CLASS =
+  'h-9 w-56 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50'
+
 export default function ServedByPicker({
   screen,
   value,
@@ -56,6 +63,8 @@ export default function ServedByPicker({
 }: ServedByPickerProps) {
   const { t } = useTranslation('collection')
   const contract = SERVED_BY_SCREENS[screen]
+  const collected = contract.reading === 'collector'
+  const [typing, setTyping] = useState(false)
 
   // The one shared key+options (in `api.ts`, beside the access probe's), so a user
   // moving between the five screens costs one request and not five — and so the
@@ -80,17 +89,33 @@ export default function ServedByPicker({
   const mine = defaultSelection(screen, data)
   const mineName = (data?.defaultScope?.displayName ?? '').trim()
 
-  // 🚩 **The two collected-by screens get a COMBOBOX** (BackOffice 1167) — the same
-  // control, offering the same groups, but over a text box that accepts an id
-  // matching nothing in it. Not a nicety: the roster holds 8 collectors while a
-  // shipped ACR carries *whoever collected*, so a strict picker would make an id
-  // plainly visible in the grid un-typeable in the filter beside it.
-  //
-  // It is a branch inside this component rather than a second component, because
-  // "one control, learned once" is the whole of D7 and two files is how two screens
-  // start disagreeing about what one control means.
-  if (contract.freeText) {
-    return <ServedByCombo screen={screen} value={value} onChange={onChange} disabled={disabled} />
+  // 🚩 **The two collected-by screens accept an id that is on no roster row**
+  // (BackOffice 1167) — not a nicety: the roster holds 8 collectors while a shipped
+  // ACR carries *whoever collected*, so a strict picker would make an id plainly
+  // visible in the grid un-typeable in the filter beside it. Owner ruling
+  // 2026-09-27: they still OPEN as the same dropdown Cash Collections has — a text
+  // box pre-filled with "My collections" read as a locked field, because a datalist
+  // only suggests what matches the text already in it — and typing an id is one
+  // pick away, under "Type a collector id…".
+  const entries = collected ? servedByEntries(screen, data, (entry) => labelFor(entry, t)) : []
+  const offRoster =
+    collected &&
+    !isPending &&
+    value.kind !== '' &&
+    !entries.some((entry) => entry.kind === value.kind && entry.id === value.id)
+
+  if (typing) {
+    return (
+      <ServedByIdInput
+        screen={screen}
+        entries={entries}
+        disabled={disabled}
+        onCommit={(selection) => {
+          setTyping(false)
+          if (selection) onChange(selection)
+        }}
+      />
+    )
   }
 
   return (
@@ -99,8 +124,13 @@ export default function ServedByPicker({
       <select
         disabled={disabled}
         value={selected}
+        title={collected ? t('servedBy.collected.hint') : undefined}
         onChange={(e) => {
           const raw = e.target.value
+          if (raw === TYPE_ID) {
+            setTyping(true)
+            return
+          }
           if (raw === '') {
             onChange(NO_SERVED_BY)
             return
@@ -109,7 +139,7 @@ export default function ServedByPicker({
           const kind = raw.slice(0, cut) as ServedByKind
           onChange({ kind, id: raw.slice(cut + 1) })
         }}
-        className="h-9 w-56 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        className={FIELD_CLASS}
       >
         {/* Nothing picked is the estate, and it is always reachable — the scope is a
             finding aid, never a permission. Anyone who can open this screen may look
@@ -126,9 +156,14 @@ export default function ServedByPicker({
                 supervisor and nothing else. The roster's `DisplayName` is the only place
                 these people's names live, so there is nothing to fall back to, and a bare
                 staff id in the caption ("My branches — 15493") reads as a bug. */}
-            {mineName === '' ? t('servedBy.mineNoName') : t('servedBy.mine', { name: mineName })}
+            {mineLabel(collected, mineName, t)}
           </option>
         )}
+
+        {/* A typed id off the roster has no row below, so it is drawn here as itself —
+            a selection the control could not display would be a filtered grid beside
+            a box claiming "Everyone". */}
+        {offRoster && <option value={selected}>{servedByText(value, entries)}</option>}
 
         {groups.map((group) => (
           <optgroup key={group.kind} label={t(`servedBy.groups.${group.kind}`)}>
@@ -141,60 +176,72 @@ export default function ServedByPicker({
         ))}
 
         {/* 🚩 *Unassigned* sits OUTSIDE the groups and LAST, because it names nobody:
-            it is a question about branches, not a person to pick. On this screen it
-            means "either slot empty, or no pairing row at all" — the ~1255 branches
-            the finance sheet never covered. Keeping the gap pickable is the whole
-            reason it does not silently vanish from every scoped view.
+            it is a question about branches, not a person to pick. On the assignment
+            screens it means "either slot empty, or no pairing row at all" — the ~1255
+            branches the finance sheet never covered; on the collected-by screens,
+            collected by somebody finance never enrolled. Keeping the gap pickable is
+            the whole reason it does not silently vanish from every scoped view.
 
             Its value carries the SEP with an empty id, so the split above yields
             { kind: 'UNASSIGNED', id: '' } — the exact pair buildServedByParams turns
             into a lone ServedByKind. */}
         {offersUnassigned && (
-          <option value={`${SERVED_BY_KINDS.unassigned}${SEP}`} title={t('servedBy.unassignedHint')}>
-            {t('servedBy.unassigned')}
+          <option
+            value={`${SERVED_BY_KINDS.unassigned}${SEP}`}
+            title={collected ? undefined : t('servedBy.unassignedHint')}
+          >
+            {collected ? t('servedBy.collected.unassigned') : t('servedBy.unassigned')}
           </option>
         )}
+
+        {contract.freeText && <option value={TYPE_ID}>{t('servedBy.collected.typeId')}</option>}
       </select>
     </label>
   )
 }
 
+function mineLabel(
+  collected: boolean,
+  name: string,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+): string {
+  if (collected) {
+    return name === '' ? t('servedBy.collected.mineNoName') : t('servedBy.collected.mine', { name })
+  }
+  return name === '' ? t('servedBy.mineNoName') : t('servedBy.mine', { name })
+}
+
 /**
- * The collected-by screens' rendering of the same control: a native combobox —
- * `<input list>` over a `<datalist>` — instead of a `<select>`.
- *
- * 🔑 **Why native rather than a custom dropdown.** The whole requirement is "offers
- * the roster's groups *and* accepts a typed id that matches nothing in it", which is
- * the definition of `<input list>`. It also keeps the keyboard, the screen-reader
- * announcement and the RTL text direction the platform's rather than ours.
- *
- * ⚠️ **The cost, accepted: a datalist has no groups.** So the Kind rides in the
- * suggestion's own text — a supervisor is offered as *"X's team"* — and
- * `parseServedByText` maps the text back to the pair. That is why `label` is built
- * here (it needs the translator) and matched there (it must stay pure).
+ * The typed-id box the collected-by screens swap in when "Type a collector id…" is
+ * picked: `<input list>` over the roster's own entries, so a name still completes.
  *
  * 🚩 **The commit is on blur/Enter, not per keystroke.** A half-typed id is not a
  * filter; the toolbar's draft/query split already says a partial box must not fire
  * a query, and committing per keystroke would put `ServedByKind=COLLECTOR&ServedById=1`
  * into the draft on the way to `16138`.
+ *
+ * An empty box, or Escape, goes back to the dropdown with the selection untouched —
+ * the estate is the dropdown's "Everyone", one pick away, so an abandoned box never
+ * widens the grid behind the user's back.
  */
-function ServedByCombo({ screen, value, onChange, disabled }: ServedByPickerProps) {
+function ServedByIdInput({
+  screen,
+  entries,
+  disabled,
+  onCommit,
+}: {
+  screen: ServedByScreen
+  entries: ServedByEntry[]
+  disabled: boolean
+  onCommit: (selection: ServedBySelection | null) => void
+}) {
   const { t } = useTranslation('collection')
-  const { data, isPending } = useQuery(assignmentOptionsQuery())
-
-  const entries = servedByEntries(screen, data, (entry) => labelFor(entry, t))
-  // The text the box shows is derived from the SELECTION, so what the user picked
-  // and what the query carries cannot drift apart. `draft` is the keystroke buffer
-  // in between, and it is dropped the moment the selection changes underneath it.
-  const [draft, setDraft] = useState<string | null>(null)
-  const shown = draft ?? servedByText(value, entries)
+  const listId = `served-by-${screen}`
 
   const commit = (text: string) => {
-    setDraft(null)
-    onChange(parseServedByText(screen, text, entries))
+    const parsed = parseServedByText(screen, text, entries)
+    onCommit(parsed.kind === '' ? null : parsed)
   }
-
-  const listId = `served-by-${screen}`
 
   return (
     <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
@@ -203,16 +250,22 @@ function ServedByCombo({ screen, value, onChange, disabled }: ServedByPickerProp
         type="text"
         role="combobox"
         list={listId}
+        autoFocus
         disabled={disabled}
-        value={shown}
-        placeholder={isPending ? t('servedBy.loading') : t('servedBy.collected.placeholder')}
+        inputMode="numeric"
+        placeholder={t('servedBy.collected.idPlaceholder')}
         title={t('servedBy.collected.hint')}
-        onChange={(e) => setDraft(e.target.value)}
         onBlur={(e) => commit(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') commit((e.target as HTMLInputElement).value)
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit((e.target as HTMLInputElement).value)
+          } else if (e.key === 'Escape') {
+            e.preventDefault()
+            onCommit(null)
+          }
         }}
-        className="h-9 w-56 rounded-md border border-border/60 bg-background px-2.5 text-sm text-foreground focus:border-primary/50 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        className={FIELD_CLASS}
       />
       <datalist id={listId}>
         {entries.map((entry) => (

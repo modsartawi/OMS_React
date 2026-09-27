@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 import type { TFunction } from 'i18next'
 
 import AttachmentsPanel from '@/core/attachments/AttachmentsPanel'
@@ -36,21 +37,30 @@ import type { WithdrawReason } from '@/core/attachments/withdraw'
  *   Withdrawn (n) and the badge follows; a bare 403 takes Withdraw away for the rest of
  *   the visit (the panel holds that, and this stays mounted until the page is left).
  *   The order's `ATWD` history line is the server's: nothing is sent for it.
+ * - **"Filed on order \<no\>"** (329) heads the panel when `filedOnOrderNo` is set — on a
+ *   delivery's page, whose files are its order's (`filedOnOrder`). The number opens that
+ *   order. It is this caller's word, handed in through the panel's `words`.
  */
 export default function AttachmentsTab({
   target,
   opened,
   withdrawReasons,
   withdrawOffered,
+  filedOnOrderNo,
 }: {
   target: AttachmentTarget
   opened: boolean
+  /** The order a delivery's files are filed on, or `null` on the order's own page (`filedOnOrder`). */
+  filedOnOrderNo: string | null
   withdrawReasons: readonly WithdrawReason[]
   withdrawOffered: boolean
 }) {
   const { t } = useTranslation('document')
   const queryClient = useQueryClient()
-  const words = useMemo(() => orderPanelWords(t), [t])
+  const words = useMemo(
+    () => ({ ...orderPanelWords(t), heading: filedOnOrderNo ? <FiledOnOrder documentNo={filedOnOrderNo} /> : undefined }),
+    [t, filedOnOrderNo],
+  )
   const clearSettled = useAttachmentUploads((s) => s.clearSettled)
   const { ownerKind, ownerKey } = target
   useEffect(() => () => clearSettled({ ownerKind, ownerKey }), [clearSettled, ownerKind, ownerKey])
@@ -95,4 +105,27 @@ function orderPanelWords(t: TFunction<'document'>): AttachmentsPanelWords {
     withdrawGone: (fileName) => t('attachments.withdraw.gone', { fileName }),
     withdrawForbidden: t('attachments.withdraw.forbidden'),
   }
+}
+
+/** "Filed on order \<no\>" (329): the number, a named param, is the link to that order's page. */
+function FiledOnOrder({ documentNo }: { documentNo: string }) {
+  const { t } = useTranslation('document')
+  return (
+    <p className="text-sm text-muted-foreground" data-testid="order-filed-on">
+      <Trans
+        t={t}
+        i18nKey="attachments.filedOnOrder"
+        values={{ documentNo }}
+        components={{
+          order: (
+            <Link
+              to={`/oms/document/${encodeURIComponent(documentNo)}`}
+              className="font-medium text-primary underline-offset-2 hover:underline"
+              data-testid="order-filed-on-link"
+            />
+          ),
+        }}
+      />
+    </p>
+  )
 }

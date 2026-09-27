@@ -585,6 +585,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                           opened={attachments.opened}
                           withdrawReasons={attachments.withdrawReasons}
                           withdrawOffered={attachments.withdrawOffered}
+                          filedOnOrderNo={attachments.filedOnOrderNo}
                         />
                       )}
                     </div>

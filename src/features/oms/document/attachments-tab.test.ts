@@ -13,6 +13,7 @@ import {
   attachmentsBadgeCount,
   attachmentsTabGate,
   canWithdrawOn,
+  filedOnOrder,
   orderAttachmentTarget,
 } from './attachments-tab'
 
@@ -173,6 +174,34 @@ describe('orderAttachmentTarget — what the tab lists (and, from 330, files ont
   })
 })
 
+describe('filedOnOrder — a delivery’s page heads its order’s files (329)', () => {
+  it('names the owner when it differs from the route’s number', () => {
+    expect(filedOnOrder('2000000551', '8000000253')).toBe('2000000551')
+  })
+
+  it('reads an ATBI owner the same — it is an order document too', () => {
+    expect(filedOnOrder('3000000017', '8000000253')).toBe('3000000017')
+  })
+
+  it('has no heading on the order’s own page', () => {
+    expect(filedOnOrder('2000000551', '2000000551')).toBeNull()
+  })
+
+  it('compares the two numbers trimmed, and names the owner trimmed', () => {
+    expect(filedOnOrder(' 2000000551 ', '2000000551')).toBeNull()
+    expect(filedOnOrder('2000000551', ' 2000000551	')).toBeNull()
+    expect(filedOnOrder(' 2000000551 ', '8000000253')).toBe('2000000551')
+  })
+
+  it('has no heading for an absent owner — absent, empty, blank or not a string', () => {
+    expect(filedOnOrder(undefined, '8000000253')).toBeNull()
+    expect(filedOnOrder(null, '8000000253')).toBeNull()
+    expect(filedOnOrder('', '8000000253')).toBeNull()
+    expect(filedOnOrder('   ', '8000000253')).toBeNull()
+    expect(filedOnOrder(2000000551, '8000000253')).toBeNull()
+  })
+})
+
 describe('the tab’s words live in the document namespace', () => {
   /** Read a dotted key out of the document bundle. */
   const bundle = (key: string): unknown =>
@@ -190,5 +219,13 @@ describe('the tab’s words live in the document namespace', () => {
     expect(i18n.t('document:tabs.fileCount', { count: 1 })).toBe('1 file')
     expect(i18n.t('document:tabs.fileCount', { count: 6 })).toBe('6 files')
     expect(i18n.t('document:attachments.empty')).toBe('No file is attached to this order.')
+  })
+
+  it('says "Filed on order <no>" with the number as a named param, marked for its link (329)', () => {
+    expect(i18n.t('document:attachments.filedOnOrder', { documentNo: '2000000551' })).toBe(
+      'Filed on order <order>2000000551</order>',
+    )
+    const source = readFileSync(join(__dirname, 'AttachmentsTab.tsx'), 'utf8')
+    expect(source).toContain('i18nKey="attachments.filedOnOrder"')
   })
 })

@@ -267,6 +267,7 @@
     "failed": "Could not load the background jobs."
   },
   "attachments": {
+    "filedOnOrder": "Filed on order <order>{{documentNo}}</order>",
     "loading": "Loading the order's files…",
     "empty": "No file is attached to this order.",
     "errors": {

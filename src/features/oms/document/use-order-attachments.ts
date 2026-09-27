@@ -16,6 +16,7 @@ import {
   attachmentsBadgeCount,
   attachmentsTabGate,
   canWithdrawOn,
+  filedOnOrder,
   orderAttachmentTarget,
 } from './attachments-tab'
 
@@ -37,6 +38,8 @@ export interface OrderAttachments {
   withdrawReasons: readonly WithdrawReason[]
   /** Is Withdraw… offered (`canWithdrawOn`)? A bare 403 still takes it away, in the panel. */
   withdrawOffered: boolean
+  /** The order the files are filed on when it is not the route's own document (329), else `null`. */
+  filedOnOrderNo: string | null
   /** The tab was selected: latch it open (the first selection starts the one read). */
   open: () => void
   /** The page's Refresh: re-read the list, only if the tab has been opened. */
@@ -88,6 +91,7 @@ export function useOrderAttachments(document: SdDocumentHeaderModel | null, rout
     badge: attachmentsBadgeCount(document?.attachmentCount, opened ? list.data?.stored : undefined),
     withdrawReasons,
     withdrawOffered: canWithdrawOn(document, access.data, withdrawReasons),
+    filedOnOrderNo: target ? filedOnOrder(target.ownerKey, routeId) : null,
     open: () => {
       if (!target || opened) return
       // Every observer of the key is disabled until the latch is set, so forgetting

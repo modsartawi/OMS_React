@@ -44,7 +44,8 @@ import type { WithdrawClosingAnswer, WithdrawReason } from './withdraw'
  *   empty (327), and Add takes one file at a time with an optional caption (330). The
  *   slip's do not, and it passes nothing;
  * - `reasons`: the withdraw reasons as data, in the order shown;
- * - `words`: every sentence that names what the files are (`AttachmentsPanelWords`);
+ * - `words`: every sentence that names what the files are (`AttachmentsPanelWords`),
+ *   and the caller's own heading over them, when it has one (329);
  * - `addOffered` / `withdrawOffered`: the caller's gates, from the one shared probe.
  *   A bare 403 on a withdraw takes Withdraw away for the rest of this panel's life,
  *   and that stays in here;
@@ -146,6 +147,7 @@ export default function AttachmentsPanel({
 
   return (
     <div className="flex flex-col gap-4">
+      {words.heading}
       {addOffered && <AttachmentAdd target={target} captioned={captioned} words={words} onStored={onChanged} />}
       {notice && <WithdrawNoticeLine notice={notice} words={words} />}
       {list.isPending ? (

@@ -43,6 +43,9 @@
 // stored list's length), shown only with the tab's gate AND N > 0, the card shown on that row alone, and Show selecting
 // the tab with ONE ByOwner on the first switch and none after. The Rx document link row stays a link.
 //
+// Ticket 329 adds the delivery's heading: on `/oms/delivery/{no}` the list is headed "Filed on order <owner>", the number
+// a link that lands on `/oms/document/<owner>` — whose own tab reads nothing until it is selected, and heads nothing.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/order-attachments-drive.mjs
 import { createRequire } from 'node:module'
@@ -902,6 +905,19 @@ async function run() {
     byOwnerCalls.length === 1 && byOwnerCalls[0].ownerKey === OWNER && byOwnerCalls[0].ownerKey !== DELIVERY,
     JSON.stringify(byOwnerCalls),
   )
+  const filedOn = () => panel().getByTestId('order-filed-on')
+  const filedOnLink = () => filedOn().getByTestId('order-filed-on-link')
+  const filedOnText = (await filedOn().count()) ? (await filedOn().innerText()).trim() : '(none)'
+  check('329 · delivery — the list is headed "Filed on order <owner>"', filedOnText === `Filed on order ${OWNER}`, filedOnText)
+  check(
+    '329 · delivery — the owner’s number is the link, to /oms/document/<owner>',
+    (await filedOnLink().count()) === 1 &&
+      (await filedOnLink().innerText()).trim() === OWNER &&
+      (await filedOnLink().getAttribute('href')) === `/oms/document/${OWNER}`,
+    (await filedOnLink().count()) ? await filedOnLink().getAttribute('href') : '(no link)',
+  )
+  await shot('filed-on-order')
+  await noRawKeys('delivery — filed on order')
   await addFile(pdfFile('delivery-rx.pdf'), 'from the delivery page')
   await waitUpload('delivery-rx.pdf', 'stored')
   await settle()
@@ -911,6 +927,25 @@ async function run() {
     partValue(uploads[0], 'OwnerKey'),
   )
   check('delivery — the owner’s list is re-read once after the 200', byOwnerCalls.length === 2 && byOwnerCalls[1].ownerKey === OWNER, JSON.stringify(byOwnerCalls))
+
+  // 329: the heading's link lands on the order's own page. Landing reads no files (the tab waits on its first selection,
+  // as on any load), and the order's own tab heads nothing.
+  fields = { [DELIVERY]: FULL, [ORDER]: FULL }
+  const readsBeforeLanding = byOwnerCalls.length
+  await filedOnLink().click()
+  await page.waitForURL(`**/oms/document/${OWNER}`)
+  await page.locator('[aria-label="Document summary"]').waitFor()
+  await settle()
+  check('329 · the link lands on /oms/document/<owner>', new URL(page.url()).pathname === `/oms/document/${OWNER}`, page.url())
+  check(
+    '329 · landing reads no files — zero ByOwner until the order’s tab is selected',
+    (await tab().count()) === 1 && byOwnerCalls.length === readsBeforeLanding,
+    `${byOwnerCalls.length - readsBeforeLanding}`,
+  )
+  await selectTab()
+  await panel().locator('[data-testid="slip-list"]').waitFor()
+  check('329 · order — its own tab lists its files with one read', byOwnerCalls.length === readsBeforeLanding + 1 && byOwnerCalls.at(-1).ownerKey === OWNER)
+  check('329 · order — its own page shows no "Filed on order" heading', (await filedOn().count()) === 0)
 
   // ════════════════════ 7 · Withdraw… with the server's reasons (ticket 331) ════════════════════
   const dialog = () => page.locator('dialog:has([data-region="slip-withdraw"])')

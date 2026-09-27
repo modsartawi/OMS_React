@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 /**
  * **The caller's words** for the shared attachments panel (ticket 326) — every
  * sentence that names what the files ARE (a store day's slips, an order's
@@ -5,10 +7,17 @@
  * through its own namespace and hands them in, so the panel's own `attachments`
  * namespace holds only words that name no owner.
  *
- * Plain strings, and a function where the sentence carries the file's name. Types
- * only: no React, no i18n.
+ * Plain strings, a function where the sentence carries the file's name, and one node
+ * where the caller's sentence carries a link. Types only: no React at run time, no i18n.
  */
 export interface AttachmentsPanelWords {
+  /**
+   * The caller's heading over the panel, drawn as given, or absent for none. The order
+   * tab's "Filed on order \<no\>" on a delivery's page, its number a link (329); the
+   * slip's drawer has none.
+   */
+  heading?: ReactNode
+
   /** The list is loading — the shimmer's accessible name. */
   loading: string
   /** No stored file. */

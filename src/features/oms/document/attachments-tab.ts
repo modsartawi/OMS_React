@@ -45,6 +45,22 @@ export function orderAttachmentTarget(document: AttachmentFields | null | undefi
 }
 
 /**
+ * **"Filed on order \<no\>"** (ticket 329) — the order number a delivery's page heads its
+ * Attachments tab with, or `null` for no heading.
+ *
+ * The tab always lists `attachmentOwnerNo`'s files, so on a delivery's page they are
+ * its order's (an ATBI owner is an order document too, and reads the same). The two
+ * numbers are compared trimmed: the heading shows only when the owner is NOT the
+ * route's own document, so an order's page has none, and an absent owner has none.
+ * The number comes back trimmed, ready for the sentence and its link.
+ */
+export function filedOnOrder(ownerNo: unknown, routeNo: string | null | undefined): string | null {
+  if (!present(ownerNo)) return null
+  const owner = ownerNo.trim()
+  return owner === (routeNo ?? '').trim() ? null : owner
+}
+
+/**
  * Is the Attachments tab drawn? Only when all three hold:
  * - `attachmentOwnerNo` is present;
  * - `attachmentCategory` is present;

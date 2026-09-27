@@ -44,11 +44,15 @@ import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
 import RequestCloseDialog from './RequestCloseDialog'
 import NoteDialog, { type NoteCommandKind } from './NoteDialog'
 import ReturnDialog from './ReturnDialog'
+import AttachmentsTab from './AttachmentsTab'
+import { useOrderAttachments } from './use-order-attachments'
 
 // No `status` tab: the document's state is the pill rail under the header, and
 // its full thirteen-row breakdown is that rail's All-statuses disclosure (083 D-3).
-type TabId = 'items' | 'conditions' | 'log' | 'jobs'
-const TAB_IDS: TabId[] = ['items', 'conditions', 'log', 'jobs']
+// `attachments` (spec 324, ticket 327) is fifth and last, and drawn only while its gate
+// admits (`attachmentsTabGate`).
+type TabId = 'items' | 'conditions' | 'log' | 'jobs' | 'attachments'
+const TAB_IDS: TabId[] = ['items', 'conditions', 'log', 'jobs', 'attachments']
 
 /** Ascending comparator treating numeric strings (`logNo`, `outboxId`) as numbers. */
 function numericAsc(a: string, b: string): number {
@@ -315,6 +319,19 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   )
   const itemColumns = useMemo(() => documentColumns.items(), [])
   const itemsFooter = useMemo(() => totalsFooterRow(document?.lines, t), [document, t])
+
+  // The Attachments tab (spec 324, ticket 327): drawn only while its gate admits, and its
+  // list — an AUDITED read — waits on the tab's first selection (`useOrderAttachments`).
+  const attachments = useOrderAttachments(document, routeId)
+  const attachmentsBadge = attachments.badge
+  const tabIds = attachments.target ? TAB_IDS : TAB_IDS.filter((id) => id !== 'attachments')
+  // A tab no longer drawn (or an owner not yet opened) shows Items rather than nothing.
+  const shownTab: TabId = activeTab === 'attachments' && !attachments.opened ? 'items' : activeTab
+
+  const selectTab = (id: TabId) => {
+    setActiveTab(id)
+    if (id === 'attachments') attachments.open()
+  }
   /**
    * The tab counts. Jobs is the one that judges: while any job has failed it
    * counts the FAILURES in `bad`, not the total — otherwise a failed outbox job
@@ -330,11 +347,23 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       conditions: plain(headerConditions.length),
       log: logs.rows ? plain(logs.rows.length) : null,
       jobs: jobs.rows ? (failed > 0 ? { value: failed, bad: true } : plain(jobs.rows.length)) : null,
+      attachments: attachmentsBadge === null ? null : plain(attachmentsBadge),
     } satisfies Record<TabId, { value: number; bad: boolean } | null>
-  }, [document, headerConditions, logs.rows, jobs.rows])
+  }, [document, headerConditions, logs.rows, jobs.rows, attachmentsBadge])
   const conditionColumns = useMemo(() => documentColumns.conditions(), [])
   const logColumns = useMemo(() => documentColumns.logs(), [])
   const jobColumns = useMemo(() => documentColumns.jobs(), [])
+
+  /**
+   * The page's own Refresh: the document, Log and Jobs as always — and the order's
+   * files only when the tab has been opened on this visit. Before that it reads none:
+   * every ByOwner is an audit row. Commands reload through `reload` alone, so they
+   * never re-read the files.
+   */
+  const refresh = () => {
+    void reload()
+    attachments.refresh()
+  }
 
   // ----- access states ------------------------------------------------------
   // After every hook, before any render. The identity band is not rendered either: a
@@ -395,7 +424,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               toast only on failure.
             */}
             <StatusRail status={document.status} provenance={documentProvenanceRows(document, t)}>
-              <Button variant="outlined" disabled={actionRunning || refreshing} onClick={() => void reload()}>
+              <Button variant="outlined" disabled={actionRunning || refreshing} onClick={refresh}>
                 {refreshing ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
                 ) : (
@@ -441,7 +470,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
 
               <div className="min-w-0">
                 <div role="tablist" aria-label={t('tabs.ariaLabel')} className="flex gap-1 border-b border-border">
-                  {TAB_IDS.map((id) => {
+                  {tabIds.map((id) => {
                     const count = tabCounts[id]
                     return (
                       <button
@@ -449,12 +478,12 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                         type="button"
                         role="tab"
                         id={`tab-${id}`}
-                        aria-selected={activeTab === id}
+                        aria-selected={shownTab === id}
                         aria-controls={`tabpanel-${id}`}
-                        onClick={() => setActiveTab(id)}
+                        onClick={() => selectTab(id)}
                         className={
                           'flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-sm ' +
-                          (activeTab === id
+                          (shownTab === id
                             ? 'border-primary font-semibold text-primary'
                             : 'border-transparent text-muted-foreground hover:text-foreground')
                         }
@@ -465,7 +494,12 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                           // reports failures and `mute` otherwise — one badge, one
                           // vocabulary, no per-site colour (082 D-10). The title
                           // says which number it is; `1` alone would not.
-                          <span title={t(count.bad ? 'tabs.failedCount' : 'tabs.rowCount', { count: count.value })}>
+                          <span
+                            title={t(
+                              count.bad ? 'tabs.failedCount' : id === 'attachments' ? 'tabs.fileCount' : 'tabs.rowCount',
+                              { count: count.value },
+                            )}
+                          >
                             <StatusBadge sev={count.bad ? 'bad' : 'mute'}>
                               <span className="tabular-nums">{count.value}</span>
                             </StatusBadge>
@@ -483,13 +517,13 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                   operator set, and costs a visible re-layout each time (D-23).
                 */}
                 <div className="pt-2.5">
-                  {TAB_IDS.map((id) => (
+                  {tabIds.map((id) => (
                     <div
                       key={id}
                       role="tabpanel"
                       id={`tabpanel-${id}`}
                       aria-labelledby={`tab-${id}`}
-                      hidden={activeTab !== id}
+                      hidden={shownTab !== id}
                     >
                       {id === 'items' && (
                         <DetailGrid
@@ -525,6 +559,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                           error={jobs.error}
                           emptyMessage={t('jobs.empty')}
                           getRowStyle={failedJobRowStyle}
+                        />
+                      )}
+                      {id === 'attachments' && attachments.target && (
+                        // Keyed by the owner, so another owner starts on a fresh selection.
+                        <AttachmentsTab
+                          key={attachments.target.ownerKey}
+                          target={attachments.target}
+                          opened={attachments.opened}
                         />
                       )}
                     </div>

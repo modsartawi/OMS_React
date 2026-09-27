@@ -84,6 +84,31 @@ const DOC = '8000000121'
 // Ticket 295.
 DOCUMENTS[DOC] = { ...DOCUMENTS[DOC], isExpressDelivery: true, canReturn: true }
 
+// Section 7 (spec 324, ticket 327): the Attachments tab in the Arabic layout. The order capture
+// `2000000551` is patched with the three attachment fields (BackOffice 2063 + 2077's stub) — and it
+// alone, so every section above reads the captures exactly as before. Its one file carries an
+// Arabic caption, which must read right-to-left whatever the page's direction.
+const RX_DOC = '2000000551'
+DOCUMENTS[RX_DOC] = { ...DOCUMENTS[RX_DOC], attachmentOwnerNo: RX_DOC, attachmentCount: 1, attachmentCategory: 'P2E' }
+const RX_CAPTION = 'الوصفة الطبية — صفحة ٢'
+const RX_FILES = [
+  {
+    attachmentId: '01K61A0000000000000000RTL1',
+    status: 'STORED',
+    ownerKind: 'SD_DOCUMENT',
+    ownerKey: RX_DOC,
+    category: 'P2E',
+    kind: 'PRESCRIPTION',
+    fileName: 'rx-front.jpg',
+    sizeBytes: 4096,
+    storedAt: '2026-09-26T10:12:44',
+    sourceDevice: '',
+    uploadedBy: 'U123',
+    caption: RX_CAPTION,
+    storeCode: '',
+  },
+]
+
 /**
  * Read a value's VISUAL order off character client rects: the x of its first
  * printing character against the x of its last. `> 0` means the value reads
@@ -130,6 +155,14 @@ async function run() {
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
     if (/\/(Logs|Outbox)$/.test(p)) return route.fulfill(envelope([]))
+    // Section 7 (ticket 327): the one document that names an attachment owner and category.
+    if (p === 'AttachmentWeb/Access') return route.fulfill(envelope({ categories: ['P2E'], withdrawCategories: [] }))
+    if (p === 'AttachmentWeb/ByOwner')
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ statusCode: 200, success: true, message: '', errors: [], data: RX_FILES, withdrawn: [] }),
+      })
     return route.fulfill(envelope({}))
   })
 
@@ -471,6 +504,61 @@ async function run() {
     )
     await page.keyboard.press('Escape')
     await page.waitForTimeout(150)
+  }
+  await setDir('ltr')
+
+  // ── 7. the Attachments tab mirrors (ticket 327) ─────────────────────────────
+  //
+  // The tab is the new surface. Measured LOGICALLY, as section 6 is, so a correctly
+  // mirrored element reports the same fact in both directions:
+  //   - the tab is the tablist's LAST, at its END (after Jobs in reading order);
+  //   - the list sits at the work area's START and the preview beside it at the END;
+  //   - a header cell's glyphs hug the cell's START (`text-start`, twin `text-left`);
+  //   - the Arabic caption reads RIGHT-TO-LEFT in both directions (`dir="auto"`).
+  await page.goto(`${BASE}/oms/document/${RX_DOC}`)
+  await rail().waitFor()
+  await page.locator('#tab-attachments').waitFor()
+  await page.locator('#tab-attachments').click()
+  await page.locator('#tabpanel-attachments [data-testid="slip-list"]').waitFor()
+  for (const dir of ['ltr', 'rtl']) {
+    await setDir(dir)
+    const geo = await page.evaluate((dir) => {
+      const tab = document.querySelector('#tab-attachments').getBoundingClientRect()
+      const jobs = document.querySelector('#tab-jobs').getBoundingClientRect()
+      const panel = document.querySelector('#tabpanel-attachments')
+      const list = panel.querySelector('[data-testid="slip-list"]').getBoundingClientRect()
+      const preview = panel.querySelector('[data-region="slip-preview"]').getBoundingClientRect()
+      // "after" in reading order: further right in LTR, further left in RTL.
+      const after = (a, b) => (dir === 'rtl' ? a.right <= b.left + 0.5 : a.left >= b.right - 0.5)
+      const th = panel.querySelector('thead th')
+      const text = [...th.childNodes].find((n) => n.nodeType === 3 && n.data.trim())
+      const range = document.createRange()
+      range.setStart(text, 0)
+      range.setEnd(text, text.data.length)
+      const glyphs = range.getBoundingClientRect()
+      const cell = th.getBoundingClientRect()
+      const startGap = dir === 'rtl' ? cell.right - glyphs.right : glyphs.left - cell.left
+      const endGap = dir === 'rtl' ? glyphs.left - cell.left : cell.right - glyphs.right
+      return { tabAfterJobs: after(tab, jobs), previewAfterList: after(preview, list), startGap, endGap }
+    }, dir)
+    check(`${dir}: the Attachments tab sits after Jobs, at the tablist's end`, geo.tabAfterJobs)
+    check(`${dir}: the preview sits after the file list, at the work area's end`, geo.previewAfterList)
+    check(
+      `${dir}: a list header hugs its cell's START (text-start, not text-left)`,
+      geo.startGap < geo.endGap,
+      `start=${geo.startGap.toFixed(1)} end=${geo.endGap.toFixed(1)}`,
+    )
+    // An Arabic run reads right-to-left inside any paragraph, so the order alone cannot fail;
+    // what `dir="auto"` adds is the caption's OWN direction — right-to-left even on an LTR page,
+    // so its neutral characters (the dash, the digit) sit where an Arabic reader expects them.
+    const caption = page.locator('#tabpanel-attachments [data-cell="caption"]')
+    const captionText = await caption.innerText()
+    const read = await caption.evaluate((n) => ({ order: window.READS_LTR(n), direction: getComputedStyle(n).direction }))
+    check(
+      `${dir}: the Arabic caption is exact, isolated as right-to-left, and reads so`,
+      captionText === RX_CAPTION && read.direction === 'rtl' && read.order < 0,
+      `${JSON.stringify(captionText)} direction=${read.direction} order=${Math.round(read.order)}`,
+    )
   }
   await setDir('ltr')
 

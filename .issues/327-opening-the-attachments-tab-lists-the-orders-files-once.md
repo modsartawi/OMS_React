@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 324
 blocked-by: 326 (+ BackOffice 2077)
 ---
@@ -64,16 +64,16 @@ model/api · store/logic · component/route · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `attachmentsTabGate`: it admits only with an owner, a category and the category held. It refuses for:
+- [x] `attachmentsTabGate`: it admits only with an owner, a category and the category held. It refuses for:
       - no owner;
       - no category;
       - a pending, refused or malformed probe;
       - a bare-string `categories` (`'P2E'` must not admit `P2E`);
 
       · pure (vitest)
-- [ ] `attachmentsBadgeCount`: the model count before load; the list length after (it wins over a stale model
+- [x] `attachmentsBadgeCount`: the model count before load; the list length after (it wins over a stale model
       count); absent → none; `0` → `0`. · pure (vitest)
-- [ ] New `tools/order-attachments-drive.mjs` (stubbed envelopes, network counted):
+- [x] New `tools/order-attachments-drive.mjs` (stubbed envelopes, network counted):
       - **zero ByOwner requests on page load**, exactly one on the tab's first selection, and none on re-selection;
       - Refresh before opening → none; Refresh after opening → one;
       - no `/Content` until a file is clicked;
@@ -86,6 +86,8 @@ model/api · store/logic · component/route · i18n · test
       · flow (Playwright)
 - [ ] `document-detail`, `-cards`, `-rail`, `-band`, `-items` and `-actions` drives stay green.
       `document-rtl-drive` also covers the new tab in the Arabic layout. · flow
+      ⚠ Held open for ONE drive that was red before this wave: `-actions` fails 3 checks identically at the base
+      commit edd91a0 (see Comments). The other five are green, unmodified, and `document-rtl-drive` covers the tab.
 
 ## Boundaries
 
@@ -116,3 +118,111 @@ green.
 
 - Should a ByOwner answer that disagrees with the model count (a till attached meanwhile) say so, or silently take the
   list's length? The spec says the list's length wins and nothing polls. Confirm there is no "count changed" note.
+
+## Comments
+
+**Built 2026-09-27 (AFK).** Decisions and wording are in `.afk/HITL-327.md`.
+
+**Pre-flight.** BackOffice 2061, 2062 and 2063 are `status: done` on pricing2. BackOffice 2077 is `status: open`
+(expected), so this is built against its `## Web contract` stub: `attachmentCategory`, a string, absent when null.
+It has not been renamed.
+
+**Contract cross-check against the committed code (pricing2).** One drift, and the web follows the code:
+- `AttachmentDto.cs` also carries **`storeCode`** (2067, the till viewer's filing store), and no web contract names
+  it. It is not typed and not shown here. The drive's stub sends it, so the list is proven not to trip on it.
+- The rest agrees:
+  - `caption` is on the DTO, `''` when none was given;
+  - `AttachmentOwnerNo` and `AttachmentCount` (`int?`) are omitted when null;
+  - `AttachmentOwnerListResponse` carries `Withdrawn` and `WithdrawReasons` (`{ code, label, labelArabic, noteRequired }`);
+  - `WithdrawnAttachmentDto` has no caption;
+  - `AttachmentRefusal.ReadNotAudited()` answers 503 `READ_NOT_AUDITED`;
+  - `/Content` answers 404 `NOT_FOUND` and 502 `FILE_SERVER_MISSING` (`AttachmentContentResult.cs`);
+  - `ListByOwnerAsync` audits an `SD_DOCUMENT` list and refuses when it cannot;
+  - `SdDocumentAttachmentReads` has no category yet, since 2077 is unbuilt.
+
+**Open question: answered.** There is no "count changed" note. Once the list has loaded, its length simply wins
+(`attachmentsBadgeCount`), as the spec says. Nothing polls.
+
+**What was built.**
+- **Model.** `SdDocumentHeaderModel` gains optional `attachmentOwnerNo`, `attachmentCount` and `attachmentCategory`.
+  `core/models/attachment.ts` gains `SdDocumentAttachment` (the item plus `caption`) and
+  `AttachmentWithdrawReasonModel`. `withdrawReasons?` is typed beside `withdrawn`; 331 reads it.
+- **Pure rules** (`features/oms/document/attachments-tab.ts`):
+  - `orderAttachmentTarget`: `SD_DOCUMENT` under `attachmentOwnerNo`, in `attachmentCategory`, as `PRESCRIPTION`;
+    `null` without either field;
+  - `attachmentsTabGate`: owner, category and `holdsCategory`;
+  - `attachmentsBadgeCount`: the one number the badge uses, and 328's Files row after it;
+  - `core/attachments/rules.ts` gains `attachmentCaption`.
+- **Core.**
+  - `READ_ONCE_PER_VISIT`: `staleTime ∞`, `gcTime 0`, no refetch on focus or reconnect.
+  - `rereadAttachments`: invalidates the exact key.
+  - The panel gains two optional props, both defaulting to the slip's behaviour:
+    - `enabled` (default `true`): the first-selection latch;
+    - `captioned` (default `false`): the list shows a caption when it is not empty.
+- **The page.** `useOrderAttachments(document, routeId)` holds all of the tab's state:
+  - the probe, asked only when both fields are present;
+  - the gate;
+  - the latch: by owner, and reset on a new route number;
+  - the page's own ByOwner observer for the badge, with the panel's exact options, so the two share one request;
+  - the Refresh re-read, only once the tab has been opened.
+
+  The tab is fifth and last, drawn only while the gate admits. Its panel (`AttachmentsTab.tsx`) stays mounted and
+  hidden. Commands still reload through `reload()` alone and never re-read the files.
+- **Words.** New `document` keys:
+  - `tabs.attachments` and `tabs.fileCount_*`;
+  - `attachments.*`: the empty sentence, loading, the refusals, "Source", the preview words;
+  - drafts of the Add and Withdraw words, which `AttachmentsPanelWords` requires. They do not render in 327.
+
+**Proof.**
+- `npm test`: **153 files / 2611 tests** green (326 left it at 152 / 2590).
+  - `attachments-tab.test.ts` has 19 cases: the gate (bare string, malformed, pending, refused, not held, no owner,
+    no category); the badge (model → list, `0`, absent, non-integer); the target; the tab's keys backed in
+    `document.json`.
+  - `rules.test.ts` gains the caption cases.
+- `typecheck` is clean, `build` is green, and `lint` is clean on all three gates (boundaries: 672 files).
+- **`order-attachments-drive` 98/98** (vite on :5199, stubbed envelopes, network counted).
+  - It covers every Proof bullet.
+  - Plus: the probe is not asked without both fields; a delivery asks ByOwner for `attachmentOwnerNo`, never the
+    route's number; ByOwner `READ_NOT_AUDITED` shows the server's message, not the empty sentence; coming back after
+    leaving reads nothing until selected; an in-route move A → B → Back to A reads nothing until selected.
+  - Mutation-checked:
+    - the panel reading on mount → 5 fails;
+    - Refresh and the page observer ungated → 8 fails;
+    - no latch reset → 2 fails.
+- **`document-rtl-drive` 49/49**, with a new section 7 in both directions:
+  - the tab sits after Jobs;
+  - the preview sits after the list;
+  - the list headers are `text-start`;
+  - the Arabic caption is exact and isolated as RTL.
+
+  Mutation-checked: `text-left` fails the rtl half only, and dropping `dir="auto"` fails the ltr half.
+- **Unmodified and green:** `document-detail` 39/39, `-cards` 45/45, `-rail` 25/25, `-band` 34/34, `-items` 23/23.
+- ⚠ **`document-actions-drive` is red, and was before this wave.**
+  - Three checks fail: "2,1,2 clusters", "the commands in taxonomy order", "all eight commands".
+  - They fail identically when the drive runs against a throwaway worktree of the base commit edd91a0.
+  - Cause: commit 7358a84 (2026-09-25, "The command bar no longer offers Withdraw Request") updated
+    `commands.test.ts` but not this drive.
+  - Outside 327's scope walls, and logged in HITL.
+- **The four slip drives pass unedited** (`git diff edd91a0 -- tools/slip-*` is empty): `slip-count` 64/64,
+  `slip-drawer` 63/63, `slip-add` 52/52, `slip-withdraw` 68/68.
+
+**Review.**
+- `/code-review`: one finding, fixed. The latch survived an in-route move between two documents: A → B → Back to A
+  read A's list on load, without a click. It now resets on a new route number, and the drive proves it.
+- `/standards-review`: no hard violations, and nothing missing or wrong on the spec axis.
+  - Applied: the tab state moved out of the page into `useOrderAttachments` (Divergent Change), and the re-read has
+    one core spelling, `rereadAttachments` (Duplicated Code).
+  - Not applied:
+    - the ticket-mandated model types that only 331 reads;
+    - `attachmentCaption(unknown)`: the panel's list type has no caption on a slip;
+    - the ternary for the badge title;
+    - the file names;
+    - glossary terms in `CONTEXT.md` (a `/domain-modeling` pass, as HITL-325 noted).
+  - The spec axis also flagged the Add/Withdraw word drafts as early copy. They are forced by the words type, do not
+    render, and are logged for 330/331.
+
+**Outstanding (not this ticket's to fake):**
+- the owner's read of every new string;
+- 2077 actually served;
+- the wave's live hand walk (2071);
+- `document-actions-drive`'s pre-existing red.

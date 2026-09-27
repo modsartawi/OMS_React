@@ -35,6 +35,16 @@ export function attachmentSource(item: { sourceDevice?: string | null; uploadedB
   return { kind: 'web', uploadedBy: typeof item.uploadedBy === 'string' ? item.uploadedBy : '' }
 }
 
+/**
+ * A file's caption as the list shows it (ticket 327): the uploader's words as sent, or
+ * `''` when there are none to show — empty, blank, or not carried at all (a slip's
+ * item has no caption; an order's has `''` when none was given).
+ */
+export function attachmentCaption(item: unknown): string {
+  const caption = (item as { caption?: unknown } | null | undefined)?.caption
+  return typeof caption === 'string' && caption.trim() ? caption : ''
+}
+
 /** How a fetched file is shown: an `<img>`, an `<iframe>`, or no preview (download only). */
 export type AttachmentPreviewKind = 'image' | 'pdf' | 'none'
 

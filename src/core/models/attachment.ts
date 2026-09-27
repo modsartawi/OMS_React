@@ -83,10 +83,33 @@ export interface WithdrawnAttachment {
 }
 
 /**
- * The sibling `ByOwner` puts **beside** `data` (BackOffice 2035,
+ * One STORED file of an order (`SD_DOCUMENT`, spec 324): the shared item plus the
+ * uploader's `caption` (BackOffice 2056, `AttachmentDto.Caption`), `''` when none was
+ * given. Shown when not empty.
+ */
+export interface SdDocumentAttachment extends StoredAttachment {
+  caption: string
+}
+
+/**
+ * One withdraw reason of the listed owner's kind, as `ByOwner` sends it beside `data`
+ * (BackOffice 2062, `AttachmentWithdrawReason`), in picker order. The labels are the
+ * server's, English and Arabic, never a client copy. Read by ticket 331.
+ */
+export interface AttachmentWithdrawReasonModel {
+  code: string
+  label: string
+  labelArabic: string
+  noteRequired: boolean
+}
+
+/**
+ * The siblings `ByOwner` puts **beside** `data` (BackOffice 2035 + 2062,
  * `AttachmentOwnerListResponse`), read through `api.getEnvelope`: the owner's
- * withdrawn attachments, newest withdrawal first.
+ * withdrawn attachments, newest withdrawal first, and the owner kind's withdraw
+ * reasons (optional: an older SIS.Api omits them).
  */
 export interface AttachmentOwnerSiblings {
   withdrawn: WithdrawnAttachment[]
+  withdrawReasons?: AttachmentWithdrawReasonModel[]
 }

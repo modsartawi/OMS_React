@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import type { ApiEnvelope } from '@/core/api'
 import type { AttachmentOwnerSiblings, StoredAttachment, WithdrawnAttachment } from '@/core/models/attachment'
 import {
+  attachmentCaption,
   attachmentContentFailure,
   attachmentOwnerList,
   attachmentPreviewKind,
@@ -165,5 +166,21 @@ describe('attachmentContentFailure — by code, never by status', () => {
   it('every other refusal — the other 502 included — is the server’s own words', () => {
     for (const code of ['FILE_SERVER_KEY_REFUSED', 'FILE_SERVER_UNAVAILABLE', 'NOT_SET_UP', null, undefined])
       expect(attachmentContentFailure(code), String(code)).toBe('other')
+  })
+})
+
+describe('attachmentCaption — an order file’s caption, shown only when not empty (ticket 327)', () => {
+  it('reads the caption as sent, Arabic included', () => {
+    expect(attachmentCaption({ caption: 'Front page' })).toBe('Front page')
+    expect(attachmentCaption({ caption: 'وصفة الطبيب' })).toBe('وصفة الطبيب')
+  })
+
+  it('is empty for an empty or blank caption, and for none at all (a slip carries none)', () => {
+    expect(attachmentCaption({ caption: '' })).toBe('')
+    expect(attachmentCaption({ caption: '   ' })).toBe('')
+    expect(attachmentCaption({})).toBe('')
+    expect(attachmentCaption({ caption: null })).toBe('')
+    expect(attachmentCaption({ caption: 7 })).toBe('')
+    expect(attachmentCaption(null)).toBe('')
   })
 })

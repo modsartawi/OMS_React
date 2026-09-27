@@ -273,6 +273,29 @@ export interface SdDocumentHeaderModel {
   lastMileControl: string // coded
   isExpressDelivery: boolean
   expressCourierId: string
+  /**
+   * The `SD_DOCUMENT` owner key whose files this page shows (BackOffice 2063): an order
+   * itself; a delivery its order, or the ATBI document that order links. The ByOwner
+   * `ownerKey` and Upload's `OwnerKey` — never the route's number.
+   *
+   * ⚠ **Absent, not null and not ""** when the server could not answer (the field is
+   * omitted when null). Absent → no Attachments tab.
+   */
+  attachmentOwnerNo?: string
+  /**
+   * How many STORED files `attachmentOwnerNo` holds in `P2E`/`ERX`/`ALTIBBI`
+   * (BackOffice 2063) — unaudited, a count only. The tab's badge until its list loads.
+   * ⚠ Absent when the server could not count: no badge, never `0`.
+   */
+  attachmentCount?: number
+  /**
+   * The attachment category of the owner's accept-list line — `P2E`, `ERX` or `ALTIBBI`
+   * (BackOffice 2077's `## Web contract`; built against its stub until it ships). The tab
+   * shows only when the probe holds it, and Upload sends it as `Category`.
+   * ⚠ Absent when the owner's pair takes no attachments or the read could not answer:
+   * the tab fails closed. Nothing on the client stands in for it.
+   */
+  attachmentCategory?: string
 }
 
 /** An audit-log entry — the Log tab. */

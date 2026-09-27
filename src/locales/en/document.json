@@ -233,10 +233,13 @@
     "rowCount_other": "{{count}} rows",
     "failedCount_one": "{{count}} failed job",
     "failedCount_other": "{{count}} failed jobs",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
     "items": "Items",
     "conditions": "Header Conditions",
     "log": "Log",
-    "jobs": "Jobs"
+    "jobs": "Jobs",
+    "attachments": "Attachments"
   },
   "grid": {
     "loading": "Loading…"
@@ -259,6 +262,38 @@
   "jobs": {
     "empty": "No background jobs for this document.",
     "failed": "Could not load the background jobs."
+  },
+  "attachments": {
+    "loading": "Loading the order's files…",
+    "empty": "No file is attached to this order.",
+    "errors": {
+      "refused": "Your account is not allowed to read this order's files. Ask an administrator if you need them.",
+      "loadFailed": "The order's files could not be loaded."
+    },
+    "columns": {
+      "source": "Source"
+    },
+    "preview": {
+      "region": "File preview",
+      "pick": "Pick a file to preview it.",
+      "loading": "Loading the file…",
+      "alt": "File {{fileName}}",
+      "failed": "The file could not be loaded."
+    },
+    "add": {
+      "region": "Add a prescription",
+      "button": "Add prescription",
+      "failed": "The file could not be sent."
+    },
+    "withdraw": {
+      "title": "Withdraw a file",
+      "final": "A withdrawal is final. Nobody can open this file again, and it cannot be restored. If you withdraw the wrong file, add it again.",
+      "noteRequired": "Required for this reason.",
+      "confirm": "Withdraw file",
+      "failed": "The file could not be withdrawn.",
+      "gone": "{{fileName}} is no longer a stored file you can withdraw. The list has been read again.",
+      "forbidden": "Your account may not withdraw this order's files, so Withdraw has been removed from this tab. Ask an administrator if you need it."
+    }
   },
   "columns": {
     "itemNumber": "Item Number",

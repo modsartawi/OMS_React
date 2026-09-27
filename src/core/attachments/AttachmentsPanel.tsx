@@ -19,7 +19,13 @@ import {
   type AttachmentFreshness,
 } from './api'
 import type { AttachmentsPanelWords } from './panel-words'
-import { attachmentContentFailure, attachmentPreviewKind, attachmentSource, wallClockText } from './rules'
+import {
+  attachmentCaption,
+  attachmentContentFailure,
+  attachmentPreviewKind,
+  attachmentSource,
+  wallClockText,
+} from './rules'
 import type { AttachmentTarget } from './upload'
 import type { WithdrawClosingAnswer, WithdrawReason } from './withdraw'
 
@@ -31,6 +37,11 @@ import type { WithdrawClosingAnswer, WithdrawReason } from './withdraw'
  * What the caller decides, and hands in:
  * - `target`: the owner kind and key, and the category and kind an Add files as;
  * - `freshness`: how often ByOwner is read (every ByOwner writes an audit row);
+ * - `enabled`: whether ByOwner may be read at all yet (default: at once). The order
+ *   tab keeps this panel mounted while hidden, and passes `false` until the tab is
+ *   first selected, so neither the page load nor this mount reads the owner (327);
+ * - `captioned`: this owner's files carry a caption, and the list shows it when not
+ *   empty (327; the slip's do not, and it passes nothing);
  * - `reasons`: the withdraw reasons as data, in the order shown;
  * - `words`: every sentence that names what the files are (`AttachmentsPanelWords`);
  * - `addOffered` / `withdrawOffered`: the caller's gates, from the one shared probe.
@@ -55,6 +66,8 @@ import type { WithdrawClosingAnswer, WithdrawReason } from './withdraw'
 export default function AttachmentsPanel({
   target,
   freshness,
+  enabled = true,
+  captioned = false,
   reasons,
   words,
   addOffered,
@@ -63,6 +76,8 @@ export default function AttachmentsPanel({
 }: {
   target: AttachmentTarget
   freshness: AttachmentFreshness
+  enabled?: boolean
+  captioned?: boolean
   reasons: readonly WithdrawReason[]
   words: AttachmentsPanelWords
   addOffered: boolean
@@ -71,7 +86,7 @@ export default function AttachmentsPanel({
 }) {
   const queryClient = useQueryClient()
   const { ownerKind, ownerKey } = target
-  const list = useQuery(attachmentsByOwnerQuery({ ownerKind, ownerKey }, freshness))
+  const list = useQuery({ ...attachmentsByOwnerQuery({ ownerKind, ownerKey }, freshness), enabled })
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   /** The file name of a file that answered 404 — withdrawn since the list was read. */
@@ -142,6 +157,7 @@ export default function AttachmentsPanel({
           withdrawn={list.data.withdrawn}
           selected={selected}
           goneName={goneName}
+          captioned={captioned}
           words={words}
           onSelect={select}
           onGone={onGone}
@@ -242,6 +258,7 @@ function PanelLists({
   withdrawn,
   selected,
   goneName,
+  captioned,
   words,
   onSelect,
   onGone,
@@ -251,6 +268,7 @@ function PanelLists({
   withdrawn: WithdrawnAttachment[]
   selected: StoredAttachment | null
   goneName: string | null
+  captioned: boolean
   words: AttachmentsPanelWords
   onSelect: (id: string) => void
   onGone: (file: StoredAttachment) => void
@@ -275,6 +293,7 @@ function PanelLists({
           <StoredList
             files={stored}
             selectedId={selected?.attachmentId ?? null}
+            captioned={captioned}
             sourceColumn={words.sourceColumn}
             onSelect={onSelect}
           />
@@ -298,15 +317,17 @@ function PanelLists({
   )
 }
 
-/** The STORED files, newest first as sent: file name, uploaded at, source. */
+/** The STORED files, newest first as sent: file name (and its caption, when shown), uploaded at, source. */
 function StoredList({
   files,
   selectedId,
+  captioned,
   sourceColumn,
   onSelect,
 }: {
   files: StoredAttachment[]
   selectedId: string | null
+  captioned: boolean
   sourceColumn: string
   onSelect: (id: string) => void
 }) {
@@ -324,6 +345,7 @@ function StoredList({
         <tbody className="divide-y divide-border/40">
           {files.map((file) => {
             const current = file.attachmentId === selectedId
+            const caption = captioned ? attachmentCaption(file) : ''
             return (
               <tr key={file.attachmentId} data-slip={file.attachmentId} className={current ? 'bg-primary/10' : undefined}>
                 <td className="px-2 py-1.5">
@@ -336,6 +358,11 @@ function StoredList({
                   >
                     {file.fileName}
                   </button>
+                  {caption && (
+                    <p className="mt-0.5 break-words text-muted-foreground" dir="auto" data-cell="caption">
+                      {caption}
+                    </p>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-2 py-1.5 tabular-nums" data-cell="storedAt">
                   {wallClockText(file.storedAt)}

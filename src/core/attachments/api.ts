@@ -13,6 +13,7 @@
  * key sits under ONE `attachments` head, spelled once below; invalidate by the exact
  * key, never by the head, or the probe re-asks too.
  */
+import type { QueryClient } from '@tanstack/react-query'
 import { api, type FileResponse } from '@/core/api'
 import type {
   AttachmentAccess,
@@ -62,6 +63,15 @@ export const attachmentsByOwnerKey = ({ ownerKind, ownerKey }: AttachmentOwner) 
   ['attachments', 'by-owner', ownerKind, ownerKey] as const
 
 /**
+ * Re-read an owner's list — an audited read on the server, so only where a caller
+ * names a reason (an Add, a Withdraw, the order page's Refresh once its tab is open).
+ * Exactly this key, never the head, or the probe re-asks too.
+ */
+export function rereadAttachments(queryClient: QueryClient, owner: AttachmentOwner) {
+  return queryClient.invalidateQueries({ queryKey: attachmentsByOwnerKey(owner), exact: true })
+}
+
+/**
  * How fresh a caller keeps an owner's list — a **parameter**, not a constant of the
  * read, because every ByOwner writes an audit row on the server and the two callers
  * need different things:
@@ -84,6 +94,19 @@ export type AttachmentFreshness = {
  * opening of a drawer (a new mount of its body) reads the owner again.
  */
 export const READ_ON_EVERY_OPENING: AttachmentFreshness = {}
+
+/**
+ * The order tab's freshness (ticket 327): read once, then kept for the page visit —
+ * never stale, no refetch on focus or reconnect — and dropped the moment nothing
+ * shows it (`gcTime: 0`), so leaving the page forgets the list. A re-read is always
+ * asked for by name (the page's Refresh, an Add, a Withdraw, a `/Content` 404).
+ */
+export const READ_ONCE_PER_VISIT: AttachmentFreshness = {
+  staleTime: Infinity,
+  gcTime: 0,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+}
 
 /**
  * `ByOwner`'s query options, fresh as the caller says.

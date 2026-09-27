@@ -45,6 +45,23 @@ export function attachmentCaption(item: unknown): string {
   return typeof caption === 'string' && caption.trim() ? caption : ''
 }
 
+/**
+ * A typed text as the server keeps it (ticket 330, generalised from 325's withdraw
+ * note): trimmed, then cut to `max` characters, **never splitting a surrogate pair** —
+ * an emoji at the edge is left out whole rather than sent as half a character.
+ *
+ * The ONE clamp for every text the panel sends: the withdraw note
+ * (`OmsAttachment.Widths.WithdrawNote`) and an Add's caption (`Widths.Caption`), both
+ * 200 on pricing2. Arabic is kept as typed; only its length is cut.
+ */
+export function clampText(text: string, max: number): string {
+  const trimmed = text.trim()
+  if (trimmed.length <= max) return trimmed
+  const high = trimmed.charCodeAt(max - 1)
+  const end = high >= 0xd800 && high <= 0xdbff ? max - 1 : max
+  return trimmed.slice(0, end)
+}
+
 /** How a fetched file is shown: an `<img>`, an `<iframe>`, or no preview (download only). */
 export type AttachmentPreviewKind = 'image' | 'pdf' | 'none'
 

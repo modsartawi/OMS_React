@@ -29,6 +29,10 @@
 //      LOGICAL geometry in both directions, so a physical twin (`mr-auto`,
 //      `text-right`, `text-left`) fails the `rtl` half while leaving the `ltr`
 //      half byte-identical.
+//   7. the ATTACHMENTS TAB mirrors (ticket 327), and its + Add prescription
+//      (ticket 330): the Add button and caption field sit at the region's START,
+//      an Arabic caption reads right-to-left in its field, and the POSTED
+//      `Caption` part is the Arabic exactly as typed — in both directions.
 //
 // The ticket's sixth item — `border-start-start-radius: 0` on the work-area
 // frame — has NO counterpart in this build and so is asserted nowhere: the
@@ -109,6 +113,14 @@ const RX_FILES = [
   },
 ]
 
+/** Every `Caption` part an Upload posted (ticket 330), decoded from the wire's UTF-8 bytes; `null` for none. */
+const postedCaptions = []
+const captionPart = (request) => {
+  const raw = (request.postDataBuffer() ?? Buffer.alloc(0)).toString('latin1')
+  const m = /name="Caption"\r\n\r\n([\s\S]*?)\r\n--/.exec(raw)
+  return m ? Buffer.from(m[1], 'latin1').toString('utf8') : null
+}
+
 /**
  * Read a value's VISUAL order off character client rects: the x of its first
  * printing character against the x of its last. `> 0` means the value reads
@@ -163,6 +175,11 @@ async function run() {
         contentType: 'application/json',
         body: JSON.stringify({ statusCode: 200, success: true, message: '', errors: [], data: RX_FILES, withdrawn: [] }),
       })
+    // Section 7 (ticket 330): + Add prescription — the posted Caption part is kept to be asserted.
+    if (p === 'AttachmentWeb/Upload') {
+      postedCaptions.push(captionPart(route.request()))
+      return route.fulfill(envelope({ ...RX_FILES[0], attachmentId: `01K61A000000000000000RTLU${postedCaptions.length}` }))
+    }
     return route.fulfill(envelope({}))
   })
 
@@ -558,6 +575,49 @@ async function run() {
       `${dir}: the Arabic caption is exact, isolated as right-to-left, and reads so`,
       captionText === RX_CAPTION && read.direction === 'rtl' && read.order < 0,
       `${JSON.stringify(captionText)} direction=${read.direction} order=${Math.round(read.order)}`,
+    )
+
+    // + Add prescription (ticket 330): the button and the caption field hug the region's START.
+    const add = await page.evaluate((dir) => {
+      const region = document.querySelector('#tabpanel-attachments [data-region="slip-add"]').getBoundingClientRect()
+      const gaps = (el) => {
+        const r = el.getBoundingClientRect()
+        return dir === 'rtl'
+          ? { start: region.right - r.right, end: r.left - region.left }
+          : { start: r.left - region.left, end: region.right - r.right }
+      }
+      return {
+        button: gaps(document.querySelector('#tabpanel-attachments [data-testid="slip-add"]')),
+        field: gaps(document.querySelector('#tabpanel-attachments [data-testid="slip-add-caption"]')),
+      }
+    }, dir)
+    check(
+      `${dir}: + Add prescription and its caption field sit at the region's START`,
+      add.button.start < 1 && add.button.end > add.button.start && add.field.start < 1 && add.field.end > add.field.start,
+      JSON.stringify(add),
+    )
+    // An Arabic caption, typed and posted: the field reads it right-to-left, and the WIRE carries it exactly.
+    const typed = `وصفة مرسلة بالبريد — ${dir === 'rtl' ? 'صفحة ١' : 'صفحة ٢'}`
+    const field = page.locator('#tabpanel-attachments [data-testid="slip-add-caption"]')
+    await field.fill(typed)
+    const fieldDirection = await field.evaluate((n) => getComputedStyle(n).direction)
+    const posts = postedCaptions.length
+    await page.locator('#tabpanel-attachments [data-testid="slip-add-input"]').setInputFiles({
+      name: `rx-${dir}.pdf`,
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4\n%%EOF\n'),
+    })
+    await page
+      .locator(`#tabpanel-attachments li[data-upload="rx-${dir}.pdf"][data-status="stored"]`)
+      .waitFor({ timeout: 8000 })
+      .catch(() => {})
+    const posted = postedCaptions[posts] ?? ''
+    check(
+      `${dir}: an Arabic caption reads right-to-left in its field, and the POSTED Caption part is exactly as typed`,
+      fieldDirection === 'rtl' &&
+        postedCaptions.length === posts + 1 &&
+        Buffer.from(posted, 'utf8').equals(Buffer.from(typed, 'utf8')),
+      `direction=${fieldDirection} posted=${JSON.stringify(posted)}`,
     )
   }
   await setDir('ltr')

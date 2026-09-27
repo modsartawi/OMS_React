@@ -12,8 +12,10 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import {
   ATTACHMENT_MAX_BYTES,
+  CAPTION_MAX,
   FILE_SERVER_UNREACHABLE,
   attachmentFileRefusal,
+  attachmentUploadForm,
   canSendUpload,
   isRetryableUpload,
   keepsIdOnClose,
@@ -169,5 +171,120 @@ describe('canSendUpload — the in-flight guard', () => {
     expect(keepsIdOnClose(item({ status: 'refused', retryable: false }))).toBe(false)
     expect(keepsIdOnClose(item({ status: 'stored' }))).toBe(false)
     expect(keepsIdOnClose(item({ status: 'local-refused', localRefusal: 'size' }))).toBe(false)
+  })
+})
+
+/* ═══════════════ Add prescription (ticket 330): one builder, both callers ═══════════════ */
+
+describe('attachmentUploadForm — the SD_DOCUMENT form, and the slip’s unchanged', () => {
+  /** An order's target, spelled as the order page's `orderAttachmentTarget` spells it. */
+  const ORDER = { ownerKind: 'SD_DOCUMENT', ownerKey: '2000000551', category: 'P2E', kind: 'PRESCRIPTION' }
+  const rx = file('rx scan.pdf', 'application/pdf')
+  const ARABIC = 'الوصفة الطبية — صفحة ٢'
+  /** Every part as [name, value]; a file part as its name. */
+  const parts = (form: FormData) =>
+    [...form.entries()].map(([k, v]) => [k, typeof v === 'string' ? v : `<file ${v.name}>`])
+
+  it('with a caption: the seven parts in order, Caption between Kind and the file, no SourceDevice', () => {
+    const form = attachmentUploadForm({ clientRequestId: 'id-7', file: rx, caption: ARABIC }, ORDER)
+    expect(parts(form)).toEqual([
+      ['ClientRequestId', 'id-7'],
+      ['OwnerKind', 'SD_DOCUMENT'],
+      ['OwnerKey', '2000000551'],
+      ['Category', 'P2E'],
+      ['Kind', 'PRESCRIPTION'],
+      ['Caption', ARABIC],
+      ['File', '<file rx scan.pdf>'],
+    ])
+    expect(form.has('SourceDevice')).toBe(false)
+  })
+
+  it('🔑 the Arabic caption is sent exactly as typed — not re-encoded, not reordered', () => {
+    const sent = attachmentUploadForm({ clientRequestId: 'id-7', file: rx, caption: ARABIC }, ORDER).get('Caption')
+    expect(sent).toBe(ARABIC)
+    expect(Buffer.from(sent as string, 'utf8').equals(Buffer.from(ARABIC, 'utf8'))).toBe(true)
+  })
+
+  it('without one — absent, empty or blank — there is NO Caption part', () => {
+    for (const caption of [undefined, '', '   \n ']) {
+      const form = attachmentUploadForm({ clientRequestId: 'id-8', file: rx, caption }, ORDER)
+      expect([...form.keys()], JSON.stringify(caption)).toEqual([
+        'ClientRequestId',
+        'OwnerKind',
+        'OwnerKey',
+        'Category',
+        'Kind',
+        'File',
+      ])
+    }
+  })
+
+  it('the caption goes through the ONE clamp: trimmed, cut at 200, a surrogate pair never split', () => {
+    expect(CAPTION_MAX).toBe(200)
+    const trimmed = attachmentUploadForm({ clientRequestId: 'i', file: rx, caption: '  Front page \n' }, ORDER)
+    expect(trimmed.get('Caption')).toBe('Front page')
+    const long = attachmentUploadForm({ clientRequestId: 'i', file: rx, caption: 'c'.repeat(260) }, ORDER)
+    expect(long.get('Caption')).toBe('c'.repeat(200))
+    const edge = attachmentUploadForm({ clientRequestId: 'i', file: rx, caption: `${'a'.repeat(199)}😀` }, ORDER)
+    expect(edge.get('Caption')).toBe('a'.repeat(199))
+  })
+
+  it('🔑 the slip’s form is byte-identical: its six parts, no Caption, the same entries as before 330', () => {
+    const SLIP = { ownerKind: 'STORE_DAY', ownerKey: 'P019/2026-09-20', category: 'CASH_CLOSE', kind: 'ECR_SLIP' }
+    const slip = file('ecr slip.jpg', 'image/jpeg')
+    const form = attachmentUploadForm({ clientRequestId: 'id-1', file: slip }, SLIP)
+    expect(parts(form)).toEqual([
+      ['ClientRequestId', 'id-1'],
+      ['OwnerKind', 'STORE_DAY'],
+      ['OwnerKey', 'P019/2026-09-20'],
+      ['Category', 'CASH_CLOSE'],
+      ['Kind', 'ECR_SLIP'],
+      ['File', '<file ecr slip.jpg>'],
+    ])
+  })
+
+  it('the owner is the target’s — the builder never re-spells a key', () => {
+    const owner = { ...ORDER, ownerKey: '2000000999' }
+    expect(attachmentUploadForm({ clientRequestId: 'i', file: rx }, owner).get('OwnerKey')).toBe('2000000999')
+  })
+})
+
+describe('isRetryableUpload — the late attach’s refusals (BackOffice 2061), by code', () => {
+  it('none of them is retryable: each says why, and a retry would be refused again', () => {
+    for (const [status, code] of [
+      [409, 'ATTACHMENT_TOO_MANY'],
+      [404, 'DOCUMENT_NOT_FOUND'],
+      [400, 'DOCUMENT_TAKES_NO_ATTACHMENTS'],
+      [400, 'ATTACHMENT_KIND_NOT_ACCEPTED'],
+      [403, 'CATEGORY_NOT_HELD'],
+      [413, 'TOO_LARGE'],
+      [415, 'UNSUPPORTED_TYPE'],
+      [503, 'NOT_SET_UP'],
+      [400, 'Caption'],
+    ] as const) {
+      expect(isRetryableUpload(coded(status, code)), code).toBe(false)
+    }
+  })
+
+  it('the three that can help still do: no answer, a codeless 5xx, FILE_SERVER_UNREACHABLE', () => {
+    expect(isRetryableUpload(new ApiError('network', 'offline', 0))).toBe(true)
+    expect(isRetryableUpload(new ApiError('server', 'bad gateway', 502))).toBe(true)
+    expect(isRetryableUpload(coded(503, FILE_SERVER_UNREACHABLE))).toBe(true)
+  })
+
+  it('a bare 403 with no body is not', () => {
+    expect(isRetryableUpload(new ApiError('unknown', 'unexpected (HTTP 403)', 403))).toBe(false)
+  })
+})
+
+describe('pickAttachmentFiles — a captioned pick', () => {
+  it('each picked file carries the clamped caption; a blank one carries none', () => {
+    const mint = () => 'id'
+    const [captioned] = pickAttachmentFiles([file('rx.pdf', 'application/pdf')], mint, '  صفحة ١  ')
+    expect(captioned.caption).toBe('صفحة ١')
+    const [blank] = pickAttachmentFiles([file('rx.pdf', 'application/pdf')], mint, '   ')
+    expect(blank).not.toHaveProperty('caption')
+    const [slip] = pickAttachmentFiles([file('slip.jpg', 'image/jpeg')], mint)
+    expect(slip).not.toHaveProperty('caption')
   })
 })

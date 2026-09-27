@@ -1,11 +1,16 @@
-import { useRef } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RotateCw, Upload } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import type { AttachmentsPanelWords } from './panel-words'
-import { ATTACHMENT_ACCEPT, type AttachmentTarget, type AttachmentUpload } from './upload'
+import {
+  ATTACHMENT_ACCEPT,
+  attachmentFileRefusal,
+  type AttachmentTarget,
+  type AttachmentUpload,
+} from './upload'
 import { uploadsOf, useAttachmentUploads } from './upload-store'
 
 const NO_UPLOADS: AttachmentUpload[] = []
@@ -22,15 +27,24 @@ const NO_UPLOADS: AttachmentUpload[] = []
  * The files live in the shared upload store (`./upload-store`), outside this
  * component, so a file's `ClientRequestId` outlives the panel. `onStored` runs after
  * each 200 and never on a refusal: the slip's re-reads the day and marks both grids
- * stale (`markSlipDayChanged`).
+ * stale (`markSlipDayChanged`); the order tab re-reads its list.
+ *
+ * **`captioned`** (ticket 330, the order's Add prescription) is the other mode: ONE file
+ * per Add, with an optional caption typed first. The caption rides on the file's item
+ * (`clampText`, 200 — the field itself has no `maxLength`, so the ONE clamp trims before
+ * it cuts), so a retry sends the same words under the same id, and the field
+ * clears once a file the browser admits has been picked. The slip passes nothing and
+ * keeps its multi-file, caption-less Add exactly.
  */
 export default function AttachmentAdd({
   target,
+  captioned = false,
   words,
   onStored,
 }: {
   target: AttachmentTarget
-  words: Pick<AttachmentsPanelWords, 'addRegion' | 'addButton' | 'addFailed'>
+  captioned?: boolean
+  words: Pick<AttachmentsPanelWords, 'addRegion' | 'addButton' | 'addFailed' | 'addCaptionLabel' | 'addCaptionHint'>
   onStored: () => void
 }) {
   const { t } = useTranslation('attachments')
@@ -38,19 +52,49 @@ export default function AttachmentAdd({
   const add = useAttachmentUploads((s) => s.add)
   const retry = useAttachmentUploads((s) => s.retry)
   const input = useRef<HTMLInputElement>(null)
+  const captionId = useId()
+  const [caption, setCaption] = useState('')
+
+  const pick = (files: File[]) => {
+    if (!captioned) {
+      add(target, files, onStored)
+      return
+    }
+    const [file] = files
+    add(target, [file], onStored, caption)
+    // A file the browser refuses is never sent: keep the words for the next pick.
+    if (attachmentFileRefusal(file) === null) setCaption('')
+  }
 
   return (
     <section className="flex flex-col gap-2" data-region="slip-add" aria-label={words.addRegion}>
+      {captioned && (
+        <div className="flex max-w-xl flex-col gap-1">
+          <label htmlFor={captionId} className="text-xs font-medium text-muted-foreground">
+            {words.addCaptionLabel}
+          </label>
+          <input
+            id={captionId}
+            type="text"
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            dir="auto"
+            className="rounded-md border border-border/60 bg-background px-2 py-1 text-sm"
+            data-testid="slip-add-caption"
+          />
+          <span className="text-xs text-muted-foreground">{words.addCaptionHint}</span>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" onClick={() => input.current?.click()} data-testid="slip-add">
           <Upload className="h-3.5 w-3.5" aria-hidden />
           {words.addButton}
         </Button>
-        <span className="text-xs text-muted-foreground">{t('add.hint')}</span>
+        <span className="text-xs text-muted-foreground">{captioned ? t('add.hintOne') : t('add.hint')}</span>
         <input
           ref={input}
           type="file"
-          multiple
+          multiple={!captioned}
           accept={ATTACHMENT_ACCEPT}
           tabIndex={-1}
           aria-hidden
@@ -61,7 +105,7 @@ export default function AttachmentAdd({
             // the reset is what lets the same file be picked again as a new capture.
             const files = Array.from(e.target.files ?? [])
             e.target.value = ''
-            if (files.length) add(target, files, onStored)
+            if (files.length) pick(files)
           }}
         />
       </div>
@@ -99,6 +143,12 @@ function UploadRow({ item, failed, onRetry }: { item: AttachmentUpload; failed: 
           {t(`add.status.${item.status}`)}
         </span>
       </div>
+
+      {item.caption && (
+        <span className="break-words text-muted-foreground" dir="auto" data-cell="upload-caption">
+          {item.caption}
+        </span>
+      )}
 
       {item.status === 'local-refused' && (
         <span className="text-danger-800" data-cell="reason">

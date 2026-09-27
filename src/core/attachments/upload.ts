@@ -10,9 +10,13 @@
  */
 import { apiErrorCode, apiErrorKind } from '@/core/api'
 import type { AttachmentOwner } from '@/core/models/attachment'
+import { clampText } from './rules'
 
 /** The File Server's cap, 10 MiB. Exactly this many bytes passes; one more is refused. */
 export const ATTACHMENT_MAX_BYTES = 10_485_760
+
+/** The caption the server keeps: the first 200 characters (`OmsAttachment.Widths.Caption`, BackOffice 2056). */
+export const CAPTION_MAX = 200
 
 /** What the picker offers. The check below is what decides; this only narrows the dialog. */
 export const ATTACHMENT_ACCEPT = '.jpg,.jpeg,.png,.pdf'
@@ -69,6 +73,12 @@ export interface AttachmentUpload {
    */
   clientRequestId: string
   file: File
+  /**
+   * The caption sent with the file (ticket 330's Add prescription), clamped when
+   * picked, so a retry sends the very same words. Absent when there is none — the
+   * slip's Add never has one.
+   */
+  caption?: string
   status: AttachmentUploadStatus
   /** Why the browser refused it (`local-refused` only). */
   localRefusal: AttachmentFileRefusal | null
@@ -82,13 +92,18 @@ export interface AttachmentUpload {
  * The files one pick brings in, each with a **new** `ClientRequestId`, checked in
  * the browser. A refused file is kept (it is named with its reason) but never sent;
  * the others still go. No count cap (C9).
+ *
+ * `caption` (the order's Add, ticket 330) rides on each item through `clampText`; one
+ * with nothing in it after the clamp is left off the item, as the slip's always is.
  */
-export function pickAttachmentFiles(files: Iterable<File>, mintId: () => string): AttachmentUpload[] {
+export function pickAttachmentFiles(files: Iterable<File>, mintId: () => string, caption = ''): AttachmentUpload[] {
+  const text = clampText(caption, CAPTION_MAX)
   return Array.from(files, (file) => {
     const localRefusal = attachmentFileRefusal(file)
     return {
       clientRequestId: mintId(),
       file,
+      ...(text ? { caption: text } : {}),
       status: localRefusal ? 'local-refused' : 'queued',
       localRefusal,
       error: null,
@@ -112,15 +127,23 @@ export function keepsIdOnClose(item: AttachmentUpload): boolean {
 }
 
 /**
- * The multipart body of `POST AttachmentWeb/Upload`: exactly the six parts the
- * contract names (`AttachmentFormFields` on pricing2), one file per request.
+ * The multipart body of `POST AttachmentWeb/Upload` (`AttachmentFormFields` on
+ * pricing2), one file per request, in this order: `ClientRequestId`, `OwnerKind`,
+ * `OwnerKey`, `Category`, `Kind`, then `Caption` **only when it holds something
+ * after `clampText`** (BackOffice 2056/2061), then the file.
+ *
+ * ONE builder for every caller: the slip's Add has no caption, so its form is the
+ * same six parts it always was, byte for byte. The builder owns the clamp on the
+ * wire; `pickAttachmentFiles` has usually clamped already, and a second pass is a
+ * no-op.
  *
  * 🔑 **No `SourceDevice`.** A web row names no device, and the server records the
- * session's Ua user as `uploadedBy`. The target is the caller's (a store day's owner
- * key is `storeDayOwnerKey`'s) — never re-spelled here.
+ * session's Ua user as `uploadedBy`. The target is the caller's — a store day's owner
+ * key is `storeDayOwnerKey`'s, an order's is `attachmentOwnerNo` (on a delivery's
+ * page too) — never re-spelled here.
  */
 export function attachmentUploadForm(
-  item: Pick<AttachmentUpload, 'clientRequestId' | 'file'>,
+  item: Pick<AttachmentUpload, 'clientRequestId' | 'file' | 'caption'>,
   target: AttachmentTarget,
 ): FormData {
   const form = new FormData()
@@ -129,6 +152,8 @@ export function attachmentUploadForm(
   form.append('OwnerKey', target.ownerKey)
   form.append('Category', target.category)
   form.append('Kind', target.kind)
+  const caption = clampText(item.caption ?? '', CAPTION_MAX)
+  if (caption) form.append('Caption', caption)
   form.append('File', item.file, item.file.name)
   return form
 }

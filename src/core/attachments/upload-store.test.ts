@@ -137,3 +137,45 @@ describe('the caller’s freshness', () => {
     expect((upload.mock.calls[0][0] as FormData).get('OwnerKind')).toBe('SD_DOCUMENT')
   })
 })
+
+describe('Add prescription — one file with a caption (ticket 330)', () => {
+  const ORDER = { ownerKind: 'SD_DOCUMENT', ownerKey: '2000000551', category: 'P2E', kind: 'PRESCRIPTION' }
+  const orderItems = () => uploadsOf(useAttachmentUploads.getState(), ORDER) ?? []
+  const ARABIC = 'الوصفة الطبية — صفحة ٢'
+
+  it('sends the caption as a Caption part, and a retry sends the SAME id and the SAME caption', async () => {
+    upload.mockRejectedValueOnce(new ApiError('network', 'offline', 0)).mockResolvedValue({})
+    const { add, retry } = useAttachmentUploads.getState()
+    add(ORDER, [file('rx.pdf', 'application/pdf')], onStored, ARABIC)
+    await settle()
+    const [first] = orderItems()
+    expect(first).toMatchObject({ status: 'refused', retryable: true, caption: ARABIC })
+
+    retry(ORDER, first.clientRequestId, onStored)
+    await settle()
+    const forms = upload.mock.calls.map(([form]) => form as FormData)
+    expect(forms.map((f) => f.get('ClientRequestId'))).toEqual([first.clientRequestId, first.clientRequestId])
+    expect(forms.map((f) => f.get('Caption'))).toEqual([ARABIC, ARABIC])
+    expect(orderItems()[0].status).toBe('stored')
+    expect(onStored).toHaveBeenCalledTimes(1)
+  })
+
+  it('a caption with nothing in it sends no Caption part', async () => {
+    upload.mockResolvedValue({})
+    useAttachmentUploads.getState().add(ORDER, [file('rx.pdf', 'application/pdf')], onStored, '   ')
+    await settle()
+    expect((upload.mock.calls[0][0] as FormData).has('Caption')).toBe(false)
+  })
+
+  it('ATTACHMENT_TOO_MANY is the server’s cap: sent, refused, and never offered a retry', async () => {
+    upload.mockRejectedValue(coded(409, 'ATTACHMENT_TOO_MANY'))
+    const { add, retry } = useAttachmentUploads.getState()
+    add(ORDER, [file('eleventh.pdf', 'application/pdf')], onStored, '')
+    await settle()
+    expect(orderItems()[0]).toMatchObject({ status: 'refused', retryable: false })
+    retry(ORDER, orderItems()[0].clientRequestId, onStored)
+    await settle()
+    expect(upload).toHaveBeenCalledTimes(1)
+    expect(onStored).not.toHaveBeenCalled()
+  })
+})

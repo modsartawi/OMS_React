@@ -36,6 +36,10 @@ export interface AttachmentsPanelWords {
   addButton: string
   /** An upload refused with no message of its own. */
   addFailed: string
+  /** The caption field's label — read only when the caller's Add takes a caption (330). */
+  addCaptionLabel?: string
+  /** Under the caption field — read only when the caller's Add takes a caption (330). */
+  addCaptionHint?: string
 
   /** The withdraw dialog's title. */
   withdrawTitle: string

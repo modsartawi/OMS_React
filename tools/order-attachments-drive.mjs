@@ -24,6 +24,14 @@
 // stamps, source); jpeg/png/pdf previews; download without a second fetch; the 404 / 502 /
 // READ_NOT_AUDITED answers; Withdrawn (n); object URLs revoked on leave; a delivery lists its OWNER's files.
 //
+// Ticket 330 adds `POST AttachmentWeb/Upload` (BackOffice 2061's What to build; AttachmentFormFields.cs and
+// AttachmentUploadResult.cs on pricing2): the multipart body is PARSED and each part asserted in order —
+// ClientRequestId, OwnerKind=SD_DOCUMENT, OwnerKey=<attachmentOwnerNo>, Category, Kind=PRESCRIPTION, Caption (only
+// when not empty), the file; no SourceDevice. Then: an Arabic caption posted exactly as typed; a local type/size
+// refusal with no request; ATTACHMENT_TOO_MANY (409) and the other refusals shown as sent with no retry; a
+// failed-then-retried send keeping its ClientRequestId; exactly one ByOwner re-read after a 200; a send that
+// survives a tab switch; a delivery's Add posting OwnerKey=<owner>.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/order-attachments-drive.mjs
 import { createRequire } from 'node:module'
@@ -138,6 +146,39 @@ let accessCalls = 0
 let documentCalls = 0
 let goneIds = new Set()
 let bytes = {}
+/** Every Upload POST, its parts in the order sent (ticket 330). */
+let uploads = []
+/** The answers the next Uploads get, in order; empty → a 200 that files the file. */
+let uploadAnswers = []
+/** Files a 200 filed, newest first — ByOwner lists them ahead of STORED. */
+let added = []
+/** Hold the next Upload's answer until `releaseUpload()` (the tab-switch-mid-send case). */
+let holdUpload = false
+let releaseUpload = () => {}
+
+/**
+ * A multipart body as [{ name, value | filename }], in the order sent. Read as latin1 (byte-safe), a text part's
+ * value decoded back as UTF-8 — so an Arabic caption is compared byte for byte, exactly as the server reads it.
+ */
+function formParts(request) {
+  const boundary = /boundary=(?:"([^"]+)"|([^;\s]+))/.exec(request.headers()['content-type'] ?? '')
+  if (!boundary) return []
+  const raw = (request.postDataBuffer() ?? Buffer.alloc(0)).toString('latin1')
+  return raw
+    .split(`--${boundary[1] ?? boundary[2]}`)
+    .slice(1, -1)
+    .map((chunk) => {
+      const body = chunk.replace(/^\r\n/, '').replace(/\r\n$/, '')
+      const cut = body.indexOf('\r\n\r\n')
+      const head = body.slice(0, cut)
+      const value = body.slice(cut + 4)
+      const name = /[; ]name="([^"]*)"/.exec(head)?.[1]
+      const filename = /filename="([^"]*)"/.exec(head)?.[1]
+      return filename === undefined
+        ? { name, value: Buffer.from(value, 'latin1').toString('utf8') }
+        : { name, filename: Buffer.from(filename, 'latin1').toString('utf8'), size: value.length }
+    })
+}
 
 const contentTotal = () => Object.values(contentCalls).reduce((a, b) => a + b, 0)
 
@@ -212,10 +253,32 @@ async function run() {
       if (byOwner === 'empty') return route.fulfill(envelope([], { siblings: { withdrawn: [], withdrawReasons: REASONS } }))
       return route.fulfill(
         envelope(
-          STORED.filter((s) => !goneIds.has(s.attachmentId)),
+          [...added, ...STORED.filter((s) => !goneIds.has(s.attachmentId))],
           { siblings: { withdrawn: WITHDRAWN, withdrawReasons: REASONS } },
         ),
       )
+    }
+    if (p === 'AttachmentWeb/Upload' && route.request().method() === 'POST') {
+      const parts = formParts(route.request())
+      uploads.push(parts)
+      if (holdUpload) {
+        holdUpload = false
+        await new Promise((r) => (releaseUpload = r))
+      }
+      const answer = uploadAnswers.shift()
+      if (answer === 'network') return route.abort('connectionfailed')
+      if (answer) return route.fulfill(answer)
+      const part = (n) => parts.find((x) => x.name === n)
+      const filed = {
+        ...item(`01K61U${String(added.length + 1).padStart(20, '0')}`, part('File')?.filename ?? 'x', {
+          caption: part('Caption')?.value ?? '',
+          storedAt: `2026-09-27T10:0${added.length}:00`,
+        }),
+        ownerKey: part('OwnerKey')?.value,
+        category: part('Category')?.value,
+      }
+      added = [filed, ...added]
+      return route.fulfill(envelope(filed))
     }
     const content = /^AttachmentWeb\/([^/]+)\/Content$/.exec(p ?? '')
     if (content) {
@@ -281,6 +344,10 @@ async function run() {
     accessCalls = 0
     documentCalls = 0
     goneIds = new Set()
+    uploads = []
+    uploadAnswers = []
+    added = []
+    holdUpload = false
   }
   const FULL = { attachmentOwnerNo: OWNER, attachmentCount: 3, attachmentCategory: 'P2E' }
 
@@ -377,7 +444,7 @@ async function run() {
   check('list — a partner’s KEY:<UserId> device is shown as sent', (await listRow(PDF).locator('[data-cell="till"]').innerText()) === 'KEY:U777')
   const heads = await panel().locator('thead th').allInnerTexts()
   check('list — the source column is "Source", not the slip’s "Till"', heads.map((h) => h.trim()).join('|') === 'File name|Uploaded at|Source', heads.join('|'))
-  check('327 — no Add yet (330)', (await panel().locator('[data-region="slip-add"]').count()) === 0)
+  check('330 — + Add prescription is offered in the opened tab', (await panel().getByTestId('slip-add').innerText()).trim() === 'Add prescription')
 
   // ---- Refresh after opening: one re-read ----
   await refreshButton().click()
@@ -544,6 +611,201 @@ async function run() {
   await shot('byowner-not-audited')
   await noRawKeys('order — refused list')
 
+  // ════════════════════ 6 · + Add prescription (ticket 330) ════════════════════
+  const captionField = () => panel().getByTestId('slip-add-caption')
+  const fileInput = () => panel().getByTestId('slip-add-input')
+  const uploadRow = (name) => panel().locator(`[data-testid="slip-uploads"] li[data-upload="${name}"]`)
+  const uploadStatus = (name) => uploadRow(name).getAttribute('data-status').catch(() => null)
+  const waitUpload = (name, status) =>
+    panel().locator(`li[data-upload="${name}"][data-status="${status}"]`).waitFor({ timeout: 8000 }).catch(() => {})
+  const retryButton = (name) => uploadRow(name).getByTestId('slip-upload-retry')
+  const partNames = (parts) => (parts ?? []).map((x) => x.name)
+  const partValue = (parts, name) => (parts ?? []).find((x) => x.name === name)?.value
+  const SEVEN = ['ClientRequestId', 'OwnerKind', 'OwnerKey', 'Category', 'Kind', 'Caption', 'File']
+  const SIX = ['ClientRequestId', 'OwnerKind', 'OwnerKey', 'Category', 'Kind', 'File']
+  const pdfFile = (name) => ({ name, mimeType: 'application/pdf', buffer: bytes[PDF.attachmentId].body })
+  const pngFile = (name) => ({ name, mimeType: 'image/png', buffer: bytes[PNG.attachmentId].body })
+  /** Type the caption (when given), then pick the file — the order the field's hint asks for. */
+  const addFile = async (file, caption) => {
+    if (caption !== undefined) await captionField().fill(caption)
+    await fileInput().setInputFiles(file)
+  }
+
+  reset()
+  fields = { [ORDER]: FULL }
+  await open(`/oms/document/${ORDER}`)
+  await selectTab()
+  await panel().locator('[data-testid="slip-list"]').waitFor()
+  await settle()
+  const addRegion = panel().locator('[data-region="slip-add"]')
+  check('add — nothing posted by the load or the first selection', uploads.length === 0)
+  check('add — the button reads "Add prescription"', (await panel().getByTestId('slip-add').innerText()).trim() === 'Add prescription')
+  const captionLabel = await addRegion.locator('label').innerText()
+  check('add — the caption field is labelled, and says it is optional', captionLabel.trim() === 'Caption (optional)', captionLabel)
+  check(
+    'add — the field is labelled FOR the input (a click on the label focuses it)',
+    await (async () => {
+      await addRegion.locator('label').click()
+      return captionField().evaluate((el) => document.activeElement === el)
+    })(),
+  )
+  const addText = await addRegion.innerText()
+  check('add — the hint: caption first, the first 200 characters kept', addText.includes('Type the caption before you pick the file. Only the first 200 characters are kept.'), addText)
+  check('add — one file per Add: the picker is not multiple, the hint names one file', !(await fileInput().evaluate((el) => el.multiple)) && addText.includes('One JPG, PNG or PDF file, up to 10 MB.'))
+  check('add — the caption reads in its own direction (dir="auto")', (await captionField().getAttribute('dir')) === 'auto')
+
+  // ---- the browser's check: nothing sent ----
+  await addFile({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not a prescription') }, 'kept for the next pick')
+  await page.waitForTimeout(300)
+  check(
+    'local refusal (type) — named with its reason, and NO request sent',
+    (await uploadStatus('notes.txt')) === 'local-refused' && (await uploadRow('notes.txt').innerText()).includes('only JPG, PNG or PDF') && uploads.length === 0,
+    `${uploads.length} sent`,
+  )
+  check('local refusal — the typed caption is kept for the next pick', (await captionField().inputValue()) === 'kept for the next pick')
+  await addFile({ name: 'huge-scan.pdf', mimeType: 'application/pdf', buffer: Buffer.alloc(10_485_761) })
+  await page.waitForTimeout(300)
+  check(
+    'local refusal (size, 10,485,761 bytes) — named with its reason, and NO request sent',
+    (await uploadStatus('huge-scan.pdf')) === 'local-refused' && (await uploadRow('huge-scan.pdf').innerText()).includes('larger than 10 MB') && uploads.length === 0,
+    `${uploads.length} sent`,
+  )
+
+  // ---- a PDF with an Arabic caption ----
+  const ARABIC_TYPED = 'وصفة أرسلها العميل بالبريد — صفحة ١ من ٢'
+  let reads = byOwnerCalls.length
+  await addFile(pdfFile('emailed prescription.pdf'), ARABIC_TYPED)
+  await waitUpload('emailed prescription.pdf', 'stored')
+  await settle()
+  const sent = uploads[0]
+  check('🔑 add — ONE request, its parts in the contract’s order, Caption between Kind and the file', uploads.length === 1 && JSON.stringify(partNames(sent)) === JSON.stringify(SEVEN), partNames(sent).join(','))
+  check(
+    'add — OwnerKind SD_DOCUMENT, OwnerKey the owner, Category the document’s, Kind PRESCRIPTION',
+    partValue(sent, 'OwnerKind') === 'SD_DOCUMENT' && partValue(sent, 'OwnerKey') === OWNER && partValue(sent, 'Category') === 'P2E' && partValue(sent, 'Kind') === 'PRESCRIPTION',
+    JSON.stringify(sent?.slice(1, 5)),
+  )
+  check('add — no SourceDevice part: a web row names no device', !partNames(sent).includes('SourceDevice'))
+  const postedCaption = partValue(sent, 'Caption') ?? ''
+  check(
+    '🔑 add — the POSTED Caption part is the Arabic exactly as typed, byte for byte',
+    Buffer.from(postedCaption, 'utf8').equals(Buffer.from(ARABIC_TYPED, 'utf8')),
+    JSON.stringify(postedCaption),
+  )
+  const filePart = sent?.find((x) => x.name === 'File')
+  check('add — the file part is the picked PDF, under its own name', filePart?.filename === 'emailed prescription.pdf' && filePart?.size === bytes[PDF.attachmentId].body.length, JSON.stringify(filePart))
+  check('add — a ClientRequestId was minted for it', /\S/.test(partValue(sent, 'ClientRequestId') ?? ''))
+  check('🔑 add — after the 200, exactly ONE ByOwner re-read', byOwnerCalls.length === reads + 1, `${byOwnerCalls.length - reads}`)
+  const firstRow = panel().locator('tr[data-slip]').first()
+  check(
+    'add — the new file is listed first, its Arabic caption shown exactly',
+    (await firstRow.getAttribute('data-slip')) === added[0]?.attachmentId && (await firstRow.locator('[data-cell="caption"]').innerText()) === ARABIC_TYPED,
+  )
+  check('add — the badge moved on with the list (6 → 7)', (await badge().innerText()) === String(STORED.length + 1), await badge().innerText())
+  check('add — its upload row says Stored, and names its caption', (await uploadRow('emailed prescription.pdf').innerText()).includes('Stored') && (await uploadRow('emailed prescription.pdf').locator('[data-cell="upload-caption"]').innerText()) === ARABIC_TYPED)
+  check('add — the caption field is cleared for the next file', (await captionField().inputValue()) === '')
+  await shot('add-stored')
+
+  // ---- no caption: no Caption part ----
+  await addFile(pngFile('no-caption.png'), '   ')
+  await waitUpload('no-caption.png', 'stored')
+  await settle()
+  check('add — a blank caption sends NO Caption part: the six parts', JSON.stringify(partNames(uploads[1])) === JSON.stringify(SIX), partNames(uploads[1]).join(','))
+
+  // ---- ATTACHMENT_TOO_MANY: the server's cap, as sent, no retry ----
+  const TOO_MANY = 'This order already has 10 files. Withdraw one before adding another.\nهذا الطلب يحمل ١٠ ملفات بالفعل. اسحب ملفًا قبل إضافة آخر.'
+  uploadAnswers = [refusal(409, 'ATTACHMENT_TOO_MANY', TOO_MANY)]
+  reads = byOwnerCalls.length
+  let before = uploads.length
+  const badgeBefore = await badge().innerText()
+  await addFile(pdfFile('eleventh.pdf'))
+  await waitUpload('eleventh.pdf', 'refused')
+  await settle()
+  const capText = await uploadRow('eleventh.pdf').locator('[data-cell="reason"]').innerText().catch(() => '')
+  check('ATTACHMENT_TOO_MANY — sent (there is no client cap)', uploads.length === before + 1)
+  check('ATTACHMENT_TOO_MANY — the server’s words as sent, English then Arabic', capText === TOO_MANY, JSON.stringify(capText))
+  check('ATTACHMENT_TOO_MANY — no Retry offered', (await retryButton('eleventh.pdf').count()) === 0)
+  check('ATTACHMENT_TOO_MANY — no re-read, the badge unchanged', byOwnerCalls.length === reads && (await badge().innerText()) === badgeBefore)
+  check('ATTACHMENT_TOO_MANY — Add stays offered (no pre-disabled Add)', await panel().getByTestId('slip-add').isEnabled())
+  await shot('add-too-many')
+
+  // ---- every other refusal: as sent, no retry ----
+  const bilingual = (en, ar) => `${en}\n${ar}`
+  for (const [i, [label, answer, expected]] of [
+    ['DOCUMENT_NOT_FOUND (404) — the unknown document', refusal(404, 'DOCUMENT_NOT_FOUND', bilingual('The document was not found.', 'لم يتم العثور على المستند.')), 'The document was not found.'],
+    ['DOCUMENT_TAKES_NO_ATTACHMENTS (400)', refusal(400, 'DOCUMENT_TAKES_NO_ATTACHMENTS', bilingual('This document takes no attachments.', 'هذا المستند لا يقبل مرفقات.')), 'takes no attachments'],
+    ['ATTACHMENT_KIND_NOT_ACCEPTED (400)', refusal(400, 'ATTACHMENT_KIND_NOT_ACCEPTED', bilingual('This kind of file is not accepted here.', 'هذا النوع من الملفات غير مقبول هنا.')), 'not accepted here'],
+    ['CATEGORY_NOT_HELD (403)', refusal(403, 'CATEGORY_NOT_HELD', bilingual('You do not hold this category.', 'لا تملك هذه الفئة.')), 'do not hold this category'],
+    ['TOO_LARGE (413)', refusal(413, 'TOO_LARGE', bilingual('The file is larger than 10 MB.', 'الملف أكبر من ١٠ ميغابايت.')), 'larger than 10 MB'],
+    ['UNSUPPORTED_TYPE (415)', refusal(415, 'UNSUPPORTED_TYPE', bilingual('This file type is not supported.', 'نوع الملف غير مدعوم.')), 'not supported'],
+    ['NOT_SET_UP (a coded 503)', refusal(503, 'NOT_SET_UP', NOT_SET_UP), 'not set up on this server'],
+    ['a field-name 400 (Caption)', refusal(400, 'Caption', bilingual('Caption is not valid.', 'التعليق غير صالح.')), 'Caption is not valid.'],
+    ['a bare 403 (no body)', { status: 403, body: '' }, null],
+  ].entries()) {
+    uploadAnswers = [answer]
+    reads = byOwnerCalls.length
+    before = uploads.length
+    const name = `refused-${i}.pdf`
+    await addFile(pdfFile(name))
+    await waitUpload(name, 'refused')
+    const text = await uploadRow(name).locator('[data-cell="reason"]').innerText().catch(() => '')
+    check(
+      `${label} — refused, shown as sent, no Retry, no re-read`,
+      uploads.length === before + 1 &&
+        (await uploadStatus(name)) === 'refused' &&
+        (expected === null ? text.length > 0 : text.includes(expected)) &&
+        (await retryButton(name).count()) === 0 &&
+        byOwnerCalls.length === reads,
+      JSON.stringify(text),
+    )
+  }
+  check('DOCUMENT_NOT_FOUND — the Arabic line is shown too', (await uploadRow('refused-0.pdf').innerText()).includes('لم يتم العثور على المستند.'))
+
+  // ---- a failed-then-retried send keeps its ClientRequestId (and its caption) ----
+  const UNREACHABLE = 'The file server could not be reached. Try again.\nتعذر الوصول إلى خادم الملفات. حاول مرة أخرى.'
+  for (const [label, first] of [
+    ['FILE_SERVER_UNREACHABLE (a coded 503)', refusal(503, 'FILE_SERVER_UNREACHABLE', UNREACHABLE)],
+    ['no answer (the network arm)', 'network'],
+    ['a codeless 502 (not an envelope)', { status: 502, contentType: 'text/html', body: '<html>Bad Gateway</html>' }],
+  ]) {
+    uploadAnswers = [first]
+    reads = byOwnerCalls.length
+    before = uploads.length
+    const name = `flaky-${label.split(' ')[0].toLowerCase()}.pdf`
+    const caption = `retry keeps this — ${label.split(' ')[0]} — أعد المحاولة`
+    await addFile(pdfFile(name), caption)
+    await waitUpload(name, 'refused')
+    check(`${label} — Retry is offered, nothing re-read yet`, (await retryButton(name).count()) === 1 && byOwnerCalls.length === reads)
+    await retryButton(name).click()
+    await waitUpload(name, 'stored')
+    await settle()
+    const [a, b] = uploads.slice(before)
+    check(
+      `🔑 ${label} — the retry is ONE more request under the SAME ClientRequestId`,
+      uploads.length === before + 2 && partValue(a, 'ClientRequestId') === partValue(b, 'ClientRequestId'),
+      `${partValue(a, 'ClientRequestId')} / ${partValue(b, 'ClientRequestId')}`,
+    )
+    check(`${label} — …and the same Caption`, partValue(a, 'Caption') === caption && partValue(b, 'Caption') === caption)
+    check(`${label} — one ByOwner re-read, after the 200 only`, byOwnerCalls.length === reads + 1, `${byOwnerCalls.length - reads}`)
+  }
+  await shot('add-retried')
+
+  // ---- a send survives a tab switch (the panel stays mounted) ----
+  holdUpload = true
+  before = uploads.length
+  reads = byOwnerCalls.length
+  await addFile(pngFile('slow.png'), 'held across a tab switch')
+  await waitUpload('slow.png', 'sending')
+  await page.locator('#tab-items').click()
+  await page.waitForTimeout(300)
+  await tab().click()
+  await page.waitForTimeout(300)
+  check('in flight — a tab switch loses nothing: still sending, one request', (await uploadStatus('slow.png')) === 'sending' && uploads.length === before + 1)
+  releaseUpload()
+  await waitUpload('slow.png', 'stored')
+  await settle()
+  check('in flight — it lands, and the list is re-read once', uploads.length === before + 1 && byOwnerCalls.length === reads + 1, `${byOwnerCalls.length - reads}`)
+  await noRawKeys('order — add')
+
   // ════════════════════ 5 · a delivery lists its OWNER's files ════════════════════
   reset()
   fields = { [DELIVERY]: FULL }
@@ -556,6 +818,15 @@ async function run() {
     byOwnerCalls.length === 1 && byOwnerCalls[0].ownerKey === OWNER && byOwnerCalls[0].ownerKey !== DELIVERY,
     JSON.stringify(byOwnerCalls),
   )
+  await addFile(pdfFile('delivery-rx.pdf'), 'from the delivery page')
+  await waitUpload('delivery-rx.pdf', 'stored')
+  await settle()
+  check(
+    '🔑 delivery — Add posts OwnerKey=<attachmentOwnerNo>, never the delivery’s number',
+    uploads.length === 1 && partValue(uploads[0], 'OwnerKey') === OWNER && partValue(uploads[0], 'OwnerKey') !== DELIVERY,
+    partValue(uploads[0], 'OwnerKey'),
+  )
+  check('delivery — the owner’s list is re-read once after the 200', byOwnerCalls.length === 2 && byOwnerCalls[1].ownerKey === OWNER, JSON.stringify(byOwnerCalls))
 
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' || '))
 

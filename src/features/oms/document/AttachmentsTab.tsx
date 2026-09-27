@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -6,7 +6,8 @@ import type { TFunction } from 'i18next'
 import AttachmentsPanel from '@/core/attachments/AttachmentsPanel'
 import { READ_ONCE_PER_VISIT, rereadAttachments } from '@/core/attachments/api'
 import type { AttachmentsPanelWords } from '@/core/attachments/panel-words'
-import type { AttachmentTarget } from '@/core/attachments/upload'
+import { CAPTION_MAX, type AttachmentTarget } from '@/core/attachments/upload'
+import { useAttachmentUploads } from '@/core/attachments/upload-store'
 import type { WithdrawReason } from '@/core/attachments/withdraw'
 
 /** No reasons yet: Withdraw arrives with the server's list in 331. */
@@ -22,12 +23,24 @@ const NO_REASONS: readonly WithdrawReason[] = []
  *   `opened`: the page keeps this mounted while the tab is hidden, and every ByOwner
  *   writes an audit row, so neither the page load nor this mount may read it. The page
  *   latches `opened` on the tab's first selection.
- * - Captions are shown. Add (330) and Withdraw (331) are not offered yet.
+ * - Captions are shown, and **+ Add prescription** (330) files one file at a time with an
+ *   optional caption, onto `target` — the owner, never the route's number. It is offered
+ *   whenever the tab is drawn: on the web the read grant is the upload grant, and the
+ *   web attaches to an ended order too (BackOffice 2061). There is no client cap: the
+ *   eleventh file is the server's `ATTACHMENT_TOO_MANY`, shown as sent.
+ * - After a 200 the list is re-read (`onChanged`), and the badge follows it.
+ * - The tab's files in the upload store outlive a tab switch (this stays mounted) and
+ *   a page left mid-send (the store keeps a file in flight, under its id). Leaving
+ *   forgets only the settled ones, as the slip drawer's close does.
+ * - Withdraw (331) is not offered yet.
  */
 export default function AttachmentsTab({ target, opened }: { target: AttachmentTarget; opened: boolean }) {
   const { t } = useTranslation('document')
   const queryClient = useQueryClient()
   const words = useMemo(() => orderPanelWords(t), [t])
+  const clearSettled = useAttachmentUploads((s) => s.clearSettled)
+  const { ownerKind, ownerKey } = target
+  useEffect(() => () => clearSettled({ ownerKind, ownerKey }), [clearSettled, ownerKind, ownerKey])
   return (
     <AttachmentsPanel
       target={target}
@@ -36,7 +49,7 @@ export default function AttachmentsTab({ target, opened }: { target: AttachmentT
       captioned
       reasons={NO_REASONS}
       words={words}
-      addOffered={false}
+      addOffered
       withdrawOffered={false}
       onChanged={() => void rereadAttachments(queryClient, target)}
     />
@@ -59,6 +72,8 @@ function orderPanelWords(t: TFunction<'document'>): AttachmentsPanelWords {
     addRegion: t('attachments.add.region'),
     addButton: t('attachments.add.button'),
     addFailed: t('attachments.add.failed'),
+    addCaptionLabel: t('attachments.add.captionLabel'),
+    addCaptionHint: t('attachments.add.captionHint', { max: CAPTION_MAX }),
     withdrawTitle: t('attachments.withdraw.title'),
     withdrawFinal: t('attachments.withdraw.final'),
     withdrawNoteRequired: t('attachments.withdraw.noteRequired'),

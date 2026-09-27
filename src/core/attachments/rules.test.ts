@@ -16,10 +16,12 @@ import {
   attachmentOwnerList,
   attachmentPreviewKind,
   attachmentSource,
+  clampText,
   holdsCategory,
   wallClockText,
   withdrawnNewestFirst,
 } from './rules'
+import { WITHDRAW_NOTE_MAX, withdrawNote } from './withdraw'
 
 describe('holdsCategory — array membership and nothing looser', () => {
   it('admits an array holding the exact code', () => {
@@ -182,5 +184,44 @@ describe('attachmentCaption — an order file’s caption, shown only when not e
     expect(attachmentCaption({ caption: null })).toBe('')
     expect(attachmentCaption({ caption: 7 })).toBe('')
     expect(attachmentCaption(null)).toBe('')
+  })
+})
+
+describe('clampText — the ONE clamp a caption and a withdraw note share (ticket 330)', () => {
+  it('trims, then keeps a text at or under the cap whole', () => {
+    expect(clampText('  Front page \n', 200)).toBe('Front page')
+    expect(clampText('   ', 200)).toBe('')
+    expect(clampText('', 200)).toBe('')
+    expect(clampText('x'.repeat(200), 200)).toBe('x'.repeat(200))
+  })
+
+  it('cuts at the cap, after the trim', () => {
+    expect(clampText('a'.repeat(250), 200)).toBe('a'.repeat(200))
+    expect(clampText(`   ${'b'.repeat(200)}   `, 200)).toBe('b'.repeat(200))
+  })
+
+  it('keeps Arabic as typed, and cuts it at the cap like any text', () => {
+    const typed = 'الوصفة الطبية — صفحة ٢'
+    expect(clampText(typed, 200)).toBe(typed)
+    expect(clampText('صفحة ٢ من ٣ '.repeat(25), 200)).toBe('صفحة ٢ من ٣ '.repeat(25).slice(0, 200))
+  })
+
+  it('never splits a surrogate pair at the edge: the pair is kept whole or left out whole', () => {
+    expect(clampText(`${'a'.repeat(199)}😀tail`, 200)).toBe('a'.repeat(199))
+    expect(clampText(`${'a'.repeat(198)}😀tail`, 200)).toBe(`${'a'.repeat(198)}😀`)
+  })
+
+  it('is the withdraw note’s rule: every note case gives the same answer through it', () => {
+    for (const note of [
+      '',
+      '  Belongs to P020 \n',
+      'a'.repeat(250),
+      `   ${'b'.repeat(200)}   `,
+      'ملاحظة'.repeat(40),
+      `${'a'.repeat(199)}😀tail`,
+      `${'a'.repeat(198)}😀tail`,
+    ]) {
+      expect(withdrawNote(note), note).toBe(clampText(note, WITHDRAW_NOTE_MAX))
+    }
   })
 })

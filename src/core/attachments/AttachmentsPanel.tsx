@@ -40,8 +40,9 @@ import type { WithdrawClosingAnswer, WithdrawReason } from './withdraw'
  * - `enabled`: whether ByOwner may be read at all yet (default: at once). The order
  *   tab keeps this panel mounted while hidden, and passes `false` until the tab is
  *   first selected, so neither the page load nor this mount reads the owner (327);
- * - `captioned`: this owner's files carry a caption, and the list shows it when not
- *   empty (327; the slip's do not, and it passes nothing);
+ * - `captioned`: this owner's files carry a caption — the list shows it when not
+ *   empty (327), and Add takes one file at a time with an optional caption (330). The
+ *   slip's do not, and it passes nothing;
  * - `reasons`: the withdraw reasons as data, in the order shown;
  * - `words`: every sentence that names what the files are (`AttachmentsPanelWords`);
  * - `addOffered` / `withdrawOffered`: the caller's gates, from the one shared probe.
@@ -145,7 +146,7 @@ export default function AttachmentsPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      {addOffered && <AttachmentAdd target={target} words={words} onStored={onChanged} />}
+      {addOffered && <AttachmentAdd target={target} captioned={captioned} words={words} onStored={onChanged} />}
       {notice && <WithdrawNoticeLine notice={notice} words={words} />}
       {list.isPending ? (
         <PanelShimmer label={words.loading} />

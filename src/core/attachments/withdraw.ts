@@ -10,6 +10,7 @@
  * and nothing here can undo one.
  */
 import { ApiError, apiErrorCode, apiErrorKind } from '@/core/api'
+import { clampText } from './rules'
 
 /** What the confirm rule reads of a reason: its code, and whether it needs a note. */
 export interface WithdrawReasonRule {
@@ -54,13 +55,9 @@ export function canConfirmWithdraw(
   return !needsWithdrawNote(reasons, code) || note.trim().length > 0
 }
 
-/** The note as sent: trimmed, then cut to 200, never splitting a surrogate pair. */
+/** The note as sent: trimmed, then cut to 200, never splitting a surrogate pair — `clampText`, the caption's clamp too. */
 export function withdrawNote(note: string): string {
-  const text = note.trim()
-  if (text.length <= WITHDRAW_NOTE_MAX) return text
-  const high = text.charCodeAt(WITHDRAW_NOTE_MAX - 1)
-  const end = high >= 0xd800 && high <= 0xdbff ? WITHDRAW_NOTE_MAX - 1 : WITHDRAW_NOTE_MAX
-  return text.slice(0, end)
+  return clampText(note, WITHDRAW_NOTE_MAX)
 }
 
 /** `POST AttachmentWeb/{attachmentId}/Withdraw`'s body — exactly these two fields. */

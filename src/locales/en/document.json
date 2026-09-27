@@ -283,7 +283,9 @@
     "add": {
       "region": "Add a prescription",
       "button": "Add prescription",
-      "failed": "The file could not be sent."
+      "failed": "The file could not be sent.",
+      "captionLabel": "Caption (optional)",
+      "captionHint": "Type the caption before you pick the file. Only the first {{max}} characters are kept."
     },
     "withdraw": {
       "title": "Withdraw a file",

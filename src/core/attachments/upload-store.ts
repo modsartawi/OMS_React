@@ -31,9 +31,10 @@ interface AttachmentUploadsState {
   /**
    * Check and send one pick's files, each under a new id. `onStored` runs after each
    * 200 — the caller's freshness (the slip drawer re-reads the day and marks its
-   * grids stale).
+   * grids stale; the order tab re-reads its list). `caption` (the order's Add, ticket
+   * 330) rides on the item, so a retry sends it again with the same id.
    */
-  add: (target: AttachmentTarget, files: Iterable<File>, onStored: () => void) => void
+  add: (target: AttachmentTarget, files: Iterable<File>, onStored: () => void, caption?: string) => void
   /** Send one refused file again, under its SAME id — only when its refusal said a retry can help. */
   retry: (target: AttachmentTarget, clientRequestId: string, onStored: () => void) => void
   /**
@@ -93,8 +94,8 @@ export const useAttachmentUploads = create<AttachmentUploadsState>((set, get) =>
 
   return {
     byOwner: {},
-    add: (target, files, onStored) => {
-      const picked = pickAttachmentFiles(files, mintRequestId)
+    add: (target, files, onStored, caption) => {
+      const picked = pickAttachmentFiles(files, mintRequestId, caption)
       if (picked.length === 0) return
       const slot = uploadSlot(target)
       set((state) => ({

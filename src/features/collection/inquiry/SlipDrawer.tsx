@@ -4,31 +4,33 @@ import { useTranslation } from 'react-i18next'
 import { Ban, Download, FileText, X } from 'lucide-react'
 
 import { ApiError, apiErrorCode, apiErrorMessage } from '@/core/api'
+import {
+  READ_ON_EVERY_OPENING,
+  attachmentAccessQuery,
+  attachmentContentKey,
+  attachmentContentQuery,
+  attachmentsByOwnerKey,
+  attachmentsByOwnerQuery,
+} from '@/core/attachments/api'
+import {
+  attachmentContentFailure,
+  attachmentPreviewKind,
+  attachmentSource,
+  wallClockText,
+} from '@/core/attachments/rules'
+import { uploadInFlight, uploadsOf, useAttachmentUploads } from '@/core/attachments/upload-store'
+import type { WithdrawClosingAnswer } from '@/core/attachments/withdraw'
 import type { StoredSlip, WithdrawnSlip } from '@/core/models/collection'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { saveBlob } from '@/core/util/download-file'
-import {
-  markSlipDayChanged,
-  slipAccessQuery,
-  slipContentKey,
-  slipContentQuery,
-  slipsByOwnerKey,
-  slipsByOwnerQuery,
-} from './api'
+import { markSlipDayChanged } from './api'
 import { ListShimmer } from './GridStates'
 import SlipAdd from './SlipAdd'
 import SlipTillText from './SlipTillText'
 import SlipWithdrawDialog from './SlipWithdrawDialog'
-import { slipUploadInFlight, useSlipUploads } from './slip-upload-store'
-import { canWithdrawSlips, type WithdrawClosingAnswer } from './slip-withdraw'
-import {
-  slipContentFailure,
-  slipPreviewKind,
-  slipTill,
-  wallClockText,
-  type SlipDay,
-} from './slips'
+import { canWithdrawSlips } from './slip-withdraw'
+import { slipTarget, type SlipDay } from './slips'
 
 /**
  * **A store day's slips** (ticket 321, BackOffice 2034 + 2035) — the side drawer a
@@ -54,13 +56,13 @@ import {
  */
 export default function SlipDrawer({ day, onClose }: { day: SlipDay | null; onClose: () => void }) {
   const { t } = useTranslation('collection')
-  const uploads = useSlipUploads((s) => (day ? s.byOwner[day.ownerKey] : undefined))
-  const clearSettled = useSlipUploads((s) => s.clearSettled)
-  const busy = slipUploadInFlight(uploads)
+  const uploads = useAttachmentUploads((s) => (day ? uploadsOf(s, slipTarget(day.ownerKey)) : undefined))
+  const clearSettled = useAttachmentUploads((s) => s.clearSettled)
+  const busy = uploadInFlight(uploads)
   if (!day) return null
   const close = () => {
     if (busy) return
-    clearSettled(day.ownerKey)
+    clearSettled(slipTarget(day.ownerKey))
     onClose()
   }
   return (
@@ -163,8 +165,9 @@ type WithdrawNotice = { answer: WithdrawClosingAnswer; fileName: string; serverM
 function SlipDayBody({ day }: { day: SlipDay }) {
   const { t } = useTranslation('collection')
   const queryClient = useQueryClient()
-  const list = useQuery(slipsByOwnerQuery(day.ownerKey))
-  const access = useQuery(slipAccessQuery())
+  // A new read on every opening: the body mounts with the drawer, and again per day.
+  const list = useQuery(attachmentsByOwnerQuery(slipTarget(day.ownerKey), READ_ON_EVERY_OPENING))
+  const access = useQuery(attachmentAccessQuery())
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   /** The file name of a slip that answered 404 — withdrawn since the list was read. */
@@ -209,7 +212,7 @@ function SlipDayBody({ day }: { day: SlipDay }) {
       return
     }
     if (selectedId === slip.attachmentId) setSelectedId(null)
-    queryClient.removeQueries({ queryKey: slipContentKey(slip.attachmentId) })
+    queryClient.removeQueries({ queryKey: attachmentContentKey(slip.attachmentId) })
     markSlipDayChanged(queryClient, day.ownerKey)
   }
 
@@ -218,7 +221,7 @@ function SlipDayBody({ day }: { day: SlipDay }) {
     (slip: StoredSlip) => {
       setGoneName(slip.fileName)
       setSelectedId(null)
-      void queryClient.invalidateQueries({ queryKey: slipsByOwnerKey(day.ownerKey) })
+      void queryClient.invalidateQueries({ queryKey: attachmentsByOwnerKey(slipTarget(day.ownerKey)) })
     },
     [queryClient, day.ownerKey],
   )
@@ -403,7 +406,7 @@ function SlipList({
                   {wallClockText(slip.storedAt)}
                 </td>
                 <td className="px-2 py-1.5" data-cell="till">
-                  <SlipTillText till={slipTill(slip)} />
+                  <SlipTillText till={attachmentSource(slip)} />
                 </td>
               </tr>
             )
@@ -434,7 +437,7 @@ function WithdrawnList({ slips }: { slips: WithdrawnSlip[] }) {
               {slip.fileName}
             </span>
             <span className="text-muted-foreground" data-cell="till">
-              <SlipTillText till={slipTill(slip)} />
+              <SlipTillText till={attachmentSource(slip)} />
             </span>
             <span data-cell="withdrawn">
               {t('slips.drawer.withdrawn.by', { by: slip.withdrawnBy, at: wallClockText(slip.withdrawnAt) })}
@@ -498,15 +501,15 @@ function SlipPreview({
   onWithdraw?: (slip: StoredSlip) => void
 }) {
   const { t } = useTranslation('collection')
-  const content = useQuery(slipContentQuery(slip.attachmentId))
-  const failure = content.isError ? slipContentFailure(apiErrorCode(content.error)) : null
+  const content = useQuery(attachmentContentQuery(slip.attachmentId))
+  const failure = content.isError ? attachmentContentFailure(apiErrorCode(content.error)) : null
 
   useEffect(() => {
     if (failure === 'gone') onGone(slip)
   }, [failure, onGone, slip])
 
   const blob = content.data?.blob ?? null
-  const kind = blob ? slipPreviewKind(blob.type) : 'none'
+  const kind = blob ? attachmentPreviewKind(blob.type) : 'none'
   // Only a previewable blob needs a URL; Download makes its own through `saveBlob`.
   const url = useObjectUrl(kind === 'none' ? null : blob)
 

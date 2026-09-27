@@ -7,6 +7,7 @@
  * format**, so a money field on a document contract is a pre-formatted `string`
  * and never a `number`.
  */
+import type { AttachmentOwnerSiblings, StoredAttachment, WithdrawnAttachment } from './attachment'
 
 /**
  * `GET CollectionWeb/Access` — the whole area's probe (spec 249 §"Getting in",
@@ -886,78 +887,18 @@ export interface SlipCountedSiblings {
   slipCountsUnavailable: boolean
 }
 
-/**
- * `GET AttachmentWeb/Access` — which attachment categories the session holds
- * (BackOffice 2034) and which it may withdraw from (BackOffice 2035). Cookie-only,
- * not grant-gated, and a 503 `NOT_SET_UP` until the File Server key exists.
- *
- * ⚠️ **For drawing only**: every AttachmentWeb route checks the grant again.
- * Both lists are read with a strict array-membership test, never truthiness — a
- * malformed answer (a bare string, a missing field) is a denial.
+/*
+ * The slip names of the attachment register's shapes (tickets 320-323). Since ticket
+ * 325 they are ALIASES of the shared ones in `./attachment`, which the order page's
+ * prescriptions read too: nothing is renamed on the wire, and no slip reader changes.
  */
-export interface AttachmentAccess {
-  categories: string[]
-  /** The withdraw grant's categories (BackOffice 2035). Optional: an older SIS.Api omits it. */
-  withdrawCategories?: string[]
-}
+export type { AttachmentAccess } from './attachment'
 
-/**
- * `GET AttachmentWeb/ByOwner?ownerKind=STORE_DAY&ownerKey=…` — one STORED slip of a
- * store day (BackOffice 2034 + 2035, `AttachmentDto` on pricing2), camel-cased by the
- * serializer, with **nothing added and nothing renamed**. `data` is these, newest
- * first as sent.
- *
- * ⚠️ `storedAt` is **local wall clock with no zone**. It is drawn as sent, never
- * parsed through `new Date(...)`, which would read it as UTC or as the browser's zone.
- */
-export interface StoredSlip {
-  attachmentId: string
-  status: string
-  ownerKind: string
-  ownerKey: string
-  category: string
-  kind: string
-  /** The uploader's original file name — and the name a download saves under. */
-  fileName: string
-  sizeBytes: number
-  storedAt: string
-  /** The till that sent it; `''` for a web upload (BackOffice 2034). */
-  sourceDevice: string
-  /** The till's staff id, or the web user's Ua `UserId` when `sourceDevice` is empty (BackOffice 2035). */
-  uploadedBy: string
-}
+/** One STORED slip of a store day — `StoredAttachment` (`AttachmentDto`). */
+export type StoredSlip = StoredAttachment
 
-/**
- * One withdrawn slip, **metadata only** (BackOffice 2035, `WithdrawnAttachmentDto`).
- * There is no preview and no download of it: `/Content` answers 404 for a withdrawn
- * row (C6), so `attachmentId` is a list key here, never a handle to the bytes.
- *
- * `reasonLabel` / `reasonLabelArabic` are the SERVER's copies of the reason, and
- * the list draws those — never a client-side table. Both timestamps are local wall
- * clock with no zone, like `storedAt`.
- */
-export interface WithdrawnSlip {
-  attachmentId: string
-  category: string
-  kind: string
-  fileName: string
-  sourceDevice: string
-  uploadedBy: string
-  storedAt: string
-  withdrawnBy: string
-  withdrawnAt: string
-  reasonCode: string
-  reasonLabel: string
-  reasonLabelArabic: string
-  /** `''` when none was given. */
-  note: string
-}
+/** One withdrawn slip, metadata only — `WithdrawnAttachment` (`WithdrawnAttachmentDto`). */
+export type WithdrawnSlip = WithdrawnAttachment
 
-/**
- * The sibling `ByOwner` puts **beside** `data` (BackOffice 2035,
- * `AttachmentOwnerListResponse`), read through `api.getEnvelope`: the owner's
- * withdrawn slips, newest withdrawal first.
- */
-export interface SlipOwnerSiblings {
-  withdrawn: WithdrawnSlip[]
-}
+/** ByOwner's `withdrawn` sibling — `AttachmentOwnerSiblings`. */
+export type SlipOwnerSiblings = AttachmentOwnerSiblings

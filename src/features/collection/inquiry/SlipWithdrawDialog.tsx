@@ -4,14 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { TriangleAlert } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
-import type { StoredSlip } from '@/core/models/collection'
-import Button from '@/core/ui/Button'
-import ErrorBanner from '@/core/ui/ErrorBanner'
-import Modal from '@/core/ui/Modal'
-import { collectionApi } from './api'
+import { attachmentsApi } from '@/core/attachments/api'
+import { attachmentSource, wallClockText } from '@/core/attachments/rules'
 import {
   WITHDRAW_NOTE_MAX,
-  WITHDRAW_REASONS,
   canConfirmWithdraw,
   needsWithdrawNote,
   withdrawAnswer,
@@ -21,10 +17,13 @@ import {
   type WithdrawAnswer,
   type WithdrawBody,
   type WithdrawClosingAnswer,
-  type WithdrawReasonCode,
-} from './slip-withdraw'
+} from '@/core/attachments/withdraw'
+import type { StoredSlip } from '@/core/models/collection'
+import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
+import Modal from '@/core/ui/Modal'
+import { WITHDRAW_REASONS, type WithdrawReasonCode } from './slip-withdraw'
 import SlipTillText from './SlipTillText'
-import { slipTill, wallClockText } from './slips'
 
 /**
  * **Withdraw a slip** (ticket 323, BackOffice 2035): the confirm dialog, opened
@@ -60,7 +59,7 @@ export default function SlipWithdrawDialog({
   const inFlight = useRef(false)
 
   const withdraw = useMutation({
-    mutationFn: (body: WithdrawBody) => collectionApi.withdrawSlip(slip.attachmentId, body),
+    mutationFn: (body: WithdrawBody) => attachmentsApi.withdraw(slip.attachmentId, body),
     onSettled: (_data, error) => {
       inFlight.current = false
       const answer = withdrawAnswer(error)
@@ -71,7 +70,7 @@ export default function SlipWithdrawDialog({
 
   const pending = withdraw.isPending
   const blocked = refusal !== null && !withdrawCanResend(refusal.answer)
-  const ready = canConfirmWithdraw(reasonCode, note) && !pending && !blocked
+  const ready = canConfirmWithdraw(WITHDRAW_REASONS, reasonCode, note) && !pending && !blocked
   const confirm = () => {
     if (!ready || reasonCode === null || inFlight.current) return
     inFlight.current = true
@@ -101,7 +100,7 @@ export default function SlipWithdrawDialog({
     return () => dialog.removeEventListener('close', onNativeClose)
   }, [])
 
-  const noteNeeded = needsWithdrawNote(reasonCode)
+  const noteNeeded = needsWithdrawNote(WITHDRAW_REASONS, reasonCode)
 
   return (
     <Modal
@@ -133,7 +132,7 @@ export default function SlipWithdrawDialog({
           </dd>
           <dt className="text-muted-foreground">{t('slips.drawer.columns.till')}</dt>
           <dd>
-            <SlipTillText till={slipTill(slip)} />
+            <SlipTillText till={attachmentSource(slip)} />
           </dd>
           <dt className="text-muted-foreground">{t('slips.drawer.columns.storedAt')}</dt>
           <dd className="tabular-nums">{wallClockText(slip.storedAt)}</dd>

@@ -2,9 +2,11 @@
  * ECR slips at the day close (spec 319, BackOffice spec 2030) — the pure rules the
  * Ready and Cash Collections grids read, and that 321–323 build on.
  *
- * Pure: no React, no network, no i18n. The probe's query options live in `./api`
- * beside the call, on `assignmentOptionsQuery`'s pattern; what is here is what the
- * answers MEAN.
+ * Pure: no React, no network, no i18n. The probe's query options live in
+ * `@/core/attachments/api` beside the call, on `assignmentOptionsQuery`'s pattern;
+ * what is here is what the answers MEAN for a slip. The rules every owner shares
+ * (the preview, the stamps, the Withdrawn order, `holdsCategory`) moved to
+ * `@/core/attachments/rules` with ticket 325.
  *
  * 🔑 **Null is UNKNOWN, never "no slip"** (BackOffice 2034's `## Web contract`). A
  * null `slipCount` draws a dash, never counts as 0, and never falls into the "No
@@ -13,13 +15,9 @@
  * and both let an unknown day read as a day with no slip.
  */
 import type { ApiEnvelope } from '@/core/api'
-import type {
-  AttachmentAccess,
-  SlipCountedSiblings,
-  SlipOwnerSiblings,
-  StoredSlip,
-  WithdrawnSlip,
-} from '@/core/models/collection'
+import { holdsCategory } from '@/core/attachments/rules'
+import type { AttachmentTarget } from '@/core/attachments/upload'
+import type { AttachmentAccess, SlipCountedSiblings } from '@/core/models/collection'
 
 /** The attachment category of a day close's slips — the one this wave draws. */
 export const CASH_CLOSE = 'CASH_CLOSE'
@@ -28,23 +26,13 @@ export const CASH_CLOSE = 'CASH_CLOSE'
 export const SLIP_ABSENT = '—'
 
 /**
- * Does a probe list hold `category`? **Array membership and nothing looser.**
- *
- * 🚩 The trap is a bare string: `"CASH_CLOSE".includes("CASH_CLOSE")` is true too,
- * so a door that answered `categories: "CASH_CLOSE"` would light the column through
- * a `String.prototype.includes`. Only an array that holds the exact code admits.
- */
-export function holdsCategory(list: unknown, category: string): boolean {
-  return Array.isArray(list) && list.includes(category)
-}
-
-/**
  * May this session see slips at all — the column, the filter, the drawer and Add?
  *
  * Fails closed: a pending probe (`undefined`), a refused one (503 `NOT_SET_UP`,
  * 403, a network failure — `data` is then `undefined` too), a malformed answer
  * and a list without `CASH_CLOSE` are all "no". The probe only decides what is
- * drawn; the server checks the grant again on every call.
+ * drawn; the server checks the grant again on every call. Array membership only
+ * (`holdsCategory`): a bare string `"CASH_CLOSE"` is a no.
  */
 export function canSeeSlips(access: AttachmentAccess | null | undefined): boolean {
   return holdsCategory(access?.categories, CASH_CLOSE)
@@ -188,110 +176,14 @@ export function slipDayOf(row: SlipDayRow | null | undefined): SlipDay | null {
   return { ownerKey, store, businessDate: ownerKey.slice(ownerKey.lastIndexOf('/') + 1) }
 }
 
-/**
- * Where a slip came from: the till's device code, or — a web upload has an empty
- * `sourceDevice` — the web user who filed it (BackOffice 2035, which supersedes
- * 2034's plain "Web"). The words are the drawer's `t()`; this only decides which.
- */
-export type SlipTill = { kind: 'device'; device: string } | { kind: 'web'; uploadedBy: string }
-
-export function slipTill(item: { sourceDevice?: string | null; uploadedBy?: string | null }): SlipTill {
-  const device = typeof item.sourceDevice === 'string' ? item.sourceDevice.trim() : ''
-  if (device) return { kind: 'device', device }
-  return { kind: 'web', uploadedBy: typeof item.uploadedBy === 'string' ? item.uploadedBy : '' }
-}
-
-/** How a fetched slip is shown: an `<img>`, an `<iframe>`, or no preview (download only). */
-export type SlipPreviewKind = 'image' | 'pdf' | 'none'
+/** The kind a day close's slip is filed as. A machine code, never shown. */
+export const ECR_SLIP = 'ECR_SLIP'
 
 /**
- * The preview for a `/Content` answer's content type — `image/jpeg` and `image/png`
- * as an image, `application/pdf` in a frame, anything else not at all (its
- * download still works). Parameters and case are ignored; nothing is sniffed.
+ * What a store day's slip files onto — the four codes the shared upload form and
+ * store take (ticket 325), for the owner key `storeDayOwnerKey` built. The drawer's
+ * Add, its list and its store slot all come from here, so nothing re-spells them.
  */
-export function slipPreviewKind(contentType: string | null | undefined): SlipPreviewKind {
-  const type = (contentType ?? '').split(';')[0].trim().toLowerCase()
-  if (type === 'image/jpeg' || type === 'image/png') return 'image'
-  if (type === 'application/pdf') return 'pdf'
-  return 'none'
-}
-
-/** `yyyy-MM-ddTHH:mm[:ss]` at the head of a wall-clock stamp. */
-const WALL_CLOCK = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}(?::\d{2})?)/
-
-/**
- * A wall-clock stamp as the drawer prints it: the server's own digits, the `T` cut
- * to a space and any fraction of a second dropped — `2026-09-24T22:31:07.1234567`
- * reads `2026-09-24 22:31:07`.
- *
- * 🔑 A string cut, never a `Date`: `storedAt` and `withdrawnAt` are local wall clock
- * with no zone, and parsing them would shift them by the browser's offset. Anything
- * that is not that shape is shown exactly as sent.
- */
-export function wallClockText(value: unknown): string {
-  if (typeof value !== 'string') return ''
-  const m = WALL_CLOCK.exec(value)
-  return m ? `${m[1]} ${m[2]}` : value
-}
-
-/**
- * The Withdrawn (n) list: newest withdrawal first, and `n` is its length.
- *
- * The server already sends it in that order; this holds it there by comparing the
- * `withdrawnAt` strings — one ISO wall-clock shape, so the text order IS the time
- * order, with no `Date` in between. A stable sort, so a tie keeps the server's order;
- * a missing stamp sorts last. Returns a new array; a non-array is an empty list.
- */
-export function withdrawnNewestFirst(list: unknown): WithdrawnSlip[] {
-  if (!Array.isArray(list)) return []
-  const stamp = (w: WithdrawnSlip | null | undefined) => (typeof w?.withdrawnAt === 'string' ? w.withdrawnAt : '')
-  return [...(list as WithdrawnSlip[])].sort((a, b) => {
-    const x = stamp(a)
-    const y = stamp(b)
-    return x === y ? 0 : x < y ? 1 : -1
-  })
-}
-
-/** A store day's slips as the drawer reads them. */
-export interface SlipOwnerList {
-  /** STORED slips, newest first as sent. */
-  stored: StoredSlip[]
-  /** Withdrawn slips, newest withdrawal first. */
-  withdrawn: WithdrawnSlip[]
-}
-
-/**
- * `ByOwner`'s envelope → the two lists. `withdrawn` rides BESIDE `data`
- * (BackOffice 2035), which is why the read keeps the envelope; an older SIS.Api
- * omits it, and that reads as nothing withdrawn.
- */
-export function slipOwnerList(envelope: ApiEnvelope<StoredSlip[], SlipOwnerSiblings>): SlipOwnerList {
-  return {
-    stored: Array.isArray(envelope.data) ? envelope.data : [],
-    withdrawn: withdrawnNewestFirst(envelope.withdrawn),
-  }
-}
-
-/**
- * The two `/Content` refusal codes the drawer words itself (`AttachmentContentResult`
- * on pricing2). Branched on the CODE, never the status: a 502 is also
- * `FILE_SERVER_KEY_REFUSED`, which is IT's to fix, not a lost file.
- */
-export const SLIP_NOT_FOUND = 'NOT_FOUND'
-export const SLIP_FILE_MISSING = 'FILE_SERVER_MISSING'
-
-/**
- * What a failed `/Content` means for the drawer:
- * - `gone`: 404 `NOT_FOUND`. The slip is no longer readable (withdrawn meanwhile):
- *   say so and re-read `ByOwner`.
- * - `lost`: 502 `FILE_SERVER_MISSING`. The File Server no longer holds the file. Not
- *   the user's fault, and no retry.
- * - `other`: anything else, shown as the server sent it.
- */
-export type SlipContentFailure = 'gone' | 'lost' | 'other'
-
-export function slipContentFailure(code: string | null | undefined): SlipContentFailure {
-  if (code === SLIP_NOT_FOUND) return 'gone'
-  if (code === SLIP_FILE_MISSING) return 'lost'
-  return 'other'
+export function slipTarget(ownerKey: string): AttachmentTarget {
+  return { ownerKind: STORE_DAY, ownerKey, category: CASH_CLOSE, kind: ECR_SLIP }
 }

@@ -1,44 +1,53 @@
 /**
- * **Add slip** (ticket 322, BackOffice 2035's `## Web contract`) — the pure half of
- * a slip finance files from the drawer: the browser's own check, the multipart form
- * `POST AttachmentWeb/Upload` takes, and when a refusal is worth a retry.
+ * **Add a file** (spec 319's ticket 322, BackOffice 2035's `## Web contract`; lifted
+ * by ticket 325) — the pure half of a file filed from the web: the browser's own
+ * check, the multipart form `POST AttachmentWeb/Upload` takes, and when a refusal is
+ * worth a retry.
  *
- * Pure: no React, no network, no i18n. The words are the drawer's `t()`; the store
- * that sends lives in `./slip-upload-store`.
+ * Pure: no React, no network, no i18n. The words are the caller's `t()`; the store
+ * that sends lives in `./upload-store`. The owner kind, key, category and kind are
+ * the caller's (`AttachmentTarget`) — nothing here names a slip's.
  */
 import { apiErrorCode, apiErrorKind } from '@/core/api'
-import { CASH_CLOSE, STORE_DAY } from './slips'
+import type { AttachmentOwner } from '@/core/models/attachment'
 
 /** The File Server's cap, 10 MiB. Exactly this many bytes passes; one more is refused. */
-export const SLIP_MAX_BYTES = 10_485_760
+export const ATTACHMENT_MAX_BYTES = 10_485_760
 
 /** What the picker offers. The check below is what decides; this only narrows the dialog. */
-export const SLIP_ACCEPT = '.jpg,.jpeg,.png,.pdf'
+export const ATTACHMENT_ACCEPT = '.jpg,.jpeg,.png,.pdf'
 
-/** The kind a day close's slip is filed as. A machine code, never shown. */
-export const ECR_SLIP = 'ECR_SLIP'
+/**
+ * What an upload files onto: the owner, and the category and kind the owner's
+ * accept-list line takes. Machine codes, never shown. The slip drawer's is
+ * `slipTarget` (`STORE_DAY` / `CASH_CLOSE` / `ECR_SLIP`).
+ */
+export interface AttachmentTarget extends AttachmentOwner {
+  category: string
+  kind: string
+}
 
 const EXTENSIONS = ['jpg', 'jpeg', 'png', 'pdf']
 const TYPES = ['image/jpeg', 'image/png', 'application/pdf']
 
-/** Why the browser refused a file before sending it: not a slip's type, or over the cap. */
-export type SlipFileRefusal = 'type' | 'size'
+/** Why the browser refused a file before sending it: not an accepted type, or over the cap. */
+export type AttachmentFileRefusal = 'type' | 'size'
 
 /**
  * The browser's check, before anything is sent (the server checks both again and
  * answers 415 / 413): the extension **or** the type is jpg/jpeg/png/pdf, and the
- * size is at most `SLIP_MAX_BYTES`. `null` when the file may go.
+ * size is at most `ATTACHMENT_MAX_BYTES`. `null` when the file may go.
  *
  * Either one admits the type, because each is sometimes missing: Windows leaves a
  * file's `type` empty for an extension it has no mapping for, and a phone's photo
  * can arrive named without one.
  */
-export function slipFileRefusal(file: { name: string; type: string; size: number }): SlipFileRefusal | null {
+export function attachmentFileRefusal(file: { name: string; type: string; size: number }): AttachmentFileRefusal | null {
   const dot = file.name.lastIndexOf('.')
   const extension = dot < 0 ? '' : file.name.slice(dot + 1).trim().toLowerCase()
   const type = file.type.split(';')[0].trim().toLowerCase()
   if (!EXTENSIONS.includes(extension) && !TYPES.includes(type)) return 'type'
-  if (!(file.size <= SLIP_MAX_BYTES)) return 'size'
+  if (!(file.size <= ATTACHMENT_MAX_BYTES)) return 'size'
   return null
 }
 
@@ -50,9 +59,9 @@ export function slipFileRefusal(file: { name: string; type: string; size: number
  * - `stored`: the server answered 200.
  * - `refused`: the server (or the network) said no. `retryable` says whether a retry can help.
  */
-export type SlipUploadStatus = 'local-refused' | 'queued' | 'sending' | 'stored' | 'refused'
+export type AttachmentUploadStatus = 'local-refused' | 'queued' | 'sending' | 'stored' | 'refused'
 
-export interface SlipUpload {
+export interface AttachmentUpload {
   /**
    * Minted **once per picked file** and reused on every retry of it, so a retry
    * whose first attempt did land is recognised by the server rather than filed
@@ -60,9 +69,9 @@ export interface SlipUpload {
    */
   clientRequestId: string
   file: File
-  status: SlipUploadStatus
+  status: AttachmentUploadStatus
   /** Why the browser refused it (`local-refused` only). */
-  localRefusal: SlipFileRefusal | null
+  localRefusal: AttachmentFileRefusal | null
   /** The failure a `refused` item carries — shown through `apiErrorMessage`, as sent. */
   error: unknown
   /** May a `refused` item be sent again (`isRetryableUpload`)? */
@@ -74,9 +83,9 @@ export interface SlipUpload {
  * the browser. A refused file is kept (it is named with its reason) but never sent;
  * the others still go. No count cap (C9).
  */
-export function pickSlipFiles(files: Iterable<File>, mintId: () => string): SlipUpload[] {
+export function pickAttachmentFiles(files: Iterable<File>, mintId: () => string): AttachmentUpload[] {
   return Array.from(files, (file) => {
-    const localRefusal = slipFileRefusal(file)
+    const localRefusal = attachmentFileRefusal(file)
     return {
       clientRequestId: mintId(),
       file,
@@ -89,16 +98,16 @@ export function pickSlipFiles(files: Iterable<File>, mintId: () => string): Slip
 }
 
 /** May this item be sent now? A first send, or a retry the refusal said could help — never one in flight. */
-export function canSendSlip(item: SlipUpload): boolean {
+export function canSendUpload(item: AttachmentUpload): boolean {
   return item.status === 'queued' || (item.status === 'refused' && item.retryable)
 }
 
 /**
- * Does this item still need its `ClientRequestId` once its drawer closes? A file in
+ * Does this item still need its `ClientRequestId` once its panel closes? A file in
  * flight (its answer is still to come), and a refusal a retry can still help (the
  * retry must be the same capture). Everything else is settled and is forgotten.
  */
-export function keepsIdOnClose(item: SlipUpload): boolean {
+export function keepsIdOnClose(item: AttachmentUpload): boolean {
   return item.status === 'sending' || (item.status === 'refused' && item.retryable)
 }
 
@@ -107,16 +116,19 @@ export function keepsIdOnClose(item: SlipUpload): boolean {
  * contract names (`AttachmentFormFields` on pricing2), one file per request.
  *
  * 🔑 **No `SourceDevice`.** A web row names no device, and the server records the
- * session's Ua user as `uploadedBy`. `ownerKey` is the drawer's day's, which
- * `storeDayOwnerKey` built — never re-spelled here.
+ * session's Ua user as `uploadedBy`. The target is the caller's (a store day's owner
+ * key is `storeDayOwnerKey`'s) — never re-spelled here.
  */
-export function slipUploadForm(item: Pick<SlipUpload, 'clientRequestId' | 'file'>, ownerKey: string): FormData {
+export function attachmentUploadForm(
+  item: Pick<AttachmentUpload, 'clientRequestId' | 'file'>,
+  target: AttachmentTarget,
+): FormData {
   const form = new FormData()
   form.append('ClientRequestId', item.clientRequestId)
-  form.append('OwnerKind', STORE_DAY)
-  form.append('OwnerKey', ownerKey)
-  form.append('Category', CASH_CLOSE)
-  form.append('Kind', ECR_SLIP)
+  form.append('OwnerKind', target.ownerKind)
+  form.append('OwnerKey', target.ownerKey)
+  form.append('Category', target.category)
+  form.append('Kind', target.kind)
   form.append('File', item.file, item.file.name)
   return form
 }

@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next'
 import { RotateCw, Upload } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
+import { attachmentAccessQuery } from '@/core/attachments/api'
+import { ATTACHMENT_ACCEPT, type AttachmentUpload } from '@/core/attachments/upload'
+import { uploadsOf, useAttachmentUploads } from '@/core/attachments/upload-store'
 import Button from '@/core/ui/Button'
-import { slipAccessQuery } from './api'
-import { SLIP_ACCEPT, type SlipUpload } from './slip-upload'
-import { useSlipUploads } from './slip-upload-store'
-import { canSeeSlips } from './slips'
+import { markSlipDayChanged } from './api'
+import { canSeeSlips, slipTarget } from './slips'
 
-const NO_UPLOADS: SlipUpload[] = []
+const NO_UPLOADS: AttachmentUpload[] = []
 
 /**
  * **Add slip** (ticket 322, BackOffice 2035) — for a slip a store emailed in. Any
@@ -22,17 +23,20 @@ const NO_UPLOADS: SlipUpload[] = []
  * (no count cap, C9): each is checked in the browser, a refused one is named with
  * its reason and never sent, and the others go one request each.
  *
- * The files live in `./slip-upload-store`, outside this component, so a file's
- * `ClientRequestId` outlives the drawer.
+ * The files live in the shared upload store (`@/core/attachments/upload-store`),
+ * outside this component, so a file's `ClientRequestId` outlives the drawer. A 200
+ * re-reads the day and marks both grids stale (`markSlipDayChanged`).
  */
 export default function SlipAdd({ ownerKey }: { ownerKey: string }) {
   const { t } = useTranslation('collection')
-  const access = useQuery(slipAccessQuery())
+  const access = useQuery(attachmentAccessQuery())
   const queryClient = useQueryClient()
-  const items = useSlipUploads((s) => s.byOwner[ownerKey]) ?? NO_UPLOADS
-  const add = useSlipUploads((s) => s.add)
-  const retry = useSlipUploads((s) => s.retry)
+  const target = slipTarget(ownerKey)
+  const items = useAttachmentUploads((s) => uploadsOf(s, target)) ?? NO_UPLOADS
+  const add = useAttachmentUploads((s) => s.add)
+  const retry = useAttachmentUploads((s) => s.retry)
   const input = useRef<HTMLInputElement>(null)
+  const onStored = () => markSlipDayChanged(queryClient, ownerKey)
 
   if (!canSeeSlips(access.data)) return null
 
@@ -48,7 +52,7 @@ export default function SlipAdd({ ownerKey }: { ownerKey: string }) {
           ref={input}
           type="file"
           multiple
-          accept={SLIP_ACCEPT}
+          accept={ATTACHMENT_ACCEPT}
           tabIndex={-1}
           aria-hidden
           className="sr-only"
@@ -58,7 +62,7 @@ export default function SlipAdd({ ownerKey }: { ownerKey: string }) {
             // the reset is what lets the same file be picked again as a new capture.
             const files = Array.from(e.target.files ?? [])
             e.target.value = ''
-            if (files.length) add(ownerKey, files, queryClient)
+            if (files.length) add(target, files, onStored)
           }}
         />
       </div>
@@ -73,7 +77,7 @@ export default function SlipAdd({ ownerKey }: { ownerKey: string }) {
             <UploadRow
               key={item.clientRequestId}
               item={item}
-              onRetry={() => retry(ownerKey, item.clientRequestId, queryClient)}
+              onRetry={() => retry(target, item.clientRequestId, onStored)}
             />
           ))}
         </ul>
@@ -83,7 +87,7 @@ export default function SlipAdd({ ownerKey }: { ownerKey: string }) {
 }
 
 /** One picked file: its name, where it stands, and — only when it can help — Retry. */
-function UploadRow({ item, onRetry }: { item: SlipUpload; onRetry: () => void }) {
+function UploadRow({ item, onRetry }: { item: AttachmentUpload; onRetry: () => void }) {
   const { t } = useTranslation('collection')
   return (
     <li className="flex flex-col gap-1 px-3 py-2" data-upload={item.file.name} data-status={item.status}>
@@ -120,7 +124,7 @@ function UploadRow({ item, onRetry }: { item: SlipUpload; onRetry: () => void })
   )
 }
 
-function statusClass(item: SlipUpload): string {
+function statusClass(item: AttachmentUpload): string {
   if (item.status === 'stored') return 'font-medium text-success-800'
   if (item.status === 'refused' || item.status === 'local-refused') return 'font-medium text-danger-800'
   return 'text-muted-foreground'

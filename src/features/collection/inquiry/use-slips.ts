@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
-import { slipAccessQuery } from './api'
+import { attachmentAccessQuery } from '@/core/attachments/api'
 import { canSeeSlips, isNoSlipRow, type NoSlipToggle, type SlipDay } from './slips'
 
 /** What a slip-counted grid draws from its rows and the probe (ticket 320). */
@@ -30,7 +30,7 @@ export interface SlipView<Row> {
  * different ways. Each Page still composes its own screen (244 §1); this is one
  * control's plumbing, as `useCsvExport` is.
  *
- * 🔑 The probe is the ONE shared entry (`slipAccessQuery`), read through
+ * 🔑 The probe is the ONE shared entry (`attachmentAccessQuery`), read through
  * `canSeeSlips`: pending, refused (503 NOT_SET_UP, 403, network) or malformed all
  * hide the column, the filter and the banner. Called inside the screen gate, so a
  * refused session never asks.
@@ -43,7 +43,7 @@ export function useSlipView<Row extends { slipCount: number | null }>(
   rows: Row[],
   slipCountsUnavailable: boolean | undefined,
 ): SlipView<Row> {
-  const access = useQuery(slipAccessQuery())
+  const access = useQuery(attachmentAccessQuery())
   const showSlips = canSeeSlips(access.data)
   const [pressed, setPressed] = useState(false)
 

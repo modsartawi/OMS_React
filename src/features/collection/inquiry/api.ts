@@ -22,29 +22,25 @@
  */
 import type { QueryClient } from '@tanstack/react-query'
 
-import { api, type FileResponse } from '@/core/api'
+import { api } from '@/core/api'
+import { attachmentsByOwnerKey } from '@/core/attachments/api'
 import type {
   AcrDocument,
   AcrInquiryRow,
-  AttachmentAccess,
   CollectionAccessResult,
   CollectionAttemptRow,
   CollectionInquiryRow,
   CollectionReadyRow,
   DepositInquiryResult,
   SlipCountedSiblings,
-  SlipOwnerSiblings,
-  StoredSlip,
   VoucherDocument,
-  WithdrawnSlip,
 } from '@/core/models/collection'
 import type { AssignmentBranch, AssignmentPairing, SaveAssignmentBody } from './assignment'
 import type { AssignmentUploadCommit, AssignmentUploadPreview } from './assignment-upload'
 import type { BulkAssignmentBody, BulkPreview, BulkResult } from './bulk'
 import type { RosterPerson, SavePersonBody } from './people'
 import type { AssignmentOptions } from './served-by'
-import type { WithdrawBody } from './slip-withdraw'
-import { STORE_DAY, slipCountedRows, slipOwnerList, type SlipCountedRows, type SlipOwnerList } from './slips'
+import { slipCountedRows, slipTarget, type SlipCountedRows } from './slips'
 
 /**
  * The two refusal codes the print routes branch on (245 §7), spelled once.
@@ -92,77 +88,6 @@ export function assignmentOptionsQuery() {
 }
 
 /**
- * The ONE cache key and options for `GET AttachmentWeb/Access` (ticket 320) — the
- * slip probe. The Ready and Cash Collections grids read it for the column and the
- * filter, and the drawer (321), Add (322) and Withdraw (323) read the **same**
- * entry: one request per page life, never a second fetch or a per-component copy.
- *
- * Kept with `assignmentOptionsQuery`'s pattern and for its reasons: react-query
- * merges concurrent observers' options, so the key and its options travel together.
- * `staleTime: Infinity` because a grant does not change inside a page life;
- * `retry: false` because a 503 `NOT_SET_UP` or a 403 is an answer, and the column
- * stays hidden on the first no rather than after three.
- *
- * 🚩 Read what it answers through `canSeeSlips` (`./slips`), never by truthiness.
- */
-export const SLIP_ACCESS_KEY = ['collection', 'slips', 'access'] as const
-
-export function slipAccessQuery() {
-  return {
-    queryKey: SLIP_ACCESS_KEY,
-    queryFn: () => collectionApi.slipAccess(),
-    staleTime: Infinity,
-    retry: false,
-  } as const
-}
-
-/**
- * The ONE cache key for a store day's slip list (ticket 321), by the owner key
- * `storeDayOwnerKey` built. The drawer reads it; 322's Add and 323's Withdraw
- * re-read the same entry, so nothing re-spells it.
- *
- * ⚠️ It shares the `['collection', 'slips']` prefix with the probe. Invalidate by
- * THIS key, never by the prefix, or the probe re-asks too.
- */
-export const slipsByOwnerKey = (ownerKey: string) => ['collection', 'slips', 'by-owner', ownerKey] as const
-
-/**
- * `ByOwner`'s query options. Read fresh on every opening (the default `staleTime`
- * of 0): a slip filed at a till a minute ago must be there.
- *
- * `retry: false`, as the probe: a 503 `NOT_SET_UP` or a bare 403 is an answer,
- * and the drawer says so on the first no rather than after a retry.
- */
-export function slipsByOwnerQuery(ownerKey: string) {
-  return {
-    queryKey: slipsByOwnerKey(ownerKey),
-    queryFn: () => collectionApi.slipsByOwner(ownerKey),
-    retry: false,
-  } as const
-}
-
-/**
- * One slip's bytes for the drawer's preview (ticket 321), fetched once per
- * selection. The same blob is what Download saves, so a download never fetches
- * a second time.
- *
- * `gcTime: 0`: the bytes leave the cache the moment nothing previews them — a
- * slip withdrawn meanwhile must not stay readable out of a cache, and a
- * reselection reads the door again. `retry: false`: a 404 or a 502 is an answer,
- * and a 502 `FILE_SERVER_MISSING` is not the user's fault and has no retry.
- */
-export const slipContentKey = (attachmentId: string) => ['collection', 'slips', 'content', attachmentId] as const
-
-export function slipContentQuery(attachmentId: string) {
-  return {
-    queryKey: slipContentKey(attachmentId),
-    queryFn: () => collectionApi.slipContent(attachmentId),
-    gcTime: 0,
-    retry: false,
-  } as const
-}
-
-/**
  * The two slip-counted grids' cache-key heads (tickets 317 and 254): each Page's key
  * is its head plus its applied params. Spelled once here because Add (322) and
  * Withdraw (323) invalidate them, and a re-spelled head that drifted from the Page's
@@ -172,12 +97,13 @@ export const READY_GRID_KEY = ['collection', 'ready'] as const
 export const COLLECTIONS_GRID_KEY = ['collection', 'collections'] as const
 
 /**
- * A store day's slips changed (an Add, 322, or a Withdraw, 323): re-read its ByOwner,
- * and mark both grids stale WITHOUT reloading them under the user (`refetchType:
- * 'none'`). The day's count catches up on the grid's next read.
+ * A store day's slips changed (an Add, 322, or a Withdraw, 323): re-read its ByOwner
+ * (the shared key under `attachments`, since ticket 325), and mark both grids stale
+ * WITHOUT reloading them under the user (`refetchType: 'none'`). The day's count
+ * catches up on the grid's next read.
  */
 export function markSlipDayChanged(queryClient: QueryClient, ownerKey: string): void {
-  void queryClient.invalidateQueries({ queryKey: slipsByOwnerKey(ownerKey) })
+  void queryClient.invalidateQueries({ queryKey: attachmentsByOwnerKey(slipTarget(ownerKey)) })
   void queryClient.invalidateQueries({ queryKey: READY_GRID_KEY, refetchType: 'none' })
   void queryClient.invalidateQueries({ queryKey: COLLECTIONS_GRID_KEY, refetchType: 'none' })
 }
@@ -522,75 +448,6 @@ export const collectionApi = {
     return api
       .getEnvelope<CollectionReadyRow[], SlipCountedSiblings>('CollectionWeb/Ready', params)
       .then(slipCountedRows)
-  },
-
-  /**
-   * `GET AttachmentWeb/Access` → the attachment categories the session holds, and
-   * the ones it may withdraw from (BackOffice 2034, 2035). Cookie-only and **not**
-   * grant-gated; a 503 `NOT_SET_UP` until the File Server key exists.
-   *
-   * ⚠️ **Fails closed**, as `collectionAccessApi.access` does: no catch here. A
-   * refusal leaves the query without data, and `canSeeSlips(undefined)` is false.
-   * Read it through `slipAccessQuery()`, never directly.
-   */
-  slipAccess(): Promise<AttachmentAccess> {
-    return api.get<AttachmentAccess>('AttachmentWeb/Access')
-  },
-
-  /**
-   * `GET AttachmentWeb/ByOwner?ownerKind=STORE_DAY&ownerKey=<storeId>/<yyyy-MM-dd>`
-   * → a store day's slips (ticket 321, BackOffice 2034 + 2035): `data` is the
-   * STORED slips, newest first, and `withdrawn` rides BESIDE it.
-   *
-   * 🔑 Through `getEnvelope`, not `get`, for that sibling — the same read 320 added
-   * for `slipCountsUnavailable`. `ownerKey` is `storeDayOwnerKey`'s, never
-   * re-spelled here; `buildQuery` encodes its `/`.
-   */
-  slipsByOwner(ownerKey: string): Promise<SlipOwnerList> {
-    return api
-      .getEnvelope<StoredSlip[], SlipOwnerSiblings>('AttachmentWeb/ByOwner', { ownerKind: STORE_DAY, ownerKey })
-      .then(slipOwnerList)
-  },
-
-  /**
-   * `GET AttachmentWeb/{attachmentId}/Content` → one slip's bytes, through
-   * `api.blob` (ticket 321). The blob's `type` is the row's content type, which is
-   * what picks the preview. The route's `Content-Disposition: attachment` means
-   * nothing to a fetch.
-   *
-   * ⚠️ Every refusal is enveloped and coded: 404 `NOT_FOUND` (not a stored slip any
-   * more), 502 `FILE_SERVER_MISSING` (the File Server lost the file), and the 503s.
-   * Read them with `slipContentFailure`, by code.
-   */
-  slipContent(attachmentId: string): Promise<FileResponse> {
-    return api.blob(`AttachmentWeb/${encodeURIComponent(attachmentId)}/Content`)
-  },
-
-  /**
-   * `POST AttachmentWeb/Upload` → one slip filed from the drawer (ticket 322,
-   * BackOffice 2035), answered with the stored attachment. One request per file,
-   * through `api.upload`.
-   *
-   * ⚠ The feature builds the form (`slipUploadForm`): the part names are this
-   * door's contract, and `core/` never learns them. Every refusal is enveloped and
-   * coded, except a bare 403; read it with `isRetryableUpload`, by code.
-   */
-  uploadSlip(form: FormData): Promise<StoredSlip> {
-    return api.upload<StoredSlip>('AttachmentWeb/Upload', form)
-  },
-
-  /**
-   * `POST AttachmentWeb/{attachmentId}/Withdraw`, body `{ reasonCode, note }` →
-   * the withdrawn slip (ticket 323, BackOffice 2035). Final: there is no restore.
-   * A slip already withdrawn answers 200 with its row unchanged.
-   *
-   * ⚠ Its refusals are coded (400 `reasonCode` / `note`, 404 `NOT_FOUND`, 503
-   * `NOT_SET_UP`) except the grant filter's 403, which has no body. Read them with
-   * `withdrawAnswer`. The id rides as a path segment, `encodeURIComponent`'d as
-   * `/Content`'s is.
-   */
-  withdrawSlip(attachmentId: string, body: WithdrawBody): Promise<WithdrawnSlip> {
-    return api.post<WithdrawnSlip>(`AttachmentWeb/${encodeURIComponent(attachmentId)}/Withdraw`, body)
   },
 
   /**

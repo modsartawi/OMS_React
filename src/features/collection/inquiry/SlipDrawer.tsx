@@ -8,7 +8,7 @@ import AttachmentsPanel from '@/core/attachments/AttachmentsPanel'
 import { READ_ON_EVERY_OPENING, attachmentAccessQuery } from '@/core/attachments/api'
 import type { AttachmentsPanelWords } from '@/core/attachments/panel-words'
 import { uploadInFlight, uploadsOf, useAttachmentUploads } from '@/core/attachments/upload-store'
-import { markSlipDayChanged } from './api'
+import { slipDayPanelOwner } from './api'
 import { canWithdrawSlips, slipWithdrawReasons } from './slip-withdraw'
 import { canSeeSlips, slipTarget, type SlipDay } from './slips'
 
@@ -148,15 +148,16 @@ function SlipDayBody({ day }: { day: SlipDay }) {
   const access = useQuery(attachmentAccessQuery())
   const reasons = useMemo(() => slipWithdrawReasons((key) => t(key)), [t])
   const words = useMemo(() => slipPanelWords(t), [t])
+  const { target, onChanged } = slipDayPanelOwner(queryClient, day.ownerKey)
   return (
     <AttachmentsPanel
-      target={slipTarget(day.ownerKey)}
+      target={target}
       freshness={READ_ON_EVERY_OPENING}
       reasons={reasons}
       words={words}
       addOffered={canSeeSlips(access.data)}
       withdrawOffered={canWithdrawSlips(access.data)}
-      onChanged={() => markSlipDayChanged(queryClient, day.ownerKey)}
+      onChanged={onChanged}
     />
   )
 }

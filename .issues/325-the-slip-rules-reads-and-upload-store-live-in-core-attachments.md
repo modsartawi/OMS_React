@@ -58,6 +58,8 @@ No new endpoint, no i18n change, no new namespace (that is 326's).
 - **Lint:** nothing under `core/attachments` imports a feature.
 - Keep `core/models/collection.ts`'s slip exports as aliases, so no other feature changes.
 - An assertion that has to change is a behaviour change: stop and record it as a finding.
+  - **Exempt (owner ruling, 2026-09-27):** a cache-key literal that this ticket itself moves (the ByOwner key under
+    the one `attachments` head). It is client cache identity, not wire behaviour.
 
 ## Done when
 
@@ -146,3 +148,11 @@ difference. Every other move is an import or call-site re-point (the new names, 
   `/domain-modeling`.
 - **Outstanding (not this ticket's to fake):** none of 325's own Proof. The wave's owner hand walk against a live
   SIS.Api is 2071's.
+
+**Owner triage of REVIEW-325 (2026-09-27).**
+- **SERIOUS finding:** the ByOwner key literal edit in `slip-freshness.test.ts` is **accepted** as ticket-mandated.
+  Boundaries now exempt cache-key literals that this ticket moves.
+- **MINOR finding** (the freshness test re-built the wiring itself): fixed. The feature's `api.ts` gains
+  `slipDayPanelOwner(queryClient, ownerKey)`, which returns `{ target, onChanged }`. `SlipDayBody` hands both to the
+  panel, and the freshness test calls the same function, so a drawer that drops its callback now fails `npm test`.
+  (326 had already folded `SlipAdd.tsx` into the shared panel, so the helper serves `SlipDrawer`.)

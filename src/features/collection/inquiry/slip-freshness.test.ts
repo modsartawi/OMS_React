@@ -1,8 +1,8 @@
 /**
  * Add slip's freshness after a 200 (ticket 322): the day's ByOwner re-read, and both
  * grids marked stale without a refetch. The shared store (`@/core/attachments`,
- * since ticket 325) runs the caller's `onStored`; the drawer's Add passes
- * `markSlipDayChanged`, exactly as below. `attachmentsApi.upload` is mocked.
+ * since ticket 325) runs the caller's `onStored`; the drawer passes the panel
+ * `slipDayPanelOwner`'s callback, and so does this test. `attachmentsApi.upload` is mocked.
  */
 import { QueryClient } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -17,8 +17,7 @@ vi.mock('@/core/attachments/api', async (importOriginal) => ({
 }))
 
 const { useAttachmentUploads } = await import('@/core/attachments/upload-store')
-const { markSlipDayChanged } = await import('./api')
-const { slipTarget } = await import('./slips')
+const { slipDayPanelOwner } = await import('./api')
 
 const OWNER = 'P019/2026-09-20'
 const file = (name: string, type = 'image/jpeg', size = 1024) => new File([new Uint8Array(size)], name, { type })
@@ -27,9 +26,11 @@ const coded = (status: number, code: string) =>
 const settle = () => new Promise((r) => setTimeout(r, 0))
 
 let client: QueryClient
-/** What the drawer's Add does with a pick: the slip's target, and `markSlipDayChanged` on a 200. */
-const add = (files: File[]) =>
-  useAttachmentUploads.getState().add(slipTarget(OWNER), files, () => markSlipDayChanged(client, OWNER))
+/** What the drawer's Add does with a pick: the target and callback `SlipDayBody` hands the panel. */
+const add = (files: File[]) => {
+  const { target, onChanged } = slipDayPanelOwner(client, OWNER)
+  return useAttachmentUploads.getState().add(target, files, onChanged)
+}
 
 beforeEach(() => {
   uploadSlip.mockReset()

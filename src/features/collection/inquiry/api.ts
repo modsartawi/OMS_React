@@ -24,6 +24,7 @@ import type { QueryClient } from '@tanstack/react-query'
 
 import { api } from '@/core/api'
 import { attachmentsByOwnerKey } from '@/core/attachments/api'
+import type { AttachmentTarget } from '@/core/attachments/upload'
 import type {
   AcrDocument,
   AcrInquiryRow,
@@ -106,6 +107,19 @@ export function markSlipDayChanged(queryClient: QueryClient, ownerKey: string): 
   void queryClient.invalidateQueries({ queryKey: attachmentsByOwnerKey(slipTarget(ownerKey)) })
   void queryClient.invalidateQueries({ queryKey: READY_GRID_KEY, refetchType: 'none' })
   void queryClient.invalidateQueries({ queryKey: COLLECTIONS_GRID_KEY, refetchType: 'none' })
+}
+
+/**
+ * What the drawer hands the shared panel for a store day: the slip's target, and
+ * `markSlipDayChanged` as its change callback. One function, so the freshness test
+ * (`slip-freshness.test.ts`) pins the wiring `SlipDayBody` passes, not a copy of it —
+ * a drawer that dropped its callback fails `npm test`, not only `slip-add-drive`.
+ */
+export function slipDayPanelOwner(
+  queryClient: QueryClient,
+  ownerKey: string,
+): { target: AttachmentTarget; onChanged: () => void } {
+  return { target: slipTarget(ownerKey), onChanged: () => markSlipDayChanged(queryClient, ownerKey) }
 }
 
 /**

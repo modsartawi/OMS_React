@@ -185,10 +185,34 @@ export interface CardRow {
   numeric?: boolean
   /** Quieter ink: free text an operator scans, not a value they quote. */
   soft?: boolean
-  /** When set, the value renders as an external link opening in a new tab. */
+  /** When set, the value renders as an external link opening in a new tab. A row has this or `action`, never both. */
   href?: string
+  /** When set, a button after the value runs it (ticket 328). A row has this or `href`, never both. */
+  action?: CardAction
   /** The card's closing line — `netTotal`, the one figure that gets weight. */
   total?: boolean
+}
+
+/** A card row's in-page action: the words of its button, and what pressing it does. */
+export interface CardAction {
+  /** The button's visible word. */
+  label: string
+  /** What the button does, for a screen reader: the visible word alone says too little. */
+  ariaLabel: string
+  onSelect: () => void
+}
+
+/**
+ * The order's files as the page reads them, for the Prescription card's Files row (spec 324,
+ * ticket 328). The page computes all three; `railCards` never reads the probe.
+ */
+export interface RailFiles {
+  /** The Attachments tab's number — the badge's `attachmentsBadgeCount`, `null` for none. */
+  count: number | null
+  /** Would the Attachments tab be drawn (`attachmentsTabGate`)? */
+  allowed: boolean
+  /** Select the Attachments tab — on a first selection that starts its one read. */
+  onShow: () => void
 }
 
 /** One card on the summary rail. A collapsed card is absent from the array. */
@@ -288,8 +312,12 @@ export function paymentInstrument(doc: SdDocumentHeaderModel): string {
  * collapses when all five of its fields are blank (an over-the-counter order) and
  * Driver & tracking when the courier, the driver's name and the tracking id are
  * all blank; a collapsed card is **absent**, not an empty frame on the rail.
+ *
+ * `files` (spec 324, ticket 328) adds the Prescription card's **Files · N · Show** row,
+ * last, only when the tab would be drawn AND N > 0 — so an order with files and no
+ * other prescription fact still shows the card, on that row alone.
  */
-export function railCards(doc: SdDocumentHeaderModel, t: TFn): RailCard[] {
+export function railCards(doc: SdDocumentHeaderModel, t: TFn, files?: RailFiles): RailCard[] {
   const cards: RailCard[] = []
 
   /** Collect the rows that survive D-5: money and booleans always, text if set. */
@@ -331,6 +359,7 @@ export function railCards(doc: SdDocumentHeaderModel, t: TFn): RailCard[] {
           href: text(doc.prescriptionUrl),
         })
       : null,
+    filesRow(files, t),
   ])
   if (prescription.length > 0) {
     cards.push({ key: 'prescription', title: t('cards.prescription'), rows: prescription })
@@ -395,6 +424,24 @@ export function railCards(doc: SdDocumentHeaderModel, t: TFn): RailCard[] {
   })
 
   return cards
+}
+
+/**
+ * The Prescription card's **Files · N · Show** row (spec 324, ticket 328), or `null`.
+ *
+ * N is the tab's own number, handed in (never a second count). The row needs the tab's
+ * gate AND N > 0: an absent count (`null`) or `0` is no row. It carries an `action` —
+ * Show selects the tab — and never an `href`: there is no URL for a tab (no deep link).
+ */
+function filesRow(files: RailFiles | undefined, t: TFn): CardRow | null {
+  if (!files?.allowed || files.count === null || files.count <= 0) return null
+  return {
+    key: 'files',
+    label: t('cards.files'),
+    value: String(files.count),
+    numeric: true,
+    action: { label: t('cards.show'), ariaLabel: t('cards.showFiles'), onSelect: files.onShow },
+  }
 }
 
 /**

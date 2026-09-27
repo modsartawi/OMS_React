@@ -72,6 +72,16 @@ export function rereadAttachments(queryClient: QueryClient, owner: AttachmentOwn
 }
 
 /**
+ * Forget an owner's cached list without reading it: the next ENABLED observer reads
+ * afresh. The order tab calls it as its latch sets, so a visit's first selection is
+ * always its own read, never a list an earlier visit left cached. It refetches nothing
+ * while every observer of the key is disabled. Exactly this key, never the head.
+ */
+export function forgetAttachments(queryClient: QueryClient, owner: AttachmentOwner) {
+  return queryClient.resetQueries({ queryKey: attachmentsByOwnerKey(owner), exact: true })
+}
+
+/**
  * How fresh a caller keeps an owner's list — a **parameter**, not a constant of the
  * read, because every ByOwner writes an audit row on the server and the two callers
  * need different things:

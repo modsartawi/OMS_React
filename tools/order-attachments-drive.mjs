@@ -39,6 +39,10 @@
 // the input, 404 re-reads, 503 NOT_SET_UP no resend, a failure pressed again), a bare 403 removing Withdraw for the rest
 // of the visit, and the withdrawn file under Withdrawn (n) after the one re-read. Nothing else is POSTed for the ATWD line.
 //
+// Ticket 328 adds the Prescription card's Files · N · Show row: N the badge's own number (the model's count, then the
+// stored list's length), shown only with the tab's gate AND N > 0, the card shown on that row alone, and Show selecting
+// the tab with ONE ByOwner on the first switch and none after. The Rx document link row stays a link.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/order-attachments-drive.mjs
 import { createRequire } from 'node:module'
@@ -634,6 +638,28 @@ async function run() {
   await selectTab()
   check('in-route Back — selecting reads once', byOwnerCalls.length === readsBeforeMove + 1, `${byOwnerCalls.length - readsBeforeMove}`)
 
+  // ---- in place to another number with the SAME owner: its first selection still reads ----
+  // `/oms/document` and `/oms/delivery` are separate route components (a switch between them remounts the page), but
+  // two numbers on ONE route keep it mounted — and 2063 may name one owner for both. The list read under the first
+  // must not be reused: the second's first selection is its own audited read (328's code review, a hole in 327's latch).
+  fields = { [ORDER]: FULL, [OTHER]: FULL }
+  const readsBeforeSameOwner = byOwnerCalls.length
+  await page.evaluate((to) => {
+    history.pushState({ usr: null, key: 'drive328', idx: (history.state?.idx ?? 0) + 1 }, '', to)
+    dispatchEvent(new PopStateEvent('popstate', { state: history.state }))
+  }, `/oms/document/${OTHER}`)
+  await page.locator('[aria-label="Document identity"]', { hasText: OTHER }).waitFor()
+  await settle()
+  check('same owner in place — no ByOwner on the load', byOwnerCalls.length === readsBeforeSameOwner, `${byOwnerCalls.length - readsBeforeSameOwner}`)
+  check('same owner in place — the badge from the model again', (await badge().innerText()) === '3', await badge().innerText())
+  await selectTab()
+  await panel().locator('[data-testid="slip-list"]').waitFor()
+  check(
+    '🔑 same owner in place — the first selection READS (never the cached list), once',
+    byOwnerCalls.length === readsBeforeSameOwner + 1 && byOwnerCalls.at(-1)?.ownerKey === OWNER,
+    `${byOwnerCalls.length - readsBeforeSameOwner}`,
+  )
+
   // ════════════════════ 3 · the badge's other cases ════════════════════
   reset()
   fields = { [ORDER]: { attachmentOwnerNo: OWNER, attachmentCategory: 'P2E' } }
@@ -1086,6 +1112,103 @@ async function run() {
     await pick(PNG)
     await panel().getByTestId('slip-download').waitFor()
     check(`no Withdraw — ${name}: the file previews, and no Withdraw beside Download`, (await panel().locator('[data-region="slip-preview"] img').count()) === 1 && (await withdrawButton().count()) === 0)
+  }
+
+  // ════════════════════ 9 · the Prescription card's Files · N · Show row (ticket 328) ════════════════════
+  const rxCard = () => page.locator('[aria-label="Document summary"] section', { has: page.locator('h3', { hasText: 'Prescription' }) })
+  const showButton = () => rxCard().locator('[data-row-action="files"]')
+  /** The card's rows as they read, one space between text pieces — "Files 3 · Show". */
+  const rxRows = async () =>
+    rxCard().locator('dt').evaluateAll((dts) =>
+      dts.map((dt) => {
+        const pieces = []
+        for (const cell of [dt, dt.nextElementSibling]) {
+          const walk = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+          while (walk.nextNode()) pieces.push(walk.currentNode.textContent.trim())
+        }
+        return pieces.filter(Boolean).join(' ')
+      }),
+    )
+  const NO_RX = { approvalNumber: '', patientId: '', clinicianName: '', referenceErx: '', prescriptionUrl: '' }
+
+  reset()
+  fields = { [ORDER]: { ...FULL, prescriptionUrl: 'https://rx.example/doc/551' } }
+  await open(`/oms/document/${ORDER}`)
+  await shot('files-row')
+  const rows = await rxRows()
+  check('files row — "Files 3 · Show", last on the card, N the model’s count', rows.at(-1) === 'Files 3 · Show', rows.join(' | '))
+  check('files row — the Rx document link row unchanged, and still a link', rows.includes('Rx document View') && (await rxCard().locator('a[href="https://rx.example/doc/551"]').count()) === 1 && (await rxCard().locator('a').count()) === 1)
+  check('files row — Show is a button with a spoken name, not a link', (await showButton().evaluate((el) => el.tagName)) === 'BUTTON' && (await showButton().getAttribute('aria-label')) === "Show the order's files in the Attachments tab")
+  check('🔑 files row — the row reads NO ByOwner on load', byOwnerCalls.length === 0 && contentTotal() === 0, JSON.stringify(byOwnerCalls))
+  await showButton().click()
+  await panel().locator('[data-testid="slip-list"]').waitFor()
+  await settle()
+  check('files row — Show selects the Attachments tab, its panel shown', (await tab().getAttribute('aria-selected')) === 'true' && (await panel().isVisible()) && (await page.locator('#tabpanel-items').isHidden()))
+  check('files row — …and focus lands on the tab', await tab().evaluate((el) => el === document.activeElement))
+  check('🔑 files row — the first Show reads ByOwner ONCE', byOwnerCalls.length === 1 && byOwnerCalls[0].ownerKey === OWNER, JSON.stringify(byOwnerCalls))
+  check('🔑 files row — …and no /Content: no file is selected for you', contentTotal() === 0)
+  check('files row — N follows the stored list (6), the same number as the badge', (await rxRows()).at(-1) === `Files ${STORED.length} · Show` && (await badge().innerText()) === String(STORED.length))
+  await page.locator('#tab-items').click()
+  await showButton().click()
+  await settle()
+  check('🔑 files row — a second Show reads NONE', byOwnerCalls.length === 1 && (await panel().isVisible()), `${byOwnerCalls.length}`)
+  await page.locator('#tab-log').click()
+  await selectTab()
+  check('🔑 files row — …nor does the tab after it', byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
+  await noRawKeys('order — files row')
+
+  // The tab's first selection through the TAB, then Show: still one read.
+  reset()
+  fields = { [ORDER]: FULL }
+  await open(`/oms/document/${ORDER}`)
+  await selectTab()
+  await page.locator('#tab-items').click()
+  await showButton().click()
+  await settle()
+  check('🔑 files row — the tab first, then Show: still ONE ByOwner', byOwnerCalls.length === 1 && (await panel().isVisible()), `${byOwnerCalls.length}`)
+
+  // No Files row without the gate, with N = 0, or with no count.
+  for (const [name, docFields, probeMode] of [
+    ['no owner', { attachmentCount: 3, attachmentCategory: 'P2E' }, 'holder'],
+    ['no category', { attachmentOwnerNo: OWNER, attachmentCount: 3 }, 'holder'],
+    ['a refused probe (503 NOT_SET_UP)', FULL, 'notSetUp'],
+    ['a bare-string probe', FULL, 'bareString'],
+    ['a category the session does not hold', FULL, 'otherCategory'],
+    ['N = 0', { ...FULL, attachmentCount: 0 }, 'holder'],
+    ['no count (no badge)', { attachmentOwnerNo: OWNER, attachmentCategory: 'P2E' }, 'holder'],
+  ]) {
+    reset()
+    probe = probeMode
+    fields = { [ORDER]: docFields }
+    await open(`/oms/document/${ORDER}`)
+    const got = await rxRows()
+    check(
+      `no files row — ${name}: the card keeps its own rows only`,
+      (await showButton().count()) === 0 && JSON.stringify(got) === JSON.stringify(['Approval no. c9364852', 'Patient ID 1197634478']),
+      got.join(' | '),
+    )
+  }
+
+  // The card on files alone: no approval number, patient, clinician, eRx or link.
+  reset()
+  fields = { [ORDER]: { ...FULL, ...NO_RX } }
+  await open(`/oms/document/${ORDER}`)
+  const alone = await rxRows()
+  check('files alone — the Prescription card shows, with only its Files row', (await rxCard().count()) === 1 && JSON.stringify(alone) === JSON.stringify(['Files 3 · Show']), alone.join(' | '))
+  await shot('files-alone')
+  await showButton().click()
+  await panel().locator('[data-testid="slip-list"]').waitFor()
+  await settle()
+  check('files alone — Show opens the tab with its one read', (await panel().isVisible()) && byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
+  for (const [name, docFields, probeMode] of [
+    ['without the gate', { ...FULL, ...NO_RX }, 'otherCategory'],
+    ['with N = 0', { ...FULL, ...NO_RX, attachmentCount: 0 }, 'holder'],
+  ]) {
+    reset()
+    probe = probeMode
+    fields = { [ORDER]: docFields }
+    await open(`/oms/document/${ORDER}`)
+    check(`files alone — ${name}: no Prescription card at all`, (await rxCard().count()) === 0)
   }
 
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' || '))

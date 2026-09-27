@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { ExternalLink } from 'lucide-react'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import Ltr from '@/core/ui/Ltr'
-import { railCards, type CardRow, type RailCard } from './fields'
+import { railCards, type CardRow, type RailCard, type RailFiles } from './fields'
 
 /**
  * A card's colour: the accent bar at the start of its title, and the ink its
@@ -53,10 +53,13 @@ const BIDI_ISOLATE = new Set(['mobile', 'courierDriverPhone', 'window'])
  * first in the DOM, which is what puts it above the work area when the page grid
  * collapses to one column: hiding the summary behind a toggle on the viewport
  * that most needs orientation is backwards.
+ *
+ * `files` is the order's files as the page reads them (spec 324, ticket 328): the
+ * Prescription card's Files · N · Show row. The page computes it; this only passes it on.
  */
-export default function SummaryRail({ document }: { document: SdDocumentHeaderModel }) {
+export default function SummaryRail({ document, files }: { document: SdDocumentHeaderModel; files?: RailFiles }) {
   const { t } = useTranslation('document')
-  const cards = railCards(document, t)
+  const cards = railCards(document, t, files)
 
   return (
     <div
@@ -124,6 +127,24 @@ function Row({ row, ink }: { row: CardRow; ink: string }) {
             <ExternalLink className="h-3 w-3 shrink-0 rtl:-scale-x-100" aria-hidden />
             {value}
           </a>
+        ) : row.action ? (
+          // An in-page action (ticket 328): the value, then its button. A button, not a
+          // link — it selects a tab and goes nowhere.
+          <span className="inline-flex items-baseline gap-1.5">
+            {value}
+            <span aria-hidden className="text-muted-foreground">
+              ·
+            </span>
+            <button
+              type="button"
+              onClick={row.action.onSelect}
+              aria-label={row.action.ariaLabel}
+              data-row-action={row.key}
+              className={`cursor-pointer font-semibold hover:underline ${ink}`}
+            >
+              {row.action.label}
+            </button>
+          </span>
         ) : (
           value
         )}

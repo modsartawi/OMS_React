@@ -5,6 +5,7 @@ import {
   READ_ONCE_PER_VISIT,
   attachmentAccessQuery,
   attachmentsByOwnerQuery,
+  forgetAttachments,
   rereadAttachments,
 } from '@/core/attachments/api'
 import type { AttachmentTarget } from '@/core/attachments/upload'
@@ -59,6 +60,10 @@ export interface OrderAttachments {
  * - The latch is by owner and resets on a new route number: the router may keep this
  *   page mounted from one document to another (or Back to one already opened), and
  *   coming back must not read the files without a click.
+ * - Latching drops any list still cached under that owner, so a visit's first selection
+ *   is ALWAYS its own read. The page's own observer holds the old key while the next
+ *   number loads, so `gcTime: 0` alone does not drop it when two numbers on one route
+ *   name the same owner (328's review).
  */
 export function useOrderAttachments(document: SdDocumentHeaderModel | null, routeId: string): OrderAttachments {
   const queryClient = useQueryClient()
@@ -84,7 +89,11 @@ export function useOrderAttachments(document: SdDocumentHeaderModel | null, rout
     withdrawReasons,
     withdrawOffered: canWithdrawOn(document, access.data, withdrawReasons),
     open: () => {
-      if (target) setOpenedOwner(target.ownerKey)
+      if (!target || opened) return
+      // Every observer of the key is disabled until the latch is set, so forgetting
+      // refetches nothing: the one read is the one the latch enables.
+      void forgetAttachments(queryClient, target)
+      setOpenedOwner(target.ownerKey)
     },
     refresh: () => {
       if (opened && target) void rereadAttachments(queryClient, target)

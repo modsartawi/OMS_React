@@ -52,6 +52,9 @@
     "referenceErx": "e-Rx ref",
     "rxDocument": "Rx document",
     "view": "View",
+    "files": "Files",
+    "show": "Show",
+    "showFiles": "Show the order's files in the Attachments tab",
     "deliveryType": "Type",
     "deliveryTypes": {
       "delivery": "Delivery",

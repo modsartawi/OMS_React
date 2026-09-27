@@ -330,3 +330,77 @@ describe('cardCollapse', () => {
     ])
   })
 })
+
+// ─── The Prescription card's Files · N · Show row (spec 324, ticket 328) ──────
+//
+// `railCards` never reads the probe: the page hands it the tab's number (the badge's
+// `attachmentsBadgeCount`), whether the tab would be drawn (`attachmentsTabGate`), and
+// what Show does. A row carries an `href` or an `action`, never both.
+
+describe('filesRow', () => {
+  const show = (): void => {}
+  const files = (count: number | null, allowed: boolean) => ({ count, allowed, onShow: show })
+  const prescriptionOf = (cards: RailCard[]): RailCard | undefined => cards.find((c) => c.key === 'prescription')
+  const filesRowOf = (cards: RailCard[]): CardRow | undefined =>
+    prescriptionOf(cards)?.rows.find((row) => row.key === 'files')
+
+  it('shows the Files row, last on the card, only with the flag AND N > 0', () => {
+    const doc = PAYLOADS['2000000551']
+    const row = filesRowOf(railCards(doc, t, files(3, true)))
+    expect(row).toEqual({ key: 'files', label: 'Files', value: '3', numeric: true, action: { label: 'Show', ariaLabel: expect.any(String), onSelect: show } })
+    expect(prescriptionOf(railCards(doc, t, files(3, true)))?.rows.map((r) => r.key)).toEqual([
+      'approvalNumber',
+      'patientId',
+      'files',
+    ])
+    expect(filesRowOf(railCards(doc, t, files(3, false)))).toBeUndefined()
+    expect(filesRowOf(railCards(doc, t, files(0, true)))).toBeUndefined()
+    expect(filesRowOf(railCards(doc, t, files(null, true)))).toBeUndefined()
+    expect(filesRowOf(railCards(doc, t))).toBeUndefined()
+  })
+
+  it('names the Show button for a screen reader through the namespace', () => {
+    const row = filesRowOf(railCards(PAYLOADS['2000000551'], t, files(1, true)))
+    expect(row?.action?.ariaLabel).toBe(t('cards.showFiles'))
+  })
+
+  it('shows the card on the Files row alone', () => {
+    // `8000000121` carries no approval number, patient, clinician, e-Rx or link.
+    const doc = PAYLOADS['8000000121']
+    expect(railCards(doc, t, files(2, true)).map((c) => c.key)).toEqual([
+      'customer',
+      'prescription',
+      'fulfilment',
+      'driver',
+      'payment',
+    ])
+    expect(readRows(prescriptionOf(railCards(doc, t, files(2, true)))?.rows ?? [])).toEqual(['Files 2'])
+    // …and no card at all without it.
+    expect(prescriptionOf(railCards(doc, t, files(2, false)))).toBeUndefined()
+    expect(prescriptionOf(railCards(doc, t, files(0, true)))).toBeUndefined()
+  })
+
+  it('leaves the Rx document link row unchanged, and no row carries both href and action', () => {
+    const doc = { ...PAYLOADS['2000000551'], prescriptionUrl: 'https://rx.example/doc/1' } as SdDocumentHeaderModel
+    const link = { key: 'prescriptionUrl', label: 'Rx document', value: 'View', href: 'https://rx.example/doc/1' }
+    expect(prescriptionOf(railCards(doc, t))?.rows.find((r) => r.key === 'prescriptionUrl')).toEqual(link)
+    const withFiles = prescriptionOf(railCards(doc, t, files(4, true)))?.rows ?? []
+    expect(withFiles.find((r) => r.key === 'prescriptionUrl')).toEqual(link)
+    expect(withFiles.map((r) => r.key)).toEqual(['approvalNumber', 'patientId', 'prescriptionUrl', 'files'])
+    const everyRow = [doc, ...DOCUMENT_NUMBERS.map((no) => PAYLOADS[no])].flatMap((d) =>
+      railCards(d, t, files(4, true)).flatMap((c) => c.rows),
+    )
+    expect(everyRow.filter((row) => row.href !== undefined && row.action !== undefined)).toEqual([])
+    expect(everyRow.filter((row) => row.action !== undefined).map((row) => row.key)).toEqual(
+      Array(1 + DOCUMENT_NUMBERS.length).fill('files'),
+    )
+  })
+
+  it('touches no other card', () => {
+    for (const documentNo of DOCUMENT_NUMBERS) {
+      const plain = railCards(PAYLOADS[documentNo], t).filter((c) => c.key !== 'prescription')
+      const filed = railCards(PAYLOADS[documentNo], t, files(5, true)).filter((c) => c.key !== 'prescription')
+      expect(filed).toEqual(plain)
+    }
+  })
+})

@@ -53,6 +53,8 @@ import { useOrderAttachments } from './use-order-attachments'
 // admits (`attachmentsTabGate`).
 type TabId = 'items' | 'conditions' | 'log' | 'jobs' | 'attachments'
 const TAB_IDS: TabId[] = ['items', 'conditions', 'log', 'jobs', 'attachments']
+/** A tab button's DOM id — its panel's `aria-labelledby`, and where the rail's Show puts focus. */
+const tabDomId = (id: TabId) => `tab-${id}`
 
 /** Ascending comparator treating numeric strings (`logNo`, `outboxId`) as numbers. */
 function numericAsc(a: string, b: string): number {
@@ -333,6 +335,20 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     if (id === 'attachments') attachments.open()
   }
   /**
+   * The Prescription card's Files · N · Show row (ticket 328): the tab's own number and
+   * gate, and Show selecting the tab exactly as its click does — a first selection starts
+   * the one read. Focus follows to the tab, so the rail's Show lands where the files are.
+   */
+  const railFiles = {
+    count: attachmentsBadge,
+    allowed: attachments.target !== null,
+    onShow: () => {
+      selectTab('attachments')
+      // `globalThis.`: `document` here is the loaded SD document, not the DOM's.
+      globalThis.document.getElementById(tabDomId('attachments'))?.focus()
+    },
+  }
+  /**
    * The tab counts. Jobs is the one that judges: while any job has failed it
    * counts the FAILURES in `bad`, not the total — otherwise a failed outbox job
    * is a number indistinguishable from a healthy one (083 D-9). A deferred
@@ -466,7 +482,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               by side.
             */}
             <div className="grid gap-2.5 rail:grid-cols-[340px_minmax(0,1fr)]">
-              <SummaryRail document={document} />
+              <SummaryRail document={document} files={railFiles} />
 
               <div className="min-w-0">
                 <div role="tablist" aria-label={t('tabs.ariaLabel')} className="flex gap-1 border-b border-border">
@@ -477,7 +493,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                         key={id}
                         type="button"
                         role="tab"
-                        id={`tab-${id}`}
+                        id={tabDomId(id)}
                         aria-selected={shownTab === id}
                         aria-controls={`tabpanel-${id}`}
                         onClick={() => selectTab(id)}
@@ -522,7 +538,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                       key={id}
                       role="tabpanel"
                       id={`tabpanel-${id}`}
-                      aria-labelledby={`tab-${id}`}
+                      aria-labelledby={tabDomId(id)}
                       hidden={shownTab !== id}
                     >
                       {id === 'items' && (

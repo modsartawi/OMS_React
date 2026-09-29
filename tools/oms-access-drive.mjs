@@ -90,6 +90,11 @@ async function open(browser, { list = true, detail = true, probe = 'ok' } = {}) 
     }
     if (p === 'SdDocumentWeb/DeliveryDocumentList') return route.fulfill(envelope([DELIVERY_ROW]))
     if (/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/.test(p)) return route.fulfill(envelope(DOCUMENT))
+    // Central invoicing (ticket 332) puts a SECOND leaf in the OMS group behind its OWN grant, so
+    // the catch-all below would keep the group drawn while this drive denies the OMS grant. It is
+    // denied here so the group's presence is the OMS grant's alone — the subject of this drive.
+    // (`tools/central-invoice-drive.mjs` owns that leaf.)
+    if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: false }))
     // Every other screen's probe: allowed, so the sidebar around OMS is normal.
     if (/Access$/.test(p))
       return route.fulfill(

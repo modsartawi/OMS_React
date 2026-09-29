@@ -131,6 +131,13 @@ export const router = createBrowserRouter([
           return { Component: () => <Page openedAs="delivery" /> }
         },
       },
+      // Central invoicing's bulk screen (ticket 332) — in the OMS area, behind its OWN grant.
+      {
+        path: 'oms/central-invoice',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/central-invoice/CentralInvoicePage')).default,
+        }),
+      },
       {
         path: 'admin/ua-users',
         lazy: async () => ({

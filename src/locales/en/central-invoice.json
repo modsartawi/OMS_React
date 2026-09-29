@@ -1,0 +1,80 @@
+{
+  "menu": {
+    "raise": "Raise central invoices"
+  },
+  "access": {
+    "checking": "Checking your access…",
+    "deniedTitle": "No access to central invoicing",
+    "deniedHint": "Your account does not hold the grant for central invoicing. Ask an administrator if you need it.",
+    "unreachableTitle": "This screen is unavailable",
+    "unreachableHint": "Your access could not be checked, so this screen stays closed. Try again in a moment."
+  },
+  "grantRefused": {
+    "title": "Central invoicing is not open to you",
+    "detail": "The server refused the request and nothing was queued. The central invoice action has been removed."
+  },
+  "verdict": {
+    "accepted": "Queued",
+    "wait": "Wait",
+    "refused": "Refused"
+  },
+  "reason": {
+    "label": "Reason",
+    "hint": "Why HQ is invoicing this. It is recorded with the request, and a request without one is refused.",
+    "placeholder": "e.g. Delivered during the pick-model rollout and never invoiced"
+  },
+  "send": {
+    "label_one": "Raise central invoice",
+    "label_other": "Raise central invoices",
+    "sending": "Sending…",
+    "failedTitle": "The request was not accepted",
+    "failed": "The request could not be sent."
+  },
+  "dialog": {
+    "title": "Central invoice — {{deliveryNo}}",
+    "intro": "HQ invoices this delivery with no till, no pick and no serials. The server decides whether it qualifies and answers here.",
+    "cancel": "Cancel",
+    "close": "Close",
+    "noAnswer": "The server returned no answer for this delivery. Check the delivery before trying again."
+  },
+  "bulk": {
+    "title": "Raise central invoices",
+    "subtitle": "Invoice delivered deliveries that no till invoiced, from HQ, with a reason. Every eligibility rule is the server's; each row comes back with its verdict.",
+    "list": {
+      "label": "Delivery numbers",
+      "hint": "One per line. Commas, semicolons and spaces also separate them, and duplicates are collapsed.",
+      "count_one": "{{count}} delivery number",
+      "count_other": "{{count}} delivery numbers",
+      "duplicates_one": "{{count}} duplicate collapsed",
+      "duplicates_other": "{{count}} duplicates collapsed",
+      "overCap": "A request may carry at most {{max}} deliveries. Remove {{overBy}} or split the list and send each part.",
+      "clear": "Clear"
+    },
+    "file": {
+      "add": "Add from a file (CSV or XLSX)",
+      "added_one": "Added {{count}} value from {{fileName}}.",
+      "added_other": "Added {{count}} values from {{fileName}}.",
+      "empty": "{{fileName}} holds no delivery numbers.",
+      "unreadable": "{{fileName}} could not be read as a CSV or XLSX workbook. Save it as CSV, or paste the column instead."
+    }
+  },
+  "results": {
+    "title": "Result",
+    "summary": "{{accepted}} queued · {{wait}} to retry later · {{refused}} refused",
+    "unknown_one": "{{count}} with a verdict this screen does not recognise",
+    "unknown_other": "{{count}} with a verdict this screen does not recognise",
+    "copy": "Copy the ones to retry ({{count}})",
+    "copyHint": "The refused and wait rows, and any verdict this screen does not recognise.",
+    "copied_one": "Copied {{count}} delivery number",
+    "copied_other": "Copied {{count}} delivery numbers",
+    "copiedDetail": "Paste them into the list to try again later.",
+    "copyFailed": "Could not copy to the clipboard",
+    "copyFailedDetail": "Your browser did not allow it. Select the rows' delivery numbers in the grid instead.",
+    "columns": {
+      "deliveryNo": "Delivery",
+      "verdict": "Verdict",
+      "code": "Code",
+      "message": "Message"
+    }
+  }
+}

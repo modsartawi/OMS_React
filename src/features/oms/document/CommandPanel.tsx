@@ -5,6 +5,7 @@ import {
   CalendarClock,
   Flag,
   Plus,
+  ReceiptText,
   Reply,
   Store,
   Undo2,
@@ -140,10 +141,20 @@ function CommandButton({
 export default function CommandPanel({
   context,
   onCommand,
+  onCentralInvoice,
 }: {
   /** The gated fields plus busy — documented once, on `CommandContext`. */
   context: CommandContext
   onCommand: (kind: CommandKind) => void
+  /**
+   * *Central Invoice…* (ticket 332), or `null` when this session may not raise one or the
+   * document is not a delivery. The one command on the bar that IS hidden rather than
+   * explained: its gate is a GRANT (`BackOfficeScreen[CentralInvoice,03]`), not the
+   * document's state, and "nothing is ever hidden" is about state — a user without the
+   * grant has no command here to discover. So it is its own labelled cluster, outside the
+   * `commands.ts` grammar, drawn only when handed in.
+   */
+  onCentralInvoice: (() => void) | null
 }) {
   const { t } = useTranslation('document')
   const { closeStatus, documentCategory, openedAs, canReturn, lines, busy } = context
@@ -188,6 +199,20 @@ export default function CommandPanel({
               </div>
             </div>
           ))}
+          {onCentralInvoice && (
+            <div className="flex flex-col gap-1">
+              <span className="ps-0.5 text-[0.625rem] font-bold uppercase tracking-[0.08em] text-ink-3">
+                {t('command.clusters.billing')}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {/* Busy is the page's own reason, so the real `disabled` — as for every command. */}
+                <Button variant="secondary" disabled={busy} onClick={onCentralInvoice} data-central-invoice-action>
+                  <ReceiptText className="h-3.5 w-3.5" aria-hidden />
+                  {t('actions.central-invoice')}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/*

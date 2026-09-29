@@ -99,7 +99,8 @@
     "clusters": {
       "fulfilment": "Fulfilment",
       "cancel-request": "Cancellation request",
-      "notes": "Notes & docs"
+      "notes": "Notes & docs",
+      "billing": "Billing"
     },
     "disabled": {
       "requestOpen": "A cancellation request is already open for this document.",
@@ -116,7 +117,8 @@
     "cancel-close-request": "Withdraw Request",
     "close": "Cancel Order",
     "force-close": "Force Cancel",
-    "return-document": "Return Document"
+    "return-document": "Return Document",
+    "central-invoice": "Central Invoice…"
   },
   "note": {
     "label": "Note",

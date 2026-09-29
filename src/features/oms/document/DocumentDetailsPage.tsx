@@ -8,6 +8,8 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
 import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
+import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central-invoice/api'
+import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
 import { notify } from '@/core/services/notify'
 import type {
   SdDocumentHeaderModel,
@@ -115,6 +117,10 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     retry: false,
   })
   const canOpenDetail = access.data?.canOpenDetail === true
+  // Central invoicing's own grant (ticket 332) — the SAME key and options as the menu leaf
+  // and the bulk screen's gate, so it costs no extra call, and a 403 from the dialog (which
+  // overwrites the entry) removes the action here too.
+  const centralInvoiceAccess = useQuery(centralInvoiceAccessQuery())
 
   const [document, setDocument] = useState<SdDocumentHeaderModel | null>(null)
   const [documentLoading, setDocumentLoading] = useState(true)
@@ -130,6 +136,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const [changeStoreOpen, setChangeStoreOpen] = useState(false)
   const [requestCloseOpen, setRequestCloseOpen] = useState(false)
   const [returnOpen, setReturnOpen] = useState(false)
+  const [centralInvoiceOpen, setCentralInvoiceOpen] = useState(false)
 
   /**
    * The note-carrying command awaiting its dialog, or `null`. Since 094 there is
@@ -146,6 +153,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     changeStoreOpen ||
     requestCloseOpen ||
     returnOpen ||
+    centralInvoiceOpen ||
     noteCommand !== null
 
   const loadLogs = useCallback(
@@ -469,6 +477,13 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 busy: commandBusy,
               }}
               onCommand={onCommand}
+              // A delivery's page only (category `D`, the payload's answer): a central
+              // invoice invoices a delivery, and the server refuses anything else anyway.
+              onCentralInvoice={
+                canOpenCentralInvoice(centralInvoiceAccess.data) && isDeliveryCategory(document.documentCategory)
+                  ? () => setCentralInvoiceOpen(true)
+                  : null
+              }
             />
 
             {/*
@@ -623,6 +638,15 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 void reload()
               }}
               document={document}
+            />
+            {/*
+              Nothing reloads after an answer: an accepted delivery is only QUEUED — its
+              billing status changes when the billing worker runs, not now.
+            */}
+            <CentralInvoiceDialog
+              open={centralInvoiceOpen}
+              onClose={() => setCentralInvoiceOpen(false)}
+              deliveryNo={document.documentNo}
             />
             <NoteDialog
               kind={noteCommand}

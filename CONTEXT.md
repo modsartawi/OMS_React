@@ -73,8 +73,20 @@ Details has three, in order of increasing consequence: **fulfilment**, **cancell
 label but no colour. So a cluster is what the operator *reads*, a family is a *colour*, and a tier is
 a *position and weight* — three axes that mostly, but deliberately not always, coincide. The terminal
 tier is the one group with no cluster label at all: labelling it would make it read as a fourth
-family rather than as the edge of the bar.
+family rather than as the edge of the bar. A fourth cluster, **billing**, holds *Central Invoice…*
+alone and sits outside that grammar: it is drawn only for a session holding the central-invoice
+grant on a delivery, because its gate is a grant, not the document's state (ticket 332).
 _Avoid_: button group, section.
+
+**Central invoice**:
+HQ invoicing a delivered retail delivery that no till invoiced — no till, no pick, no serials — on
+the rail that bills bonded and Altibbi deliveries (BackOffice spec 2094, ADR 0048). A billing officer
+**raises** one from a delivery's page or in bulk from a pasted list, always with a **reason**. The
+server answers each delivery with a **central-invoice verdict**: `accepted` (shown as *Queued* — it
+is only queued, billing follows on the worker), `wait` (changed in the last 24 hours; retry later) or
+`refused`, each with a `CINV-` code and a sentence the client shows verbatim. Unlike the IDoc
+**Verdict**, the server sends the sentence here.
+_Avoid_: manual invoice, HQ invoice (the rail's other callers are HQ invoices too), force-bill.
 
 **Seeded** (of an employee identity):
 An identity that exists in the UA tables, is **active**, is backed by a real legacy `[User_]` row,

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FileSearch, FileSpreadsheet, FileText, Gem, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
+import { Activity, Banknote, Box, Calculator, ClipboardCheck, Download, FileBarChart, FileCheck2, FileSearch, FileSpreadsheet, FileText, Gem, ReceiptText, Headset, HeartPulse, History, Hourglass, KeyRound, Landmark, LifeBuoy, ListChecks, Receipt, Scale, Search, Send, ShieldCheck, Tags, Ticket, UserCog, UserSearch, Wallet } from 'lucide-react'
 import { uaAdminApi } from '@/features/admin/ua-admin/api'
 import { authzAdminApi } from '@/features/admin/authz-admin/api'
 import { sessionMonitorApi } from '@/features/admin/active-sessions/api'
@@ -51,6 +51,14 @@ import {
   IDOC_INSPECTOR_ACCESS_KEY,
   idocInspectorApi,
 } from '@/features/reports/idoc-inspector/api'
+// Central invoicing's probe lives in `@/core/` (ticket 332) for the OMS/Nphies reason: the
+// delivery page's action (`features/oms/document`) and the bulk screen
+// (`features/oms/central-invoice`) both read it, and neither may import the other.
+import {
+  CENTRAL_INVOICE_ACCESS_KEY,
+  canOpenCentralInvoice,
+  centralInvoiceApi,
+} from '@/core/central-invoice/api'
 import type { CollectionAccessResult } from '@/core/models/collection'
 
 // Data-driven menu: adding a module = appending here, no layout code changes.
@@ -59,8 +67,14 @@ export interface ShellMenuItem {
   labelKey: string
   icon?: LucideIcon
   routerLink?: string
-  /** Keeps the leaf highlighted + group expanded while a drill-down under this prefix is open. */
-  activePrefix?: string
+  /**
+   * Keeps the leaf highlighted + group expanded while a drill-down under this prefix is open.
+   *
+   * A LIST when one leaf owns several sibling subtrees (ticket 332): Deliveries owns
+   * `/oms/deliveries`, `/oms/document` and `/oms/delivery`, and a bare `/oms` would also
+   * claim the central-invoice screen beside it — two lit leaves on one page.
+   */
+  activePrefix?: string | readonly string[]
   /**
    * Match the path EXACTLY — no prefix match (ticket 284, spec 282 D2).
    *
@@ -144,7 +158,9 @@ export const MENU: ShellMenuItem[] = [
         labelKey: 'deliveries:menu.deliveries',
         icon: FileText,
         routerLink: '/oms/deliveries',
-        activePrefix: '/oms',
+        // The list and the document it drills into (two routes) — not the whole `/oms`
+        // prefix, which would co-highlight the central-invoice leaf below.
+        activePrefix: ['/oms/deliveries', '/oms/document', '/oms/delivery'],
         // Same key + call as BOTH OMS page guards → one shared probe (ticket 125).
         // Gated on the LIST grant: the leaf opens the list, and a session that holds
         // the detail grant but not the list one has no business in the nav here.
@@ -153,6 +169,24 @@ export const MENU: ShellMenuItem[] = [
           key: OMS_ACCESS_KEY,
           run: () => omsAccessApi.access(),
           visible: (r) => r.canOpenList === true,
+        }),
+      },
+      {
+        // Central invoicing's bulk screen (ticket 332, BackOffice spec 2094). Its OWN grant
+        // (`BackOfficeScreen[CentralInvoice,03]`), not the OMS one: opening deliveries is no
+        // claim on bypassing the pick gate, so an OMS user without it sees a one-leaf group.
+        //
+        // 🚩 FAILS CLOSED — see `@/core/central-invoice/api`. The same key the delivery page's
+        // action and the screen's gate read, so a 403 from the POST (which overwrites that
+        // entry) drops this leaf too.
+        labelKey: 'central-invoice:menu.raise',
+        icon: ReceiptText,
+        routerLink: '/oms/central-invoice',
+        activePrefix: '/oms/central-invoice',
+        access: accessProbe({
+          key: CENTRAL_INVOICE_ACCESS_KEY,
+          run: () => centralInvoiceApi.access(),
+          visible: canOpenCentralInvoice,
         }),
       },
     ],
@@ -598,5 +632,6 @@ export function isActive(item: ShellMenuItem, pathname: string): boolean {
   if (item.exact) return !!item.routerLink && path === item.routerLink
   const target = item.activePrefix ?? item.routerLink
   if (!target) return false
-  return path === target || path.startsWith(target + '/')
+  const targets = typeof target === 'string' ? [target] : target
+  return targets.some((t) => path === t || path.startsWith(t + '/'))
 }

@@ -43,6 +43,10 @@ import settlement from '@/locales/en/settlement.json'
 // feature. Only words that name no owner live here; a caller's words (the slip drawer's
 // "slip", the order tab's "prescription") stay in the caller's namespace and are passed in.
 import attachments from '@/locales/en/attachments.json'
+// Central invoicing (BackOffice spec 2094, ticket 332). Namespace == the bulk screen's feature
+// name (`features/oms/central-invoice`), and `core/central-invoice` — the delivery page's dialog
+// and the verdict pill both features draw — speaks in it too, so a verdict reads the same in both.
+import centralInvoice from '@/locales/en/central-invoice.json'
 
 // English-only today; the call-site contract (t('ns:key')) is frozen from day one
 // so Arabic later is a locale folder + dir="rtl", not a codebase sweep.
@@ -50,7 +54,7 @@ i18n.use(initReactI18next).init({
   lng: 'en',
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments'],
+  ns: ['common', 'home', 'auth', 'deliveries', 'document', 'ua-admin', 'authz-admin', 'active-sessions', 'simulation', 'bonus-buy-download', 'bonus-buy-inquiry', 'coupons', 'notifications', 'broadcast', 'callcenter', 'eligibility', 'authorizations', 'loy', 'collection', 'settlement', 'reports', 'attachments', 'central-invoice'],
   resources: {
     en: {
       common,
@@ -75,6 +79,7 @@ i18n.use(initReactI18next).init({
       settlement,
       reports,
       attachments,
+      'central-invoice': centralInvoice,
     },
   },
   interpolation: { escapeValue: false },

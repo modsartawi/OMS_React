@@ -152,3 +152,22 @@ describe('isActive — the rule the other leaves have always had is unchanged', 
     expect(isActive(plain('/'), '/')).toBe(true)
   })
 })
+
+describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
+  const oms = MENU.find((g) => g.labelKey === 'deliveries:menu.oms')!
+  const lit = (path: string) => (oms.items ?? []).filter((i) => isActive(i, path)).map((i) => i.labelKey)
+
+  it('Deliveries owns the list and both document routes', () => {
+    for (const path of ['/oms/deliveries', '/oms/document/2000000551', '/oms/delivery/8000000253'])
+      expect([path, lit(path)]).toEqual([path, ['deliveries:menu.deliveries']])
+  })
+
+  it('🚩 the central-invoice screen lights its own leaf ALONE — not Deliveries beside it', () => {
+    expect(lit('/oms/central-invoice')).toEqual(['central-invoice:menu.raise'])
+  })
+
+  it('the central-invoice leaf carries its OWN probe, not the OMS one', () => {
+    const leaf = (oms.items ?? []).find((i) => i.labelKey === 'central-invoice:menu.raise')!
+    expect(leaf.access?.key).toEqual(['central-invoice', 'access'])
+  })
+})

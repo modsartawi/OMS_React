@@ -189,6 +189,19 @@ export const MENU: ShellMenuItem[] = [
           visible: canOpenCentralInvoice,
         }),
       },
+      {
+        // The raised central invoices (ticket 333) — the same grant and the SAME probe entry
+        // as the raise leaf above, so one 403 drops both.
+        labelKey: 'central-invoice:menu.list',
+        icon: ListChecks,
+        routerLink: '/oms/central-invoices',
+        activePrefix: '/oms/central-invoices',
+        access: accessProbe({
+          key: CENTRAL_INVOICE_ACCESS_KEY,
+          run: () => centralInvoiceApi.access(),
+          visible: canOpenCentralInvoice,
+        }),
+      },
     ],
   },
   {

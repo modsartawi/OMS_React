@@ -138,6 +138,14 @@ export const router = createBrowserRouter([
           Component: (await import('@/features/oms/central-invoice/CentralInvoicePage')).default,
         }),
       },
+      // …and the list of what was raised (ticket 333), the same feature and the same grant.
+      // `central-invoices`, not `central-invoice/list`: the raise leaf's prefix would claim it.
+      {
+        path: 'oms/central-invoices',
+        lazy: async () => ({
+          Component: (await import('@/features/oms/central-invoice/CentralInvoicesPage')).default,
+        }),
+      },
       {
         path: 'admin/ua-users',
         lazy: async () => ({

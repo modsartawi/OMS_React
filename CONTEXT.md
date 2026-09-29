@@ -86,7 +86,25 @@ server answers each delivery with a **central-invoice verdict**: `accepted` (sho
 is only queued, billing follows on the worker), `wait` (changed in the last 24 hours; retry later) or
 `refused`, each with a `CINV-` code and a sentence the client shows verbatim. Unlike the IDoc
 **Verdict**, the server sends the sentence here.
+Once raised, a central invoice has a **status**: `QUEUED` → `BILLED` (with its invoice number
+`I<delivery>`) or `STRANDED` (with the `CINV-` code it stopped on). Billing ends the delivery's
+picking documents — **consumed** if they hold picked units (those packs stay sold), **voided** if
+not — and the list shows that **pick outcome**. "No serials" is about the *invoice*: the consumed
+documents' units are the only record of which packs went out, and the list reads them from there
+(ticket 333).
 _Avoid_: manual invoice, HQ invoice (the rail's other callers are HQ invoices too), force-bill.
+
+**Cash remainder** (of a central invoice):
+What the invoice records as the store's cash because the online tenders did not cover it — cash no
+Z-report counted, which finance reconciles by hand. Zero on a JAHA / HungerStation credit sale, whose
+remainder is owed on account; blank (never zero) while there is no invoice.
+_Avoid_: cash line, balance due.
+
+**Serialised in a GS1 market** (of a central invoice):
+The delivery holds a serial-tracked article and its store's country is a GS1 market — every country
+but the exempt list (today Bahrain); an unknown country counts. These are the packs regulatory
+reports by hand, because no RSD dispatch notice covered them.
+_Avoid_: GS1 invoice, serialised invoice.
 
 **Seeded** (of an employee identity):
 An identity that exists in the UA tables, is **active**, is backed by a real legacy `[User_]` row,

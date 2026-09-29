@@ -33,3 +33,61 @@ export interface CentralInvoiceRaiseResult {
 export interface CentralInvoiceRaiseResponse {
   results: CentralInvoiceRaiseResult[]
 }
+
+// ── The list (`GET Sd/CentralInvoice`, BackOffice ticket 2100; client ticket 333) ──
+
+/** One consumed pack (`CentralInvoiceSerial`): the picking document it was picked on, and its
+ *  GS1 identity. `expiryDate` is the unit's own text, passed through as stored. */
+export interface CentralInvoiceSerial {
+  pickDocumentNo: string
+  gtin: string
+  serialNumber: string
+  batchLot: string
+  expiryDate: string
+}
+
+/**
+ * One raised central invoice (`CentralInvoiceListRow`), as finance and regulatory read it.
+ *
+ * `status`, `pickOutcome` are the server's upper-case spellings, typed `string` for the same
+ * reason `CentralInvoiceRaiseResult.verdict` is: an unknown spelling is shown as sent.
+ */
+export interface CentralInvoiceListRow {
+  /** The audit row's ULID. */
+  id: string
+  deliveryNo: string
+  /** The delivery's store — where the invoice sits. */
+  storeCode: string
+  requestedBy: string
+  /** Local wall clock, no offset. */
+  requestedAt: string
+  reason: string
+  /** QUEUED / BILLED / STRANDED. */
+  status: string
+  /** The `CINV-` code a STRANDED request stopped on; empty otherwise. */
+  refusalCode: string
+  /** `I<DeliveryNo>` once BILLED; empty before. */
+  trxNumber: string
+  /** Null while there is no invoice — never a fake zero. */
+  invoiceTotal: number | null
+  /** The invoice's `CENTRAL` cash line — cash no Z-report counted. 0 on a JAHA/HNGR credit
+   *  sale or when the online tenders covered it; null while there is no invoice. */
+  cashRemainder: number | null
+  /** The picking document the audit row names; empty if none. */
+  pickDocumentNo: string
+  /** CONSUMED / VOIDED / NONE once BILLED; empty before. */
+  pickOutcome: string
+  /** Local wall clock; the .NET `0001-01-01T00:00:00` until BILLED. */
+  billedAt: string
+  /** The store's plant country (`Plants.CountryKey`); empty when the plant has none. */
+  country: string
+  /** A serial-tracked article, in a country that is not GS1-exempt (an unknown one counts). */
+  serialisedInGs1Market: boolean
+  /** The units of every picking document the invoice CONSUMED; empty for any other outcome. */
+  serials: CentralInvoiceSerial[]
+}
+
+/** `data` of `GET Sd/CentralInvoice`: newest request first. */
+export interface CentralInvoiceListResponse {
+  rows: CentralInvoiceListRow[]
+}

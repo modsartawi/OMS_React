@@ -1,6 +1,7 @@
 {
   "menu": {
-    "raise": "Raise central invoices"
+    "raise": "Raise central invoices",
+    "list": "Central invoices"
   },
   "access": {
     "checking": "Checking your access…",
@@ -75,6 +76,99 @@
       "verdict": "Verdict",
       "code": "Code",
       "message": "Message"
+    }
+  },
+  "list": {
+    "title": "Central invoices",
+    "subtitle": "Every central invoice HQ raised, with its outcome. Finance reconciles the cash remainders no Z-report counted; regulatory reports the GS1 packs no dispatch notice covered.",
+    "gridTitle": "Raised central invoices",
+    "loading": "Loading…",
+    "count_one": "{{count}} central invoice",
+    "count_other": "{{count}} central invoices",
+    "countFiltered": "{{shown}} of {{count}} shown",
+    "empty": "No central invoice was raised in this range.",
+    "failedTitle": "The list could not be loaded",
+    "failed": "The central invoices could not be read. Try again in a moment.",
+    "filters": {
+      "dateBasis": "Date of",
+      "basis": {
+        "requested": "Request",
+        "billed": "Billing"
+      },
+      "from": "From",
+      "to": "To",
+      "store": "Store",
+      "storePlaceholder": "Any store",
+      "status": "Status",
+      "anyStatus": "Any status",
+      "search": "Search",
+      "reset": "Reset",
+      "problem": {
+        "reversed": "The range ends before it starts.",
+        "badDate": "Enter each date as a full day.",
+        "billedStatus": "Only billed central invoices have a billing date. Choose the request date, or the status Billed."
+      }
+    },
+    "status": {
+      "QUEUED": "Queued",
+      "BILLED": "Billed",
+      "STRANDED": "Stranded"
+    },
+    "outcome": {
+      "CONSUMED": "Consumed",
+      "VOIDED": "Voided",
+      "NONE": "None"
+    },
+    "gs1": {
+      "yes": "GS1 market",
+      "no": "No",
+      "only": "GS1 markets only",
+      "onlyHint": "Show only the central invoices holding a serial-tracked article in a GS1 market — the ones regulatory reports by hand. The export follows."
+    },
+    "columns": {
+      "deliveryNo": "Delivery",
+      "store": "Store",
+      "country": "Country",
+      "requestedBy": "Requested by",
+      "requestedAt": "Requested at",
+      "reason": "Reason",
+      "status": "Status",
+      "refusalCode": "Refusal code",
+      "invoiceNo": "Invoice number",
+      "invoiceTotal": "Total",
+      "cashRemainder": "Cash remainder",
+      "cashRemainderHint": "What the invoice recorded as store cash because the customer did not pay it online. No Z-report counted it. Zero on a credit sale (JAHA, HungerStation).",
+      "billedAt": "Billed at",
+      "pickDocument": "Picking document",
+      "pickOutcome": "Pick outcome",
+      "gs1": "Serialised in a GS1 market",
+      "gs1Hint": "The delivery holds a serial-tracked article and its store is in a GS1 market (every country but Bahrain).",
+      "serials": "Serials"
+    },
+    "serials": {
+      "open_one": "{{count}} serial",
+      "open_other": "{{count}} serials",
+      "title": "Consumed packs — delivery {{deliveryNo}}",
+      "none": "The consumed picking document holds no serialised unit.",
+      "close": "Close",
+      "columns": {
+        "pickDocument": "Picking document",
+        "gtin": "GTIN",
+        "serial": "Serial number",
+        "batch": "Batch",
+        "expiry": "Expiry"
+      }
+    },
+    "export": {
+      "button": "Export to Excel",
+      "fileName": "central-invoices",
+      "sheet": "Central invoices",
+      "serialsSheet": "Serials",
+      "done": "Exported",
+      "doneDetail_one": "{{count}} central invoice was written to the workbook, with its serials on the second sheet.",
+      "doneDetail_other": "{{count}} central invoices were written to the workbook, with their serials on the second sheet.",
+      "failed": "The export failed",
+      "failedDetail": "The workbook could not be written. Try again."
     }
   }
 }

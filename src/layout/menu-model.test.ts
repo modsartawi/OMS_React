@@ -170,4 +170,14 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
     const leaf = (oms.items ?? []).find((i) => i.labelKey === 'central-invoice:menu.raise')!
     expect(leaf.access?.key).toEqual(['central-invoice', 'access'])
   })
+
+  it('the list (ticket 333) lights its own leaf alone, and the raise screen does not light it', () => {
+    expect(lit('/oms/central-invoices')).toEqual(['central-invoice:menu.list'])
+    expect(lit('/oms/central-invoice')).toEqual(['central-invoice:menu.raise'])
+  })
+
+  it('the list leaf reads the SAME probe entry as the raise leaf, so one 403 drops both', () => {
+    const leaf = (oms.items ?? []).find((i) => i.labelKey === 'central-invoice:menu.list')!
+    expect(leaf.access?.key).toEqual(['central-invoice', 'access'])
+  })
 })

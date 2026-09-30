@@ -453,7 +453,11 @@ Follow this protocol strictly:
      wrong, log it to the HITL doc and carry on with your slice.
    - 335, 337, 338 and 339 each call an endpoint built by a BackOffice ticket (335: 2151 and 2152;
      337: 2156; 338: 2157; 339: 2150). That ticket records the agreed envelope under a
-     "## Web contract" heading in its own file in C:\Work\DMSCO\BackOffice\.issues. Read it and
+     "## Web contract" heading in its own file. The BackOffice wave is being built on branch
+     spec2149 in the WORKTREE C:\Work\DMSCO\BackOffice-2149 - read the ticket from
+     C:\Work\DMSCO\BackOffice-2149\.issues, NOT from C:\Work\DMSCO\BackOffice\.issues (that
+     checkout is on another branch and does not have the landed tickets). Only a COMMITTED
+     heading counts (git -C that worktree log); uncommitted work there is in flight. Read it and
      stub EXACTLY that shape. Do not invent fields and do not soften the shape to what is
      convenient - a screen built against a guessed shape fails silently on the fields you guessed.
    - If that "## Web contract" heading is MISSING, the BackOffice ticket has not landed and your

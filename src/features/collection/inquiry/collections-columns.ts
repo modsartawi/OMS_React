@@ -11,9 +11,9 @@ import { withSlipColumn, type SlipDay } from './slips'
  * The Cash Collections grid's columns (ticket 254), and the shape 255 and 256
  * copy.
  *
- * **Reordered, with a forensic tail behind a toggle.** The WPF shows all 19 of its
- * fields at once; the web leads with identity and money in reading order and folds
- * the rest behind **More columns**. ⚠️ **Nothing is dropped, only folded** — which
+ * **Finance's sheet, with a forensic tail behind a toggle.** The WPF shows all 19 of
+ * its fields at once; the web leads with the columns of finance's sheet (ticket
+ * 335) and folds the rest behind **More columns**. ⚠️ **Nothing is dropped, only folded** — which
  * is not a slogan but the assertion `collections-columns.test.ts` makes: every
  * field on the wire row appears in exactly one of the two groups (or is named,
  * with its reason, in `NON_COLUMN_FIELDS`). The export is the grid as shown
@@ -26,44 +26,59 @@ import { withSlipColumn, type SlipDay } from './slips'
  */
 
 /**
- * The eleven columns the supervisor lands on: who and where, then the two dates,
- * then the money, then why it differs (244 §6). Reading order, not the WPF's
- * declaration order.
+ * The ten columns the accountant lands on (ticket 335, BackOffice 2149 D1–D3):
+ * **finance's nine, in finance's order** — collection date, business date, store
+ * code, type, description, amount, surplus, net collected, collector — then the
+ * profit center. The order is the sheet's
+ * (`Credit_format_Cash Collection for DAR-ME.xlsx`), not a reading order of ours.
  *
- * 🚩 **Profit Center (Store)** sits beside the store code (ticket 314, BackOffice
- * 1990): `storeText` — `PH-019 (P019)`, or the code alone — is the SERVER's one
- * formatter, rendered exactly as sent. The store code keeps its own column, so the
- * landing grid reads as it did before a profit center was recorded.
+ * 🚩 **Collector is the collector's id** (`collectorOperatorId`), which is what the
+ * sheet carries and what BackOffice 2151's contract maps the column to. The name
+ * sits in the tail as *Collector Name*.
  *
- * 🚩 **Both dates are default columns** (ticket 315, BackOffice 1992): the sales
- * day and the collected-at instant sit side by side, because they are the two
- * ranges the toolbar filters on and a day collected late is only visible when
- * both are on screen. `salesDate` stays in the tail — the contract rules it out
- * as the business column (it is the receipt's voucher denormal, year-1 on a
+ * 🚩 **Profit Center (Store)** (ticket 314, BackOffice 1990): `storeText` —
+ * `PH-019 (P019)`, or the code alone — is the SERVER's one formatter, rendered
+ * exactly as sent.
+ *
+ * 🚩 **Both dates are default columns** (ticket 315, BackOffice 1992): they are the
+ * two ranges the toolbar filters on, and a day collected late is only visible when
+ * both are on screen. `salesDate` stays in the tail — the contract rules it out as
+ * the business column (it is the receipt's voucher denormal, year-1 on a
  * settlement row).
+ *
+ * 🚩 **No column here carries a sort.** The server sends the rows in finance's
+ * order (collection date, store, business date) and the grid shows them as
+ * received; a header click is the user's own sort.
  */
 export const DEFAULT_FIELDS = [
-  'collectionReceiptNo',
-  'storeId',
-  'storeText',
-  'storeName',
-  'collectorName',
-  'businessDay',
   'collectedAt',
+  'businessDay',
+  'storeId',
+  'collectionType',
+  'description',
+  'amount',
+  'surplus',
   'netCollected',
-  'variance',
-  'cardTotal',
-  'varianceReasonCode',
+  'collectorOperatorId',
+  'storeText',
 ] as const satisfies readonly (keyof CollectionInquiryRow)[]
 
 /**
- * The forensic tail. The first ten are the WPF's remaining ten, in the ticket's
- * order; the last five are wire fields the WPF grid never showed at all
- * (`retainedFloat`, the closer pair, `salesDate`, `currencyKey`) and which fold in
- * here rather than being dropped — "nothing is dropped" is a statement about the
- * **row**, not about the WPF's column picker.
+ * The tail behind **More columns**. It leads with the six columns that were on the
+ * landing grid until ticket 335 (receipt number, store name, collector name,
+ * variance, card total, reason), in the order they had there. Then the WPF's
+ * remaining nine, in ticket 254's order, and the wire fields the WPF grid never
+ * showed at all (`retainedFloat`, the closer pair, `salesDate`, `currencyKey`,
+ * `profitCenter`) — "nothing is dropped" is a statement about the **row**, not about
+ * the WPF's column picker.
  */
 export const MORE_FIELDS = [
+  'collectionReceiptNo',
+  'storeName',
+  'collectorName',
+  'variance',
+  'cardTotal',
+  'varianceReasonCode',
   'openedAt',
   'closedAt',
   'systemCash',
@@ -72,7 +87,6 @@ export const MORE_FIELDS = [
   'countedCashNet',
   'cardTransactionCount',
   'varianceReasonText',
-  'collectorOperatorId',
   'zReportIds',
   'retainedFloat',
   'closerOperatorId',
@@ -85,7 +99,8 @@ export const MORE_FIELDS = [
 
 /**
  * The column the slip probe gates (ticket 320, BackOffice 2034): drawn right after
- * `cardTotal` only when `AttachmentWeb/Access` holds `CASH_CLOSE`.
+ * `cardTotal` only when `AttachmentWeb/Access` holds `CASH_CLOSE`. Since ticket 335
+ * `cardTotal` is in the tail, so with the tail folded the count is the last column.
  *
  * 🚩 Its own group rather than a member of the two above: a count the session may
  * not see is not drawn, and so — the export being the grid as shown (ticket 336) —
@@ -96,24 +111,71 @@ export const MORE_FIELDS = [
 export const SLIP_FIELDS = ['slipCount'] as const satisfies readonly (keyof CollectionInquiryRow)[]
 
 /**
- * The wire fields that are deliberately **not** columns, each with its reason.
+ * The wire fields that are deliberately **not** columns, each with its reason. They
+ * are listed rather than silently skipped so that the completeness test can still
+ * prove the row is fully accounted for, and so that a reviewer sees an argued
+ * exclusion instead of an oversight.
  *
- * Exactly one today: `collectionReceiptId` is the receipt's ULID — the document
- * URL's key ([257](../../../../.issues/257-a-row-opens-its-document.md) opens it),
- * opaque, and meaningless to read. It is listed rather than silently skipped so
- * that the completeness test can still prove the row is fully accounted for, and
- * so that a reviewer sees an argued exclusion instead of an oversight.
+ * - `collectionReceiptId` is the receipt's ULID — the document URL's key
+ *   ([257](../../../../.issues/257-a-row-opens-its-document.md) opens it), opaque,
+ *   and meaningless to read.
+ * - `hasSurplus`, `hasTheft`, `isSettlement` and `isOffSystem` are what the server
+ *   builds the Type label from. The Type column already says them, and a column
+ *   beside it would invite reading the label back out of its parts.
+ * - The rest were on the wire before ticket 335, which declared them on the model
+ *   and asked for no column (the owner's call — `.afk/HITL-335.md`):
+ *   - `cashSales`, `settlement` and `theftAmount` are what *Amount* and *Surplus* are
+ *     built from, and `settlementDescription` is the raw copy behind *Description* —
+ *     a second set of near-identical figures beside finance's.
+ *   - `settlementAdjustmentTotal`, `settlementEntryNumber` and the `shift…` pair
+ *     (and `shiftCardTotal`) restate the receipt's deduction and card total for one
+ *     shift — the voucher's detail, which the receipt document already prints.
+ *   - `receiptKind` and `collectionStatus` are what *Type* says in finance's words
+ *     (`Short`, `Outside system`).
+ *   - `zNumber`, `amendmentCount`, `lastAmendedBy` and the four `offSystem…` fields
+ *     are audit detail no grid of this screen has shown; each would need a header
+ *     nobody has ruled on.
  */
-export const NON_COLUMN_FIELDS = ['collectionReceiptId'] as const satisfies readonly (keyof CollectionInquiryRow)[]
+export const NON_COLUMN_FIELDS = [
+  'collectionReceiptId',
+  'hasSurplus',
+  'hasTheft',
+  'isSettlement',
+  'isOffSystem',
+  'theftAmount',
+  'cashSales',
+  'settlement',
+  'settlementAdjustmentTotal',
+  'settlementEntryNumber',
+  'settlementDescription',
+  'shiftSettlementAdjustment',
+  'shiftSettlementEntryNumber',
+  'shiftCardTotal',
+  'receiptKind',
+  'collectionStatus',
+  'offSystemAt',
+  'offSystemBy',
+  'offSystemReasonCode',
+  'offSystemReasonText',
+  'zNumber',
+  'amendmentCount',
+  'lastAmendedBy',
+] as const satisfies readonly (keyof CollectionInquiryRow)[]
 
 /**
  * Which columns are money, and therefore render through `@/core/money.ts` to the
  * **row's own** currency's decimals — 2 for SAR, 3 for BHD (244 §7).
  *
+ * 🚩 `surplus` is drawn **as sent**: the server sends the deductions as a negative
+ * figure and a zero when there are none, and `formatMoneyIn` draws a real zero as
+ * `0.00`, never blank.
+ *
  * 🚩 `cardTransactionCount` is **not** here: it is a count of slips, not an amount,
  * and formatting it as money would put a `.00` on a number of pieces of paper.
  */
 export const MONEY_FIELDS = [
+  'amount',
+  'surplus',
   'netCollected',
   'variance',
   'cardTotal',
@@ -273,6 +335,15 @@ function column(
       // As the server sent it — no valueFormatter, by ruling (BackOffice 1990).
       // Ready's width, so the one column reads alike on the three grids.
       return { headerName: label, field, colId: field, width: 170 }
+    case 'collectionType':
+      // 🚩 Finance's words, exactly as the server sent them (BackOffice 2151, 2152):
+      // `Regular`, `Short`, `Regular+Surplus`, `Regular+Stolen`,
+      // `Regular+Surplus+Stolen`, `Outside system`. No valueGetter and no
+      // valueFormatter — the label is not derived here and not translated.
+      return { headerName: label, field, colId: field, width: 190 }
+    case 'description':
+      // As sent: two entries' descriptions arrive joined (`A | B`) and stay joined.
+      return { headerName: label, field, colId: field, width: 240 }
     case 'storeName':
     case 'collectorName':
     case 'closerName':

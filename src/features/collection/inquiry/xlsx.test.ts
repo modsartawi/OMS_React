@@ -103,6 +103,34 @@ const collection = (over: Partial<CollectionInquiryRow> = {}): CollectionInquiry
   zReportIds: 'Z-88121',
   currencyKey: 'SAR',
   slipCount: 2,
+  // BackOffice 2151's third sample shape: a day with a surplus deduction.
+  collectionType: 'Regular+Surplus',
+  hasSurplus: true,
+  hasTheft: false,
+  theftAmount: 0,
+  amount: 1235567.89,
+  surplus: -1000,
+  // Copied from BackOffice 2151's sample response — never retyped.
+  description: 'مرتجع شبكة 5512',
+  cashSales: 1235567.89,
+  settlement: -1000,
+  settlementAdjustmentTotal: 1000,
+  settlementEntryNumber: 1412,
+  settlementDescription: 'مرتجع شبكة 5512',
+  shiftSettlementAdjustment: 1000,
+  shiftSettlementEntryNumber: 1412,
+  shiftCardTotal: 8310.25,
+  receiptKind: 'SHIFT',
+  isSettlement: false,
+  collectionStatus: 'COLLECTED',
+  isOffSystem: false,
+  offSystemAt: null,
+  offSystemBy: '',
+  offSystemReasonCode: '',
+  offSystemReasonText: '',
+  zNumber: 412,
+  amendmentCount: 0,
+  lastAmendedBy: '',
   ...over,
 })
 
@@ -218,7 +246,8 @@ describe('cash collections export writes the visible columns in grid order', () 
   })
 
   it('writes the slip count where the grid shows it, and not where it does not', () => {
-    const shown = collectionSheet(collectionsGrid([collection()], false, true), 'collections', 'Cash Collections')
+    // The card total is behind More columns since ticket 335; the count follows it there.
+    const shown = collectionSheet(collectionsGrid([collection()], true, true), 'collections', 'Cash Collections')
     expect(headers(shown).indexOf(t('slips.column'))).toBe(headers(shown).indexOf(moneyLabel('cardTotal')) + 1)
     expect(cellUnder(shown, t('slips.column'))).toEqual({ type: Number, value: 2 })
 
@@ -228,7 +257,7 @@ describe('cash collections export writes the visible columns in grid order', () 
 
   it('writes the rows the grid walks, in the grid’s order, under a bold header', () => {
     const rows = [collection({ collectionReceiptNo: 3 }), collection({ collectionReceiptNo: 1 })]
-    const sheet = collectionSheet(collectionsGrid(rows, false), 'collections', 'Cash Collections')
+    const sheet = collectionSheet(collectionsGrid(rows, true), 'collections', 'Cash Collections')
     expect(sheet.name).toBe('Cash Collections')
     expect(sheet.count).toBe(2)
     expect(sheet.data[0].every((cell) => (cell as { fontWeight?: string }).fontWeight === 'bold')).toBe(true)
@@ -262,6 +291,18 @@ describe('export keeps an Arabic description intact', () => {
     })
   })
 
+  it('writes the settlement entry’s description, on the default grid, as the row carries it', () => {
+    // Ticket 335's Description column: finance's fifth, so it is in the file with
+    // More columns off.
+    const sheet = collectionSheet(collectionsGrid([collection()], false), 'collections', 'Cash Collections')
+    expect(cellUnder(sheet, label('collections', 'description'))).toEqual({ type: String, value: 'مرتجع شبكة 5512' })
+  })
+
+  it('writes finance’s type as the text the server sent', () => {
+    const sheet = collectionSheet(collectionsGrid([collection()], false), 'collections', 'Cash Collections')
+    expect(cellUnder(sheet, label('collections', 'collectionType'))).toEqual({ type: String, value: 'Regular+Surplus' })
+  })
+
   it('writes text that opens like a formula as text, never as a formula', () => {
     const sheet = collectionSheet(
       collectionsGrid([collection({ varianceReasonText: '=cmd|calc' })], true),
@@ -286,9 +327,19 @@ describe('money is numeric and store codes are text in the sheet', () => {
     expect(cellUnder(sheet, moneyLabel('variance'))).toEqual({ type: Number, value: -5.5 })
   })
 
+  it('writes finance’s surplus as the negative number sent, and a zero one as the number 0', () => {
+    expect(cellUnder(sheet, moneyLabel('surplus'))).toEqual({ type: Number, value: -1000 })
+    const regular = collectionSheet(
+      collectionsGrid([collection({ collectionType: 'Regular', surplus: 0 })], false),
+      'collections',
+      'Cash Collections',
+    )
+    expect(cellUnder(regular, moneyLabel('surplus'))).toEqual({ type: Number, value: 0 })
+  })
+
   it('writes a missing amount as an empty cell, never as a zero that would be summed', () => {
     const blank = collectionSheet(
-      collectionsGrid([collection({ variance: null as never })], false),
+      collectionsGrid([collection({ variance: null as never })], true),
       'collections',
       'Cash Collections',
     )
@@ -307,7 +358,7 @@ describe('money is numeric and store codes are text in the sheet', () => {
 
   it('writes the receipt number as text although the wire sends a number', () => {
     const long = collectionSheet(
-      collectionsGrid([collection({ collectionReceiptNo: 123456789012 })], false),
+      collectionsGrid([collection({ collectionReceiptNo: 123456789012 })], true),
       'collections',
       'Cash Collections',
     )

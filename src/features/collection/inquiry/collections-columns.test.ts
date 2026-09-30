@@ -52,6 +52,34 @@ const ROW: CollectionInquiryRow = {
   currencyKey: 'SAR',
   // BackOffice 2034: the store day's slip count, keyed by THIS row's businessDay.
   slipCount: 2,
+  // BackOffice 2151: finance's figures. A regular day — amount + surplus = net.
+  collectionType: 'Regular',
+  hasSurplus: false,
+  hasTheft: false,
+  theftAmount: 0,
+  amount: 11_975,
+  surplus: 0,
+  description: '',
+  // Sent before 335, declared by it.
+  cashSales: 11_975,
+  settlement: 0,
+  settlementAdjustmentTotal: 0,
+  settlementEntryNumber: 0,
+  settlementDescription: '',
+  shiftSettlementAdjustment: 0,
+  shiftSettlementEntryNumber: 0,
+  shiftCardTotal: 8_310.25,
+  receiptKind: 'SHIFT',
+  isSettlement: false,
+  collectionStatus: 'COLLECTED',
+  isOffSystem: false,
+  offSystemAt: null,
+  offSystemBy: '',
+  offSystemReasonCode: '',
+  offSystemReasonText: '',
+  zNumber: 412,
+  amendmentCount: 0,
+  lastAmendedBy: '',
 }
 
 const WIRE_FIELDS = Object.keys(ROW) as (keyof CollectionInquiryRow)[]
@@ -72,26 +100,14 @@ describe('the two groups account for the whole wire row', () => {
     expect(new Set(covered).size).toBe(covered.length)
   })
 
-  it('the default eleven are the ticket’s ten plus the profit center, in reading order', () => {
-    expect([...DEFAULT_FIELDS]).toEqual([
+  it('the tail leads with the six that left the landing grid, then the WPF’s remaining nine', () => {
+    expect([...MORE_FIELDS].slice(0, 15)).toEqual([
       'collectionReceiptNo',
-      'storeId',
-      // Ticket 314: the profit center beside the store code.
-      'storeText',
       'storeName',
       'collectorName',
-      // Ticket 315: both dates on the landing grid, the sales day first.
-      'businessDay',
-      'collectedAt',
-      'netCollected',
       'variance',
       'cardTotal',
       'varianceReasonCode',
-    ])
-  })
-
-  it('the tail leads with the WPF’s remaining ten, in the ticket’s order', () => {
-    expect([...MORE_FIELDS].slice(0, 10)).toEqual([
       'openedAt',
       'closedAt',
       'systemCash',
@@ -100,13 +116,36 @@ describe('the two groups account for the whole wire row', () => {
       'countedCashNet',
       'cardTransactionCount',
       'varianceReasonText',
-      'collectorOperatorId',
       'zReportIds',
     ])
   })
 
-  it('only the document’s ULID is withheld from the grid', () => {
-    expect([...NON_COLUMN_FIELDS]).toEqual(['collectionReceiptId'])
+  it('withholds the document’s ULID, the label’s parts and the figures 335 only declared', () => {
+    expect([...NON_COLUMN_FIELDS]).toEqual([
+      'collectionReceiptId',
+      'hasSurplus',
+      'hasTheft',
+      'isSettlement',
+      'isOffSystem',
+      'theftAmount',
+      'cashSales',
+      'settlement',
+      'settlementAdjustmentTotal',
+      'settlementEntryNumber',
+      'settlementDescription',
+      'shiftSettlementAdjustment',
+      'shiftSettlementEntryNumber',
+      'shiftCardTotal',
+      'receiptKind',
+      'collectionStatus',
+      'offSystemAt',
+      'offSystemBy',
+      'offSystemReasonCode',
+      'offSystemReasonText',
+      'zNumber',
+      'amendmentCount',
+      'lastAmendedBy',
+    ])
   })
 
   it('every money field is one of the row’s own fields', () => {
@@ -115,7 +154,7 @@ describe('the two groups account for the whole wire row', () => {
 })
 
 describe('buildCollectionsColumns', () => {
-  it('shows the default eleven with the toggle off', () => {
+  it('shows the default ten with the toggle off', () => {
     const columns = buildCollectionsColumns(t, [ROW], false)
     expect(columns.map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
   })
@@ -141,7 +180,7 @@ describe('buildCollectionsColumns', () => {
   })
 
   it('renders a figure to the ROW’s currency, not the header’s', () => {
-    const column = buildCollectionsColumns(t, [ROW], false).find((c) => c.colId === 'cardTotal')
+    const column = buildCollectionsColumns(t, [ROW], true).find((c) => c.colId === 'cardTotal')
     const format = column?.valueFormatter as (p: unknown) => string
     // BHD draws three decimals even though the header says whatever it says.
     expect(format({ value: 8310.25, data: { ...ROW, currencyKey: 'BHD' } })).toBe('8,310.250')
@@ -149,7 +188,7 @@ describe('buildCollectionsColumns', () => {
   })
 
   it('leaves a missing figure BLANK rather than 0.00', () => {
-    const column = buildCollectionsColumns(t, [ROW], false).find((c) => c.colId === 'variance')
+    const column = buildCollectionsColumns(t, [ROW], true).find((c) => c.colId === 'variance')
     const format = column?.valueFormatter as (p: unknown) => string
     expect(format({ value: null, data: ROW })).toBe('')
     expect(format({ value: undefined, data: ROW })).toBe('')
@@ -193,17 +232,216 @@ describe('buildCollectionsColumns', () => {
   })
 })
 
+// Ticket 335 (BackOffice 2149 D1–D3; the wire is BackOffice 2151 + 2152's Web
+// contract): the grid opens as finance's sheet.
+describe('finance’s sheet', () => {
+  /** What a cell shows: the ColDef's own reading of a row, as AG Grid makes it. */
+  const shown = (colId: string, row: CollectionInquiryRow, showMore = false): unknown => {
+    const column = buildCollectionsColumns(t, [row], showMore).find((c) => c.colId === colId)
+    const value =
+      typeof column?.valueGetter === 'function'
+        ? column.valueGetter({ data: row } as never)
+        : row[column?.field as keyof CollectionInquiryRow]
+    return typeof column?.valueFormatter === 'function'
+      ? column.valueFormatter({ value, data: row } as never)
+      : value
+  }
+
+  it('default columns are finance’s nine in order, then profit center', () => {
+    expect([...DEFAULT_FIELDS]).toEqual([
+      'collectedAt',
+      'businessDay',
+      'storeId',
+      'collectionType',
+      'description',
+      'amount',
+      'surplus',
+      'netCollected',
+      'collectorOperatorId',
+      // Ticket 314's Profit Center (Store), after the sheet's nine.
+      'storeText',
+    ])
+    expect(buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
+  })
+
+  it('heads each of the ten with its own key', () => {
+    expect(buildCollectionsColumns(t, [ROW], false).map((c) => c.headerName)).toEqual([
+      'collections.columns.collectedAt',
+      'collections.columns.businessDay',
+      'collections.columns.storeId',
+      'collections.columns.collectionType',
+      'collections.columns.description',
+      'collections.moneyHeader|{"label":"collections.columns.amount","currency":"SAR"}',
+      'collections.moneyHeader|{"label":"collections.columns.surplus","currency":"SAR"}',
+      'collections.moneyHeader|{"label":"collections.columns.netCollected","currency":"SAR"}',
+      'collections.columns.collectorOperatorId',
+      'collections.columns.storeText',
+    ])
+  })
+
+  it('type cell shows the server label for each of the five shapes', () => {
+    // The five shapes and the outside-system label, exactly as 2151 lists them.
+    for (const label of [
+      'Regular',
+      'Short',
+      'Regular+Surplus',
+      'Regular+Stolen',
+      'Regular+Surplus+Stolen',
+      'Outside system',
+    ]) {
+      expect(shown('collectionType', { ...ROW, collectionType: label })).toBe(label)
+    }
+  })
+
+  it('does not derive the type — the parts may disagree with the label and the label wins', () => {
+    const column = buildCollectionsColumns(t, [ROW], false).find((c) => c.colId === 'collectionType')
+    expect(column?.field).toBe('collectionType')
+    expect(column?.valueGetter).toBeUndefined()
+    expect(column?.valueFormatter).toBeUndefined()
+    // Every part says "a stolen settlement receipt outside the system"; the cell
+    // still says what the server said.
+    const contrary: CollectionInquiryRow = {
+      ...ROW,
+      collectionType: 'Regular',
+      hasSurplus: true,
+      hasTheft: true,
+      theftAmount: 3000,
+      isSettlement: true,
+      isOffSystem: true,
+      receiptKind: 'SETTLEMENT',
+      collectionStatus: 'OFF_SYSTEM',
+    }
+    expect(shown('collectionType', contrary)).toBe('Regular')
+    // …and a label this build has never heard of is shown, not blanked or mapped.
+    expect(shown('collectionType', { ...ROW, collectionType: 'Regular+Refund' })).toBe('Regular+Refund')
+  })
+
+  it('shows the surplus as the negative figure sent, and zero as zero', () => {
+    expect(shown('surplus', { ...ROW, amount: 2000, surplus: -1000, netCollected: 1000 })).toBe('-1,000.00')
+    expect(shown('surplus', { ...ROW, surplus: 0 })).toBe('0.00')
+    // Finance's Regular+Stolen sample: 3500 / -3000 / 500.
+    const stolen = { ...ROW, collectionType: 'Regular+Stolen', amount: 3500, surplus: -3000, netCollected: 500 }
+    expect([shown('amount', stolen), shown('surplus', stolen), shown('netCollected', stolen)]).toEqual([
+      '3,500.00',
+      '-3,000.00',
+      '500.00',
+    ])
+  })
+
+  it('shows the description as sent, Arabic included, and an empty one blank', () => {
+    const column = buildCollectionsColumns(t, [ROW], false).find((c) => c.colId === 'description')
+    expect(column?.valueFormatter).toBeUndefined()
+    // Copied from BackOffice 2151's sample response — never retyped.
+    expect(shown('description', { ...ROW, description: 'مرتجع شبكة 5512' })).toBe('مرتجع شبكة 5512')
+    expect(shown('description', ROW)).toBe('')
+    // BackOffice 2152: a surplus and a theft on one day — the server joins the two
+    // descriptions, and the cell shows the joined text whole.
+    const both = 'مرتجع شبكة 5512 | سرقة من الخزنة - بلاغ 5521'
+    expect(shown('description', { ...ROW, collectionType: 'Regular+Surplus+Stolen', description: both })).toBe(both)
+  })
+
+  it('shows BackOffice 2152’s Regular+Stolen sample as sent, hasSurplus false and all', () => {
+    // 2152's sample response, verbatim in its figures: cash sales 500, theft 3000.
+    const sample: CollectionInquiryRow = {
+      ...ROW,
+      systemCash: 3500,
+      countedCash: 500,
+      variance: -3000,
+      netCollected: 500,
+      receiptKind: 'SHIFT',
+      settlementAdjustmentTotal: 0,
+      cashSales: 500,
+      settlement: 0,
+      theftAmount: 3000,
+      hasTheft: true,
+      hasSurplus: false,
+      collectionType: 'Regular+Stolen',
+      amount: 3500,
+      surplus: -3000,
+      // Copied from BackOffice 2152's sample response — never retyped.
+      description: 'سرقة من الخزنة - بلاغ 5521',
+    }
+    expect(
+      ['collectionType', 'description', 'amount', 'surplus', 'netCollected'].map((id) => shown(id, sample)),
+    ).toEqual(['Regular+Stolen', 'سرقة من الخزنة - بلاغ 5521', '3,500.00', '-3,000.00', '500.00'])
+  })
+
+  it('shows the collector’s id under Collector, and folds the name into the tail', () => {
+    expect(shown('collectorOperatorId', ROW)).toBe('4472')
+    expect(MORE_FIELDS).toContain('collectorName')
+  })
+
+  it('more columns still offers every previous field', () => {
+    // The 27 columns the screen had before ticket 335, by field. None may leave.
+    const before = [
+      'collectionReceiptNo',
+      'storeId',
+      'storeText',
+      'storeName',
+      'collectorName',
+      'businessDay',
+      'collectedAt',
+      'netCollected',
+      'variance',
+      'cardTotal',
+      'varianceReasonCode',
+      'openedAt',
+      'closedAt',
+      'systemCash',
+      'countedCash',
+      'openingFloat',
+      'countedCashNet',
+      'cardTransactionCount',
+      'varianceReasonText',
+      'collectorOperatorId',
+      'zReportIds',
+      'retainedFloat',
+      'closerOperatorId',
+      'closerName',
+      'salesDate',
+      'currencyKey',
+      'profitCenter',
+    ]
+    const open = buildCollectionsColumns(t, [ROW], true).map((c) => c.colId)
+    for (const field of before) expect(open, field).toContain(field)
+    // …each exactly once, and the slip count with them for a session that may see it.
+    expect(new Set(open).size).toBe(open.length)
+    expect(buildCollectionsColumns(t, [ROW], true, true).map((c) => c.colId)).toContain('slipCount')
+    // The tail follows finance's ten; it never reorders them.
+    expect(open.slice(0, DEFAULT_FIELDS.length)).toEqual([...DEFAULT_FIELDS])
+  })
+
+  it('rows keep the server order by default', () => {
+    // The grid shows `rowData` in the order given unless a column says otherwise,
+    // so "no default sort" is: no column, with the tail open or folded and the slip
+    // count drawn, carries a sort of its own — and neither does the default ColDef.
+    const sortKeys = ['sort', 'initialSort', 'sortIndex', 'initialSortIndex'] as const
+    for (const showMore of [false, true]) {
+      for (const column of buildCollectionsColumns(t, [ROW], showMore, true)) {
+        for (const key of sortKeys) expect(column[key], `${column.colId}.${key}`).toBeUndefined()
+      }
+    }
+    for (const showFilters of [false, true]) {
+      const defaults = buildCollectionsDefaultColDef(showFilters)
+      for (const key of sortKeys) expect(defaults[key]).toBeUndefined()
+      // A header click is still the user's to make.
+      expect(defaults.sortable).toBe(true)
+    }
+  })
+})
+
 // Ticket 315 (BackOffice 1992): the Business date column reads `businessDay`, the
 // date part only, and `null` renders blank — never 0001-01-01.
 describe('the Business date column', () => {
   const column = () =>
     buildCollectionsColumns(t, [ROW], false).find((c) => c.colId === 'businessDay')
 
-  it('is on the DEFAULT grid, beside the collection date — no More columns needed', () => {
+  it('is on the DEFAULT grid, right after the collection date — no More columns needed', () => {
     const ids = buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)
     expect(ids).toContain('businessDay')
     expect(ids).toContain('collectedAt')
-    expect(ids.indexOf('collectedAt')).toBe(ids.indexOf('businessDay') + 1)
+    // Finance's order (ticket 335): the collection date leads, the business date follows.
+    expect(ids.indexOf('businessDay')).toBe(ids.indexOf('collectedAt') + 1)
   })
 
   it('reads businessDay, not salesDate — the contract rules salesDate out', () => {
@@ -233,9 +471,10 @@ describe('the profit center column', () => {
   const find = (colId: string, showMore = false) =>
     buildCollectionsColumns(t, [ROW], showMore).find((c) => c.colId === colId)
 
-  it('is on the DEFAULT grid, right after the store code', () => {
+  it('is on the DEFAULT grid, right after finance’s nine', () => {
     const ids = buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)
-    expect(ids.indexOf('storeText')).toBe(ids.indexOf('storeId') + 1)
+    expect(ids.indexOf('storeText')).toBe(9)
+    expect(ids).toHaveLength(10)
   })
 
   it('reads storeText with a t() header, and no formatter of its own', () => {
@@ -311,9 +550,16 @@ describe('the Slips column', () => {
   })
 
   it('lands right after the card total when admitted', () => {
-    const ids = buildCollectionsColumns(t, [ROW], false, true).map((c) => c.colId)
+    const ids = buildCollectionsColumns(t, [ROW], true, true).map((c) => c.colId)
     expect(ids.indexOf('slipCount')).toBe(ids.indexOf('cardTotal') + 1)
-    expect(ids.filter((id) => id !== 'slipCount')).toEqual([...DEFAULT_FIELDS])
+    expect(ids.filter((id) => id !== 'slipCount')).toEqual([...DEFAULT_FIELDS, ...MORE_FIELDS])
+  })
+
+  it('is the last column while the card total is folded away', () => {
+    // Since ticket 335 the card total is behind More columns. The count is still
+    // drawn for a session the probe admits: after finance's ten, never among them.
+    const ids = buildCollectionsColumns(t, [ROW], false, true).map((c) => c.colId)
+    expect(ids).toEqual([...DEFAULT_FIELDS, 'slipCount'])
   })
 
   it('draws a count as sent, a real 0 as 0, and null as the dash', () => {
@@ -331,6 +577,6 @@ describe('the Slips column', () => {
 
   it('leaves the existing card total alone — still the receipt’s money column', () => {
     expect(MONEY_FIELDS).toContain('cardTotal')
-    expect(DEFAULT_FIELDS).toContain('cardTotal')
+    expect(MORE_FIELDS).toContain('cardTotal')
   })
 })

@@ -116,6 +116,8 @@ export interface CollectionAccessResult {
  * camel-cased by the serializer and with **one addition**: `collectionReceiptId`,
  * the ULID spec 249 §1 puts on the projection. `businessDay` joined at ticket 315
  * (BackOffice 1992's Web contract), which names it as the Business date column.
+ * Ticket 335 (BackOffice 2151's Web contract) added finance's four figures and
+ * declared the fields the server had been sending all along.
  *
  * 🚩 **Unlike the two document contracts, this one carries numbers and dates.**
  * That is not a drift from 245 §0 — the "client cannot format" rule governs the
@@ -192,6 +194,90 @@ export interface CollectionInquiryRow {
    * grant, and every row when the answer's `slipCountsUnavailable` is true.
    */
   slipCount: number | null
+
+  // ---- finance's sheet (ticket 335, BackOffice 2151 + 2152's Web contract) ----
+  // Nine columns: `collectedAt`, `businessDay`, `storeId`, then the four below,
+  // `netCollected` and `collectorOperatorId`. On every row
+  // `amount + surplus = netCollected`.
+  /**
+   * The *Type* column — the server's finished label, in finance's words: `Regular`,
+   * `Short`, `Regular+Surplus`, `Regular+Stolen`, `Regular+Surplus+Stolen`,
+   * `Outside system`. 🚩 Printed as sent. The browser never rebuilds it from the
+   * parts below and never translates it; the kinds are Shortage, Surplus and Theft
+   * everywhere else.
+   */
+  collectionType: string
+  /**
+   * A part of the label: the row's receipt carries a surplus deduction. The deduction
+   * alone — it stays `false` on a `Regular+Stolen` row whose `surplus` is negative.
+   */
+  hasSurplus: boolean
+  /** A part of the label: the day carries an approved theft (BackOffice 2152). */
+  hasTheft: boolean
+  /**
+   * The approved theft this row carries, a positive figure; `0` when none. Several
+   * on one day add up. ⚠️ Only the day's LAST shift carries it (BackOffice 2152): the
+   * day's other shift rows read as if there were no theft.
+   */
+  theftAmount: number
+  /**
+   * Finance's *Amount*: cash sales plus the day's approved theft on a trading day,
+   * the receipt's amount on a settlement receipt, `0` on an outside-system day.
+   */
+  amount: number
+  /**
+   * Finance's *Surplus*: the row's deductions as a NEGATIVE figure, `0` when none.
+   * ⚠️ A column heading, not the Surplus kind, and not `settlement`: on a settlement
+   * receipt `settlement` is +amount and this is `0`.
+   */
+  surplus: number
+  /**
+   * The settlement entries' descriptions behind the row — the surplus's, then each
+   * approved theft's, joined as `A | B` by the server; `''` when it carries none.
+   * Shown as sent, never split.
+   */
+  description: string
+
+  // ---- sent before 335 and declared by it (same contract) ----
+  /** Gross cash sales of the receipt; `0` on a settlement receipt and an outside-system day. */
+  cashSales: number
+  /**
+   * One signed figure: a surplus kept back is negative, a shortage handed over
+   * positive. `cashSales + settlement = netCollected`.
+   */
+  settlement: number
+  /** The receipt's surplus deduction, positive. */
+  settlementAdjustmentTotal: number
+  /** The entry the receipt names; `0` when none. */
+  settlementEntryNumber: number
+  /** The raw description copy behind `description`. */
+  settlementDescription: string
+  /** `settlementAdjustmentTotal` for this row's own shift. */
+  shiftSettlementAdjustment: number
+  /** `settlementEntryNumber` for this row's own shift. */
+  shiftSettlementEntryNumber: number
+  /** The card total of this row's own shift. */
+  shiftCardTotal: number
+  /** `SHIFT`, `SETTLEMENT`, or `''` on an outside-system day. */
+  receiptKind: string
+  /** The row is a settlement receipt. Its shift figures are absences, not zeros. */
+  isSettlement: boolean
+  /** `COLLECTED` or `OFF_SYSTEM`. */
+  collectionStatus: string
+  /** The day was declared collected outside the system. Its receipt figures are absences. */
+  isOffSystem: boolean
+  /** When it was declared; `null` on other rows. */
+  offSystemAt: string | null
+  /** Who declared it, and why (code, then text); `''` on other rows. */
+  offSystemBy: string
+  offSystemReasonCode: string
+  offSystemReasonText: string
+  /** The day's Z number; `0` on a settlement receipt. */
+  zNumber: number
+  /** How many times the day's Z was amended. */
+  amendmentCount: number
+  /** Who made the last amendment; `''` when none. */
+  lastAmendedBy: string
 }
 
 /**

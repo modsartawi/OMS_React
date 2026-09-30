@@ -388,9 +388,20 @@ async function run() {
   await shot('collections-holder')
   hs = await headers()
   check('collections — the Slips column is shown for a CASH_CLOSE holder', hs.includes('Slips'), hs.join(' | '))
-  check('collections — right after the existing Card Total', hs.indexOf('Slips') === hs.indexOf('Card Total (SAR)') + 1, hs.join(' | '))
+  // Ticket 335: the grid opens as finance's sheet and Card Total is behind More columns, so
+  // on arrival the count is the last column, after finance's ten.
+  check('collections — after finance’s ten while Card Total is folded', hs.indexOf('Slips') === hs.indexOf('Profit Center (Store)') + 1 && hs.indexOf('Slips') === hs.length - 1, hs.join(' | '))
   check('collections — the probe is asked once for the page', probeCalls === 1, `${probeCalls} calls`)
+  // The tail is wider than any viewport: open it on a wide one so its headers are all drawn.
+  await page.setViewportSize({ width: 5200, height: 900 })
+  await page.getByRole('button', { name: 'More columns' }).click()
+  await page.waitForTimeout(400)
+  hs = await headers()
+  check('collections — right after the existing Card Total once the tail is open', hs.indexOf('Slips') === hs.indexOf('Card Total (SAR)') + 1, hs.join(' | '))
   check('collections — the existing card total is untouched', (await seen(indexCell(0, 'cardTotal'))) === '1,310.25')
+  await page.getByRole('button', { name: 'More columns' }).click()
+  await page.setViewportSize({ width: 2600, height: 900 })
+  await page.waitForTimeout(400)
   check(
     'collections — a multi-shift receipt’s rows keep their OWN day’s counts (0 and 3, never merged)',
     (await seen(indexCell(0, 'slipCount'))) === '0' && (await seen(indexCell(1, 'slipCount'))) === '3',
@@ -434,7 +445,11 @@ async function run() {
     check(`collections — hidden for ${name}: no column, no filter, no banner`, !hs.includes('Slips') && (await noSlipButton().count()) === 0 && !text.includes(BANNER), hs.join(' | '))
   }
 
-  check('collections — …and the existing Card Total still shows under a hidden probe', (await headers()).includes('Card Total (SAR)'))
+  await page.setViewportSize({ width: 5200, height: 900 })
+  await page.getByRole('button', { name: 'More columns' }).click()
+  await page.waitForTimeout(400)
+  check('collections — …and the existing Card Total still shows under a hidden probe, behind More columns', (await headers()).includes('Card Total (SAR)') && !(await headers()).includes('Slips'))
+  await page.setViewportSize({ width: 2600, height: 900 })
 
   // Pending: the probe never answers, the grid does.
   probe = 'holder'

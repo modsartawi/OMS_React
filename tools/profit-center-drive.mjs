@@ -185,7 +185,9 @@ const SCREENS = {
     door: 'CollectionWeb/Collections',
     rows: COLLECTION_ROWS,
     codeColumn: 'storeId',
-    codeHeader: 'Store',
+    codeHeader: 'Store Code',
+    // Ticket 335: finance's nine lead, and the profit center follows the last of them.
+    before: 'Collector',
     loading: "Loading today's collections…",
     emptyTitle: 'No collections in this period',
     csvName: 'collection-collections',
@@ -324,8 +326,8 @@ async function run() {
     const landing = await headers()
     check(`${key} — ${COLUMN} is on the DEFAULT grid`, landing.includes(COLUMN), landing.join(' | '))
     check(
-      `${key} — …right after ${screen.codeHeader}`,
-      landing.indexOf(COLUMN) === landing.indexOf(screen.codeHeader) + 1,
+      `${key} — …right after ${screen.before ?? screen.codeHeader}`,
+      landing.indexOf(COLUMN) === landing.indexOf(screen.before ?? screen.codeHeader) + 1,
       landing.join(' | '),
     )
     check(`${key} — the raw ${RAW} waits in the tail`, !landing.includes(RAW))

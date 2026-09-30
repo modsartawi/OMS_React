@@ -147,8 +147,53 @@ function storePair(code) {
     : { profitCenter: `PH-${code}`, storeText: `PH-${code} (${code})` }
 }
 
+/** Copied from BackOffice 2151's sample response — never retyped. */
+const SURPLUS_DESCRIPTION = 'مرتجع شبكة 5512'
+const SHORTAGE_DESCRIPTION = 'عجز سابق'
+/** Copied from BackOffice 2152's sample response — never retyped. */
+const THEFT_DESCRIPTION = 'سرقة من الخزنة - بلاغ 5521'
+
+/** Finance's figures and the already-sent fields for mock row `i` (ticket 335, BackOffice
+ *  2151's `## Web contract`). Row 2 is the settlement receipt (`Short`); every ODD row carries
+ *  a surplus deduction, so the Surplus column has negatives AND zeros on any filtered slice;
+ *  the rest are regular days. `amount + surplus = netCollected` on every row. */
+function financeFields(i) {
+  const netCollected = 11975 + i
+  const settlementReceipt = i === 2
+  const deducted = !settlementReceipt && i % 2 === 1 ? 100 + i : 0
+  return {
+    collectionType: settlementReceipt ? 'Short' : deducted ? 'Regular+Surplus' : 'Regular',
+    hasSurplus: deducted > 0,
+    hasTheft: false,
+    theftAmount: 0,
+    amount: netCollected + deducted,
+    surplus: deducted ? -deducted : 0,
+    description: settlementReceipt ? SHORTAGE_DESCRIPTION : deducted ? SURPLUS_DESCRIPTION : '',
+    cashSales: settlementReceipt ? 0 : netCollected + deducted,
+    settlement: settlementReceipt ? netCollected : deducted ? -deducted : 0,
+    settlementAdjustmentTotal: deducted,
+    settlementEntryNumber: settlementReceipt || deducted ? 1400 + i : 0,
+    settlementDescription: settlementReceipt ? SHORTAGE_DESCRIPTION : deducted ? SURPLUS_DESCRIPTION : '',
+    shiftSettlementAdjustment: deducted,
+    shiftSettlementEntryNumber: deducted ? 1400 + i : 0,
+    shiftCardTotal: 8310.25 + i,
+    receiptKind: settlementReceipt ? 'SETTLEMENT' : 'SHIFT',
+    isSettlement: settlementReceipt,
+    collectionStatus: 'COLLECTED',
+    isOffSystem: false,
+    offSystemAt: null,
+    offSystemBy: '',
+    offSystemReasonCode: '',
+    offSystemReasonText: '',
+    zNumber: settlementReceipt ? 0 : 412 + i,
+    amendmentCount: 0,
+    lastAmendedBy: '',
+  }
+}
+
 function makeRows(count, { currency = 'SAR' } = {}) {
   return Array.from({ length: count }, (_, i) => ({
+    ...financeFields(i),
     collectionReceiptId: `01J0COLLECT${String(i).padStart(16, '0')}`,
     collectionReceiptNo: 91000 + i,
     storeId: String(1001 + (i % 7)),
@@ -608,10 +653,8 @@ async function run() {
   const netCell = page.locator('.ag-row[row-index="0"] [col-id="netCollected"]')
   check('254 — money is grouped to the currency’s decimals', (await netCell.innerText()).trim() === '11,975.00', await netCell.innerText())
   check('254 — and right-aligned', (await netCell.getAttribute('class')).includes('text-end'))
-  const varianceCell = page.locator('.ag-row[row-index="0"] [col-id="variance"]')
-  check('254 — a MISSING figure renders blank, not 0.00', (await varianceCell.innerText()).trim() === '', JSON.stringify(await varianceCell.innerText()))
-  const zeroVariance = page.locator('.ag-row[row-index="2"] [col-id="variance"]')
-  check('254 — …and a real zero still reads 0.00', (await zeroVariance.innerText()).trim() === '0.00', await zeroVariance.innerText())
+  // (Variance, the column with a MISSING figure, is behind More columns since ticket 335:
+  // its blank-is-not-zero proof is below, with the tail open.)
 
   // ---- the More-columns toggle reveals the forensic tail ----
   check('254 — the forensic tail is folded away on arrival', !headers.includes('Z Reports'))
@@ -635,6 +678,27 @@ async function run() {
   const opened = (await allHeaders()).join(' | ')
   check('254 — More columns reveals the tail (Z Reports, Closer, Currency)', opened.includes('Z Reports') && opened.includes('Closer') && opened.includes('Currency'), opened.slice(0, 260))
   check('254 — and nothing was dropped to make room', opened.includes('Receipt No#') && opened.includes('Net Collected (SAR)'))
+  check(
+    '335 — the six columns that left the landing grid are all in the tail',
+    ['Receipt No#', 'Store Name', 'Collector Name', 'Variance (SAR)', 'Card Total (SAR)', 'Reason'].every((h) => opened.split(' | ').includes(h)),
+    opened.slice(0, 400),
+  )
+  // A tail cell is virtualized until it is scrolled to: walk the grid until it is drawn.
+  const tailCell = async (rowIndex, colId) => {
+    const cell = page.locator(`.ag-row[row-index="${rowIndex}"] [col-id="${colId}"]`)
+    for (let left = 0; left <= 6000; left += 500) {
+      await page.locator('.ag-body-horizontal-scroll-viewport').evaluate((el, x) => {
+        el.scrollLeft = x
+      }, left)
+      await page.waitForTimeout(150)
+      if ((await cell.count()) > 0) return (await cell.innerText()).trim()
+    }
+    return null
+  }
+  const missingVariance = await tailCell(0, 'variance')
+  check('254 — a MISSING figure renders blank, not 0.00', missingVariance === '', JSON.stringify(missingVariance))
+  const zeroVariance = await tailCell(2, 'variance')
+  check('254 — …and a real zero still reads 0.00', zeroVariance === '0.00', JSON.stringify(zeroVariance))
   await page.getByRole('button', { name: 'More columns' }).click()
 
   // ---- the filter-row toggle reclaims the height ----
@@ -699,6 +763,170 @@ async function run() {
   const bhdCell = page.locator('.ag-row[row-index="4"] [col-id="netCollected"]')
   check('254 — and each figure keeps ITS row’s decimals (BHD draws three)', (await bhdCell.innerText()).trim() === '11,976.000', await bhdCell.innerText())
 
+  // ============ ticket 335 — finance's sheet ============
+  // Stubbed to BackOffice 2151's `## Web contract` (and 2152's, which fills the theft values
+  // and adds no field): the six Type labels, the sheet's figures, and finance's row order —
+  // collection date, then store, then business date, a settlement receipt last in its store.
+  const day = (offset) => {
+    const d = new Date()
+    d.setDate(d.getDate() + offset)
+    return todayIso(d)
+  }
+  const sheetRow = (i, over) => ({ ...makeRows(i + 1)[i], ...financeFields(0), ...over })
+  // `سعود` is the collector of 2151's sample response, copied — never retyped.
+  const SHEET = [
+    sheetRow(0, {
+      storeId: 'P001', storeText: 'PH-001 (P001)', collectorOperatorId: '4040', collectorName: 'سعود',
+      collectedAt: `${day(-1)}T10:15:00`, businessDay: `${day(-2)}T00:00:00`,
+      collectionType: 'Regular', amount: 5000, surplus: 0, netCollected: 5000, description: '',
+    }),
+    sheetRow(1, {
+      storeId: 'P001', storeText: 'PH-001 (P001)', collectorOperatorId: '4040', collectorName: 'سعود',
+      collectedAt: `${day(-1)}T10:20:00`, businessDay: null,
+      collectionType: 'Short', receiptKind: 'SETTLEMENT', isSettlement: true, cashSales: 0, settlement: 300,
+      amount: 300, surplus: 0, netCollected: 300, description: SHORTAGE_DESCRIPTION,
+    }),
+    sheetRow(2, {
+      storeId: 'P003', storeText: 'PH-003 (P003)', collectorOperatorId: '4040', collectorName: 'سعود',
+      collectedAt: `${day(-1)}T11:05:00`, businessDay: `${day(-5)}T00:00:00`,
+      collectionType: 'Regular+Surplus', hasSurplus: true, cashSales: 2000, settlement: -1000,
+      amount: 2000, surplus: -1000, netCollected: 1000, description: SURPLUS_DESCRIPTION,
+    }),
+    // Finance's fourth sample (BackOffice 2152): cash sales 3500, stolen 3000, banked 500.
+    sheetRow(3, {
+      storeId: 'P019', storeText: 'PH-019 (P019)', collectorOperatorId: '4041', collectorName: 'Collector 4041',
+      collectedAt: `${day(0)}T09:00:00`, businessDay: `${day(-3)}T00:00:00`,
+      collectionType: 'Regular+Stolen', hasTheft: true, theftAmount: 3000, cashSales: 500, settlement: 0,
+      amount: 3500, surplus: -3000, netCollected: 500, description: THEFT_DESCRIPTION,
+    }),
+    sheetRow(4, {
+      storeId: 'P019', storeText: 'PH-019 (P019)', collectorOperatorId: '4041', collectorName: 'Collector 4041',
+      collectedAt: `${day(0)}T09:00:00`, businessDay: `${day(-1)}T00:00:00`,
+      collectionType: 'Regular+Surplus+Stolen', hasSurplus: true, hasTheft: true, theftAmount: 200, cashSales: 1700, settlement: -400, settlementAdjustmentTotal: 400,
+      // 2152: the surplus's description, then the theft's, joined by the server.
+      amount: 1900, surplus: -600, netCollected: 1300, description: `${SURPLUS_DESCRIPTION} | ${THEFT_DESCRIPTION}`,
+    }),
+    sheetRow(5, {
+      storeId: 'P020', storeText: 'P020', profitCenter: '', collectorOperatorId: '', collectorName: '',
+      collectedAt: `${day(0)}T12:00:00`, businessDay: `${day(-1)}T00:00:00`,
+      collectionType: 'Outside system', receiptKind: '', collectionStatus: 'OFF_SYSTEM', isOffSystem: true,
+      offSystemAt: `${day(0)}T12:00:00`, offSystemBy: '4466', offSystemReasonCode: 'BANK_DIRECT', offSystemReasonText: 'Banked by the branch',
+      zNumber: 0, slipCount: null,
+      cashSales: 0, settlement: 0, amount: 0, surplus: 0, netCollected: 0, description: '',
+    }),
+  ]
+  const TYPES = SHEET.map((r) => r.collectionType)
+
+  await page.setViewportSize({ width: 3200, height: 900 })
+  const openSheet = async (rows) => {
+    collectionsRows = rows
+    await page.goto(BASE + ROUTES.collections)
+    await page.waitForLoadState('networkidle')
+    await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  }
+  /** The header row in display order, the action column included. */
+  const sheetHeaders = async () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('.ag-header-row-column .ag-header-cell')]
+        .map((cell) => ({
+          index: Number(cell.getAttribute('aria-colindex')),
+          text: cell.querySelector('.ag-header-cell-text')?.textContent?.trim() ?? '',
+        }))
+        .sort((a, b) => a.index - b.index)
+        .map((cell) => cell.text),
+    )
+  /** One column read down the grid, in the order the rows are DRAWN. */
+  const columnDown = async (colId) => {
+    const out = []
+    for (let i = 0; i < SHEET.length; i++)
+      out.push((await page.locator(`.ag-row[row-index="${i}"] [col-id="${colId}"]`).innerText()).trim())
+    return out
+  }
+
+  await openSheet(SHEET)
+  const sheetHead = (await sheetHeaders()).join(' | ')
+  check(
+    '335 — the grid opens with finance’s nine in finance’s order, then the profit center',
+    sheetHead ===
+      'Open | Collection Date | Business Date | Store Code | Type | Description | Amount (SAR) | Surplus (SAR) | Net Collected (SAR) | Collector | Profit Center (Store)',
+    sheetHead,
+  )
+  check(
+    '335 — the Type cell shows the server’s label for each shape, exactly as sent',
+    (await columnDown('collectionType')).join(' | ') === TYPES.join(' | ') &&
+      TYPES.join(' | ') === 'Regular | Short | Regular+Surplus | Regular+Stolen | Regular+Surplus+Stolen | Outside system',
+    (await columnDown('collectionType')).join(' | '),
+  )
+  check(
+    '335 — Surplus is the negative figure sent, and zero shows as 0.00 — never blank',
+    (await columnDown('surplus')).join(' | ') === '0.00 | 0.00 | -1,000.00 | -3,000.00 | -600.00 | 0.00',
+    (await columnDown('surplus')).join(' | '),
+  )
+  check(
+    '335 — finance’s Regular+Stolen sample reads 3,500.00 / -3,000.00 / 500.00',
+    (await columnDown('amount'))[3] === '3,500.00' && (await columnDown('netCollected'))[3] === '500.00',
+    `${(await columnDown('amount'))[3]} / ${(await columnDown('netCollected'))[3]}`,
+  )
+  check(
+    '335 — the Description is the settlement entry’s, Arabic intact, and blank on a regular day',
+    JSON.stringify(await columnDown('description')) ===
+      JSON.stringify(['', SHORTAGE_DESCRIPTION, SURPLUS_DESCRIPTION, THEFT_DESCRIPTION, `${SURPLUS_DESCRIPTION} | ${THEFT_DESCRIPTION}`, '']),
+    JSON.stringify(await columnDown('description')),
+  )
+  check(
+    '335 — Collector is the collector’s id',
+    (await columnDown('collectorOperatorId')).join(' | ') === '4040 | 4040 | 4040 | 4041 | 4041 | ',
+    (await columnDown('collectorOperatorId')).join(' | '),
+  )
+  check(
+    '335 — a settlement receipt’s business date is blank beside its collection date',
+    (await columnDown('businessDay'))[1] === '' && (await columnDown('collectedAt'))[1] === `${day(-1)} 10:20`,
+    `${(await columnDown('businessDay'))[1]} · ${(await columnDown('collectedAt'))[1]}`,
+  )
+  check(
+    '335 — the rows are drawn in the order the server sent them',
+    (await columnDown('collectionType')).join(' | ') === TYPES.join(' | ') &&
+      (await columnDown('storeId')).join(' | ') === SHEET.map((r) => r.storeId).join(' | '),
+    (await columnDown('storeId')).join(' | '),
+  )
+  const sortedHeaders = () => page.locator('.ag-header-cell[aria-sort="ascending"], .ag-header-cell[aria-sort="descending"]').count()
+  check('335 — …with no column sorted on arrival', (await sortedHeaders()) === 0, `${await sortedHeaders()} sorted`)
+  const rawKeys = (await page.locator('body').innerText()).match(/\bcollections?\.[a-zA-Z]+(\.[a-zA-Z]+)+\b/g) ?? []
+  check('335 — no raw t() key on the screen', rawKeys.length === 0, rawKeys.join(', '))
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/335-finance-sheet.png` })
+
+  // The same rows sent in the OPPOSITE order come out in the opposite order: the grid is
+  // echoing the response, not agreeing with it by a sort of its own.
+  await openSheet([...SHEET].reverse())
+  check(
+    '335 — a response in another order is drawn in THAT order — the grid adds no sort of its own',
+    (await columnDown('collectionType')).join(' | ') === [...TYPES].reverse().join(' | '),
+    (await columnDown('collectionType')).join(' | '),
+  )
+
+  // …and a header click is still the user's to make.
+  await openSheet(SHEET)
+  await page.locator('.ag-header-cell[col-id="amount"] .ag-header-cell-label').click()
+  await page.waitForTimeout(400)
+  check(
+    '335 — a header click still sorts: Amount ascending',
+    (await columnDown('amount')).join(' | ') === '0.00 | 300.00 | 1,900.00 | 2,000.00 | 3,500.00 | 5,000.00',
+    (await columnDown('amount')).join(' | '),
+  )
+  check('335 — …and the header says so', (await sortedHeaders()) === 1)
+
+  // The collector filter still narrows by the id the column now shows.
+  const collectorCallsBefore = collectionsCalls
+  await page.getByPlaceholder('Operator id').fill('4041')
+  await page.getByRole('button', { name: 'Search' }).click()
+  await page.waitForLoadState('networkidle')
+  check(
+    '335 — the collector filter still sends CollectorOperatorId',
+    collectionsCalls === collectorCallsBefore + 1 && q().get('CollectorOperatorId') === '4041',
+    lastCollectionsQuery,
+  )
+
+  await page.setViewportSize({ width: 1600, height: 900 })
   collectionsRows = makeRows(347)
 
   // ============ ticket 255 — ACRs and Attempts on the same template ============
@@ -1667,12 +1895,12 @@ async function run() {
   const onScreen = await shownHeaders()
   check(
     '336 — the file’s columns are the grid’s visible columns, in the grid’s order',
-    onScreen.length >= 11 && closed.head.join('|') === onScreen.join('|'),
+    onScreen.length === 10 && closed.head.join('|') === onScreen.join('|'),
     `file: ${closed.head.join('|')} · screen: ${onScreen.join('|')}`,
   )
   check(
     '336 — the folded columns are NOT in the file while More columns is off',
-    ['Retained Float (SAR)', 'Retained Float', 'Currency', 'Z Reports', 'Sales Date', 'Collector Id'].every(
+    ['Retained Float (SAR)', 'Retained Float', 'Currency', 'Z Reports', 'Sales Date', 'Collector Name', 'Receipt No#', 'Variance (SAR)'].every(
       (h) => !closed.head.includes(h),
     ),
     closed.head.join('|'),
@@ -1686,8 +1914,8 @@ async function run() {
   check('336 — the file holds ONLY the filtered rows (50 of 347), not the page and not the lot', closed.body.length === 50, `${closed.body.length} rows`)
   check(
     '336 — …all of them the store that was filtered to, written as TEXT',
-    closed.body.every((r) => closed.at(r, 'Store')?.text === '1003' && !closed.at(r, 'Store')?.numeric),
-    JSON.stringify(closed.at(closed.body[0], 'Store')),
+    closed.body.every((r) => closed.at(r, 'Store Code')?.text === '1003' && !closed.at(r, 'Store Code')?.numeric),
+    JSON.stringify(closed.at(closed.body[0], 'Store Code')),
   )
   const netValues = closed.body.map((r) => Number(closed.at(r, 'Net Collected (SAR)')?.text))
   check(
@@ -1709,8 +1937,8 @@ async function run() {
   }
   const closedMoney = closed.head.filter((h) => h.endsWith('(SAR)'))
   check(
-    '336 — the default grid carries its three money columns, Variance included',
-    closedMoney.length === 3 && closedMoney.includes('Variance (SAR)'),
+    '336 — the default grid carries finance’s three money columns: Amount, Surplus, Net Collected',
+    closedMoney.join(', ') === 'Amount (SAR), Surplus (SAR), Net Collected (SAR)',
     closedMoney.join(', '),
   )
   check(
@@ -1725,16 +1953,33 @@ async function run() {
   )
   // 🚩 The sweep above SKIPS empty cells, so a money column blank all the way down
   // proves nothing. Assert the signed column has substance, minus included.
-  const variances = closed.body.map((r) => closed.at(r, 'Variance (SAR)')).filter((c) => c && c.text !== '')
+  // Surplus is the signed column of the default grid since ticket 335: a negative where a
+  // surplus was deducted, and a real 0 — a NUMBER cell, not an empty one — where none was.
+  const surpluses = closed.body.map((r) => closed.at(r, 'Surplus (SAR)')).filter((c) => c && c.text !== '')
   check(
-    '336 — Variance is a column with substance, negatives included, all numbers',
-    variances.length === closed.body.length && variances.some((c) => Number(c.text) < 0) && variances.every((c) => c.numeric),
-    `${variances.length}/${closed.body.length} filled · e.g. ${variances.slice(0, 3).map((c) => c.text).join(', ')}`,
+    '336 — Surplus is a column with substance: negatives and zeros, all numbers, none blank',
+    surpluses.length === closed.body.length &&
+      surpluses.some((c) => Number(c.text) < 0) &&
+      surpluses.some((c) => Number(c.text) === 0) &&
+      surpluses.every((c) => c.numeric),
+    `${surpluses.length}/${closed.body.length} filled · e.g. ${surpluses.slice(0, 3).map((c) => c.text).join(', ')}`,
+  )
+  check(
+    '335 — Amount + Surplus = Net Collected on every exported row',
+    closed.body.every(
+      (r) => Number(closed.at(r, 'Amount (SAR)')?.text) + Number(closed.at(r, 'Surplus (SAR)')?.text) === Number(closed.at(r, 'Net Collected (SAR)')?.text),
+    ),
+  )
+  const types = new Set(closed.body.map((r) => closed.at(r, 'Type')?.text))
+  check(
+    '335 — the Type column is in the file as the text the server sent',
+    [...types].sort().join('|') === 'Regular|Regular+Surplus|Short' && !closed.at(closed.body[0], 'Type')?.numeric,
+    [...types].join('|'),
   )
 
   // ---- the identity rule: text, and therefore unmangled ----
-  const receipt = closed.at(closed.body[0], 'Receipt No#')
-  check('336 — the receipt number is a TEXT cell although the wire sends a number', /^\d+$/.test(receipt?.text ?? '') && !receipt?.numeric, JSON.stringify(receipt))
+  const collectorId = closed.at(closed.body[0], 'Collector')
+  check('336 — the collector id is a TEXT cell', /^\d+$/.test(collectorId?.text ?? '') && !collectorId?.numeric, JSON.stringify(collectorId))
 
   // ---- dates keep the screen's format ----
   check(
@@ -1754,17 +1999,17 @@ async function run() {
   const open = await exportWorkbook()
   check(
     '336 — with More columns ON the folded columns are in the file',
-    ['Retained Float (SAR)', 'Currency', 'Z Reports', 'Sales Date', 'Collector Id', 'Profit Center'].every((h) => open.head.includes(h)),
+    ['Retained Float (SAR)', 'Currency', 'Z Reports', 'Sales Date', 'Collector Name', 'Receipt No#', 'Variance (SAR)', 'Profit Center'].every((h) => open.head.includes(h)),
     open.head.join('|'),
   )
   check(
-    '336 — …after the default ones, which keep their order (the sixteen folded fields)',
-    open.head.length === closed.head.length + 16 && open.head.slice(0, closed.head.length).join('|') === closed.head.join('|'),
+    '336 — …after the default ones, which keep their order (the twenty-one folded fields)',
+    open.head.length === closed.head.length + 21 && open.head.slice(0, closed.head.length).join('|') === closed.head.join('|'),
     `${open.head.length} headers`,
   )
   check('336 — …still only the filtered rows', open.body.length === 50, `${open.body.length} rows`)
   const openMoney = open.head.filter((h) => h.endsWith('(SAR)'))
-  check('336 — all eight money columns are there with the tail open', openMoney.length === 8, `${openMoney.length}: ${openMoney.join(', ')}`)
+  check('336 — all ten money columns are there with the tail open', openMoney.length === 10, `${openMoney.length}: ${openMoney.join(', ')}`)
   check(
     '336 — …and every one of their cells is a NUMBER cell',
     moneyOffenders(open, openMoney).length === 0,
@@ -1772,8 +2017,15 @@ async function run() {
   )
   const slipsCount = open.at(open.body[0], 'Card Slips')
   check('336 — a count is a number too', slipsCount?.numeric === true && slipsCount.text === '96', JSON.stringify(slipsCount))
-  const collectorId = open.at(open.body[0], 'Collector Id')
-  check('336 — the collector id is a TEXT cell', /^\d+$/.test(collectorId?.text ?? '') && !collectorId?.numeric, JSON.stringify(collectorId))
+  const receipt = open.at(open.body[0], 'Receipt No#')
+  check('336 — the receipt number is a TEXT cell although the wire sends a number', /^\d+$/.test(receipt?.text ?? '') && !receipt?.numeric, JSON.stringify(receipt))
+  // 🚩 The money sweep SKIPS empty cells, so a column blank all the way down proves nothing.
+  const variances = open.body.map((r) => open.at(r, 'Variance (SAR)')).filter((c) => c && c.text !== '')
+  check(
+    '336 — Variance is a column with substance, negatives included, all numbers',
+    variances.length === open.body.length && variances.some((c) => Number(c.text) < 0) && variances.every((c) => c.numeric),
+    `${variances.length}/${open.body.length} filled · e.g. ${variances.slice(0, 3).map((c) => c.text).join(', ')}`,
+  )
   await page.getByRole('button', { name: 'More columns' }).click()
   await page.waitForTimeout(300)
 
@@ -1791,15 +2043,24 @@ async function run() {
   // 🚩 Copied from `voucher-fixture.ts`, never retyped: a retyped Arabic string
   // looks right and is silently wrong, and no gate in this repo catches it.
   const ARABIC_NAME = 'عبدالله بن ناصر القحطاني'
-  collectionsRows = makeRows(20).map((r) => ({ ...r, collectorName: ARABIC_NAME }))
+  // The description is the accountant's free text on the default grid since ticket 335; the
+  // collector's NAME is behind More columns, so the toggle goes on for this export.
+  collectionsRows = makeRows(20).map((r) => ({ ...r, collectorName: ARABIC_NAME, description: SURPLUS_DESCRIPTION }))
   await page.goto(BASE + ROUTES.collections)
   await page.waitForLoadState('networkidle')
   await page.locator('.ag-row').first().waitFor({ timeout: 5000 })
+  await page.getByRole('button', { name: 'More columns' }).click()
+  await page.waitForTimeout(500)
   const arabic = await exportWorkbook()
   check(
     '336 — an Arabic collector name is in the workbook intact, on every row',
-    arabic.body.length === 20 && arabic.body.every((r) => arabic.at(r, 'Collector')?.text === ARABIC_NAME),
-    arabic.at(arabic.body[0], 'Collector')?.text,
+    arabic.body.length === 20 && arabic.body.every((r) => arabic.at(r, 'Collector Name')?.text === ARABIC_NAME),
+    arabic.at(arabic.body[0], 'Collector Name')?.text,
+  )
+  check(
+    '335 — …and so is an Arabic description',
+    arabic.body.every((r) => arabic.at(r, 'Description')?.text === SURPLUS_DESCRIPTION),
+    arabic.at(arabic.body[0], 'Description')?.text,
   )
   // A workbook part is XML, and XML is UTF-8 unless its declaration says otherwise — which is
   // what retired the CSV's BOM. The part holding the name must not declare anything else.

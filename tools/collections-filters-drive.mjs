@@ -251,8 +251,8 @@ async function run() {
   check('Business Date is a DEFAULT column', defaultHeaders.includes('Business Date'), defaultHeaders.join(' | '))
   check('Collection Date is a DEFAULT column', defaultHeaders.includes('Collection Date'), defaultHeaders.join(' | '))
   check(
-    '…side by side, the sales day first',
-    defaultHeaders.indexOf('Collection Date') === defaultHeaders.indexOf('Business Date') + 1,
+    '…side by side, the collection date first (finance order, ticket 335)',
+    defaultHeaders.indexOf('Business Date') === defaultHeaders.indexOf('Collection Date') + 1,
     defaultHeaders.join(' | '),
   )
   check('Sales Date stays in the tail — it is not the business column', !defaultHeaders.includes('Sales Date'))
@@ -266,7 +266,7 @@ async function run() {
   await page.waitForTimeout(900)
   check(
     'the floating filter matches the day the cell SHOWS',
-    (await page.locator('.ag-row').count()) === 1 && (await cellText(0, 'collectionReceiptNo')) === '91234',
+    (await page.locator('.ag-row').count()) === 1 && (await cellText(0, 'collectedAt')) === '2026-09-12 10:15',
     `${await page.locator('.ag-row').count()} rows`,
   )
   await businessFilter.fill('')

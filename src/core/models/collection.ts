@@ -784,20 +784,18 @@ export interface AcrPage {
 export interface AcrForm {
   /** عن يوم — `dd/MM/yyyy`. */
   acrDateText: string
-  /**
-   * الموافق — `dd/MM/yyyy` Umm al-Qura. 247 restored it; the WPF dropped it by
-   * omission.
-   *
-   * ⚠️ The ACR's half of 259's culture check, and the one that fails silently: a
-   * degraded globalization stack answers with a GREGORIAN date here, which looks
-   * entirely plausible beside الموافق and is wrong by eighteen years.
-   */
-  hijriText: string
   /** Rendered under رقم التجميعي (247's amendment 2), not نموذج رقم ( ). */
   acrNumberText: string
-  areas: string
-  /** تاريخ التحصيل — `''` while the ACR is still OPEN, and it renders BLANK. */
-  closedAtText: string
+  /**
+   * المدينة (BackOffice 2145) — the distinct cities of the visited branches, `'A / B'`
+   * when a round crossed cities, `''` when none resolved. Replaced `areas`.
+   */
+  cities: string
+  /**
+   * تاريخ التحصيل (BackOffice 2145) — the day the ACR was opened, `dd/MM/yyyy`. Never
+   * blank, OPEN or CLOSED. Replaced `closedAtText`, which left an OPEN ACR's slot empty.
+   */
+  collectionDateText: string
   /**
    * أُغلق بواسطة (BackOffice 1987, ticket 313) — `'النظام (SYSTEM)'` when the 23:59
    * sweep closed it, `'name  (id)'` (two spaces, the المحصل format) or the bare id
@@ -842,7 +840,9 @@ export interface AcrForm {
  * ⚠️ Deliberately absent, per 247's sign-off: `depositNumberText`, `depositStatus`
  * and `depositText` — every deposit mark, meta AND summary (242 §8-O7 answered
  * OUT, wider than it was asked). Also gone (245 §5): `storeName`, `variance`,
- * `hasShiftReport`, `createdAtText`, `currencyCode`.
+ * `hasShiftReport`, `createdAtText`, `currencyCode`. And (BackOffice 2145): `hijriText` —
+ * الموافق left the sheet by owner ruling — `areas` (now `cities`) and `closedAtText`
+ * (now `collectionDateText`, the creation day).
  *
  * ⚠️ And `matchText` — the مطابقة الكاش والشبكة tri-state — left the server contract
  * on 2026-08-15 with the column itself (BackOffice sign-off on the 1183 sheet). The

@@ -93,17 +93,15 @@ export default function CollectionAcr({ form, page }: { form: AcrForm; page: Acr
       </div>
 
       <div className="acr-meta">
+        {/* BackOffice 2145 — `الموافق` (Hijri) is gone, by owner ruling. */}
         <Meta label="عن يوم: " value={form.acrDateText} />
-        {/* Back to the pad: the WPF dropped `الموافق` by omission, and the server
-            can compute Umm al-Qura (242 §7.6), so it costs a model field rather
-            than a hand-fill. */}
-        <Meta label="الموافق: " value={form.hijriText} />
         {/* 247's amendment 2 — `نموذج رقم ( )` becomes `رقم التجميعي`: the field is
             the ACR's own serial, not a form-stock number. The pad's parentheses
             went with it; they bracket a blank a collector wrote into, and this is
             printed. */}
         <Meta label="رقم التجميعي: " value={form.acrNumberText} strong />
-        <Meta label="المنطقة: " value={form.areas} />
+        {/* BackOffice 2145 — المنطقة (Store.Area) became المدينة (Store.City). */}
+        <Meta label="المدينة: " value={form.cities} />
       </div>
 
       {/* 247's amendment 3 — NO deposit mark, here or in the summary below.
@@ -112,10 +110,9 @@ export default function CollectionAcr({ form, page }: { form: AcrForm; page: Acr
           document. `depositNumberText`, `depositStatus` and `depositText` all
           left the contract, so there is nothing here to bind. */}
       <div className="acr-meta acr-meta--last">
-        {/* `closedAtText` is `''` while the ACR is still OPEN and renders BLANK —
-            no placeholder, no dash. It is rendered as it came, with no `||`
-            fallback that could put an invented mark on a printed record. */}
-        <Meta label="تاريخ التحصيل: " value={form.closedAtText} />
+        {/* BackOffice 2145 — the day the ACR was opened, never blank. It used to
+            bind `closedAtText`, which printed an empty slot on every OPEN ACR. */}
+        <Meta label="تاريخ التحصيل: " value={form.collectionDateText} />
         <Meta label="الوصف: " value={form.label} />
         <Meta label="الحالة: " value={form.status} />
         {/* BackOffice 1987 (ticket 313) — who closed it, the fourth cell of this

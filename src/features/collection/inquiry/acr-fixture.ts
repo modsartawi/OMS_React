@@ -121,10 +121,9 @@ export const ACR_SCENARIOS: AcrScenario[] = [
     document: {
       form: {
         acrDateText: '06/06/2026',
-        hijriText: '20/12/1447',
         acrNumberText: '4482',
-        areas: 'الشرقية - الخبر',
-        closedAtText: '07/06/2026',
+        cities: 'الخبر',
+        collectionDateText: '07/06/2026',
         // Closed by its collector: name, TWO spaces, id in brackets — the المحصل format
         // (BackOffice 1987's AcrFormBuilder.ClosedByText).
         closedByText: 'إبراهيم ياسين الشمري  (40219)',
@@ -157,10 +156,9 @@ export const ACR_SCENARIOS: AcrScenario[] = [
     document: {
       form: {
         acrDateText: '06/06/2026',
-        hijriText: '20/12/1447',
         acrNumberText: '4482',
-        areas: 'الشرقية - الخبر',
-        closedAtText: '07/06/2026',
+        cities: 'الخبر',
+        collectionDateText: '07/06/2026',
         // Forgotten, and closed by the 23:59 head-office sweep (BackOffice 1987).
         closedByText: 'النظام (SYSTEM)',
         label: 'تحصيل يوم السبت',
@@ -191,10 +189,9 @@ export const ACR_SCENARIOS: AcrScenario[] = [
     document: {
       form: {
         acrDateText: '06/06/2026',
-        hijriText: '20/12/1447',
         acrNumberText: '4482',
-        areas: 'الشرقية - الخبر',
-        closedAtText: '',
+        cities: 'الخبر',
+        collectionDateText: '07/06/2026',
         // Still OPEN: nobody closed it, and '' renders BLANK like تاريخ التحصيل beside it.
         closedByText: '',
         label: 'تحصيل قيد الفتح',
@@ -225,10 +222,9 @@ export const ACR_SCENARIOS: AcrScenario[] = [
     document: {
       form: {
         acrDateText: '06/06/2026',
-        hijriText: '20/12/1447',
         acrNumberText: '4482',
-        areas: 'الشرقية - الخبر',
-        closedAtText: '07/06/2026',
+        cities: 'الخبر',
+        collectionDateText: '07/06/2026',
         // Closed before POS_Server migration 090 recorded a closer: '' — blank, not "unknown".
         closedByText: '',
         label: 'تحصيل يوم السبت',

@@ -147,7 +147,11 @@ function makeAcrRows(count) {
       createdAt: `${todayIso()}T08:15:00`,
       closedAt: open ? '0001-01-01T00:00:00' : `${todayIso()}T19:32:00`,
       linkedCollectionCount: i === 2 ? 0 : 12,
-      netCollectedTotal: 143910.75 + i,
+      // Ticket 341: the row's three figures — banked = cash sales + settlement. Row 3
+      // kept a surplus back (a NEGATIVE settlement); the rest handed a shortage over.
+      cashSalesTotal: (i === 3 ? 144110.75 : 143610.75) + i,
+      settlementTotal: i === 3 ? -200 : 300,
+      bankedTotal: 143910.75 + i,
       cardTotalSum: i === 1 ? null : i === 2 ? 0 : 99120.5 + i,
       cardTransactionCountSum: 812,
       depositId: open ? '' : `01J0DEPOSIT${String(i).padStart(15, '0')}`,
@@ -562,7 +566,9 @@ async function run() {
   // by scrolling: read the header cells at both ends and union them.
   const allHeaders = async () => {
     const seen = new Set()
-    for (const left of [0, 4000]) {
+    // Three stops, not two: with the ACR tail open the money sits in the MIDDLE of the
+    // grid (ticket 341 widened it), out of view from either end.
+    for (const left of [0, 1200, 4000]) {
       await page.locator('.ag-body-horizontal-scroll-viewport').evaluate((el, x) => {
         el.scrollLeft = x
       }, left)
@@ -700,23 +706,66 @@ async function run() {
 
   // ---- the sentinels: a still-OPEN ACR shows blanks, not 0001-01-01 and not 0 ----
   const acrHeaders = await headerText()
-  check(
-    '255 — money states NO currency in the header (the ACR row carries none)',
-    acrHeaders.includes('Net Collected') && !acrHeaders.includes('Net Collected ('),
-    acrHeaders.slice(0, 200),
-  )
-  const acrCash = page.locator('.ag-row[row-index="0"] [col-id="netCollectedTotal"]')
-  check(
-    '255 — …and still groups to two decimals',
-    (await acrCash.innerText()).trim() === '143,910.75',
-    await acrCash.innerText(),
-  )
-  // Scrolled first: since 316's Collection Date column, Card Total sits past the 1600px
+  // Scrolled first: since 316's Collection Date column the money sits past the 1600px
   // viewport, and AG Grid virtualizes it away.
   await page.locator('.ag-body-horizontal-scroll-viewport').evaluate((el) => {
     el.scrollLeft = 4000
   })
   await page.waitForTimeout(200)
+  const acrCell = async (row, colId) =>
+    (await page.locator(`.ag-row[row-index="${row}"] [col-id="${colId}"]`).innerText()).trim()
+  check(
+    '255 — …and still groups to two decimals',
+    (await acrCell(0, 'bankedTotal')) === '143,910.75',
+    await acrCell(0, 'bankedTotal'),
+  )
+
+  // ---- ticket 341: what each ACR holds, on the default grid ----
+  // Read where the grid is scrolled to (its far end), and ordered by where each header
+  // SITS: AG Grid does not keep its header DOM in visual order.
+  const acrScrolledHeaders = (
+    await page
+      .locator('.ag-header-row')
+      .first()
+      .locator('.ag-header-cell')
+      .evaluateAll((cells) =>
+        cells
+          .map((cell) => ({
+            x: cell.getBoundingClientRect().left,
+            text: (cell.querySelector('.ag-header-cell-text')?.textContent ?? '').trim(),
+          }))
+          .sort((a, b) => a.x - b.x)
+          .map((cell) => cell.text),
+      )
+  ).join(' | ')
+  check(
+    '255 — money states NO currency in the header (the ACR row carries none)',
+    acrScrolledHeaders.includes('Net Collected') && !acrScrolledHeaders.includes('Net Collected ('),
+    acrScrolledHeaders,
+  )
+  check(
+    '341 — Cash Sales, Settlement, Net Collected, Card Total and Card Slips are default columns, in that order',
+    acrScrolledHeaders.includes('Cash Sales | Settlement | Net Collected | Card Total | Card Slips'),
+    acrScrolledHeaders,
+  )
+  const held = {}
+  for (const colId of ['cashSalesTotal', 'settlementTotal', 'bankedTotal', 'cardTotalSum', 'cardTransactionCountSum'])
+    held[colId] = await acrCell(0, colId)
+  check(
+    '341 — all five carry a value — Net Collected is the banked total, no longer blank',
+    held.cashSalesTotal === '143,610.75' &&
+      held.settlementTotal === '300.00' &&
+      held.bankedTotal === '143,910.75' &&
+      held.cardTotalSum === '99,120.50' &&
+      held.cardTransactionCountSum === '812',
+    JSON.stringify(held),
+  )
+  check(
+    '341 — a surplus kept back keeps its sign as sent',
+    (await acrCell(3, 'settlementTotal')) === '-200.00',
+    await acrCell(3, 'settlementTotal'),
+  )
+  check('341 — the Label column is still on the list', acrHeaders.includes('Label'), acrHeaders.slice(0, 200))
   const acrNullCard = page.locator('.ag-row[row-index="1"] [col-id="cardTotalSum"]')
   check(
     '255 — a MISSING figure renders blank, not 0.00',
@@ -1700,11 +1749,12 @@ async function run() {
       key: 'acrs',
       route: ROUTES.acrs,
       // 17 since ticket 313 put who closed it on the row (Closed By + Closed By Id), 19
-      // since 316 put its collected-at ends on it (First + Last Collected).
-      headers: 19,
+      // since 316 put its collected-at ends on it (First + Last Collected), 21 since 341
+      // drew the row's three figures in place of the one the server stopped sending.
+      headers: 21,
       // The folded tail, present with the More-columns toggle OFF.
       folded: ['Created', 'Closed By Id', 'First Collected', 'Last Collected', 'Deposit No#', 'Deposit Id'],
-      money: ['Net Collected', 'Card Total'],
+      money: ['Cash Sales', 'Settlement', 'Net Collected', 'Card Total'],
       identity: 'ACR No#',
     },
     {

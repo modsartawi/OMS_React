@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AcrInquiryRow } from '@/core/models/collection'
+import en from '@/locales/en/collection.json'
 import {
   DEFAULT_FIELDS,
   MONEY_FIELDS,
@@ -34,7 +35,10 @@ const ROW: AcrInquiryRow = {
   // Ticket 316: collected on the 5th and the 8th, for a business date of the 8th.
   firstCollectedAt: '2026-08-05T10:15:00',
   lastCollectedAt: '2026-08-08T15:40:00',
-  netCollectedTotal: 143_910.75,
+  // Ticket 341: the three figures — banked = cash sales + settlement.
+  cashSalesTotal: 143_610.75,
+  settlementTotal: 300,
+  bankedTotal: 143_910.75,
   cardTotalSum: 99_120.5,
   cardTransactionCountSum: 812,
   depositId: '01J0DEPOSIT000000000000001',
@@ -60,10 +64,11 @@ describe('the two groups account for the whole wire row', () => {
     expect(new Set(covered).size).toBe(covered.length)
   })
 
-  it('draws NINETEEN columns: the WPF’s fourteen, the deposit ULID, who closed it, and when it was collected', () => {
+  it('draws TWENTY-ONE columns: the WPF’s fourteen, the deposit ULID, who closed it, when it was collected, and the three figures', () => {
     // 15 until ticket 313 (BackOffice 1987) put the closer's name and id on the row,
-    // 17 until ticket 316 (BackOffice 1993) put the collected-at span on it.
-    expect(DEFAULT_FIELDS.length + MORE_FIELDS.length).toBe(19)
+    // 17 until ticket 316 (BackOffice 1993) put the collected-at span on it, 19 until
+    // ticket 341 drew the row's three figures in place of the one it no longer carries.
+    expect(DEFAULT_FIELDS.length + MORE_FIELDS.length).toBe(21)
     // "Nothing is dropped" is about the ROW, not about the WPF's column picker —
     // 254's own ruling, which folded five unshown wire fields into its tail.
     expect([...MORE_FIELDS]).toContain('depositId')
@@ -75,7 +80,7 @@ describe('the two groups account for the whole wire row', () => {
     expect([...NON_COLUMN_FIELDS]).toEqual(['acrId'])
   })
 
-  it('the default nine lead with identity, then the date, then the state and who closed it, then the money', () => {
+  it('the default twelve lead with identity, then the date, then the state and who closed it, then what it holds', () => {
     expect([...DEFAULT_FIELDS]).toEqual([
       'acrNumber',
       'label',
@@ -85,8 +90,11 @@ describe('the two groups account for the whole wire row', () => {
       'status',
       'closedByName',
       'linkedCollectionCount',
-      'netCollectedTotal',
+      'cashSalesTotal',
+      'settlementTotal',
+      'bankedTotal',
       'cardTotalSum',
+      'cardTransactionCountSum',
     ])
   })
 
@@ -100,7 +108,7 @@ const withSpan = (fields: readonly string[]) =>
   fields.flatMap((f) => (f === 'acrDate' ? [f, COLLECTION_DATE_COLUMN] : [f]))
 
 describe('buildAcrsColumns', () => {
-  it('shows the default nine plus the Collection date with the toggle off', () => {
+  it('shows the default twelve plus the Collection date with the toggle off', () => {
     expect(buildAcrsColumns(t, false).map((c) => c.colId)).toEqual(withSpan(DEFAULT_FIELDS))
   })
 
@@ -129,14 +137,14 @@ describe('money on a row that carries no currency', () => {
     ) => string
 
   it('states NO currency in the header — a bare label beats an invented one', () => {
-    const netCollected = buildAcrsColumns(t, false).find((c) => c.colId === 'netCollectedTotal')
-    expect(netCollected?.headerName).toBe('acrs.columns.netCollectedTotal')
+    const netCollected = buildAcrsColumns(t, false).find((c) => c.colId === 'bankedTotal')
+    expect(netCollected?.headerName).toBe('acrs.columns.bankedTotal')
     // …and specifically, nothing that looks like the moneyHeader interpolation.
     expect(String(netCollected?.headerName)).not.toContain('moneyHeader')
   })
 
   it('groups the figure to two decimals', () => {
-    expect(money('netCollectedTotal')({ value: 143910.75, data: ROW })).toBe('143,910.75')
+    expect(money('bankedTotal')({ value: 143910.75, data: ROW })).toBe('143,910.75')
   })
 
   it('leaves a missing figure BLANK rather than 0.00 — and a real zero is still 0.00', () => {
@@ -317,6 +325,88 @@ describe('who closed it (ticket 313, BackOffice 1987)', () => {
     expect(raw?.field).toBe('closedBy')
     expect(raw?.valueGetter).toBeUndefined()
     expect(raw?.valueFormatter).toBeUndefined()
+  })
+})
+
+// Ticket 341 (BackOffice 2149 D15): the list shows what each ACR holds. The header
+// assertions read the REAL English bundle, because "which key" would not catch a
+// column headed with the wrong word.
+describe('what each ACR holds (ticket 341)', () => {
+  const english = ((key: string) =>
+    key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown>)?.[part], en)) as never
+  const defaults = () => buildAcrsColumns(english, false)
+  const column = (colId: string) => defaults().find((c) => c.colId === colId)
+  const shown = (colId: string, data: AcrInquiryRow) => {
+    const col = column(colId)
+    const value = data[colId as keyof AcrInquiryRow]
+    return col?.valueFormatter
+      ? (col.valueFormatter as (p: unknown) => string)({ value, data })
+      : String(value)
+  }
+
+  it('acr list shows cash sales, settlement, net collected, card total and card slips', () => {
+    // On the DEFAULT grid, in that order, side by side — nothing to open first.
+    const headers = defaults().map((c) => c.headerName)
+    const at = headers.indexOf('Cash Sales')
+    expect(at).toBeGreaterThan(-1)
+    expect(headers.slice(at, at + 5)).toEqual([
+      'Cash Sales',
+      'Settlement',
+      'Net Collected',
+      'Card Total',
+      'Card Slips',
+    ])
+    expect(shown('cashSalesTotal', ROW)).toBe('143,610.75')
+    expect(shown('settlementTotal', ROW)).toBe('300.00')
+    expect(shown('bankedTotal', ROW)).toBe('143,910.75')
+    expect(shown('cardTotalSum', ROW)).toBe('99,120.50')
+    expect(shown('cardTransactionCountSum', ROW)).toBe('812')
+  })
+
+  it('net collected binds to the banked total and is not blank', () => {
+    const netCollected = defaults().find((c) => c.headerName === 'Net Collected')
+    expect(netCollected?.field).toBe('bankedTotal')
+    expect(shown('bankedTotal', ROW)).not.toBe('')
+    // The field the server stopped sending is bound nowhere — it rendered blank.
+    expect(buildAcrsColumns(english, true).map((c) => c.colId)).not.toContain('netCollectedTotal')
+    expect(Object.keys(en.acrs.columns)).not.toContain('netCollectedTotal')
+  })
+
+  it('draws the server’s own sample row with every figure filled', () => {
+    // BackOffice 1987's `## Web contract` sample for `GET CollectionWeb/Acrs`, its
+    // figures VERBATIM (the row `tools/acr-closed-by-drive.mjs` stubs). It carries
+    // `bankedTotal` and no `netCollectedTotal` — a column bound to the old name reads
+    // `undefined` off this row and draws blank, which is the defect.
+    const sample = {
+      ...ROW,
+      cashSalesTotal: 7300.0,
+      settlementTotal: 300.0,
+      bankedTotal: 7600.0,
+      cardTotalSum: 1250.5,
+      cardTransactionCountSum: 14,
+    }
+    expect(
+      ['cashSalesTotal', 'settlementTotal', 'bankedTotal', 'cardTotalSum', 'cardTransactionCountSum'].map(
+        (colId) => shown(colId, sample),
+      ),
+    ).toEqual(['7,300.00', '300.00', '7,600.00', '1,250.50', '14'])
+    // Every money column reads a field the contract's row actually carries.
+    for (const field of MONEY_FIELDS) expect(Object.keys(sample)).toContain(field)
+  })
+
+  it('keeps the settlement’s sign as sent — a surplus kept back is negative', () => {
+    expect(shown('settlementTotal', { ...ROW, settlementTotal: -200 })).toBe('-200.00')
+    expect(shown('settlementTotal', { ...ROW, settlementTotal: 0 })).toBe('0.00')
+  })
+
+  it('acr list still shows the label column', () => {
+    const label = column('label')
+    expect(label?.field).toBe('label')
+    expect(label?.headerName).toBe('Label')
+  })
+
+  it('every column on the grid has a header in the English bundle', () => {
+    for (const col of buildAcrsColumns(english, true)) expect(typeof col.headerName).toBe('string')
   })
 })
 

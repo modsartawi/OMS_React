@@ -272,8 +272,22 @@ export interface AcrInquiryRow {
   firstCollectedAt: string | null
   /** The latest collected-at of the linked collections; `null` on an idle ACR. */
   lastCollectedAt: string | null
-  /** Σ `NetCollected` over the linked receipts — what the collector banks. */
-  netCollectedTotal: number
+  // The three figures, under the names the printed form uses (BackOffice 1183). On
+  // every row `bankedTotal` = `cashSalesTotal` + `settlementTotal`.
+  /** Gross cash sales — Σ (net collected + deductions) over the trading receipts. */
+  cashSalesTotal: number
+  /**
+   * ONE signed figure over both kinds: a surplus the branch kept back is NEGATIVE, a
+   * shortage it handed over is POSITIVE. The sign is the content — drawn as sent.
+   */
+  settlementTotal: number
+  /**
+   * Σ `NetCollected` over the linked receipts — what the collector banks, and the
+   * list's *Net collected* (ticket 341, BackOffice 2149 D15). ⚠️ It REPLACED
+   * `netCollectedTotal` on the wire (1183): the old name is no longer sent, and a
+   * column bound to it renders blank.
+   */
+  bankedTotal: number
   cardTotalSum: number
   cardTransactionCountSum: number
   /** `''` until this ACR is banked. */
@@ -803,7 +817,11 @@ export interface AcrForm {
    * Rendered as given; never re-derived from the grid row's `closedBy`.
    */
   closedByText: string
-  /** الوصف. */
+  /**
+   * The ACR's label. ⚠️ Still on the wire, no longer PRINTED: the form header's الوصف
+   * line was removed (ticket 341, BackOffice 2149 D14). The list's Label column reads
+   * {@link AcrInquiryRow.label}, not this.
+   */
   label: string
   /** الحالة — a server string, rendered as data. */
   status: string

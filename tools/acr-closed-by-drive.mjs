@@ -17,7 +17,8 @@
 //      verbatim) is in the More-columns tail;
 //   3. loading, empty, error (500), refusal (a 400 envelope) and a bare 403 on the list, and
 //      the access probe's denial;
-//   4. the ACR form prints أُغلق بواسطة as the fourth cell of the الحالة row — the server's
+//   4. the ACR form prints أُغلق بواسطة as the last cell of the الحالة row (the THIRD since
+//      ticket 341 took الوصف out of it) — the server's
 //      string as given, its two spaces kept, blank when '' — and a miss is still the miss;
 //   5. no raw t() key and no page error anywhere.
 //
@@ -337,33 +338,34 @@ async function run() {
 
   await openForm('boundary')
   await shot('form-swept')
-  check('the الحالة row carries FOUR cells', (await page.locator('.acr-doc').first().locator('.acr-meta--last .acr-meta-cell').count()) === 4)
-  const sweptForm = await formCellText(3)
+  // Three since ticket 341 (BackOffice 2149 D14) removed the الوصف cell; four before.
+  check('the الحالة row carries THREE cells', (await page.locator('.acr-doc').first().locator('.acr-meta--last .acr-meta-cell').count()) === 3)
+  const sweptForm = await formCellText(2)
   check('the sweep prints the server’s string as given', sweptForm === 'أُغلق بواسطة: النظام (SYSTEM)', JSON.stringify(sweptForm))
   check('…on every page of the form', (await page.locator('.acr-doc .acr-meta--last').count()) === (await page.locator('.acr-doc').count()))
 
   await openForm('by-hand-contract')
-  const handForm = await formCellText(3)
+  const handForm = await formCellText(2)
   check('the contract’s collector string keeps its TWO spaces', handForm === 'أُغلق بواسطة: فهد القحطاني  (COLL-9)', JSON.stringify(handForm))
   const boxes = await page.locator('.acr-doc').first().locator('.acr-meta--last .acr-meta-cell').evaluateAll((els) =>
     els.map((e) => e.getBoundingClientRect()).map((r) => ({ top: Math.round(r.top), bottom: Math.round(r.bottom) })),
   )
-  check('…and the four cells stay one strip (a long name wraps inside its own quarter)', new Set(boxes.map((b) => b.top)).size === 1 && new Set(boxes.map((b) => b.bottom)).size === 1, JSON.stringify(boxes))
+  check('…and the three cells stay one strip (a long name wraps inside its own third)', new Set(boxes.map((b) => b.top)).size === 1 && new Set(boxes.map((b) => b.bottom)).size === 1, JSON.stringify(boxes))
   const docWidth = await page.locator('.acr-doc').first().evaluate((el) => [el.scrollWidth, el.clientWidth])
   check('…and the sheet is no wider for it', docWidth[0] <= docWidth[1], JSON.stringify(docWidth))
 
   await openForm('three-pages')
-  const collectorForm = await formCellText(3)
+  const collectorForm = await formCellText(2)
   check('the fixture’s collector close prints name  (id)', collectorForm === 'أُغلق بواسطة: إبراهيم ياسين الشمري  (40219)', JSON.stringify(collectorForm))
 
   await openForm('open')
-  const openForm_ = (await formCellText(3)).trim()
+  const openForm_ = (await formCellText(2)).trim()
   check('an OPEN form prints the label and nothing else — no placeholder, no dash', openForm_ === 'أُغلق بواسطة:', JSON.stringify(openForm_))
   await shot('form-open')
 
   await page.emulateMedia({ media: 'print' })
   await openForm('boundary')
-  check('under print media the closer still prints', (await formCellText(3)) === 'أُغلق بواسطة: النظام (SYSTEM)')
+  check('under print media the closer still prints', (await formCellText(2)) === 'أُغلق بواسطة: النظام (SYSTEM)')
   await page.emulateMedia({ media: 'screen' })
 
   await page.goto(`${BASE}/collection/acr/no-such-acr`)

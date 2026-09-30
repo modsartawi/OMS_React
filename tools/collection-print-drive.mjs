@@ -1016,7 +1016,21 @@ async function run() {
   )
   check(
     'acr OPEN → and the ACR still says it is مفتوح',
-    (await page.locator('.acr-meta--last .acr-meta-cell').nth(2).innerText()).includes('مفتوح'),
+    (await page.locator('.acr-meta--last .acr-meta-cell').nth(1).innerText()).includes('مفتوح'),
+  )
+  // Ticket 341 (BackOffice 2149 D14) — the description line left the header. The fixture's
+  // label is still in the document, so its absence here is the form not printing it.
+  const acrHeadText = (await page.locator('.acr-doc').first().locator('.acr-meta').allInnerTexts()).join(' ')
+  check(
+    '341 → the header prints no الوصف line, and not the label under any other caption',
+    !acrHeadText.includes('الوصف') && !acrHeadText.includes('تحصيل قيد الفتح'),
+    JSON.stringify(acrHeadText),
+  )
+  check(
+    '341 → …and the row closes up to three cells, in the order they printed',
+    (await page.locator('.acr-doc').first().locator('.acr-meta--last .acr-meta-label').allInnerTexts())
+      .map((s) => s.trim())
+      .join('|') === 'تاريخ التحصيل:|الحالة:|أُغلق بواسطة:',
   )
 
   // ---- 15. 0 rows — the idle ACR still prints one page ----

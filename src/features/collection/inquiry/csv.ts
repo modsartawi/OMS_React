@@ -287,7 +287,8 @@ export const COLLECTIONS_CSV_COLUMNS = csvColumns<CollectionInquiryRow, Collecti
 type AcrField = (typeof ACR_DEFAULT_FIELDS)[number] | (typeof ACR_MORE_FIELDS)[number]
 
 /**
- * ACRs. `netCollectedTotal` and `cardTotalSum` are the two summable columns.
+ * ACRs. `cashSalesTotal`, `settlementTotal`, `bankedTotal` and `cardTotalSum` are the
+ * four summable columns.
  *
  * ⚠️ **No Currency column, because `AcrInquiryRow` carries no `currencyKey`** —
  * the wire's shape, not an omission here, and the same reason the grid's money
@@ -309,8 +310,12 @@ export const ACRS_CSV_COLUMNS = csvColumns<AcrInquiryRow, AcrField>(
     // and `SYSTEM` is the marker finance filters a workbook on (BackOffice 1987).
     closedByName: 'text',
     linkedCollectionCount: 'count',
-    netCollectedTotal: 'money',
+    cashSalesTotal: 'money',
+    // Signed as sent: a surplus kept back leaves as a negative number.
+    settlementTotal: 'money',
+    bankedTotal: 'money',
     cardTotalSum: 'money',
+    cardTransactionCountSum: 'count',
     createdAt: 'date',
     closedAt: 'date',
     // A person's staff id, or `SYSTEM` — a key either way, so Excel keeps it verbatim.
@@ -321,7 +326,6 @@ export const ACRS_CSV_COLUMNS = csvColumns<AcrInquiryRow, AcrField>(
     // is no wire field, exactly as the Deposits grid's business-date span is not).
     firstCollectedAt: 'date',
     lastCollectedAt: 'date',
-    cardTransactionCountSum: 'count',
     collectorOperatorId: 'identity',
     depositNumber: 'identity',
     depositStatus: 'text',

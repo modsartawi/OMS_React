@@ -2,7 +2,7 @@
  * sheet per `AcrPage`.
  *
  * ⚠ DOCUMENTED EXCEPTION (spec 249, tickets 251/252), shared with
- * `collection-acr.css`: this file is a paper form, so the Arabic IS the form
+ * `collection-acr.css` and `acr-header.ts` (this form's header strip, as data): this file is a paper form, so the Arabic IS the form
  * rather than UI copy (no `t()`) and the geometry is physical and mirrors
  * nothing. The third rule — the colour-literal gate — is exercised by the
  * stylesheet, which holds the whole-file exclusion; every colour on this document
@@ -29,6 +29,7 @@
  */
 import type { ReactNode } from 'react'
 import Ltr from '@/core/ui/Ltr'
+import { ACR_HEADER_ROWS } from './acr-header'
 import PrintSheet from './PrintSheet'
 import type { AcrForm, AcrPage, AcrRow } from '@/core/models/collection'
 import { paperStoreText } from './store-text'
@@ -92,37 +93,25 @@ export default function CollectionAcr({ form, page }: { form: AcrForm; page: Acr
         <div className="acr-stamp">صفحة {page.pageText}</div>
       </div>
 
-      <div className="acr-meta">
-        {/* BackOffice 2145 — `الموافق` (Hijri) is gone, by owner ruling. */}
-        <Meta label="عن يوم: " value={form.acrDateText} />
-        {/* 247's amendment 2 — `نموذج رقم ( )` becomes `رقم التجميعي`: the field is
-            the ACR's own serial, not a form-stock number. The pad's parentheses
-            went with it; they bracket a blank a collector wrote into, and this is
-            printed. */}
-        <Meta label="رقم التجميعي: " value={form.acrNumberText} strong />
-        {/* BackOffice 2145 — المنطقة (Store.Area) became المدينة (Store.City). */}
-        <Meta label="المدينة: " value={form.cities} />
-      </div>
-
-      {/* 247's amendment 3 — NO deposit mark, here or in the summary below.
-          242 §8-O7 answered OUT and wider than it was asked: the ACR states what
-          was COLLECTED; where the money went afterwards is the deposit's own
-          document. `depositNumberText`, `depositStatus` and `depositText` all
-          left the contract, so there is nothing here to bind. */}
-      <div className="acr-meta acr-meta--last">
-        {/* BackOffice 2145 — the day the ACR was opened, never blank. It used to
-            bind `closedAtText`, which printed an empty slot on every OPEN ACR. */}
-        <Meta label="تاريخ التحصيل: " value={form.collectionDateText} />
-        <Meta label="الوصف: " value={form.label} />
-        <Meta label="الحالة: " value={form.status} />
-        {/* BackOffice 1987 (ticket 313) — who closed it, the fourth cell of this
-            row exactly where the WPF sheet puts it. `closedByText` is the server's
-            whole string: `النظام (SYSTEM)` for the 23:59 sweep, `name  (id)` for
-            the collector, `''` while OPEN or when nothing was recorded — rendered
-            as given, never re-derived from a raw `closedBy`, and blank like
-            تاريخ التحصيل when empty. `keepSpaces` keeps the format's TWO spaces. */}
-        <Meta label="أُغلق بواسطة: " value={form.closedByText} keepSpaces />
-      </div>
+      {/* The strip above the table is `ACR_HEADER_ROWS`, drawn as listed — each
+          mark's ruling is commented there. Every value is the server's own string,
+          rendered as given and blank when empty. */}
+      {ACR_HEADER_ROWS.map((cells, row) => (
+        <div
+          key={row}
+          className={row === ACR_HEADER_ROWS.length - 1 ? 'acr-meta acr-meta--last' : 'acr-meta'}
+        >
+          {cells.map((cell) => (
+            <Meta
+              key={cell.field}
+              label={cell.label}
+              value={form[cell.field]}
+              strong={cell.strong}
+              keepSpaces={cell.keepSpaces}
+            />
+          ))}
+        </div>
+      ))}
 
       {/* The header repeats on EVERY page — each printed side is a whole reading
           of the form, exactly as the WPF's FixedPage-per-chunk printer builds it. */}

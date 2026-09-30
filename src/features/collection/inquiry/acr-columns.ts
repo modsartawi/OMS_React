@@ -30,20 +30,30 @@ import { daySpan, daySpanText } from './day-span'
  * leads beside the *Business date* (`acrDate`) as a DERIVED column
  * ({@link COLLECTION_DATE_COLUMN}) — the span of days from `firstCollectedAt` to
  * `lastCollectedAt` — and the two raw instants fold into the tail, to the minute.
- * Nineteen fields now, and twenty columns with the tail open.
+ * Nineteen fields then, and twenty columns with the tail open.
+ *
+ * Ticket 341 (BackOffice 2149 D15) draws what each ACR holds: cash sales, settlement,
+ * net collected, card total and card slips, all on the default grid. The row's three
+ * figures (`cashSalesTotal`, `settlementTotal`, `bankedTotal`) replace the
+ * `netCollectedTotal` the server stopped sending, and the card-slip count leaves the
+ * tail. Twenty-one fields now, and twenty-two columns with the tail open.
  */
 
 /**
- * The nine wire fields the supervisor lands on — ten columns, with the derived
+ * The twelve wire fields the supervisor lands on — thirteen columns, with the derived
  * *Collection date* beside `acrDate`: which ACR and whose, then when and what
- * state, then the money. Reading order, not the WPF's declaration order.
+ * state, then what it holds. Reading order, not the WPF's declaration order.
  */
-// ⚠️ `netCollectedTotal` is headed **Net Collected**, not the WPF's own
-// `Cash (Deposit)`. Every other header on this grid is the XAML caption verbatim;
-// this one is not, because `CONTEXT.md` reserves *deposit* for **the bank end,
-// several ACRs later** and this column is Σ NetCollected — cash that left the
-// store. The same grid carries three real deposit columns, so the WPF's caption
-// would name the banking end twice, meaning two different things.
+// ⚠️ `bankedTotal` is headed **Net Collected** (ticket 341, D15) — finance's word
+// for it, and the one Cash Collections uses. It is NOT headed *Banked*: `CONTEXT.md`
+// reserves *deposit* for **the bank end, several ACRs later** and this column is
+// Σ NetCollected — cash that left the store. The same grid carries three real
+// deposit columns, so a banking word here would name that end twice, meaning two
+// different things. On every row Net Collected = Cash Sales + Settlement.
+//
+// 🚩 `settlementTotal` is drawn **as sent** — a surplus kept back is negative, a
+// shortage handed over positive. The sign is the whole distinction; nothing here
+// takes an absolute value or splits it into two columns.
 //
 // 🚩 **Both dates are default columns** (ticket 316, BackOffice 1993): `acrDate` is
 // the *Business date* and the derived *Collection date* span sits right after it,
@@ -62,12 +72,15 @@ export const DEFAULT_FIELDS = [
   'status',
   'closedByName',
   'linkedCollectionCount',
-  'netCollectedTotal',
+  'cashSalesTotal',
+  'settlementTotal',
+  'bankedTotal',
   'cardTotalSum',
+  'cardTransactionCountSum',
 ] as const satisfies readonly (keyof AcrInquiryRow)[]
 
 /**
- * The forensic tail: the WPF's remaining six, then `depositId` — a wire field the
+ * The forensic tail: the WPF's remaining five, then `depositId` — a wire field the
  * WPF grid never showed, folded in rather than dropped. `firstCollectedAt` and
  * `lastCollectedAt` (316) sit with the other instants: the default grid draws them
  * only as the two ends of a span of days, and this is where their minutes are — and,
@@ -79,7 +92,6 @@ export const MORE_FIELDS = [
   'closedBy',
   'firstCollectedAt',
   'lastCollectedAt',
-  'cardTransactionCountSum',
   'collectorOperatorId',
   'depositNumber',
   'depositStatus',
@@ -105,7 +117,7 @@ export const NON_COLUMN_FIELDS = ['acrId'] as const satisfies readonly (keyof Ac
  * are counts of slips and of receipts, and formatting either as money would put a
  * `.00` on a number of things.
  *
- * ⚠️ **This row carries no `currencyKey`**, so these two draw at the default two
+ * ⚠️ **This row carries no `currencyKey`**, so these four draw at the default two
  * decimals with **no code in the header** — the one place this screen cannot
  * honour 244 §7's "the row's own currency's decimals", because the wire has no
  * currency on it to read. `formatMoneyIn` is still what renders them: grouping
@@ -113,7 +125,9 @@ export const NON_COLUMN_FIELDS = ['acrId'] as const satisfies readonly (keyof Ac
  * Logged as a server change in `.afk/HITL-255.md`, never guessed at here.
  */
 export const MONEY_FIELDS = [
-  'netCollectedTotal',
+  'cashSalesTotal',
+  'settlementTotal',
+  'bankedTotal',
   'cardTotalSum',
 ] as const satisfies readonly (keyof AcrInquiryRow)[]
 

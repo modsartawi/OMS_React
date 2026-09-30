@@ -6,8 +6,8 @@
     "ledger": "Ledger",
     "upload": "Bulk upload"
   },
-  "title": "Settlement account",
-  "subtitle": "What a branch owes back (shortage · عجز) or may keep (surplus · فائض), and what a till has already taken against it.",
+  "title": "Settlement Account",
+  "subtitle": "What a branch must hand over (shortage · عجز) or may keep back (surplus · فائض), and what a till has already taken against it.",
   "access": {
     "checking": "Checking your access…",
     "deniedTitle": "No access to this screen",
@@ -85,13 +85,13 @@
       "filterRow": "Filter row"
     },
     "position": {
-      "owes": "this branch owes head office",
-      "keeps": "this branch may keep back",
+      "owes": "shortage — to be handed over to head office",
+      "keeps": "surplus — may be kept back by this branch",
       "square": "square with head office"
     },
     "headline": {
-      "shortage": "Shortage owed",
-      "surplus": "Surplus kept back",
+      "shortage": "Shortage",
+      "surplus": "Surplus",
       "openCount": "Entries open",
       "notActionable": "The position is shown, never settled. A till consumes one entry, of one kind, through one document — a shortage and a surplus never cancel each other out.",
       "pending_one": "1 surplus waits for a supervisor’s approval. It is in none of the figures above, and no till can see it yet.",
@@ -259,8 +259,8 @@
         "SURPLUS": "This branch carries no open surplus today."
       },
       "warning": {
-        "SHORTAGE_one": "This branch already owes {{total}} on an open shortage.",
-        "SHORTAGE_other": "This branch already owes {{total}} across {{count}} open shortages.",
+        "SHORTAGE_one": "This branch already carries {{total}} on an open shortage.",
+        "SHORTAGE_other": "This branch already carries {{total}} across {{count}} open shortages.",
         "SURPLUS_one": "This branch may already keep back {{total}} on an open surplus.",
         "SURPLUS_other": "This branch may already keep back {{total}} across {{count}} open surpluses."
       },
@@ -380,7 +380,7 @@
       "unresolved": "Row {{row}} — no branch has the code {{code}}, so this row cannot be posted onto anything.",
       "noBranch": "No branch has this code",
       "noDescription": "No description",
-      "warned": "{{count}} rows carry a warning. They post: a branch that already carries an open entry of this kind can genuinely owe a second one, and this door is never stricter than the single form.",
+      "warned": "{{count}} rows carry a warning. They post: a branch that already carries an open entry of this kind can genuinely carry a second one, and this door is never stricter than the single form.",
       "disagree": "The server's own total for this file is {{server}}, and the rows below add up to {{rows}}. The rows are what will be posted. Read both before committing.",
       "totalFigure": "{{count}} entries · {{amount}} {{currency}}",
       "noCurrency": "{{count}} of these rows came back without a currency, so the figure above is read at two decimals. Open one of those branches before committing.",
@@ -440,11 +440,11 @@
       "pending": "Still waiting for a supervisor ({{count}})",
       "pendingRow": "Not withdrawn — no till has seen it, and it still waits for approval. Open its account to reject it (a rejection needs a reason).",
       "rejected": "Already rejected by a supervisor ({{count}})",
-      "rejectedRow": "Not withdrawn — a supervisor had already rejected it, so it never went live and nothing is owed on it."
+      "rejectedRow": "Not withdrawn — a supervisor had already rejected it, so it never went live and there is nothing on it to settle."
     }
   },
   "figures": {
-    "notActionable": "A report figure. Nobody owes the estate's total and no till can consume it — a position belongs to one branch, on its own account."
+    "notActionable": "A report figure. The estate's total is nobody's to settle and no till can consume it — a position belongs to one branch, on its own account."
   },
   "ledger": {
     "open": "Entries across the estate",
@@ -492,8 +492,8 @@
     "capReachedCash": "This reached {{limit}} waiting receipts, so there may be more. That is far more than collection normally leaves behind — tell head office, and expect this list to be incomplete.",
     "unranked": "The server did not say which of these branches are yours, or how long each has been open, so this is one list in the order it arrived.",
     "tabs": {
-      "owing": "Owing",
-      "owed": "Owed",
+      "owing": "Shortage",
+      "owed": "Surplus",
       "cash": "Cash waiting",
       "noCount": "—",
       "pending": "Awaiting approval"
@@ -557,12 +557,12 @@
     },
     "empty": {
       "owing": {
-        "title": "Nothing owing.",
-        "hint": "No branch is holding money for head office."
+        "title": "No open shortage.",
+        "hint": "No branch has a shortage left to hand over."
       },
       "owed": {
-        "title": "Nothing owed.",
-        "hint": "Head office owes no branch a surplus back."
+        "title": "No open surplus.",
+        "hint": "No branch has a surplus left to keep back."
       },
       "cash": {
         "title": "No cash waiting.",
@@ -596,7 +596,7 @@
       "rejected": "Rejected by staff {{by}}.",
       "rejectedAt": "Rejected by staff {{by}} on {{at}}.",
       "noReason": "The server sent no reason.",
-      "rejectedNext": "A rejected entry cannot be approved later. If the branch is still owed a surplus, post a corrected entry."
+      "rejectedNext": "A rejected entry cannot be approved later. If the branch should still have a surplus, post a corrected entry."
     },
     "fields": {
       "amount": "Amount",

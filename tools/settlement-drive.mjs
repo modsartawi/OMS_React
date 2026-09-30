@@ -44,7 +44,7 @@ const ROUTE = '/collection/settlement'
 const OPEN_ROUTE = `${ROUTE}/open`
 const LEDGER_ROUTE = `${ROUTE}/ledger`
 const UPLOAD_ROUTE = `${ROUTE}/upload`
-const TITLE = 'Settlement account'
+const TITLE = 'Settlement Account'
 const LEAF = 'Settlement Account'
 const DENIED = 'No access to this screen'
 const UNREACHABLE = 'This screen is unavailable'
@@ -996,8 +996,8 @@ async function run() {
   // ---- 0142: both kinds open at once ----
   text = await openAccount('0142')
   check(
-    '0142 → the headline names the branch and the money it owes',
-    text.includes('Al-Rawdah Pharmacy') && text.includes('455.50') && text.includes('this branch owes head office'),
+    '0142 → the headline names the branch and its shortage',
+    text.includes('Al-Rawdah Pharmacy') && text.includes('455.50') && text.includes('shortage — to be handed over to head office'),
   )
   check(
     '0142 → BOTH magnitudes render beside the net, never the net alone',
@@ -2726,7 +2726,7 @@ async function run() {
     `owing ${await tabCount('owing')} / owed ${await tabCount('owed')} vs ${owingAll.length}/${owedAll.length}`,
   )
   check(
-    '🚩 285 → Owing draws BOTH sections — yours above, the estate below, neither hidden',
+    '🚩 285 → Shortage draws BOTH sections — yours above, the estate below, neither hidden',
     (await sectionCount('mine')) === group(owingMine.length) &&
       (await sectionCount('theirs')) === group(owingTheirs.length),
     `mine ${await sectionCount('mine')} / theirs ${await sectionCount('theirs')}`,
@@ -2770,11 +2770,11 @@ async function run() {
   // The second tab is an ADDRESS, and switching to it re-reads the one answer rather
   // than fetching a second estate the two counts could then disagree about.
   laneCalls = []
-  await page.getByRole('tab', { name: /^Owed/ }).click()
+  await page.getByRole('tab', { name: /^Surplus/ }).click()
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(250)
   check(
-    '285 → Owed is an address (`?tab=owed`) and draws SURPLUS only',
+    '285 → Surplus is still the address `?tab=owed` and draws SURPLUS only',
     new URL(page.url()).search === '?tab=owed' &&
       (await sectionCount('mine')) === group(owedAll.filter((r) => r.isMine).length) &&
       (await sectionCount('theirs')) === group(owedAll.filter((r) => !r.isMine).length),
@@ -2790,13 +2790,13 @@ async function run() {
   // on a blank screen (the rule every reader in this feature follows).
   await openLane(`${OPEN_ROUTE}?tab=nonsense`)
   check(
-    '285 → a hand-edited `?tab=` lands on Owing rather than on nothing',
-    (await page.getByRole('tab', { name: /^Owing/ }).getAttribute('aria-selected')) === 'true',
+    '285 → a hand-edited `?tab=` lands on Shortage rather than on nothing',
+    (await page.getByRole('tab', { name: /^Shortage/ }).getAttribute('aria-selected')) === 'true',
   )
 
   // …and the SCOPE rides every link on this screen, as it has since 270.
   await openLane(`${OPEN_ROUTE}?scope=all`)
-  await page.getByRole('tab', { name: /^Owed/ }).click()
+  await page.getByRole('tab', { name: /^Surplus/ }).click()
   await page.waitForTimeout(250)
   check(
     '285 → the scope survives a tab switch',
@@ -2839,10 +2839,10 @@ async function run() {
   await page.waitForTimeout(250)
   lane = await mainText()
   check(
-    '🚩 285 → emptied by MY OWN filter is a distinct sentence, never “Nothing owing”',
+    '🚩 285 → emptied by MY OWN filter is a distinct sentence, never “No open shortage”',
     (await page.locator('[data-testid="open-filtered"]').count()) === 1 &&
       (await page.locator('[data-testid="open-empty"]').count()) === 0 &&
-      !/Nothing owing/.test(lane),
+      !/No open shortage/.test(lane),
     lane.replace(/\n/g, ' ').slice(0, 110),
   )
   // …and the way out is named rather than left to be rediscovered.
@@ -2868,7 +2868,7 @@ async function run() {
     '🚩 285 → a refused read says so, in the server’s own words',
     /criterion is required/i.test(lane) &&
       (await page.locator('[data-testid="open-empty"]').count()) === 0 &&
-      !/Nothing owing/.test(lane),
+      !/No open shortage/.test(lane),
     lane.replace(/\n/g, ' ').slice(0, 130),
   )
   check(
@@ -3007,7 +3007,7 @@ async function run() {
   // the two tabs are looking at the same entries from two directions — and both must
   // still count their own answer in full.
   const cashTop = await topEntry('mine')
-  await page.getByRole('tab', { name: /^Owing/ }).click()
+  await page.getByRole('tab', { name: /^Shortage/ }).click()
   await page.waitForTimeout(250)
   check(
     '🚩 286 → the same entry may be owing AND waiting — neither tab loses a row to the other',
@@ -3025,10 +3025,10 @@ async function run() {
   await openLane(CASH_ROUTE)
   await page.getByRole('button', { name: 'Mine only' }).click()
   await page.waitForTimeout(250)
-  await page.getByRole('tab', { name: /^Owing/ }).click()
+  await page.getByRole('tab', { name: /^Shortage/ }).click()
   await page.waitForTimeout(250)
   check(
-    '🚩 286 → “Mine only” pressed on Cash does not empty an UNRANKED Owing behind it',
+    '🚩 286 → “Mine only” pressed on Cash does not empty an UNRANKED Shortage behind it',
     (await page.locator('[data-testid="open-filtered"]').count()) === 0 &&
       (await page.locator('[data-region="open-section-all"]').count()) === 1 &&
       (await page.getByRole('button', { name: 'Mine only' }).count()) === 0,
@@ -3051,7 +3051,7 @@ async function run() {
   await page.getByRole('tab', { name: /^Cash waiting/ }).click()
   await page.waitForTimeout(300)
   check(
-    '🚩 286 → the third tab draws its OWN grid — no sort carried over from Owing',
+    '🚩 286 → the third tab draws its OWN grid — no sort carried over from Shortage',
     sortedOwing === 'ascending' &&
       (await sectionCount('mine')) === group(cashMine.length) &&
       (await topEntry('mine')) === String(cashMine[0].entryNumber) &&
@@ -3067,7 +3067,7 @@ async function run() {
     '🚩 286 → an empty shelf is its OWN sentence, distinct from both entry tabs’',
     /No cash waiting/.test(cash) &&
       /Every prepared receipt has been collected/.test(cash) &&
-      !/Nothing owing|Nothing owed/.test(cash) &&
+      !/No open shortage|No open surplus/.test(cash) &&
       (await page.locator('[data-testid="open-empty"]').count()) === 1,
     cash.replace(/\n/g, ' ').slice(0, 140),
   )
@@ -3414,10 +3414,10 @@ async function run() {
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(250)
   check(
-    '288 → the Owed link lands on the lane’s Owed tab, showing the number it promised',
+    '288 → the Surplus link lands on the lane’s Surplus tab, showing the number it promised',
     new URL(page.url()).pathname === OPEN_ROUTE &&
       new URL(page.url()).searchParams.get('tab') === 'owed' &&
-      (await page.getByRole('tab', { name: /^Owed/ }).getAttribute('aria-selected')) === 'true' &&
+      (await page.getByRole('tab', { name: /^Surplus/ }).getAttribute('aria-selected')) === 'true' &&
       (await tabCount('owed')) === group(owedAll.length),
     `${page.url().replace(BASE, '')} · tab count ${await tabCount('owed')}`,
   )
@@ -3430,11 +3430,11 @@ async function run() {
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(250)
   check(
-    '🚩 288 → the scope rides through the Owing link, and the default tab is its ABSENCE',
+    '🚩 288 → the scope rides through the Shortage link, and the default tab is its ABSENCE',
     new URL(page.url()).pathname === OPEN_ROUTE &&
       new URL(page.url()).searchParams.get('scope') === 'all' &&
       new URL(page.url()).searchParams.get('tab') === null &&
-      (await page.getByRole('tab', { name: /^Owing/ }).getAttribute('aria-selected')) === 'true',
+      (await page.getByRole('tab', { name: /^Shortage/ }).getAttribute('aria-selected')) === 'true',
     page.url().replace(BASE, ''),
   )
 
@@ -3447,7 +3447,7 @@ async function run() {
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(250)
   check(
-    '🚩 288 → …and the Owed link carries the scope AND its tab, dropping the query that led here',
+    '🚩 288 → …and the Surplus link carries the scope AND its tab, dropping the query that led here',
     new URL(page.url()).pathname === OPEN_ROUTE &&
       new URL(page.url()).searchParams.get('scope') === 'all' &&
       new URL(page.url()).searchParams.get('tab') === 'owed' &&

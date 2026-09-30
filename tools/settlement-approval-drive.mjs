@@ -235,7 +235,7 @@ async function run() {
   await go(`${ROUTE}?store=${FX.store}`)
   let text = await page.locator('[data-region="account-headline"]').innerText()
   check('🔑 the headline keeps back 920 — the pending 1,350 and the rejected 700 are not money', text.includes('920.00') && !text.includes('2,970') && !text.includes('3,270'), text.replace(/\n/g, ' '))
-  check('…owes 300 and nets to 620 kept back', text.includes('300.00') && text.includes('620.00') && text.includes('may keep back'))
+  check('…a 300 shortage, and it nets to a 620 surplus', text.includes('300.00') && text.includes('620.00') && text.includes('surplus — may be kept back'))
   check('…with 3 entries open, and the 2 pending counted BESIDE the figures', /entries open\s*3/i.test(text) && (await page.locator('[data-testid="account-pending-count"]').innerText()).startsWith('2 surpluses wait'))
   const grid = await page.locator('[data-region="branch-account"] .ag-root-wrapper').first().innerText()
   check('pending and rejected rows are LABELLED in the grid', grid.includes('Awaiting approval') && grid.includes('Rejected'))
@@ -285,7 +285,7 @@ async function run() {
   releaseQueue = null
   await settle()
   check('the queue lists the estate’s three pending surpluses', (await page.locator('[data-testid="open-count-pending"]').innerText()) === '3' && (await page.locator('[data-testid="pending-approve"]').count()) === 3)
-  check('🚩 the Owing/Owed counts never include a pending row — even one the door sent', (await page.locator('[data-testid="open-count-owing"]').innerText()) === '1' && (await page.locator('[data-testid="open-count-owed"]').innerText()) === '2')
+  check('🚩 the Shortage/Surplus counts never include a pending row — even one the door sent', (await page.locator('[data-testid="open-count-owing"]').innerText()) === '1' && (await page.locator('[data-testid="open-count-owed"]').innerText()) === '2')
   const queueText = await page.locator('[data-region="settlement-open"]').innerText()
   check('each row carries the amount, the accountant and the description (story 9)', queueText.includes('512.750') && queueText.includes('Huda Al-Qahtani') && queueText.includes('عميل 7002'), '')
   await noRawKeys('the queue')

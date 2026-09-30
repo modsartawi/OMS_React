@@ -11,6 +11,7 @@
  * leaf that lost `exact` or drifted off its path fails here.
  */
 import { describe, expect, it } from 'vitest'
+import settlementLocale from '@/locales/en/settlement.json'
 import { isActive, MENU, type ShellMenuItem } from './menu-model'
 
 const OVERVIEW = '/collection/settlement'
@@ -37,6 +38,14 @@ describe('the Settlement Account node', () => {
       'settlement:menu.ledger',
       'settlement:menu.upload',
     ])
+  })
+
+  it('menu and title read Settlement Account', () => {
+    // Ticket 340 (BackOffice spec 2149 D13): one name for the ledger on every screen.
+    // The node's key is read off the real MENU and resolved against the real bundle.
+    expect(settlement.labelKey).toBe('settlement:menu.settlement')
+    expect(settlementLocale.menu.settlement).toBe('Settlement Account')
+    expect(settlementLocale.title).toBe('Settlement Account')
   })
 
   it('🚩 keeps the ONE grant on the node — no child mints a second gate', () => {

@@ -86,6 +86,10 @@ export const PENDING_LANE_KEY = ['settlement', 'pending-lane']
  * about it — so it cannot sit in *Owed* without the lane's counts claiming money that
  * is not live. It is the supervisor's queue (spec 1976 story 8): the same ledger door
  * asked `status=PENDING_APPROVAL`, its own call, its own count, its own failure.
+ *
+ * ⚠️ **`owing` and `owed` are KEYS, not what the reader sees** (ticket 340, BackOffice
+ * spec 2149 D13). The strip labels them *Shortage* and *Surplus*; the keys stay because
+ * `?tab=owed` is an address an accountant may have saved.
  */
 export const OPEN_LANE_TABS = ['owing', 'owed', 'cash', 'pending'] as const
 export type OpenLaneTab = (typeof OPEN_LANE_TABS)[number]

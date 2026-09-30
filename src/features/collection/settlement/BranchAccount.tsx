@@ -282,7 +282,8 @@ function findEntryNode(
  * keeping 500 of surplus, which no server-side path allows.
  *
  * The direction is a **sentence, not a sign**: `+455.50` needs a convention the
- * reader has to have been told, while *"this branch owes head office"* does not.
+ * reader has to have been told, while *"shortage — to be handed over to head office"*
+ * does not. (Ticket 340: the sentence names the KIND; nobody works out who owes whom.)
  */
 function AccountHeadline({
   storeId,

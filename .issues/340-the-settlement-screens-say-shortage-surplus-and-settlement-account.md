@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 334
 blocked-by: —
 ---
@@ -26,10 +26,14 @@ oms-react screen / wire model / vitest
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `open settlements tabs are labelled Shortage and Surplus` · vitest
-- [ ] `no user-facing settlement string says owed, owes or owing` · vitest over the locale file
-- [ ] `the old tab address still opens the shortage tab` · vitest
-- [ ] `menu and title read Settlement Account` · vitest
+- [x] `open settlements tabs are labelled Shortage and Surplus` · vitest — `src/features/collection/settlement/vocabulary.test.ts`
+- [x] `no user-facing settlement string says owed, owes or owing` · vitest over the locale file — same file; walks every value in `src/locales/en/settlement.json`
+- [x] `the old tab address still opens the shortage tab` · vitest — same file; `?tab=owing` still resolves to the key labelled Shortage, and shortages are still counted under it (likewise `?tab=owed` / Surplus)
+- [x] `menu and title read Settlement Account` · vitest — `src/layout/menu-model.test.ts`
+
+Driven as well (network stubbed at Playwright, vite on :5199): `tools/settlement-drive.mjs` 291/291, `settlement-approval-drive.mjs` 42/42, `settlement-supervision-drive.mjs` 41/41, `settlement-description-drive.mjs` 41/41. The drives' selectors and check titles were moved to the new labels; the settlement drive still opens the Surplus tab at `?tab=owed`.
+
+Outstanding (not AFK's): nothing here was driven against a live SIS.Api. Wording decisions are logged in `.afk/HITL-340.md` for the owner to read.
 
 ## Boundaries
 

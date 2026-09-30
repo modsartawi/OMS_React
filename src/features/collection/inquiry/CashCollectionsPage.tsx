@@ -36,8 +36,7 @@ import {
 } from './collections-criteria'
 import type { AssignmentOptions } from './served-by'
 import CollectionsToolbar from './CollectionsToolbar'
-import { COLLECTIONS_CSV_COLUMNS } from './csv'
-import { useCsvExport } from './use-csv-export'
+import { useXlsxExport } from './use-xlsx-export'
 import { buildReceiptActionColumn } from './RowActions'
 import SlipDrawer from './SlipDrawer'
 import { useSlipView } from './use-slips'
@@ -209,7 +208,7 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
 
   // The action column leads, and is composed here rather than folded into
   // `buildCollectionsColumns`: an action is not a wire field, and the field lists
-  // carry a completeness proof that 258's export writes from (see `RowActions`).
+  // carry a completeness proof (see `RowActions`).
   const columns = useMemo(
     () => [buildReceiptActionColumn(t), ...buildCollectionsColumns(t, rows, showMore, slips.showSlips, slips.openSlips)],
     [t, rows, showMore, slips.showSlips, slips.openSlips],
@@ -225,10 +224,10 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
   const isFiltered = !isLandingQuery(buildCollectionsParams(appliedCriteria), today, options)
   const capReached = isCapReached(rows.length, COLLECTIONS_LIMIT)
 
-  // ---- the export (ticket 258) ----
+  // ---- the export (ticket 258; a workbook since 336) ----
   // The button's whole plumbing, shared by the four grids. This Page still
-  // says WHICH screen it is and which columns the file holds.
-  const csvExport = useCsvExport('collections', COLLECTIONS_CSV_COLUMNS)
+  // says WHICH screen it is; the file is its grid, as shown.
+  const xlsxExport = useXlsxExport<(typeof rows)[number]>('collections')
 
   return (
     <>
@@ -258,7 +257,7 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
-        <ExportButton {...csvExport.buttonProps} />
+        <ExportButton {...xlsxExport.buttonProps} />
       </div>
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on
@@ -306,7 +305,7 @@ function CollectionsBody({ options }: { options?: AssignmentOptions }) {
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
-            {...csvExport.gridProps}
+            {...xlsxExport.gridProps}
             // Client-side paging over the WHOLE matched result. Community's own,
             // not a bespoke pager: sort and the per-column filter row apply to the
             // result set and the pager follows them, which is the entire reason

@@ -13,10 +13,11 @@ import {
 
 // Ticket 254's columns Proof: **the forensic tail hides nothing.** Every field on
 // the wire row appears in exactly one of the two groups (or is named, with its
-// reason, in NON_COLUMN_FIELDS), and their union is the whole row. This is the
-// assertion 258's export leans on — "the file is the row unpacked, not the grid
-// screenshotted" — and it is why the row is enumerated here as a VALUE: a field
-// added to the contract fails typecheck on this object, and then fails the union.
+// reason, in NON_COLUMN_FIELDS), and their union is the whole row. The export is
+// the grid as shown (ticket 336), so a field that is in neither group could reach
+// neither the screen nor the file — which is why the row is enumerated here as a
+// VALUE: a field added to the contract fails typecheck on this object, and then
+// fails the union.
 
 const ROW: CollectionInquiryRow = {
   collectionReceiptId: '01J0COLLECT0000000000000001',

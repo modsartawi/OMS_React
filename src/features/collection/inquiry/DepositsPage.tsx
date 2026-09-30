@@ -35,8 +35,7 @@ import {
 } from './deposit-criteria'
 import DepositDetail from './DepositDetail'
 import DepositsToolbar from './DepositsToolbar'
-import { DEPOSITS_CSV_COLUMNS } from './csv'
-import { useCsvExport } from './use-csv-export'
+import { useXlsxExport } from './use-xlsx-export'
 import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
 
 /**
@@ -226,10 +225,10 @@ function DepositsBody({ options }: { options?: AssignmentOptions }) {
   const isFiltered = !isLandingQuery(appliedParams, today, options)
   const capReached = isCapReached(rows.length, GRID_LIMIT)
 
-  // ---- the export (ticket 258) ----
+  // ---- the export (ticket 258; a workbook since 336) ----
   // The button's whole plumbing, shared by the four grids. This Page still
-  // says WHICH screen it is and which columns the file holds.
-  const csvExport = useCsvExport('deposits', DEPOSITS_CSV_COLUMNS)
+  // says WHICH screen it is; the file is its grid, as shown.
+  const xlsxExport = useXlsxExport<(typeof rows)[number]>('deposits')
 
   return (
     <>
@@ -254,7 +253,7 @@ function DepositsBody({ options }: { options?: AssignmentOptions }) {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
-        <ExportButton {...csvExport.buttonProps} />
+        <ExportButton {...xlsxExport.buttonProps} />
       </div>
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on
@@ -290,7 +289,7 @@ function DepositsBody({ options }: { options?: AssignmentOptions }) {
               rowSelection={DEPOSIT_ROW_SELECTION}
               onSelectionChanged={onSelectionChanged}
               onRowDataUpdated={onRowDataUpdated}
-              {...csvExport.gridProps}
+              {...xlsxExport.gridProps}
               // Client-side paging over the WHOLE matched result. Community's own,
               // so sort and the per-column filter row apply to the result set and
               // the pager follows them.

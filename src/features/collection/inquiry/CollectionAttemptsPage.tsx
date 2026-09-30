@@ -26,8 +26,7 @@ import {
 } from './attempts-criteria'
 import AttemptsToolbar from './AttemptsToolbar'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
-import { ATTEMPTS_CSV_COLUMNS } from './csv'
-import { useCsvExport } from './use-csv-export'
+import { useXlsxExport } from './use-xlsx-export'
 import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
 
 /**
@@ -113,10 +112,10 @@ function AttemptsBody() {
   const isFiltered = !isLandingQuery(appliedParams, today)
   const capReached = isCapReached(rows.length, GRID_LIMIT)
 
-  // ---- the export (ticket 258) ----
+  // ---- the export (ticket 258; a workbook since 336) ----
   // The button's whole plumbing, shared by the four grids. This Page still
-  // says WHICH screen it is and which columns the file holds.
-  const csvExport = useCsvExport('attempts', ATTEMPTS_CSV_COLUMNS)
+  // says WHICH screen it is; the file is its grid, as shown.
+  const xlsxExport = useXlsxExport<(typeof rows)[number]>('attempts')
 
   return (
     <>
@@ -141,7 +140,7 @@ function AttemptsBody() {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
-        <ExportButton {...csvExport.buttonProps} />
+        <ExportButton {...xlsxExport.buttonProps} />
       </div>
 
       {/* ⚠️ Fires on a result that REACHED the cap, never on one merely large. */}
@@ -172,7 +171,7 @@ function AttemptsBody() {
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
-            {...csvExport.gridProps}
+            {...xlsxExport.gridProps}
             // ⚠️ No `onRowClicked`, no action column, no `rowSelection`. The
             // absence is the design — see the note on the Page above.
             pagination

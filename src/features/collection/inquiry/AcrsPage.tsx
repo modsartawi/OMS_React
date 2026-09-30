@@ -27,8 +27,7 @@ import { collectionAccessQuery } from '@/core/collection/api'
 import { assignmentOptionsQuery, canOpenAcrs, canOpenCollections, collectionApi } from './api'
 import type { AssignmentOptions } from './served-by'
 import { GRID_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
-import { ACRS_CSV_COLUMNS } from './csv'
-import { useCsvExport } from './use-csv-export'
+import { useXlsxExport } from './use-xlsx-export'
 import { CapBanner, EmptyState, ExportButton, ListShimmer, ToggleChip } from './GridStates'
 import { buildAcrActionsColumn } from './RowActions'
 
@@ -155,7 +154,7 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
   const rows = useMemo(() => list.data ?? [], [list.data])
   // The two actions lead, composed here rather than folded into `buildAcrsColumns`:
   // an action is not a wire field, and the field lists carry a completeness proof
-  // that 258's export writes from (see `RowActions`).
+  // (see `RowActions`).
   //
   // ⚠️ `Collections ▸` is withheld from a session that cannot open Cash
   // Collections. The four grants are independent, so this is an ordinary ragged
@@ -172,10 +171,10 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
   const isFiltered = !isLandingQuery(appliedParams, today, options)
   const capReached = isCapReached(rows.length, GRID_LIMIT)
 
-  // ---- the export (ticket 258) ----
+  // ---- the export (ticket 258; a workbook since 336) ----
   // The button's whole plumbing, shared by the four grids. This Page still
-  // says WHICH screen it is and which columns the file holds.
-  const csvExport = useCsvExport('acrs', ACRS_CSV_COLUMNS)
+  // says WHICH screen it is; the file is its grid, as shown.
+  const xlsxExport = useXlsxExport<(typeof rows)[number]>('acrs')
 
   return (
     <>
@@ -200,7 +199,7 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
           pressed={showFilters}
           onToggle={() => setShowFilters((v) => !v)}
         />
-        <ExportButton {...csvExport.buttonProps} />
+        <ExportButton {...xlsxExport.buttonProps} />
       </div>
 
       {/* ⚠️ The one case where rows really ARE missing, said out loud. It fires on
@@ -230,7 +229,7 @@ function AcrsBody({ options }: { options?: AssignmentOptions }) {
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
-            {...csvExport.gridProps}
+            {...xlsxExport.gridProps}
             // Client-side paging over the WHOLE matched result. Community's own,
             // so sort and the per-column filter row apply to the result set and
             // the pager follows them.

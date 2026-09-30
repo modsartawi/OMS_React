@@ -14,11 +14,10 @@ import { withSlipColumn, type SlipDay } from './slips'
  * **Reordered, with a forensic tail behind a toggle.** The WPF shows all 19 of its
  * fields at once; the web leads with identity and money in reading order and folds
  * the rest behind **More columns**. ⚠️ **Nothing is dropped, only folded** — which
- * is not a slogan but the assertion `collections-columns.test.ts` makes and
- * [258](../../../../.issues/258-the-export-writes-a-summable-file.md) leans on:
- * every field on the wire row appears in exactly one of the two groups (or is
- * named, with its reason, in `NON_COLUMN_FIELDS`), and the export writes the
- * union regardless of the toggle.
+ * is not a slogan but the assertion `collections-columns.test.ts` makes: every
+ * field on the wire row appears in exactly one of the two groups (or is named,
+ * with its reason, in `NON_COLUMN_FIELDS`). The export is the grid as shown
+ * (ticket 336), so a folded column is in the file when the toggle is on.
  *
  * 🚩 The two groups are declared as **field lists**, not inferred from the built
  * `ColDef`s. A ColDef can carry a `colId` instead of a `field`, or two ColDefs can
@@ -88,9 +87,9 @@ export const MORE_FIELDS = [
  * The column the slip probe gates (ticket 320, BackOffice 2034): drawn right after
  * `cardTotal` only when `AttachmentWeb/Access` holds `CASH_CLOSE`.
  *
- * 🚩 Its own group rather than a member of the two above, because 258's export
- * writes their union regardless of the toggle — and a count the session may not
- * see must not leave in its file. The completeness proof still accounts for it.
+ * 🚩 Its own group rather than a member of the two above: a count the session may
+ * not see is not drawn, and so — the export being the grid as shown (ticket 336) —
+ * does not leave in its file either. The completeness proof still accounts for it.
  * Each row's count is keyed by that row's OWN `businessDay`: the rows of one
  * multi-shift receipt are drawn as sent, never merged or summed.
  */

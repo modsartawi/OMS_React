@@ -47,6 +47,10 @@
     "failedHint": "Nothing is known about whether it exists — this is not the same as it being gone. Try again in a moment.",
     "failedFallback": "The server did not say why."
   },
+  "export": {
+    "failed": "The export failed",
+    "failedDetail": "The workbook could not be written. Try again."
+  },
   "grid": {
     "daySpan": "{{from}} – {{to}}"
   },

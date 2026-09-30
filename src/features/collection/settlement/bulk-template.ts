@@ -52,14 +52,14 @@ export const BULK_TEMPLATE_FILENAME = 'settlement-audit-template.csv'
  * The template's bytes.
  *
  * ⚠️ **Amounts are written bare — no thousands separator, no currency symbol.** This
- * is `csv.ts`'s money ruling one screen over, and here it is the *input* side of it:
+ * is the inquiry export's money ruling one screen over, here on the *input* side:
  * `1,250.00` in a cell is text with a comma in it, which in a CSV is two columns and
  * to the door is a malformed row. The example row is the only place this client can
  * say so without words.
  *
  * 🚩 No BOM and no `="…"` wrappers. This file is written to be **re-read by the
- * server**, not summed in Excel — the identity-quoting `csv.ts` needs for a
- * reconciliation workbook would arrive at the parser as literal `="1001"`.
+ * server**, not summed in Excel — the identity-quoting a CSV opened in Excel needs
+ * would arrive at the parser as literal `="1001"`.
  */
 export function bulkTemplateCsv(): string {
   const rows: readonly (readonly string[])[] = [

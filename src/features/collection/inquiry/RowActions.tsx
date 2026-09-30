@@ -19,10 +19,9 @@ import { acrFormHref, collectionsForAcrHref, receiptHref } from './acr-scope'
  *
  * 🚩 **Its own module, and its own column, deliberately.** The two field lists in
  * `collections-columns.ts` / `acr-columns.ts` carry a completeness proof — every
- * wire field appears in exactly one group — and 258's export writes their union.
- * An action is neither a field nor exportable, so folding it into those lists
- * would put a column of links into the accountant's CSV and weaken the assertion
- * that catches a dropped field. The Page composes the two.
+ * wire field appears in exactly one group. An action is neither a field nor
+ * exportable, so folding it into those lists would weaken the assertion that
+ * catches a dropped field. The Page composes the two.
  *
  * ⚠️ **Collection Attempts and Deposits get nothing from this file**, and that is
  * an argued absence rather than an omission: an attempt is immutable evidence
@@ -31,18 +30,20 @@ import { acrFormHref, collectionsForAcrHref, receiptHref } from './acr-scope'
  * ticket 256.
  */
 
+/** The action column's id on both grids — the handle `xlsx.ts` leaves out of the file by. */
+export const ACTIONS_COLUMN = 'actions'
+
 /** Shared shell: the action column itself is never sortable, filterable or
  *  exportable — it holds no value, only a way out of the row.
  *
- *  ⚠️ **`colId: 'actions'` is 258's handle, and 258 must use it.** AG Grid
- *  **Community** 36.0.1 has no `suppressCsvExport` on `ColDef` (checked, not
- *  assumed — it is not in the typings), so a CSV taken with `allColumns` would
- *  carry this column as a headed but empty one: it renders links and holds no cell
- *  value. Whichever writer 258 lands on excludes this colId. */
+ *  ⚠️ **`colId: 'actions'` is the export's handle.** The file is the grid as shown
+ *  (ticket 336), and this column is shown — but it renders links and holds no cell
+ *  value, so `xlsx.ts` leaves this colId out rather than write a headed, empty
+ *  column. */
 function actionColumn<Row>(headerName: string, cellRenderer: ColDef<Row>['cellRenderer']): ColDef<Row> {
   return {
     headerName,
-    colId: 'actions',
+    colId: ACTIONS_COLUMN,
     width: 190,
     sortable: false,
     filter: false,

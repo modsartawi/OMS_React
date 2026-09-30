@@ -28,7 +28,7 @@ export interface SlipView<Row> {
  * The slip half of Ready and Cash Collections (ticket 320, BackOffice 2034) —
  * one hook so the two grids cannot read the probe, the filter or the banner two
  * different ways. Each Page still composes its own screen (244 §1); this is one
- * control's plumbing, as `useCsvExport` is.
+ * control's plumbing, as `useXlsxExport` is.
  *
  * 🔑 The probe is the ONE shared entry (`attachmentAccessQuery`), read through
  * `canSeeSlips`: pending, refused (503 NOT_SET_UP, 403, network) or malformed all

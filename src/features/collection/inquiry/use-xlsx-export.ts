@@ -1,4 +1,5 @@
-// The Export button's wiring, shared by the four Collections grids (ticket 258).
+// The Export button's wiring, shared by the four Collections grids (ticket 258; the
+// file became a workbook at ticket 336).
 //
 // ⚠️ **This is not the shared inquiry shell 244 §1 rules out.** That ruling is
 // about the screen's *shape* — the gate / toolbar / criteria-draft / grid skeleton
@@ -6,18 +7,19 @@
 // departure costs nothing. This is one control's plumbing, and it arrived at
 // **four** identical copies in a single slice: the exact escalation `GridStates`
 // and `cap.ts` already took **inside this feature**, one layer below `core/`.
-// Each Page still says which screen it is, which columns it writes and which key
-// prefix its headers come from; nothing here decides what a screen exports.
+// Each Page still says which screen it is; what the file holds is the Page's own
+// grid, as shown.
 
 import { useCallback, useState } from 'react'
 import type { GridApi } from 'ag-grid-community'
 import { useTranslation } from 'react-i18next'
 
-import type { CollectionScreen, CsvColumn } from './csv'
-import { exportGridToCsv } from './export'
+import { notify } from '@/core/services/notify'
+
+import { exportGridToXlsx, type CollectionScreen } from './xlsx'
 
 /** What a Page spreads onto its `ExportButton` and its `AgGridReact`. */
-export interface CsvExport<Row> {
+export interface XlsxExport<Row> {
   buttonProps: { label: string; onExport: () => void; disabled: boolean }
   gridProps: {
     onGridReady: (event: { api: GridApi<Row> }) => void
@@ -26,16 +28,12 @@ export interface CsvExport<Row> {
   }
 }
 
-export function useCsvExport<Row>(
-  screen: CollectionScreen,
-  columns: readonly CsvColumn<Row>[],
-): CsvExport<Row> {
+export function useXlsxExport<Row>(screen: CollectionScreen): XlsxExport<Row> {
   const { t } = useTranslation('collection')
 
-  // 🚩 The grid's own api, held so the export can read the rows **after the
-  // active filter and sort** rather than the rows as they arrived. The accountant
-  // exports the view they built, and `rowData` would quietly ignore both the
-  // floating filter row and the header they clicked.
+  // 🚩 The grid's own api, held so the export reads the grid **as shown** — the
+  // rows after the active filter and sort, under the columns on screen — rather
+  // than the rows as they arrived.
   const [gridApi, setGridApi] = useState<GridApi<Row> | null>(null)
   // ⚠️ How many rows the FILE would hold, which is not how many the query
   // returned: a grid the accountant has filtered down to nothing must not offer a
@@ -43,25 +41,26 @@ export function useCsvExport<Row>(
   // `onModelUpdated` is the one event that fires for a filter, a sort and a fresh
   // result alike.
   const [displayedRows, setDisplayedRows] = useState(0)
+  // The writer is loaded on demand, so a second click could land before the first file.
+  const [writing, setWriting] = useState(false)
 
   const onExport = useCallback(() => {
     if (!gridApi) return
-    exportGridToCsv(
-      gridApi,
-      screen,
-      columns,
-      // The file's headers are the screen's headers, through the same keys —
-      // never a second spelling invented for the file.
-      (field) => t(`${screen}.columns.${field}`),
-      new Date(),
-    )
-  }, [gridApi, screen, columns, t])
+    setWriting(true)
+    // The sheet is named for the screen, by the screen's own title.
+    exportGridToXlsx(gridApi, screen, t(`${screen}.title`), new Date())
+      .catch((error: unknown) => {
+        console.error('collection export failed', error)
+        notify.error(t('export.failed'), t('export.failedDetail'))
+      })
+      .finally(() => setWriting(false))
+  }, [gridApi, screen, t])
 
   return {
     buttonProps: {
       label: t(`${screen}.toolbar.export`),
       onExport,
-      disabled: !gridApi || displayedRows === 0,
+      disabled: !gridApi || displayedRows === 0 || writing,
     },
     gridProps: {
       onGridReady: (event) => setGridApi(event.api),

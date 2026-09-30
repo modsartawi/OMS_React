@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 334
 blocked-by: —
 ---
@@ -25,11 +25,11 @@ oms-react screen / wire model / vitest
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `cash collections export writes the visible columns in grid order` · vitest
-- [ ] `export keeps an Arabic description intact` · vitest
-- [ ] `money is numeric and store codes are text in the sheet` · vitest
-- [ ] `acr, attempts and deposits export through the same writer` · vitest
-- [ ] `no collection screen still calls the csv writer` · vitest source test
+- [x] `cash collections export writes the visible columns in grid order` · vitest
+- [x] `export keeps an Arabic description intact` · vitest
+- [x] `money is numeric and store codes are text in the sheet` · vitest
+- [x] `acr, attempts and deposits export through the same writer` · vitest
+- [x] `no collection screen still calls the csv writer` · vitest source test
 
 ## Boundaries
 
@@ -42,3 +42,20 @@ Every collection screen's Export button downloads an `.xlsx` that opens in Excel
 ## Blocked by
 
 None — can start immediately (if 335 landed first, the column list is the new one)
+
+## Comments
+
+**Built 2026-09-30 (AFK).**
+
+- The four grids export through `@/core/util/grid-xlsx`. `gridSheet` gained two optional per-column answers, `skip` and `asText`; `features/collection/inquiry/xlsx.ts` says which columns are figures (money and counts) and leaves the actions column out. Deliveries and the central-invoice list are unchanged.
+- Removed: `csv.ts`, `csv.test.ts`, `export.ts`, `use-csv-export.ts`. No other caller existed. `downloadCsv` in core stays: the two upload templates and UA Users still use it.
+- Proof is in `src/features/collection/inquiry/xlsx.test.ts` (the five named blocks) and three cases in `src/core/util/grid-xlsx.test.ts`. The vitest grid is a stand-in api over the screens' real column definitions.
+- Driven: `tools/collection-drive.mjs` downloads each workbook in Chromium (stubbed envelopes, vite on 5199) and reads its XML back — 57 checks for this ticket, all passing: visible columns in grid order with the toggle off and on, filtered and sorted rows, money as number cells, identity as text cells, Arabic intact.
+- The drive as a whole ends 239/241. The two failures are ticket 255's landing-query checks, stale since commit b124dfe; not touched here.
+
+**Outstanding (owner):**
+
+- Open an exported `.xlsx` in real Excel and read the Arabic. The drive proves the bytes, not the rendering.
+- No run against a live SIS.Api.
+
+Decisions taken unattended are in `.afk/HITL-336.md` — chiefly: dates leave as the screen shows them (the CSV's seconds are gone), money headers carry the currency as on screen, the actions column is not written.

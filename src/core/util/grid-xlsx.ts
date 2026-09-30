@@ -34,14 +34,32 @@ export interface XlsxSheet {
   columns?: { width: number }[]
 }
 
+/** What a screen may say about its own columns (ticket 336). Both are asked by column id. */
+export interface GridSheetOptions {
+  /** A shown column that holds no value and is left out of the sheet — a column of row actions. */
+  skip?: (colId: string) => boolean
+  /**
+   * A column written as the text the grid shows even where its value is a number: an identity
+   * (a receipt or document number), which Excel must not total or reshape.
+   */
+  asText?: (colId: string) => boolean
+}
+
 /**
  * The grid as one worksheet — see the module note for what "the grid" means.
  *
  * @returns the sheet, plus `rows` — the data rows it wrote, in that order — and `count`, their
  *   number (0 when nothing matches the filters).
  */
-export function gridSheet<T>(api: GridApi<T>, name: string): XlsxSheet & { rows: T[]; count: number } {
-  const columns = api.getAllDisplayedColumns()
+export function gridSheet<T>(
+  api: GridApi<T>,
+  name: string,
+  options: GridSheetOptions = {},
+): XlsxSheet & { rows: T[]; count: number } {
+  const columns = api.getAllDisplayedColumns().filter((column) => !options.skip?.(column.getColId()))
+
+  // Asked once per column, not once per cell.
+  const asText = columns.map((column) => options.asText?.(column.getColId()) ?? false)
 
   const header: Row = columns.map((column) => ({
     value: columnHeader(column),
@@ -52,7 +70,7 @@ export function gridSheet<T>(api: GridApi<T>, name: string): XlsxSheet & { rows:
   api.forEachNodeAfterFilterAndSort((node) => {
     if (!node.data) return
     rows.push(node.data)
-    body.push(rowCells(api, node, columns))
+    body.push(rowCells(api, node, columns, asText))
   })
 
   return {
@@ -112,14 +130,21 @@ function columnHeader(column: Column): string {
 }
 
 /**
- * One exported row. Real numbers stay numeric so Excel keeps them totalable;
- * everything else exports as the grid's formatted text.
+ * One exported row. Real numbers stay numeric so Excel keeps them totalable — unless the
+ * screen says the column is text; everything else exports as the grid's formatted text.
  */
-function rowCells<T>(api: GridApi<T>, rowNode: IRowNode<T>, columns: Column[]): Row {
-  return columns.map((column) => {
-    const raw = api.getCellValue({ rowNode, colKey: column })
-    if (typeof raw === 'number' && Number.isFinite(raw)) {
-      return { type: Number, value: raw }
+function rowCells<T>(
+  api: GridApi<T>,
+  rowNode: IRowNode<T>,
+  columns: Column[],
+  asText: readonly boolean[],
+): Row {
+  return columns.map((column, i) => {
+    if (!asText[i]) {
+      const raw = api.getCellValue({ rowNode, colKey: column })
+      if (typeof raw === 'number' && Number.isFinite(raw)) {
+        return { type: Number, value: raw }
+      }
     }
     const text = api.getCellValue({ rowNode, colKey: column, useFormatter: true })
     return { type: String, value: text == null ? '' : String(text) }

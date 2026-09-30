@@ -11,10 +11,9 @@ import { daySpan, daySpanText } from './day-span'
  * row.
  *
  * **Reordered, with a forensic tail behind a toggle.** ⚠️ **Nothing is dropped,
- * only folded** — the assertion `acr-columns.test.ts` makes and
- * [258](../../../../.issues/258-the-export-writes-a-summable-file.md) leans on:
- * every field on the wire row appears in exactly one of the two groups (or is
- * named, with its reason, in `NON_COLUMN_FIELDS`).
+ * only folded** — the assertion `acr-columns.test.ts` makes: every field on the
+ * wire row appears in exactly one of the two groups (or is named, with its reason,
+ * in `NON_COLUMN_FIELDS`).
  *
  * 🚩 **The WPF declares 14 columns; this grid draws 15.** `AcrInquiryView.xaml`
  * shows `AcrNumber` … `DepositStatus` and never shows `depositId`. It folds into
@@ -83,8 +82,7 @@ export const DEFAULT_FIELDS = [
  * The forensic tail: the WPF's remaining five, then `depositId` — a wire field the
  * WPF grid never showed, folded in rather than dropped. `firstCollectedAt` and
  * `lastCollectedAt` (316) sit with the other instants: the default grid draws them
- * only as the two ends of a span of days, and this is where their minutes are — and,
- * through the CSV, where the file carries them under their own honest headers.
+ * only as the two ends of a span of days, and this is where their minutes are.
  */
 export const MORE_FIELDS = [
   'createdAt',
@@ -185,8 +183,8 @@ export function closedByText(
 /**
  * The *Collection date* column's id (ticket 316) — a **derived** column, which is why
  * it is not in {@link DEFAULT_FIELDS}: those lists are the wire row's own fields, and
- * the completeness proof and the CSV both read them as such (the Deposits grid's
- * *Business date* is built the same way).
+ * the completeness proof reads them as such (the Deposits grid's *Business date* is
+ * built the same way). It is a shown column, so the export writes it (ticket 336).
  *
  * 🚩 An ACR's collection date is multi-valued — its linked collections' collected-at
  * — so the contract draws it as the span of days from `firstCollectedAt` to

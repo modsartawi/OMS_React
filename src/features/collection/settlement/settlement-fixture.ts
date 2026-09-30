@@ -17,7 +17,7 @@ import type {
  * only part that was ever the deliverable.
  *
  * 🚩 **Every Arabic string below is copied from `fake.js`, never retyped** — the
- * ruling `csv.test.ts` made for the ACR fixtures. A retyped Arabic string looks
+ * ruling `inquiry/xlsx.test.ts` keeps for the ACR fixtures. A retyped Arabic string looks
  * right and is a different sequence of code points, which is how a diacritic or a
  * ـه/ـة swap gets into a screen nobody can proofread.
  *

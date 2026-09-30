@@ -79,7 +79,7 @@ export function ToggleChip({
 
 /**
  * The **Export** button that sits beside the two toggles on every Collections grid
- * (ticket 258).
+ * (ticket 258; it writes a workbook since 336).
  *
  * ⚠️ Not a `ToggleChip` with a different icon: it is an **action**, not a state,
  * and `aria-pressed` on a button that downloads a file would tell a screen reader

@@ -11,10 +11,9 @@ import { daySpan, daySpanText } from './day-span'
  * deposit row.
  *
  * **Reordered, with a forensic tail behind a toggle.** ⚠️ **Nothing is dropped,
- * only folded** — the assertion `deposit-columns.test.ts` makes and
- * [258](../../../../.issues/258-the-export-writes-a-summable-file.md) leans on:
- * every field on the wire row appears in exactly one of the two groups (or is
- * named, with its reason, in `NON_COLUMN_FIELDS`).
+ * only folded** — the assertion `deposit-columns.test.ts` makes: every field on the
+ * wire row appears in exactly one of the two groups (or is named, with its reason,
+ * in `NON_COLUMN_FIELDS`).
  *
  * 🚩 The two groups are declared as **field lists**, not inferred from the built
  * `ColDef`s, for 254's reason: a ColDef can carry a `colId` instead of a `field`,
@@ -102,13 +101,13 @@ const MONEY = new Set<string>(MONEY_FIELDS)
 /**
  * The *Business date* column's id (ticket 316) — a **derived** column, which is why
  * it is not in {@link DEFAULT_FIELDS}: those lists are the wire row's own fields, and
- * the completeness proof and the CSV both read them as such.
+ * the completeness proof reads them as such.
  *
  * 🚩 It reads the deposit's `lines[].acrDate` — the dates the business range
  * filters on (ANY of them) — and draws their span: min … max, or one date when they
- * share a day, blank on a deposit with no lines. The CSV leaves it out for the same
- * reason it leaves `lines` out (256): the lines are a list, and the file is the flat
- * row.
+ * share a day, blank on a deposit with no lines. It is a shown column, so the export
+ * writes the span as the cell reads (ticket 336); the lines themselves are a list and
+ * stay in the detail region.
  */
 export const BUSINESS_DATE_COLUMN = 'businessDate'
 

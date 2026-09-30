@@ -44,7 +44,7 @@ import { SETTLEMENT_ACCOUNTS } from './settlement-fixture'
  * ⚠️ **Not one Arabic string is retyped here.** The six branches' names come from
  * `settlement-fixture.ts` by import; the 1388 generated branches are English-named
  * by construction. A retyped Arabic string looks right and is a different sequence
- * of code points (`csv.test.ts`'s ruling), and this file has no business minting new
+ * of code points (`inquiry/xlsx.test.ts`'s ruling), and this file has no business minting new
  * ones.
  *
  * 🚩 **Generated deterministically** — a small LCG, seeded — because a drive that

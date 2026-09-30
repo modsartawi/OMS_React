@@ -4,7 +4,7 @@ import type { TFunction } from 'i18next'
 import type { SettlementLedgerRow } from '@/core/models/settlement'
 import { formatDateTime } from '@/core/util/date-format'
 import { isDimmed } from './account-projection'
-import { entryKindLabel, entryStatusLabel, remainingCell } from './entry-cells'
+import { businessDayCell, entryKindLabel, entryStatusLabel, remainingCell } from './entry-cells'
 import { settlementMoney } from './money-display'
 
 /**
@@ -36,6 +36,8 @@ export function buildLedgerColumns(
   t: TFunction,
   /** Whether the result actually mixes currencies — see the `currencyKey` column. */
   mixedCurrency: boolean,
+  /** Whether the result holds a theft — see the `businessDay` column (339). */
+  hasTheft = false,
 ): ColDef<SettlementLedgerRow>[] {
   return [
     {
@@ -75,6 +77,17 @@ export function buildLedgerColumns(
       valueFormatter: (p: ValueFormatterParams<SettlementLedgerRow, string>) =>
         entryKindLabel(t, p.value),
       filterValueGetter: (p) => entryKindLabel(t, p.data?.entryKind),
+    },
+    {
+      // 339: the day a theft names. ⚠️ Drawn only when the RESULT holds a theft — the
+      // currency column's rule, for its reason: on an answer of shortages and surpluses
+      // it would be a column of blanks, since neither names a day.
+      headerName: t('ledger.columns.businessDay'),
+      colId: 'businessDay',
+      width: 130,
+      hide: !hasTheft,
+      cellClass: 'tabular-nums',
+      valueGetter: (p) => businessDayCell(p.data),
     },
     {
       headerName: t('account.columns.amount'),

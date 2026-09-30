@@ -78,7 +78,11 @@ export default function EntryApproval({
           >
             {state.reason || t('approval.panel.noReason')}
           </blockquote>
-          <p className="text-xs text-muted-foreground">{t('approval.panel.rejectedNext')}</p>
+          <p className="text-xs text-muted-foreground">
+            {/* 339: a rejected theft leaves the day with its variance, and posts no
+                shortage — a different next step from a rejected surplus. */}
+            {t(row.entryKind === 'THEFT' ? 'approval.panel.rejectedNextTheft' : 'approval.panel.rejectedNext')}
+          </p>
         </div>
       ) : (
         <>

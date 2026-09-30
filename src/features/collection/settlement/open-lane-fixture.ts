@@ -122,6 +122,11 @@ function buildOpenLane(): SettlementOpenLaneRow[] {
       rejectedByStaffId: '',
       rejectedAt: '0001-01-01T00:00:00',
       rejectedReason: '',
+      // BackOffice 2150: a shortage or a surplus names no day and carries no day figures.
+      businessDay: '0001-01-01T00:00:00',
+      daySystemCash: null,
+      dayCountedCash: null,
+      dayCashVariance: null,
       currencyKey: CITIES_BHD.has(branch.city) ? 'BHD' : 'SAR',
       // ⚠️ **Blank for the 1,255 branches paired to nobody**, never a placeholder
       // name — the row must be able to say *nobody assigned* in words.

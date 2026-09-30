@@ -11,7 +11,7 @@ import { downloadCsv } from '@/core/util/download-file'
 import type {
   SettlementBulkCommitResult,
   SettlementBulkPreview,
-  SettlementEntryKind,
+  SettlementConsumableKind,
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
@@ -22,6 +22,8 @@ import { amountInWords } from './amount-words'
 import { canSuperviseSettlement, settlementApi } from './api'
 import { reviewBulk, withCommitRowErrors, type BulkReview, type BulkTotal } from './bulk'
 import {
+  // 🚩 The two kinds a file may be — never a theft (339). See `bulk-template.ts`.
+  BULK_KINDS,
   BULK_TEMPLATE_COLUMNS,
   BULK_TEMPLATE_FILENAME,
   BULK_TEMPLATE_REQUIRED,
@@ -29,9 +31,6 @@ import {
 } from './bulk-template'
 import { inWordsSentence } from './in-words'
 
-/** The two kinds, in the order the toggle draws them — 271's order, because it is
- *  the same choice made once for a whole file. */
-const KINDS: readonly SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS']
 
 /** What the file picker offers. The server parses; this only stops an accountant
  *  handing the door a PDF and waiting for a round trip to be told. */
@@ -83,7 +82,7 @@ export default function BulkUploadDialog({
   const { t } = useTranslation('settlement')
   const queryClient = useQueryClient()
 
-  const [kind, setKind] = useState<SettlementEntryKind>('SHORTAGE')
+  const [kind, setKind] = useState<SettlementConsumableKind>('SHORTAGE')
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<SettlementBulkPreview | null>(null)
   const [committed, setCommitted] = useState<SettlementBulkCommitResult | null>(null)
@@ -268,8 +267,8 @@ function FileStep({
   onFile,
   busy,
 }: {
-  kind: SettlementEntryKind
-  onKind: (next: SettlementEntryKind) => void
+  kind: SettlementConsumableKind
+  onKind: (next: SettlementConsumableKind) => void
   file: File | null
   onFile: (next: File | null) => void
   busy: boolean
@@ -281,7 +280,7 @@ function FileStep({
       <fieldset className="flex flex-col gap-2" data-region="bulk-kind">
         <legend className="text-xs font-medium">{t('bulk.kind.legend')}</legend>
         <div role="group" aria-label={t('bulk.kind.legend')} className="grid gap-2 sm:grid-cols-2">
-          {KINDS.map((key) => (
+          {BULK_KINDS.map((key) => (
             <button
               key={key}
               type="button"

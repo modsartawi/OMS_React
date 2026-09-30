@@ -352,6 +352,15 @@ function AccountHeadline({
         </p>
       )}
 
+      {/* 🔑 339: approved thefts, BESIDE the figures and never in them — a theft moves no
+          cash, so it is neither handed over nor kept back. A count of entries, drawn
+          only when there is one. */}
+      {headline.theftCount > 0 && (
+        <p className="text-sm" data-testid="account-theft-count">
+          {t('account.headline.theft', { count: headline.theftCount })}
+        </p>
+      )}
+
       {/* ⚠️ Said out loud, because a big signed number at the top of a screen is
           exactly the thing someone eventually tries to settle in one act. */}
       <p className="text-xs text-muted-foreground">{t('account.headline.notActionable')}</p>

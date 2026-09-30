@@ -1356,7 +1356,8 @@ async function run() {
   text = await dialogText()
   check(
     '🔑 271 → ONE form with a kind toggle, never two forms',
-    (await page.locator('dialog').count()) === 1 && (await page.locator('dialog [data-kind]').count()) === 2,
+    // Three kinds since ticket 339 — shortage, surplus and theft — still on ONE form.
+    (await page.locator('dialog').count()) === 1 && (await page.locator('dialog [data-kind]').count()) === 3,
   )
   check(
     '🔑 the toggle states the CONSEQUENCE, not the word',

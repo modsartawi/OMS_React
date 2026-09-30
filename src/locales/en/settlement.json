@@ -94,12 +94,15 @@
       "surplus": "Surplus",
       "openCount": "Entries open",
       "notActionable": "The position is shown, never settled. A till consumes one entry, of one kind, through one document — a shortage and a surplus never cancel each other out.",
-      "pending_one": "1 surplus waits for a supervisor’s approval. It is in none of the figures above, and no till can see it yet.",
-      "pending_other": "{{count}} surpluses wait for a supervisor’s approval. They are in none of the figures above, and no till can see them yet."
+      "pending_one": "1 entry waits for a supervisor’s approval. It is in none of the figures above, and no till can see it yet.",
+      "pending_other": "{{count}} entries wait for a supervisor’s approval. They are in none of the figures above, and no till can see them yet.",
+      "theft_one": "1 approved theft is on this account. It moves no cash, and it is in none of the figures above.",
+      "theft_other": "{{count}} approved thefts are on this account. They move no cash, and they are in none of the figures above."
     },
     "kind": {
       "SHORTAGE": "Shortage · عجز",
-      "SURPLUS": "Surplus · فائض"
+      "SURPLUS": "Surplus · فائض",
+      "THEFT": "Theft · سرقة"
     },
     "status": {
       "OPEN": "Open",
@@ -151,7 +154,9 @@
         "orphanHint": "The receipt number is stamped on after the fact, so a blank one means the close is either seconds old or it timed out and gave up. If it stays blank, this is money the branch handed over against a document that will never exist."
       },
       "emptyPending": "No till can see this entry until a supervisor approves it, so nothing has been taken against it.",
-      "emptyRejected": "A supervisor rejected this entry before any till could see it, so nothing was ever taken against it."
+      "emptyRejected": "A supervisor rejected this entry before any till could see it, so nothing was ever taken against it.",
+      "emptyTheft": "A theft moves no cash, so no till takes anything against this entry. It names business day {{day}}.",
+      "emptyTheftNoDay": "A theft moves no cash, so no till takes anything against this entry."
     }
   },
   "correction": {
@@ -166,11 +171,13 @@
     "cancel": {
       "why": "Nothing has been taken against entry {{number}}, so all {{amount}} of it can be withdrawn as though it never happened.",
       "button": "Cancel this entry",
-      "commit": "Cancel entry {{number}}"
+      "commit": "Cancel entry {{number}}",
+      "whyTheft": "Entry {{number}} is an approved theft of {{amount}}. Nothing consumes a theft, so there is no remainder to write off. Cancelling it withdraws the theft, and its business day goes back to showing its cash variance."
     },
     "supervisorOnly": {
       "cancel": "Nothing has been taken against entry {{number}}, so all {{amount}} of it can still be withdrawn — but only by an accountant supervisor. If it was posted wrongly, ask one to cancel it, then post the right entry.",
-      "writeOff": "A till has already taken part of entry {{number}} — {{remaining}} of {{amount}} is left. Only an accountant supervisor can write off the remainder; ask one if it should not be kept."
+      "writeOff": "A till has already taken part of entry {{number}} — {{remaining}} of {{amount}} is left. Only an accountant supervisor can write off the remainder; ask one if it should not be kept.",
+      "cancelTheft": "Entry {{number}} is an approved theft of {{amount}}. Only an accountant supervisor can cancel it; if it was posted wrongly, ask one to cancel it, and its business day goes back to showing its cash variance."
     },
     "writeOff": {
       "why": "A till has already taken part of entry {{number}} — {{remaining}} of {{amount}} is left. It cannot be cancelled, because what a till took is on a document the branch already acted on. The remainder can be written off instead.",
@@ -237,6 +244,9 @@
       },
       "SURPLUS": {
         "consequence": "The branch may keep this money back"
+      },
+      "THEFT": {
+        "consequence": "Money was stolen on one business day"
       }
     },
     "branch": {
@@ -290,9 +300,11 @@
       "commit": "Post this entry",
       "consequence": {
         "SHORTAGE": "{{store}} {{storeName}} must hand this money over.",
-        "SURPLUS": "{{store}} {{storeName}} may keep this money back."
+        "SURPLUS": "{{store}} {{storeName}} may keep this money back.",
+        "THEFT": "A theft at {{store}} {{storeName}} on business day {{day}}. It moves no cash."
       },
-      "immutable": "Once posted, this amount cannot be changed. An accountant supervisor can only cancel it while nothing has been taken against it, or write off its remainder once a till has taken part of it."
+      "immutable": "Once posted, this amount cannot be changed. An accountant supervisor can only cancel it while nothing has been taken against it, or write off its remainder once a till has taken part of it.",
+      "immutableTheft": "Once posted, this amount cannot be changed. A theft waits for an accountant supervisor’s approval unless a supervisor posts it, and once it is approved only a supervisor can cancel it."
     },
     "words": {
       "join": "{{major}} and {{minor}}",
@@ -326,15 +338,25 @@
       "toast": "Entry {{number}} is posted.",
       "summary": {
         "SHORTAGE": "{{store}} {{storeName}} must hand over {{amount}} {{currency}}.",
-        "SURPLUS": "{{store}} {{storeName}} may keep back {{amount}} {{currency}}."
+        "SURPLUS": "{{store}} {{storeName}} may keep back {{amount}} {{currency}}.",
+        "THEFT": "A theft of {{amount}} {{currency}} at {{store}} {{storeName}} on business day {{day}}."
       },
       "adjusted": "The server stored {{stored}} {{currency}}, not the {{reviewed}} that was reviewed. The figure above is the one on the ledger and the one the branch will be asked for.",
       "immutable": "Quote this number to the branch. The amount cannot be changed from here — an accountant supervisor can only cancel it while untouched, or write off its remainder once a till has taken part of it.",
       "close": "Done",
-      "pending": "This surplus waits for an accountant supervisor’s approval. No till can see it, and the branch cannot keep it back, until it is approved."
+      "pending": "This surplus waits for an accountant supervisor’s approval. No till can see it, and the branch cannot keep it back, until it is approved.",
+      "pendingTheft": "This theft waits for an accountant supervisor’s approval. Until it is approved, the day keeps its cash variance.",
+      "immutableTheft": "Quote this number when the theft is asked about. The amount cannot be changed from here — a waiting theft is approved or rejected by a supervisor, and an approved one can only be cancelled by a supervisor."
     },
     "errors": {
       "failed": "The entry could not be posted."
+    },
+    "theft": {
+      "dayLabel": "Business day of the theft",
+      "dayHint": "The day the money went missing. It must be a closed business day of this branch.",
+      "dayRequired": "Choose the business day the theft happened on. A theft is not posted without one.",
+      "dayUnreadable": "That is not a calendar date.",
+      "note": "A theft posted by an accountant always waits for an accountant supervisor’s approval, whatever its amount. It moves no cash: the branch hands nothing over and keeps nothing back."
     }
   },
   "bulk": {
@@ -464,7 +486,8 @@
     "columns": {
       "storeId": "Branch",
       "storeName": "Branch name",
-      "currencyKey": "Currency"
+      "currencyKey": "Currency",
+      "businessDay": "Business day"
     },
     "filters": {
       "kind": "Kind",
@@ -494,6 +517,7 @@
     "tabs": {
       "owing": "Shortage",
       "owed": "Surplus",
+      "theft": "Theft",
       "cash": "Cash waiting",
       "noCount": "—",
       "pending": "Awaiting approval"
@@ -505,7 +529,8 @@
     "sections": {
       "mine": "Yours",
       "theirs": "Everyone else's",
-      "all": "Open entries"
+      "all": "Open entries",
+      "thefts": "Approved thefts"
     },
     "signpost": {
       "oldest": "oldest is {{oldest}}",
@@ -522,7 +547,9 @@
       "ofAmount": "of {{amount}}",
       "nobodyAssigned": "Nobody assigned",
       "neverChased": "Never chased",
-      "recordChase": "Record a chase"
+      "recordChase": "Record a chase",
+      "theftDay": "for {{date}}",
+      "noDay": "No day named"
     },
     "columns": {
       "entryNumber": "Entry",
@@ -536,7 +563,10 @@
       "waiting": "Waiting",
       "postedBy": "Posted by",
       "reason": "Description",
-      "decide": "Decision"
+      "decide": "Decision",
+      "kind": "Kind",
+      "businessDay": "Business day",
+      "dayVariance": "That day’s cash"
     },
     "chase": {
       "title": "Record a chase",
@@ -564,13 +594,17 @@
         "title": "No open surplus.",
         "hint": "No branch has a surplus left to keep back."
       },
+      "theft": {
+        "title": "No approved theft.",
+        "hint": "No branch has an approved theft on its account. One that still waits for a supervisor is under Awaiting approval."
+      },
       "cash": {
         "title": "No cash waiting.",
         "hint": "Every prepared receipt has been collected."
       },
       "pending": {
         "title": "Nothing waiting for approval.",
-        "hint": "Every surplus posted has been approved or rejected."
+        "hint": "Every large surplus and every theft posted has been approved or rejected."
       }
     },
     "filtered": {
@@ -581,12 +615,13 @@
     "errors": {
       "laneFailed": "This list could not be read, so nothing can be said about what the estate has open. This is not “nothing to do” — try again, and tell head office if it keeps happening.",
       "cashFailed": "The waiting receipts could not be read, so nothing can be said about what is sitting uncollected. This is not “everything has been collected” — try again, and tell head office if it keeps happening.",
-      "pendingFailed": "The surpluses waiting for approval could not be read, so nothing can be said about what is waiting. This is not an empty queue."
+      "pendingFailed": "The entries waiting for approval could not be read, so nothing can be said about what is waiting. This is not an empty queue."
     },
-    "subtitlePending": "Every surplus in the estate that waits for an accountant supervisor, oldest first. None of them is open, and no till can see them until one is approved.",
-    "loadingPending": "Loading the surpluses waiting for approval…",
-    "capReachedPending": "Showing the first {{limit}} surpluses waiting for approval — there may be more. At this many, nobody is approving.",
-    "subtitlePendingUnordered": "Every surplus in the estate that waits for an accountant supervisor, in the order the server sent them — it is not sending their age yet. None of them is open, and no till can see them until one is approved."
+    "subtitlePending": "Every entry in the estate that waits for an accountant supervisor — a large surplus, or a theft of any amount — oldest first. None of them is open, and no till can see them until one is approved.",
+    "loadingPending": "Loading the entries waiting for approval…",
+    "capReachedPending": "Showing the first {{limit}} entries waiting for approval — there may be more. At this many, nobody is approving.",
+    "subtitlePendingUnordered": "Every entry in the estate that waits for an accountant supervisor — a large surplus, or a theft of any amount — in the order the server sent them; it is not sending their age yet. None of them is open, and no till can see them until one is approved.",
+    "subtitleTheft": "Every approved theft in the estate, with the business day it names. A theft moves no cash — nothing here is waiting to be collected or kept back, and nobody is rung about it."
   },
   "approval": {
     "panel": {
@@ -596,13 +631,16 @@
       "rejected": "Rejected by staff {{by}}.",
       "rejectedAt": "Rejected by staff {{by}} on {{at}}.",
       "noReason": "The server sent no reason.",
-      "rejectedNext": "A rejected entry cannot be approved later. If the branch should still have a surplus, post a corrected entry."
+      "rejectedNext": "A rejected entry cannot be approved later. If the branch should still have a surplus, post a corrected entry.",
+      "rejectedNextTheft": "A rejected entry cannot be approved later. The day keeps its cash variance, and no shortage was posted for it. If the theft should still be recorded, post a corrected entry."
     },
     "fields": {
       "amount": "Amount",
       "branch": "Branch",
       "postedBy": "Posted by",
-      "reason": "Description"
+      "reason": "Description",
+      "businessDay": "Business day",
+      "dayVariance": "That day’s cash"
     },
     "amountLine": "{{amount}} {{currency}} · {{kind}}",
     "postedLine": "{{name}} · {{at}}",
@@ -631,6 +669,18 @@
     "errors": {
       "forbidden": "You no longer hold settlement supervision, so this entry was not changed. Ask an administrator if you should.",
       "failed": "The decision could not be sent. Nothing was changed."
+    },
+    "theft": {
+      "short": "{{amount}} short — {{counted}} counted against {{system}} of system cash",
+      "over": "{{amount}} over — {{counted}} counted against {{system}} of system cash",
+      "even": "No variance — {{counted}} counted against {{system}} of system cash",
+      "noDay": "The server named no day.",
+      "loading": "Reading that day’s cash…",
+      "unstated": "The server sent no cash figures for this day.",
+      "failed": "That day’s cash could not be read. It is information only — look the entry up on the ledger before deciding.",
+      "judge": "The amount is not capped by the day’s variance. Whether it is right is yours to judge.",
+      "approveExplain": "Approving records this theft against its business day. It moves no cash: no till takes it, and the branch hands nothing over and keeps nothing back.",
+      "rejectExplain": "Rejecting is final. The day keeps its cash variance, no shortage is posted for it, and the accountant who posted it reads your reason."
     }
   }
 }

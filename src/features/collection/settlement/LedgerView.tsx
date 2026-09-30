@@ -95,8 +95,15 @@ export default function LedgerView() {
   // 244 §7's rule: the code is a column only when the ANSWER actually mixes.
   const mixedCurrency = useMemo(() => distinctCurrencies(rows, (r) => r.currencyKey).length > 1, [rows])
 
+  // 339: the business day is a column only when the answer holds a theft — the only
+  // kind that names one.
+  const hasTheft = useMemo(() => rows.some((r) => r.entryKind === 'THEFT'), [rows])
+
   const [showFilters, setShowFilters] = useState(false)
-  const columns = useMemo(() => buildLedgerColumns(t, mixedCurrency), [t, mixedCurrency])
+  const columns = useMemo(
+    () => buildLedgerColumns(t, mixedCurrency, hasTheft),
+    [t, mixedCurrency, hasTheft],
+  )
   const defaultColDef = useMemo(
     () => ({
       sortable: true,

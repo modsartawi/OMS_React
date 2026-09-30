@@ -33,6 +33,7 @@ import {
   PENDING_LANE,
   REJECTED_REASON,
   SUPERVISOR_ID,
+  NO_DAY_FIGURES,
   UNSTAMPED,
 } from './approval-fixture'
 import {
@@ -112,9 +113,9 @@ describe('rule 2 — labelled, and its remaining is no claim on anybody', () => 
     expect(byNumber(1202).remainingAmount).toBe(600)
     expect(rowOf(1202).displayRemaining).toBeNull()
     expect(rowOf(1204).displayRemaining).toBeNull()
-    expect(remainingIsAClaim('PENDING_APPROVAL')).toBe(false)
-    expect(remainingIsAClaim('REJECTED')).toBe(false)
-    expect(remainingIsAClaim('OPEN')).toBe(true)
+    expect(remainingIsAClaim('PENDING_APPROVAL', 'SURPLUS')).toBe(false)
+    expect(remainingIsAClaim('REJECTED', 'SURPLUS')).toBe(false)
+    expect(remainingIsAClaim('OPEN', 'SURPLUS')).toBe(true)
   })
 
   it('…and the ledger grid, reading the same rule, draws the em dash for both', () => {
@@ -133,7 +134,7 @@ describe('rule 2 — labelled, and its remaining is no claim on anybody', () => 
   it('a pending row is NOT dimmed; a rejected one is — on both grids', () => {
     expect(accountRowClass({ data: rowOf(1202) })).toBeUndefined()
     expect(accountRowClass({ data: rowOf(1204) })).toBe('opacity-60')
-    const ledger = (n: number) => ({ ...byNumber(n), storeName: '', currencyKey: 'SAR' })
+    const ledger = (n: number) => ({ ...byNumber(n), storeName: '', currencyKey: 'SAR', ...NO_DAY_FIGURES })
     expect(ledgerRowClass({ data: ledger(1202) })).toBeUndefined()
     expect(ledgerRowClass({ data: ledger(1204) })).toBe('opacity-60')
   })

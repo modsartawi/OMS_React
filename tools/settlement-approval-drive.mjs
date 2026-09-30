@@ -236,7 +236,7 @@ async function run() {
   let text = await page.locator('[data-region="account-headline"]').innerText()
   check('🔑 the headline keeps back 920 — the pending 1,350 and the rejected 700 are not money', text.includes('920.00') && !text.includes('2,970') && !text.includes('3,270'), text.replace(/\n/g, ' '))
   check('…a 300 shortage, and it nets to a 620 surplus', text.includes('300.00') && text.includes('620.00') && text.includes('surplus — may be kept back'))
-  check('…with 3 entries open, and the 2 pending counted BESIDE the figures', /entries open\s*3/i.test(text) && (await page.locator('[data-testid="account-pending-count"]').innerText()).startsWith('2 surpluses wait'))
+  check('…with 3 entries open, and the 2 pending counted BESIDE the figures', /entries open\s*3/i.test(text) && (await page.locator('[data-testid="account-pending-count"]').innerText()).startsWith('2 entries wait'))
   const grid = await page.locator('[data-region="branch-account"] .ag-root-wrapper').first().innerText()
   check('pending and rejected rows are LABELLED in the grid', grid.includes('Awaiting approval') && grid.includes('Rejected'))
   await noRawKeys('the account')
@@ -272,14 +272,14 @@ async function run() {
   await settle()
   check('the approve body names the entry and NOTHING else — the approver is the session', approveCalls.length === 1 && JSON.stringify(approveCalls[0]) === JSON.stringify({ settlementEntryId: '01J9APPR0719P1' }), JSON.stringify(approveCalls))
   text = await page.locator('[data-region="account-headline"]').innerText()
-  check('🔑 approved → it is money now: the headline keeps back 1,520', text.includes('1,520.00') && (await page.locator('[data-testid="account-pending-count"]').innerText()).startsWith('1 surplus'), text.replace(/\n/g, ' '))
+  check('🔑 approved → it is money now: the headline keeps back 1,520', text.includes('1,520.00') && (await page.locator('[data-testid="account-pending-count"]').innerText()).startsWith('1 entry'), text.replace(/\n/g, ' '))
 
   // ---- 4. the queue ----
   reset({ access: SUPERVISOR })
   let release
   releaseQueue = { promise: new Promise((r) => (release = r)) }
   await page.goto(`${BASE}${OPEN_ROUTE}?tab=pending`)
-  check('the queue shows its loading state while the door answers', await appears('[role="status"][aria-label="Loading the surpluses waiting for approval…"]', 4000))
+  check('the queue shows its loading state while the door answers', await appears('[role="status"][aria-label="Loading the entries waiting for approval…"]', 4000))
   check('…and its count is unknown, never 0, while it does', (await page.locator('[data-testid="open-count-pending"]').innerText()) === '—')
   release()
   releaseQueue = null

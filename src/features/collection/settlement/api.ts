@@ -33,7 +33,7 @@ import type {
   SettlementChaseResult,
   SettlementChaseSubject,
   SettlementCloseOutResult,
-  SettlementEntryKind,
+  SettlementConsumableKind,
   SettlementFleetRow,
   SettlementLedgerCriteria,
   SettlementLedgerRow,
@@ -55,6 +55,7 @@ import {
   PENDING_LANE_LIMIT,
   WORKLIST_LIMIT,
 } from './cap'
+import type { PostRequest } from './posting'
 
 /**
  * The settlement account's predicate — this screen's own reading of the fifth flag.
@@ -422,13 +423,15 @@ export const settlementApi = {
    * words an accountant approved and the ledger's own figure start to disagree.
    *
    * ⚠️ Route string and casing are 274's to confirm, as with every door here.
+   *
+   * ✅ **Ticket 339 (BackOffice 2150): a fifth field, for one kind.** A `THEFT` carries
+   * `businessDay` — a bare `yyyy-MM-dd`, a closed business day of `storeId`. The door
+   * refuses a theft without one (`SettlementTheftBusinessDayRequired`) and one naming an
+   * open or unknown day (`SettlementTheftDayNotClosed`), both 400s through the envelope
+   * with their own words. `postRequest` (`posting.ts`) builds the body, so the day goes
+   * up for a theft and for nothing else.
    */
-  post(input: {
-    storeId: string
-    entryKind: SettlementEntryKind
-    amount: number
-    reason: string
-  }): Promise<SettlementPostResult> {
+  post(input: PostRequest): Promise<SettlementPostResult> {
     return api.post<SettlementPostResult>('Settlement/Post', input)
   },
 
@@ -520,12 +523,13 @@ export const settlementApi = {
    * preview**: one file reviewed is one batch, and re-previewing after fixing the
    * sheet is a new one.
    */
-  bulkPreview(file: File, entryKind: SettlementEntryKind): Promise<SettlementBulkPreview> {
+  bulkPreview(file: File, entryKind: SettlementConsumableKind): Promise<SettlementBulkPreview> {
     const form = new FormData()
     form.append('file', file, file.name)
     // 🔑 The kind is the FILE's, chosen with 271's toggle before the upload — there
     // is no kind column, because a mixed file makes the total in words a **net**
-    // figure a typo can hide inside (D7).
+    // figure a typo can hide inside (D7). ⚠️ Never `THEFT` (339): the door refuses a
+    // theft file row by row (`THEFT_NOT_IN_BULK`), so the type does not offer one.
     form.append('entryKind', entryKind)
     form.append('batchId', newRequestId())
     return api.upload<SettlementBulkPreview>('Settlement/Bulk/Preview', form)
@@ -559,7 +563,7 @@ export const settlementApi = {
   bulkCommit(
     file: File,
     batchId: string,
-    entryKind: SettlementEntryKind,
+    entryKind: SettlementConsumableKind,
     contentHash: string,
   ): Promise<SettlementBulkCommitResult> {
     const form = new FormData()

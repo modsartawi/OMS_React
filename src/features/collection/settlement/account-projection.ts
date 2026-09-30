@@ -66,6 +66,13 @@ export type PositionDirection = 'owes' | 'keeps' | 'square'
  * they may keep back money no close can take. They are counted **beside** the
  * headline, as entries and never as a figure (`pendingCount`), so the accountant can
  * see that something is waiting without the position pretending it is live.
+ *
+ * 🚩 **And an approved theft is in neither figure** (ticket 339, ADR 0049). It is
+ * stored `OPEN` with `remainingAmount == amount` — exactly what an untouched surplus
+ * looks like — and it moves no cash: nothing is handed over and nothing is kept back.
+ * Each kind is therefore NAMED below; a rule of the shape *"not SHORTAGE, therefore
+ * SURPLUS"* would put stolen money into what the branch may keep. It is counted beside
+ * the figures (`theftCount`), as entries.
  */
 export type AccountHeadline = {
   /** Open `SHORTAGE` remaining — what the branch must hand over. */
@@ -75,11 +82,16 @@ export type AccountHeadline = {
   /** `shortageTotal − surplusTotal`. Positive = the branch owes head office. */
   signedPosition: number
   direction: PositionDirection
-  /** How many entries are still open, whatever their kind. */
+  /** How many shortages and surpluses are still open — the entries a till can still
+   *  consume. ⚠️ Not a theft: it never closes, so it would stand in this count for ever. */
   openCount: number
-  /** How many surpluses **wait for a supervisor** — a count and never a figure, and in
-   *  none of the three above. `0` draws nothing. */
+  /** How many entries **wait for a supervisor** — a large surplus, or a theft of any
+   *  amount (339). A count and never a figure, and in none of the three above. `0`
+   *  draws nothing. */
   pendingCount: number
+  /** How many **approved thefts** are on the account — a count, never a figure, and in
+   *  none of the figures above. `0` draws nothing. */
+  theftCount: number
 }
 
 export function accountHeadline(
@@ -89,6 +101,7 @@ export function accountHeadline(
   let surplusTotal = 0
   let openCount = 0
   let pendingCount = 0
+  let theftCount = 0
 
   for (const e of entries ?? []) {
     if (e.status === 'PENDING_APPROVAL') pendingCount++
@@ -96,9 +109,21 @@ export function accountHeadline(
     // surplus out of every figure below. An exclusion list (`!== 'CANCELLED' && …`)
     // would have let 1976's two new states straight in.
     if (e.status !== 'OPEN') continue
-    openCount++
-    if (e.entryKind === 'SHORTAGE') shortageTotal += e.remainingAmount
-    else surplusTotal += e.remainingAmount
+    // 🚩 Each kind by NAME, and nothing falls through to a figure (339): a kind this
+    // screen does not know is not money it may total.
+    switch (e.entryKind) {
+      case 'SHORTAGE':
+        openCount++
+        shortageTotal += e.remainingAmount
+        break
+      case 'SURPLUS':
+        openCount++
+        surplusTotal += e.remainingAmount
+        break
+      case 'THEFT':
+        theftCount++
+        break
+    }
   }
 
   shortageTotal = round3(shortageTotal)
@@ -112,6 +137,7 @@ export function accountHeadline(
     direction: signedPosition > 0 ? 'owes' : signedPosition < 0 ? 'keeps' : 'square',
     openCount,
     pendingCount,
+    theftCount,
   }
 }
 
@@ -250,6 +276,9 @@ export type AccountEntryRow = SettlementEntry & {
    * 🚩 **The same refusal for a pending and a rejected surplus** (ticket 309): the wire
    * carries a remaining on both, and neither is a claim on anybody — one is not live
    * yet and the other never will be. Its figure is in the Amount column.
+   *
+   * 🚩 **And for a theft in any status** (339): nothing consumes one, so its remaining
+   * is not a figure about anything.
    */
   displayRemaining: number | null
   /**
@@ -286,7 +315,14 @@ function closureOf(entry: SettlementEntry): EntryClosure {
  * `displayRemaining`. Exported so the ledger's grid (`entry-cells.ts`) reads the same
  * one spelling rather than a second list that could miss the next new status.
  */
-export function remainingIsAClaim(status: SettlementEntry['status'] | null | undefined): boolean {
+export function remainingIsAClaim(
+  status: SettlementEntry['status'] | null | undefined,
+  kind: SettlementEntry['entryKind'] | null | undefined,
+): boolean {
+  // 🚩 Ticket 339: **a theft's remaining is never a claim, whatever its status.** The
+  // wire carries `remainingAmount == amount` on one and it "means nothing" (BackOffice
+  // 2150) — nothing consumes a theft, so there is nothing left to run down.
+  if (kind === 'THEFT') return false
   // 🚩 A KEEP-list, for the reason `accountHeadline` gives: an exclusion list would
   // read the next new status as a claim by default.
   return status === 'OPEN' || status === 'CONSUMED' || status === 'CLOSED_OUT'
@@ -347,7 +383,7 @@ export function projectAccount(account: SettlementAccount | null | undefined): A
       isPending: entry.status === 'PENDING_APPROVAL',
       closure: closureOf(entry),
       hasOrphan: journal.some((r) => r.isOrphan),
-      displayRemaining: remainingIsAClaim(entry.status) ? entry.remainingAmount : null,
+      displayRemaining: remainingIsAClaim(entry.status, entry.entryKind) ? entry.remainingAmount : null,
       writtenOff:
         entry.status === 'CLOSED_OUT' ? round3(last ? last.consumption.remainingAfter : entry.amount) : null,
     }

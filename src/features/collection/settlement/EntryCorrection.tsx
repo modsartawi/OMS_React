@@ -236,6 +236,7 @@ export default function EntryCorrection({
   const busy = cancelEntry.isPending || closeOut.isPending
   const canCommit = reason.trim().length > 0 && !busy
   const money = (v: number | null | undefined) => settlementMoney(v, currencyKey)
+  const isTheft = row.entryKind === 'THEFT'
 
   return (
     <section
@@ -316,8 +317,13 @@ export default function EntryCorrection({
         </p>
       )}
       {!blocked && view.kind === 'cancel' && (
-        <p className="text-sm text-muted-foreground">
-          {t('correction.cancel.why', { number: row.entryNumber, amount: money(view.amount) })}
+        <p className="text-sm text-muted-foreground" data-testid="correction-cancel-why">
+          {/* 339: an approved theft is cancelled for a different reason than an untouched
+              entry — nothing could ever be taken against it, and there is no close-out. */}
+          {t(isTheft ? 'correction.cancel.whyTheft' : 'correction.cancel.why', {
+            number: row.entryNumber,
+            amount: money(view.amount),
+          })}
         </p>
       )}
       {/* 🔑 310: the act this entry would take, named as the supervisor's — the
@@ -325,7 +331,7 @@ export default function EntryCorrection({
       {!blocked && view.kind === 'supervisor-only' && (
         <p className="text-sm text-muted-foreground" data-testid="correction-supervisor-only">
           {view.offer.kind === 'cancel'
-            ? t('correction.supervisorOnly.cancel', {
+            ? t(isTheft ? 'correction.supervisorOnly.cancelTheft' : 'correction.supervisorOnly.cancel', {
                 number: row.entryNumber,
                 amount: money(view.offer.amount),
               })

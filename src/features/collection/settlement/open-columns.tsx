@@ -7,7 +7,8 @@ import type {
   SettlementUncollectedRow,
 } from '@/core/models/settlement'
 import { formatDay } from '@/core/util/date-format'
-import { approvalTarget, type SupervisionAct, type ApprovalTarget } from './approval'
+import { approvalTarget, dayVarianceFor, type SupervisionAct, type ApprovalTarget } from './approval'
+import { businessDayCell, dayVarianceWords, entryKindLabel } from './entry-cells'
 import { settlementMoney } from './money-display'
 import {
   chaseCell,
@@ -326,6 +327,30 @@ export function buildPendingColumns(
       cellRenderer: branchCell,
     },
     {
+      // 339: the queue holds two kinds since BackOffice 2150 — a large surplus and a
+      // theft of any amount — and approving one is a different act from approving the
+      // other. A theft says the day it names beneath its kind; the day's cash is in the
+      // dialog, beside the amount.
+      headerName: t('open.columns.kind'),
+      field: 'entryKind',
+      colId: 'entryKind',
+      width: 150,
+      // Sorted and filtered on what is ON SCREEN — the label, not the wire's enum.
+      valueGetter: (p) => entryKindLabel(t, p.data?.entryKind),
+      cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow, string>) => {
+        if (!p.data) return null
+        const day = businessDayCell(p.data)
+        return (
+          <span className="flex flex-col justify-center leading-tight" data-entry-kind={p.data.entryKind}>
+            <span>{entryKindLabel(t, p.data.entryKind)}</span>
+            {day && (
+              <span className="text-[11px] text-muted-foreground">{t('open.row.theftDay', { date: day })}</span>
+            )}
+          </span>
+        )
+      },
+    },
+    {
       // How long it has waited, counted from the post — the server's subtraction, and
       // silent when the door does not send it (§6), exactly as on the entry tabs.
       headerName: t('open.columns.waiting'),
@@ -428,6 +453,100 @@ export function buildPendingColumns(
           </span>
         )
       },
+    },
+  ]
+}
+
+/* ── theft (ticket 339) ───────────────────────────────────────────────────────── */
+
+/**
+ * The **Theft** tab's columns — an approved theft, with the day it names.
+ *
+ * 🔑 **The row is a record, not a job.** Nothing on it is waiting to be collected or
+ * kept back, so it carries no *still open*, no age and no chase — the three columns the
+ * entry tabs are built around. What it carries instead is what a theft IS: the branch,
+ * the **business day**, the amount, and what that day's cash came to.
+ *
+ * 🚩 **The amount, never the remaining.** The wire's `remainingAmount` on a theft
+ * "always equals `amount` and means nothing" (BackOffice 2150), so it is not drawn, and
+ * — as on every cross-estate list — no column is totalled.
+ *
+ * ⚠️ The day's cash is the server's three figures read back, in a word rather than a
+ * sign (`dayVarianceFor`). A row without them says so rather than showing a blank.
+ */
+export function buildTheftColumns(
+  t: TFunction,
+  { named }: { named: boolean },
+): ColDef<SettlementOpenLaneRow>[] {
+  return [
+    { headerName: t('open.columns.entryNumber'), ...ENTRY_NUMBER_SHAPE },
+    {
+      headerName: t('open.columns.branch'),
+      ...BRANCH_SHAPE,
+      filterValueGetter: (p) => `${p.data?.storeName ?? ''} ${p.data?.storeId ?? ''}`,
+      cellRenderer: branchCell,
+    },
+    {
+      headerName: t('open.columns.businessDay'),
+      colId: 'businessDay',
+      width: 140,
+      cellClass: 'tabular-nums',
+      // `yyyy-MM-dd`, so the days sort as a calendar and filter on what is read. A theft
+      // the server stamped no day on says so in words rather than drawing a blank.
+      valueGetter: (p) => businessDayCell(p.data) || t('open.row.noDay'),
+    },
+    {
+      headerName: t('open.columns.amount'),
+      field: 'amount',
+      colId: 'amount',
+      width: 150,
+      type: 'numericColumn',
+      filter: 'agNumberColumnFilter',
+      cellClass: 'text-end tabular-nums',
+      valueFormatter: (p: ValueFormatterParams<SettlementOpenLaneRow, number>) =>
+        settlementMoney(p.value, p.data?.currencyKey),
+    },
+    {
+      headerName: t('open.columns.dayVariance'),
+      colId: 'dayVariance',
+      // The widest thing on the row, and the one a reader came for: it takes the slack.
+      flex: 1,
+      minWidth: 400,
+      cellClass: 'tabular-nums',
+      valueGetter: (p) => {
+        const day = dayVarianceFor(p.data)
+        // `entry-cells.ts`'s sentence — the approval dialog's own. A theft whose row
+        // carried no figures says so rather than showing a blank.
+        return dayVarianceWords(t, day, p.data?.currencyKey) ?? (day.kind === 'unstated' ? t('approval.theft.unstated') : '')
+      },
+    },
+    {
+      headerName: t('open.columns.reason'),
+      field: 'reason',
+      colId: 'reason',
+      width: 260,
+      cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow, string>) =>
+        p.data ? <span dir="auto">{p.data.reason}</span> : null,
+    },
+    {
+      headerName: t('open.columns.postedBy'),
+      field: 'postedByName',
+      colId: 'postedByName',
+      width: 180,
+    },
+    {
+      headerName: t('open.columns.servedBy'),
+      field: 'servedBy',
+      colId: 'servedBy',
+      width: 180,
+      hide: !named,
+      filterValueGetter: (p) => p.data?.servedBy || t('open.row.nobodyAssigned'),
+      cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow, string>) =>
+        p.data?.servedBy ? (
+          <span>{p.data.servedBy}</span>
+        ) : (
+          <span className="italic text-muted-foreground">{t('open.row.nobodyAssigned')}</span>
+        ),
     },
   ]
 }

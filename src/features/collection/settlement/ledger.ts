@@ -36,8 +36,9 @@ import { SCOPE_PARAM } from './scope'
  * do not change overnight.)
  */
 
-/** SHORTAGE | SURPLUS, in the order the posting form offers them. */
-export const LEDGER_KINDS: SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS']
+/** SHORTAGE | SURPLUS | THEFT, in the order the posting form offers them — the door
+ *  accepts `entryKind=THEFT` since BackOffice 2150 (ticket 339). */
+export const LEDGER_KINDS: SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS', 'THEFT']
 
 /**
  * The six states, **open first**.

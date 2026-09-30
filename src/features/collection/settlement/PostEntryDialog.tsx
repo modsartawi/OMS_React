@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -6,12 +6,15 @@ import { TriangleAlert } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import type {
+  SettlementConsumableKind,
   SettlementEntryKind,
   SettlementBranch,
   SettlementPostResult,
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
+import { formatDay } from '@/core/util/date-format'
+import { isStamped } from './approval'
 import { settlementMoney } from './money-display'
 import { amountInWords, type AmountWords } from './amount-words'
 import { settlementApi } from './api'
@@ -21,17 +24,18 @@ import { settlementApi } from './api'
 import { inWordsSentence } from './in-words'
 import { ACCOUNT_LIMIT, isCapReached } from './cap'
 import {
+  checkBusinessDay,
   checkDescription,
   parseAmount,
+  POST_KINDS,
+  postRefusalField,
+  postRequest,
   REASON_MAX,
   resolveBranch,
   standingPosition,
   type BranchResolution,
 } from './posting'
 import ReasonField, { invalidateSettlement } from './ReasonField'
-
-/** The two kinds, in the order the toggle draws them. */
-const KINDS: readonly SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS']
 
 /**
  * **Posting** — one entry onto one branch's ledger (ticket 271, spec 267 D4), and
@@ -66,6 +70,12 @@ const KINDS: readonly SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS']
  * branch's own precision (D10, the rule `formatMoneyIn` already applies everywhere on
  * this screen), and the confirmation reads back **the server's** returned amount —
  * so the sentence an accountant approved and the figure in the ledger cannot disagree.
+ *
+ * 🔑 **Theft is the third kind** (ticket 339, BackOffice 2150, ADR 0049). It names one
+ * **closed business day** of the branch as well as the three fields the others take,
+ * always waits for an accountant supervisor, and moves no cash — which the form says
+ * before anything is typed. Whether the day is closed is the server's to say: its
+ * refusal stands on the day box, in its own words.
  */
 export default function PostEntryDialog({
   open,
@@ -96,6 +106,12 @@ export default function PostEntryDialog({
   /** The server refused this description (311) — its own sentence, held against the
    *  text it refused, so it stands on the box until that text is changed. */
   const [refused, setRefused] = useState<{ text: string; message: string } | null>(null)
+  /** 339: the business day a theft names, as the date box holds it (`yyyy-MM-dd`). */
+  const [dayText, setDayText] = useState('')
+  /** The server refused this DAY for this branch (339) — still open, or no shift on it.
+   *  Held against the day and the branch it refused, so it stands on the box until
+   *  either is changed. */
+  const [dayRefused, setDayRefused] = useState<{ day: string; storeId: string; message: string } | null>(null)
 
   // A fresh form per opening, seeded with whatever branch the screen was on. A
   // half-typed 50,000 left over from a dialog someone dismissed is the one piece of
@@ -110,6 +126,8 @@ export default function PostEntryDialog({
     setPosted(null)
     setAttempted(false)
     setRefused(null)
+    setDayText('')
+    setDayRefused(null)
   }, [open, seedStoreId])
 
   // 🔑 **THE ESTATE — the `Store` master, and never the fleet.** This asked the fleet
@@ -143,14 +161,17 @@ export default function PostEntryDialog({
   // The resolved branch's account — read for ONE reason: the standing position of
   // the kind about to be posted. Same query key as `BranchAccount`'s, so posting
   // from an account is free and the refresh below serves both.
+  // ⚠️ 339: **not for a theft.** Nothing consumes one, so there is no standing position
+  // of thefts to warn about — and several thefts may legitimately name one day.
+  const consumableKind = kind === 'THEFT' ? null : kind
   const account = useQuery({
     queryKey: ['settlement', 'account', branch?.storeId ?? ''],
     queryFn: () => settlementApi.account(branch!.storeId),
-    enabled: open && !!branch,
+    enabled: open && !!branch && consumableKind !== null,
   })
   const standing = useMemo(
-    () => standingPosition(account.data?.entries, kind),
-    [account.data, kind],
+    () => (consumableKind ? standingPosition(account.data?.entries, consumableKind) : null),
+    [account.data, consumableKind],
   )
 
   const amount = parseAmount(amountText)
@@ -165,7 +186,23 @@ export default function PostEntryDialog({
   // against the same precision the read-back uses, so the sentence and the rule
   // cannot part company.
   const countable = amount !== null && words.value > 0
-  const ready = !!branch && countable && description.problem === null
+  // 🔑 339: a theft names a business day, and the form is not ready without one. The
+  // other two kinds are asked for none (`checkBusinessDay` answers no problem for them).
+  const businessDay = checkBusinessDay(kind, dayText)
+  const ready = !!branch && countable && description.problem === null && businessDay.problem === null
+  // Said on the same terms as the description: an unreadable day at once, a missing one
+  // after a press on Review, and the server's own refusal until the day or the branch
+  // it was about is changed.
+  const dayError =
+    kind !== 'THEFT'
+      ? null
+      : businessDay.problem === 'unreadable'
+        ? t('post.theft.dayUnreadable')
+        : businessDay.problem === 'blank' && attempted
+          ? t('post.theft.dayRequired')
+          : dayRefused && dayRefused.day === dayText && dayRefused.storeId === (branch?.storeId ?? '')
+            ? dayRefused.message
+            : null
   // Said once there is something to say: a box of only spaces at once (it LOOKS
   // filled), an empty one after a press on Review — never on a form just opened.
   const descriptionError =
@@ -179,12 +216,16 @@ export default function PostEntryDialog({
 
   const post = useMutation({
     mutationFn: () =>
-      settlementApi.post({
-        storeId: branch!.storeId,
-        entryKind: kind,
-        amount: amount!,
-        reason: description.text,
-      }),
+      settlementApi.post(
+        // 339: the day goes up for a theft and for nothing else — `postRequest` decides.
+        postRequest({
+          storeId: branch!.storeId,
+          entryKind: kind,
+          amount: amount!,
+          reason: description.text,
+          businessDay: dayText,
+        }),
+      ),
     onSuccess: (result) => {
       setPosted(result)
       toast.success(t('post.done.toast', { number: result?.entryNumber ?? '' }))
@@ -199,11 +240,24 @@ export default function PostEntryDialog({
       // 🔑 311: the server refused the DESCRIPTION. The fix is in the form, not on the
       // review step — so back to the box, with the text the accountant typed still in
       // it and the server's own sentence (English, then Arabic) standing under it.
-      const code = apiErrorCode(error)
-      if (code === 'SettlementReasonRequired' || code === 'SettlementReasonTooLong') {
+      const field = postRefusalField(apiErrorCode(error))
+      if (field === 'reason') {
         setReviewing(false)
         setAttempted(true)
         setRefused({ text: reason, message: apiErrorMessage(error, t('post.reason.required')) })
+        return
+      }
+      // 🔑 339: the server refused the DAY — it is still open, or this branch had no
+      // shift on it. Same road: back to the form, the day still in its box, and the
+      // server's sentence (English, a newline, Arabic) standing under it.
+      if (field === 'businessDay') {
+        setReviewing(false)
+        setAttempted(true)
+        setDayRefused({
+          day: dayText,
+          storeId: branch?.storeId ?? '',
+          message: apiErrorMessage(error, t('post.theft.dayRequired')),
+        })
         return
       }
       toast.error(apiErrorMessage(error, t('post.errors.failed')))
@@ -264,6 +318,7 @@ export default function PostEntryDialog({
             words={words}
             reason={description.text}
             currencyKey={currencyKey}
+            businessDay={businessDay.day}
           />
         ) : (
           <>
@@ -279,9 +334,19 @@ export default function PostEntryDialog({
             {/* ⚠️ The standing position is drawn HERE — before the review step, as
                 D4 requires — because it is a fact about the branch that should change
                 what the accountant types, not a last-second interruption. */}
-            {branch && (
+            {/* 🔑 339: said BEFORE anything is typed — a theft is not a smaller kind of
+                surplus. It waits for a supervisor whatever its amount, and no cash moves. */}
+            {kind === 'THEFT' && (
+              <p className="text-xs text-muted-foreground" data-testid="post-theft-note">
+                {t('post.theft.note')}
+              </p>
+            )}
+            {kind === 'THEFT' && (
+              <BusinessDayField value={dayText} onValue={setDayText} error={dayError} />
+            )}
+            {branch && consumableKind && standing && (
               <StandingPosition
-                kind={kind}
+                kind={consumableKind}
                 standing={standing}
                 currencyKey={currencyKey}
                 loading={account.isPending}
@@ -328,8 +393,8 @@ function KindToggle({
   return (
     <fieldset className="flex flex-col gap-2" data-region="post-kind">
       <legend className="text-xs font-medium">{t('post.kind.legend')}</legend>
-      <div role="group" aria-label={t('post.kind.legend')} className="grid gap-2 sm:grid-cols-2">
-        {KINDS.map((key) => (
+      <div role="group" aria-label={t('post.kind.legend')} className="grid gap-2 sm:grid-cols-3">
+        {POST_KINDS.map((key) => (
           <button
             key={key}
             type="button"
@@ -489,7 +554,8 @@ function StandingPosition({
   failed,
   capped,
 }: {
-  kind: SettlementEntryKind
+  /** ⚠️ Never a theft — see the call site. */
+  kind: SettlementConsumableKind
   standing: ReturnType<typeof standingPosition>
   currencyKey: string
   loading: boolean
@@ -546,6 +612,62 @@ function StandingPosition({
           refusal and goes looking for an override. */}
       <p className="text-xs text-muted-foreground">{t('post.standing.permitted')}</p>
     </section>
+  )
+}
+
+/**
+ * **The business day a theft names** (ticket 339) — required, and a closed day of the
+ * branch.
+ *
+ * ⚠️ **The browser's own date box, and no clock of this screen's.** It enforces the
+ * shape the door takes (`yyyy-MM-dd`); whether the day is *closed* is the server's
+ * rule, and its refusal is drawn here rather than in a toast, because this is the box
+ * that fixes it. `whitespace-pre-line` for the reason the description's error has it:
+ * the server's sentence is English, a newline, then Arabic.
+ */
+function BusinessDayField({
+  value,
+  onValue,
+  error,
+}: {
+  value: string
+  onValue: (next: string) => void
+  error: string | null
+}) {
+  const { t } = useTranslation('settlement')
+  const errorId = useId()
+
+  return (
+    <label className="flex flex-col gap-1" data-region="post-business-day">
+      <span className="text-xs font-medium">
+        {t('post.theft.dayLabel')}
+        <span className="ms-1.5 font-normal text-muted-foreground">{t('reasonField.required')}</span>
+      </span>
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onValue(e.target.value)}
+        aria-required
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        data-testid="post-business-day"
+        className={
+          'h-9 rounded-md border bg-card px-2 text-sm tabular-nums outline-none focus:border-primary/60 ' +
+          (error ? 'border-attention-border' : 'border-border')
+        }
+      />
+      {error && (
+        <span
+          id={errorId}
+          dir="auto"
+          className="whitespace-pre-line text-xs text-attention-800"
+          data-testid="post-business-day-error"
+        >
+          {error}
+        </span>
+      )}
+      <span className="text-xs text-muted-foreground">{t('post.theft.dayHint')}</span>
+    </label>
   )
 }
 
@@ -670,21 +792,28 @@ function ReviewStep({
   words,
   reason,
   currencyKey,
+  businessDay,
 }: {
   branch: SettlementBranch
   kind: SettlementEntryKind
   words: AmountWords
   reason: string
   currencyKey: string
+  /** 339: the day a theft names, `yyyy-MM-dd` — `undefined` on the other kinds. */
+  businessDay: string | undefined
 }) {
   const { t } = useTranslation('settlement')
 
   return (
     <section className="flex flex-col gap-3" data-region="post-review">
-      <p className="text-sm">
+      <p className="text-sm" data-testid="post-review-consequence">
         {t(`post.review.consequence.${kind}`, {
           store: branch.storeId,
           storeName: branch.storeName,
+          // Read by the theft's sentence only — the day is part of what is reviewed.
+          // ⚠️ The bare date as typed, never through `Date`: `yyyy-MM-dd` parses as UTC
+          // midnight, which is the day before in any timezone west of Greenwich.
+          day: businessDay ?? '',
         })}
       </p>
 
@@ -707,7 +836,8 @@ function ReviewStep({
       </div>
 
       <p className="text-xs text-muted-foreground" data-testid="post-immutability">
-        {t('post.review.immutable')}
+        {/* 339: a theft is never written off — it is approved, rejected, or cancelled. */}
+        {t(kind === 'THEFT' ? 'post.review.immutableTheft' : 'post.review.immutable')}
       </p>
     </section>
   )
@@ -759,15 +889,20 @@ function PostedPanel({
           currency: currencyKey,
           store: branch?.storeId ?? '',
           storeName: branch?.storeName ?? '',
+          // 339: the day the SERVER stored, read back as the amount is — the theft's
+          // sentence is the only one that names it.
+          day: isStamped(result?.businessDay) ? formatDay(result.businessDay) : '',
         })}
       </p>
       <p className="text-sm">{inWordsSentence(t, stored, currencyKey)}</p>
       {/* 🔑 309 (BackOffice 1977 §2): the SERVER decided this surplus waits for a
           supervisor. The summary above says the branch may keep it back — true once it
-          is approved, and not before, so the confirmation says which. */}
+          is approved, and not before, so the confirmation says which.
+          339: a theft waits too, and what it waits FOR is different — no till is
+          involved, and the day keeps its variance until it is approved. */}
       {result?.status === 'PENDING_APPROVAL' && (
         <p className="text-sm font-medium" data-testid="post-done-pending">
-          {t('post.done.pending')}
+          {t(kind === 'THEFT' ? 'post.done.pendingTheft' : 'post.done.pending')}
         </p>
       )}
       {adjusted && (
@@ -779,7 +914,9 @@ function PostedPanel({
           })}
         </p>
       )}
-      <p className="text-xs text-muted-foreground">{t('post.done.immutable')}</p>
+      <p className="text-xs text-muted-foreground">
+        {t(kind === 'THEFT' ? 'post.done.immutableTheft' : 'post.done.immutable')}
+      </p>
     </section>
   )
 }

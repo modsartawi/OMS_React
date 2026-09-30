@@ -42,6 +42,10 @@ const MAJED = { staffId: SUPERVISOR_ID, name: 'ماجد العتيبي / Majed A
 export const APPROVAL_STORE = '0719'
 export const APPROVAL_STORE_NAME = 'السلامة / Al-Salamah'
 
+/** What a ledger row carries for a kind that names no day (BackOffice 2150): the three
+ *  day figures are `null` on a shortage and a surplus. */
+export const NO_DAY_FIGURES = { daySystemCash: null, dayCountedCash: null, dayCashVariance: null }
+
 /** The reason the supervisor typed — Arabic, with Arabic-Indic digits, because the
  *  door stores it unicode-intact and the accountant must read it that way (1978). */
 export const REJECTED_REASON = 'المبلغ مكرر مع القيد ١٢٣ — أعد الترحيل'
@@ -65,6 +69,7 @@ function entry(
     rejectedByStaffId: '',
     rejectedAt: UNSTAMPED,
     rejectedReason: '',
+    businessDay: UNSTAMPED,
     ...o,
   }
 }
@@ -156,6 +161,7 @@ export const PENDING_LANE: SettlementOpenLaneRow[] = [
     ...APPROVAL_ENTRIES.find((e) => e.entryNumber === 1202)!,
     storeName: APPROVAL_STORE_NAME,
     currencyKey: 'SAR',
+    ...NO_DAY_FIGURES,
     servedBy: HUDA.name,
     isMine: true,
     ageDays: 2,
@@ -164,6 +170,7 @@ export const PENDING_LANE: SettlementOpenLaneRow[] = [
     ...APPROVAL_ENTRIES.find((e) => e.entryNumber === 1203)!,
     storeName: APPROVAL_STORE_NAME,
     currencyKey: 'SAR',
+    ...NO_DAY_FIGURES,
     servedBy: HUDA.name,
     isMine: true,
     ageDays: 1,
@@ -183,6 +190,7 @@ export const PENDING_LANE: SettlementOpenLaneRow[] = [
     // 🔑 Bahraini — the queue crosses currencies like every cross-estate list, so its
     // amounts are drawn per row and never totalled.
     currencyKey: 'BHD',
+    ...NO_DAY_FIGURES,
     servedBy: '',
     isMine: false,
     ageDays: 0,

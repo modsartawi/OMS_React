@@ -5,6 +5,7 @@ import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
 import type { AccountEntryRow, JournalDocument } from './account-projection'
+import { businessDayCell } from './entry-cells'
 
 /**
  * One entry's **journal** — what a till has taken against it, and what each row left
@@ -88,8 +89,15 @@ export default function EntryJournal({
       )}
 
       {row.journal.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {row.closure === 'cancelled'
+        <p className="text-sm text-muted-foreground" data-testid="journal-empty">
+          {row.entryKind === 'THEFT'
+            ? // 339: nothing CAN be taken against a theft, in any status — it moves no
+              // cash. The day it names is the fact this region has to offer instead.
+              businessDayCell(row)
+              ? t('account.journal.emptyTheft', { day: businessDayCell(row) })
+              : // A theft the server stamped no day on: the sentence stops before the day.
+                t('account.journal.emptyTheftNoDay')
+            : row.closure === 'cancelled'
             ? t('account.journal.emptyCancelled')
             : // 309: no till CAN have touched these — one is invisible to every till
               // until approved, the other always will be.

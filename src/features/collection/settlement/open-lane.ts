@@ -67,7 +67,7 @@ export const PENDING_LANE_KEY = ['settlement', 'pending-lane']
 /* ── which tab, as an address ─────────────────────────────────────────────────── */
 
 /**
- * The lane's four tabs — *Owing* (SHORTAGE), *Owed* (SURPLUS), *Cash waiting* (286's
+ * The lane's five tabs — *Owing* (SHORTAGE), *Owed* (SURPLUS), *Theft* (339), *Cash waiting* (286's
  * prepared-but-uncollected receipts) and *Awaiting approval* (309).
  *
  * 🚩 **Owing and Owed are two tabs rather than a kind column**, because they are the
@@ -90,8 +90,14 @@ export const PENDING_LANE_KEY = ['settlement', 'pending-lane']
  * ⚠️ **`owing` and `owed` are KEYS, not what the reader sees** (ticket 340, BackOffice
  * spec 2149 D13). The strip labels them *Shortage* and *Surplus*; the keys stay because
  * `?tab=owed` is an address an accountant may have saved.
+ *
+ * 🔑 **Theft is the fifth, beside the two kinds it is not** (ticket 339, BackOffice
+ * 2150). An approved theft is stored `OPEN`, so it arrives in the same ledger answer as
+ * the shortages and the surpluses — and it is neither: it moves no cash, nobody is rung
+ * about it, and nothing is left on it to collect or keep back. It gets a tab of its own
+ * so that it is in neither of theirs.
  */
-export const OPEN_LANE_TABS = ['owing', 'owed', 'cash', 'pending'] as const
+export const OPEN_LANE_TABS = ['owing', 'owed', 'theft', 'cash', 'pending'] as const
 export type OpenLaneTab = (typeof OPEN_LANE_TABS)[number]
 
 /**
@@ -101,6 +107,11 @@ export type OpenLaneTab = (typeof OPEN_LANE_TABS)[number]
  * two counts cannot disagree: they come out of ONE call, and a `Record<OpenLaneTab,…>`
  * over the tally would have invited a third count fabricated from the same answer —
  * which knows nothing at all about receipts.
+ *
+ * ⚠️ **Still two after ticket 339, though the same answer now feeds a third tab.** These
+ * are the two jobs — money to chase — and the front page's signpost counts exactly
+ * them. A theft is in the answer and is not a job: `buildTheftLane` reads it out
+ * separately, so no count of open money can include one.
  */
 export const OPEN_LANE_ENTRY_TABS = ['owing', 'owed'] as const
 export type OpenLaneEntryTab = (typeof OPEN_LANE_ENTRY_TABS)[number]
@@ -434,11 +445,72 @@ function liveRows(rows: readonly SettlementOpenLaneRow[] | null | undefined): Se
   return (rows ?? []).filter((r) => r.status === 'OPEN')
 }
 
+/* ── theft (ticket 339) ───────────────────────────────────────────────────────── */
+
+/**
+ * **The Theft tab** — the estate's approved thefts, each with the business day it names
+ * (BackOffice 2150, ADR 0049).
+ *
+ * 🔑 **The same `Settlement/Ledger?status=OPEN` answer, split a third way.** The contract
+ * warns that `status=OPEN` now returns `THEFT` rows and must be split three ways; the two
+ * entry tabs already name their kind (`TAB_KIND`), so a theft was never theirs, and this
+ * reads the rest of the answer by NAME. One answer, so the three tabs cannot describe
+ * three different estates — and no fourth call.
+ *
+ * 🚩 **It is not in `OpenLaneTally.counts`, and must not be.** Those two numbers are the
+ * shortage and surplus jobs, on the tab strip and on the front page's signpost. A theft
+ * moves no cash: nothing on it is waiting to be collected or kept back, so it is counted
+ * here and nowhere a reader would take for open money.
+ *
+ * ⚠️ **No chase and no age judgement.** Nobody is rung about a theft, and an approved
+ * one never closes — so *how long it has been open* is not a fact about anything. The
+ * rows stay in the order the server sent them, as every tab's do.
+ *
+ * ⚠️ A pending theft is NOT here: it is not `OPEN`, and it waits in the supervisor's
+ * queue with the pending surpluses.
+ */
+export type TheftLane = {
+  /** `null` = not known, drawn as an em-dash — never `0`, which reads as *no thefts*. */
+  count: number | null
+  /** Measured against the ONE answer the entry tabs share (`OPEN_LANE_LIMIT`). */
+  capReached: boolean
+  ranked: boolean
+  named: boolean
+  view: OpenLaneView
+}
+
+export type TheftLaneInput = {
+  /** The one `Settlement/Ledger?status=OPEN&sort=age` answer — the entry tabs' own. */
+  rows: readonly SettlementOpenLaneRow[] | null | undefined
+  failed: boolean
+  mineOnly: boolean
+}
+
+export function buildTheftLane({ rows, failed, mineOnly }: TheftLaneInput): TheftLane {
+  if (failed) return { count: null, capReached: false, ranked: false, named: false, view: { kind: 'failed' } }
+
+  const answer = liveRows(rows)
+  // Asked of the whole answer, as the entry tabs ask it: the *mine only* chip must not
+  // appear and disappear as the reader moves between three readings of one read.
+  const said = whatTheWireSaid(answer)
+  const thefts = answer.filter((r) => r.entryKind === 'THEFT')
+  return {
+    count: thefts.length,
+    capReached: isCapReached(rows?.length ?? 0, OPEN_LANE_LIMIT),
+    ranked: said.ranked,
+    named: said.named,
+    view: arrange(thefts, { mineOnly, neverChasedOnly: false, ranked: said.ranked, chased: false }),
+  }
+}
+
 /* ── awaiting approval (ticket 309) ───────────────────────────────────────────── */
 
 /**
  * **The supervisor's queue** — the estate's pending surpluses, across every branch
  * (BackOffice spec 1976 story 8), off `Settlement/Ledger?status=PENDING_APPROVAL`.
+ *
+ * ✅ Ticket 339: the same answer now carries **pending thefts** beside the pending
+ * surpluses (BackOffice 2150) — the lane is unchanged, and the columns say which is which.
  *
  * 🔑 **Its own call, its own count, its own failure** — `CashLane`'s shape and for the
  * same reason: the two entry tabs are two readings of ONE open answer and must agree,

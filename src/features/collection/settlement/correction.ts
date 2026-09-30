@@ -73,6 +73,7 @@ export type CorrectionOffer =
  * | `CONSUMED` | none | a till took all of it — there is nothing left to correct |
  * | `CANCELLED` / `CLOSED_OUT` | none | already corrected once, and an entry is not corrected twice |
  * | `PENDING_APPROVAL` / `REJECTED` | none | never live — approved or rejected, never cancelled (309) |
+ * | `OPEN` **theft** | **Cancel**, always | nothing consumes a theft, so it has no remainder to write off (339) |
  *
  * ⚠️ **Equality is tested at the scale money is HELD at**, not at the branch's
  * display precision. A BHD entry of `95.250` partly consumed by `0.001` is a
@@ -86,7 +87,10 @@ export type CorrectionOffer =
  * not hold, so the honest affordance is the one that can actually succeed.
  */
 export function correctionFor(
-  entry: Pick<SettlementEntry, 'status' | 'amount' | 'remainingAmount'> | null | undefined,
+  entry:
+    | (Pick<SettlementEntry, 'status' | 'amount' | 'remainingAmount'> & Partial<Pick<SettlementEntry, 'entryKind'>>)
+    | null
+    | undefined,
 ): CorrectionOffer {
   if (!entry) return { kind: 'none', because: 'nothing-left' }
 
@@ -109,6 +113,12 @@ export function correctionFor(
   }
 
   const amount = roundMoney(entry.amount)
+  // 🚩 Ticket 339 (BackOffice 2150): **an approved theft offers no close-out.** It is
+  // never consumed, its `remainingAmount` "always equals `amount` and means nothing",
+  // and `Settlement/CloseOut` refuses one (`WRONG_KIND`). So the figure is not read at
+  // all: a supervisor may cancel it, which returns the day to its variance.
+  if (entry.entryKind === 'THEFT') return { kind: 'cancel', amount }
+
   const remaining = roundMoney(entry.remainingAmount)
 
   if (remaining === amount) return { kind: 'cancel', amount }

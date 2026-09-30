@@ -1,3 +1,5 @@
+import type { SettlementConsumableKind } from '@/core/models/settlement'
+
 /**
  * **The sheet's shape, handed out as a file** — the blank the accountant fills in
  * before the door on `/collection/settlement/upload` will take it.
@@ -22,6 +24,15 @@
  * Pure: a string in, a string out. No DOM, no `t()` — the download lives at the call
  * site, and every word a reader sees is the `settlement` namespace's.
  */
+
+/**
+ * **The kinds a file may be** — the two a till consumes, and 🚩 never a theft
+ * (ticket 339). A theft names a business day and always waits for a supervisor; the
+ * bulk door refuses a `THEFT` file row by row (`THEFT_NOT_IN_BULK`, BackOffice 2150), so
+ * the upload's toggle does not offer one. In 271's order, because it is the same choice
+ * made once for a whole file.
+ */
+export const BULK_KINDS: readonly SettlementConsumableKind[] = ['SHORTAGE', 'SURPLUS']
 
 /** The headers, in the order finance will read them. Order is not load-bearing on
  *  the wire — the door reads columns by NAME, which is what `bulk.file.hint` tells

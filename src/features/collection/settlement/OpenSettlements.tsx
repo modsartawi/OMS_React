@@ -31,6 +31,7 @@ import {
   buildCashColumns,
   buildOpenColumns,
   buildPendingColumns,
+  buildTheftColumns,
   ageWords,
   cashRowId,
   openRowId,
@@ -40,6 +41,7 @@ import {
   buildCashLane,
   buildOpenLane,
   buildPendingLane,
+  buildTheftLane,
   CASH_LANE_KEY,
   DEFAULT_OPEN_TAB,
   isEntryTab,
@@ -103,6 +105,12 @@ import {
  * its own failure. A pending surplus is not open, so it is in neither *Owing* nor
  * *Owed* nor any count on them. Everyone with the screen reads the queue; only a
  * session holding settlement supervision is drawn **Approve** and **Reject** on it.
+ *
+ * 🔑 **Theft is a tab of its own, and no extra call** (ticket 339, BackOffice 2150). An
+ * approved theft is stored `OPEN`, so it arrives in the lane's one answer — and it is
+ * neither a shortage nor a surplus: it moves no cash and nobody is rung about it. The
+ * answer is split three ways by NAME (`open-lane.ts`), so a theft is in neither of the
+ * other two tabs, in neither of their counts, and not on the front page's signpost.
  */
 export default function OpenSettlements() {
   const { t } = useTranslation('settlement')
@@ -169,9 +177,10 @@ export default function OpenSettlements() {
   const access = useQuery(collectionAccessQuery())
   const canSupervise = canSuperviseSettlement(access.data)
 
-  // ⚠️ Named, not `!isEntryTab(tab)`: with four tabs, *not an entry tab* is two tabs.
+  // ⚠️ Named, not `!isEntryTab(tab)`: with five tabs, *not an entry tab* is three tabs.
   const onCash = tab === 'cash'
   const onPending = tab === 'pending'
+  const onTheft = tab === 'theft'
 
   const built = useMemo(
     () =>
@@ -193,6 +202,15 @@ export default function OpenSettlements() {
     () => buildPendingLane({ rows: pending.data, failed: pending.isError, mineOnly }),
     [pending.data, pending.isError, mineOnly],
   )
+  /** 339: the third reading of the lane's ONE answer — the approved thefts in it. */
+  const theftBuilt = useMemo(
+    () => buildTheftLane({ rows: lane.data, failed: lane.isError, mineOnly }),
+    [lane.data, lane.isError, mineOnly],
+  )
+  const theftColumns = useMemo(
+    () => buildTheftColumns(t, { named: theftBuilt.named }),
+    [t, theftBuilt.named],
+  )
   const pendingColumns = useMemo(
     () =>
       buildPendingColumns(t, {
@@ -213,7 +231,9 @@ export default function OpenSettlements() {
   /** Is the chase door answering on the tab being drawn? Drives the column (through the
    *  builders above) and the chip — asked per tab, because §7 is a dependency each door
    *  waits on separately. */
-  const chaseKnown = onPending ? false : onCash ? cashBuilt.chased : built.chased
+  // ⚠️ Never on the theft tab: nobody is rung about a theft, so there is no chase to
+  // filter on (339).
+  const chaseKnown = onPending || onTheft ? false : onCash ? cashBuilt.chased : built.chased
   /** Can *mine only* be offered on the tab being drawn? Only where the wire ranked the
    *  rows — and never over a shimmer or a failure. */
   const mineKnown = onPending
@@ -270,7 +290,7 @@ export default function OpenSettlements() {
    * guarding against is only the two cases where there is nothing to be wrong about:
    * a read still in flight, and an estate with nothing open.
    */
-  const answered = (built.counts.owing ?? 0) + (built.counts.owed ?? 0) > 0
+  const answered = (built.counts.owing ?? 0) + (built.counts.owed ?? 0) + (theftBuilt.count ?? 0) > 0
   const unordered = answered && !built.aged
 
   return (
@@ -284,7 +304,10 @@ export default function OpenSettlements() {
             refuses. */}
         <p className="text-xs text-muted-foreground">
           {t(
-            onPending
+            onTheft
+              ? // 339: a record rather than a list to work down — it claims no order.
+                'open.subtitleTheft'
+              : onPending
               ? // The queue claims *oldest first* only when the door sent ages — the
                 // entry tabs' `unordered` rule, asked of the queue's own answer.
                 (pendingBuilt.count ?? 0) > 0 && !pendingBuilt.aged
@@ -310,6 +333,8 @@ export default function OpenSettlements() {
         tab={tab}
         counts={{
           ...(lane.isPending ? UNKNOWN_COUNTS : built.counts),
+          // 339: the same answer's third reading — unknown exactly when the other two are.
+          theft: lane.isPending ? null : theftBuilt.count,
           cash: cash.isPending ? null : cashBuilt.count,
           pending: pending.isPending ? null : pendingBuilt.count,
         }}
@@ -352,7 +377,8 @@ export default function OpenSettlements() {
           POPULATION, so reaching the cap means a complete answer was truncated — and
           because the order is oldest-first, the rows it dropped are the newest ones
           and nothing else on screen would look wrong. */}
-      {isEntryTab(tab) && built.capReached && (
+      {/* 339: the theft tab reads the SAME answer, so the same truncation applies to it. */}
+      {(isEntryTab(tab) || onTheft) && built.capReached && (
         <AccountCapBanner
           message={t(unordered ? 'open.capReachedUnordered' : 'open.capReached', {
             limit: OPEN_LANE_LIMIT.toLocaleString('en-US'),
@@ -410,6 +436,20 @@ export default function OpenSettlements() {
         )
       ) : lane.isPending ? (
         <AccountShimmer label={t('open.loading')} />
+      ) : onTheft ? (
+        <LaneBody
+          view={theftBuilt.view}
+          tab={tab}
+          columns={theftColumns}
+          getRowId={openRowId}
+          unranked={!theftBuilt.ranked}
+          // The whole list is approved thefts — *Open entries* would name them as money.
+          allTitle={t('open.sections.thefts')}
+          error={lane.error}
+          failedMessage={t('open.errors.laneFailed')}
+          onClearFilter={clearFilters}
+          onRow={(row) => navigate(branchSearch(searchParams, row.storeId, row.entryNumber))}
+        />
       ) : (
         <LaneBody
           view={built.view}
@@ -510,6 +550,7 @@ function LaneBody<Row extends OpenLaneRowFacts & { storeId: string; entryNumber:
   columns,
   getRowId,
   unranked = false,
+  allTitle,
   error,
   failedMessage,
   onClearFilter,
@@ -522,6 +563,8 @@ function LaneBody<Row extends OpenLaneRowFacts & { storeId: string; entryNumber:
   /** Only the ledger's tabs can be unranked — the two entry tabs and 309's queue —
    *  because §6 is the ledger's dependency. */
   unranked?: boolean
+  /** What the one unsectioned list is called, where *Open entries* would be wrong. */
+  allTitle?: string
   error: unknown
   /** ⚠️ Per door: a refused ledger and a refused receipt door are two different
    *  sentences, because the reader can act on one of them and not the other. */
@@ -592,6 +635,7 @@ function LaneBody<Row extends OpenLaneRowFacts & { storeId: string; entryNumber:
           section={section}
           columns={columns}
           getRowId={getRowId}
+          allTitle={allTitle}
           onRow={onRow}
         />
       ))}
@@ -612,8 +656,10 @@ function Section<Row extends OpenLaneRowFacts>({
   section,
   columns,
   getRowId,
+  allTitle,
   onRow,
 }: {
+  allTitle?: string
   section: OpenLaneSection<Row>
   columns: ColDef<Row>[]
   getRowId: (p: { data: Row }) => string
@@ -632,7 +678,7 @@ function Section<Row extends OpenLaneRowFacts>({
     <section className="flex flex-col gap-2" data-region={`open-section-${section.which}`}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h3 className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">
-          {t(`open.sections.${section.which}`)}
+          {section.which === 'all' && allTitle ? allTitle : t(`open.sections.${section.which}`)}
         </h3>
         <span
           data-testid={`open-section-count-${section.which}`}

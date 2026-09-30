@@ -16,6 +16,11 @@
  *   already paid it out of the drawer to refund a card sale. A till consumes it as a
  *   **deduction at shift close**.
  *
+ * - **THEFT (سرقة)** — money stolen on one named business day (BackOffice ADR 0049,
+ *   ticket 2150). It **moves no cash**: no till consumes it, nothing is handed over and
+ *   nothing is kept back. It explains that day's cash variance once a supervisor
+ *   approves it, and it always waits for one.
+ *
  * 🚩 **`amount` is always a positive magnitude; `entryKind` carries the direction.**
  * There is no signed amount anywhere in this contract, so no reader can misread a
  * sign — which is also why the signed position in `account-projection.ts` is
@@ -23,7 +28,19 @@
  */
 
 /** Which way the money moves. See the file header — the label is not the direction. */
-export type SettlementEntryKind = 'SHORTAGE' | 'SURPLUS'
+export type SettlementEntryKind = 'SHORTAGE' | 'SURPLUS' | 'THEFT'
+
+/**
+ * The two kinds **a till consumes** — a shortage through a special receipt, a surplus
+ * through a shift close.
+ *
+ * 🚩 Named because a theft is the only kind that is not one of them (ADR 0049), and
+ * every rule that is about consumable money takes this type rather than the wide one:
+ * the headline's two figures, what a branch already carries, and the bulk file (whose
+ * door refuses a `THEFT` row — `THEFT_NOT_IN_BULK`). A rule of the shape *"not
+ * SHORTAGE, therefore SURPLUS"* is what this type exists to make unwritable.
+ */
+export type SettlementConsumableKind = Exclude<SettlementEntryKind, 'THEFT'>
 
 /**
  * Where an entry has got to.
@@ -124,6 +141,13 @@ export type SettlementEntry = {
   rejectedByStaffId: string
   rejectedAt: string
   rejectedReason: string
+  /**
+   * The closed business day a **theft** names, at midnight (`2026-09-27T00:00:00`) —
+   * BackOffice 2150. ⚠️ `0001-01-01T00:00:00` on a shortage or a surplus: the column is
+   * `NOT NULL`, so *no day* is a year-1 date rather than an absent one (`approval.ts`'s
+   * `isStamped` reads it).
+   */
+  businessDay: string
 }
 
 /**
@@ -375,6 +399,22 @@ export type SettlementLedgerRow = SettlementEntry & {
    * finding rather than before it.
    */
   currencyKey: string
+  /**
+   * **The named day's cash, for the supervisor judging a theft** (BackOffice 2150) —
+   * filled on a `THEFT` row in ANY status and `null` on the other kinds. System cash is
+   * the sum over that store day's closed shifts; counted cash is what was counted at
+   * close over the same shifts.
+   *
+   * ⚠️ Ledger rows only: `Settlement/Account` rows carry `businessDay` and none of these.
+   */
+  daySystemCash: number | null
+  dayCountedCash: number | null
+  /**
+   * `dayCountedCash − daySystemCash`, the server's subtraction — Cash Collections' own
+   * Variance and sign: 🚩 **negative = short**. Information only: the amount of a theft
+   * is not capped by it, and the supervisor judges (ADR 0049).
+   */
+  dayCashVariance: number | null
 }
 
 /**
@@ -670,9 +710,13 @@ export type SettlementPostResult = {
    * ✅ Ticket 1977: **`PENDING_APPROVAL` or `OPEN`**, decided by the server — a SURPLUS
    * whose rounded amount is 500 or more, posted by someone without settlement
    * supervision, waits. The confirmation says so rather than telling the accountant a
-   * branch may keep money no till can see yet.
+   * branch may keep money no till can see yet. ✅ Ticket 2150: a **theft** posted by an
+   * accountant is `PENDING_APPROVAL` whatever its amount.
    */
   status: SettlementEntryStatus
+  /** The day a theft names, at midnight; `0001-01-01T00:00:00` on the other kinds
+   *  (BackOffice 2150). */
+  businessDay: string
 }
 
 /**

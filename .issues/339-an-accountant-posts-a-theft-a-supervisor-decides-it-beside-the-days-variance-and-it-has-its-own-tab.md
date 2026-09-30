@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 334
 blocked-by: — (+ BackOffice 2150)
 ---
@@ -30,11 +30,17 @@ oms-react screen / wire model / vitest
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `post dialog requires a business day for a theft` · vitest
-- [ ] `approval dialog shows the day's variance for a theft` · vitest
-- [ ] `open settlements has a theft tab fed by kind THEFT` · vitest
-- [ ] `theft is excluded from the shortage and surplus headline` · vitest
-- [ ] `bulk template does not offer theft` · vitest
+- [x] `post dialog requires a business day for a theft` · vitest — `src/features/collection/settlement/theft.test.ts` (`checkBusinessDay`, `postRequest`, `postRefusalField`)
+- [x] `approval dialog shows the day's variance for a theft` · vitest — same file (`approvalTarget` / `dayVarianceFor` / `needsDayLookup`)
+- [x] `open settlements has a theft tab fed by kind THEFT` · vitest — same file (`buildTheftLane`, `readOpenTab`)
+- [x] `theft is excluded from the shortage and surplus headline` · vitest — same file (`accountHeadline`, `tallyOpenLane`, `remainingIsAClaim`)
+- [x] `bulk template does not offer theft` · vitest — same file (`BULK_KINDS`, the template's bytes, the `bulk` locale strings)
+
+Fixtures follow BackOffice 2150's `## Web contract` (commit `11e615be9`, branch spec2149): `theft-fixture.ts` carries the contract's own sample row field for field.
+
+Driven as well (network stubbed at Playwright, this session's vite on :5198 because :5199 was held by a server it did not start): `tools/settlement-theft-drive.mjs` 62/62, five runs in a row. Regression drives: `settlement-drive.mjs` 291/291, `settlement-approval-drive.mjs` 42/42, `settlement-supervision-drive.mjs` 41/41, `settlement-description-drive.mjs` 41/41. Gates: typecheck clean, `npm test` 161 files / 2754 tests, lint's three gates clean, build clean.
+
+Outstanding (not AFK's): nothing here was driven against a live SIS.Api — every envelope is a stub of the recorded contract. Decisions for the owner are in `.afk/HITL-339.md`; the one that needs a ruling is that approved thefts stay in the `status=OPEN` answer for ever and count against the open lane's 2,000-row cap.
 
 ## Boundaries
 

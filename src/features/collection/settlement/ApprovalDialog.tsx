@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -7,15 +7,17 @@ import { apiErrorMessage } from '@/core/api'
 import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
-import { formatDateTime } from '@/core/util/date-format'
+import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { settlementApi } from './api'
 import {
   afterSupervision,
+  dayVarianceFor,
+  needsDayLookup,
   supervisionFailure,
   type ApprovalTarget,
   type SupervisionAct,
 } from './approval'
-import { entryKindLabel, entryStatusLabel } from './entry-cells'
+import { dayVarianceWords, entryKindLabel, entryStatusLabel } from './entry-cells'
 import { settlementMoney } from './money-display'
 import { REASON_MAX } from './posting'
 import ReasonField, { invalidateSettlement } from './ReasonField'
@@ -45,6 +47,12 @@ type ActVars = ApprovalRequest & { reason: string }
  * the dialog says so, because a supervisor who expects to *un-reject* later would
  * reject more lightly.
  *
+ * 🔑 **A pending theft is decided here too** (ticket 339, BackOffice 2150) — the same
+ * two doors and the same bodies. What is shown changes: the business day it names and
+ * that day's cash variance stand beside the amount, and the sentence under them says
+ * what approving a theft does (it moves no cash) rather than what approving a surplus
+ * does.
+ *
  * 🚩 **A refusal is a 200 and reads as news, not as failure**: *somebody got there
  * first* is the ordinary case on a queue two supervisors work. A bare 403 means the
  * grant went between the page's probe and the press — it is said as that, and the
@@ -65,6 +73,18 @@ export default function ApprovalDialog({
   // it when 1203 is opened.
   const key = request ? `${request.target.settlementEntryId}:${request.act}` : ''
   useEffect(() => setReason(''), [key])
+
+  // 🔑 339: **a theft opened from a branch account arrives without its day's cash** —
+  // `Settlement/Account` rows carry `businessDay` and none of the three figures. The
+  // ledger row of the same entry does, so it is read by the entry's own number (a
+  // one-row answer). The queue's rows are ledger rows already, and ask for nothing.
+  const lookupNumber = request && needsDayLookup(request.target) ? request.target.entryNumber : null
+  const dayLookup = useQuery({
+    queryKey: ['settlement', 'ledger', 'theft-day', lookupNumber],
+    queryFn: () => settlementApi.ledger({ entryNumber: lookupNumber! }),
+    enabled: lookupNumber !== null,
+    staleTime: 60_000,
+  })
 
   const decide = useMutation({
     mutationFn: (v: ActVars) =>
@@ -113,6 +133,11 @@ export default function ApprovalDialog({
   const { target, act } = request
   const money = settlementMoney(target.amount, target.currencyKey)
   const canCommit = (act === 'approve' || reason.trim().length > 0) && !decide.isPending
+  // The row's own figures when it carried them; otherwise the looked-up ledger row's —
+  // matched by ID, so a stranger's row under the same number can never be drawn here.
+  const looked = dayLookup.data?.find((r) => r.settlementEntryId === target.settlementEntryId)
+  const day = lookupNumber !== null && looked ? dayVarianceFor(looked) : target.day
+  const isTheft = target.entryKind === 'THEFT'
 
   return (
     <Modal
@@ -148,6 +173,28 @@ export default function ApprovalDialog({
           <dd className="tabular-nums" data-testid="approval-amount">
             {t('approval.amountLine', { amount: money, currency: target.currencyKey, kind: entryKindLabel(t, target.entryKind) })}
           </dd>
+          {/* 🔑 339: **the day and its cash, BESIDE the amount** — a theft is not capped by
+              the system, so what the day was short is what the amount is judged
+              against. The gap is said in a word (*short* / *over*), never as a sign. */}
+          {day.kind !== 'none' && (
+            <>
+              <dt className="text-xs text-muted-foreground">{t('approval.fields.businessDay')}</dt>
+              <dd className="tabular-nums" data-testid="approval-business-day">
+                {day.day ? formatDay(day.day) : t('approval.theft.noDay')}
+              </dd>
+              <dt className="text-xs text-muted-foreground">{t('approval.fields.dayVariance')}</dt>
+              <dd className="tabular-nums" data-testid="approval-day-variance" data-variance={day.kind === 'stated' ? day.direction : 'unstated'}>
+                {dayVarianceWords(t, day, target.currencyKey) ??
+                  // ⚠️ Three different sentences: still reading, could not read, and the
+                  // door answered with no figures. None of them is *no variance*.
+                  (dayLookup.isFetching
+                    ? t('approval.theft.loading')
+                    : dayLookup.isError
+                      ? t('approval.theft.failed')
+                      : t('approval.theft.unstated'))}
+              </dd>
+            </>
+          )}
           <dt className="text-xs text-muted-foreground">{t('approval.fields.branch')}</dt>
           <dd className="flex items-baseline gap-1.5">
             <span>{target.storeName}</span>
@@ -164,7 +211,14 @@ export default function ApprovalDialog({
           </dd>
         </dl>
 
-        <p className="text-muted-foreground">{t(`approval.${act}.explain`)}</p>
+        {/* 339: what the act DOES differs by kind — approving a surplus puts money in a
+            till's reach, approving a theft moves no cash at all. */}
+        <p className="text-muted-foreground" data-testid="approval-explain">
+          {t(isTheft ? `approval.theft.${act}Explain` : `approval.${act}.explain`)}
+        </p>
+        {isTheft && act === 'approve' && (
+          <p className="text-xs text-muted-foreground">{t('approval.theft.judge')}</p>
+        )}
 
         {act === 'reject' && (
           <ReasonField

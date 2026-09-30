@@ -69,6 +69,8 @@ function entry(o: Partial<SettlementEntry> & Pick<SettlementEntry, 'settlementEn
     rejectedByStaffId: '',
     rejectedAt: '0001-01-01T00:00:00',
     rejectedReason: '',
+    // BackOffice 2150: no day on a shortage or a surplus — the same year-1 default.
+    businessDay: '0001-01-01T00:00:00',
     ...o,
   }
 }

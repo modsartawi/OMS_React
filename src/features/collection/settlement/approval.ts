@@ -1,13 +1,19 @@
 import { ApiError } from '@/core/api'
+import { roundMoney } from '@/core/money'
 import type {
   SettlementEntry,
   SettlementEntryStatus,
+  SettlementLedgerRow,
   SettlementSupervisionResult,
 } from '@/core/models/settlement'
 
 /**
  * **The approval decision** — what a pending or rejected surplus offers, and what an
  * Approve or a Reject came back with (ticket 309, BackOffice 1977 / 1978).
+ *
+ * ✅ Ticket 339 (BackOffice 2150): a **theft** waits the same way, whatever its amount,
+ * and is decided through the same two doors. What differs is what the supervisor is
+ * shown — the day it names and that day's cash variance (`dayVarianceFor`).
  *
  * An accountant's SURPLUS of 500 or more is stored `PENDING_APPROVAL`: it has its
  * entry number, and no till sees it until an **accountant supervisor** approves it
@@ -98,6 +104,74 @@ export function approvalFor(
   return { kind: 'none' }
 }
 
+/* ── the day a theft names (ticket 339, BackOffice 2150) ──────────────────────── */
+
+/** The three figures a ledger row carries for a theft's day. Absent from account rows. */
+type DayFigures = Pick<SettlementLedgerRow, 'daySystemCash' | 'dayCountedCash' | 'dayCashVariance'>
+
+/**
+ * **What a supervisor is told about the day a theft names** — the amount is not capped
+ * by the system, so the day's cash variance is what it is judged against (ADR 0049:
+ * *"the supervisor judges it against the day's variance"*).
+ *
+ * | case | the row | the dialog draws |
+ * |---|---|---|
+ * | `none` | not a theft | nothing — a shortage or a surplus names no day |
+ * | `unstated` | a theft with no figures | the day, and that its figures are not on this row |
+ * | `stated` | a theft off the ledger | the day, system cash, counted cash, and the gap **in a word** |
+ *
+ * 🔑 **`direction` is a word and `magnitude` has no sign.** The wire's variance is Cash
+ * Collections' own — *negative = short* — and a bare `−3,000.00` beside an amount of
+ * `3,000.00` asks the reader to remember a convention at the one moment they are
+ * authorising something. *3,000.00 short* does not.
+ *
+ * ⚠️ **`unstated` is a real case, not a fallback.** `Settlement/Account` rows carry
+ * `businessDay` and none of the three figures (the contract says so), so a theft opened
+ * from a branch account arrives here without them — and `needsDayLookup` tells the
+ * dialog to read the entry's own ledger row rather than draw a variance of nothing.
+ *
+ * 🚩 The variance is the SERVER's subtraction, read back. Nothing here subtracts counted
+ * from system: this feature computes no variance (`account-projection.ts`'s rule).
+ */
+export type DayVariance =
+  | { kind: 'none' }
+  | { kind: 'unstated'; day: string | null }
+  | {
+      kind: 'stated'
+      /** `null` when the server did not stamp it (see `isStamped`). */
+      day: string | null
+      systemCash: number
+      countedCash: number
+      /** The size of the gap, unsigned — `direction` says which way. */
+      magnitude: number
+      direction: 'short' | 'over' | 'even'
+    }
+
+const isFigure = (value: number | null | undefined): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+
+export function dayVarianceFor(
+  entry: (Pick<SettlementEntry, 'entryKind' | 'businessDay'> & Partial<DayFigures>) | null | undefined,
+): DayVariance {
+  if (entry?.entryKind !== 'THEFT') return { kind: 'none' }
+
+  const day = isStamped(entry.businessDay) ? entry.businessDay : null
+  const { daySystemCash, dayCountedCash, dayCashVariance } = entry
+  if (!isFigure(daySystemCash) || !isFigure(dayCountedCash) || !isFigure(dayCashVariance))
+    return { kind: 'unstated', day }
+
+  const signed = roundMoney(dayCashVariance)
+  return {
+    kind: 'stated',
+    day,
+    systemCash: daySystemCash,
+    countedCash: dayCountedCash,
+    magnitude: Math.abs(signed),
+    // 🚩 Negative = short: Cash Collections' sign, the contract's own words.
+    direction: signed < 0 ? 'short' : signed > 0 ? 'over' : 'even',
+  }
+}
+
 /** Which of the two supervisor acts. */
 export type SupervisionAct = 'approve' | 'reject'
 
@@ -116,10 +190,15 @@ export type ApprovalTarget = Pick<
   /** The row's own currency on the queue; `''` on the account, whose door sends none
    *  (274 §B6) — `settlementMoney` then keeps a third decimal rather than guessing. */
   currencyKey: string
+  /** 339: the day a theft names and what that day's cash came to — `none` on the other
+   *  kinds. Shown beside the amount, because it is what the amount is judged against. */
+  day: DayVariance
 }
 
 export function approvalTarget(
-  entry: Omit<ApprovalTarget, 'storeName' | 'currencyKey'>,
+  entry: Omit<ApprovalTarget, 'storeName' | 'currencyKey' | 'day'> &
+    Pick<SettlementEntry, 'businessDay'> &
+    Partial<DayFigures>,
   storeName: string,
   currencyKey: string,
 ): ApprovalTarget {
@@ -135,7 +214,19 @@ export function approvalTarget(
     postedByName,
     postedAt,
     currencyKey,
+    day: dayVarianceFor(entry),
   }
+}
+
+/**
+ * Must the dialog read this entry's ledger row before it can show the day's variance?
+ *
+ * 🔑 Only for a theft opened from a **branch account** — the queue's rows are ledger
+ * rows and already carry the figures. One spelling, so the two places a supervisor meets
+ * a pending theft cannot show two different amounts of information about it.
+ */
+export function needsDayLookup(target: Pick<ApprovalTarget, 'day'>): boolean {
+  return target.day.kind === 'unstated'
 }
 
 /**

@@ -1,5 +1,9 @@
 import { roundMoney } from '@/core/money'
-import type { SettlementEntry, SettlementEntryKind } from '@/core/models/settlement'
+import type {
+  SettlementConsumableKind,
+  SettlementEntry,
+  SettlementEntryKind,
+} from '@/core/models/settlement'
 import { type BranchLike, MatchRank, searchBranches } from './search'
 
 /**
@@ -173,6 +177,10 @@ export function parseAmount(raw: string | null | undefined): number | null {
  * Only the **same kind** counts: a shortage and a surplus never cancel each other
  * out (the account headline says so out loud), and a branch legitimately holds one
  * of each — the fixture's 0142 does.
+ *
+ * ⚠️ **A consumable kind, never a theft** (ticket 339). A theft has no remaining to
+ * run down — the wire's figure on one *means nothing* (BackOffice 2150) — so there is
+ * no standing position of thefts to total, and the type refuses the question.
  */
 export type StandingPosition = {
   /** The open entries of that kind, **oldest first** — the order a reconciliation
@@ -185,7 +193,7 @@ export type StandingPosition = {
 
 export function standingPosition(
   entries: readonly SettlementEntry[] | null | undefined,
-  kind: SettlementEntryKind,
+  kind: SettlementConsumableKind,
 ): StandingPosition {
   const open = (entries ?? [])
     .filter((e) => e.status === 'OPEN' && e.entryKind === kind)
@@ -198,5 +206,105 @@ export function standingPosition(
   return {
     entries: open,
     total: roundMoney(open.reduce((sum, e) => sum + e.remainingAmount, 0)),
+  }
+}
+
+/* ── theft (ticket 339, BackOffice 2150, ADR 0049) ────────────────────────────── */
+
+/** The three kinds, in the order the toggle draws them — the two a till consumes, then
+ *  the one nothing does. */
+export const POST_KINDS: readonly SettlementEntryKind[] = ['SHORTAGE', 'SURPLUS', 'THEFT']
+
+/**
+ * **The business day a theft names** — required for a theft, and not asked of the
+ * other two kinds (the server ignores it on them, so it is not sent).
+ *
+ * 🔑 **A bare date, `yyyy-MM-dd`**, which is the contract's own instruction. Checked for
+ * shape and for being a real day, because `2026-02-31` passes any pattern.
+ *
+ * ⚠️ **Whether the day is CLOSED is the server's to say, and nothing here guesses.** It
+ * must be a closed business day of that branch; an open day, a future one and a day
+ * the branch had no shift on are one refusal (`SettlementTheftDayNotClosed`), and this
+ * module owns no clock to anticipate any of them.
+ */
+export type BusinessDayCheck = {
+  /** What would be posted — `undefined` when the kind takes no day, or none is usable. */
+  day: string | undefined
+  problem: 'blank' | 'unreadable' | null
+}
+
+export function checkBusinessDay(
+  kind: SettlementEntryKind,
+  raw: string | null | undefined,
+): BusinessDayCheck {
+  if (kind !== 'THEFT') return { day: undefined, problem: null }
+
+  const value = (raw ?? '').trim()
+  if (!value) return { day: undefined, problem: 'blank' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return { day: undefined, problem: 'unreadable' }
+  // `T00:00:00Z` so the round-trip cannot be shifted a day by the reader's timezone —
+  // `ledger.ts`'s `readDate` rule, for the same reason.
+  const parsed = new Date(`${value}T00:00:00Z`)
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value)
+    return { day: undefined, problem: 'unreadable' }
+  return { day: value, problem: null }
+}
+
+/** `POST Settlement/Post`'s body. */
+export type PostRequest = {
+  storeId: string
+  entryKind: SettlementEntryKind
+  amount: number
+  reason: string
+  /** A theft's day, `yyyy-MM-dd`. Absent on the other kinds. */
+  businessDay?: string
+}
+
+/**
+ * The body a post sends.
+ *
+ * 🚩 **The day goes up for a theft and for nothing else.** The form keeps whatever was
+ * typed in the day box while the accountant toggles between kinds; this is the one
+ * place that decides it is not part of a shortage or a surplus.
+ */
+export function postRequest(
+  /** The form's state: the day box may hold anything, or nothing. */
+  input: Omit<PostRequest, 'businessDay'> & { businessDay?: string | null },
+): PostRequest {
+  const { storeId, entryKind, amount, reason } = input
+  const { day } = checkBusinessDay(entryKind, input.businessDay)
+  return day === undefined
+    ? { storeId, entryKind, amount, reason }
+    : { storeId, entryKind, amount, reason, businessDay: day }
+}
+
+/** A theft posted with no day — a 400 on `Settlement/Post`. Matched, not displayed. */
+export const THEFT_DAY_REQUIRED = 'SettlementTheftBusinessDayRequired'
+/** The day is still open, or the branch has no shift on it (an unknown day, another
+ *  branch's, a future one) — one code for all of them. */
+export const THEFT_DAY_NOT_CLOSED = 'SettlementTheftDayNotClosed'
+
+/** The description's two refusals (ticket 311, BackOffice 1980) — a blank one, and one
+ *  over `REASON_MAX` after the trim. */
+export const REASON_REQUIRED = 'SettlementReasonRequired'
+export const REASON_TOO_LONG = 'SettlementReasonTooLong'
+
+/**
+ * Which field a refused post is about — so the server's sentence stands on the box
+ * that can fix it rather than in a toast that has gone by the time it is read.
+ *
+ * `null` is everything else: the amount's and the store's refusals are not reachable
+ * through this form's own guards, and they stay a toast.
+ */
+export function postRefusalField(code: string | null | undefined): 'businessDay' | 'reason' | null {
+  switch (code) {
+    case THEFT_DAY_REQUIRED:
+    case THEFT_DAY_NOT_CLOSED:
+      return 'businessDay'
+    case REASON_REQUIRED:
+    case REASON_TOO_LONG:
+      return 'reason'
+    default:
+      return null
   }
 }

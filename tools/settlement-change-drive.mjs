@@ -1651,6 +1651,16 @@ async function run() {
       const moved = { ...t1413, businessDay: '2026-09-21T00:00:00' }
       const histories = {}
       for (const e of account.entries) histories[e.settlementEntryId] = crf.historyOf(e, { spentAmount: 0 })
+      /** 2195's sample, about 1413. */
+      const collectedAbout1413 = {
+        ...crf.THEFT_DAY_COLLECTED_SAMPLE,
+        settlementEntryId: t1413.settlementEntryId,
+        entryNumber: 1413,
+        amount: 450.75,
+        remainingAmount: 450.75,
+        description: t1413.reason,
+        businessDay: t1413.businessDay,
+      }
       return {
         theftAccount: account,
         theftHistories: histories,
@@ -1659,29 +1669,10 @@ async function run() {
         t1413Reason: t1413.reason,
         raisedDay1413: crf.raisedAnswerFor(t1413, dayMove, 0),
         withDayMove1413: crf.historyOf(t1413, { spentAmount: 0, openRequest: dayMove }),
-        // 2195's sample, about 1413 — nothing stored on a raise.
-        dayCollected1413: {
-          ...crf.THEFT_DAY_COLLECTED_SAMPLE,
-          changeRequestId: '',
-          requestStatus: '',
-          settlementEntryId: t1413.settlementEntryId,
-          entryNumber: 1413,
-          amount: 450.75,
-          remainingAmount: 450.75,
-          description: t1413.reason,
-          businessDay: t1413.businessDay,
-        },
-        // …and at approval: the request stays OPEN.
-        dayCollectedAtApproval1413: {
-          ...crf.THEFT_DAY_COLLECTED_SAMPLE,
-          changeRequestId: 'R-DAY',
-          settlementEntryId: t1413.settlementEntryId,
-          entryNumber: 1413,
-          amount: 450.75,
-          remainingAmount: 450.75,
-          description: t1413.reason,
-          businessDay: t1413.businessDay,
-        },
+        // On a raise nothing is stored…
+        dayCollected1413: { ...collectedAbout1413, changeRequestId: '', requestStatus: '' },
+        // …and at approval the request stays OPEN.
+        dayCollectedAtApproval1413: { ...collectedAbout1413, changeRequestId: 'R-DAY' },
         approvedDay1413: crf.approvedAnswerFor(t1413, dayMove, 0, { businessDay: '2026-09-21T00:00:00' }),
         afterDay1413: crf.historyOf(moved, { spentAmount: 0, requests: [{ ...dayMove, status: 'APPLIED' }] }),
       }

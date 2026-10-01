@@ -130,7 +130,7 @@ type Notice =
   | { kind: 'invalid'; error: ChangeFieldError }
   | { kind: 'error'; text: string }
 
-const EMPTY_DRAFT: ChangeDraft = { amount: '', description: '', reason: '' }
+const EMPTY_DRAFT: ChangeDraft = { amount: '', description: '', reason: '', businessDay: '' }
 
 export default function EntryChangeRequest({
   row,
@@ -792,7 +792,7 @@ function ChangeForm({
 
       {asksDay && (
         <BusinessDayField
-          value={draft.businessDay ?? ''}
+          value={draft.businessDay}
           onValue={(businessDay) => onDraft({ ...draft, businessDay })}
           error={dayError}
           label={t('changeRequest.form.day.label')}

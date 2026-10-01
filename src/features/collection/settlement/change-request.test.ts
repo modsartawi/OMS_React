@@ -293,8 +293,9 @@ describe('offerFor — no usable read decides nothing', () => {
 })
 
 describe('changeRequestBody — only what differs is sent (W4)', () => {
-  const entry = { settlementEntryId: 'E-143', amount: 500, description: 'نقص في تسليم يوم 2026-05-04', spentAmount: 0 }
-  const draft = (o: Partial<{ amount: string; description: string; reason: string }> = {}) => ({
+  const entry = { settlementEntryId: 'E-143', amount: 500, description: 'نقص في تسليم يوم 2026-05-04', spentAmount: 0, entryKind: 'SHORTAGE' as const, businessDay: UNSTAMPED }
+  const draft = (o: Partial<ChangeDraft> = {}): ChangeDraft => ({
+    businessDay: '',
     amount: '500',
     description: entry.description,
     reason: 'wrong figure typed',
@@ -560,6 +561,11 @@ describe('cardFor — old → new, only what differs (W6)', () => {
     expect(card.changes).toEqual([{ field: 'businessDay', from: '2025-08-11T00:00:00', to: '2025-08-12T00:00:00' }])
   })
 
+  it('a day written as another stamp of the same day is not a day-move', () => {
+    const theft = { ...entry, businessDay: '2025-08-11T00:00:00' }
+    expect(cardFor(waitingRequestOn(theft, { newBusinessDay: '2025-08-11T00:00:00.000' })).changes).toEqual([])
+  })
+
   it('an unstamped time is no time', () => {
     expect(cardFor(waitingRequestOn(entry, { requestedAt: UNSTAMPED })).at).toBeNull()
     expect(cardFor(waitingRequestOn(entry, { requestedAt: '' })).at).toBeNull()
@@ -731,7 +737,7 @@ describe('deleteRequestBody — a delete asks for a Reason only, and sends no fi
 })
 
 describe('reduceToSpent — "Reduce it to X" fills the change form with the spent figure (W5, ticket 347)', () => {
-  const entry = { settlementEntryId: 'E-151', amount: 500, description: 'فائض نقدي — مراجعة سبتمبر', businessDay: UNSTAMPED }
+  const entry = { settlementEntryId: 'E-151', amount: 500, description: 'فائض نقدي — مراجعة سبتمبر', businessDay: UNSTAMPED, entryKind: 'SURPLUS' as const }
 
   it('🔑 from the History read: offerFor\'s reduce cell → the draft whose newAmount is the spent figure', () => {
     const offer = offerFor(anEntry({ status: 'OPEN', amount: 500, remainingAmount: 380 }), { openRequest: null, spentAmount: 120 }, ACCOUNTANT)
@@ -750,7 +756,7 @@ describe('reduceToSpent — "Reduce it to X" fills the change form with the spen
     const draft = reduceToSpent({ description: DELETE_SPENT_SAMPLE.description, businessDay: DELETE_SPENT_SAMPLE.businessDay }, refusal.step)
     expect(draft.amount).toBe('120')
     const check = changeRequestBody(
-      { settlementEntryId: DELETE_SPENT_SAMPLE.settlementEntryId, amount: 500, description: DELETE_SPENT_SAMPLE.description, spentAmount: 120 },
+      { settlementEntryId: DELETE_SPENT_SAMPLE.settlementEntryId, amount: 500, description: DELETE_SPENT_SAMPLE.description, spentAmount: 120, entryKind: 'SURPLUS', businessDay: UNSTAMPED },
       { ...draft, reason: 'x' },
     )
     expect(check.kind === 'ready' && check.body.newAmount).toBe(120)
@@ -761,7 +767,7 @@ describe('reduceToSpent — "Reduce it to X" fills the change form with the spen
     if (offer.kind !== 'ask' || offer.remove.kind !== 'reduce') throw new Error('expected the reduce cell')
     const draft = reduceToSpent({ description: 'd', businessDay: UNSTAMPED }, offer.remove, 'posted twice')
     expect(draft).toEqual({ amount: '0.001', description: 'd', reason: 'posted twice', businessDay: '' })
-    const check = changeRequestBody({ settlementEntryId: 'E', amount: 50, description: 'd', spentAmount: 0.001 }, draft)
+    const check = changeRequestBody({ settlementEntryId: 'E', amount: 50, description: 'd', spentAmount: 0.001, entryKind: 'SHORTAGE', businessDay: UNSTAMPED }, draft)
     expect(check).toEqual({
       kind: 'ready',
       body: { settlementEntryId: 'E', requestKind: 'CHANGE', newAmount: 0.001, newDescription: null, reason: 'posted twice' },
@@ -881,12 +887,6 @@ describe('changeRequestBody — a theft\'s business day (W4, ticket 349; BackOff
       kind: 'ready',
       body: { newAmount: 400, newDescription: 'سرقة من الدرج', newBusinessDay: '2026-09-19' },
     })
-  })
-
-  it('a draft that never drew the day box leaves the day as it is', () => {
-    const { businessDay: _, ...noBox } = draft({ amount: '400' })
-    expect(changeRequestBody(theft, noBox)).toMatchObject({ kind: 'ready', body: { newAmount: 400, newBusinessDay: null } })
-    expect(changeRequestBody(theft, { ...noBox, amount: '450.75' })).toMatchObject({ kind: 'held', unchanged: true })
   })
 
   it('an emptied day box is held — a theft is never sent without its day', () => {

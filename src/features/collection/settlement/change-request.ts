@@ -253,10 +253,10 @@ export function entryNow(
 /**
  * What the accountant has typed — the boxes, as strings.
  *
- * `businessDay` is a theft's day box (`yyyy-MM-dd`, ticket 349). **Absent** means the box
- * was never drawn, and the day is left as it is.
+ * `businessDay` is a theft's day box (`yyyy-MM-dd`, ticket 349) — read for a theft only;
+ * `''` on the other kinds, which draw no box.
  */
-export type ChangeDraft = { amount: string; description: string; reason: string; businessDay?: string }
+export type ChangeDraft = { amount: string; description: string; reason: string; businessDay: string }
 
 /**
  * Whether the change form asks for a business day — a theft's alone (2195, W4). A
@@ -330,9 +330,8 @@ export function changeRequestBody(
     amount: number
     description: string
     spentAmount: number
-    /** Absent reads as a kind with no day (an older caller's shortage). */
-    entryKind?: SettlementEntryKind
-    businessDay?: string
+    entryKind: SettlementEntryKind
+    businessDay: string
   },
   draft: ChangeDraft,
 ): ChangeDraftCheck {
@@ -348,10 +347,10 @@ export function changeRequestBody(
   const descriptionProblem = descriptionDiffers ? description.problem : null
   const reason = checkDescription(draft.reason)
 
-  // 349: the day box, a theft's alone. An untouched box (absent) is the day as it is.
-  const theft = asksBusinessDay(entry.entryKind ?? 'SHORTAGE')
+  // 349: the day box, a theft's alone.
+  const theft = asksBusinessDay(entry.entryKind)
   const currentDay = dayInBox(entry.businessDay)
-  const day = theft && draft.businessDay !== undefined ? checkBusinessDay('THEFT', draft.businessDay) : null
+  const day = theft ? checkBusinessDay('THEFT', draft.businessDay) : null
   // ⚠️ An emptied box is held only when there is a day to keep — a theft the server
   // holds without one (it cannot post one so, 339) leaves it as it is.
   const dayProblem = day?.problem === 'blank' && currentDay === '' ? null : (day?.problem ?? null)
@@ -688,7 +687,8 @@ export function cardFor(request: SettlementChangeRequest): WaitingCard {
     changes.push({ field: 'amount', from: request.oldAmount, to: request.newAmount })
   if ((request.oldDescription ?? '') !== (request.newDescription ?? ''))
     changes.push({ field: 'description', from: request.oldDescription, to: request.newDescription })
-  if ((request.oldBusinessDay ?? '') !== (request.newBusinessDay ?? ''))
+  // Compared as days, not as stamps: a stamp written another way is not a day-move.
+  if (dayInBox(request.oldBusinessDay) !== dayInBox(request.newBusinessDay))
     changes.push({ field: 'businessDay', from: request.oldBusinessDay, to: request.newBusinessDay })
   return {
     kind: request.requestKind,

@@ -40,6 +40,7 @@ export type ChangeRequestDoor = 'raise' | 'approve' | 'reject' | 'withdraw'
  * | `reread` | closes the form; the re-read draws whatever now waits |
  * | `stay` | keeps the form as typed |
  * | `reject` | a supervisor's approve: the card stays, Reject (with a reason) is the way on (346) |
+ * | `not-requester` | the card stays, still waiting; Withdraw is no longer offered on that request (345) |
  * | `none` | nothing to offer — the sentence is the whole answer |
  */
 export type RefusalStep =
@@ -51,6 +52,7 @@ export type RefusalStep =
   | { kind: 'reread' }
   | { kind: 'stay' }
   | { kind: 'reject' }
+  | { kind: 'not-requester' }
   | { kind: 'none' }
 
 /** The ends a decided request can have met (2194) — `CHANGE_NOT_OPEN`'s `requestStatus`. */
@@ -158,7 +160,9 @@ export function changeRefusal(
     }
 
     case 'NOT_REQUESTER':
-      return said(key('NOT_REQUESTER'), { kind: 'none' })
+      // The server's word that this session did not raise it — the pane passes the id to
+      // `offerFor` (`notRequesterOf`), which stops offering Withdraw on that request (345).
+      return said(key('NOT_REQUESTER'), { kind: 'not-requester' })
 
     case 'THEFT_DAY_COLLECTED':
       // On a raise the NEW day may be the collected one, and another can be picked.

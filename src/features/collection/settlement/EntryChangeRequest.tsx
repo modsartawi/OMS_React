@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { FilePenLine, Hourglass, TriangleAlert } from 'lucide-react'
+import { FilePenLine, Hourglass, TriangleAlert, Undo2 } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
@@ -19,6 +19,7 @@ import type { AccountEntryRow } from './account-projection'
 import { changeRequestHistoryKey, settlementApi } from './api'
 import {
   afterRaise,
+  afterWithdraw,
   cardFor,
   changeRequestBody,
   entryNow,
@@ -39,8 +40,13 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  *
  * 🔑 **It never tests a status, a figure or a grant itself.** `offerFor` decides the
  * whole of W3's table and this component draws the cell it is handed — later tickets
- * draw the cells it does not yet (Withdraw 345, Approve / Reject 346, delete and reduce
- * 347, the *applies immediately* sentence 348).
+ * draw the cells it does not yet (Approve / Reject 346, delete and reduce 347, the
+ * *applies immediately* sentence 348).
+ *
+ * 🔑 **Withdraw (345) is the cell's `withdraw`**, drawn for the requester only. One press
+ * sends `{ changeRequestId }`; a `WITHDRAWN` answer drops the card at once (W8), and a
+ * `NOT_REQUESTER` answer feeds the request's id back to `offerFor` (`notRequesterOf`), so
+ * the button is not offered beside the sentence that refused it.
  *
  * 🔑 **Redraw from the answer, then re-read (W8).** An accepted raise draws the waiting
  * card and the entry's figures from the act answer AT ONCE, then re-reads History (one
@@ -63,6 +69,8 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  * frame; a fresh mount has no such frame.
  */
 type RaiseVars = { entry: EntryNow; body: SettlementChangeRequestRaiseBody }
+/** The request withdrawn travels with its entry, for the same reason (`stillOn`). */
+type WithdrawVars = { entry: EntryNow; request: SettlementChangeRequest }
 
 /**
  * The last act answer about the entry on screen, and the request it raised (if one waits).
@@ -71,7 +79,11 @@ type RaiseVars = { entry: EntryNow; body: SettlementChangeRequestRaiseBody }
  */
 type Answered = { result: SettlementChangeRequestActResult; request?: SettlementChangeRequest | null }
 
-type Notice = { kind: 'refused'; refusal: ChangeRefusal } | { kind: 'error'; text: string }
+/** `invalid` — a 400 with no box to sit on (Withdraw has no form), in 344's words. */
+type Notice =
+  | { kind: 'refused'; refusal: ChangeRefusal }
+  | { kind: 'invalid'; error: ChangeFieldError }
+  | { kind: 'error'; text: string }
 
 const EMPTY_DRAFT: ChangeDraft = { amount: '', description: '', reason: '' }
 
@@ -111,8 +123,10 @@ export default function EntryChangeRequest({
   const [fieldError, setFieldError] = useState<ChangeFieldError | null>(null)
   /** `ENTRY_NOT_OPEN`: the entry no longer exists, and the pane draws only that sentence. */
   const [gone, setGone] = useState(false)
-  /** A raise answered 404 — the History read may have come from a cache older than the door's removal. */
-  const [raiseUnshipped, setRaiseUnshipped] = useState(false)
+  /** A raise or withdraw answered 404 — the History read may have come from a cache older than the door's removal. */
+  const [actUnshipped, setActUnshipped] = useState(false)
+  /** The request a withdraw was refused `NOT_REQUESTER` on — `offerFor` stops offering Withdraw on it. */
+  const [notRequesterOf, setNotRequesterOf] = useState<string | null>(null)
 
   // 🚩 A bare 403 on the read: the probe said this session holds the settlement grant,
   // and the door says it no longer does. Re-reading the probe takes the screen's buttons
@@ -127,6 +141,12 @@ export default function EntryChangeRequest({
   // under 151's header.
   const stillOn = (of: EntryNow) => of.settlementEntryId === entryId
 
+  /** Draw `mine` until `reread` lands — unless something newer was drawn meanwhile. */
+  const drawUntil = (reread: Promise<void>, mine: Answered) => {
+    setAnswered(mine)
+    void reread.then(() => setAnswered((now) => (now === mine ? null : now)))
+  }
+
   const raise = useMutation({
     mutationFn: (v: RaiseVars) => settlementApi.raiseChangeRequest(v.body),
     onSuccess: (result, v) => {
@@ -135,11 +155,7 @@ export default function EntryChangeRequest({
       // entry was finished meanwhile, is answered by the re-read turning this pane into
       // the card or the finished sentence.
       const reread = invalidateSettlement(queryClient, v.entry.storeId)
-      /** Draw `mine` until the re-read lands — unless something newer was drawn meanwhile. */
-      const drawUntilReread = (mine: Answered) => {
-        setAnswered(mine)
-        void reread.then(() => setAnswered((now) => (now === mine ? null : now)))
-      }
+      const drawUntilReread = (mine: Answered) => drawUntil(reread, mine)
       const outcome = afterRaise(result)
       if (outcome.kind === 'refused') {
         if (!stillOn(v.entry)) return
@@ -165,6 +181,7 @@ export default function EntryChangeRequest({
           case 'none':
           case 'reject':
           case 'reduce':
+          case 'not-requester':
             // The form stays as typed — its floor refilled from the answer for
             // BELOW_SPENT. `reduce` answers only a delete, whose form is 347's.
             return
@@ -201,7 +218,7 @@ export default function EntryChangeRequest({
       }
       if (!stillOn(v.entry)) return
       if (failure === 'not-shipped') {
-        setRaiseUnshipped(true)
+        setActUnshipped(true)
         return
       }
       // A 400 the map knows lands on its box; any other failure keeps the server's words.
@@ -215,10 +232,60 @@ export default function EntryChangeRequest({
     },
   })
 
+  const withdraw = useMutation({
+    mutationFn: (v: WithdrawVars) => settlementApi.withdrawChangeRequest(v.request.changeRequestId),
+    onSuccess: (result, v) => {
+      // Always — every answer is followed by History and the account re-read (W8).
+      const reread = invalidateSettlement(queryClient, v.entry.storeId)
+      const outcome = afterWithdraw(result)
+      if (outcome.kind === 'withdrawn') {
+        toast.success(t('changeRequest.done.withdrawn', { number: v.entry.entryNumber }))
+        if (!stillOn(v.entry)) return
+        // 🔑 W8: the card goes NOW — the answer says nothing waits, and its figures are
+        // the entry's (unchanged) — then History and the account replace it.
+        drawUntil(reread, { result, request: null })
+        setNotice(null)
+        return
+      }
+      if (!stillOn(v.entry)) return
+      // Neither withdrawn nor refused-away: `request` is left unset, so History's word stands.
+      drawUntil(reread, { result })
+      if (outcome.kind === 'unconfirmed') {
+        setNotice({ kind: 'error', text: t('changeRequest.errors.withdrawUnconfirmed') })
+        return
+      }
+      const refusal = changeRefusal('withdraw', result)
+      setNotice({ kind: 'refused', refusal })
+      if (refusal.step.kind === 'close') setGone(true)
+      else if (refusal.step.kind === 'not-requester') setNotRequesterOf(v.request.changeRequestId)
+      // Any other step (CHANGE_NOT_OPEN's redraw): the re-read, always above, draws what is true.
+    },
+    onError: (error, v) => {
+      const failure = changeRequestFailure(error)
+      if (failure === 'forbidden') {
+        toast.error(t('changeRequest.errors.withdrawForbidden'))
+        void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
+        return
+      }
+      if (!stillOn(v.entry)) return
+      if (failure === 'not-shipped') {
+        setActUnshipped(true)
+        return
+      }
+      // No form to put a 400 on: 344's sentence goes in the notice line.
+      const field = changeFieldError(apiErrorCode(error))
+      setNotice(
+        field
+          ? { kind: 'invalid', error: field }
+          : { kind: 'error', text: apiErrorMessage(error, t('changeRequest.errors.withdrawFailed')) },
+      )
+    },
+  })
+
   if (!row) return null
 
   const now = entryNow(row, history.data, answered?.result)
-  const failure = raiseUnshipped ? 'not-shipped' : readFailure
+  const failure = actUnshipped ? 'not-shipped' : readFailure
   const offer = offerFor(
     now,
     {
@@ -227,6 +294,7 @@ export default function EntryChangeRequest({
       openRequest:
         answered && answered.request !== undefined ? answered.request : (history.data?.openRequest ?? null),
       spentAmount: now.spentAmount,
+      notRequesterOf,
     },
     { canOpenSettlement: canOpen, canSuperviseSettlement: canSupervise, userId },
   )
@@ -248,7 +316,9 @@ export default function EntryChangeRequest({
     <p
       role="status"
       data-testid="change-request-notice"
-      data-code={notice.kind === 'refused' ? notice.refusal.code : undefined}
+      data-code={
+        notice.kind === 'refused' ? notice.refusal.code : notice.kind === 'invalid' ? notice.error.code : undefined
+      }
       data-step={notice.kind === 'refused' ? notice.refusal.step.kind : undefined}
       className="flex items-start gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-sm text-attention-800"
     >
@@ -256,13 +326,15 @@ export default function EntryChangeRequest({
       <span>
         {notice.kind === 'error'
           ? notice.text
-          : notice.refusal.words.kind === 'message'
-            ? notice.refusal.words.text
-            : t(`changeRequest.refusal.${notice.refusal.words.key}`, {
-                number: row.entryNumber,
-                spent: money(notice.refusal.spent),
-                code: notice.refusal.code,
-              })}
+          : notice.kind === 'invalid'
+            ? t(`changeRequest.invalid.${notice.error.sentence}`, { max: REASON_MAX })
+            : notice.refusal.words.kind === 'message'
+              ? notice.refusal.words.text
+              : t(`changeRequest.refusal.${notice.refusal.words.key}`, {
+                  number: row.entryNumber,
+                  spent: money(notice.refusal.spent),
+                  code: notice.refusal.code,
+                })}
       </span>
     </p>
   )
@@ -318,7 +390,23 @@ export default function EntryChangeRequest({
       ) : offer.kind === 'waiting' ? (
         <>
           {noticeLine}
-          <WaitingCard request={offer.request} entryNumber={row.entryNumber} money={money} />
+          <WaitingCard
+            request={offer.request}
+            entryNumber={row.entryNumber}
+            money={money}
+            withdraw={
+              offer.withdraw
+                ? {
+                    busy: withdraw.isPending,
+                    onWithdraw: () => {
+                      if (withdraw.isPending) return
+                      setNotice(null)
+                      withdraw.mutate({ entry: now, request: offer.request })
+                    },
+                  }
+                : null
+            }
+          />
         </>
       ) : (
         <>
@@ -498,17 +586,20 @@ function ChangeForm({
  * **The waiting-request card (W6)** — kind, old → new (only what differs), who asked
  * and when, the Reason, and that the entry keeps working at its current figures.
  *
- * 🚩 No act yet: Withdraw (345) and Approve / Reject (346) draw the cells `offerFor`
- * already returns.
+ * 🔑 **Withdraw is drawn only when handed** — `offerFor`'s `withdraw` cell, never a test
+ * here. Approve / Reject (346) will draw the `decide` cell the same way.
  */
 function WaitingCard({
   request,
   entryNumber,
   money,
+  withdraw,
 }: {
   request: SettlementChangeRequest
   entryNumber: number
   money: (v: number | null | undefined) => string
+  /** The requester's act (345) — `null` when `offerFor` did not offer it. */
+  withdraw: { busy: boolean; onWithdraw: () => void } | null
 }) {
   const { t } = useTranslation('settlement')
   const card = cardFor(request)
@@ -563,6 +654,21 @@ function WaitingCard({
       <p className="text-xs text-muted-foreground" data-testid="change-request-card-live">
         {t('changeRequest.card.live', { number: entryNumber })}
       </p>
+      {withdraw && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Button
+            variant="secondary"
+            onClick={withdraw.onWithdraw}
+            aria-disabled={withdraw.busy || undefined}
+            aria-busy={withdraw.busy || undefined}
+            data-testid="change-request-withdraw"
+          >
+            <Undo2 className="h-3.5 w-3.5" aria-hidden />
+            {t('changeRequest.card.withdraw')}
+          </Button>
+          <span className="text-xs text-muted-foreground">{t('changeRequest.card.withdrawHint')}</span>
+        </div>
+      )}
     </div>
   )
 }

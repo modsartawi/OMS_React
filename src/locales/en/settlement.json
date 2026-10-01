@@ -270,7 +270,9 @@
       "askedAt": "Asked by {{by}} on {{at}}",
       "reason": "Reason",
       "noReason": "No reason was recorded.",
-      "live": "Entry {{number}} keeps working at its current figures until this request is decided."
+      "live": "Entry {{number}} keeps working at its current figures until this request is decided.",
+      "withdraw": "Withdraw",
+      "withdrawHint": "You raised this change request, so you can withdraw it before a supervisor decides it."
     },
     "refusal": {
       "ENTRY_NOT_OPEN": "Entry {{number}} no longer exists on the server, so nothing can be asked for or decided on it.",
@@ -292,11 +294,11 @@
       "CHANGE_NOT_OPEN": {
         "APPLIED": "This change request was already applied.",
         "REJECTED": "This change request was already rejected.",
-        "WITHDRAWN": "This change request was withdrawn by the accountant who raised it.",
+        "WITHDRAWN": "This change request was already withdrawn by the person who raised it.",
         "SUPERSEDED": "This change request was superseded by a supervisor's direct act on the entry.",
         "unsaid": "This change request is no longer waiting — it was decided already, or no longer exists."
       },
-      "NOT_REQUESTER": "Only the accountant who raised this change request can withdraw it. It stays waiting for a supervisor to approve or reject.",
+      "NOT_REQUESTER": "Only the person who raised this change request can withdraw it. It stays waiting for a supervisor to approve or reject.",
       "THEFT_DAY_COLLECTED": "This theft's business day — or the day it would move to — has been collected, so it can no longer be corrected or deleted.",
       "tracer": "The change request was refused ({{code}}). Read the entry again, and report the code if it repeats.",
       "unknown": "The change request was refused. The server answered {{code}}.",
@@ -323,13 +325,17 @@
     },
     "done": {
       "raised": "Change request raised for entry {{number}}.",
-      "applied": "Entry {{number}} is changed."
+      "applied": "Entry {{number}} is changed.",
+      "withdrawn": "Your change request on entry {{number}} was withdrawn."
     },
     "errors": {
       "loadFailed": "This entry's change requests could not be read.",
       "readForbidden": "This session no longer holds the settlement grant, so this entry's change requests cannot be read.",
       "raiseFailed": "The change request could not be sent.",
-      "forbidden": "This session no longer holds the settlement grant — the change request was not raised."
+      "forbidden": "This session no longer holds the settlement grant — the change request was not raised.",
+      "withdrawFailed": "The change request could not be withdrawn.",
+      "withdrawForbidden": "This session no longer holds the settlement grant — the change request was not withdrawn.",
+      "withdrawUnconfirmed": "The server accepted the withdraw but did not confirm the request was withdrawn. This entry's change requests are being read again."
     }
   },
   "audit": {

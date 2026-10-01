@@ -68,6 +68,26 @@ export const BELOW_SPENT_SAMPLE: SettlementChangeRequestActResult = {
   businessDay: UNSTAMPED,
 }
 
+/**
+ * **2194's sample answer, verbatim** — a withdraw refused `NOT_REQUESTER` on entry 162:
+ * the request stays `OPEN` for a supervisor. 2195 adds `businessDay` to every act
+ * response; a shortage carries the year-1 day.
+ */
+export const NOT_REQUESTER_SAMPLE: SettlementChangeRequestActResult = {
+  accepted: false,
+  refusalReason: 'NOT_REQUESTER',
+  changeRequestId: SAMPLE_REQUEST_ID,
+  requestStatus: 'OPEN',
+  settlementEntryId: SAMPLE_ENTRY_ID,
+  entryNumber: 162,
+  amount: 350.0,
+  remainingAmount: 350.0,
+  spentAmount: 0.0,
+  description: 'عجز نقدي — مراجعة سبتمبر',
+  entryStatus: 'OPEN',
+  businessDay: UNSTAMPED,
+}
+
 type EntryLike = Pick<
   SettlementEntry,
   'settlementEntryId' | 'storeId' | 'entryNumber' | 'status' | 'amount' | 'remainingAmount' | 'reason' | 'businessDay'
@@ -130,11 +150,29 @@ export function raisedAnswerFor(
   request: Pick<SettlementChangeRequest, 'changeRequestId'>,
   spentAmount: number,
 ): SettlementChangeRequestActResult {
+  return answerAbout(entry, request, 'OPEN', spentAmount)
+}
+
+/** An accepted withdraw of `request` (2194) — `requestStatus: "WITHDRAWN"`, the entry's figures unchanged. */
+export function withdrawnAnswerFor(
+  entry: EntryLike,
+  request: Pick<SettlementChangeRequest, 'changeRequestId'>,
+  spentAmount: number,
+): SettlementChangeRequestActResult {
+  return answerAbout(entry, request, 'WITHDRAWN', spentAmount)
+}
+
+function answerAbout(
+  entry: EntryLike,
+  request: Pick<SettlementChangeRequest, 'changeRequestId'>,
+  requestStatus: SettlementChangeRequestActResult['requestStatus'],
+  spentAmount: number,
+): SettlementChangeRequestActResult {
   return {
     accepted: true,
     refusalReason: '',
     changeRequestId: request.changeRequestId,
-    requestStatus: 'OPEN',
+    requestStatus,
     settlementEntryId: entry.settlementEntryId,
     entryNumber: entry.entryNumber,
     amount: entry.amount,

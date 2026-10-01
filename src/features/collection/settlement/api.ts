@@ -33,6 +33,7 @@ import type {
   SettlementChangeRequestActResult,
   SettlementChangeRequestHistory,
   SettlementChangeRequestRaiseBody,
+  SettlementChangeRequestWithdrawBody,
   SettlementChaseResult,
   SettlementChaseSubject,
   SettlementCloseOutResult,
@@ -636,5 +637,19 @@ export const settlementApi = {
    */
   raiseChangeRequest(body: SettlementChangeRequestRaiseBody): Promise<SettlementChangeRequestActResult> {
     return api.post<SettlementChangeRequestActResult>('Settlement/ChangeRequest/Raise', body)
+  },
+
+  /**
+   * `POST Settlement/ChangeRequest/Withdraw` → the requester withdraws their own waiting
+   * request (BackOffice 2194, ticket 345). Behind the settlement grant, as Raise.
+   *
+   * 🔑 Accepted is `requestStatus: "WITHDRAWN"` with the entry's figures unchanged. A
+   * refusal is a 200 — `NOT_REQUESTER` (a supervisor gets it too) or `CHANGE_NOT_OPEN`
+   * (`requestStatus` names which end) — worded by 344's map. ⚠️ A 404 means SIS.Api has
+   * not shipped the wave.
+   */
+  withdrawChangeRequest(changeRequestId: string): Promise<SettlementChangeRequestActResult> {
+    const body: SettlementChangeRequestWithdrawBody = { changeRequestId }
+    return api.post<SettlementChangeRequestActResult>('Settlement/ChangeRequest/Withdraw', body)
   },
 }

@@ -13,6 +13,7 @@ import { ApiError } from '@/core/api'
 import type { SettlementEntryKind, SettlementEntryStatus } from '@/core/models/settlement'
 import {
   afterRaise,
+  afterWithdraw,
   cardFor,
   changeRequestBody,
   entryNow,
@@ -24,11 +25,13 @@ import {
 import {
   APPLIED_SAMPLE,
   BELOW_SPENT_SAMPLE,
+  NOT_REQUESTER_SAMPLE,
   REQUESTER,
   UNSTAMPED,
   historyOf,
   raisedAnswerFor,
   waitingRequestOn,
+  withdrawnAnswerFor,
 } from './change-request-fixture'
 import { SETTLEMENT_ACCOUNTS } from './settlement-fixture'
 
@@ -190,6 +193,72 @@ describe('offerFor — a request waiting: the card, Withdraw for its requester, 
 
   it('a waiting request on a SPENT entry is still the card, not the reduce offer', () => {
     expect(offerFor({ ...entry, remainingAmount: 380 }, { openRequest: request, spentAmount: 120 }, ACCOUNTANT)).toMatchObject({ kind: 'waiting' })
+  })
+})
+
+describe('offerFor — Withdraw is the requester\'s, and only theirs (W6, ticket 345)', () => {
+  const entry = entryOf('0142', 143)
+  const byAccountant = waitingRequestOn(entry, { newAmount: 450, requestedByStaffId: 'u-accountant' })
+  const bySupervisor = waitingRequestOn(entry, { newAmount: 450, requestedByStaffId: 'u-supervisor' })
+  const read = (openRequest: typeof byAccountant, notRequesterOf?: string | null) => ({ openRequest, spentAmount: 0, notRequesterOf })
+
+  it('🔑 the accountant who raised it: Withdraw; another accountant on the same request: none', () => {
+    expect(offerFor(entry, read(byAccountant), ACCOUNTANT)).toMatchObject({ kind: 'waiting', withdraw: true, decide: false })
+    expect(offerFor(entry, read(byAccountant), { ...ACCOUNTANT, userId: 'u-colleague' })).toMatchObject({ kind: 'waiting', withdraw: false, decide: false })
+  })
+
+  it('🔑 a supervisor who raised it: Withdraw beside Approve / Reject; on an accountant\'s: Approve / Reject only', () => {
+    expect(offerFor(entry, read(bySupervisor), SUPERVISOR)).toMatchObject({ kind: 'waiting', withdraw: true, decide: true })
+    expect(offerFor(entry, read(byAccountant), SUPERVISOR)).toMatchObject({ kind: 'waiting', withdraw: false, decide: true })
+  })
+
+  it('the match is exact after a trim — never re-cased (the live check of the claim is still open)', () => {
+    expect(offerFor(entry, read({ ...byAccountant, requestedByStaffId: ' u-accountant ' }), ACCOUNTANT)).toMatchObject({ withdraw: true })
+    expect(offerFor(entry, read({ ...byAccountant, requestedByStaffId: 'U-ACCOUNTANT' }), ACCOUNTANT)).toMatchObject({ withdraw: false })
+  })
+
+  it('the requester without the settlement grant is not offered it — Withdraw sits behind that grant (W1)', () => {
+    expect(offerFor(entry, read(byAccountant), { ...NEITHER, userId: 'u-accountant' })).toMatchObject({ withdraw: false })
+  })
+
+  it('🚩 once the server answered NOT_REQUESTER on this request, Withdraw is no longer offered on it', () => {
+    expect(offerFor(entry, read(byAccountant, byAccountant.changeRequestId), ACCOUNTANT)).toEqual({
+      kind: 'waiting',
+      request: byAccountant,
+      withdraw: false,
+      decide: false,
+    })
+  })
+
+  it('…but a DIFFERENT request waiting later is judged afresh', () => {
+    const later = { ...byAccountant, changeRequestId: 'R-later' }
+    expect(offerFor(entry, read(later, byAccountant.changeRequestId), ACCOUNTANT)).toMatchObject({ withdraw: true })
+  })
+
+  it('…and the refused id does not touch a supervisor\'s Approve / Reject', () => {
+    expect(offerFor(entry, read(bySupervisor, bySupervisor.changeRequestId), SUPERVISOR)).toMatchObject({ withdraw: false, decide: true })
+  })
+})
+
+describe('afterWithdraw — withdrawn only when the answer says WITHDRAWN (2194)', () => {
+  const entry = entryOf('0142', 143)
+  const request = waitingRequestOn(entry, { changeRequestId: 'R1' })
+
+  it('accepted, requestStatus WITHDRAWN → withdrawn', () => {
+    expect(afterWithdraw(withdrawnAnswerFor(entry, request, 0))).toEqual({ kind: 'withdrawn' })
+  })
+  it('🚩 accepted but naming another status → unconfirmed: neither withdrawn nor a refusal the server never made', () => {
+    expect(afterWithdraw({ ...withdrawnAnswerFor(entry, request, 0), requestStatus: 'OPEN' })).toEqual({ kind: 'unconfirmed' })
+    expect(afterWithdraw({ ...withdrawnAnswerFor(entry, request, 0), requestStatus: '' })).toEqual({ kind: 'unconfirmed' })
+  })
+  it('a 200 refusal → refused with its code (2194\'s NOT_REQUESTER sample)', () => {
+    expect(afterWithdraw(NOT_REQUESTER_SAMPLE)).toEqual({ kind: 'refused', code: 'NOT_REQUESTER' })
+  })
+  it('CHANGE_NOT_OPEN → refused with its code; the map words which end it met', () => {
+    expect(afterWithdraw({ ...NOT_REQUESTER_SAMPLE, refusalReason: 'CHANGE_NOT_OPEN', requestStatus: 'SUPERSEDED' })).toEqual({ kind: 'refused', code: 'CHANGE_NOT_OPEN' })
+  })
+  it('no answer → refused with no code', () => {
+    expect(afterWithdraw(undefined)).toEqual({ kind: 'refused', code: '' })
   })
 })
 

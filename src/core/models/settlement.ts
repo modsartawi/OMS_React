@@ -1150,6 +1150,14 @@ export type SettlementChangeRequestRaiseBody = {
 }
 
 /**
+ * `POST Settlement/ChangeRequest/Withdraw`'s body (BackOffice 2194). No reason: only the
+ * requester may withdraw, and the entry is never touched.
+ */
+export type SettlementChangeRequestWithdrawBody = {
+  changeRequestId: string
+}
+
+/**
  * What every change-request act answers — Raise, Approve, Reject and Withdraw
  * (BackOffice 2191's table, with 2195's `businessDay`).
  *

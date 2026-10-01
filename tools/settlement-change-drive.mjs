@@ -40,6 +40,16 @@
 //  15. a 400 lands on its box (amount, Reason, the form), clears on the next keystroke, and an
 //      unknown 400 keeps the server's own message. No sentence is the server's `message`.
 //
+// Ticket 345 — the requester withdraws their own waiting request (W6, 2194's Withdraw):
+//  16. the requester's card shows Withdraw (Auth/Me's userId equals requestedByStaffId — the
+//      match is STUBBED, the live check of the claim is still open); another accountant's
+//      request shows none; a supervisor sees it only on a request they raised;
+//  17. an accepted withdraw sends only { changeRequestId }, drops the card from the ANSWER
+//      while the History re-read is still held, then re-reads History and the account;
+//  18. NOT_REQUESTER and CHANGE_NOT_OPEN ("SUPERSEDED") are said from 344's map; after
+//      NOT_REQUESTER the card stays and Withdraw is no longer offered on it; a 404 says
+//      "not available yet".
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
 import { createRequire } from 'node:module'
@@ -90,6 +100,9 @@ const resetCr = (o = {}) => {
     holdHistory: null,
     historyMissing: false,
     raiseMissing: false,
+    withdraw: () => ({}),
+    withdrawMissing: false,
+    withdrawCalls: [],
     historyCalls: [],
     raiseCalls: [],
     accountCalls: 0,
@@ -161,6 +174,13 @@ async function run() {
         )
       }
       return route.fulfill(envelope(cr.raise(body)))
+    }
+    if (path === 'Settlement/ChangeRequest/Withdraw') {
+      const body = route.request().postDataJSON()
+      cr.withdrawCalls.push(body)
+      if (cr.withdrawMissing)
+        return route.fulfill(envelope(null, { status: 404, success: false, message: 'Not Found' }))
+      return route.fulfill(envelope(cr.withdraw(body)))
     }
     if (path === 'Settlement/Ledger') {
       // 🔑 One door, three readings — the lane (`status=OPEN`), the queue
@@ -744,6 +764,132 @@ async function run() {
   await appears('[data-testid="change-request-notice"]')
   check('🔑 an unknown 400 falls back to the server\'s message — the only place it is drawn', (await textOf('change-request-notice')).trim() === 'The server says no.' && (await tid('change-request-form').count()) === 1)
   await crKeys('ticket 344')
+
+  // ======== Ticket 345 — the requester withdraws their own waiting request ========
+  // 🚩 The match is STUBBED: Auth/Me answers userId "msartawi", and the request this
+  // session raised carries requestedByStaffId "msartawi". That the two are the same claim
+  // on a live SIS.Api is 345's open question.
+  Object.assign(
+    FX,
+    await page.evaluate(async ([e143, e151]) => {
+      const acc = await import('/src/features/collection/settlement/settlement-fixture.ts')
+      const crf = await import('/src/features/collection/settlement/change-request-fixture.ts')
+      const a = acc.SETTLEMENT_ACCOUNTS['0142']
+      const row143 = a.entries.find((e) => e.settlementEntryId === e143)
+      const row151 = a.entries.find((e) => e.settlementEntryId === e151)
+      const mine = crf.waitingRequestOn(row143, {
+        changeRequestId: 'R-345',
+        newAmount: 450,
+        requestedByStaffId: 'msartawi',
+        requestedByName: 'msartawi',
+        requestReason: 'typed 500 instead of 450',
+      })
+      // Another accountant's request — the fixture's own requester (30117).
+      const theirs = crf.waitingRequestOn(row151, { changeRequestId: 'R-151', newAmount: 300 })
+      return {
+        mine345: mine,
+        withMine143: crf.historyOf(row143, { spentAmount: 0, openRequest: mine }),
+        withTheirs151: crf.historyOf(row151, { spentAmount: 200, openRequest: theirs }),
+        quiet143: crf.historyOf(row143, { spentAmount: 0, requests: [{ ...mine, status: 'WITHDRAWN' }] }),
+        withdrawn143: crf.withdrawnAnswerFor(row143, mine, 0),
+        notRequester143: { ...crf.NOT_REQUESTER_SAMPLE, changeRequestId: 'R-345', settlementEntryId: e143, entryNumber: 143, amount: row143.amount, remainingAmount: row143.remainingAmount, description: row143.reason },
+      }
+    }, [FX.e143, FX.e151]),
+  )
+  /** 143 with this session's request waiting, 151 with another accountant's. */
+  const resetWithdraw = (o = {}) => {
+    resetCr(o)
+    cr.histories[FX.e143] = structuredClone(FX.withMine143)
+    cr.histories[FX.e151] = structuredClone(FX.withTheirs151)
+  }
+  const openCard = async (entry = 143) => {
+    await go(`${ROUTE}?store=0142&entry=${entry}`)
+    await appears('[data-testid="change-request-card"]')
+  }
+
+  // ---- 16. who is offered Withdraw ----
+  scenario = {}
+  resetWithdraw()
+  await openCard(143)
+  check('🔑 the requester\'s card shows Withdraw (session userId = requestedByStaffId, stubbed)', (await tid('change-request-withdraw').count()) === 1 && (await textOf('change-request-withdraw')).trim() === 'Withdraw')
+  check('…on the card of the request this session raised', (await tid('change-request-card').getAttribute('data-request')) === 'R-345')
+  await crKeys('the requester\'s card')
+  await shot('345-requester')
+  await pickEntry(FX.e151, 151)
+  await appears('[data-testid="change-request-card"][data-request="R-151"]')
+  check('🔑 another accountant\'s request: the card, and NO Withdraw', (await tid('change-request-card').getAttribute('data-request')) === 'R-151' && (await tid('change-request-withdraw').count()) === 0)
+  check('…and nothing was withdrawn by looking', cr.withdrawCalls.length === 0)
+
+  scenario = { access: { ...ACCOUNTANT, canSuperviseSettlement: true } }
+  resetWithdraw()
+  await openCard(143)
+  check('a supervisor sees Withdraw on a request they raised themselves', (await tid('change-request-withdraw').count()) === 1)
+  await pickEntry(FX.e151, 151)
+  await appears('[data-testid="change-request-card"][data-request="R-151"]')
+  check('…and not on an accountant\'s', (await tid('change-request-withdraw').count()) === 0)
+  scenario = {}
+
+  // ---- 17. an accepted withdraw ----
+  resetWithdraw({
+    withdraw: () => {
+      cr.histories[FX.e143] = structuredClone(FX.quiet143)
+      return FX.withdrawn143
+    },
+  })
+  await openCard(143)
+  const holdWithdraw = deferred()
+  const historyBeforeW = cr.historyCalls.length
+  const accountBeforeW = cr.accountCalls
+  cr.holdHistory = holdWithdraw
+  await tid('change-request-withdraw').click()
+  await page.waitForFunction(() => !document.querySelector('[data-testid="change-request-card"]'), null, { timeout: 8000 }).catch(() => {})
+  check('🔑 Withdraw sends ONLY { changeRequestId }', JSON.stringify(cr.withdrawCalls.at(-1)) === JSON.stringify({ changeRequestId: 'R-345' }), JSON.stringify(cr.withdrawCalls.at(-1)))
+  check('🔑 W8: the card is gone from the ANSWER while the History re-read is still held', (await tid('change-request-card').count()) === 0 && (await offerOf()) === 'ask' && cr.historyCalls.length > historyBeforeW)
+  check('…the entry offers a change again, at its unchanged figures', (await tid('change-request-open').count()) === 1)
+  check('…and the toast says withdrawn, never cancelled', /Your change request on entry 143 was withdrawn\./.test(await page.locator('body').innerText()) && !/cancelled/i.test(await page.locator('[data-sonner-toaster]').innerText().catch(() => '')))
+  await shot('345-withdrawn')
+  holdWithdraw.release()
+  cr.holdHistory = null
+  await settle()
+  check('…then the re-read lands with no card', (await tid('change-request-card').count()) === 0 && (await offerOf()) === 'ask')
+  check('…and the account was re-read too', cr.accountCalls > accountBeforeW)
+  await crKeys('an accepted withdraw')
+
+  // ---- 18. refusals, said from 344's map ----
+  resetWithdraw({ withdraw: () => FX.notRequester143 })
+  await openCard(143)
+  await tid('change-request-withdraw').click()
+  await appears('[data-testid="change-request-notice"]')
+  n = await noticeOf()
+  check('🔑 NOT_REQUESTER is said by its code', n.code === 'NOT_REQUESTER' && n.step === 'not-requester' && /Only the person who raised this change request can withdraw it\. It stays waiting/.test(n.text), JSON.stringify(n))
+  await settle()
+  check('🔑 …the card stays, still waiting, and Withdraw is no longer offered on it', (await tid('change-request-card').getAttribute('data-request')) === 'R-345' && (await tid('change-request-withdraw').count()) === 0)
+  await crKeys('NOT_REQUESTER')
+  await shot('345-not-requester')
+
+  resetWithdraw({
+    withdraw: () => {
+      // A supervisor's direct act superseded it meanwhile — History says nothing waits now.
+      cr.histories[FX.e143] = structuredClone(FX.quiet143)
+      return { ...FX.notRequester143, refusalReason: 'CHANGE_NOT_OPEN', requestStatus: 'SUPERSEDED' }
+    },
+  })
+  await openCard(143)
+  await tid('change-request-withdraw').click()
+  await appears('[data-testid="change-request-notice"]')
+  n = await noticeOf()
+  check('🔑 CHANGE_NOT_OPEN ("SUPERSEDED") is said by its code, naming which end it met', n.code === 'CHANGE_NOT_OPEN' && n.step === 'redraw' && /superseded by a supervisor's direct act/.test(n.text), JSON.stringify(n))
+  await settle()
+  check('…and the re-read draws what is true: no card', (await tid('change-request-card').count()) === 0 && (await offerOf()) === 'ask')
+  check('no sentence anywhere calls a request "cancelled"', !/request (was|is) cancelled/i.test(await page.locator('body').innerText()))
+
+  resetWithdraw({ withdrawMissing: true })
+  const errorsBeforeW404 = errors.length
+  await openCard(143)
+  await tid('change-request-withdraw').click()
+  await appears('[data-testid="change-request-unavailable"]')
+  check('a 404 on Withdraw says "not available yet", never a crash', (await offerOf()) === 'not-shipped' && errors.length === errorsBeforeW404)
+  await crKeys('ticket 345')
 
   // ---- 6. ----
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' | '))

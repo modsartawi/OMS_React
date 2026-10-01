@@ -194,8 +194,8 @@ describe('changeRefusal — the next step (ticket 344\'s table)', () => {
     expect(changeRefusal('approve', refused('CHANGE_NOT_OPEN', { requestStatus: 'OPEN' })).words).toEqual({ kind: 'key', key: 'CHANGE_NOT_OPEN.unsaid' })
   })
 
-  it('NOT_REQUESTER — only the requester can withdraw it: no step', () => {
-    expect(changeRefusal('withdraw', refused('NOT_REQUESTER', { changeRequestId: SAMPLE_REQUEST_ID, requestStatus: 'OPEN' })).step).toEqual({ kind: 'none' })
+  it('NOT_REQUESTER — only the requester can withdraw it: the pane stops offering Withdraw on it (345)', () => {
+    expect(changeRefusal('withdraw', refused('NOT_REQUESTER', { changeRequestId: SAMPLE_REQUEST_ID, requestStatus: 'OPEN' })).step).toEqual({ kind: 'not-requester' })
   })
 
   it('THEFT_DAY_COLLECTED at approval: the supervisor rejects it with a reason', () => {

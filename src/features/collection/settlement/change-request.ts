@@ -55,6 +55,12 @@ export type ChangeRequestSession = {
 export type ChangeRequestRead = {
   openRequest: SettlementChangeRequest | null
   spentAmount: number | null
+  /**
+   * The request a withdraw by this session was refused `NOT_REQUESTER` on (345) — the
+   * server's own word that this session did not raise it. Withdraw is not offered on it
+   * again; a different request waiting later is judged afresh.
+   */
+  notRequesterOf?: string | null
 }
 
 /** Why a finished entry offers nothing — distinguished, because the sentence is the
@@ -119,9 +125,11 @@ const LIVE: readonly SettlementEntryStatus[] = ['PENDING_APPROVAL', 'OPEN', 'CON
  * a delete on an entry the branch may have spent from.
  *
  * 🚩 **Withdraw is drawn only for the requester**: the session's `userId` equals
- * `requestedByStaffId` (W6). Both are the session's UserId claim on the server; that
- * they are the same claim is confirmed live by 345. The server's `NOT_REQUESTER` is
- * the guard. An unknown or empty user id is never the requester.
+ * `requestedByStaffId` (W6), matched exactly after a trim and never re-cased. Both are
+ * the session's UserId claim on the server; that they are the same claim is still to be
+ * confirmed against a live SIS.Api (345's open question). The server's `NOT_REQUESTER`
+ * is the guard, and once it has answered on a request (`notRequesterOf`) Withdraw is not
+ * offered on that request again. An unknown or empty user id is never the requester.
  */
 export function offerFor(
   entry: Pick<SettlementEntry, 'status' | 'amount' | 'remainingAmount'> & { entryKind?: SettlementEntryKind } | null | undefined,
@@ -137,10 +145,14 @@ export function offerFor(
   const open = read.openRequest ?? null
   if (open) {
     const me = (session.userId ?? '').trim()
+    // ⚠️ The server outranks the shadow: a NOT_REQUESTER on this very request means the
+    // match above is wrong for it, and a button beside that sentence invites it again.
+    const refusedHere = !!read.notRequesterOf && read.notRequesterOf === open.changeRequestId
     return {
       kind: 'waiting',
       request: open,
-      withdraw: session.canOpenSettlement && me !== '' && me === (open.requestedByStaffId ?? '').trim(),
+      withdraw:
+        session.canOpenSettlement && !refusedHere && me !== '' && me === (open.requestedByStaffId ?? '').trim(),
       decide: session.canSuperviseSettlement,
     }
   }
@@ -355,6 +367,26 @@ export function raisedRequest(
     decidedAt: UNSTAMPED,
     decisionReason: '',
   }
+}
+
+/* ── after a withdraw (W6, ticket 345) ───────────────────────────────────────── */
+
+/**
+ * What a withdraw came back with (2194).
+ *
+ * - **`withdrawn`** — accepted, `requestStatus: "WITHDRAWN"`: the card goes, and the
+ *   entry's figures are the answer's (unchanged).
+ * - **`unconfirmed`** — accepted, but naming another status. Neither withdrawn nor a
+ *   refusal: the server made neither claim, so the pane says so and the re-read draws
+ *   what is true.
+ * - **`refused`** — a 200 refusal (`NOT_REQUESTER`, `CHANGE_NOT_OPEN`); `changeRefusal`
+ *   words it and names the step.
+ */
+export type WithdrawOutcome = { kind: 'withdrawn' } | { kind: 'unconfirmed' } | { kind: 'refused'; code: string }
+
+export function afterWithdraw(answer: SettlementChangeRequestActResult | null | undefined): WithdrawOutcome {
+  if (answer?.accepted !== true) return { kind: 'refused', code: answer?.refusalReason ?? '' }
+  return answer.requestStatus === 'WITHDRAWN' ? { kind: 'withdrawn' } : { kind: 'unconfirmed' }
 }
 
 /* ── the waiting-request card (W6) ───────────────────────────────────────────── */

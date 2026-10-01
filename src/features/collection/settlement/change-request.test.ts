@@ -731,13 +731,13 @@ describe('deleteRequestBody — a delete asks for a Reason only, and sends no fi
 })
 
 describe('reduceToSpent — "Reduce it to X" fills the change form with the spent figure (W5, ticket 347)', () => {
-  const entry = { settlementEntryId: 'E-151', amount: 500, description: 'فائض نقدي — مراجعة سبتمبر' }
+  const entry = { settlementEntryId: 'E-151', amount: 500, description: 'فائض نقدي — مراجعة سبتمبر', businessDay: UNSTAMPED }
 
   it('🔑 from the History read: offerFor\'s reduce cell → the draft whose newAmount is the spent figure', () => {
     const offer = offerFor(anEntry({ status: 'OPEN', amount: 500, remainingAmount: 380 }), { openRequest: null, spentAmount: 120 }, ACCOUNTANT)
     if (offer.kind !== 'ask' || offer.remove.kind !== 'reduce') throw new Error(`expected the reduce cell, got ${JSON.stringify(offer)}`)
     const draft = reduceToSpent(entry, offer.remove)
-    expect(draft).toEqual({ amount: '120', description: entry.description, reason: '' })
+    expect(draft).toEqual({ amount: '120', description: entry.description, reason: '', businessDay: '' })
     expect(changeRequestBody({ ...entry, spentAmount: 120 }, { ...draft, reason: 'only 120 was ever owed' })).toEqual({
       kind: 'ready',
       body: { settlementEntryId: 'E-151', requestKind: 'CHANGE', newAmount: 120, newDescription: null, reason: 'only 120 was ever owed' },
@@ -747,7 +747,7 @@ describe('reduceToSpent — "Reduce it to X" fills the change form with the spen
   it('🔑 from a DELETE_SPENT answer: 344\'s reduce step, X the ANSWER\'s spentAmount (2193\'s sample)', () => {
     const refusal = changeRefusal('raise', DELETE_SPENT_SAMPLE)
     if (refusal.step.kind !== 'reduce') throw new Error(`expected the reduce step, got ${JSON.stringify(refusal.step)}`)
-    const draft = reduceToSpent({ description: DELETE_SPENT_SAMPLE.description }, refusal.step)
+    const draft = reduceToSpent({ description: DELETE_SPENT_SAMPLE.description, businessDay: DELETE_SPENT_SAMPLE.businessDay }, refusal.step)
     expect(draft.amount).toBe('120')
     const check = changeRequestBody(
       { settlementEntryId: DELETE_SPENT_SAMPLE.settlementEntryId, amount: 500, description: DELETE_SPENT_SAMPLE.description, spentAmount: 120 },
@@ -759,8 +759,8 @@ describe('reduceToSpent — "Reduce it to X" fills the change form with the spen
   it('🔑 a BHD entry spent by 0.001: the draft asks for 0.001, exactly the floor, and is ready', () => {
     const offer = offerFor(anEntry({ status: 'OPEN', amount: 50, remainingAmount: 49.999 }), { openRequest: null, spentAmount: 0.001 }, ACCOUNTANT)
     if (offer.kind !== 'ask' || offer.remove.kind !== 'reduce') throw new Error('expected the reduce cell')
-    const draft = reduceToSpent({ description: 'd' }, offer.remove, 'posted twice')
-    expect(draft).toEqual({ amount: '0.001', description: 'd', reason: 'posted twice' })
+    const draft = reduceToSpent({ description: 'd', businessDay: UNSTAMPED }, offer.remove, 'posted twice')
+    expect(draft).toEqual({ amount: '0.001', description: 'd', reason: 'posted twice', businessDay: '' })
     const check = changeRequestBody({ settlementEntryId: 'E', amount: 50, description: 'd', spentAmount: 0.001 }, draft)
     expect(check).toEqual({
       kind: 'ready',
@@ -769,11 +769,11 @@ describe('reduceToSpent — "Reduce it to X" fills the change form with the spen
   })
 
   it('the figure is written at holding scale — a float tail never reaches the box', () => {
-    expect(reduceToSpent({ description: '' }, { kind: 'reduce', to: 120.10000000000001 }).amount).toBe('120.1')
+    expect(reduceToSpent({ description: '', businessDay: UNSTAMPED }, { kind: 'reduce', to: 120.10000000000001 }).amount).toBe('120.1')
   })
 
   it('a Reason typed for the refused delete is carried into the change form, to be edited there', () => {
-    expect(reduceToSpent({ description: 'd' }, { kind: 'reduce', to: 120 }, 'entry posted in error').reason).toBe('entry posted in error')
+    expect(reduceToSpent({ description: 'd', businessDay: UNSTAMPED }, { kind: 'reduce', to: 120 }, 'entry posted in error').reason).toBe('entry posted in error')
   })
 })
 
@@ -931,6 +931,12 @@ describe('changeRequestBody — a theft\'s business day (W4, ticket 349; BackOff
     const read = paneRead(row, history, { result, request: null })
     expect(read.now).toMatchObject({ businessDay: '2026-09-21T00:00:00', amount: 450.75, status: 'OPEN' })
     expect(changeDraftFor(read.now).businessDay).toBe('2026-09-21')
+  })
+
+  it('"Reduce it to X" keeps a theft\'s day in its box — the form never opens with it emptied', () => {
+    const draft = reduceToSpent(theft, { kind: 'reduce', to: 400 }, 'counted again')
+    expect(draft).toEqual({ amount: '400', description: row.reason, reason: 'counted again', businessDay: '2026-09-20' })
+    expect(changeRequestBody(theft, draft)).toMatchObject({ kind: 'ready', body: { newAmount: 400, newBusinessDay: null } })
   })
 
   it('THEFT_DAY_COLLECTED (2195\'s sample): said by its code; a raise keeps the form, an approve is rejected', () => {

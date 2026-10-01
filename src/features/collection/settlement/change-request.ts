@@ -413,7 +413,7 @@ export function deleteRequestBody(entry: Pick<EntryNow, 'settlementEntryId'>, re
 
 /**
  * **"Reduce it to X"** — the change form's draft with `X` filled in as the amount, and
- * the entry's Description as it stands (so only the amount differs).
+ * the entry's Description (and a theft's day) as it stands (so only the amount differs).
  *
  * 🔑 **`X` is the server's spent figure, from either source**: `offerFor`'s `reduce`
  * cell (the History read) or `changeRefusal`'s `reduce` step (a `DELETE_SPENT`
@@ -424,8 +424,13 @@ export function deleteRequestBody(entry: Pick<EntryNow, 'settlementEntryId'>, re
  * @param reason a Reason the accountant already typed — the refused delete's — carried
  *   into the change form to be edited there; `''` from the offer cell.
  */
-export function reduceToSpent(entry: Pick<EntryNow, 'description'>, reduce: ReduceOffer, reason = ''): ChangeDraft {
-  return { amount: String(roundMoney(reduce.to)), description: entry.description, reason }
+export function reduceToSpent(
+  entry: Pick<EntryNow, 'description' | 'businessDay'>,
+  reduce: ReduceOffer,
+  reason = '',
+): ChangeDraft {
+  // The day box as `changeDraftFor` fills it — a theft's form never opens with it emptied.
+  return { amount: String(roundMoney(reduce.to)), description: entry.description, reason, businessDay: dayInBox(entry.businessDay) }
 }
 
 /**

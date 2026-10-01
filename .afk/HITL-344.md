@@ -44,3 +44,13 @@
 **Decision taken:** Keep it (`stay`).
 **Why:** 2195 also sends this code when the *new* day is collected, and the accountant can pick another day. When the current day is the collected one, the sentence says the theft can no longer be corrected, and nothing is lost by leaving the form open.
 **Revisit if:** 349 wants the form closed when the current day is collected (the code alone cannot tell the two cases apart).
+
+## Q: `DELETE_SPENT` when the branch has spent the WHOLE amount — offer "Reduce it to X"?
+**Decision taken:** No. The step is `none`. The sentence still says the entry cannot be deleted.
+**Why:** Reducing it to the spent figure would leave the amount where it is, and the server would answer `NO_CHANGE`. This is 343's `spent-whole` cell, applied to the refusal the same way.
+**Revisit if:** 347 or the owner wants "Reduce it to X" drawn anyway on a consumed entry (same sign-off as HITL-343's spent-whole).
+
+## Q: "CHANGE_ALREADY_OPEN — open it": what if History's waiting request is not the one the refusal named?
+**Decision taken:** The notice no longer says "it is shown here". It reads "A change request is already waiting on entry N. It is decided or withdrawn before another can be raised." The card below it is whatever History's re-read says is waiting.
+**Why:** The request named by the refusal can be decided, and a new one raised, before History is read again. A sentence that points at the card would then describe the wrong request. The server's re-read is the one source of truth.
+**Revisit if:** —

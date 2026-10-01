@@ -669,7 +669,7 @@ async function run() {
   await appears('[data-testid="change-request-card"][data-request="R-777"]')
   n = await noticeOf()
   check('🔑 CHANGE_ALREADY_OPEN opens the request it names: R-777\'s card, the form gone', (await tid('change-request-card').getAttribute('data-request')) === 'R-777' && (await tid('change-request-form').count()) === 0 && (await offerOf()) === 'waiting')
-  check('…and says so by its code', n.code === 'CHANGE_ALREADY_OPEN' && n.step === 'open-request' && /already waiting on entry 143 — it is shown here/.test(n.text), JSON.stringify(n))
+  check('…and says so by its code', n.code === 'CHANGE_ALREADY_OPEN' && n.step === 'open-request' && /already waiting on entry 143\. It is decided or withdrawn/.test(n.text), JSON.stringify(n))
   check('…that request\'s own Reason is drawn, not the one just typed', (await textOf('change-request-card-reason')).trim() === 'raised by a colleague')
   await crKeys('CHANGE_ALREADY_OPEN')
   await shot('344-already-open')
@@ -677,14 +677,15 @@ async function run() {
   resetCr({
     raise: () => {
       cr.histories[FX.e143] = FX.afterRaise143
+      // The History reads made BEFORE this answer — the re-read must come after it.
+      cr.callsAtRaise = cr.historyCalls.length
       return about143({ refusalReason: 'CHANGE_ALREADY_OPEN' })
     },
   })
   await raise143('420')
-  const callsAtRefusal = cr.historyCalls.length
   await appears('[data-testid="change-request-card"]')
   n = await noticeOf()
-  check('🔑 CHANGE_ALREADY_OPEN with id \'\' re-reads History, which draws what waits now', n.step === 'reread' && /raised at the same moment/.test(n.text) && (await offerOf()) === 'waiting' && cr.historyCalls.length >= callsAtRefusal && cr.historyCalls.filter((id) => id === FX.e143).length >= 2, JSON.stringify(n))
+  check('🔑 CHANGE_ALREADY_OPEN with id \'\' re-reads History, which draws what waits now', n.step === 'reread' && /raised at the same moment/.test(n.text) && (await offerOf()) === 'waiting' && cr.historyCalls.length > cr.callsAtRaise, JSON.stringify(n))
 
   // ---- 14. NO_CHANGE stays; ENTRY_NOT_OPEN closes; ENTRY_FINAL redraws; unknown is named ----
   resetCr({ raise: () => about143({ refusalReason: 'NO_CHANGE' }) })

@@ -309,7 +309,7 @@ export function changeRequestBody(
  * - **`waiting`** — stored, `requestStatus: "OPEN"`: the card is drawn.
  * - **`applied`** — `requestStatus: "APPLIED"`: a supervisor's own request, applied in
  *   the same act (2194). Read from the ANSWER, never from the flag (W1).
- * - **`refused`** — a 200 refusal; `code` is the server's machine code (344 words it).
+ * - **`refused`** — a 200 refusal; `code` is the server's machine code (`changeRefusal` words it).
  */
 export type RaiseOutcome = { kind: 'waiting' } | { kind: 'applied' } | { kind: 'refused'; code: string }
 

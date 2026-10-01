@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 342
 blocked-by: 343
 ---
@@ -42,11 +42,11 @@ store/logic (refusal map) · component (raise form follows the step) · i18n · 
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `changeRefusal` — every 200 code in 2191–2195 maps to a sentence key and a next step; an unknown
+- [x] `changeRefusal` — every 200 code in 2191–2195 maps to a sentence key and a next step; an unknown
   code falls back to `message`; `CHANGE_ALREADY_OPEN` with `''` asks for a History re-read · pure
-- [ ] `changeFieldError` — every 400 code above maps to its field (amount / description / day / reason)
+- [x] `changeFieldError` — every 400 code above maps to its field (amount / description / day / reason)
   or to the form · pure
-- [ ] `settlement-change-drive` extended — `BELOW_SPENT` refills the floor, `CHANGE_ALREADY_OPEN` opens
+- [x] `settlement-change-drive` extended — `BELOW_SPENT` refills the floor, `CHANGE_ALREADY_OPEN` opens
   the named request, `NO_CHANGE` keeps the form, a 400 lands on its field · flow (drive)
 
 ## Boundaries
@@ -60,3 +60,30 @@ The three Proof items are green, typecheck + `npm test` pass, and earlier drives
 ## Blocked by
 
 [343](343-an-accountant-asks-to-change-an-untouched-entry-and-the-pane-shows-it-waiting.md)
+
+## Done — 2026-10-01
+
+- `change-refusal.ts` is one pure module. `changeRefusal(door, answer, message?)` covers every 200 code of
+  2191–2195 on every door (Raise / Approve / Reject / Withdraw). Each code returns a keyed sentence and a next step.
+  The step depends on the door only where the contracts give a code a second meaning at approval: `BELOW_SPENT`,
+  `DELETE_SPENT`, `CHANGE_STALE` and `THEFT_DAY_COLLECTED` become "reject with a reason". `changeFieldError(code, sent?)`
+  covers all 14 of the 400 codes.
+- `change-refusal.test.ts` has 92 cases. It takes its code lists from the contracts, not from the module, and checks
+  that every sentence key exists in `settlement.json`.
+- The Raise form now follows the step:
+  - `BELOW_SPENT` refills the floor from the answer before History is re-read.
+  - `CHANGE_ALREADY_OPEN` closes the form and lets the re-read draw the waiting card. When the id is `''`, it also
+    re-reads.
+  - `NO_CHANGE` leaves the form as it was typed.
+  - `ENTRY_NOT_OPEN` reduces the pane to its sentence.
+  - `ENTRY_FINAL` redraws at once.
+  - A 400 lands on its box: amount, Description, Reason, or the form itself. The server's `message` is shown only
+    for an unknown code.
+- `tools/settlement-change-drive.mjs` passes 102/102, stubbed. The earlier settlement drives are unmodified and green:
+  settlement 291/291, approval 42/42, description 41/41, supervision 41/41, theft 62/62. Typecheck, `npm test` (3004),
+  lint and build are green. Nothing was driven against a live SIS.Api.
+- Decisions taken unattended are in `.afk/HITL-344.md`. The ones most worth the owner's eye:
+  - **No `message` on an unknown 200 code on Raise.** `api.post` hands back only `data`, so the code is named
+    instead. `core/api.ts` was left untouched.
+  - **The per-door steps.**
+  - **A consumed entry's `DELETE_SPENT` offers no reduce.** This matches 343's spent-whole decision.

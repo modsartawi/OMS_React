@@ -284,7 +284,7 @@
         "unstated": "The branch has spent from entry {{number}}, so it cannot be deleted."
       },
       "CHANGE_ALREADY_OPEN": {
-        "named": "A change request is already waiting on entry {{number}} — it is shown here. It is decided or withdrawn before another can be raised.",
+        "named": "A change request is already waiting on entry {{number}}. It is decided or withdrawn before another can be raised.",
         "unnamed": "Another change request on entry {{number}} was raised at the same moment. Its change requests are being read again."
       },
       "NO_CHANGE": "Nothing would change — what is asked for is what entry {{number}} already holds.",

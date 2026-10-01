@@ -14,7 +14,7 @@ import type {
 } from '@/core/models/settlement'
 import { isStamped, supervisionFailure } from './approval'
 import type { ChangeRefusal, ChangeRequestDoor } from './change-refusal'
-import { checkDescription, parseAmount } from './posting'
+import { checkBusinessDay, checkDescription, parseAmount } from './posting'
 
 /**
  * **The change-request decision** — what the entry panel's change-request pane offers,
@@ -250,8 +250,38 @@ export function entryNow(
 
 /* ── the change form (W4) ────────────────────────────────────────────────────── */
 
-/** What the accountant has typed — the three boxes, as strings. */
-export type ChangeDraft = { amount: string; description: string; reason: string }
+/**
+ * What the accountant has typed — the boxes, as strings.
+ *
+ * `businessDay` is a theft's day box (`yyyy-MM-dd`, ticket 349). **Absent** means the box
+ * was never drawn, and the day is left as it is.
+ */
+export type ChangeDraft = { amount: string; description: string; reason: string; businessDay?: string }
+
+/**
+ * Whether the change form asks for a business day — a theft's alone (2195, W4). A
+ * shortage or a surplus has no day to move (`SettlementBusinessDayTheftOnly`).
+ */
+export function asksBusinessDay(kind: SettlementEntryKind): boolean {
+  return kind === 'THEFT'
+}
+
+/**
+ * A day as the day box holds it — the bare `yyyy-MM-dd` of the server's midnight
+ * stamp, as received; `''` for the year-1 *no day* (a shortage's, a surplus's).
+ */
+function dayInBox(stamp: string | null | undefined): string {
+  const value = (stamp ?? '').trim()
+  return isStamped(value) && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : ''
+}
+
+/**
+ * **The change form as it opens** (W4) — the entry's current amount and Description and,
+ * for a theft, its day. The Reason starts empty.
+ */
+export function changeDraftFor(entry: Pick<EntryNow, 'amount' | 'description' | 'businessDay'>): ChangeDraft {
+  return { amount: String(entry.amount), description: entry.description, reason: '', businessDay: dayInBox(entry.businessDay) }
+}
 
 /**
  * Whether the form may be sent, and if so, what.
@@ -267,12 +297,15 @@ export type ChangeDraftCheck =
       /** `invalid` — not a figure above zero; `below-floor` — under what was spent. */
       amount: 'invalid' | 'below-floor' | null
       description: 'blank' | 'too-long' | null
+      /** A theft's day box emptied, or not a calendar date (349). Always `null` for the other kinds. */
+      businessDay: 'blank' | 'unreadable' | null
       reason: 'blank' | 'too-long' | null
       unchanged: boolean
     }
 
 /**
- * **The change body** — only the fields that differ, as `newAmount` / `newDescription`.
+ * **The change body** — only the fields that differ, as `newAmount` / `newDescription`
+ * and, for a theft, `newBusinessDay`.
  *
  * 🔑 **"Differs" is decided at holding scale.** `500.0004` against `500` is no change,
  * and the figure sent is the typed one at three places — never a branch-currency
@@ -282,10 +315,25 @@ export type ChangeDraftCheck =
  * `OPEN` entry lowered to it becomes `CONSUMED`, 2192). A figure ≤ 0 or below the floor
  * is held here, and the server still decides.
  *
- * A theft's day (`newBusinessDay`) is 349's and is not sent from here.
+ * 🔑 **A theft's day (349, BackOffice 2195)** goes as a bare date (`"2025-08-12"`) only
+ * when it differs from the theft's own, else `null` — and naming only the day it already
+ * has is *nothing differs* (2195's `NO_CHANGE` counts the day). Whether the day is a
+ * closed day, or collected, is the server's to say (`SettlementTheftDayNotClosed`,
+ * `THEFT_DAY_COLLECTED`): the web has no reliable read of either (W3).
+ *
+ * 🚩 **A shortage or a surplus never names the field** — not even `null`, whatever the
+ * draft holds: 2195 answers `SettlementBusinessDayTheftOnly` to it.
  */
 export function changeRequestBody(
-  entry: { settlementEntryId: string; amount: number; description: string; spentAmount: number },
+  entry: {
+    settlementEntryId: string
+    amount: number
+    description: string
+    spentAmount: number
+    /** Absent reads as a kind with no day (an older caller's shortage). */
+    entryKind?: SettlementEntryKind
+    businessDay?: string
+  },
   draft: ChangeDraft,
 ): ChangeDraftCheck {
   const typed = parseAmount(draft.amount)
@@ -300,12 +348,29 @@ export function changeRequestBody(
   const descriptionProblem = descriptionDiffers ? description.problem : null
   const reason = checkDescription(draft.reason)
 
+  // 349: the day box, a theft's alone. An untouched box (absent) is the day as it is.
+  const theft = asksBusinessDay(entry.entryKind ?? 'SHORTAGE')
+  const currentDay = dayInBox(entry.businessDay)
+  const day = theft && draft.businessDay !== undefined ? checkBusinessDay('THEFT', draft.businessDay) : null
+  // ⚠️ An emptied box is held only when there is a day to keep — a theft the server
+  // holds without one (it cannot post one so, 339) leaves it as it is.
+  const dayProblem = day?.problem === 'blank' && currentDay === '' ? null : (day?.problem ?? null)
+  const newBusinessDay = day?.day !== undefined && day.day !== currentDay ? day.day : null
+
   const newAmount = asked !== null && asked !== roundMoney(entry.amount) ? asked : null
   const newDescription = descriptionDiffers ? description.text : null
-  const unchanged = amountProblem === null && newAmount === null && newDescription === null
+  const unchanged =
+    amountProblem === null && dayProblem === null && newAmount === null && newDescription === null && newBusinessDay === null
 
-  if (amountProblem || descriptionProblem || reason.problem || unchanged)
-    return { kind: 'held', amount: amountProblem, description: descriptionProblem, reason: reason.problem, unchanged }
+  if (amountProblem || descriptionProblem || dayProblem || reason.problem || unchanged)
+    return {
+      kind: 'held',
+      amount: amountProblem,
+      description: descriptionProblem,
+      businessDay: dayProblem,
+      reason: reason.problem,
+      unchanged,
+    }
 
   return {
     kind: 'ready',
@@ -314,6 +379,7 @@ export function changeRequestBody(
       requestKind: 'CHANGE',
       newAmount,
       newDescription,
+      ...(theft ? { newBusinessDay } : {}),
       reason: reason.text,
     },
   }
@@ -420,7 +486,9 @@ export function raisedRequest(
     oldDescription: entry.description,
     newDescription: body.newDescription ?? entry.description,
     oldBusinessDay: entry.businessDay,
-    newBusinessDay: body.newBusinessDay ?? entry.businessDay,
+    // A day-move is sent bare (`"2025-08-12"`); History writes it at midnight, as the
+    // entry's own day is written, so the two compare and draw alike (2195).
+    newBusinessDay: body.newBusinessDay ? `${body.newBusinessDay}T00:00:00` : entry.businessDay,
     spentAtDecision: 0,
     requestedByStaffId: requester.staffId,
     requestedByName: requester.name,

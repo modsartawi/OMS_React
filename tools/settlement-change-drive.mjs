@@ -86,6 +86,18 @@
 //  30. a supervisor's raise refused CHANGE_ALREADY_OPEN opens the accountant's card with
 //      Approve / Reject and says to decide it first; approving it offers "Change now" again.
 //
+// Ticket 349 — a theft's amount or business day (W4, 2195):
+//  31. a theft's change form shows the post dialog's day box filled with the theft's day; a
+//      shortage's form shows none; naming only the day it has is "nothing differs"; a
+//      day-move posts the bare date (and newBusinessDay null on an amount-only change), and
+//      the card names old → new day from the answer while the History re-read is held;
+//  32. THEFT_DAY_COLLECTED on a raise is said by its code in the notice, the form kept as
+//      typed (the web never shadows the collected day); on an approve the card stays OPEN
+//      with the "reject it" step;
+//  33. the 400s SettlementTheftDayNotClosed / SettlementTheftBusinessDayRequired land on the
+//      day box in 344's words and clear on the next keystroke; an emptied box is held;
+//  34. an approved day-move redraws the new day from the answer before the re-read lands.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
 import { createRequire } from 'node:module'
@@ -1619,6 +1631,208 @@ async function run() {
   await settle()
   check('🚩 an accountant blocked the same way: the card, and no "decide it first" — they cannot', (await tid('change-request-approve').count()) === 0 && (await tid('change-request-notice-step').count()) === 0)
   await crKeys('ticket 348')
+
+  // ======== Ticket 349 — a theft's amount or business day ========
+  Object.assign(
+    FX,
+    await page.evaluate(async () => {
+      const theft = await import('/src/features/collection/settlement/theft-fixture.ts')
+      const crf = await import('/src/features/collection/settlement/change-request-fixture.ts')
+      const account = structuredClone(theft.THEFT_ACCOUNT)
+      const row = (n) => account.entries.find((e) => e.entryNumber === n)
+      const t1413 = row(1413)
+      const shortage1410 = row(1410)
+      // 1413: an approved theft of 450.75 on 2026-09-20 — never spent (2195: the floor never bites).
+      const dayMove = crf.waitingRequestOn(t1413, {
+        changeRequestId: 'R-DAY',
+        newBusinessDay: '2026-09-21T00:00:00',
+        requestReason: 'reported against the wrong day',
+      })
+      const moved = { ...t1413, businessDay: '2026-09-21T00:00:00' }
+      const histories = {}
+      for (const e of account.entries) histories[e.settlementEntryId] = crf.historyOf(e, { spentAmount: 0 })
+      return {
+        theftAccount: account,
+        theftHistories: histories,
+        t1413: t1413.settlementEntryId,
+        t1410: shortage1410.settlementEntryId,
+        t1413Reason: t1413.reason,
+        raisedDay1413: crf.raisedAnswerFor(t1413, dayMove, 0),
+        withDayMove1413: crf.historyOf(t1413, { spentAmount: 0, openRequest: dayMove }),
+        // 2195's sample, about 1413 — nothing stored on a raise.
+        dayCollected1413: {
+          ...crf.THEFT_DAY_COLLECTED_SAMPLE,
+          changeRequestId: '',
+          requestStatus: '',
+          settlementEntryId: t1413.settlementEntryId,
+          entryNumber: 1413,
+          amount: 450.75,
+          remainingAmount: 450.75,
+          description: t1413.reason,
+          businessDay: t1413.businessDay,
+        },
+        // …and at approval: the request stays OPEN.
+        dayCollectedAtApproval1413: {
+          ...crf.THEFT_DAY_COLLECTED_SAMPLE,
+          changeRequestId: 'R-DAY',
+          settlementEntryId: t1413.settlementEntryId,
+          entryNumber: 1413,
+          amount: 450.75,
+          remainingAmount: 450.75,
+          description: t1413.reason,
+          businessDay: t1413.businessDay,
+        },
+        approvedDay1413: crf.approvedAnswerFor(t1413, dayMove, 0, { businessDay: '2026-09-21T00:00:00' }),
+        afterDay1413: crf.historyOf(moved, { spentAmount: 0, requests: [{ ...dayMove, status: 'APPLIED' }] }),
+      }
+    }),
+  )
+  FX.accounts.P019 = FX.theftAccount
+  Object.assign(FX.histories, FX.theftHistories)
+  const THEFT_ROUTE = `${ROUTE}?store=P019&entry=1413`
+  const dayBox = () => tid('change-request-day')
+  const openTheftForm = async () => {
+    await go(THEFT_ROUTE)
+    await appears('[data-testid="change-request-open"]')
+    await tid('change-request-open').click()
+    await appears('[data-testid="change-request-form"]')
+  }
+
+  // ---- 31. the day box: a theft's alone, filled, and sent only when it moves ----
+  scenario = {}
+  resetCr()
+  await openTheftForm()
+  check('🔑 a theft\'s change form shows the day box, filled with the theft\'s day', (await dayBox().count()) === 1 && (await dayBox().inputValue()) === '2026-09-20' && (await dayBox().getAttribute('type')) === 'date', await dayBox().inputValue().catch(() => ''))
+  check('…labelled as the post dialog labels it, and required', /Business day of the theft/.test(await page.locator('[data-region="change-request-day"]').innerText()) && (await dayBox().getAttribute('aria-required')) === 'true')
+  check('…between the Description and the Reason', (await before('[data-testid="change-request-description"]', '[data-testid="change-request-day"]')) && (await before('[data-testid="change-request-day"]', '[data-testid="change-request-reason"]')))
+  check('…and its amount floor is the server\'s 0 — a theft is never spent', /Lowest allowed: 0/.test(await textOf('change-request-floor')), await textOf('change-request-floor'))
+  await tid('change-request-reason').fill('reported against the wrong day')
+  check('🔑 naming only the day it already has is "nothing differs": held, and said with the day', (await held()) && /the amount, the Description or the business day/.test(await textOf('change-request-unchanged')))
+  await tid('change-request-submit').click({ force: true })
+  check('…and pressing it anyway sends nothing', cr.raiseCalls.length === 0)
+  await crKeys('a theft\'s change form')
+  await shot('349-theft-form')
+
+  await go(`${ROUTE}?store=P019&entry=1410`)
+  await appears('[data-testid="change-request-open"]')
+  await tid('change-request-open').click()
+  await appears('[data-testid="change-request-form"]')
+  check('🚩 a shortage\'s form shows no day box', (await dayBox().count()) === 0 && (await tid('change-request-amount').count()) === 1)
+  await tid('change-request-amount').fill('150')
+  await tid('change-request-reason').fill('typo')
+  await tid('change-request-submit').click()
+  await settle()
+  check('🚩 …and its raise names no newBusinessDay at all', JSON.stringify(cr.raiseCalls.at(-1)) === JSON.stringify({ settlementEntryId: FX.t1410, requestKind: 'CHANGE', newAmount: 150, newDescription: null, reason: 'typo' }), JSON.stringify(cr.raiseCalls.at(-1)))
+
+  resetCr({
+    raise: () => {
+      cr.histories[FX.t1413] = structuredClone(FX.withDayMove1413)
+      return FX.raisedDay1413
+    },
+  })
+  await openTheftForm()
+  await dayBox().fill('2026-09-21')
+  await tid('change-request-reason').fill('reported against the wrong day')
+  check('a moved day releases Submit', !(await held()))
+  const holdDay = deferred()
+  cr.holdHistory = holdDay
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-card"]')
+  check('🔑 the day-move posts the bare date, and null for the amount and Description', JSON.stringify(cr.raiseCalls.at(-1)) === JSON.stringify({ settlementEntryId: FX.t1413, requestKind: 'CHANGE', newAmount: null, newDescription: null, newBusinessDay: '2026-09-21', reason: 'reported against the wrong day' }), JSON.stringify(cr.raiseCalls.at(-1)))
+  check('🔑 the card names old → new day, drawn from the answer while the re-read is held', (await textOf('change-request-card-businessDay')).includes('2026-09-20') && (await textOf('change-request-card-businessDay')).includes('2026-09-21') && (await tid('change-request-card-amount').count()) === 0, await textOf('change-request-card-businessDay'))
+  holdDay.release()
+  cr.holdHistory = null
+  await settle()
+  check('…and the re-read\'s own row says the same', (await tid('change-request-card').getAttribute('data-request')) === 'R-DAY' && (await textOf('change-request-card-businessDay')).includes('2026-09-21'))
+  await crKeys('a theft\'s waiting day-move')
+  await shot('349-day-move-card')
+
+  resetCr()
+  await openTheftForm()
+  await tid('change-request-amount').fill('400')
+  await tid('change-request-reason').fill('counted again')
+  await tid('change-request-submit').click()
+  await settle()
+  check('an amount-only change on a theft sends newBusinessDay null — the day is left as it is', JSON.stringify(cr.raiseCalls.at(-1)) === JSON.stringify({ settlementEntryId: FX.t1413, requestKind: 'CHANGE', newAmount: 400, newDescription: null, newBusinessDay: null, reason: 'counted again' }), JSON.stringify(cr.raiseCalls.at(-1)))
+
+  // ---- 32. THEFT_DAY_COLLECTED: said by its code, in the notice ----
+  resetCr({ raise: () => FX.dayCollected1413 })
+  await openTheftForm()
+  await dayBox().fill('2026-09-21')
+  await tid('change-request-reason').fill('reported against the wrong day')
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-notice"]')
+  await settle()
+  n = await noticeOf()
+  check('🔑 THEFT_DAY_COLLECTED on a raise is said by its code, in the notice line', n.code === 'THEFT_DAY_COLLECTED' && n.step === 'stay' && /has been collected, so it can no longer be corrected or deleted/.test(n.text), JSON.stringify(n))
+  check('…the form kept as typed — another day may be picked', (await tid('change-request-form').count()) === 1 && (await dayBox().inputValue()) === '2026-09-21' && (await tid('change-request-reason').inputValue()) === 'reported against the wrong day')
+  check('…not on the day box: the code answers a change that never moved the day too', (await tid('change-request-day-error').count()) === 0)
+  check('…and nothing waits', (await tid('change-request-card').count()) === 0)
+  await crKeys('THEFT_DAY_COLLECTED on a raise')
+  await shot('349-day-collected')
+
+  scenario = { access: SUPERVISOR }
+  resetCr({ approve: () => FX.dayCollectedAtApproval1413 })
+  cr.histories[FX.t1413] = structuredClone(FX.withDayMove1413)
+  await go(THEFT_ROUTE)
+  await appears('[data-testid="change-request-approve"]')
+  await tid('change-request-approve').click()
+  await appears('[data-testid="change-request-notice"]')
+  await settle()
+  n = await noticeOf()
+  check('🔑 THEFT_DAY_COLLECTED at approval: the card stays OPEN, with the "reject it" step', n.code === 'THEFT_DAY_COLLECTED' && n.step === 'reject' && (await tid('change-request-card').getAttribute('data-request')) === 'R-DAY' && (await tid('change-request-notice-step').count()) === 1, JSON.stringify(n))
+  scenario = {}
+
+  // ---- 33. the day 400s land on the day box ----
+  resetCr({ raiseInvalid: { code: 'SettlementTheftDayNotClosed', message: SERVER_WORDS } })
+  await openTheftForm()
+  await dayBox().fill('2026-09-25')
+  await tid('change-request-reason').fill('reported against the wrong day')
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-day-error"]')
+  check('🔑 a 400 SettlementTheftDayNotClosed lands on the day box, in 344\'s words', /not a closed day of this branch/.test(await textOf('change-request-day-error')) && (await tid('change-request-form-error').count()) === 0 && !(await page.locator('body').innerText()).includes(SERVER_WORDS), await textOf('change-request-day-error'))
+  check('…the form kept as typed', (await dayBox().inputValue()) === '2026-09-25')
+  await dayBox().fill('2026-09-19')
+  check('…and the next keystroke clears it', (await tid('change-request-day-error').count()) === 0)
+  cr.raiseInvalid = { code: 'SettlementTheftBusinessDayRequired', message: SERVER_WORDS }
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-day-error"]')
+  check('…SettlementTheftBusinessDayRequired lands there too', /Pick the theft's business day/.test(await textOf('change-request-day-error')), await textOf('change-request-day-error'))
+  await dayBox().fill('')
+  check('an emptied day box is held in the form, and said on the box', (await held()) && /never left without one/.test(await textOf('change-request-day-error')), await textOf('change-request-day-error'))
+  await crKeys('the day 400s')
+
+  // ---- 34. an approved day-move redraws the new day from the answer ----
+  scenario = { access: SUPERVISOR }
+  resetCr({
+    approve: () => {
+      cr.histories[FX.t1413] = structuredClone(FX.afterDay1413)
+      FX.accounts.P019.entries = FX.accounts.P019.entries.map((e) =>
+        e.settlementEntryId === FX.t1413 ? { ...e, businessDay: '2026-09-21T00:00:00' } : e,
+      )
+      return FX.approvedDay1413
+    },
+  })
+  cr.histories[FX.t1413] = structuredClone(FX.withDayMove1413)
+  await go(THEFT_ROUTE)
+  await appears('[data-testid="change-request-approve"]')
+  check('a supervisor reads the waiting day-move, old → new', (await textOf('change-request-card-businessDay')).includes('2026-09-21'))
+  const holdApproveDay = deferred()
+  cr.holdHistory = holdApproveDay
+  await tid('change-request-approve').click()
+  await page.waitForFunction(() => !document.querySelector('[data-testid="change-request-card"]'), null, { timeout: 8000 }).catch(() => {})
+  check('…Approve sent only { changeRequestId }', JSON.stringify(cr.decideCalls.at(-1)?.body) === JSON.stringify({ changeRequestId: 'R-DAY' }))
+  await tid('change-request-open').click()
+  check('🔑 the approved day-move is redrawn from the ANSWER: the form reopens on 2026-09-21, while the re-read is held', (await dayBox().inputValue()) === '2026-09-21', await dayBox().inputValue())
+  await tid('change-request-back').click()
+  holdApproveDay.release()
+  cr.holdHistory = null
+  await settle()
+  await tid('change-request-open').click()
+  check('…and once History and the account are re-read, the new day stands', (await dayBox().inputValue()) === '2026-09-21' && (await tid('change-request-card').count()) === 0)
+  await crKeys('an approved day-move')
+  await shot('349-approved-day-move')
+  scenario = {}
 
   // ---- 6. ----
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' | '))

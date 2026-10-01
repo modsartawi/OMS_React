@@ -15,7 +15,9 @@ import {
   afterDecide,
   afterRaise,
   afterWithdraw,
+  asksBusinessDay,
   cardFor,
+  changeDraftFor,
   changeRequestBody,
   decideFirst,
   deleteRequestBody,
@@ -28,6 +30,7 @@ import {
   reduceToSpent,
   rejectBody,
   removeSaidBy,
+  type ChangeDraft,
   type ChangeRequestSession,
 } from './change-request'
 import { changeRefusal } from './change-refusal'
@@ -37,6 +40,7 @@ import {
   DELETE_SPENT_SAMPLE,
   NOT_REQUESTER_SAMPLE,
   REQUESTER,
+  THEFT_DAY_COLLECTED_SAMPLE,
   UNSTAMPED,
   approvedAnswerFor,
   historyOf,
@@ -46,6 +50,7 @@ import {
   withdrawnAnswerFor,
 } from './change-request-fixture'
 import { SETTLEMENT_ACCOUNTS } from './settlement-fixture'
+import { APPROVED_THEFT_ID, THEFT_ENTRIES } from './theft-fixture'
 
 const ACCOUNTANT: ChangeRequestSession = { canOpenSettlement: true, canSuperviseSettlement: false, userId: 'u-accountant' }
 const SUPERVISOR: ChangeRequestSession = { canOpenSettlement: true, canSuperviseSettlement: true, userId: 'u-supervisor' }
@@ -297,7 +302,7 @@ describe('changeRequestBody — only what differs is sent (W4)', () => {
   })
 
   it('nothing differs → held, unchanged, and no field problem', () => {
-    expect(changeRequestBody(entry, draft())).toEqual({ kind: 'held', amount: null, description: null, reason: null, unchanged: true })
+    expect(changeRequestBody(entry, draft())).toEqual({ kind: 'held', amount: null, description: null, businessDay: null, reason: null, unchanged: true })
   })
 
   it('the amount alone → newAmount, and the description goes null', () => {
@@ -823,5 +828,115 @@ describe('removeSaidBy — the spent sentence is said once, never twice nor stal
   it('a DELETE_SPENT with no figure, or no refusal at all, says nothing of X', () => {
     expect(removeSaidBy({ kind: 'reduce', to: 120 }, changeRefusal('raise', { ...DELETE_SPENT_SAMPLE, spentAmount: Number.NaN }))).toBe(false)
     expect(removeSaidBy({ kind: 'reduce', to: 120 }, null)).toBe(false)
+  })
+})
+
+describe('changeRequestBody — a theft\'s business day (W4, ticket 349; BackOffice 2195)', () => {
+  // 339's approved theft 1413: 450.75, day 2026-09-20, never spent (2195: the floor never bites).
+  const row = THEFT_ENTRIES.find((e) => e.settlementEntryId === APPROVED_THEFT_ID)!
+  const theft = { ...entryNow(row, historyOf(row, { spentAmount: 0 }), null), spentAmount: 0 }
+  const draft = (o: Partial<ChangeDraft> = {}): ChangeDraft => ({ ...changeDraftFor(theft), reason: 'reported against the wrong day', ...o })
+
+  it('only a theft asks for a day', () => {
+    expect(asksBusinessDay('THEFT')).toBe(true)
+    expect(asksBusinessDay('SHORTAGE')).toBe(false)
+    expect(asksBusinessDay('SURPLUS')).toBe(false)
+  })
+
+  it('🔑 the form opens with the theft\'s day as a bare date — a shortage\'s year-1 day is an empty box', () => {
+    expect(changeDraftFor(theft)).toEqual({ amount: '450.75', description: row.reason, reason: '', businessDay: '2026-09-20' })
+    const shortage = entryNow(entryOf('0142', 143), null, null)
+    expect(changeDraftFor(shortage).businessDay).toBe('')
+  })
+
+  it('🔑 a day-move sends the bare date, and nothing else differs', () => {
+    expect(changeRequestBody(theft, draft({ businessDay: '2026-09-21' }))).toEqual({
+      kind: 'ready',
+      body: {
+        settlementEntryId: APPROVED_THEFT_ID,
+        requestKind: 'CHANGE',
+        newAmount: null,
+        newDescription: null,
+        newBusinessDay: '2026-09-21',
+        reason: 'reported against the wrong day',
+      },
+    })
+  })
+
+  it('🔑 naming only the day it already has is nothing-differs (2195\'s NO_CHANGE counts the day)', () => {
+    expect(changeRequestBody(theft, draft())).toEqual({ kind: 'held', amount: null, description: null, businessDay: null, reason: null, unchanged: true })
+    expect(changeRequestBody(theft, draft({ businessDay: ' 2026-09-20 ' }))).toMatchObject({ kind: 'held', unchanged: true })
+  })
+
+  it('an amount change on a theft sends newBusinessDay null — the day is left as it is', () => {
+    const check = changeRequestBody(theft, draft({ amount: '400' }))
+    expect(check).toEqual({
+      kind: 'ready',
+      body: { settlementEntryId: APPROVED_THEFT_ID, requestKind: 'CHANGE', newAmount: 400, newDescription: null, newBusinessDay: null, reason: 'reported against the wrong day' },
+    })
+  })
+
+  it('amount, Description and day together — any non-empty set may be named', () => {
+    expect(changeRequestBody(theft, draft({ amount: '400', description: 'سرقة من الدرج', businessDay: '2026-09-19' }))).toMatchObject({
+      kind: 'ready',
+      body: { newAmount: 400, newDescription: 'سرقة من الدرج', newBusinessDay: '2026-09-19' },
+    })
+  })
+
+  it('a draft that never drew the day box leaves the day as it is', () => {
+    const { businessDay: _, ...noBox } = draft({ amount: '400' })
+    expect(changeRequestBody(theft, noBox)).toMatchObject({ kind: 'ready', body: { newAmount: 400, newBusinessDay: null } })
+    expect(changeRequestBody(theft, { ...noBox, amount: '450.75' })).toMatchObject({ kind: 'held', unchanged: true })
+  })
+
+  it('an emptied day box is held — a theft is never sent without its day', () => {
+    expect(changeRequestBody(theft, draft({ amount: '400', businessDay: '' }))).toMatchObject({ kind: 'held', businessDay: 'blank', unchanged: false })
+  })
+
+  it('a day that is not a calendar date is held', () => {
+    expect(changeRequestBody(theft, draft({ businessDay: '2026-02-30' }))).toMatchObject({ kind: 'held', businessDay: 'unreadable' })
+    expect(changeRequestBody(theft, draft({ businessDay: '20/09/2026' }))).toMatchObject({ kind: 'held', businessDay: 'unreadable' })
+  })
+
+  it('🚩 the closed-day and collected-day rules are the server\'s — any readable day is sent', () => {
+    // A future day, which can be neither closed nor collected: the 400 / the refusal say so.
+    expect(changeRequestBody(theft, draft({ businessDay: '2099-01-01' }))).toMatchObject({ kind: 'ready', body: { newBusinessDay: '2099-01-01' } })
+  })
+
+  it('🚩 a shortage never sends newBusinessDay — not even null, whatever is in the box', () => {
+    const shortage = { ...entryNow(entryOf('0142', 143), null, null), spentAmount: 0 }
+    const check = changeRequestBody(shortage, { ...changeDraftFor(shortage), amount: '300', reason: 'typo', businessDay: '2026-09-21' })
+    expect(check).toEqual({
+      kind: 'ready',
+      body: { settlementEntryId: shortage.settlementEntryId, requestKind: 'CHANGE', newAmount: 300, newDescription: null, reason: 'typo' },
+    })
+    if (check.kind !== 'ready') throw new Error('expected ready')
+    expect('newBusinessDay' in check.body).toBe(false)
+    // …and a day in its box is not a difference on a shortage.
+    expect(changeRequestBody(shortage, { ...changeDraftFor(shortage), reason: 'typo', businessDay: '2026-09-21' })).toMatchObject({ kind: 'held', businessDay: null, unchanged: true })
+  })
+
+  it('the card drawn from the raise answer names old → new day, both at midnight as History writes them', () => {
+    const check = changeRequestBody(theft, draft({ businessDay: '2026-09-21' }))
+    if (check.kind !== 'ready') throw new Error('expected ready')
+    const request = raisedRequest(theft, check.body, raisedAnswerFor(row, { changeRequestId: 'R-DAY' }, 0), { staffId: 'u', name: 'u' })
+    expect(request).toMatchObject({ oldBusinessDay: '2026-09-20T00:00:00', newBusinessDay: '2026-09-21T00:00:00' })
+    expect(cardFor(request).changes).toEqual([{ field: 'businessDay', from: '2026-09-20T00:00:00', to: '2026-09-21T00:00:00' }])
+  })
+
+  it('🔑 an approved day-move redraws from the answer\'s businessDay — and the form reopens on the new day', () => {
+    const request = waitingRequestOn(row, { changeRequestId: 'R-DAY', newBusinessDay: '2026-09-21T00:00:00' })
+    const history = historyOf(row, { spentAmount: 0, openRequest: request })
+    const result = approvedAnswerFor(row, request, 0, { businessDay: '2026-09-21T00:00:00' })
+    const read = paneRead(row, history, { result, request: null })
+    expect(read.now).toMatchObject({ businessDay: '2026-09-21T00:00:00', amount: 450.75, status: 'OPEN' })
+    expect(changeDraftFor(read.now).businessDay).toBe('2026-09-21')
+  })
+
+  it('THEFT_DAY_COLLECTED (2195\'s sample): said by its code; a raise keeps the form, an approve is rejected', () => {
+    expect(changeRefusal('raise', THEFT_DAY_COLLECTED_SAMPLE)).toMatchObject({ code: 'THEFT_DAY_COLLECTED', words: { kind: 'key', key: 'THEFT_DAY_COLLECTED' }, step: { kind: 'stay' } })
+    expect(changeRefusal('approve', THEFT_DAY_COLLECTED_SAMPLE)).toMatchObject({ step: { kind: 'reject' } })
+    // The sample's own day, drawn as received.
+    expect(entryNow({ ...row, settlementEntryId: THEFT_DAY_COLLECTED_SAMPLE.settlementEntryId }, null, THEFT_DAY_COLLECTED_SAMPLE).businessDay).toBe('2025-08-11T00:00:00')
   })
 })

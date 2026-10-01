@@ -109,6 +109,26 @@ export const NOT_REQUESTER_SAMPLE: SettlementChangeRequestActResult = {
   businessDay: UNSTAMPED,
 }
 
+/**
+ * **2195's sample answer, verbatim** — a theft's change refused `THEFT_DAY_COLLECTED` on
+ * entry 171: its day (or the day it would move to) has been collected. Nothing was
+ * stored on a raise; at approval the request stays `OPEN`.
+ */
+export const THEFT_DAY_COLLECTED_SAMPLE: SettlementChangeRequestActResult = {
+  accepted: false,
+  refusalReason: 'THEFT_DAY_COLLECTED',
+  changeRequestId: '01K6H1C2D3E4F5G6H7J8K9M0NP',
+  requestStatus: 'OPEN',
+  settlementEntryId: SAMPLE_ENTRY_ID,
+  entryNumber: 171,
+  amount: 3000.0,
+  remainingAmount: 3000.0,
+  spentAmount: 0.0,
+  description: 'سرقة من الخزنة',
+  entryStatus: 'OPEN',
+  businessDay: '2025-08-11T00:00:00',
+}
+
 type EntryLike = Pick<
   SettlementEntry,
   'settlementEntryId' | 'storeId' | 'entryNumber' | 'status' | 'amount' | 'remainingAmount' | 'reason' | 'businessDay'

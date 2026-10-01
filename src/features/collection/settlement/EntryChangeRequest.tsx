@@ -21,7 +21,9 @@ import { changeRequestHistoryKey, settlementApi } from './api'
 import {
   afterDecide,
   afterWithdraw,
+  asksBusinessDay,
   cardFor,
+  changeDraftFor,
   changeRequestBody,
   changeRequestFailure,
   decideFirst,
@@ -40,6 +42,7 @@ import {
   type RemoveOffer,
 } from './change-request'
 import { changeFieldError, changeRefusal, type ChangeFieldError, type ChangeRefusal } from './change-refusal'
+import BusinessDayField from './BusinessDayField'
 import { settlementMoney } from './money-display'
 import { REASON_MAX } from './posting'
 import ReasonField, { invalidateSettlement } from './ReasonField'
@@ -81,6 +84,12 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  * `"OPEN"` → the card, as for anyone), never the flag. Blocked by an accountant's request
  * (`CHANGE_ALREADY_OPEN`), the re-read draws that card with Approve / Reject, and the
  * notice says to decide it first.
+ *
+ * 🔑 **A theft's day (349) is a field of the change form**, never a cell of its own: the
+ * post dialog's day box, filled with the theft's day, sent bare only when it moves
+ * (`changeRequestBody`). The card names old → new day; an approved day-move is redrawn
+ * from the answer's `businessDay`. A collected day is the server's `THEFT_DAY_COLLECTED`,
+ * said in the notice line — the web has no read of it to shadow (W3).
  *
  * 🔑 **Redraw from the answer, then re-read (W8).** An accepted raise draws the waiting
  * card and the entry's figures from the act answer AT ONCE, then re-reads History (one
@@ -440,7 +449,8 @@ export default function EntryChangeRequest({
   const money = (v: number | null | undefined) => settlementMoney(v, currencyKey)
 
   const startChange = () => {
-    setDraft({ amount: String(now.amount), description: now.description, reason: '' })
+    // 349: a theft's form opens on its day too — the freshest one (an approved day-move's answer).
+    setDraft(changeDraftFor(now))
     setNotice(null)
     setFieldError(null)
     setForm('change')
@@ -696,6 +706,10 @@ export default function EntryChangeRequest({
  * floor named, a required Reason, and Submit held while nothing differs.
  *
  * 🔑 `changeRequestBody` decides what may be sent and what is; this draws its answer.
+ *
+ * 🔑 **A theft's business day (349, W4)** — the post dialog's own day box, filled with
+ * the theft's day. A day 400 (`SettlementTheftDayNotClosed`, …) lands on it; a collected
+ * day is the server's refusal (`THEFT_DAY_COLLECTED`), never shadowed here (W3).
  */
 function ChangeForm({
   entry,
@@ -728,8 +742,10 @@ function ChangeForm({
   /** The server's sentence for a 400 on `field`, or `null`. */
   const served = (field: ChangeFieldError['field']) =>
     fieldError?.field === field ? t(`changeRequest.invalid.${fieldError.sentence}`, { max: REASON_MAX }) : null
-  // ⚠️ The day box is 349's; until it exists a day's 400 is said at the foot of the form.
-  const formError = served('form') ?? served('businessDay')
+  const asksDay = asksBusinessDay(entry.entryKind)
+  // A day's 400 on a form with no day box (it should not arise — no day is sent) is the form's.
+  const formError = served('form') ?? (asksDay ? null : served('businessDay'))
+  const dayError = held?.businessDay ? t(`changeRequest.form.day.${held.businessDay}`) : served('businessDay')
   const amountError = held?.amount
     ? t(`changeRequest.form.amount.${held.amount}`, { floor: money(floor) })
     : served('amount')
@@ -774,6 +790,17 @@ function ChangeForm({
         testId="change-request-description"
       />
 
+      {asksDay && (
+        <BusinessDayField
+          value={draft.businessDay ?? ''}
+          onValue={(businessDay) => onDraft({ ...draft, businessDay })}
+          error={dayError}
+          label={t('changeRequest.form.day.label')}
+          hint={t('changeRequest.form.day.hint')}
+          testId="change-request-day"
+        />
+      )}
+
       <ReasonField
         value={draft.reason}
         onValue={(reason) => onDraft({ ...draft, reason })}
@@ -787,7 +814,7 @@ function ChangeForm({
       {/* Said before the press, not after a refusal: the server's NO_CHANGE, shadowed. */}
       {held?.unchanged && (
         <p className="text-sm text-muted-foreground" data-testid="change-request-unchanged">
-          {t('changeRequest.form.unchanged')}
+          {t(asksDay ? 'changeRequest.form.unchangedTheft' : 'changeRequest.form.unchanged')}
         </p>
       )}
 

@@ -261,12 +261,19 @@
         "blank": "The Description cannot be empty.",
         "too-long": "The Description can be at most {{max}} characters."
       },
+      "day": {
+        "label": "Business day of the theft",
+        "hint": "The day the money went missing. Moving it needs a closed business day of this branch whose cash has not been collected.",
+        "blank": "Choose the theft's business day. A theft is never left without one.",
+        "unreadable": "That is not a calendar date."
+      },
       "reason": {
         "label": "Reason",
         "hint": "Why this change is asked for — the supervisor reads it before deciding. Up to {{max}} characters.",
         "hintNow": "Why this change is made — it is kept in the entry's history. Up to {{max}} characters."
       },
       "unchanged": "Nothing differs from the entry yet. Change the amount or the Description to ask for a change.",
+      "unchangedTheft": "Nothing differs from the entry yet. Change the amount, the Description or the business day to ask for a change.",
       "appliesNow": "Applies immediately — no approval step. Entry {{number}} is changed the moment you confirm below.",
       "submit": {
         "request": "Send the change request",

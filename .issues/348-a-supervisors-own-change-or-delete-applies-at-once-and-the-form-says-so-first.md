@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 342
 blocked-by: 346, 347
 ---
@@ -28,11 +28,17 @@ store/logic (outcome from `requestStatus`) · component (wording, applied redraw
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `raiseOutcome` — `APPLIED` ⇒ redraw with no card, `OPEN` ⇒ card, regardless of the supervision flag
+- [x] `raiseOutcome` — `APPLIED` ⇒ redraw with no card, `OPEN` ⇒ card, regardless of the supervision flag
   passed in · pure
-- [ ] `settlement-change-drive` extended — supervisor sees Change now / Delete now and the
+- [x] `settlement-change-drive` extended — supervisor sees Change now / Delete now and the
   "applies immediately" sentence; an `APPLIED` answer redraws the corrected (or cancelled) entry with no
   card; a `CHANGE_ALREADY_OPEN` answer opens the accountant's card with Approve / Reject · flow (drive)
+
+**Proof run (2026-10-02):** `raiseOutcome` + `decideFirst` cycles in `change-request.test.ts` (all five
+store-nothing refusals said by code; the whole redraw identical with the flag on or off — and the flag is
+no longer even a parameter). `settlement-change-drive` sections 28–30: 253/253. Earlier drives unmodified
+and green: settlement 291/291, approval 42/42, supervision 41/41, description 41/41, theft 62/62.
+`npm test` 3077/3077, typecheck, lint, build green. All envelopes stubbed — no live SIS.Api.
 
 ## Boundaries
 

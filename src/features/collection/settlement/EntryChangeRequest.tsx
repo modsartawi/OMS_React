@@ -140,7 +140,7 @@ export default function EntryChangeRequest({
   const queryClient = useQueryClient()
   const userId = useSession((s) => s.userId)
   const displayName = useSession((s) => s.displayName)
-  /** The session as the pure module reads it — one object for `offerFor` and `raiseOutcome`. */
+  /** The session as `offerFor` reads it. */
   const session = { canOpenSettlement: canOpen, canSuperviseSettlement: canSupervise, userId }
 
   const entryId = row?.settlementEntryId ?? ''
@@ -200,7 +200,7 @@ export default function EntryChangeRequest({
       const reread = invalidateSettlement(queryClient, v.entry.storeId)
       // 🔑 W1 (348): applied or waiting is the ANSWER's `requestStatus`, never the probe's
       // flag — a supervisor's raise that comes back OPEN draws the card as for anyone.
-      const outcome = raiseOutcome(v.entry, v.body, result, { ...session, displayName })
+      const outcome = raiseOutcome(v.entry, v.body, result, { userId, displayName })
       if (outcome.kind === 'refused') {
         if (!stillOn(v.entry)) return
         const refusal = changeRefusal('raise', result)

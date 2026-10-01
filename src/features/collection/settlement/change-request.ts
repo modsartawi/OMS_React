@@ -443,11 +443,11 @@ export function raisedRequest(
  * - **`refused`** — the entry's figures only; a refusal says nothing about what waits,
  *   so History's word on the request stands (`request` absent, `ActAnswer`'s rule).
  *
- * 🔑 **The supervision flag is in `session` and is NOT read.** A supervisor's own raise
- * applies at once on the server (2194), and the web learns it from `requestStatus:
- * "APPLIED"` alone: a supervisor's raise that comes back `"OPEN"` draws the card, and an
- * `"APPLIED"` answer is drawn as applied whoever pressed. The session is taken whole only
- * because it names the requester (`userId`, `displayName`) for the card.
+ * 🔑 **The supervision flag is not even passed.** A supervisor's own raise applies at
+ * once on the server (2194), and the web learns it from `requestStatus: "APPLIED"`
+ * alone: a supervisor's raise that comes back `"OPEN"` draws the card, and an
+ * `"APPLIED"` answer is drawn as applied whoever pressed. `requester` only names the
+ * card's requester (`userId`, `displayName`).
  */
 export type RaiseDraw =
   | { kind: 'applied'; answered: ActAnswer }
@@ -458,7 +458,7 @@ export function raiseOutcome(
   entry: Parameters<typeof raisedRequest>[0],
   body: SettlementChangeRequestRaiseBody,
   answer: SettlementChangeRequestActResult,
-  session: ChangeRequestSession & { displayName: string | null },
+  requester: { userId: string | null; displayName: string | null },
 ): RaiseDraw {
   const outcome = afterRaise(answer)
   switch (outcome.kind) {
@@ -467,9 +467,9 @@ export function raiseOutcome(
     case 'applied':
       return { kind: 'applied', answered: { result: answer, request: null } }
     case 'waiting': {
-      const staffId = session.userId ?? ''
-      const requester = { staffId, name: session.displayName || staffId }
-      return { kind: 'waiting', answered: { result: answer, request: raisedRequest(entry, body, answer, requester) } }
+      const staffId = requester.userId ?? ''
+      const by = { staffId, name: requester.displayName || staffId }
+      return { kind: 'waiting', answered: { result: answer, request: raisedRequest(entry, body, answer, by) } }
     }
   }
 }
@@ -487,7 +487,7 @@ export function raiseOutcome(
 export function decideFirst(refusal: ChangeRefusal | null | undefined, offer: ChangeRequestOffer): boolean {
   if (!refusal || offer.kind !== 'waiting' || !offer.decide || offer.withdraw) return false
   if (refusal.step.kind === 'open-request') return refusal.step.changeRequestId === offer.request.changeRequestId
-  return refusal.words.kind === 'key' && refusal.words.key === 'CHANGE_ALREADY_OPEN.unnamed'
+  return refusal.code === 'CHANGE_ALREADY_OPEN' && refusal.step.kind === 'reread'
 }
 
 /* ── after a withdraw (W6, ticket 345) ───────────────────────────────────────── */

@@ -437,6 +437,17 @@ describe('raiseOutcome — a raise\'s redraw is read from the ANSWER, whatever t
       expect(out).toEqual({ kind: 'refused', code: 'BELOW_SPENT', answered: { result: refused } })
       expect('request' in out.answered).toBe(false)
     })
+
+    for (const code of ['BELOW_SPENT', 'DELETE_SPENT', 'ENTRY_FINAL', 'NO_CHANGE', 'CHANGE_STALE'] as const)
+      it(`${code} on a raise that stores nothing: refused, and said by 344's map by its code (${label(session)})`, () => {
+        const base = code === 'DELETE_SPENT' ? DELETE_SPENT_SAMPLE : BELOW_SPENT_SAMPLE
+        const refused = { ...base, refusalReason: code, changeRequestId: '', requestStatus: '' as const, settlementEntryId: row.settlementEntryId, entryNumber: 143 }
+        const out = raiseOutcome(now, code === 'DELETE_SPENT' ? remove : change, refused, asSession(session))
+        expect(out).toMatchObject({ kind: 'refused', code })
+        const said = changeRefusal('raise', refused)
+        expect(said.code).toBe(code)
+        expect(said.words.kind).toBe('key')
+      })
   }
 
   it('the whole redraw is the same whichever flag is passed — the answer alone decides it', () => {

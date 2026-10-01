@@ -1605,6 +1605,7 @@ async function run() {
   await settle()
   check('…Approve decides the accountant\'s request ({ changeRequestId: "R-ACC" })', JSON.stringify(cr.decideCalls.at(-1)?.body) === JSON.stringify({ changeRequestId: 'R-ACC' }))
   check('…and "Change now" is offered again on the corrected entry', (await offerOf()) === 'ask' && (await textOf('change-request-open')).trim() === 'Change now')
+  check('…and "decide it first" is gone once it is decided', (await tid('change-request-notice-step').count()) === 0)
 
   scenario = {}
   resetCr({

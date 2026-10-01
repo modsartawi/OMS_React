@@ -47,8 +47,9 @@
 //  17. an accepted withdraw sends only { changeRequestId }, drops the card from the ANSWER
 //      while the History re-read is still held, then re-reads History and the account;
 //  18. NOT_REQUESTER and CHANGE_NOT_OPEN ("SUPERSEDED") are said from 344's map; after
-//      NOT_REQUESTER the card stays and Withdraw is no longer offered on it; a 404 says
-//      "not available yet".
+//      NOT_REQUESTER the card stays and Withdraw is no longer offered on it; an accepted
+//      answer not saying WITHDRAWN is "unconfirmed"; a 400 is said in 344's words, a bare
+//      403 is named, and a 404 says "not available yet".
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
@@ -180,6 +181,18 @@ async function run() {
       cr.withdrawCalls.push(body)
       if (cr.withdrawMissing)
         return route.fulfill(envelope(null, { status: 404, success: false, message: 'Not Found' }))
+      if (cr.withdrawForbidden) return route.fulfill({ status: 403, contentType: 'text/plain', body: '' })
+      if (cr.withdrawInvalid) {
+        const { code, message } = cr.withdrawInvalid
+        return route.fulfill(
+          envelope(null, {
+            status: 400,
+            success: false,
+            message,
+            errors: [{ errorCode: code, internalErrorCode: '', errorMessage: message }],
+          }),
+        )
+      }
       return route.fulfill(envelope(cr.withdraw(body)))
     }
     if (path === 'Settlement/Ledger') {
@@ -882,6 +895,24 @@ async function run() {
   await settle()
   check('…and the re-read draws what is true: no card', (await tid('change-request-card').count()) === 0 && (await offerOf()) === 'ask')
   check('no sentence anywhere calls a request "cancelled"', !/request (was|is) cancelled/i.test(await page.locator('body').innerText()))
+
+  resetWithdraw({ withdraw: () => ({ ...FX.withdrawn143, requestStatus: 'OPEN' }) })
+  await openCard(143)
+  await tid('change-request-withdraw').click()
+  await appears('[data-testid="change-request-notice"]')
+  check('🚩 an accepted answer that does not say WITHDRAWN is neither withdrawn nor a refusal: it says so, and the card stays', /did not confirm the request was withdrawn/.test(await textOf('change-request-notice')) && !(await tid('change-request-notice').getAttribute('data-code')) && (await tid('change-request-card').count()) === 1 && !/Your change request on entry 143 was withdrawn/.test(await page.locator('body').innerText()))
+
+  resetWithdraw({ withdrawInvalid: { code: 'SettlementChangeRequestRequired', message: SERVER_WORDS } })
+  await openCard(143)
+  await tid('change-request-withdraw').click()
+  await appears('[data-testid="change-request-notice"]')
+  check('a 400 on Withdraw is said in the notice line in 344\'s words, never the server\'s', (await tid('change-request-notice').getAttribute('data-code')) === 'SettlementChangeRequestRequired' && /not told which change request/.test(await textOf('change-request-notice')) && !(await page.locator('body').innerText()).includes(SERVER_WORDS))
+
+  resetWithdraw({ withdrawForbidden: true })
+  await openCard(143)
+  await tid('change-request-withdraw').click()
+  await page.waitForFunction(() => /was not withdrawn/.test(document.body.innerText), null, { timeout: 8000 }).catch(() => {})
+  check('a bare 403 on Withdraw is named: the request was not withdrawn', /the change request was not withdrawn/.test(await page.locator('body').innerText()))
 
   resetWithdraw({ withdrawMissing: true })
   const errorsBeforeW404 = errors.length

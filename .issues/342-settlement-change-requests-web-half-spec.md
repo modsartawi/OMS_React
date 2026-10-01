@@ -168,7 +168,7 @@ refusal is the server's, and it is shown in words keyed off the server's code.
   | `NO_CHANGE` | nothing would change | stay in the form |
   | `CHANGE_STALE` | the entry moved since this was asked | supervisor: reject with a reason |
   | `CHANGE_NOT_OPEN` | already applied / rejected / withdrawn / superseded | redraw; `requestStatus` names which |
-  | `NOT_REQUESTER` | only the requester can withdraw it | none |
+  | `NOT_REQUESTER` | only the requester can withdraw it | none offered; Withdraw is no longer drawn on that request (345) |
   | `THEFT_DAY_COLLECTED` | the theft's day (or the new day) is collected | supervisor at approval: reject with a reason |
   | `WRONG_KIND`, `REMAINING_INSUFFICIENT` | 2191's tracer refusals, not answered since 2192 / 2195 | mapped defensively to a generic sentence |
 

@@ -54,3 +54,18 @@
 **Decision taken:** Only after the re-read. A refusal leaves `request` unset in what the pane draws, so History's word stands until History is re-read. This is how Raise's refusals behave (343/344).
 **Why:** The pane only knows a request is gone from what the server sends back. Hiding the card because of the code would make the component a second code table. Reading `requestStatus` would add a rule beside `afterWithdraw`. The re-read is immediate anyway, because `invalidateSettlement` runs on every answer.
 **Revisit if:** Someone sees a Withdraw button sitting beside a "superseded" sentence for long enough to press it. A second press is harmless: it answers `CHANGE_NOT_OPEN` again.
+
+## Q: The earlier attempts' code was lost again. Rebuild?
+**Decision taken:** Rebuilt on 2026-10-01 (third attempt), following every decision above. This time it was committed as soon as the gates were green (697f991), before the reviews ran.
+**Why:** The working tree again held only this file. A commit before the reviews keeps the build from vanishing a third time.
+**Revisit if:** —
+
+## Q: A 404 on Withdraw: does the whole pane say "not available yet", hiding the waiting card the History read did show?
+**Decision taken:** Yes. This is the same `actUnshipped` state a 404 on Raise sets.
+**Why:** Spec 342 Boundaries says a 404 from any ChangeRequest door means SIS.Api has not shipped the wave, and the pane says "not available yet". A card that stays up beside a dead Withdraw button invites the same 404 again.
+**Revisit if:** Someone wants the card kept with only the button removed. That would need a door-level "not shipped" state in place of the pane-level one.
+
+## Q: Spec 342 W7's table said `NOT_REQUESTER` → next step "none". 345 gives it its own step.
+**Decision taken:** The W7 row is amended in the spec: "none offered; Withdraw is no longer drawn on that request (345)". The pane still offers no act, as the row said before.
+**Why:** `/standards-review` (spec axis) flagged that the spec and the code disagreed. The change itself was settled above ("Who knows that NOT_REQUESTER means…").
+**Revisit if:** —

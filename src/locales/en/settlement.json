@@ -335,7 +335,7 @@
       "forbidden": "This session no longer holds the settlement grant — the change request was not raised.",
       "withdrawFailed": "The change request could not be withdrawn.",
       "withdrawForbidden": "This session no longer holds the settlement grant — the change request was not withdrawn.",
-      "withdrawUnconfirmed": "The server accepted the withdraw but did not confirm the request was withdrawn. This entry's change requests are being read again."
+      "withdrawUnconfirmed": "The server accepted the withdrawal but did not confirm the request was withdrawn. This entry's change requests are being read again."
     }
   },
   "audit": {

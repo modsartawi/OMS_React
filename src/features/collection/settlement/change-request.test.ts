@@ -31,6 +31,8 @@ import {
   reduceToSpent,
   rejectBody,
   removeSaidBy,
+  supersededRequest,
+  supersedeWarning,
   type ChangeDraft,
   type ChangeRequestSession,
 } from './change-request'
@@ -41,9 +43,11 @@ import {
   DELETE_SPENT_SAMPLE,
   NOT_REQUESTER_SAMPLE,
   REQUESTER,
+  SAMPLE_REQUEST_ID,
   THEFT_DAY_COLLECTED_SAMPLE,
   UNSTAMPED,
   approvedAnswerFor,
+  decidedRequest,
   historyOf,
   raisedAnswerFor,
   rejectedAnswerFor,
@@ -952,5 +956,61 @@ describe('bidiIsolate (350)', () => {
   it('wraps server text in FSI … PDI, so "old → new" keeps its order over two Arabic Descriptions', () => {
     expect(bidiIsolate('مرتجع شبكة')).toBe('⁨مرتجع شبكة⁩')
     expect(bidiIsolate('')).toBe('⁨⁩')
+  })
+})
+
+describe("supersedeWarning — a direct act's confirm step says a waiting request will be superseded (W12, ticket 352)", () => {
+  const e143 = entryOf('0142', 143)
+  const waiting = waitingRequestOn(e143, { newAmount: 450 })
+
+  it('🔑 the entry panel: drawn when the History read has an openRequest', () => {
+    expect(supersedeWarning({ from: 'history', history: historyOf(e143, { spentAmount: 0, openRequest: waiting }) })).toBe('entry')
+  })
+  it('…not drawn when nothing waits — even with decided requests in the history', () => {
+    const old = decidedRequest(waiting, { status: 'REJECTED', decidedAt: '2026-09-30T11:00:00', decisionReason: 'no' })
+    expect(supersedeWarning({ from: 'history', history: historyOf(e143, { spentAmount: 0, requests: [old] }) })).toBe('none')
+  })
+  it('…nor before History has answered, or when it never will (a 404: no request can wait on a server without the wave)', () => {
+    expect(supersedeWarning({ from: 'history', history: undefined })).toBe('none')
+    expect(supersedeWarning({ from: 'history', history: null })).toBe('none')
+    expect(supersedeWarning({ from: 'history', history: {} })).toBe('none')
+  })
+  it("🔑 a lane row: drawn when openChangeRequestId is not '' (351's field)", () => {
+    expect(supersedeWarning({ from: 'row', row: { openChangeRequestId: SAMPLE_REQUEST_ID } })).toBe('entry')
+  })
+  it("…not drawn for '', for a row an older SIS.Api sent without the field, or for no row", () => {
+    expect(supersedeWarning({ from: 'row', row: { openChangeRequestId: '' } })).toBe('none')
+    expect(supersedeWarning({ from: 'row', row: {} })).toBe('none')
+    expect(supersedeWarning({ from: 'row', row: null })).toBe('none')
+  })
+  it("🚩 a batch: always — nothing on the web enumerates a batch's entries", () => {
+    expect(supersedeWarning({ from: 'batch' })).toBe('batch')
+  })
+})
+
+describe('supersededRequest — after a direct act, the re-read shows the request superseded (ticket 352)', () => {
+  const e143 = entryOf('0142', 143)
+  const raised = (id: string, at: string) => waitingRequestOn(e143, { changeRequestId: id, newAmount: 450, requestedAt: at })
+  const superseded = decidedRequest(raised('R-2', '2026-09-30T10:00:00'), { status: 'SUPERSEDED', decidedAt: '2026-09-30T12:00:00' })
+  const applied = decidedRequest(raised('R-1', '2026-09-01T10:00:00'), { status: 'APPLIED', decidedAt: '2026-09-01T11:00:00' })
+
+  it("🔑 the entry's latest request, when a direct act superseded it and nothing waits", () => {
+    expect(supersededRequest(historyOf(e143, { spentAmount: 0, requests: [superseded, applied] }), e143.settlementEntryId)).toEqual(superseded)
+  })
+  it("newest by requestedAt, then the ULID — never History's listing order", () => {
+    expect(supersededRequest(historyOf(e143, { spentAmount: 0, requests: [applied, superseded] }), e143.settlementEntryId)).toEqual(superseded)
+  })
+  it("a later request decided otherwise is the entry's story now — no superseded card", () => {
+    const later = decidedRequest(raised('R-3', '2026-10-01T09:00:00'), { status: 'WITHDRAWN', decidedAt: '2026-10-01T09:30:00' })
+    expect(supersededRequest(historyOf(e143, { spentAmount: 0, requests: [later, superseded] }), e143.settlementEntryId)).toBeNull()
+  })
+  it('a request waiting now is the card — never a superseded one beside it', () => {
+    const open = raised('R-3', '2026-10-01T09:00:00')
+    expect(supersededRequest(historyOf(e143, { spentAmount: 0, openRequest: open, requests: [open, superseded] }), e143.settlementEntryId)).toBeNull()
+  })
+  it('a request about another entry is never drawn here; no read, no card', () => {
+    expect(supersededRequest(historyOf(e143, { spentAmount: 0, requests: [{ ...superseded, settlementEntryId: 'other' }] }), e143.settlementEntryId)).toBeNull()
+    expect(supersededRequest(null, e143.settlementEntryId)).toBeNull()
+    expect(supersededRequest({}, e143.settlementEntryId)).toBeNull()
   })
 })

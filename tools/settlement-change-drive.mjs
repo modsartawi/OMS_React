@@ -98,6 +98,19 @@
 //      day box in 344's words and clear on the next keystroke; an emptied box is held;
 //  34. an approved day-move redraws the new day from the answer before the re-read lands.
 //
+// Ticket 352 — a direct act warns that a waiting request will be superseded (W12, 2194's direct doors):
+//  35. the correction pane's Cancel confirm step says "the waiting change request will be
+//      closed as superseded" only while History has an openRequest; a refused Cancel leaves
+//      the card OPEN and says nothing new; an accepted one re-reads History, and the pane
+//      shows the request SUPERSEDED (then the audit column carries it);
+//  36. the Write off confirm step: the same sentence, only while a request waits;
+//  37. the entry panel's Approve / Reject dialog of a pending entry: the same, from History;
+//      an accepted Approve re-reads History and the pane shows the request superseded;
+//  38. the Awaiting approval lane's Approve / Reject: the sentence only on a row whose
+//      openChangeRequestId is not '' (351's field);
+//  39. Bulk Cancel: "any change request waiting on these entries…", unconditionally (nothing
+//      enumerates a batch) — and never for an accountant, who has no act to confirm.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
 import { createRequire } from 'node:module'
@@ -157,6 +170,9 @@ const resetCr = (o = {}) => {
     approve: () => ({}),
     reject: () => ({}),
     decideCalls: [],
+    // 352: what each direct door answers (by path), and every { path, body } sent.
+    direct: {},
+    directCalls: [],
     historyCalls: [],
     raiseCalls: [],
     accountCalls: 0,
@@ -234,6 +250,11 @@ async function run() {
       return route.fulfill(envelope(cr.histories[id] ?? {}))
     }
     if (path === 'Settlement/Cancel' && cr.cancel) return route.fulfill(envelope(cr.cancel()))
+    // 352: the direct doors (Cancel, CloseOut, Approve, Reject, Bulk/Cancel) — unchanged shapes.
+    if (cr.direct?.[path]) {
+      cr.directCalls.push({ path, body: route.request().postDataJSON() })
+      return route.fulfill(envelope(cr.direct[path]()))
+    }
     if (path === 'Settlement/ChangeRequest/Raise') {
       const body = route.request().postDataJSON()
       cr.raiseCalls.push(body)
@@ -1958,6 +1979,178 @@ async function run() {
   check('🔑 a 404 on History leaves the audit column as it is today — posted, consumed — and nothing crashes', JSON.stringify(column.map((f) => f.kind)) === JSON.stringify(['posted', 'consumed']), column.map((f) => f.kind).join(', '))
   check('…and draws no "Changed" tag', (await tid('entry-changed-tag').count()) === 0)
   resetCr()
+
+  // ======== Ticket 352 — a direct act warns that a waiting request will be superseded ========
+  const SUPERVISING = { ...ACCOUNTANT, canSuperviseSettlement: true }
+  const SENTENCE = 'The waiting change request will be closed as superseded.'
+  const e160Row = FX.accounts['0142'].entries.find((e) => e.entryNumber === 160)
+  const W = await page.evaluate(async (e160) => {
+    const acc = await import('/src/features/collection/settlement/settlement-fixture.ts')
+    const crf = await import('/src/features/collection/settlement/change-request-fixture.ts')
+    const find = (n) => acc.SETTLEMENT_ACCOUNTS['0142'].entries.find((e) => e.entryNumber === n)
+    const e143 = find(143)
+    const e151 = find(151)
+    const w143 = crf.waitingRequestOn(e143, { changeRequestId: 'R-352-143', newAmount: 450, requestReason: 'typed 500 instead of 450' })
+    const w151 = crf.waitingRequestOn(e151, { changeRequestId: 'R-352-151', newDescription: 'surplus — recount' })
+    const w160 = crf.waitingRequestOn(e160, { changeRequestId: 'R-352-160', newAmount: 550 })
+    // 2194's SUPERSEDED row: the supervisor whose direct act ended it, at the act's own time.
+    const sup = (w, decidedAt) => crf.decidedRequest(w, { status: 'SUPERSEDED', decidedAt })
+    return {
+      waiting143: crf.historyOf(e143, { spentAmount: 0, openRequest: w143 }),
+      cancelled143: crf.historyOf({ ...e143, status: 'CANCELLED' }, { spentAmount: 0, requests: [sup(w143, '2026-10-02T09:15:00')] }),
+      waiting151: crf.historyOf(e151, { spentAmount: 200, openRequest: w151 }),
+      waiting160: crf.historyOf(e160, { spentAmount: 0, openRequest: w160 }),
+      approved160: crf.historyOf({ ...e160, status: 'OPEN' }, { spentAmount: 0, requests: [sup(w160, '2026-10-02T09:40:00')] }),
+      supervisor: crf.SUPERVISOR.name,
+    }
+  }, e160Row)
+  const warningIn = (region) => page.locator(`[data-region="${region}"] [data-testid="supersede-warning"]`)
+  const warningSays = async (region, kind = 'entry') =>
+    (await warningIn(region).count()) === 1 &&
+    (await warningIn(region).getAttribute('data-supersede')) === kind &&
+    (await warningIn(region).innerText()).trim() ===
+      (kind === 'batch' ? 'Any change request waiting on these entries will be closed as superseded.' : SENTENCE)
+  const openCorrection = async () => {
+    await page.locator('[data-testid="correction-act"]').click()
+    await appears('[data-testid="correction-reason"]')
+  }
+
+  // ---- 35. Cancel ----
+  scenario = { access: SUPERVISING }
+  resetCr()
+  cr.histories[FX.e143] = structuredClone(W.waiting143)
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-card"]')
+  await openCorrection()
+  check("🔑 Cancel's confirm step says the waiting change request will be closed as superseded", await warningSays('entry-correction'), await textOf('supersede-warning'))
+  check('…said once, in the correction pane, before the Reason box', (await warningIn('entry-correction').count()) === 1 && (await before('[data-region="entry-correction"] [data-testid="supersede-warning"]', '[data-testid="correction-reason"]')))
+  check('…and the History read is still ONE call, shared with the pane', cr.historyCalls.filter((id) => id === FX.e143).length === 1, String(cr.historyCalls.length))
+  await shot('352-cancel-confirm')
+
+  // A refused Cancel: the request stays OPEN, and nothing new is said about it.
+  cr.direct['Settlement/Cancel'] = () => ({ accepted: false, refusalReason: 'ENTRY_NOT_OPEN', remainingAmount: 500, status: 'OPEN' })
+  await page.locator('[data-testid="correction-reason"]').fill('posted against the wrong branch')
+  await page.locator('[data-testid="correction-commit"]').click()
+  await appears('[data-testid="correction-race"]')
+  await settle()
+  check('🔑 a refused Cancel leaves the card OPEN — nothing superseded, nothing new said', (await offerOf()) === 'waiting' && (await tid('change-request-superseded').count()) === 0 && (await tid('supersede-warning').count()) === 0, await offerOf())
+
+  // An accepted Cancel: History is re-read, and the card shows the request superseded.
+  const e143Account = FX.accounts['0142'].entries.find((e) => e.settlementEntryId === FX.e143)
+  cr.direct['Settlement/Cancel'] = () => {
+    e143Account.status = 'CANCELLED'
+    cr.histories[FX.e143] = structuredClone(W.cancelled143)
+    return { accepted: true, refusalReason: '', remainingAmount: 500, status: 'CANCELLED' }
+  }
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-card"]')
+  const readsBefore = cr.historyCalls.length
+  await openCorrection()
+  await page.locator('[data-testid="correction-reason"]').fill('posted against the wrong branch')
+  await page.locator('[data-testid="correction-commit"]').click()
+  await appears('[data-testid="change-request-superseded"]')
+  await settle()
+  check('the direct door is unchanged — { settlementEntryId, reason } to Settlement/Cancel', JSON.stringify(cr.directCalls.at(-1)) === JSON.stringify({ path: 'Settlement/Cancel', body: { settlementEntryId: FX.e143, reason: 'posted against the wrong branch' } }), JSON.stringify(cr.directCalls.at(-1)))
+  check('🔑 after an accepted Cancel, History is re-read and the card shows the request SUPERSEDED', cr.historyCalls.length > readsBefore && (await tid('change-request-superseded').getAttribute('data-request')) === 'R-352-143' && (await tid('change-request-card').count()) === 0)
+  check("…naming the supervisor whose act closed it, at the act's own time", (await textOf('change-request-superseded-by')) === `Closed on 2026-10-02 09:15 when ${W.supervisor} acted on the entry directly.`, await textOf('change-request-superseded-by'))
+  check('…with what was asked (500.00 → 450.00) and why, and the finished sentence beneath', /500\.00\s*→\s*450\.00/.test(await textOf('change-request-superseded')) && (await textOf('change-request-superseded')).includes('typed 500 instead of 450') && (await offerOf()) === 'finished')
+  check('🚩 the request is superseded, never "cancelled" (W13)', /superseded/.test(await textOf('change-request-superseded')) && !/request (was )?cancelled/i.test(await textOf('change-request-superseded')))
+  await appears('[data-region="entry-audit"] li[data-fact="request-superseded"]')
+  check("…and 350's audit column carries it", (await page.locator('[data-region="entry-audit"] li[data-fact="request-superseded"]').count()) === 1)
+  check('…and the confirm step is gone with the act', (await tid('supersede-warning').count()) === 0)
+  await crKeys('the superseded card')
+  await shot('352-cancel-superseded')
+  e143Account.status = 'OPEN'
+
+  // Nothing waiting: the confirm step reads exactly as before.
+  resetCr()
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-open"]')
+  await openCorrection()
+  check("🔑 with nothing waiting, Cancel's confirm step carries no sentence", (await tid('supersede-warning').count()) === 0)
+  check('…and the pane shows no superseded card for an entry never changed', (await tid('change-request-superseded').count()) === 0)
+
+  // ---- 36. Write off ----
+  resetCr()
+  cr.histories[FX.e151] = structuredClone(W.waiting151)
+  await go(`${ROUTE}?store=0142&entry=151`)
+  await appears('[data-testid="change-request-card"]')
+  check('(151 is partly spent — its correction is the write-off)', (await page.locator('[data-testid="correction-act"]').getAttribute('data-act')) === 'write-off')
+  await openCorrection()
+  check("🔑 Write off's confirm step says it too, while a request waits", await warningSays('entry-correction'))
+  resetCr()
+  await go(`${ROUTE}?store=0142&entry=151`)
+  await appears('[data-testid="change-request-open"]')
+  await openCorrection()
+  check('…and not when nothing waits', (await tid('supersede-warning').count()) === 0)
+
+  // ---- 37. the entry panel's Approve / Reject of a pending entry ----
+  resetCr()
+  cr.histories[e160Row.settlementEntryId] = structuredClone(W.waiting160)
+  await go(`${ROUTE}?store=0142&entry=160`)
+  await appears('[data-testid="approval-open-approve"]')
+  await appears('[data-testid="change-request-card"]')
+  await page.locator('[data-testid="approval-open-approve"]').click()
+  await appears('[data-region="approval-dialog"]')
+  check("🔑 the entry panel's Approve dialog says the waiting request will be superseded", await warningSays('approval-dialog'))
+  await page.keyboard.press('Escape')
+  await page.locator('[data-testid="approval-open-reject"]').click()
+  await appears('[data-region="approval-dialog"]')
+  check('…and so does its Reject dialog', await warningSays('approval-dialog'))
+  await shot('352-entry-reject')
+  await page.keyboard.press('Escape')
+  // An accepted Approve: History re-read, the request superseded, the entry OPEN.
+  cr.direct['Settlement/Approve'] = () => {
+    e160Row.status = 'OPEN'
+    cr.histories[e160Row.settlementEntryId] = structuredClone(W.approved160)
+    return { accepted: true, refusalReason: '', remainingAmount: e160Row.amount, status: 'OPEN' }
+  }
+  await page.locator('[data-testid="approval-open-approve"]').click()
+  await appears('[data-region="approval-dialog"]')
+  await page.locator('[data-testid="approval-commit"]').click()
+  await appears('[data-testid="change-request-superseded"]')
+  await settle()
+  check("🔑 after an accepted Approve, the re-read shows the request superseded beside the now-open entry's offer", (await tid('change-request-superseded').getAttribute('data-request')) === 'R-352-160' && (await offerOf()) === 'ask', await offerOf())
+  e160Row.status = 'PENDING_APPROVAL'
+  resetCr()
+  await go(`${ROUTE}?store=0142&entry=160`)
+  await appears('[data-testid="approval-open-approve"]')
+  await appears('[data-testid="change-request-open"]')
+  await page.locator('[data-testid="approval-open-approve"]').click()
+  await appears('[data-region="approval-dialog"]')
+  check('…and with nothing waiting, the dialog carries no sentence', (await tid('supersede-warning').count()) === 0)
+  await page.keyboard.press('Escape')
+
+  // ---- 38. the Awaiting approval lane ----
+  resetCr()
+  await onTab('pending')
+  const laneDialog = async (number, act) => {
+    const id = FX.pending.find((r) => r.entryNumber === number).settlementEntryId
+    await page.locator(`[data-region="settlement-open"] .ag-row[row-id="${id}"] [data-testid="pending-${act}"]`).first().click()
+    await appears(`[data-region="approval-dialog"][data-entry="${number}"]`)
+  }
+  await laneDialog(1203, 'approve')
+  check("🔑 the lane's Approve on 1203 (openChangeRequestId set) says the request will be superseded", await warningSays('approval-dialog'))
+  await page.keyboard.press('Escape')
+  await laneDialog(1203, 'reject')
+  check('…and its Reject', await warningSays('approval-dialog'))
+  await shot('352-lane-reject')
+  await page.keyboard.press('Escape')
+  await laneDialog(1202, 'approve')
+  check("🔑 1202 (openChangeRequestId '') carries no sentence", (await tid('supersede-warning').count()) === 0)
+  await page.keyboard.press('Escape')
+  check("…the lane read no History — the row's own field decides", cr.historyCalls.length === 0, String(cr.historyCalls.length))
+
+  // ---- 39. Bulk Cancel ----
+  await go(`${ROUTE}/upload?batch=B-352`)
+  await appears('[data-testid="batch-commit"]')
+  check('🔑 Bulk Cancel says it unconditionally — nothing enumerates a batch', await warningSays('batch-withdraw', 'batch'))
+  await crKeys('the batch withdrawal')
+  await shot('352-batch')
+  scenario = {}
+  await go(`${ROUTE}/upload?batch=B-352`)
+  await appears('[data-testid="batch-supervisor-only"]')
+  check('…an accountant has no act to confirm, so no sentence', (await tid('supersede-warning').count()) === 0)
 
   // ---- 6. ----
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' | '))

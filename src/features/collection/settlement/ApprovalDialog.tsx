@@ -17,13 +17,24 @@ import {
   type ApprovalTarget,
   type SupervisionAct,
 } from './approval'
+import type { SupersedeWarning } from './change-request'
 import { dayVarianceWords, entryKindLabel, entryStatusLabel } from './entry-cells'
 import { settlementMoney } from './money-display'
 import { REASON_MAX } from './posting'
 import ReasonField, { invalidateSettlement } from './ReasonField'
+import SupersedeNote from './SupersedeNote'
 
 /** What the dialog is open on — the entry, and which of the two acts was pressed. */
-export type ApprovalRequest = { target: ApprovalTarget; act: SupervisionAct }
+export type ApprovalRequest = {
+  target: ApprovalTarget
+  act: SupervisionAct
+  /**
+   * 352 (W12): whether a change request waits on the entry — `supersedeWarning`'s, from
+   * the History read (the entry panel) or the row's `openChangeRequestId` (the lane).
+   * Absent is `none`.
+   */
+  supersede?: SupersedeWarning
+}
 
 /** What an act is sent WITH — captured at the press, so a queue that refetches under
  *  the dialog cannot change which entry the answer is reported against. */
@@ -130,7 +141,7 @@ export default function ApprovalDialog({
   })
 
   if (!request) return null
-  const { target, act } = request
+  const { target, act, supersede = 'none' } = request
   const money = settlementMoney(target.amount, target.currencyKey)
   const canCommit = (act === 'approve' || reason.trim().length > 0) && !decide.isPending
   // The row's own figures when it carried them; otherwise the looked-up ledger row's —
@@ -219,6 +230,8 @@ export default function ApprovalDialog({
         {isTheft && act === 'approve' && (
           <p className="text-xs text-muted-foreground">{t('approval.theft.judge')}</p>
         )}
+        {/* 352: an accepted Approve or Reject closes a waiting change request as superseded (2194). */}
+        <SupersedeNote warning={supersede} />
 
         {act === 'reject' && (
           <ReasonField

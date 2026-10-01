@@ -13,10 +13,12 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import { branchSearch } from './addresses'
 import { withdrawalGroups } from './bulk'
 import { OPEN_LANE_KEY } from './open-lane'
-import { canSuperviseSettlement, settlementApi } from './api'
+import { CHANGE_REQUEST_HISTORY_KEY, canSuperviseSettlement, settlementApi } from './api'
 import { supervisionFailure } from './approval'
+import { supersedeWarning } from './change-request'
 import { REASON_MAX } from './posting'
 import ReasonField from './ReasonField'
+import SupersedeNote from './SupersedeNote'
 
 /**
  * **Cancel as a unit** — a posted batch withdrawn in one act (ticket 273, spec 267
@@ -79,6 +81,9 @@ export default function BatchWithdraw({ batchId }: { batchId: string }) {
       void queryClient.invalidateQueries({ queryKey: ['settlement', 'orphans'] })
       // 285: every entry this batch posted has just left the estate's open position.
       void queryClient.invalidateQueries({ queryKey: OPEN_LANE_KEY })
+      // 352 (W12): every request waiting on a withdrawn entry is SUPERSEDED now (2194), and
+      // nothing here says which entries those were — so every entry's History is re-read.
+      void queryClient.invalidateQueries({ queryKey: [...CHANGE_REQUEST_HISTORY_KEY] })
     },
     // 🚩 A refused ROW is not an error — it arrives inside a 200 and is reported
     // below by name. `onError` is only for the call itself failing, which leaves the
@@ -128,6 +133,9 @@ export default function BatchWithdraw({ batchId }: { batchId: string }) {
               is not withdrawn by this, and a partly consumed entry keeps its
               remainder until someone writes it off on its own account. */}
           <p className="text-xs text-muted-foreground">{t('batch.act.notRetroVoided')}</p>
+          {/* 352 (W12): unconditional — nothing on the web enumerates a batch's entries, so
+              whether a change request waits on one of them cannot be known here. */}
+          <SupersedeNote warning={supersedeWarning({ from: 'batch' })} />
           <ReasonField
             value={reason}
             onValue={setReason}

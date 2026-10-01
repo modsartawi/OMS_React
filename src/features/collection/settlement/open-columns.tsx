@@ -8,6 +8,7 @@ import type {
 } from '@/core/models/settlement'
 import { formatDay } from '@/core/util/date-format'
 import { approvalTarget, dayVarianceFor, type SupervisionAct, type ApprovalTarget } from './approval'
+import { supersedeWarning, type SupersedeWarning } from './change-request'
 import { businessDayCell, dayVarianceWords, entryKindLabel } from './entry-cells'
 import { EntryNumberCell } from './EntryNumberCell'
 import { settlementMoney } from './money-display'
@@ -316,7 +317,8 @@ export function buildPendingColumns(
   }: {
     named: boolean
     canSupervise: boolean
-    onDecide: (target: ApprovalTarget, act: SupervisionAct) => void
+    /** `supersede` — 352: the row's `openChangeRequestId`, as the dialog's sentence. */
+    onDecide: (target: ApprovalTarget, act: SupervisionAct, supersede: SupersedeWarning) => void
   },
 ): ColDef<SettlementOpenLaneRow>[] {
   const columns: ColDef<SettlementOpenLaneRow>[] = [
@@ -428,6 +430,7 @@ export function buildPendingColumns(
         // filters on the row's own status, and this is the same rule one layer down.
         if (!row || row.status !== 'PENDING_APPROVAL') return null
         const target = approvalTarget(row, row.storeName, row.currencyKey)
+        const supersede = supersedeWarning({ from: 'row', row })
         return (
           <span className="flex items-center gap-1.5">
             {/* 🚩 `data-row-action` is load-bearing: the row's own click navigates to
@@ -437,7 +440,7 @@ export function buildPendingColumns(
               type="button"
               data-row-action="approve"
               data-testid="pending-approve"
-              onClick={() => onDecide(target, 'approve')}
+              onClick={() => onDecide(target, 'approve', supersede)}
               className="shrink-0 rounded-full border border-primary/40 px-2.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10"
             >
               {t('approval.approve.button')}
@@ -446,7 +449,7 @@ export function buildPendingColumns(
               type="button"
               data-row-action="reject"
               data-testid="pending-reject"
-              onClick={() => onDecide(target, 'reject')}
+              onClick={() => onDecide(target, 'reject', supersede)}
               className={ROW_ACTION_CLASS}
             >
               {t('approval.reject.button')}

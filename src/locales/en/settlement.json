@@ -225,6 +225,18 @@
     "unavailable": "Change requests are not available yet — this server does not offer them. Nothing else on this entry is affected.",
     "unstated": "This entry's change requests could not be read in full, so no change can be asked for here yet.",
     "readOnly": "Asking for a change needs the settlement grant, which this session does not hold.",
+    "supersede": {
+      "entry": "The waiting change request will be closed as superseded.",
+      "batch": "Any change request waiting on these entries will be closed as superseded."
+    },
+    "superseded": {
+      "title": {
+        "CHANGE": "The change request on entry {{number}} was superseded.",
+        "DELETE": "The request to delete entry {{number}} was superseded."
+      },
+      "by": "Closed when {{by}} acted on the entry directly.",
+      "byAt": "Closed on {{at}} when {{by}} acted on the entry directly."
+    },
     "finished": {
       "cancelled": "This entry was cancelled. A finished entry is never changed, so no change can be asked for.",
       "written-off": "This entry's remainder was written off. A finished entry is never changed, so no change can be asked for.",

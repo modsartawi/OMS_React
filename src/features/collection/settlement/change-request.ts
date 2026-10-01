@@ -14,6 +14,7 @@ import type {
 } from '@/core/models/settlement'
 import { isStamped, supervisionFailure } from './approval'
 import type { ChangeRefusal, ChangeRequestDoor } from './change-refusal'
+import { hasChangeWaiting } from './entry-cells'
 import { checkBusinessDay, checkDescription, parseAmount } from './posting'
 
 /**
@@ -709,6 +710,84 @@ export function cardFor(request: SettlementChangeRequest): WaitingCard {
  * and the audit column both draw a Description change through it.
  */
 export const bidiIsolate = (text: string): string => `\u2068${text}\u2069`
+
+/* ── a direct act supersedes (W12, ticket 352) ───────────────────────────────── */
+
+/**
+ * What a direct act's confirm step says about a change request waiting on what it acts
+ * on — Cancel, Write off, Approve and Reject of a pending entry, and Bulk Cancel
+ * (BackOffice 2194: an ACCEPTED direct act makes the waiting request `SUPERSEDED` in the
+ * same transaction; a refused one leaves it `OPEN`).
+ *
+ * - **`entry`** — a request waits on this entry: *"the waiting change request will be
+ *   closed as superseded"*.
+ * - **`batch`** — *"any change request waiting on these entries…"*: nothing on the web
+ *   enumerates a batch's entries (`BatchWithdraw.tsx`), so it is said unconditionally.
+ * - **`none`** — nothing is known to wait; no sentence.
+ */
+export type SupersedeWarning = 'none' | 'entry' | 'batch'
+
+/**
+ * Where the confirm step learns of a waiting request.
+ *
+ * - **`history`** — the entry panel: the ONE History read (`changeRequestHistoryQuery`).
+ * - **`row`** — a lane row: `Settlement/Ledger`'s `openChangeRequestId` (351).
+ * - **`batch`** — Bulk Cancel, which has no entries to read.
+ */
+export type SupersedeSource =
+  | { from: 'history'; history: Partial<Pick<SettlementChangeRequestHistory, 'openRequest'>> | null | undefined }
+  | { from: 'row'; row: { openChangeRequestId?: string } | null | undefined }
+  | { from: 'batch' }
+
+/**
+ * **Whether a direct act's confirm step says a waiting request will be superseded.**
+ *
+ * 🔑 The server's word and nothing else: History's `openRequest`, or the row's
+ * `openChangeRequestId` (the mark's rule, `hasChangeWaiting`). A History read that has
+ * not answered — or never will (a 404: a server without the wave holds no request) — and
+ * a row an older SIS.Api sent without the field say nothing.
+ *
+ * ⚠️ It only words the confirm step. The direct doors are unchanged (W12): the sentence
+ * guards nothing, and the act is never held for it.
+ */
+export function supersedeWarning(source: SupersedeSource): SupersedeWarning {
+  switch (source.from) {
+    case 'batch':
+      return 'batch'
+    case 'row':
+      return hasChangeWaiting(source.row) ? 'entry' : 'none'
+    case 'history':
+      return source.history?.openRequest ? 'entry' : 'none'
+  }
+}
+
+/**
+ * **The request a direct act superseded, as the pane shows it after the re-read** (W12)
+ * — the entry's LATEST request, when it ended `SUPERSEDED` and nothing waits now.
+ *
+ * 🔑 Newest by `requestedAt`, then the ULID — never History's listing order (350's
+ * rule). A later request decided any other way is the entry's story now, so a
+ * supersede long past is not drawn over it; and a request waiting now is the card.
+ * A request about another entry is never drawn under this one's header.
+ */
+export function supersededRequest(
+  history: Partial<Pick<SettlementChangeRequestHistory, 'openRequest' | 'requests'>> | null | undefined,
+  settlementEntryId: string,
+): SettlementChangeRequest | null {
+  if (!history || history.openRequest) return null
+  const latest = (history.requests ?? [])
+    .filter((r) => r.settlementEntryId === settlementEntryId)
+    .reduce<SettlementChangeRequest | null>(
+      (newest, r) =>
+        !newest ||
+        r.requestedAt > newest.requestedAt ||
+        (r.requestedAt === newest.requestedAt && r.changeRequestId > newest.changeRequestId)
+          ? r
+          : newest,
+      null,
+    )
+  return latest?.status === 'SUPERSEDED' ? latest : null
+}
 
 /* ── a failed read ───────────────────────────────────────────────────────────── */
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { TriangleAlert } from 'lucide-react'
@@ -9,8 +9,9 @@ import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import Button from '@/core/ui/Button'
 import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
-import { settlementApi } from './api'
+import { changeRequestHistoryQuery, settlementApi } from './api'
 import { supervisionFailure } from './approval'
+import { supersedeWarning } from './change-request'
 import {
   afterRefusedCancel,
   afterRefusedCloseOut,
@@ -22,6 +23,7 @@ import {
 } from './correction'
 import { REASON_MAX } from './posting'
 import ReasonField, { invalidateSettlement } from './ReasonField'
+import SupersedeNote from './SupersedeNote'
 
 /**
  * **The correction** — one button whose meaning the entry decides (ticket 272,
@@ -102,6 +104,11 @@ export default function EntryCorrection({
     setRaced(null)
     setCloseOutRefused(null)
   }, [entryId])
+
+  // 352 (W12): the ONE History read the change-request pane holds (same key, one request) —
+  // a request waiting on this entry is superseded by an accepted Cancel or Write off, and
+  // the confirm step says so. The settled act's `invalidateSettlement` re-reads it.
+  const history = useQuery(changeRequestHistoryQuery(entryId))
 
   // The account (so the corrected entry's status and remaining are the server's
   // again — which is also what turns this panel's affordance into *none*) plus the
@@ -373,6 +380,7 @@ export default function EntryCorrection({
             )
           : (
               <div className="flex flex-col gap-2">
+                <SupersedeNote warning={supersedeWarning({ from: 'history', history: history.data })} />
                 <ReasonField
                   value={reason}
                   onValue={setReason}

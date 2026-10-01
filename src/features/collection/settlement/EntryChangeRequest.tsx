@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ArrowDownToLine, Check, FilePenLine, Hourglass, Trash2, TriangleAlert, Undo2, X, Zap } from 'lucide-react'
+import { ArrowDownToLine, Check, FilePenLine, FileX2, Hourglass, Trash2, TriangleAlert, Undo2, X, Zap } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
@@ -18,6 +18,7 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import type { AccountEntryRow } from './account-projection'
 import { changeRequestHistoryQuery, settlementApi } from './api'
+import { isStamped } from './approval'
 import { changedTag } from './audit'
 import ChangeFromTo from './ChangeFromTo'
 import {
@@ -36,6 +37,7 @@ import {
   reduceToSpent,
   rejectBody,
   removeSaidBy,
+  supersededRequest,
   type ActAnswer,
   type DecideDoor,
   type ChangeDraft,
@@ -443,6 +445,14 @@ export default function EntryChangeRequest({
   /** One act at a time on the card — a press while another runs is ignored. */
   const cardBusy = withdraw.isPending || approve.isPending || reject.isPending
   const state = failure ?? (gone ? 'gone' : history.isPending ? 'loading' : offer.kind)
+  /**
+   * 352 (W12): the request a direct act on this entry superseded — Cancel or Write off in
+   * the correction pane, Approve or Reject in the approval pane — shown once History is
+   * re-read. Not while a request waits (that is the card), and not while an answer of this
+   * pane's own is drawn (it is newer than the read).
+   */
+  const superseded =
+    offer.kind === 'waiting' || answered ? null : supersededRequest(history.data, entryId)
   const money = (v: number | null | undefined) => settlementMoney(v, currencyKey)
 
   const startChange = () => {
@@ -553,6 +563,7 @@ export default function EntryChangeRequest({
         </p>
       ) : offer.kind === 'finished' ? (
         <>
+          {superseded && <SupersededCard request={superseded} entryNumber={row.entryNumber} money={money} />}
           {noticeLine}
           <p className="text-sm text-muted-foreground" data-testid="change-request-finished">
             {t(`changeRequest.finished.${offer.because}`)}
@@ -563,9 +574,12 @@ export default function EntryChangeRequest({
           {t('changeRequest.unstated')}
         </p>
       ) : offer.kind === 'read-only' ? (
-        <p className="text-sm text-muted-foreground" data-testid="change-request-read-only">
-          {t('changeRequest.readOnly')}
-        </p>
+        <>
+          {superseded && <SupersededCard request={superseded} entryNumber={row.entryNumber} money={money} />}
+          <p className="text-sm text-muted-foreground" data-testid="change-request-read-only">
+            {t('changeRequest.readOnly')}
+          </p>
+        </>
       ) : offer.kind === 'waiting' ? (
         <>
           {noticeLine}
@@ -619,6 +633,7 @@ export default function EntryChangeRequest({
         </>
       ) : (
         <>
+          {superseded && <SupersededCard request={superseded} entryNumber={row.entryNumber} money={money} />}
           {noticeLine}
           {form === 'change' ? (
             <ChangeForm
@@ -1030,6 +1045,71 @@ function ChangedBadge({
           : t('changeRequest.changed.earlier', { amount: money(tag.earlierAmount) })}
       </span>
     </span>
+  )
+}
+
+/**
+ * **A request a direct act superseded (W12, ticket 352)** — what was asked (old → new,
+ * only what differs), who asked and why, and who closed it by acting on the entry
+ * directly. No act: a superseded request is over (350's audit column keeps it after).
+ *
+ * ⚠️ Never "cancelled" (W13): the entry may be cancelled; the request is superseded.
+ */
+function SupersededCard({
+  request,
+  entryNumber,
+  money,
+}: {
+  request: SettlementChangeRequest
+  entryNumber: number
+  money: (v: number | null | undefined) => string
+}) {
+  const { t } = useTranslation('settlement')
+  const card = cardFor(request)
+  const by = request.decidedByName || request.decidedByStaffId
+
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/20 p-3 text-sm"
+      data-testid="change-request-superseded"
+      data-request={request.changeRequestId}
+      data-kind={card.kind}
+    >
+      <p className="flex items-start gap-2">
+        <FileX2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+        <span className="font-medium">{t(`changeRequest.superseded.title.${card.kind}`, { number: entryNumber })}</span>
+      </p>
+      <p className="text-muted-foreground" data-testid="change-request-superseded-by">
+        {isStamped(request.decidedAt)
+          ? t('changeRequest.superseded.byAt', { by, at: formatDateTime(request.decidedAt) })
+          : t('changeRequest.superseded.by', { by })}
+      </p>
+      {card.changes.length > 0 && (
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
+          {card.changes.map((c) => (
+            <div key={c.field} className="contents">
+              <dt className="text-xs uppercase tracking-wide text-muted-foreground">
+                {t(`changeRequest.card.field.${c.field}`)}
+              </dt>
+              <dd className={c.field === 'amount' ? 'tabular-nums' : undefined}>
+                <ChangeFromTo change={c} money={money} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <p className="text-muted-foreground">
+        {card.at
+          ? t('changeRequest.card.askedAt', { by: card.by, at: formatDateTime(card.at) })
+          : t('changeRequest.card.asked', { by: card.by })}
+      </p>
+      <div className="flex flex-col gap-1">
+        <span className="text-xs font-medium">{t('changeRequest.card.reason')}</span>
+        <blockquote dir="auto" className="rounded-md border border-border/60 bg-muted/30 p-2.5">
+          {card.reason || t('changeRequest.card.noReason')}
+        </blockquote>
+      </div>
+    </div>
   )
 }
 

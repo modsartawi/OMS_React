@@ -216,7 +216,7 @@ export default function OpenSettlements() {
       buildPendingColumns(t, {
         named: pendingBuilt.named,
         canSupervise,
-        onDecide: (target, act) => setDeciding({ target, act }),
+        onDecide: (target, act, supersede) => setDeciding({ target, act, supersede }),
       }),
     [t, pendingBuilt.named, canSupervise],
   )

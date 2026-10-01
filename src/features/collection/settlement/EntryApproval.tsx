@@ -1,12 +1,15 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Hourglass, Ban } from 'lucide-react'
 
 import Button from '@/core/ui/Button'
 import { formatDateTime } from '@/core/util/date-format'
 import type { AccountEntryRow } from './account-projection'
+import { changeRequestHistoryQuery } from './api'
 import { approvalFor, approvalTarget } from './approval'
 import ApprovalDialog, { type ApprovalRequest } from './ApprovalDialog'
+import { supersedeWarning } from './change-request'
 
 /**
  * **The approval panel** on a branch account — what the selected entry's wait for a
@@ -39,6 +42,10 @@ export default function EntryApproval({
 }) {
   const { t } = useTranslation('settlement')
   const [request, setRequest] = useState<ApprovalRequest | null>(null)
+  // 352 (W12): the ONE History read the change-request pane holds (same key, one request).
+  // An accepted Approve or Reject supersedes a request waiting on the entry, so the dialog
+  // says so — read live, not captured at the press, so a re-read under the open dialog counts.
+  const history = useQuery(changeRequestHistoryQuery(row?.settlementEntryId ?? ''))
 
   const state = approvalFor(row, canSupervise)
   if (!row || state.kind === 'none') return null
@@ -111,7 +118,10 @@ export default function EntryApproval({
         </>
       )}
 
-      <ApprovalDialog request={request} onClose={() => setRequest(null)} />
+      <ApprovalDialog
+        request={request && { ...request, supersede: supersedeWarning({ from: 'history', history: history.data }) }}
+        onClose={() => setRequest(null)}
+      />
     </section>
   )
 }

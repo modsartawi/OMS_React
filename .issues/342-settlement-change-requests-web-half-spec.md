@@ -160,7 +160,7 @@ refusal is the server's, and it is shown in words keyed off the server's code.
 
   | Code | Sentence (gist) | Next step offered |
   |---|---|---|
-  | `ENTRY_NOT_OPEN` | the entry no longer exists | close the pane |
+  | `ENTRY_NOT_OPEN` | the entry no longer exists | close the pane; at approval, when the answer still names the entry, it is the server's unexplained fallback with the request still `OPEN`: a generic sentence and a History re-read, never close (346) |
   | `ENTRY_FINAL` | the entry was cancelled / closed out / rejected | redraw |
   | `BELOW_SPENT` | the branch has spent X; ask for at least X | refill the floor from `spentAmount` |
   | `DELETE_SPENT` | the branch has spent X; it cannot be deleted | "Reduce it to X" (W5) |

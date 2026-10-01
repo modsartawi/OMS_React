@@ -1158,6 +1158,24 @@ export type SettlementChangeRequestWithdrawBody = {
 }
 
 /**
+ * `POST Settlement/ChangeRequest/Approve`'s body (BackOffice 2191). Behind settlement
+ * supervision; the approver is the session's.
+ */
+export type SettlementChangeRequestApproveBody = {
+  changeRequestId: string
+}
+
+/**
+ * `POST Settlement/ChangeRequest/Reject`'s body (BackOffice 2191). Behind settlement
+ * supervision. The **Reason** is required, ≤ 200 — the accountant who raised it reads
+ * it. The entry is never touched.
+ */
+export type SettlementChangeRequestRejectBody = {
+  changeRequestId: string
+  reason: string
+}
+
+/**
  * What every change-request act answers — Raise, Approve, Reject and Withdraw
  * (BackOffice 2191's table, with 2195's `businessDay`).
  *

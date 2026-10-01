@@ -31,8 +31,10 @@ import type {
   SettlementBulkPreview,
   SettlementCancelResult,
   SettlementChangeRequestActResult,
+  SettlementChangeRequestApproveBody,
   SettlementChangeRequestHistory,
   SettlementChangeRequestRaiseBody,
+  SettlementChangeRequestRejectBody,
   SettlementChangeRequestWithdrawBody,
   SettlementChaseResult,
   SettlementChaseSubject,
@@ -651,5 +653,31 @@ export const settlementApi = {
   withdrawChangeRequest(changeRequestId: string): Promise<SettlementChangeRequestActResult> {
     const body: SettlementChangeRequestWithdrawBody = { changeRequestId }
     return api.post<SettlementChangeRequestActResult>('Settlement/ChangeRequest/Withdraw', body)
+  },
+
+  /**
+   * `POST Settlement/ChangeRequest/Approve` → a supervisor approves a waiting request, and
+   * it applies to the entry (BackOffice 2191–2195, ticket 346). Behind settlement
+   * supervision: a session without it gets a **bare 403** (`changeRequestFailure`).
+   *
+   * 🔑 Accepted is `requestStatus: "APPLIED"`, carrying the entry's corrected figures —
+   * drawn at once (W8). A refusal (`BELOW_SPENT` with today's `spentAmount`,
+   * `ENTRY_FINAL`, `CHANGE_STALE`, `THEFT_DAY_COLLECTED`, …) is a 200 and the request
+   * stays `OPEN`; 344's map words it. ⚠️ A 404 means SIS.Api has not shipped the wave.
+   */
+  approveChangeRequest(changeRequestId: string): Promise<SettlementChangeRequestActResult> {
+    const body: SettlementChangeRequestApproveBody = { changeRequestId }
+    return api.post<SettlementChangeRequestActResult>('Settlement/ChangeRequest/Approve', body)
+  },
+
+  /**
+   * `POST Settlement/ChangeRequest/Reject` → a supervisor rejects a waiting request with a
+   * Reason (BackOffice 2191, ticket 346). Behind settlement supervision, as Approve. The
+   * entry is never touched; accepted is `requestStatus: "REJECTED"`. ⚠️ A 404 means
+   * SIS.Api has not shipped the wave.
+   */
+  rejectChangeRequest(changeRequestId: string, reason: string): Promise<SettlementChangeRequestActResult> {
+    const body: SettlementChangeRequestRejectBody = { changeRequestId, reason }
+    return api.post<SettlementChangeRequestActResult>('Settlement/ChangeRequest/Reject', body)
   },
 }

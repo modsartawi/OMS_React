@@ -162,6 +162,32 @@ export function withdrawnAnswerFor(
   return answerAbout(entry, request, 'WITHDRAWN', spentAmount)
 }
 
+/**
+ * An accepted approve of `request` (2191–2195) — `requestStatus: "APPLIED"`, the entry's
+ * figures as the server corrected them. 🔑 `corrected` is the caller's statement of the
+ * server's figures (`amount`, `remainingAmount`, `entryStatus`, …) — nothing is computed
+ * here from what was asked, any more than the pane does.
+ */
+export function approvedAnswerFor(
+  entry: EntryLike,
+  request: Pick<SettlementChangeRequest, 'changeRequestId'>,
+  spentAmount: number,
+  corrected: Partial<
+    Pick<SettlementChangeRequestActResult, 'amount' | 'remainingAmount' | 'description' | 'entryStatus' | 'businessDay'>
+  > = {},
+): SettlementChangeRequestActResult {
+  return { ...answerAbout(entry, request, 'APPLIED', spentAmount), ...corrected }
+}
+
+/** An accepted reject of `request` (2191) — `requestStatus: "REJECTED"`; the entry is never touched. */
+export function rejectedAnswerFor(
+  entry: EntryLike,
+  request: Pick<SettlementChangeRequest, 'changeRequestId'>,
+  spentAmount: number,
+): SettlementChangeRequestActResult {
+  return answerAbout(entry, request, 'REJECTED', spentAmount)
+}
+
 function answerAbout(
   entry: EntryLike,
   request: Pick<SettlementChangeRequest, 'changeRequestId'>,

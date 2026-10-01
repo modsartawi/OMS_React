@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/core/api'
 import type { SettlementEntryKind, SettlementEntryStatus } from '@/core/models/settlement'
 import {
+  afterDecide,
   afterRaise,
   afterWithdraw,
   cardFor,
@@ -19,17 +20,22 @@ import {
   entryNow,
   changeRequestFailure,
   offerFor,
+  paneRead,
   raisedRequest,
+  rejectBody,
   type ChangeRequestSession,
 } from './change-request'
+import { changeRefusal } from './change-refusal'
 import {
   APPLIED_SAMPLE,
   BELOW_SPENT_SAMPLE,
   NOT_REQUESTER_SAMPLE,
   REQUESTER,
   UNSTAMPED,
+  approvedAnswerFor,
   historyOf,
   raisedAnswerFor,
+  rejectedAnswerFor,
   waitingRequestOn,
   withdrawnAnswerFor,
 } from './change-request-fixture'
@@ -470,5 +476,107 @@ describe('changeRequestFailure — a 404 means SIS.Api has not shipped the wave'
   it('anything else → other', () => {
     expect(changeRequestFailure(new ApiError('server', 'boom', 500))).toBe('other')
     expect(changeRequestFailure(new Error('x'))).toBe('other')
+  })
+})
+
+describe('afterDecide — what an approve or a reject came back with, read from the answer (ticket 346)', () => {
+  const entry = entryOf('0142', 151)
+  const request = waitingRequestOn(entry, { changeRequestId: 'R-151', newAmount: 300 })
+
+  it('🔑 an approve is decided only when the answer says APPLIED (2191\'s sample)', () => {
+    expect(afterDecide('approve', APPLIED_SAMPLE)).toEqual({ kind: 'decided' })
+  })
+  it('a reject is decided only when the answer says REJECTED', () => {
+    expect(afterDecide('reject', rejectedAnswerFor(entry, request, 200))).toEqual({ kind: 'decided' })
+  })
+  it('🚩 accepted but naming another status → unconfirmed, never a decision the server did not state', () => {
+    expect(afterDecide('approve', rejectedAnswerFor(entry, request, 200))).toEqual({ kind: 'unconfirmed' })
+    expect(afterDecide('reject', APPLIED_SAMPLE)).toEqual({ kind: 'unconfirmed' })
+    expect(afterDecide('approve', raisedAnswerFor(entry, request, 200))).toEqual({ kind: 'unconfirmed' })
+  })
+  it('a 200 refusal → refused with its code (2192\'s BELOW_SPENT sample, the request still OPEN)', () => {
+    expect(afterDecide('approve', BELOW_SPENT_SAMPLE)).toEqual({ kind: 'refused', code: 'BELOW_SPENT' })
+  })
+  it('no answer → refused with no code', () => {
+    expect(afterDecide('reject', null)).toEqual({ kind: 'refused', code: '' })
+  })
+})
+
+describe('paneRead — the act answer redraws the pane before the re-read lands (W8, ticket 346)', () => {
+  const entry = entryOf('0142', 151)
+  const request = waitingRequestOn(entry, { changeRequestId: 'R-151', newAmount: 300 })
+  const history = historyOf(entry, { spentAmount: 200, openRequest: request })
+
+  it('with no answer, History\'s figures and its waiting request stand', () => {
+    const read = paneRead(entry, history, null)
+    expect(read.openRequest).toBe(request)
+    expect(read.now).toMatchObject({ amount: 320, remainingAmount: 120, spentAmount: 200, status: 'OPEN' })
+    expect(offerFor(read.now, read, SUPERVISOR)).toEqual({ kind: 'waiting', request, withdraw: false, decide: true })
+  })
+
+  it('🔑 an accepted approve REPLACES the figures, and the card goes — the answer says nothing waits', () => {
+    const result = approvedAnswerFor(entry, request, 200, { amount: 300, remainingAmount: 100 })
+    const read = paneRead(entry, history, { result, request: null })
+    expect(read.openRequest).toBeNull()
+    expect(read.now).toMatchObject({ amount: 300, remainingAmount: 100, spentAmount: 200, status: 'OPEN' })
+    expect(offerFor(read.now, read, SUPERVISOR)).toEqual({ kind: 'ask', mode: 'now', floor: 200, remove: { kind: 'reduce', to: 200 } })
+  })
+
+  it('an OPEN entry lowered to exactly its spent figure becomes CONSUMED — the answer\'s status, not one derived here', () => {
+    const result = approvedAnswerFor(entry, request, 200, { amount: 200, remainingAmount: 0, entryStatus: 'CONSUMED' })
+    expect(paneRead(entry, history, { result, request: null }).now).toMatchObject({ status: 'CONSUMED', amount: 200, remainingAmount: 0 })
+  })
+
+  it('🚩 a pending entry stays PENDING_APPROVAL — approving a change never approves the entry (2192)', () => {
+    const pending = { ...entry, status: 'PENDING_APPROVAL' as const, amount: 600, remainingAmount: 600 }
+    const result = approvedAnswerFor(pending, request, 0, { amount: 550, remainingAmount: 550 })
+    const read = paneRead(pending, historyOf(pending, { spentAmount: 0, openRequest: request }), { result, request: null })
+    expect(read.now).toMatchObject({ status: 'PENDING_APPROVAL', amount: 550 })
+  })
+
+  it('an approved delete answers CANCELLED (2193) — the pane says the entry is finished at once', () => {
+    const result = approvedAnswerFor(entry, request, 0, { entryStatus: 'CANCELLED' })
+    const read = paneRead(entry, history, { result, request: null })
+    expect(offerFor(read.now, read, SUPERVISOR)).toEqual({ kind: 'finished', because: 'cancelled' })
+  })
+
+  it('🔑 a refused approve keeps the request OPEN on the card, with its refusal and TODAY\'s spent figure', () => {
+    const result = { ...BELOW_SPENT_SAMPLE, settlementEntryId: entry.settlementEntryId, entryNumber: 151, amount: 320, remainingAmount: 0, spentAmount: 320 }
+    // A refusal says nothing about what waits: `request` is left unset, so History's word stands.
+    const read = paneRead(entry, history, { result })
+    expect(read.openRequest).toBe(request)
+    expect(read.now).toMatchObject({ spentAmount: 320, remainingAmount: 0 })
+    expect(offerFor(read.now, read, SUPERVISOR)).toEqual({ kind: 'waiting', request, withdraw: false, decide: true })
+    expect(changeRefusal('approve', result)).toMatchObject({ code: 'BELOW_SPENT', spent: 320, step: { kind: 'reject' } })
+  })
+
+  it('a rejected request goes, and the entry\'s figures are the answer\'s — unchanged', () => {
+    const read = paneRead(entry, history, { result: rejectedAnswerFor(entry, request, 200), request: null })
+    expect(read.openRequest).toBeNull()
+    expect(read.now).toMatchObject({ amount: 320, remainingAmount: 120, spentAmount: 200 })
+  })
+
+  it('…but never an answer about another entry — neither its figures nor what it says waits', () => {
+    const read = paneRead(entry, history, { result: APPLIED_SAMPLE, request: null })
+    expect(read.openRequest).toBe(request)
+    expect(read.now).toMatchObject({ amount: 320, spentAmount: 200 })
+  })
+})
+
+describe('rejectBody — rejecting needs a Reason (W6, ticket 346)', () => {
+  const request = waitingRequestOn(entryOf('0142', 151), { changeRequestId: 'R-151' })
+
+  it('a blank Reason, or one of spaces, is held', () => {
+    expect(rejectBody(request, '')).toEqual({ kind: 'held', reason: 'blank' })
+    expect(rejectBody(request, '   ')).toEqual({ kind: 'held', reason: 'blank' })
+  })
+  it('a Reason over 200 is held', () => {
+    expect(rejectBody(request, 'x'.repeat(201))).toEqual({ kind: 'held', reason: 'too-long' })
+  })
+  it('🔑 the body is { changeRequestId, reason }, the Reason trimmed — nothing about the entry', () => {
+    expect(rejectBody(request, '  spent past it already  ')).toEqual({
+      kind: 'ready',
+      body: { changeRequestId: 'R-151', reason: 'spent past it already' },
+    })
   })
 })

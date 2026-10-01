@@ -6,6 +6,8 @@ import type {
   SettlementChangeRequestHistory,
   SettlementChangeRequestKind,
   SettlementChangeRequestRaiseBody,
+  SettlementChangeRequestRejectBody,
+  SettlementChangeRequestStatus,
   SettlementEntry,
   SettlementEntryKind,
   SettlementEntryStatus,
@@ -387,6 +389,79 @@ export type WithdrawOutcome = { kind: 'withdrawn' } | { kind: 'unconfirmed' } | 
 export function afterWithdraw(answer: SettlementChangeRequestActResult | null | undefined): WithdrawOutcome {
   if (answer?.accepted !== true) return { kind: 'refused', code: answer?.refusalReason ?? '' }
   return answer.requestStatus === 'WITHDRAWN' ? { kind: 'withdrawn' } : { kind: 'unconfirmed' }
+}
+
+/* ── a supervisor's approve or reject (W6 / W8, ticket 346) ──────────────────── */
+
+/**
+ * What an approve or a reject came back with (2191–2195).
+ *
+ * - **`decided`** — accepted, and the answer names the end that door makes:
+ *   `"APPLIED"` for an approve, `"REJECTED"` for a reject. The card goes, and the
+ *   entry's figures are the answer's (corrected after an approve, untouched after a
+ *   reject).
+ * - **`unconfirmed`** — accepted, but naming another status: neither decided nor a
+ *   refusal, as `afterWithdraw` says it. The re-read draws what is true.
+ * - **`refused`** — a 200 refusal; the request stays `OPEN` (all but `CHANGE_NOT_OPEN`)
+ *   and `changeRefusal('approve' | 'reject', …)` words it and names the step.
+ */
+export type DecideOutcome = { kind: 'decided' } | { kind: 'unconfirmed' } | { kind: 'refused'; code: string }
+
+const DECIDES: Record<'approve' | 'reject', SettlementChangeRequestStatus> = { approve: 'APPLIED', reject: 'REJECTED' }
+
+export function afterDecide(
+  door: 'approve' | 'reject',
+  answer: SettlementChangeRequestActResult | null | undefined,
+): DecideOutcome {
+  if (answer?.accepted !== true) return { kind: 'refused', code: answer?.refusalReason ?? '' }
+  return answer.requestStatus === DECIDES[door] ? { kind: 'decided' } : { kind: 'unconfirmed' }
+}
+
+/**
+ * Whether a Reject may be sent, and if so, what — `{ changeRequestId, reason }`, the
+ * Reason trimmed (2191: required, ≤ 200). Nothing about the entry goes: a reject never
+ * touches it.
+ */
+export type RejectCheck =
+  | { kind: 'ready'; body: SettlementChangeRequestRejectBody }
+  | { kind: 'held'; reason: 'blank' | 'too-long' }
+
+export function rejectBody(request: Pick<SettlementChangeRequest, 'changeRequestId'>, reason: string): RejectCheck {
+  const check = checkDescription(reason)
+  if (check.problem) return { kind: 'held', reason: check.problem }
+  return { kind: 'ready', body: { changeRequestId: request.changeRequestId, reason: check.text } }
+}
+
+/* ── what the pane draws from (W8) ───────────────────────────────────────────── */
+
+/**
+ * The last act answer about the entry on screen, and what it leaves waiting.
+ *
+ * `request` is the answer's word on the waiting request: the one a raise just stored,
+ * or `null` once one was applied, rejected or withdrawn. **Absent for a refusal** — a
+ * refusal says nothing about what waits, so History's word stands (a refused approve
+ * keeps its card, still `OPEN`).
+ */
+export type ActAnswer = { result: SettlementChangeRequestActResult; request?: SettlementChangeRequest | null }
+
+/**
+ * **The redraw step (W8)** — the entry's figures and its waiting request, as the pane
+ * should draw them now: an act answer about THIS entry first, then the History read,
+ * then the account row (`entryNow`).
+ *
+ * ⚠️ **An answer about another entry is ignored whole** — its figures (as `entryNow`
+ * already does) and what it says waits. The pane is keyed by entry, so this should not
+ * arise; if it does, nothing of 143 is drawn under 151's header.
+ */
+export function paneRead(
+  row: Parameters<typeof entryNow>[0],
+  history: Partial<SettlementChangeRequestHistory> | null | undefined,
+  answered: ActAnswer | null | undefined,
+): { now: EntryNow; openRequest: SettlementChangeRequest | null; spentAmount: number | null } {
+  const mine = answered && answered.result?.settlementEntryId === row.settlementEntryId ? answered : null
+  const now = entryNow(row, history, mine?.result)
+  const openRequest = mine && mine.request !== undefined ? mine.request : (history?.openRequest ?? null)
+  return { now, openRequest, spentAmount: now.spentAmount }
 }
 
 /* ── the waiting-request card (W6) ───────────────────────────────────────────── */

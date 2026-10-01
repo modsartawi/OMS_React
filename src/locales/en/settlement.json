@@ -272,7 +272,23 @@
       "noReason": "No reason was recorded.",
       "live": "Entry {{number}} keeps working at its current figures until this request is decided.",
       "withdraw": "Withdraw",
-      "withdrawHint": "You raised this change request, so you can withdraw it before a supervisor decides it."
+      "withdrawHint": "You raised this change request, so you can withdraw it before a supervisor decides it.",
+      "spentNow": "Today the branch has spent {{spent}} from entry {{number}}, which stands at {{amount}}.",
+      "spentUnstated": "What the branch has spent from entry {{number}} today could not be read. The server still checks it when you approve.",
+      "approve": "Approve",
+      "reject": "Reject",
+      "decideHint": "Approving applies this to entry {{number}} at once. Rejecting leaves the entry as it is."
+    },
+    "reject": {
+      "reason": {
+        "label": "Reason",
+        "hint": "Why this change request is rejected — the person who raised it reads it. Up to {{max}} characters."
+      },
+      "submit": "Reject the change request on entry {{number}}",
+      "back": "Back"
+    },
+    "step": {
+      "reject": "It is still waiting. Reject it with a Reason; a fresh request can then be raised against the entry as it stands now."
     },
     "refusal": {
       "ENTRY_NOT_OPEN": "Entry {{number}} no longer exists on the server, so nothing can be asked for or decided on it.",
@@ -326,7 +342,9 @@
     "done": {
       "raised": "Change request raised for entry {{number}}.",
       "applied": "Entry {{number}} is changed.",
-      "withdrawn": "Your change request on entry {{number}} was withdrawn."
+      "withdrawn": "Your change request on entry {{number}} was withdrawn.",
+      "approved": "The change request on entry {{number}} was approved and applied.",
+      "rejected": "The change request on entry {{number}} was rejected. The entry is unchanged."
     },
     "errors": {
       "loadFailed": "This entry's change requests could not be read.",
@@ -335,7 +353,12 @@
       "forbidden": "This session no longer holds the settlement grant — the change request was not raised.",
       "withdrawFailed": "The change request could not be withdrawn.",
       "withdrawForbidden": "This session no longer holds the settlement grant — the change request was not withdrawn.",
-      "withdrawUnconfirmed": "The server accepted the withdrawal but did not confirm the request was withdrawn. This entry's change requests are being read again."
+      "withdrawUnconfirmed": "The server accepted the withdrawal but did not confirm the request was withdrawn. This entry's change requests are being read again.",
+      "approveFailed": "The change request could not be approved.",
+      "rejectFailed": "The change request could not be rejected.",
+      "decideForbidden": "You no longer hold settlement supervision, so this change request was not decided. Ask an administrator if you should.",
+      "approveUnconfirmed": "The server accepted the approval but did not confirm the request was applied. This entry's change requests are being read again.",
+      "rejectUnconfirmed": "The server accepted the rejection but did not confirm the request was rejected. This entry's change requests are being read again."
     }
   },
   "audit": {

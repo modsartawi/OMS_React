@@ -24,6 +24,7 @@ import {
   cardFor,
   changeRequestBody,
   changeRequestFailure,
+  decideFirst,
   deleteRequestBody,
   offerFor,
   paneRead,
@@ -139,6 +140,8 @@ export default function EntryChangeRequest({
   const queryClient = useQueryClient()
   const userId = useSession((s) => s.userId)
   const displayName = useSession((s) => s.displayName)
+  /** The session as the pure module reads it — one object for `offerFor` and `raiseOutcome`. */
+  const session = { canOpenSettlement: canOpen, canSuperviseSettlement: canSupervise, userId }
 
   const entryId = row?.settlementEntryId ?? ''
 
@@ -197,12 +200,7 @@ export default function EntryChangeRequest({
       const reread = invalidateSettlement(queryClient, v.entry.storeId)
       // 🔑 W1 (348): applied or waiting is the ANSWER's `requestStatus`, never the probe's
       // flag — a supervisor's raise that comes back OPEN draws the card as for anyone.
-      const outcome = raiseOutcome(v.entry, v.body, result, {
-        canOpenSettlement: canOpen,
-        canSuperviseSettlement: canSupervise,
-        userId,
-        displayName,
-      })
+      const outcome = raiseOutcome(v.entry, v.body, result, { ...session, displayName })
       if (outcome.kind === 'refused') {
         if (!stillOn(v.entry)) return
         const refusal = changeRefusal('raise', result)
@@ -432,11 +430,7 @@ export default function EntryChangeRequest({
   const read = paneRead(row, history.data, answered)
   const now = read.now
   const failure = actUnshipped ? 'not-shipped' : readFailure
-  const offer = offerFor(
-    now,
-    { ...read, notRequesterOf },
-    { canOpenSettlement: canOpen, canSuperviseSettlement: canSupervise, userId },
-  )
+  const offer = offerFor(now, { ...read, notRequesterOf }, session)
   /** The Reject box — drawn only for the request it was opened on. */
   const openDraft =
     offer.kind === 'waiting' && rejectDraft?.requestId === offer.request.changeRequestId ? rejectDraft : null
@@ -506,15 +500,12 @@ export default function EntryChangeRequest({
           </span>
         )}
         {/* 348 (story 22): a supervisor's own raise blocked by a request already waiting —
-            once the re-read draws that card with Approve / Reject (`decide`), it is decided first. */}
-        {notice.kind === 'refused' &&
-          notice.refusal.step.kind === 'open-request' &&
-          offer.kind === 'waiting' &&
-          offer.decide && (
-            <span className="mt-1 block" data-testid="change-request-notice-step">
-              {t('changeRequest.step.decideFirst', { number: row.entryNumber })}
-            </span>
-          )}
+            once the re-read draws THAT card with Approve / Reject, it is decided first. */}
+        {notice.kind === 'refused' && decideFirst(notice.refusal, offer) && (
+          <span className="mt-1 block" data-testid="change-request-notice-step">
+            {t('changeRequest.step.decideFirst', { number: row.entryNumber })}
+          </span>
+        )}
       </span>
     </p>
   )

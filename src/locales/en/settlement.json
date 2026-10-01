@@ -240,7 +240,7 @@
     "deleteForm": {
       "intro": "Ask a supervisor to delete entry {{number}}. Once approved, the entry is cancelled: it keeps its number and its history, and nothing more can be spent from it. Until then it keeps working at its current figures.",
       "introNow": "Deleting cancels entry {{number}}: it keeps its number and its history, and nothing more can be spent from it.",
-      "appliesNow": "Applies immediately — no approval step. Entry {{number}} is cancelled as soon as you press Delete.",
+      "appliesNow": "Applies immediately — no approval step. Entry {{number}} is cancelled the moment you confirm below.",
       "reasonHint": "Why this entry should be deleted — the supervisor reads it before deciding. Up to {{max}} characters.",
       "reasonHintNow": "Why this entry is deleted — it is kept in the entry's history. Up to {{max}} characters.",
       "submit": {
@@ -267,7 +267,7 @@
         "hintNow": "Why this change is made — it is kept in the entry's history. Up to {{max}} characters."
       },
       "unchanged": "Nothing differs from the entry yet. Change the amount or the Description to ask for a change.",
-      "appliesNow": "Applies immediately — no approval step. Entry {{number}} is changed as soon as you press Change.",
+      "appliesNow": "Applies immediately — no approval step. Entry {{number}} is changed the moment you confirm below.",
       "submit": {
         "request": "Send the change request",
         "now": "Change entry {{number}} now"
@@ -308,7 +308,7 @@
     },
     "step": {
       "reject": "It is still waiting. Reject it with a Reason; a fresh request can then be raised against the entry as it stands now.",
-      "decideFirst": "Approve or reject it below first. Your own change to entry {{number}} can be made once it is decided."
+      "decideFirst": "Approve or reject it below first. Your own change or delete on entry {{number}} can be made once it is decided."
     },
     "refusal": {
       "ENTRY_NOT_OPEN": "Entry {{number}} no longer exists on the server, so nothing can be asked for or decided on it.",

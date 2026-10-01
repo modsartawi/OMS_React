@@ -17,6 +17,7 @@ import {
   afterWithdraw,
   cardFor,
   changeRequestBody,
+  decideFirst,
   deleteRequestBody,
   entryNow,
   changeRequestFailure,
@@ -438,11 +439,10 @@ describe('raiseOutcome — a raise\'s redraw is read from the ANSWER, whatever t
     })
   }
 
-  it('the outcome is the same whichever flag is passed — the answer alone decides it', () => {
+  it('the whole redraw is the same whichever flag is passed — the answer alone decides it', () => {
+    const asUser = (canSuperviseSettlement: boolean) => ({ ...ACCOUNTANT, canSuperviseSettlement, displayName: 'Huda' })
     for (const answer of [applied, appliedDelete, raised])
-      expect(raiseOutcome(now, change, answer, asSession(SUPERVISOR)).kind).toBe(
-        raiseOutcome(now, change, answer, asSession(ACCOUNTANT)).kind,
-      )
+      expect(raiseOutcome(now, change, answer, asUser(true))).toEqual(raiseOutcome(now, change, answer, asUser(false)))
   })
 
   it('🔑 a supervisor\'s raise refused CHANGE_ALREADY_OPEN: the re-read\'s accountant request is drawn, with Approve / Reject', () => {
@@ -458,6 +458,37 @@ describe('raiseOutcome — a raise\'s redraw is read from the ANSWER, whatever t
   it('no display name: the requester is named by the user id', () => {
     const out = raiseOutcome(now, change, raised, { ...ACCOUNTANT, displayName: null })
     expect(out.answered.request).toMatchObject({ requestedByStaffId: 'u-accountant', requestedByName: 'u-accountant' })
+  })
+})
+
+describe('decideFirst — a supervisor blocked by a waiting request is told to decide THAT one first (ticket 348)', () => {
+  const row = entryOf('0142', 143)
+  const theirs = waitingRequestOn(row, { changeRequestId: 'R-THEIRS' })
+  const blocked = (changeRequestId: string) =>
+    changeRefusal('raise', { refusalReason: 'CHANGE_ALREADY_OPEN', changeRequestId, settlementEntryId: row.settlementEntryId })
+  const card = (o: Partial<{ request: typeof theirs; withdraw: boolean; decide: boolean }> = {}) =>
+    ({ kind: 'waiting', request: theirs, withdraw: false, decide: true, ...o }) as const
+
+  it('🔑 the named request\'s card, with Approve / Reject → said', () => {
+    expect(decideFirst(blocked('R-THEIRS'), card())).toBe(true)
+  })
+  it('a DIFFERENT request waiting by the re-read → not said: it is not the one that blocked', () => {
+    expect(decideFirst(blocked('R-THEIRS'), card({ request: { ...theirs, changeRequestId: 'R-LATER' } }))).toBe(false)
+  })
+  it('2194\'s race (no id named) → said of whatever waits now', () => {
+    expect(decideFirst(blocked(''), card())).toBe(true)
+  })
+  it('an accountant (no decide) → not said: they cannot decide it', () => {
+    expect(decideFirst(blocked('R-THEIRS'), card({ decide: false }))).toBe(false)
+  })
+  it('the session\'s own request (withdraw) → not said: that one is withdrawn, not decided first', () => {
+    expect(decideFirst(blocked('R-THEIRS'), card({ withdraw: true }))).toBe(false)
+  })
+  it('any other refusal, no refusal, or no card → not said', () => {
+    expect(decideFirst(changeRefusal('raise', { refusalReason: 'CHANGE_STALE' }), card())).toBe(false)
+    expect(decideFirst(changeRefusal('approve', { refusalReason: 'ENTRY_NOT_OPEN', settlementEntryId: row.settlementEntryId }), card())).toBe(false)
+    expect(decideFirst(null, card())).toBe(false)
+    expect(decideFirst(blocked('R-THEIRS'), { kind: 'ask', mode: 'now', floor: 0, remove: { kind: 'delete' } })).toBe(false)
   })
 })
 

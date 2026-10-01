@@ -474,6 +474,22 @@ export function raiseOutcome(
   }
 }
 
+/**
+ * **Whether the pane says *"decide it first"*** (348, story 22) — a raise refused
+ * `CHANGE_ALREADY_OPEN`, and the card now drawn is the request that blocked it, with
+ * Approve / Reject for this session.
+ *
+ * 🔑 Only the blocking request: the one 344's `open-request` step names (a different
+ * request waiting by the time History is re-read is not it), or — in 2194's sub-second
+ * race, where no id is named — whatever waits now. Never the session's own request
+ * (`withdraw`): that one is withdrawn, not decided first.
+ */
+export function decideFirst(refusal: ChangeRefusal | null | undefined, offer: ChangeRequestOffer): boolean {
+  if (!refusal || offer.kind !== 'waiting' || !offer.decide || offer.withdraw) return false
+  if (refusal.step.kind === 'open-request') return refusal.step.changeRequestId === offer.request.changeRequestId
+  return refusal.words.kind === 'key' && refusal.words.key === 'CHANGE_ALREADY_OPEN.unnamed'
+}
+
 /* ── after a withdraw (W6, ticket 345) ───────────────────────────────────────── */
 
 /**

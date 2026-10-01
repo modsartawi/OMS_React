@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -51,7 +51,10 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  * Boundaries). A bare 403 is named and the probe re-read, as `EntryCorrection` does.
  *
  * ⚠️ **Every piece of local state is per entry.** A Reason typed for entry 143 must not
- * be in the box when 151 is selected.
+ * be in the box when 151 is selected — so `BranchAccount` mounts this pane **keyed by the
+ * entry id**. A reset in an effect (EntryCorrection's way) runs AFTER the first render
+ * of the new entry, which would draw 143's answer and draft under 151's header for one
+ * frame; a fresh mount has no such frame.
  */
 type RaiseVars = { entry: EntryNow; body: SettlementChangeRequestRaiseBody }
 
@@ -81,9 +84,6 @@ export default function EntryChangeRequest({
   const displayName = useSession((s) => s.displayName)
 
   const entryId = row?.settlementEntryId ?? ''
-  /** The entry on screen NOW — read by a re-read that resolves after the render it began in. */
-  const onScreen = useRef(entryId)
-  onScreen.current = entryId
 
   const history = useQuery({
     queryKey: changeRequestHistoryKey(entryId),
@@ -99,14 +99,6 @@ export default function EntryChangeRequest({
   const [notice, setNotice] = useState<Notice | null>(null)
   /** A raise answered 404 — the History read may have come from a cache older than the door's removal. */
   const [raiseUnshipped, setRaiseUnshipped] = useState(false)
-
-  useEffect(() => {
-    setOpen(false)
-    setDraft(EMPTY_DRAFT)
-    setAnswered(null)
-    setNotice(null)
-    setRaiseUnshipped(false)
-  }, [entryId])
 
   // 🚩 A bare 403 on the read: the probe said this session holds the settlement grant,
   // and the door says it no longer does. Re-reading the probe takes the screen's buttons
@@ -124,8 +116,11 @@ export default function EntryChangeRequest({
   const raise = useMutation({
     mutationFn: (v: RaiseVars) => settlementApi.raiseChangeRequest(v.body),
     onSuccess: (result, v) => {
-      // Always: whatever happened, the branch it happened to is the server's to redraw.
-      invalidateSettlement(queryClient, v.entry.storeId)
+      // Always — a refusal too: whatever happened, the entry and its History are the
+      // server's to redraw. A raise refused because a request now waits, or because the
+      // entry was finished meanwhile, is answered by the re-read turning this pane into
+      // the card or the finished sentence.
+      const reread = invalidateSettlement(queryClient, v.entry.storeId)
       const outcome = afterRaise(result)
       if (outcome.kind === 'refused') {
         if (stillOn(v.entry)) setNotice({ kind: 'refused', code: outcome.code })
@@ -136,7 +131,6 @@ export default function EntryChangeRequest({
           number: v.entry.entryNumber,
         }),
       )
-      const reread = queryClient.invalidateQueries({ queryKey: changeRequestHistoryKey(v.entry.settlementEntryId) })
       if (!stillOn(v.entry)) return
       // 🔑 W8: drawn from the answer NOW — the figures, and the card for a request that waits.
       const mine: Answered = {
@@ -150,10 +144,8 @@ export default function EntryChangeRequest({
       setOpen(false)
       setDraft(EMPTY_DRAFT)
       setNotice(null)
-      // …then the re-read replaces it, on this entry only, and only if nothing newer was drawn.
-      void reread.then(() => {
-        if (onScreen.current === v.entry.settlementEntryId) setAnswered((now) => (now === mine ? null : now))
-      })
+      // …then History and the account re-read replace it — unless something newer was drawn.
+      void reread.then(() => setAnswered((now) => (now === mine ? null : now)))
     },
     onError: (error, v) => {
       const failure = historyFailure(error)

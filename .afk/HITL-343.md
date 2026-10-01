@@ -46,6 +46,6 @@
 **Revisit if:** 349 needs a uniform body shape.
 
 ## Q: Should `invalidateSettlement` also drop the History cache?
-**Decision taken:** No. The pane re-reads its own entry's History by the one key (`changeRequestHistoryKey`) after an act; `invalidateSettlement` is unchanged.
-**Why:** 352 owns "after Cancel/Write off, the card shows superseded" and can add the prefix (`CHANGE_REQUEST_HISTORY_KEY`) there.
-**Revisit if:** 352 lands without it.
+**Decision taken:** Yes — reversed after `/code-review`. `invalidateSettlement` now also invalidates every entry's History (`CHANGE_REQUEST_HISTORY_KEY`) and returns a promise of the account + History re-reads; the pane drops its drawn-from-the-answer state when that resolves. The pane is also mounted keyed by the entry id (no frame of the previous entry's state).
+**Why:** The pane trusts a History read over the account row, so a Cancel / Write off that left it cached kept offering "Request a change" on a finished entry; and a refused raise (`CHANGE_ALREADY_OPEN`, `ENTRY_FINAL`) must re-read to show the card / the finished sentence.
+**Revisit if:** History re-reads on every settlement write prove too chatty (only mounted panes refetch).

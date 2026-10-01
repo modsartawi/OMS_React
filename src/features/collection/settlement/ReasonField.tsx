@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
+import { CHANGE_REQUEST_HISTORY_KEY } from './api'
 import { OPEN_LANE_KEY, PENDING_LANE_KEY } from './open-lane'
 import { REASON_MAX } from './posting'
 
@@ -120,12 +121,24 @@ export default function ReasonField({
  *
  * ⚠️ A stale door is not cosmetic here: it invites the accountant to post or correct
  * the same figure a second time.
+ *
+ * 🔑 343: **and every entry's change-request History** (spec 342 W8). The pane trusts a
+ * History read over the account row — it is the newer word on the entry's figures — so
+ * a Cancel or a Write off that left that read cached would keep offering *Request a
+ * change* on an entry that is now finished. Every writer here moves an entry, so every
+ * writer re-reads it.
+ *
+ * Resolves once the re-reads land, so a caller that drew from an act answer knows when
+ * the server's own reads have replaced it. The existing callers ignore it.
  */
 export function invalidateSettlement(
   queryClient: { invalidateQueries: (filters: { queryKey: unknown[] }) => Promise<void> },
   storeId: string,
-): void {
-  void queryClient.invalidateQueries({ queryKey: ['settlement', 'account', storeId] })
+): Promise<void> {
+  const rereads = [
+    queryClient.invalidateQueries({ queryKey: ['settlement', 'account', storeId] }),
+    queryClient.invalidateQueries({ queryKey: [...CHANGE_REQUEST_HISTORY_KEY] }),
+  ]
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'fleet'] })
   void queryClient.invalidateQueries({ queryKey: ['settlement', 'ledger'] })
   // ⚠️ **`['settlement','worklist']` stood here and matched NOTHING** — 270 named the
@@ -138,4 +151,5 @@ export function invalidateSettlement(
   // 309: a post can mint a pending surplus, and an approve or a reject removes one —
   // a queue that kept listing a decided entry would invite a second decision.
   void queryClient.invalidateQueries({ queryKey: PENDING_LANE_KEY })
+  return Promise.all(rereads).then(() => undefined)
 }

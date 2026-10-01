@@ -237,6 +237,8 @@ export default function BranchAccount({
           {/* 343 (spec 342 W2): the change request sits BELOW the approval and ABOVE the
               correction — asking to correct a figure comes before withdrawing the entry. */}
           <EntryChangeRequest
+            // Keyed by the entry: every piece of its state is per entry, from the first frame.
+            key={openRow?.settlementEntryId ?? ''}
             row={openRow}
             currencyKey={currencyKey}
             canOpen={canOpen}

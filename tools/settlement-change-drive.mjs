@@ -133,6 +133,7 @@ async function run() {
       if (cr.historyMissing) return route.fulfill({ status: 404, contentType: 'text/plain', body: '' })
       return route.fulfill(envelope(cr.histories[id] ?? {}))
     }
+    if (path === 'Settlement/Cancel' && cr.cancel) return route.fulfill(envelope(cr.cancel()))
     if (path === 'Settlement/ChangeRequest/Raise') {
       const body = route.request().postDataJSON()
       cr.raiseCalls.push(body)
@@ -517,6 +518,45 @@ async function run() {
   await appears('[data-testid="change-request-notice"]')
   check('a refused raise is said, with its code, and the form stays', (await tid('change-request-notice').getAttribute('data-code')) === 'BELOW_SPENT' && (await tid('change-request-form').count()) === 1 && (await tid('change-request-card').count()) === 0)
   await crKeys('a refused raise')
+
+  // A raise refused because a request now waits: the re-read (always, a refusal too) turns
+  // the form into that request's card. (344 words the code; this is the re-read.)
+  resetCr({
+    raise: () => {
+      cr.histories[FX.e143] = FX.afterRaise143
+      return { ...FX.belowSpent, refusalReason: 'CHANGE_ALREADY_OPEN', changeRequestId: 'R-343', settlementEntryId: FX.e143, entryNumber: 143, amount: 500, remainingAmount: 500, spentAmount: 0 }
+    },
+  })
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-open"]')
+  await tid('change-request-open').click()
+  await tid('change-request-amount').fill('400')
+  await tid('change-request-reason').fill('x')
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-card"][data-request="R-343"]')
+  check('🔑 a raise refused CHANGE_ALREADY_OPEN re-reads History, and the waiting card replaces the form', (await tid('change-request-form').count()) === 0 && (await offerOf()) === 'waiting')
+
+  // A supervisor's Cancel in the correction pane re-reads History too — the pane must not
+  // keep offering a change on an entry that is now finished.
+  scenario = { access: { ...ACCOUNTANT, canSuperviseSettlement: true } }
+  resetCr()
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-open"]')
+  const a0142 = FX.accounts['0142']
+  const e143Row = a0142.entries.find((e) => e.settlementEntryId === FX.e143)
+  cr.cancel = () => {
+    e143Row.status = 'CANCELLED'
+    cr.histories[FX.e143] = { ...cr.histories[FX.e143], entryStatus: 'CANCELLED' }
+    return { accepted: true, refusalReason: '', remainingAmount: 500, status: 'CANCELLED' }
+  }
+  await page.locator('[data-testid="correction-act"]').click()
+  await page.locator('[data-testid="correction-reason"]').fill('posted against the wrong branch')
+  await page.locator('[data-testid="correction-commit"]').click()
+  await appears('[data-testid="change-request-finished"]')
+  check('🔑 after a Cancel elsewhere on the panel, the pane re-reads History and offers nothing', (await offerOf()) === 'finished' && (await tid('change-request-open').count()) === 0)
+  e143Row.status = 'OPEN'
+  cr.cancel = null
+  scenario = {}
 
   // ---- 11. SIS.Api without the wave ----
   resetCr({ historyMissing: true })

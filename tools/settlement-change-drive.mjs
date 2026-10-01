@@ -506,6 +506,7 @@ async function run() {
   await go(`${ROUTE}?store=0142&entry=143`)
   await appears('[data-testid="change-request-open"]')
   check('a supervisor is offered "Change now" (the offer cell 348 words)', (await textOf('change-request-open')).trim() === 'Change now' && (await tid('change-request-open').getAttribute('data-mode')) === 'now')
+  check('…and is never told a supervisor will approve it — their change applies at once', /applies to the entry at once/.test(await textOf('change-request-why')) && !/A supervisor approves or rejects it/.test(await textOf('change-request-why')))
 
   scenario = {}
   resetCr({ raise: () => FX.belowSpent })

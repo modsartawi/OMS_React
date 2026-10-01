@@ -620,7 +620,7 @@ export const settlementApi = {
    * server's `spentAmount`, the floor for a new amount (BackOffice 2191 / 2192).
    *
    * Behind the settlement grant. ⚠️ **A 404 means SIS.Api has not shipped the wave**:
-   * the pane says *"not available yet"* (`historyFailure`), so the web ships first.
+   * the pane says *"not available yet"* (`changeRequestFailure`), so the web ships first.
    */
   changeRequestHistory(settlementEntryId: string): Promise<SettlementChangeRequestHistory> {
     return api.get<SettlementChangeRequestHistory>('Settlement/ChangeRequest/History', { settlementEntryId })

@@ -38,7 +38,7 @@ import { checkDescription, parseAmount } from './posting'
  * pane redraws from the act answer's `amount`.
  *
  * 🚩 Pure: no React, no `t()`, no clock, no call. `ApiError` is imported only to
- * RECOGNISE a failure (`historyFailure`).
+ * RECOGNISE a failure (`changeRequestFailure`).
  */
 
 /** The session, as the pane reads it — two probe flags and the UserId claim. */
@@ -93,6 +93,9 @@ export type ChangeRequestOffer =
   | { kind: 'ask'; mode: 'request' | 'now'; floor: number; remove: RemoveOffer }
   | { kind: 'read-only' }
   | { kind: 'unstated' }
+
+/** The server's *no time* — `NOT NULL` with a default (2191). */
+const UNSTAMPED = '0001-01-01T00:00:00'
 
 const isFigure = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
 
@@ -341,11 +344,11 @@ export function raisedRequest(
     spentAtDecision: 0,
     requestedByStaffId: requester.staffId,
     requestedByName: requester.name,
-    requestedAt: '',
+    requestedAt: UNSTAMPED,
     requestReason: body.reason,
     decidedByStaffId: '',
     decidedByName: '',
-    decidedAt: '',
+    decidedAt: UNSTAMPED,
     decisionReason: '',
   }
 }
@@ -390,7 +393,7 @@ export function cardFor(request: SettlementChangeRequest): WaitingCard {
 /* ── a failed read ───────────────────────────────────────────────────────────── */
 
 /**
- * Why a History read (or a raise) threw.
+ * Why a change-request door threw — the History read or a raise.
  *
  * - **`not-shipped`** — a 404: SIS.Api has not shipped the wave. The pane says *"not
  *   available yet"* and nothing crashes, so the web can ship first (spec 342
@@ -399,7 +402,7 @@ export function cardFor(request: SettlementChangeRequest): WaitingCard {
  *   it did. Named, and the probe re-read (`approval.ts`'s `supervisionFailure`).
  * - **`other`** — `apiErrorMessage`'s to word.
  */
-export function historyFailure(err: unknown): 'not-shipped' | 'forbidden' | 'other' {
+export function changeRequestFailure(err: unknown): 'not-shipped' | 'forbidden' | 'other' {
   if (supervisionFailure(err) === 'forbidden') return 'forbidden'
   return err instanceof ApiError && err.statusCode === 404 ? 'not-shipped' : 'other'
 }

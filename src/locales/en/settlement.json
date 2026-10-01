@@ -227,6 +227,7 @@
     },
     "ask": {
       "why": "If entry {{number}}'s amount or Description is wrong, ask for a change. A supervisor approves or rejects it; until then the entry keeps working at its current figures.",
+      "whyNow": "If entry {{number}}'s amount or Description is wrong, change it here. A change you make as an accountant supervisor applies to the entry at once — there is no approval step.",
       "request": "Request a change",
       "now": "Change now"
     },
@@ -272,6 +273,7 @@
       "live": "Entry {{number}} keeps working at its current figures until this request is decided."
     },
     "refused": "The change request was not raised. The server answered {{code}}.",
+    "refusedUnstated": "The change request was not raised, and the server did not say why.",
     "done": {
       "raised": "Change request raised for entry {{number}}.",
       "applied": "Entry {{number}} is changed."

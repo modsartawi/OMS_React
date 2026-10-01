@@ -22,7 +22,7 @@ import {
   cardFor,
   changeRequestBody,
   entryNow,
-  historyFailure,
+  changeRequestFailure,
   offerFor,
   raisedRequest,
   type ChangeDraft,
@@ -90,7 +90,7 @@ export default function EntryChangeRequest({
     queryFn: () => settlementApi.changeRequestHistory(entryId),
     enabled: entryId !== '',
     // ⚠️ A 404 (not shipped) or a 403 will not change on a retry — say so at once.
-    retry: (count, error) => historyFailure(error) === 'other' && count < 1,
+    retry: (count, error) => changeRequestFailure(error) === 'other' && count < 1,
   })
 
   const [open, setOpen] = useState(false)
@@ -103,7 +103,7 @@ export default function EntryChangeRequest({
   // 🚩 A bare 403 on the read: the probe said this session holds the settlement grant,
   // and the door says it no longer does. Re-reading the probe takes the screen's buttons
   // with it.
-  const readFailure = history.isError ? historyFailure(history.error) : null
+  const readFailure = history.isError ? changeRequestFailure(history.error) : null
   useEffect(() => {
     if (readFailure === 'forbidden') void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
   }, [readFailure, queryClient])
@@ -148,7 +148,7 @@ export default function EntryChangeRequest({
       void reread.then(() => setAnswered((now) => (now === mine ? null : now)))
     },
     onError: (error, v) => {
-      const failure = historyFailure(error)
+      const failure = changeRequestFailure(error)
       if (failure === 'forbidden') {
         toast.error(t('changeRequest.errors.forbidden'))
         void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
@@ -243,7 +243,9 @@ export default function EntryChangeRequest({
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               <span>
                 {notice.kind === 'refused'
-                  ? t('changeRequest.refused', { code: notice.code || '—' })
+                  ? notice.code
+                    ? t('changeRequest.refused', { code: notice.code })
+                    : t('changeRequest.refusedUnstated')
                   : notice.text}
               </span>
             </p>
@@ -263,7 +265,11 @@ export default function EntryChangeRequest({
           ) : (
             <>
               <p className="text-sm text-muted-foreground" data-testid="change-request-why">
-                {t('changeRequest.ask.why', { number: row.entryNumber })}
+                {/* ⚠️ Per mode: a supervisor's own change applies at once (2194), so the
+                    accountant's "a supervisor approves it" would be false for them. */}
+                {t(offer.mode === 'now' ? 'changeRequest.ask.whyNow' : 'changeRequest.ask.why', {
+                  number: row.entryNumber,
+                })}
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button

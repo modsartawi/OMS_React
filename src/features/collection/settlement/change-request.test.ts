@@ -16,7 +16,7 @@ import {
   cardFor,
   changeRequestBody,
   entryNow,
-  historyFailure,
+  changeRequestFailure,
   offerFor,
   raisedRequest,
   type ChangeRequestSession,
@@ -382,16 +382,16 @@ describe('raisedRequest — the card drawn from the answer before History is re-
   })
 })
 
-describe('historyFailure — a 404 means SIS.Api has not shipped the wave', () => {
+describe('changeRequestFailure — a 404 means SIS.Api has not shipped the wave', () => {
   it('404 → not-shipped', () => {
-    expect(historyFailure(new ApiError('business', 'Not Found', 404))).toBe('not-shipped')
-    expect(historyFailure(new ApiError('unknown', 'Not Found', 404))).toBe('not-shipped')
+    expect(changeRequestFailure(new ApiError('business', 'Not Found', 404))).toBe('not-shipped')
+    expect(changeRequestFailure(new ApiError('unknown', 'Not Found', 404))).toBe('not-shipped')
   })
   it('a bare 403 → forbidden (approval.ts\'s supervisionFailure)', () => {
-    expect(historyFailure(new ApiError('unknown', '', 403))).toBe('forbidden')
+    expect(changeRequestFailure(new ApiError('unknown', '', 403))).toBe('forbidden')
   })
   it('anything else → other', () => {
-    expect(historyFailure(new ApiError('server', 'boom', 500))).toBe('other')
-    expect(historyFailure(new Error('x'))).toBe('other')
+    expect(changeRequestFailure(new ApiError('server', 'boom', 500))).toBe('other')
+    expect(changeRequestFailure(new Error('x'))).toBe('other')
   })
 })

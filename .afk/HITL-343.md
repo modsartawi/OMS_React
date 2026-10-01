@@ -49,3 +49,8 @@
 **Decision taken:** Yes — reversed after `/code-review`. `invalidateSettlement` now also invalidates every entry's History (`CHANGE_REQUEST_HISTORY_KEY`) and returns a promise of the account + History re-reads; the pane drops its drawn-from-the-answer state when that resolves. The pane is also mounted keyed by the entry id (no frame of the previous entry's state).
 **Why:** The pane trusts a History read over the account row, so a Cancel / Write off that left it cached kept offering "Request a change" on a finished entry; and a refused raise (`CHANGE_ALREADY_OPEN`, `ENTRY_FINAL`) must re-read to show the card / the finished sentence.
 **Revisit if:** History re-reads on every settlement write prove too chatty (only mounted panes refetch).
+
+## Q: The pane's "why" sentence tells a supervisor "A supervisor approves or rejects it" — reword before 348?
+**Decision taken:** Per offer mode: `now` draws `changeRequest.ask.whyNow` ("…applies to the entry at once — there is no approval step"); `request` keeps the accountant's sentence. The FORM's own "applies immediately" sentence and the outcome-from-`requestStatus` work stay 348's.
+**Why:** The accountant's sentence is false for a supervisor's own change (2194); the offer cell already decides the mode, so this is copy on a decided cell, not a new predicate.
+**Revisit if:** 348 wants one sentence in one place (move it into the form and drop `whyNow`).

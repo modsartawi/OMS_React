@@ -272,8 +272,55 @@
       "noReason": "No reason was recorded.",
       "live": "Entry {{number}} keeps working at its current figures until this request is decided."
     },
-    "refused": "The change request was not raised. The server answered {{code}}.",
-    "refusedUnstated": "The change request was not raised, and the server did not say why.",
+    "refusal": {
+      "ENTRY_NOT_OPEN": "Entry {{number}} no longer exists on the server, so nothing can be asked for or decided on it.",
+      "ENTRY_FINAL": "Entry {{number}} was cancelled, written off or rejected meanwhile. A finished entry is never changed, so it is shown as it stands now.",
+      "BELOW_SPENT": {
+        "figure": "The branch has spent {{spent}} from entry {{number}}, so its amount cannot go below {{spent}}.",
+        "unstated": "The branch has spent more from entry {{number}} than the amount asked for, so it cannot go that low."
+      },
+      "DELETE_SPENT": {
+        "figure": "The branch has spent {{spent}} from entry {{number}}, so it cannot be deleted.",
+        "unstated": "The branch has spent from entry {{number}}, so it cannot be deleted."
+      },
+      "CHANGE_ALREADY_OPEN": {
+        "named": "A change request is already waiting on entry {{number}} — it is shown here. It is decided or withdrawn before another can be raised.",
+        "unnamed": "Another change request on entry {{number}} was raised at the same moment. Its change requests are being read again."
+      },
+      "NO_CHANGE": "Nothing would change — what is asked for is what entry {{number}} already holds.",
+      "CHANGE_STALE": "Entry {{number}} has moved on since this was asked, so it cannot be applied as asked.",
+      "CHANGE_NOT_OPEN": {
+        "APPLIED": "This change request was already applied.",
+        "REJECTED": "This change request was already rejected.",
+        "WITHDRAWN": "This change request was withdrawn by the accountant who raised it.",
+        "SUPERSEDED": "This change request was superseded by a supervisor's direct act on the entry.",
+        "unsaid": "This change request is no longer waiting — it was decided already, or no longer exists."
+      },
+      "NOT_REQUESTER": "Only the accountant who raised this change request can withdraw it. It stays waiting for a supervisor to approve or reject.",
+      "THEFT_DAY_COLLECTED": "This theft's business day — or the day it would move to — has been collected, so it can no longer be corrected or deleted.",
+      "tracer": "The change request was refused ({{code}}). Read the entry again, and report the code if it repeats.",
+      "unknown": "The change request was refused. The server answered {{code}}.",
+      "unstated": "The change request was refused, and the server did not say why."
+    },
+    "invalid": {
+      "SettlementAmountRequired": "Type an amount greater than zero.",
+      "SettlementAmountRoundsToZero": "This amount rounds to nothing in the branch's currency. Type a larger amount.",
+      "SettlementReasonTooLong": {
+        "reason": "The Reason is over {{max}} characters as the server counts them. Shorten it.",
+        "either": "The Reason or the Description is over {{max}} characters as the server counts them. Shorten the longer one."
+      },
+      "SettlementChangeReasonRequired": "A Reason is required — the supervisor reads it before deciding.",
+      "SettlementReasonRequired": "The Description cannot be empty.",
+      "SettlementDeleteTakesNoFigures": "A delete names no amount, Description or day, and this one did. Nothing was done.",
+      "SettlementBusinessDayTheftOnly": "Only a theft has a business day to move. Nothing was done.",
+      "SettlementTheftBusinessDayRequired": "Pick the theft's business day.",
+      "SettlementTheftDayNotClosed": "That day is not a closed day of this branch. Pick a day the branch traded and closed.",
+      "SettlementChangeBodyRequired": "The server received an empty request, so nothing was done. Try again.",
+      "SettlementEntryRequired": "The server was not told which entry this is about, so nothing was done. Open the entry again and retry.",
+      "SettlementChangeRequestRequired": "The server was not told which change request this is about, so nothing was done. Open the entry again and retry.",
+      "SettlementChangeRequestKindInvalid": "The server did not recognise the kind of request, so nothing was done.",
+      "SettlementRejectReasonRequired": "A Reason is required to reject — the accountant reads it."
+    },
     "done": {
       "raised": "Change request raised for entry {{number}}.",
       "applied": "Entry {{number}} is changed."

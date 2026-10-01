@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { FilePenLine, Hourglass, TriangleAlert } from 'lucide-react'
 
-import { apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import type {
   SettlementChangeRequest,
@@ -28,6 +28,7 @@ import {
   type ChangeDraft,
   type EntryNow,
 } from './change-request'
+import { changeFieldError, changeRefusal, type ChangeFieldError, type ChangeRefusal } from './change-refusal'
 import { settlementMoney } from './money-display'
 import { REASON_MAX } from './posting'
 import ReasonField, { invalidateSettlement } from './ReasonField'
@@ -50,6 +51,11 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  * *"not available yet"* and the rest of the panel works as before (spec 342
  * Boundaries). A bare 403 is named and the probe re-read, as `EntryCorrection` does.
  *
+ * 🔑 **A refusal is said by its code (W7, ticket 344).** `changeRefusal` words a 200
+ * refusal and names the next step, which this pane follows; `changeFieldError` puts a
+ * 400 on the box that can fix it. Neither is worded off the server's `message`, which
+ * is drawn only for a code the map does not know.
+ *
  * ⚠️ **Every piece of local state is per entry.** A Reason typed for entry 143 must not
  * be in the box when 151 is selected — so `BranchAccount` mounts this pane **keyed by the
  * entry id**. A reset in an effect (EntryCorrection's way) runs AFTER the first render
@@ -58,10 +64,14 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  */
 type RaiseVars = { entry: EntryNow; body: SettlementChangeRequestRaiseBody }
 
-/** The last act answer about the entry on screen, and the request it raised (if one waits). */
-type Answered = { result: SettlementChangeRequestActResult; request: SettlementChangeRequest | null }
+/**
+ * The last act answer about the entry on screen, and the request it raised (if one waits).
+ * `request` is absent for a refusal: the answer says nothing about what waits, so the
+ * History read's word stands.
+ */
+type Answered = { result: SettlementChangeRequestActResult; request?: SettlementChangeRequest | null }
 
-type Notice = { kind: 'refused'; code: string } | { kind: 'error'; text: string }
+type Notice = { kind: 'refused'; refusal: ChangeRefusal } | { kind: 'error'; text: string }
 
 const EMPTY_DRAFT: ChangeDraft = { amount: '', description: '', reason: '' }
 
@@ -97,6 +107,10 @@ export default function EntryChangeRequest({
   const [draft, setDraft] = useState<ChangeDraft>(EMPTY_DRAFT)
   const [answered, setAnswered] = useState<Answered | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
+  /** A 400 on the box that can fix it — cleared by the next keystroke. */
+  const [fieldError, setFieldError] = useState<ChangeFieldError | null>(null)
+  /** `ENTRY_NOT_OPEN`: the entry no longer exists, and the pane draws only that sentence. */
+  const [gone, setGone] = useState(false)
   /** A raise answered 404 — the History read may have come from a cache older than the door's removal. */
   const [raiseUnshipped, setRaiseUnshipped] = useState(false)
 
@@ -121,10 +135,40 @@ export default function EntryChangeRequest({
       // entry was finished meanwhile, is answered by the re-read turning this pane into
       // the card or the finished sentence.
       const reread = invalidateSettlement(queryClient, v.entry.storeId)
+      /** Draw `mine` until the re-read lands — unless something newer was drawn meanwhile. */
+      const drawUntilReread = (mine: Answered) => {
+        setAnswered(mine)
+        void reread.then(() => setAnswered((now) => (now === mine ? null : now)))
+      }
       const outcome = afterRaise(result)
       if (outcome.kind === 'refused') {
-        if (stillOn(v.entry)) setNotice({ kind: 'refused', code: outcome.code })
-        return
+        if (!stillOn(v.entry)) return
+        const refusal = changeRefusal('raise', result)
+        setNotice({ kind: 'refused', refusal })
+        setFieldError(null)
+        // 🔑 W8 holds for a refusal too: its figures are the entry NOW — a BELOW_SPENT
+        // answer's spentAmount is the floor the form redraws with, before History lands.
+        drawUntilReread({ result })
+        switch (refusal.step.kind) {
+          case 'close':
+            setGone(true)
+            setOpen(false)
+            return
+          case 'redraw':
+          case 'open-request':
+          case 'reread':
+            // The re-read (always, above) draws the finished sentence or the waiting card.
+            setOpen(false)
+            return
+          case 'refill-floor':
+          case 'stay':
+          case 'none':
+          case 'reject':
+          case 'reduce':
+            // The form stays as typed — its floor refilled from the answer for
+            // BELOW_SPENT. `reduce` answers only a delete, whose form is 347's.
+            return
+        }
       }
       toast.success(
         t(outcome.kind === 'applied' ? 'changeRequest.done.applied' : 'changeRequest.done.raised', {
@@ -140,12 +184,12 @@ export default function EntryChangeRequest({
             ? raisedRequest(v.entry, v.body, result, { staffId: userId ?? '', name: displayName ?? userId ?? '' })
             : null,
       }
-      setAnswered(mine)
+      // …then History and the account re-read replace it.
+      drawUntilReread(mine)
       setOpen(false)
       setDraft(EMPTY_DRAFT)
       setNotice(null)
-      // …then History and the account re-read replace it — unless something newer was drawn.
-      void reread.then(() => setAnswered((now) => (now === mine ? null : now)))
+      setFieldError(null)
     },
     onError: (error, v) => {
       const failure = changeRequestFailure(error)
@@ -160,6 +204,13 @@ export default function EntryChangeRequest({
         setRaiseUnshipped(true)
         return
       }
+      // A 400 the map knows lands on its box; any other failure keeps the server's words.
+      const field = changeFieldError(apiErrorCode(error), v.body)
+      if (field) {
+        setFieldError(field)
+        setNotice(null)
+        return
+      }
       setNotice({ kind: 'error', text: apiErrorMessage(error, t('changeRequest.errors.raiseFailed')) })
     },
   })
@@ -171,20 +222,50 @@ export default function EntryChangeRequest({
   const offer = offerFor(
     now,
     {
-      // The answer is the newer word on the request too: a raise that waits, or one applied at once.
-      openRequest: answered ? answered.request : (history.data?.openRequest ?? null),
+      // The answer is the newer word on the request too: a raise that waits, or one applied
+      // at once. A refusal says nothing about it, so History's word stands.
+      openRequest:
+        answered && answered.request !== undefined ? answered.request : (history.data?.openRequest ?? null),
       spentAmount: now.spentAmount,
     },
     { canOpenSettlement: canOpen, canSuperviseSettlement: canSupervise, userId },
   )
-  const state = failure ?? (history.isPending ? 'loading' : offer.kind)
+  const state = failure ?? (gone ? 'gone' : history.isPending ? 'loading' : offer.kind)
   const money = (v: number | null | undefined) => settlementMoney(v, currencyKey)
 
   const startChange = () => {
     setDraft({ amount: String(now.amount), description: now.description, reason: '' })
     setNotice(null)
+    setFieldError(null)
     setOpen(true)
   }
+  const onDraft = (next: ChangeDraft) => {
+    setDraft(next)
+    setFieldError(null)
+  }
+
+  const noticeLine = notice && (
+    <p
+      role="status"
+      data-testid="change-request-notice"
+      data-code={notice.kind === 'refused' ? notice.refusal.code : undefined}
+      data-step={notice.kind === 'refused' ? notice.refusal.step.kind : undefined}
+      className="flex items-start gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-sm text-attention-800"
+    >
+      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <span>
+        {notice.kind === 'error'
+          ? notice.text
+          : notice.refusal.words.kind === 'message'
+            ? notice.refusal.words.text
+            : t(`changeRequest.refusal.${notice.refusal.words.key}`, {
+                number: row.entryNumber,
+                spent: money(notice.refusal.spent),
+                code: notice.refusal.code,
+              })}
+      </span>
+    </p>
+  )
 
   return (
     <section
@@ -213,14 +294,19 @@ export default function EntryChangeRequest({
           message={apiErrorMessage(history.error, t('changeRequest.errors.loadFailed'))}
           className="p-3"
         />
+      ) : gone ? (
+        noticeLine
       ) : history.isPending ? (
         <p className="text-sm text-muted-foreground" data-testid="change-request-loading">
           {t('changeRequest.loading')}
         </p>
       ) : offer.kind === 'finished' ? (
-        <p className="text-sm text-muted-foreground" data-testid="change-request-finished">
-          {t(`changeRequest.finished.${offer.because}`)}
-        </p>
+        <>
+          {noticeLine}
+          <p className="text-sm text-muted-foreground" data-testid="change-request-finished">
+            {t(`changeRequest.finished.${offer.because}`)}
+          </p>
+        </>
       ) : offer.kind === 'unstated' ? (
         <p className="text-sm text-muted-foreground" data-testid="change-request-unstated">
           {t('changeRequest.unstated')}
@@ -230,33 +316,21 @@ export default function EntryChangeRequest({
           {t('changeRequest.readOnly')}
         </p>
       ) : offer.kind === 'waiting' ? (
-        <WaitingCard request={offer.request} entryNumber={row.entryNumber} money={money} />
+        <>
+          {noticeLine}
+          <WaitingCard request={offer.request} entryNumber={row.entryNumber} money={money} />
+        </>
       ) : (
         <>
-          {notice && (
-            <p
-              role="status"
-              data-testid="change-request-notice"
-              data-code={notice.kind === 'refused' ? notice.code : undefined}
-              className="flex items-start gap-2 rounded-lg border border-attention-border bg-attention-050 p-3 text-sm text-attention-800"
-            >
-              <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-              <span>
-                {notice.kind === 'refused'
-                  ? notice.code
-                    ? t('changeRequest.refused', { code: notice.code })
-                    : t('changeRequest.refusedUnstated')
-                  : notice.text}
-              </span>
-            </p>
-          )}
+          {noticeLine}
           {open ? (
             <ChangeForm
               entry={now}
               floor={offer.floor}
               mode={offer.mode}
               draft={draft}
-              onDraft={setDraft}
+              onDraft={onDraft}
+              fieldError={fieldError}
               busy={raise.isPending}
               money={money}
               onSubmit={(body) => raise.mutate({ entry: now, body })}
@@ -302,6 +376,7 @@ function ChangeForm({
   mode,
   draft,
   onDraft,
+  fieldError,
   busy,
   money,
   onSubmit,
@@ -312,6 +387,8 @@ function ChangeForm({
   mode: 'request' | 'now'
   draft: ChangeDraft
   onDraft: (next: ChangeDraft) => void
+  /** The server's 400, on its box (ticket 344) — the form's own check outranks it. */
+  fieldError: ChangeFieldError | null
   busy: boolean
   money: (v: number | null | undefined) => string
   onSubmit: (body: SettlementChangeRequestRaiseBody) => void
@@ -321,6 +398,14 @@ function ChangeForm({
   const check = changeRequestBody({ ...entry, spentAmount: floor }, draft)
   const held = check.kind === 'held' ? check : null
   const canSend = check.kind === 'ready' && !busy
+  /** The server's sentence for a 400 on `field`, or `null`. */
+  const served = (field: ChangeFieldError['field']) =>
+    fieldError?.field === field ? t(`changeRequest.invalid.${fieldError.sentence}`, { max: REASON_MAX }) : null
+  // ⚠️ The day box is 349's; until it exists a day's 400 is said at the foot of the form.
+  const formError = served('form') ?? served('businessDay')
+  const amountError = held?.amount
+    ? t(`changeRequest.form.amount.${held.amount}`, { floor: money(floor) })
+    : served('amount')
 
   return (
     <div className="flex flex-col gap-3" data-testid="change-request-form" data-mode={mode}>
@@ -331,16 +416,16 @@ function ChangeForm({
           onChange={(e) => onDraft({ ...draft, amount: e.target.value })}
           inputMode="decimal"
           autoComplete="off"
-          aria-invalid={held?.amount ? true : undefined}
+          aria-invalid={amountError ? true : undefined}
           data-testid="change-request-amount"
           className={
             'h-9 max-w-xs rounded-md border bg-card px-2 text-sm tabular-nums outline-none focus:border-primary/60 ' +
-            (held?.amount ? 'border-attention-border' : 'border-border')
+            (amountError ? 'border-attention-border' : 'border-border')
           }
         />
-        {held?.amount && (
+        {amountError && (
           <span className="text-xs text-attention-800" data-testid="change-request-amount-error">
-            {t(`changeRequest.form.amount.${held.amount}`, { floor: money(floor) })}
+            {amountError}
           </span>
         )}
         <span className="text-xs text-muted-foreground" data-testid="change-request-floor">
@@ -354,7 +439,11 @@ function ChangeForm({
         label={t('changeRequest.form.description.label')}
         hint={t('changeRequest.form.description.hint', { max: REASON_MAX })}
         required
-        error={held?.description ? t(`changeRequest.form.description.${held.description}`, { max: REASON_MAX }) : null}
+        error={
+          held?.description
+            ? t(`changeRequest.form.description.${held.description}`, { max: REASON_MAX })
+            : served('description')
+        }
         testId="change-request-description"
       />
 
@@ -364,6 +453,7 @@ function ChangeForm({
         label={t('changeRequest.form.reason.label')}
         hint={t('changeRequest.form.reason.hint', { max: REASON_MAX })}
         required
+        error={served('reason')}
         testId="change-request-reason"
       />
 
@@ -371,6 +461,17 @@ function ChangeForm({
       {held?.unchanged && (
         <p className="text-sm text-muted-foreground" data-testid="change-request-unchanged">
           {t('changeRequest.form.unchanged')}
+        </p>
+      )}
+
+      {formError && (
+        <p
+          role="alert"
+          className="text-sm text-attention-800"
+          data-testid="change-request-form-error"
+          data-code={fieldError?.code}
+        >
+          {formError}
         </p>
       )}
 

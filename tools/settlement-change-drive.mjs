@@ -31,6 +31,15 @@
 //  10. a finished entry says why; a supervisor reads "Change now"; a refused raise is said;
 //  11. a 404 from History (bare) or Raise (envelope) says "not available yet" and nothing crashes.
 //
+// Ticket 344 — every refusal said by its code, with its next step (W7):
+//  12. BELOW_SPENT refills the floor from the ANSWER's spentAmount (before the held re-read
+//      lands), keeps the form as typed and holds Submit below it;
+//  13. CHANGE_ALREADY_OPEN opens the request it names; with '' it re-reads History;
+//  14. NO_CHANGE keeps the form; ENTRY_NOT_OPEN closes the pane; ENTRY_FINAL redraws at once;
+//      an unknown code is named;
+//  15. a 400 lands on its box (amount, Reason, the form), clears on the next keystroke, and an
+//      unknown 400 keeps the server's own message. No sentence is the server's `message`.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
 import { createRequire } from 'node:module'
@@ -139,6 +148,18 @@ async function run() {
       cr.raiseCalls.push(body)
       if (cr.raiseMissing)
         return route.fulfill(envelope(null, { status: 404, success: false, message: 'Not Found' }))
+      // 344: a 400 envelope — the code in `errors[0].errorCode`, as every Settlement door sends it.
+      if (cr.raiseInvalid) {
+        const { code, message } = cr.raiseInvalid
+        return route.fulfill(
+          envelope(null, {
+            status: 400,
+            success: false,
+            message,
+            errors: [{ errorCode: code, internalErrorCode: '', errorMessage: message }],
+          }),
+        )
+      }
       return route.fulfill(envelope(cr.raise(body)))
     }
     if (path === 'Settlement/Ledger') {
@@ -579,6 +600,149 @@ async function run() {
   await appears('[data-testid="change-request-unavailable"]')
   check('a 404 envelope on Raise says the same', (await offerOf()) === 'not-shipped')
   check('…and neither 404 put an error on the page', errors.length === errorsBefore404, errors.slice(errorsBefore404, errorsBefore404 + 3).join(' | '))
+
+  // ======== Ticket 344 — every refusal said by its code ========
+  /** A refused raise about entry 143 — 2192's sample shape, the entry's own figures. */
+  const about143 = (o = {}) => ({
+    ...FX.belowSpent,
+    changeRequestId: '',
+    requestStatus: '',
+    settlementEntryId: FX.e143,
+    entryNumber: 143,
+    amount: 500,
+    remainingAmount: 500,
+    spentAmount: 0,
+    description: FX.e143Reason,
+    ...o,
+  })
+  /** Open 143's form, type, and press Submit — the History re-read optionally held. */
+  const raise143 = async (amount, { hold = null, reason = 'figure was mistyped' } = {}) => {
+    await go(`${ROUTE}?store=0142&entry=143`)
+    await appears('[data-testid="change-request-open"]')
+    await tid('change-request-open').click()
+    await tid('change-request-amount').fill(amount)
+    await tid('change-request-reason').fill(reason)
+    cr.holdHistory = hold
+    await tid('change-request-submit').click()
+  }
+  const noticeOf = async () => ({
+    code: await tid('change-request-notice').getAttribute('data-code'),
+    step: await tid('change-request-notice').getAttribute('data-step'),
+    text: await textOf('change-request-notice'),
+  })
+  const SERVER_WORDS = 'Server sentence that must not be shown'
+
+  // ---- 12. BELOW_SPENT refills the floor ----
+  resetCr({
+    raise: () => {
+      // A till spent 350 since the pane read 0 — History will say so too, once re-read.
+      cr.histories[FX.e143] = { ...cr.histories[FX.e143], remainingAmount: 150, spentAmount: 350 }
+      return about143({ refusalReason: 'BELOW_SPENT', remainingAmount: 150, spentAmount: 350 })
+    },
+  })
+  const holdBelow = deferred()
+  await raise143('300', { hold: holdBelow })
+  await appears('[data-testid="change-request-notice"]')
+  let n = await noticeOf()
+  check('🔑 BELOW_SPENT is said by its code, naming the answer\'s spent figure', n.code === 'BELOW_SPENT' && n.step === 'refill-floor' && /has spent 350\.00 from entry 143, so its amount cannot go below 350\.00/.test(n.text), JSON.stringify(n))
+  check('🔑 …the floor is refilled from the ANSWER while the History re-read is still held', /Lowest allowed: 350\.00\b/.test(await textOf('change-request-floor')), await textOf('change-request-floor'))
+  check('…the form stays, as typed', (await tid('change-request-form').count()) === 1 && (await tid('change-request-amount').inputValue()) === '300')
+  check('…and the typed 300 is now below the floor: refused in the form, Submit held', (await held()) && /cannot go below it/.test(await textOf('change-request-amount-error')))
+  await crKeys('a BELOW_SPENT refusal')
+  await shot('344-below-spent')
+  holdBelow.release()
+  cr.holdHistory = null
+  await settle()
+  check('…and the re-read keeps the floor (History now says 350)', /Lowest allowed: 350\.00\b/.test(await textOf('change-request-floor')))
+  await tid('change-request-amount').fill('350')
+  check('…asking for exactly the refilled floor is allowed', !(await held()))
+
+  // ---- 13. CHANGE_ALREADY_OPEN opens the named request; '' re-reads ----
+  const otherWaiting = { ...FX.afterRaise143.openRequest, changeRequestId: 'R-777', requestReason: 'raised by a colleague' }
+  resetCr({
+    raise: () => {
+      cr.histories[FX.e143] = { ...FX.afterRaise143, openRequest: otherWaiting, requests: [otherWaiting] }
+      return about143({ refusalReason: 'CHANGE_ALREADY_OPEN', changeRequestId: 'R-777', requestStatus: 'OPEN' })
+    },
+  })
+  await raise143('420')
+  await appears('[data-testid="change-request-card"][data-request="R-777"]')
+  n = await noticeOf()
+  check('🔑 CHANGE_ALREADY_OPEN opens the request it names: R-777\'s card, the form gone', (await tid('change-request-card').getAttribute('data-request')) === 'R-777' && (await tid('change-request-form').count()) === 0 && (await offerOf()) === 'waiting')
+  check('…and says so by its code', n.code === 'CHANGE_ALREADY_OPEN' && n.step === 'open-request' && /already waiting on entry 143 — it is shown here/.test(n.text), JSON.stringify(n))
+  check('…that request\'s own Reason is drawn, not the one just typed', (await textOf('change-request-card-reason')).trim() === 'raised by a colleague')
+  await crKeys('CHANGE_ALREADY_OPEN')
+  await shot('344-already-open')
+
+  resetCr({
+    raise: () => {
+      cr.histories[FX.e143] = FX.afterRaise143
+      return about143({ refusalReason: 'CHANGE_ALREADY_OPEN' })
+    },
+  })
+  await raise143('420')
+  const callsAtRefusal = cr.historyCalls.length
+  await appears('[data-testid="change-request-card"]')
+  n = await noticeOf()
+  check('🔑 CHANGE_ALREADY_OPEN with id \'\' re-reads History, which draws what waits now', n.step === 'reread' && /raised at the same moment/.test(n.text) && (await offerOf()) === 'waiting' && cr.historyCalls.length >= callsAtRefusal && cr.historyCalls.filter((id) => id === FX.e143).length >= 2, JSON.stringify(n))
+
+  // ---- 14. NO_CHANGE stays; ENTRY_NOT_OPEN closes; ENTRY_FINAL redraws; unknown is named ----
+  resetCr({ raise: () => about143({ refusalReason: 'NO_CHANGE' }) })
+  await raise143('450')
+  await appears('[data-testid="change-request-notice"]')
+  n = await noticeOf()
+  check('🔑 NO_CHANGE keeps the form, as typed', (await tid('change-request-form').count()) === 1 && (await tid('change-request-amount').inputValue()) === '450' && (await tid('change-request-reason').inputValue()) === 'figure was mistyped')
+  check('…and says nothing would change', n.code === 'NO_CHANGE' && n.step === 'stay' && /Nothing would change/.test(n.text), JSON.stringify(n))
+
+  resetCr({ raise: () => about143({ refusalReason: 'ENTRY_NOT_OPEN', settlementEntryId: '', entryNumber: 0, entryStatus: '' }) })
+  await raise143('450')
+  await appears('[data-region="entry-change-request"][data-offer="gone"]')
+  n = await noticeOf()
+  check('🔑 ENTRY_NOT_OPEN closes the pane: the sentence alone, nothing to press', /Entry 143 no longer exists/.test(n.text) && n.step === 'close' && (await tid('change-request-form').count()) === 0 && (await tid('change-request-open').count()) === 0, JSON.stringify(n))
+
+  const holdFinal = deferred()
+  resetCr({ raise: () => about143({ refusalReason: 'ENTRY_FINAL', entryStatus: 'CANCELLED' }) })
+  await raise143('450', { hold: holdFinal })
+  await appears('[data-testid="change-request-finished"]')
+  n = await noticeOf()
+  check('🔑 ENTRY_FINAL redraws from the answer at once — the finished sentence before the re-read lands', (await offerOf()) === 'finished' && /was cancelled/.test(await textOf('change-request-finished')) && n.code === 'ENTRY_FINAL' && n.step === 'redraw', JSON.stringify(n))
+  holdFinal.release()
+  cr.holdHistory = null
+  await settle()
+
+  resetCr({ raise: () => about143({ refusalReason: 'SOMETHING_NEW' }) })
+  await raise143('450')
+  await appears('[data-testid="change-request-notice"]')
+  n = await noticeOf()
+  check('an unknown 200 code is named, and the form stays', /The server answered SOMETHING_NEW/.test(n.text) && n.step === 'none' && (await tid('change-request-form').count()) === 1, JSON.stringify(n))
+
+  // ---- 15. a 400 lands on its box ----
+  resetCr({ raiseInvalid: { code: 'SettlementAmountRoundsToZero', message: SERVER_WORDS } })
+  // 0.4 passes the form (it holds money at three places) and rounds to nothing at SAR's whole riyals.
+  await raise143('0.4')
+  await appears('[data-testid="change-request-amount-error"]')
+  check('🔑 SettlementAmountRoundsToZero lands on the amount box, in our words', /rounds to nothing in the branch's currency/.test(await textOf('change-request-amount-error')) && (await tid('change-request-amount').getAttribute('aria-invalid')) === 'true', await textOf('change-request-amount-error'))
+  check('…no notice, no server sentence, and the form stays', (await tid('change-request-notice').count()) === 0 && !(await page.locator('body').innerText()).includes(SERVER_WORDS) && (await tid('change-request-form').count()) === 1)
+  await crKeys('a 400 on the amount')
+  await shot('344-400-amount')
+  await tid('change-request-amount').fill('4')
+  check('…and the next keystroke clears it', (await tid('change-request-amount-error').count()) === 0)
+
+  resetCr({ raiseInvalid: { code: 'SettlementChangeReasonRequired', message: SERVER_WORDS } })
+  await raise143('450')
+  await appears('[data-testid="change-request-reason-error"]')
+  check('SettlementChangeReasonRequired lands on the Reason box', /A Reason is required/.test(await textOf('change-request-reason-error')) && (await tid('change-request-amount-error').count()) === 0)
+
+  resetCr({ raiseInvalid: { code: 'SettlementChangeBodyRequired', message: SERVER_WORDS } })
+  await raise143('450')
+  await appears('[data-testid="change-request-form-error"]')
+  check('a body code no box can fix lands on the form', (await tid('change-request-form-error').getAttribute('data-code')) === 'SettlementChangeBodyRequired' && /nothing was done/.test(await textOf('change-request-form-error')))
+
+  resetCr({ raiseInvalid: { code: 'SettlementSomethingNew', message: 'The server says no.' } })
+  await raise143('450')
+  await appears('[data-testid="change-request-notice"]')
+  check('🔑 an unknown 400 falls back to the server\'s message — the only place it is drawn', (await textOf('change-request-notice')).trim() === 'The server says no.' && (await tid('change-request-form').count()) === 1)
+  await crKeys('ticket 344')
 
   // ---- 6. ----
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' | '))

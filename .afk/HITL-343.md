@@ -54,3 +54,8 @@
 **Decision taken:** Per offer mode: `now` draws `changeRequest.ask.whyNow` ("…applies to the entry at once — there is no approval step"); `request` keeps the accountant's sentence. The FORM's own "applies immediately" sentence and the outcome-from-`requestStatus` work stay 348's.
 **Why:** The accountant's sentence is false for a supervisor's own change (2194); the offer cell already decides the mode, so this is copy on a decided cell, not a new predicate.
 **Revisit if:** 348 wants one sentence in one place (move it into the form and drop `whyNow`).
+
+## Q: An entry whose own Description is blank or over 200 — may its amount be changed?
+**Decision taken:** Yes. `changeRequestBody` checks the Description only when it differs, so an unchanged one goes `newDescription: null` and is never held.
+**Why:** The body would not send it; holding the form on a field the request does not touch blocks a legitimate amount change (spec review finding).
+**Revisit if:** 2192 refuses a raise on an entry whose stored Description is invalid.

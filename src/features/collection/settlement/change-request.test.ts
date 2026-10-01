@@ -267,6 +267,14 @@ describe('changeRequestBody — only what differs is sent (W4)', () => {
     expect(changeRequestBody(spent, draft({ amount: '350' }))).toMatchObject({ kind: 'ready', body: { newAmount: 350 } })
   })
 
+  it('an entry whose own Description is blank or over 200 may still have its amount changed — an untouched Description is not checked', () => {
+    const blank = { ...entry, description: '' }
+    expect(changeRequestBody(blank, draft({ amount: '300', description: '' }))).toMatchObject({ kind: 'ready', body: { newAmount: 300, newDescription: null } })
+    const long = { ...entry, description: 'x'.repeat(201) }
+    expect(changeRequestBody(long, draft({ amount: '300', description: long.description }))).toMatchObject({ kind: 'ready', body: { newAmount: 300, newDescription: null } })
+    expect(changeRequestBody(blank, draft({ description: '' }))).toMatchObject({ kind: 'held', description: null, unchanged: true })
+  })
+
   it('a blank description is refused (the server\'s SettlementReasonRequired) — it would blank the red box', () => {
     expect(changeRequestBody(entry, draft({ description: '   ' }))).toMatchObject({ kind: 'held', description: 'blank' })
   })

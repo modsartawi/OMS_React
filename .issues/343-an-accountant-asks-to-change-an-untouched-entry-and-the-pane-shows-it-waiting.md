@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 342
 blocked-by: —
 ---
@@ -54,11 +54,11 @@ model/api · store/logic (offer module, change body) · component (change-reques
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `offerFor` — every status × kind × spent × waiting × grant cell of W3's table, including a BHD
+- [x] `offerFor` — every status × kind × spent × waiting × grant cell of W3's table, including a BHD
   entry spent by `0.001` (spent, so no delete) and a finished entry's sentence per status · pure
-- [ ] `changeRequestBody` — only differing fields are sent, unchanged ones `null`; nothing-differs
+- [x] `changeRequestBody` — only differing fields are sent, unchanged ones `null`; nothing-differs
   detected after rounding to holding scale; below-floor and ≤ 0 refused · pure
-- [ ] `tools/settlement-change-drive.mjs` (new) — stubbed History + Raise from 2191/2192's samples: pane
+- [x] `tools/settlement-change-drive.mjs` (new) — stubbed History + Raise from 2191/2192's samples: pane
   sits between approval and correction, form pre-filled, Submit disabled until something differs, raise
   sends only the changed field, card drawn from the answer before the refetch, 404 says "not available
   yet" · flow (Playwright drive)
@@ -86,3 +86,19 @@ None — can start immediately (BackOffice 2191/2192 done on `spec2149`).
   it cannot round SAR to whole riyals as the server does. The form compares "nothing differs" at holding
   scale, never claims the rounded figure, and the pane redraws from the act response's `amount`. The
   spec's "rounding for SAR and BHD" proof is dropped; the server's rounding is shown, not shadowed.
+
+## Done — 2026-10-01
+
+- `offerFor` / `changeRequestBody` / `afterRaise` / `raisedRequest` / `cardFor` / `changeRequestFailure`
+  in `change-request.ts`, 112 cases in `change-request.test.ts` (fixtures from 2191/2192's samples in
+  `change-request-fixture.ts`), including the BHD `0.001`-spent cell and a finished sentence per status.
+  Only a Description that differs is checked, so an entry posted blank or over 200 can still have its
+  amount changed (spec review).
+- `tools/settlement-change-drive.mjs` 77/77 (stubbed). Earlier settlement drives unmodified and green:
+  settlement 291/291, approval 42/42, description 41/41, supervision 41/41, theft 62/62.
+- typecheck, `npm test` (2912), lint and build green. Nothing driven against a live SIS.Api.
+- Decisions taken unattended are in `.afk/HITL-343.md`. Two of them need the owner's sign-off:
+  - **`spent-whole`**: a wholly spent entry offers neither delete nor "Reduce it to X". W3/W5 say
+    "reduce to the spent figure", but that figure equals the amount, so the server would answer `NO_CHANGE`.
+  - **Supervisor "Change now"**: it is drawn already, with a pane-level "applies at once" sentence. The
+    form's own sentence stays 348's.

@@ -275,15 +275,19 @@ export function changeRequestBody(
   const amountProblem =
     asked === null || asked <= 0 ? 'invalid' : asked < roundMoney(entry.spentAmount) ? 'below-floor' : null
 
+  // ⚠️ Only a Description that differs is checked: an older entry posted blank or over
+  // 200 must still be able to have its amount changed (`newDescription` goes `null`).
   const description = checkDescription(draft.description)
+  const descriptionDiffers = description.text !== (entry.description ?? '').trim()
+  const descriptionProblem = descriptionDiffers ? description.problem : null
   const reason = checkDescription(draft.reason)
 
   const newAmount = asked !== null && asked !== roundMoney(entry.amount) ? asked : null
-  const newDescription = description.text !== (entry.description ?? '').trim() ? description.text : null
-  const unchanged = amountProblem === null && description.problem === null && newAmount === null && newDescription === null
+  const newDescription = descriptionDiffers ? description.text : null
+  const unchanged = amountProblem === null && newAmount === null && newDescription === null
 
-  if (amountProblem || description.problem || reason.problem || unchanged)
-    return { kind: 'held', amount: amountProblem, description: description.problem, reason: reason.problem, unchanged }
+  if (amountProblem || descriptionProblem || reason.problem || unchanged)
+    return { kind: 'held', amount: amountProblem, description: descriptionProblem, reason: reason.problem, unchanged }
 
   return {
     kind: 'ready',

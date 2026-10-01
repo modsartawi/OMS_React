@@ -536,10 +536,12 @@
         "title": "The file has one branch per row, with these columns:",
         "columns": {
           "StoreCode": "the branch's store code",
+          "ProfitCenter": "the branch's profit center, such as PH-019 (optional — the column can be left out)",
           "AccountantId": "the accountant's staff id",
           "CollectorId": "the collector's staff id"
         },
         "blank": "A blank cell leaves that side as it is. A file cannot remove anybody from a branch — do that on the row itself.",
+        "profitCenterBlank": "A blank profit center leaves the one stored for the branch unchanged. A file cannot clear a profit center.",
         "download": "Download a blank template"
       },
       "file": {
@@ -551,6 +553,7 @@
       },
       "columns": {
         "row": "Row",
+        "profitCenter": "Profit Center",
         "outcome": "Outcome"
       },
       "review": {
@@ -561,6 +564,7 @@
         "rowIssue": "Row {{row}}: {{message}}",
         "changes": "Changes",
         "noChange": "No change",
+        "noProfitCenter": "None recorded",
         "empty": "The file has no rows to apply.",
         "nothingToApply": "Every branch in this file already has what the file says, so there is nothing to apply.",
         "nothingToApplyButton": "Nothing to apply",
@@ -572,7 +576,7 @@
         "previewAgain": "Preview the file again"
       },
       "issues": {
-        "STORE_REQUIRED": "This row names a person but no branch.",
+        "STORE_REQUIRED": "This row names a person or a profit center but no branch.",
         "UNKNOWN_STORE": "'{{store}}' is not an open branch.",
         "REPEATED_STORE": "'{{store}}' is on an earlier row of this file too. List each branch once.",
         "STAFF_UNKNOWN": "{{slot}} '{{staffId}}' is not on the collection roster. Add the person on the People tab first.",
@@ -580,8 +584,8 @@
         "STAFF_WRONG_ROLE": "'{{staffId}}' cannot go in the {{slot}} column: the collection roster files them under another role."
       },
       "done": {
-        "applied_one": "1 branch assigned from the file.",
-        "applied_other": "{{count}} branches assigned from the file.",
+        "applied_one": "1 branch changed from the file.",
+        "applied_other": "{{count}} branches changed from the file.",
         "nothing": "Nothing needed changing: every branch already had what the file says, and nothing was re-stamped.",
         "codes": "Changed: {{codes}}",
         "unchanged_one": "1 row already had what the file says and was left as it was.",

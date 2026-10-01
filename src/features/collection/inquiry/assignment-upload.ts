@@ -36,7 +36,21 @@ export interface AssignmentUploadRow {
   currentCollectorId: string
   collectorId: string
   collectorChanges: boolean
-  /** Either side changes. */
+  /**
+   * The branch's profit center now, trimmed; `''` = none recorded (BackOffice 2157) —
+   * the value Cash Collections shows as `profitCenter`.
+   *
+   * ⚠️ Optional only because a door that predates 2157 sends none of the three
+   * profit-center fields; read them through `profitCenterChange`, never directly.
+   */
+  currentProfitCenter?: string
+  /** After the commit: the file's value, or the current one when the cell was blank or
+   *  the column absent. A file cannot clear a profit center. */
+  profitCenter?: string
+  /** Before ≠ after, compared CASE-SENSITIVELY by the server (`ph-019` over `PH-019`
+   *  is a change). */
+  profitCenterChanges?: boolean
+  /** The accountant, the collector or the profit center changes. */
   changes: boolean
 }
 
@@ -44,7 +58,7 @@ export interface AssignmentUploadRow {
 export interface AssignmentUploadIssue {
   rowNumber: number
   storeCode: string
-  /** `StoreCode`, `AccountantId`, `CollectorId`, or `''` for the file. */
+  /** `StoreCode`, `AccountantId`, `CollectorId`, `ProfitCenter`, or `''` for the file. */
   column: string
   code: string
   /** English, a newline, then Arabic — a FALLBACK. The copy is keyed off `code`. */
@@ -88,6 +102,13 @@ export const COMMIT_ROW_ERRORS = 'ROW_ERRORS'
  * The preview row codes this screen has its own words for. A code outside the list is
  * a rule the server grew after this screen shipped, and it is shown in the server's
  * words rather than dropped (`describeIssue`).
+ *
+ * 🚩 **2157's four profit-center codes are deliberately absent**
+ * (`PROFIT_CENTER_TOO_LONG` / `_INVALID` / `_NO_PLANT` / `_UNAVAILABLE`). Each of their
+ * sentences carries what a key of this screen's could not: the over-long one names the
+ * value, its length and the limit, and the limit is read off the LIVE column — a key
+ * saying "20" would be wrong the day the column widens. They are row refusals like the
+ * rest (hung on their row, or on the file at row 0), worded by the server.
  */
 export const UPLOAD_ISSUE_CODES = [
   'STORE_REQUIRED',
@@ -99,11 +120,39 @@ export const UPLOAD_ISSUE_CODES = [
 ] as const
 export type UploadIssueCode = (typeof UPLOAD_ISSUE_CODES)[number]
 
+/** One branch's profit center, before and after — what the preview's column draws. */
+export interface ProfitCenterChange {
+  /** `''` = none recorded. */
+  before: string
+  after: string
+  changes: boolean
+}
+
+/**
+ * **The profit center a row will leave the branch with** (ticket 338, BackOffice 2157).
+ *
+ * 🔑 The change is the SERVER's flag, read `=== true` — never a comparison here. The
+ * server compares case-sensitively and trims, and a screen that compared the strings
+ * itself could disagree with the commit about whether a row writes anything.
+ *
+ * ⚠️ A door without 2157 omits all three fields: that reads as nothing recorded and
+ * nothing changing, never as a change the server did not report.
+ */
+export function profitCenterChange(row: AssignmentUploadRow): ProfitCenterChange {
+  const before = row.currentProfitCenter ?? ''
+  return {
+    before,
+    after: row.profitCenter ?? before,
+    changes: row.profitCenterChanges === true,
+  }
+}
+
 /** The file, reviewed. */
 export interface UploadReview {
   rows: AssignmentUploadRow[]
-  /** Rows whose accountant or collector will change — counted off the server's own
-   *  per-row flags, never by comparing ids here. */
+  /** Rows whose accountant, collector or profit center will change — counted off the
+   *  server's own per-row flags, never by comparing values here. A row whose ONLY change
+   *  is its profit center counts (BackOffice 2157). */
   changed: number
   unchanged: number
   /** The refusals by sheet row, so each row wears its own. Rows with none are absent. */

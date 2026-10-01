@@ -9,7 +9,7 @@
 //
 // Verifies ticket 318's screen Proof:
 //   1. the gate: the upload lives on the assignment page, behind canOpenAssignment and nothing new;
-//   2. the template: the three columns named, and a download whose header is exactly the contract's;
+//   2. the template: the four columns named, and a download whose header is exactly the contract's;
 //   3. loading, then the contract's preview sample: changes per store, in the roster's names, the
 //      refused row named, Apply withheld;
 //   4. a clean file: Apply counts the changes; a double press sends ONE commit that re-sends the
@@ -19,6 +19,12 @@
 //      and the server's words), a 500, and the bare 403;
 //   7. empty: a file already as the estate stands offers nothing to apply;
 //   8. no raw t() key and no page error anywhere.
+//
+// Ticket 338 (BackOffice 2157's `## Web contract`, which amends 1996's) adds:
+//   9. the template's fourth column, ProfitCenter, and the sentence that a blank one leaves it;
+//  10. 2157's preview row sample: the profit center current → new, a profit-center-only row
+//      counted as a change and offered to Apply; an over-long one refused on its row in the
+//      server's words.
 //
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/assignment-upload-drive.mjs
@@ -116,6 +122,37 @@ const CLEAN = {
   ],
   errors: [],
 }
+/** 2157's preview row sample, VERBATIM — the row's only change is its profit center. */
+const PC_ROW = {
+  rowNumber: 2, storeCode: 'P019', storeName: 'Al-Dawaa P019',
+  currentAccountantId: '4466', accountantId: '4466', accountantChanges: false,
+  currentCollectorId: '5120', collectorId: '5120', collectorChanges: false,
+  currentProfitCenter: '', profitCenter: 'PH-019', profitCenterChanges: true,
+  changes: true,
+}
+/** A sheet of profit centers: P019 gains one, P020 keeps its own (a blank cell). */
+const PC_ONLY = {
+  ...SAMPLE,
+  rowCount: 2,
+  changeCount: 1,
+  unchangedCount: 1,
+  canCommit: true,
+  rows: [
+    PC_ROW,
+    { ...SAMPLE.rows[1], currentProfitCenter: 'PH-020', profitCenter: 'PH-020', profitCenterChanges: false },
+  ],
+  errors: [],
+}
+/** 2157's refusal sample, VERBATIM, on the row it names. */
+const PC_TOO_LONG = {
+  ...PC_ONLY,
+  canCommit: false,
+  rows: [...PC_ONLY.rows, { ...PC_ROW, rowNumber: 5, storeCode: 'P021', storeName: 'Al-Dawaa P021', profitCenter: 'PH-021000000000000000' }],
+  errors: [
+    { rowNumber: 5, storeCode: 'P021', column: 'ProfitCenter', code: 'PROFIT_CENTER_TOO_LONG',
+      message: "The profit center 'PH-021000000000000000' is 21 characters; at most 20 fit.\nمركز الربح 'PH-021000000000000000' طوله 21 حرفاً، والحد الأقصى 20." },
+  ],
+}
 /** A sheet of the estate exactly as it stands. */
 const SAME = { ...CLEAN, rowCount: 1, changeCount: 0, unchangedCount: 1, rows: [SAMPLE.rows[1]] }
 
@@ -182,6 +219,8 @@ async function run() {
       if (p === 'forbidden') return route.fulfill({ status: 403, body: '' })
       if (p === 'same') return route.fulfill(envelope(SAME))
       if (p === 'clean') return route.fulfill(envelope(CLEAN))
+      if (p === 'pc') return route.fulfill(envelope(PC_ONLY))
+      if (p === 'pcTooLong') return route.fulfill(envelope(PC_TOO_LONG))
       return route.fulfill(envelope(SAMPLE))
     }
     if (path === 'CollectionWeb/Assignment/Upload/Commit') {
@@ -189,6 +228,7 @@ async function run() {
       lastCommitBody = route.request().postData() ?? ''
       if (hold) await hold
       const c = scenario.commit
+      if (c === 'pc') return route.fulfill(envelope({ ...APPLIED, applied: 1, appliedStoreCodes: ['P019'], unchanged: 1 }))
       if (c === 'again') return route.fulfill(envelope({ ...APPLIED, applied: 0, appliedStoreCodes: [], unchanged: 3, updatedBy: '', updatedAt: '0001-01-01T00:00:00' }))
       if (c === 'hash')
         return route.fulfill(envelope({ ...REFUSED, refusalReason: 'HASH_MISMATCH',
@@ -252,11 +292,12 @@ async function run() {
   // ---- 2. the template ----
   await openUpload()
   const cols = await page.locator('[data-region="upload-template"] [data-column]').evaluateAll((els) => els.map((e) => e.getAttribute('data-column')))
-  check('template — the three columns, named as the door reads them', cols.join(',') === 'StoreCode,AccountantId,CollectorId', cols.join(','))
+  check('template — the four columns, named as the door reads them', cols.join(',') === 'StoreCode,ProfitCenter,AccountantId,CollectorId', cols.join(','))
   check('template — a blank cell is said to leave that side alone', (await dialogText()).includes('A blank cell leaves that side as it is'))
+  check('template — a blank profit center is said to leave the stored one (338)', (await dialogText()).includes('A blank profit center leaves the one stored for the branch unchanged') && (await dialogText()).includes('(optional'))
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByTestId('upload-template-download').click()])
   const csv = readFileSync(await download.path(), 'utf8')
-  check('template — the download is the header alone, exactly StoreCode,AccountantId,CollectorId', download.suggestedFilename() === 'collection-assignment-template.csv' && csv === 'StoreCode,AccountantId,CollectorId\r\n', JSON.stringify(csv))
+  check('template — the download is the header alone, exactly StoreCode,ProfitCenter,AccountantId,CollectorId', download.suggestedFilename() === 'collection-assignment-template.csv' && csv === 'StoreCode,ProfitCenter,AccountantId,CollectorId\r\n', JSON.stringify(csv))
   check('template — Preview waits for a file', (await page.getByTestId('upload-preview').getAttribute('aria-disabled')) === 'true')
   await shot('file-step')
   await noRawKeys('file step')
@@ -286,6 +327,7 @@ async function run() {
   check('preview — an unchanged row says so', (await page.locator('[data-row="3"]').innerText()).includes('No change') && (await page.locator('[data-row="3"]').getAttribute('data-changes')) === null)
   const row4 = page.locator('[data-row="4"]')
   check('preview — the refused row is marked and says why, in the screen’s own words', (await row4.getAttribute('data-refused')) === 'true' && (await row4.innerText()).includes("'P9X9' is not an open branch.") && !(await row4.innerText()).includes('ليس'))
+  check('preview — a door answer without the profit-center fields reads as none recorded, unchanged', (await row2.locator('[data-slot="profitCenter"] [data-change="none"]').innerText()).includes('None recorded'))
   check('preview — the empty slot reads as nobody', (await row4.locator('[data-slot="collectorId"]').innerText()).includes('— nobody —'))
   check('preview — the refused row is named above the grid', (await page.getByTestId('upload-blockers').innerText()).includes("Row 4: 'P9X9' is not an open branch."))
   const commitBtn = page.getByTestId('upload-commit')
@@ -315,7 +357,7 @@ async function run() {
   hold = null
   await page.getByTestId('upload-done-count').waitFor()
   check('commit — the same file re-sent, with the preview’s hash verbatim', lastCommitBody.includes('name="file"; filename="finance-sheet.csv"') && lastCommitBody.includes('name="contentHash"') && lastCommitBody.includes(SAMPLE.contentHash))
-  check('done — the count and the branches, as the server answered', (await dialogText()).includes('2 branches assigned from the file.') && (await dialogText()).includes('Changed: P019, P021') && (await dialogText()).includes('1 row already had what the file says'))
+  check('done — the count and the branches, as the server answered', (await dialogText()).includes('2 branches changed from the file.') && (await dialogText()).includes('Changed: P019, P021') && (await dialogText()).includes('1 row already had what the file says'))
   await page.waitForLoadState('networkidle')
   check('done — the Branches grid refetches the truth', branchCalls === 1, `${branchCalls} refetches`)
   check('done — no Apply is offered again', (await page.getByTestId('upload-commit').count()) === 0)
@@ -403,6 +445,32 @@ async function run() {
   await previewFile('same')
   check('nothing to apply — the file already matches, and says so', (await page.getByTestId('upload-nothing').count()) === 1 && (await page.getByTestId('upload-commit').innerText()).includes('Nothing to apply') && (await page.getByTestId('upload-commit').getAttribute('aria-disabled')) === 'true')
   await noRawKeys('empty')
+  await closeDialog()
+
+  // ---- 9/10. the profit center (ticket 338, BackOffice 2157) ----
+  await previewFile('pc')
+  const pc2 = page.locator('[data-row="2"]')
+  check('profit center — the preview shows current → new', (await pc2.locator('[data-slot="profitCenter"] [data-change="changes"]').innerText()).replace(/\s+/g, '') === 'Nonerecorded→PH-019', await pc2.locator('[data-slot="profitCenter"]').innerText())
+  check('profit center — a blank cell reads as what the branch keeps', (await page.locator('[data-row="3"] [data-slot="profitCenter"] [data-change="none"]').innerText()) === 'PH-020')
+  check('profit center — a profit-center-only row is a change', (await pc2.getAttribute('data-changes')) === 'true' && (await pc2.innerText()).includes('Changes') && (await pc2.locator('[data-slot="accountantId"] [data-change="none"]').count()) === 1)
+  check('profit center — the summary counts it and Apply is offered for it', (await dialogText()).includes('2 rows read · changes: 1 · already as the file says: 1') && (await page.getByTestId('upload-commit').innerText()).includes('Apply to 1 branch') && (await page.getByTestId('upload-commit').getAttribute('aria-disabled')) === null)
+  await shot('profit-center')
+  await noRawKeys('profit center')
+  scenario = { preview: 'pc', commit: 'pc' }
+  branchCalls = 0
+  await page.getByTestId('upload-commit').click()
+  await page.getByTestId('upload-done-count').waitFor()
+  check('profit center — the commit reads as one branch changed', (await page.getByTestId('upload-done-count').innerText()).includes('1 branch changed from the file.') && (await dialogText()).includes('Changed: P019'))
+  await page.waitForLoadState('networkidle')
+  check('profit center — the Branches grid refetches', branchCalls === 1, `${branchCalls} refetches`)
+  await closeDialog()
+
+  await previewFile('pcTooLong')
+  const pc5 = page.locator('[data-row="5"]')
+  check('profit center — an over-long value is refused on its row, in the server’s English words', (await pc5.getAttribute('data-refused')) === 'true' && (await pc5.innerText()).includes("The profit center 'PH-021000000000000000' is 21 characters; at most 20 fit.") && !(await dialogText()).includes('مركز'))
+  check('profit center — …named above the grid like the other refusals, and Apply withheld', (await page.getByTestId('upload-blockers').innerText()).includes('Row 5: The profit center') && (await page.getByTestId('upload-commit').getAttribute('aria-disabled')) === 'true')
+  await shot('profit-center-too-long')
+  await noRawKeys('profit center refusal')
   await closeDialog()
 
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' || '))

@@ -6,6 +6,7 @@ import {
   describeIssue,
   englishLine,
   fileRefusalKey,
+  profitCenterChange,
   reviewUpload,
   withCommitRowErrors,
   type AssignmentUploadCommit,
@@ -254,5 +255,89 @@ describe('fileRefusalKey — the 400s that cannot yield rows', () => {
     expect(fileRefusalKey('AssignmentUploadNoRows')).toBeNull()
     expect(fileRefusalKey('AssignmentActorRequired')).toBeNull()
     expect(fileRefusalKey(null)).toBeNull()
+  })
+})
+
+/**
+ * **The profit center** — ticket 338 against BackOffice 2157's `## Web contract`, which
+ * amends 1996's: three added row fields, and `changes` now true when the profit center
+ * alone changes. Its samples are used VERBATIM.
+ */
+describe('the profit center column (BackOffice 2157)', () => {
+  /** 2157's preview row sample, verbatim. */
+  const PC_ROW = {
+    rowNumber: 2, storeCode: 'P019', storeName: 'Al-Dawaa P019',
+    currentAccountantId: '4466', accountantId: '4466', accountantChanges: false,
+    currentCollectorId: '5120', collectorId: '5120', collectorChanges: false,
+    currentProfitCenter: '', profitCenter: 'PH-019', profitCenterChanges: true,
+    changes: true,
+  }
+  /** 2157's refusal sample, verbatim. */
+  const TOO_LONG = {
+    rowNumber: 5, storeCode: 'P021', column: 'ProfitCenter', code: 'PROFIT_CENTER_TOO_LONG',
+    message: "The profit center 'PH-021000000000000000' is 21 characters; at most 20 fit.\nمركز الربح 'PH-021000000000000000' طوله 21 حرفاً، والحد الأقصى 20.",
+  }
+  const PC_ONLY: AssignmentUploadPreview = {
+    contentHash: SAMPLE.contentHash,
+    rowCount: 1,
+    changeCount: 1,
+    unchangedCount: 0,
+    canCommit: true,
+    rows: [PC_ROW],
+    errors: [],
+  }
+
+  it('preview shows current and new profit center', () => {
+    expect(profitCenterChange(PC_ROW)).toEqual({ before: '', after: 'PH-019', changes: true })
+    // A replaced value: the case is the server's call (it compares case-sensitively), and
+    // the screen draws its flag rather than comparing the two strings itself.
+    const recased = { ...PC_ROW, currentProfitCenter: 'PH-019', profitCenter: 'ph-019' }
+    expect(profitCenterChange(recased)).toEqual({ before: 'PH-019', after: 'ph-019', changes: true })
+    // A blank cell (or no column) leaves it: after = current, and nothing changes.
+    const kept = { ...PC_ROW, currentProfitCenter: 'PH-019', profitCenter: 'PH-019', profitCenterChanges: false }
+    expect(profitCenterChange(kept)).toEqual({ before: 'PH-019', after: 'PH-019', changes: false })
+  })
+
+  // ⚠️ A door that predates 2157 sends none of the three fields — the column reads as
+  // nothing recorded and unchanged, never as a change the server did not report.
+  it('reads a row from a door without the fields as unchanged and blank', () => {
+    expect(profitCenterChange(SAMPLE.rows[0])).toEqual({ before: '', after: '', changes: false })
+    expect(profitCenterChange({ ...PC_ROW, profitCenterChanges: 'true' as unknown as boolean }).changes).toBe(false)
+  })
+
+  // 🔑 The row's only change is its profit center: it counts, and Apply is offered on it.
+  it('a profit-center-only row is shown as a change', () => {
+    const review = reviewUpload(PC_ONLY)
+    expect(review.changed).toBe(1)
+    expect(review.unchanged).toBe(0)
+    expect(review.nothingToApply).toBe(false)
+    expect(review.canCommit).toBe(true)
+  })
+
+  // The over-long value is a row refusal like the others: hung on its row, the file
+  // refused, and worded in the server's sentence (which names the value, its length and
+  // the limit — read off the live column, so a key of this screen's could not know it).
+  it('shows an over-long profit center as a row refusal, in the server’s words', () => {
+    const rows = [{ ...PC_ROW, rowNumber: 5, storeCode: 'P021', profitCenter: 'PH-021000000000000000' }]
+    const review = reviewUpload({ ...PC_ONLY, canCommit: false, rows, errors: [TOO_LONG] })
+    expect(review.canCommit).toBe(false)
+    expect(review.issuesByRow[5]).toEqual([TOO_LONG])
+    expect(describeIssue(TOO_LONG, rows)).toEqual({
+      kind: 'server',
+      message: "The profit center 'PH-021000000000000000' is 21 characters; at most 20 fit.",
+    })
+  })
+
+  // `PROFIT_CENTER_UNAVAILABLE` is one file-level entry (row 0): it heads the list, it is
+  // not hung on a row, and it refuses the file.
+  it('holds the file-level unavailable refusal apart from the rows', () => {
+    const unavailable = {
+      rowNumber: 0, storeCode: '', column: 'ProfitCenter', code: 'PROFIT_CENTER_UNAVAILABLE',
+      message: 'The profit center cannot be stored yet.\nلا يمكن',
+    }
+    const review = reviewUpload({ ...PC_ONLY, canCommit: false, errors: [unavailable] })
+    expect(review.fileIssues).toEqual([unavailable])
+    expect(review.refusedRows).toBe(0)
+    expect(review.canCommit).toBe(false)
   })
 })

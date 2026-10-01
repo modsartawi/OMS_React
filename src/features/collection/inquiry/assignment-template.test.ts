@@ -11,11 +11,13 @@ import {
  * header is the one part of it nothing else in this repo asserts.
  */
 describe('assignmentTemplateCsv', () => {
-  // 🔑 BackOffice 1996's Web contract: "header row exactly StoreCode | AccountantId |
-  // CollectorId". A rename here is a rename of the contract.
-  it('is exactly the three headers the door reads', () => {
-    expect(assignmentTemplateCsv()).toBe('StoreCode,AccountantId,CollectorId\r\n')
-    expect(ASSIGNMENT_TEMPLATE_COLUMNS).toEqual(['StoreCode', 'AccountantId', 'CollectorId'])
+  // 🔑 BackOffice 1996's Web contract named StoreCode | AccountantId | CollectorId, and
+  // 2157's adds the optional ProfitCenter. A rename here is a rename of the contract. The
+  // door reads columns by NAME, so the order is the template's own (ticket 338's): the
+  // branch's two attributes first, then its two people.
+  it('assignment template carries the ProfitCenter column', () => {
+    expect(assignmentTemplateCsv()).toBe('StoreCode,ProfitCenter,AccountantId,CollectorId\r\n')
+    expect(ASSIGNMENT_TEMPLATE_COLUMNS).toEqual(['StoreCode', 'ProfitCenter', 'AccountantId', 'CollectorId'])
   })
 
   // ⚠️ The upload is all or nothing: an example row left in the sheet would be refused

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Download, FileSpreadsheet, TriangleAlert } from 'lucide-react'
@@ -15,12 +15,14 @@ import {
   describeIssue,
   englishLine,
   fileRefusalKey,
+  profitCenterChange,
   reviewUpload,
   withCommitRowErrors,
   type AssignmentUploadCommit,
   type AssignmentUploadIssue,
   type AssignmentUploadPreview,
   type AssignmentUploadRow,
+  type ProfitCenterChange,
   type UploadReview,
 } from './assignment-upload'
 import {
@@ -35,7 +37,8 @@ const ACCEPT = '.xlsx,.csv'
 /**
  * **An assignment file, previewed then committed** (ticket 318, BackOffice 1996) —
  * finance's own sheet of StoreCode, AccountantId and CollectorId, set on many branches
- * in one act.
+ * in one act. Ticket 338 (BackOffice 2157) adds the optional ProfitCenter: the preview
+ * shows each branch's current and new one, and a row that changes only that counts.
  *
  * 🔑 **The settlement bulk upload's shape** (`settlement/BulkUploadDialog`): pick the
  * file, the server reads it back row by row, and Apply **re-sends the same file** with
@@ -334,6 +337,9 @@ function TemplateOffer() {
         ))}
       </ul>
       <p className="text-xs text-muted-foreground">{t('assignment.upload.template.blank')}</p>
+      <p className="text-xs text-muted-foreground" data-testid="upload-template-profit-center">
+        {t('assignment.upload.template.profitCenterBlank')}
+      </p>
       <Button
         variant="secondary"
         onClick={() => downloadCsv(ASSIGNMENT_TEMPLATE_FILENAME, assignmentTemplateCsv())}
@@ -445,6 +451,7 @@ function PreviewStep({
                 <th className="px-2 py-1.5 text-start font-medium">{t('assignment.upload.columns.row')}</th>
                 <th className="px-2 py-1.5 text-start font-medium">{t('assignment.columns.storeCode')}</th>
                 <th className="px-2 py-1.5 text-start font-medium">{t('assignment.columns.storeName')}</th>
+                <th className="px-2 py-1.5 text-start font-medium">{t('assignment.upload.columns.profitCenter')}</th>
                 <th className="px-2 py-1.5 text-start font-medium">{t('assignment.columns.accountant')}</th>
                 <th className="px-2 py-1.5 text-start font-medium">{t('assignment.columns.collector')}</th>
                 <th className="px-2 py-1.5 text-start font-medium">{t('assignment.upload.columns.outcome')}</th>
@@ -466,20 +473,21 @@ function PreviewStep({
                     <td className="px-2 py-1.5" dir="auto">
                       {row.storeName}
                     </td>
+                    <td className="px-2 py-1.5" data-slot="profitCenter">
+                      <ProfitCenterCell change={profitCenterChange(row)} />
+                    </td>
                     <td className="px-2 py-1.5" data-slot="accountantId">
-                      <SlotChange
-                        before={row.currentAccountantId}
-                        after={row.accountantId}
+                      <BeforeAfter
                         changes={row.accountantChanges === true}
-                        nameOf={nameOf}
+                        before={<Person id={row.currentAccountantId} nameOf={nameOf} />}
+                        after={<Person id={row.accountantId} nameOf={nameOf} />}
                       />
                     </td>
                     <td className="px-2 py-1.5" data-slot="collectorId">
-                      <SlotChange
-                        before={row.currentCollectorId}
-                        after={row.collectorId}
+                      <BeforeAfter
                         changes={row.collectorChanges === true}
-                        nameOf={nameOf}
+                        before={<Person id={row.currentCollectorId} nameOf={nameOf} />}
+                        after={<Person id={row.collectorId} nameOf={nameOf} />}
                       />
                     </td>
                     <td className="px-2 py-1.5">
@@ -509,38 +517,44 @@ function PreviewStep({
 }
 
 /**
- * One slot, before and after. A change reads *was → will be*; a slot the file leaves
- * alone (a blank cell, or the same person) reads as what the branch keeps.
+ * One cell, before and after — a slot or the profit center. A change reads *was → will
+ * be*; a cell the file leaves alone (a blank cell, or the same value) reads as what the
+ * branch keeps.
  */
-function SlotChange({
-  before,
-  after,
-  changes,
-  nameOf,
-}: {
-  before: string
-  after: string
-  changes: boolean
-  nameOf: NameOf
-}) {
+function BeforeAfter({ changes, before, after }: { changes: boolean; before: ReactNode; after: ReactNode }) {
   if (!changes) {
     return (
       <span className="text-muted-foreground" data-change="none">
-        <Person id={after} nameOf={nameOf} />
+        {after}
       </span>
     )
   }
   return (
     <span className="flex flex-wrap items-baseline gap-x-1" data-change="changes">
-      <span className="text-muted-foreground line-through">
-        <Person id={before} nameOf={nameOf} />
-      </span>
+      <span className="text-muted-foreground line-through">{before}</span>
       <span aria-hidden>→</span>
-      <span className="font-medium">
-        <Person id={after} nameOf={nameOf} />
-      </span>
+      <span className="font-medium">{after}</span>
     </span>
   )
+}
+
+/** The branch's profit center, before and after. A blank cell (or a file without the
+ *  column) leaves the stored one, so it reads as what the branch keeps. */
+function ProfitCenterCell({ change }: { change: ProfitCenterChange }) {
+  return (
+    <BeforeAfter
+      changes={change.changes}
+      before={<ProfitCenter value={change.before} />}
+      after={<ProfitCenter value={change.after} />}
+    />
+  )
+}
+
+/** A profit center as the code it is; `''` reads as none recorded. */
+function ProfitCenter({ value }: { value: string }) {
+  const { t } = useTranslation('collection')
+  if (!value) return <>{t('assignment.upload.review.noProfitCenter')}</>
+  return <span className="font-mono">{value}</span>
 }
 
 /** A staff id in the roster's name, with the id beside it; `''` reads as nobody. */

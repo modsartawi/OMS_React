@@ -15,7 +15,13 @@ import {
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import { collectionAccessQuery } from '@/core/collection/api'
-import { ASSIGNMENT_OPTIONS_KEY, canOpenAssignment, collectionApi } from './api'
+import {
+  ASSIGNMENT_OPTIONS_KEY,
+  ASSIGNMENT_ROSTER_KEY,
+  canOpenAssignment,
+  collectionApi,
+  markRosterChanged,
+} from './api'
 import {
   ASSIGNMENT_LANDING,
   assignmentCounts,
@@ -58,6 +64,8 @@ import {
 } from './bulk'
 import AssignmentUploadDialog from './AssignmentUploadDialog'
 import type { AssignmentUploadCommit } from './assignment-upload'
+import PeopleUploadDialog from './PeopleUploadDialog'
+import type { PeopleUploadCommit } from './people-upload'
 import { GRID_PAGE_SIZE } from './cap'
 import { EmptyState, ListShimmer } from './GridStates'
 import ScreenGate from '@/core/ui/ScreenGate'
@@ -112,11 +120,6 @@ export default function CollectionAssignmentPage() {
   )
 }
 
-/** The roster query key, shared by both tabs — ONE fetch, and the People tab's save
- *  writes into it, which is what makes a new hire show up in the Branches tab's
- *  dropdowns without a refetch or a second name source. */
-const ROSTER_KEY = ['collection', 'assignment', 'people'] as const
-
 type Tab = 'branches' | 'people'
 
 function AssignmentBody() {
@@ -131,7 +134,10 @@ function AssignmentBody() {
   // would not have appeared in the Branches tab's dropdowns until the other cache
   // entry happened to refetch.
   const roster = useQuery({
-    queryKey: ROSTER_KEY,
+    // The roster key (`ASSIGNMENT_ROSTER_KEY`) is shared by both tabs — ONE fetch, and
+    // the People tab's save writes into it, which is what makes a new hire show up in
+    // the Branches tab's dropdowns without a refetch or a second name source.
+    queryKey: ASSIGNMENT_ROSTER_KEY,
     queryFn: () => collectionApi.assignmentPeople(),
   })
 
@@ -895,6 +901,13 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
   // also what disables the id field, since StaffId is the primary key.
   const [editing, setEditing] = useState('')
   const [failure, setFailure] = useState('')
+  // ---- the people file (337) ----
+  const [uploadOpen, setUploadOpen] = useState(false)
+  // A bare 403 on either door hides the upload for the rest of the page's life — the
+  // session lacks the grant (or the route its cookie marker), and a button that can
+  // only fail again is not offered.
+  const [uploadForbidden, setUploadForbidden] = useState(false)
+  const [uploadNotice, setUploadNotice] = useState('')
 
   const nameOf = useMemo(() => rosterNameOf(people), [people])
   const supervisors = useMemo(() => supervisorIds(people), [people])
@@ -914,7 +927,7 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
       // Settle the shared roster on what the SERVER wrote. Both tabs read this
       // entry, so the new person is in the Branches tab's dropdown the moment this
       // returns — no refetch, and no second copy that could disagree.
-      queryClient.setQueryData<RosterPerson[]>(ROSTER_KEY, (current) => {
+      queryClient.setQueryData<RosterPerson[]>(ASSIGNMENT_ROSTER_KEY, (current) => {
         const rest = (current ?? []).filter((p) => p.staffId !== saved.staffId)
         return [...rest, saved].sort((a, b) => a.displayName.localeCompare(b.displayName))
       })
@@ -943,6 +956,26 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
 
   const invalid = personFormError(form)
 
+  // 🔑 The file may have added anybody, renamed anybody and moved any supervisor, and
+  // the server compared each under its row lock — so the list refetches the truth
+  // rather than patching itself from the preview. The four screens' picker is marked
+  // stale with it, as the single-person save does.
+  const onUploadApplied = useCallback(
+    (result: PeopleUploadCommit) => {
+      if (!markRosterChanged(queryClient, result)) return
+      // ⚠️ A person open in the form whom the file just changed holds the values from
+      // BEFORE the file; saving them would quietly undo the file for that person.
+      const written = [...(result.addedStaffIds ?? []), ...(result.updatedStaffIds ?? [])]
+      if (editing !== '' && written.some((id) => id.toUpperCase() === editing.toUpperCase())) {
+        setForm(blankPerson())
+        setEditing('')
+        setFailure('')
+      }
+      setUploadNotice(t('assignment.people.uploadNotice', { count: result.added + result.updated }))
+    },
+    [editing, queryClient, t],
+  )
+
   return (
     <>
       <div className="flex flex-wrap items-end gap-3">
@@ -958,7 +991,36 @@ function PeopleTab({ people }: { people: readonly RosterPerson[] }) {
         <div className="ms-auto text-sm text-muted-foreground">
           {t('assignment.people.counts', { total: people.length, supervisors: supervisors.size })}
         </div>
+        {/* 337: finance's people sheet, previewed before it is applied — the same
+            door shape as the Branches tab's assignment file. */}
+        {!uploadForbidden && (
+          <button
+            type="button"
+            className="h-9 rounded-md border border-border/60 px-4 text-sm font-medium"
+            onClick={() => {
+              setUploadNotice('')
+              setUploadOpen(true)
+            }}
+            data-testid="people-upload-open"
+          >
+            {t('assignment.people.upload')}
+          </button>
+        )}
       </div>
+
+      <PeopleUploadDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        nameOf={nameOf}
+        onApplied={onUploadApplied}
+        onForbidden={() => setUploadForbidden(true)}
+      />
+
+      {uploadNotice !== '' && (
+        <div className="rounded-md border border-border/60 p-3 text-sm" data-testid="people-upload-notice">
+          {uploadNotice}
+        </div>
+      )}
 
       {/* ---- the form: add, or edit the row that was clicked ---- */}
       <div className="flex flex-wrap items-end gap-3 rounded-md border border-border/60 p-3">

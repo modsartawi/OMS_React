@@ -619,7 +619,57 @@
         "title": "No person matches",
         "hint": "Clear the search, or add the person with the form above."
       },
-      "required": "{{field}} is required."
+      "required": "{{field}} is required.",
+      "upload": "Upload a file…",
+      "uploadNotice_one": "1 person was added or updated from the file.",
+      "uploadNotice_other": "{{count}} people were added or updated from the file."
+    },
+    "peopleUpload": {
+      "title": "Add or update people from a file",
+      "forbidden": "Your account is not allowed to maintain the collection roster. Ask an administrator if you need it.",
+      "template": {
+        "title": "The file has one person per row, with these four columns (all four are required):",
+        "columns": {
+          "StaffId": "the person's staff id",
+          "Name": "the person's name",
+          "Role": "ACCOUNTANT, COLLECTOR, or blank — written in English",
+          "SupervisorId": "the staff id of the person's supervisor"
+        },
+        "blank": "A blank cell is a value, not \"leave as it is\": a blank Role means the person supervises only and serves no branch, and a blank SupervisorId removes the person's supervisor.",
+        "untouched": "A staff id already on the roster is updated; a new one is added. People not in the file are left as they are — a file never removes anybody."
+      },
+      "review": {
+        "summary_one": "1 row read · added: {{added}} · updated: {{updated}} · unchanged: {{unchanged}}",
+        "summary_other": "{{count}} rows read · added: {{added}} · updated: {{updated}} · unchanged: {{unchanged}}",
+        "change": {
+          "added": "Added",
+          "updated": "Updated",
+          "unchanged": "Unchanged"
+        },
+        "nothingToApply": "Everybody in this file is already on the roster as the file says, so there is nothing to apply.",
+        "commit_one": "Apply to 1 person",
+        "commit_other": "Apply to {{count}} people"
+      },
+      "issues": {
+        "STAFF_ID_REQUIRED": "This row has no staff id.",
+        "STAFF_ID_TOO_LONG": "The staff id '{{staffId}}' is longer than 26 characters.",
+        "REPEATED_STAFF": "'{{staffId}}' is on an earlier row of this file too. List each person once.",
+        "NAME_REQUIRED": "'{{staffId}}' has no name. The roster is the only place a person's name is kept.",
+        "NAME_TOO_LONG": "The name of '{{staffId}}' is longer than 100 characters.",
+        "NAME_NOT_STORABLE": "The name of '{{staffId}}' holds characters the roster cannot store exactly, such as Arabic-Indic digits (١٢٣). Type them as 123, or remove them.",
+        "ROLE_UNKNOWN": "'{{role}}' is not a role. Write ACCOUNTANT, COLLECTOR, or leave the cell blank.",
+        "SUPERVISOR_UNKNOWN": "Supervisor '{{supervisorId}}' is neither on the collection roster nor a row of this file.",
+        "SUPERVISOR_IS_SELF": "'{{staffId}}' names themselves as their own supervisor.",
+        "ROLE_CHANGE_ORPHANS_BRANCHES": "'{{staffId}}' still serves branches in their current role. Reassign those branches on the Branches tab first."
+      },
+      "done": {
+        "applied": "{{added}} added and {{updated}} updated from the file.",
+        "nothing": "Nothing needed changing: everybody already had what the file says, and nothing was re-stamped.",
+        "addedIds": "Added: {{ids}}",
+        "updatedIds": "Updated: {{ids}}",
+        "unchanged_one": "1 row already had what the file says and was left as it was.",
+        "unchanged_other": "{{count}} rows already had what the file says and were left as they were."
+      }
     }
   }
 }

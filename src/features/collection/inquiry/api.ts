@@ -40,6 +40,7 @@ import type { AssignmentBranch, AssignmentPairing, SaveAssignmentBody } from './
 import type { AssignmentUploadCommit, AssignmentUploadPreview } from './assignment-upload'
 import type { BulkAssignmentBody, BulkPreview, BulkResult } from './bulk'
 import type { RosterPerson, SavePersonBody } from './people'
+import { peopleCommitOutcome, type PeopleUploadCommit, type PeopleUploadPreview } from './people-upload'
 import type { AssignmentOptions } from './served-by'
 import { slipCountedRows, slipTarget, type SlipCountedRows } from './slips'
 
@@ -120,6 +121,30 @@ export function slipDayPanelOwner(
   ownerKey: string,
 ): { target: AttachmentTarget; onChanged: () => void } {
   return { target: slipTarget(ownerKey), onChanged: () => markSlipDayChanged(queryClient, ownerKey) }
+}
+
+/**
+ * The Assignment screen's roster key — `GET CollectionWeb/Assignment/People`, read
+ * ONCE by both tabs (the screen's one name source). Spelled here because the people
+ * upload (337) marks it changed, and a re-spelled key would invalidate nothing.
+ */
+export const ASSIGNMENT_ROSTER_KEY = ['collection', 'assignment', 'people'] as const
+
+/**
+ * A people file was committed (ticket 337): when it wrote anybody, re-read the roster
+ * (the People list refetches; the Branches tab's dropdowns follow) and mark the four
+ * screens' *Served by* picker stale — it is `staleTime: Infinity`, and the roster's
+ * writers are what invalidate it (the single-person save does the same). A re-press
+ * that wrote nobody, or a refusal, leaves both alone. Returns whether it marked them.
+ */
+export function markRosterChanged(
+  queryClient: QueryClient,
+  result: PeopleUploadCommit,
+): boolean {
+  if (peopleCommitOutcome(result) !== 'applied') return false
+  void queryClient.invalidateQueries({ queryKey: ASSIGNMENT_ROSTER_KEY })
+  void queryClient.invalidateQueries({ queryKey: ASSIGNMENT_OPTIONS_KEY })
+  return true
 }
 
 /**
@@ -385,6 +410,36 @@ export const collectionApi = {
    */
   savePerson(body: SavePersonBody): Promise<RosterPerson> {
     return api.post<RosterPerson>('CollectionWeb/Assignment/SetPerson', body)
+  },
+
+  /**
+   * `POST CollectionWeb/Assignment/People/Upload/Preview` (multipart, one `file` part)
+   * → finance's people sheet read back against the roster (ticket 337, BackOffice
+   * 2156). **Writes nothing.** The assignment upload's shape: `.xlsx` or `.csv`,
+   * ≤ 10 MB, ≤ 2000 rows, all the server's to enforce; bad rows come back on a 200
+   * (`canCommit: false`), a file that cannot yield rows is a 400 envelope.
+   *
+   * ⚠️ Behind the EXISTING `CollectionAssignment` grant the People tab already rides.
+   * No new probe flag.
+   */
+  peopleUploadPreview(file: File): Promise<PeopleUploadPreview> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    return api.upload<PeopleUploadPreview>('CollectionWeb/Assignment/People/Upload/Preview', form)
+  },
+
+  /**
+   * `POST CollectionWeb/Assignment/People/Upload/Commit` (multipart) → the SAME file,
+   * re-sent, with the preview's `contentHash` verbatim. All or nothing; a changed file
+   * is refused on its hash (`HASH_MISMATCH`), a row gone bad since the preview refuses
+   * the file (`ROW_ERRORS`) — both a **200 with `accepted: false`**. Idempotent on a
+   * re-press. The actor is the cookie session's.
+   */
+  peopleUploadCommit(file: File, contentHash: string): Promise<PeopleUploadCommit> {
+    const form = new FormData()
+    form.append('file', file, file.name)
+    form.append('contentHash', contentHash)
+    return api.upload<PeopleUploadCommit>('CollectionWeb/Assignment/People/Upload/Commit', form)
   },
 
   /**

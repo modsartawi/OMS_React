@@ -71,7 +71,8 @@
 //  25. a spent entry offers no delete: the sentence, and "Reduce it to X" pre-fills the change
 //      form with X, which posts newAmount X; a wholly spent entry says the sentence alone;
 //  26. a stubbed DELETE_SPENT does the same from the ANSWER's spentAmount — said once, the
-//      delete form gone, the refused delete's Reason carried into the change form;
+//      delete form gone, the refused delete's Reason carried into the change form; a re-read
+//      stating a higher spent figure moves the offer with it; a wholly spent one offers none;
 //  27. an approved delete redraws the entry as cancelled from the answer, before the re-read;
 //      a 400 on a delete lands on its Reason box or the form's foot; no request is "cancelled".
 //
@@ -1315,6 +1316,16 @@ async function run() {
   check('a wholly spent entry: the sentence alone — reducing to what it already is would change nothing', (await tid('change-request-remove').getAttribute('data-remove')) === 'spent-whole' && /spent 75\.50 from this entry, so it cannot be deleted/.test(await textOf('change-request-spent')) && (await tid('change-request-reduce').count()) === 0 && (await tid('change-request-delete-open').count()) === 0)
 
   // ---- 26. a stubbed DELETE_SPENT does the same, from the ANSWER ----
+  /** Open 143's delete form, type a Reason, and press Submit with the History re-read held. */
+  const delete143 = async (hold) => {
+    await go(`${ROUTE}?store=0142&entry=143`)
+    await appears('[data-testid="change-request-delete-open"]')
+    await tid('change-request-delete-open').click()
+    await tid('change-request-delete-reason').fill('posted twice')
+    cr.holdHistory = hold
+    await tid('change-request-delete-submit').click()
+    await appears('[data-testid="change-request-notice"]')
+  }
   resetCr({
     raise: () => {
       // A till spent 120 since the pane read 0 — History will say so too, once re-read.
@@ -1322,38 +1333,49 @@ async function run() {
       return FX.deleteSpent143
     },
   })
-  await go(`${ROUTE}?store=0142&entry=143`)
-  await appears('[data-testid="change-request-delete-open"]')
-  await tid('change-request-delete-open').click()
-  await tid('change-request-delete-reason').fill('posted twice')
   const holdSpent = deferred()
-  cr.holdHistory = holdSpent
-  await tid('change-request-delete-submit').click()
-  await appears('[data-testid="change-request-notice"]')
+  await delete143(holdSpent)
   n = await noticeOf()
   check('🔑 DELETE_SPENT is said by its code, naming the ANSWER\'s spent figure, while the re-read is held', n.code === 'DELETE_SPENT' && n.step === 'reduce' && /The branch has spent 120\.00 from entry 143, so it cannot be deleted\./.test(n.text), JSON.stringify(n))
   check('🔑 …and offers "Reduce it to 120.00" from the answer', (await tid('change-request-reduce').count()) === 1 && (await tid('change-request-reduce').getAttribute('data-to')) === '120' && /Reduce it to 120\.00/.test(await textOf('change-request-reduce')))
   check('…the delete form is gone, and no delete is offered now', (await tid('change-request-delete-form').count()) === 0 && (await tid('change-request-delete-open').count()) === 0)
-  check('…said ONCE: the cell beneath does not repeat the sentence', (await tid('change-request-remove').count()) === 0)
+  check('…said ONCE: the cell beneath keeps the act, not the sentence', (await tid('change-request-spent').count()) === 0 && (await page.locator('[data-region="entry-change-request"]').innerText()).split('cannot be deleted').length === 2)
   await crKeys('a DELETE_SPENT refusal')
   await shot('347-delete-spent')
-  holdSpent.release()
-  cr.holdHistory = null
-  await settle()
-  check('…and still so once History is re-read (it now says 120 too)', (await tid('change-request-reduce').count()) === 1 && (await tid('change-request-delete-open').count()) === 0)
   await tid('change-request-reduce').click()
-  check('🔑 Reduce opens the change form at 120, the floor 120.00', (await tid('change-request-amount').inputValue()) === '120' && /Lowest allowed: 120\.00\b/.test(await textOf('change-request-floor')), `${await tid('change-request-amount').inputValue()} · ${await textOf('change-request-floor')}`)
+  check('🔑 Reduce opens the change form at the answer\'s 120, the floor 120.00', (await tid('change-request-amount').inputValue()) === '120' && /Lowest allowed: 120\.00\b/.test(await textOf('change-request-floor')), `${await tid('change-request-amount').inputValue()} · ${await textOf('change-request-floor')}`)
   check('…carrying the refused delete\'s Reason, to edit', (await tid('change-request-reason').inputValue()) === 'posted twice')
   cr.raise = () => ({ ...FX.raisedAnswer, changeRequestId: 'R-RED-143', amount: 500, remainingAmount: 380, spentAmount: 120 })
-  const holdRed143 = deferred()
-  cr.holdHistory = holdRed143
   await tid('change-request-submit').click()
   await appears('[data-testid="change-request-card"][data-request="R-RED-143"]')
   const sentSpent = cr.raiseCalls.at(-1) ?? {}
   check('…and posts newAmount 120', sentSpent.requestKind === 'CHANGE' && sentSpent.newAmount === 120 && sentSpent.newDescription === null, JSON.stringify(sentSpent))
-  holdRed143.release()
+  holdSpent.release()
   cr.holdHistory = null
   await settle()
+
+  // The till spent more again before History was re-read: the server's newer figure wins.
+  resetCr({
+    raise: () => {
+      cr.histories[FX.e143] = { ...structuredClone(FX.spent143), remainingAmount: 350, spentAmount: 150 }
+      return FX.deleteSpent143
+    },
+  })
+  await delete143(null)
+  await page.waitForFunction(() => document.querySelector('[data-testid="change-request-reduce"]')?.getAttribute('data-to') === '150', null, { timeout: 8000 }).catch(() => {})
+  check('🔑 a re-read stating a higher spent figure moves the offer with it — "Reduce it to 150.00", never the stale 120', (await tid('change-request-reduce').count()) === 1 && /Reduce it to 150\.00/.test(await textOf('change-request-reduce')) && (await noticeOf()).code === 'DELETE_SPENT', await textOf('change-request-reduce'))
+
+  // Spent the whole of it: no reduce (it would change nothing), and the sentence once.
+  resetCr({
+    raise: () => {
+      cr.histories[FX.e143] = { ...structuredClone(FX.spent143), remainingAmount: 0, spentAmount: 500 }
+      return { ...FX.deleteSpent143, remainingAmount: 0, spentAmount: 500 }
+    },
+  })
+  await delete143(null)
+  await settle()
+  n = await noticeOf()
+  check('a wholly spent DELETE_SPENT: said once, by its code, and nothing to reduce to', n.code === 'DELETE_SPENT' && n.step === 'none' && (await tid('change-request-reduce').count()) === 0 && (await tid('change-request-delete-open').count()) === 0 && (await page.locator('[data-region="entry-change-request"]').innerText()).split('cannot be deleted').length === 2, JSON.stringify(n))
 
   // ---- 27. an approved delete cancels the entry; 400s ----
   scenario = { access: SUPERVISOR }

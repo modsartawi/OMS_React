@@ -6,9 +6,9 @@
 **Revisit if:** 348 lands late and the interim "Delete now" without the warning sentence is judged unsafe.
 
 ## Q: A `DELETE_SPENT` answer redraws the cell as "reduce" (W8) AND 344's step says "reduce to X". Where is it said?
-**Decision taken:** Once, in the notice: 344's sentence ("The branch has spent X from entry N, so it cannot be deleted.") with a **Reduce it to X** button whose X is the step's — the ANSWER's `spentAmount`. While that notice stands, the cell's own spent line is not drawn beneath it. Pressing Reduce (or Back) clears the notice as any other form-open does, and the cell's line returns from the History read.
-**Why:** Drawing both put the same sentence and two identical buttons one above the other. The ticket says the refusal offers reduce "using that answer's spentAmount (344's next step)", so the step is the one drawn.
-**Revisit if:** The owner prefers the notice to say only the refusal and the cell to keep the button.
+**Decision taken:** The sentence once, in the notice (344's "The branch has spent X from entry N, so it cannot be deleted."). The **Reduce it to X** button is the cell's, never the notice's: 344's `reduce` step closes the delete form, and the cell (W8: redrawn from the answer, so X is the ANSWER's `spentAmount`, then from the History re-read) offers it. While any refusal notice stands, the cell draws only its act, not its sentence; a `spent-whole` cell under a notice draws nothing.
+**Why:** Revised after `/code-review`. The first draft put the button in the notice with the step's X, which (a) kept a stale X after a re-read stated a higher spent figure, opening the form below its floor, and (b) still said the sentence twice for a wholly spent entry (step `none`). One button, fed by `offerFor`, always carries the freshest server figure.
+**Revisit if:** The owner wants the button to stay pinned to the refusal's figure even after History says otherwise.
 
 ## Q: When the server refuses a delete with `DELETE_SPENT`, does the Reason typed for the delete carry into the change form?
 **Decision taken:** Yes — `reduceToSpent(entry, reduce, reason)` pre-fills the change form's Reason with the refused delete's, editable there. From the offer cell (no delete was typed) the Reason starts empty.

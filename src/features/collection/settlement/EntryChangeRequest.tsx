@@ -67,8 +67,10 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  * now*) and a Reason-only form whose body names no figure (`deleteRequestBody`); `reduce`
  * draws *"The branch has spent X…, so it cannot be deleted"* and *Reduce it to X*, which
  * opens the change form with X filled in (`reduceToSpent`); `spent-whole` draws the
- * sentence alone. A `DELETE_SPENT` answer offers the same reduce from 344's step, X the
- * ANSWER's `spentAmount` — said once, in the notice, not again beneath it.
+ * sentence alone. A `DELETE_SPENT` answer (344's `reduce` step) closes the delete form,
+ * and the cell — redrawn from the ANSWER, then from the re-read — offers the same reduce,
+ * X the freshest spent figure a server stated. The refusal's sentence is said once, in
+ * the notice; the cell beneath keeps only the act.
  *
  * 🔑 **Redraw from the answer, then re-read (W8).** An accepted raise draws the waiting
  * card and the entry's figures from the act answer AT ONCE, then re-reads History (one
@@ -206,8 +208,8 @@ export default function EntryChangeRequest({
             setForm(null)
             return
           case 'reduce':
-            // 347 (DELETE_SPENT): no delete — the notice offers "Reduce it to X", X the
-            // answer's spentAmount. The delete form closes; its Reason is kept to carry over.
+            // 347 (DELETE_SPENT): no delete. The delete form closes, its Reason kept to carry
+            // over; the cell, redrawn from the answer's spentAmount, offers "Reduce it to X".
             setForm(null)
             return
           case 'refill-floor':
@@ -440,8 +442,9 @@ export default function EntryChangeRequest({
     setForm('change')
   }
   /**
-   * 347: "Reduce it to X" — the change form with X filled in. X is `offerFor`'s cell (the
-   * History read) or 344's step (a `DELETE_SPENT` answer); a refused delete's Reason comes along.
+   * 347: "Reduce it to X" — the change form with X filled in. X is `offerFor`'s cell: a
+   * `DELETE_SPENT` answer's spentAmount until History is re-read, then History's. A refused
+   * delete's Reason comes along.
    */
   const startReduce = (reduce: Extract<RemoveOffer, { kind: 'reduce' }>) => {
     setDraft(reduceToSpent(now, reduce, deleteReason))
@@ -462,8 +465,6 @@ export default function EntryChangeRequest({
     setDeleteReason(next)
     setFieldError(null)
   }
-  /** A `DELETE_SPENT` refusal's reduce step — said in the notice, so the cell does not say it twice. */
-  const refusedToReduce = notice?.kind === 'refused' && notice.refusal.step.kind === 'reduce' ? notice.refusal.step : null
 
   const noticeLine = notice && (
     <p
@@ -492,21 +493,6 @@ export default function EntryChangeRequest({
         {notice.kind === 'refused' && notice.refusal.step.kind === 'reject' && (
           <span className="mt-1 block" data-testid="change-request-notice-step">
             {t('changeRequest.step.reject')}
-          </span>
-        )}
-        {/* 347: DELETE_SPENT's way on — reduce to the ANSWER's spent figure (344's step).
-            Only where the change form can open: the ask cell. */}
-        {refusedToReduce && offer.kind === 'ask' && (
-          <span className="mt-2 block">
-            <Button
-              variant="secondary"
-              onClick={() => startReduce(refusedToReduce)}
-              data-testid="change-request-reduce"
-              data-to={refusedToReduce.to}
-            >
-              <ArrowDownToLine className="h-3.5 w-3.5" aria-hidden />
-              {t('changeRequest.remove.reduce', { to: money(refusedToReduce.to) })}
-            </Button>
           </span>
         )}
       </span>
@@ -673,9 +659,14 @@ export default function EntryChangeRequest({
                 )}
               </div>
               {/* 347: no delete on a spent entry — said, and the one correction offered.
-                  A DELETE_SPENT notice above already says it with the answer's figure. */}
-              {offer.remove.kind !== 'delete' && !refusedToReduce && (
-                <RemoveLine remove={offer.remove} money={money} onReduce={startReduce} />
+                  A refusal standing above (DELETE_SPENT) has said why: only the act is kept. */}
+              {offer.remove.kind !== 'delete' && (
+                <RemoveLine
+                  remove={offer.remove}
+                  said={notice?.kind === 'refused'}
+                  money={money}
+                  onReduce={startReduce}
+                />
               )}
             </>
           )}
@@ -822,20 +813,26 @@ function ChangeForm({
  */
 function RemoveLine({
   remove,
+  said,
   money,
   onReduce,
 }: {
   remove: Exclude<RemoveOffer, { kind: 'delete' }>
+  /** A refusal above already says why (a `DELETE_SPENT` answer) — the sentence is not repeated. */
+  said: boolean
   money: (v: number | null | undefined) => string
   onReduce: (reduce: Extract<RemoveOffer, { kind: 'reduce' }>) => void
 }) {
   const { t } = useTranslation('settlement')
   const spent = remove.kind === 'reduce' ? remove.to : remove.spent
+  if (said && remove.kind === 'spent-whole') return null
   return (
     <div className="flex flex-col items-start gap-2" data-testid="change-request-remove" data-remove={remove.kind}>
-      <p className="text-sm text-muted-foreground" data-testid="change-request-spent">
-        {t('changeRequest.remove.spent', { spent: money(spent) })}
-      </p>
+      {!said && (
+        <p className="text-sm text-muted-foreground" data-testid="change-request-spent">
+          {t('changeRequest.remove.spent', { spent: money(spent) })}
+        </p>
+      )}
       {remove.kind === 'reduce' && (
         <Button
           variant="secondary"

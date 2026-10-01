@@ -433,6 +433,47 @@ export function raisedRequest(
   }
 }
 
+/**
+ * **What the pane redraws from after a raise (W1 / W8, ticket 348)** — `afterRaise`'s
+ * outcome, and the act answer the pane draws until History is re-read.
+ *
+ * - **`applied`** — the corrected entry (a delete: `entryStatus: "CANCELLED"`) and NO
+ *   card: the answer says nothing waits.
+ * - **`waiting`** — the card, drawn from the answer (`raisedRequest`), as for anyone.
+ * - **`refused`** — the entry's figures only; a refusal says nothing about what waits,
+ *   so History's word on the request stands (`request` absent, `ActAnswer`'s rule).
+ *
+ * 🔑 **The supervision flag is in `session` and is NOT read.** A supervisor's own raise
+ * applies at once on the server (2194), and the web learns it from `requestStatus:
+ * "APPLIED"` alone: a supervisor's raise that comes back `"OPEN"` draws the card, and an
+ * `"APPLIED"` answer is drawn as applied whoever pressed. The session is taken whole only
+ * because it names the requester (`userId`, `displayName`) for the card.
+ */
+export type RaiseDraw =
+  | { kind: 'applied'; answered: ActAnswer }
+  | { kind: 'waiting'; answered: ActAnswer }
+  | { kind: 'refused'; code: string; answered: ActAnswer }
+
+export function raiseOutcome(
+  entry: Parameters<typeof raisedRequest>[0],
+  body: SettlementChangeRequestRaiseBody,
+  answer: SettlementChangeRequestActResult,
+  session: ChangeRequestSession & { displayName: string | null },
+): RaiseDraw {
+  const outcome = afterRaise(answer)
+  switch (outcome.kind) {
+    case 'refused':
+      return { ...outcome, answered: { result: answer } }
+    case 'applied':
+      return { kind: 'applied', answered: { result: answer, request: null } }
+    case 'waiting': {
+      const staffId = session.userId ?? ''
+      const requester = { staffId, name: session.displayName || staffId }
+      return { kind: 'waiting', answered: { result: answer, request: raisedRequest(entry, body, answer, requester) } }
+    }
+  }
+}
+
 /* ── after a withdraw (W6, ticket 345) ───────────────────────────────────────── */
 
 /**

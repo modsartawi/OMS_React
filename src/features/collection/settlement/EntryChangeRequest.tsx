@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ArrowDownToLine, Check, FilePenLine, Hourglass, Trash2, TriangleAlert, Undo2, X } from 'lucide-react'
+import { ArrowDownToLine, Check, FilePenLine, Hourglass, Trash2, TriangleAlert, Undo2, X, Zap } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
@@ -20,7 +20,6 @@ import type { AccountEntryRow } from './account-projection'
 import { changeRequestHistoryKey, settlementApi } from './api'
 import {
   afterDecide,
-  afterRaise,
   afterWithdraw,
   cardFor,
   changeRequestBody,
@@ -28,7 +27,7 @@ import {
   deleteRequestBody,
   offerFor,
   paneRead,
-  raisedRequest,
+  raiseOutcome,
   reduceToSpent,
   rejectBody,
   removeSaidBy,
@@ -49,8 +48,8 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  * Description, and the pane shows the request waiting (spec 342 W2–W8, ticket 343).
  *
  * 🔑 **It never tests a status, a figure or a grant itself.** `offerFor` decides the
- * whole of W3's table and this component draws the cell it is handed — later tickets
- * draw the cells it does not yet (Approve / Reject 346, delete and reduce 347, the
+ * whole of W3's table and this component draws the cell it is handed — including the
+ * cells later tickets added (Approve / Reject 346, delete and reduce 347, the
  * *applies immediately* sentence 348).
  *
  * 🔑 **Withdraw (345) is the cell's `withdraw`**, drawn for the requester only. One press
@@ -73,6 +72,14 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  * and the cell — redrawn from the ANSWER, then from the re-read — offers the same reduce,
  * X the freshest spent figure a server stated. The refusal's sentence is said once, in
  * the notice; the cell beneath keeps only the act.
+ *
+ * 🔑 **A supervisor's own act (348) is the cell's `now` mode.** *Change now* / *Delete now*
+ * open the same forms, which say *"applies immediately — no approval step"* before the
+ * press; the Reason is still required. Whether it DID apply is `raiseOutcome`'s reading
+ * of the answer (`requestStatus: "APPLIED"` → the corrected or cancelled entry, no card;
+ * `"OPEN"` → the card, as for anyone), never the flag. Blocked by an accountant's request
+ * (`CHANGE_ALREADY_OPEN`), the re-read draws that card with Approve / Reject, and the
+ * notice says to decide it first.
  *
  * 🔑 **Redraw from the answer, then re-read (W8).** An accepted raise draws the waiting
  * card and the entry's figures from the act answer AT ONCE, then re-reads History (one
@@ -188,8 +195,14 @@ export default function EntryChangeRequest({
       // entry was finished meanwhile, is answered by the re-read turning this pane into
       // the card or the finished sentence.
       const reread = invalidateSettlement(queryClient, v.entry.storeId)
-      const drawUntilReread = (mine: ActAnswer) => drawUntil(reread, mine)
-      const outcome = afterRaise(result)
+      // 🔑 W1 (348): applied or waiting is the ANSWER's `requestStatus`, never the probe's
+      // flag — a supervisor's raise that comes back OPEN draws the card as for anyone.
+      const outcome = raiseOutcome(v.entry, v.body, result, {
+        canOpenSettlement: canOpen,
+        canSuperviseSettlement: canSupervise,
+        userId,
+        displayName,
+      })
       if (outcome.kind === 'refused') {
         if (!stillOn(v.entry)) return
         const refusal = changeRefusal('raise', result)
@@ -197,7 +210,7 @@ export default function EntryChangeRequest({
         setFieldError(null)
         // 🔑 W8 holds for a refusal too: its figures are the entry NOW — a BELOW_SPENT
         // answer's spentAmount is the floor the form redraws with, before History lands.
-        drawUntilReread({ result })
+        drawUntil(reread, outcome.answered)
         switch (refusal.step.kind) {
           case 'close':
             setGone(true)
@@ -206,7 +219,9 @@ export default function EntryChangeRequest({
           case 'redraw':
           case 'open-request':
           case 'reread':
-            // The re-read (always, above) draws the finished sentence or the waiting card.
+            // The re-read (always, above) draws the finished sentence or the waiting card —
+            // for a supervisor's own raise blocked by an accountant's (348), that card
+            // carries Approve / Reject, which decide it first.
             setForm(null)
             return
           case 'reduce':
@@ -238,16 +253,9 @@ export default function EntryChangeRequest({
         ),
       )
       if (!stillOn(v.entry)) return
-      // 🔑 W8: drawn from the answer NOW — the figures, and the card for a request that waits.
-      const mine: ActAnswer = {
-        result,
-        request:
-          outcome.kind === 'waiting'
-            ? raisedRequest(v.entry, v.body, result, { staffId: userId ?? '', name: displayName ?? userId ?? '' })
-            : null,
-      }
-      // …then History and the account re-read replace it.
-      drawUntilReread(mine)
+      // 🔑 W8: drawn from the answer NOW — the corrected (or cancelled) entry with no card
+      // when applied, the card when it waits — then History and the account replace it.
+      drawUntil(reread, outcome.answered)
       setForm(null)
       setDraft(EMPTY_DRAFT)
       setDeleteReason('')
@@ -497,6 +505,16 @@ export default function EntryChangeRequest({
             {t('changeRequest.step.reject')}
           </span>
         )}
+        {/* 348 (story 22): a supervisor's own raise blocked by a request already waiting —
+            once the re-read draws that card with Approve / Reject (`decide`), it is decided first. */}
+        {notice.kind === 'refused' &&
+          notice.refusal.step.kind === 'open-request' &&
+          offer.kind === 'waiting' &&
+          offer.decide && (
+            <span className="mt-1 block" data-testid="change-request-notice-step">
+              {t('changeRequest.step.decideFirst', { number: row.entryNumber })}
+            </span>
+          )}
       </span>
     </p>
   )
@@ -769,7 +787,7 @@ function ChangeForm({
         value={draft.reason}
         onValue={(reason) => onDraft({ ...draft, reason })}
         label={t('changeRequest.form.reason.label')}
-        hint={t('changeRequest.form.reason.hint', { max: REASON_MAX })}
+        hint={t(mode === 'now' ? 'changeRequest.form.reason.hintNow' : 'changeRequest.form.reason.hint', { max: REASON_MAX })}
         required
         error={served('reason')}
         testId="change-request-reason"
@@ -793,6 +811,8 @@ function ChangeForm({
         </p>
       )}
 
+      {mode === 'now' && <AppliesNow sentence={t('changeRequest.form.appliesNow', { number: entry.entryNumber })} />}
+
       <div className="flex flex-wrap gap-2">
         <Button
           variant="primary"
@@ -809,6 +829,23 @@ function ChangeForm({
         </Button>
       </div>
     </div>
+  )
+}
+
+/**
+ * **"Applies immediately — no approval step" (W4 / D8, ticket 348)** — said in a
+ * supervisor's form, beside the press, before it. Drawn for the offer cell's `now` mode;
+ * whether the act DID apply at once is read afterwards from the answer's `requestStatus`.
+ */
+function AppliesNow({ sentence }: { sentence: string }) {
+  return (
+    <p
+      className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/30 p-2.5 text-sm font-medium"
+      data-testid="change-request-applies-now"
+    >
+      <Zap className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <span>{sentence}</span>
+    </p>
   )
 }
 
@@ -895,7 +932,7 @@ function DeleteForm({
         value={reason}
         onValue={onReason}
         label={t('changeRequest.form.reason.label')}
-        hint={t('changeRequest.deleteForm.reasonHint', { max: REASON_MAX })}
+        hint={t(mode === 'now' ? 'changeRequest.deleteForm.reasonHintNow' : 'changeRequest.deleteForm.reasonHint', { max: REASON_MAX })}
         required
         error={fieldError?.field === 'reason' ? served : null}
         testId="change-request-delete-reason"
@@ -910,6 +947,10 @@ function DeleteForm({
         >
           {served}
         </p>
+      )}
+
+      {mode === 'now' && (
+        <AppliesNow sentence={t('changeRequest.deleteForm.appliesNow', { number: entry.entryNumber })} />
       )}
 
       <div className="flex flex-wrap gap-2">

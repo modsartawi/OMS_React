@@ -23,6 +23,7 @@ import {
   offerFor,
   paneRead,
   raisedRequest,
+  raiseOutcome,
   reduceToSpent,
   rejectBody,
   removeSaidBy,
@@ -382,6 +383,81 @@ describe('afterRaise — the outcome is read from the answer, never the probe (W
   })
   it('no answer → refused with no code', () => {
     expect(afterRaise(null)).toEqual({ kind: 'refused', code: '' })
+  })
+})
+
+describe('raiseOutcome — a raise\'s redraw is read from the ANSWER, whatever the supervision flag (W1/W8, ticket 348)', () => {
+  const row = entryOf('0142', 143)
+  const history = historyOf(row, { spentAmount: 0 })
+  const now = entryNow(row, history, null)
+  const change = { settlementEntryId: row.settlementEntryId, requestKind: 'CHANGE' as const, newAmount: 300, newDescription: null, reason: 'typed 500 instead of 300' }
+  const remove = { settlementEntryId: row.settlementEntryId, requestKind: 'DELETE' as const, reason: 'posted twice' }
+  /** 2194: a supervisor's own change, applied in the same act — 2191's sample, about 143. */
+  const applied = { ...APPLIED_SAMPLE, settlementEntryId: row.settlementEntryId }
+  /** …and a supervisor's own delete: `entryStatus: "CANCELLED"`, its figures unchanged. */
+  const appliedDelete = { ...raisedAnswerFor(row, { changeRequestId: 'R-DEL-NOW' }, 0), requestStatus: 'APPLIED' as const, entryStatus: 'CANCELLED' as const }
+  const raised = raisedAnswerFor(row, { changeRequestId: 'R-NEW' }, 0)
+  const asSession = (s: ChangeRequestSession) => ({ ...s, displayName: 'Huda' })
+  const label = (s: ChangeRequestSession) => (s.canSuperviseSettlement ? 'supervision flag on' : 'supervision flag off')
+
+  for (const session of [ACCOUNTANT, SUPERVISOR]) {
+    it(`🔑 APPLIED → redraw the corrected entry with NO card (${label(session)})`, () => {
+      const out = raiseOutcome(now, change, applied, asSession(session))
+      expect(out.kind).toBe('applied')
+      expect(out.answered).toEqual({ result: applied, request: null })
+      const read = paneRead(row, history, out.answered)
+      expect(read.openRequest).toBeNull()
+      expect(read.now).toMatchObject({ amount: 300, remainingAmount: 300, description: applied.description, status: 'OPEN' })
+      // The redraw offers the next act on the corrected entry — never a card.
+      expect(offerFor(read.now, read, session).kind).toBe('ask')
+    })
+
+    it(`🔑 an APPLIED delete → the entry is drawn CANCELLED, finished, no card (${label(session)})`, () => {
+      const out = raiseOutcome(now, remove, appliedDelete, asSession(session))
+      expect(out.kind).toBe('applied')
+      const read = paneRead(row, history, out.answered)
+      expect(read.openRequest).toBeNull()
+      expect(offerFor(read.now, read, session)).toEqual({ kind: 'finished', because: 'cancelled' })
+    })
+
+    it(`🔑 OPEN → the card, as for anyone — even for a supervisor's own raise (${label(session)})`, () => {
+      const out = raiseOutcome(now, change, raised, asSession(session))
+      expect(out.kind).toBe('waiting')
+      expect(out.answered.request).toMatchObject({ changeRequestId: 'R-NEW', status: 'OPEN', oldAmount: 500, newAmount: 300, requestedByStaffId: session.userId, requestedByName: 'Huda' })
+      const read = paneRead(row, history, out.answered)
+      const offer = offerFor(read.now, read, session)
+      expect(offer).toMatchObject({ kind: 'waiting', withdraw: true, decide: session.canSuperviseSettlement })
+    })
+
+    it(`a refusal stores nothing and says nothing about what waits — History's word stands (${label(session)})`, () => {
+      // 2194: a supervisor's own refusals store nothing — `changeRequestId: ''`.
+      const refused = { ...BELOW_SPENT_SAMPLE, changeRequestId: '', requestStatus: '' as const, settlementEntryId: row.settlementEntryId, entryNumber: 143 }
+      const out = raiseOutcome(now, change, refused, asSession(session))
+      expect(out).toEqual({ kind: 'refused', code: 'BELOW_SPENT', answered: { result: refused } })
+      expect('request' in out.answered).toBe(false)
+    })
+  }
+
+  it('the outcome is the same whichever flag is passed — the answer alone decides it', () => {
+    for (const answer of [applied, appliedDelete, raised])
+      expect(raiseOutcome(now, change, answer, asSession(SUPERVISOR)).kind).toBe(
+        raiseOutcome(now, change, answer, asSession(ACCOUNTANT)).kind,
+      )
+  })
+
+  it('🔑 a supervisor\'s raise refused CHANGE_ALREADY_OPEN: the re-read\'s accountant request is drawn, with Approve / Reject', () => {
+    const theirs = waitingRequestOn(row, { changeRequestId: 'R-THEIRS', newAmount: 450 })
+    const refused = { ...APPLIED_SAMPLE, accepted: false, refusalReason: 'CHANGE_ALREADY_OPEN', changeRequestId: 'R-THEIRS', requestStatus: 'OPEN' as const, settlementEntryId: row.settlementEntryId, amount: 500, remainingAmount: 500 }
+    const out = raiseOutcome(now, change, refused, asSession(SUPERVISOR))
+    expect(out.kind).toBe('refused')
+    const reread = historyOf(row, { spentAmount: 0, openRequest: theirs })
+    const read = paneRead(row, reread, out.answered)
+    expect(offerFor(read.now, read, SUPERVISOR)).toMatchObject({ kind: 'waiting', request: { changeRequestId: 'R-THEIRS' }, withdraw: false, decide: true })
+  })
+
+  it('no display name: the requester is named by the user id', () => {
+    const out = raiseOutcome(now, change, raised, { ...ACCOUNTANT, displayName: null })
+    expect(out.answered.request).toMatchObject({ requestedByStaffId: 'u-accountant', requestedByName: 'u-accountant' })
   })
 })
 

@@ -76,6 +76,16 @@
 //  27. an approved delete redraws the entry as cancelled from the answer, before the re-read;
 //      a 400 on a delete lands on its Reason box or the form's foot; no request is "cancelled".
 //
+// Ticket 348 — a supervisor's own change or delete applies at once (W1/W4, 2194):
+//  28. a supervisor reads "Change now" / "Delete now", and both forms say "Applies
+//      immediately — no approval step" before the press, the Reason still required; an
+//      accountant's forms never say it;
+//  29. an APPLIED answer redraws the corrected (or cancelled) entry with NO card while the
+//      History re-read is held; a supervisor's raise answered OPEN draws the card as for
+//      anyone; a refusal (CHANGE_STALE, changeRequestId '') stores nothing and draws no card;
+//  30. a supervisor's raise refused CHANGE_ALREADY_OPEN opens the accountant's card with
+//      Approve / Reject and says to decide it first; approving it offers "Change now" again.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
 import { createRequire } from 'node:module'
@@ -1419,6 +1429,195 @@ async function run() {
   await appears('[data-testid="change-request-delete-reason-error"]')
   check('…and a Reason 400 lands on the delete form\'s Reason box', /A Reason is required/.test(await textOf('change-request-delete-reason-error')))
   await crKeys('ticket 347')
+
+  // ======== Ticket 348 — a supervisor's own change or delete applies at once ========
+  Object.assign(
+    FX,
+    await page.evaluate(async ([e143]) => {
+      const acc = await import('/src/features/collection/settlement/settlement-fixture.ts')
+      const crf = await import('/src/features/collection/settlement/change-request-fixture.ts')
+      const row143 = acc.SETTLEMENT_ACCOUNTS['0142'].entries.find((e) => e.settlementEntryId === e143)
+      const corrected143 = { ...row143, amount: 300, remainingAmount: 300 }
+      // The supervisor's own change, as History records it after 2194: requester and decider both theirs.
+      const mineApplied = { ...crf.waitingRequestOn(row143, { changeRequestId: 'R-NOW', newAmount: 300, requestedByStaffId: 'msartawi', requestedByName: 'msartawi' }), status: 'APPLIED' }
+      const supOpen = crf.waitingRequestOn(row143, { changeRequestId: 'R-SUP-OPEN', newAmount: 300, requestedByStaffId: 'msartawi', requestedByName: 'msartawi' })
+      // An accountant's request already waiting on 143 (the fixture's requester, 30117).
+      const theirs = crf.waitingRequestOn(row143, { changeRequestId: 'R-ACC', newAmount: 450, requestReason: 'typed 500 instead of 450' })
+      /** A refused raise about 143 — 2194: a supervisor's own refusals store nothing. */
+      const refusedAbout = (refusalReason, changeRequestId, requestStatus) => ({
+        ...crf.APPLIED_SAMPLE,
+        accepted: false,
+        refusalReason,
+        changeRequestId,
+        requestStatus,
+        settlementEntryId: e143,
+        entryNumber: 143,
+        amount: 500,
+        remainingAmount: 500,
+        spentAmount: 0,
+        description: row143.reason,
+        entryStatus: 'OPEN',
+      })
+      return {
+        // 2194: a supervisor's own raise answers APPLIED with the corrected figures.
+        applied143: crf.approvedAnswerFor(row143, { changeRequestId: 'R-NOW' }, 0, { amount: 300, remainingAmount: 300 }),
+        afterApplied143: crf.historyOf(corrected143, { spentAmount: 0, requests: [mineApplied] }),
+        supOpen143: crf.raisedAnswerFor(row143, supOpen, 0),
+        withSupOpen143: crf.historyOf(row143, { spentAmount: 0, openRequest: supOpen }),
+        withTheirs143: crf.historyOf(row143, { spentAmount: 0, openRequest: theirs }),
+        alreadyOpen143: refusedAbout('CHANGE_ALREADY_OPEN', 'R-ACC', 'OPEN'),
+        stale143: refusedAbout('CHANGE_STALE', '', ''),
+        approvedTheirs143: crf.approvedAnswerFor(row143, theirs, 0, { amount: 450, remainingAmount: 450 }),
+        afterTheirs143: crf.historyOf({ ...row143, amount: 450, remainingAmount: 450 }, { spentAmount: 0, requests: [{ ...theirs, status: 'APPLIED' }] }),
+      }
+    }, [FX.e143]),
+  )
+  /** Open 143's change form, type an amount and a Reason, and press Change with the History re-read held. */
+  const change143 = async (amount, hold) => {
+    await go(`${ROUTE}?store=0142&entry=143`)
+    await appears('[data-testid="change-request-open"]')
+    await tid('change-request-open').click()
+    await tid('change-request-amount').fill(amount)
+    await tid('change-request-reason').fill('typed 500 instead of 300')
+    cr.holdHistory = hold
+    await tid('change-request-submit').click()
+  }
+  const formGone = () =>
+    page.waitForFunction(() => !document.querySelector('[data-testid="change-request-form"]'), null, { timeout: 8000 }).catch(() => {})
+
+  // ---- 28. the supervisor's words: Change now / Delete now, and "applies immediately" first ----
+  scenario = { access: SUPERVISOR }
+  resetCr()
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-open"]')
+  check('🔑 a supervisor with nothing waiting reads "Change now" and "Delete now"', (await textOf('change-request-open')).trim() === 'Change now' && (await textOf('change-request-delete-open')).trim() === 'Delete now')
+  await tid('change-request-open').click()
+  check('🔑 the change form says "Applies immediately — no approval step" before the press', (await textOf('change-request-applies-now')).trim() === 'Applies immediately — no approval step. Entry 143 is changed as soon as you press Change.', await textOf('change-request-applies-now'))
+  check('…said above the button that applies it', await before('[data-testid="change-request-applies-now"]', '[data-testid="change-request-submit"]'))
+  check('…and the Reason is never said to wait for a supervisor\'s reading', !/the supervisor reads it before deciding/.test(await pane().innerText()) && /kept in the entry's history/.test(await pane().innerText()))
+  await tid('change-request-amount').fill('300')
+  check('…the Reason is still required: Change is held without one', (await held()) && (await textOf('change-request-submit')).trim() === 'Change entry 143 now')
+  await tid('change-request-submit').click({ force: true })
+  check('…and pressing it anyway sends nothing', cr.raiseCalls.length === 0)
+  await tid('change-request-reason').fill('typed 500 instead of 300')
+  check('…a Reason releases it', !(await held()))
+  await crKeys('the supervisor\'s change form')
+  await shot('348-change-now')
+  await tid('change-request-back').click()
+  await tid('change-request-delete-open').click()
+  check('🔑 the delete form says it too', (await textOf('change-request-applies-now')).trim() === 'Applies immediately — no approval step. Entry 143 is cancelled as soon as you press Delete.', await textOf('change-request-applies-now'))
+  check('…and its Reason is required', await delHeld() && !/the supervisor reads it before deciding/.test(await pane().innerText()))
+  await crKeys('the supervisor\'s delete form')
+  await shot('348-delete-now')
+
+  scenario = {}
+  resetCr()
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-open"]')
+  await tid('change-request-open').click()
+  check('🚩 an accountant\'s change form never says it applies immediately', (await tid('change-request-form').count()) === 1 && (await tid('change-request-applies-now').count()) === 0)
+  await tid('change-request-back').click()
+  await tid('change-request-delete-open').click()
+  check('…nor their delete form', (await tid('change-request-delete-form').count()) === 1 && (await tid('change-request-applies-now').count()) === 0)
+
+  // ---- 29. APPLIED redraws with no card; OPEN draws the card; a refusal stores nothing ----
+  scenario = { access: SUPERVISOR }
+  resetCr({
+    raise: () => {
+      cr.histories[FX.e143] = structuredClone(FX.afterApplied143)
+      return FX.applied143
+    },
+  })
+  const holdApplied = deferred()
+  const accountBeforeApplied = cr.accountCalls
+  await change143('300', holdApplied)
+  await formGone()
+  const sentNow = cr.raiseCalls.at(-1) ?? {}
+  check('the supervisor\'s change posts the same body an accountant\'s does — no flag on the wire', JSON.stringify(sentNow) === JSON.stringify({ settlementEntryId: FX.e143, requestKind: 'CHANGE', newAmount: 300, newDescription: null, reason: 'typed 500 instead of 300' }), JSON.stringify(sentNow))
+  check('🔑 APPLIED: no waiting card, while the History re-read is still held', (await tid('change-request-card').count()) === 0 && (await offerOf()) === 'ask')
+  check('…the toast says the entry is changed', /Entry 143 is changed\./.test(await toastText()))
+  await tid('change-request-open').click()
+  check('🔑 …and the entry is redrawn from the ANSWER: the form opens at 300, not the row\'s 500', (await tid('change-request-amount').inputValue()) === '300', await tid('change-request-amount').inputValue())
+  await tid('change-request-back').click()
+  holdApplied.release()
+  cr.holdHistory = null
+  await settle()
+  check('…then the re-read lands, still with no card', (await tid('change-request-card').count()) === 0 && (await offerOf()) === 'ask')
+  check('…and the account was re-read too', cr.accountCalls > accountBeforeApplied)
+  await crKeys('an applied change')
+  await shot('348-applied')
+
+  resetCr({ raise: () => FX.appliedDelete143 })
+  const holdAppliedDel = deferred()
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-delete-open"]')
+  await tid('change-request-delete-open').click()
+  await tid('change-request-delete-reason').fill('posted twice')
+  cr.holdHistory = holdAppliedDel
+  await tid('change-request-delete-submit').click()
+  await appears('[data-testid="change-request-finished"]')
+  check('🔑 an APPLIED delete: the entry is drawn cancelled, with no card, before the re-read', (await offerOf()) === 'finished' && (await tid('change-request-card').count()) === 0 && (await tid('change-request-delete-form').count()) === 0)
+  holdAppliedDel.release()
+  cr.holdHistory = null
+  await settle()
+
+  resetCr({ raise: () => FX.supOpen143 })
+  const holdSupOpen = deferred()
+  await change143('300', holdSupOpen)
+  await appears('[data-testid="change-request-card"][data-request="R-SUP-OPEN"]')
+  check('🔑 a supervisor\'s raise answered OPEN draws the card as for anyone — the answer, not the flag', (await offerOf()) === 'waiting' && (await tid('change-request-card').getAttribute('data-request')) === 'R-SUP-OPEN')
+  check('…their own: Withdraw, beside Approve / Reject', (await tid('change-request-withdraw').count()) === 1 && (await tid('change-request-approve').count()) === 1)
+  check('…and the toast says a request was raised, never that the entry changed', /Change request raised for entry 143\./.test(await toastText()))
+  cr.histories[FX.e143] = structuredClone(FX.withSupOpen143)
+  holdSupOpen.release()
+  cr.holdHistory = null
+  await settle()
+
+  resetCr({ raise: () => FX.stale143 })
+  await change143('300', null)
+  await appears('[data-testid="change-request-notice"]')
+  await settle()
+  n = await noticeOf()
+  check('🔑 a supervisor\'s refusal stores nothing: CHANGE_STALE said by its code, the form closed, no card', n.code === 'CHANGE_STALE' && n.step === 'redraw' && /has moved on since this was asked/.test(n.text) && (await tid('change-request-form').count()) === 0 && (await tid('change-request-card').count()) === 0 && (await offerOf()) === 'ask', JSON.stringify(n))
+
+  // ---- 30. blocked by an accountant's request: open its card, decide it first ----
+  resetCr({
+    raise: () => {
+      cr.histories[FX.e143] = structuredClone(FX.withTheirs143)
+      return FX.alreadyOpen143
+    },
+    approve: () => {
+      cr.histories[FX.e143] = structuredClone(FX.afterTheirs143)
+      return FX.approvedTheirs143
+    },
+  })
+  await change143('300', null)
+  await appears('[data-testid="change-request-card"][data-request="R-ACC"]')
+  await settle()
+  n = await noticeOf()
+  check('🔑 CHANGE_ALREADY_OPEN on a supervisor\'s raise: said by its code, and the accountant\'s card opens in the same pane', n.code === 'CHANGE_ALREADY_OPEN' && n.step === 'open-request' && (await tid('change-request-form').count()) === 0 && (await offerOf()) === 'waiting', JSON.stringify(n))
+  check('🔑 …with Approve / Reject to decide it first, and no Withdraw — it is not theirs', (await tid('change-request-approve').count()) === 1 && (await tid('change-request-reject').count()) === 1 && (await tid('change-request-withdraw').count()) === 0)
+  check('…the notice says to decide it first', /Approve or reject it below first\. Your own change to entry 143 can be made once it is decided\./.test(await textOf('change-request-notice-step')), await textOf('change-request-notice-step'))
+  await crKeys('a supervisor blocked by a waiting request')
+  await shot('348-already-open')
+  await tid('change-request-approve').click()
+  await page.waitForFunction(() => !document.querySelector('[data-testid="change-request-card"]'), null, { timeout: 8000 }).catch(() => {})
+  await settle()
+  check('…Approve decides the accountant\'s request ({ changeRequestId: "R-ACC" })', JSON.stringify(cr.decideCalls.at(-1)?.body) === JSON.stringify({ changeRequestId: 'R-ACC' }))
+  check('…and "Change now" is offered again on the corrected entry', (await offerOf()) === 'ask' && (await textOf('change-request-open')).trim() === 'Change now')
+
+  scenario = {}
+  resetCr({
+    raise: () => {
+      cr.histories[FX.e143] = structuredClone(FX.withTheirs143)
+      return FX.alreadyOpen143
+    },
+  })
+  await change143('300', null)
+  await appears('[data-testid="change-request-card"][data-request="R-ACC"]')
+  await settle()
+  check('🚩 an accountant blocked the same way: the card, and no "decide it first" — they cannot', (await tid('change-request-approve').count()) === 0 && (await tid('change-request-notice-step').count()) === 0)
+  await crKeys('ticket 348')
 
   // ---- 6. ----
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' | '))

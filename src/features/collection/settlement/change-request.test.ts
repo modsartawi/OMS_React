@@ -16,6 +16,7 @@ import {
   afterRaise,
   afterWithdraw,
   asksBusinessDay,
+  bidiIsolate,
   cardFor,
   changeDraftFor,
   changeRequestBody,
@@ -944,5 +945,12 @@ describe('changeRequestBody — a theft\'s business day (W4, ticket 349; BackOff
     expect(changeRefusal('approve', THEFT_DAY_COLLECTED_SAMPLE)).toMatchObject({ step: { kind: 'reject' } })
     // The sample's own day, drawn as received.
     expect(entryNow({ ...row, settlementEntryId: THEFT_DAY_COLLECTED_SAMPLE.settlementEntryId }, null, THEFT_DAY_COLLECTED_SAMPLE).businessDay).toBe('2025-08-11T00:00:00')
+  })
+})
+
+describe('bidiIsolate (350)', () => {
+  it('wraps server text in FSI … PDI, so "old → new" keeps its order over two Arabic Descriptions', () => {
+    expect(bidiIsolate('مرتجع شبكة')).toBe('⁨مرتجع شبكة⁩')
+    expect(bidiIsolate('')).toBe('⁨⁩')
   })
 })

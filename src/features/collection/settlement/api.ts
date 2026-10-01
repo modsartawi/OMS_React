@@ -20,6 +20,8 @@
  * became their second consumer: a feature may not import another feature's api
  * (`.claude/rules/feature-structure.md`).
  */
+import { queryOptions } from '@tanstack/react-query'
+
 import { api } from '@/core/api'
 import { newRequestId } from '@/core/engine-session/request-id'
 import type { CollectionAccessResult } from '@/core/models/collection'
@@ -116,12 +118,13 @@ export const changeRequestHistoryKey = (settlementEntryId: string) =>
  *
  * ⚠️ A 404 (not shipped) or a 403 will not change on a retry — said at once.
  */
-export const changeRequestHistoryQuery = (settlementEntryId: string) => ({
-  queryKey: changeRequestHistoryKey(settlementEntryId),
-  queryFn: () => settlementApi.changeRequestHistory(settlementEntryId),
-  enabled: settlementEntryId !== '',
-  retry: (count: number, error: unknown) => changeRequestFailure(error) === 'other' && count < 1,
-})
+export const changeRequestHistoryQuery = (settlementEntryId: string) =>
+  queryOptions({
+    queryKey: changeRequestHistoryKey(settlementEntryId),
+    queryFn: () => settlementApi.changeRequestHistory(settlementEntryId),
+    enabled: settlementEntryId !== '',
+    retry: (count, error) => changeRequestFailure(error) === 'other' && count < 1,
+  })
 
 export const settlementApi = {
   /**

@@ -314,6 +314,60 @@ describe('🔑 change requests in the column (350)', () => {
     expect(auditColumn(row, [applied]).find((f) => f.kind === 'request-applied')?.request?.own).toBe(false)
   })
 
+  it('…but the same stamp by TWO people is a raise and an approval — "own" is both halves of 2194’s record', () => {
+    const quick = decidedRequest(ask('R-FAST', '2026-08-12T23:00:00'), {
+      status: 'APPLIED',
+      decidedAt: '2026-08-12T23:00:00',
+    })
+    expect(auditColumn(row, [quick]).filter((f) => f.request).map((f) => f.kind)).toEqual([
+      'request-applied',
+      'requested',
+    ])
+    expect(auditColumn(row, [quick]).find((f) => f.kind === 'requested')?.where).toEqual({
+      kind: 'person',
+      name: REQUESTER.name,
+    })
+  })
+
+  it('🔑 the POSTING states what it was posted at — the earliest applied change’s old figures, not today’s', () => {
+    // Posted at 350 with another Description; changed to 320 (today's), then reworded.
+    const first = {
+      ...decidedRequest(ask('R-1', '2026-08-11T10:00:00'), { status: 'APPLIED', decidedAt: '2026-08-11T12:00:00' }),
+      oldAmount: 350,
+      newAmount: 320,
+      oldDescription: 'as posted',
+      newDescription: 'as posted',
+    }
+    const second = {
+      ...decidedRequest(ask('R-2', '2026-08-13T10:00:00'), { status: 'APPLIED', decidedAt: '2026-08-13T11:00:00' }),
+      oldAmount: 320,
+      newAmount: 320,
+      oldDescription: 'as posted',
+      newDescription: row.reason,
+    }
+    const posted = auditColumn(row, [second, first]).find((f) => f.kind === 'posted')
+    expect(posted?.amount).toBe(350)
+    expect(posted?.note).toBe('as posted')
+  })
+
+  it('…while a request never applied leaves the posting at the entry’s own figures', () => {
+    const posted = auditColumn(row, [rejected, withdrawn, superseded, waiting]).find((f) => f.kind === 'posted')
+    expect(posted?.amount).toBe(row.amount)
+    expect(posted?.note).toBe(row.reason)
+  })
+
+  it('🚩 an approved DELETE reads BEFORE the cancel it caused, never as a second cancel', () => {
+    const cancelled = rowOf('0688', 147)
+    const del = decidedRequest(
+      waitingRequestOn(cancelled, { changeRequestId: 'R-DEL', requestKind: 'DELETE', requestedAt: '2026-08-09T10:00:00' }),
+      { status: 'APPLIED', decidedAt: cancelled.closedAt },
+    )
+    const column = auditColumn(cancelled, [del])
+    expect(column.slice(-2).map((f) => f.kind)).toEqual(['request-applied', 'cancelled'])
+    expect(column.filter((f) => f.kind === 'cancelled')).toHaveLength(1)
+    expect(column.find((f) => f.kind === 'request-applied')?.request).toMatchObject({ kind: 'DELETE', changes: [] })
+  })
+
   it('⚠️ an unstamped time gets no row rather than a row at the top of time', () => {
     const unstampedAsk = ask('R-X', UNSTAMPED)
     const undecided = { ...applied, changeRequestId: 'R-Y', decidedAt: UNSTAMPED }
@@ -356,6 +410,8 @@ describe('🔑 change requests in the column (350)', () => {
  */
 describe('🔑 changedTag (350)', () => {
   const row = rowOf('0142', 143)
+  const tagOf = (requests: SettlementChangeRequest[] | null | undefined) =>
+    changedTag(requests, row.settlementEntryId)
   const change = (
     id: string,
     oldAmount: number,
@@ -372,22 +428,22 @@ describe('🔑 changedTag (350)', () => {
   it('500 → 450 → 420 shows the earlier amount 450, at the second change’s date', () => {
     const first = change('R-1', 500, 450, '2026-09-01T10:00:00')
     const second = change('R-2', 450, 420, '2026-09-05T14:30:00')
-    expect(changedTag([second, first])).toEqual({ at: '2026-09-05T14:30:00', earlierAmount: 450 })
-    expect(changedTag([first, second])).toEqual({ at: '2026-09-05T14:30:00', earlierAmount: 450 })
+    expect(tagOf([second, first])).toEqual({ at: '2026-09-05T14:30:00', earlierAmount: 450 })
+    expect(tagOf([first, second])).toEqual({ at: '2026-09-05T14:30:00', earlierAmount: 450 })
   })
 
   it('🔑 an amount change then a description-only change keeps the amount’s earlier figure and the LATER date', () => {
     const amount = change('R-1', 350, 300, '2026-09-01T10:00:00')
     const words = change('R-2', 300, 300, '2026-09-03T09:00:00', { newDescription: 'نقص في تسليم — مصحح' })
-    expect(changedTag([words, amount])).toEqual({ at: '2026-09-03T09:00:00', earlierAmount: 350 })
+    expect(tagOf([words, amount])).toEqual({ at: '2026-09-03T09:00:00', earlierAmount: 350 })
   })
 
   it('no applied change ⇒ no tag — waiting, rejected, withdrawn and superseded tag nothing', () => {
-    expect(changedTag([])).toBeNull()
-    expect(changedTag(null)).toBeNull()
-    expect(changedTag(undefined)).toBeNull()
+    expect(tagOf([])).toBeNull()
+    expect(tagOf(null)).toBeNull()
+    expect(tagOf(undefined)).toBeNull()
     expect(
-      changedTag([
+      tagOf([
         waitingRequestOn(row, { newAmount: 450 }),
         { ...change('R-2', 500, 450, '2026-09-01T10:00:00'), status: 'REJECTED' },
         { ...change('R-3', 500, 450, '2026-09-02T10:00:00'), status: 'WITHDRAWN' },
@@ -397,33 +453,38 @@ describe('🔑 changedTag (350)', () => {
   })
 
   it('🚩 an applied DELETE is not a "Changed" tag — the entry is cancelled', () => {
-    expect(changedTag([change('R-D', 500, 500, '2026-09-04T10:00:00', { requestKind: 'DELETE' })])).toBeNull()
+    expect(tagOf([change('R-D', 500, 500, '2026-09-04T10:00:00', { requestKind: 'DELETE' })])).toBeNull()
     // …and it does not move the date of an earlier change either.
     const amount = change('R-1', 500, 450, '2026-09-01T10:00:00')
     const del = change('R-D', 450, 450, '2026-09-04T10:00:00', { requestKind: 'DELETE' })
-    expect(changedTag([del, amount])).toEqual({ at: '2026-09-01T10:00:00', earlierAmount: 500 })
+    expect(tagOf([del, amount])).toEqual({ at: '2026-09-01T10:00:00', earlierAmount: 500 })
   })
 
   it('a change that never moved the amount is tagged with no earlier amount — the till’s "amount not changed"', () => {
     expect(
-      changedTag([change('R-1', 500, 500, '2026-09-01T10:00:00', { newDescription: 'another description' })]),
+      tagOf([change('R-1', 500, 500, '2026-09-01T10:00:00', { newDescription: 'another description' })]),
     ).toEqual({ at: '2026-09-01T10:00:00', earlierAmount: null })
   })
 
   it('⚠️ "moved" is read at holding scale — a figure the same to the fils did not move', () => {
-    expect(changedTag([change('R-1', 450, 450.0004, '2026-09-01T10:00:00')])).toEqual({
+    expect(tagOf([change('R-1', 450, 450.0004, '2026-09-01T10:00:00')])).toEqual({
       at: '2026-09-01T10:00:00',
       earlierAmount: null,
     })
-    expect(changedTag([change('R-1', 450, 449.999, '2026-09-01T10:00:00')])?.earlierAmount).toBe(450)
+    expect(tagOf([change('R-1', 450, 449.999, '2026-09-01T10:00:00')])?.earlierAmount).toBe(450)
   })
 
   it('⚠️ an applied change with no decision stamp tags nothing rather than claiming the year 1', () => {
-    expect(changedTag([change('R-1', 500, 450, UNSTAMPED)])).toBeNull()
+    expect(tagOf([change('R-1', 500, 450, UNSTAMPED)])).toBeNull()
+  })
+
+  it('🚩 a request about ANOTHER entry tags nothing — the same filter as the column', () => {
+    const elsewhere = { ...change('R-1', 500, 450, '2026-09-01T10:00:00'), settlementEntryId: 'not-143' }
+    expect(tagOf([elsewhere])).toBeNull()
   })
 
   it('a supervisor’s own change counts like any applied one', () => {
     const own = change('R-OWN', 500, 480, '2026-09-02T08:00:00', { requestedAt: '2026-09-02T08:00:00' })
-    expect(changedTag([own])).toEqual({ at: '2026-09-02T08:00:00', earlierAmount: 500 })
+    expect(tagOf([own])).toEqual({ at: '2026-09-02T08:00:00', earlierAmount: 500 })
   })
 })

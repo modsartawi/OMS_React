@@ -699,6 +699,17 @@ export function cardFor(request: SettlementChangeRequest): WaitingCard {
   }
 }
 
+/**
+ * Server text (a Description, routinely Arabic) wrapped in a first-strong isolate —
+ * FSI … PDI — so it keeps its own direction without reordering the sentence around it.
+ *
+ * 🚩 Found on screen at 350: *"{{from}} → {{to}}"* over two Arabic Descriptions in one
+ * `dir="auto"` run turns right-to-left whole, and the arrow then points at the old one.
+ * Each side isolated, the arrow stays between them, reading old → new. The waiting card
+ * and the audit column both draw a Description change through it.
+ */
+export const bidiIsolate = (text: string): string => `\u2068${text}\u2069`
+
 /* ── a failed read ───────────────────────────────────────────────────────────── */
 
 /**

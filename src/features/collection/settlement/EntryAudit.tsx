@@ -7,6 +7,7 @@ import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
 import { changeRequestHistoryQuery } from './api'
 import { auditColumn, type AuditFact, type AuditWhere } from './audit'
+import { bidiIsolate } from './change-request'
 
 /**
  * **The audit pane** — the entry and its consumptions as **one column of time**
@@ -115,7 +116,8 @@ function Fact({ fact, currencyKey }: { fact: AuditFact; currencyKey: string }) {
               : // 🚩 Each side ISOLATED, the arrow outside both — the note's separator lesson
                 // above: one `dir="auto"` run over two Arabic descriptions turns the whole
                 // "from → to" right-to-left, and the arrow then points at the old one.
-                t('changeRequest.card.fromTo', { from: isolate(c.from), to: isolate(c.to) })}
+                // The waiting card uses the same `bidiIsolate` for the same request.
+                t('changeRequest.card.fromTo', { from: bidiIsolate(c.from), to: bidiIsolate(c.to) })}
         </span>
       ))}
       {fact.amount !== null && (
@@ -160,10 +162,6 @@ function Fact({ fact, currencyKey }: { fact: AuditFact; currencyKey: string }) {
     </>
   )
 }
-
-/** Server text wrapped in a first-strong isolate (FSI … PDI): it keeps its own direction
- *  without reordering the sentence around it. */
-const isolate = (text: string) => `\u2068${text}\u2069`
 
 /**
  * 🔑 **"From where"** — the store code for a consumption, the poster's name for a

@@ -137,16 +137,19 @@ export type AuditFact = {
  * already *is* that fact, and a synthetic *"closed"* row beside it would be the
  * same event told twice with two different times.
  */
-function entryFacts(entry: AccountEntryRow): AuditFact[] {
+function entryFacts(entry: AccountEntryRow, posted: PostedFigures | null): AuditFact[] {
   const facts: AuditFact[] = [
     {
       id: `entry:${entry.settlementEntryId}:posted`,
       at: entry.postedAt,
       kind: 'posted',
-      amount: entry.amount,
+      // 350: the figures it was POSTED at — once a change request has moved them, the
+      // entry's own fields say what it is now, and a "Posted 320" above "350 → 320"
+      // would contradict the column it heads.
+      amount: posted?.amount ?? entry.amount,
       remainingAfter: null,
       where: { kind: 'person', name: entry.postedByName },
-      note: entry.reason,
+      note: posted?.description ?? entry.reason,
       document: null,
       request: null,
     },
@@ -258,15 +261,59 @@ export function auditColumn(
   requests?: readonly SettlementChangeRequest[] | null,
 ): AuditFact[] {
   if (!row) return []
+  const mine = requestsOf(requests, row.settlementEntryId)
 
   return [
-    ...entryFacts(row),
+    ...entryFacts(row, postedFigures(mine)),
     ...(row.journal ?? []).map((r) => consumptionFact(r.consumption)),
-    ...(requests ?? [])
-      // ⚠️ The read is keyed per entry; a row about another entry is never drawn here.
-      .filter((r) => r.settlementEntryId === row.settlementEntryId)
-      .flatMap(requestFacts),
-  ].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    ...mine.flatMap(requestFacts),
+  ].sort(
+    (a, b) =>
+      (a.at < b.at ? -1 : a.at > b.at ? 1 : 0) ||
+      rank(a) - rank(b) ||
+      (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+  )
+}
+
+/**
+ * The tie-break within one stamp, before the ids. An APPLIED request is the cause of
+ * what the entry then shows (an approved delete IS the cancel), so it reads before the
+ * entry's own fact of the same second. Everything else keeps the id order: `request:`
+ * after `entry:`, so a supersede reads after the direct act that ended it.
+ *
+ * ⚠️ Stamps are to the second: a raise and a till's consumption in the same second are
+ * told in this fixed order, not in an order this screen cannot know.
+ */
+const rank = (f: AuditFact): number => (f.kind === 'request-applied' ? 0 : 1)
+
+/** ⚠️ The read is keyed per entry; a row about another entry is never drawn or counted here. */
+const requestsOf = (
+  requests: readonly SettlementChangeRequest[] | null | undefined,
+  settlementEntryId: string,
+): SettlementChangeRequest[] => (requests ?? []).filter((r) => r.settlementEntryId === settlementEntryId)
+
+/** Applied CHANGE requests, newest first — by `decidedAt`, then the ULID; never History's listing order. */
+const appliedChanges = (requests: readonly SettlementChangeRequest[]): SettlementChangeRequest[] =>
+  requests
+    .filter((r) => r.status === 'APPLIED' && r.requestKind === 'CHANGE' && isStamped(r.decidedAt))
+    .sort(
+      (a, b) =>
+        (a.decidedAt < b.decidedAt ? 1 : a.decidedAt > b.decidedAt ? -1 : 0) ||
+        (a.changeRequestId < b.changeRequestId ? 1 : a.changeRequestId > b.changeRequestId ? -1 : 0),
+    )
+
+type PostedFigures = { amount: number; description: string }
+
+/**
+ * What the entry was **posted at**, once a change request has moved it — the `old…`
+ * figures of the EARLIEST applied change, which are the server's record of the entry
+ * when that request was raised. Nothing but an applied change moves an amount or a
+ * Description, so before the first one the entry stood as posted. `null` when nothing
+ * was applied: the entry's own fields are then its posted figures.
+ */
+function postedFigures(requests: readonly SettlementChangeRequest[]): PostedFigures | null {
+  const first = appliedChanges(requests).at(-1)
+  return first ? { amount: first.oldAmount, description: first.oldDescription } : null
 }
 
 /** The decision a request's status names — `null` while it waits. */
@@ -294,7 +341,12 @@ const DECIDED: Record<SettlementChangeRequest['status'], AuditFactKind | null> =
 function requestFacts(r: SettlementChangeRequest): AuditFact[] {
   const asked = cardFor(r).changes
   const decided = DECIDED[r.status] ?? null
-  const own = r.status === 'APPLIED' && isStamped(r.decidedAt) && r.decidedAt === r.requestedAt
+  // Both halves of 2194's record of it: the same person, the same stamp.
+  const own =
+    r.status === 'APPLIED' &&
+    isStamped(r.decidedAt) &&
+    r.decidedAt === r.requestedAt &&
+    r.decidedByStaffId === r.requestedByStaffId
   const fact = (
     step: 'asked' | 'decided',
     at: string,
@@ -362,14 +414,12 @@ export type ChangedTag = { at: string; earlierAmount: number | null }
  *
  * 🚩 Pure. `null` when there is no tag.
  */
-export function changedTag(requests: readonly SettlementChangeRequest[] | null | undefined): ChangedTag | null {
-  const applied = (requests ?? [])
-    .filter((r) => r.status === 'APPLIED' && r.requestKind === 'CHANGE' && isStamped(r.decidedAt))
-    .sort(
-      (a, b) =>
-        (a.decidedAt < b.decidedAt ? 1 : a.decidedAt > b.decidedAt ? -1 : 0) ||
-        (a.changeRequestId < b.changeRequestId ? 1 : a.changeRequestId > b.changeRequestId ? -1 : 0),
-    )
+export function changedTag(
+  requests: readonly SettlementChangeRequest[] | null | undefined,
+  settlementEntryId: string,
+): ChangedTag | null {
+  // The same entry filter as the column under it — header and column read one History.
+  const applied = appliedChanges(requestsOf(requests, settlementEntryId))
   if (applied.length === 0) return null
   const moved = applied.find((r) => roundMoney(r.oldAmount) !== roundMoney(r.newAmount))
   return { at: applied[0].decidedAt, earlierAmount: moved ? moved.oldAmount : null }

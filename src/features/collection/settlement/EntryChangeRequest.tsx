@@ -23,6 +23,7 @@ import {
   afterDecide,
   afterWithdraw,
   asksBusinessDay,
+  bidiIsolate,
   cardFor,
   changeDraftFor,
   changeRequestBody,
@@ -528,7 +529,7 @@ export default function EntryChangeRequest({
         <span className="font-mono text-[12px] text-muted-foreground">
           {t('changeRequest.forEntry', { number: row.entryNumber })}
         </span>
-        <ChangedBadge requests={history.data?.requests} money={money} />
+        <ChangedBadge requests={history.data?.requests} entryId={entryId} money={money} />
       </header>
 
       {failure === 'not-shipped' ? (
@@ -999,13 +1000,15 @@ function DeleteForm({
  */
 function ChangedBadge({
   requests,
+  entryId,
   money,
 }: {
   requests: readonly SettlementChangeRequest[] | undefined
+  entryId: string
   money: (v: number | null | undefined) => string
 }) {
   const { t } = useTranslation('settlement')
-  const tag = changedTag(requests)
+  const tag = changedTag(requests, entryId)
   if (!tag) return null
 
   return (
@@ -1088,12 +1091,13 @@ function WaitingCard({
               <dt className="text-xs uppercase tracking-wide text-muted-foreground">
                 {t(`changeRequest.card.field.${c.field}`)}
               </dt>
-              <dd dir="auto" className={c.field === 'amount' ? 'tabular-nums' : undefined}>
+              <dd className={c.field === 'amount' ? 'tabular-nums' : undefined}>
                 {c.field === 'amount'
                   ? t('changeRequest.card.fromTo', { from: money(c.from), to: money(c.to) })
                   : c.field === 'businessDay'
                     ? t('changeRequest.card.fromTo', { from: formatDay(c.from), to: formatDay(c.to) })
-                    : t('changeRequest.card.fromTo', { from: c.from, to: c.to })}
+                    : // 350: each Description isolated, the arrow outside both (`bidiIsolate`).
+                      t('changeRequest.card.fromTo', { from: bidiIsolate(c.from), to: bidiIsolate(c.to) })}
               </dd>
             </div>
           ))}

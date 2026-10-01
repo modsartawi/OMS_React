@@ -1905,6 +1905,7 @@ async function run() {
       ]),
     column.map((f) => f.kind).join(', '),
   )
+  check('🔑 the posting states what it was POSTED at (350.00, the first applied change\'s old figure), not today\'s 320.00', /Posted 350\.00\b/.test(column[0].text), column[0].text)
   check('…all five statuses are there: raised (waiting), applied, rejected, withdrawn, superseded', ['requested', 'request-applied', 'request-rejected', 'request-withdrawn', 'request-superseded'].every((k) => column.some((f) => f.kind === k)))
   check('…and the times read in order, as received (local wall clock)', /^2026-08-11 10:00\b/.test(column[1].text) && /^2026-08-14 12:00\b/.test(column[10].text) && /^2026-08-15 11:00\b/.test(column[11].text), `${column[1].text} | ${column[11].text}`)
   check('a raise names the asker and the request\'s Reason, with old → new', column[1].text.includes(`by ${AUDIT.requester}`) && column[1].text.includes('typed 350 instead of 320') && /350\.00 → 320\.00/.test(column[1].text), column[1].text)

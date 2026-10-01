@@ -421,11 +421,11 @@
       },
       "request-applied": {
         "CHANGE": "Change request approved — the entry was changed",
-        "DELETE": "Delete request approved — the entry was cancelled"
+        "DELETE": "Delete request approved"
       },
       "own": {
         "CHANGE": "Changed by a supervisor at once — no approval step",
-        "DELETE": "Deleted by a supervisor at once — the entry was cancelled, no approval step"
+        "DELETE": "Deleted by a supervisor at once — no approval step"
       },
       "request-rejected": {
         "CHANGE": "Change request rejected",

@@ -1066,6 +1066,8 @@ async function run() {
   cr.holdHistory = null
   await settle()
   check('…and still there once History is re-read', (await tid('change-request-card').count()) === 1 && (await tid('change-request-notice').count()) === 1)
+  await tid('change-request-reject').click()
+  check('🔑 opening Reject as told keeps the refusal on screen — the Reason is written against it', (await tid('change-request-reject-form').count()) === 1 && (await noticeOf()).code === 'BELOW_SPENT')
   await crKeys('a refused approve')
 
   resetDecide({ approve: () => ({ ...FX.belowSpent151, refusalReason: 'CHANGE_STALE', remainingAmount: 115, spentAmount: 205 }) })
@@ -1132,6 +1134,24 @@ async function run() {
   check('a 400 on the Reason lands on the Reject box, in 344\'s words', /A Reason is required to reject/.test(await textOf('change-request-reject-reason-error')) && !(await page.locator('body').innerText()).includes(SERVER_WORDS))
   await tid('change-request-reject-reason').fill('not needed at all')
   check('…and the next keystroke clears it', (await tid('change-request-reject-reason-error').count()) === 0)
+
+  // A Reject box belongs to ONE request: R-151 was withdrawn and R-152 raised meanwhile.
+  resetDecide({
+    reject: () => {
+      cr.histories[FX.e151] = { ...structuredClone(FX.today151), openRequest: { ...FX.theirs151, changeRequestId: 'R-152', requestReason: 'a fresh ask' } }
+      return { ...FX.rejected151, accepted: false, refusalReason: 'CHANGE_NOT_OPEN', requestStatus: 'WITHDRAWN' }
+    },
+  })
+  await openCard(151)
+  await tid('change-request-reject').click()
+  await tid('change-request-reject-reason').fill('typed for R-151')
+  await tid('change-request-reject-submit').click()
+  await appears('[data-testid="change-request-card"][data-request="R-152"]')
+  n = await noticeOf()
+  check('CHANGE_NOT_OPEN on a reject is said by its code, and the re-read draws what waits now', n.code === 'CHANGE_NOT_OPEN' && /already withdrawn/.test(n.text) && (await tid('change-request-card').getAttribute('data-request')) === 'R-152', JSON.stringify(n))
+  check('🔑 …and R-151\'s Reject box and Reason are NOT carried onto R-152', (await tid('change-request-reject-form').count()) === 0 && (await tid('change-request-reject').count()) === 1)
+  await tid('change-request-reject').click()
+  check('…opening Reject on R-152 starts empty', (await tid('change-request-reject-reason').inputValue()) === '')
 
   // ---- 23. a bare 403, and a 404 ----
   resetDecide({ decideForbidden: true })

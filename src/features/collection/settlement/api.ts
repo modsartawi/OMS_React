@@ -673,11 +673,11 @@ export const settlementApi = {
   /**
    * `POST Settlement/ChangeRequest/Reject` → a supervisor rejects a waiting request with a
    * Reason (BackOffice 2191, ticket 346). Behind settlement supervision, as Approve. The
-   * entry is never touched; accepted is `requestStatus: "REJECTED"`. ⚠️ A 404 means
+   * entry is never touched; accepted is `requestStatus: "REJECTED"`. The body is the one
+   * `rejectBody` checked (the Reason trimmed, required, ≤ 200), sent as it was checked. ⚠️ A 404 means
    * SIS.Api has not shipped the wave.
    */
-  rejectChangeRequest(changeRequestId: string, reason: string): Promise<SettlementChangeRequestActResult> {
-    const body: SettlementChangeRequestRejectBody = { changeRequestId, reason }
+  rejectChangeRequest(body: SettlementChangeRequestRejectBody): Promise<SettlementChangeRequestActResult> {
     return api.post<SettlementChangeRequestActResult>('Settlement/ChangeRequest/Reject', body)
   },
 }

@@ -10,6 +10,7 @@ import type {
   SettlementChangeRequest,
   SettlementChangeRequestActResult,
   SettlementChangeRequestRaiseBody,
+  SettlementChangeRequestRejectBody,
 } from '@/core/models/settlement'
 import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
@@ -83,7 +84,13 @@ type RaiseVars = { entry: EntryNow; body: SettlementChangeRequestRaiseBody }
 type WithdrawVars = { entry: EntryNow; request: SettlementChangeRequest }
 /** …and so does the request approved or rejected (346), with a reject's Reason. */
 type DecideVars = { entry: EntryNow; request: SettlementChangeRequest }
-type RejectVars = DecideVars & { reason: string }
+type RejectVars = DecideVars & { body: SettlementChangeRequestRejectBody }
+
+/**
+ * The Reject box (346) — open for ONE request, never for the entry: a Reason typed for
+ * R-151 must not be in the box when R-152 waits on the same entry later.
+ */
+type RejectDraft = { requestId: string; reason: string; error: ChangeFieldError | null }
 
 /** `invalid` — a 400 with no box to sit on (Withdraw has no form), in 344's words. */
 type Notice =
@@ -133,10 +140,8 @@ export default function EntryChangeRequest({
   const [actUnshipped, setActUnshipped] = useState(false)
   /** The request a withdraw was refused `NOT_REQUESTER` on — `offerFor` stops offering Withdraw on it. */
   const [notRequesterOf, setNotRequesterOf] = useState<string | null>(null)
-  /** 346: the Reject box is open, what is typed in it, and a 400 that belongs on it. */
-  const [rejecting, setRejecting] = useState(false)
-  const [rejectReason, setRejectReason] = useState('')
-  const [rejectError, setRejectError] = useState<ChangeFieldError | null>(null)
+  /** 346: the Reject box, for the request it was opened on — and a 400 that belongs on it. */
+  const [rejectDraft, setRejectDraft] = useState<RejectDraft | null>(null)
 
   // 🚩 A bare 403 on the read: the probe said this session holds the settlement grant,
   // and the door says it no longer does. Re-reading the probe takes the screen's buttons
@@ -311,9 +316,7 @@ export default function EntryChangeRequest({
       // reject — and no card: the answer says nothing waits. Then the re-read replaces it.
       drawUntil(reread, { result, request: null })
       setNotice(null)
-      setRejecting(false)
-      setRejectReason('')
-      setRejectError(null)
+      setRejectDraft(null)
       return
     }
     if (!stillOn(v.entry)) return
@@ -329,7 +332,7 @@ export default function EntryChangeRequest({
     }
     const refusal = changeRefusal(door, result)
     setNotice({ kind: 'refused', refusal })
-    setRejectError(null)
+    setRejectDraft((d) => d && { ...d, error: null })
     if (refusal.step.kind === 'close') setGone(true)
     // `reject` (the entry outran the request): the card and its Reject stay, and the
     // notice names the step. Any other step (CHANGE_NOT_OPEN's redraw): the re-read,
@@ -343,10 +346,7 @@ export default function EntryChangeRequest({
       // outcome is never decided from the probe; this only says the door refused.
       toast.error(t('changeRequest.errors.decideForbidden'))
       void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
-      if (stillOn(v.entry)) {
-        setRejecting(false)
-        setRejectError(null)
-      }
+      if (stillOn(v.entry)) setRejectDraft(null)
       return
     }
     if (!stillOn(v.entry)) return
@@ -357,7 +357,7 @@ export default function EntryChangeRequest({
     // A Reason the server refused lands on the Reject box; any other 400 in the notice line.
     const field = changeFieldError(apiErrorCode(error))
     if (field?.field === 'reason' && door === 'reject') {
-      setRejectError(field)
+      setRejectDraft((d) => (d && d.requestId === v.request.changeRequestId ? { ...d, error: field } : d))
       setNotice(null)
       return
     }
@@ -381,7 +381,7 @@ export default function EntryChangeRequest({
   })
 
   const reject = useMutation({
-    mutationFn: (v: RejectVars) => settlementApi.rejectChangeRequest(v.request.changeRequestId, v.reason),
+    mutationFn: (v: RejectVars) => settlementApi.rejectChangeRequest(v.body),
     onSuccess: (result, v) => onDecided('reject', result, v),
     onError: (error, v) => onDecideError('reject', error, v),
   })
@@ -398,6 +398,9 @@ export default function EntryChangeRequest({
     { ...read, notRequesterOf },
     { canOpenSettlement: canOpen, canSuperviseSettlement: canSupervise, userId },
   )
+  /** The Reject box — drawn only for the request it was opened on. */
+  const openDraft =
+    offer.kind === 'waiting' && rejectDraft?.requestId === offer.request.changeRequestId ? rejectDraft : null
   /** One act at a time on the card — a press while another runs is ignored. */
   const cardBusy = withdraw.isPending || approve.isPending || reject.isPending
   const state = failure ?? (gone ? 'gone' : history.isPending ? 'loading' : offer.kind)
@@ -520,9 +523,9 @@ export default function EntryChangeRequest({
                     busy: cardBusy,
                     spent: now.spentAmount,
                     amount: now.amount,
-                    rejecting,
-                    reason: rejectReason,
-                    reasonError: rejectError,
+                    rejecting: openDraft !== null,
+                    reason: openDraft?.reason ?? '',
+                    reasonError: openDraft?.error ?? null,
                     onApprove: () => {
                       if (cardBusy) return
                       setNotice(null)
@@ -530,22 +533,17 @@ export default function EntryChangeRequest({
                     },
                     onStartReject: () => {
                       if (cardBusy) return
-                      setNotice(null)
-                      setRejecting(true)
+                      // ⚠️ The notice stays: a refused approve's sentence (today's spent, and
+                      // "reject it") is what the Reason is written against.
+                      setRejectDraft({ requestId: offer.request.changeRequestId, reason: '', error: null })
                     },
-                    onReason: (next) => {
-                      setRejectReason(next)
-                      setRejectError(null)
-                    },
-                    onReject: (reason) => {
+                    onReason: (next) => setRejectDraft((d) => d && { ...d, reason: next, error: null }),
+                    onReject: (body) => {
                       if (cardBusy) return
                       setNotice(null)
-                      reject.mutate({ entry: now, request: offer.request, reason })
+                      reject.mutate({ entry: now, request: offer.request, body })
                     },
-                    onBack: () => {
-                      setRejecting(false)
-                      setRejectError(null)
-                    },
+                    onBack: () => setRejectDraft(null),
                   }
                 : null
             }
@@ -757,7 +755,7 @@ function WaitingCard({
     onApprove: () => void
     onStartReject: () => void
     onReason: (next: string) => void
-    onReject: (reason: string) => void
+    onReject: (body: SettlementChangeRequestRejectBody) => void
     onBack: () => void
   } | null
 }) {
@@ -862,7 +860,7 @@ function WaitingCard({
               <div className="flex flex-wrap gap-2">
                 <Button
                   variant="primary"
-                  onClick={() => rejectReady && decide.onReject(rejectReady.reason)}
+                  onClick={() => rejectReady && decide.onReject(rejectReady)}
                   aria-disabled={!rejectReady || undefined}
                   aria-busy={decide.busy || undefined}
                   data-testid="change-request-reject-submit"

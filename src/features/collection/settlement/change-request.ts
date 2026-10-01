@@ -458,9 +458,10 @@ export function paneRead(
   history: Partial<SettlementChangeRequestHistory> | null | undefined,
   answered: ActAnswer | null | undefined,
 ): { now: EntryNow; openRequest: SettlementChangeRequest | null; spentAmount: number | null } {
-  const mine = answered && answered.result?.settlementEntryId === row.settlementEntryId ? answered : null
+  const mine = answered && answered.result.settlementEntryId === row.settlementEntryId ? answered : null
   const now = entryNow(row, history, mine?.result)
   const openRequest = mine && mine.request !== undefined ? mine.request : (history?.openRequest ?? null)
+  // `spentAmount` beside `now` so the whole read is `offerFor`'s `ChangeRequestRead`.
   return { now, openRequest, spentAmount: now.spentAmount }
 }
 

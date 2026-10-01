@@ -231,6 +231,21 @@
       "request": "Request a change",
       "now": "Change now"
     },
+    "remove": {
+      "delete": "Request delete",
+      "deleteNow": "Delete now",
+      "spent": "The branch has spent {{spent}} from this entry, so it cannot be deleted.",
+      "reduce": "Reduce it to {{to}}"
+    },
+    "deleteForm": {
+      "intro": "Ask a supervisor to delete entry {{number}}. Once approved, the entry is cancelled: it keeps its number and its history, and nothing more can be spent from it. Until then it keeps working at its current figures.",
+      "introNow": "Deleting cancels entry {{number}}: it keeps its number and its history, and nothing more can be spent from it.",
+      "reasonHint": "Why this entry should be deleted — the supervisor reads it before deciding. Up to {{max}} characters.",
+      "submit": {
+        "request": "Send the delete request",
+        "now": "Delete entry {{number}} now"
+      }
+    },
     "form": {
       "amount": {
         "label": "Amount",
@@ -342,6 +357,8 @@
     "done": {
       "raised": "Change request raised for entry {{number}}.",
       "applied": "Entry {{number}} is changed.",
+      "deleteRaised": "Delete request raised for entry {{number}}.",
+      "deleteApplied": "Entry {{number}} is cancelled.",
       "withdrawn": "Your change request on entry {{number}} was withdrawn.",
       "approved": "The change request on entry {{number}} was approved and applied.",
       "rejected": "The change request on entry {{number}} was rejected. The entry is unchanged."

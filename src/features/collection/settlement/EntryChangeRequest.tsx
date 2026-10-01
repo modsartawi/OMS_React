@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Check, FilePenLine, Hourglass, TriangleAlert, Undo2, X } from 'lucide-react'
+import { ArrowDownToLine, Check, FilePenLine, Hourglass, Trash2, TriangleAlert, Undo2, X } from 'lucide-react'
 
 import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
@@ -25,14 +25,17 @@ import {
   cardFor,
   changeRequestBody,
   changeRequestFailure,
+  deleteRequestBody,
   offerFor,
   paneRead,
   raisedRequest,
+  reduceToSpent,
   rejectBody,
   type ActAnswer,
   type DecideDoor,
   type ChangeDraft,
   type EntryNow,
+  type RemoveOffer,
 } from './change-request'
 import { changeFieldError, changeRefusal, type ChangeFieldError, type ChangeRefusal } from './change-refusal'
 import { settlementMoney } from './money-display'
@@ -59,6 +62,13 @@ import ReasonField, { invalidateSettlement } from './ReasonField'
  * re-read lands; a refused approve leaves the card `OPEN` with 344's sentence and its next
  * step. Reject asks for a Reason first. A bare 403 is named and the probe re-read, which
  * takes the buttons with it (W1) — the outcome is never read from the probe.
+ *
+ * 🔑 **Delete (347) is the cell's `remove`.** `delete` draws *Request delete* (or *Delete
+ * now*) and a Reason-only form whose body names no figure (`deleteRequestBody`); `reduce`
+ * draws *"The branch has spent X…, so it cannot be deleted"* and *Reduce it to X*, which
+ * opens the change form with X filled in (`reduceToSpent`); `spent-whole` draws the
+ * sentence alone. A `DELETE_SPENT` answer offers the same reduce from 344's step, X the
+ * ANSWER's `spentAmount` — said once, in the notice, not again beneath it.
  *
  * 🔑 **Redraw from the answer, then re-read (W8).** An accepted raise draws the waiting
  * card and the entry's figures from the act answer AT ONCE, then re-reads History (one
@@ -129,8 +139,11 @@ export default function EntryChangeRequest({
     retry: (count, error) => changeRequestFailure(error) === 'other' && count < 1,
   })
 
-  const [open, setOpen] = useState(false)
+  /** Which form is open — the change form (343), or the delete form (347). */
+  const [form, setForm] = useState<'change' | 'delete' | null>(null)
   const [draft, setDraft] = useState<ChangeDraft>(EMPTY_DRAFT)
+  /** 347: the delete form's Reason — carried into the change form if the server says "reduce it" instead. */
+  const [deleteReason, setDeleteReason] = useState('')
   const [answered, setAnswered] = useState<ActAnswer | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
   /** A 400 on the box that can fix it — cleared by the next keystroke. */
@@ -184,29 +197,41 @@ export default function EntryChangeRequest({
         switch (refusal.step.kind) {
           case 'close':
             setGone(true)
-            setOpen(false)
+            setForm(null)
             return
           case 'redraw':
           case 'open-request':
           case 'reread':
             // The re-read (always, above) draws the finished sentence or the waiting card.
-            setOpen(false)
+            setForm(null)
+            return
+          case 'reduce':
+            // 347 (DELETE_SPENT): no delete — the notice offers "Reduce it to X", X the
+            // answer's spentAmount. The delete form closes; its Reason is kept to carry over.
+            setForm(null)
             return
           case 'refill-floor':
           case 'stay':
           case 'none':
           case 'reject':
-          case 'reduce':
           case 'not-requester':
-            // The form stays as typed — its floor refilled from the answer for
-            // BELOW_SPENT. `reduce` answers only a delete, whose form is 347's.
+            // The form stays as typed — its floor refilled from the answer for BELOW_SPENT.
             return
         }
       }
+      // A delete cancels the ENTRY once applied; the request is never "cancelled" (W13).
+      const deleting = v.body.requestKind === 'DELETE'
       toast.success(
-        t(outcome.kind === 'applied' ? 'changeRequest.done.applied' : 'changeRequest.done.raised', {
-          number: v.entry.entryNumber,
-        }),
+        t(
+          outcome.kind === 'applied'
+            ? deleting
+              ? 'changeRequest.done.deleteApplied'
+              : 'changeRequest.done.applied'
+            : deleting
+              ? 'changeRequest.done.deleteRaised'
+              : 'changeRequest.done.raised',
+          { number: v.entry.entryNumber },
+        ),
       )
       if (!stillOn(v.entry)) return
       // 🔑 W8: drawn from the answer NOW — the figures, and the card for a request that waits.
@@ -219,8 +244,9 @@ export default function EntryChangeRequest({
       }
       // …then History and the account re-read replace it.
       drawUntilReread(mine)
-      setOpen(false)
+      setForm(null)
       setDraft(EMPTY_DRAFT)
+      setDeleteReason('')
       setNotice(null)
       setFieldError(null)
     },
@@ -229,7 +255,7 @@ export default function EntryChangeRequest({
       if (failure === 'forbidden') {
         toast.error(t('changeRequest.errors.forbidden'))
         void queryClient.invalidateQueries({ queryKey: COLLECTION_ACCESS_KEY })
-        if (stillOn(v.entry)) setOpen(false)
+        if (stillOn(v.entry)) setForm(null)
         return
       }
       if (!stillOn(v.entry)) return
@@ -411,12 +437,33 @@ export default function EntryChangeRequest({
     setDraft({ amount: String(now.amount), description: now.description, reason: '' })
     setNotice(null)
     setFieldError(null)
-    setOpen(true)
+    setForm('change')
+  }
+  /**
+   * 347: "Reduce it to X" — the change form with X filled in. X is `offerFor`'s cell (the
+   * History read) or 344's step (a `DELETE_SPENT` answer); a refused delete's Reason comes along.
+   */
+  const startReduce = (reduce: Extract<RemoveOffer, { kind: 'reduce' }>) => {
+    setDraft(reduceToSpent(now, reduce, deleteReason))
+    setNotice(null)
+    setFieldError(null)
+    setForm('change')
+  }
+  const startDelete = () => {
+    setNotice(null)
+    setFieldError(null)
+    setForm('delete')
   }
   const onDraft = (next: ChangeDraft) => {
     setDraft(next)
     setFieldError(null)
   }
+  const onDeleteReason = (next: string) => {
+    setDeleteReason(next)
+    setFieldError(null)
+  }
+  /** A `DELETE_SPENT` refusal's reduce step — said in the notice, so the cell does not say it twice. */
+  const refusedToReduce = notice?.kind === 'refused' && notice.refusal.step.kind === 'reduce' ? notice.refusal.step : null
 
   const noticeLine = notice && (
     <p
@@ -445,6 +492,21 @@ export default function EntryChangeRequest({
         {notice.kind === 'refused' && notice.refusal.step.kind === 'reject' && (
           <span className="mt-1 block" data-testid="change-request-notice-step">
             {t('changeRequest.step.reject')}
+          </span>
+        )}
+        {/* 347: DELETE_SPENT's way on — reduce to the ANSWER's spent figure (344's step).
+            Only where the change form can open: the ask cell. */}
+        {refusedToReduce && offer.kind === 'ask' && (
+          <span className="mt-2 block">
+            <Button
+              variant="secondary"
+              onClick={() => startReduce(refusedToReduce)}
+              data-testid="change-request-reduce"
+              data-to={refusedToReduce.to}
+            >
+              <ArrowDownToLine className="h-3.5 w-3.5" aria-hidden />
+              {t('changeRequest.remove.reduce', { to: money(refusedToReduce.to) })}
+            </Button>
           </span>
         )}
       </span>
@@ -553,7 +615,7 @@ export default function EntryChangeRequest({
       ) : (
         <>
           {noticeLine}
-          {open ? (
+          {form === 'change' ? (
             <ChangeForm
               entry={now}
               floor={offer.floor}
@@ -564,7 +626,20 @@ export default function EntryChangeRequest({
               busy={raise.isPending}
               money={money}
               onSubmit={(body) => raise.mutate({ entry: now, body })}
-              onBack={() => setOpen(false)}
+              onBack={() => setForm(null)}
+            />
+          ) : form === 'delete' && offer.remove.kind === 'delete' ? (
+            // ⚠️ Drawn only while the cell still offers a delete: an answer that says the
+            // branch has spent from the entry takes the form away with the offer.
+            <DeleteForm
+              entry={now}
+              mode={offer.mode}
+              reason={deleteReason}
+              onReason={onDeleteReason}
+              fieldError={fieldError}
+              busy={raise.isPending}
+              onSubmit={(body) => raise.mutate({ entry: now, body })}
+              onBack={() => setForm(null)}
             />
           ) : (
             <>
@@ -585,7 +660,23 @@ export default function EntryChangeRequest({
                   <FilePenLine className="h-3.5 w-3.5" aria-hidden />
                   {t(offer.mode === 'now' ? 'changeRequest.ask.now' : 'changeRequest.ask.request')}
                 </Button>
+                {offer.remove.kind === 'delete' && (
+                  <Button
+                    variant="secondary"
+                    onClick={startDelete}
+                    data-testid="change-request-delete-open"
+                    data-mode={offer.mode}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                    {t(offer.mode === 'now' ? 'changeRequest.remove.deleteNow' : 'changeRequest.remove.delete')}
+                  </Button>
+                )}
               </div>
+              {/* 347: no delete on a spent entry — said, and the one correction offered.
+                  A DELETE_SPENT notice above already says it with the answer's figure. */}
+              {offer.remove.kind !== 'delete' && !refusedToReduce && (
+                <RemoveLine remove={offer.remove} money={money} onReduce={startReduce} />
+              )}
             </>
           )}
         </>
@@ -717,6 +808,120 @@ function ChangeForm({
           })}
         </Button>
         <Button variant="text" onClick={onBack} data-testid="change-request-back">
+          {t('changeRequest.form.back')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * **What stands in for delete on a spent entry (W5, ticket 347)** — the sentence, and
+ * *Reduce it to X* where reducing would change something. `offerFor`'s `remove` cell,
+ * drawn as handed.
+ */
+function RemoveLine({
+  remove,
+  money,
+  onReduce,
+}: {
+  remove: Exclude<RemoveOffer, { kind: 'delete' }>
+  money: (v: number | null | undefined) => string
+  onReduce: (reduce: Extract<RemoveOffer, { kind: 'reduce' }>) => void
+}) {
+  const { t } = useTranslation('settlement')
+  const spent = remove.kind === 'reduce' ? remove.to : remove.spent
+  return (
+    <div className="flex flex-col items-start gap-2" data-testid="change-request-remove" data-remove={remove.kind}>
+      <p className="text-sm text-muted-foreground" data-testid="change-request-spent">
+        {t('changeRequest.remove.spent', { spent: money(spent) })}
+      </p>
+      {remove.kind === 'reduce' && (
+        <Button
+          variant="secondary"
+          onClick={() => onReduce(remove)}
+          data-testid="change-request-reduce"
+          data-to={remove.to}
+        >
+          <ArrowDownToLine className="h-3.5 w-3.5" aria-hidden />
+          {t('changeRequest.remove.reduce', { to: money(remove.to) })}
+        </Button>
+      )}
+    </div>
+  )
+}
+
+/**
+ * **The delete form (W5, ticket 347)** — a Reason, and nothing else: a delete lands no
+ * figure. `deleteRequestBody` decides what may be sent and what is; this draws its answer.
+ */
+function DeleteForm({
+  entry,
+  mode,
+  reason,
+  onReason,
+  fieldError,
+  busy,
+  onSubmit,
+  onBack,
+}: {
+  entry: EntryNow
+  mode: 'request' | 'now'
+  reason: string
+  onReason: (next: string) => void
+  /** The server's 400 (ticket 344): the Reason's on its box, any other at the form's foot. */
+  fieldError: ChangeFieldError | null
+  busy: boolean
+  onSubmit: (body: SettlementChangeRequestRaiseBody) => void
+  onBack: () => void
+}) {
+  const { t } = useTranslation('settlement')
+  const check = deleteRequestBody(entry, reason)
+  const canSend = check.kind === 'ready' && !busy
+  const served = fieldError && t(`changeRequest.invalid.${fieldError.sentence}`, { max: REASON_MAX })
+
+  return (
+    <div className="flex flex-col gap-3" data-testid="change-request-delete-form" data-mode={mode}>
+      <p className="text-sm text-muted-foreground" data-testid="change-request-delete-intro">
+        {t(mode === 'now' ? 'changeRequest.deleteForm.introNow' : 'changeRequest.deleteForm.intro', {
+          number: entry.entryNumber,
+        })}
+      </p>
+
+      <ReasonField
+        value={reason}
+        onValue={onReason}
+        label={t('changeRequest.form.reason.label')}
+        hint={t('changeRequest.deleteForm.reasonHint', { max: REASON_MAX })}
+        required
+        error={fieldError?.field === 'reason' ? served : null}
+        testId="change-request-delete-reason"
+      />
+
+      {fieldError && fieldError.field !== 'reason' && (
+        <p
+          role="alert"
+          className="text-sm text-attention-800"
+          data-testid="change-request-delete-error"
+          data-code={fieldError.code}
+        >
+          {served}
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="primary"
+          onClick={() => canSend && onSubmit(check.body)}
+          aria-disabled={!canSend || undefined}
+          aria-busy={busy || undefined}
+          data-testid="change-request-delete-submit"
+        >
+          {t(mode === 'now' ? 'changeRequest.deleteForm.submit.now' : 'changeRequest.deleteForm.submit.request', {
+            number: entry.entryNumber,
+          })}
+        </Button>
+        <Button variant="text" onClick={onBack} data-testid="change-request-delete-back">
           {t('changeRequest.form.back')}
         </Button>
       </div>

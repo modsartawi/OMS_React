@@ -63,6 +63,18 @@
 //      the Reason lands on that box;
 //  23. a bare 403 is named, the probe re-read, and the buttons go; a 404 says "not available yet".
 //
+// Ticket 347 — delete, and "Reduce it to X" on a spent entry (W5, 2193's delete):
+//  24. an untouched entry offers "Request delete" beside "Request a change" (a supervisor:
+//      "Delete now"); the form asks for a Reason only, and the raise posts { settlementEntryId,
+//      requestKind: "DELETE", reason } and NO figure field; the waiting card is a delete's,
+//      drawn from the answer while the History re-read is held;
+//  25. a spent entry offers no delete: the sentence, and "Reduce it to X" pre-fills the change
+//      form with X, which posts newAmount X; a wholly spent entry says the sentence alone;
+//  26. a stubbed DELETE_SPENT does the same from the ANSWER's spentAmount — said once, the
+//      delete form gone, the refused delete's Reason carried into the change form;
+//  27. an approved delete redraws the entry as cancelled from the answer, before the re-read;
+//      a 400 on a delete lands on its Reason box or the form's foot; no request is "cancelled".
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
 import { createRequire } from 'node:module'
@@ -1185,6 +1197,205 @@ async function run() {
   check('a 404 on Approve says "not available yet", never a crash', (await offerOf()) === 'not-shipped' && errors.length === errorsBeforeD404)
   scenario = {}
   await crKeys('ticket 346')
+
+  // ======== Ticket 347 — delete, and "Reduce it to X" on a spent entry ========
+  Object.assign(
+    FX,
+    await page.evaluate(async ([e143]) => {
+      const acc = await import('/src/features/collection/settlement/settlement-fixture.ts')
+      const crf = await import('/src/features/collection/settlement/change-request-fixture.ts')
+      const row143 = acc.SETTLEMENT_ACCOUNTS['0142'].entries.find((e) => e.settlementEntryId === e143)
+      // Another accountant's delete, waiting on 143 (the fixture's requester, 30117).
+      const del = crf.waitingRequestOn(row143, { changeRequestId: 'R-DEL', requestKind: 'DELETE', requestReason: 'posted against the wrong branch' })
+      return {
+        del143: del,
+        withDelete143: crf.historyOf(row143, { spentAmount: 0, openRequest: del }),
+        raisedDelete143: crf.raisedAnswerFor(row143, { changeRequestId: 'R-DEL-NEW' }, 0),
+        // 2193's DELETE_SPENT sample, about 143: a till spent 120 since the pane read 0.
+        deleteSpent143: { ...crf.DELETE_SPENT_SAMPLE, settlementEntryId: e143, entryNumber: 143, description: row143.reason },
+        spent143: crf.historyOf({ ...row143, remainingAmount: 380 }, { spentAmount: 120 }),
+        // 2193: an approved delete answers APPLIED, the entry CANCELLED, its figures unchanged, spent 0.
+        approvedDelete143: crf.approvedAnswerFor(row143, del, 0, { entryStatus: 'CANCELLED' }),
+        afterDelete143: crf.historyOf({ ...row143, status: 'CANCELLED' }, { spentAmount: 0, requests: [{ ...del, status: 'APPLIED' }] }),
+        appliedDelete143: { ...crf.raisedAnswerFor(row143, { changeRequestId: 'R-DEL-NOW' }, 0), requestStatus: 'APPLIED', entryStatus: 'CANCELLED' },
+      }
+    }, [FX.e143]),
+  )
+  const delHeld = async () => (await tid('change-request-delete-submit').getAttribute('aria-disabled')) === 'true'
+  const toastText = async () => page.locator('[data-sonner-toaster]').innerText().catch(() => '')
+
+  // ---- 24. an untouched entry: Request delete, a Reason only, no figures sent ----
+  scenario = {}
+  resetCr()
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-delete-open"]')
+  check('🔑 an untouched entry offers "Request delete" beside "Request a change"', (await textOf('change-request-delete-open')).trim() === 'Request delete' && (await tid('change-request-open').count()) === 1 && (await tid('change-request-delete-open').getAttribute('data-mode')) === 'request')
+  check('…and says nothing about spending — there is none', (await tid('change-request-remove').count()) === 0 && (await tid('change-request-reduce').count()) === 0)
+  await tid('change-request-delete-open').click()
+  check('🔑 the delete form asks for a Reason only — no amount, no Description', (await tid('change-request-delete-form').count()) === 1 && (await tid('change-request-delete-reason').count()) === 1 && (await tid('change-request-amount').count()) === 0 && (await tid('change-request-description').count()) === 0)
+  check('…the Reason is marked required, and the form says what a delete does', (await tid('change-request-delete-reason-required').count()) === 1 && /Once approved, the entry is cancelled/.test(await textOf('change-request-delete-intro')))
+  check('…Submit is held while the Reason is empty', await delHeld())
+  await tid('change-request-delete-submit').click({ force: true })
+  check('…pressing it anyway sends nothing', cr.raiseCalls.length === 0)
+  await tid('change-request-delete-reason').fill('   ')
+  check('…or only spaces', await delHeld())
+  await tid('change-request-delete-reason').fill('  posted against the wrong branch  ')
+  check('a Reason releases it', !(await delHeld()))
+  await crKeys('the delete form')
+  await shot('347-delete-form')
+  const holdDel = deferred()
+  const historyBeforeDel = cr.historyCalls.length
+  cr.holdHistory = holdDel
+  cr.raise = () => {
+    cr.histories[FX.e143] = { ...structuredClone(FX.withDelete143), openRequest: { ...FX.del143, changeRequestId: 'R-DEL-NEW', requestedByStaffId: 'msartawi', requestedByName: 'msartawi' } }
+    return FX.raisedDelete143
+  }
+  await tid('change-request-delete-submit').click()
+  await appears('[data-testid="change-request-card"]')
+  const sentDel = cr.raiseCalls.at(-1) ?? {}
+  check('🔑 the delete posts { settlementEntryId, requestKind: "DELETE", reason } — and NO figure field', JSON.stringify(Object.keys(sentDel).sort()) === JSON.stringify(['reason', 'requestKind', 'settlementEntryId']) && sentDel.requestKind === 'DELETE' && sentDel.settlementEntryId === FX.e143 && sentDel.reason === 'posted against the wrong branch', JSON.stringify(sentDel))
+  check('🔑 W8: a delete\'s card is drawn from the ANSWER while the History re-read is held', cr.historyCalls.length > historyBeforeDel && (await tid('change-request-card').getAttribute('data-kind')) === 'DELETE' && (await tid('change-request-card').getAttribute('data-request')) === 'R-DEL-NEW')
+  check('…"A request to delete entry 143 is waiting", and no old → new rows — a delete lands no figure', /A request to delete entry 143 is waiting\./.test(await textOf('change-request-card')) && (await tid('change-request-card-amount').count()) === 0 && (await tid('change-request-card-description').count()) === 0)
+  check('…the toast says a delete request was raised', /Delete request raised for entry 143\./.test(await toastText()))
+  holdDel.release()
+  cr.holdHistory = null
+  await settle()
+  check('…then the re-read\'s own row stands: still a delete, waiting', (await tid('change-request-card').getAttribute('data-kind')) === 'DELETE' && (await offerOf()) === 'waiting')
+  await crKeys('a waiting delete')
+  await shot('347-delete-waiting')
+
+  scenario = { access: SUPERVISOR }
+  resetCr()
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-delete-open"]')
+  check('a supervisor is offered "Delete now" (the offer cell 348 words)', (await textOf('change-request-delete-open')).trim() === 'Delete now' && (await tid('change-request-delete-open').getAttribute('data-mode')) === 'now')
+  await tid('change-request-delete-open').click()
+  check('…its form submits as "Delete entry 143 now"', (await textOf('change-request-delete-submit')).trim() === 'Delete entry 143 now')
+  await tid('change-request-delete-reason').fill('posted twice')
+  const holdNow = deferred()
+  cr.holdHistory = holdNow
+  cr.raise = () => FX.appliedDelete143
+  await tid('change-request-delete-submit').click()
+  await appears('[data-testid="change-request-finished"]')
+  check('🔑 an APPLIED answer: the entry is cancelled, drawn from the answer — the outcome read from requestStatus', (await offerOf()) === 'finished' && /This entry was cancelled/.test(await textOf('change-request-finished')) && /Entry 143 is cancelled\./.test(await toastText()))
+  holdNow.release()
+  cr.holdHistory = null
+  await settle()
+  scenario = {}
+
+  // ---- 25. a spent entry: no delete, the sentence, and "Reduce it to X" ----
+  resetCr()
+  await go(`${ROUTE}?store=0142&entry=151`)
+  await appears('[data-testid="change-request-remove"]')
+  check('🔑 a spent entry offers no delete', (await tid('change-request-delete-open').count()) === 0 && (await tid('change-request-open').count()) === 1)
+  check('🔑 …it says the branch has spent X — History\'s 200.00 — so it cannot be deleted', (await textOf('change-request-spent')).trim() === 'The branch has spent 200.00 from this entry, so it cannot be deleted.', await textOf('change-request-spent'))
+  check('…and offers "Reduce it to 200.00"', (await textOf('change-request-reduce')).trim() === 'Reduce it to 200.00')
+  await crKeys('the reduce offer')
+  await shot('347-reduce-offer')
+  await tid('change-request-reduce').click()
+  check('🔑 Reduce opens the change form with X filled in — 200, the Description as it stands', (await tid('change-request-form').count()) === 1 && (await tid('change-request-amount').inputValue()) === '200' && (await tid('change-request-description').inputValue()) === FX.accounts['0142'].entries.find((e) => e.settlementEntryId === FX.e151).reason)
+  check('…X is the floor itself, so the amount is accepted', /Lowest allowed: 200\.00\b/.test(await textOf('change-request-floor')) && (await tid('change-request-amount-error').count()) === 0)
+  check('…with an empty Reason to write', (await tid('change-request-reason').inputValue()) === '')
+  await tid('change-request-reason').fill('only 200 was ever over')
+  const holdReduce = deferred()
+  cr.holdHistory = holdReduce
+  cr.raise = () => ({ ...FX.raisedAnswer, settlementEntryId: FX.e151, entryNumber: 151, changeRequestId: 'R-RED', amount: 320, remainingAmount: 120, spentAmount: 200 })
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-card"][data-request="R-RED"]')
+  const sentReduce = cr.raiseCalls.at(-1) ?? {}
+  check('🔑 …and posts a CHANGE to exactly X: newAmount 200, newDescription null', sentReduce.requestKind === 'CHANGE' && sentReduce.newAmount === 200 && sentReduce.newDescription === null, JSON.stringify(sentReduce))
+  holdReduce.release()
+  cr.holdHistory = null
+  await settle()
+
+  resetCr()
+  cr.histories[FX.e128] = { ...cr.histories[FX.e128], remainingAmount: 0, spentAmount: 75.5 }
+  await go(`${ROUTE}?store=0142&entry=128`)
+  await appears('[data-testid="change-request-remove"]')
+  check('a wholly spent entry: the sentence alone — reducing to what it already is would change nothing', (await tid('change-request-remove').getAttribute('data-remove')) === 'spent-whole' && /spent 75\.50 from this entry, so it cannot be deleted/.test(await textOf('change-request-spent')) && (await tid('change-request-reduce').count()) === 0 && (await tid('change-request-delete-open').count()) === 0)
+
+  // ---- 26. a stubbed DELETE_SPENT does the same, from the ANSWER ----
+  resetCr({
+    raise: () => {
+      // A till spent 120 since the pane read 0 — History will say so too, once re-read.
+      cr.histories[FX.e143] = structuredClone(FX.spent143)
+      return FX.deleteSpent143
+    },
+  })
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-delete-open"]')
+  await tid('change-request-delete-open').click()
+  await tid('change-request-delete-reason').fill('posted twice')
+  const holdSpent = deferred()
+  cr.holdHistory = holdSpent
+  await tid('change-request-delete-submit').click()
+  await appears('[data-testid="change-request-notice"]')
+  n = await noticeOf()
+  check('🔑 DELETE_SPENT is said by its code, naming the ANSWER\'s spent figure, while the re-read is held', n.code === 'DELETE_SPENT' && n.step === 'reduce' && /The branch has spent 120\.00 from entry 143, so it cannot be deleted\./.test(n.text), JSON.stringify(n))
+  check('🔑 …and offers "Reduce it to 120.00" from the answer', (await tid('change-request-reduce').count()) === 1 && (await tid('change-request-reduce').getAttribute('data-to')) === '120' && /Reduce it to 120\.00/.test(await textOf('change-request-reduce')))
+  check('…the delete form is gone, and no delete is offered now', (await tid('change-request-delete-form').count()) === 0 && (await tid('change-request-delete-open').count()) === 0)
+  check('…said ONCE: the cell beneath does not repeat the sentence', (await tid('change-request-remove').count()) === 0)
+  await crKeys('a DELETE_SPENT refusal')
+  await shot('347-delete-spent')
+  holdSpent.release()
+  cr.holdHistory = null
+  await settle()
+  check('…and still so once History is re-read (it now says 120 too)', (await tid('change-request-reduce').count()) === 1 && (await tid('change-request-delete-open').count()) === 0)
+  await tid('change-request-reduce').click()
+  check('🔑 Reduce opens the change form at 120, the floor 120.00', (await tid('change-request-amount').inputValue()) === '120' && /Lowest allowed: 120\.00\b/.test(await textOf('change-request-floor')), `${await tid('change-request-amount').inputValue()} · ${await textOf('change-request-floor')}`)
+  check('…carrying the refused delete\'s Reason, to edit', (await tid('change-request-reason').inputValue()) === 'posted twice')
+  cr.raise = () => ({ ...FX.raisedAnswer, changeRequestId: 'R-RED-143', amount: 500, remainingAmount: 380, spentAmount: 120 })
+  const holdRed143 = deferred()
+  cr.holdHistory = holdRed143
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-card"][data-request="R-RED-143"]')
+  const sentSpent = cr.raiseCalls.at(-1) ?? {}
+  check('…and posts newAmount 120', sentSpent.requestKind === 'CHANGE' && sentSpent.newAmount === 120 && sentSpent.newDescription === null, JSON.stringify(sentSpent))
+  holdRed143.release()
+  cr.holdHistory = null
+  await settle()
+
+  // ---- 27. an approved delete cancels the entry; 400s ----
+  scenario = { access: SUPERVISOR }
+  resetCr({
+    approve: () => {
+      cr.histories[FX.e143] = structuredClone(FX.afterDelete143)
+      return FX.approvedDelete143
+    },
+  })
+  cr.histories[FX.e143] = structuredClone(FX.withDelete143)
+  await openCard(143)
+  check('a supervisor reads the waiting delete, with Approve and Reject', (await tid('change-request-card').getAttribute('data-kind')) === 'DELETE' && (await tid('change-request-approve').count()) === 1)
+  const holdApproveDel = deferred()
+  cr.holdHistory = holdApproveDel
+  await tid('change-request-approve').click()
+  await appears('[data-testid="change-request-finished"]')
+  check('🔑 an approved delete redraws the entry as CANCELLED from the answer, while the re-read is held', (await offerOf()) === 'finished' && /This entry was cancelled/.test(await textOf('change-request-finished')) && (await tid('change-request-card').count()) === 0 && (await tid('change-request-open').count()) === 0)
+  check('…Approve sent only { changeRequestId }', JSON.stringify(cr.decideCalls.at(-1)?.body) === JSON.stringify({ changeRequestId: 'R-DEL' }))
+  holdApproveDel.release()
+  cr.holdHistory = null
+  await settle()
+  check('…and the re-read agrees: finished', (await offerOf()) === 'finished')
+  check('🚩 W13: the ENTRY is cancelled; no request is ever called "cancelled"', !/request (was|is) cancelled|cancelled the (change )?request/i.test(`${await page.locator('body').innerText()} ${await toastText()}`))
+  await crKeys('an approved delete')
+  await shot('347-approved-delete')
+  scenario = {}
+
+  resetCr({ raiseInvalid: { code: 'SettlementDeleteTakesNoFigures', message: SERVER_WORDS } })
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-delete-open"]')
+  await tid('change-request-delete-open').click()
+  await tid('change-request-delete-reason').fill('posted twice')
+  await tid('change-request-delete-submit').click()
+  await appears('[data-testid="change-request-delete-error"]')
+  check('a 400 SettlementDeleteTakesNoFigures lands at the delete form\'s foot, in 344\'s words', (await tid('change-request-delete-error').getAttribute('data-code')) === 'SettlementDeleteTakesNoFigures' && /A delete names no amount/.test(await textOf('change-request-delete-error')) && !(await page.locator('body').innerText()).includes(SERVER_WORDS))
+  cr.raiseInvalid = { code: 'SettlementChangeReasonRequired', message: SERVER_WORDS }
+  await tid('change-request-delete-reason').fill('posted twice!')
+  check('…the next keystroke clears it', (await tid('change-request-delete-error').count()) === 0)
+  await tid('change-request-delete-submit').click()
+  await appears('[data-testid="change-request-delete-reason-error"]')
+  check('…and a Reason 400 lands on the delete form\'s Reason box', /A Reason is required/.test(await textOf('change-request-delete-reason-error')))
+  await crKeys('ticket 347')
 
   // ---- 6. ----
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' | '))

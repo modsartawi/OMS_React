@@ -19,6 +19,18 @@
 //   6. the mark is named in words (aria-label + tooltip), and no raw t() key or page error
 //      appears anywhere.
 //
+// Ticket 343 — the change-request pane (W2–W8, 2191/2192's History + Raise):
+//   7. the pane sits BELOW the approval pane and ABOVE the correction pane;
+//   8. an accountant on an untouched entry: "Request a change", the form pre-filled with the
+//      amount and Description, "lowest allowed" from History's spentAmount, Submit held while
+//      nothing differs (also at holding scale), the raise sends ONLY the changed field, and the
+//      waiting card is drawn from the answer BEFORE the held History re-read lands — then the
+//      re-read's own row replaces it and the account is re-read;
+//   9. a spent entry's floor (below it is refused in the form), a Description-only change, and
+//      the form's state reset when the selection changes;
+//  10. a finished entry says why; a supervisor reads "Change now"; a refused raise is said;
+//  11. a 404 from History (bare) or Raise (envelope) says "not available yet" and nothing crashes.
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
 import { createRequire } from 'node:module'
@@ -60,6 +72,27 @@ const REQUEST_ID = '01K6G8Z3N4QH5V2C7M9R1T0XYB'
 let scenario = {}
 let FX = null
 
+/** 343's door state: what History and Raise answer, and what was asked of them. */
+let cr = { histories: {}, historyCalls: [], raiseCalls: [], accountCalls: 0 }
+const resetCr = (o = {}) => {
+  cr = {
+    histories: structuredClone(FX.histories),
+    raise: () => FX.raisedAnswer,
+    holdHistory: null,
+    historyMissing: false,
+    raiseMissing: false,
+    historyCalls: [],
+    raiseCalls: [],
+    accountCalls: 0,
+    ...o,
+  }
+}
+const deferred = () => {
+  let release
+  const promise = new Promise((r) => (release = r))
+  return { promise, release }
+}
+
 /** An SIS.Api older than the wave: the same rows, the field not sent at all. */
 const strip = (rows) => rows.map(({ openChangeRequestId, ...rest }) => rest)
 const answer = (rows) => (scenario.oldServer ? strip(rows) : rows)
@@ -84,7 +117,29 @@ async function run() {
 
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') return route.fulfill(envelope(ACCOUNTANT))
+    if (path === 'CollectionWeb/Access') return route.fulfill(envelope(scenario.access ?? ACCOUNTANT))
+    if (path === 'Settlement/Account') {
+      cr.accountCalls++
+      return route.fulfill(
+        envelope(FX.accounts?.[q('storeId')] ?? { storeId: q('storeId'), storeName: '', entries: [], consumptions: [] }),
+      )
+    }
+    if (path === 'Settlement/ChangeRequest/History') {
+      const id = q('settlementEntryId')
+      cr.historyCalls.push(id)
+      const hold = cr.holdHistory
+      if (hold) await hold.promise
+      // ⚠️ A BARE 404 — what an SIS.Api without the route answers: no envelope at all.
+      if (cr.historyMissing) return route.fulfill({ status: 404, contentType: 'text/plain', body: '' })
+      return route.fulfill(envelope(cr.histories[id] ?? {}))
+    }
+    if (path === 'Settlement/ChangeRequest/Raise') {
+      const body = route.request().postDataJSON()
+      cr.raiseCalls.push(body)
+      if (cr.raiseMissing)
+        return route.fulfill(envelope(null, { status: 404, success: false, message: 'Not Found' }))
+      return route.fulfill(envelope(cr.raise(body)))
+    }
     if (path === 'Settlement/Ledger') {
       // 🔑 One door, three readings — the lane (`status=OPEN`), the queue
       // (`status=PENDING_APPROVAL`) and the Ledger view's own criteria.
@@ -196,6 +251,54 @@ async function run() {
     }
   })
 
+  // 343: the accounts and every History read, built IN the app from the contract-shaped
+  // fixtures, so the stub serves exactly the shapes the pure suite is proven against.
+  Object.assign(
+    FX,
+    await page.evaluate(async () => {
+      const acc = await import('/src/features/collection/settlement/settlement-fixture.ts')
+      const crf = await import('/src/features/collection/settlement/change-request-fixture.ts')
+      const a0142 = structuredClone(acc.SETTLEMENT_ACCOUNTS['0142'])
+      const a0688 = structuredClone(acc.SETTLEMENT_ACCOUNTS['0688'])
+      const find = (a, n) => a.entries.find((e) => e.entryNumber === n)
+      // A pending surplus on the same branch, so the approval pane is drawn above the new one.
+      const e151 = find(a0142, 151)
+      a0142.entries.push({
+        ...e151,
+        settlementEntryId: '01J9SETL0142P',
+        entryNumber: 160,
+        amount: 600,
+        remainingAmount: 600,
+        status: 'PENDING_APPROVAL',
+      })
+      // The SERVER's spent figures — 151's 200 is stated, never subtracted here.
+      const spent = { 143: 0, 151: 200, 128: 0, 160: 0 }
+      const histories = {}
+      for (const e of a0142.entries)
+        histories[e.settlementEntryId] = crf.historyOf(e, { spentAmount: spent[e.entryNumber] ?? 0 })
+      for (const e of a0688.entries) histories[e.settlementEntryId] = crf.historyOf(e, { spentAmount: 0 })
+      const e143 = find(a0142, 143)
+      const waiting = crf.waitingRequestOn(e143, {
+        changeRequestId: 'R-343',
+        newAmount: 450,
+        requestReason: 'typed 500 instead of 450',
+      })
+      return {
+        accounts: { '0142': a0142, '0688': a0688 },
+        histories,
+        e143: e143.settlementEntryId,
+        e151: e151.settlementEntryId,
+        e128: find(a0142, 128).settlementEntryId,
+        e143Reason: e143.reason,
+        afterRaise143: crf.historyOf(e143, { spentAmount: 0, openRequest: waiting }),
+        raisedAnswer: crf.raisedAnswerFor(e143, waiting, 0),
+        belowSpent: crf.BELOW_SPENT_SAMPLE,
+        requesterName: crf.REQUESTER.name,
+      }
+    }),
+  )
+  resetCr()
+
   // The thefts, by number, from 339's fixture: 1412 pending, 1413 approved, 1414 rejected.
   const theftRow = (n) => structuredClone(FX.theftLedger.find((r) => r.entryNumber === n))
   const approvedTheft = { ...theftRow(1413), openChangeRequestId: REQUEST_ID }
@@ -269,6 +372,172 @@ async function run() {
   await settle()
   const oldLedger = await drawn('settlement-ledger')
   check('…and the Ledger too', oldLedger.length === 3 && oldLedger.every((r) => !r.marked), `${oldLedger.length} drawn`)
+
+  // ======== Ticket 343 — the change-request pane ========
+  scenario = {}
+  resetCr()
+  const pane = () => page.locator('[data-region="entry-change-request"]')
+  const offerOf = async () => pane().getAttribute('data-offer')
+  const tid = (id) => page.locator(`[data-testid="${id}"]`)
+  const held = async () => (await tid('change-request-submit').getAttribute('aria-disabled')) === 'true'
+  const textOf = async (id) => (await tid(id).count()) ? tid(id).first().innerText() : ''
+  /** Select an entry by clicking its grid row — a selection change inside one page life. */
+  const pickEntry = async (id, number) => {
+    await page.locator(`[data-region="branch-account"] .ag-row[row-id="${id}"] [col-id="entryNumber"]`).first().click()
+    await page
+      .waitForFunction(
+        (n) => document.querySelector('[data-region="entry-change-request"]')?.getAttribute('data-entry') === n,
+        String(number),
+        { timeout: 8000 },
+      )
+      .catch(() => {})
+    await settle()
+  }
+  const crKeys = async (where) => {
+    const text = await page.locator('body').innerText()
+    check(`${where} → no raw t() key on screen`, !/\bchangeRequest\.[a-zA-Z]|settlement:/.test(text))
+  }
+  /** Is A before B in the document? */
+  const before = (a, b) =>
+    page.evaluate(([x, y]) => {
+      const ex = document.querySelector(x)
+      const ey = document.querySelector(y)
+      return !!ex && !!ey && !!(ex.compareDocumentPosition(ey) & Node.DOCUMENT_POSITION_FOLLOWING)
+    }, [a, b])
+
+  // ---- 7. where the pane sits (W2) ----
+  await go(`${ROUTE}?store=0142&entry=160`)
+  await appears('[data-region="entry-change-request"][data-offer="ask"]')
+  check('🔑 W2: the change-request pane sits BELOW the approval pane (a pending entry)…', await before('[data-region="entry-approval"]', '[data-region="entry-change-request"]'))
+  check('…and ABOVE the correction pane', await before('[data-region="entry-change-request"]', '[data-region="entry-correction"]'))
+
+  // ---- 8. an accountant asks to change an untouched entry ----
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-region="entry-change-request"][data-offer="ask"]')
+  check('an untouched OPEN shortage offers "Request a change" to an accountant', (await textOf('change-request-open')).trim() === 'Request a change' && (await tid('change-request-open').getAttribute('data-mode')) === 'request')
+  check('…and History was read for THIS entry', cr.historyCalls.includes(FX.e143))
+  await tid('change-request-open').click()
+  check('🔑 the form opens with the entry\'s current amount…', (await tid('change-request-amount').inputValue()) === '500')
+  check('…and its Description filled in', (await tid('change-request-description').inputValue()) === FX.e143Reason)
+  check('"lowest allowed" is History\'s spentAmount (0 here)', /Lowest allowed: 0\.00\b/.test(await textOf('change-request-floor')), await textOf('change-request-floor'))
+  check('the Reason box is marked required', (await tid('change-request-reason-required').count()) === 1)
+  check('🔑 Submit is held while nothing differs, and the form says so', (await held()) && (await tid('change-request-unchanged').count()) === 1)
+  await tid('change-request-reason').fill('  typed 500 instead of 450  ')
+  check('…still held with a Reason typed, as nothing differs', await held())
+  await tid('change-request-amount').fill('500.0004')
+  check('🔑 …and still held at 500.0004 — "nothing differs" is decided at holding scale', await held())
+  await tid('change-request-amount').fill('450')
+  check('a changed amount releases Submit and the "nothing differs" line goes', !(await held()) && (await tid('change-request-unchanged').count()) === 0)
+  await crKeys('the change form')
+  await shot('343-form')
+
+  // Hold the re-read, so "drawn from the answer BEFORE the refetch" is observable.
+  const hold = deferred()
+  cr.holdHistory = hold
+  const historyBefore = cr.historyCalls.length
+  const accountBefore = cr.accountCalls
+  cr.histories[FX.e143] = FX.afterRaise143
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-card"]')
+  const sent = cr.raiseCalls.at(-1) ?? {}
+  check('🔑 the raise sends ONLY the changed field — newAmount 450, newDescription null', sent.newAmount === 450 && sent.newDescription === null && sent.requestKind === 'CHANGE' && sent.settlementEntryId === FX.e143, JSON.stringify(sent))
+  check('…with the Reason trimmed', sent.reason === 'typed 500 instead of 450')
+  check('…and no field the contract did not name (no newBusinessDay on a shortage)', !('newBusinessDay' in sent))
+  check('🔑 W8: the waiting card is drawn from the ANSWER while the History re-read is still held', cr.historyCalls.length > historyBefore && (await tid('change-request-card').getAttribute('data-request')) === 'R-343')
+  check('…old → new, only what differs: the amount, not the Description', /500\.00 → 450\.00/.test(await textOf('change-request-card-amount')) && (await tid('change-request-card-description').count()) === 0, await textOf('change-request-card-amount'))
+  check('…who asked (the session, until the server\'s row lands)', /Asked by msartawi/.test(await textOf('change-request-card-by')), await textOf('change-request-card-by'))
+  check('…the Reason', (await textOf('change-request-card-reason')).trim() === 'typed 500 instead of 450')
+  check('…and that the entry keeps working at its current figures until decided', /keeps working at its current figures until this request is decided/.test(await textOf('change-request-card-live')))
+  check('the form is gone', (await tid('change-request-form').count()) === 0)
+  hold.release()
+  cr.holdHistory = null
+  await page
+    .waitForFunction((name) => (document.querySelector('[data-testid="change-request-card-by"]')?.textContent ?? '').includes(name), FX.requesterName, { timeout: 8000 })
+    .catch(() => {})
+  await settle()
+  const by = await textOf('change-request-card-by')
+  check('🔑 …then the re-read\'s own row replaces it: the requester and time are the server\'s', by.includes(FX.requesterName) && / on /.test(by), by)
+  check('…and the account was re-read too (invalidateSettlement)', cr.accountCalls > accountBefore)
+  check('the pane now reads "waiting"', (await offerOf()) === 'waiting')
+  await crKeys('the waiting card')
+  await shot('343-waiting')
+
+  // ---- 9. a spent entry's floor; a Description-only change; state per entry ----
+  await pickEntry(FX.e151, 151)
+  check('🔑 another entry selected: nothing carried over from 143', (await offerOf()) === 'ask' && (await tid('change-request-form').count()) === 0 && (await tid('change-request-card').count()) === 0)
+  await tid('change-request-open').click()
+  check('…its form is its own: 320, and an empty Reason', (await tid('change-request-amount').inputValue()) === '320' && (await tid('change-request-reason').inputValue()) === '')
+  check('🔑 the floor is History\'s spentAmount — 200.00, not anything computed from the row', /Lowest allowed: 200\.00\b/.test(await textOf('change-request-floor')), await textOf('change-request-floor'))
+  await tid('change-request-reason').fill('surplus overstated')
+  await tid('change-request-amount').fill('199.999')
+  check('below the floor is refused in the form, and Submit held', (await held()) && /cannot go below it/.test(await textOf('change-request-amount-error')))
+  await tid('change-request-amount').fill('0')
+  check('…and so is a figure of zero', (await held()) && /greater than zero/.test(await textOf('change-request-amount-error')))
+  await tid('change-request-amount').fill('200')
+  check('exactly the floor is allowed', !(await held()))
+  await pickEntry(FX.e128, 128)
+  check('🔑 a selection change closes the form — the Reason typed for 151 goes with it', (await tid('change-request-form').count()) === 0)
+  await tid('change-request-open').click()
+  check('…open again on 128: an empty Reason', (await tid('change-request-reason').inputValue()) === '')
+  await tid('change-request-description').fill('  adjustment for last month — corrected  ')
+  await tid('change-request-reason').fill('description was incomplete')
+  cr.raise = () => ({ ...FX.raisedAnswer, settlementEntryId: FX.e128, entryNumber: 128, changeRequestId: 'R-128', amount: 75.5, remainingAmount: 75.5 })
+  // Held again: this stub's History for 128 never learns of the request, so the drawn card
+  // is what is checked — the re-read replacing it is section 8's proof.
+  const hold128 = deferred()
+  cr.holdHistory = hold128
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-card"][data-request="R-128"]')
+  const sent128 = cr.raiseCalls.at(-1) ?? {}
+  check('🔑 a Description-only change sends newAmount null and the trimmed Description', sent128.newAmount === null && sent128.newDescription === 'adjustment for last month — corrected', JSON.stringify(sent128))
+  check('…and the card names the Description, not the amount', (await tid('change-request-card-description').count()) === 1 && (await tid('change-request-card-amount').count()) === 0)
+  hold128.release()
+  cr.holdHistory = null
+  await settle()
+
+  // ---- 10. finished; a supervisor; a refused raise ----
+  await go(`${ROUTE}?store=0688&entry=147`)
+  await appears('[data-testid="change-request-finished"]')
+  check('a cancelled entry offers nothing and says why', (await offerOf()) === 'finished' && /was cancelled/.test(await textOf('change-request-finished')) && (await tid('change-request-open').count()) === 0)
+
+  scenario = { access: { ...ACCOUNTANT, canSuperviseSettlement: true } }
+  resetCr()
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-open"]')
+  check('a supervisor is offered "Change now" (the offer cell 348 words)', (await textOf('change-request-open')).trim() === 'Change now' && (await tid('change-request-open').getAttribute('data-mode')) === 'now')
+
+  scenario = {}
+  resetCr({ raise: () => FX.belowSpent })
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-open"]')
+  await tid('change-request-open').click()
+  await tid('change-request-amount').fill('100')
+  await tid('change-request-reason').fill('x')
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-notice"]')
+  check('a refused raise is said, with its code, and the form stays', (await tid('change-request-notice').getAttribute('data-code')) === 'BELOW_SPENT' && (await tid('change-request-form').count()) === 1 && (await tid('change-request-card').count()) === 0)
+  await crKeys('a refused raise')
+
+  // ---- 11. SIS.Api without the wave ----
+  resetCr({ historyMissing: true })
+  const errorsBefore404 = errors.length
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-unavailable"]')
+  check('🔑 a bare 404 on History: "not available yet", never a crash', (await offerOf()) === 'not-shipped' && /not available yet/.test(await textOf('change-request-unavailable')))
+  check('…and the rest of the panel works as before (the correction pane is drawn)', (await page.locator('[data-region="entry-correction"]').count()) === 1)
+  check('…one History call — a 404 is not retried', cr.historyCalls.length === 1, String(cr.historyCalls.length))
+  await crKeys('the unavailable pane')
+  await shot('343-unavailable')
+  resetCr({ raiseMissing: true })
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-open"]')
+  await tid('change-request-open').click()
+  await tid('change-request-amount').fill('450')
+  await tid('change-request-reason').fill('x')
+  await tid('change-request-submit').click()
+  await appears('[data-testid="change-request-unavailable"]')
+  check('a 404 envelope on Raise says the same', (await offerOf()) === 'not-shipped')
+  check('…and neither 404 put an error on the page', errors.length === errorsBefore404, errors.slice(errorsBefore404, errorsBefore404 + 3).join(' | '))
 
   // ---- 6. ----
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' | '))

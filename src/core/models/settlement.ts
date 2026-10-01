@@ -1047,3 +1047,138 @@ export type SettlementBulkCancelRow = {
   remainingAmount: number
   status: SettlementEntryStatus
 }
+
+/* ── change requests (spec 342, BackOffice 2191–2195) ─────────────────────────── */
+
+/**
+ * What a change request asks for (BackOffice 2191; `DELETE` is 2193's). A delete
+ * **cancels the entry** once approved — it never removes it.
+ */
+export type SettlementChangeRequestKind = 'CHANGE' | 'DELETE'
+
+/**
+ * Where a change request has got to (BackOffice 2191 / 2194). A request is
+ * **withdrawn**, **rejected** or **superseded** — never "cancelled" (spec 342 W13).
+ */
+export type SettlementChangeRequestStatus = 'OPEN' | 'APPLIED' | 'REJECTED' | 'WITHDRAWN' | 'SUPERSEDED'
+
+/**
+ * One change request on an entry — a `requests[]` row of the History read, and its
+ * `openRequest` (BackOffice 2191's table, field for field).
+ *
+ * 🔑 **A field the request does not change carries the same value in `old…` and
+ * `new…`** — so *"what is asked"* is the fields that differ, read at the scale money is
+ * held at (`change-request.ts`), never a flag the server sends.
+ *
+ * ⚠️ Every time is **local wall clock**, and an unstamped one is `0001-01-01T00:00:00`
+ * (`approval.ts`'s `isStamped` reads both).
+ */
+export type SettlementChangeRequest = {
+  /** ULID. */
+  changeRequestId: string
+  settlementEntryId: string
+  storeId: string
+  requestKind: SettlementChangeRequestKind
+  status: SettlementChangeRequestStatus
+  /** The entry's amount when the request was raised, and the amount asked for. */
+  oldAmount: number
+  newAmount: number
+  /** The entry's description (the wire's `reason` on the entry) then, and the one asked for. */
+  oldDescription: string
+  newDescription: string
+  /** A theft's day at midnight; `0001-01-01T00:00:00` on a shortage or surplus (2195). */
+  oldBusinessDay: string
+  newBusinessDay: string
+  /** The entry's spent figure when decided; `0` while open. */
+  spentAtDecision: number
+  requestedByStaffId: string
+  /** Under the name they had then — an audit fact, never re-resolved. */
+  requestedByName: string
+  requestedAt: string
+  /** The **Reason** — why it was asked. Server text, passed through unlocalised. */
+  requestReason: string
+  /** `''` / `0001-01-01T00:00:00` while open. */
+  decidedByStaffId: string
+  decidedByName: string
+  decidedAt: string
+  /** A rejection's reason; `''` otherwise. */
+  decisionReason: string
+}
+
+/**
+ * `GET Settlement/ChangeRequest/History?settlementEntryId=` (BackOffice 2191, with
+ * 2192's five entry figures).
+ *
+ * 🔑 **`spentAmount` is the floor for a new amount, and it is the server's** —
+ * `amount − remainingAmount` net of reversals, computed THERE. This feature never
+ * subtracts it for itself (spec 342 W3).
+ *
+ * ⚠️ The entry figures are the entry **at the moment of reading** — what a supervisor
+ * judges a request against. A read, not a guard: Approve re-checks.
+ */
+export type SettlementChangeRequestHistory = {
+  settlementEntryId: string
+  /** The request still waiting on the entry, or `null`. */
+  openRequest: SettlementChangeRequest | null
+  /** Every request on the entry, newest first; empty for an entry never changed. */
+  requests: SettlementChangeRequest[]
+  /** `0` when the entry does not exist. */
+  entryNumber: number
+  /** `''` when the entry does not exist. */
+  entryStatus: SettlementEntryStatus | ''
+  amount: number
+  remainingAmount: number
+  spentAmount: number
+}
+
+/**
+ * `POST Settlement/ChangeRequest/Raise`'s body (BackOffice 2191; `DELETE` 2193,
+ * `newBusinessDay` 2195).
+ *
+ * 🔑 **`null` leaves that field as it is** — so a change sends only what differs, and
+ * a delete sends no figure at all (`SettlementDeleteTakesNoFigures`).
+ */
+export type SettlementChangeRequestRaiseBody = {
+  settlementEntryId: string
+  requestKind: SettlementChangeRequestKind
+  newAmount?: number | null
+  newDescription?: string | null
+  /** A bare date (`"2025-08-12"`), a theft only (2195). */
+  newBusinessDay?: string | null
+  /** Required, ≤ 200. */
+  reason: string
+}
+
+/**
+ * What every change-request act answers — Raise, Approve, Reject and Withdraw
+ * (BackOffice 2191's table, with 2195's `businessDay`).
+ *
+ * 🔑 **A refusal is a 200 with `accepted: false`**, keyed off `refusalReason` — a
+ * machine code, never a sentence (spec 342 W7). The entry's figures are its figures
+ * **now**, and the pane redraws from them at once, before any re-read (W8).
+ *
+ * ⚠️ **"Applied at once" is read from `requestStatus: "APPLIED"`**, never from the
+ * session's supervision flag (W1).
+ */
+export type SettlementChangeRequestActResult = {
+  accepted: boolean
+  /** `''` when accepted. */
+  refusalReason: string
+  /** The request acted on; `''` on a refused raise, except `CHANGE_ALREADY_OPEN`. */
+  changeRequestId: string
+  /** The request's status now; `''` when nothing was stored. */
+  requestStatus: SettlementChangeRequestStatus | ''
+  /** `''` / `0` when the entry does not exist. */
+  settlementEntryId: string
+  entryNumber: number
+  amount: number
+  remainingAmount: number
+  spentAmount: number
+  /** The entry's description now. */
+  description: string
+  /** `''` when the entry does not exist. */
+  entryStatus: SettlementEntryStatus | ''
+  /** The entry's business day now, at midnight; `0001-01-01T00:00:00` on a shortage or
+   *  surplus, or when the entry does not exist (2195). */
+  businessDay: string
+}

@@ -162,7 +162,7 @@
   "correction": {
     "title": "Correcting a mistake",
     "forEntry": "Entry {{number}}",
-    "noAmend": "Changing the amount is not offered at all. Once posted, an entry is either withdrawn whole while nothing has been taken against it, or its remainder written off once a till has taken part of it — and both are an accountant supervisor's acts. A wrong entry is cancelled by a supervisor and posted again.",
+    "noAmend": "Changing the amount is not offered at all here. Once posted, an entry is either withdrawn whole while nothing has been taken against it, or its remainder written off once a till has taken part of it — and both are an accountant supervisor's acts. A wrong amount or Description is asked for as a change request, above; otherwise a wrong entry is cancelled by a supervisor and posted again.",
     "journalUntouched": "Neither act touches what a till has already taken — the journal below is unchanged by a write-off, and a receipt already in a collector's hands is never retro-voided.",
     "reasonLabel": "Why (the audit reads this)",
     "reasonHint": "Up to {{max}} characters. It is kept beside the correction in this branch's history, and read by whoever asks about this entry months from now.",
@@ -213,6 +213,74 @@
     "mark": {
       "label": "Change waiting",
       "title": "A change request is waiting on this entry. Open the entry to see what is asked."
+    },
+    "title": "Change request",
+    "forEntry": "Entry {{number}}",
+    "loading": "Reading this entry's change requests…",
+    "unavailable": "Change requests are not available yet — this server does not offer them. Nothing else on this entry is affected.",
+    "unstated": "This entry's change requests could not be read in full, so no change can be asked for here yet.",
+    "readOnly": "Asking for a change needs the settlement grant, which this session does not hold.",
+    "finished": {
+      "cancelled": "This entry was cancelled. A finished entry is never changed, so no change can be asked for.",
+      "written-off": "This entry's remainder was written off. A finished entry is never changed, so no change can be asked for.",
+      "rejected": "A supervisor rejected this entry. A finished entry is never changed, so no change can be asked for — post a corrected entry instead."
+    },
+    "ask": {
+      "why": "If entry {{number}}'s amount or Description is wrong, ask for a change. A supervisor approves or rejects it; until then the entry keeps working at its current figures.",
+      "request": "Request a change",
+      "now": "Change now"
+    },
+    "form": {
+      "amount": {
+        "label": "Amount",
+        "floor": "Lowest allowed: {{floor}} — what the branch has already spent from this entry.",
+        "invalid": "Type an amount greater than zero.",
+        "below-floor": "The branch has already spent {{floor}} from this entry, so the amount cannot go below it."
+      },
+      "description": {
+        "label": "Description",
+        "hint": "The entry's own text, which the branch reads. Up to {{max}} characters.",
+        "blank": "The Description cannot be empty.",
+        "too-long": "The Description can be at most {{max}} characters."
+      },
+      "reason": {
+        "label": "Reason",
+        "hint": "Why this change is asked for — the supervisor reads it before deciding. Up to {{max}} characters."
+      },
+      "unchanged": "Nothing differs from the entry yet. Change the amount or the Description to ask for a change.",
+      "submit": {
+        "request": "Send the change request",
+        "now": "Change entry {{number}} now"
+      },
+      "back": "Back"
+    },
+    "card": {
+      "waiting": {
+        "CHANGE": "A change request is waiting on entry {{number}}.",
+        "DELETE": "A request to delete entry {{number}} is waiting."
+      },
+      "field": {
+        "amount": "Amount",
+        "description": "Description",
+        "businessDay": "Business day"
+      },
+      "fromTo": "{{from}} → {{to}}",
+      "asked": "Asked by {{by}}",
+      "askedAt": "Asked by {{by}} on {{at}}",
+      "reason": "Reason",
+      "noReason": "No reason was recorded.",
+      "live": "Entry {{number}} keeps working at its current figures until this request is decided."
+    },
+    "refused": "The change request was not raised. The server answered {{code}}.",
+    "done": {
+      "raised": "Change request raised for entry {{number}}.",
+      "applied": "Entry {{number}} is changed."
+    },
+    "errors": {
+      "loadFailed": "This entry's change requests could not be read.",
+      "readForbidden": "This session no longer holds the settlement grant, so this entry's change requests cannot be read.",
+      "raiseFailed": "The change request could not be sent.",
+      "forbidden": "This session no longer holds the settlement grant — the change request was not raised."
     }
   },
   "audit": {

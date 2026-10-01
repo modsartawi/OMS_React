@@ -30,6 +30,9 @@ import type {
   SettlementBulkCommitResult,
   SettlementBulkPreview,
   SettlementCancelResult,
+  SettlementChangeRequestActResult,
+  SettlementChangeRequestHistory,
+  SettlementChangeRequestRaiseBody,
   SettlementChaseResult,
   SettlementChaseSubject,
   SettlementCloseOutResult,
@@ -89,6 +92,18 @@ export const canOpenSettlement = (r: CollectionAccessResult | null | undefined):
  */
 export const canSuperviseSettlement = (r: CollectionAccessResult | null | undefined): boolean =>
   r?.canSuperviseSettlement === true
+
+/**
+ * **The ONE query key of the change-request History read** (spec 342, ticket 343) —
+ * per entry, defined here once and reused by every slice of the wave (the pane, the
+ * audit column, the supersede warning). A second key for the same read is two caches
+ * that disagree about whether a request is waiting.
+ *
+ * The prefix (no id) invalidates every entry's read at once.
+ */
+export const CHANGE_REQUEST_HISTORY_KEY = ['settlement', 'change-request', 'history'] as const
+export const changeRequestHistoryKey = (settlementEntryId: string) =>
+  [...CHANGE_REQUEST_HISTORY_KEY, settlementEntryId] as const
 
 export const settlementApi = {
   /**
@@ -597,5 +612,29 @@ export const settlementApi = {
    */
   bulkCancel(batchId: string, reason: string): Promise<SettlementBulkCancelResult> {
     return api.post<SettlementBulkCancelResult>('Settlement/Bulk/Cancel', { batchId, reason })
+  },
+
+  /**
+   * `GET Settlement/ChangeRequest/History?settlementEntryId=` → every change request on
+   * one entry, the one still waiting, and the entry's figures **now** — including the
+   * server's `spentAmount`, the floor for a new amount (BackOffice 2191 / 2192).
+   *
+   * Behind the settlement grant. ⚠️ **A 404 means SIS.Api has not shipped the wave**:
+   * the pane says *"not available yet"* (`historyFailure`), so the web ships first.
+   */
+  changeRequestHistory(settlementEntryId: string): Promise<SettlementChangeRequestHistory> {
+    return api.get<SettlementChangeRequestHistory>('Settlement/ChangeRequest/History', { settlementEntryId })
+  },
+
+  /**
+   * `POST Settlement/ChangeRequest/Raise` → asks for a change (343) or a delete (347).
+   *
+   * 🔑 **A refusal is a 200 with `accepted: false`**, keyed off `refusalReason` (344
+   * words it). A malformed body is the 400 envelope with an `errors` code. ⚠️ A
+   * supervisor's own request applies at once — known from the answer's
+   * `requestStatus: "APPLIED"`, never from the probe (W1).
+   */
+  raiseChangeRequest(body: SettlementChangeRequestRaiseBody): Promise<SettlementChangeRequestActResult> {
+    return api.post<SettlementChangeRequestActResult>('Settlement/ChangeRequest/Raise', body)
   },
 }

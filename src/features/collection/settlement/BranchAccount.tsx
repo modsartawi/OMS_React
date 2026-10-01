@@ -24,12 +24,13 @@ import {
 } from './account-columns'
 import { settlementMoney } from './money-display'
 import { accountHeadline, projectAccount, type AccountEntryRow } from './account-projection'
-import { canSuperviseSettlement, settlementApi } from './api'
+import { canOpenSettlement, canSuperviseSettlement, settlementApi } from './api'
 import { ACCOUNT_LIMIT, GRID_PAGE_SIZE, isCapReached } from './cap'
 import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
 import Button from '@/core/ui/Button'
 import EntryApproval from './EntryApproval'
 import EntryAudit from './EntryAudit'
+import EntryChangeRequest from './EntryChangeRequest'
 import EntryCorrection from './EntryCorrection'
 import EntryJournal from './EntryJournal'
 import PostEntryDialog from './PostEntryDialog'
@@ -69,6 +70,8 @@ export default function BranchAccount({
   // 403 is the actual guard.
   const access = useQuery(collectionAccessQuery())
   const canSupervise = canSuperviseSettlement(access.data)
+  // 343: Raise sits behind the settlement grant — the one this screen's gate already read.
+  const canOpen = canOpenSettlement(access.data)
 
   // 🚩 The selection is an entry ID, not a row object. A refetch hands back new
   // objects, and a selection held by reference would silently drop the journal the
@@ -229,6 +232,14 @@ export default function BranchAccount({
             row={openRow}
             storeName={account.data?.storeName ?? ''}
             currencyKey={currencyKey}
+            canSupervise={canSupervise}
+          />
+          {/* 343 (spec 342 W2): the change request sits BELOW the approval and ABOVE the
+              correction — asking to correct a figure comes before withdrawing the entry. */}
+          <EntryChangeRequest
+            row={openRow}
+            currencyKey={currencyKey}
+            canOpen={canOpen}
             canSupervise={canSupervise}
           />
           <EntryCorrection row={openRow} currencyKey={currencyKey} canSupervise={canSupervise} />

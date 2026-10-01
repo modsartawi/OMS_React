@@ -61,6 +61,7 @@ import {
   PENDING_LANE_LIMIT,
   WORKLIST_LIMIT,
 } from './cap'
+import { changeRequestFailure } from './change-request'
 import type { PostRequest } from './posting'
 
 /**
@@ -107,6 +108,20 @@ export const canSuperviseSettlement = (r: CollectionAccessResult | null | undefi
 export const CHANGE_REQUEST_HISTORY_KEY = ['settlement', 'change-request', 'history'] as const
 export const changeRequestHistoryKey = (settlementEntryId: string) =>
   [...CHANGE_REQUEST_HISTORY_KEY, settlementEntryId] as const
+
+/**
+ * **The History read's ONE set of query options** (ticket 350) — the change-request
+ * pane and the audit column both observe it, so they share one cache entry, one request
+ * and one retry rule rather than two observers disagreeing about whether a 404 retries.
+ *
+ * ⚠️ A 404 (not shipped) or a 403 will not change on a retry — said at once.
+ */
+export const changeRequestHistoryQuery = (settlementEntryId: string) => ({
+  queryKey: changeRequestHistoryKey(settlementEntryId),
+  queryFn: () => settlementApi.changeRequestHistory(settlementEntryId),
+  enabled: settlementEntryId !== '',
+  retry: (count: number, error: unknown) => changeRequestFailure(error) === 'other' && count < 1,
+})
 
 export const settlementApi = {
   /**

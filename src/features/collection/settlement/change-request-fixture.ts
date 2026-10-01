@@ -250,3 +250,33 @@ function answerAbout(
     businessDay: entry.businessDay,
   }
 }
+
+/** An accountant supervisor of this repo's fixture staff — the decider of a request. */
+export const SUPERVISOR = { staffId: '30188', name: 'فيصل العتيبي / Faisal Al-Otaibi' }
+
+/**
+ * A request as History reads it once **decided** (BackOffice 2194's per-status table):
+ * who decided, when, and — for a rejection only — why. `spentAtDecision` is the
+ * caller's statement of the server's figure, never computed here.
+ */
+export function decidedRequest(
+  request: SettlementChangeRequest,
+  decision: {
+    status: Exclude<SettlementChangeRequest['status'], 'OPEN'>
+    decidedAt: string
+    decidedByStaffId?: string
+    decidedByName?: string
+    decisionReason?: string
+    spentAtDecision?: number
+  },
+): SettlementChangeRequest {
+  return {
+    ...request,
+    status: decision.status,
+    decidedAt: decision.decidedAt,
+    decidedByStaffId: decision.decidedByStaffId ?? SUPERVISOR.staffId,
+    decidedByName: decision.decidedByName ?? SUPERVISOR.name,
+    decisionReason: decision.decisionReason ?? '',
+    spentAtDecision: decision.spentAtDecision ?? 0,
+  }
+}

@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
-import { formatDateTime } from '@/core/util/date-format'
+import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
+import { changeRequestHistoryQuery } from './api'
 import { auditColumn, type AuditFact, type AuditWhere } from './audit'
 
 /**
@@ -24,6 +26,11 @@ import { auditColumn, type AuditFact, type AuditWhere } from './audit'
  *
  * 🚩 **Nothing here parses or converts a time.** `formatDateTime` reads the local
  * stamp back as it arrived, exactly as the grid and the journal do.
+ *
+ * 🔑 **350: every change request joins the column** (spec 342 W11) — from the History
+ * read the change-request pane already holds (`changeRequestHistoryQuery`: one key, one
+ * cache, one request). A History that 404s, fails or has not landed leaves the column
+ * exactly as it was: the entry's own facts are never held back waiting for it.
  */
 export default function EntryAudit({
   row,
@@ -33,7 +40,9 @@ export default function EntryAudit({
   currencyKey: string
 }) {
   const { t } = useTranslation('settlement')
-  const facts = useMemo(() => auditColumn(row), [row])
+  const history = useQuery(changeRequestHistoryQuery(row?.settlementEntryId ?? ''))
+  const requests = history.data?.requests
+  const facts = useMemo(() => auditColumn(row, requests), [row, requests])
 
   if (!row) return null
 
@@ -85,7 +94,30 @@ function Fact({ fact, currencyKey }: { fact: AuditFact; currencyKey: string }) {
     <>
       {/* Time first, monospaced, so a column of them scans as a column. */}
       <span className="tabular-nums text-muted-foreground">{formatDateTime(fact.at)}</span>{' '}
-      <b>{t(`audit.kind.${fact.kind}`)}</b>
+      <b>
+        {fact.request
+          ? // 350: a request's step, worded by its kind — a delete is not a change.
+            t(`audit.request.${fact.request.own ? 'own' : fact.kind}.${fact.request.kind}`)
+          : t(`audit.kind.${fact.kind}`)}
+      </b>
+      {fact.request?.changes.map((c) => (
+        // Old → new, only what differs — the waiting card's own words for the same fields.
+        <span key={c.field} data-change={c.field} className="tabular-nums">
+          {' '}
+          · {t(`changeRequest.card.field.${c.field}`)}{' '}
+          {c.field === 'amount'
+            ? t('changeRequest.card.fromTo', {
+                from: settlementMoney(c.from, currencyKey),
+                to: settlementMoney(c.to, currencyKey),
+              })
+            : c.field === 'businessDay'
+              ? t('changeRequest.card.fromTo', { from: formatDay(c.from), to: formatDay(c.to) })
+              : // 🚩 Each side ISOLATED, the arrow outside both — the note's separator lesson
+                // above: one `dir="auto"` run over two Arabic descriptions turns the whole
+                // "from → to" right-to-left, and the arrow then points at the old one.
+                t('changeRequest.card.fromTo', { from: isolate(c.from), to: isolate(c.to) })}
+        </span>
+      ))}
       {fact.amount !== null && (
         <span className="tabular-nums"> {settlementMoney(fact.amount, currencyKey)}</span>
       )}{' '}
@@ -128,6 +160,10 @@ function Fact({ fact, currencyKey }: { fact: AuditFact; currencyKey: string }) {
     </>
   )
 }
+
+/** Server text wrapped in a first-strong isolate (FSI … PDI): it keeps its own direction
+ *  without reordering the sentence around it. */
+const isolate = (text: string) => `\u2068${text}\u2069`
 
 /**
  * 🔑 **"From where"** — the store code for a consumption, the poster's name for a

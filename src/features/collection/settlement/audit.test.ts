@@ -11,8 +11,10 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import type { SettlementChangeRequest } from '@/core/models/settlement'
 import { projectAccount } from './account-projection'
-import { auditColumn, type AuditFact } from './audit'
+import { auditColumn, changedTag, type AuditFact } from './audit'
+import { REQUESTER, SUPERVISOR, UNSTAMPED, decidedRequest, waitingRequestOn } from './change-request-fixture'
 import { SETTLEMENT_ACCOUNTS } from './settlement-fixture'
 
 const rowOf = (code: string, entryNumber: number) => {
@@ -185,5 +187,243 @@ describe('what a consumption row carries', () => {
     expect(auditColumn(null)).toEqual([])
     expect(auditColumn(undefined)).toEqual([])
     expect(auditColumn({ ...rowOf('0512', 119), journal: [] }).map((f) => f.kind)).toEqual(['posted'])
+  })
+})
+
+/**
+ * **Every change request joins the column** (ticket 350, spec 342 W11) — one fact per
+ * step of each request, read from History and merged BY TIME with the entry's own facts.
+ *
+ * 0142/151 is the stage: posted 2026-08-11T09:02, a till took 200 at 2026-08-12T22:41.
+ * Its requests are placed around those two so the merge, not the input order, decides
+ * where each lands.
+ */
+describe('🔑 change requests in the column (350)', () => {
+  const row = rowOf('0142', 151)
+  const ask = (id: string, requestedAt: string, more: Parameters<typeof waitingRequestOn>[1] = {}) =>
+    waitingRequestOn(row, { changeRequestId: id, requestedAt, ...more })
+
+  const applied = decidedRequest(ask('R-APP', '2026-08-11T10:00:00', { newAmount: 300, requestReason: 'typed 320' }), {
+    status: 'APPLIED',
+    decidedAt: '2026-08-11T12:00:00',
+  })
+  const rejected = decidedRequest(ask('R-REJ', '2026-08-12T09:00:00', { newDescription: 'مرتجع' }), {
+    status: 'REJECTED',
+    decidedAt: '2026-08-12T15:00:00',
+    decisionReason: 'no evidence attached',
+  })
+  const withdrawn = decidedRequest(ask('R-WDR', '2026-08-13T08:00:00', { newAmount: 250 }), {
+    status: 'WITHDRAWN',
+    decidedAt: '2026-08-13T08:30:00',
+    decidedByStaffId: REQUESTER.staffId,
+    decidedByName: REQUESTER.name,
+  })
+  const superseded = decidedRequest(ask('R-SUP', '2026-08-13T10:00:00', { requestKind: 'DELETE' }), {
+    status: 'SUPERSEDED',
+    decidedAt: '2026-08-14T09:00:00',
+  })
+  const waiting = ask('R-OPEN', '2026-08-15T11:00:00', { newAmount: 280, requestReason: 'recount' })
+  // History lists newest first — the merge must not depend on it.
+  const requests = [waiting, superseded, withdrawn, rejected, applied]
+
+  it('each status yields its facts, interleaved by time with the posting and the till', () => {
+    expect(auditColumn(row, requests).map((f) => `${f.at} ${f.kind}`)).toEqual([
+      '2026-08-11T09:02:00 posted',
+      '2026-08-11T10:00:00 requested',
+      '2026-08-11T12:00:00 request-applied',
+      '2026-08-12T09:00:00 requested',
+      '2026-08-12T15:00:00 request-rejected',
+      '2026-08-12T22:41:00 consumed',
+      '2026-08-13T08:00:00 requested',
+      '2026-08-13T08:30:00 request-withdrawn',
+      '2026-08-13T10:00:00 requested',
+      '2026-08-14T09:00:00 request-superseded',
+      '2026-08-15T11:00:00 requested',
+    ])
+  })
+
+  it('the order is the same whatever order History listed them in', () => {
+    expect(auditColumn(row, [...requests].reverse())).toEqual(auditColumn(row, requests))
+  })
+
+  it('names the ACTOR under the name recorded then — the asker on a raise, the decider on a decision', () => {
+    const column = auditColumn(row, requests)
+    const of = (id: string, kind: AuditFact['kind']) => column.find((f) => f.id.includes(id) && f.kind === kind)
+    expect(of('R-APP', 'requested')?.where).toEqual({ kind: 'person', name: REQUESTER.name })
+    expect(of('R-APP', 'request-applied')?.where).toEqual({ kind: 'person', name: SUPERVISOR.name })
+    expect(of('R-REJ', 'request-rejected')?.where).toEqual({ kind: 'person', name: SUPERVISOR.name })
+    expect(of('R-WDR', 'request-withdrawn')?.where).toEqual({ kind: 'person', name: REQUESTER.name })
+    expect(of('R-SUP', 'request-superseded')?.where).toEqual({ kind: 'person', name: SUPERVISOR.name })
+  })
+
+  it('…and falls back to the staff id only when the server recorded no name', () => {
+    const nameless = { ...rejected, decidedByName: '' }
+    expect(auditColumn(row, [nameless]).find((f) => f.kind === 'request-rejected')?.where).toEqual({
+      kind: 'staff',
+      staffId: SUPERVISOR.staffId,
+    })
+  })
+
+  it('a raise carries the request’s Reason, a rejection its own — server text, verbatim', () => {
+    const column = auditColumn(row, requests)
+    expect(column.find((f) => f.id.includes('R-APP') && f.kind === 'requested')?.note).toBe('typed 320')
+    expect(column.find((f) => f.kind === 'request-rejected')?.note).toBe('no evidence attached')
+    expect(column.find((f) => f.id.includes('R-OPEN'))?.note).toBe('recount')
+  })
+
+  it('a raise and an application say what moved, old → new; the other decisions say only what was decided', () => {
+    const column = auditColumn(row, requests)
+    expect(column.find((f) => f.id.includes('R-APP') && f.kind === 'requested')?.request?.changes).toEqual([
+      { field: 'amount', from: 320, to: 300 },
+    ])
+    expect(column.find((f) => f.kind === 'request-applied')?.request?.changes).toEqual([
+      { field: 'amount', from: 320, to: 300 },
+    ])
+    expect(column.find((f) => f.kind === 'request-rejected')?.request?.changes).toEqual([])
+    expect(column.find((f) => f.kind === 'request-superseded')?.request?.kind).toBe('DELETE')
+  })
+
+  it('🚩 a request fact states no figure of its own and no remainder — those are the till’s and the posting’s', () => {
+    for (const f of auditColumn(row, requests).filter((f) => f.request)) {
+      expect(f.amount).toBeNull()
+      expect(f.remainingAfter).toBeNull()
+      expect(f.document).toBeNull()
+    }
+  })
+
+  it('🔑 a supervisor’s own request (decidedAt == requestedAt) is ONE applied fact, not a raise and an approval', () => {
+    const own = decidedRequest(
+      ask('R-OWN', '2026-08-12T23:00:00', {
+        newAmount: 300,
+        requestedByStaffId: SUPERVISOR.staffId,
+        requestedByName: SUPERVISOR.name,
+        requestReason: 'my own correction',
+      }),
+      { status: 'APPLIED', decidedAt: '2026-08-12T23:00:00' },
+    )
+    const facts = auditColumn(row, [own]).filter((f) => f.request)
+    expect(facts).toHaveLength(1)
+    expect(facts[0]).toMatchObject({
+      kind: 'request-applied',
+      at: '2026-08-12T23:00:00',
+      where: { kind: 'person', name: SUPERVISOR.name },
+      note: 'my own correction',
+      request: { kind: 'CHANGE', own: true, changes: [{ field: 'amount', from: 320, to: 300 }] },
+    })
+    // …while an approval by someone else is not "own".
+    expect(auditColumn(row, [applied]).find((f) => f.kind === 'request-applied')?.request?.own).toBe(false)
+  })
+
+  it('⚠️ an unstamped time gets no row rather than a row at the top of time', () => {
+    const unstampedAsk = ask('R-X', UNSTAMPED)
+    const undecided = { ...applied, changeRequestId: 'R-Y', decidedAt: UNSTAMPED }
+    const facts = auditColumn(row, [unstampedAsk, undecided]).filter((f) => f.request)
+    expect(facts.map((f) => `${f.id} ${f.kind}`)).toEqual(['request:R-Y:asked requested'])
+  })
+
+  it('🚩 a decision stamped in the same second as its raise still sorts after it', () => {
+    const same = decidedRequest(ask('R-Q', '2026-08-13T08:00:00'), {
+      status: 'REJECTED',
+      decidedAt: '2026-08-13T08:00:00',
+      decisionReason: 'no',
+    })
+    expect(auditColumn(row, [same]).filter((f) => f.request).map((f) => f.kind)).toEqual([
+      'requested',
+      'request-rejected',
+    ])
+  })
+
+  it('a request about ANOTHER entry is not drawn under this one', () => {
+    const elsewhere = { ...waiting, settlementEntryId: 'not-151' }
+    expect(auditColumn(row, [elsewhere]).some((f) => f.request)).toBe(false)
+  })
+
+  it('no History (a 404, still loading) leaves the column exactly as it was', () => {
+    expect(auditColumn(row, undefined)).toEqual(auditColumn(row))
+    expect(auditColumn(row, null)).toEqual(auditColumn(row))
+    expect(auditColumn(row, [])).toEqual(auditColumn(row))
+  })
+
+  it('the entry’s own facts carry no request', () => {
+    for (const f of auditColumn(row)) expect(f.request).toBeNull()
+  })
+})
+
+/**
+ * **The "Changed" tag — the till's rule (BackOffice 2197), read off History** (ticket 350,
+ * spec 342 W11): the date is the latest APPLIED change's `decidedAt`; the earlier amount
+ * is the `oldAmount` of the latest applied change that MOVED the amount.
+ */
+describe('🔑 changedTag (350)', () => {
+  const row = rowOf('0142', 143)
+  const change = (
+    id: string,
+    oldAmount: number,
+    newAmount: number,
+    decidedAt: string,
+    more: Partial<SettlementChangeRequest> = {},
+  ): SettlementChangeRequest => ({
+    ...decidedRequest(waitingRequestOn(row, { changeRequestId: id }), { status: 'APPLIED', decidedAt }),
+    oldAmount,
+    newAmount,
+    ...more,
+  })
+
+  it('500 → 450 → 420 shows the earlier amount 450, at the second change’s date', () => {
+    const first = change('R-1', 500, 450, '2026-09-01T10:00:00')
+    const second = change('R-2', 450, 420, '2026-09-05T14:30:00')
+    expect(changedTag([second, first])).toEqual({ at: '2026-09-05T14:30:00', earlierAmount: 450 })
+    expect(changedTag([first, second])).toEqual({ at: '2026-09-05T14:30:00', earlierAmount: 450 })
+  })
+
+  it('🔑 an amount change then a description-only change keeps the amount’s earlier figure and the LATER date', () => {
+    const amount = change('R-1', 350, 300, '2026-09-01T10:00:00')
+    const words = change('R-2', 300, 300, '2026-09-03T09:00:00', { newDescription: 'نقص في تسليم — مصحح' })
+    expect(changedTag([words, amount])).toEqual({ at: '2026-09-03T09:00:00', earlierAmount: 350 })
+  })
+
+  it('no applied change ⇒ no tag — waiting, rejected, withdrawn and superseded tag nothing', () => {
+    expect(changedTag([])).toBeNull()
+    expect(changedTag(null)).toBeNull()
+    expect(changedTag(undefined)).toBeNull()
+    expect(
+      changedTag([
+        waitingRequestOn(row, { newAmount: 450 }),
+        { ...change('R-2', 500, 450, '2026-09-01T10:00:00'), status: 'REJECTED' },
+        { ...change('R-3', 500, 450, '2026-09-02T10:00:00'), status: 'WITHDRAWN' },
+        { ...change('R-4', 500, 450, '2026-09-03T10:00:00'), status: 'SUPERSEDED' },
+      ]),
+    ).toBeNull()
+  })
+
+  it('🚩 an applied DELETE is not a "Changed" tag — the entry is cancelled', () => {
+    expect(changedTag([change('R-D', 500, 500, '2026-09-04T10:00:00', { requestKind: 'DELETE' })])).toBeNull()
+    // …and it does not move the date of an earlier change either.
+    const amount = change('R-1', 500, 450, '2026-09-01T10:00:00')
+    const del = change('R-D', 450, 450, '2026-09-04T10:00:00', { requestKind: 'DELETE' })
+    expect(changedTag([del, amount])).toEqual({ at: '2026-09-01T10:00:00', earlierAmount: 500 })
+  })
+
+  it('a change that never moved the amount is tagged with no earlier amount — the till’s "amount not changed"', () => {
+    expect(
+      changedTag([change('R-1', 500, 500, '2026-09-01T10:00:00', { newDescription: 'another description' })]),
+    ).toEqual({ at: '2026-09-01T10:00:00', earlierAmount: null })
+  })
+
+  it('⚠️ "moved" is read at holding scale — a figure the same to the fils did not move', () => {
+    expect(changedTag([change('R-1', 450, 450.0004, '2026-09-01T10:00:00')])).toEqual({
+      at: '2026-09-01T10:00:00',
+      earlierAmount: null,
+    })
+    expect(changedTag([change('R-1', 450, 449.999, '2026-09-01T10:00:00')])?.earlierAmount).toBe(450)
+  })
+
+  it('⚠️ an applied change with no decision stamp tags nothing rather than claiming the year 1', () => {
+    expect(changedTag([change('R-1', 500, 450, UNSTAMPED)])).toBeNull()
+  })
+
+  it('a supervisor’s own change counts like any applied one', () => {
+    const own = change('R-OWN', 500, 480, '2026-09-02T08:00:00', { requestedAt: '2026-09-02T08:00:00' })
+    expect(changedTag([own])).toEqual({ at: '2026-09-02T08:00:00', earlierAmount: 500 })
   })
 })

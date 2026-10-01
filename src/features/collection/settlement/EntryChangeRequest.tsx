@@ -17,7 +17,8 @@ import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import type { AccountEntryRow } from './account-projection'
-import { changeRequestHistoryKey, settlementApi } from './api'
+import { changeRequestHistoryQuery, settlementApi } from './api'
+import { changedTag } from './audit'
 import {
   afterDecide,
   afterWithdraw,
@@ -154,13 +155,8 @@ export default function EntryChangeRequest({
 
   const entryId = row?.settlementEntryId ?? ''
 
-  const history = useQuery({
-    queryKey: changeRequestHistoryKey(entryId),
-    queryFn: () => settlementApi.changeRequestHistory(entryId),
-    enabled: entryId !== '',
-    // ⚠️ A 404 (not shipped) or a 403 will not change on a retry — say so at once.
-    retry: (count, error) => changeRequestFailure(error) === 'other' && count < 1,
-  })
+  // ⚠️ The ONE History read (api.ts's options): the audit column observes the same one (350).
+  const history = useQuery(changeRequestHistoryQuery(entryId))
 
   /** Which form is open — the change form (343), or the delete form (347). */
   const [form, setForm] = useState<'change' | 'delete' | null>(null)
@@ -532,6 +528,7 @@ export default function EntryChangeRequest({
         <span className="font-mono text-[12px] text-muted-foreground">
           {t('changeRequest.forEntry', { number: row.entryNumber })}
         </span>
+        <ChangedBadge requests={history.data?.requests} money={money} />
       </header>
 
       {failure === 'not-shipped' ? (
@@ -988,6 +985,45 @@ function DeleteForm({
         </Button>
       </div>
     </div>
+  )
+}
+
+/**
+ * **"Changed"** (350, spec 342 W11) — the entry panel's header says the entry was
+ * changed by an approved change request, when, and what its amount was before: what
+ * the branch's till shows beside the same entry (BackOffice 2197).
+ *
+ * 🔑 `changedTag` decides it, off the History read's `requests[]` — never off a waiting
+ * request, and never off an act answer (which carries no decision time). Nothing is
+ * drawn until History says so, and nothing at all when History 404s.
+ */
+function ChangedBadge({
+  requests,
+  money,
+}: {
+  requests: readonly SettlementChangeRequest[] | undefined
+  money: (v: number | null | undefined) => string
+}) {
+  const { t } = useTranslation('settlement')
+  const tag = changedTag(requests)
+  if (!tag) return null
+
+  return (
+    <span
+      data-testid="entry-changed-tag"
+      data-at={tag.at}
+      className="inline-flex flex-wrap items-baseline gap-x-1.5 rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs"
+    >
+      <b className="font-semibold text-primary">{t('changeRequest.changed.tag')}</b>
+      {/* Local wall clock, as received — the day only, as the till shows it. */}
+      <span className="tabular-nums">{formatDay(tag.at)}</span>
+      <span className="text-muted-foreground" data-testid="entry-changed-earlier">
+        ·{' '}
+        {tag.earlierAmount === null
+          ? t('changeRequest.changed.amountUnchanged')
+          : t('changeRequest.changed.earlier', { amount: money(tag.earlierAmount) })}
+      </span>
+    </span>
   )
 }
 

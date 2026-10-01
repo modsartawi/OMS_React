@@ -1825,6 +1825,122 @@ async function run() {
   await shot('349-approved-day-move')
   scenario = {}
 
+  // ---- 35. ticket 350: every request in the audit column, and the "Changed" tag ----
+  // 0142/151: posted 2026-08-11T09:02, a till took 200 at 2026-08-12T22:41. History holds
+  // all five statuses and a supervisor's own change, listed NEWEST FIRST as the server does.
+  const AUDIT = await page.evaluate(async () => {
+    const acc = await import('/src/features/collection/settlement/settlement-fixture.ts')
+    const crf = await import('/src/features/collection/settlement/change-request-fixture.ts')
+    const e151 = acc.SETTLEMENT_ACCOUNTS['0142'].entries.find((e) => e.entryNumber === 151)
+    const ask = (id, requestedAt, more = {}) =>
+      crf.waitingRequestOn(e151, { changeRequestId: id, requestedAt, ...more })
+    // 350 → 320: the entry stands at 320 today, so the applied change's old figure is 350.
+    const applied = {
+      ...crf.decidedRequest(ask('R-APP', '2026-08-11T10:00:00', { requestReason: 'typed 350 instead of 320' }), {
+        status: 'APPLIED',
+        decidedAt: '2026-08-11T12:00:00',
+      }),
+      oldAmount: 350,
+      newAmount: 320,
+    }
+    const rejected = crf.decidedRequest(ask('R-REJ', '2026-08-12T09:00:00', { newAmount: 300 }), {
+      status: 'REJECTED',
+      decidedAt: '2026-08-12T15:00:00',
+      decisionReason: 'no evidence attached',
+    })
+    const withdrawn = crf.decidedRequest(ask('R-WDR', '2026-08-13T08:00:00', { newAmount: 250 }), {
+      status: 'WITHDRAWN',
+      decidedAt: '2026-08-13T08:30:00',
+      decidedByStaffId: crf.REQUESTER.staffId,
+      decidedByName: crf.REQUESTER.name,
+    })
+    const superseded = crf.decidedRequest(ask('R-SUP', '2026-08-13T10:00:00', { newAmount: 260 }), {
+      status: 'SUPERSEDED',
+      decidedAt: '2026-08-14T09:00:00',
+    })
+    // A supervisor's own Description-only change: one applied fact, and the tag's LATER date.
+    const own = crf.decidedRequest(
+      ask('R-OWN', '2026-08-14T12:00:00', {
+        newDescription: 'مرتجع شبكة — مصحح',
+        requestedByStaffId: crf.SUPERVISOR.staffId,
+        requestedByName: crf.SUPERVISOR.name,
+        requestReason: 'wording of the description',
+      }),
+      { status: 'APPLIED', decidedAt: '2026-08-14T12:00:00' },
+    )
+    const waiting = ask('R-OPEN', '2026-08-15T11:00:00', { newAmount: 280, requestReason: 'recount' })
+    return {
+      history: crf.historyOf(e151, {
+        spentAmount: 200,
+        openRequest: waiting,
+        requests: [waiting, own, superseded, withdrawn, rejected, applied],
+      }),
+      supervisor: crf.SUPERVISOR.name,
+      requester: crf.REQUESTER.name,
+    }
+  })
+  const facts = () =>
+    page.$$eval('[data-region="entry-audit"] li[data-fact]', (lis) =>
+      lis.map((li) => ({ kind: li.getAttribute('data-fact'), text: li.innerText })),
+    )
+
+  resetCr()
+  cr.histories[FX.e151] = structuredClone(AUDIT.history)
+  await go(`${ROUTE}?store=0142&entry=151`)
+  await appears('[data-region="entry-audit"] li[data-fact="requested"]')
+  await settle()
+  let column = await facts()
+  check(
+    '🔑 the audit column holds every request\'s steps, merged BY TIME with the posting and the till',
+    JSON.stringify(column.map((f) => f.kind)) ===
+      JSON.stringify([
+        'posted',
+        'requested', 'request-applied',
+        'requested', 'request-rejected',
+        'consumed',
+        'requested', 'request-withdrawn',
+        'requested', 'request-superseded',
+        'request-applied',
+        'requested',
+      ]),
+    column.map((f) => f.kind).join(', '),
+  )
+  check('…all five statuses are there: raised (waiting), applied, rejected, withdrawn, superseded', ['requested', 'request-applied', 'request-rejected', 'request-withdrawn', 'request-superseded'].every((k) => column.some((f) => f.kind === k)))
+  check('…and the times read in order, as received (local wall clock)', /^2026-08-11 10:00\b/.test(column[1].text) && /^2026-08-14 12:00\b/.test(column[10].text) && /^2026-08-15 11:00\b/.test(column[11].text), `${column[1].text} | ${column[11].text}`)
+  check('a raise names the asker and the request\'s Reason, with old → new', column[1].text.includes(`by ${AUDIT.requester}`) && column[1].text.includes('typed 350 instead of 320') && /350\.00 → 320\.00/.test(column[1].text), column[1].text)
+  check('the approval names the approving supervisor, under the name recorded then', column[2].text.includes(`by ${AUDIT.supervisor}`) && /approved — the entry was changed/.test(column[2].text), column[2].text)
+  check('a rejection carries its own reason', column[4].text.includes('Change request rejected') && column[4].text.includes('no evidence attached'), column[4].text)
+  check('a withdrawal names the requester; a supersede names the supervisor — never "cancelled"', column[7].text.includes('Change request withdrawn') && column[7].text.includes(`by ${AUDIT.requester}`) && column[9].text.includes('Change request superseded') && !/request cancelled/i.test(column.map((f) => f.text).join(' ')))
+  check('🔑 a supervisor\'s own request is ONE applied fact, with its Reason', column.filter((f) => f.text.includes('wording of the description')).length === 1 && /Changed by a supervisor at once/.test(column[10].text), column[10].text)
+  check('the waiting request is in the column too, with its Reason', column[11].text.includes('Change requested') && column[11].text.includes('recount'), column[11].text)
+
+  const tag = tid('entry-changed-tag')
+  check('🔑 the panel header says "Changed", in the change-request pane\'s header', (await tag.count()) === 1 && (await page.locator('[data-region="entry-change-request"] header [data-testid="entry-changed-tag"]').count()) === 1)
+  check('🔑 …dated by the LATEST applied change (the own Description-only change)', /Changed\s+2026-08-14/.test(await textOf('entry-changed-tag')) && (await tag.getAttribute('data-at')) === '2026-08-14T12:00:00', await textOf('entry-changed-tag'))
+  check('🔑 …with the earlier amount of the latest change that MOVED it — 350.00, not 320.00', /was 350\.00\b/.test(await textOf('entry-changed-earlier')), await textOf('entry-changed-earlier'))
+  check('…and it is ONE History read, shared by the pane and the column', cr.historyCalls.filter((id) => id === FX.e151).length === 1, String(cr.historyCalls.length))
+  await crKeys('the audit column with requests')
+  check('…no raw audit key on screen', !/\baudit\.[a-zA-Z]/.test(await page.locator('body').innerText()))
+  await shot('350-audit-and-tag')
+
+  // An entry never changed has no tag, and its column is the entry's own facts only.
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-region="entry-audit"] li[data-fact]')
+  await settle()
+  check('an entry never changed shows no "Changed" tag', (await tid('entry-changed-tag').count()) === 0)
+  check('…and its column holds no request fact', (await facts()).every((f) => !f.kind.startsWith('request')))
+
+  // A 404 on History: the audit column is exactly as it was, and no tag.
+  resetCr({ historyMissing: true })
+  await go(`${ROUTE}?store=0142&entry=151`)
+  await appears('[data-region="entry-audit"] li[data-fact]')
+  await appears('[data-testid="change-request-unavailable"]')
+  await settle()
+  column = await facts()
+  check('🔑 a 404 on History leaves the audit column as it is today — posted, consumed — and nothing crashes', JSON.stringify(column.map((f) => f.kind)) === JSON.stringify(['posted', 'consumed']), column.map((f) => f.kind).join(', '))
+  check('…and draws no "Changed" tag', (await tid('entry-changed-tag').count()) === 0)
+  resetCr()
+
   // ---- 6. ----
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' | '))
 

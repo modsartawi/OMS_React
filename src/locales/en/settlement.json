@@ -210,6 +210,11 @@
     }
   },
   "changeRequest": {
+    "changed": {
+      "tag": "Changed",
+      "earlier": "was {{amount}}",
+      "amountUnchanged": "amount not changed"
+    },
     "mark": {
       "label": "Change waiting",
       "title": "A change request is waiting on this entry. Open the entry to see what is asked."
@@ -408,6 +413,32 @@
       "store": "from branch {{store}}",
       "person": "by {{name}}",
       "staff": "by staff {{id}}"
+    },
+    "request": {
+      "requested": {
+        "CHANGE": "Change requested",
+        "DELETE": "Delete requested"
+      },
+      "request-applied": {
+        "CHANGE": "Change request approved — the entry was changed",
+        "DELETE": "Delete request approved — the entry was cancelled"
+      },
+      "own": {
+        "CHANGE": "Changed by a supervisor at once — no approval step",
+        "DELETE": "Deleted by a supervisor at once — the entry was cancelled, no approval step"
+      },
+      "request-rejected": {
+        "CHANGE": "Change request rejected",
+        "DELETE": "Delete request rejected"
+      },
+      "request-withdrawn": {
+        "CHANGE": "Change request withdrawn",
+        "DELETE": "Delete request withdrawn"
+      },
+      "request-superseded": {
+        "CHANGE": "Change request superseded",
+        "DELETE": "Delete request superseded"
+      }
     }
   },
   "reasonField": {

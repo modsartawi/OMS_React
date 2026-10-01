@@ -1,6 +1,12 @@
-import type { SettlementConsumption } from '@/core/models/settlement'
+import { roundMoney } from '@/core/money'
+import type {
+  SettlementChangeRequest,
+  SettlementChangeRequestKind,
+  SettlementConsumption,
+} from '@/core/models/settlement'
 import { describeDocument, type AccountEntryRow, type JournalDocument } from './account-projection'
 import { isStamped } from './approval'
+import { cardFor, type CardChange } from './change-request'
 
 /**
  * **The audit pane's read model** — one entry and its consumptions projected into
@@ -20,7 +26,9 @@ import { isStamped } from './approval'
  *
  * 🚩 **The entry IS the audit.** There is no new storage, no new door and no
  * fetch: every fact below is already stamped with who and when on the two arrays
- * `Settlement/Account` returned.
+ * `Settlement/Account` returned — and, since ticket 350, on the `requests[]` of the
+ * change-request History read the panel already holds (spec 342 W11). The caller
+ * hands them in; this module still fetches nothing.
  *
  * 🚩 Pure: no React, no `t()`, no network, no clock. Times are passed through
  * verbatim — no parsing, no conversion, no `Date` — because the only correct thing
@@ -70,6 +78,30 @@ export type AuditFactKind =
   | 'restored'
   | 'cancelled'
   | 'written-off'
+  // 350: a change request's steps (spec 342 W11). Raised, then one decision — or, for a
+  // supervisor's own, the one applied fact. A request is withdrawn, rejected or
+  // superseded, never "cancelled" (W13): only the ENTRY is cancelled.
+  | 'requested'
+  | 'request-applied'
+  | 'request-rejected'
+  | 'request-withdrawn'
+  | 'request-superseded'
+
+/**
+ * What a change-request fact says about its request (350) — `null` on every fact of
+ * the entry's own.
+ */
+export type AuditRequest = {
+  kind: SettlementChangeRequestKind
+  /** Old → new, only the fields that differ (`cardFor`'s reading, so the card and the
+   *  column cannot disagree about what was asked). Filled on the raise and on the
+   *  application — the two facts where a figure is asked for or moves — and empty on a
+   *  rejection, a withdrawal or a supersede, which move nothing. */
+  changes: CardChange[]
+  /** A supervisor's own request: raised and applied at once (`decidedAt == requestedAt`,
+   *  BackOffice 2194), told as ONE applied fact. */
+  own: boolean
+}
 
 /** One fact in the column. Every figure on it is one the server wrote. */
 export type AuditFact = {
@@ -93,6 +125,8 @@ export type AuditFact = {
    *  reused rather than re-derived, so the two panes cannot disagree about what an
    *  undocumented row means. `null` on a fact that is not a consumption. */
   document: JournalDocument | null
+  /** The change request behind the fact (350), `null` on the entry's own facts. */
+  request: AuditRequest | null
 }
 
 /**
@@ -114,6 +148,7 @@ function entryFacts(entry: AccountEntryRow): AuditFact[] {
       where: { kind: 'person', name: entry.postedByName },
       note: entry.reason,
       document: null,
+      request: null,
     },
   ]
 
@@ -134,6 +169,7 @@ function entryFacts(entry: AccountEntryRow): AuditFact[] {
       where: { kind: 'staff', staffId: entry.approvedByStaffId },
       note: '',
       document: null,
+      request: null,
     })
   if (entry.status === 'REJECTED' && isStamped(entry.rejectedAt))
     facts.push({
@@ -147,6 +183,7 @@ function entryFacts(entry: AccountEntryRow): AuditFact[] {
       // text, passed through unlocalised.
       note: entry.rejectedReason,
       document: null,
+      request: null,
     })
 
   const closed = entry.status === 'CANCELLED' || entry.status === 'CLOSED_OUT'
@@ -169,6 +206,7 @@ function entryFacts(entry: AccountEntryRow): AuditFact[] {
       where: { kind: 'staff', staffId: entry.closedByStaffId },
       note: entry.closedReason,
       document: null,
+      request: null,
     })
 
   return facts
@@ -187,6 +225,7 @@ function consumptionFact(c: SettlementConsumption): AuditFact {
     where: { kind: 'store', storeId: c.storeId },
     note: '',
     document: describeDocument(c),
+    request: null,
   }
 }
 
@@ -207,11 +246,131 @@ function consumptionFact(c: SettlementConsumption): AuditFact {
  * two panes on this screen cannot be handed different journals, and the write-off's
  * figure is the one `projectAccount` already read back rather than a second
  * derivation of it.
+ *
+ * 🔑 **350: `requests` is the History read's `requests[]`**, merged by the same clock
+ * and the same comparator — a request is one more thing somebody did to the entry.
+ * Absent (History 404s, or has not landed) the column is exactly what it was before.
+ * The `request:` id prefix sorts after `entry:`, so a supersede stamped with the very
+ * act that closed the entry reads after that act.
  */
-export function auditColumn(row: AccountEntryRow | null | undefined): AuditFact[] {
+export function auditColumn(
+  row: AccountEntryRow | null | undefined,
+  requests?: readonly SettlementChangeRequest[] | null,
+): AuditFact[] {
   if (!row) return []
 
-  return [...entryFacts(row), ...(row.journal ?? []).map((r) => consumptionFact(r.consumption))].sort(
-    (a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
-  )
+  return [
+    ...entryFacts(row),
+    ...(row.journal ?? []).map((r) => consumptionFact(r.consumption)),
+    ...(requests ?? [])
+      // ⚠️ The read is keyed per entry; a row about another entry is never drawn here.
+      .filter((r) => r.settlementEntryId === row.settlementEntryId)
+      .flatMap(requestFacts),
+  ].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+}
+
+/** The decision a request's status names — `null` while it waits. */
+const DECIDED: Record<SettlementChangeRequest['status'], AuditFactKind | null> = {
+  OPEN: null,
+  APPLIED: 'request-applied',
+  REJECTED: 'request-rejected',
+  WITHDRAWN: 'request-withdrawn',
+  SUPERSEDED: 'request-superseded',
+}
+
+/**
+ * One request's facts (350): its raise, and its decision once there is one.
+ *
+ * - **Who:** the name recorded THEN (`requestedByName` on the raise, `decidedByName` on
+ *   the decision — BackOffice 2194's per-status table), never re-resolved. A blank name
+ *   falls back to the staff id, as the entry's own closer is named.
+ * - **Why:** the raise carries the request's Reason; a rejection carries the rejection's.
+ *   An application, a withdrawal or a supersede adds none — the raise above it says why.
+ * - 🔑 **A supervisor's own request** (`APPLIED` with `decidedAt == requestedAt`) is ONE
+ *   applied fact, with the request's Reason: it never waited, and a raise beside an
+ *   approval stamped the same second would claim it had.
+ * - ⚠️ An unstamped time gets no fact, as the entry's own closure does not.
+ */
+function requestFacts(r: SettlementChangeRequest): AuditFact[] {
+  const asked = cardFor(r).changes
+  const decided = DECIDED[r.status] ?? null
+  const own = r.status === 'APPLIED' && isStamped(r.decidedAt) && r.decidedAt === r.requestedAt
+  const fact = (
+    step: 'asked' | 'decided',
+    at: string,
+    kind: AuditFactKind,
+    who: { name: string; staffId: string },
+    note: string,
+    changes: CardChange[],
+  ): AuditFact => ({
+    // `asked` sorts before `decided` — the tie-break for a decision in the raise's second.
+    id: `request:${r.changeRequestId}:${step}`,
+    at,
+    kind,
+    amount: null,
+    remainingAfter: null,
+    where: who.name ? { kind: 'person', name: who.name } : { kind: 'staff', staffId: who.staffId },
+    note,
+    document: null,
+    request: { kind: r.requestKind, changes, own },
+  })
+  const requester = { name: r.requestedByName, staffId: r.requestedByStaffId }
+  const decider = { name: r.decidedByName, staffId: r.decidedByStaffId }
+
+  if (own) return [fact('decided', r.decidedAt, 'request-applied', decider, r.requestReason, asked)]
+
+  const facts: AuditFact[] = []
+  if (isStamped(r.requestedAt)) facts.push(fact('asked', r.requestedAt, 'requested', requester, r.requestReason, asked))
+  if (decided && isStamped(r.decidedAt))
+    facts.push(
+      fact(
+        'decided',
+        r.decidedAt,
+        decided,
+        decider,
+        decided === 'request-rejected' ? r.decisionReason : '',
+        decided === 'request-applied' ? asked : [],
+      ),
+    )
+  return facts
+}
+
+/* ── the "Changed" tag (350) ─────────────────────────────────────────────────── */
+
+/**
+ * The entry panel's **"Changed"** tag: when, and what the amount was before.
+ * `earlierAmount` is `null` when no applied change moved the amount (a Description or a
+ * theft's day) — the till's *"amount not changed"*.
+ */
+export type ChangedTag = { at: string; earlierAmount: number | null }
+
+/**
+ * **The till's rule, read off History** (BackOffice 2197, spec 342 W11) — so the web
+ * and the branch's till say the same thing about the same entry.
+ *
+ * - Only an **`APPLIED` change** tags. An applied DELETE is not *"Changed"* — the entry
+ *   is cancelled, and the column says so. A request still waiting, or rejected,
+ *   withdrawn or superseded, tags nothing.
+ * - **The date** is the latest applied change's `decidedAt`.
+ * - **The earlier amount** is the `oldAmount` of the latest applied change that MOVED
+ *   the amount — so 350 → 300 followed by a Description-only change still says 350, at
+ *   the later date. The two can come from different changes (2197's `/code-review`).
+ * - *Latest* is decided here, by `decidedAt` and then the ULID — never by History's
+ *   listing order. *Moved* is read at the scale money is held at (`roundMoney`).
+ * - ⚠️ A change applied while the entry was still pending is tagged, as the till's half
+ *   literally reads (owner's ruling pending in BackOffice) — web and till agree.
+ *
+ * 🚩 Pure. `null` when there is no tag.
+ */
+export function changedTag(requests: readonly SettlementChangeRequest[] | null | undefined): ChangedTag | null {
+  const applied = (requests ?? [])
+    .filter((r) => r.status === 'APPLIED' && r.requestKind === 'CHANGE' && isStamped(r.decidedAt))
+    .sort(
+      (a, b) =>
+        (a.decidedAt < b.decidedAt ? 1 : a.decidedAt > b.decidedAt ? -1 : 0) ||
+        (a.changeRequestId < b.changeRequestId ? 1 : a.changeRequestId > b.changeRequestId ? -1 : 0),
+    )
+  if (applied.length === 0) return null
+  const moved = applied.find((r) => roundMoney(r.oldAmount) !== roundMoney(r.newAmount))
+  return { at: applied[0].decidedAt, earlierAmount: moved ? moved.oldAmount : null }
 }

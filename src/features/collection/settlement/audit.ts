@@ -276,15 +276,17 @@ export function auditColumn(
 }
 
 /**
- * The tie-break within one stamp, before the ids. An APPLIED request is the cause of
- * what the entry then shows (an approved delete IS the cancel), so it reads before the
- * entry's own fact of the same second. Everything else keeps the id order: `request:`
- * after `entry:`, so a supersede reads after the direct act that ended it.
+ * The tie-break within one stamp, before the ids. A raise and an APPLIED request read
+ * before the entry's own fact of the same second — an applied request is the cause of
+ * what the entry then shows (an approved delete IS the cancel). Between the two, the ids
+ * keep a raise before its own approval (`asked` < `decided`). Everything else keeps the
+ * id order: `request:` after `entry:`, so a supersede reads after the direct act that
+ * ended it.
  *
  * ⚠️ Stamps are to the second: a raise and a till's consumption in the same second are
  * told in this fixed order, not in an order this screen cannot know.
  */
-const rank = (f: AuditFact): number => (f.kind === 'request-applied' ? 0 : 1)
+const rank = (f: AuditFact): number => (f.kind === 'requested' || f.kind === 'request-applied' ? 0 : 1)
 
 /** ⚠️ The read is keyed per entry; a row about another entry is never drawn or counted here. */
 const requestsOf = (
@@ -317,7 +319,7 @@ function postedFigures(requests: readonly SettlementChangeRequest[]): PostedFigu
 }
 
 /** The decision a request's status names — `null` while it waits. */
-const DECIDED: Record<SettlementChangeRequest['status'], AuditFactKind | null> = {
+const DECISION_FACT: Record<SettlementChangeRequest['status'], AuditFactKind | null> = {
   OPEN: null,
   APPLIED: 'request-applied',
   REJECTED: 'request-rejected',
@@ -340,7 +342,7 @@ const DECIDED: Record<SettlementChangeRequest['status'], AuditFactKind | null> =
  */
 function requestFacts(r: SettlementChangeRequest): AuditFact[] {
   const asked = cardFor(r).changes
-  const decided = DECIDED[r.status] ?? null
+  const decided = DECISION_FACT[r.status]
   // Both halves of 2194's record of it: the same person, the same stamp.
   const own =
     r.status === 'APPLIED' &&

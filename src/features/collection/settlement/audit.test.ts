@@ -319,9 +319,10 @@ describe('🔑 change requests in the column (350)', () => {
       status: 'APPLIED',
       decidedAt: '2026-08-12T23:00:00',
     })
+    // …and the raise reads BEFORE its own approval in the same second.
     expect(auditColumn(row, [quick]).filter((f) => f.request).map((f) => f.kind)).toEqual([
-      'request-applied',
       'requested',
+      'request-applied',
     ])
     expect(auditColumn(row, [quick]).find((f) => f.kind === 'requested')?.where).toEqual({
       kind: 'person',

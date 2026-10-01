@@ -2,12 +2,12 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
-import { formatDateTime, formatDay } from '@/core/util/date-format'
+import { formatDateTime } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
 import { changeRequestHistoryQuery } from './api'
 import { auditColumn, type AuditFact, type AuditWhere } from './audit'
-import { bidiIsolate } from './change-request'
+import ChangeFromTo from './ChangeFromTo'
 
 /**
  * **The audit pane** — the entry and its consumptions as **one column of time**
@@ -106,18 +106,7 @@ function Fact({ fact, currencyKey }: { fact: AuditFact; currencyKey: string }) {
         <span key={c.field} data-change={c.field} className="tabular-nums">
           {' '}
           · {t(`changeRequest.card.field.${c.field}`)}{' '}
-          {c.field === 'amount'
-            ? t('changeRequest.card.fromTo', {
-                from: settlementMoney(c.from, currencyKey),
-                to: settlementMoney(c.to, currencyKey),
-              })
-            : c.field === 'businessDay'
-              ? t('changeRequest.card.fromTo', { from: formatDay(c.from), to: formatDay(c.to) })
-              : // 🚩 Each side ISOLATED, the arrow outside both — the note's separator lesson
-                // above: one `dir="auto"` run over two Arabic descriptions turns the whole
-                // "from → to" right-to-left, and the arrow then points at the old one.
-                // The waiting card uses the same `bidiIsolate` for the same request.
-                t('changeRequest.card.fromTo', { from: bidiIsolate(c.from), to: bidiIsolate(c.to) })}
+          <ChangeFromTo change={c} money={(v) => settlementMoney(v, currencyKey)} />
         </span>
       ))}
       {fact.amount !== null && (

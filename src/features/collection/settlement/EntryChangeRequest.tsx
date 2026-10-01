@@ -19,11 +19,11 @@ import { formatDateTime, formatDay } from '@/core/util/date-format'
 import type { AccountEntryRow } from './account-projection'
 import { changeRequestHistoryQuery, settlementApi } from './api'
 import { changedTag } from './audit'
+import ChangeFromTo from './ChangeFromTo'
 import {
   afterDecide,
   afterWithdraw,
   asksBusinessDay,
-  bidiIsolate,
   cardFor,
   changeDraftFor,
   changeRequestBody,
@@ -529,7 +529,7 @@ export default function EntryChangeRequest({
         <span className="font-mono text-[12px] text-muted-foreground">
           {t('changeRequest.forEntry', { number: row.entryNumber })}
         </span>
-        <ChangedBadge requests={history.data?.requests} entryId={entryId} money={money} />
+        <ChangedBadge requests={history.data?.requests} entryId={entryId} amount={now.amount} money={money} />
       </header>
 
       {failure === 'not-shipped' ? (
@@ -1001,10 +1001,13 @@ function DeleteForm({
 function ChangedBadge({
   requests,
   entryId,
+  amount,
   money,
 }: {
   requests: readonly SettlementChangeRequest[] | undefined
   entryId: string
+  /** The entry's amount now (the pane's redraw) — the till's "amount not changed: X". */
+  amount: number
   money: (v: number | null | undefined) => string
 }) {
   const { t } = useTranslation('settlement')
@@ -1023,7 +1026,7 @@ function ChangedBadge({
       <span className="text-muted-foreground" data-testid="entry-changed-earlier">
         ·{' '}
         {tag.earlierAmount === null
-          ? t('changeRequest.changed.amountUnchanged')
+          ? t('changeRequest.changed.amountUnchanged', { amount: money(amount) })
           : t('changeRequest.changed.earlier', { amount: money(tag.earlierAmount) })}
       </span>
     </span>
@@ -1092,12 +1095,7 @@ function WaitingCard({
                 {t(`changeRequest.card.field.${c.field}`)}
               </dt>
               <dd className={c.field === 'amount' ? 'tabular-nums' : undefined}>
-                {c.field === 'amount'
-                  ? t('changeRequest.card.fromTo', { from: money(c.from), to: money(c.to) })
-                  : c.field === 'businessDay'
-                    ? t('changeRequest.card.fromTo', { from: formatDay(c.from), to: formatDay(c.to) })
-                    : // 350: each Description isolated, the arrow outside both (`bidiIsolate`).
-                      t('changeRequest.card.fromTo', { from: bidiIsolate(c.from), to: bidiIsolate(c.to) })}
+                <ChangeFromTo change={c} money={money} />
               </dd>
             </div>
           ))}

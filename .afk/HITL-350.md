@@ -10,8 +10,8 @@ the tag comes from, and it sits directly under the grid for every non-pending en
 or on every pane's header.
 
 ## Q: What does the tag say when no applied change moved the amount (Description- or day-only)?
-**Decision taken:** The tag is still drawn, with the date and "amount not changed" in place of
-"was X" (`changedTag` → `earlierAmount: null`).
+**Decision taken:** The tag is still drawn, with the date and "amount not changed: X" (X the
+entry's amount now) in place of "was X" (`changedTag` → `earlierAmount: null`).
 **Why:** That is the till's rule as built (2197's comment: "Amount not changed: X" when only the
 description or a theft's day moved), and web and till must agree.
 **Revisit if:** The owner wants no tag at all for a change that left the amount alone.
@@ -45,3 +45,20 @@ once — no approval step" (own); "… rejected" / "… withdrawn" / "… supers
 for a request (W13).
 **Why:** W13's nouns and verbs; the own wording echoes 348's "applies immediately — no approval step".
 **Revisit if:** The owner wants different words.
+
+## Q: Once a change has applied, what does the "Posted" fact of the audit column say?
+**Decision taken:** The figures it was POSTED at — the earliest applied change's `oldAmount` and
+`oldDescription` (the server's record of the entry when that request was raised). Without History
+(404, loading) it falls back to the entry's own fields, as before 350.
+**Why:** /code-review: "Posted 320" above "Change 350 → 320" contradicts the column it heads. Nothing
+but an applied change moves an amount or a Description, so before the first one the entry stood as
+posted. This changes a 272 fact, which the ticket does not name (standards-review flagged it as scope).
+**Revisit if:** The server ever moves an entry's amount or Description outside a change request, or
+the owner prefers the posting row to show today's figures.
+
+## Q: Two facts in the same second — which first?
+**Decision taken:** A raise and an applied request read before the entry's own fact of that second
+(an approved delete IS the cancel); a raise before its own decision; a supersede after the direct act
+that ended it. A raise and a till consumption in the same second keep a fixed order, not a known one.
+**Why:** Stamps are to the second; the order is stable, and the cause reads before its effect.
+**Revisit if:** The server's stamps gain sub-second precision on every row (then time alone decides).

@@ -1931,6 +1931,23 @@ async function run() {
   check('an entry never changed shows no "Changed" tag', (await tid('entry-changed-tag').count()) === 0)
   check('…and its column holds no request fact', (await facts()).every((f) => !f.kind.startsWith('request')))
 
+  // A Description-only change: the tag still says Changed, and — as the till does — that
+  // the amount did not move, naming the amount it stands at.
+  const reworded = await page.evaluate(async () => {
+    const acc = await import('/src/features/collection/settlement/settlement-fixture.ts')
+    const crf = await import('/src/features/collection/settlement/change-request-fixture.ts')
+    const e143 = acc.SETTLEMENT_ACCOUNTS['0142'].entries.find((e) => e.entryNumber === 143)
+    const words = crf.decidedRequest(
+      crf.waitingRequestOn(e143, { changeRequestId: 'R-WORDS', newDescription: 'نقص في تسليم — مصحح', requestedAt: '2026-09-01T09:00:00' }),
+      { status: 'APPLIED', decidedAt: '2026-09-01T10:00:00' },
+    )
+    return crf.historyOf(e143, { spentAmount: 0, requests: [words] })
+  })
+  cr.histories[FX.e143] = reworded
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="entry-changed-tag"]')
+  check('a Description-only change is tagged Changed, "amount not changed: 500.00" — the till\'s words', /Changed\s+2026-09-01/.test(await textOf('entry-changed-tag')) && /amount not changed: 500\.00\b/.test(await textOf('entry-changed-earlier')), await textOf('entry-changed-tag'))
+
   // A 404 on History: the audit column is exactly as it was, and no tag.
   resetCr({ historyMissing: true })
   await go(`${ROUTE}?store=0142&entry=151`)

@@ -213,7 +213,7 @@
     "changed": {
       "tag": "Changed",
       "earlier": "was {{amount}}",
-      "amountUnchanged": "amount not changed"
+      "amountUnchanged": "amount not changed: {{amount}}"
     },
     "mark": {
       "label": "Change waiting",

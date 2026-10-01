@@ -31,10 +31,12 @@ import {
   raisedRequest,
   reduceToSpent,
   rejectBody,
+  removeSaidBy,
   type ActAnswer,
   type DecideDoor,
   type ChangeDraft,
   type EntryNow,
+  type ReduceOffer,
   type RemoveOffer,
 } from './change-request'
 import { changeFieldError, changeRefusal, type ChangeFieldError, type ChangeRefusal } from './change-refusal'
@@ -446,7 +448,7 @@ export default function EntryChangeRequest({
    * `DELETE_SPENT` answer's spentAmount until History is re-read, then History's. A refused
    * delete's Reason comes along.
    */
-  const startReduce = (reduce: Extract<RemoveOffer, { kind: 'reduce' }>) => {
+  const startReduce = (reduce: ReduceOffer) => {
     setDraft(reduceToSpent(now, reduce, deleteReason))
     setNotice(null)
     setFieldError(null)
@@ -625,7 +627,11 @@ export default function EntryChangeRequest({
               fieldError={fieldError}
               busy={raise.isPending}
               onSubmit={(body) => raise.mutate({ entry: now, body })}
-              onBack={() => setForm(null)}
+              onBack={() => {
+                // An abandoned delete's Reason is not carried into a later reduce.
+                setForm(null)
+                setDeleteReason('')
+              }}
             />
           ) : (
             <>
@@ -659,11 +665,11 @@ export default function EntryChangeRequest({
                 )}
               </div>
               {/* 347: no delete on a spent entry — said, and the one correction offered.
-                  A refusal standing above (DELETE_SPENT) has said why: only the act is kept. */}
+                  A DELETE_SPENT notice above with the same figure has said it: only the act is kept. */}
               {offer.remove.kind !== 'delete' && (
                 <RemoveLine
                   remove={offer.remove}
-                  said={notice?.kind === 'refused'}
+                  said={removeSaidBy(offer.remove, notice?.kind === 'refused' ? notice.refusal : null)}
                   money={money}
                   onReduce={startReduce}
                 />
@@ -818,10 +824,10 @@ function RemoveLine({
   onReduce,
 }: {
   remove: Exclude<RemoveOffer, { kind: 'delete' }>
-  /** A refusal above already says why (a `DELETE_SPENT` answer) — the sentence is not repeated. */
+  /** A `DELETE_SPENT` notice above already says this sentence, figure and all (`removeSaidBy`). */
   said: boolean
   money: (v: number | null | undefined) => string
-  onReduce: (reduce: Extract<RemoveOffer, { kind: 'reduce' }>) => void
+  onReduce: (reduce: ReduceOffer) => void
 }) {
   const { t } = useTranslation('settlement')
   const spent = remove.kind === 'reduce' ? remove.to : remove.spent

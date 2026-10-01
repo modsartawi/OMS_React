@@ -13,7 +13,7 @@ import type {
   SettlementEntryStatus,
 } from '@/core/models/settlement'
 import { isStamped, supervisionFailure } from './approval'
-import type { ChangeRequestDoor } from './change-refusal'
+import type { ChangeRefusal, ChangeRequestDoor } from './change-refusal'
 import { checkDescription, parseAmount } from './posting'
 
 /**
@@ -84,6 +84,9 @@ export type RemoveOffer =
   | { kind: 'delete' }
   | { kind: 'reduce'; to: number }
   | { kind: 'spent-whole'; spent: number }
+
+/** The *"Reduce it to X"* cell — from `offerFor`, or 344's `DELETE_SPENT` step (the same shape). */
+export type ReduceOffer = Extract<RemoveOffer, { kind: 'reduce' }>
 
 /**
  * **W3's table, as one union.**
@@ -355,12 +358,23 @@ export function deleteRequestBody(entry: Pick<EntryNow, 'settlementEntryId'>, re
  * @param reason a Reason the accountant already typed — the refused delete's — carried
  *   into the change form to be edited there; `''` from the offer cell.
  */
-export function reduceToSpent(
-  entry: Pick<EntryNow, 'description'>,
-  reduce: Extract<RemoveOffer, { kind: 'reduce' }>,
-  reason = '',
-): ChangeDraft {
+export function reduceToSpent(entry: Pick<EntryNow, 'description'>, reduce: ReduceOffer, reason = ''): ChangeDraft {
   return { amount: String(roundMoney(reduce.to)), description: entry.description, reason }
+}
+
+/**
+ * **Whether a refusal on screen already says the cell's sentence** — so the pane says
+ * *"The branch has spent X…, so it cannot be deleted"* once, not twice.
+ *
+ * 🔑 Only when it is the SAME fact with the SAME figure: 344's `DELETE_SPENT.figure`
+ * sentence, its spent figure equal to the cell's at holding scale. Any other refusal
+ * says something else, and a re-read that stated a different spent figure is newer
+ * than the refusal — the cell then says its own sentence, with its own X, beside the
+ * button that uses it.
+ */
+export function removeSaidBy(remove: Exclude<RemoveOffer, { kind: 'delete' }>, refusal: ChangeRefusal | null): boolean {
+  if (refusal?.words.kind !== 'key' || refusal.words.key !== 'DELETE_SPENT.figure' || refusal.spent === null) return false
+  return refusal.spent === roundMoney(remove.kind === 'reduce' ? remove.to : remove.spent)
 }
 
 /* ── after a raise (W8) ──────────────────────────────────────────────────────── */

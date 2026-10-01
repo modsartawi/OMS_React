@@ -25,6 +25,7 @@ import {
   raisedRequest,
   reduceToSpent,
   rejectBody,
+  removeSaidBy,
   type ChangeRequestSession,
 } from './change-request'
 import { changeRefusal } from './change-refusal'
@@ -677,5 +678,32 @@ describe('a delete through the pane\'s pure steps (ticket 347)', () => {
     const read = paneRead(entry, history, { result: answer, request: null })
     expect(read.now).toMatchObject({ status: 'CANCELLED', amount: entry.amount, spentAmount: 0 })
     expect(offerFor(read.now, read, SUPERVISOR)).toEqual({ kind: 'finished', because: 'cancelled' })
+  })
+})
+
+describe('removeSaidBy — the spent sentence is said once, never twice nor stale (ticket 347)', () => {
+  const deleteSpent = changeRefusal('raise', DELETE_SPENT_SAMPLE)
+
+  it('🔑 a DELETE_SPENT refusal naming the same spent figure already says the cell\'s sentence', () => {
+    expect(removeSaidBy({ kind: 'reduce', to: 120 }, deleteSpent)).toBe(true)
+  })
+  it('…and for a wholly spent entry too (its step is none, its sentence the same)', () => {
+    const whole = changeRefusal('raise', { ...DELETE_SPENT_SAMPLE, spentAmount: 500 })
+    expect(whole.step).toEqual({ kind: 'none' })
+    expect(removeSaidBy({ kind: 'spent-whole', spent: 500 }, whole)).toBe(true)
+  })
+  it('🔑 a re-read stating a different spent figure is newer — the cell says its own, with its own X', () => {
+    expect(removeSaidBy({ kind: 'reduce', to: 150 }, deleteSpent)).toBe(false)
+  })
+  it('equal at holding scale is the same figure', () => {
+    expect(removeSaidBy({ kind: 'reduce', to: 120.0004 }, deleteSpent)).toBe(true)
+  })
+  it('🚩 any other refusal says something else — the cell keeps its sentence', () => {
+    expect(removeSaidBy({ kind: 'reduce', to: 350 }, changeRefusal('raise', BELOW_SPENT_SAMPLE))).toBe(false)
+    expect(removeSaidBy({ kind: 'reduce', to: 120 }, changeRefusal('raise', { ...DELETE_SPENT_SAMPLE, refusalReason: 'NO_CHANGE' }))).toBe(false)
+  })
+  it('a DELETE_SPENT with no figure, or no refusal at all, says nothing of X', () => {
+    expect(removeSaidBy({ kind: 'reduce', to: 120 }, changeRefusal('raise', { ...DELETE_SPENT_SAMPLE, spentAmount: Number.NaN }))).toBe(false)
+    expect(removeSaidBy({ kind: 'reduce', to: 120 }, null)).toBe(false)
   })
 })

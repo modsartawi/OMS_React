@@ -1364,6 +1364,7 @@ async function run() {
   await delete143(null)
   await page.waitForFunction(() => document.querySelector('[data-testid="change-request-reduce"]')?.getAttribute('data-to') === '150', null, { timeout: 8000 }).catch(() => {})
   check('🔑 a re-read stating a higher spent figure moves the offer with it — "Reduce it to 150.00", never the stale 120', (await tid('change-request-reduce').count()) === 1 && /Reduce it to 150\.00/.test(await textOf('change-request-reduce')) && (await noticeOf()).code === 'DELETE_SPENT', await textOf('change-request-reduce'))
+  check('…and the cell says its own sentence with that figure — the button never stands beside a stale X', (await textOf('change-request-spent')).trim() === 'The branch has spent 150.00 from this entry, so it cannot be deleted.', await textOf('change-request-spent'))
 
   // Spent the whole of it: no reduce (it would change nothing), and the sentence once.
   resetCr({

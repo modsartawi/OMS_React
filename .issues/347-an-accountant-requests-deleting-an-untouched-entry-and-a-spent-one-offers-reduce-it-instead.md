@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 342
 blocked-by: 344
 ---
@@ -30,11 +30,11 @@ form, reduce offer) · i18n · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `deleteRequestBody` — sends `requestKind: "DELETE"` and a trimmed reason, no figure fields at all ·
+- [x] `deleteRequestBody` — sends `requestKind: "DELETE"` and a trimmed reason, no figure fields at all ·
   pure
-- [ ] `reduceToSpent` — from the History read or a `DELETE_SPENT` answer, yields the change draft with
+- [x] `reduceToSpent` — from the History read or a `DELETE_SPENT` answer, yields the change draft with
   `newAmount = spentAmount` (a BHD `0.001` spent included) · pure
-- [ ] `settlement-change-drive` extended — untouched entry offers Request delete and posts no figures;
+- [x] `settlement-change-drive` extended — untouched entry offers Request delete and posts no figures;
   spent entry shows the sentence and Reduce it to X pre-fills the change form; a stubbed `DELETE_SPENT`
   does the same; an approved delete redraws the entry as cancelled · flow (drive)
 
@@ -49,3 +49,12 @@ The three Proof items are green, typecheck + `npm test` pass, earlier drives unm
 ## Blocked by
 
 [344](344-every-change-request-refusal-is-said-by-its-code-with-its-next-step.md)
+
+## Proof record (2026-10-01)
+
+- `change-request.test.ts`: `deleteRequestBody` (exact three keys, trimmed Reason, held blank/over 200),
+  `reduceToSpent` (from `offerFor`'s cell and from 344's `DELETE_SPENT` step, BHD `0.001` included), the
+  approved-delete redraw to `CANCELLED`, and `removeSaidBy` (the spent sentence said once, never stale).
+- `tools/settlement-change-drive.mjs` §24–27: 219/219 against stubs of 2193's contract (no live SIS.Api).
+  Earlier settlement drives unmodified and green. typecheck, `npm test` (3050), lint, build all pass.
+- Decisions: `.afk/HITL-347.md`; reviews: `.afk/REVIEW-347.md`.

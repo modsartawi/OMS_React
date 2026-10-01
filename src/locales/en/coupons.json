@@ -105,6 +105,8 @@
     "editingBadge": "Editing {{id}}",
     "creatingBadge": "New template",
     "idRequired": "A Template ID is required.",
+    "materialInvalid": "Enter a material number starting with COUP (e.g. COUP01).",
+    "materialHint": "Your own COUP number. If it doesn't exist it is created; either way it becomes redeem-only (cannot be keyed in at the till).",
     "created": "Template '{{id}}' created.",
     "updated": "Template '{{id}}' saved.",
     "saveFailed": "Could not save the template",

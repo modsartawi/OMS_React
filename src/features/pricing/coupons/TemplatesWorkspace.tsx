@@ -13,6 +13,9 @@ import { couponsApi } from './api'
 // when loaded. The Template ID is editable only on create; MaxRedemptions*/CodePrefix
 // are immutable after create (the update DTO omits them), so they lock once loaded.
 // Business failures surface as a toast from the server message + CUP-* code.
+// The material is the operator's own COUP number on create AND edit (ADR 0051): the server keeps it
+// as typed, creates it as a redeem-only coupon item when absent, and makes an existing hand-keyable
+// coupon redeem-only. It refuses an empty / non-COUP number or one held by a non-coupon item.
 
 interface FormState {
   templateId: string
@@ -39,6 +42,9 @@ const BLANK: FormState = {
   originFilter: '',
   isDisabled: false,
 }
+
+// The till keys coupon handling off this prefix; the server refuses any other material.
+const COUPON_PREFIX = 'COUP'
 
 const datePart = (iso: string | null) => (iso ? iso.slice(0, 10) : '')
 const intOr = (v: string, fallback = 0) => {
@@ -111,12 +117,17 @@ export default function TemplatesWorkspace() {
       notify.warn(t('templates.idRequired'))
       return
     }
+    const material = form.materialNumber.trim().toUpperCase()
+    if (!material.startsWith(COUPON_PREFIX) || material.length === COUPON_PREFIX.length) {
+      notify.warn(t('templates.materialInvalid'))
+      return
+    }
     setSaving(true)
     try {
       if (isEdit) {
         const updated = await couponsApi.updateTemplate(id, {
           templateId: id,
-          materialNumber: form.materialNumber.trim(),
+          materialNumber: material,
           description: form.description.trim(),
           isDisabled: form.isDisabled,
           validFrom: form.validFrom || null,
@@ -129,7 +140,7 @@ export default function TemplatesWorkspace() {
       } else {
         const created = await couponsApi.createTemplate({
           templateId: id,
-          materialNumber: form.materialNumber.trim(),
+          materialNumber: material,
           description: form.description.trim(),
           maxRedemptionsPerCode: intOr(form.maxRedemptionsPerCode),
           maxRedemptionsTotal: intOr(form.maxRedemptionsTotal),
@@ -191,8 +202,15 @@ export default function TemplatesWorkspace() {
             onChange={(e) => set('templateId', e.target.value)}
           />
         </Field>
-        <Field label={t('templates.fields.materialNumber')}>
-          <input type="text" className={inputCls} value={form.materialNumber} onChange={(e) => set('materialNumber', e.target.value)} />
+        <Field label={t('templates.fields.materialNumber')} hint={t('templates.materialHint')}>
+          <input
+            type="text"
+            className={`${inputCls} font-mono`}
+            value={form.materialNumber}
+            maxLength={26}
+            placeholder="COUP01"
+            onChange={(e) => set('materialNumber', e.target.value.toUpperCase())}
+          />
         </Field>
 
         <Field label={t('templates.fields.description')} className="sm:col-span-2">
@@ -276,10 +294,12 @@ const inputCls =
 
 function Field({
   label,
+  hint,
   className = '',
   children,
 }: {
   label: string
+  hint?: string
   className?: string
   children: ReactNode
 }) {
@@ -287,6 +307,7 @@ function Field({
     <label className={`flex flex-col gap-1 text-xs font-medium text-muted-foreground ${className}`}>
       {label}
       {children}
+      {hint && <span className="font-normal">{hint}</span>}
     </label>
   )
 }

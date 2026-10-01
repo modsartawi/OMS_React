@@ -1096,6 +1096,16 @@ async function run() {
   await settle()
   check('…and the re-read agrees: finished', (await offerOf()) === 'finished')
 
+  // 🚩 ENTRY_NOT_OPEN naming the entry is the server's unexplained fallback at approval
+  // (SettlementChangeRequestStore.RefusedAsync): the request stays OPEN, so the pane must not close.
+  resetDecide({ approve: () => ({ ...FX.belowSpent151, refusalReason: 'ENTRY_NOT_OPEN', remainingAmount: 115, spentAmount: 205 }) })
+  await openCard(151)
+  await tid('change-request-approve').click()
+  await appears('[data-testid="change-request-notice"]')
+  await settle()
+  n = await noticeOf()
+  check('ENTRY_NOT_OPEN at approval, the entry named: the card stays with Reject — never "no longer exists"', n.code === 'ENTRY_NOT_OPEN' && n.step === 'reread' && !/no longer exists/.test(n.text) && (await offerOf()) === 'waiting' && (await tid('change-request-reject').count()) === 1, JSON.stringify(n))
+
   // ---- 22. reject needs a Reason ----
   resetDecide({
     reject: () => {

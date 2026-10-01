@@ -51,7 +51,7 @@ const DOORS: ChangeRequestDoor[] = ['raise', 'approve', 'reject', 'withdraw']
 /** A refused act answer — 2192's sample's figures, the code and request fields the case's. */
 const refused = (
   refusalReason: string,
-  o: Partial<{ changeRequestId: string; requestStatus: string; amount: number; spentAmount: number }> = {},
+  o: Partial<{ changeRequestId: string; requestStatus: string; amount: number; spentAmount: number; settlementEntryId: string }> = {},
 ) => ({
   ...BELOW_SPENT_SAMPLE,
   refusalReason,
@@ -112,7 +112,17 @@ describe('changeRefusal — every 200 code is worded off the CODE, never off mes
 
 describe('changeRefusal — the next step (ticket 344\'s table)', () => {
   it('ENTRY_NOT_OPEN — the entry no longer exists: close the pane', () => {
-    for (const door of DOORS) expect(changeRefusal(door, refused('ENTRY_NOT_OPEN')).step).toEqual({ kind: 'close' })
+    for (const door of DOORS)
+      expect(changeRefusal(door, refused('ENTRY_NOT_OPEN', { settlementEntryId: '' })).step).toEqual({ kind: 'close' })
+    for (const door of DOORS.filter((d) => d !== 'approve'))
+      expect(changeRefusal(door, refused('ENTRY_NOT_OPEN')).step).toEqual({ kind: 'close' })
+  })
+
+  it('🚩 346: ENTRY_NOT_OPEN on an approve that NAMES the entry is the server\'s unexplained fallback — the request stays OPEN, so the pane re-reads rather than closing', () => {
+    const r = changeRefusal('approve', refused('ENTRY_NOT_OPEN'))
+    expect(r.step).toEqual({ kind: 'reread' })
+    expect(r.words).toEqual({ kind: 'key', key: 'tracer' })
+    expect(r.code).toBe('ENTRY_NOT_OPEN')
   })
 
   it('ENTRY_FINAL — cancelled / closed out / rejected: redraw', () => {

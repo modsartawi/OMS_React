@@ -13,6 +13,7 @@ import type {
   SettlementEntryStatus,
 } from '@/core/models/settlement'
 import { isStamped, supervisionFailure } from './approval'
+import type { ChangeRequestDoor } from './change-refusal'
 import { checkDescription, parseAmount } from './posting'
 
 /**
@@ -405,16 +406,20 @@ export function afterWithdraw(answer: SettlementChangeRequestActResult | null | 
  * - **`refused`** — a 200 refusal; the request stays `OPEN` (all but `CHANGE_NOT_OPEN`)
  *   and `changeRefusal('approve' | 'reject', …)` words it and names the step.
  */
+/** The two doors a supervisor decides a waiting request through. */
+export type DecideDoor = Extract<ChangeRequestDoor, 'approve' | 'reject'>
+
 export type DecideOutcome = { kind: 'decided' } | { kind: 'unconfirmed' } | { kind: 'refused'; code: string }
 
-const DECIDES: Record<'approve' | 'reject', SettlementChangeRequestStatus> = { approve: 'APPLIED', reject: 'REJECTED' }
+/** The end each door makes of a request it decides. */
+const DECIDED_STATUS: Record<DecideDoor, SettlementChangeRequestStatus> = { approve: 'APPLIED', reject: 'REJECTED' }
 
 export function afterDecide(
-  door: 'approve' | 'reject',
+  door: DecideDoor,
   answer: SettlementChangeRequestActResult | null | undefined,
 ): DecideOutcome {
   if (answer?.accepted !== true) return { kind: 'refused', code: answer?.refusalReason ?? '' }
-  return answer.requestStatus === DECIDES[door] ? { kind: 'decided' } : { kind: 'unconfirmed' }
+  return answer.requestStatus === DECIDED_STATUS[door] ? { kind: 'decided' } : { kind: 'unconfirmed' }
 }
 
 /**
@@ -424,11 +429,12 @@ export function afterDecide(
  */
 export type RejectCheck =
   | { kind: 'ready'; body: SettlementChangeRequestRejectBody }
-  | { kind: 'held'; reason: 'blank' | 'too-long' }
+  /** `problem` — why the Reason cannot be sent as typed. */
+  | { kind: 'held'; problem: 'blank' | 'too-long' }
 
 export function rejectBody(request: Pick<SettlementChangeRequest, 'changeRequestId'>, reason: string): RejectCheck {
   const check = checkDescription(reason)
-  if (check.problem) return { kind: 'held', reason: check.problem }
+  if (check.problem) return { kind: 'held', problem: check.problem }
   return { kind: 'ready', body: { changeRequestId: request.changeRequestId, reason: check.text } }
 }
 

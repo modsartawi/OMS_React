@@ -30,6 +30,7 @@ import {
   raisedRequest,
   rejectBody,
   type ActAnswer,
+  type DecideDoor,
   type ChangeDraft,
   type EntryNow,
 } from './change-request'
@@ -301,7 +302,7 @@ export default function EntryChangeRequest({
    * What a supervisor's approve or reject came back with (346) — one handler for both
    * doors, because both answer the same act response and differ only in their words.
    */
-  const onDecided = (door: 'approve' | 'reject', result: SettlementChangeRequestActResult, v: DecideVars) => {
+  const onDecided = (door: DecideDoor, result: SettlementChangeRequestActResult, v: DecideVars) => {
     // Always — every answer is followed by History and the account re-read (W8).
     const reread = invalidateSettlement(queryClient, v.entry.storeId)
     const outcome = afterDecide(door, result)
@@ -339,7 +340,7 @@ export default function EntryChangeRequest({
     // always above, draws what is true.
   }
 
-  const onDecideError = (door: 'approve' | 'reject', error: unknown, v: DecideVars) => {
+  const onDecideError = (door: DecideDoor, error: unknown, v: DecideVars) => {
     const failure = changeRequestFailure(error)
     if (failure === 'forbidden') {
       // 🚩 W1: named, and the probe re-read — which takes Approve / Reject with it. The

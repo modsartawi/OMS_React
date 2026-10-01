@@ -106,7 +106,7 @@ const key = (k: RefusalSentence): ChangeRefusal['words'] => ({ kind: 'key', key:
 export function changeRefusal(
   door: ChangeRequestDoor,
   answer:
-    | Partial<Pick<SettlementChangeRequestActResult, 'refusalReason' | 'changeRequestId' | 'requestStatus' | 'amount' | 'spentAmount'>>
+    | Partial<Pick<SettlementChangeRequestActResult, 'refusalReason' | 'changeRequestId' | 'requestStatus' | 'amount' | 'spentAmount' | 'settlementEntryId'>>
     | null
     | undefined,
   message?: string | null,
@@ -120,6 +120,13 @@ export function changeRefusal(
 
   switch (code) {
     case 'ENTRY_NOT_OPEN':
+      // ⚠️ 346: on Approve the server ALSO answers this when the entry exists and nothing it
+      // can name stopped the request (`SettlementChangeRequestStore.RefusedAsync`'s
+      // fallback) — the request stays OPEN. An answer that names the entry says it exists,
+      // so "no longer exists, close" would hide a request still waiting: it is said as an
+      // unexplained refusal and History re-read. With no entry named it is gone, as anywhere.
+      if (atApproval && (answer?.settlementEntryId ?? '').trim() !== '')
+        return said(key('tracer'), { kind: 'reread' })
       return said(key('ENTRY_NOT_OPEN'), { kind: 'close' })
 
     case 'ENTRY_FINAL':

@@ -567,11 +567,11 @@ describe('rejectBody — rejecting needs a Reason (W6, ticket 346)', () => {
   const request = waitingRequestOn(entryOf('0142', 151), { changeRequestId: 'R-151' })
 
   it('a blank Reason, or one of spaces, is held', () => {
-    expect(rejectBody(request, '')).toEqual({ kind: 'held', reason: 'blank' })
-    expect(rejectBody(request, '   ')).toEqual({ kind: 'held', reason: 'blank' })
+    expect(rejectBody(request, '')).toEqual({ kind: 'held', problem: 'blank' })
+    expect(rejectBody(request, '   ')).toEqual({ kind: 'held', problem: 'blank' })
   })
   it('a Reason over 200 is held', () => {
-    expect(rejectBody(request, 'x'.repeat(201))).toEqual({ kind: 'held', reason: 'too-long' })
+    expect(rejectBody(request, 'x'.repeat(201))).toEqual({ kind: 'held', problem: 'too-long' })
   })
   it('🔑 the body is { changeRequestId, reason }, the Reason trimmed — nothing about the entry', () => {
     expect(rejectBody(request, '  spent past it already  ')).toEqual({

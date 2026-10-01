@@ -316,6 +316,53 @@ export function changeRequestBody(
   }
 }
 
+/* ── the delete form, and "Reduce it to X" (W5, ticket 347) ─────────────────────── */
+
+/**
+ * Whether a delete may be sent, and if so, what. `problem` — why the Reason cannot be
+ * sent as typed.
+ */
+export type DeleteCheck =
+  | { kind: 'ready'; body: SettlementChangeRequestRaiseBody }
+  | { kind: 'held'; problem: 'blank' | 'too-long' }
+
+/**
+ * **The delete body** — `{ settlementEntryId, requestKind: "DELETE", reason }`, the
+ * Reason trimmed (required, ≤ 200).
+ *
+ * ⚠️ **No figure field at all — not even `null`.** 2193 answers 400
+ * `SettlementDeleteTakesNoFigures` to a delete that names `newAmount` or `newDescription`
+ * (even `""`); a field that is not there cannot trip it on any server version.
+ *
+ * Whether the entry may be deleted is `offerFor`'s `remove` cell, never asked here.
+ */
+export function deleteRequestBody(entry: Pick<EntryNow, 'settlementEntryId'>, reason: string): DeleteCheck {
+  const check = checkDescription(reason)
+  if (check.problem) return { kind: 'held', problem: check.problem }
+  return { kind: 'ready', body: { settlementEntryId: entry.settlementEntryId, requestKind: 'DELETE', reason: check.text } }
+}
+
+/**
+ * **"Reduce it to X"** — the change form's draft with `X` filled in as the amount, and
+ * the entry's Description as it stands (so only the amount differs).
+ *
+ * 🔑 **`X` is the server's spent figure, from either source**: `offerFor`'s `reduce`
+ * cell (the History read) or `changeRefusal`'s `reduce` step (a `DELETE_SPENT`
+ * answer's `spentAmount`). Both are `{ kind: 'reduce', to }`, and both already hold it
+ * at holding scale; it is written at that scale here too, so a float tail never reaches
+ * the box. Asking for exactly the spent figure is allowed (the floor, 2192).
+ *
+ * @param reason a Reason the accountant already typed — the refused delete's — carried
+ *   into the change form to be edited there; `''` from the offer cell.
+ */
+export function reduceToSpent(
+  entry: Pick<EntryNow, 'description'>,
+  reduce: Extract<RemoveOffer, { kind: 'reduce' }>,
+  reason = '',
+): ChangeDraft {
+  return { amount: String(roundMoney(reduce.to)), description: entry.description, reason }
+}
+
 /* ── after a raise (W8) ──────────────────────────────────────────────────────── */
 
 /**

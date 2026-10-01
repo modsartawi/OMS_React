@@ -69,6 +69,27 @@ export const BELOW_SPENT_SAMPLE: SettlementChangeRequestActResult = {
 }
 
 /**
+ * **2193's sample answer, verbatim** — a delete refused `DELETE_SPENT` on entry 157: the
+ * branch has spent 120, the figure to ask to reduce it to instead. Nothing was stored, so
+ * the id and status are `''`. 2195 adds `businessDay` to every act response; a surplus
+ * carries the year-1 day.
+ */
+export const DELETE_SPENT_SAMPLE: SettlementChangeRequestActResult = {
+  accepted: false,
+  refusalReason: 'DELETE_SPENT',
+  changeRequestId: '',
+  requestStatus: '',
+  settlementEntryId: SAMPLE_ENTRY_ID,
+  entryNumber: 157,
+  amount: 500.0,
+  remainingAmount: 380.0,
+  spentAmount: 120.0,
+  description: 'فائض نقدي — مراجعة سبتمبر',
+  entryStatus: 'OPEN',
+  businessDay: UNSTAMPED,
+}
+
+/**
  * **2194's sample answer, verbatim** — a withdraw refused `NOT_REQUESTER` on entry 162:
  * the request stays `OPEN` for a supervisor. 2195 adds `businessDay` to every act
  * response; a shortage carries the year-1 day.

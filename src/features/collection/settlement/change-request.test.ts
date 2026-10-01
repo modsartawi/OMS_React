@@ -17,11 +17,13 @@ import {
   afterWithdraw,
   cardFor,
   changeRequestBody,
+  deleteRequestBody,
   entryNow,
   changeRequestFailure,
   offerFor,
   paneRead,
   raisedRequest,
+  reduceToSpent,
   rejectBody,
   type ChangeRequestSession,
 } from './change-request'
@@ -29,6 +31,7 @@ import { changeRefusal } from './change-refusal'
 import {
   APPLIED_SAMPLE,
   BELOW_SPENT_SAMPLE,
+  DELETE_SPENT_SAMPLE,
   NOT_REQUESTER_SAMPLE,
   REQUESTER,
   UNSTAMPED,
@@ -578,5 +581,101 @@ describe('rejectBody — rejecting needs a Reason (W6, ticket 346)', () => {
       kind: 'ready',
       body: { changeRequestId: 'R-151', reason: 'spent past it already' },
     })
+  })
+})
+
+describe('deleteRequestBody — a delete asks for a Reason only, and sends no figure (W5, ticket 347)', () => {
+  const entry = { settlementEntryId: 'E-143' }
+
+  it('🔑 requestKind DELETE and the Reason trimmed — and no figure field at all, not even null', () => {
+    const check = deleteRequestBody(entry, '  posted against the wrong branch  ')
+    expect(check).toEqual({
+      kind: 'ready',
+      body: { settlementEntryId: 'E-143', requestKind: 'DELETE', reason: 'posted against the wrong branch' },
+    })
+    // 2193 400s SettlementDeleteTakesNoFigures on a named figure, even "" — so none is named.
+    if (check.kind !== 'ready') throw new Error('expected ready')
+    expect(Object.keys(check.body).sort()).toEqual(['reason', 'requestKind', 'settlementEntryId'])
+  })
+  it('a blank Reason, or one of spaces, is held', () => {
+    expect(deleteRequestBody(entry, '')).toEqual({ kind: 'held', problem: 'blank' })
+    expect(deleteRequestBody(entry, '   ')).toEqual({ kind: 'held', problem: 'blank' })
+  })
+  it('a Reason over 200 is held', () => {
+    expect(deleteRequestBody(entry, 'x'.repeat(201))).toEqual({ kind: 'held', problem: 'too-long' })
+  })
+})
+
+describe('reduceToSpent — "Reduce it to X" fills the change form with the spent figure (W5, ticket 347)', () => {
+  const entry = { settlementEntryId: 'E-151', amount: 500, description: 'فائض نقدي — مراجعة سبتمبر' }
+
+  it('🔑 from the History read: offerFor\'s reduce cell → the draft whose newAmount is the spent figure', () => {
+    const offer = offerFor(anEntry({ status: 'OPEN', amount: 500, remainingAmount: 380 }), { openRequest: null, spentAmount: 120 }, ACCOUNTANT)
+    if (offer.kind !== 'ask' || offer.remove.kind !== 'reduce') throw new Error(`expected the reduce cell, got ${JSON.stringify(offer)}`)
+    const draft = reduceToSpent(entry, offer.remove)
+    expect(draft).toEqual({ amount: '120', description: entry.description, reason: '' })
+    expect(changeRequestBody({ ...entry, spentAmount: 120 }, { ...draft, reason: 'only 120 was ever owed' })).toEqual({
+      kind: 'ready',
+      body: { settlementEntryId: 'E-151', requestKind: 'CHANGE', newAmount: 120, newDescription: null, reason: 'only 120 was ever owed' },
+    })
+  })
+
+  it('🔑 from a DELETE_SPENT answer: 344\'s reduce step, X the ANSWER\'s spentAmount (2193\'s sample)', () => {
+    const refusal = changeRefusal('raise', DELETE_SPENT_SAMPLE)
+    if (refusal.step.kind !== 'reduce') throw new Error(`expected the reduce step, got ${JSON.stringify(refusal.step)}`)
+    const draft = reduceToSpent({ description: DELETE_SPENT_SAMPLE.description }, refusal.step)
+    expect(draft.amount).toBe('120')
+    const check = changeRequestBody(
+      { settlementEntryId: DELETE_SPENT_SAMPLE.settlementEntryId, amount: 500, description: DELETE_SPENT_SAMPLE.description, spentAmount: 120 },
+      { ...draft, reason: 'x' },
+    )
+    expect(check.kind === 'ready' && check.body.newAmount).toBe(120)
+  })
+
+  it('🔑 a BHD entry spent by 0.001: the draft asks for 0.001, exactly the floor, and is ready', () => {
+    const offer = offerFor(anEntry({ status: 'OPEN', amount: 50, remainingAmount: 49.999 }), { openRequest: null, spentAmount: 0.001 }, ACCOUNTANT)
+    if (offer.kind !== 'ask' || offer.remove.kind !== 'reduce') throw new Error('expected the reduce cell')
+    const draft = reduceToSpent({ description: 'd' }, offer.remove, 'posted twice')
+    expect(draft).toEqual({ amount: '0.001', description: 'd', reason: 'posted twice' })
+    const check = changeRequestBody({ settlementEntryId: 'E', amount: 50, description: 'd', spentAmount: 0.001 }, draft)
+    expect(check).toEqual({
+      kind: 'ready',
+      body: { settlementEntryId: 'E', requestKind: 'CHANGE', newAmount: 0.001, newDescription: null, reason: 'posted twice' },
+    })
+  })
+
+  it('the figure is written at holding scale — a float tail never reaches the box', () => {
+    expect(reduceToSpent({ description: '' }, { kind: 'reduce', to: 120.10000000000001 }).amount).toBe('120.1')
+  })
+
+  it('a Reason typed for the refused delete is carried into the change form, to be edited there', () => {
+    expect(reduceToSpent({ description: 'd' }, { kind: 'reduce', to: 120 }, 'entry posted in error').reason).toBe('entry posted in error')
+  })
+})
+
+describe('a delete through the pane\'s pure steps (ticket 347)', () => {
+  const entry = entryOf('0142', 143)
+  const request = waitingRequestOn(entry, { changeRequestId: 'R-DEL', requestKind: 'DELETE' })
+
+  it('the card for a waiting delete names the kind and no figure — a delete lands none (2193)', () => {
+    expect(cardFor(request)).toMatchObject({ kind: 'DELETE', changes: [] })
+  })
+
+  it('the card drawn from an accepted delete\'s answer is a DELETE, its new figures the old ones', () => {
+    const now = entryNow(entry, historyOf(entry, { spentAmount: 0 }), null)
+    const check = deleteRequestBody(now, 'posted twice')
+    if (check.kind !== 'ready') throw new Error('expected ready')
+    const drawn = raisedRequest(now, check.body, raisedAnswerFor(entry, { changeRequestId: 'R-DEL' }, 0), { staffId: 'u', name: 'u' })
+    expect(drawn).toMatchObject({ requestKind: 'DELETE', newAmount: drawn.oldAmount, newDescription: drawn.oldDescription })
+    expect(cardFor(drawn).changes).toEqual([])
+  })
+
+  it('🔑 an approved delete redraws the entry as CANCELLED from the answer — finished, nothing offered', () => {
+    const history = historyOf(entry, { spentAmount: 0, openRequest: request })
+    const answer = approvedAnswerFor(entry, request, 0, { entryStatus: 'CANCELLED' })
+    expect(afterDecide('approve', answer)).toEqual({ kind: 'decided' })
+    const read = paneRead(entry, history, { result: answer, request: null })
+    expect(read.now).toMatchObject({ status: 'CANCELLED', amount: entry.amount, spentAmount: 0 })
+    expect(offerFor(read.now, read, SUPERVISOR)).toEqual({ kind: 'finished', because: 'cancelled' })
   })
 })

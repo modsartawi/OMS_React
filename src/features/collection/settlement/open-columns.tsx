@@ -9,6 +9,7 @@ import type {
 import { formatDay } from '@/core/util/date-format'
 import { approvalTarget, dayVarianceFor, type SupervisionAct, type ApprovalTarget } from './approval'
 import { businessDayCell, dayVarianceWords, entryKindLabel } from './entry-cells'
+import { EntryNumberCell } from './EntryNumberCell'
 import { settlementMoney } from './money-display'
 import {
   chaseCell,
@@ -63,6 +64,8 @@ export function buildOpenColumns(
       // it is monospaced so a column of them scans while dialling.
       headerName: t('open.columns.entryNumber'),
       ...ENTRY_NUMBER_SHAPE,
+      // 351: an entry with a change request waiting says so on its handle.
+      cellRenderer: EntryNumberCell,
     },
     {
       // 🔑 Name AND code in one cell, as the prototype has it: the name is what an
@@ -319,7 +322,7 @@ export function buildPendingColumns(
   },
 ): ColDef<SettlementOpenLaneRow>[] {
   const columns: ColDef<SettlementOpenLaneRow>[] = [
-    { headerName: t('open.columns.entryNumber'), ...ENTRY_NUMBER_SHAPE },
+    { headerName: t('open.columns.entryNumber'), ...ENTRY_NUMBER_SHAPE, cellRenderer: EntryNumberCell },
     {
       headerName: t('open.columns.branch'),
       ...BRANCH_SHAPE,
@@ -479,7 +482,7 @@ export function buildTheftColumns(
   { named }: { named: boolean },
 ): ColDef<SettlementOpenLaneRow>[] {
   return [
-    { headerName: t('open.columns.entryNumber'), ...ENTRY_NUMBER_SHAPE },
+    { headerName: t('open.columns.entryNumber'), ...ENTRY_NUMBER_SHAPE, cellRenderer: EntryNumberCell },
     {
       headerName: t('open.columns.branch'),
       ...BRANCH_SHAPE,
@@ -658,10 +661,12 @@ function chaseWords(t: TFunction, cell: ChaseCell): string {
 const ROW_ACTION_CLASS =
   'shrink-0 rounded-full border border-border/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary'
 
+/** ⚠️ Wide enough for the *change waiting* mark (351) on the three entry tabs; the cash
+ *  tab's row is a receipt and draws the bare number (`EntryNumberCell`). */
 const ENTRY_NUMBER_SHAPE = {
   field: 'entryNumber',
   colId: 'entryNumber',
-  width: 96,
+  width: 112,
   filter: 'agNumberColumnFilter',
   cellClass: 'font-mono text-[12px]',
 } as const

@@ -142,6 +142,7 @@ export const THEFT_LEDGER: SettlementOpenLaneRow[] = THEFT_ENTRIES.map((e) => ({
   storeName: THEFT_STORE_NAME,
   currencyKey: 'SAR',
   ...(DAY_FIGURES[e.entryNumber] ?? NO_DAY_FIGURES),
+  openChangeRequestId: '',
   servedBy: DUHA.name,
   isMine: true,
   ageDays: 3,

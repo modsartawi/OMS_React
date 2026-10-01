@@ -162,6 +162,7 @@ export const PENDING_LANE: SettlementOpenLaneRow[] = [
     storeName: APPROVAL_STORE_NAME,
     currencyKey: 'SAR',
     ...NO_DAY_FIGURES,
+    openChangeRequestId: '',
     servedBy: HUDA.name,
     isMine: true,
     ageDays: 2,
@@ -171,6 +172,7 @@ export const PENDING_LANE: SettlementOpenLaneRow[] = [
     storeName: APPROVAL_STORE_NAME,
     currencyKey: 'SAR',
     ...NO_DAY_FIGURES,
+    openChangeRequestId: '',
     servedBy: HUDA.name,
     isMine: true,
     ageDays: 1,
@@ -191,6 +193,7 @@ export const PENDING_LANE: SettlementOpenLaneRow[] = [
     // amounts are drawn per row and never totalled.
     currencyKey: 'BHD',
     ...NO_DAY_FIGURES,
+    openChangeRequestId: '',
     servedBy: '',
     isMine: false,
     ageDays: 0,

@@ -209,6 +209,12 @@
       "forbidden": "Only an accountant supervisor can cancel an entry or write off its remainder, and this session does not hold settlement supervision — nothing was changed."
     }
   },
+  "changeRequest": {
+    "mark": {
+      "label": "Change waiting",
+      "title": "A change request is waiting on this entry. Open the entry to see what is asked."
+    }
+  },
   "audit": {
     "title": "Everything that has happened to this entry",
     "forEntry": "Entry {{number}}",

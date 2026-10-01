@@ -5,6 +5,7 @@ import type { SettlementLedgerRow } from '@/core/models/settlement'
 import { formatDateTime } from '@/core/util/date-format'
 import { isDimmed } from './account-projection'
 import { businessDayCell, entryKindLabel, entryStatusLabel, remainingCell } from './entry-cells'
+import { EntryNumberCell } from './EntryNumberCell'
 import { settlementMoney } from './money-display'
 
 /**
@@ -46,9 +47,11 @@ export function buildLedgerColumns(
       headerName: t('account.columns.entryNumber'),
       field: 'entryNumber',
       colId: 'entryNumber',
-      width: 110,
+      // 351: wide enough for the *change waiting* mark beside the number.
+      width: 124,
       filter: 'agNumberColumnFilter',
       cellClass: 'font-mono text-[12px]',
+      cellRenderer: EntryNumberCell,
     },
     {
       headerName: t('ledger.columns.storeId'),

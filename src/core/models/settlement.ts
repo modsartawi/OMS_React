@@ -415,6 +415,20 @@ export type SettlementLedgerRow = SettlementEntry & {
    * is not capped by it, and the supervisor judges (ADR 0049).
    */
   dayCashVariance: number | null
+  /**
+   * **The change request still waiting on this entry** (BackOffice 2191, spec 342 W10/W14)
+   * — its id, or `''` when none. A direct supervisor act that supersedes it puts the
+   * field back to `''` (2194).
+   *
+   * 🔑 **A mark, never a read of the request.** The row says *a change is waiting* and
+   * nothing more; what is asked, by whom and why is the History read's, fetched when the
+   * entry is opened. ⚠️ Ledger rows only: `Settlement/Account` carries no such field and
+   * gets none — the account panel learns of a waiting request from History.
+   *
+   * ⚠️ An SIS.Api older than the wave does not send it. `hasChangeWaiting` reads absent
+   * as `''`, so such a server marks nothing rather than failing.
+   */
+  openChangeRequestId: string
 }
 
 /**

@@ -133,6 +133,8 @@ function buildOpenLane(): SettlementOpenLaneRow[] {
       servedBy: branch.servedBy,
       isMine: branch.isMine,
       ageDays,
+      // BackOffice 2191: `''` when no change request waits — set below, after the sort.
+      openChangeRequestId: '',
     })
   }
 
@@ -177,7 +179,20 @@ function buildOpenLane(): SettlementOpenLaneRow[] {
   // at estate scale, and a comparator that left them unordered would let a refetch
   // reshuffle the page under the reader's cursor — and, because the answer is capped,
   // change which rows survived the cap.
-  return rows.sort((a, b) => b.ageDays! - a.ageDays! || a.entryNumber - b.entryNumber)
+  rows.sort((a, b) => b.ageDays! - a.ageDays! || a.entryNumber - b.entryNumber)
+
+  // ── spec 342 W10: a change request waiting on an entry (BackOffice 2191) ──
+  //
+  // 🔑 **Every ninth row in the door's order**, so any screenful of the lane — either
+  // entry tab, either section — holds rows with the mark and rows without it, which is
+  // the only arrangement that proves the mark is drawn *only where set*.
+  //
+  // 🚩 **By position, not by `rand()`.** Another draw from the generator would move every
+  // figure after it, and the lane's existing assertions are about those figures.
+  rows.forEach((r, i) => {
+    if (i % 9 === 4) r.openChangeRequestId = `01K6CR${r.storeId}${r.entryNumber}`.padEnd(26, '0')
+  })
+  return rows
 }
 
 /** `GET Settlement/Ledger?status=OPEN&sort=age` — the estate's open entries, in the

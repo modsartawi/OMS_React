@@ -74,6 +74,23 @@ export function businessDayCell(
 }
 
 /**
+ * **Whether a change request waits on this entry** — the *change waiting* mark (ticket
+ * 351, spec 342 W10), drawn by the Ledger grid and the open-settlement lanes alike.
+ *
+ * 🔑 The wire's own answer and nothing else: `openChangeRequestId` names the waiting
+ * request, `''` says none (BackOffice 2191). No status, figure or History read stands in
+ * for it — the mark says only that one is waiting; the panel says what.
+ *
+ * ⚠️ Absent reads as `''`: an SIS.Api older than the wave does not send the field, and
+ * must mark nothing rather than fail.
+ */
+export function hasChangeWaiting(
+  row: { openChangeRequestId?: string } | null | undefined,
+): boolean {
+  return !!row?.openChangeRequestId
+}
+
+/**
  * **What a theft's day came to, as a sentence** — *"3,000.00 short — 500.00 counted
  * against 3,500.00 of system cash"* (ticket 339).
  *

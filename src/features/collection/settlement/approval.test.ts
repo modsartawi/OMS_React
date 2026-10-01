@@ -134,7 +134,7 @@ describe('rule 2 — labelled, and its remaining is no claim on anybody', () => 
   it('a pending row is NOT dimmed; a rejected one is — on both grids', () => {
     expect(accountRowClass({ data: rowOf(1202) })).toBeUndefined()
     expect(accountRowClass({ data: rowOf(1204) })).toBe('opacity-60')
-    const ledger = (n: number) => ({ ...byNumber(n), storeName: '', currencyKey: 'SAR', ...NO_DAY_FIGURES })
+    const ledger = (n: number) => ({ ...byNumber(n), storeName: '', currencyKey: 'SAR', ...NO_DAY_FIGURES, openChangeRequestId: '' })
     expect(ledgerRowClass({ data: ledger(1202) })).toBeUndefined()
     expect(ledgerRowClass({ data: ledger(1204) })).toBe('opacity-60')
   })

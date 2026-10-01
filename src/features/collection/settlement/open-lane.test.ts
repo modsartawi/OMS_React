@@ -84,6 +84,7 @@ function row(o: {
     dayCountedCash: null,
     dayCashVariance: null,
     currencyKey: 'SAR',
+    openChangeRequestId: '',
     ...(o.servedBy !== undefined ? { servedBy: o.servedBy } : {}),
     ...(o.isMine !== undefined ? { isMine: o.isMine } : {}),
     ...(o.ageDays !== undefined ? { ageDays: o.ageDays } : {}),

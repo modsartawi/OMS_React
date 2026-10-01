@@ -40,8 +40,9 @@ could be done differently. Without `requests` the column is byte-for-byte what i
 
 ## Q: Copy for the request facts.
 **Decision taken:** "Change requested" / "Delete requested"; "Change request approved — the entry
-was changed" / "Delete request approved — the entry was cancelled"; "Changed by a supervisor at
-once — no approval step" (own); "… rejected" / "… withdrawn" / "… superseded". Never "cancelled"
+was changed" / "Delete request approved" (the entry's own "Cancelled" row follows it, so the cancel
+is not told twice); "Changed by a supervisor at once — no approval step" / "Deleted by a supervisor
+at once — no approval step" (own); "… rejected" / "… withdrawn" / "… superseded". Never "cancelled"
 for a request (W13).
 **Why:** W13's nouns and verbs; the own wording echoes 348's "applies immediately — no approval step".
 **Revisit if:** The owner wants different words.

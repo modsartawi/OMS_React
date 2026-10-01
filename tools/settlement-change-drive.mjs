@@ -51,6 +51,18 @@
 //      answer not saying WITHDRAWN is "unconfirmed"; a 400 is said in 344's words, a bare
 //      403 is named, and a 404 says "not available yet".
 //
+// Ticket 346 — a supervisor approves or rejects a waiting request (W6/W8, 2191–2195's Approve/Reject):
+//  19. a supervisor's card shows Approve and Reject beside what the branch has spent TODAY
+//      (History's spentAmount, newer than the account row); an accountant sees neither;
+//  20. Approve sends only { changeRequestId }, and the pane redraws from the APPLIED answer
+//      (the card gone, the corrected amount in the form) while the History re-read is held;
+//      then History and the account are re-read;
+//  21. a refused approve (BELOW_SPENT with today's spentAmount, CHANGE_STALE) keeps the card
+//      OPEN with 344's sentence and the "reject it" step; ENTRY_FINAL redraws as finished;
+//  22. Reject opens a required Reason box, sends { changeRequestId, reason }, and a 400 on
+//      the Reason lands on that box;
+//  23. a bare 403 is named, the probe re-read, and the buttons go; a 404 says "not available yet".
+//
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/settlement-change-drive.mjs
 import { createRequire } from 'node:module'
@@ -91,6 +103,8 @@ const REQUEST_ID = '01K6G8Z3N4QH5V2C7M9R1T0XYB'
 
 let scenario = {}
 let FX = null
+/** Every read of the Collections probe — a bare 403 must re-read it (W1). */
+let accessCalls = 0
 
 /** 343's door state: what History and Raise answer, and what was asked of them. */
 let cr = { histories: {}, historyCalls: [], raiseCalls: [], accountCalls: 0 }
@@ -104,6 +118,10 @@ const resetCr = (o = {}) => {
     withdraw: () => ({}),
     withdrawMissing: false,
     withdrawCalls: [],
+    // 346: Approve / Reject — what each answers, and every { door, body } sent.
+    approve: () => ({}),
+    reject: () => ({}),
+    decideCalls: [],
     historyCalls: [],
     raiseCalls: [],
     accountCalls: 0,
@@ -140,7 +158,31 @@ async function run() {
 
     if (path === 'Auth/Me')
       return route.fulfill(envelope({ authenticated: true, userId: 'msartawi', currentStoreCode: '1001' }))
-    if (path === 'CollectionWeb/Access') return route.fulfill(envelope(scenario.access ?? ACCOUNTANT))
+    if (path === 'CollectionWeb/Access') {
+      accessCalls++
+      return route.fulfill(envelope(scenario.access ?? ACCOUNTANT))
+    }
+    if (path === 'Settlement/ChangeRequest/Approve' || path === 'Settlement/ChangeRequest/Reject') {
+      const door = path.endsWith('Approve') ? 'approve' : 'reject'
+      const body = route.request().postDataJSON()
+      cr.decideCalls.push({ door, body })
+      if (cr.decideMissing)
+        return route.fulfill(envelope(null, { status: 404, success: false, message: 'Not Found' }))
+      // The bare 403 a session without settlement supervision gets — no body (2191).
+      if (cr.decideForbidden) return route.fulfill({ status: 403, contentType: 'text/plain', body: '' })
+      if (cr.decideInvalid) {
+        const { code, message } = cr.decideInvalid
+        return route.fulfill(
+          envelope(null, {
+            status: 400,
+            success: false,
+            message,
+            errors: [{ errorCode: code, internalErrorCode: '', errorMessage: message }],
+          }),
+        )
+      }
+      return route.fulfill(envelope(cr[door](body)))
+    }
     if (path === 'Settlement/Account') {
       cr.accountCalls++
       return route.fulfill(
@@ -921,6 +963,198 @@ async function run() {
   await appears('[data-testid="change-request-unavailable"]')
   check('a 404 on Withdraw says "not available yet", never a crash', (await offerOf()) === 'not-shipped' && errors.length === errorsBeforeW404)
   await crKeys('ticket 345')
+
+  // ======== Ticket 346 — a supervisor approves or rejects a waiting request ========
+  const SUPERVISOR = { ...ACCOUNTANT, canSuperviseSettlement: true }
+  Object.assign(
+    FX,
+    await page.evaluate(async ([e151]) => {
+      const acc = await import('/src/features/collection/settlement/settlement-fixture.ts')
+      const crf = await import('/src/features/collection/settlement/change-request-fixture.ts')
+      const row151 = acc.SETTLEMENT_ACCOUNTS['0142'].entries.find((e) => e.settlementEntryId === e151)
+      // Another accountant's request: 320 → 300 (the fixture's requester, 30117).
+      const theirs = crf.waitingRequestOn(row151, { changeRequestId: 'R-151', newAmount: 300 })
+      // 🔑 TODAY's figures: a till has spent 5 more since the account row (320 / 120) was read.
+      const today151 = { ...row151, remainingAmount: 115 }
+      const corrected151 = { ...row151, amount: 300, remainingAmount: 95 }
+      return {
+        theirs151: theirs,
+        today151: crf.historyOf(today151, { spentAmount: 205, openRequest: theirs }),
+        // The server's corrected figures, stated — never derived here from what was asked.
+        approved151: crf.approvedAnswerFor(row151, theirs, 205, { amount: 300, remainingAmount: 95 }),
+        afterApprove151: crf.historyOf(corrected151, { spentAmount: 205, requests: [{ ...theirs, status: 'APPLIED' }] }),
+        rejected151: crf.rejectedAnswerFor(today151, theirs, 205),
+        afterReject151: crf.historyOf(today151, { spentAmount: 205, requests: [{ ...theirs, status: 'REJECTED' }] }),
+        // 2192's BELOW_SPENT sample, about 151: a till spent past 300 while the request waited.
+        belowSpent151: { ...crf.BELOW_SPENT_SAMPLE, changeRequestId: 'R-151', settlementEntryId: e151, entryNumber: 151, amount: 320, remainingAmount: 10, spentAmount: 310, description: row151.reason },
+      }
+    }, [FX.e151]),
+  )
+  /** 151 with another accountant's request waiting, read TODAY (spent 205). */
+  const resetDecide = (o = {}) => {
+    resetCr(o)
+    cr.histories[FX.e151] = structuredClone(FX.today151)
+  }
+  const decided = (door) => cr.decideCalls.filter((c) => c.door === door).at(-1)
+
+  // ---- 19. who is offered Approve / Reject, beside today's figures ----
+  scenario = { access: SUPERVISOR }
+  resetDecide()
+  await openCard(151)
+  check('🔑 a supervisor\'s card shows Approve and Reject', (await tid('change-request-approve').count()) === 1 && (await tid('change-request-reject').count()) === 1 && (await tid('change-request-card').getAttribute('data-request')) === 'R-151')
+  check('…and no Withdraw on an accountant\'s request', (await tid('change-request-withdraw').count()) === 0)
+  const spentNow = await textOf('change-request-spent-now')
+  check('🔑 story 16: what the branch has spent TODAY — History\'s 205.00, not the account row\'s 200', /spent 205\.00 from entry 151, which stands at 320\.00/.test(spentNow), spentNow)
+  check('…and nothing was decided by looking', cr.decideCalls.length === 0)
+  await crKeys('the supervisor\'s card')
+  await shot('346-supervisor')
+
+  scenario = {}
+  resetDecide()
+  await openCard(151)
+  check('🚩 an accountant sees the card and neither Approve nor Reject', (await tid('change-request-card').count()) === 1 && (await tid('change-request-approve').count()) === 0 && (await tid('change-request-reject').count()) === 0 && (await tid('change-request-decide').count()) === 0)
+
+  // ---- 20. approve: redrawn from the answer, then re-read ----
+  scenario = { access: SUPERVISOR }
+  resetDecide({
+    approve: () => {
+      cr.histories[FX.e151] = structuredClone(FX.afterApprove151)
+      return FX.approved151
+    },
+  })
+  await openCard(151)
+  const holdApprove = deferred()
+  const historyBeforeA = cr.historyCalls.length
+  const accountBeforeA = cr.accountCalls
+  cr.holdHistory = holdApprove
+  await tid('change-request-approve').click()
+  await page.waitForFunction(() => !document.querySelector('[data-testid="change-request-card"]'), null, { timeout: 8000 }).catch(() => {})
+  check('🔑 Approve sends ONLY { changeRequestId }', JSON.stringify(decided('approve')?.body) === JSON.stringify({ changeRequestId: 'R-151' }), JSON.stringify(decided('approve')))
+  check('🔑 W8: the card is gone from the APPLIED answer while the History re-read is still held', (await tid('change-request-card').count()) === 0 && (await offerOf()) === 'ask' && cr.historyCalls.length > historyBeforeA)
+  await tid('change-request-open').click()
+  check('🔑 …and the entry\'s figures are the ANSWER\'s: the form opens at 300, not the row\'s 320', (await tid('change-request-amount').inputValue()) === '300' && /Lowest allowed: 205\.00\b/.test(await textOf('change-request-floor')), `${await tid('change-request-amount').inputValue()} · ${await textOf('change-request-floor')}`)
+  await tid('change-request-back').click()
+  check('…the toast says approved and applied', /The change request on entry 151 was approved and applied\./.test(await page.locator('body').innerText()))
+  await shot('346-approved')
+  holdApprove.release()
+  cr.holdHistory = null
+  await settle()
+  check('…then the re-read lands with no card', (await tid('change-request-card').count()) === 0 && (await offerOf()) === 'ask')
+  check('…and the account was re-read too', cr.accountCalls > accountBeforeA)
+  await crKeys('an approved request')
+
+  // ---- 21. a refused approve keeps the card OPEN ----
+  resetDecide({
+    approve: () => {
+      // A till spent past 300 while it waited: History now says so, the request still OPEN.
+      cr.histories[FX.e151] = { ...structuredClone(FX.today151), remainingAmount: 10, spentAmount: 310 }
+      return FX.belowSpent151
+    },
+  })
+  await openCard(151)
+  const holdRefused = deferred()
+  cr.holdHistory = holdRefused
+  await tid('change-request-approve').click()
+  await appears('[data-testid="change-request-notice"]')
+  n = await noticeOf()
+  check('🔑 a refused approve is said by its code, with today\'s spent figure from the ANSWER', n.code === 'BELOW_SPENT' && n.step === 'reject' && /spent 310\.00 from entry 151/.test(n.text), JSON.stringify(n))
+  check('…and its next step: reject it with a Reason', /Reject it with a Reason/.test(await textOf('change-request-notice-step')))
+  check('🔑 …the card stays, still OPEN, with Approve and Reject', (await tid('change-request-card').getAttribute('data-request')) === 'R-151' && (await tid('change-request-approve').count()) === 1 && (await tid('change-request-reject').count()) === 1 && (await offerOf()) === 'waiting')
+  check('…beside today\'s spent, redrawn from the answer while the re-read is held', /spent 310\.00 from entry 151/.test(await textOf('change-request-spent-now')), await textOf('change-request-spent-now'))
+  await shot('346-below-spent')
+  holdRefused.release()
+  cr.holdHistory = null
+  await settle()
+  check('…and still there once History is re-read', (await tid('change-request-card').count()) === 1 && (await tid('change-request-notice').count()) === 1)
+  await crKeys('a refused approve')
+
+  resetDecide({ approve: () => ({ ...FX.belowSpent151, refusalReason: 'CHANGE_STALE', remainingAmount: 115, spentAmount: 205 }) })
+  await openCard(151)
+  await tid('change-request-approve').click()
+  await appears('[data-testid="change-request-notice"]')
+  n = await noticeOf()
+  check('CHANGE_STALE at approval: the card stays, and the step is to reject it', n.code === 'CHANGE_STALE' && n.step === 'reject' && (await tid('change-request-card').count()) === 1, JSON.stringify(n))
+
+  resetDecide({
+    approve: () => {
+      // A direct Cancel landed first: the request was superseded with it (2194).
+      cr.histories[FX.e151] = { ...structuredClone(FX.today151), entryStatus: 'CANCELLED', openRequest: null }
+      return { ...FX.belowSpent151, refusalReason: 'ENTRY_FINAL', entryStatus: 'CANCELLED', remainingAmount: 115, spentAmount: 205 }
+    },
+  })
+  await openCard(151)
+  const holdFinal151 = deferred()
+  cr.holdHistory = holdFinal151
+  await tid('change-request-approve').click()
+  await appears('[data-testid="change-request-finished"]')
+  n = await noticeOf()
+  check('ENTRY_FINAL at approval redraws from the answer: the entry is finished, nothing to press', n.code === 'ENTRY_FINAL' && (await offerOf()) === 'finished' && (await tid('change-request-approve').count()) === 0, JSON.stringify(n))
+  holdFinal151.release()
+  cr.holdHistory = null
+  await settle()
+  check('…and the re-read agrees: finished', (await offerOf()) === 'finished')
+
+  // ---- 22. reject needs a Reason ----
+  resetDecide({
+    reject: () => {
+      cr.histories[FX.e151] = structuredClone(FX.afterReject151)
+      return FX.rejected151
+    },
+  })
+  await openCard(151)
+  await tid('change-request-reject').click()
+  check('Reject opens a Reason box, marked required', (await tid('change-request-reject-form').count()) === 1 && (await tid('change-request-reject-reason-required').count()) === 1)
+  const rejectHeld = async () => (await tid('change-request-reject-submit').getAttribute('aria-disabled')) === 'true'
+  check('🔑 …and Reject is held while the Reason is empty', await rejectHeld())
+  await tid('change-request-reject-submit').click({ force: true })
+  check('…pressing it anyway sends nothing', cr.decideCalls.length === 0)
+  await tid('change-request-reject-reason').fill('   ')
+  check('…or only spaces', await rejectHeld())
+  await tid('change-request-reject-back').click()
+  check('Back closes the box and Approve / Reject return', (await tid('change-request-reject-form').count()) === 0 && (await tid('change-request-approve').count()) === 1)
+  await tid('change-request-reject').click()
+  await tid('change-request-reject-reason').fill('  branch confirmed the 320 was right  ')
+  check('a Reason releases it', !(await rejectHeld()))
+  await crKeys('the Reject box')
+  await shot('346-reject')
+  await tid('change-request-reject-submit').click()
+  await page.waitForFunction(() => !document.querySelector('[data-testid="change-request-card"]'), null, { timeout: 8000 }).catch(() => {})
+  check('🔑 Reject sends { changeRequestId, reason }, the Reason trimmed', JSON.stringify(decided('reject')?.body) === JSON.stringify({ changeRequestId: 'R-151', reason: 'branch confirmed the 320 was right' }), JSON.stringify(decided('reject')))
+  check('…the card goes, and the toast says rejected, the entry unchanged', (await tid('change-request-card').count()) === 0 && /The change request on entry 151 was rejected\. The entry is unchanged\./.test(await page.locator('body').innerText()))
+  check('…and no approve was sent', !decided('approve'))
+
+  resetDecide({ decideInvalid: { code: 'SettlementRejectReasonRequired', message: SERVER_WORDS } })
+  await openCard(151)
+  await tid('change-request-reject').click()
+  await tid('change-request-reject-reason').fill('not needed')
+  await tid('change-request-reject-submit').click()
+  await appears('[data-testid="change-request-reject-reason-error"]')
+  check('a 400 on the Reason lands on the Reject box, in 344\'s words', /A Reason is required to reject/.test(await textOf('change-request-reject-reason-error')) && !(await page.locator('body').innerText()).includes(SERVER_WORDS))
+  await tid('change-request-reject-reason').fill('not needed at all')
+  check('…and the next keystroke clears it', (await tid('change-request-reject-reason-error').count()) === 0)
+
+  // ---- 23. a bare 403, and a 404 ----
+  resetDecide({ decideForbidden: true })
+  await openCard(151)
+  const probesBefore = accessCalls
+  // An administrator took the grant between the probe and the press: re-read, it says so.
+  scenario = { access: ACCOUNTANT }
+  await tid('change-request-approve').click()
+  await page.waitForFunction(() => /no longer hold settlement supervision/.test(document.body.innerText), null, { timeout: 8000 }).catch(() => {})
+  await settle()
+  check('🔑 a bare 403 is named — the change request was not decided', /You no longer hold settlement supervision, so this change request was not decided/.test(await page.locator('body').innerText()))
+  check('🔑 …the probe is re-read, and Approve / Reject go away', accessCalls > probesBefore && (await tid('change-request-approve').count()) === 0 && (await tid('change-request-reject').count()) === 0, `${accessCalls - probesBefore} probe(s)`)
+  check('…while the card itself stays — a fact about the entry', (await tid('change-request-card').count()) === 1)
+
+  scenario = { access: SUPERVISOR }
+  resetDecide({ decideMissing: true })
+  const errorsBeforeD404 = errors.length
+  await openCard(151)
+  await tid('change-request-approve').click()
+  await appears('[data-testid="change-request-unavailable"]')
+  check('a 404 on Approve says "not available yet", never a crash', (await offerOf()) === 'not-shipped' && errors.length === errorsBeforeD404)
+  scenario = {}
+  await crKeys('ticket 346')
 
   // ---- 6. ----
   check('no page error anywhere', errors.length === 0, errors.slice(0, 3).join(' | '))

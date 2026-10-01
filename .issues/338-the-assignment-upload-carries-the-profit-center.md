@@ -80,7 +80,7 @@ route, grant, probe flag or dependency. The BackOffice repo was not touched.
   new, a profit-center-only change counted and applied, and the over-long refusal named on row 5 and above the grid.
 - `typecheck`, `lint` (three gates) and `build` are green.
 - ⚠️ Not driven against a live SIS.Api. The "after commit, on the collection screens" half of Done-when is owed to the
-  owner's smoke on dev, once migration 092 is on POS_Server.
+  owner's smoke on dev, once migration 096 is on POS_Server (minted as 092; BackOffice renumbered it in `a2c729f00`).
 
 **Reviews.**
 - `/code-review` (medium): no findings.

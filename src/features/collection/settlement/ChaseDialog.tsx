@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { apiErrorMessage } from '@/core/api'
 import type { SettlementChase } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
@@ -53,11 +54,16 @@ export default function ChaseDialog({
 }) {
   const { t } = useTranslation('settlement')
   const [note, setNote] = useState('')
+  /** A refusal or a failure, drawn inside the dialog while it stays open (spec 380 F18). */
+  const [failure, setFailure] = useState<string | null>(null)
 
   // A fresh box per branch: a sentence written about 0611 must not be sitting in it
   // when the next row is opened. Keyed on the branch, because that is what a note
   // belongs to.
-  useEffect(() => setNote(''), [target?.storeId])
+  useEffect(() => {
+    setNote('')
+    setFailure(null)
+  }, [target?.storeId])
 
   const chase = useMutation({
     mutationFn: () =>
@@ -68,21 +74,23 @@ export default function ChaseDialog({
         entryNumber: target!.entryNumber,
         note: note.trim(),
       }),
+    onMutate: () => setFailure(null),
     onSuccess: (result) => {
       // ⚠️ **A refusal is a 200 and is not an error** — unknown branch, blank note,
       // over-length, unrecognised subject. It is said in the server's own words where
       // it sent any, and the dialog stays open with the text still in it: the note has
       // not been recorded, and throwing away what was typed would make a refusal cost
-      // the accountant the call they just had.
+      // the accountant the call they just had. Said inside the dialog: a toast raised
+      // under an open `showModal()` cannot be reached (F18).
       if (!result?.accepted || !result.chase) {
-        toast.warning(result?.refusalReason || t('open.chase.refused'))
+        setFailure(result?.refusalReason || t('open.chase.refused'))
         return
       }
       toast.success(t('open.chase.done', { store: target?.storeName ?? '' }))
       onChased(result.chase)
       onClose()
     },
-    onError: (error) => toast.error(apiErrorMessage(error, t('open.chase.failed'))),
+    onError: (error) => setFailure(apiErrorMessage(error, t('open.chase.failed'))),
   })
 
   if (!target) return null
@@ -174,6 +182,7 @@ export default function ChaseDialog({
           maxLength={CHASE_NOTE_MAX}
           testId="chase-note"
         />
+        {failure && <ErrorBanner message={failure} className="p-2.5" />}
       </div>
     </Modal>
   )

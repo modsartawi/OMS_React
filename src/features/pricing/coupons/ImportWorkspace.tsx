@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Loader2, RotateCw, Upload } from 'lucide-react'
+import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
@@ -32,6 +33,9 @@ export default function ImportWorkspace() {
   const [customerId, setCustomerId] = useState('')
   const [preview, setPreview] = useState<Preview | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  /** A queue call that failed while the preview modal is open — said inside it, which
+   *  stays open (spec 380 F18: a toast under an open `showModal()` cannot be reached). */
+  const [submitError, setSubmitError] = useState<unknown>(null)
   const [retryingId, setRetryingId] = useState<string | null>(null)
 
   const templateKey = templateId.trim()
@@ -66,6 +70,7 @@ export default function ImportWorkspace() {
         notify.warn(t('import.errors.empty'))
         return
       }
+      setSubmitError(null)
       setPreview({ fileName: file.name, codes, duplicates })
     } catch (err) {
       if (err instanceof ImportParseError) {
@@ -83,6 +88,7 @@ export default function ImportWorkspace() {
   async function confirmImport() {
     if (!preview || submitting) return
     setSubmitting(true)
+    setSubmitError(null)
     try {
       await couponsApi.createImportJob(templateKey, {
         codes: preview.codes,
@@ -94,7 +100,7 @@ export default function ImportWorkspace() {
       await queryClient.invalidateQueries({ queryKey: jobsKey })
     } catch (err) {
       // 404 unknown/disabled template, 409 CUP-09043 over-cap backstop, etc.
-      notify.apiError(t('import.submitFailed'), err)
+      setSubmitError(err)
     } finally {
       setSubmitting(false)
     }
@@ -268,6 +274,13 @@ export default function ImportWorkspace() {
               {t('import.preview.into', { id: templateKey })}
               {customerId.trim() ? ` · ${t('import.preview.customer', { id: customerId.trim() })}` : ''}
             </p>
+            {submitError !== null && (
+              <ErrorBanner
+                title={t('import.submitFailed')}
+                message={apiErrorMessage(submitError, t('import.submitFailed'))}
+                className="p-2.5"
+              />
+            )}
           </div>
         )}
       </Modal>

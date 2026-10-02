@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import { notify } from '@/core/services/notify'
 import { uaAdminApi } from './api'
 import ChannelSelect from './ChannelSelect'
@@ -22,6 +24,9 @@ const LABEL = 'mb-1 block text-xs font-semibold text-muted-foreground'
  * Create a Ua identity only — no credential. An absent credential is exactly what
  * routes the person into SMS self-activation (spec story 25). Deliberately cannot
  * set a password here.
+ *
+ * A failed create renders inside the dialog, which stays open with the form as typed
+ * (spec 380 F18).
  */
 export default function NewIdentityModal({ open, onClose, onCreated }: Props) {
   const { t } = useTranslation('ua-admin')
@@ -37,6 +42,7 @@ export default function NewIdentityModal({ open, onClose, onCreated }: Props) {
   // an existing person's channel.
   const [channelChosen, setChannelChosen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<unknown>(null)
 
   function reset() {
     setEmployeeId('')
@@ -45,10 +51,12 @@ export default function NewIdentityModal({ open, onClose, onCreated }: Props) {
     setEmail('')
     setChannel('sms')
     setChannelChosen(false)
+    setError(null)
   }
 
   async function submit() {
     setBusy(true)
+    setError(null)
     try {
       const id = employeeId.trim()
       const address = email.trim()
@@ -70,7 +78,7 @@ export default function NewIdentityModal({ open, onClose, onCreated }: Props) {
       onCreated(id)
       onClose()
     } catch (err) {
-      notify.apiError(t('toast.failed'), err)
+      setError(err)
     } finally {
       setBusy(false)
     }
@@ -147,6 +155,13 @@ export default function NewIdentityModal({ open, onClose, onCreated }: Props) {
           email={email}
           deliveryChannel={channel}
           className="mt-2 text-xs text-danger-800"
+        />
+      )}
+      {error !== null && (
+        <ErrorBanner
+          title={t('toast.failed')}
+          message={apiErrorMessage(error, t('bulk.unexpected'))}
+          className="mt-3 p-2.5"
         />
       )}
     </Modal>

@@ -15,6 +15,10 @@ import { AlertTriangle } from 'lucide-react'
  * `children` render under the message, inside the title block — the route a
  * failure points at (ticket 120's simulation banner). Titled form only: an
  * untitled banner is one line by construction.
+ *
+ * The message is very often the server's own sentence, so it is isolated as free
+ * text (`<bdi>`, dir auto — the bidi rule): under RTL an English message keeps its
+ * full stop at its end (spec 380 F18, ticket 390; 388 handed this on).
  */
 export default function ErrorBanner({
   title,
@@ -42,11 +46,15 @@ export default function ErrorBanner({
       {title ? (
         <div>
           <p className="font-semibold">{title}</p>
-          <p>{message}</p>
+          <p>
+            <bdi>{message}</bdi>
+          </p>
           {children}
         </div>
       ) : (
-        <span>{message}</span>
+        <span>
+          <bdi>{message}</bdi>
+        </span>
       )}
     </div>
   )

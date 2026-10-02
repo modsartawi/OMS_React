@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import { notify } from '@/core/services/notify'
 import type { RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
@@ -20,13 +22,19 @@ interface Props {
  * Add a single role as a member of a composite. Only SINGLE roles can be members —
  * composites can't nest (the engine forbids it and the picker only offers singles), so
  * role resolution stays one level deep.
+ *
+ * A refused add renders inside the dialog, which stays open (spec 380 F18).
  */
 export default function AddMemberModal({ open, onClose, compositeName, members, catalog, onAdded }: Props) {
   const { t } = useTranslation('authz-admin')
   const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
 
   useEffect(() => {
-    if (open) setBusy(null)
+    if (open) {
+      setBusy(null)
+      setError(null)
+    }
   }, [open])
 
   const held = useMemo(() => new Set(members), [members])
@@ -38,13 +46,14 @@ export default function AddMemberModal({ open, onClose, compositeName, members, 
 
   async function add(singleRoleName: string) {
     setBusy(singleRoleName)
+    setError(null)
     try {
       await authzAdminApi.addCompositeMember(compositeName, singleRoleName)
       notify.success(t('addMember.added'), t('addMember.addedDetail', { member: singleRoleName }))
       onAdded()
     } catch (err) {
       // NESTING / unknown-member surface verbatim (belt-and-braces; the picker only offers singles).
-      notify.apiError(t('toast.failed'), err)
+      setError(err)
     } finally {
       setBusy(null)
     }
@@ -66,6 +75,13 @@ export default function AddMemberModal({ open, onClose, compositeName, members, 
         <p className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs text-muted-foreground">
           {t('addMember.intro')}
         </p>
+        {error !== null && (
+          <ErrorBanner
+            title={t('toast.failed')}
+            message={apiErrorMessage(error, t('toast.failed'))}
+            className="p-2.5"
+          />
+        )}
         {choices.length === 0 ? (
           <p className="rounded-lg border border-border/60 bg-muted/40 p-4 text-sm text-muted-foreground">
             {t('addMember.empty')}

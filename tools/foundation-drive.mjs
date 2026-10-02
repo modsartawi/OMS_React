@@ -98,6 +98,16 @@
 //  36. the type tag sits on its own line, squared, 10px uppercase: BROADCAST in the primary tier,
 //      JOB --muted; Esc and an outside click still close the panel; a row click and Mark all mark.
 //
+// 390: a dialog's own failure shows inside the dialog. In the same four modes:
+//  37. a stubbed `success:false` envelope on the UA set-password dialog and on the settlement
+//      post-entry dialog shows the server's sentence INSIDE the open dialog, and no toast is raised
+//      while it is open; under RTL the banner's English sentence keeps its full stop at its end (core
+//      ErrorBanner isolates its message), with a control that strips the isolate and must see it flip;
+//  38. a successful set-password closes its dialog and its toast is reachable (a hit-test at the
+//      toast's close button lands on the toast); the post-entry dialog's success panel keeps it
+//      open with its toast already up, which is the control — that hit-test lands on the DIALOG —
+//      and closing it leaves the toast reachable.
+//
 // Every `/api/**` call is stubbed (the delivery list needs a store grant a dev session lacks;
 // see grid-theme-drive.mjs). Mocked data, real app, real browser, real CSS, real fonts.
 //
@@ -2605,7 +2615,252 @@ async function driveBell({ theme, dir }) {
   await context.close()
 }
 
-// DRIVE_ONLY=paint|grids|ranges|rail|topbar|narrow|overlays|bell runs one part, for a slice's inner loop; unset runs all.
+// ---------------------------------------------------------------------------------------------
+// 390: a dialog's own failure shows inside the dialog. A native `showModal()` dialog sits in the
+// top layer, so a toast raised while it is open paints under its backdrop and cannot be reached.
+// The UA set-password dialog and the settlement post-entry dialog are driven through a stubbed
+// `success:false` envelope (the server's sentence must show INSIDE the open dialog, and no toast
+// may be raised), then through a success (its toast must be reachable: a hit-test at the toast's
+// close button lands on the toast). The post-entry dialog stays open on its success panel with its
+// toast already raised, which is the control: a hit-test there lands on the DIALOG.
+
+const SET_PASSWORD_REFUSAL = 'The temporary password does not meet the password policy.'
+const POST_REFUSAL = 'Settlement posting is closed while the month is being audited.'
+
+const refusal = (message) => ({
+  status: 400,
+  contentType: 'application/json',
+  body: JSON.stringify({ statusCode: 400, success: false, message, errors: [], data: null }),
+})
+
+const UA_PERSON = {
+  employeeId: '2001',
+  displayName: 'Person 2001',
+  phone: '0500000000',
+  phoneClass: 'usable',
+  email: '',
+  deliveryChannel: 'sms',
+  isActive: true,
+  isSeeded: true,
+  credentialState: 'active',
+  isTotpEnrolled: false,
+  lastLoginAt: '2026-07-01T09:00:00',
+}
+
+const SETTLEMENT_BRANCH = {
+  storeId: '0331',
+  storeName: 'Riyadh Olaya 0331',
+  city: 'Riyadh',
+  area: 'Riyadh',
+  servedBy: '',
+  isMine: true,
+}
+
+const routeDialogs = (calls) => async (route) => {
+  const req = route.request()
+  const path = req.url().split('/api/')[1].split('?')[0]
+  if (path === 'Auth/Me')
+    return route.fulfill(
+      envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }),
+    )
+  if (path === 'Notifications/Poll') return route.fulfill(envelope({ items: [], watermark: 1 }))
+  if (path === 'UaAdminWeb/Access') return route.fulfill(envelope({ canOpen: true }))
+  if (path === 'CollectionWeb/Access')
+    return route.fulfill(
+      envelope({
+        canOpenCollections: true,
+        canOpenAcrs: true,
+        canOpenDeposits: true,
+        canOpenAttempts: true,
+        canOpenSettlement: true,
+      }),
+    )
+  if (/Access$/.test(path)) return route.fulfill(envelope({}))
+  // The first press of each dialog is refused; the second succeeds.
+  if (path === 'UaAdminWeb/Employees/SetPassword')
+    return route.fulfill(calls.setPassword++ === 0 ? refusal(SET_PASSWORD_REFUSAL) : envelope({ success: true }))
+  if (path === 'Settlement/Post')
+    return route.fulfill(
+      calls.post++ === 0
+        ? refusal(POST_REFUSAL)
+        : envelope({
+            settlementEntryId: '01J9SETLPOST900',
+            entryNumber: 900,
+            amount: 150,
+            status: 'OPEN',
+            businessDay: '0001-01-01T00:00:00',
+          }),
+    )
+  if (path === 'UaAdminWeb/ReportCounts')
+    return route.fulfill(
+      envelope({ allPeople: 1, notSeeded: 0, phoneGap: 0, awaitingActivation: 0, mustChangePassword: 0, disabled: 0 }),
+    )
+  if (path.startsWith('UaAdminWeb/ReportCards/') || path === 'UaAdminWeb/Employees')
+    return route.fulfill(envelope({ rows: [UA_PERSON], totalMatches: 1, rowCap: 50, isCapped: false }))
+  if (path === 'UaAdminWeb/Employees/2001')
+    return route.fulfill(
+      envelope({
+        ...UA_PERSON,
+        found: true,
+        createdAt: '2026-01-01T08:00:00',
+        updatedAt: '2026-07-01T08:00:00',
+        disabledAt: null,
+        disabledBy: '',
+        credentialCreatedAt: null,
+      }),
+    )
+  if (path.endsWith('/Sessions')) return route.fulfill(envelope([]))
+  if (path.endsWith('/Audit')) return route.fulfill(envelope({ entries: [], totalEntries: 0, rowCap: 50, isCapped: false }))
+  if (path === 'Settlement/Branches') return route.fulfill(envelope([SETTLEMENT_BRANCH]))
+  if (path === 'Settlement/Account')
+    return route.fulfill(
+      envelope({ storeId: SETTLEMENT_BRANCH.storeId, storeName: SETTLEMENT_BRANCH.storeName, entries: [], consumptions: [] }),
+    )
+  return route.fulfill(envelope([]))
+}
+
+async function driveDialogs({ theme, dir }) {
+  const label = `${theme}/${dir} dialogs`
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  await bootAs(page, { theme, dir })
+  const calls = { setPassword: 0, post: 0 }
+  await page.route('**/api/**', routeDialogs(calls))
+
+  const openDialog = page.locator('dialog[open]')
+  const toasts = page.locator('[data-sonner-toast]')
+  // What a pointer at the centre of the first toast's close button would actually hit.
+  const hitToastClose = () =>
+    page.evaluate(() => {
+      const button = document.querySelector('[data-sonner-toast] [data-close-button]')
+      if (!button) return 'no toast'
+      const r = button.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      if (hit?.closest('[data-sonner-toast]')) return 'toast'
+      if (hit?.closest('dialog')) return 'dialog'
+      return hit ? hit.tagName.toLowerCase() : 'nothing'
+    })
+
+  // ---- The UA set-password dialog ----
+  await page.goto(BASE + '/admin/ua-users')
+  await page.getByRole('button', { name: /People/i }).first().click()
+  await page.getByText('Person 2001').first().click()
+  await page.getByRole('button', { name: 'Set temp password' }).click()
+  await openDialog.waitFor({ timeout: 10000 })
+  // The toasts are counted once the answer has landed and before anything else is waited on —
+  // a toast left to expire while the drive waited would pass the no-toast check vacuously.
+  const pressAndCount = async (press, endpoint) => {
+    const answered = page.waitForResponse((r) => r.url().includes(endpoint))
+    await press()
+    await answered
+    await page.waitForTimeout(800) // long enough for a toast to have entered
+    const raised = await toasts.count()
+    // Not fatal: the old code toasted instead, and that must read as a FAIL, not a crash.
+    await openDialog.getByRole('alert').waitFor({ timeout: 5000 }).catch(() => {})
+    return raised
+  }
+  const uaToasts = await pressAndCount(
+    () => page.getByRole('button', { name: 'Set password', exact: true }).click(),
+    'Employees/SetPassword',
+  )
+  const alertText = async () =>
+    ((await openDialog.getByRole('alert').first().textContent({ timeout: 1000 }).catch(() => '')) ?? '').replace(/\s+/g, ' ')
+  const uaAlert = await alertText()
+  check(
+    `${label}: a refused set-password shows the server's sentence inside the open dialog`,
+    (await openDialog.count()) === 1 && uaAlert.includes(SET_PASSWORD_REFUSAL) && uaAlert.includes('Action failed'),
+    uaAlert,
+  )
+  check(`${label}: …and raises no toast while the dialog is open`, uaToasts === 0, String(uaToasts))
+  // The server's sentence reads in its own direction: under RTL an English message keeps its full
+  // stop at its end, because ErrorBanner isolates its message (a <bdi>; 388 handed this on).
+  const bannerText = openDialog.getByRole('alert').locator('bdi')
+  const ends = () =>
+    bannerText.evaluate((el) => {
+      const text = el.firstChild
+      const at = (i) => {
+        const r = document.createRange()
+        r.setStart(text, i)
+        r.setEnd(text, i + 1)
+        return r.getBoundingClientRect().left
+      }
+      const n = text.textContent.length
+      return { letter: at(n - 2), stop: at(n - 1) }
+    })
+  const e0 = await ends().catch(() => null)
+  check(
+    `${label}: the banner's English server sentence keeps its full stop at its end (a <bdi>, dir auto)`,
+    !!e0 && e0.stop > e0.letter,
+    JSON.stringify(e0),
+  )
+  if (dir === 'rtl' && e0) {
+    // Control: without the isolate the sentence takes the dialog's RTL and the stop flips.
+    await bannerText.evaluate((el) => (el.style.unicodeBidi = 'normal'))
+    const e1 = await ends()
+    check(`${label}: control — with the isolate stripped the stop flips to the start`, e1.stop < e1.letter, JSON.stringify(e1))
+    await bannerText.evaluate((el) => (el.style.unicodeBidi = ''))
+  }
+  await page.screenshot({ path: `${SHOTS}/390-set-password-refused-${theme}-${dir}.png` })
+
+  await page.getByRole('button', { name: 'Set password', exact: true }).click()
+  await toasts.first().waitFor({ timeout: 10000 })
+  await page.waitForTimeout(600) // sonner's enter transition
+  check(
+    `${label}: a successful set-password closes the dialog and toasts`,
+    (await openDialog.count()) === 0 && (await toasts.first().innerText()).includes('Temporary password set'),
+    (await toasts.first().innerText()).replace(/\s+/g, ' '),
+  )
+  const uaHit = await hitToastClose()
+  check(`${label}: …and that toast is reachable — a hit-test at its close button lands on the toast`, uaHit === 'toast', uaHit)
+
+  // ---- The settlement post-entry dialog ----
+  await page.goto(BASE + '/collection/settlement')
+  await page.locator('[data-testid="post-open"]').click()
+  await openDialog.waitFor({ timeout: 10000 })
+  await page.locator('[data-testid="post-branch"]').fill(SETTLEMENT_BRANCH.storeId)
+  await page.locator('[data-testid="post-branch-resolved"]').waitFor({ timeout: 10000 })
+  await page.locator('[data-testid="post-amount"]').fill('150')
+  await page.locator('[data-testid="post-reason"]').fill('Till short at the evening close')
+  await page.locator('[data-testid="post-review"]').click()
+  const postToasts = await pressAndCount(() => page.locator('[data-testid="post-commit"]').click(), 'Settlement/Post')
+  const postAlert = await alertText()
+  check(
+    `${label}: a refused post shows the server's sentence inside the open dialog, still on the review step`,
+    (await openDialog.count()) === 1 &&
+      postAlert.includes(POST_REFUSAL) &&
+      (await page.locator('[data-testid="post-commit"]').count()) === 1,
+    postAlert,
+  )
+  check(`${label}: …and raises no toast while the dialog is open`, postToasts === 0, String(postToasts))
+  await page.screenshot({ path: `${SHOTS}/390-post-entry-refused-${theme}-${dir}.png` })
+
+  await page.locator('[data-testid="post-commit"]').click()
+  await page.locator('[data-region="post-done"]').waitFor({ timeout: 10000 })
+  await toasts.first().waitFor({ timeout: 10000 })
+  await page.waitForTimeout(600)
+  check(
+    `${label}: a successful post clears the refusal and shows its panel`,
+    (await openDialog.getByRole('alert').count()) === 0,
+  )
+  // The control: the success toast is up while the dialog is still open, and it is unreachable.
+  const underHit = await hitToastClose()
+  check(`${label}: control — a toast raised under the open dialog is hit-tested as the DIALOG`, underHit === 'dialog', underHit)
+  await page.locator('[data-testid="post-close"]').click()
+  await page.waitForTimeout(200)
+  const postHit = await hitToastClose()
+  check(
+    `${label}: closing the dialog leaves its toast reachable — the hit-test lands on the toast`,
+    (await openDialog.count()) === 0 && postHit === 'toast',
+    postHit,
+  )
+
+  check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
+  await context.close()
+}
+
+// DRIVE_ONLY=paint|grids|ranges|rail|topbar|narrow|overlays|bell|dialogs runs one part, for a slice's inner loop; unset runs all.
 const ONLY = process.env.DRIVE_ONLY
 const PARTS = {
   paint: driveOneMode,
@@ -2616,6 +2871,7 @@ const PARTS = {
   narrow: driveNarrow,
   overlays: driveOverlays,
   bell: driveBell,
+  dialogs: driveDialogs,
 }
 for (const [part, drive] of Object.entries(PARTS))
   if (!ONLY || ONLY === part)

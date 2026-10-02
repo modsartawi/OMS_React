@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Lock } from 'lucide-react'
+import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import { notify } from '@/core/services/notify'
 import type { RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
@@ -22,6 +24,9 @@ interface Props {
  * the immutable-name note is shown at creation (there is no rename door; renaming is
  * create-new → migrate holders → delete-old). A composite is created empty; members are
  * added from its detail pane afterwards (matching the engine's create-then-add sequence).
+ *
+ * A refused create renders inside the dialog, which stays open with the form as typed
+ * (spec 380 F18).
  */
 export default function NewRoleModal({ open, onClose, catalog, onCreated }: Props) {
   const { t } = useTranslation('authz-admin')
@@ -29,6 +34,7 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<unknown>(null)
 
   // Reset the form each time the modal opens.
   useEffect(() => {
@@ -37,6 +43,7 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
       setName('')
       setDescription('')
       setBusy(false)
+      setError(null)
     }
   }, [open])
 
@@ -48,6 +55,7 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
   async function create() {
     if (!valid) return
     setBusy(true)
+    setError(null)
     try {
       if (kind === 'single') await authzAdminApi.createSingleRole(trimmed, description.trim())
       else await authzAdminApi.createCompositeRole(trimmed, description.trim(), [])
@@ -55,7 +63,7 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
       onCreated(trimmed)
     } catch (err) {
       // DUPLICATE_NAME (race) / validation surface verbatim.
-      notify.apiError(t('toast.failed'), err)
+      setError(err)
     } finally {
       setBusy(false)
     }
@@ -125,6 +133,14 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
           <p className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 text-xs text-muted-foreground">
             {t('newRole.compositeHint')}
           </p>
+        )}
+
+        {error !== null && (
+          <ErrorBanner
+            title={t('toast.failed')}
+            message={apiErrorMessage(error, t('toast.failed'))}
+            className="p-2.5"
+          />
         )}
       </div>
     </Modal>

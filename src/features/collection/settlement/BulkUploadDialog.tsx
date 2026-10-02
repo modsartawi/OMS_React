@@ -14,6 +14,7 @@ import type {
   SettlementConsumableKind,
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { settlementMoney } from './money-display'
 import { uploadSearch } from './addresses'
@@ -89,6 +90,10 @@ export default function BulkUploadDialog({
   /** A commit the server refused — its own words, kept on screen beside a way to
    *  preview again. The hash mismatch lands here. */
   const [refusal, setRefusal] = useState<string | null>(null)
+  /** A preview that failed, or a commit refused over its rows — drawn inside the dialog,
+   *  which stays open (spec 380 F18: a toast raised under an open `showModal()` paints
+   *  beneath its backdrop and cannot be reached). */
+  const [failure, setFailure] = useState<string | null>(null)
 
   // A fresh door per opening. A preview left over from a dialog someone dismissed
   // describes a file that is no longer on screen, and its `batchId` would commit it.
@@ -99,22 +104,25 @@ export default function BulkUploadDialog({
     setPreview(null)
     setCommitted(null)
     setRefusal(null)
+    setFailure(null)
   }, [open])
 
   const review = useMemo(() => reviewBulk(preview), [preview])
 
   const previewCall = useMutation({
     mutationFn: () => settlementApi.bulkPreview(file!, kind),
+    onMutate: () => setFailure(null),
     onSuccess: (result) => {
       setPreview(result)
       setRefusal(null)
     },
-    onError: (error) => toast.error(apiErrorMessage(error, t('bulk.errors.previewFailed'))),
+    onError: (error) => setFailure(apiErrorMessage(error, t('bulk.errors.previewFailed'))),
   })
 
   const commitCall = useMutation({
     mutationFn: () =>
       settlementApi.bulkCommit(file!, preview!.batchId, kind, preview!.contentHash),
+    onMutate: () => setFailure(null),
     onSuccess: (result) => {
       // 🔑 **274: a refusal arrives HERE, on a 200, not in `onError`.** 273 modelled
       // the changed-sheet case as a business `ApiError`; the door answers
@@ -131,7 +139,7 @@ export default function BulkUploadDialog({
           // Rows, not errors: the sentence counts exactly the rows the grid marks
           // (one row can carry two refusals; row 0 is the file's, not a row).
           const rows = Object.keys(reviewBulk(withRows).errorsByRow).length
-          toast.warning(rows ? t('bulk.errors.rowErrors', { count: rows }) : t('bulk.errors.fileRefused'))
+          setFailure(rows ? t('bulk.errors.rowErrors', { count: rows }) : t('bulk.errors.fileRefused'))
           return
         }
         setRefusal(result?.refusalReason || t('bulk.errors.commitRefused'))
@@ -172,6 +180,7 @@ export default function BulkUploadDialog({
     setPreview(null)
     setRefusal(null)
     setCommitted(null)
+    setFailure(null)
   }
 
   if (!open) return null
@@ -230,6 +239,7 @@ export default function BulkUploadDialog({
       }
     >
       <div className="flex flex-col gap-4 text-sm" data-region="bulk-upload">
+        {failure && !committed && <ErrorBanner message={failure} className="p-2.5" />}
         {committed ? (
           <CommittedPanel result={committed} batchId={preview?.batchId ?? ''} review={review} />
         ) : preview ? (
@@ -244,7 +254,11 @@ export default function BulkUploadDialog({
             kind={kind}
             onKind={setKind}
             file={file}
-            onFile={setFile}
+            onFile={(next) => {
+              // A failure was about the file it was said over, not about this one.
+              setFile(next)
+              setFailure(null)
+            }}
             busy={previewCall.isPending}
           />
         )}

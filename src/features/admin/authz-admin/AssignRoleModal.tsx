@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import { notify } from '@/core/services/notify'
 import type { AuthzAccessResult, RoleCatalogEntry } from '@/core/models/authz-admin'
 import { authzAdminApi } from './api'
@@ -24,6 +26,8 @@ interface Props {
  * minus roles the person already holds. A delegated admin sees only the roles they may
  * assign; a full admin (`["*"]`) sees the whole catalog. The server re-checks the
  * assign entitlement regardless of what the picker showed.
+ *
+ * A refused assign renders inside the dialog, which stays open (spec 380 F18).
  */
 export default function AssignRoleModal({
   open,
@@ -36,6 +40,11 @@ export default function AssignRoleModal({
 }: Props) {
   const { t } = useTranslation('authz-admin')
   const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
+
+  useEffect(() => {
+    if (open) setError(null)
+  }, [open])
 
   const assignable = access.assignableRoles
   const held = useMemo(() => new Set(assigned), [assigned])
@@ -51,13 +60,14 @@ export default function AssignRoleModal({
 
   async function assign(roleName: string) {
     setBusy(roleName)
+    setError(null)
     try {
       await authzAdminApi.assignRole(employeeId, roleName)
       notify.success(t('assign.done'), t('assign.doneDetail', { role: roleName }))
       onAssigned()
       onClose()
     } catch (err) {
-      notify.apiError(t('toast.failed'), err)
+      setError(err)
     } finally {
       setBusy(null)
     }
@@ -76,6 +86,13 @@ export default function AssignRoleModal({
       }
     >
       <p className="mb-3 text-sm text-muted-foreground">{t('assign.body')}</p>
+      {error !== null && (
+        <ErrorBanner
+          title={t('toast.failed')}
+          message={apiErrorMessage(error, t('toast.failed'))}
+          className="mb-3 p-2.5"
+        />
+      )}
       {choices.length === 0 ? (
         <p className="rounded-lg border border-border/60 bg-muted/40 p-4 text-sm text-muted-foreground">
           {t('assign.empty')}

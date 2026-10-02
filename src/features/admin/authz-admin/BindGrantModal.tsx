@@ -26,12 +26,15 @@ interface Props {
  * wildcard grant (any field value is `*`, or the object is `*`) requires a strong
  * confirmation before binding — the server binds it as-is, so the confirm IS the
  * guardrail (spec / story 17).
+ *
+ * A refused bind renders inside the dialog, which stays open (spec 380 F18).
  */
 export default function BindGrantModal({ open, onClose, roleName, boundIds, onBound }: Props) {
   const { t } = useTranslation('authz-admin')
   const [term, setTerm] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirming, setConfirming] = useState<GrantCatalogEntry | null>(null)
+  const [error, setError] = useState<unknown>(null)
 
   const catalog = useQuery({
     queryKey: ['authz-admin', 'grants'],
@@ -44,6 +47,7 @@ export default function BindGrantModal({ open, onClose, roleName, boundIds, onBo
       setTerm('')
       setBusy(false)
       setConfirming(null)
+      setError(null)
     }
   }, [open])
 
@@ -59,12 +63,13 @@ export default function BindGrantModal({ open, onClose, roleName, boundIds, onBo
 
   async function bind(g: GrantCatalogEntry) {
     setBusy(true)
+    setError(null)
     try {
       await authzAdminApi.bindGrant(roleName, g.authorizationId)
       notify.success(t('bindGrant.bound'), t('bindGrant.boundDetail', { grant: grantText(g).text }))
       onBound()
     } catch (err) {
-      notify.apiError(t('toast.failed'), err)
+      setError(err)
     } finally {
       setBusy(false)
       setConfirming(null)
@@ -89,6 +94,13 @@ export default function BindGrantModal({ open, onClose, roleName, boundIds, onBo
         </Button>
       }
     >
+      {error !== null && (
+        <ErrorBanner
+          title={t('toast.failed')}
+          message={apiErrorMessage(error, t('toast.failed'))}
+          className="mb-3 p-2.5"
+        />
+      )}
       {confirming ? (
         <div className="flex flex-col gap-3">
           <div className="flex items-start gap-2 rounded-lg border border-danger-border bg-danger-050 p-3 text-sm text-danger-800">

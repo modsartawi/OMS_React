@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { apiErrorMessage } from '@/core/api'
 import type { SettlementOrphanRow } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
@@ -47,13 +48,19 @@ export default function RepairDialog({
 }) {
   const { t } = useTranslation('settlement')
   const [reason, setReason] = useState('')
+  /** A failed repair, drawn inside the dialog while it stays open (spec 380 F18). */
+  const [failure, setFailure] = useState<string | null>(null)
 
   // A fresh reason per row: a sentence written about 0331's 150.000 must not be
   // sitting in the box when the next orphan is opened.
-  useEffect(() => setReason(''), [row?.settlementConsumptionId])
+  useEffect(() => {
+    setReason('')
+    setFailure(null)
+  }, [row?.settlementConsumptionId])
 
   const repair = useMutation({
     mutationFn: () => settlementApi.repair(row!.settlementConsumptionId, reason.trim()),
+    onMutate: () => setFailure(null),
     onSuccess: (result) => {
       if (result?.noOp) {
         // 🔑 The race, lost — and said as the good news it is.
@@ -74,7 +81,9 @@ export default function RepairDialog({
       }
       onDone()
     },
-    onError: (error) => toast.error(apiErrorMessage(error, t('repair.failed'))),
+    // Every outcome above closes the dialog; a failure keeps it open, so it is said
+    // inside it — a toast raised under an open `showModal()` cannot be reached (F18).
+    onError: (error) => setFailure(apiErrorMessage(error, t('repair.failed'))),
   })
 
   if (!row) return null
@@ -136,6 +145,7 @@ export default function RepairDialog({
           hint={t('repair.reasonHint')}
           testId="repair-reason"
         />
+        {failure && <ErrorBanner message={failure} className="p-2.5" />}
       </div>
     </Modal>
   )

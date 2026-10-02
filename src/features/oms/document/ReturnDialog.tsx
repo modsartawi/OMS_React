@@ -137,9 +137,10 @@ export default function ReturnDialog({
    */
   const [requestId, setRequestId] = useState('')
   /**
-   * The failure, **kept after its toast has gone**. A refusal the operator can
-   * act on must not cost them the form, and a sentence that vanished four
-   * seconds ago is one they cannot act on.
+   * The failure, drawn **inside the dialog** and kept there. A refusal the
+   * operator can act on must not cost them the form, and a toast raised while
+   * this `showModal()` dialog is open paints under its backdrop where it cannot
+   * be reached (spec 380 F18), so the banner is the only place it is said.
    *
    * ⚠ `refused` separates the two things a failure can mean, because the banner
    * must not assert a fact the client does not have. A **guardrail refusal**
@@ -210,11 +211,7 @@ export default function ReturnDialog({
       // cleared the session and redirected.
       const refused = apiErrorKind(err) === 'business'
       const fallback = t('returnDocument.refused.fallback')
-      const title = refused ? t('returnDocument.refused.title') : t('returnDocument.failed.title')
       setRefusal({ message: apiErrorMessage(err, fallback), code: apiErrorCode(err), refused })
-      // `apiError` rather than a bare `error`: it reads the same sentence the
-      // banner shows, and it clears the repeating auth/network toasts first.
-      notify.apiError(title, err, fallback)
     },
     onSettled: () => {
       inFlight.current = false
@@ -392,11 +389,12 @@ export default function ReturnDialog({
       }
     >
       {/*
-        ⚠ The refusal **STAYS** — the toast beside it does not. It carries the
+        ⚠ The refusal **STAYS**, and it is the only place the failure is said:
+        no toast is raised while this dialog is open (F18). It carries the
         server's own sentence with the machine code beside it, so the operator
-        can still read what went wrong after the toast has gone, and can quote
-        the code when they ask someone. Every selection below it is untouched: a
-        refusal the operator can act on must not cost them the form (D8).
+        can read what went wrong and quote the code when they ask someone.
+        Every selection below it is untouched: a refusal the operator can act
+        on must not cost them the form (D8).
       */}
       {refusal && (
         <div className="mb-3" data-return-refusal>

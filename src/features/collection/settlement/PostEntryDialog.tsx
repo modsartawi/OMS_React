@@ -12,6 +12,7 @@ import type {
   SettlementPostResult,
 } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { formatDay } from '@/core/util/date-format'
 import { isStamped } from './approval'
@@ -113,6 +114,10 @@ export default function PostEntryDialog({
    *  Held against the day and the branch it refused, so it stands on the box until
    *  either is changed. */
   const [dayRefused, setDayRefused] = useState<{ day: string; storeId: string; message: string } | null>(null)
+  /** A post that failed for any other reason — the server's sentence, drawn inside the
+   *  dialog, which stays open on the review step (spec 380 F18: a toast raised under an
+   *  open `showModal()` paints beneath its backdrop). */
+  const [failure, setFailure] = useState<string | null>(null)
 
   // A fresh form per opening, seeded with whatever branch the screen was on. A
   // half-typed 50,000 left over from a dialog someone dismissed is the one piece of
@@ -129,6 +134,7 @@ export default function PostEntryDialog({
     setRefused(null)
     setDayText('')
     setDayRefused(null)
+    setFailure(null)
   }, [open, seedStoreId])
 
   // 🔑 **THE ESTATE — the `Store` master, and never the fleet.** This asked the fleet
@@ -227,6 +233,7 @@ export default function PostEntryDialog({
           businessDay: dayText,
         }),
       ),
+    onMutate: () => setFailure(null),
     onSuccess: (result) => {
       setPosted(result)
       toast.success(t('post.done.toast', { number: result?.entryNumber ?? '' }))
@@ -261,7 +268,7 @@ export default function PostEntryDialog({
         })
         return
       }
-      toast.error(apiErrorMessage(error, t('post.errors.failed')))
+      setFailure(apiErrorMessage(error, t('post.errors.failed')))
     },
   })
 
@@ -280,7 +287,15 @@ export default function PostEntryDialog({
           </Button>
         ) : reviewing ? (
           <>
-            <Button variant="text" onClick={() => setReviewing(false)} data-testid="post-back">
+            <Button
+              variant="text"
+              onClick={() => {
+                // The failure was about the commit just refused; the form is not refused.
+                setReviewing(false)
+                setFailure(null)
+              }}
+              data-testid="post-back"
+            >
               {t('post.review.back')}
             </Button>
             <Button
@@ -310,6 +325,7 @@ export default function PostEntryDialog({
       }
     >
       <div className="flex flex-col gap-4 text-sm" data-region="post-entry">
+        {failure && reviewing && !posted && <ErrorBanner message={failure} className="p-2.5" />}
         {posted ? (
           <PostedPanel result={posted} branch={branch} kind={kind} reviewed={words.value} />
         ) : reviewing ? (

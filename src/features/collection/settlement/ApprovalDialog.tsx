@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { apiErrorMessage } from '@/core/api'
 import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
@@ -80,11 +81,16 @@ export default function ApprovalDialog({
   const { t } = useTranslation('settlement')
   const queryClient = useQueryClient()
   const [reason, setReason] = useState('')
+  /** A decision that failed while the dialog stays open — drawn inside it (spec 380 F18). */
+  const [failure, setFailure] = useState<string | null>(null)
 
   // A fresh box per entry and per act: a reason typed about 1202 must not be sitting in
   // it when 1203 is opened.
   const key = request ? `${request.target.settlementEntryId}:${request.act}` : ''
-  useEffect(() => setReason(''), [key])
+  useEffect(() => {
+    setReason('')
+    setFailure(null)
+  }, [key])
 
   // 🔑 339: **a theft opened from a branch account arrives without its day's cash** —
   // `Settlement/Account` rows carry `businessDay` and none of the three figures. The
@@ -103,6 +109,7 @@ export default function ApprovalDialog({
       v.act === 'approve'
         ? settlementApi.approve(v.target.settlementEntryId)
         : settlementApi.reject(v.target.settlementEntryId, v.reason),
+    onMutate: () => setFailure(null),
     onSuccess: (result, v) => {
       // Always: whatever the answer, the entry's state is the server's now, and the
       // queue, the account and the open lane must read it again.
@@ -136,8 +143,9 @@ export default function ApprovalDialog({
       }
       // ⚠️ The dialog stays open with the reason still in it — a 400 for an over-long
       // or blank reason is the server's own sentence, and throwing away what was typed
-      // would make the supervisor write it twice.
-      toast.error(apiErrorMessage(error, t('approval.errors.failed')))
+      // would make the supervisor write it twice. The server's sentence is drawn inside
+      // the dialog: a toast raised under an open `showModal()` cannot be reached (F18).
+      setFailure(apiErrorMessage(error, t('approval.errors.failed')))
     },
   })
 
@@ -243,6 +251,7 @@ export default function ApprovalDialog({
             testId="approval-reason"
           />
         )}
+        {failure && <ErrorBanner message={failure} className="p-2.5" />}
       </div>
     </Modal>
   )

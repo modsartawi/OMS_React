@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Ban, Check, Loader2, Power, RotateCcw, Undo2, X } from 'lucide-react'
+import { apiErrorMessage } from '@/core/api'
 import Button from '@/core/ui/Button'
+import ErrorBanner from '@/core/ui/ErrorBanner'
 import Modal from '@/core/ui/Modal'
 import { notify } from '@/core/services/notify'
 import type { CouponDetails, CouponTransaction } from '@/core/models/coupons'
@@ -13,7 +15,9 @@ import { formatStamp } from './helpers'
 // OK). `mode` tiers the actions: `admin` gets Deactivate/Reactivate + row-Refund +
 // Reset; `support` gets read + Reactivate only (the 518 support gate allows reactivate
 // and details, denies refund/reset/deactivate). Built here so the 523 Support screen
-// reuses it. Every mutation re-reads via `onChanged`.
+// reuses it. Every mutation re-reads via `onChanged`. A failed mutation is said inside
+// its modal, which stays open (spec 380 F18: a toast under an open `showModal()` paints
+// beneath its backdrop).
 type Mode = 'admin' | 'support'
 
 type ActiveModal = 'instance' | 'refund' | 'reset' | null
@@ -35,6 +39,7 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
   const [reason, setReason] = useState('')
   const [retype, setRetype] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<unknown>(null)
 
   // A Refund row keyed on the reversed txn marks that redemption reversed — so a
   // successful Redeem that hasn't been reversed is the one refundable row.
@@ -53,6 +58,7 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
   function openModal(which: ActiveModal) {
     setReason('')
     setRetype('')
+    setError(null)
     setModal(which)
   }
   function closeModal() {
@@ -64,8 +70,19 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
   // Support can reactivate a disabled instance, but never deactivate.
   const canToggle = isAdmin || (mode === 'support' && instance.isDisabled)
 
+  // Only one of the three modals is ever open, so the one failure is drawn in whichever it is.
+  const failureBanner =
+    error === null ? null : (
+      <ErrorBanner
+        title={t('inquiry.actionFailed')}
+        message={apiErrorMessage(error, t('inquiry.actionFailed'))}
+        className="p-2.5"
+      />
+    )
+
   async function run(action: () => Promise<unknown>, successKey: string) {
     setBusy(true)
+    setError(null)
     try {
       await action()
       notify.success(t(successKey))
@@ -73,7 +90,7 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
       setSelectedTxnId(null)
       await onChanged()
     } catch (err) {
-      notify.apiError(t('inquiry.actionFailed'), err)
+      setError(err)
     } finally {
       setBusy(false)
     }
@@ -254,6 +271,7 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
               : t('inquiry.reactivateModal.body', { code: instance.couponCode })}
           </p>
           <ReasonField t={t} value={reason} onChange={setReason} />
+          {failureBanner}
         </div>
       </Modal>
 
@@ -279,6 +297,7 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
           <p>{t('inquiry.refundModal.body')}</p>
           {selectedTxnId && <div className="font-mono text-xs text-muted-foreground">{selectedTxnId}</div>}
           <ReasonField t={t} value={reason} onChange={setReason} />
+          {failureBanner}
         </div>
       </Modal>
 
@@ -316,6 +335,7 @@ export default function CouponDetailPane({ details, mode, onChanged }: Props) {
             />
           </label>
           <ReasonField t={t} value={reason} onChange={setReason} required />
+          {failureBanner}
         </div>
       </Modal>
     </div>

@@ -37,7 +37,8 @@
 //      delivery beneath it RELOADS while the screen stays put; the body carries
 //      ticked lines, fee types and no amount at all; a double-click posts once;
 //      a `replayed: true` answer is PLAIN success with the same number; and a
-//      refusal keeps the dialog open with the banner surviving the toast, the
+//      refusal keeps the dialog open with the banner inside it and NO toast
+//      (spec 380 F18 — a toast under an open showModal() cannot be reached), the
 //      machine code beside the sentence and every selection intact.
 //
 //   1. run the app:  npx vite --port 5199
@@ -778,8 +779,8 @@ async function run() {
    *
    * Deliberately not a DOM removal: sonner owns those nodes, and ripping them
    * out from under React is a way to fail this drive for a reason the app does
-   * not have. It also makes the refusal section's assertion the real one — the
-   * banner has to survive a toast that genuinely went away.
+   * not have. It also makes the refusal section's no-toast assertion the real
+   * one — a success toast left over from the section before would mask it.
    */
   const settleToasts = async () => {
     await page.waitForFunction(
@@ -970,9 +971,8 @@ async function run() {
     (await dialog().count()) === 1,
   )
   check(
-    'it toasts, AND it plants a banner inside the dialog',
-    (await toasts().first().getAttribute('data-type')) === 'error' &&
-      (await banner().count()) === 1,
+    'it plants a banner inside the dialog and raises NO toast under its backdrop (F18)',
+    (await toasts().count()) === 0 && (await banner().count()) === 1,
   )
   check(
     'the banner carries the server own sentence',
@@ -990,7 +990,7 @@ async function run() {
   await settleToasts()
   await page.waitForTimeout(100)
   check(
-    'and the banner STAYS after the toast has gone',
+    'and the banner STAYS',
     (await toasts().count()) === 0 && (await banner().count()) === 1,
   )
   check(

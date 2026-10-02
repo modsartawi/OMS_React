@@ -86,6 +86,18 @@
 //  32. a broadcast arriving on the bell's poll raises a NEUTRAL toast in the card recipe, its View a
 //      6px --primary control and its Dismiss a 6px --muted one; and the Toaster re-reads <html dir>.
 //
+// 389: the bell opens a dense dropdown. In the same four modes, with four stubbed notifications:
+//  33. the badge computes gold with navy ink in both themes, ringed in --card; opening the panel
+//      makes no Read call and leaves the badge and the unread dots as they were;
+//  34. the panel is 360px, max 440px tall, with a 36px header holding an "N new" chip (primary-050 /
+//      primary-800, its count isolated ltr) and a 24px Mark all as read;
+//  35. rows are 8px × 12px on --divider rules with a --card-2 hover, a 12.5px title (600 unread,
+//      500 muted read), an 11px --ink-3 time at the inline end, a 6px --primary unread dot, and a
+//      12px body clamped to two lines; a wrapped title keeps its dot on its first line; the time's
+//      count and the chip's are isolated ltr; an English body keeps its stop at its end under RTL;
+//  36. the type tag sits on its own line, squared, 10px uppercase: BROADCAST in the primary tier,
+//      JOB --muted; Esc and an outside click still close the panel; a row click and Mark all mark.
+//
 // Every `/api/**` call is stubbed (the delivery list needs a store grant a dev session lacks;
 // see grid-theme-drive.mjs). Mocked data, real app, real browser, real CSS, real fonts.
 //
@@ -2268,7 +2280,332 @@ async function driveOverlays({ theme, dir }) {
   await ctx2.close()
 }
 
-// DRIVE_ONLY=paint|grids|ranges|rail|topbar|narrow|overlays runs one part, for a slice's inner loop; unset runs all.
+// ---------------------------------------------------------------------------------------------
+// 389: the bell opens a dense dropdown. The poll answers four notifications — an unread broadcast
+// whose body runs past two lines, an unread job, a read broadcast and a read job — all older than
+// the arrival window, so none toasts over the panel. Every Read call is counted: opening the panel
+// must make none.
+
+const BELL_NOW = Date.now()
+const NC = (id, typeCode, isRead, minutesAgo, title, body) => ({
+  notificationId: id,
+  typeCode,
+  title,
+  body,
+  createdAt: new Date(BELL_NOW - minutesAgo * 60_000).toISOString(),
+  expiresAt: new Date(BELL_NOW + 3_600_000).toISOString(),
+  status: 'Active',
+  isRead,
+  displayStyle: typeCode === 'BROADCAST' ? 'Banner' : 'Toast',
+  readScope: 'Device',
+})
+const BELL_ITEMS = [
+  NC(
+    'N-1',
+    'BROADCAST',
+    false,
+    21,
+    'Store 1017 closes at 21:00 on 3 Oct',
+    'Reroute evening slots to 1002 Al Malaz. Couriers already on route finish their runs; new evening ' +
+      'orders for 1017 go to 1002 until the store reopens on Sunday morning.',
+  ),
+  // A title long enough to wrap: it runs on uncut, and the unread dot stays on its first line.
+  NC(
+    'N-2',
+    'JOB_DONE',
+    false,
+    40,
+    'Export ready: the Central region deliveries for September, every store and every slot',
+    'Route late orders to 1001.',
+  ),
+  NC('N-3', 'BROADCAST', true, 120, 'Pricing cache cleared for the Central region', 'Promotions re-read from SAP at 06:10.'),
+  NC('N-4', 'JOB_DONE', true, 1440, 'Bulk user import finished', '74 identities created, 0 refused.'),
+]
+
+async function driveBell({ theme, dir }) {
+  const label = `${theme}/${dir} bell`
+  const rtl = dir === 'rtl'
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  await bootAs(page, { theme, dir })
+  let reads = 0
+  await page.route('**/api/**', async (route) => {
+    const path = route.request().url().split('/api/')[1].split('?')[0]
+    if (path === 'Notifications/Poll') return route.fulfill(envelope({ items: BELL_ITEMS, watermark: 4 }))
+    if (/^Notifications\/[^/]+\/Read$/.test(path)) {
+      reads++
+      return route.fulfill(envelope({ ok: true }))
+    }
+    return routeGrids(route)
+  })
+
+  const resolve = (name, prop = 'backgroundColor') =>
+    page.evaluate(
+      ([n, q]) => {
+        const probe = document.createElement('div')
+        probe.style[q] = `var(${n})`
+        document.body.appendChild(probe)
+        const v = getComputedStyle(probe)[q]
+        probe.remove()
+        return v
+      },
+      [name, prop],
+    )
+  const style = (loc, ...props) =>
+    loc.evaluate((el, ps) => {
+      const s = getComputedStyle(el)
+      return Object.fromEntries(ps.map((p) => [p, s[p]]))
+    }, props)
+  const box = (loc) => loc.evaluate((el) => el.getBoundingClientRect().toJSON())
+
+  const bar = page.locator('#layout-topbar')
+  const bell = bar.getByRole('button', { name: 'Notifications' })
+  const badge = bell.locator('[data-nc-badge]')
+  const panel = page.getByRole('dialog', { name: 'Notifications' })
+  const rows = panel.locator('[data-nc-row]')
+  const chip = panel.locator('[data-nc-new]')
+  const markAll = panel.getByRole('button', { name: 'Mark all as read' })
+  // A row's cells, in DOM order: the dot, the title, the time, the body, the tag's line.
+  const cell = (row, i) => row.locator(':scope > span').nth(i)
+
+  await page.goto(BASE + '/oms/deliveries')
+  await badge.waitFor({ timeout: 20000 })
+  await page.waitForTimeout(300)
+
+  // ---- The badge: gold with navy ink in both themes, ringed in --card against the bar ----
+  const bs = await style(badge, 'backgroundColor', 'color', 'boxShadow')
+  const card = await resolve('--card')
+  check(
+    `${label}: the badge computes gold (#FDC801) with navy ink (#002554)`,
+    bs.backgroundColor === 'rgb(253, 200, 1)' && bs.color === NAVY,
+    JSON.stringify(bs),
+  )
+  check(
+    `${label}: the badge's ring is --card, the bar's own ground`,
+    bs.boxShadow.includes(card) && (await style(bar, 'backgroundColor')).backgroundColor === card,
+    `${bs.boxShadow} vs ${card}`,
+  )
+  check(`${label}: the badge counts the two unread`, (await badge.innerText()).trim() === '2')
+
+  // ---- Opening marks nothing read ----
+  await bell.click()
+  await panel.waitFor()
+  await page.waitForTimeout(400)
+  check(
+    `${label}: opening the panel marks nothing read — no Read call, the badge and both dots stay`,
+    reads === 0 && (await badge.innerText()).trim() === '2' && (await panel.locator('[data-nc-unread]').count()) === 2,
+    `reads=${reads}`,
+  )
+
+  // ---- The panel: 360px, max 440px tall, a 36px header with "2 new" and Mark all as read ----
+  const pb = await box(panel)
+  const ps = await style(panel, 'maxHeight', 'backgroundColor', 'borderTopColor', 'borderTopLeftRadius')
+  check(
+    `${label}: the panel is 360px wide, max 440px tall, on the 8px card recipe`,
+    Math.round(pb.width) === 360 &&
+      ps.maxHeight === '440px' &&
+      pb.height <= 440 &&
+      ps.backgroundColor === card &&
+      ps.borderTopColor === (await resolve('--border-strong', 'borderTopColor')) &&
+      ps.borderTopLeftRadius === '8px',
+    JSON.stringify({ w: pb.width, h: pb.height, ...ps }),
+  )
+  const bb = await box(bell)
+  check(
+    `${label}: the panel hangs from the bell at its inline end, inside the viewport`,
+    (rtl ? Math.abs(pb.left - bb.left) <= 1 : Math.abs(pb.right - bb.right) <= 1) && pb.left >= 0 && pb.right <= 1600,
+    JSON.stringify({ panel: [pb.left, pb.right], bell: [bb.left, bb.right] }),
+  )
+  const head = panel.locator('h3').locator('..')
+  const cs = await style(chip, 'backgroundColor', 'color')
+  check(
+    `${label}: the header is 36px, with an "N new" chip on primary-050 / primary-800`,
+    Math.round((await box(head)).height) === 36 &&
+      (await chip.innerText()).trim() === '2 new' &&
+      cs.backgroundColor === (await resolve('--primary-050')) &&
+      cs.color === (await resolve('--primary-800', 'color')),
+    JSON.stringify(cs),
+  )
+  check(
+    `${label}: the chip's count is a machine value, isolated ltr`,
+    (await chip.locator('bdi[dir="ltr"]').innerText()) === '2',
+  )
+  check(`${label}: Mark all as read is a 24px text control`, Math.round((await box(markAll)).height) === 24)
+
+  // ---- Rows: 8px × 12px, --divider rules, a 12.5px title, an 11px --ink-3 time ----
+  const [unread, unreadJob, readCast] = [rows.nth(0), rows.nth(1), rows.nth(2)]
+  const rs = await style(unread, 'paddingTop', 'paddingInlineStart', 'borderBottomColor')
+  check(
+    `${label}: a row is 8px × 12px, ruled in --divider`,
+    rs.paddingTop === '8px' &&
+      rs.paddingInlineStart === '12px' &&
+      rs.borderBottomColor === (await resolve('--divider', 'borderBottomColor')),
+    JSON.stringify(rs),
+  )
+  const ut = await style(cell(unread, 1), 'fontSize', 'fontWeight', 'color')
+  const rt = await style(cell(readCast, 1), 'fontSize', 'fontWeight', 'color')
+  check(
+    `${label}: titles are 12.5px — 600 unread; 500 in muted-foreground read`,
+    ut.fontSize === '12.5px' &&
+      ut.fontWeight === '600' &&
+      rt.fontSize === '12.5px' &&
+      rt.fontWeight === '500' &&
+      rt.color === (await resolve('--muted-foreground', 'color')),
+    JSON.stringify({ ut, rt }),
+  )
+  const tm = await style(cell(unread, 2), 'fontSize', 'color')
+  const [tb, rb] = [await box(cell(unread, 2)), await box(unread)]
+  check(
+    `${label}: the relative time is 11px --ink-3, at the row's inline end`,
+    tm.fontSize === '11px' &&
+      tm.color === (await resolve('--ink-3', 'color')) &&
+      (rtl ? tb.left - rb.left <= 13 : rb.right - tb.right <= 13),
+    JSON.stringify({ tm, time: [tb.left, tb.right], row: [rb.left, rb.right] }),
+  )
+  check(
+    `${label}: the time's count is a machine value, isolated ltr`,
+    (await cell(unread, 2).locator('bdi[dir="ltr"]').innerText()) === '21',
+  )
+  await readCast.hover()
+  await page.waitForTimeout(200)
+  check(`${label}: hover takes --card-2`, (await style(readCast, 'backgroundColor')).backgroundColor === (await resolve('--card-2')))
+
+  // ---- The unread dot: 6px --primary, none on a read row ----
+  const dot = unread.locator('[data-nc-unread]')
+  const db = await box(dot)
+  check(
+    `${label}: unread is a 6px --primary dot; a read row has none`,
+    Math.round(db.width) === 6 &&
+      Math.round(db.height) === 6 &&
+      (await style(dot, 'backgroundColor')).backgroundColor === (await resolve('--primary')) &&
+      (await readCast.locator('[data-nc-unread]').count()) === 0,
+    JSON.stringify(db),
+  )
+
+  // A wrapped title: the dot centres on its first line, not on the whole title.
+  const wrapped = await cell(unreadJob, 1).evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    return { top: r.top, height: r.height, line: parseFloat(getComputedStyle(el).lineHeight) }
+  })
+  const wd = await box(unreadJob.locator('[data-nc-unread]'))
+  const wdMid = wd.top + wd.height / 2
+  check(
+    `${label}: when a title wraps, its unread dot sits on the first line`,
+    wrapped.height >= 2 * wrapped.line - 1 && Math.abs(wdMid - (wrapped.top + wrapped.line / 2)) <= 1.5,
+    JSON.stringify({ wrapped, dotMid: wdMid }),
+  )
+
+  // ---- The body: 12px muted, clamped to two lines ----
+  const body = unread.locator('[data-nc-body]')
+  const bodyStyle = await style(body, 'fontSize', 'color', 'lineHeight', 'webkitLineClamp')
+  const clamp = await body.evaluate((el) => ({ client: el.clientHeight, scroll: el.scrollHeight }))
+  check(
+    `${label}: the body is 12px muted-foreground, clamped to two lines (the long one overflows the clamp)`,
+    bodyStyle.fontSize === '12px' &&
+      bodyStyle.color === (await resolve('--muted-foreground', 'color')) &&
+      bodyStyle.webkitLineClamp === '2' &&
+      Math.abs(clamp.client - 2 * parseFloat(bodyStyle.lineHeight)) <= 1 &&
+      clamp.scroll > clamp.client,
+    JSON.stringify({ bodyStyle, clamp }),
+  )
+
+  // ---- The type tag: its own line under the body, squared, 10px uppercase; BROADCAST primary ----
+  const cast = unread.locator('[data-nc-tag]')
+  const job = unreadJob.locator('[data-nc-tag]')
+  const ts = await style(cast, 'backgroundColor', 'color', 'borderTopColor', 'borderTopLeftRadius', 'fontSize', 'textTransform')
+  check(
+    `${label}: a BROADCAST tag computes the primary tier — primary-050 ground, primary-border edge, primary-800 ink`,
+    (await cast.getAttribute('data-nc-tag')) === 'broadcast' &&
+      ts.backgroundColor === (await resolve('--primary-050')) &&
+      ts.borderTopColor === (await resolve('--primary-border', 'borderTopColor')) &&
+      ts.color === (await resolve('--primary-800', 'color')),
+    JSON.stringify(ts),
+  )
+  check(
+    `${label}: … and is not amber`,
+    ts.backgroundColor !== (await resolve('--attention-050')) && ts.color !== (await resolve('--attention-800', 'color')),
+  )
+  check(
+    `${label}: the tag is squared (4px), 10px uppercase`,
+    ts.borderTopLeftRadius === '4px' && ts.fontSize === '10px' && ts.textTransform === 'uppercase',
+    JSON.stringify(ts),
+  )
+  check(`${label}: a JOB tag stays --muted`, (await style(job, 'backgroundColor')).backgroundColor === (await resolve('--muted')))
+  const [titleB, bodyB, tagB] = [await box(cell(unread, 1)), await box(body), await box(cast)]
+  check(
+    `${label}: the tag sits on its own line under the body, and the title is not cut`,
+    tagB.top >= bodyB.bottom &&
+      bodyB.top >= titleB.bottom - 1 &&
+      (await cell(unread, 1).evaluate((el) => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight)),
+    JSON.stringify({ title: titleB.bottom, body: [bodyB.top, bodyB.bottom], tag: tagB.top }),
+  )
+
+  // ---- Server text reads in its own direction: an English body keeps its stop at its end ----
+  const jobBody = unreadJob.locator('[data-nc-body] bdi')
+  const ends = () =>
+    jobBody.evaluate((el) => {
+      const text = el.firstChild
+      const at = (i) => {
+        const r = document.createRange()
+        r.setStart(text, i)
+        r.setEnd(text, i + 1)
+        return r.getBoundingClientRect().left
+      }
+      const n = text.textContent.length
+      return { digit: at(n - 2), stop: at(n - 1) }
+    })
+  const e0 = await ends()
+  check(`${label}: an English body keeps its full stop at its end (a <bdi>, dir auto)`, e0.stop > e0.digit, JSON.stringify(e0))
+  if (rtl) {
+    // Control: without the isolate the line takes the panel's RTL and the stop flips.
+    await jobBody.evaluate((el) => (el.style.unicodeBidi = 'normal'))
+    const e1 = await ends()
+    await jobBody.evaluate((el) => (el.style.unicodeBidi = ''))
+    check(`${label}: control — without it, the stop flips to the start under RTL`, e1.stop < e1.digit, JSON.stringify(e1))
+  }
+
+  await page.mouse.move(0, 999)
+  await page.screenshot({ path: `${SHOTS}/bell-${theme}-${dir}.png` })
+
+  // ---- Still today's dropdown: Esc and an outside click close it, nothing marked read ----
+  await page.keyboard.press('Escape')
+  const closedByEsc = (await panel.count()) === 0
+  await bell.click()
+  await panel.waitFor()
+  await page.mouse.click(800, 600)
+  check(
+    `${label}: Esc and an outside click close it, and neither marks anything read`,
+    closedByEsc && (await panel.count()) === 0 && reads === 0 && (await badge.innerText()).trim() === '2',
+    `reads=${reads}`,
+  )
+
+  // ---- A row click marks that one read; Mark all marks the rest, and the chip and badge go ----
+  await bell.click()
+  await panel.waitFor()
+  await rows.nth(0).click()
+  await page.waitForTimeout(300)
+  const afterOne = { reads, chip: (await chip.innerText()).trim(), badge: (await badge.innerText()).trim() }
+  await markAll.click()
+  await page.waitForTimeout(300)
+  check(
+    `${label}: a row click marks one read ("1 new"); Mark all marks the other, and the chip and badge go`,
+    afterOne.reads === 1 &&
+      afterOne.chip === '1 new' &&
+      afterOne.badge === '1' &&
+      reads === 2 &&
+      (await chip.count()) === 0 &&
+      (await badge.count()) === 0 &&
+      (await markAll.isDisabled()),
+    JSON.stringify({ afterOne, reads }),
+  )
+
+  check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
+  await context.close()
+}
+
+// DRIVE_ONLY=paint|grids|ranges|rail|topbar|narrow|overlays|bell runs one part, for a slice's inner loop; unset runs all.
 const ONLY = process.env.DRIVE_ONLY
 const PARTS = {
   paint: driveOneMode,
@@ -2278,6 +2615,7 @@ const PARTS = {
   topbar: driveTopbar,
   narrow: driveNarrow,
   overlays: driveOverlays,
+  bell: driveBell,
 }
 for (const [part, drive] of Object.entries(PARTS))
   if (!ONLY || ONLY === part)

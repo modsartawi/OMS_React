@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bell } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
+import Ltr from '@/core/ui/Ltr'
 import { useNcStore, ncItems } from './store'
 import { unreadCount, visibleItems } from './helpers'
 import { useNotificationPoll } from './useNotificationPoll'
@@ -10,8 +11,9 @@ import NotificationPanel from './NotificationPanel'
 
 // The Notification Center bell (Receive chrome, spec 031). Rides the AppShell top
 // bar at its inline end, after the store chip (ticket 386). Drives the
-// portal-wide poll and shows a terracotta unread badge whose count is
-// client-derived (Active ∧ not-expired ∧ !read). Zero unread ⇒ no badge; a 404
+// portal-wide poll and shows an unread badge whose count is client-derived
+// (Active ∧ not-expired ∧ !read): gold with navy ink in both themes, ringed in
+// --card against the bar (spec 380 F17). Zero unread ⇒ no badge; a 404
 // poll (feature off server-side) ⇒ the whole bell renders nothing. Clicking the
 // bell opens a dropdown panel (033) anchored to it; outside-click / Escape close
 // it. Opening does NOT mark anything read.
@@ -87,13 +89,14 @@ export default function NotificationBell() {
         <Bell className="h-5 w-5" aria-hidden />
         {count > 0 && (
           <span
+            data-nc-badge
             className={
-              'absolute -top-0.5 -end-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-ring px-1 text-[10px] font-bold text-primary-foreground ring-2 ring-background tabular-nums transition-transform duration-200 ' +
+              'absolute -top-0.5 -end-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-gold px-1 text-[10px] font-bold text-gold-foreground ring-2 ring-card tabular-nums transition-transform duration-200 ' +
               (pop ? 'scale-125' : 'scale-100')
             }
             aria-hidden
           >
-            {count}
+            <Ltr>{count}</Ltr>
           </span>
         )}
       </button>

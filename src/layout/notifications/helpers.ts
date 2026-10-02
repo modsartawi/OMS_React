@@ -24,11 +24,20 @@ function isUnreadActive(item: NotificationItem, now: number): boolean {
 }
 
 /**
- * The unread badge count: items where `status === 'Active'` ∧ `expiresAt > now`
- * ∧ `!isRead`. Zero ⇒ the caller hides the badge. Pure over the accumulated set.
+ * The unread items, in the order given: `status === 'Active'` ∧ `expiresAt > now`
+ * ∧ `!isRead`. The bell panel's "N new" chip counts them and its Mark all as read
+ * targets exactly them (spec 380 F17), so the chip, the badge and the action agree.
+ */
+export function unreadItems(items: NotificationItem[], now: number): NotificationItem[] {
+  return items.filter((i) => isUnreadActive(i, now))
+}
+
+/**
+ * The unread badge count: {@link unreadItems}' length. Zero ⇒ the caller hides the
+ * badge. Pure over the accumulated set.
  */
 export function unreadCount(items: NotificationItem[], now: number): number {
-  return items.filter((i) => isUnreadActive(i, now)).length
+  return unreadItems(items, now).length
 }
 
 /**

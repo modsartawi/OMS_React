@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 380
 blocked-by: 388
 ---
@@ -38,9 +38,9 @@ marks nothing read), redrawn at the console's density on 388's card recipe:
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `new count chip counts unread items only` (if not already pinned by an existing helper test) —
+- [x] `new count chip counts unread items only` (if not already pinned by an existing helper test) —
   pure · vitest
-- [ ] `tools/foundation-drive.mjs` (extend), in light, dark and RTL, with stubbed notifications:
+- [x] `tools/foundation-drive.mjs` (extend), in light, dark and RTL, with stubbed notifications:
   - the panel is 360px with two-line clamped bodies;
   - a BROADCAST tag computes the primary tier;
   - the badge computes gold with navy ink;
@@ -59,3 +59,43 @@ The bell panel matches 377 §3 in the drive in both modes and both directions.
 ## Blocked by
 
 [388](388-overlays-share-one-recipe-and-toasts-sit-bottom-end.md)
+
+## Comments
+
+**Done 2026-10-02.**
+
+**What was built:**
+- `NotificationPanel` is redrawn on the `POPOVER` card recipe:
+  - 360px wide, max 440px tall, with a 36px header: the title, the "N new" chip (`primary-050` / `primary-800`) and a 24px Mark all as read;
+  - rows 8×12 on `--divider` rules with a `--card-2` hover, and 12.5px titles (600 unread; 500 and `muted-foreground` read). Titles wrap rather than truncate (story 30);
+  - an 11px `--ink-3` time at the inline end, a 12px body clamped to two lines, and the type tag on its own line: 4px, 10px uppercase, BROADCAST in the primary tier, JOB `--muted`;
+  - a 6px `--primary` unread dot, held on the title's first line.
+- The badge is `bg-gold text-gold-foreground ring-card` in both themes.
+- Isolates, per `.claude/rules/bidi.md`:
+  - the title and body are `<bdi>`;
+  - the chip's, the time's and the badge's counts are `Ltr`, through `<Trans>` slots;
+  - the plural key is `notifications:panel.newCount_one/_other`, and the `relative.*` templates gained the `<n>` slot.
+- New pure `unreadItems` in `layout/notifications/helpers.ts`: the chip, the badge (`unreadCount`) and Mark all as read share one rule.
+- No endpoint or store change.
+
+**Proof:**
+- `helpers.test.ts`: 6 vitest cases.
+- `DRIVE_ONLY=bell` passes 106/106 in light/dark × LTR/RTL, with stubbed notifications. It covers:
+  - the panel width, the clamp, the BROADCAST tier, the badge's gold and navy, and that opening calls no Read;
+  - Esc and outside click, a row click, and Mark all as read;
+  - a wrapped title's dot;
+  - the body's stop under RTL, with a control.
+- The whole foundation drive passed 752/752 before the review fixes; afterwards the overlays part passed 118/118.
+- typecheck, `npm test` (3170 tests), lint (148 pairs) and build are green.
+
+**Reviews:**
+- `/code-review` found nothing.
+- `/standards-review` found no hard violation introduced by this slice. Applied:
+  - the relative time's count is isolated through a `<Trans>` slot, and `tabular-nums` is restored;
+  - the unread dot is anchored to the first title line when a title wraps.
+
+  Left on purpose: the drive's per-part `box`/`resolve` helpers, and under RTL the clamp's ellipsis on an English body sitting at the line's start (as the prototype draws it). Decisions are in `.afk/HITL-389.md`.
+
+**Outstanding (owner):**
+- The S1 live sign-off is at 391.
+- The Arabic-rendering eye check needs a human.

@@ -5,7 +5,9 @@
   "panel": {
     "title": "Notifications",
     "empty": "You're all caught up.",
-    "markAll": "Mark all as read"
+    "markAll": "Mark all as read",
+    "newCount_one": "<n>{{count}}</n> new",
+    "newCount_other": "<n>{{count}}</n> new"
   },
   "type": {
     "broadcast": "Broadcast",
@@ -17,8 +19,8 @@
   },
   "relative": {
     "justNow": "just now",
-    "minutes": "{{count}}m ago",
-    "hours": "{{count}}h ago",
-    "days": "{{count}}d ago"
+    "minutes": "<n>{{count}}</n>m ago",
+    "hours": "<n>{{count}}</n>h ago",
+    "days": "<n>{{count}}</n>d ago"
   }
 }

@@ -57,6 +57,14 @@ export const router = createBrowserRouter([
       Component: (await import('@/features/callcenter/console/__prototype__/CouponSignupPrototypePage')).default,
     }),
   },
+  // PROTOTYPE — throwaway (wayfinder ticket 373, map 358): the order header as
+  // a sentence of slots, four variants in the REAL ConsoleShell. Branch only.
+  {
+    path: '/prototype/callcenter-sentence',
+    lazy: async () => ({
+      Component: (await import('@/features/callcenter/console/__prototype__/SentencePrototypePage')).default,
+    }),
+  },
   // The call-center console (ticket 162). Under the SAME auth guard as every
   // other screen — session, theme and the 401 path are unchanged — but OUTSIDE
   // AppShell: the console renders its own full-viewport three-column layout

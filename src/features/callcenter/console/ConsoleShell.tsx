@@ -141,7 +141,10 @@ export default function ConsoleShell({
   submit,
   headerSection = null,
   headerSectionOpen = false,
+  headerRow,
 }: {
+  /** PROTOTYPE 373 — throwaway: a variant replaces or wraps the chip row. */
+  headerRow?: (chipRow: ReactNode) => ReactNode
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
   onAbandon?: () => void
@@ -299,16 +302,18 @@ export default function ConsoleShell({
         <CustomerRail state={state} customerActions={customerActions}
             signup={signup} requests={requests} onPickAddress={onPickAddress} />
         <main className="flex min-h-0 min-w-0 flex-col border-x border-border">
-          <ChipRow
-            state={state}
-            onChangeStore={onChangeStore}
-            onChangeSlot={onChangeSlot}
-            onChangeSource={onChangeSource}
-            onChangeFulfilment={onChangeFulfilment}
-            onChangePayment={onChangePayment}
-            onChangeCoupon={onChangeCoupon}
-            onChangeNote={onChangeNote}
-          />
+          {(headerRow ?? ((row: ReactNode) => row))(
+            <ChipRow
+              state={state}
+              onChangeStore={onChangeStore}
+              onChangeSlot={onChangeSlot}
+              onChangeSource={onChangeSource}
+              onChangeFulfilment={onChangeFulfilment}
+              onChangePayment={onChangePayment}
+              onChangeCoupon={onChangeCoupon}
+              onChangeNote={onChangeNote}
+            />,
+          )}
           {/* 🚩 175 §9, the half that was owed: **the section a chip opens, in
               the flow, immediately under the chip that opened it.** The row
               stays visible above it — a chip is a place, and a place that

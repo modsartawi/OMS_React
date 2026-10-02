@@ -17,7 +17,7 @@ export default function ProtoTokenBar() {
   if (!import.meta.env.DEV) return null
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-2 z-[100] flex justify-center" data-proto-bar>
+    <div className={'pointer-events-none fixed inset-x-0 z-[100] ' + (location.pathname.startsWith('/prototype/callcenter-sentence') ? 'bottom-20' : 'bottom-2') + ' flex justify-center'} data-proto-bar>
       <div
         className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-xl border-2 border-black/70 bg-black/90 px-3 py-2 text-xs text-white shadow-2xl"
         style={{ fontFamily: 'system-ui, sans-serif' }}

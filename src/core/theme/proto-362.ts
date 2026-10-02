@@ -134,6 +134,32 @@ function stubFor(path: string): Response {
   if (/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/.test(path)) return envelope(DOCUMENT)
   if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path)) return envelope([])
   if (/Access$/.test(path)) return envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true })
+  // PROTOTYPE 373 — the three header-section reads, so the REAL StorePicker,
+  // SlotPicker and SourceForm open inside the sentence prototype.
+  if (path === 'SdDocument/StoreDetails')
+    return envelope([
+      ['1001', 'Hail', 'King AbdelAziz Road'],
+      ['1101', 'Riyadh', 'Al Malqa · Anas Ibn Malik Rd'],
+      ['1204', 'Riyadh', 'Al Yasmin · Al Thumamah Rd'],
+      ['2040', 'Jeddah', 'Ar Rawdah · Prince Sultan St'],
+    ].map(([storeCode, city, storeAddress]) => ({
+      storeCode, city, region: city, storeAddress, deliveryStore: true, latitude: '', longitude: '', wasfatyRefill: false,
+    })))
+  if (path.startsWith('Slots/AvailableSlots/'))
+    return envelope({
+      slots: [['2026/10/02', 'FRIDAY'], ['2026/10/03', 'SATURDAY']].map(([date, day], d) => ({
+        day, date, fullDay: `${date} ${day}`,
+        times: [['15:00', '18:00'], ['18:00', '21:00'], ['21:00', '23:00']].map(([f, t], i) => ({
+          time: `${f} - ${t}`, status: !(d === 0 && i === 0), slotId: `2026-10-0${2 + d}#S${i + 2}`,
+          slotFrom: `${date.replace(/\//g, '-')}T${f}:00`, slotTo: `${date.replace(/\//g, '-')}T${t}:00`,
+        })),
+      })),
+    })
+  if (path === 'CallCenterWeb/MyDocumentSources')
+    return envelope([
+      { documentSource: 'CLCN', description: 'Call center', documentSourceCategory: 'C', isDefault: true },
+      { documentSource: 'WHTS', description: 'WhatsApp', documentSourceCategory: 'C', isDefault: false },
+    ])
   return envelope({})
 }
 

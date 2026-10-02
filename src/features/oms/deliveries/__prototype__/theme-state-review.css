@@ -1,0 +1,36 @@
+/* Throwaway state review, scoped away from the approved screens. */
+.state-review { --prototype-control-radius: 3px; font-size: 12px; }
+.state-intro, .state-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.state-intro h1 { font-size: 26px; font-weight: 600; letter-spacing: -.025em; }
+.state-intro > span { color: var(--primary-800); background: var(--primary-050); padding: 6px 9px; font-size: 10px; }
+.state-review p { color: var(--muted-foreground); line-height: 1.6; margin-block: 6px 12px; }
+.state-rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-block: 22px; padding-block: 14px; border-block: 1px solid var(--border-strong); }
+.state-review h2, .state-rules strong { font-weight: 600; font-size: 13px; }
+.state-panel { min-width: 0; background: var(--card); border: 1px solid var(--border); padding: 16px; margin-block-end: 16px; }
+.state-collection-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.state-review label:not(.state-inline label) { display: flex; flex-direction: column; gap: 6px; font-size: 11px; color: var(--muted-foreground); }
+.state-review input:not([type=checkbox]):not(.ag-input-field-input) { min-width: 0; width: 145px; height: 32px; padding-inline: 8px; background: var(--card); border: 1px solid var(--input); border-radius: 3px; color: var(--foreground); font-size: 12px; }
+.state-review input:not([type=checkbox]):disabled { background: var(--muted); color: var(--muted-foreground); cursor: not-allowed; }
+.state-review input[aria-invalid=true] { border: 2px solid var(--danger) !important; }
+.state-error { color: var(--danger-800); }
+.state-collection-fields > button { height: 32px; }
+.state-inline { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-block: 10px; }
+.state-inline label { display: flex; align-items: center; gap: 6px; }
+.state-inline input { accent-color: var(--primary); }
+.state-chip, .state-review button[aria-pressed=true] { background: var(--primary-050); color: var(--primary-800); border-color: var(--primary-border); }
+.state-chip { padding: 4px 8px; }
+.state-grid { height: 252px; }
+.state-grid .ag-cell, .state-command-samples ~ p { font-variant-numeric: tabular-nums; }
+.state-grid .ag-row-pinned { --ag-data-background-color: var(--muted); background: var(--muted); font-weight: 600; }
+.state-store { display: flex; height: 100%; justify-content: center; flex-direction: column; line-height: 16px; }
+.state-store small { font-size: 10px; color: var(--muted-foreground); }
+.state-output { display: block; margin-block-start: 10px; color: var(--muted-foreground); font-size: 11px; }
+.state-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.state-field-samples { display: flex; flex-wrap: wrap; gap: 16px; }
+.state-field-samples small { max-width: 145px; }
+.state-prescription { background: var(--prescription-050); color: var(--prescription-800); }
+.state-provenance { background: var(--post-050); color: var(--post-800); }
+.state-prescription, .state-provenance { border-radius: 20px; padding: 2px 8px; font-size: 11px; }
+.state-review .ag-cell-focus:not(.ag-cell-range-selected) { border: 2px solid var(--ring) !important; }
+@media (max-width: 1000px) { .state-pair { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { .state-rules { grid-template-columns: minmax(0, 1fr); gap: 8px; } .state-panel { padding: 12px; } }

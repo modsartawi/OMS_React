@@ -3,7 +3,7 @@ type: wayfinder-ticket
 wayfinder: prototype
 labels: [wayfinder:prototype]
 map: 354
-status: open
+status: claimed
 blocked-by: 355
 ---
 
@@ -36,3 +36,13 @@ Carry the prior ticket's filter and copying decisions through the state review. 
 2026-10-02: The owner approved the delivery details and POS simulation previews ("ok approaved"), captured in commit `5cc3a27` on `prototype/theme-directions-355`. This accepts the selected steel palette and compact rectangular treatment on these screens, including the displayed detail hierarchy, command/badge treatment, and simulation inputs/results/promotions arrangement. The [review assets](assets/356-theme-screens/README.md) record the approved artifact and its 44 passing browser checks.
 
 Carry these accepted screens forward without reopening their visual direction. This approval concerns the displayed prototypes; it does not settle the unshown Collection specimen, complete the shared interaction-state matrix, or authorize a production rollout. This ticket remains open for that remaining design work before ticket 357 finalizes the theme specification.
+
+## Shared-state review ready
+
+2026-10-02: Claimed and extended the accepted theme with the remaining [Collection toolbar and interaction-state review](assets/356-theme-states/README.md) on `prototype/theme-directions-355`. [Open Controls & states](http://127.0.0.1:5198/oms/deliveries?variant=selected&review=states).
+
+The proposal demonstrates 32px form controls, compact 28px actions/rows, a deliberate 44px two-line option, common hover/focus treatments, semantic command/badge samples, pinned totals, invalid/disabled/loading/empty states, real grid filters and checkboxes, copying, and focus with selection. The Collection specimen retains both date ranges and both person filters and demonstrates ACR scope without inventing search behavior.
+
+Verification: 39 state-review browser checks and 21 selected-inquiry checks pass; build and lint pass. Both themes, RTL and smaller viewports are captured. Installed AG Grid parameters and the rendered pinned-totals exception are documented in the assets.
+
+**Awaiting owner feedback.** No shared-state rule is accepted by this entry. Keep the ticket claimed and the dependent specification decision blocked until the owner reacts to the artifact.

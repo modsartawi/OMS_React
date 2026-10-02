@@ -10,8 +10,10 @@ export default function ThemePreviewNav() {
   const params = new URLSearchParams(location.search)
   params.set('variant', 'selected')
   params.delete('scenario')
+  params.delete('review')
   return <nav className="theme-preview-nav" aria-label={t('nav')}>
     {([['inquiry', '/oms/deliveries'], ['details', '/oms/delivery/8000048'], ['simulation', '/pricing/simulation']] as const).map(([key, path]) =>
-      <a key={key} href={`${path}?${params}`} aria-current={location.pathname === path ? 'page' : undefined}>{t(key)}</a>)}
+      <a key={key} href={`${path}?${params}`} aria-current={location.pathname === path && !new URLSearchParams(location.search).has('review') ? 'page' : undefined}>{t(key)}</a>)}
+    <a href={`/oms/deliveries?${params}&review=states`} aria-current={new URLSearchParams(location.search).get('review') === 'states' ? 'page' : undefined}>{t('states')}</a>
   </nav>
 }

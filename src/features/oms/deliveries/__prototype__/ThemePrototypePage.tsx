@@ -14,6 +14,7 @@ import PrototypeSwitcher from '@/core/ui/ThemePrototypeSwitcher'
 import { omsGridTheme } from '@/core/theme/ag-grid-theme'
 import copy from './copy.json'
 import ThemePrototypeFilters from './ThemePrototypeFilters'
+import ThemeStateReview from './ThemeStateReview'
 import { BLANK_CRITERIA, buildDeliveryQuery, type DeliveryFilterCriteria } from '../filter'
 import './theme-prototype.css'
 import ThemePreviewNav from '@/core/ui/ThemePreviewNav'
@@ -44,7 +45,8 @@ const gridTheme = omsGridTheme.withParams({ wrapperBorderRadius: 'var(--prototyp
 export default function ThemePrototypePage() {
   const { t } = useTranslation('theme-prototype')
   const [params, setParams] = useSearchParams()
-  const variant = keys.includes(params.get('variant') as Variant) ? params.get('variant') as Variant : 'selected'
+  const stateReview = params.get('review') === 'states'
+  const variant = !stateReview && keys.includes(params.get('variant') as Variant) ? params.get('variant') as Variant : 'selected'
   const composition = variant === 'selected' ? 'C' : variant
   const dark = params.get('mode') === 'dark'
   const rtl = params.get('dir') === 'rtl'
@@ -127,6 +129,7 @@ export default function ThemePrototypePage() {
   </section>
   return <div className={`theme-prototype prototype-${composition}${variant === 'selected' ? ' prototype-selected' : ''}`}>
     <ThemePreviewNav />
+    {params.get('review') === 'states' ? <ThemeStateReview rtl={rtl} /> : <>
     <div className="prototype-heading"><div><div className="prototype-eyebrow">{t('review')}</div><h1>{t('title')}</h1><p>{t('subtitle')}</p></div><span className="prototype-fixture">{t('fixture')}</span></div>
     {composition === 'A' && <>{filters}{scopes}{grid}</>}
     {composition === 'B' && <div className="prototype-workspace"><aside>{filters}<p className="prototype-aside-note">{t('descriptionB')}</p></aside><div>{scopes}{grid}</div></div>}
@@ -135,7 +138,8 @@ export default function ThemePrototypePage() {
       <div className="prototype-components"><span>{t('specimens')}</span><Button variant="cancel-request" disabled>{t('requestCancellation')}</Button><Button variant="danger-outlined" disabled>{t('cancel')}</Button><span className="rounded-full bg-prescription-050 px-2 py-0.5 text-xs text-prescription-800">{t('prescription')}</span><span className="rounded-full bg-post-050 px-2 py-0.5 text-xs text-post-800">{t('post')}</span></div>
     </section>
     <output className="prototype-state">{t('state', { variant: t(variant === 'selected' ? 'selectedDesign' : variant), mode: t(dark ? 'dark' : 'light'), direction: rtl ? 'RTL' : 'LTR', count: data.length, selection: selected?.deliveryNo ?? '—' })}</output>
-    <PrototypeSwitcher names={keys.map(key => t(key === 'selected' ? 'selectedDesign' : key))} current={keys.indexOf(variant)} onChange={changeVariant} previousLabel={t('previous')} nextLabel={t('next')}>
+    </>}
+    <PrototypeSwitcher names={stateReview ? [t('selectedDesign')] : keys.map(key => t(key === 'selected' ? 'selectedDesign' : key))} current={stateReview ? 0 : keys.indexOf(variant)} onChange={stateReview ? () => {} : changeVariant} previousLabel={t('previous')} nextLabel={t('next')}>
       <button aria-pressed={dark} onClick={() => update('mode', dark ? 'light' : 'dark')}>{dark ? <Sun size={15} /> : <Moon size={15} />}{t(dark ? 'light' : 'dark')}</button>
       <button aria-pressed={rtl} onClick={() => update('dir', rtl ? 'ltr' : 'rtl')}>{t('rtl')}</button>
     </PrototypeSwitcher>

@@ -1,0 +1,161 @@
+{
+  "checks": [
+    {
+      "name": "light: compact 28px rows",
+      "pass": true
+    },
+    {
+      "name": "light: 32px Collection fields",
+      "pass": true
+    },
+    {
+      "name": "light: pinned totals",
+      "pass": true
+    },
+    {
+      "name": "light: ACR blanks and disables fields",
+      "pass": true
+    },
+    {
+      "name": "light: scope restores date draft",
+      "pass": true
+    },
+    {
+      "name": "light: native text copying",
+      "pass": true
+    },
+    {
+      "name": "light: focus coexists with selection",
+      "pass": true
+    },
+    {
+      "name": "light: arrow stays inside grid",
+      "pass": true
+    },
+    {
+      "name": "light: shared hover token",
+      "pass": true
+    },
+    {
+      "name": "light: disabled field skipped by Tab",
+      "pass": true
+    },
+    {
+      "name": "light: visible keyboard focus",
+      "pass": true
+    },
+    {
+      "name": "light: correct amount clears invalid",
+      "pass": true
+    },
+    {
+      "name": "light: sortable header",
+      "pass": true
+    },
+    {
+      "name": "light: real filter popup",
+      "pass": true
+    },
+    {
+      "name": "light: loading and empty visible",
+      "pass": true
+    },
+    {
+      "name": "light: deliberate 44px rows",
+      "pass": true
+    },
+    {
+      "name": "light: identity pinned at RTL start",
+      "pass": true
+    },
+    {
+      "name": "light: laptop has no page overflow",
+      "pass": true
+    },
+    {
+      "name": "light: narrow has no page overflow",
+      "pass": true
+    },
+    {
+      "name": "dark: compact 28px rows",
+      "pass": true
+    },
+    {
+      "name": "dark: 32px Collection fields",
+      "pass": true
+    },
+    {
+      "name": "dark: pinned totals",
+      "pass": true
+    },
+    {
+      "name": "dark: ACR blanks and disables fields",
+      "pass": true
+    },
+    {
+      "name": "dark: scope restores date draft",
+      "pass": true
+    },
+    {
+      "name": "dark: native text copying",
+      "pass": true
+    },
+    {
+      "name": "dark: focus coexists with selection",
+      "pass": true
+    },
+    {
+      "name": "dark: arrow stays inside grid",
+      "pass": true
+    },
+    {
+      "name": "dark: shared hover token",
+      "pass": true
+    },
+    {
+      "name": "dark: disabled field skipped by Tab",
+      "pass": true
+    },
+    {
+      "name": "dark: visible keyboard focus",
+      "pass": true
+    },
+    {
+      "name": "dark: correct amount clears invalid",
+      "pass": true
+    },
+    {
+      "name": "dark: sortable header",
+      "pass": true
+    },
+    {
+      "name": "dark: real filter popup",
+      "pass": true
+    },
+    {
+      "name": "dark: loading and empty visible",
+      "pass": true
+    },
+    {
+      "name": "dark: deliberate 44px rows",
+      "pass": true
+    },
+    {
+      "name": "dark: identity pinned at RTL start",
+      "pass": true
+    },
+    {
+      "name": "dark: laptop has no page overflow",
+      "pass": true
+    },
+    {
+      "name": "dark: narrow has no page overflow",
+      "pass": true
+    },
+    {
+      "name": "No browser errors",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

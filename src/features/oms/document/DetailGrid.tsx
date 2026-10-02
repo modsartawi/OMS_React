@@ -25,6 +25,7 @@ export default function DetailGrid<T>({
   getRowStyle,
   pinnedBottomRowData,
   rowSelection,
+  autoHeight,
 }: {
   columnDefs: ColDef<T>[]
   /** `null` before a deferred fetch resolves. */
@@ -40,6 +41,8 @@ export default function DetailGrid<T>({
    */
   pinnedBottomRowData?: T[]
   rowSelection?: RowSelectionOptions<T>
+  /** PROTOTYPE 371: size to the rows instead of the fixed 26rem. */
+  autoHeight?: boolean
 }) {
   const { t } = useTranslation('document')
   const STATE =
@@ -65,7 +68,7 @@ export default function DetailGrid<T>({
     )
 
   return (
-    <div className="h-[26rem] w-full">
+    <div className={autoHeight ? 'w-full' : 'h-[26rem] w-full'}>
       <AgGridReact<T>
         theme={omsGridTheme}
         rowData={rowData ?? []}
@@ -78,6 +81,7 @@ export default function DetailGrid<T>({
         headerHeight={OMS_GRID_HEADER_HEIGHT}
         tooltipShowDelay={500}
         animateRows={false}
+        domLayout={autoHeight ? 'autoHeight' : undefined}
       />
     </div>
   )

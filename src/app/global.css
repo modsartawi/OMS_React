@@ -678,3 +678,9 @@ body.blocked-scroll {
 html[data-palette] .ag-row-selected:not(.ag-full-width-row)::before {
   z-index: 3;
 }
+
+/* PROTOTYPE 371: drop AG Grid's 150px auto-height floor on the record page's grids. */
+.ag-layout-auto-height .ag-center-cols-viewport,
+.ag-layout-auto-height .ag-center-cols-container {
+  min-height: 0 !important;
+}

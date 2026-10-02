@@ -15,11 +15,14 @@
  * `stub=1` installs a fetch shim with fictional envelopes, because SIS.Api was
  * down when this was built. It patches window.fetch — prototype only.
  */
+import { stub371 } from './proto-371-stub'
+
 export type Palette = 'steel' | 'far' | 'navy'
 export type ProtoSettings = { palette: Palette; rows: number; size: number; stub: boolean }
 
 const KEY = 'proto362'
-const DEFAULTS: ProtoSettings = { palette: 'far', rows: 26, size: 12, stub: false }
+// PROTOTYPE 371: this branch defaults to the decided B palette with stub data on.
+const DEFAULTS: ProtoSettings = { palette: 'navy', rows: 26, size: 12, stub: true }
 
 function read(): ProtoSettings {
   let s: ProtoSettings = { ...DEFAULTS }
@@ -127,6 +130,8 @@ const DOCUMENT = {
 }
 
 function stubFor(path: string): Response {
+  const s371 = stub371(path) // PROTOTYPE 371: the record-page cases first
+  if (s371 !== undefined) return envelope(s371)
   if (path === 'Auth/Me')
     return envelope({ authenticated: true, userId: 'proto', displayName: 'Prototype 362', currentStoreCode: '1001' })
   if (path === 'SdDocumentWeb/DeliveryDocumentList') return envelope(Array.from({ length: 40 }, (_, i) => delivery(i)))

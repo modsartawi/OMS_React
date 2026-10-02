@@ -128,7 +128,15 @@ export const router = createBrowserRouter([
         path: 'oms/delivery/:deliveryNo',
         lazy: async () => {
           const { default: Page } = await import('@/features/oms/document/DocumentDetailsPage')
-          return { Component: () => <Page openedAs="delivery" /> }
+          // PROTOTYPE 371 — throwaway: `?variant=` renders the record-page variants (DEV only).
+          const { default: Proto } = await import('@/features/oms/document/__prototype__/DetailsPrototypePage')
+          const { useSearchParams } = await import('react-router')
+          return {
+            Component: function DeliveryRoute() {
+              const [sp] = useSearchParams()
+              return import.meta.env.DEV && sp.has('variant') ? <Proto /> : <Page openedAs="delivery" />
+            },
+          }
         },
       },
       // Central invoicing's bulk screen (ticket 332) — in the OMS area, behind its OWN grant.

@@ -15,6 +15,8 @@ const PALETTES: { key: Palette; name: string }[] = [
 export default function ProtoTokenBar() {
   const theme = useTheme()
   if (!import.meta.env.DEV) return null
+  // PROTOTYPE 371: the record-page variants carry their own switcher; the header's moon toggles dark.
+  if (new URLSearchParams(location.search).has('variant')) return null
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-2 z-[100] flex justify-center" data-proto-bar>

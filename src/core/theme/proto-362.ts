@@ -160,8 +160,26 @@ function stubFor(path: string): Response {
       { documentSource: 'CLCN', description: 'Call center', documentSourceCategory: 'C', isDefault: true },
       { documentSource: 'WHTS', description: 'WhatsApp', documentSourceCategory: 'C', isDefault: false },
     ])
+  // PROTOTYPE 379 — the caller lookup + signup, so the rail and the caller bar
+  // can find, miss, enrol and attach offline. A number ending 0000 is a miss.
+  if (path.startsWith('CallCenterWeb/MemberByMobile/')) {
+    const mobile = decodeURIComponent(path.slice('CallCenterWeb/MemberByMobile/'.length))
+    return envelope(mobile.endsWith('0000') ? null : PROTO_MEMBER(mobile))
+  }
+  if (path === 'CallCenterWeb/SignUpByBranch') return envelope(null)
+  if (path === 'CallCenterWeb/ConfirmSignUpByBranch')
+    return envelope({ loyId: 'C-1000000991', mobile: '966500000000', fullName: 'New member', tier: 'Blue', pointsBalance: 0, email: null })
   return envelope({})
 }
+
+const PROTO_MEMBER = (mobile: string) => ({
+  loyId: 'C-1000000034',
+  mobile,
+  fullName: 'Fatimah Al-Otaibi',
+  tier: 'Gold',
+  pointsBalance: 4120,
+  email: 'f.otaibi@example.com',
+})
 
 if (import.meta.env.DEV && proto.stub) {
   const real = window.fetch.bind(window)

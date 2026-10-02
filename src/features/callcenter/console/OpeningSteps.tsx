@@ -21,7 +21,14 @@ import { useTranslation } from 'react-i18next'
 import { Check } from 'lucide-react'
 import type { OpeningStep } from './opening-steps'
 
-export default function OpeningSteps({ steps }: { steps: OpeningStep[] }) {
+export default function OpeningSteps({
+  steps,
+  protoCallerHint,
+}: {
+  steps: OpeningStep[]
+  /** PROTOTYPE 379 — throwaway: where the caller step points once there is no rail. */
+  protoCallerHint?: string
+}) {
   const { t } = useTranslation('callcenter')
   if (steps.length === 0) return null
   return (
@@ -51,7 +58,9 @@ export default function OpeningSteps({ steps }: { steps: OpeningStep[] }) {
             >
               {t(`steps.${step.key}.label`)}
             </span>
-            <span className="text-xs text-muted-foreground">{t(`steps.${step.key}.hint`)}</span>
+            <span className="text-xs text-muted-foreground">
+              {step.key === 'caller' && protoCallerHint ? protoCallerHint : t(`steps.${step.key}.hint`)}
+            </span>
           </li>
         ))}
       </ol>

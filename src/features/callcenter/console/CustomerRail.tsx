@@ -110,7 +110,11 @@ export default function CustomerRail({
   onPickAddress,
   requests,
   signup,
+  protoNoWhere,
 }: {
+  /** PROTOTYPE 379 — throwaway: drop the address / collecting-from block (the
+   *  sentence already says it). */
+  protoNoWhere?: boolean
   state: SessionState
   customerActions: CustomerActions
   signup?: RailSignup
@@ -337,7 +341,7 @@ export default function CustomerRail({
           question asked of two different orders — *where is this going* /
           *where are they collecting it* — so they get the same pixels and
           different words. */}
-      <div className="mt-2 border-t border-border pt-3">
+      {!protoNoWhere && <div className="mt-2 border-t border-border pt-3">
         {railBlock(state.header) === 'collection' ? (
           <CollectionBlock state={state} retained={retained} />
         ) : (
@@ -348,7 +352,7 @@ export default function CustomerRail({
             <AddressBlock address={state.header.address} slot={slot} onPickAddress={onPickAddress} />
           </>
         )}
-      </div>
+      </div>}
     </aside>
   )
 }

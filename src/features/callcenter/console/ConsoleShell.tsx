@@ -142,9 +142,14 @@ export default function ConsoleShell({
   headerSection = null,
   headerSectionOpen = false,
   headerRow,
+  protoRail,
 }: {
   /** PROTOTYPE 373 — throwaway: a variant replaces or wraps the chip row. */
   headerRow?: (chipRow: ReactNode) => ReactNode
+  /** PROTOTYPE 379 — throwaway: the column template, what sits in the start
+   *  column (`undefined` = the real rail, `null` = no column), a caller bar
+   *  drawn at the top of the centre column, and the caller step's hint. */
+  protoRail?: { cols: string; rail?: ReactNode | null; bar?: ReactNode; callerHint?: string }
   state: SessionState
   /** Opens the abandon confirmation (163). Absent ⇒ there is nothing to void. */
   onAbandon?: () => void
@@ -298,10 +303,18 @@ export default function ConsoleShell({
       <RequestReportBanner actions={requestReport} />
       {/* 1440×900 by design, degrading to 1280; below that is out of scope —
           it is a desktop console (135's density budget). */}
-      <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]">
-        <CustomerRail state={state} customerActions={customerActions}
+      <div
+        className={protoRail ? 'grid min-h-0 flex-1' : 'grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)_320px]'}
+        style={protoRail ? { gridTemplateColumns: protoRail.cols } : undefined}
+      >
+        {protoRail?.rail === undefined ? (
+          <CustomerRail state={state} customerActions={customerActions}
             signup={signup} requests={requests} onPickAddress={onPickAddress} />
+        ) : (
+          protoRail.rail
+        )}
         <main className="flex min-h-0 min-w-0 flex-col border-x border-border">
+          {protoRail?.bar}
           {(headerRow ?? ((row: ReactNode) => row))(
             <ChipRow
               state={state}
@@ -325,7 +338,10 @@ export default function ConsoleShell({
               Never both at once: an agent inside a section is already doing the
               thing the card would tell them to do. */}
           {!headerSectionOpen && (
-            <OpeningSteps steps={openingSteps(state.header, state.capabilities, state.status)} />
+            <OpeningSteps
+              steps={openingSteps(state.header, state.capabilities, state.status)}
+              protoCallerHint={protoRail?.callerHint}
+            />
           )}
           {/* 135's fixed vertical order — chip row → item search → basket. The
               search is above the basket because that is the direction the work

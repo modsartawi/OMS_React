@@ -9,7 +9,7 @@ import type { TFunction } from 'i18next'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { formatDateTime } from '@/core/util/date-format'
 import { createElement } from 'react'
-import { p378 } from '@/layout/__prototype__/proto-378' // PROTOTYPE 378
+import { p378, p378BaseColDef } from '@/layout/__prototype__/proto-378' // PROTOTYPE 378
 import { formatMoney } from '@/core/util/number-format'
 
 type DeliveryColDef = ColDef<DeliveryDocumentModel>
@@ -203,6 +203,7 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
  * built-in checkbox renderer (D-13).
  */
 export const DELIVERY_DEFAULT_COL_DEF: DeliveryColDef = {
+  ...p378BaseColDef, // PROTOTYPE 378 ?glob=1
   sortable: true,
   resizable: true,
   filter: 'agTextColumnFilter',

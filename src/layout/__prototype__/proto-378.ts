@@ -16,6 +16,7 @@
  * Bench: /prototype/bidi — every value shape × every isolation technique, measured.
  */
 import i18n from 'i18next'
+import { createElement } from 'react'
 import { provideGlobalGridOptions } from 'ag-grid-community'
 import { AR } from './proto-378-ar'
 import ar400 from '@/assets/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2?url'
@@ -73,8 +74,23 @@ provideGlobalGridOptions({
   ...(p378.ar ? { suppressColumnVirtualisation: true } : {}),
   // THE proposed rule: direction is an app-boot fact, given to every grid at once.
   ...(p378.fix ? { enableRtl: document.documentElement.dir === 'rtl' } : {}),
+  // ?glob=1 tried `defaultColDef` here: under the default 'shallow' merge a grid's own
+  // defaultColDef replaces it (no effect, measured); under 'deep' the Deliveries grid loops
+  // (React "Maximum update depth exceeded", measured). The global hook carries SCALARS only.
 })
 if (p378.fix) document.documentElement.dataset.p378fix = '1'
+
+/** ?glob=1: the candidate core base every grid's defaultColDef spreads — the shown text in a <bdi>
+ * (dir auto: digits/Latin → LTR, Arabic → RTL), formatter respected. */
+export const p378BaseColDef =
+  new URLSearchParams(location.search).get('glob') === '1'
+    ? {
+        // A function cellRenderer IS a React component under AG Grid React — returning a DOM
+        // node throws "Objects are not valid as a React child" (measured).
+        cellRenderer: (p: { value?: unknown; valueFormatted?: string | null }) =>
+          createElement('bdi', null, p.valueFormatted ?? (p.value == null ? '' : String(p.value))),
+      }
+    : {}
 if (p378.arsize !== 100) {
   const css = [ar400, ar500, ar600, ar700]
     .map(

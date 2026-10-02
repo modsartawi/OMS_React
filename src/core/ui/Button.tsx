@@ -33,7 +33,7 @@ export type ButtonVariant =
  * discover why a command is unavailable.
  */
 const BASE =
-  'inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium ' +
+  'inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-medium ' +
   'transition-colors disabled:cursor-not-allowed disabled:opacity-50 ' +
   'aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
 

@@ -6,12 +6,12 @@
     <title>OMS Portal</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <!-- Mobile browser chrome. These must track `--background` in global.css
-         (light #F4F7FA / dark #121C27, spec 082 D-2/D-4) but cannot read it:
+         (light #F2F4F8 / dark #0A111D, palette B — spec 380 F2, 362 §1) but cannot read it:
          a meta tag has no access to CSS custom properties. They are the only
          colour literals outside `global.css` and the logo SVG, and they live
          outside `src/`, which is what D-12's gates scan. -->
-    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F7FA" />
-    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121C27" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#F2F4F8" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A111D" />
     <script>
       // Apply theme before first paint — stored choice, else OS preference.
       try {

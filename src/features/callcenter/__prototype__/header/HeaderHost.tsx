@@ -96,7 +96,7 @@ export default function HeaderHost({
 
 function Rail({ s }: { s: HeaderState }) {
   return (
-    <aside className="flex min-h-0 flex-col gap-4 overflow-auto bg-sidebar p-4">
+    <aside className="flex min-h-0 flex-col gap-4 overflow-auto bg-card-2 p-4">
       {s.customer ? (
         <>
           <div>

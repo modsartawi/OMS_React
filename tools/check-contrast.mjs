@@ -12,11 +12,13 @@
 // Two kinds of assertion:
 //   - POSITIVE (`min`): this pair must clear its threshold. 4.5:1 for body text,
 //     3:1 for large text / UI / non-text graphics.
-//   - NEGATIVE (`below`): this pair must FAIL. Only used for white ink on the
+//   - NEGATIVE (`below`): this pair must FAIL. Used for white ink on the
 //     lifted dark chromatic fills. Under D-3 R2 every dark chromatic fill is a
 //     light tonal fill carrying DARK ink; white measures ~2.2:1 on them. Without
 //     this assertion a later reader "fixes" the apparent oddity by reverting
 //     `--primary-foreground` to white and silently ships unreadable buttons.
+//     And, since palette B (spec 380 F5, 362 §7), for gold on a light card:
+//     gold is a signal, never a meaningful line or text on a light surface.
 
 import { readFileSync } from 'node:fs'
 
@@ -32,11 +34,17 @@ const lines = source.split('\n')
 // Token declarations per theme, with the line each was declared on. `.dark`
 // inherits every token it does not itself redeclare (that is how the cascade
 // resolves it in the browser), so the dark table starts as a copy of light.
-function parseBlock(selector) {
+function parseBlock(selector, { indented = false } = {}) {
   const out = new Map()
   // The selector may open more than one block (`:root` is declared twice — the
   // main table and the brand pair); collect all of them.
-  const re = new RegExp(`(^|\\n)${selector.replace('.', '\\.')}\\s*\\{`, 'g')
+  // `.dark` is matched indented (spec 380 F19): it sits inside `@media screen
+  // { … }`, and a match anchored to column 0 would find nothing and leave the
+  // dark table a silent copy of light — see the guard below. `:root` stays
+  // anchored, so a nested `:root { … }` (the print block, `@layer base`) is
+  // never read as the unconditional light table.
+  const indent = indented ? '[ \\t]*' : ''
+  const re = new RegExp(`(^|\\n)${indent}${selector.replace('.', '\\.')}\\s*\\{`, 'g')
   let open
   while ((open = re.exec(source)) !== null) {
     const start = open.index + open[0].length
@@ -53,14 +61,15 @@ function parseBlock(selector) {
 }
 
 const rootTokens = parseBlock(':root')
-const darkTokens = new Map([...rootTokens, ...parseBlock('.dark')])
+const darkBlock = parseBlock('.dark', { indented: true })
+const darkTokens = new Map([...rootTokens, ...darkBlock])
 const THEMES = { light: rootTokens, dark: darkTokens }
 
 // Resolve a token to a hex triple, following `var(--other)` aliases
 // (`--destructive` is declared as `var(--danger)` and must measure as danger).
 function resolve(theme, name, seen = new Set()) {
   const decl = THEMES[theme].get(name)
-  if (!decl) fail(`token ${name} is not declared in the ${theme} table`)
+  if (!decl) return fail(`token ${name} is not declared in the ${theme} table`)
   const alias = /^var\(\s*(--[\w-]+)\s*\)$/.exec(decl.raw)
   if (alias) {
     if (seen.has(name)) fail(`token ${name} aliases itself in a cycle`)
@@ -99,8 +108,26 @@ const WHITE = '#ffffff'
 const SURFACES = ['--card', '--background', '--muted', '--card-2']
 const positives = [
   ...SURFACES.map((s) => ['--foreground', s, BODY]),
-  ['--foreground', '--sidebar', BODY],
+  // Body ink on the selected-row ground (362 §7).
+  ['--foreground', '--primary-050', BODY],
+  // The rail is the brand navy in both themes (362 §2). Body ink never sits on
+  // it, so `--foreground` on `--sidebar` is no longer a pair; the rail's own
+  // inks are. `--sidebar-muted` carries the group labels (muted-foreground is
+  // ~2:1 on navy), and gold is allowed on navy — the marker, the rail ring.
   ['--sidebar-foreground', '--sidebar', BODY],
+  ['--sidebar-muted', '--sidebar', BODY],
+  ['--gold', '--sidebar', BODY],
+  // Gold as a fill carries navy ink (the Ctrl+K key cap, the mark).
+  ['--gold-foreground', '--gold', BODY],
+  // The AG Grid header ground and its labels.
+  ['--grid-head-foreground', '--grid-head', BODY],
+  // The selected-row cursor bar is a meaningful graphic on the row it marks.
+  // Gold fails this in LIGHT, which is what the pair guards: `--cursor` is navy
+  // in light and gold only in dark.
+  ['--cursor', '--card', UI],
+  ['--cursor', '--primary-050', UI],
+  // The field edge clears WCAG 1.4.11 (362 §1 — it measured 1.47:1 before B).
+  ['--input', '--card', UI],
   ['--sidebar-foreground', '--sidebar-accent', BODY],
   ['--accent-foreground', '--accent', BODY],
   // Secondary ink on card/background/muted — the 358-use swap.
@@ -176,6 +203,13 @@ const negatives = [
   '--prescription',
 ]
 
+// The light negatives: [ink, ground, ceiling]. Gold measures 1.56:1 on white;
+// it is a signal on navy and on dark surfaces, never a line or a word on a
+// light one (362 §2). This turns that rule into a gate the way R2's white-ink
+// rule is one: a gold that reaches 3:1 on a light card has stopped being the
+// signal and started inviting someone to use it as ink.
+const lightBelow = [['--gold', '--card', UI]]
+
 // --- the `@theme inline` bridge is complete ----------------------------------
 //
 // Declaring `--success-050` in `:root` is NOT enough to make `bg-success-050`
@@ -200,6 +234,13 @@ for (const [name, decl] of unbridged) {
     `${CSS}:${decl.line} — ${name} has no \`--color-${name.slice(2)}\` line in \`@theme inline\`; ` +
       `its utility will not compile`,
   )
+}
+
+// The dark table must actually come from a `.dark` block. If the selector ever
+// stops matching (it moved, it gained a prefix), every dark pair would quietly
+// measure the LIGHT values and pass — the gate would be green and blind.
+if (darkBlock.size === 0) {
+  errors.push(`${CSS} — no \`.dark { … }\` token block found; the dark theme would measure nothing`)
 }
 
 // --- run ---------------------------------------------------------------------
@@ -236,6 +277,23 @@ for (const fillName of negatives) {
         `${r.toFixed(2)}:1 — expected BELOW ${BODY}:1. D-3 R2 lifts every dark chromatic ` +
         `fill into the L .66–.76 band precisely so it carries DARK ink; a fill that ` +
         `takes white ink has left the band and the theme's ink rule no longer holds.`,
+    })
+  }
+}
+
+for (const [inkName, groundName, ceiling] of lightBelow) {
+  const ink = resolve('light', inkName)
+  const ground = resolve('light', groundName)
+  const r = ratio(ink.hex, ground.hex)
+  checked++
+  if (r >= ceiling) {
+    failures.push({
+      line: ink.line,
+      what: `light: ${inkName} on ${groundName}`,
+      detail:
+        `${r.toFixed(2)}:1 — expected BELOW ${ceiling}:1. Gold is a signal, never text or a ` +
+        `meaningful line on a light surface (spec 380 F5); a gold that clears 3:1 on a light ` +
+        `card has stopped being the brand gold.`,
     })
   }
 }

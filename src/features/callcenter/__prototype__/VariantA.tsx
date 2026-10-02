@@ -90,7 +90,7 @@ function RefusalBar({ code, message, lines }: { code: string; message: string; l
 function CustomerRail({ s }: { s: ConsoleState }) {
   if (!s.customer)
     return (
-      <aside className="flex flex-col gap-3 bg-sidebar p-4">
+      <aside className="flex flex-col gap-3 bg-card-2 p-4">
         <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Caller</div>
         <label className="text-xs text-muted-foreground" htmlFor="ph-a">
           Mobile number
@@ -109,7 +109,7 @@ function CustomerRail({ s }: { s: ConsoleState }) {
     )
 
   return (
-    <aside className="flex min-h-0 flex-col gap-4 overflow-auto bg-sidebar p-4">
+    <aside className="flex min-h-0 flex-col gap-4 overflow-auto bg-card-2 p-4">
       <div>
         <div className="text-sm font-semibold leading-tight">{s.customer.name}</div>
         <div data-numeric className="text-xs text-muted-foreground">

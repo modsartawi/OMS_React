@@ -1,5 +1,7 @@
 // Palette drive (ticket 084) — renders a page from every area in BOTH themes and
-// asserts the POS steel-blue tokens actually resolved on the real, painted DOM.
+// asserts the palette tokens actually resolved on the real, painted DOM. Since
+// ticket 381 the expected values are palette B, "Navy-led" (spec 380 F2–F5);
+// tools/foundation-drive.mjs is S1's own, stubbed drive for the same claim.
 //
 // The contrast gate (`tools/check-contrast.mjs`) proves the TABLE is sound; it
 // cannot prove the table reached the screen. A missing `@theme inline` bridge
@@ -20,7 +22,7 @@ import { mkdirSync } from 'node:fs'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
-const BASE = 'http://localhost:5199'
+const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 const SHOTS = 'tools/.palette-shots'
 mkdirSync(SHOTS, { recursive: true })
 
@@ -30,29 +32,29 @@ const check = (name, pass, detail = '') => {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`)
 }
 
-// Expected resolved values, straight from spec 082 D-2 / D-4.
+// Expected resolved values, straight from ticket 362's Answer §1–§3 (palette B).
 const EXPECT = {
   light: {
-    '--background': 'rgb(244, 247, 250)',
+    '--background': 'rgb(242, 244, 248)',
     '--card': 'rgb(255, 255, 255)',
-    '--foreground': 'rgb(25, 35, 46)',
-    '--muted-foreground': 'rgb(88, 102, 116)',
-    '--primary': 'rgb(47, 99, 166)',
+    '--foreground': 'rgb(15, 27, 45)',
+    '--muted-foreground': 'rgb(70, 84, 106)',
+    '--primary': 'rgb(15, 76, 156)',
     '--primary-foreground': 'rgb(255, 255, 255)',
-    '--border': 'rgb(227, 233, 240)',
-    '--sidebar': 'rgb(233, 238, 244)',
+    '--border': 'rgb(223, 228, 236)',
+    '--sidebar': 'rgb(0, 37, 84)', // the brand navy, in both themes
     '--danger-050': 'rgb(251, 236, 236)',
     '--brand-panel': 'rgb(32, 42, 52)',
   },
   dark: {
-    '--background': 'rgb(18, 28, 39)',
-    '--card': 'rgb(28, 38, 49)',
-    '--foreground': 'rgb(236, 240, 243)',
-    '--muted-foreground': 'rgb(152, 166, 180)',
-    '--primary': 'rgb(107, 160, 232)',
-    '--primary-foreground': 'rgb(18, 28, 39)', // R2 — dark ink on a lifted fill
-    '--border': 'rgb(46, 55, 66)', // solid hex; the old alpha value is retired
-    '--sidebar': 'rgb(11, 21, 31)',
+    '--background': 'rgb(10, 17, 29)',
+    '--card': 'rgb(17, 26, 40)',
+    '--foreground': 'rgb(230, 235, 242)',
+    '--muted-foreground': 'rgb(163, 175, 192)',
+    '--primary': 'rgb(121, 167, 236)',
+    '--primary-foreground': 'rgb(10, 17, 29)', // R2 — dark ink on a lifted fill
+    '--border': 'rgb(33, 44, 61)',
+    '--sidebar': 'rgb(0, 37, 84)',
     '--danger-050': 'rgb(76, 38, 37)', // R4 — the role holds, the lightness swaps
     '--brand-panel': 'rgb(32, 42, 52)', // no dark counterpart, by design
   },
@@ -98,6 +100,13 @@ const BRIDGED = [
   'bg-prescription-800',
   'bg-brand-panel',
   'bg-brand-panel-foreground',
+  // Palette B's new tokens (ticket 381).
+  'bg-sidebar-muted',
+  'bg-gold',
+  'bg-gold-foreground',
+  'bg-cursor',
+  'bg-grid-head',
+  'bg-grid-head-foreground',
 ]
 
 const browser = await chromium.launch()

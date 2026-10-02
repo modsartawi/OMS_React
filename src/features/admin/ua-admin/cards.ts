@@ -49,7 +49,7 @@ const ROW = [
   {
     card: 'awaitingActivation',
     count: (c: UaReportCountsResult) => c.awaitingActivation,
-    tone: 'text-sidebar-active',
+    tone: 'text-primary',
   },
   // The one card that may not be on the wire at all. `conditional` says so ONCE,
   // so the loaded and the in-flight arms below can't disagree about which card
@@ -63,7 +63,7 @@ const ROW = [
   {
     card: 'mustChange',
     count: (c: UaReportCountsResult) => c.mustChangePassword,
-    tone: 'text-sidebar-active',
+    tone: 'text-primary',
   },
   { card: 'disabled', count: (c: UaReportCountsResult) => c.disabled, tone: '' },
 ] as const

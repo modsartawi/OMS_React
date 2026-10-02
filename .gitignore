@@ -28,6 +28,9 @@ tools/.palette-shots/
 # Grid theme drive screenshots (tools/grid-theme-drive.mjs) — same deal
 tools/.grid-shots/
 
+# Foundation drive screenshots (tools/foundation-drive.mjs) — same deal
+tools/.foundation-shots/
+
 # StatusBadge drive screenshots (tools/status-badge-drive.mjs) — same deal
 tools/.badge-shots/
 

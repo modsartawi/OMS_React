@@ -53,6 +53,10 @@
 //  11b. and the sheet is TWELVE columns wide — 1183's تسويات + المستلم in, and مطابقة الكاش
 //      والشبكة OUT (BackOffice owner sign-off, 2026-08-15), field and all.
 //
+// And ticket 381's (spec 380 F19), under §8b: a DARK-mode user's print route resolves the LIGHT
+// palette B tokens under print media — `.dark` stays on <html>, but the token block and the `dark`
+// variant are screen-only — and paper declares `color-scheme: light`.
+//
 // What it CANNOT prove is the paper: the browser's header/footer stamp and whether every grey fill
 // actually prints are hardware questions on real Chrome and real Edge — ticket 260, deliberately a
 // build ticket of its own rather than a checkbox here.
@@ -720,6 +724,42 @@ async function run() {
     printBoxes.map((b) => `${b.width.toFixed(0)}×${b.height.toFixed(0)}`).join(' / '),
   )
   await page.emulateMedia({ media: 'screen' })
+
+  // ---- 8b. dark mode never reaches paper (spec 380 F19, 375 R2, ticket 381) ----
+  // `index.html` puts `.dark` on EVERY document, print routes included, so the only thing standing
+  // between a dark-mode user and a pale-ink printout is that the `.dark` token block and the `dark`
+  // variant live under `@media screen`. The miss state is the case that matters: the sheets are
+  // literal-ink by construction, but the chrome around them (`PrintMiss`, the pending and failure
+  // states) reads the tokens. Screen first, as the control — if it were NOT dark on screen, the
+  // print assertion below would pass for the wrong reason.
+  const resolvedPaint = () =>
+    page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement)
+      return {
+        dark: document.documentElement.classList.contains('dark'),
+        body: getComputedStyle(document.body).backgroundColor,
+        foreground: root.getPropertyValue('--foreground').trim(),
+        scheme: root.colorScheme,
+      }
+    })
+  await page.evaluate(() => localStorage.setItem('oms.darkMode', 'true'))
+  await goto('no-such-receipt')
+  const darkScreen = await resolvedPaint()
+  check(
+    '381 — dark mode, on screen, the print route IS dark (the control for the print case)',
+    darkScreen.dark && darkScreen.body === 'rgb(10, 17, 29)' && darkScreen.foreground === '#e6ebf2',
+    JSON.stringify(darkScreen),
+  )
+  await page.emulateMedia({ media: 'print' })
+  const darkPrint = await resolvedPaint()
+  check(
+    '381 — dark mode, printed: the class is still on <html>, but the tokens resolve LIGHT palette B',
+    darkPrint.dark && darkPrint.body === 'rgb(242, 244, 248)' && darkPrint.foreground === '#0f1b2d',
+    JSON.stringify(darkPrint),
+  )
+  check('381 — and paper declares color-scheme: light', darkPrint.scheme === 'light', darkPrint.scheme)
+  await page.emulateMedia({ media: 'screen' })
+  await page.evaluate(() => localStorage.setItem('oms.darkMode', 'false'))
 
   // ---- 9. the count that actually comes out of the printer ----
   // Every assertion above is about the DOM; this one is about the PDF. It is the only one that

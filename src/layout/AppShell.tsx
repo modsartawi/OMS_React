@@ -132,7 +132,7 @@ function MenuSubGroup({ item, onNavigate }: MenuItemProps) {
           onClick={toggle}
           aria-expanded={expanded}
           aria-label={t('topbar.toggleSection', { label })}
-          className="rounded-lg p-1.5 text-muted-foreground hover:bg-sidebar-accent/60"
+          className="rounded-lg p-1.5 text-sidebar-muted hover:bg-sidebar-accent/60"
         >
           <ChevronDown
             className={'h-3.5 w-3.5 transition-transform ' + (expanded ? '' : '-rotate-90')}
@@ -143,7 +143,7 @@ function MenuSubGroup({ item, onNavigate }: MenuItemProps) {
       {expanded && (
         <div
           data-region="menu-subgroup"
-          className="ms-4 mt-0.5 flex flex-col gap-0.5 border-s border-border/60 ps-1"
+          className="ms-4 mt-0.5 flex flex-col gap-0.5 border-s border-sidebar-accent ps-1"
         >
           {children.map((c) => (
             <MenuLeaf key={c.labelKey} item={c} onNavigate={onNavigate} />
@@ -166,7 +166,7 @@ function MenuGroup({ item, onNavigate }: MenuItemProps) {
         type="button"
         onClick={toggle}
         aria-expanded={expanded}
-        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-sidebar-accent/60"
+        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-sidebar-muted hover:bg-sidebar-accent/60"
       >
         {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden />}
         <span className="flex-1 text-start">{t(item.labelKey)}</span>
@@ -358,8 +358,11 @@ export default function AppShell() {
           ref={sidebarRef}
           tabIndex={-1}
           inert={!sidebarVisible ? true : undefined}
+          // The sidebar is navy in both themes (spec 380 F5), where the light
+          // navy ring would vanish: inside it the ring is gold, which is what
+          // gold on navy is for. Ticket 385 replaces this sidebar with the rail.
           className={
-            'w-60 shrink-0 border-e border-border/60 bg-sidebar text-sidebar-foreground transition-transform ' +
+            'w-60 shrink-0 border-e border-sidebar-accent bg-sidebar text-sidebar-foreground transition-transform [--ring:var(--gold)] ' +
             (isMobile
               ? 'fixed inset-y-0 start-0 z-50 pt-12 ' + (mobileOpen ? 'translate-x-0' : '-translate-x-full rtl:translate-x-full')
               : collapsed

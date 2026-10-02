@@ -38,7 +38,9 @@ export const omsGridTheme = themeQuartz
     // Density — unchanged since 403.
     spacing: 4,
     fontSize: 12,
-    fontFamily: "'Inter', 'Readex Pro', system-ui, sans-serif",
+    // The app's own face stack (Plex Sans + Plex Sans Arabic, spec 380 F1), so
+    // the grid can never name a font the stylesheet no longer ships.
+    fontFamily: 'var(--font-sans)',
     headerFontSize: 12,
     headerFontWeight: 600,
     wrapperBorderRadius: 10,

@@ -64,7 +64,7 @@ const backClass =
   'mt-2 w-full rounded-full px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted'
 
 const linkClass =
-  'mt-3 block w-full text-center text-sm font-medium text-sidebar-active hover:underline disabled:opacity-50'
+  'mt-3 block w-full text-center text-sm font-medium text-primary hover:underline disabled:opacity-50'
 
 export default function LoginPage() {
   const { t } = useTranslation('auth')

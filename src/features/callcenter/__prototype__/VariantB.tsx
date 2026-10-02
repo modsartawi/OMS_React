@@ -89,11 +89,11 @@ function Pill({ v, sub, warn }: { v: string; sub?: string; warn?: boolean }) {
 /** Everything that is not the basket lives behind an icon. */
 function IconRail() {
   return (
-    <nav className="flex w-12 shrink-0 flex-col items-center gap-1 border-e border-border bg-sidebar py-3">
+    <nav className="flex w-12 shrink-0 flex-col items-center gap-1 border-e border-border bg-card-2 py-3">
       {['👤', '📍', '🏬', '🕒', '🎟', '?'].map((g, i) => (
         <button
           key={g}
-          className={`flex size-9 items-center justify-center rounded-md text-base hover:bg-sidebar-accent ${i === 0 ? 'bg-sidebar-accent' : ''}`}
+          className={`flex size-9 items-center justify-center rounded-md text-base hover:bg-accent ${i === 0 ? 'bg-accent' : ''}`}
           aria-label={`panel ${i + 1}`}
         >
           <span aria-hidden>{g}</span>

@@ -220,7 +220,7 @@ export default function CustomerRail({
   const retained = state.header.retainedAddressLabel ?? null
 
   return (
-    <aside className="flex min-h-0 flex-col gap-3 overflow-auto bg-sidebar p-4" data-cc-rail>
+    <aside className="flex min-h-0 flex-col gap-3 overflow-auto bg-card-2 p-4" data-cc-rail>
       <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {t('rail.caller')}
       </div>

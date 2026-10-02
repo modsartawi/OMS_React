@@ -92,7 +92,7 @@ export default function HostConsole({
 
 function CustomerRail() {
   return (
-    <aside className="flex min-h-0 flex-col gap-4 overflow-auto bg-sidebar p-4">
+    <aside className="flex min-h-0 flex-col gap-4 overflow-auto bg-card-2 p-4">
       <div>
         <div className="text-sm font-semibold leading-tight">Fatima Al-Harbi</div>
         <div data-numeric className="text-xs text-muted-foreground">

@@ -213,7 +213,7 @@ describe('the Business date and Collection date columns', () => {
   })
 
   it('draws the Business date as the span of the deposit’s ACRs’ days, whatever their order', () => {
-    expect(get(BANKED_TWO)).toBe('grid.daySpan|{"from":"2026-08-20","to":"2026-09-10"}')
+    expect(get(BANKED_TWO)).toBe('2026-08-20 – 2026-09-10')
   })
 
   it('draws ONE date when every line shares a day', () => {

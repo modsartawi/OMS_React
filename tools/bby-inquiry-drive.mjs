@@ -397,15 +397,48 @@ async function run() {
   await page.locator('dialog[open]').getByText(/Buy side/i).waitFor({ timeout: 5000 }).catch(() => {})
 
   const nested = () => page.locator('dialog[open]').filter({ hasText: 'Grouping members' })
+  // 384: the footer's range and total are interpolated values, each isolated WHOLE with FSI…PDI
+  // (`Showing ⁨1–20⁩ of ⁨42⁩`). The isolates are invisible, so the copy is read without them.
+  const bare = (text) => text.replace(/[⁦-⁩]/g, '')
+  const nestedText = async () => bare(await nested().innerText().catch(() => ''))
+  const footer = (range, total) => new RegExp(`Showing ⁨?${range}⁩? of ⁨?${total}⁩?`)
 
   // Buy-side grouping chip → nested drilldown opens, page 1 keyed by side=buy + matGrouping.
   await page.getByRole('button', { name: /Show the 42 members/i }).click()
-  await nested().getByText(/Showing 1–20 of 42/).waitFor({ timeout: 5000 }).catch(() => {})
+  await nested().getByText(footer('1–20', 42)).waitFor({ timeout: 5000 }).catch(() => {})
   check('Buy grouping chip opens the members drilldown (nested modal)', (await nested().count()) === 1)
   check(
     'drilldown page 1 footer shows the range + total (1–20 of 42)',
-    /Showing 1–20 of 42/.test(await nested().innerText().catch(() => '')),
-    (await nested().innerText().catch(() => '')).match(/Showing[^\n]*/)?.[0] || '',
+    /Showing 1–20 of 42/.test(await nestedText()),
+    (await nestedText()).match(/Showing[^\n]*/)?.[0] || '',
+  )
+  // 384 (spec 380 F27): the range is ONE value, isolated once — never an isolate per end — and the
+  // footer reads in order under RTL (measured as the rendered characters sorted by x).
+  const footerRead = await nested()
+    .locator('span[aria-live="polite"]')
+    .evaluate((el) => {
+      document.documentElement.dir = 'rtl'
+      const chars = []
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+      for (let n = walker.nextNode(); n; n = walker.nextNode())
+        for (let i = 0; i < n.textContent.length; i++) {
+          const r = document.createRange()
+          r.setStart(n, i)
+          r.setEnd(n, i + 1)
+          const box = r.getBoundingClientRect()
+          if (box.width > 0) chars.push({ ch: n.textContent[i], x: box.left + box.width / 2 })
+        }
+      const visual = chars.sort((a, b) => a.x - b.x).map((c) => c.ch).join('')
+      document.documentElement.dir = 'ltr'
+      return { raw: el.textContent, visual }
+    })
+  // Only the RANGE's own order is asserted. Where the isolated total lands in an ENGLISH sentence
+  // under RTL is 378 §5's untranslated-copy effect (an isolate at the sentence's end takes the
+  // paragraph's direction), which real Arabic copy removes — not a bidi fault of the value.
+  check(
+    'the footer isolates the range whole, once, and the range reads in order under RTL (384)',
+    footerRead.raw === 'Showing ⁨1–20⁩ of ⁨42⁩' && footerRead.visual.includes('1–20'),
+    JSON.stringify(footerRead),
   )
   check(
     'GroupingMembers queried with side=buy + groupingKey=matGrouping + page=1',
@@ -415,8 +448,8 @@ async function run() {
 
   // Next → page 2 (21–40 of 42), query page advances.
   await nested().getByRole('button', { name: /^Next$/i }).click()
-  await nested().getByText(/Showing 21–40 of 42/).waitFor({ timeout: 5000 }).catch(() => {})
-  check('Next pages forward (21–40 of 42)', /Showing 21–40 of 42/.test(await nested().innerText().catch(() => '')))
+  await nested().getByText(footer('21–40', 42)).waitFor({ timeout: 5000 }).catch(() => {})
+  check('Next pages forward (21–40 of 42)', /Showing 21–40 of 42/.test(await nestedText()))
   check('Next sends page=2', /page=2/.test(lastMembersQuery), lastMembersQuery)
 
   // Close the nested modal (Escape closes the topmost dialog) → Detail modal survives.
@@ -426,7 +459,7 @@ async function run() {
 
   // Get-side grouping chip → drilldown opens keyed by side=get + condNumber.
   await page.getByRole('button', { name: /Show the 8 members/i }).click()
-  await nested().getByText(/Showing 1–8 of 8/).waitFor({ timeout: 5000 }).catch(() => {})
+  await nested().getByText(footer('1–8', 8)).waitFor({ timeout: 5000 }).catch(() => {})
   check('Get grouping chip opens the drilldown keyed by side=get + condNumber', (await nested().count()) === 1)
   check(
     'Get-side GroupingMembers queried with side=get + groupingKey=condNumber (03)',

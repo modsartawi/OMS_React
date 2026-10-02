@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next'
 import { TriangleAlert } from 'lucide-react'
 
 import StatusBadge from '@/core/ui/StatusBadge'
+import Ltr from '@/core/ui/Ltr'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
 import type { AccountEntryRow, JournalDocument } from './account-projection'
@@ -78,12 +80,12 @@ export default function EntryJournal({
       {row.writtenOff !== null && (
         <p className="text-sm text-muted-foreground">
           {t('account.journal.writtenOff', {
-            amount: money(row.writtenOff),
+            amount: fsi(money(row.writtenOff)),
             // ⚠️ `closedByStaffId` and no name: D8's entry carries a name for the
             // POSTER (denormalised at post time) and only an id for the closer.
             // 272 owns the correction and will settle whether that asymmetry stands.
-            by: row.closedByStaffId,
-            at: formatDateTime(row.closedAt),
+            by: fsi(row.closedByStaffId),
+            at: fsi(formatDateTime(row.closedAt)),
           })}
         </p>
       )}
@@ -172,9 +174,9 @@ export default function EntryJournal({
                       the id is what is shown. Inventing a name here would be a field
                       this screen assumes rather than reads — logged for 274 in
                       `.afk/HITL-269.md`. */}
-                  {t('account.journal.operator', { id: entry.consumption.consumedByOperatorId })}
+                  {t('account.journal.operator', { id: fsi(entry.consumption.consumedByOperatorId) })}
                   <span className="block text-xs">
-                    {formatDateTime(entry.consumption.consumedAt)}
+                    <Ltr>{formatDateTime(entry.consumption.consumedAt)}</Ltr>
                   </span>
                 </td>
               </tr>

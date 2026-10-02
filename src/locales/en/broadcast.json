@@ -21,7 +21,6 @@
     "title": "Short headline everyone sees",
     "message": "What do you need people to know?"
   },
-  "counter": "{{current}} / {{max}}",
   "channel": {
     "fleet": "Whole fleet",
     "store": "One store"

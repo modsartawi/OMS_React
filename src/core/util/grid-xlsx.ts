@@ -1,6 +1,8 @@
 import type { Column, GridApi, IRowNode } from 'ag-grid-community'
 import type { Row } from 'write-excel-file/browser'
 
+import { stripIsolates } from './bidi'
+
 /**
  * The app's grid → `.xlsx` writer.
  *
@@ -124,9 +126,13 @@ export function xlsxFileName(base: string, now: Date = new Date()): string {
   return `${base}-${stamp}.xlsx`
 }
 
-/** The export header for a column — its grid header, falling back to its id. */
+/**
+ * The export header for a column — its grid header, falling back to its id. A header name
+ * is a string-only sink that may carry the FSI helper's isolate (spec 380 F26); the file
+ * gets the bare name, because the isolate's invisible characters must never reach a file.
+ */
 function columnHeader(column: Column): string {
-  return column.getColDef().headerName?.trim() || column.getColId()
+  return stripIsolates(column.getColDef().headerName ?? '').trim() || column.getColId()
 }
 
 /**

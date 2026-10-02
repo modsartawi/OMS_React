@@ -235,7 +235,7 @@ describe('the Business date and Collection date columns', () => {
   })
 
   it('draws the Collection date as the span of days the collections were taken on', () => {
-    expect(span(ROW)).toBe('grid.daySpan|{"from":"2026-08-05","to":"2026-08-08"}')
+    expect(span(ROW)).toBe('2026-08-05 – 2026-08-08')
   })
 
   it('draws ONE date when the first and last collection fall on the same day', () => {

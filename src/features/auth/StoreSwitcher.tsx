@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useSession } from '@/core/session'
 import { useStoreLock } from '@/core/engine-session/store-lock'
 import { lookupQueries } from '@/core/services/lookups'
+import { formatPair, fsi } from '@/core/util/bidi'
 import { authApi } from './api'
 
 /**
@@ -85,11 +86,13 @@ export default function StoreSwitcher() {
       {!currentStoreCode && <option value="">{t('storeSwitcher.unchosen')}</option>}
       {/* The session's store may not be in the list (or the list may still be loading). */}
       {currentStoreCode && !options.some((o) => o.code === currentStoreCode) && (
-        <option value={currentStoreCode}>{currentStoreCode}</option>
+        <option value={currentStoreCode}>{fsi(currentStoreCode)}</option>
       )}
+      {/* A native <option> holds a string only: the `code · city` pair is ONE
+          string, isolated whole with FSI…PDI (spec 380 F24/F26). */}
       {options.map((store) => (
         <option key={store.code} value={store.code}>
-          {store.city ? `${store.code} · ${store.city}` : store.code}
+          {fsi(formatPair(store.code, store.city))}
         </option>
       ))}
     </select>

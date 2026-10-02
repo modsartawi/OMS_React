@@ -7,6 +7,7 @@ import { apiErrorMessage } from '@/core/api'
 import { COLLECTION_ACCESS_KEY } from '@/core/collection/api'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import { settlementApi } from './api'
 import {
@@ -213,7 +214,7 @@ export default function ApprovalDialog({
           </dd>
           <dt className="text-xs text-muted-foreground">{t('approval.fields.postedBy')}</dt>
           <dd>
-            {t('approval.postedLine', { name: target.postedByName, at: formatDateTime(target.postedAt) })}
+            {t('approval.postedLine', { name: fsi(target.postedByName), at: fsi(formatDateTime(target.postedAt)) })}
           </dd>
           <dt className="text-xs text-muted-foreground">{t('approval.fields.reason')}</dt>
           {/* Server text the branch reads verbatim — unlocalised, and routinely Arabic. */}

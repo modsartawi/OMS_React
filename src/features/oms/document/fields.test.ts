@@ -206,7 +206,7 @@ describe('deliveryWindow', () => {
     expect(DOCUMENT_NUMBERS.map((no) => deliveryWindow(PAYLOADS[no]))).toEqual([
       '', // 2000000551 — sentinel schedule, blank slot
       'Monday, 8pm - 10 pm', // 8000000121 — From == To, so the slot answers
-      '20:00 - 22:00', // 8000000174 — the schedule wins over its own slot text
+      '20:00–22:00', // 8000000174 — the schedule wins over its own slot text
       '', // 8000000253
       '', // 9000000003
     ])

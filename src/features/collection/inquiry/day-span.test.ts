@@ -5,9 +5,6 @@ import { daySpan, daySpanText } from './day-span'
 // Collection date and a deposit's Business date — read "min … max, or one date when
 // they fall on the same day; blank when there is none".
 
-const t = ((key: string, vars?: Record<string, unknown>) =>
-  vars ? `${key}|${JSON.stringify(vars)}` : key) as never
-
 describe('daySpan', () => {
   it('picks the earliest and latest DAY, whatever the order the values arrive in', () => {
     // The contract's own deposit: lines dated the 10th of September and the 20th of August.
@@ -39,16 +36,14 @@ describe('daySpan', () => {
 
 describe('daySpanText', () => {
   it('is ONE date when both ends fall on the same day', () => {
-    expect(daySpanText(t, { from: '2026-09-12', to: '2026-09-12' })).toBe('2026-09-12')
+    expect(daySpanText({ from: '2026-09-12', to: '2026-09-12' })).toBe('2026-09-12')
   })
 
-  it('is both ends, through t(), when they differ', () => {
-    expect(daySpanText(t, { from: '2026-09-05', to: '2026-09-12' })).toBe(
-      'grid.daySpan|{"from":"2026-09-05","to":"2026-09-12"}',
-    )
+  it('is both ends as ONE range string, with no isolate in it, when they differ (384)', () => {
+    expect(daySpanText({ from: '2026-09-05', to: '2026-09-12' })).toBe('2026-09-05 – 2026-09-12')
   })
 
   it('is BLANK when there is no span — never "unknown", never a year-1 date', () => {
-    expect(daySpanText(t, null)).toBe('')
+    expect(daySpanText(null)).toBe('')
   })
 })

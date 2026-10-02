@@ -7,6 +7,7 @@ import { formatDateTime } from '@/core/util/date-format'
 import { confirmAction } from '@/core/services/confirm'
 import { notify } from '@/core/services/notify'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import Ltr from '@/core/ui/Ltr'
 import type { ActiveSessionRow } from '@/core/models/session-monitor'
 import { sessionMonitorApi } from './api'
 import { isDormant, relativeTime, singleDistinctUser, type SessionChip, type SingleUser } from './helpers'
@@ -367,6 +368,12 @@ function SessionsTable({
 }) {
   const { t } = useTranslation('active-sessions')
   const now = new Date()
+  // A timestamp is a machine value, isolated whole (spec 380 F24/F27); a missing
+  // one is the copy's dash.
+  const when = (value: string | null | undefined) => {
+    const text = formatDateTime(value)
+    return text ? <Ltr>{text}</Ltr> : t('grid.none')
+  }
 
   return (
     <div className="overflow-x-auto">
@@ -400,7 +407,7 @@ function SessionsTable({
                   </span>
                 </td>
                 <td className="border-b border-border px-3 py-1.5 tabular-nums text-muted-foreground">
-                  {formatDateTime(r.createdTime) || t('grid.none')}
+                  {when(r.createdTime)}
                 </td>
                 <td className="border-b border-border px-3 py-1.5">
                   <div
@@ -412,7 +419,7 @@ function SessionsTable({
                     {dormant && <span className="text-xs font-medium uppercase">{t('dormant.label')}</span>}
                   </div>
                   <div className="tabular-nums text-xs text-muted-foreground">
-                    {formatDateTime(r.lastSeenTime) || t('grid.none')}
+                    {when(r.lastSeenTime)}
                   </div>
                 </td>
                 <td className="border-b border-border px-3 py-1.5 tabular-nums">{r.ipAddress || t('grid.none')}</td>

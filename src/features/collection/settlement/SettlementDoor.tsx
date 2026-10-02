@@ -5,6 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { ArrowRight, ListTree, RefreshCw, Search, TriangleAlert, Upload } from 'lucide-react'
 
 import { apiErrorMessage } from '@/core/api'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import type {
   SettlementFleetRow,
@@ -413,7 +414,7 @@ function Worklist({
               <BranchLink params={params} storeId={row.storeId} storeName={row.storeId} />
               <span className="tabular-nums">{settlementMoney(row.amount, '')}</span>
               <span className="text-muted-foreground">
-                {t('worklist.wrongMoney.row', { at: formatDateTime(row.consumedAt) })}
+                {t('worklist.wrongMoney.row', { at: fsi(formatDateTime(row.consumedAt)) })}
               </span>
               <Button variant="secondary" className="ms-auto" onClick={() => onRepair(row)}>
                 {t('worklist.wrongMoney.repair')}

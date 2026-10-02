@@ -142,8 +142,8 @@ export function buildDepositsColumns(t: TFunction, showMore: boolean): ColDef<De
 }
 
 /** What the *Business date* cell reads: the span of the deposit's ACRs' days. */
-function businessDateText(t: TFunction, row: DepositInquiryRow | undefined): string {
-  return daySpanText(t, daySpan((row?.lines ?? []).map((line) => line.acrDate)))
+function businessDateText(row: DepositInquiryRow | undefined): string {
+  return daySpanText(daySpan((row?.lines ?? []).map((line) => line.acrDate)))
 }
 
 function businessDateColumn(t: TFunction): ColDef<DepositInquiryRow> {
@@ -154,8 +154,8 @@ function businessDateColumn(t: TFunction): ColDef<DepositInquiryRow> {
     // A VALUE getter, not a formatter over a `field`: there is no field — the span is
     // a reading of the lines. Sort and the floating filter both then work on the
     // `yyyy-MM-dd` text the cell shows, which sorts by its first day.
-    valueGetter: (p) => businessDateText(t, p.data),
-    filterValueGetter: (p) => businessDateText(t, p.data),
+    valueGetter: (p) => businessDateText(p.data),
+    filterValueGetter: (p) => businessDateText(p.data),
   }
 }
 

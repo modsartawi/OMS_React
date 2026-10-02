@@ -51,9 +51,6 @@
     "failed": "The export failed",
     "failedDetail": "The workbook could not be written. Try again."
   },
-  "grid": {
-    "daySpan": "{{from}} – {{to}}"
-  },
   "collections": {
     "title": "Cash Collections",
     "subtitle": "Cash collected per store and shift, chain-wide.",

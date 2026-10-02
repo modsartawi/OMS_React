@@ -96,7 +96,7 @@ const EXPECTED = {
     Fulfilment: [
       'Type Delivery',
       'Store E001',
-      'Delivery window 20:00 - 22:00',
+      'Delivery window 20:00–22:00',
       'Last note out for delivery',
     ],
     'Driver & tracking': ['Courier FREY', 'Approved No'],

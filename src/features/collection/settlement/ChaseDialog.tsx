@@ -7,6 +7,7 @@ import { apiErrorMessage } from '@/core/api'
 import type { SettlementChase } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { settlementApi } from './api'
 import { CHASE_NOTE_MAX, type ChaseTarget } from './open-lane'
@@ -150,11 +151,13 @@ export default function ChaseDialog({
               <span className="font-medium text-muted-foreground">{t('open.chase.lastLabel')}</span>
               <span>
                 {t('open.chase.line', {
-                  date: formatDateTime(target.last.at),
-                  note: target.last.note,
+                  date: fsi(formatDateTime(target.last.at)),
+                  note: fsi(target.last.note),
                 })}
               </span>
-              <span className="text-muted-foreground">{target.last.by}</span>
+              <span className="text-muted-foreground">
+                <bdi>{target.last.by}</bdi>
+              </span>
             </span>
           ) : (
             <span className="italic text-muted-foreground">{t('open.chase.never')}</span>

@@ -6,6 +6,7 @@ import { Boxes, TriangleAlert } from 'lucide-react'
 import { apiErrorMessage } from '@/core/api'
 import Modal from '@/core/ui/Modal'
 import Button from '@/core/ui/Button'
+import { formatRange, fsi } from '@/core/util/bidi'
 import type { BbyGroupMember, BbySide } from '@/core/models/bonus-buy-inquiry'
 import { bonusBuyDetailApi } from './api'
 import { formatAmount } from './formatters'
@@ -187,7 +188,11 @@ function Pager({
   return (
     <div className="flex flex-1 items-center justify-between">
       <span className="text-xs text-muted-foreground" aria-live="polite">
-        {loading ? t('members.loadingShort') : t('members.range', { first, last, total })}
+        {/* The rows shown are ONE range value, isolated whole inside the sentence
+            (spec 380 F27) — an isolate per end would reverse it under RTL. */}
+        {loading
+          ? t('members.loadingShort')
+          : t('members.range', { range: fsi(formatRange(first, last)), total: fsi(total) })}
       </span>
       <span className="flex items-center gap-2">
         <Button variant="outlined" onClick={onPrev} disabled={page <= 1}>

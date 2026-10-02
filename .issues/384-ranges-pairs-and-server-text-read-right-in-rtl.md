@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 380
 blocked-by: 381
 ---
@@ -48,11 +48,11 @@ document and the call center · locale JSON where a template changes shape · dr
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `formatRange returns one string with both ends` and
+- [x] `formatRange returns one string with both ends` and
   `fsi wraps the whole value once and nothing else` — pure · vitest
-- [ ] `exports never contain FSI or PDI characters`: a grid-export helper's output over values that
+- [x] `exports never contain FSI or PDI characters`: a grid-export helper's output over values that
   went through the formatting helpers has no U+2068/U+2069 — pure · vitest
-- [ ] `tools/foundation-drive.mjs` (extend) under `dir="rtl"`: the call center slot chip reads
+- [x] `tools/foundation-drive.mjs` (extend) under `dir="rtl"`: the call center slot chip reads
   `18:00–21:00` for an 18:00–21:00 window, the Delivery details slot reads in order, and a
   broadcast counter reads `40 / 200` · flow (Playwright)
 
@@ -70,3 +70,53 @@ helper tests are green.
 ## Blocked by
 
 [381](381-every-screen-paints-in-palette-b-with-ibm-plex.md)
+
+## Comments
+
+**Done 2026-10-02 (AFK).** Decisions are logged in `.afk/HITL-384.md`.
+
+**Shipped:**
+- **Core helpers.** `@/core/util/bidi` holds `formatRange`, `formatPair`, `formatCount`, `fsi` and `stripIsolates`.
+  - Each formatter returns one plain string. `fsi` wraps the whole value once and never nests.
+  - The xlsx writer strips isolates from header names, the one F26 sink that reaches a file.
+- **Docs.** `Ltr`'s documentation is rewritten around "isolate by kind, the whole value". The new rule file `.claude/rules/bidi.md` is linked from CLAUDE.md. `i18n-zero-literal.md` now allows the three bidi separators.
+- **The §3 sweep:**
+  - **Call center slot chip:** `formatRange` plus `Ltr`. Each chip value is now isolated by kind through the chip model's `ltr` flag.
+  - **Delivery details window:** `formatRange`, which reads `20:00–22:00`.
+  - **Collection `daySpan`:** `formatRange`, the text unchanged. The `collection:grid.daySpan` key is gone.
+  - **BBY members range:** `Showing {{range}} of {{total}}`, with both values passed through `fsi`.
+  - **Both counters:** `formatCount` plus `Ltr`. The two locale keys are gone.
+  - **Every non-grid `formatDateTime`:** `Ltr` in JSX, `fsi` inside `t()` sentences. The sites are:
+    - active sessions;
+    - the call center's existing order;
+    - the eight settlement sites;
+    - iDoc's exported-at.
+  - **Native `<option>` sinks (HITL-383's item):** store pickers and assignment staff names take `fsi`.
+
+**Proof:**
+- **vitest:** `src/core/util/bidi.test.ts` has 8 tests, including the two named ones, and the export test runs through `gridSheet`. There is also a chip-model test in `header-chips.test.ts`. The full suite is 3147/3147.
+- **`npm run lint`:** all four gates are green.
+- **`npm run build`:** green.
+- **`tools/foundation-drive.mjs` 208/208** (light/dark × ltr/rtl; `DRIVE_ONLY=ranges` runs this ticket's part). It checks:
+  - the slot chip reads `18:00–21:00`, with a strip-the-isolate control that reverses it under RTL;
+  - the store pair is one LTR isolate with an Arabic name;
+  - the existing-order opened-at and line count;
+  - the Details window reads `18:00–21:00`;
+  - the broadcast counter reads `40 / 200`, with a control that reverses it to `200 / 40`;
+  - the BBY download counter, held mid-run at `2 / 12`;
+  - an active session's started-at.
+- **`tools/bby-inquiry-drive.mjs` 74/74:** the members footer carries the range as one FSI isolate, and the range reads in order under RTL.
+- **Re-driven green:** document-cards 45/45, document-rtl 53/53, callcenter 508/508, settlement-change 337/337, settlement-approval 42/42, idoc-inspector 127/127.
+
+**How the remaining sweep items are covered:**
+- **Collection `daySpan` under RTL:** it is a grid cell, isolated whole by 383's base `<bdi>`. Its text is checked by `four-filters-drive`, and RTL order for a cell range is proven by 383's slot check.
+- **The settlement `formatDateTime` sites:** they sit in English sentences, where an FSI isolate cannot be told apart from bare text. Their isolation is structural (`fsi` at each interpolation).
+
+**Outstanding, not this ticket's:**
+- A human eye on real Arabic copy, which does not exist yet.
+- The grid-cell interpolations that HITL-383 deferred. They are left unowned: Boundaries say "Grid cells are 383's", and the fix needs `<Trans>` slots. See HITL-384.
+
+**Pre-existing drive failures, the same on HEAD:**
+- four-filters: 3 landing-date checks;
+- collection: 2 landing-date checks;
+- settlement: flaky, with a different set each run.

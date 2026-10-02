@@ -5,6 +5,8 @@ import { AlertTriangle, Ban, Check, Loader2, X } from 'lucide-react'
 import { ApiError } from '@/core/api'
 import { confirmAction } from '@/core/services/confirm'
 import Button from '@/core/ui/Button'
+import Ltr from '@/core/ui/Ltr'
+import { formatCount } from '@/core/util/bidi'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import type { BbyOverrides } from '@/core/models/bonus-buy-download'
 import { bonusBuyDownloadApi } from './api'
@@ -358,7 +360,8 @@ export default function BonusBuyDownloadPage() {
                 />
               </div>
               <span className="shrink-0 tabular-nums text-sm text-muted-foreground">
-                {t('progress.counter', { done: progress.done, total: progress.total })}
+                {/* `n / m` is ONE value, isolated once (spec 380 F27). */}
+                <Ltr>{formatCount(progress.done, progress.total)}</Ltr>
               </span>
             </div>
           )}

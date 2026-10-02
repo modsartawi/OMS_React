@@ -210,7 +210,7 @@
     "material": "Material",
     "description": "Description",
     "qty": "Qty",
-    "range": "Showing {{first}}–{{last}} of {{total}}",
+    "range": "Showing {{range}} of {{total}}",
     "pageOf": "Page {{page}} of {{pageCount}}",
     "prev": "Previous",
     "next": "Next",

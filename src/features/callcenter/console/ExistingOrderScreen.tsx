@@ -19,8 +19,10 @@
  * second device all land here, which is why it reads as an ordinary junction
  * rather than as an error. Recovery is a path the agent already knows.
  */
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ExistingOrder } from '@/core/models/callcenter'
+import Ltr from '@/core/ui/Ltr'
 import ConsoleCard from './ConsoleCard'
 import { openedAtLabel } from './open-outcome'
 
@@ -50,7 +52,10 @@ export default function ExistingOrderScreen({
   // An unusable timestamp says so. This is the field the staleness judgement
   // actually rests on, and a silent blank reads as a rendering slip rather than
   // as "we do not know when this was opened".
-  const opened = openedAtLabel(existing.openedAt, new Date()) || t('existing.openedUnknown')
+  // A count, a time and a store code are machine values, each isolated whole
+  // (spec 380 F24); the "unknown" sentence is copy and needs none.
+  const openedAt = openedAtLabel(existing.openedAt, new Date())
+  const opened = openedAt ? <Ltr>{openedAt}</Ltr> : t('existing.openedUnknown')
 
   return (
     <ConsoleCard
@@ -97,9 +102,9 @@ export default function ExistingOrderScreen({
       </h1>
 
       <dl className="mb-5 grid grid-cols-3 gap-3 rounded-md bg-muted p-3 text-sm">
-        <Fact label={t('existing.lines')} value={String(existing.lineCount)} marker="lines" />
+        <Fact label={t('existing.lines')} value={<Ltr>{existing.lineCount}</Ltr>} marker="lines" />
         <Fact label={t('existing.opened')} value={opened} marker="opened" />
-        <Fact label={t('existing.store')} value={existing.plant} marker="store" />
+        <Fact label={t('existing.store')} value={<Ltr>{existing.plant}</Ltr>} marker="store" />
       </dl>
 
       <p className="text-sm text-muted-foreground">{t('existing.note')}</p>
@@ -116,7 +121,15 @@ export default function ExistingOrderScreen({
   )
 }
 
-function Fact({ label, value, marker }: { label: string; value: string; marker: string }) {
+function Fact({
+  label,
+  value,
+  marker,
+}: {
+  label: string
+  value: ReactNode
+  marker: string
+}) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>

@@ -8,6 +8,7 @@ import type {
   SdDocumentHeaderModel,
   SdDocumentHeaderStatusModel,
 } from '@/core/models/sd-document'
+import { formatPair, formatRange } from '@/core/util/bidi'
 import { formatLongDate, formatTimeOfDay, isBlankDate } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
 
@@ -108,7 +109,7 @@ export function bandSubIds(doc: SdDocumentHeaderModel, t: TFn): BandSubId[] {
   push(
     'placed',
     t('band.placed'),
-    [formatLongDate(doc.documentDate), formatTimeOfDay(doc.entryTime)].filter(Boolean).join(' · '),
+    formatPair(formatLongDate(doc.documentDate), formatTimeOfDay(doc.entryTime)),
   )
   push('storeCode', t('band.store'), text(doc.storeCode))
 
@@ -140,9 +141,7 @@ export interface BandCustomer {
 export function bandCustomer(doc: SdDocumentHeaderModel): BandCustomer {
   return {
     name: text(doc.customer?.customerName),
-    contact: [text(doc.customer?.customerPhone), text(doc.shippingAddress?.cityName)]
-      .filter(Boolean)
-      .join(' · '),
+    contact: formatPair(text(doc.customer?.customerPhone), text(doc.shippingAddress?.cityName)),
   }
 }
 
@@ -280,7 +279,9 @@ export function deliveryWindow(doc: SdDocumentHeaderModel): string {
   const from = scheduledAt(doc.deliveryScheduleFromTime)
   const to = scheduledAt(doc.deliveryScheduleToTime)
   if (from && to && from.getTime() < to.getTime()) {
-    return `${formatTimeOfDay(doc.deliveryScheduleFromTime)} - ${formatTimeOfDay(doc.deliveryScheduleToTime)}`
+    // ONE string, isolated once by the rail (spec 380 F27): an isolate per end
+    // would lay the two ends out right-to-left.
+    return formatRange(formatTimeOfDay(doc.deliveryScheduleFromTime), formatTimeOfDay(doc.deliveryScheduleToTime))
   }
   return [text(doc.timeSlotDay), text(doc.timeSlotDescription)].filter(Boolean).join(', ')
 }

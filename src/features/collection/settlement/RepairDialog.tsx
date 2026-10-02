@@ -7,6 +7,7 @@ import { apiErrorMessage } from '@/core/api'
 import type { SettlementOrphanRow } from '@/core/models/settlement'
 import Button from '@/core/ui/Button'
 import Modal from '@/core/ui/Modal'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
 import { settlementApi } from './api'
@@ -115,7 +116,7 @@ export default function RepairDialog({
           })}
         </p>
         <p className="text-xs text-muted-foreground">
-          {t('repair.consumedAt', { at: formatDateTime(row.consumedAt) })}
+          {t('repair.consumedAt', { at: fsi(formatDateTime(row.consumedAt)) })}
         </p>
         {/* ⚠️ Stated before the act, not discovered after it: the server may find a
             document has since arrived, in which case this button does nothing at

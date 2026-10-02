@@ -41,9 +41,6 @@
     "download": "Download",
     "delete": "Delete"
   },
-  "progress": {
-    "counter": "{{done}} / {{total}}"
-  },
   "tally": {
     "succeeded": "{{count}} succeeded",
     "deleted": "{{count}} deleted",

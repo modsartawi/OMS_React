@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 
+import Ltr from '@/core/ui/Ltr'
 import { formatDateTime } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
 import type { AccountEntryRow } from './account-projection'
@@ -94,7 +95,9 @@ function Fact({ fact, currencyKey }: { fact: AuditFact; currencyKey: string }) {
   return (
     <>
       {/* Time first, monospaced, so a column of them scans as a column. */}
-      <span className="tabular-nums text-muted-foreground">{formatDateTime(fact.at)}</span>{' '}
+      <span className="tabular-nums text-muted-foreground">
+        <Ltr>{formatDateTime(fact.at)}</Ltr>
+      </span>{' '}
       <b>
         {fact.request
           ? // 350: a request's step, worded by its kind — a delete is not a change.

@@ -13,6 +13,7 @@
  * section they collapsed — with the tickets that build those sections.
  */
 import type { SessionCapabilities, SessionHeader } from '@/core/models/callcenter'
+import { formatPair, formatRange } from '@/core/util/bidi'
 import { couponChipValue } from './coupon-view'
 import { isPickup, paymentWordKey } from './fulfilment-view'
 import { blockedChips } from './submit-blockers'
@@ -50,6 +51,13 @@ export interface HeaderChip {
    * chip *needsAttention*; nothing here promotes a lapse into one.
    */
   lapsed?: boolean
+  /**
+   * The value is a **machine value** — a code, a `code · name` pair, a window —
+   * and is isolated left-to-right; any other value is free text and isolated in
+   * its own direction (spec 380 F24, `.claude/rules/bidi.md`). Set on the store,
+   * slot, reference and coupon chips, whatever their state.
+   */
+  ltr?: boolean
 }
 
 export function headerChips(header: SessionHeader, capabilities: SessionCapabilities): HeaderChip[] {
@@ -62,7 +70,7 @@ export function headerChips(header: SessionHeader, capabilities: SessionCapabili
   const chip = (
     id: HeaderChip['id'],
     value: string | null,
-    extra?: Partial<Pick<HeaderChip, 'derived' | 'lapsed' | 'valueKey'>>,
+    extra?: Partial<Pick<HeaderChip, 'derived' | 'lapsed' | 'valueKey' | 'ltr'>>,
   ): HeaderChip => ({
     id,
     // Attention beats settled: a chip the server says is blocking submit must
@@ -73,9 +81,10 @@ export function headerChips(header: SessionHeader, capabilities: SessionCapabili
     ...(extra?.valueKey ? { valueKey: extra.valueKey } : {}),
     ...(extra?.derived ? { derived: true } : {}),
     ...(extra?.lapsed ? { lapsed: true } : {}),
+    ...(extra?.ltr ? { ltr: true } : {}),
   })
 
-  const plant = header.plant ? [header.plant, header.plantName].filter(Boolean).join(' · ') : null
+  const plant = header.plant ? formatPair(header.plant, header.plantName) : null
   const slot = header.slot
   const pickup = isPickup(header)
   const payment = paymentWordKey(header)
@@ -92,13 +101,15 @@ export function headerChips(header: SessionHeader, capabilities: SessionCapabili
     // `plantSource: derivedFromAddress` across a flip whose response also carries
     // `address: null`, and a chip reading *from the address* on an order that has
     // no address points at something the console cannot show.
-    chip('store', plant, { derived: !pickup && header.plantSource === 'derivedFromAddress' }),
+    chip('store', plant, { derived: !pickup && header.plantSource === 'derivedFromAddress', ltr: true }),
     // 🚩 A lapsed slot still SHOWS its window and stays *settled*: the order
     // holds it, and hollowing the chip out would read as "no slot chosen" — the
     // one thing that is not true. The warning rides beside it (soft gate, §7).
-    chip('slot', slot ? `${slot.from}–${slot.to}` : null, { lapsed: slot ? !slot.isActive : false }),
+    // The window is ONE string, isolated once at the chip: an isolate per end lays
+    // the two ends out right-to-left, and `18:00–21:00` reads `21:00–18:00` (373, 378).
+    chip('slot', slot ? formatRange(slot.from, slot.to) : null, { lapsed: slot ? !slot.isActive : false, ltr: true }),
     chip('source', header.documentSource),
-    chip('reference', header.sourceReference),
+    chip('reference', header.sourceReference, { ltr: true }),
     // 155 — settled and collapsed. It has a real default and no `submitBlocker`,
     // so it is a fact the agent confirms in one spoken question, not an
     // outstanding field. Its WORD follows the mode; its value never does.
@@ -116,7 +127,7 @@ export function headerChips(header: SessionHeader, capabilities: SessionCapabili
     // The coupon's value is the CODE — server-supplied text — and never the
     // amount. The chip row has never carried money and this is not the chip to
     // start with.
-    chip('coupon', couponChipValue(header)),
+    chip('coupon', couponChipValue(header), { ltr: true }),
     // 🚩 **Free text, and the loosest field on the header** (183) — what the
     // caller told the agent, travelling with the order. Server-supplied text
     // like the reference chip, never a key: there is no enumeration to word.

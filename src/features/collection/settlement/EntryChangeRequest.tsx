@@ -15,6 +15,7 @@ import type {
 import { useSession } from '@/core/session'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import type { AccountEntryRow } from './account-projection'
 import { changeRequestHistoryQuery, settlementApi } from './api'
@@ -1066,8 +1067,9 @@ function SupersededCard({
   const { t } = useTranslation('settlement')
   const card = cardFor(request)
   const closed = closedBy(request)
-  const by = closed.by
-  const at = closed.at && formatDateTime(closed.at)
+  // Each value isolated whole inside the sentence (spec 380 F24/F27).
+  const by = closed.by && fsi(closed.by)
+  const at = closed.at && fsi(formatDateTime(closed.at))
 
   return (
     <div
@@ -1131,8 +1133,8 @@ function RequestBody({
 
       <p className="text-muted-foreground" data-testid={`${testId}-by`}>
         {card.at
-          ? t('changeRequest.card.askedAt', { by: card.by, at: formatDateTime(card.at) })
-          : t('changeRequest.card.asked', { by: card.by })}
+          ? t('changeRequest.card.askedAt', { by: fsi(card.by), at: fsi(formatDateTime(card.at)) })
+          : t('changeRequest.card.asked', { by: fsi(card.by) })}
       </p>
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium">{t('changeRequest.card.reason')}</span>

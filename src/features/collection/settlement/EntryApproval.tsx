@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Hourglass, Ban } from 'lucide-react'
 
 import Button from '@/core/ui/Button'
+import { fsi } from '@/core/util/bidi'
 import { formatDateTime } from '@/core/util/date-format'
 import type { AccountEntryRow } from './account-projection'
 import { changeRequestHistoryQuery } from './api'
@@ -72,8 +73,8 @@ export default function EntryApproval({
             <Ban className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
             <span>
               {state.at
-                ? t('approval.panel.rejectedAt', { by: state.by, at: formatDateTime(state.at) })
-                : t('approval.panel.rejected', { by: state.by })}
+                ? t('approval.panel.rejectedAt', { by: fsi(state.by), at: fsi(formatDateTime(state.at)) })
+                : t('approval.panel.rejected', { by: fsi(state.by) })}
             </span>
           </p>
           {/* 🔑 The supervisor's reason, verbatim — the thing the accountant came here to

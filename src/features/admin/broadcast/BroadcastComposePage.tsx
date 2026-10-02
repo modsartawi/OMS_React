@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { AlertTriangle, Loader2, Lock, Send } from 'lucide-react'
 import { notify } from '@/core/services/notify'
 import { confirmAction } from '@/core/services/confirm'
+import Ltr from '@/core/ui/Ltr'
+import { formatCount, formatPair, fsi } from '@/core/util/bidi'
 import { lookupQueries } from '@/core/services/lookups'
 import { broadcastApi } from './api'
 import {
@@ -118,7 +120,8 @@ function ComposeCard() {
               {t('field.title')}
             </label>
             <span className={'text-[11px] tabular-nums ' + (form.title.length > TITLE_MAX ? 'text-destructive' : 'text-muted-foreground')}>
-              {t('counter', { current: form.title.length, max: TITLE_MAX })}
+              {/* `n / m` is ONE value, isolated once (spec 380 F27). */}
+              <Ltr>{formatCount(form.title.length, TITLE_MAX)}</Ltr>
             </span>
           </div>
           <input
@@ -138,7 +141,7 @@ function ComposeCard() {
               {t('field.message')}
             </label>
             <span className={'text-[11px] tabular-nums ' + (form.body.length > BODY_MAX ? 'text-destructive' : 'text-muted-foreground')}>
-              {t('counter', { current: form.body.length, max: BODY_MAX })}
+              <Ltr>{formatCount(form.body.length, BODY_MAX)}</Ltr>
             </span>
           </div>
           <textarea
@@ -181,7 +184,8 @@ function ComposeCard() {
               <option value="">{t('storePicker.placeholder')}</option>
               {storeOptions.map((s) => (
                 <option key={s.code} value={s.code}>
-                  {s.city ? `${s.code} · ${s.city}` : s.code}
+                  {/* ONE pair string, isolated whole for the string-only <option> (F26). */}
+                  {fsi(formatPair(s.code, s.city))}
                 </option>
               ))}
             </select>

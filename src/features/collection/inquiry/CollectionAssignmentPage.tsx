@@ -8,6 +8,7 @@ import type { ColDef, ICellRendererParams } from 'ag-grid-community'
 import '@/core/ag-grid-setup'
 import { apiErrorMessage } from '@/core/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
+import { fsi } from '@/core/util/bidi'
 import {
   OMS_GRID_HEADER_HEIGHT,
   OMS_GRID_ROW_HEIGHT,
@@ -624,9 +625,11 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
             onChange={(e) => setBulkStaffId(e.target.value)}
           >
             <option value="">{t('assignment.nobodyOption')}</option>
+            {/* A native <option> holds a string only: the name is isolated whole
+                with FSI…PDI (spec 380 F26). */}
             {bulkPeople.map((person) => (
               <option key={person.staffId} value={person.staffId}>
-                {person.displayName}
+                {fsi(person.displayName)}
               </option>
             ))}
           </select>
@@ -865,10 +868,12 @@ function SlotSelect({
       onChange={(e) => onChange(row, slot, e.target.value)}
     >
       <option value="">{nobodyLabel}</option>
-      {orphan && <option value={value}>{value}</option>}
+      {/* A native <option> holds a string only: each label is isolated whole
+          with FSI…PDI (spec 380 F26). The option's `value` stays bare. */}
+      {orphan && <option value={value}>{fsi(value)}</option>}
       {people.map((person) => (
         <option key={person.staffId} value={person.staffId}>
-          {person.displayName}
+          {fsi(person.displayName)}
         </option>
       ))}
     </select>

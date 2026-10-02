@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { IDocInspectorDocument } from '@/core/models/idoc-inspector'
+import Ltr from '@/core/ui/Ltr'
 import StatusBadge from '@/core/ui/StatusBadge'
 import { formatDateTime } from '@/core/util/date-format'
 import { CodeValue } from './CodeValue'
@@ -38,6 +39,7 @@ export default function DocumentPane({
   const badge = exportBadge(doc.exportState)
   const pane = documentPane(doc)
   const shownLines = filterLines(doc.lines, filterTag)
+  const exportedAt = formatDateTime(doc.batch?.exportedAt)
 
   // ⚠️ **Two attributes 297 drew are still gone** (ticket 300): the payment group
   // and the split. 297 modelled them from 1381's prototype data while BackOffice
@@ -86,7 +88,10 @@ export default function DocumentPane({
       label: t('idocInspector.document.exportedAt'),
       value:
         badge.key === 'exported'
-          ? formatDateTime(doc.batch?.exportedAt) || t('idocInspector.document.exportedUndated')
+          ? exportedAt
+            ? // A machine value, isolated whole (spec 380 F24/F27).
+              <Ltr>{exportedAt}</Ltr>
+            : t('idocInspector.document.exportedUndated')
           : t('idocInspector.document.notExported'),
     },
   ]

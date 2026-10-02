@@ -39,6 +39,30 @@ const byId = (chips: ReturnType<typeof headerChips>) =>
   Object.fromEntries(chips.map((c) => [c.id, c]))
 
 describe('headerChips', () => {
+  it('🚩 draws the window as ONE range string and marks the machine values left-to-right (384)', () => {
+    const chips = byId(
+      headerChips(
+        {
+          ...EMPTY_SESSION.header,
+          plant: '1001',
+          plantName: 'الرياض',
+          slot: { slotId: 'S1', from: '18:00', to: '21:00', isActive: true },
+        },
+        { ...EMPTY_SESSION.capabilities, submitBlockers: [] },
+      ),
+    )
+    // One string, isolated once at the chip — never an isolate per end (378 §2).
+    expect(chips.slot.value).toBe('18:00–21:00')
+    expect(chips.store.value).toBe('1001 · الرياض')
+    expect(chips.slot.ltr).toBe(true)
+    expect(chips.store.ltr).toBe(true)
+    expect(chips.reference.ltr).toBe(true)
+    expect(chips.coupon.ltr).toBe(true)
+    // Free text reads in its own direction.
+    expect(chips.source.ltr).toBeUndefined()
+    expect(chips.note.ltr).toBeUndefined()
+  })
+
   it('renders an open, empty order as store-settled and the rest unset', () => {
     const chips = byId(headerChips(EMPTY_SESSION.header, { ...EMPTY_SESSION.capabilities, submitBlockers: [] }))
     // `open` seeds the plant from the agent's entry store, so a store exists

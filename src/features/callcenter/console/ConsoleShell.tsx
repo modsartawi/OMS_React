@@ -26,6 +26,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, PhoneCall, RefreshCw, X } from 'lucide-react'
 import type { SessionState } from '@/core/models/callcenter'
 import Ltr from '@/core/ui/Ltr'
+import { formatPair } from '@/core/util/bidi'
 import { formatMoney } from '@/core/util/number-format'
 import BasketPanel, { type BasketActions } from './BasketPanel'
 import { receiptView, type DeliveryFeeView } from './basket-view'
@@ -675,8 +676,19 @@ function Chip({ chip, onOpen }: { chip: HeaderChip; onOpen?: () => void }) {
           otherwise be a second bug waiting for a long branch name. The text is
           intact in the DOM: this is a rendering limit, never a truncation of what
           the order holds. */}
-      <span className="max-w-[16rem] truncate font-medium">
-        {chip.valueKey ? t(`chips.value.${chip.valueKey}`) : (chip.value ?? t('chips.notSet'))}
+      {/* The value from data is isolated whole, by kind (spec 380 F24): a code,
+          pair or window left-to-right, free text in its own direction. The
+          words around it are copy and need none. */}
+      <span className="max-w-[16rem] truncate font-medium" data-cc-chip-value>
+        {chip.valueKey ? (
+          t(`chips.value.${chip.valueKey}`)
+        ) : chip.value == null ? (
+          t('chips.notSet')
+        ) : chip.ltr ? (
+          <Ltr>{chip.value}</Ltr>
+        ) : (
+          <bdi>{chip.value}</bdi>
+        )}
       </span>
       {chip.derived && <span className="text-[10px] opacity-60">({t('chips.derived')})</span>}
       {/* 🚩 The chip stays *settled* — the order holds this window — and only
@@ -902,7 +914,7 @@ function RebindBanner({ refusal, onDismiss }: { refusal: RebindRefusal | null; o
       <div className="text-sm font-medium text-danger-800">{refusal.message}</div>
       {refusal.lines.map((line) => (
         <div key={line.lineId} className="mt-0.5 text-xs text-danger-800" data-cc-refused-line={line.lineId}>
-          {[line.itemNumber, line.description].filter(Boolean).join(' · ') || line.lineId}
+          <Ltr>{formatPair(line.itemNumber, line.description) || line.lineId}</Ltr>
         </div>
       ))}
       <div className="mt-0.5 text-[11px] text-danger-800/80">{t('rebind.nothingChanged')}</div>

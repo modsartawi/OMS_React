@@ -1,5 +1,4 @@
-import type { TFunction } from 'i18next'
-
+import { formatRange } from '@/core/util/bidi'
 import { formatDay } from '@/core/util/date-format'
 
 /**
@@ -45,11 +44,12 @@ export function daySpan(values: readonly (string | null | undefined)[]): DaySpan
 
 /**
  * What the cell reads: blank for no span, the one day when both ends fall on it,
- * and `from – to` otherwise — through `t`, so the separator is copy and not a
- * literal (i18n-zero-literal).
+ * and `from – to` otherwise — ONE range string from the core formatter, so the
+ * grid's base `<bdi>` isolates it whole and it never reverses under RTL (spec 380
+ * F27). It is plain text: no isolate character reaches Ctrl+C or the workbook.
  */
-export function daySpanText(t: TFunction, span: DaySpan | null): string {
+export function daySpanText(span: DaySpan | null): string {
   if (!span) return ''
   if (span.from === span.to) return span.from
-  return t('grid.daySpan', { from: span.from, to: span.to })
+  return formatRange(span.from, span.to)
 }

@@ -27,6 +27,17 @@
 //      control that strips one isolate and must see the slot reverse.
 // The Arabic text is a stub ROW value (there is no Arabic locale file, by design).
 //
+// 384: ranges, pairs and server text read the right way round outside grid cells. In the same four
+// modes, each measured as the characters sorted by x:
+//  11. the call center's slot chip reads `18:00–21:00` for an 18:00–21:00 window (373's shipped
+//      break read `21:00–18:00`), and the store chip's `code · name` pair is ONE ltr isolate, code
+//      first, with an Arabic name; a control strips the chip's isolate and must see it reverse;
+//  12. the existing-order screen's opened-at (a formatDateTime) and line count;
+//  13. the Delivery details window row, one range string isolated once;
+//  14. the broadcast title counter reads `40 / 200`, with a strip-the-isolate control;
+//  15. the bonus-buy download counter, held mid-run at `2 / 12`;
+//  16. an active session's started-at (a formatDateTime in a plain table).
+//
 // Every `/api/**` call is stubbed (the delivery list needs a store grant a dev session lacks;
 // see grid-theme-drive.mjs). Mocked data, real app, real browser, real CSS, real fonts.
 //
@@ -659,8 +670,224 @@ async function driveGrids({ theme, dir }) {
   await context.close()
 }
 
-for (const dir of ['ltr', 'rtl']) for (const theme of ['light', 'dark']) await driveOneMode({ theme, dir })
-for (const dir of ['ltr', 'rtl']) for (const theme of ['light', 'dark']) await driveGrids({ theme, dir })
+// ── 384: ranges, pairs and server text outside grid cells ─────────────────────────────────────
+//
+// The same visual-order measure as the grid checks, on any element: the rendered characters sorted
+// by x. A machine value isolated whole reads its logical text in both directions; the control strips
+// one isolate and must see the window reverse under RTL.
+const visualOf = (locator) =>
+  locator.evaluate((el) => {
+    const chars = []
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      for (let i = 0; i < n.textContent.length; i++) {
+        const range = document.createRange()
+        range.setStart(n, i)
+        range.setEnd(n, i + 1)
+        const box = range.getBoundingClientRect()
+        if (box.width > 0) chars.push({ ch: n.textContent[i], x: box.left + box.width / 2 })
+      }
+    }
+    const bdi = el.matches('bdi') ? el : el.querySelector('bdi')
+    return {
+      // The FSI…PDI pair is invisible and has no box; the logical text is read without it.
+      logical: el.textContent.replace(/[⁦-⁩]/g, '').trim(),
+      visual: chars
+        .sort((a, b) => a.x - b.x)
+        .map((x) => x.ch)
+        .join('')
+        .trim(),
+      isolate: bdi ? bdi.getAttribute('dir') ?? 'auto' : /[⁦-⁨]/.test(el.textContent) ? 'fsi' : null,
+    }
+  })
+
+// The call center's open order: the contract's own empty-open capture, with a window and a store
+// whose name is Arabic — the pair must still read code first, as one isolated value.
+const CC_OPEN = JSON.parse(readFileSync('.issues/assets/136-cc-contract/01-open-empty.json', 'utf8')).response.body.data
+const CC_SLOT = { slotId: 'S-1800', from: '18:00', to: '21:00', isActive: true }
+
+async function driveRanges({ theme, dir }) {
+  const label = `${theme}/${dir} ranges`
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  await bootAs(page, { theme, dir })
+
+  let existingOrder = false
+  let downloads = 0
+  await page.route('**/api/**', async (route) => {
+    const path = route.request().url().split('/api/')[1].split('?')[0]
+    if (path === 'Auth/Me')
+      return route.fulfill(
+        envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }),
+      )
+    if (path === 'CallCenterWeb/Access') return route.fulfill(envelope({ canOpenConsole: true }))
+    if (path === 'CallCenterWeb/Open') {
+      if (existingOrder)
+        return route.fulfill(
+          envelope({
+            outcome: 'refusedExisting',
+            state: null,
+            existing: {
+              transactionId: 'PRIOR',
+              customerName: 'خالد ن.',
+              lineCount: 2,
+              openedAt: '2026-07-29T21:49:00',
+              plant: '1001',
+            },
+          }),
+        )
+      return route.fulfill(
+        envelope({
+          ...CC_OPEN,
+          state: { ...CC_OPEN.state, header: { ...CC_OPEN.state.header, plantName: ARABIC_CITY, slot: CC_SLOT } },
+        }),
+      )
+    }
+    if (/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/.test(path))
+      return route.fulfill(
+        envelope({
+          ...ERX,
+          deliveryScheduleFromTime: '2026-07-01T18:00:00',
+          deliveryScheduleToTime: '2026-07-01T21:00:00',
+        }),
+      )
+    if (/\/(Outbox|Logs)$/.test(path)) return route.fulfill(envelope([]))
+    if (path === 'Notifications/Access') return route.fulfill(envelope({ canBroadcast: true }))
+    if (path === 'BonusBuyDownloadWeb/Download') {
+      downloads += 1
+      // The third number never answers, so the counter holds mid-run at `2 / 12`.
+      if (downloads >= 3) return
+      const { bbyNumber } = route.request().postDataJSON()
+      return route.fulfill(envelope({ bbyNumber, status: 'succeeded', overwritten: false, message: null }))
+    }
+    if (path === 'UaAdminWeb/Sessions/Counts')
+      return route.fulfill(envelope({ all: 1, web: 1, mobile: 0, backoffice: 0, pos: 0, idle: 0 }))
+    if (path === 'UaAdminWeb/Sessions')
+      return route.fulfill(
+        envelope({
+          rows: [
+            {
+              sessionId: 'S1',
+              userId: 'msartawi',
+              displayName: 'خالد ن.',
+              currentStoreCode: '1001',
+              channel: 'web',
+              createdTime: '2026-09-12T08:07:00',
+              lastSeenTime: '2026-09-12T08:09:00',
+              ipAddress: '10.0.0.7',
+              userAgent: 'Chrome',
+            },
+          ],
+          totalMatches: 1,
+          rowCap: 50,
+          isCapped: false,
+        }),
+      )
+    if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path)) return route.fulfill(envelope([]))
+    if (/Access$/.test(path))
+      return route.fulfill(
+        envelope({ canOpen: true, screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true }),
+      )
+    return route.fulfill(envelope([]))
+  })
+
+  const readsInOrder = async (name, locator, expected, isolate = 'ltr') => {
+    const v = await visualOf(locator)
+    check(
+      `${label}: ${name} reads "${expected}" in order`,
+      !!v && v.logical === expected && v.visual === expected && v.isolate === isolate,
+      JSON.stringify(v),
+    )
+  }
+
+  // ---- The call center: the shipped slot chip (373's break), and the store pair ----
+  await page.goto(BASE + '/callcenter')
+  await page.locator('[data-cc-chip="slot"]').waitFor({ timeout: 20000 })
+  await page.evaluate(() => document.fonts.ready)
+  const slotValue = page.locator('[data-cc-chip="slot"] [data-cc-chip-value]')
+  await readsInOrder('the call center slot chip', slotValue, '18:00–21:00')
+  const store = await visualOf(page.locator('[data-cc-chip="store"] [data-cc-chip-value]'))
+  check(
+    `${label}: the store chip's \`code · name\` pair is ONE left-to-right isolate, code first`,
+    !!store && store.isolate === 'ltr' && store.logical === `1001 · ${ARABIC_CITY}` && store.visual.startsWith('1001 ·'),
+    JSON.stringify(store),
+  )
+  // Control: strip the chip's isolate and the same window reverses under RTL (373's `21:00–18:00`).
+  await slotValue.evaluate((el) => {
+    const bdi = el.querySelector('bdi')
+    bdi?.replaceWith(document.createTextNode(bdi.textContent))
+  })
+  const bare = await visualOf(slotValue)
+  check(
+    `${label}: control — the slot chip WITHOUT its isolate ${dir === 'rtl' ? 'reverses' : 'still reads in order'}`,
+    !!bare && (dir === 'rtl' ? bare.visual === '21:00–18:00' : bare.visual === '18:00–21:00'),
+    JSON.stringify(bare),
+  )
+  await page.screenshot({ path: `${SHOTS}/range-callcenter-${theme}-${dir}.png` })
+
+  // ---- The call center's existing order: a formatDateTime outside a grid ----
+  existingOrder = true
+  await page.goto(BASE + '/callcenter')
+  await page.locator('[data-cc-existing="opened"]').waitFor({ timeout: 20000 })
+  await readsInOrder('the existing order’s opened-at', page.locator('[data-cc-existing="opened"]'), '2026-07-29 21:49')
+  await readsInOrder('the existing order’s line count', page.locator('[data-cc-existing="lines"]'), '2')
+
+  // ---- Delivery details: the window row, one string isolated once ----
+  await page.goto(BASE + `/oms/document/${ERX.documentNo}`)
+  const windowRow = page.locator('main dd bdi', { hasText: /^18:00/ }).first()
+  await windowRow.waitFor({ timeout: 20000 })
+  await readsInOrder('the Delivery details window', windowRow, '18:00–21:00')
+  await page.screenshot({ path: `${SHOTS}/range-details-${theme}-${dir}.png` })
+
+  // ---- Broadcast: the title's `n / m` counter ----
+  await page.goto(BASE + '/admin/broadcast')
+  await page.locator('#bc-title').waitFor({ timeout: 20000 })
+  await page.locator('#bc-title').fill('x'.repeat(40))
+  const counter = page.locator('#bc-title').locator('xpath=..').locator('bdi').first()
+  await readsInOrder('the broadcast title counter', counter, '40 / 200')
+  // Control: an `n / m` with no isolate reverses under RTL (378: `200 / 40`).
+  await counter.evaluate((el) => el.replaceWith(document.createTextNode(el.textContent)))
+  const bareCounter = await visualOf(page.locator('#bc-title').locator('xpath=..').locator('span').first())
+  check(
+    `${label}: control — the counter WITHOUT its isolate ${dir === 'rtl' ? 'reverses' : 'still reads in order'}`,
+    !!bareCounter && (dir === 'rtl' ? bareCounter.visual === '200 / 40' : bareCounter.visual === '40 / 200'),
+    JSON.stringify(bareCounter),
+  )
+  await page.screenshot({ path: `${SHOTS}/range-broadcast-${theme}-${dir}.png` })
+
+  // ---- Bonus-buy download: the run's `done / total` counter, held mid-run ----
+  await page.goto(BASE + '/pricing/bonus-buy-download')
+  const numbers = page.locator('textarea').first()
+  await numbers.waitFor({ timeout: 20000 })
+  await numbers.fill(Array.from({ length: 12 }, (_, i) => String(4000100 + i)).join('\n'))
+  await page.getByRole('button', { name: /^download$/i }).click()
+  const progress = page.locator('main span.tabular-nums bdi').first()
+  await page.locator('main span.tabular-nums bdi', { hasText: '2 / 12' }).waitFor({ timeout: 20000 })
+  await readsInOrder('the bonus-buy download counter', progress, '2 / 12')
+
+  // ---- Active sessions: two formatDateTime cells outside a grid ----
+  await page.goto(BASE + '/admin/sessions')
+  const search = page.getByPlaceholder(/search live sessions/i)
+  await search.waitFor({ timeout: 20000 })
+  await search.fill('msartawi')
+  await search.press('Enter')
+  const started = page.locator('table tbody tr td bdi', { hasText: '2026-09-12 08:07' }).first()
+  await started.waitFor({ timeout: 20000 })
+  await readsInOrder('an active session’s started-at', started, '2026-09-12 08:07')
+
+  check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
+  await context.close()
+}
+
+// DRIVE_ONLY=paint|grids|ranges runs one part, for a slice's inner loop; unset runs all three.
+const ONLY = process.env.DRIVE_ONLY
+const PARTS = { paint: driveOneMode, grids: driveGrids, ranges: driveRanges }
+for (const [part, drive] of Object.entries(PARTS))
+  if (!ONLY || ONLY === part)
+    for (const dir of ['ltr', 'rtl']) for (const theme of ['light', 'dark']) await drive({ theme, dir })
 
 await browser.close()
 const failed = results.filter((r) => !r.pass)

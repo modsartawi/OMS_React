@@ -54,6 +54,7 @@ Standing coding rules every change respects. Read the ones touching your area:
 - [i18n-zero-literal](.claude/rules/i18n-zero-literal.md) — no user-visible string literals; always `t()`.
 - [logical-tailwind](.claude/rules/logical-tailwind.md) — logical utilities (`ms/pe/text-start`), never `ml/pr/left`.
 - [api-envelope](.claude/rules/api-envelope.md) — all server calls through `src/core/api.ts`.
+- [bidi](.claude/rules/bidi.md) — isolate data values by kind (`Ltr` for machine values, `<bdi>` for free text) and the whole value, never its parts; `fsi()` for string-only sinks, never in grids or exports.
 
 ## Domain language
 

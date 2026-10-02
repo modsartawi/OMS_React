@@ -533,7 +533,9 @@ async function run() {
   const offerOf = async () => pane().getAttribute('data-offer')
   const tid = (id) => page.locator(`[data-testid="${id}"]`)
   const held = async () => (await tid('change-request-submit').getAttribute('aria-disabled')) === 'true'
-  const textOf = async (id) => (await tid(id).count()) ? tid(id).first().innerText() : ''
+  // 384: interpolated values carry an invisible FSI…PDI isolate each; the copy is read without them.
+  const textOf = async (id) =>
+    (await tid(id).count()) ? (await tid(id).first().innerText()).replace(/[⁦-⁩]/g, '') : ''
   /** Select an entry by clicking its grid row — a selection change inside one page life. */
   const pickEntry = async (id, number) => {
     await page.locator(`[data-region="branch-account"] .ag-row[row-id="${id}"] [col-id="entryNumber"]`).first().click()

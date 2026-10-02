@@ -199,8 +199,8 @@ export const COLLECTION_DATE_COLUMN = 'collectionDate'
  * and last collected-at, as the server sends them — the client derives no date, it
  * only draws the two ends.
  */
-function collectionDateText(t: TFunction, row: AcrInquiryRow | undefined): string {
-  return daySpanText(t, daySpan([row?.firstCollectedAt, row?.lastCollectedAt]))
+function collectionDateText(row: AcrInquiryRow | undefined): string {
+  return daySpanText(daySpan([row?.firstCollectedAt, row?.lastCollectedAt]))
 }
 
 function collectionDateColumn(t: TFunction): ColDef<AcrInquiryRow> {
@@ -211,8 +211,8 @@ function collectionDateColumn(t: TFunction): ColDef<AcrInquiryRow> {
     // A VALUE getter, not a formatter over a `field`: the span reads two fields. Sort
     // and the floating filter both then work on the `yyyy-MM-dd` text the cell shows,
     // which sorts by its first day.
-    valueGetter: (p) => collectionDateText(t, p.data),
-    filterValueGetter: (p) => collectionDateText(t, p.data),
+    valueGetter: (p) => collectionDateText(p.data),
+    filterValueGetter: (p) => collectionDateText(p.data),
   }
 }
 

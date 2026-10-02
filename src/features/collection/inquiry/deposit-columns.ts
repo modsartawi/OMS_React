@@ -1,6 +1,7 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { DepositInquiryRow } from '@/core/models/collection'
 import { formatMoneyIn } from '@/core/money'
 import { formatDateTime } from '@/core/util/date-format'
@@ -116,6 +117,7 @@ export const BUSINESS_DATE_COLUMN = 'businessDate'
  *  (244 §6). The toggle still exists to reclaim the height. */
 export function buildDepositsDefaultColDef(showFilters: boolean): ColDef<DepositInquiryRow> {
   return {
+    ...OMS_GRID_BASE_COL_DEF,
     sortable: true,
     resizable: true,
     filter: 'agTextColumnFilter',

@@ -7,6 +7,8 @@ import type {
 import type { TFunction } from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { ChevronRight } from 'lucide-react'
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
+import { pinStart } from '@/core/theme/direction'
 import type { BbyInquiryRow } from '@/core/models/bonus-buy-inquiry'
 import BbyStatusBadge from '@/core/bonus-buy/BbyStatusBadge'
 import { codeLabelKey, type CodeSet } from '@/core/bonus-buy/codeLabels'
@@ -35,6 +37,7 @@ import {
  *  as its built-in checkbox so our ✓/– formatter wins. */
 export function buildDefaultColDef(showFilters: boolean): ColDef<BbyInquiryRow> {
   return {
+    ...OMS_GRID_BASE_COL_DEF,
     sortable: true,
     resizable: true,
     filter: 'agTextColumnFilter',
@@ -95,7 +98,7 @@ function IdentityCell(
           aria-label={t('activeMarker.label')}
         />
       )}
-      <span className="font-mono tabular-nums">{row.bbyNumber}</span>
+      <bdi className="font-mono tabular-nums">{row.bbyNumber}</bdi>
       <button
         type="button"
         onClick={() => onDetails(row)}
@@ -156,12 +159,13 @@ export function buildInquiryColumns(
   })
 
   return [
-    // Sticky identity — pinned to the start (`'left'` is flipped to the visual end
-    // under RTL by AG Grid's `enableRtl`). Text-filterable on the BBY number.
+    // Sticky identity — pinned to the reading start. AG Grid pins to a physical
+    // side that `enableRtl` does NOT flip, so the side comes from the boot
+    // direction (`pinStart`). Text-filterable on the BBY number.
     {
       headerName: t('columns.identity'),
       field: 'bbyNumber',
-      pinned: 'left',
+      pinned: pinStart,
       width: 260,
       filter: 'agTextColumnFilter',
       cellRenderer: (p: ICellRendererParams<BbyInquiryRow>) => IdentityCell(p, onDetails),

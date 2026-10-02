@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "node tools/check-boundaries.mjs && node tools/check-contrast.mjs && node tools/check-palette.mjs"
+    "lint": "node tools/check-boundaries.mjs && node tools/check-grid-base.mjs && node tools/check-contrast.mjs && node tools/check-palette.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "5.101.2",

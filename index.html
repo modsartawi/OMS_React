@@ -22,6 +22,15 @@
         // set pre-paint too, so the grid never flashes light before going dark.
         document.documentElement.dataset.agThemeMode = dark ? 'dark' : 'light'
       } catch (e) {}
+      // Direction is a boot fact (spec 380 F22): set from the stored locale before first
+      // paint, read once by src/core/theme/direction.ts. AG Grid's enableRtl cannot change
+      // on a mounted grid, so a language switch writes `oms.locale` and reloads. With no
+      // stored locale the page is LTR. Only `dir` is set: `lang` stays the markup's "en"
+      // while i18n renders English (src/core/i18n.ts), so the two never disagree.
+      try {
+        var locale = localStorage.getItem('oms.locale')
+        if (locale) document.documentElement.dir = locale.split('-')[0] === 'ar' ? 'rtl' : 'ltr'
+      } catch (e) {}
     </script>
   </head>
   <body>

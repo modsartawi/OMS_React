@@ -17,7 +17,6 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
   OMS_GRID_ROW_HEIGHT,
-  omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import ScreenGate from '@/core/ui/ScreenGate'
@@ -296,7 +295,6 @@ function DepositsBody({ options }: { options?: AssignmentOptions }) {
               pagination
               paginationPageSize={GRID_PAGE_SIZE}
               paginationPageSizeSelector={false}
-              {...omsGridDirection}
             />
           </div>
 

@@ -1,6 +1,7 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { ACR_SYSTEM_CLOSER, type AcrInquiryRow } from '@/core/models/collection'
 import { formatMoneyIn } from '@/core/money'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
@@ -136,6 +137,7 @@ const MONEY = new Set<string>(MONEY_FIELDS)
  *  (244 §6). The toggle still exists to reclaim the height. */
 export function buildAcrsDefaultColDef(showFilters: boolean): ColDef<AcrInquiryRow> {
   return {
+    ...OMS_GRID_BASE_COL_DEF,
     sortable: true,
     resizable: true,
     filter: 'agTextColumnFilter',

@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { ExternalLink, FileSpreadsheet, Pin, Table2 } from 'lucide-react'
 import type { GridApi } from 'ag-grid-community'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
+import { pinStart } from '@/core/theme/direction'
 import { exportDeliveriesToExcel } from './export'
 import ViewManager from './ViewManager'
 
@@ -70,7 +71,9 @@ export default function GridToolbar({
         colId: column.getColId(),
         header: column.getColDef().headerName ?? column.getColId(),
         visible: column.isVisible(),
-        pinned: column.getPinned() === 'left',
+        // Pinned on EITHER side: a view saved under the other direction pins to
+        // the reading end, and it must still read as pinned and unpin here.
+        pinned: column.getPinned() != null,
       })),
     )
   }
@@ -86,7 +89,7 @@ export default function GridToolbar({
   }
 
   function togglePin(column: ColumnToggle) {
-    gridApi?.applyColumnState({ state: [{ colId: column.colId, pinned: column.pinned ? null : 'left' }] })
+    gridApi?.applyColumnState({ state: [{ colId: column.colId, pinned: column.pinned ? null : pinStart }] })
     refreshColumnList()
   }
 

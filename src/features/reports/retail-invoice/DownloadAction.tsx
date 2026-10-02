@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import { Download, Loader2 } from 'lucide-react'
 
 import type { InvoiceCandidate } from '@/core/models/retail-invoice'
+import { pinEnd } from '@/core/theme/direction'
 
 import { invoiceRowKey } from './invoice-key'
 
@@ -49,12 +50,11 @@ export function buildDownloadActionColumn(
     resizable: false,
     // 🚩 Pinned, and it is not decoration: the row is 13 columns wide and AG Grid
     // virtualises the ones off screen, so an unpinned action would be scrolled
-    // out of existence on the only column anyone came for. `'right'` is AG Grid's
-    // own axis and it mirrors with `enableRtl` (the same reason
-    // `bonus-buy-inquiry` pins its identity column `'left'`), so this is the END
-    // of the row in both directions — the logical-utility rule's intent, in the
-    // vocabulary the widget offers.
-    pinned: 'right',
+    // out of existence on the only column anyone came for. AG Grid's pinned
+    // sides are PHYSICAL — `enableRtl` does not flip them (378, measured) — so
+    // the END of the row comes from the boot direction: `pinEnd` is `'right'` in
+    // LTR and `'left'` under RTL.
+    pinned: pinEnd,
     cellRenderer: (p: ICellRendererParams<InvoiceCandidate>) =>
       p.data ? <DownloadCell row={p.data} state={state} t={t} /> : null,
   }

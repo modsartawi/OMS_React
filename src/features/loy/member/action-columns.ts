@@ -1,6 +1,7 @@
 import type { ColDef, ValueGetterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { LoyMemberActionRow } from '@/core/models/loy'
 import { formatDateTime } from '@/core/util/date-format'
 
@@ -31,6 +32,7 @@ import { formatDateTime } from '@/core/util/date-format'
  * is a different identifier space that would 404 on every row (226 §9).
  */
 export const ACTION_DEFAULT_COL_DEF: ColDef<LoyMemberActionRow> = {
+  ...OMS_GRID_BASE_COL_DEF,
   sortable: false,
   filter: false,
   resizable: true,

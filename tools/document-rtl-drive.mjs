@@ -222,17 +222,22 @@ async function run() {
       'Monday, 8pm - 10 pm',
     ],
     ['the Driver card’s mobile', () => rail().locator('bdi').nth(2), '0501076360'],
-    ['the items grid’s totals footer', () => items().locator(FOOTER + ' bdi'), '1 line · 2 units'],
+    // A grid cell: isolated by the base renderer every grid spreads (383, F25) —
+    // a `<bdi>` left to `dir=auto`, which resolves LTR on this Latin label.
+    ['the items grid’s totals footer', () => items().locator(FOOTER + ' bdi'), '1 line · 2 units', 'auto'],
   ]
 
   for (const dir of ['ltr', 'rtl']) {
     await setDir(dir)
-    for (const [name, locate, expected] of HAZARDS) {
+    for (const [name, locate, expected, isolateDir = 'ltr'] of HAZARDS) {
       const el = locate().first()
       const count = await locate().count()
       const isolated =
         count > 0 &&
-        (await el.evaluate((n) => n.tagName === 'BDI' && n.getAttribute('dir') === 'ltr'))
+        (await el.evaluate(
+          (n, d) => n.tagName === 'BDI' && (d === 'auto' ? !n.hasAttribute('dir') : n.getAttribute('dir') === d),
+          isolateDir,
+        ))
       const text = count > 0 ? (await el.innerText()).replace(/\s+/g, ' ').trim() : null
       const order = count > 0 ? await el.evaluate((n) => window.READS_LTR(n)) : null
       check(
@@ -334,12 +339,12 @@ async function run() {
         return { width: before.width, left: before.left, right: before.right }
       }
       const asBuilt = read()
-      // The grid keeps its OWN direction: `enableRtl` is deliberately unwired
-      // (095 Boundaries — F6/F8 belong to the effort that ships the `dir`
-      // switch), so AG Grid's `.ag-ltr` root stays LTR even under `dir=rtl` and
-      // the bar correctly follows the GRID, not the page. Forcing the row's
+      // The grid keeps the direction it BOOTED with: `enableRtl` is `@initial`
+      // and read once from the boot `dir` (383), and this drive flips `dir` at
+      // runtime, so AG Grid's `.ag-ltr` root stays LTR under `dir=rtl` and the
+      // bar correctly follows the GRID, not the page. Forcing the row's
       // `direction` is what proves the spelling is logical rather than
-      // page-coupled — it is exactly the flip `enableRtl` will perform.
+      // page-coupled — it is exactly the flip `enableRtl` performs at boot.
       row.style.direction = 'rtl'
       const forced = read()
       row.style.direction = ''
@@ -374,21 +379,27 @@ async function run() {
   // must occupy exactly the rect its parent gave it — which is what "no visual
   // change to the shipping screen" means, measured.
   await setDir('ltr')
-  const inert = await page.evaluate(() =>
-    [...document.querySelectorAll('bdi')].every((n) => {
-      const s = getComputedStyle(n)
-      const own = n.getBoundingClientRect()
-      const parent = n.parentElement.getBoundingClientRect()
-      return (
-        s.display === 'inline' &&
-        s.marginLeft === '0px' &&
-        s.paddingLeft === '0px' &&
-        own.height <= parent.height + 0.5 &&
-        own.width <= parent.width + 0.5
-      )
-    }),
+  const notInert = await page.evaluate(() =>
+    [...document.querySelectorAll('bdi')]
+      .filter((n) => {
+        const s = getComputedStyle(n)
+        const own = n.getBoundingClientRect()
+        const parent = n.parentElement.getBoundingClientRect()
+        // A grid cell's value box clips with an ellipsis (383's base renderer
+        // isolates every cell): a long item name overflows it exactly as the bare
+        // text did, so width is compared only where the parent does not clip.
+        const clips = getComputedStyle(n.parentElement).overflow === 'hidden'
+        return !(
+          s.display === 'inline' &&
+          s.marginLeft === '0px' &&
+          s.paddingLeft === '0px' &&
+          own.height <= parent.height + 0.5 &&
+          (clips || own.width <= parent.width + 0.5)
+        )
+      })
+      .map((n) => `${n.parentElement.className.split(' ')[0]}: ${n.textContent.slice(0, 30)}`),
   )
-  check('ltr: every isolate is an inert inline box — nothing on the screen moved', inert)
+  check('ltr: every isolate is an inert inline box — nothing on the screen moved', notInert.length === 0, notInert.slice(0, 4).join(' | '))
 
   // ── 6. the return dialog mirrors ───────────────────────────────────────────
   //

@@ -35,7 +35,8 @@ is lost. Correctness judgements, rules compliance and diff review stay yours.
 - `npm run dev` — Vite dev server on :5173, proxies `/api` → SIS.Api on :5111.
 - `npm run typecheck` — `tsc --noEmit`. Run this regularly; it is the fast feedback loop.
 - `npm run build` — typecheck + static `dist/`.
-- `npm run lint` — three gates: import boundaries, token contrast, colour literals.
+- `npm run lint` — four gates: import boundaries, the grid base (every `<AgGridReact` spreads
+  `OMS_GRID_BASE_COL_DEF`), token contrast, colour literals.
 - `npm test` — **vitest** (`vitest run`, `src/**/*.test.ts`, node environment). Bootstrapped by
   ticket 090; config in `vitest.config.ts`, deliberately separate from `vite.config.ts`.
   **React Testing Library is still not installed** (spec 083's ruling: the pure modules are where

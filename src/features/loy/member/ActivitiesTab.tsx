@@ -11,7 +11,6 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
   OMS_GRID_ROW_HEIGHT,
-  omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import { activitiesKey, loyReportsApi } from './api'
@@ -122,7 +121,6 @@ export default function ActivitiesTab({ loyId }: { loyId: string }) {
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
             animateRows={false}
-            {...omsGridDirection}
           />
         </div>
       )}

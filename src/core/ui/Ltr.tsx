@@ -25,10 +25,10 @@ import type { ReactNode } from 'react'
  * opens with a digit has nothing to give. It is inline and carries no style, so
  * it is **byte-identical under LTR**: nothing on today's shipping screen moves.
  *
- * It doubles as an AG Grid cell renderer (`{ component: Ltr }`): the grid passes
- * the cell's `value` as a prop, and a cell is exactly the same job as a wrapped
- * value. `children` wins when both are present.
+ * It is **not** a grid cell renderer: one would read `value` and silently drop the
+ * column's `valueFormatter`. Grid cells are isolated by the base renderer every
+ * `defaultColDef` spreads (`@/core/theme/grid-base`, spec 380 F25).
  */
-export default function Ltr({ children, value }: { children?: ReactNode; value?: ReactNode }) {
-  return <bdi dir="ltr">{children ?? value}</bdi>
+export default function Ltr({ children }: { children?: ReactNode }) {
+  return <bdi dir="ltr">{children}</bdi>
 }

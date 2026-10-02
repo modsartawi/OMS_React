@@ -6,6 +6,7 @@ import type {
   ValueGetterParams,
 } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
@@ -204,6 +205,7 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
  * built-in checkbox renderer (D-13).
  */
 export const DELIVERY_DEFAULT_COL_DEF: DeliveryColDef = {
+  ...OMS_GRID_BASE_COL_DEF,
   sortable: true,
   resizable: true,
   filter: 'agTextColumnFilter',

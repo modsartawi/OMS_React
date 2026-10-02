@@ -128,7 +128,7 @@ export function buildOpenColumns(
       cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow, number>) =>
         p.data ? (
           <span className="flex items-baseline justify-end gap-2">
-            <span>{settlementMoney(p.data.remainingAmount, p.data.currencyKey)}</span>
+            <bdi>{settlementMoney(p.data.remainingAmount, p.data.currencyKey)}</bdi>
             {p.data.remainingAmount < p.data.amount && (
               <span className="text-[11px] text-muted-foreground">
                 {t('open.row.ofAmount', {
@@ -156,7 +156,7 @@ export function buildOpenColumns(
       filterValueGetter: (p) => p.data?.servedBy || t('open.row.nobodyAssigned'),
       cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow, string>) =>
         p.data?.servedBy ? (
-          <span>{p.data.servedBy}</span>
+          <bdi>{p.data.servedBy}</bdi>
         ) : (
           <span className="italic text-muted-foreground">{t('open.row.nobodyAssigned')}</span>
         ),
@@ -273,7 +273,7 @@ export function buildCashColumns(
       filterValueGetter: (p) => p.data?.servedBy || t('open.row.nobodyAssigned'),
       cellRenderer: (p: ICellRendererParams<SettlementUncollectedRow, string>) =>
         p.data?.servedBy ? (
-          <span>{p.data.servedBy}</span>
+          <bdi>{p.data.servedBy}</bdi>
         ) : (
           <span className="italic text-muted-foreground">{t('open.row.nobodyAssigned')}</span>
         ),
@@ -405,7 +405,7 @@ export function buildPendingColumns(
       filterValueGetter: (p) => p.data?.servedBy || t('open.row.nobodyAssigned'),
       cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow, string>) =>
         p.data?.servedBy ? (
-          <span>{p.data.servedBy}</span>
+          <bdi>{p.data.servedBy}</bdi>
         ) : (
           <span className="italic text-muted-foreground">{t('open.row.nobodyAssigned')}</span>
         ),
@@ -544,7 +544,7 @@ export function buildTheftColumns(
       filterValueGetter: (p) => p.data?.servedBy || t('open.row.nobodyAssigned'),
       cellRenderer: (p: ICellRendererParams<SettlementOpenLaneRow, string>) =>
         p.data?.servedBy ? (
-          <span>{p.data.servedBy}</span>
+          <bdi>{p.data.servedBy}</bdi>
         ) : (
           <span className="italic text-muted-foreground">{t('open.row.nobodyAssigned')}</span>
         ),
@@ -598,7 +598,7 @@ function chaseColumn<Row extends { lastChase?: SettlementLastChase | null }>(
             {cell.kind === 'chased' ? (
               <span className="flex flex-col justify-center leading-tight">
                 <span>{t('open.chase.line', { date: formatDay(cell.at), note: cell.note })}</span>
-                <span className="text-[11px] text-muted-foreground">{cell.by}</span>
+                <bdi className="text-[11px] text-muted-foreground">{cell.by}</bdi>
               </span>
             ) : (
               // 🚩 A named state, in words — never an empty cell, which reads as
@@ -697,8 +697,8 @@ const AGE_SHAPE = {
 function branchCell(p: ICellRendererParams<{ storeName: string; storeId: string }>) {
   return p.data ? (
     <span className="flex items-baseline gap-1.5">
-      <span className="font-medium">{p.data.storeName}</span>
-      <span className="font-mono text-[11px] text-muted-foreground">{p.data.storeId}</span>
+      <bdi className="font-medium">{p.data.storeName}</bdi>
+      <bdi className="font-mono text-[11px] text-muted-foreground">{p.data.storeId}</bdi>
     </span>
   ) : null
 }

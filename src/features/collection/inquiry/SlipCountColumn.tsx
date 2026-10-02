@@ -42,7 +42,7 @@ export function slipCountColumn<Row extends SlipDayRow>(
           </span>
         )
       const day = slipDayOf(p.data)
-      if (!onOpen || !day) return String(p.value)
+      if (!onOpen || !day) return <bdi>{String(p.value)}</bdi>
       return (
         <button
           type="button"
@@ -51,7 +51,7 @@ export function slipCountColumn<Row extends SlipDayRow>(
           aria-label={t('slips.open', { value: p.value, store: day.store, day: day.businessDate })}
           className="font-medium text-primary underline-offset-2 hover:underline focus-visible:underline"
         >
-          {String(p.value)}
+          <bdi>{String(p.value)}</bdi>
         </button>
       )
     },

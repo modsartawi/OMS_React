@@ -1,6 +1,7 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { CollectionReadyRow } from '@/core/models/collection'
 import { distinctCurrencies } from '@/core/money'
 import { formatDateTime } from '@/core/util/date-format'
@@ -88,6 +89,7 @@ const MONEY = new Set<string>(MONEY_FIELDS)
 /** Default per-column behaviour — the siblings': sortable, text filter, filter row on. */
 export function buildReadyDefaultColDef(showFilters: boolean): ColDef<CollectionReadyRow> {
   return {
+    ...OMS_GRID_BASE_COL_DEF,
     sortable: true,
     resizable: true,
     filter: 'agTextColumnFilter',

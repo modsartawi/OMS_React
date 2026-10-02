@@ -1,4 +1,5 @@
 import { provideGlobalGridOptions, themeQuartz } from 'ag-grid-community'
+import { bootDirection } from './direction'
 
 /**
  * Dense AG Grid theme, painted from the app's design tokens (spec 082 D-11,
@@ -96,34 +97,24 @@ export const OMS_GRID_ROW_HEIGHT = 26
 export const OMS_GRID_HEADER_HEIGHT = 28
 
 /**
- * Native copy in every grid (spec 380 F9): a drag over cell text selects it and
- * Ctrl+C copies it, with AG Grid Community only. `ensureDomOrder` keeps the
- * cells in column order in the DOM, so a selection across cells reads in the
- * order the user sees.
+ * The app's grid-wide options, given to every grid through AG Grid's global hook so no grid
+ * can miss them. SCALARS ONLY: a grid's own object option (its `defaultColDef`) replaces a
+ * global one under the shallow merge, which is why the isolating cell renderer lives in
+ * `./grid-base` and is spread by each grid instead (378 §1, measured).
  *
- * Global options, so no grid can miss them, and SCALARS ONLY: a grid's own
- * object option (a `defaultColDef`) replaces a global one under the shallow
- * merge. This runs at module load, before any grid that imports the theme is
- * created.
+ * - **Native copy (spec 380 F9).** A drag over cell text selects it and Ctrl+C copies it, with
+ *   AG Grid Community only. `ensureDomOrder` keeps the cells in column order in the DOM, so a
+ *   selection across cells reads in the order the user sees.
+ * - **Direction (F22).** `enableRtl` is `@initial` in AG Grid 36, so it is read once, from the
+ *   direction `index.html` set before first paint (`./direction`). Every grid mirrors with no
+ *   per-grid opt-in; a language switch reloads the page.
  *
- * This is the app's ONE call: `provideGlobalGridOptions` REPLACES the global
- * object rather than merging into it, so a second call elsewhere would silently
- * drop native copy. Boot-time scalars (383's `enableRtl`) join this object.
+ * This runs at module load, before any grid that imports the theme is created. It is the
+ * app's ONE call: `provideGlobalGridOptions` REPLACES the global object rather than merging
+ * into it, so a second call elsewhere would silently drop these.
  */
 provideGlobalGridOptions({
   enableCellTextSelection: true,
   ensureDomOrder: true,
+  enableRtl: bootDirection === 'rtl',
 })
-
-/**
- * RTL is a grid OPTION, not a theme param, so the theme object cannot carry it.
- * This is its declared home: spread `{...omsGridDirection}` into every grid so
- * the seven instances flip together.
- *
- * Read once at module load, which is correct while `dir` is set before the app
- * boots (as `index.html` already does for the theme). Nothing in the app sets
- * `dir` today — wiring that switch is deliberately out of scope for ticket 085.
- */
-export const omsGridDirection = {
-  enableRtl: document.documentElement.dir === 'rtl',
-} as const

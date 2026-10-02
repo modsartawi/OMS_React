@@ -7,6 +7,7 @@ import { FileSpreadsheet, RotateCcw, Search } from 'lucide-react'
 // Side-effect import: registers AG Grid Community modules within this chunk.
 import '@/core/ag-grid-setup'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import ScreenGate from '@/core/ui/ScreenGate'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
@@ -60,6 +61,7 @@ export default function CentralInvoicesPage() {
 }
 
 const DEFAULT_COL_DEF: ColDef<CentralInvoiceListRow> = {
+  ...OMS_GRID_BASE_COL_DEF,
   sortable: true,
   resizable: true,
   filter: true,

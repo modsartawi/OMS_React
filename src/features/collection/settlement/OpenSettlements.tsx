@@ -13,9 +13,9 @@ import { collectionAccessQuery } from '@/core/collection/api'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
-  omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type {
   SettlementChase,
   SettlementOpenLaneRow,
@@ -684,7 +684,13 @@ function Section<Row extends OpenLaneRowFacts>({
   const { t } = useTranslation('settlement')
 
   const defaultColDef = useMemo(
-    () => ({ sortable: true, resizable: true, filter: 'agTextColumnFilter', cellDataType: false }),
+    () => ({
+      ...OMS_GRID_BASE_COL_DEF,
+      sortable: true,
+      resizable: true,
+      filter: 'agTextColumnFilter',
+      cellDataType: false,
+    }),
     [],
   )
   const height =
@@ -737,7 +743,6 @@ function Section<Row extends OpenLaneRowFacts>({
             onRow(e.data)
           }
           rowSelection={{ mode: 'singleRow', checkboxes: false, enableClickSelection: true }}
-          {...omsGridDirection}
         />
       </div>
     </section>

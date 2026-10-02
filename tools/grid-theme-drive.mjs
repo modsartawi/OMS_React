@@ -22,9 +22,9 @@
 //   - a drag over cell text plus Ctrl+C puts that text on the clipboard.
 // The other modules additionally assert 26/28 and selectable cell text.
 //
-// The `dir` switch does not ship until 383's boot wiring, so the RTL passes set
-// `dir="rtl"` on <html> before the app boots, the way foundation-drive.mjs does;
-// the grid itself stays LTR until 383 flips `enableRtl`.
+// Direction is a boot fact since 383: the RTL passes store `oms.locale = ar`
+// before the app boots and index.html sets `<html dir>` from it, so the grid
+// itself is RTL (`enableRtl`) and a pinned start column sits on the right.
 //
 // SIS.Api's delivery list needs a store grant a dev session does not have (see
 // tools/palette-drive.mjs's note), so every `/api/**` call is mocked here —
@@ -200,16 +200,8 @@ async function openContext({ theme, dir, width = 1600 }) {
   await page.addInitScript(
     ([t, d]) => {
       localStorage.setItem('oms.darkMode', String(t === 'dark'))
-      // An init script can run before <html> exists; set `dir` the moment it does.
-      if (d !== 'rtl') return
-      const apply = () => document.documentElement?.setAttribute('dir', 'rtl')
-      if (document.documentElement) return apply()
-      new MutationObserver((_, o) => {
-        if (document.documentElement) {
-          apply()
-          o.disconnect()
-        }
-      }).observe(document, { childList: true })
+      // index.html's pre-paint script turns the stored locale into `<html dir>` (383).
+      localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
     },
     [theme, dir],
   )
@@ -507,6 +499,7 @@ async function driveDeliveries({ theme, dir }) {
       bar: bar.backgroundColor,
       barWidth: bar.width,
       left: bar.left,
+      right: bar.right,
       z: bar.zIndex,
       // The row's own background layer must survive — the bar rides ::before
       // precisely so it does.
@@ -516,8 +509,11 @@ async function driveDeliveries({ theme, dir }) {
   check(`${label}: selected row ground paints --primary-050`, sel?.ground === want.primary050, `${sel?.ground}`)
   check(
     `${label}: selected row bar paints --cursor (${theme === 'dark' ? 'gold' : 'navy'}), 3px, leading edge, z-index 3`,
-    sel?.bar === want.cursor && sel?.barWidth === '3px' && sel?.left === '0px' && sel?.z === '3',
-    `${sel?.bar} / ${sel?.barWidth} / left ${sel?.left} / z ${sel?.z}`,
+    sel?.bar === want.cursor &&
+      sel?.barWidth === '3px' &&
+      (dir === 'rtl' ? sel?.right : sel?.left) === '0px' &&
+      sel?.z === '3',
+    `${sel?.bar} / ${sel?.barWidth} / left ${sel?.left} right ${sel?.right} / z ${sel?.z}`,
   )
   check(
     `${label}: the row's own background layer is intact (bar did not take ::after)`,
@@ -529,7 +525,9 @@ async function driveDeliveries({ theme, dir }) {
   //    (362 §6: v36 pinned cells paint over the row's ::before). The column
   //    state is set through the grid's own api — the same call the column
   //    drag / saved views make — taken from the app's AG Grid module instance.
-  const pinned = await page.evaluate(async () => {
+  // The start side is the boot direction's (`pinStart`, 383): `right` under RTL.
+  const startSide = dir === 'rtl' ? 'right' : 'left'
+  const pinned = await page.evaluate(async (side) => {
     const url = performance
       .getEntriesByType('resource')
       .map((e) => e.name)
@@ -538,22 +536,29 @@ async function driveDeliveries({ theme, dir }) {
     const { getGridApi } = await import(url)
     const api = getGridApi(document.querySelector('.ag-root-wrapper'))
     if (!api) return 'grid api not found'
-    api.applyColumnState({ state: [{ colId: 'deliveryNo', pinned: 'left' }] })
+    api.applyColumnState({ state: [{ colId: 'deliveryNo', pinned: side }] })
     return 'ok'
-  })
+  }, startSide)
   await page.mouse.move(10, 10)
   await page.waitForTimeout(400)
-  const geo = await page.evaluate(() => {
+  // A row is as wide as all 41 columns, so under RTL its start edge is its RIGHT one and its
+  // left one is off screen; the pinned cell is measured against the grid's own (1px-bordered) box.
+  const geo = await page.evaluate((rtl) => {
     const row = document.querySelector('.ag-row-selected')
-    const pinnedCell = row?.querySelector('.ag-cell[col-id="deliveryNo"].ag-cell-last-left-pinned')
-    if (!row || !pinnedCell) return null
+    const pinnedCell = row?.querySelector(
+      `.ag-cell[col-id="deliveryNo"].${rtl ? 'ag-cell-first-right-pinned' : 'ag-cell-last-left-pinned'}`,
+    )
+    const view = document.querySelector('.ag-root-wrapper')?.getBoundingClientRect()
+    if (!row || !pinnedCell || !view) return null
     const r = row.getBoundingClientRect()
     const c = pinnedCell.getBoundingClientRect()
-    return { x: Math.floor(r.left) + 1, y: Math.floor(r.top + r.height / 2), cellLeft: c.left - r.left }
-  })
+    return rtl
+      ? { x: Math.ceil(c.right) - 2, y: Math.floor(r.top + r.height / 2), startGap: Math.round(view.right - c.right) }
+      : { x: Math.floor(r.left) + 1, y: Math.floor(r.top + r.height / 2), startGap: Math.round(c.left - r.left) }
+  }, dir === 'rtl')
   check(
-    `${label}: the Delivery no. is pinned at the row's start`,
-    pinned === 'ok' && geo?.cellLeft === 0,
+    `${label}: the Delivery no. is pinned at the row's start (${startSide})`,
+    pinned === 'ok' && geo !== null && Math.abs(geo.startGap) <= 2,
     `${pinned} · ${JSON.stringify(geo)}`,
   )
   if (geo) {
@@ -593,8 +598,9 @@ async function driveDeliveries({ theme, dir }) {
   )
 
   // 7. the bar mirrors. AG Grid writes its own `direction` onto the grid root
-  //    (that is what `enableRtl` flips, and 383 wires it), so flipping the root
-  //    is exactly the switch — the bar's spelling must be logical.
+  //    (that is what `enableRtl` sets, from the boot direction since 383), so
+  //    flipping the root to the OTHER direction is exactly the switch — the
+  //    bar's spelling must be logical.
   await page.click('.ag-row:not(.ag-header-row) .ag-cell[col-id="customerName"]')
   await page.waitForTimeout(200)
   const barEdges = () =>
@@ -602,14 +608,16 @@ async function driveDeliveries({ theme, dir }) {
       const a = getComputedStyle(document.querySelector('.ag-row-selected'), '::before')
       return { left: a.left, right: a.right }
     })
-  const ltrBar = await barEdges()
-  await page.evaluate(() => document.querySelector('.ag-root-wrapper').setAttribute('dir', 'rtl'))
+  const lead = (edges, d) => (d === 'rtl' ? edges.right === '0px' && edges.left !== '0px' : edges.left === '0px')
+  const asBooted = await barEdges()
+  const other = dir === 'rtl' ? 'ltr' : 'rtl'
+  await page.evaluate((d) => document.querySelector('.ag-root-wrapper').setAttribute('dir', d), other)
   await page.waitForTimeout(300)
-  const rtlBar = await barEdges()
+  const flipped = await barEdges()
   check(
     `${label}: the cursor bar sits on the leading edge and mirrors under a flipped grid`,
-    ltrBar.left === '0px' && rtlBar.right === '0px' && rtlBar.left !== '0px',
-    `ltr ${JSON.stringify(ltrBar)} · rtl ${JSON.stringify(rtlBar)}`,
+    lead(asBooted, dir) && lead(flipped, other),
+    `${dir} ${JSON.stringify(asBooted)} · ${other} ${JSON.stringify(flipped)}`,
   )
 
   check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))

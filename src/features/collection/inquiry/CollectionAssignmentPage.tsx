@@ -11,9 +11,9 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
   OMS_GRID_ROW_HEIGHT,
-  omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { collectionAccessQuery } from '@/core/collection/api'
 import {
   ASSIGNMENT_OPTIONS_KEY,
@@ -722,6 +722,7 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
             theme={omsGridTheme}
             rowData={visible}
             columnDefs={columns}
+            defaultColDef={OMS_GRID_BASE_COL_DEF}
             getRowId={(p) => p.data.storeCode}
             rowHeight={OMS_GRID_ROW_HEIGHT}
             headerHeight={OMS_GRID_HEADER_HEIGHT}
@@ -730,7 +731,6 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
             paginationPageSize={GRID_PAGE_SIZE}
             paginationPageSizeSelector={false}
             onPaginationChanged={(e) => setPageIndex(e.api.paginationGetCurrentPage())}
-            {...omsGridDirection}
           />
         </div>
       )}

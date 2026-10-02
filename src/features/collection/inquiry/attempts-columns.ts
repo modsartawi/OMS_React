@@ -1,6 +1,7 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { CollectionAttemptRow } from '@/core/models/collection'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 
@@ -67,6 +68,7 @@ export const NON_COLUMN_FIELDS = [
  *  (244 §6). The toggle still exists to reclaim the height. */
 export function buildAttemptsDefaultColDef(showFilters: boolean): ColDef<CollectionAttemptRow> {
   return {
+    ...OMS_GRID_BASE_COL_DEF,
     sortable: true,
     resizable: true,
     filter: 'agTextColumnFilter',

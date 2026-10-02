@@ -13,7 +13,6 @@ import { showsPager } from '@/core/ui/pager'
 import {
   OMS_GRID_HEADER_HEIGHT,
   OMS_GRID_ROW_HEIGHT,
-  omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
 import { LOY_ACTIONS_PAGE_SIZE, actionsKey, loyReportsApi } from './api'
@@ -141,7 +140,6 @@ export default function ActionsTab({ loyId }: { loyId: string }) {
                 rowHeight={OMS_GRID_ROW_HEIGHT}
                 headerHeight={OMS_GRID_HEADER_HEIGHT}
                 animateRows={false}
-                {...omsGridDirection}
               />
             </div>
           )}

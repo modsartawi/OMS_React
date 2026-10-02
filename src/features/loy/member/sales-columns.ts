@@ -1,6 +1,7 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { LoySalesRow } from '@/core/models/loy'
 import { distinctCurrencies, formatMoneyIn } from '@/core/money'
 import { formatShortDate } from '@/core/util/date-format'
@@ -40,6 +41,7 @@ import { formatShortDate } from '@/core/util/date-format'
  * every row (226 §9).
  */
 export const SALES_DEFAULT_COL_DEF: ColDef<LoySalesRow> = {
+  ...OMS_GRID_BASE_COL_DEF,
   sortable: true,
   filter: true,
   resizable: true,

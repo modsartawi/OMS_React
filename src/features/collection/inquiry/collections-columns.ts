@@ -1,6 +1,7 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { CollectionInquiryRow } from '@/core/models/collection'
 import { distinctCurrencies, formatMoneyIn } from '@/core/money'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
@@ -208,6 +209,7 @@ export function resultCurrencies(rows: readonly CollectionInquiryRow[]): string[
  *  to reclaim the height. */
 export function buildCollectionsDefaultColDef(showFilters: boolean): ColDef<CollectionInquiryRow> {
   return {
+    ...OMS_GRID_BASE_COL_DEF,
     sortable: true,
     resizable: true,
     filter: 'agTextColumnFilter',

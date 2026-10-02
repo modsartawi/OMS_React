@@ -1,6 +1,7 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { formatDateTime } from '@/core/util/date-format'
 import { settlementMoney } from './money-display'
 import { isDimmed, type AccountEntryRow } from './account-projection'
@@ -165,6 +166,7 @@ export function buildAccountColumns(
  *  — on by default here, as on all four neighbours (244 §6). */
 export function buildAccountDefaultColDef(showFilters: boolean): ColDef<AccountEntryRow> {
   return {
+    ...OMS_GRID_BASE_COL_DEF,
     sortable: true,
     resizable: true,
     filter: 'agTextColumnFilter',

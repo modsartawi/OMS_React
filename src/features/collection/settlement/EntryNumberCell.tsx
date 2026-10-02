@@ -28,7 +28,7 @@ export function EntryNumberCell(p: ICellRendererParams<{ entryNumber: number; op
   if (!p.data) return null
   return (
     <span className="flex items-center gap-1.5">
-      <span>{p.data.entryNumber}</span>
+      <bdi>{p.data.entryNumber}</bdi>
       {hasChangeWaiting(p.data) && (
         // The words are the mark's name for a screen reader and its tooltip for a
         // pointer — the icon alone would be a shape nobody was told the meaning of.

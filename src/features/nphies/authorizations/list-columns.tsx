@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import { Link } from 'react-router'
 import { MessageCircleQuestion, PackageCheck } from 'lucide-react'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import StatusBadge from '@/core/ui/StatusBadge'
 import type { AuthListRow } from '@/core/models/nphies'
 import RowActs from './RowActs'
@@ -41,6 +42,7 @@ import {
 /** Every column: read-only, resizable, and neither sortable nor filterable
  *  client-side — see the note above. */
 export const AUTH_LIST_DEFAULT_COL_DEF: ColDef<AuthListRow> = {
+  ...OMS_GRID_BASE_COL_DEF,
   sortable: false,
   filter: false,
   resizable: true,

@@ -20,9 +20,9 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import {
   OMS_GRID_HEADER_HEIGHT,
   OMS_GRID_ROW_HEIGHT,
-  omsGridDirection,
   omsGridTheme,
 } from '@/core/theme/ag-grid-theme'
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { branchSearch } from './addresses'
 import { settlementApi } from './api'
 import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
@@ -106,6 +106,7 @@ export default function LedgerView() {
   )
   const defaultColDef = useMemo(
     () => ({
+      ...OMS_GRID_BASE_COL_DEF,
       sortable: true,
       resizable: true,
       filter: 'agTextColumnFilter',
@@ -205,7 +206,6 @@ export default function LedgerView() {
               pagination
               paginationPageSize={GRID_PAGE_SIZE}
               paginationPageSizeSelector={false}
-              {...omsGridDirection}
             />
           </div>
         </>

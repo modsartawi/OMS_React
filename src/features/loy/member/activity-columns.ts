@@ -1,6 +1,7 @@
 import type { ColDef, ValueFormatterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { LoyActivityRow } from '@/core/models/loy'
 import { formatDateTime, formatShortDate } from '@/core/util/date-format'
 import { activityStatusKey } from './codes'
@@ -32,6 +33,7 @@ import { activityStatusKey } from './codes'
  * space that would 404 on every row (226 §9).
  */
 export const ACTIVITY_DEFAULT_COL_DEF: ColDef<LoyActivityRow> = {
+  ...OMS_GRID_BASE_COL_DEF,
   sortable: true,
   filter: true,
   resizable: true,

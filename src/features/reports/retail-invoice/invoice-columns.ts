@@ -1,6 +1,7 @@
 import type { ColDef, ValueFormatterParams, ValueGetterParams } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 
+import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { InvoiceCandidate } from '@/core/models/retail-invoice'
 import { formatMoneyIn } from '@/core/money'
 import { joinDayAndTime } from '@/core/util/date-format'
@@ -195,6 +196,7 @@ export function enumLabel(t: TFunction, field: (typeof ENUM_FIELDS)[number], val
  */
 export function buildInvoiceDefaultColDef(): ColDef<InvoiceCandidate> {
   return {
+    ...OMS_GRID_BASE_COL_DEF,
     sortable: true,
     resizable: true,
     filter: false,

@@ -5,6 +5,7 @@
  */
 import { proto, setProto, type Palette } from '@/core/theme/proto-362'
 import { useTheme } from './theme'
+import { p363, setP363, SHELLS, type Shell } from './__prototype__/proto-363'
 
 const PALETTES: { key: Palette; name: string }[] = [
   { key: 'steel', name: 'Today (steel)' },
@@ -22,6 +23,19 @@ export default function ProtoTokenBar() {
         className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-xl border-2 border-black/70 bg-black/90 px-3 py-2 text-xs text-white shadow-2xl"
         style={{ fontFamily: 'system-ui, sans-serif' }}
       >
+        <span className="text-[10px] uppercase tracking-wide opacity-60">363</span>
+        <Seg
+          options={SHELLS.map((x) => ({ key: x.key, label: x.name }))}
+          value={p363.shell}
+          onPick={(k) => setP363({ shell: k as Shell })}
+        />
+        <button type="button" onClick={() => setP363({ rtl: !p363.rtl })} className={'rounded-md border px-2 py-1 ' + (p363.rtl ? 'border-white bg-white text-black' : 'border-white/30 hover:bg-white/15')}>
+          RTL
+        </button>
+        <button type="button" onClick={() => setP363({ cmd: !p363.cmd })} className={'rounded-md border px-2 py-1 ' + (p363.cmd ? 'border-white bg-white text-black' : 'border-white/30 hover:bg-white/15')}>
+          Ctrl+K slot
+        </button>
+        <span className="h-4 w-px bg-white/30" />
         <span className="text-[10px] uppercase tracking-wide opacity-60">362</span>
         <Seg
           options={PALETTES.map((p) => ({ key: p.key, label: p.name }))}

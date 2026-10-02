@@ -11,6 +11,8 @@ import { buildTag } from '@/core/build-info'
 import BrandMark from '@/core/ui/BrandMark'
 import StoreSwitcher from '@/features/auth/StoreSwitcher'
 import NotificationBell from './notifications/NotificationBell'
+import RailShellPrototype from './__prototype__/RailShellPrototype' // PROTOTYPE 363
+import { p363 } from './__prototype__/proto-363' // PROTOTYPE 363
 
 const MOBILE_QUERY = '(max-width: 991px)'
 
@@ -279,6 +281,11 @@ function AccountPopup() {
 }
 
 export default function AppShell() {
+  if (p363.shell !== 'today') return <RailShellPrototype /> // PROTOTYPE 363
+  return <TodayShell />
+}
+
+function TodayShell() {
   const { t } = useTranslation()
   const isMobile = useIsMobile()
   const theme = useTheme()

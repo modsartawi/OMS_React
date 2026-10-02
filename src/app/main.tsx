@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import '@/core/theme/proto-362' // PROTOTYPE 362: palette attribute + stub, before anything paints
+import '@/layout/__prototype__/proto-363' // PROTOTYPE 363: shell variant + dir=rtl, before anything paints
 import '@/core/i18n'
 import '@/app/global.css'
 import { router } from '@/app/router'

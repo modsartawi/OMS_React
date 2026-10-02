@@ -19,7 +19,7 @@ export type Palette = 'steel' | 'far' | 'navy'
 export type ProtoSettings = { palette: Palette; rows: number; size: number; stub: boolean }
 
 const KEY = 'proto362'
-const DEFAULTS: ProtoSettings = { palette: 'far', rows: 26, size: 12, stub: false }
+const DEFAULTS: ProtoSettings = { palette: 'navy', rows: 26, size: 12, stub: false }
 
 function read(): ProtoSettings {
   let s: ProtoSettings = { ...DEFAULTS }
@@ -133,7 +133,14 @@ function stubFor(path: string): Response {
   if (/^SdDocumentWeb\/Document\/[^/]+\/(Outbox|Logs)$/.test(path)) return envelope([])
   if (/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/.test(path)) return envelope(DOCUMENT)
   if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path)) return envelope([])
-  if (/Access$/.test(path)) return envelope({ screenAllowed: true, allowed: true, canOpenList: true, canOpenDetail: true })
+  // PROTOTYPE 363: every probe's flag, so the rail draws all eight groups
+  if (/Access$/i.test(path))
+    return envelope({
+      screenAllowed: true, allowed: true, canOpen: true, canOpenList: true, canOpenDetail: true,
+      canOpenConsole: true, canOpenLoyMember: true, canOpenNphies: true, canAdmin: true, canSupport: true,
+      canOpenCollections: true, canOpenAcrs: true, canOpenDeposits: true, canOpenAttempts: true,
+      canOpenAssignment: true, canOpenReady: true, canOpenSettlement: true,
+    })
   return envelope({})
 }
 

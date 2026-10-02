@@ -262,6 +262,11 @@
   --grid-head: #f2f4f8;
   --grid-head-foreground: #46546a;
 
+  /* The one scrim (377 §1), behind any overlay that holds the page: the narrow
+     rail's overlaid tree and the phone drawer (ticket 387), and 388's dialogs.
+     Not a text pair, so the contrast gate does not measure it. */
+  --backdrop: rgb(13 16 21 / 0.32);
+
   /* Command families (D-8). Colour on a command bar carries FUNCTION, not
      stakes — a token that shifts meaning per document state is not a system.
      A new family colour is minted only when a screen has two or more commands
@@ -361,6 +366,7 @@
     --cursor: #fdc801; /* gold on dark — 11.18 on card */
     --grid-head: #162131;
     --grid-head-foreground: #a3afc0;
+    --backdrop: rgb(0 0 0 / 0.5);
 
     --fam-fulfilment: #5fb28b; /* R2, H 161.9 held */
     --fam-cancel-request: #9896da; /* R2, H 285.0 held */
@@ -451,6 +457,7 @@
   --color-cursor: var(--cursor);
   --color-grid-head: var(--grid-head);
   --color-grid-head-foreground: var(--grid-head-foreground);
+  --color-backdrop: var(--backdrop);
 
   --color-fam-fulfilment: var(--fam-fulfilment);
   --color-fam-cancel-request: var(--fam-cancel-request);

@@ -32,7 +32,22 @@ function initials(name: string): string {
 const ITEM_CLASS =
   'flex h-7 w-full items-center gap-2 rounded-md px-2 text-start text-[12.5px] hover:bg-rail-accent hover:text-rail-accent-foreground focus:bg-rail-accent focus:text-rail-accent-foreground'
 
-export default function UserMenu({ expanded, onOpen }: { expanded: boolean; onOpen: () => void }) {
+/**
+ * `beside` (the rail): the menu opens against the rail's inline-end edge. `above` (the
+ * phone drawer, ticket 387): there is no room beside a drawer on a phone, so it opens
+ * over the avatar, inside the drawer — whose foot is its positioned box.
+ */
+type UserMenuPlacement = 'beside' | 'above'
+
+export default function UserMenu({
+  expanded,
+  onOpen,
+  placement = 'beside',
+}: {
+  expanded: boolean
+  onOpen?: () => void
+  placement?: UserMenuPlacement
+}) {
   const { t } = useTranslation()
   const session = useSession()
   const theme = useTheme()
@@ -90,7 +105,7 @@ export default function UserMenu({ expanded, onOpen }: { expanded: boolean; onOp
         ref={buttonRef}
         type="button"
         onClick={() => {
-          if (!open) onOpen()
+          if (!open) onOpen?.()
           setOpen(!open)
         }}
         aria-label={t('topbar.account')}
@@ -124,8 +139,12 @@ export default function UserMenu({ expanded, onOpen }: { expanded: boolean; onOp
       {open && (
         <div
           data-user-menu
-          // Against the rail's inline-end edge, level with its foot, in either direction.
-          className="absolute bottom-2 start-full z-50 ms-2 w-64 rounded-lg border border-rail-accent bg-rail p-1.5 text-rail-foreground shadow-lg"
+          // Beside: against the rail's inline-end edge, level with its foot. Above: over
+          // the avatar, inside the drawer. Logical either way, so both mirror.
+          className={
+            'absolute z-50 w-64 rounded-lg border border-rail-accent bg-rail p-1.5 text-rail-foreground shadow-lg ' +
+            (placement === 'above' ? 'bottom-full start-2.5 mb-1' : 'bottom-2 start-full ms-2')
+          }
         >
           <div className="border-b border-rail-accent px-2 pt-1 pb-2">
             <bdi className="block truncate text-[13px] font-medium text-rail-accent-foreground">{name}</bdi>

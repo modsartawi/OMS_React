@@ -30,6 +30,10 @@
       "darkMode": "Dark mode",
       "signOut": "Sign out",
       "build": "Build"
+    },
+    "drawer": {
+      "open": "Open menu",
+      "label": "Menu"
     }
   },
   "rail": {

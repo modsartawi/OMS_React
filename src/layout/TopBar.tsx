@@ -10,6 +10,7 @@ import StoreSwitcher from '@/features/auth/StoreSwitcher'
 import NotificationBell from './notifications/NotificationBell'
 import { deriveCrumb } from './crumb'
 import { MENU } from './menu-model'
+import { RailDrawer } from './Rail'
 
 // The top bar (spec 380 F11, ticket 386; 363 "Top bar"): 44px on `--card`, holding the
 // crumb, then — at the inline end — the store chip and the bell. Nothing else: the
@@ -183,12 +184,14 @@ function StoreChip() {
   )
 }
 
-export default function TopBar() {
+/** `withDrawer`: below 640px there is no rail, and the bar leads with the hamburger (387). */
+export default function TopBar({ withDrawer }: { withDrawer: boolean }) {
   return (
     <header
       id="layout-topbar"
       className="sticky top-0 z-30 flex h-11 shrink-0 items-center gap-3 border-b border-border bg-card px-3 print:hidden"
     >
+      {withDrawer && <RailDrawer />}
       <Crumb />
       <div className="flex-1" />
       <div className="flex shrink-0 items-center gap-1.5">

@@ -61,6 +61,16 @@
 //      and the build stamp; focus, arrows, Esc and outside click behave as a menu; sign out lands
 //      on /login; print emulation hides the bar.
 //
+// 387: below 1280px the rail overlays the page; below 640px it is a drawer. In the same four modes,
+// with the preference stored EXPANDED throughout:
+//  26. at 1100px the rail is collapsed; its toggle lays the 240px tree over the page from the inline
+//      start, over the --backdrop scrim, without moving the grid's edges or writing the preference;
+//      navigation, Esc (focus back on the toggle) and a scrim click close it; 1280 is pinned again;
+//  27. at 390px there is no rail: the hamburger at the top bar's inline start opens a navy drawer
+//      holding every granted group and leaf (the flyouts' own lists); the body cannot scroll, Tab
+//      stays inside, the user menu opens inside it, and Esc, the scrim and navigation close it,
+//      each handing focus back to the hamburger.
+//
 // Every `/api/**` call is stubbed (the delivery list needs a store grant a dev session lacks;
 // see grid-theme-drive.mjs). Mocked data, real app, real browser, real CSS, real fonts.
 //
@@ -1571,9 +1581,287 @@ async function driveTopbar({ theme, dir }) {
   await unset.close()
 }
 
-// DRIVE_ONLY=paint|grids|ranges|rail|topbar runs one part, for a slice's inner loop; unset runs all.
+// ── 387: below 1280px the rail overlays the page; below 640px it is a drawer ─────────────────
+//
+// The same OMS + Collections session as the rail part, with the Deliveries list stubbed so a grid
+// is on screen to measure. The stored preference is EXPANDED throughout, so a collapsed rail can
+// only come from the width.
+
+const BACKDROP = { light: 'rgba(13, 16, 21, 0.32)', dark: 'rgba(0, 0, 0, 0.5)' }
+
+async function routeNarrow(route) {
+  const path = route.request().url().split('/api/')[1].split('?')[0]
+  if (path === 'SdDocumentWeb/DeliveryDocumentList') return routeGrids(route)
+  return routeRail(route)
+}
+
+async function driveNarrow({ theme, dir }) {
+  const label = `${theme}/${dir} narrow`
+  const rtl = dir === 'rtl'
+  const context = await browser.newContext({ viewport: { width: 1100, height: 900 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  await bootAs(page, { theme, dir })
+  await page.route('**/api/**', routeNarrow)
+
+  const rail = page.locator('#layout-rail')
+  const nav = rail.locator('nav')
+  const scrim = page.locator('[data-rail-scrim]')
+  const toggle = rail.getByRole('button', { name: /^(Expand|Collapse) menu$/ })
+  const box = (loc) => loc.evaluate((el) => el.getBoundingClientRect().toJSON())
+  const stored = () => page.evaluate(() => localStorage.getItem('oms.railExpanded'))
+  const focusedLabel = () =>
+    page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent?.trim())
+
+  // ---- 1100px: collapsed whatever the preference ----
+  await page.goto(BASE + '/oms/deliveries')
+  await page.evaluate(() => localStorage.setItem('oms.railExpanded', 'true'))
+  await page.reload()
+  await page.getByRole('button', { name: /^load$/i }).waitFor({ timeout: 20000 })
+  await page.getByRole('button', { name: /^load$/i }).click()
+  await page.waitForSelector('main .ag-row:not(.ag-header-row)', { timeout: 20000 })
+  await page.waitForTimeout(300)
+  const r0 = await box(rail)
+  check(
+    `${label}: at 1100px the rail is COLLAPSED (56px) even with the preference expanded`,
+    (await rail.getAttribute('data-rail-mode')) === 'overlay' &&
+      (await rail.getAttribute('data-rail')) === 'collapsed' &&
+      Math.round(r0.width) === 56 &&
+      (await stored()) === 'true',
+    JSON.stringify({ width: r0.width, stored: await stored() }),
+  )
+  const grid = page.locator('main .ag-root-wrapper').first()
+  const g0 = await box(grid)
+
+  // Each granted group's leaves as its flyout lists them: what the phone drawer must hold too.
+  const flyout = page.locator('#layout-rail [role="dialog"]')
+  await rail.locator('[data-rail-group="deliveries:menu.oms"]').click()
+  await flyout.waitFor({ timeout: 5000 })
+  check(`${label}: at 1100px a group's icon still opens its flyout`, (await page.getByRole('dialog', { name: 'OMS' }).count()) === 1)
+  const grantedLeaves = [...(await flyout.getByRole('link').allInnerTexts())]
+  await rail.locator('[data-rail-group="collection:menu.collections"]').hover()
+  await page.getByRole('dialog', { name: 'Collections' }).waitFor({ timeout: 5000 })
+  grantedLeaves.push(...(await flyout.getByRole('link').allInnerTexts()))
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+
+  // ---- The toggle overlays the tree: the page does not move ----
+  await toggle.click()
+  await scrim.waitFor({ timeout: 5000 })
+  await page.waitForTimeout(200)
+  const r1 = await box(rail)
+  const n1 = await box(nav)
+  const g1 = await box(grid)
+  const scrimBg = await scrim.evaluate((el) => getComputedStyle(el).backgroundColor)
+  check(
+    `${label}: the toggle lays the 240px labelled tree over the page from the inline start`,
+    (await rail.getAttribute('data-rail')) === 'expanded' &&
+      Math.round(n1.width) === 240 &&
+      (rtl ? Math.round(n1.right) === 1100 : Math.round(n1.left) === 0) &&
+      (await toggle.getAttribute('aria-expanded')) === 'true' &&
+      (await nav.getByRole('link', { name: 'Delivery Documents' }).isVisible()),
+    JSON.stringify({ nav: [n1.left, n1.right], width: n1.width }),
+  )
+  check(
+    `${label}: the rail keeps its 56px footprint and the grid's edges do not move`,
+    Math.round(r1.width) === 56 && Math.round(g1.left) === Math.round(g0.left) && Math.round(g1.right) === Math.round(g0.right),
+    JSON.stringify({ rail: r1.width, before: [g0.left, g0.right], after: [g1.left, g1.right] }),
+  )
+  check(`${label}: the scrim is the --backdrop token`, scrimBg === BACKDROP[theme], scrimBg)
+  check(`${label}: opening the overlay does not write the preference`, (await stored()) === 'true')
+  await page.screenshot({ path: `${SHOTS}/narrow-1100-overlay-${theme}-${dir}.png` })
+
+  // Navigation closes it.
+  await nav.getByRole('link', { name: 'Raise central invoices' }).click()
+  await page.waitForURL(/\/oms\/central-invoice$/, { timeout: 10000 })
+  await page.waitForTimeout(200)
+  check(
+    `${label}: navigating from the overlaid tree closes it`,
+    (await rail.getAttribute('data-rail')) === 'collapsed' && (await scrim.count()) === 0,
+  )
+
+  // Esc closes it and hands focus back to the toggle.
+  await toggle.click()
+  await scrim.waitFor({ timeout: 5000 })
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  check(
+    `${label}: Esc closes the overlaid tree and returns focus to the toggle`,
+    (await rail.getAttribute('data-rail')) === 'collapsed' && (await focusedLabel()) === 'Expand menu',
+    String(await focusedLabel()),
+  )
+
+  // A click on the scrim closes it.
+  await toggle.click()
+  await scrim.waitFor({ timeout: 5000 })
+  await page.mouse.click(rtl ? 300 : 800, 600)
+  await page.waitForTimeout(150)
+  check(
+    `${label}: a click on the scrim closes the overlaid tree`,
+    (await rail.getAttribute('data-rail')) === 'collapsed' && (await scrim.count()) === 0,
+  )
+  check(`${label}: the preference is still expanded after the overlay closes`, (await stored()) === 'true')
+
+  // ---- The band's edges: 1280 is pinned (the preference comes back), 1279 is not ----
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.waitForTimeout(200)
+  const r2 = await box(rail)
+  check(
+    `${label}: at 1280px the rail is pinned and the stored preference expands it again`,
+    (await rail.getAttribute('data-rail-mode')) === 'pinned' &&
+      (await rail.getAttribute('data-rail')) === 'expanded' &&
+      Math.round(r2.width) === 240,
+    JSON.stringify({ width: r2.width }),
+  )
+  await page.setViewportSize({ width: 1279, height: 900 })
+  await page.waitForTimeout(200)
+  check(
+    `${label}: at 1279px it is collapsed again`,
+    (await rail.getAttribute('data-rail-mode')) === 'overlay' && Math.round((await box(rail)).width) === 56,
+  )
+
+  // ---- 390px: no rail, a hamburger and a drawer ----
+  await page.setViewportSize({ width: 390, height: 800 })
+  await page.goto(BASE + '/oms/deliveries')
+  const burger = page.locator('#layout-topbar [data-drawer-button]')
+  await burger.waitFor({ timeout: 20000 })
+  await page.waitForTimeout(300)
+  const b0 = await box(burger)
+  const crumb0 = await box(page.locator('#layout-topbar [data-crumb]'))
+  check(
+    `${label}: at 390px there is no rail, and the hamburger leads the top bar at its inline start`,
+    (await rail.count()) === 0 &&
+      (await burger.getAttribute('aria-label')) === 'Open menu' &&
+      (rtl ? b0.left >= crumb0.right && b0.right >= 380 : b0.right <= crumb0.left && b0.left <= 10),
+    JSON.stringify({ burger: [b0.left, b0.right], crumb: [crumb0.left, crumb0.right] }),
+  )
+  const canScroll = await page.evaluate(() => document.documentElement.scrollHeight > innerHeight)
+  await page.screenshot({ path: `${SHOTS}/narrow-390-${theme}-${dir}.png` })
+
+  const drawer = page.locator('[data-rail-drawer]')
+  await burger.click()
+  await drawer.waitFor({ timeout: 5000 })
+  await page.waitForTimeout(200)
+  const d0 = await box(drawer)
+  const drawerBg = await drawer.evaluate((el) => getComputedStyle(el).backgroundColor)
+  const drawerScrim = await page.locator('[data-drawer-scrim]').evaluate((el) => getComputedStyle(el).backgroundColor)
+  check(
+    `${label}: the hamburger opens a navy drawer (a dialog named Menu) from the inline start, over the --backdrop scrim`,
+    (await page.getByRole('dialog', { name: 'Menu' }).count()) === 1 &&
+      drawerBg === NAVY &&
+      drawerScrim === BACKDROP[theme] &&
+      (rtl ? Math.round(d0.right) === 390 : Math.round(d0.left) === 0) &&
+      (await burger.getAttribute('aria-expanded')) === 'true',
+    JSON.stringify({ drawerBg, drawerScrim, edges: [d0.left, d0.right] }),
+  )
+  const drawerNav = drawer.locator('nav')
+  const leaves = await drawerNav.getByRole('link').allInnerTexts()
+  const heads = await drawerNav.locator('section').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))
+  check(
+    `${label}: the drawer holds every granted group and every granted leaf, and nothing else`,
+    JSON.stringify(heads) === JSON.stringify(['OMS', 'Collections']) &&
+      grantedLeaves.length > 0 &&
+      JSON.stringify(leaves) === JSON.stringify(grantedLeaves),
+    JSON.stringify({ heads, leaves, grantedLeaves }),
+  )
+  check(`${label}: the drawer carries the brand, linking /`, (await drawer.locator('a[href="/"]').count()) === 1)
+  check(
+    `${label}: focus moves to the drawer's first leaf`,
+    (await page.evaluate(() => document.activeElement?.textContent?.trim())) === leaves[0],
+  )
+  // Body scroll is locked: a wheel over the scrim moves nothing.
+  const lock = await page.evaluate(() => getComputedStyle(document.body).overflow)
+  await page.mouse.move(rtl ? 30 : 360, 400)
+  await page.mouse.wheel(0, 600)
+  await page.waitForTimeout(200)
+  const scrolled = await page.evaluate(() => scrollY)
+  check(
+    `${label}: body scroll is locked while the drawer is open`,
+    canScroll && lock === 'hidden' && scrolled === 0,
+    JSON.stringify({ canScroll, lock, scrolled }),
+  )
+  for (let i = 0; i < 30; i++) await page.keyboard.press('Tab')
+  check(
+    `${label}: Tab stays inside the drawer`,
+    await page.evaluate(() => !!document.activeElement?.closest('[data-rail-drawer]')),
+  )
+  await page.screenshot({ path: `${SHOTS}/narrow-390-drawer-${theme}-${dir}.png` })
+
+  // The user menu sits at the drawer's foot and opens inside it; its Esc closes only itself.
+  await drawer.locator('[data-user-menu-button]').click()
+  const userMenu = page.locator('[data-user-menu]')
+  await userMenu.waitFor({ timeout: 5000 })
+  const u0 = await box(userMenu)
+  check(
+    `${label}: the user menu opens inside the drawer, on screen`,
+    u0.left >= 0 && u0.right <= 390 && u0.top >= 0 && (await userMenu.getByRole('menuitem', { name: 'Sign out' }).count()) === 1,
+    JSON.stringify([u0.left, u0.right, u0.top]),
+  )
+  // Tab from inside the open user menu closes it and wraps, still inside the drawer.
+  await page.keyboard.press('Tab')
+  await page.waitForTimeout(150)
+  check(
+    `${label}: Tab from the open user menu closes it and stays inside the drawer`,
+    (await userMenu.count()) === 0 &&
+      (await page.evaluate(() => !!document.activeElement?.closest('[data-rail-drawer]'))),
+  )
+  await drawer.locator('[data-user-menu-button]').click()
+  await userMenu.waitFor({ timeout: 5000 })
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  check(
+    `${label}: Esc closes the user menu and leaves the drawer open`,
+    (await userMenu.count()) === 0 && (await drawer.count()) === 1,
+  )
+
+  // Esc closes the drawer, hands focus back to the hamburger, and unlocks the body.
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  check(
+    `${label}: Esc closes the drawer, returns focus to the hamburger and unlocks scrolling`,
+    (await drawer.count()) === 0 &&
+      (await focusedLabel()) === 'Open menu' &&
+      (await page.evaluate(() => getComputedStyle(document.body).overflow)) !== 'hidden',
+    String(await focusedLabel()),
+  )
+
+  // A click on the scrim closes it.
+  await burger.click()
+  await drawer.waitFor({ timeout: 5000 })
+  await page.mouse.click(rtl ? 20 : 370, 400)
+  await page.waitForTimeout(150)
+  check(
+    `${label}: a click on the scrim closes the drawer, focus back on the hamburger`,
+    (await drawer.count()) === 0 && (await focusedLabel()) === 'Open menu',
+  )
+
+  // Navigation closes it.
+  await burger.click()
+  await drawer.waitFor({ timeout: 5000 })
+  await drawer.getByRole('link', { name: 'Ledger' }).click()
+  await page.waitForURL(/\/collection\/settlement\/ledger$/, { timeout: 10000 })
+  await page.waitForTimeout(200)
+  check(
+    `${label}: navigating from the drawer closes it, focus back on the hamburger`,
+    (await drawer.count()) === 0 && (await focusedLabel()) === 'Open menu',
+  )
+
+  check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
+  await context.close()
+}
+
+// DRIVE_ONLY=paint|grids|ranges|rail|topbar|narrow runs one part, for a slice's inner loop; unset runs all.
 const ONLY = process.env.DRIVE_ONLY
-const PARTS = { paint: driveOneMode, grids: driveGrids, ranges: driveRanges, rail: driveRail, topbar: driveTopbar }
+const PARTS = {
+  paint: driveOneMode,
+  grids: driveGrids,
+  ranges: driveRanges,
+  rail: driveRail,
+  topbar: driveTopbar,
+  narrow: driveNarrow,
+}
 for (const [part, drive] of Object.entries(PARTS))
   if (!ONLY || ONLY === part)
     for (const dir of ['ltr', 'rtl']) for (const theme of ['light', 'dark']) await drive({ theme, dir })

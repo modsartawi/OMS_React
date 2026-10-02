@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, NavLink, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Folder, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Folder, Menu, X } from 'lucide-react'
 import { MENU, isActive, type ShellMenuItem } from './menu-model'
 import { useVisibleMenu } from './useVisibleMenu'
 import { useRailPreference } from './rail-preference'
+import { railExpanded, type RailMode } from './rail-mode'
 import BrandMark from '@/core/ui/BrandMark'
 import UserMenu from './UserMenu'
 
@@ -12,9 +14,20 @@ import UserMenu from './UserMenu'
 // Collapsed (56px, the default) it is one icon per visible group, each opening a
 // 240px flyout; expanded (240px) it is the labelled accordion tree. The toggle at
 // its foot is the user's remembered preference (`rail-preference.ts`).
+//
+// Below 1280px (F13, ticket 387; `rail-mode.ts`) the rail stays collapsed and its
+// toggle lays the tree OVER the page behind the scrim instead; below 640px there is
+// no rail, and `RailDrawer` — a hamburger in the top bar — opens the tree in a drawer.
 
 const FLYOUT_ID = 'layout-rail-flyout'
 const FLYOUT_LABEL_ID = 'layout-rail-flyout-label'
+const DRAWER_ID = 'layout-rail-drawer'
+
+/**
+ * An Esc the open user menu inside the rail or the drawer is already handling: it
+ * closes the menu, and only a second Esc closes what the menu sits in.
+ */
+const inUserMenu = (e: KeyboardEvent) => e.target instanceof Element && !!e.target.closest('[data-user-menu]')
 
 /**
  * The active marker: a 3px gold bar drawn by `::before` on the inline-start edge
@@ -23,6 +36,9 @@ const FLYOUT_LABEL_ID = 'layout-rail-flyout-label'
  */
 const MARKER =
   'before:absolute before:inset-y-1.5 before:start-0 before:w-[3px] before:rounded-full before:bg-rail-active'
+
+/** A group's label, wherever it heads its leaves: the tree, the flyout and the drawer. */
+const GROUP_LABEL = 'text-[11px] font-semibold uppercase tracking-wide'
 
 /** Every row that draws one menu item takes exactly these. */
 interface RowProps {
@@ -201,7 +217,7 @@ function GroupItems({ group, onNavigate, flyout }: { group: ShellMenuItem; onNav
  * A group in the expanded tree: an uppercase header in the rail's muted ink — white
  * while it holds the screen on view — over its leaves, open while it holds the screen.
  */
-function TreeGroup({ item }: { item: ShellMenuItem }) {
+function TreeGroup({ item, onNavigate }: RowProps) {
   const { t } = useTranslation()
   const { pathname } = useLocation()
   const hasActiveChild = holdsActive(item, pathname)
@@ -214,7 +230,7 @@ function TreeGroup({ item }: { item: ShellMenuItem }) {
         onClick={toggle}
         aria-expanded={expanded}
         className={
-          'flex h-8 items-center gap-2 rounded-md ps-3 pe-2 text-[11px] font-semibold uppercase tracking-wide hover:bg-rail-accent hover:text-rail-accent-foreground ' +
+          'flex h-8 items-center gap-2 rounded-md ps-3 pe-2 ' + GROUP_LABEL + ' hover:bg-rail-accent hover:text-rail-accent-foreground ' +
           (hasActiveChild ? 'text-rail-accent-foreground' : 'text-rail-muted')
         }
       >
@@ -224,7 +240,7 @@ function TreeGroup({ item }: { item: ShellMenuItem }) {
       </button>
       {expanded && (
         <div className="ms-3">
-          <GroupItems group={item} />
+          <GroupItems group={item} onNavigate={onNavigate} />
         </div>
       )}
     </div>
@@ -263,7 +279,7 @@ function Flyout({ group, onClose }: { group: ShellMenuItem; onClose: (restoreFoc
       className="absolute inset-y-0 start-full flex w-60 flex-col gap-2 overflow-y-auto border-e border-rail-accent bg-rail p-3 shadow-lg"
     >
       <div className="flex h-7 shrink-0 items-center justify-between gap-2 ps-3">
-        <div id={FLYOUT_LABEL_ID} className="truncate text-[11px] font-semibold uppercase tracking-wide text-rail-muted">
+        <div id={FLYOUT_LABEL_ID} className={'truncate text-rail-muted ' + GROUP_LABEL}>
           {t(group.labelKey)}
         </div>
         <button
@@ -281,21 +297,47 @@ function Flyout({ group, onClose }: { group: ShellMenuItem; onClose: (restoreFoc
   )
 }
 
-export default function Rail() {
+export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
   const { t } = useTranslation()
   const { pathname } = useLocation()
   // The same permission-aware menu the tree has always read (issue 429), so gating is
   // unchanged: a group whose leaves all hide is gone from the rail too.
   const { items: menu } = useVisibleMenu(MENU)
-  const expanded = useRailPreference((s) => s.expanded)
-  const toggleExpanded = useRailPreference((s) => s.toggle)
+  const preference = useRailPreference((s) => s.expanded)
+  const togglePreference = useRailPreference((s) => s.toggle)
+  // 640–1279px: the tree laid over the page. Never written to the preference.
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  const expanded = railExpanded(mode, preference, overlayOpen)
+  const overlaid = mode === 'overlay' && expanded
   // The `labelKey` of the group whose flyout is open, if any.
   const [openKey, setOpenKey] = useState<string | null>(null)
   const railRef = useRef<HTMLElement>(null)
+  const toggleRef = useRef<HTMLButtonElement>(null)
 
-  // Navigating closes the flyout (a link to the page already on view closes it too,
-  // through the leaves' own `onNavigate`).
-  useEffect(() => setOpenKey(null), [pathname])
+  // Navigating closes the flyout and the overlaid tree (a link to the page already on
+  // view closes them too, through the leaves' own `onNavigate`). Crossing a band closes
+  // both, so a window widened past 1280px never inherits a transient overlay.
+  useEffect(() => {
+    setOpenKey(null)
+    setOverlayOpen(false)
+  }, [pathname, mode])
+
+  // The overlaid tree closes on Esc and hands focus back to its toggle; a click on the
+  // scrim closes it too.
+  useEffect(() => {
+    if (!overlaid) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || inUserMenu(e)) return
+      setOverlayOpen(false)
+      toggleRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [overlaid])
+
+  const closeOverlay = () => setOverlayOpen(false)
+  // Overlaid, the tree's links close it; pinned, they have nothing to close.
+  const onTreeNavigate = overlaid ? closeOverlay : undefined
 
   const close = (restoreFocus: boolean) => {
     if (restoreFocus && openKey !== null)
@@ -330,16 +372,26 @@ export default function Rail() {
       id="layout-rail"
       ref={railRef}
       data-rail={expanded ? 'expanded' : 'collapsed'}
+      data-rail-mode={mode}
       // Navy in both themes (F5), where the light navy ring would vanish: inside it the
       // ring is gold, which is what gold on navy is for. Paper never carries it (F20).
+      // Overlaid, the aside keeps its 56px footprint, so the page does not move, and
+      // the `nav` stretches over the page from it.
       className={
         'sticky top-0 z-40 h-screen shrink-0 bg-rail text-rail-foreground [--ring:var(--gold)] print:hidden ' +
-        (expanded ? 'w-60' : 'w-14')
+        (expanded && !overlaid ? 'w-60' : 'w-14')
       }
     >
-      <nav className="flex h-full flex-col py-2.5">
+      {overlaid && <div data-rail-scrim aria-hidden className="fixed inset-0 bg-backdrop" onClick={closeOverlay} />}
+      <nav
+        className={
+          'flex flex-col py-2.5 ' +
+          (overlaid ? 'absolute inset-y-0 start-0 w-60 border-e border-rail-accent bg-rail shadow-lg' : 'h-full')
+        }
+      >
         <Link
           to="/"
+          onClick={onTreeNavigate}
           aria-label={t('brand')}
           title={t('brand')}
           className={
@@ -361,9 +413,9 @@ export default function Rail() {
           {expanded
             ? menu.map((item) =>
                 item.items ? (
-                  <TreeGroup key={item.labelKey} item={item} />
+                  <TreeGroup key={item.labelKey} item={item} onNavigate={onTreeNavigate} />
                 ) : (
-                  <RailLeaf key={item.labelKey} item={item} />
+                  <RailLeaf key={item.labelKey} item={item} onNavigate={onTreeNavigate} />
                 ),
               )
             : menu.map((item) => {
@@ -408,11 +460,15 @@ export default function Rail() {
         </div>
 
         <button
+          ref={toggleRef}
           type="button"
           onClick={() => {
             setOpenKey(null)
-            toggleExpanded()
+            if (mode === 'pinned') togglePreference()
+            else setOverlayOpen(!overlayOpen)
           }}
+          // Overlaid, the toggle discloses a transient panel; pinned, it is a setting.
+          aria-expanded={mode === 'overlay' ? overlayOpen : undefined}
           aria-label={expanded ? undefined : t('rail.expand')}
           title={expanded ? undefined : t('rail.expand')}
           className={
@@ -438,5 +494,163 @@ export default function Rail() {
         {openGroup && <Flyout group={openGroup} onClose={close} />}
       </nav>
     </aside>
+  )
+}
+
+/** What Tab cycles through inside the drawer: its links and buttons, never a menu's roving items. */
+const TABBABLE = 'a[href], button:not([disabled]):not([tabindex="-1"])'
+
+/**
+ * Below 640px (F13, ticket 387): there is no rail. A hamburger at the top bar's inline
+ * start opens a navy drawer holding the whole labelled tree — the brand, every visible
+ * group with every leaf, the Settlement sub-group as header plus indented leaves — and
+ * the user menu at its foot, since the rail that carried it is gone.
+ *
+ * It is modal: the body stops scrolling, Tab stays inside, and Esc, a click on the
+ * scrim or navigating closes it — and every close hands focus back to the hamburger.
+ * Portalled to `body` so the top bar's own stacking context cannot sink it under the
+ * page.
+ */
+export function RailDrawer() {
+  const { t } = useTranslation()
+  const { pathname } = useLocation()
+  const { items: menu } = useVisibleMenu(MENU)
+  const [open, setOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  const wasOpen = useRef(false)
+
+  useEffect(() => setOpen(false), [pathname])
+
+  // Opening moves focus to the first link; closing, however it happens, returns it to
+  // the hamburger.
+  useEffect(() => {
+    if (open) panelRef.current?.querySelector<HTMLElement>('nav a')?.focus()
+    else if (wasOpen.current) buttonRef.current?.focus()
+    wasOpen.current = open
+  }, [open])
+
+  // The page behind the drawer holds still. The previous value is put back, not
+  // cleared, in case anything else had locked it first.
+  useEffect(() => {
+    if (!open) return
+    const body = document.body
+    const before = body.style.overflow
+    body.style.overflow = 'hidden'
+    return () => {
+      body.style.overflow = before
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented && !inUserMenu(e)) setOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
+  // Tab wraps at either end rather than leaving for the page under the scrim.
+  const onPanelKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'Tab') return
+    const items = [...(panelRef.current?.querySelectorAll<HTMLElement>(TABBABLE) ?? [])]
+    if (items.length === 0) return
+    const first = items[0]
+    const last = items[items.length - 1]
+    // The open user menu's items sit after the avatar but out of the tab order, so
+    // focus on one of them is at the drawer's end too (the menu closes itself on Tab).
+    const atEnd = document.activeElement === last || !!document.activeElement?.closest('[data-user-menu]')
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && atEnd) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+
+  const close = () => setOpen(false)
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={t('topbar.drawer.open')}
+        title={t('topbar.drawer.open')}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? DRAWER_ID : undefined}
+        data-drawer-button
+        className="-ms-1 shrink-0 rounded-md p-1.5 hover:bg-accent"
+      >
+        <Menu className="h-5 w-5" aria-hidden />
+      </button>
+      {open &&
+        createPortal(
+          <>
+            <div data-drawer-scrim aria-hidden className="fixed inset-0 z-40 bg-backdrop print:hidden" onClick={close} />
+            <div
+              ref={panelRef}
+              id={DRAWER_ID}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('topbar.drawer.label')}
+              onKeyDown={onPanelKey}
+              data-rail-drawer
+              // The rail's own ground, ink and gold ring, at the inline start in either direction.
+              className="fixed inset-y-0 start-0 z-50 flex w-72 max-w-[calc(100vw-3rem)] flex-col bg-rail text-rail-foreground shadow-lg [--ring:var(--gold)] print:hidden"
+            >
+              <div className="flex h-12 shrink-0 items-center gap-2 px-3">
+                <Link
+                  to="/"
+                  onClick={close}
+                  aria-label={t('brand')}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 hover:bg-rail-accent"
+                >
+                  <BrandMark size={24} />
+                  <span className="truncate text-sm font-semibold tracking-tight text-rail-accent-foreground">
+                    {t('brandName')}
+                  </span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={close}
+                  aria-label={t('rail.close')}
+                  title={t('rail.close')}
+                  className="rounded-md p-1 hover:bg-rail-accent hover:text-rail-accent-foreground"
+                >
+                  <X className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+              <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2.5 pb-2">
+                {menu.map((item) =>
+                  item.items ? (
+                    <section key={item.labelKey} aria-label={t(item.labelKey)} className="flex flex-col gap-0.5">
+                      <div
+                        className={
+                          'ps-3 ' + GROUP_LABEL + ' ' +
+                          (holdsActive(item, pathname) ? 'text-rail-accent-foreground' : 'text-rail-muted')
+                        }
+                      >
+                        {t(item.labelKey)}
+                      </div>
+                      <GroupItems group={item} onNavigate={close} flyout />
+                    </section>
+                  ) : (
+                    <RailLeaf key={item.labelKey} item={item} onNavigate={close} />
+                  ),
+                )}
+              </nav>
+              <div className="relative shrink-0 border-t border-rail-accent py-2">
+                <UserMenu expanded placement="above" />
+              </div>
+            </div>
+          </>,
+          document.body,
+        )}
+    </>
   )
 }

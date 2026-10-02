@@ -1,0 +1,71 @@
+---
+status: open
+spec: 380
+blocked-by: 385
+---
+
+# 386 — The top bar carries the crumb, the store chip and the bell; the user menu sits at the rail foot
+
+Step S1 (Foundation) of [spec 380](380-ops-console-rebuild-spec.md). Spec decisions **F11, F12,
+F20**. The values are in [363](363-the-rail-shell.md) ("Top bar", "Store chip", "User menu",
+"Broadcast").
+
+## What to build
+
+- **The top bar** is 44px on `--card`, with `print:hidden` (F20). It holds only:
+  - **the crumb:** group / [sub-group] / screen / record number, derived from the menu. The separator
+    is a **slash** (owner, [378](378-the-foundation-in-arabic-rtl.md) §5). The record number goes
+    through `Ltr` and mono;
+  - **the store chip**, at the inline end;
+  - **the bell**, at the inline end.
+
+  The palette field is **not** here yet. It arrives with 392 (361: no Ctrl+K hint before the keyboard
+  step).
+- **The store chip.** The acting store moves **out of the account popup** into its own chip ("Acting
+  store `1001`", the code in `Ltr`, mono), opening today's `StoreSwitcher`. **With no store it takes
+  the attention tone**, so the "store not resolved" dead end is visible from every screen.
+- **The user menu at the rail foot.** An avatar opens a menu holding:
+  - name + user id;
+  - the theme toggle;
+  - sign out;
+  - the **build stamp**.
+
+  The shortcuts sheet and the single-key switch join it in 393. `/version.json` stays the machine
+  read. **Today's footer row is removed.**
+- **Broadcast** stays an Administration leaf only. There is no top-bar button.
+- **i18n:** `common:topbar.*` gets the crumb's accessible label, the store chip (set and unset), and
+  the user menu items and build-stamp label. No literals.
+
+The menu's overlay look is 388's card or navy recipe. This ticket gives it correct structure, focus
+and dismissal.
+
+## Spine reach
+
+`layout/` shell (top bar, crumb derivation, store chip, user menu) · `common` locale · drive.
+
+## Proof (→ `tdd` red-green cycles)
+
+- [ ] `crumb derives group, sub-group and screen from the menu for a route` (including a Settlement
+  sub-group route and a record route) — pure · vitest
+- [ ] `tools/foundation-drive.mjs` (extend), in light, dark and RTL:
+  - the crumb reads the current screen;
+  - the store chip shows the acting store and opens the switcher, and with no store set it carries
+    the attention tone;
+  - the user menu opens from the rail foot with theme, sign out and the build stamp;
+  - no footer row is rendered.
+
+  · flow (Playwright)
+
+## Boundaries
+
+- New `common:topbar.*` keys. No endpoints; the store chip reads today's session store.
+- The bell's panel redesign is 389. This ticket only places the bell.
+
+## Done when
+
+Every shell screen shows the 44px top bar with crumb, store chip and bell, the user menu works from
+the rail foot, the footer is gone, and the drive passes.
+
+## Blocked by
+
+[385](385-navigation-lives-in-an-expanding-navy-rail.md)

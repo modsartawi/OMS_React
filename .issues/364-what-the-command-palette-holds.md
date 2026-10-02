@@ -57,6 +57,9 @@ recommendation to defer it.
   deliveries with their status, as in the prototype.
   - **It matches on:** delivery, document and order number, exact or by prefix, and **customer
     mobile**, exact or by suffix.
+    *Amended 2026-10-02 by [What the palette's live search matches on and shows](376-what-the-palettes-live-search-matches-and-shows.md):
+    the mobile matches **exactly, across its stored formats**, and the suffix is dropped. A hit
+    shows no name and no phone. Live search ships after the keyboard step, as its own ticket.*
   - **Never by customer name.** That is the heaviest read and the fuzziest PII match.
   - **Which read backs it is open:** [What read backs the palette's live delivery search](374-what-read-backs-the-palettes-live-delivery-search.md).
 

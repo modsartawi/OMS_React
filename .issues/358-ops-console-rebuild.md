@@ -1,7 +1,10 @@
 ---
 type: wayfinder-map
-status: open
+status: done
 ---
+
+> **Destination reached 2026-10-02:** spec [380](380-ops-console-rebuild-spec.md) is `ready` for
+> `/to-tickets`.
 
 # 358 — The Ops Console rebuild
 
@@ -280,10 +283,79 @@ and features never import features.
     from = to.
   - **Default:** a cancelled delivery keeps evidence-only gating.
     ([prototype branch + shots](assets/371-shots/))
+- [What the palette's live search matches on and shows](376-what-the-palettes-live-search-matches-and-shows.md)
+  — the owner took all three of the research's defaults.
+  - **Mobile:** matches **exactly, in any stored format** (`05…` / `9665…` / `+9665…`). The suffix
+    is dropped, which amends 364. The three numbers stay exact or prefix.
+  - **A hit row:** delivery number, the status pill, the store, the entry date and a matched-on tag.
+    **No name and no phone**, and never the OTP.
+  - **Shipping:** **after the keyboard step, as its own spec ticket**, blocked on BackOffice
+    `DeliveryQuickFind` and its two DBA-run indexes (the same pattern as Retry), with no flagged
+    stub. Jump to number covers exact numbers until then. The ask is filed at `/to-spec`.
+- [Does the Call center customer rail collapse into a caller header?](379-does-the-call-center-customer-rail-collapse-into-a-caller-header.md)
+  — **C: yes, into a caller bar** at the top of the centre column, picked live over A (as today),
+  B (a slim 220px rail) and D (rail first, then bar).
+  - **Width:** the console is 363's rail · centre · receipt, and the centre grows from 644 to
+    **904px at 1280**. The bar takes the same pixels before and after attach, so 135 holds (D
+    jumped). The operator lead accepts the move at the Call center step.
+  - **The bar** runs the lookup (`cc-phone`, caret on open and on remove) → found → Attach, and
+    then shows name · tier · points · mobile · member · "N open requests · View" · ✕.
+  - **Sign-up** opens in the flow under the bar.
+  - **A linked request** is a chip that opens an **in-flow detail** (reason, raised-at, note, ↗,
+    Unlink).
+  - **The address book** is reached only from the sentence's address word.
+  - **"Collecting from"** becomes the store word, and the kept-address trace is a note under the
+    sentence.
+  - **The opening-steps hint** points at the bar.
+  - **The name** is kept in both the bar and the sentence.
+  - **Amends** 135, 165, 159, 194, 166 and 176.
+    ([prototype branch + shots](assets/379-shots/))
+- [Notifications, toasts and dialogs in the Ops Console](377-notifications-toasts-and-dialogs-in-the-ops-console.md)
+  — **navy on the rail, one card recipe off it**, picked live with all four of the prototype's
+  recommendations.
+  - **Family by origin:** the flyout and the rail-foot user menu are navy, with a gold focus ring.
+    Everything else (store chip, bell, popovers, dialogs, palette) uses one card recipe:
+    `--border-strong` edge, 8px popovers / 10px dialogs, and two new tokens, **`--shadow-pop`** and
+    **`--backdrop`**.
+  - **Toasts:** `richColors` never read the tokens (sonner's own HSL, black dark toast, system
+    font). They are re-pointed at **082's tiers** (info = primary), set in Plex, and placed
+    **bottom-end, dir-mapped**. Top-right covers the bar's chip and bell; top-end covers the open
+    bell panel.
+  - **Bell:** a **dense 360px dropdown**:
+    - two-line bodies;
+    - the tag on its own line, with BROADCAST in primary, not amber;
+    - a primary unread dot;
+    - an "N new" chip;
+    - a gold badge with navy ink.
+  - **Dialogs:** a toast under a native dialog lies beneath its backdrop and can't be reached
+    (measured), so **a dialog's own failure renders inside it**. The two live offenders and an
+    audit of 18 `Modal` users go to the breakage sweep.
+  - **Handed on:** bidi isolation of toast text, to 378. `accent-color`, to the foundation.
+    ViewManager's hand-rolled dialog moves to `Modal`, to 368's build.
+    ([prototype branch + shots](assets/377-shots/))
+- [The foundation in Arabic/RTL](378-the-foundation-in-arabic-rtl.md) — the foundation holds once
+  six fixes land with it, all measured on shell D with Arabic strings and rows.
+  - **Grid direction:** 363's grid stayed LTR because **5 of 22 grids never spread** the
+    `omsGridDirection` opt-in. Direction becomes a boot fact:
+    `provideGlobalGridOptions({ enableRtl })` once, which carries scalars only (`enableRtl` is
+    `@initial`). A core **`pinStart`** replaces `pinned: 'left'`, which is physical.
+  - **`Ltr`'s rule is restated:** isolate **by kind, never by shape, and the whole value, never its
+    ends**.
+    - Measured: `15:00–18:00`, `+966…`, `-5.00`, `7+` and `40 / 200` all break with no space,
+      and a range whose ends are isolated separately still reverses.
+    - Grids spread **one core base `defaultColDef`** with a React `<bdi>` renderer, and a lint gate
+      refuses any grid without it.
+    - An FSI…PDI helper covers string-only sinks, including toast text (from 377).
+    - `enableRtl` and isolation ship **in one change**.
+  - **Range sweep:** the shipped slot chip, the Details slot, `daySpan`, two counters, and
+    `formatDateTime`.
+  - **Owner:** Plex Sans Arabic at **`size-adjust: 115%`**, the slash crumb stays, and numbers stay
+    at the cell's end. Legends isolate as one unit, so 365 holds.
+    ([prototype branch + shots](assets/378-shots/))
 
 ## Not yet specified
 
-<!-- the notifications/toasts/dialogs and Arabic/RTL patches graduated into 377 and 378 -->
+<!-- the notifications/toasts/dialogs and Arabic/RTL patches graduated into 377 and 378; both resolved — no fog left toward the destination -->
 
 ## Out of scope
 

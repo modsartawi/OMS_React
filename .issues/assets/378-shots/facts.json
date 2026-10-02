@@ -1,0 +1,3641 @@
+{
+ "bench": [
+  {
+   "shape": "win-dash",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "18:00–15:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "18:00–15:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "18:00–15:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "18:00–15:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "15:00–18:00",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "win-dash",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "18:00–15:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "12:00 - 10:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "12:00 - 10:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "12:00 - 10:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "12:00 - 10:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "win-server",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "10:00 - 12:00",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "win-server",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "12:00 - 10:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "day-win",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "Oct 2026 · 10:00 - 12:00 02",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "day-win",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "Oct 2026 · 10:00 - 12:00 02",
+   "ok": false,
+   "align": "end"
+  },
+  {
+   "shape": "day-win",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "day-win",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "day-win",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "day-win",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "day-win",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "day-win",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "day-win",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "day-win",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "day-win",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "day-win",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "day-win",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "12:00 - 02 Oct 2026 · 10:00",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "day-win",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "12:00 - 02 Oct 2026 · 10:00",
+   "ok": false,
+   "align": "end"
+  },
+  {
+   "shape": "day-win",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "02 Oct 2026 · 10:00 - 12:00",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "day-win",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "Oct 2026 · 10:00 - 12:00 02",
+   "ok": false,
+   "align": "end"
+  },
+  {
+   "shape": "datetime",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "08:07 2026-09-12",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "08:07 12-09-2026",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "12 08:07-2026-09",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "12 08:07-2026-09",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "datetime",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "2026-09-12 08:07",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "datetime",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "08:07 12-09-2026",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "12-09-2026",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "12-2026-09",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "12-2026-09",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "date",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "2026-09-12",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "date",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "12-09-2026",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "time",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "08:07",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "time",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "08:07",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "2177 810 55 966+",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "2177 810 55 966+",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "+966 55 810 2177",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "phone-sp",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "2177 810 55 966+",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "966558102177+",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "966558102177+",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "+966558102177",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "phone-intl",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "966558102177+",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "phone",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "phone",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "0551234567",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "no",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "80001240",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "no",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "80001240",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "77120934-ERX",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "77120934-ERX",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "code",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "code",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "ERX-77120934",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "money",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "money",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "1,240.70",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "5.00-",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "5.00-",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "5.00-",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "5.00-",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "neg",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "-5.00",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "neg",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "5.00-",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "5.00−",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "5.00−",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "−5.00",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "neg-u",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "5.00−",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "%5",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "5%",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "pct",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "5%",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "pct",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "%5",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "+7",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "+7",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "7+",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "plus",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "7+",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "plus",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "+7",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "200 / 40",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "200 / 40",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "200 / 40",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "200 / 40",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "of",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "40 / 200",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "of",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "200 / 40",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "1001",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "store",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "1001",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "Riyadh · 1001",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "Riyadh · 1001",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "Riyadh · 1001",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "Riyadh · 1001",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "store-city",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "1001 · Riyadh",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "store-city",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "Riyadh · 1001",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": ".JAH · Khalid N",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": ".JAH · Khalid N",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "Khalid N. · JAH",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "Khalid N. · JAH",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "JAH · Khalid N.",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "courier-l",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": ".JAH · Khalid N",
+   "ok": false,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": ".ن دلاخ · JAH",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": ".ن دلاخ · JAH",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "ن دلاخ. · JAH",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "ن دلاخ. · JAH",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "JAH · ن دلاخ.",
+   "ok": null,
+   "align": "end"
+  },
+  {
+   "shape": "courier-a",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": ".ن دلاخ · JAH",
+   "ok": null,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "keys",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "Ctrl+K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "none",
+   "ctx": "cell",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "none",
+   "ctx": "sentence",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "ltr",
+   "ctx": "cell",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "ltr",
+   "ctx": "sentence",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "bdi",
+   "ctx": "cell",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "bdi",
+   "ctx": "sentence",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "lri",
+   "ctx": "cell",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "lri",
+   "ctx": "sentence",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "fsi",
+   "ctx": "cell",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "fsi",
+   "ctx": "sentence",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "css",
+   "ctx": "cell",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "css",
+   "ctx": "sentence",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "ends",
+   "ctx": "cell",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "ends",
+   "ctx": "sentence",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "cellplain",
+   "ctx": "cell",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "end"
+  },
+  {
+   "shape": "keys-sp",
+   "tech": "cellplain",
+   "ctx": "sentence",
+   "visual": "Ctrl K",
+   "ok": true,
+   "align": "start"
+  }
+ ],
+ "benchInk": [
+  {
+   "label": "100:latin",
+   "top": 7.5,
+   "bottom": 9.5,
+   "inkH": 9
+  },
+  {
+   "label": "100:arabic",
+   "top": 7.5,
+   "bottom": 4.5,
+   "inkH": 14
+  },
+  {
+   "label": "100:arabic-deep",
+   "top": 7.5,
+   "bottom": 4.5,
+   "inkH": 14
+  },
+  {
+   "label": "100:head",
+   "top": 8,
+   "bottom": 5,
+   "inkH": 13
+  },
+  {
+   "label": "108:latin",
+   "top": 7.5,
+   "bottom": 9.5,
+   "inkH": 9
+  },
+  {
+   "label": "108:arabic",
+   "top": 6.5,
+   "bottom": 3.5,
+   "inkH": 16
+  },
+  {
+   "label": "108:arabic-deep",
+   "top": 6.5,
+   "bottom": 3.5,
+   "inkH": 16
+  },
+  {
+   "label": "108:head",
+   "top": 7,
+   "bottom": 5,
+   "inkH": 14
+  },
+  {
+   "label": "115:latin",
+   "top": 7.5,
+   "bottom": 9.5,
+   "inkH": 9
+  },
+  {
+   "label": "115:arabic",
+   "top": 6.5,
+   "bottom": 4.5,
+   "inkH": 15
+  },
+  {
+   "label": "115:arabic-deep",
+   "top": 6.5,
+   "bottom": 4.5,
+   "inkH": 15
+  },
+  {
+   "label": "115:head",
+   "top": 7,
+   "bottom": 5,
+   "inkH": 14
+  }
+ ],
+ "found-ar-light": {
+  "dir": "rtl",
+  "gridRtlClass": false,
+  "gridLtrClass": true,
+  "railSide": "right",
+  "pinnedClasses": [
+   "ag-cell-last-left-pinned"
+  ],
+  "deliveryNoSide": "left",
+  "firstHeaderAtRight": "    آخر إجراء            ",
+  "slot": {
+   "text": "08:00 - 10:00",
+   "visual": "08:00 - 10:00"
+  },
+  "slotDay": {
+   "text": "01 Oct 2026",
+   "visual": "01 Oct 2026"
+  },
+  "entryTime": {
+   "text": "2026-09-01 08:00",
+   "visual": "2026-09-01 08:00"
+  },
+  "mobileSpaced": {
+   "text": "+966 51 810 2178",
+   "visual": "+966 51 810 2178"
+  },
+  "mobileBare": {
+   "text": "0510000000",
+   "visual": "0510000000"
+  },
+  "driverPhone": {
+   "text": "+966 50 101 4471",
+   "visual": "+966 50 101 4471"
+  },
+  "driverArabic": {
+   "text": "سعد م.",
+   "visual": "م دعس."
+  },
+  "netTotalAlign": {
+   "leftGap": 71,
+   "rightGap": 8
+  },
+  "nameAlign": {
+   "leftGap": 8,
+   "rightGap": 116
+  },
+  "deliveryNoAlign": {
+   "leftGap": 8,
+   "rightGap": 66
+  },
+  "crumb": {
+   "text": "إدارة الطلبات/مستندات التوصيل",
+   "visual": "ليصوتلا تادنتسم/تابلطلا ةرادإ"
+  },
+  "legend": [
+   {
+    "t": "Ctrl",
+    "x": 487
+   },
+   {
+    "t": "K",
+    "x": 468
+   }
+  ],
+  "inkArabicName": {
+   "text": "نورة الحربي",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 4
+  },
+  "inkLatinNo": {
+   "text": "80001240",
+   "rowH": 26,
+   "inkAbove": 9,
+   "inkBelow": 9
+  },
+  "inkArabicCity": {
+   "text": "الرياض",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 6
+  }
+ },
+ "mirrored-unisolated-ar": {
+  "dir": "rtl",
+  "gridRtlClass": true,
+  "gridLtrClass": false,
+  "railSide": "right",
+  "pinnedClasses": [
+   "ag-cell-last-left-pinned"
+  ],
+  "deliveryNoSide": "left",
+  "firstHeaderAtRight": "    رقم المستند            ",
+  "slot": {
+   "text": "08:00 - 10:00",
+   "visual": "10:00 - 08:00"
+  },
+  "slotDay": {
+   "text": "01 Oct 2026",
+   "visual": "Oct 2026 01"
+  },
+  "entryTime": {
+   "text": "2026-09-01 08:00",
+   "visual": "08:00 2026-09-01"
+  },
+  "mobileSpaced": {
+   "text": "+966 51 810 2178",
+   "visual": "2178 810 51 966+"
+  },
+  "mobileBare": {
+   "text": "0510000000",
+   "visual": "0510000000"
+  },
+  "driverPhone": {
+   "text": "+966 50 101 4471",
+   "visual": "4471 101 50 966+"
+  },
+  "driverArabic": {
+   "text": "سعد م.",
+   "visual": ".م دعس"
+  },
+  "netTotalAlign": {
+   "leftGap": 8,
+   "rightGap": 71
+  },
+  "nameAlign": {
+   "leftGap": 116,
+   "rightGap": 8
+  },
+  "deliveryNoAlign": {
+   "leftGap": 66,
+   "rightGap": 8
+  },
+  "crumb": {
+   "text": "إدارة الطلبات/مستندات التوصيل",
+   "visual": "ليصوتلا تادنتسم/تابلطلا ةرادإ"
+  },
+  "legend": [
+   {
+    "t": "Ctrl",
+    "x": 468
+   },
+   {
+    "t": "K",
+    "x": 510
+   }
+  ],
+  "inkArabicName": {
+   "text": "نورة الحربي",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 4
+  },
+  "inkLatinNo": {
+   "text": "80001240",
+   "rowH": 26,
+   "inkAbove": 9,
+   "inkBelow": 9
+  },
+  "inkArabicCity": {
+   "text": "الرياض",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 6
+  }
+ },
+ "fixed-ar-light": {
+  "dir": "rtl",
+  "gridRtlClass": true,
+  "gridLtrClass": false,
+  "railSide": "right",
+  "pinnedClasses": [
+   "ag-cell-last-left-pinned"
+  ],
+  "deliveryNoSide": "left",
+  "firstHeaderAtRight": "    رقم المستند            ",
+  "slot": {
+   "text": "08:00 - 10:00",
+   "visual": "08:00 - 10:00"
+  },
+  "slotDay": {
+   "text": "01 Oct 2026",
+   "visual": "01 Oct 2026"
+  },
+  "entryTime": {
+   "text": "2026-09-01 08:00",
+   "visual": "2026-09-01 08:00"
+  },
+  "mobileSpaced": {
+   "text": "+966 51 810 2178",
+   "visual": "+966 51 810 2178"
+  },
+  "mobileBare": {
+   "text": "0510000000",
+   "visual": "0510000000"
+  },
+  "driverPhone": {
+   "text": "+966 50 101 4471",
+   "visual": "+966 50 101 4471"
+  },
+  "driverArabic": {
+   "text": "سعد م.",
+   "visual": ".م دعس"
+  },
+  "netTotalAlign": {
+   "leftGap": 8,
+   "rightGap": 71
+  },
+  "nameAlign": {
+   "leftGap": 116,
+   "rightGap": 8
+  },
+  "deliveryNoAlign": {
+   "leftGap": 66,
+   "rightGap": 8
+  },
+  "crumb": {
+   "text": "إدارة الطلبات/مستندات التوصيل",
+   "visual": "ليصوتلا تادنتسم/تابلطلا ةرادإ"
+  },
+  "legend": [
+   {
+    "t": "Ctrl",
+    "x": 468
+   },
+   {
+    "t": "K",
+    "x": 510
+   }
+  ],
+  "inkArabicName": {
+   "text": "نورة الحربي",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 4
+  },
+  "inkLatinNo": {
+   "text": "80001240",
+   "rowH": 26,
+   "inkAbove": 9,
+   "inkBelow": 9
+  },
+  "inkArabicCity": {
+   "text": "الرياض",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 6
+  }
+ },
+ "fixed-ar-dark": {
+  "dir": "rtl",
+  "gridRtlClass": true,
+  "gridLtrClass": false,
+  "railSide": "right",
+  "pinnedClasses": [
+   "ag-cell-last-left-pinned"
+  ],
+  "deliveryNoSide": "left",
+  "firstHeaderAtRight": "    رقم المستند            ",
+  "slot": {
+   "text": "08:00 - 10:00",
+   "visual": "08:00 - 10:00"
+  },
+  "slotDay": {
+   "text": "01 Oct 2026",
+   "visual": "01 Oct 2026"
+  },
+  "entryTime": {
+   "text": "2026-09-01 08:00",
+   "visual": "2026-09-01 08:00"
+  },
+  "mobileSpaced": {
+   "text": "+966 51 810 2178",
+   "visual": "+966 51 810 2178"
+  },
+  "mobileBare": {
+   "text": "0510000000",
+   "visual": "0510000000"
+  },
+  "driverPhone": {
+   "text": "+966 50 101 4471",
+   "visual": "+966 50 101 4471"
+  },
+  "driverArabic": {
+   "text": "سعد م.",
+   "visual": ".م دعس"
+  },
+  "netTotalAlign": {
+   "leftGap": 8,
+   "rightGap": 71
+  },
+  "nameAlign": {
+   "leftGap": 116,
+   "rightGap": 8
+  },
+  "deliveryNoAlign": {
+   "leftGap": 66,
+   "rightGap": 8
+  },
+  "crumb": {
+   "text": "إدارة الطلبات/مستندات التوصيل",
+   "visual": "ليصوتلا تادنتسم/تابلطلا ةرادإ"
+  },
+  "legend": [
+   {
+    "t": "Ctrl",
+    "x": 468
+   },
+   {
+    "t": "K",
+    "x": 510
+   }
+  ],
+  "inkArabicName": {
+   "text": "نورة الحربي",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 4
+  },
+  "inkLatinNo": {
+   "text": "80001240",
+   "rowH": 26,
+   "inkAbove": 9,
+   "inkBelow": 9
+  },
+  "inkArabicCity": {
+   "text": "الرياض",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 6
+  }
+ },
+ "fixed-ar-expanded": {
+  "dir": "rtl",
+  "gridRtlClass": true,
+  "gridLtrClass": false,
+  "railSide": "right",
+  "pinnedClasses": [
+   "ag-cell-last-left-pinned"
+  ],
+  "deliveryNoSide": "left",
+  "firstHeaderAtRight": "    رقم المستند            ",
+  "slot": {
+   "text": "08:00 - 10:00",
+   "visual": "08:00 - 10:00"
+  },
+  "slotDay": {
+   "text": "01 Oct 2026",
+   "visual": "01 Oct 2026"
+  },
+  "entryTime": {
+   "text": "2026-09-01 08:00",
+   "visual": "2026-09-01 08:00"
+  },
+  "mobileSpaced": {
+   "text": "+966 51 810 2178",
+   "visual": "+966 51 810 2178"
+  },
+  "mobileBare": {
+   "text": "0510000000",
+   "visual": "0510000000"
+  },
+  "driverPhone": {
+   "text": "+966 50 101 4471",
+   "visual": "+966 50 101 4471"
+  },
+  "driverArabic": {
+   "text": "سعد م.",
+   "visual": ".م دعس"
+  },
+  "netTotalAlign": {
+   "leftGap": 8,
+   "rightGap": 71
+  },
+  "nameAlign": {
+   "leftGap": 116,
+   "rightGap": 8
+  },
+  "deliveryNoAlign": {
+   "leftGap": 66,
+   "rightGap": 8
+  },
+  "crumb": {
+   "text": "إدارة الطلبات/مستندات التوصيل",
+   "visual": "ليصوتلا تادنتسم/تابلطلا ةرادإ"
+  },
+  "legend": [
+   {
+    "t": "Ctrl",
+    "x": 468
+   },
+   {
+    "t": "K",
+    "x": 510
+   }
+  ],
+  "inkArabicName": {
+   "text": "نورة الحربي",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 4
+  },
+  "inkLatinNo": {
+   "text": "80001240",
+   "rowH": 26,
+   "inkAbove": 9,
+   "inkBelow": 9
+  },
+  "inkArabicCity": {
+   "text": "الرياض",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 6
+  }
+ },
+ "fixed-ar-chevron": {
+  "dir": "rtl",
+  "gridRtlClass": true,
+  "gridLtrClass": false,
+  "railSide": "right",
+  "pinnedClasses": [
+   "ag-cell-last-left-pinned"
+  ],
+  "deliveryNoSide": "left",
+  "firstHeaderAtRight": "    رقم المستند            ",
+  "slot": {
+   "text": "08:00 - 10:00",
+   "visual": "08:00 - 10:00"
+  },
+  "slotDay": {
+   "text": "01 Oct 2026",
+   "visual": "01 Oct 2026"
+  },
+  "entryTime": {
+   "text": "2026-09-01 08:00",
+   "visual": "2026-09-01 08:00"
+  },
+  "mobileSpaced": {
+   "text": "+966 51 810 2178",
+   "visual": "+966 51 810 2178"
+  },
+  "mobileBare": {
+   "text": "0510000000",
+   "visual": "0510000000"
+  },
+  "driverPhone": {
+   "text": "+966 50 101 4471",
+   "visual": "+966 50 101 4471"
+  },
+  "driverArabic": {
+   "text": "سعد م.",
+   "visual": ".م دعس"
+  },
+  "netTotalAlign": {
+   "leftGap": 8,
+   "rightGap": 71
+  },
+  "nameAlign": {
+   "leftGap": 116,
+   "rightGap": 8
+  },
+  "deliveryNoAlign": {
+   "leftGap": 66,
+   "rightGap": 8
+  },
+  "crumb": {
+   "text": "إدارة الطلباتمستندات التوصيل",
+   "visual": "ليصوتلا تادنتسمتابلطلا ةرادإ"
+  },
+  "legend": [
+   {
+    "t": "Ctrl",
+    "x": 463
+   },
+   {
+    "t": "K",
+    "x": 505
+   }
+  ],
+  "inkArabicName": {
+   "text": "نورة الحربي",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 4
+  },
+  "inkLatinNo": {
+   "text": "80001240",
+   "rowH": 26,
+   "inkAbove": 9,
+   "inkBelow": 9
+  },
+  "inkArabicCity": {
+   "text": "الرياض",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 6
+  }
+ },
+ "fixed-latin-rtl": {
+  "dir": "rtl",
+  "gridRtlClass": true,
+  "gridLtrClass": false,
+  "railSide": "right",
+  "pinnedClasses": [
+   "ag-cell-last-left-pinned"
+  ],
+  "deliveryNoSide": "left",
+  "firstHeaderAtRight": "    Document No            ",
+  "slot": null,
+  "slotDay": null,
+  "entryTime": {
+   "text": "2026-09-01 08:00",
+   "visual": "2026-09-01 08:00"
+  },
+  "mobileSpaced": null,
+  "mobileBare": null,
+  "driverPhone": null,
+  "driverArabic": null,
+  "netTotalAlign": null,
+  "nameAlign": null,
+  "deliveryNoAlign": {
+   "leftGap": 66,
+   "rightGap": 8
+  },
+  "crumb": {
+   "text": "OMS/Delivery Documents",
+   "visual": "Delivery Documents/OMS"
+  },
+  "legend": [
+   {
+    "t": "Ctrl",
+    "x": 476
+   },
+   {
+    "t": "K",
+    "x": 518
+   }
+  ],
+  "inkArabicName": null,
+  "inkLatinNo": {
+   "text": "80001240",
+   "rowH": 26,
+   "inkAbove": 9,
+   "inkBelow": 9
+  },
+  "inkArabicCity": null
+ },
+ "ink-100": {
+  "name": {
+   "text": "نورة الحربي",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 4
+  },
+  "no": {
+   "text": "80001240",
+   "rowH": 26,
+   "inkAbove": 9,
+   "inkBelow": 9
+  },
+  "city": {
+   "text": "الرياض",
+   "rowH": 26,
+   "inkAbove": 8,
+   "inkBelow": 6
+  }
+ },
+ "ink-108": {
+  "name": {
+   "text": "نورة الحربي",
+   "rowH": 26,
+   "inkAbove": 7,
+   "inkBelow": 3
+  },
+  "no": {
+   "text": "80001240",
+   "rowH": 26,
+   "inkAbove": 9,
+   "inkBelow": 9
+  },
+  "city": {
+   "text": "الرياض",
+   "rowH": 26,
+   "inkAbove": 7,
+   "inkBelow": 6
+  }
+ },
+ "ink-115": {
+  "name": {
+   "text": "نورة الحربي",
+   "rowH": 26,
+   "inkAbove": 7,
+   "inkBelow": 4
+  },
+  "no": {
+   "text": "80001240",
+   "rowH": 26,
+   "inkAbove": 9,
+   "inkBelow": 9
+  },
+  "city": {
+   "text": "الرياض",
+   "rowH": 26,
+   "inkAbove": 7,
+   "inkBelow": 6
+  }
+ },
+ "found-ar-document": {
+  "text": "إدارة الطلبات/مستندات التوصيل/1000000393",
+  "visual": "1000000393/ليصوتلا تادنتسم/تابلطلا ةرادإ"
+ },
+ "fixed-ar-document": {
+  "text": "إدارة الطلبات/مستندات التوصيل/1000000393",
+  "visual": "1000000393/ليصوتلا تادنتسم/تابلطلا ةرادإ"
+ },
+ "fixed-ar-document-chevron": {
+  "text": "إدارة الطلباتمستندات التوصيل1000000393",
+  "visual": "1000000393ليصوتلا تادنتسمتابلطلا ةرادإ"
+ }
+}

@@ -97,6 +97,42 @@
       "pass": true
     },
     {
+      "name": "Native cell text can be selected",
+      "pass": true
+    },
+    {
+      "name": "Ctrl+C copies the selected cell text",
+      "pass": true
+    },
+    {
+      "name": "A: all 14 filters are present",
+      "pass": true
+    },
+    {
+      "name": "B: all 14 filters are present",
+      "pass": true
+    },
+    {
+      "name": "C: all 14 filters are present",
+      "pass": true
+    },
+    {
+      "name": "All additional filters participate (mismatching reason empties results)",
+      "pass": true
+    },
+    {
+      "name": "Combined additional filters match the fixture",
+      "pass": true
+    },
+    {
+      "name": "Collapsed filters retain applied chips",
+      "pass": true
+    },
+    {
+      "name": "Chip removal clears only its criterion",
+      "pass": true
+    },
+    {
       "name": "Sample search narrows to one row",
       "pass": true
     },
@@ -141,11 +177,23 @@
       "pass": true
     },
     {
+      "name": "A: expanded filters have no narrow viewport overflow",
+      "pass": true
+    },
+    {
       "name": "B: narrow viewport has no page overflow",
       "pass": true
     },
     {
+      "name": "B: expanded filters have no narrow viewport overflow",
+      "pass": true
+    },
+    {
       "name": "C: narrow viewport has no page overflow",
+      "pass": true
+    },
+    {
+      "name": "C: expanded filters have no narrow viewport overflow",
       "pass": true
     },
     {

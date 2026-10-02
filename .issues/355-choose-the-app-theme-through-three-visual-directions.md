@@ -36,3 +36,17 @@ Claimed for this session. Built the three visual directions on the existing inqu
 - Agent recommendation, awaiting the owner's reaction: Graphite's compact composition with Steel's palette.
 
 **No resolution yet.** The owner has been asked which direction or combination to retain. This ticket remains claimed, and its dependent tickets remain blocked. No production design decision or map resolution is implied by this prototype.
+
+### 2026-10-02 — Owner feedback: copying and the complete filter set
+
+The owner dislikes being unable to select/copy cell text and requires every production filter to remain available. The initial simplified filter set did not represent the real inquiry well enough for a decision.
+
+Prototype refined on the same branch:
+
+- Enabled AG Grid Community native cell text selection and DOM ordering. Browser verification includes selecting a delivery number and copying it with Ctrl+C. This is ordinary selected-text copying, not an Enterprise cell-range clipboard feature.
+- Restored all 14 production criteria, retaining `DeliveryFilterCriteria` and `buildDeliveryQuery` semantics, including paired dates, description-valued selects, default limit, and tri-state Dawaa Now. Fixture matching is local and illustrative, not a new server matching contract.
+- Proposed five first-row fields (From Date, To Date, Store Code, Delivery No, Customer Phone), plus a grouped expandable section for Document No, Order No, Document Type, Document Source, Delivery Document Type, Reason, Delivery Type, Dawaa Now, and Limit.
+- Applied criteria remain visible as removable chips; draft changes are identified until Search; Clear all clears search criteria and grid column filters. The result limit remains visible when collapsed.
+- Asked whether all 14 must be visible by default or available through expansion. No answer or theme selection inferred. Grouping and default expansion remain proposals for review.
+
+[Updated captures and guidance sources](assets/355-theme-review/README.md). This is further work on the same visual decision, not resolution of its dependent state-consistency ticket.

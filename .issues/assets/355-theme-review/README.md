@@ -30,7 +30,21 @@ The dedicated Vite configuration intercepts every `/api/` request, including wri
 
 Choose a palette and a composition independently, or choose one direction whole. The agent's recommendation is **C's compact composition with A's steel palette**: it preserves the familiar palette and gives the data more vertical space. This is a recommendation, not the owner's answer.
 
-B reserves 210px for filters, making repeated searches easier to reach but reducing horizontal grid space. At a narrow viewport its filters move above the grid. C removes the filter card and lets status colours stand out against quieter neutral surfaces. A changes the least from the current application.
+B reserves 260px for filters, making repeated searches easier to reach but reducing horizontal grid space. At a narrow viewport its filters move above the grid. C removes the filter card and lets status colours stand out against quieter neutral surfaces. A changes the least from the current application.
+
+## Full-filter and text-copy refinement
+
+Following owner feedback, the prototype now includes all 14 production filter fields. The current proposal keeps From Date, To Date, Store Code, Delivery No and Customer Phone visible; **All filters** expands the remaining nine, grouped by document identity, classification, fulfilment and results. The owner has not yet confirmed whether this panel should start expanded.
+
+Search applies the draft criteria as a batch. Applied criteria remain visible as removable chips even when the panel is collapsed. The result limit is always stated. Column filters act on the loaded sample, separately from the search criteria. All matching happens against fictional rows, with the real query builder used to retain request-shaping semantics. The former combined customer/number search has been replaced by the distinct production fields.
+
+- All fields expanded: [Steel](A-all-filters.png), [Cobalt](B-all-filters.png), [Graphite](C-all-filters.png).
+- [Applied-filter chips with the panel collapsed](C-active-filter-chips.png).
+- All fields at 390px: [Steel](A-mobile-all-filters.png), [Cobalt](B-mobile-all-filters.png), [Graphite](C-mobile-all-filters.png).
+
+Native cell-text selection is enabled using `enableCellTextSelection` and `ensureDomOrder`. Select text with a drag or double-click a word, then press Ctrl+C. Row selection remains available; copying selected text does not require an Enterprise licence. This is not a proposal for Excel-style range selection.
+
+Sources checked on 2026-10-02: [AG Grid cell text selection](https://www.ag-grid.com/react-data-grid/cell-text-selection/) documents both settings and the resulting selected-text clipboard behaviour; the installed Community 36.0.1 types contain both. [IBM Carbon filtering](https://www.carbondesignsystem.com/building-blocks/core/patterns/filtering) supports batch application for multiple criteria and visible indicators/reset for hidden active filters. The specific five-field ordering and expandable grouping are this prototype's proposal, not a claim that those sources prescribe this screen.
 
 The columns and combined status are illustrative fixtures, not a proposed replacement for the production list's 41-column contract or its multiple domain status fields. The fuller shared-state and component review belongs to the dependent visual ticket. This study does not establish loading/error/empty-state styling across the app or settle rich-row density.
 
@@ -38,7 +52,7 @@ The columns and combined status are illustrative fixtures, not a proposed replac
 
 - `npm run build` (includes TypeScript): passed; the existing large-chunk warning remains.
 - `npm run lint`: passed, including the existing 129-pair contrast gate.
-- `node tools/theme-prototype-drive.mjs`: 38 browser checks passed; [results](verification.json).
+- `node tools/theme-prototype-drive.mjs`: see the latest [browser results](verification.json), including native selection/Ctrl+C, all 14 controls, combined filtering, chip removal, and expanded layouts at 390px.
 - Browser checks cover all six desktop variants, 28px rows, horizontal overflow within the grid, row selection, four key text/action contrast pairs per view, sample filters, column visibility, keyboard ownership, detail preview, switcher/reload, RTL pinning, shell mode synchronization, no persisted theme setting, and all three layouts at 390px.
 - Captures were visually inspected. No browser errors. React Router's hydration-fallback warning and the shell's duplicate-query warning are recorded in the results; neither is introduced as a design decision.
 - The driver follows the repo's existing Playwright arrangement in `C:/Playground/frontend` and uses installed Edge. It is a manual review tool, not a new test-suite dependency.

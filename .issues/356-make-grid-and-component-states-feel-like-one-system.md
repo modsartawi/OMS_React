@@ -30,3 +30,9 @@ Carry the prior ticket's filter and copying decisions through the state review. 
 ## Comments
 
 2026-10-02: The owner liked the selected inquiry and requested delivery details and simulation previews. The [cross-screen extension](assets/356-theme-screens/README.md) on `prototype/theme-directions-355` now provides both, with linked navigation, fictional delivery data, captured pricing replays, both themes and RTL. This is partial evidence for this ticket; no new visual rules have been accepted and the full state matrix and Collection specimen remain outstanding.
+
+## Approved screen previews
+
+2026-10-02: The owner approved the delivery details and POS simulation previews ("ok approaved"), captured in commit `5cc3a27` on `prototype/theme-directions-355`. This accepts the selected steel palette and compact rectangular treatment on these screens, including the displayed detail hierarchy, command/badge treatment, and simulation inputs/results/promotions arrangement. The [review assets](assets/356-theme-screens/README.md) record the approved artifact and its 44 passing browser checks.
+
+Carry these accepted screens forward without reopening their visual direction. This approval concerns the displayed prototypes; it does not settle the unshown Collection specimen, complete the shared interaction-state matrix, or authorize a production rollout. This ticket remains open for that remaining design work before ticket 357 finalizes the theme specification.

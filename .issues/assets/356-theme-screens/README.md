@@ -1,6 +1,6 @@
 # Selected theme: delivery details and POS simulation
 
-Owner-requested extension of the accepted inquiry prototype, on branch `prototype/theme-directions-355`. These specimens invite feedback; they do not settle the remaining shared-state decisions in ticket 356.
+Owner-requested extension of the accepted inquiry prototype, on branch `prototype/theme-directions-355`. The owner approved both screen previews on 2026-10-02, as captured in commit `5cc3a27`. The [approval record](../../356-make-grid-and-component-states-feel-like-one-system.md#approved-screen-previews) defines its scope.
 
 Run `npm run prototype:theme`, then open:
 
@@ -28,4 +28,4 @@ Geometry experiments are scoped to the preview: compact rectangular controls and
 
 `npm run build` and `npm run lint` pass (the existing large-chunk warning remains). The manual browser drive `node tools/theme-screens-drive.mjs` checks the real routes, both themes, all tabs, text copying, dialogs, status disclosure, RTL, captured scenario runs, line expansion, stale inputs, unsupported-input refusal, reset, keyboard processing, laptop overflow and round-trip navigation. Results: [verification.json](verification.json).
 
-Still awaiting owner feedback on these two screens. Collection specimens and the full shared component-state matrix remain ticket 356's work.
+Both screen previews are approved. Collection specimens and the full shared component-state matrix remain ticket 356's work.

@@ -13,6 +13,7 @@ A user-selected visual prototype and a ready theme specification for the whole a
 ## Notes
 
 - Owner confirmed on 2026-10-02: follow the recommendation of prototype + agreed theme specification first, comparing an improved current theme with two distinct alternatives.
+- Owner approved the [delivery details and POS simulation previews](356-make-grid-and-component-states-feel-like-one-system.md#approved-screen-previews) on 2026-10-02. Their visual direction is accepted; the remaining shared-state review still belongs to ticket 356.
 - Start the visual exploration with Delivery Documents Inquiry in its existing shell, using real AG Grid. Compare controls, badges, a visible palette, and light/dark states together. Keep the existing dense 28px rows as the initial comparison baseline; any density change is a visible proposal, not an assumed requirement.
 - This is an evolution of an existing central theme, not a new parallel palette. Read [The POS design system](082-pos-design-system-spec.md), [POS palette as the app standard + Document Details rework](068-pos-palette-and-document-detail-rework.md), and the [current theme baseline](assets/354-theme-baseline.md). Historical decisions remain the production baseline until explicitly superseded by the new specification.
 - Skills: use `prototype` (including UI.md) for visual tickets, and `grilling` plus `domain-modeling` for decisions. Read `CLAUDE.md`, the relevant `.claude/rules/`, and `CONTEXT.md`. The glossary holds business language, not theme implementation details.

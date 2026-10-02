@@ -10,6 +10,7 @@ import { lineMoney, type PromoSlot } from './line-money'
 import { KIND_CHIP } from './promo-kind'
 import type { PromoLineRef } from './promo-view'
 import SimLineExpansion from './SimLineExpansion'
+import { proto } from '@/core/theme/proto-362'
 
 /**
  * The per-line results table (ticket 115, spec 110 — the line's anatomy ruled in
@@ -76,6 +77,9 @@ interface Props {
   currency: string
   onToggle: (itemNumber: number) => void
   onHotChange: (hot: PromoHot | null) => void
+  /** PROTOTYPE 372 */
+  basketPeak?: number
+  partners?: Map<string, number[]>
 }
 
 /** A line is lit when the hot promotion touches it — same bby, and same application
@@ -122,6 +126,8 @@ export default function SimResultsGrid({
   currency,
   onToggle,
   onHotChange,
+  basketPeak,
+  partners,
 }: Props) {
   const { t } = useTranslation('simulation')
 
@@ -288,13 +294,13 @@ export default function SimResultsGrid({
             // Rendered only while open — a closed line contributes NOTHING to the
             // frame's height, which is what "resting height depends only on line
             // count" means.
-            open ? (
+            open && proto.wf !== 'pane' ? (
               <tr
                 key={`${item.itemNumber}-expansion`}
                 className="border-b border-b-divider bg-card-2/40 last:border-b-0"
               >
                 <td colSpan={COLUMNS} className="border-s-[3px] border-s-primary p-0">
-                  <SimLineExpansion item={item} currency={currency} notPriced={money.notPriced} />
+                  <SimLineExpansion item={item} currency={currency} notPriced={money.notPriced} basketPeak={basketPeak} partners={partners} />
                 </td>
               </tr>
             ) : null,

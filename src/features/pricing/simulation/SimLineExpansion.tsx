@@ -9,6 +9,9 @@ import BoolCell from './BoolCell'
 import ConditionCard from './ConditionCard'
 import { elementColumn, elementColumns, traceLevel, type ElementColumnId } from './element-columns'
 import { useMeasuredWidth } from './use-measured-width'
+import { proto } from '@/core/theme/proto-362'
+import { lineWaterfall } from './waterfall'
+import SimWaterfall from './SimWaterfall'
 
 /**
  * The result line's expansion (ticket 116, spec 110 §Disclosure) — the surface that
@@ -49,10 +52,20 @@ interface Props {
   /** The line did not price (`lineMoney(item).notPriced`) — its messages are already on
    *  the line, so the expansion must not print them a second time. */
   notPriced: boolean
+  /** PROTOTYPE 372: the figure the waterfall's axis runs to under `scale=basket`. */
+  basketPeak?: number
+  /** PROTOTYPE 372: conditionKey → get lines, for a buy row. */
+  partners?: Map<string, number[]>
 }
 
-export default function SimLineExpansion({ item, currency, notPriced }: Props) {
+export default function SimLineExpansion({ item, currency, notPriced, basketPeak, partners }: Props) {
   const { t } = useTranslation('simulation')
+  // PROTOTYPE 372 — `ledger`/`pane`: the waterfall replaces the money foot AND the rule
+  // cards (its rows are the rules); `beside`: it replaces the foot, cards stay; `off`: today.
+  const wf = useMemo(() => lineWaterfall(item), [item])
+  const mode = proto.wf
+  const showWf = mode !== 'off' && wf !== null
+  const showRules = !showWf || mode === 'beside'
 
   const cards = useMemo(() => aggregateConditions(item.conditions), [item.conditions])
   const elements = item.pricingElements ?? []
@@ -66,7 +79,16 @@ export default function SimLineExpansion({ item, currency, notPriced }: Props) {
           when the truth is *did not price* — a foot reading `0.00 + 0.00 = 0.00` would
           reintroduce, one click down, exactly the claim the line suppresses. There is
           no arithmetic to check, so there is nothing to foot. */}
-      {notPriced ? null : (
+      {showWf ? (
+        <SimWaterfall
+          item={item}
+          wf={wf!}
+          scalePeak={proto.scale === 'basket' ? (basketPeak ?? wf!.peak) : wf!.peak}
+          currency={currency}
+          partners={partners}
+        />
+      ) : null}
+      {notPriced || showWf ? null : (
         <div
           data-money-foot
           className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[13px] tabular-nums"
@@ -85,7 +107,7 @@ export default function SimLineExpansion({ item, currency, notPriced }: Props) {
       )}
 
       {/* ---- 2 · the rules ---- */}
-      <div>
+      {showRules ? <div>
         <h3 className="mb-1.5 text-xs font-semibold text-muted-foreground">{t('detail.rulesTitle')}</h3>
         {cards.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t('detail.noRules')}</p>
@@ -99,7 +121,7 @@ export default function SimLineExpansion({ item, currency, notPriced }: Props) {
             ))}
           </div>
         )}
-      </div>
+      </div> : null}
 
       {/* ---- a priced line's advisory messages ----
           The engine's own voice, so it wears the engine's hue — `attention`, the same

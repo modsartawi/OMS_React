@@ -15,11 +15,16 @@
  * `stub=1` installs a fetch shim with fictional envelopes, because SIS.Api was
  * down when this was built. It patches window.fetch — prototype only.
  */
+import { PROTO_BASKETS } from '@/features/pricing/simulation/proto-372-baskets'
+
 export type Palette = 'steel' | 'far' | 'navy'
-export type ProtoSettings = { palette: Palette; rows: number; size: number; stub: boolean }
+/** PROTOTYPE 372: where the waterfall lives, what scale it draws to, which basket the stub serves. */
+export type WfPlacement = 'ledger' | 'beside' | 'pane' | 'off'
+export type WfScale = 'line' | 'basket'
+export type ProtoSettings = { palette: Palette; rows: number; size: number; stub: boolean; wf: WfPlacement; scale: WfScale; cap: string }
 
 const KEY = 'proto362'
-const DEFAULTS: ProtoSettings = { palette: 'far', rows: 26, size: 12, stub: false }
+const DEFAULTS: ProtoSettings = { palette: 'navy', rows: 26, size: 12, stub: false, wf: 'ledger', scale: 'line', cap: '06' }
 
 function read(): ProtoSettings {
   let s: ProtoSettings = { ...DEFAULTS }
@@ -35,6 +40,11 @@ function read(): ProtoSettings {
   if (q.get('rows')) s.rows = Number(q.get('rows'))
   if (q.get('size')) s.size = Number(q.get('size'))
   if (q.get('stub')) s.stub = q.get('stub') === '1'
+  const wf = q.get('wf')
+  if (wf === 'ledger' || wf === 'beside' || wf === 'pane' || wf === 'off') s.wf = wf
+  const scale = q.get('scale')
+  if (scale === 'line' || scale === 'basket') s.scale = scale
+  if (q.get('cap')) s.cap = q.get('cap')!
   try {
     localStorage.setItem(KEY, JSON.stringify(s))
   } catch {
@@ -55,7 +65,7 @@ export function setProto(next: Partial<ProtoSettings>) {
     /* prototype: ignore */
   }
   const url = new URL(location.href)
-  for (const k of ['palette', 'rows', 'size', 'stub']) url.searchParams.delete(k)
+  for (const k of ['palette', 'rows', 'size', 'stub', 'wf', 'scale', 'cap']) url.searchParams.delete(k)
   location.replace(url.toString())
 }
 
@@ -127,6 +137,10 @@ const DOCUMENT = {
 }
 
 function stubFor(path: string): Response {
+  // PROTOTYPE 372: the Simulation screen, served from the 098 captures (+ two fictional baskets).
+  if (path === 'Pricing/Access') return envelope({ canOpen: true })
+  if (path === 'Pricing/CacheAccess') return envelope({ canClear: true })
+  if (path === 'Pricing/Simulate') return envelope((PROTO_BASKETS[proto.cap] ?? PROTO_BASKETS['06']).result)
   if (path === 'Auth/Me')
     return envelope({ authenticated: true, userId: 'proto', displayName: 'Prototype 362', currentStoreCode: '1001' })
   if (path === 'SdDocumentWeb/DeliveryDocumentList') return envelope(Array.from({ length: 40 }, (_, i) => delivery(i)))

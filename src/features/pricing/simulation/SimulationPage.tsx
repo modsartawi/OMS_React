@@ -27,6 +27,10 @@ import { SimStaleResultsNote } from './SimStatusSlot'
 import { promoView } from './promo-view'
 import { runChips } from './run-chips'
 import { isStaleRun } from './staleness'
+import { proto } from '@/core/theme/proto-362'
+import { lineWaterfall } from './waterfall'
+import { lineMoney } from './line-money'
+import SimLineExpansion from './SimLineExpansion'
 
 // Ticket 013 — the POS Simulation tracer. Self-guards on Pricing/Access (issue-429
 // pattern, shared ['simulation','access'] key with the menu probe), then: a 4-column
@@ -111,6 +115,8 @@ export default function SimulationPage() {
   // Results frame's resting height depends only on how many lines were priced.
   const [openLines, setOpenLines] = useState<ReadonlySet<number>>(() => new Set())
   const toggleLine = useCallback((itemNumber: number) => {
+    // PROTOTYPE 372: Far's pane is a single SELECTION, not a set of disclosures.
+    if (proto.wf === 'pane') return setOpenLines(new Set([itemNumber]))
     setOpenLines((prev) => {
       const next = new Set(prev)
       if (!next.delete(itemNumber)) next.add(itemNumber)
@@ -178,6 +184,17 @@ export default function SimulationPage() {
   // `conditionKey` is null and the whole bby lights instead; the precision therefore sharpens
   // automatically once the projection (044) lands, no code change (per the ticket).
   const [hot, setHot] = useState<PromoHot | null>(null)
+
+  // PROTOTYPE 372: the basket-wide axis, and each application's get lines for a buy row.
+  const basketPeak = useMemo(
+    () => Math.max(0, ...(run?.result.items ?? []).map((i) => lineWaterfall(i)?.peak ?? 0)),
+    [run],
+  )
+  const partners = useMemo(() => {
+    const m = new Map<string, number[]>()
+    for (const b of view.blocks ?? []) for (const a of b.applications) m.set(a.conditionKey, a.getLines.map((g) => g.itemNumber))
+    return m
+  }, [view])
 
   const validItems = items.filter((r) => r.materialNumber.trim() !== '')
   const canProcess = validItems.length > 0 && !process.isPending
@@ -448,18 +465,43 @@ export default function SimulationPage() {
               className="order-last min-w-0 rounded-lg border border-border/60 bg-card p-3 @[900px]:order-none"
             >
               <h2 className="mb-2 text-sm font-semibold tracking-tight">{t('results.title')}</h2>
+              {(() => {
+                // PROTOTYPE 372 — Far's placement: one selected line, auto-selecting the first.
+                const paneItem =
+                  proto.wf === 'pane'
+                    ? (result.items.find((i) => openLines.has(i.itemNumber)) ?? result.items[0])
+                    : null
+                return (
+              <>
               <SimResultsGrid
+                basketPeak={basketPeak}
+                partners={partners}
                 items={result.items}
                 promoByItem={promoByItem}
                 hot={hot}
                 // The table marks — and expands — exactly the lines the analyst
                 // opened (ticket 116). Empty after a re-run; never seeded with a
                 // first line.
-                openItemNumbers={openLines}
+                openItemNumbers={paneItem ? new Set([paneItem.itemNumber]) : openLines}
                 currency={result.header.currency}
                 onToggle={toggleLine}
                 onHotChange={setHot}
               />
+              {paneItem ? (
+                <div data-wf-pane className="mt-3 border-t border-border pt-2">
+                  <h3 className="mb-1 text-[12px] font-semibold">{`Line ${paneItem.itemNumber} · how the price was built`}</h3>
+                  <SimLineExpansion
+                    item={paneItem}
+                    currency={result.header.currency}
+                    notPriced={lineMoney(paneItem).notPriced}
+                    basketPeak={basketPeak}
+                    partners={partners}
+                  />
+                </div>
+              ) : null}
+              </>
+                )
+              })()}
             </div>
 
             {/* Fires AND near-misses in ONE column: the fired buy→get cards (ticket 047)

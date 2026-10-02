@@ -3,7 +3,8 @@
  * Floating bar: palette · row height · grid text size · light/dark · stub data.
  * No arrow-key shortcuts on purpose: the grid owns the arrow keys.
  */
-import { proto, setProto, type Palette } from '@/core/theme/proto-362'
+import { proto, setProto, type Palette, type WfPlacement, type WfScale } from '@/core/theme/proto-362'
+import { PROTO_BASKETS } from '@/features/pricing/simulation/proto-372-baskets'
 import { useTheme } from './theme'
 
 const PALETTES: { key: Palette; name: string }[] = [
@@ -45,6 +46,42 @@ export default function ProtoTokenBar() {
         <button type="button" onClick={theme.toggle} className="rounded-md border border-white/40 px-2 py-1 hover:bg-white/15">
           {theme.dark ? 'dark ◐' : 'light ◑'}
         </button>
+        {location.pathname.includes('simulation') ? (
+          <>
+            <span className="text-[10px] uppercase tracking-wide opacity-60">372</span>
+            <Seg
+              label="waterfall"
+              options={[
+                { key: 'ledger', label: 'A · ledger' },
+                { key: 'beside', label: 'B · beside cards' },
+                { key: 'pane', label: 'C · Far pane' },
+                { key: 'off', label: 'today' },
+              ]}
+              value={proto.wf}
+              onPick={(k) => setProto({ wf: k as WfPlacement })}
+            />
+            <Seg
+              label="scale"
+              options={[
+                { key: 'line', label: 'line' },
+                { key: 'basket', label: 'basket' },
+              ]}
+              value={proto.scale}
+              onPick={(k) => setProto({ scale: k as WfScale })}
+            />
+            <select
+              value={proto.cap}
+              onChange={(e) => setProto({ cap: e.target.value })}
+              className="rounded-md border border-white/30 bg-black px-1 py-1"
+            >
+              {Object.entries(PROTO_BASKETS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+          </>
+        ) : null}
         <label className="flex items-center gap-1 opacity-80">
           <input type="checkbox" checked={proto.stub} onChange={(e) => setProto({ stub: e.target.checked })} />
           stub data

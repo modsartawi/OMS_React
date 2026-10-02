@@ -32,7 +32,7 @@ async function open(variant, kase, dark) {
   return { ctx, page }
 }
 
-for (const v of ['A', 'B', 'C']) {
+for (const v of ['A', 'B', 'C', 'D']) {
   for (const k of Object.keys(NO)) {
     for (const dark of k === 'out' || k === 'cancelreq' || k === 'resched' ? [false, true] : [false]) {
       const { ctx, page } = await open(v, k, dark)
@@ -51,7 +51,7 @@ for (const v of ['A', 'B', 'C']) {
 }
 
 // ---- intent checks ---------------------------------------------------------------
-for (const v of ['A', 'B', 'C']) {
+for (const v of ['A', 'B', 'C', 'D']) {
   // C on a delivery with a cancellation already requested → refused, no dialog.
   {
     const { ctx, page } = await open(v, 'cancelreq', false)

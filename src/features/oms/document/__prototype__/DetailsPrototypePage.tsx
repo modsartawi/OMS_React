@@ -29,12 +29,13 @@ import { timeline, type FeedItem } from './derive'
 import { findCmd, type VariantProps } from './parts'
 import VariantA, { NAME as NAME_A } from './VariantA'
 import VariantB, { NAME as NAME_B } from './VariantB'
-import VariantC, { NAME as NAME_C } from './VariantC'
+import VariantC, { NAME as NAME_C, NAME_D, VariantD } from './VariantC'
 
 const VARIANTS = [
   { key: 'A', name: NAME_A, Component: VariantA, composer: true },
   { key: 'B', name: NAME_B, Component: VariantB, composer: false },
   { key: 'C', name: NAME_C, Component: VariantC, composer: true },
+  { key: 'D', name: NAME_D, Component: VariantD, composer: true },
 ]
 
 type Intent = 'reschedule' | 'request-close' | 'add-note'

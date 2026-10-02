@@ -86,33 +86,27 @@ function Meta({ item }: { item: FeedItem }) {
 }
 
 export default function VariantC(p: VariantProps) {
+  return <Spine p={p} mode="C" />
+}
+
+export const NAME_D = 'C + B’s command bar — newest first: future on top, Now, then the past'
+/** The owner's pick (2026-10-02): C's spine, B's command bar under the header, notes composer, newest first. */
+export function VariantD(p: VariantProps) {
+  return <Spine p={p} mode="D" />
+}
+
+function Spine({ p, mode }: { p: VariantProps; mode: 'C' | 'D' }) {
   const { t } = useTranslation('document')
   const { doc, bar } = p
   const facts = useFacts(doc)
   const { past, future } = useMemo(() => spine(p), [p])
-
-  return (
-    <div className="grid gap-2.5">
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border bg-card px-3 py-2">
-        <Link to="/oms/deliveries" aria-label={t('back')} title={`${t('back')} (Esc)`} className="grid h-7 w-7 place-items-center rounded-md border border-border hover:bg-accent">
-          <ChevronLeft className="h-4 w-4 rtl:-scale-x-100" aria-hidden />
-        </Link>
-        <span className="font-mono text-lg font-semibold">{doc.documentNo}</span>
-        <NowBadge steps={p.steps} />
-        <DueTag doc={doc} />
-        <Tags doc={doc} />
-        <SubIds doc={doc} className="basis-full ps-10 lg:basis-auto lg:ps-2" />
-        <span className="ms-auto">
-          <AllStatuses doc={doc} />
-        </span>
-      </header>
-
-      <div className="grid items-start gap-2.5 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
-        {/* the spine */}
-        <section aria-label="Timeline and activity" className="grid gap-2 rounded-lg border border-border bg-card p-3">
-          <JobBanners jobs={p.jobs} showRetrySlot={p.showRetrySlot} />
+  const newest = mode === 'D'
+  // Newest first: the spine reads top-down from the furthest future step to the oldest event.
+  const pastShown = newest ? [...past].reverse() : past
+  const futureShown = newest ? [...future].reverse() : future
+  const pastOl = (
           <ol className="mt-1">
-            {past.map((n) => {
+            {pastShown.map((n) => {
               const it = n.item
               if (n.type === 'milestone')
                 return (
@@ -158,13 +152,18 @@ export default function VariantC(p: VariantProps) {
               )
             })}
           </ol>
+  )
+  const nowBlock = (
           <div className="relative -mx-3 border-y border-dashed border-border-strong bg-card-2 px-3 py-2">
             <span className="absolute -top-2 start-3 bg-card-2 px-1 text-[0.625rem] font-bold uppercase tracking-wider text-primary">now</span>
             <Composer p={p} autoFocusHint />
           </div>
+  )
+  const futureOl = (
+    <>
           {future.length > 0 && (
             <ol className="mt-1">
-              {future.map((s) => (
+              {futureShown.map((s) => (
                 <Row key={s.key} dot={<span className={'h-5 w-5 rounded-full border-2 bg-card ' + (s.state === 'next' ? 'border-dashed border-border-strong' : 'border-border')} />}>
                   <div className="flex items-baseline gap-2 pt-0.5 text-[0.8125rem] text-muted-foreground">
                     {s.label}
@@ -174,7 +173,58 @@ export default function VariantC(p: VariantProps) {
               ))}
             </ol>
           )}
+    </>
+  )
+
+  return (
+    <div className="grid gap-2.5">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-border bg-card px-3 py-2">
+        <Link to="/oms/deliveries" aria-label={t('back')} title={`${t('back')} (Esc)`} className="grid h-7 w-7 place-items-center rounded-md border border-border hover:bg-accent">
+          <ChevronLeft className="h-4 w-4 rtl:-scale-x-100" aria-hidden />
+        </Link>
+        <span className="font-mono text-lg font-semibold">{doc.documentNo}</span>
+        <NowBadge steps={p.steps} />
+        <DueTag doc={doc} />
+        <Tags doc={doc} />
+        <SubIds doc={doc} className="basis-full ps-10 lg:basis-auto lg:ps-2" />
+        <span className="ms-auto">
+          <AllStatuses doc={doc} />
+        </span>
+      </header>
+      {mode === 'D' && (
+      <section aria-label={t('command.title')} className="flex flex-wrap items-end gap-x-4 gap-y-3 rounded-lg border border-border bg-card px-3 py-2">
+        <div className="flex flex-1 flex-wrap items-end gap-x-4 gap-y-3">
+          {bar.clusters.map((cl) => (
+            <div key={cl.id} className="flex flex-col gap-1">
+              <span className="ps-0.5 text-[0.625rem] font-bold uppercase tracking-[0.08em] text-ink-3">{cl.label}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {cl.commands.map((c) => {
+                  const I = ICON[c.kind]
+                  return <Cmd key={c.kind} c={c} variant={CLUSTER[cl.id]} onCommand={p.onCommand} refused={p.refused} hint={HINT[c.kind]} icon={<I className="h-3.5 w-3.5" />} label={t(`actions.${c.kind}`)} />
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="ms-auto flex flex-wrap gap-1.5">
+          {bar.terminal.map((c) => {
+            const I = ICON[c.kind]
+            return <Cmd key={c.kind} c={c} variant={c.kind === 'close' ? 'danger' : 'danger-outlined'} onCommand={p.onCommand} refused={p.refused} icon={<I className="h-3.5 w-3.5" />} label={t(`actions.${c.kind}`)} />
+          })}
+        </div>
+      </section>
+      )}
+
+
+      <div className="grid items-start gap-2.5 lg:grid-cols-[minmax(340px,420px)_minmax(0,1fr)]">
+        {/* the spine */}
+        <section aria-label="Timeline and activity" className="grid gap-2 rounded-lg border border-border bg-card p-3">
+          <JobBanners jobs={p.jobs} showRetrySlot={p.showRetrySlot} />
+          {newest ? futureOl : pastOl}
+          {nowBlock}
+          {newest ? pastOl : futureOl}
         </section>
+
 
         {/* facts + items */}
         <div className="grid min-w-0 gap-2.5">
@@ -201,6 +251,8 @@ export default function VariantC(p: VariantProps) {
         </div>
       </div>
 
+      {mode === 'C' && (
+        <>
       {/* sticky command bar — Back is top-start, Cancel order bottom-end */}
       <section aria-label={t('command.title')} className="sticky bottom-14 z-20 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border-strong bg-card px-3 py-2 shadow-[0_10px_30px_rgb(16_24_40/.16)]">
         {bar.clusters.map((cl) => (
@@ -219,6 +271,8 @@ export default function VariantC(p: VariantProps) {
           })}
         </div>
       </section>
+        </>
+      )}
     </div>
   )
 }

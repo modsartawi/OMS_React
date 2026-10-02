@@ -731,7 +731,7 @@ ticket, this wave *writes*, to a customer's login credential. Bound by ADR 0001 
 
 ## A coherent app theme and AG Grid
 
-- [354](354-a-coherent-app-theme-and-ag-grid.md) — A coherent app theme and AG Grid · *(wayfinder map)* · **open** · blocked by: —
-- [355](355-choose-the-app-theme-through-three-visual-directions.md) — Choose the app theme through three visual directions · *(prototype · map 354)* · **done** · blocked by: —
-- [356](356-make-grid-and-component-states-feel-like-one-system.md) — Make grid and component states feel like one system · *(prototype · map 354)* · **claimed** · blocked by: 355 (done)
-- [357](357-agree-the-central-theme-contract-and-specification.md) — Agree the central theme contract and specification · *(grilling · map 354)* · **open** · blocked by: 355, 356
+- [354](354-a-coherent-app-theme-and-ag-grid.md) — A coherent app theme and AG Grid · *(wayfinder map)* · **wontfix** · blocked by: —
+- [355](355-choose-the-app-theme-through-three-visual-directions.md) — Choose the app theme through three visual directions · *(prototype · map 354)* · **wontfix** · blocked by: —
+- [356](356-make-grid-and-component-states-feel-like-one-system.md) — Make grid and component states feel like one system · *(prototype · map 354)* · **wontfix** · blocked by: 355 (done)
+- [357](357-agree-the-central-theme-contract-and-specification.md) — Agree the central theme contract and specification · *(grilling · map 354)* · **wontfix** · blocked by: 355, 356

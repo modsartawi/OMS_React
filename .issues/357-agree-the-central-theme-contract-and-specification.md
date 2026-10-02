@@ -3,7 +3,7 @@ type: wayfinder-ticket
 wayfinder: grilling
 labels: [wayfinder:grilling]
 map: 354
-status: open
+status: wontfix
 blocked-by: 355, 356
 ---
 
@@ -18,3 +18,7 @@ Use grilling and domain-modeling to settle the remaining choices with the owner.
 Identify which historical design rulings are retained or superseded, and how contrast, focus, status meaning, and consistent token consumption will be checked. Link the visual evidence and resolve any cross-screen exceptions surfaced by the earlier ticket. If new questions are still unresolved, create precise child decisions rather than hiding assumptions in the specification.
 
 The answer supplies the agreed contract for a ready theme specification using the repo's `to-spec` workflow. The final specification should reference decisions by title, include a representative validation matrix, and be sufficient for a later rollout plan. Do not slice or execute that rollout here.
+
+## Cancelled
+
+Cancelled 2026-10-02 by the owner: the whole theme map is dropped in favour of the Ops Console direction (new map on main). Nothing here is a production baseline.

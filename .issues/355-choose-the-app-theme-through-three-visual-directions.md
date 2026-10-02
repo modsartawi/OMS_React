@@ -3,7 +3,7 @@ type: wayfinder-ticket
 wayfinder: prototype
 labels: [wayfinder:prototype]
 map: 354
-status: done
+status: wontfix
 blocked-by:
 ---
 
@@ -66,3 +66,7 @@ Resolved with the owner on 2026-10-02. After reviewing the three directions, rai
 **Primary source:** [selected runnable combination and captures](assets/355-theme-review/README.md), on `prototype/theme-directions-355`; [open the selected prototype](http://127.0.0.1:5198/oms/deliveries?variant=selected). The original three directions remain available as comparison evidence on this throwaway branch.
 
 This resolves the visual direction, not the whole map. [Make grid and component states feel like one system](356-make-grid-and-component-states-feel-like-one-system.md) is now unblocked. Production rollout remains outside this map's destination.
+
+## Cancelled
+
+Cancelled 2026-10-02 by the owner: the whole theme map is dropped in favour of the Ops Console direction (new map on main). Nothing here is a production baseline.

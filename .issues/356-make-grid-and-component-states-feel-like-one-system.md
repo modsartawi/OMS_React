@@ -3,7 +3,7 @@ type: wayfinder-ticket
 wayfinder: prototype
 labels: [wayfinder:prototype]
 map: 354
-status: claimed
+status: wontfix
 blocked-by: 355
 ---
 
@@ -46,3 +46,7 @@ The proposal demonstrates 32px form controls, compact 28px actions/rows, a delib
 Verification: 39 state-review browser checks and 21 selected-inquiry checks pass; build and lint pass. Both themes, RTL and smaller viewports are captured. Installed AG Grid parameters and the rendered pinned-totals exception are documented in the assets.
 
 **Awaiting owner feedback.** No shared-state rule is accepted by this entry. Keep the ticket claimed and the dependent specification decision blocked until the owner reacts to the artifact.
+
+## Cancelled
+
+Cancelled 2026-10-02 by the owner: the whole theme map is dropped in favour of the Ops Console direction (new map on main). Nothing here is a production baseline.

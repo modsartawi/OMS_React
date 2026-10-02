@@ -1,6 +1,6 @@
 ---
 type: wayfinder-map
-status: open
+status: wontfix
 labels: [wayfinder:map]
 ---
 
@@ -37,3 +37,7 @@ Cross-screen exceptions may emerge when the chosen design meets long labels, fin
 - Production rollout, bulk component migrations, and fixing all existing styling inconsistencies: follow the selected design and specification in a separate implementation effort.
 - Backend behavior, business rules, new workflows, replacing AG Grid, or changing its licence tier.
 - A full Arabic translation or localization rollout. Existing logical layout and RTL compatibility remain requirements for the proposed theme.
+
+## Cancelled
+
+Cancelled 2026-10-02 by the owner: the whole theme map is dropped in favour of the Ops Console direction (new map on main). Nothing here is a production baseline.

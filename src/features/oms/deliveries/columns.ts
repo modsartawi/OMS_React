@@ -82,6 +82,16 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
     width,
   })
 
+  /**
+   * An identifier column in Plex Mono (spec 380, 359): delivery, document and
+   * order numbers and store codes. Mono is for IDs and codes ONLY — money and
+   * quantities stay in the sans.
+   */
+  const idCol = (key: string, field: DeliveryField, width: number): DeliveryColDef => ({
+    ...textCol(key, field, width),
+    cellClass: 'font-mono',
+  })
+
   /** A `yyyy-MM-dd HH:mm` datetime column with a calendar-day date filter. */
   const dateCol = (key: string, field: DeliveryField, width: number): DeliveryColDef => ({
     headerName: t(`deliveries:columns.${key}`),
@@ -127,9 +137,10 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
   })
 
   return [
-    { ...textCol('deliveryNo', 'deliveryNo', 130), sort: 'desc' },
-    textCol('documentNo', 'documentNo', 130),
-    textCol('orderNo', 'orderNo', 120),
+    // The row's own key reads heaviest: mono at 600 (362 §6).
+    { ...textCol('deliveryNo', 'deliveryNo', 130), cellClass: 'font-mono font-semibold', sort: 'desc' },
+    idCol('documentNo', 'documentNo', 130),
+    idCol('orderNo', 'orderNo', 120),
     {
       headerName: t('deliveries:columns.failedJobs'),
       field: 'failedJobsCount',
@@ -156,7 +167,7 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
     dateCol('documentDate', 'documentDate', 140),
     textCol('mobile', 'customerPhone', 120),
     textCol('customerName', 'customerName', 170),
-    textCol('storeCode', 'storeCode', 100),
+    idCol('storeCode', 'storeCode', 100),
     boolCol('isActiveInStore', 'isActiveInStore', 135),
     textCol('slot', 'timeSlotDescription', 135),
     textCol('slotDay', 'timeSlotDay', 110),

@@ -115,6 +115,8 @@ export function buildActionColumns(t: TFunction): ColDef<LoyMemberActionRow>[] {
       headerName: t('tabs.actions.columns.branch'),
       field: 'branchId',
       width: 110,
+      // The branch is a store code: an ID, so Plex Mono (spec 380, 359).
+      cellClass: 'font-mono',
     },
   ]
 }

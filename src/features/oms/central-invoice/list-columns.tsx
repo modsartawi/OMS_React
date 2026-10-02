@@ -38,7 +38,7 @@ export function listColumns(t: TFunction, onOpenSerials: (row: Row) => void): Co
 
   return [
     { field: 'deliveryNo', headerName: t('list.columns.deliveryNo'), width: 130, cellClass: code },
-    { field: 'storeCode', headerName: t('list.columns.store'), width: 90 },
+    { field: 'storeCode', headerName: t('list.columns.store'), width: 90, cellClass: code },
     { field: 'country', headerName: t('list.columns.country'), width: 95 },
     { field: 'requestedBy', headerName: t('list.columns.requestedBy'), width: 130 },
     { field: 'requestedAt', headerName: t('list.columns.requestedAt'), width: 145, valueFormatter: when },

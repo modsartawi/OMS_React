@@ -351,6 +351,9 @@ function column(
       return { headerName: label, field, colId: field, width: 180 }
     case 'zReportIds':
       return { headerName: label, field, colId: field, width: 200, cellClass: 'font-mono text-[12px]' }
+    case 'storeId':
+      // A store code is an ID: Plex Mono (spec 380, 359).
+      return { headerName: label, field, colId: field, width: 120, cellClass: 'font-mono' }
     default:
       return { headerName: label, field, colId: field, width: 120 }
   }

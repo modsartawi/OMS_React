@@ -86,7 +86,7 @@ export default function ChangeStoreDialog({
 
   const storeColumns = useMemo<ColDef<StoreDetailModel>[]>(
     () => [
-      { headerName: t('changeStore.storeCode'), field: 'storeCode', width: 130 },
+      { headerName: t('changeStore.storeCode'), field: 'storeCode', width: 130, cellClass: 'font-mono' },
       { headerName: t('changeStore.city'), field: 'city', width: 150 },
       { headerName: t('changeStore.region'), field: 'region', width: 170 },
       { headerName: t('changeStore.storeAddress'), field: 'storeAddress', minWidth: 220, flex: 1 },
@@ -106,9 +106,14 @@ export default function ChangeStoreDialog({
       { headerName: t('changeStore.districtAr'), field: 'districtNameAr', width: 180 },
       { headerName: t('changeStore.cityEn'), field: 'cityNameEn', width: 150 },
       { headerName: t('changeStore.cityAr'), field: 'cityNameAr', width: 150 },
-      { headerName: t('changeStore.storeCode'), field: 'storeCode', width: 120 },
-      { headerName: t('changeStore.tempStore'), field: 'tempStoreCode', width: 120 },
-      { headerName: t('changeStore.insuranceStore'), field: 'insuranceStoreCode', width: 140 },
+      { headerName: t('changeStore.storeCode'), field: 'storeCode', width: 120, cellClass: 'font-mono' },
+      { headerName: t('changeStore.tempStore'), field: 'tempStoreCode', width: 120, cellClass: 'font-mono' },
+      {
+        headerName: t('changeStore.insuranceStore'),
+        field: 'insuranceStoreCode',
+        width: 140,
+        cellClass: 'font-mono',
+      },
     ],
     [t],
   )

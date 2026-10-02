@@ -435,7 +435,7 @@ function BranchesTab({ people }: { people: readonly RosterPerson[] }) {
           />
         ),
       },
-      { field: 'storeCode', headerName: t('assignment.columns.storeCode'), width: 130 },
+      { field: 'storeCode', headerName: t('assignment.columns.storeCode'), width: 130, cellClass: 'font-mono' },
       { field: 'storeName', headerName: t('assignment.columns.storeName'), flex: 1, minWidth: 200 },
       { field: 'city', headerName: t('assignment.columns.city'), width: 140 },
       { field: 'area', headerName: t('assignment.columns.area'), width: 160 },

@@ -220,6 +220,9 @@ function column(
     case 'shiftId':
     case 'settlementDocumentId':
       return { headerName: label, field, colId: field, width: 240, cellClass: 'font-mono text-[12px]' }
+    case 'storeId':
+      // A store code is an ID: Plex Mono (spec 380, 359).
+      return { headerName: label, field, colId: field, width: 130, cellClass: 'font-mono' }
     default:
       return { headerName: label, field, colId: field, width: 130 }
   }

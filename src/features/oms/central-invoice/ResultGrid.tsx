@@ -28,7 +28,7 @@ export default function ResultGrid({ rows }: { rows: CentralInvoiceRaiseResult[]
   const { t } = useTranslation('central-invoice')
   const columns = useMemo<ColDef<CentralInvoiceRaiseResult>[]>(
     () => [
-      { field: 'deliveryNo', headerName: t('results.columns.deliveryNo'), width: 150 },
+      { field: 'deliveryNo', headerName: t('results.columns.deliveryNo'), width: 150, cellClass: 'font-mono' },
       { field: 'verdict', headerName: t('results.columns.verdict'), width: 120, cellRenderer: VerdictCell },
       { field: 'code', headerName: t('results.columns.code'), width: 230 },
       {

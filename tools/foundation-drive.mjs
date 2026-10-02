@@ -233,7 +233,9 @@ async function driveOneMode({ theme, dir }) {
   const card = await page.evaluate(() => getComputedStyle(document.querySelector('.ag-root-wrapper')).backgroundColor)
   check(`${label}: Deliveries — the grid card is B's --card`, card === PALETTE_B[theme].card, card)
 
-  const cellFonts = await renderedFonts('.ag-root', '80001238')
+  // A document-type cell: the ID columns are Plex Mono since 382 (grid-theme-drive.mjs
+  // measures them), and the name column is past column virtualisation at this width.
+  const cellFonts = await renderedFonts('.ag-root', 'CLCN')
   check(
     `${label}: Deliveries — a painted cell RENDERS in the self-hosted IBM Plex Sans`,
     cellFonts.length > 0 && cellFonts.every((f) => f.family === 'IBM Plex Sans' && f.custom),

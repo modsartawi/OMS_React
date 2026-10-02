@@ -121,6 +121,9 @@ function column(t: TFunction, field: keyof CollectionAttemptRow): ColDef<Collect
     case 'collectorName':
     case 'reasonText':
       return { headerName: label, field, colId: field, width: 200 }
+    case 'storeCode':
+      // A store code is an ID: Plex Mono (spec 380, 359).
+      return { headerName: label, field, colId: field, width: 130, cellClass: 'font-mono' }
     case 'shiftId':
       return { headerName: label, field, colId: field, width: 180, cellClass: 'font-mono text-[12px]' }
     default:

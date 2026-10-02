@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 380
 blocked-by: 381
 ---
@@ -42,12 +42,12 @@ Grid theme module · column definitions (cellClass on ID columns) · drive. No m
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `npm run lint`: `check-contrast` carries `--grid-head-foreground` on `--grid-head` and
+- [x] `npm run lint`: `check-contrast` carries `--grid-head-foreground` on `--grid-head` and
   `--cursor` on `--card` / `--primary-050` (362 §7) · lint gate
-- [ ] `grid-theme-drive.mjs` (extend): on Deliveries, in light and dark, a row measures 26px, the
+- [x] `grid-theme-drive.mjs` (extend): on Deliveries, in light and dark, a row measures 26px, the
   header ground equals `--grid-head`, the Delivery no. cell computes Plex Mono at weight 600, and the
   selected row's cursor bar is visible over a user-pinned column · flow (Playwright)
-- [ ] The same drive: drag-select text in a cell, press Ctrl+C, and the clipboard holds the text ·
+- [x] The same drive: drag-select text in a cell, press Ctrl+C, and the clipboard holds the text ·
   flow (Playwright)
 
 ## Boundaries
@@ -63,3 +63,53 @@ cells and native copy, and the extended `grid-theme-drive.mjs` passes in light a
 ## Blocked by
 
 [381](381-every-screen-paints-in-palette-b-with-ibm-plex.md)
+
+## Comments
+
+**2026-10-02 — done (AFK).** Unattended decisions are in `.afk/HITL-382.md`.
+
+**What landed.**
+- **Params (F8)**, still one block in `core/theme/ag-grid-theme.ts`. Rows are 26px and headers 28px (the
+  two shared constants, so all 21 grids follow). Headers are 11.5px at 600, on the `--grid-head` pair.
+  The wrapper radius is 8px, and `pinnedColumnBorder` sits on `--border-strong`. There is still no
+  zebra, and the `--divider` rules are unchanged. `fontFamily: var(--font-sans)` had already landed in 381.
+- **The cursor bar (F6).** The `global.css` rule paints `--cursor` (navy in light, gold in dark) at
+  `z-index: 3`, so it stays above pinned cells. It is still on `inset-inline-start`.
+- **Native copy (F9).** One `provideGlobalGridOptions({ enableCellTextSelection, ensureDomOrder })` at
+  theme-module load reaches every grid. It is the app's ONE call: AG Grid replaces the global object, so
+  383's `enableRtl` must join this object and not make a second call.
+- **Mono IDs.** Delivery, document and order numbers and store codes take `font-mono` on every grid that
+  shows them. Deliveries' Delivery no. is `font-mono font-semibold`. Money and quantities stay sans.
+  The grid list is in HITL Q2.
+
+**Proof.**
+- `npm run lint` is clean. The contrast gate measures 144 pairs, including 381's `--grid-head-foreground`
+  on `--grid-head` and `--cursor` on `--card` / `--primary-050`.
+- `tools/grid-theme-drive.mjs` passes **125/125**. Deliveries is driven in light, dark, LTR and RTL, with
+  an Arabic stub row in RTL. It checks:
+  - all 18 params resolve to their tokens;
+  - rows measure 26px and the header 28px, with 11.5/600 labels and an 8px wrapper;
+  - the Delivery no. computes and *renders* (CDP) Plex Mono SemiBold, with the 600 face loaded;
+  - the other IDs are mono at 400, and money and names are sans;
+  - the cursor bar is a `--cursor` pixel over a user-pinned Delivery no.; the control run at z-index 1
+    loses that pixel;
+  - a drag over cell text plus Ctrl+C puts `8000002` on the clipboard.
+
+  The other modules also assert 26/28 rows and selectable cell text. Coverage is Document Details ×4
+  tabs, Change Store and BBY. Simulation mounts no grid without a result, so it is skipped and says so.
+- `tools/foundation-drive.mjs` passes **72/72**. Its sans-cell probe moved off the now-mono Delivery no.
+- Also green: the `document-items`, `document-rtl`, `central-invoice`, `central-invoice-list` and
+  `bby-inquiry` drives, vitest (3133), typecheck and build.
+
+**Reviews.**
+- `/code-review` found nothing.
+- `/standards-review` found no hard violation on either axis, and three of its catches landed:
+  - Loy Actions' `branchId`, a store code, is now mono;
+  - the Delivery no. no longer overrides an `idCol` spread;
+  - the theme names its global-options call as the only one.
+
+  Judgement calls are logged in the HITL file:
+  - the 44px settlement lanes;
+  - no shared ID-class constant;
+  - the `font-mono` / `font-mono text-[12px]` split.
+

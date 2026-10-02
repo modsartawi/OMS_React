@@ -92,6 +92,7 @@ export function buildSalesColumns(t: TFunction, rows: readonly LoySalesRow[]): C
       headerName: t('tabs.sales.columns.store'),
       field: 'storeCode',
       width: 100,
+      cellClass: 'font-mono',
     },
     {
       headerName: t('tabs.sales.columns.itemNumber'),

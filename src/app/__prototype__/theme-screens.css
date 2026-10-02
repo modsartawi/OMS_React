@@ -1,0 +1,11 @@
+.theme-preview-heading { display: flex; justify-content: space-between; gap: 16px; margin-block-end: 20px; font-size: 12px; }
+.theme-preview-heading p { color: var(--muted-foreground); margin-block-start: 5px; max-width: 720px; }
+.theme-preview-controls, .theme-preview-scenario { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.theme-preview-scenario { margin-block-end: 16px; font-size: 12px; }
+.theme-preview-scenario select { height: 32px; background: var(--card); border: 1px solid var(--input); padding-inline: 10px; border-radius: 3px; }
+.theme-screen-preview .theme-preview-content :is(.rounded-lg, .rounded-md) { border-radius: 3px; }
+.theme-screen-preview .theme-preview-content .ag-root-wrapper { border-radius: 0; }
+.theme-screen-preview .theme-preview-content :is(input:not([type=checkbox]), select, button) { min-height: 28px; }
+.theme-screen-preview .theme-preview-content [data-sim-work-area] { min-width: 780px; }
+.theme-screen-preview .theme-preview-content { overflow-x: auto; padding: 2px; }
+@media (max-width: 850px) { .theme-preview-heading { flex-wrap: wrap; } }

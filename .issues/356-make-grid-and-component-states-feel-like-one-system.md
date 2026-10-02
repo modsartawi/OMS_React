@@ -26,3 +26,7 @@ The answer records the owner's accepted visual rules and deliberate exceptions, 
 [Choose the app theme through three visual directions — Answer](355-choose-the-app-theme-through-three-visual-directions.md#answer) supplies the accepted starting direction. Extend the [selected combination](http://127.0.0.1:5198/oms/deliveries?variant=selected), captured on `prototype/theme-directions-355`, with [review assets](assets/355-theme-review/README.md).
 
 Carry the prior ticket's filter and copying decisions through the state review. Specifically verify draft versus applied criteria, chips while collapsed, expansion staying open after Search, native text selection coexisting with row selection/keyboard focus, and both themes/RTL. Do not reopen the chosen palette or composition without new evidence that requires a decision.
+
+## Comments
+
+2026-10-02: The owner liked the selected inquiry and requested delivery details and simulation previews. The [cross-screen extension](assets/356-theme-screens/README.md) on `prototype/theme-directions-355` now provides both, with linked navigation, fictional delivery data, captured pricing replays, both themes and RTL. This is partial evidence for this ticket; no new visual rules have been accepted and the full state matrix and Collection specimen remain outstanding.

@@ -1,0 +1,181 @@
+{
+  "checks": [
+    {
+      "name": "light: fictional delivery",
+      "pass": true
+    },
+    {
+      "name": "light: copy item number",
+      "pass": true
+    },
+    {
+      "name": "light: Header Conditions tab",
+      "pass": true
+    },
+    {
+      "name": "light: Log tab",
+      "pass": true
+    },
+    {
+      "name": "light: Jobs tab",
+      "pass": true
+    },
+    {
+      "name": "light: Items tab",
+      "pass": true
+    },
+    {
+      "name": "light: status disclosure",
+      "pass": true
+    },
+    {
+      "name": "light: note dialog",
+      "pass": true
+    },
+    {
+      "name": "light: RTL grid",
+      "pass": true
+    },
+    {
+      "name": "light: navigation keeps theme",
+      "pass": true
+    },
+    {
+      "name": "light: fired replay",
+      "pass": true
+    },
+    {
+      "name": "light: fired expansion",
+      "pass": true
+    },
+    {
+      "name": "light: near replay",
+      "pass": true
+    },
+    {
+      "name": "light: near expansion",
+      "pass": true
+    },
+    {
+      "name": "light: plain replay",
+      "pass": true
+    },
+    {
+      "name": "light: plain expansion",
+      "pass": true
+    },
+    {
+      "name": "light: trace replay",
+      "pass": true
+    },
+    {
+      "name": "light: trace expansion",
+      "pass": true
+    },
+    {
+      "name": "dark: fictional delivery",
+      "pass": true
+    },
+    {
+      "name": "dark: copy item number",
+      "pass": true
+    },
+    {
+      "name": "dark: Header Conditions tab",
+      "pass": true
+    },
+    {
+      "name": "dark: Log tab",
+      "pass": true
+    },
+    {
+      "name": "dark: Jobs tab",
+      "pass": true
+    },
+    {
+      "name": "dark: Items tab",
+      "pass": true
+    },
+    {
+      "name": "dark: status disclosure",
+      "pass": true
+    },
+    {
+      "name": "dark: note dialog",
+      "pass": true
+    },
+    {
+      "name": "dark: RTL grid",
+      "pass": true
+    },
+    {
+      "name": "dark: navigation keeps theme",
+      "pass": true
+    },
+    {
+      "name": "dark: fired replay",
+      "pass": true
+    },
+    {
+      "name": "dark: fired expansion",
+      "pass": true
+    },
+    {
+      "name": "dark: near replay",
+      "pass": true
+    },
+    {
+      "name": "dark: near expansion",
+      "pass": true
+    },
+    {
+      "name": "dark: plain replay",
+      "pass": true
+    },
+    {
+      "name": "dark: plain expansion",
+      "pass": true
+    },
+    {
+      "name": "dark: trace replay",
+      "pass": true
+    },
+    {
+      "name": "dark: trace expansion",
+      "pass": true
+    },
+    {
+      "name": "Editing marks results stale",
+      "pass": true
+    },
+    {
+      "name": "Edited basket is not mispriced",
+      "pass": true
+    },
+    {
+      "name": "Reset and keyboard Process work",
+      "pass": true
+    },
+    {
+      "name": "Simulation supports RTL",
+      "pass": true
+    },
+    {
+      "name": "Laptop page stays within viewport",
+      "pass": true
+    },
+    {
+      "name": "Open selected enters full delivery detail",
+      "pass": true
+    },
+    {
+      "name": "Detail back returns to selected inquiry",
+      "pass": true
+    },
+    {
+      "name": "No browser errors",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

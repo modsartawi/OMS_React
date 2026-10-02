@@ -66,7 +66,7 @@ export default function IdentityBand({
       className="flex flex-wrap items-start gap-x-4 gap-y-2.5 rounded-lg border border-border bg-brand-panel px-4 py-3 text-brand-panel-foreground"
     >
       <Link
-        to="/oms/deliveries"
+        to={import.meta.env.DEV && new URLSearchParams(window.location.search).has('variant') ? `/oms/deliveries${window.location.search}` : '/oms/deliveries'}
         aria-label={t('back')}
         title={t('back')}
         className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-brand-panel-foreground/25 bg-brand-panel-foreground/10 hover:bg-brand-panel-foreground/20"

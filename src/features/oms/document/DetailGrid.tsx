@@ -67,6 +67,9 @@ export default function DetailGrid<T>({
   return (
     <div className="h-[26rem] w-full">
       <AgGridReact<T>
+        enableCellTextSelection={import.meta.env.DEV && !!document.documentElement.dataset.themePrototype}
+        ensureDomOrder={import.meta.env.DEV && !!document.documentElement.dataset.themePrototype}
+        enableRtl={import.meta.env.DEV && document.documentElement.dataset.themePrototype ? document.documentElement.dir === 'rtl' : undefined}
         theme={omsGridTheme}
         rowData={rowData ?? []}
         columnDefs={columnDefs}

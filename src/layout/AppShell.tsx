@@ -57,12 +57,14 @@ function useExpanded(hasActiveChild: boolean): [boolean, () => void] {
 
 function MenuLeaf({ item, onNavigate }: MenuItemProps) {
   const { t } = useTranslation()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
+  const preview = import.meta.env.DEV && new URLSearchParams(search).has('variant') && ['/oms/deliveries', '/pricing/simulation'].includes(item.routerLink ?? '')
   const active = isActive(item, pathname)
   const Icon = item.icon
   return (
     <NavLink
-      to={item.routerLink!}
+      to={preview ? `${item.routerLink}${search}` : item.routerLink!}
+      reloadDocument={preview}
       // 🚩 `end` keeps react-router's OWN `aria-current` in step with `isActive`
       // (ticket 284). NavLink prefix-matches `to` by default, so without this the
       // Overview leaf would announce itself as the current page on all four
@@ -284,7 +286,7 @@ export default function AppShell() {
   const theme = useTheme()
   const location = useLocation()
   const prototypeParams = new URLSearchParams(location.search)
-  const themeDark = import.meta.env.DEV && location.pathname === '/oms/deliveries' && prototypeParams.has('variant')
+  const themeDark = import.meta.env.DEV && (location.pathname.startsWith('/oms/deliver') || location.pathname.startsWith('/oms/document/') || location.pathname === '/pricing/simulation') && prototypeParams.has('variant')
     ? prototypeParams.get('mode') === 'dark' : theme.dark
   // Desktop: collapsed hides the sidebar (a REAL collapse — the Angular prototype's
   // desktop hamburger was inert; do-not-copy list). Mobile: overlay open/closed.

@@ -122,6 +122,10 @@ export const router = createBrowserRouter([
       {
         path: 'oms/document/:documentNo',
         lazy: async () => {
+          if (import.meta.env.DEV && import.meta.env.VITE_THEME_PROTOTYPE && new URLSearchParams(window.location.search).has('variant')) {
+            const { default: Preview } = await import('@/app/__prototype__/ThemeScreens')
+            return { Component: () => <Preview screen="details" openedAs="document" /> }
+          }
           const { default: Page } = await import('@/features/oms/document/DocumentDetailsPage')
           return { Component: () => <Page openedAs="document" /> }
         },
@@ -129,6 +133,10 @@ export const router = createBrowserRouter([
       {
         path: 'oms/delivery/:deliveryNo',
         lazy: async () => {
+          if (import.meta.env.DEV && import.meta.env.VITE_THEME_PROTOTYPE && new URLSearchParams(window.location.search).has('variant')) {
+            const { default: Preview } = await import('@/app/__prototype__/ThemeScreens')
+            return { Component: () => <Preview screen="details" openedAs="delivery" /> }
+          }
           const { default: Page } = await import('@/features/oms/document/DocumentDetailsPage')
           return { Component: () => <Page openedAs="delivery" /> }
         },
@@ -403,9 +411,13 @@ export const router = createBrowserRouter([
       },
       {
         path: 'pricing/simulation',
-        lazy: async () => ({
-          Component: (await import('@/features/pricing/simulation/SimulationPage')).default,
-        }),
+        lazy: async () => {
+          if (import.meta.env.DEV && import.meta.env.VITE_THEME_PROTOTYPE && new URLSearchParams(window.location.search).has('variant')) {
+            const { default: Preview } = await import('@/app/__prototype__/ThemeScreens')
+            return { Component: () => <Preview screen="simulation" /> }
+          }
+          return { Component: (await import('@/features/pricing/simulation/SimulationPage')).default }
+        },
       },
       {
         path: 'pricing/bonus-buy-download',

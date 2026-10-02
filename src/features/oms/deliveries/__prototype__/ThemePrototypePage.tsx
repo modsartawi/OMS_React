@@ -16,6 +16,8 @@ import copy from './copy.json'
 import ThemePrototypeFilters from './ThemePrototypeFilters'
 import { BLANK_CRITERIA, buildDeliveryQuery, type DeliveryFilterCriteria } from '../filter'
 import './theme-prototype.css'
+import ThemePreviewNav from '@/core/ui/ThemePreviewNav'
+import '@/core/ui/theme-preview-nav.css'
 
 i18n.addResourceBundle('en', 'theme-prototype', copy, true, true)
 const keys = ['A', 'B', 'C', 'selected'] as const
@@ -52,7 +54,6 @@ export default function ThemePrototypePage() {
   const [api, setApi] = useState<GridApi<Row> | null>(null)
   const [chooser, setChooser] = useState(false)
   const [hidden, setHidden] = useState<string[]>([])
-  const [preview, setPreview] = useState(false)
   const [swatches, setSwatches] = useState<Record<string, string>>({})
   const update = useCallback((key: string, value: string) => {
     setParams(previous => { const next = new URLSearchParams(previous); next.set(key, value); return next }, { replace: true })
@@ -114,7 +115,7 @@ export default function ThemePrototypePage() {
   const filters = <ThemePrototypeFilters applied={applied} onApply={setApplied} onReset={reset} />
   const scopes = <div className="prototype-scopes">{['all', 'failed', 'rescheduled'].map(key => <button key={key} aria-pressed={scope === key} onClick={() => { setScope(key); setSelected(null) }}><span>{t(key)}</span><strong>{rows.filter(r => key === 'all' || (key === 'failed' ? r.jobs > 0 : r.rescheduled)).length}</strong></button>)}</div>
   const grid = <section className="prototype-results">
-    <div className="prototype-results-toolbar"><h2>{t('results')} <span>{t('count', { count: data.length })}</span></h2><div className="flex items-center gap-2"><Button variant="outlined" onClick={() => setChooser(!chooser)} aria-expanded={chooser}><SlidersHorizontal size={14} />{t('columns')}</Button><Button disabled={!selected} onClick={() => setPreview(true)}>{t('open')}<ArrowUpRight size={14} /></Button></div></div>
+    <div className="prototype-results-toolbar"><h2>{t('results')} <span>{t('count', { count: data.length })}</span></h2><div className="flex items-center gap-2"><Button variant="outlined" onClick={() => setChooser(!chooser)} aria-expanded={chooser}><SlidersHorizontal size={14} />{t('columns')}</Button><Button disabled={!selected} onClick={() => window.location.assign(`/oms/delivery/${selected!.deliveryNo}?${params}`)}>{t('open')}<ArrowUpRight size={14} /></Button></div></div>
     {chooser && <div className="prototype-column-chooser">{columns.filter(c => c.field !== 'deliveryNo').map(col => <label key={col.field}><input type="checkbox" checked={!hidden.includes(col.field!)} onChange={e => setHidden(old => e.target.checked ? old.filter(key => key !== col.field) : [...old, col.field!])} />{col.headerName}</label>)}</div>}
     <div className="prototype-grid"><AgGridReact<Row> key={String(rtl)} theme={gridTheme} enableRtl={rtl} rowData={data} columnDefs={columns}
       enableCellTextSelection ensureDomOrder
@@ -125,6 +126,7 @@ export default function ThemePrototypePage() {
     <div className="prototype-grid-footer"><span>{selected ? t('selected', { id: selected.deliveryNo }) : t('none')}</span><span>{t('copyHint')} {t('scope')}</span></div>
   </section>
   return <div className={`theme-prototype prototype-${composition}${variant === 'selected' ? ' prototype-selected' : ''}`}>
+    <ThemePreviewNav />
     <div className="prototype-heading"><div><div className="prototype-eyebrow">{t('review')}</div><h1>{t('title')}</h1><p>{t('subtitle')}</p></div><span className="prototype-fixture">{t('fixture')}</span></div>
     {composition === 'A' && <>{filters}{scopes}{grid}</>}
     {composition === 'B' && <div className="prototype-workspace"><aside>{filters}<p className="prototype-aside-note">{t('descriptionB')}</p></aside><div>{scopes}{grid}</div></div>}
@@ -133,7 +135,6 @@ export default function ThemePrototypePage() {
       <div className="prototype-components"><span>{t('specimens')}</span><Button variant="cancel-request" disabled>{t('requestCancellation')}</Button><Button variant="danger-outlined" disabled>{t('cancel')}</Button><span className="rounded-full bg-prescription-050 px-2 py-0.5 text-xs text-prescription-800">{t('prescription')}</span><span className="rounded-full bg-post-050 px-2 py-0.5 text-xs text-post-800">{t('post')}</span></div>
     </section>
     <output className="prototype-state">{t('state', { variant: t(variant === 'selected' ? 'selectedDesign' : variant), mode: t(dark ? 'dark' : 'light'), direction: rtl ? 'RTL' : 'LTR', count: data.length, selection: selected?.deliveryNo ?? '—' })}</output>
-    {preview && selected && <div className="prototype-preview" role="region" aria-label={t('open')}><div><span>{t('previewHint')}</span><h2>{selected.deliveryNo}</h2><p>{selected.customer} · {selected.store} · {t(selected.status)}</p></div><Button variant="outlined" onClick={() => setPreview(false)}>{t('close')}</Button></div>}
     <PrototypeSwitcher names={keys.map(key => t(key === 'selected' ? 'selectedDesign' : key))} current={keys.indexOf(variant)} onChange={changeVariant} previousLabel={t('previous')} nextLabel={t('next')}>
       <button aria-pressed={dark} onClick={() => update('mode', dark ? 'light' : 'dark')}>{dark ? <Sun size={15} /> : <Moon size={15} />}{t(dark ? 'light' : 'dark')}</button>
       <button aria-pressed={rtl} onClick={() => update('dir', rtl ? 'ltr' : 'rtl')}>{t('rtl')}</button>

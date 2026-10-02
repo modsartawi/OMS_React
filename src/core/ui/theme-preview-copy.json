@@ -1,0 +1,18 @@
+{
+  "nav": "Theme preview screens",
+  "inquiry": "Delivery inquiry",
+  "details": "Delivery details",
+  "simulation": "POS simulation",
+  "light": "Light",
+  "dark": "Dark",
+  "rtl": "RTL",
+  "review": "Selected theme - interactive preview",
+  "fixture": "Fictional delivery. Commands are preview only.",
+  "replay": "Captured pricing scenarios. Choose a basket, then Process; edited inputs are not repriced by this preview.",
+  "scenario": "Sample basket",
+  "fired": "Promotion applied",
+  "near": "Could have applied",
+  "plain": "Multiple items",
+  "trace": "Pricing trace",
+  "reset": "Reset sample"
+}

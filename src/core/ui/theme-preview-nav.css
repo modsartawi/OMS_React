@@ -1,0 +1,5 @@
+/* Selected-theme experiments only; preserve semantic badges and action families. */
+.theme-preview-nav { display: flex; flex-wrap: wrap; gap: 20px; border-block-end: 1px solid var(--border-strong); margin-block-end: 18px; }
+.theme-preview-nav a { padding-block: 9px; font-size: 12px; color: var(--muted-foreground); text-decoration: none; }
+.theme-preview-nav a:hover { color: var(--primary); }
+.theme-preview-nav a[aria-current] { color: var(--foreground); box-shadow: 0 2px var(--primary); font-weight: 600; }

@@ -60,6 +60,8 @@ The columns and combined status are illustrative fixtures, not a proposed replac
 
 ## Handoff
 
+The owner subsequently requested [delivery details and POS simulation previews](../356-theme-screens/README.md). The inquiry's Preview delivery action now opens that full detail route; top-of-page links connect the three screens. The original 355 verification records the earlier inline preview; the extension has its own current browser drive.
+
 The visual-direction ticket is resolved. Continue with [Make grid and component states feel like one system](../../356-make-grid-and-component-states-feel-like-one-system.md). The map remains open until the shared-state decisions and final theme specification are ready.
 
 Selected combination: [expanded light](selected-light-all-filters.png), [expanded dark](selected-dark-all-filters.png), [RTL](selected-dark-rtl.png). `node tools/theme-selected-drive.mjs` verifies palette/composition, all filters, expansion behavior, text copying, 28px rows, RTL and mobile layout; see [selected verification](selected-verification.json).

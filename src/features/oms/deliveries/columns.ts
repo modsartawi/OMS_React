@@ -127,9 +127,10 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
   })
 
   return [
-    { ...textCol('deliveryNo', 'deliveryNo', 130), sort: 'desc' },
-    textCol('documentNo', 'documentNo', 130),
-    textCol('orderNo', 'orderNo', 120),
+    // PROTOTYPE 362: IDs in Plex Mono (359), Delivery no. pinned to show the pinned rule.
+    { ...textCol('deliveryNo', 'deliveryNo', 130), sort: 'desc', cellClass: 'font-mono font-semibold', pinned: 'left' },
+    { ...textCol('documentNo', 'documentNo', 130), cellClass: 'font-mono' },
+    { ...textCol('orderNo', 'orderNo', 120), cellClass: 'font-mono' },
     {
       headerName: t('deliveries:columns.failedJobs'),
       field: 'failedJobsCount',
@@ -156,7 +157,7 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
     dateCol('documentDate', 'documentDate', 140),
     textCol('mobile', 'customerPhone', 120),
     textCol('customerName', 'customerName', 170),
-    textCol('storeCode', 'storeCode', 100),
+    { ...textCol('storeCode', 'storeCode', 100), cellClass: 'font-mono' },
     boolCol('isActiveInStore', 'isActiveInStore', 135),
     textCol('slot', 'timeSlotDescription', 135),
     textCol('slotDay', 'timeSlotDay', 110),

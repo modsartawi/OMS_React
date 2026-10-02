@@ -1,4 +1,9 @@
 import { themeQuartz } from 'ag-grid-community'
+import { proto } from './proto-362'
+
+// PROTOTYPE 362: candidate palettes take Plex, the --grid-head tokens, a pinned
+// rule and the chosen density; `steel` keeps today's params exactly.
+const ops = proto.palette !== 'steel'
 
 /**
  * Dense AG Grid theme, painted from the app's design tokens (spec 082 D-11,
@@ -37,11 +42,11 @@ export const omsGridTheme = themeQuartz
   .withParams({
     // Density — unchanged since 403.
     spacing: 4,
-    fontSize: 12,
-    fontFamily: "'Inter', 'Readex Pro', system-ui, sans-serif",
-    headerFontSize: 12,
+    fontSize: ops ? proto.size : 12,
+    fontFamily: ops ? 'var(--font-sans)' : "'Inter', 'Readex Pro', system-ui, sans-serif",
+    headerFontSize: ops ? proto.size - 0.5 : 12,
     headerFontWeight: 600,
-    wrapperBorderRadius: 10,
+    wrapperBorderRadius: ops ? 8 : 10,
 
     // Surfaces. The grid is a card sitting on the page, so its ground is
     // `--card`; hover moves to `--card-2`, which steps the correct direction in
@@ -51,8 +56,8 @@ export const omsGridTheme = themeQuartz
     foregroundColor: 'var(--foreground)',
     oddRowBackgroundColor: 'var(--card)',
     rowHoverColor: 'var(--card-2)',
-    headerBackgroundColor: 'var(--muted)',
-    headerTextColor: 'var(--muted-foreground)',
+    headerBackgroundColor: 'var(--grid-head)',
+    headerTextColor: 'var(--grid-head-foreground)',
 
     // Rules. `--border` is the default for every edge; rows get the quieter
     // `--divider`, and the header and pinned-footer rules get `--border-strong`.
@@ -64,6 +69,7 @@ export const omsGridTheme = themeQuartz
     pinnedRowBackgroundColor: 'var(--muted)',
     pinnedRowTextColor: 'var(--foreground)',
     pinnedRowBorder: { color: 'var(--border-strong)' },
+    pinnedColumnBorder: { color: 'var(--border-strong)' },
 
     // Selection + focus.
     selectedRowBackgroundColor: 'var(--primary-050)',
@@ -78,10 +84,10 @@ export const omsGridTheme = themeQuartz
   .withParams({ browserColorScheme: 'dark' }, 'dark')
 
 /** Compact row height (px) for the results grid. */
-export const OMS_GRID_ROW_HEIGHT = 28
+export const OMS_GRID_ROW_HEIGHT = ops ? proto.rows : 28
 
 /** Compact header height (px) for the results grid. */
-export const OMS_GRID_HEADER_HEIGHT = 30
+export const OMS_GRID_HEADER_HEIGHT = ops ? proto.rows + 2 : 30
 
 /**
  * RTL is a grid OPTION, not a theme param, so the theme object cannot carry it.

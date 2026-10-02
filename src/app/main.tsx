@@ -3,11 +3,13 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
+import '@/core/theme/proto-362' // PROTOTYPE 362: palette attribute + stub, before anything paints
 import '@/core/i18n'
 import '@/app/global.css'
 import { router } from '@/app/router'
 import { ConfirmHost } from '@/core/services/confirm'
 import { useTheme } from '@/layout/theme'
+import ProtoTokenBar from '@/layout/ProtoTokenBar'
 
 /** Sonner doesn't watch the `.dark` class — feed it the app's theme store. */
 function ThemedToaster() {
@@ -29,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
       {/* One app-wide confirm dialog — what lets `confirmAction()` be awaited
           from anywhere without a component in scope. */}
       <ConfirmHost />
+      <ProtoTokenBar />
     </QueryClientProvider>
   </StrictMode>,
 )

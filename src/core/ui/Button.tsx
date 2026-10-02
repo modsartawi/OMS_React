@@ -85,7 +85,7 @@ export default function Button({
   ...rest
 }: ButtonProps) {
   return (
-    <button type="button" className={`${BASE} ${VARIANTS[variant]} ${className}`} {...rest}>
+    <button type="button" data-btn="" className={`${BASE} ${VARIANTS[variant]} ${className}`} {...rest}>
       {children}
     </button>
   )

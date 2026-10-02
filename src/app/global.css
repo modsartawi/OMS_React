@@ -26,6 +26,67 @@
   unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+08A0-08FF, U+FB50-FDFF,
     U+FE70-FEFF;
 }
+/* PROTOTYPE 362 — IBM Plex (359 / ADR 0003), self-hosted from @fontsource 5.3.0. */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('../assets/fonts/ibm-plex-sans-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../assets/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../assets/fonts/ibm-plex-mono-latin-600-normal.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  src: url('../assets/fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+08A0-08FF, U+FB50-FDFF,
+    U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  src: url('../assets/fonts/ibm-plex-sans-arabic-arabic-500-normal.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+08A0-08FF, U+FB50-FDFF,
+    U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  src: url('../assets/fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+08A0-08FF, U+FB50-FDFF,
+    U+FE70-FEFF;
+}
+@font-face {
+  font-family: 'IBM Plex Sans Arabic';
+  src: url('../assets/fonts/ibm-plex-sans-arabic-arabic-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+08A0-08FF, U+FB50-FDFF,
+    U+FE70-FEFF;
+}
 @theme {
   /* Arabic companion sits after the Latin face: per-glyph fallback + the
      unicode-range gates above route scripts automatically. Headings are the
@@ -265,6 +326,218 @@
   --prescription-800: #9ed9dc;
 }
 
+/* ===========================================================================
+   PROTOTYPE 362 — throwaway (branch prototype/362-ops-console-tokens).
+   Two candidate Ops Console palettes, switched live by `html[data-palette]`
+   (set by src/core/theme/proto-362.ts + the floating ProtoTokenBar). No
+   attribute = today's POS steel, the baseline to compare against.
+
+   Specificity: `html[data-palette=x]` (0,1,1) beats `.dark` (0,1,0), so each
+   dark twin is `html.dark[data-palette=x]` (0,2,1).
+
+   Base additions, so the steel baseline keeps working:
+     --gold / --gold-foreground  the al-dawaa signal + the ink it carries
+     --cursor                    the selected-row / keyboard-cursor bar
+     --grid-head(-foreground)    AG Grid header ground + ink
+     --sidebar-muted             group labels on the rail (muted-fg dies on navy)
+
+   Status families (success/attention/danger/post/prescription/fam-*) are NOT
+   redeclared: 082's values carry over in both candidates. Far's own greens
+   failed white ink (4.33:1) and its other hues were 082's give or take a step.
+   =========================================================================== */
+:root {
+  --gold: #fdc801;
+  --gold-foreground: #002554;
+  --cursor: var(--primary);
+  --grid-head: var(--muted);
+  --grid-head-foreground: var(--muted-foreground);
+  --sidebar-muted: var(--muted-foreground);
+}
+
+/* A — "Far as drawn": the prototype's neutral greys + cobalt accent. Gold is
+   the cursor bar and the dark focus ring, exactly as in the approved file. */
+html[data-palette='far'] {
+  --background: #f3f4f6;
+  --foreground: #15171c;
+  --card: #ffffff;
+  --card-foreground: #15171c;
+  --card-2: #fafafb;
+  --muted: #eef0f3;
+  --muted-foreground: #4b5260;
+  --ink-3: #737987;
+  --accent: #e9ebef;
+  --accent-foreground: #15171c;
+  --border: #e2e4e9;
+  --border-strong: #cdd1d8;
+  --divider: #eceef1;
+  --input: #8c929e; /* 3:1 field edge (1.4.11) */
+  --ring: #1f4fd1;
+
+  --primary: #1f4fd1;
+  --primary-050: #eaf0ff;
+  --primary-border: #c4d3fa;
+  --primary-800: #1a3fa8;
+  --primary-foreground: #ffffff;
+  --secondary: #4b5260;
+  --secondary-press: #3d434f;
+  --secondary-foreground: #ffffff;
+
+
+  --sidebar: #002554;
+  --sidebar-foreground: #d3dbe8;
+  --sidebar-accent: #143662;
+  --sidebar-active: #fdc801;
+  --sidebar-muted: #8fa0bd;
+
+  --cursor: #fdc801;
+  --grid-head: #fafafb;
+  --grid-head-foreground: #4b5260;
+
+  --radius: 0.5rem;
+}
+html.dark[data-palette='far'] {
+  --background: #0d1015;
+  --foreground: #e7e9ee;
+  --card: #141820;
+  --card-foreground: #e7e9ee;
+  --card-2: #1a1f28;
+  --muted: #1d222b;
+  --muted-foreground: #a5acb8;
+  --ink-3: #7c8391;
+  --accent: #252b36;
+  --accent-foreground: #e7e9ee;
+  --border: #252b35;
+  --border-strong: #323a46;
+  --divider: #1e232c;
+  --input: #5f6777; /* 3:1 field edge (1.4.11) */
+  --ring: #fdc801;
+
+  --primary: #7c9cff;
+  --primary-050: #1c2742;
+  --primary-border: #2f4170;
+  --primary-800: #c2d0ff;
+  --primary-foreground: #0d1015;
+  --secondary: #8a919d;
+  --secondary-press: #9aa1ad;
+  --secondary-foreground: #0d1015;
+
+
+
+  --sidebar: #002554;
+  --sidebar-foreground: #c7d2e3;
+  --sidebar-accent: #143662;
+  --sidebar-active: #fdc801;
+  --sidebar-muted: #8fa0bd;
+
+  --cursor: #fdc801;
+  --grid-head: #1a1f28;
+  --grid-head-foreground: #a5acb8;
+}
+
+/* B — "Navy-led": neutrals take the navy's temperature (H≈218) and the
+   interactive blue is the navy LIFTED, not a third blue beside navy + cobalt.
+   Gold stays the signal, but in LIGHT the cursor bar is navy: gold measures
+   ~1.5:1 on white, below the 3:1 a meaningful graphic needs. */
+html[data-palette='navy'] {
+  --background: #f2f4f8;
+  --foreground: #0f1b2d;
+  --card: #ffffff;
+  --card-foreground: #0f1b2d;
+  --card-2: #f7f9fc;
+  --muted: #ebeff5;
+  --muted-foreground: #46546a;
+  --ink-3: #6f7c91;
+  --accent: #e3e8f0;
+  --accent-foreground: #0f1b2d;
+  --border: #dfe4ec;
+  --border-strong: #c6cedb;
+  --divider: #e8ecf2;
+  --input: #8590a3; /* 3:1 field edge (1.4.11) */
+  --ring: #0f4c9c;
+
+  --primary: #0f4c9c;
+  --primary-050: #e7eef8;
+  --primary-border: #bcd0ec;
+  --primary-800: #0b3a78;
+  --primary-foreground: #ffffff;
+  --secondary: #46546a;
+  --secondary-press: #38455a;
+  --secondary-foreground: #ffffff;
+
+
+  --sidebar: #002554;
+  --sidebar-foreground: #d3dbe8;
+  --sidebar-accent: #143662;
+  --sidebar-active: #fdc801;
+  --sidebar-muted: #8fa0bd;
+
+  --cursor: #002554;
+  --grid-head: #f2f4f8;
+  --grid-head-foreground: #46546a;
+
+  --radius: 0.5rem;
+}
+html.dark[data-palette='navy'] {
+  --background: #0a111d;
+  --foreground: #e6ebf2;
+  --card: #111a28;
+  --card-foreground: #e6ebf2;
+  --card-2: #162131;
+  --muted: #1b2536;
+  --muted-foreground: #a3afc0;
+  --ink-3: #788599;
+  --accent: #222e41;
+  --accent-foreground: #e6ebf2;
+  --border: #212c3d;
+  --border-strong: #2e3b4f;
+  --divider: #1a2433;
+  --input: #5a6780; /* 3:1 field edge (1.4.11) */
+  --ring: #fdc801;
+
+  --primary: #79a7ec;
+  --primary-050: #1a2b45;
+  --primary-border: #2c4469;
+  --primary-800: #bcd4f6;
+  --primary-foreground: #0a111d;
+  --secondary: #8794a8;
+  --secondary-press: #98a4b6;
+  --secondary-foreground: #0a111d;
+
+
+
+  --sidebar: #002554;
+  --sidebar-foreground: #c7d2e3;
+  --sidebar-accent: #143662;
+  --sidebar-active: #fdc801;
+  --sidebar-muted: #8fa0bd;
+
+  --cursor: #fdc801;
+  --grid-head: #162131;
+  --grid-head-foreground: #a3afc0;
+}
+
+/* Both candidates set type in Plex (359 / ADR 0003). */
+html[data-palette] {
+  --font-sans: 'IBM Plex Sans', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+}
+
+/* PROTOTYPE hacks so today's shell can wear the navy rail before 363 redraws
+   it. Each is a finding for the spec, not a fix. */
+html[data-palette] #layout-sidebar .text-muted-foreground {
+  color: var(--sidebar-muted); /* group labels — muted-fg is ~2:1 on navy */
+}
+html[data-palette] #layout-sidebar [aria-current='page'] {
+  color: #ffffff;
+  box-shadow: inset 3px 0 0 var(--gold); /* PHYSICAL: prototype only, the rail is 363's */
+}
+html[data-palette] [data-cc-rail] {
+  background: var(--card-2); /* the call-center customer rail must NOT go navy */
+}
+html[data-palette] [data-btn] {
+  border-radius: var(--radius-md); /* 6px controls, not pills */
+}
+
 /* Every token consumed as a Tailwind utility needs its `--color-*` bridge line
    here. Declaring it in `:root` above is NOT sufficient — without the line,
    `bg-success-050` simply does not compile. */
@@ -329,6 +602,12 @@
   --color-prescription-800: var(--prescription-800);
 
   --color-brand-panel: var(--brand-panel);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-cursor: var(--cursor);
+  --color-grid-head: var(--grid-head);
+  --color-grid-head-foreground: var(--grid-head-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
   --color-brand-panel-foreground: var(--brand-panel-foreground);
 
   --radius-lg: var(--radius);
@@ -384,7 +663,7 @@ body {
   inset-block: 0;
   width: 3px;
   z-index: 1;
-  background: var(--primary);
+  background: var(--cursor); /* PROTOTYPE 362: was var(--primary) */
   pointer-events: none;
 }
 
@@ -393,3 +672,9 @@ body.blocked-scroll {
   overflow: hidden;
 }
 
+
+/* PROTOTYPE 362: in v36 the pinned cells paint OVER the row's ::before, so the
+   cursor bar vanished on a pinned first column. Lift it above the cells. */
+html[data-palette] .ag-row-selected:not(.ag-full-width-row)::before {
+  z-index: 3;
+}

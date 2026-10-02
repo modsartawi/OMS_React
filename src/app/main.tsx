@@ -7,6 +7,7 @@ import '@/core/theme/proto-362' // PROTOTYPE 362: palette attribute + stub, befo
 import '@/layout/__prototype__/proto-363' // PROTOTYPE 363: shell variant + dir=rtl, before anything paints
 import '@/core/i18n'
 import '@/app/global.css'
+import '@/layout/__prototype__/proto-378' // PROTOTYPE 378: ?ar=1 Arabic/RTL, ?fix=1 proposed fixes (after i18n + css)
 import { router } from '@/app/router'
 import { ConfirmHost } from '@/core/services/confirm'
 import { useTheme } from '@/layout/theme'

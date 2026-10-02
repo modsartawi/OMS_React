@@ -6,6 +6,7 @@
 import { proto, setProto, type Palette } from '@/core/theme/proto-362'
 import { useTheme } from './theme'
 import { p363, setP363, SHELLS, type Shell } from './__prototype__/proto-363'
+import { p378, setP378 } from './__prototype__/proto-378'
 
 const PALETTES: { key: Palette; name: string }[] = [
   { key: 'steel', name: 'Today (steel)' },
@@ -31,6 +32,19 @@ export default function ProtoTokenBar() {
         />
         <button type="button" onClick={() => setP363({ rtl: !p363.rtl })} className={'rounded-md border px-2 py-1 ' + (p363.rtl ? 'border-white bg-white text-black' : 'border-white/30 hover:bg-white/15')}>
           RTL
+        </button>
+        {/* PROTOTYPE 378 */}
+        <button type="button" onClick={() => setP378({ ar: !p378.ar })} className={'rounded-md border px-2 py-1 ' + (p378.ar ? 'border-white bg-white text-black' : 'border-white/30 hover:bg-white/15')}>
+          AR
+        </button>
+        <button type="button" onClick={() => setP378({ fix: !p378.fix })} className={'rounded-md border px-2 py-1 ' + (p378.fix ? 'border-white bg-white text-black' : 'border-white/30 hover:bg-white/15')}>
+          378 fix
+        </button>
+        <button type="button" onClick={() => setP378({ arsize: p378.arsize === 100 ? 108 : p378.arsize === 108 ? 115 : 100 })} className="rounded-md border border-white/30 px-2 py-1 hover:bg-white/15">
+          ar {p378.arsize}%
+        </button>
+        <button type="button" onClick={() => setP378({ sep: p378.sep === 'slash' ? 'chevron' : 'slash' })} className="rounded-md border border-white/30 px-2 py-1 hover:bg-white/15">
+          sep {p378.sep}
         </button>
         <button type="button" onClick={() => setP363({ cmd: !p363.cmd })} className={'rounded-md border px-2 py-1 ' + (p363.cmd ? 'border-white bg-white text-black' : 'border-white/30 hover:bg-white/15')}>
           Ctrl+K slot

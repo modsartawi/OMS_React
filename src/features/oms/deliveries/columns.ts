@@ -8,6 +8,8 @@ import type {
 import type { TFunction } from 'i18next'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { formatDateTime } from '@/core/util/date-format'
+import { createElement } from 'react'
+import { p378 } from '@/layout/__prototype__/proto-378' // PROTOTYPE 378
 import { formatMoney } from '@/core/util/number-format'
 
 type DeliveryColDef = ColDef<DeliveryDocumentModel>
@@ -69,6 +71,12 @@ export function failedJobsCellStyle(params: { value: unknown }): CellStyle | nul
  * column is replaced by `street1` ("Street"), and the Slot / Slot Day columns —
  * listed twice in the XAML — appear once.
  */
+// PROTOTYPE 378: `Ltr` as a cell renderer reads `value`, so a column with a valueFormatter
+// would lose its format — this one renders what the cell would have shown, isolated LTR.
+const LtrCell = (p: { value?: unknown; valueFormatted?: string | null }) =>
+  createElement('bdi', { dir: 'ltr' }, p.valueFormatted ?? (p.value == null ? '' : String(p.value)))
+const iso = p378.fix && p378.iso ? { cellRenderer: LtrCell } : {}
+
 export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
   const dateTimeFormatter = (p: ValueFormatterParams<DeliveryDocumentModel>) =>
     formatDateTime(p.value as string | null | undefined)
@@ -88,6 +96,7 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
     field,
     width,
     valueFormatter: dateTimeFormatter,
+    ...iso,
     filter: 'agDateColumnFilter',
     filterParams: { comparator: dateFilterComparator },
   })
@@ -155,12 +164,12 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
     },
     dateCol('entryTime', 'entryTime', 140),
     dateCol('documentDate', 'documentDate', 140),
-    textCol('mobile', 'customerPhone', 120),
+    { ...textCol('mobile', 'customerPhone', 120), ...iso },
     textCol('customerName', 'customerName', 170),
     { ...textCol('storeCode', 'storeCode', 100), cellClass: 'font-mono' },
     boolCol('isActiveInStore', 'isActiveInStore', 135),
-    textCol('slot', 'timeSlotDescription', 135),
-    textCol('slotDay', 'timeSlotDay', 110),
+    { ...textCol('slot', 'timeSlotDescription', 135), ...iso },
+    { ...textCol('slotDay', 'timeSlotDay', 110), ...iso },
     moneyCol('netTotal', 'netTotal', 110),
     moneyCol('paidAmount', 'paidAmount', 115),
     moneyCol('deliveryFees', 'deliveryFees', 115),
@@ -181,7 +190,7 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
     textCol('courierCode', 'courierCode', 120),
     textCol('courierDriverId', 'courierDriverId', 135),
     textCol('courierDriverName', 'courierDriverName', 165),
-    textCol('courierDriverPhone', 'courierDriverPhone', 150),
+    { ...textCol('courierDriverPhone', 'courierDriverPhone', 150), ...iso },
     textCol('customerOtp', 'customerOtp', 115),
     textCol('lastAction', 'lastAction', 120),
   ]

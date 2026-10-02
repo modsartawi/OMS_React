@@ -72,6 +72,18 @@ const SLOTS = ['08:00 - 10:00', '10:00 - 12:00', '12:00 - 14:00', '16:00 - 18:00
 const CITIES = ['Riyadh', 'Jeddah', 'Dammam', 'Khobar']
 const DISTRICTS = ['Al Olaya', 'Al Malaz', 'An Nakheel', 'Ar Rawdah']
 
+// PROTOTYPE 378: Arabic names/cities/drivers when ?ar=1 (read straight from storage — no import cycle)
+const AR378 = (() => {
+  try {
+    return JSON.parse(localStorage.getItem('proto378') || '{}').ar === true || new URLSearchParams(location.search).get('ar') === '1'
+  } catch {
+    return false
+  }
+})()
+const AR_NAMES = ['نورة الحربي', 'فيصل القحطاني', 'ريم العتيبي', 'عمر الزهراني', 'لمى الشهري', 'سلطان الدوسري']
+const AR_CITIES = ['الرياض', 'جدة', 'الدمام', 'الخبر']
+const AR_DRIVERS = ['خالد ن.', 'سعد م.', 'Khalid N.']
+
 function delivery(i: number) {
   const net = Math.round((35 + ((i * 73.37) % 900)) * 100) / 100
   const paid = i % 4 === 0 ? 0 : net
@@ -89,8 +101,10 @@ function delivery(i: number) {
     entryTime: `2026-09-${day}T${String(8 + (i % 12)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00`,
     isActiveInStore: i % 7 !== 0,
     timeSlotDescription: SLOTS[i % SLOTS.length],
-    customerName: NAMES[i % NAMES.length],
-    customerPhone: `05${String(10000000 + i * 1373).slice(0, 8)}`,
+    customerName: AR378 ? AR_NAMES[i % AR_NAMES.length] : NAMES[i % NAMES.length],
+    customerPhone: i % 3 === 1 ? `+966 5${i % 10} 810 ${String(2177 + i)}` : `05${String(10000000 + i * 1373).slice(0, 8)}`,
+    timeSlotDay: `0${1 + (i % 9)} Oct 2026`,
+    courierDriverPhone: i % 2 ? `+966 50 ${String(100 + i)} 4471` : '',
     netTotal: net,
     paidAmount: paid,
     deliveryFees: i % 3 === 0 ? 25 : 10,
@@ -98,14 +112,14 @@ function delivery(i: number) {
     failedJobsCount: i % 9 === 2 ? 1 + (i % 3) : 0,
     rescheduled: i % 6 === 1,
     courierCode: ['JAH', 'MRS', 'CAR'][i % 3],
-    courierDriverName: i % 2 ? 'Driver ' + (100 + i) : '',
+    courierDriverName: i % 2 ? (AR378 ? AR_DRIVERS[i % 3] : 'Driver ' + (100 + i)) : '',
     lastAction: ['X', 'R', 'D', 'C'][i % 4],
     readyStatus: i % 2 ? 'Y' : 'N',
     deliveryStatus: ['A', 'B', 'C'][i % 3],
-    cityName: CITIES[i % CITIES.length],
+    cityName: AR378 ? AR_CITIES[i % AR_CITIES.length] : CITIES[i % CITIES.length],
     districtName: DISTRICTS[i % DISTRICTS.length],
     isExpressDelivery: i % 3 === 0,
-    note: i % 5 === 0 ? 'Call before arrival' : '',
+    note: i % 5 === 0 ? (AR378 ? 'اتصل قبل الوصول' : 'Call before arrival') : '',
   }
 }
 

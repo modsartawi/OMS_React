@@ -5,6 +5,11 @@ import ProtectedLayout from '@/features/auth/ProtectedLayout'
 // Library/data mode (baseline §1): plain route arrays; each future module
 // contributes its own subtree here. Lazy chunks: login + each screen.
 export const router = createBrowserRouter([
+  // PROTOTYPE 378 — throwaway bidi bench (wayfinder ticket 378), outside the shell on purpose.
+  {
+    path: '/prototype/bidi',
+    lazy: async () => ({ Component: (await import('@/layout/__prototype__/BidiBench')).default }),
+  },
   {
     path: '/login',
     lazy: async () => ({ Component: (await import('@/features/auth/LoginPage')).default }),

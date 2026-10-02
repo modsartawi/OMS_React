@@ -13,6 +13,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
   ChevronDown,
+  ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   Keyboard,
@@ -33,6 +34,8 @@ import { signOut } from '@/core/auth/sign-out'
 import { buildTag } from '@/core/build-info'
 import BrandMark from '@/core/ui/BrandMark'
 import StoreSwitcher from '@/features/auth/StoreSwitcher'
+import Ltr from '@/core/ui/Ltr'
+import { p378 } from './proto-378'
 import NotificationBell from '../notifications/NotificationBell'
 import { p363 } from './proto-363'
 
@@ -309,7 +312,13 @@ function Crumb() {
     <nav aria-label="Breadcrumb" className="flex min-w-0 shrink items-center gap-1.5 text-[13px] text-muted-foreground">
       {parts.map((p, i) => (
         <span key={i} className="flex min-w-0 items-center gap-1.5">
-          {i > 0 && <span aria-hidden className="text-ink-3">/</span>}
+          {i > 0 &&
+            (p378.sep === 'chevron' ? (
+              // PROTOTYPE 378: a "forward" chevron points along the text direction
+              <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-ink-3 rtl:-scale-x-100" />
+            ) : (
+              <span aria-hidden className="text-ink-3">/</span>
+            ))}
           <span
             className={
               'truncate ' +
@@ -317,7 +326,7 @@ function Crumb() {
               (p.mono ? 'font-mono' : '')
             }
           >
-            {p.text}
+            {p.mono && p378.fix ? <Ltr>{p.text}</Ltr> : p.text}
           </span>
         </span>
       ))}
@@ -334,8 +343,11 @@ function CmdSlot() {
     >
       <Search className="h-3.5 w-3.5 shrink-0" aria-hidden />
       <span className="flex-1 truncate text-start">Search deliveries, documents, orders — or type a command</span>
-      <kbd className="rounded border border-border-strong px-1 font-mono text-[10.5px]">Ctrl</kbd>
-      <kbd className="rounded bg-gold px-1 font-mono text-[10.5px] text-gold-foreground">K</kbd>
+      {/* PROTOTYPE 378: fix=1 isolates the legend LTR (365's ruling) — fix=0 lets the flex row mirror */}
+      <span dir={p378.fix ? 'ltr' : undefined} className="flex items-center gap-1" data-legend>
+        <kbd className="rounded border border-border-strong px-1 font-mono text-[10.5px]">Ctrl</kbd>
+        <kbd className="rounded bg-gold px-1 font-mono text-[10.5px] text-gold-foreground">K</kbd>
+      </span>
     </button>
   )
 }

@@ -805,14 +805,35 @@ export const newestFirstBy =
  * it is the server's read, so it survives a reload. A later request — waiting, or decided
  * any other way — is the entry's story now, and takes its place. A request about another
  * entry is never drawn under this one's header.
+ *
+ * ⚠️ **Not while an act answer of the pane's own about this entry is drawn** (`answered`,
+ * W8): it is newer than the read — a raise it stored is the card, one it applied is the
+ * entry's story — until the re-read replaces it.
  */
 export function supersededRequest(
   history: Partial<Pick<SettlementChangeRequestHistory, 'openRequest' | 'requests'>> | null | undefined,
   settlementEntryId: string,
+  answered?: ActAnswer | null,
 ): SettlementChangeRequest | null {
   if (!history || history.openRequest) return null
+  if (answered && answered.result.settlementEntryId === settlementEntryId) return null
   const latest = requestsOf(history.requests, settlementEntryId).sort(newestFirstBy('requestedAt'))[0]
   return latest?.status === 'SUPERSEDED' ? latest : null
+}
+
+/**
+ * **Who closed a superseded request, and when** — 2194's SUPERSEDED row: the supervisor
+ * whose direct act ended it (under the name recorded then, else their staff id), at the
+ * act's own time. `null` for what the row does not say — the card then says so in words,
+ * never *"when  acted"*.
+ */
+export function closedBy(
+  request: Pick<SettlementChangeRequest, 'decidedByName' | 'decidedByStaffId' | 'decidedAt'>,
+): { by: string | null; at: string | null } {
+  return {
+    by: (request.decidedByName || request.decidedByStaffId || '').trim() || null,
+    at: isStamped(request.decidedAt) ? request.decidedAt : null,
+  }
 }
 
 /* ── a failed read ───────────────────────────────────────────────────────────── */

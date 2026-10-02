@@ -2052,7 +2052,7 @@ async function run() {
   await settle()
   check('the direct door is unchanged — { settlementEntryId, reason } to Settlement/Cancel', JSON.stringify(cr.directCalls.at(-1)) === JSON.stringify({ path: 'Settlement/Cancel', body: { settlementEntryId: FX.e143, reason: 'posted against the wrong branch' } }), JSON.stringify(cr.directCalls.at(-1)))
   check('🔑 after an accepted Cancel, History is re-read and the card shows the request SUPERSEDED', cr.historyCalls.length > readsBefore && (await tid('change-request-superseded').getAttribute('data-request')) === 'R-352-143' && (await tid('change-request-card').count()) === 0)
-  check("…naming the supervisor whose act closed it, at the act's own time", (await textOf('change-request-superseded-by')) === `Closed on 2026-10-02 09:15 when ${W.supervisor} acted on the entry directly.`, await textOf('change-request-superseded-by'))
+  check("…naming the supervisor whose act closed it, at the act's own time", (await textOf('change-request-superseded-closed')) === `Closed on 2026-10-02 09:15 when ${W.supervisor} acted on the entry directly.`, await textOf('change-request-superseded-closed'))
   check('…with what was asked (500.00 → 450.00) and why, and the finished sentence beneath', /500\.00\s*→\s*450\.00/.test(await textOf('change-request-superseded')) && (await textOf('change-request-superseded')).includes('typed 500 instead of 450') && (await offerOf()) === 'finished')
   check('🚩 the request is superseded, never "cancelled" (W13)', /superseded/.test(await textOf('change-request-superseded')) && !/request (was )?cancelled/i.test(await textOf('change-request-superseded')))
   await appears('[data-region="entry-audit"] li[data-fact="request-superseded"]')

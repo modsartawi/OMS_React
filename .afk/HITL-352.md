@@ -6,7 +6,7 @@
 **Revisit if:** The owner wants it only in the moment after the act (then 350's audit column alone carries it), or the card is judged noise on an entry superseded long ago.
 
 ## Q: The confirm sentence's wording and placement.
-**Decision taken:** The ticket's words verbatim: "The waiting change request will be closed as superseded." / "Any change request waiting on these entries will be closed as superseded." (`settlement:changeRequest.supersede.*`). Correction pane: above the Reason box of the Cancel / Write off confirm step. Approval dialog: under the "what this act does" sentence. Bulk Cancel: under "not retro-voided", supervisor only. One shared `SupersedeNote` with the change-waiting mark's glyph (FilePenLine).
+**Decision taken:** The ticket's words verbatim: "The waiting change request will be closed as superseded." / "Any change request waiting on these entries will be closed as superseded." (`settlement:changeRequest.supersede.*` — the batch line later narrowed, see below). Correction pane: above the Reason box of the Cancel / Write off confirm step. Approval dialog: under the "what this act does" sentence. Bulk Cancel: under "not retro-voided", supervisor only. One shared `SupersedeNote` with the change-waiting mark's glyph (FilePenLine).
 **Why:** Copy stays the spec's (W12); the sentence sits where the act's consequences are already listed.
 **Revisit if:** Owner copy differs, or the sentence should be an attention-tone notice rather than a plain line.
 

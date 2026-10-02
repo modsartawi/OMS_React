@@ -18,7 +18,6 @@ import ErrorBanner from '@/core/ui/ErrorBanner'
 import { formatDateTime, formatDay } from '@/core/util/date-format'
 import type { AccountEntryRow } from './account-projection'
 import { changeRequestHistoryQuery, settlementApi } from './api'
-import { isStamped } from './approval'
 import { changedTag } from './audit'
 import ChangeFromTo from './ChangeFromTo'
 import {
@@ -37,6 +36,7 @@ import {
   reduceToSpent,
   rejectBody,
   removeSaidBy,
+  closedBy,
   supersededRequest,
   type ActAnswer,
   type DecideDoor,
@@ -448,12 +448,10 @@ export default function EntryChangeRequest({
   /**
    * 352 (W12): the request a direct act on this entry superseded — Cancel or Write off in
    * the correction pane, Approve or Reject in the approval pane — drawn from History once
-   * it is re-read, and for as long as it is the entry's latest request (HITL-352). Not
-   * while a request waits (that is the card), and not while an answer of this pane's own
-   * is drawn (it is newer than the read).
+   * it is re-read, and for as long as it is the entry's latest request (HITL-352).
+   * `supersededRequest` decides, the answer of this pane's own included.
    */
-  const superseded =
-    offer.kind === 'waiting' || answered ? null : supersededRequest(history.data, entryId)
+  const superseded = supersededRequest(history.data, entryId, answered)
   const money = (v: number | null | undefined) => settlementMoney(v, currencyKey)
 
   const startChange = () => {
@@ -1067,8 +1065,9 @@ function SupersededCard({
 }) {
   const { t } = useTranslation('settlement')
   const card = cardFor(request)
-  const by = request.decidedByName || request.decidedByStaffId
-  const at = isStamped(request.decidedAt) ? formatDateTime(request.decidedAt) : null
+  const closed = closedBy(request)
+  const by = closed.by
+  const at = closed.at && formatDateTime(closed.at)
 
   return (
     <div
@@ -1081,9 +1080,8 @@ function SupersededCard({
         <FileX2 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
         <span className="font-medium">{t(`changeRequest.superseded.title.${card.kind}`, { number: entryNumber })}</span>
       </p>
-      <p className="text-muted-foreground" data-testid="change-request-superseded-by">
-        {/* ⚠️ A row with no decider named (an older server, a system act) says so in words,
-            never "when  acted". */}
+      <p className="text-muted-foreground" data-testid="change-request-superseded-closed">
+        {/* ⚠️ A row with no decider named (an older server, a system act) says so in words. */}
         {by
           ? at
             ? t('changeRequest.superseded.byAt', { by, at })

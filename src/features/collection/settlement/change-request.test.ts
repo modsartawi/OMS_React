@@ -20,6 +20,7 @@ import {
   cardFor,
   changeDraftFor,
   changeRequestBody,
+  closedBy,
   decideFirst,
   deleteRequestBody,
   entryNow,
@@ -1017,6 +1018,20 @@ describe('supersededRequest — after a direct act, the re-read shows the reques
   it('a request waiting now is the card — never a superseded one beside it', () => {
     const open = raised('R-3', '2026-10-01T09:00:00')
     expect(supersededRequest(historyOf(e143, { spentAmount: 0, openRequest: open, requests: [open, superseded] }), e143.settlementEntryId)).toBeNull()
+  })
+  it("🔑 not while an act answer of the pane's own about this entry is drawn — it is newer than the read (W8)", () => {
+    const history = historyOf(e143, { spentAmount: 0, requests: [superseded] })
+    const mine = { result: raisedAnswerFor(e143, { changeRequestId: 'R-9' }, 0) }
+    expect(supersededRequest(history, e143.settlementEntryId, mine)).toBeNull()
+    // An answer about another entry is ignored, as paneRead ignores it.
+    const theirs = { result: { ...mine.result, settlementEntryId: 'other' } }
+    expect(supersededRequest(history, e143.settlementEntryId, theirs)).toEqual(superseded)
+    expect(supersededRequest(history, e143.settlementEntryId, null)).toEqual(superseded)
+  })
+  it('closedBy: the supervisor whose direct act ended it, at the act’s own time — null for what the row does not say', () => {
+    expect(closedBy(superseded)).toEqual({ by: superseded.decidedByName, at: '2026-09-30T12:00:00' })
+    expect(closedBy({ ...superseded, decidedByName: '', decidedByStaffId: '30188' })).toEqual({ by: '30188', at: '2026-09-30T12:00:00' })
+    expect(closedBy({ ...superseded, decidedByName: '', decidedByStaffId: '', decidedAt: UNSTAMPED })).toEqual({ by: null, at: null })
   })
   it('a request about another entry is never drawn here; no read, no card', () => {
     expect(supersededRequest(historyOf(e143, { spentAmount: 0, requests: [{ ...superseded, settlementEntryId: 'other' }] }), e143.settlementEntryId)).toBeNull()

@@ -50,6 +50,17 @@
 //      way — a malformed stored value boots collapsed;
 //  21. print emulation hides the rail.
 //
+// 386: the top bar carries the crumb, the store chip and the bell; the user menu sits at the rail
+// foot. In the same four modes:
+//  22. the bar is 44px on --card and its only controls are the store chip and the bell; no footer;
+//  23. the crumb reads group / screen, group / sub-group / screen on a Settlement screen, and ends on
+//      a record's number (mono, through Ltr) — each read in order along the reading direction;
+//  24. the store chip reads the acting store, opens today's switcher (focused, Esc and outside click
+//      close it), and with `currentStoreCode: ""` takes the attention tone on every screen;
+//  25. the user menu opens navy from the rail foot with name, user id, the theme toggle, sign out
+//      and the build stamp; focus, arrows, Esc and outside click behave as a menu; sign out lands
+//      on /login; print emulation hides the bar.
+//
 // Every `/api/**` call is stubbed (the delivery list needs a store grant a dev session lacks;
 // see grid-theme-drive.mjs). Mocked data, real app, real browser, real CSS, real fonts.
 //
@@ -1185,9 +1196,384 @@ async function driveRail({ theme, dir }) {
   await context.close()
 }
 
-// DRIVE_ONLY=paint|grids|ranges|rail runs one part, for a slice's inner loop; unset runs all four.
+// ── 386: the top bar carries the crumb, the store chip and the bell; the user menu sits at the
+//    rail foot ───────────────────────────────────────────────────────────────────────────────────
+//
+// The same OMS + Collections session as the rail part, with a store list to pick from. A second
+// session with `currentStoreCode: ""` (the live 2026-08-02 answer) drives the unset chip.
+
+const STORES = [
+  { storeCode: '1001', city: 'Riyadh', region: 'C', storeAddress: '', deliveryStore: true },
+  { storeCode: '1002', city: 'Jeddah', region: 'W', storeAddress: '', deliveryStore: true },
+]
+
+const routeTopbar = (store) => async (route) => {
+  const path = route.request().url().split('/api/')[1].split('?')[0]
+  if (path === 'Auth/Me')
+    return route.fulfill(
+      envelope({ authenticated: true, userId: 'msartawi', displayName: 'Mohamed Sartawi', currentStoreCode: store }),
+    )
+  if (path === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORES))
+  if (path === 'Notifications/Poll') return route.fulfill(envelope({ items: [], watermark: 1 }))
+  if (/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/.test(path)) return route.fulfill(envelope(DOCUMENT))
+  return routeRail(route)
+}
+
+async function driveTopbar({ theme, dir }) {
+  const label = `${theme}/${dir} topbar`
+  const rtl = dir === 'rtl'
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  await bootAs(page, { theme, dir })
+  await page.route('**/api/**', routeTopbar('1001'))
+
+  const bar = page.locator('#layout-topbar')
+  const crumb = bar.locator('[data-crumb]')
+  const chip = bar.locator('[data-store-chip]')
+  const rail = page.locator('#layout-rail')
+  const box = (loc) => loc.evaluate((el) => el.getBoundingClientRect().toJSON())
+  // The crumb's parts as the eye reads them: each <li>'s text, ordered along the reading
+  // direction by x (the separators are aria-hidden spans inside the <li>s).
+  const crumbRead = () =>
+    crumb.locator('li').evaluateAll(
+      (lis, isRtl) =>
+        lis
+          .map((li) => {
+            const r = li.getBoundingClientRect()
+            return { text: li.textContent.replace(/^\//, '').trim(), x: r.left }
+          })
+          .sort((a, b) => (isRtl ? b.x - a.x : a.x - b.x))
+          .map((p) => p.text),
+      rtl,
+    )
+  const focused = () =>
+    page.evaluate(() => ({
+      text: document.activeElement?.textContent?.trim() ?? '',
+      tag: document.activeElement?.tagName,
+      role: document.activeElement?.getAttribute('role'),
+      chip: document.activeElement?.hasAttribute('data-store-chip'),
+      avatar: document.activeElement?.hasAttribute('data-user-menu-button'),
+    }))
+  const cssVar = (name) =>
+    page.evaluate((n) => {
+      const probe = document.createElement('div')
+      probe.style.backgroundColor = `var(${n})`
+      document.body.appendChild(probe)
+      const v = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      return v
+    }, name)
+
+  // ---- The bar: 44px on --card, holding only the crumb, the store chip and the bell ----
+  await page.goto(BASE + '/oms/deliveries')
+  await chip.waitFor({ timeout: 20000 })
+  await page.waitForTimeout(300)
+  const b0 = await box(bar)
+  const barBg = await bar.evaluate((el) => getComputedStyle(el).backgroundColor)
+  check(
+    `${label}: the top bar is 44px tall on --card`,
+    Math.round(b0.height) === 44 && barBg === PALETTE_B[theme].card,
+    JSON.stringify({ height: b0.height, bg: barBg }),
+  )
+  const controls = await bar.evaluate((el) =>
+    [...el.querySelectorAll('button, a, input, select')].map(
+      (c) => c.getAttribute('aria-label') || c.textContent.trim(),
+    ),
+  )
+  check(
+    `${label}: the bar's only controls are the store chip and the bell — no theme or account button`,
+    controls.length === 2 && /Acting store/.test(controls[0]) && controls[1] === 'Notifications',
+    JSON.stringify(controls),
+  )
+  check(`${label}: no footer row is rendered`, (await page.locator('footer').count()) === 0)
+
+  // ---- The crumb ----
+  check(
+    `${label}: the crumb reads OMS / Delivery Documents, the screen marked current`,
+    JSON.stringify(await crumbRead()) === JSON.stringify(['OMS', 'Delivery Documents']) &&
+      (await crumb.locator('[aria-current="page"]').innerText()) === 'Delivery Documents' &&
+      (await crumb.getAttribute('aria-label')) === 'Breadcrumb',
+    JSON.stringify(await crumbRead()),
+  )
+  const sep = await crumb.locator('[aria-hidden]').first().innerText()
+  check(`${label}: the crumb's separator is a slash`, sep === '/', sep)
+
+  await page.goto(BASE + '/collection/settlement/open')
+  await crumb.waitFor({ timeout: 20000 })
+  await page.waitForTimeout(300)
+  check(
+    `${label}: on a Settlement screen the crumb carries the sub-group`,
+    JSON.stringify(await crumbRead()) === JSON.stringify(['Collections', 'Settlement Account', 'Open settlements']),
+    JSON.stringify(await crumbRead()),
+  )
+
+  await page.goto(BASE + '/oms/document/1000000393')
+  await crumb.locator('[data-crumb-record]').waitFor({ timeout: 20000 })
+  await page.waitForTimeout(300)
+  const rec = await crumb.locator('[data-crumb-record]').evaluate((el) => ({
+    text: el.textContent,
+    mono: /Plex Mono/.test(getComputedStyle(el).fontFamily),
+    isolate: el.querySelector('bdi')?.getAttribute('dir'),
+  }))
+  check(
+    `${label}: on a record the crumb ends on its number — mono, through Ltr — read in order`,
+    JSON.stringify(await crumbRead()) === JSON.stringify(['OMS', 'Delivery Documents', '1000000393']) &&
+      rec.mono &&
+      rec.isolate === 'ltr',
+    JSON.stringify({ read: await crumbRead(), rec }),
+  )
+  const c0 = await box(crumb)
+  check(
+    `${label}: the crumb starts at the bar's inline start (${rtl ? 'right' : 'left'})`,
+    rtl ? b0.right - c0.right < 24 : c0.left - b0.left < 24,
+    JSON.stringify({ bar: [b0.left, b0.right], crumb: [c0.left, c0.right] }),
+  )
+  await page.screenshot({ path: `${SHOTS}/topbar-record-${theme}-${dir}.png`, clip: { x: 0, y: 0, width: 1600, height: 120 } })
+
+  // ---- The store chip ----
+  await page.goto(BASE + '/oms/deliveries')
+  await chip.waitFor({ timeout: 20000 })
+  await page.waitForTimeout(300)
+  const chipLook = await chip.evaluate((el) => ({
+    state: el.getAttribute('data-store-chip'),
+    name: el.textContent.trim(),
+    code: el.querySelector('bdi')?.textContent,
+    codeDir: el.querySelector('bdi')?.getAttribute('dir'),
+    mono: /Plex Mono/.test(getComputedStyle(el.querySelector('bdi').parentElement).fontFamily),
+    bg: getComputedStyle(el).backgroundColor,
+  }))
+  check(
+    `${label}: the store chip reads "Acting store 1001", the code mono through Ltr, in the quiet tone`,
+    chipLook.state === 'set' &&
+      chipLook.name === 'Acting store 1001' &&
+      chipLook.code === '1001' &&
+      chipLook.codeDir === 'ltr' &&
+      chipLook.mono &&
+      chipLook.bg !== (await cssVar('--color-attention-050')),
+    JSON.stringify(chipLook),
+  )
+  const bell = bar.getByRole('button', { name: 'Notifications' })
+  const [ch, be] = [await box(chip), await box(bell)]
+  check(
+    `${label}: the store chip then the bell sit at the bar's inline end (${rtl ? 'left' : 'right'})`,
+    rtl
+      ? be.left - b0.left < 24 && ch.left > be.right - 1
+      : b0.right - be.right < 24 && ch.right < be.left + 1,
+    JSON.stringify({ chip: [ch.left, ch.right], bell: [be.left, be.right] }),
+  )
+
+  await chip.click()
+  const panel = page.getByRole('dialog', { name: 'Acting store' })
+  await panel.waitFor({ timeout: 5000 })
+  await page.waitForTimeout(200)
+  const picker = panel.getByRole('combobox', { name: 'Acting store' })
+  await picker.locator('option[value="1002"]').waitFor({ state: 'attached', timeout: 5000 })
+  check(
+    `${label}: the chip opens today's store switcher, on the acting store, focused`,
+    (await picker.inputValue()) === '1001' && (await picker.evaluate((el) => el === document.activeElement)),
+    JSON.stringify({ value: await picker.inputValue(), focus: await focused() }),
+  )
+  await page.screenshot({ path: `${SHOTS}/topbar-store-${theme}-${dir}.png`, clip: { x: 0, y: 0, width: 1600, height: 200 } })
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  check(
+    `${label}: Esc closes the store panel and returns focus to the chip`,
+    (await panel.count()) === 0 && (await focused()).chip,
+  )
+  await chip.click()
+  await panel.waitFor({ timeout: 5000 })
+  await page.locator('main').click({ position: { x: 300, y: 600 } })
+  await page.waitForTimeout(150)
+  check(`${label}: an outside click closes the store panel`, (await panel.count()) === 0)
+  // Navigating (here, the router's own popstate path, as Back takes) closes it too.
+  await chip.click()
+  await panel.waitFor({ timeout: 5000 })
+  await page.evaluate(() => {
+    history.pushState(null, '', '/collection/settlement/open')
+    dispatchEvent(new PopStateEvent('popstate'))
+  })
+  // A data router moves `location` only once the lazy route has loaded; the crumb naming
+  // the new screen is that moment.
+  await crumb.getByText('Open settlements').waitFor({ timeout: 10000 })
+  await page.waitForTimeout(150)
+  check(
+    `${label}: navigating closes the store panel`,
+    (await panel.count()) === 0 && new URL(page.url()).pathname === '/collection/settlement/open',
+  )
+  await page.goto(BASE + '/oms/deliveries')
+  await chip.waitFor({ timeout: 20000 })
+  await page.waitForTimeout(300)
+
+  // ---- The user menu at the rail foot ----
+  const avatar = rail.locator('[data-user-menu-button]')
+  const menu = page.getByRole('menu', { name: 'Account menu' })
+  const r0 = await box(rail)
+  const a0 = await box(avatar)
+  check(
+    `${label}: the avatar sits at the rail foot, below the expand toggle`,
+    a0.bottom > r0.bottom - 60 && a0.top > (await box(rail.getByRole('button', { name: 'Expand menu' }))).bottom - 1,
+    JSON.stringify({ avatar: [a0.top, a0.bottom], rail: r0.bottom }),
+  )
+  await avatar.click()
+  await menu.waitFor({ timeout: 5000 })
+  const panelBox = await box(page.locator('[data-user-menu]'))
+  const menuText = await page.locator('[data-user-menu]').innerText()
+  const darkItem = menu.getByRole('menuitemcheckbox', { name: 'Dark mode' })
+  check(
+    `${label}: the user menu opens from the rail foot with name, user id, theme, sign out and the build stamp`,
+    /Mohamed Sartawi/.test(menuText) &&
+      /msartawi/.test(menuText) &&
+      (await darkItem.count()) === 1 &&
+      (await menu.getByRole('menuitem', { name: 'Sign out' }).count()) === 1 &&
+      /^Build v[\w.-]+\+\w+/.test(await page.locator('[data-build-stamp]').innerText()) &&
+      (await avatar.getAttribute('aria-expanded')) === 'true',
+    JSON.stringify(menuText),
+  )
+  check(
+    `${label}: the menu opens against the rail's inline-end edge, level with its foot`,
+    (rtl ? Math.abs(panelBox.right - (r0.left - 8)) <= 1 : Math.abs(panelBox.left - (r0.right + 8)) <= 1) &&
+      panelBox.bottom > r0.bottom - 20,
+    JSON.stringify({ panel: [panelBox.left, panelBox.right, panelBox.bottom], rail: [r0.left, r0.right] }),
+  )
+  const menuBg = await page.locator('[data-user-menu]').evaluate((el) => getComputedStyle(el).backgroundColor)
+  check(`${label}: it opens from the rail, so it is navy`, menuBg === NAVY, menuBg)
+  check(
+    `${label}: focus lands on the first item, the theme toggle, checked as the theme is`,
+    (await focused()).role === 'menuitemcheckbox' &&
+      (await darkItem.getAttribute('aria-checked')) === String(theme === 'dark'),
+    JSON.stringify(await focused()),
+  )
+  await page.keyboard.press('ArrowDown')
+  const down = await focused()
+  await page.keyboard.press('ArrowDown')
+  const wrapped = await focused()
+  check(
+    `${label}: the arrows move through the items and wrap`,
+    down.text === 'Sign out' && wrapped.role === 'menuitemcheckbox',
+    JSON.stringify({ down, wrapped }),
+  )
+  await page.screenshot({ path: `${SHOTS}/topbar-user-menu-${theme}-${dir}.png` })
+
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(200)
+  const flipped = await page.evaluate(() => document.documentElement.classList.contains('dark'))
+  check(
+    `${label}: the theme toggle flips the theme and the menu stays open`,
+    flipped === (theme !== 'dark') && (await menu.count()) === 1 &&
+      (await darkItem.getAttribute('aria-checked')) === String(theme !== 'dark'),
+    JSON.stringify({ flipped }),
+  )
+  await darkItem.click()
+  await page.waitForTimeout(200)
+
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  check(
+    `${label}: Esc closes the user menu and returns focus to the avatar`,
+    (await menu.count()) === 0 && (await focused()).avatar,
+    JSON.stringify(await focused()),
+  )
+  await avatar.click()
+  await menu.waitFor({ timeout: 5000 })
+  await page.locator('main').click({ position: { x: 300, y: 600 } })
+  await page.waitForTimeout(150)
+  check(`${label}: an outside click closes the user menu`, (await menu.count()) === 0)
+
+  // Opening the user menu closes a group's flyout; opening a flyout closes the user menu.
+  await rail.locator('[data-rail-group="deliveries:menu.oms"]').click()
+  await avatar.click()
+  await page.waitForTimeout(150)
+  const flyGone = (await page.locator('#layout-rail [role="dialog"]').count()) === 0
+  await rail.locator('[data-rail-group="deliveries:menu.oms"]').click()
+  await page.waitForTimeout(150)
+  check(
+    `${label}: the user menu and a flyout never stand open together`,
+    flyGone && (await menu.count()) === 0 && (await page.locator('#layout-rail [role="dialog"]').count()) === 1,
+  )
+  await page.keyboard.press('Escape')
+
+  // Expanded, the foot shows the name and the user id beside the avatar.
+  await rail.getByRole('button', { name: 'Expand menu' }).click()
+  await page.waitForTimeout(150)
+  const footText = await avatar.innerText()
+  check(`${label}: the expanded rail's foot names the user and their id`, /Mohamed Sartawi/.test(footText) && /msartawi/.test(footText), JSON.stringify(footText))
+  await rail.getByRole('button', { name: 'Collapse menu' }).click()
+
+  // ---- Ctrl+P: the top bar never reaches paper (F20) ----
+  await page.emulateMedia({ media: 'print' })
+  const printed = await bar.evaluate((el) => getComputedStyle(el).display)
+  await page.emulateMedia({ media: 'screen' })
+  check(`${label}: print emulation hides the top bar`, printed === 'none', printed)
+
+  // ---- Sign out ----
+  await avatar.click()
+  await menu.getByRole('menuitem', { name: 'Sign out' }).click()
+  await page.waitForURL(/\/login$/, { timeout: 10000 })
+  check(`${label}: Sign out ends the session and lands on the login page`, true)
+
+  check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
+  await context.close()
+
+  // ---- No acting store: the chip takes the attention tone, on every screen ----
+  const unset = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+  const p2 = await unset.newPage()
+  const errors2 = []
+  p2.on('pageerror', (e) => errors2.push(String(e)))
+  await bootAs(p2, { theme, dir })
+  await p2.route('**/api/**', routeTopbar(''))
+  const chip2 = p2.locator('#layout-topbar [data-store-chip]')
+  for (const at of ['/oms/deliveries', '/collection/settlement/ledger']) {
+    await p2.goto(BASE + at)
+    await chip2.waitFor({ timeout: 20000 })
+    await p2.waitForTimeout(300)
+    const look = await chip2.evaluate((el) => {
+      const probe = (v) => {
+        const d = document.createElement('div')
+        d.style.color = `var(${v})`
+        document.body.appendChild(d)
+        const c = getComputedStyle(d).color
+        d.remove()
+        return c
+      }
+      const s = getComputedStyle(el)
+      return {
+        state: el.getAttribute('data-store-chip'),
+        text: el.textContent.trim(),
+        bg: s.backgroundColor,
+        ink: s.color,
+        edge: s.borderTopColor,
+        want: { bg: probe('--color-attention-050'), ink: probe('--color-attention-800'), edge: probe('--color-attention-border') },
+      }
+    })
+    check(
+      `${label}: with no store set the chip carries the attention tone (${at})`,
+      look.state === 'unset' &&
+        look.text === 'No acting store' &&
+        look.bg === look.want.bg &&
+        look.ink === look.want.ink &&
+        look.edge === look.want.edge,
+      JSON.stringify(look),
+    )
+  }
+  await p2.screenshot({ path: `${SHOTS}/topbar-store-unset-${theme}-${dir}.png`, clip: { x: 0, y: 0, width: 1600, height: 120 } })
+  await chip2.click()
+  const picker2 = p2.getByRole('dialog', { name: 'Acting store' }).getByRole('combobox', { name: 'Acting store' })
+  await picker2.locator('option[value="1002"]').waitFor({ state: 'attached', timeout: 5000 })
+  check(
+    `${label}: the unset chip opens the switcher on "Choose a store…", not on the first store`,
+    (await picker2.inputValue()) === '' &&
+      /pick one before raising an authorization/.test(await p2.getByRole('dialog', { name: 'Acting store' }).innerText()),
+  )
+  check(`${label}: no page errors (unset store)`, errors2.length === 0, errors2.slice(0, 3).join(' | '))
+  await unset.close()
+}
+
+// DRIVE_ONLY=paint|grids|ranges|rail|topbar runs one part, for a slice's inner loop; unset runs all.
 const ONLY = process.env.DRIVE_ONLY
-const PARTS = { paint: driveOneMode, grids: driveGrids, ranges: driveRanges, rail: driveRail }
+const PARTS = { paint: driveOneMode, grids: driveGrids, ranges: driveRanges, rail: driveRail, topbar: driveTopbar }
 for (const [part, drive] of Object.entries(PARTS))
   if (!ONLY || ONLY === part)
     for (const dir of ['ltr', 'rtl']) for (const theme of ['light', 'dark']) await drive({ theme, dir })

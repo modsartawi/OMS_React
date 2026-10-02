@@ -641,10 +641,20 @@ export const MENU: ShellMenuItem[] = [
  * one character it disagrees about.
  */
 export function isActive(item: ShellMenuItem, pathname: string): boolean {
+  return matchLength(item, pathname) >= 0
+}
+
+/**
+ * How specific `item`'s claim on `pathname` is under {@link isActive}'s rule: the
+ * length of the longest address it matches through, or -1 when it does not match.
+ * The top bar's crumb (ticket 386) uses it to pick the most specific of two items
+ * claiming one address.
+ */
+export function matchLength(item: ShellMenuItem, pathname: string): number {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
-  if (item.exact) return !!item.routerLink && path === item.routerLink
+  if (item.exact) return item.routerLink && path === item.routerLink ? item.routerLink.length : -1
   const target = item.activePrefix ?? item.routerLink
-  if (!target) return false
+  if (!target) return -1
   const targets = typeof target === 'string' ? [target] : target
-  return targets.some((t) => path === t || path.startsWith(t + '/'))
+  return Math.max(-1, ...targets.filter((t) => path === t || path.startsWith(t + '/')).map((t) => t.length))
 }

@@ -6,6 +6,7 @@ import { MENU, isActive, type ShellMenuItem } from './menu-model'
 import { useVisibleMenu } from './useVisibleMenu'
 import { useRailPreference } from './rail-preference'
 import BrandMark from '@/core/ui/BrandMark'
+import UserMenu from './UserMenu'
 
 // The navy rail (spec 380 F10, ticket 385; the owner's shell D, 363 §"The frame").
 // Collapsed (56px, the default) it is one icon per visible group, each opening a
@@ -428,6 +429,9 @@ export default function Rail() {
             <ChevronsRight className="h-4 w-4 rtl:-scale-x-100" aria-hidden />
           )}
         </button>
+
+        {/* The avatar under the toggle (363 "The frame"); opening it closes a flyout. */}
+        <UserMenu expanded={expanded} onOpen={() => setOpenKey(null)} />
 
         {/* Inside the `nav`: its links are navigation like the tree's. Placed against
             the `aside`, the nearest positioned box. */}

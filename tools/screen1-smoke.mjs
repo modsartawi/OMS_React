@@ -107,8 +107,14 @@ check('rows survive the Screen 2 round trip (no re-search)', rowsAfterBack === r
 const selectedAfterBack = await page.locator('.ag-row-selected').count()
 check('opened row is re-selected on return', selectedAfterBack > 0, `${selectedAfterBack} selected`)
 
-// 15. Dark mode flips the grid in the same paint
-await page.getByRole('button', { name: 'Toggle dark mode' }).click()
+// 15. Dark mode flips the grid in the same paint. The toggle lives in the user menu at the
+// rail foot (ticket 386).
+const toggleTheme = async () => {
+  await page.getByRole('button', { name: 'Account menu' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Dark mode' }).click()
+  await page.keyboard.press('Escape')
+}
+await toggleTheme()
 await page.waitForTimeout(400)
 const mode = await page.evaluate(() => ({
   html: document.documentElement.classList.contains('dark'),
@@ -116,7 +122,7 @@ const mode = await page.evaluate(() => ({
 }))
 check('dark mode flips both app + grid theme', mode.html && mode.ag === 'dark', JSON.stringify(mode))
 await page.screenshot({ path: './screen1-dark.png', fullPage: false })
-await page.getByRole('button', { name: 'Toggle dark mode' }).click()
+await toggleTheme()
 await page.waitForTimeout(400)
 await page.screenshot({ path: './screen1-light.png', fullPage: false })
 

@@ -20,8 +20,17 @@
     "no": "No"
   },
   "topbar": {
-    "darkMode": "Toggle dark mode",
-    "account": "Account menu"
+    "account": "Account menu",
+    "crumb": "Breadcrumb",
+    "store": {
+      "label": "Acting store",
+      "unset": "No acting store"
+    },
+    "userMenu": {
+      "darkMode": "Dark mode",
+      "signOut": "Sign out",
+      "build": "Build"
+    }
   },
   "rail": {
     "toggleSection": "Expand or collapse {{label}}",

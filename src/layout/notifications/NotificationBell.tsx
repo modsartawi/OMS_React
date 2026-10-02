@@ -9,7 +9,7 @@ import { useNotificationArrivals } from './useNotificationArrivals'
 import NotificationPanel from './NotificationPanel'
 
 // The Notification Center bell (Receive chrome, spec 031). Rides the AppShell top
-// bar in the status cluster, left of the theme + account controls. Drives the
+// bar at its inline end, after the store chip (ticket 386). Drives the
 // portal-wide poll and shows a terracotta unread badge whose count is
 // client-derived (Active ∧ not-expired ∧ !read). Zero unread ⇒ no badge; a 404
 // poll (feature off server-side) ⇒ the whole bell renders nothing. Clicking the
@@ -52,7 +52,7 @@ export default function NotificationBell() {
     prevCount.current = count
   }, [count])
 
-  // Outside-click + Escape close (parity with the account popup).
+  // Outside-click + Escape close (parity with the store chip and the user menu).
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {

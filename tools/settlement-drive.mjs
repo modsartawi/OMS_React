@@ -932,7 +932,7 @@ async function run() {
   check('granted → the door renders its worklist', text.includes('What needs a human'))
   check('granted → the Collections group renders', (await groupCount()) === 1)
   check('granted → the Settlement leaf is the FIFTH item', (await leafCount()) === 1 && (await inquiryLeaves()) === 4)
-  check('🚩 the namespace is REGISTERED — no raw t() key on screen', !/settlement:|\bshell\.|\bscope\./.test(text + (await page.locator('nav').innerText())))
+  check('🚩 the namespace is REGISTERED — no raw t() key on screen', !/settlement:|\bshell\.|\bscope\./.test(text + (await page.locator('nav').allInnerTexts()).join(' ')))
 
   // ONE probe for the whole area: five leaves + the screen's own gate share the key,
   // so react-query dedupes them into a single request per page life. The fifth grant
@@ -2514,7 +2514,7 @@ async function run() {
   )
   check(
     '🚩 284 → the four keys RENDER — no raw `settlement:menu.*` in the nav',
-    !/settlement:menu/.test(await page.locator('nav').innerText()),
+    !/settlement:menu/.test((await page.locator('nav').allInnerTexts()).join(' ')),
   )
 
   // 🚩 The whole ticket, in one loop: stand on each of the four screens and count

@@ -9,7 +9,7 @@ import { formatPair, fsi } from '@/core/util/bidi'
 import { authApi } from './api'
 
 /**
- * The acting-store picker, embedded in the account popup.
+ * The acting-store picker, opened from the top bar's store chip (ticket 386).
  *
  * Options come from `SdDocument/StoreDetails` — session-cached, and shared with
  * the Screen 1 lookups. ⚠ That list may be broader than the user's real

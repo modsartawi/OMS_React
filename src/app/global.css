@@ -2,6 +2,117 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* THROWAWAY theme study. Active only while the DEV prototype mounts.
+   Existing semantic tokens are overridden here, never duplicated in the grid.
+   Severity, command families, prescription and provenance retain their meanings. */
+html[data-theme-prototype] {
+  color-scheme: light;
+  --prototype-radius: 8px;
+  --prototype-control-radius: 6px;
+  --card-2: var(--accent);
+}
+html.dark[data-theme-prototype] { color-scheme: dark; }
+html[data-theme-prototype='B'] {
+  --prototype-radius: 5px;
+  --prototype-control-radius: 5px;
+  --background: #f2f4f8;
+  --foreground: #202a3d;
+  --card: #ffffff;
+  --card-foreground: #202a3d;
+  --muted: #e9edf5;
+  --muted-foreground: #55627a;
+  --accent: #e3eaf7;
+  --accent-foreground: #202a3d;
+  --border: #d8dfeb;
+  --border-strong: #bac7dc;
+  --divider: #e9edf5;
+  --input: #93a1b8;
+  --primary: #3159b8;
+  --primary-050: #e9efff;
+  --primary-border: #bfcef5;
+  --primary-800: #294b9b;
+  --primary-foreground: #ffffff;
+  --ring: #3159b8;
+  --sidebar: #e7ecf5;
+  --sidebar-foreground: #202a3d;
+  --sidebar-accent: #d8e2f6;
+  --sidebar-active: #3159b8;
+}
+html.dark[data-theme-prototype='B'] {
+  --background: #111725;
+  --foreground: #e9edf8;
+  --card: #1a2333;
+  --card-foreground: #e9edf8;
+  --muted: #222e43;
+  --muted-foreground: #a8b6cf;
+  --accent: #2b3a56;
+  --accent-foreground: #e9edf8;
+  --border: #35425a;
+  --border-strong: #4a5b77;
+  --divider: #2a364c;
+  --input: #6d7e9c;
+  --primary: #94b4ff;
+  --primary-050: #273b64;
+  --primary-border: #476392;
+  --primary-800: #c3d5ff;
+  --primary-foreground: #111725;
+  --ring: #94b4ff;
+  --sidebar: #151e2e;
+  --sidebar-foreground: #e9edf8;
+  --sidebar-accent: #263754;
+  --sidebar-active: #94b4ff;
+}
+html[data-theme-prototype='C'] {
+  --prototype-radius: 0px;
+  --prototype-control-radius: 3px;
+  --background: #f7f6f2;
+  --foreground: #2b2c29;
+  --card: #fffefa;
+  --card-foreground: #2b2c29;
+  --muted: #eeede7;
+  --muted-foreground: #66665e;
+  --accent: #e5e5dc;
+  --accent-foreground: #2b2c29;
+  --border: #ddded5;
+  --border-strong: #bfc1b5;
+  --divider: #e9e9e0;
+  --input: #909287;
+  --primary: #414a42;
+  --primary-050: #e5ebe2;
+  --primary-border: #bdc9b8;
+  --primary-800: #354631;
+  --primary-foreground: #ffffff;
+  --ring: #414a42;
+  --sidebar: #eeeee6;
+  --sidebar-foreground: #2b2c29;
+  --sidebar-accent: #dddfd4;
+  --sidebar-active: #414a42;
+}
+html.dark[data-theme-prototype='C'] {
+  --background: #1b1d1a;
+  --foreground: #eeeFE7;
+  --card: #242722;
+  --card-foreground: #eeefe7;
+  --muted: #30342d;
+  --muted-foreground: #b1b6a8;
+  --accent: #3c4237;
+  --accent-foreground: #eeefe7;
+  --border: #41463b;
+  --border-strong: #5d6654;
+  --divider: #363c30;
+  --input: #79836e;
+  --primary: #c0d1b1;
+  --primary-050: #35432c;
+  --primary-border: #586e4c;
+  --primary-800: #d0e0c3;
+  --primary-foreground: #1b1d1a;
+  --ring: #c0d1b1;
+  --sidebar: #20231d;
+  --sidebar-foreground: #eeefe7;
+  --sidebar-accent: #353d2d;
+  --sidebar-active: #c0d1b1;
+}
+
 /* ---------------------------------------------------------------------------
    Self-hosted fonts (issue 465). Latin loads always; the Arabic faces are
    declared but cost 0 bytes until Arabic glyphs render (unicode-range gating),
@@ -392,4 +503,3 @@ body {
 body.blocked-scroll {
   overflow: hidden;
 }
-

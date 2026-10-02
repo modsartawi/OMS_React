@@ -1,0 +1,161 @@
+{
+  "checks": [
+    {
+      "name": "A light: selection",
+      "pass": true
+    },
+    {
+      "name": "A light: 28px rows and horizontal scroll",
+      "pass": true
+    },
+    {
+      "name": "A light: no page overflow",
+      "pass": true
+    },
+    {
+      "name": "A light: main text/action/selection pairs >= 4.5",
+      "pass": true
+    },
+    {
+      "name": "A dark: selection",
+      "pass": true
+    },
+    {
+      "name": "A dark: 28px rows and horizontal scroll",
+      "pass": true
+    },
+    {
+      "name": "A dark: no page overflow",
+      "pass": true
+    },
+    {
+      "name": "A dark: main text/action/selection pairs >= 4.5",
+      "pass": true
+    },
+    {
+      "name": "B light: selection",
+      "pass": true
+    },
+    {
+      "name": "B light: 28px rows and horizontal scroll",
+      "pass": true
+    },
+    {
+      "name": "B light: no page overflow",
+      "pass": true
+    },
+    {
+      "name": "B light: main text/action/selection pairs >= 4.5",
+      "pass": true
+    },
+    {
+      "name": "B dark: selection",
+      "pass": true
+    },
+    {
+      "name": "B dark: 28px rows and horizontal scroll",
+      "pass": true
+    },
+    {
+      "name": "B dark: no page overflow",
+      "pass": true
+    },
+    {
+      "name": "B dark: main text/action/selection pairs >= 4.5",
+      "pass": true
+    },
+    {
+      "name": "C light: selection",
+      "pass": true
+    },
+    {
+      "name": "C light: 28px rows and horizontal scroll",
+      "pass": true
+    },
+    {
+      "name": "C light: no page overflow",
+      "pass": true
+    },
+    {
+      "name": "C light: main text/action/selection pairs >= 4.5",
+      "pass": true
+    },
+    {
+      "name": "C dark: selection",
+      "pass": true
+    },
+    {
+      "name": "C dark: 28px rows and horizontal scroll",
+      "pass": true
+    },
+    {
+      "name": "C dark: no page overflow",
+      "pass": true
+    },
+    {
+      "name": "C dark: main text/action/selection pairs >= 4.5",
+      "pass": true
+    },
+    {
+      "name": "Sample search narrows to one row",
+      "pass": true
+    },
+    {
+      "name": "Failed jobs scope shows seven",
+      "pass": true
+    },
+    {
+      "name": "Column chooser hides column",
+      "pass": true
+    },
+    {
+      "name": "Grid arrow navigation does not switch variant",
+      "pass": true
+    },
+    {
+      "name": "Preview has selected identity",
+      "pass": true
+    },
+    {
+      "name": "Variant cycles C to A",
+      "pass": true
+    },
+    {
+      "name": "Variant survives reload",
+      "pass": true
+    },
+    {
+      "name": "RTL: pinned identity at inline start",
+      "pass": true
+    },
+    {
+      "name": "Shell theme toggle stays in sync with URL",
+      "pass": true
+    },
+    {
+      "name": "Prototype does not persist theme",
+      "pass": true
+    },
+    {
+      "name": "A: narrow viewport has no page overflow",
+      "pass": true
+    },
+    {
+      "name": "B: narrow viewport has no page overflow",
+      "pass": true
+    },
+    {
+      "name": "C: narrow viewport has no page overflow",
+      "pass": true
+    },
+    {
+      "name": "No browser errors",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "warnings": [
+    "No `HydrateFallback` element provided to render during initial hydration",
+    "[QueriesObserver]: Duplicate Queries found. This might result in unexpected behavior."
+  ]
+}

@@ -1,0 +1,73 @@
+/* Throwaway composition. All colours continue to come from global.css. */
+.theme-prototype { padding-block-end: 86px; font-size: 12px; }
+.prototype-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-block: 5px 22px; }
+.prototype-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .16em; color: var(--primary); margin-block-end: 8px; }
+.prototype-heading h1 { font-size: 25px; line-height: 1.3; font-weight: 650; letter-spacing: -.035em; }
+.prototype-heading p, .prototype-specimens p { color: var(--muted-foreground); margin-block-start: 6px; }
+.prototype-fixture { border: 1px solid var(--border-strong); border-radius: 6px; padding: 7px 10px; color: var(--muted-foreground); font-size: 10px; white-space: nowrap; }
+.prototype-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 18px; background: var(--card); border: 1px solid var(--border); border-radius: var(--prototype-radius); }
+.prototype-filter-intro { flex-basis: 100%; }
+.prototype-filter-intro h2, .prototype-results-toolbar h2 { font-weight: 650; font-size: 13px; }
+.prototype-filter-intro p { color: var(--muted-foreground); margin-block-start: 4px; }
+.prototype-filters label { display: flex; flex-direction: column; gap: 6px; color: var(--muted-foreground); font-size: 11px; font-weight: 500; }
+.prototype-filters .prototype-query { flex: 1; min-width: 180px; }
+.prototype-filters input, .prototype-filters select { height: 32px; min-width: 105px; border: 1px solid var(--input); border-radius: var(--prototype-control-radius); background: var(--card); color: var(--foreground); padding-inline: 10px; font-size: 12px; }
+.prototype-filters input::placeholder { color: var(--muted-foreground); }
+.prototype-filter-actions { display: flex; gap: 7px; }
+.theme-prototype button { border-radius: var(--prototype-control-radius); }
+.prototype-filter-actions button { height: 32px; }
+[data-theme-prototype] :is(button, input, select):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.prototype-scopes { display: flex; gap: 6px; padding-block: 16px 12px; }
+.prototype-scopes button { display: flex; align-items: center; gap: 9px; padding: 7px 10px; color: var(--muted-foreground); border: 1px solid transparent; }
+.prototype-scopes button:hover { background: var(--accent); }
+.prototype-scopes button[aria-pressed="true"] { color: var(--primary-800); background: var(--primary-050); border-color: var(--primary-border); }
+.prototype-scopes strong { font-size: 11px; font-variant-numeric: tabular-nums; }
+.prototype-results { min-width: 0; }
+.prototype-results-toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding-block: 0 10px; }
+.prototype-results-toolbar h2 span { font-size: 11px; font-weight: 400; color: var(--muted-foreground); margin-inline-start: 9px; }
+.prototype-grid { height: 400px; min-height: 280px; }
+.prototype-grid .ag-cell { font-variant-numeric: tabular-nums; }
+.prototype-grid .prototype-identity { font-weight: 600; color: var(--primary-800); }
+.prototype-request { border-radius: 20px; color: var(--fam-cancel-request); padding: 2px 8px; border: 1px solid var(--fam-cancel-request); font-size: 11px; }
+.prototype-grid-footer { display: flex; justify-content: space-between; gap: 10px; font-size: 10px; color: var(--muted-foreground); padding-block: 9px; }
+.prototype-specimens { margin-block-start: 22px; padding-block-start: 16px; border-block-start: 1px solid var(--border-strong); }
+.prototype-specimens strong { font-size: 12px; }
+.prototype-swatches { display: flex; flex-wrap: wrap; gap: 16px; margin-block: 14px; }
+.prototype-swatches > div { display: flex; gap: 7px; align-items: center; }
+.prototype-swatches i { display: block; width: 25px; height: 32px; border: 1px solid var(--border-strong); border-radius: 4px; }
+.prototype-swatches span { font-size: 10px; }
+.prototype-swatches code { display: block; color: var(--muted-foreground); font-size: 9px; margin-block-start: 3px; }
+.prototype-components { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.prototype-components > span:first-child { font-size: 10px; color: var(--muted-foreground); }
+.prototype-state { display: block; color: var(--muted-foreground); font-size: 10px; margin-block-start: 16px; }
+.prototype-switcher { position: fixed; z-index: 60; inset-block-end: 18px; inset-inline: 0; width: max-content; max-width: calc(100vw - 20px); margin-inline: auto; display: flex; gap: 4px; align-items: center; padding: 7px; background: var(--foreground); color: var(--background); border: 1px solid var(--muted-foreground); border-radius: 12px; box-shadow: 0 8px 30px color-mix(in srgb, var(--foreground) 22%, transparent); }
+.prototype-switcher button { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding-inline: 9px; border-radius: 6px; font-size: 11px; }
+.prototype-switcher button[aria-pressed="true"] { background: var(--background); color: var(--foreground); }
+.prototype-switcher button:hover { outline: 1px solid var(--muted-foreground); }
+.prototype-column-chooser { display: flex; flex-wrap: wrap; gap: 14px; padding: 12px; margin-block-end: 8px; background: var(--card); border: 1px solid var(--border); border-radius: 6px; }
+.prototype-column-chooser label { display: flex; gap: 5px; align-items: center; }
+.prototype-preview { display: flex; justify-content: space-between; gap: 16px; padding: 20px; background: var(--card); border: 2px solid var(--primary); border-radius: var(--prototype-radius); margin-block-start: 16px; }
+.prototype-preview h2 { font-size: 22px; font-weight: 650; }
+.prototype-preview span { font-size: 10px; color: var(--muted-foreground); }
+.prototype-workspace { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 20px; }
+.prototype-workspace > aside { border-inline-end: 1px solid var(--border-strong); padding-inline-end: 20px; }
+.prototype-B .prototype-filters { border: 0; background: transparent; padding: 0; gap: 17px; }
+.prototype-B .prototype-filters label { width: 100%; }
+.prototype-B .prototype-filter-actions { flex-wrap: wrap; }
+.prototype-B .prototype-scopes { padding-block-start: 0; }
+.prototype-B .prototype-heading { border-block-end: 2px solid var(--primary); padding-block-end: 22px; }
+.prototype-B .prototype-grid { height: 458px; }
+.prototype-aside-note { margin-block-start: 24px; color: var(--muted-foreground); font-size: 11px; line-height: 1.7; }
+.prototype-C .prototype-heading { margin-block-end: 14px; }
+.prototype-C .prototype-heading h1 { font-size: 29px; font-weight: 550; }
+.prototype-C .prototype-scopes { gap: 30px; border-block: 1px solid var(--border-strong); padding-block: 12px; margin-block-end: 18px; }
+.prototype-C .prototype-scopes button { padding: 0; gap: 16px; border: 0; border-radius: 0; flex-direction: row-reverse; }
+.prototype-C .prototype-scopes strong { font-size: 25px; font-weight: 550; letter-spacing: -.04em; }
+.prototype-C .prototype-scopes button[aria-pressed="true"] { background: transparent; color: var(--foreground); box-shadow: 0 2px var(--primary); }
+.prototype-C .prototype-filter-intro { display: none; }
+.prototype-C .prototype-filters { padding: 0 0 18px; border: 0; background: transparent; }
+.prototype-C .prototype-grid { height: 430px; }
+.prototype-C .prototype-grid .ag-root-wrapper { border-inline: 0; }
+@media (max-width: 1100px) { .prototype-heading { align-items: start; flex-direction: column; gap: 10px; } .prototype-grid-footer { flex-wrap: wrap; } }
+@media (max-width: 850px) { .prototype-workspace { grid-template-columns: minmax(0, 1fr); } .prototype-workspace > aside { border: 0; padding: 0; } .prototype-B .prototype-filters label { width: auto; } .prototype-aside-note { display: none; } .prototype-results-toolbar { flex-wrap: wrap; } .prototype-C .prototype-scopes { gap: 15px; } .prototype-C .prototype-scopes strong { font-size: 20px; } }
+@media (max-width: 520px) { .prototype-fixture { white-space: normal; } .prototype-switcher { gap: 1px; padding: 5px; } .prototype-switcher button { font-size: 10px; padding-inline: 5px; gap: 3px; } .prototype-components { gap: 8px; } .prototype-filters label { flex: 1; } }

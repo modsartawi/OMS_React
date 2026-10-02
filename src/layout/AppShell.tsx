@@ -283,6 +283,9 @@ export default function AppShell() {
   const isMobile = useIsMobile()
   const theme = useTheme()
   const location = useLocation()
+  const prototypeParams = new URLSearchParams(location.search)
+  const themeDark = import.meta.env.DEV && location.pathname === '/oms/deliveries' && prototypeParams.has('variant')
+    ? prototypeParams.get('mode') === 'dark' : theme.dark
   // Desktop: collapsed hides the sidebar (a REAL collapse — the Angular prototype's
   // desktop hamburger was inert; do-not-copy list). Mobile: overlay open/closed.
   const [collapsed, setCollapsed] = useState(false)
@@ -337,10 +340,10 @@ export default function AppShell() {
           type="button"
           onClick={theme.toggle}
           aria-label={t('topbar.darkMode')}
-          aria-pressed={theme.dark}
+          aria-pressed={themeDark}
           className="rounded-md p-1.5 hover:bg-accent"
         >
-          {theme.dark ? <Sun className="h-5 w-5" aria-hidden /> : <Moon className="h-5 w-5" aria-hidden />}
+          {themeDark ? <Sun className="h-5 w-5" aria-hidden /> : <Moon className="h-5 w-5" aria-hidden />}
         </button>
         <AccountPopup />
       </header>

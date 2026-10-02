@@ -16,6 +16,11 @@ export const useTheme = create<ThemeState>((set) => ({
   dark: initialDark(),
   toggle: () =>
     set((s) => {
+      // Throwaway theme study owns its URL state and must not persist a preference.
+      if (import.meta.env.DEV && document.documentElement.dataset.themePrototype) {
+        window.dispatchEvent(new Event('theme-prototype-toggle'))
+        return s
+      }
       const dark = !s.dark
       document.documentElement.classList.toggle('dark', dark)
       // The grid flips in the same paint as the app tokens (403 §5.4).

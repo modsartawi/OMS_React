@@ -1,0 +1,77 @@
+// Manual browser drive for the throwaway theme study. npm run prototype:theme first.
+import { createRequire } from 'node:module'
+import { mkdirSync, writeFileSync } from 'node:fs'
+const require = createRequire('C:/Playground/frontend/package.json')
+const { chromium } = require('playwright')
+const browser = await chromium.launch({ headless: true, channel: 'msedge' })
+const page = await browser.newPage({ viewport: { width: 1600, height: 1100 } })
+const errors = [], checks = [], warnings = new Set()
+page.on('pageerror', e => errors.push(String(e)))
+page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); if (m.type() === 'warning') warnings.add(m.text()) })
+const dir = '.issues/assets/355-theme-review'
+mkdirSync(dir, { recursive: true })
+const check = (name, pass) => { checks.push({name, pass}); console.log(`${pass ? 'PASS' : 'FAIL'} ${name}`) }
+const url = 'http://127.0.0.1:5198/oms/deliveries'
+for (const variant of ['A', 'B', 'C']) {
+  for (const mode of ['light', 'dark']) {
+    await page.goto(`${url}?variant=${variant}&mode=${mode}`)
+    await page.waitForSelector('.ag-row')
+    await page.getByRole('gridcell').filter({ hasText: /^8000048$/ }).click()
+    await page.screenshot({ path: `${dir}/${variant}-${mode}.png`, fullPage: true })
+    check(`${variant} ${mode}: selection`, await page.getByRole('button', {name:'Preview delivery', exact:true}).isEnabled())
+    const style = await page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement)
+      const row = document.querySelector('.ag-row')
+      const viewport = document.querySelector('.ag-body-horizontal-scroll-viewport')
+      const tokens = Object.fromEntries(['foreground','background','card','primary','primary-foreground','muted-foreground','primary-800','primary-050'].map(t => [t,root.getPropertyValue('--'+t).trim()]))
+      const luma = c => { const rgb = c.replace('#','').match(/../g).map(v => parseInt(v,16)/255).map(v => v <= .04045 ? v/12.92 : ((v+.055)/1.055)**2.4); return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2] }
+      const contrast = (a,b) => { const x=luma(tokens[a]), y=luma(tokens[b]); return (Math.max(x,y)+.05)/(Math.min(x,y)+.05) }
+      return {height:row.getBoundingClientRect().height, scroll:viewport.scrollWidth>viewport.clientWidth, overflow:document.documentElement.scrollWidth>innerWidth,
+        contrast: [contrast('foreground','card'),contrast('muted-foreground','background'),contrast('primary-foreground','primary'),contrast('primary-800','primary-050')]}
+    })
+    check(`${variant} ${mode}: 28px rows and horizontal scroll`, style.height === 28 && style.scroll)
+    check(`${variant} ${mode}: no page overflow`, !style.overflow)
+    check(`${variant} ${mode}: main text/action/selection pairs >= 4.5`, style.contrast.every(n => n>=4.5))
+  }
+}
+await page.getByLabel('Delivery, order or customer', {exact:true}).fill('8000048')
+await page.getByRole('button',{name:'Search sample',exact:true}).click()
+check('Sample search narrows to one row', await page.getByText('1 deliveries',{exact:true}).count() === 1)
+await page.getByLabel('Reset',{exact:true}).click()
+await page.getByRole('button',{name:'Failed jobs 7',exact:true}).click()
+check('Failed jobs scope shows seven', await page.getByText('7 deliveries',{exact:true}).count() === 1)
+await page.getByRole('button',{name:'All deliveries 48',exact:true}).click()
+await page.getByRole('button',{name:'Columns',exact:true}).click()
+await page.getByLabel('Customer',{exact:true}).uncheck()
+check('Column chooser hides column', await page.locator('.ag-header-cell[col-id="customer"]').count() === 0)
+await page.getByLabel('Customer',{exact:true}).check()
+await page.getByRole('button',{name:'Columns',exact:true}).click()
+await page.getByRole('gridcell').filter({hasText:/^8000048$/}).click()
+await page.keyboard.press('ArrowRight')
+check('Grid arrow navigation does not switch variant', new URL(page.url()).searchParams.get('variant') === 'C')
+await page.getByRole('button',{name:'Preview delivery',exact:true}).click()
+check('Preview has selected identity', await page.getByRole('region',{name:'Preview delivery'}).getByRole('heading',{name:'8000048'}).count() === 1)
+await page.getByRole('button',{name:'Close preview'}).click()
+await page.getByRole('button',{name:'Next design',exact:true}).click()
+check('Variant cycles C to A', new URL(page.url()).searchParams.get('variant') === 'A')
+await page.reload()
+check('Variant survives reload', new URL(page.url()).searchParams.get('variant') === 'A')
+await page.waitForSelector('.ag-row')
+await page.getByRole('button',{name:'RTL',exact:true}).click()
+await page.waitForSelector('.ag-rtl')
+await page.screenshot({path:`${dir}/A-dark-rtl.png`,fullPage:true})
+check('RTL: pinned identity at inline start', await page.getByRole('gridcell').filter({hasText:/^8000048$/}).evaluate(e => Math.abs(e.getBoundingClientRect().right - document.querySelector('.ag-root-wrapper').getBoundingClientRect().right) < 3))
+await page.getByLabel('Toggle dark mode',{exact:true}).click()
+check('Shell theme toggle stays in sync with URL', new URL(page.url()).searchParams.get('mode') === 'light')
+check('Prototype does not persist theme', await page.evaluate(() => localStorage.getItem('oms.darkMode')) === null)
+for (const variant of ['A','B','C']) {
+  await page.setViewportSize({width:390,height:844})
+  await page.goto(`${url}?variant=${variant}`)
+  await page.waitForSelector('.ag-row')
+  await page.screenshot({path:`${dir}/${variant}-mobile.png`,fullPage:true})
+  check(`${variant}: narrow viewport has no page overflow`, await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth))
+}
+check('No browser errors', errors.length === 0)
+writeFileSync(`${dir}/verification.json`, JSON.stringify({checks,errors,warnings:[...warnings]},null,2)+'\n')
+await browser.close()
+if(checks.some(c=>!c.pass)) process.exitCode=1

@@ -6,6 +6,7 @@
   "packageManager": "npm@11.13.0",
   "scripts": {
     "dev": "vite",
+    "prototype:theme": "vite --config vite.theme-prototype.config.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

@@ -110,7 +110,9 @@ export const router = createBrowserRouter([
       { index: true, lazy: async () => ({ Component: (await import('@/app/HomePage')).default }) },
       {
         path: 'oms/deliveries',
-        lazy: async () => ({ Component: (await import('@/features/oms/deliveries/DeliveriesPage')).default }),
+        lazy: async () => ({ Component: import.meta.env.DEV && new URLSearchParams(window.location.search).has('variant')
+          ? (await import('@/features/oms/deliveries/__prototype__/ThemePrototypePage')).default
+          : (await import('@/features/oms/deliveries/DeliveriesPage')).default }),
       },
       // Screen 2 — two routes, one component. `openedAs` is fixed by the ROUTE
       // and picks the load/refresh endpoint; it is NOT interchangeable with the

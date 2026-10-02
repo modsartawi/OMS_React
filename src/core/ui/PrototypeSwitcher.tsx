@@ -22,7 +22,9 @@ export default function PrototypeSwitcher({ variants, variant, onVariant, scenar
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+      // PROTOTYPE 368: the grid and the resize handle own the arrow keys.
+      if (t?.closest('.ag-root-wrapper, [role="separator"], [role="tablist"], dialog')) return
       if (e.key === 'ArrowRight') onVariant(variants[(vi + 1) % variants.length].key)
       if (e.key === 'ArrowLeft') onVariant(variants[(vi - 1 + variants.length) % variants.length].key)
       if (e.key === 'ArrowDown') onScenario(scenarios[(si + 1) % scenarios.length].key)

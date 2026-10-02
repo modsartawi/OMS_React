@@ -24,6 +24,7 @@ import type { DeliveryFilterCriteria } from './filter'
 import FilterPanel from './FilterPanel'
 import GridToolbar from './GridToolbar'
 import { deliveryRowKey, useDeliverySearch } from './search-store'
+import Proto368 from './proto-368/Proto368'
 
 /**
  * Screen 1 — Delivery Documents Inquiry.
@@ -42,7 +43,7 @@ import { deliveryRowKey, useDeliverySearch } from './search-store'
  * guard. The server's `SdDocumentWeb/*` grant filter stays authoritative; this only
  * spares a denied deep-link a request it cannot make.
  */
-export default function DeliveriesPage() {
+function LegacyDeliveriesPage() {
   const { t } = useTranslation('deliveries')
 
   const rows = useDeliverySearch((s) => s.rows)
@@ -228,4 +229,10 @@ export default function DeliveriesPage() {
       )}
     </section>
   )
+}
+
+/** PROTOTYPE 368: the three arrangements in dev; `?legacy` shows today's page. */
+export default function DeliveriesPage() {
+  if (import.meta.env.DEV && !new URLSearchParams(location.search).has('legacy')) return <Proto368 />
+  return <LegacyDeliveriesPage />
 }

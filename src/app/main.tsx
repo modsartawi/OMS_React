@@ -9,7 +9,6 @@ import '@/app/global.css'
 import { router } from '@/app/router'
 import { ConfirmHost } from '@/core/services/confirm'
 import { useTheme } from '@/layout/theme'
-import ProtoTokenBar from '@/layout/ProtoTokenBar'
 
 /** Sonner doesn't watch the `.dark` class — feed it the app's theme store. */
 function ThemedToaster() {
@@ -31,7 +30,6 @@ createRoot(document.getElementById('root')!).render(
       {/* One app-wide confirm dialog — what lets `confirmAction()` be awaited
           from anywhere without a component in scope. */}
       <ConfirmHost />
-      <ProtoTokenBar />
     </QueryClientProvider>
   </StrictMode>,
 )

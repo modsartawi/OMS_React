@@ -678,3 +678,12 @@ body.blocked-scroll {
 html[data-palette] .ag-row-selected:not(.ag-full-width-row)::before {
   z-index: 3;
 }
+
+/* PROTOTYPE 368: stand-in for 363's 48px icon rail, so the list's widths are
+   judged against the rail that is coming, not today's 240px sidebar. */
+html[data-palette] #layout-sidebar:not(.fixed) {
+  width: 48px;
+}
+html[data-palette] #layout-sidebar:not(.fixed) nav {
+  visibility: hidden;
+}

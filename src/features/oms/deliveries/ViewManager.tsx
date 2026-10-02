@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { Check, Save, Trash2 } from 'lucide-react'
 import type { GridApi } from 'ag-grid-community'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
+import { DIALOG, DIALOG_TITLE, SCRIM } from '@/core/ui/overlay'
 import { useGridViews } from './grid-views'
 
 const BTN =
@@ -105,17 +106,17 @@ export default function ViewManager({ gridApi }: { gridApi: GridApi<DeliveryDocu
 
       {dialogOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          className={'fixed inset-0 z-50 flex items-center justify-center ' + SCRIM}
           onClick={() => setDialogOpen(false)}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label={t('views.dialogTitle')}
-            className="w-88 max-w-[90vw] rounded-md border border-border bg-card p-4 shadow-lg"
+            className={'w-88 max-w-[90vw] p-4 ' + DIALOG}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-sm font-semibold">{t('views.dialogTitle')}</h2>
+            <h2 className={DIALOG_TITLE}>{t('views.dialogTitle')}</h2>
             <label htmlFor="viewName" className="mt-3 block text-xs font-medium text-muted-foreground">
               {t('views.nameLabel')}
             </label>

@@ -8,6 +8,7 @@ import { useVisibleMenu } from './useVisibleMenu'
 import { useRailPreference } from './rail-preference'
 import { railExpanded, type RailMode } from './rail-mode'
 import BrandMark from '@/core/ui/BrandMark'
+import { RAIL_EDGE, RAIL_POPOVER } from '@/core/ui/overlay'
 import UserMenu from './UserMenu'
 
 // The navy rail (spec 380 F10, ticket 385; the owner's shell D, 363 §"The frame").
@@ -275,8 +276,8 @@ function Flyout({ group, onClose }: { group: ShellMenuItem; onClose: (restoreFoc
       aria-labelledby={FLYOUT_LABEL_ID}
       data-rail-flyout
       // `start-full` puts the panel flush against the rail's inline-end edge, in
-      // either direction. The rail's own `--ring` (gold) reaches it as a child.
-      className="absolute inset-y-0 start-full flex w-60 flex-col gap-2 overflow-y-auto border-e border-rail-accent bg-rail p-3 shadow-lg"
+      // either direction. It opens from the rail, so it is the rail's navy (388).
+      className={'absolute inset-y-0 start-full flex w-60 flex-col gap-2 overflow-y-auto border-e p-3 ' + RAIL_POPOVER}
     >
       <div className="flex h-7 shrink-0 items-center justify-between gap-2 ps-3">
         <div id={FLYOUT_LABEL_ID} className={'truncate text-rail-muted ' + GROUP_LABEL}>
@@ -386,7 +387,7 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
       <nav
         className={
           'flex flex-col py-2.5 ' +
-          (overlaid ? 'absolute inset-y-0 start-0 w-60 border-e border-rail-accent bg-rail shadow-lg' : 'h-full')
+          (overlaid ? 'absolute inset-y-0 start-0 w-60 border-e ' + RAIL_POPOVER : 'h-full')
         }
       >
         <Link
@@ -601,7 +602,7 @@ export function RailDrawer() {
               onKeyDown={onPanelKey}
               data-rail-drawer
               // The rail's own ground, ink and gold ring, at the inline start in either direction.
-              className="fixed inset-y-0 start-0 z-50 flex w-72 max-w-[calc(100vw-3rem)] flex-col bg-rail text-rail-foreground shadow-lg [--ring:var(--gold)] print:hidden"
+              className={'fixed inset-y-0 start-0 z-50 flex w-72 max-w-[calc(100vw-3rem)] flex-col border-e print:hidden ' + RAIL_POPOVER}
             >
               <div className="flex h-12 shrink-0 items-center gap-2 px-3">
                 <Link
@@ -644,7 +645,7 @@ export function RailDrawer() {
                   ),
                 )}
               </nav>
-              <div className="relative shrink-0 border-t border-rail-accent py-2">
+              <div className={'relative shrink-0 border-t py-2 ' + RAIL_EDGE}>
                 <UserMenu expanded placement="above" />
               </div>
             </div>

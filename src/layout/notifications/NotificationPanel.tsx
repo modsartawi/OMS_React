@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { NotificationItem } from '@/core/models/notifications'
+import { POPOVER } from '@/core/ui/overlay'
 import { relativeTime } from './helpers'
 import { markNotificationRead, markAllNotificationsRead } from './actions'
 
@@ -71,7 +72,7 @@ export default function NotificationPanel({
     <div
       role="dialog"
       aria-label={t('panel.title')}
-      className="absolute end-0 top-full z-50 mt-1.5 flex max-h-[460px] w-[380px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg"
+      className={'absolute end-0 top-full z-50 mt-1.5 flex max-h-[460px] w-[380px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden ' + POPOVER}
     >
       <div className="flex items-center justify-between border-b border-border px-3.5 py-3">
         <h3 className="text-sm font-semibold">{t('panel.title')}</h3>

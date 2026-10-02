@@ -71,7 +71,10 @@ export function ConfirmHost() {
     >
       <p className="flex items-start gap-2 text-sm">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-attention" aria-hidden />
-        <span>{request?.message}</span>
+        {/* The message may carry server text in either script (F26): `<bdi>` is
+            dir="auto", so its own first strong letter sets its direction and its
+            punctuation stays at its end. */}
+        <bdi>{request?.message}</bdi>
       </p>
     </Modal>
   )

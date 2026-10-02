@@ -7,6 +7,7 @@ import { X } from 'lucide-react'
 import AttachmentsPanel from '@/core/attachments/AttachmentsPanel'
 import { READ_ON_EVERY_OPENING, attachmentAccessQuery } from '@/core/attachments/api'
 import type { AttachmentsPanelWords } from '@/core/attachments/panel-words'
+import { SHEET } from '@/core/ui/overlay'
 import { uploadInFlight, uploadsOf, useAttachmentUploads } from '@/core/attachments/upload-store'
 import { slipDayPanelOwner } from './api'
 import { canWithdrawSlips, slipWithdrawReasons } from './slip-withdraw'
@@ -111,7 +112,7 @@ function DrawerFrame({
       onClick={(e) => {
         if (e.target === ref.current) onClose()
       }}
-      className="my-0 me-0 ms-auto h-dvh max-h-dvh w-[64rem] max-w-[96vw] border-0 border-s border-border bg-card p-0 text-foreground shadow-lg backdrop:bg-black/50"
+      className={'my-0 me-0 ms-auto h-dvh max-h-dvh w-[64rem] max-w-[96vw] border-0 border-s p-0 ' + SHEET}
     >
       <div className="flex h-full flex-col">
         <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-4 py-3">

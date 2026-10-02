@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import StatusBadge from '@/core/ui/StatusBadge'
+import { POPOVER } from '@/core/ui/overlay'
 import type { SdDocumentHeaderStatusModel } from '@/core/models/sd-document'
 import { railEntries, type RailEntry } from './rail'
 import { statusBreakdownRows, type FieldRow } from './fields'
@@ -73,7 +74,7 @@ export default function StatusRail({
           <summary className="cursor-pointer list-none rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
             {t('rail.allStatuses')} <span className="tabular-nums">{rows.length}</span>
           </summary>
-          <div className="absolute end-0 z-10 mt-1 grid w-max max-w-[22rem] gap-1.5 shadow-lg">
+          <div className="absolute end-0 z-10 mt-1 grid w-max max-w-[22rem] gap-1.5">
             <DisclosureGroup title={t('rail.allStatuses')} fields={rows} />
             {provenance && provenance.length > 0 && (
               <DisclosureGroup title={t('rail.provenance')} fields={provenance} />
@@ -98,7 +99,7 @@ export default function StatusRail({
  */
 function DisclosureGroup({ title, fields }: { title: string; fields: readonly FieldRow[] }) {
   return (
-    <section className="rounded-lg border border-border/60 bg-card">
+    <section className={POPOVER}>
       {/* `h3`, the same level the summary rail's cards take: both are sections of
           the page, and neither is a child of the other. */}
       <h3 className="border-b border-border/60 px-2.5 py-1.5 text-xs font-semibold tracking-tight">

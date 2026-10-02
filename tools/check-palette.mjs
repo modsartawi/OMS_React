@@ -66,26 +66,6 @@ const COLOUR_SOURCES = new Map([
 // class, not by line number, so ordinary edits above them don't rot the list.
 const ALLOWED = [
   {
-    file: 'src/core/ui/Modal.tsx',
-    match: 'bg-black/50',
-    why: 'modal scrim — a scrim is black in both themes by intent, it is not a themed surface',
-  },
-  {
-    file: 'src/features/oms/deliveries/ViewManager.tsx',
-    match: 'bg-black/50',
-    why: 'modal scrim — same intent as core/ui/Modal',
-  },
-  {
-    file: 'src/features/collection/inquiry/SlipDrawer.tsx',
-    match: 'bg-black/50',
-    why: 'slip drawer scrim (ticket 321) — the same native <dialog> backdrop as core/ui/Modal',
-  },
-  {
-    file: 'src/layout/AppShell.tsx',
-    match: 'bg-black/50',
-    why: 'mobile-nav scrim — same intent as core/ui/Modal',
-  },
-  {
     file: 'src/features/auth/LoginPage.tsx',
     match: 'bg-white',
     why: 'QR quiet zone — a QR needs a white module ground to scan, in either theme',

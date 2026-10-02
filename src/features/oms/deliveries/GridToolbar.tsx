@@ -6,6 +6,7 @@ import { ExternalLink, FileSpreadsheet, Pin, Table2 } from 'lucide-react'
 import type { GridApi } from 'ag-grid-community'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { pinStart } from '@/core/theme/direction'
+import { POPOVER } from '@/core/ui/overlay'
 import { exportDeliveriesToExcel } from './export'
 import ViewManager from './ViewManager'
 
@@ -157,7 +158,7 @@ export default function GridToolbar({
           {t('toolbar.columns')}
         </button>
         {columnsOpen && (
-          <div className="absolute start-0 top-full z-50 mt-1 w-72 rounded-md border border-border bg-card p-2 shadow-md">
+          <div className={'absolute start-0 top-full z-50 mt-1 w-72 p-2 ' + POPOVER}>
             <div className="flex items-center gap-2 border-b border-border pb-2">
               <span className="flex-1 text-xs font-semibold">{t('columnsChooser.title')}</span>
               <button type="button" className="text-xs text-primary underline" onClick={showAll}>

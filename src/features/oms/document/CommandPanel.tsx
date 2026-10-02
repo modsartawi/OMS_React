@@ -12,6 +12,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import Button, { type ButtonVariant } from '@/core/ui/Button'
+import { POPOVER } from '@/core/ui/overlay'
 import type { CommandKind } from './actions'
 import {
   commandBar,
@@ -128,7 +129,7 @@ function CommandButton({
         role="tooltip"
         className={
           'pointer-events-none absolute bottom-full start-0 z-20 mb-1 w-max max-w-64 ' +
-          'rounded-lg border border-border bg-card px-2 py-1 text-[0.6875rem] text-foreground shadow-md ' +
+          'px-2 py-1 text-[0.6875rem] ' + POPOVER + ' ' +
           'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
         }
       >

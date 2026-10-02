@@ -6,6 +6,7 @@ import { ChevronDown, MapPin } from 'lucide-react'
 import { useSession } from '@/core/session'
 import { lookupQueries } from '@/core/services/lookups'
 import Ltr from '@/core/ui/Ltr'
+import { POPOVER } from '@/core/ui/overlay'
 import StoreSwitcher from '@/features/auth/StoreSwitcher'
 import NotificationBell from './notifications/NotificationBell'
 import { deriveCrumb } from './crumb'
@@ -169,7 +170,7 @@ function StoreChip() {
           role="dialog"
           aria-labelledby="layout-store-panel-label"
           tabIndex={-1}
-          className="absolute end-0 top-full z-50 mt-1 w-64 rounded-lg border border-border-strong bg-card p-3 shadow-lg"
+          className={'absolute end-0 top-full z-50 mt-1 w-64 p-3 ' + POPOVER}
         >
           <div id="layout-store-panel-label" className="text-xs font-medium text-muted-foreground">
             {t('storeSwitcher.label')}

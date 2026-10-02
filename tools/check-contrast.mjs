@@ -225,7 +225,9 @@ const lightBelow = [['--gold', '--card', UI]]
 // Every colour token therefore needs its bridge line. The non-colour tokens are
 // the only exemptions, listed explicitly so a new one has to be considered
 // rather than pattern-matched into silence.
-const NOT_A_COLOUR = new Set(['--radius'])
+// `--shadow-pop` is the overlay recipe's shadow (ticket 388): a box-shadow, consumed as
+// `shadow-(--shadow-pop)`, never a ground or an ink.
+const NOT_A_COLOUR = new Set(['--radius', '--shadow-pop'])
 
 const bridged = new Set(
   [...source.matchAll(/^\s*--color-([\w-]+)\s*:/gm)].map((m) => `--${m[1]}`),

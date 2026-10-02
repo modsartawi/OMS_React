@@ -7,6 +7,7 @@ import { signOut } from '@/core/auth/sign-out'
 import { buildTag } from '@/core/build-info'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
+import { RAIL_EDGE, RAIL_MENU_ITEM, RAIL_POPOVER } from '@/core/ui/overlay'
 import { useTheme } from './theme'
 
 // The user menu at the rail foot (spec 380 F12, ticket 386; 363 "User menu"): the
@@ -14,10 +15,9 @@ import { useTheme } from './theme'
 // stamp. Today's footer row is gone — the stamp lives here, and `/version.json` stays
 // the machine read. The shortcuts sheet and the single-key switch join it in 393.
 //
-// It opens from the rail, so it is navy (377 §1); the rail's gold `--ring` reaches it as
-// the `aside`'s child. 388 finishes the overlay recipe; this gives it its structure,
-// focus and dismissal: a `menu` of `menuitem`s, focus on the first on open, arrows to
-// move, Esc back to the avatar, and Tab, a press outside or navigation to close.
+// It opens from the rail, so it takes the rail's navy recipe (377 §1, `@/core/ui/overlay`),
+// gold focus ring included. It is a `menu` of `menuitem`s: focus on the first on open,
+// arrows to move, Esc back to the avatar, and Tab, a press outside or navigation to close.
 
 const MENU_ID = 'layout-user-menu'
 const ITEM = '[role^="menuitem"]'
@@ -28,9 +28,6 @@ function initials(name: string): string {
   if (words.length < 2) return name.trim().slice(0, 2).toUpperCase()
   return (words[0][0] + words[1][0]).toUpperCase()
 }
-
-const ITEM_CLASS =
-  'flex h-7 w-full items-center gap-2 rounded-md px-2 text-start text-[12.5px] hover:bg-rail-accent hover:text-rail-accent-foreground focus:bg-rail-accent focus:text-rail-accent-foreground'
 
 /**
  * `beside` (the rail): the menu opens against the rail's inline-end edge. `above` (the
@@ -142,11 +139,11 @@ export default function UserMenu({
           // Beside: against the rail's inline-end edge, level with its foot. Above: over
           // the avatar, inside the drawer. Logical either way, so both mirror.
           className={
-            'absolute z-50 w-64 rounded-lg border border-rail-accent bg-rail p-1.5 text-rail-foreground shadow-lg ' +
+            'absolute z-50 w-64 rounded-lg border p-1.5 ' + RAIL_POPOVER + ' ' +
             (placement === 'above' ? 'bottom-full start-2.5 mb-1' : 'bottom-2 start-full ms-2')
           }
         >
-          <div className="border-b border-rail-accent px-2 pt-1 pb-2">
+          <div className={'border-b px-2 pt-1 pb-2 ' + RAIL_EDGE}>
             <bdi className="block truncate text-[13px] font-medium text-rail-accent-foreground">{name}</bdi>
             {session.userId && (
               <span className="block truncate font-mono text-[11px] text-rail-muted">
@@ -168,7 +165,7 @@ export default function UserMenu({
               aria-checked={theme.dark}
               tabIndex={-1}
               onClick={theme.toggle}
-              className={ITEM_CLASS}
+              className={RAIL_MENU_ITEM}
             >
               {theme.dark ? <Sun className="h-4 w-4 shrink-0" aria-hidden /> : <Moon className="h-4 w-4 shrink-0" aria-hidden />}
               {t('topbar.userMenu.darkMode')}
@@ -181,13 +178,13 @@ export default function UserMenu({
                 setOpen(false)
                 void signOut()
               }}
-              className={ITEM_CLASS}
+              className={RAIL_MENU_ITEM}
             >
               <LogOut className="h-4 w-4 shrink-0 rtl:-scale-x-100" aria-hidden />
               {t('topbar.userMenu.signOut')}
             </button>
           </div>
-          <div data-build-stamp className="border-t border-rail-accent px-2 pt-1.5 pb-0.5 text-[10.5px] text-rail-muted">
+          <div data-build-stamp className={'border-t px-2 pt-1.5 pb-0.5 text-[10.5px] text-rail-muted ' + RAIL_EDGE}>
             {t('topbar.userMenu.build')}{' '}
             <span className="font-mono">
               <Ltr>{buildTag}</Ltr>

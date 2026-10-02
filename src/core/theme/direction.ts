@@ -21,7 +21,8 @@ export type Direction = 'ltr' | 'rtl'
 /** AG Grid's own pinning sides — physical, not logical. */
 export type PinSide = 'left' | 'right'
 
-function readBootDirection(): Direction {
+/** `<html dir>` as it stands now. */
+export function documentDirection(): Direction {
   // No document in a node module graph (vitest): the column modules that import this are
   // tested there, and LTR is what they have always assumed.
   if (typeof document === 'undefined') return 'ltr'
@@ -38,8 +39,20 @@ export function pinEndFor(dir: Direction): PinSide {
   return dir === 'rtl' ? 'left' : 'right'
 }
 
+/** Sonner's corners — physical, like AG Grid's pinning sides. */
+export type ToasterPosition = 'bottom-left' | 'bottom-right'
+
+/**
+ * Where toasts sit in `dir`: the bottom END (spec 380 F16, 377 §2), `bottom-right` in LTR
+ * and `bottom-left` under RTL. Bottom, because a top corner sits on the top bar's store chip
+ * and bell, or on the open bell panel once pushed under the bar.
+ */
+export function toasterPositionFor(dir: Direction): ToasterPosition {
+  return dir === 'rtl' ? 'bottom-left' : 'bottom-right'
+}
+
 /** The page's direction, as `index.html` set it before first paint. */
-export const bootDirection: Direction = readBootDirection()
+export const bootDirection: Direction = documentDirection()
 
 /** Pin an identifier column here: the reading start, `'left'` in LTR and `'right'` under RTL. */
 export const pinStart: PinSide = pinStartFor(bootDirection)

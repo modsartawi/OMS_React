@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Loader2, Paperclip, TriangleAlert } from 'lucide-react'
 
 import Button from '@/core/ui/Button'
+import { DIALOG, SCRIM } from '@/core/ui/overlay'
 import {
   ACCEPTED_FILE_TYPES,
   ATTACHMENT_TITLES,
@@ -275,12 +276,12 @@ function Lightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/70 p-6"
+      className={'fixed inset-0 z-50 flex items-center justify-center p-6 ' + SCRIM}
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-card"
+        className={'flex max-h-full w-full max-w-3xl flex-col overflow-hidden ' + DIALOG}
         onClick={(event) => event.stopPropagation()}
         role="group"
         aria-label={t('form.attachments.previewLabel', { fileName: attachment.fileName })}

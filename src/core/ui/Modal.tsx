@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode } from 'react'
+import { DIALOG, DIALOG_TITLE } from './overlay'
 
 /**
  * The app's modal, built on the native `<dialog>` element.
@@ -13,6 +14,9 @@ import { useEffect, useRef, type ReactNode } from 'react'
  * [resizable]=false [dismissableMask]=true`; this reproduces that contract —
  * including backdrop-click to dismiss, which the native element does NOT give
  * for free (see `onClick`).
+ *
+ * Its look is the overlay card recipe (`./overlay`, spec 380 F15): `--card`, a
+ * `--border-strong` edge, 10px, `--shadow-pop`, over the `--backdrop` scrim.
  */
 export interface ModalProps {
   open: boolean
@@ -72,13 +76,13 @@ export default function Modal({
       onClick={(e) => {
         if (e.target === ref.current) onClose()
       }}
-      className="m-auto max-h-[90vh] w-[92vw] rounded-lg border border-border bg-card p-0 text-foreground shadow-lg backdrop:bg-black/50"
+      className={'m-auto max-h-[90vh] w-[92vw] p-0 ' + DIALOG}
       style={{ maxWidth: width }}
     >
       <div className="flex max-h-[90vh] flex-col">
         <h2
           id="modal-title"
-          className="shrink-0 border-b border-border/60 px-3 py-2.5 text-sm font-semibold tracking-tight"
+          className={'shrink-0 border-b border-border/60 px-3 py-2.5 ' + DIALOG_TITLE}
         >
           {title}
         </h2>

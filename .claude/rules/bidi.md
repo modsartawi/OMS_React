@@ -34,6 +34,12 @@ A sink that takes only a string cannot hold a `<bdi>`: `title`, `placeholder`, a
 `t()` sentence. Wrap the **whole** value in `fsi()` (`@/core/util/bidi`, FSI…PDI). Or isolate an
 interpolated value through a `<Trans>` slot.
 
+Toasts get one extra guard, in `global.css`: each line of a toast's title and description
+takes the direction of its own first strong letter (`unicode-bidi: plaintext`, ticket 388),
+so a server message in English keeps its punctuation at its end under RTL. That sets a
+line's direction; it does **not** isolate a value inside it, so an interpolated value
+still takes `fsi()`.
+
 `fsi` is **never** used in a grid value, a `valueFormatter`, a cell renderer's text or an export:
 its invisible characters reach Ctrl+C and the CSV/xlsx. An export that writes a header name strips
 isolates (`stripIsolates`; the core xlsx writer already does).

@@ -71,6 +71,21 @@
 //      stays inside, the user menu opens inside it, and Esc, the scrim and navigation close it,
 //      each handing focus back to the hamburger.
 //
+// 388: overlays share one recipe, and toasts sit bottom-end in 082's colours. In the same four modes:
+//  28. a warning, an error, a success and an info toast, each raised by the Deliveries list's own
+//      code path, compute 082's -050 ground, -border edge and -800 ink (info: the primary tiers),
+//      render in IBM Plex Sans, and are 340px, 8px, --shadow-pop, a 12.5px/600 title over 12px;
+//  29. they land at the bottom inline-END corner, 16px in, clear of the store chip, the bell and the
+//      open bell panel; an English server message keeps its full stop at its end under RTL, with a
+//      control that drops the per-line direction and must see the stop flip;
+//  30. the bell panel, the store chip's panel and the column chooser are the 8px card recipe; the
+//      hand-drawn Save-view dialog and a core Modal (Change store) are the 10px dialog recipe over
+//      the --backdrop scrim, the Modal's title 13px semibold;
+//  31. the user menu and the rail flyout are navy with the white 12% edge, and the user menu's
+//      keyboard focus shows the GOLD ring;
+//  32. a broadcast arriving on the bell's poll raises a NEUTRAL toast in the card recipe, its View a
+//      6px --primary control and its Dismiss a 6px --muted one; and the Toaster re-reads <html dir>.
+//
 // Every `/api/**` call is stubbed (the delivery list needs a store grant a dev session lacks;
 // see grid-theme-drive.mjs). Mocked data, real app, real browser, real CSS, real fonts.
 //
@@ -1852,7 +1867,408 @@ async function driveNarrow({ theme, dir }) {
   await context.close()
 }
 
-// DRIVE_ONLY=paint|grids|ranges|rail|topbar|narrow runs one part, for a slice's inner loop; unset runs all.
+// ---------------------------------------------------------------------------------------------
+// 388: overlays share one recipe, and toasts sit bottom-end in 082's colours. The Deliveries list
+// raises each toast through its own code path: a failed lookup warns, a failed search errors (with
+// an English server message), saving a view succeeds and deleting it informs.
+
+const SERVER_MESSAGE = 'Cannot move to OUT_FOR_DELIVERY (OUT_FOR_DELIVERY).'
+
+const routeOverlays = () => {
+  let searches = 0
+  return async (route) => {
+    const path = route.request().url().split('/api/')[1].split('?')[0]
+    // One lookup fails (the FilterPanel warns once per failed lookup), and the first search
+    // answers a business refusal; the second search loads the grid.
+    if (path === 'SdDocument/DocumentTypes') return route.fulfill({ status: 500, body: 'boom' })
+    if (path === 'SdDocumentWeb/DeliveryDocumentList' && searches++ === 0)
+      return route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ statusCode: 400, success: false, message: SERVER_MESSAGE, errors: [], data: null }),
+      })
+    if (path === 'Notifications/Poll') return route.fulfill(envelope({ items: [], watermark: 1 }))
+    if (path === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORES))
+    return routeGrids(route)
+  }
+}
+
+async function driveOverlays({ theme, dir }) {
+  const label = `${theme}/${dir} overlays`
+  const rtl = dir === 'rtl'
+  const VIEW = { width: 1600, height: 1000 }
+  const context = await browser.newContext({ viewport: VIEW })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  await bootAs(page, { theme, dir })
+  await page.route('**/api/**', routeOverlays())
+  const cdp = await context.newCDPSession(page)
+  await cdp.send('DOM.enable')
+  await cdp.send('CSS.enable')
+
+  // A token as the browser resolves it, through the property it is used as.
+  const resolve = (name, prop = 'backgroundColor') =>
+    page.evaluate(
+      ([n, p]) => {
+        const probe = document.createElement('div')
+        probe.style[p] = n.startsWith('--') ? `var(${n})` : n
+        document.body.appendChild(probe)
+        const v = getComputedStyle(probe)[p]
+        probe.remove()
+        return v
+      },
+      [name, prop],
+    )
+  const box = (loc) => loc.evaluate((el) => el.getBoundingClientRect().toJSON())
+  // A Tailwind `shadow-*` utility composes four empty ring/inset layers ahead of its own; the
+  // shadow cast is the token's when everything ahead of it is one of those transparent layers.
+  const isPop = (shadow) =>
+    shadow === SHADOW_POP ||
+    (shadow.endsWith(', ' + SHADOW_POP) &&
+      shadow
+        .slice(0, -SHADOW_POP.length - 2)
+        .split(/,\s*(?=rgba)/)
+        .every((layer) => layer === 'rgba(0, 0, 0, 0) 0px 0px 0px 0px'))
+  const overlaps = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+  const surface = (loc) =>
+    loc.evaluate((el) => {
+      const s = getComputedStyle(el)
+      return {
+        bg: s.backgroundColor,
+        ink: s.color,
+        edge: s.borderTopColor,
+        endEdge: s.borderInlineEndColor,
+        radius: s.borderTopLeftRadius,
+        shadow: s.boxShadow,
+      }
+    })
+  // The face Chromium actually rendered a node in (CDP, as in the paint part).
+  const renderedFace = async (selector) => {
+    const { root } = await cdp.send('DOM.getDocument', { depth: -1 })
+    const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector })
+    const { fonts } = await cdp.send('CSS.getPlatformFontsForNode', { nodeId })
+    return fonts.map((f) => f.familyName)
+  }
+
+  const chip = page.locator('#layout-topbar [data-store-chip]')
+  const bell = page.locator('#layout-topbar').getByRole('button', { name: 'Notifications' })
+  const toaster = page.locator('[data-sonner-toaster]')
+
+  // ---- The warning: a failed lookup, raised as the screen boots ----
+  await page.goto(BASE + '/oms/deliveries')
+  const SHADOW_POP = await resolve('--shadow-pop', 'boxShadow')
+  const CARD = await resolve('--card')
+  const STRONG = await resolve('--border-strong', 'borderTopColor')
+
+  // One status toast: 082's tiers, Plex, and the recipe's geometry.
+  const checkToast = async (type, tier) => {
+    const toast = page.locator(`[data-sonner-toast][data-type="${type}"]`).first()
+    await toast.waitFor({ timeout: 15000 })
+    await page.waitForTimeout(600) // sonner's enter transition
+    const s = await surface(toast)
+    const want = {
+      bg: await resolve(`--${tier}-050`),
+      ink: await resolve(`--${tier}-800`, 'color'),
+      edge: await resolve(`--${tier}-border`, 'borderTopColor'),
+    }
+    check(
+      `${label}: a ${type} toast computes 082's --${tier}-050 ground, -border edge and -800 ink`,
+      s.bg === want.bg && s.ink === want.ink && s.edge === want.edge,
+      JSON.stringify({ got: s, want }),
+    )
+    const geo = await toast.evaluate((el) => {
+      const title = el.querySelector('[data-title]')
+      const desc = el.querySelector('[data-description]')
+      return {
+        width: el.getBoundingClientRect().width,
+        title: [getComputedStyle(title).fontSize, getComputedStyle(title).fontWeight],
+        desc: desc && getComputedStyle(desc).fontSize,
+        descInk: desc && getComputedStyle(desc).color,
+      }
+    })
+    check(
+      `${label}: the ${type} toast is 340px, 8px, --shadow-pop, a 12.5px/600 title and a 12px description in its ink`,
+      Math.round(geo.width) === 340 &&
+        s.radius === '8px' &&
+        isPop(s.shadow) &&
+        geo.title[0] === '12.5px' &&
+        geo.title[1] === '600' &&
+        geo.desc === '12px' &&
+        geo.descInk === want.ink,
+      JSON.stringify({ geo, radius: s.radius, shadow: s.shadow }),
+    )
+    await toast.locator('[data-title]').evaluate((el) => el.setAttribute('data-toast-probe', ''))
+    const faces = await renderedFace('[data-toast-probe]')
+    await page.evaluate(() => document.querySelector('[data-toast-probe]')?.removeAttribute('data-toast-probe'))
+    check(
+      `${label}: the ${type} toast renders in IBM Plex Sans`,
+      faces.length > 0 && faces.every((f) => /^IBM Plex Sans/.test(f)),
+      JSON.stringify(faces),
+    )
+    return toast
+  }
+
+  const warning = await checkToast('warning', 'attention')
+
+  // ---- The corner: bottom-end, 16px off both edges, mapped by direction ----
+  const t0 = await box(warning)
+  check(
+    `${label}: toasts sit at the bottom inline-END corner, 16px in (${rtl ? 'bottom-left' : 'bottom-right'})`,
+    Math.abs(VIEW.height - 16 - t0.bottom) <= 1 &&
+      (rtl ? Math.abs(t0.left - 16) <= 1 : Math.abs(VIEW.width - 16 - t0.right) <= 1) &&
+      (await toaster.getAttribute('data-x-position')) === (rtl ? 'left' : 'right') &&
+      (await toaster.getAttribute('data-y-position')) === 'bottom',
+    JSON.stringify(t0),
+  )
+
+  // ---- The error: a refused search, its server text read the right way round ----
+  await page.getByRole('button', { name: /^load$/i }).click()
+  const error = await checkToast('error', 'danger')
+  const desc = error.locator('[data-description]')
+  check(`${label}: the error toast carries the server's message`, (await desc.innerText()) === SERVER_MESSAGE)
+  // Where the message's closing ")" and its full stop land: always on one line, so the two can
+  // be compared. In an LTR paragraph the "." follows the ")" to its right; resolved as RTL, the
+  // neutral "." takes the paragraph's direction and jumps to the far left of the line.
+  const ends = () =>
+    desc.evaluate((el) => {
+      const text = el.firstChild
+      const at = (i) => {
+        const r = document.createRange()
+        r.setStart(text, i)
+        r.setEnd(text, i + 1)
+        return r.getBoundingClientRect().left
+      }
+      const n = text.textContent.length
+      return { paren: at(n - 2), stop: at(n - 1), bidi: getComputedStyle(el).unicodeBidi }
+    })
+  const e0 = await ends()
+  check(
+    `${label}: the English server message keeps its full stop at its end (each line takes its own first strong direction)`,
+    e0.bidi === 'plaintext' && e0.stop > e0.paren,
+    JSON.stringify(e0),
+  )
+  if (rtl) {
+    // Control: without the per-line direction the paragraph takes the page's RTL and the stop flips.
+    await desc.evaluate((el) => (el.style.unicodeBidi = 'normal'))
+    const e1 = await ends()
+    await desc.evaluate((el) => (el.style.unicodeBidi = ''))
+    check(`${label}: control — without it, the stop flips to the start under RTL`, e1.stop < e1.paren, JSON.stringify(e1))
+  }
+
+  // ---- Clear of the top bar, and of the open bell panel ----
+  await bell.click()
+  const panel = page.getByRole('dialog', { name: 'Notifications' })
+  await panel.waitFor({ timeout: 5000 })
+  const toasts = await page.locator('[data-sonner-toast]').evaluateAll((els) =>
+    els.map((el) => el.getBoundingClientRect().toJSON()),
+  )
+  const [chipBox, bellBox, panelBox] = [await box(chip), await box(bell), await box(panel)]
+  check(
+    `${label}: every toast is clear of the store chip, the bell and the open bell panel`,
+    toasts.length >= 2 && toasts.every((t) => !overlaps(t, chipBox) && !overlaps(t, bellBox) && !overlaps(t, panelBox)),
+    JSON.stringify({ toasts: toasts.length, panelBottom: panelBox.bottom }),
+  )
+  const ps = await surface(panel)
+  check(
+    `${label}: the bell panel is the card recipe — --card, --border-strong, 8px, --shadow-pop`,
+    ps.bg === CARD && ps.edge === STRONG && ps.radius === '8px' && isPop(ps.shadow),
+    JSON.stringify(ps),
+  )
+  await page.screenshot({ path: `${SHOTS}/overlays-toasts-${theme}-${dir}.png` })
+  await page.keyboard.press('Escape')
+
+  // ---- The store chip's panel ----
+  await chip.click()
+  const store = page.getByRole('dialog', { name: 'Acting store' })
+  await store.waitFor({ timeout: 5000 })
+  const ss = await surface(store)
+  check(
+    `${label}: the store chip's panel is the card recipe`,
+    ss.bg === CARD && ss.edge === STRONG && ss.radius === '8px' && isPop(ss.shadow),
+    JSON.stringify(ss),
+  )
+  await page.keyboard.press('Escape')
+
+  // ---- The search loads; the column chooser and the hand-drawn Save-view dialog ----
+  await page.getByRole('button', { name: /^load$/i }).click()
+  await page.waitForSelector('main .ag-row:not(.ag-header-row)', { timeout: 20000 })
+  await page.getByRole('button', { name: 'Columns' }).click()
+  const chooser = page.locator('main').getByText('Show columns', { exact: true }).locator('xpath=../..')
+  const cs = await surface(chooser)
+  check(
+    `${label}: the column chooser is the card recipe`,
+    cs.bg === CARD && cs.edge === STRONG && cs.radius === '8px' && isPop(cs.shadow),
+    JSON.stringify(cs),
+  )
+  await page.getByRole('button', { name: 'Columns' }).click()
+
+  await page.getByRole('button', { name: 'Save view' }).click()
+  const saveDialog = page.getByRole('dialog', { name: 'Save grid view' })
+  await saveDialog.waitFor({ timeout: 5000 })
+  const sd = await surface(saveDialog)
+  const scrimBg = await saveDialog.evaluate((el) => getComputedStyle(el.parentElement).backgroundColor)
+  check(
+    `${label}: the Save-view dialog is the dialog recipe (10px, --border-strong) over the --backdrop scrim`,
+    sd.radius === '10px' && sd.edge === STRONG && isPop(sd.shadow) && scrimBg === BACKDROP[theme],
+    JSON.stringify({ sd, scrimBg }),
+  )
+  await page.getByLabel('View name').fill('Failed jobs')
+  await page.getByLabel('View name').press('Enter')
+  await checkToast('success', 'success')
+
+  await page.getByRole('button', { name: 'Delete' }).click()
+  await checkToast('info', 'primary')
+  await page.screenshot({ path: `${SHOTS}/overlays-toast-stack-${theme}-${dir}.png` })
+
+  // ---- `dir` re-read: sonner's corner follows the attribute if it ever moves (while a toast is up) ----
+  await page.evaluate((d) => (document.documentElement.dir = d), rtl ? 'ltr' : 'rtl')
+  await page.waitForTimeout(100)
+  const flipped = await toaster.getAttribute('data-x-position')
+  await page.evaluate((d) => (document.documentElement.dir = d), rtl ? 'rtl' : 'ltr')
+  await page.waitForTimeout(100)
+  check(
+    `${label}: the Toaster re-reads <html dir> — flipped, it takes the other corner, and back`,
+    flipped === (rtl ? 'right' : 'left') && (await toaster.getAttribute('data-x-position')) === (rtl ? 'left' : 'right'),
+    JSON.stringify({ flipped }),
+  )
+
+
+  // ---- A core Modal: Change store on Delivery details ----
+  await page.goto(BASE + `/oms/document/${ERX.documentNo}`)
+  const changeStore = page.getByRole('region', { name: 'Actions' }).getByRole('button', { name: /^change store$/i })
+  await changeStore.waitFor({ timeout: 20000 })
+  await changeStore.click()
+  const modal = page.locator('dialog[open]')
+  await modal.waitFor({ timeout: 10000 })
+  await page.waitForTimeout(200)
+  const m = await surface(modal)
+  const mod = await modal.evaluate((el) => {
+    const title = getComputedStyle(el.querySelector('#modal-title'))
+    return { backdrop: getComputedStyle(el, '::backdrop').backgroundColor, title: [title.fontSize, title.fontWeight] }
+  })
+  check(
+    `${label}: a Modal computes --card, --border-strong, the 10px radius, --shadow-pop and the --backdrop scrim`,
+    m.bg === CARD && m.edge === STRONG && m.radius === '10px' && isPop(m.shadow) && mod.backdrop === BACKDROP[theme],
+    JSON.stringify({ m, mod }),
+  )
+  check(`${label}: the Modal's title is 13px semibold`, mod.title[0] === '13px' && mod.title[1] === '600', JSON.stringify(mod.title))
+  await page.screenshot({ path: `${SHOTS}/overlays-modal-${theme}-${dir}.png` })
+  await page.keyboard.press('Escape')
+  await modal.waitFor({ state: 'detached', timeout: 5000 })
+
+  // ---- From the rail: the user menu and the flyout are navy, white-edged, gold-ringed ----
+  // `--rail-accent-foreground` is white in both themes; the edge is it at 12%.
+  const WHITE_12 = await resolve('color-mix(in oklab, var(--rail-accent-foreground) 12%, transparent)', 'borderTopColor')
+  const avatar = page.locator('#layout-rail [data-user-menu-button]')
+  await avatar.focus()
+  await page.keyboard.press('Enter')
+  const userMenu = page.locator('[data-user-menu]')
+  await userMenu.waitFor({ timeout: 5000 })
+  await page.waitForTimeout(100)
+  const um = await surface(userMenu)
+  const ring = await page.evaluate(() => {
+    const el = document.activeElement
+    const s = getComputedStyle(el)
+    return { role: el.getAttribute('role'), outline: s.outlineColor, style: s.outlineStyle, visible: el.matches(':focus-visible') }
+  })
+  check(
+    `${label}: the user menu is navy with the rail's white 12% edge and --shadow-pop`,
+    um.bg === NAVY && um.edge === WHITE_12 && isPop(um.shadow),
+    JSON.stringify({ um, WHITE_12 }),
+  )
+  check(
+    `${label}: the user menu's focused item shows the GOLD focus ring`,
+    ring.role === 'menuitemcheckbox' && ring.visible && ring.style === 'solid' && ring.outline === GOLD,
+    JSON.stringify(ring),
+  )
+  await page.screenshot({ path: `${SHOTS}/overlays-user-menu-${theme}-${dir}.png` })
+  await page.keyboard.press('Escape')
+
+  await page.locator('#layout-rail [data-rail-group="deliveries:menu.oms"]').click()
+  const fly = page.locator('#layout-rail [data-rail-flyout]')
+  await fly.waitFor({ timeout: 5000 })
+  const fs = await surface(fly)
+  check(
+    `${label}: the rail flyout is navy, its inline-end edge white 12%, with --shadow-pop`,
+    fs.bg === NAVY && fs.endEdge === WHITE_12 && isPop(fs.shadow),
+    JSON.stringify(fs),
+  )
+  await page.keyboard.press('Escape')
+
+  check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
+  await context.close()
+
+  // ---- A neutral toast: a broadcast arriving on the bell's poll, with View and Dismiss ----
+  const ctx2 = await browser.newContext({ viewport: VIEW })
+  const p2 = await ctx2.newPage()
+  await bootAs(p2, { theme, dir })
+  const now = Date.now()
+  const BROADCAST = {
+    notificationId: 'N-388',
+    typeCode: 'BROADCAST',
+    title: 'Store 1017 closes at 21:00',
+    body: 'Route late orders to 1001.',
+    createdAt: new Date(now - 30_000).toISOString(),
+    expiresAt: new Date(now + 3_600_000).toISOString(),
+    status: 'Active',
+    isRead: false,
+    displayStyle: 'Banner',
+    readScope: 'Device',
+  }
+  await p2.route('**/api/**', async (route) => {
+    const path = route.request().url().split('/api/')[1].split('?')[0]
+    if (path === 'Notifications/Poll') return route.fulfill(envelope({ items: [BROADCAST], watermark: 2 }))
+    return routeGrids(route)
+  })
+  await p2.goto(BASE + '/oms/deliveries')
+  const neutral = p2.locator('[data-sonner-toast]').filter({ hasText: BROADCAST.title })
+  await neutral.waitFor({ timeout: 20000 })
+  await p2.waitForTimeout(600)
+  const resolve2 = (name, prop = 'backgroundColor') =>
+    p2.evaluate(
+      ([n, q]) => {
+        const probe = document.createElement('div')
+        probe.style[q] = `var(${n})`
+        document.body.appendChild(probe)
+        const v = getComputedStyle(probe)[q]
+        probe.remove()
+        return v
+      },
+      [name, prop],
+    )
+  const ns = await surface(neutral)
+  const nd = await neutral.locator('[data-description]').evaluate((el) => getComputedStyle(el).color)
+  check(
+    `${label}: a neutral toast is the card recipe — --card, --border-strong, --foreground, a --muted-foreground description`,
+    ns.bg === (await resolve2('--card')) &&
+      ns.edge === (await resolve2('--border-strong', 'borderTopColor')) &&
+      ns.ink === (await resolve2('--foreground', 'color')) &&
+      nd === (await resolve2('--muted-foreground', 'color')) &&
+      isPop(ns.shadow),
+    JSON.stringify({ ns, nd }),
+  )
+  const buttons = await neutral.locator('[data-button]').evaluateAll((els) =>
+    els.map((el) => {
+      const s = getComputedStyle(el)
+      return { cancel: el.hasAttribute('data-cancel'), bg: s.backgroundColor, ink: s.color, radius: s.borderTopLeftRadius }
+    }),
+  )
+  const action = buttons.find((b) => !b.cancel)
+  const cancel = buttons.find((b) => b.cancel)
+  check(
+    `${label}: its action is a 6px --primary control and its cancel a 6px --muted one`,
+    !!action && !!cancel &&
+      action.bg === (await resolve2('--primary')) && action.ink === (await resolve2('--primary-foreground', 'color')) &&
+      cancel.bg === (await resolve2('--muted')) && cancel.ink === (await resolve2('--foreground', 'color')) &&
+      action.radius === '6px' && cancel.radius === '6px',
+    JSON.stringify(buttons),
+  )
+  await p2.screenshot({ path: `${SHOTS}/overlays-neutral-toast-${theme}-${dir}.png` })
+  await ctx2.close()
+}
+
+// DRIVE_ONLY=paint|grids|ranges|rail|topbar|narrow|overlays runs one part, for a slice's inner loop; unset runs all.
 const ONLY = process.env.DRIVE_ONLY
 const PARTS = {
   paint: driveOneMode,
@@ -1861,6 +2277,7 @@ const PARTS = {
   rail: driveRail,
   topbar: driveTopbar,
   narrow: driveNarrow,
+  overlays: driveOverlays,
 }
 for (const [part, drive] of Object.entries(PARTS))
   if (!ONLY || ONLY === part)

@@ -262,9 +262,14 @@
   --grid-head: #f2f4f8;
   --grid-head-foreground: #46546a;
 
-  /* The one scrim (377 §1), behind any overlay that holds the page: the narrow
-     rail's overlaid tree and the phone drawer (ticket 387), and 388's dialogs.
-     Not a text pair, so the contrast gate does not measure it. */
+  /* The overlay recipe's two tokens (spec 380 F15, 377 §1). Neither is a text
+     pair, so the contrast gate does not measure them.
+     - `--shadow-pop` is the ONE shadow every overlay casts: popovers, menus,
+       dialogs, toasts, and the panels that open from the rail.
+     - `--backdrop` is the ONE scrim, behind any overlay that holds the page: a
+       dialog's `::backdrop`, the narrow rail's overlaid tree and the phone
+       drawer (387), and any hand-drawn scrim. */
+  --shadow-pop: 0 10px 30px rgb(16 24 40 / 0.16), 0 2px 6px rgb(16 24 40 / 0.08);
   --backdrop: rgb(13 16 21 / 0.32);
 
   /* Command families (D-8). Colour on a command bar carries FUNCTION, not
@@ -281,7 +286,7 @@
 
   /* 6px controls (`rounded-md`), 8px cards and menus (`rounded-lg`) — F7.
      The grid wrapper's 8px is its own theme param (382); dialogs' 10px is
-     the overlay recipe's (388). */
+     the overlay recipe's (`@/core/ui/overlay`, 388). */
   --radius: 0.5rem;
 }
 
@@ -366,6 +371,7 @@
     --cursor: #fdc801; /* gold on dark — 11.18 on card */
     --grid-head: #162131;
     --grid-head-foreground: #a3afc0;
+    --shadow-pop: 0 12px 34px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
     --backdrop: rgb(0 0 0 / 0.5);
 
     --fam-fulfilment: #5fb28b; /* R2, H 161.9 held */
@@ -537,3 +543,87 @@ body {
   pointer-events: none;
 }
 
+/* Toasts (spec 380 F16, 377 §2). Sonner keeps `richColors`, but its variables
+   point at 082's tiers instead of its own HSL palette: success, warning
+   (`attention`) and error (`danger`) take their -050 ground, -border edge and
+   -800 ink, and info takes the primary tiers (082 has no `--info`). A neutral
+   toast is the overlay card recipe. Plex, `--radius`, `--shadow-pop`, 340px.
+   No new tokens, and nothing at a call site.
+
+   Sonner injects its own stylesheet at runtime, after this one, with the same
+   attribute selectors — so every rule here leads with `html` to win on
+   specificity rather than on load order. */
+html [data-sonner-toaster][data-sonner-theme] {
+  font-family: var(--font-sans);
+  /* Sonner writes its 356px as an INLINE `--width`; only `!important` outranks it. */
+  --width: 340px !important;
+  --border-radius: var(--radius);
+
+  --normal-bg: var(--card);
+  --normal-bg-hover: var(--card-2);
+  --normal-border: var(--border-strong);
+  --normal-border-hover: var(--border-strong);
+  --normal-text: var(--foreground);
+
+  --success-bg: var(--success-050);
+  /* Sonner's own variable shares 082's token name, so `var(--success-border)`
+     here would point at itself. `inherit` takes the token from the page. */
+  --success-border: inherit;
+  --success-text: var(--success-800);
+  --info-bg: var(--primary-050);
+  --info-border: var(--primary-border);
+  --info-text: var(--primary-800);
+  --warning-bg: var(--attention-050);
+  --warning-border: var(--attention-border);
+  --warning-text: var(--attention-800);
+  --error-bg: var(--danger-050);
+  --error-border: var(--danger-border);
+  --error-text: var(--danger-800);
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled='true'] {
+  box-shadow: var(--shadow-pop);
+  padding: 10px 12px;
+  gap: 8px;
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-title] {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+/* A neutral toast's description is secondary ink; a status toast's keeps the
+   tier's -800 (sonner's own `inherit`), so it never dims below the gate. */
+html [data-sonner-toaster][data-sonner-theme] [data-sonner-toast][data-styled='true'] [data-description] {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+html [data-sonner-toaster][data-sonner-theme] [data-sonner-toast][data-rich-colors='true'][data-type] [data-description] {
+  color: inherit;
+}
+/* Server text in either script (F26): each line takes the direction of its own
+   first strong letter — `dir="auto"` per paragraph — so an English message's
+   closing punctuation stays at its end under RTL. */
+html [data-sonner-toaster] [data-sonner-toast] :is([data-title], [data-description]) {
+  unicode-bidi: plaintext;
+}
+/* 6px controls: the action is primary, the cancel muted. */
+html [data-sonner-toaster][data-sonner-theme] [data-sonner-toast][data-styled='true'] [data-button] {
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+html [data-sonner-toaster][data-sonner-theme] [data-sonner-toast][data-styled='true'] [data-button][data-cancel] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+/* The close button wears its toast: card on a neutral one, the tier on a
+   status one — sonner's own greys never reach the screen. */
+html [data-sonner-toaster][data-sonner-theme] [data-sonner-toast][data-styled='true'] [data-close-button],
+html [data-sonner-toaster][data-sonner-theme] [data-sonner-toast][data-styled='true']:hover [data-close-button]:hover {
+  background: inherit;
+  border-color: inherit;
+  color: inherit;
+}
+html [data-sonner-toaster] [data-sonner-toast] :is([data-button], [data-close-button]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  box-shadow: none;
+}

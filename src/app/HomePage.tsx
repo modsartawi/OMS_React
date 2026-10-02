@@ -11,7 +11,7 @@ import BrandMark from '@/core/ui/BrandMark'
 // Post-auth the hero is a tool, not a marketing surface (D-9): a plain card in
 // the app's own language (no brand ground, no gold, no watermark — the lockup
 // carries the brand), over section cards built from the SAME permission-filtered
-// menu as the sidebar — a gated area the user can't open never appears here.
+// menu as the rail — a gated area the user can't open never appears here.
 
 export default function HomePage() {
   const { t } = useTranslation('home')

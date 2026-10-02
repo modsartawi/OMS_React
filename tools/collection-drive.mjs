@@ -390,6 +390,9 @@ let collectionsCalls = 0
 async function run() {
   const browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } })
+  // The nav these checks read is the labelled tree; since 385 the rail boots collapsed, so the
+  // stored preference opens it (the toggle's own key, as a user who pinned it open).
+  await page.addInitScript(() => localStorage.setItem('oms.railExpanded', 'true'))
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
@@ -481,7 +484,7 @@ async function run() {
     return { receipts: byKey(v.VOUCHER_SCENARIOS), acrs: byKey(a.ACR_SCENARIOS) }
   })
 
-  const sidebarLinks = async () =>
+  const railLinks = async () =>
     (await page.getByRole('link', { name: /Cash Collections|^ACRs$|^Deposits$|Collection Attempts/ }).all())
       .length
   const groupCount = async () => page.getByRole('button', { name: /^Collections$/ }).count()
@@ -500,7 +503,7 @@ async function run() {
     )
   }
   check('all granted → the Collections group renders', (await groupCount()) === 1)
-  check('all granted → four items under it', (await sidebarLinks()) === 4, `${await sidebarLinks()} links`)
+  check('all granted → four items under it', (await railLinks()) === 4, `${await railLinks()} links`)
 
   // ONE probe for the whole area: four leaves + the screen's own guard share the
   // key, so react-query dedupes them into a single request per page life.
@@ -518,7 +521,7 @@ async function run() {
   await page.goto(BASE + ROUTES.deposits)
   await page.waitForLoadState('networkidle')
   check('Deposits only → the group is still there', (await groupCount()) === 1)
-  check('Deposits only → exactly ONE item under it (a ragged group)', (await sidebarLinks()) === 1)
+  check('Deposits only → exactly ONE item under it (a ragged group)', (await railLinks()) === 1)
   check(
     'Deposits only → and it is the Deposits one',
     (await page.getByRole('link', { name: /^Deposits$/ }).count()) === 1,
@@ -540,7 +543,7 @@ async function run() {
   await page.goto(BASE + ROUTES.collections)
   await page.waitForLoadState('networkidle')
   check('none granted → NO Collections group at all', (await groupCount()) === 0)
-  check('none granted → no Collections leaves either', (await sidebarLinks()) === 0)
+  check('none granted → no Collections leaves either', (await railLinks()) === 0)
   const noneText = await mainText()
   check(
     'none granted → a hand-typed URL renders the denied backstop',

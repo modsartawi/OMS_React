@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 380
 blocked-by: 381
 ---
@@ -64,10 +64,10 @@ above · `common` locale · lint gate (renamed pairs) · drive.
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `rail expand preference reads collapsed when missing or malformed` — pure · vitest
-- [ ] `npm run lint`: `check-contrast` carries `--rail-muted` on `--rail` and `--gold` on `--rail`,
+- [x] `rail expand preference reads collapsed when missing or malformed` — pure · vitest
+- [x] `npm run lint`: `check-contrast` carries `--rail-muted` on `--rail` and `--gold` on `--rail`,
   and no longer checks `--foreground` on the rail · lint gate
-- [ ] `tools/foundation-drive.mjs` (extend), in light, dark and RTL:
+- [x] `tools/foundation-drive.mjs` (extend), in light, dark and RTL:
   - the collapsed rail shows only the granted groups;
   - clicking a group opens its flyout with focus on the first link;
   - hover switches the group, and Esc closes the flyout and returns focus;
@@ -91,3 +91,36 @@ today, `--sidebar*` no longer exists, and the drive passes in light, dark and RT
 ## Blocked by
 
 [381](381-every-screen-paints-in-palette-b-with-ibm-plex.md)
+
+## Comments
+
+**Done 2026-10-02.**
+
+**What was built:**
+- `layout/Rail.tsx` is the navy rail on the inline-start side. Collapsed (56px, the default) it shows one icon per visible group from `useVisibleMenu(MENU)`. Each icon opens a 240px `role="dialog"` flyout. Expanded (240px) it is today's accordion tree on navy.
+- `layout/rail-preference.ts` holds the remembered toggle: a zustand store beside `theme.ts`, persisted to `oms.railExpanded` and parsed defensively.
+- `AppShell` puts the rail beside a column that holds today's top bar (bell, theme, account), `main` and the footer. 386 redraws that column.
+- Tokens: `--sidebar*` → `--rail*`, plus `--rail-accent-foreground` (white on navy; see HITL-385). The contrast pairs moved with the names. The gate measures 148 pairs.
+- Keys added under `common:rail.*`.
+
+**Proof:**
+- **vitest:** `rail-preference.test.ts`, 2 tests. Full suite: 169 files, 3149 tests.
+- **`npm run lint`:** all four gates clean. `check-contrast` carries `--rail-muted`/`--rail`, `--gold`/`--rail`, `--rail-foreground` on `--rail` and on `--rail-accent`, `--rail-active`/`--rail`, and the new white-ink pairs. `--foreground` on the rail is no longer checked.
+- **`tools/foundation-drive.mjs`, new `rail` part:** 96/96 in light, dark and RTL. The session is granted OMS and Collections only. It proves:
+  - only those two groups render, with the tooltip equal to the label;
+  - the marker is a 3px gold `::before` at `inset-inline-start: 0`, never a shadow, and a screen pixel shows it flush on the rail's left edge in LTR and right edge in RTL;
+  - a flyout opens against the rail, labelled by the group, with focus on its first link;
+  - hover switches the group, and the Settlement sub-group is a header plus indented leaves;
+  - Esc returns focus to the group;
+  - an outside click and navigation close the flyout;
+  - expand and collapse both persist across a reload, and a malformed stored value boots collapsed;
+  - tree headers are muted, and white when active;
+  - forward chevrons are mirrored under RTL;
+  - print emulation hides the rail.
+- **Whole foundation drive:** 304/304 before the review fixes. Paint and rail parts re-run green after them (72/72, 96/96).
+- **Re-driven green:** central-invoice 65/65, central-invoice-list 52/52, loy-member 184/184, oms-access 28/28, settlement 291/291.
+
+**Outstanding, not this ticket's:**
+- `palette-drive` (`--rail` expectation renamed) needs a live `Auth/Login`, and no SIS.Api is up.
+- Collection's 2 landing-date checks fail the same way on the pre-385 tree (baseline).
+- Narrow widths are 387; the top bar and user menu are 386; the flyout's shadow and focus recipe is 388.

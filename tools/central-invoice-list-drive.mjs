@@ -94,6 +94,9 @@ const ROWS = [
 async function open(browser, { probe = 'granted', answer } = {}) {
   const context = await browser.newContext({ viewport: { width: 1600, height: 1000 }, acceptDownloads: true })
   const page = await context.newPage()
+  // The nav these checks read is the labelled tree; since 385 the rail boots collapsed, so the
+  // stored preference opens it (the toggle's own key, as a user who pinned it open).
+  await page.addInitScript(() => localStorage.setItem('oms.railExpanded', 'true'))
   const errors = []
   const calls = []
   const gets = []

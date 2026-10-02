@@ -218,6 +218,9 @@ function findEntry(settlementEntryId) {
 async function run() {
   const browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } })
+  // The nav these checks read is the labelled tree; since 385 the rail boots collapsed, so the
+  // stored preference opens it (the toggle's own key, as a user who pinned it open).
+  await page.addInitScript(() => localStorage.setItem('oms.railExpanded', 'true'))
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
   // ⚠️ The browser logs a console error for every non-2xx response, and scenario 4

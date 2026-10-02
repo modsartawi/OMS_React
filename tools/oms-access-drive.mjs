@@ -14,7 +14,7 @@
 // Asserts the ticket's Proof:
 //   1. entitled → the OMS group is in the nav and on the home page, the list loads rows,
 //      and a document opens — all on the new `SdDocumentWeb/*` paths;
-//   2. canOpenList:false → no OMS group in the sidebar AND no OMS section card;
+//   2. canOpenList:false → no OMS group in the rail AND no OMS section card;
 //   3. canOpenList:false + deep link to /oms/deliveries → the denied card, and NO
 //      DeliveryDocumentList request;
 //   4. canOpenList:true + canOpenDetail:false → the list opens, the document deep link
@@ -71,6 +71,9 @@ const DOCUMENT = {
 async function open(browser, { list = true, detail = true, probe = 'ok' } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
   const page = await context.newPage()
+  // The nav these checks read is the labelled tree; since 385 the rail boots collapsed, so the
+  // stored preference opens it (the toggle's own key, as a user who pinned it open).
+  await page.addInitScript(() => localStorage.setItem('oms.railExpanded', 'true'))
   const errors = []
   const calls = []
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -95,7 +98,7 @@ async function open(browser, { list = true, detail = true, probe = 'ok' } = {}) 
     // denied here so the group's presence is the OMS grant's alone — the subject of this drive.
     // (`tools/central-invoice-drive.mjs` owns that leaf.)
     if (p === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: false }))
-    // Every other screen's probe: allowed, so the sidebar around OMS is normal.
+    // Every other screen's probe: allowed, so the rail around OMS is normal.
     if (/Access$/.test(p))
       return route.fulfill(
         envelope({ canOpen: true, screenAllowed: true, allowed: true, canAdmin: true, canSupport: true }),
@@ -135,7 +138,7 @@ async function run() {
     const titles = await sectionTitles(page)
     check('entitled: the OMS section card is on the home page', titles.some((x) => /OMS/i.test(x)), titles.join(' · '))
     const groups = await navGroups(page)
-    check('entitled: the OMS group is in the sidebar', groups.some((g) => /OMS/i.test(g)), groups.join(' · '))
+    check('entitled: the OMS group is in the rail', groups.some((g) => /OMS/i.test(g)), groups.join(' · '))
 
     await page.goto(BASE + '/oms/deliveries')
     await page.getByRole('button', { name: /^Load$/ }).waitFor()
@@ -168,7 +171,7 @@ async function run() {
     await page.waitForTimeout(700)
 
     const groups = await navGroups(page)
-    check('denied list: the OMS group is absent from the sidebar', !groups.some((g) => /OMS/i.test(g)), groups.join(' · '))
+    check('denied list: the OMS group is absent from the rail', !groups.some((g) => /OMS/i.test(g)), groups.join(' · '))
     const titles = await sectionTitles(page)
     check(
       'denied list: and absent from the home page section cards too',
@@ -217,7 +220,7 @@ async function run() {
       calls.join(' · '),
     )
     check(
-      'split grant: the OMS group is still in the sidebar — the leaf gates on the LIST grant',
+      'split grant: the OMS group is still in the rail — the leaf gates on the LIST grant',
       (await navGroups(page)).some((g) => /OMS/i.test(g)),
     )
     check('split grant: no page errors', errors.length === 0, errors.join(' | '))
@@ -238,7 +241,7 @@ async function run() {
       titles.join(' · '),
     )
     check(
-      'fail-closed: and the OMS group is absent from the sidebar',
+      'fail-closed: and the OMS group is absent from the rail',
       !(await navGroups(page)).some((g) => /OMS/i.test(g)),
     )
 

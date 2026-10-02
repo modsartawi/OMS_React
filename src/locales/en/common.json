@@ -20,10 +20,14 @@
     "no": "No"
   },
   "topbar": {
-    "toggleMenu": "Toggle menu",
-    "toggleSection": "Expand or collapse {{label}}",
     "darkMode": "Toggle dark mode",
     "account": "Account menu"
+  },
+  "rail": {
+    "toggleSection": "Expand or collapse {{label}}",
+    "expand": "Expand menu",
+    "collapse": "Collapse menu",
+    "close": "Close"
   },
   "account": {
     "actingStore": "Acting store"

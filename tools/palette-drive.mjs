@@ -42,7 +42,7 @@ const EXPECT = {
     '--primary': 'rgb(15, 76, 156)',
     '--primary-foreground': 'rgb(255, 255, 255)',
     '--border': 'rgb(223, 228, 236)',
-    '--sidebar': 'rgb(0, 37, 84)', // the brand navy, in both themes
+    '--rail': 'rgb(0, 37, 84)', // the brand navy, in both themes
     '--danger-050': 'rgb(251, 236, 236)',
     '--brand-panel': 'rgb(32, 42, 52)',
   },
@@ -54,7 +54,7 @@ const EXPECT = {
     '--primary': 'rgb(121, 167, 236)',
     '--primary-foreground': 'rgb(10, 17, 29)', // R2 — dark ink on a lifted fill
     '--border': 'rgb(33, 44, 61)',
-    '--sidebar': 'rgb(0, 37, 84)',
+    '--rail': 'rgb(0, 37, 84)',
     '--danger-050': 'rgb(76, 38, 37)', // R4 — the role holds, the lightness swaps
     '--brand-panel': 'rgb(32, 42, 52)', // no dark counterpart, by design
   },
@@ -101,7 +101,8 @@ const BRIDGED = [
   'bg-brand-panel',
   'bg-brand-panel-foreground',
   // Palette B's new tokens (ticket 381).
-  'bg-sidebar-muted',
+  'bg-rail-muted',
+  'bg-rail-accent-foreground',
   'bg-gold',
   'bg-gold-foreground',
   'bg-cursor',

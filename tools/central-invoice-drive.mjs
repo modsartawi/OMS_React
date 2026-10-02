@@ -81,6 +81,9 @@ async function open(browser, { probe = 'granted', answer } = {}) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } })
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE })
   const page = await context.newPage()
+  // The nav these checks read is the labelled tree; since 385 the rail boots collapsed, so the
+  // stored preference opens it (the toggle's own key, as a user who pinned it open).
+  await page.addInitScript(() => localStorage.setItem('oms.railExpanded', 'true'))
   const errors = []
   const calls = []
   const posts = []
@@ -304,7 +307,7 @@ async function run() {
     await page.locator('#central-invoice-list').waitFor()
     check('E: the nav leaf opens the bulk screen', page.url().endsWith('/oms/central-invoice'))
     const litLeaves = await page
-      .locator('nav a.bg-sidebar-accent')
+      .locator('nav a.bg-rail-accent')
       .allInnerTexts()
     check('E: only the central-invoice leaf is lit (not Deliveries)', litLeaves.length === 1 && litLeaves[0].includes('Raise central invoices'), litLeaves.join(' | '))
 

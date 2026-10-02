@@ -11,8 +11,8 @@
 //   4. a `font-mono` code renders in IBM Plex Mono;
 //   5. a keyboard-focused button shows the 2px ring at a 2px offset — navy in light, GOLD in dark;
 //   6. `core/ui/Button` is a 6px control, not a pill, and still 28px tall.
-//   7. inside the (now navy) sidebar the focus ring is gold in both themes — the navy ring would
-//      vanish on navy.
+//   7. inside the navy rail the focus ring is gold in both themes — the navy ring would vanish on
+//      navy.
 //
 // 383: every grid mirrors under RTL and isolates its values. Direction is a boot fact, so every
 // pass stores its locale (`oms.locale`: `en` or `ar`) before the app boots and index.html sets
@@ -37,6 +37,18 @@
 //  14. the broadcast title counter reads `40 / 200`, with a strip-the-isolate control;
 //  15. the bonus-buy download counter, held mid-run at `2 / 12`;
 //  16. an active session's started-at (a formatDateTime in a plain table).
+//
+// 385: navigation lives in an expanding navy rail, collapsed by default. In the same four modes,
+// with only OMS and Collections granted:
+//  17. the collapsed rail shows only the granted groups, its tooltip the group's label;
+//  18. the gold marker is a `::before` at inset-inline-start 0, painted flush on the rail's
+//      inline-start edge (a screen pixel) in both directions;
+//  19. clicking a group opens its 240px flyout (a dialog labelled by the group) with focus on the
+//      first link; hover switches the group; the Settlement sub-group is a header link plus
+//      indented leaves; Esc closes and returns focus; an outside click and navigation close it;
+//  20. the toggle expands to the labelled tree, and the preference persists across a reload either
+//      way — a malformed stored value boots collapsed;
+//  21. print emulation hides the rail.
 //
 // Every `/api/**` call is stubbed (the delivery list needs a store grant a dev session lacks;
 // see grid-theme-drive.mjs). Mocked data, real app, real browser, real CSS, real fonts.
@@ -199,8 +211,8 @@ async function driveOneMode({ theme, dir }) {
   const grounds = () =>
     page.evaluate(() => ({
       body: getComputedStyle(document.body).backgroundColor,
-      sidebar: (() => {
-        const el = document.getElementById('layout-sidebar')
+      rail: (() => {
+        const el = document.getElementById('layout-rail')
         return el ? getComputedStyle(el).backgroundColor : null
       })(),
     }))
@@ -246,7 +258,7 @@ async function driveOneMode({ theme, dir }) {
 
   const g = await grounds()
   check(`${label}: Deliveries — page ground is B's --background`, g.body === PALETTE_B[theme].background, g.body)
-  check(`${label}: Deliveries — the sidebar is the brand navy in both themes`, g.sidebar === NAVY, g.sidebar)
+  check(`${label}: Deliveries — the rail is the brand navy in both themes`, g.rail === NAVY, g.rail)
   const card = await page.evaluate(() => getComputedStyle(document.querySelector('.ag-root-wrapper')).backgroundColor)
   check(`${label}: Deliveries — the grid card is B's --card`, card === PALETTE_B[theme].card, card)
 
@@ -298,11 +310,11 @@ async function driveOneMode({ theme, dir }) {
       loadRing.offset === '2px',
     JSON.stringify(loadRing),
   )
-  // The sidebar is navy in both themes, where the light navy ring would vanish (≈1.9:1): inside it
+  // The rail is navy in both themes, where the light navy ring would vanish (≈1.9:1): inside it
   // the ring is gold, the one thing gold on navy is for.
-  const navRing = await ring(page.locator('#layout-sidebar a').first())
+  const navRing = await ring(page.locator('#layout-rail a').first())
   check(
-    `${label}: Deliveries — a focused sidebar link shows the GOLD ring in both themes`,
+    `${label}: Deliveries — a focused rail link shows the GOLD ring in both themes`,
     navRing.visible && navRing.color === PALETTE_B.dark.ring && navRing.width === '2px',
     JSON.stringify(navRing),
   )
@@ -882,9 +894,300 @@ async function driveRanges({ theme, dir }) {
   await context.close()
 }
 
-// DRIVE_ONLY=paint|grids|ranges runs one part, for a slice's inner loop; unset runs all three.
+// ── 385: navigation lives in an expanding navy rail, collapsed by default ──────────────────────
+//
+// The session is granted OMS and Collections only; every other probe answers a denial (each
+// predicate reads `=== true`, so `{}` is a no), and the rail must draw exactly two groups.
+
+const GOLD = 'rgb(253, 200, 1)'
+const WHITE = 'rgb(255, 255, 255)'
+const RAIL_MUTED = 'rgb(143, 160, 189)'
+
+// One screen pixel, as painted (grid-theme-drive.mjs's measure): a pseudo-element has no box to
+// read, so "the marker sits flush on the edge" is asked of the screen itself.
+async function pixelAt(page, x, y) {
+  const png = await page.screenshot({ clip: { x, y, width: 1, height: 1 } })
+  return page.evaluate(async (b64) => {
+    const blob = await (await fetch('data:image/png;base64,' + b64)).blob()
+    const canvas = new OffscreenCanvas(1, 1)
+    const g = canvas.getContext('2d')
+    g.drawImage(await createImageBitmap(blob), 0, 0)
+    const [r, gg, b] = g.getImageData(0, 0, 1, 1).data
+    return `rgb(${r}, ${gg}, ${b})`
+  }, png.toString('base64'))
+}
+const near = (a, b) => {
+  const n = (s) => (s.match(/\d+/g) || []).slice(0, 3).map(Number)
+  const [x, y] = [n(a), n(b)]
+  return x.length === 3 && y.length === 3 && x.every((v, i) => Math.abs(v - y[i]) <= 8)
+}
+
+async function routeRail(route) {
+  const path = route.request().url().split('/api/')[1].split('?')[0]
+  if (path === 'Auth/Me')
+    return route.fulfill(
+      envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1001' }),
+    )
+  if (path === 'SdDocumentWeb/Access') return route.fulfill(envelope({ canOpenList: true, canOpenDetail: true }))
+  if (path === 'Sd/CentralInvoice/Access') return route.fulfill(envelope({ canOpen: true }))
+  if (path === 'CollectionWeb/Access')
+    return route.fulfill(
+      envelope({
+        canOpenCollections: true,
+        canOpenAcrs: true,
+        canOpenDeposits: true,
+        canOpenAttempts: true,
+        canOpenAssignment: true,
+        canOpenSettlement: true,
+        canOpenReady: true,
+      }),
+    )
+  if (/Access$/.test(path)) return route.fulfill(envelope({}))
+  return route.fulfill(envelope([]))
+}
+
+async function driveRail({ theme, dir }) {
+  const label = `${theme}/${dir} rail`
+  const rtl = dir === 'rtl'
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  await bootAs(page, { theme, dir })
+  await page.route('**/api/**', routeRail)
+
+  const rail = page.locator('#layout-rail')
+  const flyout = page.locator('#layout-rail [role="dialog"]')
+  const box = (loc) => loc.evaluate((el) => el.getBoundingClientRect().toJSON())
+  const focused = () =>
+    page.evaluate(() => ({
+      text: document.activeElement?.textContent?.trim() ?? '',
+      tag: document.activeElement?.tagName,
+      group: document.activeElement?.getAttribute('data-rail-group'),
+      inFlyout: !!document.activeElement?.closest('[role="dialog"]'),
+    }))
+  const linkLook = (loc) =>
+    loc.evaluate((el) => ({
+      current: el.getAttribute('aria-current'),
+      marker: getComputedStyle(el, '::before').backgroundColor,
+      ink: getComputedStyle(el).color,
+    }))
+
+  // ---- A malformed stored preference boots collapsed ----
+  await page.goto(BASE + '/oms/deliveries')
+  await page.evaluate(() => localStorage.setItem('oms.railExpanded', '{oops'))
+  await page.reload()
+  await page.locator('#layout-rail [data-rail-group]').first().waitFor({ timeout: 20000 })
+  await page.waitForTimeout(300)
+  const r0 = await box(rail)
+  check(
+    `${label}: a malformed stored preference boots the rail COLLAPSED at 56px`,
+    (await rail.getAttribute('data-rail')) === 'collapsed' && Math.round(r0.width) === 56,
+    JSON.stringify({ width: r0.width }),
+  )
+  check(
+    `${label}: the rail sits on the inline-start side (${rtl ? 'right' : 'left'})`,
+    rtl ? Math.round(r0.right) === 1600 : Math.round(r0.left) === 0,
+    JSON.stringify({ left: r0.left, right: r0.right }),
+  )
+
+  // ---- Only the granted groups, each with its label as the tooltip ----
+  const groups = await page
+    .locator('#layout-rail [data-rail-group]')
+    .evaluateAll((els) => els.map((e) => ({ label: e.getAttribute('aria-label'), title: e.getAttribute('title') })))
+  check(
+    `${label}: the collapsed rail shows ONLY the granted groups (OMS, Collections), tooltip = label`,
+    JSON.stringify(groups.map((x) => x.label)) === JSON.stringify(['OMS', 'Collections']) &&
+      groups.every((x) => x.title === x.label),
+    JSON.stringify(groups),
+  )
+  check(`${label}: the brand mark at the top links /`, (await rail.locator('a').first().getAttribute('href')) === '/')
+
+  // ---- The active marker: gold, flush on the inline-start edge ----
+  const activeRow = rail.locator('[data-active]')
+  check(
+    `${label}: exactly one group is marked active (OMS, on Deliveries)`,
+    (await activeRow.count()) === 1 && (await activeRow.locator('[data-rail-group]').getAttribute('aria-label')) === 'OMS',
+  )
+  const marker = await activeRow.evaluate((el) => {
+    const b = getComputedStyle(el, '::before')
+    return {
+      insetInlineStart: b.insetInlineStart,
+      width: b.width,
+      bg: b.backgroundColor,
+      shadows: [el, ...el.querySelectorAll('*')].map((e) => getComputedStyle(e).boxShadow).filter((s) => s !== 'none'),
+    }
+  })
+  check(
+    `${label}: the marker is a 3px gold ::before at inset-inline-start 0, not an inset shadow`,
+    marker.insetInlineStart === '0px' && marker.width === '3px' && marker.bg === GOLD && marker.shadows.length === 0,
+    JSON.stringify(marker),
+  )
+  const row = await box(activeRow)
+  const y = Math.round(row.top + row.height / 2)
+  const px = {
+    edge: await pixelAt(page, rtl ? Math.floor(r0.right) - 1 : Math.ceil(r0.left), y),
+    inside: await pixelAt(page, rtl ? Math.floor(r0.right) - 5 : Math.ceil(r0.left) + 4, y),
+    far: await pixelAt(page, rtl ? Math.ceil(r0.left) + 1 : Math.floor(r0.right) - 2, y),
+  }
+  check(
+    `${label}: the gold marker is painted FLUSH on the rail's ${rtl ? 'right' : 'left'} edge, and only there`,
+    near(px.edge, GOLD) && !near(px.inside, GOLD) && !near(px.far, GOLD),
+    JSON.stringify(px),
+  )
+  await page.screenshot({ path: `${SHOTS}/rail-collapsed-${theme}-${dir}.png` })
+
+  // ---- The flyout ----
+  const omsBtn = rail.locator('[data-rail-group="deliveries:menu.oms"]')
+  const colBtn = rail.locator('[data-rail-group="collection:menu.collections"]')
+  await omsBtn.click()
+  await flyout.waitFor({ timeout: 5000 })
+  const f1 = await box(flyout)
+  check(
+    `${label}: clicking a group opens its 240px flyout — a dialog labelled by the group, against the rail`,
+    (await page.getByRole('dialog', { name: 'OMS' }).count()) === 1 &&
+      Math.round(f1.width) === 240 &&
+      (rtl ? Math.round(f1.right) === Math.round(r0.left) : Math.round(f1.left) === Math.round(r0.right)) &&
+      (await omsBtn.getAttribute('aria-expanded')) === 'true',
+    JSON.stringify({ left: f1.left, right: f1.right, width: f1.width }),
+  )
+  const f1Focus = await focused()
+  check(
+    `${label}: focus moves to the flyout's first link`,
+    f1Focus.tag === 'A' && f1Focus.inFlyout && f1Focus.text === 'Delivery Documents',
+    JSON.stringify(f1Focus),
+  )
+  const flyLeaf = await linkLook(flyout.getByRole('link', { name: 'Delivery Documents' }))
+  check(
+    `${label}: the flyout's active leaf is current, gold-marked, in white ink`,
+    flyLeaf.current === 'page' && flyLeaf.marker === GOLD && flyLeaf.ink === WHITE,
+    JSON.stringify(flyLeaf),
+  )
+
+  // Hover switches the group while one is open (menu-bar behaviour).
+  await colBtn.hover()
+  await page.getByRole('dialog', { name: 'Collections' }).waitFor({ timeout: 5000 })
+  check(
+    `${label}: hovering another group switches the flyout to it`,
+    (await page.getByRole('dialog', { name: 'OMS' }).count()) === 0 && (await colBtn.getAttribute('aria-expanded')) === 'true',
+  )
+  check(`${label}: focus follows the switch to the new flyout's first link`, (await focused()).text === 'Cash Collections')
+  const sub = flyout.locator('[data-region="menu-subgroup"]')
+  const subLeaves = await sub.getByRole('link').allInnerTexts()
+  const subIndent = await sub.evaluate((el) => {
+    const s = getComputedStyle(el)
+    return { ms: s.marginInlineStart, edge: s.borderInlineStartWidth }
+  })
+  check(
+    `${label}: the Settlement sub-group is a header link plus indented leaves, always open`,
+    (await flyout.getByRole('link', { name: 'Settlement Account' }).count()) === 1 &&
+      JSON.stringify(subLeaves) === JSON.stringify(['Overview', 'Open settlements', 'Ledger', 'Bulk upload']) &&
+      subIndent.ms !== '0px' &&
+      subIndent.edge === '1px',
+    JSON.stringify({ subLeaves, subIndent }),
+  )
+  await page.screenshot({ path: `${SHOTS}/rail-flyout-${theme}-${dir}.png` })
+
+  // Esc closes and returns focus to the group's icon.
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  const afterEsc = await focused()
+  check(
+    `${label}: Esc closes the flyout and returns focus to its group`,
+    (await flyout.count()) === 0 && afterEsc.group === 'collection:menu.collections',
+    JSON.stringify(afterEsc),
+  )
+
+  // An outside click closes it.
+  await omsBtn.click()
+  await flyout.waitFor({ timeout: 5000 })
+  await page.locator('main').click({ position: { x: 300, y: 600 } })
+  await page.waitForTimeout(150)
+  check(`${label}: an outside click closes the flyout`, (await flyout.count()) === 0)
+
+  // Navigation closes it.
+  await omsBtn.click()
+  await flyout.getByRole('link', { name: 'Raise central invoices' }).click()
+  await page.waitForURL(/\/oms\/central-invoice$/, { timeout: 10000 })
+  await page.waitForTimeout(150)
+  check(`${label}: navigating from the flyout closes it`, (await flyout.count()) === 0)
+
+  // ---- Expanded: the labelled tree, remembered across a reload ----
+  await rail.getByRole('button', { name: 'Expand menu' }).click()
+  await page.waitForTimeout(150)
+  const r1 = await box(rail)
+  check(
+    `${label}: the toggle expands the rail to the 240px labelled tree`,
+    (await rail.getAttribute('data-rail')) === 'expanded' && Math.round(r1.width) === 240,
+    JSON.stringify({ width: r1.width }),
+  )
+  await page.reload()
+  await rail.getByRole('button', { name: 'Collapse menu' }).waitFor({ timeout: 20000 })
+  await page.waitForTimeout(300)
+  check(
+    `${label}: the expanded preference persists across a reload`,
+    (await rail.getAttribute('data-rail')) === 'expanded' &&
+      (await page.evaluate(() => localStorage.getItem('oms.railExpanded'))) === 'true',
+  )
+  const heads = await rail.locator('nav button[aria-expanded]').evaluateAll((els) =>
+    els
+      .filter((e) => getComputedStyle(e).textTransform === 'uppercase')
+      .map((e) => ({ text: e.textContent.trim(), ink: getComputedStyle(e).color, open: e.getAttribute('aria-expanded') })),
+  )
+  const omsHead = heads.find((h) => h.text === 'OMS')
+  const colHead = heads.find((h) => h.text === 'Collections')
+  check(
+    `${label}: tree group headers are uppercase rail-muted, white while they hold the active screen`,
+    heads.length === 2 &&
+      omsHead?.ink === WHITE &&
+      omsHead?.open === 'true' &&
+      colHead?.ink === RAIL_MUTED &&
+      colHead?.open === 'false',
+    JSON.stringify(heads),
+  )
+  const treeLeaf = await linkLook(rail.getByRole('link', { name: 'Raise central invoices' }))
+  check(
+    `${label}: the tree's active leaf is current, gold-marked, in white ink`,
+    treeLeaf.current === 'page' && treeLeaf.marker === GOLD && treeLeaf.ink === WHITE,
+    JSON.stringify(treeLeaf),
+  )
+  // The header's LAST icon: the first is the group's own.
+  const chevron = await rail
+    .locator('nav button[aria-expanded="false"]')
+    .first()
+    .locator('svg')
+    .last()
+    .evaluate((el) => getComputedStyle(el).scale)
+  check(
+    `${label}: a closed group's forward chevron is ${rtl ? '' : 'not '}mirrored`,
+    rtl ? chevron === '-1 1' : chevron === 'none',
+    chevron,
+  )
+  await page.screenshot({ path: `${SHOTS}/rail-expanded-${theme}-${dir}.png` })
+
+  await rail.getByRole('button', { name: 'Collapse menu' }).click()
+  await page.reload()
+  await page.locator('#layout-rail [data-rail-group]').first().waitFor({ timeout: 20000 })
+  check(
+    `${label}: collapsing persists across a reload too`,
+    (await rail.getAttribute('data-rail')) === 'collapsed' &&
+      (await page.evaluate(() => localStorage.getItem('oms.railExpanded'))) === 'false',
+  )
+
+  // ---- Ctrl+P: the rail never reaches paper (F20) ----
+  await page.emulateMedia({ media: 'print' })
+  const printed = await rail.evaluate((el) => getComputedStyle(el).display)
+  await page.emulateMedia({ media: 'screen' })
+  check(`${label}: print emulation hides the rail`, printed === 'none', printed)
+
+  check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
+  await context.close()
+}
+
+// DRIVE_ONLY=paint|grids|ranges|rail runs one part, for a slice's inner loop; unset runs all four.
 const ONLY = process.env.DRIVE_ONLY
-const PARTS = { paint: driveOneMode, grids: driveGrids, ranges: driveRanges }
+const PARTS = { paint: driveOneMode, grids: driveGrids, ranges: driveRanges, rail: driveRail }
 for (const [part, drive] of Object.entries(PARTS))
   if (!ONLY || ONLY === part)
     for (const dir of ['ltr', 'rtl']) for (const theme of ['light', 'dark']) await drive({ theme, dir })

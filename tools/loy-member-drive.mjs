@@ -712,14 +712,15 @@ async function run() {
   // and what is being asserted is one call per PAGE LIFE shared by two consumers.
   accessCalls = 0
   await page.goto(BASE + '/')
-  // Scoped to the sidebar: the home page lists the same destinations as cards, and
-  // what this ticket gates is the NAV.
-  const sidebar = page.locator('#layout-sidebar')
-  const loyaltyGroup = sidebar.getByRole('button', { name: /^Loyalty$/ })
+  // Scoped to the rail: the home page lists the same destinations as cards, and
+  // what this ticket gates is the NAV. Collapsed (385), the group is an icon whose
+  // flyout holds the leaf; both live inside the rail.
+  const rail = page.locator('#layout-rail')
+  const loyaltyGroup = rail.getByRole('button', { name: /^Loyalty$/ })
   await loyaltyGroup.waitFor({ timeout: 15000 })
   check('granted: the Loyalty group appears in the nav', (await loyaltyGroup.count()) === 1)
   await loyaltyGroup.click()
-  const memberLeaf = sidebar.getByRole('link', { name: /Member lookup/ })
+  const memberLeaf = rail.getByRole('link', { name: /Member lookup/ })
   await memberLeaf.waitFor({ timeout: 5000 })
   await memberLeaf.click()
   await page.waitForURL(/\/loy\/members$/, { timeout: 10000 })
@@ -745,7 +746,7 @@ async function run() {
   check('the backstop names the grant, not a failure', /administrator/.test(deniedBody))
   check(
     '🚩 denied: the Loyalty group is absent from the nav',
-    (await sidebar.getByRole('button', { name: /^Loyalty$/ }).count()) === 0,
+    (await rail.getByRole('button', { name: /^Loyalty$/ }).count()) === 0,
   )
   check(
     '🚩 an ungranted deep link never fires the member read',
@@ -770,7 +771,7 @@ async function run() {
   )
   check(
     '🚩 the Loyalty group is absent for a thrown probe too',
-    (await sidebar.getByRole('button', { name: /^Loyalty$/ }).count()) === 0,
+    (await rail.getByRole('button', { name: /^Loyalty$/ }).count()) === 0,
   )
   check(
     '🚩 a thrown probe never fires the member read either',
@@ -789,7 +790,7 @@ async function run() {
   )
   check(
     'a 403 hides the group and never fires the member read either',
-    (await sidebar.getByRole('button', { name: /^Loyalty$/ }).count()) === 0 && calls.length === 0,
+    (await rail.getByRole('button', { name: /^Loyalty$/ }).count()) === 0 && calls.length === 0,
     calls.join(', '),
   )
   scenario.access = 'granted'

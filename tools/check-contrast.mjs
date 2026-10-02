@@ -111,12 +111,16 @@ const positives = [
   // Body ink on the selected-row ground (362 §7).
   ['--foreground', '--primary-050', BODY],
   // The rail is the brand navy in both themes (362 §2). Body ink never sits on
-  // it, so `--foreground` on `--sidebar` is no longer a pair; the rail's own
-  // inks are. `--sidebar-muted` carries the group labels (muted-foreground is
-  // ~2:1 on navy), and gold is allowed on navy — the marker, the rail ring.
-  ['--sidebar-foreground', '--sidebar', BODY],
-  ['--sidebar-muted', '--sidebar', BODY],
-  ['--gold', '--sidebar', BODY],
+  // it, so `--foreground` on `--rail` is no longer a pair; the rail's own inks
+  // are. `--rail-muted` carries the group labels (muted-foreground is ~2:1 on
+  // navy), and gold is allowed on navy — the marker, the rail ring.
+  ['--rail-foreground', '--rail', BODY],
+  ['--rail-muted', '--rail', BODY],
+  ['--gold', '--rail', BODY],
+  // The active row's white ink (385): on its accent ground, and on bare navy
+  // for the group header that holds the active screen.
+  ['--rail-accent-foreground', '--rail-accent', BODY],
+  ['--rail-accent-foreground', '--rail', BODY],
   // Gold as a fill carries navy ink (the Ctrl+K key cap, the mark).
   ['--gold-foreground', '--gold', BODY],
   // The AG Grid header ground and its labels.
@@ -128,7 +132,7 @@ const positives = [
   ['--cursor', '--primary-050', UI],
   // The field edge clears WCAG 1.4.11 (362 §1 — it measured 1.47:1 before B).
   ['--input', '--card', UI],
-  ['--sidebar-foreground', '--sidebar-accent', BODY],
+  ['--rail-foreground', '--rail-accent', BODY],
   ['--accent-foreground', '--accent', BODY],
   // Secondary ink on card/background/muted — the 358-use swap.
   ...['--card', '--background', '--muted'].map((s) => ['--muted-foreground', s, BODY]),
@@ -141,7 +145,7 @@ const positives = [
   ['--primary', '--card', BODY],
   ['--primary', '--background', BODY],
   ['--primary-foreground', '--primary', BODY],
-  ['--sidebar-active', '--sidebar', BODY],
+  ['--rail-active', '--rail', BODY],
   // The neutral filled button (D-2's revived `--secondary`) and its press state.
   ['--secondary-foreground', '--secondary', BODY],
   ['--secondary-foreground', '--secondary-press', BODY],

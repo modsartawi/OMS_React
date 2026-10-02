@@ -236,13 +236,16 @@
 
   /* The rail is the brand navy in BOTH themes (362 §2). Body ink never sits on
      it: the rail has its own ink, its own hover ground and its own muted ink
-     for group labels (`--muted-foreground` is ~2:1 on navy). Ticket 385
-     renames these `--rail*`. */
-  --sidebar: #002554;
-  --sidebar-foreground: #d3dbe8;
-  --sidebar-accent: #143662; /* hover / active ground */
-  --sidebar-active: #fdc801; /* the rail's active marker (385) — gold on navy */
-  --sidebar-muted: #8fa0bd;
+     for group labels (`--muted-foreground` is ~2:1 on navy). Renamed from
+     `--sidebar*` with the rail shell (spec 380 F5, ticket 385). */
+  --rail: #002554;
+  --rail-foreground: #d3dbe8;
+  --rail-accent: #143662; /* hover / active ground */
+  /* The active row's ink, and the hover ink: white on navy in both themes,
+     because the rail never themes (ticket 385 — "white ink"). */
+  --rail-accent-foreground: #ffffff;
+  --rail-active: #fdc801; /* the rail's active marker — gold on navy */
+  --rail-muted: #8fa0bd;
 
   /* Gold is a SIGNAL, never text on a light surface: 1.56:1 on white. It is
      allowed on navy (the rail marker and ring, the mark), as a fill carrying
@@ -353,7 +356,7 @@
     --destructive: var(--danger);
     --destructive-foreground: #0a111d;
 
-    --sidebar-foreground: #c7d2e3; /* the rail stays navy; only its ink steps down */
+    --rail-foreground: #c7d2e3; /* the rail stays navy; only its ink steps down */
 
     --cursor: #fdc801; /* gold on dark — 11.18 on card */
     --grid-head: #162131;
@@ -436,11 +439,12 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
 
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-active: var(--sidebar-active);
-  --color-sidebar-muted: var(--sidebar-muted);
+  --color-rail: var(--rail);
+  --color-rail-foreground: var(--rail-foreground);
+  --color-rail-accent: var(--rail-accent);
+  --color-rail-accent-foreground: var(--rail-accent-foreground);
+  --color-rail-active: var(--rail-active);
+  --color-rail-muted: var(--rail-muted);
 
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
@@ -524,10 +528,5 @@ body {
   z-index: 3;
   background: var(--cursor);
   pointer-events: none;
-}
-
-/* Mobile sidebar overlay: block body scroll while open */
-body.blocked-scroll {
-  overflow: hidden;
 }
 

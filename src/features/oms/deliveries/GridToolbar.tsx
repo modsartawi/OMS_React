@@ -154,7 +154,7 @@ export default function GridToolbar({
           {t('toolbar.columns')}
         </button>
         {columnsOpen && (
-          <div className="absolute start-0 top-full z-50 mt-1 w-72 rounded-md border border-border bg-card p-2 shadow-md">
+          <div data-ov="pop" className="absolute start-0 top-full z-50 mt-1 w-72 rounded-md border border-border bg-card p-2 shadow-md">
             <div className="flex items-center gap-2 border-b border-border pb-2">
               <span className="flex-1 text-xs font-semibold">{t('columnsChooser.title')}</span>
               <button type="button" className="text-xs text-primary underline" onClick={showAll}>

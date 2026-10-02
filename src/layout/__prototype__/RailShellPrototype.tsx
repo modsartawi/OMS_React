@@ -366,7 +366,7 @@ function StoreChip() {
         <ChevronDown className="h-3 w-3" aria-hidden />
       </button>
       {open && (
-        <div className="absolute end-0 top-full z-50 mt-1 w-64 rounded-lg border border-border bg-card p-3 shadow-lg">
+        <div data-ov="pop" className="absolute end-0 top-full z-50 mt-1 w-64 rounded-lg border border-border bg-card p-3 shadow-lg">
           <div className="text-xs font-medium text-muted-foreground">{t('storeSwitcher.label')}</div>
           <StoreSwitcher />
           {!store && <p className="mt-1 text-[0.6875rem] leading-snug text-muted-foreground">{t('storeSwitcher.unset')}</p>}
@@ -438,6 +438,8 @@ function UserMenu({ where, railWidth = 48, expanded }: { where: 'rail' | 'top'; 
       {open && (
         <div
           ref={pop}
+          data-ov="pop"
+          data-ov-origin={where}
           className={
             'z-50 w-64 rounded-lg border border-border bg-card p-2 text-foreground shadow-lg ' +
             (where === 'rail' ? 'fixed bottom-2' : 'absolute end-3 top-11')
@@ -448,15 +450,15 @@ function UserMenu({ where, railWidth = 48, expanded }: { where: 'rail' | 'top'; 
             <div className="truncate text-sm font-medium">{name}</div>
             <div className="truncate font-mono text-xs text-muted-foreground">{session.userId}</div>
           </div>
-          <button type="button" onClick={theme.toggle} className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent">
+          <button type="button" onClick={theme.toggle} data-ov-item className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent">
             {theme.dark ? <Sun className="h-4 w-4" aria-hidden /> : <Moon className="h-4 w-4" aria-hidden />}
             {t('topbar.darkMode')}
           </button>
-          <button type="button" disabled className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm opacity-50" title="PROTOTYPE: arrives with the keyboard step">
+          <button type="button" disabled data-ov-item className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm opacity-50" title="PROTOTYPE: arrives with the keyboard step">
             <Keyboard className="h-4 w-4" aria-hidden />
             Keyboard shortcuts
           </button>
-          <button type="button" onClick={() => void signOut()} className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent">
+          <button type="button" onClick={() => void signOut()} data-ov-item className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent">
             <LogOut className="h-4 w-4" aria-hidden />
             {t('actions.logout')}
           </button>

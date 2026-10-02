@@ -678,3 +678,164 @@ body.blocked-scroll {
 html[data-palette] .ag-row-selected:not(.ag-full-width-row)::before {
   z-index: 3;
 }
+
+/* ===========================================================================
+   PROTOTYPE 377 — throwaway (branch prototype/377-overlays). Overlay surfaces.
+   Axes on <html>: data-ov-fam (today|card|split), data-ov-toast (today|tinted|
+   bar|ink). Elements opt in with data-ov="pop|dialog|sheet", data-ov-scrim,
+   data-ov-item, data-ov-origin="rail|top". Unlayered, so it beats utilities.
+   =========================================================================== */
+html[data-palette='navy'] {
+  --shadow-pop: 0 10px 30px rgb(16 24 40 / 0.16), 0 2px 6px rgb(16 24 40 / 0.08);
+  --backdrop: rgb(13 16 21 / 0.32);
+}
+html.dark[data-palette='navy'] {
+  --shadow-pop: 0 12px 34px rgb(0 0 0 / 0.5), 0 2px 6px rgb(0 0 0 / 0.3);
+  --backdrop: rgb(0 0 0 / 0.5);
+}
+
+/* --- family: one recipe (card), or the same plus navy-from-the-rail (split) --- */
+html:is([data-ov-fam='card'], [data-ov-fam='split']) [data-ov='pop'] {
+  background: var(--card);
+  color: var(--foreground);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius); /* 8px */
+  box-shadow: var(--shadow-pop);
+}
+html:is([data-ov-fam='card'], [data-ov-fam='split']) [data-ov='dialog'] {
+  border: 1px solid var(--border-strong);
+  border-radius: calc(var(--radius) + 2px); /* 10px */
+  box-shadow: var(--shadow-pop);
+}
+html:is([data-ov-fam='card'], [data-ov-fam='split']) [data-ov='dialog']::backdrop,
+html:is([data-ov-fam='card'], [data-ov-fam='split']) [data-ov-scrim] {
+  background: var(--backdrop);
+}
+html:is([data-ov-fam='card'], [data-ov-fam='split']) [data-ov='dialog'] #modal-title {
+  font-size: 13px;
+  padding: 10px 14px;
+  border-color: var(--border);
+}
+html:is([data-ov-fam='card'], [data-ov-fam='split']) [data-ov-item] {
+  height: 28px;
+  padding-block: 0;
+  font-size: 12.5px;
+  border-radius: calc(var(--radius) - 2px);
+}
+/* split: a popover that opens FROM the rail continues the rail */
+html[data-ov-fam='split'] [data-ov='pop'][data-ov-origin='rail'] {
+  background: var(--sidebar);
+  color: var(--sidebar-foreground);
+  border-color: rgb(255 255 255 / 0.12);
+  box-shadow: 0 12px 34px rgb(0 0 0 / 0.35);
+}
+html[data-ov-fam='split'] [data-ov-origin='rail'] .border-border {
+  border-color: rgb(255 255 255 / 0.12);
+}
+html[data-ov-fam='split'] [data-ov-origin='rail'] .text-muted-foreground {
+  color: var(--sidebar-muted);
+}
+html[data-ov-fam='split'] [data-ov-origin='rail'] [data-ov-item]:hover {
+  background: var(--sidebar-accent);
+  color: #ffffff;
+}
+html[data-ov-fam='split'] [data-ov-origin='rail'] :focus-visible {
+  outline-color: var(--gold);
+}
+
+/* --- toasts: shared base for every look but today's --- */
+html:not([data-ov-toast='today']) [data-sonner-toaster][data-sonner-theme] {
+  font-family: var(--font-sans);
+  --border-radius: var(--radius);
+  --width: 340px;
+  --normal-bg: var(--card);
+  --normal-border: var(--border-strong);
+  --normal-text: var(--foreground);
+}
+html:not([data-ov-toast='today']) [data-sonner-toast][data-styled='true'] {
+  box-shadow: var(--shadow-pop);
+  font-size: 12.5px;
+  padding: 10px 12px;
+  gap: 8px;
+}
+html:not([data-ov-toast='today']) [data-sonner-toast] [data-title] {
+  font-weight: 600;
+}
+html:not([data-ov-toast='today']) [data-sonner-toast] [data-description] {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+html:not([data-ov-toast='today']) [data-sonner-toast] [data-button] {
+  height: 24px;
+  border-radius: calc(var(--radius) - 2px); /* 6px controls */
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+html:not([data-ov-toast='today']) [data-sonner-toast] [data-button][data-cancel] {
+  background: var(--muted);
+  color: var(--foreground);
+}
+html:not([data-ov-toast='today']) [data-sonner-toast] [data-close-button] {
+  background: var(--card);
+  border-color: var(--border-strong);
+  color: var(--muted-foreground);
+}
+
+/* tinted: sonner's richColors, but its vars point at 082's tiers (info = primary) */
+html[data-ov-toast='tinted'] [data-sonner-toaster][data-sonner-theme] {
+  --success-bg: var(--success-050);
+  --success-border: var(--success-border);
+  --success-text: var(--success-800);
+  --info-bg: var(--primary-050);
+  --info-border: var(--primary-border);
+  --info-text: var(--primary-800);
+  --warning-bg: var(--attention-050);
+  --warning-border: var(--attention-border);
+  --warning-text: var(--attention-800);
+  --error-bg: var(--danger-050);
+  --error-border: var(--danger-border);
+  --error-text: var(--danger-800);
+}
+html[data-ov-toast='tinted'] [data-sonner-toast][data-rich-colors='true'] [data-description] {
+  color: inherit;
+}
+
+/* bar: a neutral card toast; status is the icon + a 3px LOGICAL leading edge */
+html[data-ov-toast='bar'] [data-sonner-toast] {
+  --ov-st: var(--border-strong);
+  border-inline-start: 3px solid var(--ov-st) !important;
+}
+html[data-ov-toast='bar'] [data-sonner-toast][data-type='success'] { --ov-st: var(--success); }
+html[data-ov-toast='bar'] [data-sonner-toast][data-type='info'] { --ov-st: var(--primary); }
+html[data-ov-toast='bar'] [data-sonner-toast][data-type='warning'] { --ov-st: var(--attention); }
+html[data-ov-toast='bar'] [data-sonner-toast][data-type='error'] { --ov-st: var(--danger); }
+html[data-ov-toast='bar'] [data-sonner-toast] [data-icon] { color: var(--ov-st); }
+
+/* ink: Far as drawn — an inverted chip. Status icons need the OTHER mode's
+   tier on the inverted ground, so this look needs an inverse status set. */
+html[data-ov-toast='ink'] [data-sonner-toaster][data-sonner-theme] {
+  --normal-bg: var(--foreground);
+  --normal-text: var(--card);
+  --normal-border: transparent;
+}
+html[data-ov-toast='ink'] [data-sonner-toast] [data-description] {
+  color: color-mix(in srgb, var(--card) 72%, transparent);
+}
+html[data-ov-toast='ink'] [data-sonner-toast][data-type='success'] [data-icon] { color: #55b577; }
+html[data-ov-toast='ink'] [data-sonner-toast][data-type='info'] [data-icon] { color: #79a7ec; }
+html[data-ov-toast='ink'] [data-sonner-toast][data-type='warning'] [data-icon] { color: #e4a249; }
+html[data-ov-toast='ink'] [data-sonner-toast][data-type='error'] [data-icon] { color: #df6768; }
+html.dark[data-ov-toast='ink'] [data-sonner-toast][data-type='success'] [data-icon] { color: #1e874b; }
+html.dark[data-ov-toast='ink'] [data-sonner-toast][data-type='info'] [data-icon] { color: #0f4c9c; }
+html.dark[data-ov-toast='ink'] [data-sonner-toast][data-type='warning'] [data-icon] { color: #b4791f; }
+html.dark[data-ov-toast='ink'] [data-sonner-toast][data-type='error'] [data-icon] { color: #c23b41; }
+html[data-ov-toast='ink'] [data-sonner-toast] [data-button] {
+  background: var(--card);
+  color: var(--foreground);
+}
+html[data-ov-toast='ink'] [data-sonner-toast] [data-button][data-cancel] {
+  background: transparent;
+  color: var(--card);
+}

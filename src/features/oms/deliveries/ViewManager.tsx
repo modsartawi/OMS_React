@@ -105,6 +105,7 @@ export default function ViewManager({ gridApi }: { gridApi: GridApi<DeliveryDocu
 
       {dialogOpen && (
         <div
+          data-ov-scrim
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
           onClick={() => setDialogOpen(false)}
         >
@@ -112,6 +113,7 @@ export default function ViewManager({ gridApi }: { gridApi: GridApi<DeliveryDocu
             role="dialog"
             aria-modal="true"
             aria-label={t('views.dialogTitle')}
+            data-ov="dialog"
             className="w-88 max-w-[90vw] rounded-md border border-border bg-card p-4 shadow-lg"
             onClick={(e) => e.stopPropagation()}
           >

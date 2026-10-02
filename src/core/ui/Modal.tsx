@@ -59,6 +59,7 @@ export default function Modal({
     <dialog
       ref={ref}
       aria-labelledby="modal-title"
+      data-ov="dialog" // PROTOTYPE 377
       // `cancel` is Escape. Prevent the default close so React state stays the
       // single source of truth for `open` — otherwise the element closes itself
       // and props say it is still open, and it can never be reopened.

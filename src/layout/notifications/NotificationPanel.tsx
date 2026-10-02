@@ -71,6 +71,7 @@ export default function NotificationPanel({
     <div
       role="dialog"
       aria-label={t('panel.title')}
+      data-ov="pop"
       className="absolute end-0 top-full z-50 mt-1.5 flex max-h-[460px] w-[380px] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg"
     >
       <div className="flex items-center justify-between border-b border-border px-3.5 py-3">

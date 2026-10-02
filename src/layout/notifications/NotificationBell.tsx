@@ -7,6 +7,8 @@ import { unreadCount, visibleItems } from './helpers'
 import { useNotificationPoll } from './useNotificationPoll'
 import { useNotificationArrivals } from './useNotificationArrivals'
 import NotificationPanel from './NotificationPanel'
+import { DensePanel, SheetPanel } from '../__prototype__/BellPanels' // PROTOTYPE 377
+import { useP377 } from '../__prototype__/proto-377' // PROTOTYPE 377
 
 // The Notification Center bell (Receive chrome, spec 031). Rides the AppShell top
 // bar in the status cluster, left of the theme + account controls. Drives the
@@ -27,6 +29,7 @@ export default function NotificationBell() {
   const open = useNcStore((s) => s.panelOpen)
   const setOpen = useNcStore((s) => s.setPanelOpen)
   const ref = useRef<HTMLDivElement>(null)
+  const bell = useP377((s) => s.bell) // PROTOTYPE 377
 
   // A coarse clock so an item expiring between polls drops out of the count/list
   // without waiting for the next 30s fetch (expiry is a client-side filter).
@@ -88,7 +91,9 @@ export default function NotificationBell() {
         {count > 0 && (
           <span
             className={
-              'absolute -top-0.5 -end-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-ring px-1 text-[10px] font-bold text-primary-foreground ring-2 ring-background tabular-nums transition-transform duration-200 ' +
+              'absolute -top-0.5 -end-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold ring-2 tabular-nums transition-transform duration-200 ' +
+              (bell === 'today' ? 'bg-ring text-primary-foreground ring-background ' : 'bg-gold text-gold-foreground ring-card ') + // PROTOTYPE 377
+
               (pop ? 'scale-125' : 'scale-100')
             }
             aria-hidden
@@ -97,7 +102,9 @@ export default function NotificationBell() {
           </span>
         )}
       </button>
-      {open && <NotificationPanel items={visible} now={now} />}
+      {open && bell === 'today' && <NotificationPanel items={visible} now={now} />}
+      {open && bell === 'dense' && <DensePanel items={visible} now={now} />}
+      {open && bell === 'sheet' && <SheetPanel items={visible} now={now} />}
     </div>
   )
 }

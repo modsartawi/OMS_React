@@ -126,9 +126,31 @@ const DOCUMENT = {
   status: { overallStatus: 'A', lastAction: 'X', lastActionDescription: 'Created' },
 }
 
+let proto377Polled = 0
+
 function stubFor(path: string): Response {
   if (path === 'Auth/Me')
     return envelope({ authenticated: true, userId: 'proto', displayName: 'Prototype 362', currentStoreCode: '1001' })
+  // PROTOTYPE 377: a fictional Notification Center backlog (cold start only)
+  if (path === 'Notifications/Poll') {
+    const ago = (m: number) => new Date(Date.now() - m * 60_000).toISOString()
+    const until = new Date(Date.now() + 7 * 86_400_000).toISOString()
+    const item = (id: string, typeCode: string, title: string, body: string, m: number, isRead: boolean) => ({
+      notificationId: id, typeCode, title, body, createdAt: ago(m), expiresAt: until, status: 'Active', isRead,
+      displayStyle: typeCode === 'BROADCAST' ? 'Banner' : 'Toast', readScope: 'Device',
+    })
+    return envelope({
+      watermark: 100,
+      items: proto377Polled++ > 0 ? [] : [
+        item('n1', 'BROADCAST', 'Store 1017 closes at 21:00 on 3 Oct', 'Reroute evening slots to 1002 Al Malaz. Couriers already on route finish their runs; new evening orders for 1017 move to 1002 automatically.', 22, false),
+        item('n2', 'JOB_DONE', 'Export ready', 'deliveries-2026-09.csv · 1,204 rows', 41, false),
+        item('n3', 'BROADCAST', 'Pricing cache cleared for the Central region', 'Promotions re-read from SAP at 06:10. Expect slower simulations for the first few minutes.', 180, false),
+        item('n4', 'JOB_DONE', 'Bulk user import finished', '74 identities created, 0 refused.', 1500, true),
+        item('n5', 'BROADCAST', 'Ramadan hours start Sunday', 'Store hours follow the Ramadan schedule from 5 Oct; delivery windows shift by one hour.', 2900, true),
+        item('n6', 'JOB_DONE', 'Settlement report ready', 'settlement-2026-09-30.pdf', 4400, true),
+      ],
+    })
+  }
   if (path === 'SdDocumentWeb/DeliveryDocumentList') return envelope(Array.from({ length: 40 }, (_, i) => delivery(i)))
   if (/^SdDocumentWeb\/Document\/[^/]+\/(Outbox|Logs)$/.test(path)) return envelope([])
   if (/^SdDocumentWeb\/(Document|Delivery)\/[^/]+$/.test(path)) return envelope(DOCUMENT)

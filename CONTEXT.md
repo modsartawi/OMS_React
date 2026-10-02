@@ -12,6 +12,58 @@ An order's delivery record — the row shown on the Screen 1 inquiry grid and dr
 Screen 2. Carries a `DeliveryNo`, store, status, and shipping details.
 _Avoid_: shipment, order (an order can have several delivery documents).
 
+**Delivery timeline**:
+The row of **steps** a delivery shows for where it stands: **Created → Ready → Out for delivery →
+Delivered**. A pick-in-store delivery skips Out for delivery, and its ending is still *Delivered*
+(there is no "collected"). It is drawn from the current status columns, not replayed from the Log.
+Payment is **not** a step; it is a due/paid tag. A cancellation **replaces the next step** with
+*Cancellation requested* or *Cancelled*, and the steps after it are dropped. A failed job is never
+a step (ticket 369).
+_Avoid_: status (a delivery has thirteen of those, and the timeline is derived from them), progress
+bar, stage.
+
+**Reached** (of a timeline step):
+A step is reached when the current status columns say so: Ready on `readyStatus` R/C, Out on
+`deliveryStatus` O, Delivered on `deliveryStatus` D. It is never inferred from a time or from
+`statusHistory`.
+_Avoid_: completed, passed.
+
+**Rewind** (of a delivery):
+An action that moves a delivery **back** on its timeline: *returned by driver* (`DRBK`, needs
+reschedule), *rescheduled* (`DRSC`) or *courier changed* (`DCHC`). The timeline shows where the
+delivery is now and marks the step it fell back to. The full back-and-forth lives in the activity
+feed.
+_Avoid_: reset, rollback, failure (a rewind is a normal operational move, not an error).
+
+**Milestone time**:
+The time a timeline step was reached. On Details it is the `entryTime` of the latest Log row whose
+action reached the step. On the list's inspector it comes only from the row's `entryTime` /
+`outForDeliveryTime` / `actualDeliveryTime`. A reached step with no source shows no time, never a
+guess. `statusHistory` carries **no** time (its row time is `DateTime.MaxValue`). BackOffice's
+`SdDocumentHeaderAction` holds the real milestone times, but they are not on the wire yet.
+_Avoid_: timestamp of the status, changed on (`changedOn` moves on every action).
+
+**Delivery inspector**:
+The resizable panel beside the Deliveries grid that shows the **selected row**. It is drawn from
+the list row alone and never fetches, so stepping through rows is free. It is **read-only**: its
+commands hand off to Delivery details, which owns every act. Items, the Log, Jobs and the customer
+OTP are not in it (ticket 367).
+_Avoid_: inspector on its own (the **IDoc Inspector** is a whole screen), preview, drawer, details
+pane (Delivery details is the record page).
+
+**Lens** (of the Deliveries list):
+A built-in narrowing of the rows **already loaded** — All, Needs attention, Cancellation requested,
+Dawaa Now, Rescheduled. It never calls the server, so its count is the loaded rows it matches, read
+as a lower bound ("7+") when the search was cut at its limit (ticket 366).
+_Avoid_: filter (a filter is one of the 14 search criteria, or an AG Grid column filter), view,
+queue, tab.
+
+**Saved view** (of the Deliveries list):
+One operator's named bundle of **criteria** (dates kept relative, so "today" stays today), a
+**lens**, the column layout and the grid's column filters. Applying it runs its search. It lives
+in that user's browser only: there are no shared views (ticket 366).
+_Avoid_: variant, layout (a layout is only the column part), preset, view on its own.
+
 **Store**:
 A physical branch the signed-in user acts on behalf of. The **acting store** is the one currently
 selected in the store switcher; server calls are scoped to it. Identified by `storeCode`.
@@ -45,10 +97,13 @@ it is a designed outcome, not an error.
 _Avoid_: validation error, failure.
 
 **Close** (of a document):
-**Cancelling it.** Not completing it — the trap this word sets. The four close-commands are all
+**Cancelling it.** Not completing it — the trap this word sets. The close-commands are all
 cancellation: **request close** asks for the order to be cancelled and carries a reason from
-`CANCEL_REASONS` as its note, **cancel close request** withdraws that ask, **close** cancels the
-order, **force close** cancels it overriding whatever blocked the normal path. Nothing a back-office
+`CANCEL_REASONS` as its note, **close** cancels the order, and **force close** cancels it overriding
+whatever blocked the normal path. A cancellation request is **final**. The fourth command, **cancel
+close request** (`DCCR`/`OCCR`, "Withdraw Request"), is retired: the owner ruled it out on
+2026-09-25 (BackOffice 2022), and the server refuses it (`CloseRequestIsFinal`). A request is
+normally followed by the `AutoClose` worker's **close**. Nothing a back-office
 operator does on Document Details is a positive outcome — orders complete in the field, never from
 this screen. User-facing labels therefore say *cancel* ("Cancel Order", "Request Cancellation");
 the `CommandKind` identifiers and `actionType` codes keep the `close` spelling.

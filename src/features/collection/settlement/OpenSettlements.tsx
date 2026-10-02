@@ -25,6 +25,7 @@ import { branchSearch } from './addresses'
 import { canSuperviseSettlement, settlementApi } from './api'
 import { AccountCapBanner, AccountShimmer, ToggleChip } from './AccountStates'
 import ApprovalDialog, { type ApprovalRequest } from './ApprovalDialog'
+import { supersedeWarning } from './change-request'
 import { CASH_LANE_LIMIT, OPEN_LANE_LIMIT, PENDING_LANE_LIMIT } from './cap'
 import ChaseDialog from './ChaseDialog'
 import {
@@ -216,7 +217,7 @@ export default function OpenSettlements() {
       buildPendingColumns(t, {
         named: pendingBuilt.named,
         canSupervise,
-        onDecide: (target, act, supersede) => setDeciding({ target, act, supersede }),
+        onDecide: (target, act) => setDeciding({ target, act }),
       }),
     [t, pendingBuilt.named, canSupervise],
   )
@@ -470,7 +471,22 @@ export default function OpenSettlements() {
       <ChaseDialog target={chasing} onClose={() => setChasing(null)} onChased={onChased} />
       {/* 309: opened from a queue row and closed back onto the queue, which the act's
           own invalidation refreshes — the decided entry leaves it. */}
-      <ApprovalDialog request={deciding} onClose={() => setDeciding(null)} />
+      <ApprovalDialog
+        // 352 (W12): the row's `openChangeRequestId`, read from the queue's CURRENT answer —
+        // a refetch under the open dialog that brings a new request brings its sentence. A
+        // row gone from the queue was decided elsewhere: the act will be refused, and a
+        // refused act supersedes nothing.
+        request={
+          deciding && {
+            ...deciding,
+            supersede: supersedeWarning({
+              from: 'row',
+              row: pending.data?.find((r) => r.settlementEntryId === deciding.target.settlementEntryId),
+            }),
+          }
+        }
+        onClose={() => setDeciding(null)}
+      />
     </section>
   )
 }

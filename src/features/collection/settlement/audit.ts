@@ -6,7 +6,7 @@ import type {
 } from '@/core/models/settlement'
 import { describeDocument, type AccountEntryRow, type JournalDocument } from './account-projection'
 import { isStamped } from './approval'
-import { cardFor, type CardChange } from './change-request'
+import { cardFor, newestFirstBy, requestsOf, type CardChange } from './change-request'
 
 /**
  * **The audit pane's read model** — one entry and its consumptions projected into
@@ -288,21 +288,11 @@ export function auditColumn(
  */
 const rank = (f: AuditFact): number => (f.kind === 'requested' || f.kind === 'request-applied' ? 0 : 1)
 
-/** ⚠️ The read is keyed per entry; a row about another entry is never drawn or counted here. */
-const requestsOf = (
-  requests: readonly SettlementChangeRequest[] | null | undefined,
-  settlementEntryId: string,
-): SettlementChangeRequest[] => (requests ?? []).filter((r) => r.settlementEntryId === settlementEntryId)
-
 /** Applied CHANGE requests, newest first — by `decidedAt`, then the ULID; never History's listing order. */
 const appliedChanges = (requests: readonly SettlementChangeRequest[]): SettlementChangeRequest[] =>
   requests
     .filter((r) => r.status === 'APPLIED' && r.requestKind === 'CHANGE' && isStamped(r.decidedAt))
-    .sort(
-      (a, b) =>
-        (a.decidedAt < b.decidedAt ? 1 : a.decidedAt > b.decidedAt ? -1 : 0) ||
-        (a.changeRequestId < b.changeRequestId ? 1 : a.changeRequestId > b.changeRequestId ? -1 : 0),
-    )
+    .sort(newestFirstBy('decidedAt'))
 
 type PostedFigures = { amount: number; description: string }
 

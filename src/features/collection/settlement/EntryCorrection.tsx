@@ -380,7 +380,7 @@ export default function EntryCorrection({
             )
           : (
               <div className="flex flex-col gap-2">
-                <SupersedeNote warning={supersedeWarning({ from: 'history', history: history.data })} />
+                <SupersedeNote warning={supersedeWarning({ from: 'history', read: history })} />
                 <ReasonField
                   value={reason}
                   onValue={setReason}

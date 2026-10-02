@@ -721,21 +721,35 @@ export const bidiIsolate = (text: string): string => `\u2068${text}\u2069`
  *
  * - **`entry`** — a request waits on this entry: *"the waiting change request will be
  *   closed as superseded"*.
- * - **`batch`** — *"any change request waiting on these entries…"*: nothing on the web
- *   enumerates a batch's entries (`BatchWithdraw.tsx`), so it is said unconditionally.
- * - **`none`** — nothing is known to wait; no sentence.
+ * - **`unknown`** — History has not answered yet, or failed (other than a 404): whether
+ *   one waits is not known, so *"any change request waiting on this entry…"*. Never
+ *   silence, which would read as *nothing waits*.
+ * - **`batch`** — *"any change request waiting on an entry this withdraws…"*: nothing on
+ *   the web enumerates a batch's entries (`BatchWithdraw.tsx`), so it is said
+ *   unconditionally — and only of the entries the act withdraws, since a refused row
+ *   keeps its request `OPEN`.
+ * - **`none`** — nothing waits; no sentence.
  */
-export type SupersedeWarning = 'none' | 'entry' | 'batch'
+export type SupersedeWarning = 'none' | 'entry' | 'unknown' | 'batch'
 
 /**
  * Where the confirm step learns of a waiting request.
  *
- * - **`history`** — the entry panel: the ONE History read (`changeRequestHistoryQuery`).
+ * - **`history`** — the entry panel: the ONE History read (`changeRequestHistoryQuery`),
+ *   as the query hands it over — its data, and whether it is still in flight or failed.
  * - **`row`** — a lane row: `Settlement/Ledger`'s `openChangeRequestId` (351).
  * - **`batch`** — Bulk Cancel, which has no entries to read.
  */
 export type SupersedeSource =
-  | { from: 'history'; history: Partial<Pick<SettlementChangeRequestHistory, 'openRequest'>> | null | undefined }
+  | {
+      from: 'history'
+      read: {
+        data?: Partial<Pick<SettlementChangeRequestHistory, 'openRequest'>> | null
+        isPending: boolean
+        isError: boolean
+        error: unknown
+      }
+    }
   | { from: 'row'; row: { openChangeRequestId?: string } | null | undefined }
   | { from: 'batch' }
 
@@ -743,9 +757,8 @@ export type SupersedeSource =
  * **Whether a direct act's confirm step says a waiting request will be superseded.**
  *
  * 🔑 The server's word and nothing else: History's `openRequest`, or the row's
- * `openChangeRequestId` (the mark's rule, `hasChangeWaiting`). A History read that has
- * not answered — or never will (a 404: a server without the wave holds no request) — and
- * a row an older SIS.Api sent without the field say nothing.
+ * `openChangeRequestId` (the mark's rule, `hasChangeWaiting`). A row an older SIS.Api
+ * sent without the field, and a History door that 404s, say nothing waits.
  *
  * ⚠️ It only words the confirm step. The direct doors are unchanged (W12): the sentence
  * guards nothing, and the act is never held for it.
@@ -756,36 +769,49 @@ export function supersedeWarning(source: SupersedeSource): SupersedeWarning {
       return 'batch'
     case 'row':
       return hasChangeWaiting(source.row) ? 'entry' : 'none'
-    case 'history':
-      return source.history?.openRequest ? 'entry' : 'none'
+    case 'history': {
+      const { read } = source
+      // ⚠️ A 404 is a true *none* — a server without the wave holds no request. Any other
+      // failure, and a read in flight, leave it unknown.
+      if (read.isPending || (read.isError && changeRequestFailure(read.error) !== 'not-shipped')) return 'unknown'
+      return read.data?.openRequest ? 'entry' : 'none'
+    }
   }
 }
 
+/** The read's requests about ONE entry — a row about another entry is never drawn or counted under it (350). */
+export const requestsOf = (
+  requests: readonly SettlementChangeRequest[] | null | undefined,
+  settlementEntryId: string,
+): SettlementChangeRequest[] => (requests ?? []).filter((r) => r.settlementEntryId === settlementEntryId)
+
 /**
- * **The request a direct act superseded, as the pane shows it after the re-read** (W12)
- * — the entry's LATEST request, when it ended `SUPERSEDED` and nothing waits now.
+ * Newest first by one of a request's stamps, then by the ULID — **never History's listing
+ * order** (350). The audit column orders applied changes by `decidedAt`; the superseded
+ * card finds the latest request by `requestedAt`. One comparator, so the two never
+ * disagree about what "newest" means.
+ */
+export const newestFirstBy =
+  (stamp: 'requestedAt' | 'decidedAt') =>
+  (a: SettlementChangeRequest, b: SettlementChangeRequest): number =>
+    (a[stamp] < b[stamp] ? 1 : a[stamp] > b[stamp] ? -1 : 0) ||
+    (a.changeRequestId < b.changeRequestId ? 1 : a.changeRequestId > b.changeRequestId ? -1 : 0)
+
+/**
+ * **The request a direct act superseded, as the pane shows it** (W12) — the entry's
+ * LATEST request, when it ended `SUPERSEDED` and nothing waits now.
  *
- * 🔑 Newest by `requestedAt`, then the ULID — never History's listing order (350's
- * rule). A later request decided any other way is the entry's story now, so a
- * supersede long past is not drawn over it; and a request waiting now is the card.
- * A request about another entry is never drawn under this one's header.
+ * 🔑 Drawn for as long as that holds (HITL-352), not only in the moment after the act:
+ * it is the server's read, so it survives a reload. A later request — waiting, or decided
+ * any other way — is the entry's story now, and takes its place. A request about another
+ * entry is never drawn under this one's header.
  */
 export function supersededRequest(
   history: Partial<Pick<SettlementChangeRequestHistory, 'openRequest' | 'requests'>> | null | undefined,
   settlementEntryId: string,
 ): SettlementChangeRequest | null {
   if (!history || history.openRequest) return null
-  const latest = (history.requests ?? [])
-    .filter((r) => r.settlementEntryId === settlementEntryId)
-    .reduce<SettlementChangeRequest | null>(
-      (newest, r) =>
-        !newest ||
-        r.requestedAt > newest.requestedAt ||
-        (r.requestedAt === newest.requestedAt && r.changeRequestId > newest.changeRequestId)
-          ? r
-          : newest,
-      null,
-    )
+  const latest = requestsOf(history.requests, settlementEntryId).sort(newestFirstBy('requestedAt'))[0]
   return latest?.status === 'SUPERSEDED' ? latest : null
 }
 

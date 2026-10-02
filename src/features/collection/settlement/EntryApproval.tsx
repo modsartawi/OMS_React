@@ -119,7 +119,7 @@ export default function EntryApproval({
       )}
 
       <ApprovalDialog
-        request={request && { ...request, supersede: supersedeWarning({ from: 'history', history: history.data }) }}
+        request={request && { ...request, supersede: supersedeWarning({ from: 'history', read: history }) }}
         onClose={() => setRequest(null)}
       />
     </section>

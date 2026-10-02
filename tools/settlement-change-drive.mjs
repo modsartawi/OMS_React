@@ -108,7 +108,7 @@
 //      an accepted Approve re-reads History and the pane shows the request superseded;
 //  38. the Awaiting approval lane's Approve / Reject: the sentence only on a row whose
 //      openChangeRequestId is not '' (351's field);
-//  39. Bulk Cancel: "any change request waiting on these entries…", unconditionally (nothing
+//  39. Bulk Cancel: "any change request waiting on an entry this withdraws…", unconditionally (nothing
 //      enumerates a batch) — and never for an accountant, who has no act to confirm.
 //
 //   1. run the app:  npx vite --port 5199
@@ -2009,7 +2009,7 @@ async function run() {
     (await warningIn(region).count()) === 1 &&
     (await warningIn(region).getAttribute('data-supersede')) === kind &&
     (await warningIn(region).innerText()).trim() ===
-      (kind === 'batch' ? 'Any change request waiting on these entries will be closed as superseded.' : SENTENCE)
+      (kind === 'batch' ? 'Any change request waiting on an entry this withdraws will be closed as superseded.' : SENTENCE)
   const openCorrection = async () => {
     await page.locator('[data-testid="correction-act"]').click()
     await appears('[data-testid="correction-reason"]')
@@ -2069,6 +2069,24 @@ async function run() {
   await openCorrection()
   check("🔑 with nothing waiting, Cancel's confirm step carries no sentence", (await tid('supersede-warning').count()) === 0)
   check('…and the pane shows no superseded card for an entry never changed', (await tid('change-request-superseded').count()) === 0)
+
+  // History not answered yet: unknown, said as such — never the silence of "nothing waits".
+  resetCr()
+  cr.holdHistory = deferred()
+  await page.goto(BASE + `${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-loading"]')
+  await openCorrection()
+  check('🚩 History still in flight: the confirm step says "any change request waiting on this entry…"', (await warningIn('entry-correction').getAttribute('data-supersede')) === 'unknown' && (await textOf('supersede-warning')) === 'Any change request waiting on this entry will be closed as superseded.', await textOf('supersede-warning'))
+  cr.holdHistory.release()
+  cr.holdHistory = null
+  await page.waitForFunction(() => !document.querySelector('[data-testid="supersede-warning"]'), null, { timeout: 8000 }).catch(() => {})
+  check('…and once it answers with nothing waiting, the sentence goes', (await tid('supersede-warning').count()) === 0)
+  // A 404 on History: a server without the wave holds no request — a true none.
+  resetCr({ historyMissing: true })
+  await go(`${ROUTE}?store=0142&entry=143`)
+  await appears('[data-testid="change-request-unavailable"]')
+  await openCorrection()
+  check('…a 404 on History is a true none: no sentence, and Cancel still works as before', (await tid('supersede-warning').count()) === 0 && (await tid('correction-commit').count()) === 1)
 
   // ---- 36. Write off ----
   resetCr()

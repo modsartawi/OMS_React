@@ -962,18 +962,28 @@ describe('bidiIsolate (350)', () => {
 describe("supersedeWarning — a direct act's confirm step says a waiting request will be superseded (W12, ticket 352)", () => {
   const e143 = entryOf('0142', 143)
   const waiting = waitingRequestOn(e143, { newAmount: 450 })
+  /** The History query as a pane hands it over. */
+  const answered = (data: unknown) => ({ data: data as never, isPending: false, isError: false, error: null })
 
   it('🔑 the entry panel: drawn when the History read has an openRequest', () => {
-    expect(supersedeWarning({ from: 'history', history: historyOf(e143, { spentAmount: 0, openRequest: waiting }) })).toBe('entry')
+    expect(supersedeWarning({ from: 'history', read: answered(historyOf(e143, { spentAmount: 0, openRequest: waiting })) })).toBe('entry')
   })
   it('…not drawn when nothing waits — even with decided requests in the history', () => {
     const old = decidedRequest(waiting, { status: 'REJECTED', decidedAt: '2026-09-30T11:00:00', decisionReason: 'no' })
-    expect(supersedeWarning({ from: 'history', history: historyOf(e143, { spentAmount: 0, requests: [old] }) })).toBe('none')
+    expect(supersedeWarning({ from: 'history', read: answered(historyOf(e143, { spentAmount: 0, requests: [old] })) })).toBe('none')
+    expect(supersedeWarning({ from: 'history', read: answered({}) })).toBe('none')
   })
-  it('…nor before History has answered, or when it never will (a 404: no request can wait on a server without the wave)', () => {
-    expect(supersedeWarning({ from: 'history', history: undefined })).toBe('none')
-    expect(supersedeWarning({ from: 'history', history: null })).toBe('none')
-    expect(supersedeWarning({ from: 'history', history: {} })).toBe('none')
+  it('…nor when History never will answer: a 404 — no request can wait on a server without the wave', () => {
+    const notShipped = new ApiError('business', 'Not Found', 404)
+    expect(supersedeWarning({ from: 'history', read: { data: undefined, isPending: false, isError: true, error: notShipped } })).toBe('none')
+  })
+  it('🚩 History in flight, or failed otherwise: unknown — never the silence that reads as "nothing waits"', () => {
+    expect(supersedeWarning({ from: 'history', read: { data: undefined, isPending: true, isError: false, error: null } })).toBe('unknown')
+    const forbidden = new ApiError('unknown', '', 403)
+    expect(supersedeWarning({ from: 'history', read: { data: undefined, isPending: false, isError: true, error: forbidden } })).toBe('unknown')
+    // A failed re-read keeps the last data; what waits NOW is still not known.
+    const down = new ApiError('server', 'boom', 500)
+    expect(supersedeWarning({ from: 'history', read: { data: historyOf(e143, { spentAmount: 0 }), isPending: false, isError: true, error: down } })).toBe('unknown')
   })
   it("🔑 a lane row: drawn when openChangeRequestId is not '' (351's field)", () => {
     expect(supersedeWarning({ from: 'row', row: { openChangeRequestId: SAMPLE_REQUEST_ID } })).toBe('entry')

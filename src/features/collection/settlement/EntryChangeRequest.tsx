@@ -447,9 +447,10 @@ export default function EntryChangeRequest({
   const state = failure ?? (gone ? 'gone' : history.isPending ? 'loading' : offer.kind)
   /**
    * 352 (W12): the request a direct act on this entry superseded — Cancel or Write off in
-   * the correction pane, Approve or Reject in the approval pane — shown once History is
-   * re-read. Not while a request waits (that is the card), and not while an answer of this
-   * pane's own is drawn (it is newer than the read).
+   * the correction pane, Approve or Reject in the approval pane — drawn from History once
+   * it is re-read, and for as long as it is the entry's latest request (HITL-352). Not
+   * while a request waits (that is the card), and not while an answer of this pane's own
+   * is drawn (it is newer than the read).
    */
   const superseded =
     offer.kind === 'waiting' || answered ? null : supersededRequest(history.data, entryId)
@@ -1067,6 +1068,7 @@ function SupersededCard({
   const { t } = useTranslation('settlement')
   const card = cardFor(request)
   const by = request.decidedByName || request.decidedByStaffId
+  const at = isStamped(request.decidedAt) ? formatDateTime(request.decidedAt) : null
 
   return (
     <div
@@ -1080,14 +1082,44 @@ function SupersededCard({
         <span className="font-medium">{t(`changeRequest.superseded.title.${card.kind}`, { number: entryNumber })}</span>
       </p>
       <p className="text-muted-foreground" data-testid="change-request-superseded-by">
-        {isStamped(request.decidedAt)
-          ? t('changeRequest.superseded.byAt', { by, at: formatDateTime(request.decidedAt) })
-          : t('changeRequest.superseded.by', { by })}
+        {/* ⚠️ A row with no decider named (an older server, a system act) says so in words,
+            never "when  acted". */}
+        {by
+          ? at
+            ? t('changeRequest.superseded.byAt', { by, at })
+            : t('changeRequest.superseded.by', { by })
+          : at
+            ? t('changeRequest.superseded.unnamedAt', { at })
+            : t('changeRequest.superseded.unnamed')}
       </p>
+      <RequestBody card={card} money={money} testId="change-request-superseded" />
+    </div>
+  )
+}
+
+/**
+ * **What a request asked, who asked and why** — the body the waiting card (W6) and the
+ * superseded card (352) share: old → new (only what differs), the requester under the
+ * name they had then, and the Reason. One copy, so a fix to how a change is drawn
+ * reaches both.
+ */
+function RequestBody({
+  card,
+  money,
+  testId,
+}: {
+  card: ReturnType<typeof cardFor>
+  money: (v: number | null | undefined) => string
+  /** The card's own prefix — the drive addresses each card's parts by it. */
+  testId: string
+}) {
+  const { t } = useTranslation('settlement')
+  return (
+    <>
       {card.changes.length > 0 && (
         <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
           {card.changes.map((c) => (
-            <div key={c.field} className="contents">
+            <div key={c.field} className="contents" data-testid={`${testId}-${c.field}`}>
               <dt className="text-xs uppercase tracking-wide text-muted-foreground">
                 {t(`changeRequest.card.field.${c.field}`)}
               </dt>
@@ -1098,18 +1130,24 @@ function SupersededCard({
           ))}
         </dl>
       )}
-      <p className="text-muted-foreground">
+
+      <p className="text-muted-foreground" data-testid={`${testId}-by`}>
         {card.at
           ? t('changeRequest.card.askedAt', { by: card.by, at: formatDateTime(card.at) })
           : t('changeRequest.card.asked', { by: card.by })}
       </p>
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium">{t('changeRequest.card.reason')}</span>
-        <blockquote dir="auto" className="rounded-md border border-border/60 bg-muted/30 p-2.5">
+        {/* Server text, routinely Arabic — `dir="auto"` on its own element. */}
+        <blockquote
+          dir="auto"
+          className="rounded-md border border-border/60 bg-muted/30 p-2.5"
+          data-testid={`${testId}-reason`}
+        >
           {card.reason || t('changeRequest.card.noReason')}
         </blockquote>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -1167,37 +1205,7 @@ function WaitingCard({
         <span className="font-medium">{t(`changeRequest.card.waiting.${card.kind}`, { number: entryNumber })}</span>
       </p>
 
-      {card.changes.length > 0 && (
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
-          {card.changes.map((c) => (
-            <div key={c.field} className="contents" data-testid={`change-request-card-${c.field}`}>
-              <dt className="text-xs uppercase tracking-wide text-muted-foreground">
-                {t(`changeRequest.card.field.${c.field}`)}
-              </dt>
-              <dd className={c.field === 'amount' ? 'tabular-nums' : undefined}>
-                <ChangeFromTo change={c} money={money} />
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
-
-      <p className="text-muted-foreground" data-testid="change-request-card-by">
-        {card.at
-          ? t('changeRequest.card.askedAt', { by: card.by, at: formatDateTime(card.at) })
-          : t('changeRequest.card.asked', { by: card.by })}
-      </p>
-      <div className="flex flex-col gap-1">
-        <span className="text-xs font-medium">{t('changeRequest.card.reason')}</span>
-        {/* Server text, routinely Arabic — `dir="auto"` on its own element. */}
-        <blockquote
-          dir="auto"
-          className="rounded-md border border-border/60 bg-muted/30 p-2.5"
-          data-testid="change-request-card-reason"
-        >
-          {card.reason || t('changeRequest.card.noReason')}
-        </blockquote>
-      </div>
+      <RequestBody card={card} money={money} testId="change-request-card" />
       <p className="text-xs text-muted-foreground" data-testid="change-request-card-live">
         {t('changeRequest.card.live', { number: entryNumber })}
       </p>

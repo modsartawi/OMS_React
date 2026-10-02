@@ -227,7 +227,8 @@
     "readOnly": "Asking for a change needs the settlement grant, which this session does not hold.",
     "supersede": {
       "entry": "The waiting change request will be closed as superseded.",
-      "batch": "Any change request waiting on these entries will be closed as superseded."
+      "unknown": "Any change request waiting on this entry will be closed as superseded.",
+      "batch": "Any change request waiting on an entry this withdraws will be closed as superseded."
     },
     "superseded": {
       "title": {
@@ -235,7 +236,9 @@
         "DELETE": "The request to delete entry {{number}} was superseded."
       },
       "by": "Closed when {{by}} acted on the entry directly.",
-      "byAt": "Closed on {{at}} when {{by}} acted on the entry directly."
+      "byAt": "Closed on {{at}} when {{by}} acted on the entry directly.",
+      "unnamed": "Closed by a direct act on the entry.",
+      "unnamedAt": "Closed on {{at}} by a direct act on the entry."
     },
     "finished": {
       "cancelled": "This entry was cancelled. A finished entry is never changed, so no change can be asked for.",

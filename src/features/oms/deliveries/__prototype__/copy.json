@@ -6,6 +6,8 @@
   "A": "A · Steel",
   "B": "B · Cobalt",
   "C": "C · Graphite",
+  "selectedDesign": "Selected",
+  "descriptionselected": "Selected direction: Steel’s light/dark palette with Graphite’s compact layout. All 14 filters remain available.",
   "descriptionA": "Familiar and precise. A grouped filter card, quiet surfaces, and a clear results toolbar.",
   "descriptionB": "Search beside the work. A persistent filter rail and a stronger separation between controls and results.",
   "descriptionC": "Data first. A compact query strip and an open, warm-neutral canvas with fewer containers.",

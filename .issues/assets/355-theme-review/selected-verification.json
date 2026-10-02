@@ -1,0 +1,89 @@
+{
+  "checks": [
+    {
+      "name": "light: selected label",
+      "pass": true
+    },
+    {
+      "name": "light: steel palette",
+      "pass": true
+    },
+    {
+      "name": "light: compact composition",
+      "pass": true
+    },
+    {
+      "name": "light: five common fields",
+      "pass": true
+    },
+    {
+      "name": "light: native text copy",
+      "pass": true
+    },
+    {
+      "name": "light: compact rows",
+      "pass": true
+    },
+    {
+      "name": "light: all fourteen fields",
+      "pass": true
+    },
+    {
+      "name": "light: search leaves panel open",
+      "pass": true
+    },
+    {
+      "name": "dark: selected label",
+      "pass": true
+    },
+    {
+      "name": "dark: steel palette",
+      "pass": true
+    },
+    {
+      "name": "dark: compact composition",
+      "pass": true
+    },
+    {
+      "name": "dark: five common fields",
+      "pass": true
+    },
+    {
+      "name": "dark: native text copy",
+      "pass": true
+    },
+    {
+      "name": "dark: compact rows",
+      "pass": true
+    },
+    {
+      "name": "dark: all fourteen fields",
+      "pass": true
+    },
+    {
+      "name": "dark: search leaves panel open",
+      "pass": true
+    },
+    {
+      "name": "RTL pinned identity",
+      "pass": true
+    },
+    {
+      "name": "Mobile switcher fits viewport",
+      "pass": true
+    },
+    {
+      "name": "Mobile page fits viewport",
+      "pass": true
+    },
+    {
+      "name": "Mobile expanded filters fit viewport",
+      "pass": true
+    },
+    {
+      "name": "No browser errors",
+      "pass": true
+    }
+  ],
+  "errors": []
+}

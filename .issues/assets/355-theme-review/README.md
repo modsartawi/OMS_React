@@ -1,6 +1,6 @@
 # Three visual directions for Delivery Documents Inquiry
 
-Throwaway prototype for [Choose the app theme through three visual directions](../../355-choose-the-app-theme-through-three-visual-directions.md), captured on 2026-10-02. **Awaiting owner feedback; no visual direction is approved.**
+Throwaway prototype for [Choose the app theme through three visual directions](../../355-choose-the-app-theme-through-three-visual-directions.md), captured on 2026-10-02. **Owner-selected direction recorded on 2026-10-02:** see the [decision](../../355-choose-the-app-theme-through-three-visual-directions.md#answer).
 
 ## Run and review
 
@@ -20,6 +20,7 @@ The dedicated Vite configuration intercepts every `/api/` request, including wri
 
 | Direction | Light | Dark | Narrow viewport |
 | --- | --- | --- | --- |
+| Selected | [View](selected-light.png) | [View](selected-dark.png) | [View](selected-mobile-all-filters.png) |
 | Steel | [View](A-light.png) | [View](A-dark.png) | [View](A-mobile.png) |
 | Cobalt | [View](B-light.png) | [View](B-dark.png) | [View](B-mobile.png) |
 | Graphite | [View](C-light.png) | [View](C-dark.png) | [View](C-mobile.png) |
@@ -28,13 +29,13 @@ The dedicated Vite configuration intercepts every `/api/` request, including wri
 
 ## What this comparison can settle
 
-Choose a palette and a composition independently, or choose one direction whole. The agent's recommendation is **C's compact composition with A's steel palette**: it preserves the familiar palette and gives the data more vertical space. This is a recommendation, not the owner's answer.
+Choose a palette and a composition independently, or choose one direction whole. The agent's recommendation is **C's compact composition with A's steel palette**: it preserves the familiar palette and gives the data more vertical space. The owner accepted this recommendation; the canonical answer is in the [decision ticket](../../355-choose-the-app-theme-through-three-visual-directions.md#answer).
 
 B reserves 260px for filters, making repeated searches easier to reach but reducing horizontal grid space. At a narrow viewport its filters move above the grid. C removes the filter card and lets status colours stand out against quieter neutral surfaces. A changes the least from the current application.
 
 ## Full-filter and text-copy refinement
 
-Following owner feedback, the prototype now includes all 14 production filter fields. The current proposal keeps From Date, To Date, Store Code, Delivery No and Customer Phone visible; **All filters** expands the remaining nine, grouped by document identity, classification, fulfilment and results. The owner has not yet confirmed whether this panel should start expanded.
+Following owner feedback, the prototype now includes all 14 production filter fields. The current proposal keeps From Date, To Date, Store Code, Delivery No and Customer Phone visible; **All filters** expands the remaining nine, grouped by document identity, classification, fulfilment and results. The accepted interaction is recorded in the decision ticket; opening the panel keeps it open through Search and Clear all until the operator collapses it.
 
 Search applies the draft criteria as a batch. Applied criteria remain visible as removable chips even when the panel is collapsed. The result limit is always stated. Column filters act on the loaded sample, separately from the search criteria. All matching happens against fictional rows, with the real query builder used to retain request-shaping semantics. The former combined customer/number search has been replaced by the distinct production fields.
 
@@ -57,6 +58,8 @@ The columns and combined status are illustrative fixtures, not a proposed replac
 - Captures were visually inspected. No browser errors. React Router's hydration-fallback warning and the shell's duplicate-query warning are recorded in the results; neither is introduced as a design decision.
 - The driver follows the repo's existing Playwright arrangement in `C:/Playground/frontend` and uses installed Edge. It is a manual review tool, not a new test-suite dependency.
 
-## Pending feedback
+## Handoff
 
-Which layout and palette should continue, and which pieces need refinement? Keep the decision ticket claimed until the owner supplies that answer. Do not infer approval from the existence of these captures.
+The visual-direction ticket is resolved. Continue with [Make grid and component states feel like one system](../../356-make-grid-and-component-states-feel-like-one-system.md). The map remains open until the shared-state decisions and final theme specification are ready.
+
+Selected combination: [expanded light](selected-light-all-filters.png), [expanded dark](selected-dark-all-filters.png), [RTL](selected-dark-rtl.png). `node tools/theme-selected-drive.mjs` verifies palette/composition, all filters, expansion behavior, text copying, 28px rows, RTL and mobile layout; see [selected verification](selected-verification.json).

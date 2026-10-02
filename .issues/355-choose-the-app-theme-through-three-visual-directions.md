@@ -3,7 +3,7 @@ type: wayfinder-ticket
 wayfinder: prototype
 labels: [wayfinder:prototype]
 map: 354
-status: claimed
+status: done
 blocked-by:
 ---
 
@@ -50,3 +50,19 @@ Prototype refined on the same branch:
 - Asked whether all 14 must be visible by default or available through expansion. No answer or theme selection inferred. Grouping and default expansion remain proposals for review.
 
 [Updated captures and guidance sources](assets/355-theme-review/README.md). This is further work on the same visual decision, not resolution of its dependent state-consistency ticket.
+
+## Answer
+
+Resolved with the owner on 2026-10-02. After reviewing the three directions, raising the missing-filter and text-copy concerns, and asking for a recommendation, the owner accepted the recommendation: “yes let's go with that”.
+
+1. **Steel's palette with Graphite's compact composition wins.** Use A's steel-blue light/dark palette with C's compact controls and full-width results area. Do not use B's permanent filter sidebar for this wide inquiry grid.
+2. **Retain every production filter.** Keep From Date, To Date, Store Code, Delivery No and Customer Phone visible. Put the other nine under **All filters**, grouped by document identity, classification, fulfilment and results. The initial prominent five are the accepted starting point, subject to later evidence of operator search frequency; this does not block the theme route.
+3. **Expansion is under operator control.** The remaining fields are behind All filters initially. Once opened, the panel stays open through Search and Clear all until the operator collapses it. The prototype stores this only in memory; cross-session persistence is not a requirement of this decision.
+4. **Make criteria visible and deliberate.** Apply edits with Search, identify unapplied changes, retain removable applied-filter chips when collapsed, and provide Clear all. Keep the result limit visible. Search criteria choose records to load; grid column filters narrow loaded results.
+5. **Allow native text selection and Ctrl+C in inquiry grids.** Preserve row selection and normal grid keyboard navigation. The Community-compatible prototype uses `enableCellTextSelection` and `ensureDomOrder`; Excel-style cell-range copying is not required. Carry this behavior into the later specification and rollout scope.
+6. **Retain 28px compact rows.** Richer content and shared control geometry remain the remit of the next visual decision; this does not force every component or stacked-content row to 28px.
+7. **Preserve domain meanings and the existing token foundation.** Cancellation, cancellation request, prescription and provenance retain distinct meanings. The chosen palette continues to feed both application components and AG Grid from semantic tokens.
+
+**Primary source:** [selected runnable combination and captures](assets/355-theme-review/README.md), on `prototype/theme-directions-355`; [open the selected prototype](http://127.0.0.1:5198/oms/deliveries?variant=selected). The original three directions remain available as comparison evidence on this throwaway branch.
+
+This resolves the visual direction, not the whole map. [Make grid and component states feel like one system](356-make-grid-and-component-states-feel-like-one-system.md) is now unblocked. Production rollout remains outside this map's destination.

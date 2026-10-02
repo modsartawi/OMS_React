@@ -1,5 +1,6 @@
 /* Throwaway composition. All colours continue to come from global.css. */
 .theme-prototype { padding-block-end: 86px; font-size: 12px; }
+.prototype-selected { --prototype-radius: 0px; --prototype-control-radius: 3px; }
 .prototype-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-block: 5px 22px; }
 .prototype-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .16em; color: var(--primary); margin-block-end: 8px; }
 .prototype-heading h1 { font-size: 25px; line-height: 1.3; font-weight: 650; letter-spacing: -.035em; }

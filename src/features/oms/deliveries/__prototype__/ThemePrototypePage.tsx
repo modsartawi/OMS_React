@@ -1,4 +1,4 @@
-// THROWAWAY: three visual directions on /oms/deliveries?variant=A|B|C.
+// THROWAWAY: chosen combination plus original directions at ?variant=selected|A|B|C.
 // Decision ticket: Choose the app theme through three visual directions.
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
@@ -18,7 +18,7 @@ import { BLANK_CRITERIA, buildDeliveryQuery, type DeliveryFilterCriteria } from 
 import './theme-prototype.css'
 
 i18n.addResourceBundle('en', 'theme-prototype', copy, true, true)
-const keys = ['A', 'B', 'C'] as const
+const keys = ['A', 'B', 'C', 'selected'] as const
 type Variant = typeof keys[number]
 type Row = { deliveryNo: string; orderNo: string; customer: string; store: string; date: string; status: string; slot: string; total: number; due: number; source: string; city: string; jobs: number; note: string; rescheduled: boolean; documentNo: string; customerPhone: string; documentType: string; deliveryDocumentType: string; deliveryType: string; documentReason: string; isExpress: boolean }
 // Invented display data; no customer data or API mutations.
@@ -42,7 +42,8 @@ const gridTheme = omsGridTheme.withParams({ wrapperBorderRadius: 'var(--prototyp
 export default function ThemePrototypePage() {
   const { t } = useTranslation('theme-prototype')
   const [params, setParams] = useSearchParams()
-  const variant = keys.includes(params.get('variant') as Variant) ? params.get('variant') as Variant : 'A'
+  const variant = keys.includes(params.get('variant') as Variant) ? params.get('variant') as Variant : 'selected'
+  const composition = variant === 'selected' ? 'C' : variant
   const dark = params.get('mode') === 'dark'
   const rtl = params.get('dir') === 'rtl'
   const [scope, setScope] = useState('all')
@@ -123,17 +124,17 @@ export default function ThemePrototypePage() {
       overlayNoRowsTemplate={`<span>${t('empty')}</span>`} /></div>
     <div className="prototype-grid-footer"><span>{selected ? t('selected', { id: selected.deliveryNo }) : t('none')}</span><span>{t('copyHint')} {t('scope')}</span></div>
   </section>
-  return <div className={`theme-prototype prototype-${variant}`}>
+  return <div className={`theme-prototype prototype-${composition}${variant === 'selected' ? ' prototype-selected' : ''}`}>
     <div className="prototype-heading"><div><div className="prototype-eyebrow">{t('review')}</div><h1>{t('title')}</h1><p>{t('subtitle')}</p></div><span className="prototype-fixture">{t('fixture')}</span></div>
-    {variant === 'A' && <>{filters}{scopes}{grid}</>}
-    {variant === 'B' && <div className="prototype-workspace"><aside>{filters}<p className="prototype-aside-note">{t('descriptionB')}</p></aside><div>{scopes}{grid}</div></div>}
-    {variant === 'C' && <>{scopes}<div className="prototype-command-strip">{filters}</div>{grid}</>}
+    {composition === 'A' && <>{filters}{scopes}{grid}</>}
+    {composition === 'B' && <div className="prototype-workspace"><aside>{filters}<p className="prototype-aside-note">{t('descriptionB')}</p></aside><div>{scopes}{grid}</div></div>}
+    {composition === 'C' && <>{scopes}<div className="prototype-command-strip">{filters}</div>{grid}</>}
     <section className="prototype-specimens"><div><strong>{t('palette')}</strong><p>{t(`description${variant}`)}</p></div><div className="prototype-swatches">{palette.map(name => <div key={name}><i style={{ background: `var(--${name})` }} /><span>{t(name)}<code>{swatches[name]}</code></span></div>)}</div>
       <div className="prototype-components"><span>{t('specimens')}</span><Button variant="cancel-request" disabled>{t('requestCancellation')}</Button><Button variant="danger-outlined" disabled>{t('cancel')}</Button><span className="rounded-full bg-prescription-050 px-2 py-0.5 text-xs text-prescription-800">{t('prescription')}</span><span className="rounded-full bg-post-050 px-2 py-0.5 text-xs text-post-800">{t('post')}</span></div>
     </section>
-    <output className="prototype-state">{t('state', { variant: t(variant), mode: t(dark ? 'dark' : 'light'), direction: rtl ? 'RTL' : 'LTR', count: data.length, selection: selected?.deliveryNo ?? '—' })}</output>
+    <output className="prototype-state">{t('state', { variant: t(variant === 'selected' ? 'selectedDesign' : variant), mode: t(dark ? 'dark' : 'light'), direction: rtl ? 'RTL' : 'LTR', count: data.length, selection: selected?.deliveryNo ?? '—' })}</output>
     {preview && selected && <div className="prototype-preview" role="region" aria-label={t('open')}><div><span>{t('previewHint')}</span><h2>{selected.deliveryNo}</h2><p>{selected.customer} · {selected.store} · {t(selected.status)}</p></div><Button variant="outlined" onClick={() => setPreview(false)}>{t('close')}</Button></div>}
-    <PrototypeSwitcher names={keys.map(key => t(key))} current={keys.indexOf(variant)} onChange={changeVariant} previousLabel={t('previous')} nextLabel={t('next')}>
+    <PrototypeSwitcher names={keys.map(key => t(key === 'selected' ? 'selectedDesign' : key))} current={keys.indexOf(variant)} onChange={changeVariant} previousLabel={t('previous')} nextLabel={t('next')}>
       <button aria-pressed={dark} onClick={() => update('mode', dark ? 'light' : 'dark')}>{dark ? <Sun size={15} /> : <Moon size={15} />}{t(dark ? 'light' : 'dark')}</button>
       <button aria-pressed={rtl} onClick={() => update('dir', rtl ? 'ltr' : 'rtl')}>{t('rtl')}</button>
     </PrototypeSwitcher>

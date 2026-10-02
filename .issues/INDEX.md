@@ -728,3 +728,10 @@ ticket, this wave *writes*, to a customer's login credential. Bound by ADR 0001 
 - [351](351-ledger-and-open-settlement-rows-mark-an-entry-with-a-change-waiting.md) — Ledger and open-settlement rows mark an entry with a change waiting · *(ticket · spec 342)* · **done** · blocked by: — (+ BackOffice 2191) · `openChangeRequestId` on the Ledger row (lane rows inherit)
 - [352](352-a-direct-supervisor-act-warns-that-a-waiting-request-will-be-superseded.md) — A direct Cancel, Write off, Approve, Reject or Bulk Cancel warns that a waiting request will be superseded · *(ticket · spec 342)* · **done** · blocked by: 343, 351 (+ BackOffice 2194) · pure `supersedeWarning` (History / row / batch, `unknown` while History is unread) + one `SupersedeNote`; the pane draws the superseded request after the re-read; batch copy narrowed to "an entry this withdraws" (HITL-352, owner sign-off)
 - [353](353-the-supervisors-change-requests-tab-lists-every-waiting-request-decided-inline.md) — The supervisor's "Change requests" tab lists every waiting request in the estate, decided inline · *(ticket · spec 342)* · **open** · blocked by: 346 (+ BackOffice queue read, NOT YET MINTED) · W9's proposed `Settlement/ChangeRequest/Open`; do not start until the BackOffice `## Web contract` exists
+
+## A coherent app theme and AG Grid
+
+- [354](354-a-coherent-app-theme-and-ag-grid.md) — A coherent app theme and AG Grid · *(wayfinder map)* · **open** · blocked by: —
+- [355](355-choose-the-app-theme-through-three-visual-directions.md) — Choose the app theme through three visual directions · *(prototype · map 354)* · **done** · blocked by: —
+- [356](356-make-grid-and-component-states-feel-like-one-system.md) — Make grid and component states feel like one system · *(prototype · map 354)* · **open** · blocked by: 355 (done)
+- [357](357-agree-the-central-theme-contract-and-specification.md) — Agree the central theme contract and specification · *(grilling · map 354)* · **open** · blocked by: 355, 356

@@ -8,6 +8,7 @@ import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import type { SdDocumentHeaderModel, SdDocumentHeaderStatusModel } from '@/core/models/sd-document'
 import {
   dueTag,
+  headerTimelineNow,
   rowTimelineNow,
   timeline,
   timelineInputFromHeader,
@@ -151,6 +152,47 @@ describe('timelineReachedSteps', () => {
   it('a header with no status block reads as Created, never a crash', () => {
     const doc = { deliveryType: 'D' } as SdDocumentHeaderModel
     expect(timelineNow(timeline(timelineInputFromHeader(doc))).key).toBe('created')
+  })
+})
+
+// Ticket 402's seam: Delivery details' now-step badge and the list's Status word must agree on
+// the same delivery. Each case states one delivery's status columns once and feeds them through
+// both models' mappers.
+describe('details header maps to the same now-step as the list row for the same delivery', () => {
+  const cases: { name: string; status: Partial<SdDocumentHeaderStatusModel>; pickInStore?: boolean; now: string }[] = [
+    { name: 'Created', status: {}, now: 'created' },
+    { name: 'Ready', status: { readyStatus: 'R' }, now: 'ready' },
+    { name: 'Ready (collected)', status: { readyStatus: 'C' }, now: 'ready' },
+    { name: 'Out for delivery', status: { readyStatus: 'R', deliveryStatus: 'O' }, now: 'out' },
+    { name: 'Delivered', status: { readyStatus: 'R', deliveryStatus: 'D' }, now: 'delivered' },
+    { name: 'pick-in-store, ready', status: { readyStatus: 'R' }, pickInStore: true, now: 'ready' },
+    { name: 'pick-in-store, delivered', status: { readyStatus: 'R', deliveryStatus: 'D' }, pickInStore: true, now: 'delivered' },
+    { name: 'close R', status: { readyStatus: 'R', closeStatus: 'R' }, now: 'requested' },
+    { name: 'close C', status: { closeStatus: 'C' }, now: 'cancelled' },
+    { name: 'close N', status: { readyStatus: 'R', deliveryStatus: 'O', closeStatus: 'N' }, now: 'cancelled' },
+    { name: 'close X', status: { readyStatus: 'R', deliveryStatus: 'D', closeStatus: 'X' }, now: 'cancelled' },
+  ]
+
+  for (const c of cases) {
+    it(`${c.name} → ${c.now} on both surfaces`, () => {
+      const doc = header(c.status, { deliveryType: c.pickInStore ? 'P' : 'D' })
+      const listRow = row({ ...c.status, deliveryType: c.pickInStore ? 'PickInStore' : 'Delivery' })
+      expect(headerTimelineNow(doc)).toBe(c.now)
+      expect(rowTimelineNow(listRow)).toBe(c.now)
+    })
+  }
+
+  it('pick-in-store skips Out on the details header too', () => {
+    const doc = header({ readyStatus: 'R' }, { deliveryType: 'P' })
+    expect(shape(timeline(timelineInputFromHeader(doc))).map((s) => s.split(':')[0])).toEqual([
+      'created',
+      'ready',
+      'delivered',
+    ])
+  })
+
+  it('a header with no status block is Created, never a crash', () => {
+    expect(headerTimelineNow({ deliveryType: 'D' } as SdDocumentHeaderModel)).toBe('created')
   })
 })
 

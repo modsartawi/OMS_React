@@ -366,7 +366,7 @@ async function run() {
   const tab = () => page.locator('#tab-attachments')
   const badge = () => tab().locator('.tabular-nums')
   const panel = () => page.locator('#tabpanel-attachments')
-  const refreshButton = () => page.locator('[aria-label="Document status"] button', { hasText: 'Refresh' })
+  const refreshButton = () => page.locator('[aria-label="Document identity"] button', { hasText: 'Refresh' })
   const listRow = (s) => panel().locator(`tr[data-slip="${s.attachmentId}"]`)
   const urls = () => page.evaluate(() => ({ made: [...window.__urls.made], revoked: [...window.__urls.revoked] }))
   const settle = async () => {

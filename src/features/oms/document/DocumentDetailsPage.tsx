@@ -38,9 +38,7 @@ import {
   ITEM_ROW_SELECTION,
 } from './columns'
 import { totalsFooterRow } from './items'
-import { documentProvenanceRows } from './fields'
-import IdentityBand from './IdentityBand'
-import StatusRail from './StatusRail'
+import DocumentHeader from './DocumentHeader'
 import CommandPanel from './CommandPanel'
 import SummaryRail from './SummaryRail'
 import DetailGrid from './DetailGrid'
@@ -52,8 +50,8 @@ import ReturnDialog from './ReturnDialog'
 import AttachmentsTab from './AttachmentsTab'
 import { useOrderAttachments } from './use-order-attachments'
 
-// No `status` tab: the document's state is the pill rail under the header, and
-// its full thirteen-row breakdown is that rail's All-statuses disclosure (083 D-3).
+// No `status` tab: the document's state is the header's now-step badge, and
+// its full thirteen-row breakdown is the header's All-statuses disclosure (083 D-3).
 // `attachments` (spec 324, ticket 327) is fifth and last, and drawn only while its gate
 // admits (`attachmentsTabGate`).
 type TabId = 'items' | 'conditions' | 'log' | 'jobs' | 'attachments'
@@ -80,9 +78,8 @@ const PENDING = { rows: null, loading: true, error: null } as const
 /**
  * Screen 2 — Document Details.
  *
- * Loads the full document (as an order or a delivery), renders the identity
- * band, the status pill rail, the command panel, the shipping address and the
- * four tabs. Log and Jobs are fetched after the document renders — never
+ * Loads the full document (as an order or a delivery), renders the light
+ * header (ticket 402), the command panel, the summary rail and the tabs. Log and Jobs are fetched after the document renders — never
  * blocking the page.
  *
  * Two different fields choose two different endpoints, and mixing them up breaks
@@ -458,7 +455,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   }
 
   // ----- access states ------------------------------------------------------
-  // After every hook, before any render. The identity band is not rendered either: a
+  // After every hook, before any render. The header is not rendered either: a
   // denied session should not learn the document number resolves to anything.
   if (access.isPending) {
     return (
@@ -487,17 +484,31 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     )
   }
 
+  const shownDocument = documentLoading || documentError ? null : document
+
   return (
     <section className="flex flex-col gap-2.5">
       {/*
-        The page opens straight into the identity band (083 D-2, ticket 091):
-        `documentNo` is the largest thing on screen, the sub-ids sit under it,
-        the customer block sits at the end, and Back is the chevron at its
-        start. The old title row, toolbar row and header field groups are gone.
-        It renders while the document loads and after a failure too — the
-        chevron is this screen's only way out.
+        The page opens on the light header (spec 380 D2, ticket 402): the number, the
+        now-step badge, the due/paid tag, the tags and All statuses on line one, the sub-ids
+        on line two, Back at its start and Refresh at its end. It renders while the document
+        loads and after a failure too — the chevron is this screen's only way out — and the
+        command bar sits directly beneath it. Refresh's behaviour is unchanged: spinner in
+        place, silent on success, a toast only on failure. While a document loads or has
+        failed to, the header shows the route id alone, never the last record's facts.
       */}
-      <IdentityBand document={document} routeId={routeId} />
+      <DocumentHeader document={shownDocument} routeId={routeId}>
+        {shownDocument && (
+          <Button variant="outlined" disabled={actionRunning || refreshing} onClick={refresh}>
+            {refreshing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+            )}
+            {t('refresh.button')}
+          </Button>
+        )}
+      </DocumentHeader>
 
       {documentLoading ? (
         <div className="flex items-center gap-2 rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground" role="status">
@@ -509,23 +520,6 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       ) : (
         document && (
           <>
-            {/*
-              Refresh sits at the very end of the rail, not in the page chrome:
-              the rail is what a refresh most visibly changes (083 D-3). Its
-              behaviour is unchanged — spinner in place, silent on success, a
-              toast only on failure.
-            */}
-            <StatusRail status={document.status} provenance={documentProvenanceRows(document, t)}>
-              <Button variant="outlined" disabled={actionRunning || refreshing} onClick={refresh}>
-                {refreshing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-                )}
-                {t('refresh.button')}
-              </Button>
-            </StatusRail>
-
             {/*
               The action bar's grammar (083 D-10, ticket 094): three labelled
               clusters in order of increasing consequence, then the unlabelled

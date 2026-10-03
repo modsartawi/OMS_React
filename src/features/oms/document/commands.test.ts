@@ -10,7 +10,7 @@ import { resolveOpenIntent } from '@/core/oms/open-intent'
 
 /**
  * The real `document` namespace, resolved the way `t('command.…')` does — same
- * helper as `rail.test.ts` and `items.test.ts`, and for the same reason: a key
+ * helper as `header.test.ts` and `items.test.ts`, and for the same reason: a key
  * deleted from the shipped JSON fails here instead of rendering raw to an
  * operator. The disabled reasons are the whole point of this suite, so they are
  * asserted as the shipped English, never as a key.

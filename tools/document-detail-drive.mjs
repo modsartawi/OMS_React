@@ -9,12 +9,11 @@
 // `bby-inquiry-drive.mjs`, and the data is the live capture either way.)
 //
 // Asserts the ticket's five acceptance items:
-//   1. the identity band's big line IS the document number — and the largest
-//      text on the page — on all five captures;
-//   2. the pill rail's entries match 090's corpus table exactly, pill counts
-//      2·0·2·2·0 beside the anchor (this is 090's note honoured: the corpus
-//      table is asserted here, in the acceptance pass, not only in its own
-//      region drive);
+//   1. the header's number IS the document number — and the largest text on
+//      the page — on all five captures;
+//   2. the header's now-step badge reads each capture's step (ticket 402
+//      retired 090's pill rail; the badge is what says where it is now, from
+//      the shared timeline derivation);
 //   3. all four tabs — Items · Header Conditions · Log · Jobs — switch, and a
 //      column width and a sort the operator set on the Items grid SURVIVE the
 //      switch away and back (D-23: panels are hidden with CSS, never unmounted);
@@ -62,21 +61,17 @@ for (const file of readdirSync(PAYLOAD_DIR)) {
 const DOCUMENT_NUMBERS = Object.keys(DOCUMENTS).sort()
 
 /**
- * Spec 083 D-3's table, as the rail reads on screen, beside the pill count the
- * ticket names (2·0·2·2·0 beside the anchor). The count is a LITERAL rather than
- * `rail.length - 1`: derived from the same array, it could only restate the
- * comparison above it, and the ticket's expectation is the number.
- *
- * Duplicated from `document-rail-drive.mjs` on purpose — the region drive keeps
- * its own copy because it asserts the rail's severities and monospace besides,
- * and the acceptance pass must not depend on another tool having run.
+ * Each capture's now-step, as the header's badge reads it (spec 380 D1/D2, ticket 402):
+ * `header.test.ts` asserts the same table against the payloads; this asserts it reached
+ * the DOM. Duplicated from `document-header-drive.mjs` on purpose — the acceptance pass
+ * must not depend on another tool having run.
  */
-const EXPECTED_RAIL = {
-  '2000000551': { rail: ['Last action Prescription Ready', 'Ready', 'Approval Approved'], pills: 2 },
-  '8000000121': { rail: ['Last action Rescheduled'], pills: 0 },
-  '8000000174': { rail: ['Last action Close Requested', 'Ready', 'Cancellation Close Requested'], pills: 2 },
-  '8000000253': { rail: ['Last action Delivered', 'Ready', 'Delivery Delivered'], pills: 2 },
-  '9000000003': { rail: ['Last action TRDY'], pills: 0 },
+const EXPECTED_NOW = {
+  '2000000551': 'Ready',
+  '8000000121': 'Created',
+  '8000000174': 'Cancellation requested',
+  '8000000253': 'Delivered',
+  '9000000003': 'Created',
 }
 
 /**
@@ -127,8 +122,7 @@ async function run() {
     return route.fulfill(envelope({}))
   })
 
-  const band = () => page.locator('[aria-label="Document identity"]')
-  const rail = () => page.locator('[aria-label="Document status"]')
+  const docHeader = () => page.locator('[aria-label="Document identity"]')
   const cards = () => page.locator('[aria-label="Document summary"]')
   const bar = () => page.locator('section[aria-label="Actions"]')
   /** Every panel stays mounted and is CSS-hidden (D-23), so scope to the visible one. */
@@ -147,9 +141,9 @@ async function run() {
     await page.waitForTimeout(200)
   }
 
-  // ─────────────────────────────────── 1 · the band's big line is the number ──
+  // ─────────────────────────────────── 1 · the header's number is the number ──
   //
-  // Not "the number is in the band" — the ticket's claim is that it is the
+  // Not "the number is in the header" — the ticket's claim is that it is the
   // LARGEST thing on the screen, which only a measurement over every other text
   // node can answer.
   for (const documentNo of DOCUMENT_NUMBERS) {
@@ -170,29 +164,18 @@ async function run() {
       biggest?.text === documentNo,
       `${JSON.stringify(biggest?.text)} @${biggest?.size}px`,
     )
-    const inBand = await band()
+    const inHeader = await docHeader()
       .locator('span', { hasText: new RegExp(`^${documentNo}$`) })
       .count()
-    check(`${documentNo}: and it is the identity band's own line`, inBand === 1, String(inBand))
+    check(`${documentNo}: and it is the header's own line`, inHeader === 1, String(inHeader))
   }
 
-  // ────────────────────────────────────── 2 · the rail against 090's corpus ──
+  // ──────────────────────────────────── 2 · the now-step badge per capture ──
   for (const documentNo of DOCUMENT_NUMBERS) {
     await open(documentNo)
-    const expected = EXPECTED_RAIL[documentNo]
-    const read = await rail().locator(String.raw`> span:not([aria-hidden])`).allInnerTexts()
-    const entries = read.map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean)
-    check(
-      `${documentNo}: the pill rail reads exactly D-3's table`,
-      JSON.stringify(entries) === JSON.stringify(expected.rail),
-      entries.join(' · '),
-    )
-    // The anchor is always present and never counts as a pill.
-    check(
-      `${documentNo}: ${expected.pills} pill(s) beside the anchor`,
-      entries.length - 1 === expected.pills && entries[0]?.startsWith('Last action'),
-      `${Math.max(entries.length - 1, 0)} pills, anchor=${JSON.stringify(entries[0])}`,
-    )
+    const word = ((await docHeader().locator('[data-now-step]').innerText()) ?? '').replace(/\s+/g, ' ').trim()
+    check(`${documentNo}: the now-step badge reads ${EXPECTED_NOW[documentNo]}`, word === EXPECTED_NOW[documentNo], word)
+    check(`${documentNo}: and the pill rail is gone`, (await page.locator('[aria-label="Document status"]').count()) === 0)
   }
 
   // ───────────────────────── 3 · the four tabs, and what survives a switch ──

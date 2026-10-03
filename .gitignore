@@ -62,3 +62,5 @@ tools/.ua-scale-shots/
 tools/.deliveries-list-shots/
 # Action-bar drive screenshots (tools/document-actions-drive.mjs, ticket 401)
 tools/.document-actions-shots/
+# Delivery details header drive screenshots (tools/document-header-drive.mjs, ticket 402)
+tools/.document-header-shots/

@@ -5,7 +5,7 @@ import documentEn from '@/locales/en/document.json'
 
 /**
  * The real `document` namespace, resolved the way `t('items.totals', …)` does —
- * same helper as `rail.test.ts`, and for the same reason: a key deleted from the
+ * same helper as `header.test.ts`, and for the same reason: a key deleted from the
  * shipped JSON fails here instead of rendering raw to an operator.
  */
 const t = (key: string, options?: Record<string, unknown>): string => {

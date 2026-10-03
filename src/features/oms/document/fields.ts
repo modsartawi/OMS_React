@@ -1,6 +1,6 @@
 /**
  * Pure builders mapping a loaded document onto the read-only rows of Screen 2 —
- * the identity band, the summary rail's five cards, and the pill rail's
+ * the light header's sub-ids, the summary rail's five cards, and the header's
  * All-statuses disclosure.
  */
 import type {
@@ -39,111 +39,110 @@ function describedStatus(
 }
 
 // The header "Document" and "Customer" groups left with ticket 091, and the
-// "Status" summary group with 090. Identity — the document number, its sub-ids
-// and the customer block — is the identity band's job now; the money, e-Rx,
-// fulfilment, driver and payment fields become the summary rail's cards (092),
-// and the thirteen status rows keep their home in the rail's All-statuses
+// "Status" summary group with 090. Identity — the document number and its
+// sub-ids — is the light header's job (spec 380 D2, ticket 402, which dropped the
+// identity band's customer block and the pill rail); the money, e-Rx,
+// fulfilment, driver and payment fields are the summary rail's cards (092), and
+// the thirteen status rows keep their home in the header's All-statuses
 // disclosure, which `statusBreakdownRows` below still builds. Overall Status
 // keeps binding the RAW `status.overallStatus`: the WPF bound a non-existent
 // `overallStatusDescription` and so rendered nothing at all (Appendix B bug 3).
 
-/** One sub-id under the identity band's big line. */
-export interface BandSubId {
+/** One sub-id on the header's second line. */
+export interface HeaderSubId {
   /** The payload field this row reports. */
-  key: 'orderNo' | 'documentType' | 'deliveryDocumentType' | 'placed' | 'storeCode'
+  key: 'orderNo' | 'documentType' | 'deliveryDocumentType' | 'placed' | 'storeCode' | 'refDocumentNo'
   label: string
   value: string
-  /** Render `value` in monospace: it is a code, not a word (the D-3 echo test). */
+  /** Render `value` in mono: it is an ID or a code, not a word (F24; the D-3 echo test). */
   isCode: boolean
 }
 
 /**
- * The band's echo test: whether a `*Description` says nothing its code did not.
+ * The header's echo test: whether a `*Description` says nothing its code did not.
  *
- * **Exact**, where the rail's `isCodeEcho` is case-insensitive, and the corpus is
- * why: `documentTypeDescription: 'Cash'` against `documentType: 'CASH'` is a
- * resolved *word*, and the band prints the word. Only a description that is
- * blank or byte-identical to its code (`'NUPP'`, `'ORRT'` — 2 of 5 captures)
- * falls back to the raw code and renders in monospace.
+ * **Exact**, not case-insensitive, and the corpus is why:
+ * `documentTypeDescription: 'Cash'` against `documentType: 'CASH'` is a resolved
+ * *word*, and the header prints the word. Only a description that is blank or
+ * byte-identical to its code (`'NUPP'`, `'ORRT'` — 2 of 5 captures) falls back to
+ * the raw code and renders in mono.
  */
-function isBandCodeEcho(description: string, code: string | null | undefined): boolean {
+function isHeaderCodeEcho(description: string, code: string | null | undefined): boolean {
   return !description || description === text(code)
 }
 
 /**
- * The identity band's sub-ids (spec 083 D-2): the five rows under the big line,
- * in band order.
+ * The header's sub-ids (spec 380 D2): order no., type, delivery doc, placed,
+ * store and document no., in that order.
  *
- * A description falls back to its code, and an echo (`isBandCodeEcho`) is
- * flagged so the band renders it in monospace — the same signal the pill rail
- * uses for the same reason. A row the document does not carry is
- * **omitted** rather than em-dashed (D-5): `deliveryDocumentType` is `null` on
- * the e-Rx capture, and an absent sub-id is not a fact worth a dash.
+ * The order no., the store and the document no. are IDs and always render in
+ * mono. A description falls back to its code, and an echo (`isHeaderCodeEcho`)
+ * is flagged so it renders in mono too. A row the document does not carry is
+ * **omitted** rather than em-dashed (083 D-5): `deliveryDocumentType` is `null`
+ * on the e-Rx capture, and an absent sub-id is not a fact worth a dash.
  *
  * "Placed" is one row built from two fields — the calendar date from
- * `documentDate`, the clock time from `entryTime`.
+ * `documentDate`, the clock time from `entryTime`. The document no. is
+ * `refDocumentNo`: on a delivery the big number is the delivery's own
+ * `documentNo`, and this is the sales document it delivers (the list's
+ * Document No).
  */
-export function bandSubIds(doc: SdDocumentHeaderModel, t: TFn): BandSubId[] {
-  const rows: BandSubId[] = []
+export function headerSubIds(doc: SdDocumentHeaderModel, t: TFn): HeaderSubId[] {
+  const rows: HeaderSubId[] = []
 
-  const push = (key: BandSubId['key'], label: string, value: string, isCode = false): void => {
+  const push = (key: HeaderSubId['key'], label: string, value: string, isCode = false): void => {
     if (value) rows.push({ key, label, value, isCode })
   }
   const pushCoded = (
-    key: BandSubId['key'],
+    key: HeaderSubId['key'],
     label: string,
     description: string | null | undefined,
     code: string | null | undefined,
   ): void => {
     const resolved = text(description)
-    push(key, label, resolved || text(code), isBandCodeEcho(resolved, code))
+    push(key, label, resolved || text(code), isHeaderCodeEcho(resolved, code))
   }
 
-  push('orderNo', t('band.orderNo'), text(doc.orderNo))
-  pushCoded('documentType', t('band.documentType'), doc.documentTypeDescription, doc.documentType)
+  push('orderNo', t('header.orderNo'), text(doc.orderNo), true)
+  pushCoded('documentType', t('header.documentType'), doc.documentTypeDescription, doc.documentType)
   pushCoded(
     'deliveryDocumentType',
-    t('band.deliveryDocumentType'),
+    t('header.deliveryDocumentType'),
     doc.deliveryDocumentTypeDescription,
     doc.deliveryDocumentType,
   )
   push(
     'placed',
-    t('band.placed'),
+    t('header.placed'),
     formatPair(formatLongDate(doc.documentDate), formatTimeOfDay(doc.entryTime)),
   )
-  push('storeCode', t('band.store'), text(doc.storeCode))
+  push('storeCode', t('header.store'), text(doc.storeCode), true)
+  push('refDocumentNo', t('header.refDocumentNo'), text(doc.refDocumentNo), true)
 
   return rows
 }
 
 /**
- * The band's overall-status lozenge value: the RAW `status.overallStatus`, blank
- * when the document carries none — and blank means **no lozenge**, on 3 of the
- * 5 captured documents. There is no `overallStatusDescription` on the payload,
- * which is why this one renders as a labelled monospace code rather than a word.
+ * The header's Overall tag value: the RAW `status.overallStatus`, blank when the
+ * document carries none — and blank means **no tag**, on 3 of the 5 captured
+ * documents. There is no `overallStatusDescription` on the payload, which is why
+ * this one renders as a labelled mono code rather than a word.
  */
 export function overallStatusCode(doc: SdDocumentHeaderModel): string {
   return text(doc.status?.overallStatus)
 }
 
-/** The identity band's customer block — blank parts are dropped, not dashed. */
-export interface BandCustomer {
-  name: string
-  /** Phone and city, joined — either may be absent (`cityName` is on 3/5). */
-  contact: string
-}
-
 /**
- * The band's customer block (spec 083 D-2), at the end of the band and
- * **duplicated with the Customer rail card by design**: the band answers "whose
- * is this" without a read of the rail.
+ * Whether the document carries an e-Rx: any of the five prescription facts on
+ * the payload, the same five that draw the Prescription (e-Rx) card
+ * (`railCards`). The card's Files row is deliberately not one of them: an
+ * uploaded file is a photo of a prescription, not an e-Rx, so an order whose
+ * card holds only Files gets no e-Rx tag.
  */
-export function bandCustomer(doc: SdDocumentHeaderModel): BandCustomer {
-  return {
-    name: text(doc.customer?.customerName),
-    contact: formatPair(text(doc.customer?.customerPhone), text(doc.shippingAddress?.cityName)),
-  }
+export function carriesPrescription(doc: SdDocumentHeaderModel): boolean {
+  return [doc.approvalNumber, doc.patientId, doc.clinicianName, doc.referenceErx, doc.prescriptionUrl].some(
+    (value) => text(value) !== '',
+  )
 }
 
 /**
@@ -464,4 +463,4 @@ export function statusBreakdownRows(status: SdDocumentHeaderStatusModel, t: TFn)
  * means the labels must come from i18n, but reaching for the global `i18n.t`
  * here would bind them to module state and make them untestable in isolation.
  */
-type TFn = (key: string, options?: Record<string, unknown>) => string
+export type TFn = (key: string, options?: Record<string, unknown>) => string

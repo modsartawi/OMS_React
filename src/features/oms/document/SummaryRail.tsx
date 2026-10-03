@@ -63,8 +63,8 @@ export default function SummaryRail({ document, files }: { document: SdDocumentH
 
   return (
     <div
-      // `role="group"` is load-bearing exactly as it is on the pill rail and the
-      // band: `aria-label` is ignored on a bare div, and the groups this rail
+      // `role="group"` is load-bearing exactly as it is on the header:
+      // `aria-label` is ignored on a bare div, and the groups this rail
       // replaces are what used to name the region.
       role="group"
       aria-label={t('cards.ariaLabel')}
@@ -121,7 +121,7 @@ function Row({ row, ink }: { row: CardRow; ink: string }) {
             className={`inline-flex items-center gap-1 font-semibold ${ink}`}
           >
             {/* `↗` mirrors to `↖` under RTL — an explicit flip on the SVG, the
-                same mechanism as the band's back chevron and for the same
+                same mechanism as the header's back chevron and for the same
                 reason: an SVG path never auto-mirrors, and a punctuation glyph
                 standing in for an icon would flip itself and hide the fault. */}
             <ExternalLink className="h-3 w-3 shrink-0 rtl:-scale-x-100" aria-hidden />

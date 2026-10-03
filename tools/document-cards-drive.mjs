@@ -1,7 +1,7 @@
 // Summary-rail drive (ticket 092, spec 083 D-5 to D-8) — drives the REAL app in
 // Chromium and serves the FIVE CAPTURED PAYLOADS from
 // `.issues/assets/078-document-payloads/` as the `SdDocumentWeb/Document/{no}`
-// response, exactly as `tools/document-band-drive.mjs` does. The payloads are
+// response, exactly as `tools/document-header-drive.mjs` does. The payloads are
 // replayed verbatim; the app is not stubbed, only the wire is.
 //
 // Asserts the ticket's Done-when, in BOTH themes:

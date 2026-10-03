@@ -440,10 +440,13 @@ async function driveOneMode({ theme, dir }) {
 
   // The `.font-mono` element ITSELF is tagged — searching by its text could land on some other
   // element that happens to contain the same short code.
+  // Since 402 a code on Details is isolated (F24), so its text sits in the `.font-mono`
+  // element's `<bdi>` child, which inherits the face: tag whichever holds the text.
   const mono = await page.evaluate(() => {
-    const el = [...document.querySelectorAll('main .font-mono')].find((e) =>
-      [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()),
-    )
+    const holdsText = (e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())
+    const el = [...document.querySelectorAll('main .font-mono')]
+      .map((e) => (holdsText(e) ? e : [...e.children].find((c) => c.tagName === 'BDI' && holdsText(c))))
+      .find(Boolean)
     if (!el) return null
     el.setAttribute('data-font-probe', '')
     return el.textContent.trim()

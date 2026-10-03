@@ -39,7 +39,7 @@ import {
  *   same `h-7` as every cluster button and is never enlarged — no command on
  *   this screen is a positive outcome, and enlarging Cancel Order would put a
  *   destructive mutation in the Save/Submit position.
- * - **The escape slot stays empty too.** Back is the identity band's chevron; a
+ * - **The escape slot stays empty too.** Back is the header's chevron; a
  *   page is not a modal. Back top-start, Cancel Order bottom-end, as far apart
  *   as the page allows.
  * - **Nothing is ever hidden, and no `More ▾`.** Below the width where three

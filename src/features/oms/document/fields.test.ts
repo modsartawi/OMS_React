@@ -3,8 +3,7 @@ import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import { deliveryWindow } from '@/core/oms/delivery-window'
 import {
   addressFallback,
-  bandCustomer,
-  bandSubIds,
+  headerSubIds,
   documentProvenanceRows,
   overallStatusCode,
   paymentInstrument,
@@ -16,8 +15,8 @@ import { DOCUMENT_NUMBERS, PAYLOADS, type CapturedDocumentNo } from './__fixture
 import documentEn from '@/locales/en/document.json'
 
 /**
- * The real `document` namespace, resolved the way `t('band.orderNo')` does — the
- * same harness `rail.test.ts` uses, and for the same reason: a key deleted from
+ * The real `document` namespace, resolved the way `t('header.orderNo')` does — the
+ * same harness `header.test.ts` uses, and for the same reason: a key deleted from
  * the shipped JSON fails here instead of rendering a raw key to an operator.
  */
 const t = (key: string): string => {
@@ -28,22 +27,23 @@ const t = (key: string): string => {
   return value
 }
 
-/** A sub-id as the band reads on screen — "Order 100371607". */
+/** A sub-id as the header reads on screen — "Order 100371607". */
 const read = (row: { label: string; value: string }): string => `${row.label} ${row.value}`
 
-describe('bandSubIds', () => {
-  it('builds the five sub-id rows under the big line, in the band order', () => {
-    expect(bandSubIds(PAYLOADS['8000000253'], t).map(read)).toEqual([
+describe('headerSubIds', () => {
+  it('builds the six sub-id rows of the header’s second line, in D2’s order', () => {
+    expect(headerSubIds(PAYLOADS['8000000253'], t).map(read)).toEqual([
       'Order 100371607',
       'Type ECommerce (Hybris)',
       'Delivery doc Delivery',
       'Placed July 14, 2026 · 00:44',
       'Store P001',
+      'Document 1000000393',
     ])
   })
 
   it('composes Placed from documentDate and entryTime as one row', () => {
-    const placed = bandSubIds(PAYLOADS['8000000174'], t).filter((row) => row.key === 'placed')
+    const placed = headerSubIds(PAYLOADS['8000000174'], t).filter((row) => row.key === 'placed')
     // `documentDate` 2025-04-24T12:41 and `entryTime` 2025-04-24T22:29 — one row,
     // the calendar date from the first and the clock time from the second.
     expect(placed).toEqual([
@@ -54,7 +54,7 @@ describe('bandSubIds', () => {
   it('falls a description back to its code, and marks the echo as a code', () => {
     // `2000000551` carries `documentTypeDescription: 'NUPP'` — the description
     // says nothing the code did not, so it renders as a code.
-    const rows = bandSubIds(PAYLOADS['2000000551'], t)
+    const rows = headerSubIds(PAYLOADS['2000000551'], t)
     expect(rows.find((row) => row.key === 'documentType')).toEqual({
       key: 'documentType',
       label: 'Type',
@@ -62,7 +62,7 @@ describe('bandSubIds', () => {
       isCode: true,
     })
     // `8000000253` resolves its type properly, and so is not a code.
-    expect(bandSubIds(PAYLOADS['8000000253'], t).find((row) => row.key === 'documentType')).toMatchObject({
+    expect(headerSubIds(PAYLOADS['8000000253'], t).find((row) => row.key === 'documentType')).toMatchObject({
       value: 'ECommerce (Hybris)',
       isCode: false,
     })
@@ -70,38 +70,23 @@ describe('bandSubIds', () => {
 
   it('keeps a description that differs from its code only in case', () => {
     // `'Cash'` against `documentType: 'CASH'` is a resolved word, not an echo —
-    // the band prints the word rather than shouting the code back.
-    expect(bandSubIds(PAYLOADS['8000000121'], t).find((row) => row.key === 'documentType')).toMatchObject({
+    // the header prints the word rather than shouting the code back.
+    expect(headerSubIds(PAYLOADS['8000000121'], t).find((row) => row.key === 'documentType')).toMatchObject({
       value: 'Cash',
       isCode: false,
     })
   })
 
   it('omits a sub-id the document does not carry rather than dashing it', () => {
-    // `deliveryDocumentType` is null on the e-Rx document — the only corpus gap.
-    const keys = bandSubIds(PAYLOADS['2000000551'], t).map((row) => row.key)
+    // `deliveryDocumentType` is null on the e-Rx document, and so is its ref
+    // document — the corpus's only gaps.
+    const keys = headerSubIds(PAYLOADS['2000000551'], t).map((row) => row.key)
     expect(keys).toEqual(['orderNo', 'documentType', 'placed', 'storeCode'])
   })
 
-  it('renders every other captured document with all five rows', () => {
-    const counts = DOCUMENT_NUMBERS.map((documentNo) => bandSubIds(PAYLOADS[documentNo], t).length)
-    expect(counts).toEqual([4, 5, 5, 5, 5])
-  })
-})
-
-describe('bandCustomer', () => {
-  it('joins the phone and the city, and drops the city when the document has none', () => {
-    expect(bandCustomer(PAYLOADS['8000000174'])).toEqual({
-      name: 'MOHAMMED SARTAWI 33',
-      contact: '966501076360 · Riyadh - adh dhubbat',
-    })
-    // `2000000551` has no `shippingAddress` at all (a pickup) and `8000000253`
-    // has one whose `cityName` is `''` — one code path, by D-5.
-    expect(bandCustomer(PAYLOADS['2000000551'])).toEqual({
-      name: 'Sample Patient',
-      contact: '966501076360',
-    })
-    expect(bandCustomer(PAYLOADS['8000000253']).contact).toBe('966501076360')
+  it('renders every other captured document with all six rows', () => {
+    const counts = DOCUMENT_NUMBERS.map((documentNo) => headerSubIds(PAYLOADS[documentNo], t).length)
+    expect(counts).toEqual([4, 6, 6, 6, 6])
   })
 })
 
@@ -117,7 +102,7 @@ describe('documentProvenanceRows', () => {
 
   it('falls the source back to its code, and leaves a blank ref blank', () => {
     // The disclosure's job is completeness, so a blank row stays and is dashed
-    // by `FieldGroup` — the band's omit rule does not apply here.
+    // by the disclosure — the header's omit rule does not apply here.
     expect(documentProvenanceRows(PAYLOADS['2000000551'], t)).toEqual([
       { label: 'Ref Document No', value: '' },
       { label: 'Source', value: 'BKOF' },

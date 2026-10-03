@@ -61,8 +61,8 @@ function pickedState(row: ReturnableLine, picked: boolean): LineState {
  * Screen 2 — the bonded return dialog (spec 289 D1, ticket 291).
  *
  * A return is **one decision taken about the delivery you are looking at**, so
- * it opens OVER Document Details rather than navigating away: the identity band,
- * status rail and summary rail stay behind it as the context the decision is
+ * it opens OVER Document Details rather than navigating away: the header and
+ * summary rail stay behind it as the context the decision is
  * checked against. `Modal` already gives the wide max-width, the internally
  * scrolling body and the pinned footer — nothing new is built in `core/ui`.
  *

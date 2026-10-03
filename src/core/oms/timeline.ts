@@ -163,6 +163,15 @@ export function rowTimelineNow(row: DeliveryDocumentModel): TimelineStepKey {
 }
 
 /**
+ * Where a document header stands now: Delivery details' now-step badge (spec 380 D2, ticket
+ * 402). The same derivation as `rowTimelineNow`, so the badge and the list's Status word agree
+ * on the same delivery.
+ */
+export function headerTimelineNow(doc: SdDocumentHeaderModel): TimelineStepKey {
+  return timelineNow(timeline(timelineInputFromHeader(doc))).key
+}
+
+/**
  * The list row's input (the inspector variant). Times come from the row's own fields only:
  * Created ← `entryTime`, Out ← `outForDeliveryTime`, Delivered ← `actualDeliveryTime`. The
  * rewind marker comes from `rescheduled` / `rescheduledTime`. The next step's expectation is

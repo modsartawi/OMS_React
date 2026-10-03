@@ -16,9 +16,9 @@
 //      under RTL — measured off character client rects, then RE-MEASURED with
 //      the wrapper stripped from the DOM, which is the red half of the pair:
 //      without it the value provably reorders;
-//   3. the identity band's customer block pins to the band's END in both
-//      directions (`ms-auto`, never `ml-auto`) — including when the band wraps,
-//      which is the moment the latent fault would bite;
+//   3. the header's end group (All statuses + Refresh, ticket 402) pins to the
+//      header's END in both directions (`ms-auto`, never `ml-auto`) — including
+//      when line one wraps, which is the moment the latent fault would bite;
 //   4. the back chevron and the external-link `↗` carry a mirroring transform
 //      under RTL and none under LTR; Refresh `↻` and `⚡` carry none in either;
 //   5. the selected-row accent bar rides `::before` on the row's START side in
@@ -71,11 +71,11 @@ for (const file of readdirSync(PAYLOAD_DIR)) {
 }
 
 // `8000000121` is the one capture that carries every field under test at once:
-// a city beside the phone in the band, a `documentDate`/`entryTime` pair, a
+// the header's number, a `documentDate`/`entryTime` pair, a
 // delivery window, a driver phone, a `trackingUrl` (the corpus's only live
 // external link) and lines to sum in the footer. `isExpressDelivery` is false on
 // all five captures, so the ⚡ tag is switched on here — the same patch
-// `document-band-drive.mjs` makes, and for the same reason.
+// `document-header-drive.mjs` makes, and for the same reason.
 const DOC = '8000000121'
 // `canReturn` is switched on for the same reason `isExpressDelivery` is: it is
 // a BackOffice spec 1283 §2b addition that these captures predate, and without
@@ -185,7 +185,7 @@ async function run() {
 
   await page.addInitScript(`window.READS_LTR = ${READS_LTR.toString()}`)
 
-  const band = () => page.locator('[aria-label="Document identity"]')
+  const header = () => page.locator('[aria-label="Document identity"]')
   const rail = () => page.locator('[aria-label="Document summary"]')
   // Every tab panel stays mounted and is hidden with CSS (D-23), so the grid
   // under test is scoped to the visible one.
@@ -207,14 +207,10 @@ async function run() {
   // Each carries the value `8000000121` produces, so an isolate that drifted to
   // the wrong field fails here rather than passing on its position in the DOM.
   const HAZARDS = [
-    // The band's two isolates: `Placed` sits inside the sub-ids' `<b>`, the
-    // customer contact is the band's last element.
-    ['the band’s Placed date · time', () => band().locator('b bdi'), 'March 6, 2025 · 02:46'],
-    [
-      'the band’s customer contact (phone · city)',
-      () => band().locator('bdi').last(),
-      '966501076360 · Dammam - ad dabab',
-    ],
+    // The header's isolates (ticket 402): `Placed` is one date · time pair, and
+    // the number is a machine value. The band's customer block left with 402.
+    ['the header’s Placed date · time', () => header().locator('[data-subid="placed"] b > bdi'), 'March 6, 2025 · 02:46'],
+    ['the header’s number', () => header().locator('[data-header-no] bdi'), DOC],
     ['the Customer card’s mobile', () => rail().locator('bdi').nth(0), '966501076360'],
     [
       'the Fulfilment card’s delivery window',
@@ -251,10 +247,15 @@ async function run() {
   // The red half: strip the isolate under RTL and the value provably reorders.
   // A hazard that reads correctly WITHOUT the wrapper would mean the wrapper is
   // decoration — and the audit's whole finding is that only some values break.
+  // Its subject was the band's phone · city until ticket 402 dropped that block;
+  // it is now `8000000174`'s delivery window, a range, the shape F24 names.
+  await page.goto(`${BASE}/oms/document/8000000174`)
+  await rail().waitFor()
+  await page.waitForTimeout(200)
   await setDir('rtl')
-  const broken = await band()
-    .locator('bdi')
-    .last()
+  const broken = await rail()
+    .locator('bdi[dir="ltr"]', { hasText: '20:00–22:00' })
+    .first()
     .evaluate((n) => {
       const parent = n.parentElement
       const before = window.READS_LTR(n)
@@ -268,27 +269,27 @@ async function run() {
     broken.before > 0 && broken.after < 0,
     `${JSON.stringify(broken.text)} wrapped=${Math.round(broken.before)} bare=${Math.round(broken.after)}`,
   )
-  await page.reload()
+  await page.goto(`${BASE}/oms/document/${DOC}`)
   await rail().waitFor()
   await page.waitForTimeout(200)
 
-  // ── 2. the band's customer block pins to the band's END, both directions ────
+  // ── 2. the header's end group pins to the header's END, both directions ─────
   for (const dir of ['ltr', 'rtl']) {
     await setDir(dir)
     for (const width of [1600, 700]) {
       await page.setViewportSize({ width, height: 1000 })
       await page.waitForTimeout(160)
-      const geo = await band().evaluate((el) => {
-        const cust = el.lastElementChild
+      const geo = await header().evaluate((el) => {
+        const tail = el.firstElementChild.lastElementChild
         const b = el.getBoundingClientRect()
-        const c = cust.getBoundingClientRect()
+        const c = tail.getBoundingClientRect()
         return { startGap: c.left - b.left, endGap: b.right - c.right, wrapped: c.top > b.top + 20 }
       })
       // `ms-auto` eats the space on the START side, whichever side that is —
       // the physical `ml-auto` this replaces would eat the LEFT in both.
       const pinned = dir === 'ltr' ? geo.endGap < geo.startGap : geo.startGap < geo.endGap
       check(
-        `${dir} @${width}px: the customer block pins to the band’s end${geo.wrapped ? ' (wrapped)' : ''}`,
+        `${dir} @${width}px: All statuses + Refresh pin to the header’s end${geo.wrapped ? ' (wrapped)' : ''}`,
         pinned,
         `start=${Math.round(geo.startGap)} end=${Math.round(geo.endGap)}`,
       )
@@ -298,10 +299,10 @@ async function run() {
 
   // ── 3. the icons that mirror, and the ones that must not ───────────────────
   const ICONS = [
-    ['the back chevron', () => band().locator('a svg').first(), true],
+    ['the back chevron', () => header().locator('a svg').first(), true],
     ['the external-link ↗', () => rail().locator('a[target="_blank"] svg').first(), true],
-    ['Refresh ↻', () => page.locator('[aria-label="Document status"] button svg').last(), false],
-    ['the ⚡ Dawaa Now tag', () => band().locator('span svg').first(), false],
+    ['Refresh ↻', () => header().locator('button svg').last(), false],
+    ['the ⚡ Dawaa Now tag', () => header().locator('[data-tag="dawaaNow"] svg').first(), false],
   ]
   for (const dir of ['ltr', 'rtl']) {
     await setDir(dir)

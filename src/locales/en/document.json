@@ -1,14 +1,31 @@
 {
   "back": "Back to Delivery Documents",
   "dawaaNow": "Dawaa Now",
-  "band": {
+  "header": {
     "ariaLabel": "Document identity",
     "overall": "Overall",
+    "eRx": "e-Rx",
     "orderNo": "Order",
     "documentType": "Type",
     "deliveryDocumentType": "Delivery doc",
     "placed": "Placed",
-    "store": "Store"
+    "store": "Store",
+    "refDocumentNo": "Document",
+    "allStatuses": "All statuses",
+    "allStatusesCount": "All statuses <count>{{count}}</count>",
+    "provenance": "Where it came from"
+  },
+  "step": {
+    "created": "Created",
+    "ready": "Ready",
+    "out": "Out for delivery",
+    "delivered": "Delivered",
+    "requested": "Cancellation requested",
+    "cancelled": "Cancelled"
+  },
+  "dueTag": {
+    "due": "Due <amount>{{amount}}</amount>",
+    "paid": "Paid"
   },
   "load": {
     "loading": "Loading document…",
@@ -19,20 +36,6 @@
     "button": "Refresh",
     "failed": "Refresh failed",
     "failedDetail": "Could not refresh the document."
-  },
-  "rail": {
-    "ariaLabel": "Document status",
-    "lastAction": "Last action",
-    "readyStatus": "Ready",
-    "availabilityStatus": "Availability",
-    "approvalStatus": "Approval",
-    "paymentStatus": "Payment",
-    "deliveryStatus": "Delivery",
-    "clearStatus": "Clear",
-    "acceptanceStatus": "Acceptance",
-    "closeStatus": "Cancellation",
-    "allStatuses": "All statuses",
-    "provenance": "Where it came from"
   },
   "cards": {
     "ariaLabel": "Document summary",

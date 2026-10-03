@@ -229,7 +229,7 @@ async function loadDeliveries(page) {
   await page.goto(BASE + '/oms/deliveries')
   await page.waitForSelector('.ag-root', { timeout: 20000 }).catch(() => {})
   await page
-    .getByRole('button', { name: /load/i })
+    .getByRole('button', { name: /^search$/i })
     .first()
     .click()
     .catch(() => {})

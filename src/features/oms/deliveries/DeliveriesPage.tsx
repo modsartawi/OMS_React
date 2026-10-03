@@ -30,7 +30,6 @@ import { deliveriesApi } from './api'
 import { buildDeliveryColumns, DELIVERY_DEFAULT_COL_DEF, DELIVERY_ROW_SELECTION } from './columns'
 import DeliveryInspector from './DeliveryInspector'
 import { effectiveLimit, type DeliveryFilterCriteria } from './filter'
-import FilterPanel from './FilterPanel'
 import GridToolbar, { InspectorToggle, RowSummary } from './GridToolbar'
 import { detailsPathOf } from './inspector-model'
 import {
@@ -44,17 +43,19 @@ import {
   type InspectorPrefs,
 } from './inspector-pane'
 import { isCut, LENS_IDS, lensCounts, lensIsEmpty, lensMatches, rowPill, type LoadedResult } from './lenses'
+import QueryBar from './QueryBar'
+import { QUERY_FOCUS_KEYS, toFilterCriteria, type QueryCriteria } from './query-model'
 import { deliveryRowKey, useDeliverySearch } from './search-store'
 import ViewsRail, { LENS_ICON } from './ViewsRail'
 
 /**
  * Screen 1 — Delivery Documents Inquiry.
  *
- * Hosts the filter panel, the results toolbar and the AG Grid results grid: the
- * panel emits the criteria, this component runs `DeliveryDocumentList` and feeds
- * the rows in. Loading, empty and error states are explicit.
+ * Hosts the query bar, the results toolbar and the AG Grid results grid: the bar
+ * edits the draft criteria, this component runs `DeliveryDocumentList` on Search and
+ * feeds the rows in. Loading, empty and error states are explicit.
  *
- * The search state (criteria, rows, working grid layout, selected row) lives in
+ * The search state (the draft and last-run query, rows, working grid layout, selected row) lives in
  * the module-scoped `useDeliverySearch` store rather than in this component, so
  * a drill-down into Screen 2 and back restores everything instead of re-creating
  * the screen empty (R-8).
@@ -72,6 +73,9 @@ import ViewsRail, { LENS_ICON } from './ViewsRail'
  * The views rail (ticket 398) sits at the inline-start edge. Its lenses narrow the LOADED rows
  * through the grid's external filter, never the server, and their counts cover the whole loaded
  * result, ignoring the grid's column filters (366). The grid bar's pill says what is shown.
+ *
+ * The query bar (ticket 399) sits across the top of the centre column. Its Date stays relative
+ * until Search resolves it against the clock, and `/` focuses it.
  */
 export default function DeliveriesPage() {
   const { t } = useTranslation('deliveries')
@@ -80,11 +84,15 @@ export default function DeliveriesPage() {
   const rows = useDeliverySearch((s) => s.rows)
   const limit = useDeliverySearch((s) => s.limit)
   const error = useDeliverySearch((s) => s.error)
-  const savedCriteria = useDeliverySearch((s) => s.criteria)
+  const draft = useDeliverySearch((s) => s.draft)
+  const lastRun = useDeliverySearch((s) => s.query)
+  const setDraft = useDeliverySearch((s) => s.setDraft)
   const lens = useDeliverySearch((s) => s.lens)
   const setLens = useDeliverySearch((s) => s.setLens)
 
   const [gridApi, setGridApi] = useState<GridApi<DeliveryDocumentModel> | null>(null)
+  // The query bar's + Filter, which `/` focuses.
+  const addFilterRef = useRef<HTMLButtonElement>(null)
   const [selectedRow, setSelectedRow] = useState<DeliveryDocumentModel | null>(null)
   const [inspector, setInspector] = useState<InspectorPrefs>(readInspectorPrefs)
   // What the grid shows once the lens and the column filters have narrowed it (the pill).
@@ -123,20 +131,21 @@ export default function DeliveriesPage() {
   const canOpenList = access.data?.canOpenList === true
 
   const search = useMutation({
-    mutationFn: deliveriesApi.search,
-    onMutate: (criteria: DeliveryFilterCriteria) => {
+    mutationFn: ({ criteria }: { query: QueryCriteria; criteria: DeliveryFilterCriteria }) =>
+      deliveriesApi.search(criteria),
+    onMutate: () => {
       // The grid's selection goes with the page's, so a failed re-search (old rows kept on
       // screen) never shows a highlighted row beside an empty inspector.
       gridApi?.deselectAll()
       setSelectedRow(null)
-      useDeliverySearch.getState().beginSearch(criteria)
+      useDeliverySearch.getState().beginSearch()
     },
-    onSuccess: (result, criteria) => {
+    onSuccess: (result, { query, criteria }) => {
       // No success toast. The outcome of a search is the most visible thing on
       // the screen — the grid repaints and the row pill updates — so announcing
       // it says only what the operator just watched happen. Failures still toast:
       // that IS invisible (the grid keeps showing stale rows).
-      useDeliverySearch.getState().setResult(result, effectiveLimit(criteria))
+      useDeliverySearch.getState().setResult(result, effectiveLimit(criteria), query)
     },
     onError: (err: unknown) => {
       const message = apiErrorMessage(err, t('search.unexpected'))
@@ -248,6 +257,16 @@ export default function DeliveriesPage() {
   const counts = useMemo(() => lensCounts(loaded), [loaded])
 
   const toggleInspector = useCallback(() => setInspector((prefs) => ({ ...prefs, open: !prefs.open })), [])
+
+  /**
+   * Search runs the draft as it stands in the store, so an Enter in a token popover runs the
+   * value just typed. The relative Date resolves against the clock here, and nowhere earlier.
+   */
+  const runSearch = () => {
+    if (search.isPending) return
+    const query = useDeliverySearch.getState().draft
+    search.mutate({ query, criteria: toFilterCriteria(query, new Date()) })
+  }
   const hasRows = (rows?.length ?? 0) > 0
 
   // J/K are hidden navigation commands (they repeat while held); `I` is a palette row too.
@@ -270,6 +289,15 @@ export default function DeliveriesPage() {
             hidden: true,
             run: gridApi && hasRows ? () => stepRow(gridApi, -1) : null,
             reason: 'deliveries:inspector.noRows',
+          },
+          // `/` focuses the query bar (365 §5); the key layer prevents the press, so Firefox's
+          // quick-find stays shut.
+          {
+            id: 'query.focus',
+            label: 'deliveries:query.focus',
+            icon: Search,
+            keys: QUERY_FOCUS_KEYS,
+            run: () => addFilterRef.current?.focus(),
           },
           {
             id: 'inspector.toggle',
@@ -335,10 +363,13 @@ export default function DeliveriesPage() {
         className="sticky top-11 -my-4 -ms-4 me-4 h-[calc(100dvh-2.75rem)] self-start"
       />
       <section className="flex min-w-0 flex-1 flex-col gap-3">
-        <FilterPanel
-          loading={search.isPending}
-          initialCriteria={savedCriteria}
-          onSearch={(criteria) => search.mutate(criteria)}
+        <QueryBar
+          draft={draft}
+          lastRun={lastRun}
+          searching={search.isPending}
+          addRef={addFilterRef}
+          onDraft={setDraft}
+          onSearch={runSearch}
         />
 
         <div className="flex flex-wrap items-center gap-3">

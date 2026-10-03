@@ -301,7 +301,7 @@ async function driveOneMode({ theme, dir }) {
 
   // ---- Deliveries ----
   await page.goto(BASE + '/oms/deliveries')
-  await page.getByRole('button', { name: /^load$/i }).waitFor({ timeout: 20000 })
+  await page.getByRole('button', { name: /^search$/i }).waitFor({ timeout: 20000 })
   check(`${label}: the document direction is ${dir}`, (await page.evaluate(() => document.dir || 'ltr')) === dir)
 
   // Before any Arabic is on screen, the Arabic faces cost nothing (unicode-range gating).
@@ -314,7 +314,7 @@ async function driveOneMode({ theme, dir }) {
     arabicBefore.join(','),
   )
 
-  await page.getByRole('button', { name: /^load$/i }).click()
+  await page.getByRole('button', { name: /^search$/i }).click()
   await page.waitForSelector('.ag-row', { timeout: 20000 })
   // Since the views rail (398) the Reason column sits past column virtualisation at this width:
   // scroll the grid toward its inline end until the column renders.
@@ -373,7 +373,7 @@ async function driveOneMode({ theme, dir }) {
     latinAdjust.join(','),
   )
 
-  const load = page.getByRole('button', { name: /^load$/i })
+  const load = page.getByRole('button', { name: /^search$/i })
   const loadRing = await ring(load)
   check(
     `${label}: Deliveries — a keyboard-focused button shows the 2px ring at 2px, ${theme === 'dark' ? 'gold' : 'navy'}`,
@@ -633,14 +633,14 @@ async function driveGrids({ theme, dir }) {
 
   // ---- Deliveries ----
   await page.goto(BASE + '/oms/deliveries')
-  await page.getByRole('button', { name: /^load$/i }).waitFor({ timeout: 20000 })
+  await page.getByRole('button', { name: /^search$/i }).waitFor({ timeout: 20000 })
   const html = await page.evaluate(() => ({ dir: document.documentElement.dir, lang: document.documentElement.lang }))
   check(
     `${label}: index.html set <html dir> from the stored locale before boot (lang stays i18n's en)`,
     html.dir === dir && html.lang === 'en',
     JSON.stringify(html),
   )
-  await page.getByRole('button', { name: /^load$/i }).click()
+  await page.getByRole('button', { name: /^search$/i }).click()
   await page.waitForSelector('main .ag-row:not(.ag-header-row)', { timeout: 20000 })
   await page.evaluate(() => document.fonts.ready)
   await page.waitForTimeout(300)
@@ -1681,8 +1681,8 @@ async function driveNarrow({ theme, dir }) {
   await page.goto(BASE + '/oms/deliveries')
   await page.evaluate(() => localStorage.setItem('oms.railExpanded', 'true'))
   await page.reload()
-  await page.getByRole('button', { name: /^load$/i }).waitFor({ timeout: 20000 })
-  await page.getByRole('button', { name: /^load$/i }).click()
+  await page.getByRole('button', { name: /^search$/i }).waitFor({ timeout: 20000 })
+  await page.getByRole('button', { name: /^search$/i }).click()
   await page.waitForSelector('main .ag-row:not(.ag-header-row)', { timeout: 20000 })
   await page.waitForTimeout(300)
   const r0 = await box(rail)
@@ -1799,8 +1799,16 @@ async function driveNarrow({ theme, dir }) {
       (rtl ? b0.left >= crumb0.right && b0.right >= 380 : b0.right <= crumb0.left && b0.left <= 10),
     JSON.stringify({ burger: [b0.left, b0.right], crumb: [crumb0.left, crumb0.right] }),
   )
-  const canScroll = await page.evaluate(() => document.documentElement.scrollHeight > innerHeight)
   await page.screenshot({ path: `${SHOTS}/narrow-390-${theme}-${dir}.png` })
+  // The lock is only provable on a page that scrolls. The list's one-line query bar (399) no
+  // longer makes it taller than 800px, so the drive makes it so rather than lean on a layout.
+  await page.evaluate(() => {
+    const tall = document.createElement('div')
+    tall.style.height = '2000px'
+    tall.setAttribute('data-drive-spacer', '')
+    document.querySelector('main')?.append(tall)
+  })
+  const canScroll = await page.evaluate(() => document.documentElement.scrollHeight > innerHeight)
 
   const drawer = page.locator('[data-rail-drawer]')
   await burger.click()
@@ -2070,7 +2078,7 @@ async function driveOverlays({ theme, dir }) {
   )
 
   // ---- The error: a refused search, its server text read the right way round ----
-  await page.getByRole('button', { name: /^load$/i }).click()
+  await page.getByRole('button', { name: /^search$/i }).click()
   const error = await checkToast('error', 'danger')
   const desc = error.locator('[data-description]')
   check(`${label}: the error toast carries the server's message`, (await desc.innerText()) === SERVER_MESSAGE)
@@ -2138,7 +2146,7 @@ async function driveOverlays({ theme, dir }) {
   await page.keyboard.press('Escape')
 
   // ---- The search loads; the column chooser and the hand-drawn Save-view dialog ----
-  await page.getByRole('button', { name: /^load$/i }).click()
+  await page.getByRole('button', { name: /^search$/i }).click()
   await page.waitForSelector('main .ag-row:not(.ag-header-row)', { timeout: 20000 })
   await page.getByRole('button', { name: 'Columns' }).click()
   const chooser = page.locator('main').getByText('Show columns', { exact: true }).locator('xpath=../..')
@@ -3186,7 +3194,7 @@ async function routeScreens(route) {
 
 // What a leaf needs pressed before it shows rows, where it does not load on its own.
 const SCREEN_ACTIONS = {
-  '/oms/deliveries': (page) => page.getByRole('button', { name: /^load$/i }).click(),
+  '/oms/deliveries': (page) => page.getByRole('button', { name: /^search$/i }).click(),
   '/admin/ua-users': (page) => page.locator('[data-card="all"]').click(),
   '/admin/sessions': (page) => page.locator('main').getByRole('button', { name: /^All\b/ }).click(),
   '/collection/settlement/ledger': (page) => page.getByRole('button', { name: 'Everything still open' }).click(),

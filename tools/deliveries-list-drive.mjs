@@ -42,6 +42,21 @@
 //     one ltr isolate with no invisible isolate characters;
 //   - "Show: Needs attention" from Ctrl+K applies the lens, with no key and no request.
 //
+// Ticket 399: the query bar (L8, L16's `/`).
+//   - the bar sits at the top of the centre column; before a search it holds the Limit token
+//     alone ("Limit: 200", no ×), then Search at the inline end (left under RTL);
+//   - + Filter lists the 13 entries for the 14 criteria in four groups — When · Find one ·
+//     Narrow · Rows — and marks the ones in the search "in search";
+//   - an added and an edited token go dashed `--attention`, the note reads "N changes not
+//     searched", Search carries the amber dot; × leaves a struck ghost with a restore; Discard
+//     goes back to the search that ran; Done closes a popover without a request;
+//   - Enter in a token popover searches (one request, with the value just typed) and does NOT
+//     open Delivery details, though a row is current; a search that FAILS keeps its edit flagged;
+//   - the Date is one relative token: "Last 3 days" sends FromDate/ToDate for today-2..today and
+//     still reads "Last 3 days" after the search;
+//   - `/` from a grid cell focuses + Filter, prevented; the store chip's value is mono and one ltr
+//     isolate; Back from Delivery details restores the tokens with nothing pending.
+//
 // SIS.Api's delivery list needs a store grant a dev session does not have, so every `/api/**`
 // call is stubbed here, as in tools/grid-theme-drive.mjs. The RTL passes store
 // `oms.locale = ar` before boot (383); the chrome stays English and the DATA carries Arabic
@@ -198,7 +213,7 @@ async function drive({ theme, dir }) {
     before.width === 360 && before.empty.includes('Select a delivery to inspect it.') && /J\s*K/.test(before.empty),
     `width ${before.width} · "${before.empty}"`,
   )
-  await page.getByRole('button', { name: /load/i }).first().click().catch(() => {})
+  await page.locator('[data-query-search]').click().catch(() => {})
   await page.waitForSelector('.ag-center-cols-container .ag-row', { timeout: 20000 }).catch(() => {})
   await page.evaluate(() => document.fonts.ready)
   await page.waitForTimeout(400)
@@ -336,6 +351,7 @@ async function drive({ theme, dir }) {
 
   await inspectorChecks({ page, label, theme, dir, requests })
   await lensChecks({ page, label, theme, dir, requests })
+  await queryChecks({ page, label, theme, dir, requests })
 
   check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
   await context.close()
@@ -740,8 +756,26 @@ async function lensState(page) {
 const countsText = (state) => state.counts.map(([, c]) => c).join(' ')
 
 async function search(page) {
-  await page.getByRole('button', { name: /^load$/i }).first().click()
+  await page.locator('[data-query-search]').click()
   await page.waitForTimeout(900)
+}
+
+/** Sets one criterion through its token — opened from + Filter when it is not in the bar yet. */
+async function setCriterion(page, field, value) {
+  const token = page.locator(`[data-query-token="${field}"] button[aria-haspopup]`)
+  if (await token.count()) await token.click()
+  else {
+    await page.locator('[data-query-add]').click()
+    await page.locator(`[data-query-entry="${field}"]`).click()
+  }
+  const control = page.locator(`[data-token-popover="${field}"]`).locator('input, select').first()
+  if ((await control.evaluate((el) => el.tagName)) === 'SELECT') await control.selectOption(value)
+  else await control.fill(value)
+}
+
+/** Drops a criterion with its token's ×. */
+async function dropCriterion(page, field) {
+  await page.locator(`[data-query-token="${field}"] [data-token-remove]`).click()
 }
 
 async function lensChecks({ page, label, theme, dir, requests }) {
@@ -879,7 +913,7 @@ async function lensChecks({ page, label, theme, dir, requests }) {
   )
 
   // 16. A lens with no loaded rows: its empty state over a still-mounted grid.
-  await page.locator('#storeCode').fill('1017')
+  await setCriterion(page, 'storeCode', '1017')
   await search(page)
   await page.locator('[data-lens="attention"]').click()
   await page.waitForTimeout(400)
@@ -896,10 +930,10 @@ async function lensChecks({ page, label, theme, dir, requests }) {
   )
   await page.screenshot({ path: `${SHOTS}/lens-empty-${theme}-${dir}.png` })
   await page.locator('[data-lens="all"]').click()
-  await page.locator('#storeCode').fill('')
+  await dropCriterion(page, 'storeCode')
 
   // 17. A full page (rows = Limit): "N+" on every lens and the cut-off line.
-  await page.locator('#limit').fill('8')
+  await setCriterion(page, 'limit', '8')
   await search(page)
   const cut = await lensState(page)
   const plus = await page.evaluate(() => {
@@ -957,6 +991,322 @@ async function lensChecks({ page, label, theme, dir, requests }) {
     viaPalette.active === 'attention' && JSON.stringify(viaPalette.shownNos) === '["80001203"]' && listRequests() === reqPalette,
     `active ${viaPalette.active} · ${viaPalette.shownNos} · requests ${reqPalette}→${listRequests()}`,
   )
+}
+
+// ----- 399: the query bar --------------------------------------------------------------------
+
+/** The bar as it reads: its tokens in order, the note, the dot and the open popover. */
+async function barState(page) {
+  return page.evaluate(() => {
+    const probe = document.createElement('div')
+    probe.style.borderColor = 'var(--attention)'
+    document.body.appendChild(probe)
+    const amber = getComputedStyle(probe).borderTopColor
+    probe.remove()
+    const tokens = [...document.querySelectorAll('[data-query-bar] [data-query-token]')].map((t) => {
+      const style = getComputedStyle(t.firstElementChild)
+      const value = t.querySelector('[data-token-value]')
+      return {
+        field: t.getAttribute('data-query-token'),
+        state: t.getAttribute('data-token-state'),
+        text: t.querySelector('button[aria-haspopup]')?.textContent.trim() ?? '',
+        value: value?.textContent.trim() ?? '',
+        dashedAmber: style.borderTopStyle === 'dashed' && style.borderTopColor === amber,
+        struck: !!value && getComputedStyle(value).textDecorationLine.includes('line-through'),
+        removable: !!t.querySelector('[data-token-remove]'),
+        restorable: !!t.querySelector('[data-token-restore]'),
+      }
+    })
+    return {
+      tokens,
+      note: document.querySelector('[data-pending-note]')?.textContent.trim() ?? '',
+      dot: !!document.querySelector('[data-query-search] [data-pending-dot]'),
+      popover: document.querySelector('[data-token-popover]')?.getAttribute('data-token-popover') ?? null,
+    }
+  })
+}
+
+const tokenOf = (state, field) => state.tokens.find((t) => t.field === field)
+/** A local calendar day, `offset` days back — the drive and the browser share the machine's zone. */
+const localDay = (offset) => {
+  const d = new Date()
+  d.setDate(d.getDate() - offset)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+async function queryChecks({ page, label, theme, dir, requests }) {
+  const rtl = dir === 'rtl'
+  const listCalls = () => requests.filter((r) => r.startsWith('SdDocumentWeb/DeliveryDocumentList'))
+
+  // 19. Before a search: the bar heads the centre column, holding the Limit alone, then Search.
+  await page.reload()
+  await page.waitForSelector('[data-query-bar]', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(200)
+  const layout = await page.evaluate(() => {
+    const bar = document.querySelector('[data-query-bar]')?.getBoundingClientRect()
+    const title = document.querySelector('main h1')?.getBoundingClientRect()
+    const searchBtn = document.querySelector('[data-query-search]')?.getBoundingClientRect()
+    const add = document.querySelector('[data-query-add]')?.getBoundingClientRect()
+    return {
+      above: !!bar && !!title && bar.bottom <= title.top,
+      searchAtEnd: !!searchBtn && !!add && (document.dir === 'rtl' ? searchBtn.right < add.left : searchBtn.left > add.right),
+      searchName: document.querySelector('[data-query-search]')?.textContent.trim(),
+    }
+  })
+  const blank = await barState(page)
+  check(
+    `${label}: before a search the bar heads the centre column with "Limit: 200" alone, no ×, and Search at the inline end`,
+    layout.above &&
+      layout.searchAtEnd &&
+      layout.searchName === 'Search' &&
+      blank.tokens.length === 1 &&
+      blank.tokens[0].text === 'Limit:200' &&
+      !blank.tokens[0].removable &&
+      blank.note === '' &&
+      !blank.dot,
+    `${JSON.stringify(layout)} · ${JSON.stringify(blank.tokens)} · note "${blank.note}" · dot ${blank.dot}`,
+  )
+
+  // 20. + Filter: the 14 criteria as 13 entries in four groups, the Limit "in search".
+  await page.locator('[data-query-add]').click()
+  await page.waitForSelector('[data-query-menu]', { timeout: 3000 }).catch(() => {})
+  const menu = await page.evaluate(() => ({
+    title: document.querySelector('[data-query-menu]')?.firstElementChild?.textContent.trim(),
+    groups: [...document.querySelectorAll('[data-query-menu] [data-query-group]')].map((g) => [
+      g.getAttribute('aria-label'),
+      [...g.querySelectorAll('[data-query-entry]')].map((e) => e.textContent.trim()),
+    ]),
+    focused: document.activeElement?.getAttribute('data-query-entry'),
+  }))
+  check(
+    `${label}: + Filter lists all 14 criteria in When · Find one · Narrow · Rows, the Limit "in search"`,
+    menu.title === 'All 14 search criteria' &&
+      JSON.stringify(menu.groups) ===
+        JSON.stringify([
+          ['When', ['Date']],
+          ['Find one', ['Delivery no.', 'Document no.', 'Order no.', 'Mobile']],
+          ['Narrow', ['Store', 'Document type', 'Source', 'Delivery doc. type', 'Delivery type', 'Dawaa Now', 'Reason']],
+          ['Rows', ['Limitin search']],
+        ]) &&
+      menu.focused === 'date',
+    JSON.stringify(menu),
+  )
+  await page.screenshot({ path: `${SHOTS}/query-menu-${theme}-${dir}.png` })
+  await page.keyboard.press('Escape')
+  const escBack = await page.evaluate(() => ({
+    menu: !!document.querySelector('[data-query-menu]'),
+    focus: document.activeElement?.hasAttribute('data-query-add'),
+  }))
+  check(`${label}: Esc closes + Filter and hands focus back to it`, !escBack.menu && escBack.focus, JSON.stringify(escBack))
+
+  // 21. An added Date and Store: dashed amber, "2 changes not searched", the amber dot.
+  await setCriterion(page, 'date', 'last3')
+  await setCriterion(page, 'storeCode', '1017')
+  await page.locator('[data-token-popover="storeCode"] [data-token-done]').click()
+  const added = await barState(page)
+  check(
+    `${label}: an added token is dashed amber, the note reads "2 changes not searched" and Search carries the dot`,
+    tokenOf(added, 'date')?.text === 'Date:Last 3 days' &&
+      tokenOf(added, 'storeCode')?.state === 'added' &&
+      tokenOf(added, 'storeCode')?.dashedAmber &&
+      tokenOf(added, 'date')?.dashedAmber &&
+      added.note === '2 changes not searchedDiscard' &&
+      added.dot &&
+      added.popover === null,
+    `${JSON.stringify(added.tokens)} · note "${added.note}" · dot ${added.dot}`,
+  )
+  const storeValue = await page.evaluate(() => {
+    const bdi = document.querySelector('[data-query-token="storeCode"] [data-token-value] bdi')
+    return {
+      dir: bdi?.getAttribute('dir'),
+      mono: !!bdi && /Plex Mono/.test(getComputedStyle(bdi).fontFamily),
+      text: bdi?.textContent,
+      clean: !/[⁦-⁩]/.test(document.querySelector('[data-query-bar]')?.textContent ?? ''),
+    }
+  })
+  check(
+    `${label}: the Store value is mono and one ltr isolate, with no invisible isolate characters in the bar`,
+    storeValue.dir === 'ltr' && storeValue.mono && storeValue.text === '1017' && storeValue.clean,
+    JSON.stringify(storeValue),
+  )
+
+  // 22. Search: one request, the relative Date resolved to today-2..today, nothing pending after.
+  const before = listCalls().length
+  await search(page)
+  const ran = listCalls().slice(before)
+  const params = new URLSearchParams((ran[0] ?? '').split('?')[1] ?? '')
+  const applied = await barState(page)
+  check(
+    `${label}: Search sends "Last 3 days" as FromDate ${localDay(2)} / ToDate ${localDay(0)} with the Store`,
+    ran.length === 1 &&
+      params.get('FromDate') === localDay(2) &&
+      params.get('ToDate') === localDay(0) &&
+      params.get('StoreCode') === '1017' &&
+      params.get('Limit') === '200',
+    ran.join(' | '),
+  )
+  check(
+    `${label}: after Search the tokens are applied, the Date still reads "Last 3 days", and nothing is flagged`,
+    applied.tokens.every((t) => t.state === 'applied' && !t.dashedAmber) &&
+      tokenOf(applied, 'date')?.value === 'Last 3 days' &&
+      applied.note === '' &&
+      !applied.dot,
+    `${JSON.stringify(applied.tokens.map((t) => [t.field, t.state, t.value]))} · note "${applied.note}"`,
+  )
+
+  // 23. Done closes without searching; the edit is flagged.
+  const beforeDone = listCalls().length
+  await setCriterion(page, 'storeCode', '1002')
+  await page.locator('[data-token-popover="storeCode"] [data-token-done]').click()
+  await page.waitForTimeout(300)
+  const edited = await barState(page)
+  check(
+    `${label}: Done closes the popover with no request; the edited Store is dashed amber, "1 change not searched"`,
+    listCalls().length === beforeDone &&
+      edited.popover === null &&
+      tokenOf(edited, 'storeCode')?.state === 'edited' &&
+      tokenOf(edited, 'storeCode')?.dashedAmber &&
+      edited.note.startsWith('1 change not searched') &&
+      edited.dot,
+    `${listCalls().length - beforeDone} requests · ${JSON.stringify(tokenOf(edited, 'storeCode'))} · "${edited.note}"`,
+  )
+
+  // 24. × leaves a struck ghost with a restore; restore and Discard both go back.
+  await dropCriterion(page, 'date')
+  const ghost = await barState(page)
+  check(
+    `${label}: × leaves the Date as a struck ghost with a restore, "2 changes not searched"`,
+    tokenOf(ghost, 'date')?.state === 'ghost' &&
+      tokenOf(ghost, 'date')?.struck &&
+      tokenOf(ghost, 'date')?.dashedAmber &&
+      tokenOf(ghost, 'date')?.restorable &&
+      !tokenOf(ghost, 'date')?.removable &&
+      ghost.note.startsWith('2 changes not searched'),
+    `${JSON.stringify(tokenOf(ghost, 'date'))} · "${ghost.note}"`,
+  )
+  await page.screenshot({ path: `${SHOTS}/query-pending-${theme}-${dir}.png` })
+  await page.locator('[data-query-token="date"] [data-token-restore]').click()
+  const restored = await barState(page)
+  await page.locator('[data-query-discard]').click()
+  const discarded = await barState(page)
+  check(
+    `${label}: restore brings the Date back; Discard restores the last-run criteria and clears every flag`,
+    tokenOf(restored, 'date')?.state === 'applied' &&
+      restored.note.startsWith('1 change not searched') &&
+      tokenOf(discarded, 'storeCode')?.value === '1017' &&
+      discarded.tokens.every((t) => t.state === 'applied') &&
+      discarded.note === '' &&
+      !discarded.dot &&
+      listCalls().length === beforeDone,
+    `restored "${restored.note}" · ${JSON.stringify(discarded.tokens.map((t) => [t.field, t.state, t.value]))} · "${discarded.note}"`,
+  )
+
+  // 25. Enter in a token popover searches — and does NOT open Delivery details, though a row is current.
+  await clickRow(page, '80001201')
+  const current = await where(page)
+  await page.locator('[data-query-token="storeCode"] button[aria-haspopup]').click()
+  await page.locator('[data-token-popover="storeCode"] input').fill('1002')
+  const beforeEnter = listCalls().length
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(900)
+  const enterRan = listCalls().slice(beforeEnter)
+  const afterEnter = await barState(page)
+  const path = new URL(page.url()).pathname
+  const focusAfter = await page.evaluate(
+    () => document.activeElement?.closest('[data-query-token]')?.getAttribute('data-query-token') ?? null,
+  )
+  check(
+    `${label}: Enter in a token popover searches once, with the value just typed, and stays on the list`,
+    current.inspector === '80001201' &&
+      enterRan.length === 1 &&
+      /StoreCode=1002/.test(enterRan[0]) &&
+      path === '/oms/deliveries' &&
+      afterEnter.popover === null &&
+      afterEnter.note === '' &&
+      focusAfter === 'storeCode',
+    `current ${current.inspector} · ${enterRan.join(' | ')} · at ${path} · popover ${afterEnter.popover} · "${afterEnter.note}" · focus ${focusAfter}`,
+  )
+
+  // 25b. A search that fails is not a search that ran: its edit stays flagged, and Discard goes
+  // back to the criteria that last came back. (A business refusal, so no console error.)
+  await page.route(
+    '**/api/SdDocumentWeb/DeliveryDocumentList**',
+    (route) => route.fulfill(envelope(null, { success: false, message: 'Refused in this drive' })),
+    { times: 1 },
+  )
+  await setCriterion(page, 'storeCode', '9999')
+  await search(page)
+  const failed = await barState(page)
+  const failedCard = await page.evaluate(() => !!document.querySelector('main [role="alert"]'))
+  await page.locator('[data-query-discard]').click()
+  const afterFail = await barState(page)
+  check(
+    `${label}: a failed search keeps its edit flagged; Discard goes back to the search that came back`,
+    failedCard &&
+      tokenOf(failed, 'storeCode')?.state === 'edited' &&
+      failed.note.startsWith('1 change not searched') &&
+      failed.dot &&
+      tokenOf(afterFail, 'storeCode')?.value === '1002' &&
+      afterFail.note === '',
+    `card ${failedCard} · ${JSON.stringify(tokenOf(failed, 'storeCode'))} · "${failed.note}" · after Discard ${tokenOf(afterFail, 'storeCode')?.value}`,
+  )
+  await search(page)
+  await page.waitForSelector('.ag-center-cols-container .ag-row', { timeout: 10000 }).catch(() => {})
+
+  // 26. The Limit: always shown, editable, never removable.
+  await setCriterion(page, 'limit', '30')
+  const limitEdit = await barState(page)
+  await page.screenshot({ path: `${SHOTS}/query-edit-${theme}-${dir}.png` })
+  await page.keyboard.press('Escape')
+  check(
+    `${label}: the Limit token edits in place (dashed amber at 30) and has no ×`,
+    tokenOf(limitEdit, 'limit')?.text === 'Limit:30' &&
+      tokenOf(limitEdit, 'limit')?.state === 'edited' &&
+      tokenOf(limitEdit, 'limit')?.dashedAmber &&
+      !tokenOf(limitEdit, 'limit')?.removable,
+    JSON.stringify(tokenOf(limitEdit, 'limit')),
+  )
+  await page.locator('[data-query-discard]').click()
+
+  // 27. `/` from a grid cell focuses + Filter, and the press is prevented (Firefox's quick-find).
+  await clickRow(page, '80001202')
+  await page.evaluate(() => {
+    window.__slash = null
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Slash') window.__slash = e.defaultPrevented
+    })
+  })
+  await page.keyboard.press('Slash')
+  const slash = await page.evaluate(() => ({
+    focus: document.activeElement?.hasAttribute('data-query-add') ?? false,
+    prevented: window.__slash,
+    shortcut: document.querySelector('[data-query-add]')?.getAttribute('aria-keyshortcuts'),
+  }))
+  check(
+    `${label}: / from a grid cell focuses + Filter, prevented`,
+    slash.focus && slash.prevented === true && slash.shortcut === '/',
+    JSON.stringify(slash),
+  )
+
+  // 28. Back from Delivery details restores the search: the same tokens, nothing pending.
+  const tokensBefore = (await barState(page)).tokens.map((t) => t.text)
+  await clickRow(page, '80001204')
+  await page.keyboard.press('Enter')
+  await page.waitForURL(/\/oms\/delivery\/\d+$/, { timeout: 5000 }).catch(() => {})
+  const away = new URL(page.url()).pathname
+  await page.goBack()
+  await page.waitForSelector('[data-query-bar]', { timeout: 10000 }).catch(() => {})
+  await page.waitForTimeout(400)
+  const back = await barState(page)
+  check(
+    `${label}: Back from Delivery details restores the tokens with nothing pending`,
+    away !== '/oms/deliveries' &&
+      JSON.stringify(back.tokens.map((t) => t.text)) === JSON.stringify(tokensBefore) &&
+      back.note === '' &&
+      !back.dot,
+    `${away} · ${back.tokens.map((t) => t.text).join(' | ')} vs ${tokensBefore.join(' | ')}`,
+  )
+  if (rtl) await page.screenshot({ path: `${SHOTS}/query-rtl-${theme}.png` })
 }
 
 for (const theme of ['light', 'dark']) {

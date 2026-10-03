@@ -128,7 +128,7 @@ page.on('response', (r) => r.status() === 404 && notFound.push(r.url()))
 async function loadDeliveries() {
   await page.goto(BASE + '/oms/deliveries')
   await page.waitForSelector('.ag-root', { timeout: 20000 }).catch(() => {})
-  const load = await page.getByRole('button', { name: /load/i }).first()
+  const load = await page.getByRole('button', { name: /^search$/i }).first()
   await load.click().catch(() => {})
   await page.waitForSelector('.ag-center-cols-container .ag-row', { timeout: 25000 }).catch(() => {})
   await page.waitForTimeout(1200)

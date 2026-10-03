@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import type { ColumnState, FilterModel } from 'ag-grid-community'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
-import type { DeliveryFilterCriteria } from './filter'
 import type { LensId } from './lenses'
+import { BLANK_QUERY, type QueryCriteria } from './query-model'
 
 /**
  * Module-scoped store for the Screen 1 search (D-24 / R-8).
@@ -17,7 +17,13 @@ import type { LensId } from './lenses'
  * it is in-memory only, so a full page reload starts fresh.
  */
 interface DeliverySearchState {
-  criteria: DeliveryFilterCriteria | null
+  /**
+   * The last search that ran, as the query bar held it — the Date still relative (399). The
+   * bar's unapplied edits are measured against it, and Discard goes back to it.
+   */
+  query: QueryCriteria | null
+  /** The criteria on screen in the query bar, searched or not. */
+  draft: QueryCriteria
   rows: DeliveryDocumentModel[] | null
   /** The Limit the loaded `rows` ran with: a page this long may have been cut (366). */
   limit: number | null
@@ -27,8 +33,9 @@ interface DeliverySearchState {
   columnState: ColumnState[] | null
   filterModel: FilterModel | null
   selectedKey: string | null
-  beginSearch: (criteria: DeliveryFilterCriteria) => void
-  setResult: (rows: DeliveryDocumentModel[], limit: number) => void
+  setDraft: (draft: QueryCriteria) => void
+  beginSearch: () => void
+  setResult: (rows: DeliveryDocumentModel[], limit: number, query: QueryCriteria) => void
   setError: (message: string) => void
   captureGridState: (columnState: ColumnState[], filterModel: FilterModel) => void
   setSelectedKey: (key: string | null) => void
@@ -36,7 +43,8 @@ interface DeliverySearchState {
 }
 
 export const useDeliverySearch = create<DeliverySearchState>((set) => ({
-  criteria: null,
+  query: null,
+  draft: BLANK_QUERY,
   rows: null,
   limit: null,
   error: null,
@@ -44,13 +52,17 @@ export const useDeliverySearch = create<DeliverySearchState>((set) => ({
   columnState: null,
   filterModel: null,
   selectedKey: null,
+  setDraft: (draft) => set({ draft }),
   /**
-   * Record the start of a search: remember the criteria, clear the previous
-   * error and selection. Rows are left untouched so the grid keeps showing the
-   * prior results while the new search runs.
+   * Record the start of a search: clear the previous error and selection. Rows are left
+   * untouched so the grid keeps showing the prior results while the new search runs.
    */
-  beginSearch: (criteria) => set({ criteria, error: null, selectedKey: null }),
-  setResult: (rows, limit) => set({ rows, limit, error: null }),
+  beginSearch: () => set({ error: null, selectedKey: null }),
+  /**
+   * The search came back: its rows, the Limit it ran with, and its query, which the bar's flags
+   * now measure against. A failed search records no query, so its edits stay flagged.
+   */
+  setResult: (rows, limit, query) => set({ rows, limit, query, error: null }),
   setError: (message) => set({ error: message }),
   captureGridState: (columnState, filterModel) => set({ columnState, filterModel }),
   setSelectedKey: (selectedKey) => set({ selectedKey }),

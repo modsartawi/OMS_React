@@ -1,6 +1,6 @@
 {
   "title": "Delivery Documents",
-  "emptyPrompt": "Set your filters above and select Load to search delivery documents.",
+  "emptyPrompt": "No search yet. Set the criteria above and select Search.",
   "lens": {
     "heading": "Lenses",
     "region": "Lenses and saved views",
@@ -34,31 +34,58 @@
     "clearFilters": "Clear grid filters",
     "cut": "Showing the newest <limit>{{limit}}</limit>, there may be more. Narrow the search or raise the limit."
   },
+  "query": {
+    "region": "Search criteria",
+    "focus": "Focus the search bar",
+    "token": "{{field}}:",
+    "add": "Filter",
+    "addMenu": "All 14 search criteria",
+    "inSearch": "in search",
+    "group": {
+      "when": "When",
+      "find": "Find one",
+      "narrow": "Narrow",
+      "rows": "Rows"
+    },
+    "field": {
+      "date": "Date",
+      "deliveryNo": "Delivery no.",
+      "documentNo": "Document no.",
+      "orderNo": "Order no.",
+      "customerPhone": "Mobile",
+      "storeCode": "Store",
+      "documentType": "Document type",
+      "documentSource": "Source",
+      "deliveryDocumentType": "Delivery doc. type",
+      "deliveryType": "Delivery type",
+      "isExpress": "Dawaa Now",
+      "documentReason": "Reason",
+      "limit": "Limit"
+    },
+    "date": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "last3": "Last 3 days",
+      "last7": "Last 7 days",
+      "custom": "Custom",
+      "from": "From",
+      "to": "To"
+    },
+    "any": "Any",
+    "remove": "Remove {{field}}",
+    "restore": "Restore {{field}}",
+    "removed": "(removed, not searched yet)",
+    "pending_one": "<n>{{n}}</n> change not searched",
+    "pending_other": "<n>{{n}}</n> changes not searched",
+    "discard": "Discard",
+    "search": "Search",
+    "done": "Done",
+    "enterSearches": "<keys/> searches",
+    "limitHint": "The newest <n>{{n}}</n> rows load. Narrow the search or raise the limit to see more."
+  },
   "menu": {
     "oms": "OMS",
     "deliveries": "Delivery Documents"
-  },
-  "actions": {
-    "load": "Load",
-    "loading": "Loading…"
-  },
-  "filters": {
-    "ariaLabel": "Delivery documents search filters",
-    "any": "Any",
-    "fromDate": "From Date",
-    "toDate": "To Date",
-    "documentType": "Document Type",
-    "documentSource": "Document Source",
-    "deliveryDocumentType": "Delivery Document Type",
-    "documentNo": "Document No",
-    "limit": "Limit",
-    "deliveryNo": "Delivery No",
-    "storeCode": "Store Code",
-    "customerPhone": "Customer Phone",
-    "orderNo": "Order No",
-    "deliveryType": "Delivery Type",
-    "documentReason": "Reason",
-    "dawaaNow": "Dawaa Now"
   },
   "lookups": {
     "documentTypes": "document types",

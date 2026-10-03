@@ -141,9 +141,9 @@ async function run() {
     check('entitled: the OMS group is in the rail', groups.some((g) => /OMS/i.test(g)), groups.join(' · '))
 
     await page.goto(BASE + '/oms/deliveries')
-    await page.getByRole('button', { name: /^Load$/ }).waitFor()
+    await page.getByRole('button', { name: /^Search$/ }).waitFor()
     check('entitled: the list screen renders its filter panel, not a denied card', (await page.locator('[data-oms-denied]').count()) === 0)
-    await page.getByRole('button', { name: /^Load$/ }).click()
+    await page.getByRole('button', { name: /^Search$/ }).click()
     await page.locator('.ag-row').first().waitFor()
     check(
       'entitled: the search hits the NEW path — SdDocumentWeb/DeliveryDocumentList',
@@ -206,7 +206,7 @@ async function run() {
   {
     const { context, page, errors, calls } = await open(browser, { list: true, detail: false })
     await page.goto(BASE + '/oms/deliveries')
-    await page.getByRole('button', { name: /^Load$/ }).waitFor()
+    await page.getByRole('button', { name: /^Search$/ }).waitFor()
     check('split grant: the LIST still opens on canOpenList alone', (await page.locator('[data-oms-denied]').count()) === 0)
 
     await page.goto(BASE + `/oms/document/${DOC_NO}`)
@@ -268,7 +268,7 @@ async function run() {
   {
     const { context, page, calls } = await open(browser, { list: true, detail: true })
     await page.goto(BASE + '/oms/deliveries')
-    await page.getByRole('button', { name: /^Load$/ }).waitFor()
+    await page.getByRole('button', { name: /^Search$/ }).waitFor()
     await page.waitForTimeout(800)
     check(
       'shared cache entry: exactly ONE SdDocumentWeb/Access request for menu + list guard',
@@ -282,7 +282,7 @@ async function run() {
     await page.locator('[data-section-card]').first().waitFor()
     calls.length = 0
     await page.locator('[data-section-card] a[href="/oms/deliveries"]').first().click()
-    await page.getByRole('button', { name: /^Load$/ }).waitFor()
+    await page.getByRole('button', { name: /^Search$/ }).waitFor()
     await page.waitForTimeout(800)
     check(
       'shared cache entry: navigating INTO the screen in-app re-asks nothing',

@@ -40,18 +40,18 @@ check('login lands on returnUrl (/oms/deliveries)', true, page.url())
 
 // 3. Initial prompt state, no grid yet
 const mainText = await page.locator('main').innerText()
-check('initial prompt shown before first search', mainText.includes('Set your filters above'))
+check('initial prompt shown before first search', mainText.includes('No search yet'))
 check('no grid before the first search', (await page.locator('.ag-root').count()) === 0)
 
-// 4. Limit default
-const limit = await page.inputValue('#limit')
+// 4. Limit default — the query bar's Limit token, always shown (ticket 399)
+const limit = (await page.locator('[data-query-token="limit"] [data-token-value]').textContent())?.trim()
 check('Limit defaults to 200', limit === '200', `got ${limit}`)
 
-// 5. Load
-await page.getByRole('button', { name: 'Load' }).click()
+// 5. Search
+await page.getByRole('button', { name: 'Search', exact: true }).click()
 await page.waitForSelector('.ag-row', { timeout: 20000 })
 const rowCount = await page.locator('.ag-row').count()
-check('grid renders rows after Load', rowCount > 0, `${rowCount} rows rendered`)
+check('grid renders rows after Search', rowCount > 0, `${rowCount} rows rendered`)
 
 // 6. Column count (41 defined; AG Grid virtualizes, so read the colDefs via headers after showing all)
 const headerCount = await page.locator('.ag-header-cell[col-id]').count()

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Ban,
@@ -91,15 +91,26 @@ function CommandButton({
   variant,
   label,
   onCommand,
+  refused,
+  onRefusedLeft,
 }: {
   command: CommandState
   variant: ButtonVariant
   label: string
   onCommand: (kind: CommandKind) => void
+  /** The list's open intent was refused on this command (D9): ring it and keep its reason up. */
+  refused: boolean
+  onRefusedLeft: () => void
 }) {
   const Icon = ICONS[command.kind]
   const explained = command.reason !== null
   const reasonId = `command-reason-${command.kind}`
+  const ringed = refused && explained
+  const wrapper = useRef<HTMLSpanElement>(null)
+  // Focus shows the reason to keyboard and screen-reader users too (it is `aria-describedby`).
+  useEffect(() => {
+    if (ringed) wrapper.current?.querySelector('button')?.focus()
+  }, [ringed])
 
   const button = (
     <Button
@@ -108,6 +119,10 @@ function CommandButton({
       aria-disabled={explained || undefined}
       aria-describedby={explained ? reasonId : undefined}
       onClick={explained ? undefined : () => onCommand(command.kind)}
+      data-command={command.kind}
+      data-refused={ringed || undefined}
+      // The attention ring (371): amber is attention, and this button is why nothing opened.
+      className={ringed ? 'ring-2 ring-attention ring-offset-2 ring-offset-card' : undefined}
     >
       <Icon className="h-3.5 w-3.5" aria-hidden />
       {label}
@@ -117,7 +132,8 @@ function CommandButton({
   if (!explained) return button
 
   return (
-    <span className="group relative inline-flex">
+    // The ring and the pinned reason last until focus leaves the button they were put on.
+    <span ref={wrapper} className="group relative inline-flex" onBlur={ringed ? onRefusedLeft : undefined}>
       {button}
       {/*
         Hidden by OPACITY, never by `display:none` or `visibility` — an
@@ -130,7 +146,9 @@ function CommandButton({
         className={
           'pointer-events-none absolute bottom-full start-0 z-20 mb-1 w-max max-w-64 ' +
           'px-2 py-1 text-[0.6875rem] ' + POPOVER + ' ' +
-          'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
+          (ringed
+            ? 'opacity-100'
+            : 'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100')
         }
       >
         {command.reason}
@@ -143,6 +161,8 @@ export default function CommandPanel({
   context,
   onCommand,
   onCentralInvoice,
+  refused = null,
+  onRefusedLeft = () => {},
 }: {
   /** The gated fields plus busy — documented once, on `CommandContext`. */
   context: CommandContext
@@ -156,6 +176,13 @@ export default function CommandPanel({
    * `commands.ts` grammar, drawn only when handed in.
    */
   onCentralInvoice: (() => void) | null
+  /**
+   * The command the list's open intent was refused on (ticket 401, D9), or `null`. Its button
+   * takes focus, wears the attention ring and shows its reason until focus leaves it, then
+   * `onRefusedLeft`.
+   */
+  refused?: CommandKind | null
+  onRefusedLeft?: () => void
 }) {
   const { t } = useTranslation('document')
   const { closeStatus, documentCategory, openedAs, canReturn, lines, busy } = context
@@ -195,6 +222,8 @@ export default function CommandPanel({
                     variant={CLUSTER_VARIANT[cluster.id]}
                     label={t(`actions.${command.kind}`)}
                     onCommand={onCommand}
+                    refused={refused === command.kind}
+                    onRefusedLeft={onRefusedLeft}
                   />
                 ))}
               </div>
@@ -228,6 +257,8 @@ export default function CommandPanel({
               variant={TERMINAL_VARIANT[command.kind]}
               label={t(`actions.${command.kind}`)}
               onCommand={onCommand}
+              refused={refused === command.kind}
+              onRefusedLeft={onRefusedLeft}
             />
           ))}
         </div>

@@ -805,14 +805,18 @@ async function keysAndSheet(page, tag, mode) {
     JSON.stringify(lines.filter((l) => l.startsWith('app:'))) === '["app:palette","app:sheet","app:esc"]',
     `${tag}: it lists the app-wide keys — Ctrl+K, ?, Esc (${lines.join(',')})`,
   )
-  // 397: the list's own keys — J/K (hidden from the palette, listed here) and I; 399: `/`.
+  // 397: the list's own keys — J/K (hidden from the palette, listed here) and I; 399: `/`;
+  // 401: R / C / N, the acts that open on Delivery details.
   ok(
     JSON.stringify(lines.filter((l) => l.startsWith('screen:'))) ===
-      '["screen:row.next","screen:row.previous","screen:query.focus","screen:inspector.toggle"]' &&
+      '["screen:row.next","screen:row.previous","screen:query.focus","screen:act.reschedule","screen:act.request-close","screen:act.add-note","screen:inspector.toggle"]' &&
       JSON.stringify(await capsOf(page, '[data-shortcut="screen:row.next"]')) === '["J"]' &&
       JSON.stringify(await capsOf(page, '[data-shortcut="screen:query.focus"]')) === '["/"]' &&
+      JSON.stringify(await capsOf(page, '[data-shortcut="screen:act.reschedule"]')) === '["R"]' &&
+      JSON.stringify(await capsOf(page, '[data-shortcut="screen:act.request-close"]')) === '["C"]' &&
+      JSON.stringify(await capsOf(page, '[data-shortcut="screen:act.add-note"]')) === '["N"]' &&
       JSON.stringify(await capsOf(page, '[data-shortcut="screen:inspector.toggle"]')) === '["I"]',
-    `${tag}: and this screen's keys — J, K, /, I (${lines.filter((l) => l.startsWith('screen:')).join(',')})`,
+    `${tag}: and this screen's keys — J, K, /, R, C, N, I (${lines.filter((l) => l.startsWith('screen:')).join(',')})`,
   )
   const chord = await capsOf(page, '[data-shortcut="app:palette"]')
   ok(JSON.stringify(chord) === '["Ctrl","K"]', `${tag}: the chord reads "Ctrl K" left to right (${chord.join(' ')})`)
@@ -939,7 +943,10 @@ for (const mode of [
   )
 
   // K7: from a text box.
-  const box = page.locator('main input:not([type=date]):not([type=checkbox]):not([type=radio]):visible').first()
+  // Delivery no.'s floating filter, by name: pinned at the reading start (401), it is no longer
+  // the first input in the DOM under RTL, and '12' typed into another column's filter hides
+  // every row the next check clicks.
+  const box = page.locator('.ag-floating-filter[col-id="deliveryNo"] input').first()
   await box.click()
   await box.fill('12')
   await ctrlK(page)

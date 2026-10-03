@@ -72,6 +72,27 @@
 //     Undo from its toast restores the view with its star; Rename refuses a taken name in the
 //     dialog; Update on an active imported view re-saves it as a full view.
 //
+// Ticket 401: R / C / N, the status bar, the empty states and the grid's columns (L10, L11, L14,
+// L16's R/C/N, D9).
+//   - before a search the grid is MOUNTED under "No search yet", and the status bar has hints but
+//     no count; a search with no rows says "No deliveries match this search" over the grid;
+//   - Delivery no. is pinned at the reading start (right under RTL), mono 600, the other IDs mono;
+//     Failed jobs is a danger pill (one ltr isolate) or a muted "—"; the floating filters stay and
+//     cell text is selectable;
+//   - the status bar reads "8 deliveries · 1 selected", the hints (J K move · Enter open · R C N
+//     act · / search · ? keys · I inspector), each set of caps ONE ltr isolate, and "Drag over
+//     text, Ctrl C copies"; with the single-key switch off only Enter's hint stays, the act rows
+//     lose their caps and R does nothing;
+//   - the inspector's act rows (Reschedule R, Request cancellation C, Add note N, then Open full
+//     record) deep-link to Delivery details; R with no row toasts "Select a delivery first.";
+//   - R on a row opens the real Reschedule dialog on Details; the router state is gone from the
+//     entry, so a reload, a Back and a Forward never re-open it; N opens today's Add note dialog;
+//   - C on 8000000174 (a request already open) opens NO dialog: Request Cancellation is ringed
+//     in `--attention`, focused, its reason pinned up, and a warn toast repeats the reason; a
+//     reload shows none of it; the inspector's buttons do the same with the mouse;
+//   - nothing posts from the list.
+// The Details side serves the captured payloads in `.issues/assets/078-document-payloads/`.
+//
 // SIS.Api's delivery list needs a store grant a dev session does not have, so every `/api/**`
 // call is stubbed here, as in tools/grid-theme-drive.mjs. The RTL passes store
 // `oms.locale = ar` before boot (383); the chrome stays English and the DATA carries Arabic
@@ -82,7 +103,8 @@
 //
 // Screenshots → tools/.deliveries-list-shots/.
 import { createRequire } from 'node:module'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync } from 'node:fs'
+import path from 'node:path'
 
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
@@ -158,6 +180,16 @@ const CASES = [
   { no: '80001208', word: 'Cancelled', key: 'cancelled', dot: '--danger', ink: '--danger-800', over: { readyStatus: 'R', deliveryStatus: 'O', closeStatus: 'C' } },
 ]
 
+// 401: the Delivery details payloads the intents land on, keyed by number.
+const PAYLOAD_DIR = '.issues/assets/078-document-payloads'
+const DOCUMENTS = {}
+for (const file of readdirSync(PAYLOAD_DIR)) {
+  const capture = JSON.parse(readFileSync(path.join(PAYLOAD_DIR, file), 'utf8'))
+  DOCUMENTS[capture.data.documentNo] = capture.data
+}
+/** When set, the list returns these rows instead of the stub cases (401's own searches). */
+let listOverride = null
+
 const ARABIC_NAME = 'نورة الحربي'
 const ARABIC_DRIVER = 'خالد ن.'
 
@@ -180,6 +212,7 @@ const routeApi = (dir) => async (route) => {
       envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1017' }),
     )
   // 398: a search narrowed by store returns no failed rows, so Needs attention matches none.
+  if (path === 'SdDocumentWeb/DeliveryDocumentList' && listOverride) return route.fulfill(envelope(listOverride))
   if (path === 'SdDocumentWeb/DeliveryDocumentList')
     return route.fulfill(
       envelope(/[?&]StoreCode=/.test(url) ? rows(dir).filter((r) => !r.failedJobsCount) : rows(dir)),
@@ -188,6 +221,12 @@ const routeApi = (dir) => async (route) => {
     return route.fulfill(envelope([]))
   // Delivery details after Enter / a double-click: a business "not found" is enough — the
   // drive checks where Enter went, not the record page (402–405 drive that).
+  // 401: a captured record opens for real, with an empty Log and Jobs and no slots to pick.
+  if (/\/(Logs|Outbox)$/.test(path)) return route.fulfill(envelope([]))
+  const captured = path.match(/^SdDocumentWeb\/(?:Delivery|Document)\/(\d+)$/)
+  if (captured && DOCUMENTS[captured[1]]) return route.fulfill(envelope(DOCUMENTS[captured[1]]))
+  if (path.startsWith('Slots/AvailableSlots/')) return route.fulfill(envelope({ slots: [] }))
+  if (path === 'Slots/RescheduleReasons') return route.fulfill(envelope([]))
   if (/^SdDocumentWeb\/(Delivery|Document)\//.test(path))
     return route.fulfill(envelope(null, { success: false, message: 'Not found in this drive' }))
   if (/Access$/.test(path))
@@ -228,16 +267,23 @@ async function drive({ theme, dir }) {
     before.width === 360 && before.empty.includes('Select a delivery to inspect it.') && /J\s*K/.test(before.empty),
     `width ${before.width} · "${before.empty}"`,
   )
+  await beforeSearchChecks({ page, label })
   await page.locator('[data-query-search]').click().catch(() => {})
   await page.waitForSelector('.ag-center-cols-container .ag-row', { timeout: 20000 }).catch(() => {})
   await page.evaluate(() => document.fonts.ready)
   await page.waitForTimeout(400)
 
-  // 1. Status sits second, in reading order.
-  const order = await page.evaluate(() => {
+  // 1. Status sits second, in reading order. Read off the screen: Delivery no. is pinned at the
+  //    reading start (401), and AG Grid numbers `aria-colindex` left → centre → right whatever the
+  //    direction, so under RTL the start-pinned column carries the LAST index.
+  const order = await page.evaluate((rtl) => {
     const heads = [...document.querySelectorAll('.ag-header-row-column .ag-header-cell[col-id]')]
-      .filter((h) => h.getAttribute('aria-colindex'))
-      .sort((a, b) => Number(a.getAttribute('aria-colindex')) - Number(b.getAttribute('aria-colindex')))
+      .filter((h) => h.getBoundingClientRect().width > 0)
+      .sort((a, b) =>
+        rtl
+          ? b.getBoundingClientRect().right - a.getBoundingClientRect().right
+          : a.getBoundingClientRect().left - b.getBoundingClientRect().left,
+      )
     const ids = heads.map((h) => h.getAttribute('col-id'))
     const rect = (id) => heads.find((h) => h.getAttribute('col-id') === id)?.getBoundingClientRect()
     const no = rect('deliveryNo')
@@ -247,7 +293,7 @@ async function drive({ theme, dir }) {
       label: heads[1]?.querySelector('.ag-header-cell-text')?.textContent?.trim(),
       after: no && status ? (status.left > no.left ? 'right' : 'left') : null,
     }
-  })
+  }, dir === 'rtl')
   check(
     `${label}: Status is the second column, after Delivery no. in reading order`,
     order.ids[0] === 'deliveryNo' &&
@@ -368,6 +414,7 @@ async function drive({ theme, dir }) {
   await lensChecks({ page, label, theme, dir, requests })
   await queryChecks({ page, label, theme, dir, requests })
   await viewChecks({ page, label, theme, dir, requests })
+  await actChecks({ page, label, theme, dir, requests })
 
   check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
   await context.close()
@@ -1717,6 +1764,391 @@ async function viewChecks({ page, label, theme, dir, requests }) {
 
   // 40. The old key was only ever read.
   check(`${label}: the old shared key was never written or removed`, (await storedViews(page)).legacy === LEGACY)
+}
+
+// ----- 401: R / C / N, the status bar, the empty states and the grid's columns ---------------
+
+/** The status bar as data: the count, the hints (each caps set and whether it is one isolate). */
+const statusBar = (page) =>
+  page.evaluate(() => {
+    const bar = document.querySelector('[data-status-bar]')
+    if (!bar) return null
+    return {
+      count: bar.querySelector('[data-status-count]')?.textContent.replace(/\s+/g, ' ').trim() ?? null,
+      // Caps, then what they do, read per element: the caps sit apart by layout, not by spaces.
+      hints: [...bar.querySelectorAll('[data-hint]')].map((h) => ({
+        name: h.getAttribute('data-hint'),
+        text: `${[...h.querySelectorAll('kbd')].map((k) => k.textContent).join(' ')} ${[...h.childNodes]
+          .filter((n) => n.nodeType === 3)
+          .map((n) => n.textContent)
+          .join('')
+          .trim()}`,
+        oneIsolate: h.querySelectorAll('bdi[dir="ltr"]').length === 1 && h.querySelector('bdi[dir="ltr"] kbd') !== null,
+      })),
+      copy: bar.querySelector('[data-status-copy]')?.textContent.replace(/\s+/g, ' ').trim() ?? null,
+      copyIsolate: bar.querySelectorAll('[data-status-copy] bdi[dir="ltr"]').length === 1,
+      isolateChars: /[⁦-⁩‎‏]/.test(bar.textContent),
+    }
+  })
+
+const HINTS = 'J K move|Enter open|R C N act|/ search|? keys|I inspector'
+
+async function beforeSearchChecks({ page, label }) {
+  const before = await page.evaluate(() => ({
+    overlay:
+      [...(document.querySelector('[data-grid-empty="before"]')?.querySelectorAll('p') ?? [])]
+        .map((p) => p.textContent.trim())
+        .join(' ') || null,
+    grid: document.querySelectorAll('.ag-root-wrapper').length,
+    headers: document.querySelectorAll('.ag-header-cell[col-id="deliveryNo"]').length,
+  }))
+  check(
+    `${label}: before a search, "No search yet" overlays a MOUNTED grid`,
+    before.overlay === 'No search yet Pick a view, or set criteria and Search.' && before.grid === 1 && before.headers >= 1,
+    JSON.stringify(before),
+  )
+  const bar = await statusBar(page)
+  check(
+    `${label}: before a search the status bar has no count, the key hints and the copy hint`,
+    bar?.count === null &&
+      bar.hints.map((h) => h.text).join('|') === HINTS &&
+      bar.copy === 'Drag over text, Ctrl C copies',
+    JSON.stringify(bar),
+  )
+}
+
+/** What the arrival did on Delivery details: the dialog, the ringed button, its reason, the toast. */
+async function arrival(page, attentionRgb) {
+  return page.evaluate((attention) => {
+    const btn = document.querySelector('[data-command="request-close"]')
+    const reason = document.getElementById('command-reason-request-close')
+    const dialog = document.querySelector('dialog[open]')
+    return {
+      url: location.pathname,
+      intentInState: window.history.state?.usr?.open ?? null,
+      dialog: dialog ? (dialog.querySelector('#modal-title')?.textContent.trim() ?? 'dialog') : null,
+      refused: btn?.hasAttribute('data-refused') ?? false,
+      ring: btn ? getComputedStyle(btn).boxShadow.includes(attention) : false,
+      focused: btn !== null && document.activeElement === btn,
+      reasonOpacity: reason ? Number(getComputedStyle(reason).opacity) : null,
+      reason: reason?.textContent.trim() ?? null,
+      warn: [...document.querySelectorAll('[data-sonner-toast][data-type="warning"]')].map((t) => t.textContent.trim()),
+    }
+  }, attentionRgb)
+}
+
+/**
+ * Back from Delivery details to the list, once the list has painted. A full reload on Details
+ * dropped the list's in-memory search, so the list searches again (the same override rows).
+ */
+async function backToList(page) {
+  await page.goBack()
+  await page.waitForSelector('[data-status-bar]', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(400)
+  if (await page.locator('[data-grid-empty="before"]').count()) {
+    await page.locator('[data-query-search]').click()
+    await page.waitForTimeout(800)
+  }
+}
+
+async function actChecks({ page, label, theme, dir, requests }) {
+  const rtl = dir === 'rtl'
+  const resolve = (expr) =>
+    page.evaluate((e) => {
+      const probe = document.createElement('div')
+      probe.style.color = e
+      document.body.appendChild(probe)
+      const v = getComputedStyle(probe).color
+      probe.remove()
+      return v
+    }, expr)
+
+  // A fresh page with no saved views, so no default runs and the lens is All.
+  await page.evaluate((k) => localStorage.removeItem(k), VIEWS_KEY)
+  listOverride = null
+  await page.goto(BASE + '/oms/deliveries')
+  await page.waitForSelector('[data-grid-empty="before"]', { timeout: 20000 }).catch(() => {})
+  await page.locator('[data-query-search]').click()
+  await page.waitForSelector('.ag-center-cols-container .ag-row', { timeout: 20000 }).catch(() => {})
+  await page.waitForTimeout(500)
+
+  // 41. The grid's columns (L10).
+  const cols = await page.evaluate((isRtl) => {
+    const wrapper = document.querySelector('.ag-root-wrapper').getBoundingClientRect()
+    const noCell = document.querySelector('.ag-row .ag-cell[col-id="deliveryNo"]')
+    const box = noCell.getBoundingClientRect()
+    const docCell = document.querySelector('.ag-row .ag-cell[col-id="documentNo"]')
+    const pill = document.querySelector('[data-failed-jobs="2"]')
+    const none = document.querySelector('[data-failed-jobs="0"]')
+    return {
+      // AG Grid 36 pins with sticky cells, marked on the pinned edge's cell.
+      pinnedSide: noCell.classList.contains('ag-cell-last-left-pinned')
+        ? 'left'
+        : noCell.classList.contains('ag-cell-first-right-pinned')
+          ? 'right'
+          : 'none',
+      atStart: isRtl ? Math.abs(wrapper.right - box.right) < 4 : Math.abs(box.left - wrapper.left) < 4,
+      noFont: getComputedStyle(noCell).fontFamily,
+      noWeight: getComputedStyle(noCell).fontWeight,
+      docFont: getComputedStyle(docCell).fontFamily,
+      pillText: pill?.textContent ?? null,
+      pillIsolated: pill?.querySelector('bdi[dir="ltr"]')?.textContent === '2',
+      pillGround: pill ? getComputedStyle(pill).backgroundColor : null,
+      pillInk: pill ? getComputedStyle(pill).color : null,
+      noneText: none?.textContent ?? null,
+      noneInk: none ? getComputedStyle(none).color : null,
+      floating: document.querySelectorAll('.ag-floating-filter input').length,
+      selectable: getComputedStyle(noCell).userSelect,
+    }
+  }, rtl)
+  const danger = await resolve('var(--danger)')
+  const onDanger = await resolve('var(--primary-foreground)')
+  const ink3 = await resolve('var(--ink-3)')
+  check(
+    `${label}: Delivery no. is pinned at the reading start, mono 600; the other IDs are mono`,
+    cols.pinnedSide === (rtl ? 'right' : 'left') &&
+      cols.atStart &&
+      cols.noFont.includes('Plex Mono') &&
+      cols.noWeight === '600' &&
+      cols.docFont.includes('Plex Mono'),
+    `${cols.pinnedSide} · at start ${cols.atStart} · ${cols.noFont} ${cols.noWeight} · doc ${cols.docFont}`,
+  )
+  check(
+    `${label}: Failed jobs is a danger pill (one ltr isolate) or a muted "—" at 0`,
+    cols.pillText === '2' &&
+      cols.pillIsolated &&
+      cols.pillGround === danger &&
+      cols.pillInk === onDanger &&
+      cols.noneText === '—' &&
+      cols.noneInk === ink3,
+    JSON.stringify({ text: cols.pillText, iso: cols.pillIsolated, ground: cols.pillGround, ink: cols.pillInk, none: cols.noneText, noneInk: cols.noneInk }),
+  )
+  check(
+    `${label}: the floating filters stay and cell text is selectable`,
+    cols.floating > 5 && cols.selectable !== 'none',
+    `${cols.floating} filters · user-select ${cols.selectable}`,
+  )
+
+  // 42–43. The status bar, before and with a selection; R with no current row is refused.
+  const unselected = await statusBar(page)
+  await page.locator('[data-query-search]').focus()
+  await page.keyboard.press('r')
+  await page.waitForTimeout(300)
+  const noRowToast = await toastText(page)
+  const stayed = new URL(page.url()).pathname
+  await clickRow(page, '80001203')
+  const selected = await statusBar(page)
+  check(
+    `${label}: the status bar reads "8 deliveries · 1 selected", every caps set one ltr isolate`,
+    unselected.count === '8 deliveries' &&
+      selected.count === '8 deliveries · 1 selected' &&
+      selected.hints.map((h) => h.text).join('|') === HINTS &&
+      selected.hints.every((h) => h.oneIsolate) &&
+      selected.copyIsolate &&
+      !selected.isolateChars,
+    `"${unselected.count}" → "${selected.count}" · ${selected.hints.map((h) => `${h.text}${h.oneIsolate ? '' : ' (NOT ONE ISOLATE)'}`).join(' | ')}`,
+  )
+  check(
+    `${label}: R with no current row toasts "Select a delivery first." and stays on the list`,
+    noRowToast.some((t) => t.includes('Select a delivery first.')) && stayed === '/oms/deliveries',
+    `${noRowToast} · ${stayed}`,
+  )
+
+  // 44. The inspector's act rows, in order, with their caps, then Open full record.
+  const acts = await page.evaluate(() => {
+    const note = document.querySelector('[data-inspector-act="add-note"]')
+    const open = document.querySelector('[data-inspector-open]')
+    return {
+      rows: [...document.querySelectorAll('[data-inspector-act]')].map((b) => ({
+        act: b.getAttribute('data-inspector-act'),
+        text: `${b.querySelector('span')?.textContent.trim()} ${b.querySelector('kbd')?.textContent ?? ''}`.trim(),
+        title: b.getAttribute('title'),
+        aria: b.getAttribute('aria-keyshortcuts'),
+      })),
+      openAfter: !!note && !!open && !!(note.compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING),
+    }
+  })
+  check(
+    `${label}: the inspector shows Reschedule R, Request cancellation C, Add note N, then Open full record`,
+    JSON.stringify(acts.rows.map((r) => [r.act, r.text, r.aria])) ===
+      JSON.stringify([
+        ['reschedule', 'Reschedule R', 'R'],
+        ['request-close', 'Request cancellation C', 'C'],
+        ['add-note', 'Add note N', 'N'],
+      ]) &&
+      /^Reschedule \(⁨?R⁩?\)$/.test(acts.rows[0].title ?? '') &&
+      acts.openAfter,
+    JSON.stringify(acts),
+  )
+  await page.screenshot({ path: `${SHOTS}/acts-${theme}-${dir}.png` })
+
+  // 45. A search with no rows: its own empty state, over the still-mounted grid.
+  listOverride = []
+  await page.locator('[data-query-search]').click()
+  await page.waitForTimeout(600)
+  const none = await page.evaluate(() => ({
+    overlay: document.querySelector('[data-grid-empty]')?.getAttribute('data-grid-empty') ?? null,
+    text: document.querySelector('[data-grid-empty]')?.textContent.trim() ?? null,
+    grid: document.querySelectorAll('.ag-root-wrapper').length,
+    agOverlay: document.querySelector('.ag-overlay-no-rows-center, .ag-overlay-no-rows-wrapper')?.textContent ?? null,
+  }))
+  const noneBar = await statusBar(page)
+  check(
+    `${label}: a search with no rows says "No deliveries match this search" over a mounted grid`,
+    none.overlay === 'none' &&
+      none.text === 'No deliveries match this search' &&
+      none.grid === 1 &&
+      !none.agOverlay &&
+      noneBar.count === '0 deliveries',
+    `${JSON.stringify(none)} · "${noneBar.count}"`,
+  )
+  await page.screenshot({ path: `${SHOTS}/empty-none-${theme}-${dir}.png` })
+
+  // The two captured deliveries the intents land on: one at rest, one with a request open.
+  listOverride = [
+    ROW({ deliveryNo: '8000000253', documentNo: '1000000777', orderNo: '900777' }),
+    ROW({ deliveryNo: '8000000174', documentNo: '1000000778', orderNo: '900778', readyStatus: 'R', closeStatus: 'R' }),
+  ]
+  await page.locator('[data-query-search]').click()
+  await page.waitForTimeout(800)
+  const writesBefore = requests.filter((r) => /Update|Reschedule(Document|Delivery)/.test(r)).length
+  const bar = () => page.locator('section[aria-label="Actions"]')
+  const attention = await resolve('var(--attention)')
+  const REASON = 'A cancellation request is already open for this document.'
+
+  // 46. R on a row: Details opens the real Reschedule dialog, and the entry no longer carries it.
+  await clickRow(page, '8000000253')
+  await page.keyboard.press('r')
+  await bar().waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(600)
+  const rOpened = await arrival(page, attention)
+  check(
+    `${label}: R on a row opens Reschedule on Delivery details, and the router state is replaced away`,
+    rOpened.url === '/oms/delivery/8000000253' && rOpened.dialog === 'Reschedule' && rOpened.intentInState === null,
+    JSON.stringify(rOpened),
+  )
+  await page.screenshot({ path: `${SHOTS}/r-reschedule-${theme}-${dir}.png` })
+
+  // 47. A reload never re-fires it; nor do Back and Forward.
+  await page.reload()
+  await bar().waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(600)
+  const reloaded = await arrival(page, attention)
+  await backToList(page)
+  const back = new URL(page.url()).pathname
+  await page.goForward()
+  await bar().waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(600)
+  const forward = await arrival(page, attention)
+  check(
+    `${label}: a reload, a Back and a Forward never re-open the dialog`,
+    reloaded.dialog === null && back === '/oms/deliveries' && forward.url === '/oms/delivery/8000000253' && forward.dialog === null,
+    `reload ${reloaded.dialog} · back ${back} · forward ${forward.url} ${forward.dialog}`,
+  )
+  await backToList(page)
+
+  // 48. C on 8000000174 (a request already open): no dialog, the ring, the reason, the warn toast.
+  await clickRow(page, '8000000174')
+  await page.keyboard.press('c')
+  await bar().waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(700)
+  const refused = await arrival(page, attention)
+  check(
+    `${label}: C on 8000000174 opens no dialog; Request Cancellation is ringed, focused and gives its reason`,
+    refused.url === '/oms/delivery/8000000174' &&
+      refused.dialog === null &&
+      refused.refused &&
+      refused.ring &&
+      refused.focused &&
+      refused.reasonOpacity === 1 &&
+      refused.reason === REASON,
+    JSON.stringify(refused),
+  )
+  check(
+    `${label}: and a warn toast repeats the reason`,
+    refused.warn.some((t) => t.includes('Request Cancellation') && t.includes(REASON)),
+    JSON.stringify(refused.warn),
+  )
+  await page.screenshot({ path: `${SHOTS}/c-refused-${theme}-${dir}.png` })
+  // Focus leaving the button takes the ring and the pinned reason with it.
+  await page.keyboard.press('Tab')
+  await page.waitForTimeout(250)
+  const left = await arrival(page, attention)
+  check(
+    `${label}: the ring and the pinned reason go when focus leaves the button`,
+    !left.refused && !left.ring && left.reasonOpacity === 0,
+    JSON.stringify({ refused: left.refused, ring: left.ring, opacity: left.reasonOpacity }),
+  )
+  await page.reload()
+  await bar().waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(700)
+  const refusedReload = await arrival(page, attention)
+  check(
+    `${label}: a reload of the refused arrival shows no ring, no toast and no dialog`,
+    refusedReload.dialog === null && !refusedReload.refused && refusedReload.warn.length === 0,
+    JSON.stringify(refusedReload),
+  )
+  await backToList(page)
+
+  // 49. The inspector's buttons do the same with the mouse.
+  await clickRow(page, '8000000253')
+  await page.locator('[data-inspector-act="reschedule"]').click()
+  await bar().waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(600)
+  const mouseR = await arrival(page, attention)
+  await backToList(page)
+  await clickRow(page, '8000000174')
+  await page.locator('[data-inspector-act="request-close"]').click()
+  await bar().waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(700)
+  const mouseC = await arrival(page, attention)
+  await backToList(page)
+  await clickRow(page, '8000000253')
+  await page.locator('[data-inspector-act="add-note"]').click()
+  await bar().waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(600)
+  const mouseN = await page.evaluate(() => ({
+    url: location.pathname,
+    note: !!document.querySelector('dialog[open] #command-note'),
+  }))
+  check(
+    `${label}: the inspector's buttons do the same with the mouse (Reschedule, refused C, Add note)`,
+    mouseR.dialog === 'Reschedule' &&
+      mouseC.dialog === null &&
+      mouseC.refused &&
+      mouseC.ring &&
+      mouseN.url === '/oms/delivery/8000000253' &&
+      mouseN.note,
+    JSON.stringify({ r: mouseR.dialog, c: [mouseC.dialog, mouseC.refused, mouseC.ring], n: mouseN }),
+  )
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(200)
+  await backToList(page)
+
+  // 50. Nothing posted from the list (or from an arrival).
+  const writes = requests.filter((r) => /Update|Reschedule(Document|Delivery)/.test(r)).length
+  check(`${label}: nothing posts from the list or an arrival`, writes === writesBefore, `${writes - writesBefore} write(s)`)
+
+  // 51. The switch off: only Enter's hint stays, the act rows lose their caps, R does nothing.
+  await page.evaluate(() => localStorage.setItem('oms.singleKeys', 'false'))
+  await page.reload()
+  await page.waitForSelector('[data-query-search]', { timeout: 15000 }).catch(() => {})
+  await page.locator('[data-query-search]').click()
+  await page.waitForSelector('.ag-center-cols-container .ag-row', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(400)
+  await clickRow(page, '8000000253')
+  const off = await statusBar(page)
+  const offCaps = await page.locator('[data-inspector-act] kbd').count()
+  await page.keyboard.press('r')
+  await page.waitForTimeout(500)
+  const offUrl = new URL(page.url()).pathname
+  check(
+    `${label}: with the switch off only "Enter open" is hinted, the act rows have no caps and R does nothing`,
+    off.hints.map((h) => h.text).join('|') === 'Enter open' && offCaps === 0 && offUrl === '/oms/deliveries',
+    `${off.hints.map((h) => h.text).join('|')} · caps ${offCaps} · ${offUrl}`,
+  )
+  await page.evaluate(() => localStorage.setItem('oms.singleKeys', 'true'))
+  listOverride = null
 }
 
 for (const theme of ['light', 'dark']) {

@@ -677,10 +677,7 @@ async function driveGrids({ theme, dir }) {
     JSON.stringify(stripped),
   )
 
-  // The Delivery no., pinned through the toolbar's own Pin control.
-  await page.getByRole('button', { name: /^columns$/i }).click()
-  await page.getByRole('button', { name: /^pin delivery no/i }).click()
-  await page.keyboard.press('Escape')
+  // The Delivery no., pinned at the reading start by its own column (401, L10).
   await page.mouse.move(5, 5)
   await page.waitForTimeout(400)
   const pin = await page.evaluate(() => {

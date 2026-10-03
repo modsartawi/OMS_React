@@ -5,15 +5,15 @@
 //
 // Asserts the ticket's Done-when:
 //   1. the bar renders as three labelled clusters in order of increasing
-//      consequence, each holding exactly two commands, plus an UNLABELLED
-//      terminal pair pinned to the end;
+//      consequence, holding two, one and two commands (Withdraw Request is
+//      retired: BackOffice ticket 2022), plus an UNLABELLED terminal pair
+//      pinned to the end;
 //   2. every cluster carries its family colour and the quiet tier carries none;
 //   3. the terminal pair is the same height as every cluster button — a tier,
 //      not a commit — and Cancel Order wears no check mark;
 //   4. all eight commands render on all five documents: nothing is ever hidden;
 //   5. `closeStatus === 'R'` disables Request Cancellation WITH a reason on
-//      hover and on focus, and leaves Withdraw Request the cluster's only
-//      takeable member;
+//      hover and on focus, and nothing takes its place;
 //   6. Return Document reads the server's `canReturn` and states WHICH of three
 //      things is wrong — not a delivery, not on the Starlinks bonded rail,
 //      nothing left to return — each on hover AND on focus, plus the enabled
@@ -34,13 +34,14 @@
 //   1. run the app:  npx vite --port 5199
 //   2. node tools/document-actions-drive.mjs
 import { createRequire } from 'node:module'
-import { readFileSync, readdirSync } from 'node:fs'
+import { mkdirSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 const require = createRequire('C:/Playground/frontend/package.json')
 const { chromium } = require('playwright')
 
 const BASE = `http://localhost:${process.env.DRIVE_PORT || 5199}`
 const PAYLOAD_DIR = '.issues/assets/078-document-payloads'
+mkdirSync('tools/.document-actions-shots', { recursive: true })
 
 const results = []
 const check = (name, pass, detail = '') => {
@@ -67,6 +68,128 @@ const STORE_DETAILS = [
   { storeCode: 'P002', city: 'Jeddah', region: 'West', storeAddress: 'Tahlia St', deliveryStore: false },
 ]
 
+/**
+ * Arrive on Delivery details as the list's deep link does: a history entry carrying
+ * `{ open }` as router state. It is pushed from inside the app and reached by Back then Forward,
+ * so the router reads it exactly as a `navigate(to, { state })` leaves it.
+ */
+async function arrive(page, deliveryNo, open) {
+  await page.goto(`${BASE}/`)
+  await page.waitForTimeout(400)
+  await page.evaluate(
+    ([path, intent]) => {
+      const idx = (window.history.state?.idx ?? 0) + 1
+      window.history.pushState({ usr: { open: intent }, key: `drive${idx}`, idx }, '', path)
+    },
+    [`/oms/delivery/${deliveryNo}`, open],
+  )
+  await page.goBack()
+  await page.goForward()
+  await page.locator('section[aria-label="Actions"]').waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(700)
+}
+
+/** What Details did with the arrival: the dialog, the ringed button, its reason, the warn toast. */
+const landed = (page, ring) =>
+  page.evaluate((attention) => {
+    const dialog = document.querySelector('dialog[open]')
+    const refused = document.querySelector('[data-command][data-refused]')
+    const reason = refused ? document.getElementById(refused.getAttribute('aria-describedby')) : null
+    return {
+      url: location.pathname,
+      intentInState: window.history.state?.usr?.open ?? null,
+      dialog: dialog ? (dialog.querySelector('#modal-title')?.textContent.trim() ?? 'dialog') : null,
+      note: !!document.querySelector('dialog[open] #command-note'),
+      refused: refused?.getAttribute('data-command') ?? null,
+      ring: refused ? getComputedStyle(refused).boxShadow.includes(attention) : false,
+      focused: refused !== null && document.activeElement === refused,
+      reasonOpacity: reason ? Number(getComputedStyle(reason).opacity) : null,
+      warn: [...document.querySelectorAll('[data-sonner-toast][data-type="warning"]')].map((t) =>
+        t.textContent.trim(),
+      ),
+    }
+  }, ring)
+
+async function intentChecks({ theme, dir, routeApi, posted }) {
+  const label = `intent ${theme}/${dir}`
+  const browser = await chromium.launch()
+  const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  await page.addInitScript(
+    ([t, d]) => {
+      localStorage.setItem('oms.darkMode', String(t === 'dark'))
+      localStorage.setItem('oms.locale', d === 'rtl' ? 'ar' : 'en')
+    },
+    [theme, dir],
+  )
+  await page.route('**/api/**', routeApi)
+  const posts = posted.length
+
+  // reschedule on a delivery at rest: the real dialog, and the entry no longer carries it.
+  await arrive(page, '8000000121', 'reschedule')
+  const ring = await page.evaluate(() => {
+    const probe = document.createElement('div')
+    probe.style.color = 'var(--attention)'
+    document.body.appendChild(probe)
+    const v = getComputedStyle(probe).color
+    probe.remove()
+    return v
+  })
+  const r = await landed(page, ring)
+  check(
+    `${label}: reschedule opens the real Reschedule dialog, and the state is replaced away`,
+    r.url === '/oms/delivery/8000000121' && r.dialog === 'Reschedule' && r.intentInState === null && r.refused === null,
+    JSON.stringify(r),
+  )
+  await page.reload()
+  await page.locator('section[aria-label="Actions"]').waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(700)
+  check(`${label}: a reload never re-opens it`, (await landed(page, ring)).dialog === null)
+
+  // add-note: today's Add note dialog (until 405's composer exists).
+  await arrive(page, '8000000121', 'add-note')
+  const n = await landed(page, ring)
+  check(`${label}: add-note opens today's Add note dialog`, n.note && n.refused === null, JSON.stringify(n))
+
+  // request-close where a request is already open: refused, ringed, focused, reason up, warn toast.
+  await arrive(page, '8000000174', 'request-close')
+  const c = await landed(page, ring)
+  check(
+    `${label}: request-close on 8000000174 opens nothing; the button is ringed, focused, its reason up, and a warn toast repeats it`,
+    c.dialog === null &&
+      c.refused === 'request-close' &&
+      c.ring &&
+      c.focused &&
+      c.reasonOpacity === 1 &&
+      c.warn.some((t) => t.includes('A cancellation request is already open for this document.')),
+    JSON.stringify(c),
+  )
+  await page.screenshot({ path: `tools/.document-actions-shots/intent-${theme}-${dir}.png` })
+
+  // An intent the list does not send, and a pasted link, open nothing.
+  await arrive(page, '8000000121', 'force-close')
+  const unknown = await landed(page, ring)
+  await page.goto(`${BASE}/oms/delivery/8000000174`)
+  await page.locator('section[aria-label="Actions"]').waitFor({ timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(700)
+  const pasted = await landed(page, ring)
+  check(
+    `${label}: an unknown intent and a pasted link open nothing and ring nothing`,
+    unknown.dialog === null &&
+      unknown.refused === null &&
+      pasted.dialog === null &&
+      pasted.refused === null &&
+      pasted.warn.length === 0,
+    JSON.stringify({ unknown, pasted }),
+  )
+  check(`${label}: no arrival posts anything`, posted.length === posts, `${posted.length - posts} post(s)`)
+  check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
+  await browser.close()
+}
+
 async function run() {
   const browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
@@ -84,7 +207,7 @@ async function run() {
    */
   let updateDelayMs = 0
 
-  await page.route('**/api/**', async (route) => {
+  const routeApi = async (route) => {
     const url = route.request().url()
     const p = url.split('/api/')[1].split('?')[0]
     if (p === 'Auth/Me')
@@ -106,8 +229,11 @@ async function run() {
     const doc = p.match(/^SdDocumentWeb\/(?:Document|Delivery)\/(\d+)$/)
     if (doc) return route.fulfill(envelope(DOCUMENTS[doc[1]] ?? null))
     if (/\/Outbox$/.test(p) || /\/Logs$/.test(p)) return route.fulfill(envelope([]))
+    if (p.startsWith('Slots/AvailableSlots/')) return route.fulfill(envelope({ slots: [] }))
+    if (p === 'Slots/RescheduleReasons') return route.fulfill(envelope([]))
     return route.fulfill(envelope({}))
-  })
+  }
+  await page.route('**/api/**', routeApi)
 
   const bar = () => page.locator('section[aria-label="Actions"]')
   const open = async (documentNo) => {
@@ -187,14 +313,14 @@ async function run() {
     layout.clusters.map((c) => c.label).join(' | '),
   )
   check(
-    'each cluster holds exactly two commands, so the single-label case never arises',
-    layout.clusters.every((c) => c.commands.length === 2),
+    'the clusters hold two, one and two commands — the cancellation cluster alone since Withdraw Request retired',
+    layout.clusters.map((c) => c.commands.length).join(',') === '2,1,2',
     layout.clusters.map((c) => c.commands.length).join(','),
   )
   check(
     'and the commands read in the order the taxonomy fixed',
     layout.clusters.flatMap((c) => c.commands.map((b) => b.label)).join(' | ') ===
-      'Reschedule | Change Store | Request Cancellation | Withdraw Request | Add Note… | Return Document',
+      'Reschedule | Change Store | Request Cancellation | Add Note… | Return Document',
     layout.clusters.flatMap((c) => c.commands.map((b) => b.label)).join(' | '),
   )
   check(
@@ -265,25 +391,24 @@ async function run() {
   check('the standing note textarea is gone from the action bar', textareas === 0, String(textareas))
 
   // ------------------------------------------------- 4 · nothing is ever hidden
-  const EIGHT = [
+  const SEVEN = [
     'Reschedule',
     'Change Store',
     'Request Cancellation',
-    'Withdraw Request',
     'Add Note…',
     'Return Document',
     'Force Cancel',
     'Cancel Order',
   ].sort()
-  let allEight = true
+  let allSeven = true
   for (const documentNo of DOCUMENT_NUMBERS) {
     await open(documentNo)
     const shown = await bar().evaluate((s) =>
       [...s.querySelectorAll('button')].map((b) => b.innerText.replace(/\s+/g, ' ').trim()).sort(),
     )
-    if (shown.join('|') !== EIGHT.join('|')) allEight = false
+    if (shown.join('|') !== SEVEN.join('|')) allSeven = false
   }
-  check('all eight commands render on all five captured documents', allEight)
+  check('all seven commands render on all five captured documents', allSeven)
 
   // ------------------------------------ 5 · the open-cancellation-request gate
   await open('8000000174')
@@ -291,7 +416,7 @@ async function run() {
   const byLabel = (b, label) =>
     [...b.clusters.flatMap((c) => c.commands), ...b.terminal].find((x) => x.label === label)
   const requestCancellation = byLabel(requested, 'Request Cancellation')
-  const withdraw = byLabel(requested, 'Withdraw Request')
+  const cancelCluster = requested.clusters.find((c) => c.label === 'Cancellation request')
   check(
     'with a cancellation request already open, Request Cancellation is disabled',
     requestCancellation.ariaDisabled === true,
@@ -332,14 +457,15 @@ async function run() {
       .evaluate((el) => el === document.activeElement),
   )
   check(
-    'while Withdraw Request stays takeable — the cluster promotes by SUBTRACTION',
-    withdraw.ariaDisabled === false && withdraw.nativeDisabled === false,
-    JSON.stringify(withdraw),
+    'and nothing takes its place: the request is irreversible, so there is no Withdraw Request',
+    cancelCluster?.commands.length === 1 && !byLabel(requested, 'Withdraw Request'),
+    JSON.stringify(cancelCluster?.commands.map((b) => b.label)),
   )
   check(
-    'and nothing grows, moves or changes colour to say so',
-    withdraw.ground === famCancelRequest && withdraw.height === requestCancellation.height,
-    `${withdraw.ground} h=${withdraw.height} vs h=${requestCancellation.height}`,
+    'and nothing grows or changes colour to say so',
+    requestCancellation.ground === famCancelRequest &&
+      requestCancellation.height === requested.clusters[0].commands[0].height,
+    `${requestCancellation.ground} h=${requestCancellation.height}`,
   )
 
   // ------------------------------------------ 6 · the three Return Document reasons
@@ -545,14 +671,22 @@ async function run() {
     `${clusterRows.size} rows`,
   )
   check(
-    'and the terminal pair is still last, still the same height, still eight commands',
+    'and the terminal pair is still last, still the same height, still seven commands',
     narrow.terminal.map((b) => b.label).join(' | ') === 'Force Cancel | Cancel Order' &&
       narrow.terminal.every((b) => b.height === narrow.clusters[0].commands[0].height) &&
-      narrow.clusters.flatMap((c) => c.commands).length + narrow.terminal.length === 8,
+      narrow.clusters.flatMap((c) => c.commands).length + narrow.terminal.length === 7,
     JSON.stringify(narrow.terminal.map((b) => [b.label, b.height, b.top])),
   )
 
   check('no uncaught page errors', errors.length === 0, errors.slice(0, 3).join(' | '))
+
+  // ------------------------------- 11 · the list's one-shot open intent (ticket 401, D9)
+  // Whatever the sender, Details opens the act's dialog through this bar's own gate, once, after
+  // the header loads; a refused act opens nothing and says why; the entry is replaced so it never
+  // re-fires; and a pasted link carries no intent at all. In light, dark and RTL.
+  for (const [theme, dir] of [['light', 'ltr'], ['dark', 'ltr'], ['light', 'rtl']]) {
+    await intentChecks({ theme, dir, routeApi, posted })
+  }
 
   await browser.close()
   const failed = results.filter((r) => !r.pass).length

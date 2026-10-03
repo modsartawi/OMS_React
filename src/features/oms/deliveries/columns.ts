@@ -1,5 +1,4 @@
 import type {
-  CellStyle,
   ColDef,
   RowSelectionOptions,
   ValueFormatterParams,
@@ -7,10 +6,12 @@ import type {
 } from 'ag-grid-community'
 import type { TFunction } from 'i18next'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
+import { pinStart } from '@/core/theme/direction'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { rowTimelineNow } from '@/core/oms/timeline'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
+import { FailedJobsCell } from './FailedJobsCell'
 import { StatusCell } from './StatusCell'
 
 type DeliveryColDef = ColDef<DeliveryDocumentModel>
@@ -37,28 +38,6 @@ export function dateFilterComparator(filterDate: Date, cellValue: unknown): numb
   const diff = cellDay - filterDate.getTime()
   if (diff < 0) return -1
   return diff > 0 ? 1 : 0
-}
-
-/**
- * Failed-Jobs conditional cell style — red background, bold white text when the
- * delivery has one or more failed background jobs; the key triage signal.
- *
- * The pair is `--danger` ground with `--primary-foreground` ink, and it must
- * stay a PAIR: in dark, `--danger` is a light tonal fill (082 R2) on which
- * white measures 2.2:1, and `--primary-foreground` is the token that flips to
- * dark ink with it. Both clear AA in their own theme. These are inline styles,
- * so `var()` resolves against `:root`/`.dark` regardless of how the grid theme
- * is written.
- */
-export function failedJobsCellStyle(params: { value: unknown }): CellStyle | null {
-  const count = typeof params.value === 'number' ? params.value : 0
-  return count > 0
-    ? {
-        backgroundColor: 'var(--danger)',
-        color: 'var(--primary-foreground)',
-        fontWeight: '700',
-      }
-    : null
 }
 
 /**
@@ -140,8 +119,14 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
   })
 
   return [
-    // The row's own key reads heaviest: mono at 600 (362 §6).
-    { ...textCol('deliveryNo', 'deliveryNo', 130), cellClass: 'font-mono font-semibold', sort: 'desc' },
+    // The row's own key reads heaviest: mono at 600 (362 §6), pinned at the reading start (L10),
+    // which is the right edge under RTL.
+    {
+      ...textCol('deliveryNo', 'deliveryNo', 130),
+      cellClass: 'font-mono font-semibold',
+      sort: 'desc',
+      pinned: pinStart,
+    },
     {
       // The derived Status (spec 380 L10): where the delivery stands on its timeline, as a dot
       // and a word. The value is the word, so filter, sort and export agree with the cell.
@@ -154,12 +139,13 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
     idCol('documentNo', 'documentNo', 130),
     idCol('orderNo', 'orderNo', 120),
     {
+      // The key triage signal: a danger count pill, or a muted "—" at 0 (L10).
       headerName: t('deliveries:columns.failedJobs'),
       field: 'failedJobsCount',
       width: 115,
       type: 'numericColumn',
       filter: 'agNumberColumnFilter',
-      cellStyle: failedJobsCellStyle,
+      cellRenderer: FailedJobsCell,
     },
     trimmedCol('documentType', 'documentType', 130),
     trimmedCol('deliveryType', 'deliveryType', 120),

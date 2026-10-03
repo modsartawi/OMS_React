@@ -2,13 +2,16 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { AlertTriangle, ChevronsRight, ExternalLink, Zap } from 'lucide-react'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
+import type { OpenIntent } from '@/core/oms/open-intent'
 import type { TimelineStep, TimelineStepState } from '@/core/oms/timeline'
+import { useKeyHint } from '@/core/commands/key-hint'
 import { legendText } from '@/core/commands/keys'
 import { useSingleKeys } from '@/core/commands/single-key-switch'
 import { documentDirection } from '@/core/theme/direction'
 import Kbd from '@/core/ui/Kbd'
 import Ltr from '@/core/ui/Ltr'
 import { formatDateTime } from '@/core/util/date-format'
+import { DELIVERY_ACTS, type DeliveryAct } from './acts'
 import { inspectorView, type InspectorView, type IsolatedValue } from './inspector-model'
 import {
   clampInspectorWidth,
@@ -201,7 +204,52 @@ function Timeline({ steps, windowIsMachine }: { steps: TimelineStep[]; windowIsM
   )
 }
 
-function Body({ view, onOpen }: { view: InspectorView; onOpen: (to: string) => void }) {
+/**
+ * One act row (367 §3): a deep link to Delivery details with that act's dialog to open, never a
+ * write. Its key cap and its tooltip's "(R)" follow the single-key switch.
+ */
+function ActRow({
+  act: { intent, keys, icon: Icon, tone },
+  enabled,
+  onAct,
+}: {
+  act: DeliveryAct
+  enabled: boolean
+  onAct: (intent: OpenIntent) => void
+}) {
+  const { t } = useTranslation('deliveries')
+  const hint = useKeyHint(keys)
+  const label = t(`inspector.act.${intent}`)
+  return (
+    <button
+      type="button"
+      data-inspector-act={intent}
+      disabled={!enabled}
+      aria-keyshortcuts={hint.ariaKeyShortcuts}
+      title={enabled ? hint.title(label) : t('inspector.noDeliveryNo')}
+      onClick={() => onAct(intent)}
+      className="flex h-[30px] items-center gap-2 rounded-md px-2 text-xs hover:bg-accent disabled:opacity-50 disabled:hover:bg-transparent"
+    >
+      <Icon className={`size-3.5 shrink-0 ${tone}`} aria-hidden />
+      <span className="flex-1 text-start">{label}</span>
+      {hint.ariaKeyShortcuts && (
+        <Ltr>
+          <Kbd>{legendText(keys, t)}</Kbd>
+        </Ltr>
+      )}
+    </button>
+  )
+}
+
+function Body({
+  view,
+  onOpen,
+  onAct,
+}: {
+  view: InspectorView
+  onOpen: (to: string) => void
+  onAct: ((intent: OpenIntent) => void) | null
+}) {
   const { t } = useTranslation('deliveries')
   const { header, customer, fulfilment, money } = view
   const tone = STATUS_TONE[header.status]
@@ -366,19 +414,28 @@ function Body({ view, onOpen }: { view: InspectorView; onOpen: (to: string) => v
         </Section>
       )}
 
-      {/* Read-only (367 §3): every act lives on Delivery details. */}
-      <button
-        type="button"
-        data-inspector-open=""
-        disabled={!openTo}
-        title={openTo ? undefined : t('inspector.noDeliveryNo')}
-        onClick={() => openTo && onOpen(openTo)}
-        className="flex h-8 items-center justify-center gap-2 rounded-md bg-primary text-xs font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50 disabled:hover:bg-primary"
-      >
-        <ExternalLink className="size-3.5" aria-hidden />
-        {t('inspector.open')}
-        <Kbd>{t('common:keys.enter')}</Kbd>
-      </button>
+      {/* Read-only (367 §3): every act lives on Delivery details, and these rows only go there. */}
+      <div className="flex flex-col gap-1">
+        {onAct && (
+          <div className="flex flex-col" role="group" aria-label={t('inspector.act.region')}>
+            {DELIVERY_ACTS.map((act) => (
+              <ActRow key={act.intent} act={act} enabled={openTo !== null} onAct={onAct} />
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          data-inspector-open=""
+          disabled={!openTo}
+          title={openTo ? undefined : t('inspector.noDeliveryNo')}
+          onClick={() => openTo && onOpen(openTo)}
+          className="flex h-8 items-center justify-center gap-2 rounded-md bg-primary text-xs font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50 disabled:hover:bg-primary"
+        >
+          <ExternalLink className="size-3.5" aria-hidden />
+          {t('inspector.open')}
+          <Kbd>{t('common:keys.enter')}</Kbd>
+        </button>
+      </div>
     </div>
   )
 }
@@ -422,6 +479,7 @@ export default function DeliveryInspector({
   onWidth,
   onCollapse,
   onOpen,
+  onAct,
   className = '',
 }: {
   row: DeliveryDocumentModel | null
@@ -429,6 +487,8 @@ export default function DeliveryInspector({
   onWidth: (width: number) => void
   onCollapse: () => void
   onOpen: (to: string) => void
+  /** The current row's act, opened on Delivery details; `null` when the list offers no acts. */
+  onAct: ((intent: OpenIntent) => void) | null
   className?: string
 }) {
   const { t } = useTranslation('deliveries')
@@ -456,7 +516,7 @@ export default function DeliveryInspector({
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-4">
-        {row ? <Body view={inspectorView(row)} onOpen={onOpen} /> : <Empty />}
+        {row ? <Body view={inspectorView(row)} onOpen={onOpen} onAct={onAct} /> : <Empty />}
       </div>
     </aside>
   )

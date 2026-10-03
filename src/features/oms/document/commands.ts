@@ -204,6 +204,14 @@ function state<K extends CommandKind>(kind: K, ctx: CommandContext, t: TFn): Com
   return { kind, disabled: reason !== null, reason }
 }
 
+/**
+ * One command's state wherever it sits on the bar, or `null` when the bar has no such command
+ * (Withdraw Request is on none). The gate the list's open intent is resolved through (D9).
+ */
+export function commandOf(bar: CommandBar, kind: CommandKind): CommandState | null {
+  return [...bar.clusters.flatMap((c) => c.commands), ...bar.terminal].find((c) => c.kind === kind) ?? null
+}
+
 /** The whole bar for one document: three clusters plus the terminal tier. */
 export function commandBar(ctx: CommandContext, t: TFn): CommandBar {
   return {

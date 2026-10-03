@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { commandBar, type CommandBar, type CommandContext } from './commands'
+import { commandBar, commandOf, type CommandBar, type CommandContext } from './commands'
 import { returnableLines } from './return-order'
 import type { CommandKind } from './actions'
 import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
 import { DOCUMENT_NUMBERS, PAYLOADS, type CapturedDocumentNo } from './__fixtures__/payloads'
 import { DELIVERY_WITH_REMAINING, FULLY_RETURNED_LINES } from './__fixtures__/return-lines'
 import documentEn from '@/locales/en/document.json'
+import { resolveOpenIntent } from '@/core/oms/open-intent'
 
 /**
  * The real `document` namespace, resolved the way `t('command.…')` does — same
@@ -333,5 +334,52 @@ describe('commandGating', () => {
     )
     expect(find(bar, 'request-close').disabled).toBe(false)
     expect(find(bar, 'return-document').disabled).toBe(true)
+  })
+})
+
+describe("the list's open intent, through this bar's own gate (ticket 401, D9)", () => {
+  /** The bar for a captured delivery, opened as one — how the list's deep link arrives. */
+  const deliveryBar = (documentNo: CapturedDocumentNo, busy = false) => {
+    const doc = PAYLOADS[documentNo]
+    return commandBar(
+      {
+        closeStatus: doc.status?.closeStatus,
+        documentCategory: doc.documentCategory,
+        openedAs: 'delivery',
+        canReturn: doc.canReturn,
+        lines: doc.lines,
+        busy,
+      },
+      t,
+    )
+  }
+
+  it('commandOf finds a command wherever it sits on the bar, and nothing for one it lacks', () => {
+    const bar = deliveryBar('8000000253')
+    expect(commandOf(bar, 'reschedule')?.kind).toBe('reschedule')
+    expect(commandOf(bar, 'close')?.kind).toBe('close')
+    expect(commandOf(bar, 'cancel-close-request')).toBeNull()
+  })
+
+  it('R and N open on a delivery at rest; C opens too while no request is open', () => {
+    const bar = deliveryBar('8000000253')
+    const gate = (kind: CommandKind) => commandOf(bar, kind)
+    expect(resolveOpenIntent('reschedule', gate)).toEqual({ outcome: 'open', intent: 'reschedule' })
+    expect(resolveOpenIntent('request-close', gate)).toEqual({ outcome: 'open', intent: 'request-close' })
+    expect(resolveOpenIntent('add-note', gate)).toEqual({ outcome: 'open', intent: 'add-note' })
+  })
+
+  it("C on 8000000174 (a request already open) is refused with the button's own words", () => {
+    const bar = deliveryBar('8000000174')
+    expect(resolveOpenIntent('request-close', (kind) => commandOf(bar, kind))).toEqual({
+      outcome: 'refuse',
+      intent: 'request-close',
+      reason: 'A cancellation request is already open for this document.',
+    })
+  })
+
+  it('a busy bar opens nothing and explains nothing', () => {
+    const bar = deliveryBar('8000000253', true)
+    expect(resolveOpenIntent('reschedule', (kind) => commandOf(bar, kind))).toBeNull()
   })
 })

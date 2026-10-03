@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useParams } from 'react-router'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, RefreshCw } from 'lucide-react'
 import Button from '@/core/ui/Button'
@@ -12,6 +12,7 @@ import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
 import { notify } from '@/core/services/notify'
 import { recordRecent } from '@/core/commands/recent'
+import { openIntentOf, resolveOpenIntent, withoutOpenIntent, type OpenIntent } from '@/core/oms/open-intent'
 import type {
   SdDocumentHeaderModel,
   SdDocumentLogModel,
@@ -28,6 +29,7 @@ import {
   type UpdateActionKind,
   type UpdateHeaderExtras,
 } from './actions'
+import { commandBar, commandOf, type CommandContext } from './commands'
 import {
   documentColumns,
   deletedLineRowStyle,
@@ -104,6 +106,8 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const { t } = useTranslation('document')
   const params = useParams()
   const routeId = (params.documentNo ?? params.deliveryNo ?? '').trim()
+  const location = useLocation()
+  const navigate = useNavigate()
 
   // Both options MATCH the menu probe's own on this shared key (see useVisibleMenu), and
   // matching is the point: `staleTime: Infinity` keeps this observer from marking the
@@ -147,6 +151,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
    */
   const [noteCommand, setNoteCommand] = useState<NoteCommandKind | null>(null)
 
+  /**
+   * The list's one-shot `open` intent (ticket 401, D9; 367 §3), waiting for the header, and the
+   * command it was refused on. Read off the history entry and replaced away at once, so a
+   * reload or a Back never finds it again — even when the header then fails to load.
+   */
+  const [pendingIntent, setPendingIntent] = useState<OpenIntent | null>(null)
+  const [refusedIntent, setRefusedIntent] = useState<OpenIntent | null>(null)
+
   const actionBusy = actionRunning || refreshing
   const commandBusy =
     actionBusy ||
@@ -156,6 +168,25 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     returnOpen ||
     centralInvoiceOpen ||
     noteCommand !== null
+
+  // Another record drops what the last one was asked to open. Declared before the capture, so
+  // on arrival the capture's own answer wins.
+  useEffect(() => {
+    setPendingIntent(null)
+    setRefusedIntent(null)
+  }, [routeId])
+
+  // Every history entry: take its intent and replace the entry without it. The replace is a new
+  // location with no intent, so it leaves the pending one alone.
+  useEffect(() => {
+    const intent = openIntentOf(location.state)
+    if (!intent) return
+    setPendingIntent(intent)
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: withoutOpenIntent(location.state) },
+    )
+  }, [location, navigate])
 
   const loadLogs = useCallback(
     async (documentNo: string) => {
@@ -300,6 +331,39 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         return
     }
   }
+
+  /**
+   * What the command bar gates on, built once for the bar and for the open intent, so the
+   * intent can only open what the bar's own button would.
+   */
+  const commandContext: CommandContext | null = document
+    ? {
+        closeStatus: document.status?.closeStatus,
+        documentCategory: document.documentCategory,
+        openedAs,
+        canReturn: document.canReturn,
+        lines: document.lines,
+        busy: commandBusy,
+      }
+    : null
+
+  // D9: the intent is consumed once, after the header loads, through the bar's own gate. An
+  // allowed one opens its real dialog (add-note opens today's Add note path until 405's
+  // composer exists). A refused one opens nothing: the bar rings and focuses its button, which
+  // shows its reason, and a warn toast repeats the reason. This render's `onCommand`.
+  useEffect(() => {
+    if (!pendingIntent || !commandContext || documentLoading || commandContext.busy) return
+    setPendingIntent(null)
+    const bar = commandBar(commandContext, t)
+    const resolved = resolveOpenIntent(pendingIntent, (kind) => commandOf(bar, kind))
+    if (!resolved) return
+    if (resolved.outcome === 'open') {
+      onCommand(resolved.intent)
+      return
+    }
+    setRefusedIntent(resolved.intent)
+    notify.warn(t(`actions.${resolved.intent}`), resolved.reason)
+  })
 
   async function onRescheduleConfirmed(model: RescheduleDocumentModel) {
     const doc = document
@@ -471,24 +535,21 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               else and says so in its `400`. `lines` is handed in for the return
               command's REASON split alone (spec 289 D2), never for its gate.
             */}
-            <CommandPanel
-              context={{
-                closeStatus: document.status?.closeStatus,
-                documentCategory: document.documentCategory,
-                openedAs,
-                canReturn: document.canReturn,
-                lines: document.lines,
-                busy: commandBusy,
-              }}
-              onCommand={onCommand}
-              // A delivery's page only (category `D`, the payload's answer): a central
-              // invoice invoices a delivery, and the server refuses anything else anyway.
-              onCentralInvoice={
-                canOpenCentralInvoice(centralInvoiceAccess.data) && isDeliveryCategory(document.documentCategory)
-                  ? () => setCentralInvoiceOpen(true)
-                  : null
-              }
-            />
+            {commandContext && (
+              <CommandPanel
+                context={commandContext}
+                onCommand={onCommand}
+                refused={refusedIntent}
+                onRefusedLeft={() => setRefusedIntent(null)}
+                // A delivery's page only (category `D`, the payload's answer): a central
+                // invoice invoices a delivery, and the server refuses anything else anyway.
+                onCentralInvoice={
+                  canOpenCentralInvoice(centralInvoiceAccess.data) && isDeliveryCategory(document.documentCategory)
+                    ? () => setCentralInvoiceOpen(true)
+                    : null
+                }
+              />
+            )}
 
             {/*
               The page's two regions (083 D-6, ticket 092): a 340px summary rail

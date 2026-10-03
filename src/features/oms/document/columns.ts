@@ -231,9 +231,9 @@ export function deletedLineRowStyle(
 
 /**
  * Jobs-tab row highlight — a failed job (`outboxStatus === 'F'`) gets the red
- * triage treatment, matching Screen 1's Failed Jobs column — same `--danger` /
+ * triage treatment, matching Screen 1's Failed Jobs pill — same `--danger` /
  * `--primary-foreground` pair, and the same reason it must stay a pair
- * (`deliveries/columns.ts`'s `failedJobsCellStyle` carries it in full).
+ * (`deliveries/FailedJobsCell.tsx` carries it in full).
  */
 export function failedJobRowStyle(
   params: RowClassParams<SdDocumentOutboxModel>,

@@ -1,6 +1,12 @@
 {
   "title": "Delivery Documents",
-  "emptyPrompt": "No search yet. Set the criteria above and select Search.",
+  "empty": {
+    "before": {
+      "title": "No search yet",
+      "hint": "Pick a view, or set criteria and Search."
+    },
+    "none": "No deliveries match this search"
+  },
   "lens": {
     "heading": "Lenses",
     "region": "Lenses and saved views",
@@ -33,6 +39,24 @@
     "shown": "<shown>{{shown}}</shown> of <total>{{total}}</total> shown",
     "clearFilters": "Clear grid filters",
     "cut": "Showing the newest <limit>{{limit}}</limit>, there may be more. Narrow the search or raise the limit."
+  },
+  "statusBar": {
+    "rows_one": "<n>{{n}}</n> delivery",
+    "rows_other": "<n>{{n}}</n> deliveries",
+    "rowsAtLeast": "<n>{{n}}</n> deliveries",
+    "rowsSelected_one": "<n>{{n}}</n> delivery · <selected>{{selected}}</selected> selected",
+    "rowsSelected_other": "<n>{{n}}</n> deliveries · <selected>{{selected}}</selected> selected",
+    "rowsAtLeastSelected": "<n>{{n}}</n> deliveries · <selected>{{selected}}</selected> selected",
+    "move": "move",
+    "open": "open",
+    "act": "act",
+    "search": "search",
+    "help": "keys",
+    "inspector": "inspector",
+    "copy": "Drag over text, <keys/> copies"
+  },
+  "cell": {
+    "noFailedJobs": "—"
   },
   "query": {
     "region": "Search criteria",
@@ -275,6 +299,13 @@
     "amountDue": "Amount due",
     "note": "Note",
     "open": "Open full record",
+    "act": {
+      "region": "Open on Delivery details",
+      "reschedule": "Reschedule",
+      "request-close": "Request cancellation",
+      "add-note": "Add note",
+      "noRow": "Select a delivery first."
+    },
     "noDeliveryNo": "This row has no delivery no. to open."
   },
   "access": {

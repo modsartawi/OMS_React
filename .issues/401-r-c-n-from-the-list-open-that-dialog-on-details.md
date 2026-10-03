@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 380
 blocked-by: 400
 ---
@@ -65,10 +65,10 @@ feature's Details page; the status bar and empty states) · i18n (`deliveries:in
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `intentResolvesThroughCommandGate`: an allowed `reschedule` resolves to open. A
+- [x] `intentResolvesThroughCommandGate`: an allowed `reschedule` resolves to open. A
   `request-close` with a request already open resolves to refuse carrying that command's reason.
   An unknown intent resolves to nothing · pure
-- [ ] `tools/deliveries-list-drive.mjs` + `tools/document-actions-drive.mjs`, extended:
+- [x] `tools/deliveries-list-drive.mjs` + `tools/document-actions-drive.mjs`, extended:
   - R on a row opens Reschedule on Details.
   - C on `8000000174` (request open) shows the ring, the tooltip and the warn toast, with no dialog.
   - Reload and Back do not re-open the dialog.
@@ -94,3 +94,70 @@ drives are green.
 ## Blocked by
 
 [400](400-an-operator-saves-defaults-and-manages-their-own-views.md).
+
+## Comments
+
+**Built 2026-10-03 (AFK).** The first run built the whole slice and then died, because it killed its
+own process while stopping vite. A second run re-applied the saved working tree unchanged,
+re-proved it, re-ran both reviews and committed it. Decisions are in `.afk/HITL-401.md`.
+
+- **Pure module `@/core/oms/open-intent.ts`.** It holds the router-state shape `{ open }`,
+  `openIntentOf` (reads the state defensively), `withoutOpenIntent`, and
+  `resolveOpenIntent(intent, gate) → open | refuse(reason) | null`.
+  - A command the page lacks resolves to `null`.
+  - So does a command that is disabled with no reason, which means the page is busy.
+  - It lives in `@/core` because `deliveries` and `document` share it and neither imports the
+    other.
+- **List (`deliveries`).**
+  - **Acts.** `acts.ts` holds the three acts in order: intent, key (`KeyR` / `KeyC` / `KeyN`),
+    icon and family tone (Request cancellation is indigo).
+  - **Inspector.** It draws them as rows with key caps above "Open full record ↵". The caps and the
+    tooltip's key follow the single-key switch.
+  - **Commands.** R / C / N are registered commands. They exist only when the session may open
+    Delivery details (`canOpenDetail`), so a letter is bound only where the list offers that act.
+    They are refused with a reason until a row with a delivery no. is current.
+  - **Navigation.** Each act navigates to `/oms/delivery/:deliveryNo` with `{ open }`. Nothing
+    posts.
+  - **Status bar (`StatusBar.tsx`).** It reads "N deliveries · 1 selected", or "N+" when a full
+    page came back. The key hints J K · ↵ · R C N · / · ? · I are isolated as one unit each; the
+    letter hints hide when the switch is off, and R C N hide without acts. "Drag over text, Ctrl C
+    copies" closes the bar.
+  - **Empty states (`EmptyOverlay.tsx`).** They are drawn over a grid that stays mounted:
+    "No search yet" (with its hint), "No deliveries match this search", and 398's lens state. The
+    grid's own noRows overlay is suppressed, and so is noMatchingRows under a lens.
+  - **Columns.**
+    - Delivery no. is pinned with `pinStart`, in mono 600.
+    - Failed jobs is the `FailedJobsCell` pill: `--danger` / `--primary-foreground`, or a muted "—"
+      at 0. Its value stays the number. The old `failedJobsCellStyle` is gone.
+    - Floating filters, `enableCellTextSelection` and `ensureDomOrder` are unchanged (global
+      options).
+  - **J/K fix.** J/K no longer step a grid that a failed re-search unmounted (`steppable`).
+- **Details (`document`).**
+  - **Capture.** The page takes the intent off the history entry on arrival and replaces the entry
+    without it. It drops a pending intent when the record changes.
+  - **Resolve.** Once the header is loaded and the bar is not busy, the intent is resolved through
+    `commandOf(commandBar(context))`. `commandOf` is new in `commands.ts`. The bar and the intent
+    share one `CommandContext`.
+  - **Open.** An allowed intent calls the page's own `onCommand`. `add-note` opens today's Add note
+    dialog until 405's composer exists.
+  - **Refuse.** A refused intent opens nothing:
+    - its button takes focus and the attention ring (`--attention` on `--card`, a new contrast
+      pair);
+    - its reason stays showing until focus leaves;
+    - `notify.warn` repeats the reason.
+- **Proof.**
+  - `open-intent.test.ts`, plus 4 new `commands.test.ts` cases against captured payloads
+    (8000000174 is refused with the button's own words). `npm test` passes 3461.
+  - Typecheck, lint (all four gates, 168 contrast pairs) and build are clean.
+  - Drives, run in light/ltr, dark/ltr and light/rtl with the network stubbed:
+    - `document-actions-drive` 67/67 and `deliveries-list-drive` 362/362. They cover: R opens
+      Reschedule; C on 8000000174 rings and toasts with no dialog; reload, Back and Forward never
+      re-open; the inspector buttons with the mouse; the status bar and empty states over the grid.
+    - Re-run without regressions: `command-palette-drive` 366/366, `grid-theme-drive` 125/125,
+      `document-detail-drive` 39/39.
+    - `foundation-drive` passes 1294/1302 and `document-rtl-drive` 52/53. Their failures are
+      baseline failures that also fail at HEAD.
+- **Outstanding (not AFK's):**
+  - the owner's live S4 sign-off (at 405);
+  - any check against a live SIS.Api;
+  - a human eye on Arabic rendering.

@@ -60,3 +60,5 @@ tools/.ua-scale-shots/
 
 # Deliveries list drive screenshots (tools/deliveries-list-drive.mjs, spec 380 S3)
 tools/.deliveries-list-shots/
+# Action-bar drive screenshots (tools/document-actions-drive.mjs, ticket 401)
+tools/.document-actions-shots/

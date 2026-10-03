@@ -175,6 +175,9 @@ const positives = [
     ['--primary', s, UI],
     ['--attention', s, UI],
   ]),
+  // Delivery details' command bar (ticket 401, D9): the attention ring on the button an arriving
+  // intent was refused on is the only signal of WHICH button, a graphic on the bar's `--card`.
+  ['--attention', '--card', UI],
   // R4's whole point: each `-800` is legible on its own `-050`, in BOTH themes,
   // from ONE class string. This is what lets the sweep delete every `dark:`.
   ...['primary', 'success', 'attention', 'danger', 'prescription', 'post'].map((f) => [

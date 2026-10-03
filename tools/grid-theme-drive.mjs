@@ -579,22 +579,19 @@ async function driveDeliveries({ theme, dir }) {
   }
   await page.screenshot({ path: `${SHOTS}/deliveries-${theme}-${dir}.png` })
 
-  // 6. the failed-jobs cellStyle pair — on a fresh load, which also drops the
-  //    pin and the control style.
+  // 6. the failed-jobs pair — on a fresh load, which also drops the pin and the control style.
+  //    Since 401 (L10) it is a count pill in the cell, not the cell's own fill.
   await loadDeliveries(page)
   const cell = await page.evaluate(() => {
-    for (const el of document.querySelectorAll('.ag-cell')) {
-      if (el.style.backgroundColor) {
-        const s = getComputedStyle(el)
-        return { inline: el.style.backgroundColor, bg: s.backgroundColor, ink: s.color }
-      }
-    }
-    return null
+    const pill = [...document.querySelectorAll('[data-failed-jobs]')].find((el) => el.getAttribute('data-failed-jobs') !== '0')
+    if (!pill) return null
+    const s = getComputedStyle(pill)
+    return { count: pill.textContent, bg: s.backgroundColor, ink: s.color }
   })
   check(
-    `${label}: failed-jobs cell is --danger ground with --primary-foreground ink`,
+    `${label}: the failed-jobs pill is --danger ground with --primary-foreground ink`,
     cell?.bg === want.danger && cell?.ink === want.primaryForeground,
-    `${cell?.inline} → ${cell?.bg} / ${cell?.ink}`,
+    `${cell?.count} → ${cell?.bg} / ${cell?.ink}`,
   )
 
   // 7. the bar mirrors. AG Grid writes its own `direction` onto the grid root

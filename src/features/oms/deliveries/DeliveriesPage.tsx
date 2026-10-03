@@ -15,6 +15,7 @@ import type {
   GridReadyEvent,
   IRowNode,
   ModelUpdatedEvent,
+  OverlayType,
   RowDoubleClickedEvent,
   SelectionChangedEvent,
   StateUpdatedEvent,
@@ -27,11 +28,14 @@ import { apiErrorMessage } from '@/core/api'
 import { useCommands } from '@/core/commands/registry'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
+import { openIntentState, type OpenIntent } from '@/core/oms/open-intent'
 import { useSession } from '@/core/session'
 import { fsi } from '@/core/util/bidi'
 import { deliveriesApi } from './api'
 import { buildDeliveryColumns, DELIVERY_DEFAULT_COL_DEF, DELIVERY_ROW_SELECTION } from './columns'
+import { DELIVERY_ACTS } from './acts'
 import DeliveryInspector from './DeliveryInspector'
+import EmptyOverlay, { type EmptyKind } from './EmptyOverlay'
 import { effectiveLimit, type DeliveryFilterCriteria } from './filter'
 import GridToolbar, { InspectorToggle, RowSummary } from './GridToolbar'
 import { detailsPathOf } from './inspector-model'
@@ -67,6 +71,7 @@ import {
   type ViewSnapshot,
 } from './saved-views'
 import { deliveryRowKey, useDeliverySearch } from './search-store'
+import StatusBar from './StatusBar'
 import { useSavedViews } from './view-store'
 import ViewNameDialog, { type ViewNameMode } from './ViewNameDialog'
 import ViewsRail, { LENS_ICON } from './ViewsRail'
@@ -179,6 +184,9 @@ export default function DeliveriesPage() {
     retry: false,
   })
   const canOpenList = access.data?.canOpenList === true
+  // The acts deep-link to Delivery details, so the list offers them only to a session that may
+  // open it (365 §5: a letter is bound only if the list offers that act).
+  const canOpenDetail = access.data?.canOpenDetail === true
 
   // The latest search's number. A view applied while a search runs starts its own search, and
   // the earlier one's answer, if it lands later, is dropped rather than shown under the view.
@@ -274,6 +282,18 @@ export default function DeliveriesPage() {
     [openRow],
   )
 
+  /**
+   * R / C / N and the inspector's act rows (367 §3): Delivery details for the current row, with
+   * the act's dialog to open there through its own gate. Nothing posts from the list.
+   */
+  const openAct = useCallback(
+    (row: DeliveryDocumentModel, intent: OpenIntent) => {
+      const to = detailsPathOf(row)
+      if (to) navigate(to, { state: openIntentState(intent) })
+    },
+    [navigate],
+  )
+
   const onRowDoubleClicked = useCallback(
     (event: RowDoubleClickedEvent<DeliveryDocumentModel>) => openRow(event.data),
     [openRow],
@@ -324,6 +344,9 @@ export default function DeliveriesPage() {
     search.mutate({ seq: ++latestSearch.current, query, criteria: toFilterCriteria(query, new Date()) })
   }
   const hasRows = (rows?.length ?? 0) > 0
+  // The rows the grid shows: a failed re-search keeps the old rows in the store but unmounts the
+  // grid, so J/K have nothing to step through.
+  const steppable = gridApi !== null && hasRows && !error
 
   /** The grid, if one is mounted: a failed search unmounts it and leaves its API destroyed. */
   const liveGrid = () => (gridApi && !gridApi.isDestroyed() ? gridApi : null)
@@ -454,7 +477,7 @@ export default function DeliveriesPage() {
             label: 'deliveries:inspector.nextRow',
             keys: NEXT_ROW_KEYS,
             hidden: true,
-            run: gridApi && hasRows ? () => stepRow(gridApi, 1) : null,
+            run: steppable ? () => stepRow(gridApi, 1) : null,
             reason: 'deliveries:inspector.noRows',
           },
           {
@@ -462,7 +485,7 @@ export default function DeliveriesPage() {
             label: 'deliveries:inspector.previousRow',
             keys: PREVIOUS_ROW_KEYS,
             hidden: true,
-            run: gridApi && hasRows ? () => stepRow(gridApi, -1) : null,
+            run: steppable ? () => stepRow(gridApi, -1) : null,
             reason: 'deliveries:inspector.noRows',
           },
           // `/` focuses the query bar (365 §5); the key layer prevents the press, so Firefox's
@@ -474,6 +497,18 @@ export default function DeliveriesPage() {
             keys: QUERY_FOCUS_KEYS,
             run: () => addFilterRef.current?.focus(),
           },
+          // R / C / N: deep links, never writes (365 §4). Refused with its reason until a row
+          // with a delivery no. is current.
+          ...(canOpenDetail
+            ? DELIVERY_ACTS.map(({ intent, keys, icon }) => ({
+                id: `act.${intent}`,
+                label: `deliveries:inspector.act.${intent}`,
+                icon,
+                keys,
+                run: selectedRow && detailsPathOf(selectedRow) ? () => openAct(selectedRow, intent) : null,
+                reason: selectedRow ? 'deliveries:inspector.noDeliveryNo' : 'deliveries:inspector.act.noRow',
+              }))
+            : []),
           {
             id: 'inspector.toggle',
             label: inspector.open ? 'deliveries:inspector.hide' : 'deliveries:inspector.show',
@@ -535,6 +570,10 @@ export default function DeliveriesPage() {
   const showResults = rows !== null && !error
   const pill = rowPill(loaded, lens, { displayed: displayed.count, columnFiltered: displayed.columnFiltered })
   const lensEmpty = lensIsEmpty(loaded, lens)
+  // What the empty grid says, over the grid (L10): no search yet, no rows, none in this lens.
+  const empty: EmptyKind | null =
+    // Not "no search yet" while the first one runs: the grid bar says it is searching.
+    rows === null ? (search.isPending ? null : 'before') : rows.length === 0 ? 'none' : lensEmpty ? 'lens' : null
 
   return (
     <div className="flex">
@@ -609,48 +648,39 @@ export default function DeliveriesPage() {
               <p className="text-muted-foreground">{error}</p>
             </div>
           </div>
-        ) : rows === null ? (
-          <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border bg-muted/40 p-10 text-sm text-muted-foreground">
-            <Search className="h-5 w-5" aria-hidden />
-            <p>{t('emptyPrompt')}</p>
-          </div>
         ) : (
-          // Prior rows stay visible while a re-search runs — the grid is not torn down.
-          <div className="relative h-[calc(100vh-16rem)] min-h-96">
-            <AgGridReact<DeliveryDocumentModel>
-              theme={omsGridTheme}
-              rowData={rows}
-              columnDefs={columns}
-              defaultColDef={DELIVERY_DEFAULT_COL_DEF}
-              rowSelection={DELIVERY_ROW_SELECTION}
-              rowHeight={OMS_GRID_ROW_HEIGHT}
-              headerHeight={OMS_GRID_HEADER_HEIGHT}
-              tooltipShowDelay={500}
-              animateRows={false}
-              onGridReady={onGridReady}
-              onFirstDataRendered={onFirstDataRendered}
-              onStateUpdated={onStateUpdated}
-              onSelectionChanged={onSelectionChanged}
-              onCellFocused={onCellFocused}
-              onCellKeyDown={onCellKeyDown}
-              onRowDoubleClicked={onRowDoubleClicked}
-              onModelUpdated={onModelUpdated}
-              isExternalFilterPresent={isExternalFilterPresent}
-              doesExternalFilterPass={doesExternalFilterPass}
-              // The lens's own empty state stands in for the grid's "no matching rows".
-              suppressOverlays={lensEmpty ? ['noMatchingRows'] : undefined}
-            />
-            {lensEmpty && (
-              // Over the grid, which stays mounted under it (368 §1).
-              <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center px-4">
-                <p
-                  className="rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground"
-                  data-lens-empty=""
-                >
-                  {t('lens.empty')}
-                </p>
-              </div>
-            )}
+          // The grid stays mounted under its empty states, which overlay it (368 §1): layout
+          // restore, a saved view's columns and J/K need its API before any rows come back. Prior
+          // rows stay visible while a re-search runs.
+          <div className="flex flex-col gap-1">
+            <div className="relative h-[calc(100vh-17.75rem)] min-h-96">
+              <AgGridReact<DeliveryDocumentModel>
+                theme={omsGridTheme}
+                rowData={rows ?? NO_ROWS}
+                columnDefs={columns}
+                defaultColDef={DELIVERY_DEFAULT_COL_DEF}
+                rowSelection={DELIVERY_ROW_SELECTION}
+                rowHeight={OMS_GRID_ROW_HEIGHT}
+                headerHeight={OMS_GRID_HEADER_HEIGHT}
+                tooltipShowDelay={500}
+                animateRows={false}
+                onGridReady={onGridReady}
+                onFirstDataRendered={onFirstDataRendered}
+                onStateUpdated={onStateUpdated}
+                onSelectionChanged={onSelectionChanged}
+                onCellFocused={onCellFocused}
+                onCellKeyDown={onCellKeyDown}
+                onRowDoubleClicked={onRowDoubleClicked}
+                onModelUpdated={onModelUpdated}
+                isExternalFilterPresent={isExternalFilterPresent}
+                doesExternalFilterPass={doesExternalFilterPass}
+                // Our own empty states stand in for the grid's "no rows" and, under a lens, its
+                // "no matching rows"; a column filter that hides every row keeps the grid's own.
+                suppressOverlays={lensEmpty ? GRID_OVERLAYS_UNDER_LENS : GRID_OVERLAYS}
+              />
+              {empty && <EmptyOverlay kind={empty} />}
+            </div>
+            <StatusBar loaded={loaded} selected={selectedRow !== null} actsOffered={canOpenDetail} />
           </div>
         )}
       </section>
@@ -662,6 +692,7 @@ export default function DeliveriesPage() {
           onWidth={(width) => setInspector((prefs) => ({ ...prefs, width }))}
           onCollapse={toggleInspector}
           onOpen={(to) => navigate(to)}
+          onAct={canOpenDetail && selectedRow ? (intent) => openAct(selectedRow, intent) : null}
           // Flush with the screen's inline-end and bottom edges, under the 44px top bar.
           className="sticky top-11 -my-4 -me-4 ms-4 h-[calc(100dvh-2.75rem)] self-start"
         />
@@ -676,6 +707,11 @@ export default function DeliveriesPage() {
     </div>
   )
 }
+
+/** An empty grid before any search: one array, so the grid sees no new data on a re-render. */
+const NO_ROWS: DeliveryDocumentModel[] = []
+const GRID_OVERLAYS: OverlayType[] = ['loading', 'noRows']
+const GRID_OVERLAYS_UNDER_LENS: OverlayType[] = ['loading', 'noRows', 'noMatchingRows']
 
 /** The remembered pane, read defensively (367 §4): anything malformed reads as 360, open. */
 function readInspectorPrefs(): InspectorPrefs {

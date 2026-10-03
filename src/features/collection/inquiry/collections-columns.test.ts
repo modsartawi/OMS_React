@@ -258,8 +258,8 @@ describe('finance’s sheet', () => {
       'surplus',
       'netCollected',
       'collectorOperatorId',
-      // Ticket 314's Profit Center (Store), after the sheet's nine.
-      'storeText',
+      // The raw profit center, after the sheet's nine — the store code is already third.
+      'profitCenter',
     ])
     expect(buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)).toEqual([...DEFAULT_FIELDS])
   })
@@ -275,7 +275,7 @@ describe('finance’s sheet', () => {
       'collections.moneyHeader|{"label":"collections.columns.surplus","currency":"SAR"}',
       'collections.moneyHeader|{"label":"collections.columns.netCollected","currency":"SAR"}',
       'collections.columns.collectorOperatorId',
-      'collections.columns.storeText',
+      'collections.columns.profitCenter',
     ])
   })
 
@@ -464,35 +464,35 @@ describe('the Business date column', () => {
   })
 })
 
-// Ticket 314 (BackOffice 1990): the Profit Center (Store) column renders the
-// server's `storeText` exactly as sent — `PH-019 (P019)`, or the code alone — and
-// the raw `profitCenter` folds into the tail. Nothing is composed here.
+// The landing grid's Profit Center is the raw `profitCenter` (`PH-019`), as sent:
+// the store code is already the third column, so ticket 314's composed `storeText`
+// (`PH-019 (P019)`) folds into the tail (owner's call, 2026-10-03).
 describe('the profit center column', () => {
   const find = (colId: string, showMore = false) =>
     buildCollectionsColumns(t, [ROW], showMore).find((c) => c.colId === colId)
 
   it('is on the DEFAULT grid, right after finance’s nine', () => {
     const ids = buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)
-    expect(ids.indexOf('storeText')).toBe(9)
+    expect(ids.indexOf('profitCenter')).toBe(9)
     expect(ids).toHaveLength(10)
   })
 
-  it('reads storeText with a t() header, and no formatter of its own', () => {
-    const column = find('storeText')
-    expect(column?.field).toBe('storeText')
-    expect(column?.headerName).toBe('collections.columns.storeText')
-    // 🚩 As sent: a valueFormatter here would be the client composing the text.
+  it('reads the raw profitCenter with a t() header, and no formatter of its own', () => {
+    const column = find('profitCenter')
+    expect(column?.field).toBe('profitCenter')
+    expect(column?.headerName).toBe('collections.columns.profitCenter')
+    // 🚩 As sent: no store code appended, nothing composed client-side.
     expect(column?.valueFormatter).toBeUndefined()
     expect(column?.valueGetter).toBeUndefined()
   })
 
-  it('folds the raw profit center into the tail, not onto the landing grid', () => {
-    expect(MORE_FIELDS).toContain('profitCenter')
-    expect(buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)).not.toContain('profitCenter')
-    const raw = find('profitCenter', true)
-    expect(raw?.field).toBe('profitCenter')
-    expect(raw?.headerName).toBe('collections.columns.profitCenter')
-    expect(raw?.valueFormatter).toBeUndefined()
+  it('folds the composed storeText into the tail, not onto the landing grid', () => {
+    expect(MORE_FIELDS).toContain('storeText')
+    expect(buildCollectionsColumns(t, [ROW], false).map((c) => c.colId)).not.toContain('storeText')
+    const composed = find('storeText', true)
+    expect(composed?.field).toBe('storeText')
+    expect(composed?.headerName).toBe('collections.columns.storeText')
+    expect(composed?.valueFormatter).toBeUndefined()
   })
 })
 

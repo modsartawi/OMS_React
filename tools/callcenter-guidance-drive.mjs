@@ -56,6 +56,11 @@
 //      opened by default, and counted in the top bar;
 //  16. it says it QUALIFIED and is waiting for a reward product, and nowhere in
 //      the region does it say *needs a coupon* or *already counted*.
+// And ticket 414's, over the same fragment:
+//  17. one row per reward arm, in armId order, each with its OWN discount
+//      (`20% off` on 500061, `10 off` on 500062 — never `10.00`);
+//  18. the link header says *Add any one*, and the card states that SS222 is
+//      already spent on this order, with no control beside it.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -589,6 +594,45 @@ async function run() {
       'and it is not filed as already counted',
       (await page.locator(`[data-cc-counted-item="${SHORTFALL.offerId}"]`).count()) === 0 &&
         (await page.locator('[data-cc-guidance-needs-coupon]').count()) === 0,
+    )
+    // ---- 17, 18. ticket 414: the arms, the link, the spent coupon ----
+    const arms = await page.locator(`${card} [data-cc-reward-arm]`).evaluateAll((rows) =>
+      rows.map((row) => ({
+        armId: row.getAttribute('data-cc-reward-arm'),
+        subject: row.querySelector('[data-cc-reward-subject]')?.textContent ?? '',
+        gives: row.querySelector('[data-cc-reward-gives]')?.textContent ?? '',
+        state: row.getAttribute('data-cc-reward-arm-state'),
+      })),
+    )
+    check(
+      'each reward arm is its own row, in armId order',
+      arms.map((a) => a.armId).join(',') === '1,2' &&
+        /500061/.test(arms[0]?.subject) &&
+        /500062/.test(arms[1]?.subject),
+      JSON.stringify(arms),
+    )
+    check(
+      'each arm carries its OWN discount — 20% on one, 10 off the other',
+      arms[0]?.gives === '20% off' && arms[1]?.gives === '10 off',
+      arms.map((a) => a.gives).join(' | '),
+    )
+    check('neither arm is met — the basket holds neither', arms.every((a) => a.state === 'waiting'))
+    const link = await text(page, `${card} [data-cc-reward-link]`)
+    check('the link header says "Add any one" (OR)', link === 'Add any one', link)
+    const spent = await text(page, `${card} [data-cc-coupon-spent]`)
+    check(
+      '🚩 it says SS222 is already spent on this order and gives nothing until a reward is added',
+      /SS222/.test(spent) && /already spent on this order/i.test(spent) && /nothing until a reward product/i.test(spent),
+      spent,
+    )
+    check(
+      'the spent line is a statement — no control rides on it',
+      (await page.locator(`${card} [data-cc-coupon-spent] button, ${card} [data-cc-coupon-spent] a`).count()) === 0,
+    )
+    if (process.env.DRIVE_SHOTS) await page.locator('[data-cc-guidance]').screenshot({ path: `${process.env.DRIVE_SHOTS}/414-shortfall-card.png` })
+    check(
+      "and no add yet — the one-click add is 415's",
+      (await page.locator(`${card} [data-cc-qualifying-add]`).count()) === 0,
     )
     check(
       'no meter and no "add N more" — its buy side is complete',

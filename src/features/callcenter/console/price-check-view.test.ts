@@ -80,7 +80,7 @@ const offersRegionFigures = (panel: PriceCheckPanel): string[] => {
     say(offer.reason),
     ...Object.values(offer.definition?.params ?? {}).map(String),
     ...Object.values(offer.set?.params ?? {}).map(String),
-    String(offer.shortfall),
+    String(offer.stillNeeded),
     ...(offer.progress ? [String(offer.progress.have), String(offer.progress.need)] : []),
   ])
 }

@@ -51,12 +51,12 @@ describe('nearMissesSortIntoThreeClasses', () => {
 
   it('gives the actionable class its action and nothing else one', () => {
     // The delta is what the agent DOES. `counted` and `unavailable` carry no
-    // shortfall and no set statement at all — there is nothing to add, and a
+    // delta and no set statement at all — there is nothing to add, and a
     // card that offered one would be an action against a decision already made.
-    expect(card(view, 'BBY-5510').shortfall).toBe(1)
-    expect(card(view, 'BBY-5602').shortfall).toBe(0)
+    expect(card(view, 'BBY-5510').stillNeeded).toBe(1)
+    expect(card(view, 'BBY-5602').stillNeeded).toBe(0)
     expect(card(view, 'BBY-5602').set).toBeNull()
-    expect(card(view, 'BBY-6120').shortfall).toBe(0)
+    expect(card(view, 'BBY-6120').stillNeeded).toBe(0)
     expect(card(view, 'BBY-6120').set).toBeNull()
   })
 
@@ -200,9 +200,47 @@ describe('noFigureInTheRegionIsFormattedAsMoney', () => {
     ...Object.values(card.definition?.params ?? {}).map(String),
     ...Object.values(card.set?.params ?? {}).map(String),
     ...Object.values(card.reason?.params ?? {}).map(String),
-    String(card.shortfall),
+    String(card.stillNeeded),
     ...(card.progress ? [String(card.progress.have), String(card.progress.need)] : []),
+    // Ticket 414 — the shortfall card's own phrases: every arm's subject and
+    // discount, the link header and the coupon-spent line, as params AND as the
+    // words they resolve to.
+    ...card.arms.flatMap((arm) => [
+      ...Object.values(arm.subject.params).map(String),
+      ...Object.values(arm.discount?.params ?? {}).map(String),
+      say(arm.subject) ?? '',
+      say(arm.discount) ?? '',
+    ]),
+    ...[card.rewardLink, card.spentCoupons].flatMap((phrase) => [
+      ...Object.values(phrase?.params ?? {}).map(String),
+      say(phrase) ?? '',
+    ]),
   ]
+
+  /** A phrase resolves to a sentence; the guard is about its FIGURES. */
+  const figuresIn = (texts: string[]): string[] =>
+    texts.flatMap((text) => text.match(/(?:SAR|SR)\s*[\d.]+|[\d.]+\s*(?:SAR|SR)\b|\d+(?:\.\d+)?/g) ?? [])
+
+  it('produces no money-shaped figure over the reward arms — a fixed-discount arm included (414)', () => {
+    // 🚩 Staging's arm 2 is `R 10` — the shape that once rendered `10.00 SAR`.
+    // It must stay a definition phrase: `10 off`, never a money-shaped figure.
+    const shortfall = guidanceView([GET_SHORTFALL]).cards[0]
+    expect(shortfall.arms).toHaveLength(2)
+    expect(say(shortfall.arms[1].discount)).toBe('10 off')
+    for (const figure of figuresIn(produced(shortfall))) expect(MONEY_SHAPED(figure), figure).toBe(false)
+    // …and the same with a set-price arm and a grouping arm, the other two
+    // shapes that carry a figure of their own.
+    const varied = guidanceView([
+      {
+        ...GET_SHORTFALL,
+        rewards: [
+          { armId: '1', kind: 'grouping', groupingId: 'G-1', eligibleCount: 42, have: 0, need: 1, discount: { discountType: 'P', value: 29.95, quantity: 2 } },
+          { armId: '2', kind: 'material', materialNumber: '500062', have: 0, need: 2, discount: { discountType: 'R', value: 30 } },
+        ],
+      },
+    ]).cards[0]
+    for (const figure of figuresIn(produced(varied))) expect(MONEY_SHAPED(figure), figure).toBe(false)
+  })
 
   it('recognises the shape it is guarding against', () => {
     // The guard's own self-test: a rule this narrow is worthless if it quietly
@@ -235,11 +273,16 @@ describe('noFigureInTheRegionIsFormattedAsMoney', () => {
 
   it('exposes no savings total anywhere — there is no field to read one from', () => {
     // The strong form: over the whole view model, the ONLY numbers are the
-    // meter's counts, the shortfall and the eligible population. `wouldSave`
+    // meter's counts, the delta still needed and the eligible population. `wouldSave`
     // does not exist on the wire and no client-side equivalent may replace it
     // (spec 574 US26), so a future caller must not find a field to print.
-    const allowed = new Set(['have', 'need', 'shortfall', 'count', 'eligible'])
-    for (const c of guidanceView([...NEAR_MISS_CLASSES, miss({ discount: { discountType: '%', value: 20 } })]).cards) {
+    const allowed = new Set(['have', 'need', 'stillNeeded', 'count', 'eligible'])
+    // GET_SHORTFALL brings the reward arms under the same walk (414, W10).
+    for (const c of guidanceView([
+      ...NEAR_MISS_CLASSES,
+      miss({ discount: { discountType: '%', value: 20 } }),
+      GET_SHORTFALL,
+    ]).cards) {
       for (const [key] of numbersIn(c)) expect(allowed.has(key), `numeric field ${key}`).toBe(true)
       expect(JSON.stringify(c)).not.toMatch(/save|saving|total/i)
     }
@@ -415,7 +458,7 @@ describe('theStripHoldsAgainstTheWireAsItActuallyIs', () => {
     for (const c of view.cards)
       for (const figure of [
         ...Object.values(c.set?.params ?? {}).map(String),
-        String(c.shortfall),
+        String(c.stillNeeded),
         ...(c.progress ? [String(c.progress.have), String(c.progress.need)] : []),
       ])
         expect(/(?:SAR|SR)\s*\d|\d\s*(?:SAR|SR)\b/.test(figure), figure).toBe(false)
@@ -524,7 +567,7 @@ describe('aShortfallIsDrawnAsQualifiedWhateverItsReadyFlagSays', () => {
     expect(words).not.toMatch(/already counted|needs? a coupon|ready/i)
     // No action of the prerequisite's: the buy side is complete, so a delta or a
     // set statement would read as *more of the prerequisite*.
-    expect(shortfall.shortfall).toBe(0)
+    expect(shortfall.stillNeeded).toBe(0)
     expect(shortfall.set).toBeNull()
     expect(shortfall.eligible).toBeNull()
     expect(shortfall.reason).toBeNull()
@@ -637,5 +680,145 @@ describe('shortfallCardsRankFirstAndCount', () => {
     expect(view.openByDefault).toBe('000100000803')
     // …and falls back to the actionable rule where there is none.
     expect(guidanceView([ACTIONABLE, COUNTED]).openByDefault).toBe('BBY-5510')
+  })
+})
+
+/**
+ * Ticket 414 — the shortfall card names what the reward is waiting for: one row
+ * per reward arm with that arm's OWN discount, the get-side link, and the coupon
+ * the order has already spent on it.
+ *
+ * Corpus: `GET_SHORTFALL`, staging's bonus buy 803 — arms `500061` (20%) OR
+ * `500062` (10 off), neither in the basket, coupon `SS222` spent.
+ */
+describe('eachRewardArmIsItsOwnRowWithItsOwnDiscount', () => {
+  const arm = (over: Partial<NonNullable<NearMiss['rewards']>[number]>) => ({
+    armId: '1',
+    kind: 'material',
+    materialNumber: '500061',
+    have: 0,
+    need: 1,
+    discount: { discountType: '%', value: 20 },
+    ...over,
+  })
+  const withArms = (rewards: NonNullable<NearMiss['rewards']>) => guidanceView([{ ...GET_SHORTFALL, rewards }]).cards[0]
+
+  it('draws the staging fixture as two rows in armId order, each with its own discount', () => {
+    const { arms } = guidanceView([GET_SHORTFALL]).cards[0]
+    expect(arms.map((a) => a.armId)).toEqual(['1', '2'])
+    expect(arms.map((a) => say(a.subject))).toEqual(['Item 500061', 'Item 500062'])
+    expect(arms.map((a) => say(a.discount))).toEqual(['20% off', '10 off'])
+    expect(arms.map((a) => a.met)).toEqual([false, false])
+  })
+
+  it('orders by armId, not by the wire’s order — and numerically', () => {
+    const arms = withArms([arm({ armId: '10' }), arm({ armId: '2' }), arm({ armId: '1' })]).arms
+    expect(arms.map((a) => a.armId)).toEqual(['1', '2', '10'])
+  })
+
+  it('reads a grouping arm as a set — any 1 of N — never as one item', () => {
+    const [grouping] = withArms([arm({ kind: 'grouping', materialNumber: undefined, groupingId: 'G-77', eligibleCount: 42 })]).arms
+    expect(say(grouping.subject)).toMatch(/any 1\b/)
+    expect(say(grouping.subject)).toMatch(/42/)
+    // No population on the wire ⇒ the set phrase without one, never a guessed N.
+    const [bare] = withArms([arm({ kind: 'grouping', materialNumber: undefined, groupingId: 'G-77' })]).arms
+    expect(say(bare.subject)).toMatch(/any 1\b/)
+    expect(say(bare.subject)).not.toMatch(/qualify/)
+  })
+
+  it('counts a material arm that needs more than one', () => {
+    const [two] = withArms([arm({ need: 2 })]).arms
+    expect(say(two.subject)).toMatch(/2/)
+    expect(say(two.subject)).toMatch(/500061/)
+  })
+
+  it('never marks an arm met on a requirement the wire did not state', () => {
+    const arms = withArms([arm({ armId: '1', have: 1, need: 0 }), arm({ armId: '2', have: 1, need: undefined as unknown as number })]).arms
+    expect(arms.map((a) => a.met)).toEqual([false, false])
+  })
+
+  it('marks an arm met when have ≥ need, and only then', () => {
+    const arms = withArms([arm({ armId: '1', have: 1, need: 1 }), arm({ armId: '2', have: 3, need: 2 }), arm({ armId: '3', have: 1, need: 2 })]).arms
+    expect(arms.map((a) => a.met)).toEqual([true, true, false])
+  })
+
+  it('an arm with no discount the rule can word still names its product', () => {
+    const [plain] = withArms([arm({ discount: null })]).arms
+    expect(plain.discount).toBeNull()
+    expect(say(plain.subject)).toBe('Item 500061')
+  })
+
+  it('an arm of unknown kind names nothing it cannot say (W11)', () => {
+    const [unknown] = withArms([arm({ kind: 'hierarchy', materialNumber: '500061', groupingId: 'H-1' })]).arms
+    const words = say(unknown.subject) ?? ''
+    expect(words).not.toMatch(/500061|H-1|hierarchy/)
+    expect(words).toMatch(/reward product/i)
+    // A material arm the wire named no material for is the same case.
+    const [nameless] = withArms([arm({ materialNumber: undefined })]).arms
+    expect(say(nameless.subject)).toBe(words)
+  })
+
+  it('draws no arms where the wire sent none, nor on any other class', () => {
+    expect(guidanceView([{ ...GET_SHORTFALL, rewards: undefined }]).cards[0].arms).toEqual([])
+    for (const c of guidanceView([...NEAR_MISS_CLASSES, ...NEAR_MISSES]).cards) expect(c.arms).toEqual([])
+    // A skipped offer carrying arms is still not a shortfall, and draws none.
+    expect(guidanceView([{ ...GET_SHORTFALL, skipReason: 'ORIGIN_FILTERED' }]).cards[0].arms).toEqual([])
+  })
+})
+
+describe('theLinkAndTheSpentCouponAreStated', () => {
+  const shortfall = (over: Partial<NearMiss>) => guidanceView([{ ...GET_SHORTFALL, ...over }]).cards[0]
+
+  it('says *any one* under OR and *one of each* under AND', () => {
+    expect(say(shortfall({ rewardLink: 'any' }).rewardLink)).toBe('Add any one')
+    expect(say(shortfall({ rewardLink: 'each' }).rewardLink)).toBe('Add one of each')
+  })
+
+  it('draws no header when the wire omits the link, or sends one it does not know', () => {
+    expect(shortfall({ rewardLink: undefined }).rewardLink).toBeNull()
+    expect(shortfall({ rewardLink: 'some' as NearMiss['rewardLink'] }).rewardLink).toBeNull()
+  })
+
+  it('draws no header over no rows — a link between arms the card cannot show says nothing', () => {
+    expect(shortfall({ rewards: undefined }).rewardLink).toBeNull()
+    expect(shortfall({ rewards: [] }).rewardLink).toBeNull()
+  })
+
+  it('states the spent coupon by its code, and that it gives nothing until a reward product is added', () => {
+    const words = say(shortfall({}).spentCoupons) ?? ''
+    expect(words).toMatch(/SS222/)
+    expect(words).toMatch(/spent on this order/i)
+    expect(words).toMatch(/nothing until a reward product is added/i)
+  })
+
+  it('pluralises for two codes', () => {
+    const words = say(shortfall({ couponsSpent: ['SS222', 'AB777'] }).spentCoupons) ?? ''
+    expect(words).toMatch(/SS222/)
+    expect(words).toMatch(/AB777/)
+    expect(words).toMatch(/^Coupons /)
+    expect(words).toMatch(/\bare already spent/)
+    expect(say(shortfall({}).spentCoupons)).toMatch(/^Coupon SS222 is already spent/)
+  })
+
+  it('still states the spent coupon when the wire sent no arms — the coupon is spent either way', () => {
+    // 🚩 A ruling against the ticket's literal *413's statement only*: W7 is
+    // unconditional, and the coupon is the caller's loss (US11) arms or none.
+    const bare = shortfall({ rewards: undefined, rewardLink: undefined })
+    expect(bare.arms).toEqual([])
+    expect(bare.rewardLink).toBeNull()
+    expect(say(bare.spentCoupons)).toMatch(/SS222/)
+  })
+
+  it('has no line without couponsSpent — absent, empty, or blank codes', () => {
+    expect(shortfall({ couponsSpent: undefined }).spentCoupons).toBeNull()
+    expect(shortfall({ couponsSpent: [] }).spentCoupons).toBeNull()
+    expect(shortfall({ couponsSpent: ['', '  '] }).spentCoupons).toBeNull()
+  })
+
+  it('is said on no other class — a coupon line belongs to the shortfall card alone', () => {
+    for (const c of guidanceView([...NEAR_MISS_CLASSES, ...NEAR_MISSES]).cards) {
+      expect(c.rewardLink).toBeNull()
+      expect(c.spentCoupons).toBeNull()
+    }
   })
 })

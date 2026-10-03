@@ -28,7 +28,7 @@
  * classes, the order, the definition wording (161's, from `@/core/`), and the
  * skip-reason words. This file arranges them and owns no vocabulary of its own.
  */
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ExternalLink, Loader2, X } from 'lucide-react'
@@ -266,71 +266,116 @@ export default function GuidanceStrip({
  * sentences this state used to be drawn as (staging bonus buy 803, coupon
  * `SS222` redeemed and the strip still asking for a coupon). No meter and no
  * *add N more*: the buy side is complete, and a delta would read as more of the
- * prerequisite. The reward arms and their one-click add are 414's and 415's;
- * until then this IS the W11 degraded card, which claims nothing the wire did
- * not say.
+ * prerequisite.
+ *
+ * What it says instead (414) is what the reward is waiting for: the coupon the
+ * order has already spent on it, the get-side link, and one row per reward arm
+ * with that arm's OWN discount — so under OR the agent can steer the caller to
+ * the arm that gives more. The rows are statements, shown open or closed like
+ * the actionable card's set statement; resolving an arm's products and the
+ * one-click add are 415's. With no arms on the wire it is W11's degraded card:
+ * the qualified statement alone.
  */
 function ShortfallCard({ card, open, onToggle }: { card: GuidanceCard; open: boolean; onToggle: () => void }) {
   const { t } = useTranslation('callcenter')
   return (
-    <div
-      data-cc-card={card.offerId}
-      data-cc-card-class={card.klass}
-      data-cc-card-open={open ? 'open' : 'closed'}
-      className={`rounded-md border border-attention-border bg-card p-2.5 ${open ? 'col-span-2' : ''}`}
-    >
-      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2 text-start">
-        <span className="min-w-0 flex-1">
-          <Definition card={card} size="headline" />
-          {/* Server text, as on every card — demoted where a definition resolved. */}
-          <span
-            className={`block ${open ? '' : 'truncate'} ${card.definition ? 'text-xs text-muted-foreground' : ''}`}
-            data-cc-card-desc
-            data-cc-server-text
-          >
-            <Ltr>{card.description}</Ltr>
-          </span>
-        </span>
-        {/* The WAITING tone, never success: a tick here would read as *applied*,
-            and nothing has been given yet (spec 412: never *ready*). */}
+    <CardShell
+      card={card}
+      open={open}
+      onToggle={onToggle}
+      border="border-attention-border"
+      mark={
+        // The WAITING tone, never success: a tick here would read as *applied*,
+        // and nothing has been given yet (spec 412: never *ready*).
         <span className="shrink-0 text-[11px] font-medium text-attention-800" data-cc-card-mark>
           <span aria-hidden>◔ </span>
           {t('guidance.shortfall.mark')}
         </span>
-      </button>
-
+      }
+    >
       {card.qualified && (
         <p className="mt-1.5 text-xs text-foreground" data-cc-shortfall-statement>
           {t(card.qualified.key, card.qualified.params)}
         </p>
       )}
 
+      {/* 🚩 W7 — a STATEMENT, with no control. The code is spent at the coupon
+          service the moment it was applied; removing it stays at the coupon
+          chip, where the coupon's own rules are. */}
+      {card.spentCoupons && (
+        <p className={`mt-1.5 ${NOTE.attention}`} data-cc-coupon-spent>
+          {t(card.spentCoupons.key, card.spentCoupons.params)}
+        </p>
+      )}
+
+      {card.arms.length > 0 && (
+        <div className="mt-2 border-t border-divider pt-1.5" data-cc-reward-arms>
+          {card.rewardLink && (
+            <p className="text-[11px] font-medium text-foreground" data-cc-reward-link>
+              {t(card.rewardLink.key, card.rewardLink.params)}
+            </p>
+          )}
+          <ul className="divide-y divide-divider">
+            {card.arms.map((arm) => (
+              <li
+                key={arm.armId}
+                data-cc-reward-arm={arm.armId}
+                data-cc-reward-arm-state={arm.met ? 'met' : 'waiting'}
+                className="flex items-baseline gap-2 py-1 text-xs"
+              >
+                <span className="min-w-0 flex-1 truncate" data-cc-reward-subject>
+                  {t(arm.subject.key, arm.subject.params)}
+                </span>
+                {/* This arm's own definition — never a figure in money's shape. */}
+                {arm.discount && (
+                  <span className="shrink-0 font-semibold text-primary-800" data-cc-reward-gives>
+                    <Ltr>{t(arm.discount.key, arm.discount.params)}</Ltr>
+                  </span>
+                )}
+                {arm.met && (
+                  <span className="shrink-0 text-[11px] font-medium text-success-800" data-cc-reward-met>
+                    <span aria-hidden>✓ </span>
+                    {t('guidance.shortfall.armMet')}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {open && <BbyDetailsLink offerId={card.offerId} />}
-    </div>
+    </CardShell>
   )
 }
 
-/** The class whose action is an add of the prerequisite. */
-function Card({
+/**
+ * What every card in the within-reach grid shares: the frame, and the head that
+ * toggles it — the definition at headline size over the server's own words, and
+ * the class's mark. The body is the class's.
+ */
+function CardShell({
   card,
   open,
   onToggle,
-  transactionId,
-  actions,
+  border,
+  mark,
+  children,
 }: {
   card: GuidanceCard
   open: boolean
   onToggle: () => void
-  transactionId: string
-  actions: GuidanceActions
+  /** The class's border token — the frame is told apart by tone AND words. */
+  border: string
+  mark: ReactNode
+  children: ReactNode
 }) {
-  const { t } = useTranslation('callcenter')
   return (
     <div
       data-cc-card={card.offerId}
       data-cc-card-class={card.klass}
       data-cc-card-open={open ? 'open' : 'closed'}
-      className={`rounded-md border border-primary-border bg-card p-2.5 ${open ? 'col-span-2' : ''}`}
+      className={`rounded-md border ${border} bg-card p-2.5 ${open ? 'col-span-2' : ''}`}
     >
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2 text-start">
         <span className="min-w-0 flex-1">
@@ -351,17 +396,46 @@ function Card({
             <Ltr>{card.description}</Ltr>
           </span>
         </span>
+        {mark}
+      </button>
+      {children}
+    </div>
+  )
+}
+
+/** The class whose action is an add of the prerequisite. */
+function Card({
+  card,
+  open,
+  onToggle,
+  transactionId,
+  actions,
+}: {
+  card: GuidanceCard
+  open: boolean
+  onToggle: () => void
+  transactionId: string
+  actions: GuidanceActions
+}) {
+  const { t } = useTranslation('callcenter')
+  return (
+    <CardShell
+      card={card}
+      open={open}
+      onToggle={onToggle}
+      border="border-primary-border"
+      mark={
         <span className="shrink-0 text-[11px] font-medium text-primary-800" data-cc-card-mark>
           <span aria-hidden>○ </span>
           {t('guidance.withinReach')}
         </span>
-      </button>
-
+      }
+    >
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
         {card.progress && <Meter have={card.progress.have} need={card.progress.need} />}
-        {card.shortfall > 0 && (
+        {card.stillNeeded > 0 && (
           <span className="text-xs text-foreground" data-cc-delta>
-            {t('guidance.add', { count: card.shortfall })}
+            {t('guidance.add', { count: card.stillNeeded })}
           </span>
         )}
       </div>
@@ -383,7 +457,7 @@ function Card({
           (§3.3), which is the whole reason this endpoint is a second call. */}
       {open && <Qualifying card={card} transactionId={transactionId} actions={actions} />}
       {open && <BbyDetailsLink offerId={card.offerId} />}
-    </div>
+    </CardShell>
   )
 }
 

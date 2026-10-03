@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 412
 blocked-by: 413
 ---
@@ -37,15 +37,15 @@ rows) · i18n (`callcenter`) · test (vitest + guidance drive)
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `eachRewardArmIsItsOwnRowWithItsOwnDiscount` — the staging fixture yields two rows in `armId`
+- [x] `eachRewardArmIsItsOwnRowWithItsOwnDiscount` — the staging fixture yields two rows in `armId`
   order, 20% on `500061` and a fixed-discount phrase on `500062`; a grouping arm reads *any 1 of N*;
   `have ≥ need` marks an arm met · pure
-- [ ] `theLinkAndTheSpentCouponAreStated` — *any* under OR, *each* under AND, none when absent;
+- [x] `theLinkAndTheSpentCouponAreStated` — *any* under OR, *each* under AND, none when absent;
   the coupon-spent phrase carries `SS222`, pluralises for two codes, and is absent without
   `couponsSpent` · pure
-- [ ] `noFigureInTheRegionIsFormattedAsMoney` extended over the arm phrases (the existing guard, new
+- [x] `noFigureInTheRegionIsFormattedAsMoney` extended over the arm phrases (the existing guard, new
   inputs) · pure
-- [ ] Guidance drive leg: the card shows both arms with their discounts, *Add any one*, and the
+- [x] Guidance drive leg: the card shows both arms with their discounts, *Add any one*, and the
   *SS222 is spent* line · flow (Playwright drive)
 
 ## Boundaries
@@ -61,3 +61,55 @@ link header and the spent-coupon line on the staging fixture.
 ## Blocked by
 
 [413](413-a-get-side-shortfall-reads-as-qualified-and-waiting-above-every-other-card.md)
+
+## Comments
+
+**Done 2026-10-03.** Gates: `typecheck` · `lint` (3/3) · `npm test` 3185/3185 · `build` green. The two
+new describes and the extended money guard live in `guidance-view.test.ts`, and were run red first
+(20 failures) against 413's view model. The guidance drive is **124/125**: all 7 new 414 checks pass
+(both arms, in armId order, `20% off` / `10 off`, *Add any one*, the *SS222 is already spent* line with
+no control on it, no add yet). The one failure is the **pre-existing** stale `captured` assertion that
+413 recorded. `/code-review`: no findings. `/standards-review`: no hard violations, no blocking spec
+defects. The cheap findings were applied (see below).
+
+**As built:**
+
+- `GuidanceCard` gains three fields, all empty or null on every class but `shortfall`:
+  - `arms: RewardArm[]`, where a `RewardArm` is `{ armId, subject, discount, met }`;
+  - `rewardLink` (the header phrase);
+  - `spentCoupons` (the W7 phrase, with `{{codes}}` joined `, ` and `count` for the plural).
+- Arms are sorted by `armId`: numerically when both ids are numerals, as text otherwise.
+- Subjects:
+  - a material arm reads `Item 500061`, or `2 of item …` when `need` is above 1;
+  - a grouping arm reuses the prerequisite set phrase (`guidance.set` / `setCounted`) through a new
+    shared `setPhrase`;
+  - an unknown kind, or a material arm with no material, reads *A reward product* and still shows its
+    discount.
+- `met` is `have ≥ need`, and only when `need > 0`.
+- The rename and the extraction deferred from 413 are both done. The numeric `GuidanceCard.shortfall`
+  is now **`stillNeeded`** (also in `ItemPanel`'s price-check offers). `ShortfallCard` and `Card` now
+  share a `CardShell`.
+- New keys under `callcenter:guidance.shortfall.*`: `linkAny`, `linkEach`, `armItem_one/_other`,
+  `armUnknown`, `armMet`, `couponSpent_one/_other`.
+- The W10 example: the 161 rule words staging's `R 10` arm as **`10 off`**, not `10.00 off`. That is
+  correct, and both the test and the drive assert it. Don't "fix" it toward the ticket's example.
+
+🚩 **Rulings for the owner:**
+
+1. **The spent-coupon line still shows when `rewards` is absent.** That departs from this ticket's
+   literal *"absent `rewards` ⇒ 413's statement only"*. W7 is unconditional and W11 asks only for no rows
+   and no add. The coupon is the caller's loss either way (US11). Pinned by a test.
+2. **The link header is suppressed when there are no rows.** A link between arms the card cannot show
+   says nothing.
+3. **Arm rows are drawn on closed cards too.** They are statements, like the actionable card's set
+   statement. Resolving an arm stays on demand, in 415.
+4. **The grouping arm's wording** is the existing set phrase, *any 1 from this selection · 42 qualify*.
+   "Qualify" is buy-side wording, so this is a wording call.
+
+**Declined review findings:**
+
+- Grouping the four shortfall-only fields into one `reward: {…} | null` (Data Clumps). 415 adds the
+  per-arm add and resolution, so the card's shape is still moving. Revisit it then.
+- `Intl.ListFormat` for the codes separator. It matches `coupon-view.ts`'s own in-TS `join`. Pick it up
+  with the RTL retrofit, across both.
+

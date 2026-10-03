@@ -18,7 +18,8 @@
 > **v1.12** (proposed, server half unbuilt) makes a near-miss say when it qualified but its reward has
 > no product to land on — the **get-side shortfall**
 > ([412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md), additive — see
-> [§3.6](#36-getshortfall--qualified-and-waiting-for-a-reward-product-v112)).
+> [§3.6](#36-getshortfall--qualified-and-waiting-for-a-reward-product-v112)), and adds the on-demand
+> read of one reward arm's products ([§3.7](#37-resolvereward--one-reward-arms-products-v112)).
 > **This document is the single source of truth for both tracks.**
 > Client track: `oms-react` `features/callcenter/`. Server track: SIS.Api + `SIS.Pricing`
 > (BackOffice [785](C:\Work\DMSCO\BackOffice\.issues\785-web-cc-engine-session.md),
@@ -96,6 +97,7 @@ Everything below is a consequence of these. If an example and a law disagree, th
 | setOrderNote | `POST CallCenterWeb/SetOrderNote` | `{ transactionId, requestId, note \| null }` | `SessionState` |
 | getState | `GET CallCenterWeb/State` | `?transactionId=` | `SessionState` |
 | resolvePrereq | `GET CallCenterWeb/ResolvePrereq` | `?transactionId=&offerId=` | `PrereqResolution` |
+| resolveReward | `GET CallCenterWeb/ResolveReward` | `?transactionId=&offerId=&armId=` | `RewardResolution` (v1.12 proposed, [§3.7](#37-resolvereward--one-reward-arms-products-v112)) |
 | itemSearch | `GET CallCenterWeb/ItemSearch` | `?transactionId=&query=` | `ItemSearchResult` ([799](C:\Work\DMSCO\BackOffice\.issues\799-cc-item-search-endpoint.md)) |
 | priceCheck | `GET CallCenterWeb/PriceCheck` | `?transactionId=&itemNumber=` | `PriceCheckResult` (v1.6, [§3.4](#34-pricecheck--what-an-item-costs-without-adding-it)) |
 | stockElsewhere | `GET CallCenterWeb/StockElsewhere` | `?transactionId=&itemNumber=` | `StockElsewhereResult` (v1.7, [§3.5](#35-stockelsewhere--who-else-has-it-read-only)) |
@@ -765,6 +767,8 @@ GET CallCenterWeb/ResolvePrereq?transactionId=…&offerId=BBY-5510
   lives on the call-center door and reuses `Bby/GroupingMembers`' logic server-side.
 - **Never inline.** Resolving every near-miss on every add would pay a grouping expansion plus a
   stock read per keystroke to populate cards the agent mostly never opens.
+- Its get-side twin is [§3.7](#37-resolvereward--one-reward-arms-products-v112) `resolveReward`,
+  under the same rules.
 
 ### 3.4 `priceCheck` — what an item costs, without adding it
 
@@ -966,8 +970,49 @@ couponsSpent?: string[]                 // typed codes of this order's coupons w
   Absent `rewardLink` ⇒ no link header. An unknown arm `kind` ⇒ the row names nothing it cannot say and
   offers no add.
 
-The on-demand resolution of an arm's products is a separate read, added with its own amendment row
-when it is drawn ([415](../../415-one-click-on-a-reward-product-adds-it-and-the-card-gives-way-to-the-fired-promotion.md)).
+The on-demand resolution of an arm's products is a separate read, §3.7.
+
+### 3.7 `resolveReward` — one reward arm's products (v1.12)
+
+> **Proposed** ([412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md) W5,
+> drawn by [415](../../415-one-click-on-a-reward-product-adds-it-and-the-card-gives-way-to-the-fired-promotion.md)).
+> The server half is BackOffice ask **BO-2, not yet filed**; the console builds against a stub of
+> exactly this shape.
+
+```
+GET CallCenterWeb/ResolveReward?transactionId=…&offerId=000100000803&armId=2
+→ {
+    "offerId": "000100000803",
+    "armId": "2",
+    "reward": { "armId": "2", "kind": "material", "materialNumber": "500062",
+                "have": 0, "need": 1, "discount": { "discountType": "R", "value": 10 } },
+    "items": [
+      { "itemNumber": "500062", "description": "…", "description2": "…",
+        "estimatePriceExVat": 26.09, "atp": 14 }
+    ],
+    "truncated": false,
+    "topN": 3
+  }
+```
+
+- **`resolvePrereq`'s shape and rules, on the get side.** `armId` and a `reward` descriptor (the
+  near-miss's own `rewards[]` entry) take the place of `prereq`; `items` are the **same rows** as
+  §3.3's. On demand only, never inline. **Stock-filtered at the order's plant**, ranked, capped at the
+  server's `topN`; `atp: null` on a degraded stock read, never a non-200. A grouping arm resolves its
+  full set, as §3.3 requires of a grouping prerequisite.
+- **Not on `Bby/*`** — the call-center door only, like §3.3. It reuses the prerequisite resolver's core
+  (grouping expansion, plant stock filter, rank, cap) over a get-side condition's materials.
+- **Refusals:** exactly the codes `resolvePrereq` answers, including when the offer is no longer a
+  get-side shortfall on this order (it fired, or the basket moved). **No new error code.**
+- **A separate route, not a `side=` flag on `resolvePrereq`**, so each door's name stays true.
+- **Empty `items`** means the stock filter left nothing for this arm at this plant. The console says
+  *not available at this store*; it does not read it as "the arm has no products".
+- **The client's add** is the existing `addItem`: the row's `itemNumber` and the arm's remaining need
+  (`need − have`, at least 1), never a price. Nothing is optimistic: the next `SessionState` either
+  fires the offer (the near-miss is gone and `firedPromotions` carries the engine's money) or, under
+  `each`, shows the arm met.
+- **Keyed client-side by transaction, offer, arm and plant**, so a store change re-resolves at the new
+  plant rather than reusing the old one's stock.
 
 ---
 
@@ -1368,7 +1413,7 @@ The contract is **this document**, in `oms-react`, linked from every BackOffice 
 
 | 1.10 | 2026-07-29 | **The redeemed coupon gets a projection, a way off, and stops being offered as an add** ([2.7](#27-the-redeemed-coupon-v110)). New `header.coupons[]`; new `removeCoupon` verb; new `capabilities.canApplyCoupon` (= `canAddItem`'s predicate) and `canRemoveCoupon`; new code `COUPON_REVERSAL_REFUSED`; a fourth `nearMisses[].prereq.kind`, **`coupon`**. Two of the five are not drawings but holes: `applyCoupon` was the one verb on this contract with **no field to show its result**, and capture 02 shows the guidance strip already offering a **coupon SKU** as *add 1 more*, which qualifies the bonus buy while burning nothing. Neither the reversal ordering nor the redemption's plant stamping is new design - both are read off shipped code (issue 211, `Verbs.cs:287`). | **minor - additive** | [159](../../159-coupon-and-loyalty-signup-drawn.md) |
 
-| 1.12 | 2026-10-03 | **Proposed. A qualified offer whose reward has no target says so** ([§3.6](#36-getshortfall--qualified-and-waiting-for-a-reward-product-v112)). Four new optional near-miss fields — `getShortfall`, `rewardLink`, `rewards[]` (one per get-side condition, with per-arm `have`/`need` and discount definition), `couponsSpent[]` — and one rule: **`isReady` is false for a get-side shortfall**, so *ready* goes back to meaning only *qualified but out-ranked*. No new verb, no new code, no new capability. (v1.11, the linked sales request of [194](../../194-the-callers-open-request-becomes-the-order.md) / BackOffice 880, is carried in the models but has no row here.) Server half: BackOffice ask BO-1, **unfiled**; the console builds against a stub of exactly this shape. | **minor — additive** | [412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md) |
+| 1.12 | 2026-10-03 | **Proposed. A qualified offer whose reward has no target says so** ([§3.6](#36-getshortfall--qualified-and-waiting-for-a-reward-product-v112)). Four new optional near-miss fields — `getShortfall`, `rewardLink`, `rewards[]` (one per get-side condition, with per-arm `have`/`need` and discount definition), `couponsSpent[]` — and one rule: **`isReady` is false for a get-side shortfall**, so *ready* goes back to meaning only *qualified but out-ranked*. No new code and no new capability. **One new read** ([415](../../415-one-click-on-a-reward-product-adds-it-and-the-card-gives-way-to-the-fired-promotion.md), [§3.7](#37-resolvereward--one-reward-arms-products-v112)): `GET CallCenterWeb/ResolveReward?transactionId=&offerId=&armId=` → `{ offerId, armId, reward, items, truncated, topN }`, `resolvePrereq`'s rules over a get-side condition and its refusals; a client that never calls it is unchanged. Server half: BackOffice ask BO-2, **unfiled**. (v1.11, the linked sales request of [194](../../194-the-callers-open-request-becomes-the-order.md) / BackOffice 880, is carried in the models but has no row here.) Server half: BackOffice ask BO-1, **unfiled**; the console builds against a stub of exactly this shape. | **minor — additive** | [412](../../412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md) |
 
 **Why 1.12 and not 2.0.** Four new fields, all optional, and one changed *answer*: `isReady` is now
 `false` on a get-side shortfall. That reads like a changed meaning, and it is the opposite — v1.11's

@@ -134,7 +134,7 @@ export interface GuidanceCard {
 
 /** One reward arm of a get-side shortfall, as the card draws it. */
 export interface RewardArm {
-  /** The get-side condition's identity — what `ResolveReward` takes (415). */
+  /** The get-side condition's identity — what `ResolveReward` takes. */
   armId: string
   /** What the arm rewards: `Item 500061`, a grouping as *any 1 from this
    *  selection · 42 qualify*, or — for a kind this client does not know, or a
@@ -147,6 +147,11 @@ export interface RewardArm {
   /** `have ≥ need` — the arm's reward product is already in the basket. 🚩 A met
    *  arm never offers an add (415): a second unit would be a mistake (US21). */
   met: boolean
+  /** The quantity the one-click add asks for (W9): what the arm still needs,
+   *  `need − have`, at least 1 — never a price (law 1). `null` where the arm
+   *  offers no add and resolves no products: a met arm, or a kind this client
+   *  does not know (W11). */
+  addQty: number | null
 }
 
 export interface GuidanceView {
@@ -264,14 +269,22 @@ function armsOf(rewards: NearMissReward[] | null | undefined): RewardArm[] {
     .map((reward) => {
       const need = numberOrNull(reward.need)
       const have = numberOrNull(reward.have) ?? 0
+      const met = need !== null && need > 0 && have >= need
       return {
         armId: reward.armId,
         subject: armSubject(reward, need),
         discount: discountOf(reward.discount),
-        met: need !== null && need > 0 && have >= need,
+        met,
+        addQty: met || !ADDABLE_ARM_KINDS.includes(reward.kind) ? null : Math.max(1, (need ?? 1) - have),
       }
     })
 }
+
+/** The arm kinds `ResolveReward` resolves (W2). Anything else names nothing it
+ *  cannot say, and offers nothing it cannot add (W11). A material arm the wire
+ *  named no material for still offers its add: the read is addressed by
+ *  `armId`, so the server can list what the subject line cannot name. */
+const ADDABLE_ARM_KINDS: string[] = ['material', 'grouping']
 
 function compareArmIds(a: string, b: string): number {
   const numeral = /^\d+$/

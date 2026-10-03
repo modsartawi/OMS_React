@@ -36,12 +36,12 @@ import { apiErrorMessage } from '@/core/api'
 import { bbyDetailHref } from '@/core/bonus-buy/deep-link'
 import Ltr from '@/core/ui/Ltr'
 import type { AddOutcome, GuidanceAdd } from './add-outcome'
-import { callCenterApi, prereqKey } from './api'
+import { callCenterApi, prereqKey, rewardKey } from './api'
 import AvailabilityPill from './AvailabilityPill'
 import { NOTE } from './console-notes'
-import type { GuidanceCard, GuidanceView } from './guidance-view'
+import type { GuidanceCard, GuidanceView, RewardArm } from './guidance-view'
 import type { SearchRowView } from './item-search'
-import { prereqRows, restOfSet } from './prereq-view'
+import { prereqRows, restOfSet, rewardResolutionView } from './prereq-view'
 
 /**
  * The half of the guidance surface that DOES something (ticket 172) — the add,
@@ -72,12 +72,16 @@ export interface GuidanceActions {
 export default function GuidanceStrip({
   view,
   transactionId,
+  plant,
   actions,
 }: {
   view: GuidanceView
   /** Which order the qualifying items are resolved for — the set is ranked and
    *  ATP-filtered at THIS order's plant, server-side. */
   transactionId: string
+  /** The order's plant. A reward arm's products are keyed by it (spec 412 W12),
+   *  so a store change re-resolves rather than showing the old store's stock. */
+  plant: string
   actions: GuidanceActions
 }) {
   const { t } = useTranslation('callcenter')
@@ -143,6 +147,9 @@ export default function GuidanceStrip({
                     card={card}
                     open={open === card.cardId}
                     onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
+                    transactionId={transactionId}
+                    plant={plant}
+                    actions={actions}
                   />
                 ) : (
                   <Card
@@ -272,12 +279,38 @@ export default function GuidanceStrip({
  * order has already spent on it, the get-side link, and one row per reward arm
  * with that arm's OWN discount — so under OR the agent can steer the caller to
  * the arm that gives more. The rows are statements, shown open or closed like
- * the actionable card's set statement; resolving an arm's products and the
- * one-click add are 415's. With no arms on the wire it is W11's degraded card:
- * the qualified statement alone.
+ * the actionable card's set statement. With no arms on the wire it is W11's
+ * degraded card: the qualified statement alone.
+ *
+ * On the OPEN card (415), an arm still waiting can be expanded: its products
+ * are resolved then and not before, and each carries the prerequisite card's
+ * one-click add. 🚩 Nothing is optimistic — the card does not hide itself after
+ * an add. The next `SessionState` decides: the engine fired the offer and the
+ * near-miss is gone, or (under AND) an arm turned met and the agent is led to
+ * the one still missing.
  */
-function ShortfallCard({ card, open, onToggle }: { card: GuidanceCard; open: boolean; onToggle: () => void }) {
+function ShortfallCard({
+  card,
+  open,
+  onToggle,
+  transactionId,
+  plant,
+  actions,
+}: {
+  card: GuidanceCard
+  open: boolean
+  onToggle: () => void
+  transactionId: string
+  plant: string
+  actions: GuidanceActions
+}) {
   const { t } = useTranslation('callcenter')
+  // One arm open at a time: the clamp is 18rem, and two product lists in one
+  // card push every other offer out of it.
+  const [openArm, setOpenArm] = useState<string | null>(null)
+  // 🚩 An offer the wire named with a blank id CANNOT be resolved (859, the
+  // reason `Qualifying` refuses to ask): its arms stay statements.
+  const resolvable = (arm: RewardArm) => open && arm.addQty !== null && card.offerId !== ''
   return (
     <CardShell
       card={card}
@@ -316,30 +349,62 @@ function ShortfallCard({ card, open, onToggle }: { card: GuidanceCard; open: boo
             </p>
           )}
           <ul className="divide-y divide-divider">
-            {card.arms.map((arm) => (
-              <li
-                key={arm.armId}
-                data-cc-reward-arm={arm.armId}
-                data-cc-reward-arm-state={arm.met ? 'met' : 'waiting'}
-                className="flex items-baseline gap-2 py-1 text-xs"
-              >
-                <span className="min-w-0 flex-1 truncate" data-cc-reward-subject>
-                  {t(arm.subject.key, arm.subject.params)}
-                </span>
-                {/* This arm's own definition — never a figure in money's shape. */}
-                {arm.discount && (
-                  <span className="shrink-0 font-semibold text-primary-800" data-cc-reward-gives>
-                    <Ltr>{t(arm.discount.key, arm.discount.params)}</Ltr>
-                  </span>
-                )}
-                {arm.met && (
-                  <span className="shrink-0 text-[11px] font-medium text-success-800" data-cc-reward-met>
-                    <span aria-hidden>✓ </span>
-                    {t('guidance.shortfall.armMet')}
-                  </span>
-                )}
-              </li>
-            ))}
+            {card.arms.map((arm) => {
+              const expanded = resolvable(arm) && openArm === arm.armId
+              return (
+                <li
+                  key={arm.armId}
+                  data-cc-reward-arm={arm.armId}
+                  data-cc-reward-arm-state={arm.met ? 'met' : 'waiting'}
+                  className="py-1 text-xs"
+                >
+                  <div className="flex items-baseline gap-2">
+                    <span className="min-w-0 flex-1 truncate" data-cc-reward-subject>
+                      {t(arm.subject.key, arm.subject.params)}
+                    </span>
+                    {/* This arm's own definition — never a figure in money's shape. */}
+                    {arm.discount && (
+                      <span className="shrink-0 font-semibold text-primary-800" data-cc-reward-gives>
+                        <Ltr>{t(arm.discount.key, arm.discount.params)}</Ltr>
+                      </span>
+                    )}
+                    {arm.met && (
+                      <span className="shrink-0 text-[11px] font-medium text-success-800" data-cc-reward-met>
+                        <span aria-hidden>✓ </span>
+                        {t('guidance.shortfall.armMet')}
+                      </span>
+                    )}
+                    {/* 🚩 A met arm offers nothing to open — its product is in
+                        the basket, and a second unit would be a mistake (US21). */}
+                    {resolvable(arm) && (
+                      <button
+                        type="button"
+                        onClick={() => setOpenArm(expanded ? null : arm.armId)}
+                        aria-expanded={expanded}
+                        data-cc-reward-arm-toggle={arm.armId}
+                        className="inline-flex shrink-0 items-center gap-0.5 text-[11px] font-medium text-primary hover:underline"
+                      >
+                        {t(expanded ? 'guidance.shortfall.armClose' : 'guidance.shortfall.armOpen')}
+                        <ChevronDown
+                          className={`h-3 w-3 transition-transform ${expanded ? 'rotate-180' : ''}`}
+                          aria-hidden
+                        />
+                      </button>
+                    )}
+                  </div>
+                  {expanded && arm.addQty !== null && (
+                    <RewardProducts
+                      offerId={card.offerId}
+                      armId={arm.armId}
+                      qty={arm.addQty}
+                      transactionId={transactionId}
+                      plant={plant}
+                      actions={actions}
+                    />
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}
@@ -610,6 +675,73 @@ function Qualifying({
 }
 
 /**
+ * One reward arm's products (415, spec 412 W5) — `ResolveReward`, asked when the
+ * agent opens the arm and never before.
+ *
+ * 🚩 Keyed by transaction, offer, arm **and plant** (W12): a store change
+ * re-resolves at the new store rather than offering the old one's stock. Like
+ * the prerequisite list it is never re-fetched while on screen, so the row an
+ * add was launched from does not move under the agent's cursor.
+ */
+function RewardProducts({
+  offerId,
+  armId,
+  qty,
+  transactionId,
+  plant,
+  actions,
+}: {
+  offerId: string
+  armId: string
+  /** What the arm still needs — the add's quantity (W9). */
+  qty: number
+  transactionId: string
+  plant: string
+  actions: GuidanceActions
+}) {
+  const { t } = useTranslation('callcenter')
+  const resolved = useQuery({
+    queryKey: rewardKey(transactionId, offerId, armId, plant),
+    queryFn: () => callCenterApi.resolveReward(transactionId, offerId, armId),
+    staleTime: Infinity,
+    retry: false,
+  })
+  const view = rewardResolutionView(resolved.data)
+  return (
+    <div className="mt-1 border-s-2 border-divider ps-2" data-cc-reward-products={armId}>
+      {resolved.isPending && (
+        <p className="flex items-center gap-1.5 py-1 text-[11px] text-muted-foreground" data-cc-reward-loading>
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+          {t('guidance.resolving')}
+        </p>
+      )}
+      {resolved.isError && (
+        <p className={`py-1 ${NOTE.danger}`} data-cc-reward-error>
+          {apiErrorMessage(resolved.error, t('guidance.resolveFailed'))}
+        </p>
+      )}
+      {view.empty && (
+        <p className="py-1 text-[11px] text-muted-foreground" data-cc-reward-empty>
+          {t(view.empty.key, view.empty.params)}
+        </p>
+      )}
+      {view.rows.length > 0 && (
+        <div className="divide-y divide-divider">
+          {view.rows.map((row) => (
+            <QualifyingRow key={row.itemNumber} offerId={offerId} row={row} qty={qty} actions={actions} />
+          ))}
+        </div>
+      )}
+      {view.truncated && (
+        <p className="pt-1 text-[11px] text-muted-foreground" data-cc-reward-truncated>
+          {t(view.truncated.key, view.truncated.params)}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
  * One qualifying item — **the search row's own shape**, so the estimate sits on
  * the meta line beside the item number and the Arabic name and never in a money
  * column (`item-search.ts`, 135 amendment 1).
@@ -620,10 +752,13 @@ function Qualifying({
 function QualifyingRow({
   offerId,
   row,
+  qty,
   actions,
 }: {
   offerId: string
   row: SearchRowView
+  /** A reward arm's remaining need (415). Absent ⇒ the add's own default, 1. */
+  qty?: number
   actions: GuidanceActions
 }) {
   const { t } = useTranslation('callcenter')
@@ -658,7 +793,9 @@ function QualifyingRow({
       {actions.onAdd && (
         <button
           type="button"
-          onClick={() => actions.onAdd?.({ offerId, itemNumber: row.itemNumber, itemName: row.title })}
+          onClick={() =>
+            actions.onAdd?.({ offerId, itemNumber: row.itemNumber, itemName: row.title, qty })
+          }
           // Held while any add is in flight, for the reason the search panel
           // holds its rows: the engine's claim is a mutual exclusion, so a
           // second add collides and is ridden out — and two rows saying

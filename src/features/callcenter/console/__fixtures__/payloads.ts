@@ -41,6 +41,7 @@ import type {
   PendingConfirmation,
   PrereqResolution,
   PriceCheckResult,
+  RewardResolution,
   SessionLine,
   SessionState,
   SubmitResult,
@@ -303,6 +304,17 @@ export const GET_SHORTFALL: NearMiss = unreachable.getShortfall.nearMiss as unkn
  */
 export const PREREQ_RESOLUTION: PrereqResolution =
   unreachable.prereqResolution.data as unknown as PrereqResolution
+
+/**
+ * **Blocked by BO-2 (unfiled, spec 412 W5).** What `ResolveReward` would answer
+ * for arm `2` of `GET_SHORTFALL` — the `10 off 500062` arm. A Material arm is one
+ * product, so the stock-filtered list is that one row, `truncated: false`.
+ *
+ * 🚩 Provisional, like `GET_SHORTFALL`: no server answers the route yet, and the
+ * row's name and figures are illustrative. It becomes a capture when BO-2 ships.
+ */
+export const REWARD_RESOLUTION: RewardResolution =
+  unreachable.rewardResolution.data as unknown as RewardResolution
 
 /**
  * **Blocked by [860].** §8.3's second success — the replay that carries the same

@@ -39,6 +39,9 @@ export interface GuidanceAdd {
   offerId: string
   itemNumber: string
   itemName: string
+  /** How many to add. Absent ⇒ 1, the prerequisite row's add. A reward arm's
+   *  add sends what the arm still needs, `need − have` (415, spec 412 W9). */
+  qty?: number
 }
 
 export interface AddOutcome {

@@ -276,7 +276,9 @@ describe('noFigureInTheRegionIsFormattedAsMoney', () => {
     // meter's counts, the delta still needed and the eligible population. `wouldSave`
     // does not exist on the wire and no client-side equivalent may replace it
     // (spec 574 US26), so a future caller must not find a field to print.
-    const allowed = new Set(['have', 'need', 'stillNeeded', 'count', 'eligible'])
+    // `addQty` (415) is the reward add's unit count — what `addItem` sends as
+    // `qty`, the one other number the wire takes beside an item number.
+    const allowed = new Set(['have', 'need', 'stillNeeded', 'count', 'eligible', 'addQty'])
     // GET_SHORTFALL brings the reward arms under the same walk (414, W10).
     for (const c of guidanceView([
       ...NEAR_MISS_CLASSES,
@@ -820,5 +822,53 @@ describe('theLinkAndTheSpentCouponAreStated', () => {
       expect(c.rewardLink).toBeNull()
       expect(c.spentCoupons).toBeNull()
     }
+  })
+})
+
+/**
+ * Ticket 415 (spec 412 W9) — the one-click add of a reward product asks for
+ * what the arm still needs: `need − have`, at least 1, and never a price.
+ */
+describe('theAddAsksForWhatTheArmStillNeeds', () => {
+  const arm = (over: Partial<NonNullable<NearMiss['rewards']>[number]>) => ({
+    armId: '1',
+    kind: 'material',
+    materialNumber: '500061',
+    have: 0,
+    need: 1,
+    discount: { discountType: '%', value: 20 },
+    ...over,
+  })
+  const addOf = (over: Partial<NonNullable<NearMiss['rewards']>[number]>) =>
+    guidanceView([{ ...GET_SHORTFALL, rewards: [arm(over)] }]).cards[0].arms[0].addQty
+
+  it('asks for 1 at have 0 / need 1', () => {
+    expect(addOf({ have: 0, need: 1 })).toBe(1)
+  })
+
+  it('asks for 2 at have 1 / need 3 — the rest of the arm, not a fresh 3', () => {
+    expect(addOf({ have: 1, need: 3 })).toBe(2)
+  })
+
+  it('a met arm offers no add — a second unit would be a mistake (US21)', () => {
+    expect(addOf({ have: 1, need: 1 })).toBeNull()
+    expect(addOf({ have: 3, need: 2 })).toBeNull()
+  })
+
+  it('asks for 1, never 0 or NaN, where the wire stated no requirement', () => {
+    expect(addOf({ need: undefined as unknown as number })).toBe(1)
+    expect(addOf({ need: 0 })).toBe(1)
+  })
+
+  it('a grouping arm is added like a material one', () => {
+    expect(addOf({ kind: 'grouping', materialNumber: undefined, groupingId: 'G-1', have: 0, need: 2 })).toBe(2)
+  })
+
+  it('an arm of unknown kind offers no add (W11)', () => {
+    expect(addOf({ kind: 'hierarchy' })).toBeNull()
+  })
+
+  it('the staging fixture asks for 1 on each of its two arms', () => {
+    expect(guidanceView([GET_SHORTFALL]).cards[0].arms.map((a) => a.addQty)).toEqual([1, 1])
   })
 })

@@ -543,6 +543,31 @@ export interface PrereqResolution {
   topN: number
 }
 
+/**
+ * v1.12 (spec 412 W5) — `GET CallCenterWeb/ResolveReward?transactionId=&offerId=&armId=`
+ * (CONTRACT.md §3.7): the products that would satisfy ONE reward arm of a
+ * get-side shortfall.
+ *
+ * 🚩 **`ResolvePrereq`'s shape and rules, on the bonus buy's get side.** On
+ * demand only; stock-filtered at the order's plant, ranked and capped at the
+ * server's `topN`; `atp: null` on a degraded stock read. `items` are the same
+ * rows, so they map through the same qualifying-row mapping. A separate route
+ * rather than a `side=` flag keeps each door's name true.
+ */
+export interface RewardResolution {
+  offerId: string
+  armId: string
+  /** The arm the items satisfy — the same block the near-miss carries. */
+  reward: NearMissReward | null
+  /** The ranked, stock-filtered handful. Empty ⇒ nothing for this arm at this
+   *  store (the filter left nothing), never "the arm has no products". */
+  items: PrereqItem[]
+  /** The arm's products ran past the cap. */
+  truncated: boolean
+  /** The server's cap. Read as data — the console never slices `items` itself. */
+  topN: number
+}
+
 /** §5 — "are you sure" arrives on the SUCCESS path with the UNCHANGED state. */
 export interface PendingConfirmation {
   kind: 'storeChange' | 'belowAtp'

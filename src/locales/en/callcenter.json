@@ -464,6 +464,10 @@
       "armItem_other": "{{count}} of item {{number}}",
       "armUnknown": "A reward product",
       "armMet": "in the basket",
+      "armOpen": "Show products",
+      "armClose": "Hide products",
+      "armNoStock": "Not available at this store.",
+      "armTruncated": "The top {{count}} at this store — there are more.",
       "couponSpent_one": "Coupon {{codes}} is already spent on this order. It gives nothing until a reward product is added.",
       "couponSpent_other": "Coupons {{codes}} are already spent on this order. They give nothing until a reward product is added."
     }

@@ -109,5 +109,31 @@
       "truncated": true,
       "topN": 25
     }
+  },
+  "rewardResolution": {
+    "_blockedBy": "BO-2 (unfiled, spec 412 W5) — no server answers CallCenterWeb/ResolveReward yet. PROVISIONAL: what it would answer for arm 2 of bonus buy 000100000803 (the 10 off 500062 arm of the getShortfall fragment above). A Material arm is one product, so the stock-filtered list is that one row. The name and the figures are illustrative. Re-captured when BO-2 ships.",
+    "data": {
+      "offerId": "000100000803",
+      "armId": "2",
+      "reward": {
+        "armId": "2",
+        "kind": "material",
+        "materialNumber": "500062",
+        "have": 0,
+        "need": 1,
+        "discount": { "discountType": "R", "value": 10 }
+      },
+      "items": [
+        {
+          "itemNumber": "500062",
+          "description": "Reward product 500062",
+          "description2": "منتج المكافأة",
+          "estimatePriceExVat": 26.09,
+          "atp": 14
+        }
+      ],
+      "truncated": false,
+      "topN": 3
+    }
   }
 }

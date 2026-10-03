@@ -7,6 +7,7 @@ import { MENU, isActive, markedLeaf, type ShellMenuItem } from './menu-model'
 import { useVisibleMenu } from './useVisibleMenu'
 import { useRailPreference } from './rail-preference'
 import { railExpanded, type RailMode } from './rail-mode'
+import { takesEscape } from '@/core/commands/key-layer'
 import BrandMark from '@/core/ui/BrandMark'
 import { RAIL_EDGE, RAIL_POPOVER } from '@/core/ui/overlay'
 import UserMenu from './UserMenu'
@@ -327,7 +328,8 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
   useEffect(() => {
     if (!overlaid) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented || inUserMenu(e)) return
+      if (!takesEscape(e, railRef.current) || inUserMenu(e)) return
+      e.preventDefault()
       setOverlayOpen(false)
       toggleRef.current?.focus()
     }
@@ -353,7 +355,9 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
       if (!railRef.current?.contains(e.target as Node)) close(false)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) close(true)
+      if (!takesEscape(e, railRef.current)) return
+      e.preventDefault()
+      close(true)
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
@@ -551,7 +555,9 @@ export function RailDrawer() {
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented && !inUserMenu(e)) setOpen(false)
+      if (!takesEscape(e, panelRef.current) || inUserMenu(e)) return
+      e.preventDefault()
+      setOpen(false)
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)

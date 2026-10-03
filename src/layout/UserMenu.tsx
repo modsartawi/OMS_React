@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
-import { LogOut, Moon, Sun } from 'lucide-react'
+import { Check, Keyboard, LogOut, Moon, Sun } from 'lucide-react'
 import { useSession } from '@/core/session'
 import { signOut } from '@/core/auth/sign-out'
 import { buildTag } from '@/core/build-info'
+import { takesEscape } from '@/core/commands/key-layer'
+import { usePalette } from '@/core/commands/palette-store'
+import { openShortcuts } from '@/core/commands/shortcuts-sheet'
+import { useSingleKeys } from '@/core/commands/single-key-switch'
 import Ltr from '@/core/ui/Ltr'
 import { fsi } from '@/core/util/bidi'
 import { RAIL_EDGE, RAIL_MENU_ITEM, RAIL_POPOVER } from '@/core/ui/overlay'
@@ -13,7 +17,8 @@ import { useTheme } from './theme'
 // The user menu at the rail foot (spec 380 F12, ticket 386; 363 "User menu"): the
 // avatar opens a menu holding name + user id, the theme toggle, sign out and the build
 // stamp. Today's footer row is gone — the stamp lives here, and `/version.json` stays
-// the machine read. The shortcuts sheet and the single-key switch join it in 393.
+// the machine read. Ticket 393 adds the shortcuts sheet and the single-key switch
+// (spec 380 K6, K16), the switch beside dark mode as ruling 365 §2 places it.
 //
 // It opens from the rail, so it takes the rail's navy recipe (377 §1, `@/core/ui/overlay`),
 // gold focus ring included. It is a `menu` of `menuitem`s: focus on the first on open,
@@ -48,6 +53,9 @@ export default function UserMenu({
   const { t } = useTranslation()
   const session = useSession()
   const theme = useTheme()
+  const singleKeys = useSingleKeys()
+  // The sheet is the palette host's: offered only where one is mounted.
+  const sheetHosted = usePalette((s) => s.hosts > 0)
   const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -66,7 +74,8 @@ export default function UserMenu({
       if (!ref.current?.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (!takesEscape(e, ref.current)) return
+      e.preventDefault()
       setOpen(false)
       buttonRef.current?.focus()
     }
@@ -170,6 +179,34 @@ export default function UserMenu({
               {theme.dark ? <Sun className="h-4 w-4 shrink-0" aria-hidden /> : <Moon className="h-4 w-4 shrink-0" aria-hidden />}
               {t('topbar.userMenu.darkMode')}
             </button>
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={singleKeys.on}
+              tabIndex={-1}
+              onClick={singleKeys.toggle}
+              data-user-menu-single-keys
+              className={RAIL_MENU_ITEM}
+            >
+              {singleKeys.on ? <Check className="h-4 w-4 shrink-0" aria-hidden /> : <span className="h-4 w-4 shrink-0" aria-hidden />}
+              {t('shortcuts.switch')}
+            </button>
+            {sheetHosted && (
+              <button
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                onClick={() => {
+                  setOpen(false)
+                  openShortcuts(buttonRef.current)
+                }}
+                data-user-menu-shortcuts
+                className={RAIL_MENU_ITEM}
+              >
+                <Keyboard className="h-4 w-4 shrink-0" aria-hidden />
+                {t('shortcuts.title')}
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

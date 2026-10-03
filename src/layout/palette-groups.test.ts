@@ -41,15 +41,19 @@ const ALL = [true, true, true, true].map((ok) => granted({ ok }))
 
 const textOf = (row: PaletteRow) => `${row.label} ${row.value ?? ''}`
 const navigate = () => {}
+const openShortcuts = () => {}
 
 const compose = (o: {
   probes?: ProbeState[]
   detail?: ProbeState
   query?: string
   commands?: Parameters<typeof commandRow>[0][]
+  singleKeyScreen?: boolean
 }) =>
   paletteGroups({
     commands: o.commands ?? [],
+    singleKeyScreen: o.singleKeyScreen ?? false,
+    openShortcuts,
     menu: resolveMenu(MENU, o.probes ?? ALL).items,
     detail: o.detail ?? granted({ canOpenList: true, canOpenDetail: true }),
     query: o.query ?? '',
@@ -69,6 +73,8 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
     const groups = paletteGroups({
       commands: [{ id: 'copy', label: 'copy 8000000174' }],
       menu: [{ labelKey: 'history of 8000000174', routerLink: '/x' }],
+      singleKeyScreen: false,
+      openShortcuts,
       detail: granted({ canOpenDetail: true }),
       query: '8000000174',
       textOf,
@@ -87,6 +93,8 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
     const jump = paletteGroups({
       commands: [],
       menu: [],
+      singleKeyScreen: false,
+      openShortcuts,
       detail: granted({ canOpenDetail: true }),
       query: '8000000174',
       textOf,
@@ -133,11 +141,71 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
   })
 
   it('🚩 with every probe pending, the Go to group is hidden whole', () => {
-    expect(ids(compose({ probes: [pending, pending, pending, pending] }))).toEqual([])
+    expect(ids(compose({ probes: [pending, pending, pending, pending] }))).toEqual(['screen'])
   })
 
-  it('This screen is absent when no page registered anything', () => {
-    expect(ids(compose({}))).toEqual(['goto'])
+  it('when no page registered anything, This screen holds only the shortcuts row', () => {
+    const groups = compose({})
+    expect(ids(groups)).toEqual(['screen', 'goto'])
+    expect(groups[0].rows.map((r) => r.id)).toEqual(['core:shortcuts'])
+  })
+})
+
+describe('This screen and its keys (ticket 393)', () => {
+  const screen = (o: Parameters<typeof compose>[0]) => compose(o).find((g) => g.id === 'screen')!.rows
+
+  it('the shortcuts row sits last, after the page’s own commands, and opens the sheet', () => {
+    let opened = 0
+    const rows = paletteGroups({
+      commands: [{ id: 'export', label: 'export', run: () => {} }],
+      singleKeyScreen: false,
+      openShortcuts: () => opened++,
+      menu: [],
+      detail: errored,
+      query: '',
+      textOf,
+      navigate,
+    })[0].rows
+    expect(rows.map((r) => r.id)).toEqual(['screen:export', 'core:shortcuts'])
+    rows[1].run?.()
+    expect(opened).toBe(1)
+  })
+
+  it('the shortcuts row hints `?` only on a single-key screen, where `?` is live', () => {
+    expect(screen({ singleKeyScreen: true }).at(-1)?.keys).toBe('Shift+Slash')
+    expect(screen({ singleKeyScreen: false }).at(-1)?.keys).toBeNull()
+  })
+
+  it('a hidden command (J/K) binds but is never a palette row', () => {
+    const rows = screen({
+      singleKeyScreen: true,
+      commands: [
+        { id: 'next', label: 'next', keys: 'KeyJ', hidden: true, run: () => {} },
+        { id: 'reschedule', label: 'reschedule', keys: 'KeyR', run: () => {} },
+      ],
+    })
+    expect(rows.map((r) => r.id)).toEqual(['screen:reschedule', 'core:shortcuts'])
+  })
+
+  it('a row hints the key it is BOUND to — never one the registry refused', () => {
+    const rows = screen({
+      singleKeyScreen: true,
+      commands: [
+        { id: 'a', label: 'a', keys: 'KeyR', run: () => {} },
+        { id: 'b', label: 'b', keys: 'KeyR', run: () => {} },
+        { id: 'c', label: 'c', keys: 'Alt+KeyX', run: () => {} },
+      ],
+    })
+    expect(rows.slice(0, 3).map((r) => [r.id, r.keys])).toEqual([
+      ['screen:a', 'KeyR'],
+      ['screen:b', null],
+      ['screen:c', null],
+    ])
+  })
+
+  it('off a single-key screen a letter binds nothing, so it hints nothing', () => {
+    const rows = screen({ commands: [{ id: 'a', label: 'a', keys: 'KeyR', run: () => {} }] })
+    expect(rows[0].keys).toBeNull()
   })
 })
 

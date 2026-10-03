@@ -40,6 +40,11 @@
 // detail grant is denied, errored or still pending; absent on a print route; and on
 // `/callcenter` only the console's own palette. Screenshots → tools/.palette-core-shots/.
 //
+// …and, since ticket 393 (K3–K6, K15–K17): `?` opens the shortcuts sheet generated from the
+// registry, on the list and Details only; a palette row and the user menu reach it too;
+// `?` in a text box types; the single-key switch (user menu and sheet) turns `?` off while
+// Ctrl+K keeps working; Esc closes the topmost layer first; the chord reads `Ctrl K` in RTL.
+//
 //   DRIVE_PORT=5280 node tools/command-palette-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -674,6 +679,142 @@ const escape = async (page) => {
   await page.waitForSelector('[data-palette]', { state: 'detached' })
 }
 
+/* ------------- 393: keys on commands, the switch, the generated sheet ------------- */
+
+const sheetOpen = (page) => page.locator('[data-shortcuts-sheet]').count().then((n) => n > 0)
+const closeSheet = async (page) => {
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[data-shortcuts-sheet]', { state: 'detached' })
+}
+const sheetLines = (page) => page.$$eval('[data-shortcut]', (els) => els.map((e) => e.dataset.shortcut))
+/** The caps of a chord in on-screen order, left to right. */
+const capsOf = (page, selector) =>
+  page.$$eval(`${selector} kbd`, (els) =>
+    els
+      .map((e) => ({ text: e.innerText.trim(), x: e.getBoundingClientRect().x }))
+      .sort((a, b) => a.x - b.x)
+      .map((c) => c.text),
+  )
+const singleKeysStored = (page) => page.evaluate(() => localStorage.getItem('oms.singleKeys'))
+
+/**
+ * Ticket 393 on the Deliveries list (a single-key screen), rows loaded: `?` opens the
+ * generated sheet, a palette row and the user menu reach it too, the switch turns `?` off
+ * while Ctrl+K keeps working, and Esc closes the topmost layer first.
+ */
+async function keysAndSheet(page, tag, mode) {
+  // `?` from a grid cell: no text box, no dialog.
+  await page.locator('.ag-row .ag-cell').first().click()
+  await page.keyboard.press('Shift+Slash')
+  await page.waitForSelector('[data-shortcuts-sheet]', { timeout: 2000 }).catch(() => {})
+  ok(await sheetOpen(page), `${tag}: \`?\` opens the Keyboard shortcuts sheet`)
+  ok((await page.locator('dialog[open] [data-shortcuts-sheet]').count()) === 1, `${tag}: a native dialog`)
+  const lines = await sheetLines(page)
+  ok(
+    JSON.stringify(lines) === '["app:palette","app:sheet","app:esc"]',
+    `${tag}: it lists the app-wide keys — Ctrl+K, ?, Esc (${lines.join(',')})`,
+  )
+  ok((await page.locator('[data-shortcuts-none]').count()) === 1, `${tag}: and says this screen has no keys of its own yet`)
+  const chord = await capsOf(page, '[data-shortcut="app:palette"]')
+  ok(JSON.stringify(chord) === '["Ctrl","K"]', `${tag}: the chord reads "Ctrl K" left to right (${chord.join(' ')})`)
+  ok(
+    (await page.$$eval('[data-shortcut="app:palette"] bdi[dir="ltr"]', (els) => els.length)) === 1,
+    `${tag}: isolated as ONE unit — one Ltr, not one per cap`,
+  )
+  ok(
+    JSON.stringify(await capsOf(page, '[data-shortcut="app:sheet"]')) === '["?"]' &&
+      JSON.stringify(await capsOf(page, '[data-shortcut="app:esc"]')) === '["Esc"]',
+    `${tag}: \`?\` shows its Latin legend, Esc its word`,
+  )
+  await page.screenshot({ path: `${CORE_SHOTS}/sheet-${mode.theme}-${mode.dir}.png` })
+  await closeSheet(page)
+  ok(await page.evaluate(() => !!document.activeElement?.closest('.ag-cell')), `${tag}: Esc closes it, focus back in the cell`)
+
+  // `?` in a text box is typing.
+  const box = page.locator('main input:not([type=date]):not([type=checkbox]):not([type=radio]):visible').first()
+  const kept = await box.inputValue()
+  await box.fill('')
+  await box.click()
+  await page.keyboard.press('Shift+Slash')
+  await page.waitForTimeout(150)
+  ok(!(await sheetOpen(page)) && (await box.inputValue()) === '?', `${tag}: \`?\` in a text box types "?" and opens nothing`)
+  await box.fill(kept)
+
+  // A palette row reaches it, on every screen.
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  ok(
+    JSON.stringify(await capsOf(page, '[data-palette-row="core:shortcuts"]')) === '["?"]',
+    `${tag}: the palette's shortcuts row shows its key, \`?\`, in a kbd`,
+  )
+  await page.locator('[data-palette-row="core:shortcuts"]').click()
+  await page.waitForSelector('[data-shortcuts-sheet]', { timeout: 2000 }).catch(() => {})
+  ok((await sheetOpen(page)) && !(await coreOpen(page)), `${tag}: choosing that row opens the sheet (the palette closed first)`)
+  await closeSheet(page)
+  ok(await box.evaluate((el) => el === document.activeElement), `${tag}: and Esc hands focus back to where the palette opened`)
+
+  // The user menu reaches it too.
+  await page.locator('[data-user-menu-button]').click()
+  await page.locator('[data-user-menu-shortcuts]').click()
+  await page.waitForSelector('[data-shortcuts-sheet]', { timeout: 2000 }).catch(() => {})
+  ok((await sheetOpen(page)) && (await page.locator('[data-user-menu]').count()) === 0, `${tag}: the user menu's item opens it`)
+  await closeSheet(page)
+  ok(
+    await page.locator('[data-user-menu-button]').evaluate((el) => el === document.activeElement),
+    `${tag}: Esc hands focus back to the avatar`,
+  )
+
+  // The switch, from the user menu: off, `?` does nothing, and Ctrl+K still works.
+  await page.locator('[data-user-menu-button]').click()
+  const item = page.locator('[data-user-menu-single-keys]')
+  ok((await item.getAttribute('aria-checked')) === 'true', `${tag}: the single-key switch is on by default`)
+  await item.click()
+  ok(
+    (await item.getAttribute('aria-checked')) === 'false' && (await singleKeysStored(page)) === 'false',
+    `${tag}: the user menu turns it off, and it is stored`,
+  )
+  await page.keyboard.press('Escape')
+  await page.locator('.ag-row .ag-cell').first().click()
+  await page.waitForTimeout(300) // the closing menu and the click settle first
+  const before = await page.evaluate(() => document.body.innerText)
+  await page.keyboard.press('Shift+Slash')
+  await page.waitForTimeout(200)
+  ok(
+    !(await sheetOpen(page)) && (await page.evaluate(() => document.body.innerText)) === before,
+    `${tag}: 🚩 switched off, \`?\` types nothing and does nothing`,
+  )
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]', { timeout: 2000 }).catch(() => {})
+  ok(await coreOpen(page), `${tag}: while Ctrl+K still opens the palette`)
+  ok(
+    (await page.locator('[data-palette-row="core:shortcuts"] kbd').count()) === 0,
+    `${tag}: whose shortcuts row hides its letter hint`,
+  )
+  // The sheet holds the switch too: turn it back on there.
+  await page.locator('[data-palette-row="core:shortcuts"]').click()
+  await page.waitForSelector('[data-shortcuts-sheet]')
+  const sw = page.locator('[data-shortcuts-switch]')
+  ok(!(await sw.isChecked()), `${tag}: the sheet's switch reads off`)
+  await sw.click()
+  ok((await sw.isChecked()) && (await singleKeysStored(page)) === 'true', `${tag}: and turns it back on`)
+  await closeSheet(page)
+
+  // Esc closes the topmost layer first: the sheet over the open bell panel.
+  const bell = page.getByRole('button', { name: 'Notifications' })
+  const panel = page.locator('[role="dialog"][aria-label="Notifications"]')
+  await bell.click()
+  await panel.waitFor()
+  await page.keyboard.press('Shift+Slash')
+  await page.waitForSelector('[data-shortcuts-sheet]', { timeout: 2000 }).catch(() => {})
+  ok((await sheetOpen(page)) && (await panel.count()) === 1, `${tag}: \`?\` opens the sheet over the open bell panel`)
+  await page.keyboard.press('Escape')
+  await page.waitForSelector('[data-shortcuts-sheet]', { state: 'detached' })
+  ok((await panel.count()) === 1, `${tag}: 🚩 the first Esc closes the sheet ONLY — the panel under it stays`)
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  ok((await panel.count()) === 0, `${tag}: and the second Esc closes the panel`)
+}
+
 for (const mode of [
   { theme: 'light', dir: 'ltr' },
   { theme: 'dark', dir: 'ltr' },
@@ -708,8 +849,11 @@ for (const mode of [
   ok((await page.locator('[data-palette-input]:focus').count()) === 1, `${tag}: and the caret is in its box`)
   ok((await page.locator('[data-palette-input]').inputValue()) === '', `${tag}: which opens empty`)
   const emptyGroups = await groupsShown(page)
-  // No page registers a command yet (393 onward), so This screen is absent and Go to leads.
-  ok(JSON.stringify(emptyGroups) === '["goto"]', `${tag}: an empty box lists Go to (${emptyGroups.join(',')})`)
+  // No page registers a command yet, so This screen holds only 393's shortcuts row, then Go to.
+  ok(
+    JSON.stringify(emptyGroups) === '["screen","goto"]',
+    `${tag}: an empty box lists This screen, then Go to (${emptyGroups.join(',')})`,
+  )
   ok((await rowsShown(page)).includes('goto:/oms/deliveries'), `${tag}: Go to holds the rail's Deliveries leaf`)
   await page.screenshot({ path: `${CORE_SHOTS}/goto-${mode.theme}-${mode.dir}.png` })
   await escape(page)
@@ -733,6 +877,8 @@ for (const mode of [
   ok(await coreOpen(page), `${tag}: clicking the top bar's field opens it`)
   await escape(page)
   ok(await field.evaluate((el) => el === document.activeElement), `${tag}: and focus returns to the field`)
+
+  await keysAndSheet(page, tag, mode)
 
   // A hand-drawn modal (the saved-view dialog marks itself `aria-modal`) counts as open too.
   await page.getByRole('button', { name: 'Save view' }).click()
@@ -776,6 +922,13 @@ for (const mode of [
     `${tag}: *Open delivery ${JUMP_NO}* lands on Delivery details`,
   )
   ok(!(await coreOpen(page)), `${tag}: and the palette closed before it navigated`)
+
+  // 393: Delivery details is the other single-key screen — `?` is live there too.
+  await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
+  await page.keyboard.press('Shift+Slash')
+  await page.waitForSelector('[data-shortcuts-sheet]', { timeout: 2000 }).catch(() => {})
+  ok(await sheetOpen(page), `${tag}: \`?\` opens the sheet on Delivery details too`)
+  if (await sheetOpen(page)) await closeSheet(page)
 
   // K7: inert while any dialog is open.
   await page.getByRole('button', { name: 'Add Note…' }).click()
@@ -844,6 +997,34 @@ console.log('\nthe palette fails closed')
   release()
   await page.waitForSelector('[data-palette-group="jump"]', { timeout: 5000 }).catch(() => {})
   ok((await groupsShown(page)).includes('jump'), '…until it confirms, and then it appears')
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+
+/* ------------------- 393: a screen without single keys --------------------- */
+
+console.log('\na screen without single keys')
+{
+  const { context, page, pageErrors } = await openCore({ path: '/' })
+  await page.waitForSelector('[data-palette-field]')
+  await page.waitForTimeout(300)
+  await page.keyboard.press('Shift+Slash')
+  await page.waitForTimeout(200)
+  ok(!(await sheetOpen(page)), 'on Home, `?` is no key at all — single keys are the list’s and Details’ only')
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  ok(
+    (await page.locator('[data-palette-row="core:shortcuts"]').count()) === 1 &&
+      (await page.locator('[data-palette-row="core:shortcuts"] kbd').count()) === 0,
+    'the palette still offers the sheet, without a `?` hint',
+  )
+  await page.locator('[data-palette-row="core:shortcuts"]').click()
+  await page.waitForSelector('[data-shortcuts-sheet]')
+  ok(
+    JSON.stringify(await sheetLines(page)) === '["app:palette","app:esc"]',
+    'and the sheet lists Ctrl+K and Esc — no `?` where `?` is not live',
+  )
+  await closeSheet(page)
   allErrors.push(...pageErrors)
   await context.close()
 }

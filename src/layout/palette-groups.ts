@@ -15,7 +15,16 @@
  * confirms. The palette only hides; the server's grant filters stay the boundary.
  */
 import { FileText, Truck } from 'lucide-react'
-import { commandRow, composePalette, jumpNumberOf, type Command, type PaletteGroup, type PaletteRow } from '@/core/commands/palette-model'
+import { bindKeys } from '@/core/commands/keys'
+import {
+  composePalette,
+  jumpNumberOf,
+  screenRows,
+  shortcutsRow,
+  type Command,
+  type PaletteGroup,
+  type PaletteRow,
+} from '@/core/commands/palette-model'
 import type { OmsAccessResult } from '@/core/models/oms-access'
 import type { ShellMenuItem } from './menu-model'
 import type { ProbeState } from './useVisibleMenu'
@@ -72,9 +81,17 @@ export function jumpRows(query: string, navigate: (to: string) => void): Palette
   return [row('delivery', Truck), row('document', FileText)]
 }
 
-/** This screen → Go to → Jump, each behind its gate. */
+/**
+ * This screen → Go to → Jump, each behind its gate. This screen is the mounted page's
+ * commands (hidden ones aside), each hinting the key it is bound to, then the row that
+ * opens the shortcuts sheet (393).
+ */
 export function paletteGroups(input: {
   commands: readonly Command[]
+  /** The matched route is a single-key screen (365 §2): its letters bind, and `?` is live. */
+  singleKeyScreen: boolean
+  /** Opens the shortcuts sheet. */
+  openShortcuts: () => void
   /** `useVisibleMenu(MENU).items` — what the rail draws. */
   menu: readonly ShellMenuItem[]
   /** The OMS access probe (`OMS_ACCESS_KEY`), as react-query reports it. */
@@ -84,7 +101,10 @@ export function paletteGroups(input: {
   navigate: (to: string) => void
 }): PaletteGroup[] {
   return composePalette({
-    screen: input.commands.map(commandRow),
+    screen: [
+      ...screenRows(input.commands, bindKeys(input.commands, { singleKeyScreen: input.singleKeyScreen })),
+      shortcutsRow(input.openShortcuts, { singleKeyScreen: input.singleKeyScreen }),
+    ],
     goto: gotoRows(input.menu, input.navigate),
     jump: detailGranted(input.detail) ? jumpRows(input.query, input.navigate) : [],
     query: input.query,

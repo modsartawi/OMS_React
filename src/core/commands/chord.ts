@@ -31,19 +31,6 @@ export function isPaletteChord(e: ChordFacts): boolean {
   return e.code === PALETTE_KEY_CODE && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey
 }
 
-/**
- * What one key press does to the palette:
- * - `open` — open it (and prevent the default);
- * - `inert` — a dialog is open: prevent the default and do nothing else;
- * - `ignore` — not the palette's key; leave the event alone.
- */
-export type ChordAction = 'open' | 'inert' | 'ignore'
-
-export function paletteChordAction(e: ChordFacts, at: { dialogOpen: boolean }): ChordAction {
-  if (!isPaletteChord(e)) return 'ignore'
-  return at.dialogOpen ? 'inert' : 'open'
-}
-
 const NAMED_LEGENDS: Readonly<Record<string, string>> = {
   ArrowUp: '↑',
   ArrowDown: '↓',

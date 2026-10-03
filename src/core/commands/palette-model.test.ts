@@ -16,8 +16,12 @@ import {
   paletteOptedOut,
   paletteQuestion,
   paletteRun,
+  screenRows,
+  shortcutsRow,
+  singleKeyScreenOf,
   type PaletteRow,
 } from './palette-model'
+import { bindKeys } from './keys'
 
 const textOf = (row: PaletteRow) => `${row.label} ${row.value ?? ''}`
 
@@ -139,5 +143,44 @@ describe('paletteOptedOut', () => {
   it('every other route hosts it, whatever else its handle carries', () => {
     expect(paletteOptedOut([])).toBe(false)
     expect(paletteOptedOut([undefined, null, 'x', { print: false }, { crumb: 'y' }])).toBe(false)
+  })
+})
+
+describe('the This screen rows and their keys (ticket 393)', () => {
+  const LIST = { singleKeyScreen: true }
+
+  it('a hidden command is never a row; the others hint the key they are bound to', () => {
+    const commands = [
+      { id: 'next', label: 'n', keys: 'KeyJ', hidden: true, run: () => {} },
+      { id: 'reschedule', label: 'r', keys: 'KeyR', run: () => {} },
+      { id: 'export', label: 'e', run: () => {} },
+    ]
+    const rows = screenRows(commands, bindKeys(commands, LIST))
+    expect(rows.map((r) => [r.id, r.keys])).toEqual([
+      ['screen:reschedule', 'KeyR'],
+      ['screen:export', null],
+    ])
+  })
+
+  it('a refused key hints nothing on its row', () => {
+    const commands = [{ id: 'save', label: 's', keys: 'Ctrl+KeyS', run: () => {} }]
+    expect(screenRows(commands, bindKeys(commands, LIST))[0].keys).toBeNull()
+  })
+
+  it('the shortcuts row opens the sheet, and hints `?` only where `?` is live', () => {
+    let opened = 0
+    const row = shortcutsRow(() => opened++, LIST)
+    expect(row).toMatchObject({ id: 'core:shortcuts', group: 'screen', enabled: true, keys: 'Shift+Slash' })
+    row.run?.()
+    expect(opened).toBe(1)
+    expect(shortcutsRow(() => {}, { singleKeyScreen: false }).keys).toBeNull()
+  })
+})
+
+describe('singleKeyScreenOf', () => {
+  it('is true when a matched route flags single keys, read defensively', () => {
+    expect(singleKeyScreenOf([undefined, { singleKeys: true }])).toBe(true)
+    expect(singleKeyScreenOf([{ print: true }, null, 'x', { singleKeys: 'yes' }])).toBe(false)
+    expect(singleKeyScreenOf([])).toBe(false)
   })
 })

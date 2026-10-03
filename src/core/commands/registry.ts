@@ -56,6 +56,11 @@ export function useCommands(commands: readonly Command[]): void {
   )
 }
 
+/** The registered commands as they stand — for the key layer, which reads them per press. */
+export function registeredNow(): Command[] {
+  return registeredCommands(useRegistry.getState().entries)
+}
+
 /** The registered commands, for the palette's host. */
 export function useRegisteredCommands(): Command[] {
   const entries = useRegistry((s) => s.entries)

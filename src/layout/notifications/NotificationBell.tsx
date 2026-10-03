@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bell } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
+import { takesEscape } from '@/core/commands/key-layer'
 import Ltr from '@/core/ui/Ltr'
 import { useNcStore, ncItems } from './store'
 import { unreadCount, visibleItems } from './helpers'
@@ -61,7 +62,9 @@ export default function NotificationBell() {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (!takesEscape(e, ref.current)) return
+      e.preventDefault()
+      setOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)

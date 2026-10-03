@@ -1,10 +1,10 @@
 /**
  * The Ctrl+K chord (ticket 392, spec 380 K4 + K7; ruling 365 §3): matched on the
- * physical key, so it works on an Arabic layout, with Meta counted as Ctrl, and
- * inert — but still prevented — while any dialog is open.
+ * physical key, so it works on an Arabic layout, with Meta counted as Ctrl. When it
+ * fires — inert, but still prevented, under a dialog — is `fire-tier.test.ts`'s.
  */
 import { describe, expect, it } from 'vitest'
-import { isPaletteChord, keyLegend, paletteChordAction } from './chord'
+import { isPaletteChord, keyLegend } from './chord'
 
 const press = (over: Partial<Parameters<typeof isPaletteChord>[0]>) => ({
   code: 'KeyK',
@@ -40,22 +40,6 @@ describe('ctrlKMatchesOnCodeNotKey', () => {
     expect(isPaletteChord(press({ ctrlKey: false }))).toBe(false)
     expect(isPaletteChord(press({ altKey: true }))).toBe(false)
     expect(isPaletteChord(press({ shiftKey: true }))).toBe(false)
-  })
-})
-
-describe('paletteChordAction', () => {
-  it('opens when no dialog is open', () => {
-    expect(paletteChordAction(press({}), { dialogOpen: false })).toBe('open')
-  })
-
-  // K4: inert under a dialog, yet always prevented — the browser must not take it either.
-  it('is inert (prevented, nothing opens) while any dialog is open', () => {
-    expect(paletteChordAction(press({}), { dialogOpen: true })).toBe('inert')
-  })
-
-  it('ignores every other key', () => {
-    expect(paletteChordAction(press({ code: 'KeyJ' }), { dialogOpen: false })).toBe('ignore')
-    expect(paletteChordAction(press({ ctrlKey: false }), { dialogOpen: true })).toBe('ignore')
   })
 })
 

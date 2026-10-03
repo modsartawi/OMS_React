@@ -7,6 +7,8 @@ import type { PaletteRouteHandle } from '@/core/commands/palette-model'
 const PRINT_ROUTE: PaletteRouteHandle = { print: true }
 // The console keeps its own Ctrl+K and palette until 395 moves it onto the core one.
 const OWN_PALETTE: PaletteRouteHandle = { ownPalette: true }
+// The single-key screens — the list and Delivery details (ticket 393; ruling 365 §2).
+const SINGLE_KEYS: PaletteRouteHandle = { singleKeys: true }
 
 // Library/data mode (baseline §1): plain route arrays; each future module
 // contributes its own subtree here. Lazy chunks: login + each screen.
@@ -119,6 +121,7 @@ export const router = createBrowserRouter([
       { index: true, lazy: async () => ({ Component: (await import('@/app/HomePage')).default }) },
       {
         path: 'oms/deliveries',
+        handle: SINGLE_KEYS,
         lazy: async () => ({ Component: (await import('@/features/oms/deliveries/DeliveriesPage')).default }),
       },
       // Screen 2 — two routes, one component. `openedAs` is fixed by the ROUTE
@@ -135,6 +138,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'oms/delivery/:deliveryNo',
+        handle: SINGLE_KEYS,
         lazy: async () => {
           const { default: Page } = await import('@/features/oms/document/DocumentDetailsPage')
           return { Component: () => <Page openedAs="delivery" /> }

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, MapPin, Search } from 'lucide-react'
 import { PALETTE_KEY_CODE, keyLegend } from '@/core/commands/chord'
+import { takesEscape } from '@/core/commands/key-layer'
 import { openPalette, usePalette } from '@/core/commands/palette-store'
 import { useSession } from '@/core/session'
 import { lookupQueries } from '@/core/services/lookups'
@@ -122,7 +123,8 @@ function StoreChip() {
       if (!ref.current?.contains(e.target as Node)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (!takesEscape(e, ref.current)) return
+      e.preventDefault()
       setOpen(false)
       buttonRef.current?.focus()
     }

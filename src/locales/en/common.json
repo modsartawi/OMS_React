@@ -59,7 +59,25 @@
   "keys": {
     "ctrl": "Ctrl",
     "enter": "Enter",
-    "esc": "Esc"
+    "esc": "Esc",
+    "shift": "Shift"
+  },
+  "shortcuts": {
+    "title": "Keyboard shortcuts",
+    "close": "Close",
+    "open": "Show keyboard shortcuts",
+    "appWide": "Everywhere",
+    "screen": "This screen",
+    "noScreenKeys": "This screen has no shortcuts of its own.",
+    "app": {
+      "palette": "Open the command palette",
+      "sheet": "Show this sheet",
+      "esc": "Close the open dialog or menu"
+    },
+    "switch": "Single-key shortcuts",
+    "switchHint": "Letters, / and ? on the Deliveries list and Delivery details. Ctrl shortcuts and the palette always work.",
+    "refused": "That isn't available right now.",
+    "withKey": "{{label}} ({{key}})"
   },
   "rail": {
     "toggleSection": "Expand or collapse {{label}}",

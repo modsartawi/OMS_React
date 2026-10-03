@@ -17,8 +17,9 @@
  * This module knows no route and no grant. The app-wide groups (Go to, Jump to number)
  * are composed in `layout/` — the composition root — and handed in as rows.
  */
-import type { LucideIcon } from 'lucide-react'
+import { Keyboard, type LucideIcon } from 'lucide-react'
 import { highlightedIndex, type HighlightState } from './highlight'
+import { boundKeysOf, SHEET_KEYS, type KeyBindings } from './keys'
 
 /** The groups, in the one order they are listed (K8). Recent (394) joins after `screen`. */
 export type PaletteGroupId = 'screen' | 'goto' | 'jump'
@@ -35,7 +36,7 @@ export const PALETTE_GROUP_LABEL: Readonly<Record<PaletteGroupId, string>> = {
  * A command a page registers through `useCommands` while it is mounted (K1–K2) — the
  * whole of the "This screen" group.
  *
- * `keys` (393) and `terminal` (395) are not here yet.
+ * `terminal` (395) is not here yet.
  */
 export interface Command {
   /** Stable across renders and unique on the page. */
@@ -47,6 +48,17 @@ export interface Command {
   /** Why not — an i18n key, the same words as its button's tooltip. Read only when refused. */
   reason?: string | null
   icon?: LucideIcon
+  /**
+   * The key that runs it while the page is mounted (393, `keys.ts`): `KeyR`, `Slash`,
+   * `Escape`, `Ctrl+Enter`. The same one field binds the key, hints it on the row and
+   * lists it in the shortcuts sheet. A refused key binds nothing (a dev error).
+   */
+  keys?: string
+  /**
+   * Bound and listed in the shortcuts sheet, but never a palette row — J/K's next and
+   * previous row (397). A hidden command repeats while its key is held; an act never does.
+   */
+  hidden?: boolean
 }
 
 export interface PaletteRow {
@@ -65,10 +77,15 @@ export interface PaletteRow {
   /** Why not (an i18n key), when it is not. `null` on an enabled row. */
   reason: string | null
   run: (() => void) | null
+  /** The key that runs it, in `keys.ts`' canonical spelling, drawn as a right-aligned `kbd`. */
+  keys?: string | null
 }
 
-/** One registered command as a This screen row: enabled exactly when it has a handler. */
-export function commandRow(command: Command): PaletteRow {
+/**
+ * One registered command as a This screen row: enabled exactly when it has a handler.
+ * `keys` is the key it is actually BOUND to — a refused key hints nothing.
+ */
+export function commandRow(command: Command, keys: string | null = null): PaletteRow {
   const run = command.run ?? null
   return {
     id: `screen:${command.id}`,
@@ -80,6 +97,32 @@ export function commandRow(command: Command): PaletteRow {
     enabled: run !== null,
     reason: run === null ? (command.reason ?? null) : null,
     run,
+    keys,
+  }
+}
+
+/** The This screen rows: every registered command but the hidden ones, hinting its bound key. */
+export function screenRows(commands: readonly Command[], bindings: KeyBindings): PaletteRow[] {
+  return commands.filter((c) => !c.hidden).map((c) => commandRow(c, boundKeysOf(c, bindings)))
+}
+
+/**
+ * The row that opens the shortcuts sheet (K16) — on every screen, the console's included,
+ * where `?` would type into the box. It sits last in This screen: the sheet lists this
+ * screen's keys. It hints `?` only where `?` is live.
+ */
+export function shortcutsRow(open: () => void, at: { singleKeyScreen: boolean }): PaletteRow {
+  return {
+    id: 'core:shortcuts',
+    group: 'screen',
+    label: 'common:shortcuts.open',
+    context: null,
+    value: null,
+    icon: Keyboard,
+    enabled: true,
+    reason: null,
+    run: open,
+    keys: at.singleKeyScreen ? SHEET_KEYS : null,
   }
 }
 
@@ -172,10 +215,22 @@ export function paletteRun(rows: readonly PaletteRow[], aim: number | null): Pal
  *
  * 🚩 An explicit flag, never `chromeless`: the console is chromeless too, and joins the
  * palette at 395.
+ *
+ * - `singleKeys` (393) — a screen with single keys (letters, `/`, `?`): the Deliveries
+ *   list and Delivery details only (365 §2). Everywhere else has Ctrl+K, Esc and its own
+ *   Ctrl+Enter, and a letter there is refused.
  */
 export interface PaletteRouteHandle {
   print?: boolean
   ownPalette?: boolean
+  singleKeys?: boolean
+}
+
+/** True when a matched route is a single-key screen. Reads `handle`s of any shape, defensively. */
+export function singleKeyScreenOf(handles: readonly unknown[]): boolean {
+  return handles.some(
+    (handle) => typeof handle === 'object' && handle !== null && (handle as PaletteRouteHandle).singleKeys === true,
+  )
 }
 
 /** True when any matched route opts out. Reads `handle`s of any shape, defensively. */

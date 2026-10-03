@@ -1498,14 +1498,23 @@ async function driveTopbar({ theme, dir }) {
       (await darkItem.getAttribute('aria-checked')) === String(theme === 'dark'),
     JSON.stringify(await focused()),
   )
+  // 393 put the single-key switch and the shortcuts sheet between the theme and sign out.
+  check(
+    `${label}: the menu carries the single-key switch (on) and the Keyboard shortcuts sheet`,
+    (await menu.getByRole('menuitemcheckbox', { name: 'Single-key shortcuts' }).getAttribute('aria-checked')) === 'true' &&
+      (await menu.getByRole('menuitem', { name: 'Keyboard shortcuts' }).count()) === 1,
+  )
   await page.keyboard.press('ArrowDown')
   const down = await focused()
-  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowUp')
+  await page.keyboard.press('ArrowUp')
   const wrapped = await focused()
+  await page.keyboard.press('ArrowDown')
+  const back = await focused()
   check(
     `${label}: the arrows move through the items and wrap`,
-    down.text === 'Sign out' && wrapped.role === 'menuitemcheckbox',
-    JSON.stringify({ down, wrapped }),
+    down.text === 'Single-key shortcuts' && wrapped.text === 'Sign out' && back.text === 'Dark mode',
+    JSON.stringify({ down, wrapped, back }),
   )
   await page.screenshot({ path: `${SHOTS}/topbar-user-menu-${theme}-${dir}.png` })
 

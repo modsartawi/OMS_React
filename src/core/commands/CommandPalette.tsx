@@ -25,6 +25,9 @@ import Kbd from '@/core/ui/Kbd'
 import Ltr from '@/core/ui/Ltr'
 import { DIALOG } from '@/core/ui/overlay'
 import { keyLegend } from './chord'
+import KeyChord from './KeyChord'
+import { hintedKeys } from './key-hint'
+import { useSingleKeys } from './single-key-switch'
 import { NO_HIGHLIGHT, highlightMoveOf, moveHighlight, type HighlightState } from './highlight'
 import {
   PALETTE_GROUP_LABEL,
@@ -223,10 +226,15 @@ export default function CommandPalette({
  * One row. A refused act is drawn disabled with its reason rather than withheld (K13),
  * stays aimable, and pressing it does nothing. The mouse runs the row it presses — the
  * same act `Enter` reaches, by the same route.
+ *
+ * Its key sits at the inline end as a `kbd` (K15); a letter's hides while the single-key
+ * switch is off, because the letter does nothing then.
  */
 function Row({ row, aimed, onRun }: { row: PaletteRow; aimed: boolean; onRun: () => void }) {
   const { t } = useTranslation()
+  const switchOn = useSingleKeys((s) => s.on)
   const Icon = row.icon
+  const keys = hintedKeys(row.keys, switchOn)
   return (
     <div
       id={optionId(row)}
@@ -262,6 +270,7 @@ function Row({ row, aimed, onRun }: { row: PaletteRow; aimed: boolean; onRun: ()
         )}
       </span>
       {row.context && <span className="shrink-0 text-[11.5px] text-muted-foreground">{t(row.context)}</span>}
+      {keys && <KeyChord keys={keys} />}
     </div>
   )
 }

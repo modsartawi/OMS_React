@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { ExternalLink, FileSpreadsheet, Pin, Table2 } from 'lucide-react'
 import type { GridApi } from 'ag-grid-community'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
+import { takesEscape } from '@/core/commands/key-layer'
 import { pinStart } from '@/core/theme/direction'
 import { POPOVER } from '@/core/ui/overlay'
 import { exportDeliveriesToExcel } from './export'
@@ -54,7 +55,9 @@ export default function GridToolbar({
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) setColumnsOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setColumnsOpen(false)
+      if (!takesEscape(e, popoverRef.current)) return
+      e.preventDefault()
+      setColumnsOpen(false)
     }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)

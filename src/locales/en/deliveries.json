@@ -118,16 +118,39 @@
     "unpin": "Unpin {{column}}"
   },
   "views": {
-    "ariaLabel": "Saved grid views",
-    "placeholder": "Saved views…",
-    "save": "Save view",
-    "update": "Update",
-    "delete": "Delete",
-    "cancel": "Cancel",
-    "dialogTitle": "Save grid view",
-    "dialogHint": "Captures the current column order, width, visibility, pinning, sort and filters.",
-    "nameLabel": "View name",
-    "namePlaceholder": "e.g. Failed jobs triage",
+    "heading": "My views",
+    "none": "No saved views yet.",
+    "saveCurrent": "Save current view",
+    "layoutOnly": "layout",
+    "layoutOnlyHint": "Imported from the old app: columns only. Applying it keeps the current search.",
+    "default": "Default — runs on open",
+    "modified": "Changed since saved",
+    "applyRow": "Apply view:",
+    "menu": {
+      "label": "Actions for {{name}}",
+      "title": "View actions",
+      "update": "Update",
+      "saveAs": "Save as new view…",
+      "rename": "Rename…",
+      "makeDefault": "Make default",
+      "removeDefault": "Remove default",
+      "delete": "Delete"
+    },
+    "dialog": {
+      "saveTitle": "Save view",
+      "renameTitle": "Rename view",
+      "save": "Save view",
+      "rename": "Rename",
+      "cancel": "Cancel",
+      "nameLabel": "View name",
+      "namePlaceholder": "e.g. Failed jobs triage",
+      "captures": "Saves the search (dates stay relative), the lens, the columns and the grid filters.",
+      "refused": {
+        "blank": "Give the view a name.",
+        "taken": "You already have a view with that name.",
+        "gone": "This view no longer exists."
+      }
+    },
     "saved": {
       "title": "View saved",
       "detail": "\"{{name}}\" was saved."
@@ -138,7 +161,8 @@
     },
     "deleted": {
       "title": "View deleted",
-      "detail": "\"{{name}}\" was deleted."
+      "detail": "\"{{name}}\" was deleted.",
+      "undo": "Undo"
     }
   },
   "export": {

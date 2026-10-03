@@ -57,6 +57,21 @@
 //   - `/` from a grid cell focuses + Filter, prevented; the store chip's value is mono and one ltr
 //     isolate; Back from Delivery details restores the tokens with nothing pending.
 //
+// Ticket 400: saved views (L3, L4, L5, L7's My views, L9's view name, L12, L17's view rows).
+//   - the old shared key's layout imports once into the user's own key as a layout-only view
+//     (the `layout` tag), is not re-imported on reload, and the old key is never written;
+//   - applying the imported view hides its columns, keeps the criteria and sends no request;
+//   - + Save current view opens core Modal (a native dialog); a taken name is refused INSIDE it
+//     with no toast; Save captures criteria, lens, columns and filters and becomes active;
+//   - the ⋯ menu opens at the row's inline end (left under RTL): Update disabled until a lens
+//     change or a grid filter drifts the view (the dot on the row and in the grid bar); Update
+//     clears it; re-applying runs the view's search; Make default stars it;
+//   - a reload applies AND runs the starred default; Back from Delivery details keeps the
+//     in-memory search, never the default;
+//   - "Apply view: ‹name›" from Ctrl+K has no key and runs the search; Delete has no confirm and
+//     Undo from its toast restores the view with its star; Rename refuses a taken name in the
+//     dialog; Update on an active imported view re-saves it as a full view.
+//
 // SIS.Api's delivery list needs a store grant a dev session does not have, so every `/api/**`
 // call is stubbed here, as in tools/grid-theme-drive.mjs. The RTL passes store
 // `oms.locale = ar` before boot (383); the chrome stays English and the DATA carries Arabic
@@ -352,6 +367,7 @@ async function drive({ theme, dir }) {
   await inspectorChecks({ page, label, theme, dir, requests })
   await lensChecks({ page, label, theme, dir, requests })
   await queryChecks({ page, label, theme, dir, requests })
+  await viewChecks({ page, label, theme, dir, requests })
 
   check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
   await context.close()
@@ -1307,6 +1323,400 @@ async function queryChecks({ page, label, theme, dir, requests }) {
     `${away} · ${back.tokens.map((t) => t.text).join(' | ')} vs ${tokensBefore.join(' | ')}`,
   )
   if (rtl) await page.screenshot({ path: `${SHOTS}/query-rtl-${theme}.png` })
+}
+
+// ----- 400: saved views ----------------------------------------------------------------------
+
+/** The stub session's user (Auth/Me): saved views live under this user's own key. */
+const VIEWS_KEY = 'oms.deliveries.views.v1:msartawi'
+const LEGACY_KEY = 'oms-web.delivery-grid-views'
+/** One layout the Angular app saved: it hides Document no. and Order no. */
+const LEGACY = JSON.stringify([
+  {
+    id: 'old-1',
+    name: 'Money columns',
+    columnState: [
+      { colId: 'documentNo', hide: true },
+      { colId: 'orderNo', hide: true },
+    ],
+    filterModel: {},
+  },
+])
+
+/** My views as the rail draws them, the grid bar's title, and the grid's rendered columns. */
+async function viewState(page) {
+  return page.evaluate(() => ({
+    rows: [...document.querySelectorAll('[data-my-views] [data-view-row]')].map((r) => ({
+      name: r.getAttribute('data-view-name'),
+      active: r.querySelector('[data-view-apply]')?.getAttribute('aria-current') === 'true',
+      layout: !!r.querySelector('[data-view-layout]'),
+      star: !!r.querySelector('[data-view-default]'),
+      dot: !!r.querySelector('[data-view-modified]'),
+    })),
+    title: document.querySelector('[data-active-view]')?.textContent.trim() ?? null,
+    titleDot: !!document.querySelector('[data-active-view] [data-view-modified]'),
+    columns: [...new Set([...document.querySelectorAll('.ag-header-cell[col-id]')].map((h) => h.getAttribute('col-id')))],
+  }))
+}
+
+const rowOf = (state, name) => state.rows.find((r) => r.name === name)
+const storedViews = (page) =>
+  page.evaluate(([k, l]) => ({ user: JSON.parse(localStorage.getItem(k) || 'null'), legacy: localStorage.getItem(l) }), [VIEWS_KEY, LEGACY_KEY])
+
+/** Opens a view's ⋯ menu (hover shows it) and returns the menu. */
+async function openViewMenu(page, name) {
+  const row = page.locator(`[data-view-row][data-view-name="${name}"]`)
+  await row.hover()
+  await row.locator('[data-view-menu-trigger]').click()
+  await page.waitForSelector('[data-view-menu]', { timeout: 3000 }).catch(() => {})
+  return page.locator('[data-view-menu]')
+}
+
+async function viewAction(page, name, action) {
+  const menu = await openViewMenu(page, name)
+  await menu.locator(`[data-view-action="${action}"]`).click()
+  await page.waitForTimeout(300)
+}
+
+const toastText = (page) =>
+  page.evaluate(() => [...document.querySelectorAll('[data-sonner-toast]')].map((t) => t.textContent.trim()))
+
+async function viewChecks({ page, label, theme, dir, requests }) {
+  const rtl = dir === 'rtl'
+  const listCalls = () => requests.filter((r) => r.startsWith('SdDocumentWeb/DeliveryDocumentList'))
+  const storeCalls = () => listCalls().filter((r) => /[?&]StoreCode=1017/.test(r)).length
+
+  // 29. The old shared layouts import once, as layout-only views, into this user's own key.
+  await page.evaluate(([k, l, v]) => {
+    localStorage.removeItem(k)
+    localStorage.setItem(l, v)
+  }, [VIEWS_KEY, LEGACY_KEY, LEGACY])
+  await page.reload()
+  await page.waitForSelector('[data-my-views]', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(200)
+  const imported = await viewState(page)
+  const stored = await storedViews(page)
+  check(
+    `${label}: the old layout imports once as a layout-only view (the "layout" tag, no criteria, lens All)`,
+    imported.rows.length === 1 &&
+      imported.rows[0].name === 'Money columns' &&
+      imported.rows[0].layout &&
+      !imported.rows[0].star &&
+      stored.user?.legacyImported === true &&
+      stored.user.views[0]?.query === null &&
+      stored.user.views[0]?.lens === 'all',
+    `${JSON.stringify(imported.rows)} · ${JSON.stringify(stored.user)}`,
+  )
+  await page.reload()
+  await page.waitForSelector('[data-my-views]', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(200)
+  const again = await viewState(page)
+  check(
+    `${label}: the next load does not import it again, and the old key is untouched`,
+    again.rows.length === 1 && (await storedViews(page)).legacy === LEGACY,
+    `${again.rows.length} row(s)`,
+  )
+
+  // 30. Applying the imported view sets the layout only: no search, the criteria left alone.
+  await setCriterion(page, 'storeCode', '1017')
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(900)
+  const tokensBefore = (await barState(page)).tokens.map((t) => t.text)
+  const callsBefore = listCalls().length
+  await page.locator('[data-view-row][data-view-name="Money columns"] [data-view-apply]').click()
+  await page.waitForTimeout(500)
+  const layoutOnly = await viewState(page)
+  const tokensAfter = (await barState(page)).tokens.map((t) => t.text)
+  check(
+    `${label}: applying the imported view hides its columns, keeps the criteria and runs no search`,
+    !layoutOnly.columns.includes('documentNo') &&
+      !layoutOnly.columns.includes('orderNo') &&
+      layoutOnly.columns.includes('deliveryNo') &&
+      JSON.stringify(tokensAfter) === JSON.stringify(tokensBefore) &&
+      listCalls().length === callsBefore &&
+      rowOf(layoutOnly, 'Money columns')?.active &&
+      layoutOnly.title === 'Money columns' &&
+      !layoutOnly.titleDot,
+    `columns ${layoutOnly.columns.slice(0, 4).join(',')} · tokens ${tokensAfter.join(' | ')} · requests ${callsBefore}→${listCalls().length} · title "${layoutOnly.title}"`,
+  )
+
+  // 31. + Save current view opens core Modal; a taken name is refused INSIDE it, with no toast.
+  await page.locator('[data-view-save]').click()
+  const dialog = page.locator('dialog[open]')
+  await dialog.waitFor({ timeout: 5000 })
+  await page.locator('#view-name').fill('money COLUMNS')
+  await page.waitForTimeout(150)
+  const refused = await page.evaluate(() => {
+    const dialog = document.querySelector('dialog[open]')
+    return {
+      title: dialog?.querySelector('#modal-title')?.textContent.trim(),
+      refusal: dialog?.querySelector('[data-view-dialog-refusal]')?.getAttribute('data-view-dialog-refusal') ?? null,
+      text: dialog?.querySelector('[data-view-dialog-refusal]')?.textContent.trim() ?? '',
+      disabled: dialog?.querySelector('[data-view-dialog-submit]')?.disabled ?? null,
+      invalid: document.getElementById('view-name')?.getAttribute('aria-invalid'),
+      hiddenOverlay: !!document.querySelector('.fixed.inset-0'),
+    }
+  })
+  await page.locator('#view-name').press('Enter')
+  await page.waitForTimeout(200)
+  check(
+    `${label}: a taken name is refused inside the core Modal (a native dialog), which stays open with no toast`,
+    refused.title === 'Save view' &&
+      refused.refusal === 'taken' &&
+      refused.text === 'You already have a view with that name.' &&
+      refused.disabled === true &&
+      refused.invalid === 'true' &&
+      (await dialog.count()) === 1 &&
+      !(await toastText(page)).some((t) => t.includes('View saved')),
+    JSON.stringify(refused),
+  )
+  await page.locator('#view-name').fill('Store 1017')
+  await page.locator('#view-name').press('Enter')
+  await dialog.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  await page.waitForTimeout(300)
+  const savedState = await viewState(page)
+  const savedStore = await storedViews(page)
+  const savedView = savedStore.user?.views.find((v) => v.name === 'Store 1017')
+  check(
+    `${label}: Save captures the criteria, the lens, the columns and the grid filters, and becomes the active view`,
+    (await dialog.count()) === 0 &&
+      (await toastText(page)).some((t) => t.includes('View saved')) &&
+      rowOf(savedState, 'Store 1017')?.active &&
+      savedState.title === 'Store 1017' &&
+      !savedState.titleDot &&
+      savedView?.query?.storeCode === '1017' &&
+      savedView?.lens === 'all' &&
+      savedView?.columnState?.find((c) => c.colId === 'documentNo')?.hide === true &&
+      JSON.stringify(savedView?.filterModel) === '{}',
+    `${JSON.stringify(savedState.rows)} · ${JSON.stringify(savedView?.query)}`,
+  )
+
+  // 32. The modified dot: Update is disabled until the view drifts; a lens change drifts it.
+  let menu = await openViewMenu(page, 'Store 1017')
+  const menuBox = await page.evaluate(() => {
+    const m = document.querySelector('[data-view-menu]')?.getBoundingClientRect()
+    const r = document.querySelector('[data-view-row][data-view-name="Store 1017"]')?.getBoundingClientRect()
+    return {
+      side: m && r ? (m.left >= r.right - 1 ? 'right' : m.right <= r.left + 1 ? 'left' : 'over') : null,
+      focus: document.activeElement?.getAttribute('data-view-action'),
+      items: [...document.querySelectorAll('[data-view-menu] [data-view-action]')].map((b) => b.textContent.trim()),
+    }
+  })
+  const updateIdle = await menu.locator('[data-view-action="update"]').isDisabled()
+  if (rtl) await page.screenshot({ path: `${SHOTS}/views-menu-rtl-${theme}.png` })
+  else await page.screenshot({ path: `${SHOTS}/views-menu-${theme}.png` })
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  const menuGone = (await page.locator('[data-view-menu]').count()) === 0
+  check(
+    `${label}: the ⋯ menu opens at the row's inline end with the five acts, Update disabled until it drifts, and Esc closes it`,
+    menuBox.side === (rtl ? 'left' : 'right') &&
+      JSON.stringify(menuBox.items) ===
+        JSON.stringify(['Update', 'Save as new view…', 'Rename…', 'Make default', 'Delete']) &&
+      menuBox.focus === 'saveAs' &&
+      updateIdle &&
+      menuGone,
+    `${JSON.stringify(menuBox)} · update disabled ${updateIdle} · closed ${menuGone}`,
+  )
+  await page.locator('[data-lens="dawaaNow"]').click()
+  await page.waitForTimeout(300)
+  const drifted = await viewState(page)
+  menu = await openViewMenu(page, 'Store 1017')
+  const updateLive = await menu.locator('[data-view-action="update"]').isEnabled()
+  check(
+    `${label}: a lens change shows the modified dot on the row and in the grid bar, and enables Update`,
+    rowOf(drifted, 'Store 1017')?.dot && drifted.titleDot && updateLive,
+    `${JSON.stringify(rowOf(drifted, 'Store 1017'))} · title dot ${drifted.titleDot} · update ${updateLive}`,
+  )
+  await menu.locator('[data-view-action="update"]').click()
+  await page.waitForTimeout(300)
+  const updated = await viewState(page)
+  check(
+    `${label}: Update saves the drift and clears the dot`,
+    !rowOf(updated, 'Store 1017')?.dot &&
+      !updated.titleDot &&
+      (await storedViews(page)).user?.views.find((v) => v.name === 'Store 1017')?.lens === 'dawaaNow' &&
+      (await toastText(page)).some((t) => t.includes('View updated')),
+    JSON.stringify(rowOf(updated, 'Store 1017')),
+  )
+
+  // 33. A grid filter drifts it too; re-applying the view puts it back, and runs its search.
+  const statusFilter = page.locator('.ag-floating-filter[col-id="status"] input')
+  await statusFilter.fill('ready')
+  await page.waitForTimeout(1200)
+  const filtered = await viewState(page)
+  const callsReapply = listCalls().length
+  await page.locator('[data-view-row][data-view-name="Store 1017"] [data-view-apply]').click()
+  await page.waitForTimeout(900)
+  const reapplied = await viewState(page)
+  check(
+    `${label}: a grid filter sets the dot, and re-applying the view clears it and runs its search`,
+    rowOf(filtered, 'Store 1017')?.dot &&
+      !rowOf(reapplied, 'Store 1017')?.dot &&
+      (await statusFilter.inputValue()) === '' &&
+      listCalls().length === callsReapply + 1 &&
+      /[?&]StoreCode=1017/.test(listCalls().at(-1)),
+    `dot ${rowOf(filtered, 'Store 1017')?.dot}→${rowOf(reapplied, 'Store 1017')?.dot} · requests ${callsReapply}→${listCalls().length}`,
+  )
+
+  // 34. Make default stars it; a reload with no in-memory search applies AND runs it.
+  await viewAction(page, 'Store 1017', 'toggleDefault')
+  const starred = await viewState(page)
+  const starStore = await storedViews(page)
+  const starId = starStore.user?.views.find((v) => v.name === 'Store 1017')?.id
+  check(
+    `${label}: Make default stars the view`,
+    rowOf(starred, 'Store 1017')?.star && starStore.user?.defaultId === starId && !rowOf(starred, 'Money columns')?.star,
+    JSON.stringify(starred.rows),
+  )
+  const storeBeforeReload = storeCalls()
+  await page.reload()
+  await page.waitForSelector('.ag-center-cols-container .ag-row', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(500)
+  const opened = await viewState(page)
+  const openedBar = await barState(page)
+  const activeLens = await page.evaluate(() => document.querySelector('[data-lens][aria-current="true"]')?.getAttribute('data-lens'))
+  check(
+    `${label}: on open the starred default applies and runs (its search, lens and layout)`,
+    storeCalls() === storeBeforeReload + 1 &&
+      opened.title === 'Store 1017' &&
+      !opened.titleDot &&
+      tokenOf(openedBar, 'storeCode')?.state === 'applied' &&
+      activeLens === 'dawaaNow' &&
+      !opened.columns.includes('documentNo'),
+    `store requests ${storeBeforeReload}→${storeCalls()} · title "${opened.title}" · lens ${activeLens} · tokens ${openedBar.tokens.map((t) => t.text).join(' | ')}`,
+  )
+
+  // 35. Back from Delivery details: the in-memory search wins, never the default.
+  await dropCriterion(page, 'storeCode')
+  await search(page)
+  const inMemory = (await barState(page)).tokens.map((t) => t.text)
+  const callsBeforeDetails = listCalls().length
+  await clickRow(page, '80001202')
+  await page.keyboard.press('Enter')
+  await page.waitForURL(/\/oms\/delivery\/\d+$/, { timeout: 5000 }).catch(() => {})
+  const away = new URL(page.url()).pathname
+  await page.goBack()
+  await page.waitForSelector('[data-query-bar]', { timeout: 10000 }).catch(() => {})
+  await page.waitForTimeout(600)
+  const back = await barState(page)
+  const backViews = await viewState(page)
+  check(
+    `${label}: back from Delivery details the in-memory search is restored, not the default`,
+    away !== '/oms/deliveries' &&
+      JSON.stringify(back.tokens.map((t) => t.text)) === JSON.stringify(inMemory) &&
+      !tokenOf(back, 'storeCode') &&
+      listCalls().length === callsBeforeDetails &&
+      backViews.title === 'Store 1017' &&
+      backViews.titleDot,
+    `${away} · ${back.tokens.map((t) => t.text).join(' | ')} · requests ${callsBeforeDetails}→${listCalls().length} · dot ${backViews.titleDot}`,
+  )
+
+  // 36. "Apply view: ‹name›" from Ctrl+K: a This screen row with no key, which runs its search.
+  await page.locator('[data-lens="all"]').click()
+  const storeBeforePalette = storeCalls()
+  await page.locator('[data-lens="all"]').focus()
+  await page.keyboard.press('Control+k')
+  await page.waitForSelector('[data-palette-input]', { timeout: 5000 }).catch(() => {})
+  await page.locator('[data-palette-input]').fill('Apply view')
+  await page.waitForTimeout(150)
+  const paletteRows = await page.evaluate((id) => {
+    const row = document.querySelector(`[data-palette-row="screen:view.${id}"]`)
+    return {
+      text: row?.textContent.trim().replace(/\s+/g, ' ') ?? null,
+      keys: row?.querySelectorAll('kbd').length ?? -1,
+      detailIsolated: row?.querySelector('[data-palette-detail]')?.tagName === 'BDI',
+      count: document.querySelectorAll('[data-palette-row^="screen:view."]').length,
+    }
+  }, starId)
+  await page.locator('[data-palette-input]').fill('Apply view: Store 1017')
+  await page.waitForTimeout(150)
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(900)
+  const viaPalette = await viewState(page)
+  check(
+    `${label}: each saved view is an "Apply view: ‹name›" row with no key, and it runs the view's search`,
+    /^Apply view:\s*Store 1017$/.test(paletteRows.text ?? '') &&
+      paletteRows.keys === 0 &&
+      paletteRows.detailIsolated &&
+      paletteRows.count === 2 &&
+      storeCalls() === storeBeforePalette + 1 &&
+      viaPalette.title === 'Store 1017' &&
+      !viaPalette.titleDot,
+    `${JSON.stringify(paletteRows)} · store requests ${storeBeforePalette}→${storeCalls()}`,
+  )
+
+  // 37. Delete with no confirm, then Undo from the toast puts it back, star and all.
+  await viewAction(page, 'Store 1017', 'delete')
+  const deleted = await viewState(page)
+  const deletedStore = await storedViews(page)
+  const confirmDialog = await page.locator('dialog[open]').count()
+  check(
+    `${label}: Delete removes the view with no confirm dialog and a toast that offers Undo`,
+    !rowOf(deleted, 'Store 1017') &&
+      deleted.title === null &&
+      confirmDialog === 0 &&
+      !deletedStore.user?.views.some((v) => v.name === 'Store 1017') &&
+      deletedStore.user?.defaultId === null &&
+      (await toastText(page)).some((t) => t.includes('View deleted') && t.includes('Undo')),
+    `${JSON.stringify(deleted.rows)} · ${await toastText(page)}`,
+  )
+  await page.locator('[data-sonner-toast]', { hasText: 'View deleted' }).locator('[data-button]').click()
+  await page.waitForTimeout(300)
+  const undone = await viewState(page)
+  const undoneStore = await storedViews(page)
+  check(
+    `${label}: Undo restores it in its place, with its star, as the active view`,
+    JSON.stringify(undone.rows.map((r) => r.name)) === JSON.stringify(['Money columns', 'Store 1017']) &&
+      rowOf(undone, 'Store 1017')?.star &&
+      undoneStore.user?.defaultId === starId &&
+      undone.title === 'Store 1017',
+    JSON.stringify(undone.rows),
+  )
+
+  // 38. Rename: the dialog starts from the view's name and refuses another view's, inside itself.
+  await viewAction(page, 'Money columns', 'rename')
+  await dialog.waitFor({ timeout: 5000 })
+  const renameStart = await page.evaluate(() => ({
+    title: document.querySelector('dialog[open] #modal-title')?.textContent.trim(),
+    value: document.getElementById('view-name')?.value,
+  }))
+  await page.locator('#view-name').fill(' store 1017 ')
+  await page.waitForTimeout(150)
+  const renameRefused = await page.locator('dialog[open] [data-view-dialog-refusal="taken"]').count()
+  await page.locator('#view-name').fill('Wide money')
+  await page.locator('#view-name').press('Enter')
+  await dialog.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+  await page.waitForTimeout(200)
+  const renamed = await viewState(page)
+  check(
+    `${label}: Rename starts from the name, refuses a taken one inside the dialog, and renames`,
+    renameStart.title === 'Rename view' &&
+      renameStart.value === 'Money columns' &&
+      renameRefused === 1 &&
+      JSON.stringify(renamed.rows.map((r) => [r.name, r.layout])) === JSON.stringify([['Wide money', true], ['Store 1017', false]]),
+    `${JSON.stringify(renameStart)} · refused ${renameRefused} · ${JSON.stringify(renamed.rows)}`,
+  )
+  await page.screenshot({ path: `${SHOTS}/views-${theme}-${dir}.png` })
+
+  // 39. Re-saving the imported view (Update, live at once on an active layout-only view) makes it
+  //     a full view: the tag goes, and it now holds the criteria and lens on screen.
+  await page.locator('[data-view-row][data-view-name="Wide money"] [data-view-apply]').click()
+  await page.waitForTimeout(300)
+  const resaveMenu = await openViewMenu(page, 'Wide money')
+  const resaveLive = await resaveMenu.locator('[data-view-action="update"]').isEnabled()
+  await resaveMenu.locator('[data-view-action="update"]').click()
+  await page.waitForTimeout(300)
+  const resaved = await viewState(page)
+  const resavedView = (await storedViews(page)).user?.views.find((v) => v.name === 'Wide money')
+  check(
+    `${label}: Update on an active imported view re-saves it as a full view`,
+    resaveLive && rowOf(resaved, 'Wide money')?.layout === false && resavedView?.query?.storeCode === '1017',
+    `update enabled ${resaveLive} · ${JSON.stringify(rowOf(resaved, 'Wide money'))} · ${JSON.stringify(resavedView?.query?.storeCode)}`,
+  )
+
+  // 40. The old key was only ever read.
+  check(`${label}: the old shared key was never written or removed`, (await storedViews(page)).legacy === LEGACY)
 }
 
 for (const theme of ['light', 'dark']) {

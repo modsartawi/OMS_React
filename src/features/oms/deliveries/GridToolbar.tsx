@@ -15,7 +15,6 @@ import { exportDeliveriesToExcel } from './export'
 import { INSPECTOR_KEYS } from './inspector-pane'
 import type { RowPill } from './lenses'
 import { lensCountText } from './ViewsRail'
-import ViewManager from './ViewManager'
 
 /** One row of the column chooser — a column's current visibility and pin state. */
 interface ColumnToggle {
@@ -33,9 +32,9 @@ const BTN =
  * Screen 1 results-grid toolbar.
  *
  * Hosts the grid-level actions beside the results: open the selected row's order
- * or delivery on Screen 2, export the current grid, choose which columns show
- * (and pin them), and manage saved views. The column chooser exists because AG
- * Grid Community has no column menu (D-14).
+ * or delivery on Screen 2, export the current grid, and choose which columns show
+ * (and pin them). The column chooser exists because AG Grid Community has no
+ * column menu (D-14). Saved views live in the views rail (ticket 400).
  */
 export default function GridToolbar({
   gridApi,
@@ -204,8 +203,6 @@ export default function GridToolbar({
         <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
         {t('toolbar.export')}
       </button>
-
-      <ViewManager gridApi={gridApi} />
     </div>
   )
 }

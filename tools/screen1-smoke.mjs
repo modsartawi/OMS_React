@@ -86,14 +86,18 @@ const chooserItems = await page.locator('input[type=checkbox]').count()
 check('columns chooser lists all 41 columns', chooserItems === 41, `${chooserItems} checkboxes`)
 await page.keyboard.press('Escape')
 
-// 13. Saved view round-trip
-await page.getByRole('button', { name: 'Save view' }).click()
-await page.fill('#viewName', 'smoke view')
-await page.getByRole('dialog').getByRole('button', { name: 'Save view' }).click()
+// 13. Saved view round-trip — the views rail's + Save current view (ticket 400), kept per user
+await page.locator('[data-view-save]').click()
+await page.fill('#view-name', 'smoke view')
+await page.locator('dialog[open]').getByRole('button', { name: 'Save view' }).click()
 await page.waitForTimeout(500)
-const stored = await page.evaluate(() => localStorage.getItem('oms-web.delivery-grid-views'))
-const parsed = JSON.parse(stored || '[]')
-check('saved view persisted to localStorage', parsed.length === 1 && parsed[0].name === 'smoke view' && Array.isArray(parsed[0].columnState), `${parsed.length} view(s), ${parsed[0]?.columnState?.length ?? 0} column states`)
+const stored = await page.evaluate(() => {
+  const key = Object.keys(localStorage).find((k) => k.startsWith('oms.deliveries.views.v1:'))
+  return key ? localStorage.getItem(key) : null
+})
+const parsed = JSON.parse(stored || '{"views":[]}').views
+const smoke = parsed.find((v) => v.name === 'smoke view')
+check('saved view persisted to localStorage under the user', !!smoke && Array.isArray(smoke.columnState) && !!smoke.query, `${parsed.length} view(s), ${smoke?.columnState?.length ?? 0} column states`)
 
 // 14. Drill-down + search-state restore (R-8)
 await page.getByRole('button', { name: 'Open Order' }).click()

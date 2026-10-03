@@ -979,14 +979,14 @@ for (const mode of [
 
   await keysAndSheet(page, tag, mode)
 
-  // A hand-drawn modal (the saved-view dialog marks itself `aria-modal`) counts as open too.
-  await page.getByRole('button', { name: 'Save view' }).click()
-  await page.waitForSelector('[role="dialog"][aria-modal="true"]')
+  // The saved-view name dialog (core Modal since ticket 400, a native <dialog>) counts as open too.
+  await page.locator('[data-view-save]').click()
+  await page.waitForSelector('dialog[open]')
   await ctrlK(page)
   await page.waitForTimeout(150)
-  ok(!(await coreOpen(page)), `${tag}: 🚩 Ctrl+K over the hand-drawn Save view dialog does NOTHING`)
+  ok(!(await coreOpen(page)), `${tag}: 🚩 Ctrl+K over the Save view dialog does NOTHING`)
   await page.keyboard.press('Escape')
-  await page.waitForSelector('[role="dialog"][aria-modal="true"]', { state: 'detached' })
+  await page.waitForSelector('dialog[open]', { state: 'detached' })
 
   // 365's flag: on an Arabic layout `key` is the Arabic letter on that cap.
   await page.evaluate(() =>

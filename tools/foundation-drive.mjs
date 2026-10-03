@@ -2158,11 +2158,13 @@ async function driveOverlays({ theme, dir }) {
   )
   await page.getByRole('button', { name: 'Columns' }).click()
 
-  await page.getByRole('button', { name: 'Save view' }).click()
-  const saveDialog = page.getByRole('dialog', { name: 'Save grid view' })
+  // The views rail's + Save current view opens core Modal (ticket 400, L12).
+  await page.locator('[data-view-save]').click()
+  const saveDialog = page.getByRole('dialog', { name: 'Save view' })
   await saveDialog.waitFor({ timeout: 5000 })
+  await page.waitForTimeout(200)
   const sd = await surface(saveDialog)
-  const scrimBg = await saveDialog.evaluate((el) => getComputedStyle(el.parentElement).backgroundColor)
+  const scrimBg = await saveDialog.evaluate((el) => getComputedStyle(el, '::backdrop').backgroundColor)
   check(
     `${label}: the Save-view dialog is the dialog recipe (10px, --border-strong) over the --backdrop scrim`,
     sd.radius === '10px' && sd.edge === STRONG && isPop(sd.shadow) && scrimBg === BACKDROP[theme],
@@ -2172,7 +2174,11 @@ async function driveOverlays({ theme, dir }) {
   await page.getByLabel('View name').press('Enter')
   await checkToast('success', 'success')
 
-  await page.getByRole('button', { name: 'Delete' }).click()
+  // Delete sits in the view's ⋯ menu, with no confirm; its toast offers Undo.
+  const viewRow = page.locator('[data-view-row][data-view-name="Failed jobs"]')
+  await viewRow.hover()
+  await viewRow.locator('[data-view-menu-trigger]').click()
+  await page.locator('[data-view-menu] [data-view-action="delete"]').click()
   await checkToast('info', 'primary')
   await page.screenshot({ path: `${SHOTS}/overlays-toast-stack-${theme}-${dir}.png` })
 

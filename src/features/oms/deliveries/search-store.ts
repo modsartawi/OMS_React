@@ -30,6 +30,11 @@ interface DeliverySearchState {
   error: string | null
   /** The active lens (398): it narrows the loaded rows and survives a drill-down too. */
   lens: LensId
+  /**
+   * The saved view last applied or saved (400), or `null`. Its modified dot is measured against
+   * what the page holds now. In memory, so returning from Details keeps it, as it keeps the rest.
+   */
+  activeViewId: string | null
   columnState: ColumnState[] | null
   filterModel: FilterModel | null
   selectedKey: string | null
@@ -37,9 +42,10 @@ interface DeliverySearchState {
   beginSearch: () => void
   setResult: (rows: DeliveryDocumentModel[], limit: number, query: QueryCriteria) => void
   setError: (message: string) => void
-  captureGridState: (columnState: ColumnState[], filterModel: FilterModel) => void
+  captureGridState: (columnState: ColumnState[] | null, filterModel: FilterModel | null) => void
   setSelectedKey: (key: string | null) => void
   setLens: (lens: LensId) => void
+  setActiveView: (id: string | null) => void
 }
 
 export const useDeliverySearch = create<DeliverySearchState>((set) => ({
@@ -49,6 +55,7 @@ export const useDeliverySearch = create<DeliverySearchState>((set) => ({
   limit: null,
   error: null,
   lens: 'all',
+  activeViewId: null,
   columnState: null,
   filterModel: null,
   selectedKey: null,
@@ -67,6 +74,7 @@ export const useDeliverySearch = create<DeliverySearchState>((set) => ({
   captureGridState: (columnState, filterModel) => set({ columnState, filterModel }),
   setSelectedKey: (selectedKey) => set({ selectedKey }),
   setLens: (lens) => set({ lens }),
+  setActiveView: (activeViewId) => set({ activeViewId }),
 }))
 
 /**

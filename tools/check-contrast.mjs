@@ -169,6 +169,12 @@ const positives = [
     ['--muted-foreground', s, BODY],
     ['--danger-800', s, BODY],
   ]),
+  // Its My views rows (ticket 400) carry two graphics on either ground: the default's star in
+  // `--primary`, and the active view's modified dot in `--attention` (368 §3's amber, for edits).
+  ...['--card-2', '--primary-050'].flatMap((s) => [
+    ['--primary', s, UI],
+    ['--attention', s, UI],
+  ]),
   // R4's whole point: each `-800` is legible on its own `-050`, in BOTH themes,
   // from ONE class string. This is what lets the sweep delete every `dark:`.
   ...['primary', 'success', 'attention', 'danger', 'prescription', 'post'].map((f) => [

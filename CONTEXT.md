@@ -61,7 +61,10 @@ queue, tab.
 **Saved view** (of the Deliveries list):
 One operator's named bundle of **criteria** (dates kept relative, so "today" stays today), a
 **lens**, the column layout and the grid's column filters. Applying it runs its search. It lives
-in that user's browser only: there are no shared views (ticket 366).
+in that user's browser only: there are no shared views (ticket 366). One may be the user's
+**default view**, which applies and runs when the list opens with no search in memory. A
+**layout-only view** is one imported once from the old app's shared layouts: applying it sets
+the columns and filters and runs nothing, and re-saving it makes it a full saved view (ticket 400).
 _Avoid_: variant, layout (a layout is only the column part), preset, view on its own.
 
 **Store**:

@@ -5,7 +5,7 @@
  * 🚩 **`sessionStorage`, deliberately, and never `localStorage`.** A loyalty key
  * is a customer's mobile number on a shared back-office workstation. The chips
  * survive a reload and a walk to another screen, and they die with the tab —
- * `features/oms/deliveries/grid-views.ts` persists to `localStorage`, but grid
+ * `features/oms/deliveries/saved-views.ts` persists to `localStorage`, but grid
  * views are the agent's own furniture and these are customers, so that precedent
  * deliberately does not carry (239 decision 1).
  *

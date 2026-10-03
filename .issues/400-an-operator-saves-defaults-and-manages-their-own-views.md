@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 380
 blocked-by: 398, 399
 ---
@@ -63,13 +63,13 @@ the default on open, the palette rows) · i18n (`deliveries:views.*`) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `savedViewStoreIsPerUserAndDefensive`: two users' views never mix, a malformed store reads as
+- [x] `savedViewStoreIsPerUserAndDefensive`: two users' views never mix, a malformed store reads as
   empty, and duplicate names are refused · pure
-- [ ] `legacyLayoutViewsImportOnceAsLayoutOnly`: the old key's views import once as layout-only
+- [x] `legacyLayoutViewsImportOnceAsLayoutOnly`: the old key's views import once as layout-only
   (lens All, no criteria) and are not re-imported on the next load. The old key is untouched · pure
-- [ ] `viewDriftDetection`: changing criteria, lens, a column or a grid filter each sets
+- [x] `viewDriftDetection`: changing criteria, lens, a column or a grid filter each sets
   "modified". Re-applying clears it · pure
-- [ ] `tools/deliveries-list-drive.mjs`, extended. Save, star, reload: the default runs on open.
+- [x] `tools/deliveries-list-drive.mjs`, extended. Save, star, reload: the default runs on open.
   Return from Details: the in-memory search wins. Delete, then undo from the toast, restores. An
   imported view applies layout only. "Apply view" from Ctrl+K works. The drive runs in light, dark
   and RTL · flow (Playwright)
@@ -95,3 +95,83 @@ default runs on open, and the proof tests and the drive are green.
 
 - The operator lead's acceptance of "the starred default runs on open" is owed at S3 sign-off. It is
   not a build blocker.
+
+## Comments
+
+**Built 2026-10-03 (AFK).**
+
+- **Pure module `saved-views.ts`.**
+  - A **saved view** holds 399's `QueryCriteria` (the Date stays relative), the lens, the column
+    state and the column filters. `query: null` marks a **layout-only** view.
+  - The store lives in `localStorage` under `oms.deliveries.views.v1:<userId>`. No user means no
+    store. It is parsed field by field: anything malformed reads as empty, and a repeated id, name
+    or column is dropped, so the parse never throws.
+  - `readViewStore` imports the old `oms-web.delivery-grid-views` layouts **once** as layout-only
+    views (lens All) and records the import in the user's own key. The old key is only read. A
+    clashing name takes a free " (n)" within the 60-character cap.
+  - Lifecycle: `saveView`, `renameView` (refused `blank` / `taken` / `gone`), `updateView` (makes
+    a layout-only view full), `toggleDefault` (one star), and `deleteView` + `restoreView` (Undo
+    puts it back in place, with its star).
+  - `viewDrift` compares criteria (through 399's `pendingDiff`), lens, columns and filters.
+    Columns are compared only where both layouts name them, a flex column by its flex, and the
+    grid's own layout stands in for a view saved before any grid mounted. A layout-only view
+    drifts on its layout alone.
+  - `opensOnDefault` decides "no in-memory search".
+- **`view-store.ts`** is the thin zustand edge over `localStorage`. **`search-store.ts`** gains
+  `activeViewId`, so returning from Details keeps the active view.
+- **UI.**
+  - **`MyViews.tsx`** is the rail's My views section. Rows show a star (`--primary`), the `layout`
+    tag, and the modified dot (`--attention`) on the active view. The active row takes the
+    `--primary-050` + `--cursor` pair, now shared with the lens rows through `ViewsRail`'s
+    exports. The ⋯ menu shows on hover or focus, opens at the row's inline end, takes ↓/↑ and
+    Esc, and holds Update, Save as new…, Rename…, Make/Remove default and Delete.
+    **+ Save current view** sits at the foot.
+  - **`ViewNameDialog.tsx`** is on core `Modal`. A taken name is refused inside the dialog.
+  - Delete toasts with **Undo** and has no confirm.
+  - The grid bar's heading is the active view's name and its dot.
+  - `ViewManager.tsx` and `grid-views.ts` are deleted.
+  - The rail is `z-20` so its menu opens over the grid.
+- **Page.**
+  - Applying a view sets its layout, resetting first. A full view then sets its criteria and lens
+    and runs its search, superseding one in flight; an older answer that lands later is dropped.
+  - The starred default applies and runs once per mount, when `opensOnDefault` holds.
+  - Each saved view is an "Apply view: ‹name›" palette row, with no key.
+- **i18n.** `deliveries:views.*` is rewritten. The undo toast is `views.deleted.undo`. CONTEXT.md's
+  Saved view entry now names the default view and the layout-only view.
+- **Proof.**
+  - `saved-views.test.ts`: 33 tests. `npm test` passes 3445.
+  - `tools/deliveries-list-drive.mjs`: 290/290 in light, dark, LTR and RTL, network stubbed. Its
+    new `viewChecks` cover:
+    - the import running once, never writing the old key;
+    - the layout-only apply sending no request;
+    - the Modal refusing a taken name inside itself with no toast;
+    - Save capturing all four things;
+    - the menu side under RTL, and Update gated on drift (lens and grid filter);
+    - re-applying clearing the dot and searching;
+    - the star;
+    - the default running on reload;
+    - Back from Details keeping the in-memory search;
+    - Ctrl+K "Apply view";
+    - Delete + Undo;
+    - Rename;
+    - re-saving an imported view as a full view.
+  - Other drives updated for the removed ViewManager: command-palette 366/366, and foundation
+    1294/1302 (its 8 pre-existing topbar and bell failures). grid-theme 125/125 and oms-access
+    28/28 also pass. `screen1-smoke` needs a live SIS.Api login, so it was updated but not run.
+  - Lint passes all four gates, with 166 contrast pairs. The new pairs are the star and the
+    modified dot on both rail grounds. Typecheck and build are green.
+- **Reviews.**
+  - /code-review found 4 problems, all fixed:
+    - a view applied mid-search ran nothing;
+    - a layout was lost after a failed search;
+    - a repeated column id threw;
+    - a suffixed name over the cap was dropped on reload.
+  - /standards-review found Update blocked on imported views (fixed). It also flagged the
+    duplicated rail classes, the layout data clump, the dialog taking the whole store, the
+    rename refusal reason and the stale CONTEXT entry (all fixed).
+- **Outstanding (owner / operator lead):**
+  - the S3 live sign-off, including a human eye on Arabic rendering;
+  - the operator lead's acceptance that the starred default runs on open (R2).
+  
+  Neither blocks this ticket. The amber modified dot, the navy star and draft-vs-searched capture
+  are logged for a ruling in `.afk/HITL-400.md`.

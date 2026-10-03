@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { Ban, CalendarClock, Layers, TriangleAlert, Zap, type LucideIcon } from 'lucide-react'
@@ -13,6 +14,22 @@ export const LENS_ICON: Record<LensId, LucideIcon> = {
   rescheduled: CalendarClock,
 }
 
+/** The rail's section heading: small caps in secondary ink (Lenses, My views). */
+export const RAIL_HEADING =
+  'px-2 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground'
+
+/** A rail row's focus ring, drawn inside the row so the rail's edge never clips it. */
+export const RAIL_FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring'
+
+/** A rail row's tone: the active row takes the grid's selected-row ground, the rest go quiet. */
+export const railRowTone = (active: boolean) =>
+  active ? 'bg-primary-050 font-semibold text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+
+/** The active row's 3px `--cursor` bar on its inline-start edge — the pair `railRowTone` grounds. */
+export function CursorBar() {
+  return <span className="absolute inset-y-1 start-0 w-[3px] rounded-full bg-cursor" aria-hidden />
+}
+
 /** A count's wording, "—", "12" or "12+", as one string for the caller to isolate once. */
 export function lensCountText(t: TFunction<'deliveries'>, count: CountWording): string {
   return count.key === 'none' ? t('lens.count.none') : t(`lens.count.${count.key}`, { count: count.count })
@@ -25,18 +42,21 @@ export function lensCountText(t: TFunction<'deliveries'>, count: CountWording): 
  * Its first section is the **Lenses**: an icon, a label and the count in mono, each count one
  * value isolated once ("200+"). The active row takes the `--primary-050` ground and a 3px
  * `--cursor` bar on its inline-start edge, the grid's selected-row pair. Needs attention's
- * count turns danger while it is above 0. Saved views ("My views") join it in 400.
+ * count turns danger while it is above 0. The operator's saved views (**My views**, 400) follow
+ * as `children`, with + Save current view at the rail's foot.
  */
 export default function ViewsRail({
   lens,
   counts,
   onLens,
   className = '',
+  children,
 }: {
   lens: LensId
   counts: Record<LensId, CountWording>
   onLens: (lens: LensId) => void
   className?: string
+  children?: ReactNode
 }) {
   const { t } = useTranslation('deliveries')
   return (
@@ -48,7 +68,7 @@ export default function ViewsRail({
       <h2
         id="deliveries-lenses"
         title={t('lens.hint')}
-        className="px-2 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
+        className={RAIL_HEADING}
       >
         {t('lens.heading')}
       </h2>
@@ -59,6 +79,7 @@ export default function ViewsRail({
           </li>
         ))}
       </ul>
+      {children}
     </nav>
   )
 }
@@ -85,13 +106,12 @@ function LensRow({
       onClick={onClick}
       className={
         'relative flex h-7 w-full items-center gap-2 rounded-md ps-2.5 pe-2 text-start text-xs ' +
-        'focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring ' +
-        (active
-          ? 'bg-primary-050 font-semibold text-foreground'
-          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground')
+        RAIL_FOCUS +
+        ' ' +
+        railRowTone(active)
       }
     >
-      {active && <span className="absolute inset-y-1 start-0 w-[3px] rounded-full bg-cursor" aria-hidden />}
+      {active && <CursorBar />}
       <Icon className="size-3.5 shrink-0" aria-hidden />
       <span className="min-w-0 flex-1 truncate">{t(`lens.name.${id}`)}</span>
       <span

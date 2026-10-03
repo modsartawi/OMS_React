@@ -747,7 +747,8 @@
       "theft": "Theft",
       "cash": "Cash waiting",
       "noCount": "—",
-      "pending": "Awaiting approval"
+      "pending": "Awaiting approval",
+      "changes": "Change requests"
     },
     "filters": {
       "mineOnly": "Mine only",
@@ -832,6 +833,10 @@
       "pending": {
         "title": "Nothing waiting for approval.",
         "hint": "Every large surplus and every theft posted has been approved or rejected."
+      },
+      "changes": {
+        "title": "No change request waiting.",
+        "hint": "Every change or delete request raised has been approved, rejected or withdrawn."
       }
     },
     "filtered": {
@@ -842,13 +847,50 @@
     "errors": {
       "laneFailed": "This list could not be read, so nothing can be said about what the estate has open. This is not “nothing to do” — try again, and tell head office if it keeps happening.",
       "cashFailed": "The waiting receipts could not be read, so nothing can be said about what is sitting uncollected. This is not “everything has been collected” — try again, and tell head office if it keeps happening.",
-      "pendingFailed": "The entries waiting for approval could not be read, so nothing can be said about what is waiting. This is not an empty queue."
+      "pendingFailed": "The entries waiting for approval could not be read, so nothing can be said about what is waiting. This is not an empty queue.",
+      "changesFailed": "The waiting change requests could not be read."
     },
     "subtitlePending": "Every entry in the estate that waits for an accountant supervisor — a large surplus, or a theft of any amount — oldest first. None of them is open, and no till can see them until one is approved.",
     "loadingPending": "Loading the entries waiting for approval…",
     "capReachedPending": "Showing the first {{limit}} entries waiting for approval — there may be more. At this many, nobody is approving.",
     "subtitlePendingUnordered": "Every entry in the estate that waits for an accountant supervisor — a large surplus, or a theft of any amount — in the order the server sent them; it is not sending their age yet. None of them is open, and no till can see them until one is approved.",
-    "subtitleTheft": "Every approved theft in the estate, with the business day it names. A theft moves no cash — nothing here is waiting to be collected or kept back, and nobody is rung about it."
+    "subtitleTheft": "Every approved theft in the estate, with the business day it names. A theft moves no cash — nothing here is waiting to be collected or kept back, and nobody is rung about it.",
+    "subtitleChanges": "Every change or delete request waiting for a supervisor, across the estate — oldest first. Each is decided against what the entry holds today.",
+    "loadingChanges": "Reading the waiting change requests…",
+    "capReachedChanges": "Showing the oldest {{limit}} waiting requests — there may be more. Anything missing was raised more recently.",
+    "changes": {
+      "title": "Waiting change requests",
+      "unavailable": "The queue of change requests is not available yet — this server does not offer it. Each entry’s own panel still shows a request waiting on it.",
+      "forbidden": "This session no longer holds settlement supervision, so the waiting change requests cannot be read.",
+      "columns": {
+        "entryNumber": "Entry",
+        "branch": "Branch",
+        "request": "Request",
+        "asked": "What is asked",
+        "today": "Entry today",
+        "askedBy": "Asked by",
+        "reason": "Reason",
+        "decide": "Decision"
+      },
+      "kind": {
+        "CHANGE": "Change",
+        "DELETE": "Delete"
+      },
+      "deleteAsk": "Delete the entry",
+      "nothingDiffers": "Nothing differs from the entry",
+      "entryMissing": "Entry missing",
+      "noNumber": "—",
+      "today": "Stands at {{amount}}",
+      "spent": "Spent {{spent}}",
+      "todayMissing": "The entry no longer exists",
+      "noAt": "Time not recorded",
+      "actUnavailable": "This server cannot decide change requests yet. Nothing was changed.",
+      "reject": {
+        "title": "Reject the change request on entry {{number}}",
+        "titleMissing": "Reject this change request",
+        "cancel": "Cancel"
+      }
+    }
   },
   "approval": {
     "panel": {

@@ -63,6 +63,9 @@ export const CASH_LANE_KEY = ['settlement', 'cash-lane']
 /** Ticket 309's queue — every settlement write invalidates it too, because a post can
  *  mint a pending surplus and an approve or reject removes one. */
 export const PENDING_LANE_KEY = ['settlement', 'pending-lane']
+/** Ticket 353's queue of waiting change requests — every settlement write invalidates it
+ *  too (`invalidateSettlement`): a raise adds a row, a decision or a direct act removes one. */
+export const CHANGE_QUEUE_KEY = ['settlement', 'change-queue']
 
 /* ── which tab, as an address ─────────────────────────────────────────────────── */
 
@@ -97,8 +100,22 @@ export const PENDING_LANE_KEY = ['settlement', 'pending-lane']
  * about it, and nothing is left on it to collect or keep back. It gets a tab of its own
  * so that it is in neither of theirs.
  */
-export const OPEN_LANE_TABS = ['owing', 'owed', 'theft', 'cash', 'pending'] as const
+export const OPEN_LANE_TABS = ['owing', 'owed', 'theft', 'cash', 'pending', 'changes'] as const
 export type OpenLaneTab = (typeof OPEN_LANE_TABS)[number]
+
+/**
+ * **The tabs a session is drawn** — every one, except *Change requests* (ticket 353) for a
+ * session without settlement supervision.
+ *
+ * 🔑 The sixth tab is the supervisor's queue of waiting change and delete requests, off
+ * its own door (BackOffice 2285), which answers a session without supervision with a bare
+ * 403 — so it is not drawn for one, and not read. *Awaiting approval* stays everyone's
+ * (309: an accountant reads it as *what of mine is still waiting*); the requests an
+ * accountant raised are on their entry's panel (2285 Open questions).
+ */
+export function openTabs({ supervise }: { supervise: boolean }): OpenLaneTab[] {
+  return OPEN_LANE_TABS.filter((tab) => supervise || tab !== 'changes')
+}
 
 /**
  * The two tabs that are **entries** — the pair one `Settlement/Ledger` answer feeds.
@@ -142,10 +159,14 @@ export function isEntryTab(tab: OpenLaneTab): tab is OpenLaneEntryTab {
  * ⚠️ **An unreadable value lands on Owing rather than on an error** — the rule
  * `readCriteria` and `readEntryNumber` both follow one module over: *a hand-edited
  * address should land on a screen, not on a broken one*.
+ *
+ * ⚠️ 353: `?tab=changes` is a tab only for a session `openTabs` draws it for — anyone
+ * else lands on Owing, as for any other address they have no tab for. Not said (an older
+ * caller) is *no supervision*. The five earlier addresses resolve as before.
  */
-export function readOpenTab(params: URLSearchParams): OpenLaneTab {
+export function readOpenTab(params: URLSearchParams, { supervise = false }: { supervise?: boolean } = {}): OpenLaneTab {
   const raw = (params.get(TAB_PARAM) ?? '').trim().toLowerCase()
-  return OPEN_LANE_TABS.find((tab) => tab === raw) ?? DEFAULT_OPEN_TAB
+  return openTabs({ supervise }).find((tab) => tab === raw) ?? DEFAULT_OPEN_TAB
 }
 
 /**

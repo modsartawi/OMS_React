@@ -124,6 +124,17 @@ export const CASH_LANE_LIMIT = 500
 export const PENDING_LANE_LIMIT = 500
 
 /**
+ * The **change requests** tab's cap (ticket 353) — `Settlement/ChangeRequest/Open`, every
+ * waiting change or delete request in the estate (BackOffice 2285).
+ *
+ * 🔑 **500, the door's own default** (2285 omits-means-500, at most 20,000) — and a
+ * rare-event number like the approval queue's: at 500 waiting requests nobody is deciding
+ * them. Oldest first, so a cap drops the newest requests, never the ones that have waited
+ * longest. Named on this file's rule: one constant per door, asked for **and** measured.
+ */
+export const CHANGE_QUEUE_LIMIT = 500
+
+/**
  * The fleet door's cap — ✅ **found live by 274, and it is the one number on this
  * screen that had to change.**
  *

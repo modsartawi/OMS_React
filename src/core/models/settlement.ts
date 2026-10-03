@@ -1132,6 +1132,36 @@ export type SettlementChangeRequestHistory = {
 }
 
 /**
+ * One row of `GET Settlement/ChangeRequest/Open?limit=` (BackOffice 2285) — every
+ * waiting request in the estate, oldest first, behind settlement supervision.
+ *
+ * 🔑 **History's request row unchanged, plus the entry and its branch as they stand
+ * NOW.** `amount` / `remainingAmount` / `spentAmount` are committed reads of the entry at
+ * the moment of reading — what the supervisor decides against — never the figures at the
+ * request (`oldAmount`). A read, not a guard: Approve re-checks.
+ *
+ * - `storeId` is the branch code (there is no separate code field); `storeName` is the
+ *   Store master's name, or the code echoed back when the master has no row.
+ * - `currencyKey` is the plant's (`SAR` when it has no row), so figures are drawn at the
+ *   branch's scale — BHD keeps its third decimal.
+ * - A request whose entry is missing still lists, with `entryNumber` 0 and `''` kind /
+ *   status.
+ */
+export type SettlementChangeQueueRow = SettlementChangeRequest & {
+  storeName: string
+  currencyKey: string
+  /** `0` when the entry is missing. */
+  entryNumber: number
+  /** `''` when the entry is missing. */
+  entryKind: SettlementEntryKind | ''
+  /** `''` when the entry is missing. */
+  entryStatus: SettlementEntryStatus | ''
+  amount: number
+  remainingAmount: number
+  spentAmount: number
+}
+
+/**
  * `POST Settlement/ChangeRequest/Raise`'s body (BackOffice 2191; `DELETE` 2193,
  * `newBusinessDay` 2195).
  *

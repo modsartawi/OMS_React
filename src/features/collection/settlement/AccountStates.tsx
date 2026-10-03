@@ -93,3 +93,29 @@ export function AccountCapBanner({ message }: { message: string }) {
     </div>
   )
 }
+
+/** A worded answer rather than an empty grid — the good outcomes and the one the reader
+ *  caused are each a sentence a person wrote. Open settlements' tabs share it (the lanes'
+ *  `LaneBody` and 353's change-request queue). */
+export function Nothing({
+  title,
+  hint,
+  testId,
+  action,
+}: {
+  title: string
+  hint: string
+  testId: string
+  action?: ReactNode
+}) {
+  return (
+    <div
+      className="flex flex-col items-center gap-1 rounded-lg border border-border/60 bg-card/40 px-6 py-12 text-center"
+      data-testid={testId}
+    >
+      <strong className="text-base font-semibold">{title}</strong>
+      <p className="text-sm text-muted-foreground">{hint}</p>
+      {action}
+    </div>
+  )
+}

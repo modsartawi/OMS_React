@@ -1,4 +1,4 @@
-// Items-grid + tab-count drive (ticket 093, spec 083 D-9) — drives the REAL app
+// Items-grid + section-count drive (ticket 093, spec 083 D-9; the counts since ticket 404) — drives the REAL app
 // in Chromium and serves the five captured payloads from
 // `.issues/assets/078-document-payloads/` as the `SdDocumentWeb/Document/{no}`
 // response, exactly as `tools/document-cards-drive.mjs` does. The app is not
@@ -11,8 +11,9 @@
 //      elsewhere is not flagged;
 //   4. a deleted line renders muted and struck through;
 //   5. clicking a row selects it and paints the leading accent bar;
-//   6. the tabs count their rows in the neutral pill; a FAILED job is no longer a
-//      Jobs tab count but a banner at the top of the activity spine (ticket 403).
+//   6. there are no tabs (ticket 404): Items and Pricing conditions are headed with
+//      their counts, pluralised and isolated; a FAILED job is no longer a Jobs tab
+//      count but a banner at the top of the activity spine (ticket 403).
 //
 // Two of those cannot be driven from the corpus verbatim and say so at their
 // call site: no captured line is `deleted`, and Log/Jobs come from endpoints the
@@ -65,9 +66,9 @@ const OUTBOX = {
 
 async function run() {
   const browser = await chromium.launch()
-  // 1920 wide: since 403 the activity spine shares the row with the summary rail and the
-  // tabs, and AG Grid only renders the columns in view, so at 1600 the last columns this
-  // drive reads are virtualised away. 404 turns the end side into one facts column.
+  // 1920 wide: the activity spine shares the row with the facts column (403/404), and AG
+  // Grid only renders the columns in view, so at 1600 the last columns this drive reads
+  // are virtualised away.
   const page = await browser.newPage({ viewport: { width: 1920, height: 1000 } })
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
@@ -96,7 +97,7 @@ async function run() {
     return route.fulfill(envelope({}))
   })
 
-  const grid = () => page.locator('[role="tabpanel"]:not([hidden]) .ag-root-wrapper')
+  const grid = () => page.locator('#doc-items .ag-root-wrapper')
   const open = async (documentNo) => {
     await page.goto(`${BASE}/oms/document/${documentNo}`)
     await grid().waitFor()
@@ -237,40 +238,27 @@ async function run() {
     (await grid().evaluate((el) => el.querySelector('.ag-grid-pinned-bottom-rows .ag-row .ag-cell').innerText.trim())) === '2 lines · 2 units',
   )
 
-  // --- 6 · the tab counts; a failed job is the spine's banner since 403 --------
-  const tabText = async (id) =>
-    (await page.locator(`#tab-${id}`).innerText()).replace(/\s+/g, ' ').trim()
-  // The badge itself — the `[title]` wrapper carries the label, its child span is
-  // the `StatusBadge` that carries the severity ground and ink.
-  const tabPill = async (id) =>
-    page
-      .locator(`#tab-${id} [title] > span`)
-      .first()
-      .evaluate((el) => ({
-        ground: getComputedStyle(el).backgroundColor,
-        ink: getComputedStyle(el).color,
-      }))
+  // --- 6 · the section counts (404); a failed job is the spine's banner since 403 --------
+  const heading = async (selector) => (await page.locator(selector).innerText()).replace(/\s+/g, ' ').trim()
 
   await open('2000000551')
   await page.locator('[data-job-banner="failed"]').first().waitFor({ timeout: 10000 }).catch(() => {})
-  check('there is no Jobs or Log tab any more', (await page.locator('#tab-jobs, #tab-log').count()) === 0)
+  check('there is no tab any more', (await page.locator('[role="tab"], [role="tabpanel"]').count()) === 0)
   check(
     'the one FAILED job of three is one banner at the top of the spine',
     (await page.locator('[data-spine] [data-job-banner="failed"]').count()) === 1,
     String(await page.locator('[data-spine] [data-job-banner="failed"]').count()),
   )
-  check('the Items tab counts its rows', (await tabText('items')) === 'Items 1', await tabText('items'))
-  const itemsPill = await tabPill('items')
-  const conditionsPill = await tabPill('conditions')
+  check('Items is headed with its count', (await heading('#doc-items h3')) === 'ITEMS · 1', await heading('#doc-items h3'))
   check(
-    'in the neutral pill, the same on every tab',
-    itemsPill.ink !== (await token('--danger-800')) && conditionsPill.ground === itemsPill.ground && conditionsPill.ink === itemsPill.ink,
-    `${itemsPill.ground}/${itemsPill.ink}`,
+    'Pricing conditions is headed with its count',
+    (await heading('#doc-conditions > summary')) === 'PRICING CONDITIONS · 2',
+    await heading('#doc-conditions > summary'),
   )
   check(
-    'and its title pluralises — `1 row`, not `1 rows`',
-    (await page.locator('#tab-items [title]').getAttribute('title')) === '1 row',
-    await page.locator('#tab-items [title]').getAttribute('title'),
+    'each count is one ltr isolate',
+    (await page.locator('#doc-items h3 bdi[dir="ltr"]').innerText()) === '1' &&
+      (await page.locator('#doc-conditions > summary bdi[dir="ltr"]').innerText()) === '2',
   )
 
   await open('8000000121')

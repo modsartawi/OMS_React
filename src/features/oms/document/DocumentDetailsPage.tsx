@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, RefreshCw } from 'lucide-react'
 import Button from '@/core/ui/Button'
-import StatusBadge from '@/core/ui/StatusBadge'
 import ErrorBanner from '@/core/ui/ErrorBanner'
 import { apiErrorMessage } from '@/core/api'
 import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
@@ -30,30 +29,16 @@ import {
   type UpdateHeaderExtras,
 } from './actions'
 import { commandBar, commandOf, type CommandContext } from './commands'
-import { documentColumns, deletedLineRowStyle, ITEM_ROW_SELECTION } from './columns'
-import { totalsFooterRow } from './items'
 import DocumentHeader from './DocumentHeader'
 import ActivitySpine, { type Deferred } from './ActivitySpine'
 import CommandPanel from './CommandPanel'
-import SummaryRail from './SummaryRail'
-import DetailGrid from './DetailGrid'
+import FactsColumn from './FactsColumn'
 import RescheduleDialog from './RescheduleDialog'
 import ChangeStoreDialog, { type ChangeStoreResult } from './ChangeStoreDialog'
 import RequestCloseDialog from './RequestCloseDialog'
 import NoteDialog, { type NoteCommandKind } from './NoteDialog'
 import ReturnDialog from './ReturnDialog'
-import AttachmentsTab from './AttachmentsTab'
 import { useOrderAttachments } from './use-order-attachments'
-
-// No `status` tab: the document's state is the header's now-step badge, and
-// its full thirteen-row breakdown is the header's All-statuses disclosure (083 D-3).
-// No Log or Jobs tab either: both read as the activity spine (spec 380 D4, ticket 403).
-// `attachments` (spec 324, ticket 327) is last, and drawn only while its gate
-// admits (`attachmentsTabGate`).
-type TabId = 'items' | 'conditions' | 'attachments'
-const TAB_IDS: TabId[] = ['items', 'conditions', 'attachments']
-/** A tab button's DOM id — its panel's `aria-labelledby`, and where the rail's Show puts focus. */
-const tabDomId = (id: TabId) => `tab-${id}`
 
 /** Ascending comparator treating numeric strings (`logNo`, `outboxId`) as numbers. */
 function numericAsc(a: string, b: string): number {
@@ -69,10 +54,10 @@ const PENDING = { rows: null, loading: true, error: null } as const
  * Screen 2 — Document Details.
  *
  * Loads the full document (as an order or a delivery), renders the light
- * header (ticket 402), the command panel, the activity spine (ticket 403), the
- * summary rail and the tabs. Log and Jobs are fetched after the document
- * renders, never blocking the page: the spine draws the header's steps at once
- * and dates them when the Log arrives.
+ * header (ticket 402), the command panel, then two columns: the activity spine
+ * (ticket 403) and the facts column (ticket 404). There are no tabs. Log and Jobs
+ * are fetched after the document renders, never blocking the page: the spine
+ * draws the header's steps at once and dates them when the Log arrives.
  *
  * Two different fields choose two different endpoints, and mixing them up breaks
  * real documents (D-17/D-19):
@@ -125,7 +110,6 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const [logs, setLogs] = useState<Deferred<SdDocumentLogModel>>(PENDING)
   const [jobs, setJobs] = useState<Deferred<SdDocumentOutboxModel>>(PENDING)
 
-  const [activeTab, setActiveTab] = useState<TabId>('items')
   const [rescheduleOpen, setRescheduleOpen] = useState(false)
   const [changeStoreOpen, setChangeStoreOpen] = useState(false)
   const [requestCloseOpen, setRequestCloseOpen] = useState(false)
@@ -380,58 +364,14 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     })
   }
 
-  const headerConditions = useMemo(
-    () => (document?.conditions ?? []).filter((c) => c.condDocumentLine === 0),
-    [document],
-  )
-  const itemColumns = useMemo(() => documentColumns.items(), [])
-  const itemsFooter = useMemo(() => totalsFooterRow(document?.lines, t), [document, t])
-
-  // The Attachments tab (spec 324, ticket 327): drawn only while its gate admits, and its
-  // list — an AUDITED read — waits on the tab's first selection (`useOrderAttachments`).
+  // The order's files (spec 324, ticket 327): the facts column's Attachments disclosure,
+  // drawn only while its gate admits; its list, an AUDITED read, waits on the
+  // disclosure's first opening (`useOrderAttachments`).
   const attachments = useOrderAttachments(document, routeId)
-  const attachmentsBadge = attachments.badge
-  const tabIds = attachments.target ? TAB_IDS : TAB_IDS.filter((id) => id !== 'attachments')
-  // A tab no longer drawn (or an owner not yet opened) shows Items rather than nothing.
-  const shownTab: TabId = activeTab === 'attachments' && !attachments.opened ? 'items' : activeTab
-
-  const selectTab = (id: TabId) => {
-    setActiveTab(id)
-    if (id === 'attachments') attachments.open()
-  }
-  /**
-   * The Prescription card's Files · N · Show row (ticket 328): the tab's own number and
-   * gate, and Show selecting the tab exactly as its click does — a first selection starts
-   * the one read. Focus follows to the tab, so the rail's Show lands where the files are.
-   */
-  const railFiles = {
-    count: attachmentsBadge,
-    allowed: attachments.target !== null,
-    onShow: () => {
-      selectTab('attachments')
-      // `globalThis.`: `document` here is the loaded SD document, not the DOM's.
-      globalThis.document.getElementById(tabDomId('attachments'))?.focus()
-    },
-  }
-  /**
-   * The tab counts. A failed job is no longer a tab count: it is a banner at the
-   * top of the activity spine (ticket 403). Attachments shows no count until its
-   * list resolves; a `0` before then would be a claim the app cannot yet make.
-   */
-  const tabCounts = useMemo(
-    () =>
-      ({
-        items: document?.lines?.length ?? 0,
-        conditions: headerConditions.length,
-        attachments: attachmentsBadge,
-      }) satisfies Record<TabId, number | null>,
-    [document, headerConditions, attachmentsBadge],
-  )
-  const conditionColumns = useMemo(() => documentColumns.conditions(), [])
 
   /**
    * The page's own Refresh: the document, Log and Jobs as always — and the order's
-   * files only when the tab has been opened on this visit. Before that it reads none:
+   * files only when their disclosure has been opened on this visit. Before that it reads none:
    * every ByOwner is an audit row. Commands reload through `reload` alone, so they
    * never re-read the files.
    */
@@ -532,113 +472,16 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             )}
 
             {/*
-              The activity spine (spec 380 D4, ticket 403) on the start side, about
-              340–420px, with everything else beside it on the end side. Grid
-              columns follow the writing direction, so it mirrors under RTL. From
-              1280px (`xl`) the spine sits beside; below, it stacks above, its
-              failed-job banners first. Until 404 turns the end side into the facts
-              column, the end side is today's summary rail and tabs.
+              Two columns (spec 380 D4): the activity spine (ticket 403) on the start
+              side, about 340–420px, and the facts column (ticket 404) on the end side.
+              Grid columns follow the writing direction, so the pair mirrors under RTL.
+              From 1280px (`xl`) they sit side by side; below, the spine stacks above,
+              its failed-job banners first. 083's tabs and 340px summary rail are gone:
+              every fact they held is in one of the two.
             */}
             <div className="grid items-start gap-2.5 xl:grid-cols-[minmax(340px,400px)_minmax(0,1fr)]">
               <ActivitySpine document={document} logs={logs} jobs={jobs} />
-
-              {/*
-                The page's two regions (083 D-6, ticket 092): a 340px summary rail
-                and the work area. Below 900px the grid collapses to one column and
-                the rail — first in the DOM — becomes a card grid ABOVE the work
-                area rather than a drawer, because the summary is the context the
-                grid is read with. `rail:` is the named 900px screen declared in
-                `global.css` — not Tailwind's `lg`: the spec names the number, and
-                it is where the 340px rail plus a readable grid stop fitting side
-                by side.
-              */}
-              <div className="grid min-w-0 gap-2.5 rail:grid-cols-[340px_minmax(0,1fr)]">
-                <SummaryRail document={document} files={railFiles} />
-
-                <div className="min-w-0">
-                  <div role="tablist" aria-label={t('tabs.ariaLabel')} className="flex gap-1 border-b border-border">
-                    {tabIds.map((id) => {
-                      const count = tabCounts[id]
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          role="tab"
-                          id={tabDomId(id)}
-                          aria-selected={shownTab === id}
-                          aria-controls={`tabpanel-${id}`}
-                          onClick={() => selectTab(id)}
-                          className={
-                            'flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-sm ' +
-                            (shownTab === id
-                              ? 'border-primary font-semibold text-primary'
-                              : 'border-transparent text-muted-foreground hover:text-foreground')
-                          }
-                        >
-                          {t(`tabs.${id}`)}
-                          {count !== null && (
-                            // The severity layer's `mute` pill — one badge, one
-                            // vocabulary, no per-site colour (082 D-10). The title
-                            // says which number it is; `1` alone would not.
-                            <span title={t(id === 'attachments' ? 'tabs.fileCount' : 'tabs.rowCount', { count })}>
-                              <StatusBadge sev="mute">
-                                <span className="tabular-nums">{count}</span>
-                              </StatusBadge>
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {/*
-                    Every panel stays mounted and is hidden with CSS rather than
-                    unmounted. Switching tabs must not destroy and rebuild an AG
-                    Grid: that throws away column widths, sort and filters the
-                    operator set, and costs a visible re-layout each time (D-23).
-                  */}
-                  <div className="pt-2.5">
-                    {tabIds.map((id) => (
-                      <div
-                        key={id}
-                        role="tabpanel"
-                        id={`tabpanel-${id}`}
-                        aria-labelledby={tabDomId(id)}
-                        hidden={shownTab !== id}
-                      >
-                        {id === 'items' && (
-                          <DetailGrid
-                            columnDefs={itemColumns}
-                            rowData={document.lines ?? []}
-                            emptyMessage={t('items.empty')}
-                            pinnedBottomRowData={itemsFooter}
-                            rowSelection={ITEM_ROW_SELECTION}
-                            getRowStyle={deletedLineRowStyle}
-                          />
-                        )}
-                        {id === 'conditions' && (
-                          <DetailGrid
-                            columnDefs={conditionColumns}
-                            rowData={headerConditions}
-                            emptyMessage={t('conditions.empty')}
-                          />
-                        )}
-                        {id === 'attachments' && attachments.target && (
-                          // Keyed by the owner, so another owner starts on a fresh selection.
-                          <AttachmentsTab
-                            key={attachments.target.ownerKey}
-                            target={attachments.target}
-                            opened={attachments.opened}
-                            withdrawReasons={attachments.withdrawReasons}
-                            withdrawOffered={attachments.withdrawOffered}
-                            filedOnOrderNo={attachments.filedOnOrderNo}
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <FactsColumn document={document} attachments={attachments} />
             </div>
 
             <RescheduleDialog

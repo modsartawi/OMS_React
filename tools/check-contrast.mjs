@@ -189,6 +189,9 @@ const positives = [
   ...['primary', 'success', 'attention', 'danger', 'post'].flatMap((f) =>
     ['--card', '--background', '--muted'].map((s) => [`--${f}-800`, s, BODY]),
   ),
+  // The facts column's Prescription block (ticket 404): its heading and its Rx link are
+  // `--prescription` words straight on the block's `--card`, the one block read by colour.
+  ['--prescription', '--card', BODY],
   // D-6's bare-fill shape (dot, bar, meter) — a non-text graphic, 3:1.
   ...['primary', 'success', 'attention', 'danger', 'post', 'fam-fulfilment', 'fam-cancel-request'].map(
     (f) => [`--${f}`, '--card', UI],

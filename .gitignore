@@ -66,3 +66,5 @@ tools/.document-actions-shots/
 tools/.document-header-shots/
 # Delivery details spine drive screenshots (tools/document-spine-drive.mjs, ticket 403)
 tools/.document-spine-shots/
+# Delivery details facts drive screenshots (tools/document-facts-drive.mjs, ticket 404)
+tools/.document-facts-shots/

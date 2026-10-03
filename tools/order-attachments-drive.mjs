@@ -363,9 +363,13 @@ async function run() {
   })
 
   const shot = async (name) => SHOTS && page.screenshot({ path: `${SHOTS}/327-${name}.png`, fullPage: false })
-  const tab = () => page.locator('#tab-attachments')
-  const badge = () => tab().locator('.tabular-nums')
-  const panel = () => page.locator('#tabpanel-attachments')
+  // Since ticket 404 the order's files are a disclosure of the facts column, not a tab: its
+  // summary is the door (and carries the count), "selected" is open, a tab switch is a fold.
+  const tab = () => page.locator('#doc-attachments > summary')
+  const badge = () => tab().locator('bdi[dir="ltr"]')
+  const panel = () => page.locator('#doc-attachments')
+  const shown = () => panel().evaluate((d) => d.open && d.querySelector('[data-disclosure-body]').getBoundingClientRect().height > 0)
+  const doorText = () => tab().evaluate((el) => el.textContent)
   const refreshButton = () => page.locator('[aria-label="Document identity"] button', { hasText: 'Refresh' })
   const listRow = (s) => panel().locator(`tr[data-slip="${s.attachmentId}"]`)
   const urls = () => page.evaluate(() => ({ made: [...window.__urls.made], revoked: [...window.__urls.revoked] }))
@@ -375,11 +379,17 @@ async function run() {
   }
   const open = async (route) => {
     await page.goto(BASE + route)
-    await page.locator('[aria-label="Document summary"]').waitFor()
+    await page.locator('[aria-label="Document facts"]').waitFor()
     await settle()
   }
+  /** Open the disclosure (a click on an open one would fold it, unlike a tab). */
   const selectTab = async () => {
-    await tab().click()
+    if (!(await panel().evaluate((d) => d.open))) await tab().click()
+    await settle()
+  }
+  /** Fold it: the old "switch to another tab". */
+  const foldDoor = async () => {
+    if (await panel().evaluate((d) => d.open)) await tab().click()
     await settle()
   }
   const pick = async (s) => {
@@ -429,12 +439,7 @@ async function run() {
     probe = probeMode
     fields = { [ORDER]: docFields }
     await open(`/oms/document/${ORDER}`)
-    const tabs = await page.locator('[role="tab"]').evaluateAll((els) => els.map((e) => e.id))
-    check(
-      `hidden — ${name}: no Attachments tab and no panel`,
-      (await tab().count()) === 0 && (await panel().count()) === 0 && tabs.length === 2,
-      tabs.join(','),
-    )
+    check(`hidden — ${name}: no Attachments disclosure`, (await panel().count()) === 0 && (await page.locator('[role="tab"]').count()) === 0)
     check(`hidden — ${name}: no ByOwner and no /Content`, byOwnerCalls.length === 0 && contentTotal() === 0, JSON.stringify(byOwnerCalls))
   }
   check('hidden — with no owner or no category the probe is not even asked', await (async () => {
@@ -449,14 +454,15 @@ async function run() {
   fields = { [ORDER]: FULL }
   await open(`/oms/document/${ORDER}`)
   await shot('loaded')
-  const tabs = await page.locator('[role="tab"]').evaluateAll((els) => els.map((e) => e.id))
-  check('tab — Attachments is drawn, third and last (Log and Jobs are the spine since 403)', JSON.stringify(tabs) === JSON.stringify(['tab-items', 'tab-conditions', 'tab-attachments']), tabs.join(','))
-  check('tab — named "Attachments"', (await tab().innerText()).replace(/\s*\d+\s*$/, '').trim() === 'Attachments')
+  const sections = await page.locator('[aria-label="Document facts"]').evaluate((el) =>
+    [...el.parentElement.children].map((c) => c.id).filter(Boolean),
+  )
+  check('door — Attachments is a disclosure, last in the facts column (404)', JSON.stringify(sections) === JSON.stringify(['doc-items', 'doc-conditions', 'doc-attachments']) && (await panel().evaluate((d) => d.tagName)) === 'DETAILS', sections.join(','))
+  check('door — named "Attachments · <count>"', (await doorText()) === 'Attachments · 3', await doorText())
   check('badge — the model’s count before the list loads', (await badge().innerText()) === '3', await badge().innerText())
-  check('badge — titled as files', (await tab().locator('span[title]').getAttribute('title')) === '3 files')
   check('🔑 load — ZERO ByOwner requests on page load', byOwnerCalls.length === 0, JSON.stringify(byOwnerCalls))
   check('load — no /Content either', contentTotal() === 0)
-  check('load — the page opens on Items, the panel hidden', (await page.locator('#tabpanel-items').isVisible()) && (await panel().isHidden()))
+  check('load — Items shows, the disclosure folded', (await page.locator('#doc-items').isVisible()) && !(await shown()))
   check('load — the probe asked once', accessCalls === 1, `${accessCalls}`)
 
   // Refresh BEFORE the tab is opened reads the document again, and no files.
@@ -478,17 +484,16 @@ async function run() {
   check('🔑 first selection — no /Content: no file is selected for you', contentTotal() === 0 && (await panel().locator('[data-preview-for]').count()) === 0)
   check('first selection — the preview says to pick a file', (await panel().locator('[data-region="slip-preview"]').innerText()).includes('Pick a file to preview it.'))
   check('badge — now the STORED list’s length (6), over the model’s stale 3', (await badge().innerText()) === String(STORED.length), await badge().innerText())
-  check('badge — …titled as files', (await tab().locator('span[title]').getAttribute('title')) === `${STORED.length} files`)
-  check('tab — aria-selected, and its panel visible', (await tab().getAttribute('aria-selected')) === 'true' && (await panel().isVisible()))
+  check('badge — …the door reads it', (await doorText()) === `Attachments · ${STORED.length}`, await doorText())
+  check('door — open, its body visible', await shown())
 
-  await page.locator('#tab-items').click()
-  await settle()
-  check('switch away — the panel stays mounted (hidden), its list kept', (await panel().isHidden()) && (await panel().locator('tr[data-slip]').count()) === STORED.length)
+  await foldDoor()
+  check('fold — the body stays mounted (folded), its list kept', !(await shown()) && (await panel().locator('tr[data-slip]').count()) === STORED.length)
   await selectTab()
-  check('🔑 re-selection — NO new ByOwner', byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
-  await page.locator('#tab-conditions').click()
+  check('🔑 reopening — NO new ByOwner', byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
+  await foldDoor()
   await selectTab()
-  check('🔑 a third selection — still one ByOwner', byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
+  check('🔑 a third opening — still one ByOwner', byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
 
   // ---- the list ----
   const order = await panel().locator('tr[data-slip]').evaluateAll((trs) => trs.map((tr) => tr.getAttribute('data-slip')))
@@ -509,7 +514,7 @@ async function run() {
   check('list — a partner’s KEY:<UserId> device is shown as sent', (await listRow(PDF).locator('[data-cell="till"]').innerText()) === 'KEY:U777')
   const heads = await panel().locator('thead th').allInnerTexts()
   check('list — the source column is "Source", not the slip’s "Till"', heads.map((h) => h.trim()).join('|') === 'File name|Uploaded at|Source', heads.join('|'))
-  check('330 — + Add prescription is offered in the opened tab', (await panel().getByTestId('slip-add').innerText()).trim() === 'Add prescription')
+  check('330 — + Add prescription is offered in the opened disclosure', (await panel().getByTestId('slip-add').innerText()).trim() === 'Add prescription')
 
   // ---- Refresh after opening: one re-read ----
   await refreshButton().click()
@@ -609,10 +614,10 @@ async function run() {
 
   const readsAtLeave = byOwnerCalls.length
   await page.goBack()
-  await page.locator('[aria-label="Document summary"]').waitFor()
+  await page.locator('[aria-label="Document facts"]').waitFor()
   await settle()
   check('come back — no ByOwner on the page load, again', byOwnerCalls.length === readsAtLeave, `${byOwnerCalls.length - readsAtLeave}`)
-  check('come back — the page opens on Items, the badge from the model again', (await page.locator('#tabpanel-items').isVisible()) && (await badge().innerText()) === '3')
+  check('come back — the disclosure folded, the badge from the model again', !(await shown()) && (await badge().innerText()) === '3')
   await selectTab()
   await panel().locator('[data-testid="slip-list"]').waitFor()
   check('come back — selecting reads again (gcTime 0 dropped the list on leave), once', byOwnerCalls.length === readsAtLeave + 1, `${byOwnerCalls.length - readsAtLeave}`)
@@ -633,11 +638,11 @@ async function run() {
   await page.locator('[aria-label="Document identity"]', { hasText: ORDER }).waitFor()
   await settle()
   check(
-    '🔑 in-route Back to an opened order — no ByOwner until the tab is selected again',
+    '🔑 in-route Back to an opened order — no ByOwner until the disclosure is opened again',
     movedInPlace === `/oms/document/${OTHER}` && byOwnerCalls.length === readsBeforeMove,
     `${byOwnerCalls.length - readsBeforeMove} reads`,
   )
-  check('in-route Back — the page shows Items, the tab not selected', (await page.locator('#tabpanel-items').isVisible()) && (await tab().getAttribute('aria-selected')) === 'false')
+  check('in-route Back — the disclosure is folded', (await page.locator('#doc-items').isVisible()) && !(await shown()))
   await selectTab()
   check('in-route Back — selecting reads once', byOwnerCalls.length === readsBeforeMove + 1, `${byOwnerCalls.length - readsBeforeMove}`)
 
@@ -667,7 +672,7 @@ async function run() {
   reset()
   fields = { [ORDER]: { attachmentOwnerNo: OWNER, attachmentCategory: 'P2E' } }
   await open(`/oms/document/${ORDER}`)
-  check('badge — an absent count: the tab, and NO badge (never 0)', (await tab().count()) === 1 && (await badge().count()) === 0)
+  check('badge — an absent count: the door, and NO count (never 0)', (await tab().count()) === 1 && (await badge().count()) === 0 && (await doorText()) === 'Attachments')
   await selectTab()
   await panel().locator('[data-testid="slip-list"]').waitFor()
   check('badge — …until the list loads: then its length', (await badge().innerText().catch(() => '')) === String(STORED.length))
@@ -876,17 +881,17 @@ async function run() {
   }
   await shot('add-retried')
 
-  // ---- a send survives a tab switch (the panel stays mounted) ----
+  // ---- a send survives a fold (the body stays mounted) ----
   holdUpload = true
   before = uploads.length
   reads = byOwnerCalls.length
-  await addFile(pngFile('slow.png'), 'held across a tab switch')
+  await addFile(pngFile('slow.png'), 'held across a fold')
   await waitUpload('slow.png', 'sending')
-  await page.locator('#tab-items').click()
+  await foldDoor()
   await page.waitForTimeout(300)
-  await tab().click()
+  await selectTab()
   await page.waitForTimeout(300)
-  check('in flight — a tab switch loses nothing: still sending, one request', (await uploadStatus('slow.png')) === 'sending' && uploads.length === before + 1)
+  check('in flight — a fold loses nothing: still sending, one request', (await uploadStatus('slow.png')) === 'sending' && uploads.length === before + 1)
   releaseUpload()
   await waitUpload('slow.png', 'stored')
   await settle()
@@ -897,7 +902,7 @@ async function run() {
   reset()
   fields = { [DELIVERY]: FULL }
   await open(`/oms/delivery/${DELIVERY}`)
-  check('delivery — the tab shows, no ByOwner on load', (await tab().count()) === 1 && byOwnerCalls.length === 0)
+  check('delivery — the door shows, no ByOwner on load', (await tab().count()) === 1 && byOwnerCalls.length === 0)
   await selectTab()
   await panel().locator('[data-testid="slip-list"]').waitFor()
   check(
@@ -934,17 +939,17 @@ async function run() {
   const readsBeforeLanding = byOwnerCalls.length
   await filedOnLink().click()
   await page.waitForURL(`**/oms/document/${OWNER}`)
-  await page.locator('[aria-label="Document summary"]').waitFor()
+  await page.locator('[aria-label="Document facts"]').waitFor()
   await settle()
   check('329 · the link lands on /oms/document/<owner>', new URL(page.url()).pathname === `/oms/document/${OWNER}`, page.url())
   check(
-    '329 · landing reads no files — zero ByOwner until the order’s tab is selected',
+    '329 · landing reads no files — zero ByOwner until the order’s disclosure is opened',
     (await tab().count()) === 1 && byOwnerCalls.length === readsBeforeLanding,
     `${byOwnerCalls.length - readsBeforeLanding}`,
   )
   await selectTab()
   await panel().locator('[data-testid="slip-list"]').waitFor()
-  check('329 · order — its own tab lists its files with one read', byOwnerCalls.length === readsBeforeLanding + 1 && byOwnerCalls.at(-1).ownerKey === OWNER)
+  check('329 · order — its own disclosure lists its files with one read', byOwnerCalls.length === readsBeforeLanding + 1 && byOwnerCalls.at(-1).ownerKey === OWNER)
   check('329 · order — its own page shows no "Filed on order" heading', (await filedOn().count()) === 0)
 
   // ════════════════════ 7 · Withdraw… with the server's reasons (ticket 331) ════════════════════
@@ -1112,16 +1117,16 @@ async function run() {
   await dialogGone()
   await page.waitForFunction(() => document.querySelector('[data-testid="slip-withdraw-notice"]')?.getAttribute('data-answer') === 'forbidden', null, { timeout: 8000 }).catch(() => {})
   const forbiddenText = await notice().innerText().catch(() => '')
-  check('bare 403 — says Withdraw was removed from this tab', forbiddenText.includes('Withdraw has been removed from this tab'), forbiddenText)
+  check('bare 403 — says Withdraw was removed', forbiddenText.includes('so Withdraw has been removed from them'), forbiddenText)
   check('🔑 bare 403 — Withdraw is gone from the previewed file', (await withdrawButton().count()) === 0 && (await panel().getByTestId('slip-download').isVisible()))
   check('bare 403 — one request, nothing re-read', withdraws.length === before + 1 && byOwnerCalls.length === reads)
   await shot('withdraw-forbidden')
   await pick(UNAUDITED)
   check('bare 403 — …and from every other file', (await withdrawButton().count()) === 0)
-  await page.locator('#tab-conditions').click()
+  await foldDoor()
   await selectTab()
   await pick(PDF)
-  check('bare 403 — …after a tab switch', (await withdrawButton().count()) === 0)
+  check('bare 403 — …after a fold', (await withdrawButton().count()) === 0)
   await refreshButton().click()
   await settle()
   await pick(PDF)
@@ -1150,7 +1155,7 @@ async function run() {
   }
 
   // ════════════════════ 9 · the Prescription card's Files · N · Show row (ticket 328) ════════════════════
-  const rxCard = () => page.locator('[aria-label="Document summary"] section', { has: page.locator('h3', { hasText: 'Prescription' }) })
+  const rxCard = () => page.locator('[aria-label="Document facts"] section', { has: page.locator('h3', { hasText: 'Prescription' }) })
   const showButton = () => rxCard().locator('[data-row-action="files"]')
   /** The card's rows as they read, one space between text pieces — "Files 3 · Show". */
   const rxRows = async () =>
@@ -1173,34 +1178,34 @@ async function run() {
   const rows = await rxRows()
   check('files row — "Files 3 · Show", last on the card, N the model’s count', rows.at(-1) === 'Files 3 · Show', rows.join(' | '))
   check('files row — the Rx document link row unchanged, and still a link', rows.includes('Rx document View') && (await rxCard().locator('a[href="https://rx.example/doc/551"]').count()) === 1 && (await rxCard().locator('a').count()) === 1)
-  check('files row — Show is a button with a spoken name, not a link', (await showButton().evaluate((el) => el.tagName)) === 'BUTTON' && (await showButton().getAttribute('aria-label')) === "Show the order's files in the Attachments tab")
+  check('files row — Show is a button with a spoken name, not a link', (await showButton().evaluate((el) => el.tagName)) === 'BUTTON' && (await showButton().getAttribute('aria-label')) === "Show the order's files under Attachments")
   check('🔑 files row — the row reads NO ByOwner on load', byOwnerCalls.length === 0 && contentTotal() === 0, JSON.stringify(byOwnerCalls))
   await showButton().click()
   await panel().locator('[data-testid="slip-list"]').waitFor()
   await settle()
-  check('files row — Show selects the Attachments tab, its panel shown', (await tab().getAttribute('aria-selected')) === 'true' && (await panel().isVisible()) && (await page.locator('#tabpanel-items').isHidden()))
-  check('files row — …and focus lands on the tab', await tab().evaluate((el) => el === document.activeElement))
+  check('files row — Show opens the Attachments disclosure, Items still shown', (await shown()) && (await page.locator('#doc-items').isVisible()))
+  check('files row — …and focus lands on its summary', await tab().evaluate((el) => el === document.activeElement))
   check('🔑 files row — the first Show reads ByOwner ONCE', byOwnerCalls.length === 1 && byOwnerCalls[0].ownerKey === OWNER, JSON.stringify(byOwnerCalls))
   check('🔑 files row — …and no /Content: no file is selected for you', contentTotal() === 0)
   check('files row — N follows the stored list (6), the same number as the badge', (await rxRows()).at(-1) === `Files ${STORED.length} · Show` && (await badge().innerText()) === String(STORED.length))
-  await page.locator('#tab-items').click()
+  await foldDoor()
   await showButton().click()
   await settle()
-  check('🔑 files row — a second Show reads NONE', byOwnerCalls.length === 1 && (await panel().isVisible()), `${byOwnerCalls.length}`)
-  await page.locator('#tab-conditions').click()
+  check('🔑 files row — a second Show (after a fold) reads NONE, and reopens', byOwnerCalls.length === 1 && (await shown()), `${byOwnerCalls.length}`)
+  await foldDoor()
   await selectTab()
-  check('🔑 files row — …nor does the tab after it', byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
+  check('🔑 files row — …nor does the summary after it', byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
   await noRawKeys('order — files row')
 
-  // The tab's first selection through the TAB, then Show: still one read.
+  // The first opening through the SUMMARY, then Show: still one read.
   reset()
   fields = { [ORDER]: FULL }
   await open(`/oms/document/${ORDER}`)
   await selectTab()
-  await page.locator('#tab-items').click()
+  await foldDoor()
   await showButton().click()
   await settle()
-  check('🔑 files row — the tab first, then Show: still ONE ByOwner', byOwnerCalls.length === 1 && (await panel().isVisible()), `${byOwnerCalls.length}`)
+  check('🔑 files row — the summary first, then Show: still ONE ByOwner', byOwnerCalls.length === 1 && (await shown()), `${byOwnerCalls.length}`)
 
   // No Files row without the gate, with N = 0, or with no count.
   for (const [name, docFields, probeMode] of [
@@ -1234,7 +1239,7 @@ async function run() {
   await showButton().click()
   await panel().locator('[data-testid="slip-list"]').waitFor()
   await settle()
-  check('files alone — Show opens the tab with its one read', (await panel().isVisible()) && byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
+  check('files alone — Show opens the disclosure with its one read', (await shown()) && byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
   for (const [name, docFields, probeMode] of [
     ['without the gate', { ...FULL, ...NO_RX }, 'otherCategory'],
     ['with N = 0', { ...FULL, ...NO_RX, attachmentCount: 0 }, 'holder'],

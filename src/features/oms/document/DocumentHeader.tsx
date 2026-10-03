@@ -39,8 +39,7 @@ const TAG = 'inline-flex h-5 items-center gap-1 rounded border px-1.5 text-[10.5
  *   the provenance in its disclosure (083 D-3's disclosure kept), then `children` (Refresh).
  * - **Line two:** the sub-ids, IDs in mono.
  *
- * The band's customer block is dropped: the summary rail's Customer card still shows it, and
- * from 404 the facts column does.
+ * The band's customer block is dropped: the facts column's Customer block shows it (404).
  *
  * `document` is `null` while the document loads or fails to: the header still renders, with the
  * route id as its number, because the chevron is this screen's only way out and it must not
@@ -200,7 +199,7 @@ function AllStatuses({ document }: { document: SdDocumentHeaderModel }) {
 /**
  * A titled label/value list inside the disclosure. Its em dash is a local rule: a
  * disclosure's job is completeness, so a status the server left blank is reported as blank.
- * The summary rail's cards do the opposite and omit the row (083 D-5).
+ * The fact cards do the opposite and omit the row (083 D-5).
  */
 function DisclosureGroup({ title, fields }: { title: string; fields: readonly FieldRow[] }) {
   return (

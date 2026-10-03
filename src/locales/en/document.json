@@ -53,7 +53,7 @@
     "failedDetail": "Could not refresh the document."
   },
   "cards": {
-    "ariaLabel": "Document summary",
+    "ariaLabel": "Document facts",
     "customer": "Customer",
     "prescription": "Prescription (e-Rx)",
     "fulfilment": "Fulfilment",
@@ -72,7 +72,7 @@
     "view": "View",
     "files": "Files",
     "show": "Show",
-    "showFiles": "Show the order's files in the Attachments tab",
+    "showFiles": "Show the order's files under Attachments",
     "deliveryType": "Type",
     "deliveryTypes": {
       "delivery": "Delivery",
@@ -250,20 +250,12 @@
       "retrySafe": "Try again — this attempt keeps the same request key, so it cannot create a second return."
     }
   },
-  "tabs": {
-    "ariaLabel": "Document sections",
-    "rowCount_one": "{{count}} row",
-    "rowCount_other": "{{count}} rows",
-    "fileCount_one": "{{count}} file",
-    "fileCount_other": "{{count}} files",
-    "items": "Items",
-    "conditions": "Header Conditions",
-    "attachments": "Attachments"
-  },
   "grid": {
     "loading": "Loading…"
   },
   "items": {
+    "heading_one": "Items · <n>{{count}}</n>",
+    "heading_other": "Items · <n>{{count}}</n>",
     "empty": "This document has no line items.",
     "totals": "{{lines}} · {{units}}",
     "totalsLines_one": "{{count}} line",
@@ -272,7 +264,9 @@
     "totalsUnits_other": "{{count}} units"
   },
   "conditions": {
-    "empty": "This document has no header-level conditions."
+    "heading_one": "Pricing conditions · <n>{{count}}</n>",
+    "heading_other": "Pricing conditions · <n>{{count}}</n>",
+    "empty": "This document has no header-level pricing conditions."
   },
   "log": {
     "loadFailed": "Could not load the document log."
@@ -292,6 +286,9 @@
     }
   },
   "attachments": {
+    "heading_one": "Attachments · <n>{{count}}</n>",
+    "heading_other": "Attachments · <n>{{count}}</n>",
+    "headingUncounted": "Attachments",
     "filedOnOrder": "Filed on order <order>{{documentNo}}</order>",
     "loading": "Loading the order's files…",
     "empty": "No file is attached to this order.",
@@ -323,7 +320,7 @@
       "confirm": "Withdraw file",
       "failed": "The file could not be withdrawn.",
       "gone": "{{fileName}} is no longer a stored file you can withdraw. The list has been read again.",
-      "forbidden": "Your account may not withdraw this order's files, so Withdraw has been removed from this tab. Ask an administrator if you need it."
+      "forbidden": "Your account may not withdraw this order's files, so Withdraw has been removed from them. Ask an administrator if you need it."
     }
   },
   "columns": {

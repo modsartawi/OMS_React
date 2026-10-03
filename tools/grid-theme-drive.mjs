@@ -713,21 +713,20 @@ async function assertGridReadsTokens(scope, label) {
   return true
 }
 
-// Document Details — DetailGrid, reused across two tabs (Items, Conditions).
-// Log and Jobs are the activity spine since ticket 403, so the failed-job row
-// style is gone with them (`tools/document-spine-drive.mjs` asserts the banner).
-// Each tab panel stays mounted (D-23), so each is asserted through its own
-// tabpanel scope.
+// Document Details — DetailGrid, in the facts column (ticket 404): Items, always
+// shown, and Pricing conditions, a disclosure opened here first. Log and Jobs are
+// the activity spine since ticket 403 (`tools/document-spine-drive.mjs`). Each grid
+// is asserted through its own section's scope.
 for (const theme of ['light', 'dark']) {
   await page.goto(BASE + '/oms/document/1000000393')
   await setTheme(theme)
   await page.waitForSelector('.ag-root', { timeout: 20000 }).catch(() => {})
   await page.waitForTimeout(600)
   for (const tab of ['items', 'conditions']) {
-    await page.click(`#tab-${tab}`).catch(() => {})
+    if (tab === 'conditions') await page.click('#doc-conditions > summary').catch(() => {})
     await page.waitForTimeout(500)
-    const asserted = await assertGridReadsTokens(`#tabpanel-${tab}`, `${theme}: Document Details · ${tab}`)
-    if (!asserted) skip(`${theme}: Document Details · ${tab} — no rows in this tab's grid`)
+    const asserted = await assertGridReadsTokens(`#doc-${tab}`, `${theme}: Document Details · ${tab}`)
+    if (!asserted) skip(`${theme}: Document Details · ${tab} — no rows in this section's grid`)
     await page.screenshot({ path: `${SHOTS}/document-${tab}-${theme}.png` })
   }
 

@@ -8,7 +8,7 @@
 //
 // In light and dark, LTR and RTL (`oms.locale = 'ar'` sets `dir="rtl"`; there is no Arabic locale
 // file, so the copy stays English and the stub ROWS carry the Arabic), it asserts:
-//   1. the Log and Jobs tabs are gone; the spine sits on the inline START side (right under RTL),
+//   1. the Log and Jobs tabs are gone (every tab is, since 404); the spine sits on the inline START side (right under RTL),
 //      340–420px wide, beside the rest of the page at 1440;
 //   2. top to bottom: the failed-job banners, the retrying line, the unreached steps furthest
 //      first, the Now line, the past newest first;
@@ -278,18 +278,18 @@ async function drive({ theme, dir }) {
   const layout = await page.evaluate((rtl) => {
     const s = document.querySelector('[data-spine]')
     const sb = s.getBoundingClientRect()
-    const tabs = document.querySelector('[role="tablist"]')
-    const rail = document.querySelector('[role="tablist"]')?.closest('.grid')
+    // Since 404 the end side is the facts column; there are no tabs at all.
+    const rail = document.querySelector('[aria-label="Document facts"]').parentElement
     const rb = rail.getBoundingClientRect()
     return {
-      tabs: [...tabs.querySelectorAll('[role="tab"]')].map((b) => b.id),
+      tabs: [...document.querySelectorAll('[role="tab"]')].map((b) => b.id),
       width: Math.round(sb.width),
       beside: Math.abs(sb.top - rb.top) < 4,
       startSide: rtl ? sb.right > rb.right : sb.left < rb.left,
       gridLog: !!document.querySelector('#tab-log, #tab-jobs, #tabpanel-log, #tabpanel-jobs'),
     }
   }, rtl)
-  check(`${label}: the Log and Jobs tabs are gone`, !layout.gridLog && layout.tabs.join(',') === 'tab-items,tab-conditions', layout.tabs.join(','))
+  check(`${label}: the Log and Jobs tabs are gone`, !layout.gridLog && layout.tabs.length === 0, layout.tabs.join(','))
   check(
     `${label}: the spine sits on the inline start (${rtl ? 'right' : 'left'}), beside the page, 340–420px wide`,
     layout.beside && layout.startSide && layout.width >= 340 && layout.width <= 420,

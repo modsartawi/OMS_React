@@ -62,7 +62,7 @@ function pickedState(row: ReturnableLine, picked: boolean): LineState {
  *
  * A return is **one decision taken about the delivery you are looking at**, so
  * it opens OVER Document Details rather than navigating away: the header and
- * summary rail stay behind it as the context the decision is
+ * the facts column stay behind it as the context the decision is
  * checked against. `Modal` already gives the wide max-width, the internally
  * scrolling body and the pinned footer — nothing new is built in `core/ui`.
  *

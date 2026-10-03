@@ -214,10 +214,10 @@ describe('the tab’s words live in the document namespace', () => {
     expect(keys.filter((key) => typeof bundle(key) !== 'string')).toEqual([])
   })
 
-  it('names the tab and its badge', () => {
-    expect(i18n.t('document:tabs.attachments')).toBe('Attachments')
-    expect(i18n.t('document:tabs.fileCount', { count: 1 })).toBe('1 file')
-    expect(i18n.t('document:tabs.fileCount', { count: 6 })).toBe('6 files')
+  it('names the disclosure, with its file count only once one is known (ticket 404)', () => {
+    expect(i18n.t('document:attachments.headingUncounted')).toBe('Attachments')
+    expect(i18n.t('document:attachments.heading', { count: 1 })).toBe('Attachments · <n>1</n>')
+    expect(i18n.t('document:attachments.heading', { count: 6 })).toBe('Attachments · <n>6</n>')
     expect(i18n.t('document:attachments.empty')).toBe('No file is attached to this order.')
   })
 

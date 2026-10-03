@@ -107,13 +107,6 @@
      the platform mono, which is right — a code is never Arabic. */
   --font-mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
 
-  /* The Document Details rail breakpoint (spec 083 D-6, ticket 092): above it a
-     340px summary rail sits beside the work area; below it the rail unstacks
-     ABOVE the work area as a card grid. It is a named screen because the page
-     grid and the rail's own grid must agree on the number — two hand-spelled
-     `min-[900px]` would be one edit away from laying out against each other. */
-  --breakpoint-rail: 900px;
-
   /* The in-flight hairline on the Simulation run strip (ticket 114, spec 110):
      an indeterminate sweep, because the pricing call reports no progress. It is
      the one PHYSICAL-direction exception on that strip (110's RTL pass) — a
@@ -541,6 +534,17 @@ body {
   z-index: 3;
   background: var(--cursor);
   pointer-events: none;
+}
+
+/* A grid sized to its rows (spec 380 D4, ticket 404: the facts column's Items and
+   Pricing conditions). Where the browser draws overlay scrollbars, AG Grid 36 lays
+   its horizontal scrollbar OVER the bottom 16px of the body
+   (`.ag-scrollbar-invisible`: absolute, bottom 0, on the data ground), counting on
+   the 150px floor below the rows to hide it. With no floor it covered the last line
+   and took its clicks. In flow it takes its own lane under the grid instead, which
+   is where a classic scrollbar sits anyway. No param exists for this. */
+.ag-root.ag-layout-auto-height > .ag-body-horizontal-scroll.ag-scrollbar-invisible {
+  position: static;
 }
 
 /* Toasts (spec 380 F16, 377 §2). Sonner keeps `richColors`, but its variables

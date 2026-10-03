@@ -318,8 +318,8 @@ describe('cardCollapse', () => {
 
 // ─── The Prescription card's Files · N · Show row (spec 324, ticket 328) ──────
 //
-// `railCards` never reads the probe: the page hands it the tab's number (the badge's
-// `attachmentsBadgeCount`), whether the tab would be drawn (`attachmentsTabGate`), and
+// `railCards` never reads the probe: the page hands it the Attachments disclosure's number
+// (`attachmentsBadgeCount`), whether the disclosure would be drawn (`attachmentsTabGate`), and
 // what Show does. A row carries an `href` or an `action`, never both.
 
 describe('filesRow', () => {

@@ -14,12 +14,11 @@
 //   2. the header's now-step badge reads each capture's step (ticket 402
 //      retired 090's pill rail; the badge is what says where it is now, from
 //      the shared timeline derivation);
-//   3. both tabs — Items · Header Conditions — switch (Log and Jobs read as the
-//      activity spine since ticket 403), and a column width and a sort the
-//      operator set on the Items grid SURVIVE the switch away and back (D-23:
-//      panels are hidden with CSS, never unmounted);
-//   4. the summary rail unstacks ABOVE the work area below 900px, and sits
-//      beside it at 340px above;
+//   3. there are no tabs (ticket 404): Items is always shown, Pricing conditions
+//      is a disclosure that opens to its grid, and a column width and a sort the
+//      operator set on the Items grid SURVIVE the conditions opening and folding;
+//   4. the facts column sits beside the spine from 1280px, and stacks under it
+//      below — never a drawer, never hidden;
 //   5. the terminal pair renders at the END of the bar, at cluster-button
 //      height, and goes disabled while a command is in flight.
 //
@@ -124,17 +123,9 @@ async function run() {
   })
 
   const docHeader = () => page.locator('[aria-label="Document identity"]')
-  const cards = () => page.locator('[aria-label="Document summary"]')
+  const cards = () => page.locator('[aria-label="Document facts"]')
   const bar = () => page.locator('section[aria-label="Actions"]')
-  /** Every panel stays mounted and is CSS-hidden (D-23), so scope to the visible one. */
-  const grid = () => page.locator('[role="tabpanel"]:not([hidden]) .ag-root-wrapper')
-
-  // 093 put a count badge inside every tab, so a tab's LABEL is its text with the
-  // trailing number dropped — `Items 1` is still the Items tab. Declared once and
-  // also shipped into the page, so the node side and the browser side of the tab
-  // assertions cannot drift apart.
-  const TAB_LABEL = (text) => text.replace(/\s*\d+\s*$/, '').trim()
-  await page.addInitScript(`window.TAB_LABEL = ${TAB_LABEL.toString()}`)
+  const grid = () => page.locator('#doc-items .ag-root-wrapper')
 
   const open = async (documentNo) => {
     await page.goto(`${BASE}/oms/document/${documentNo}`)
@@ -179,41 +170,26 @@ async function run() {
     check(`${documentNo}: and the pill rail is gone`, (await page.locator('[aria-label="Document status"]').count()) === 0)
   }
 
-  // ───── 3 · the two tabs (Log and Jobs are the spine since 403), and what survives a switch ──
+  // ───── 3 · no tabs: Items always shown, conditions a disclosure (ticket 404) ──
   await open('8000000174')
-  const TABS = ['Items', 'Header Conditions']
-  const tabLabels = (await page.locator('[role="tab"]').allInnerTexts()).map(TAB_LABEL)
-  check('the work area carries exactly the two tabs', tabLabels.join(' | ') === TABS.join(' | '), tabLabels.join(' | '))
-
-  for (const label of TABS) {
-    await page.getByRole('tab', { name: new RegExp(`^${label}`) }).click()
-    await page.waitForTimeout(220)
-    const state = await page.evaluate((name) => {
-      const tab = [...document.querySelectorAll('[role="tab"]')].find(
-        (t) => window.TAB_LABEL(t.innerText) === name,
-      )
-      const panel = document.getElementById(tab.getAttribute('aria-controls'))
-      const others = [...document.querySelectorAll('[role="tabpanel"]')].filter((p) => p !== panel)
-      return {
-        selected: tab.getAttribute('aria-selected') === 'true',
-        shown: !panel.hasAttribute('hidden') && panel.getBoundingClientRect().height > 0,
-        // Hidden, but still MOUNTED — that is what makes the survival below possible.
-        othersHidden: others.every((p) => p.hasAttribute('hidden')),
-        othersMounted: others.every((p) => p.children.length > 0),
-      }
-    }, label)
-    check(
-      `the ${label} tab switches to its own panel, the other stays mounted but hidden`,
-      state.selected && state.shown && state.othersHidden && state.othersMounted,
-      JSON.stringify(state),
-    )
-  }
+  const sections = await page.evaluate(() => ({
+    tabs: document.querySelectorAll('[role="tab"], [role="tabpanel"]').length,
+    items: document.querySelector('#doc-items')?.getBoundingClientRect().height ?? 0,
+    conditions: document.querySelector('#doc-conditions')?.tagName ?? null,
+    folded: document.querySelector('#doc-conditions')?.open === false,
+  }))
+  check(
+    'no tabs: Items is shown, Pricing conditions is a folded disclosure',
+    sections.tabs === 0 && sections.items > 0 && sections.conditions === 'DETAILS' && sections.folded,
+    JSON.stringify(sections),
+  )
+  await page.locator('#doc-conditions > summary').click()
+  await page.locator('#doc-conditions .ag-row').first().waitFor()
+  check('the disclosure opens to its grid', await page.locator('#doc-conditions .ag-root-wrapper').isVisible())
 
   // The operator's own grid state: widen Description by dragging its resize
   // handle, then sort on it. Both are read back after a round trip through
-  // the other tab.
-  await page.getByRole('tab', { name: /^Items/ }).click()
-  await page.waitForTimeout(220)
+  // conditions folding and opening again.
   // The floating-filter row carries the same `col-id`, so the header proper is
   // the one that is not a filter cell.
   const header = () =>
@@ -240,44 +216,39 @@ async function run() {
   const sorted = await sortOf()
   check('and sort on it', sorted === 'ascending', String(sorted))
 
-  for (const label of ['Header Conditions', 'Items']) {
-    await page.getByRole('tab', { name: new RegExp(`^${label}`) }).click()
+  for (let i = 0; i < 2; i++) {
+    await page.locator('#doc-conditions > summary').click()
     await page.waitForTimeout(200)
   }
   const afterWidth = await widthOf()
   const afterSort = await sortOf()
   check(
-    'both survive a round trip through the other tab — the grid is hidden, never rebuilt',
+    'both survive the conditions folding and opening — the items grid is never rebuilt',
     afterWidth === widened && afterSort === sorted,
     `${afterWidth}px / ${afterSort} (was ${widened}px / ${sorted})`,
   )
 
-  // ───────────────────────────────── 4 · the rail unstacks above the work area ──
+  // ─────────────────── 4 · the facts column beside the spine, or under it ──
   const layoutAt = async (width) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.waitForTimeout(220)
     return cards().evaluate((el) => {
-      const work = el.parentElement.lastElementChild
-      const r = el.getBoundingClientRect()
-      const w = work.getBoundingClientRect()
+      const column = el.parentElement.getBoundingClientRect()
+      const spine = document.querySelector('[data-spine]').getBoundingClientRect()
       return {
-        railWidth: Math.round(r.width),
-        beside: r.right <= w.left + 1 && Math.abs(r.top - w.top) < 4,
-        above: r.bottom <= w.top + 1,
-        hidden: getComputedStyle(el).display === 'none' || r.height === 0,
+        beside: spine.right <= column.left + 1 && Math.abs(spine.top - column.top) < 4,
+        under: spine.bottom <= column.top + 1,
+        hidden: getComputedStyle(el).display === 'none' || column.height === 0,
+        rail340: Math.round(el.getBoundingClientRect().width) === 340,
       }
     })
   }
   const wide = await layoutAt(1600)
-  check(
-    'above 900px the summary rail is 340px beside the work area',
-    wide.railWidth === 340 && wide.beside,
-    JSON.stringify(wide),
-  )
+  check('from 1280px the facts column sits beside the spine, and no 340px rail', wide.beside && !wide.rail340, JSON.stringify(wide))
   const narrow = await layoutAt(880)
   check(
-    'below 900px it unstacks ABOVE the work area — never a drawer, never hidden',
-    narrow.above && !narrow.hidden,
+    'below 1280px it stacks under the spine — never a drawer, never hidden',
+    narrow.under && !narrow.hidden,
     JSON.stringify(narrow),
   )
   await page.setViewportSize({ width: 1600, height: 1000 })

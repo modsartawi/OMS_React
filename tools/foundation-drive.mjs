@@ -704,12 +704,12 @@ async function driveGrids({ theme, dir }) {
 
   // ---- Delivery details: Items, and Change store's picker ----
   await page.goto(BASE + `/oms/document/${ERX.documentNo}`)
-  await page.locator('#tabpanel-items .ag-row').first().waitFor({ timeout: 20000 })
+  await page.locator('#doc-items .ag-row').first().waitFor({ timeout: 20000 })
   await page.waitForTimeout(300)
-  await mirrored('Details · Items', '#tabpanel-items')
-  await readsInOrder('Details · Items — the negative discount', '#tabpanel-items', 'discount', '-1.50', '[row-index="0"]')
+  await mirrored('Details · Items', '#doc-items')
+  await readsInOrder('Details · Items — the negative discount', '#doc-items', 'discount', '-1.50', '[row-index="0"]')
   // The pinned totals row's label — the old `Ltr` renderer's one job, now the base's.
-  const totals = await visualOrderIn(page, '#tabpanel-items', 'itemDescription', '.ag-row-pinned')
+  const totals = await visualOrderIn(page, '#doc-items', 'itemDescription', '.ag-row-pinned')
   check(
     `${label}: Details · Items — the pinned totals label reads in order`,
     !!totals && totals.visual === totals.logical && /^1 line · 1 unit$/.test(totals.logical) && totals.isolated,

@@ -26,11 +26,11 @@ const NO_OWNER = { ownerKind: SD_DOCUMENT, ownerKey: '' }
 /** No reasons: the list is not read yet, or the server sent none it could use. */
 const NO_REASONS: readonly WithdrawReason[] = []
 
-/** The Attachments tab as the page reads it. */
+/** The Attachments disclosure as the page reads it. */
 export interface OrderAttachments {
-  /** What the tab lists — `null` whenever the tab is not drawn (the gate refuses). */
+  /** What the disclosure lists — `null` whenever it is not drawn (the gate refuses). */
   target: AttachmentTarget | null
-  /** Has the tab been selected on this visit? The list waits on it. */
+  /** Has the disclosure been opened on this visit? The list waits on it. */
   opened: boolean
   /** The badge's number, or `null` for no badge (`attachmentsBadgeCount`). */
   badge: number | null
@@ -40,21 +40,22 @@ export interface OrderAttachments {
   withdrawOffered: boolean
   /** The order the files are filed on when it is not the route's own document (329), else `null`. */
   filedOnOrderNo: string | null
-  /** The tab was selected: latch it open (the first selection starts the one read). */
+  /** The disclosure was opened: latch it (the first opening starts the one read). */
   open: () => void
-  /** The page's Refresh: re-read the list, only if the tab has been opened. */
+  /** The page's Refresh: re-read the list, only if the disclosure has been opened. */
   refresh: () => void
 }
 
 /**
- * **The order page's Attachments tab state** (spec 324, ticket 327) — the probe, the
- * gate, the first-selection latch, the audited list read and the badge, in one place so
+ * **The order page's Attachments state** (spec 324, ticket 327; a tab until ticket 404
+ * made it a disclosure of the facts column) — the probe, the
+ * gate, the first-opening latch, the audited list read and the badge, in one place so
  * the page stays about the document.
  *
  * - The probe is the ONE shared `AttachmentWeb/Access` entry the slip grids read too,
  *   asked only once the document names both an owner and a category.
  * - 🔑 The list is an AUDITED read. It waits on the latch, never on the page load or the
- *   panel's mount (the page keeps its tab panels mounted, hidden). The page observes it
+ *   panel's mount (the panel stays mounted while the disclosure is folded). The page observes it
  *   here for the badge with exactly the panel's options — `READ_ONCE_PER_VISIT`, the one
  *   constant `AttachmentsTab` passes — so the two observers share one request.
  * - Withdraw… (331) is offered by `canWithdrawOn`: the gate, the probe's
@@ -63,7 +64,7 @@ export interface OrderAttachments {
  * - The latch is by owner and resets on a new route number: the router may keep this
  *   page mounted from one document to another (or Back to one already opened), and
  *   coming back must not read the files without a click.
- * - Latching drops any list still cached under that owner, so a visit's first selection
+ * - Latching drops any list still cached under that owner, so a visit's first opening
  *   is ALWAYS its own read. The page's own observer holds the old key while the next
  *   number loads, so `gcTime: 0` alone does not drop it when two numbers on one route
  *   name the same owner (328's review).

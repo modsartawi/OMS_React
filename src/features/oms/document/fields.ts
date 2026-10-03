@@ -1,6 +1,6 @@
 /**
  * Pure builders mapping a loaded document onto the read-only rows of Screen 2 —
- * the light header's sub-ids, the summary rail's five cards, and the header's
+ * the light header's sub-ids, the facts column's five blocks, and the header's
  * All-statuses disclosure.
  */
 import type {
@@ -42,7 +42,7 @@ function describedStatus(
 // "Status" summary group with 090. Identity — the document number and its
 // sub-ids — is the light header's job (spec 380 D2, ticket 402, which dropped the
 // identity band's customer block and the pill rail); the money, e-Rx,
-// fulfilment, driver and payment fields are the summary rail's cards (092), and
+// fulfilment, driver and payment fields are the fact cards (092, the facts column since 404), and
 // the thirteen status rows keep their home in the header's All-statuses
 // disclosure, which `statusBreakdownRows` below still builds. Overall Status
 // keeps binding the RAW `status.overallStatus`: the WPF bound a non-existent
@@ -165,7 +165,10 @@ export function documentProvenanceRows(doc: SdDocumentHeaderModel, t: TFn): Fiel
   ]
 }
 
-// ─── The summary rail's five cards (spec 083 D-5 to D-8, ticket 092) ──────────
+// ─── The five fact cards (spec 083 D-5 to D-8, ticket 092) ─────────────────────
+//
+// Built for 083's summary rail and drawn, since ticket 404, as the dense blocks of
+// the facts column beside the activity spine (spec 380 D4). The name stayed.
 //
 // The three equal-weight header groups and the standalone address panel are gone;
 // what they carried is re-cut here into five cards. `FieldGroup`'s em dash goes
@@ -206,15 +209,15 @@ export interface CardAction {
  * ticket 328). The page computes all three; `railCards` never reads the probe.
  */
 export interface RailFiles {
-  /** The Attachments tab's number — the badge's `attachmentsBadgeCount`, `null` for none. */
+  /** The Attachments disclosure's number — `attachmentsBadgeCount`, `null` for none. */
   count: number | null
-  /** Would the Attachments tab be drawn (`attachmentsTabGate`)? */
+  /** Would the Attachments disclosure be drawn (`attachmentsTabGate`)? */
   allowed: boolean
-  /** Select the Attachments tab — on a first selection that starts its one read. */
+  /** Open the Attachments disclosure — on a first opening that starts its one read. */
   onShow: () => void
 }
 
-/** One card on the summary rail. A collapsed card is absent from the array. */
+/** One fact card. A collapsed card is absent from the array. */
 export interface RailCard {
   key: 'customer' | 'prescription' | 'fulfilment' | 'driver' | 'payment'
   title: string
@@ -268,16 +271,16 @@ export function paymentInstrument(doc: SdDocumentHeaderModel): string {
 }
 
 /**
- * The summary rail (D-6): the cards that render, in the rail's reading order.
+ * The fact cards (D-6): the cards that render, in their reading order.
  *
  * Customer, Fulfilment and Payment always render — an empty Customer card is
  * itself the finding, not a reason to hide the identity anchor. Prescription
  * collapses when all five of its fields are blank (an over-the-counter order) and
  * Driver & tracking when the courier, the driver's name and the tracking id are
- * all blank; a collapsed card is **absent**, not an empty frame on the rail.
+ * all blank; a collapsed card is **absent**, not an empty frame.
  *
  * `files` (spec 324, ticket 328) adds the Prescription card's **Files · N · Show** row,
- * last, only when the tab would be drawn AND N > 0 — so an order with files and no
+ * last, only when the disclosure would be drawn AND N > 0 — so an order with files and no
  * other prescription fact still shows the card, on that row alone.
  */
 export function railCards(doc: SdDocumentHeaderModel, t: TFn, files?: RailFiles): RailCard[] {
@@ -392,9 +395,9 @@ export function railCards(doc: SdDocumentHeaderModel, t: TFn, files?: RailFiles)
 /**
  * The Prescription card's **Files · N · Show** row (spec 324, ticket 328), or `null`.
  *
- * N is the tab's own number, handed in (never a second count). The row needs the tab's
+ * N is the disclosure's own number, handed in (never a second count). The row needs its
  * gate AND N > 0: an absent count (`null`) or `0` is no row. It carries an `action` —
- * Show selects the tab — and never an `href`: there is no URL for a tab (no deep link).
+ * Show opens the disclosure — and never an `href`: there is no URL for it (no deep link).
  */
 function filesRow(files: RailFiles | undefined, t: TFn): CardRow | null {
   if (!files?.allowed || files.count === null || files.count <= 0) return null

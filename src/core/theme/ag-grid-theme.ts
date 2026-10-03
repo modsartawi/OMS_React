@@ -37,6 +37,9 @@ import { bootDirection } from './direction'
  * `.ag-row-selected:not(.ag-full-width-row)::before` — that rule carries the
  * evidence for why `::before` and not `::after`, and why it stacks at 3.
  */
+/** Compact row height (px) for every grid (spec 380 F8). */
+export const OMS_GRID_ROW_HEIGHT = 26
+
 export const omsGridTheme = themeQuartz
   .withParams({
     // Density (spec 380 F8). Spacing is unchanged since 403; Plex at 12px in a
@@ -86,12 +89,16 @@ export const omsGridTheme = themeQuartz
     inputBackgroundColor: 'var(--card)',
     inputBorder: { color: 'var(--input)' },
     invalidColor: 'var(--danger)',
+
+    // A grid sized to its rows (`domLayout: 'autoHeight'`) is that tall and no taller
+    // (spec 380 D4, ticket 404). AG Grid's default floor is 150px of body, which drew an
+    // empty band under a one-line document's items (the 371 captures); one row is the
+    // floor, so a filter that matches nothing still has a line to say so in. Only an
+    // auto-height grid reads this.
+    autoHeightMinBodyHeight: OMS_GRID_ROW_HEIGHT,
   })
   .withParams({ browserColorScheme: 'light' }, 'light')
   .withParams({ browserColorScheme: 'dark' }, 'dark')
-
-/** Compact row height (px) for every grid (spec 380 F8). */
-export const OMS_GRID_ROW_HEIGHT = 26
 
 /** Compact header height (px) for every grid (spec 380 F8). */
 export const OMS_GRID_HEADER_HEIGHT = 28

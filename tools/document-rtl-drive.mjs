@@ -186,10 +186,9 @@ async function run() {
   await page.addInitScript(`window.READS_LTR = ${READS_LTR.toString()}`)
 
   const header = () => page.locator('[aria-label="Document identity"]')
-  const rail = () => page.locator('[aria-label="Document summary"]')
-  // Every tab panel stays mounted and is hidden with CSS (D-23), so the grid
-  // under test is scoped to the visible one.
-  const items = () => page.locator('[role="tabpanel"]:not([hidden]) .ag-root-wrapper')
+  // The facts column (ticket 404) and its always-shown items grid.
+  const rail = () => page.locator('[aria-label="Document facts"]')
+  const items = () => page.locator('#doc-items .ag-root-wrapper')
   const FOOTER = '.ag-grid-pinned-bottom-rows .ag-row'
   const LINE = '.ag-grid-scrolling-rows .ag-row'
 
@@ -211,13 +210,13 @@ async function run() {
     // the number is a machine value. The band's customer block left with 402.
     ['the header’s Placed date · time', () => header().locator('[data-subid="placed"] b > bdi'), 'March 6, 2025 · 02:46'],
     ['the header’s number', () => header().locator('[data-header-no] bdi'), DOC],
-    ['the Customer card’s mobile', () => rail().locator('bdi').nth(0), '966501076360'],
+    ['the Customer card’s mobile', () => rail().locator('dd[data-fact="mobile"] bdi'), '966501076360'],
     [
       'the Fulfilment card’s delivery window',
-      () => rail().locator('bdi').nth(1),
+      () => rail().locator('dd[data-fact="window"] bdi'),
       'Monday, 8pm - 10 pm',
     ],
-    ['the Driver card’s mobile', () => rail().locator('bdi').nth(2), '0501076360'],
+    ['the Driver card’s mobile', () => rail().locator('dd[data-fact="courierDriverPhone"] bdi'), '0501076360'],
     // A grid cell: isolated by the base renderer every grid spreads (383, F25) —
     // a `<bdi>` left to `dir=auto`, which resolves LTR on this Latin label.
     ['the items grid’s totals footer', () => items().locator(FOOTER + ' bdi'), '1 line · 2 units', 'auto'],
@@ -536,25 +535,25 @@ async function run() {
   }
   await setDir('ltr')
 
-  // ── 7. the Attachments tab mirrors (ticket 327) ─────────────────────────────
+  // ── 7. the Attachments disclosure mirrors (ticket 327; a disclosure since 404) ─
   //
-  // The tab is the new surface. Measured LOGICALLY, as section 6 is, so a correctly
-  // mirrored element reports the same fact in both directions:
-  //   - the tab is the tablist's LAST, at its END (after Header Conditions in reading order);
+  // Measured LOGICALLY, as section 6 is, so a correctly mirrored element reports the
+  // same fact in both directions:
+  //   - the disclosure is the facts column's LAST, under Pricing conditions;
   //   - the list sits at the work area's START and the preview beside it at the END;
   //   - a header cell's glyphs hug the cell's START (`text-start`, twin `text-left`);
   //   - the Arabic caption reads RIGHT-TO-LEFT in both directions (`dir="auto"`).
   await page.goto(`${BASE}/oms/document/${RX_DOC}`)
   await rail().waitFor()
-  await page.locator('#tab-attachments').waitFor()
-  await page.locator('#tab-attachments').click()
-  await page.locator('#tabpanel-attachments [data-testid="slip-list"]').waitFor()
+  await page.locator('#doc-attachments > summary').waitFor()
+  await page.locator('#doc-attachments > summary').click()
+  await page.locator('#doc-attachments [data-testid="slip-list"]').waitFor()
   for (const dir of ['ltr', 'rtl']) {
     await setDir(dir)
     const geo = await page.evaluate((dir) => {
-      const tab = document.querySelector('#tab-attachments').getBoundingClientRect()
-      const before = document.querySelector('#tab-conditions').getBoundingClientRect()
-      const panel = document.querySelector('#tabpanel-attachments')
+      const tab = document.querySelector('#doc-attachments').getBoundingClientRect()
+      const before = document.querySelector('#doc-conditions').getBoundingClientRect()
+      const panel = document.querySelector('#doc-attachments')
       const list = panel.querySelector('[data-testid="slip-list"]').getBoundingClientRect()
       const preview = panel.querySelector('[data-region="slip-preview"]').getBoundingClientRect()
       // "after" in reading order: further right in LTR, further left in RTL.
@@ -568,9 +567,9 @@ async function run() {
       const cell = th.getBoundingClientRect()
       const startGap = dir === 'rtl' ? cell.right - glyphs.right : glyphs.left - cell.left
       const endGap = dir === 'rtl' ? glyphs.left - cell.left : cell.right - glyphs.right
-      return { tabAfterPrevious: after(tab, before), previewAfterList: after(preview, list), startGap, endGap }
+      return { tabAfterPrevious: tab.top >= before.bottom - 0.5 && Math.abs(tab.left - before.left) < 1, previewAfterList: after(preview, list), startGap, endGap }
     }, dir)
-    check(`${dir}: the Attachments tab sits after Header Conditions, at the tablist's end`, geo.tabAfterPrevious)
+    check(`${dir}: the Attachments disclosure sits under Pricing conditions, last in the column`, geo.tabAfterPrevious)
     check(`${dir}: the preview sits after the file list, at the work area's end`, geo.previewAfterList)
     check(
       `${dir}: a list header hugs its cell's START (text-start, not text-left)`,
@@ -580,7 +579,7 @@ async function run() {
     // An Arabic run reads right-to-left inside any paragraph, so the order alone cannot fail;
     // what `dir="auto"` adds is the caption's OWN direction — right-to-left even on an LTR page,
     // so its neutral characters (the dash, the digit) sit where an Arabic reader expects them.
-    const caption = page.locator('#tabpanel-attachments [data-cell="caption"]')
+    const caption = page.locator('#doc-attachments [data-cell="caption"]')
     const captionText = await caption.innerText()
     const read = await caption.evaluate((n) => ({ order: window.READS_LTR(n), direction: getComputedStyle(n).direction }))
     check(
@@ -591,7 +590,7 @@ async function run() {
 
     // + Add prescription (ticket 330): the button and the caption field hug the region's START.
     const add = await page.evaluate((dir) => {
-      const region = document.querySelector('#tabpanel-attachments [data-region="slip-add"]').getBoundingClientRect()
+      const region = document.querySelector('#doc-attachments [data-region="slip-add"]').getBoundingClientRect()
       const gaps = (el) => {
         const r = el.getBoundingClientRect()
         return dir === 'rtl'
@@ -599,8 +598,8 @@ async function run() {
           : { start: r.left - region.left, end: region.right - r.right }
       }
       return {
-        button: gaps(document.querySelector('#tabpanel-attachments [data-testid="slip-add"]')),
-        field: gaps(document.querySelector('#tabpanel-attachments [data-testid="slip-add-caption"]')),
+        button: gaps(document.querySelector('#doc-attachments [data-testid="slip-add"]')),
+        field: gaps(document.querySelector('#doc-attachments [data-testid="slip-add-caption"]')),
       }
     }, dir)
     check(
@@ -610,17 +609,17 @@ async function run() {
     )
     // An Arabic caption, typed and posted: the field reads it right-to-left, and the WIRE carries it exactly.
     const typed = `وصفة مرسلة بالبريد — ${dir === 'rtl' ? 'صفحة ١' : 'صفحة ٢'}`
-    const field = page.locator('#tabpanel-attachments [data-testid="slip-add-caption"]')
+    const field = page.locator('#doc-attachments [data-testid="slip-add-caption"]')
     await field.fill(typed)
     const fieldDirection = await field.evaluate((n) => getComputedStyle(n).direction)
     const posts = postedCaptions.length
-    await page.locator('#tabpanel-attachments [data-testid="slip-add-input"]').setInputFiles({
+    await page.locator('#doc-attachments [data-testid="slip-add-input"]').setInputFiles({
       name: `rx-${dir}.pdf`,
       mimeType: 'application/pdf',
       buffer: Buffer.from('%PDF-1.4\n%%EOF\n'),
     })
     await page
-      .locator(`#tabpanel-attachments li[data-upload="rx-${dir}.pdf"][data-status="stored"]`)
+      .locator(`#doc-attachments li[data-upload="rx-${dir}.pdf"][data-status="stored"]`)
       .waitFor({ timeout: 8000 })
       .catch(() => {})
     const posted = postedCaptions[posts] ?? ''

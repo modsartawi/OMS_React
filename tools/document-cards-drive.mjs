@@ -1,18 +1,19 @@
-// Summary-rail drive (ticket 092, spec 083 D-5 to D-8) — drives the REAL app in
+// Fact-cards drive (ticket 092, spec 083 D-5 to D-8; the facts column since ticket 404) — drives the REAL app in
 // Chromium and serves the FIVE CAPTURED PAYLOADS from
 // `.issues/assets/078-document-payloads/` as the `SdDocumentWeb/Document/{no}`
 // response, exactly as `tools/document-header-drive.mjs` does. The payloads are
 // replayed verbatim; the app is not stubbed, only the wire is.
 //
 // Asserts the ticket's Done-when, in BOTH themes:
-//   1. the five cards render on a 340px rail BESIDE the work area above 900px;
-//   2. below 900px the rail is a card grid ABOVE the work area (not a drawer),
-//      laying its cards out at `minmax(250px, 1fr)`;
+//   1. the five cards render as blocks of the facts column, BESIDE the activity
+//      spine from 1280px (404 retired the 340px rail);
+//   2. below 1280px the column stacks under the spine (not a drawer), its blocks
+//      still a grid, not a single column;
 //   3. every collapse: e-Rx on 4/5, Driver & tracking when the courier, the
 //      driver and the tracking id are all blank;
 //   4. every step of the address chain across the corpus, including the null
 //      parent and the all-blank object landing on three rows with NO marker;
-//   5. no em dash anywhere on the rail;
+//   5. no em dash anywhere in the facts;
 //   6. the retired panels — Shipping Address, the header field groups — are gone.
 //
 //   1. run the app:  npx vite --port 5199
@@ -153,7 +154,7 @@ async function run() {
     return route.fulfill(envelope({}))
   })
 
-  const rail = () => page.locator('[aria-label="Document summary"]')
+  const rail = () => page.locator('[aria-label="Document facts"]')
 
   /** The rail as `{ 'Card title': ['Label value', …] }`, in DOM order. */
   const readRail = () =>
@@ -230,50 +231,47 @@ async function run() {
   check('the Shipping Address panel is gone', !body.includes('Shipping Address'), body.slice(0, 90))
   check('its GPS/city-code rows went with it', !/GPS (Lat|Lon)|City Code|District Code/.test(body))
 
-  // --- the layout, above and below 900px ------------------------------------
+  // --- the layout, beside the spine and under it ----------------------------
   await page.setViewportSize({ width: 1600, height: 1000 })
   await page.goto(`${BASE}/oms/document/8000000174`)
   await rail().waitFor()
   await page.waitForTimeout(160)
   const wide = await rail().evaluate((el) => {
-    const work = el.parentElement.lastElementChild
-    const r = el.getBoundingClientRect()
-    const w = work.getBoundingClientRect()
-    return { railWidth: Math.round(r.width), beside: r.right <= w.left + 1, sameTop: Math.abs(r.top - w.top) < 4 }
+    const r = el.parentElement.getBoundingClientRect()
+    const s = document.querySelector('[data-spine]').getBoundingClientRect()
+    return { width: Math.round(el.getBoundingClientRect().width), beside: s.right <= r.left + 1, sameTop: Math.abs(r.top - s.top) < 4 }
   })
   check(
-    'above 900px the rail is 340px BESIDE the work area',
-    wide.railWidth === 340 && wide.beside && wide.sameTop,
-    `${wide.railWidth}px, beside=${wide.beside}`,
+    'from 1280px the facts sit BESIDE the spine, no 340px rail',
+    wide.width !== 340 && wide.beside && wide.sameTop,
+    `${wide.width}px, beside=${wide.beside}`,
   )
 
   await page.setViewportSize({ width: 800, height: 1000 })
   await page.waitForTimeout(200)
   const narrow = await rail().evaluate((el) => {
-    const work = el.parentElement.lastElementChild
     const r = el.getBoundingClientRect()
-    const w = work.getBoundingClientRect()
+    const s = document.querySelector('[data-spine]').getBoundingClientRect()
     const cards = [...el.querySelectorAll('section')].map((c) => c.getBoundingClientRect())
     const tops = new Set(cards.map((c) => Math.round(c.top)))
     return {
-      above: r.bottom <= w.top + 1,
-      fullWidth: Math.abs(r.width - w.width) < 2,
+      under: s.bottom <= r.top + 1,
+      fullWidth: Math.abs(r.width - s.width) < 2,
       rows: tops.size,
       cards: cards.length,
-      minCardWidth: Math.round(Math.min(...cards.map((c) => c.width))),
-      // A drawer would be a toggle: nothing on this page hides the rail.
+      // A drawer would be a toggle: nothing on this page hides the facts.
       hidden: getComputedStyle(el).display === 'none' || r.height === 0,
     }
   })
   check(
-    'below 900px the rail sits ABOVE the work area, full width, never hidden',
-    narrow.above && narrow.fullWidth && !narrow.hidden,
-    `above=${narrow.above} fullWidth=${narrow.fullWidth}`,
+    'below 1280px the facts sit UNDER the spine, full width, never hidden',
+    narrow.under && narrow.fullWidth && !narrow.hidden,
+    `under=${narrow.under} fullWidth=${narrow.fullWidth}`,
   )
   check(
-    'and lays its cards out as a grid, not a column',
-    narrow.rows < narrow.cards && narrow.minCardWidth >= 250,
-    `${narrow.cards} cards on ${narrow.rows} rows, narrowest ${narrow.minCardWidth}px`,
+    'and lay their blocks out as a grid, not a column',
+    narrow.rows < narrow.cards,
+    `${narrow.cards} blocks on ${narrow.rows} rows`,
   )
   await page.setViewportSize({ width: 1600, height: 1000 })
 
@@ -293,17 +291,16 @@ async function run() {
         return 0.2126 * r + 0.7152 * g + 0.0722 * b
       }
       const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
-      const card = el.querySelector('section')
-      const value = card.querySelector('dd')
-      const accent = card.querySelector('h3 span')
-      const ground = lum(getComputedStyle(card).backgroundColor)
+      const value = el.querySelector('section dd')
+      const heading = el.querySelector('section h3')
+      const ground = lum(getComputedStyle(el).backgroundColor)
       return {
         ink: ratio(lum(getComputedStyle(value).color), ground),
-        accent: getComputedStyle(accent).backgroundColor,
+        heading: ratio(lum(getComputedStyle(heading).color), ground),
       }
     })
-    check(`${theme}: a card value clears AA on the card ground`, paint.ink >= 4.5, `${paint.ink.toFixed(2)}:1`)
-    check(`${theme}: the accent bar is painted from a token`, /rgb/.test(paint.accent), paint.accent)
+    check(`${theme}: a fact's value clears AA on the card ground`, paint.ink >= 4.5, `${paint.ink.toFixed(2)}:1`)
+    check(`${theme}: a block heading clears AA on the card ground`, paint.heading >= 4.5, `${paint.heading.toFixed(2)}:1`)
   }
   await page.evaluate(() => document.documentElement.classList.remove('dark'))
 

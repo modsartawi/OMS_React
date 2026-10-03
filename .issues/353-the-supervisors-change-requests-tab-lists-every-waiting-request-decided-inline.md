@@ -6,9 +6,10 @@ blocked-by: 346
 
 # 353 — The supervisor's "Change requests" tab lists every waiting request in the estate, decided inline
 
-⚠ **Also blocked by a BackOffice ticket that does not exist yet** (W9). Spec 2190 has no estate-wide read
-of waiting requests. Owner ruling 2026-10-01: leave this ticket blocked; the BackOffice read is minted
-separately in that repo, and its `## Web contract` fixes the shape built here.
+**Unblocked 2026-10-03.** The BackOffice read (W9) is minted and done: BackOffice ticket **2285**
+(`C:\Work\DMSCO\BackOffice\.issues\2285-a-supervisor-reads-every-waiting-change-request-in-the-estate-oldest-first.md`,
+commit `af56b73bf` on `pricing2`). Its `## Web contract` fixes the shape built here, and its `## Comments`
+hold the recorded response the projection is built from.
 
 ## What to build
 
@@ -20,10 +21,22 @@ Reason (story 19). Rows are **approved or rejected inline** (Reject asks for a R
 row (story 20). Opening a row opens the entry's branch account panel. After an act the queue, History and
 the lanes are re-read (W8). Its count rides the tab strip like the other tabs.
 
-**Proposed read (W9) — the BackOffice ticket owns the final shape and grant:**
-`GET Settlement/ChangeRequest/Open?limit=`, behind settlement supervision. Each row: the History row's
-request fields plus `storeId`, store code and name, `entryNumber`, `entryKind`, `entryStatus`, `amount`,
-`remainingAmount`, `spentAmount`, oldest first.
+**The read (W9), as BackOffice 2285 built it:** `GET Settlement/ChangeRequest/Open?limit=`, cookie
+session plus settlement supervision, **403** otherwise. 200 with a flat camelCase JSON array, oldest first
+(`requestedAt`, then `changeRequestId`); empty means nothing is waiting. `limit` defaults to 500, capped at
+20,000. Each row is the History row's request fields unchanged, plus `storeName`, `currencyKey`,
+`entryNumber`, `entryKind`, `entryStatus`, `amount`, `remainingAmount`, `spentAmount`. Differences from
+the proposal and things the recording shows:
+
+- **`storeId` is the branch code**; there is no separate code field. `storeName` is the Store master's
+  name, or the code echoed back when the master has no row.
+- **`currencyKey` was added** (the plant's, `SAR` when it has no row), so figures can be drawn at the
+  branch's scale. BHD money keeps its third decimal (`12.345`, a zero is `0.000`).
+- **`amount` / `remainingAmount` / `spentAmount` are the entry NOW** (committed reads), not the figures at
+  the request (`oldAmount`). The supervisor decides against these.
+- **`requestedAt` carries fractional seconds** (`2026-10-03T14:12:53.1934499`, local wall-clock).
+- A request whose entry is missing still lists, with `entryNumber` 0 and `''` kind/status.
+- A `DELETE` row has `newAmount` = `oldAmount` and the same description, as History records it.
 
 ## Spine reach
 
@@ -42,7 +55,8 @@ test
 
 ## Boundaries
 
-- New door from a **not-yet-minted** BackOffice ticket. A 404 shows "not available yet" like 343's pane.
+- The door is BackOffice 2285, merged on `pricing2` but not yet on every server. A 404 shows "not
+  available yet" like 343's pane.
 - Excel export only if the shared grid writer (`core/util/grid-xlsx.ts`) makes it free (spec 342 Out of
   Scope).
 - The tab's address must not disturb the existing tab addresses (340 kept old ones resolving).
@@ -54,13 +68,11 @@ earlier drives unmodified and green.
 
 ## Blocked by
 
-[346](346-a-supervisor-approves-or-rejects-a-waiting-request-beside-the-entrys-figures-today.md) — and
-the BackOffice queue-read ticket (not yet minted).
+[346](346-a-supervisor-approves-or-rejects-a-waiting-request-beside-the-entrys-figures-today.md) (done).
+The BackOffice queue read is BackOffice 2285 (done).
 
 ## Open questions
 
-- **The BackOffice read must be minted first** (in `C:\Work\DMSCO\BackOffice-2149` / `pricing2`). Until its
-  `## Web contract` exists, do not start this ticket.
-- **If the owner prefers a Ledger criterion** (`Settlement/Ledger?changeRequest=OPEN`) over a new door, the
-  queue row loses the request's figures and each row opens the panel instead of being decided inline; this
-  ticket is then reshaped before it starts.
+- ~~The BackOffice read must be minted first~~ — **resolved**: BackOffice 2285 (2026-10-03).
+- ~~If the owner prefers a Ledger criterion~~ — **resolved**: 2285 built the new door, so the row carries
+  the request's figures and is decided inline as written above.

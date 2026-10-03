@@ -50,7 +50,7 @@ export default function GridPager(props: Props) {
   )
 
   const btn =
-    'inline-flex items-center gap-1 rounded-full border border-border/60 px-3 py-1 text-xs font-medium ' +
+    'inline-flex items-center gap-1 rounded-md border border-border/60 px-3 py-1 text-xs font-medium ' +
     'transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent'
 
   return (

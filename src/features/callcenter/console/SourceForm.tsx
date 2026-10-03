@@ -161,7 +161,7 @@ export default function SourceForm({
             onChange={(e) => setSource(e.target.value)}
             disabled={apply.busy || options.length === 0}
             data-cc-source-select
-            className="h-8 w-full rounded-lg border border-input bg-background px-2 text-[0.8125rem]"
+            className="h-8 w-full rounded-md border border-input bg-background px-2 text-[0.8125rem]"
           >
             <option value="">{t('source.choose')}</option>
             {options.map((option) => (

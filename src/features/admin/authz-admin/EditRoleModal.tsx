@@ -75,7 +75,7 @@ export default function EditRoleModal({ open, onClose, roleName, isProtected, de
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-xs font-semibold text-muted-foreground">{t('newRole.name')}</span>
           <input
-            className="rounded-lg border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground outline-none"
+            className="rounded-md border border-input bg-muted/50 px-3 py-2 text-sm text-muted-foreground outline-none"
             value={roleName}
             disabled
           />
@@ -88,7 +88,7 @@ export default function EditRoleModal({ open, onClose, roleName, isProtected, de
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-xs font-semibold text-muted-foreground">{t('newRole.description')}</span>
           <input
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none"
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             autoFocus

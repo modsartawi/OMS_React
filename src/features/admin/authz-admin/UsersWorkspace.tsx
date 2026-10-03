@@ -141,7 +141,7 @@ export default function UsersWorkspace({ access, catalog, initialTerm }: Props) 
             key={k}
             onClick={() => setCard(k)}
             className={
-              'flex flex-col items-start rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:bg-accent ' +
+              'flex flex-col items-start rounded-lg border bg-card px-3 py-2 text-start transition-colors hover:bg-accent ' +
               (card === k ? 'border-primary bg-accent' : 'border-border/60')
             }
           >
@@ -206,7 +206,7 @@ export default function UsersWorkspace({ access, catalog, initialTerm }: Props) 
             <div className="overflow-x-auto">
               <table className="w-full min-w-[520px] border-collapse text-sm">
                 <thead>
-                  <tr className="text-left text-xs font-medium text-muted-foreground">
+                  <tr className="text-start text-xs font-medium text-muted-foreground">
                     <th className="border-b border-border px-3 py-1.5">{t('grid.employee')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.name')}</th>
                     <th className="border-b border-border px-3 py-1.5">{t('grid.mobile')}</th>

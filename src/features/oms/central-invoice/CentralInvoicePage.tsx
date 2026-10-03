@@ -128,7 +128,7 @@ function BulkRaise() {
             rows={8}
             spellCheck={false}
             aria-describedby="central-invoice-list-hint central-invoice-list-count"
-            className="w-full rounded-lg border border-input bg-background px-2 py-1.5 font-mono text-[0.8125rem]"
+            className="w-full rounded-md border border-input bg-background px-2 py-1.5 font-mono text-[0.8125rem]"
           />
           <p id="central-invoice-list-hint" className="text-xs text-muted-foreground">
             {t('bulk.list.hint')}

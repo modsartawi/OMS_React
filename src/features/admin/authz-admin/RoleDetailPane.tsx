@@ -390,7 +390,7 @@ export default function RoleDetailPane({ roleName, access, catalog, onJumpToUser
                   >
                     <button
                       onClick={() => onJumpToUser(h.userId)}
-                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                      className="flex min-w-0 flex-1 items-center gap-2 text-start"
                       title={t('roleDetail.jumpToUser')}
                     >
                       <span className="min-w-0 flex-1">

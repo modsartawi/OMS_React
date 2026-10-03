@@ -150,7 +150,8 @@ function column(
       headerName: headerCurrency ? t('ready.moneyHeader', { label, currency: headerCurrency }) : label,
       field,
       colId: field,
-      width: 150,
+      // Wide enough for the longest label with its currency under Plex (ticket 391).
+      width: 160,
       // 🚩 The row's own currency, not the header's — and the dash for a null.
       valueFormatter: (p: ValueFormatterParams<CollectionReadyRow, number | null>) =>
         readyMoney(p.value, p.data?.currencyKey),

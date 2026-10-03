@@ -91,7 +91,7 @@ export default function RolesWorkspace({ access, catalog, onJumpToUser }: Props)
             key={k}
             onClick={() => setCard(k)}
             className={
-              'flex flex-col items-start rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:bg-accent ' +
+              'flex flex-col items-start rounded-lg border bg-card px-3 py-2 text-start transition-colors hover:bg-accent ' +
               (card === k ? 'border-primary bg-accent' : 'border-border/60')
             }
           >
@@ -132,7 +132,7 @@ export default function RolesWorkspace({ access, catalog, onJumpToUser }: Props)
                     key={r.roleName}
                     onClick={() => setSelected(r.roleName)}
                     className={
-                      'flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors ' +
+                      'flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-start transition-colors ' +
                       (selected === r.roleName ? 'bg-accent' : 'hover:bg-muted/50')
                     }
                   >

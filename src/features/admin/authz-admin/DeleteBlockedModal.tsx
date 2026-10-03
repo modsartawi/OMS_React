@@ -69,7 +69,7 @@ export default function DeleteBlockedModal({
               onClick={tile.go}
               disabled={tile.n === 0}
               className={
-                'flex flex-col items-start rounded-lg border p-2.5 text-left transition-colors ' +
+                'flex flex-col items-start rounded-lg border p-2.5 text-start transition-colors ' +
                 (tile.n > 0
                   ? 'border-border hover:border-primary hover:bg-accent'
                   : 'border-border/40 opacity-50')

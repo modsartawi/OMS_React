@@ -217,7 +217,7 @@ export default function BonusBuyDownloadPage() {
         </label>
         <textarea
           id="bby-numbers"
-          className="min-h-[8rem] w-full rounded-lg border border-input bg-background px-3 py-2 font-mono text-sm outline-none focus:border-primary"
+          className="min-h-[8rem] w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-sm outline-none focus:border-primary"
           placeholder={t('numbers.placeholder')}
           value={numbersText}
           onChange={(e) => setNumbersText(e.target.value)}

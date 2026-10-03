@@ -69,7 +69,7 @@ export function ReasonField({
         rows={rows}
         placeholder={t('reason.placeholder')}
         aria-describedby={`${id}-hint`}
-        className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-[0.8125rem]"
+        className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-[0.8125rem]"
       />
       <p id={`${id}-hint`} className="text-xs text-muted-foreground">
         {t('reason.hint')}

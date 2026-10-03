@@ -12,7 +12,8 @@
  */
 import { describe, expect, it } from 'vitest'
 import settlementLocale from '@/locales/en/settlement.json'
-import { isActive, MENU, type ShellMenuItem } from './menu-model'
+import { deriveCrumb } from './crumb'
+import { isActive, markedLeaf, MENU, type ShellMenuItem } from './menu-model'
 
 const OVERVIEW = '/collection/settlement'
 const OPEN = `${OVERVIEW}/open`
@@ -188,5 +189,49 @@ describe('the OMS group — one leaf lit per screen (ticket 332)', () => {
   it('the list leaf reads the SAME probe entry as the raise leaf, so one 403 drops both', () => {
     const leaf = (oms.items ?? []).find((i) => i.labelKey === 'central-invoice:menu.list')!
     expect(leaf.access?.key).toEqual(['central-invoice', 'access'])
+  })
+})
+
+describe('markedLeaf — the rail marks ONE leaf, the most specific claimant (ticket 391)', () => {
+  const marked = (pathname: string) => markedLeaf(MENU, pathname)?.labelKey ?? null
+
+  it('🚩 New check, not the list that owns its subtree, on /nphies/eligibility/new', () => {
+    // Both claim the address — the list through `activePrefix`, New check by its own link —
+    // and `isActive` says yes to both, so the rail drew two gold markers.
+    expect(marked('/nphies/eligibility/new')).toBe('eligibility:menu.newCheck')
+  })
+
+  it('the list on its own address and on a record under it', () => {
+    expect(marked('/nphies/eligibility')).toBe('eligibility:menu.list')
+    expect(marked('/nphies/eligibility/42')).toBe('eligibility:menu.list')
+  })
+
+  it('the settlement Overview leaf on the sub-group’s own address, never the sub-group header', () => {
+    expect(marked(OVERVIEW)).toBe('settlement:menu.overview')
+    expect(marked(LEDGER)).toBe('settlement:menu.ledger')
+  })
+
+  it('a plain leaf, and nothing on an address no leaf claims', () => {
+    expect(marked('/oms/deliveries')).toBe('deliveries:menu.deliveries')
+    expect(marked('/nowhere')).toBeNull()
+  })
+
+  it('🚩 breaks a tie the crumb’s way — the deeper leaf — so the two never disagree', () => {
+    const menu: ShellMenuItem[] = [
+      {
+        labelKey: 'group',
+        items: [
+          { labelKey: 'shallow', routerLink: '/a' },
+          { labelKey: 'sub', routerLink: '/b', items: [{ labelKey: 'deep', routerLink: '/a' }] },
+        ],
+      },
+    ]
+    expect(markedLeaf(menu, '/a')?.labelKey).toBe('deep')
+    expect(deriveCrumb(menu, '/a').trail.at(-1)).toBe('deep')
+  })
+
+  it('agrees with isActive: the leaf it returns is active there', () => {
+    for (const path of ['/nphies/eligibility/new', OPEN, UPLOAD, '/oms/deliveries'])
+      expect(isActive(markedLeaf(MENU, path)!, path)).toBe(true)
   })
 })

@@ -55,7 +55,7 @@ type Step = 'password' | 'change' | 'totp' | 'otp' | 'setPassword' | 'activateQr
 type Flow = 'reset' | 'activate'
 
 const inputClass =
-  'w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  'w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 const submitClass =
   'w-full rounded-full bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/85 disabled:opacity-50'

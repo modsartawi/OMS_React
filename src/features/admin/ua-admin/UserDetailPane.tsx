@@ -21,7 +21,7 @@ import ChannelWarning from './ChannelWarning'
 import SetPasswordModal from './SetPasswordModal'
 
 const FIELD =
-  'h-8 flex-1 rounded-lg border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
+  'h-8 flex-1 rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 type Tab = 'sessions' | 'audit'
 

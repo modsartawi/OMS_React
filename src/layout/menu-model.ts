@@ -658,3 +658,35 @@ export function matchLength(item: ShellMenuItem, pathname: string): number {
   const targets = typeof target === 'string' ? [target] : target
   return Math.max(-1, ...targets.filter((t) => path === t || path.startsWith(t + '/')).map((t) => t.length))
 }
+
+/**
+ * The one leaf the rail marks on `pathname` (ticket 391): of every leaf in `menu` that
+ * {@link isActive} says claims it, the most specific under {@link matchLength}, or null.
+ *
+ * 🚩 Two leaves can claim one address: the eligibility list owns `/nphies/eligibility/*`
+ * through its prefix, and New check is `/nphies/eligibility/new` inside it. Marking by
+ * `isActive` alone drew the gold marker on both. This is the crumb's own rule, so the
+ * crumb and the marker name the same leaf. Only leaves compete — a sub-group header is
+ * never marked (see `SubGroupLink`).
+ *
+ * ⚠️ The rail passes the full `MENU`, as the crumb does, not the granted slice. That is
+ * sound while two leaves that compete for an address share one access probe (the two
+ * eligibility leaves do); a more specific leaf gated differently would win while hidden.
+ * The rail compares the answer by identity, which holds because `useVisibleMenu` passes
+ * leaves through unchanged (it copies only groups).
+ */
+export function markedLeaf(menu: ShellMenuItem[], pathname: string): ShellMenuItem | null {
+  let best: ShellMenuItem | null = null
+  let bestScore = -1
+  let bestDepth = -1
+  for (const { item, depth } of leavesOf(menu, 0)) {
+    const score = matchLength(item, pathname)
+    // On a tie the deeper leaf wins, exactly as in `deriveCrumb`.
+    if (score >= 0 && (score > bestScore || (score === bestScore && depth > bestDepth)))
+      [best, bestScore, bestDepth] = [item, score, depth]
+  }
+  return best
+}
+
+const leavesOf = (items: ShellMenuItem[], depth: number): { item: ShellMenuItem; depth: number }[] =>
+  items.flatMap((item) => (item.items ? leavesOf(item.items, depth + 1) : [{ item, depth }]))

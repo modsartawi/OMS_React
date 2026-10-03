@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, NavLink, useLocation } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Folder, Menu, X } from 'lucide-react'
-import { MENU, isActive, type ShellMenuItem } from './menu-model'
+import { MENU, isActive, markedLeaf, type ShellMenuItem } from './menu-model'
 import { useVisibleMenu } from './useVisibleMenu'
 import { useRailPreference } from './rail-preference'
 import { railExpanded, type RailMode } from './rail-mode'
@@ -81,17 +81,16 @@ function RowChevron({ open }: { open: boolean }) {
 function RailLeaf({ item, onNavigate }: RowProps) {
   const { t } = useTranslation()
   const { pathname } = useLocation()
-  const active = isActive(item, pathname)
+  const active = markedLeaf(MENU, pathname) === item
   const Icon = item.icon
   return (
-    <NavLink
+    <Link
       to={item.routerLink!}
-      // 🚩 `end` keeps react-router's OWN `aria-current` in step with `isActive`
-      // (ticket 284). NavLink prefix-matches `to` by default, so without this the
-      // Overview leaf would announce itself as the current page on all four
-      // settlement screens even while it drew unhighlighted — the same two-leaves
-      // bug `exact` fixes, one layer down where nobody would see it.
-      end={item.exact}
+      // 🚩 A plain `Link` with its own `aria-current`, not a `NavLink`: NavLink
+      // prefix-matches `to`, so it announced the eligibility list as the current page
+      // on New check too, and the Overview on all four settlement screens without
+      // `end` (ticket 284). The marker and `aria-current` read ONE answer (391).
+      aria-current={active ? 'page' : undefined}
       onClick={onNavigate}
       className={
         'relative flex h-8 items-center gap-2 rounded-md ps-3 pe-2 text-[13px] ' +
@@ -102,7 +101,7 @@ function RailLeaf({ item, onNavigate }: RowProps) {
     >
       {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden />}
       <span className="truncate">{t(item.labelKey)}</span>
-    </NavLink>
+    </Link>
   )
 }
 
@@ -422,16 +421,22 @@ export default function Rail({ mode }: { mode: Exclude<RailMode, 'drawer'> }) {
             : menu.map((item) => {
                 const label = t(item.labelKey)
                 const Icon = item.icon ?? Folder
-                const active = item.items ? holdsActive(item, pathname) : isActive(item, pathname)
+                const active = item.items ? holdsActive(item, pathname) : markedLeaf(MENU, pathname) === item
                 // The row spans the rail, so the marker on its start edge sits flush
                 // on the rail's own edge.
                 const row = 'relative flex justify-center ' + (active ? MARKER : '')
                 if (!item.items)
                   return (
                     <div key={item.labelKey} className={row} data-active={active || undefined}>
-                      <NavLink to={item.routerLink!} end={item.exact} aria-label={label} title={label} className={iconClass(active)}>
+                      <Link
+                        to={item.routerLink!}
+                        aria-current={active ? 'page' : undefined}
+                        aria-label={label}
+                        title={label}
+                        className={iconClass(active)}
+                      >
                         <Icon className="h-[18px] w-[18px]" aria-hidden />
-                      </NavLink>
+                      </Link>
                     </div>
                   )
                 const isOpen = openKey === item.labelKey

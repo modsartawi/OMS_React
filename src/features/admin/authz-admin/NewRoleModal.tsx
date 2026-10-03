@@ -90,7 +90,7 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-xs font-semibold text-muted-foreground">{t('newRole.kind')}</span>
           <select
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none"
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
             value={kind}
             onChange={(e) => setKind(e.target.value as Kind)}
           >
@@ -104,7 +104,7 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
             {t('newRole.name')} <span className="text-danger-800">•</span>
           </span>
           <input
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm uppercase outline-none"
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm uppercase outline-none"
             placeholder={t('newRole.namePlaceholder')}
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -122,7 +122,7 @@ export default function NewRoleModal({ open, onClose, catalog, onCreated }: Prop
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-xs font-semibold text-muted-foreground">{t('newRole.description')}</span>
           <input
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none"
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none"
             placeholder={t('newRole.descriptionPlaceholder')}
             value={description}
             onChange={(e) => setDescription(e.target.value)}

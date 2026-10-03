@@ -56,7 +56,7 @@ export default function NoteField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder ?? t('note.placeholder')}
-        className="w-full resize-y rounded-lg border border-input bg-background px-2 py-1 text-[0.8125rem]"
+        className="w-full resize-y rounded-md border border-input bg-background px-2 py-1 text-[0.8125rem]"
       />
     </div>
   )

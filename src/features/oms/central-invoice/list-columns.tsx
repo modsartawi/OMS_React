@@ -83,7 +83,8 @@ export function listColumns(t: TFunction, onOpenSerials: (row: Row) => void): Co
       field: 'serialisedInGs1Market',
       headerName: t('list.columns.gs1'),
       headerTooltip: t('list.columns.gs1Hint'),
-      width: 175,
+      // Plex sets the label 6px wider than 175 holds (ticket 391).
+      width: 185,
       valueFormatter: ({ value }: ValueFormatterParams<Row, boolean>) => (value ? t('list.gs1.yes') : t('list.gs1.no')),
       cellRenderer: ({ value }: ICellRendererParams<Row, boolean>) =>
         value ? <StatusBadge sev="warn">{t('list.gs1.yes')}</StatusBadge> : t('list.gs1.no'),

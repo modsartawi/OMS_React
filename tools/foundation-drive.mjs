@@ -108,6 +108,11 @@
 //      open with its toast already up, which is the control — that hit-test lands on the DIALOG —
 //      and closing it leaves the toast reachable.
 //
+// 391: the screens that are not reworked hold under the foundation. `--all-screens` visits every
+// granted menu leaf, read off the real rail, in the same four modes (39–44 at `driveScreens`): no
+// page error, no clipped grid header, the gold marker on that leaf alone, a toast at the bottom
+// inline-END corner, and a capture to .issues/assets/391-shots/ for the owner's S1 sign-off.
+//
 // Every `/api/**` call is stubbed (the delivery list needs a store grant a dev session lacks;
 // see grid-theme-drive.mjs). Mocked data, real app, real browser, real CSS, real fonts.
 //
@@ -2860,8 +2865,479 @@ async function driveDialogs({ theme, dir }) {
   await context.close()
 }
 
-// DRIVE_ONLY=paint|grids|ranges|rail|topbar|narrow|overlays|bell|dialogs runs one part, for a slice's inner loop; unset runs all.
-const ONLY = process.env.DRIVE_ONLY
+// ---------------------------------------------------------------------------------------------
+// 391: the screens that are not reworked hold under the foundation (F29, R3). `--all-screens`
+// (or DRIVE_ONLY=screens) runs this part alone. In the same four modes, with every grant given:
+//  39. the menu's leaves are read off the real rail (every group and sub-group opened), so the
+//      list visited IS the granted menu, not a copy of it;
+//  40. each leaf boots with no page error, and no grid header on it is clipped: every header
+//      label sits inside its row and every header row is 382's 28px;
+//  41. the expanded rail marks exactly that leaf: `aria-current="page"` and the gold marker;
+//  42. a toast raised through the app's own `notify` lands at the bottom inline-END corner;
+//  43. each leaf is captured to .issues/assets/391-shots/ for the owner's S1 sign-off;
+//  44. Raise central invoices' textareas compute a 6px radius — the control shape the sweep gave
+//      `NoteField` and its siblings (377).
+// It also PRINTS (never fails on) what the sweep looks for and the eye can miss: a control whose
+// text overflows its box, and a grid header label cut short along its width.
+
+const ALL_SCREENS_SHOTS = '.issues/assets/391-shots'
+const ALL_GRANTS = {
+  canOpen: true,
+  canOpenList: true,
+  canOpenDetail: true,
+  screenAllowed: true,
+  allowed: true,
+  canOpenConsole: true,
+  canOpenLoyMember: true,
+  canOpenNphies: true,
+  canOpenCollections: true,
+  canOpenAcrs: true,
+  canOpenDeposits: true,
+  canOpenAttempts: true,
+  canOpenAssignment: true,
+  canOpenReady: true,
+  canOpenSettlement: true,
+  canAdmin: true,
+  canSupport: true,
+  canBroadcast: true,
+  canClear: true,
+  canSuperviseSettlement: true,
+  categories: ['CASH_CLOSE'],
+  withdrawCategories: ['CASH_CLOSE'],
+}
+
+// A few rows per screen, so the sweep sees cells under 26px — shaped after each feature's own
+// drive (named beside each), cut to what the first paint reads. Arabic where a name can be.
+const TODAY = new Date().toISOString().slice(0, 10)
+const FEW = (n, make) => Array.from({ length: n }, (_, i) => make(i))
+const CC_TWO_LINES = JSON.parse(readFileSync('.issues/assets/136-cc-contract/02-two-lines-priced.json', 'utf8')).response.body.data
+const SCREEN_DATA = {
+  // collection-drive.mjs makeRows / makeAcrRows / makeAttemptRows / makeDepositRows
+  'CollectionWeb/Collections': FEW(4, (i) => ({
+    collectionReceiptId: `01J0COLLECT${i}`,
+    collectionReceiptNo: 91000 + i,
+    storeId: String(1001 + i),
+    storeName: `Al Dawaa Store ${1001 + i}`,
+    profitCenter: `PH-${1001 + i}`,
+    storeText: `PH-${1001 + i} (${1001 + i})`,
+    collectorOperatorId: '4470',
+    collectorName: i % 2 ? ARABIC_NAME : 'Collector 4470',
+    closerOperatorId: '7780',
+    closerName: 'Pharmacist 7780',
+    openedAt: `${TODAY}T07:00:00`,
+    closedAt: `${TODAY}T15:04:00`,
+    collectedAt: `${TODAY}T15:40:00`,
+    businessDay: `${TODAY}T00:00:00`,
+    salesDate: `${TODAY}T00:00:00`,
+    systemCash: 12480.5 + i,
+    countedCash: 12475 + i,
+    variance: i === 1 ? -5.5 : 0,
+    varianceReasonCode: '',
+    varianceReasonText: '',
+    openingFloat: 500,
+    countedCashNet: 11975 + i,
+    retainedFloat: 500,
+    netCollected: 11975 + i,
+    cardTotal: 8310.25 + i,
+    cardTransactionCount: 96,
+    zReportIds: `Z-${88121 + i}`,
+    currencyKey: 'SAR',
+    collectionType: i % 2 ? 'Regular+Surplus' : 'Regular',
+    hasSurplus: i % 2 === 1,
+    hasTheft: false,
+    theftAmount: 0,
+    amount: 11975 + i,
+    surplus: i % 2 ? -100 : 0,
+    description: i % 2 ? 'مرتجع شبكة 5512' : '',
+    cashSales: 11975 + i,
+    settlement: 0,
+    settlementAdjustmentTotal: 0,
+    settlementEntryNumber: 0,
+    settlementDescription: '',
+    shiftSettlementAdjustment: 0,
+    shiftSettlementEntryNumber: 0,
+    shiftCardTotal: 8310.25,
+    receiptKind: 'SHIFT',
+    isSettlement: false,
+    collectionStatus: 'COLLECTED',
+    isOffSystem: false,
+    offSystemAt: null,
+    offSystemBy: '',
+    offSystemReasonCode: '',
+    offSystemReasonText: '',
+    zNumber: 412 + i,
+    amendmentCount: 0,
+    lastAmendedBy: '',
+    slipCount: i,
+  })),
+  'CollectionWeb/Acrs': FEW(3, (i) => ({
+    acrId: `01J0ACR${i}`,
+    acrNumber: 40 + i,
+    label: `Riyadh run ${40 + i}`,
+    collectorOperatorId: '4470',
+    collectorName: 'Collector 4470',
+    acrDate: `${TODAY}T00:00:00`,
+    status: i === 0 ? 'OPEN' : 'CLOSED',
+    createdAt: `${TODAY}T08:15:00`,
+    closedAt: i === 0 ? '0001-01-01T00:00:00' : `${TODAY}T19:32:00`,
+    linkedCollectionCount: 12,
+    cashSalesTotal: 143610.75 + i,
+    settlementTotal: 300,
+    bankedTotal: 143910.75 + i,
+    cardTotalSum: 99120.5 + i,
+    cardTransactionCountSum: 812,
+    depositId: i === 0 ? '' : `01J0DEPOSIT${i}`,
+    depositNumber: i === 0 ? 0 : 5500 + i,
+    depositStatus: i === 0 ? '' : 'POSTED',
+  })),
+  'CollectionWeb/Attempts': FEW(3, (i) => ({
+    attemptId: `01J0ATTEMPT${i}`,
+    collectorStaffId: '4470',
+    collectorName: 'Collector 4470',
+    storeCode: String(1001 + i),
+    storeName: `Al Dawaa Store ${1001 + i}`,
+    profitCenter: `PH-${1001 + i}`,
+    storeText: `PH-${1001 + i} (${1001 + i})`,
+    shiftId: `01J0SHIFT${i}`,
+    businessDay: `${TODAY}T00:00:00`,
+    attemptTime: `${TODAY}T09:12:00`,
+    reasonCode: i % 2 ? 'STORE_CLOSED' : 'NO_CASH',
+    reasonText: i % 2 ? 'Branch shut for maintenance' : '',
+  })),
+  'CollectionWeb/Deposits': {
+    rows: FEW(3, (i) => ({
+      depositId: `01J0DEPOSIT${i}`,
+      depositNumber: 5500 + i,
+      collectorOperatorId: '4470',
+      collectorName: 'Collector 4470',
+      bankCode: 'RJHI',
+      bankName: 'Al Rajhi Bank',
+      status: 'POSTED',
+      depositedAt: `${TODAY}T11:20:00`,
+      createdAt: `${TODAY}T11:22:00`,
+      calculatedAmount: 143910.75,
+      realAmount: 143910.75,
+      diffAmount: 0,
+      reasonCode: '',
+      noteText: '',
+      voidedBy: '',
+      voidedAt: '0001-01-01T00:00:00',
+      voidReason: '',
+      lines: [
+        { acrId: `01J0ACR${i}`, acrNumber: 40 + i, netCollectedAtDeposit: 143910.75, netCollectedNow: 143910.75, drift: 0, hasDrift: false },
+      ],
+      attachments: [],
+    })),
+    balances: [
+      { collectorOperatorId: '4470', collectorName: 'Collector 4470', depositCount: 3, totalCalculated: 431732.25, totalReal: 431732.25, outstanding: 400 },
+    ],
+  },
+  // ready-drive.mjs DAY / RECEIPT
+  'CollectionWeb/Ready': [
+    { kind: 'DAY', storeId: 'P019', storeName: 'Al-Dawaa P019', profitCenter: 'PH-019', storeText: 'PH-019 (P019)', currencyKey: 'SAR', businessDay: '2026-09-20T00:00:00', shiftId: '01K5ZB7M2N3P4R5S6T7V8W9X0Y', zNumber: 412, settlementDocumentId: '', entryNumber: 0, cashToHandOver: 1000.5, surplusDeducted: 250, readySince: '2026-09-20T23:05:12', daysWaiting: 5 },
+    { kind: 'SETTLEMENT', storeId: 'P019', storeName: 'Al-Dawaa P019', profitCenter: 'PH-019', storeText: 'PH-019 (P019)', currencyKey: 'SAR', businessDay: null, shiftId: '', zNumber: null, settlementDocumentId: '01K5ZC1A2B3C4D5E6F7G8H9J0K', entryNumber: 143, cashToHandOver: 120.5, surplusDeducted: null, readySince: '2026-09-23T10:41:00', daysWaiting: 2 },
+  ],
+  // four-filters-drive.mjs / assignment-upload-drive.mjs
+  'CollectionWeb/AssignmentOptions': {
+    accountants: [{ staffId: '4466', displayName: 'ضحى' }],
+    collectors: [{ staffId: 'COLL-9', displayName: 'فهد القحطاني' }],
+    supervisors: [],
+    defaultScope: null,
+  },
+  'CollectionWeb/Assignment/People': [
+    { staffId: '4466', displayName: 'ضحى', role: 'ACCOUNTANT', supervisorId: '', isActive: true, updatedBy: 'seed', updatedAt: '2026-09-01T00:00:00' },
+    { staffId: '5120', displayName: 'فهد القحطاني', role: 'COLLECTOR', supervisorId: '', isActive: true, updatedBy: 'seed', updatedAt: '2026-09-01T00:00:00' },
+  ],
+  'CollectionWeb/Assignment/Branches': ['P019', 'P020', 'P021'].map((storeCode, i) => ({
+    storeCode,
+    storeName: `Al-Dawaa ${storeCode}`,
+    city: 'Riyadh',
+    area: 'Central',
+    accountantId: i < 2 ? '4466' : '',
+    collectorId: i < 2 ? '5120' : '',
+    updatedBy: 'seed',
+    updatedAt: '2026-09-01T00:00:00',
+  })),
+  // ua-users-scale-drive.mjs / ua-bulk-create-drive.mjs / this drive's ranges part
+  'UaAdminWeb/ReportCounts': { allPeople: 6000, notSeeded: 12, phoneGap: 400, awaitingActivation: 152, mustChangePassword: 3, disabled: 40 },
+  'UaAdminWeb/ReportCards/all': { rows: [UA_PERSON, { ...UA_PERSON, employeeId: '2002', displayName: ARABIC_NAME }], totalMatches: 2, rowCap: 50, isCapped: false },
+  'AuthzAdminWeb/Roles': [
+    { roleName: 'CALL_CENTER_AGENT', description: '', isComposite: false, directHolderCount: 3, isProtected: false },
+    { roleName: 'AUTHZ_ADMIN', description: '', isComposite: false, directHolderCount: 1, isProtected: true },
+  ],
+  'UaAdminWeb/Sessions/Counts': { all: 2, web: 1, mobile: 1, backoffice: 0, pos: 0, idle: 0 },
+  'UaAdminWeb/Sessions': {
+    rows: [
+      { sessionId: 'S1', userId: 'msartawi', displayName: ARABIC_NAME, currentStoreCode: '1001', channel: 'web', createdTime: '2026-09-12T08:07:00', lastSeenTime: '2026-09-12T08:09:00', ipAddress: '10.0.0.7', userAgent: 'Chrome' },
+      { sessionId: 'S2', userId: '2001', displayName: 'Person 2001', currentStoreCode: '1002', channel: 'mobile', createdTime: '2026-09-12T07:01:00', lastSeenTime: '2026-09-12T08:00:00', ipAddress: '10.0.0.8', userAgent: 'okhttp' },
+    ],
+    totalMatches: 2,
+    rowCap: 50,
+    isCapped: false,
+  },
+  // central-invoice-list-drive.mjs, through this drive's grids part
+  'Sd/CentralInvoice': { rows: [LIST_ROW({}), LIST_ROW({ id: 'A2', deliveryNo: '8006456512', status: 'REFUSED', refusalCode: 'CINV-CHANGED-RECENTLY', cashRemainder: 0 })] },
+  'SdDocumentWeb/DeliveryDocumentList': [GRID_DELIVERY({}), GRID_DELIVERY({ deliveryNo: '80001239', documentNo: '1000000394' })],
+  // nphies-eligibility-drive.mjs / nphies-authorizations-drive.mjs
+  'Nphies/Providers': [
+    { providerCode: 'P001', providerId: '10000000146421', license: 'PR-FHIR-001' },
+    { providerCode: 'P002', providerId: '10000000146422', license: 'PR-FHIR-002' },
+  ],
+  'Nphies/Payers': [],
+  'Nphies/CodeSystem': { contractVersion: 1, items: [] },
+  'Nphies/EligibilityResponses': {
+    rows: [
+      { id: 'ELG-1', eligibilityPurpose: 'benefits', providerCode: 'P001', payerCode: 'PAY-9', patientId: '0000000003', patientIdType: 'PRC', patientGender: 'male', patientName: 'Muhammad Ali Abbas', patientBirthDate: '2010-08-21T00:00:00', actionDateTime: `${TODAY}T09:15:00`, success: true, inforce: true, coverage: true, isEligible: true, siteEligibility: 'eligible', errorMessage: '', disposition: 'Eligibility confirmed by the payer.', statusCode: 200, transfer: false, newborn: false, occupation: 'student', maritalStatus: 'U' },
+      { id: 'ELG-2', eligibilityPurpose: 'benefits', providerCode: 'P001', payerCode: 'PAY-9', patientId: '0000000004', patientIdType: 'PRC', patientGender: 'female', patientName: ARABIC_NAME, patientBirthDate: '1990-01-02T00:00:00', actionDateTime: `${TODAY}T08:15:00`, success: true, inforce: true, coverage: true, isEligible: true, siteEligibility: 'outside-network', errorMessage: '', disposition: '', statusCode: 200, transfer: false, newborn: false, occupation: 'student', maritalStatus: 'U' },
+    ],
+    total: 2,
+    page: 1,
+    pageSize: 50,
+  },
+  'Nphies/AuthResponses': {
+    rows: ['approved', 'rejected'].map((adjudicationOutcome, i) => ({
+      id: `AUTH-${i + 1}`, eligibilityId: 'ELG-1', providerCode: 'P001', payerCode: 'PAY-9', patientId: '0000000003', preAuthRef: `PA-100${i + 1}`, claimProcessingCodes: 'Complete', queued: false, error: false, cancelled: false, adjudicationOutcome, needComm: false, isDispensed: false, dispensedTime: '', dispensedStore: '', actionDateTime: `${TODAY}T09:15:00`, responseDateTime: `${TODAY}T09:15:00`, serviceDate: `${TODAY}T09:15:00`, errorMessageShort: '', disposition: 'Approved by the payer.', statusCode: 200, claimType: 0,
+    })),
+    total: 2,
+    page: 1,
+    pageSize: 50,
+  },
+  // bby-inquiry-drive.mjs ROW
+  'Bby/List': {
+    rows: [
+      { bbyNumber: '100234', description: 'Buy 2 Pepsi get 1 free', bbyProfile: 'STD', validFrom: '20260101', validTo: '20261231', validFromTime: '000000', validToTime: '235959', promoNumber: 'PR-9', linkCategoryBuy: 'A', linkCategoryGet: 'A', bbyStatus: 'A', offerId: 'OF-1', limitNumber: 0, minValue: 0, maxValue: 0, condTargetType: 'P', includes: '', excludes: '', score: 0, originFilter: '', priceListType: '', isStackable: false, allowNestedStacking: false, stackingExcludes: '', loyGroups: '', loyTiers: '', createdAt: '2026-07-01T10:00:00Z', createdBy: 'msartawi', isActive: true },
+      { bbyNumber: '100235', description: 'اشترِ 2 واحصل على 1 مجاناً', bbyProfile: 'STD', validFrom: '20260101', validTo: '20261231', validFromTime: '000000', validToTime: '235959', promoNumber: 'PR-10', linkCategoryBuy: 'A', linkCategoryGet: 'A', bbyStatus: 'A', offerId: 'OF-2', limitNumber: 0, minValue: 0, maxValue: 0, condTargetType: 'P', includes: '', excludes: '', score: 0, originFilter: '', priceListType: '', isStackable: false, allowNestedStacking: false, stackingExcludes: '', loyGroups: '', loyTiers: '', createdAt: '2026-07-01T10:00:00Z', createdBy: 'msartawi', isActive: true },
+    ],
+    capReached: false,
+  },
+  // idoc-inspector-drive.mjs METADATA, cut down
+  'IDocInspector/Metadata': {
+    legend: { sourceTag: [], conditionSource: [], conditionClass: [], conditionControl: [], iDocType: [], billingType: [], workflowType: [], paymentGroup: [], errorType: [] },
+    registeredWorkflowTypes: ['ZAGG'],
+  },
+  // the call center's contract fixture, as callcenter-drive.mjs serves it
+  'CallCenterWeb/Open': { outcome: 'opened', state: CC_TWO_LINES, existing: null },
+  'CallCenterWeb/State': CC_TWO_LINES,
+  'CallCenterWeb/CustomerRequests': [],
+}
+
+// The settlement estate is the app's own fixture modules (settlement-drive.mjs reads them the
+// same way), fetched once from the dev server.
+let SETTLEMENT = null
+async function loadSettlement(page) {
+  SETTLEMENT ??= await page.evaluate(async () => {
+    const fleet = await import('/src/features/collection/settlement/fleet-fixture.ts')
+    const lane = await import('/src/features/collection/settlement/open-lane-fixture.ts')
+    const accounts = await import('/src/features/collection/settlement/settlement-fixture.ts')
+    const ledger = Object.values(accounts.SETTLEMENT_ACCOUNTS)
+      .flatMap((a) => a.entries.map((e) => ({ ...e, storeName: a.storeName, currencyKey: 'SAR' })))
+      .slice(0, 12)
+    return {
+      fleet: fleet.SETTLEMENT_FLEET.slice(0, 12),
+      orphans: fleet.SETTLEMENT_ORPHANS,
+      lane: lane.SETTLEMENT_OPEN_LANE.slice(0, 12),
+      uncollected: lane.SETTLEMENT_UNCOLLECTED.slice(0, 6),
+      ledger,
+    }
+  })
+}
+
+async function routeScreens(route) {
+  const url = new URL(route.request().url())
+  const path = url.pathname.split('/api/')[1]
+  if (path === 'Auth/Me')
+    return route.fulfill(
+      envelope({ authenticated: true, userId: 'msartawi', displayName: 'Mohamed Sartawi', currentStoreCode: '1001' }),
+    )
+  if (path === 'Notifications/Poll') return route.fulfill(envelope({ items: [], watermark: 1 }))
+  if (path === 'SdDocument/StoreDetails') return route.fulfill(envelope(STORES))
+  if (/Access$/.test(path)) return route.fulfill(envelope(ALL_GRANTS))
+  if (path === 'Settlement/Fleet') return route.fulfill(envelope(SETTLEMENT?.fleet ?? []))
+  if (path === 'Settlement/Orphans') return route.fulfill(envelope(SETTLEMENT?.orphans ?? []))
+  if (path === 'Settlement/Uncollected') return route.fulfill(envelope(SETTLEMENT?.uncollected ?? []))
+  if (path === 'Settlement/Ledger') {
+    const status = url.searchParams.get('status')
+    if (status !== 'OPEN') return route.fulfill(envelope([]))
+    return route.fulfill(envelope(url.searchParams.get('sort') ? SETTLEMENT?.lane ?? [] : SETTLEMENT?.ledger ?? []))
+  }
+  if (path in SCREEN_DATA) return route.fulfill(envelope(SCREEN_DATA[path]))
+  return route.fulfill(envelope([]))
+}
+
+// What a leaf needs pressed before it shows rows, where it does not load on its own.
+const SCREEN_ACTIONS = {
+  '/oms/deliveries': (page) => page.getByRole('button', { name: /^load$/i }).click(),
+  '/admin/ua-users': (page) => page.locator('[data-card="all"]').click(),
+  '/admin/sessions': (page) => page.locator('main').getByRole('button', { name: /^All\b/ }).click(),
+  '/collection/settlement/ledger': (page) => page.getByRole('button', { name: 'Everything still open' }).click(),
+}
+// Chromeless until 407 joins the console to the shell: no rail to mark.
+const CHROMELESS = new Set(['/callcenter'])
+
+async function driveScreens({ theme, dir }) {
+  const label = `${theme}/${dir} screens`
+  const rtl = dir === 'rtl'
+  const VIEW = { width: 1600, height: 1000 }
+  mkdirSync(ALL_SCREENS_SHOTS, { recursive: true })
+  const context = await browser.newContext({ viewport: VIEW })
+  const page = await context.newPage()
+  const errors = []
+  page.on('pageerror', (e) => errors.push(String(e)))
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+  await bootAs(page, { theme, dir })
+  await page.addInitScript(() => localStorage.setItem('oms.railExpanded', 'true'))
+  await page.route('**/api/**', routeScreens)
+  const nav = page.locator('#layout-rail nav')
+
+  // ---- The leaves, read off the real menu: open every closed group and sub-group ----
+  await page.goto(BASE + '/oms/deliveries')
+  await nav.locator('a[href]').first().waitFor({ timeout: 20000 })
+  await loadSettlement(page)
+  for (let i = 0; i < 40; i++) {
+    const closed = nav.locator('button[aria-expanded="false"]')
+    if (!(await closed.count())) break
+    await closed.first().click()
+  }
+  const leaves = [
+    ...new Set(await nav.locator('a[href]').evaluateAll((as) => as.map((a) => new URL(a.href).pathname))),
+  ].filter((p) => p !== '/') // the brand mark's link home, not a menu leaf
+  check(
+    `${label}: the granted menu opens to its leaves (every group and sub-group)`,
+    leaves.length >= 25 && (await nav.locator('button[aria-expanded="false"]').count()) === 0,
+    `${leaves.length} leaves`,
+  )
+
+  // Home is not a menu leaf, but it is the screen everyone lands on: visited too, with no leaf
+  // marked.
+  for (const path of ['/', ...leaves]) {
+    const slug = path === '/' ? 'home' : path.replace(/^\//, '').replace(/\//g, '-')
+    const at = `${label} ${path}`
+    errors.length = 0
+    await page.goto(BASE + path)
+    await page.locator(CHROMELESS.has(path) ? 'body' : 'main').first().waitFor({ timeout: 20000 })
+    await page.waitForLoadState('networkidle')
+    if (SCREEN_ACTIONS[path]) {
+      await SCREEN_ACTIONS[path](page)
+      await page.waitForLoadState('networkidle')
+    }
+    await page.waitForTimeout(500)
+
+    // No grid header on the leaf is clipped: each label inside its own header cell (a column
+    // with no group spans the group row too, so its cell is two rows tall), each row 28px.
+    const heads = await page.evaluate(() =>
+      [...document.querySelectorAll('.ag-header-row')]
+        .filter((row) => row.getBoundingClientRect().width > 0)
+        .map((row) => {
+          const r = row.getBoundingClientRect()
+          const texts = [...row.querySelectorAll('.ag-header-cell-text, .ag-header-group-text')].filter(
+            (t) => t.getBoundingClientRect().width > 0,
+          )
+          const cut = texts
+            .filter((t) => {
+              const b = t.getBoundingClientRect()
+              const c = t.closest('.ag-header-cell, .ag-header-group-cell').getBoundingClientRect()
+              return b.top < c.top - 0.5 || b.bottom > c.bottom + 0.5 || t.scrollHeight > t.clientHeight + 1
+            })
+            .map((t) => t.textContent)
+          const narrow = texts
+            .filter((t) => t.scrollWidth > t.clientWidth + 1)
+            .map((t) => `${t.textContent} ${t.scrollWidth}/${t.clientWidth}`)
+          return { height: Math.round(r.height), cut, narrow }
+        }),
+    )
+    check(
+      `${at}: no grid header is clipped (every label inside its cell, every row 28px)`,
+      heads.every((h) => h.height === 28 && h.cut.length === 0),
+      JSON.stringify(heads.filter((h) => h.height !== 28 || h.cut.length)),
+    )
+
+    // A form control is a 6px control (F7, 377): the textareas the sweep moved off `rounded-lg`
+    // — `NoteField`'s shape — measured where one is on a menu leaf.
+    if (path === '/oms/central-invoice')
+      for (const radius of await page.locator('main textarea').evaluateAll((els) => els.map((el) => getComputedStyle(el).borderRadius)))
+        check(`${at}: a textarea is a 6px control`, radius === '6px', radius)
+
+    // The rail marks exactly this leaf: one link that is `aria-current` OR paints a marker.
+    if (CHROMELESS.has(path))
+      check(`${at}: chromeless until 407, so no rail`, (await page.locator('#layout-rail').count()) === 0)
+    else {
+      const marked = (
+        await nav.locator('a[href]').evaluateAll((as) =>
+          as.map((a) => ({
+            path: new URL(a.href).pathname,
+            current: a.getAttribute('aria-current'),
+            marker: getComputedStyle(a, '::before').backgroundColor,
+          })),
+        )
+      ).filter((a) => a.current || a.marker !== 'rgba(0, 0, 0, 0)')
+      check(
+        path === '/'
+          ? `${at}: no leaf is marked on Home`
+          : `${at}: the rail's gold marker sits on this leaf, and only this one`,
+        path === '/'
+          ? marked.length === 0
+          : marked.length === 1 && marked[0].path === path && marked[0].current === 'page' && marked[0].marker === GOLD,
+        JSON.stringify(marked),
+      )
+    }
+
+    // A toast through the app's own notify — the dev server's one instance of the module, so it
+    // reaches the one Toaster.
+    const title = `drive-391 ${slug}`
+    await page.evaluate(async (t) => {
+      const { notify } = await import('/src/core/services/notify.ts')
+      notify.info(t)
+    }, title)
+    const toast = page.locator('[data-sonner-toast]').filter({ hasText: title })
+    await toast.waitFor({ timeout: 5000 })
+    await page.waitForTimeout(600) // sonner's enter transition
+    const t = await toast.evaluate((el) => el.getBoundingClientRect().toJSON())
+    check(
+      `${at}: a toast lands at the bottom inline-END corner (${rtl ? 'bottom-left' : 'bottom-right'})`,
+      Math.abs(VIEW.height - 16 - t.bottom) <= 1 &&
+        (rtl ? Math.abs(t.left - 16) <= 1 : Math.abs(VIEW.width - 16 - t.right) <= 1),
+      JSON.stringify(t),
+    )
+
+    // The sweep's eye-help: printed, never failed.
+    const overflow = await page.evaluate(() =>
+      [...document.querySelectorAll('main button, main input, main select, main [role="tab"], #layout-topbar button')]
+        .filter((el) => el.offsetParent !== null && el.getBoundingClientRect().width > 0)
+        .filter((el) => el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1)
+        .map(
+          (el) =>
+            `${el.tagName.toLowerCase()} "${(el.textContent || el.value || el.placeholder || '').trim().slice(0, 30)}" ` +
+            `${el.scrollWidth}x${el.scrollHeight} in ${el.clientWidth}x${el.clientHeight}`,
+        ),
+    )
+    // …and a cell whose content stands taller than its 26px row (a badge, a button, a chip).
+    const tallCells = await page.evaluate(() =>
+      [...document.querySelectorAll('.ag-center-cols-container .ag-cell, .ag-pinned-left-cols-container .ag-cell, .ag-pinned-right-cols-container .ag-cell')]
+        .flatMap((cell) => {
+          const c = cell.getBoundingClientRect()
+          return [...cell.querySelectorAll('*')]
+            .filter((el) => {
+              const b = el.getBoundingClientRect()
+              return b.height > 0 && (b.top < c.top - 0.5 || b.bottom > c.bottom + 0.5)
+            })
+            .map((el) => `${cell.getAttribute('col-id')}: ${el.tagName.toLowerCase()} ${Math.round(el.getBoundingClientRect().height)}px in ${Math.round(c.height)}px`)
+        })
+        .filter((v, i, all) => all.indexOf(v) === i),
+    )
+    const narrow = heads.flatMap((h) => h.narrow)
+    if (overflow.length || narrow.length || tallCells.length)
+      console.log(`SWEEP ${at}: ${JSON.stringify({ overflow, narrow, tallCells })}`)
+
+    check(`${at}: no page errors`, errors.length === 0, errors.join(' | ').slice(0, 400))
+    await toast.evaluate((el) => (el.style.visibility = 'hidden')) // the capture is about the screen
+    await page.screenshot({ path: `${ALL_SCREENS_SHOTS}/${slug}-${theme}-${dir}.png` })
+  }
+  await context.close()
+}
+
+// DRIVE_ONLY=paint|grids|ranges|rail|topbar|narrow|overlays|bell|dialogs|screens runs one part, for a
+// slice's inner loop; `--all-screens` is DRIVE_ONLY=screens; unset runs all.
+const ONLY = process.argv.includes('--all-screens') ? 'screens' : process.env.DRIVE_ONLY
 const PARTS = {
   paint: driveOneMode,
   grids: driveGrids,
@@ -2872,6 +3348,7 @@ const PARTS = {
   overlays: driveOverlays,
   bell: driveBell,
   dialogs: driveDialogs,
+  screens: driveScreens,
 }
 for (const [part, drive] of Object.entries(PARTS))
   if (!ONLY || ONLY === part)

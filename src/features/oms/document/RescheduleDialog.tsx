@@ -75,7 +75,7 @@ export default function RescheduleDialog({
     onClose()
   }
 
-  const SELECT = 'h-8 w-full rounded-lg border border-input bg-background px-2 text-[0.8125rem]'
+  const SELECT = 'h-8 w-full rounded-md border border-input bg-background px-2 text-[0.8125rem]'
   const LABEL = 'text-xs font-semibold text-muted-foreground'
 
   return (

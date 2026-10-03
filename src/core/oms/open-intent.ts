@@ -18,13 +18,33 @@
 export const OPEN_INTENTS = ['reschedule', 'request-close', 'add-note'] as const
 export type OpenIntent = (typeof OPEN_INTENTS)[number]
 
-/** The router state the list navigates with. */
-export interface OpenIntentState {
+/**
+ * The mark every one of the list's ways into Details leaves on the history entry (ticket 405,
+ * D10): Enter, a double-click, Open full record and the acts. Details' Esc reads it to go back
+ * with **history-back**, which lands on the list's own entry, its query and current row intact.
+ * Without it (a pasted link, a palette jump) Esc goes to the list route instead, as the header's
+ * chevron does. It is kept when the intent is replaced away.
+ */
+export interface FromListState {
+  from: 'list'
+}
+
+export function fromListState(): FromListState {
+  return { from: 'list' }
+}
+
+/** Whether this history entry was opened from the list. */
+export function cameFromList(state: unknown): boolean {
+  return isRecord(state) && state.from === 'list'
+}
+
+/** The router state the list navigates with when it asks for an act. */
+export interface OpenIntentState extends FromListState {
   open: OpenIntent
 }
 
 export function openIntentState(intent: OpenIntent): OpenIntentState {
-  return { open: intent }
+  return { ...fromListState(), open: intent }
 }
 
 function isOpenIntent(value: unknown): value is OpenIntent {

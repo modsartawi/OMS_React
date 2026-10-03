@@ -20,8 +20,8 @@
 //      case (ticket 290, spec 289 D2);
 //   7. busy disables everything with NO reason;
 //   8. the standing textarea and its label are gone from the page;
-//   9. Add Note… is always enabled and its dialog's confirm stays disabled until
-//      text is typed;
+//   9. Add Note… is always enabled; it focuses the spine's composer (ticket 405), whose
+//      Post stays disabled until text is typed, and the note typed there is the one that posts;
 //  10. the note typed in the Change Store dialog is the note that POSTS.
 //
 // Two assertions the corpus cannot show verbatim say so at their call sites:
@@ -100,6 +100,7 @@ const landed = (page, ring) =>
       intentInState: window.history.state?.usr?.open ?? null,
       dialog: dialog ? (dialog.querySelector('#modal-title')?.textContent.trim() ?? 'dialog') : null,
       note: !!document.querySelector('dialog[open] #command-note'),
+      composerFocused: document.activeElement?.id === 'note-composer',
       refused: refused?.getAttribute('data-command') ?? null,
       ring: refused ? getComputedStyle(refused).boxShadow.includes(attention) : false,
       focused: refused !== null && document.activeElement === refused,
@@ -149,10 +150,14 @@ async function intentChecks({ theme, dir, routeApi, posted }) {
   await page.waitForTimeout(700)
   check(`${label}: a reload never re-opens it`, (await landed(page, ring)).dialog === null)
 
-  // add-note: today's Add note dialog (until 405's composer exists).
+  // add-note: the spine's composer takes focus, and no dialog opens (ticket 405, D8/D9).
   await arrive(page, '8000000121', 'add-note')
   const n = await landed(page, ring)
-  check(`${label}: add-note opens today's Add note dialog`, n.note && n.refused === null, JSON.stringify(n))
+  check(
+    `${label}: add-note focuses the composer and opens no dialog`,
+    n.composerFocused && n.dialog === null && !n.note && n.refused === null,
+    JSON.stringify(n),
+  )
 
   // request-close where a request is already open: refused, ringed, focused, reason up, warn toast.
   await arrive(page, '8000000174', 'request-close')
@@ -581,25 +586,26 @@ async function run() {
   await open('8000000253')
   const addNote = byLabel(await readBar(), 'Add Note…')
   check(
-    'Add Note… is always enabled — its emptiness rule moved into its dialog',
+    'Add Note… is always enabled — its emptiness rule lives on the composer',
     addNote.ariaDisabled === false && addNote.nativeDisabled === false,
     JSON.stringify(addNote),
   )
   await page.getByRole('button', { name: 'Add Note…' }).click()
   await page.waitForTimeout(200)
-  const confirmAdd = page.getByRole('button', { name: 'Add Note', exact: true })
+  const confirmAdd = page.locator('[data-composer-post]')
   check(
-    'its dialog opens with the confirm disabled — an empty note is meaningless in a log',
-    await confirmAdd.isDisabled(),
+    'it focuses the composer, opens no dialog, and Post is disabled — an empty note is meaningless in a log',
+    (await page.evaluate(() => document.activeElement?.id === 'note-composer' && !document.querySelector('dialog[open]'))) &&
+      (await confirmAdd.isDisabled()),
   )
-  await page.locator('#command-note').fill('Customer called about the address')
+  await page.locator('#note-composer').fill('Customer called about the address')
   await page.waitForTimeout(80)
   check('and enables it the moment text is typed', !(await confirmAdd.isDisabled()))
   await confirmAdd.click()
   await page.waitForTimeout(300)
   const notePost = posted.at(-1)
   check(
-    'the note typed in the dialog is the note that posts, on the category’s own endpoint',
+    'the note typed in the composer is the note that posts, on the category’s own endpoint',
     notePost?.path === 'SdDocumentWeb/UpdateDelivery' &&
       notePost?.body.actionType === 'DADN' &&
       notePost?.body.note === 'Customer called about the address',
@@ -643,8 +649,8 @@ async function run() {
   await open('8000000174')
   await page.getByRole('button', { name: 'Add Note…' }).click()
   await page.waitForTimeout(200)
-  await page.locator('#command-note').fill('busy probe')
-  await page.getByRole('button', { name: 'Add Note', exact: true }).click()
+  await page.locator('#note-composer').fill('busy probe')
+  await page.locator('[data-composer-post]').click()
   await page.waitForTimeout(400)
   const busy = await readBar()
   const busyCommands = [...busy.clusters.flatMap((c) => c.commands), ...busy.terminal]

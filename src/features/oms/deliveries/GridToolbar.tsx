@@ -6,6 +6,7 @@ import { ExternalLink, FileSpreadsheet, PanelRight, Pin, Table2, TriangleAlert }
 import type { GridApi } from 'ag-grid-community'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { takesEscape } from '@/core/commands/key-layer'
+import { fromListState } from '@/core/oms/open-intent'
 import { useKeyHint } from '@/core/commands/key-hint'
 import { pinStart } from '@/core/theme/direction'
 import Ltr from '@/core/ui/Ltr'
@@ -135,7 +136,7 @@ export default function GridToolbar({
         type="button"
         className={BTN}
         disabled={!documentNo}
-        onClick={() => documentNo && navigate(`/oms/document/${documentNo}`)}
+        onClick={() => documentNo && navigate(`/oms/document/${documentNo}`, { state: fromListState() })}
       >
         <ExternalLink className="h-3.5 w-3.5" aria-hidden />
         {t('toolbar.openOrder')}
@@ -144,7 +145,7 @@ export default function GridToolbar({
         type="button"
         className={BTN}
         disabled={!deliveryNo}
-        onClick={() => deliveryNo && navigate(`/oms/delivery/${deliveryNo}`)}
+        onClick={() => deliveryNo && navigate(`/oms/delivery/${deliveryNo}`, { state: fromListState() })}
       >
         <ExternalLink className="h-3.5 w-3.5" aria-hidden />
         {t('toolbar.openDelivery')}

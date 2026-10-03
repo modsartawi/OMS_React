@@ -55,7 +55,7 @@ const JOB_ICON: Record<JobState, { Icon: LucideIcon; ink: string }> = {
  *
  * Top to bottom: one banner per failed job (no Retry: its inline end keeps room for one, 410),
  * a quiet line per job that is failing and retrying, the unreached steps furthest first (the
- * next one expecting the delivery's window), the Now line (405 puts the composer on it), then
+ * next one expecting the delivery's window), the Now line with the note composer (405), then
  * the past. Every time is a Log or outbox `entryTime`, through the `@/core` derivation; the
  * header alone dates nothing.
  *
@@ -66,10 +66,13 @@ export default function ActivitySpine({
   document,
   logs,
   jobs,
+  composer,
 }: {
   document: SdDocumentHeaderModel
   logs: Deferred<SdDocumentLogModel>
   jobs: Deferred<SdDocumentOutboxModel>
+  /** The note composer, set on the Now line (D8, ticket 405). The page owns its post. */
+  composer?: ReactNode
 }) {
   const { t } = useTranslation('document')
   const view = useMemo(() => {
@@ -101,11 +104,15 @@ export default function ActivitySpine({
         </ol>
       )}
 
-      {/* The Now line. 405 sets the note composer on it. */}
-      <div data-now-line="" className="relative mt-1.5 mb-1 border-t border-dashed border-border-strong">
-        <span className="absolute -top-2 start-2 bg-card px-1 text-[0.625rem] leading-4 font-bold tracking-wider text-primary uppercase">
+      {/* The Now line, carrying the note composer (D4, D8): new notes join the past just below. */}
+      <div
+        data-now-line=""
+        className="relative -mx-3 mt-1.5 mb-1 border-y border-dashed border-border-strong bg-card-2 px-3 pt-3 pb-2"
+      >
+        <span className="absolute -top-2 start-3 bg-card-2 px-1 text-[0.625rem] leading-4 font-bold tracking-wider text-primary uppercase">
           {t('spine.now')}
         </span>
+        {composer}
       </div>
 
       {logs.error && <ErrorBanner message={logs.error} className="px-3 py-1.5" />}

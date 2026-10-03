@@ -11,6 +11,7 @@ import {
   Undo2,
   XCircle,
 } from 'lucide-react'
+import { useKeyHint } from '@/core/commands/key-hint'
 import Button, { type ButtonVariant } from '@/core/ui/Button'
 import { POPOVER } from '@/core/ui/overlay'
 import type { CommandKind } from './actions'
@@ -93,6 +94,7 @@ function CommandButton({
   onCommand,
   refused,
   onRefusedLeft,
+  keys,
 }: {
   command: CommandState
   variant: ButtonVariant
@@ -101,8 +103,13 @@ function CommandButton({
   /** The list's open intent was refused on this command (D9): ring it and keep its reason up. */
   refused: boolean
   onRefusedLeft: () => void
+  /** The key bound to this command on this screen (R / C / N, ticket 405), if any. */
+  keys: string | null
 }) {
   const Icon = ICONS[command.kind]
+  // "Reschedule (R)" and `aria-keyshortcuts` (365 §9); letters hide while the switch is off.
+  // A command explaining itself keeps its reason as its only tooltip.
+  const hint = useKeyHint(keys)
   const explained = command.reason !== null
   const reasonId = `command-reason-${command.kind}`
   const ringed = refused && explained
@@ -121,6 +128,8 @@ function CommandButton({
       onClick={explained ? undefined : () => onCommand(command.kind)}
       data-command={command.kind}
       data-refused={ringed || undefined}
+      aria-keyshortcuts={hint.ariaKeyShortcuts}
+      title={hint.ariaKeyShortcuts && !explained ? hint.title(label) : undefined}
       // The attention ring (371): amber is attention, and this button is why nothing opened.
       className={ringed ? 'ring-2 ring-attention ring-offset-2 ring-offset-card' : undefined}
     >
@@ -163,6 +172,7 @@ export default function CommandPanel({
   onCentralInvoice,
   refused = null,
   onRefusedLeft = () => {},
+  keysOf = {},
 }: {
   /** The gated fields plus busy — documented once, on `CommandContext`. */
   context: CommandContext
@@ -183,6 +193,8 @@ export default function CommandPanel({
    */
   refused?: CommandKind | null
   onRefusedLeft?: () => void
+  /** The keys bound to the bar's commands on this screen (ticket 405): R, C and N. */
+  keysOf?: Partial<Record<CommandKind, string>>
 }) {
   const { t } = useTranslation('document')
   const { closeStatus, documentCategory, openedAs, canReturn, lines, busy } = context
@@ -224,6 +236,7 @@ export default function CommandPanel({
                     onCommand={onCommand}
                     refused={refused === command.kind}
                     onRefusedLeft={onRefusedLeft}
+                    keys={keysOf[command.kind] ?? null}
                   />
                 ))}
               </div>
@@ -259,6 +272,7 @@ export default function CommandPanel({
               onCommand={onCommand}
               refused={refused === command.kind}
               onRefusedLeft={onRefusedLeft}
+              keys={keysOf[command.kind] ?? null}
             />
           ))}
         </div>

@@ -1036,8 +1036,8 @@ for (const mode of [
   ok(await sheetOpen(page), `${tag}: \`?\` opens the sheet on Delivery details too`)
   if (await sheetOpen(page)) await closeSheet(page)
 
-  // K7: inert while any dialog is open.
-  await page.getByRole('button', { name: 'Add Note…' }).click()
+  // K7: inert while any dialog is open. (Reschedule's: Add note opens none since 405.)
+  await page.locator('[data-command="reschedule"]').click()
   await page.waitForSelector('dialog[open]')
   await ctrlK(page)
   await page.waitForTimeout(150)

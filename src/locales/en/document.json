@@ -139,11 +139,19 @@
     "central-invoice": "Central Invoice…"
   },
   "note": {
-    "label": "Note",
     "labelOptional": "Note (optional)",
-    "placeholder": "Type a note for this document…",
-    "hintRequired": "The note is appended to this document's log — it changes no other state.",
-    "title": "Add Note"
+    "placeholder": "Type a note for this document…"
+  },
+  "composer": {
+    "label": "Note",
+    "placeholder": "Write a note for this record's log…",
+    "post": "Post note",
+    "hint": "<keys/> to post",
+    "unsentRefusal": "Your note isn't posted yet. Post it or clear it before going back.",
+    "failedTitle": "The note was not posted",
+    "failedDetail": "The note could not be posted.",
+    "failedElsewhere": "The note on {{documentNo}} was not posted",
+    "code": "Code <code>{{code}}</code>"
   },
   "confirm": {
     "message": "Are you sure you want to proceed?"

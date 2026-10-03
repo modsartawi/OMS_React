@@ -333,10 +333,11 @@ async function run() {
 
   // A slow mutation leaves the bar busy long enough to read it mid-flight.
   updateDelayMs = 2500
+  // Add Note… focuses the spine's composer (ticket 405), which posts it.
   await page.getByRole('button', { name: 'Add Note…' }).click()
   await page.waitForTimeout(200)
-  await page.locator('#command-note').fill('acceptance probe')
-  await page.getByRole('button', { name: 'Add Note', exact: true }).click()
+  await page.locator('#note-composer').fill('acceptance probe')
+  await page.locator('[data-composer-post]').click()
   await page.waitForTimeout(400)
   const busy = await readBar()
   check(

@@ -68,3 +68,5 @@ tools/.document-header-shots/
 tools/.document-spine-shots/
 # Delivery details facts drive screenshots (tools/document-facts-drive.mjs, ticket 404)
 tools/.document-facts-shots/
+# Note composer + Delivery details keys drive screenshots (tools/document-composer-drive.mjs, ticket 405)
+tools/.document-composer-shots/

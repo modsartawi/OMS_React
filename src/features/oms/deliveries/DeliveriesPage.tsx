@@ -28,7 +28,7 @@ import { apiErrorMessage } from '@/core/api'
 import { useCommands } from '@/core/commands/registry'
 import { OMS_GRID_HEADER_HEIGHT, OMS_GRID_ROW_HEIGHT, omsGridTheme } from '@/core/theme/ag-grid-theme'
 import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
-import { openIntentState, type OpenIntent } from '@/core/oms/open-intent'
+import { fromListState, openIntentState, type OpenIntent } from '@/core/oms/open-intent'
 import { useSession } from '@/core/session'
 import { fsi } from '@/core/util/bidi'
 import { deliveriesApi } from './api'
@@ -261,7 +261,8 @@ export default function DeliveriesPage() {
   const openRow = useCallback(
     (row: DeliveryDocumentModel | null | undefined) => {
       const to = row ? detailsPathOf(row) : null
-      if (to) navigate(to)
+      // Marked as come from the list, so Details' Esc goes back to this entry (405, D10).
+      if (to) navigate(to, { state: fromListState() })
     },
     [navigate],
   )
@@ -691,7 +692,7 @@ export default function DeliveriesPage() {
           width={inspector.width}
           onWidth={(width) => setInspector((prefs) => ({ ...prefs, width }))}
           onCollapse={toggleInspector}
-          onOpen={(to) => navigate(to)}
+          onOpen={(to) => navigate(to, { state: fromListState() })}
           onAct={canOpenDetail && selectedRow ? (intent) => openAct(selectedRow, intent) : null}
           // Flush with the screen's inline-end and bottom edges, under the 44px top bar.
           className="sticky top-11 -my-4 -me-4 ms-4 h-[calc(100dvh-2.75rem)] self-start"

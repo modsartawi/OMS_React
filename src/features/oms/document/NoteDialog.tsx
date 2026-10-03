@@ -12,33 +12,25 @@ import NoteField from './NoteField'
  * ticket 094).
  *
  * The standing textarea above the action bar is gone; every command that posts a
- * note now captures it **inside its own confirm dialog**, exactly as
- * `RequestCloseDialog` already does for the cancellation reason. One component
- * serves all four because they differ in only two things — whether the note is
- * required, and whether the command is terminal:
+ * note with its act captures it **inside its own confirm dialog**, exactly as
+ * `RequestCloseDialog` already does for the cancellation reason.
  *
- * - **Add Note…** is always enabled on the bar; its emptiness rule lives HERE,
- *   as a disabled confirm, which is the place that can actually enforce it. An
- *   empty note is meaningless in an append-only log.
- * - **Cancel Order · Force Cancel · Withdraw Request** ask for confirmation and
- *   take an OPTIONAL note, which is what they have always posted. Their confirm
- *   restates the command and wears the command's own terminal-tier treatment —
- *   the one button that ends an order should say what it ends.
+ * **Cancel Order · Force Cancel · Withdraw Request** ask for confirmation and
+ * take an OPTIONAL note, which is what they have always posted. Their confirm
+ * restates the command and wears the command's own terminal-tier treatment —
+ * the one button that ends an order should say what it ends.
  *
- * Deleting the standing textarea also deletes `pendingNote`: with nothing on
- * screen to snapshot, the note typed in a dialog is unambiguously the note that
- * posts.
+ * **Add Note… is not here any more** (spec 380 D8, ticket 405): it posts from the
+ * composer at the spine's Now line, which amends D-11 for Add note only. The
+ * other commands keep their notes in here, so the composer's text is only ever
+ * Add note's and `pendingNote`'s ambiguity does not come back.
  */
 
 /** The commands whose note this dialog captures. Request Close has its own picker. */
-export type NoteCommandKind = Extract<
-  UpdateActionKind,
-  'add-note' | 'close' | 'force-close' | 'cancel-close-request'
->
+export type NoteCommandKind = Extract<UpdateActionKind, 'close' | 'force-close' | 'cancel-close-request'>
 
-/** The terminal pair confirms in red; the other two are ordinary commits. */
+/** The terminal pair confirms in red; Withdraw Request is an ordinary commit. */
 const CONFIRM_VARIANT: Record<NoteCommandKind, ButtonVariant> = {
-  'add-note': 'primary',
   close: 'danger',
   'force-close': 'danger-outlined',
   'cancel-close-request': 'primary',
@@ -61,20 +53,13 @@ export default function NoteDialog({
   const { t } = useTranslation('document')
   const [note, setNote] = useState('')
 
-  const required = kind === 'add-note'
-  const trimmed = note.trim()
-  const canSubmit = kind !== null && (!required || trimmed.length > 0)
-
   function submit() {
-    if (kind === null || !canSubmit) return
-    onConfirmed(kind, trimmed)
+    if (kind === null) return
+    onConfirmed(kind, note.trim())
     onClose()
   }
 
-  // The bar's label ends in an ellipsis to say "this opens a dialog"; once the
-  // dialog IS open the ellipsis has nothing left to promise, so Add Note takes
-  // its own title key rather than reusing the command label.
-  const title = kind === null ? '' : required ? t('note.title') : t(`actions.${kind}`)
+  const title = kind === null ? '' : t(`actions.${kind}`)
 
   return (
     <Modal
@@ -92,7 +77,7 @@ export default function NoteDialog({
           </Button>
           <Button
             variant={kind === null ? 'primary' : CONFIRM_VARIANT[kind]}
-            disabled={!canSubmit}
+            disabled={kind === null}
             onClick={submit}
           >
             {title}
@@ -101,15 +86,11 @@ export default function NoteDialog({
       }
     >
       <div className="flex flex-col gap-2.5">
-        {required ? (
-          <p className="text-[0.8125rem] text-muted-foreground">{t('note.hintRequired')}</p>
-        ) : (
-          <p className="flex items-start gap-2 text-sm">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-attention" aria-hidden />
-            <span>{t('confirm.message')}</span>
-          </p>
-        )}
-        <NoteField id="command-note" value={note} onChange={setNote} required={required} />
+        <p className="flex items-start gap-2 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-attention" aria-hidden />
+          <span>{t('confirm.message')}</span>
+        </p>
+        <NoteField id="command-note" value={note} onChange={setNote} />
       </div>
     </Modal>
   )

@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
   OPEN_INTENTS,
+  cameFromList,
+  fromListState,
   openIntentOf,
   openIntentState,
   resolveOpenIntent,
@@ -99,5 +101,24 @@ describe('the router state that carries it', () => {
     expect(withoutOpenIntent('kept')).toBe('kept')
     const other = { from: 'list' }
     expect(withoutOpenIntent(other)).toBe(other)
+  })
+})
+
+describe('cameFromList (ticket 405, D10: Esc goes back to the list)', () => {
+  it('every way the list opens Details marks the entry as come from the list', () => {
+    expect(cameFromList(fromListState())).toBe(true)
+    for (const intent of OPEN_INTENTS) expect(cameFromList(openIntentState(intent))).toBe(true)
+  })
+
+  it('the mark outlives the intent being replaced away, so Esc still goes back', () => {
+    expect(cameFromList(withoutOpenIntent(openIntentState('add-note')))).toBe(true)
+  })
+
+  it('a pasted link, a palette jump or anything else did not come from the list', () => {
+    expect(cameFromList(null)).toBe(false)
+    expect(cameFromList(undefined)).toBe(false)
+    expect(cameFromList({})).toBe(false)
+    expect(cameFromList({ from: 'palette' })).toBe(false)
+    expect(cameFromList('list')).toBe(false)
   })
 })

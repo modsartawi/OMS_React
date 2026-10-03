@@ -2107,9 +2107,10 @@ async function actChecks({ page, label, theme, dir, requests }) {
   await page.locator('[data-inspector-act="add-note"]').click()
   await bar().waitFor({ timeout: 15000 }).catch(() => {})
   await page.waitForTimeout(600)
+  // 405: Add note focuses Details' composer, with no dialog.
   const mouseN = await page.evaluate(() => ({
     url: location.pathname,
-    note: !!document.querySelector('dialog[open] #command-note'),
+    note: document.activeElement?.id === 'note-composer' && !document.querySelector('dialog[open]'),
   }))
   check(
     `${label}: the inspector's buttons do the same with the mouse (Reschedule, refused C, Add note)`,

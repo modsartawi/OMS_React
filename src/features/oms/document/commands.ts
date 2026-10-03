@@ -181,27 +181,48 @@ export function returnBlockedBecause(ctx: CommandContext): string | null {
 }
 
 /**
- * The disabled reason for one command, or `null` when it is takeable.
- * Busy is handled by the caller: it outranks every reason and carries none.
+ * The disabled reason for one command, as a `document` namespace KEY, or `null` when it is
+ * takeable. Busy is handled by the caller: it outranks every reason and carries none.
+ *
+ * A key rather than the words because two surfaces say it: the button's tooltip translates it
+ * here, and a refused key (R / C, ticket 405) hands it to the key layer, which toasts it.
  */
-function stateReason(kind: CommandKind, ctx: CommandContext, t: TFn): string | null {
+export function stateReasonKey(kind: CommandKind, ctx: CommandContext): string | null {
   if (kind === 'request-close' && hasOpenCancellationRequest(ctx.closeStatus)) {
-    return t('command.disabled.requestOpen')
+    return 'command.disabled.requestOpen'
   }
-  if (kind === 'return-document') {
-    const blocked = returnBlockedBecause(ctx)
-    return blocked === null ? null : t(blocked)
-  }
+  if (kind === 'return-document') return returnBlockedBecause(ctx)
   return null
 }
 
-function state<K extends CommandKind>(kind: K, ctx: CommandContext, t: TFn): CommandState<K> {
+/**
+ * The gate for one command: disabled or not, and why as a `document` namespace key. The bar's
+ * buttons and the keys (ticket 405) both read it, so they cannot disagree.
+ */
+export function commandGate(kind: CommandKind, ctx: CommandContext): { disabled: boolean; reasonKey: string | null } {
   // Busy first, and it carries no reason — the two causes never stack, because
   // a transient state has nothing to explain that the spinner is not already
   // saying in place.
-  if (ctx.busy) return { kind, disabled: true, reason: null }
-  const reason = stateReason(kind, ctx, t)
-  return { kind, disabled: reason !== null, reason }
+  if (ctx.busy) return { disabled: true, reasonKey: null }
+  const reasonKey = stateReasonKey(kind, ctx)
+  return { disabled: reasonKey !== null, reasonKey }
+}
+
+function state<K extends CommandKind>(kind: K, ctx: CommandContext, t: TFn): CommandState<K> {
+  const { disabled, reasonKey } = commandGate(kind, ctx)
+  return { kind, disabled, reason: reasonKey === null ? null : t(reasonKey) }
+}
+
+/**
+ * What taking a command opens (spec 380 D8, D9). **Add note focuses the composer** at the
+ * spine's Now line; every other command opens its own dialog, so the note-carrying ones (Cancel
+ * order, Force cancel, Request cancellation) keep their notes inside it. The button, the key and
+ * the list's open intent all ask this one question.
+ */
+export type CommandSurface = 'composer' | 'dialog'
+
+export function surfaceOf(kind: CommandKind): CommandSurface {
+  return kind === 'add-note' ? 'composer' : 'dialog'
 }
 
 /**

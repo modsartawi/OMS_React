@@ -1,21 +1,31 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useLocation, useNavigate, useParams } from 'react-router'
+import { useLocation, useMatches, useNavigate, useParams } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { Loader2, RefreshCw } from 'lucide-react'
 import Button from '@/core/ui/Button'
 import ErrorBanner from '@/core/ui/ErrorBanner'
-import { apiErrorMessage } from '@/core/api'
+import { apiErrorCode, apiErrorMessage } from '@/core/api'
 import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
 import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central-invoice/api'
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
 import { notify } from '@/core/services/notify'
 import { recordRecent } from '@/core/commands/recent'
-import { openIntentOf, resolveOpenIntent, withoutOpenIntent, type OpenIntent } from '@/core/oms/open-intent'
+import { fsi } from '@/core/util/bidi'
+import { useCommands } from '@/core/commands/registry'
+import { singleKeyScreenOf } from '@/core/commands/palette-model'
+import {
+  cameFromList,
+  openIntentOf,
+  resolveOpenIntent,
+  withoutOpenIntent,
+  type OpenIntent,
+} from '@/core/oms/open-intent'
 import type {
   SdDocumentHeaderModel,
   SdDocumentLogModel,
   SdDocumentOutboxModel,
+  UpdateSdDocumentHeader,
 } from '@/core/models/sd-document'
 import type { RescheduleDocumentModel } from '@/core/models/slots'
 import { documentApi } from './api'
@@ -28,7 +38,10 @@ import {
   type UpdateActionKind,
   type UpdateHeaderExtras,
 } from './actions'
-import { commandBar, commandOf, type CommandContext } from './commands'
+import { commandBar, commandOf, surfaceOf, type CommandContext } from './commands'
+import { canPost, composerState } from './composer'
+import { detailCommands, keyHints } from './detail-keys'
+import NoteComposer, { type ComposerFailure } from './NoteComposer'
 import DocumentHeader from './DocumentHeader'
 import ActivitySpine, { type Deferred } from './ActivitySpine'
 import CommandPanel from './CommandPanel'
@@ -49,6 +62,22 @@ function numericAsc(a: string, b: string): number {
 }
 
 const PENDING = { rows: null, loading: true, error: null } as const
+
+/**
+ * An Update action's body and endpoint for one document: the payload's category picks both the
+ * 4-letter actionType and `UpdateDelivery` vs `UpdateDocument` (D-17/D-19).
+ */
+function updateFor(
+  doc: SdDocumentHeaderModel,
+  kind: UpdateActionKind,
+  note: string,
+  extras?: UpdateHeaderExtras,
+): { body: UpdateSdDocumentHeader; post: (body: UpdateSdDocumentHeader) => Promise<boolean> } {
+  return {
+    body: buildUpdateHeader(doc.documentNo, resolveActionType(kind, doc.documentCategory), note, extras),
+    post: isDeliveryCategory(doc.documentCategory) ? documentApi.updateDelivery : documentApi.updateDocument,
+  }
+}
 
 /**
  * Screen 2 — Document Details.
@@ -82,6 +111,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const routeId = (params.documentNo ?? params.deliveryNo ?? '').trim()
   const location = useLocation()
   const navigate = useNavigate()
+  // Letters exist only on a single-key screen (365 §2): the delivery route, not the document one.
+  const singleKeyScreen = singleKeyScreenOf(useMatches().map((m) => m.handle))
+  const hints = keyHints(singleKeyScreen)
 
   // Both options MATCH the menu probe's own on this shared key (see useVisibleMenu), and
   // matching is the point: `staleTime: Infinity` keeps this observer from marking the
@@ -117,12 +149,23 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   const [centralInvoiceOpen, setCentralInvoiceOpen] = useState(false)
 
   /**
-   * The note-carrying command awaiting its dialog, or `null`. Since 094 there is
-   * no standing textarea and no `pendingNote` to snapshot: every command that
-   * posts a note captures it inside its own confirm dialog, so the note typed
-   * there is unambiguously the note that posts (083 D-11).
+   * The note-carrying command awaiting its dialog, or `null`: Cancel order, Force cancel and
+   * Withdraw request capture their notes inside their own confirm dialog (083 D-11), so the note
+   * typed there is unambiguously the note that posts.
    */
   const [noteCommand, setNoteCommand] = useState<NoteCommandKind | null>(null)
+
+  /**
+   * The note composer at the spine's Now line (D8, ticket 405): Add note posts from here. Its
+   * text lives on the page because the page's Esc is refused while it is unsent (D10).
+   */
+  const [noteText, setNoteText] = useState('')
+  const [notePosting, setNotePosting] = useState(false)
+  const [noteFailure, setNoteFailure] = useState<ComposerFailure | null>(null)
+  const composerRef = useRef<HTMLTextAreaElement | null>(null)
+  const composer = composerState(noteText, notePosting)
+  /** The record on screen now, for a note post that answers after the operator has moved on. */
+  const currentRoute = useRef(routeId)
 
   /**
    * The list's one-shot `open` intent (ticket 401, D9; 367 §3), waiting for the header, and the
@@ -147,6 +190,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
   useEffect(() => {
     setPendingIntent(null)
     setRefusedIntent(null)
+    setNoteText('')
+    setNoteFailure(null)
+    currentRoute.current = routeId
   }, [routeId])
 
   // Every history entry: take its intent and replace the entry without it. The replace is a new
@@ -257,11 +303,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       const doc = document
       if (!doc || actionBusy) return
       const label = t(`actions.${kind}`)
-      const actionType = resolveActionType(kind, doc.documentCategory)
-      const body = buildUpdateHeader(doc.documentNo, actionType, actionNote, extras)
-      const post = isDeliveryCategory(doc.documentCategory)
-        ? documentApi.updateDelivery
-        : documentApi.updateDocument
+      const { body, post } = updateFor(doc, kind, actionNote, extras)
 
       setActionRunning(true)
       try {
@@ -277,12 +319,71 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     [document, actionBusy, reload, t],
   )
 
+  /**
+   * Add note from the composer (D8): today's add-note body, `documentNo` + the note, on the
+   * category's own endpoint. The box is read-only while it posts, so what clears is what was
+   * sent. Success clears it and re-reads the spine, where the note joins the past as an event
+   * row; that is the whole report, so no toast says it again. A failure stays inline under the
+   * box, with the server's message and code, and keeps the text.
+   *
+   * The palette can open another record while the post is on its way. Its answer then belongs to
+   * a page that is gone: nothing on the new record is cleared, failed or reloaded, and a failure,
+   * having no box left to show under, is toasted with the record it was for.
+   */
+  async function postNote() {
+    const doc = document
+    if (!doc || actionBusy || !canPost(composer)) return
+    const from = routeId
+    const { body, post } = updateFor(doc, 'add-note', noteText)
+    setActionRunning(true)
+    setNotePosting(true)
+    setNoteFailure(null)
+    let failure: { err: unknown } | null = null
+    try {
+      await post(body)
+    } catch (err) {
+      failure = { err }
+    }
+    setActionRunning(false)
+    setNotePosting(false)
+    if (currentRoute.current !== from) {
+      if (failure)
+        notify.apiError(
+          t('composer.failedElsewhere', { documentNo: fsi(doc.documentNo) }),
+          failure.err,
+          t('composer.failedDetail'),
+        )
+      return
+    }
+    if (failure) {
+      setNoteFailure({ message: apiErrorMessage(failure.err, t('composer.failedDetail')), code: apiErrorCode(failure.err) })
+      return
+    }
+    setNoteText('')
+    void reload()
+  }
+
+  const focusComposer = () => composerRef.current?.focus()
+
+  /**
+   * Back to the list (D10): history-back when the list opened this record, so its own entry, with
+   * its query and current row, is what comes back; otherwise the list route.
+   */
+  const backToList = () => {
+    if (cameFromList(location.state)) void navigate(-1)
+    else void navigate('/oms/deliveries')
+  }
+
   function onCommand(kind: CommandKind) {
     if (actionBusy) return
+    // Add note focuses the composer (D8); every other command opens its own dialog.
+    if (surfaceOf(kind) === 'composer') {
+      focusComposer()
+      return
+    }
     switch (kind) {
-      // The four note-carrying commands share one dialog: it confirms AND
-      // captures the note, so there is no pre-confirm on top of a dialog.
-      case 'add-note':
+      // The note-carrying commands share one dialog: it confirms AND captures
+      // the note, so there is no pre-confirm on top of a dialog.
       case 'close':
       case 'force-close':
       case 'cancel-close-request':
@@ -321,9 +422,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     : null
 
   // D9: the intent is consumed once, after the header loads, through the bar's own gate. An
-  // allowed one opens its real dialog (add-note opens today's Add note path until 405's
-  // composer exists). A refused one opens nothing: the bar rings and focuses its button, which
-  // shows its reason, and a warn toast repeats the reason. This render's `onCommand`.
+  // allowed one opens its real dialog, or, for add-note, focuses the composer. A refused one
+  // opens nothing: the bar rings and focuses its button, which shows its reason, and a warn
+  // toast repeats the reason. This render's `onCommand`.
   useEffect(() => {
     if (!pendingIntent || !commandContext || documentLoading || commandContext.busy) return
     setPendingIntent(null)
@@ -363,6 +464,22 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
       actionData2: result.actionData2,
     })
   }
+
+  // D10: R / C through the bar's own gate, N to the composer, and Esc back to the list, refused
+  // while the composer holds unsent text. Each is a palette row too. A denied session registers
+  // nothing; until the header loads, only Esc.
+  useCommands(
+    canOpenDetail
+      ? detailCommands({
+          context: documentLoading || documentError ? null : commandContext,
+          composer,
+          singleKeyScreen,
+          back: backToList,
+          focusComposer,
+          command: onCommand,
+        })
+      : [],
+  )
 
   // The order's files (spec 324, ticket 327): the facts column's Attachments disclosure,
   // drawn only while its gate admits; its list, an AUDITED read, waits on the
@@ -461,6 +578,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
                 onCommand={onCommand}
                 refused={refusedIntent}
                 onRefusedLeft={() => setRefusedIntent(null)}
+                keysOf={hints.bar}
                 // A delivery's page only (category `D`, the payload's answer): a central
                 // invoice invoices a delivery, and the server refuses anything else anyway.
                 onCentralInvoice={
@@ -480,7 +598,23 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
               every fact they held is in one of the two.
             */}
             <div className="grid items-start gap-2.5 xl:grid-cols-[minmax(340px,400px)_minmax(0,1fr)]">
-              <ActivitySpine document={document} logs={logs} jobs={jobs} />
+              <ActivitySpine
+                document={document}
+                logs={logs}
+                jobs={jobs}
+                composer={
+                  <NoteComposer
+                    value={noteText}
+                    onChange={setNoteText}
+                    state={composer}
+                    busy={actionBusy}
+                    failure={noteFailure}
+                    onPost={() => void postNote()}
+                    textareaRef={composerRef}
+                    focusKeys={hints.composer}
+                  />
+                }
+              />
               <FactsColumn document={document} attachments={attachments} />
             </div>
 

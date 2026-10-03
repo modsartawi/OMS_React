@@ -14,17 +14,18 @@
 //   2. the header's now-step badge reads each capture's step (ticket 402
 //      retired 090's pill rail; the badge is what says where it is now, from
 //      the shared timeline derivation);
-//   3. all four tabs — Items · Header Conditions · Log · Jobs — switch, and a
-//      column width and a sort the operator set on the Items grid SURVIVE the
-//      switch away and back (D-23: panels are hidden with CSS, never unmounted);
+//   3. both tabs — Items · Header Conditions — switch (Log and Jobs read as the
+//      activity spine since ticket 403), and a column width and a sort the
+//      operator set on the Items grid SURVIVE the switch away and back (D-23:
+//      panels are hidden with CSS, never unmounted);
 //   4. the summary rail unstacks ABOVE the work area below 900px, and sits
 //      beside it at 340px above;
 //   5. the terminal pair renders at the END of the bar, at cluster-button
 //      height, and goes disabled while a command is in flight.
 //
 // Two collections the captures do not carry — Log and Jobs — are synthesised
-// from plausible rows so the two deferred tabs have a grid to switch to at all;
-// the rows are fixtures, the tab machinery under test is the app's.
+// from plausible rows so the spine has something to draw; the rows are
+// fixtures. `tools/document-spine-drive.mjs` is what asserts the spine.
 //
 // `DRIVE_SHOTS=<dir>` also writes a full-page screenshot per document per theme,
 // which is what the ticket's manual both-theme pass is read from.
@@ -77,8 +78,8 @@ const EXPECTED_NOW = {
 /**
  * Neither collection is on the captures — see the header note. `outboxStatus`
  * takes the model's own taxonomy (`'P'` pending, `'F'` failed, `'C'` completed):
- * one failed job means the Jobs tab count reads the FAILURE rather than the
- * total, which is the state an acceptance pass should be looking at.
+ * one failed job means the spine opens on a failure banner, which is the state
+ * an acceptance pass should be looking at.
  */
 const LOGS = [
   { logNo: '1', actionTypeDescription: 'Created', entryTime: '2025-03-06T02:46:00', entryUser: 'msartawi', note: '' },
@@ -178,11 +179,11 @@ async function run() {
     check(`${documentNo}: and the pill rail is gone`, (await page.locator('[aria-label="Document status"]').count()) === 0)
   }
 
-  // ───────────────────────── 3 · the four tabs, and what survives a switch ──
+  // ───── 3 · the two tabs (Log and Jobs are the spine since 403), and what survives a switch ──
   await open('8000000174')
-  const TABS = ['Items', 'Header Conditions', 'Log', 'Jobs']
+  const TABS = ['Items', 'Header Conditions']
   const tabLabels = (await page.locator('[role="tab"]').allInnerTexts()).map(TAB_LABEL)
-  check('the work area carries exactly the four tabs', tabLabels.join(' | ') === TABS.join(' | '), tabLabels.join(' | '))
+  check('the work area carries exactly the two tabs', tabLabels.join(' | ') === TABS.join(' | '), tabLabels.join(' | '))
 
   for (const label of TABS) {
     await page.getByRole('tab', { name: new RegExp(`^${label}`) }).click()
@@ -202,15 +203,15 @@ async function run() {
       }
     }, label)
     check(
-      `the ${label} tab switches to its own panel, the other three stay mounted but hidden`,
+      `the ${label} tab switches to its own panel, the other stays mounted but hidden`,
       state.selected && state.shown && state.othersHidden && state.othersMounted,
       JSON.stringify(state),
     )
   }
 
   // The operator's own grid state: widen Description by dragging its resize
-  // handle, then sort on it. Both are read back after a full round trip through
-  // the other three tabs.
+  // handle, then sort on it. Both are read back after a round trip through
+  // the other tab.
   await page.getByRole('tab', { name: /^Items/ }).click()
   await page.waitForTimeout(220)
   // The floating-filter row carries the same `col-id`, so the header proper is
@@ -239,14 +240,14 @@ async function run() {
   const sorted = await sortOf()
   check('and sort on it', sorted === 'ascending', String(sorted))
 
-  for (const label of ['Header Conditions', 'Log', 'Jobs', 'Items']) {
+  for (const label of ['Header Conditions', 'Items']) {
     await page.getByRole('tab', { name: new RegExp(`^${label}`) }).click()
     await page.waitForTimeout(200)
   }
   const afterWidth = await widthOf()
   const afterSort = await sortOf()
   check(
-    'both survive a round trip through every other tab — the grid is hidden, never rebuilt',
+    'both survive a round trip through the other tab — the grid is hidden, never rebuilt',
     afterWidth === widened && afterSort === sorted,
     `${afterWidth}px / ${afterSort} (was ${widened}px / ${sorted})`,
   )

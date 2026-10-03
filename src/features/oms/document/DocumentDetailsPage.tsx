@@ -30,15 +30,10 @@ import {
   type UpdateHeaderExtras,
 } from './actions'
 import { commandBar, commandOf, type CommandContext } from './commands'
-import {
-  documentColumns,
-  deletedLineRowStyle,
-  failedJobRowStyle,
-  isFailedJob,
-  ITEM_ROW_SELECTION,
-} from './columns'
+import { documentColumns, deletedLineRowStyle, ITEM_ROW_SELECTION } from './columns'
 import { totalsFooterRow } from './items'
 import DocumentHeader from './DocumentHeader'
+import ActivitySpine, { type Deferred } from './ActivitySpine'
 import CommandPanel from './CommandPanel'
 import SummaryRail from './SummaryRail'
 import DetailGrid from './DetailGrid'
@@ -52,10 +47,11 @@ import { useOrderAttachments } from './use-order-attachments'
 
 // No `status` tab: the document's state is the header's now-step badge, and
 // its full thirteen-row breakdown is the header's All-statuses disclosure (083 D-3).
-// `attachments` (spec 324, ticket 327) is fifth and last, and drawn only while its gate
+// No Log or Jobs tab either: both read as the activity spine (spec 380 D4, ticket 403).
+// `attachments` (spec 324, ticket 327) is last, and drawn only while its gate
 // admits (`attachmentsTabGate`).
-type TabId = 'items' | 'conditions' | 'log' | 'jobs' | 'attachments'
-const TAB_IDS: TabId[] = ['items', 'conditions', 'log', 'jobs', 'attachments']
+type TabId = 'items' | 'conditions' | 'attachments'
+const TAB_IDS: TabId[] = ['items', 'conditions', 'attachments']
 /** A tab button's DOM id — its panel's `aria-labelledby`, and where the rail's Show puts focus. */
 const tabDomId = (id: TabId) => `tab-${id}`
 
@@ -67,20 +63,16 @@ function numericAsc(a: string, b: string): number {
   return (a ?? '').localeCompare(b ?? '')
 }
 
-/** One deferred collection (Log / Jobs) — `rows: null` until it resolves. */
-interface Deferred<T> {
-  rows: T[] | null
-  loading: boolean
-  error: string | null
-}
 const PENDING = { rows: null, loading: true, error: null } as const
 
 /**
  * Screen 2 — Document Details.
  *
  * Loads the full document (as an order or a delivery), renders the light
- * header (ticket 402), the command panel, the summary rail and the tabs. Log and Jobs are fetched after the document renders — never
- * blocking the page.
+ * header (ticket 402), the command panel, the activity spine (ticket 403), the
+ * summary rail and the tabs. Log and Jobs are fetched after the document
+ * renders, never blocking the page: the spine draws the header's steps at once
+ * and dates them when the Log arrives.
  *
  * Two different fields choose two different endpoints, and mixing them up breaks
  * real documents (D-17/D-19):
@@ -192,7 +184,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         const rows = await documentApi.getLogs(documentNo)
         setLogs({ rows: [...rows].sort((a, b) => numericAsc(a.logNo, b.logNo)), loading: false, error: null })
       } catch (err) {
-        setLogs({ rows: null, loading: false, error: apiErrorMessage(err, t('log.failed')) })
+        setLogs({ rows: null, loading: false, error: apiErrorMessage(err, t('log.loadFailed')) })
       }
     },
     [t],
@@ -205,7 +197,7 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         const rows = await documentApi.getOutbox(documentNo)
         setJobs({ rows: [...rows].sort((a, b) => numericAsc(a.outboxId, b.outboxId)), loading: false, error: null })
       } catch (err) {
-        setJobs({ rows: null, loading: false, error: apiErrorMessage(err, t('jobs.failed')) })
+        setJobs({ rows: null, loading: false, error: apiErrorMessage(err, t('jobs.loadFailed')) })
       }
     },
     [t],
@@ -422,26 +414,20 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
     },
   }
   /**
-   * The tab counts. Jobs is the one that judges: while any job has failed it
-   * counts the FAILURES in `bad`, not the total — otherwise a failed outbox job
-   * is a number indistinguishable from a healthy one (083 D-9). A deferred
-   * collection shows no count at all until it resolves; a `0` while Log is still
-   * loading would be a claim the app cannot yet make.
+   * The tab counts. A failed job is no longer a tab count: it is a banner at the
+   * top of the activity spine (ticket 403). Attachments shows no count until its
+   * list resolves; a `0` before then would be a claim the app cannot yet make.
    */
-  const tabCounts = useMemo(() => {
-    const failed = (jobs.rows ?? []).filter(isFailedJob).length
-    const plain = (value: number) => ({ value, bad: false })
-    return {
-      items: plain(document?.lines?.length ?? 0),
-      conditions: plain(headerConditions.length),
-      log: logs.rows ? plain(logs.rows.length) : null,
-      jobs: jobs.rows ? (failed > 0 ? { value: failed, bad: true } : plain(jobs.rows.length)) : null,
-      attachments: attachmentsBadge === null ? null : plain(attachmentsBadge),
-    } satisfies Record<TabId, { value: number; bad: boolean } | null>
-  }, [document, headerConditions, logs.rows, jobs.rows, attachmentsBadge])
+  const tabCounts = useMemo(
+    () =>
+      ({
+        items: document?.lines?.length ?? 0,
+        conditions: headerConditions.length,
+        attachments: attachmentsBadge,
+      }) satisfies Record<TabId, number | null>,
+    [document, headerConditions, attachmentsBadge],
+  )
   const conditionColumns = useMemo(() => documentColumns.conditions(), [])
-  const logColumns = useMemo(() => documentColumns.logs(), [])
-  const jobColumns = useMemo(() => documentColumns.jobs(), [])
 
   /**
    * The page's own Refresh: the document, Log and Jobs as always — and the order's
@@ -546,124 +532,111 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
             )}
 
             {/*
-              The page's two regions (083 D-6, ticket 092): a 340px summary rail
-              and the work area. Below 900px the grid collapses to one column and
-              the rail — first in the DOM — becomes a card grid ABOVE the work
-              area rather than a drawer, because the summary is the context the
-              grid is read with. `rail:` is the named 900px screen declared in
-              `global.css` — not Tailwind's `lg`: the spec names the number, and
-              it is where the 340px rail plus a readable grid stop fitting side
-              by side.
+              The activity spine (spec 380 D4, ticket 403) on the start side, about
+              340–420px, with everything else beside it on the end side. Grid
+              columns follow the writing direction, so it mirrors under RTL. From
+              1280px (`xl`) the spine sits beside; below, it stacks above, its
+              failed-job banners first. Until 404 turns the end side into the facts
+              column, the end side is today's summary rail and tabs.
             */}
-            <div className="grid gap-2.5 rail:grid-cols-[340px_minmax(0,1fr)]">
-              <SummaryRail document={document} files={railFiles} />
+            <div className="grid items-start gap-2.5 xl:grid-cols-[minmax(340px,400px)_minmax(0,1fr)]">
+              <ActivitySpine document={document} logs={logs} jobs={jobs} />
 
-              <div className="min-w-0">
-                <div role="tablist" aria-label={t('tabs.ariaLabel')} className="flex gap-1 border-b border-border">
-                  {tabIds.map((id) => {
-                    const count = tabCounts[id]
-                    return (
-                      <button
+              {/*
+                The page's two regions (083 D-6, ticket 092): a 340px summary rail
+                and the work area. Below 900px the grid collapses to one column and
+                the rail — first in the DOM — becomes a card grid ABOVE the work
+                area rather than a drawer, because the summary is the context the
+                grid is read with. `rail:` is the named 900px screen declared in
+                `global.css` — not Tailwind's `lg`: the spec names the number, and
+                it is where the 340px rail plus a readable grid stop fitting side
+                by side.
+              */}
+              <div className="grid min-w-0 gap-2.5 rail:grid-cols-[340px_minmax(0,1fr)]">
+                <SummaryRail document={document} files={railFiles} />
+
+                <div className="min-w-0">
+                  <div role="tablist" aria-label={t('tabs.ariaLabel')} className="flex gap-1 border-b border-border">
+                    {tabIds.map((id) => {
+                      const count = tabCounts[id]
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="tab"
+                          id={tabDomId(id)}
+                          aria-selected={shownTab === id}
+                          aria-controls={`tabpanel-${id}`}
+                          onClick={() => selectTab(id)}
+                          className={
+                            'flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-sm ' +
+                            (shownTab === id
+                              ? 'border-primary font-semibold text-primary'
+                              : 'border-transparent text-muted-foreground hover:text-foreground')
+                          }
+                        >
+                          {t(`tabs.${id}`)}
+                          {count !== null && (
+                            // The severity layer's `mute` pill — one badge, one
+                            // vocabulary, no per-site colour (082 D-10). The title
+                            // says which number it is; `1` alone would not.
+                            <span title={t(id === 'attachments' ? 'tabs.fileCount' : 'tabs.rowCount', { count })}>
+                              <StatusBadge sev="mute">
+                                <span className="tabular-nums">{count}</span>
+                              </StatusBadge>
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  {/*
+                    Every panel stays mounted and is hidden with CSS rather than
+                    unmounted. Switching tabs must not destroy and rebuild an AG
+                    Grid: that throws away column widths, sort and filters the
+                    operator set, and costs a visible re-layout each time (D-23).
+                  */}
+                  <div className="pt-2.5">
+                    {tabIds.map((id) => (
+                      <div
                         key={id}
-                        type="button"
-                        role="tab"
-                        id={tabDomId(id)}
-                        aria-selected={shownTab === id}
-                        aria-controls={`tabpanel-${id}`}
-                        onClick={() => selectTab(id)}
-                        className={
-                          'flex items-center gap-1.5 border-b-2 px-3 py-1.5 text-sm ' +
-                          (shownTab === id
-                            ? 'border-primary font-semibold text-primary'
-                            : 'border-transparent text-muted-foreground hover:text-foreground')
-                        }
+                        role="tabpanel"
+                        id={`tabpanel-${id}`}
+                        aria-labelledby={tabDomId(id)}
+                        hidden={shownTab !== id}
                       >
-                        {t(`tabs.${id}`)}
-                        {count && (
-                          // The count is the severity layer's `bad` pill when it
-                          // reports failures and `mute` otherwise — one badge, one
-                          // vocabulary, no per-site colour (082 D-10). The title
-                          // says which number it is; `1` alone would not.
-                          <span
-                            title={t(
-                              count.bad ? 'tabs.failedCount' : id === 'attachments' ? 'tabs.fileCount' : 'tabs.rowCount',
-                              { count: count.value },
-                            )}
-                          >
-                            <StatusBadge sev={count.bad ? 'bad' : 'mute'}>
-                              <span className="tabular-nums">{count.value}</span>
-                            </StatusBadge>
-                          </span>
+                        {id === 'items' && (
+                          <DetailGrid
+                            columnDefs={itemColumns}
+                            rowData={document.lines ?? []}
+                            emptyMessage={t('items.empty')}
+                            pinnedBottomRowData={itemsFooter}
+                            rowSelection={ITEM_ROW_SELECTION}
+                            getRowStyle={deletedLineRowStyle}
+                          />
                         )}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/*
-                  Every panel stays mounted and is hidden with CSS rather than
-                  unmounted. Switching tabs must not destroy and rebuild an AG
-                  Grid: that throws away column widths, sort and filters the
-                  operator set, and costs a visible re-layout each time (D-23).
-                */}
-                <div className="pt-2.5">
-                  {tabIds.map((id) => (
-                    <div
-                      key={id}
-                      role="tabpanel"
-                      id={`tabpanel-${id}`}
-                      aria-labelledby={tabDomId(id)}
-                      hidden={shownTab !== id}
-                    >
-                      {id === 'items' && (
-                        <DetailGrid
-                          columnDefs={itemColumns}
-                          rowData={document.lines ?? []}
-                          emptyMessage={t('items.empty')}
-                          pinnedBottomRowData={itemsFooter}
-                          rowSelection={ITEM_ROW_SELECTION}
-                          getRowStyle={deletedLineRowStyle}
-                        />
-                      )}
-                      {id === 'conditions' && (
-                        <DetailGrid
-                          columnDefs={conditionColumns}
-                          rowData={headerConditions}
-                          emptyMessage={t('conditions.empty')}
-                        />
-                      )}
-                      {id === 'log' && (
-                        <DetailGrid
-                          columnDefs={logColumns}
-                          rowData={logs.rows}
-                          loading={logs.loading}
-                          error={logs.error}
-                          emptyMessage={t('log.empty')}
-                        />
-                      )}
-                      {id === 'jobs' && (
-                        <DetailGrid
-                          columnDefs={jobColumns}
-                          rowData={jobs.rows}
-                          loading={jobs.loading}
-                          error={jobs.error}
-                          emptyMessage={t('jobs.empty')}
-                          getRowStyle={failedJobRowStyle}
-                        />
-                      )}
-                      {id === 'attachments' && attachments.target && (
-                        // Keyed by the owner, so another owner starts on a fresh selection.
-                        <AttachmentsTab
-                          key={attachments.target.ownerKey}
-                          target={attachments.target}
-                          opened={attachments.opened}
-                          withdrawReasons={attachments.withdrawReasons}
-                          withdrawOffered={attachments.withdrawOffered}
-                          filedOnOrderNo={attachments.filedOnOrderNo}
-                        />
-                      )}
-                    </div>
-                  ))}
+                        {id === 'conditions' && (
+                          <DetailGrid
+                            columnDefs={conditionColumns}
+                            rowData={headerConditions}
+                            emptyMessage={t('conditions.empty')}
+                          />
+                        )}
+                        {id === 'attachments' && attachments.target && (
+                          // Keyed by the owner, so another owner starts on a fresh selection.
+                          <AttachmentsTab
+                            key={attachments.target.ownerKey}
+                            target={attachments.target}
+                            opened={attachments.opened}
+                            withdrawReasons={attachments.withdrawReasons}
+                            withdrawOffered={attachments.withdrawOffered}
+                            filedOnOrderNo={attachments.filedOnOrderNo}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

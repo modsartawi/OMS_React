@@ -11,8 +11,8 @@
 //      elsewhere is not flagged;
 //   4. a deleted line renders muted and struck through;
 //   5. clicking a row selects it and paints the leading accent bar;
-//   6. the Jobs tab counts FAILED jobs in the danger pill when any exist, and the
-//      total in the neutral pill when none do.
+//   6. the tabs count their rows in the neutral pill; a FAILED job is no longer a
+//      Jobs tab count but a banner at the top of the activity spine (ticket 403).
 //
 // Two of those cannot be driven from the corpus verbatim and say so at their
 // call site: no captured line is `deleted`, and Log/Jobs come from endpoints the
@@ -48,9 +48,9 @@ for (const file of readdirSync(PAYLOAD_DIR)) {
   DOCUMENTS[capture.data.documentNo] = capture.data
 }
 
-/** Outbox rows per document — the Jobs tab's two states, healthy and failed. */
+/** Outbox rows per document — the spine's two states, healthy and failed. */
 const OUTBOX = {
-  // Three jobs, one failed: the count must read 1, not 3.
+  // Three jobs, one failed: the spine draws ONE banner.
   '2000000551': [
     { outboxId: '1', actionTypeDescription: 'Create', outboxStatus: 'S', attemptCount: 1 },
     { outboxId: '2', actionTypeDescription: 'Update', outboxStatus: 'F', attemptCount: 4 },
@@ -65,7 +65,10 @@ const OUTBOX = {
 
 async function run() {
   const browser = await chromium.launch()
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } })
+  // 1920 wide: since 403 the activity spine shares the row with the summary rail and the
+  // tabs, and AG Grid only renders the columns in view, so at 1600 the last columns this
+  // drive reads are virtualised away. 404 turns the end side into one facts column.
+  const page = await browser.newPage({ viewport: { width: 1920, height: 1000 } })
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
@@ -234,7 +237,7 @@ async function run() {
     (await grid().evaluate((el) => el.querySelector('.ag-grid-pinned-bottom-rows .ag-row .ag-cell').innerText.trim())) === '2 lines · 2 units',
   )
 
-  // --- 6 · the Jobs tab count -------------------------------------------------
+  // --- 6 · the tab counts; a failed job is the spine's banner since 403 --------
   const tabText = async (id) =>
     (await page.locator(`#tab-${id}`).innerText()).replace(/\s+/g, ' ').trim()
   // The badge itself — the `[title]` wrapper carries the label, its child span is
@@ -249,39 +252,30 @@ async function run() {
       }))
 
   await open('2000000551')
-  await page.waitForTimeout(250)
-  check('the Jobs tab counts the FAILED job, not the three total', (await tabText('jobs')) === 'Jobs 1', await tabText('jobs'))
-  const failedPill = await tabPill('jobs')
+  await page.locator('[data-job-banner="failed"]').first().waitFor({ timeout: 10000 }).catch(() => {})
+  check('there is no Jobs or Log tab any more', (await page.locator('#tab-jobs, #tab-log').count()) === 0)
+  check(
+    'the one FAILED job of three is one banner at the top of the spine',
+    (await page.locator('[data-spine] [data-job-banner="failed"]').count()) === 1,
+    String(await page.locator('[data-spine] [data-job-banner="failed"]').count()),
+  )
+  check('the Items tab counts its rows', (await tabText('items')) === 'Items 1', await tabText('items'))
   const itemsPill = await tabPill('items')
+  const conditionsPill = await tabPill('conditions')
   check(
-    'and paints it from the danger family — 082 D-10’s `bad` pill, not the neutral one',
-    failedPill.ink === (await token('--danger-800')) &&
-      failedPill.ground === (await token('--danger-050')) &&
-      failedPill.ground !== itemsPill.ground,
-    `${failedPill.ground}/${failedPill.ink} vs ${itemsPill.ground}/${itemsPill.ink}`,
+    'in the neutral pill, the same on every tab',
+    itemsPill.ink !== (await token('--danger-800')) && conditionsPill.ground === itemsPill.ground && conditionsPill.ink === itemsPill.ink,
+    `${itemsPill.ground}/${itemsPill.ink}`,
   )
   check(
-    'and titles it so the number says which number it is',
-    (await page.locator('#tab-jobs [title]').getAttribute('title')) === '1 failed job',
-    await page.locator('#tab-jobs [title]').getAttribute('title'),
-  )
-  check('the other tabs count their rows neutrally', (await tabText('items')) === 'Items 1' && (await tabText('log')) === 'Log 0', `${await tabText('items')} | ${await tabText('log')}`)
-  check(
-    'and their titles pluralise — `1 row`, not `1 rows`',
-    (await page.locator('#tab-items [title]').getAttribute('title')) === '1 row' &&
-      (await page.locator('#tab-log [title]').getAttribute('title')) === '0 rows',
-    `${await page.locator('#tab-items [title]').getAttribute('title')} | ${await page.locator('#tab-log [title]').getAttribute('title')}`,
+    'and its title pluralises — `1 row`, not `1 rows`',
+    (await page.locator('#tab-items [title]').getAttribute('title')) === '1 row',
+    await page.locator('#tab-items [title]').getAttribute('title'),
   )
 
   await open('8000000121')
   await page.waitForTimeout(250)
-  check('with no failed job the Jobs tab counts the total', (await tabText('jobs')) === 'Jobs 2', await tabText('jobs'))
-  const healthyPill = await tabPill('jobs')
-  check(
-    'in the neutral pill',
-    healthyPill.ground === itemsPill.ground && healthyPill.ink === itemsPill.ink,
-    `${healthyPill.ground}/${healthyPill.ink}`,
-  )
+  check('with no failed job there is no banner', (await page.locator('[data-job-banner="failed"]').count()) === 0)
 
   check('no uncaught page errors', errors.length === 0, errors.slice(0, 3).join(' | '))
 

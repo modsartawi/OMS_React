@@ -655,9 +655,8 @@ async function assertGridReadsTokens(scope, label) {
       const el = document.querySelector(`${root} ${sel}`)
       return el ? getComputedStyle(el, pseudo)[prop] : null
     }
-    // Sample a row the app has NOT deliberately overridden — the Jobs tab's
-    // first row is the `--danger` failed-job style, which is asserted
-    // separately and would read as a failure here.
+    // Sample a row the app has NOT deliberately overridden (a row style such
+    // as a deleted line's would read as a failure here).
     const rows = [...document.querySelectorAll(`${root} .ag-row:not(.ag-header-row)`)]
     const plain = rows.find((r) => !r.style.backgroundColor)
     if (!plain) return null
@@ -714,37 +713,23 @@ async function assertGridReadsTokens(scope, label) {
   return true
 }
 
-// Document Details — DetailGrid, reused across four tabs (Items, Conditions,
-// Log, Jobs); Jobs also carries the second cellStyle pair. Each tab panel stays
-// mounted (D-23), so each is asserted through its own tabpanel scope.
+// Document Details — DetailGrid, reused across two tabs (Items, Conditions).
+// Log and Jobs are the activity spine since ticket 403, so the failed-job row
+// style is gone with them (`tools/document-spine-drive.mjs` asserts the banner).
+// Each tab panel stays mounted (D-23), so each is asserted through its own
+// tabpanel scope.
 for (const theme of ['light', 'dark']) {
   await page.goto(BASE + '/oms/document/1000000393')
   await setTheme(theme)
   await page.waitForSelector('.ag-root', { timeout: 20000 }).catch(() => {})
   await page.waitForTimeout(600)
-  const want = { danger: await token('--danger'), ink: await token('--primary-foreground') }
-
-  for (const tab of ['items', 'conditions', 'log', 'jobs']) {
+  for (const tab of ['items', 'conditions']) {
     await page.click(`#tab-${tab}`).catch(() => {})
     await page.waitForTimeout(500)
     const asserted = await assertGridReadsTokens(`#tabpanel-${tab}`, `${theme}: Document Details · ${tab}`)
     if (!asserted) skip(`${theme}: Document Details · ${tab} — no rows in this tab's grid`)
     await page.screenshot({ path: `${SHOTS}/document-${tab}-${theme}.png` })
   }
-  const jobRow = await page.evaluate(() => {
-    for (const el of document.querySelectorAll('.ag-row')) {
-      if (el.style.backgroundColor) {
-        const s = getComputedStyle(el)
-        return { bg: s.backgroundColor, ink: s.color }
-      }
-    }
-    return null
-  })
-  check(
-    `${theme}: failed-job row is --danger ground with --primary-foreground ink`,
-    jobRow?.bg === want.danger && jobRow?.ink === want.ink,
-    `${jobRow?.bg} / ${jobRow?.ink}`,
-  )
 
   // Change Store picker — a native <dialog>, so it is `dialog[open]`, not
   // `[role=dialog]`. It holds two grids but renders one at a time (the picker

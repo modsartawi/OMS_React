@@ -10,13 +10,8 @@ import type {
 import i18n from '@/core/i18n'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import { describeConditionCategory, describeConditionType } from '@/core/constants/oms-codes'
-import type {
-  SdDocumentLineModel,
-  SdDocumentLogModel,
-  SdDocumentOutboxModel,
-  TransactionConditionModel,
-} from '@/core/models/sd-document'
-import { formatDateTime, formatLogDateTime } from '@/core/util/date-format'
+import type { SdDocumentLineModel, TransactionConditionModel } from '@/core/models/sd-document'
+import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney, formatNumber } from '@/core/util/number-format'
 import { isDiscountFlagged } from './items'
 
@@ -70,13 +65,6 @@ function columnKit<T>() {
       field: asField(field),
       width,
       valueFormatter: (p: ValueFormatterParams<T>) => formatDateTime(p.value as string | null),
-    }),
-    /** `dd/MM/yyyy hh:mm tt` — the Log/Jobs format. */
-    logDateTime: (key: string, field: Field, width: number): Col => ({
-      headerName: t(`columns.${key}`),
-      field: asField(field),
-      width,
-      valueFormatter: (p: ValueFormatterParams<T>) => formatLogDateTime(p.value as string | null),
     }),
     /** `Yes`/`No` — the VALUE is the text, so filter and sort agree with the eye. */
     bool: (key: string, field: Field, width: number): Col => ({
@@ -156,34 +144,6 @@ export const documentColumns = {
     ]
   },
 
-  logs(): ColDef<SdDocumentLogModel>[] {
-    const log = columnKit<SdDocumentLogModel>()
-    return [
-      log.text('logNo', 'logNo', 90),
-      log.text('actionType', 'actionTypeDescription', 210),
-      log.logDateTime('entryTime', 'entryTime', 160),
-      log.text('actionData', 'actionData', 160),
-      log.text('actionOldData', 'actionOldData', 160),
-      log.text('staffId', 'staffId', 110),
-      log.text('entryUser', 'entryUser', 140),
-      log.text('note', 'note', 280),
-    ]
-  },
-
-  jobs(): ColDef<SdDocumentOutboxModel>[] {
-    const job = columnKit<SdDocumentOutboxModel>()
-    return [
-      job.text('outboxId', 'outboxId', 110),
-      job.text('actionType', 'actionTypeDescription', 210),
-      job.text('userId', 'userId', 120),
-      job.text('status', 'outboxStatus', 95),
-      job.logDateTime('entryTime', 'entryTime', 160),
-      job.logDateTime('lastAttempt', 'lastAttemptTime', 160),
-      job.logDateTime('nextAttempt', 'nextAttemptTime', 160),
-      job.number('attempts', 'attemptCount', 100),
-      job.text('errorMessage', 'errorMessage', 340),
-    ]
-  },
 }
 
 /**
@@ -216,10 +176,9 @@ export const ITEM_ROW_SELECTION: RowSelectionOptions<SdDocumentLineModel> = {
  * (083 D-9). A deleted line indistinguishable from a live one is a real reading
  * hazard: the operator acts on a line the document no longer carries.
  *
- * A row style rather than a class, matching `failedJobRowStyle` next door, and
- * `var(--muted-foreground)` rather than a literal — colour values are authored
- * only in `global.css` (089). The pinned totals row carries no `deleted`, so it
- * is never struck.
+ * A row style rather than a class, and `var(--muted-foreground)` rather than a
+ * literal — colour values are authored only in `global.css` (089). The pinned
+ * totals row carries no `deleted`, so it is never struck.
  */
 export function deletedLineRowStyle(
   params: RowClassParams<SdDocumentLineModel>,
@@ -227,28 +186,4 @@ export function deletedLineRowStyle(
   return params.data?.deleted === true
     ? { color: 'var(--muted-foreground)', textDecoration: 'line-through' }
     : undefined
-}
-
-/**
- * Jobs-tab row highlight — a failed job (`outboxStatus === 'F'`) gets the red
- * triage treatment, matching Screen 1's Failed Jobs pill — same `--danger` /
- * `--primary-foreground` pair, and the same reason it must stay a pair
- * (`deliveries/FailedJobsCell.tsx` carries it in full).
- */
-export function failedJobRowStyle(
-  params: RowClassParams<SdDocumentOutboxModel>,
-): RowStyle | undefined {
-  return isFailedJob(params.data)
-    ? { backgroundColor: 'var(--danger)', color: 'var(--primary-foreground)', fontWeight: '700' }
-    : undefined
-}
-
-/**
- * Whether one outbox job ended in failure. One reading of `outboxStatus` for
- * both consumers — the row highlight above and the Jobs tab's count, which shows
- * *failed* jobs when any exist so a failed outbox job reaches the operator
- * without their going looking (083 D-9).
- */
-export function isFailedJob(job: SdDocumentOutboxModel | null | undefined): boolean {
-  return (job?.outboxStatus ?? '').trim().toUpperCase() === 'F'
 }

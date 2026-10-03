@@ -110,23 +110,6 @@ export function formatTimeOfDay(value: string | null | undefined): string {
 }
 
 /**
- * Format an ISO datetime as `dd/MM/yyyy hh:mm tt` (12-hour + AM/PM) — the
- * Screen 2 Log and Jobs timestamp format.
- */
-export function formatLogDateTime(value: string | null | undefined): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (isBlankDate(date)) return ''
-  const hours24 = date.getHours()
-  const period = hours24 < 12 ? 'AM' : 'PM'
-  const hours12 = hours24 % 12 === 0 ? 12 : hours24 % 12
-  return (
-    `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}` +
-    ` ${pad(hours12)}:${pad(date.getMinutes())} ${period}`
-  )
-}
-
-/**
  * Join a raw day and a raw time-of-day into one cell — `2026-08-04 14:22:13`.
  *
  * 🚩 **No `Date` is constructed, and that is the whole point.** The retail

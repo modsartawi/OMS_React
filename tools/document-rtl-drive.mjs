@@ -540,7 +540,7 @@ async function run() {
   //
   // The tab is the new surface. Measured LOGICALLY, as section 6 is, so a correctly
   // mirrored element reports the same fact in both directions:
-  //   - the tab is the tablist's LAST, at its END (after Jobs in reading order);
+  //   - the tab is the tablist's LAST, at its END (after Header Conditions in reading order);
   //   - the list sits at the work area's START and the preview beside it at the END;
   //   - a header cell's glyphs hug the cell's START (`text-start`, twin `text-left`);
   //   - the Arabic caption reads RIGHT-TO-LEFT in both directions (`dir="auto"`).
@@ -553,7 +553,7 @@ async function run() {
     await setDir(dir)
     const geo = await page.evaluate((dir) => {
       const tab = document.querySelector('#tab-attachments').getBoundingClientRect()
-      const jobs = document.querySelector('#tab-jobs').getBoundingClientRect()
+      const before = document.querySelector('#tab-conditions').getBoundingClientRect()
       const panel = document.querySelector('#tabpanel-attachments')
       const list = panel.querySelector('[data-testid="slip-list"]').getBoundingClientRect()
       const preview = panel.querySelector('[data-region="slip-preview"]').getBoundingClientRect()
@@ -568,9 +568,9 @@ async function run() {
       const cell = th.getBoundingClientRect()
       const startGap = dir === 'rtl' ? cell.right - glyphs.right : glyphs.left - cell.left
       const endGap = dir === 'rtl' ? glyphs.left - cell.left : cell.right - glyphs.right
-      return { tabAfterJobs: after(tab, jobs), previewAfterList: after(preview, list), startGap, endGap }
+      return { tabAfterPrevious: after(tab, before), previewAfterList: after(preview, list), startGap, endGap }
     }, dir)
-    check(`${dir}: the Attachments tab sits after Jobs, at the tablist's end`, geo.tabAfterJobs)
+    check(`${dir}: the Attachments tab sits after Header Conditions, at the tablist's end`, geo.tabAfterPrevious)
     check(`${dir}: the preview sits after the file list, at the work area's end`, geo.previewAfterList)
     check(
       `${dir}: a list header hugs its cell's START (text-start, not text-left)`,

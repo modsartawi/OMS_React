@@ -64,3 +64,5 @@ tools/.deliveries-list-shots/
 tools/.document-actions-shots/
 # Delivery details header drive screenshots (tools/document-header-drive.mjs, ticket 402)
 tools/.document-header-shots/
+# Delivery details spine drive screenshots (tools/document-spine-drive.mjs, ticket 403)
+tools/.document-spine-shots/

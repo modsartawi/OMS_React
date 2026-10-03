@@ -27,6 +27,21 @@
     "due": "Due <amount>{{amount}}</amount>",
     "paid": "Paid"
   },
+  "spine": {
+    "ariaLabel": "Timeline and activity",
+    "future": "Steps still to come",
+    "past": "What has happened",
+    "now": "Now",
+    "earlierPass": "earlier pass",
+    "was": "was <value>{{value}}</value>",
+    "expected": "expected <window>{{window}}</window>",
+    "loading": "Loading the log and the background jobs…",
+    "rewind": {
+      "returned": "Returned by driver",
+      "rescheduled": "Rescheduled",
+      "courierChanged": "Courier changed"
+    }
+  },
   "load": {
     "loading": "Loading document…",
     "failed": "Could not load the document.",
@@ -239,14 +254,10 @@
     "ariaLabel": "Document sections",
     "rowCount_one": "{{count}} row",
     "rowCount_other": "{{count}} rows",
-    "failedCount_one": "{{count}} failed job",
-    "failedCount_other": "{{count}} failed jobs",
     "fileCount_one": "{{count}} file",
     "fileCount_other": "{{count}} files",
     "items": "Items",
     "conditions": "Header Conditions",
-    "log": "Log",
-    "jobs": "Jobs",
     "attachments": "Attachments"
   },
   "grid": {
@@ -264,12 +275,21 @@
     "empty": "This document has no header-level conditions."
   },
   "log": {
-    "empty": "No log entries for this document.",
-    "failed": "Could not load the document log."
+    "loadFailed": "Could not load the document log."
   },
   "jobs": {
-    "empty": "No background jobs for this document.",
-    "failed": "Could not load the background jobs."
+    "loadFailed": "Could not load the background jobs.",
+    "failed_one": "<handler>{{handler}}</handler> failed · <n>{{count}}</n> attempt",
+    "failed_other": "<handler>{{handler}}</handler> failed · <n>{{count}}</n> attempts",
+    "retrying": "failing, retrying automatically · attempt <n>{{n}}</n> · next <time>{{time}}</time>",
+    "retryingNoNext": "failing, retrying automatically · attempt <n>{{n}}</n>",
+    "state": {
+      "done_one": "Completed · <n>{{count}}</n> attempt",
+      "done_other": "Completed · <n>{{count}}</n> attempts",
+      "failed_one": "Failed · <n>{{count}}</n> attempt",
+      "failed_other": "Failed · <n>{{count}}</n> attempts",
+      "queued": "Queued"
+    }
   },
   "attachments": {
     "filedOnOrder": "Filed on order <order>{{documentNo}}</order>",
@@ -323,22 +343,7 @@
     "condAmount": "Cond Amount",
     "condDate": "Cond Date",
     "referenceNumber": "Reference Number",
-    "paymentType": "Payment Type",
-    "logNo": "Log No",
-    "actionType": "Action Type",
-    "entryTime": "Entry Time",
-    "actionData": "Action Data",
-    "actionOldData": "Action Old Data",
-    "staffId": "Staff Id",
-    "entryUser": "Entry User",
-    "note": "Note",
-    "outboxId": "Outbox Id",
-    "userId": "User Id",
-    "status": "Status",
-    "lastAttempt": "Last Attempt",
-    "nextAttempt": "Next Attempt",
-    "attempts": "Attempts",
-    "errorMessage": "Error Message"
+    "paymentType": "Payment Type"
   },
   "dialog": {
     "cancel": "Cancel"

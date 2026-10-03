@@ -1,5 +1,5 @@
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
-import type { SdDocumentHeaderModel } from '@/core/models/sd-document'
+import type { SdDocumentHeaderModel, SdDocumentLogModel } from '@/core/models/sd-document'
 import { deliveryWindow } from '@/core/oms/delivery-window'
 import { formatMoney } from '@/core/util/number-format'
 
@@ -12,8 +12,9 @@ import { formatMoney } from '@/core/util/number-format'
 //
 // A step is REACHED from the current status columns, never from a time or `statusHistory`.
 // Times are milestone times: on the list row they come from three row fields only; on Details
-// they will come from the Log (S4 extends the input). A reached step with no source shows no
-// time, never a guess.
+// from the Log (ticket 403: the latest row whose action type reached the step). A reached step
+// with no source shows no time, never a guess. Details' spine, which merges the Log with the
+// outbox jobs, is `timeline-feed.ts`.
 
 /** The four lifecycle steps, then the two that can replace the step a delivery stopped at. */
 export type TimelineStepKey = 'created' | 'ready' | 'out' | 'delivered' | 'requested' | 'cancelled'
@@ -68,7 +69,7 @@ export interface TimelineStep {
 const normCode = (value: string | null | undefined) => (value ?? '').trim().toUpperCase()
 
 /** A usable time: blank and the `0001-01-01` default are no time (369 §4). */
-function realTime(value: string | null | undefined): string | null {
+export function realTime(value: string | null | undefined): string | null {
   const v = (value ?? '').trim()
   return v && !v.startsWith('0001') ? v : null
 }
@@ -199,21 +200,107 @@ const REWIND_ACTIONS: Record<string, RewindKind> = {
   DCHC: 'courierChanged',
 }
 
+/** The Rewind a Log action type is, or null (369 §3). */
+export function rewindOfLogAction(actionType: string | null | undefined): RewindKind | null {
+  return REWIND_ACTIONS[normCode(actionType)] ?? null
+}
+
 /**
- * The document header's input (the Details variant). The rewind is named by `lastAction`.
- * It carries no times yet — so no marker shows either: on Details a time is the latest
- * matching Log row's, and S4 (402–403) extends this input with the Log.
+ * The Log action types that reach each step (369 §4). Only these date a step on Details: a
+ * reached step with no matching row shows no time. `statusHistory` (its time is hard-coded
+ * to MaxValue), `DeliveryDateTime`, `EstimateDeliveryTime` and `changedOn` never do.
  */
-export function timelineInputFromHeader(doc: SdDocumentHeaderModel): TimelineInput {
+const STEP_LOG_ACTIONS: Record<TimelineStepKey, readonly string[]> = {
+  created: ['DCRT'],
+  ready: ['DRDY', 'DTXC'],
+  out: ['DOFD'],
+  delivered: ['DDLR'],
+  requested: ['DRCL'],
+  cancelled: ['DCLS', 'DFCL', 'DCNI', 'DCAD'],
+}
+
+const STEP_KEYS = Object.keys(STEP_LOG_ACTIONS) as TimelineStepKey[]
+
+/** The step a Log action type reaches, or null. */
+export function stepOfLogAction(actionType: string | null | undefined): TimelineStepKey | null {
+  const code = normCode(actionType)
+  return STEP_KEYS.find((key) => STEP_LOG_ACTIONS[key].includes(code)) ?? null
+}
+
+/** An `entryTime` as a number to order by (a Log row or a job); no real time sorts before every other. */
+export function entryTimeValue(entryTime: string | null | undefined): number {
+  const time = realTime(entryTime)
+  const value = time ? Date.parse(time) : Number.NaN
+  return Number.isNaN(value) ? Number.NEGATIVE_INFINITY : value
+}
+
+/** `logNo` as a number where it is one, so `10` is after `9`. */
+function logNoValue(logNo: string | null | undefined): number {
+  const value = Number(logNo)
+  return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY
+}
+
+/** Ascending by time, then by log number: the later of two rows compares greater. */
+export function compareLogRows(a: SdDocumentLogModel, b: SdDocumentLogModel): number {
+  return entryTimeValue(a.entryTime) - entryTimeValue(b.entryTime) || logNoValue(a.logNo) - logNoValue(b.logNo)
+}
+
+/**
+ * The LATEST Log row that reached `step`, by its time and then its log number, never by the
+ * order the rows arrived in. A row with no real time cannot date a step, so it is skipped.
+ * After a rewind a step can be reached more than once: the latest pass is its milestone.
+ */
+export function latestLogFor(
+  logs: readonly SdDocumentLogModel[] | null | undefined,
+  step: TimelineStepKey,
+): SdDocumentLogModel | null {
+  return latestLogWhere(logs, (row) => stepOfLogAction(row.actionType) === step)
+}
+
+/** The latest Log row with a real time that `matches`, by `compareLogRows`. */
+function latestLogWhere(
+  logs: readonly SdDocumentLogModel[] | null | undefined,
+  matches: (row: SdDocumentLogModel) => boolean,
+): SdDocumentLogModel | null {
+  let latest: SdDocumentLogModel | null = null
+  for (const row of logs ?? []) {
+    if (!matches(row) || !realTime(row.entryTime)) continue
+    if (!latest || compareLogRows(row, latest) > 0) latest = row
+  }
+  return latest
+}
+
+/** Each step's milestone time from the Log: the `entryTime` of its latest matching row. */
+export function logStepTimes(logs: readonly SdDocumentLogModel[] | null | undefined): Partial<Record<TimelineStepKey, string>> {
+  const times: Partial<Record<TimelineStepKey, string>> = {}
+  for (const key of STEP_KEYS) {
+    const row = latestLogFor(logs, key)
+    if (row) times[key] = row.entryTime
+  }
+  return times
+}
+
+/**
+ * The document header's input (the Details variant, ticket 403). The rewind is named by
+ * `lastAction`. Times come from the Log only (369 §4): a step's time is the latest row whose
+ * action type reached it, and the rewind's is the latest row of its own type. Until the Log has
+ * loaded (`logs` null) there are no times, and so no marker either.
+ */
+export function timelineInputFromHeader(
+  doc: SdDocumentHeaderModel,
+  logs: readonly SdDocumentLogModel[] | null = null,
+): TimelineInput {
   const status = doc.status
-  const rewind = REWIND_ACTIONS[normCode(status?.lastAction)]
+  const rewindAction = normCode(status?.lastAction)
+  const rewind = rewindOfLogAction(rewindAction)
+  const rewindRow = rewind ? latestLogWhere(logs, (row) => normCode(row.actionType) === rewindAction) : null
   return {
     pickInStore: isPickInStore(doc.deliveryType),
     readyStatus: status?.readyStatus ?? '',
     deliveryStatus: status?.deliveryStatus ?? '',
     closeStatus: status?.closeStatus ?? '',
-    times: {},
-    rewind: rewind ? { kind: rewind, time: null } : null,
+    times: logStepTimes(logs),
+    rewind: rewind ? { kind: rewind, time: rewindRow?.entryTime ?? null } : null,
     slotWindow: deliveryWindow(doc),
   }
 }

@@ -432,7 +432,7 @@ async function run() {
     const tabs = await page.locator('[role="tab"]').evaluateAll((els) => els.map((e) => e.id))
     check(
       `hidden — ${name}: no Attachments tab and no panel`,
-      (await tab().count()) === 0 && (await panel().count()) === 0 && tabs.length === 4,
+      (await tab().count()) === 0 && (await panel().count()) === 0 && tabs.length === 2,
       tabs.join(','),
     )
     check(`hidden — ${name}: no ByOwner and no /Content`, byOwnerCalls.length === 0 && contentTotal() === 0, JSON.stringify(byOwnerCalls))
@@ -450,7 +450,7 @@ async function run() {
   await open(`/oms/document/${ORDER}`)
   await shot('loaded')
   const tabs = await page.locator('[role="tab"]').evaluateAll((els) => els.map((e) => e.id))
-  check('tab — Attachments is drawn, fifth and last', JSON.stringify(tabs) === JSON.stringify(['tab-items', 'tab-conditions', 'tab-log', 'tab-jobs', 'tab-attachments']), tabs.join(','))
+  check('tab — Attachments is drawn, third and last (Log and Jobs are the spine since 403)', JSON.stringify(tabs) === JSON.stringify(['tab-items', 'tab-conditions', 'tab-attachments']), tabs.join(','))
   check('tab — named "Attachments"', (await tab().innerText()).replace(/\s*\d+\s*$/, '').trim() === 'Attachments')
   check('badge — the model’s count before the list loads', (await badge().innerText()) === '3', await badge().innerText())
   check('badge — titled as files', (await tab().locator('span[title]').getAttribute('title')) === '3 files')
@@ -486,7 +486,7 @@ async function run() {
   check('switch away — the panel stays mounted (hidden), its list kept', (await panel().isHidden()) && (await panel().locator('tr[data-slip]').count()) === STORED.length)
   await selectTab()
   check('🔑 re-selection — NO new ByOwner', byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
-  await page.locator('#tab-log').click()
+  await page.locator('#tab-conditions').click()
   await selectTab()
   check('🔑 a third selection — still one ByOwner', byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
 
@@ -1118,7 +1118,7 @@ async function run() {
   await shot('withdraw-forbidden')
   await pick(UNAUDITED)
   check('bare 403 — …and from every other file', (await withdrawButton().count()) === 0)
-  await page.locator('#tab-log').click()
+  await page.locator('#tab-conditions').click()
   await selectTab()
   await pick(PDF)
   check('bare 403 — …after a tab switch', (await withdrawButton().count()) === 0)
@@ -1187,7 +1187,7 @@ async function run() {
   await showButton().click()
   await settle()
   check('🔑 files row — a second Show reads NONE', byOwnerCalls.length === 1 && (await panel().isVisible()), `${byOwnerCalls.length}`)
-  await page.locator('#tab-log').click()
+  await page.locator('#tab-conditions').click()
   await selectTab()
   check('🔑 files row — …nor does the tab after it', byOwnerCalls.length === 1, `${byOwnerCalls.length}`)
   await noRawKeys('order — files row')

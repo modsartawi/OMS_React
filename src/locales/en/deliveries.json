@@ -1,7 +1,39 @@
 {
   "title": "Delivery Documents",
-  "hitCount": "Hit Count: {{count}}",
   "emptyPrompt": "Set your filters above and select Load to search delivery documents.",
+  "lens": {
+    "heading": "Lenses",
+    "region": "Lenses and saved views",
+    "hint": "Narrow the loaded rows. No new search.",
+    "name": {
+      "all": "All",
+      "attention": "Needs attention",
+      "cancelRequested": "Cancellation requested",
+      "dawaaNow": "Dawaa Now",
+      "rescheduled": "Rescheduled"
+    },
+    "show": {
+      "all": "Show: All",
+      "attention": "Show: Needs attention",
+      "cancelRequested": "Show: Cancellation requested",
+      "dawaaNow": "Show: Dawaa Now",
+      "rescheduled": "Show: Rescheduled"
+    },
+    "count": {
+      "none": "—",
+      "exact": "{{count}}",
+      "atLeast": "{{count}}+"
+    },
+    "empty": "No loaded rows match this lens"
+  },
+  "gridBar": {
+    "rows_one": "<n>{{n}}</n> delivery",
+    "rows_other": "<n>{{n}}</n> deliveries",
+    "rowsAtLeast": "<n>{{n}}</n> deliveries",
+    "shown": "<shown>{{shown}}</shown> of <total>{{total}}</total> shown",
+    "clearFilters": "Clear grid filters",
+    "cut": "Showing the newest <limit>{{limit}}</limit>, there may be more. Narrow the search or raise the limit."
+  },
   "menu": {
     "oms": "OMS",
     "deliveries": "Delivery Documents"

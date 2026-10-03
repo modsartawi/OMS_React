@@ -315,6 +315,17 @@ async function driveOneMode({ theme, dir }) {
   )
 
   await page.getByRole('button', { name: /^load$/i }).click()
+  await page.waitForSelector('.ag-row', { timeout: 20000 })
+  // Since the views rail (398) the Reason column sits past column virtualisation at this width:
+  // scroll the grid toward its inline end until the column renders.
+  await page.evaluate(async () => {
+    const scroller = document.querySelector('.ag-body-horizontal-scroll-viewport')
+    const step = document.dir === 'rtl' ? -240 : 240
+    for (let i = 0; i < 20 && scroller && !document.querySelector('.ag-cell[col-id="documentReason"]'); i++) {
+      scroller.scrollBy({ left: step })
+      await new Promise((resolve) => setTimeout(resolve, 80))
+    }
+  })
   await page.waitForSelector(`.ag-cell >> text=${ARABIC_REASON}`, { timeout: 20000 })
   await page.evaluate(() => document.fonts.ready)
   await page.waitForTimeout(300)

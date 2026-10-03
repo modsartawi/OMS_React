@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { ExternalLink, FileSpreadsheet, PanelRight, Pin, Table2 } from 'lucide-react'
+import { ExternalLink, FileSpreadsheet, PanelRight, Pin, Table2, TriangleAlert } from 'lucide-react'
 import type { GridApi } from 'ag-grid-community'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import { takesEscape } from '@/core/commands/key-layer'
 import { useKeyHint } from '@/core/commands/key-hint'
 import { pinStart } from '@/core/theme/direction'
+import Ltr from '@/core/ui/Ltr'
 import { POPOVER } from '@/core/ui/overlay'
 import { INSPECTOR_ID } from './DeliveryInspector'
 import { exportDeliveriesToExcel } from './export'
 import { INSPECTOR_KEYS } from './inspector-pane'
+import type { RowPill } from './lenses'
+import { lensCountText } from './ViewsRail'
 import ViewManager from './ViewManager'
 
 /** One row of the column chooser — a column's current visibility and pin state. */
@@ -147,11 +150,6 @@ export default function GridToolbar({
         <ExternalLink className="h-3.5 w-3.5" aria-hidden />
         {t('toolbar.openDelivery')}
       </button>
-      <button type="button" className={BTN} disabled={!hasRows} onClick={exportExcel}>
-        <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
-        {t('toolbar.export')}
-      </button>
-
       <div className="relative" ref={popoverRef}>
         <button
           type="button"
@@ -202,6 +200,11 @@ export default function GridToolbar({
         )}
       </div>
 
+      <button type="button" className={BTN} disabled={!hasRows} onClick={exportExcel}>
+        <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden />
+        {t('toolbar.export')}
+      </button>
+
       <ViewManager gridApi={gridApi} />
     </div>
   )
@@ -230,5 +233,67 @@ export function InspectorToggle({ open, onToggle }: { open: boolean; onToggle: (
       <PanelRight className="h-3.5 w-3.5 rtl:-scale-x-100" aria-hidden />
       {t('inspector.toggle')}
     </button>
+  )
+}
+
+/**
+ * The grid bar's row summary (ticket 398, spec 380 L9; ruling 366): the row pill — the active
+ * lens's loaded rows ("5 deliveries", "200+ deliveries"), or "12 of 40 shown" plus *Clear grid
+ * filters* while column filters narrow the grid — then, when the page came back full, the
+ * cut-off line. Every number is one value, isolated once.
+ */
+export function RowSummary({
+  pill,
+  cut,
+  limit,
+  onClearFilters,
+}: {
+  pill: RowPill
+  cut: boolean
+  limit: number | null
+  onClearFilters: () => void
+}) {
+  const { t } = useTranslation('deliveries')
+  const total = lensCountText(t, pill.total)
+  return (
+    <span className="inline-flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs" data-row-summary="">
+      <span className="rounded-full bg-muted px-2 leading-[18px] text-muted-foreground" data-row-pill="">
+        {pill.key === 'rows' ? (
+          <Trans
+            t={t}
+            // A lower bound reads plural whatever its number ("1+ deliveries"); an exact count by its own.
+            i18nKey={pill.total.key === 'atLeast' ? 'gridBar.rowsAtLeast' : 'gridBar.rows'}
+            count={pill.total.key === 'exact' ? pill.total.count : undefined}
+            values={{ n: total }}
+            components={{ n: <Ltr /> }}
+          />
+        ) : (
+          <Trans
+            t={t}
+            i18nKey="gridBar.shown"
+            values={{ shown: String(pill.shown), total }}
+            components={{ shown: <Ltr />, total: <Ltr /> }}
+          />
+        )}
+      </span>
+      {pill.key === 'shown' && (
+        <button
+          type="button"
+          className="text-xs text-primary underline-offset-2 hover:underline"
+          data-clear-grid-filters=""
+          onClick={onClearFilters}
+        >
+          {t('gridBar.clearFilters')}
+        </button>
+      )}
+      {cut && limit !== null && (
+        <span className="inline-flex items-center gap-1 text-attention-800" data-cut-line="">
+          <TriangleAlert className="size-3 shrink-0" aria-hidden />
+          <span>
+            <Trans t={t} i18nKey="gridBar.cut" values={{ limit: String(limit) }} components={{ limit: <Ltr /> }} />
+          </span>
+        </span>
+      )}
+    </span>
   )
 }

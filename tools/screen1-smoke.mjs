@@ -57,9 +57,9 @@ check('grid renders rows after Load', rowCount > 0, `${rowCount} rows rendered`)
 const headerCount = await page.locator('.ag-header-cell[col-id]').count()
 check('grid header cells present (virtualized subset of 41)', headerCount > 0, `${headerCount} header cells in viewport`)
 
-// 7. Hit count matches rows returned
-const hit = await page.getByText(/Hit Count:/).textContent()
-check('Hit Count label rendered', /Hit Count:\s*\d+/.test(hit || ''), hit || '')
+// 7. The grid bar's row pill counts the rows returned (ticket 398 replaced "Hit Count")
+const hit = await page.locator('[data-row-pill]').textContent().catch(() => '')
+check('row pill rendered', /\d+\+? deliver(y|ies)/.test(hit || ''), hit || '')
 
 // 8. Floating filters exist
 const floating = await page.locator('.ag-floating-filter').count()

@@ -29,6 +29,19 @@
 //   - the separator sits on the inline-start edge: arrows step 16, Home/End, double-click resets,
 //     a drag resizes, and width + open/closed survive a reload; a malformed store reads 360, open.
 //
+// Ticket 398: the views rail's lenses (L1, L2, L7, L9, L17).
+//   - the 220px rail sits at the inline-start edge on `--card-2`; before a search every count
+//     reads "—";
+//   - after a search the counts are the loaded rows each lens matches, Needs attention's in
+//     danger ink while above 0; the pill reads "8 deliveries";
+//   - clicking a lens narrows the grid with NO request (asserted on the request log), takes the
+//     `--primary-050` ground and the `--cursor` bar, and changes no count;
+//   - a column filter shows "N of M shown" + Clear grid filters, and changes no count;
+//   - a lens with no loaded rows shows its empty state over a STILL-MOUNTED grid;
+//   - a full page (rows = Limit) reads "N+" on every lens and shows the cut-off line; "8+" is
+//     one ltr isolate with no invisible isolate characters;
+//   - "Show: Needs attention" from Ctrl+K applies the lens, with no key and no request.
+//
 // SIS.Api's delivery list needs a store grant a dev session does not have, so every `/api/**`
 // call is stubbed here, as in tools/grid-theme-drive.mjs. The RTL passes store
 // `oms.locale = ar` before boot (383); the chrome stays English and the DATA carries Arabic
@@ -136,7 +149,11 @@ const routeApi = (dir) => async (route) => {
     return route.fulfill(
       envelope({ authenticated: true, userId: 'msartawi', displayName: 'msartawi', currentStoreCode: '1017' }),
     )
-  if (path === 'SdDocumentWeb/DeliveryDocumentList') return route.fulfill(envelope(rows(dir)))
+  // 398: a search narrowed by store returns no failed rows, so Needs attention matches none.
+  if (path === 'SdDocumentWeb/DeliveryDocumentList')
+    return route.fulfill(
+      envelope(/[?&]StoreCode=/.test(url) ? rows(dir).filter((r) => !r.failedJobsCount) : rows(dir)),
+    )
   if (/^SdDocument\/(DocumentTypes|DocumentSources|DeliveryDocumentTypes)$/.test(path))
     return route.fulfill(envelope([]))
   // Delivery details after Enter / a double-click: a business "not found" is enough — the
@@ -318,6 +335,7 @@ async function drive({ theme, dir }) {
   await page.waitForTimeout(800)
 
   await inspectorChecks({ page, label, theme, dir, requests })
+  await lensChecks({ page, label, theme, dir, requests })
 
   check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 3).join(' | '))
   await context.close()
@@ -700,6 +718,244 @@ async function inspectorChecks({ page, label, theme, dir, requests }) {
     `${label}: J before a search toasts its reason`,
     (refusal ?? '').includes('There are no rows to step through yet'),
     `"${refusal}"`,
+  )
+}
+
+// ----- 398: the lenses ----------------------------------------------------------------------
+
+/** The rail's counts, in rail order, the active lens, the pill, the cut line and the rows shown. */
+async function lensState(page) {
+  return page.evaluate(() => ({
+    counts: [...document.querySelectorAll('[data-views-rail] [data-lens]')].map((b) => [
+      b.getAttribute('data-lens'),
+      b.querySelector('[data-lens-count]')?.textContent ?? '',
+    ]),
+    active: document.querySelector('[data-views-rail] [data-lens][aria-current="true"]')?.getAttribute('data-lens'),
+    pill: document.querySelector('[data-row-pill]')?.textContent ?? null,
+    cut: document.querySelector('[data-cut-line]')?.textContent ?? null,
+    shownNos: [...new Set([...document.querySelectorAll('.ag-row .ag-cell[col-id="deliveryNo"]')].map((c) => c.textContent.trim()))].sort(),
+  }))
+}
+
+const countsText = (state) => state.counts.map(([, c]) => c).join(' ')
+
+async function search(page) {
+  await page.getByRole('button', { name: /^load$/i }).first().click()
+  await page.waitForTimeout(900)
+}
+
+async function lensChecks({ page, label, theme, dir, requests }) {
+  const rtl = dir === 'rtl'
+  const listRequests = () => requests.filter((r) => r.startsWith('SdDocumentWeb/DeliveryDocumentList')).length
+
+  // 12. The rail, before any search: inline-start edge, 220px, --card-2, every count "—".
+  await page.reload()
+  await page.waitForSelector('[data-views-rail]', { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(200)
+  const rail = await page.evaluate(() => {
+    const nav = document.querySelector('[data-views-rail]')
+    const main = document.querySelector('main')?.getBoundingClientRect()
+    const r = nav?.getBoundingClientRect()
+    const probe = document.createElement('div')
+    probe.style.backgroundColor = 'var(--card-2)'
+    document.body.appendChild(probe)
+    const want = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    const style = nav ? getComputedStyle(nav) : null
+    return {
+      width: r?.width ?? 0,
+      left: Math.round((r?.left ?? -1) - (main?.left ?? 0)),
+      right: Math.round((main?.right ?? 0) - (r?.right ?? -1)),
+      ground: style?.backgroundColor === want,
+      endBorder: style ? parseFloat(document.dir === 'rtl' ? style.borderLeftWidth : style.borderRightWidth) : 0,
+    }
+  })
+  const before = await lensState(page)
+  check(
+    `${label}: the 220px views rail sits flush at the inline-start edge on --card-2 with an inline-end border`,
+    rail.width === 220 && (rtl ? rail.right === 0 : rail.left === 0) && rail.ground && rail.endBorder >= 1,
+    JSON.stringify(rail),
+  )
+  check(
+    `${label}: before a search every lens count reads "—", in rail order`,
+    JSON.stringify(before.counts.map(([id]) => id)) ===
+      JSON.stringify(['all', 'attention', 'cancelRequested', 'dawaaNow', 'rescheduled']) &&
+      countsText(before) === '— — — — —' &&
+      before.pill === null,
+    `${countsText(before)} · pill ${before.pill}`,
+  )
+
+  // 13. After a search: counts are the loaded rows each lens matches.
+  await search(page)
+  const loaded = await lensState(page)
+  const danger = await page.evaluate(() => {
+    const el = document.querySelector('[data-lens="attention"] [data-lens-count]')
+    const quiet = document.querySelector('[data-lens="all"] [data-lens-count]')
+    const probe = document.createElement('div')
+    probe.style.color = 'var(--danger-800)'
+    document.body.appendChild(probe)
+    const want = getComputedStyle(probe).color
+    probe.remove()
+    return { attention: getComputedStyle(el).color === want, all: getComputedStyle(quiet).color === want }
+  })
+  check(
+    `${label}: after a search the counts are the loaded rows each lens matches; the pill reads "8 deliveries"`,
+    countsText(loaded) === '8 1 1 1 1' && loaded.pill === '8 deliveries' && loaded.cut === null && loaded.active === 'all',
+    `${countsText(loaded)} · pill "${loaded.pill}" · cut ${loaded.cut} · active ${loaded.active}`,
+  )
+  check(
+    `${label}: Needs attention's count is danger ink while above 0, the others are not`,
+    danger.attention && !danger.all,
+    JSON.stringify(danger),
+  )
+
+  // 14. A lens narrows the grid with no request; the active row takes --primary-050 + --cursor.
+  const reqBefore = listRequests()
+  await page.locator('[data-lens="attention"]').click()
+  await page.waitForTimeout(300)
+  const attention = await lensState(page)
+  const look = await page.evaluate(() => {
+    const row = document.querySelector('[data-lens="attention"]')
+    const bar = row?.querySelector('span[aria-hidden]')
+    const tone = (expr) => {
+      const probe = document.createElement('div')
+      probe.style.backgroundColor = expr
+      document.body.appendChild(probe)
+      const v = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      return v
+    }
+    const rr = row.getBoundingClientRect()
+    const br = bar?.getBoundingClientRect()
+    return {
+      ground: getComputedStyle(row).backgroundColor === tone('var(--primary-050)'),
+      bar: !!bar && getComputedStyle(bar).backgroundColor === tone('var(--cursor)') && Math.round(br.width) === 3,
+      barAtStart: br ? (document.dir === 'rtl' ? Math.round(rr.right - br.right) : Math.round(br.left - rr.left)) : -1,
+    }
+  })
+  await page.screenshot({ path: `${SHOTS}/lens-${theme}-${dir}.png` })
+  await page.locator('[data-lens="rescheduled"]').click()
+  await page.waitForTimeout(300)
+  const rescheduled = await lensState(page)
+  const reqAfter = listRequests()
+  check(
+    `${label}: clicking a lens narrows the grid with NO request and changes no count`,
+    JSON.stringify(attention.shownNos) === '["80001203"]' &&
+      attention.pill === '1 delivery' &&
+      JSON.stringify(rescheduled.shownNos) === '["80001202"]' &&
+      countsText(attention) === '8 1 1 1 1' &&
+      reqAfter === reqBefore,
+    `attention ${attention.shownNos} "${attention.pill}" · rescheduled ${rescheduled.shownNos} · requests ${reqBefore}→${reqAfter}`,
+  )
+  check(
+    `${label}: the active lens takes the --primary-050 ground and a 3px --cursor bar on its inline-start edge`,
+    attention.active === 'attention' && look.ground && look.bar && look.barAtStart === 0,
+    JSON.stringify(look),
+  )
+
+  // 15. A column filter: "N of M shown" + Clear grid filters; the counts stay.
+  await page.locator('[data-lens="all"]').click()
+  const statusFilter = page.locator('.ag-floating-filter[col-id="status"] input')
+  await statusFilter.fill('cancel')
+  await page.waitForTimeout(1200)
+  const filtered = await lensState(page)
+  const clear = await page.locator('[data-clear-grid-filters]').count()
+  const shownIsolates = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-row-pill] bdi[dir="ltr"]')].map((b) => b.textContent),
+  )
+  await page.locator('[data-clear-grid-filters]').click().catch(() => {})
+  await page.waitForTimeout(600)
+  const cleared = await lensState(page)
+  const clearGone = (await page.locator('[data-clear-grid-filters]').count()) === 0
+  check(
+    `${label}: a column filter shows "3 of 8 shown" + Clear grid filters and changes no count; Clear restores "8 deliveries"`,
+    filtered.pill === '3 of 8 shown' &&
+      JSON.stringify(shownIsolates) === '["3","8"]' &&
+      clear === 1 &&
+      countsText(filtered) === '8 1 1 1 1' &&
+      cleared.pill === '8 deliveries' &&
+      clearGone,
+    `"${filtered.pill}" (${shownIsolates}) · clear ${clear} · ${countsText(filtered)} · after "${cleared.pill}"`,
+  )
+
+  // 16. A lens with no loaded rows: its empty state over a still-mounted grid.
+  await page.locator('#storeCode').fill('1017')
+  await search(page)
+  await page.locator('[data-lens="attention"]').click()
+  await page.waitForTimeout(400)
+  const empty = await page.evaluate(() => ({
+    text: document.querySelector('[data-lens-empty]')?.textContent ?? null,
+    grid: !!document.querySelector('.ag-root'),
+    agOverlay: [...document.querySelectorAll('.ag-overlay-wrapper')].some((o) => o.offsetParent !== null && o.textContent.trim() !== ''),
+    attentionCount: document.querySelector('[data-lens="attention"] [data-lens-count]')?.textContent,
+  }))
+  check(
+    `${label}: a lens with no loaded rows shows "No loaded rows match this lens" over a still-mounted grid`,
+    empty.text === 'No loaded rows match this lens' && empty.grid && !empty.agOverlay && empty.attentionCount === '0',
+    JSON.stringify(empty),
+  )
+  await page.screenshot({ path: `${SHOTS}/lens-empty-${theme}-${dir}.png` })
+  await page.locator('[data-lens="all"]').click()
+  await page.locator('#storeCode').fill('')
+
+  // 17. A full page (rows = Limit): "N+" on every lens and the cut-off line.
+  await page.locator('#limit').fill('8')
+  await search(page)
+  const cut = await lensState(page)
+  const plus = await page.evaluate(() => {
+    const bdi = document.querySelector('[data-lens="all"] [data-lens-count] bdi')
+    return {
+      dir: bdi?.getAttribute('dir'),
+      text: bdi?.textContent,
+      clean: ![...document.querySelectorAll('[data-views-rail], [data-row-summary]')].some((n) => /[\u2066-\u2069]/.test(n.textContent)),
+    }
+  })
+  check(
+    `${label}: a Limit-hit search reads "N+" on every lens, "8+ deliveries" and the cut-off line`,
+    countsText(cut) === '8+ 1+ 1+ 1+ 1+' &&
+      cut.pill === '8+ deliveries' &&
+      cut.cut === 'Showing the newest 8, there may be more. Narrow the search or raise the limit.',
+    `${countsText(cut)} · "${cut.pill}" · "${cut.cut}"`,
+  )
+  check(
+    `${label}: "8+" is one ltr isolate with no invisible isolate characters`,
+    plus.dir === 'ltr' && plus.text === '8+' && plus.clean,
+    JSON.stringify(plus),
+  )
+  await page.screenshot({ path: `${SHOTS}/lens-cut-${theme}-${dir}.png` })
+  // A lower bound reads plural whatever its number.
+  await page.locator('[data-lens="rescheduled"]').click()
+  await page.waitForTimeout(300)
+  const cutOne = await lensState(page)
+  check(`${label}: a lower bound of one reads "1+ deliveries"`, cutOne.pill === '1+ deliveries', `"${cutOne.pill}"`)
+  await page.locator('[data-lens="all"]').click()
+
+  // 18. The palette: "Show: Needs attention" applies the lens, with no key and no request.
+  const reqPalette = listRequests()
+  await page.locator('[data-lens="all"]').focus()
+  await page.keyboard.press('Control+k')
+  await page.waitForSelector('[data-palette-input]', { timeout: 5000 }).catch(() => {})
+  const rowsListed = await page.evaluate(() =>
+    ['all', 'attention', 'cancelRequested', 'dawaaNow', 'rescheduled'].map((id) => {
+      const row = document.querySelector(`[data-palette-row="screen:lens.${id}"]`)
+      return row ? `${row.textContent.trim()}|${row.querySelectorAll('kbd').length}` : null
+    }),
+  )
+  await page.locator('[data-palette-input]').fill('Show: Needs attention')
+  await page.waitForTimeout(150)
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(400)
+  const viaPalette = await lensState(page)
+  check(
+    `${label}: each lens is a "Show: ‹lens›" row in This screen with no key`,
+    rowsListed.every((r) => r && r.startsWith('Show: ') && r.endsWith('|0')) &&
+      rowsListed[1].startsWith('Show: Needs attention'),
+    rowsListed.join(' · '),
+  )
+  check(
+    `${label}: "Show: Needs attention" from Ctrl+K applies the lens with no request`,
+    viaPalette.active === 'attention' && JSON.stringify(viaPalette.shownNos) === '["80001203"]' && listRequests() === reqPalette,
+    `active ${viaPalette.active} · ${viaPalette.shownNos} · requests ${reqPalette}→${listRequests()}`,
   )
 }
 

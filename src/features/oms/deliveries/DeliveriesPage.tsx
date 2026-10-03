@@ -12,6 +12,8 @@ import type {
   FullWidthCellKeyDownEvent,
   GridApi,
   GridReadyEvent,
+  IRowNode,
+  ModelUpdatedEvent,
   RowDoubleClickedEvent,
   SelectionChangedEvent,
   StateUpdatedEvent,
@@ -27,9 +29,9 @@ import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
 import { deliveriesApi } from './api'
 import { buildDeliveryColumns, DELIVERY_DEFAULT_COL_DEF, DELIVERY_ROW_SELECTION } from './columns'
 import DeliveryInspector from './DeliveryInspector'
-import type { DeliveryFilterCriteria } from './filter'
+import { effectiveLimit, type DeliveryFilterCriteria } from './filter'
 import FilterPanel from './FilterPanel'
-import GridToolbar, { InspectorToggle } from './GridToolbar'
+import GridToolbar, { InspectorToggle, RowSummary } from './GridToolbar'
 import { detailsPathOf } from './inspector-model'
 import {
   INSPECTOR_KEYS,
@@ -41,7 +43,9 @@ import {
   serializeInspectorPrefs,
   type InspectorPrefs,
 } from './inspector-pane'
+import { isCut, LENS_IDS, lensCounts, lensIsEmpty, lensMatches, rowPill, type LoadedResult } from './lenses'
 import { deliveryRowKey, useDeliverySearch } from './search-store'
+import ViewsRail, { LENS_ICON } from './ViewsRail'
 
 /**
  * Screen 1 — Delivery Documents Inquiry.
@@ -64,18 +68,27 @@ import { deliveryRowKey, useDeliverySearch } from './search-store'
  * from the row alone. Selection follows focus, so ↓/↑ and J/K move ONE current row and the
  * inspector follows it; Enter (on the grid's `onCellKeyDown`, because AG Grid prevents Enter
  * on a cell) and a double-click open Delivery details.
+ *
+ * The views rail (ticket 398) sits at the inline-start edge. Its lenses narrow the LOADED rows
+ * through the grid's external filter, never the server, and their counts cover the whole loaded
+ * result, ignoring the grid's column filters (366). The grid bar's pill says what is shown.
  */
 export default function DeliveriesPage() {
   const { t } = useTranslation('deliveries')
   const navigate = useNavigate()
 
   const rows = useDeliverySearch((s) => s.rows)
+  const limit = useDeliverySearch((s) => s.limit)
   const error = useDeliverySearch((s) => s.error)
   const savedCriteria = useDeliverySearch((s) => s.criteria)
+  const lens = useDeliverySearch((s) => s.lens)
+  const setLens = useDeliverySearch((s) => s.setLens)
 
   const [gridApi, setGridApi] = useState<GridApi<DeliveryDocumentModel> | null>(null)
   const [selectedRow, setSelectedRow] = useState<DeliveryDocumentModel | null>(null)
   const [inspector, setInspector] = useState<InspectorPrefs>(readInspectorPrefs)
+  // What the grid shows once the lens and the column filters have narrowed it (the pill).
+  const [displayed, setDisplayed] = useState({ count: 0, columnFiltered: false })
 
   // Width and open/closed, remembered per browser (367 §4).
   useEffect(() => {
@@ -118,12 +131,12 @@ export default function DeliveriesPage() {
       setSelectedRow(null)
       useDeliverySearch.getState().beginSearch(criteria)
     },
-    onSuccess: (result) => {
+    onSuccess: (result, criteria) => {
       // No success toast. The outcome of a search is the most visible thing on
-      // the screen — the grid repaints and the hit count updates — so announcing
+      // the screen — the grid repaints and the row pill updates — so announcing
       // it says only what the operator just watched happen. Failures still toast:
       // that IS invisible (the grid keeps showing stale rows).
-      useDeliverySearch.getState().setResult(result)
+      useDeliverySearch.getState().setResult(result, effectiveLimit(criteria))
     },
     onError: (err: unknown) => {
       const message = apiErrorMessage(err, t('search.unexpected'))
@@ -201,6 +214,39 @@ export default function DeliveriesPage() {
     [openRow],
   )
 
+  // The lens is the grid's external filter. The grid reads it through a ref, so the filter
+  // callbacks stay stable and a lens change only asks the grid to filter again.
+  const lensRef = useRef(lens)
+  const isExternalFilterPresent = useCallback(() => lensRef.current !== 'all', [])
+  const doesExternalFilterPass = useCallback(
+    (node: IRowNode<DeliveryDocumentModel>) => !node.data || lensMatches(lensRef.current, node.data),
+    [],
+  )
+  useEffect(() => {
+    lensRef.current = lens
+    if (!gridApi) return
+    gridApi.onFilterChanged()
+    // A current row the lens hides is no longer on screen: the inspector lets it go too.
+    const selected = gridApi.getSelectedRows()[0]
+    if (selected && !lensMatches(lens, selected)) gridApi.deselectAll()
+  }, [gridApi, lens])
+
+  const onModelUpdated = useCallback((event: ModelUpdatedEvent<DeliveryDocumentModel>) => {
+    const count = event.api.getDisplayedRowCount()
+    const columnFiltered = event.api.isColumnFilterPresent()
+    setDisplayed((prev) =>
+      prev.count === count && prev.columnFiltered === columnFiltered ? prev : { count, columnFiltered },
+    )
+  }, [])
+
+  // The loaded result the lenses count: none before a search, and none while a failed search
+  // shows its error instead of the grid.
+  const loaded = useMemo<LoadedResult | null>(
+    () => (rows && limit !== null && !error ? { rows, limit } : null),
+    [rows, limit, error],
+  )
+  const counts = useMemo(() => lensCounts(loaded), [loaded])
+
   const toggleInspector = useCallback(() => setInspector((prefs) => ({ ...prefs, open: !prefs.open })), [])
   const hasRows = (rows?.length ?? 0) > 0
 
@@ -231,6 +277,13 @@ export default function DeliveriesPage() {
             keys: INSPECTOR_KEYS,
             run: toggleInspector,
           },
+          // "Show: ‹lens›" rows in This screen, with no key (368 §2). A lens never searches.
+          ...LENS_IDS.map((id) => ({
+            id: `lens.${id}`,
+            label: `deliveries:lens.show.${id}`,
+            icon: LENS_ICON[id],
+            run: () => setLens(id),
+          })),
         ]
       : [],
   )
@@ -268,12 +321,19 @@ export default function DeliveriesPage() {
     )
   }
 
-  /** Hit Count is the raw result length, NOT the post-filter count. */
-  const hitCount = rows?.length ?? 0
   const showResults = rows !== null && !error
+  const pill = rowPill(loaded, lens, { displayed: displayed.count, columnFiltered: displayed.columnFiltered })
+  const lensEmpty = lensIsEmpty(loaded, lens)
 
   return (
     <div className="flex">
+      <ViewsRail
+        lens={lens}
+        counts={counts}
+        onLens={setLens}
+        // Flush with the screen's inline-start and bottom edges, under the 44px top bar.
+        className="sticky top-11 -my-4 -ms-4 me-4 h-[calc(100dvh-2.75rem)] self-start"
+      />
       <section className="flex min-w-0 flex-1 flex-col gap-3">
         <FilterPanel
           loading={search.isPending}
@@ -283,8 +343,13 @@ export default function DeliveriesPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-base font-semibold tracking-tight">{t('title')}</h1>
-          {showResults && (
-            <GridToolbar gridApi={gridApi} selectedRow={selectedRow} hasRows={hitCount > 0} />
+          {pill && (
+            <RowSummary
+              pill={pill}
+              cut={isCut(loaded)}
+              limit={loaded?.limit ?? null}
+              onClearFilters={() => gridApi?.setFilterModel(null)}
+            />
           )}
           <div className="flex-1" />
           {search.isPending && (
@@ -294,7 +359,7 @@ export default function DeliveriesPage() {
             </span>
           )}
           {showResults && (
-            <span className="text-sm text-muted-foreground">{t('hitCount', { count: hitCount })}</span>
+            <GridToolbar gridApi={gridApi} selectedRow={selectedRow} hasRows={hasRows} />
           )}
           <InspectorToggle open={inspector.open} onToggle={toggleInspector} />
         </div>
@@ -317,7 +382,7 @@ export default function DeliveriesPage() {
           </div>
         ) : (
           // Prior rows stay visible while a re-search runs — the grid is not torn down.
-          <div className="h-[calc(100vh-16rem)] min-h-96">
+          <div className="relative h-[calc(100vh-16rem)] min-h-96">
             <AgGridReact<DeliveryDocumentModel>
               theme={omsGridTheme}
               rowData={rows}
@@ -335,7 +400,23 @@ export default function DeliveriesPage() {
               onCellFocused={onCellFocused}
               onCellKeyDown={onCellKeyDown}
               onRowDoubleClicked={onRowDoubleClicked}
+              onModelUpdated={onModelUpdated}
+              isExternalFilterPresent={isExternalFilterPresent}
+              doesExternalFilterPass={doesExternalFilterPass}
+              // The lens's own empty state stands in for the grid's "no matching rows".
+              suppressOverlays={lensEmpty ? ['noMatchingRows'] : undefined}
             />
+            {lensEmpty && (
+              // Over the grid, which stays mounted under it (368 §1).
+              <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center px-4">
+                <p
+                  className="rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground"
+                  data-lens-empty=""
+                >
+                  {t('lens.empty')}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </section>

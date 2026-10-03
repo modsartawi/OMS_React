@@ -48,6 +48,11 @@ function assignText(params: Record<string, unknown>, key: string, value: string 
   if (trimmed) params[key] = trimmed
 }
 
+/** The Limit a search runs with: a cleared/invalid value falls back to {@link DEFAULT_LIMIT}. */
+export function effectiveLimit(criteria: DeliveryFilterCriteria): number {
+  return criteria.limit && criteria.limit > 0 ? criteria.limit : DEFAULT_LIMIT
+}
+
 /**
  * Build the `GET SdDocumentWeb/DeliveryDocumentList` query from the panel value.
  *
@@ -63,7 +68,7 @@ function assignText(params: Record<string, unknown>, key: string, value: string 
 export function buildDeliveryQuery(criteria: DeliveryFilterCriteria): Record<string, unknown> {
   const params: Record<string, unknown> = {}
 
-  params['Limit'] = criteria.limit && criteria.limit > 0 ? criteria.limit : DEFAULT_LIMIT
+  params['Limit'] = effectiveLimit(criteria)
 
   if (criteria.fromDate && criteria.toDate) {
     params['FromDate'] = toIsoDate(criteria.fromDate)

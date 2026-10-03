@@ -162,6 +162,13 @@ const positives = [
   // The Deliveries Status column's *Cancellation requested* word (ticket 396, 368 §3) is the
   // indigo itself as ink, on the grid's `--card` rows.
   ['--fam-cancel-request', '--card', BODY],
+  // The Deliveries views rail (ticket 398, 368 §1) sits on `--card-2`, its active row on
+  // `--primary-050`: the heading and the lens counts are secondary ink, and Needs attention's
+  // count turns danger ink while it is above 0, on either ground.
+  ...['--card-2', '--primary-050'].flatMap((s) => [
+    ['--muted-foreground', s, BODY],
+    ['--danger-800', s, BODY],
+  ]),
   // R4's whole point: each `-800` is legible on its own `-050`, in BOTH themes,
   // from ONE class string. This is what lets the sweep delete every `dark:`.
   ...['primary', 'success', 'attention', 'danger', 'prescription', 'post'].map((f) => [

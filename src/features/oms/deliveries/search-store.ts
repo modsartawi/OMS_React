@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ColumnState, FilterModel } from 'ag-grid-community'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
 import type { DeliveryFilterCriteria } from './filter'
+import type { LensId } from './lenses'
 
 /**
  * Module-scoped store for the Screen 1 search (D-24 / R-8).
@@ -18,21 +19,28 @@ import type { DeliveryFilterCriteria } from './filter'
 interface DeliverySearchState {
   criteria: DeliveryFilterCriteria | null
   rows: DeliveryDocumentModel[] | null
+  /** The Limit the loaded `rows` ran with: a page this long may have been cut (366). */
+  limit: number | null
   error: string | null
+  /** The active lens (398): it narrows the loaded rows and survives a drill-down too. */
+  lens: LensId
   columnState: ColumnState[] | null
   filterModel: FilterModel | null
   selectedKey: string | null
   beginSearch: (criteria: DeliveryFilterCriteria) => void
-  setResult: (rows: DeliveryDocumentModel[]) => void
+  setResult: (rows: DeliveryDocumentModel[], limit: number) => void
   setError: (message: string) => void
   captureGridState: (columnState: ColumnState[], filterModel: FilterModel) => void
   setSelectedKey: (key: string | null) => void
+  setLens: (lens: LensId) => void
 }
 
 export const useDeliverySearch = create<DeliverySearchState>((set) => ({
   criteria: null,
   rows: null,
+  limit: null,
   error: null,
+  lens: 'all',
   columnState: null,
   filterModel: null,
   selectedKey: null,
@@ -42,10 +50,11 @@ export const useDeliverySearch = create<DeliverySearchState>((set) => ({
    * prior results while the new search runs.
    */
   beginSearch: (criteria) => set({ criteria, error: null, selectedKey: null }),
-  setResult: (rows) => set({ rows, error: null }),
+  setResult: (rows, limit) => set({ rows, limit, error: null }),
   setError: (message) => set({ error: message }),
   captureGridState: (columnState, filterModel) => set({ columnState, filterModel }),
   setSelectedKey: (selectedKey) => set({ selectedKey }),
+  setLens: (lens) => set({ lens }),
 }))
 
 /**

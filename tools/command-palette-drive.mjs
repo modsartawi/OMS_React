@@ -45,6 +45,12 @@
 // `?` in a text box types; the single-key switch (user menu and sheet) turns `?` off while
 // Ctrl+K keeps working; Esc closes the topmost layer first; the chord reads `Ctrl K` in RTL.
 //
+// …and, since ticket 394 (K9, D11): after opening two deliveries, Ctrl+K lists them under
+// Recent, newest first, and choosing one lands on its Details and moves it to the front; a
+// delivery the server does not find is not recorded; the store, keyed by the user id, holds
+// kind + number only; Recent hides while the detail grant is denied or pending, and shows
+// neither another user's store nor a malformed one.
+//
 //   DRIVE_PORT=5280 node tools/command-palette-drive.mjs
 import { createRequire } from 'node:module'
 import { mkdirSync, readFileSync } from 'node:fs'
@@ -566,6 +572,8 @@ const CORE_SHOTS = 'tools/.palette-core-shots'
 mkdirSync(CORE_SHOTS, { recursive: true })
 
 const JUMP_NO = '8000000174'
+// 394: one number the server does not know, so Recent can be shown not to record it.
+const MISSING_NO = '8999999999'
 const ARABIC_NAME = 'عميل تجريبي'
 
 const DELIVERY_ROW = (over) => ({
@@ -652,6 +660,8 @@ async function openCore({ theme = 'light', dir = 'ltr', oms = 'granted', path = 
         envelope([DELIVERY_ROW({}), DELIVERY_ROW({ deliveryNo: '80001237', documentNo: '1000000394' })]),
       )
     const doc = /^SdDocumentWeb\/(?:Document|Delivery)\/([^/]+)$/.exec(p)
+    if (doc && doc[1] === MISSING_NO)
+      return route.fulfill(envelope(null, { status: 404, success: false, message: 'Not found' }))
     if (doc) return route.fulfill(envelope(DOCUMENT_OF(doc[1])))
     // The print route's own read answers "not found": the page's state is not the subject.
     if (p.startsWith('CollectionWeb/Receipt/'))
@@ -997,6 +1007,169 @@ console.log('\nthe palette fails closed')
   release()
   await page.waitForSelector('[data-palette-group="jump"]', { timeout: 5000 }).catch(() => {})
   ok((await groupsShown(page)).includes('jump'), '…until it confirms, and then it appears')
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+
+/* ------------- 394: Recent — the last five numbers opened, per user ------------- */
+
+const RECENT_KEY = 'oms.palette.recent.v1:a.alharbi'
+const storedRecent = (page) => page.evaluate((key) => localStorage.getItem(key), RECENT_KEY)
+const recentShown = (page) =>
+  page.$$eval('[data-palette-group="recent"] [data-palette-row]', (els) => els.map((e) => e.dataset.paletteRow))
+const openDetails = async (page, no) => {
+  await page.goto(`${BASE}/oms/delivery/${no}`)
+  await page.waitForSelector('[data-crumb-record]')
+  await page.waitForLoadState('networkidle')
+}
+
+for (const mode of [
+  { theme: 'light', dir: 'ltr' },
+  { theme: 'dark', dir: 'ltr' },
+  { theme: 'light', dir: 'rtl' },
+]) {
+  const tag = `${mode.theme}/${mode.dir}`
+  console.log(`\nRecent — ${tag}`)
+  const { context, page, pageErrors } = await openCore({ ...mode, path: '/' })
+  await page.waitForSelector('[data-palette-field]')
+  ok((await page.evaluate(() => document.dir || 'ltr')) === mode.dir, `${tag}: the document is ${mode.dir}`)
+  ok((await storedRecent(page)) === null, `${tag}: a fresh browser has no Recent store`)
+
+  // A number the server does not find is never recorded.
+  await page.goto(`${BASE}/oms/delivery/${MISSING_NO}`)
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(200)
+  ok((await storedRecent(page)) === null, `${tag}: 🚩 a delivery that is NOT FOUND is not recorded`)
+
+  // Open two deliveries.
+  await openDetails(page, '80001238')
+  await openDetails(page, '80001237')
+  const raw = (await storedRecent(page)) ?? ''
+  ok(
+    raw ===
+      JSON.stringify([
+        { kind: 'delivery', no: '80001237' },
+        { kind: 'delivery', no: '80001238' },
+      ]),
+    `${tag}: the store, keyed by the user id, holds kind + number only, newest first`,
+  )
+  ok(!/0500000000|عميل|customer|mobile|otp/i.test(raw), `${tag}: 🚩 it never holds the customer or the mobile`)
+
+  await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  const groups = await groupsShown(page)
+  ok(
+    JSON.stringify(groups) === '["screen","recent","goto"]',
+    `${tag}: an empty box lists This screen, then Recent, then Go to (${groups.join(',')})`,
+  )
+  ok(
+    JSON.stringify(await recentShown(page)) === '["recent:delivery:80001237","recent:delivery:80001238"]',
+    `${tag}: Recent lists both deliveries, newest first`,
+  )
+  const heading = (await page.locator('#core-palette-group-recent').innerText()).trim()
+  ok(/^recent$/i.test(heading), `${tag}: under a "Recent" heading (${heading})`)
+  const value = await page.$eval('[data-palette-row="recent:delivery:80001238"] [data-palette-value]', (el) => ({
+    text: el.innerText,
+    isolated: !!el.querySelector('bdi[dir="ltr"]'),
+  }))
+  ok(value.text === '80001238' && value.isolated, `${tag}: each number is shown whole and isolated LTR`)
+  await page.screenshot({ path: `${CORE_SHOTS}/recent-${mode.theme}-${mode.dir}.png` })
+
+  // Choose the OLDER one: it lands on its Details page, and moves to the front.
+  for (let n = 0; n < 10 && (await aimedRow(page)) !== 'recent:delivery:80001238'; n++)
+    await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  await page.waitForURL('**/oms/delivery/80001238')
+  // The previous Details page's crumb is already there: wait for it to read the new number.
+  const landed = await page
+    .waitForFunction(() => document.querySelector('[data-crumb-record]')?.textContent?.trim() === '80001238', null, {
+      timeout: 5000,
+    })
+    .then(() => true)
+    .catch(() => false)
+  ok(landed, `${tag}: choosing a Recent row lands on its Delivery details`)
+  // D11: it is recorded once its header has loaded.
+  await page
+    .waitForFunction((key) => JSON.parse(localStorage.getItem(key) ?? '[]')[0]?.no === '80001238', RECENT_KEY, {
+      timeout: 5000,
+    })
+    .catch(() => {})
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  ok(
+    JSON.stringify(await recentShown(page)) === '["recent:delivery:80001238","recent:delivery:80001237"]',
+    `${tag}: re-opening a number moves it to the front, with no duplicate`,
+  )
+  await page.locator('[data-palette-input]').fill('80001237')
+  await page.waitForTimeout(100)
+  ok(
+    JSON.stringify(await recentShown(page)) === '["recent:delivery:80001237"]',
+    `${tag}: a typed number narrows Recent to the record that IS that number`,
+  )
+  await page.locator('[data-palette-input]').fill('8000123')
+  await page.waitForTimeout(100)
+  ok(
+    !(await groupsShown(page)).includes('recent') && (await aimedRow(page)) === 'jump:delivery',
+    `${tag}: 🚩 a number that is only part of a recent one leaves Recent out — Enter jumps to what was typed`,
+  )
+  await escape(page)
+
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+
+console.log('\nRecent is gated by the CURRENT grants, and per user')
+/** This user's store, and a FOREIGN one under another user's key. */
+const seedRecent = (page, mine) =>
+  page.evaluate(
+    ([key, list]) => {
+      localStorage.setItem(key, JSON.stringify(list))
+      localStorage.setItem('oms.palette.recent.v1:m.saleh', JSON.stringify([{ kind: 'delivery', no: '80009999' }]))
+    },
+    [RECENT_KEY, mine],
+  )
+{
+  const { context, page, pageErrors } = await openCore({ oms: 'noDetail', path: '/' })
+  await page.waitForSelector('[data-palette-field]')
+  await seedRecent(page, [{ kind: 'delivery', no: '80001238' }])
+  await page.waitForTimeout(300)
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  ok(!(await groupsShown(page)).includes('recent'), '🚩 without canOpenDetail the Recent group is hidden')
+  await escape(page)
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+{
+  const { context, page, pageErrors, release } = await openCore({ oms: 'held', path: '/' })
+  await page.waitForSelector('[data-palette-field]')
+  await seedRecent(page, [{ kind: 'document', no: '1000000393' }])
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  await page.waitForTimeout(150)
+  ok(!(await groupsShown(page)).includes('recent'), '🚩 a PENDING probe hides Recent…')
+  release()
+  await page.waitForSelector('[data-palette-group="recent"]', { timeout: 5000 }).catch(() => {})
+  ok(
+    JSON.stringify(await recentShown(page)) === '["recent:document:1000000393"]',
+    '…until it confirms; then only THIS user’s record shows — never another user’s',
+  )
+  await page.locator('[data-palette-row="recent:document:1000000393"]').click()
+  await page.waitForURL('**/oms/document/1000000393')
+  ok(page.url().endsWith('/oms/document/1000000393'), 'a Recent document row lands on its Document details')
+  allErrors.push(...pageErrors)
+  await context.close()
+}
+{
+  const { context, page, pageErrors } = await openCore({ path: '/' })
+  await page.waitForSelector('[data-palette-field]')
+  await page.evaluate((key) => localStorage.setItem(key, '[{"kind":"delivery",'), RECENT_KEY)
+  await page.waitForTimeout(300)
+  await ctrlK(page)
+  await page.waitForSelector('[data-palette]')
+  ok(!(await groupsShown(page)).includes('recent'), '🚩 a malformed store reads as empty, and nothing throws')
+  await escape(page)
   allErrors.push(...pageErrors)
   await context.close()
 }

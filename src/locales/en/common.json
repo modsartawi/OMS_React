@@ -43,6 +43,7 @@
     "empty": "Nothing matches.",
     "group": {
       "screen": "This screen",
+      "recent": "Recent",
       "goto": "Go to",
       "jump": "Jump to number"
     },

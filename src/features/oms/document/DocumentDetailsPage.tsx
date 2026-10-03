@@ -11,6 +11,7 @@ import { OMS_ACCESS_KEY, omsAccessApi } from '@/core/oms/api'
 import { canOpenCentralInvoice, centralInvoiceAccessQuery } from '@/core/central-invoice/api'
 import CentralInvoiceDialog from '@/core/central-invoice/CentralInvoiceDialog'
 import { notify } from '@/core/services/notify'
+import { recordRecent } from '@/core/commands/recent'
 import type {
   SdDocumentHeaderModel,
   SdDocumentLogModel,
@@ -196,6 +197,9 @@ export default function DocumentDetailsPage({ openedAs }: { openedAs: OpenedAs }
         if (cancelled) return
         setDocument(doc)
         setDocumentLoading(false)
+        // D11: the palette's Recent remembers the number opened, only once its header has
+        // loaded — a record that is not found or is denied never gets here.
+        recordRecent({ kind: openedAs, no: routeId })
         // Logs and Jobs load AFTER the document renders — never block the page.
         void loadLogs(doc.documentNo)
         void loadJobs(doc.documentNo)

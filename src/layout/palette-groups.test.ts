@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { commandRow, type PaletteRow } from '@/core/commands/palette-model'
+import type { RecentRecord } from '@/core/commands/recent'
 import { accessProbe, type ShellMenuItem } from './menu-model'
 import { resolveMenu, type ProbeState } from './useVisibleMenu'
 import { gotoRows, paletteGroups } from './palette-groups'
@@ -49,11 +50,13 @@ const compose = (o: {
   query?: string
   commands?: Parameters<typeof commandRow>[0][]
   singleKeyScreen?: boolean
+  recent?: RecentRecord[]
 }) =>
   paletteGroups({
     commands: o.commands ?? [],
     singleKeyScreen: o.singleKeyScreen ?? false,
     openShortcuts,
+    recent: o.recent ?? [],
     menu: resolveMenu(MENU, o.probes ?? ALL).items,
     detail: o.detail ?? granted({ canOpenList: true, canOpenDetail: true }),
     query: o.query ?? '',
@@ -75,6 +78,7 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
       menu: [{ labelKey: 'history of 8000000174', routerLink: '/x' }],
       singleKeyScreen: false,
       openShortcuts,
+      recent: [],
       detail: granted({ canOpenDetail: true }),
       query: '8000000174',
       textOf,
@@ -95,6 +99,7 @@ describe('paletteGroupsComposeInOrderAndFailClosed', () => {
       menu: [],
       singleKeyScreen: false,
       openShortcuts,
+      recent: [],
       detail: granted({ canOpenDetail: true }),
       query: '8000000174',
       textOf,
@@ -160,6 +165,7 @@ describe('This screen and its keys (ticket 393)', () => {
       commands: [{ id: 'export', label: 'export', run: () => {} }],
       singleKeyScreen: false,
       openShortcuts: () => opened++,
+      recent: [],
       menu: [],
       detail: errored,
       query: '',
@@ -221,5 +227,85 @@ describe('gotoRows', () => {
     const went: string[] = []
     gotoRows(resolveMenu(MENU, ALL).items, (to) => went.push(to))[1].run?.()
     expect(went).toEqual(['/oms/central-invoices'])
+  })
+})
+
+describe('recentRefiltersByCurrentGrants', () => {
+  const RECENT: RecentRecord[] = [
+    { kind: 'delivery', no: '8000000175' },
+    { kind: 'document', no: '1000000393' },
+  ]
+
+  it('with the detail grant, Recent sits between This screen and Go to, newest first', () => {
+    const groups = compose({ recent: RECENT })
+    expect(ids(groups)).toEqual(['screen', 'recent', 'goto'])
+    const recent = groups.find((g) => g.id === 'recent')!.rows
+    expect(recent.map((r) => [r.id, r.label, r.value])).toEqual([
+      ['recent:delivery:8000000175', 'common:palette.jump.delivery', '8000000175'],
+      ['recent:document:1000000393', 'common:palette.jump.document', '1000000393'],
+    ])
+  })
+
+  it('choosing a row navigates to its route, where the page applies its own gate', () => {
+    const went: string[] = []
+    const rows = paletteGroups({
+      commands: [],
+      singleKeyScreen: false,
+      openShortcuts,
+      recent: RECENT,
+      menu: [],
+      detail: granted({ canOpenDetail: true }),
+      query: '',
+      textOf,
+      navigate: (to) => went.push(to),
+    }).find((g) => g.id === 'recent')!.rows
+    rows.forEach((r) => r.run?.())
+    expect(went).toEqual(['/oms/delivery/8000000175', '/oms/document/1000000393'])
+  })
+
+  it('a typed number narrows Recent to the record that IS that number', () => {
+    const recent = compose({ recent: RECENT, query: '8000000175' }).find((g) => g.id === 'recent')!.rows
+    expect(recent.map((r) => r.id)).toEqual(['recent:delivery:8000000175'])
+  })
+
+  it('a number typed on an Arabic layout finds its Recent record', () => {
+    const recent = compose({ recent: RECENT, query: '٨٠٠٠٠٠٠١٧٥' }).find((g) => g.id === 'recent')?.rows ?? []
+    expect(recent.map((r) => r.id)).toEqual(['recent:delivery:8000000175'])
+  })
+
+  it('🚩 a number that is only PART of a recent one leaves Recent out, so Enter jumps to what was typed', () => {
+    const groups = compose({ recent: RECENT, query: '800000017' })
+    expect(ids(groups)).toEqual(['jump'])
+    expect(groups[0].rows[0].id).toBe('jump:delivery')
+  })
+
+  it('words narrow Recent like any group', () => {
+    const textOfLabel = (row: PaletteRow) => `${row.label} ${row.value ?? ''}`
+    const rows = paletteGroups({
+      commands: [],
+      singleKeyScreen: false,
+      openShortcuts,
+      recent: RECENT,
+      menu: [],
+      detail: granted({ canOpenDetail: true }),
+      query: 'jump.document',
+      textOf: textOfLabel,
+      navigate,
+    }).flatMap((g) => g.rows)
+    expect(rows.map((r) => r.id)).toEqual(['recent:document:1000000393'])
+  })
+
+  // K12: re-filtered by the CURRENT grants — a revoked, pending or errored one hides the history.
+  it.each([
+    ['denied', granted({ canOpenList: true, canOpenDetail: false })],
+    ['pending', pending],
+    ['errored', errored],
+    ['malformed', granted({ canOpenDetail: 'yes' })],
+  ])('🚩 a %s detail grant hides Recent whole', (_, detail) => {
+    expect(ids(compose({ recent: RECENT, detail }))).not.toContain('recent')
+  })
+
+  it('an empty store shows no Recent group', () => {
+    expect(ids(compose({ recent: [] }))).toEqual(['screen', 'goto'])
   })
 })

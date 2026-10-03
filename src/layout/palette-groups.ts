@@ -10,12 +10,16 @@
  * - **Jump to number** yields *Open delivery N* and *Open document N*, which navigate
  *   straight to the existing routes with no read (K11); the destination page answers
  *   not-found or denied. It lands on Delivery details, so it follows **`canOpenDetail`**.
+ * - **Recent** (394, K9) is the last five numbers opened through Delivery details, read
+ *   from `@/core/commands/recent`. Every row lands on Delivery details too, so the group
+ *   follows **`canOpenDetail`**, re-read on every open: a revoked grant hides the history.
  *
  * 🚩 **Pending or errored probes fail closed** (K12): the group is hidden until the probe
  * confirms. The palette only hides; the server's grant filters stay the boundary.
  */
-import { FileText, Truck } from 'lucide-react'
+import { FileText, Truck, type LucideIcon } from 'lucide-react'
 import { bindKeys } from '@/core/commands/keys'
+import type { RecentKind, RecentRecord } from '@/core/commands/recent'
 import {
   composePalette,
   jumpNumberOf,
@@ -63,28 +67,60 @@ export function detailGranted(probe: ProbeState): boolean {
   return data?.canOpenDetail === true
 }
 
-/** The two Jump rows for a typed number, or none. */
-export function jumpRows(query: string, navigate: (to: string) => void): PaletteRow[] {
-  const n = jumpNumberOf(query)
-  if (n === null) return []
-  const row = (kind: 'delivery' | 'document', icon: typeof Truck): PaletteRow => ({
-    id: `jump:${kind}`,
-    group: 'jump',
+/** Each record kind's icon — the same on its Jump row and its Recent row. */
+const KIND_ICON: Readonly<Record<RecentKind, LucideIcon>> = { delivery: Truck, document: FileText }
+
+/**
+ * *Open delivery N* / *Open document N* — the row that navigates straight to a record's
+ * route, where the page answers not-found or denied. Jump and Recent both draw it, so a
+ * Recent row reads exactly like the Jump row for the same number.
+ */
+function openRecordRow(
+  id: string,
+  group: 'jump' | 'recent',
+  { kind, no }: RecentRecord,
+  navigate: (to: string) => void,
+): PaletteRow {
+  return {
+    id,
+    group,
     label: `common:palette.jump.${kind}`,
     context: null,
-    value: n,
-    icon,
+    value: no,
+    icon: KIND_ICON[kind],
     enabled: true,
     reason: null,
-    run: () => navigate(`/oms/${kind}/${n}`),
-  })
-  return [row('delivery', Truck), row('document', FileText)]
+    run: () => navigate(`/oms/${kind}/${no}`),
+  }
+}
+
+/** The two Jump rows for a typed number, or none. */
+export function jumpRows(query: string, navigate: (to: string) => void): PaletteRow[] {
+  const no = jumpNumberOf(query)
+  if (no === null) return []
+  return (['delivery', 'document'] as const).map((kind) => openRecordRow(`jump:${kind}`, 'jump', { kind, no }, navigate))
+}
+
+/** The Recent rows, newest first: each reopens its own route, where the page applies its own gate. */
+export function recentRows(records: readonly RecentRecord[], navigate: (to: string) => void): PaletteRow[] {
+  return records.map((record) => openRecordRow(`recent:${record.kind}:${record.no}`, 'recent', record, navigate))
 }
 
 /**
- * This screen → Go to → Jump, each behind its gate. This screen is the mounted page's
- * commands (hidden ones aside), each hinting the key it is bound to, then the row that
- * opens the shortcuts sheet (393).
+ * The records a query keeps. A typed NUMBER keeps only the record that IS that number:
+ * Recent sits above Jump and the first row is aimed, so a recent `80001237` must not
+ * take `Enter` from someone who typed `8000123` to jump there. Words are left to the
+ * palette's own filter.
+ */
+export function recentNarrowedByNumber(records: readonly RecentRecord[], query: string): readonly RecentRecord[] {
+  const n = jumpNumberOf(query)
+  return n === null ? records : records.filter((record) => record.no === n)
+}
+
+/**
+ * This screen → Recent → Go to → Jump, each behind its gate. This screen is the mounted
+ * page's commands (hidden ones aside), each hinting the key it is bound to, then the row
+ * that opens the shortcuts sheet (393).
  */
 export function paletteGroups(input: {
   commands: readonly Command[]
@@ -92,6 +128,8 @@ export function paletteGroups(input: {
   singleKeyScreen: boolean
   /** Opens the shortcuts sheet. */
   openShortcuts: () => void
+  /** The signed-in user's Recent store, newest first (`loadRecent`). */
+  recent: readonly RecentRecord[]
   /** `useVisibleMenu(MENU).items` — what the rail draws. */
   menu: readonly ShellMenuItem[]
   /** The OMS access probe (`OMS_ACCESS_KEY`), as react-query reports it. */
@@ -100,13 +138,16 @@ export function paletteGroups(input: {
   textOf: (row: PaletteRow) => string
   navigate: (to: string) => void
 }): PaletteGroup[] {
+  // Recent and Jump both land on Delivery details; a pending or errored probe hides both.
+  const detail = detailGranted(input.detail)
   return composePalette({
     screen: [
       ...screenRows(input.commands, bindKeys(input.commands, { singleKeyScreen: input.singleKeyScreen })),
       shortcutsRow(input.openShortcuts, { singleKeyScreen: input.singleKeyScreen }),
     ],
+    recent: detail ? recentRows(recentNarrowedByNumber(input.recent, input.query), input.navigate) : [],
     goto: gotoRows(input.menu, input.navigate),
-    jump: detailGranted(input.detail) ? jumpRows(input.query, input.navigate) : [],
+    jump: detail ? jumpRows(input.query, input.navigate) : [],
     query: input.query,
     textOf: input.textOf,
   })

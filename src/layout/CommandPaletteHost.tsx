@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useMatches, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import CommandPalette from '@/core/commands/CommandPalette'
@@ -7,9 +7,11 @@ import { reportRefusals, useKeyLayer } from '@/core/commands/key-layer'
 import { bindKeys } from '@/core/commands/keys'
 import { closePalette, paletteOrigin, returnPaletteFocus, usePalette, usePaletteHost } from '@/core/commands/palette-store'
 import { singleKeyScreenOf, type PaletteRow } from '@/core/commands/palette-model'
+import { loadRecent } from '@/core/commands/recent'
 import { useRegisteredCommands } from '@/core/commands/registry'
 import { openShortcuts } from '@/core/commands/shortcuts-sheet'
 import { omsAccessQuery } from '@/core/oms/api'
+import { useSession } from '@/core/session'
 import { MENU } from './menu-model'
 import { paletteGroups } from './palette-groups'
 import { useVisibleMenu } from './useVisibleMenu'
@@ -21,8 +23,8 @@ const openShortcutsFromPalette = () => openShortcuts(paletteOrigin())
  * The app-wide palette's host (ticket 392, spec 380 K7): mounted once by `ProtectedLayout`
  * on every signed-in route that does not opt out, so it reaches chromeless screens too.
  * It binds the key layer for as long as it is mounted (393: Ctrl+K, `?` and every mounted
- * command's `keys`), composes the groups — the mounted page's commands, the rail's own
- * menu, the detail grant — into the core palette, and hosts the shortcuts sheet.
+ * command's `keys`), composes the groups — the mounted page's commands, the user's Recent,
+ * the rail's own menu, the detail grant — into the core palette, and hosts the shortcuts sheet.
  *
  * Both reads are the ones the rail already makes, on the same keys and options, so the
  * palette costs no request of its own: `useVisibleMenu` is the rail's call, and the OMS
@@ -39,6 +41,9 @@ export default function CommandPaletteHost() {
   const commands = useRegisteredCommands()
   const menu = useVisibleMenu(MENU)
   const detail = useQuery(omsAccessQuery())
+  // K9: the signed-in user's Recent, re-read on every open — Details records while it is shut.
+  const userId = useSession((s) => s.userId)
+  const recent = useMemo(() => (open ? loadRecent(userId) : []), [open, userId])
 
   // K3: a refused key is a dev-time error, raised once per refusal.
   useEffect(() => reportRefusals(bindKeys(commands, { singleKeyScreen }).refused), [commands, singleKeyScreen])
@@ -48,6 +53,7 @@ export default function CommandPaletteHost() {
       commands,
       singleKeyScreen,
       openShortcuts: openShortcutsFromPalette,
+      recent,
       menu: menu.items,
       detail,
       query,

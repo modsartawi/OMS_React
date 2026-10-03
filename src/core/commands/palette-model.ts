@@ -21,13 +21,14 @@ import { Keyboard, type LucideIcon } from 'lucide-react'
 import { highlightedIndex, type HighlightState } from './highlight'
 import { boundKeysOf, SHEET_KEYS, type KeyBindings } from './keys'
 
-/** The groups, in the one order they are listed (K8). Recent (394) joins after `screen`. */
-export type PaletteGroupId = 'screen' | 'goto' | 'jump'
-export const PALETTE_GROUP_ORDER: readonly PaletteGroupId[] = ['screen', 'goto', 'jump']
+/** The groups, in the one order they are listed (K8): This screen → Recent → Go to, then Jump. */
+export type PaletteGroupId = 'screen' | 'recent' | 'goto' | 'jump'
+export const PALETTE_GROUP_ORDER: readonly PaletteGroupId[] = ['screen', 'recent', 'goto', 'jump']
 
 /** Each group's heading. */
 export const PALETTE_GROUP_LABEL: Readonly<Record<PaletteGroupId, string>> = {
   screen: 'common:palette.group.screen',
+  recent: 'common:palette.group.recent',
   goto: 'common:palette.group.goto',
   jump: 'common:palette.group.jump',
 }
@@ -133,24 +134,26 @@ export interface PaletteGroup {
 
 /**
  * Rows whose rendered words contain the query. The labels are keys, so the caller
- * resolves them (`textOf`) — this module never translates.
+ * resolves them (`textOf`) — this module never translates. Digits are folded on both
+ * sides, so a number typed on an Arabic layout finds the row that shows it (394's Recent).
  */
 export function filterRows(rows: readonly PaletteRow[], query: string, textOf: (row: PaletteRow) => string) {
-  const needle = query.trim().toLowerCase()
+  const needle = foldDigits(query.trim()).toLowerCase()
   if (needle === '') return [...rows]
-  return rows.filter((row) => textOf(row).toLowerCase().includes(needle))
+  return rows.filter((row) => foldDigits(textOf(row)).toLowerCase().includes(needle))
 }
 
 /**
- * The groups, in K8's order, with an emptied group dropped. This screen and Go to are
- * narrowed by the typed words; the Jump rows are not — they ARE the typed number, so
- * filtering them by it would be circular.
+ * The groups, in K8's order, with an emptied group dropped. This screen, Recent and Go to
+ * are narrowed by the typed words (a Recent row's number among them); the Jump rows are
+ * not — they ARE the typed number, so filtering them by it would be circular.
  *
  * Each group arrives already gated by its composer (K12), so nothing here decides who
  * may see what.
  */
 export function composePalette(input: {
   screen: readonly PaletteRow[]
+  recent: readonly PaletteRow[]
   goto: readonly PaletteRow[]
   jump: readonly PaletteRow[]
   query: string
@@ -158,6 +161,7 @@ export function composePalette(input: {
 }): PaletteGroup[] {
   const rows: Record<PaletteGroupId, PaletteRow[]> = {
     screen: filterRows(input.screen, input.query, input.textOf),
+    recent: filterRows(input.recent, input.query, input.textOf),
     goto: filterRows(input.goto, input.query, input.textOf),
     jump: [...input.jump],
   }

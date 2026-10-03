@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 380
 blocked-by: 392
 ---
@@ -33,14 +33,14 @@ load; `layout/` composes the group) · i18n (`common:palette.recent`) · test
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `recentKeepsFiveNewestNumbersOnly`: pushing 7 numbers keeps the newest 5 in order, and a
+- [x] `recentKeepsFiveNewestNumbersOnly`: pushing 7 numbers keeps the newest 5 in order, and a
   re-push moves a number to the front with no duplicate. The stored value holds only kind + number
   · pure
-- [ ] `recentParseIsDefensiveAndPerUser`: a malformed JSON value, a wrong shape or another user's key
+- [x] `recentParseIsDefensiveAndPerUser`: a malformed JSON value, a wrong shape or another user's key
   each read as an empty list · pure
-- [ ] `recentRefiltersByCurrentGrants`: with `canOpenDetail` denied or pending, the group is
+- [x] `recentRefiltersByCurrentGrants`: with `canOpenDetail` denied or pending, the group is
   empty/hidden · pure
-- [ ] `tools/command-palette-drive.mjs`, extended. After opening two deliveries, Ctrl+K lists them
+- [x] `tools/command-palette-drive.mjs`, extended. After opening two deliveries, Ctrl+K lists them
   under Recent, newest first, and choosing one lands on its Details page · flow (Playwright)
 
 ## Boundaries
@@ -58,3 +58,42 @@ and the drive are green.
 ## Blocked by
 
 [392](392-ctrl-k-opens-one-palette-with-go-to-and-jump.md).
+
+## Comments
+
+**Built 2026-10-03 (AFK).**
+
+- **Store** — `@/core/commands/recent.ts`: pure `pushRecent` (newest first, cap 5, a re-push moves
+  to the front), `parseRecent` (malformed JSON, a wrong shape or an older shape → `[]`, never a
+  throw; every record rebuilt from `kind` + `no` only), `readRecent` / `recordRecentIn` over an
+  injected `Storage`, and two thin edges: `recordRecent` (the signed-in user from the session) and
+  `loadRecent(userId)`. Key `oms.palette.recent.v1:<userId>`; no user → nothing read or written.
+- **Recording (D11)** — `DocumentDetailsPage` calls `recordRecent({ kind: openedAs, no: routeId })`
+  in the header load's success branch only, so a not-found or denied record never gets there. It
+  imports `@/core/commands/recent`, not `layout/`.
+- **Group** — `recent` sits in `PALETTE_GROUP_ORDER` between `screen` and `goto`.
+  `layout/palette-groups.ts` builds the rows (*Open delivery N* / *Open document N*, sharing one
+  row builder with Jump) behind the same `canOpenDetail` gate as Jump, so a pending, errored,
+  denied or malformed probe hides the group. The host re-reads the store on every open.
+- **Found while building:** Recent sits above Jump and the first row is aimed, so a substring
+  match would let a recent `80001237` take Enter from someone who typed `8000123`. A typed
+  number therefore keeps only the Recent record that IS that number (`recentNarrowedByNumber`).
+  `/code-review` then found that an Arabic-Indic number was folded for that match but dropped
+  by the word filter. `filterRows` now folds digits on both sides for every group.
+- **Proof:** the three pure suites (`src/core/commands/recent.test.ts`, the
+  `recentRefiltersByCurrentGrants` block in `src/layout/palette-groups.test.ts`, plus a K8 order
+  case in `palette-model.test.ts`). `npm test` 183 files / 3314 tests. Typecheck, lint (all four
+  gates) and build are green. `command-palette-drive` passes **244/244**: in light, dark and RTL,
+  opening two deliveries lists them under Recent newest first; choosing the older one lands on its
+  Details and moves it to the front; a 404 delivery is not recorded; the store holds kind and
+  number only; a partial number leaves Recent out. Recent hides under a denied or pending
+  grant, shows neither another user's store nor a malformed one, and a Recent document row
+  lands on Document details.
+- **Reviews:** `/code-review` found one real bug (Arabic digits), fixed. `/standards-review`
+  found no hard violation on either axis. Its smells were applied: one row builder for Jump and
+  Recent with a kind→icon map, a clearer name for the numeric narrowing, and no test helper
+  shadowing `document`. Left as they are: `RecentKind` duplicates the feature's `OpenedAs`,
+  because core cannot import a feature, and `recordRecent` reads the session itself, so the
+  feature needs no user id.
+- **Decisions** are in `.afk/HITL-394.md`: the heading key, row labels reused from Jump, route
+  number vs server number, and exact-number narrowing.

@@ -63,7 +63,7 @@ describe('disabledCommandCarriesItsReason', () => {
 
   it('it composes into This screen, stays aimable, and choosing it is a no-op', () => {
     const refused = commandRow({ id: 'reschedule', label: 'reschedule', reason: 'why' })
-    const rows = composePalette({ screen: [refused], goto: [], jump: [], query: '', textOf }).flatMap(
+    const rows = composePalette({ screen: [refused], recent: [], goto: [], jump: [], query: '', textOf }).flatMap(
       (g) => g.rows,
     )
     expect(rows).toEqual([refused])
@@ -100,6 +100,7 @@ describe('composePalette', () => {
   it('filters This screen and Go to by the typed words, and drops an emptied group', () => {
     const groups = composePalette({
       screen: [commandRow({ id: 'export', label: 'export view', run: () => {} })],
+      recent: [],
       goto: [gotoRow('deliveries'), gotoRow('simulation')],
       jump: [],
       query: 'simul',
@@ -109,15 +110,42 @@ describe('composePalette', () => {
     expect(groups[0].rows.map((r) => r.id)).toEqual(['goto:simulation'])
   })
 
+  // K8 (394): This screen → Recent → Go to → Jump, and a Recent row is narrowed by its number.
+  it('lists Recent between This screen and Go to, narrowed by the typed number', () => {
+    const recent = (no: string): PaletteRow => ({ ...gotoRow(no), id: `recent:delivery:${no}`, group: 'recent', value: no })
+    const jump = { ...gotoRow('x'), id: 'jump:delivery', group: 'jump' as const }
+    const all = composePalette({
+      screen: [commandRow({ id: 'export', label: 'export', run: () => {} })],
+      recent: [recent('8000000174'), recent('8000000175')],
+      goto: [gotoRow('deliveries')],
+      jump: [],
+      query: '',
+      textOf,
+    })
+    expect(all.map((g) => g.id)).toEqual(['screen', 'recent', 'goto'])
+    const typed = composePalette({
+      screen: [],
+      recent: [recent('8000000174'), recent('8000000175')],
+      goto: [],
+      jump: [jump],
+      query: '8000000175',
+      textOf,
+    })
+    expect(typed.map((g) => [g.id, g.rows.map((r) => r.id)])).toEqual([
+      ['recent', ['recent:delivery:8000000175']],
+      ['jump', ['jump:delivery']],
+    ])
+  })
+
   // The Jump rows ARE the typed number: filtering them by it would be circular.
   it('never filters the Jump rows by the query that produced them', () => {
     const jump = { ...gotoRow('x'), id: 'jump:delivery', group: 'jump' as const, label: 'Open delivery' }
-    const groups = composePalette({ screen: [], goto: [], jump: [jump], query: '8000', textOf })
+    const groups = composePalette({ screen: [], recent: [], goto: [], jump: [jump], query: '8000', textOf })
     expect(groups.map((g) => g.id)).toEqual(['jump'])
   })
 
   it('the first row is aimed from the start, and Enter runs it', () => {
-    const rows = composePalette({ screen: [], goto: [gotoRow('a'), gotoRow('b')], jump: [], query: '', textOf })
+    const rows = composePalette({ screen: [], recent: [], goto: [gotoRow('a'), gotoRow('b')], jump: [], query: '', textOf })
       .flatMap((g) => g.rows)
     const aim = paletteAim(NO_HIGHLIGHT, rows, paletteQuestion(rows, ''))
     expect(aim).toBe(0)

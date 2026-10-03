@@ -159,6 +159,9 @@ const positives = [
   // D-8's two command families carry a label on their fill.
   ['--primary-foreground', '--fam-fulfilment', BODY],
   ['--primary-foreground', '--fam-cancel-request', BODY],
+  // The Deliveries Status column's *Cancellation requested* word (ticket 396, 368 §3) is the
+  // indigo itself as ink, on the grid's `--card` rows.
+  ['--fam-cancel-request', '--card', BODY],
   // R4's whole point: each `-800` is legible on its own `-050`, in BOTH themes,
   // from ONE class string. This is what lets the sweep delete every `dark:`.
   ...['primary', 'success', 'attention', 'danger', 'prescription', 'post'].map((f) => [

@@ -8,8 +8,10 @@ import type {
 import type { TFunction } from 'i18next'
 import { OMS_GRID_BASE_COL_DEF } from '@/core/theme/grid-base'
 import type { DeliveryDocumentModel } from '@/core/models/delivery-document'
+import { rowTimelineNow } from '@/core/oms/timeline'
 import { formatDateTime } from '@/core/util/date-format'
 import { formatMoney } from '@/core/util/number-format'
+import { StatusCell } from './StatusCell'
 
 type DeliveryColDef = ColDef<DeliveryDocumentModel>
 type DeliveryField = keyof DeliveryDocumentModel
@@ -140,6 +142,15 @@ export function buildDeliveryColumns(t: TFunction): DeliveryColDef[] {
   return [
     // The row's own key reads heaviest: mono at 600 (362 §6).
     { ...textCol('deliveryNo', 'deliveryNo', 130), cellClass: 'font-mono font-semibold', sort: 'desc' },
+    {
+      // The derived Status (spec 380 L10): where the delivery stands on its timeline, as a dot
+      // and a word. The value is the word, so filter, sort and export agree with the cell.
+      headerName: t('deliveries:columns.status'),
+      colId: 'status',
+      width: 170,
+      valueGetter: (p: GetterParams) => (p.data ? t(`deliveries:status.${rowTimelineNow(p.data)}`) : ''),
+      cellRenderer: StatusCell,
+    },
     idCol('documentNo', 'documentNo', 130),
     idCol('orderNo', 'orderNo', 120),
     {

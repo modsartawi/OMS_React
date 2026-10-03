@@ -98,6 +98,7 @@
   },
   "columns": {
     "deliveryNo": "Delivery No",
+    "status": "Status",
     "documentNo": "Document No",
     "orderNo": "Order No",
     "failedJobs": "Failed Jobs",
@@ -138,6 +139,14 @@
     "courierDriverPhone": "Courier Driver Phone",
     "customerOtp": "Customer Otp",
     "lastAction": "Last Action"
+  },
+  "status": {
+    "created": "Created",
+    "ready": "Ready",
+    "out": "Out for delivery",
+    "delivered": "Delivered",
+    "requested": "Cancellation requested",
+    "cancelled": "Cancelled"
   },
   "access": {
     "checking": "Checking access…",

@@ -1,5 +1,5 @@
 ---
-status: open
+status: done
 spec: 380
 blocked-by: 393, 383
 ---
@@ -61,15 +61,15 @@ model (one timeline input type in `@/core`, with mappers from both models) · st
 
 ## Proof (→ `tdd` red-green cycles)
 
-- [ ] `timelineReachedSteps`: each reached rule, pick-in-store skipping Out, and Delivered completing
+- [x] `timelineReachedSteps`: each reached rule, pick-in-store skipping Out, and Delivered completing
   · pure
-- [ ] `cancellationReplacesNextStep`: `closeStatus` R gives indigo Cancellation requested in place of
+- [x] `cancellationReplacesNextStep`: `closeStatus` R gives indigo Cancellation requested in place of
   the next step with the later steps dropped. C, N and X give Cancelled. X after delivery reads
   Created → Ready → Out → Cancelled · pure
-- [ ] `rowVariantTimesAndDueTag`: only `entryTime`, `outForDeliveryTime` and `actualDeliveryTime`
+- [x] `rowVariantTimesAndDueTag`: only `entryTime`, `outForDeliveryTime` and `actualDeliveryTime`
   feed times. The rewind marker comes from `rescheduled`. The due tag reads `Due 72.50` vs `Paid`
   · pure
-- [ ] `tools/grid-theme-drive.mjs` or a new `tools/deliveries-list-drive.mjs`: the Status column
+- [x] `tools/grid-theme-drive.mjs` or a new `tools/deliveries-list-drive.mjs`: the Status column
   sits second, shows the six words with the right dot colours (indigo for requested), and reads
   correctly in light, dark and RTL · flow (Playwright)
 
@@ -89,3 +89,59 @@ column in all three modes.
 
 - [393](393-a-key-is-a-field-on-a-command.md): S2 ships first.
 - [383](383-every-grid-mirrors-under-rtl-and-isolates-its-values.md): the core base `defaultColDef`.
+
+## Comments
+
+**Built 2026-10-03 (AFK).** Judgement calls are in `.afk/HITL-396.md`.
+
+- **`@/core/oms/timeline.ts`** is the pure D1 derivation. `TimelineInput` is the one input,
+  with two mappers: `timelineInputFromRow` (`DeliveryDocumentModel`) and
+  `timelineInputFromHeader` (`SdDocumentHeaderModel`).
+  - `timeline()` returns the steps, each with a state (`done`/`current`/`next`/`later`/
+    `requested`/`cancelled`), a time and a marker. `timelineNow()` returns where the delivery
+    stands. `rowTimelineNow(row)` gives the Status word's key. `dueTag()` returns
+    `{ paid }` or `{ paid: false, amount: '72.50' }`, and the surface supplies the words.
+  - Codes are read trimmed and case-blind. Pick-in-store is the header's `P` or the list's
+    description `PickInStore` (the list sends descriptions).
+  - A close on a delivered delivery replaces Delivered.
+  - The rewind marker sits on **Created**, the step every rewind falls back to (DRSC and DCHC
+    clear the ready and delivery statuses, DRBK writes S/B). It shows **only with a time**
+    (369 §3), which holds while the row's `rescheduled` flag stays set after the delivery moves on.
+    The header mapper names the rewind from `lastAction`, but carries no times and so shows no
+    marker until S4 feeds the Log.
+  - The slot-window expectation is **not** in the output. The surface attaches `deliveryWindow()`
+    to the `next` step (397/402).
+- **Status column (L10):** `colId: 'status'`, second after Delivery no. Its value is the
+  translated word (`deliveries:status.*`), so the floating filter, sort, Ctrl+C and the xlsx
+  export all read the same word. `StatusCell` draws a dot and the word through the core
+  `BdiCell`, so the value is isolated by the core base.
+  - Dots: `--ink-3` (Created, Ready), `--primary`, `--success`, `--fam-cancel-request` (indigo,
+    368 §3, never amber) and `--danger`.
+  - Words: `--muted-foreground`, `--primary`, `--success-800`, `--fam-cancel-request` and
+    `--danger-800`.
+  - New contrast pair: `--fam-cancel-request` on `--card` at BODY (150 pairs, clean).
+- **Proof.**
+  - The three cases are `describe` blocks in `src/core/oms/timeline.test.ts`, 30 tests in all.
+    They ran red first (module missing), and the marker rule ran red again after the review.
+  - The new **`tools/deliveries-list-drive.mjs`** (S3's list drive, for 397–401 to extend) runs
+    **44/44** in light/dark × LTR/RTL, with eight stub rows (Arabic customer names under RTL).
+    It checks:
+    - Status is second in reading order.
+    - Each row shows its word, its dot token and its ink, at ≥ 4.5:1.
+    - The value sits in a `<bdi>` with no isolate characters.
+    - The dot is at the reading start, and two-word states read in order under RTL.
+    - The floating filter narrows on the word.
+  - The other runs:
+    - `grid-theme-drive.mjs`: 125/125.
+    - `foundation-drive.mjs`: the grids part all passed, the screens part 492/492. Its only
+      failures are the 8 recorded at 393 (stale topbar check; the bell's wall-clock drift).
+    - `npm test`: 3339 passed.
+    - `npm run lint`: four gates clean.
+    - `npm run typecheck` and `npm run build`: green.
+- **Left for later slices:**
+  - A saved view from before this slice restores with `applyOrder`, so Status lands where AG Grid
+    puts an unnamed column, not second. 400 owns the view store and its import.
+  - The Status column sorts alphabetically by word, not in lifecycle order. No order was asked
+    for.
+  - The six step words live in `deliveries` only. When Details (402) draws steps, decide whether
+    they move to a shared home or `document` gets its own.

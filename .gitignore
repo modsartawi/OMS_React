@@ -57,3 +57,6 @@ tools/.ua-scale-shots/
 #     findings reach the repo through the ticket's Answer, not through the file.
 .afk/*
 !.afk/HITL-*.md
+
+# Deliveries list drive screenshots (tools/deliveries-list-drive.mjs, spec 380 S3)
+tools/.deliveries-list-shots/

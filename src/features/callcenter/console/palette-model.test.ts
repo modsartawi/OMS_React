@@ -147,7 +147,21 @@ describe('theOffersAreTheStripsOwn', () => {
   it('has exactly one offer row per actionable card the top bar counts', () => {
     const guidance = guidanceView(NEAR_MISS_CLASSES)
     const rows = build({ guidance }).filter((row) => row.kind === 'offer')
-    expect(rows).toHaveLength(guidance.actionableCount)
+    expect(rows).toHaveLength(guidance.withinReachCount)
+    expect(rows.map((row) => row.detail)).toEqual(guidance.actionable.map((card) => card.description))
+  })
+
+  it('counts a get-side shortfall but does not hand it to the item search (spec 412)', () => {
+    // 🚩 An offer row narrows the item search to the offer's PREREQUISITE, and a
+    // shortfall's prerequisite is already met — for a coupon-gated one it is the
+    // campaign voucher (159's hazard). What it waits for is a REWARD product,
+    // whose route is ticket 415's `ResolveReward`, not this search.
+    const guidance = guidanceView([
+      ...NEAR_MISS_CLASSES,
+      { ...NEAR_MISS_CLASSES[1], offerId: 'BBY-803', isReady: false, getShortfall: true },
+    ])
+    expect(guidance.withinReachCount).toBe(2)
+    const rows = build({ guidance }).filter((row) => row.kind === 'offer')
     expect(rows.map((row) => row.detail)).toEqual(guidance.actionable.map((card) => card.description))
   })
 

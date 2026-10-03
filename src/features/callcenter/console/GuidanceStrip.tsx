@@ -15,9 +15,10 @@
  *      2-up grid squeezes its rows beside ~500px of nothing);
  *   2. the **body is clamped (18rem)** and the head — heading, count, and the
  *      outcome banner 172 hangs here — is **pinned outside** it (finding 2);
- *   3. the default-open card is the **top-ranked actionable offer by
- *      construction** (finding 4), which is `guidanceView`'s `openByDefault` and
- *      never a hardcoded id.
+ *   3. the default-open card is the **top-ranked offer within reach by
+ *      construction** (finding 4) — the top get-side shortfall where there is
+ *      one (spec 412 W8), else the top actionable offer — which is
+ *      `guidanceView`'s `openByDefault` and never a hardcoded id.
  *
  * 🚩 A clamped region turns new content into scroll rather than height, so the
  * drive asserts what is **visible** and not how tall this is — 138's own finding,
@@ -90,7 +91,8 @@ export default function GuidanceStrip({
   // React de-duplicated them and opening one opened both.
   const [chosen, setChosen] = useState<string | null | undefined>(undefined)
   const open =
-    chosen !== undefined && (chosen === null || view.actionable.some((card) => card.cardId === chosen))
+    chosen !== undefined &&
+    (chosen === null || view.withinReach.some((card) => card.cardId === chosen))
       ? chosen
       : view.openByDefault
   const [showUnavailable, setShowUnavailable] = useState(false)
@@ -103,8 +105,8 @@ export default function GuidanceStrip({
       <div className="px-4 py-1.5" data-cc-guidance-head>
         <div className="flex items-baseline justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
           <span>{t('guidance.heading')}</span>
-          {view.actionableCount > 0 && (
-            <span data-cc-guidance-strip-count>{t('guidance.topCount', { count: view.actionableCount })}</span>
+          {view.withinReachCount > 0 && (
+            <span data-cc-guidance-strip-count>{t('guidance.topCount', { count: view.withinReachCount })}</span>
           )}
         </div>
         {/* 787-C has not landed: buy-one-get-one near-misses are ABSENT, not
@@ -129,18 +131,30 @@ export default function GuidanceStrip({
       ) : (
         // The clamp. It is the scroller, so everything above stays put.
         <div className="max-h-[18rem] overflow-auto px-4 pb-2" data-cc-guidance-scroll>
-          {view.actionable.length > 0 && (
+          {view.withinReachCount > 0 && (
             <div className="grid grid-cols-2 gap-2">
-              {view.actionable.map((card) => (
-                <Card
-                  key={card.cardId}
-                  card={card}
-                  open={open === card.cardId}
-                  onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
-                  transactionId={transactionId}
-                  actions={actions}
-                />
-              ))}
+              {/* 🚩 Spec 412 W8 — `withinReach` is already in rank order: a
+                  get-side shortfall ABOVE every actionable card (it qualified,
+                  and is the closest to paying out), server order within each. */}
+              {view.withinReach.map((card) =>
+                card.klass === 'shortfall' ? (
+                  <ShortfallCard
+                    key={card.cardId}
+                    card={card}
+                    open={open === card.cardId}
+                    onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
+                  />
+                ) : (
+                  <Card
+                    key={card.cardId}
+                    card={card}
+                    open={open === card.cardId}
+                    onToggle={() => setChosen(open === card.cardId ? null : card.cardId)}
+                    transactionId={transactionId}
+                    actions={actions}
+                  />
+                ),
+              )}
             </div>
           )}
 
@@ -242,7 +256,61 @@ export default function GuidanceStrip({
   )
 }
 
-/** The only class with an action, and the only one drawn as a card. */
+/**
+ * A **get-side shortfall** (spec 412) — the offer QUALIFIED and its reward has
+ * nothing to land on. Drawn as a card, because it is fixable by adding a reward
+ * product, and ranked above the actionable ones.
+ *
+ * 🚩 What it may say is narrow, and the narrowness is the ticket: it never says
+ * *ready*, *already counted* or *needs a coupon* — those were the two false
+ * sentences this state used to be drawn as (staging bonus buy 803, coupon
+ * `SS222` redeemed and the strip still asking for a coupon). No meter and no
+ * *add N more*: the buy side is complete, and a delta would read as more of the
+ * prerequisite. The reward arms and their one-click add are 414's and 415's;
+ * until then this IS the W11 degraded card, which claims nothing the wire did
+ * not say.
+ */
+function ShortfallCard({ card, open, onToggle }: { card: GuidanceCard; open: boolean; onToggle: () => void }) {
+  const { t } = useTranslation('callcenter')
+  return (
+    <div
+      data-cc-card={card.offerId}
+      data-cc-card-class={card.klass}
+      data-cc-card-open={open ? 'open' : 'closed'}
+      className={`rounded-md border border-attention-border bg-card p-2.5 ${open ? 'col-span-2' : ''}`}
+    >
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-2 text-start">
+        <span className="min-w-0 flex-1">
+          <Definition card={card} size="headline" />
+          {/* Server text, as on every card — demoted where a definition resolved. */}
+          <span
+            className={`block ${open ? '' : 'truncate'} ${card.definition ? 'text-xs text-muted-foreground' : ''}`}
+            data-cc-card-desc
+            data-cc-server-text
+          >
+            <Ltr>{card.description}</Ltr>
+          </span>
+        </span>
+        {/* The WAITING tone, never success: a tick here would read as *applied*,
+            and nothing has been given yet (spec 412: never *ready*). */}
+        <span className="shrink-0 text-[11px] font-medium text-attention-800" data-cc-card-mark>
+          <span aria-hidden>◔ </span>
+          {t('guidance.shortfall.mark')}
+        </span>
+      </button>
+
+      {card.qualified && (
+        <p className="mt-1.5 text-xs text-foreground" data-cc-shortfall-statement>
+          {t(card.qualified.key, card.qualified.params)}
+        </p>
+      )}
+
+      {open && <BbyDetailsLink offerId={card.offerId} />}
+    </div>
+  )
+}
+
+/** The class whose action is an add of the prerequisite. */
 function Card({
   card,
   open,

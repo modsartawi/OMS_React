@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import i18n from '@/core/i18n'
 import type { NearMiss } from '@/core/models/callcenter'
-import { NEAR_MISSES, NEAR_MISS_CLASSES } from './__fixtures__/payloads'
+import { GET_SHORTFALL, NEAR_MISSES, NEAR_MISS_CLASSES, PRICE_CHECK } from './__fixtures__/payloads'
 import { guidanceView, type GuidanceCard, type GuidancePhrase } from './guidance-view'
+import { searchRowView } from './item-search'
+import { priceCheckPanel } from './price-check-view'
 
 /**
  * Ticket 171 — the guidance strip's two pure rulings.
@@ -37,7 +39,7 @@ describe('nearMissesSortIntoThreeClasses', () => {
 
   it('reads the fixture as one of each class', () => {
     expect(view.cards.map((c) => c.klass)).toEqual(['actionable', 'counted', 'unavailable'])
-    expect(view.actionableCount).toBe(1)
+    expect(view.withinReachCount).toBe(1)
   })
 
   it('preserves the order the server sent, ready-first and unsorted', () => {
@@ -150,7 +152,7 @@ describe('nearMissesSortIntoThreeClasses', () => {
     ])
     expect(sparse.cards[0].set).toBeNull()
     expect(sparse.cards[1].set).toBeNull()
-    expect(sparse.actionableCount).toBe(2)
+    expect(sparse.withinReachCount).toBe(2)
   })
 
   it('says the get side is not covered until a get-side prerequisite arrives', () => {
@@ -163,7 +165,7 @@ describe('nearMissesSortIntoThreeClasses', () => {
 
   it('answers an empty projection with an empty view, not a hole', () => {
     expect(guidanceView([]).cards).toEqual([])
-    expect(guidanceView(undefined).actionableCount).toBe(0)
+    expect(guidanceView(undefined).withinReachCount).toBe(0)
     expect(guidanceView(null).openByDefault).toBeNull()
   })
 })
@@ -372,7 +374,7 @@ describe('theStripHoldsAgainstTheWireAsItActuallyIs', () => {
     // The top bar's number means *offers the agent can reach by putting
     // something in the basket*. Neither of these is one, and inflating the
     // count is how an agent ends up hunting for an item that would not help.
-    expect(view.actionableCount).toBe(0)
+    expect(view.withinReachCount).toBe(0)
     expect(view.actionable).toHaveLength(0)
     // And they are not buried as unavailable either: they are real, and the
     // caller may be holding the coupon.
@@ -460,7 +462,7 @@ describe('a coupon-gated offer (159, contract v1.10 proposal)', () => {
   it('does not inflate the count the top bar mirrors', () => {
     // *One offer within reach* must mean one the agent can reach by putting
     // something in the basket.
-    expect(guidanceView([couponGated()]).actionableCount).toBe(0)
+    expect(guidanceView([couponGated()]).withinReachCount).toBe(0)
   })
 
   it('is never the card that opens by default', () => {
@@ -491,5 +493,149 @@ describe('a coupon-gated offer (159, contract v1.10 proposal)', () => {
     const view = guidanceView([{ ...couponGated(), skipReason: 'ORIGIN_FILTERED' }])
     expect(view.cards[0].klass).toBe('unavailable')
     expect(view.needsCoupon).toHaveLength(0)
+  })
+})
+
+/**
+ * Spec 412 / ticket 413 — the **get-side shortfall**: an offer that QUALIFIED and
+ * whose reward has nothing to land on.
+ *
+ * The corpus is `GET_SHORTFALL`, the provisional staging fragment (BO-1 unfiled):
+ * bonus buy 803, coupon `SS222` redeemed, two reward arms joined by OR, neither in
+ * the basket. Before this ticket the strip told the agent *this offer needs a
+ * coupon* about it — the coupon they had just applied.
+ */
+describe('aShortfallIsDrawnAsQualifiedWhateverItsReadyFlagSays', () => {
+  it('classes the staging fixture as a shortfall, never counted or needsCoupon', () => {
+    const view = guidanceView([GET_SHORTFALL])
+    expect(view.cards[0].klass).toBe('shortfall')
+    expect(view.shortfall).toHaveLength(1)
+    expect(view.counted).toHaveLength(0)
+    expect(view.needsCoupon).toHaveLength(0)
+    expect(view.actionable).toHaveLength(0)
+    expect(view.unavailable).toHaveLength(0)
+  })
+
+  it('carries the qualified statement, and nothing that says ready, counted or needs a coupon', () => {
+    const shortfall = guidanceView([GET_SHORTFALL]).cards[0]
+    const words = say(shortfall.qualified)
+    expect(words).toMatch(/qualified/i)
+    expect(words).toMatch(/waiting for a reward product/i)
+    expect(words).not.toMatch(/already counted|needs? a coupon|ready/i)
+    // No action of the prerequisite's: the buy side is complete, so a delta or a
+    // set statement would read as *more of the prerequisite*.
+    expect(shortfall.shortfall).toBe(0)
+    expect(shortfall.set).toBeNull()
+    expect(shortfall.eligible).toBeNull()
+    expect(shortfall.reason).toBeNull()
+  })
+
+  it('is a shortfall whatever isReady says — the flag is asked before the ready flag', () => {
+    // W3 makes `isReady` false on a shortfall, but the class must not hang on it:
+    // a server that sends both still describes an offer whose reward has no target.
+    expect(guidanceView([{ ...GET_SHORTFALL, isReady: true }]).cards[0].klass).toBe('shortfall')
+  })
+
+  it('degrades to the qualified statement alone when the arms are absent (W11)', () => {
+    const bare: NearMiss = { ...GET_SHORTFALL, rewards: undefined, rewardLink: undefined, couponsSpent: undefined }
+    const card = guidanceView([bare]).cards[0]
+    expect(card.klass).toBe('shortfall')
+    expect(say(card.qualified)).toMatch(/waiting for a reward product/i)
+  })
+
+  it('puts no money-shaped figure in the region', () => {
+    const card = guidanceView([GET_SHORTFALL]).cards[0]
+    const produced = [...Object.values(card.qualified?.params ?? {}).map(String), say(card.qualified) ?? '']
+    for (const figure of produced)
+      expect(/(?:SAR|SR)\s*\d|\d\s*(?:SAR|SR)\b|\d+\.\d{2}/.test(figure), figure).toBe(false)
+  })
+})
+
+describe('theOtherClassesKeepTheirWords', () => {
+  it('skipped beats shortfall — an offer never evaluated is not an offer', () => {
+    const view = guidanceView([{ ...GET_SHORTFALL, skipReason: 'ORIGIN_FILTERED' }])
+    expect(view.cards[0].klass).toBe('unavailable')
+    expect(view.cards[0].qualified).toBeNull()
+    expect(view.shortfall).toHaveLength(0)
+  })
+
+  it('an UNMET coupon is still needsCoupon', () => {
+    // The capture's own two coupon offers, `have 0 / need 1`.
+    expect(guidanceView(NEAR_MISSES).cards.map((c) => c.klass)).toEqual(['needsCoupon', 'needsCoupon'])
+  })
+
+  it('a MET coupon on a non-shortfall falls through to counted — and never grows an add', () => {
+    // W4: a coupon already on the order can never produce *needs a coupon*.
+    const metCoupon: NearMiss = { ...GET_SHORTFALL, getShortfall: undefined, rewards: undefined }
+    expect(guidanceView([{ ...metCoupon, isReady: true }]).cards[0].klass).toBe('counted')
+    // 🚩 Not ready and unflagged is a server contradicting itself. It must still
+    // not become actionable: that card's add is an add of the prerequisite, the
+    // campaign voucher (159), which qualifies the bonus buy while burning nothing.
+    const contradicted = guidanceView([{ ...metCoupon, isReady: false }])
+    expect(contradicted.cards[0].klass).toBe('counted')
+    expect(contradicted.actionable).toHaveLength(0)
+    expect(contradicted.withinReachCount).toBe(0)
+  })
+
+  it('an out-ranked offer is still counted', () => {
+    expect(guidanceView([NEAR_MISS_CLASSES[1]]).cards[0].klass).toBe('counted')
+  })
+
+  it('a v1.11 projection (no new fields) classifies exactly as before', () => {
+    expect(guidanceView(NEAR_MISS_CLASSES).cards.map((c) => c.klass)).toEqual(['actionable', 'counted', 'unavailable'])
+    // An explicit `false` is the same answer as an absent flag.
+    for (const corpus of [NEAR_MISS_CLASSES, NEAR_MISSES]) {
+      expect(guidanceView(corpus.map((m) => ({ ...m, getShortfall: false })))).toEqual(guidanceView(corpus))
+      for (const c of guidanceView(corpus).cards) expect(c.qualified).toBeNull()
+    }
+  })
+
+  it('leaves the price check’s cards unchanged — its wire never carries the flag', () => {
+    const row = searchRowView({
+      materialNumber: '200021',
+      descriptionEn: 'X',
+      descriptionAr: 'X',
+      estimatePriceExVat: 1,
+      atp: 1,
+    })
+    const before = priceCheckPanel({ canPriceCheck: true, row, result: PRICE_CHECK })
+    // Even a server that DID put it on a price-check offer reaches no card:
+    // `offerCards` maps its fields one by one.
+    const flagged = { ...PRICE_CHECK, offers: PRICE_CHECK.offers.map((o) => ({ ...o, getShortfall: true })) }
+    expect(priceCheckPanel({ canPriceCheck: true, row, result: flagged })).toEqual(before)
+    if (before.kind !== 'quoted') throw new Error('not quoted')
+    for (const offer of before.offers) {
+      expect(offer.klass).not.toBe('shortfall')
+      expect(offer.qualified).toBeNull()
+    }
+  })
+})
+
+describe('shortfallCardsRankFirstAndCount', () => {
+  const [ACTIONABLE, COUNTED, SKIPPED] = NEAR_MISS_CLASSES
+  const SECOND: NearMiss = { ...GET_SHORTFALL, offerId: 'BBY-9002', description: 'Shampoo + conditioner at 50%' }
+  const view = guidanceView([ACTIONABLE, COUNTED, GET_SHORTFALL, SKIPPED, SECOND])
+
+  it('lists shortfall cards in the server order among themselves', () => {
+    expect(view.shortfall.map((c) => c.offerId)).toEqual(['000100000803', 'BBY-9002'])
+    // `cards` is still the engine's own order — the rank is the strip's to draw.
+    expect(view.cards.map((c) => c.offerId)).toEqual([
+      'BBY-5510',
+      'BBY-5602',
+      '000100000803',
+      'BBY-6120',
+      'BBY-9002',
+    ])
+  })
+
+  it('counts them in the top-bar count, beside the actionable ones', () => {
+    expect(view.withinReachCount).toBe(3)
+    expect(view.actionable.map((c) => c.offerId)).toEqual(['BBY-5510'])
+  })
+
+  it('opens the top shortfall card by default, even with an actionable card above it', () => {
+    expect(view.openByDefault).toBe('000100000803')
+    // …and falls back to the actionable rule where there is none.
+    expect(guidanceView([ACTIONABLE, COUNTED]).openByDefault).toBe('BBY-5510')
   })
 })

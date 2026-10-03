@@ -49,6 +49,13 @@
 //   9. the empty state leaves no hole, and the get-side acknowledgement
 //      disappears ON ITS OWN when a get-side prerequisite arrives, with no
 //      other change.
+//
+// And ticket 413's (spec 412, the get-side shortfall), over the provisional
+// staging fragment `getShortfall` in the same unreachable file (BO-1 unfiled):
+//  15. a shortfall the server lists AFTER an actionable offer is drawn FIRST,
+//      opened by default, and counted in the top bar;
+//  16. it says it QUALIFIED and is waiting for a reward product, and nowhere in
+//      the region does it say *needs a coupon* or *already counted*.
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 const require = createRequire('C:/Playground/frontend/package.json')
@@ -88,6 +95,11 @@ const [ACTIONABLE, COUNTED, SKIPPED] = UNREACHABLE.nearMissClasses.nearMisses
 // What the capture really holds, driven as its own scenario below — the state the
 // console will actually meet the day it is pointed at the live server.
 const CAPTURED_NEAR_MISSES = raw('03-near-miss-buy-side').stateFragment.nearMisses
+
+// 🚩 Ticket 413 — staging's bonus buy 803: coupon `SS222` redeemed, two reward
+// arms joined by OR, neither in the basket. PROVISIONAL (BO-1 unfiled), held in
+// the same file the tests read so the two cannot drift.
+const SHORTFALL = UNREACHABLE.getShortfall.nearMiss
 
 /** A near-miss shaped like the fixture's, varied only where a scenario is about
  *  the variation. Ids are made distinct so "which card" is provable. */
@@ -149,6 +161,9 @@ const SCENARIOS = {
   // with a blank `offerId` (859). Every scenario above is the provisional; this
   // is the one the console will meet on the day it is pointed at the server.
   captured: CAPTURED_NEAR_MISSES,
+  // The server lists the shortfall AFTER the actionable offer — so "on top" is
+  // the strip's rank, not the wire's order.
+  shortfall: [ACTIONABLE, COUNTED, SHORTFALL, SKIPPED],
 }
 
 const results = []
@@ -543,6 +558,53 @@ async function run() {
       unknown.length > 0 && !unknown.includes('ACCUMULATION') && !/[A-Z]{3,}_/.test(unknown),
       unknown,
     )
+    check('no console errors', errors.length === 0, errors[0] ?? '')
+    await context.close()
+  }
+
+  // ---- 15, 16. ticket 413: the get-side shortfall, on top and truthful ----
+  {
+    const { context, page, errors, requests } = await open(browser, SCENARIOS.shortfall)
+    const card = `[data-cc-card="${SHORTFALL.offerId}"]`
+    check(
+      'the shortfall is drawn as its own card class',
+      (await page.locator(`${card}[data-cc-card-class="shortfall"]`).count()) === 1,
+    )
+    const first = await page.locator('[data-cc-card]').first().getAttribute('data-cc-card')
+    check('🚩 it is drawn ABOVE the actionable card the server listed first', first === SHORTFALL.offerId, first ?? '')
+    check(
+      'it is the card open by default',
+      (await page.locator(card).getAttribute('data-cc-card-open')) === 'open' &&
+        (await page.locator(`[data-cc-card="${ACTIONABLE.offerId}"]`).getAttribute('data-cc-card-open')) === 'closed',
+    )
+    const said = await text(page, `${card} [data-cc-shortfall-statement]`)
+    check(
+      'it says the offer QUALIFIED and waits for a reward product',
+      /qualified/i.test(said) && /waiting for a reward product/i.test(said),
+      said,
+    )
+    const region = await text(page, '[data-cc-guidance]')
+    check('🚩 nothing in the region says it needs a coupon', !/needs? a coupon/i.test(region))
+    check(
+      'and it is not filed as already counted',
+      (await page.locator(`[data-cc-counted-item="${SHORTFALL.offerId}"]`).count()) === 0 &&
+        (await page.locator('[data-cc-guidance-needs-coupon]').count()) === 0,
+    )
+    check(
+      'no meter and no "add N more" — its buy side is complete',
+      (await page.locator(`${card} [data-cc-meter]`).count()) === 0 &&
+        (await page.locator(`${card} [data-cc-delta]`).count()) === 0,
+    )
+    check(
+      'the top bar counts it with the actionable offer',
+      (await page.locator('[data-cc-guidance-count]').getAttribute('data-cc-guidance-count')) === '2',
+      await page.locator('[data-cc-guidance-count]').getAttribute('data-cc-guidance-count'),
+    )
+    check(
+      'opening it resolves no prerequisite — it has none left to resolve',
+      !requests.some((u) => u.includes('ResolvePrereq') && u.includes(`offerId=${SHORTFALL.offerId}`)),
+    )
+    check('no figure formatted as money', moneyShaped(await consoleText(page)).length === 0)
     check('no console errors', errors.length === 0, errors[0] ?? '')
     await context.close()
   }

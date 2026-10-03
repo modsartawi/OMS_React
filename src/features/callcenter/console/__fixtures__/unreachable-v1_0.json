@@ -45,6 +45,39 @@
     ]
   },
 
+  "getShortfall": {
+    "_blockedBy": "BO-1 (unfiled, spec 412) — no server emits the v1.12 near-miss fields yet. PROVISIONAL, taken from the staging evidence (session 06GFECB9F1MGCPEWTB1SGBNWC2): coupon SS222 redeemed, its campaign material COUP01 meets the buy side of bonus buy 000100000803, whose Material-targeted get side is two arms joined by OR — 20% off 500061, or 10.00 off 500062 — while the basket holds only 208730. The description is illustrative. Re-captured when BO-1 ships, the path fixtures 01–08 took.",
+    "nearMiss": {
+      "offerId": "000100000803",
+      "description": "SS222 coupon — reward on 500061 or 500062",
+      "isReady": false,
+      "progress": { "have": 1, "need": 1 },
+      "prereq": { "kind": "coupon", "materialNumber": "COUP01", "groupingId": null, "eligibleCount": 1 },
+      "skipReason": null,
+      "getShortfall": true,
+      "rewardLink": "any",
+      "rewards": [
+        {
+          "armId": "1",
+          "kind": "material",
+          "materialNumber": "500061",
+          "have": 0,
+          "need": 1,
+          "discount": { "discountType": "%", "value": 20 }
+        },
+        {
+          "armId": "2",
+          "kind": "material",
+          "materialNumber": "500062",
+          "have": 0,
+          "need": 1,
+          "discount": { "discountType": "R", "value": 10 }
+        }
+      ],
+      "couponsSpent": ["SS222"]
+    }
+  },
+
   "prereqResolution": {
     "_blockedBy": "859 — the captured ResolvePrereq leg is a 404: §3.3 addresses an offer by offerId and every captured offerId is blank, so the click-through cannot reach its own near-miss.",
     "data": {

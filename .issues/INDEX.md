@@ -792,3 +792,10 @@ one **ready spec**.
 - [409](409-the-caller-bar-replaces-the-customer-rail.md) — The caller bar replaces the customer rail, and the centre column grows to 904px · *(ticket · spec 380)* · **open** · blocked by: 408
 - [410](410-a-failed-job-can-be-retried-by-a-grant-holder.md) — A failed job can be retried, one at a time, by a holder of the retry grant · *(ticket · spec 380)* · **open** · blocked by: 404 (+ BackOffice BO-1, unfiled) · NOT AFK
 - [411](411-the-palette-finds-a-delivery-by-number-or-mobile.md) — The palette finds a delivery by its number, order, document or the customer's mobile · *(ticket · spec 380)* · **open** · blocked by: 395 (+ BackOffice BO-2, unfiled) · NOT AFK
+
+## Get-side shortfall guidance in the call center — spec 412
+
+- [412](412-a-qualified-promotion-names-the-reward-it-is-waiting-for-spec.md) — A qualified promotion names the reward it is waiting for (shortfall card + one-click reward add; contract v1.12 proposed) · *(spec)* · **ready** · blocked by: — (live verification needs BackOffice BO-1, BO-2, unfiled)
+- [413](413-a-get-side-shortfall-reads-as-qualified-and-waiting-above-every-other-card.md) — A get-side shortfall reads as qualified-and-waiting, above every other guidance card · *(ticket · spec 412)* · **done 2026-10-03** · blocked by: — (live: BackOffice BO-1, unfiled) · shortfall class + card on top, counted, open by default; drive 117/118 (1 pre-existing); ⚠ owner rulings: a met coupon is never actionable (W4 deviation, voucher-add hazard), palette omits shortfall rows
+- [414](414-the-shortfall-card-names-each-reward-arm-the-link-and-the-spent-coupon.md) — The shortfall card names each reward arm with its own discount, the get-side link, and the spent coupon · *(ticket · spec 412)* · **open** · blocked by: 413
+- [415](415-one-click-on-a-reward-product-adds-it-and-the-card-gives-way-to-the-fired-promotion.md) — One click on a reward product adds it, and the card gives way to the fired promotion · *(ticket · spec 412)* · **open** · blocked by: 414 (live: BackOffice BO-1, BO-2, unfiled)

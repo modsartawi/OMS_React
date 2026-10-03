@@ -234,8 +234,11 @@ export function paletteRows({
 }: PaletteInput): PaletteRow[] {
   const rows: PaletteRow[] = []
 
-  // 1. The offers within reach — the same cards the strip draws and the same
-  //    count the top bar mirrors.
+  // 1. The actionable offers — the same cards the strip draws. 🚩 A get-side
+  //    shortfall (spec 412) is counted in the top bar but gets no row here: this
+  //    row narrows the search to the offer's PREREQUISITE, which a shortfall has
+  //    already met (for a coupon-gated one, the campaign voucher). It waits for a
+  //    reward product, and that route is `ResolveReward` (415), not this search.
   for (const card of guidance.actionable) {
     const run = actions.onOffer ? () => actions.onOffer?.(card.offerId, card.description) : null
     rows.push({

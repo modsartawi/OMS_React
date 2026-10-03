@@ -43,8 +43,14 @@ import {
  *   is nothing to do, which is a fact the agent needs and not a failure.
  * - `unavailable` — an origin or accumulation refusal **no basket change can
  *   fix** (128 makes this class permanent and common once Origin becomes C000).
+ * - `needsCoupon` (159) — the prerequisite is a coupon still to be redeemed.
+ * - `shortfall` (spec 412) — a **get-side shortfall**: the offer QUALIFIED and
+ *   its reward has nothing to land on. It is the offer closest to paying out, so
+ *   it ranks above every other card — and it is neither *counted* (nothing
+ *   out-ranked it) nor *needs a coupon* (a coupon-gated one has already spent
+ *   its coupon). Those were the two false sentences it used to be drawn as.
  */
-export type GuidanceClass = 'actionable' | 'counted' | 'unavailable' | 'needsCoupon'
+export type GuidanceClass = 'actionable' | 'counted' | 'unavailable' | 'needsCoupon' | 'shortfall'
 
 /** An i18n key plus what `t()` needs to resolve it. Nothing user-visible. */
 export interface GuidancePhrase {
@@ -105,6 +111,10 @@ export interface GuidanceCard {
    *  every class but `unavailable`. 🚩 The wire code never reaches the screen —
    *  an unknown category still reads as words. */
   reason: GuidancePhrase | null
+  /** The *qualified, waiting for a reward product* statement (spec 412 W6/W11).
+   *  `null` on every class but `shortfall`. 🚩 Never *ready*, *counted* or *needs
+   *  a coupon* — the card exists because those words were false here. */
+  qualified: GuidancePhrase | null
 }
 
 export interface GuidanceView {
@@ -118,9 +128,19 @@ export interface GuidanceView {
   /** v1.10 (159) — offers whose prerequisite is a coupon. Stated, never offered
    *  as an add; the coupon chip is where they are answered. */
   needsCoupon: GuidanceCard[]
-  /** Mirrored in the top bar (US51), so an offer that arrives while the agent is
-   *  reading search results still announces itself. */
-  actionableCount: number
+  /** v1.12 (spec 412) — offers that qualified and wait for a reward product, in
+   *  the server's order among themselves. The strip draws them ABOVE `actionable`
+   *  (W8): of everything here, they are the closest to paying out. */
+  shortfall: GuidanceCard[]
+  /** *Offers within reach*, **in rank order**: every `shortfall` card, then every
+   *  `actionable` one (W8). The one statement of that rule — the strip draws it,
+   *  and the count and the default-open card are read off it. */
+  withinReach: GuidanceCard[]
+  /** `withinReach.length`. Mirrored in the top bar (US51), so an offer that
+   *  arrives while the agent is reading search results still announces itself,
+   *  and the strip and the top bar read this one figure so they cannot disagree
+   *  (US24). */
+  withinReachCount: number
   /**
    * Whether "buy X get Y" offers are being checked at all. Until BackOffice
    * 787-C lands they are **absent, not empty** — BBY lookup keys on the
@@ -133,10 +153,11 @@ export interface GuidanceView {
    * server starts sending them, with no other change (138 scenario 9).
    */
   getSideCovered: boolean
-  /** 🚩 The card that opens **by construction** — the top-ranked actionable
-   *  offer, never a hardcoded id (138 finding 4: drawn with one, the big-set
-   *  scenario rendered collapsed, and a card whose items are one click away is a
-   *  card nobody reads mid-call). `null` when there is nothing to act on. */
+  /** 🚩 The card that opens **by construction** — the top shortfall card where
+   *  there is one (W8), else the top-ranked actionable offer; never a hardcoded
+   *  id (138 finding 4: drawn with one, the big-set scenario rendered collapsed,
+   *  and a card whose items are one click away is a card nobody reads mid-call).
+   *  `null` when there is nothing to act on. */
   openByDefault: string | null
 }
 
@@ -154,6 +175,8 @@ const SKIP_CATEGORIES = [
 export function guidanceView(nearMisses: NearMiss[] | null | undefined): GuidanceView {
   const cards = (nearMisses ?? []).map(toCard)
   const actionable = cards.filter((card) => card.klass === 'actionable')
+  const shortfall = cards.filter((card) => card.klass === 'shortfall')
+  const withinReach = [...shortfall, ...actionable]
   return {
     cards,
     actionable,
@@ -163,9 +186,11 @@ export function guidanceView(nearMisses: NearMiss[] | null | undefined): Guidanc
     // expandable cards and the top bar's count — an offer nothing in the basket
     // can reach must not be counted as one within reach.
     needsCoupon: cards.filter((card) => card.klass === 'needsCoupon'),
-    actionableCount: actionable.length,
+    shortfall,
+    withinReach,
+    withinReachCount: withinReach.length,
     getSideCovered: (nearMisses ?? []).some((miss) => miss.prereq?.kind === 'condition'),
-    openByDefault: actionable[0]?.cardId ?? null,
+    openByDefault: withinReach[0]?.cardId ?? null,
   }
 }
 
@@ -185,10 +210,15 @@ function toCard(miss: NearMiss, index: number): GuidanceCard {
     set: klass === 'actionable' ? setStatement(miss, shortfall) : null,
     eligible: klass === 'actionable' ? numberOrNull(miss.prereq?.eligibleCount) : null,
     reason: klass === 'unavailable' ? reasonOf(miss.skipReason) : null,
+    // 🚩 W11's degraded statement is this slice's whole card: no arm rows and no
+    // add, which is already true — it claims nothing the wire did not say.
+    qualified: klass === 'shortfall' ? { key: 'callcenter:guidance.shortfall.waiting', params: {} } : null,
   }
 }
 
 /**
+ * Spec 412 W4's precedence — skip → shortfall → unmet coupon → ready → actionable.
+ *
  * 🚩 The skip reason is asked FIRST. An offer the engine never evaluated is out
  * of reach whatever its progress says, and `isReady` on an offer that was
  * origin-filtered would otherwise draw a card promising nothing to do about an
@@ -196,6 +226,13 @@ function toCard(miss: NearMiss, index: number): GuidanceCard {
  */
 function classOf(miss: NearMiss): GuidanceClass {
   if (typeof miss.skipReason === 'string' && miss.skipReason !== '') return 'unavailable'
+  // 🚩 Spec 412. Asked BEFORE the coupon and the ready flag, because both of
+  // those used to answer for it, falsely: staging's bonus buy 803 had its coupon
+  // redeemed and was drawn *needs a coupon*; a non-coupon one is drawn *already
+  // counted — a better offer applied* when nothing out-ranked it. Read strictly
+  // (`=== true`): a v1.11 server sends no flag, and the console never infers a
+  // shortfall the server did not report (US27).
+  if (miss.getShortfall === true) return 'shortfall'
   // 🚩 159. A coupon-gated offer is reachable — but not by anything the agent
   // can put in the basket, so it must never become an *add N more* card. It is
   // neither `actionable` (no basket change reaches it) nor `unavailable` (it is
@@ -203,8 +240,27 @@ function classOf(miss: NearMiss): GuidanceClass {
   // coupon chip. Drawn as a material prerequisite it would offer a one-click add
   // of the campaign SKU, which qualifies the same bonus buy while burning
   // nothing — see `NearMissPrereq.kind`.
-  if (miss.prereq?.kind === 'coupon') return 'needsCoupon'
+  //
+  // W4: only a coupon still UNMET. The driving prerequisite is the first unmet
+  // one whenever any is unmet, so a coupon prerequisite on a complete offer is a
+  // coupon already on the order — and "needs a coupon" about it is the lie.
+  if (miss.prereq?.kind === 'coupon' && !progressComplete(miss)) return 'needsCoupon'
+  // 🚩 …and a MET coupon is never actionable, whatever `isReady` says. The
+  // actionable card's add is an add of the PREREQUISITE, which here is the
+  // campaign voucher — 159's hazard, qualifying the bonus buy while burning
+  // nothing. Met + unflagged + not ready is a server contradicting itself (W3
+  // without BO-1's flag), so it takes the no-add class the ready flag would.
+  if (miss.prereq?.kind === 'coupon') return 'counted'
   return miss.isReady === true ? 'counted' : 'actionable'
+}
+
+/** Whether the wire's own figures say every prerequisite is met. Read off the
+ *  RAW progress, not the meter's clamped one; a requirement of nought states
+ *  nothing, so it is not taken as met — that keeps the pre-412 answer. */
+function progressComplete(miss: NearMiss): boolean {
+  const need = numberOrNull(miss.progress?.need)
+  const have = numberOrNull(miss.progress?.have)
+  return need !== null && need > 0 && have !== null && have >= need
 }
 
 /** The meter's figures, kept honest: a requirement of nought is not a

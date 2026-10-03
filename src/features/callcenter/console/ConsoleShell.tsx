@@ -275,7 +275,7 @@ export default function ConsoleShell({
     >
       <TopBar
         state={state}
-        actionableOffers={guidance.actionableCount}
+        actionableOffers={guidance.withinReachCount}
         onAbandon={onAbandon}
         onRefresh={onRefresh}
         refreshing={refreshing}

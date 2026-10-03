@@ -454,7 +454,11 @@
       "unknown": "this offer isn't available on this order"
     },
     "needsCoupon": "This offer needs a coupon — apply one on the Coupon chip above.",
-    "needsCoupon_other": "These offers need a coupon — apply one on the Coupon chip above."
+    "needsCoupon_other": "These offers need a coupon — apply one on the Coupon chip above.",
+    "shortfall": {
+      "mark": "qualified",
+      "waiting": "Qualified — waiting for a reward product. Nothing is given until one is in the basket."
+    }
   },
   "receipt": {
     "heading": "The caller pays",

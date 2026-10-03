@@ -275,6 +275,18 @@ export const NEAR_MISS_CLASSES: NearMiss[] =
   unreachable.nearMissClasses.nearMisses as unknown as NearMiss[]
 
 /**
+ * **Blocked by BO-1 (unfiled, spec 412).** A get-side shortfall, from the staging
+ * evidence: bonus buy `000100000803`, coupon `SS222` redeemed (its voucher
+ * `COUP01` is the met buy side), two reward arms joined by OR — `500061` at 20%,
+ * `500062` at 10 off — and neither in the basket. `isReady: false` and no
+ * `skipReason`, as v1.12 W3 requires.
+ *
+ * 🚩 Provisional, the way 01–08 started: no server emits these fields yet. It
+ * becomes a capture when BO-1 ships.
+ */
+export const GET_SHORTFALL: NearMiss = unreachable.getShortfall.nearMiss as unknown as NearMiss
+
+/**
  * **Blocked by [859].** What `ResolvePrereq` would answer for `BBY-5510` — the
  * ranked, ATP-filtered top of a 42-strong grouping, `truncated` with the
  * server's own `topN` beside it.

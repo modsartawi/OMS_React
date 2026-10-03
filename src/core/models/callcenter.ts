@@ -445,6 +445,48 @@ export interface NearMiss {
   prereq: NearMissPrereq | null
   skipReason: SkipReason | null
   discount?: NearMissDiscount | null
+  /**
+   * v1.12 (spec 412 W2, proposed — BackOffice BO-1, unfiled) — the offer
+   * QUALIFIED but its get side found nothing to reward: none of its reward
+   * products is in the basket. Nothing is given, yet unlike a skip it is fixable
+   * by adding a reward product. Absent ⇒ not a shortfall, v1.11 behaviour.
+   *
+   * 🚩 `isReady` is `false` on a shortfall (W3) — *ready* means only *qualified
+   * but out-ranked*. A v1.11 server still says `true` and sends no flag, which
+   * is why the console never infers a shortfall the server did not report.
+   */
+  getShortfall?: boolean
+  /** v1.12 — the get side's link category: `O` ⇒ `any` (one arm unlocks the
+   *  reward), `A` ⇒ `each` (every arm needs a product). Absent ⇒ no link header. */
+  rewardLink?: 'any' | 'each'
+  /** v1.12 — one entry per get-side condition (reward arm). Present only when
+   *  `getShortfall` is true; absent on a shortfall ⇒ the degraded card (W11). */
+  rewards?: NearMissReward[]
+  /** v1.12 — the typed codes of this order's coupons whose voucher met the buy
+   *  side, resolved server-side off the session's coupon ledger: the client
+   *  cannot tell which bonus buy a coupon gates. */
+  couponsSpent?: string[]
+}
+
+/** v1.12 (spec 412 W2) — one reward arm of a get-side shortfall. */
+export interface NearMissReward {
+  /** The get-side condition's identity — what `ResolveReward` takes (415). */
+  armId: string
+  /** `(string & {})` because the kinds are the server's list: an unknown kind
+   *  names nothing it cannot say and offers no add (W11). */
+  kind: 'material' | 'grouping' | (string & {})
+  /** Kind `material`. */
+  materialNumber?: string
+  /** Kind `grouping`. */
+  groupingId?: string
+  /** The grouping's population — the same rule as a prerequisite's. */
+  eligibleCount?: number
+  /** Reward units of this arm already in the basket. */
+  have: number
+  /** Units the arm needs to form (≥ 1). */
+  need: number
+  /** This arm's own definition, through the existing 161 rule. */
+  discount?: NearMissDiscount | null
 }
 
 /**

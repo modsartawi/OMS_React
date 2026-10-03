@@ -230,6 +230,24 @@ buy↔get lines of one fired application by a shared `conditionKey`.
 _Avoid_: trigger/benefit (fine in prose, but the domain terms are buy/prerequisite and
 get/condition/reward).
 
+**Coupon-gated bonus buy**:
+A bonus buy whose buy side is a coupon's **campaign material** (a `COUP…` voucher SKU). The buy side is
+met only by *redeeming* a coupon code, which spends the code at the coupon service and places the
+voucher on the order. The voucher itself is never sold or added as an item. The get side is an ordinary
+reward, and it may target specific products the basket does not yet hold.
+_Avoid_: coupon discount (the coupon carries no money of its own; the bonus buy it unlocks does).
+
+**Get-side shortfall**:
+The state of a bonus buy whose buy side is fully met but whose get side finds nothing to reward,
+because none of its reward products are in the basket. Nothing is given, yet unlike an origin or
+validity refusal it is **fixable by adding a reward product**. Only Material- and Grouping-targeted
+get sides can fall short; an All-Prerequisites or Document reward lands on lines already present. With
+several reward arms, the get-side link category decides whether one arm (OR) or every arm (AND) needs
+a product. For a coupon-gated bonus buy this is the costly case: the code is already spent and buys
+nothing until a reward product is added.
+_Avoid_: "not applied" / "promotion failed" (it qualified; the reward simply has no target yet),
+"ready" (ready means qualified but out-ranked by a better offer, which is a different state).
+
 **Discount type** (of a bonus-buy reward):
 Which of four kinds the reward grants: **Free Goods** (`N`, buy-x-get-y-free), **Discount Percent**
 (`%`), **Fixed Discount** (`R`, amount off), **Set Price** (`P`, fixed/bundle price). The SAP
